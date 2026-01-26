@@ -16,9 +16,9 @@ import {
 
 import { Dimensions } from 'react-native';
 
+import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
 import {
   TMPopover,
-  useMedia,
   withStaticProperties,
 } from '@onekeyhq/components/src/shared/tamagui';
 import type {
@@ -60,6 +60,7 @@ const gtMdShFrameStyle = {
 } as const;
 export interface IPopoverProps extends TMPopoverProps {
   title: string | ReactElement;
+  description?: string;
   showHeader?: boolean;
   usingSheet?: boolean;
   renderTrigger: ReactNode;
@@ -78,6 +79,7 @@ export interface IPopoverProps extends TMPopoverProps {
 }
 
 interface IPopoverContext {
+  open?: boolean;
   closePopover?: () => Promise<void>;
 }
 
@@ -158,8 +160,9 @@ const useContentDisplay = platformEnv.isNative
     };
 
 export const usePopoverContext = () => {
-  const { closePopover } = useContext(PopoverContext);
+  const { closePopover, open } = useContext(PopoverContext);
   return {
+    open,
     closePopover,
   };
 };
@@ -196,26 +199,84 @@ const useDismissKeyboard = platformEnv.isNative
 const getPlacement = (
   placementProp: IPopoverProps['placement'],
   triggerRef: React.RefObject<View | null>,
-) => {
+): NonNullable<IPopoverProps['placement']> => {
   if (platformEnv.isNative) {
     return placementProp || 'bottom-end';
   }
-  if (placementProp) {
+
+  const element = triggerRef.current as unknown as HTMLElement;
+  if (!element) {
+    return placementProp || 'bottom-end';
+  }
+
+  const rect = element.getBoundingClientRect();
+  const windowWidth = Dimensions.get('window').width;
+  const windowHeight = Dimensions.get('window').height;
+
+  // Estimated popover dimensions (default width $96 = 384px)
+  const POPOVER_MIN_WIDTH = 384;
+  const POPOVER_MIN_HEIGHT = 200; // Estimated minimum height
+  const OFFSET = 8; // Popover offset
+
+  // Calculate available space in each direction
+  const spaces = {
+    top: rect.top - OFFSET,
+    bottom: windowHeight - rect.bottom - OFFSET,
+    left: rect.left - OFFSET,
+    right: windowWidth - rect.right - OFFSET,
+  };
+
+  // Check if a placement has enough space
+  const hasEnoughSpace = (placement: string): boolean => {
+    if (placement.startsWith('top')) {
+      return spaces.top >= POPOVER_MIN_HEIGHT;
+    }
+    if (placement.startsWith('bottom')) {
+      return spaces.bottom >= POPOVER_MIN_HEIGHT;
+    }
+    if (placement.startsWith('left')) {
+      return spaces.left >= POPOVER_MIN_WIDTH;
+    }
+    if (placement.startsWith('right')) {
+      return spaces.right >= POPOVER_MIN_WIDTH;
+    }
+    return false;
+  };
+
+  // If placementProp is specified and has enough space, use it
+  if (placementProp && hasEnoughSpace(placementProp)) {
     return placementProp;
   }
-  const element = triggerRef.current as unknown as HTMLElement;
-  if (element) {
-    const { top } = element.getBoundingClientRect();
-    if (top > Dimensions.get('window').height / 2) {
-      return 'top-end';
-    }
-    return 'bottom-end';
+
+  // Otherwise, choose the direction with most space
+  const verticalPreference = spaces.bottom >= spaces.top ? 'bottom' : 'top';
+  const horizontalAlignment = rect.left > windowWidth / 2 ? 'end' : 'start';
+
+  // Build placement string
+  const buildPlacement = (
+    vertical: 'top' | 'bottom',
+    horizontal: 'start' | 'end',
+  ): NonNullable<IPopoverProps['placement']> =>
+    `${vertical}-${horizontal}` as NonNullable<IPopoverProps['placement']>;
+
+  // Check if preferred direction has enough space
+  if (hasEnoughSpace(verticalPreference)) {
+    return buildPlacement(verticalPreference, horizontalAlignment);
   }
-  return 'bottom-end';
+
+  // Try opposite direction
+  const oppositeVertical = verticalPreference === 'bottom' ? 'top' : 'bottom';
+  if (hasEnoughSpace(oppositeVertical)) {
+    return buildPlacement(oppositeVertical, horizontalAlignment);
+  }
+
+  // If neither has enough space, return the direction with most space (may overflow, but best option)
+  return buildPlacement(verticalPreference, horizontalAlignment);
 };
 
 function RawPopover({
   title,
+  description,
   open: isOpen,
   renderTrigger,
   renderContent,
@@ -315,9 +376,10 @@ function RawPopover({
     typeof renderContent === 'function' ? renderContent : null;
   const popoverContextValue = useMemo(
     () => ({
+      open: isOpen,
       closePopover: handleClosePopover,
     }),
-    [handleClosePopover],
+    [handleClosePopover, isOpen],
   );
   const { gtMd } = useMedia();
 
@@ -458,24 +520,34 @@ function RawPopover({
                     mx="$5"
                     p="$5"
                     justifyContent="space-between"
-                    alignItems="center"
+                    alignItems="flex-start"
                     borderCurve="continuous"
                     gap="$2"
                   >
-                    {typeof title === 'string' ? (
-                      <SizableText
-                        size="$headingXl"
-                        color="$text"
-                        flexShrink={1}
-                        style={{
-                          wordBreak: 'break-all',
-                        }}
-                      >
-                        {title}
-                      </SizableText>
-                    ) : (
-                      title
-                    )}
+                    <YStack flexShrink={1}>
+                      {typeof title === 'string' ? (
+                        <SizableText
+                          size="$headingXl"
+                          color="$text"
+                          style={{
+                            wordBreak: 'break-all',
+                          }}
+                        >
+                          {title}
+                        </SizableText>
+                      ) : (
+                        title
+                      )}
+                      {description ? (
+                        <SizableText
+                          size="$bodyMd"
+                          color="$textSubdued"
+                          pt="$2"
+                        >
+                          {description}
+                        </SizableText>
+                      ) : null}
+                    </YStack>
                     <IconButton
                       icon="CrossedSmallOutline"
                       size="small"
@@ -593,6 +665,7 @@ function Tooltip({
   placement = 'bottom',
   iconSize = '$4',
   renderContent,
+  triggerProps,
 }: IPopoverTooltip & {
   iconSize?: IIconButtonProps['iconSize'];
 }) {
@@ -606,6 +679,7 @@ function Tooltip({
           iconSize={iconSize}
           icon="InfoCircleOutline"
           variant="tertiary"
+          {...triggerProps}
         />
       }
       renderContent={

@@ -18,7 +18,7 @@ import type {
 } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { BaseScene } from '../../../base/baseScene';
-import { LogToServer } from '../../../base/decorators';
+import { LogToLocal, LogToServer } from '../../../base/decorators';
 
 export interface IHyperLiquidAccountContext {
   accountAddress: string | null;
@@ -170,6 +170,66 @@ export class HyperLiquidScene extends BaseScene {
       { success: true } | IApiErrorResponse
     >,
   ) {
+    return params;
+  }
+
+  // ============ Referral Binding Flow Logs ============
+
+  /**
+   * Log referral promotion checkbox user interaction
+   */
+  @LogToServer()
+  @LogToLocal()
+  public referralCheckboxInteraction(params: {
+    userAddress: string;
+    isChecked: boolean;
+    action: 'shown' | 'checked' | 'unchecked';
+  }) {
+    return params;
+  }
+
+  /**
+   * Log referral binding flow step
+   */
+  @LogToLocal()
+  public referralBindingStep(params: {
+    step:
+      | 'start'
+      | 'build_typed_data'
+      | 'sign_message'
+      | 'submit_request'
+      | 'complete'
+      | 'error';
+    userAddress: string;
+    message?: string;
+    error?: string;
+  }) {
+    return params;
+  }
+
+  /**
+   * Log referral binding result to server
+   */
+  @LogToServer()
+  public referralBindingResult(params: {
+    userAddress: string;
+    success: boolean;
+    referralCode: string;
+    errorMessage?: string;
+  }) {
+    return params;
+  }
+
+  /**
+   * Log referral promotion condition check
+   */
+  @LogToLocal({ level: 'info' })
+  public referralConditionCheck(params: {
+    userAddress: string;
+    condition: string;
+    passed: boolean;
+    reason?: string;
+  }) {
     return params;
   }
 }

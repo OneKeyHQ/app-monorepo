@@ -13,6 +13,14 @@ export interface IApiEndpointConfig {
   enabled: boolean;
 }
 
+// Test account for dev login testing
+export interface ITestAccount {
+  id: string;
+  email: string;
+  otp: string;
+  name?: string;
+}
+
 export interface IDevSettings {
   // enable test endpoint
   enableTestEndpoint?: boolean;
@@ -34,6 +42,10 @@ export interface IDevSettings {
   disableWebEmbedApi?: boolean; // Do not render webembedApi Webview
   webviewDebuggingEnabled?: boolean;
   allowAddSameHDWallet?: boolean;
+  // allow delete keyless key (device key and auth key)
+  allowDeleteKeylessKey?: boolean;
+  // show Keyless-related debug dialogs/logs in UI (dev only)
+  enableKeylessDebugInfo?: boolean;
 
   showPrimeTest?: boolean;
   usePrimeSandboxPayment?: boolean;
@@ -55,6 +67,17 @@ export interface IDevSettings {
   showPerpsRenderStats?: boolean;
 
   usbCommunicationMode?: 'webusb' | 'bridge';
+
+  // IP Table control for different environments
+  // Production: disable IP Table (default false - IP Table enabled)
+  disableIpTableInProd?: boolean;
+  // Force IP Table strict mode: always use IP even if runtime.selections is empty
+  // Fallback to first available IP from config when no selection exists
+  forceIpTableStrict?: boolean;
+  // Enable mock market banner data for UI testing
+  enableMockMarketBanner?: boolean;
+  // Test accounts for OneKey ID login testing
+  testAccounts?: ITestAccount[];
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;
@@ -80,15 +103,19 @@ export const {
       webviewDebuggingEnabled: false,
       strictSignatureAlert: false,
       enableAnalyticsRequest: false,
+      enableKeylessDebugInfo: false,
       showPrimeTest: true,
       usePrimeSandboxPayment: platformEnv.isDev,
       showPerformanceMonitor: true,
       autoNavigation: {
         enabled: false,
-        selectedTab: ETabRoutes.Discovery,
+        selectedTab: ETabRoutes.Home,
       },
       useLocalTradingViewUrl: false,
-      usbCommunicationMode: 'webusb',
+      // Linux Desktop use Bridge，avoiding WebUSB permission problem
+      usbCommunicationMode: platformEnv.isDesktopLinux ? 'bridge' : 'webusb',
+      disableIpTableInProd: false, // IP Table enabled by default
+      forceIpTableStrict: false, // Strict mode: disabled by default
     },
   },
 });
@@ -102,10 +129,15 @@ export type IFirmwareUpdateDevSettings = {
   usePreReleaseConfig: boolean;
   forceUpdateResEvenSameVersion: boolean;
   forceUpdateFirmware: boolean;
+  forceUpdateOnceFirmware: boolean;
   forceUpdateBle: boolean;
+  forceUpdateOnceBle: boolean;
   forceUpdateBootloader: boolean;
+  forceUpdateOnceBootloader: boolean;
+  updateDevDeviceBootloaderOnAppAllowed: boolean;
   showDeviceDebugLogs: boolean;
   showAutoCheckHardwareUpdatesToast: boolean;
+  forceUpdateBtcOnlyUniversalFirmware: boolean;
 };
 export type IFirmwareUpdateDevSettingsKeys = keyof IFirmwareUpdateDevSettings;
 export const {
@@ -123,10 +155,15 @@ export const {
     usePreReleaseConfig: false,
     forceUpdateResEvenSameVersion: false,
     forceUpdateFirmware: false,
+    forceUpdateOnceFirmware: false,
     forceUpdateBle: false,
+    forceUpdateOnceBle: false,
     forceUpdateBootloader: false,
+    forceUpdateOnceBootloader: false,
+    updateDevDeviceBootloaderOnAppAllowed: false,
     showDeviceDebugLogs: false,
     showAutoCheckHardwareUpdatesToast: false,
+    forceUpdateBtcOnlyUniversalFirmware: false,
   },
 });
 

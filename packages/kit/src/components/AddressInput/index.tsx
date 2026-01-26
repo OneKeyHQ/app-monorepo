@@ -114,6 +114,7 @@ export type IAddressInputValue = {
     message?: string;
     translationId?: ETranslations;
   };
+  similarAddress?: string;
 };
 
 type IAddressInputProps = Omit<
@@ -158,12 +159,16 @@ type IAddressInputProps = Omit<
   }) => void;
 
   hideNonBackedUpWallet?: boolean;
+  ignoreSimilarAddressInAddressBook?: boolean;
+  enableCheckSimilarAddressInAddressBook?: boolean;
   onScanResult?: IScanPluginProps['onScanResult'];
 };
 
 export type IAddressQueryResult = {
   input?: string;
   validStatus?: IAddressValidateStatus;
+  walletName?: string;
+  accountName?: string;
   walletAccountName?: string;
   walletAccountId?: string; // accountId or indexedAccountId
   addressBookId?: string;
@@ -183,6 +188,7 @@ export type IAddressQueryResult = {
   addressDeriveType?: IAccountDeriveTypes;
   addressNote?: string;
   addressMemo?: string;
+  similarAddress?: string;
 };
 
 type IAddressInputBadgeGroupProps = {
@@ -334,6 +340,8 @@ export function AddressInput(props: IAddressInputProps) {
     onExtraDataChange,
     disabled: disabledFromProps,
     onScanResult,
+    ignoreSimilarAddressInAddressBook,
+    enableCheckSimilarAddressInAddressBook,
     ...rest
   } = props;
   const intl = useIntl();
@@ -363,14 +371,6 @@ export function AddressInput(props: IAddressInputProps) {
     setQueryResult((prev) => ({ ...prev, resolveAddress: text }));
   }, []);
 
-  const handleInputTypeChange = useCallback(
-    (type: EInputAddressChangeType) => {
-      inputTypeRef.current = type;
-      onInputTypeChange?.(type);
-    },
-    [onInputTypeChange],
-  );
-
   const handleActiveAccountChange = useCallback(
     (activeAccount: IAccountSelectorActiveAccountInfo) => {
       if (activeAccount.wallet && activeAccount.account) {
@@ -385,21 +385,32 @@ export function AddressInput(props: IAddressInputProps) {
   );
 
   const onChangeText = useCallback(
-    (text: string) => {
+    ({
+      text,
+      inputType,
+    }: {
+      text: string;
+      inputType: EInputAddressChangeType;
+    }) => {
+      inputTypeRef.current = inputType;
       if (textRef.current !== text) {
         textRef.current = text;
         setInputText(text);
-        onChange?.({ raw: text, pending: text.length > 0 });
+        onInputTypeChange?.(inputType);
+        onChange?.({ raw: text, pending: text?.length > 0 });
       }
     },
-    [onChange],
+    [onChange, onInputTypeChange],
   );
 
   const onRefresh = useCallback(() => setRefreshNum((prev) => prev + 1), []);
 
   useEffect(() => {
     if (rawAddress && textRef.current !== rawAddress) {
-      onChangeText(rawAddress);
+      onChangeText({
+        text: rawAddress,
+        inputType: EInputAddressChangeType.Manual,
+      });
     }
   }, [rawAddress, onChangeText]);
 
@@ -446,6 +457,8 @@ export function AddressInput(props: IAddressInputProps) {
       enableVerifySendFundToSelf,
       enableAddressContract,
       enableAllowListValidation,
+      ignoreSimilarAddressInAddressBook,
+      enableCheckSimilarAddressInAddressBook,
     });
   }, [
     inputText,
@@ -460,6 +473,8 @@ export function AddressInput(props: IAddressInputProps) {
     enableAllowListValidation,
     refreshNum,
     queryAddress,
+    ignoreSimilarAddressInAddressBook,
+    enableCheckSimilarAddressInAddressBook,
   ]);
 
   // When focus state changes, re-query address validation
@@ -482,6 +497,7 @@ export function AddressInput(props: IAddressInputProps) {
         enableVerifySendFundToSelf,
         enableAddressContract,
         enableAllowListValidation,
+        ignoreSimilarAddressInAddressBook,
       });
     }
     prevIsFocused.current = isFocused;
@@ -499,6 +515,7 @@ export function AddressInput(props: IAddressInputProps) {
     refreshNum,
     queryAddress,
     isFocused,
+    ignoreSimilarAddressInAddressBook,
   ]);
 
   const getValidateMessage = useCallback(
@@ -530,6 +547,7 @@ export function AddressInput(props: IAddressInputProps) {
           queryResult.input?.trim(),
         pending: false,
         isContract: queryResult.isContract,
+        similarAddress: queryResult.similarAddress,
       });
     } else {
       const translationId = getValidateMessage(queryResult.validStatus);
@@ -542,6 +560,7 @@ export function AddressInput(props: IAddressInputProps) {
           message: intl.formatMessage({ id: translationId }),
         },
         isContract: queryResult.isContract,
+        similarAddress: queryResult.similarAddress,
       });
     }
   }, [
@@ -573,7 +592,6 @@ export function AddressInput(props: IAddressInputProps) {
         <XStack gap="$6">
           {clipboard ? (
             <ClipboardPlugin
-              onInputTypeChange={handleInputTypeChange}
               onChange={onChangeText}
               disabled={disabled}
               testID={rest.testID ? `${rest.testID}-clip` : undefined}
@@ -582,7 +600,6 @@ export function AddressInput(props: IAddressInputProps) {
           {scan ? (
             <ScanPlugin
               networkId={networkId}
-              onInputTypeChange={handleInputTypeChange}
               onScanResult={onScanResult}
               onChange={onChangeText}
               disabled={disabled}
@@ -592,7 +609,6 @@ export function AddressInput(props: IAddressInputProps) {
           {contacts || accountSelector ? (
             <SelectorPlugin
               disabled={disabled}
-              onInputTypeChange={handleInputTypeChange}
               onChange={onChangeText}
               onActiveAccountChange={handleActiveAccountChange}
               networkId={networkId}
@@ -617,7 +633,6 @@ export function AddressInput(props: IAddressInputProps) {
       onRefresh,
       networkId,
       clipboard,
-      handleInputTypeChange,
       onChangeText,
       disabled,
       rest.testID,
@@ -646,7 +661,9 @@ export function AddressInput(props: IAddressInputProps) {
     <>
       <BaseInput
         value={inputText}
-        onChangeText={onChangeText}
+        onChangeText={(text) =>
+          onChangeText({ text, inputType: EInputAddressChangeType.Manual })
+        }
         placeholder={placeholder ?? getAddressInputPlaceholder}
         extension={AddressInputExtension}
         {...rest}

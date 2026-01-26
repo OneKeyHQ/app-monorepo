@@ -67,6 +67,8 @@ function revealEntropyToMnemonic(
 
 export {
   generateMnemonic,
+  mnemonicToEntropy,
+  entropyToMnemonic,
   mnemonicToRevealableSeed,
   mnemonicToSeedSync,
   mnemonicToSeed,

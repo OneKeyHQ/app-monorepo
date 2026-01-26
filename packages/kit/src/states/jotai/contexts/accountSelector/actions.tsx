@@ -1,7 +1,7 @@
 import { useRef } from 'react';
 
 import { Semaphore } from 'async-mutex';
-import { cloneDeep, isEqual, isUndefined, omitBy } from 'lodash';
+import { cloneDeep, isEmpty, isEqual, isUndefined, omitBy } from 'lodash';
 
 import type { IDialogInstance } from '@onekeyhq/components';
 import { Dialog, Toast } from '@onekeyhq/components';
@@ -17,6 +17,7 @@ import type {
   IDBIndexedAccount,
   IDBWallet,
   IDBWalletIdSingleton,
+  IKeylessWalletDetailsInfo,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type {
   IAccountSelectorFocusedWallet,
@@ -56,6 +57,7 @@ import accountSelectorUtils from '@onekeyhq/shared/src/utils/accountSelectorUtil
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
+import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
@@ -165,7 +167,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                 selectedAccount,
               },
             ));
-        } catch (error) {
+        } catch (_error) {
           //
           activeAccount = {
             ...defaultActiveAccountInfo(),
@@ -337,11 +339,32 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         );
 
         if (
+          platformEnv.isWebDappMode
+          // sceneInfo?.sceneName &&
+          // ![EAccountSelectorSceneName.swap].includes(sceneInfo?.sceneName)
+        ) {
+          const oldIsNotAllNetwork =
+            oldSelectedAccount.networkId &&
+            oldSelectedAccount.networkId !== getNetworkIdsMap().onekeyall;
+          const newIsNotAllNetwork =
+            newSelectedAccount.networkId &&
+            newSelectedAccount.networkId !== getNetworkIdsMap().onekeyall;
+          if (newIsNotAllNetwork || oldIsNotAllNetwork) {
+            newSelectedAccount.networkId = getNetworkIdsMap().onekeyall;
+            newSelectedAccount.deriveType = 'default';
+          }
+        }
+
+        if (
           isEqual(
             omitBy(oldSelectedAccount, isUndefined),
             omitBy(newSelectedAccount, isUndefined),
           )
         ) {
+          return;
+        }
+
+        if (isEmpty(newSelectedAccount)) {
           return;
         }
 
@@ -820,9 +843,13 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       {
         mnemonic,
         isWalletBackedUp,
+        isKeylessWallet,
+        keylessDetailsInfo,
       }: {
         mnemonic: string;
         isWalletBackedUp?: boolean;
+        isKeylessWallet?: boolean;
+        keylessDetailsInfo?: IKeylessWalletDetailsInfo;
       },
     ) =>
       this.withFinalizeWalletSetupStep.call(set, {
@@ -831,6 +858,8 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             await serviceAccount.createHDWallet({
               mnemonic,
               isWalletBackedUp,
+              isKeylessWallet,
+              keylessDetailsInfo,
             });
           await this.autoSelectToCreatedWallet.call(set, {
             wallet,
@@ -838,6 +867,44 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             isOverrideWallet,
           });
           return { wallet, indexedAccount, isOverrideWallet };
+        },
+        generatingAccountsFn: async ({ wallet, indexedAccount }) => {
+          await this.addDefaultNetworkAccounts.call(set, {
+            wallet,
+            indexedAccount,
+          });
+        },
+      }),
+  );
+
+  createKeylessWallet = contextAtomMethod(
+    async (
+      _,
+      set,
+      {
+        packSetId,
+        name,
+        avatarInfo,
+      }: {
+        packSetId: string;
+        name?: string;
+        avatarInfo?: IAvatarInfo;
+      },
+    ) =>
+      this.withFinalizeWalletSetupStep.call(set, {
+        createWalletFn: async () => {
+          const { wallet, indexedAccount } =
+            await backgroundApiProxy.serviceKeylessWallet.createKeylessWallet({
+              packSetId,
+              name,
+              avatarInfo,
+            });
+          await this.autoSelectToCreatedWallet.call(set, {
+            wallet,
+            indexedAccount,
+            isOverrideWallet: undefined,
+          });
+          return { wallet, indexedAccount, isOverrideWallet: undefined };
         },
         generatingAccountsFn: async ({ wallet, indexedAccount }) => {
           await this.addDefaultNetworkAccounts.call(set, {
@@ -1241,9 +1308,13 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       console.log('updateHwWalletsDeprecatedStatus >>>> ', {
         willUpdateDeprecateMap,
       });
-      await backgroundApiProxy.serviceAccount.updateWalletsDeprecatedState({
-        willUpdateDeprecateMap,
-      });
+      const result =
+        await backgroundApiProxy.serviceAccount.updateWalletsDeprecatedState({
+          willUpdateDeprecateMap,
+        });
+      if (result && Object.keys(willUpdateDeprecateMap).length > 0) {
+        appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
+      }
     },
   );
 
@@ -1397,7 +1468,6 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       {
         num,
         sceneName,
-        sceneUrl,
       }: {
         num: number;
         sceneName: EAccountSelectorSceneName;
@@ -1458,6 +1528,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           },
         );
 
+      defaultLogger.accountSelector.listData.simpleDbSelectedAccountsMap({
+        selectedAccountsMap: selectedAccountsMapInDB,
+      });
+
       // fix discover account from dappConnection
       if (sceneUrl && sceneName === EAccountSelectorSceneName.discover) {
         const connectionMap =
@@ -1466,6 +1540,11 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
               sceneUrl,
             },
           );
+        defaultLogger.accountSelector.listData.simpleDbDappConnectionSelectedAccountsMap(
+          {
+            connectionMap,
+          },
+        );
         if (connectionMap) {
           const map: IAccountSelectorSelectedAccountsMap = {};
           Object.entries(connectionMap).forEach(([num, v]) => {
@@ -1480,6 +1559,11 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             map[Number(num)] = omitBy(map[Number(num)], isUndefined) as any;
           });
           selectedAccountsMapInDB = map;
+          defaultLogger.accountSelector.listData.initFromStorageDiscoverySelectedAccountsMapMerged(
+            {
+              selectedAccountsMap: selectedAccountsMapInDB,
+            },
+          );
         }
       }
 
@@ -1506,6 +1590,11 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
               sceneUrl,
             },
           );
+        defaultLogger.accountSelector.listData.fixDeriveTypesForInitAccountSelectorMapResult(
+          {
+            selectedAccountsMap: selectedAccountsMapInDB,
+          },
+        );
       }
 
       const selectedAccountsMap = get(selectedAccountsAtom());
@@ -1515,7 +1604,15 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       ) {
         this.setSelectedAccountsAtom(
           set,
-          (v) => selectedAccountsMapInDB || v,
+          (v) => {
+            const r = selectedAccountsMapInDB || v;
+            defaultLogger.accountSelector.listData.initFromStorageSelectedAccountsMapResult(
+              {
+                selectedAccountsMap: r,
+              },
+            );
+            return r;
+          },
           'initFromStorage',
         );
       }
@@ -2001,7 +2098,6 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             (await serviceAccount.isWalletHasIndexedAccounts({
               walletId: selectedWalletId,
             }));
-          const currentFocusWallet = selectedAccount?.focusedWallet;
 
           // auto select hd hw wallet if current wallet not contains next available account
           if (!selectedWalletId || !hasIndexedAccounts) {
@@ -2021,7 +2117,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                   // others wallet contains next available account, no need to switch to other hd hw wallet
                   shouldSelectHdHwWallet = false;
                 }
-              } catch (e) {
+              } catch (_e) {
                 //
               }
             }
@@ -2241,6 +2337,7 @@ export function useAccountSelectorActions() {
   const createHWWalletWithoutHidden = actions.createHWWalletWithoutHidden.use();
   const createQrWallet = actions.createQrWallet.use();
   const createTonImportedWallet = actions.createTonImportedWallet.use();
+  const createKeylessWallet = actions.createKeylessWallet.use();
   const autoSelectNextAccount = actions.autoSelectNextAccount.use();
   const updateHwWalletsDeprecatedStatus =
     actions.updateHwWalletsDeprecatedStatus.use();
@@ -2279,6 +2376,7 @@ export function useAccountSelectorActions() {
     createHWWalletWithoutHidden,
     createQrWallet,
     createTonImportedWallet,
+    createKeylessWallet,
     updateHwWalletsDeprecatedStatus,
     autoSelectNextAccount,
     autoSelectNetworkOfOthersWalletAccount,

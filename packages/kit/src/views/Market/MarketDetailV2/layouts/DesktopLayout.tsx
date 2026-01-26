@@ -5,20 +5,36 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import {
   MarketTradingView,
+  PerpetualTradingBanner,
   SwapPanel,
   TokenActivityOverview,
   TokenDetailHeader,
   TokenSupplementaryInfo,
 } from '../components';
+import { usePortfolioData } from '../components/InformationTabs/components/Portfolio/hooks/usePortfolioData';
+import { useNetworkAccount } from '../components/InformationTabs/hooks/useNetworkAccount';
 import { DesktopInformationTabs } from '../components/InformationTabs/layout/DesktopInformationTabs';
 import { useTokenDetail } from '../hooks/useTokenDetail';
 
 export function DesktopLayout() {
   const { tokenAddress, networkId, tokenDetail, isNative, websocketConfig } =
     useTokenDetail();
+
+  const { accountAddress, xpub } = useNetworkAccount(networkId);
+
+  const { portfolioData, isRefreshing } = usePortfolioData({
+    tokenAddress,
+    networkId,
+    accountAddress,
+    xpub,
+  });
+
+  const isBTCNetwork = networkUtils.isBTCNetwork(networkId);
 
   return (
     <XStack flex={1}>
@@ -41,36 +57,45 @@ export function DesktopLayout() {
         </Stack>
 
         {/* Info tabs */}
-        {!isNative ? (
-          <Stack h="30vh">
-            <DesktopInformationTabs />
-          </Stack>
-        ) : null}
+        <Stack h="30vh">
+          <DesktopInformationTabs
+            portfolioData={portfolioData}
+            isRefreshing={isRefreshing}
+            isBTCNetwork={isBTCNetwork}
+          />
+        </Stack>
       </YStack>
 
       {/* Right column */}
-      {!isNative ? (
-        <Stack w={320}>
-          <ScrollView>
-            <Stack w={320}>
-              <Stack px="$5" py="$4">
-                <SwapPanel
-                  networkId={networkId}
-                  tokenAddress={tokenDetail?.address}
-                />
-              </Stack>
-
-              <Divider mx="$5" my="$2" />
-
-              <TokenActivityOverview />
-
-              <Divider mx="$5" />
-
-              <TokenSupplementaryInfo />
+      <Stack w={320}>
+        <ScrollView>
+          <Stack w={320} pb={platformEnv.isWeb ? '$12' : undefined}>
+            <Stack px="$5">
+              <PerpetualTradingBanner />
             </Stack>
-          </ScrollView>
-        </Stack>
-      ) : null}
+            <Stack px="$5" py="$4">
+              <SwapPanel
+                swapToken={{
+                  networkId,
+                  contractAddress: tokenDetail?.address || '',
+                  symbol: tokenDetail?.symbol || '',
+                  decimals: tokenDetail?.decimals || 0,
+                  logoURI: tokenDetail?.logoUrl,
+                  price: tokenDetail?.price,
+                }}
+              />
+            </Stack>
+
+            <Divider mx="$5" my="$2" />
+
+            <TokenActivityOverview />
+
+            <Divider mx="$5" />
+
+            <TokenSupplementaryInfo />
+          </Stack>
+        </ScrollView>
+      </Stack>
     </XStack>
   );
 }

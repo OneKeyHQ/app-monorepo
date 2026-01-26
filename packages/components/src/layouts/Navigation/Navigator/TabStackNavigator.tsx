@@ -3,10 +3,10 @@ import { memo, useCallback, useMemo } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useIntl } from 'react-intl';
 
-import { useMedia } from '@onekeyhq/components/src/shared/tamagui';
+import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useOrientation, useThemeValue } from '../../../hooks';
+import { useTheme } from '../../../hooks';
 import { makeTabScreenOptions } from '../GlobalScreenOptions';
 import { createStackNavigator } from '../StackNavigator';
 import NavigationBar from '../Tab/TabBar';
@@ -19,10 +19,15 @@ const Stack = createStackNavigator();
 function BasicTabSubStackNavigator({
   config,
 }: {
-  config: ITabSubNavigatorConfig<string, any>[];
+  config: ITabSubNavigatorConfig<string, any>[] | null;
 }) {
-  const [bgColor, titleColor] = useThemeValue(['bgApp', 'text']);
+  const theme = useTheme();
   const intl = useIntl();
+
+  if (!config || config.length === 0) {
+    return null;
+  }
+
   return (
     <Stack.Navigator>
       {config
@@ -39,7 +44,11 @@ function BasicTabSubStackNavigator({
                     id: translationId,
                   })
                 : '',
-              ...makeTabScreenOptions({ navigation, bgColor, titleColor }),
+              ...makeTabScreenOptions({
+                navigation,
+                bgColor: theme.bgApp.val,
+                titleColor: theme.text.val,
+              }),
               headerShown,
             })}
           />
@@ -54,26 +63,31 @@ export const TabSubStackNavigator = TabSubStackNavigatorMemo;
 
 const Tab = createBottomTabNavigator();
 
-const useTabBarPosition = platformEnv.isNativeIOSPad
-  ? () => {
-      const isLandscape = useOrientation();
-      return isLandscape ? 'left' : 'bottom';
-    }
+const useTabBarPosition = platformEnv.isNative
+  ? () => 'bottom' as const
   : () => {
       const media = useMedia();
-      return platformEnv.isNativeAndroid || media.md ? 'bottom' : 'left';
+      return media.md ? 'bottom' : 'left';
     };
 
 export function TabStackNavigator<RouteName extends string>({
   config,
   extraConfig,
+  showTabBar = true,
+  bottomMenu,
+  webPageTabBar,
 }: ITabNavigatorProps<RouteName>) {
   const intl = useIntl();
   const tabBarCallback = useCallback(
     (props: BottomTabBarProps) => (
-      <NavigationBar {...props} extraConfig={extraConfig} />
+      <NavigationBar
+        {...props}
+        extraConfig={extraConfig}
+        bottomMenu={bottomMenu}
+        webPageTabBar={webPageTabBar}
+      />
     ),
-    [extraConfig],
+    [webPageTabBar, bottomMenu, extraConfig],
   );
 
   const tabComponents = useMemo(
@@ -83,7 +97,7 @@ export function TabStackNavigator<RouteName extends string>({
         .map(({ children, ...options }) => ({
           ...options,
           // eslint-disable-next-line react/no-unstable-nested-components
-          children: () => <TabSubStackNavigatorMemo config={children} />,
+          children: () => <TabSubStackNavigator config={children} />,
         })),
     [config],
   );
@@ -103,6 +117,7 @@ export function TabStackNavigator<RouteName extends string>({
           collapseTabBarLabel: options.collapseSideBarTranslationId
             ? intl.formatMessage({ id: options.collapseSideBarTranslationId })
             : undefined,
+          hideOnTabBar: options.hideOnTabBar,
           tabbarOnPress: options.tabbarOnPress,
         }}
       >
@@ -112,7 +127,7 @@ export function TabStackNavigator<RouteName extends string>({
 
     if (extraConfig) {
       const children = () => (
-        <TabSubStackNavigatorMemo config={extraConfig.children} />
+        <TabSubStackNavigator config={extraConfig.children} />
       );
       screens.push(
         <Tab.Screen
@@ -132,13 +147,11 @@ export function TabStackNavigator<RouteName extends string>({
 
   return (
     <Tab.Navigator
-      tabBar={tabBarCallback}
+      tabBar={showTabBar ? tabBarCallback : () => null}
       screenOptions={{
         headerShown: false,
         freezeOnBlur: true,
-        // Native Load all tabs at once
-        // Web Lazy load
-        lazy: !platformEnv.isNative,
+        lazy: false,
       }}
     >
       {tabScreens}

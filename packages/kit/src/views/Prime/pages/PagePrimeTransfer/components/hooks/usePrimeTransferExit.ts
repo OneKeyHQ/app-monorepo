@@ -1,20 +1,29 @@
 import { useCallback } from 'react';
 
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { closeOnboardingPages } from '@onekeyhq/kit/src/hooks/usePageNavigation';
 import { usePrimeTransferAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 export function usePrimeTransferExit() {
   const navigation = useAppNavigation();
   const [, setPrimeTransferAtom] = usePrimeTransferAtom();
 
   const exitTransferFlow = useCallback(
-    (delay = 600) => {
+    (
+      delay = 600,
+      { skipCloseOnboardingPages }: { skipCloseOnboardingPages?: boolean } = {},
+    ) => {
       setPrimeTransferAtom((v) => ({
         ...v,
         shouldPreventExit: false,
       }));
-      setTimeout(() => {
+      setTimeout(async () => {
         navigation.popStack();
+        if (!skipCloseOnboardingPages) {
+          await timerUtils.wait(150);
+          await closeOnboardingPages();
+        }
       }, delay);
     },
     [navigation, setPrimeTransferAtom],

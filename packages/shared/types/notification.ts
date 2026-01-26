@@ -105,6 +105,15 @@ export type INotificationPushSyncAccount = {
   accountId: string;
   accountName: string | undefined;
 };
+
+// /notification/v1/watchlist/tokens
+export type INotificationWatchlistToken = {
+  networkId: string;
+  tokenAddress: string;
+  isNative: boolean;
+  symbol: string;
+  logoURI: string;
+};
 export enum ENotificationPushSyncMethod {
   override = 'override',
   append = 'append', // append or replace
@@ -127,17 +136,16 @@ export type INotificationPushRegisterParams = {
 export type INotificationPushSettings = {
   pushEnabled?: boolean;
   accountActivityPushEnabled?: boolean;
+  priceAlertsEnabled?: boolean;
+  perpsEnabled?: boolean;
   announcementEnabled?: boolean;
+  dailyUpdateEnabled?: boolean;
   maxAccount?: number;
   supportedNetworks?: {
     networkId: string;
     impl: string;
     chainId: string;
   }[];
-  // announcementEnabled?: boolean;
-  // coinPriceAlertEnabled?: boolean;
-  // coinVolatilityAlertEnabled?: boolean;
-  // presetCoinsVolatilityAlertEnabled?: boolean;
 };
 export type INotificationPushTopic =
   | {
@@ -193,6 +201,13 @@ export enum ENotificationPushMessageMode {
   dialog = 2,
   openInBrowser = 3,
   openInApp = 4,
+  openInDapp = 5,
+  command = 6,
+}
+
+export enum ENotificationCommand {
+  openRewardDistributionHistoryModal = 'openRewardDistributionHistoryModal',
+  openHardwareSalesOrder = 'openHardwareSalesOrder',
 }
 // /notification/v1/message/ack
 export type INotificationPushMessageAckParams = {
@@ -260,7 +275,7 @@ export type INativeNotificationCenterMessageInfo = {
 };
 export type INotificationPushMessageListItem = {
   msgId: string;
-  topicType: string;
+  topicType: ENotificationPushTopicTypes;
   body: INotificationPushMessageInfo;
   referId: string;
   readed: boolean | undefined;

@@ -16,10 +16,10 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
+import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { Section } from '@onekeyhq/kit/src/components/Section';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   usePrimeCloudSyncPersistAtom,
@@ -32,17 +32,14 @@ import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import type { IPrimeParamList } from '@onekeyhq/shared/src/routes/prime';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { formatDistanceToNow } from '@onekeyhq/shared/src/utils/dateUtils';
+import { isNeverLockDuration } from '@onekeyhq/shared/src/utils/passwordUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { AppAutoLockSettingsView } from '../../../Setting/pages/AppAutoLock';
-import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 import { usePrimeRequirements } from '../../hooks/usePrimeRequirements';
 
 function isAutoLockValueNotAllowed(value: number) {
-  return (
-    value === Number(ELockDuration.Never) ||
-    value === Number(ELockDuration.Hour4)
-  );
+  return isNeverLockDuration(value) || value === Number(ELockDuration.Hour4);
 }
 
 function AutoLockUpdateDialogContent({
@@ -98,7 +95,7 @@ function AutoLockUpdateDialogContent({
 
 function EnableOneKeyCloudSwitchListItem() {
   const [config] = usePrimeCloudSyncPersistAtom();
-  const { isPrimeSubscriptionActive } = usePrimeAuthV2();
+  const { isPrimeSubscriptionActive } = useOneKeyAuth();
   const navigation = useAppNavigation();
   const route = useAppRoute<IPrimeParamList, EPrimePages.PrimeCloudSync>();
   const serverUserInfo = route.params?.serverUserInfo;
@@ -123,8 +120,8 @@ function EnableOneKeyCloudSwitchListItem() {
     );
   }, [passwordSettings.appLockDuration, passwordSettings.isPasswordSet]);
 
-  const { user } = usePrimeAuthV2();
-  const isPrimeUser = user?.primeSubscription?.isActive && user?.privyUserId;
+  const { user } = useOneKeyAuth();
+  const isPrimeUser = user?.primeSubscription?.isActive && user?.onekeyUserId;
 
   return (
     <ListItem
@@ -162,7 +159,9 @@ function EnableOneKeyCloudSwitchListItem() {
             return;
           }
           if (value) {
-            await ensurePrimeSubscriptionActive();
+            await ensurePrimeSubscriptionActive({
+              featureName: EPrimeFeatures.OneKeyCloud,
+            });
           }
 
           if (isSubmittingRef.current) {

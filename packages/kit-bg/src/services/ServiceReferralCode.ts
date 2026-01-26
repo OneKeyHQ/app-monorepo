@@ -4,17 +4,34 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import type {
+  EExportTimeRange,
+  IBatchCheckWalletItem,
+  IBatchCheckWalletResponse,
   IEarnPositionsResponse,
   IEarnRewardResponse,
   IEarnWalletHistory,
+  IExportInviteDataParams,
+  IHardwareCumulativeRewards,
+  IHardwareRecordItem,
+  IHardwareRecordsResponse,
   IHardwareSalesRecord,
+  IInviteCodeItem,
+  IInviteCodeListResponse,
   IInviteHistory,
+  IInviteLevelDetail,
   IInvitePaidHistory,
   IInvitePostConfig,
   IInviteSummary,
+  IPerpsInviteeRewardsResponse,
+  IPerpsRecordsResponse,
+  IRedemptionCodeRedeemParams,
+  IRedemptionCodeRedeemResponse,
+  IRedemptionRecordsResponse,
+  IUpdateInviteCodeNoteResponse,
 } from '@onekeyhq/shared/src/referralCode/type';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
+import type { IHyperLiquidSignatureRSV } from '@onekeyhq/shared/types/hyperliquid/webview';
 
 import ServiceBase from './ServiceBase';
 
@@ -38,6 +55,85 @@ class ServiceReferralCode extends ServiceBase {
       );
     }
     return summary.data.data;
+  }
+
+  @backgroundMethod()
+  async getLevelDetail() {
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
+    const response = await client.get<{
+      data: IInviteLevelDetail;
+    }>('/rebate/v1/invite/level-detail');
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async createInviteCode() {
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
+    const response = await client.post<{
+      data: IInviteCodeItem;
+    }>('/rebate/v1/invite-codes');
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async getInviteCodeList() {
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
+    const response = await client.get<{
+      data: IInviteCodeListResponse;
+    }>('/rebate/v1/invite-codes');
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async updateInviteCodeNote(params: { code: string; note: string }) {
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
+    const response = await client.put<{
+      data: IUpdateInviteCodeNoteResponse;
+    }>('/rebate/v1/invite-codes/note', params);
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async exportInviteData(params: IExportInviteDataParams) {
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
+    const queryParams: {
+      subject: string;
+      timeRange: string;
+      inviteCode?: string;
+      tab?: string;
+    } = {
+      subject: params.subject,
+      timeRange: params.timeRange,
+    };
+    if (params.inviteCode) {
+      queryParams.inviteCode = params.inviteCode;
+    }
+    if (params.tab) {
+      queryParams.tab = params.tab;
+    }
+    // API returns CSV string directly, not JSON
+    const response = await client.get<string>('/rebate/v1/invite/export', {
+      params: queryParams,
+      responseType: 'text',
+      autoHandleError: false, // Skip JSON error checking for CSV response
+    } as any);
+
+    // Parse filename from Content-Disposition header
+    const contentDisposition = response.headers['content-disposition'] as
+      | string
+      | undefined;
+    let filename: string | undefined;
+    if (contentDisposition) {
+      const match = contentDisposition.match(/filename="?([^";\n]+)"?/);
+      if (match) {
+        filename = match[1];
+      }
+    }
+
+    return {
+      data: response.data,
+      filename,
+    };
   }
 
   @backgroundMethod()
@@ -121,20 +217,55 @@ class ServiceReferralCode extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getHardwareSales(cursor?: string) {
+  async getHardwareSales(
+    cursor?: string,
+    timeRange?: EExportTimeRange,
+    inviteCode?: string,
+  ) {
     const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
     const params: {
       subject: string;
       cursor?: string;
+      timeRange?: string;
+      inviteCode?: string;
     } = {
       subject: 'HardwareSales',
     };
     if (cursor) {
       params.cursor = cursor;
     }
+    if (timeRange) {
+      params.timeRange = timeRange;
+    }
+    if (inviteCode) {
+      params.inviteCode = inviteCode;
+    }
     const response = await client.get<{
       data: IHardwareSalesRecord;
     }>('/rebate/v1/invite/records', { params });
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async getHardwareCumulativeRewards(
+    inviteCode?: string,
+    timeRange?: EExportTimeRange,
+  ): Promise<IHardwareCumulativeRewards> {
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
+    const params: {
+      inviteCode?: string;
+      timeRange?: string;
+    } = {};
+    if (inviteCode) {
+      params.inviteCode = inviteCode;
+    }
+    if (timeRange) {
+      params.timeRange = timeRange;
+    }
+    const response = await client.get<{
+      data: IHardwareCumulativeRewards;
+    }>('/rebate/v1/invite/hardware-cumulative-rewards', { params });
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return response.data.data;
   }
 
@@ -150,11 +281,18 @@ class ServiceReferralCode extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getEarnReward(cursor?: string, available?: boolean) {
+  async getEarnReward(
+    cursor?: string,
+    available?: boolean,
+    timeRange?: EExportTimeRange,
+    inviteCode?: string,
+  ) {
     const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
     const params: {
       cursor?: string;
       status?: string;
+      timeRange?: string;
+      inviteCode?: string;
     } = {};
     if (cursor) {
       params.cursor = cursor;
@@ -162,9 +300,55 @@ class ServiceReferralCode extends ServiceBase {
     if (available) {
       params.status = 'AVAILABLE';
     }
+    if (timeRange) {
+      params.timeRange = timeRange;
+    }
+    if (inviteCode) {
+      params.inviteCode = inviteCode;
+    }
     const response = await client.get<{
       data: IEarnRewardResponse;
     }>('/rebate/v1/invite/earn-records', { params });
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async getPerpsRecords(
+    timeRange?: EExportTimeRange,
+    inviteCode?: string,
+    status?: 'AVAILABLE',
+  ): Promise<IPerpsRecordsResponse> {
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
+    const params: {
+      timeRange?: string;
+      inviteCode?: string;
+      status?: string;
+    } = {};
+    if (timeRange) {
+      params.timeRange = timeRange;
+    }
+    if (inviteCode) {
+      params.inviteCode = inviteCode;
+    }
+    if (status) {
+      params.status = status;
+    }
+    const response = await client.get<{ data: IPerpsRecordsResponse }>(
+      '/rebate/v1/invite/perps-records',
+      { params },
+    );
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async getPerpsInviteeRewards(params: {
+    walletAddress: string;
+  }): Promise<IPerpsInviteeRewardsResponse> {
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
+    const response = await client.get<{ data: IPerpsInviteeRewardsResponse }>(
+      '/rebate/v1/invite/perps-invitee-rewards',
+      { params },
+    );
     return response.data.data;
   }
 
@@ -188,10 +372,12 @@ class ServiceReferralCode extends ServiceBase {
       walletId,
     });
     if (walletReferralCode) {
-      const alreadyBound = await this.checkWalletIsBoundReferralCode({
-        address: walletReferralCode.address,
-        networkId: walletReferralCode.networkId,
-      });
+      const { address, networkId } = walletReferralCode;
+      const batchResult = await this.batchCheckWalletsBoundReferralCode([
+        { address, networkId },
+      ]);
+      const key = `${networkId}:${address}`;
+      const alreadyBound = batchResult[key] ?? false;
       const newWalletReferralCode = {
         ...walletReferralCode,
         isBound: alreadyBound,
@@ -263,6 +449,16 @@ class ServiceReferralCode extends ServiceBase {
       params: { address, networkId },
     });
     return response.data.data.data;
+  }
+
+  @backgroundMethod()
+  async batchCheckWalletsBoundReferralCode(items: IBatchCheckWalletItem[]) {
+    const client = await this.getClient(EServiceEndpointEnum.Rebate);
+    const response = await client.post<{
+      data: IBatchCheckWalletResponse;
+    }>('/rebate/v1/wallet/batch-check', { items });
+    // Response: { code: 0, message: "success", data: { "networkId:address": boolean } }
+    return response.data.data;
   }
 
   @backgroundMethod()
@@ -357,6 +553,154 @@ class ServiceReferralCode extends ServiceBase {
       accountId,
     });
     return result;
+  }
+
+  @backgroundMethod()
+  async getHardwareRecords(
+    cursor?: string,
+    timeRange?: EExportTimeRange,
+    inviteCode?: string,
+  ): Promise<IHardwareRecordsResponse> {
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
+    const params: {
+      limit: number;
+      cursor?: string;
+      timeRange?: string;
+      inviteCode?: string;
+    } = {
+      limit: 10,
+    };
+    if (cursor) {
+      params.cursor = cursor;
+    }
+    if (timeRange) {
+      params.timeRange = timeRange;
+    }
+    if (inviteCode) {
+      params.inviteCode = inviteCode;
+    }
+    const response = await client.get<{
+      data: IHardwareRecordsResponse;
+    }>('/rebate/v1/invite/hardware-records', { params });
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async getHardwareRecordDetail(id: string): Promise<IHardwareRecordItem> {
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
+    const response = await client.get<{
+      data: IHardwareRecordItem;
+    }>(`/rebate/v1/invite/hardware-records/${id}`);
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async bindPerpsWallet({
+    action,
+    nonce,
+    signature,
+    referenceAddress,
+    signerAddress,
+  }: {
+    action: {
+      type: string;
+      signatureChainId: string;
+      hyperliquidChain: string;
+      agentAddress: string;
+      agentName: string;
+      nonce: number;
+    };
+    nonce: number;
+    signature: IHyperLiquidSignatureRSV;
+    referenceAddress?: string;
+    signerAddress: string;
+  }): Promise<{ success: boolean }> {
+    const client = await this.getClient(EServiceEndpointEnum.Rebate);
+    const response = await client.post<{
+      data: { success: boolean };
+    }>('/rebate/v1/wallet/perps/bind-wallet', {
+      action,
+      nonce,
+      signature,
+      referenceAddress,
+      signerAddress,
+    });
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async getRedemptionRecords(): Promise<IRedemptionRecordsResponse> {
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
+    const response = await client.get<{
+      data: IRedemptionRecordsResponse;
+    }>('/rebate/v1/redemption-center/records');
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async redeemCode(
+    params: IRedemptionCodeRedeemParams,
+  ): Promise<IRedemptionCodeRedeemResponse> {
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
+    try {
+      const response = await client.post<{
+        code: number;
+        message: string;
+        messageId?: string;
+        data?: {
+          metadata?: {
+            previousLevel?: number;
+            newLevel?: number;
+          };
+        };
+      }>('/rebate/v1/redemption-center/redemption-code/redeem', params, {
+        autoHandleError: false,
+      } as any);
+
+      // Check if API returned an error (non-zero code)
+      if (response.data.code !== 0) {
+        return {
+          success: false,
+          error: {
+            code: response.data.code,
+            message: response.data.message,
+            messageId: response.data.messageId,
+          },
+        };
+      }
+
+      const metadata = response.data.data?.metadata;
+      return {
+        success: true,
+        upgradeInfo:
+          metadata?.previousLevel !== undefined &&
+          metadata?.newLevel !== undefined
+            ? {
+                fromLevel: metadata.previousLevel,
+                toLevel: metadata.newLevel,
+              }
+            : undefined,
+      };
+    } catch (error) {
+      // Handle axios error response
+      const axiosError = error as { response?: { data?: unknown } };
+      if (axiosError?.response?.data) {
+        const errorData = axiosError.response.data as {
+          code: number;
+          message: string;
+          messageId?: string;
+        };
+        return {
+          success: false,
+          error: {
+            code: errorData.code,
+            message: errorData.message,
+            messageId: errorData.messageId,
+          },
+        };
+      }
+      throw error;
+    }
   }
 }
 

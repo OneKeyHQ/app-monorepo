@@ -7,6 +7,7 @@ import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import { EHardwareTransportType } from '../../types';
 
+import { createConfigFetcher } from './configFetcher';
 import { importHardwareSDK, importHardwareSDKLowLevel } from './sdk-loader';
 
 import type { EOnekeyDomain } from '../../types';
@@ -40,6 +41,16 @@ export const cleanupHardwareSDKInstance = async (): Promise<void> => {
         HardwareSDK.dispose();
       }
 
+      if (HardwareLowLevelSDK) {
+        if (typeof HardwareLowLevelSDK.removeAllListeners === 'function') {
+          // @ts-expect-error
+          HardwareLowLevelSDK.removeAllListeners();
+        }
+        if (typeof HardwareLowLevelSDK.dispose === 'function') {
+          HardwareLowLevelSDK.dispose();
+        }
+      }
+
       // Clear SDK references
       HardwareSDK = undefined as any;
       HardwareLowLevelSDK = undefined as any;
@@ -66,17 +77,21 @@ const createHardwareSDKInstance = async (params: {
 
     let env: undefined | ConnectSettings['env'];
     if (params.hardwareTransportType === EHardwareTransportType.WEBUSB) {
-      env = 'webusb' as const;
+      // Desktop WebUSB doesn't need browser permission prompt
+      env = platformEnv.isDesktop ? 'desktop-webusb' : 'webusb';
     } else if (
       params.hardwareTransportType === EHardwareTransportType.DesktopWebBle
     ) {
       env = 'desktop-web-ble' as const;
     }
 
+    const configFetcher = await createConfigFetcher();
+
     const settings: Partial<ConnectSettings> = {
       debug: params.debugMode,
       fetchConfig: true,
       env,
+      configFetcher,
     };
 
     HardwareSDK = await importHardwareSDK({

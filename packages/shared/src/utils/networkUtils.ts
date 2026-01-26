@@ -27,7 +27,9 @@ import numberUtils from './numberUtils';
 import type { IServerNetwork } from '../../types';
 
 const defaultEnabledNetworks = getDefaultEnabledNetworksInAllNetworks();
-const defaultEnabledNetworkIds = defaultEnabledNetworks.map((n) => n.id);
+const defaultEnabledNetworkIds = new Set(
+  defaultEnabledNetworks.map((n) => n.id),
+);
 
 function parseNetworkId({ networkId }: { networkId: string }) {
   const [impl, chainId] = networkId.split(SEPERATOR);
@@ -157,7 +159,7 @@ export function isEnabledNetworksInAllNetworks({
     return !!enabledNetworks[networkId];
   }
 
-  if (defaultEnabledNetworkIds.includes(networkId)) {
+  if (defaultEnabledNetworkIds.has(networkId)) {
     return !disabledNetworks[networkId];
   }
 
@@ -247,6 +249,37 @@ function getNetworkIdFromShortCode({
   return networkIdsMap[shortCode as keyof typeof networkIdsMap];
 }
 
+function getEnabledNFTNetworkIds(): string[] {
+  const networkIdsMap = getNetworkIdsMap();
+
+  return [
+    networkIdsMap.onekeyall,
+    networkIdsMap.eth,
+    networkIdsMap.base,
+    networkIdsMap.optimism,
+    networkIdsMap.bsc,
+    networkIdsMap.polygon,
+    networkIdsMap.arbitrum,
+    networkIdsMap.avalanche,
+    networkIdsMap.sol,
+  ];
+}
+
+function _getEnabledDeFiNetworkIds(): string[] {
+  const networkIdsMap = getNetworkIdsMap();
+  return [
+    networkIdsMap.onekeyall,
+    networkIdsMap.eth,
+    networkIdsMap.base,
+    networkIdsMap.optimism,
+    networkIdsMap.bsc,
+    networkIdsMap.polygon,
+    networkIdsMap.arbitrum,
+    networkIdsMap.avalanche,
+    networkIdsMap.sol,
+  ];
+}
+
 export default {
   getNetworkChainId,
   getNetworkImpl,
@@ -269,4 +302,5 @@ export default {
   getNetworkIdFromShortCode,
   isViewInExplorerDisabled,
   isAggregateNetwork,
+  getEnabledNFTNetworkIds,
 };

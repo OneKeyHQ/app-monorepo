@@ -16,23 +16,29 @@ import {
   settingsValuePersistAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
+import { SHOW_WALLET_FUNCTION_BLOCK_VALUE_THRESHOLD_USD } from '@onekeyhq/shared/src/consts/walletConsts';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { perfMark } from '@onekeyhq/shared/src/performance/mark';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { numberFormatAsRenderText } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
+import { calculateAccountTokensValue } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EHomeTab } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AllNetworksManagerTrigger } from '../../../components/AccountSelector/AllNetworksManagerTrigger';
 import NumberSizeableTextWrapper from '../../../components/NumberSizeableTextWrapper';
 import { showResourceDetailsDialog } from '../../../components/Resource';
+import { useDebounce } from '../../../hooks/useDebounce';
 import {
+  useAccountDeFiOverviewAtom,
   useAccountOverviewActions,
   useAccountOverviewStateAtom,
   useAccountWorthAtom,
@@ -59,19 +65,48 @@ function HomeOverviewContainer() {
   const listRefreshKey = useRef('');
 
   const [accountWorth] = useAccountWorthAtom();
+  const [accountDeFiOverview] = useAccountDeFiOverviewAtom();
   const [overviewState] = useAccountOverviewStateAtom();
-  const { updateAccountOverviewState, updateAccountWorth } =
-    useAccountOverviewActions().current;
+  const {
+    updateAccountOverviewState,
+    updateAccountWorth,
+    updateAccountDeFiOverview,
+  } = useAccountOverviewActions().current;
 
   const [settings] = useSettingsPersistAtom();
 
+  const isWalletNotBackedUp = useMemo(() => {
+    if (wallet && wallet.type === WALLET_TYPE_HD && !wallet.backuped) {
+      return true;
+    }
+    return false;
+  }, [wallet]);
+
+  useEffect(() => {
+    perfMark('Home:overview:mount');
+    return () => {
+      perfMark('Home:overview:unmount');
+    };
+  }, []);
+
   useEffect(() => {
     if (account?.id && network?.id && wallet?.id) {
-      if (network.isAllNetworks) {
+      if (
+        network.isAllNetworks ||
+        (wallet.type === WALLET_TYPE_HD && !wallet.backuped)
+      ) {
         updateAccountWorth({
           accountId: account.id,
           worth: {},
           initialized: false,
+        });
+        updateAccountDeFiOverview({
+          overview: {
+            totalValue: 0,
+            totalDebt: 0,
+            totalReward: 0,
+            netWorth: 0,
+          },
         });
       }
     }
@@ -79,9 +114,12 @@ function HomeOverviewContainer() {
     account?.id,
     network?.id,
     network?.isAllNetworks,
+    updateAccountDeFiOverview,
     updateAccountOverviewState,
     updateAccountWorth,
+    wallet?.backuped,
     wallet?.id,
+    wallet?.type,
   ]);
 
   useEffect(() => {
@@ -107,6 +145,15 @@ function HomeOverviewContainer() {
 
       listRefreshKey.current = key;
 
+      if (type === EHomeTab.ALL) {
+        setIsRefreshingTokenList(isRefreshing);
+        setIsRefreshingNftList(isRefreshing);
+        setIsRefreshingHistoryList(isRefreshing);
+        setIsRefreshingApprovalList(isRefreshing);
+        setIsRefreshingWorth(isRefreshing);
+        return;
+      }
+
       if (type === EHomeTab.TOKENS) {
         setIsRefreshingTokenList(isRefreshing);
       } else if (type === EHomeTab.NFT) {
@@ -117,6 +164,18 @@ function HomeOverviewContainer() {
         setIsRefreshingApprovalList(isRefreshing);
       }
       setIsRefreshingWorth(isRefreshing);
+      if (isRefreshing) {
+        perfMark(`Home:refresh:start:${type}`, {
+          refreshType: type,
+        });
+      } else {
+        perfMark(`Home:done:${type}`, {
+          refreshType: type,
+        });
+        perfMark(`Home:refresh:done:${type}`, {
+          refreshType: type,
+        });
+      }
     };
     appEventBus.on(EAppEventBusNames.TabListStateUpdate, fn);
     return () => {
@@ -125,28 +184,52 @@ function HomeOverviewContainer() {
   }, []);
 
   useEffect(() => {
-    if (
-      account &&
-      network &&
-      accountWorth.initialized &&
-      (account.id === accountWorth.accountId ||
-        account.indexedAccountId === accountWorth.accountId)
-    ) {
-      if (accountUtils.isOthersAccount({ accountId: account.id })) {
-        if (!network.isAllNetworks && account.createAtNetwork !== network.id)
-          return;
+    const updateAccountValue = async () => {
+      if (
+        account &&
+        network &&
+        accountWorth.initialized &&
+        (account.id === accountWorth.accountId ||
+          account.indexedAccountId === accountWorth.accountId)
+      ) {
+        const allWorth = Object.values(accountWorth.worth).reduce(
+          (acc: string, cur: string) => new BigNumber(acc).plus(cur).toFixed(),
+          '0',
+        );
 
-        const accountValueId = account.id;
+        if (
+          new BigNumber(allWorth).gt(
+            SHOW_WALLET_FUNCTION_BLOCK_VALUE_THRESHOLD_USD,
+          )
+        ) {
+          await backgroundApiProxy.serviceWalletStatus.updateWalletStatus({
+            walletXfp: wallet?.xfp ?? '',
+            status: {
+              hasValue: true,
+            },
+          });
+          appEventBus.emit(EAppEventBusNames.AccountValueUpdate, undefined);
+        }
+        let accountValueId = '';
+        if (accountUtils.isOthersAccount({ accountId: account.id })) {
+          accountValueId = account.id;
 
-        void backgroundApiProxy.serviceAccountProfile.updateAccountValue({
-          accountId: accountValueId,
-          value: accountWorth.createAtNetworkWorth,
-          currency: settings.currencyInfo.id,
-          shouldUpdateActiveAccountValue: true,
-        });
-      } else {
-        const accountValueId = account.indexedAccountId as string;
-        if (!network.isAllNetworks) {
+          if (network.isAllNetworks || account.createAtNetwork === network.id) {
+            void backgroundApiProxy.serviceAccountProfile.updateAccountValue({
+              accountId: accountValueId,
+              value: accountWorth.createAtNetworkWorth,
+              currency: settings.currencyInfo.id,
+              shouldUpdateActiveAccountValue: true,
+            });
+          }
+        } else {
+          accountValueId = account.indexedAccountId as string;
+        }
+
+        if (
+          !accountUtils.isOthersAccount({ accountId: account.id }) &&
+          !network.isAllNetworks
+        ) {
           void backgroundApiProxy.serviceAccountProfile.updateAccountValueForSingleNetwork(
             {
               accountId: accountValueId,
@@ -167,13 +250,14 @@ function HomeOverviewContainer() {
             accountId: accountValueId,
             value: accountWorth.worth,
             currency: settings.currencyInfo.id,
-            updateAll: accountWorth.updateAll,
           },
         );
       }
-    }
+    };
+    void updateAccountValue();
   }, [
     account,
+    accountWorth,
     accountWorth.accountId,
     accountWorth.createAtNetworkWorth,
     accountWorth.initialized,
@@ -203,7 +287,7 @@ function HomeOverviewContainer() {
     isRefreshingApprovalList;
 
   const refreshButton = useMemo(() => {
-    return platformEnv.isNative ? undefined : (
+    return platformEnv.isNative || isWalletNotBackedUp ? undefined : (
       <IconButton
         icon="RefreshCcwOutline"
         variant="tertiary"
@@ -212,7 +296,7 @@ function HomeOverviewContainer() {
         trackID="wallet-refresh-manually"
       />
     );
-  }, [handleRefreshWorth, isLoading]);
+  }, [handleRefreshWorth, isLoading, isWalletNotBackedUp]);
 
   const handleBalanceOnPress = useCallback(async () => {
     const settingsValue = await settingsValuePersistAtom.get();
@@ -248,39 +332,25 @@ function HomeOverviewContainer() {
   }, [account?.id, network?.id]);
 
   const balanceString = useMemo(() => {
-    if (network?.isAllNetworks) {
-      const allWorth = Object.values(accountWorth.worth).reduce(
-        (acc: string, cur: string) => new BigNumber(acc).plus(cur).toFixed(),
-        '0',
-      );
-      return allWorth;
-    }
-
-    if (vaultSettings?.mergeDeriveAssetsEnabled) {
-      const allWorth = Object.values(accountWorth.worth).reduce(
-        (acc: string, cur: string) => new BigNumber(acc).plus(cur).toFixed(),
-        '0',
-      );
-      return allWorth;
-    }
-
-    return (
-      accountWorth.worth[
-        accountUtils.buildAccountValueKey({
-          accountId: account?.id ?? '',
-          networkId: network?.id ?? '',
-        })
-      ] ??
-      Object.values(accountWorth.worth)[0] ??
-      '0'
-    );
+    return new BigNumber(
+      calculateAccountTokensValue({
+        accountId: account?.id ?? '',
+        networkId: network?.id ?? '',
+        tokensWorth: accountWorth,
+        mergeDeriveAssetsEnabled: !!vaultSettings?.mergeDeriveAssetsEnabled,
+      }),
+    )
+      .plus(accountDeFiOverview.netWorth ?? 0)
+      .toFixed();
   }, [
-    network?.isAllNetworks,
-    network?.id,
-    vaultSettings?.mergeDeriveAssetsEnabled,
-    accountWorth.worth,
     account?.id,
+    network?.id,
+    accountWorth,
+    vaultSettings?.mergeDeriveAssetsEnabled,
+    accountDeFiOverview.netWorth,
   ]);
+
+  const debouncedBalanceString = useDebounce(balanceString, 100);
 
   const balanceSizeList: { length: number; size: FontSizeTokens }[] = [
     { length: 17, size: '$headingXl' },
@@ -343,14 +413,14 @@ function HomeOverviewContainer() {
                     ? balanceSizeList.find(
                         (item) =>
                           numberFormatAsRenderText(
-                            String(balanceString),
+                            String(debouncedBalanceString),
                             numberFormatter,
                           ).length >= item.length,
                       )?.size ?? defaultBalanceSize
                     : defaultBalanceSize
                 }
               >
-                {balanceString}
+                {debouncedBalanceString}
               </NumberSizeableTextWrapper>
             </XStack>
             {refreshButton}

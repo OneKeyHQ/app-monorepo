@@ -20,10 +20,10 @@ import {
 import { usePerpsActiveAccountSummaryAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
-import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   getValidPriceDecimals,
+  parseDexCoin,
   validateSizeInput,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 
@@ -79,6 +79,10 @@ const AdjustPositionMarginForm = memo(
     const [action, setAction] = useState<IMarginAction>('add');
     const [amount, setAmount] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const displayName = useMemo(
+      () => parseDexCoin(currentPosition?.coin || '').displayName || coin,
+      [coin, currentPosition?.coin],
+    );
 
     const currentMarginUsed = useMemo(() => {
       if (!currentPosition) return new BigNumber(0);
@@ -242,9 +246,7 @@ const AdjustPositionMarginForm = memo(
                   id: ETranslations.perp_token_selector_asset,
                 })}
               </SizableText>
-              <SizableText size="$bodyMdMedium">
-                {currentPosition.coin}
-              </SizableText>
+              <SizableText size="$bodyMdMedium">{displayName}</SizableText>
             </XStack>
 
             <XStack justifyContent="space-between" alignItems="center">

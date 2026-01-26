@@ -28,13 +28,17 @@ import {
   useEarnActions,
   useEarnAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/earn';
+import { useEarnAccountKey } from '@onekeyhq/kit/src/views/Earn/hooks/useEarnAccountKey';
 import {
   EJotaiContextStoreNames,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EModalStakingRoutes,
+  ETabEarnRoutes,
+} from '@onekeyhq/shared/src/routes';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type {
@@ -137,7 +141,7 @@ const hasPositiveReward = ({
 
 function BasicInvestmentDetails() {
   const accountInfo = useActiveAccount({ num: 0 });
-  const actions = useEarnActions();
+  const _actions = useEarnActions();
   const [EarnData] = useEarnAtom();
   const earnAccount = EarnData.earnAccount;
   const [settings] = useSettingsPersistAtom();
@@ -145,14 +149,10 @@ function BasicInvestmentDetails() {
   const intl = useIntl();
   const allNetworkId = useMemo(() => getNetworkIdsMap().onekeyall, []);
   const evmNetworkId = useMemo(() => getNetworkIdsMap().eth, []);
+  const totalFiatMapKey = useEarnAccountKey();
 
   const { result, isLoading } = usePromiseResult(
     async () => {
-      const totalFiatMapKey = actions.current.buildEarnAccountsKey({
-        accountId: accountInfo.activeAccount?.account?.id,
-        indexAccountId: accountInfo.activeAccount?.indexedAccount?.id,
-        networkId: allNetworkId,
-      });
       let list = earnAccount?.[totalFiatMapKey]?.accounts || [];
       if (list.length === 0) {
         const earnAccountOnNetwork =
@@ -174,6 +174,7 @@ function BasicInvestmentDetails() {
             })),
           );
         const evmAccount = list.find((item) => item.networkId === evmNetworkId);
+        // XXX
         if (evmAccount) {
           const earnSummary =
             await backgroundApiProxy.serviceStaking.getEarnSummary(evmAccount);
@@ -199,10 +200,10 @@ function BasicInvestmentDetails() {
     [
       accountInfo.activeAccount?.account?.id,
       accountInfo.activeAccount?.indexedAccount?.id,
-      actions,
       allNetworkId,
       earnAccount,
       evmNetworkId,
+      totalFiatMapKey,
     ],
     {
       watchLoading: true,
@@ -292,19 +293,8 @@ function BasicInvestmentDetails() {
         userSelect="none"
         drillIn
         onPress={async () => {
-          const {
-            activeAccount: { account, indexedAccount },
-          } = accountInfo;
-          const pageEarnAccount =
-            await backgroundApiProxy.serviceStaking.getEarnAccount({
-              accountId: account?.id || '',
-              indexedAccountId: indexedAccount?.id,
-              networkId: tokenInfo.networkId,
-            });
-          if ((account || indexedAccount) && tokenInfo) {
-            navigation.push(EModalStakingRoutes.ProtocolDetailsV2, {
-              indexedAccountId: pageEarnAccount?.account.indexedAccountId,
-              accountId: pageEarnAccount?.accountId,
+          if (tokenInfo) {
+            navigation.push(ETabEarnRoutes.EarnProtocolDetails, {
               networkId: tokenInfo.networkId,
               symbol: tokenInfo.symbol,
               provider: providerName,
@@ -369,7 +359,7 @@ function BasicInvestmentDetails() {
         }
       />
     ),
-    [accountInfo, intl, navigation, settings.currencyInfo.symbol],
+    [intl, navigation, settings.currencyInfo.symbol],
   );
   return (
     <Page scrollEnabled>

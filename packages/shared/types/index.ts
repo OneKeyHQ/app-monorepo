@@ -94,6 +94,7 @@ export enum EAccountSelectorAutoSelectTriggerBy {
 export type INotPromise<T> = T extends Promise<any> ? never : T;
 
 export enum EHomeTab {
+  ALL = 'all',
   TOKENS = 'tokens',
   NFT = 'nft',
   HISTORY = 'history',

@@ -67,6 +67,7 @@ const settings: IVaultSettings = {
   customRpcEnabled: true,
 
   skipFixFeeInfoDecimal: true,
+  preCheckDappTxFeeInfoRequired: true,
 
   accountDeriveInfo,
   networkInfo: {
@@ -140,6 +141,18 @@ const settings: IVaultSettings = {
     [getNetworkIdsMap().cosmoshub]: {
       providers: {
         [EEarnProviderEnum.Everstake]: {
+          supportedSymbols: ['ATOM'],
+          configs: {
+            'ATOM': {
+              enabled: true,
+              tokenAddress: 'uatom',
+              displayProfit: true,
+              usePublicKey: true,
+              claimWithAmount: true,
+            },
+          },
+        },
+        [EEarnProviderEnum.Stakefish]: {
           supportedSymbols: ['ATOM'],
           configs: {
             'ATOM': {

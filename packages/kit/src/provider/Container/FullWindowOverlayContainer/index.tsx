@@ -6,6 +6,8 @@ import {
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { ScreenshotBranding } from '../../../components/ScreenshotBranding';
+
 import { DevOverlayWindowContainer } from './DevOverlayWindowContainer';
 
 export function FullWindowOverlayContainer() {
@@ -18,6 +20,7 @@ export function FullWindowOverlayContainer() {
         <DevOverlayWindowContainer />
         {/* E2E mode, enable tap in iOS */}
         {platformEnv.isE2E ? <></> : <Toaster />}
+        <ScreenshotBranding />
       </OverlayContainer>
       <Portal.Container name={Portal.Constant.HARDWARE_UI_STATE_DIALOG} />
     </>

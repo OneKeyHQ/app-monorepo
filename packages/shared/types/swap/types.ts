@@ -1,4 +1,6 @@
 import type { IKeyOfIcons } from '@onekeyhq/components';
+import type { IEncodedTxTron } from '@onekeyhq/core/src/chains/tron/types';
+import type { IEncodedTxXrp } from '@onekeyhq/core/src/chains/xrp/types';
 import type { EAddressEncodings, IEncodedTx } from '@onekeyhq/core/src/types';
 import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount';
 import type { IDBWalletId } from '@onekeyhq/kit-bg/src/dbs/local/types';
@@ -28,8 +30,10 @@ import type {
   IGasLegacy,
 } from '../fee';
 import type { EMessageTypesEth } from '../message';
+import type { IToken } from '../token';
 import type { IDecodedTxActionTokenApprove } from '../tx';
 import type { NormalizedOrder, TypedDataDomain } from '@cowprotocol/contracts';
+import type { IDeviceType } from '@onekeyfe/hd-core';
 
 export enum EWrappedType {
   DEPOSIT = 'deposit',
@@ -75,6 +79,7 @@ export enum ESwapSource {
   WALLET_HOME = 'wallet_home',
   TOKEN_DETAIL = 'token_detail',
   WALLET_HOME_TOKEN_LIST = 'wallet_home_token_list',
+  WALLET_HOME_POPULAR_TRADING = 'wallet_home_popular_trading',
   EARN = 'earn',
   MARKET = 'market',
   TAB = 'tab',
@@ -112,6 +117,7 @@ export interface ISwapInitParams {
   importToToken?: ISwapToken;
   importNetworkId?: string;
   swapTabSwitchType?: ESwapTabSwitchType;
+  fromAmount?: string;
 }
 
 // token & network
@@ -133,6 +139,9 @@ export interface ISwapNetwork extends ISwapNetworkBase {
 }
 
 export interface ISwapTokenBase {
+  fiatValue?: string;
+  balanceParsed?: string;
+  price?: string;
   networkId: string;
   contractAddress: string;
   isNative?: boolean;
@@ -288,6 +297,7 @@ export interface IFetchQuotesParams extends IFetchSwapQuoteBaseParams {
   userMarketPriceRate?: string;
   denyCrossChainProvider?: string;
   denySingleSwapProvider?: string;
+  walletDeviceType?: IDeviceType;
 }
 interface ISocketAsset {
   address: string;
@@ -338,6 +348,7 @@ export interface IQuoteTip {
   icon?: string;
   title?: string;
   detail?: string;
+  showCancelButton?: boolean;
   link?: string;
 }
 
@@ -485,6 +496,24 @@ export interface ISwapPreSwapData {
   };
 }
 
+export interface IFetchSwapQuoteParams {
+  fromToken: ISwapToken;
+  toToken: ISwapToken;
+  fromTokenAmount?: string;
+  receivingAddress?: string;
+  userAddress?: string;
+  slippagePercentage: number;
+  autoSlippage?: boolean;
+  blockNumber?: number;
+  accountId?: string;
+  protocol: ESwapTabSwitchType;
+  expirationTime?: number;
+  limitPartiallyFillable?: boolean;
+  kind?: ESwapQuoteKind;
+  toTokenAmount?: string;
+  userMarketPriceRate?: string;
+}
+
 export interface IFetchQuoteResult {
   quoteId?: string;
   eventId?: string;
@@ -608,6 +637,7 @@ export enum ESwapFetchCancelCause {
   SWAP_QUOTE_CANCEL = 'SWAP_QUOTE_CANCEL',
   SWAP_APPROVE_ALLOWANCE_CANCEL = 'SWAP_APPROVE_ALLOWANCE_CANCEL',
   SWAP_PERP_DEPOSIT_QUOTE_CANCEL = 'SWAP_PERP_DEPOSIT_QUOTE_CANCEL',
+  SWAP_SPEED_QUOTE_CANCEL = 'SWAP_SPEED_QUOTE_CANCEL',
 }
 
 // swap action&alert state
@@ -677,6 +707,7 @@ export interface ISwapAlertState {
     actionType: ESwapAlertActionType;
     actionLabel?: string;
     actionData?: ISwapAlertActionData;
+    directionType?: ESwapDirectionType;
   };
 }
 
@@ -744,6 +775,14 @@ export interface IOKXTransactionObject {
   randomKeyAccount?: string[];
   signatureData?: string[];
 }
+
+export interface ILMTronObject {
+  from: string;
+  to: string;
+  value: string;
+  data: string;
+}
+
 export interface IFetchBuildTxResponse {
   result: IFetchBuildTxResult;
   tx?: ITransaction;
@@ -751,7 +790,10 @@ export interface IFetchBuildTxResponse {
   swftOrder?: IFetchBuildTxOrderResponse;
   changellyOrder?: IFetchBuildTxChangellyOrderResponse;
   OKXTxObject?: IOKXTransactionObject;
+  LMTronObject?: ILMTronObject;
   ctx?: any;
+  tronTxData?: IEncodedTxTron;
+  xrpTxData?: IEncodedTxXrp;
   socketBridgeScanUrl?: string;
   orderId?: string;
   btcData?: {
@@ -970,15 +1012,21 @@ export interface IFetchLimitOrderRes {
     signedType: EMessageTypesEth;
   };
 }
+
+export interface ISwapProSpeedConfig {
+  slippage: number;
+  spenderAddress: string;
+  defaultTokens: ISwapTokenBase[];
+  defaultLimitTokens: ISwapTokenBase[];
+  swapMevNetConfig: string[];
+}
 export interface ISpeedSwapConfig {
   provider: string;
-  speedConfig: {
-    slippage: number;
-    spenderAddress: string;
-    defaultTokens: ISwapTokenBase[];
-    swapMevNetConfig: string[];
-  };
-  supportSpeedSwap: boolean;
+  speedConfig: ISwapProSpeedConfig;
+  speedDefaultSelectToken?: ISwapTokenBase;
+  supportSpeedSwap?: boolean;
+  onlySupportCrossChain: boolean;
+  onlySupportSingleChain: boolean;
 }
 
 export enum ESwapLimitOrderStatus {
@@ -1018,6 +1066,12 @@ export const ESwapLimitOrderUpdateInterval = 10_000;
 
 export const ESwapLimitOrderMarketPriceUpdateInterval = 15_000;
 
+// swap pro
+
+export enum ESwapProTradeType {
+  MARKET = 'market',
+  LIMIT = 'limit',
+}
 // component -----------------
 
 export interface IExplorersInfo {
@@ -1051,6 +1105,8 @@ export interface ISwapNativeTokenReserveGas {
 
 export const SwapPercentageInputStage = [25, 50, 100];
 export const SwapPercentageInputStageForNative = [25, 50, 75, 100];
+export const SwapLimitPriceInputStageBuyForNative = [0, -20, -50];
+export const SwapLimitPriceInputStageSellForNative = [0, 20, 50, 100];
 
 export const SwapBuildUseMultiplePopoversNetworkIds = ['tron--0x2b6653dc'];
 
@@ -1058,7 +1114,21 @@ export const SwapBuildShouldFallBackNetworkIds = ['tron--0x2b6653dc'];
 
 export const SwapAmountInputAccessoryViewID =
   'swap-amount-input-accessory-view';
+export const SwapLimitPriceInputAccessoryViewID =
+  'swap-limit-price-input-accessory-view';
 
 export const ChainFlipLogo =
   'https://uni.onekey-asset.com/static/logo/chainFlip_logo.png';
 export const ChainFlipName = 'ChainFlip';
+
+export type IPopularTrading = {
+  networkId: string;
+  symbol: string;
+  address: string;
+  marketCap: number;
+  tokenDetail?: {
+    info: IToken;
+    price: number;
+    price24h: number;
+  };
+};

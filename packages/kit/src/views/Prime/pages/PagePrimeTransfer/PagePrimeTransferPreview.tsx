@@ -48,6 +48,7 @@ import type {
 import { usePrimeTransferExit } from './components/hooks/usePrimeTransferExit';
 import { PrimeTransferExitPrevent } from './components/PrimeTransferExitPrevent';
 import { showPrimeTransferImportProcessingDialog } from './components/PrimeTransferImportProcessingDialog';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 function PreviewHeader({
   title,
@@ -154,7 +155,10 @@ function PreviewItem({
                     id: ETranslations.global_transfer_accounts_count,
                   },
                   {
-                    amount: wallet?.indexedAccountUUIDs?.length || 0,
+                    amount:
+                      wallet?.indexedAccountUUIDs?.length ||
+                      wallet?.indexedAccountUUIDsLength ||
+                      0,
                   },
                 )
               : accountUtils.shortenAddress({
@@ -182,7 +186,10 @@ function PreviewItem({
   );
 }
 
-const accountSortFn = (a: IDBAccount, b: IDBAccount) =>
+const accountSortFn = (
+  a: IDBAccount | IPrimeTransferAccount,
+  b: IDBAccount | IPrimeTransferAccount,
+) =>
   natsort({ insensitive: true })(
     a.accountOrder ?? a.accountOrderSaved ?? 0,
     b.accountOrder ?? b.accountOrderSaved ?? 0,
@@ -222,9 +229,13 @@ function WalletList({
     const _importedAccounts = Object.values(data.privateData.importedAccounts);
     const _watchingAccounts = Object.values(data.privateData.watchingAccounts);
     return {
-      wallets: _wallets.sort((a, b) => walletSortFn(a, b)),
-      importedAccounts: _importedAccounts.sort((a, b) => accountSortFn(a, b)),
-      watchingAccounts: _watchingAccounts.sort((a, b) => accountSortFn(a, b)),
+      wallets: _wallets.toSorted((a, b) => walletSortFn(a, b)),
+      importedAccounts: _importedAccounts.toSorted((a, b) =>
+        accountSortFn(a, b),
+      ),
+      watchingAccounts: _watchingAccounts.toSorted((a, b) =>
+        accountSortFn(a, b),
+      ),
     };
   }, [data]);
 
@@ -535,6 +546,14 @@ export default function PagePrimeTransferPreview() {
         try {
           void remotePasswordDialog?.close();
 
+          // exitTransferFlow();
+          // await timerUtils.wait(1000);
+
+          // Delay to ensure the dialog is closed before proceeding
+          if (platformEnv.isNative) {
+            await timerUtils.wait(350);
+          }
+
           await backgroundApiProxy.servicePrimeTransfer.initImportProgress({
             selectedTransferData,
           });
@@ -547,6 +566,8 @@ export default function PagePrimeTransferPreview() {
           const usedPassword = remoteDevicePassword || localPassword;
           const { success, errorsInfo } =
             await backgroundApiProxy.servicePrimeTransfer.startImport({
+              decryptedCredentialsHex:
+                transferData?.privateData?.decryptedCredentialsHex,
               selectedTransferData,
               password: usedPassword
                 ? await backgroundApiProxy.servicePassword.encodeSensitiveText({
@@ -657,12 +678,29 @@ export default function PagePrimeTransferPreview() {
       setIsImporting(false);
     }
   }, [
-    directionUserInfo?.fromUser?.appPlatformName,
-    intl,
+    selectedTransferData,
     isImporting,
     navigation,
-    selectedTransferData,
+    transferData?.privateData?.decryptedCredentialsHex,
     exitTransferFlow,
+    intl,
+    directionUserInfo?.fromUser?.appPlatformName,
+  ]);
+
+  const walletListView = useMemo(() => {
+    return (
+      <WalletList
+        selectedItemMap={selectedItemMap}
+        data={transferData}
+        onItemSelectChange={handleItemSelectChange}
+        onGroupSelectChange={handleGroupSelectChange}
+      />
+    );
+  }, [
+    selectedItemMap,
+    transferData,
+    handleItemSelectChange,
+    handleGroupSelectChange,
   ]);
 
   return (
@@ -674,12 +712,7 @@ export default function PagePrimeTransferPreview() {
       />
       <Page.Body>
         <Stack px="$5" pt="$2" gap="$5">
-          <WalletList
-            selectedItemMap={selectedItemMap}
-            data={transferData}
-            onItemSelectChange={handleItemSelectChange}
-            onGroupSelectChange={handleGroupSelectChange}
-          />
+          {walletListView}
           {debugButtons}
         </Stack>
       </Page.Body>

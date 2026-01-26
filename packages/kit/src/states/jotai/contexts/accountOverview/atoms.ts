@@ -1,3 +1,5 @@
+import type { IWalletBanner } from '@onekeyhq/shared/types/walletBanner';
+
 import { createJotaiContext } from '../../utils/createJotaiContext';
 
 const {
@@ -12,6 +14,19 @@ export {
   contextAtomMethod,
   withAccountOverviewProvider,
 };
+
+export const { atom: walletStatusAtom, use: useWalletStatusAtom } =
+  contextAtom<{
+    showReceiveInfo: boolean;
+    receiveInfoInit: boolean;
+    showReferralCodeBlock: boolean;
+    referralCodeBlockInit: boolean;
+  }>({
+    showReceiveInfo: false,
+    receiveInfoInit: false,
+    showReferralCodeBlock: false,
+    referralCodeBlockInit: false,
+  });
 
 export const { atom: accountWorthAtom, use: useAccountWorthAtom } =
   contextAtom<{
@@ -52,3 +67,27 @@ export const { atom: approvalsInfoAtom, use: useApprovalsInfoAtom } =
   }>({
     hasRiskApprovals: false,
   });
+
+export const { atom: walletTopBannersAtom, use: useWalletTopBannersAtom } =
+  contextAtom<{
+    banners: IWalletBanner[];
+  }>({
+    banners: [],
+  });
+
+export const {
+  atom: accountDeFiOverviewAtom,
+  use: useAccountDeFiOverviewAtom,
+} = contextAtom<{
+  totalValue: number;
+  totalDebt: number;
+  totalReward: number;
+  netWorth: number;
+  currency: string;
+}>({
+  totalValue: 0,
+  totalDebt: 0,
+  totalReward: 0,
+  netWorth: 0,
+  currency: '',
+});

@@ -148,7 +148,7 @@ export function SearchInput() {
           onPress={handleSearchBarPress}
           px="$3"
           $gtSm={{
-            w: 384,
+            w: platformEnv.isNative ? '100%' : 384,
           }}
         >
           <Icon name="SearchOutline" size="$5" color="$textSubdued" />

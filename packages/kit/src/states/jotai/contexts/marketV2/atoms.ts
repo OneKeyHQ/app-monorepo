@@ -6,6 +6,7 @@ import {
   atom,
   createJotaiContext,
 } from '@onekeyhq/kit/src/states/jotai/utils/createJotaiContext';
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import {
   EAmountEnterType,
   ESlippageSetting,
@@ -56,11 +57,14 @@ export const { atom: isNativeAtom, use: useIsNativeAtom } =
 export const { atom: showWatchlistOnlyAtom, use: useShowWatchlistOnlyAtom } =
   contextAtom<boolean>(false);
 
-export const { atom: selectedNetworkIdAtom, use: useSelectedNetworkIdAtom } =
-  contextAtom<string>('sol--101');
+// Market Detail selected derive type (local to Market Detail page, not global)
+// Used when user selects a specific derive type in AddressTypeSelector
+export const { atom: selectedDeriveTypeAtom, use: useSelectedDeriveTypeAtom } =
+  contextAtom<IAccountDeriveTypes | undefined>(undefined);
 
-export const { atom: selectedMarketTabAtom, use: useSelectedMarketTabAtom } =
-  contextAtom<string>('trending');
+// Empty string means not initialized yet, will be set by MarketHomeV2
+export const { atom: selectedNetworkIdAtom, use: useSelectedNetworkIdAtom } =
+  contextAtom<string>('');
 
 // SwapPanel Analytics Atoms
 export interface ISwapAnalyticsState {

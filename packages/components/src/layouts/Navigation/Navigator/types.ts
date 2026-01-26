@@ -1,4 +1,4 @@
-import type { ComponentType } from 'react';
+import type { ComponentType, ReactElement } from 'react';
 
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
@@ -33,9 +33,11 @@ export interface ITabNavigatorConfig<RouteName extends string> {
   tabBarIcon: (focused?: boolean) => IKeyOfIcons;
   translationId: ETranslations;
   collapseSideBarTranslationId?: ETranslations;
-  children: ITabSubNavigatorConfig<any, any>[];
+  children: ITabSubNavigatorConfig<any, any>[] | null;
   freezeOnBlur?: boolean;
   disable?: boolean;
+  hidden?: boolean;
+  inMoreAction?: boolean;
   rewrite?: string;
   /** with exact property set to true, current screen will ignore the parent screen's path config */
   exact?: boolean;
@@ -45,6 +47,7 @@ export interface ITabNavigatorConfig<RouteName extends string> {
   tabbarOnPress?: () => void;
   onPressWhenSelected?: () => void;
   trackId?: string;
+  hideOnTabBar?: boolean;
 }
 
 export interface ICommonNavigatorConfig<
@@ -73,4 +76,7 @@ export interface ITabNavigatorExtraConfig<RouteName extends string> {
 export interface ITabNavigatorProps<RouteName extends string> {
   config: ITabNavigatorConfig<RouteName>[];
   extraConfig?: ITabNavigatorExtraConfig<RouteName>;
+  showTabBar?: boolean;
+  bottomMenu: ReactElement;
+  webPageTabBar: ReactElement;
 }

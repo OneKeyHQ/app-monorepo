@@ -1,5 +1,4 @@
-/* eslint-disable unicorn/prefer-global-this */
-/* eslint-disable spellcheck/spell-checker */
+// oxlint-disable unicorn/prefer-global-this
 // @ts-nocheck
 // eslint-disable-next-line max-classes-per-file
 import * as mimeTypes from 'mime-types';
@@ -69,7 +68,7 @@ function isHTMLMIMEType(value: string) {
   return getEssence(value) === 'text/html';
 }
 
-function isXMLMIMEType(value: string) {
+function isXMLMimeType(value: string) {
   const essence = getEssence(value);
   return (
     essence.endsWith('+xml') ||
@@ -177,7 +176,15 @@ enum EXhrState {
   DONE = 4,
 }
 
-const METHODS = ['GET', 'HEAD', 'POST', 'DELETE', 'OPTIONS', 'PUT', 'PATCH'];
+const METHODS = new Set([
+  'GET',
+  'HEAD',
+  'POST',
+  'DELETE',
+  'OPTIONS',
+  'PUT',
+  'PATCH',
+]);
 
 export class XMLHttpRequest extends XMLHttpRequestEventTarget {
   #abortedFlag = false;
@@ -258,7 +265,7 @@ export class XMLHttpRequest extends XMLHttpRequestEventTarget {
     if (
       this.#responseType === '' &&
       charset == null &&
-      isXMLMIMEType(this.#getFinalMIMEType())
+      isXMLMimeType(this.#getFinalMIMEType())
     ) {
       charset = 'utf-8';
     }
@@ -317,7 +324,7 @@ export class XMLHttpRequest extends XMLHttpRequestEventTarget {
       return;
     }
     const finalMIME = this.#getFinalMIMEType();
-    if (!(isHTMLMIMEType(finalMIME) || isXMLMIMEType(finalMIME))) {
+    if (!(isHTMLMIMEType(finalMIME) || isXMLMimeType(finalMIME))) {
       return;
     }
     if (this.#responseType === '' && isHTMLMIMEType(finalMIME)) {
@@ -546,7 +553,7 @@ export class XMLHttpRequest extends XMLHttpRequestEventTarget {
   ): void {
     // eslint-disable-next-line no-param-reassign
     method = method.toUpperCase();
-    if (!METHODS.includes(method)) {
+    if (!METHODS.has(method)) {
       throw new DOMException(
         `The method "${method}" is not allowed.`,
         'SyntaxError',

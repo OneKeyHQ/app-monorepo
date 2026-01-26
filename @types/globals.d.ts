@@ -28,6 +28,8 @@ type IOneKeyPerfTrace = {
 };
 
 declare global {
+  var JuiceboxGetAuthToken: (realmId: Uint8Array) => Promise<string>;
+
   var $desktopMainAppFunctions: {
     getSafelyMainWindow: () => BrowserWindow | undefined;
     getSafelyBrowserWindow: () => BrowserWindow | undefined;
@@ -41,6 +43,7 @@ declare global {
   };
 
   var $$appGlobals: IAppGlobals;
+  var $onekeyIsInBackground: boolean | undefined;
   var $onekeySystemDiskIsFull: boolean | undefined;
   var $indexedDBIsMigratedToBucket:
     | ICheckCurrentDBIsMigratedToBucketResult

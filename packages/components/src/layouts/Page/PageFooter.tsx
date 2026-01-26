@@ -3,7 +3,7 @@ import { memo, useContext, useEffect, useMemo, useState } from 'react';
 
 import Animated from 'react-native-reanimated';
 
-import { useMedia } from '@onekeyhq/components/src/shared/tamagui';
+import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
 
 import { OptimizationView } from '../../optimization';
 

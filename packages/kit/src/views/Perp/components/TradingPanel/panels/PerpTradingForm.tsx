@@ -4,6 +4,7 @@ import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
+  Badge,
   Checkbox,
   DashText,
   Divider,
@@ -23,17 +24,22 @@ import {
   useTradingFormComputedAtom,
   useTradingFormEnvAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import type { ITradingFormData } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import type {
+  IBBOPriceMode,
+  ITradingFormData,
+} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsAccountLoadingInfoAtom,
-  usePerpsActiveAccountSummaryAtom,
   usePerpsActiveAssetAtom,
   usePerpsActiveAssetCtxAtom,
   usePerpsActiveAssetDataAtom,
   usePerpsShouldShowEnableTradingButtonAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { formatPriceToSignificantDigits } from '@onekeyhq/shared/src/utils/perpsUtils';
+import {
+  formatPriceToSignificantDigits,
+  parseDexCoin,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
 import { EPerpsSizeInputMode } from '@onekeyhq/shared/types/hyperliquid';
 
 import { useShowDepositWithdrawModal } from '../../../hooks/useShowDepositWithdrawModal';
@@ -48,6 +54,7 @@ import { PriceInput } from '../inputs/PriceInput';
 import { SizeInput } from '../inputs/SizeInput';
 import { TpSlFormInput } from '../inputs/TpSlFormInput';
 import { LeverageAdjustModal } from '../modals/LeverageAdjustModal';
+import { BBOSelector } from '../selectors/BBOSelector';
 import { MarginModeSelector } from '../selectors/MarginModeSelector';
 import { OrderTypeSelector } from '../selectors/OrderTypeSelector';
 
@@ -77,7 +84,6 @@ function PerpTradingForm({
   isMobile = false,
 }: IPerpTradingFormProps) {
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
-  const [accountSummary] = usePerpsActiveAccountSummaryAtom();
 
   const [formData] = useTradingFormAtom();
   const [, setTradingFormEnv] = useTradingFormEnvAtom();
@@ -87,9 +93,13 @@ function PerpTradingForm({
   const [activeAsset] = usePerpsActiveAssetAtom();
   const [activeAssetCtx] = usePerpsActiveAssetCtxAtom();
   const { midPrice, midPriceBN } = useTradingPrice();
-  const currentTokenName = activeAsset?.coin;
   const [{ activePositions: perpsPositions }] = usePerpsActivePositionAtom();
   const [perpsSelectedSymbol] = usePerpsActiveAssetAtom();
+  const isBBOActive = !!formData.bboPriceMode;
+  const perpsSelectedDisplayName = useMemo(
+    () => parseDexCoin(perpsSelectedSymbol.coin).displayName,
+    [perpsSelectedSymbol.coin],
+  );
   const [activeAssetData] = usePerpsActiveAssetDataAtom();
   const { universe } = perpsSelectedSymbol;
   const [shouldShowEnableTradingButton] =
@@ -102,8 +112,6 @@ function PerpTradingForm({
   );
 
   const prevTypeRef = useRef<'market' | 'limit'>(formData.type);
-  const prevTokenRef = useRef<string>(currentTokenName || '');
-  const tokenSwitchingRef = useRef<string | false>(false);
 
   useEffect(() => {
     const prevType = prevTypeRef.current;
@@ -119,9 +127,14 @@ function PerpTradingForm({
   }, [formData.type, formData.price, midPrice, updateForm]);
 
   useEffect(() => {
+    const rawAvailable = activeAssetData?.availableToTrade;
+    const maxAvailable = rawAvailable
+      ? Math.max(Number(rawAvailable[0] ?? 0), Number(rawAvailable[1] ?? 0))
+      : 0;
     const nextEnv = {
       markPrice: midPrice,
-      availableToTrade: activeAssetData?.availableToTrade,
+      availableToTrade: [maxAvailable, maxAvailable],
+      maxTradeSzs: activeAssetData?.maxTradeSzs,
       leverageValue: activeAssetData?.leverage?.value,
       fallbackLeverage: activeAsset?.universe?.maxLeverage,
       szDecimals: activeAsset?.universe?.szDecimals,
@@ -129,13 +142,17 @@ function PerpTradingForm({
     setTradingFormEnv((prev) => {
       const prevAvailable = prev.availableToTrade ?? [];
       const nextAvailable = nextEnv.availableToTrade ?? [];
+      const prevMaxTradeSzs = prev.maxTradeSzs ?? [];
+      const nextMaxTradeSzs = nextEnv.maxTradeSzs ?? [];
       if (
         prev.markPrice === nextEnv.markPrice &&
         prev.leverageValue === nextEnv.leverageValue &&
         prev.fallbackLeverage === nextEnv.fallbackLeverage &&
         prev.szDecimals === nextEnv.szDecimals &&
         prevAvailable[0] === nextAvailable[0] &&
-        prevAvailable[1] === nextAvailable[1]
+        prevAvailable[1] === nextAvailable[1] &&
+        prevMaxTradeSzs[0] === nextMaxTradeSzs[0] &&
+        prevMaxTradeSzs[1] === nextMaxTradeSzs[1]
       ) {
         return prev;
       }
@@ -149,6 +166,7 @@ function PerpTradingForm({
   }, [
     midPrice,
     activeAssetData?.availableToTrade,
+    activeAssetData?.maxTradeSzs,
     activeAssetData?.leverage?.value,
     activeAsset?.universe?.maxLeverage,
     activeAsset?.universe?.szDecimals,
@@ -156,41 +174,6 @@ function PerpTradingForm({
     formData.leverage,
     updateForm,
   ]);
-
-  // Token Switch Effect: Handle price updates when user switches tokens
-  // This prevents stale price data from being used during token transitions
-  useEffect(() => {
-    const prevToken = prevTokenRef.current;
-    const hasTokenChanged =
-      currentTokenName && prevToken && prevToken !== currentTokenName;
-    const isDataSynced = prevToken === currentTokenName;
-    const shouldUpdatePrice =
-      tokenSwitchingRef.current === currentTokenName &&
-      formData.type === 'limit' &&
-      currentTokenName &&
-      midPrice &&
-      isDataSynced;
-
-    // Step 1: Detect token switch and mark switching state
-    if (hasTokenChanged) {
-      tokenSwitchingRef.current = currentTokenName;
-      prevTokenRef.current = currentTokenName;
-      return;
-    }
-
-    // Step 2: Update price after token data is synchronized (prevents stale price)
-    if (shouldUpdatePrice && midPrice) {
-      updateForm({
-        price: formatPriceToSignificantDigits(midPrice),
-      });
-      tokenSwitchingRef.current = false;
-    }
-
-    // Step 3: Initialize token reference on first load
-    if (!prevToken && currentTokenName) {
-      prevTokenRef.current = currentTokenName;
-    }
-  }, [currentTokenName, midPrice, formData.type, updateForm]);
 
   // Reference Price: Get the effective trading price (limit price or market price)
   const [, referencePriceString] = useMemo(() => {
@@ -228,13 +211,15 @@ function PerpTradingForm({
     }, [perpsPositions, perpsSelectedSymbol.coin]);
 
   const availableToTrade = useMemo(() => {
-    const accountValue = new BigNumber(accountSummary?.accountValue || '0');
-    const totalMarginUsed = new BigNumber(
-      accountSummary?.totalMarginUsed || '0',
+    const available = activeAssetData?.availableToTrade;
+    if (!available) return '0';
+    const longValue = Number(available[0] ?? 0);
+    const shortValue = Number(available[1] ?? 0);
+    return new BigNumber(Math.max(longValue, shortValue)).toFixed(
+      2,
+      BigNumber.ROUND_DOWN,
     );
-    const availableToTradeBN = accountValue.minus(totalMarginUsed);
-    return availableToTradeBN.toFixed();
-  }, [accountSummary]);
+  }, [activeAssetData?.availableToTrade]);
 
   const switchToManual = useCallback(() => {
     if (tradingComputed.sizeInputMode === EPerpsSizeInputMode.SLIDER) {
@@ -319,6 +304,23 @@ function PerpTradingForm({
     [updateForm],
   );
 
+  const handleBBOToggle = useCallback(() => {
+    if (formData.bboPriceMode) {
+      updateForm({ bboPriceMode: null });
+    } else {
+      updateForm({
+        bboPriceMode: { type: 'counterparty', level: 1 },
+      });
+    }
+  }, [formData.bboPriceMode, updateForm]);
+
+  const handleBBOChange = useCallback(
+    (mode: IBBOPriceMode) => {
+      updateForm({ bboPriceMode: mode });
+    },
+    [updateForm],
+  );
+
   const orderTypeOptions = useMemo(
     () => [
       {
@@ -354,54 +356,65 @@ function PerpTradingForm({
   return (
     <YStack gap={isMobile ? '$2.5' : '$4'}>
       {isMobile ? (
-        <XStack alignItems="center" flex={1} gap="$2.5">
-          <YStack flex={1}>
-            <OrderTypeSelector
-              value={formData.type}
-              onChange={(type: 'market' | 'limit') => updateForm({ type })}
-              disabled={isSubmitting}
-              isMobile
-            />
-          </YStack>
-        </XStack>
-      ) : (
-        <YStack>
-          <XStack>
-            {orderTypeOptions.map((option) => (
-              <XStack
-                pb="$2.5"
-                key={option.value}
-                ml="$2.5"
-                mr="$2"
-                borderBottomWidth={
-                  formData.type === option.value ? '$0.5' : '$0'
-                }
-                borderBottomColor="$borderActive"
-                onPress={() => handleOrderTypeChange(option.name)}
-                cursor="pointer"
-              >
-                <SizableText
-                  size="$headingXs"
-                  fontSize={14}
-                  color={
-                    formData.type === option.value ? '$text' : '$textSubdued'
-                  }
-                >
-                  {option.name}
-                </SizableText>
-              </XStack>
-            ))}
+        <>
+          <XStack alignItems="center" flex={1} gap="$2.5">
+            <YStack flex={1}>
+              <MarginModeSelector disabled={isSubmitting} isMobile={isMobile} />
+            </YStack>
+            <LeverageAdjustModal isMobile={isMobile} />
           </XStack>
-          <Divider />
-        </YStack>
-      )}
 
-      <XStack alignItems="center" flex={1} gap={isMobile ? '$2.5' : '$3'}>
-        <YStack flex={1}>
-          <MarginModeSelector disabled={isSubmitting} isMobile={isMobile} />
-        </YStack>
-        <LeverageAdjustModal isMobile={isMobile} />
-      </XStack>
+          <XStack alignItems="center" flex={1} gap="$2.5">
+            <YStack flex={1}>
+              <OrderTypeSelector
+                value={formData.type}
+                onChange={(type: 'market' | 'limit') => updateForm({ type })}
+                disabled={isSubmitting}
+                isMobile
+              />
+            </YStack>
+          </XStack>
+        </>
+      ) : (
+        <>
+          <YStack>
+            <XStack>
+              {orderTypeOptions.map((option) => (
+                <XStack
+                  pb="$2.5"
+                  key={option.value}
+                  ml="$2.5"
+                  mr="$2"
+                  borderBottomWidth={
+                    formData.type === option.value ? '$0.5' : '$0'
+                  }
+                  borderBottomColor="$borderActive"
+                  onPress={() => handleOrderTypeChange(option.name)}
+                  cursor="pointer"
+                >
+                  <SizableText
+                    size="$headingXs"
+                    fontSize={14}
+                    color={
+                      formData.type === option.value ? '$text' : '$textSubdued'
+                    }
+                  >
+                    {option.name}
+                  </SizableText>
+                </XStack>
+              ))}
+            </XStack>
+            <Divider />
+          </YStack>
+
+          <XStack alignItems="center" flex={1} gap="$3">
+            <YStack flex={1}>
+              <MarginModeSelector disabled={isSubmitting} isMobile={isMobile} />
+            </YStack>
+            <LeverageAdjustModal isMobile={isMobile} />
+          </XStack>
+        </>
+      )}
 
       <YStack
         gap="$2.5"
@@ -444,7 +457,7 @@ function PerpTradingForm({
                   selectedSymbolPositionSide as ITradeSide,
                 )}
               >
-                {selectedSymbolPositionValue} {perpsSelectedSymbol.coin}
+                {selectedSymbolPositionValue} {perpsSelectedDisplayName}
               </SizableText>
             )}
           </XStack>
@@ -452,26 +465,92 @@ function PerpTradingForm({
       </YStack>
 
       {formData.type === 'limit' || isMobile ? (
-        <PriceInput
-          onUseMidPrice={() => {
-            if (midPrice) {
-              updateForm({
-                price: formatPriceToSignificantDigits(midPrice),
-              });
-            }
-          }}
-          value={
-            formData.type === 'limit'
-              ? formData.price
-              : intl.formatMessage({
-                  id: ETranslations.perp_market_price,
-                })
-          }
-          onChange={(value) => updateForm({ price: value })}
-          szDecimals={universe?.szDecimals ?? 2}
-          isMobile={isMobile}
-          disabled={formData.type === 'market'}
-        />
+        <XStack alignItems="center" flex={1} gap={isMobile ? '$2.5' : '$3'}>
+          {isBBOActive && formData.type === 'limit' ? (
+            <YStack flex={1}>
+              <BBOSelector
+                value={formData.bboPriceMode ?? null}
+                onChange={handleBBOChange}
+                disabled={isSubmitting}
+                isMobile={isMobile}
+              />
+            </YStack>
+          ) : (
+            <YStack flex={1}>
+              <PriceInput
+                onUseMidPrice={() => {
+                  if (midPrice) {
+                    updateForm({
+                      price: formatPriceToSignificantDigits(midPrice),
+                    });
+                  }
+                }}
+                value={
+                  formData.type === 'limit'
+                    ? formData.price
+                    : intl.formatMessage({
+                        id: ETranslations.perp_market_price,
+                      })
+                }
+                onChange={(value) => updateForm({ price: value })}
+                szDecimals={universe?.szDecimals ?? 2}
+                isMobile={isMobile}
+                disabled={formData.type === 'market'}
+              />
+            </YStack>
+          )}
+          {formData.type === 'limit' ? (
+            <Badge
+              testID="perp-bbo-toggle-button"
+              borderRadius="$2"
+              bg="$bgSubdued"
+              borderWidth="$px"
+              borderColor={isBBOActive ? '$borderPrimary' : '$bgSubdued'}
+              onPress={handleBBOToggle}
+              px="$3"
+              h={isMobile ? 38 : 40}
+              alignItems="center"
+              hoverStyle={{
+                bg: '$bgHover',
+              }}
+              pressStyle={{
+                bg: '$bgHover',
+              }}
+              disabled={isSubmitting}
+              cursor="pointer"
+            >
+              {isMobile ? (
+                <DashText
+                  size="$bodyMdMedium"
+                  dashColor="$text"
+                  dashThickness={0}
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.Perps_BBO_button_title,
+                  })}
+                </DashText>
+              ) : (
+                <Tooltip
+                  renderTrigger={
+                    <DashText
+                      size="$bodyMdMedium"
+                      dashColor="$text"
+                      dashThickness={0.5}
+                    >
+                      {intl.formatMessage({
+                        id: ETranslations.Perps_BBO_button_title,
+                      })}
+                    </DashText>
+                  }
+                  renderContent={intl.formatMessage({
+                    id: ETranslations.Perps_BBO_button_desc,
+                  })}
+                  placement="top-end"
+                />
+              )}
+            </Badge>
+          ) : null}
+        </XStack>
       ) : null}
 
       <SizeInput
@@ -479,13 +558,14 @@ function PerpTradingForm({
         side={formData.side}
         activeAsset={activeAsset}
         activeAssetCtx={activeAssetCtx}
-        symbol={perpsSelectedSymbol.coin}
+        symbol={perpsSelectedDisplayName}
         value={formData.size}
         onChange={handleManualSizeChange}
         sizeInputMode={tradingComputed.sizeInputMode}
         sliderPercent={tradingComputed.sizePercent}
         onRequestManualMode={switchToManual}
         isMobile={isMobile}
+        leverage={formData.leverage ?? 1}
       />
 
       <YStack {...(isMobile && { pt: '$2', pb: '$2' })}>

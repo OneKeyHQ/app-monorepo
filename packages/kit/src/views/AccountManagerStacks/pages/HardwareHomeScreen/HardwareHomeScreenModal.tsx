@@ -1,4 +1,3 @@
-/* eslint-disable spellcheck/spell-checker */
 import { useCallback, useMemo, useState } from 'react';
 
 import { EDeviceType } from '@onekeyfe/hd-shared';
@@ -649,7 +648,7 @@ export default function HardwareHomeScreenModal({
           });
 
         return { homeScreenList: dataList, isLoadingError: false };
-      } catch (error) {
+      } catch (_error) {
         return { homeScreenList: [], isLoadingError: true };
       }
     },
@@ -755,7 +754,9 @@ export default function HardwareHomeScreenModal({
 
   return (
     <Page scrollEnabled safeAreaEnabled>
-      <Page.Header title="HomeScreen" />
+      <Page.Header
+        title={intl.formatMessage({ id: ETranslations.global_wallpaper })}
+      />
       <Page.Body px="$4">
         <YStack gap="$2" py="$2">
           <WallpaperCustomCategorySection
@@ -810,13 +811,13 @@ export default function HardwareHomeScreenModal({
                   screenHex: customScreenHex,
                   thumbnailHex: customThumbnailHex,
                   blurScreenHex: customBlurScreenHex,
-                } = await deviceHomeScreenUtils.buildCustomScreenHex(
-                  device.id,
-                  selectedItem.uri || selectedItem.url,
-                  device.deviceType,
+                } = await deviceHomeScreenUtils.buildCustomScreenHex({
+                  dbDeviceId: device.id,
+                  url: selectedItem.uri || selectedItem.url,
+                  deviceType: device.deviceType,
                   isUserUpload,
-                  deviceInfo?.config,
-                );
+                  config: deviceInfo?.config,
+                });
 
                 finallyScreenHex = customScreenHex || '';
                 finallyThumbnailHex = customThumbnailHex;

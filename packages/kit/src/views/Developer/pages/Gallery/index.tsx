@@ -149,6 +149,18 @@ const InputGallery = LazyLoadPage(
       '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Input'
     ),
 );
+const IpRequestGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/IpRequest'
+    ),
+);
+const NetworkDoctorGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/NetworkDoctor'
+    ),
+);
 const JotaiContextGallery = LazyLoadPage(
   () =>
     import(
@@ -203,12 +215,7 @@ const LottieViewGallery = LazyLoadPage(
       '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/LottieView'
     ),
 );
-const DemoRootApp = LazyLoadPage(
-  () =>
-    import(
-      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/NavigatorRoute'
-    ),
-);
+
 const PasswordDemoGallery = LazyLoadPage(
   () =>
     import(
@@ -510,6 +517,20 @@ const PerpGallery = LazyLoadPage(
     ),
 );
 
+const CloudBackupGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/CloudBackupGallery'
+    ),
+);
+
+const KeylessWalletGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/KeylessWalletGallery'
+    ),
+);
+
 const TradingViewGallery = LazyLoadPage(
   () =>
     import(
@@ -555,6 +576,27 @@ const AccordionGallery = LazyLoadPage(
   () =>
     import(
       '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/AccordionGallery'
+    ),
+);
+
+const AuthGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/AuthGallery'
+    ),
+);
+
+const OneKeyIDGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/OneKeyIDGallery'
+    ),
+);
+
+const StorageGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/StorageGallery'
     ),
 );
 
@@ -660,6 +702,13 @@ const CarouselGallery = LazyLoadPage(
     ),
 );
 
+const PlaygroundGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/playground/index'
+    ),
+);
+
 export const galleryScreenList: {
   name: EGalleryRoutes;
   component: ComponentType;
@@ -695,6 +744,11 @@ export const galleryScreenList: {
   { name: EGalleryRoutes.ComponentBadge, component: BadgeGallery },
   { name: EGalleryRoutes.ComponentBreadcrumb, component: BreadcrumbGallery },
   { name: EGalleryRoutes.ComponentInput, component: InputGallery },
+  { name: EGalleryRoutes.ComponentIpRequest, component: IpRequestGallery },
+  {
+    name: EGalleryRoutes.ComponentNetworkDoctor,
+    component: NetworkDoctorGallery,
+  },
   { name: EGalleryRoutes.ComponentDialog, component: DialogGallery },
   { name: EGalleryRoutes.ComponentEmpty, component: EmptyGallery },
   { name: EGalleryRoutes.ComponentSend, component: SendGallery },
@@ -756,11 +810,6 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentSegmentSlider,
     component: SegmentSliderGallery,
-  },
-  {
-    name: EGalleryRoutes.ComponentNavigation,
-    component: DemoRootApp,
-    // options: { headerShown: false },
   },
   {
     name: EGalleryRoutes.ComponentSegmentControl,
@@ -889,6 +938,14 @@ export const galleryScreenList: {
     component: PerpGallery,
   },
   {
+    name: EGalleryRoutes.ComponentCloudBackup,
+    component: CloudBackupGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentKeylessWallet,
+    component: KeylessWalletGallery,
+  },
+  {
     name: EGalleryRoutes.ComponentOrderBook,
     component: OrderBookGallery,
   },
@@ -968,5 +1025,21 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentCarousel,
     component: CarouselGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentPlayground,
+    component: PlaygroundGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentAuth,
+    component: AuthGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentOneKeyID,
+    component: OneKeyIDGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentStorage,
+    component: StorageGallery,
   },
 ];

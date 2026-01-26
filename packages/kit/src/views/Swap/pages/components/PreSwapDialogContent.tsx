@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { isEqual } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -25,8 +25,10 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type {
   IFetchLimitOrderRes,
   IFetchQuoteResult,
+  IQuoteTip,
   ISwapPreSwapData,
   ISwapStep,
+  ISwapToken,
   ISwapTxHistory,
 } from '@onekeyhq/shared/types/swap/types';
 import {
@@ -40,21 +42,32 @@ import {
 import PreSwapConfirmResult from '../../components/PreSwapConfirmResult';
 import PreSwapInfoGroup from '../../components/PreSwapInfoGroup';
 import PreSwapStep from '../../components/PreSwapStep';
+import { PreSwapTipInfo } from '../../components/PreSwapTipInfo';
 import PreSwapTokenItem from '../../components/PreSwapTokenItem';
-import { useSwapBuildTx } from '../../hooks/useSwapBuiltTx';
 
 interface IPreSwapDialogContentProps {
   onConfirm: () => void;
   onDone: () => void;
+  preSwapBeforeStepActions: (
+    data?: IFetchQuoteResult,
+    currentFromToken?: ISwapToken,
+    currentToToken?: ISwapToken,
+  ) => void;
+  preSwapStepsStart: (swapStepsValues?: {
+    steps: ISwapStep[];
+    preSwapData: ISwapPreSwapData;
+    quoteResult?: IFetchQuoteResult;
+  }) => void;
 }
 
 const PreSwapDialogContent = ({
   onDone,
   onConfirm,
+  preSwapBeforeStepActions,
+  preSwapStepsStart,
 }: IPreSwapDialogContentProps) => {
   const intl = useIntl();
   const [swapSteps, setSwapSteps] = useSwapStepsAtom();
-  const { preSwapBeforeStepActions } = useSwapBuildTx();
   const [swapStepNetFeeLevel, setSwapStepNetFeeLevel] =
     useSwapStepNetFeeLevelAtom();
   const swapStepsRef = useRef(swapSteps);
@@ -81,11 +94,36 @@ const PreSwapDialogContent = ({
       }),
     [activeAccount?.wallet?.id],
   );
+  const isExternalAccount = useMemo(
+    () =>
+      accountUtils.isExternalWallet({
+        walletId: activeAccount?.wallet?.id ?? '',
+      }),
+    [activeAccount?.wallet?.id],
+  );
 
   const [inAppNotificationAtom, setInAppNotificationAtom] =
     useInAppNotificationAtom();
-  const { preSwapStepsStart } = useSwapBuildTx();
 
+  const [showPreSwapTipInfo, setShowPreSwapTipInfo] = useState<
+    IQuoteTip | undefined
+  >(undefined);
+
+  const handleConfirmPress = useCallback(() => {
+    if (quoteResult?.quoteShowTip) {
+      setShowPreSwapTipInfo(quoteResult?.quoteShowTip);
+    } else {
+      onConfirm();
+    }
+  }, [onConfirm, quoteResult?.quoteShowTip]);
+
+  const tipOnConfirm = useCallback(() => {
+    onConfirm();
+    setShowPreSwapTipInfo(undefined);
+  }, [onConfirm]);
+  const tipOnCancel = useCallback(() => {
+    setShowPreSwapTipInfo(undefined);
+  }, []);
   useEffect(() => {
     if (
       inAppNotificationAtom.swapApprovingTransaction &&
@@ -255,11 +293,20 @@ const PreSwapDialogContent = ({
 
   const actionBtnTest = useMemo(() => {
     if (preSwapData?.isHWAndExBatchTransfer) {
-      return intl.formatMessage({
-        id: quoteResult?.allowanceResult?.shouldResetApprove
-          ? ETranslations.swap_review_confirm_3_on_device
-          : ETranslations.swap_review_confirm_2_on_device,
-      });
+      if (isHwWallet) {
+        return intl.formatMessage({
+          id: quoteResult?.allowanceResult?.shouldResetApprove
+            ? ETranslations.swap_review_confirm_3_on_device
+            : ETranslations.swap_review_confirm_2_on_device,
+        });
+      }
+      if (isExternalAccount) {
+        return intl.formatMessage({
+          id: quoteResult?.allowanceResult?.shouldResetApprove
+            ? ETranslations.swap_review_confirm_3_on_wallet
+            : ETranslations.swap_review_confirm_2_on_wallet,
+        });
+      }
     }
     return intl.formatMessage({
       id: isHwWallet
@@ -268,6 +315,7 @@ const PreSwapDialogContent = ({
     });
   }, [
     intl,
+    isExternalAccount,
     isHwWallet,
     preSwapData?.isHWAndExBatchTransfer,
     quoteResult?.allowanceResult?.shouldResetApprove,
@@ -353,27 +401,37 @@ const PreSwapDialogContent = ({
           swapSteps.steps[0].status === ESwapStepStatus.READY ? (
             <YStack gap="$4">
               {/* Info items */}
-              <PreSwapInfoGroup
-                preSwapData={swapSteps.preSwapData}
-                onSelectNetworkFeeLevel={(value) => {
-                  setSwapStepNetFeeLevel({
-                    networkFeeLevel: value,
-                  });
-                }}
-              />
-              {/* Primary button */}
-              <Button
-                variant="primary"
-                onPress={onConfirm}
-                size="medium"
-                disabled={
-                  swapSteps.preSwapData.estimateNetworkFeeLoading ||
-                  swapSteps.preSwapData.swapBuildLoading ||
-                  swapSteps.preSwapData.stepBeforeActionsLoading
-                }
-              >
-                {actionBtnTest}
-              </Button>
+              {showPreSwapTipInfo ? (
+                <PreSwapTipInfo
+                  quoteShowTip={showPreSwapTipInfo}
+                  onConfirm={tipOnConfirm}
+                  onCancel={tipOnCancel}
+                />
+              ) : (
+                <>
+                  <PreSwapInfoGroup
+                    preSwapData={swapSteps.preSwapData}
+                    onSelectNetworkFeeLevel={(value) => {
+                      setSwapStepNetFeeLevel({
+                        networkFeeLevel: value,
+                      });
+                    }}
+                  />
+                  {/* Primary button */}
+                  <Button
+                    variant="primary"
+                    onPress={handleConfirmPress}
+                    size="medium"
+                    disabled={
+                      swapSteps.preSwapData.estimateNetworkFeeLoading ||
+                      swapSteps.preSwapData.swapBuildLoading ||
+                      swapSteps.preSwapData.stepBeforeActionsLoading
+                    }
+                  >
+                    {actionBtnTest}
+                  </Button>
+                </>
+              )}
             </YStack>
           ) : (
             <PreSwapStep steps={swapSteps.steps} onRetry={onConfirm} />

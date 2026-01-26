@@ -18,6 +18,7 @@ import {
 import type { IPickerImage } from '@onekeyhq/components/src/composite/ImageCrop/type';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import { OneKeyAppError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -138,21 +139,51 @@ export default function NFTDetails() {
 
       let croppedImage: IPickerImage | undefined;
       try {
-        croppedImage = await ImageCrop.openCropImage(
+        const imageUri = await imageUtils.prepareImageForCrop(
           nft.metadata.image,
+        );
+
+        if (!imageUri) {
+          throw new OneKeyAppError({
+            message: intl.formatMessage({
+              id: ETranslations.global_unknown_error,
+            }),
+          });
+        }
+
+        croppedImage = await ImageCrop.openCropImage(
+          imageUri,
           config.size?.width,
           config.size?.height,
         );
-      } catch (error) {
+      } catch (error: any) {
+        if (error instanceof OneKeyAppError) {
+          Toast.error({
+            title: error.message,
+          });
+          setIsCollecting(false);
+          return;
+        }
+
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        const message = error?.message;
+        const cancelError =
+          typeof message === 'string' && message.includes('User cancelled');
+        if (cancelError) {
+          setIsCollecting(false);
+          return;
+        }
         // ignore error
       }
 
-      if (!croppedImage) {
+      if (!croppedImage || !croppedImage?.data) {
+        setIsCollecting(false);
         Toast.error({
           title: intl.formatMessage({
             id: ETranslations.global_unknown_error,
           }),
         });
+        return;
       }
 
       try {
@@ -176,13 +207,13 @@ export default function NFTDetails() {
           screenHex: customScreenHex,
           thumbnailHex: customThumbnailHex,
           blurScreenHex: customBlurScreenHex,
-        } = await deviceHomeScreenUtils.buildCustomScreenHex(
-          device.id,
-          img.uri,
-          device.deviceType,
-          true,
+        } = await deviceHomeScreenUtils.buildCustomScreenHex({
+          dbDeviceId: device.id,
+          url: img.uri,
+          deviceType: device.deviceType,
+          isUserUpload: true,
           config,
-        );
+        });
 
         uploadResParams = await generateUploadNFTParams({
           screenHex: customScreenHex,
@@ -196,7 +227,7 @@ export default function NFTDetails() {
             owner: accountAddress,
           },
         });
-      } catch (e) {
+      } catch (_e) {
         Toast.error({
           title: intl.formatMessage({
             id: ETranslations.update_download_failed,

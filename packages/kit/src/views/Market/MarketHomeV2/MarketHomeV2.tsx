@@ -2,13 +2,17 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { Page, useMedia } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
+import { LazyPageContainer } from '../../../components/LazyPageContainer';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { useSelectedNetworkIdAtom } from '../../../states/jotai/contexts/marketV2';
-import { useMarketBasicConfig, useMarketEnterAnalytics } from '../hooks';
+import { useMarketBasicConfig } from '../hooks';
+import { useMarketHomePageEnterAnalytics } from '../hooks/useMarketEnterAnalytics';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
 
 import { useNetworkAnalytics, useTabAnalytics } from './hooks';
@@ -18,26 +22,29 @@ import { MobileLayout } from './layouts/MobileLayout';
 import type { ITimeRangeSelectorValue } from './components/TimeRangeSelector';
 import type { ILiquidityFilter } from './types';
 
-function MarketHome() {
+const useMarketHomeLayoutProps = () => {
   const { md } = useMedia();
 
   // Load market basic config using the new hook
-  const { defaultNetworkId, formattedMinLiquidity } = useMarketBasicConfig();
+  const { formattedMinLiquidity } = useMarketBasicConfig();
   const [selectedNetworkId, setSelectedNetworkId] = useSelectedNetworkIdAtom();
 
   // Track market entry analytics
-  useMarketEnterAnalytics();
+  useMarketHomePageEnterAnalytics();
 
   // Market analytics hooks
   const { handleTabChange } = useTabAnalytics();
   const { handleNetworkChange } = useNetworkAnalytics(selectedNetworkId);
 
-  // Update selectedNetworkId when config loads and it's still the default
+  // Initialize with "All Networks" as default (only when not yet initialized)
   useEffect(() => {
-    if (defaultNetworkId && selectedNetworkId === 'sol--101') {
-      setSelectedNetworkId(defaultNetworkId);
+    // Only initialize if selectedNetworkId is empty (not yet set)
+    if (!selectedNetworkId) {
+      // Default to "All Networks"
+      const allNetworkId = getNetworkIdsMap().onekeyall;
+      setSelectedNetworkId(allNetworkId);
     }
-  }, [defaultNetworkId, selectedNetworkId, setSelectedNetworkId]);
+  }, [selectedNetworkId, setSelectedNetworkId]);
 
   const [liquidityFilter, setLiquidityFilter] = useState<ILiquidityFilter>({
     min: '5K',
@@ -104,6 +111,31 @@ function MarketHome() {
     ],
   );
 
+  return useMemo(
+    () => ({
+      md,
+      mobileProps,
+      desktopProps,
+    }),
+    [md, mobileProps, desktopProps],
+  );
+};
+
+function BaseMarketHomeLayout() {
+  const { md, mobileProps, desktopProps } = useMarketHomeLayoutProps();
+
+  return (
+    <LazyPageContainer>
+      {md || platformEnv.isNative ? (
+        <MobileLayout {...mobileProps} />
+      ) : (
+        <DesktopLayout {...desktopProps} />
+      )}
+    </LazyPageContainer>
+  );
+}
+
+function BaseMarketHome() {
   return (
     <Page>
       <TabPageHeader
@@ -111,11 +143,7 @@ function MarketHome() {
         tabRoute={ETabRoutes.Market}
       />
       <Page.Body>
-        {md ? (
-          <MobileLayout {...mobileProps} />
-        ) : (
-          <DesktopLayout {...desktopProps} />
-        )}
+        <BaseMarketHomeLayout />
       </Page.Body>
     </Page>
   );
@@ -133,7 +161,38 @@ export function MarketHomeV2() {
       <MarketWatchListProviderMirrorV2
         storeName={EJotaiContextStoreNames.marketWatchListV2}
       >
-        <MarketHome />
+        <BaseMarketHome />
+      </MarketWatchListProviderMirrorV2>
+    </AccountSelectorProviderMirror>
+  );
+}
+
+function BaseMarketHomeWithProvider({
+  isFocused = true,
+}: {
+  isFocused?: boolean;
+}) {
+  const { mobileProps } = useMarketHomeLayoutProps();
+  return isFocused ? <MobileLayout {...mobileProps} /> : null;
+}
+
+export function MarketHomeWithProvider({
+  isFocused = true,
+}: {
+  isFocused?: boolean;
+}) {
+  return (
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+        sceneUrl: '',
+      }}
+      enabledNum={[0]}
+    >
+      <MarketWatchListProviderMirrorV2
+        storeName={EJotaiContextStoreNames.marketWatchListV2}
+      >
+        <BaseMarketHomeWithProvider isFocused={isFocused} />
       </MarketWatchListProviderMirrorV2>
     </AccountSelectorProviderMirror>
   );

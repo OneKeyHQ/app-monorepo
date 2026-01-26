@@ -5,7 +5,6 @@ import { useThrottledCallback } from 'use-debounce';
 
 import {
   Button,
-  Divider,
   Form,
   Input,
   Popover,
@@ -65,7 +64,7 @@ export const VerifyForm = ({ form, onNetworkDetected }: IVerifyFormProps) => {
           if (validation.isValid) {
             return checkNetworkId;
           }
-        } catch (error) {
+        } catch (_error) {
           // eslint-disable-next-line no-continue
           continue;
         }

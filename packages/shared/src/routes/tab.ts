@@ -1,22 +1,20 @@
 import type { IDemoDeveloperTabParamList } from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/NavigatorRoute/Tab/RouteParamTypes';
 import type {
-  IModalDeviceManagementParamList,
-  IModalReferFriendsParamList,
   IMultiTabBrowserParamList,
   ITabDiscoveryParamList,
   ITabHomeParamList,
-  ITabMeParamList,
   ITabSwapParamList,
 } from '@onekeyhq/shared/src/routes';
 
+import type { ITabDeviceManagementParamList } from './tabDeviceManagement';
 import type { ITabEarnParamList } from './tabEarn';
 import type { ITabMarketParamList } from './tabMarket';
+import type { ITabReferFriendsParamList } from './tabReferFriends';
 
 export enum ETabRoutes {
   Home = 'Home',
   Market = 'Market',
   Discovery = 'Discovery',
-  Me = 'Me',
   Developer = 'Developer',
   Earn = 'Earn',
   Swap = 'Swap',
@@ -30,7 +28,6 @@ export enum ETabRoutes {
 export type ITabStackParamList = {
   [ETabRoutes.Home]: ITabHomeParamList;
   [ETabRoutes.Discovery]: ITabDiscoveryParamList;
-  [ETabRoutes.Me]: ITabMeParamList;
   [ETabRoutes.Developer]: IDemoDeveloperTabParamList;
   [ETabRoutes.Earn]: ITabEarnParamList;
   [ETabRoutes.Market]: ITabMarketParamList;
@@ -38,6 +35,6 @@ export type ITabStackParamList = {
   [ETabRoutes.Perp]: undefined;
   [ETabRoutes.WebviewPerpTrade]: undefined;
   [ETabRoutes.MultiTabBrowser]: IMultiTabBrowserParamList;
-  [ETabRoutes.DeviceManagement]: IModalDeviceManagementParamList;
-  [ETabRoutes.ReferFriends]: IModalReferFriendsParamList;
+  [ETabRoutes.DeviceManagement]: ITabDeviceManagementParamList;
+  [ETabRoutes.ReferFriends]: ITabReferFriendsParamList;
 };

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { ScrollView, View, useWindowDimensions } from 'react-native';
+import { ScrollView, View } from 'react-native';
 
 import type {
   IKeyOfIcons,
@@ -17,14 +17,15 @@ import {
   Stack,
   Swiper,
   Theme,
+  Toast,
   XStack,
   YStack,
   useMedia,
-  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { PaginationButton } from '@onekeyhq/components/src/composite/Banner/PaginationButton';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -36,7 +37,6 @@ import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import type { IPrimeParamList } from '@onekeyhq/shared/src/routes/prime';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
-import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 import { usePrimePayment } from '../../hooks/usePrimePayment';
 import { usePrimeRequirements } from '../../hooks/usePrimeRequirements';
 
@@ -126,7 +126,7 @@ export default function PagePrimeFeatures() {
 
   // const [primePersistData] = usePrimePersistAtom();
   // const [primeMasterPasswordPersistData] = usePrimeMasterPasswordPersistAtom();
-  const { isPrimeSubscriptionActive } = usePrimeAuthV2();
+  const { isPrimeSubscriptionActive } = useOneKeyAuth();
   const [primeCloudSyncPersistData] = usePrimeCloudSyncPersistAtom();
 
   const { result: isServerMasterPasswordSet } = usePromiseResult(() => {
@@ -200,6 +200,14 @@ export default function PagePrimeFeatures() {
                 mt="$2"
                 variant="tertiary"
                 onPress={() => {
+                  if (platformEnv.isWebDappMode) {
+                    Toast.message({
+                      title: intl.formatMessage({
+                        id: ETranslations.global_web_feature_not_available_go_to_app,
+                      }),
+                    });
+                    return;
+                  }
                   navigation.navigate(EPrimePages.PrimeCloudSync, {
                     serverUserInfo,
                   });
@@ -403,7 +411,6 @@ export default function PagePrimeFeatures() {
   // PaginationButton will cause native crash
   const showPaginationButton = !platformEnv.isNative;
   const isHovering = true;
-  const showCloseButton = false;
 
   const portalContainerName = useMemo(() => {
     return `prime-features-swiper-controls--${stringUtils.generateUUID()}`;
@@ -524,7 +531,9 @@ export default function PagePrimeFeatures() {
           featureName: selectedFeature,
         });
       }
-      navigation.push(EPrimePages.PrimeDashboard);
+      navigation.push(EPrimePages.PrimeDashboard, {
+        fromFeature: selectedFeature,
+      });
       return;
     }
     if (isPackagesLoading) {
@@ -541,12 +550,16 @@ export default function PagePrimeFeatures() {
     // await ensureOneKeyIDLoggedIn({
     //   skipDialogConfirm: true,
     // });
+    const currentFeature = dataInfo.data[index]?.id;
     await ensurePrimeSubscriptionActive({
       skipDialogConfirm: true,
       selectedSubscriptionPeriod,
+      featureName: currentFeature,
     });
   }, [
+    dataInfo.data,
     ensurePrimeSubscriptionActive,
+    index,
     isPackagesLoading,
     navigation,
     selectedFeature,
@@ -554,15 +567,15 @@ export default function PagePrimeFeatures() {
     showAllFeatures,
   ]);
 
-  const { height: windowHeight } = useWindowDimensions();
-  const { top, bottom } = useSafeAreaInsets();
-  const height = useMemo(() => {
-    if (platformEnv.isNative) {
-      const TAB_BAR_HEIGHT = 54;
-      return windowHeight - top - bottom - TAB_BAR_HEIGHT - 120;
-    }
-    return '100%';
-  }, [windowHeight, top, bottom]);
+  // const { height: windowHeight } = useWindowDimensions();
+  // const { top, bottom } = useSafeAreaInsets();
+  // const _height = useMemo(() => {
+  //   if (platformEnv.isNative) {
+  //     const TAB_BAR_HEIGHT = 54;
+  //     return windowHeight - top - bottom - TAB_BAR_HEIGHT - 120;
+  //   }
+  //   return '100%';
+  // }, [windowHeight, top, bottom]);
 
   const page = (
     <>

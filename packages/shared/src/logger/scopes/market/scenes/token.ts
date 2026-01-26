@@ -75,4 +75,19 @@ export class TokenScene extends BaseScene {
       from,
     };
   }
+
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public perpsBannerClick({
+    tokenSymbol,
+    hlTicker,
+  }: {
+    tokenSymbol: string;
+    hlTicker: string;
+  }) {
+    return {
+      tokenSymbol,
+      hlTicker,
+    };
+  }
 }

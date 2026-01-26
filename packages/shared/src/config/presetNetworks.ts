@@ -1,5 +1,5 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-/* eslint-disable spellcheck/spell-checker */
+/* oxlint-disable @cspell/spellchecker */
+
 import { AGGREGATE_TOKEN_MOCK_NETWORK_ID } from '@onekeyhq/shared/src/consts/networkConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -707,34 +707,6 @@ const mode: IServerNetwork = {
   'defaultEnabled': true,
   'backendIndex': false,
 };
-const mvm: IServerNetwork = {
-  'impl': 'evm',
-  'chainId': '73927',
-  'id': 'evm--73927',
-  'name': 'Mixin',
-  'symbol': 'ETH',
-  'code': 'mvm',
-  'shortcode': 'mvm',
-  'shortname': 'MVM',
-  'decimals': 18,
-  'feeMeta': {
-    'decimals': 9,
-    'symbol': 'Gwei',
-    'isEIP1559FeeEnabled': false,
-    'isWithL1BaseFee': false,
-  },
-  'status': ENetworkStatus.LISTED,
-  'isTestnet': false,
-  'extensions': {
-    'position': 9999,
-    'isTokenSupported': true,
-    'isNFTEnabled': false,
-  },
-  'logoURI':
-    'https://uni.onekey-asset.com/static/chain/mixin-virtual-machine.png',
-  'defaultEnabled': true,
-  'backendIndex': false,
-};
 const metis: IServerNetwork = {
   'impl': 'evm',
   'chainId': '1088',
@@ -1156,33 +1128,6 @@ const dymension: IServerNetwork = {
   'defaultEnabled': true,
   'backendIndex': false,
 };
-const dis: IServerNetwork = {
-  'impl': 'evm',
-  'chainId': '513100',
-  'id': 'evm--513100',
-  'name': 'DIS CHAIN',
-  'symbol': 'DIS',
-  'code': 'dis',
-  'shortcode': 'dis',
-  'shortname': 'DIS',
-  'decimals': 18,
-  'feeMeta': {
-    'decimals': 9,
-    'symbol': 'Gwei',
-    'isEIP1559FeeEnabled': false,
-    'isWithL1BaseFee': false,
-  },
-  'status': ENetworkStatus.LISTED,
-  'isTestnet': false,
-  'extensions': {
-    'position': 9999,
-    'isTokenSupported': true,
-    'isNFTEnabled': false,
-  },
-  'logoURI': 'https://uni.onekey-asset.com/static/chain/dis.png',
-  'defaultEnabled': true,
-  'backendIndex': false,
-};
 const cyeth: IServerNetwork = {
   'impl': 'evm',
   'chainId': '7560',
@@ -1496,33 +1441,6 @@ const aurora: IServerNetwork = {
   },
   'logoURI': 'https://uni.onekey-asset.com/static/chain/aurora.png',
   'defaultEnabled': true,
-  'backendIndex': false,
-};
-const holesky: IServerNetwork = {
-  'impl': 'evm',
-  'chainId': '17000',
-  'id': 'evm--17000',
-  'name': 'Ethereum Holesky Testnet',
-  'symbol': 'ETH',
-  'code': 'holesky',
-  'shortcode': 'holesky',
-  'shortname': 'Holesky',
-  'decimals': 18,
-  'feeMeta': {
-    'decimals': 9,
-    'symbol': 'Gwei',
-    'isEIP1559FeeEnabled': false,
-    'isWithL1BaseFee': false,
-  },
-  'status': ENetworkStatus.LISTED,
-  'isTestnet': true,
-  'extensions': {
-    'position': 9999,
-    'isTokenSupported': false,
-    'isNFTEnabled': false,
-  },
-  'logoURI': 'https://uni.onekey-asset.com/static/chain/holesky.png',
-  'defaultEnabled': false,
   'backendIndex': false,
 };
 const zircuit: IServerNetwork = {
@@ -1887,6 +1805,35 @@ const monadTestnet: IServerNetwork = {
     'isNFTEnabled': false,
   },
   'logoURI': 'https://uni.onekey-asset.com/static/chain/monad-testnet.png',
+  'defaultEnabled': false,
+  'backendIndex': false,
+};
+
+const hoodi: IServerNetwork = {
+  'impl': 'evm',
+  'chainId': '560048',
+  'id': 'evm--560048',
+  'name': 'Hoodi Testnet',
+  'symbol': 'ETH',
+  'code': 'hoodi',
+  'shortcode': 'hoodi',
+  'shortname': 'Hoodi',
+  'decimals': 18,
+  'feeMeta': {
+    'decimals': 9,
+    'symbol': 'Gwei',
+    'isEIP1559FeeEnabled': false,
+    'isWithL1BaseFee': false,
+  },
+  'status': ENetworkStatus.LISTED,
+  'isTestnet': true,
+  'extensions': {
+    'position': 9999,
+    'isTokenSupported': false,
+    'isNFTEnabled': false,
+  },
+  'logoURI':
+    'https://uni.onekey-asset.com/dashboard/logo/upload_1756881610802.0.9132280905497288.0.jpeg',
   'defaultEnabled': false,
   'backendIndex': false,
 };
@@ -2489,26 +2436,6 @@ const sol: IServerNetwork = {
   'status': ENetworkStatus.LISTED,
 };
 
-const polkadot: IServerNetwork = {
-  'chainId': 'polkadot',
-  'code': 'dot',
-  'decimals': 10,
-  'id': 'dot--polkadot',
-  'impl': 'dot',
-  'isTestnet': false,
-  'logoURI': 'https://uni.onekey-asset.com/static/chain/polkadot.png',
-  'name': 'Polkadot',
-  'shortcode': 'dot',
-  'shortname': 'DOT',
-  'symbol': 'DOT',
-  'feeMeta': {
-    'decimals': 10,
-    'symbol': 'DOT',
-  },
-  'defaultEnabled': true,
-  'status': ENetworkStatus.LISTED,
-};
-
 const astar: IServerNetwork = {
   'chainId': 'astar',
   'code': 'astar',
@@ -2524,26 +2451,6 @@ const astar: IServerNetwork = {
   'feeMeta': {
     'decimals': 18,
     'symbol': '18',
-  },
-  'defaultEnabled': true,
-  'status': ENetworkStatus.LISTED,
-};
-
-const kusama: IServerNetwork = {
-  'chainId': 'kusama',
-  'code': 'ksm',
-  'decimals': 12,
-  'id': 'dot--kusama',
-  'impl': 'dot',
-  'isTestnet': false,
-  'logoURI': 'https://uni.onekey-asset.com/static/chain/kusama.png',
-  'name': 'Kusama',
-  'shortcode': 'ksm',
-  'shortname': 'KSM',
-  'symbol': 'KSM',
-  'feeMeta': {
-    'decimals': 12,
-    'symbol': 'KSM',
   },
   'defaultEnabled': true,
   'status': ENetworkStatus.LISTED,
@@ -2617,7 +2524,7 @@ const assethubPolkadot: IServerNetwork = {
   'impl': 'dot',
   'isTestnet': false,
   'logoURI': 'https://uni.onekey-asset.com/static/chain/dot-assethub.png',
-  'name': 'Assethub Polkadot',
+  'name': 'Polkadot AssetHub',
   'shortcode': 'assetHub',
   'shortname': 'DOT',
   'symbol': 'DOT',
@@ -2627,6 +2534,26 @@ const assethubPolkadot: IServerNetwork = {
   },
   'defaultEnabled': true,
   'status': ENetworkStatus.LISTED,
+};
+
+const assethubKusama: IServerNetwork = {
+  'impl': 'dot',
+  'chainId': 'dot--kusama-assethub',
+  'id': 'dot--kusama-assethub',
+  'name': 'Kusama AssetHub',
+  'symbol': 'KSM',
+  'code': 'ksmAssetHub',
+  'shortcode': 'ksmAssetHub',
+  'shortname': 'KsmAssetHub',
+  'decimals': 12,
+  'feeMeta': {
+    'decimals': 12,
+    'symbol': 'KSM',
+  },
+  'status': ENetworkStatus.LISTED,
+  'isTestnet': false,
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/dot-ksm-assethub.png',
+  'defaultEnabled': false,
 };
 
 const bifrost: IServerNetwork = {
@@ -2639,6 +2566,26 @@ const bifrost: IServerNetwork = {
   'logoURI': 'https://uni.onekey-asset.com/static/chain/bnc.png',
   'name': 'Bifrost Kusama',
   'shortcode': 'bifrost',
+  'shortname': 'BNC',
+  'symbol': 'BNC',
+  'feeMeta': {
+    'decimals': 12,
+    'symbol': 'BNC',
+  },
+  'defaultEnabled': true,
+  'status': ENetworkStatus.LISTED,
+};
+
+const bifrostDot: IServerNetwork = {
+  'chainId': 'dot-bifrost',
+  'code': 'dot-bifrost',
+  'decimals': 12,
+  'id': 'dot--bifrost',
+  'impl': 'dot',
+  'isTestnet': false,
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/bifrost.png',
+  'name': 'Bifrost Polkadot',
+  'shortcode': 'dot-bifrost',
   'shortname': 'BNC',
   'symbol': 'BNC',
   'feeMeta': {
@@ -2916,6 +2863,51 @@ const neoN3: IServerNetwork = {
   'status': ENetworkStatus.LISTED,
 };
 
+const stellar: IServerNetwork = {
+  'impl': 'stellar',
+  'chainId': 'stellar',
+  'id': 'stellar--mainnet',
+  'code': 'stellar',
+  'decimals': 7,
+  'isTestnet': false,
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/stellar.png',
+  'name': 'Stellar',
+  'shortcode': 'stellar',
+  'shortname': 'XLM',
+  'symbol': 'XLM',
+  'feeMeta': {
+    'decimals': 7,
+    'symbol': 'XLM',
+  },
+  'defaultEnabled': true,
+  'isCustomNetwork': false,
+  'status': ENetworkStatus.LISTED,
+};
+
+const stellarTestnet: IServerNetwork = {
+  'impl': 'stellar',
+  'chainId': 'testnet',
+  'id': 'stellar--testnet',
+  'name': 'Stellar Testnet',
+  'symbol': 'XLM',
+  'code': 'tstellar',
+  'shortcode': 'tstellar',
+  'shortname': 'TXLM',
+  'decimals': 7,
+  'feeMeta': {
+    'decimals': 7,
+    'symbol': 'XLM',
+  },
+  'status': ENetworkStatus.LISTED,
+  'isTestnet': true,
+  'extensions': {
+    'isTokenSupported': true,
+    'isNFTEnabled': false,
+  },
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/stellar.png',
+  'defaultEnabled': true,
+};
+
 const chainsOnlyEnabledInDev = [
   tatom, // Cosmos Testnet
 ];
@@ -2956,7 +2948,6 @@ export const presetNetworksMap = {
   octa,
   moonbeam,
   mode,
-  mvm,
   metis,
   merlinmainnet,
   mantle,
@@ -2973,7 +2964,6 @@ export const presetNetworksMap = {
   etc,
   ace,
   dymension,
-  dis,
   cyeth,
   cronos,
   core,
@@ -2986,7 +2976,6 @@ export const presetNetworksMap = {
   base,
   bob,
   aurora,
-  holesky,
   zircuit,
   neox,
   azero,
@@ -2995,6 +2984,7 @@ export const presetNetworksMap = {
   hsk,
   rsk,
   unichain,
+  hoodi,
 
   // cosmos
   celestia,
@@ -3008,14 +2998,14 @@ export const presetNetworksMap = {
   noble,
 
   // polkadot
-  polkadot,
   astar,
-  kusama,
   manta,
   joystream,
   hydradx,
   bifrost,
+  bifrostDot,
   assethubPolkadot,
+  assethubKusama,
 
   aptos,
   lightning,
@@ -3040,6 +3030,8 @@ export const presetNetworksMap = {
   scdo,
   benfen,
   neoN3,
+  stellar,
+  stellarTestnet,
 };
 
 export const getDefaultEnabledNetworksInAllNetworks = memoFn(
@@ -3148,7 +3140,6 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     octa,
     moonbeam,
     mode,
-    mvm,
     metis,
     merlinmainnet,
     mantle,
@@ -3165,7 +3156,6 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     etc,
     ace,
     dymension,
-    dis,
     cyeth,
     cronos,
     core,
@@ -3178,7 +3168,6 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     base,
     bob,
     aurora,
-    holesky,
     zircuit,
     neox,
     azero,
@@ -3192,6 +3181,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     worldChain,
     hyperEvm,
     monadTestnet,
+    hoodi,
 
     // cosmos
     celestia,
@@ -3207,14 +3197,14 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     noble,
 
     // polkadot
-    polkadot,
     astar,
-    kusama,
     manta,
     joystream,
     hydradx,
     bifrost,
+    bifrostDot,
     assethubPolkadot,
+    assethubKusama,
 
     aptos,
     lightning,
@@ -3239,6 +3229,8 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     scdo,
     benfen,
     neoN3,
+    stellar,
+    stellarTestnet,
     ...(platformEnv.isDev ? chainsOnlyEnabledInDev : []),
   ];
 
@@ -3253,8 +3245,9 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
 export const getNetworksSupportFilterScamHistory = memoFn(
   (): IServerNetwork[] => [
     eth,
+    sol,
     sepolia,
-    holesky,
+    hoodi,
     base,
     optimism,
     avalanche,

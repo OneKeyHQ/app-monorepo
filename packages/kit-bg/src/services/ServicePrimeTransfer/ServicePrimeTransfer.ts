@@ -1,16 +1,21 @@
 import { Semaphore } from 'async-mutex';
-import { isNaN, isNil } from 'lodash';
+import { cloneDeep, debounce, isEmpty, isNaN, isNil, uniqBy } from 'lodash';
 import natsort from 'natsort';
 import { io } from 'socket.io-client';
 
+import type { IBip39RevealableSeed } from '@onekeyhq/core/src/secret';
 import {
   decryptAsync,
   decryptImportedCredential,
   decryptRevealableSeed,
+  decryptStringAsync,
   encryptAsync,
   encryptRevealableSeed,
+  encryptStringAsync,
   mnemonicFromEntropy,
+  revealEntropyToMnemonic,
 } from '@onekeyhq/core/src/secret';
+import type { ICoreImportedCredential } from '@onekeyhq/core/src/types';
 import appCrypto from '@onekeyhq/shared/src/appCrypto';
 import appDeviceInfo from '@onekeyhq/shared/src/appDeviceInfo/appDeviceInfo';
 import {
@@ -42,17 +47,27 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { headerPlatform } from '@onekeyhq/shared/src/request/InterceptorConsts';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import type { IAllWalletAvatarImageNamesWithoutDividers } from '@onekeyhq/shared/src/utils/avatarUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
+  EPrimeTransferDataType,
   IE2EESocketUserInfo,
+  IPrimeTransferAccount,
   IPrimeTransferData,
+  IPrimeTransferDecryptedCredentials,
+  IPrimeTransferHDAccount,
   IPrimeTransferHDWallet,
+  IPrimeTransferHDWalletCreateNetworkParams,
+  IPrimeTransferHDWalletIndexedAccountNames,
   IPrimeTransferPrivateData,
+  IPrimeTransferPublicData,
+  IPrimeTransferPublicDataWalletDetail,
   IPrimeTransferSelectedData,
   IPrimeTransferSelectedDataItem,
   IPrimeTransferSelectedItemMap,
@@ -62,17 +77,17 @@ import { EPrimeTransferServerType } from '@onekeyhq/shared/types/prime/primeTran
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import localDb from '../../dbs/local/localDb';
-import { settingsPersistAtom } from '../../states/jotai/atoms';
+import {
+  devSettingsPersistAtom,
+  perpsActiveAccountRefreshHookAtom,
+  settingsPersistAtom,
+} from '../../states/jotai/atoms';
 import {
   EPrimeTransferStatus,
   primeTransferAtom,
 } from '../../states/jotai/atoms/prime';
 import ServiceBase from '../ServiceBase';
-import {
-  HDWALLET_BACKUP_VERSION,
-  IMPORTED_ACCOUNT_BACKUP_VERSION,
-  WATCHING_ACCOUNT_BACKUP_VERSION,
-} from '../ServiceCloudBackup';
+import { HDWALLET_BACKUP_VERSION } from '../ServiceCloudBackup';
 
 import e2eeClientToClientApi, {
   generateEncryptedKey,
@@ -91,8 +106,12 @@ import type {
   IDBUtxoAccount,
   IDBWallet,
 } from '../../dbs/local/types';
-import type { IPrimeTransferAtomData } from '../../states/jotai/atoms/prime';
+import type {
+  IPrimeTransferAtomData,
+  IPrimeTransferImportProgressTotalDetailInfo,
+} from '../../states/jotai/atoms/prime';
 import type { IAccountDeriveTypes } from '../../vaults/types';
+import type { IBatchBuildAccountsAdvancedFlowForAllNetworkParams } from '../ServiceBatchCreateAccount/ServiceBatchCreateAccount';
 import type { Socket } from 'socket.io-client';
 
 export interface ITransferProgress {
@@ -142,7 +161,7 @@ class ServicePrimeTransfer extends ServiceBase {
 
           clearTimeout(timeoutId);
           return response.status === 200;
-        } catch (error) {
+        } catch (_error) {
           return false;
         }
       };
@@ -350,7 +369,7 @@ class ServicePrimeTransfer extends ServiceBase {
         this.socket.on('room-full', async (data: { roomId: string }) => {
           if (data.roomId === (await primeTransferAtom.get()).pairedRoomId) {
             const message = appLocale.intl.formatMessage({
-              // eslint-disable-next-line spellcheck/spell-checker
+              // oxlint-disable-next-line @cspell/spellchecker
               // id: ETranslations.global_connet_error_try_again,
               id: ETranslations.transfer_security_alert_new_device_re_pair,
             });
@@ -646,6 +665,106 @@ class ServicePrimeTransfer extends ServiceBase {
   }
 
   @backgroundMethod()
+  async updateSelfTransferType({
+    transferType,
+  }: {
+    transferType: EPrimeTransferDataType | undefined;
+  }) {
+    e2eeClientToClientApi.setSelfTransferType({ transferType });
+  }
+
+  @backgroundMethod()
+  async getRemoteTransferType(): Promise<{
+    transferType: EPrimeTransferDataType | undefined;
+  }> {
+    if (!this.e2eeClientToClientApiProxy) {
+      return { transferType: undefined };
+    }
+    const result = await this.e2eeClientToClientApiProxy.api.getTransferType();
+    return result;
+  }
+
+  /**
+   * Fix transfer direction for keyless wallet transfer.
+   * Direction should be: scanner (pairing code input side) -> scanned (QR code display side)
+   * The QR code display side is the room creator (myCreatedRoomId === pairedRoomId)
+   */
+  @backgroundMethod()
+  async fixTransferDirectionForKeylessWallet(): Promise<{
+    success: boolean;
+    message: string;
+    direction?: {
+      fromUserId: string;
+      toUserId: string;
+    };
+  }> {
+    const currentState = await primeTransferAtom.get();
+    const { pairedRoomId, myCreatedRoomId, myUserId } = currentState;
+
+    if (!pairedRoomId || !myUserId) {
+      return {
+        success: false,
+        message: 'Not in a paired room',
+      };
+    }
+
+    // Get room users
+    const roomUsers = await this.getRoomUsers({ roomId: pairedRoomId });
+    if (roomUsers.length !== 2) {
+      return {
+        success: false,
+        message: `Expected 2 users in room, got ${roomUsers.length}`,
+      };
+    }
+
+    // Find the room creator (QR code display side) - this is the toUser (receiver)
+    // The room creator is the one whose myCreatedRoomId === pairedRoomId
+    // Since we can only check our own state, we need to determine:
+    // - If I created the room, I am the receiver (toUser)
+    // - If I didn't create the room, I am the sender (fromUser)
+    const iAmRoomCreator = myCreatedRoomId === pairedRoomId;
+    const otherUser = roomUsers.find((u) => u.id !== myUserId);
+
+    if (!otherUser) {
+      return {
+        success: false,
+        message: 'Could not find the other user',
+      };
+    }
+
+    let fromUserId: string;
+    let toUserId: string;
+
+    if (iAmRoomCreator) {
+      // I created the room (QR code side), so I am the receiver
+      fromUserId = otherUser.id;
+      toUserId = myUserId;
+    } else {
+      // I joined the room (pairing code side), so I am the sender
+      fromUserId = myUserId;
+      toUserId = otherUser.id;
+    }
+
+    // Change the direction
+    await this.changeTransferDirection({
+      roomId: pairedRoomId,
+      fromUserId,
+      toUserId,
+    });
+
+    return {
+      success: true,
+      message: iAmRoomCreator
+        ? 'Fixed: I am receiver (QR code side)'
+        : 'Fixed: I am sender (pairing code side)',
+      direction: {
+        fromUserId,
+        toUserId,
+      },
+    };
+  }
+
+  @backgroundMethod()
   @toastIfError()
   async getRoomUsers({
     roomId,
@@ -733,10 +852,22 @@ class ServicePrimeTransfer extends ServiceBase {
   }
 
   @backgroundMethod()
-  async buildTransferData(): Promise<IPrimeTransferData> {
-    const { serviceAccount, serviceNetwork } = this.backgroundApi;
+  async buildTransferData({
+    isForCloudBackup,
+  }: {
+    isForCloudBackup?: boolean;
+  } = {}): Promise<IPrimeTransferData> {
+    const { serviceAccount, serviceNetwork: _serviceNetwork } =
+      this.backgroundApi;
 
     const credentials = await serviceAccount.dumpCredentials();
+
+    const publicData: IPrimeTransferPublicData = {
+      dataTime: Date.now(),
+      totalWalletsCount: 0,
+      totalAccountsCount: 0,
+      walletDetails: [],
+    };
 
     const privateBackupData: IPrimeTransferPrivateData = {
       credentials,
@@ -748,7 +879,10 @@ class ServicePrimeTransfer extends ServiceBase {
 
     const { wallets } = await serviceAccount.getWallets();
 
-    const walletAccountMap = wallets.reduce((summary, current) => {
+    // Filter out keyless wallets
+    const filteredWallets = wallets.filter((wallet) => !wallet.isKeyless);
+
+    const walletAccountMap = filteredWallets.reduce((summary, current) => {
       summary[current.id] = current;
       return summary;
     }, {} as Record<string, IDBWallet>);
@@ -798,18 +932,78 @@ class ServicePrimeTransfer extends ServiceBase {
           });
           return account;
         })
-        .sort((a, b) => this.accountSortFn(a, b));
+        .toSorted((a, b) => this.accountSortFn(a, b));
       return sortedAccounts;
     };
 
     allAccounts = sortAccounts(allAccounts);
 
+    const watchingOrImportedAccountToTransferAccount = ({
+      account,
+      networkAccount,
+    }: {
+      account: IDBAccount;
+      networkAccount: {
+        networkAccount: INetworkAccount | undefined;
+        address: string;
+      };
+    }): IPrimeTransferAccount => {
+      return {
+        id: account.id,
+        template: account.template,
+        name: account.name,
+        createAtNetwork: account?.createAtNetwork,
+        networks: account?.networks,
+        impl: account?.impl,
+        coinType: account?.coinType,
+        accountOrder: account?.accountOrder,
+        accountOrderSaved: account?.accountOrderSaved,
+        path: account?.path,
+        type: account?.type,
+        pub: account?.pub,
+        xpub: (account as IDBUtxoAccount)?.xpub,
+        xpubSegwit: (account as IDBUtxoAccount)?.xpubSegwit,
+        address: networkAccount?.address || account.address,
+        version: -1,
+      };
+    };
+
+    const hdAccountToTransferAccount = ({
+      account,
+    }: {
+      account: IDBAccount;
+    }): IPrimeTransferHDAccount => {
+      return {
+        id: account.id,
+        name: account.name,
+        address: account.address,
+        pathIndex: account?.pathIndex,
+        indexedAccountId: account?.indexedAccountId,
+        template: account?.template,
+        path: account?.path,
+        impl: account?.impl,
+        coinType: account?.coinType,
+        createAtNetwork: account?.createAtNetwork,
+        networks: account?.networks,
+      };
+    };
+
     for (const account of allAccounts) {
       const walletId = accountUtils.parseAccountId({
         accountId: account.id,
       }).walletId;
+      if (!walletId) {
+        // eslint-disable-next-line no-continue
+        continue;
+      }
+
       const wallet = walletAccountMap[walletId];
       if (wallet) {
+        // Skip accounts belonging to keyless wallets
+        if (wallet?.isKeyless) {
+          // eslint-disable-next-line no-continue
+          continue;
+        }
         const getNetworkAccountInfo = async () => {
           let networkAccount: INetworkAccount | undefined;
           const networkId = await serviceAccount.getAccountCreatedNetworkId({
@@ -836,11 +1030,11 @@ class ServicePrimeTransfer extends ServiceBase {
         if (wallet.type === WALLET_TYPE_IMPORTED) {
           const importedAccountUUID = account.id;
           const networkAccount = await getNetworkAccountInfo();
-          privateBackupData.importedAccounts[importedAccountUUID] = {
-            ...account,
-            address: networkAccount?.address || account.address,
-            version: IMPORTED_ACCOUNT_BACKUP_VERSION,
-          };
+          privateBackupData.importedAccounts[importedAccountUUID] =
+            watchingOrImportedAccountToTransferAccount({
+              account,
+              networkAccount,
+            });
         }
         if (wallet.type === WALLET_TYPE_WATCHING) {
           if (
@@ -850,28 +1044,34 @@ class ServicePrimeTransfer extends ServiceBase {
           ) {
             const watchingAccountUUID = account.id;
             const networkAccount = await getNetworkAccountInfo();
-            privateBackupData.watchingAccounts[watchingAccountUUID] = {
-              ...account,
-              address: networkAccount?.address || account.address,
-              version: WATCHING_ACCOUNT_BACKUP_VERSION,
-            };
+            privateBackupData.watchingAccounts[watchingAccountUUID] =
+              watchingOrImportedAccountToTransferAccount({
+                account,
+                networkAccount,
+              });
           }
         }
         if (wallet.type === WALLET_TYPE_HD) {
-          const walletToBackup: IPrimeTransferHDWallet = privateBackupData
-            .wallets[wallet.id] ?? {
-            id: walletId,
-            name: wallet.name,
-            type: wallet.type,
-            backuped: wallet.backuped,
-            accounts: [],
-            accountIds: [],
-            indexedAccountUUIDs: [],
-            nextIds: wallet.nextIds,
-            walletOrder: wallet.walletOrder,
-            avatarInfo: wallet.avatarInfo,
-            version: HDWALLET_BACKUP_VERSION,
-          };
+          let walletToBackup: IPrimeTransferHDWallet =
+            privateBackupData.wallets[wallet.id];
+          if (!walletToBackup) {
+            walletToBackup = {
+              id: walletId,
+              name: wallet.name,
+              type: wallet.type,
+              backuped: isForCloudBackup ? true : wallet.backuped,
+              accounts: [],
+              accountIds: [],
+              accountIdsLength: 0,
+              indexedAccountUUIDs: [],
+              indexedAccountUUIDsLength: 0,
+              nextIds: wallet.nextIds,
+              walletOrder: wallet.walletOrder,
+              avatarInfo: wallet.avatarInfo,
+              version: HDWALLET_BACKUP_VERSION,
+              xfp: wallet.xfp || undefined,
+            };
+          }
           const HDAccountUUID = account.id;
           if (account.indexedAccountId) {
             const indexedAccount = await serviceAccount.getIndexedAccountSafe({
@@ -885,12 +1085,14 @@ class ServicePrimeTransfer extends ServiceBase {
                   account.indexedAccountId,
                 )
               ) {
-                walletToBackup.indexedAccountUUIDs.push(
+                walletToBackup.indexedAccountUUIDs?.push(
                   account.indexedAccountId,
                 );
               }
-              walletToBackup.accounts.push(account);
-              walletToBackup.accountIds.push(HDAccountUUID);
+              walletToBackup.accounts?.push(
+                hdAccountToTransferAccount({ account }),
+              );
+              walletToBackup.accountIds?.push(HDAccountUUID);
 
               privateBackupData.wallets[wallet.id] = walletToBackup;
             }
@@ -899,10 +1101,107 @@ class ServicePrimeTransfer extends ServiceBase {
       }
     }
 
+    // fill publicData summary by aggregating from privateBackupData
+    try {
+      const hdWallets = Object.values(privateBackupData.wallets);
+      const sortedHdWallets = hdWallets.toSorted((a, b) =>
+        this.walletSortFn(a, b),
+      );
+      const totalHdAccounts = hdWallets.reduce(
+        (sum, w) => sum + (w.indexedAccountUUIDs?.length || 0),
+        0,
+      );
+      const importedAccountsCount = Object.keys(
+        privateBackupData.importedAccounts,
+      ).length;
+      const watchingAccountsCount = Object.keys(
+        privateBackupData.watchingAccounts,
+      ).length;
+      publicData.totalWalletsCount = hdWallets.length;
+      publicData.totalAccountsCount =
+        totalHdAccounts + importedAccountsCount + watchingAccountsCount;
+      const walletDetails: Array<IPrimeTransferPublicDataWalletDetail> =
+        sortedHdWallets
+          .map((w) => {
+            let avatarInfo: IAvatarInfo | undefined;
+            try {
+              const parsedAvatar = JSON.parse(
+                walletAccountMap[w.id]?.avatar || '' || '{}',
+              );
+              if (parsedAvatar && Object.keys(parsedAvatar).length > 0) {
+                avatarInfo = parsedAvatar;
+              }
+            } catch (error) {
+              console.error('refillWalletInfo', error);
+            }
+
+            const avatar: IAllWalletAvatarImageNamesWithoutDividers =
+              avatarInfo?.img || 'bear';
+            return {
+              name: w.name,
+              avatar,
+              accountsCount: w.indexedAccountUUIDs?.length || 0,
+              walletXfp: w.xfp,
+            };
+          })
+          .filter(Boolean);
+      if (importedAccountsCount > 0) {
+        const data: IPrimeTransferPublicDataWalletDetail = {
+          name: appLocale.intl.formatMessage({
+            id: ETranslations.wallet_label_private_key,
+          }),
+          avatar: 'othersImported',
+          accountsCount: importedAccountsCount,
+          walletXfp: undefined,
+        };
+        walletDetails.push(data);
+      }
+      if (watchingAccountsCount > 0) {
+        const data: IPrimeTransferPublicDataWalletDetail = {
+          name: appLocale.intl.formatMessage({
+            id: ETranslations.wallet_label_watch_only,
+          }),
+          avatar: 'othersWatching',
+          accountsCount: watchingAccountsCount,
+          walletXfp: undefined,
+        };
+        walletDetails.push(data);
+      }
+      publicData.walletDetails = walletDetails;
+    } catch (e) {
+      console.error('buildTransferData publicData fill error', e);
+    }
+
     const privateData = privateBackupData;
+
+    for (const wallet of Object.values(privateData.wallets)) {
+      const { createNetworkParams = [], indexedAccountNames = {} } =
+        await this.buildHdWalletAccountsCreateParams({
+          walletId: wallet.id,
+          accounts: wallet.accounts || [],
+          taskUUID: undefined,
+          errorsInfo: undefined,
+          skipDefaultNetworks: Boolean(isForCloudBackup),
+        });
+      wallet.createNetworkParams = createNetworkParams;
+      wallet.indexedAccountNames = indexedAccountNames;
+      if (isForCloudBackup) {
+        wallet.accounts = undefined;
+      }
+      wallet.accountIdsLength = wallet.accountIds?.length || 0;
+      if (isForCloudBackup) {
+        wallet.accountIds = undefined;
+      }
+      wallet.indexedAccountUUIDsLength =
+        wallet.indexedAccountUUIDs?.length || 0;
+      if (isForCloudBackup) {
+        wallet.indexedAccountUUIDs = undefined;
+      }
+    }
 
     return {
       privateData,
+      publicData,
       appVersion: version ?? '',
       isWatchingOnly: Boolean(
         !Object.keys(privateData?.wallets || {}).length &&
@@ -917,6 +1216,64 @@ class ServicePrimeTransfer extends ServiceBase {
     };
   }
 
+  async decryptTransferDataCredentials({
+    data,
+    clearOriginalCredentials = true,
+  }: {
+    data: IPrimeTransferData;
+    clearOriginalCredentials?: boolean;
+  }) {
+    if (!data?.privateData?.decryptedCredentials) {
+      const { password: localPassword } =
+        await this.backgroundApi.servicePassword.promptPasswordVerify();
+      data.privateData.decryptedCredentials = {};
+      const entries = Object.entries(data.privateData.credentials || {});
+      console.log('serviceCloudBackupV2__decryptCredentials');
+      for (const [key, value] of entries) {
+        try {
+          if (
+            accountUtils.isHdWallet({ walletId: key }) ||
+            accountUtils.isTonMnemonicCredentialId(key)
+          ) {
+            data.privateData.decryptedCredentials[key] =
+              await decryptRevealableSeed({
+                rs: value,
+                password: localPassword,
+              });
+          } else if (accountUtils.isImportedAccount({ accountId: key })) {
+            data.privateData.decryptedCredentials[key] =
+              await decryptImportedCredential({
+                credential: value,
+                password: localPassword,
+              });
+          }
+        } catch (error) {
+          /*
+          data not matched to encoding: hex
+          key: "imported--607--e205f9...355fca5--v4R2--ton_credential"
+          value: "|RP|17...918143"
+          */
+          console.error('serviceCloudBackupV2__decryptCredentials__error', {
+            error,
+            key,
+            value: `${value?.slice(0, 10)}...${value?.slice(-6)}`,
+          });
+          throw new OneKeyLocalError(
+            `Failed to decrypt current credentials: ${key}`,
+          );
+        }
+      }
+      console.log('serviceCloudBackupV2__decryptCredentials__done');
+    }
+    if (
+      clearOriginalCredentials &&
+      data?.privateData &&
+      data?.privateData?.credentials
+    ) {
+      data.privateData.credentials = {};
+    }
+  }
+
   @backgroundMethod()
   @toastIfError()
   async sendTransferData({
@@ -924,6 +1281,8 @@ class ServicePrimeTransfer extends ServiceBase {
   }: {
     transferData: IPrimeTransferData;
   }) {
+    // eslint-disable-next-line no-param-reassign
+    transferData = cloneDeep(transferData);
     this.checkWebSocketConnected();
 
     if (!transferData.isWatchingOnly) {
@@ -935,6 +1294,21 @@ class ServicePrimeTransfer extends ServiceBase {
       if (!password) {
         throw new OneKeyLocalError('Password is required');
       }
+
+      await this.decryptTransferDataCredentials({
+        data: transferData,
+        clearOriginalCredentials: false,
+      });
+      transferData.privateData.decryptedCredentialsHex =
+        await encryptStringAsync({
+          dataEncoding: 'utf8',
+          data: stringUtils.stableStringify(
+            transferData.privateData.decryptedCredentials,
+          ),
+          password,
+          allowRawPassword: true,
+        });
+      transferData.privateData.decryptedCredentials = undefined;
     }
 
     const currentState = await primeTransferAtom.get();
@@ -993,7 +1367,9 @@ class ServicePrimeTransfer extends ServiceBase {
       allowRawPassword: true,
     });
     const d: string = bufferUtils.bytesToUtf8(data);
-    const transferData = JSON.parse(d) as IPrimeTransferData | undefined;
+    const transferData: IPrimeTransferData | undefined = JSON.parse(d) as
+      | IPrimeTransferData
+      | undefined;
     if (!transferData) {
       throw new OneKeyLocalError('Invalid transfer data');
     }
@@ -1170,14 +1546,58 @@ class ServicePrimeTransfer extends ServiceBase {
     selectedItemMapInfo,
     dataSource,
     credentials,
+    decryptedCredentials,
   }: {
-    selectedItemMapInfo: IPrimeTransferSelectedItemMapInfo;
+    selectedItemMapInfo: IPrimeTransferSelectedItemMapInfo | 'ALL';
     dataSource: Record<string, T>;
     credentials?: Record<string, string>;
+    decryptedCredentials?: Record<
+      string,
+      ICoreImportedCredential | IBip39RevealableSeed
+    >;
   }): Array<IPrimeTransferSelectedDataItem<T>> {
     const results: Array<IPrimeTransferSelectedDataItem<T>> = [];
-    const itemIds = Object.keys(selectedItemMapInfo);
 
+    const buildResultItem = ({ itemId, item }: { itemId: string; item: T }) => {
+      let tonMnemonicCredential: string | undefined;
+      let tonMnemonicCredentialDecrypted: IBip39RevealableSeed | undefined;
+      try {
+        if (
+          item &&
+          accountUtils.isImportedAccount({ accountId: itemId }) &&
+          (item as unknown as { impl: string } | undefined)?.impl === IMPL_TON
+        ) {
+          const tonMnemonicCredentialId =
+            accountUtils.buildTonMnemonicCredentialId({
+              accountId: itemId,
+            });
+          tonMnemonicCredential = credentials?.[tonMnemonicCredentialId];
+          tonMnemonicCredentialDecrypted = decryptedCredentials?.[
+            tonMnemonicCredentialId
+          ] as IBip39RevealableSeed;
+        }
+      } catch (e) {
+        console.error('tonMnemonicCredential error', e);
+      }
+      const credential = credentials?.[itemId];
+      const credentialDecrypted = decryptedCredentials?.[itemId];
+      return {
+        item,
+        credential,
+        credentialDecrypted,
+        id: itemId,
+        tonMnemonicCredential,
+        tonMnemonicCredentialDecrypted,
+      };
+    };
+    if (selectedItemMapInfo === 'ALL') {
+      Object.entries(dataSource).forEach(([itemId, item]) => {
+        results.push(buildResultItem({ itemId, item }));
+      });
+      return results;
+    }
+
+    const itemIds = Object.keys(selectedItemMapInfo);
     for (let i = 0; i < itemIds.length; i += 1) {
       const itemId = itemIds[i];
       if (
@@ -1185,31 +1605,17 @@ class ServicePrimeTransfer extends ServiceBase {
         dataSource?.[itemId]
       ) {
         const item = dataSource[itemId];
-        let tonMnemonicCredential: string | undefined;
-        try {
-          if (
-            item &&
-            accountUtils.isImportedAccount({ accountId: itemId }) &&
-            (item as unknown as { impl: string } | undefined)?.impl === IMPL_TON
-          ) {
-            const tonMnemonicCredentialId =
-              accountUtils.buildTonMnemonicCredentialId({
-                accountId: itemId,
-              });
-            tonMnemonicCredential = credentials?.[tonMnemonicCredentialId];
-          }
-        } catch (e) {
-          console.error('tonMnemonicCredential error', e);
-        }
-        const credential = credentials?.[itemId];
-        results.push({ item, credential, id: itemId, tonMnemonicCredential });
+        results.push(buildResultItem({ itemId, item }));
       }
     }
 
     return results;
   }
 
-  accountSortFn = (a: IDBAccount, b: IDBAccount) =>
+  accountSortFn = (
+    a: IPrimeTransferAccount | IDBAccount,
+    b: IPrimeTransferAccount | IDBAccount,
+  ) =>
     natsort({ insensitive: true })(
       a.accountOrder ?? a.accountOrderSaved ?? 0,
       b.accountOrder ?? b.accountOrderSaved ?? 0,
@@ -1228,28 +1634,38 @@ class ServicePrimeTransfer extends ServiceBase {
     selectedItemMap,
   }: {
     data: IPrimeTransferData;
-    selectedItemMap: IPrimeTransferSelectedItemMap;
+    selectedItemMap: IPrimeTransferSelectedItemMap | 'ALL';
   }): Promise<IPrimeTransferSelectedData> {
     // Extract selected wallets
     const wallets = this.extractSelectedItems({
-      selectedItemMapInfo: selectedItemMap.wallet,
+      selectedItemMapInfo:
+        selectedItemMap === 'ALL' ? 'ALL' : selectedItemMap.wallet,
       dataSource: data.privateData.wallets,
       credentials: data.privateData.credentials,
-    }).sort((a, b) => this.walletSortFn(a.item, b.item));
+      decryptedCredentials: data.privateData.decryptedCredentials,
+    }).toSorted((a, b) => this.walletSortFn(a.item, b.item));
 
-    // Extract selected imported accounts
+    // // Extract selected imported accounts
     const importedAccounts = this.extractSelectedItems({
-      selectedItemMapInfo: selectedItemMap.importedAccount,
+      selectedItemMapInfo:
+        selectedItemMap === 'ALL' ? 'ALL' : selectedItemMap.importedAccount,
       dataSource: data.privateData.importedAccounts,
       credentials: data.privateData.credentials,
-    }).sort((a, b) => this.accountSortFn(a.item, b.item));
+      decryptedCredentials: data.privateData.decryptedCredentials,
+    }).toSorted((a, b) => this.accountSortFn(a.item, b.item));
 
-    // Extract selected watching accounts
+    // // Extract selected watching accounts
     const watchingAccounts = this.extractSelectedItems({
-      selectedItemMapInfo: selectedItemMap.watchingAccount,
+      selectedItemMapInfo:
+        selectedItemMap === 'ALL' ? 'ALL' : selectedItemMap.watchingAccount,
       dataSource: data.privateData.watchingAccounts,
-    }).sort((a, b) => this.accountSortFn(a.item, b.item));
+    }).toSorted((a, b) => this.accountSortFn(a.item, b.item));
 
+    // return {
+    //   wallets: [],
+    //   importedAccounts: [],
+    //   watchingAccounts: [],
+    // };
     return {
       wallets,
       importedAccounts,
@@ -1273,7 +1689,7 @@ class ServicePrimeTransfer extends ServiceBase {
         if (!password) {
           throw new OneKeyLocalError('Password is required');
         }
-        const decryptedCredential1 = await decryptRevealableSeed({
+        const _decryptedCredential1 = await decryptRevealableSeed({
           rs: walletCredential,
           password,
           allowRawPassword: true,
@@ -1282,7 +1698,7 @@ class ServicePrimeTransfer extends ServiceBase {
         if (!password) {
           throw new OneKeyLocalError('Password is required');
         }
-        const decryptedCredential2 = await decryptImportedCredential({
+        const _decryptedCredential2 = await decryptImportedCredential({
           credential: importedAccountCredential,
           password,
           allowRawPassword: true,
@@ -1313,29 +1729,132 @@ class ServicePrimeTransfer extends ServiceBase {
   @toastIfError()
   async initImportProgress({
     selectedTransferData,
+    isFromCloudBackupRestore,
   }: {
     selectedTransferData: IPrimeTransferSelectedData;
+    isFromCloudBackupRestore?: boolean;
   }): Promise<void> {
     let totalProgressCount = 0;
+
+    const totalDetailInfo: IPrimeTransferImportProgressTotalDetailInfo = {
+      defaultNetworks: [],
+      hdWallets: {},
+      importedAccounts: {},
+      watchingAccounts: {},
+    };
+
+    let backupRestoreDefaultNetworks: {
+      networkId: string;
+      deriveType: IAccountDeriveTypes;
+    }[] = [];
+    if (isFromCloudBackupRestore) {
+      const networks =
+        await this.backgroundApi.serviceBatchCreateAccount.buildDefaultNetworksForBatchCreate(
+          {
+            walletId: '',
+          },
+        );
+      backupRestoreDefaultNetworks = networks;
+      totalDetailInfo.defaultNetworks = backupRestoreDefaultNetworks;
+    }
     // Count wallets and their indexed accounts
     selectedTransferData.wallets?.forEach((wallet) => {
-      totalProgressCount += wallet?.item?.accounts?.length || 0;
+      const count =
+        wallet?.item?.accounts?.length || wallet?.item?.accountIdsLength || 0;
+      if (isFromCloudBackupRestore) {
+        let customNetworks: {
+          accountIndex: number;
+          networkId: string;
+          deriveType: IAccountDeriveTypes;
+        }[] = [];
+        wallet?.item?.createNetworkParams?.forEach((item) => {
+          [
+            ...(item.customNetworks || []),
+            ...backupRestoreDefaultNetworks,
+          ].forEach((customNetwork) => {
+            customNetworks.push({
+              accountIndex: item.index,
+              networkId: customNetwork.networkId,
+              deriveType: customNetwork.deriveType,
+            });
+          });
+        });
+
+        customNetworks = uniqBy(
+          customNetworks,
+          (item) => `${item.networkId}_${item.deriveType}_${item.accountIndex}`,
+        );
+
+        const customNetworksCount = customNetworks.length;
+        const accountsCount = Math.max(count, customNetworksCount);
+        totalProgressCount += accountsCount;
+        totalDetailInfo.hdWallets[wallet.id] = {
+          accountsCount,
+          walletId: wallet?.id,
+          walletItemId: wallet?.item?.id,
+        };
+      } else {
+        totalProgressCount += count;
+      }
     });
     // this.backgroundApi.serviceBatchCreateAccount.addDefaultNetworkAccounts
     // Count imported accounts
-    totalProgressCount += selectedTransferData.importedAccounts?.length || 0;
+    const importedAccountsCount =
+      selectedTransferData.importedAccounts?.length || 0;
+    totalProgressCount += importedAccountsCount;
+    totalDetailInfo.importedAccounts = {
+      accountsCount: importedAccountsCount,
+    };
     // Count watching accounts
-    totalProgressCount += selectedTransferData.watchingAccounts?.length || 0;
+    const watchingAccountsCount =
+      selectedTransferData.watchingAccounts?.length || 0;
+    totalProgressCount += watchingAccountsCount;
+    totalDetailInfo.watchingAccounts = {
+      accountsCount: watchingAccountsCount,
+    };
 
-    await primeTransferAtom.set((prev) => ({
-      ...prev,
-      importProgress: {
-        total: totalProgressCount,
-        isImporting: true,
-        current: 0,
-      },
-    }));
+    const devSettings = await devSettingsPersistAtom.get();
+
+    await primeTransferAtom.set(
+      (prev): IPrimeTransferAtomData => ({
+        ...prev,
+        importCurrentCreatingTarget: undefined,
+        importProgress: {
+          totalDetailInfo: devSettings.enabled ? totalDetailInfo : undefined,
+          total: totalProgressCount,
+          isImporting: true,
+          current: 0,
+        },
+      }),
+    );
   }
+
+  finallyImportProgress = debounce(
+    async (): Promise<void> => {
+      if (this.currentImportTaskUUID === undefined) {
+        return;
+      }
+      /*
+      - reset transfer import task
+      - register notification clients
+      - refresh perps active account
+      - call onekey cloud sync
+      */
+      this.currentImportTaskUUID = undefined;
+      void this.backgroundApi.serviceNotification.registerClientWithOverrideAllAccounts();
+      void perpsActiveAccountRefreshHookAtom.set((prev) => ({
+        ...prev,
+        refreshHook: prev.refreshHook + 1,
+      }));
+      await timerUtils.wait(300);
+      appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
+    },
+    1500,
+    {
+      leading: false,
+      trailing: true,
+    },
+  );
 
   @backgroundMethod()
   @toastIfError()
@@ -1345,6 +1864,7 @@ class ServicePrimeTransfer extends ServiceBase {
       ...prev,
       importProgress: undefined,
     }));
+    await this.finallyImportProgress();
   }
 
   @backgroundMethod()
@@ -1380,6 +1900,155 @@ class ServicePrimeTransfer extends ServiceBase {
           : undefined,
       };
     });
+    await this.finallyImportProgress();
+  }
+
+  async buildHdWalletAccountsCreateParams({
+    walletId,
+    skipDefaultNetworks,
+    accounts,
+    taskUUID,
+    errorsInfo,
+  }: {
+    walletId: string;
+    // Do not return default networks for cloud backup, which can save storage capacity
+    skipDefaultNetworks?: boolean;
+    accounts: IPrimeTransferHDAccount[];
+    taskUUID: string | undefined;
+    errorsInfo:
+      | {
+          category: string;
+          walletId: string;
+          accountId: string;
+          networkInfo: string;
+          error: string;
+        }[]
+      | undefined;
+  }): Promise<{
+    isCancelled?: boolean;
+    createNetworkParams: IPrimeTransferHDWalletCreateNetworkParams;
+    indexedAccountNames: IPrimeTransferHDWalletIndexedAccountNames;
+  }> {
+    const {
+      serviceAccount,
+      serviceNetwork,
+      servicePassword: _servicePassword,
+    } = this.backgroundApi;
+
+    const defaultCustomNetworks = [
+      { networkId: 'tron--0x2b6653dc', deriveType: 'default' },
+      { networkId: 'sol--101', deriveType: 'default' },
+      { networkId: 'evm--1', deriveType: 'default' },
+      { networkId: 'btc--0', deriveType: 'default' },
+      { networkId: 'btc--0', deriveType: 'BIP44' },
+      { networkId: 'btc--0', deriveType: 'BIP84' },
+      { networkId: 'btc--0', deriveType: 'BIP86' },
+    ];
+    const createNetworkParamsMap: {
+      [index: number]: {
+        index: number;
+        customNetworks:
+          | {
+              networkId: string;
+              deriveType: IAccountDeriveTypes;
+            }[]
+          | undefined;
+      };
+    } = {};
+    const indexedAccountNames: IPrimeTransferHDWalletIndexedAccountNames = {};
+    for (const hdAccount of accounts) {
+      if (
+        taskUUID &&
+        this.currentImportTaskUUID &&
+        this.currentImportTaskUUID !== taskUUID
+      ) {
+        // task cancelled
+        // throw new PrimeTransferImportCancelledError();
+        return {
+          isCancelled: true,
+          createNetworkParams: [],
+          indexedAccountNames: {},
+        };
+      }
+
+      try {
+        const pathIndex = accountUtils.getHDAccountPathIndex({
+          account: hdAccount,
+        });
+        if (!isNil(pathIndex) && hdAccount.name) {
+          indexedAccountNames[pathIndex] = hdAccount.name;
+        }
+        const networkId = await serviceAccount.getAccountCreatedNetworkId({
+          account: hdAccount,
+        });
+        const deriveTypeData = await serviceNetwork.getDeriveTypeByDBAccount({
+          networkId: networkId || '',
+          account: hdAccount,
+        });
+        if (
+          !isNil(pathIndex) &&
+          !isNaN(pathIndex) &&
+          networkId &&
+          deriveTypeData.deriveType
+        ) {
+          createNetworkParamsMap[pathIndex] = createNetworkParamsMap[
+            pathIndex
+          ] || {
+            customNetworks: undefined,
+          };
+          createNetworkParamsMap[pathIndex].index = pathIndex;
+          const isIncludedInDefaultCustomNetworks = defaultCustomNetworks.some(
+            (item) =>
+              item.networkId === networkId &&
+              item.deriveType === deriveTypeData.deriveType,
+          );
+          if (!isIncludedInDefaultCustomNetworks || !skipDefaultNetworks) {
+            createNetworkParamsMap[pathIndex].customNetworks =
+              createNetworkParamsMap[pathIndex].customNetworks || [];
+            if (
+              networkId &&
+              // ignore lightning network as it requires network verification
+              ![presetNetworksMap.lightning.id].includes(networkId)
+            ) {
+              createNetworkParamsMap[pathIndex].customNetworks.push({
+                networkId,
+                deriveType: deriveTypeData.deriveType,
+              });
+            }
+          }
+        }
+      } catch (e) {
+        console.error('startImport error', e);
+        errorsInfo?.push({
+          category: 'createHDWallet.createNetworkParams',
+          walletId,
+          accountId: hdAccount.id,
+          networkInfo: '',
+          error: (e as Error)?.message || 'Unknown error',
+        });
+      }
+    }
+
+    const createNetworkParams: IPrimeTransferHDWalletCreateNetworkParams =
+      Object.values(createNetworkParamsMap);
+
+    return {
+      createNetworkParams,
+      indexedAccountNames,
+    };
+  }
+
+  @backgroundMethod()
+  async isInTransferImportOrBackupRestoreFlow(): Promise<boolean> {
+    return Boolean(this.currentImportTaskUUID);
+  }
+
+  batchCreateHdAccountsParams: IBatchBuildAccountsAdvancedFlowForAllNetworkParams[] =
+    [];
+
+  @backgroundMethod()
+  async getBatchCreateHdAccountsParams() {
+    return this.batchCreateHdAccountsParams;
   }
 
   currentImportTaskUUID: string | undefined;
@@ -1387,10 +2056,16 @@ class ServicePrimeTransfer extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   async startImport({
+    decryptedCredentialsHex,
     selectedTransferData,
+    includingDefaultNetworks = false,
+    isFromCloudBackupRestore: _isFromCloudBackupRestore,
     password,
   }: {
+    decryptedCredentialsHex?: string;
     selectedTransferData: IPrimeTransferSelectedData;
+    includingDefaultNetworks?: boolean;
+    isFromCloudBackupRestore?: boolean;
     password: string;
   }): Promise<{
     success: boolean;
@@ -1402,6 +2077,19 @@ class ServicePrimeTransfer extends ServiceBase {
       error: string;
     }[];
   }> {
+    this.batchCreateHdAccountsParams = [];
+    const devSettings = await devSettingsPersistAtom.get();
+    let decryptedCredentials: IPrimeTransferDecryptedCredentials | undefined;
+    if (decryptedCredentialsHex && password) {
+      decryptedCredentials = JSON.parse(
+        await decryptStringAsync({
+          data: decryptedCredentialsHex,
+          resultEncoding: 'utf8',
+          password,
+          allowRawPassword: true,
+        }),
+      ) as IPrimeTransferDecryptedCredentials;
+    }
     const taskUUID = stringUtils.generateUUID();
     this.currentImportTaskUUID = taskUUID;
     // const { watchingAccounts, importedAccounts } = selectedTransferData;
@@ -1420,10 +2108,15 @@ class ServicePrimeTransfer extends ServiceBase {
       errorsInfo: [],
     };
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { serviceAccount, serviceNetwork, servicePassword } =
       this.backgroundApi;
 
-    for (const { item: wallet, credential } of selectedTransferData.wallets) {
+    for (const {
+      item: wallet,
+      credential,
+      credentialDecrypted,
+    } of selectedTransferData.wallets) {
       if (this.currentImportTaskUUID !== taskUUID) {
         // task cancelled
         return cancelledResult;
@@ -1431,13 +2124,36 @@ class ServicePrimeTransfer extends ServiceBase {
 
       let newWallet: IDBWallet | undefined;
       try {
-        if (!credential) {
-          throw new OneKeyLocalError('Credential is required');
+        await primeTransferAtom.set(
+          (prev): IPrimeTransferAtomData => ({
+            ...prev,
+            importCurrentCreatingTarget: ['HdWallet: ', wallet.id, wallet.name]
+              .filter(Boolean)
+              .join('__'),
+          }),
+        );
+        let mnemonicFromRs = '';
+        const credentialDecryptedUsed =
+          credentialDecrypted || decryptedCredentials?.[wallet.id];
+        if (credentialDecryptedUsed) {
+          mnemonicFromRs = revealEntropyToMnemonic(
+            bufferUtils.toBuffer(
+              (credentialDecryptedUsed as IBip39RevealableSeed)
+                .entropyWithLangPrefixed,
+            ),
+          );
+        } else {
+          if (!credential) {
+            throw new OneKeyLocalError('Credential is required');
+          }
+          if (!password) {
+            throw new OneKeyLocalError('Password is required');
+          }
+          mnemonicFromRs = await mnemonicFromEntropy(credential, password);
         }
-        if (!password) {
-          throw new OneKeyLocalError('Password is required');
+        if (!mnemonicFromRs) {
+          throw new OneKeyLocalError('Mnemonic is required');
         }
-        const mnemonicFromRs = await mnemonicFromEntropy(credential, password);
         // serviceAccount.createAddressIfNotExists
         const { wallet: newWalletData } = await serviceAccount.createHDWallet({
           mnemonic: await servicePassword.encodeSensitiveText({
@@ -1459,88 +2175,71 @@ class ServicePrimeTransfer extends ServiceBase {
         });
       }
 
-      const createNetworkParams: {
-        [index: number]: {
-          index: number;
-          customNetworks: {
-            networkId: string;
-            deriveType: IAccountDeriveTypes;
-          }[];
-        };
-      } = {};
+      let indexedAccountNames: IPrimeTransferHDWalletIndexedAccountNames =
+        wallet?.indexedAccountNames ?? {};
+      let createNetworkParams: IPrimeTransferHDWalletCreateNetworkParams =
+        wallet?.createNetworkParams ?? [];
 
-      const indexedAccountNames: {
-        [index: number]: string;
-      } = {};
-      for (const hdAccount of wallet.accounts) {
-        if (this.currentImportTaskUUID !== taskUUID) {
+      if (isEmpty(indexedAccountNames) || isEmpty(createNetworkParams)) {
+        let isCancelled: boolean | undefined;
+        ({
+          createNetworkParams = [],
+          indexedAccountNames = {},
+          isCancelled,
+        } = await this.buildHdWalletAccountsCreateParams({
+          walletId: wallet.id,
+          accounts: wallet.accounts || [],
+          taskUUID,
+          errorsInfo,
+        }));
+
+        if (isCancelled) {
           // task cancelled
           return cancelledResult;
         }
-
-        if (!isNil(hdAccount?.pathIndex) && hdAccount.name) {
-          indexedAccountNames[hdAccount?.pathIndex] = hdAccount.name;
-        }
-
-        try {
-          const index = accountUtils.getHDAccountPathIndex({
-            account: hdAccount,
-          });
-          const networkId = await serviceAccount.getAccountCreatedNetworkId({
-            account: hdAccount,
-          });
-          const deriveTypeData = await serviceNetwork.getDeriveTypeByDBAccount({
-            networkId: networkId || '',
-            account: hdAccount,
-          });
-          if (
-            !isNil(index) &&
-            !isNaN(index) &&
-            networkId &&
-            deriveTypeData.deriveType
-          ) {
-            createNetworkParams[index] = createNetworkParams[index] || {
-              customNetworks: [],
-            };
-            createNetworkParams[index].index = index;
-            createNetworkParams[index].customNetworks.push({
-              networkId,
-              deriveType: deriveTypeData.deriveType,
-            });
-          }
-        } catch (e) {
-          console.error('startImport error', e);
-          errorsInfo.push({
-            category: 'createHDWallet.createNetworkParams',
-            walletId: wallet.id,
-            accountId: hdAccount.id,
-            networkInfo: '',
-            error: (e as Error)?.message || 'Unknown error',
-          });
-        }
       }
 
-      const createNetworkParamsEntries = Object.entries(createNetworkParams);
-      for (const [, { customNetworks, index }] of createNetworkParamsEntries) {
+      for (const { customNetworks, index } of createNetworkParams) {
         if (this.currentImportTaskUUID !== taskUUID) {
           // task cancelled
           return cancelledResult;
         }
         try {
           if (newWallet) {
+            const skipNetworks = new Set([
+              // lightning network requires network verification
+              presetNetworksMap.lightning.id,
+              // Skip Cardano network because address generation is very slow
+              presetNetworksMap.cardano.id,
+            ]);
+            // if (isFromCloudBackupRestore) {
+            //   skipNetworks = [
+            //     presetNetworksMap.lightning.id,
+            //     presetNetworksMap.cardano.id,
+            //   ];
+            // }
+            const customNetworksUsed = customNetworks?.filter(
+              (n) => !skipNetworks.has(n.networkId),
+            );
+            const params: IBatchBuildAccountsAdvancedFlowForAllNetworkParams = {
+              walletId: newWallet.id,
+              fromIndex: index,
+              toIndex: index,
+              indexedAccountNames,
+              customNetworks: customNetworksUsed,
+              includingDefaultNetworks,
+              excludedIndexes: {},
+              saveToDb: true,
+              showUIProgress: true, // emit EAppEventBusNames.BatchCreateAccount event
+              autoHandleExitError: false,
+            };
+            // params.customNetworks = [];
+            // params.includingDefaultNetworks = true;
+            if (devSettings.enabled) {
+              this.batchCreateHdAccountsParams.push(params);
+            }
             await this.backgroundApi.serviceBatchCreateAccount.startBatchCreateAccountsFlowForAllNetwork(
-              {
-                walletId: newWallet.id,
-                fromIndex: index,
-                toIndex: index,
-                indexedAccountNames,
-                excludedIndexes: {},
-                saveToDb: true,
-                showUIProgress: true, // emit EAppEventBusNames.BatchCreateAccount event
-                autoHandleExitError: false,
-                customNetworks,
-                includingDefaultNetworks: false,
-              },
+              params,
             );
           }
         } catch (e) {
@@ -1550,7 +2249,7 @@ class ServicePrimeTransfer extends ServiceBase {
               'createHDWallet.startBatchCreateAccountsFlowForAllNetwork',
             walletId: wallet.id,
             accountId: '',
-            networkInfo: `${customNetworks
+            networkInfo: `${(customNetworks || [])
               .map((n) => `${n.networkId}-${n.deriveType}`)
               .join(', ')}----${index}`,
             error: (e as Error)?.message || 'Unknown error',
@@ -1579,29 +2278,44 @@ class ServicePrimeTransfer extends ServiceBase {
     for (const {
       item: importedAccount,
       credential,
+      credentialDecrypted,
       tonMnemonicCredential,
+      tonMnemonicCredentialDecrypted,
     } of selectedTransferData.importedAccounts) {
       if (this.currentImportTaskUUID !== taskUUID) {
         // task cancelled
         return cancelledResult;
       }
-      if (!credential) {
-        throw new OneKeyLocalError('Credential is required');
-      }
-      if (!password) {
-        throw new OneKeyLocalError('Password is required');
-      }
+
       const networkId = await serviceAccount.getAccountCreatedNetworkId({
         account: importedAccount,
       });
       if (!networkId) {
         throw new OneKeyLocalError('NetworkId is required');
       }
+      await primeTransferAtom.set(
+        (prev): IPrimeTransferAtomData => ({
+          ...prev,
+          importCurrentCreatingTarget: [
+            importedAccount.id,
+            importedAccount.name,
+            networkId,
+          ]
+            .filter(Boolean)
+            .join('__'),
+        }),
+      );
+
+      const credentialDecryptedUsed =
+        credentialDecrypted || decryptedCredentials?.[importedAccount.id];
       const { exportedPrivateKey, privateKey } =
         await serviceAccount.getExportedPrivateKeyOfImportedAccount({
           importedAccount,
-          encryptedCredential: credential,
+          encryptedCredential: credential || '',
           password,
+          credentialDecrypted: credentialDecryptedUsed as
+            | ICoreImportedCredential
+            | undefined,
           networkId,
         });
 
@@ -1612,14 +2326,37 @@ class ServicePrimeTransfer extends ServiceBase {
           input: exportedPrivateKey,
           privateKey,
           networkId,
+          skipEventEmit: true,
         });
       if (addedAccounts?.length && addedAccounts?.[0]?.id) {
         try {
-          if (tonMnemonicCredential) {
-            const tonRs = await decryptRevealableSeed({
-              rs: tonMnemonicCredential,
-              password,
+          const tonMnemonicCredentialId =
+            accountUtils.buildTonMnemonicCredentialId({
+              accountId: importedAccount.id,
             });
+          const tonMnemonicCredentialDecryptedUsed =
+            tonMnemonicCredentialDecrypted ||
+            decryptedCredentials?.[tonMnemonicCredentialId];
+          if (tonMnemonicCredential || tonMnemonicCredentialDecryptedUsed) {
+            let tonRs: IBip39RevealableSeed | undefined =
+              tonMnemonicCredentialDecryptedUsed as IBip39RevealableSeed;
+
+            if (!tonRs && tonMnemonicCredential) {
+              if (!password) {
+                throw new OneKeyLocalError(
+                  'startImport error: Password is required',
+                );
+              }
+              tonRs = await decryptRevealableSeed({
+                rs: tonMnemonicCredential,
+                password,
+              });
+            }
+            if (!tonRs) {
+              throw new OneKeyLocalError(
+                'startImport error: Ton mnemonic credential is required',
+              );
+            }
             const { password: localPassword } =
               await this.backgroundApi.servicePassword.promptPasswordVerify({
                 reason: EReasonForNeedPassword.Default,
@@ -1654,7 +2391,7 @@ class ServicePrimeTransfer extends ServiceBase {
         // task cancelled
         return cancelledResult;
       }
-      const watchingAccountUtxo = watchingAccount as IDBUtxoAccount;
+      const watchingAccountUtxo = watchingAccount;
       let addedAccounts: IDBAccount[] = [];
       const networkId = await serviceAccount.getAccountCreatedNetworkId({
         account: watchingAccount,
@@ -1662,6 +2399,19 @@ class ServicePrimeTransfer extends ServiceBase {
       if (!networkId) {
         throw new OneKeyLocalError('NetworkId is required');
       }
+
+      await primeTransferAtom.set(
+        (prev): IPrimeTransferAtomData => ({
+          ...prev,
+          importCurrentCreatingTarget: [
+            watchingAccount.id,
+            watchingAccount.name,
+            networkId,
+          ]
+            .filter(Boolean)
+            .join('__'),
+        }),
+      );
 
       if (watchingAccount?.pub) {
         if (this.currentImportTaskUUID !== taskUUID) {
@@ -1672,6 +2422,7 @@ class ServicePrimeTransfer extends ServiceBase {
           watchingAccount,
           input: watchingAccount.pub,
           networkId,
+          skipEventEmit: true,
         });
         addedAccounts = [...addedAccounts, ...(result?.addedAccounts || [])];
       }
@@ -1685,6 +2436,7 @@ class ServicePrimeTransfer extends ServiceBase {
           watchingAccount,
           input: watchingAccountUtxo.xpub,
           networkId,
+          skipEventEmit: true,
         });
         addedAccounts = [...addedAccounts, ...(result?.addedAccounts || [])];
       }
@@ -1698,6 +2450,7 @@ class ServicePrimeTransfer extends ServiceBase {
           watchingAccount,
           input: watchingAccountUtxo.xpubSegwit,
           networkId,
+          skipEventEmit: true,
         });
         addedAccounts = [...addedAccounts, ...(result?.addedAccounts || [])];
       }
@@ -1711,6 +2464,7 @@ class ServicePrimeTransfer extends ServiceBase {
           watchingAccount,
           input: watchingAccount.address,
           networkId,
+          skipEventEmit: true,
         });
         addedAccounts = [...addedAccounts, ...(result?.addedAccounts || [])];
       }

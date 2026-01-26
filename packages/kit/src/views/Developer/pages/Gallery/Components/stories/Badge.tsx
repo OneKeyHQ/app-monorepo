@@ -11,6 +11,7 @@ import {
   NATIVE_HIT_SLOP,
   SizableText,
   Stack,
+  Toast,
   XStack,
 } from '@onekeyhq/components';
 import type { ITokenProps } from '@onekeyhq/kit/src/components/Token';
@@ -295,36 +296,50 @@ const BadgeGallery = () => (
           <Stack gap="$1">
             <XStack gap="$1">
               <Badge badgeType="default" badgeSize="sm">
-                Badge
+                badgeType="default"
               </Badge>
               <Badge badgeType="success" badgeSize="sm">
-                Badge
+                badgeType="success"
               </Badge>
               <Badge badgeType="info" badgeSize="sm">
-                Badge
+                badgeType="info"
               </Badge>
               <Badge badgeType="warning" badgeSize="sm">
-                Badge
+                badgeType="warning"
               </Badge>
               <Badge badgeType="critical" badgeSize="sm">
-                Badge
+                badgeType="critical"
               </Badge>
             </XStack>
             <XStack gap="$1">
-              <Badge badgeType="default" badgeSize="lg">
-                Badge
-              </Badge>
-              <Badge badgeType="success" badgeSize="lg">
-                Badge
-              </Badge>
-              <Badge badgeType="info" badgeSize="lg">
-                Badge
-              </Badge>
-              <Badge badgeType="warning" badgeSize="lg">
-                Badge
-              </Badge>
-              <Badge badgeType="critical" badgeSize="lg">
-                Badge
+              <Stack>
+                <Badge badgeType="success" badgeSize="lg">
+                  badgeSize="lg"
+                </Badge>
+              </Stack>
+              <Stack>
+                <Badge badgeType="success" badgeSize="sm">
+                  badgeSize="sm"
+                </Badge>
+              </Stack>
+            </XStack>
+            <XStack gap="$1">
+              <Badge
+                onPress={() => {
+                  Toast.success({
+                    title: 'This is a toast',
+                  });
+                }}
+                badgeType="warning"
+                badgeSize="lg"
+              >
+                <Badge.Text userSelect="none">Prime</Badge.Text>
+                <Icon
+                  name="InfoCircleOutline"
+                  color="$iconSubdued"
+                  size="$5"
+                  ml="$1.5"
+                />
               </Badge>
             </XStack>
 

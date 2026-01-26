@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -12,6 +12,8 @@ import {
   Form,
   Page,
   SizableText,
+  Spinner,
+  Stack,
   YStack,
   useForm,
   useFormWatch,
@@ -29,9 +31,10 @@ import {
 import { AddressInputContext } from '@onekeyhq/kit/src/components/AddressInput/AddressInputContext';
 import { renderAddressInputHyperlinkText } from '@onekeyhq/kit/src/components/AddressInput/AddressInputHyperlinkText';
 import { renderAddressSecurityHeaderRightButton } from '@onekeyhq/kit/src/components/AddressInput/AddressSecurityHeaderRightButton';
+import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useLoginOneKeyId } from '@onekeyhq/kit/src/hooks/useLoginOneKeyId';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { EPrimeEmailOTPScene } from '@onekeyhq/shared/src/consts/primeConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
@@ -39,6 +42,8 @@ import type {
   IModalReferFriendsParamList,
 } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+
+import { ReferFriendsPageContainer } from '../../components';
 
 import type { RouteProp } from '@react-navigation/native';
 
@@ -56,6 +61,9 @@ function BasicEditAddress() {
       >
     >();
   const onAddressAdded = route.params?.onAddressAdded;
+  const hideAddressBook = route.params?.hideAddressBook ?? false;
+  const enableAllowListValidation =
+    route.params?.enableAllowListValidation ?? true;
   const intl = useIntl();
   const navigation = useAppNavigation();
   const enabledNetworks = useMemo(
@@ -65,43 +73,60 @@ function BasicEditAddress() {
 
   const accountId = route.params?.accountId ?? '';
 
-  const { sendEmailOTP } = useLoginOneKeyId();
+  const { sendEmailOTP } = useOneKeyAuth();
+  const actions = useAccountSelectorActions();
 
-  const { result: networksResp } = usePromiseResult(
-    async () => {
-      const resp =
-        await backgroundApiProxy.serviceNetwork.getPublicKeyExportOrWatchingAccountEnabledNetworks();
-      const networkIds = resp
-        .filter((o) => enabledNetworks.includes(o.network.id))
-        .map((o) => o.network.id);
-      const publicKeyExportEnabledNetworkIds = resp
-        .filter(
-          (o) =>
-            o.publicKeyExportEnabled && enabledNetworks.includes(o.network.id),
-        )
-        .map((t) => t.network.id);
-
-      const watchingAccountEnabledNetworkIds = resp
-        .filter(
-          (o) =>
-            o.watchingAccountEnabled && enabledNetworks.includes(o.network.id),
-        )
-        .map((t) => t.network.id);
-      return {
-        networkIds,
-        publicKeyExportEnabled: new Set(publicKeyExportEnabledNetworkIds),
-        watchingAccountEnabled: new Set(watchingAccountEnabledNetworkIds),
-      };
-    },
-    [enabledNetworks],
-    {
-      initResult: {
-        networkIds: [],
-        publicKeyExportEnabled: new Set([]),
-        watchingAccountEnabled: new Set([]),
+  // Sync account selection from home scene to make wallet active
+  useEffect(() => {
+    void actions.current.syncFromScene({
+      from: {
+        sceneName: EAccountSelectorSceneName.home,
+        sceneUrl: '',
+        sceneNum: 0,
       },
-    },
-  );
+      num: 0,
+    });
+  }, [actions]);
+
+  const { result: networksResp, isLoading: isNetworksLoading } =
+    usePromiseResult(
+      async () => {
+        const resp =
+          await backgroundApiProxy.serviceNetwork.getPublicKeyExportOrWatchingAccountEnabledNetworks();
+        const networkIds = resp
+          .filter((o) => enabledNetworks.includes(o.network.id))
+          .map((o) => o.network.id);
+        const publicKeyExportEnabledNetworkIds = resp
+          .filter(
+            (o) =>
+              o.publicKeyExportEnabled &&
+              enabledNetworks.includes(o.network.id),
+          )
+          .map((t) => t.network.id);
+
+        const watchingAccountEnabledNetworkIds = resp
+          .filter(
+            (o) =>
+              o.watchingAccountEnabled &&
+              enabledNetworks.includes(o.network.id),
+          )
+          .map((t) => t.network.id);
+        return {
+          networkIds,
+          publicKeyExportEnabled: new Set(publicKeyExportEnabledNetworkIds),
+          watchingAccountEnabled: new Set(watchingAccountEnabledNetworkIds),
+        };
+      },
+      [enabledNetworks],
+      {
+        watchLoading: true,
+        initResult: {
+          networkIds: [],
+          publicKeyExportEnabled: new Set([]),
+          watchingAccountEnabled: new Set([]),
+        },
+      },
+    );
 
   const onSubmitRef = useRef<
     ((formContext: UseFormReturn<IFormValues>) => Promise<void>) | null
@@ -137,20 +162,23 @@ function BasicEditAddress() {
 
   const { result: addressBookEnabledNetworkIds } = usePromiseResult(
     async () => {
+      if (hideAddressBook) {
+        return [];
+      }
       const networks =
         await backgroundApiProxy.serviceNetwork.getAddressBookEnabledNetworks();
       return networks.map((o) => o.id);
     },
-    [],
+    [hideAddressBook],
     { initResult: [] },
   );
 
   const addressInputAccountSelectorArgs = useMemo<{ num: number } | undefined>(
     () =>
-      addressBookEnabledNetworkIds.includes(networkIdValue)
+      !hideAddressBook && addressBookEnabledNetworkIds.includes(networkIdValue)
         ? { num: 0, clearNotMatch: true }
         : undefined,
-    [addressBookEnabledNetworkIds, networkIdValue],
+    [addressBookEnabledNetworkIds, hideAddressBook, networkIdValue],
   );
 
   onSubmitRef.current = useCallback(
@@ -203,68 +231,96 @@ function BasicEditAddress() {
         title={intl.formatMessage({
           id: ETranslations.address_book_edit_address_title,
         })}
-        headerRight={renderAddressSecurityHeaderRightButton}
+        headerRight={
+          enableAllowListValidation
+            ? renderAddressSecurityHeaderRightButton
+            : undefined
+        }
       />
       <Page.Body px="$5">
-        <AddressInputContext.Provider value={contextValue}>
-          <Form form={form}>
-            <Form.Field
-              label={intl.formatMessage({ id: ETranslations.global_network })}
-              name="networkId"
-            >
-              <ControlledNetworkSelectorTrigger
-                networkIds={networksResp.networkIds}
-              />
-            </Form.Field>
+        {isNetworksLoading ? (
+          <Stack
+            position="absolute"
+            top={0}
+            left={0}
+            right={0}
+            bottom={0}
+            ai="center"
+            jc="center"
+          >
+            <Spinner size="large" />
+          </Stack>
+        ) : (
+          <ReferFriendsPageContainer>
+            <AddressInputContext.Provider value={contextValue}>
+              <Form form={form}>
+                <Form.Field
+                  label={intl.formatMessage({
+                    id: ETranslations.global_network,
+                  })}
+                  name="networkId"
+                >
+                  <ControlledNetworkSelectorTrigger
+                    networkIds={networksResp.networkIds}
+                  />
+                </Form.Field>
 
-            <Form.Field
-              label={intl.formatMessage({ id: ETranslations.global_address })}
-              name="to"
-              renderErrorMessage={renderAddressInputHyperlinkText}
-              rules={{
-                validate: createValidateAddressRule({
-                  defaultErrorMessage: intl.formatMessage({
-                    id: ETranslations.form_address_error_invalid,
-                  }),
-                }),
-              }}
-            >
-              <AddressInput
-                enableAddressBook
-                enableWalletName
-                enableVerifySendFundToSelf
-                enableAddressInteractionStatus
-                enableAddressContract
-                enableAllowListValidation
-                accountSelector={addressInputAccountSelectorArgs}
-                // accountId={accountId}
-                networkId={networkIdValue}
-                contacts={addressBookEnabledNetworkIds.includes(networkIdValue)}
-                enableNameResolve
-                placeholder={intl.formatMessage({
-                  id: ETranslations.form_address_placeholder,
+                <Form.Field
+                  label={intl.formatMessage({
+                    id: ETranslations.global_address,
+                  })}
+                  name="to"
+                  renderErrorMessage={renderAddressInputHyperlinkText}
+                  rules={{
+                    validate: createValidateAddressRule({
+                      defaultErrorMessage: intl.formatMessage({
+                        id: ETranslations.form_address_error_invalid,
+                      }),
+                    }),
+                  }}
+                >
+                  <AddressInput
+                    enableAddressBook={!hideAddressBook}
+                    enableWalletName
+                    enableVerifySendFundToSelf
+                    enableAddressInteractionStatus
+                    enableAddressContract
+                    enableAllowListValidation={enableAllowListValidation}
+                    accountSelector={addressInputAccountSelectorArgs}
+                    // accountId={accountId}
+                    networkId={networkIdValue}
+                    contacts={
+                      !hideAddressBook
+                        ? addressBookEnabledNetworkIds.includes(networkIdValue)
+                        : undefined
+                    }
+                    enableNameResolve
+                    placeholder={intl.formatMessage({
+                      id: ETranslations.form_address_placeholder,
+                    })}
+                    testID="refer-friends-edit-address-input"
+                  />
+                </Form.Field>
+              </Form>
+            </AddressInputContext.Provider>
+            <YStack gap="$5" mt="$1.5">
+              <SizableText color="$textSubdued" size="$bodyMd">
+                {intl.formatMessage({
+                  id: ETranslations.referral_reward_edit_address_desc_1,
                 })}
-                testID="refer-friends-edit-address-input"
-              />
-            </Form.Field>
-          </Form>
-        </AddressInputContext.Provider>
-        <YStack gap="$5" mt="$1.5">
-          <SizableText color="$textSubdued" size="$bodyMd">
-            {intl.formatMessage({
-              id: ETranslations.referral_reward_edit_address_desc_1,
-            })}
-          </SizableText>
-          <SizableText color="$textSubdued" size="$bodyMd">
-            {intl.formatMessage({
-              id: ETranslations.referral_reward_edit_address_desc_2,
-            })}
-          </SizableText>
-        </YStack>
+              </SizableText>
+              <SizableText color="$textSubdued" size="$bodyMd">
+                {intl.formatMessage({
+                  id: ETranslations.referral_reward_edit_address_desc_2,
+                })}
+              </SizableText>
+            </YStack>
+          </ReferFriendsPageContainer>
+        )}
       </Page.Body>
       <Page.Footer
         confirmButtonProps={{
-          disabled: !isEnable,
+          disabled: !isEnable || isNetworksLoading,
         }}
         onConfirmText={intl.formatMessage({ id: ETranslations.action_save })}
         onConfirm={form.submit}

@@ -1,17 +1,20 @@
 import type { ReactNode } from 'react';
 import { memo, useCallback, useMemo } from 'react';
 
-import { Button, SizableText } from '@onekeyhq/components';
+import { Button, SizableText, Spinner } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   usePerpsAccountLoadingInfoAtom,
   usePerpsActiveAccountAtom,
   usePerpsActiveAccountIsAgentReadyAtom,
+  usePerpsActiveAccountStatusAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
 import { useShowDepositWithdrawModal } from '../hooks/useShowDepositWithdrawModal';
+
+import { showHyperliquidTermsDialog } from './HyperliquidTerms';
 
 interface ITradingGuardWrapperProps {
   children?: ReactNode;
@@ -26,6 +29,7 @@ function TradingGuardWrapperInternal({
 }: ITradingGuardWrapperProps) {
   const [perpsAccount] = usePerpsActiveAccountAtom();
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
+  const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
   const [{ isAgentReady }] = usePerpsActiveAccountIsAgentReadyAtom();
   // Memoize account info to optimize callback dependencies
   const accountInfo = useMemo(
@@ -38,6 +42,11 @@ function TradingGuardWrapperInternal({
   const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
   const enableTrading = useCallback(async () => {
     try {
+      const didAcceptTerms = await showHyperliquidTermsDialog();
+      if (!didAcceptTerms) {
+        return;
+      }
+
       const status =
         await backgroundApiProxy.serviceHyperliquid.enableTrading();
       if (
@@ -77,6 +86,26 @@ function TradingGuardWrapperInternal({
       pressStyle: isDisabled ? undefined : { bg: '$green8' },
     };
   }, [disabled, isEnableTradingLoading]);
+
+  if (perpsAccountLoading.selectAccountLoading) {
+    return (
+      <Button variant="primary" size="medium" disabled>
+        <Spinner />
+      </Button>
+    );
+  }
+
+  if (perpsAccountStatus.accountNotSupport) {
+    return (
+      <Button variant="primary" size="medium" disabled>
+        <SizableText size="$bodyMdMedium" color="$textOnColor">
+          {appLocale.intl.formatMessage({
+            id: ETranslations.perp_trade_button_account_unsupported,
+          })}
+        </SizableText>
+      </Button>
+    );
+  }
 
   if (shouldShowEnableTrading || !children) {
     return (

@@ -88,7 +88,7 @@ export const getSecureItem = (key: string) => {
     try {
       const result = safeStorage.decryptString(Buffer.from(value, 'hex'));
       return result;
-    } catch (e) {
+    } catch (_e) {
       logger.error(`failed to decrypt ${key}`);
       return undefined;
     }
@@ -105,7 +105,7 @@ export const setSecureItem = (key: string, value: string): void => {
     const items = store.get(EDesktopStoreKeys.EncryptedData, {});
     items[key] = safeStorage.encryptString(value).toString('hex');
     store.set(EDesktopStoreKeys.EncryptedData, items);
-  } catch (e) {
+  } catch (_e) {
     logger.error(`failed to encrypt ${key}`);
   }
 };
@@ -114,6 +114,25 @@ export const deleteSecureItem = (key: string) => {
   const items = store.get(EDesktopStoreKeys.EncryptedData, {});
   delete items[key];
   store.set(EDesktopStoreKeys.EncryptedData, items);
+};
+
+export const isSecureStorageAvailable = (): boolean => {
+  const available = safeStorage.isEncryptionAvailable();
+  if (!available) {
+    return false;
+  }
+  // On Linux, check if we have a real secure backend (not basic_text)
+  // basic_text means data is encrypted with a hardcoded password, which is not secure
+  if (process.platform === 'linux') {
+    const backend = safeStorage.getSelectedStorageBackend();
+    if (backend === 'basic_text') {
+      logger.warn(
+        'safeStorage backend is basic_text, secure storage is not truly secure',
+      );
+      return false;
+    }
+  }
+  return true;
 };
 
 export const setASCFile = (ascFile: string) => {

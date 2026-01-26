@@ -19,6 +19,27 @@ import type { WalletKitTypes } from '@reown/walletkit';
 const DOMAIN_REGEXP =
   /(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]/;
 
+// Match patterns like: onekey.so/invite/ABC123, www.example.com, etc.
+const URL_WITHOUT_PROTOCOL_REGEXP =
+  /^(?:www\.)?[a-zA-Z0-9-]+(?:\.[a-zA-Z]{2,})+(?:\/[^\s]*)?$/;
+
+export function isUrlWithoutProtocol(text: string): boolean {
+  return URL_WITHOUT_PROTOCOL_REGEXP.test(text);
+}
+
+export function ensureHttpsPrefix(url: string): string {
+  if (!url) return url;
+  // Already has protocol
+  if (/^https?:\/\//i.test(url)) {
+    return url;
+  }
+  // Looks like a URL without protocol, add https://
+  if (isUrlWithoutProtocol(url)) {
+    return `https://${url}`;
+  }
+  return url;
+}
+
 function getHostNameFromUrl({ url }: { url: string }): string {
   try {
     const urlInfo = new URL(url);
@@ -47,7 +68,7 @@ function getOriginFromUrl({ url }: { url: string }): string {
 function safeParseURL(url: string): URL | null {
   try {
     return new URL(url);
-  } catch (e) {
+  } catch (_e) {
     return null;
   }
 }
@@ -66,7 +87,16 @@ enum EDAppOpenActionEnum {
 function parseDappRedirect(
   url: string,
   allowedUrls: string[],
+  options?: { isTopFrame?: boolean },
 ): { action: EDAppOpenActionEnum } {
+  // allow iframe ad
+  const isTopFrame = options?.isTopFrame ?? true;
+  const protocolMatch = url.match(/^[a-zA-Z][a-zA-Z0-9+.-]*:/);
+  const protocol = protocolMatch ? protocolMatch[0].toLowerCase() : '';
+  if (isTopFrame === false && protocol === 'data:') {
+    return { action: EDAppOpenActionEnum.ALLOW };
+  }
+
   const parsedUrl = safeParseURL(url);
   if (process.env.NODE_ENV !== 'production') {
     if (
@@ -144,14 +174,14 @@ export function parseUrl(url: string): IUrlValue | null {
         return paramList;
       }, {}),
     };
-  } catch (e) {
+  } catch (_e) {
     return null;
   }
 }
 
 export const checkIsDomain = (domain: string) => DOMAIN_REGEXP.test(domain);
 
-// eslint-disable-next-line spellcheck/spell-checker
+// oxlint-disable-next-line @cspell/spellchecker
 // check the ens format 元宇宙.bnb / diamondgs198.x
 export const addressIsEnsFormat = (address: string) => {
   const parts = address.split('.');
@@ -263,7 +293,7 @@ function safeGetWalletConnectOrigin(proposal: WalletKitTypes.SessionProposal) {
   try {
     const { origin } = new URL(proposal.params.proposer.metadata.url);
     return origin;
-  } catch (err) {
+  } catch (_err) {
     try {
       const key = `${proposal.params.proposer.metadata.name}--${proposal.params.proposer.metadata.description}`;
       const nameToUrl = NameToUrlMapForInvalidDapp[key];
@@ -291,4 +321,6 @@ export default {
   safeGetWalletConnectOrigin,
   parseUrl,
   safeParseURL,
+  isUrlWithoutProtocol,
+  ensureHttpsPrefix,
 };

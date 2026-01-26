@@ -1,5 +1,13 @@
-import { Suspense, useCallback, useContext, useMemo } from 'react';
+import {
+  Suspense,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 
+import { CommonActions } from '@react-navigation/native';
 import { upperFirst } from 'lodash';
 import { useIntl } from 'react-intl';
 
@@ -11,7 +19,6 @@ import type {
   ISizableTextProps,
 } from '@onekeyhq/components';
 import {
-  ActionList,
   Badge,
   Dialog,
   ESwitchSize,
@@ -23,12 +30,15 @@ import {
   Tooltip,
   XStack,
   YStack,
+  rootNavigationRef,
   startViewTransition,
   useClipboard,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { UniversalContainerWithSuspense } from '@onekeyhq/kit/src/components/BiologyAuthComponent/container/UniversalContainer';
+import { useKeylessWallet } from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import PasswordUpdateContainer from '@onekeyhq/kit/src/components/Password/container/PasswordUpdateContainer';
 import {
   isShowAppUpdateUIWhenUpdating,
   useAppUpdateInfo,
@@ -60,11 +70,13 @@ import type { IFuseResultMatch } from '@onekeyhq/shared/src/modules3rdParty/fuse
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IModalSettingParamList } from '@onekeyhq/shared/src/routes';
-import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalSettingRoutes, ERootRoutes } from '@onekeyhq/shared/src/routes';
+import { EOnboardingV2OneKeyIDLoginMode } from '@onekeyhq/shared/src/routes/onboardingv2';
 import openUrlUtils, {
   openUrlExternal,
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
+import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { useLanguageSelector, useResetApp } from '../../hooks';
 import { handleOpenDevMode } from '../../utils/devMode';
@@ -231,57 +243,48 @@ export function ClearAppCacheListItem(props: ICustomElementProps) {
   return <TabSettingsListItem {...props} onPress={onPress} drillIn />;
 }
 
-export function CleanDataListItem(props: ICustomElementProps) {
+export function ClearPendingTransactionsListItem(props: ICustomElementProps) {
   const intl = useIntl();
+  const onPress = useCallback(() => {
+    Dialog.show({
+      title: intl.formatMessage({
+        id: ETranslations.settings_clear_pending_transactions,
+      }),
+      description: intl.formatMessage({
+        id: ETranslations.settings_clear_pending_transactions_desc,
+      }),
+      tone: 'destructive',
+      onConfirmText: intl.formatMessage({
+        id: ETranslations.global_clear,
+      }),
+      onConfirm: async () => {
+        await backgroundApiProxy.serviceSetting.clearPendingTransaction();
+        appEventBus.emit(
+          EAppEventBusNames.ClearLocalHistoryPendingTxs,
+          undefined,
+        );
+        Toast.success({
+          title: intl.formatMessage({
+            id: ETranslations.global_success,
+          }),
+        });
+      },
+    });
+  }, [intl]);
+  return <TabSettingsListItem {...props} onPress={onPress} drillIn />;
+}
+
+export function ResetAppListItem(props: ICustomElementProps) {
+  const { iconProps, titleProps, ...restProps } = props;
   const resetApp = useResetApp();
   return (
-    <ActionList
-      offset={{ mainAxis: -4, crossAxis: -10 }}
-      title={props?.title || ''}
-      renderTrigger={
-        <TabSettingsListItem {...props} testID="setting-clear-data">
-          <ListItem.DrillIn name="ChevronDownSmallOutline" />
-        </TabSettingsListItem>
-      }
-      items={[
-        {
-          label: intl.formatMessage({
-            id: ETranslations.settings_clear_pending_transactions,
-          }),
-          onPress: () => {
-            Dialog.show({
-              title: intl.formatMessage({
-                id: ETranslations.settings_clear_pending_transactions,
-              }),
-              description: intl.formatMessage({
-                id: ETranslations.settings_clear_pending_transactions_desc,
-              }),
-              tone: 'destructive',
-              onConfirmText: intl.formatMessage({
-                id: ETranslations.global_clear,
-              }),
-              onConfirm: async () => {
-                await backgroundApiProxy.serviceSetting.clearPendingTransaction();
-                appEventBus.emit(
-                  EAppEventBusNames.ClearLocalHistoryPendingTxs,
-                  undefined,
-                );
-                Toast.success({
-                  title: intl.formatMessage({
-                    id: ETranslations.global_success,
-                  }),
-                });
-              },
-            });
-          },
-        },
-        {
-          label: intl.formatMessage({ id: ETranslations.settings_reset_app }),
-          destructive: true,
-          onPress: resetApp,
-          testID: 'setting-erase-data',
-        },
-      ]}
+    <TabSettingsListItem
+      {...restProps}
+      iconProps={{ ...iconProps, color: '$iconCritical' }}
+      titleProps={{ ...titleProps, color: '$textCritical' }}
+      onPress={resetApp}
+      testID="setting-erase-data"
+      drillIn
     />
   );
 }
@@ -446,6 +449,43 @@ export function AutoLockListItem(props: ICustomElementProps) {
       />
     </TabSettingsListItem>
   ) : null;
+}
+
+export function ChangeOrSetPasswordListItem(props: ICustomElementProps) {
+  const intl = useIntl();
+  const [{ isPasswordSet }] = usePasswordPersistAtom();
+
+  useEffect(() => {
+    void backgroundApiProxy.servicePassword.checkPasswordSet();
+  }, []);
+
+  const onPress = useCallback(async () => {
+    if (isPasswordSet) {
+      const oldEncodedPassword =
+        await backgroundApiProxy.servicePassword.promptPasswordVerify({
+          reason: EReasonForNeedPassword.Security,
+        });
+      const dialog = Dialog.show({
+        title: intl.formatMessage({
+          id: ETranslations.global_change_passcode,
+        }),
+        renderContent: (
+          <PasswordUpdateContainer
+            oldEncodedPassword={oldEncodedPassword.password}
+            onUpdateRes={async (data) => {
+              if (data) {
+                await dialog.close();
+              }
+            }}
+          />
+        ),
+        showFooter: false,
+      });
+    } else {
+      void backgroundApiProxy.servicePassword.promptPasswordVerify();
+    }
+  }, [intl, isPasswordSet]);
+  return <TabSettingsListItem {...props} onPress={onPress} drillIn />;
 }
 
 function SocialButton({
@@ -616,9 +656,11 @@ export function SocialButtonGroup() {
         </SizableText>
         {!isTabNavigator && isUpToDate ? (
           <SizableText
-            color={textColor}
+            color="$textDisabled"
+            mt="$1"
             size={textSize}
-            ai={isTabNavigator ? 'flex-start' : 'center'}
+            ai="center"
+            textAlign="center"
           >
             {intl.formatMessage({ id: ETranslations.update_app_up_to_date })}
           </SizableText>
@@ -666,5 +708,52 @@ export function BTCFreshAddressListItem(props: ICustomElementProps) {
         onChange={toggleBTCFreshAddress}
       />
     </TabSettingsListItem>
+  );
+}
+
+export function ResetPinListItem(props: ICustomElementProps) {
+  const [isLoading, setIsLoading] = useState(false);
+  const { goToOneKeyIDLoginPageForKeylessWallet } = useKeylessWallet();
+
+  const onPress = useCallback(async () => {
+    try {
+      // Always verify password before proceeding to reset PIN (Security reason forces re-entry)
+      await backgroundApiProxy.servicePassword.promptPasswordVerify({
+        reason: EReasonForNeedPassword.Security,
+      });
+      // Show loading only after password verification succeeds
+      setIsLoading(true);
+      // Reset navigation state to remove modal without triggering tab state change
+      const state = rootNavigationRef.current?.getRootState();
+      if (state) {
+        const filteredRoutes = state.routes.filter(
+          (route) => route.name !== ERootRoutes.Modal,
+        );
+        rootNavigationRef.current?.dispatch(
+          CommonActions.reset({
+            ...state,
+            routes: filteredRoutes,
+            index: filteredRoutes.length - 1,
+          }),
+        );
+      }
+      await goToOneKeyIDLoginPageForKeylessWallet({
+        mode: EOnboardingV2OneKeyIDLoginMode.KeylessResetPin,
+      });
+    } catch {
+      // User cancelled password verification, do nothing
+    } finally {
+      setIsLoading(false);
+    }
+  }, [goToOneKeyIDLoginPageForKeylessWallet]);
+
+  return (
+    <TabSettingsListItem
+      {...props}
+      minHeight="$12"
+      onPress={onPress}
+      isLoading={isLoading}
+      drillIn
+    />
   );
 }

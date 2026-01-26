@@ -6,8 +6,9 @@ import type { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { EPageType } from '../../../hocs';
 import { PageTypeContext } from '../../../hocs/PageType/context';
-import { useThemeValue } from '../../../hooks';
+import { useTheme } from '../../../hooks';
 import { makeModalStackNavigatorOptions } from '../GlobalScreenOptions';
+import createOnBoardingNavigator from '../Modal/createOnBoardingNavigator';
 import createWebModalNavigator from '../Modal/createWebModalNavigator';
 import { createStackNavigator } from '../StackNavigator';
 
@@ -40,6 +41,10 @@ const ModalStack = hasStackNavigatorModal
   ? createStackNavigator()
   : createWebModalNavigator();
 
+const OnBoardingStack = hasStackNavigatorModal
+  ? createStackNavigator()
+  : createOnBoardingNavigator();
+
 /**
  * Renders a modal stack navigator with configurable screens and lifecycle hooks.
  *
@@ -57,19 +62,10 @@ function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
 }: IModalFlowNavigatorProps<RouteName, P> & {
   pageType?: EPageType;
 }) {
-  const [bgColor, titleColor] = useThemeValue(['bgApp', 'text']);
+  const theme = useTheme();
+  const bgColor = theme.bgApp.val;
+  const titleColor = theme.text.val;
   const intl = useIntl();
-
-  const makeScreenOptions = useCallback(
-    (optionsInfo: IScreenOptionsInfo<any>) => ({
-      ...makeModalStackNavigatorOptions({
-        optionsInfo,
-        bgColor,
-        titleColor,
-      }),
-    }),
-    [bgColor, titleColor],
-  );
 
   useEffect(() => {
     onMounted?.();
@@ -84,9 +80,27 @@ function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
     }),
     [pageTypeFromProps],
   );
+  const ModalStackComponent = useMemo(() => {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    return contextValue.pageType === EPageType.onboarding
+      ? OnBoardingStack
+      : ModalStack;
+  }, [contextValue.pageType]);
+
+  const makeScreenOptions = useCallback(
+    (optionsInfo: IScreenOptionsInfo<any>) => ({
+      ...makeModalStackNavigatorOptions({
+        optionsInfo,
+        bgColor,
+        titleColor,
+        pageType: contextValue.pageType,
+      }),
+    }),
+    [bgColor, titleColor, contextValue.pageType],
+  );
   return (
     <PageTypeContext.Provider value={contextValue}>
-      <ModalStack.Navigator screenOptions={makeScreenOptions}>
+      <ModalStackComponent.Navigator screenOptions={makeScreenOptions}>
         {config.map(
           ({
             name,
@@ -117,7 +131,7 @@ function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
             );
           },
         )}
-      </ModalStack.Navigator>
+      </ModalStackComponent.Navigator>
     </PageTypeContext.Provider>
   );
 }

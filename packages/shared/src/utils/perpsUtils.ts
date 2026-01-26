@@ -602,7 +602,7 @@ function findMarginTier(
 ): IMarginTier | null {
   if (!marginTiers.length) return null;
 
-  const sortedTiers = [...marginTiers].reverse();
+  const sortedTiers = [...marginTiers].toReversed();
   for (const tier of sortedTiers) {
     if (totalValue.gte(new BigNumber(tier.lowerBound))) {
       return tier;
@@ -818,6 +818,8 @@ function calculateLiquidationPrice(
 
   if (hasExistingPosition) {
     // Calculate existing position metrics
+    // IMPORTANT: Use current mark price for maintenance margin calculation, not entry price
+    // Maintenance margin is based on position's current market value, not entry value
     const existingPositionValue = existingPositionSize
       .abs()
       .multipliedBy(effectivePrice);
@@ -969,6 +971,7 @@ interface ITradingSizeContext {
   price?: string;
   markPrice?: string;
   availableToTrade?: Array<number | string>;
+  maxTradeSzs?: Array<number | string>;
   leverageValue?: number | string | null;
   fallbackLeverage?: number | string | null;
   szDecimals?: number;
@@ -1013,7 +1016,7 @@ const computeMaxTradeSize = ({
   side,
   price,
   markPrice,
-  availableToTrade,
+  maxTradeSzs,
   leverageValue,
   fallbackLeverage,
   szDecimals,
@@ -1023,21 +1026,29 @@ const computeMaxTradeSize = ({
     return new BigNumber(0);
   }
 
-  const availableIndex = side === 'long' ? 0 : 1;
-  const availableValue = availableToTrade?.[availableIndex] ?? 0;
-  const availableBN = new BigNumber(availableValue);
-  if (!availableBN.isFinite() || availableBN.lte(0)) {
-    return new BigNumber(0);
-  }
-
   const leverageCandidate = leverageValue ?? fallbackLeverage ?? 1;
   const leverageBN = new BigNumber(leverageCandidate);
   const leverageSafe =
     leverageBN.isFinite() && leverageBN.gt(0) ? leverageBN : new BigNumber(1);
 
-  const maxTokens = availableBN
+  const index = side === 'long' ? 0 : 1;
+  const maxTradeSz = new BigNumber(maxTradeSzs?.[index] ?? 0);
+  const markPriceBN = new BigNumber(markPrice ?? 0);
+
+  if (!maxTradeSz.gt(0) || !markPriceBN.gt(0)) {
+    return new BigNumber(0);
+  }
+
+  // availableMargin = maxTradeSzs[side] * markPx / leverage
+  const availableMargin = maxTradeSz
+    .multipliedBy(markPriceBN)
+    .dividedBy(leverageSafe);
+
+  // maxTokens = availableMargin * leverage / effectivePrice
+  const maxTokens = availableMargin
     .multipliedBy(leverageSafe)
     .dividedBy(effectivePrice);
+
   if (!maxTokens.isFinite() || maxTokens.lte(0)) {
     return new BigNumber(0);
   }
@@ -1053,7 +1064,7 @@ const resolveTradingSizeBN = ({
   side,
   price,
   markPrice,
-  availableToTrade,
+  maxTradeSzs,
   leverageValue,
   fallbackLeverage,
   szDecimals,
@@ -1076,7 +1087,7 @@ const resolveTradingSizeBN = ({
     side,
     price,
     markPrice,
-    availableToTrade,
+    maxTradeSzs,
     leverageValue,
     fallbackLeverage,
     szDecimals,
@@ -1195,6 +1206,38 @@ export function sortPerpsAssetIndices({
   return indicesWithData.map((item) => item.index);
 }
 
+export function parseSignatureToRSV(signatureHex: string): {
+  r: string;
+  s: string;
+  v: number;
+} {
+  const cleanSig = signatureHex.replace(/^0x/, '');
+  return {
+    r: `0x${cleanSig.slice(0, 64)}`,
+    s: `0x${cleanSig.slice(64, 128)}`,
+    v: parseInt(cleanSig.slice(128, 130), 16),
+  };
+}
+
+// Parse coin with dex prefix, e.g., "xyz:NVDA" -> { displayName: "NVDA", dexLabel: "xyz" }
+export function parseDexCoin(coin: string): {
+  displayName: string;
+  dexLabel?: string;
+} {
+  if (coin.includes(':')) {
+    const [dexLabel, name] = coin.split(':', 2);
+    const displayName = name || coin;
+    return {
+      displayName,
+      dexLabel: dexLabel || undefined,
+    };
+  }
+  return {
+    displayName: coin,
+    dexLabel: undefined,
+  };
+}
+
 export {
   formatAssetCtx,
   formatLargeNumber,
@@ -1253,5 +1296,6 @@ export default {
   computeMaxTradeSize,
   resolveTradingSize,
   resolveTradingSizeBN,
+  parseSignatureToRSV,
   getHyperliquidTokenImageUrl,
 };

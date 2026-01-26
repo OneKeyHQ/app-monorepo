@@ -17,10 +17,27 @@ export type IBtcFreshAddressWithRelPath = IBtcFreshAddress & {
 
 export type IBtcFreshAddressMap = Record<string, IBtcFreshAddressWithRelPath>;
 
+const BTC_FRESH_ADDRESS_RAW_CACHE_TTL_MS = 30_000;
+
 export class SimpleDbEntityBTCFreshAddress extends SimpleDbEntityBase<IBTCFreshAddressDb> {
   entityName = 'btcFreshAddress';
 
-  override enableCache = false;
+  override enableCache = true;
+
+  private rawCacheExpiresAt = 0;
+
+  private ensureRawCacheValid() {
+    if (!this.enableCache) return;
+    if (this.rawCacheExpiresAt && Date.now() > this.rawCacheExpiresAt) {
+      this.clearRawDataCache();
+      this.rawCacheExpiresAt = 0;
+    }
+  }
+
+  private touchRawCacheTtl() {
+    if (!this.enableCache) return;
+    this.rawCacheExpiresAt = Date.now() + BTC_FRESH_ADDRESS_RAW_CACHE_TTL_MS;
+  }
 
   @backgroundMethod()
   async getBTCFreshAddresses({
@@ -31,7 +48,9 @@ export class SimpleDbEntityBTCFreshAddress extends SimpleDbEntityBase<IBTCFreshA
     xpubSegwit: string;
   }) {
     const key = accountUtils.getBTCFreshAddressKey({ networkId, xpubSegwit });
+    this.ensureRawCacheValid();
     const data = await this.getRawData();
+    this.touchRawCacheTtl();
     return data?.data[key];
   }
 
@@ -82,11 +101,60 @@ export class SimpleDbEntityBTCFreshAddress extends SimpleDbEntityBase<IBTCFreshA
     xpubSegwit: string;
     value: IBtcFreshAddressStructure;
   }) {
+    this.ensureRawCacheValid();
     await this.setRawData((data) => {
       const oldData = data ?? { data: {} };
       const key = accountUtils.getBTCFreshAddressKey({ networkId, xpubSegwit });
       oldData.data[key] = value;
       return oldData;
     });
+    this.touchRawCacheTtl();
+  }
+
+  async getKeyByAddress({
+    networkId,
+    address,
+  }: {
+    networkId: string;
+    address: string;
+  }): Promise<string | undefined> {
+    if (!networkId) {
+      return undefined;
+    }
+    const trimmedAddress = address?.trim();
+    if (!trimmedAddress) {
+      return undefined;
+    }
+    this.ensureRawCacheValid();
+    const raw = await this.getRawData();
+    this.touchRawCacheTtl();
+    const entries = Object.entries(raw?.data ?? {});
+    const networkKeyPrefix = `${networkId}__`;
+    for (const [key, record] of entries) {
+      if (!key.startsWith(networkKeyPrefix)) {
+        // eslint-disable-next-line no-continue
+        continue;
+      }
+      if (!record) {
+        // eslint-disable-next-line no-continue
+        continue;
+      }
+      const groups = [
+        record.change?.used,
+        record.change?.unused,
+        record.fresh?.used,
+        record.fresh?.unused,
+      ];
+      const found = groups.some((items) =>
+        items?.some(
+          (item) =>
+            item.address === trimmedAddress || item.name === trimmedAddress,
+        ),
+      );
+      if (found) {
+        return key;
+      }
+    }
+    return undefined;
   }
 }

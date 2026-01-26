@@ -146,9 +146,9 @@ function DialogContent({
               if (!trimmedValue) {
                 return errorMessage;
               }
-              // if (!uriUtils.parseUrl(value) || !rpcValidRef.current) {
-              //   return errorMessage;
-              // }
+              if (!uriUtils.parseUrl(value) || !rpcValidRef.current) {
+                return errorMessage;
+              }
             },
           }}
         >
@@ -187,7 +187,7 @@ function DialogContent({
               },
             });
             defaultLogger.setting.page.addCustomRPC({ network: networkId });
-          } catch (e: any) {
+          } catch (_e: any) {
             rpcValidRef.current = false;
             void form.trigger('rpc');
             preventClose();

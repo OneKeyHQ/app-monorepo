@@ -7,6 +7,21 @@ import type { IDeviceType } from '@onekeyfe/hd-core';
 
 export class HardwareHomeScreenScene extends BaseScene {
   @LogToLocal()
+  public recordImageCompression(params: {
+    target: string;
+    origin: string;
+    scale: string;
+    actual: string;
+  }) {
+    return {
+      target: params.target,
+      origin: params.origin,
+      scale: params.scale,
+      actual: params.actual,
+    };
+  }
+
+  @LogToLocal()
   public setHomeScreen(params: {
     deviceId: string;
     deviceType: IDeviceType;

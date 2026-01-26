@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { isEmpty, uniqBy } from 'lodash';
 
@@ -7,6 +7,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import {
   useCurrencyPersistAtom,
+  useNotificationsAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -18,6 +19,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalAssetDetailRoutes,
   EModalRoutes,
@@ -28,6 +30,7 @@ import type { IAddressBadge } from '@onekeyhq/shared/types/address';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
+import { NotificationEnableAlert } from '../../../components/NotificationEnableAlert';
 import { TxHistoryListView } from '../../../components/TxHistoryListView';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
@@ -41,7 +44,20 @@ import { useAllTokenListMapAtom } from '../../../states/jotai/contexts/tokenList
 import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListProvider';
 import { onHomePageRefresh } from '../components/PullToRefresh';
 
-function TxHistoryListContainer() {
+function TxHistoryListContainer(
+  params:
+    | {
+        plainMode?: boolean;
+        tableLayout?: boolean;
+        limit?: number;
+        emptyTitle?: string;
+        emptyDescription?: string;
+      }
+    | undefined,
+) {
+  const { plainMode, tableLayout, limit, emptyTitle, emptyDescription } =
+    params ?? {};
+
   const { isFocused, isHeaderRefreshing, setIsHeaderRefreshing } =
     useTabIsRefreshingFocused();
 
@@ -62,6 +78,8 @@ function TxHistoryListContainer() {
     isRefreshing: false,
   });
 
+  const [notificationAlertOpacity, setNotificationAlertOpacity] = useState(0);
+
   const refreshAllNetworksHistory = useRef(false);
 
   const media = useMedia();
@@ -79,6 +97,31 @@ function TxHistoryListContainer() {
 
   const [settings] = useSettingsPersistAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();
+  const [{ txHistoryAlertDismissed }] = useNotificationsAtom();
+
+  const updateHistoryData = useCallback(
+    (txs: IAccountHistoryTx[]) => {
+      if (limit) {
+        const tempTxs: IAccountHistoryTx[] = [];
+        let tempLimit = 0;
+
+        for (let i = 0; i < txs.length; i += 1) {
+          const tx = txs[i];
+          if (tx.decodedTx.status !== EDecodedTxStatus.Pending) {
+            tempLimit += 1;
+          }
+          tempTxs.push(tx);
+          if (tempLimit >= limit) {
+            break;
+          }
+        }
+        setHistoryData(tempTxs);
+      } else {
+        setHistoryData(txs);
+      }
+    },
+    [limit],
+  );
 
   const mergeDeriveAddressData =
     !accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' }) &&
@@ -140,7 +183,7 @@ function TxHistoryListContainer() {
       let r: {
         allAccounts: IAllNetworkAccountInfo[];
         txs: IAccountHistoryTx[];
-        accountsWithChangedPendingTxs: {
+        accountsWithChangedTxs: {
           accountId: string;
           networkId: string;
         }[];
@@ -149,7 +192,7 @@ function TxHistoryListContainer() {
       } = {
         allAccounts: [],
         txs: [],
-        accountsWithChangedPendingTxs: [],
+        accountsWithChangedTxs: [],
         addressMap: {},
         hasMoreOnChainHistory: false,
       };
@@ -174,6 +217,7 @@ function TxHistoryListContainer() {
               filterLowValue: settings.isFilterLowValueHistoryEnabled,
               sourceCurrency: settings.currencyInfo.id,
               currencyMap,
+              limit,
             }),
           ),
         );
@@ -181,9 +225,9 @@ function TxHistoryListContainer() {
         resp.forEach((item) => {
           r.txs = [...r.txs, ...item.txs];
           r.allAccounts = [...r.allAccounts, ...item.allAccounts];
-          r.accountsWithChangedPendingTxs = [
-            ...r.accountsWithChangedPendingTxs,
-            ...item.accountsWithChangedPendingTxs,
+          r.accountsWithChangedTxs = [
+            ...r.accountsWithChangedTxs,
+            ...item.accountsWithChangedTxs,
           ];
           r.addressMap = { ...r.addressMap, ...item.addressMap };
           if (item.hasMoreOnChainHistory) {
@@ -192,7 +236,7 @@ function TxHistoryListContainer() {
         });
 
         r.txs = r.txs
-          .sort(
+          .toSorted(
             (b, a) =>
               (a.decodedTx.updatedAt ?? a.decodedTx.createdAt ?? 0) -
               (b.decodedTx.updatedAt ?? b.decodedTx.createdAt ?? 0),
@@ -212,6 +256,7 @@ function TxHistoryListContainer() {
           excludeTestNetwork: true,
           sourceCurrency: settings.currencyInfo.id,
           currencyMap,
+          limit,
         });
         setHasMoreOnChainHistory(!!r.hasMoreOnChainHistory);
         updateAddressesInfo({
@@ -228,7 +273,7 @@ function TxHistoryListContainer() {
         isRefreshing: false,
       });
       setIsHeaderRefreshing(false);
-      setHistoryData(r.txs);
+      updateHistoryData(r.txs);
 
       appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
         isRefreshing: false,
@@ -236,9 +281,9 @@ function TxHistoryListContainer() {
         accountId,
         networkId: network.id,
       });
-      if (r.accountsWithChangedPendingTxs.length > 0) {
+      if (r.accountsWithChangedTxs.length > 0) {
         appEventBus.emit(EAppEventBusNames.RefreshTokenList, {
-          accounts: r.accountsWithChangedPendingTxs,
+          accounts: r.accountsWithChangedTxs,
         });
       }
       isManualRefresh.current = false;
@@ -256,6 +301,8 @@ function TxHistoryListContainer() {
       settings.currencyInfo.id,
       currencyMap,
       setHasMoreOnChainHistory,
+      limit,
+      updateHistoryData,
     ],
     {
       overrideIsFocused: (isPageFocused) => isPageFocused && isFocused,
@@ -296,7 +343,7 @@ function TxHistoryListContainer() {
         );
         accountHistoryTxs = resp
           .flat()
-          .sort(
+          .toSorted(
             (b, a) =>
               (a.decodedTx.updatedAt ?? a.decodedTx.createdAt ?? 0) -
               (b.decodedTx.updatedAt ?? b.decodedTx.createdAt ?? 0),
@@ -316,7 +363,7 @@ function TxHistoryListContainer() {
       }
 
       if (!isEmpty(accountHistoryTxs)) {
-        setHistoryData(accountHistoryTxs);
+        updateHistoryData(accountHistoryTxs);
         setHistoryState({
           initialized: true,
           isRefreshing: false,
@@ -345,10 +392,12 @@ function TxHistoryListContainer() {
     network?.id,
     settings.isFilterScamHistoryEnabled,
     settings.isFilterLowValueHistoryEnabled,
+    updateHistoryData,
     updateSearchKey,
     wallet?.id,
     settings.currencyInfo.id,
     currencyMap,
+    limit,
   ]);
 
   useEffect(() => {
@@ -396,8 +445,39 @@ function TxHistoryListContainer() {
     void initAddressesInfoDataFromStorage();
   }, [initAddressesInfoDataFromStorage]);
 
+  const ListComponentRef = useRef(null);
+
+  const recomputeLayout = useCallback(() => {
+    if (!platformEnv.isNative) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      (ListComponentRef.current as any)?.recomputeLayout?.();
+    }
+  }, []);
+
+  const listHeaderComponent = useMemo(() => {
+    if (!historyState.initialized) {
+      return null;
+    }
+    return (
+      <NotificationEnableAlert
+        opacity={notificationAlertOpacity}
+        setOpacity={setNotificationAlertOpacity}
+        scene="txHistory"
+        recomputeLayout={recomputeLayout}
+      />
+    );
+  }, [
+    notificationAlertOpacity,
+    setNotificationAlertOpacity,
+    historyState.initialized,
+    recomputeLayout,
+  ]);
+
   return (
     <TxHistoryListView
+      ref={ListComponentRef}
+      key={`tx-history-${txHistoryAlertDismissed ? 'dismissed' : 'shown'}`}
+      plainMode={plainMode}
       isTabFocused={isFocused}
       showIcon
       inTabList
@@ -413,15 +493,16 @@ function TxHistoryListContainer() {
       indexedAccountId={indexedAccount?.id}
       isLoading={historyState.isRefreshing}
       initialized={historyState.initialized}
-      {...(media.gtLg && {
-        tableLayout: true,
-      })}
+      tableLayout={tableLayout ?? media.gtLg}
       listViewStyleProps={{
         contentContainerStyle: {
           mt: '$3',
         },
       }}
       tokenMap={allTokenListMap}
+      emptyTitle={emptyTitle}
+      emptyDescription={emptyDescription}
+      ListHeaderComponent={listHeaderComponent}
     />
   );
 }
@@ -441,4 +522,4 @@ const TxHistoryListContainerWithProvider = memo(() => {
 TxHistoryListContainerWithProvider.displayName =
   'TxHistoryListContainerWithProvider';
 
-export { TxHistoryListContainerWithProvider };
+export { TxHistoryListContainer, TxHistoryListContainerWithProvider };

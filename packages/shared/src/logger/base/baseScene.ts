@@ -1,4 +1,4 @@
-import { LogToConsole, LogToLocal, LogToServer } from './decorators';
+import { LogToConsole, LogToServer } from './decorators';
 
 export abstract class BaseScene {
   constructor() {
@@ -23,7 +23,7 @@ export abstract class BaseScene {
   @LogToServer()
   registerRid(rid: string) {
     return {
-      rid,
+      jpush_rid: rid,
     };
   }
 

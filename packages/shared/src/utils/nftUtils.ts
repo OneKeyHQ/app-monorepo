@@ -1,21 +1,11 @@
-import { EDeviceType } from '@onekeyfe/hd-shared';
 import { ResourceType } from '@onekeyfe/hd-transport';
-import { SaveFormat, manipulateAsync } from 'expo-image-manipulator';
-import { Image } from 'react-native';
-
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { SEARCH_KEY_MIN_LENGTH } from '../consts/walletConsts';
 
 import bufferUtils from './bufferUtils';
-import imageUtils from './imageUtils';
 
 import type { IAccountNFT, INFTMetaData } from '../../types/nft';
-import type {
-  DeviceUploadResourceParams,
-  IDeviceType,
-} from '@onekeyfe/hd-core';
-import type { Action } from 'expo-image-manipulator';
+import type { DeviceUploadResourceParams } from '@onekeyfe/hd-core';
 
 export function getFilteredNftsBySearchKey({
   nfts,
@@ -40,134 +30,6 @@ export function getFilteredNftsBySearchKey({
 
   return filteredNfts;
 }
-
-const getImageSize: (
-  imageUrl: string,
-) => Promise<{ width: number; height: number }> = (imageUrl) =>
-  new Promise((resolve, reject) => {
-    Image.getSize(
-      imageUrl,
-      (width: number, height: number) => {
-        resolve({ width, height });
-      },
-      (error: any) => reject(error),
-    );
-  });
-
-function getOriginX(
-  originW: number,
-  originH: number,
-  scaleW: number,
-  scaleH: number,
-) {
-  const width = Math.ceil((scaleH / originH) * originW);
-  console.log(`image true width: `, width);
-  console.log(`image should width: `, scaleW);
-  console.log(`image true height: `, scaleH);
-  if (width <= scaleW) {
-    return null;
-  }
-  const originX = Math.ceil(Math.ceil(width / 2) - Math.ceil(scaleW / 2));
-  console.log(`originX: `, originX);
-  console.log(
-    `crop size: height: ${scaleH}, width: ${scaleW}, originX: ${originX}, originY: 0`,
-  );
-  return originX;
-}
-
-function getOriginY(
-  originW: number,
-  originH: number,
-  scaleW: number,
-  scaleH: number,
-) {
-  const height = Math.ceil((scaleW / originW) * originH);
-  console.log(`image true height: `, height);
-  console.log(`image should height: `, scaleH);
-  console.log(`image true width: `, scaleW);
-  if (height <= scaleH) {
-    return null;
-  }
-  const originY = Math.ceil(Math.ceil(height / 2) - Math.ceil(scaleH / 2));
-  console.log(`originY: `, originY);
-  console.log(
-    `crop size: height: ${scaleH}, width: ${scaleW}, , originX: 0, originY: ${originY}`,
-  );
-  return originY;
-}
-
-export const compressNFT = async (
-  uri: string,
-  width: number,
-  height: number,
-  originW: number,
-  originH: number,
-  isThumbnail: boolean,
-) => {
-  if (!uri) return;
-  console.log(
-    `width: ${width}, height: ${height}, originW: ${originW}, originH: ${originH}`,
-  );
-  const aspectRatioLonger = originW > originH;
-  const aspectRatioEqual = originW === originH;
-
-  const actions: Action[] = [];
-  if (!isThumbnail) {
-    actions.push({
-      resize: { width },
-    });
-  } else {
-    actions.push({
-      resize: {
-        width: aspectRatioLonger ? undefined : width,
-        height: aspectRatioLonger ? height : undefined,
-      },
-    });
-  }
-
-  if (isThumbnail && !aspectRatioEqual) {
-    if (aspectRatioLonger) {
-      const originX = getOriginX(originW, originH, width, height);
-      if (originX !== null) {
-        actions.push({
-          crop: {
-            height,
-            width,
-            originX,
-            originY: 0,
-          },
-        });
-      }
-    } else {
-      const originY = getOriginY(originW, originH, width, height);
-      if (originY !== null) {
-        actions.push({
-          crop: {
-            height,
-            width,
-            originX: 0,
-            originY,
-          },
-        });
-      }
-    }
-  }
-
-  const imageResult = await manipulateAsync(uri, actions, {
-    compress: 0.9,
-    format: SaveFormat.JPEG,
-    base64: true,
-  });
-
-  console.log('imageResult ====> : ', imageResult);
-
-  const buffer = Buffer.from(imageResult.base64 ?? '', 'base64');
-  const arrayBuffer = new Uint8Array(buffer);
-  return {
-    ...imageResult,
-    arrayBuffer,
-  };
-};
 
 export async function generateUploadNFTParams({
   screenHex,

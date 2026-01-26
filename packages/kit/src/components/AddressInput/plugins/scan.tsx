@@ -27,7 +27,6 @@ export function ScanPlugin({
   testID,
   disabled,
   onScanResult,
-  onInputTypeChange,
   networkId,
 }: IScanPluginProps) {
   const { start } = useScanQrCode();
@@ -45,18 +44,19 @@ export function ScanPlugin({
       autoHandleResult: false,
     })) as IQRCodeHandlerParseResult<IChainValue>;
     console.log('scaned result', result);
-    onChange?.(
-      result.type === EQRCodeHandlerType.UNKNOWN ||
+    onChange?.({
+      text:
+        result.type === EQRCodeHandlerType.UNKNOWN ||
         result?.data?.network?.id !== networkId
-        ? result.raw
-        : result?.data?.address,
-    );
-    onInputTypeChange?.(EInputAddressChangeType.Scan);
+          ? result.raw
+          : result?.data?.address,
+      inputType: EInputAddressChangeType.Scan,
+    });
 
     setTimeout(() => {
       onScanResult?.(result);
     }, 120);
-  }, [networkId, onChange, onInputTypeChange, onScanResult, start]);
+  }, [networkId, onChange, onScanResult, start]);
   return (
     <IconButton
       title={intl.formatMessage({ id: ETranslations.send_to_scan_tooltip })}

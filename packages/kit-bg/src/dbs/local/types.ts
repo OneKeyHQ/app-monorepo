@@ -2,6 +2,7 @@ import type {
   IBip39RevealableSeed,
   IBip39RevealableSeedEncryptHex,
 } from '@onekeyhq/core/src/secret';
+import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import type {
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_HD,
@@ -51,6 +52,7 @@ import type { RealmSchemaHardwareHomeScreen } from './realm/schemas/RealmSchemaH
 import type { RealmSchemaIndexedAccount } from './realm/schemas/RealmSchemaIndexedAccount';
 import type { RealmSchemaWallet } from './realm/schemas/RealmSchemaWallet';
 import type { IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
+import type { EFirmwareType } from '@onekeyfe/hd-shared';
 import type { DBSchema } from 'idb';
 
 // ---------------------------------------------- base
@@ -63,8 +65,8 @@ export type IDBBaseObjectWithName = IDBBaseObject & {
 };
 export type IDBContext = {
   id: string; // DB_MAIN_CONTEXT_ID
-  nextHD: number;
-  nextWalletNo: number;
+  nextHD: number; // HD wallet counter: used to generate HD wallet ID (hd-{nextHD}) and default wallet name (Wallet {nextHD})
+  nextWalletNo: number; // Global wallet number counter: used for sorting and displaying all wallet types (HD/HW/QR use auto-increment, Imported/Watching/External/Keyless use fixed numbers)
   verifyString: string;
   networkOrderChanged?: boolean;
   backupUUID: string; // deprecated
@@ -132,6 +134,11 @@ export type IDBWalletNextIdKeys =
   | 'accountGlobalNum'
   | 'hiddenWalletNum';
 export type IDBWalletNextIds = Partial<Record<IDBWalletNextIdKeys, number>>;
+export type IKeylessWalletDetailsInfo = {
+  keylessOwnerId: string;
+  keylessProvider: EOAuthSocialLoginProvider;
+  socialUserIdHash: string;
+};
 export type IDBWallet = IDBBaseObjectWithName & {
   type: IDBWalletType;
   backuped: boolean;
@@ -154,6 +161,9 @@ export type IDBWallet = IDBBaseObjectWithName & {
   dbIndexedAccounts?: IDBIndexedAccount[]; // readonly field
   isTemp?: boolean;
   isMocked?: boolean;
+  isKeyless?: boolean;
+  keylessDetails?: string; // JSON.stringify(keylessDetailsInfo)
+  keylessDetailsInfo?: IKeylessWalletDetailsInfo; // readonly field
   passphraseState?: string;
   walletNo: number;
   walletOrderSaved?: number; // db field
@@ -164,6 +174,7 @@ export type IDBWallet = IDBBaseObjectWithName & {
   airGapAccountsInfoRaw?: string;
   airGapAccountsInfo?: IQrWalletAirGapAccountsInfo;
   deprecated?: boolean; // hw wallet only
+  firmwareTypeAtCreated?: EFirmwareType;
 };
 export type IDBCreateHDWalletParams = {
   password: string;
@@ -173,10 +184,18 @@ export type IDBCreateHDWalletParams = {
   walletHash: string;
   walletXfp: string;
   avatar?: IAvatarInfo;
+  isKeylessWallet?: boolean;
+  keylessDetailsInfo?: IKeylessWalletDetailsInfo;
+};
+export type IDBCreateKeylessWalletParams = {
+  password: string;
+  packSetId: string;
+  name?: string;
+  avatar?: IAvatarInfo;
 };
 export type IDBCreateHwWalletParamsBase = {
   name?: string;
-  device: SearchDevice;
+  device: Omit<SearchDevice, 'commType'>;
   features: IOneKeyDeviceFeatures;
   isFirmwareVerified?: boolean;
   skipDeviceCancel?: boolean;
@@ -199,6 +218,7 @@ export type IDBCreateQRWalletParams = {
   fullXfp?: string;
   isMockedStandardHwWallet?: boolean;
   existingDeviceId?: string;
+  firmwareTypeAtCreated?: EFirmwareType;
 };
 export type IDBSetWalletNameAndAvatarParams = {
   walletId: IDBWalletId;
@@ -282,7 +302,7 @@ export type IDBUtxoAccount = IDBBaseAccount & {
   xpub: string;
   xpubSegwit?: string; // wrap regular xpub into bitcoind native descriptor
   address: string; // Display/selected address
-  // eslint-disable-next-line spellcheck/spell-checker
+  // oxlint-disable-next-line @cspell/spellchecker
   addresses: Record<string, string>; // { "0/0": "xxxx" }
   customAddresses?: Record<string, string>; // for btc dynamic custom address
 };
@@ -348,7 +368,10 @@ export type IDBDeviceSettings = {
 };
 export type IDBDevice = IDBBaseObjectWithName & {
   features: string; // TODO rename to featuresRaw
-  featuresInfo?: IOneKeyDeviceFeatures; // readonly field // TODO rename to features
+  featuresInfo?: IOneKeyDeviceFeatures & {
+    // only qr wallet
+    $app_firmware_type?: EFirmwareType;
+  }; // readonly field // TODO rename to features
   // TODO make index for better performance (getDeviceByQuery)
   connectId: string; // alias BLE mac or USB sn, never changed even if device reset
   name: string;
@@ -458,7 +481,8 @@ export enum EIndexedDBBucketNames {
   // credential = 'credential', // credential, context
   // wallet = 'wallet', // wallet, device
   account = 'account_local-db_onekey-bucket', // account
-  backupAccount = `${INDEXED_BUCKET_NAME_BACKUP_PREFIX}account_local-db_onekey-bucket`, // account
+  // NOTE: Using inline string instead of template literal for SWC/Rspack compatibility
+  backupAccount = 'backup-account_local-db_onekey-bucket', // account
   address = 'address_local-db_onekey-bucket', // address to account map
   archive = 'archive_local-db_onekey-bucket', // connected site, signed message, signed transaction
 

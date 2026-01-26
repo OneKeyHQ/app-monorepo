@@ -1444,6 +1444,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     const { wallets: allWallets, allDevices } =
       await this.backgroundApi.serviceAccount.getAllWallets({
         refillWalletInfo: true,
+        excludeKeylessWallet: true,
       });
     // TODO only get watching or imported accounts for better performance
     const { accounts: allAccounts } =
@@ -1811,7 +1812,7 @@ class ServicePrimeCloudSync extends ServiceBase {
         console.error('decryptAllLocalSyncItems error', error, item);
       }
     }
-    return result.sort((a, b) => a.id.localeCompare(b.id));
+    return result.toSorted((a, b) => a.id.localeCompare(b.id));
   }
 
   @backgroundMethod()
@@ -1929,7 +1930,7 @@ class ServicePrimeCloudSync extends ServiceBase {
         );
       }
     }
-    return localItems.sort((a, b) => a.id.localeCompare(b.id));
+    return localItems.toSorted((a, b) => a.id.localeCompare(b.id));
   }
 
   @backgroundMethodForDev()

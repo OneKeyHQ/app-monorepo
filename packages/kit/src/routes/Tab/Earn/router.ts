@@ -8,11 +8,52 @@ const EarnHome = LazyLoadRootTabPage(
   () => import('../../../views/Earn/EarnHome'),
 );
 
+const EarnProtocols = LazyLoadRootTabPage(
+  () => import('../../../views/Earn/pages/EarnProtocols'),
+);
+
+const EarnProtocolDetails = LazyLoadRootTabPage(
+  () => import('../../../views/Earn/pages/EarnProtocolDetails'),
+);
+
+const BorrowReserveDetails = LazyLoadRootTabPage(
+  () => import('../../../views/Borrow/pages/ReserveDetails'),
+);
+
 export const earnRouters: ITabSubNavigatorConfig<any, any>[] = [
   {
     rewrite: '/',
     name: ETabEarnRoutes.EarnHome,
     component: EarnHome,
+    headerShown: !platformEnv.isNative,
+  },
+  {
+    name: ETabEarnRoutes.EarnProtocols,
+    component: EarnProtocols,
+    headerShown: !platformEnv.isNative,
+  },
+  {
+    name: ETabEarnRoutes.EarnProtocolDetails,
+    component: EarnProtocolDetails,
+    headerShown: !platformEnv.isNative,
+  },
+  {
+    name: ETabEarnRoutes.EarnProtocolDetailsShare,
+    component: EarnProtocolDetails,
+    exact: true,
+    rewrite: '/earn/:network/:symbol/:provider',
+    headerShown: !platformEnv.isNative,
+  },
+  {
+    name: ETabEarnRoutes.BorrowReserveDetails,
+    component: BorrowReserveDetails,
+    headerShown: !platformEnv.isNative,
+  },
+  {
+    name: ETabEarnRoutes.BorrowReserveDetailsShare,
+    component: BorrowReserveDetails,
+    exact: true,
+    rewrite: '/borrow/:networkId/:symbol/:provider',
     headerShown: !platformEnv.isNative,
   },
 ];

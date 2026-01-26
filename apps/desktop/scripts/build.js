@@ -6,14 +6,14 @@ const { build } = require('esbuild');
 const glob = require('glob');
 const pkg = require('../app/package.json');
 
+const isProduction = process.env.NODE_ENV === 'production';
+console.log('building for', isProduction ? 'production' : 'development');
 const electronSource = path.join(__dirname, '..', 'app');
 
 const gitRevision = childProcess
   .execSync('git rev-parse HEAD')
   .toString()
   .trim();
-
-const isProduction = process.env.NODE_ENV === 'production';
 
 const hrstart = process.hrtime();
 
@@ -24,7 +24,10 @@ const serviceFiles = glob
 
 console.log('process.env.NODE_ENV', process.env.NODE_ENV);
 console.log('process.env.DESK_CHANNEL', process.env.DESK_CHANNEL);
+console.log('process.env.COMMITHASH', process.env.COMMITHASH);
+console.log('process.env.APPIMAGE', process.env.APPIMAGE);
 console.log('process.env.SNAP', process.env.SNAP);
+console.log('process.env.FLATPAK', process.env.FLATPAK);
 console.log('process.env.BUILD_NUMBER', process.env.BUILD_NUMBER);
 console.log('process.env.BUILD_TIME', process.env.BUILD_TIME);
 console.log('process.env.VERSION', process.env.VERSION);
@@ -96,6 +99,7 @@ build({
     ),
     'process.env.APPIMAGE': JSON.stringify(process.env.APPIMAGE || ''),
     'process.env.SNAP': JSON.stringify(process.env.SNAP || ''),
+    'process.env.FLATPAK': JSON.stringify(process.env.FLATPAK || ''),
     'process.env.SENTRY_DSN_MAS': JSON.stringify(
       process.env.SENTRY_DSN_MAS || '',
     ),

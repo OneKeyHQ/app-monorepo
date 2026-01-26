@@ -15,6 +15,7 @@ import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
 import type { IOneKeyHardwareErrorPayload } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import type { ELogUploadStage } from '@onekeyhq/shared/src/logger/types';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 
@@ -27,7 +28,10 @@ import { EAppEventBusNames } from './appEventBusNames';
 import type { EAccountSelectorSceneName, EHomeTab } from '../../types';
 import type { IFeeSelectorItem } from '../../types/fee';
 import type { ESubscriptionType } from '../../types/hyperliquid/types';
-import type { INotificationViewDialogPayload } from '../../types/notification';
+import type {
+  INotificationPushMessageInfo,
+  INotificationViewDialogPayload,
+} from '../../types/notification';
 import type { IPrimeTransferData } from '../../types/prime/primeTransferTypes';
 import type {
   ESwapCrossChainStatus,
@@ -39,7 +43,9 @@ import type {
   ISwapTokenBase,
 } from '../../types/swap/types';
 import type { IAccountToken, ITokenFiat } from '../../types/token';
+import type { EHomeWalletTab } from '../../types/wallet';
 import type { IOneKeyError } from '../errors/types/errorTypes';
+import type { EModalRoutes, ETabRoutes } from '../routes';
 import type { IWalletConnectSession } from '../walletConnect/types';
 import type { FuseResult } from 'fuse.js';
 
@@ -59,6 +65,7 @@ export interface IHardwareErrorDialogPayload {
 }
 
 export enum EFinalizeWalletSetupSteps {
+  // Regular wallet steps
   CreatingWallet = 'CreatingWallet',
   GeneratingAccounts = 'GeneratingAccounts',
   EncryptingData = 'EncryptingData',
@@ -72,8 +79,11 @@ export type IEventBusPayloadShowToast = {
   message?: string;
   duration?: number;
   errorCode?: number;
+  httpStatusCode?: number;
   toastId?: string;
   i18nKey?: ETranslations;
+  requestId?: string;
+  diagnosticText?: string;
 };
 export interface IAppEventBusPayload {
   [EAppEventBusNames.ConfirmAccountSelected]: undefined;
@@ -205,6 +215,9 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.SwitchMarketHomeTab]: {
     tabIndex: number;
   };
+  [EAppEventBusNames.SwitchWalletHomeTab]: {
+    id: EHomeWalletTab;
+  };
   [EAppEventBusNames.RefreshMarketWatchList]: undefined;
   [EAppEventBusNames.RefreshCustomRpcList]: undefined;
   [EAppEventBusNames.ClearLocalHistoryPendingTxs]: undefined;
@@ -240,6 +253,7 @@ export interface IAppEventBusPayload {
     networkId: string;
   };
   [EAppEventBusNames.AccountDataUpdate]: undefined;
+  [EAppEventBusNames.AccountValueUpdate]: undefined;
   [EAppEventBusNames.onDragBeginInListView]: undefined;
   [EAppEventBusNames.onDragEndInListView]: undefined;
   [EAppEventBusNames.SidePanel_BgToUI]: {
@@ -310,6 +324,7 @@ export interface IAppEventBusPayload {
     uiRequestType: EHardwareUiStateAction;
   };
   [EAppEventBusNames.RequestDeviceInBootloaderForWebDevice]: undefined;
+  [EAppEventBusNames.RequestDeviceForSwitchFirmwareWebDevice]: undefined;
   [EAppEventBusNames.EnabledNetworksChanged]: undefined;
   [EAppEventBusNames.CheckWalletBackupStatus]: {
     promiseId: number;
@@ -321,9 +336,7 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.HardwareFeaturesUpdate]: {
     deviceId: string;
   };
-  [EAppEventBusNames.UnlockApp]: {
-    jobId: string;
-  };
+  [EAppEventBusNames.UnlockApp]: undefined;
   [EAppEventBusNames.AddressBookUpdate]: undefined;
   [EAppEventBusNames.MarketWSDataUpdate]: {
     channel: string;
@@ -383,7 +396,16 @@ export interface IAppEventBusPayload {
       screen: string;
       params: Record<string, any>;
     };
+    extras?: {
+      params?: {
+        coin?: string;
+        type?: string;
+        [key: string]: any;
+      };
+      [key: string]: any;
+    };
   };
+  [EAppEventBusNames.ShowNotificationInDappPage]: string;
   [EAppEventBusNames.UpdateNotificationBadge]: undefined;
   [EAppEventBusNames.BtcFreshAddressUpdated]: undefined;
   [EAppEventBusNames.BtcFreshAddressConnectDappRejected]: undefined;
@@ -392,6 +414,45 @@ export interface IAppEventBusPayload {
     progressPercent?: number;
     retry?: number;
     message?: string;
+  };
+  [EAppEventBusNames.SwitchDiscoveryTabInNative]: {
+    tab:
+      | ETranslations.global_market
+      | ETranslations.global_browser
+      | ETranslations.global_earn;
+    openUrl?: boolean;
+  };
+  [EAppEventBusNames.SwitchEarnMode]: {
+    mode: 'earn' | 'borrow';
+  };
+  [EAppEventBusNames.SwitchEarnTab]: {
+    tab: 'assets' | 'portfolio' | 'faqs';
+  };
+  [EAppEventBusNames.SwitchTabBar]: {
+    route: ETabRoutes;
+  };
+  [EAppEventBusNames.PushPageInTabletDetailView]: any;
+  [EAppEventBusNames.PushModalPageInTabletDetailView]: {
+    route: EModalRoutes;
+    params: any;
+  };
+  [EAppEventBusNames.CleanTokenDetailInTabletDetailView]: undefined;
+  [EAppEventBusNames.MarketHomePageEnter]: {
+    from: EEnterWay;
+  };
+  [EAppEventBusNames.MarketWatchListV2Changed]: undefined;
+  [EAppEventBusNames.SwapLimitOrderBuildSuccess]: undefined;
+  [EAppEventBusNames.RefreshNativeTokenInfo]: undefined;
+  [EAppEventBusNames.ShowInAppPushNotification]: {
+    notificationId: string | undefined;
+    title: string;
+    description: string;
+    icon: string | undefined;
+    remotePushMessageInfo: INotificationPushMessageInfo;
+  };
+  [EAppEventBusNames.ExecuteNotificationCommand]: {
+    action: string;
+    data?: Record<string, unknown>;
   };
 }
 
@@ -514,7 +575,7 @@ class AppEventBusClass extends CrossEventEmitter {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         payloadCloned.$$isRemoteEvent = undefined;
       }
-    } catch (e) {
+    } catch (_e) {
       // ignore
     }
     super.emit(type, payloadCloned);
@@ -533,7 +594,7 @@ class AppEventBusClass extends CrossEventEmitter {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
           payloadCloned.$$isRemoteEvent = true;
         }
-      } catch (e) {
+      } catch (_e) {
         // ignore
       }
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return

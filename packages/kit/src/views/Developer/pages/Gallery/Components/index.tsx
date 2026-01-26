@@ -10,7 +10,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EGalleryRoutes } from '@onekeyhq/shared/src/routes';
 
 if (platformEnv.isDev && platformEnv.isNative) {
-  __CURRENT_FILE_PATH__ = '';
+  globalThis.__CURRENT_FILE_PATH__ = '';
 }
 
 const Index = () => {
@@ -22,7 +22,7 @@ const Index = () => {
   const filteredComponents = Object.values(EGalleryRoutes)
     .filter((item) => item.startsWith('component'))
     .filter((item) => item.toLowerCase().includes(searchQuery.toLowerCase()))
-    .sort((a, b) => natsort({ insensitive: true })(a, b));
+    .toSorted((a, b) => natsort({ insensitive: true })(a, b));
 
   if (galleryLastRoute) {
     filteredComponents.unshift(galleryLastRoute);

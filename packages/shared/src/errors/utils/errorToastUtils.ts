@@ -5,7 +5,42 @@ import { isPlainObject } from 'lodash';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { EAppEventBusNames, appEventBus } from '../../eventBus/appEventBus';
+import { getInstanceId } from '../../modules3rdParty/intercom/utils';
 import { EOneKeyErrorClassNames, type IOneKeyError } from '../types/errorTypes';
+
+async function buildDiagnosticText(err: IOneKeyError): Promise<string> {
+  const parts: string[] = [];
+
+  // Add request URL if available (from axios interceptor error data)
+  const requestUrl = (err?.data as { requestUrl?: string } | undefined)
+    ?.requestUrl;
+  if (requestUrl) {
+    parts.push(`URL: ${requestUrl}`);
+  }
+
+  if (err?.requestId) {
+    parts.push(`RequestId: ${err.requestId}`);
+
+    // Add instanceId when requestId is present
+    try {
+      const instanceId = await getInstanceId();
+      if (instanceId) {
+        parts.push(`InstanceId: ${instanceId}`);
+      }
+    } catch (error) {
+      console.warn('[buildDiagnosticText] Failed to get instanceId:', error);
+    }
+  }
+  if (err?.code) {
+    parts.push(`Error Code: ${err.code}`);
+  }
+  if (err?.message) {
+    parts.push(`Message: ${err.message}`);
+  }
+  parts.push(`Timestamp: ${new Date().toISOString()}`);
+
+  return parts.join('\n');
+}
 
 function fixAxiosAbortCancelError(error: unknown) {
   if (error && axios.isCancel(error)) {
@@ -25,6 +60,7 @@ function showToastOfError(error: IOneKeyError | unknown | undefined) {
       // ignore auto toast errors
       EOneKeyErrorClassNames.HardwareUserCancelFromOutside,
       EOneKeyErrorClassNames.PrimeLoginDialogCancelError,
+      EOneKeyErrorClassNames.OAuthLoginCancelError,
       EOneKeyErrorClassNames.SecureQRCodeDialogCancel,
       EOneKeyErrorClassNames.PasswordPromptDialogCancel,
       EOneKeyErrorClassNames.OneKeyErrorScanQrCodeCancel,
@@ -37,6 +73,8 @@ function showToastOfError(error: IOneKeyError | unknown | undefined) {
       // use Dialog instead of Toast, check GlobalErrorHandlerContainer
       EOneKeyErrorClassNames.DeviceNotOpenedPassphrase,
       EOneKeyErrorClassNames.DeviceNotFound,
+      // IncorrectPinError is handled inline in VerifyPinPage
+      EOneKeyErrorClassNames.IncorrectPinError,
     ].includes(err?.className)
   ) {
     return;
@@ -64,13 +102,38 @@ function showToastOfError(error: IOneKeyError | unknown | undefined) {
   ) {
     err.$$autoToastErrorTriggered = true;
     lastToastErrorInstance = err;
-    appEventBus.emit(EAppEventBusNames.ShowToast, {
-      errorCode: err?.code,
-      method: 'error',
-      title: err?.message ?? 'Error',
-      message: err?.requestId,
-      i18nKey: err?.key as ETranslations | undefined,
-    });
+    void (async () => {
+      const diagnosticText = await buildDiagnosticText(err);
+
+      let httpStatusCode: number | undefined = err.httpStatusCode;
+
+      if (!httpStatusCode) {
+        const errorWithResponse = err as
+          | (IOneKeyError & {
+              response?: {
+                status?: unknown;
+              };
+            })
+          | undefined;
+
+        if (
+          errorWithResponse?.response &&
+          typeof errorWithResponse.response.status === 'number'
+        ) {
+          httpStatusCode = errorWithResponse.response.status;
+        }
+      }
+
+      appEventBus.emit(EAppEventBusNames.ShowToast, {
+        errorCode: err?.code,
+        httpStatusCode,
+        method: 'error',
+        title: err?.message ?? 'Error',
+        requestId: err?.requestId,
+        diagnosticText,
+        i18nKey: err?.key as ETranslations | undefined,
+      });
+    })();
   }
 }
 

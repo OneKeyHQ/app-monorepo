@@ -81,6 +81,7 @@ function normalizeConfig({ platform, config }) {
     isNative,
     isExtChrome,
     isExtFirefox,
+    enablePerfMonitor,
   } = require('../packages/shared/src/buildTimeEnv');
 
   config.plugins = [
@@ -141,6 +142,7 @@ function normalizeConfig({ platform, config }) {
         'extensions': ['.text-js'],
       },
     ],
+    enablePerfMonitor && [fullPath('./babel-plugins/rn-heartbeat')],
     /* FIX:
        TypeError: undefined is not an object. (evaluating 'this._callListeners.bind')
        And Don't remove any plugin here, it will cause other error.
@@ -151,7 +153,6 @@ function normalizeConfig({ platform, config }) {
     ['@babel/plugin-proposal-class-properties', { 'loose': true }],
     ['@babel/plugin-proposal-private-methods', { 'loose': true }],
     ['@babel/plugin-proposal-private-property-in-object', { 'loose': true }],
-    ['@babel/plugin-proposal-export-namespace-from'],
     ['@babel/plugin-proposal-nullish-coalescing-operator'],
     ['@babel/plugin-proposal-class-static-block'],
     [

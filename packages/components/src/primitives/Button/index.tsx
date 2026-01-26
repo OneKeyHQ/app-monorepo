@@ -23,7 +23,7 @@ import type { IIconProps, IKeyOfIcons } from '../Icon';
 export interface IButtonProps extends ThemeableStackProps {
   type?: ButtonHTMLAttributes<HTMLButtonElement>['type'];
   size?: 'small' | 'medium' | 'large';
-  variant?: 'secondary' | 'tertiary' | 'primary' | 'destructive';
+  variant?: 'secondary' | 'tertiary' | 'primary' | 'destructive' | 'link';
   icon?: IKeyOfIcons;
   iconAfter?: IKeyOfIcons;
   disabled?: boolean;
@@ -95,6 +95,14 @@ const BUTTON_VARIANTS: Record<
     activeBg: '$bgStrongActive',
     focusRingColor: '$focusRing',
   },
+  link: {
+    color: '$textInfo',
+    iconColor: '$iconInfo',
+    bg: '$transparent',
+    hoverBg: '$transparent',
+    activeBg: '$transparent',
+    focusRingColor: '$focusRing',
+  },
 };
 
 export const getSharedButtonStyles = ({
@@ -121,7 +129,7 @@ export const getSharedButtonStyles = ({
           },
         }
       : {
-          opacity: 0.5,
+          opacity: 0.4,
         }),
   };
 

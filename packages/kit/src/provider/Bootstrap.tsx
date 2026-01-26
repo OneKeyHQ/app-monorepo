@@ -1,5 +1,7 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { useCallback, useEffect, useRef } from 'react';
 
+import { CommonActions, StackActions } from '@react-navigation/native';
 import { debounce, isEqual, noop, upperFirst } from 'lodash';
 import { useIntl } from 'react-intl';
 
@@ -11,6 +13,7 @@ import {
   getDialogInstances,
   getFormInstances,
   rootNavigationRef,
+  useIsTabletDetailView,
   useShortcuts,
 } from '@onekeyhq/components';
 import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
@@ -36,12 +39,18 @@ import performance from '@onekeyhq/shared/src/performance';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EDiscoveryModalRoutes,
+  EGalleryRoutes,
   EModalRoutes,
   EModalSettingRoutes,
   EMultiTabBrowserRoutes,
-  EOnboardingPages,
+  EOnboardingPagesV2,
+  EOnboardingV2Routes,
+  ETabEarnRoutes,
+  ETabMarketRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes/root';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
@@ -50,14 +59,7 @@ import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { useAppUpdateInfo } from '../components/UpdateReminder/hooks';
 import useAppNavigation from '../hooks/useAppNavigation';
 import { useOnLock } from '../hooks/useOnLock';
-import {
-  isOpenedReferFriendsPage,
-  useReferFriends,
-} from '../hooks/useReferFriends';
-import {
-  isOpenedMyOneKeyModal,
-  useToMyOneKeyModal,
-} from '../views/DeviceManagement/hooks/useToMyOneKeyModal';
+import { useRunAfterTokensDone } from '../hooks/useRunAfterTokensDone';
 
 import type { IntlShape } from 'react-intl';
 
@@ -78,9 +80,6 @@ const useDesktopEvents = platformEnv.isDesktop
       const onLock = useOnLockCallback();
       const useOnLockRef = useRef(onLock);
       useOnLockRef.current = onLock;
-
-      const { toReferFriendsPage } = useReferFriends();
-      const toMyOneKeyModal = useToMyOneKeyModal();
 
       const { checkForUpdates, onUpdateAction } = useAppUpdateInfoCallback(
         false,
@@ -139,7 +138,10 @@ const useDesktopEvents = platformEnv.isDesktop
                 (route.params as { screen: string })?.screen ===
                   EModalRoutes.SettingModal
               ) {
-                if (route.name === ERootRoutes.Modal) {
+                if (
+                  route.name === ERootRoutes.Modal ||
+                  route.name === ERootRoutes.iOSFullScreen
+                ) {
                   const routeLength =
                     route.state?.routes?.[0]?.state?.routes.length || 1;
                   for (let i = 0; i < routeLength; i += 1)
@@ -264,7 +266,9 @@ const useDesktopEvents = platformEnv.isDesktop
             break;
           case EShortcutEvents.TabEarn:
             ensureModalClosedAndNavigate(() => {
-              navigation.switchTab(ETabRoutes.Earn);
+              navigation.switchTab(ETabRoutes.Earn, {
+                screen: ETabEarnRoutes.EarnHome,
+              });
             });
             break;
           case EShortcutEvents.TabSwap:
@@ -283,22 +287,14 @@ const useDesktopEvents = platformEnv.isDesktop
             });
             break;
           case EShortcutEvents.TabReferAFriend:
-            if (!isOpenedReferFriendsPage()) {
-              ensureModalClosedAndNavigate(() => {
-                void toReferFriendsPage();
-              });
-            } else {
-              ensureModalClosedAndNavigate();
-            }
+            ensureModalClosedAndNavigate(() => {
+              navigation.switchTab(ETabRoutes.ReferFriends);
+            });
             break;
           case EShortcutEvents.TabMyOneKey:
-            if (!isOpenedMyOneKeyModal()) {
-              ensureModalClosedAndNavigate(() => {
-                void toMyOneKeyModal();
-              });
-            } else {
-              ensureModalClosedAndNavigate();
-            }
+            ensureModalClosedAndNavigate(() => {
+              navigation.switchTab(ETabRoutes.DeviceManagement);
+            });
             break;
           case EShortcutEvents.TabBrowser:
             ensureModalClosedAndNavigate(() => {
@@ -373,9 +369,11 @@ const useAboutVersion =
     : noop;
 
 export const useFetchCurrencyList = () => {
-  useEffect(() => {
-    void backgroundApiProxy.serviceSetting.fetchCurrencyList();
-  }, []);
+  useRunAfterTokensDone({
+    run: () => {
+      void backgroundApiProxy.serviceSetting.fetchCurrencyList();
+    },
+  });
 };
 
 export const useFetchMarketBasicConfig = () => {
@@ -385,9 +383,11 @@ export const useFetchMarketBasicConfig = () => {
 };
 
 export const useFetchPerpConfig = () => {
-  useEffect(() => {
-    void backgroundApiProxy.serviceHyperliquid.updatePerpsConfigByServerWithCache();
-  }, []);
+  useRunAfterTokensDone({
+    run: () => {
+      void backgroundApiProxy.serviceHyperliquid.updatePerpsConfigByServerWithCache();
+    },
+  });
 };
 
 const launchFloatingIconEvent = async (intl: IntlShape) => {
@@ -456,9 +456,13 @@ const launchFloatingIconEvent = async (intl: IntlShape) => {
 };
 
 export const useIntercomInit = () => {
+  const isInitializedRef = useRef(false);
+
   useEffect(() => {
-    // 初始化 Intercom
-    void initIntercom();
+    if (!isInitializedRef.current) {
+      void initIntercom();
+      isInitializedRef.current = true;
+    }
   }, []);
 };
 
@@ -492,10 +496,7 @@ const getBuilderNumber = (builderNumber?: string) => {
   return builderNumber ? Number(builderNumber.split('-')[0]) : -1;
 };
 export const useCheckUpdateOnDesktop =
-  platformEnv.isDesktop &&
-  !platformEnv.isMas &&
-  !platformEnv.isDesktopLinuxSnap &&
-  !platformEnv.isDesktopWinMsStore
+  platformEnv.isDesktop && !platformEnv.isDesktopStore
     ? () => {
         useEffect(() => {
           const subscription = electronUpdateListeners.onDownloadedFileEvent?.(
@@ -584,6 +585,85 @@ export const useRemindDevelopmentBuildExtension =
       }
     : noop;
 
+export const useTabletDetailView = () => {
+  const isTabletDetailView = useIsTabletDetailView();
+  const appNavigation = useAppNavigation();
+  useEffect(() => {
+    if (isTabletDetailView) {
+      const onSwitchTabBar = (event: { route: ETabRoutes }) => {
+        appNavigation.switchTab(event.route);
+      };
+      const onPushPageInTabletDetailView = (event: any) => {
+        setTimeout(() => {
+          appNavigation.push(...event);
+        }, 10);
+      };
+      const onPushModalPageInTabletDetailView = (event: {
+        route: EModalRoutes;
+        params: any;
+      }) => {
+        setTimeout(() => {
+          appNavigation.pushModal(event.route, event.params);
+        }, 10);
+      };
+      const onCleanTokenDetailInTabletDetailView = () => {
+        appNavigation.dispatch((state) => {
+          // Filter out only token detail pages, keep others (like banner list)
+          const filteredRoutes = state.routes.filter(
+            (route) =>
+              route.name !== ETabMarketRoutes.MarketDetailV2 &&
+              route.name !== ETabMarketRoutes.MarketNativeDetail,
+          );
+
+          // If no token detail routes were removed, do nothing
+          if (filteredRoutes.length === state.routes.length) {
+            return StackActions.pop(0);
+          }
+
+          // If all routes would be removed, clear all
+          if (filteredRoutes.length === 0) {
+            return StackActions.pop(state.routes.length);
+          }
+
+          return CommonActions.reset({
+            ...state,
+            routes: filteredRoutes,
+            index: filteredRoutes.length - 1,
+          });
+        });
+      };
+      appEventBus.on(EAppEventBusNames.SwitchTabBar, onSwitchTabBar);
+      appEventBus.on(
+        EAppEventBusNames.PushPageInTabletDetailView,
+        onPushPageInTabletDetailView,
+      );
+      appEventBus.on(
+        EAppEventBusNames.PushModalPageInTabletDetailView,
+        onPushModalPageInTabletDetailView,
+      );
+      appEventBus.on(
+        EAppEventBusNames.CleanTokenDetailInTabletDetailView,
+        onCleanTokenDetailInTabletDetailView,
+      );
+      return () => {
+        appEventBus.off(EAppEventBusNames.SwitchTabBar, onSwitchTabBar);
+        appEventBus.off(
+          EAppEventBusNames.PushPageInTabletDetailView,
+          onPushPageInTabletDetailView,
+        );
+        appEventBus.off(
+          EAppEventBusNames.PushModalPageInTabletDetailView,
+          onPushModalPageInTabletDetailView,
+        );
+        appEventBus.off(
+          EAppEventBusNames.CleanTokenDetailInTabletDetailView,
+          onCleanTokenDetailInTabletDetailView,
+        );
+      };
+    }
+  }, [appNavigation, isTabletDetailView]);
+};
+
 export function Bootstrap() {
   const navigation = useAppNavigation();
   const [devSettings] = useDevSettingsPersistAtom();
@@ -603,14 +683,43 @@ export function Bootstrap() {
       autoNavigation?.selectedTab &&
       Object.values(ETabRoutes).includes(autoNavigation.selectedTab)
     ) {
+      /*
+        Auto Jump on Launch
+        Jump to Page
+        Choose which page to open when launching the app
+      */
       const timer = setTimeout(() => {
         navigation.switchTab(autoNavigation.selectedTab as ETabRoutes);
+        // ----------------------------------------------
+        // navigate to auth gallery
+        // navigation.navigate(ERootRoutes.Main, {
+        //   screen: ETabRoutes.Developer,
+        //   params: {
+        //     screen: EGalleryRoutes.ComponentAuth,
+        //   },
+        // });
+        // ----------------------------------------------
         // navigation.pushModal(EModalRoutes.PrimeModal, {
         //   screen: EPrimePages.PrimeTransfer,
         // });
-        navigation.pushModal(EModalRoutes.OnboardingModal, {
-          screen: EOnboardingPages.ConnectWallet,
+        // ----------------------------------------------
+        // navigation.pushModal(EModalRoutes.OnboardingModal, {
+        //   screen: EOnboardingPages.ConnectWallet,
+        // });
+        // ----------------------------------------------
+        navigation.navigate(ERootRoutes.Onboarding, {
+          screen: EOnboardingV2Routes.OnboardingV2,
+          params: {
+            // screen: EOnboardingPagesV2.AddExistingWallet,
+            screen: EOnboardingPagesV2.CreateOrImportWallet,
+          },
         });
+        // navigation.navigate(ETabRoutes.Developer, {
+        //    screen: EGalleryRoutes.ComponentKeylessWallet,
+        // });
+        // navigation.navigate(ETabRoutes.Developer, {
+        //   screen: EGalleryRoutes.ComponentOneKeyID,
+        // });
       }, 1000);
 
       return () => clearTimeout(timer);
@@ -637,5 +746,6 @@ export function Bootstrap() {
   useIntercomInit();
   useClearStorageOnExtension();
   useRemindDevelopmentBuildExtension();
+  useTabletDetailView();
   return null;
 }

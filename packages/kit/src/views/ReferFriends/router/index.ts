@@ -4,11 +4,14 @@ import type { IModalReferFriendsParamList } from '@onekeyhq/shared/src/routes';
 import { EModalReferFriendsRoutes } from '@onekeyhq/shared/src/routes';
 
 const ReferFriends = LazyLoadPage(() => import('../pages/ReferAFriend'));
+const InvitedByFriend = LazyLoadPage(() => import('../pages/InvitedByFriend'));
 const YourReferred = LazyLoadPage(() => import('../pages/YourReferred'));
 const HardwareSalesReward = LazyLoadPage(
   () => import('../pages/HardwareSalesReward'),
 );
-const OneKeyId = LazyLoadPage(() => import('../pages/OneKeyId'));
+const HardwareSalesOrderDetail = LazyLoadPage(
+  () => import('../pages/HardwareSalesReward/HardwareSalesOrderDetail'),
+);
 const InviteReward = LazyLoadPage(() => import('../pages/InviteReward'));
 const EditAddress = LazyLoadPage(() => import('../pages/EditAddress'));
 const EarnReward = LazyLoadPage(() => import('../pages/EarnReward'));
@@ -18,6 +21,10 @@ const YourReferredWalletAddresses = LazyLoadPage(
 const RewardDistributionHistory = LazyLoadPage(
   () => import('../pages/RewardDistributionHistory'),
 );
+const ReferralLevel = LazyLoadPage(() => import('../pages/ReferralLevel'));
+const RedemptionHistory = LazyLoadPage(
+  () => import('../../Redemption/pages/RedemptionHistory'),
+);
 
 export const ReferFriendsRouter: IModalFlowNavigatorConfig<
   EModalReferFriendsRoutes,
@@ -25,9 +32,11 @@ export const ReferFriendsRouter: IModalFlowNavigatorConfig<
 >[] = [
   {
     name: EModalReferFriendsRoutes.ReferAFriend,
-    rewrite: '/r/invite',
-    exact: true,
     component: ReferFriends,
+  },
+  {
+    name: EModalReferFriendsRoutes.InvitedByFriend,
+    component: InvitedByFriend,
   },
   {
     name: EModalReferFriendsRoutes.YourReferred,
@@ -42,8 +51,8 @@ export const ReferFriendsRouter: IModalFlowNavigatorConfig<
     component: HardwareSalesReward,
   },
   {
-    name: EModalReferFriendsRoutes.OneKeyId,
-    component: OneKeyId,
+    name: EModalReferFriendsRoutes.HardwareSalesOrderDetail,
+    component: HardwareSalesOrderDetail,
   },
   {
     name: EModalReferFriendsRoutes.InviteReward,
@@ -60,5 +69,13 @@ export const ReferFriendsRouter: IModalFlowNavigatorConfig<
   {
     name: EModalReferFriendsRoutes.RewardDistributionHistory,
     component: RewardDistributionHistory,
+  },
+  {
+    name: EModalReferFriendsRoutes.ReferralLevel,
+    component: ReferralLevel,
+  },
+  {
+    name: EModalReferFriendsRoutes.RedemptionHistory,
+    component: RedemptionHistory,
   },
 ];

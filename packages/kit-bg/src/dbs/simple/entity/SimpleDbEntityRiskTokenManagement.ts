@@ -51,7 +51,7 @@ export class SimpleDbEntityRiskTokenManagement extends SimpleDbEntityBase<IRiskT
     const mergedUnblockedTokens = Object.entries(unblockedTokens).reduce(
       (acc, [networkId, tokens]) => {
         acc[networkId] = {
-          ...(acc[networkId] ?? {}),
+          ...acc[networkId],
           ...tokens,
         };
         return acc;
@@ -63,7 +63,7 @@ export class SimpleDbEntityRiskTokenManagement extends SimpleDbEntityBase<IRiskT
     const mergedBlockedTokens = Object.entries(blockedTokens).reduce(
       (acc, [networkId, tokens]) => {
         acc[networkId] = {
-          ...(acc[networkId] ?? {}),
+          ...acc[networkId],
           ...tokens,
         };
         return acc;

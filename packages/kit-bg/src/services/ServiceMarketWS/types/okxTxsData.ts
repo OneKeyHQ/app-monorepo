@@ -1,5 +1,3 @@
-/* eslint-disable spellcheck/spell-checker */
-
 import {
   OKX_DATA_SOURCE,
   normalizeTimestamp,
@@ -173,8 +171,15 @@ export const convertOkxTxsDataToWsTxsData = (
 ): IWsTxsData => {
   const tokenAddressMap = createTokenAddressMap(okxData.changedTokenInfo);
 
-  const fromTransfer = mapTransferInfo(okxData.from, 'from', tokenAddressMap);
-  const toTransfer = mapTransferInfo(okxData.to, 'to', tokenAddressMap);
+  const tokenPrice = toNumber(okxData.price);
+  const fromTransfer = {
+    ...mapTransferInfo(okxData.from, 'from', tokenAddressMap),
+    price: tokenPrice,
+  };
+  const toTransfer = {
+    ...mapTransferInfo(okxData.to, 'to', tokenAddressMap),
+    price: tokenPrice,
+  };
 
   const blockUnixTime = normalizeTimestamp(
     okxData.blockUnixTime ?? okxData.time,
@@ -189,7 +194,7 @@ export const convertOkxTxsDataToWsTxsData = (
     alias: okxData.alias ?? null,
     isTradeOnBe: false,
     platform: okxData.platform ?? '',
-    volumeUSD: toNumber(okxData.volume ?? okxData.price),
+    volumeUSD: toNumber(okxData.volume),
     from: fromTransfer,
     to: toTransfer,
     poolId: okxData.poolId ?? '',

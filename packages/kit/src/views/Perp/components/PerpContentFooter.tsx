@@ -17,7 +17,7 @@ export function PerpContentFooter() {
   const { gtSm } = useMedia();
   const { poweredByHyperliquidLogo } = usePerpsLogo();
 
-  if (gtSm && !platformEnv.isWebDappMode) {
+  if (!platformEnv.isNative && !platformEnv.isWebDappMode && gtSm) {
     return (
       <Page.Footer>
         <XStack
@@ -34,7 +34,8 @@ export function PerpContentFooter() {
           <Stack flex={1} />
           <Image
             source={poweredByHyperliquidLogo}
-            size={170}
+            w={145}
+            h={25}
             resizeMode="contain"
           />
         </XStack>

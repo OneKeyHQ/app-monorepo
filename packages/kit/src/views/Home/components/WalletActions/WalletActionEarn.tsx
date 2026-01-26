@@ -7,31 +7,22 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
-import { showProtocolListDialog } from '@onekeyhq/kit/src/views/Earn/components/showProtocolListDialog';
+import { EarnNavigation } from '@onekeyhq/kit/src/views/Earn/earnUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 
 import { RawActions } from './RawActions';
 
 export function WalletActionEarn(props: {
-  accountId: string;
   tokenAddress: string;
   networkId: string;
-  indexedAccountId: string | undefined;
   walletType: string | undefined;
   source: 'homePage' | 'tokenDetails';
   trackID?: string;
+  logoURI?: string;
 }) {
-  const {
-    accountId,
-    tokenAddress,
-    networkId,
-    indexedAccountId,
-    walletType,
-    source,
-    trackID,
-  } = props;
+  const { tokenAddress, networkId, walletType, source, trackID, logoURI } =
+    props;
 
   const navigation = useAppNavigation();
 
@@ -51,6 +42,9 @@ export function WalletActionEarn(props: {
         symbol: symbolInfo?.symbol,
         filterNetworkId: networkId,
       });
+    if (!Array.isArray(protocolList) || !protocolList.length) {
+      return undefined;
+    }
     const aprItems = protocolList
       .map((o) => Number(o.provider.aprWithoutFee))
       .filter((n) => Number(n) > 0);
@@ -81,7 +75,7 @@ export function WalletActionEarn(props: {
     const symbol = result?.symbolInfo?.symbol ?? '';
     const protocolList = result?.protocolList ?? [];
 
-    if (!networkId || !accountId || !symbol || protocolList.length === 0) {
+    if (!networkId || !symbol || protocolList.length === 0) {
       return;
     }
 
@@ -92,7 +86,6 @@ export function WalletActionEarn(props: {
       isSoftwareWalletOnlyUser,
     });
 
-    // Convert protocol list to the format expected by showProtocolListDialog
     const protocols = protocolList.map((protocol) => ({
       provider: protocol.provider.name,
       networkId: protocol.network.networkId,
@@ -101,44 +94,31 @@ export function WalletActionEarn(props: {
 
     if (protocols.length === 1) {
       const protocol = protocolList[0];
-      navigation.pushModal(EModalRoutes.StakingModal, {
-        screen: EModalStakingRoutes.ProtocolDetailsV2,
-        params: {
-          networkId,
-          accountId,
-          indexedAccountId,
-          symbol,
-          provider: protocol.provider.name,
-          vault: protocol.provider.vault,
-        },
+      await EarnNavigation.pushToEarnProtocolDetails(navigation, {
+        networkId,
+        symbol,
+        provider: protocol.provider.name,
+        vault: protocol.provider.vault,
       });
       return;
     }
 
-    // Use dialog for multiple protocols
-    showProtocolListDialog({
+    // Navigate to protocols list page for multiple protocols
+    EarnNavigation.pushToEarnProtocols(navigation, {
       symbol,
-      accountId,
-      indexedAccountId,
       filterNetworkId: networkId,
-      onProtocolSelect: async (params) => {
-        navigation.pushModal(EModalRoutes.StakingModal, {
-          screen: EModalStakingRoutes.ProtocolDetailsV2,
-          params,
-        });
-      },
+      logoURI: logoURI ? encodeURIComponent(logoURI) : undefined,
     });
   }, [
+    logoURI,
     intl,
     result?.symbolInfo?.symbol,
     result?.protocolList,
     result?.blockData,
     networkId,
-    accountId,
     walletType,
     source,
     navigation,
-    indexedAccountId,
     isSoftwareWalletOnlyUser,
   ]);
 

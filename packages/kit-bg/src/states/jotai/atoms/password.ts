@@ -1,6 +1,7 @@
 import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog/type';
 import { ELockDuration } from '@onekeyhq/shared/src/consts/appAutoLockConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { isNeverLockDuration } from '@onekeyhq/shared/src/utils/passwordUtils';
 import { isSupportWebAuth } from '@onekeyhq/shared/src/webAuth';
 import {
   EPasswordMode,
@@ -20,7 +21,6 @@ import type { AuthenticationType } from 'expo-local-authentication';
 export type IPasswordAtom = {
   unLock: boolean;
   // Is the application not locked manually by the user
-  manualLocking: boolean;
   passwordVerifyStatus: {
     value: EPasswordVerifyStatus;
     message?: string;
@@ -32,7 +32,6 @@ export const { target: passwordAtom, use: usePasswordAtom } =
     name: EAtomNames.passwordAtom,
     initialValue: {
       unLock: false,
-      manualLocking: false,
       passwordVerifyStatus: { value: EPasswordVerifyStatus.DEFAULT },
     },
   });
@@ -64,6 +63,7 @@ export type IPasswordPersistAtom = {
   appLockDuration: number; // ELockDuration
   enableSystemIdleLock: boolean;
   passwordMode: EPasswordMode;
+  isPasscodeModeFixed?: boolean;
   enablePasswordErrorProtection: boolean;
   passwordErrorAttempts: number;
   passwordErrorProtectionTime: number;
@@ -71,9 +71,10 @@ export type IPasswordPersistAtom = {
 export const passwordAtomInitialValue: IPasswordPersistAtom = {
   isPasswordSet: false,
   webAuthCredentialId: '',
-  appLockDuration: Number(ELockDuration.Hour2),
+  appLockDuration: Number(ELockDuration.Never),
   enableSystemIdleLock: true,
   passwordMode: EPasswordMode.PASSWORD,
+  isPasscodeModeFixed: undefined,
   enablePasswordErrorProtection: false,
   passwordErrorAttempts: 0,
   passwordErrorProtectionTime: 0,
@@ -84,6 +85,20 @@ export const { target: passwordPersistAtom, use: usePasswordPersistAtom } =
     name: EAtomNames.passwordPersistAtom,
     initialValue: passwordAtomInitialValue,
   });
+
+export type IPasswordPersistManualLockStateAtom = {
+  manualLocking: boolean;
+};
+export const {
+  target: passwordPersistManualLockStateAtom,
+  use: usePasswordPersistManualLockStateAtom,
+} = globalAtom<IPasswordPersistManualLockStateAtom>({
+  persist: true,
+  name: EAtomNames.passwordPersistManualLockStateAtom,
+  initialValue: {
+    manualLocking: false,
+  },
+});
 
 export const { target: passwordModeAtom, use: usePasswordModeAtom } =
   globalAtomComputed<EPasswordMode>((get) => {
@@ -100,7 +115,7 @@ export const { target: systemIdleLockSupport, use: useSystemIdleLockSupport } =
     const { appLockDuration } = get(passwordPersistAtom.atom());
     return (
       platformSupport &&
-      appLockDuration !== Number(ELockDuration.Never) &&
+      !isNeverLockDuration(appLockDuration) &&
       appLockDuration !== Number(ELockDuration.Always)
     );
   });
@@ -152,19 +167,24 @@ export const { target: appIsLocked, use: useAppIsLockedAtom } =
       return false;
     }
     const { isPasswordSet, appLockDuration } = get(passwordPersistAtom.atom());
-    const { manualLocking } = get(passwordAtom.atom());
+    const { manualLocking } = get(passwordPersistManualLockStateAtom.atom());
     if (isPasswordSet) {
       if (manualLocking) {
         return true;
       }
+
+      const isNeverLock = isNeverLockDuration(appLockDuration);
+
+      if (isNeverLock) {
+        return false;
+      }
+
       const { unLock } = get(passwordAtom.atom());
       let usedUnlock = unLock;
       if (isMigrationModalOpen) {
         usedUnlock = true;
       }
-      if (platformEnv.isWeb || platformEnv.isDev) {
-        return !usedUnlock && String(appLockDuration) !== ELockDuration.Never;
-      }
+
       return !usedUnlock;
     }
     return false;

@@ -2,34 +2,61 @@ import { useCallback, useMemo, useRef } from 'react';
 
 import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
-import { Dimensions } from 'react-native';
+import { Dimensions, View } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
 
-import type { IScrollViewRef } from '@onekeyhq/components';
+import type { IDialogInstance, IScrollViewRef } from '@onekeyhq/components';
 import {
+  EInPageDialogType,
   ScrollView,
   Stack,
   Tabs,
   YStack,
+  useInPageDialog,
+  useIsOverlayPage,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { dismissKeyboardWithDelay } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
+import { MarketWatchListProviderMirrorV2 } from '../../MarketWatchListProviderMirrorV2';
 import {
   InformationPanel,
   MarketTradingView,
+  PerpetualTradingBanner,
   SwapPanel,
   TokenActivityOverview,
   TokenOverview,
 } from '../components';
+import { usePortfolioData } from '../components/InformationTabs/components/Portfolio/hooks/usePortfolioData';
+import { useNetworkAccount } from '../components/InformationTabs/hooks/useNetworkAccount';
 import { MobileInformationTabs } from '../components/InformationTabs/layout/MobileInformationTabs';
+import SwapFlashBtn from '../components/SwapPanel/components/SwapFlashBtn';
+import { SwapPanelWrap } from '../components/SwapPanel/SwapPanelWrap';
 import { useTokenDetail } from '../hooks/useTokenDetail';
 
-export function MobileLayout() {
+export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
   const { tokenAddress, networkId, tokenDetail, isNative, websocketConfig } =
     useTokenDetail();
   const intl = useIntl();
+
+  const { accountAddress, xpub } = useNetworkAccount(networkId);
+
+  const { portfolioData, isRefreshing } = usePortfolioData({
+    tokenAddress,
+    networkId,
+    accountAddress,
+    xpub,
+  });
   const tabNames = useMemo(
     () => [
       intl.formatMessage({ id: ETranslations.market_chart }),
@@ -37,14 +64,24 @@ export function MobileLayout() {
     ],
     [intl],
   );
+  const isModalPage = useIsOverlayPage();
+  const inPageDialog = useInPageDialog(
+    isModalPage ? EInPageDialogType.inModalPage : EInPageDialogType.inTabPages,
+  );
+  const dialogRef = useRef<IDialogInstance>(null);
 
   const { top, bottom } = useSafeAreaInsets();
 
+  // Skip top inset for iOS modal pages, as modal has its own safe area handling
+  const isIOSModalPage = platformEnv.isNativeIOS && isModalPage;
+
   const height = useMemo(() => {
-    return platformEnv.isNative
-      ? Dimensions.get('window').height - top - bottom - 158
-      : 'calc(100vh - 96px - 74px)';
-  }, [bottom, top]);
+    if (platformEnv.isNative) {
+      const topInset = isIOSModalPage ? 0 : top;
+      return Dimensions.get('window').height - topInset - bottom - 158;
+    }
+    return 'calc(100vh - 96px - 74px)';
+  }, [bottom, top, isIOSModalPage]);
 
   const width = useMemo(() => {
     return Dimensions.get('window').width;
@@ -65,18 +102,18 @@ export function MobileLayout() {
   );
 
   const tradingViewHeight = useMemo(() => {
-    if (isNative) {
-      return Number(height) * 0.9;
-    }
     if (platformEnv.isNative) {
       return Number(height) * 0.58;
     }
-    return '40vh';
-  }, [height, isNative]);
+    return 'calc(100vh - 96px - 74px - 250px)';
+  }, [height]);
 
   const informationHeader = useMemo(() => {
     return (
       <YStack bg="$bgApp" pointerEvents="box-none">
+        <Stack px="$5">
+          <PerpetualTradingBanner />
+        </Stack>
         <InformationPanel />
         <Stack h={tradingViewHeight} position="relative">
           <MarketTradingView
@@ -108,14 +145,12 @@ export function MobileLayout() {
       if (index === 0) {
         return (
           <YStack flex={1} height={height}>
-            {isNative ? (
-              informationHeader
-            ) : (
-              <MobileInformationTabs
-                onScrollEnd={noop}
-                renderHeader={renderInformationHeader}
-              />
-            )}
+            <MobileInformationTabs
+              onScrollEnd={noop}
+              renderHeader={renderInformationHeader}
+              portfolioData={portfolioData}
+              isRefreshing={isRefreshing}
+            />
           </YStack>
         );
       }
@@ -129,8 +164,62 @@ export function MobileLayout() {
         </YStack>
       );
     },
-    [height, isNative, informationHeader, renderInformationHeader],
+    [height, renderInformationHeader, portfolioData, isRefreshing],
   );
+
+  const toSwapPanelToken = useMemo(() => {
+    return {
+      networkId,
+      contractAddress: tokenDetail?.address || '',
+      symbol: tokenDetail?.symbol || '',
+      decimals: tokenDetail?.decimals || 0,
+      logoURI: tokenDetail?.logoUrl,
+      price: tokenDetail?.price,
+    };
+  }, [
+    networkId,
+    tokenDetail?.address,
+    tokenDetail?.decimals,
+    tokenDetail?.logoUrl,
+    tokenDetail?.price,
+    tokenDetail?.symbol,
+  ]);
+
+  const showSwapDialog = (swapToken?: ISwapToken) => {
+    if (swapToken) {
+      dialogRef.current = inPageDialog.show({
+        onClose: () => {
+          appEventBus.emit(
+            EAppEventBusNames.SwapPanelDismissKeyboard,
+            undefined,
+          );
+          void dismissKeyboardWithDelay(100);
+        },
+        title: intl.formatMessage({ id: ETranslations.global_swap }),
+        showFooter: false,
+        showExitButton: true,
+        renderContent: (
+          <View>
+            <AccountSelectorProviderMirror
+              config={{
+                sceneName: EAccountSelectorSceneName.home,
+                sceneUrl: '',
+              }}
+              enabledNum={[0]}
+            >
+              <MarketWatchListProviderMirrorV2
+                storeName={EJotaiContextStoreNames.marketWatchListV2}
+              >
+                <SwapPanelWrap
+                  onCloseDialog={() => dialogRef.current?.close()}
+                />
+              </MarketWatchListProviderMirrorV2>
+            </AccountSelectorProviderMirror>
+          </View>
+        ),
+      });
+    }
+  };
 
   return (
     <YStack flex={1} position="relative">
@@ -147,10 +236,20 @@ export function MobileLayout() {
           </YStack>
         ))}
       </ScrollView>
-
-      {isNative ? null : (
-        <SwapPanel networkId={networkId} tokenAddress={tokenDetail?.address} />
-      )}
+      <SwapPanel
+        swapToken={toSwapPanelToken}
+        portfolioData={portfolioData}
+        disableTrade={disableTrade}
+        onShowSwapDialog={showSwapDialog}
+      />
+      {platformEnv.isNative && !disableTrade ? (
+        <SwapFlashBtn
+          buttonProps={{
+            style: { position: 'absolute', bottom: 100, right: 20 },
+          }}
+          onFlashTrade={() => showSwapDialog(toSwapPanelToken)}
+        />
+      ) : null}
     </YStack>
   );
 }

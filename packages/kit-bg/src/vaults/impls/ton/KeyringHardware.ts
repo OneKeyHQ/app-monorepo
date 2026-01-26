@@ -1,4 +1,3 @@
-/* eslint-disable spellcheck/spell-checker */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { TonWalletVersion } from '@onekeyfe/hd-transport';
 import { Cell } from '@ton/core';
@@ -28,6 +27,7 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
+import { createNormalizedWalletTransfer } from './sdkTon/BodyNormalizer';
 import {
   createSignedExternalMessage,
   decodePayload,
@@ -300,6 +300,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     const signingMessageHash = Buffer.from(signingMessage.hash()).toString(
       'hex',
     );
+
     if (signingMessageHexFromHw) {
       // For Pro, check the boc
       if (
@@ -318,11 +319,18 @@ export class KeyringHardware extends KeyringHardwareBase {
         result.skip_validate &&
         signingMessageHexFromHw !== signingMessageHash
       ) {
-        throw new OneKeyLocalError(
-          appLocale.intl.formatMessage({
-            id: ETranslations.feedback_failed_to_sign_transaction,
-          }),
-        );
+        if (!useBlindSignature) {
+          // fullback to serialization compatible with classic1s
+          const mockHWNormalizedSerializeUnsignedTx =
+            await createNormalizedWalletTransfer(contract, encodedTx);
+          signingMessage = mockHWNormalizedSerializeUnsignedTx.signingMessage;
+        } else {
+          throw new OneKeyLocalError(
+            appLocale.intl.formatMessage({
+              id: ETranslations.feedback_failed_to_sign_transaction,
+            }),
+          );
+        }
       }
     }
 
@@ -365,7 +373,7 @@ export class KeyringHardware extends KeyringHardwareBase {
         {
           ...deviceCommonParams,
           path: account.path,
-          // eslint-disable-next-line spellcheck/spell-checker
+          // oxlint-disable-next-line @cspell/spellchecker
           appdomain: Buffer.from(msg.payload.appDomain ?? '').toString('hex'),
           expireAt: msg.payload.timestamp,
           comment: Buffer.from(msg.message).toString('hex'),

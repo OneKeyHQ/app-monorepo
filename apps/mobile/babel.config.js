@@ -27,7 +27,6 @@ module.exports = function (api) {
         ],
       ],
       plugins: [
-        // eslint-disable-next-line spellcheck/spell-checker
         // fix Reanimated error: [Reanimated] Tried to synchronously call a non-worklet function on the UI thread.
         //  in react-native-gesture-handler
         require('@babel/plugin-transform-shorthand-properties'),
@@ -46,7 +45,7 @@ module.exports = function (api) {
           },
         ],
         [
-          'react-native-reanimated/plugin',
+          'react-native-worklets/plugin',
           {
             globals: ['__scanCodes'],
           },

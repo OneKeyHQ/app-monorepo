@@ -50,7 +50,7 @@ type IProps = {
   data: IAccountHistoryTx[];
   isLoading?: boolean;
   tableLayout?: boolean;
-  ListHeaderComponent?: ReactElement;
+  ListHeaderComponent?: ReactElement | null;
   showHeader?: boolean;
   showFooter?: boolean;
   showIcon?: boolean;
@@ -74,6 +74,9 @@ type IProps = {
   isSingleAccount?: boolean;
   tokenMap?: Record<string, ITokenFiat>;
   ref?: ForwardedRef<typeof SectionList>;
+  plainMode?: boolean;
+  emptyTitle?: string;
+  emptyDescription?: string;
 };
 
 const ListFooterComponent = ({
@@ -211,17 +214,14 @@ function TxHistoryListViewSectionHeader(
     isTabFocused,
   } = props;
   const intl = useIntl();
-  const recomputeLayoutRef = useRef(false);
   const titleText = title || intl.formatMessage({ id: titleKey }) || '';
 
   useEffect(() => {
     if (
       data[0] &&
       data[0].decodedTx.status === EDecodedTxStatus.Pending &&
-      ((inTabList && isTabFocused) || !inTabList) &&
-      !recomputeLayoutRef.current
+      ((inTabList && isTabFocused) || !inTabList)
     ) {
-      recomputeLayoutRef.current = true;
       setTimeout(() => {
         recomputeLayout();
       }, 350);
@@ -283,6 +283,7 @@ function BaseTxHistoryListView(props: IProps) {
     isSingleAccount,
     tokenMap,
     ref,
+    plainMode,
   } = props;
 
   const [searchKey] = useSearchKeyAtom();
@@ -392,7 +393,7 @@ function BaseTxHistoryListView(props: IProps) {
     }
     return (
       <EmptyHistory
-        showViewInExplorer
+        showViewInExplorer={!plainMode}
         walletId={walletId}
         accountId={accountId}
         networkId={networkId}
@@ -413,13 +414,47 @@ function BaseTxHistoryListView(props: IProps) {
     isSingleAccount,
     tokenMap,
     tableLayout,
+    plainMode,
   ]);
+
+  if (plainMode) {
+    if (sections.length === 0) {
+      return EmptyComponentElement;
+    }
+
+    return (
+      <YStack>
+        {sections.map((section, index) => (
+          <YStack key={section.title}>
+            {renderSectionHeader({ section, index })}
+            {section.data.map((item, itemIndex) => (
+              <TxHistoryListItem
+                key={item.id}
+                historyTx={item}
+                index={itemIndex}
+                showIcon={showIcon}
+                onPress={onPressHistory}
+                tableLayout={tableLayout}
+                hideValue={hideValue}
+                compact={plainMode}
+              />
+            ))}
+          </YStack>
+        ))}
+      </YStack>
+    );
+  }
 
   return (
     <ListComponent
       ref={(ref ?? ListComponentRef) as any}
+      windowSize={platformEnv.isNativeAndroid && inTabList ? 3 : undefined}
+      nestedScrollEnabled={platformEnv.isNativeAndroid ? inTabList : false}
+      removeClippedSubviews={platformEnv.isNativeAndroid}
       refreshControl={
-        onRefresh ? <PullToRefresh onRefresh={onRefresh} /> : undefined
+        !platformEnv.isNativeAndroid && onRefresh ? (
+          <PullToRefresh onRefresh={onRefresh} />
+        ) : undefined
       }
       // @ts-ignore
       estimatedItemSize={platformEnv.isNative ? 60 : 56}

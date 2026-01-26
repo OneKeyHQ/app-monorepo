@@ -29,8 +29,11 @@ import { useReplaceTx } from '@onekeyhq/kit/src/hooks/useReplaceTx';
 import { openTransactionDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import { withBrowserProvider } from '@onekeyhq/kit/src/views/Discovery/pages/Browser/WithBrowserProvider';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { POLLING_INTERVAL_FOR_HISTORY } from '@onekeyhq/shared/src/consts/walletConsts';
-import { IMPL_DOT } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  POLLING_DEBOUNCE_INTERVAL,
+  POLLING_INTERVAL_FOR_HISTORY,
+} from '@onekeyhq/shared/src/consts/walletConsts';
+import { IMPL_DOT, IMPL_SOL } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -411,6 +414,7 @@ function HistoryDetails() {
       historyTxParam,
     ],
     {
+      debounced: POLLING_DEBOUNCE_INTERVAL,
       watchLoading: true,
       alwaysSetState: true,
       pollingInterval: POLLING_INTERVAL_FOR_HISTORY,
@@ -515,6 +519,14 @@ function HistoryDetails() {
     let to = decodedTx.actions[0]?.assetTransfer?.to ?? decodedTx.to;
     if (vaultSettings?.impl === IMPL_DOT && !to) {
       to = txDetails?.to;
+    }
+    // Solana: For Receive type transactions, get the actual receiving address from receives array
+    if (
+      vaultSettings?.impl === IMPL_SOL &&
+      isEmpty(sends) &&
+      !isEmpty(receives)
+    ) {
+      to = receives[0]?.to ?? to;
     }
 
     return {
@@ -1095,7 +1107,7 @@ function HistoryDetails() {
   );
 
   const renderHistoryDetails = useCallback(() => {
-    if (isLoading && !historyInit.current) {
+    if (isLoading && !historyInit.current && !historyTxParam) {
       return (
         <Stack pt={240} justifyContent="center" alignItems="center">
           <Spinner size="large" />
@@ -1255,6 +1267,7 @@ function HistoryDetails() {
     );
   }, [
     isLoading,
+    historyTxParam,
     transfersToRender,
     intl,
     renderTxStatus,

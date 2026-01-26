@@ -6,6 +6,8 @@ import { createFont, createTokens } from '@tamagui/web';
 import { createTamagui } from 'tamagui';
 
 import {
+  blue,
+  blueDark,
   brand,
   brandDark,
   caution,
@@ -16,6 +18,8 @@ import {
   infoDark,
   neutral,
   neutralDark,
+  orange,
+  orangeDark,
   pink,
   pinkDark,
   primary,
@@ -28,6 +32,8 @@ import {
   purpleDark,
   success,
   successDark,
+  teal,
+  tealDark,
 } from './colors';
 import { webFontFamily } from './src/utils/webFontFamily';
 
@@ -58,8 +64,8 @@ const basicFontVariants = {
     heading5xl: 40,
   },
   lineHeight: {
-    bodyXs: 12,
-    bodyXsMedium: 12,
+    bodyXs: 14,
+    bodyXsMedium: 14,
     bodySm: 16,
     bodySmMedium: 16,
     bodyMd: 20,
@@ -224,6 +230,10 @@ const lightColors = {
   ...critical,
   ...purple,
   ...pink,
+  ...gray,
+  ...blue,
+  ...orange,
+  ...teal,
   bg: '#FFFFFF',
   bgActive: neutral.neutral4,
   bgApp: '#FFFFFF',
@@ -322,6 +332,10 @@ const darkColors: typeof lightColors = {
   ...criticalDark,
   ...purpleDark,
   ...pinkDark,
+  ...grayDark,
+  ...blueDark,
+  ...orangeDark,
+  ...tealDark,
   bg: '#1b1b1b',
   bgActive: neutralDark.neutral4,
   bgApp: '#0f0f0f',
@@ -538,6 +552,7 @@ const mergedTokens = createTokens({
     '-24': -96,
     '-28': -112,
     '-32': -128,
+    'pageWidth': 1024,
   },
   color: {
     ...postfixObjKeys(lightColors, 'Light'),

@@ -1,18 +1,21 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import BigNumber from 'bignumber.js';
 
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type {
+  IFill,
   IHex,
   IL2BookOptions,
   IMarginTable,
   IPerpCommonConfig,
-  IPerpTokenSortConfig,
+  IPerpTokenSelectorConfig,
   IPerpUserConfig,
   IPerpsActiveAssetData,
   IPerpsFormattedAssetCtx,
   IPerpsUniverse,
 } from '@onekeyhq/shared/types/hyperliquid';
 import { EPerpUserType } from '@onekeyhq/shared/types/hyperliquid';
+import type { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 
 import { EAtomNames } from '../atomNames';
 import { globalAtom, globalAtomComputedR } from '../utils';
@@ -37,6 +40,15 @@ export const {
     accountAddress: null,
     deriveType: 'default',
   },
+});
+
+// perpsActiveAccountRefreshHookAtom
+export const {
+  target: perpsActiveAccountRefreshHookAtom,
+  use: usePerpsActiveAccountRefreshHookAtom,
+} = globalAtom<{ refreshHook: number }>({
+  name: EAtomNames.perpsActiveAccountRefreshHookAtom,
+  initialValue: { refreshHook: 0 },
 });
 
 export type IPerpsActiveAccountSummaryAtom =
@@ -94,6 +106,7 @@ export type IPerpsActiveAccountStatusDetails = {
   agentOk: boolean;
   referralCodeOk: boolean;
   builderFeeOk: boolean;
+  internalRebateBoundOk: boolean;
 };
 export type IPerpsActiveAccountStatusInfoAtom =
   | {
@@ -132,9 +145,14 @@ export const {
       details?.agentOk &&
       details?.builderFeeOk &&
       details?.referralCodeOk &&
-      details?.activatedOk;
+      details?.activatedOk &&
+      details?.internalRebateBoundOk;
+    const isReadOnlyAccount = account?.accountId
+      ? accountUtils.isOthersAccount({ accountId: account.accountId })
+      : false;
     const accountNotSupport =
-      !account?.accountAddress && !account?.indexedAccountId;
+      (!account?.accountAddress && !account?.indexedAccountId) ||
+      isReadOnlyAccount;
     const canCreateAddress =
       !account?.accountAddress && !!account?.indexedAccountId;
     return {
@@ -232,14 +250,37 @@ export const {
   initialValue: undefined,
 });
 
-// Token Selector Sort Config (Persisted)
+// Token Selector Config (Persisted)
 export const {
-  target: perpTokenSortConfigPersistAtom,
-  use: usePerpTokenSortConfigPersistAtom,
-} = globalAtom<IPerpTokenSortConfig | null>({
-  name: EAtomNames.perpTokenSortConfigPersistAtom,
+  target: perpTokenSelectorConfigPersistAtom,
+  use: usePerpTokenSelectorConfigPersistAtom,
+} = globalAtom<IPerpTokenSelectorConfig | null>({
+  name: EAtomNames.perpTokenSelectorConfigPersistAtom,
   persist: true,
-  initialValue: null,
+  initialValue: {
+    field: 'volume24h',
+    direction: 'desc',
+    activeTab: 'all',
+  },
+});
+
+export type IPerpFavoritesDisplayMode = 'price' | 'percent';
+
+export interface IPerpTokenFavorites {
+  favorites: string[];
+  displayMode: IPerpFavoritesDisplayMode;
+}
+
+export const {
+  target: perpTokenFavoritesPersistAtom,
+  use: usePerpTokenFavoritesPersistAtom,
+} = globalAtom<IPerpTokenFavorites>({
+  name: EAtomNames.perpTokenFavoritesPersistAtom,
+  persist: true,
+  initialValue: {
+    favorites: [],
+    displayMode: 'price',
+  },
 });
 
 export type IPerpsActiveOrderBookOptionsAtom =
@@ -327,6 +368,27 @@ export const {
   },
 });
 
+export interface IPerpsDepositOrderAtom {
+  isArbUSDCOrder: boolean;
+  fromTxId: string;
+  toTxId?: string;
+  amount: string;
+  token: IPerpsDepositToken;
+  status: ESwapTxHistoryStatus;
+  accountId?: string | null;
+  indexedAccountId?: string | null;
+  time?: number;
+}
+
+export const { target: perpsDepositOrderAtom, use: usePerpsDepositOrderAtom } =
+  globalAtom<{ orders: IPerpsDepositOrderAtom[] }>({
+    name: EAtomNames.perpsDepositOrderAtom,
+    persist: true,
+    initialValue: {
+      orders: [],
+    },
+  });
+
 export interface IPerpsUserConfigPersistAtom {
   perpUserConfig: IPerpUserConfig;
 }
@@ -345,6 +407,8 @@ export const {
 
 export interface IPerpsCustomSettings {
   skipOrderConfirm: boolean;
+  showTradeMarks: boolean;
+  showChartLines: boolean;
 }
 export const {
   target: perpsCustomSettingsAtom,
@@ -354,11 +418,13 @@ export const {
   persist: true,
   initialValue: {
     skipOrderConfirm: false,
+    showTradeMarks: true,
+    showChartLines: true,
   },
 });
 
 export interface IPerpsTradingPreferences {
-  sizeInputUnit: 'token' | 'usd';
+  sizeInputUnit: 'token' | 'usd' | 'margin';
   slippage: number;
 }
 export const {
@@ -371,6 +437,17 @@ export const {
     sizeInputUnit: 'usd',
     slippage: 8,
   },
+});
+
+export type IPerpsLastUsedLeverageAtom = Record<string, number>;
+
+export const {
+  target: perpsLastUsedLeverageAtom,
+  use: usePerpsLastUsedLeverageAtom,
+} = globalAtom<IPerpsLastUsedLeverageAtom>({
+  name: EAtomNames.perpsLastUsedLeverageAtom,
+  persist: true,
+  initialValue: {},
 });
 
 // #endregion
@@ -417,6 +494,26 @@ export const {
   initialValue: { refreshHook: 0 },
 });
 
+export interface IPerpsTradesHistoryDataAtom {
+  fills: IFill[];
+  isLoaded: boolean;
+  latestTime: number;
+  accountAddress: string | undefined;
+}
+
+export const {
+  target: perpsTradesHistoryDataAtom,
+  use: usePerpsTradesHistoryDataAtom,
+} = globalAtom<IPerpsTradesHistoryDataAtom>({
+  name: EAtomNames.perpsTradesHistoryDataAtom,
+  initialValue: {
+    fills: [],
+    isLoaded: false,
+    latestTime: 0,
+    accountAddress: undefined,
+  },
+});
+
 export const {
   target: perpsCandlesWebviewReloadHookAtom,
   use: usePerpsCandlesWebviewReloadHookAtom,
@@ -443,3 +540,29 @@ export const {
   name: EAtomNames.perpsWebSocketDataUpdateTimesAtom,
   initialValue: { wsDataReceiveTimes: 0, wsDataUpdateTimes: 0 },
 });
+
+export interface IPerpsLayoutState {
+  main: {
+    marketRatio: number;
+  };
+  leftPanel: {
+    chartsRatio: number;
+  };
+  orderBook: {
+    visible: boolean;
+  };
+  resetAt?: number;
+}
+
+export const DEFAULT_PERPS_LAYOUT_STATE: Omit<IPerpsLayoutState, 'resetAt'> = {
+  main: { marketRatio: 90 },
+  leftPanel: { chartsRatio: 60 },
+  orderBook: { visible: true },
+};
+
+export const { target: perpsLayoutStateAtom, use: usePerpsLayoutStateAtom } =
+  globalAtom<IPerpsLayoutState>({
+    name: EAtomNames.perpsLayoutStateAtom,
+    persist: true,
+    initialValue: DEFAULT_PERPS_LAYOUT_STATE,
+  });

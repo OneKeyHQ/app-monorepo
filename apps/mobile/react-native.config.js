@@ -3,12 +3,7 @@ module.exports = {
   dependencies: {
     '@react-native-google-signin/google-signin': {
       platforms: {
-        ios: null,
-      },
-    },
-    '@privy-io/expo-native-extensions': {
-      platforms: {
-        android: null,
+        // ios: null,
       },
     },
     'react-native-check-biometric-auth-changed': {

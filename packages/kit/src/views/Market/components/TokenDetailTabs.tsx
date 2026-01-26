@@ -7,8 +7,10 @@ import {
   Stack,
   Tabs,
   YStack,
-  useIsModalPage,
+  useIsIpadModalPage,
+  useIsOverlayPage,
   useMedia,
+  useTabContainerWidth,
 } from '@onekeyhq/components';
 import type { IDeferredPromise } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -46,7 +48,7 @@ function BasicTokenDetailTabs({
   coinGeckoId: string;
 }) {
   const intl = useIntl();
-  const isModalPage = useIsModalPage();
+  const isModalPage = useIsOverlayPage();
   const { md: mdMedia, gtMd: gtMdMedia } = useMedia();
   const md = isModalPage ? true : mdMedia;
 
@@ -112,6 +114,8 @@ function BasicTokenDetailTabs({
     [coinGeckoId, defer, intl, md, token],
   );
 
+  const pageWidth = useTabContainerWidth();
+  const isIpadModalPage = useIsIpadModalPage();
   return (
     <Tabs.Container
       containerStyle={{
@@ -119,6 +123,7 @@ function BasicTokenDetailTabs({
         ...(md ? { marginTop: 20 } : undefined),
         ...(isModalPage ? { marginTop: 20 } : undefined),
       }}
+      width={isIpadModalPage ? (pageWidth as number) : undefined}
       renderHeader={() => (
         <YStack
           bg="$bgApp"

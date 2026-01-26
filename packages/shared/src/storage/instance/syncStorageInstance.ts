@@ -28,7 +28,7 @@ const syncStorageWeb = {
         return undefined;
       }
       return JSON.parse(value) as T;
-    } catch (e) {
+    } catch (_e) {
       return undefined;
     }
   },
@@ -42,7 +42,7 @@ const syncStorageWeb = {
     return mmkvStorageInstance.getBoolean(key);
   },
   delete(key: EAppSyncStorageKeys) {
-    mmkvStorageInstance.delete(key);
+    mmkvStorageInstance.remove(key);
   },
   clearAll() {
     mmkvStorageInstance.clearAll();

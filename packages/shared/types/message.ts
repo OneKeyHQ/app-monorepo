@@ -37,6 +37,7 @@ export enum EMessageTypesBtc {
 
 export enum EMessageTypesTon {
   SIGN_DATA = 'tonSignData',
+  SIGN_DATA_V1 = 'tonSignDataV1',
   SIGN_PROOF = 'tonSignProof',
 }
 
@@ -50,6 +51,11 @@ export enum EMessageTypesAlph {
 export enum EMessageTypesTron {
   SIGN_MESSAGE = 'tronSignMessage',
   SIGN_MESSAGE_V2 = 'tronSignMessageV2',
+}
+
+export enum EMessageTypesStellar {
+  SIGN_MESSAGE = 'stellarSignMessage',
+  SIGN_AUTH_ENTRY = 'stellarSignAuthEntry',
 }
 
 export interface IVerifyMessageParams {

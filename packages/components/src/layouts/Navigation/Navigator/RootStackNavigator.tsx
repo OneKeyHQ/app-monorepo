@@ -1,20 +1,25 @@
 import { useCallback, useMemo } from 'react';
 
-import { useMedia } from '@onekeyhq/components/src/shared/tamagui';
+import { useMedia, useTheme } from '@onekeyhq/components/src/hooks/useStyle';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useThemeValue } from '../../../hooks';
 import {
   clearStackNavigatorOptions,
   makeFullScreenOptions,
   makeModalScreenOptions,
+  makeOnboardingScreenOptions,
 } from '../GlobalScreenOptions';
 import { createStackNavigator } from '../StackNavigator';
 
 import type { ICommonNavigatorConfig, IScreenOptionsInfo } from './types';
 import type { ParamListBase } from '@react-navigation/routers';
 
-type IRootStackType = 'normal' | 'modal' | 'fullScreen' | 'iOSFullScreen';
+type IRootStackType =
+  | 'normal'
+  | 'modal'
+  | 'fullScreen'
+  | 'iOSFullScreen'
+  | 'onboarding';
 
 export interface IRootStackNavigatorConfig<
   RouteName extends string,
@@ -53,7 +58,8 @@ export function RootStackNavigator<
     [config],
   );
 
-  const bgColor = useThemeValue('bg');
+  const theme = useTheme();
+  const bgColor = theme.bg.val;
   const isVerticalLayout = useMedia().md;
   const presetScreenOptions = clearStackNavigatorOptions({
     bgColor,
@@ -73,6 +79,8 @@ export function RootStackNavigator<
           return platformEnv.isNative
             ? makeFullScreenOptions()
             : makeModalScreenOptions({ isVerticalLayout, optionsInfo });
+        case 'onboarding':
+          return makeOnboardingScreenOptions({ isVerticalLayout, optionsInfo });
         default:
           return {};
       }

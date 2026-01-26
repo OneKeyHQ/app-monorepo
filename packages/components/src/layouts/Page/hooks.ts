@@ -1,17 +1,19 @@
-import { useContext, useEffect, useRef } from 'react';
+import { useContext, useEffect, useMemo, useRef } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
-import { useIsModalPage } from '../../hocs';
+import { EPageType, useIsOverlayPage, usePageType } from '../../hocs';
 import {
   updateHeightWhenKeyboardHide,
   updateHeightWhenKeyboardShown,
   useKeyboardEvent,
   useSafeAreaInsets,
 } from '../../hooks';
+import { rootNavigationRef } from '../Navigation';
 
 import { PageContext } from './PageContext';
 
@@ -29,7 +31,23 @@ export function usePageLifeCycle(params?: IPageLifeCycle) {
     onUnmountedRef.current = onUnmounted;
   }
 
+  const onRedirectedRef = useRef(params?.onRedirected);
+  if (onRedirectedRef.current !== params?.onRedirected) {
+    onRedirectedRef.current = params?.onRedirected;
+  }
+
+  const redirect = useMemo(() => !!params?.shouldRedirect?.(), [params]);
   useEffect(() => {
+    if (redirect) {
+      setTimeout(async () => {
+        if (rootNavigationRef.current?.canGoBack()) {
+          rootNavigationRef.current?.goBack();
+          await timerUtils.wait(50);
+          onRedirectedRef.current?.();
+        }
+      }, 0);
+      return;
+    }
     void Promise.race([
       new Promise<void>((resolve) => setTimeout(resolve, 1000)),
       new Promise<void>((resolve) => {
@@ -84,7 +102,7 @@ export function usePageLifeCycle(params?: IPageLifeCycle) {
         onUnmountedRef.current?.();
       });
     };
-  }, [navigation]);
+  }, [navigation, redirect]);
 }
 
 export const usePageMounted = (onMounted: IPageLifeCycle['onMounted']) => {
@@ -98,7 +116,7 @@ export const usePageUnMounted = (
 };
 
 export const useSafeAreaBottom = () => {
-  const isModalPage = useIsModalPage();
+  const isModalPage = useIsOverlayPage();
   const { safeAreaEnabled } = useContext(PageContext);
   const { bottom } = useSafeAreaInsets();
   return safeAreaEnabled && isModalPage ? bottom : 0;
@@ -108,7 +126,7 @@ export const TAB_BAR_HEIGHT = 54;
 
 export const useTabBarHeight = () => {
   const { bottom } = useSafeAreaInsets();
-  const isModalPage = useIsModalPage();
+  const isModalPage = useIsOverlayPage();
   return isModalPage ? 0 : TAB_BAR_HEIGHT + bottom;
 };
 
@@ -133,3 +151,10 @@ export const useSafeKeyboardAnimationStyle = () => {
   });
   return platformEnv.isNative ? animatedStyles : undefined;
 };
+
+export const useIsIpadModalPage = platformEnv.isNativeIOSPad
+  ? () => {
+      const pageType = usePageType();
+      return pageType === EPageType.modal;
+    }
+  : () => false;

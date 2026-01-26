@@ -68,7 +68,7 @@ export class SimpleDbEntityFeeInfo extends SimpleDbEntityBase<IFeeInfoDb> {
         ...rawData,
         presetIndex: rawData?.presetIndex ?? {},
         customFeeInfo: {
-          ...(rawData?.customFeeInfo ?? {}),
+          ...rawData?.customFeeInfo,
           [networkId]: {
             enabled,
             feeInfo: customFeeInfo

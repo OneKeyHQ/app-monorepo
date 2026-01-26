@@ -11,9 +11,12 @@ import type {
   ISwapTxHistory,
 } from '@onekeyhq/shared/types/swap/types';
 
+import type { EEnterWay } from '../logger/scopes/dex';
+
 export enum EModalSwapRoutes {
   SwapMainLand = 'SwapMainLand',
   SwapTokenSelect = 'SwapTokenSelect',
+  SwapProSelectToken = 'SwapProSelectToken',
   SwapNetworkSelect = 'SwapNetworkSelect',
   SwapProviderSelect = 'SwapProviderSelect',
   SwapHistoryList = 'SwapHistoryList',
@@ -22,12 +25,14 @@ export enum EModalSwapRoutes {
   TokenRiskReminder = 'TokenRiskReminder',
   SwapLazyMarketModal = 'SwapLazyMarketModal',
   LimitOrderDetail = 'LimitOrderDetail',
+  SwapProMarketDetail = 'SwapProMarketDetail',
 }
 
 export type IModalSwapParamList = {
   [EModalSwapRoutes.SwapMainLand]: {
     importFromToken?: ISwapToken;
     importToToken?: ISwapToken;
+    fromAmount?: string;
     importNetworkId?: string;
     swapTabSwitchType?: ESwapTabSwitchType;
     importDeriveType?: IAccountDeriveTypes;
@@ -36,6 +41,7 @@ export type IModalSwapParamList = {
   [EModalSwapRoutes.SwapTokenSelect]: {
     type: ESwapDirectionType;
     storeName: EJotaiContextStoreNames;
+    autoSearch?: boolean;
   };
   [EModalSwapRoutes.SwapNetworkSelect]: {
     setCurrentSelectNetwork: (network: ISwapNetwork) => void;
@@ -67,5 +73,16 @@ export type IModalSwapParamList = {
   };
   [EModalSwapRoutes.SwapLazyMarketModal]: {
     coinGeckoId: string;
+  };
+  [EModalSwapRoutes.SwapProSelectToken]: {
+    storeName: EJotaiContextStoreNames;
+    autoSearch?: boolean;
+  };
+  [EModalSwapRoutes.SwapProMarketDetail]: {
+    tokenAddress: string;
+    network: string;
+    isNative?: boolean;
+    from?: EEnterWay;
+    disableTrade?: boolean;
   };
 };

@@ -172,6 +172,7 @@ export interface IPerpServerReferrerConfig {
   referrerRate?: number;
   agentTTL?: number;
   referralCode?: string;
+  configVersion?: string;
 }
 
 export interface IPerpServerCommonConfig {
@@ -534,14 +535,14 @@ class ServiceWebviewPerp extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   async approveBuilderFeeIfRequired({
-    request,
+    request: _request,
     userAddress,
     chainId,
     skipApproveAction,
   }: {
     request: IJsBridgeMessagePayload;
     userAddress: string;
-    // eslint-disable-next-line spellcheck/spell-checker
+    // oxlint-disable-next-line @cspell/spellchecker
     chainId: string; // 0xa4b1 Arbitrum hex chainId
     skipApproveAction?: boolean;
   }): Promise<IHyperLiquidUserBuilderFeeStatus> {
@@ -583,7 +584,7 @@ class ServiceWebviewPerp extends ServiceBase {
           milliseconds: 5000,
         });
         return status;
-      } catch (e) {
+      } catch (_e) {
         return { ...status, expectBuilderAddress: '', expectMaxBuilderFee: 0 };
       }
     }
@@ -750,7 +751,7 @@ class ServiceWebviewPerp extends ServiceBase {
       this.lastExtPerpTab =
         await this.backgroundApi.serviceApp.openExtensionExpandTab({
           // routes: [ERootRoutes.Main, ETabRoutes.Perp], // not working for extension
-          path: '/perp',
+          path: '/perps',
         });
     }
   }

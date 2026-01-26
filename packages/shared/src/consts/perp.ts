@@ -1,4 +1,3 @@
-/* eslint-disable spellcheck/spell-checker */
 import type { IHex } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { presetNetworksMap } from '../config/presetNetworks';
@@ -7,8 +6,10 @@ import timerUtils from '../utils/timerUtils';
 
 export const HYPER_LIQUID_ORIGIN = 'https://app.hyperliquid.xyz';
 export const HYPER_LIQUID_WEBVIEW_TRADE_URL = `${HYPER_LIQUID_ORIGIN}/trade?isOneKeyBuiltInPerpView=true`;
+
+export const PERPS_ROUTE_PATH = '/perps';
 export const HYPERLIQUID_AGENT_CREDENTIAL_PREFIX = 'hyperliquid-agent';
-export const HYPERLIQUID_REFERRAL_CODE = '1KGO';
+export const HYPERLIQUID_REFERRAL_CODE = '1KREF';
 export const HYPERLIQUID_AGENT_TTL_DEFAULT = timerUtils.getTimeDurationMs({
   month: 1,
 });
@@ -57,3 +58,27 @@ export const PERPS_USER_FILLS_TIME_RANGE = timerUtils.getTimeDurationMs({
 });
 
 export const PERPS_HISTORY_FILLS_URL = 'https://hypurrscan.io/address/';
+
+/**
+ * Filtered transaction types in account ledger history
+ *
+ * These types are not displayed in the Account tab because:
+ * - spotTransfer: Spot account transfers, not relevant to Perp account balance
+ * - vaultDeposit/vaultWithdraw/vaultDistribution: Vault operations, not direct user actions
+ * - vaultLeaderCommission: Vault leader commission, automatic distribution
+ * - spotGenesis: System initialization, not user operations
+ * - cStakingTransfer: C-Staking transfers, not Perp account operations
+ */
+export const PERPS_FILTERED_LEDGER_TYPES = new Set<string>([
+  'spotTransfer',
+  'vaultDistribution',
+  'vaultWithdraw',
+  'vaultDeposit',
+  'spotGenesis',
+  'cStakingTransfer',
+  'vaultLeaderCommission',
+  'rewardsClaim',
+]);
+
+// Disable wallet binding on perps page
+export const DISABLE_PERPS_WALLET_BIND = false;

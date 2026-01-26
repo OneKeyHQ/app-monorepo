@@ -1,15 +1,29 @@
-import { Skeleton, Stack, XStack } from '@onekeyhq/components';
+import {
+  type IStackProps,
+  type IXStackProps,
+  Skeleton,
+  Stack,
+  XStack,
+} from '@onekeyhq/components';
 
-import { ListItem } from '../ListItem';
+import { type IListItemProps, ListItem } from '../ListItem';
 
 function ListLoading({
   isTokenSelectorView,
+  listContainerProps,
+  listHeaderProps,
+  itemProps,
+  listCount,
 }: {
   isTokenSelectorView?: boolean;
+  itemProps?: IListItemProps;
+  listContainerProps?: IStackProps;
+  listHeaderProps?: IXStackProps;
+  listCount?: number;
 }) {
   if (!isTokenSelectorView) {
     return (
-      <Stack py="$3">
+      <Stack {...listContainerProps}>
         {/* Header */}
         <XStack
           gap="$3"
@@ -18,6 +32,7 @@ function ListLoading({
           $md={{
             display: 'none',
           }}
+          {...listHeaderProps}
         >
           <XStack
             flexGrow={1}
@@ -44,8 +59,8 @@ function ListLoading({
         </XStack>
 
         {/* Items */}
-        {[...Array(5)].map((_, index) => (
-          <ListItem key={index}>
+        {[...Array(listCount ?? 5)].map((_, index) => (
+          <ListItem key={index} {...itemProps}>
             <Stack>
               <Skeleton
                 radius="round"
@@ -131,9 +146,9 @@ function ListLoading({
   }
 
   return (
-    <Stack py="$3">
-      {[...Array(3)].map((_, index) => (
-        <ListItem key={index}>
+    <Stack {...listContainerProps}>
+      {[...Array(listCount ?? 3)].map((_, index) => (
+        <ListItem key={index} {...itemProps}>
           <Stack>
             <Skeleton radius="round" w="$10" h="$10" />
           </Stack>

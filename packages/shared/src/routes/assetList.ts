@@ -40,7 +40,7 @@ export type IModalAssetListParamList = {
         tokens: IAccountToken[];
       }
     >;
-    aggregateTokensMap?: Record<string, ITokenFiat>;
+    aggregateTokensMap?: Record<string, Record<string, ITokenFiat>>;
     accountAddress?: string;
     allAggregateTokenMap?: Record<
       string,
@@ -48,6 +48,7 @@ export type IModalAssetListParamList = {
         tokens: IAccountToken[];
       }
     >;
+    searchKeyLengthThreshold?: number;
   };
   [EModalAssetListRoutes.TokenManagerModal]: {
     walletId: string;

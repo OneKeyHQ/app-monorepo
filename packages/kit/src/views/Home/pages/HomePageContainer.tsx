@@ -1,13 +1,11 @@
 import { useState } from 'react';
 
-import { useFocusEffect } from '@react-navigation/native';
-
 import DAppConnectExtensionFloatingTrigger from '@onekeyhq/kit/src/views/DAppConnection/components/DAppConnectExtensionFloatingTrigger';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
+import { TabletHomeContainer } from '../../../components/TabletHomeContainer';
 import { withAccountOverviewProvider } from '../../../states/jotai/contexts/accountOverview';
 import {
   useActiveAccount,
@@ -56,10 +54,6 @@ function SelectedAccountsMapTest() {
 function HomePageContainer() {
   const [isHide, setIsHide] = useState(false);
 
-  useFocusEffect(() => {
-    void backgroundApiProxy.serviceHyperliquid.updatePerpsConfigByServerWithCache();
-  });
-
   useDebugComponentRemountLog({ name: 'HomePageContainer' });
 
   useAutoRedirectToMarket();
@@ -69,33 +63,35 @@ function HomePageContainer() {
   }
   const sceneName = EAccountSelectorSceneName.home;
   return (
-    <AccountSelectorProviderMirror
-      config={{
-        sceneName,
-        sceneUrl: '',
-      }}
-      enabledNum={[0]}
-    >
-      <HomePageView
-        key={sceneName}
-        sceneName={sceneName}
-        onPressHide={() => setIsHide((v) => !v)}
-      />
-      <DAppConnectExtensionFloatingTrigger />
-      <OnboardingOnMount />
-      <NotificationRegisterDaily />
-      <BTCFreshAddressProvider />
-      {/* <UrlAccountAutoReplaceHistory num={0} /> */}
+    <TabletHomeContainer>
+      <AccountSelectorProviderMirror
+        config={{
+          sceneName,
+          sceneUrl: '',
+        }}
+        enabledNum={[0]}
+      >
+        <HomePageView
+          key={sceneName}
+          sceneName={sceneName}
+          onPressHide={() => setIsHide((v) => !v)}
+        />
+        <DAppConnectExtensionFloatingTrigger />
+        <OnboardingOnMount />
+        <NotificationRegisterDaily />
+        <BTCFreshAddressProvider />
+        {/* <UrlAccountAutoReplaceHistory num={0} /> */}
 
-      {process.env.NODE_ENV !== 'production' ? (
-        <>
-          <SelectedAccountsMapTest />
-          <SelectedAccountTest />
-          <ActiveAccountTest />
-          <EmptyRenderTest />
-        </>
-      ) : null}
-    </AccountSelectorProviderMirror>
+        {process.env.NODE_ENV !== 'production' ? (
+          <>
+            <SelectedAccountsMapTest />
+            <SelectedAccountTest />
+            <ActiveAccountTest />
+            <EmptyRenderTest />
+          </>
+        ) : null}
+      </AccountSelectorProviderMirror>
+    </TabletHomeContainer>
   );
 }
 

@@ -62,7 +62,7 @@ export type ICloudSyncServerItem = {
   pwdHash: string; // TODO server should return pwdHash
   key: string;
   // nonce: number;
-  // userId: string; privy user id
+  // userId: string; supabase user id
 };
 export type ICloudSyncServerItemByDownloaded = {
   data: string;

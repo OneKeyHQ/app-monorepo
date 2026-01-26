@@ -33,6 +33,7 @@ import {
   IMPL_NOSTR,
   IMPL_SCDO,
   IMPL_SOL,
+  IMPL_STELLAR,
   IMPL_SUI,
   IMPL_TBTC,
   IMPL_TON,
@@ -112,34 +113,28 @@ export function warningIfNotRunInBackground({
       // iOS safari get wrong error.stack
       return;
     }
+    if (globalThis.$onekeyIsInBackground === true) {
+      return;
+    }
     try {
       throw new NotAutoPrintError();
     } catch (error) {
       const err = error as Error;
       errorUtils.autoPrintErrorIgnore(err);
 
-      if (
-        err.stack &&
-        !err.stack.includes('backgroundApiInit') &&
-        !err.stack.includes('BackgroundApiBase') &&
-        !err.stack.includes('BackgroundApi') &&
-        !err.stack.includes('background.bundle.js') &&
-        !err.stack.includes('background.')
-      ) {
-        const msg = `${name} should run in background`;
+      const msg = `${name} should run in background`;
 
-        console.error(
-          '######',
-          msg,
-          '>>>>>>',
-          target,
-          '<<<<<<',
-          err.stack,
-          '@@@@@@',
-        );
+      console.error(
+        '######',
+        msg,
+        '>>>>>>',
+        target,
+        '<<<<<<',
+        err.stack,
+        '@@@@@@',
+      );
 
-        throw new OneKeyLocalError(msg);
-      }
+      throw new OneKeyLocalError(msg);
     }
   }
 }
@@ -310,6 +305,7 @@ export const scopeNetworks: Record<
   'webln': [IMPL_LIGHTNING, IMPL_LIGHTNING_TESTNET],
   'nostr': [IMPL_NOSTR],
   'neo': [IMPL_NEO],
+  'stellar': [IMPL_STELLAR],
   '$hardware_sdk': undefined,
   '$private': undefined,
   '$walletConnect': undefined,
@@ -373,10 +369,10 @@ export type IGlobalEventBusSyncBroadcastParams = {
 export const REPLACE_WHOLE_STATE = 'REPLACE_WHOLE_STATE';
 
 export async function fetchData<T>(
-  path: string,
+  _path: string,
   // eslint-disable-next-line default-param-last, @typescript-eslint/default-param-last, @typescript-eslint/no-unused-vars
   query: Record<string, unknown> = {},
-  fallback: T,
+  _fallback: T,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   method: Method = 'GET',
 ): Promise<T> {

@@ -149,9 +149,8 @@ export function DesktopTabItem(
         // If there's a specific "when selected" callback, use it first
         if (onPressWhenSelected) {
           onPressWhenSelected();
-        } else {
-          openActionList?.current?.();
         }
+        // Removed: openActionList?.current?.() to avoid conflict with hover popover
       } else {
         onPress?.(e);
       }

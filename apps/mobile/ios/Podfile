@@ -1,3 +1,7 @@
+# Pod sources
+source 'https://github.com/CocoaPods/Specs.git'
+source 'https://github.com/aliyun/aliyun-specs.git'
+
 require File.join(File.dirname(`node --print "require.resolve('expo/package.json')"`), "scripts/autolinking")
 require File.join(File.dirname(`node --print "require.resolve('react-native/package.json')"`), "scripts/react_native_pods")
 
@@ -139,45 +143,6 @@ def download_and_compile_gopenpgp(version)
   end
 end
 
-def support_below_xcode26_app_icon()
-  # Check Xcode version and update app icon configuration for compatibility
-  xcode_version_output = `xcodebuild -version 2>/dev/null | head -n 1`.strip
-  if xcode_version_output.match(/Xcode (\d+)/)
-    xcode_version = $1.to_i
-    puts "Detected Xcode version: #{xcode_version}"
-    
-    if xcode_version < 26
-      puts "Xcode version is less than 26, updating app icon configuration..."
-      
-      project_file = File.join(__dir__, "OneKeyWallet.xcodeproj", "project.pbxproj")
-      
-      if File.exist?(project_file)
-        content = File.read(project_file)
-        
-        # Replace ASSETCATALOG_COMPILER_APPICON_NAME = OneKeyLogo with AppIcon
-        updated_content = content.gsub(
-          /ASSETCATALOG_COMPILER_APPICON_NAME = OneKeyLogo/,
-          "ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon"
-        )
-        
-        if content != updated_content
-          File.write(project_file, updated_content)
-          puts "Updated ASSETCATALOG_COMPILER_APPICON_NAME from OneKeyLogo to AppIcon"
-        else
-          puts "No changes needed for app icon configuration"
-        end
-      else
-        puts "Warning: project.pbxproj file not found at #{project_file}"
-      end
-    else
-      puts "Xcode version is 26 or higher, no app icon configuration changes needed"
-    end
-  else
-    puts "Warning: Could not detect Xcode version"
-  end
-end
-
-support_below_xcode26_app_icon()
 # Execute the download and compile script
 download_and_compile_gopenpgp("3.3.0")
 
@@ -209,9 +174,9 @@ target 'OneKeyWallet' do
   use_expo_modules!
   config = use_native_modules!
 
-  use_frameworks! :linkage => podfile_properties['ios.useFrameworks'].to_sym if podfile_properties['ios.useFrameworks']
-  use_frameworks! :linkage => ENV['USE_FRAMEWORKS'].to_sym if ENV['USE_FRAMEWORKS']
-  use_frameworks! :linkage => :static
+  # use_frameworks! :linkage => podfile_properties['ios.useFrameworks'].to_sym if podfile_properties['ios.useFrameworks']
+  # use_frameworks! :linkage => ENV['USE_FRAMEWORKS'].to_sym if ENV['USE_FRAMEWORKS']
+  # use_frameworks! :linkage => :static
 
   # Flags change depending on the env values.
   flags = get_default_flags()
@@ -223,6 +188,12 @@ target 'OneKeyWallet' do
     # An absolute path to your application root.
     :app_path => "#{Pod::Config.instance.installation_root}/..",
   )
+
+  # Enable modular headers for EMASCurl to fix SniConnect dependency
+  pod 'EMASCurl', :modular_headers => true
+
+  # Manually add RNGoogleSignin pod (expo-module.config.json only includes the Expo adapter, not the TurboModule)
+  # pod 'RNGoogleSignin', :path => '../../../node_modules/@react-native-google-signin/google-signin'
 
   post_install do |installer|
     react_native_post_install(
@@ -243,39 +214,38 @@ target 'OneKeyWallet' do
     end
     installer.pods_project.targets.each do |target|
       # https://github.com/mockingbot/react-native-zip-archive/issues/307
-      # error: /node_modules/react-native-zip-archive/ios/RNZipArchive.m unsupported option '-G' for target 'arm64-apple-ios14.0-simulator' 
+      # error: /node_modules/react-native-zip-archive/ios/RNZipArchive.m unsupported option '-G' for target 'arm64-apple-ios14.0-simulator'
       if target.name == 'RNZipArchive'
         target.source_build_phase.files.each do |file|
           if file.settings && file.settings['COMPILER_FLAGS']
-              file.settings['COMPILER_FLAGS'] = ''
+            file.settings['COMPILER_FLAGS'] = ''
           end
         end
       end
-      target.build_configurations.each do |config|
-        config.build_settings["EXCLUDED_ARCHS[sdk=iphonesimulator*]"] = "arm64"
-        if config.name == 'Debug'
-          config.build_settings["ONLY_ACTIVE_ARCH"] = "NO"
-        else
-          config.build_settings["ONLY_ACTIVE_ARCH"] = "YES"
+
+      # Fix JuiceboxSdkFfi module not found error for RNJuiceboxSdk
+      if target.name == 'RNJuiceboxSdk'
+        target.build_configurations.each do |config|
+          juicebox_ffi_path = '${PODS_ROOT}/JuiceboxSdk/swift/Sources/JuiceboxSdkFfi'
+          config.build_settings['SWIFT_INCLUDE_PATHS'] = "$(inherited) #{juicebox_ffi_path}"
         end
       end
     end
 
-    bitcode_strip_path = `xcrun --find bitcode_strip`.chop!
+    # bitcode_strip_path = `xcrun --find bitcode_strip`.chop!
 
-    def strip_bitcode_from_framework(bitcode_strip_path, framework_path)
-      command = "#{bitcode_strip_path} #{framework_path} -r -o #{framework_path}"
-      puts "Stripping bitcode: #{command}"
-      system(command)
-    end
+    # def strip_bitcode_from_framework(bitcode_strip_path, framework_path)
+    #   command = "#{bitcode_strip_path} #{framework_path} -r -o #{framework_path}"
+    #   puts "Stripping bitcode: #{command}"
+    #   system(command)
+    # end
+    
+    # framework_paths = [
+    # ]
 
-    framework_paths = [
-      File.join(Dir.pwd.split('/apps')[0], "node_modules/@onekeyfe/react-native-lite-card/ios/GPChannelSDKCore.framework/GPChannelSDKCore"),
-    ]
-
-    framework_paths.each do |framework_relative_path|
-      strip_bitcode_from_framework(bitcode_strip_path, framework_relative_path)
-    end
+    # framework_paths.each do |framework_relative_path|
+    #   strip_bitcode_from_framework(bitcode_strip_path, framework_relative_path)
+    # end
   end
 
   post_integrate do |installer|
@@ -283,6 +253,31 @@ target 'OneKeyWallet' do
       expo_patch_react_imports!(installer)
     rescue => e
       Pod::UI.warn e
+    end
+
+    # Fix JuiceboxSdkFfi linking - directly modify xcconfig files after integration
+    pods_dir = File.join(__dir__, 'Pods')
+    ['debug', 'release'].each do |config|
+      xcconfig_path = File.join(pods_dir, 'Target Support Files', 'Pods-OneKeyWallet', "Pods-OneKeyWallet.#{config}.xcconfig")
+      if File.exist?(xcconfig_path)
+        content = File.read(xcconfig_path)
+
+        # Add CARGO_BUILD_TARGET if not present
+        unless content.include?('CARGO_BUILD_TARGET')
+          content += "\nCARGO_BUILD_TARGET[sdk=iphoneos*] = aarch64-apple-ios"
+          content += "\nCARGO_BUILD_TARGET[sdk=iphonesimulator*][arch=*] = x86_64-apple-ios"
+          content += "\nCARGO_BUILD_TARGET[sdk=iphonesimulator*][arch=arm64] = aarch64-apple-ios-sim"
+        end
+
+        # Add FFI library to OTHER_LDFLAGS if not present
+        juicebox_ffi_lib = '${PODS_ROOT}/JuiceboxSdk/artifacts/ffi/$(CARGO_BUILD_TARGET)/libjuicebox_sdk_ffi.a'
+        unless content.include?('libjuicebox_sdk_ffi.a')
+          content = content.gsub(/^(OTHER_LDFLAGS = .*)$/, "\\1 #{juicebox_ffi_lib}")
+        end
+
+        File.write(xcconfig_path, content)
+        puts "Modified #{xcconfig_path} for JuiceboxSdkFfi"
+      end
     end
   end
 end

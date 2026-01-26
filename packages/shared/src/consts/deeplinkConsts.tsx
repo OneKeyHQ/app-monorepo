@@ -1,3 +1,5 @@
+import type { EPrimeTransferDataType } from '../../types/prime/primeTransferTypes';
+
 export const ONEKEY_APP_DEEP_LINK_NAME = 'onekey-wallet';
 export const ONEKEY_APP_DEEP_LINK = `${ONEKEY_APP_DEEP_LINK_NAME}://`; // onekey:// will open onekey legacy
 export const WALLET_CONNECT_DEEP_LINK_NAME = 'wc';
@@ -7,6 +9,7 @@ export enum EOneKeyDeepLinkPath {
   url_account = 'url_account',
   market_detail = 'market_detail',
   invite_share = 'invite_share',
+  invited_by_friend = 'invited_by_friend',
   cross_device_transfer = 'cross_device_transfer',
 }
 export type IEOneKeyDeepLinkParams = {
@@ -21,9 +24,15 @@ export type IEOneKeyDeepLinkParams = {
     utm_source: string;
     code: string;
   };
+  [EOneKeyDeepLinkPath.invited_by_friend]: {
+    code: string;
+    page?: string;
+  };
   [EOneKeyDeepLinkPath.cross_device_transfer]: {
     code?: string;
     server?: string;
+    transferType?: EPrimeTransferDataType;
+    defaultTab?: 'qr-code' | 'enter-link';
   };
 };
 

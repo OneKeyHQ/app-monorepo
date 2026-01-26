@@ -1,4 +1,3 @@
-/* eslint-disable spellcheck/spell-checker */
 import type { ComponentType } from 'react';
 
 import * as Sentry from '@sentry/react';

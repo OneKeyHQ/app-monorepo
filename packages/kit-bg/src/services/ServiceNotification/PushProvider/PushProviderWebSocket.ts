@@ -20,6 +20,8 @@ import type {
   IPrimeConfigFlushInfo,
   IPrimeDeviceLogoutInfo,
   IPrimeLockChangedInfo,
+  ISetBadgeInfo,
+  IUserInfoUpdatedPayload,
 } from '@onekeyhq/shared/types/socket';
 import { EAppSocketEventNames } from '@onekeyhq/shared/types/socket';
 
@@ -159,6 +161,10 @@ export class PushProviderWebSocket extends PushProviderBase {
           msgId: payload.msgId,
           action: ENotificationPushMessageAckAction.arrived,
         });
+        defaultLogger.prime.subscription.onekeyIdLogout({
+          reason:
+            'WebSocket: DEVICE_LOGOUT, EAppSocketEventNames.primeDeviceLogout',
+        });
         appEventBus.emit(EAppEventBusNames.PrimeDeviceLogout, undefined);
         defaultLogger.notification.websocket.consoleLog(
           'WebSocket 收到 primeDeviceLogout 消息:',
@@ -229,6 +235,31 @@ export class PushProviderWebSocket extends PushProviderBase {
         void this.backgroundApi.servicePrimeCloudSync.onWebSocketMasterPasswordChanged(
           payload,
         );
+      },
+    );
+
+    this.socket.on(EAppSocketEventNames.setBadge, (payload: ISetBadgeInfo) => {
+      defaultLogger.notification.websocket.consoleLog(
+        'WebSocket 收到 setBadge 消息:',
+        payload,
+      );
+      void this.backgroundApi.serviceNotification.ackNotificationMessage({
+        msgId: payload.msgId,
+        action: ENotificationPushMessageAckAction.arrived,
+      });
+      void this.backgroundApi.serviceNotification.setBadge({
+        count: payload.badge,
+      });
+    });
+
+    this.socket.on(
+      EAppSocketEventNames.userInfoUpdated,
+      (payload: IUserInfoUpdatedPayload) => {
+        void this.backgroundApi.serviceNotification.ackNotificationMessage({
+          msgId: payload.msgId,
+          action: ENotificationPushMessageAckAction.arrived,
+        });
+        void this.backgroundApi.servicePrime.apiFetchPrimeUserInfo();
       },
     );
 

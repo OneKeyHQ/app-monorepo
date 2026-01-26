@@ -25,12 +25,12 @@ import type {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
-import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { usePureChainSelectorSections } from '../../hooks/usePureChainSelectorSections';
+import { CELL_HEIGHT } from '../../types';
 import RecentNetworks from '../RecentNetworks';
 
 import type {
@@ -64,8 +64,6 @@ const ChainSelectorSectionListContent = ({
   onPressItem,
   networkId,
   initialScrollIndex,
-  recentNetworksEnabled,
-  networks,
   listRef,
 }: IChainSelectorSectionListContentProps & {
   initialScrollIndex: ISectionListProps<any>['initialScrollIndex'];
@@ -86,20 +84,13 @@ const ChainSelectorSectionListContent = ({
   return (
     <SectionList
       ref={listRef}
+      useFlashList
       contentContainerStyle={
         platformEnv.isNative
           ? undefined
           : {
               minHeight: '100vh',
             }
-      }
-      ListHeaderComponent={
-        recentNetworksEnabled ? (
-          <RecentNetworks
-            onPressItem={onPressItem}
-            availableNetworks={networks}
-          />
-        ) : null
       }
       ListFooterComponent={<Stack h={bottom || '$2'} />}
       estimatedItemSize={48}
@@ -193,7 +184,7 @@ export const ChainSelectorSectionList: FC<IChainSelectorSectionListProps> = ({
 }) => {
   const [text, setText] = useState('');
   const intl = useIntl();
-  const [isPending, setIsPending] = usePending();
+  const [isPending, _setIsPending] = usePending();
   const listRef = useRef<ISortableSectionListRef<any> | null>(null);
   const [isTyping, setIsTyping] = useState(false);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -229,7 +220,11 @@ export const ChainSelectorSectionList: FC<IChainSelectorSectionListProps> = ({
   const { result: frequentlyUsedNetworks, isLoading } = usePromiseResult(
     async () => {
       const _frequentlyUsed =
-        await backgroundApiProxy.serviceNetwork.getNetworkSelectorPinnedNetworks();
+        await backgroundApiProxy.serviceNetwork.getNetworkSelectorPinnedNetworks(
+          {
+            useDefaultPinnedNetworks: true,
+          },
+        );
       const availableNetworksMapFromNetworks = new Map(
         networks.map((network) => [network.id, network]),
       );
@@ -251,8 +246,56 @@ export const ChainSelectorSectionList: FC<IChainSelectorSectionListProps> = ({
     frequentlyUsedNetworks,
   });
 
+  const layoutList = useMemo(() => {
+    let offset = 16;
+    const layouts: {
+      offset: number;
+      length: number;
+      index: number;
+      sectionIndex?: number;
+    }[] = [];
+    sections.forEach((section, sectionIndex) => {
+      if (sectionIndex !== 0) {
+        layouts.push({
+          offset,
+          length: 20,
+          index: layouts.length,
+          sectionIndex,
+        });
+        offset += 20;
+      }
+      const headerHeight = section.title ? 36 : 0;
+      layouts.push({
+        offset,
+        length: headerHeight,
+        index: layouts.length,
+        sectionIndex,
+      });
+      offset += headerHeight;
+      section.data.forEach(() => {
+        layouts.push({
+          offset,
+          length: CELL_HEIGHT,
+          index: layouts.length,
+          sectionIndex,
+        });
+        offset += CELL_HEIGHT;
+      });
+      const footerHeight = 0;
+      layouts.push({
+        offset,
+        length: footerHeight,
+        index: layouts.length,
+        sectionIndex,
+      });
+      offset += footerHeight;
+    });
+    layouts.push({ offset, length: 16, index: layouts.length });
+    return layouts;
+  }, [sections]);
+
   const initialScrollIndex = useMemo(() => {
-    if (!networkId || text.trim()) {
+    if (text.trim()) {
       return undefined;
     }
     let _initialScrollIndex:
@@ -287,21 +330,69 @@ export const ChainSelectorSectionList: FC<IChainSelectorSectionListProps> = ({
         }
       });
     });
+
     const initialScrollIndexNumber =
       sections
         .slice(0, _initialScrollIndex?.sectionIndex ?? 0)
         .reduce((prev, section) => prev + section.data.length + 3, 0) +
       (_initialScrollIndex?.itemIndex ?? 0) +
       1;
+
     if (
       _initialScrollIndex?.sectionIndex !== undefined &&
-      initialScrollIndexNumber <= 7
+      sections
+        .slice(0, _initialScrollIndex.sectionIndex)
+        .reduce((prev, section) => prev + section.data.length, 0) +
+        (_initialScrollIndex?.itemIndex ?? 0) <=
+        7
     ) {
-      return undefined;
+      return {
+        sectionIndex: 0,
+        itemIndex: undefined,
+        initialScrollIndexNumber: 0,
+      };
     }
-    return initialScrollIndexNumber;
+
+    return {
+      sectionIndex: _initialScrollIndex?.sectionIndex ?? 0,
+      itemIndex: _initialScrollIndex?.itemIndex ?? 0,
+      initialScrollIndexNumber,
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sections, networkId, text]);
+
+  useEffect(() => {
+    // For non-native platforms, initialScrollIndex causes display bugs
+    // Handle it by manually scrolling to the target position
+    if (!platformEnv.isNative) {
+      if (!initialScrollIndex || layoutList.length === 0) return;
+
+      let offset = 0;
+
+      if (initialScrollIndex.sectionIndex === 0) {
+        offset = CELL_HEIGHT * (initialScrollIndex.itemIndex ?? 0);
+      } else {
+        const index = layoutList.findIndex(
+          (item) => item.sectionIndex === initialScrollIndex.sectionIndex,
+        );
+
+        if (index === -1) return;
+
+        offset =
+          layoutList[index].offset +
+          CELL_HEIGHT * (initialScrollIndex.itemIndex ?? 0);
+      }
+
+      setTimeout(() => {
+        // @ts-ignore
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+        listRef.current?.scrollTo?.({
+          y: offset,
+          animated: false,
+        });
+      }, 100);
+    }
+  }, [initialScrollIndex, layoutList]);
 
   const renderSections = useCallback(
     () =>
@@ -311,7 +402,7 @@ export const ChainSelectorSectionList: FC<IChainSelectorSectionListProps> = ({
           sections={sections}
           networkId={networkId}
           onPressItem={onPressItem}
-          initialScrollIndex={initialScrollIndex}
+          initialScrollIndex={initialScrollIndex?.initialScrollIndexNumber ?? 0}
           recentNetworksEnabled={recentNetworksEnabled}
           listRef={listRef as any}
         />
@@ -354,6 +445,12 @@ export const ChainSelectorSectionList: FC<IChainSelectorSectionListProps> = ({
           onChangeText={onChangeText}
         />
       </Stack>
+      {recentNetworksEnabled ? (
+        <RecentNetworks
+          onPressItem={onPressItem}
+          availableNetworks={networks}
+        />
+      ) : null}
       {/* Re-render the entire list after each text update */}
       {loading ? loadingElement : renderSections()}
     </Stack>

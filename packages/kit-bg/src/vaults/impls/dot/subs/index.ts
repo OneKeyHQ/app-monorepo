@@ -1,4 +1,5 @@
 import VaultDotSubAssetHub from './VaultDotSubAssetHub';
+import VaultDotSubAssetHubKusama from './VaultDotSubAssetHubKusama';
 import VaultDotSubBase from './VaultDotSubBase';
 import VaultDotSubCommon from './VaultDotSubCommon';
 import VaultDotSubHydration from './VaultDotSubHydration';
@@ -10,6 +11,7 @@ type ISubConstructor = new (vault: VaultDot) => VaultDotSubBase;
 
 const SUB_VAULTS: ISubConstructor[] = [
   VaultDotSubAssetHub,
+  VaultDotSubAssetHubKusama,
   VaultDotSubJoyStream,
   VaultDotSubHydration,
 ];

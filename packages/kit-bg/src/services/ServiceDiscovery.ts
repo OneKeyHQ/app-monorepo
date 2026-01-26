@@ -178,10 +178,10 @@ class ServiceDiscovery extends ServiceBase {
         return await this._checkUrlSecurityInScript(params);
       }
       return await this._checkUrlSecurity(params);
-    } catch (e) {
+    } catch (_e) {
       return {
         host: url,
-        level: EHostSecurityLevel.Medium,
+        level: EHostSecurityLevel.Unknown,
         attackTypes: [],
         phishingSite: false,
         alert: appLocale.intl.formatMessage({

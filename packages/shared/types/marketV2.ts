@@ -1,4 +1,3 @@
-/* eslint-disable spellcheck/spell-checker */
 export interface IMarketTokenDetail {
   address: string;
   logoUrl: string;
@@ -91,6 +90,9 @@ export interface IMarketTokenDetail {
   vSell24h?: string;
   lastUpdated?: number;
   communityRecognized?: boolean;
+  perpsInfo?: {
+    hlTicker: string;
+  };
   [key: string]: unknown;
 }
 
@@ -220,10 +222,33 @@ export interface IMarketTokenTransaction {
   from: IMarketTokenTransactionToken;
   to: IMarketTokenTransactionToken;
   poolLogoUrl?: string;
+  volumeUSD?: number;
 }
 
 export interface IMarketTokenTransactionsResponse {
   list: IMarketTokenTransaction[];
+  hasMore?: boolean;
+  total?: number;
+  cursor?: string;
+}
+
+export interface IMarketAccountTokenTransactionParty {
+  amount: string;
+  address: string;
+  symbol: string;
+}
+
+export interface IMarketAccountTokenTransaction {
+  hash: string;
+  type: 'buy' | 'sell';
+  timestamp: number;
+  amount: string;
+  from: IMarketAccountTokenTransactionParty;
+  to: IMarketAccountTokenTransactionParty;
+}
+
+export interface IMarketAccountTokenTransactionsResponse {
+  list: IMarketAccountTokenTransaction[];
   hasMore?: boolean;
   total?: number;
   cursor?: string;
@@ -281,12 +306,43 @@ export interface IMarketBasicConfigToken {
   logo?: string;
 }
 
+export interface IMarketBasicConfigNetworkFeature {
+  actionBar?: boolean;
+  [key: string]: unknown;
+}
+
+export interface IMarketBasicConfigFeature {
+  marketWebsocket?: {
+    transactions?: boolean;
+    price?: boolean;
+  };
+  [key: string]: unknown;
+}
+
+export interface IMarketBasicConfigLowLiquidKlineSourceToken {
+  networkId: string;
+  tokenAddress: string;
+}
+
+export interface IMarketBasicConfigHyperLiquidKlineSourceToken {
+  networkId: string;
+  tokenAddress: string;
+  symbol: string;
+}
+
 export interface IMarketBasicConfigData {
+  tradingViewUrl: string;
   networkList: IMarketBasicConfigNetwork[];
   recommendTokens: IMarketBasicConfigToken[];
   searchRecommendTokens: IMarketBasicConfigToken[];
   refreshInterval: number;
   minLiquidity: number;
+  networkFeature?: {
+    [networkId: string]: IMarketBasicConfigNetworkFeature;
+  };
+  feature?: IMarketBasicConfigFeature;
+  lowLiquidKlineSourceTokens?: IMarketBasicConfigLowLiquidKlineSourceToken[];
+  HyperLiquidKlineSourceTokens?: IMarketBasicConfigHyperLiquidKlineSourceToken[];
 }
 
 export interface IMarketBasicConfigResponse {
@@ -309,4 +365,50 @@ export interface IMarketTokenDetailResponse {
   code: number;
   message: string;
   data: IMarketTokenDetailData;
+}
+
+export interface IMarketAccountPortfolioItem {
+  accountAddress: string;
+  tokenAddress: string;
+  amount: string;
+  symbol: string;
+  tokenPrice: string;
+  totalPrice: string;
+}
+
+export interface IMarketAccountPortfolioResponse {
+  list: IMarketAccountPortfolioItem[];
+}
+
+// Banner types
+export interface IMarketBannerDescription {
+  text: string;
+  fontColor: string;
+}
+
+export interface IMarketBannerItem {
+  _id: string;
+  title: string;
+  rank: number;
+  mode: number;
+  payload: string;
+  miniBundlerVersion: string;
+  backgroundColor: string;
+  tokenListId: string;
+  description?: IMarketBannerDescription;
+  tokenLogos?: string[];
+}
+
+export interface IMarketBannerListResponse {
+  total: number;
+  data: IMarketBannerItem[];
+}
+
+export interface IMarketBannerTokenListItem extends IMarketTokenListItem {
+  isNative?: boolean;
+  tokenAge?: string;
+}
+
+export interface IMarketBannerTokenListResponse {
+  list: IMarketBannerTokenListItem[];
 }

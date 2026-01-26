@@ -25,13 +25,13 @@ const SwapTipsContainer = () => {
       await backgroundApiProxy.simpleDb.swapConfigs.setSwapUserCloseTips(
         swapTips.tipsId,
       );
-    } catch (error) {
+    } catch (_error) {
       setSwapTips(swapTips);
     }
   };
 
   return (
-    <YStack flex={1} pt="$0.5">
+    <YStack flex={1} pt="$0.5" px="$5">
       <XStack
         flex={1}
         gap="$4"

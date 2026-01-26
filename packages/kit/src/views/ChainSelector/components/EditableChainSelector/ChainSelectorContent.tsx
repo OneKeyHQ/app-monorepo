@@ -51,28 +51,13 @@ const ListEmptyComponent = () => {
   );
 };
 
-const ListHeaderComponent = ({
-  recentNetworksEnabled,
-  mainnetItems,
-  testnetItems,
-}: {
-  initialScrollIndex?: { sectionIndex: number; itemIndex?: number };
-  recentNetworksEnabled?: boolean;
-  mainnetItems: IServerNetwork[];
-  testnetItems: IServerNetwork[];
-}) => {
-  const { allNetworkItem, searchText, onPressItem, setRecentNetworksHeight } =
-    useContext(EditableChainSelectorContext);
+const ListHeaderComponent = () => {
+  const { allNetworkItem, searchText } = useContext(
+    EditableChainSelectorContext,
+  );
 
   return (
-    <Stack mt="$4">
-      {recentNetworksEnabled ? (
-        <RecentNetworks
-          onPressItem={onPressItem}
-          setRecentNetworksHeight={setRecentNetworksHeight}
-          availableNetworks={[...mainnetItems, ...testnetItems]}
-        />
-      ) : null}
+    <Stack>
       {!allNetworkItem || searchText?.trim() ? null : (
         <EditableListItem item={allNetworkItem} isEditable={false} />
       )}
@@ -83,6 +68,7 @@ const ListHeaderComponent = ({
 type IEditableChainSelectorContentProps = {
   isEditMode?: boolean;
   recentNetworksEnabled?: boolean;
+  accountNetworkValues: Record<string, string>;
   mainnetItems: IServerNetwork[];
   testnetItems: IServerNetwork[];
   unavailableItems: IServerNetwork[];
@@ -97,9 +83,21 @@ type IEditableChainSelectorContentProps = {
   onEditCustomNetwork?: (network: IServerNetwork) => void;
   onFrequentlyUsedItemsChange?: (networks: IServerNetwork[]) => void;
   setAllNetworksChanged?: (value: boolean) => void;
+  accountNetworkValueCurrency?: string;
+  accountDeFiOverview: Record<
+    string,
+    {
+      netWorth: number;
+    }
+  >;
 };
 
 export const EditableChainSelectorContent = ({
+  recentNetworksEnabled,
+  walletId,
+  indexedAccountId,
+  accountNetworkValues,
+  accountNetworkValueCurrency,
   mainnetItems,
   testnetItems,
   frequentlyUsedItems,
@@ -111,7 +109,7 @@ export const EditableChainSelectorContent = ({
   isEditMode,
   allNetworkItem,
   onFrequentlyUsedItemsChange,
-  recentNetworksEnabled,
+  accountDeFiOverview,
 }: IEditableChainSelectorContentProps) => {
   const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
@@ -187,7 +185,7 @@ export const EditableChainSelectorContent = ({
 
     const mainnetSections = Object.entries(data)
       .map(([key, value]) => ({ title: key, data: value }))
-      .sort((a, b) => a.title.charCodeAt(0) - b.title.charCodeAt(0));
+      .toSorted((a, b) => a.title.charCodeAt(0) - b.title.charCodeAt(0));
 
     const _sections: IEditableChainSelectorSection[] = [
       { data: tempFrequentlyUsedItems, draggable: true },
@@ -337,6 +335,8 @@ export const EditableChainSelectorContent = ({
 
   const context = useMemo<IEditableChainSelectorContext>(
     () => ({
+      walletId: walletId ?? '',
+      indexedAccountId,
       frequentlyUsedItems: tempFrequentlyUsedItems,
       setFrequentlyUsedItems: setTempFrequentlyUsedItems,
       frequentlyUsedItemsIds: new Set(
@@ -354,18 +354,25 @@ export const EditableChainSelectorContent = ({
       searchText: searchTextTrim,
       allNetworkItem,
       setRecentNetworksHeight,
+      accountNetworkValues,
+      accountNetworkValueCurrency,
+      accountDeFiOverview,
     }),
     [
+      walletId,
+      indexedAccountId,
       tempFrequentlyUsedItems,
-      setTempFrequentlyUsedItems,
       networkId,
       onPressItem,
       onAddCustomNetwork,
-      onEditCustomNetwork,
-      onFrequentlyUsedItemsChange,
       isEditMode,
       searchTextTrim,
       allNetworkItem,
+      accountNetworkValues,
+      accountNetworkValueCurrency,
+      onFrequentlyUsedItemsChange,
+      onEditCustomNetwork,
+      accountDeFiOverview,
     ],
   );
   const renderItem = useCallback(
@@ -411,7 +418,9 @@ export const EditableChainSelectorContent = ({
 
       let offset = 0;
 
-      if (initialScrollIndex.sectionIndex !== 0) {
+      if (initialScrollIndex.sectionIndex === 0) {
+        offset = CELL_HEIGHT * (initialScrollIndex.itemIndex ?? 0);
+      } else {
         const index = layoutList.findIndex(
           (item) => item.sectionIndex === initialScrollIndex.sectionIndex,
         );
@@ -465,11 +474,20 @@ export const EditableChainSelectorContent = ({
             })}
           />
         </Stack>
+        {recentNetworksEnabled ? (
+          <RecentNetworks
+            containerProps={{
+              mt: '$4',
+            }}
+            onPressItem={onPressItem}
+            availableNetworks={[...mainnetItems, ...testnetItems]}
+          />
+        ) : null}
         <Stack flex={1}>
           {sections.length > 0 ? (
             <SortableSectionList
               ref={listRef}
-              enabled={isEditMode}
+              enabled={false}
               stickySectionHeadersEnabled
               sections={sections}
               renderItem={renderItem}
@@ -493,14 +511,7 @@ export const EditableChainSelectorContent = ({
                 }
                 return layoutList[index];
               }}
-              ListHeaderComponent={
-                <ListHeaderComponent
-                  recentNetworksEnabled={recentNetworksEnabled}
-                  initialScrollIndex={initialScrollIndex}
-                  mainnetItems={mainnetItems}
-                  testnetItems={testnetItems}
-                />
-              }
+              ListHeaderComponent={<ListHeaderComponent />}
               renderSectionHeader={renderSectionHeader}
               ListFooterComponent={
                 <>

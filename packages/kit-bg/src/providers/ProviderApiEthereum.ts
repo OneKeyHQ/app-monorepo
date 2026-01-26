@@ -725,7 +725,7 @@ class ProviderApiEthereum extends ProviderApiBase {
           isHyperLiquidApproveAgentMessage,
         );
       }
-    } catch (e) {
+    } catch (_e) {
       // eslint-disable-next-line no-empty
     }
 

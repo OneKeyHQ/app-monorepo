@@ -1,44 +1,34 @@
-import type { IStackProps } from '@onekeyhq/components';
+import { useIntl } from 'react-intl';
+
+import type { IKeyOfIcons, IStackProps } from '@onekeyhq/components';
 import {
   Heading,
-  Image,
+  Icon,
   LinearGradient,
   SizableText,
   Stack,
   XStack,
   YStack,
+  useTheme,
 } from '@onekeyhq/components';
-
-const DATA = [
-  {
-    title: 'Sent',
-    description: 'Account 1 sent 10 MATIC',
-    time: 'now',
-    stacked: true,
-  },
-  {
-    title: 'Received',
-    description: 'Account 2 received 10 MATIC',
-    time: '10m ago',
-  },
-  {
-    title: 'Approved USDC',
-    description: 'Account 3 • Polygon',
-    time: '1h ago',
-  },
-];
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 function Item({
+  icon,
   title,
   description,
   time,
   stacked,
 }: {
+  icon: IKeyOfIcons;
   title?: string;
   description?: string;
   time?: string;
   stacked?: boolean;
 }) {
+  const theme = useTheme();
+  const gray5Color = theme.gray5.val;
+  const gray3Color = theme.gray3.val;
   return (
     <YStack {...(stacked ? { pb: '$2.5' } : {})}>
       {stacked ? (
@@ -59,7 +49,7 @@ function Item({
           <LinearGradient
             h="$2.5"
             mt="auto"
-            colors={['$gray5', '$gray3']}
+            colors={[gray5Color, gray3Color]}
             start={[0, 0]}
             end={[0, 1]}
           />
@@ -77,11 +67,18 @@ function Item({
           borderRadius: '$6',
         }}
       >
-        <Image
-          source={require('@onekeyhq/kit/assets/logo-decorated.png')}
-          w="$10"
-          h="$10"
-        />
+        <Stack
+          w={28}
+          h={28}
+          bg="$bgStrong"
+          borderRadius="$full"
+          borderWidth={0.5}
+          borderColor="$borderSubdued"
+          alignItems="center"
+          justifyContent="center"
+        >
+          <Icon name={icon} size={18} color="$icon" />
+        </Stack>
         <Stack flex={1}>
           <XStack gap="$2.5" alignItems="baseline">
             <Heading
@@ -118,9 +115,41 @@ function Item({
 }
 
 function NotificationIntroIllustration({ ...rest }: IStackProps) {
+  const intl = useIntl();
+
+  const data = [
+    {
+      icon: 'ArrowBottomOutline' as IKeyOfIcons,
+      title: intl.formatMessage({ id: ETranslations.global_receive_eth }),
+      description: intl.formatMessage({
+        id: ETranslations.global_receive_eth_detail,
+      }),
+      time: 'now',
+      stacked: true,
+    },
+    {
+      icon: 'SpeakerPromoteOutline' as IKeyOfIcons,
+      title: intl.formatMessage({ id: ETranslations.global_btc_broke }),
+      description: intl.formatMessage({
+        id: ETranslations.global_btc_broke_detail,
+      }),
+      time: '10m ago',
+    },
+    {
+      icon: 'InfoCircleOutline' as IKeyOfIcons,
+      title: intl.formatMessage({
+        id: ETranslations.global_liquidation_warning,
+      }),
+      description: intl.formatMessage({
+        id: ETranslations.global_liquidation_warning_detail,
+      }),
+      time: '1h ago',
+    },
+  ];
+
   return (
     <Stack gap="$2.5" w="100%" maxWidth="$96" mx="auto" {...rest}>
-      {DATA.map((item) => (
+      {data.map((item) => (
         <Item key={item.title} {...item} />
       ))}
     </Stack>

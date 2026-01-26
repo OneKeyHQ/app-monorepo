@@ -1,13 +1,23 @@
 import { useCallback, useEffect, useMemo } from 'react';
 import type { ReactNode } from 'react';
 
-import { Spinner, Stack, Table, useMedia } from '@onekeyhq/components';
+import {
+  ListEndIndicator,
+  Spinner,
+  Stack,
+  Table,
+  useMedia,
+} from '@onekeyhq/components';
 import type { ITableColumn } from '@onekeyhq/components';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type {
+  ECopyFrom,
+  EWatchlistFrom,
+} from '@onekeyhq/shared/src/logger/scopes/dex';
 import { ESortWay } from '@onekeyhq/shared/src/logger/scopes/dex/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -48,6 +58,10 @@ type IMarketTokenListBaseProps = {
   toolbar?: ReactNode;
   result: IMarketTokenListResult;
   isWatchlistMode?: boolean;
+  showEndReachedIndicator?: boolean;
+  hideTokenAge?: boolean;
+  watchlistFrom?: EWatchlistFrom;
+  copyFrom?: ECopyFrom;
 };
 
 function MarketTokenListBase({
@@ -56,11 +70,21 @@ function MarketTokenListBase({
   toolbar,
   result,
   isWatchlistMode = false,
+  showEndReachedIndicator = false,
+  hideTokenAge = false,
+  watchlistFrom,
+  copyFrom,
 }: IMarketTokenListBaseProps) {
   const toMarketDetailPage = useToDetailPage();
   const { md } = useMedia();
 
-  const marketTokenColumns = useMarketTokenColumns(networkId, isWatchlistMode);
+  const marketTokenColumns = useMarketTokenColumns(
+    networkId,
+    isWatchlistMode,
+    hideTokenAge,
+    watchlistFrom,
+    copyFrom,
+  );
 
   const {
     data,
@@ -166,20 +190,21 @@ function MarketTokenListBase({
     (Boolean(isLoading) && data.length === 0) || Boolean(isNetworkSwitching);
 
   const TableFooterComponent = useMemo(() => {
-    return isLoadingMore ? (
-      <Stack alignItems="center" justifyContent="center" py="$4">
-        <Spinner size="small" />
-      </Stack>
-    ) : null;
-  }, [isLoadingMore]);
+    if (isLoadingMore) {
+      return (
+        <Stack alignItems="center" justifyContent="center" py="$4">
+          <Spinner size="small" />
+        </Stack>
+      );
+    }
 
-  if (showSkeleton && platformEnv.isNativeAndroid) {
-    return (
-      <Stack flex={1} alignItems="center" justifyContent="center" py="$4">
-        <Spinner size="small" />
-      </Stack>
-    );
-  }
+    // Show end indicator when no more data to load
+    if (showEndReachedIndicator && !canLoadMore && data.length > 0) {
+      return <ListEndIndicator />;
+    }
+
+    return null;
+  }, [isLoadingMore, showEndReachedIndicator, canLoadMore, data.length]);
 
   return (
     <Stack flex={1} width="100%">

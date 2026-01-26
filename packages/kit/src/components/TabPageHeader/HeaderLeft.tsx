@@ -1,4 +1,7 @@
-import { type ReactNode, useMemo } from 'react';
+import { type ReactNode, useCallback, useMemo } from 'react';
+
+import { useIntl } from 'react-intl';
+import { TouchableOpacity } from 'react-native';
 
 import {
   DebugRenderTracker,
@@ -9,13 +12,22 @@ import {
   rootNavigationRef,
   useMedia,
 } from '@onekeyhq/components';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ETabHomeRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  ETabHomeRoutes,
+  ETabMarketRoutes,
+  ETabRoutes,
+} from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { AccountSelectorProviderMirror } from '../AccountSelector';
 
-import { WalletConnectionGroup, WebHeaderNavigation } from './components';
+import { WalletConnectionGroup } from './components';
 import { UrlAccountPageHeader } from './urlAccountPageHeader';
 
 export function HeaderLeftCloseButton() {
@@ -25,83 +37,123 @@ export function HeaderLeftCloseButton() {
     </Page.Close>
   );
 }
+const discoveryTabs = platformEnv.isNative
+  ? [
+      ETranslations.global_market,
+      ETranslations.global_earn,
+      ETranslations.global_browser,
+    ]
+  : [ETranslations.global_market, ETranslations.global_earn];
+
+function SegmentText({
+  translationId,
+  selected,
+}: {
+  translationId: typeof discoveryTabs[number];
+  selected: boolean;
+}) {
+  const intl = useIntl();
+  const handlePress = useCallback(() => {
+    appEventBus.emit(EAppEventBusNames.SwitchDiscoveryTabInNative, {
+      tab: translationId as
+        | ETranslations.global_market
+        | ETranslations.global_browser
+        | ETranslations.global_earn,
+    });
+  }, [translationId]);
+  return (
+    <TouchableOpacity onPress={handlePress} activeOpacity={1}>
+      <SizableText
+        size="$headingXl"
+        color={selected ? '$text' : '$textSubdued'}
+        onPress={handlePress}
+      >
+        {intl.formatMessage({ id: translationId })}
+      </SizableText>
+    </TouchableOpacity>
+  );
+}
+
+export function DiscoveryHeaderSegment({
+  selectedHeaderTab,
+}: {
+  selectedHeaderTab?: ETranslations;
+}) {
+  return (
+    <XStack gap="$4">
+      {discoveryTabs.map((tab) => (
+        <SegmentText
+          key={tab}
+          translationId={tab}
+          selected={selectedHeaderTab === tab}
+        />
+      ))}
+    </XStack>
+  );
+}
 
 export function HeaderLeft({
+  selectedHeaderTab,
   sceneName,
   tabRoute,
   customHeaderLeftItems,
 }: {
+  selectedHeaderTab?: ETranslations;
   sceneName: EAccountSelectorSceneName;
   tabRoute: ETabRoutes;
   customHeaderLeftItems?: ReactNode;
 }) {
-  const { gtMd } = useMedia();
+  const { gtMd: _gtMd } = useMedia();
 
   const items = useMemo(() => {
-    const withWebNavigation = (content: ReactNode) => {
-      if (!(platformEnv.isWeb && gtMd)) {
-        return content;
-      }
-      return (
-        <XStack gap="$6" ai="center">
-          <WebHeaderNavigation />
-          {content}
-        </XStack>
-      );
-    };
     if (customHeaderLeftItems) {
       return customHeaderLeftItems;
     }
+
     if (sceneName === EAccountSelectorSceneName.homeUrlAccount) {
-      return withWebNavigation(
+      return (
         <XStack gap="$1.5">
           <NavBackButton
             onPress={() => {
-              rootNavigationRef.current?.navigate(
-                ETabRoutes.Home,
-                {
-                  screen: ETabHomeRoutes.TabHome,
-                },
-                {
-                  pop: true,
-                },
-              );
+              if (platformEnv.isWebDappMode) {
+                rootNavigationRef.current?.navigate(
+                  ETabRoutes.Market,
+                  {
+                    screen: ETabMarketRoutes.TabMarket,
+                  },
+                  {
+                    pop: true,
+                  },
+                );
+              } else {
+                rootNavigationRef.current?.navigate(
+                  ETabRoutes.Home,
+                  {
+                    screen: ETabHomeRoutes.TabHome,
+                  },
+                  {
+                    pop: true,
+                  },
+                );
+              }
             }}
           />
           {platformEnv.isNativeIOS ? <UrlAccountPageHeader /> : null}
-        </XStack>,
+        </XStack>
       );
     }
 
     if (tabRoute === ETabRoutes.Discovery) {
-      return withWebNavigation(
-        <SizableText size="$headingLg">
-          {/* {intl.formatMessage({
-            id: ETranslations.global_browser,
-          })} */}
-        </SizableText>,
-      );
-    }
-
-    if (tabRoute === ETabRoutes.WebviewPerpTrade) {
-      return withWebNavigation(
-        <SizableText size="$headingLg">
-          {/* {intl.formatMessage({
-            id: ETranslations.global_browser,
-          })} */}
-        </SizableText>,
-      );
-    }
-
-    // For web platform, only show WebHeaderNavigation (logo + navigation)
-    // Account selector will be moved to HeaderRight
-    if (platformEnv.isWebDappMode && gtMd) {
-      return <WebHeaderNavigation />;
+      return platformEnv.isNative ||
+        platformEnv.isExtensionUiPopup ||
+        platformEnv.isExtensionUiSidePanel ? (
+        <DiscoveryHeaderSegment selectedHeaderTab={selectedHeaderTab} />
+      ) : null;
     }
 
     // For mobile and native platforms, keep the original layout
     return <WalletConnectionGroup tabRoute={tabRoute} />;
-  }, [customHeaderLeftItems, sceneName, tabRoute, gtMd]);
+  }, [customHeaderLeftItems, sceneName, tabRoute, selectedHeaderTab]);
   return (
     <AccountSelectorProviderMirror
       enabledNum={[0]}

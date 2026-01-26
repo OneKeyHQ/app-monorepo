@@ -174,8 +174,15 @@ export const useScrollEvent = ({
   ]);
 
   useEffect(() => {
-    startTimer();
-  }, [startTimer]);
+    if (autoplay) {
+      startTimer();
+    } else {
+      clearTimer();
+    }
+    return () => {
+      clearTimer();
+    };
+  }, [startTimer, clearTimer, autoplay]);
 
   const handleScrollToIndexFailed = useCallback(
     (info: {

@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   Carousel,
@@ -6,8 +6,13 @@ import {
   YStack,
   useTabContainerWidth,
 } from '@onekeyhq/components';
+import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import {
+  MarketBannerList,
+  useMarketBannerList,
+} from '../components/MarketBanner';
 import { MarketFilterBar } from '../components/MarketFilterBar';
 import { MarketNormalTokenList } from '../components/MarketTokenList/MarketNormalTokenList';
 import { MarketWatchlistTokenList } from '../components/MarketTokenList/MarketWatchlistTokenList';
@@ -28,6 +33,21 @@ interface IDesktopLayoutProps {
   onTabChange: (tabId: IMarketHomeTabValue) => void;
 }
 
+const useIsFirstFocus = () => {
+  const isFirstFocusRef = useRef(false);
+  const [isFirstFocus, setIsFirstFocus] = useState(false);
+  const isFocused = useRouteIsFocused();
+  useEffect(() => {
+    if (isFirstFocusRef.current) {
+      return;
+    }
+    if (isFocused) {
+      isFirstFocusRef.current = true;
+      setIsFirstFocus(true);
+    }
+  }, [isFocused]);
+  return isFirstFocus;
+};
 export function DesktopLayout({
   filterBarProps,
   selectedNetworkId,
@@ -43,32 +63,65 @@ export function DesktopLayout({
     handlePageChanged,
   } = useMarketTabsLogic(onTabChange);
 
-  const height = useMemo(() => {
-    return platformEnv.isNative ? undefined : 'calc(100vh - 96px)';
-  }, []);
+  const { bannerList } = useMarketBannerList();
+  const hasBanner = Boolean(bannerList && bannerList.length > 0);
+
+  const { height, containerStyle } = useMemo(() => {
+    const bannerHeight = hasBanner ? 0 : 120;
+    const computedHeight = platformEnv.isNative
+      ? undefined
+      : `calc(100vh - ${167 - bannerHeight}px)`;
+    const style: Record<string, any> = { height: computedHeight };
+
+    if (platformEnv.isWebDappMode) {
+      style.paddingBottom = 100;
+    }
+
+    if (platformEnv.isDesktop) {
+      style.paddingBottom = 50;
+    }
+    return { height: computedHeight, containerStyle: style };
+  }, [hasBanner]);
 
   const pageWidth = useTabContainerWidth();
   const renderItem = useCallback(
-    ({ item }: { item: string }) => {
+    ({ item, index }: { item: string; index: number }) => {
+      const selectedIndex = carouselRef.current?.getCurrentIndex();
+      const isNotFocused = !platformEnv.isNative && selectedIndex !== index;
       if (item === watchlistTabName) {
         return (
-          <YStack px="$4" height={height} flex={1}>
+          <YStack
+            px="$4"
+            height={height}
+            flex={1}
+            style={isNotFocused ? { contentVisibility: 'hidden' } : undefined}
+          >
             <MarketWatchlistTokenList />
           </YStack>
         );
       }
       return (
-        <YStack px="$4" height={height} flex={1}>
+        <YStack
+          px="$4"
+          height={height}
+          flex={1}
+          style={isNotFocused ? { contentVisibility: 'hidden' } : undefined}
+        >
           <MarketFilterBar {...filterBarProps} />
           <MarketNormalTokenList networkId={selectedNetworkId} />
         </YStack>
       );
     },
-    [filterBarProps, height, selectedNetworkId, watchlistTabName],
+    [filterBarProps, height, selectedNetworkId, watchlistTabName, carouselRef],
   );
 
+  const isFocused = useIsFirstFocus();
+  if (!isFocused) {
+    return null;
+  }
   return (
     <YStack>
+      <MarketBannerList />
       <Tabs.TabBar
         divider={false}
         onTabPress={handleTabChange}
@@ -80,7 +133,7 @@ export function DesktopLayout({
         defaultIndex={defaultIndex}
         onPageChanged={handlePageChanged}
         disableAnimation
-        containerStyle={{ height }}
+        containerStyle={containerStyle}
         ref={carouselRef as any}
         loop={false}
         showPagination={false}

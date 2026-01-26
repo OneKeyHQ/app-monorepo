@@ -12,6 +12,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { GiftAction } from '@onekeyhq/kit/src/components/TabPageHeader/components';
 import { WalletConnectionForWeb } from '@onekeyhq/kit/src/components/TabPageHeader/components/WalletConnectionGroup';
 import {
   usePerpsActiveOpenOrdersAtom,
@@ -172,7 +173,10 @@ export function PerpsHeaderRight() {
       {process.env.NODE_ENV !== 'production' ? <DebugButton /> : null}
       <DepositButton />
       {gtMd ? (
-        <PerpSettingsButton testID="perp-header-settings-button" />
+        <>
+          <GiftAction source="Perps" copyAsUrl />
+          <PerpSettingsButton testID="perp-header-settings-button" />
+        </>
       ) : null}
     </XStack>
   );

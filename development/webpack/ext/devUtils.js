@@ -147,10 +147,8 @@ function addBabelLoaderPlugin({ config, isPrepend, plugins }) {
         )
       ) {
         // rule.test.toString() === '/\\.+(js|jsx|mjs|ts|tsx)$/'
-        const ruleTestRegex = rule.test.toString();
         use.options = use.options || {};
         use.options.plugins = use.options.plugins || [];
-        const configName = config.name;
         if (isPrepend) {
           use.options.plugins = [...plugins, ...use.options.plugins];
         } else {

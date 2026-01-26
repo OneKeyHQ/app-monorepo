@@ -57,7 +57,7 @@ export function getPrevUrlAccount() {
           networkId: string;
         })
       : undefined;
-  } catch (error) {
+  } catch (_error) {
     return undefined;
   }
 }
@@ -160,7 +160,7 @@ export async function replaceUrlAccountLandingRoute({
 }
 
 // Check if currently in URL account page
-function isCurrentlyInUrlAccountPage(): boolean {
+export function isCurrentlyInUrlAccountPage(): boolean {
   try {
     const state = rootNavigationRef.current?.getRootState();
     if (!state?.routes) return false;
@@ -186,7 +186,7 @@ function isCurrentlyInUrlAccountPage(): boolean {
     const currentHomeRoute = homeTabRoute.state.routes[currentHomeRouteIndex];
 
     return currentHomeRoute?.name === ETabHomeRoutes.TabHomeUrlAccountPage;
-  } catch (error) {
+  } catch (_error) {
     return false;
   }
 }

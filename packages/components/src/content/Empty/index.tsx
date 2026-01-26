@@ -3,16 +3,19 @@ import type {
   YStackProps,
 } from '@onekeyhq/components/src/shared/tamagui';
 
-import { Button, Icon, SizableText, YStack } from '../../primitives';
+import { Button } from '../../primitives/Button';
+import { Icon } from '../../primitives/Icon';
+import { SizableText } from '../../primitives/SizeableText';
+import { YStack } from '../../primitives/Stack';
 
 import type { IButtonProps, IIconProps, IKeyOfIcons } from '../../primitives';
 
 interface IEmptyProps extends YStackProps {
   icon?: IKeyOfIcons;
   iconProps?: IIconProps;
-  title?: string;
+  title?: React.ReactNode;
   titleProps?: SizableTextProps;
-  description?: string;
+  description?: React.ReactNode;
   descriptionProps?: SizableTextProps;
   buttonProps?: IButtonProps;
   button?: React.ReactNode;
@@ -46,7 +49,7 @@ export function Empty(props: IEmptyProps) {
       ) : null}
       {title || description ? (
         <YStack alignItems="center" maxWidth="$64">
-          {title ? (
+          {typeof title === 'string' ? (
             <SizableText
               size="$headingXl"
               textAlign="center"
@@ -55,8 +58,10 @@ export function Empty(props: IEmptyProps) {
             >
               {title}
             </SizableText>
-          ) : null}
-          {description ? (
+          ) : (
+            title
+          )}
+          {typeof description === 'string' ? (
             <SizableText
               size="$bodyLg"
               textAlign="center"
@@ -65,7 +70,9 @@ export function Empty(props: IEmptyProps) {
             >
               {description}
             </SizableText>
-          ) : null}
+          ) : (
+            description
+          )}
         </YStack>
       ) : null}
       {buttonProps ? <EmptyButton {...buttonProps} /> : null}

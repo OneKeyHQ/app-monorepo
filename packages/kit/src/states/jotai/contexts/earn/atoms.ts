@@ -7,13 +7,15 @@ import {
   createJotaiContext,
 } from '@onekeyhq/kit/src/states/jotai/utils/createJotaiContext';
 import type { IEarnPermitCache } from '@onekeyhq/shared/types/earn';
-import type { IEarnAtomData } from '@onekeyhq/shared/types/staking';
+import type {
+  IEarnAtomData,
+  IEarnPortfolioInvestment,
+} from '@onekeyhq/shared/types/staking';
 
 const {
   Provider: ProviderJotaiContextEarn,
   contextAtom,
   contextAtomMethod,
-  contextAtomComputed,
 } = createJotaiContext();
 export { ProviderJotaiContextEarn, contextAtomMethod };
 
@@ -21,6 +23,8 @@ export const { atom: basicEarnAtom, useContextAtom } =
   contextAtom<IEarnAtomData>({
     earnAccount: {},
     availableAssetsByType: {},
+    recommendedTokens: [],
+    banners: [],
     refreshTrigger: 0,
   });
 
@@ -34,13 +38,15 @@ export const earnAtom = memoizee(() =>
       ...get(basicEarnAtom()),
       isMounted: get(earnStorageReadyAtom()),
     }),
-    (get, set, arg: any) => {
+    (get, set, arg: typeof INIT | IEarnAtomData) => {
       if (arg === INIT) {
         void backgroundApiProxy.simpleDb.earn.getEarnData().then((data) => {
           set(basicEarnAtom(), {
             ...data,
             earnAccount: data.earnAccount || {},
             availableAssetsByType: data.availableAssetsByType || {},
+            recommendedTokens: data.recommendedTokens || [],
+            banners: data.banners || [],
             refreshTrigger: data.refreshTrigger || 0,
           });
           set(earnStorageReadyAtom(), true);
@@ -61,5 +67,10 @@ export const { atom: earnPermitCacheAtom, use: useEarnPermitCacheAtom } =
 
 export const { atom: earnLoadingStatesAtom, use: useEarnLoadingStatesAtom } =
   contextAtom<Record<string, boolean>>({});
+
+export const {
+  atom: earnPortfolioInvestmentsAtom,
+  use: useEarnPortfolioInvestmentsAtom,
+} = contextAtom<Record<string, IEarnPortfolioInvestment[]>>({});
 
 export const useEarnAtom = () => useContextAtom(earnAtom());

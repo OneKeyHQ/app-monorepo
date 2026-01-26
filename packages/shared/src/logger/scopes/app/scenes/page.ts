@@ -1,4 +1,5 @@
 import { addBreadcrumb } from '@onekeyhq/shared/src/modules3rdParty/sentry';
+import type { ENotificationPushTopicTypes } from '@onekeyhq/shared/types/notification';
 
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
@@ -33,23 +34,53 @@ export class PageScene extends BaseScene {
 
   @LogToServer()
   @LogToLocal()
+  public notificationItemClicked(
+    notificationId: string,
+    type: ENotificationPushTopicTypes | 'unknown',
+    clickFrom: 'app' | 'system',
+  ) {
+    return { notificationId, type, clickFrom };
+  }
+
+  @LogToServer()
+  @LogToLocal()
   public testWebEmbed() {
     return { test: 'test' };
   }
 
   @LogToServer()
   @LogToLocal()
-  public jsReadyTime(time: number) {
+  public jsReadyTime(duration: number) {
     return {
-      time,
+      duration,
     };
   }
 
   @LogToServer()
   @LogToLocal()
-  public uiVisibleTime(time: number) {
+  public uiVisibleTime(duration: number) {
     return {
-      time,
+      duration,
     };
+  }
+
+  @LogToLocal()
+  public dispatchUnlockJob() {
+    return {};
+  }
+
+  @LogToLocal()
+  public isAppLocked(isLock: boolean) {
+    return { isLock };
+  }
+
+  @LogToLocal()
+  public addUnlockJob() {
+    return {};
+  }
+
+  @LogToLocal()
+  public removeUnlockJob() {
+    return {};
   }
 }

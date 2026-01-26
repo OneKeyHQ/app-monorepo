@@ -81,6 +81,34 @@ const CryptoGallery = LazyLoadPage(
     ),
 );
 
+const CloudBackupGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/CloudBackupGallery'
+    ),
+);
+
+const AuthGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/AuthGallery'
+    ),
+);
+
+const KeylessWalletGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/KeylessWalletGallery'
+    ),
+);
+
+const StorageGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/StorageGallery'
+    ),
+);
+
 const ExportCustomNetworkConfig = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Setting/pages/ExportCustomNetworkConfig'),
@@ -110,6 +138,22 @@ const CustomTransactionModal = LazyLoadPage(
 
 const PerpUserConfigModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/PerpUserConfig'),
+);
+
+// OneKey ID sub-pages
+const OneKeyIdPersonalInfoPage = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Setting/pages/OneKeyId/PersonalInfoPage'),
+);
+
+const OneKeyIdSignInSecurityPage = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Setting/pages/OneKeyId/SignInSecurityPage'),
+);
+
+const OneKeyIdKeylessWalletPage = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Setting/pages/OneKeyId/KeylessWalletPage'),
 );
 
 const DevAppUpdateModalSettingModal = LazyLoadPage(
@@ -189,6 +233,22 @@ export const BasicModalSettingStack: IModalFlowNavigatorConfig<
     component: CryptoGallery,
   },
   {
+    name: EModalSettingRoutes.SettingDevCloudBackupGalleryModal,
+    component: CloudBackupGallery,
+  },
+  {
+    name: EModalSettingRoutes.SettingDevAuthGalleryModal,
+    component: AuthGallery,
+  },
+  {
+    name: EModalSettingRoutes.SettingDevKeylessWalletGallery,
+    component: KeylessWalletGallery,
+  },
+  {
+    name: EModalSettingRoutes.SettingDevStorageGalleryModal,
+    component: StorageGallery,
+  },
+  {
     name: EModalSettingRoutes.SettingExportCustomNetworkConfig,
     component: ExportCustomNetworkConfig,
   },
@@ -215,6 +275,19 @@ export const BasicModalSettingStack: IModalFlowNavigatorConfig<
   {
     name: EModalSettingRoutes.SettingPerpUserConfig,
     component: PerpUserConfigModal,
+  },
+  // OneKey ID sub-pages
+  {
+    name: EModalSettingRoutes.SettingOneKeyIdPersonalInfo,
+    component: OneKeyIdPersonalInfoPage,
+  },
+  {
+    name: EModalSettingRoutes.SettingOneKeyIdSignInSecurity,
+    component: OneKeyIdSignInSecurityPage,
+  },
+  {
+    name: EModalSettingRoutes.SettingOneKeyIdKeylessWallet,
+    component: OneKeyIdKeylessWalletPage,
   },
   ...(ModalAddressBookRouter as IModalFlowNavigatorConfig<
     EModalSettingRoutes | EModalAddressBookRoutes,

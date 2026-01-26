@@ -37,6 +37,10 @@ export enum EScopeName {
   perp = 'perp',
   prime = 'prime',
   cloudSync = 'cloudSync',
+  ipTable = 'ipTable',
+  networkDoctor = 'networkDoctor',
+  onboarding = 'onboarding',
+  universalSearch = 'universalSearch',
 }
 export interface IScope {
   getName: () => EScopeName;

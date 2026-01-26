@@ -3,6 +3,8 @@ import { useEffect, useRef } from 'react';
 
 import { createChart } from 'lightweight-charts';
 
+import { useTheme } from '@onekeyhq/components';
+
 import { createChartDom, updateChartDom } from './chartUtils';
 
 import type { IChartViewAdapterProps } from './chartUtils';
@@ -16,6 +18,8 @@ const ChartViewAdapter: FC<IChartViewAdapterProps> = ({
   height,
 }) => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
+  const theme = useTheme();
+  const textSubduedColor = theme.textSubdued.val;
 
   useEffect(() => {
     if (!chartContainerRef.current) {
@@ -26,6 +30,7 @@ const ChartViewAdapter: FC<IChartViewAdapterProps> = ({
       chartContainerRef.current,
       onHover,
       height,
+      textSubduedColor,
     );
 
     return () => {
@@ -33,7 +38,7 @@ const ChartViewAdapter: FC<IChartViewAdapterProps> = ({
       chart.remove();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [textSubduedColor]);
 
   useEffect(() => {
     updateChartDom({

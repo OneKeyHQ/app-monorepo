@@ -3,16 +3,9 @@ import RNCloudFs from 'react-native-cloud-fs';
 
 // import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
+import { GoogleSignInConfigure } from '../consts/googleSignConsts';
 import googlePlayService from '../googlePlayService/googlePlayService';
 import platformEnv from '../platformEnv';
-
-const GoogleSignInConfigure = {
-  scopes: ['https://www.googleapis.com/auth/drive.file'],
-  webClientId: platformEnv.isDev
-    ? '117481276073-fs7omuqsmvgtg6bci3ja1gvo03g0d984.apps.googleusercontent.com' // Dev
-    : '94391474021-ffaspa4ikjqpqvn5ndplqobvuvhnj8v3.apps.googleusercontent.com', // Pro
-  offlineAccess: true,
-};
 
 export function backupPlatform() {
   return { cloudName: 'Google Drive', platform: 'Google' };
@@ -25,15 +18,20 @@ export async function isAvailable(): Promise<boolean> {
 export async function loginIfNeeded(
   showSignInDialog: boolean,
 ): Promise<boolean> {
-  const signedIn = await GoogleSignin.isSignedIn();
-  if (signedIn) {
+  const hasPreviousSignIn = GoogleSignin.hasPreviousSignIn();
+  if (hasPreviousSignIn) {
     try {
-      return await RNCloudFs.loginIfNeeded();
-    } catch (error) {
-      // debugLogger.cloudBackup.error(error);
+      GoogleSignin.configure(GoogleSignInConfigure);
+      const response = await GoogleSignin.signInSilently();
+      if (response.type === 'success') {
+        return await RNCloudFs.loginIfNeeded();
+      }
+    } catch (_error) {
+      // debugLogger.cloudBackup.error(_error);
       return Promise.resolve(false);
     }
-  } else if (showSignInDialog) {
+  }
+  if (showSignInDialog) {
     GoogleSignin.configure(GoogleSignInConfigure);
     await GoogleSignin.signIn();
     return RNCloudFs.loginIfNeeded();
@@ -60,8 +58,9 @@ export function sync(): Promise<boolean> {
 
 export async function listFiles(target: string) {
   await loginIfNeeded(false);
-  const { files }: { files: Array<{ isFile: boolean; name: string }> } =
-    await RNCloudFs.listFiles({ scope: 'hidden', targetPath: target });
+  const { files } = await RNCloudFs.listFiles({
+    scope: 'hidden',
+  });
   return files.map(({ name }) => name.replace(target, ''));
 }
 
@@ -71,7 +70,6 @@ async function getFileObject(
   const { files }: { files: Array<{ id: string; name: string }> } =
     await RNCloudFs.listFiles({
       scope: 'hidden',
-      targetPath: target,
     });
   return files.find(({ name }) => target === name);
 }
@@ -101,7 +99,6 @@ export async function uploadToCloud(
 ): Promise<void> {
   await loginIfNeeded(false);
   await RNCloudFs.copyToCloud({
-    mimeType: null,
     scope: 'hidden',
     sourcePath: { path: source },
     targetPath: target,

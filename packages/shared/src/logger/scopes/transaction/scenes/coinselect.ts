@@ -1,7 +1,11 @@
+import type { IEncodedTxAda } from '@onekeyhq/core/src/chains/ada/types';
+
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal } from '../../../base/decorators';
 
-import type { ICoinSelectParams } from '@onekeyfe/coinselect/witness';
+import type coinSelectWitness from '@onekeyfe/coinselect/witness';
+
+type ICoinSelectParams = Parameters<typeof coinSelectWitness>[0];
 
 export class CoinSelectScene extends BaseScene {
   @LogToLocal()
@@ -22,5 +26,10 @@ export class CoinSelectScene extends BaseScene {
           }
         : undefined,
     };
+  }
+
+  @LogToLocal()
+  public adaEncodedTx(encodedTx: IEncodedTxAda) {
+    return encodedTx;
   }
 }

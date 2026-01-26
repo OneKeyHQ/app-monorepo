@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { memo, useMemo } from 'react';
 
 import { Stack, XStack, useMedia } from '@onekeyhq/components';
 import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
@@ -82,7 +82,7 @@ const RIGHT_SIDE_ITEMS: IItemType[] = [
 ];
 
 // Component to render the dapp logos on either side
-function DappSideDisplay({
+function BaseDappSideDisplay({
   items,
   shuffledDapps,
   sideStackProps,
@@ -115,6 +115,8 @@ function DappSideDisplay({
   );
 }
 
+const DappSideDisplay = memo(BaseDappSideDisplay);
+
 export function Welcome({
   banner,
   discoveryData,
@@ -129,26 +131,37 @@ export function Welcome({
 
   // Create a randomized array of dapps
   const shuffledDapps = useMemo(
-    () => [...dapps].sort(() => Math.random() - 0.5),
+    () => [...dapps].toSorted(() => Math.random() - 0.5),
     [dapps],
   );
 
   // Shared stack props for the side containers
-  const sideStackProps = {
-    $sm: { display: 'none' as const },
-    flex: 1,
-    width: '$50',
-    height: '100%',
-  };
+  const sideStackProps = useMemo(
+    () => ({
+      $sm: { display: 'none' as const },
+      flex: 1,
+      width: '$50',
+      height: '100%',
+    }),
+    [],
+  );
 
   // Extract both platform and media conditions into the showDefaultTitle variable
-  const showDefaultTitle =
-    media.gtSm || platformEnv.isExtension || platformEnv.isWeb;
+  const showDefaultTitle = useMemo(
+    () => media.gtSm || platformEnv.isExtension || platformEnv.isWeb,
+    [media.gtSm],
+  );
+
+  // Hide center content when no banner and md size
+  const showCenterContent = useMemo(
+    () => !!banner || showDefaultTitle,
+    [banner, showDefaultTitle],
+  );
 
   return (
     <XStack width="100%" $gtSm={{ justifyContent: 'center' }}>
       {/* Left side with logo items */}
-      {!platformEnv.isNativeAndroid ? (
+      {!platformEnv.isNative ? (
         <ReviewControl>
           <DappSideDisplay
             items={LEFT_SIDE_ITEMS}
@@ -158,34 +171,38 @@ export function Welcome({
         </ReviewControl>
       ) : null}
 
-      {/* Center content */}
-      <Stack
-        alignItems="center"
-        justifyContent="center"
-        width="auto"
-        position="relative"
-        gap="$5"
-        px="$5"
-        py="$6"
-        $gtMd={{
-          minHeight: '$60',
-        }}
-        $sm={{
-          width: '100%',
-        }}
-      >
-        {banner || (showDefaultTitle && <DefaultTitle />)}
-        <SearchInput />
-      </Stack>
+      {/* Center content - hidden when no banner and md size */}
+      {showCenterContent ? (
+        <Stack
+          alignItems="center"
+          justifyContent="center"
+          width="auto"
+          position="relative"
+          gap="$5"
+          px="$5"
+          py="$6"
+          $gtMd={{
+            minHeight: '$60',
+          }}
+          $sm={{
+            width: '100%',
+          }}
+        >
+          {banner || (showDefaultTitle && <DefaultTitle />)}
+          {!platformEnv.isNative ? <SearchInput /> : null}
+        </Stack>
+      ) : null}
 
       {/* Right side with logo items */}
-      <ReviewControl>
-        <DappSideDisplay
-          items={RIGHT_SIDE_ITEMS}
-          shuffledDapps={shuffledDapps}
-          sideStackProps={sideStackProps}
-        />
-      </ReviewControl>
+      {!platformEnv.isNative ? (
+        <ReviewControl>
+          <DappSideDisplay
+            items={RIGHT_SIDE_ITEMS}
+            shuffledDapps={shuffledDapps}
+            sideStackProps={sideStackProps}
+          />
+        </ReviewControl>
+      ) : null}
     </XStack>
   );
 }

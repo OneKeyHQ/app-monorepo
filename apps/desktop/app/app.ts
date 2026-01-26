@@ -44,7 +44,7 @@ import {
   getMetadata,
 } from './bundle';
 import { ipcMessageKeys } from './config';
-import { ETranslations, i18nText, initLocale } from './i18n';
+import { ElectronTranslations, i18nText, initLocale } from './i18n';
 import { registerShortcuts, unregisterShortcuts } from './libs/shortcuts';
 import * as store from './libs/store';
 import initProcess from './process';
@@ -55,6 +55,7 @@ import {
 } from './resoucePath';
 import { initSentry } from './sentry';
 import { startServices } from './service';
+import { setMainWindowForOAuthServer } from './service/oauthLocalServer/oauthLocalServer';
 
 logger.initialize();
 logger.transports.file.maxSize = 1024 * 1024 * 10;
@@ -142,7 +143,7 @@ const initMenu = () => {
       submenu: [
         {
           role: isMac ? 'about' : undefined,
-          label: i18nText(ETranslations.menu_about_onekey_wallet),
+          label: i18nText(ElectronTranslations.menu_about_onekey_wallet),
           click: isMac
             ? undefined
             : () => {
@@ -156,7 +157,7 @@ const initMenu = () => {
         },
         { type: 'separator' },
         !process.mas && {
-          label: i18nText(ETranslations.menu_check_for_updates),
+          label: i18nText(ElectronTranslations.menu_check_for_updates),
           click: () => {
             showMainWindow();
             const safelyMainWindow = getSafelyMainWindow();
@@ -167,7 +168,7 @@ const initMenu = () => {
         },
         { type: 'separator' },
         {
-          label: i18nText(ETranslations.menu_preferences),
+          label: i18nText(ElectronTranslations.menu_preferences),
           accelerator: 'CmdOrCtrl+,',
           click: () => {
             const safelyMainWindow = getSafelyMainWindow();
@@ -182,7 +183,7 @@ const initMenu = () => {
         },
         { type: 'separator' },
         {
-          label: i18nText(ETranslations.menu_lock_now),
+          label: i18nText(ElectronTranslations.menu_lock_now),
           accelerator: 'CmdOrCtrl+Shift+L',
           click: () => {
             showMainWindow();
@@ -196,42 +197,42 @@ const initMenu = () => {
         isMac && {
           role: 'hide',
           accelerator: 'Alt+CmdOrCtrl+H',
-          label: i18nText(ETranslations.menu_hide_onekey_wallet),
+          label: i18nText(ElectronTranslations.menu_hide_onekey_wallet),
         },
         isMac && {
           role: 'unhide',
-          label: i18nText(ETranslations.menu_show_all),
+          label: i18nText(ElectronTranslations.menu_show_all),
         },
         { type: 'separator' },
         {
           role: 'quit',
           accelerator: 'CmdOrCtrl+Q',
-          label: i18nText(ETranslations.menu_quit_onekey_wallet),
+          label: i18nText(ElectronTranslations.menu_quit_onekey_wallet),
         },
       ].filter(Boolean),
     },
     {
-      label: i18nText(ETranslations.global_edit),
+      label: i18nText(ElectronTranslations.global_edit),
       submenu: [
-        { role: 'undo', label: i18nText(ETranslations.menu_undo) },
-        { role: 'redo', label: i18nText(ETranslations.menu_redo) },
+        { role: 'undo', label: i18nText(ElectronTranslations.menu_undo) },
+        { role: 'redo', label: i18nText(ElectronTranslations.menu_redo) },
         { type: 'separator' },
-        { role: 'cut', label: i18nText(ETranslations.menu_cut) },
-        { role: 'copy', label: i18nText(ETranslations.global_copy) },
-        { role: 'paste', label: i18nText(ETranslations.menu_paste) },
+        { role: 'cut', label: i18nText(ElectronTranslations.menu_cut) },
+        { role: 'copy', label: i18nText(ElectronTranslations.global_copy) },
+        { role: 'paste', label: i18nText(ElectronTranslations.menu_paste) },
         { type: 'separator' },
         {
           role: 'delete',
-          label: i18nText(ETranslations.global_delete),
+          label: i18nText(ElectronTranslations.global_delete),
         },
         {
           role: 'selectAll',
-          label: i18nText(ETranslations.menu_select_all),
+          label: i18nText(ElectronTranslations.menu_select_all),
         },
       ],
     },
     {
-      label: i18nText(ETranslations.menu_view),
+      label: i18nText(ElectronTranslations.menu_view),
       submenu: [
         ...(isDev || store.getDevTools()
           ? [
@@ -249,46 +250,52 @@ const initMenu = () => {
           : []),
         {
           role: 'resetZoom',
-          label: i18nText(ETranslations.menu_actual_size),
+          label: i18nText(ElectronTranslations.menu_actual_size),
           accelerator: 'CmdOrCtrl+0',
         },
         isMac
           ? {
               role: 'zoomIn',
-              label: i18nText(ETranslations.menu_zoom_in),
+              label: i18nText(ElectronTranslations.menu_zoom_in),
             }
           : {
               role: 'zoomIn',
-              label: i18nText(ETranslations.menu_zoom_in),
+              label: i18nText(ElectronTranslations.menu_zoom_in),
               accelerator: 'CmdOrCtrl+Shift+]',
             },
         {
           role: 'zoomOut',
-          label: i18nText(ETranslations.menu_zoom_out),
+          label: i18nText(ElectronTranslations.menu_zoom_out),
           accelerator: isMac ? 'CmdOrCtrl+-' : 'CmdOrCtrl+Shift+[',
         },
         { type: 'separator' },
         {
           role: 'togglefullscreen',
-          label: i18nText(ETranslations.menu_toggle_full_screen),
+          label: i18nText(ElectronTranslations.menu_toggle_full_screen),
         },
       ],
     },
     {
-      label: i18nText(ETranslations.menu_window),
+      label: i18nText(ElectronTranslations.menu_window),
       submenu: [
-        { role: 'minimize', label: i18nText(ETranslations.menu_minimize) },
-        isMac && { role: 'zoom', label: i18nText(ETranslations.menu_zoom) },
+        {
+          role: 'minimize',
+          label: i18nText(ElectronTranslations.menu_minimize),
+        },
+        isMac && {
+          role: 'zoom',
+          label: i18nText(ElectronTranslations.menu_zoom),
+        },
         ...(isMac
           ? [
               { type: 'separator' },
               {
                 role: 'front',
-                label: i18nText(ETranslations.menu_bring_all_to_front),
+                label: i18nText(ElectronTranslations.menu_bring_all_to_front),
               },
               { type: 'separator' },
               {
-                label: i18nText(ETranslations.menu_window),
+                label: i18nText(ElectronTranslations.menu_window),
                 click: () => {
                   showMainWindow();
                 },
@@ -299,17 +306,17 @@ const initMenu = () => {
     },
     {
       role: 'help',
-      label: i18nText(ETranslations.menu_help),
+      label: i18nText(ElectronTranslations.menu_help),
       submenu: [
         {
-          label: i18nText(ETranslations.menu_visit_help_center),
+          label: i18nText(ElectronTranslations.menu_visit_help_center),
           click: async () => {
             await shell.openExternal('https://help.onekey.so');
           },
         },
         { type: 'separator' },
         {
-          label: i18nText(ETranslations.menu_official_website),
+          label: i18nText(ElectronTranslations.menu_official_website),
           click: async () => {
             await shell.openExternal('https://onekey.so');
           },
@@ -340,12 +347,12 @@ const initMenu = () => {
     showLookUpSelection: false,
     showSelectAll: true,
     labels: {
-      cut: i18nText(ETranslations.menu_cut),
-      copy: i18nText(ETranslations.global_copy),
-      paste: i18nText(ETranslations.menu_paste),
-      selectAll: i18nText(ETranslations.menu_select_all),
-      copyImage: i18nText(ETranslations.menu__copy_image),
-      saveImageAs: i18nText(ETranslations.menu__save_image_as),
+      cut: i18nText(ElectronTranslations.menu_cut),
+      copy: i18nText(ElectronTranslations.global_copy),
+      paste: i18nText(ElectronTranslations.menu_paste),
+      selectAll: i18nText(ElectronTranslations.menu_select_all),
+      copyImage: i18nText(ElectronTranslations.menu__copy_image),
+      saveImageAs: i18nText(ElectronTranslations.menu__save_image_as),
     },
   });
 };
@@ -388,19 +395,23 @@ function handleDeepLinkUrl(
   };
 
   const sendEventData = () => {
-    isAppReady = true;
-
     const safelyMainWindow = getSafelyMainWindow();
     if (safelyMainWindow) {
       showMainWindow();
-      if (process.env.NODE_ENV !== 'production') {
+
+      // Cold startup: cache the deep link for later processing
+      if (!isAppReady) {
         safelyMainWindow?.webContents.send(
           ipcMessageKeys.OPEN_DEEP_LINK_URL,
           eventData,
         );
       }
+
+      // Hot startup: send directly to registered listener
       mainWindow?.webContents.send(ipcMessageKeys.EVENT_OPEN_URL, eventData);
     }
+
+    isAppReady = true;
   };
   if (isAppReady && mainWindow) {
     sendEventData();
@@ -474,7 +485,7 @@ async function createMainWindow() {
     title: APP_TITLE_NAME,
     titleBarStyle: 'hidden',
     titleBarOverlay: !isMac,
-    trafficLightPosition: { x: 10, y: 18 },
+    trafficLightPosition: { x: 20, y: 20 },
     autoHideMenuBar: true,
     frame: true,
     resizable: true,
@@ -552,6 +563,9 @@ async function createMainWindow() {
 
   void browserWindow.loadURL(src);
 
+  // Set main window reference for OAuth server
+  setMainWindowForOAuthServer(browserWindow);
+
   // Protocol handler for win32
   if (isWin || isMac) {
     // Keep only command line / deep linked arguments
@@ -595,8 +609,11 @@ async function createMainWindow() {
 
   // dom-ready is fired after ipcMain:app/ready
   browserWindow.webContents.on('dom-ready', () => {
-    isAppReady = true;
     logger.info('set isAppReady on browserWindow dom-ready', isAppReady);
+    // Emit ready event first, so pending deep link handlers can execute
+    // before isAppReady is set to true (which affects the cache logic)
+    emitter.emit('ready');
+    isAppReady = true;
   });
 
   browserWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -648,7 +665,7 @@ async function createMainWindow() {
     safelyBrowserWindow?.webContents.send(ipcMessageKeys.APP_STATE, undefined);
     registerShortcuts((event) => {
       const w = getSafelyBrowserWindow();
-      w?.webContents.send(ipcMessageKeys.APP_SHORCUT, event);
+      w?.webContents.send(ipcMessageKeys.APP_SHORTCUT, event);
     });
   });
 
@@ -664,7 +681,7 @@ async function createMainWindow() {
     safelyBrowserWindow?.webContents.send(ipcMessageKeys.APP_STATE, state);
     registerShortcuts((event) => {
       const w = getSafelyBrowserWindow();
-      w?.webContents.send(ipcMessageKeys.APP_SHORCUT, event);
+      w?.webContents.send(ipcMessageKeys.APP_SHORTCUT, event);
     });
   });
 
@@ -730,14 +747,6 @@ async function createMainWindow() {
   };
 
   // WebUSB permission handlers - Enable WebUSB support for hardware wallet connections
-  browserWindow.webContents.session.setPermissionCheckHandler(
-    (webContents, permission) => {
-      if (permission === 'usb') {
-        return true;
-      }
-      return false;
-    },
-  );
 
   browserWindow.webContents.session.setDevicePermissionHandler((details) => {
     if (details.deviceType === 'usb') {
@@ -814,10 +823,17 @@ async function createMainWindow() {
         // resolve iframe path
         if (isJsSdkFile && isIFrameHtml) {
           if (useJsBundle && indexHtmlPath && bundleDirPath) {
-            const key = path.join('static', 'js-sdk', 'iframe.html');
+            let key = path.join('static', 'js-sdk', 'iframe.html');
             const filePath = path.join(bundleDirPath, key);
+            if (isWin) {
+              key = key.replace(/\\/g, '/');
+            }
             const sha512 = metadata[key];
             if (!checkFileSha512(filePath, sha512)) {
+              logger.info(
+                'checkFileHash error in js-sdk:',
+                `${key}:  ${filePath} not matched ${sha512}`,
+              );
               throw new OneKeyLocalError(`File ${key} sha512 mismatch`);
             }
             callback(filePath);
@@ -840,7 +856,15 @@ async function createMainWindow() {
         const url = request.url.substring(PROTOCOL.length + 1);
         if (useJsBundle && indexHtmlPath && bundleDirPath) {
           const decodedUrl = decodeURIComponent(url);
-          if (!decodedUrl.includes(bundleDirPath)) {
+          if (decodedUrl.includes(bundleDirPath)) {
+            const filePath = checkFileHash({
+              bundleDirPath,
+              metadata,
+              driveLetter,
+              url: decodedUrl.replace(bundleDirPath, ''),
+            });
+            callback(filePath);
+          } else {
             const filePath = checkFileHash({
               bundleDirPath,
               metadata,
@@ -848,9 +872,7 @@ async function createMainWindow() {
               url: decodedUrl,
             });
             callback(filePath);
-            return;
           }
-          callback(indexHtmlPath);
         } else {
           callback(path.join(__dirname, '..', 'build', url));
         }

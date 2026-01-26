@@ -11,7 +11,6 @@ import {
   SizableText,
   XStack,
   YStack,
-  getFontSize,
   useIsKeyboardShown,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -172,17 +171,16 @@ export const TradingFormInput = memo(
         >
           <Input
             flex={1}
-            h={36}
-            size="medium"
+            h={platformEnv.isNativeAndroid ? 40 : 36}
+            size="small"
             value={value}
             onChangeText={handleInputChange}
             onFocus={onFocus}
             placeholder={placeholder}
             keyboardType={keyboardType}
             disabled={disabled}
-            fontSize={getFontSize('$bodyMd')}
-            fontWeight={500}
             bg="$bgSubdued"
+            allowFontScaling={false}
             containerProps={{
               flex: 1,
               borderWidth: 0,
@@ -240,7 +238,7 @@ export const TradingFormInput = memo(
       >
         <YStack>
           <Input
-            h={40}
+            h={32}
             placeholder={placeholder}
             textAlign="right"
             leftAddOnProps={{

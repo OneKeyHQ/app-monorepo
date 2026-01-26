@@ -64,11 +64,33 @@ export class Analytics {
     }
   }
 
-  private lazyAxios() {
+  private async lazyAxios() {
     if (!this.request) {
-      this.request = Axios.create({
+      const baseConfig = {
         baseURL: this.baseURL,
         timeout: 30 * 1000,
+      };
+
+      // Lazy load IP Table adapter to avoid circular dependencies in tests
+      let ipTableAdapter;
+      try {
+        const { isSupportIpTablePlatform } = await import(
+          '../utils/ipTableUtils'
+        );
+        if (isSupportIpTablePlatform()) {
+          const { createIpTableAdapter } = await import(
+            '../request/helpers/ipTableAdapter'
+          );
+          ipTableAdapter = createIpTableAdapter(baseConfig);
+        }
+      } catch (error) {
+        // Ignore errors in test environment or when modules are not available
+        console.warn('[Analytics] Failed to load IP Table adapter:', error);
+      }
+
+      this.request = Axios.create({
+        ...baseConfig,
+        adapter: ipTableAdapter,
       });
     }
     return this.request;
@@ -124,14 +146,14 @@ export class Analytics {
     } as Record<string, string>;
     if (
       !platformEnv.isNative &&
-      // eslint-disable-next-line unicorn/prefer-global-this
+      // oxlint-disable-next-line unicorn/prefer-global-this
       typeof window !== 'undefined' &&
-      // eslint-disable-next-line unicorn/prefer-global-this
+      // oxlint-disable-next-line unicorn/prefer-global-this
       'location' in window
     ) {
       event.currentUrl = globalThis.location.href;
     }
-    const axios = this.lazyAxios();
+    const axios = await this.lazyAxios();
     await axios.post(TRACK_EVENT_PATH, {
       eventName,
       eventProps: event,
@@ -145,7 +167,7 @@ export class Analytics {
     ) {
       return;
     }
-    const axios = this.lazyAxios();
+    const axios = await this.lazyAxios();
     await axios.post(TRACK_ATTRIBUTES_PATH, {
       distinctId: this.instanceId,
       attributes: {
@@ -159,6 +181,7 @@ export class Analytics {
     walletCount?: number;
     appWalletCount?: number;
     hwWalletCount?: number;
+    keylessWalletCount?: number;
   }) {
     if (this.instanceId && this.baseURL) {
       void this.requestUserProfile(attributes);

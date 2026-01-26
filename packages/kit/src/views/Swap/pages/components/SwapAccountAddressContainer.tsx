@@ -103,6 +103,7 @@ const SwapAccountAddressContainer = ({
         activeToAccount.vaultSettings?.mergeDeriveAssetsEnabled &&
         !!toToken) ? (
         <AddressTypeSelector
+          refreshOnOpen
           placement="bottom-start"
           networkId={
             type === ESwapDirectionType.FROM

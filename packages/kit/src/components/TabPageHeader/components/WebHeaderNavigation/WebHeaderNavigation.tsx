@@ -1,13 +1,26 @@
 import { useCallback, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 
+import { CommonActions } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
-import { OneKeyLogo, XStack, useOnRouterChange } from '@onekeyhq/components';
+import {
+  OneKeyLogo,
+  XStack,
+  rootNavigationRef,
+  useOnRouterChange,
+} from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { usePerpTabConfig } from '@onekeyhq/kit/src/hooks/usePerpTabConfig';
 import { useToReferFriendsModalByRootNavigation } from '@onekeyhq/kit/src/hooks/useReferFriends';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  ERootRoutes,
+  ETabEarnRoutes,
+  ETabMarketRoutes,
+  ETabRoutes,
+} from '@onekeyhq/shared/src/routes';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { HeaderNavigation } from './HeaderNavigation';
 
@@ -17,6 +30,31 @@ interface IUseWebHeaderNavigationParams {
   onNavigationChange?: (key: string) => void;
   activeNavigationKey?: string;
 }
+
+const resolveKey = (key: string, perpTabShowWeb: boolean) => {
+  switch (key) {
+    case 'market':
+      return ETabRoutes.Market;
+    case 'perps':
+      return perpTabShowWeb ? ETabRoutes.WebviewPerpTrade : ETabRoutes.Perp;
+    case 'defi':
+      return ETabRoutes.Earn;
+    case 'swap':
+      return ETabRoutes.Swap;
+    default:
+      break;
+  }
+};
+
+const backToTabHomePage = async (depth: number) => {
+  if (depth > 0) {
+    if (rootNavigationRef.current?.canGoBack) {
+      rootNavigationRef.current?.goBack();
+      await timerUtils.wait(50);
+      await backToTabHomePage(depth - 1);
+    }
+  }
+};
 
 function useWebHeaderNavigation({
   onNavigationChange,
@@ -29,7 +67,7 @@ function useWebHeaderNavigation({
 
   useOnRouterChange((state) => {
     if (!state) {
-      setCurrentTab(ETabRoutes.Home);
+      setCurrentTab(null);
       return;
     }
     const rootState = state?.routes.find(
@@ -49,41 +87,94 @@ function useWebHeaderNavigation({
       case ETabRoutes.Market:
         return 'market';
       case ETabRoutes.Perp:
+      case ETabRoutes.WebviewPerpTrade:
         return 'perps';
       case ETabRoutes.Earn:
         return 'defi';
       case ETabRoutes.Swap:
         return 'swap';
+      case ETabRoutes.ReferFriends:
+        return 'commission';
       default:
-        return undefined;
+        return null;
     }
   }, [controlledActiveKey, currentTab]);
+
+  const { perpDisabled, perpTabShowWeb } = usePerpTabConfig();
 
   const handleNavigationChange = useCallback(
     (key: string) => {
       onNavigationChange?.(key);
 
-      switch (key) {
-        case 'market':
-          navigation.switchTab(ETabRoutes.Market);
-          break;
-        case 'perps':
-          navigation.switchTab(ETabRoutes.Perp);
-          break;
-        case 'defi':
-          navigation.switchTab(ETabRoutes.Earn);
-          break;
-        case 'swap':
-          navigation.switchTab(ETabRoutes.Swap);
-          break;
-        case 'commission':
-          void toReferFriendsModal();
-          break;
-        default:
-          break;
+      const tabKey = resolveKey(key, !!perpTabShowWeb);
+
+      const rootState = rootNavigationRef.current?.getRootState();
+
+      if (rootState) {
+        const mainRouteState = rootState.routes?.[rootState.index]?.state;
+        if (mainRouteState) {
+          const tabRoute =
+            mainRouteState.routes[
+              mainRouteState?.index === undefined ? -1 : mainRouteState?.index
+            ];
+          console.log('tabRoute', tabRoute);
+          if (tabRoute?.name === tabKey) {
+            const stackDepths = tabRoute.state?.index || 0;
+            if (stackDepths > 0) {
+              void backToTabHomePage(stackDepths);
+            } else {
+              const tabHomeRouteName = tabRoute.state?.routes[0]?.name;
+              if (tabHomeRouteName === 'commission') {
+                return;
+              }
+              if (tabKey && tabHomeRouteName !== tabKey) {
+                let tabName = '';
+                switch (tabKey) {
+                  case ETabRoutes.Market:
+                    tabName = ETabMarketRoutes.TabMarket;
+                    break;
+                  case ETabRoutes.Earn:
+                    tabName = ETabEarnRoutes.EarnHome;
+                    break;
+                  default:
+                    break;
+                }
+                if (tabName) {
+                  navigation.dispatch(
+                    CommonActions.reset({
+                      index: 0,
+                      routes: [
+                        {
+                          name: tabName,
+                        },
+                      ],
+                    }),
+                  );
+                }
+              }
+            }
+            return;
+          }
+        }
+      }
+
+      if (key === 'commission') {
+        void toReferFriendsModal();
+        return;
+      }
+
+      if (key === 'defi') {
+        navigation.switchTab(ETabRoutes.Earn, {
+          screen: ETabEarnRoutes.EarnHome,
+        });
+        return;
+      }
+
+      if (tabKey) {
+        navigation.switchTab(tabKey as ETabRoutes);
       }
     },
-    [navigation, onNavigationChange, toReferFriendsModal],
+    [navigation, onNavigationChange, perpTabShowWeb, toReferFriendsModal],
   );
 
   const navigationItems: IHeaderNavigationItem[] = useMemo(
@@ -92,10 +183,14 @@ function useWebHeaderNavigation({
         key: 'market',
         label: intl.formatMessage({ id: ETranslations.global_market }),
       },
-      {
-        key: 'perps',
-        label: intl.formatMessage({ id: ETranslations.global_perp }),
-      },
+      ...(!perpDisabled
+        ? [
+            {
+              key: 'perps',
+              label: intl.formatMessage({ id: ETranslations.global_perp }),
+            },
+          ]
+        : []),
       {
         key: 'defi',
         label: intl.formatMessage({ id: ETranslations.global_earn }),
@@ -111,7 +206,7 @@ function useWebHeaderNavigation({
         }),
       },
     ],
-    [intl],
+    [intl, perpDisabled],
   );
 
   return {
@@ -137,18 +232,13 @@ export function WebHeaderNavigation({
     useWebHeaderNavigation(rest);
 
   return (
-    <XStack ai="center" gap="$4" width="100%" jc="space-between">
-      {leftContent ?? (
-        <XStack ai="center" gap="$4">
-          <OneKeyLogo px="$0" />
-          <HeaderNavigation
-            items={navigationItems}
-            activeKey={activeNavigationKey}
-            onTabChange={handleNavigationChange}
-          />
-        </XStack>
-      )}
-      {children ?? rightContent ?? null}
+    <XStack ai="center" gap="$4">
+      <OneKeyLogo px="$0" />
+      <HeaderNavigation
+        items={navigationItems}
+        activeKey={activeNavigationKey}
+        onTabChange={handleNavigationChange}
+      />
     </XStack>
   );
 }

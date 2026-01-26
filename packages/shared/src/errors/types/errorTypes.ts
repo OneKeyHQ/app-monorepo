@@ -21,6 +21,7 @@ export enum EOneKeyErrorClassNames {
   UnknownHardwareError = 'UnknownHardwareError',
   OneKeyServerApiError = 'OneKeyServerApiError',
   LocalDBRecordNotFoundError = 'LocalDBRecordNotFoundError',
+  PrimeTransferImportCancelledError = 'PrimeTransferImportCancelledError',
   OneKeyValidatorError = 'OneKeyValidatorError',
   OneKeyValidatorTip = 'OneKeyValidatorTip',
   OneKeyAbortError = 'OneKeyAbortError',
@@ -32,6 +33,8 @@ export enum EOneKeyErrorClassNames {
   OneKeyAlreadyExistWalletError = 'OneKeyAlreadyExistWalletError',
   PasswordPromptDialogCancel = 'PasswordPromptDialogCancel',
   PrimeLoginDialogCancelError = 'PrimeLoginDialogCancelError',
+  PrimeSendEmailOTPCancelError = 'PrimeSendEmailOTPCancelError',
+  OAuthLoginCancelError = 'OAuthLoginCancelError',
   OneKeyErrorPrimeMasterPasswordInvalid = 'OneKeyErrorPrimeMasterPasswordInvalid',
   VaultKeyringNotDefinedError = 'VaultKeyringNotDefinedError',
   OneKeyErrorInsufficientNativeBalance = 'OneKeyErrorInsufficientNativeBalance',
@@ -43,9 +46,11 @@ export enum EOneKeyErrorClassNames {
   HardwareUserCancelFromOutside = 'HardwareUserCancelFromOutside',
   FirmwareUpdateExit = 'FirmwareUpdateExit',
   FirmwareUpdateTasksClear = 'FirmwareUpdateTasksClear',
+  IncorrectPinError = 'IncorrectPinError',
   WebDeviceNotFoundOrNeedsPermission = 'WebDeviceNotFoundOrNeedsPermission',
   DeviceNotOpenedPassphrase = 'DeviceNotOpenedPassphrase',
   DeviceNotFound = 'DeviceNotFound',
+  KeylessDataCorruptedError = 'KeylessDataCorruptedError',
 }
 
 export type IOneKeyErrorI18nInfo = Record<string | number, string | number>;
@@ -88,6 +93,7 @@ export interface IOneKeyError<
   // ---server props
   requestId?: string;
   disableFallbackMessage?: boolean;
+  httpStatusCode?: number; // HTTP status code for error deduplication
 }
 
 export type IOneKeyHardwareErrorPayload = {

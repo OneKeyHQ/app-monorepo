@@ -12,6 +12,7 @@ import {
 import { EValidateUrlEnum } from '@onekeyhq/shared/types/dappConnection';
 
 import { webviewRefs } from '../../utils/explorerUtils';
+import { showTabBar } from '../../utils/tabBarUtils';
 import BlockAccessView from '../BlockAccessView';
 
 import type { IWebTab } from '../../types';
@@ -20,7 +21,10 @@ import type {
   WebViewNavigation,
   WebViewProps,
 } from 'react-native-webview';
-import type { WebViewNavigationEvent } from 'react-native-webview/lib/WebViewTypes';
+import type {
+  ShouldStartLoadRequest,
+  WebViewNavigationEvent,
+} from 'react-native-webview/lib/WebViewTypes';
 
 type IWebContentProps = IWebTab &
   WebViewProps & {
@@ -105,9 +109,12 @@ function WebContent({
   );
 
   const onShouldStartLoadWithRequest = useCallback(
-    (navigationStateChangeEvent: WebViewNavigation) => {
-      const { url: navUrl } = navigationStateChangeEvent;
-      const validateState = validateWebviewSrc(navUrl);
+    (navigationStateChangeEvent: ShouldStartLoadRequest) => {
+      const { url: navUrl, isTopFrame } = navigationStateChangeEvent;
+      const validateState = validateWebviewSrc({
+        url: navUrl,
+        isTopFrame,
+      });
       if (validateState === EValidateUrlEnum.Valid) {
         return true;
       }
@@ -155,10 +162,19 @@ function WebContent({
         onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
         onNavigationStateChange={onNavigationStateChange}
         onOpenWindow={(e) => {
-          void gotoSite({
-            url: e.nativeEvent.targetUrl,
-            siteMode,
+          const { targetUrl } = e.nativeEvent;
+          const validateState = validateWebviewSrc({
+            url: targetUrl,
+            isTopFrame: true,
           });
+          if (validateState === EValidateUrlEnum.ValidDeeplink) {
+            handleDeepLinkUrl({ url: targetUrl });
+          } else {
+            void gotoSite({
+              url: targetUrl,
+              siteMode,
+            });
+          }
         }}
         allowpopups
         onLoadStart={onLoadStart}
@@ -198,6 +214,7 @@ function WebContent({
           onCloseTab={() => {
             closeWebTab({ tabId: id, entry: 'BlockView' });
             setCurrentWebTab(null);
+            showTabBar();
           }}
           // onContinue={() => {
           //   addUrlToPhishingCache({ url: phishingUrlRef.current });

@@ -1,10 +1,13 @@
 import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
+  BaseUSDC,
+  BinanceSmartChainLISTA,
   BinanceSmartChainUSDT,
   EMPTY_NATIVE_TOKEN_ADDRESS,
   EthereumCbBTC,
   EthereumDAI,
+  EthereumMORPHO,
   EthereumPol,
   EthereumUSDC,
   EthereumUSDF,
@@ -87,7 +90,15 @@ const stakingConfig: IStakingConfig = {
         },
       },
       [EEarnProviderEnum.Morpho]: {
-        supportedSymbols: ['USDC', 'USDT', 'DAI', 'WETH', 'cbBTC', 'WBTC'],
+        supportedSymbols: [
+          'USDC',
+          'USDT',
+          'DAI',
+          'WETH',
+          'cbBTC',
+          'WBTC',
+          'MORPHO',
+        ],
         configs: {
           USDC: {
             enabled: true,
@@ -125,13 +136,19 @@ const stakingConfig: IStakingConfig = {
             displayProfit: true,
             stakingWithApprove: true,
           },
+          MORPHO: {
+            enabled: true,
+            tokenAddress: EthereumMORPHO,
+            displayProfit: true,
+            stakingWithApprove: true,
+          },
         },
       },
       [EEarnProviderEnum.Falcon]: {
         supportedSymbols: ['USDf'],
         configs: {
           USDf: {
-            enabled: true,
+            enabled: false,
             tokenAddress: EthereumUSDF,
             displayProfit: true,
             stakingWithApprove: true,
@@ -151,6 +168,38 @@ const stakingConfig: IStakingConfig = {
           },
         },
       },
+      [EEarnProviderEnum.Stakefish]: {
+        supportedSymbols: ['ETH', 'POL'],
+        configs: {
+          ETH: {
+            enabled: true,
+            tokenAddress: EMPTY_NATIVE_TOKEN_ADDRESS,
+            displayProfit: true,
+            withdrawWithTx: true,
+            claimWithTx: true,
+            allowPartialWithdraw: true,
+          },
+          POL: {
+            ...commonStakeConfigs.POL,
+            claimWithTx: true,
+          },
+        },
+      },
+    },
+  },
+  [getNetworkIdsMap().base]: {
+    providers: {
+      [EEarnProviderEnum.Morpho]: {
+        supportedSymbols: ['USDC', 'MORPHO'],
+        configs: {
+          USDC: {
+            enabled: true,
+            tokenAddress: BaseUSDC,
+            displayProfit: true,
+            stakingWithApprove: true,
+          },
+        },
+      },
     },
   },
   [getNetworkIdsMap().sepolia]: {
@@ -163,33 +212,39 @@ const stakingConfig: IStakingConfig = {
       },
     },
   },
-  [getNetworkIdsMap().holesky]: {
-    providers: {
-      [EEarnProviderEnum.Everstake]: {
-        supportedSymbols: ['ETH', 'POL'],
-        configs: {
-          ETH: commonStakeConfigs.ETH,
-          POL: commonStakeConfigs.POL,
-        },
-      },
-      [EEarnProviderEnum.Lido]: {
-        supportedSymbols: ['ETH'],
-        configs: {
-          ETH: lidoConfig.ETH,
-        },
-      },
-    },
-  },
   [getNetworkIdsMap().bsc]: {
     providers: {
       [EEarnProviderEnum.Lista]: {
-        supportedSymbols: ['USDT'],
+        supportedSymbols: ['USDT', 'LISTA'],
         configs: {
           USDT: {
             enabled: true,
             tokenAddress: BinanceSmartChainUSDT,
             displayProfit: true,
             stakingWithApprove: true,
+          },
+          LISTA: {
+            enabled: true,
+            tokenAddress: BinanceSmartChainLISTA,
+            displayProfit: true,
+            stakingWithApprove: true,
+          },
+        },
+      },
+    },
+  },
+  [getNetworkIdsMap().hoodi]: {
+    providers: {
+      [EEarnProviderEnum.Stakefish]: {
+        supportedSymbols: ['ETH'],
+        configs: {
+          ETH: {
+            enabled: true,
+            tokenAddress: EMPTY_NATIVE_TOKEN_ADDRESS,
+            displayProfit: true,
+            withdrawWithTx: true,
+            claimWithTx: true,
+            allowPartialWithdraw: true,
           },
         },
       },

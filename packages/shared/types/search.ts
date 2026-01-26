@@ -16,6 +16,7 @@ export enum EUniversalSearchType {
   V2MarketToken = 'V2MarketToken',
   AccountAssets = 'AccountAssets',
   Dapp = 'Dapp',
+  Perp = 'Perp',
 }
 
 export enum ESearchStatus {
@@ -45,6 +46,18 @@ export type IUniversalSearchAddress = {
       currency: string | undefined;
     };
     isSearchedByAccountName?: boolean;
+    accountsDeFiOverview?: {
+      overview: Record<
+        string,
+        {
+          totalValue: number;
+          totalDebt: number;
+          totalReward: number;
+          netWorth: number;
+          currency: string;
+        }
+      >;
+    };
   };
 };
 
@@ -75,12 +88,25 @@ export type IUniversalSearchDapp = {
   payload: IDApp;
 };
 
+export type IUniversalSearchPerp = {
+  type: EUniversalSearchType.Perp;
+  payload: {
+    assetType: string; // 'perps' or other (e.g. xyz)
+    logoUrl: string;
+    name: string;
+    maxLeverage: number;
+    midPx: string;
+    dayNtlVlm: string;
+  };
+};
+
 export type IUniversalSearchResultItem =
   | IUniversalSearchAddress
   | IUniversalSearchMarketToken
   | IUniversalSearchV2MarketToken
   | IUniversalSearchAccountAssets
-  | IUniversalSearchDapp;
+  | IUniversalSearchDapp
+  | IUniversalSearchPerp;
 
 export type IUniversalSearchMarketTokenResult = {
   items: IUniversalSearchMarketToken[];
@@ -98,12 +124,17 @@ export type IUniversalSearchDappResult = {
   items: IUniversalSearchDapp[];
 };
 
+export type IUniversalSearchPerpResult = {
+  items: IUniversalSearchPerp[];
+};
+
 export type IUniversalSearchBatchResult = {
   [EUniversalSearchType.Address]?: IUniversalSearchSingleResult;
   [EUniversalSearchType.MarketToken]?: IUniversalSearchMarketTokenResult;
   [EUniversalSearchType.V2MarketToken]?: IUniversalSearchV2MarketTokenResult;
   [EUniversalSearchType.AccountAssets]?: IUniversalSearchAccountAssetsResult;
   [EUniversalSearchType.Dapp]?: IUniversalSearchDappResult;
+  [EUniversalSearchType.Perp]?: IUniversalSearchPerpResult;
 };
 
 export interface IIUniversalRecentSearchItem {

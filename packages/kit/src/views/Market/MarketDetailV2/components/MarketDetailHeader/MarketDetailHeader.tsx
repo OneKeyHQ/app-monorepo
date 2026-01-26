@@ -3,7 +3,6 @@ import { useMemo } from 'react';
 import { NavBackButton, XStack, useMedia } from '@onekeyhq/components';
 import { AccountSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
-import { HeaderLeftCloseButton } from '@onekeyhq/kit/src/components/TabPageHeader/HeaderLeft';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -23,7 +22,9 @@ export function MarketDetailHeader() {
     () => (
       <XStack gap="$3" ai="center">
         <NavBackButton onPress={handleBackPress} />
-        {platformEnv.isWeb ? null : <AccountSelectorTriggerHome num={0} />}
+        {platformEnv.isWeb || platformEnv.isExtensionUiExpandTab ? null : (
+          <AccountSelectorTriggerHome num={0} />
+        )}
       </XStack>
     ),
     [handleBackPress],
@@ -35,7 +36,7 @@ export function MarketDetailHeader() {
     <>
       {media.md ? (
         <TabPageHeaderContainer>
-          <HeaderLeftCloseButton />
+          <NavBackButton onPress={handleBackPress} />
 
           <MarketWatchListProviderMirrorV2
             storeName={EJotaiContextStoreNames.marketWatchListV2}

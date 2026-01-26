@@ -92,7 +92,7 @@ function BtcAddresses() {
           return { total: 0, items: [] };
         }
         try {
-          return await backgroundApiProxy.serviceAccountProfile.getBtcUsedAddressesByPage(
+          return await backgroundApiProxy.serviceFreshAddress.getBtcUsedAddressesByPage(
             {
               accountId,
               networkId,
@@ -158,7 +158,7 @@ function BtcAddresses() {
           copyAddressWithDeriveType({
             address: row.address,
             deriveInfo: effectiveDeriveInfo,
-            networkName: network?.shortname,
+            networkName: network?.name,
           });
           return;
         }
@@ -177,7 +177,7 @@ function BtcAddresses() {
       copyAddressWithDeriveType({
         address: row.address,
         deriveInfo: effectiveDeriveInfo,
-        networkName: network?.shortname,
+        networkName: network?.name,
       });
     },
     [
@@ -188,7 +188,7 @@ function BtcAddresses() {
       effectiveWalletId,
       isHardwareAccount,
       navigation,
-      network?.shortname,
+      network?.name,
       networkId,
     ],
   );
@@ -215,7 +215,11 @@ function BtcAddresses() {
               {hasRows ? (
                 <Table
                   dataSource={rows}
-                  contentContainerStyle={{ gap: '$2', px: '$0' }}
+                  contentContainerStyle={{
+                    gap: '$2',
+                    px: '$0',
+                    $gtMd: { gap: '$1' },
+                  }}
                   columns={[
                     {
                       title: intl.formatMessage({
@@ -293,6 +297,10 @@ function BtcAddresses() {
                     alignItems: 'center',
                     borderRadius: '$3',
                     overflow: 'visible',
+                    $gtMd: {
+                      py: '$2',
+                      minHeight: 40,
+                    },
                   }}
                   headerRowProps={{
                     mx: '$2',
@@ -328,7 +336,6 @@ function BtcAddresses() {
               onChange={setCurrentPage}
               showControls={false}
               siblingCount={0}
-              maxPages={3}
               pageButtonSize="small"
             />
           </XStack>

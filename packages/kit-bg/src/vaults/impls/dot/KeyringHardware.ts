@@ -15,12 +15,14 @@ import type {
   ISignedMessagePro,
   ISignedTxPro,
 } from '@onekeyhq/core/src/types';
+import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
 import { NotImplemented, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
@@ -36,6 +38,12 @@ import type {
   ISignTransactionParams,
 } from '../../types';
 import type { AllNetworkAddressParams } from '@onekeyfe/hd-core';
+
+const SpecialNetworkIdMap = {
+  [networkUtils.parseNetworkId({
+    networkId: presetNetworksMap.assethubPolkadot.id,
+  }).chainId]: 'polkadot-assethub',
+};
 
 export class KeyringHardware extends KeyringHardwareBase {
   override coreApi = coreChainApi.dot.hd;
@@ -53,7 +61,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       path: params.path,
       showOnOneKey: false,
       prefix: networkInfo.addressPrefix,
-      chainName: chainId,
+      chainName: SpecialNetworkIdMap[chainId] || chainId,
     };
   }
 
@@ -154,6 +162,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     const account = await this.vault.getAccount();
     const network = await this.getNetwork();
     encodedTx.chainName = network.name;
+    const networkInfo = await this.getNetworkInfo();
 
     const customRpcClient = await (
       this.vault as VaultDot
@@ -167,10 +176,12 @@ export class KeyringHardware extends KeyringHardwareBase {
       ...encodedTx,
       metadataRpc,
     });
+    const chainId = await this.getNetworkChainId();
     const { signature } = await convertDeviceResponse(async () =>
       sdk.polkadotSignTransaction(connectId, deviceId, {
         path: account.path,
-        network: network.chainId,
+        prefix: +networkInfo.addressPrefix,
+        network: SpecialNetworkIdMap[chainId] || chainId,
         rawTx: bufferUtils.bytesToHex(tx.rawTx),
         ...deviceCommonParams,
       }),

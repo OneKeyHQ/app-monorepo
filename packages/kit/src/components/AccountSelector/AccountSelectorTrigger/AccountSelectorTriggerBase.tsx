@@ -83,7 +83,19 @@ export function AccountSelectorTriggerBase({
         userSelect="none"
       >
         {isWebDappModeWithNoWallet ? (
-          <Button size="small" variant="primary">
+          <Button
+            size="small"
+            variant="primary"
+            h="$8"
+            shadowOpacity={0}
+            elevation={0}
+            hoverStyle={{
+              opacity: 0.9,
+            }}
+            pressStyle={{
+              opacity: 0.8,
+            }}
+          >
             {intl.formatMessage({ id: ETranslations.global_connect_wallet })}
           </Button>
         ) : (

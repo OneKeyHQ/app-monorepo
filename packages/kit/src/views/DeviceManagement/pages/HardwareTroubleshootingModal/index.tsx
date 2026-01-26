@@ -23,7 +23,7 @@ import {
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
-  HELP_CENTER_COMMON_FAQ_URL,
+  HELP_CENTER_HARDWARE_FAQ_URL,
   HELP_CENTER_URL,
 } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -115,7 +115,7 @@ function HardwareTroubleshootingModal() {
       },
       {
         title: intl.formatMessage({
-          id: ETranslations.global_faqs_reset_wallet,
+          id: ETranslations.global_faqs_reset_device,
         }),
         icon: 'RepeatOutline',
         link: 'https://help.onekey.so/articles/11461116',
@@ -218,7 +218,7 @@ function HardwareTroubleshootingModal() {
               variant="tertiary"
               size="small"
               iconAfter="OpenOutline"
-              onPress={() => openUrlExternal(HELP_CENTER_COMMON_FAQ_URL)}
+              onPress={() => openUrlExternal(HELP_CENTER_HARDWARE_FAQ_URL)}
             >
               {intl.formatMessage({
                 id: ETranslations.global_more,

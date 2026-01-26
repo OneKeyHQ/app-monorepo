@@ -10,14 +10,16 @@ export function AccountAddress({
   linkedNetworkId,
   isEmptyAddress,
   hideAddress,
+  showSplitter,
 }: {
   num: number;
   address: string;
   linkedNetworkId?: string;
   isEmptyAddress: boolean;
   hideAddress?: boolean;
+  showSplitter?: boolean;
 }) {
-  const { activeAccount } = useActiveAccount({ num });
+  const { activeAccount: _activeAccount } = useActiveAccount({ num });
   const intl = useIntl();
   // const noAddressMessage = intl.formatMessage(
   //   { id: ETranslations.global_no_network_address },
@@ -39,14 +41,16 @@ export function AccountAddress({
 
   return address || isEmptyAddress ? (
     <>
-      <Stack
-        testID="account-item-value-address-splitter"
-        mx="$1.5"
-        w="$1"
-        h="$1"
-        bg="$iconSubdued"
-        borderRadius="$full"
-      />
+      {showSplitter ? (
+        <Stack
+          testID="account-item-value-address-splitter"
+          mx="$1.5"
+          w="$1"
+          h="$1"
+          bg="$iconSubdued"
+          borderRadius="$full"
+        />
+      ) : null}
       <SizableText
         size="$bodyMd"
         color={isEmptyAddress ? '$textCaution' : '$textSubdued'}

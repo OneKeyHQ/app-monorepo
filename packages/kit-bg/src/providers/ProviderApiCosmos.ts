@@ -19,10 +19,14 @@ import {
   permissionRequired,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { COINTYPE_COSMOS } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  COINTYPE_COSMOS,
+  IMPL_COSMOS,
+} from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
@@ -33,6 +37,13 @@ import ProviderApiBase from './ProviderApiBase';
 
 import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
 import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
+
+interface ISignOptions {
+  readonly preferNoSetFee?: boolean;
+  readonly preferNoSetMemo?: boolean;
+
+  readonly disableBalanceCheck?: boolean;
+}
 
 @backgroundClass()
 class ProviderApiCosmos extends ProviderApiBase {
@@ -246,7 +257,7 @@ class ProviderApiCosmos extends ProviderApiBase {
       pubKey: account.pub,
       address: account.addressDetail.baseAddress,
       bech32Address: account.addressDetail.displayAddress,
-      // eslint-disable-next-line spellcheck/spell-checker
+      // oxlint-disable-next-line @cspell/spellchecker
       isNanoLedger: accountUtils.isHwAccount({
         accountId: account.id,
       }),
@@ -312,14 +323,15 @@ class ProviderApiCosmos extends ProviderApiBase {
     params: {
       signer: string;
       signDoc: ICosmosStdSignDoc;
-      signOptions?: any;
+      signOptions?: ISignOptions;
     },
   ): Promise<any> {
     defaultLogger.discovery.dapp.dappRequest({ request });
-    const txWrapper = TransactionWrapper.fromAminoSignDoc(
-      params.signDoc,
-      undefined,
-    );
+    const txWrapper = TransactionWrapper.fromAminoSignDoc({
+      signDoc: params.signDoc,
+      msg: undefined,
+      signOptions: params.signOptions,
+    });
 
     const networkId = this.convertCosmosChainId(params.signDoc.chain_id);
     if (!networkId) throw new OneKeyLocalError('Invalid chainId');
@@ -382,7 +394,7 @@ class ProviderApiCosmos extends ProviderApiBase {
       };
       signOptions?: any;
     },
-  ): Promise<any> {
+  ) {
     defaultLogger.discovery.dapp.dappRequest({ request });
     const networkId = this.convertCosmosChainId(params.signDoc.chainId);
     if (!networkId) throw new OneKeyLocalError('Invalid chainId');
@@ -434,9 +446,18 @@ class ProviderApiCosmos extends ProviderApiBase {
     const [signerInfo] = txInfo.authInfo.signerInfos;
     const [signature] = txInfo.signatures;
 
-    const pubKey = PubKey.decode(
-      signerInfo?.publicKey?.value ?? new Uint8Array(),
-    );
+    let pubKey;
+    try {
+      const decodedPubKey = PubKey.decode(
+        signerInfo?.publicKey?.value ?? new Uint8Array(),
+      );
+      pubKey = encodeSecp256k1Pubkey(decodedPubKey.key);
+    } catch (error) {
+      pubKey = {
+        type: '',
+        value: '',
+      };
+    }
 
     return {
       signed: {
@@ -459,7 +480,7 @@ class ProviderApiCosmos extends ProviderApiBase {
       },
       signature: {
         signature: Buffer.from(bytesToHex(signature), 'hex').toString('base64'),
-        pub_key: encodeSecp256k1Pubkey(pubKey.key),
+        pub_key: pubKey,
       },
     };
   }
@@ -646,6 +667,101 @@ class ProviderApiCosmos extends ProviderApiBase {
       currencies: [],
       feeCurrencies: [],
     };
+  }
+
+  // Wallet connect
+  @providerApiMethod()
+  public async cosmos_getAccounts(
+    request: IJsBridgeMessagePayload,
+    params: any,
+  ) {
+    // @ts-ignore
+    const wcChain = request.data.wcChainName as string;
+
+    if (!wcChain) {
+      throw new OneKeyLocalError('Invalid wcChain');
+    }
+    const [namespace, chainId] = wcChain.split(':');
+
+    if (namespace !== IMPL_COSMOS) {
+      throw new OneKeyLocalError('Invalid wcChain');
+    }
+
+    const account = await this._getAccount(
+      request,
+      this.convertCosmosChainId(chainId) ?? '',
+    );
+
+    return [
+      {
+        algo: 'secp251k1',
+        pubkey: account.account.pub
+          ? Buffer.from(
+              hexUtils.stripHexPrefix(account.account.pub),
+              'hex',
+            ).toString('base64')
+          : '',
+        address: account.account.addressDetail.displayAddress,
+      },
+    ];
+  }
+
+  @providerApiMethod()
+  public async cosmos_signAmino(
+    request: IJsBridgeMessagePayload,
+    params: {
+      signerAddress: string;
+      signDoc: ICosmosStdSignDoc;
+    },
+  ) {
+    return this.signAmino(request, {
+      signer: params.signerAddress,
+      signDoc: params.signDoc,
+    });
+  }
+
+  @providerApiMethod()
+  public async cosmos_signDirect(
+    request: IJsBridgeMessagePayload,
+    params: {
+      signerAddress: string;
+      signDoc: {
+        chainId: string;
+        accountNumber: string;
+        authInfoBytes: string;
+        bodyBytes: string;
+      };
+    },
+  ) {
+    const bodyBytesHex = hexUtils.stripHexPrefix(params.signDoc.bodyBytes);
+    const authInfoBytesHex = hexUtils.stripHexPrefix(
+      params.signDoc.authInfoBytes,
+    );
+    return this.signDirect(request, {
+      signer: params.signerAddress,
+      signDoc: {
+        chainId: params.signDoc.chainId,
+        accountNumber: params.signDoc.accountNumber,
+        authInfoBytes: authInfoBytesHex,
+        bodyBytes: bodyBytesHex,
+      },
+    }).then((res) => {
+      return {
+        signed: {
+          chainId: res.signed.chainId,
+          accountNumber: res.signed.accountNumber,
+          authInfoBytes: Buffer.from(
+            hexUtils.stripHexPrefix(res.signed.authInfoBytes),
+            'hex',
+          ).toString('base64'),
+          bodyBytes: Buffer.from(
+            hexUtils.stripHexPrefix(res.signed.bodyBytes),
+            'hex',
+          ).toString('base64'),
+        },
+        signature: res.signature,
+      };
+    });
   }
 }
 

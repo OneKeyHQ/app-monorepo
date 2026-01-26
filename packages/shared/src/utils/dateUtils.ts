@@ -60,7 +60,7 @@ export function formatDateFns(date: Date | string, _format?: string) {
     return fnsFormat(parsedDate, _format ?? 'PPp', {
       locale: parseToDateFnsLocale(locale),
     });
-  } catch (error) {
+  } catch (_error) {
     return '-';
   }
 }
@@ -233,9 +233,9 @@ export function formatTime(date: Date | string, options?: IFormatDateOptions) {
 
   if (options?.hideSeconds) {
     formatTemplate = formatTemplate.replace('HH:mm:ss', 'HH:mm');
-  }
-
-  if (options?.hideMilliseconds) {
+    // Also hide milliseconds when hiding seconds
+    formatTemplate = formatTemplate.replace('.SSS', '');
+  } else if (options?.hideMilliseconds) {
     formatTemplate = formatTemplate.replace('.SSS', '');
   }
 

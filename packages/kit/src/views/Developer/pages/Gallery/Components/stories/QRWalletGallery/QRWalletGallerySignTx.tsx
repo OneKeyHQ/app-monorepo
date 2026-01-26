@@ -83,7 +83,7 @@ export function QRWalletGallerySignTx() {
             // dataType: KeystoneEthereumSDK.DataType.transaction, // legacy tx
             dataType: EAirGapDataTypeEvm.typedTransaction, // EIP-1559 tx
             path: "m/44'/60'/0'/0/0",
-            // eslint-disable-next-line spellcheck/spell-checker
+            // oxlint-disable-next-line @cspell/spellchecker
             // xfp: 'caeff70f',
             xfp: 'aaaff70f', // master fingerprint, should save to wallet
             chainId: 1,
@@ -267,7 +267,7 @@ export function QRWalletGallerySignTx() {
           const r = signature.slice(0, 64);
           const s = signature.slice(64, 64 + 64);
           const v = signature.slice(64 + 64);
-
+          console.log(`r: ${r}, s: ${s} v: ${v}`);
           // const typedTx = TransactionFactory.fromTxData({
           //   ...txShared,
           //   type: txShared.type,

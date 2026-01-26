@@ -33,12 +33,14 @@ import type { IBatchCreateAccount } from '@onekeyhq/shared/types/account';
 import { EHardwareCallContext } from '@onekeyhq/shared/types/device';
 
 import localDb from '../../dbs/local/localDb';
+import { primeTransferAtom } from '../../states/jotai/atoms/prime';
 import { vaultFactory } from '../../vaults/factory';
 import { getVaultSettings } from '../../vaults/settings';
 import { buildDefaultAddAccountNetworks } from '../ServiceAccount/defaultNetworkAccountsConfig';
 import ServiceBase from '../ServiceBase';
 import { HardwareAllNetworkGetAddressResponse } from '../ServiceHardware/HardwareAllNetworkGetAddressResponse';
 
+import type { IPrimeTransferAtomData } from '../../states/jotai/atoms/prime';
 import type {
   IAccountDeriveTypes,
   IHwAllNetworkPrepareAccountsItem,
@@ -61,6 +63,7 @@ export type IBatchBuildAccountsBaseParams = {
   showUIProgress?: boolean;
   createAllDeriveTypes?: boolean;
   errorMessage?: string;
+  customNetworks?: { networkId: string; deriveType: IAccountDeriveTypes }[];
 } & IWithHardwareProcessingControlParams;
 export type IBatchBuildAccountsParams = IBatchBuildAccountsBaseParams & {
   indexes: number[];
@@ -228,6 +231,14 @@ class ServiceBatchCreateAccount extends ServiceBase {
             deriveType: payload.params.deriveType,
           },
         ];
+
+        if (payload.params.customNetworks) {
+          customNetworks = uniqBy(
+            customNetworks.concat(payload.params.customNetworks),
+            (item) => `${item.networkId}_${item.deriveType}`,
+          );
+        }
+
         if (
           payload.params.createAllDeriveTypes &&
           vaultSettings.mergeDeriveAssetsEnabled
@@ -415,7 +426,9 @@ class ServiceBatchCreateAccount extends ServiceBase {
   }): Promise<IBatchBuildAccountsBaseParams[]> {
     const networks = await buildDefaultAddAccountNetworks({
       backgroundApi: this.backgroundApi,
+      walletId,
       includingNetworkWithGlobalDeriveType: true,
+      firmwareType: undefined,
     });
     return networks.map((item) => ({
       ...item,
@@ -890,6 +903,10 @@ class ServiceBatchCreateAccount extends ServiceBase {
             includingDefaultNetworks: params.includingDefaultNetworks ?? true,
           });
 
+        console.log(
+          'startBatchCreateAccountsFlowForAllNetwork__networksParams',
+          networksParams,
+        );
         const { saveToDb } = params;
         const indexes = await this.buildIndexesByFromAndTo({
           fromIndex: params?.fromIndex,
@@ -1041,6 +1058,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
             // **** PIN\passphrase cancel
             HardwareErrorCode.PinCancelled,
             HardwareErrorCode.ActionCancelled,
+            HardwareErrorCode.CallQueueActionCancelled,
             HardwareErrorCode.DeviceInterruptedFromOutside, // cancel PIN from app
             HardwareErrorCode.DeviceInterruptedFromUser, // cancel PIN from app
           ],
@@ -1064,6 +1082,15 @@ class ServiceBatchCreateAccount extends ServiceBase {
     }
   }
 
+  async shouldEmitAccountUpdateEvent(): Promise<boolean> {
+    const isInTransferImportOrBackupRestoreFlow: boolean =
+      await this.backgroundApi.servicePrimeTransfer.isInTransferImportOrBackupRestoreFlow();
+    if (isInTransferImportOrBackupRestoreFlow) {
+      return false;
+    }
+    return true;
+  }
+
   async emitBatchCreateDoneEvents({
     saveToDb,
     showUIProgress,
@@ -1071,10 +1098,12 @@ class ServiceBatchCreateAccount extends ServiceBase {
     saveToDb?: boolean;
     showUIProgress?: boolean;
   } = {}) {
+    const shouldEmitEvent = await this.shouldEmitAccountUpdateEvent();
+
     if (saveToDb) {
-      appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
-      // TODO auto backup execute twice with EAppEventBusNames.AccountUpdate?
-      void this.backgroundApi.serviceCloudBackup.requestAutoBackup();
+      if (shouldEmitEvent) {
+        appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
+      }
     }
     if (this.progressInfo && showUIProgress) {
       appEventBus.emit(EAppEventBusNames.BatchCreateAccount, {
@@ -1083,6 +1112,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
         progressTotal: this.progressInfo.progressTotal,
         progressCurrent: this.progressInfo.progressTotal,
       });
+
       await timerUtils.wait(600);
     }
   }
@@ -1272,11 +1302,13 @@ class ServiceBatchCreateAccount extends ServiceBase {
       if (saveToDb) {
         if (!accountForCreate.existsInDb) {
           this.checkIfCancelled({ saveToDb, showUIProgress, errorMessage });
+          const shouldEmitEvent = await this.shouldEmitAccountUpdateEvent();
           await this.backgroundApi.serviceAccount.addBatchCreatedHdOrHwAccount({
             walletId,
             networkId,
             account: accountForCreate,
             indexedAccountNames,
+            skipEventEmit: !shouldEmitEvent,
           });
           if (this.progressInfo) {
             this.progressInfo.createdCount += 1;
@@ -1294,6 +1326,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
             networkId,
             deriveType,
           });
+
           await timerUtils.wait(100); // wait for UI refresh
         }
       }
@@ -1342,6 +1375,20 @@ class ServiceBatchCreateAccount extends ServiceBase {
         try {
           this.checkIfCancelled({ saveToDb, showUIProgress, errorMessage });
           defaultLogger.account.batchCreatePerf.prepareHdOrHwAccounts();
+
+          await primeTransferAtom.set(
+            (prev): IPrimeTransferAtomData => ({
+              ...prev,
+              importCurrentCreatingTarget: [
+                walletId,
+                indexesForRebuildChunk.join(','),
+                networkId,
+                deriveType === 'default' ? '' : deriveType,
+              ]
+                .filter(Boolean)
+                .join('__'),
+            }),
+          );
 
           const { vault, accounts } =
             await this.backgroundApi.serviceAccount.prepareHdOrHwAccounts({
@@ -1433,10 +1480,13 @@ class ServiceBatchCreateAccount extends ServiceBase {
     }
 
     if (saveToDb) {
-      appEventBus.emit(EAppEventBusNames.AddDBAccountsToWallet, {
-        walletId,
-        accounts: accountsForCreate,
-      });
+      const shouldEmitEvent = await this.shouldEmitAccountUpdateEvent();
+      if (shouldEmitEvent) {
+        appEventBus.emit(EAppEventBusNames.AddDBAccountsToWallet, {
+          walletId,
+          accounts: accountsForCreate,
+        });
+      }
     }
     return { accountsForCreate };
   }

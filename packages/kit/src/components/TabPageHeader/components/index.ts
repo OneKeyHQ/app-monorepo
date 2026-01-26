@@ -8,6 +8,7 @@ export { LanguageButton } from './LanguageButton';
 export type { ILanguageButtonProps } from './LanguageButton';
 export { ThemeButton } from './ThemeButton';
 export type { IThemeButtonProps } from './ThemeButton';
+export { GiftAction } from './GiftAction';
 export {
   WalletConnectionForWeb,
   WalletConnectionGroup,

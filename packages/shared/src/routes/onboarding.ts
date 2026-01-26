@@ -95,7 +95,9 @@ export type IOnboardingParamList = {
   [EOnboardingPages.ImportWalletOptions]: undefined;
   [EOnboardingPages.ImportRecoveryPhrase]: undefined;
   [EOnboardingPages.ImportPrivateKey]: undefined;
-  [EOnboardingPages.ImportAddress]: undefined;
+  [EOnboardingPages.ImportAddress]: {
+    isFromOnboardingV2?: boolean;
+  };
   [EOnboardingPages.ImportCloudBackup]: undefined;
   [EOnboardingPages.ImportKeyTag]: undefined;
 
@@ -111,8 +113,9 @@ export type IOnboardingParamList = {
   // finalize wallet setup
   [EOnboardingPages.FinalizeWalletSetup]: {
     mnemonic?: string;
-    mnemonicType?: EMnemonicType;
+    mnemonicType?: EMnemonicType; // bip39 or ton
     isWalletBackedUp?: boolean;
+    isKeylessWallet?: boolean;
   };
 
   // device management guide page

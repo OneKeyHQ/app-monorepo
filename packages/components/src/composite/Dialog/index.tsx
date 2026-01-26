@@ -17,16 +17,17 @@ import { setStringAsync } from 'expo-clipboard';
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
+import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
 import {
   AnimatePresence,
   Sheet,
-  SizableText,
   TMDialog,
-  useMedia,
 } from '@onekeyhq/components/src/shared/tamagui';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
 import { Toast } from '../../actions/Toast';
 import { Keyboard, SheetGrabber } from '../../content';
@@ -44,7 +45,7 @@ import {
 } from '../../hooks';
 import { usePageContext } from '../../layouts/Page/PageContext';
 import { ScrollView } from '../../layouts/ScrollView';
-import { Spinner, Stack } from '../../primitives';
+import { SizableText, Spinner, Stack } from '../../primitives';
 
 import { Content } from './Content';
 import { DialogContext } from './context';
@@ -78,6 +79,7 @@ import type { IYStackProps } from '../../primitives';
 import type { IColorTokens } from '../../types';
 import type { GestureResponderEvent } from 'react-native';
 
+export * from './dialogInstances';
 export * from './hooks';
 export type {
   IDialogCancelProps,
@@ -85,7 +87,6 @@ export type {
   IDialogInstance,
   IDialogShowProps,
 } from './type';
-export * from './dialogInstances';
 
 export const FIX_SHEET_PROPS: IYStackProps = {
   display: 'block',
@@ -319,6 +320,11 @@ function DialogFrame({
               }}
               onPress={handleBackdropPress}
               zIndex={floatingPanelProps?.zIndex || zIndex}
+              style={
+                !platformEnv.isNative && !open && forceMount
+                  ? ({ contentVisibility: 'hidden' } as any)
+                  : {}
+              }
             />
             {/* /* fix missing title warnings in html dialog element on Web */}
             <TMDialog.Title display="none" />
@@ -348,6 +354,9 @@ function DialogFrame({
               outlineColor="$neutral3"
               style={{
                 outlineStyle: 'solid',
+                ...(!platformEnv.isNative && !open && forceMount
+                  ? ({ contentVisibility: 'hidden' } as any)
+                  : {}),
               }}
               bg="$bg"
               width={MAX_CONTENT_WIDTH}
@@ -619,8 +628,17 @@ const dialogCancel = (props: IDialogCancelProps) =>
 const dialogDebugMessage = (
   props: IDialogShowProps & { debugMessage: any },
 ) => {
-  const dataContent = JSON.stringify(props.debugMessage, null, 4);
-  console.log('dialogDebugMessage: ', dataContent);
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const dataContent = (() => {
+    if (props.debugMessage instanceof Error) {
+      return stringUtils.stableStringify(
+        errorUtils.toPlainErrorObject(props.debugMessage),
+        null,
+        4,
+      );
+    }
+    return stringUtils.stableStringify(props.debugMessage, null, 4);
+  })();
   const copyContent = async () => {
     await setStringAsync(dataContent);
     console.log('dialogDebugMessage: object >>> ', props.debugMessage);
@@ -673,6 +691,7 @@ export function DialogLoadingView({
 
 export type IDialogLoadingProps = {
   title?: string;
+  description?: string;
   showExitButton?: boolean;
 };
 function dialogLoading(props: IDialogLoadingProps) {
@@ -710,16 +729,24 @@ export const Dialog = {
 export enum EInPageDialogType {
   inTabPages = 'inTabPages',
   inModalPage = 'inModalPage',
+  inOnboardingPage = 'inOnboardingPage',
 }
 export const useInPageDialog = (dialogType?: EInPageDialogType) => {
   const navigatorPortalId = useModalNavigatorContextPortalId();
   const { pagePortalId } = usePageContext();
   const pageType = usePageType();
-  const type =
-    dialogType ||
-    (pageType === EPageType.modal
-      ? EInPageDialogType.inModalPage
-      : EInPageDialogType.inTabPages);
+  const type = useMemo(() => {
+    if (dialogType) {
+      return dialogType;
+    }
+    if (pageType === EPageType.modal) {
+      return EInPageDialogType.inModalPage;
+    }
+    if (pageType === EPageType.onboarding) {
+      return EInPageDialogType.inOnboardingPage;
+    }
+    return EInPageDialogType.inTabPages;
+  }, [dialogType, pageType]);
   const portalId = useMemo(() => {
     if (type === EInPageDialogType.inTabPages) {
       return EPortalContainerConstantName.IN_PAGE_TAB_CONTAINER;

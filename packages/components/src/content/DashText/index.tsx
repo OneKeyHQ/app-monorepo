@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 
-import { SizableText, XStack, YStack } from '../../primitives';
+import { SizableText } from '../../primitives/SizeableText';
+import { XStack, YStack } from '../../primitives/Stack';
 
 import type { ISizableTextProps } from '../../primitives';
 import type { LayoutChangeEvent } from 'react-native';

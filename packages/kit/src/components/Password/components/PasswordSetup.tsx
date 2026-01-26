@@ -42,7 +42,29 @@ interface IPasswordSetupProps {
   onSetupPassword: (data: IPasswordSetupForm) => void;
   biologyAuthSwitchContainer?: React.ReactNode;
   confirmBtnText?: string;
+  pageMode?: boolean;
+  onStepChange?: (step: 'create' | 'confirm') => void;
 }
+const useHandleEnterKey = platformEnv.isNative
+  ? () => {}
+  : (onSubmitCallback: () => void) => {
+      const handleKeyPress = useCallback(
+        (event: KeyboardEvent) => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            onSubmitCallback();
+          }
+        },
+        [onSubmitCallback],
+      );
+
+      useEffect(() => {
+        globalThis.addEventListener('keypress', handleKeyPress);
+        return () => {
+          globalThis.removeEventListener('keypress', handleKeyPress);
+        };
+      }, [handleKeyPress]);
+    };
 
 const PasswordSetup = ({
   loading,
@@ -50,6 +72,8 @@ const PasswordSetup = ({
   onSetupPassword,
   confirmBtnText,
   biologyAuthSwitchContainer,
+  pageMode,
+  onStepChange,
 }: IPasswordSetupProps) => {
   const intl = useIntl();
   const [currentPasswordMode, setCurrentPasswordMode] = useState(passwordMode);
@@ -84,12 +108,13 @@ const PasswordSetup = ({
       intl.formatMessage({ id: ETranslations.auth_set_passcode })
     );
   }, [confirmBtnText, intl, passCodeFirstStep]);
-  const onPassCodeNext = () => {
+  const onPassCodeNext = useCallback(() => {
     setPassCodeConfirm(true);
+    onStepChange?.('confirm');
     setTimeout(() => {
       form.setFocus('confirmPassCode');
     }, 150);
-  };
+  }, [form, onStepChange]);
 
   const clearPasscodeTimeOut = useCallback(() => {
     setPassCodeConfirmClear(false);
@@ -99,35 +124,39 @@ const PasswordSetup = ({
     }, 200);
   }, [form]);
 
+  const handleSubmit = useCallback(() => {
+    void form.handleSubmit(
+      passCodeFirstStep ? onPassCodeNext : onSetupPassword,
+    )();
+  }, [form, passCodeFirstStep, onPassCodeNext, onSetupPassword]);
+
+  useHandleEnterKey(handleSubmit);
+
   return (
     <>
-      {currentPasswordMode === EPasswordMode.PASSCODE && passCodeConfirm ? (
+      {!pageMode ? (
         <Dialog.Header>
           <Dialog.Title>
             <Heading size="$headingXl" py="$px">
               {intl.formatMessage({
-                id: ETranslations.auth_confirm_passcode_form_label,
+                id:
+                  currentPasswordMode === EPasswordMode.PASSCODE &&
+                  passCodeConfirm
+                    ? ETranslations.auth_confirm_passcode_form_label
+                    : ETranslations.global_set_passcode,
               })}
             </Heading>
           </Dialog.Title>
         </Dialog.Header>
-      ) : (
-        <Dialog.Header>
-          <Dialog.Title>
-            <Heading size="$headingXl" py="$px">
-              {intl.formatMessage({
-                id: ETranslations.global_set_passcode,
-              })}
-            </Heading>
-          </Dialog.Title>
-        </Dialog.Header>
-      )}
+      ) : null}
       <Form form={form}>
         {currentPasswordMode === EPasswordMode.PASSWORD ? (
           <>
             <Form.Field
-              label={intl.formatMessage({
-                id: ETranslations.auth_new_passcode_form_label,
+              {...(!pageMode && {
+                label: intl.formatMessage({
+                  id: ETranslations.auth_new_passcode_form_label,
+                }),
               })}
               name="password"
               rules={{
@@ -172,9 +201,11 @@ const PasswordSetup = ({
             >
               <Input
                 size="large"
-                $gtMd={{
-                  size: 'medium',
-                }}
+                {...(!pageMode && {
+                  $gtMd: {
+                    size: 'medium',
+                  },
+                })}
                 placeholder={intl.formatMessage({
                   id: ETranslations.auth_new_passcode_form_placeholder,
                 })}
@@ -197,8 +228,10 @@ const PasswordSetup = ({
               />
             </Form.Field>
             <Form.Field
-              label={intl.formatMessage({
-                id: ETranslations.auth_confirm_passcode_form_label,
+              {...(!pageMode && {
+                label: intl.formatMessage({
+                  id: ETranslations.auth_confirm_passcode_form_label,
+                }),
               })}
               name="confirmPassword"
               rules={{
@@ -222,9 +255,11 @@ const PasswordSetup = ({
             >
               <Input
                 size="large"
-                $gtMd={{
-                  size: 'medium',
-                }}
+                {...(!pageMode && {
+                  $gtMd: {
+                    size: 'medium',
+                  },
+                })}
                 placeholder={intl.formatMessage({
                   id: ETranslations.auth_confirm_passcode_form_placeholder,
                 })}
@@ -345,16 +380,14 @@ const PasswordSetup = ({
         {currentPasswordMode === EPasswordMode.PASSWORD ? (
           <Button
             size="large"
-            $gtMd={
-              {
+            {...(!pageMode && {
+              $gtMd: {
                 size: 'medium',
-              } as any
-            }
+              } as any,
+            })}
             variant="primary"
             loading={loading}
-            onPress={form.handleSubmit(
-              passCodeFirstStep ? onPassCodeNext : onSetupPassword,
-            )}
+            onPress={handleSubmit}
             testID="set-password"
           >
             {confirmBtnTextMemo}

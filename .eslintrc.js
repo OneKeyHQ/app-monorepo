@@ -1,3 +1,16 @@
+/**
+ * NOTICE: Linting has been migrated to oxlint
+ *
+ * - The oxc plugin can be enabled and eslint plugins should be disabled
+ * - Due to incomplete oxc plugin functionality, this config file is kept temporarily
+ *   for linting purposes only and will not be actively updated
+ * - This file is maintained for backward compatibility during the transition period
+ *
+ * ⚠️ IMPORTANT FOR AI ASSISTANTS:
+ * DO NOT reference lint rules from this file. Instead, read and follow the
+ * configuration in .oxlintrc.json which contains the active linting rules. cspell:ignore oxlintrc
+ */
+
 // require('./development/lint/eslint-rule-force-async-bg-api'); // TODO not working
 // require('./development/lint/eslint-rule-enforce-return-type');
 
@@ -39,7 +52,6 @@ const jsRules = {
   'import/no-unresolved': 'off', // tsc can check this
   'no-promise-executor-return': 'off',
   'default-param-last': 'off',
-  'import/no-cycle': 'error',
   'require-await': 'off',
   'no-void': 'off',
   'ban/ban': [
@@ -208,7 +220,6 @@ const resolveExtensions = (platform) =>
 
 module.exports = {
   plugins: [
-    'spellcheck',
     'import-path',
     'use-effect-no-deps',
     'ban',
@@ -262,42 +273,6 @@ module.exports = {
         },
       ],
     ],
-    'spellcheck/spell-checker':
-      typeof process.env.CI !== 'undefined'
-        ? 'off'
-        : [
-            1,
-            {
-              'comments': true,
-              'strings': false,
-              'identifiers': true,
-              'lang': 'en_US',
-              'skipWords': require('./development/spellCheckerSkipWords.js'),
-              'skipWordIfMatch': [
-                /(\w|\d){50,}/i, // length>50
-                /bip32/i,
-                /pbkdf2/i,
-                /Secp256k1/i,
-                /googleapis/i,
-                /Erc20/i,
-                /Erc721/i,
-                /Erc1155/i,
-                /protobufjs/i,
-                /boc/i,
-                /seqno/i,
-                /jetton/i,
-                /Nano/i,
-                /Bounceable/i,
-                /scdo/i,
-                /faq/i,
-                /atto/i,
-                /alephium/i,
-                /Preauthorized/i,
-              ],
-              'skipIfMatch': ['http://[^s]*'],
-              'minLength': 4,
-            },
-          ],
     'props-checker/validator': [
       'error',
       {

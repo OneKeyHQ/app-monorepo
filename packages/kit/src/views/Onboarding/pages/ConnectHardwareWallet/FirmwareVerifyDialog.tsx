@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
+import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
 import { Linking, StyleSheet } from 'react-native';
 
@@ -179,6 +180,7 @@ function useFirmwareVerifyBase({
 
       switch (code) {
         case HardwareErrorCode.ActionCancelled:
+        case HardwareErrorCode.CallQueueActionCancelled:
         case HardwareErrorCode.NewFirmwareForceUpdate:
           void dialogInstance.close();
           break;
@@ -473,6 +475,7 @@ export function EnumBasicDialogContentContainer({
   contentType,
   onActionPress,
   onContinuePress,
+  onDevSkipVerificationPress,
   errorObj,
   certificateResult,
   versionCompareResult,
@@ -485,6 +488,7 @@ export function EnumBasicDialogContentContainer({
   };
   onActionPress?: () => void;
   onContinuePress?: () => void;
+  onDevSkipVerificationPress?: () => void;
   certificateResult?: IFirmwareAuthenticationState;
   versionCompareResult?: IDeviceVerifyVersionCompareResult;
   useNewProcess?: boolean;
@@ -554,6 +558,11 @@ export function EnumBasicDialogContentContainer({
     return platformEnv.isDev || canSkipUnofficialDeviceState;
   }, [canSkipUnofficialDeviceState]);
 
+  const handleDevSkipVerificationPress = useCallback(() => {
+    onDevSkipVerificationPress?.();
+    onContinuePress?.();
+  }, [onContinuePress, onDevSkipVerificationPress]);
+
   const content = useMemo(() => {
     switch (contentType) {
       case EFirmwareAuthenticationDialogContentType.default:
@@ -565,7 +574,7 @@ export function EnumBasicDialogContentContainer({
                 id: ETranslations.device_auth_request_title,
               })}
             </Dialog.Title>
-            <Dialog.Description>
+            <Dialog.Description mb="$-5">
               {intl.formatMessage({
                 id: ETranslations.device_auth_request_desc,
               })}
@@ -738,7 +747,7 @@ export function EnumBasicDialogContentContainer({
                     size: 'large',
                   } as any
                 }
-                onPress={onContinuePress}
+                onPress={handleDevSkipVerificationPress}
               >
                 Skip it And Create Wallet(Only in Dev)
               </Button>
@@ -901,16 +910,17 @@ export function EnumBasicDialogContentContainer({
     }
   }, [
     contentType,
-    errorObj.code,
-    errorObj.message,
     intl,
-    onActionPress,
-    onContinuePress,
-    renderFooter,
+    useNewProcess,
     certificateResult,
     versionCompareResult,
-    useNewProcess,
+    onActionPress,
+    errorObj.code,
+    errorObj.message,
+    renderFooter,
     canSkipUnofficialDevice,
+    handleDevSkipVerificationPress,
+    onContinuePress,
     dialogInstance,
   ]);
   return <YStack>{content}</YStack>;
@@ -918,11 +928,13 @@ export function EnumBasicDialogContentContainer({
 
 export function FirmwareAuthenticationDialogContent({
   onContinue,
+  onDevSkipVerificationPress,
   device,
   skipDeviceCancel,
   useNewProcess,
 }: {
   onContinue: (params: { checked: boolean }) => void;
+  onDevSkipVerificationPress?: () => void;
   device: SearchDevice | IDBDevice;
   skipDeviceCancel?: boolean;
   useNewProcess?: boolean;
@@ -946,6 +958,10 @@ export function FirmwareAuthenticationDialogContent({
   const handleContinuePress = useCallback(() => {
     onContinue({ checked: false });
   }, [onContinue]);
+
+  const handleDevSkipVerificationPress = useCallback(() => {
+    onDevSkipVerificationPress?.();
+  }, [onDevSkipVerificationPress]);
 
   const content = useMemo(() => {
     const propsMap: Record<
@@ -981,22 +997,24 @@ export function FirmwareAuthenticationDialogContent({
         contentType={contentType}
         onActionPress={propsMap[result].onPress}
         onContinuePress={handleContinuePress}
+        onDevSkipVerificationPress={handleDevSkipVerificationPress}
         certificateResult={result}
         versionCompareResult={versionCompareResult}
       />
     );
   }, [
-    result,
+    useNewProcess,
     errorObj,
     contentType,
+    result,
     handleContinuePress,
+    handleDevSkipVerificationPress,
+    versionCompareResult,
     onContinue,
     requestsUrl,
     reset,
     setContentType,
     verify,
-    versionCompareResult,
-    useNewProcess,
   ]);
 
   return <Stack gap="$5">{content}</Stack>;
@@ -1008,13 +1026,17 @@ export function useFirmwareVerifyDialog() {
     async ({
       device,
       features,
+      onVerified,
       onContinue,
+      onDevSkipVerificationPress,
       onClose,
     }: {
       device: SearchDevice | IDBDevice;
       features: IOneKeyDeviceFeatures | undefined;
       onContinue: (params: { checked: boolean }) => Promise<void> | void;
       onClose: () => Promise<void> | void;
+      onVerified?: (params: { checked: boolean }) => Promise<void> | void;
+      onDevSkipVerificationPress?: () => void;
     }) => {
       const onCloseFn = async () => {
         await onClose?.();
@@ -1067,9 +1089,11 @@ export function useFirmwareVerifyDialog() {
             skipDeviceCancel
             device={device}
             onContinue={async ({ checked }) => {
+              await onVerified?.({ checked });
               await firmwareAuthenticationDialog.close();
               await onContinue({ checked });
             }}
+            onDevSkipVerificationPress={onDevSkipVerificationPress || noop}
             useNewProcess={shouldUseNewAuthenticateVersion}
           />
         ),

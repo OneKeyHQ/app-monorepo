@@ -10,12 +10,15 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
-import { getValidPriceDecimals } from '@onekeyhq/shared/src/utils/perpsUtils';
+import {
+  getValidPriceDecimals,
+  parseDexCoin,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
+import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { calcCellAlign, getColumnStyle } from '../utils';
 
-import type { IColumnConfig } from '../List/CommonTableListView';
-import type { FrontendOrder } from '@nktkas/hyperliquid';
+import type { IColumnConfig, IRenderMode } from '../List/CommonTableListView';
 
 const balanceFormatter: INumberFormatProps = {
   formatter: 'balance',
@@ -36,12 +39,15 @@ const priceFormatter: INumberFormatProps = {
 };
 
 interface IOpenOrdersRowProps {
-  order: FrontendOrder;
+  order: IPerpsFrontendOrder;
   cellMinWidth: number;
   columnConfigs: IColumnConfig[];
   handleCancelOrder: () => void;
   isMobile?: boolean;
   index: number;
+  renderMode?: IRenderMode;
+  isHovered?: boolean;
+  onHoverChange?: (index: number | null) => void;
 }
 
 const OpenOrdersRow = memo(
@@ -52,13 +58,18 @@ const OpenOrdersRow = memo(
     columnConfigs,
     isMobile,
     index,
+    renderMode = 'full',
+    isHovered,
+    onHoverChange,
   }: IOpenOrdersRowProps) => {
     const actions = useHyperliquidActions();
     const intl = useIntl();
+    const { coin, side, orderType: originalOrderType, reduceOnly } = order;
     const assetInfo = useMemo(() => {
-      const assetSymbol = order.coin ?? '-';
+      const parsedCoin = parseDexCoin(coin);
+      const assetSymbol = parsedCoin.displayName;
       const orderType = (() => {
-        switch (order.orderType) {
+        switch (originalOrderType) {
           case 'Market':
             return intl.formatMessage({
               id: ETranslations.perp_position_market,
@@ -84,12 +95,12 @@ const OpenOrdersRow = memo(
               id: ETranslations.perp_order_tp_limit,
             });
           default:
-            return order.orderType;
+            return originalOrderType;
         }
       })();
       const type = (() => {
-        if (order.side === 'B') {
-          if (order.reduceOnly) {
+        if (side === 'B') {
+          if (reduceOnly) {
             return `${intl.formatMessage({
               id: ETranslations.perp_order_close_short, // Close Short
             })}`;
@@ -98,7 +109,7 @@ const OpenOrdersRow = memo(
             id: ETranslations.perp_long, // Long
           });
         }
-        if (order.reduceOnly) {
+        if (reduceOnly) {
           return `${intl.formatMessage({
             id: ETranslations.perp_order_close_long, // Close Long
           })}`;
@@ -107,9 +118,15 @@ const OpenOrdersRow = memo(
           id: ETranslations.perp_short, // Short
         });
       })();
-      const typeColor = order.side === 'B' ? '$green11' : '$red11';
-      return { assetSymbol, type, orderType, typeColor };
-    }, [order.coin, order.side, order.orderType, intl, order.reduceOnly]);
+      const typeColor = side === 'B' ? '$green11' : '$red11';
+      return {
+        assetSymbol,
+        rawCoin: coin,
+        type,
+        orderType,
+        typeColor,
+      };
+    }, [coin, side, originalOrderType, reduceOnly, intl]);
     const dateInfo = useMemo(() => {
       const timeDate = new Date(order.timestamp);
       const date = formatTime(timeDate, {
@@ -159,12 +176,14 @@ const OpenOrdersRow = memo(
     ]);
 
     const tpslInfo = useMemo(() => {
-      const tpslChildren = order.children;
+      const tpslChildren = (order.children ?? []) as IPerpsFrontendOrder[];
       let tpPrice = '--';
       let slPrice = '--';
       if (tpslChildren && tpslChildren.length > 0) {
-        const tpslOrders = tpslChildren.filter((child) => child.isPositionTpsl);
-        tpslOrders.forEach((child) => {
+        const tpslOrders = tpslChildren.filter(
+          (child: IPerpsFrontendOrder) => child.isPositionTpsl,
+        );
+        tpslOrders.forEach((child: IPerpsFrontendOrder) => {
           if (child.orderType.startsWith('Take')) {
             tpPrice = `${numberFormat(child.triggerPx, priceFormatter)}`;
           } else if (child.orderType.startsWith('Stop')) {
@@ -176,6 +195,13 @@ const OpenOrdersRow = memo(
         tpsl: `${tpPrice}/${slPrice}`,
       };
     }, [order.children]);
+
+    const isOddRow = index % 2 === 1;
+    const baseBgColor = isOddRow ? '$bgSubdued' : '$bgApp';
+    const bgColor = isHovered ? '$bgHover' : baseBgColor;
+
+    const shouldRenderLeft = renderMode === 'full' || renderMode === 'left';
+    const shouldRenderRight = renderMode === 'full' || renderMode === 'right';
 
     if (isMobile) {
       return (
@@ -194,7 +220,7 @@ const OpenOrdersRow = memo(
               cursor="pointer"
               onPress={() =>
                 actions.current.changeActiveAsset({
-                  coin: assetInfo.assetSymbol,
+                  coin: assetInfo.rawCoin,
                 })
               }
             >
@@ -308,166 +334,191 @@ const OpenOrdersRow = memo(
         py="$1.5"
         px="$3"
         alignItems="center"
-        hoverStyle={{ bg: '$bgHover' }}
-        minWidth={cellMinWidth}
-        {...(index % 2 === 1 && {
-          backgroundColor: '$bgSubdued',
-        })}
+        backgroundColor={bgColor}
+        onHoverIn={() => onHoverChange?.(index)}
+        onHoverOut={() => onHoverChange?.(null)}
+        minWidth={renderMode === 'full' ? cellMinWidth : undefined}
       >
-        {/* Time */}
-        <YStack
-          {...getColumnStyle(columnConfigs[0])}
-          justifyContent="center"
-          alignItems={calcCellAlign(columnConfigs[0].align)}
-          pl="$2"
-        >
-          <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
-            {dateInfo.date}
-          </SizableText>
-          <SizableText
-            numberOfLines={1}
-            ellipsizeMode="tail"
-            size="$bodySm"
-            color="$textSubdued"
-          >
-            {dateInfo.time}
-          </SizableText>
-        </YStack>
-        {/* Asset symbol */}
-        <YStack
-          {...getColumnStyle(columnConfigs[1])}
-          justifyContent="center"
-          alignItems={calcCellAlign(columnConfigs[1].align)}
-          cursor="pointer"
-          onPress={() =>
-            actions.current.changeActiveAsset({
-              coin: assetInfo.assetSymbol,
-            })
-          }
-        >
-          <SizableText
-            size="$bodySm"
-            fontWeight={600}
-            numberOfLines={1}
-            color={assetInfo.typeColor}
-            ellipsizeMode="tail"
-          >
-            {assetInfo.assetSymbol}
-          </SizableText>
-          <SizableText
-            size="$bodySm"
-            color={assetInfo.typeColor}
-            numberOfLines={1}
-            ellipsizeMode="tail"
-          >
-            {assetInfo.type}
-          </SizableText>
-        </YStack>
-
-        {/* Type */}
-        <XStack
-          {...getColumnStyle(columnConfigs[2])}
-          justifyContent={calcCellAlign(columnConfigs[2].align)}
-          alignItems="center"
-        >
-          <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
-            {assetInfo.orderType}
-          </SizableText>
-        </XStack>
-
-        {/*  size */}
-        <XStack
-          {...getColumnStyle(columnConfigs[3])}
-          justifyContent={calcCellAlign(columnConfigs[3].align)}
-          alignItems="center"
-        >
-          <SizableText
-            numberOfLines={1}
-            ellipsizeMode="tail"
-            size="$bodySm"
-          >{`${orderBaseInfo.sizeFormatted}`}</SizableText>
-        </XStack>
-
-        {/* Original size */}
-        <XStack
-          {...getColumnStyle(columnConfigs[4])}
-          justifyContent={calcCellAlign(columnConfigs[4].align)}
-          alignItems="center"
-        >
-          <SizableText
-            numberOfLines={1}
-            ellipsizeMode="tail"
-            size="$bodySm"
-          >{`${orderBaseInfo.origSizeFormatted}`}</SizableText>
-        </XStack>
-
-        {/* value */}
-        <XStack
-          {...getColumnStyle(columnConfigs[5])}
-          justifyContent={calcCellAlign(columnConfigs[5].align)}
-          alignItems="center"
-        >
-          <SizableText
-            numberOfLines={1}
-            ellipsizeMode="tail"
-            size="$bodySm"
-          >{`${orderBaseInfo.valueFormatted}`}</SizableText>
-        </XStack>
-
-        {/* Execute price */}
-        <XStack
-          {...getColumnStyle(columnConfigs[6])}
-          justifyContent={calcCellAlign(columnConfigs[6].align)}
-          alignItems="center"
-        >
-          <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
-            {order.orderType.includes('Market')
-              ? intl.formatMessage({
-                  id: ETranslations.perp_position_market,
+        {shouldRenderLeft ? (
+          <>
+            {/* Time */}
+            <YStack
+              {...getColumnStyle(columnConfigs[0])}
+              justifyContent="center"
+              alignItems={calcCellAlign(columnConfigs[0].align)}
+              pl="$2"
+            >
+              <SizableText
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                size="$bodySm"
+              >
+                {dateInfo.date}
+              </SizableText>
+              <SizableText
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                size="$bodySm"
+                color="$textSubdued"
+              >
+                {dateInfo.time}
+              </SizableText>
+            </YStack>
+            {/* Asset symbol */}
+            <YStack
+              {...getColumnStyle(columnConfigs[1])}
+              justifyContent="center"
+              alignItems={calcCellAlign(columnConfigs[1].align)}
+              cursor="pointer"
+              onPress={() =>
+                actions.current.changeActiveAsset({
+                  coin: assetInfo.rawCoin,
                 })
-              : orderBaseInfo.executePriceLimitFormatted}
-          </SizableText>
-        </XStack>
-        {/* Trigger Condition */}
-        <XStack
-          {...getColumnStyle(columnConfigs[7])}
-          justifyContent={calcCellAlign(columnConfigs[7].align)}
-          alignItems="center"
-        >
-          <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
-            {orderBaseInfo.triggerCondition}
-          </SizableText>
-        </XStack>
-        {/* TPSL */}
-        <XStack
-          {...getColumnStyle(columnConfigs[8])}
-          justifyContent={calcCellAlign(columnConfigs[8].align)}
-          alignItems="center"
-        >
-          <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
-            {tpslInfo.tpsl}
-          </SizableText>
-        </XStack>
+              }
+            >
+              <SizableText
+                size="$bodySm"
+                fontWeight={600}
+                numberOfLines={1}
+                color={assetInfo.typeColor}
+                ellipsizeMode="tail"
+              >
+                {assetInfo.assetSymbol}
+              </SizableText>
+              <SizableText
+                size="$bodySm"
+                color={assetInfo.typeColor}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                {assetInfo.type}
+              </SizableText>
+            </YStack>
+
+            {/* Type */}
+            <XStack
+              {...getColumnStyle(columnConfigs[2])}
+              justifyContent={calcCellAlign(columnConfigs[2].align)}
+              alignItems="center"
+            >
+              <SizableText
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                size="$bodySm"
+              >
+                {assetInfo.orderType}
+              </SizableText>
+            </XStack>
+
+            {/*  size */}
+            <XStack
+              {...getColumnStyle(columnConfigs[3])}
+              justifyContent={calcCellAlign(columnConfigs[3].align)}
+              alignItems="center"
+            >
+              <SizableText
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                size="$bodySm"
+              >{`${orderBaseInfo.sizeFormatted}`}</SizableText>
+            </XStack>
+
+            {/* Original size */}
+            <XStack
+              {...getColumnStyle(columnConfigs[4])}
+              justifyContent={calcCellAlign(columnConfigs[4].align)}
+              alignItems="center"
+            >
+              <SizableText
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                size="$bodySm"
+              >{`${orderBaseInfo.origSizeFormatted}`}</SizableText>
+            </XStack>
+
+            {/* value */}
+            <XStack
+              {...getColumnStyle(columnConfigs[5])}
+              justifyContent={calcCellAlign(columnConfigs[5].align)}
+              alignItems="center"
+            >
+              <SizableText
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                size="$bodySm"
+              >{`${orderBaseInfo.valueFormatted}`}</SizableText>
+            </XStack>
+
+            {/* Execute price */}
+            <XStack
+              {...getColumnStyle(columnConfigs[6])}
+              justifyContent={calcCellAlign(columnConfigs[6].align)}
+              alignItems="center"
+            >
+              <SizableText
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                size="$bodySm"
+              >
+                {order.orderType.includes('Market')
+                  ? intl.formatMessage({
+                      id: ETranslations.perp_position_market,
+                    })
+                  : orderBaseInfo.executePriceLimitFormatted}
+              </SizableText>
+            </XStack>
+            {/* Trigger Condition */}
+            <XStack
+              {...getColumnStyle(columnConfigs[7])}
+              justifyContent={calcCellAlign(columnConfigs[7].align)}
+              alignItems="center"
+            >
+              <SizableText
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                size="$bodySm"
+              >
+                {orderBaseInfo.triggerCondition}
+              </SizableText>
+            </XStack>
+            {/* TPSL */}
+            <XStack
+              {...getColumnStyle(columnConfigs[8])}
+              justifyContent={calcCellAlign(columnConfigs[8].align)}
+              alignItems="center"
+            >
+              <SizableText
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                size="$bodySm"
+              >
+                {tpslInfo.tpsl}
+              </SizableText>
+            </XStack>
+          </>
+        ) : null}
 
         {/* Cancel All */}
-        <XStack
-          {...getColumnStyle(columnConfigs[9])}
-          justifyContent={calcCellAlign(columnConfigs[9].align)}
-          alignItems="center"
-        >
-          <SizableText
-            color="$green11"
-            hoverStyle={{ size: '$bodySmMedium', fontWeight: 600 }}
-            cursor="pointer"
-            size="$bodySm"
-            fontWeight={400}
-            onPress={handleCancelOrder}
+        {shouldRenderRight ? (
+          <XStack
+            {...getColumnStyle(columnConfigs[9])}
+            justifyContent={calcCellAlign(columnConfigs[9].align)}
+            alignItems="center"
           >
-            {intl.formatMessage({
-              id: ETranslations.perp_open_orders_cancel,
-            })}
-          </SizableText>
-        </XStack>
+            <SizableText
+              color="$green11"
+              hoverStyle={{ size: '$bodySmMedium', fontWeight: 600 }}
+              cursor="pointer"
+              size="$bodySm"
+              fontWeight={400}
+              onPress={handleCancelOrder}
+            >
+              {intl.formatMessage({
+                id: ETranslations.perp_open_orders_cancel,
+              })}
+            </SizableText>
+          </XStack>
+        ) : null}
       </XStack>
     );
   },

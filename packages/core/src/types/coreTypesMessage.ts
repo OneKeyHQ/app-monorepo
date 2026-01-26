@@ -6,6 +6,7 @@ import type {
   EMessageTypesCommon,
   EMessageTypesEth,
   EMessageTypesSolana,
+  EMessageTypesStellar,
   EMessageTypesTon,
   EMessageTypesTron,
 } from '@onekeyhq/shared/types/message';
@@ -29,6 +30,20 @@ export type IUnsignedMessageAptos = {
   payload?: ISignMessageRequest;
 };
 
+export type ISignDataPayloadText = {
+  type: 'text';
+  text: string;
+};
+export type ISignDataPayloadBinary = {
+  type: 'binary';
+  bytes: string;
+};
+export type ISignDataPayloadCell = {
+  type: 'cell';
+  schema: string;
+  cell: string;
+};
+
 export type IUnsignedMessageTon = {
   type: EMessageTypesTon;
   message: string;
@@ -38,6 +53,10 @@ export type IUnsignedMessageTon = {
     timestamp: number;
     appDomain?: string;
     address?: string;
+    payload?:
+      | ISignDataPayloadText
+      | ISignDataPayloadBinary
+      | ISignDataPayloadCell;
   };
 };
 
@@ -89,6 +108,14 @@ export type IUnsignedMessageTron = {
   payload?: any;
 };
 
+export type IUnsignedMessageStellar = {
+  type: EMessageTypesStellar;
+  message: string;
+  payload?: {
+    networkPassphrase?: string;
+  };
+};
+
 export type IUnsignedMessage =
   | IUnsignedMessageCommon
   | IUnsignedMessageEth
@@ -99,4 +126,5 @@ export type IUnsignedMessage =
   | IUnsignedMessageAda
   | IUnsignedMessageAlph
   | IUnsignedMessageCfx
-  | IUnsignedMessageSolana;
+  | IUnsignedMessageSolana
+  | IUnsignedMessageStellar;

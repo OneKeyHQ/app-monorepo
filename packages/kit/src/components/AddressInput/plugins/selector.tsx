@@ -8,6 +8,7 @@ import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contex
 import { useAddressBookPick } from '@onekeyhq/kit/src/views/AddressBook/hooks/useAddressBook';
 import type { IAddressItem } from '@onekeyhq/kit/src/views/AddressBook/type';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EInputAddressChangeType } from '@onekeyhq/shared/types/address';
 
@@ -26,7 +27,6 @@ type ISelectorPluginProps = IAddressPluginProps & {
 
 const AddressBookPlugin: FC<ISelectorPluginProps> = ({
   onChange,
-  onInputTypeChange,
   onExtraDataChange,
   networkId,
   testID,
@@ -37,15 +37,17 @@ const AddressBookPlugin: FC<ISelectorPluginProps> = ({
     void pick({
       networkId,
       onPick: (item: IAddressItem) => {
-        onChange?.(item.address);
-        onInputTypeChange?.(EInputAddressChangeType.AddressBook);
+        onChange?.({
+          text: item.address,
+          inputType: EInputAddressChangeType.AddressBook,
+        });
         onExtraDataChange?.({
           memo: item.memo,
           note: item.note,
         });
       },
     });
-  }, [pick, networkId, onChange, onInputTypeChange, onExtraDataChange]);
+  }, [pick, networkId, onChange, onExtraDataChange]);
   const intl = useIntl();
 
   return (
@@ -78,7 +80,6 @@ const AddressBookPlugin: FC<ISelectorPluginProps> = ({
 
 const AccountSelectorAddressBookPlugin: FC<ISelectorPluginProps> = ({
   onChange,
-  onInputTypeChange,
   onExtraDataChange,
   networkId,
   accountId,
@@ -108,15 +109,16 @@ const AccountSelectorAddressBookPlugin: FC<ISelectorPluginProps> = ({
       activeAccountFromSelector?.account?.address &&
       accountSelectorOpen.current
     ) {
-      onChange?.(activeAccountFromSelector?.account?.address);
+      onChange?.({
+        text: activeAccountFromSelector?.account?.address,
+        inputType: EInputAddressChangeType.AccountSelector,
+      });
       onActiveAccountChange?.(activeAccountFromSelector);
-      onInputTypeChange?.(EInputAddressChangeType.AccountSelector);
       accountSelectorOpen.current = false;
     }
   }, [
     activeAccountFromSelector,
     onChange,
-    onInputTypeChange,
     onExtraDataChange,
     onActiveAccountChange,
   ]);
@@ -125,21 +127,17 @@ const AccountSelectorAddressBookPlugin: FC<ISelectorPluginProps> = ({
     void showAddressBook({
       networkId,
       onPick: (item: IAddressItem) => {
-        onChange?.(item.address);
-        onInputTypeChange?.(EInputAddressChangeType.AddressBook);
+        onChange?.({
+          text: item.address,
+          inputType: EInputAddressChangeType.AddressBook,
+        });
         onExtraDataChange?.({
           memo: item.memo,
           note: item.note,
         });
       },
     });
-  }, [
-    showAddressBook,
-    networkId,
-    onChange,
-    onInputTypeChange,
-    onExtraDataChange,
-  ]);
+  }, [showAddressBook, networkId, onChange, onExtraDataChange]);
 
   const onShowAccountSelector = useCallback(async () => {
     accountSelectorOpen.current = true;
@@ -209,13 +207,17 @@ const AccountSelectorAddressBookPlugin: FC<ISelectorPluginProps> = ({
           }),
           onPress: onShowAccountSelector,
         },
-        {
-          icon: 'ContactsOutline' as const,
-          label: intl.formatMessage({
-            id: ETranslations.send_to_contacts_selector_address_book,
-          }),
-          onPress: onContacts,
-        },
+        ...(platformEnv.isWebDappMode
+          ? []
+          : [
+              {
+                icon: 'ContactsOutline' as const,
+                label: intl.formatMessage({
+                  id: ETranslations.send_to_contacts_selector_address_book,
+                }),
+                onPress: onContacts,
+              },
+            ]),
       ]}
       renderTrigger={
         <IconButton
@@ -235,7 +237,6 @@ const AccountSelectorAddressBookPlugin: FC<ISelectorPluginProps> = ({
 export const SelectorPlugin: FC<ISelectorPluginProps> = ({
   onChange,
   onActiveAccountChange,
-  onInputTypeChange,
   onExtraDataChange,
   networkId,
   accountId,
@@ -258,7 +259,6 @@ export const SelectorPlugin: FC<ISelectorPluginProps> = ({
         testID={testID}
         currentAddress={currentAddress}
         clearNotMatch={clearNotMatch}
-        onInputTypeChange={onInputTypeChange}
         onExtraDataChange={onExtraDataChange}
         disabled={disabled}
       />
@@ -266,7 +266,6 @@ export const SelectorPlugin: FC<ISelectorPluginProps> = ({
   }
   return (
     <AddressBookPlugin
-      onInputTypeChange={onInputTypeChange}
       onChange={onChange}
       networkId={networkId}
       testID={testID}

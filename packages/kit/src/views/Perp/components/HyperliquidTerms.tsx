@@ -1,15 +1,13 @@
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 
-import { useFocusEffect } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
-import { useWindowDimensions } from 'react-native';
 
 import type { IYStackProps } from '@onekeyhq/components';
 import {
   Button,
-  Checkbox,
   Dialog,
   Divider,
+  Icon,
   Image,
   SizableText,
   Stack,
@@ -18,7 +16,6 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { DelayedRender } from '@onekeyhq/components/src/hocs/DelayedRender';
-import { PERPS_TERMS_OVERLAY_Z_INDEX } from '@onekeyhq/shared/src/consts/zIndexConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
@@ -30,6 +27,52 @@ import {
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePerpsLogo } from '../hooks/usePerpsLogo';
 
+function CustomCheckbox({
+  value,
+  onChange,
+  label,
+  labelSize,
+}: {
+  value: boolean;
+  onChange: (value: boolean) => void;
+  label: string;
+  labelSize: '$bodyMd' | '$bodySm';
+}) {
+  return (
+    <XStack
+      p="$4"
+      gap="$3"
+      alignItems="center"
+      onPress={() => onChange(!value)}
+      cursor="pointer"
+      hoverStyle={{
+        opacity: 0.8,
+      }}
+      pressStyle={{
+        opacity: 0.6,
+      }}
+    >
+      <Stack
+        width={16}
+        height={16}
+        borderRadius="$1"
+        borderWidth="$px"
+        borderColor={value ? '$borderActive' : '$borderSubdued'}
+        bg={value ? '$bgPrimary' : '$bg'}
+        justifyContent="center"
+        alignItems="center"
+      >
+        {value ? (
+          <Icon name="CheckLargeOutline" size="$2.5" color="$iconInverse" />
+        ) : null}
+      </Stack>
+      <SizableText flex={1} size={labelSize} color="$text">
+        {label}
+      </SizableText>
+    </XStack>
+  );
+}
+
 export function HyperliquidTermsContent({
   onConfirm,
   renderDelay = 0,
@@ -39,8 +82,8 @@ export function HyperliquidTermsContent({
 }) {
   const intl = useIntl();
   const [isAccountActivatedChecked, setIsAccountActivatedChecked] =
-    useState(false);
-  const [isNotResponsibleChecked, setIsNotResponsibleChecked] = useState(false);
+    useState(true);
+  const [isNotResponsibleChecked, setIsNotResponsibleChecked] = useState(true);
 
   const { hyperliquidLogo } = usePerpsLogo();
 
@@ -61,13 +104,13 @@ export function HyperliquidTermsContent({
         justifyContent="center"
       >
         <DelayedRender delay={renderDelay}>
-          <Stack p="$4" position="relative">
+          <Stack px="$2" py="$4" position="relative">
             <YStack {...confirmationSlideStyle}>
               <Stack
                 testID="hyperliquid-intro-confirmation-slide"
                 alignItems="center"
                 justifyContent="center"
-                px={gtMd ? '$4' : '$2'}
+                px="$2"
               >
                 <YStack gap="$2">
                   <YStack
@@ -99,39 +142,23 @@ export function HyperliquidTermsContent({
                     bg="$bgSubdued"
                     borderRadius="$3"
                   >
-                    <YStack alignItems="flex-start" p="$4">
-                      <Checkbox
-                        w="$4.5"
-                        h="$4.5"
-                        value={isAccountActivatedChecked}
-                        onChange={(value) =>
-                          setIsAccountActivatedChecked(!!value)
-                        }
-                        label={intl.formatMessage({
-                          id: ETranslations.perp_term_content_1,
-                        })}
-                        labelProps={{
-                          variant: gtMd ? '$bodyMd' : '$bodySm',
-                        }}
-                      />
-                    </YStack>
+                    <CustomCheckbox
+                      value={isAccountActivatedChecked}
+                      onChange={setIsAccountActivatedChecked}
+                      label={intl.formatMessage({
+                        id: ETranslations.perp_term_content_1,
+                      })}
+                      labelSize={gtMd ? '$bodyMd' : '$bodySm'}
+                    />
                     <Divider borderColor="$borderSubdued" />
-                    <YStack alignItems="flex-start" p="$4">
-                      <Checkbox
-                        w="$4.5"
-                        h="$4.5"
-                        value={isNotResponsibleChecked}
-                        onChange={(value) =>
-                          setIsNotResponsibleChecked(!!value)
-                        }
-                        label={intl.formatMessage({
-                          id: ETranslations.perp_term_content_2,
-                        })}
-                        labelProps={{
-                          variant: gtMd ? '$bodyMd' : '$bodySm',
-                        }}
-                      />
-                    </YStack>
+                    <CustomCheckbox
+                      value={isNotResponsibleChecked}
+                      onChange={setIsNotResponsibleChecked}
+                      label={intl.formatMessage({
+                        id: ETranslations.perp_term_content_2,
+                      })}
+                      labelSize={gtMd ? '$bodyMd' : '$bodySm'}
+                    />
                   </YStack>
                 </YStack>
               </Stack>
@@ -219,92 +246,36 @@ export function HyperliquidTermsContent({
   );
 }
 
-export function HyperliquidTermsOverlay() {
-  const [isVisible, setIsVisible] = useState(false);
-
-  const handleConfirm = useCallback(() => {
-    setIsVisible(false);
-  }, []);
-
-  useFocusEffect(
-    useCallback(() => {
-      const checkTermsAccepted = async () => {
-        const isTermsAccepted =
-          await backgroundApiProxy.simpleDb.perp.getHyperliquidTermsAccepted();
-        if (!isTermsAccepted) {
-          setTimeout(() => {
-            setIsVisible(true);
-          }, 600);
-        }
-      };
-      void checkTermsAccepted();
-    }, []),
-  );
-  const { width } = useWindowDimensions();
-  const { gtMd } = useMedia();
-  if (!isVisible) {
-    return null;
+export async function showHyperliquidTermsDialog(): Promise<boolean> {
+  const isTermsAccepted =
+    await backgroundApiProxy.simpleDb.perp.getHyperliquidTermsAccepted();
+  if (isTermsAccepted) {
+    return true;
   }
 
-  return (
-    <Stack
-      position="absolute"
-      top={0}
-      left={0}
-      right={0}
-      bottom={0}
-      bg="$bgBackdrop"
-      zIndex={PERPS_TERMS_OVERLAY_Z_INDEX}
-      alignItems="center"
-      justifyContent="center"
-      p="$6"
-    >
-      <Stack
-        width={Math.min(gtMd ? 460 : 320, width)}
-        bg="$bgApp"
-        borderRadius="$4"
-        overflow="hidden"
-      >
+  return new Promise((resolve) => {
+    const dialog = Dialog.show({
+      renderContent: (
         <HyperliquidTermsContent
+          renderDelay={300}
           onConfirm={async () => {
             await backgroundApiProxy.simpleDb.perp.setHyperliquidTermsAccepted(
               true,
             );
-            handleConfirm();
+            await dialog.close();
+            resolve(true);
           }}
         />
-      </Stack>
-    </Stack>
-  );
-}
-
-export async function showHyperliquidTermsDialog() {
-  const isTermsAccepted =
-    await backgroundApiProxy.simpleDb.perp.getHyperliquidTermsAccepted();
-  if (isTermsAccepted) {
-    return;
-  }
-
-  const dialog = Dialog.show({
-    // title: 'Hyperliquid Introduction',
-    renderContent: (
-      <HyperliquidTermsContent
-        renderDelay={300}
-        onConfirm={async () => {
-          await dialog.close();
-          await backgroundApiProxy.simpleDb.perp.setHyperliquidTermsAccepted(
-            true,
-          );
-        }}
-      />
-    ),
-    showExitButton: false,
-    disableDrag: true,
-    dismissOnOverlayPress: false,
-    showFooter: false,
-    showCancelButton: false,
-    showConfirmButton: false,
+      ),
+      showExitButton: true,
+      disableDrag: true,
+      dismissOnOverlayPress: false,
+      showFooter: false,
+      showCancelButton: false,
+      showConfirmButton: false,
+      onClose: () => {
+        resolve(false);
+      },
+    });
   });
-
-  return dialog;
 }

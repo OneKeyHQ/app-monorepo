@@ -47,6 +47,7 @@ export function useMarketBasicConfig() {
     [],
     {
       watchLoading: true,
+      revalidateOnReconnect: true,
     },
   );
 
@@ -56,7 +57,7 @@ export function useMarketBasicConfig() {
 
     // Provide default values when data is not loaded yet
     basicConfig: result?.basicConfig,
-    defaultNetworkId: result?.defaultNetworkId || 'sol--101',
+    defaultNetworkId: result?.defaultNetworkId,
     recommendedTokens: result?.recommendedTokens || [],
     minLiquidity: result?.minLiquidity || 5000,
     refreshInterval: result?.refreshInterval || 5,

@@ -21,11 +21,10 @@ import type {
   ICoinSelectOutput,
   ICoinSelectResult,
 } from '@onekeyfe/coinselect';
-import type {
-  ICoinSelectResult as ICoinSelectResultWitness,
-  IUtxo,
-} from '@onekeyfe/coinselect/witness';
 import type { Network } from 'bitcoinjs-lib';
+
+type ICoinSelectResultWitness = ReturnType<typeof coinSelectWitness>;
+type IUtxo = Parameters<typeof coinSelectWitness>[0]['utxos'][number];
 
 export type ICoinSelectAlgorithm =
   | 'auto'
@@ -51,6 +50,7 @@ export type ICoinSelectWithWitnessOptions = {
     path: string;
   };
   txType: ICoinSelectPaymentType;
+  skipUtxoSelection?: boolean;
 };
 
 function utxoScore(x: ICoinSelectInput, feeRate: number) {
@@ -64,7 +64,7 @@ function sortUtxo({
   utxos: ICoinSelectInput[];
   feeRate: number;
 }) {
-  return utxos.concat().sort((a, b) => {
+  return utxos.concat().toSorted((a, b) => {
     if (a.forceSelect) {
       return -1;
     }

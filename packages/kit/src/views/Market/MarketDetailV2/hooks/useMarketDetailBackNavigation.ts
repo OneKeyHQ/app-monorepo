@@ -1,19 +1,36 @@
 import { useCallback } from 'react';
 
-import { useNavigation as useReactNavigation } from '@react-navigation/native';
-
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
-  ERootRoutes,
-  ETabMarketRoutes,
-  ETabRoutes,
-} from '@onekeyhq/shared/src/routes';
+  useNavigation as useReactNavigation,
+  useRoute,
+} from '@react-navigation/native';
+
+import { useIsTabletDetailView } from '@onekeyhq/components';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ETabMarketRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 
 export function useMarketDetailBackNavigation() {
   const navigation = useAppNavigation();
   const reactNavigation = useReactNavigation();
+  const route = useRoute();
+  const params = route.params as { from?: EEnterWay } | undefined;
+  const isTabletDetailView = useIsTabletDetailView();
 
   const handleBackPress = useCallback(() => {
+    // In tablet split view mode, always use pop for back navigation
+    if (isTabletDetailView) {
+      navigation.pop();
+      return;
+    }
+
+    if (platformEnv.isNative && params?.from === EEnterWay.Search) {
+      navigation.pop();
+      navigation.switchTab(ETabRoutes.Discovery);
+      return;
+    }
+
     // Check if the previous route is Market home
     const state = reactNavigation.getState();
 
@@ -29,14 +46,8 @@ export function useMarketDetailBackNavigation() {
       }
     }
 
-    // Otherwise, navigate directly to Market home
-    navigation.navigate(ERootRoutes.Main, {
-      screen: ETabRoutes.Market,
-      params: {
-        screen: ETabMarketRoutes.TabMarket,
-      },
-    });
-  }, [navigation, reactNavigation]);
+    navigation.pop();
+  }, [params, reactNavigation, navigation, isTabletDetailView]);
 
   return { handleBackPress };
 }

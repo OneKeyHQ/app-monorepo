@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
+  Dialog,
   Icon,
   IconButton,
   NavCloseButton,
@@ -17,12 +18,14 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IPrimeParamList } from '@onekeyhq/shared/src/routes/prime';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
@@ -30,9 +33,7 @@ import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IPrimeServerUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
-import { usePrimePurchaseCallback } from '../../components/PrimePurchaseDialog/PrimePurchaseDialog';
 import { PrimeSubscriptionPlans } from '../../components/PrimePurchaseDialog/PrimeSubscriptionPlans';
-import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 import { usePrimePayment } from '../../hooks/usePrimePayment';
 import { usePrimePaymentMethodsWeb } from '../../hooks/usePrimePaymentMethodsWeb';
 import { usePrimeRequirements } from '../../hooks/usePrimeRequirements';
@@ -77,18 +78,24 @@ export default function PrimeDashboard({
   route: RouteProp<IPrimeParamList, EPrimePages.PrimeDashboard>;
 }) {
   const intl = useIntl();
+  const { fromFeature } = route.params || {};
   // const isReady = false;
   const {
+    isReady: isAuthReady,
     user,
     isLoggedIn,
     isPrimeSubscriptionActive,
-    privyUser,
-    authenticated,
+    supabaseUser,
+    isSupabaseLoggedIn,
     // logout,
-  } = usePrimeAuthV2();
+  } = useOneKeyAuth();
 
-  const { isReady, getPackagesNative, restorePurchases, getPackagesWeb } =
-    usePrimePayment();
+  const {
+    isReady: isPurchaseReady,
+    getPackagesNative,
+    restorePurchases,
+    getPackagesWeb,
+  } = usePrimePayment();
 
   const [selectedSubscriptionPeriod, setSelectedSubscriptionPeriod] =
     useState<ISubscriptionPeriod>('P1Y');
@@ -113,7 +120,7 @@ export default function PrimeDashboard({
   useEffect(() => {
     const fn = async () => {
       // isFocused won't be triggered when Login Dialog is open or closed
-      if (isFocused) {
+      if (isFocused && isAuthReady) {
         await timerUtils.wait(600);
         if (!isFocusedRef.current) {
           // may be blurred when auto navigate to Device Limit Page
@@ -125,7 +132,7 @@ export default function PrimeDashboard({
       }
     };
     void fn();
-  }, [isFocused]);
+  }, [isFocused, isAuthReady]);
 
   const shouldShowConfirmButton = useMemo(() => {
     if (!isLoggedIn || !isPrimeSubscriptionActive) {
@@ -141,11 +148,11 @@ export default function PrimeDashboard({
     if (isPrimeSubscriptionActive) {
       return false;
     }
-    if (!user?.privyUserId) {
+    if (!user?.onekeyUserId) {
       return false;
     }
     return true;
-  }, [isPrimeSubscriptionActive, shouldShowConfirmButton, user?.privyUserId]);
+  }, [isPrimeSubscriptionActive, shouldShowConfirmButton, user?.onekeyUserId]);
 
   const { getPackagesWeb: getPackagesWeb2 } = usePrimePaymentMethodsWeb();
   // const getPackagesWeb2 = useCallback(async () => {
@@ -154,8 +161,8 @@ export default function PrimeDashboard({
   // }, []);
 
   const { result: webPackages } = usePromiseResult(async () => {
-    if (isReady) {
-      console.log('getPackagesWeb2__isReady', isReady);
+    if (isPurchaseReady) {
+      console.log('getPackagesWeb2__isReady', isPurchaseReady);
       const shouldPolyfillRandomUUIDTemporarily =
         !globalThis?.crypto?.randomUUID && platformEnv.isNativeAndroid;
       if (shouldPolyfillRandomUUIDTemporarily) {
@@ -177,16 +184,17 @@ export default function PrimeDashboard({
         }
       }
     }
-  }, [getPackagesWeb2, isReady]);
+  }, [getPackagesWeb2, isPurchaseReady]);
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { result: sdkPackages, isLoading: isPackagesLoading } =
     usePromiseResult(
       async () => {
-        if (!shouldShowSubscriptionPlans || !isReady) {
+        if (!shouldShowSubscriptionPlans || !isPurchaseReady) {
           return [];
         }
 
-        if (!user?.privyUserId) {
+        if (!user?.onekeyUserId) {
           return [];
         }
 
@@ -200,6 +208,10 @@ export default function PrimeDashboard({
             return pkgList;
           } catch (error) {
             const e = error as IOneKeyError | undefined;
+
+            defaultLogger.prime.subscription.fetchPackagesFailed({
+              errorMessage: e?.message || 'Unknown error',
+            });
 
             console.log(
               'revenueCatSDK.getPackages() ERROR >>>>>>> ',
@@ -220,6 +232,30 @@ export default function PrimeDashboard({
               //    (GooglePlay Service not available on this device, so we should not throw error)
               shouldThrow = false;
             }
+            /*
+            None of the products registered in the RevenueCat dashboard could be fetched
+            There's a problem with your configuration. None of the products registered in the RevenueCat dashboard could be fetched from the [Play Store/App Store].
+            */
+            if (
+              e?.message?.includes(
+                'None of the products registered in the RevenueCat dashboard could be fetched',
+              )
+            ) {
+              Dialog.confirm({
+                title: intl.formatMessage({
+                  id: ETranslations.global_an_error_occurred,
+                }),
+                description: intl.formatMessage({
+                  id: platformEnv.isNativeAndroid
+                    ? ETranslations.prime_unable_to_retrieve_subscription_list_google_play
+                    : ETranslations.prime_unable_to_retrieve_subscription_list,
+                }),
+                onConfirmText: intl.formatMessage({
+                  id: ETranslations.global_got_it,
+                }),
+              });
+              shouldThrow = false;
+            }
             if (shouldThrow) {
               throw error;
             }
@@ -227,11 +263,12 @@ export default function PrimeDashboard({
         });
       },
       [
+        intl,
         getPackagesNative,
         getPackagesWeb,
-        isReady,
+        isPurchaseReady,
         shouldShowSubscriptionPlans,
-        user?.privyUserId,
+        user?.onekeyUserId,
       ],
       {
         watchLoading: true,
@@ -283,16 +320,19 @@ export default function PrimeDashboard({
     await ensurePrimeSubscriptionActive({
       skipDialogConfirm: true,
       selectedSubscriptionPeriod,
+      featureName: fromFeature,
     });
   }, [
     ensurePrimeSubscriptionActive,
     selectedSubscriptionPeriod,
     subscribeButtonEnabled,
+    fromFeature,
   ]);
 
   const isLoggedInMaybe =
-    authenticated ||
-    privyUser?.id ||
+    isSupabaseLoggedIn ||
+    supabaseUser?.id ||
+    user?.onekeyUserId ||
     user?.isLoggedIn ||
     user?.isLoggedInOnServer ||
     isLoggedIn;
@@ -353,7 +393,7 @@ export default function PrimeDashboard({
               </Stack>
             ) : null}
 
-            {isReady ? (
+            {isPurchaseReady ? (
               <PrimeBenefitsList
                 selectedSubscriptionPeriod={selectedSubscriptionPeriod}
                 networkId={route.params?.networkId}

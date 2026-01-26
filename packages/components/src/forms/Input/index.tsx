@@ -23,6 +23,8 @@ import {
   useProps,
   useThemeName,
 } from '@onekeyhq/components/src/shared/tamagui';
+import type { IQRCodeHandlerParseOutsideOptions } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
@@ -75,7 +77,13 @@ export type IInputProps = {
   addOns?: IInputAddOnProps[];
   allowClear?: boolean; // add clear button when controlled value is not empty
   allowPaste?: boolean; // add paste button
+  allowScan?: boolean; // add scan button
+  startScanQrCode?: (
+    params: IQRCodeHandlerParseOutsideOptions,
+  ) => Promise<{ raw?: string }>; // const { start: startScanQrCode } = useScanQrCode();
+  clearClipboardOnPaste?: boolean; // clear clipboard on paste
   autoFocusDelayMs?: number;
+  selectTextOnFocus?: boolean;
   /**
    * Auto scroll to top delay in milliseconds.
    * Default is 250ms, only works on Android.
@@ -85,6 +93,7 @@ export type IInputProps = {
   containerProps?: IGroupProps;
   onPaste?: (event: IPasteEventParams) => void;
   onChangeText?: ((text: string) => string | void) | undefined;
+  onSecureTextEntryChange?: (secureTextEntry: boolean) => void;
 } & Omit<ITMInputProps, 'size' | 'onChangeText' | 'onPaste' | 'readOnly'> & {
     /** Web only */
     onCompositionStart?: CompositionEventHandler<any>;
@@ -242,6 +251,10 @@ function BaseInput(
     addOns: addOnsInProps,
     allowClear,
     allowPaste,
+    allowScan,
+    allowSecureTextEye,
+    startScanQrCode,
+    clearClipboardOnPaste,
     disabled,
     editable,
     error,
@@ -253,14 +266,14 @@ function BaseInput(
     selectTextOnFocus,
     onFocus,
     value,
-    onPaste,
+    onPaste: onPasteProps,
     onChangeText,
     keyboardType,
     InputComponentStyle,
     autoFocusDelayMs,
     autoScrollTopDelayMs,
     secureTextEntry,
-    allowSecureTextEye,
+    onSecureTextEntryChange,
     ...props
   } = useProps(inputProps) as IInputProps;
   const { paddingLeftWithIcon, height, iconLeftPosition } = SIZE_MAPPINGS[size];
@@ -275,11 +288,18 @@ function BaseInput(
   const inputRef: RefObject<TextInput | null> | null = useRef(null);
   const reloadAutoFocus = useAutoFocus(inputRef, autoFocus, autoFocusDelayMs);
   const readOnlyStyle = useReadOnlyStyle(readonly);
-  const {
-    //  onPasteClearText, clearText,
-    getClipboard,
-    supportPaste,
-  } = useClipboard();
+  const { clearText, getClipboard, supportPaste, onPasteClearText } =
+    useClipboard();
+
+  const onPaste = useCallback(
+    (event: IPasteEventParams) => {
+      onPasteProps?.(event);
+      if (clearClipboardOnPaste) {
+        onPasteClearText?.(event);
+      }
+    },
+    [onPasteProps, clearClipboardOnPaste, onPasteClearText],
+  );
 
   const [secureEntryState, setSecureEntryState] = useState(true);
 
@@ -301,6 +321,30 @@ function BaseInput(
         },
       });
     }
+    if (allowScan) {
+      allAddOns.push({
+        iconName: 'ScanOutline',
+        onPress: async () => {
+          /*
+          const result = await start({
+            handlers: [],
+            autoHandleResult: false,
+          });
+          form.setValue('input', result.raw);
+          */
+          if (!startScanQrCode) {
+            throw new OneKeyLocalError('props startScanQrCode is required');
+          }
+          const result = await startScanQrCode?.({
+            handlers: [],
+            autoHandleResult: false,
+          });
+          if (result?.raw) {
+            onChangeText?.(result.raw || '');
+          }
+        },
+      });
+    }
     if (allowPaste && supportPaste) {
       allAddOns.push({
         iconName: 'ClipboardOutline' as IKeyOfIcons,
@@ -308,7 +352,9 @@ function BaseInput(
           const text = await getClipboard();
           if (text) {
             onChangeText?.(text || '');
-            // clearText();
+            if (clearClipboardOnPaste) {
+              clearText();
+            }
           }
         },
       });
@@ -317,6 +363,7 @@ function BaseInput(
       allAddOns.push({
         iconName: secureEntryState ? 'EyeOffOutline' : 'EyeOutline',
         onPress: () => {
+          onSecureTextEntryChange?.(!secureEntryState);
           setSecureEntryState(!secureEntryState);
         },
       });
@@ -326,12 +373,17 @@ function BaseInput(
     addOnsInProps,
     allowClear,
     inputProps?.value,
+    allowScan,
     allowPaste,
     supportPaste,
     allowSecureTextEye,
     onChangeText,
+    startScanQrCode,
     getClipboard,
+    clearClipboardOnPaste,
+    clearText,
     secureEntryState,
+    onSecureTextEntryChange,
   ]);
 
   useOnWebPaste(inputRef, onPaste);
@@ -363,30 +415,28 @@ function BaseInput(
   }));
 
   const selectionColor = useSelectionColor();
-
   const valueRef = useRef(value);
   if (valueRef.current !== value) {
     valueRef.current = value;
   }
 
   const shownValue = useFixAndroidInputValueDisplay(value);
-
   const { scrollToView } = useScrollToLocation(inputRef);
   // workaround for selectTextOnFocus={true} not working on Native App
   const handleFocus = useCallback(
-    async (e: NativeSyntheticEvent<TextInputFocusEventData>) => {
+    (e: NativeSyntheticEvent<TextInputFocusEventData>) => {
       onFocus?.(e);
       if (platformEnv.isNative && selectTextOnFocus) {
-        const { currentTarget } = e;
-        await timerUtils.setTimeoutPromised(() => {
-          currentTarget.setNativeProps({
+        const currentTarget = e.currentTarget;
+        void timerUtils.setTimeoutPromised(() => {
+          currentTarget?.setNativeProps({
             selection: { start: 0, end: valueRef.current?.length || 0 },
           });
         });
       }
       scrollToView();
     },
-    [onFocus, selectTextOnFocus, scrollToView],
+    [onFocus, scrollToView, selectTextOnFocus],
   );
 
   const onNumberPadChangeText = useCallback(
@@ -433,6 +483,7 @@ function BaseInput(
       <Group.Item>
         <InputComponent
           unstyled
+          // @ts-expect-error - ref type mismatch between platforms
           ref={inputRef}
           keyboardType={keyboardType}
           flex={1}
@@ -463,11 +514,11 @@ function BaseInput(
           {...readOnlyStyle}
           {...InputComponentStyle}
           {...props}
-          // @ts-expect-error
           onPaste={platformEnv.isNative ? onPaste : undefined}
           onChangeText={
             isNumberKeyboardType ? onNumberPadChangeText : onChangeText
           }
+          allowFontScaling={false}
         />
       </Group.Item>
 

@@ -10,17 +10,24 @@ import type {
   Features as FeaturesCore,
   IDeviceBLEFirmwareStatus,
   IDeviceType,
+  KnownDevice,
   ReleaseInfoPayload,
   Response,
+  SearchDevice,
   Success,
   Unsuccessful,
 } from '@onekeyfe/hd-core';
+import type { EFirmwareType } from '@onekeyfe/hd-shared';
 import type { Features as FeaturesTransport } from '@onekeyfe/hd-transport';
+import type { ImageSourcePropType } from 'react-native';
 
 export type IOneKeyDeviceType = IDeviceType;
 
 export type IOneKeyDeviceFeatures = FeaturesTransport;
 export type IOneKeyDeviceFeaturesCore = FeaturesCore;
+export type IOneKeyDeviceFeaturesWithAppParams = IOneKeyDeviceFeatures & {
+  $app_firmware_type?: EFirmwareType;
+};
 
 export type IFirmwareChangeLog = {
   [key in ILocaleSymbol]?: string;
@@ -43,6 +50,7 @@ export type IFirmwareUpdatesDetectStatus = Partial<{
     connectId: string;
     hasUpgrade: boolean;
     toVersion: string | undefined;
+    toFirmwareType: EFirmwareType | undefined;
     toVersionBle: string | undefined;
     // hasUpgradeForce: boolean;
   };
@@ -80,7 +88,9 @@ type IFirmwareUpdateInfoBase<T> = {
   hasUpgradeForce: boolean;
   firmwareType: IDeviceFirmwareType;
   fromVersion: string;
+  fromFirmwareType: EFirmwareType | undefined;
   toVersion: string;
+  toFirmwareType: EFirmwareType | undefined;
   changelog: IFirmwareChangeLog | undefined;
   releasePayload: T;
   githubReleaseUrl?: string;
@@ -121,7 +131,10 @@ export type IDevicePassphraseParams = {
   passphraseState: string | undefined;
   useEmptyPassphrase: boolean | undefined;
 };
-export type IDeviceCommonParams = IDevicePassphraseParams;
+export type IDeviceWebUSBParams = {
+  skipWebDevicePrompt?: boolean;
+};
+export type IDeviceCommonParams = IDevicePassphraseParams & IDeviceWebUSBParams;
 export type IDeviceCommonParamsFull = CommonParams;
 
 export type IGetDeviceAccountDataParams = {
@@ -268,6 +281,7 @@ export enum EFirmwareUpdateTipMessages {
   FirmwareEraseSuccess = 'FirmwareEraseSuccess',
 
   SelectDeviceInBootloaderForWebDevice = 'SelectDeviceInBootloaderForWebDevice',
+  SwitchFirmwareReconnectDevice = 'SwitchFirmwareReconnectDevice',
 
   // Touch & Pro only
   CheckLatestUiResource = 'CheckLatestUiResource',
@@ -333,6 +347,7 @@ export interface IFetchFirmwareVerifyHashParams {
   firmwareVersion: string;
   bluetoothVersion: string;
   bootloaderVersion: string;
+  firmwareType: EFirmwareType | undefined;
 }
 
 export interface IDeviceVerifyRawVersions {
@@ -390,6 +405,7 @@ export type IFirmwareUpdateV3VersionParams = {
   bleVersion: string | undefined;
   firmwareVersion: string | undefined;
   bootloaderVersion: string | undefined;
+  firmwareType: EFirmwareType | undefined;
 };
 
 export enum EHardwareCallContext {
@@ -398,6 +414,33 @@ export enum EHardwareCallContext {
   BACKGROUND_TASK = 'background_task',
   SDK_INITIALIZATION = 'sdk_initialization',
   SILENT_CALL = 'silent_call',
+  UPDATE_FIRMWARE = 'update_firmware',
 }
 
 export type IHardwareCallContext = EHardwareCallContext;
+
+export interface IConnectYourDeviceItem {
+  title: string;
+  src: ImageSourcePropType;
+  opacity?: number;
+  device: SearchDevice | KnownDevice | undefined;
+}
+
+export interface IFirmwareVerifyResult {
+  verified: boolean;
+  skipVerification?: boolean;
+  device: SearchDevice | IDBDevice;
+  payload: {
+    deviceType: IDeviceType;
+    data: string;
+    cert: string;
+    signature: string;
+  };
+  result:
+    | {
+        message?: string;
+        data?: string;
+        code?: number;
+      }
+    | undefined;
+}

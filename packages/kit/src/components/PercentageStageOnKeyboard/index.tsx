@@ -20,10 +20,14 @@ export const calcPercentBalance = ({
     return '';
   }
   if (percent === 100) {
-    return balance;
+    return decimals
+      ? valueNumber.decimalPlaces(decimals, BigNumber.ROUND_DOWN).toFixed()
+      : balance;
   }
   const value = valueNumber.multipliedBy(percent).dividedBy(100);
-  return decimals ? value.toFixed(decimals) : value.toFixed();
+  return decimals
+    ? value.decimalPlaces(decimals, BigNumber.ROUND_DOWN).toFixed()
+    : value.toFixed();
 };
 export function PercentageStageOnKeyboard({
   onSelectPercentageStage,

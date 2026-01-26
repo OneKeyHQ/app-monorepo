@@ -1,5 +1,3 @@
-/* eslint-disable spellcheck/spell-checker */
-
 import {
   AIP80_PREFIXES,
   addPrefix,

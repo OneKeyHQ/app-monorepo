@@ -8,7 +8,7 @@ import Animated, {
   useSharedValue,
 } from 'react-native-reanimated';
 
-import { useThemeValue } from '../../hooks/useStyle';
+import { useTheme } from '../../hooks/useStyle';
 
 import type { SliderThemeType } from 'react-native-awesome-slider';
 import type { SharedValue } from 'react-native-reanimated';
@@ -80,6 +80,9 @@ const MarkWithAnimatedView = ({
   backgroundColor,
   borderColor,
   onPress,
+  centerOrigin = false,
+  minValue = 0,
+  maxValue = 100,
 }: {
   index: number;
   progress: SharedValue<number>;
@@ -88,8 +91,33 @@ const MarkWithAnimatedView = ({
   backgroundColor?: string;
   borderColor?: string;
   onPress?: () => void;
+  centerOrigin?: boolean;
+  minValue?: number;
+  maxValue?: number;
 }) => {
   const style = useAnimatedStyle(() => {
+    if (centerOrigin) {
+      // For centerOrigin mode, calculate which marks should be filled
+      const range = maxValue - minValue;
+      const centerIndex = ((0 - minValue) / range) * step; // Index of center (0 value)
+      const valueIndex = ((progress.value - minValue) / range) * step;
+
+      if (progress.value === 0) {
+        // No fill when value is 0
+        return { opacity: 0 };
+      }
+
+      if (progress.value < 0) {
+        // Negative value: fill marks between value and center (exclusive of center)
+        const shouldFill = index >= valueIndex && index < centerIndex;
+        return { opacity: shouldFill ? 1 : 0 };
+      }
+      // Positive value: fill marks between center and value (exclusive of center)
+      const shouldFill = index > centerIndex && index <= valueIndex;
+      return { opacity: shouldFill ? 1 : 0 };
+    }
+
+    // Default behavior: fill from left to current value
     const progressStep = Math.floor((progress.value / 100) * step);
     return {
       opacity: index <= progressStep ? 1 : 0,
@@ -123,6 +151,11 @@ export interface ISegmentSliderProps {
   max?: number;
   disabled?: boolean;
   showBubble?: boolean;
+  /**
+   * When true, the slider fills from center (0) instead of left edge.
+   * Negative values fill left from center, positive values fill right from center.
+   */
+  centerOrigin?: boolean;
 }
 
 export function SegmentSlider({
@@ -140,12 +173,14 @@ export function SegmentSlider({
   renderMark: renderMarkElement,
   showBubble = true,
   disabled,
+  centerOrigin = false,
 }: ISegmentSliderProps) {
   const progress = useSharedValue(maxValue - minValue);
   const min = useSharedValue(minValue);
   const max = useSharedValue(maxValue);
   const thumbScaleValue = useSharedValue(1);
   const isScrubbing = useSharedValue(false);
+  const [sliderWidth, setSliderWidth] = useState(0);
 
   useAnimatedReaction(
     () => {
@@ -159,20 +194,87 @@ export function SegmentSlider({
     [value],
   );
 
-  const [bgPrimaryColor, neutral5Color, bgColor, borderColor] = useThemeValue([
-    'bgPrimary',
-    'neutral5',
-    'bg',
-    'borderStrong',
+  const theme = useTheme();
+  const bgPrimaryColor = theme.bgPrimary.val;
+  const neutral5Color = theme.neutral5.val;
+  const bgColor = theme.bg.val;
+  const borderColor = theme.borderStrong.val;
+
+  // Animated style for the center-origin fill overlay
+  const centerFillStyle = useAnimatedStyle(() => {
+    if (!centerOrigin || sliderWidth === 0) {
+      return { opacity: 0 };
+    }
+
+    const range = maxValue - minValue;
+    const centerPercent = (0 - minValue) / range; // 0 is the origin
+
+    // Clamp progress value to min/max range
+    const clampedValue = Math.max(minValue, Math.min(maxValue, progress.value));
+    const valuePercent = (clampedValue - minValue) / range;
+
+    // Account for thumb width - the actual track width is sliderWidth - thumbWidth
+    const trackWidth = sliderWidth - thumbWidth;
+    const thumbOffset = thumbWidth / 2;
+
+    const centerX = centerPercent * trackWidth + thumbOffset;
+    const valueX = valuePercent * trackWidth + thumbOffset;
+
+    if (progress.value === 0) {
+      // No fill when value is 0
+      return { opacity: 0 };
+    }
+
+    if (progress.value < 0) {
+      // Negative value: fill from value to center (left side)
+      const fillWidth = Math.max(0, centerX - valueX);
+      return {
+        opacity: 1,
+        position: 'absolute',
+        left: Math.max(thumbOffset, valueX),
+        width: fillWidth,
+        height: sliderHeight,
+        backgroundColor: bgPrimaryColor,
+        borderRadius: sliderHeight / 2,
+      };
+    }
+    // Positive value: fill from center to value (right side)
+    const maxRight = trackWidth + thumbOffset;
+    const fillWidth = Math.min(valueX - centerX, maxRight - centerX);
+    return {
+      opacity: 1,
+      position: 'absolute',
+      left: centerX,
+      width: Math.max(0, fillWidth),
+      height: sliderHeight,
+      backgroundColor: bgPrimaryColor,
+      borderRadius: sliderHeight / 2,
+    };
+  }, [
+    centerOrigin,
+    sliderWidth,
+    sliderHeight,
+    bgPrimaryColor,
+    minValue,
+    maxValue,
   ]);
+
   const sliderTheme: SliderThemeType = useMemo(() => {
     return {
       maximumTrackTintColor: neutral5Color,
-      minimumTrackTintColor: bgPrimaryColor,
+      // When centerOrigin is true, hide the default minimum track
+      minimumTrackTintColor: centerOrigin ? 'transparent' : bgPrimaryColor,
       bubbleBackgroundColor: bgPrimaryColor,
       bubbleTextColor: bgColor,
     };
-  }, [bgColor, bgPrimaryColor, neutral5Color]);
+  }, [bgColor, bgPrimaryColor, neutral5Color, centerOrigin]);
+
+  const handleLayout = useCallback(
+    (event: { nativeEvent: { layout: { width: number } } }) => {
+      setSliderWidth(event.nativeEvent.layout.width);
+    },
+    [],
+  );
 
   const onValueChange = useCallback(
     (sliderValue: number) => {
@@ -222,6 +324,9 @@ export function SegmentSlider({
             onPress={() => {
               handlePressSegment(index);
             }}
+            centerOrigin={centerOrigin}
+            minValue={minValue}
+            maxValue={maxValue}
           />
         </>
       );
@@ -234,6 +339,9 @@ export function SegmentSlider({
       progress,
       renderMarkElement,
       step,
+      centerOrigin,
+      minValue,
+      maxValue,
     ],
   );
   const renderBubbleText = useCallback(
@@ -255,7 +363,10 @@ export function SegmentSlider({
     return showBubble ? undefined : () => null;
   }, [showBubble]);
   return (
-    <View style={styles.full}>
+    <View style={styles.full} onLayout={handleLayout}>
+      {centerOrigin ? (
+        <Animated.View style={centerFillStyle} pointerEvents="none" />
+      ) : null}
       <Slider
         disable={disabled}
         steps={step}

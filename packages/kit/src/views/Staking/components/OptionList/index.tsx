@@ -85,27 +85,33 @@ const OptionItem = ({
   const { extraFields, activeId } = useContext(OptionListContext);
   const active = activeId === item.id;
   const intl = useIntl();
+  const isDisabled = item.extra?.disabled;
   return (
     <Stack px="$5" py="$2">
       <YStack
         group
-        onPress={() => onPress?.({ item })}
+        onPress={isDisabled ? undefined : () => onPress?.({ item })}
         borderWidth={StyleSheet.hairlineWidth}
-        borderColor={active ? '$borderActive' : '$borderSubdued'}
+        borderColor={active && !isDisabled ? '$borderActive' : '$borderSubdued'}
         borderRadius="$3"
         borderCurve="continuous"
         overflow="hidden"
         userSelect="none"
+        opacity={isDisabled ? 0.5 : 1}
+        cursor={isDisabled ? 'not-allowed' : 'pointer'}
       >
         <XStack
           bg="$bgSubdued"
-          $group-hover={{
-            bg: '$bgHover',
-          }}
-          $group-press={{
-            bg: '$bgActive',
-          }}
-          $group-
+          {...(isDisabled
+            ? {}
+            : {
+                '$group-hover': {
+                  bg: '$bgHover',
+                },
+                '$group-press': {
+                  bg: '$bgActive',
+                },
+              })}
           px={14}
           py={12}
           jc="space-between"
@@ -142,6 +148,13 @@ const OptionItem = ({
             <Stack>
               <Badge badgeType="info">
                 {intl.formatMessage({ id: ETranslations.global_pending })}
+              </Badge>
+            </Stack>
+          ) : null}
+          {item.extra?.badge ? (
+            <Stack>
+              <Badge badgeType={item.extra.badge.badgeType}>
+                <Badge.Text>{item.extra.badge.tag}</Badge.Text>
               </Badge>
             </Stack>
           ) : null}
@@ -191,6 +204,9 @@ type IOptionListProps = {
   };
   extraFields?: IExtraField[];
   ListHeaderComponent?: ComponentProps<typeof ListView>['ListHeaderComponent'];
+  description?: {
+    text: string;
+  };
 };
 
 export const OptionList = ({
@@ -201,10 +217,22 @@ export const OptionList = ({
   onConfirmText,
   extraFields,
   ListHeaderComponent,
+  description,
 }: IOptionListProps) => {
   const appNavigation = useAppNavigation();
-  const [activeId, setActiveId] = useState(items[0]?.id);
+  // Find the first non-disabled item as the default active item
+  const firstEnabledItem = useMemo(
+    () => items.find((item) => !item.extra?.disabled),
+    [items],
+  );
+  const [activeId, setActiveId] = useState(firstEnabledItem?.id);
   const [loading, setLoading] = useState(false);
+
+  // Check if there are any disabled items to determine if we should show the description
+  const hasDisabledItems = useMemo(
+    () => items.some((item) => item.extra?.disabled),
+    [items],
+  );
 
   const renderItem = useCallback(
     ({ item }: { item: IOptionItem }) => (
@@ -236,9 +264,25 @@ export const OptionList = ({
 
   const isDisabled = useMemo(() => {
     if (!activeId) return true;
-    const find = items.find((item) => item.id === activeId && !item.isPending);
+    const find = items.find(
+      (item) =>
+        item.id === activeId && !item.isPending && !item.extra?.disabled,
+    );
     return !find;
   }, [activeId, items]);
+
+  const ListFooterComponent = useMemo(() => {
+    if (hasDisabledItems && description?.text) {
+      return (
+        <Stack px="$5" py="$4">
+          <SizableText size="$bodySm" color="$textSubdued" textAlign="center">
+            {description.text}
+          </SizableText>
+        </Stack>
+      );
+    }
+    return null;
+  }, [hasDisabledItems, description?.text]);
 
   return (
     <OptionListContext.Provider value={ctx}>
@@ -250,6 +294,7 @@ export const OptionList = ({
           renderItem={renderItem}
           ListHeaderComponent={ListHeaderComponent}
           ListEmptyComponent={ListEmptyComponent}
+          ListFooterComponent={ListFooterComponent}
         />
         <Page.Footer
           onConfirmText={onConfirmText}

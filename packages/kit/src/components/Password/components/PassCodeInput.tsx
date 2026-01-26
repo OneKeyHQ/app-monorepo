@@ -94,7 +94,7 @@ function BasicPassCodeInput(
     return (
       <Text
         key={index}
-        style={[...[cellStyles.cell]]}
+        style={[cellStyles.cell]}
         onLayout={getCellOnLayoutHandler(index)}
       >
         <YStack

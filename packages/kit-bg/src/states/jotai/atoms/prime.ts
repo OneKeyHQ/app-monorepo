@@ -1,4 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+import { cloneDeep } from 'lodash';
+
 import type {
   IPrimeServerUserInfo,
   IPrimeUserInfo,
@@ -7,24 +9,32 @@ import type {
 import { EAtomNames } from '../atomNames';
 import { globalAtom } from '../utils';
 
+import type { IAccountDeriveTypes } from '../../../vaults/types';
+
 export type IPrimePersistAtomData = IPrimeUserInfo;
+export const primePersistAtomInitialValue: IPrimePersistAtomData = {
+  // export const initialPrimePersistAtomData: IPrimePersistAtomData = {
+  isLoggedIn: false,
+  isLoggedInOnServer: false,
+  isEnablePrime: undefined,
+  isEnableSandboxPay: undefined,
+  isPrimeDeviceLimitExceeded: undefined,
+  email: undefined,
+  displayEmail: undefined,
+  onekeyUserId: undefined,
+  primeSubscription: undefined,
+  subscriptionManageUrl: undefined,
+  keylessWalletId: undefined,
+  nickname: undefined,
+  avatar: undefined,
+};
 export const {
   target: primePersistAtom, // persist
   use: usePrimePersistAtom,
 } = globalAtom<IPrimePersistAtomData>({
   name: EAtomNames.primePersistAtom,
   persist: true,
-  initialValue: {
-    isLoggedIn: false,
-    isLoggedInOnServer: false,
-    isEnablePrime: undefined,
-    isEnableSandboxPay: undefined,
-    email: undefined,
-    displayEmail: undefined,
-    privyUserId: undefined,
-    primeSubscription: undefined,
-    subscriptionManageUrl: undefined,
-  },
+  initialValue: cloneDeep(primePersistAtomInitialValue),
 });
 
 export type IPrimeCloudSyncPersistAtomData = {
@@ -125,6 +135,25 @@ export enum EPrimeTransferStatus {
   paired = 'paired',
   transferring = 'transferring',
 }
+export type IPrimeTransferImportProgressTotalDetailInfo = {
+  defaultNetworks: {
+    networkId: string;
+    deriveType: IAccountDeriveTypes;
+  }[];
+  hdWallets: {
+    [walletId: string]: {
+      accountsCount?: number;
+      walletItemId?: string;
+      walletId?: string;
+    };
+  };
+  importedAccounts: {
+    accountsCount?: number;
+  };
+  watchingAccounts: {
+    accountsCount?: number;
+  };
+};
 export type IPrimeTransferAtomData = {
   shouldPreventExit: boolean;
   websocketConnected: boolean;
@@ -142,7 +171,9 @@ export type IPrimeTransferAtomData = {
         randomNumber: string | undefined;
       }
     | undefined;
+  importCurrentCreatingTarget?: string;
   importProgress?: {
+    totalDetailInfo?: IPrimeTransferImportProgressTotalDetailInfo;
     total: number;
     current: number;
     isImporting: boolean;

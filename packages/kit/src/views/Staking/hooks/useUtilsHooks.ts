@@ -85,6 +85,9 @@ export function useTrackTokenAllowance({
     networkId,
     trackTxId,
   });
+  useEffect(() => {
+    setAllowance(initialValue);
+  }, [initialValue]);
   const fetchAllowanceResponse = useCallback(
     async () =>
       backgroundApiProxy.serviceStaking.fetchTokenAllowance({

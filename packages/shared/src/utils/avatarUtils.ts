@@ -59,6 +59,11 @@ export type IHwWalletAvatarImageNames = keyof typeof HwWalletAvatarImages;
 export type IOthersWalletAvatarImageNames =
   keyof typeof OthersWalletAvatarImages;
 
+export type IAllWalletAvatarImageNamesWithoutDividers =
+  | IHdWalletAvatarImageNames
+  | IHwWalletAvatarImageNames
+  | IOthersWalletAvatarImageNames;
+
 export function getDeviceAvatarImage(
   deviceType: IDeviceType,
   serialNo?: string,

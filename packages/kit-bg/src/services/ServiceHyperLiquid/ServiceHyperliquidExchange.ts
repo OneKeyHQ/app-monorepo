@@ -8,6 +8,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
+  DISABLE_PERPS_WALLET_BIND,
   type EHyperLiquidAgentName,
   PERPS_EMPTY_ADDRESS,
   PERPS_EVM_CHAIN_ID_HEX,
@@ -16,6 +17,8 @@ import {
   OneKeyLocalError,
   WatchedAccountTradeError,
 } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   dispatchHyperLiquidOrderLog,
@@ -32,6 +35,7 @@ import {
   MAX_DECIMALS_PERP,
   formatPriceToSignificantDigits,
   getValidPriceDecimals,
+  parseSignatureToRSV,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type {
   IApiErrorResponse,
@@ -55,6 +59,7 @@ import type {
   IUpdateIsolatedMarginRequest,
   IWithdrawParams,
 } from '@onekeyhq/shared/types/hyperliquid/types';
+import type { IHyperLiquidSignatureRSV } from '@onekeyhq/shared/types/hyperliquid/webview';
 
 import {
   perpsActiveAccountAtom,
@@ -83,6 +88,9 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   private _account: string | null = null;
 
   private _exchangeClient: ExchangeClient | null = null;
+
+  private _wallet: WalletHyperliquidProxy | WalletHyperliquidOnekey | null =
+    null;
 
   private _builderFeeInfo:
     | {
@@ -130,7 +138,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
 
   private _composeOrderLogExtra(options: IOrderLogOptions) {
     const extra: Record<string, unknown> = {
-      ...(options.extra ?? {}),
+      ...options.extra,
     };
     if (typeof options.originalParams !== 'undefined') {
       extra.originalParams = options.originalParams;
@@ -190,6 +198,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       });
 
       this._account = account;
+      this._wallet = wallet;
     } catch (error) {
       throw new OneKeyLocalError(
         `Failed to setup exchange client: ${String(error)}`,
@@ -277,6 +286,15 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   }
 
   @backgroundMethod()
+  async enableDexAbstraction(): Promise<{ status: 'ok' } | undefined> {
+    await this.checkAccountCanTrade();
+    const response = await convertHyperLiquidResponse(() =>
+      this.exchangeClient.agentEnableDexAbstraction(),
+    );
+    return response;
+  }
+
+  @backgroundMethod()
   async updateLeverage(params: ILeverageUpdateRequest): Promise<void> {
     await this.checkAccountCanTrade();
 
@@ -349,10 +367,78 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         >(error),
         error: serializeHyperLiquidError(error),
       });
-      throw new OneKeyLocalError(
-        `Failed to approve builder fee: ${String(error)}`,
-      );
+      const errStr = String(error);
+      // Abstract Wallet Error
+      if (errStr.includes('Failed to sign typed data')) {
+        throw new OneKeyLocalError({
+          message: appLocale.intl.formatMessage({
+            id: ETranslations.perps_connection_error,
+          }),
+        });
+      }
+      // Hyperliquid Error
+      else if (errStr.includes('Too many builders approved')) {
+        throw new OneKeyLocalError({
+          message: appLocale.intl.formatMessage({
+            id: ETranslations.perps_builder_max_error,
+          }),
+        });
+      }
+      throw new OneKeyLocalError({
+        message: appLocale.intl.formatMessage({
+          id: ETranslations.global_unknown_error,
+        }),
+      });
     }
+  }
+
+  @backgroundMethod()
+  async extractAgentSignature(): Promise<{
+    action: {
+      type: string;
+      signatureChainId: string;
+      hyperliquidChain: string;
+      agentAddress: string;
+      agentName: string;
+      nonce: number;
+    };
+    signature: IHyperLiquidSignatureRSV;
+    nonce: number;
+    signerAddress: string;
+  } | null> {
+    const wallet = this._wallet;
+
+    const signedData = (
+      wallet as WalletHyperliquidOnekey
+    )?.getTempSignatureAndClear();
+    if (
+      !signedData?.value ||
+      typeof signedData.signatureHex !== 'string' ||
+      !signedData.signerAddress
+    ) {
+      return null;
+    }
+
+    const { value, signatureHex, signerAddress } = signedData;
+
+    // These fields are NOT part of the signed EIP-712 message in SDK > 0.24.x,
+    // so reading them from `value` is unreliable. Use stable constants instead.
+    const actionType = 'approveAgent';
+    const signatureChainId = PERPS_EVM_CHAIN_ID_HEX;
+    // Only extract approveAgent signatures
+    return {
+      action: {
+        type: actionType,
+        signatureChainId,
+        hyperliquidChain: value.hyperliquidChain as string,
+        agentAddress: value.agentAddress as string,
+        agentName: value.agentName as string,
+        nonce: value.nonce as number,
+      },
+      signature: parseSignatureToRSV(signatureHex),
+      nonce: value.nonce as number,
+      signerAddress,
+    };
   }
 
   @backgroundMethod()
@@ -376,6 +462,34 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
           operation: params.authorize ? 'authorize' : 'revoke',
         },
       });
+
+      // Extract signature and report to backend after successful approval
+      if (
+        !DISABLE_PERPS_WALLET_BIND &&
+        params.authorize &&
+        response.status === 'ok' &&
+        response.response.type === 'default'
+      ) {
+        try {
+          const signatureInfo = await this.extractAgentSignature();
+          if (signatureInfo) {
+            void this.backgroundApi.serviceHyperliquid.reportAgentApprovalToBackend(
+              signatureInfo,
+            );
+            void this.backgroundApi.serviceHyperliquid.notifyHyperliquidAccountBind(
+              {
+                signerAddress: signatureInfo.signerAddress,
+                action: signatureInfo.action,
+                nonce: signatureInfo.nonce,
+                signature: signatureInfo.signature,
+              },
+            );
+          }
+        } catch (error) {
+          console.error('Failed to extract agent signature:', error);
+        }
+      }
+
       return response;
     } catch (error) {
       defaultLogger.perp.hyperliquid.approveAgent({
@@ -512,6 +626,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     this._account = null;
     this._exchangeClient = null;
     this._builderFeeInfo = undefined;
+    this._wallet = null;
   }
 
   async checkAccountCanTrade() {

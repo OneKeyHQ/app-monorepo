@@ -30,6 +30,9 @@ export type IToken = {
   // for aggregate token
   isAggregateToken?: boolean;
   commonSymbol?: string;
+
+  // for defi
+  defiMarked?: boolean;
 };
 
 export type ITokenFiat = {
@@ -81,9 +84,11 @@ export type IFetchAccountTokensParams = {
   allNetworksAccountId?: string;
   allNetworksNetworkId?: string;
   saveToLocal?: boolean;
+  saveToLocalLimit?: number;
   customTokensRawData?: ICustomTokenDBStruct;
   blockedTokensRawData?: IRiskTokenManagementDBStruct['blockedTokens'];
   unblockedTokensRawData?: IRiskTokenManagementDBStruct['unblockedTokens'];
+  excludeDeFiMarkedTokens?: boolean;
 };
 
 export type ITokenData = {

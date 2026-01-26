@@ -54,6 +54,7 @@ export type IFetchAccountDetailsParams = {
   withTronAccountResources?: boolean;
   withTransactionCount?: boolean;
   withXpubDerivedTokens?: boolean;
+  withUTXOBlockTime?: boolean;
 };
 
 export type IFetchAccountDetailsResp = {
@@ -132,6 +133,7 @@ export type IServerAccountBadgeResp = {
   isScam?: boolean;
   badges?: IAddressBadge[];
   label?: string;
+  similarAddress?: string;
 };
 
 export enum EAddressInteractionStatus {
@@ -165,6 +167,8 @@ export type IQueryCheckAddressArgs = {
     accountName: string;
     accountId: string;
   };
+  ignoreSimilarAddressInAddressBook?: boolean;
+  enableCheckSimilarAddressInAddressBook?: boolean;
 };
 
 export type IFetchServerAccountDetailsParams = IFetchAccountDetailsParams & {

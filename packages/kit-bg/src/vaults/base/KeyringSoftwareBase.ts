@@ -1,6 +1,9 @@
 import { isNil } from 'lodash';
 
-import { decryptImportedCredential } from '@onekeyhq/core/src/secret';
+import {
+  decryptImportedCredential,
+  revealableSeedFromMnemonic,
+} from '@onekeyhq/core/src/secret';
 import type {
   ICoreCredentialsInfo,
   ICoreHdCredentialEncryptHex,
@@ -52,10 +55,22 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
 
     // hd
     if (this.isKeyringHd()) {
-      const credential = await localDb.getCredential(
-        checkIsDefined(this.walletId),
-      );
-      hd = credential.credential;
+      const isKeyless = false;
+      if (isKeyless) {
+        const { mnemonic } =
+          await this.backgroundApi.serviceKeylessWallet.revealKeylessWalletMnemonic(
+            {
+              walletId: checkIsDefined(this.walletId),
+              password,
+            },
+          );
+        hd = await revealableSeedFromMnemonic(mnemonic, password);
+      } else {
+        const credential = await localDb.getCredential(
+          checkIsDefined(this.walletId),
+        );
+        hd = credential.credential;
+      }
     }
 
     // imported

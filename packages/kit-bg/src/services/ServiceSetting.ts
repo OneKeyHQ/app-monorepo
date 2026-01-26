@@ -22,7 +22,7 @@ import {
   IMPL_LTC,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
+import type { ETranslations, ILocaleSymbol } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import {
   getDefaultLocale,
@@ -34,6 +34,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -133,6 +134,16 @@ class ServiceSetting extends ServiceBase {
   public async getInstanceId() {
     const { instanceId } = await settingsPersistAtom.get();
     return instanceId;
+  }
+
+  @backgroundMethod()
+  public async resetInstanceId() {
+    const newInstanceId = generateUUID();
+    await settingsPersistAtom.set((prev) => ({
+      ...prev,
+      instanceId: newInstanceId,
+    }));
+    return newInstanceId;
   }
 
   @backgroundMethod()
@@ -272,6 +283,7 @@ class ServiceSetting extends ServiceBase {
     }
     if (values.appUpdateCache) {
       await this.backgroundApi.serviceAppUpdate.clearCache();
+      await this.backgroundApi.simpleDb.ipTable.clearRawData();
     }
     if (values.browserHistory) {
       // clear Browser History, Bookmarks, Pins
@@ -441,6 +453,30 @@ class ServiceSetting extends ServiceBase {
         reviewControl: show,
       }));
     }
+  }
+
+  @backgroundMethod()
+  public async fetchGetStartedLinks({
+    slots,
+  }: {
+    slots: ('hardware_faqs' | 'hardware_getstarteds')[];
+  }) {
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const response = await client.get<{
+      data: {
+        linkId: string;
+        title: string;
+        mode: number;
+        payload: string;
+        image: string;
+        description: string;
+      }[];
+    }>('/utility/v1/link-config', {
+      params: {
+        slots: slots.join(','),
+      },
+    });
+    return response.data.data;
   }
 
   @backgroundMethod()
@@ -623,7 +659,9 @@ class ServiceSetting extends ServiceBase {
       return;
     }
 
-    const { wallets } = await this.backgroundApi.serviceAccount.getAllWallets();
+    const { wallets } = await this.backgroundApi.serviceAccount.getAllWallets({
+      excludeKeylessWallet: true,
+    });
 
     const hasHdOrHwWallet =
       wallets?.some((wallet) => {
@@ -661,6 +699,14 @@ class ServiceSetting extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async setSelectedBrowserTab(tab: ETranslations) {
+    await settingsPersistAtom.set((prev) => ({
+      ...prev,
+      selectedBrowserTab: tab,
+    }));
+  }
+
+  @backgroundMethod()
   public async fetchWalletConfig() {
     const controller = new AbortController();
     this._fetchWalletConfigControllers.push(controller);
@@ -670,7 +716,7 @@ class ServiceSetting extends ServiceBase {
         '/wallet/v1/wallet/config',
       );
       return resp.data.data;
-    } catch (e) {
+    } catch (_e) {
       return null;
     }
   }

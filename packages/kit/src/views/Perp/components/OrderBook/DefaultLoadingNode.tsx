@@ -12,68 +12,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import type { IOrderBookVariant } from './types';
 
-const DESKTOP_ROW_HEIGHT = 18;
 const MOBILE_ROW_HEIGHT = 12;
-
-const DESKTOP_ROW_WIDTHS = [
-  '100%',
-  '95%',
-  '90%',
-  '85%',
-  '80%',
-  '75%',
-  '72%',
-  '68%',
-  '66%',
-  '62%',
-  '57%',
-  '52%',
-  '48%',
-  '44%',
-  '40%',
-  '36%',
-  '32%',
-  '28%',
-  '100%',
-  '28%',
-  '32%',
-  '36%',
-  '40%',
-  '44%',
-  '48%',
-  '52%',
-  '57%',
-  '62%',
-  '66%',
-  '68%',
-  '72%',
-  '75%',
-  '80%',
-  '85%',
-  '90%',
-  '95%',
-  '100%',
-];
-
-const MOBILE_ROWS: { width: string; height: number }[] = [
-  { width: '100%', height: MOBILE_ROW_HEIGHT },
-  { width: '92%', height: MOBILE_ROW_HEIGHT },
-  { width: '85%', height: MOBILE_ROW_HEIGHT },
-  { width: '78%', height: MOBILE_ROW_HEIGHT },
-  { width: '72%', height: MOBILE_ROW_HEIGHT },
-  { width: '65%', height: MOBILE_ROW_HEIGHT },
-  { width: '58%', height: MOBILE_ROW_HEIGHT },
-  { width: '50%', height: MOBILE_ROW_HEIGHT },
-  { width: '100%', height: MOBILE_ROW_HEIGHT },
-  { width: '50%', height: MOBILE_ROW_HEIGHT },
-  { width: '58%', height: MOBILE_ROW_HEIGHT },
-  { width: '65%', height: MOBILE_ROW_HEIGHT },
-  { width: '72%', height: MOBILE_ROW_HEIGHT },
-  { width: '78%', height: MOBILE_ROW_HEIGHT },
-  { width: '85%', height: MOBILE_ROW_HEIGHT },
-  { width: '92%', height: MOBILE_ROW_HEIGHT },
-  { width: '100%', height: MOBILE_ROW_HEIGHT },
-];
 
 const MOBILE_HORIZONTAL_WIDTHS = [
   '6.4%',
@@ -175,18 +114,11 @@ export function DefaultLoadingNode({
           </YStack>
         </XStack>
 
-        <YStack gap="$1.5">
-          {MOBILE_ROWS.map((row, index) => (
-            <Stack
-              key={index}
-              h={row.height}
-              borderRadius={4}
-              overflow="hidden"
-              w="100%"
-            >
-              <Skeleton w={row.width} h="100%" radius="square" />
-            </Stack>
-          ))}
+        <YStack gap="$1.5" flex={1}>
+          <Skeleton w="100%" h={MOBILE_ROW_HEIGHT} radius="round" />
+          <Skeleton w="80%" h={MOBILE_ROW_HEIGHT} radius="round" />
+          <Skeleton w="60%" h={MOBILE_ROW_HEIGHT} radius="round" />
+          <Skeleton w="40%" h={MOBILE_ROW_HEIGHT} radius="round" />
         </YStack>
       </YStack>
     );

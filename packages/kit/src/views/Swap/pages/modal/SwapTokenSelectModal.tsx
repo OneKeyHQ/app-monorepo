@@ -35,6 +35,7 @@ import {
   useSwapNetworksIncludeAllNetworkAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
+  useSwapSelectTokenNetworkAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -72,7 +73,11 @@ import { SwapProviderMirror } from '../SwapProviderMirror';
 import type { RouteProp } from '@react-navigation/core';
 import type { FlatList } from 'react-native';
 
-const SwapTokenSelectPage = () => {
+const SwapTokenSelectPage = ({
+  autoSearch = false,
+}: {
+  autoSearch?: boolean;
+}) => {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
   const route =
@@ -150,10 +155,17 @@ const SwapTokenSelectPage = () => {
     toToken?.networkId,
     type,
   ]);
-  const [currentSelectNetwork, setCurrentSelectNetwork] = useState<
-    ISwapNetwork | undefined
-  >(syncDefaultNetworkSelect);
+  const [currentSelectNetwork, setCurrentSelectNetwork] =
+    useSwapSelectTokenNetworkAtom();
   const listViewRef = useRef<FlatList>(null);
+
+  useEffect(() => {
+    setCurrentSelectNetwork(syncDefaultNetworkSelect);
+    return () => {
+      setCurrentSelectNetwork(undefined);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [setCurrentSelectNetwork]);
 
   useEffect(() => {
     const accountNet =
@@ -170,12 +182,13 @@ const SwapTokenSelectPage = () => {
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [currentSelectNetwork?.networkId]);
 
   const { fetchLoading, currentTokens } = useSwapTokenList(
     type,
     currentSelectNetwork?.networkId,
     searchKeywordDebounce,
+    swapTypeSwitch,
   );
   const alertIndex = useMemo(
     () =>
@@ -266,13 +279,16 @@ const SwapTokenSelectPage = () => {
     [checkRiskToken, navigation, route.params.storeName, selectTokenHandler],
   );
 
-  const onSelectCurrentNetwork = useCallback((network: ISwapNetwork) => {
-    setCurrentSelectNetwork(network);
-    listViewRef.current?.scrollToOffset({
-      offset: 0,
-      animated: false,
-    });
-  }, []);
+  const onSelectCurrentNetwork = useCallback(
+    (network: ISwapNetwork) => {
+      setCurrentSelectNetwork(network);
+      listViewRef.current?.scrollToOffset({
+        offset: 0,
+        animated: false,
+      });
+    },
+    [setCurrentSelectNetwork],
+  );
 
   const { md } = useMedia();
   const { copyText, getClipboard } = useClipboard();
@@ -514,6 +530,7 @@ const SwapTokenSelectPage = () => {
             const afterTrim = nativeEvent.text.trim();
             setSearchKeyword(afterTrim);
           },
+          ...(autoSearch ? { autoFocus: true } : {}),
           searchBarInputValue: searchKeyword,
           ...(searchKeyword?.length === 0 && !platformEnv.isExtension
             ? {
@@ -575,6 +592,7 @@ const SwapTokenSelectPage = () => {
         ) : null}
         <YStack flex={1}>
           <ListView
+            useFlashList
             ref={listViewRef}
             data={currentTokens}
             renderItem={renderItem}
@@ -637,10 +655,10 @@ const SwapTokenSelectPageWithProvider = () => {
     useRoute<
       RouteProp<IModalSwapParamList, EModalSwapRoutes.SwapTokenSelect>
     >();
-  const { storeName } = route.params;
+  const { storeName, autoSearch = false } = route.params;
   return (
     <SwapProviderMirror storeName={storeName}>
-      <SwapTokenSelectPage />
+      <SwapTokenSelectPage autoSearch={autoSearch} />
     </SwapProviderMirror>
   );
 };

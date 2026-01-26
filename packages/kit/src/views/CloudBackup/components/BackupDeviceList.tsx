@@ -5,6 +5,7 @@ import { deviceName, osName } from 'expo-device';
 import { useIntl } from 'react-intl';
 
 import {
+  Alert,
   Icon,
   SectionList,
   SizableText,
@@ -19,7 +20,6 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import type { IMetaDataObject } from '@onekeyhq/kit-bg/src/services/ServiceCloudBackup/types';
-import { useCloudBackupPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ECloudBackupRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
@@ -39,7 +39,6 @@ export default function BackupDeviceList<T>({
   | 'getItemType'
 > & { ListEmptyComponent?: ReactElement }) {
   const intl = useIntl();
-  const [{ isEnabled, isInProgress }] = useCloudBackupPersistAtom();
   const navigation = useAppNavigation();
   const iconList: Record<string, string> = useMemo(
     () => ({
@@ -52,34 +51,29 @@ export default function BackupDeviceList<T>({
   const { result: data, run } = usePromiseResult(async () => {
     const backupDeviceList =
       await backgroundApiProxy.serviceCloudBackup.getBackupDeviceList();
-    return !ListEmptyComponent && !isEnabled
-      ? []
-      : backupDeviceList.map((item) => ({
-          deviceName: item.deviceInfo.deviceName,
-          osName: item.deviceInfo.osName,
-          detail: intl.formatMessage(
-            { id: ETranslations.backup_updated_time },
-            { time: formatDate(new Date(item.backupTime)) },
-          ),
-          icon:
-            item.deviceInfo.osName in iconList
-              ? iconList[item.deviceInfo.osName]
-              : 'SuqarePlaceholderOutline',
-          isCurrentDevice:
-            item.deviceInfo.deviceName === deviceName &&
-            item.deviceInfo.osName === osName,
-        }));
-  }, [intl, iconList, ListEmptyComponent, isEnabled]);
+    return backupDeviceList.map((item) => ({
+      deviceName: item.deviceInfo.deviceName,
+      osName: item.deviceInfo.osName,
+      detail: intl.formatMessage(
+        { id: ETranslations.backup_updated_time },
+        { time: formatDate(new Date(item.backupTime)) },
+      ),
+      icon:
+        item.deviceInfo.osName in iconList
+          ? iconList[item.deviceInfo.osName]
+          : 'SuqarePlaceholderOutline',
+      isCurrentDevice:
+        item.deviceInfo.deviceName === deviceName &&
+        item.deviceInfo.osName === osName,
+    }));
+  }, [intl, iconList]);
   const hasData = (data?.length ?? 0) > 0;
   const isFocused = useIsFocused();
   useEffect(() => {
-    if (isInProgress) {
-      return;
-    }
     if (isFocused) {
       void run();
     }
-  }, [isInProgress, isFocused, run, isEnabled]);
+  }, [isFocused, run]);
   if (!data) {
     return <BackupListLoading />;
   }
@@ -94,14 +88,26 @@ export default function BackupDeviceList<T>({
             ]
           : []
       }
-      renderSectionHeader={() =>
-        !ListEmptyComponent && !isEnabled ? null : (
+      renderSectionHeader={() => (
+        <>
+          <Alert
+            type="info"
+            mx="$5"
+            description={intl.formatMessage(
+              {
+                id: ETranslations.older_backups_description,
+              },
+              {
+                version: '5.17.0',
+              },
+            )}
+          />
           <SectionList.SectionHeader
             mt="$5"
             title={intl.formatMessage({ id: ETranslations.backup_all_devices })}
           />
-        )
-      }
+        </>
+      )}
       renderItem={({
         item,
       }: {
@@ -162,15 +168,6 @@ export default function BackupDeviceList<T>({
         />
       )}
       estimatedItemSize="$16"
-      ListFooterComponent={
-        !hasData && ListEmptyComponent ? null : (
-          <SizableText size="$bodySm" color="$textSubdued" px="$5" pt="$3">
-            {intl.formatMessage({
-              id: ETranslations.backup_onekey_doesnt_back_up_hardware_wallets,
-            })}
-          </SizableText>
-        )
-      }
       ListEmptyComponent={ListEmptyComponent}
       {...(restProps as any)}
     />

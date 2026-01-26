@@ -36,7 +36,8 @@ export type IAppChannel =
   | 'win'
   | 'winStore'
   | 'linux'
-  | 'linuxSnap';
+  | 'linuxSnap'
+  | 'linuxFlatpak';
 
 export type IPlatformEnv = {
   mobileDetectInfo: MobileDetect | undefined;
@@ -81,6 +82,9 @@ export type IPlatformEnv = {
 
   isDesktopLinux?: boolean;
   isDesktopLinuxSnap?: boolean;
+  isDesktopLinuxFlatpak?: boolean;
+  isDesktopStore?: boolean;
+  /** windows */
   isDesktopWin?: boolean;
   isDesktopWinMsStore?: boolean;
   /** macos arm64 & x86 */
@@ -171,12 +175,16 @@ const desktopArch = globalThis?.desktopApi?.arch || '';
 const desktopPlatform = globalThis?.desktopApi?.platform || '';
 const desktopChannel = globalThis?.desktopApi?.channel || '';
 
+const isMas = isDesktop && globalThis?.desktopApi?.isMas;
 const isDesktopMac = isDesktop && desktopPlatform === 'darwin';
 const isDesktopMacArm64 = isDesktopMac && desktopArch === 'arm64';
 const isDesktopWin = isDesktop && desktopPlatform === 'win32';
 const isDesktopWinMsStore = isDesktopWin && desktopDeskChannel === 'ms-store';
 const isDesktopLinux = isDesktop && desktopPlatform === 'linux';
 const isDesktopLinuxSnap = isDesktopLinux && desktopChannel === 'snap';
+const isDesktopLinuxFlatpak = isDesktopLinux && desktopChannel === 'flatpak';
+const isDesktopStore =
+  isMas || isDesktopWinMsStore || isDesktopLinuxSnap || isDesktopLinuxFlatpak;
 
 const isNativeIOS = isNative && Platform.OS === 'ios';
 const isNativeIOSStore = isNativeIOS && isProduction;
@@ -189,7 +197,6 @@ const androidChannel = ANDROID_CHANNEL;
 const isNativeAndroidGooglePlay =
   isNativeAndroid && androidChannel === 'google';
 const isNativeAndroidHuawei = isNativeAndroid && androidChannel === 'huawei';
-const isMas = isDesktop && globalThis?.desktopApi?.isMas;
 
 // for platform building by file extension
 const getAppPlatform = (): IAppPlatform | undefined => {
@@ -227,11 +234,12 @@ const getAppChannel = (): IAppChannel | undefined => {
   if (isDesktopMacArm64) return 'macosARM';
   if (isDesktopMac) return 'macosX86';
   if (isDesktopLinuxSnap) return 'linuxSnap';
+  if (isDesktopLinuxFlatpak) return 'linuxFlatpak';
   if (isDesktopLinux) return 'linux';
 };
 
 const isRuntimeBrowser: boolean =
-  // eslint-disable-next-line unicorn/prefer-global-this
+  // oxlint-disable-next-line unicorn/prefer-global-this
   typeof window !== 'undefined' && !isNative;
 
 // @ts-ignore
@@ -357,7 +365,7 @@ const getBrowserInfo = () => {
 
 const isWebTouchable =
   isRuntimeBrowser &&
-  // eslint-disable-next-line unicorn/prefer-global-this
+  // oxlint-disable-next-line unicorn/prefer-global-this
   ('ontouchstart' in globalThis || navigator.maxTouchPoints > 0);
 
 let isWebMobile = false;
@@ -389,8 +397,8 @@ const isRuntimeChrome = checkIsRuntimeChrome();
 const isRuntimeEdge = checkIsRuntimeEdge();
 const isRuntimeBrave = checkIsRuntimeBrave();
 const isRuntimeMacOSBrowser = isDesktopMac || checkIsRuntimeMacOSBrowser();
-// Desktop (Electron) now supports WebUSB directly through Chromium, no need for bridge
-const isSupportWebUSB = isExtension || isWeb || isDesktop;
+// Desktop (Electron) supports WebUSB through Chromium, except Linux which uses Bridge due to udev permission issues
+const isSupportWebUSB = isExtension || isWeb || (isDesktop && !isDesktopLinux);
 
 const isSupportDesktopBle = isDesktopMac || isDesktopWin;
 
@@ -494,6 +502,8 @@ const platformEnv: IPlatformEnv = {
   isDesktopMacArm64,
   isDesktopLinux,
   isDesktopLinuxSnap,
+  isDesktopLinuxFlatpak,
+  isDesktopStore,
   isMas,
 
   isExtFirefox,

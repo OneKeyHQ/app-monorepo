@@ -12,6 +12,7 @@ import {
 import type { PropsWithChildren, RefObject } from 'react';
 
 import { debounce } from 'lodash';
+import type { SharedValue } from 'react-native-reanimated';
 import { useAnimatedReaction, useSharedValue } from 'react-native-reanimated';
 import { WindowScroller } from 'react-virtualized';
 
@@ -32,11 +33,32 @@ export function ContainerChild({
   children,
   listContainerRef,
   containerWidth,
+  focusedTab,
+  tabNames,
   ...props
 }: PropsWithChildren<WindowScrollerChildProps> & {
   listContainerRef: RefObject<Element>;
   containerWidth: number | string | undefined;
+  focusedTab: SharedValue<string>;
+  tabNames: (string | null)[];
 }) {
+  useAnimatedReaction(
+    () => focusedTab.value,
+    (tabName) => {
+      const focusedIndex = tabNames.findIndex((name) => name === tabName);
+      if (focusedIndex > -1 && listContainerRef.current) {
+        listContainerRef.current.childNodes.forEach((element, index) => {
+          if (element) {
+            (
+              (element as HTMLDivElement).style as unknown as {
+                contentVisibility: 'hidden' | 'visible';
+              }
+            ).contentVisibility = focusedIndex === index ? 'visible' : 'hidden';
+          }
+        });
+      }
+    },
+  );
   return (
     <TabsScrollContext.Provider value={props}>
       <XStack
@@ -74,6 +96,22 @@ export interface ITabContainerRef {
   getFocusedTab: () => string;
   getCurrentIndex: () => number;
 }
+
+export interface ITabContainerProps {
+  renderHeader?: () => React.ReactNode;
+  renderTabBar?: (props: TabBarProps<string>) => React.ReactNode;
+  onIndexChange?: (index: number) => void;
+  onTabChange?: (data: {
+    prevIndex: number;
+    index: number;
+    prevTabName: string;
+    tabName: string;
+  }) => void;
+  width?: number | string;
+  initialTabName?: string;
+  allowHeaderOverscroll?: boolean;
+}
+
 interface ITabContainerRefProps {
   ref: React.RefObject<ITabContainerRef>;
 }
@@ -87,7 +125,6 @@ export function Container({
   width: containerWidth,
   ref: containerRef,
   initialTabName,
-  ...props
 }: PropsWithChildren<CollapsibleProps> & ITabContainerRefProps) {
   // Get tab names from children props
   const scrollTopRef = useRef<{ [key: string]: number }>({});
@@ -383,6 +420,8 @@ export function Container({
                     onChildScroll={onChildScroll}
                     registerChild={registerChild}
                     listContainerRef={listContainerRef as any}
+                    focusedTab={focusedTab}
+                    tabNames={tabNames}
                   >
                     {children}
                   </ContainerChild>

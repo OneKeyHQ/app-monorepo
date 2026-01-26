@@ -2,6 +2,7 @@ import { ELocalDBStoreNames } from '../../localDBStoreNames';
 import { RealmObjectBase } from '../base/RealmObjectBase';
 
 import type { IDBWallet, IDBWalletType } from '../../types';
+import type { EFirmwareType } from '@onekeyfe/hd-shared';
 import type Realm from 'realm';
 
 class RealmSchemaWallet extends RealmObjectBase<IDBWallet> {
@@ -29,6 +30,10 @@ class RealmSchemaWallet extends RealmObjectBase<IDBWallet> {
 
   public isMocked?: boolean;
 
+  public isKeyless?: boolean;
+
+  public keylessDetails?: string;
+
   public passphraseState?: string;
 
   public firstEvmAddress?: string;
@@ -40,6 +45,8 @@ class RealmSchemaWallet extends RealmObjectBase<IDBWallet> {
   public airGapAccountsInfoRaw?: string;
 
   public deprecated?: boolean;
+
+  public firmwareTypeAtCreated?: EFirmwareType;
 
   public static override schema: Realm.ObjectSchema = {
     name: ELocalDBStoreNames.Wallet,
@@ -61,12 +68,15 @@ class RealmSchemaWallet extends RealmObjectBase<IDBWallet> {
       associatedDevice: 'string?',
       isTemp: { type: 'bool', default: false },
       isMocked: { type: 'bool', default: false },
+      isKeyless: { type: 'bool', default: false },
+      keylessDetails: 'string?',
       passphraseState: 'string?',
       firstEvmAddress: 'string?',
       hash: 'string?',
       xfp: 'string?',
       airGapAccountsInfoRaw: 'string?',
       deprecated: { type: 'bool', default: false },
+      firmwareTypeAtCreated: 'string?',
     },
   };
 
@@ -86,12 +96,15 @@ class RealmSchemaWallet extends RealmObjectBase<IDBWallet> {
       associatedDevice: this.associatedDevice,
       isTemp: this.isTemp,
       isMocked: this.isMocked,
+      isKeyless: this.isKeyless,
+      keylessDetails: this.keylessDetails,
       passphraseState: this.passphraseState,
       firstEvmAddress: this.firstEvmAddress,
       hash: this.hash,
       xfp: this.xfp,
       airGapAccountsInfoRaw: this.airGapAccountsInfoRaw,
       deprecated: this.deprecated || false,
+      firmwareTypeAtCreated: this.firmwareTypeAtCreated,
     };
   }
 }

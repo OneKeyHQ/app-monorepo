@@ -168,3 +168,17 @@ export function makeFullScreenOptions(): IStackNavigationOptions {
     ...makeModalOpenAnimationOptions({ isVerticalLayout: true }),
   };
 }
+
+export function makeOnboardingScreenOptions(): IStackNavigationOptions {
+  const options: IStackNavigationOptions = {
+    headerShown: false,
+    presentation: 'card',
+    gestureEnabled: false,
+    gestureDirection: 'horizontal',
+    animation: 'slide_from_right',
+  };
+  if (platformEnv.isNativeAndroid) {
+    options.animation = 'none';
+  }
+  return options;
+}

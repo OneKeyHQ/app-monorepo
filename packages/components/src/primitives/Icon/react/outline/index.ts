@@ -65,6 +65,7 @@ export { default as ArrowTriangleLeft } from './ArrowTriangleLeft';
 export { default as ArrowTriangleRight } from './ArrowTriangleRight';
 export { default as ArrowTriangleTop } from './ArrowTriangleTop';
 export { default as AtSign } from './AtSign';
+export { default as Atom } from './Atom';
 export { default as Attachment } from './Attachment';
 export { default as AutoFlash } from './AutoFlash';
 export { default as AutoPageSize } from './AutoPageSize';
@@ -204,6 +205,7 @@ export { default as ChecklistBoxNotification } from './ChecklistBoxNotification'
 export { default as ChecklistBoxSearch } from './ChecklistBoxSearch';
 export { default as ChecklistBox } from './ChecklistBox';
 export { default as Checklist } from './Checklist';
+export { default as Checkmark2Small } from './Checkmark2Small';
 export { default as ChevronBottom } from './ChevronBottom';
 export { default as ChevronDoubleDown } from './ChevronDoubleDown';
 export { default as ChevronDoubleLeft } from './ChevronDoubleLeft';

@@ -28,7 +28,11 @@ import {
 } from '../../types';
 
 import { genAddressFromPublicKey } from './sdkTon';
-import { serializeData, serializeProof } from './sdkTon/tx';
+import {
+  serializeData,
+  serializeDataPayload,
+  serializeProof,
+} from './sdkTon/tx';
 
 import type { IEncodedTxTon } from './types';
 import type TonWeb from 'tonweb';
@@ -91,23 +95,36 @@ export default class CoreChainSoftware extends CoreChainApiBase {
 
   override async signMessage(payload: ICoreApiSignMsgPayload): Promise<string> {
     const unsignedMsg = payload.unsignedMsg as IUnsignedMessageTon;
-    const data = unsignedMsg.payload.isProof
-      ? await serializeProof({
-          message: unsignedMsg.message,
-          timestamp: unsignedMsg.payload.timestamp,
-          address: unsignedMsg.payload.address as string,
-          appDomain: unsignedMsg.payload.appDomain as string,
-        })
-      : await serializeData({
-          message: unsignedMsg.message,
-          schemaCrc: unsignedMsg.payload.schemaCrc ?? 0,
-          timestamp: unsignedMsg.payload.timestamp,
-        });
+
+    let data: Buffer;
+    if (unsignedMsg.payload.payload) {
+      data = await serializeDataPayload({
+        payload: unsignedMsg.payload.payload,
+        appDomain: unsignedMsg.payload.appDomain as string,
+        timestamp: unsignedMsg.payload.timestamp,
+        address: unsignedMsg.payload.address as string,
+      });
+    } else if (unsignedMsg.payload.isProof) {
+      const proof = await serializeProof({
+        message: unsignedMsg.message,
+        timestamp: unsignedMsg.payload.timestamp,
+        address: unsignedMsg.payload.address as string,
+        appDomain: unsignedMsg.payload.appDomain as string,
+      });
+      data = proof.bytes;
+    } else {
+      const signData = await serializeData({
+        message: unsignedMsg.message,
+        schemaCrc: unsignedMsg.payload.schemaCrc ?? 0,
+        timestamp: unsignedMsg.payload.timestamp,
+      });
+      data = signData.bytes;
+    }
     const signer = await this.baseGetSingleSigner({
       payload,
       curve,
     });
-    const [signature] = await signer.sign(data.bytes);
+    const [signature] = await signer.sign(data);
     return signature.toString('hex');
   }
 

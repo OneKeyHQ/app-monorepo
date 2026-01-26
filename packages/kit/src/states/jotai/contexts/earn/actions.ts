@@ -4,6 +4,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/ContextJotaiActionsBase';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
+import type { IDiscoveryBanner } from '@onekeyhq/shared/types/discovery';
 import type {
   EAvailableAssetsTypeEnum,
   IEarnPermitCache,
@@ -13,6 +14,7 @@ import type {
   IAvailableAsset,
   IEarnAccountTokenResponse,
   IEarnAtomData,
+  IRecommendAsset,
 } from '@onekeyhq/shared/types/staking';
 
 import {
@@ -43,7 +45,7 @@ class ContextJotaiActionsEarn extends ContextJotaiActionsBase {
     if (!get(atom).isMounted) {
       return;
     }
-    set(atom, () => payload);
+    set(atom, payload);
   });
 
   getAvailableAssetsByType = contextAtomMethod(
@@ -174,6 +176,30 @@ class ContextJotaiActionsEarn extends ContextJotaiActionsBase {
     const loadingStates = get(earnLoadingStatesAtom());
     return loadingStates[key] || false;
   });
+
+  getRecommendedTokens = contextAtomMethod((get, _set) => {
+    const { recommendedTokens } = get(earnAtom());
+    return recommendedTokens || [];
+  });
+
+  updateRecommendedTokens = contextAtomMethod(
+    (get, set, tokens: IRecommendAsset[]) => {
+      this.syncToDb.call(set, {
+        recommendedTokens: tokens,
+      });
+    },
+  );
+
+  getBanners = contextAtomMethod((get, _set) => {
+    const { banners } = get(earnAtom());
+    return banners || [];
+  });
+
+  updateBanners = contextAtomMethod((get, set, banners: IDiscoveryBanner[]) => {
+    this.syncToDb.call(set, {
+      banners,
+    });
+  });
 }
 
 const createActions = memoFn(() => new ContextJotaiActionsEarn());
@@ -193,17 +219,18 @@ export function useEarnActions() {
   const isDataIncomplete = actions.isDataIncomplete.use();
 
   const buildEarnAccountsKey = useCallback(
-    ({
-      accountId,
-      indexAccountId,
-      networkId,
-    }: {
+    (params: {
       accountId?: string;
       indexAccountId?: string;
       networkId: string;
-    }) => `${indexAccountId || accountId || ''}-${networkId}`,
+    }) => earnUtils.buildEarnAccountKey(params),
     [],
   );
+
+  const getRecommendedTokens = actions.getRecommendedTokens.use();
+  const updateRecommendedTokens = actions.updateRecommendedTokens.use();
+  const getBanners = actions.getBanners.use();
+  const updateBanners = actions.updateBanners.use();
 
   return useRef({
     getAvailableAssetsByType,
@@ -218,5 +245,9 @@ export function useEarnActions() {
     setLoadingState,
     getLoadingState,
     isDataIncomplete,
+    getRecommendedTokens,
+    updateRecommendedTokens,
+    getBanners,
+    updateBanners,
   });
 }

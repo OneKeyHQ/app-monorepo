@@ -1,4 +1,9 @@
-import { containsPunycode, validateUrl } from './uriUtils';
+import {
+  containsPunycode,
+  ensureHttpsPrefix,
+  isUrlWithoutProtocol,
+  validateUrl,
+} from './uriUtils';
 
 describe('Punycode detection', () => {
   test('detects Punycode in URL', () => {
@@ -91,5 +96,91 @@ describe('validateUrl', () => {
         `https://www.google.com/search?q=${encodeURIComponent(input)}`,
       );
     });
+  });
+});
+
+describe('isUrlWithoutProtocol', () => {
+  test('returns true for valid URLs without protocol', () => {
+    const validUrls = [
+      'onekey.so',
+      'onekey.so/invite/ABC123',
+      'www.google.com',
+      'www.example.com/path/to/page',
+      'sub.domain.example.com',
+      'example.co.uk',
+    ];
+    validUrls.forEach((url) => {
+      expect(isUrlWithoutProtocol(url)).toBe(true);
+    });
+  });
+
+  test('returns false for URLs with protocol', () => {
+    const urlsWithProtocol = [
+      'https://onekey.so',
+      'http://google.com',
+      'https://www.example.com/path',
+    ];
+    urlsWithProtocol.forEach((url) => {
+      expect(isUrlWithoutProtocol(url)).toBe(false);
+    });
+  });
+
+  test('returns false for invalid inputs', () => {
+    const invalidInputs = [
+      'just text',
+      'hello world',
+      'ABC123',
+      'localhost',
+      '',
+    ];
+    invalidInputs.forEach((input) => {
+      expect(isUrlWithoutProtocol(input)).toBe(false);
+    });
+  });
+});
+
+describe('ensureHttpsPrefix', () => {
+  test('returns URL unchanged if already has https://', () => {
+    const httpsUrls = [
+      'https://onekey.so',
+      'https://www.google.com/search',
+      'https://example.com/path?query=value',
+    ];
+    httpsUrls.forEach((url) => {
+      expect(ensureHttpsPrefix(url)).toBe(url);
+    });
+  });
+
+  test('returns URL unchanged if already has http://', () => {
+    const httpUrls = ['http://onekey.so', 'http://www.google.com'];
+    httpUrls.forEach((url) => {
+      expect(ensureHttpsPrefix(url)).toBe(url);
+    });
+  });
+
+  test('adds https:// prefix to valid URLs without protocol', () => {
+    const testCases = [
+      { input: 'onekey.so', expected: 'https://onekey.so' },
+      {
+        input: 'onekey.so/invite/ABC123',
+        expected: 'https://onekey.so/invite/ABC123',
+      },
+      { input: 'www.google.com', expected: 'https://www.google.com' },
+      { input: 'example.co.uk/path', expected: 'https://example.co.uk/path' },
+    ];
+    testCases.forEach(({ input, expected }) => {
+      expect(ensureHttpsPrefix(input)).toBe(expected);
+    });
+  });
+
+  test('returns input unchanged for non-URL text', () => {
+    const nonUrls = ['ABC123', 'just text', 'hello world', 'localhost'];
+    nonUrls.forEach((input) => {
+      expect(ensureHttpsPrefix(input)).toBe(input);
+    });
+  });
+
+  test('returns empty string for empty input', () => {
+    expect(ensureHttpsPrefix('')).toBe('');
   });
 });

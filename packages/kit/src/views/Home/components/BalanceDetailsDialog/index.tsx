@@ -141,35 +141,47 @@ function BalanceDetailsContent({
       try {
         if (showDeriveItems) {
           const resp = await Promise.all(
-            networkAccounts.map(async (networkAccount) =>
-              backgroundApiProxy.serviceAccountProfile.fetchAccountDetails({
-                networkId,
-                accountId: networkAccount.account?.id ?? '',
-                withNonce: false,
-                withFrozenBalance: true,
-                withCheckInscription,
-              }),
-            ),
+            networkAccounts.map(async (networkAccount) => {
+              // Only check inscription and frozen balance for Taproot (BIP86) addresses
+              const isTaproot = networkAccount.deriveType === 'BIP86';
+              return backgroundApiProxy.serviceAccountProfile.fetchAccountDetails(
+                {
+                  networkId,
+                  accountId: networkAccount.account?.id ?? '',
+                  withNonce: false,
+                  withFrozenBalance: isTaproot,
+                  withCheckInscription: isTaproot
+                    ? withCheckInscription
+                    : false,
+                },
+              );
+            }),
           );
 
           r.deriveItems = [];
 
           resp.forEach((item, index) => {
+            // For non-Taproot accounts, totalBalanceParsed is not returned from API
+            // In this case, use balanceParsed as totalBalanceParsed (no frozen balance)
+            const itemTotalBalance =
+              item.totalBalanceParsed ?? item.balanceParsed ?? '0';
+            const itemFrozenBalance = item.frozenBalanceParsed ?? '0';
+
             r.balanceParsed = new BigNumber(r.balanceParsed ?? 0)
               .plus(item.balanceParsed ?? 0)
               .toFixed();
             r.totalBalanceParsed = new BigNumber(r.totalBalanceParsed ?? 0)
-              .plus(item.totalBalanceParsed ?? 0)
+              .plus(itemTotalBalance)
               .toFixed();
             r.frozenBalanceParsed = new BigNumber(r.frozenBalanceParsed ?? 0)
-              .plus(item.frozenBalanceParsed ?? 0)
+              .plus(itemFrozenBalance)
               .toFixed();
 
             r.deriveItems?.push({
               deriveType: networkAccounts[index].deriveInfo.label ?? '',
               balanceParsed: item.balanceParsed ?? '0',
-              totalBalanceParsed: item.totalBalanceParsed ?? '0',
-              frozenBalanceParsed: item.frozenBalanceParsed ?? '0',
+              totalBalanceParsed: itemTotalBalance,
+              frozenBalanceParsed: itemFrozenBalance,
             });
           });
         } else {
@@ -240,7 +252,7 @@ function BalanceDetailsContent({
               }}
             >
               {appLocale.intl.formatMessage({
-                id: ETranslations.balance_detail_frozen,
+                id: ETranslations.balance_detail_protected_ordinals,
               })}
             </Button>
           </XStack>

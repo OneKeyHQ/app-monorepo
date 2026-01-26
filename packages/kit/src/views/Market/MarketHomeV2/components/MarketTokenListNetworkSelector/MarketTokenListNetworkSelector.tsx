@@ -2,9 +2,8 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import type { IListViewProps, IPopoverProps } from '@onekeyhq/components';
 import { useMedia } from '@onekeyhq/components';
-import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import type { IServerNetwork } from '@onekeyhq/shared/types';
+import { useMarketNetworks } from '@onekeyhq/kit/src/views/Market/hooks';
+import { type IServerNetwork } from '@onekeyhq/shared/types';
 
 import { MarketTokenListNetworkSelectorMobile } from './MarketTokenListNetworkSelectorMobile';
 import { MarketTokenListNetworkSelectorNormal } from './MarketTokenListNetworkSelectorNormal';
@@ -17,6 +16,8 @@ interface IMarketTokenListNetworkSelectorProps {
   onSelectNetworkId?: (networkId: string) => void;
   placement?: IPopoverProps['placement'];
   containerStyle?: IListViewProps<any>['contentContainerStyle'];
+  onStartListSelect?: () => void;
+  startListSelect?: boolean;
 }
 
 function MarketTokenListNetworkSelector({
@@ -24,6 +25,8 @@ function MarketTokenListNetworkSelector({
   onSelectNetworkId,
   placement,
   containerStyle,
+  onStartListSelect,
+  startListSelect,
 }: IMarketTokenListNetworkSelectorProps) {
   const { md } = useMedia();
   const normalComponentRef =
@@ -31,23 +34,7 @@ function MarketTokenListNetworkSelector({
   const mobileComponentRef =
     useRef<IMarketTokenListNetworkSelectorMobileRef>(null);
 
-  const { networkList, isLoading } = useMarketBasicConfig();
-
-  const marketNetworks: IServerNetwork[] = useMemo(() => {
-    if (!networkList || networkList.length === 0) return [];
-
-    // Sort by index (smaller numbers first) then map to local network info
-    return networkList
-      .sort((a, b) => a.index - b.index)
-      .map((configNetwork) => {
-        const networkInfo = networkUtils.getLocalNetworkInfo(
-          configNetwork.networkId,
-        );
-        if (!networkInfo) return null;
-        return networkInfo;
-      })
-      .filter(Boolean);
-  }, [networkList]);
+  const { marketNetworks, isLoading } = useMarketNetworks();
 
   // Derive currently selected network purely from props to keep component stateless.
   const currentSelectNetwork = useMemo(() => {
@@ -58,11 +45,16 @@ function MarketTokenListNetworkSelector({
   // When the list of networks changes, ensure the parent gets an initial networkId if none provided.
   useEffect(() => {
     if (marketNetworks.length === 0) return;
-    if (!selectedNetworkId) {
+    if (!currentSelectNetwork && !startListSelect) {
       onSelectNetworkId?.(marketNetworks[0].id);
     }
-  }, [marketNetworks, selectedNetworkId, onSelectNetworkId]);
-
+  }, [
+    marketNetworks,
+    selectedNetworkId,
+    onSelectNetworkId,
+    startListSelect,
+    currentSelectNetwork,
+  ]);
   const onSelectCurrentNetwork = useCallback(
     (network: IServerNetwork) => {
       onSelectNetworkId?.(network.id);
@@ -98,6 +90,8 @@ function MarketTokenListNetworkSelector({
         isLoading={isLoading}
         placement={placement}
         containerStyle={containerStyle}
+        onStartListSelect={onStartListSelect}
+        startListSelect={startListSelect}
       />
     );
   }
@@ -111,6 +105,8 @@ function MarketTokenListNetworkSelector({
       handleMoreNetworkSelect={handleMoreNetworkSelect}
       isLoading={isLoading}
       placement={placement}
+      onStartListSelect={onStartListSelect}
+      startListSelect={startListSelect}
     />
   );
 }

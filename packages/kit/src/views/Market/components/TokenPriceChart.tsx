@@ -9,8 +9,7 @@ import {
   Spinner,
   Stack,
   XStack,
-  YStack,
-  useIsModalPage,
+  useIsOverlayPage,
   useMedia,
   useSafeAreaInsets,
   useTabBarHeight,
@@ -68,7 +67,7 @@ function NativeTokenPriceChart({
   const [points, setPoints] = useState<IMarketTokenChart>([]);
   const [isLoading, setIsLoading] = useState(false);
   const { md: mdMedia } = useMedia();
-  const isModalPage = useIsModalPage();
+  const isModalPage = useIsOverlayPage();
   const md = isModalPage ? true : mdMedia;
 
   const options = useMemo(
@@ -162,7 +161,7 @@ function NativeTokenPriceChart({
 }
 
 const useHeight = () => {
-  const isModalPage = useIsModalPage();
+  const isModalPage = useIsOverlayPage();
   const { height: windowHeight } = useWindowDimensions();
   const { top } = useSafeAreaInsets();
   const { gtMd: gtMdMedia } = useMedia();
@@ -212,7 +211,7 @@ function TradingViewChart({
     defer.resolve(null);
   }, [defer]);
 
-  const isModalPage = useIsModalPage();
+  const isModalPage = useIsOverlayPage();
 
   return (
     <TradingView
@@ -227,7 +226,7 @@ function TradingViewChart({
   );
 }
 
-const identifiers = [
+const identifiers = new Set([
   'binance',
   'bybit',
   'mexc',
@@ -238,9 +237,9 @@ const identifiers = [
   'okx',
   'gate',
   'kucoin',
-];
+]);
 
-const targets = ['USD', 'USDT', 'USDC'];
+const targets = new Set(['USD', 'USDT', 'USDC']);
 const resolveIdentifierName = (name: string) => {
   if (name === 'gate') {
     return 'GATEIO';
@@ -297,8 +296,8 @@ function BasicTokenPriceChart({
 
     for (let i = 0; i < tickers.length; i += 1) {
       const t = tickers[i];
-      if (targets.includes(t.target)) {
-        if (identifiers.includes(t.market.identifier)) {
+      if (targets.has(t.target)) {
+        if (identifiers.has(t.market.identifier)) {
           return {
             identifier: resolveIdentifierName(t.market.identifier),
             baseToken: t.base,
@@ -306,7 +305,7 @@ function BasicTokenPriceChart({
           };
         }
 
-        if (identifiers.includes(t.market.name.toLowerCase())) {
+        if (identifiers.has(t.market.name.toLowerCase())) {
           return {
             identifier: t.market.name.toLowerCase(),
             baseToken: t.base,

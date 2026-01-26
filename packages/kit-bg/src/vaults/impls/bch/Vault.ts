@@ -59,7 +59,7 @@ export default class Vault extends VaultBtc {
         displayAddress: bchAddress,
       };
       return result;
-    } catch (e) {
+    } catch (_e) {
       return Promise.resolve({
         isValid: false,
         normalizedAddress: '',

@@ -1,11 +1,27 @@
+// oxlint-disable unicorn/prefer-global-this
 /* eslint-disable no-inner-declarations */
-/* eslint-disable spellcheck/spell-checker */
 /* eslint-disable prefer-template */
-/* eslint-disable unicorn/prefer-global-this */
+
 /* eslint-disable global-require, no-restricted-syntax, import/no-unresolved */
 require('./setimmediateShim');
 
+// Promise.allSettled polyfill - must be injected before any code uses it
+// Hermes engine may have Promise but lack allSettled on some devices
+if (typeof Promise.allSettled !== 'function') {
+  console.log('Shims Injected log: Promise.allSettled');
+  // Use the promise library's implementation
+  const PromisePolyfill = require('promise/setimmediate/es6-extensions');
+  Promise.allSettled = PromisePolyfill.allSettled.bind(Promise);
+}
+
 require('./intlShim');
+const { shim: shimArrayFlatMap } = require('array.prototype.flatmap');
+
+shimArrayFlatMap();
+
+const { shim: shimArrayToSorted } = require('array.prototype.tosorted');
+
+shimArrayToSorted();
 require('react-native-url-polyfill/auto');
 const platformEnv = require('@onekeyhq/shared/src/platformEnv');
 
@@ -58,7 +74,7 @@ if (platformEnv.isNative) {
 
     AssetSourceResolver.prototype.defaultAsset = wrap(
       AssetSourceResolver.prototype.defaultAsset,
-      function (func, ...args) {
+      function (_func, ..._args) {
         const isLoadedFromServer = this.isLoadedFromServer();
         if (isLoadedFromServer) {
           const serverUrl = this.assetServerURL();
@@ -183,7 +199,7 @@ try {
   const fr = new FileReader();
   try {
     fr.readAsArrayBuffer(new Blob(['hello'], { type: 'text/plain' }));
-  } catch (error) {
+  } catch (_error) {
     shimsInjectedLog('FileReader.prototype.readAsArrayBuffer');
     FileReader.prototype.readAsArrayBuffer = function (blob) {
       if (this.readyState === this.LOADING) {
@@ -204,7 +220,7 @@ try {
       fr.readAsDataURL(blob);
     };
   }
-} catch (error) {
+} catch (_error) {
   console.log('Missing FileReader; unsupported platform');
 }
 
@@ -279,6 +295,15 @@ if (platformEnv.isNative) {
       return newBuffer;
     };
   }
+}
+
+// Polyfill crypto.subtle for React Native
+// This must be loaded AFTER the crypto polyfill (line 145-154) because it extends the crypto object.
+// Purpose: Enable Supabase Auth PKCE flow to use SHA-256 code_challenge (s256 method)
+// instead of falling back to plain method when crypto.subtle is unavailable.
+// @see @supabase/auth-js GoTrueClient.ts - checks crypto.subtle.digest for PKCE support
+if (platformEnv.isNative) {
+  require('@onekeyhq/shared/src/appCrypto/cryptoSubtlePolyfill');
 }
 
 console.log('polyfillsPlatform.native shim loaded');

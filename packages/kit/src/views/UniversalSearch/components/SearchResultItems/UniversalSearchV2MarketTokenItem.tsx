@@ -34,7 +34,7 @@ import { MarketStarV2 } from '../../../Market/components/MarketStarV2';
 import { MarketTokenIcon } from '../../../Market/components/MarketTokenIcon';
 import { BaseMarketTokenPrice } from '../../../Market/components/MarketTokenPrice';
 
-function ContractAddress({ address }: { address: string }) {
+export function ContractAddress({ address }: { address: string }) {
   const { copyText } = useClipboard();
   const contractAddress = accountUtils.shortenAddress({
     address,
@@ -68,7 +68,7 @@ function ContractAddress({ address }: { address: string }) {
   );
 }
 
-function MarketTokenLiquidity({
+export function MarketTokenLiquidity({
   liquidity,
   volume24h,
 }: {
@@ -141,7 +141,7 @@ export function UniversalSearchV2MarketTokenItem({
   const [{ isMounted }] = useMarketWatchListV2Atom();
   const universalSearchActions = useUniversalSearchActions();
   const toMarketDetailPage = useToDetailPage({
-    useRootNavigation: true,
+    switchToMarketTabFirst: true,
     from: EEnterWay.Search,
   });
   const {
@@ -220,7 +220,14 @@ export function UniversalSearchV2MarketTokenItem({
         flex={1}
         primary={
           <XStack alignItems="center" gap="$1">
-            <SizableText size="$bodyLgMedium">{symbol}</SizableText>
+            <SizableText
+              size="$bodyLgMedium"
+              numberOfLines={1}
+              maxWidth="$60"
+              flexShrink={1}
+            >
+              {symbol}
+            </SizableText>
             {communityRecognized ? <CommunityRecognizedBadge /> : null}
           </XStack>
         }

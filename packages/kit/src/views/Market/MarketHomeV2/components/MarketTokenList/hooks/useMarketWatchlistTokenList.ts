@@ -97,42 +97,44 @@ export function useMarketWatchlistTokenList({
       };
     });
 
-    const transformed: IMarketToken[] = apiResult.list.map((item) => {
-      // Get isNative from watchlist data since API doesn't return it
-      let address = item.address;
-      const networkId = item.networkId || '';
-      const key = `${networkId}:${address.toLowerCase()}`;
+    const transformed: IMarketToken[] = apiResult.list
+      .filter((item) => item && item.address != null)
+      .map((item) => {
+        // Get isNative from watchlist data since API doesn't return it
+        let address = item.address;
+        const networkId = item.networkId || '';
+        const key = `${networkId}:${address.toLowerCase()}`;
 
-      const tokenInfo = tokenMap[key];
-      const chainId = tokenInfo?.chainId || networkId;
-      const networkLogoUri = getNetworkLogoUri(chainId);
-      const sortIndex = tokenInfo?.sortIndex;
-      let isNative = tokenInfo?.isNative ?? false; // Get isNative from watchlist
+        const tokenInfo = tokenMap[key];
+        const chainId = tokenInfo?.chainId || networkId;
+        const networkLogoUri = getNetworkLogoUri(chainId);
+        const sortIndex = tokenInfo?.sortIndex;
+        let isNative = tokenInfo?.isNative ?? false; // Get isNative from watchlist
 
-      // TODO: Remove this after we have a better way to handle native tokens
-      // Special handling for native tokens (short addresses)
-      if (address.length < 30) {
-        if (item.symbol === 'SUI' && networkId === 'sui--mainnet') {
-          address = '0x2::sui::SUI';
-        } else {
-          address = '';
+        // TODO: Remove this after we have a better way to handle native tokens
+        // Special handling for native tokens (short addresses)
+        if (address.length < 30) {
+          if (item.symbol === 'SUI' && networkId === 'sui--mainnet') {
+            address = '0x2::sui::SUI';
+          } else {
+            address = '';
+          }
+          isNative = true;
         }
-        isNative = true;
-      }
 
-      // Add isNative to the API item
-      const itemWithNative = {
-        ...item,
-        address,
-        isNative,
-      } as IMarketTokenListItem & { isNative: boolean };
+        // Add isNative to the API item
+        const itemWithNative = {
+          ...item,
+          address,
+          isNative,
+        } as IMarketTokenListItem & { isNative: boolean };
 
-      return transformApiItemToToken(itemWithNative, {
-        chainId,
-        networkLogoUri,
-        sortIndex,
+        return transformApiItemToToken(itemWithNative, {
+          chainId,
+          networkLogoUri,
+          sortIndex,
+        });
       });
-    });
 
     // Build result array in watchlist order to maintain correct sorting
     const filteredTransformed = watchlist
@@ -161,7 +163,7 @@ export function useMarketWatchlistTokenList({
   const sortedData = useMemo(() => {
     if (!sortBy || !sortType) {
       // Default: use sortIndex for natural watchlist ordering (ascending)
-      return [...transformedData].sort((a, b) => {
+      return [...transformedData].toSorted((a, b) => {
         const av = a.sortIndex ?? 0;
         const bv = b.sortIndex ?? 0;
         return av - bv;
@@ -170,7 +172,7 @@ export function useMarketWatchlistTokenList({
 
     // Custom sorting
     const key = SORT_MAP[sortBy] || sortBy;
-    return [...transformedData].sort((a, b) => {
+    return [...transformedData].toSorted((a, b) => {
       const av = a[key] as number;
       const bv = b[key] as number;
       if (av === bv) return 0;

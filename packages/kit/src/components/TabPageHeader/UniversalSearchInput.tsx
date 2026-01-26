@@ -9,9 +9,10 @@ import {
   Shortcut,
   View,
   XStack,
-  useIsHorizontalLayout,
+  useIsWebHorizontalLayout,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EUniversalSearchPages } from '@onekeyhq/shared/src/routes/universalSearch';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
@@ -21,46 +22,54 @@ import useAppNavigation from '../../hooks/useAppNavigation';
 export function UniversalSearchInput({
   containerProps,
   size = 'large',
+  initialTab,
 }: {
   containerProps?: IStackStyle;
   size?: 'large' | 'medium' | 'small';
+  initialTab?: 'market' | 'dapp';
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const toUniversalSearchPage = useCallback(() => {
     navigation.pushModal(EModalRoutes.UniversalSearchModal, {
       screen: EUniversalSearchPages.UniversalSearch,
+      params: initialTab ? { initialTab } : undefined,
     });
-  }, [navigation]);
+  }, [navigation, initialTab]);
 
-  const isLarge = size === 'large';
   if (size === 'small') {
     return (
       <IconButton
         variant="tertiary"
         icon="SearchOutline"
-        title={intl.formatMessage({
-          id: ETranslations.global_search,
-        })}
+        title="Search everything"
         onPress={toUniversalSearchPage}
       />
     );
   }
   return (
     <XStack
-      $gtLg={{ maxWidth: 320 } as any}
+      $gtLg={{ minWidth: 320 } as any}
       width="100%"
       {...(containerProps as IXStackProps)}
     >
       <SearchBar
-        size={isLarge ? 'small' : 'medium'}
+        size={size === 'medium' ? 'medium' : 'small'}
+        containerProps={{ h: size === 'medium' ? 40 : 32 }}
+        py="$2"
         key="searchInput"
         placeholder={intl.formatMessage({
-          id: ETranslations.global_universal_search_placeholder,
+          id: platformEnv.isWebDappMode
+            ? ETranslations.global_search
+            : ETranslations.global_search_everything,
         })}
         addOns={[
           {
-            label: <Shortcut shortcutKey={EShortcutEvents.UniversalSearch} />,
+            label: (
+              <View justifyContent="center">
+                <Shortcut shortcutKey={EShortcutEvents.UniversalSearch} />
+              </View>
+            ),
           },
         ]}
       />
@@ -77,7 +86,7 @@ export function UniversalSearchInput({
 }
 
 export function MDUniversalSearchInput() {
-  const isHorizontal = useIsHorizontalLayout();
+  const isHorizontal = useIsWebHorizontalLayout();
   return isHorizontal ? null : (
     <XStack px="$5" pt="$0.5">
       <UniversalSearchInput

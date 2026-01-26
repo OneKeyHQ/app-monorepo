@@ -26,10 +26,12 @@ import {
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type { IAddressValidation } from '@onekeyhq/shared/types/address';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IUniversalSearchAddress,
   IUniversalSearchBatchResult,
   IUniversalSearchDappResult,
+  IUniversalSearchPerpResult,
   IUniversalSearchResultItem,
   IUniversalSearchSingleResult,
 } from '@onekeyhq/shared/types/search';
@@ -58,6 +60,14 @@ class ServiceUniversalSearch extends ServiceBase {
       return 0; // Internal accounts first (HD/HW/QR/Imported)
     }
     return 1; // Others accounts (Watching/External)
+  }
+
+  private buildAddressImplDedupeKey(
+    displayAddress: string,
+    networkId: string,
+  ): string {
+    const networkImpl = networkUtils.getNetworkImpl({ networkId });
+    return `${displayAddress}_${networkImpl}`;
   }
 
   @backgroundMethod()
@@ -134,6 +144,9 @@ class ServiceUniversalSearch extends ServiceBase {
       searchTypes.includes(EUniversalSearchType.Dapp)
         ? this.universalSearchOfDapp({ input })
         : Promise.resolve({ items: [] }),
+      searchTypes.includes(EUniversalSearchType.Perp)
+        ? this.universalSearchOfPerp({ input })
+        : Promise.resolve({ items: [] }),
     ]);
     const [
       addressResultSettled,
@@ -141,6 +154,7 @@ class ServiceUniversalSearch extends ServiceBase {
       marketTokenResultSettled,
       accountAssetsResultSettled,
       dappResultSettled,
+      perpResultSettled,
     ] = promiseResults;
 
     if (
@@ -204,6 +218,14 @@ class ServiceUniversalSearch extends ServiceBase {
       result[EUniversalSearchType.Dapp] = dappResultSettled.value;
     }
 
+    if (
+      perpResultSettled.status === 'fulfilled' &&
+      perpResultSettled.value &&
+      perpResultSettled.value.items.length > 0
+    ) {
+      result[EUniversalSearchType.Perp] = perpResultSettled.value;
+    }
+
     return result;
   }
 
@@ -211,6 +233,7 @@ class ServiceUniversalSearch extends ServiceBase {
     return this.backgroundApi.serviceMarket.searchToken(query);
   }
 
+  @backgroundMethod()
   async universalSearchOfV2MarketToken(query: string) {
     return this.backgroundApi.serviceMarket.searchV2Token(query);
   }
@@ -453,6 +476,10 @@ class ServiceUniversalSearch extends ServiceBase {
     let addressSearchItems: IUniversalSearchResultItem[] = [];
 
     // Step 2: Check if address belongs to internal wallets for valid networks
+    // Deduplicate by address + impl combination
+    // (e.g., same Polkadot address valid on hydration, bifrost-ksm, bifrost, asset-hub should show once)
+    const processedAddressImplKeys = new Set<string>();
+
     for (const validNetworkId of batchValidateResult.networkIds) {
       const localValidateResult = await serviceValidator.localValidateAddress({
         networkId: validNetworkId,
@@ -460,6 +487,16 @@ class ServiceUniversalSearch extends ServiceBase {
       });
 
       if (localValidateResult.isValid) {
+        const dedupeKey = this.buildAddressImplDedupeKey(
+          localValidateResult.displayAddress,
+          validNetworkId,
+        );
+
+        if (processedAddressImplKeys.has(dedupeKey)) {
+          // eslint-disable-next-line no-continue
+          continue;
+        }
+
         const internalItems = await this.findInternalWalletAccounts({
           address: localValidateResult.displayAddress,
           networkId: validNetworkId,
@@ -467,12 +504,7 @@ class ServiceUniversalSearch extends ServiceBase {
 
         if (internalItems.length > 0) {
           addressSearchItems.push(...internalItems);
-          console.log(
-            '[universalSearchOfAddress] internalItems from network',
-            validNetworkId,
-            ':',
-            internalItems,
-          );
+          processedAddressImplKeys.add(dedupeKey);
         }
       }
     }
@@ -534,13 +566,29 @@ class ServiceUniversalSearch extends ServiceBase {
       return items;
     }
 
+    const deFiRawData =
+      (await this.backgroundApi.simpleDb.deFi.getRawData()) ?? undefined;
+
     // Create search result items
     for (const accountItem of sortedAccounts) {
       let account;
       let indexedAccount;
       let wallet;
       let accountsValue;
+      let accountsDeFiOverview;
       try {
+        accountsDeFiOverview = (
+          await this.backgroundApi.serviceDeFi.getAccountsLocalDeFiOverview({
+            accounts: [
+              {
+                accountId: accountItem.accountId,
+                networkId: networkId || '',
+                accountAddress: address,
+              },
+            ],
+            deFiRawData,
+          })
+        )?.[0];
         if (
           accountUtils.isOthersAccount({
             accountId: accountItem.accountId,
@@ -610,6 +658,7 @@ class ServiceUniversalSearch extends ServiceBase {
           account,
           indexedAccount,
           accountsValue,
+          accountsDeFiOverview,
         },
       } as IUniversalSearchResultItem);
     }
@@ -624,10 +673,13 @@ class ServiceUniversalSearch extends ServiceBase {
   }: {
     input: string;
     networkId?: string;
-    batchValidateResult: { networkIds: string[]; isValid: boolean };
+    batchValidateResult: { networkIds: string[] };
   }): Promise<IUniversalSearchSingleResult> {
     const { serviceNetwork, serviceValidator } = this.backgroundApi;
     const items: IUniversalSearchResultItem[] = [];
+
+    // Deduplicate by address + impl combination
+    const processedAddressImplKeys = new Set<string>();
 
     // Validate for each supported network
     for (const batchNetworkId of batchValidateResult.networkIds) {
@@ -644,6 +696,16 @@ class ServiceUniversalSearch extends ServiceBase {
         );
 
         if (network && localValidateResult.isValid) {
+          const dedupeKey = this.buildAddressImplDedupeKey(
+            localValidateResult.displayAddress,
+            batchNetworkId,
+          );
+
+          if (processedAddressImplKeys.has(dedupeKey)) {
+            // eslint-disable-next-line no-continue
+            continue;
+          }
+
           items.push({
             type: EUniversalSearchType.Address,
             payload: {
@@ -651,6 +713,7 @@ class ServiceUniversalSearch extends ServiceBase {
               network,
             },
           } as IUniversalSearchResultItem);
+          processedAddressImplKeys.add(dedupeKey);
         }
       }
     }
@@ -856,6 +919,13 @@ class ServiceUniversalSearch extends ServiceBase {
           const network = await serviceNetwork.getNetworkSafe({
             networkId: i.item.createAtNetwork,
           });
+          let account = i.item;
+          if (!account.address && network?.id) {
+            account = await serviceAccount.getAccount({
+              accountId: i.item.id,
+              networkId: network.id,
+            });
+          }
           const accountsValue = (
             await serviceAccountProfile.getAccountsValue({
               accounts: [{ accountId: i.item.id }],
@@ -869,7 +939,7 @@ class ServiceUniversalSearch extends ServiceBase {
           return {
             wallet,
             network,
-            account: i.item,
+            account,
             accountsValue,
             addressInfo: localValidateResult,
             accountInfo: {
@@ -892,7 +962,7 @@ class ServiceUniversalSearch extends ServiceBase {
     ]
       .filter(Boolean)
       // First sort by account type (HD/HW/QR/Imported first, then others)
-      .sort((a, b) => {
+      .toSorted((a, b) => {
         const aAccountId = a?.account?.id || a?.indexedAccount?.id;
         const bAccountId = b?.account?.id || b?.indexedAccount?.id;
         const aPriority = this.getAccountPriority(aAccountId);
@@ -936,6 +1006,56 @@ class ServiceUniversalSearch extends ServiceBase {
     console.log('[searchAccountsByName] items: ', items);
 
     return { items } as IUniversalSearchSingleResult;
+  }
+
+  private universalSearchOfPerpCached = memoizee(
+    async (input: string): Promise<IUniversalSearchPerpResult> => {
+      try {
+        const client = await this.getClient(EServiceEndpointEnum.Wallet);
+        const response = await client.get<{
+          data: Array<{
+            type: string;
+            logoUrl: string;
+            name: string;
+            maxLeverage: number;
+            midPx: string;
+            dayNtlVlm: string;
+          }>;
+        }>('/wallet/v1/proxy/hyperliquid/perpsAsset', {
+          params: { query: input },
+        });
+
+        const items: IUniversalSearchPerpResult['items'] =
+          response?.data?.data?.map((asset) => ({
+            type: EUniversalSearchType.Perp,
+            payload: {
+              assetType: asset.type,
+              logoUrl: asset.logoUrl,
+              name: asset.name,
+              maxLeverage: asset.maxLeverage,
+              midPx: asset.midPx,
+              dayNtlVlm: asset.dayNtlVlm,
+            },
+          })) ?? [];
+
+        return { items };
+      } catch (error) {
+        console.error('[universalSearchOfPerp] error:', error);
+        throw error; // Re-throw to prevent caching failed results
+      }
+    },
+    {
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 30 }),
+      promise: true,
+    },
+  );
+
+  async universalSearchOfPerp({
+    input,
+  }: {
+    input: string;
+  }): Promise<IUniversalSearchPerpResult> {
+    return this.universalSearchOfPerpCached(input);
   }
 
   async universalSearchOfDapp({

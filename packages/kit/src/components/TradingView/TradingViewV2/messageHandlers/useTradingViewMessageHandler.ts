@@ -8,11 +8,16 @@ import type { IMessageHandlerContext } from './types';
 import type { IWebViewRef } from '../../../WebView/types';
 import type { ICustomReceiveHandlerData } from '../types';
 
+import type { IMarksTimeRange } from './types';
+
 interface IUseTradingViewMessageHandlerParams {
   tokenAddress?: string;
   networkId?: string;
   webRef: React.RefObject<IWebViewRef | null>;
   onPanesCountChange?: (count: number) => void;
+  accountAddress?: string;
+  tokenSymbol?: string;
+  marksTimeRange?: React.MutableRefObject<IMarksTimeRange | null>;
 }
 
 export function useTradingViewMessageHandler({
@@ -20,6 +25,9 @@ export function useTradingViewMessageHandler({
   networkId = '',
   webRef,
   onPanesCountChange,
+  accountAddress,
+  tokenSymbol,
+  marksTimeRange,
 }: IUseTradingViewMessageHandlerParams) {
   const customReceiveHandler = useCallback(
     async ({ data }: ICustomReceiveHandlerData) => {
@@ -37,6 +45,9 @@ export function useTradingViewMessageHandler({
         networkId,
         webRef,
         onPanesCountChange,
+        accountAddress,
+        tokenSymbol,
+        marksTimeRange,
       };
 
       // Handle TradingView private API requests
@@ -65,7 +76,15 @@ export function useTradingViewMessageHandler({
         await handleAnalyticsEvent(data.method, { data, context });
       }
     },
-    [tokenAddress, networkId, webRef, onPanesCountChange],
+    [
+      tokenAddress,
+      networkId,
+      webRef,
+      onPanesCountChange,
+      accountAddress,
+      tokenSymbol,
+      marksTimeRange,
+    ],
   );
 
   return {

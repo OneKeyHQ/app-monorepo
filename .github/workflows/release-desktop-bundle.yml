@@ -13,7 +13,7 @@ jobs:
     runs-on: macos-latest
     strategy:
       matrix:
-        node-version: [20.x]
+        node-version: [24.x]
 
     if: ${{ !github.event.workflow_run || (github.event.workflow_run && github.event.workflow_run.conclusion == 'success') }}
     steps:
@@ -60,22 +60,34 @@ jobs:
 
       - name: Get yarn cache directory path
         id: yarn-cache-dir-path
-        run: echo "dir=$(yarn config get cacheFolder)" >> $GITHUB_OUTPUT
+        run: echo "dir=${{ github.workspace }}/.yarn" >> "$GITHUB_OUTPUT"
 
-      - uses: actions/cache@v3
-        id: yarn-cache # use this to check for `cache-hit` (`steps.yarn-cache.outputs.cache-hit != 'true'`)
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        id: yarn-cache
         with:
-          path: ${{ steps.yarn-cache-dir-path.outputs.dir }}
-          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+          path: |
+            ${{ steps.yarn-cache-dir-path.outputs.dir }}
+            **/node_modules
+          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock', '**/patches/**') }}
           restore-keys: |
-            ${{ runner.os }}-yarn-
+            ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock', '**/patches/**') }}
 
       - name: Install Dep
+        if: steps.yarn-cache.outputs.cache-hit != 'true'
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=8192'
         run: |
           yarn
+
+      - name: Run postinstall only (cache hit)
+        if: steps.yarn-cache.outputs.cache-hit == 'true'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: |
+          yarn postinstall
 
       - name: Build Bundle
         env:
@@ -110,13 +122,20 @@ jobs:
           BUNDLE_SHA256=$(shasum -a 256 "$BUNDLE_FILE" | cut -d ' ' -f 1)
           BUNDLE_SIZE=$(stat -f%z "$BUNDLE_FILE" 2>/dev/null || stat -c%s "$BUNDLE_FILE")
           GENERATED_AT=$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")
-          
+          APP_VERSION=$(echo ${{ env.BUILD_APP_VERSION }})
+          BUILD_NUMBER=$(echo ${{ env.BUILD_NUMBER }})
+          BUILD_BUNDLE_VERSION=$(echo ${{ env.BUILD_BUNDLE_VERSION }})
+
           cat > electron-bundle.json.info << EOF
           {
             "fileName": "$BUNDLE_FILE",
             "sha256": "$BUNDLE_SHA256",
             "size": $BUNDLE_SIZE,
             "generatedAt": "$GENERATED_AT"
+            "appVersion": "$APP_VERSION",
+            "buildNumber": "$BUILD_NUMBER",
+            "bundleVersion": "$BUILD_BUNDLE_VERSION",
+            "appType": "electron"
           }
           EOF
       
@@ -129,6 +148,9 @@ jobs:
           METADATA_SHA256=$(shasum -a 256 "$METADATA_FILE" | cut -d ' ' -f 1)
           METADATA_SIZE=$(stat -f%z "$METADATA_FILE" 2>/dev/null || stat -c%s "$METADATA_FILE")
           GENERATED_AT=$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")
+          APP_VERSION=$(echo ${{ env.BUILD_APP_VERSION }})
+          BUILD_NUMBER=$(echo ${{ env.BUILD_NUMBER }})
+          BUILD_BUNDLE_VERSION=$(echo ${{ env.BUILD_BUNDLE_VERSION }})
 
           cat > electron.metadata.json.info << EOF
           {
@@ -136,6 +158,10 @@ jobs:
             "sha256": "$METADATA_SHA256",
             "size": $METADATA_SIZE,
             "generatedAt": "$GENERATED_AT"
+            "appVersion": "$APP_VERSION",
+            "buildNumber": "$BUILD_NUMBER",
+            "bundleVersion": "$BUILD_BUNDLE_VERSION"
+            "appType": "electron"
           }
           EOF
       

@@ -7,6 +7,7 @@ import type {
   IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useAddAccount } from './hooks/useAddAccount';
 
@@ -40,7 +41,9 @@ export function AccountSelectorAddAccountButton({
       <ListItem.Text
         userSelect="none"
         primary={intl.formatMessage({
-          id: ETranslations.global_account,
+          id: platformEnv.isWebDappMode
+            ? ETranslations.onboarding_connect_external_wallet
+            : ETranslations.global_account,
         })}
         primaryTextProps={{
           color: '$textSubdued',

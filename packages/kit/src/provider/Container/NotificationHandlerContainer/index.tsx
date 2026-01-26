@@ -5,6 +5,8 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { navigateToNotificationDetailByLocalParams } from '@onekeyhq/shared/src/utils/notificationsUtils';
 import {
   openUrlExternal,
@@ -18,20 +20,28 @@ import {
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
+import useAppNavigation from '../../../hooks/useAppNavigation';
+import { useReferFriends } from '../../../hooks/useReferFriends';
 import { useVersionCompatible } from '../../../hooks/useVersionCompatible';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import { useBrowserAction } from '../../../states/jotai/contexts/discovery';
+import { DiscoveryBrowserProviderMirror } from '../../../views/Discovery/components/DiscoveryBrowserProviderMirror';
 
+import { executeNotificationCommand } from './commandRegistry';
 import { useInitialNotification } from './hooks';
 
 function BaseNotificationHandlerContainer() {
   const { showFallbackUpdateDialog } = useVersionCompatible();
+  const navigation = useAppNavigation();
+  const { toInviteRewardPage, openHardwareSalesOrderDetail } =
+    useReferFriends();
 
   const { activeAccount } = useActiveAccount({ num: 0 });
   const activeAccountRef = useRef(activeAccount);
   activeAccountRef.current = activeAccount;
 
-  const getLocalParams = useCallback(() => {
-    return {
+  const getLocalParams = useCallback(
+    () => ({
       accountId: activeAccountRef.current?.account?.id,
       indexedAccountId: activeAccountRef.current?.indexedAccount?.id,
       networkId: activeAccountRef.current?.network?.id,
@@ -39,8 +49,11 @@ function BaseNotificationHandlerContainer() {
       accountName: activeAccountRef.current?.account?.name,
       deriveType: activeAccountRef.current?.deriveType,
       avatarUrl: activeAccountRef.current?.wallet?.avatar,
-    };
-  }, [activeAccountRef]);
+    }),
+    [],
+  );
+
+  const browserAction = useBrowserAction().current;
 
   useEffect(() => {
     const handleShowFallbackUpdateDialog = ({
@@ -74,7 +87,7 @@ function BaseNotificationHandlerContainer() {
                   getEarnAccount: (props) =>
                     backgroundApiProxy.serviceStaking.getEarnAccount(props),
                 });
-              } catch (error) {
+              } catch (_error) {
                 showFallbackUpdateDialog(null);
               }
               break;
@@ -94,15 +107,44 @@ function BaseNotificationHandlerContainer() {
       EAppEventBusNames.ShowNotificationViewDialog,
       handleShowNotificationViewDialog,
     );
-    const handleShowNotificationPageNavigation = ({
+    const handleShowNotificationPageNavigation = async ({
       payload: payloadObj,
+      extras,
     }: {
       payload: {
         screen: string;
         params: Record<string, any>;
       };
+      extras?: {
+        params?: {
+          coin?: string;
+          type?: string;
+          [key: string]: any;
+        };
+        [key: string]: any;
+      };
     }) => {
       const localParams = getLocalParams();
+
+      const isPerpNavigation =
+        payloadObj.screen === 'main' &&
+        payloadObj.params?.screen === ETabRoutes.Perp;
+
+      const perpToken = isPerpNavigation
+        ? (payloadObj.params?.params as { token?: string } | undefined)
+            ?.token || extras?.params?.coin
+        : null;
+
+      if (perpToken) {
+        try {
+          await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
+            coin: perpToken,
+          });
+        } catch (error) {
+          console.error('Failed to change perps active asset:', error);
+        }
+      }
+
       navigateToNotificationDetailByLocalParams({
         payload: payloadObj,
         localParams,
@@ -112,10 +154,52 @@ function BaseNotificationHandlerContainer() {
         showFallbackUpdateDialog(null);
       });
     };
+    const handleShowNotificationDappNavigation = (url: string) => {
+      if (platformEnv.isNative || platformEnv.isDesktop) {
+        browserAction.handleOpenWebSite({
+          webSite: {
+            url,
+            title: '',
+            logo: undefined,
+            sortIndex: undefined,
+          },
+          navigation,
+          shouldPopNavigation: true,
+          switchToMultiTabBrowser: platformEnv.isDesktop,
+          useCurrentWindow: false,
+          tabId: '',
+        });
+      } else {
+        openUrlExternal(url);
+      }
+    };
     appEventBus.on(
       EAppEventBusNames.ShowNotificationPageNavigation,
       handleShowNotificationPageNavigation,
     );
+    appEventBus.on(
+      EAppEventBusNames.ShowNotificationInDappPage,
+      handleShowNotificationDappNavigation,
+    );
+
+    const handleExecuteCommand = ({
+      action,
+      data,
+    }: {
+      action: string;
+      data?: Record<string, unknown>;
+    }) => {
+      const context = { toInviteRewardPage, openHardwareSalesOrderDetail };
+      const success = executeNotificationCommand(action, context, data);
+      if (!success) {
+        showFallbackUpdateDialog(null);
+      }
+    };
+    appEventBus.on(
+      EAppEventBusNames.ExecuteNotificationCommand,
+      handleExecuteCommand,
+    );
+
     return () => {
       appEventBus.off(
         EAppEventBusNames.ShowFallbackUpdateDialog,
@@ -129,8 +213,23 @@ function BaseNotificationHandlerContainer() {
         EAppEventBusNames.ShowNotificationPageNavigation,
         handleShowNotificationPageNavigation,
       );
+      appEventBus.off(
+        EAppEventBusNames.ShowNotificationInDappPage,
+        handleShowNotificationDappNavigation,
+      );
+      appEventBus.off(
+        EAppEventBusNames.ExecuteNotificationCommand,
+        handleExecuteCommand,
+      );
     };
-  }, [getLocalParams, showFallbackUpdateDialog]);
+  }, [
+    browserAction,
+    getLocalParams,
+    navigation,
+    showFallbackUpdateDialog,
+    toInviteRewardPage,
+    openHardwareSalesOrderDetail,
+  ]);
   useInitialNotification();
   return null;
 }
@@ -145,7 +244,9 @@ export function NotificationHandlerContainer() {
   );
   return (
     <AccountSelectorProviderMirror config={config} enabledNum={[0]}>
-      <BaseNotificationHandlerContainer />
+      <DiscoveryBrowserProviderMirror>
+        <BaseNotificationHandlerContainer />
+      </DiscoveryBrowserProviderMirror>
     </AccountSelectorProviderMirror>
   );
 }

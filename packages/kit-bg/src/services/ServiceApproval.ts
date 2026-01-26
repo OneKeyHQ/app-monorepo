@@ -34,7 +34,8 @@ class ServiceApproval extends ServiceBase {
 
   @backgroundMethod()
   public async fetchAccountApprovals(params: IFetchAccountApprovalsParams) {
-    const { accountId, networkId } = params;
+    const { accountId, networkId, indexedAccountId, networksEnabledOnly } =
+      params;
 
     let queries: {
       accountAddress: string;
@@ -51,8 +52,10 @@ class ServiceApproval extends ServiceBase {
           {
             accountId,
             networkId,
+            indexedAccountId,
             excludeIncompatibleWithWalletAccounts: true,
             withoutAccountId: false,
+            networksEnabledOnly,
           },
         );
       queries = allNetworkAccounts.filter(
@@ -146,10 +149,10 @@ class ServiceApproval extends ServiceBase {
     return {
       ...resp.data.data,
       contractApprovals: [
-        ...riskApprovals.sort(
+        ...riskApprovals.toSorted(
           (a, b) => b.latestApprovalTime - a.latestApprovalTime,
         ),
-        ...normalApprovals.sort(
+        ...normalApprovals.toSorted(
           (a, b) => b.latestApprovalTime - a.latestApprovalTime,
         ),
       ],

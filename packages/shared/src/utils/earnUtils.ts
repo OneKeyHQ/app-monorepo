@@ -1,6 +1,8 @@
 import { EEarnProviderEnum } from '../../types/earn';
 
 import type { IEarnPermitCacheKey } from '../../types/earn';
+import type { IEarnText, IEarnToken } from '../../types/staking';
+import type { IToken } from '../../types/token';
 
 function getEarnProviderEnumKey(
   providerString: string,
@@ -85,7 +87,43 @@ function isUSDTonETHNetwork({
   return networkId === 'evm--1' && symbol === 'USDT';
 }
 
+function convertEarnTokenToIToken(earnToken?: IEarnToken): IToken | undefined {
+  if (!earnToken?.address) {
+    return undefined;
+  }
+
+  return {
+    address: earnToken.address,
+    decimals: earnToken.decimals,
+    isNative: earnToken.isNative,
+    logoURI: earnToken.logoURI,
+    name: earnToken.name,
+    symbol: earnToken.symbol,
+    uniqueKey: earnToken.uniqueKey,
+  };
+}
+
+function extractAmountFromText(text?: IEarnText): string {
+  if (!text?.text) return '0';
+
+  const match = text.text.match(/[\d,.]+/);
+  return match ? match[0].replace(/,/g, '') : '0';
+}
+
+function buildEarnAccountKey({
+  accountId,
+  indexAccountId,
+  networkId,
+}: {
+  accountId?: string;
+  indexAccountId?: string;
+  networkId: string;
+}) {
+  return `${accountId || indexAccountId || ''}-${networkId}`;
+}
+
 export default {
+  buildEarnAccountKey,
   getEarnProviderEnumKey,
   isMorphoProvider,
   isListaProvider,
@@ -101,4 +139,6 @@ export default {
   isUSDTonETHNetwork,
   isVaultBasedProvider,
   isValidatorProvider,
+  convertEarnTokenToIToken,
+  extractAmountFromText,
 };

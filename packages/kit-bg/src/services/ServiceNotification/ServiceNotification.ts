@@ -22,6 +22,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
+import type { IHyperLiquidSignatureRSV } from '@onekeyhq/shared/types/hyperliquid/webview';
 import type {
   ENotificationPushTopicTypes,
   INotificationClickParams,
@@ -94,6 +95,9 @@ export default class ServiceNotification extends ServiceBase {
     });
     appEventBus.on(EAppEventBusNames.WalletRename, () => {
       void this.registerClientWithOverrideAllAccounts();
+    });
+    appEventBus.on(EAppEventBusNames.MarketWatchListV2Changed, () => {
+      void this.syncWatchlistTokensToServer();
     });
   }
 
@@ -183,6 +187,7 @@ export default class ServiceNotification extends ServiceBase {
       await notificationsDevSettingsPersistAtom.get();
     const msgId =
       messageInfo.extras?.params?.msgId || messageInfo.extras?.msgId;
+
     defaultLogger.notification.common.notificationReceived({
       messageInfo,
       notificationId: msgId,
@@ -207,13 +212,20 @@ export default class ServiceNotification extends ServiceBase {
         const prefix = showMessagePushSource ? '[wss:] ' : '';
         // jpush will show notification automatically
         // websocket should show notification by ourselves
-        await this.showNotification({
+        const notificationParams = {
           notificationId: msgId,
           title: prefix + messageInfo.title,
           description: messageInfo.content,
           icon: messageInfo.extras?.image,
           remotePushMessageInfo: messageInfo,
-        });
+        };
+        await this.showNotification(notificationParams);
+        if (!platformEnv.isNativeIOS) {
+          appEventBus.emit(
+            EAppEventBusNames.ShowInAppPushNotification,
+            notificationParams,
+          );
+        }
       }
     }
 
@@ -549,7 +561,7 @@ export default class ServiceNotification extends ServiceBase {
                 dbAccount: account,
               },
             );
-          } catch (error) {
+          } catch (_error) {
             //
           }
           if (networkAccount?.addressDetail?.displayAddress) {
@@ -1020,7 +1032,39 @@ export default class ServiceNotification extends ServiceBase {
       return;
     }
     void (await this.getNotificationProvider()).clearNotificationCache();
-    return this.registerClientWithOverrideAllAccounts();
+    await this.registerClientWithOverrideAllAccounts();
+    await this._syncWatchlistTokensToServerCore();
+  }
+
+  @backgroundMethod()
+  async syncWatchlistTokensToServer() {
+    return this._syncWatchlistTokensToServerDebounced();
+  }
+
+  private _syncWatchlistTokensToServerDebounced = debounce(
+    async () => {
+      await this._syncWatchlistTokensToServerCore();
+    },
+    5000,
+    {
+      leading: false,
+      trailing: true,
+    },
+  );
+
+  private async _syncWatchlistTokensToServerCore() {
+    const tokens =
+      await this.backgroundApi.serviceMarketV2.buildWatchlistTokensForNotification();
+
+    defaultLogger.notification.common.consoleLog(
+      'syncWatchlistTokensToServer',
+      { tokenCount: tokens.length },
+    );
+
+    const client = await this.getClient(EServiceEndpointEnum.Notification);
+    await client.post('/notification/v1/watchlist/tokens', {
+      tokens,
+    });
   }
 
   @backgroundMethod()
@@ -1208,7 +1252,8 @@ export default class ServiceNotification extends ServiceBase {
     const result = await client.post<
       IApiClientResponse<INotificationPushMessageListItem[]>
     >('/notification/v1/message/list', topicTypes ? { topicTypes } : undefined);
-    return result?.data?.data || [];
+    const data = result?.data?.data || [];
+    return data;
   }
 
   @backgroundMethod()
@@ -1221,9 +1266,9 @@ export default class ServiceNotification extends ServiceBase {
       }>
     >('/notification/v1/message/read-all');
 
-    if (result?.data?.data?.updated > 0) {
+    setTimeout(() => {
       void this.clearBadge();
-    }
+    });
     // await timerUtils.wait(5000);
     return result?.data?.data;
   }
@@ -1261,6 +1306,12 @@ export default class ServiceNotification extends ServiceBase {
     return result?.data?.data;
   }
 
+  @backgroundMethod()
+  async fetchServerNotificationSettingsWithCache(): Promise<INotificationPushSettings> {
+    const { serverSettings } = await this.getServerSettingsWithCache();
+    return serverSettings;
+  }
+
   updateNotificationSettingsAbortController: AbortController | undefined;
 
   @backgroundMethod()
@@ -1278,6 +1329,7 @@ export default class ServiceNotification extends ServiceBase {
     if (result?.data?.data?.pushEnabled) {
       void this.registerClientWithOverrideAllAccounts();
     }
+    await this.clearServerSettingsCache();
     await notificationsAtom.set((v) =>
       perfUtils.buildNewValueIfChanged(v, {
         ...v,
@@ -1307,6 +1359,43 @@ export default class ServiceNotification extends ServiceBase {
       '/notification/v1/message/block-tx',
       params,
     );
+  }
+
+  @backgroundMethod()
+  async notifyHyperliquidAccountBind({
+    signerAddress,
+    action,
+    nonce,
+    signature,
+    accountId,
+    accountName,
+  }: {
+    signerAddress: string;
+    action: {
+      type: string;
+      signatureChainId: string;
+      hyperliquidChain: string;
+      agentAddress: string;
+      agentName: string;
+      nonce: number;
+    };
+    nonce: number;
+    signature: IHyperLiquidSignatureRSV;
+    accountId?: string;
+    accountName?: string;
+  }) {
+    if (!signerAddress) {
+      return;
+    }
+    const client = await this.getClient(EServiceEndpointEnum.Notification);
+    await client.post('/notification/v1/hyperliquid-account/bind', {
+      signerAddress,
+      action,
+      nonce,
+      signature,
+      accountId,
+      accountName,
+    });
   }
 
   @backgroundMethod()

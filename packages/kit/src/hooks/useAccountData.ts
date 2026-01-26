@@ -74,29 +74,51 @@ export function useAccountData<T extends IUseAccountDataResult>({
       if (account && networkId) {
         const accountAddress =
           account.address || account.addressDetail?.address;
-        const [addressTypeResp, deriveTypeResp, deriveInfoResp] =
-          await Promise.all([
+
+        if (account.template) {
+          const [addressTypeResp, deriveResp] = await Promise.all([
             serviceAccount.getAccountAddressType({
               accountId: account.id,
               networkId,
-              address: accountAddress,
+              address: account.address,
             }),
-            serviceNetwork.getDeriveTypeByAddress({
+            serviceNetwork.getDeriveTypeByTemplate({
               networkId,
-              address: accountAddress,
-            }),
-            serviceNetwork.getDeriveInfoByAddress({
-              networkId,
-              address: accountAddress,
+              template: account.template,
+              accountId: account.id,
             }),
           ]);
+          addressType = addressTypeResp.typeKey
+            ? intl.formatMessage({ id: addressTypeResp.typeKey })
+            : addressTypeResp.type ?? '';
 
-        addressType = addressTypeResp.typeKey
-          ? intl.formatMessage({ id: addressTypeResp.typeKey })
-          : addressTypeResp.type ?? '';
+          deriveType = deriveResp.deriveType;
+          deriveInfo = deriveResp.deriveInfo;
+        } else {
+          const [addressTypeResp, deriveTypeResp, deriveInfoResp] =
+            await Promise.all([
+              serviceAccount.getAccountAddressType({
+                accountId: account.id,
+                networkId,
+                address: accountAddress,
+              }),
+              serviceNetwork.getDeriveTypeByAddress({
+                networkId,
+                address: accountAddress,
+              }),
+              serviceNetwork.getDeriveInfoByAddress({
+                networkId,
+                address: accountAddress,
+              }),
+            ]);
 
-        deriveType = deriveTypeResp;
-        deriveInfo = deriveInfoResp?.item;
+          addressType = addressTypeResp.typeKey
+            ? intl.formatMessage({ id: addressTypeResp.typeKey })
+            : addressTypeResp.type ?? '';
+
+          deriveType = deriveTypeResp;
+          deriveInfo = deriveInfoResp?.item;
+        }
       }
 
       const obj: IUseAccountDataResult = {

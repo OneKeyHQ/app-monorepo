@@ -71,6 +71,8 @@ export function convertDeviceError(
       return new HardwareErrors.FirmwareVersionTooLow({ payload });
     case HardwareErrorCode.DeviceUnexpectedMode:
       return new HardwareErrors.UnknownHardwareError({ payload });
+    case HardwareErrorCode.SelectDevice:
+      return new HardwareErrors.SelectDeviceError({ payload });
     case HardwareErrorCode.NotAllowInBootloaderMode:
       return new HardwareErrors.NotInBootLoaderMode({ payload });
     // case HardwareErrorCode.RequiredButInBootloaderMode:
@@ -174,6 +176,7 @@ export function convertDeviceError(
       return new HardwareErrors.PinCancelled({ payload });
     case HardwareErrorCode.UnexpectPassphrase:
     case HardwareErrorCode.ActionCancelled:
+    case HardwareErrorCode.CallQueueActionCancelled:
       return new HardwareErrors.UserCancel({ payload });
     case HardwareErrorCode.BridgeNotInstalled:
       return new HardwareErrors.NeedOneKeyBridge({ payload });
@@ -216,6 +219,14 @@ export function convertDeviceError(
       });
     case HardwareErrorCode.DefectiveFirmware:
       return new HardwareErrors.DefectiveFirmware({ payload });
+    case HardwareErrorCode.FirmwareDowngradeNotAllowed:
+      return new HardwareErrors.FirmwareDowngradeNotAllowedError({ payload });
+    case HardwareErrorCode.DeviceSettingsNotProvided:
+      return new HardwareErrors.DeviceNotSupportSettingOption({ payload });
+    case HardwareErrorCode.CosmosInvalidJsonMessage:
+      return new HardwareErrors.CosmosInvalidJsonMessage({ payload });
+    case HardwareErrorCode.DeviceSettingsLanguageNotSupport:
+      return new HardwareErrors.DeviceNotSupportLanguage({ payload });
 
     // Bridge error
     case 'ERR_BAD_REQUEST':

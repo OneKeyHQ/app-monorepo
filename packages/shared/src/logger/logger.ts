@@ -12,8 +12,11 @@ import { DexScope } from './scopes/dex';
 import { DiscoveryScope } from './scopes/discovery';
 import { FiatCryptoScope } from './scopes/fiatCrypto';
 import { HardwareScope } from './scopes/hardware';
+import { IpTableScope } from './scopes/ipTable';
 import { MarketScope } from './scopes/market';
+import { NetworkDoctorScope } from './scopes/networkDoctor';
 import { NotificationScope } from './scopes/notification/notification';
+import { OnboardingScope } from './scopes/onboarding';
 import { PerpScope } from './scopes/perp';
 import { PrimeScope } from './scopes/prime';
 import { ReferralScope } from './scopes/referral';
@@ -26,6 +29,7 @@ import { SwapScope } from './scopes/swap';
 import { TokenScope } from './scopes/token';
 import { TransactionScope } from './scopes/transaction';
 import { UIScope } from './scopes/ui';
+import { UniversalSearchScope } from './scopes/universalSearch';
 import { UpdateScope } from './scopes/update';
 import { WalletScope } from './scopes/wallet';
 
@@ -64,6 +68,10 @@ export class DefaultLogger {
 
   hardware = new HardwareScope();
 
+  ipTable = new IpTableScope();
+
+  networkDoctor = new NetworkDoctorScope();
+
   fiatCrypto = new FiatCryptoScope();
 
   notification = new NotificationScope();
@@ -85,6 +93,10 @@ export class DefaultLogger {
   dex = new DexScope();
 
   prime = new PrimeScope();
+
+  onboarding = new OnboardingScope();
+
+  universalSearch = new UniversalSearchScope();
 }
 
 const defaultLogger = new DefaultLogger();

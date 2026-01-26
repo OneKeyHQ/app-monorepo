@@ -22,6 +22,7 @@ import type { IHasId, LinkedDeck } from '@onekeyhq/kit/src/hooks/useLinkedList';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import useShouldRejectDappAction from '@onekeyhq/kit/src/hooks/useShouldRejectDappAction';
 import {
+  useCustomRpcStatusAtom,
   useDecodedTxsAtom,
   useDecodedTxsInitAtom,
   useNativeTokenInfoAtom,
@@ -56,6 +57,7 @@ import {
 import { usePreCheckFeeInfo } from '../../hooks/usePreCheckFeeInfo';
 import { showCustomHexDataAlert } from '../CustomHexDataAlert';
 import TxFeeInfo from '../TxFee';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 type IProps = {
   accountId: string;
@@ -112,6 +114,8 @@ function TxConfirmActions(props: IProps) {
   const [tronResourceRentalInfo] = useTronResourceRentalInfoAtom();
   const [txFeeInfoInit] = useTxFeeInfoInitAtom();
   const [decodedTxsInit] = useDecodedTxsInitAtom();
+  const [customRpcStatus] = useCustomRpcStatusAtom();
+  const [settings] = useSettingsPersistAtom();
 
   const toAddress = transferPayload?.originalRecipient;
   const unsignedTx = unsignedTxs[0];
@@ -314,6 +318,7 @@ function TxConfirmActions(props: IProps) {
           transferPayload,
           successfullySentTxs: successfullySentTxs.current,
           tronResourceRentalInfo,
+          useDefaultRpc: customRpcStatus?.useDefaultRpcOnce,
         });
 
       if (vaultSettings?.afterSendTxActionEnabled) {
@@ -335,6 +340,12 @@ function TxConfirmActions(props: IProps) {
           swapInfo,
           stakingInfo,
         }),
+        feeToken: isUndefined(sendSelectedFeeInfo?.feeInfos?.[0]?.totalNative)
+          ? undefined
+          : `${sendSelectedFeeInfo?.feeInfos?.[0]?.totalNative} ${nativeTokenInfo.info?.symbol}`,
+        feeFiatValue: isUndefined(sendSelectedFeeInfo?.feeInfos?.[0]?.totalFiat)
+          ? undefined
+          : `${sendSelectedFeeInfo?.feeInfos?.[0]?.totalFiat} ${settings?.currencyInfo.id}`,
         tokenAddress: transferInfo?.tokenInfo?.address,
         tokenSymbol: transferInfo?.tokenInfo?.symbol,
         tokenType: transferInfo?.nftInfo ? 'NFT' : 'Token',
@@ -466,6 +477,9 @@ function TxConfirmActions(props: IProps) {
     popStack,
     updateUnsignedTxs,
     shouldRejectDappAction,
+    customRpcStatus?.useDefaultRpcOnce,
+    settings?.currencyInfo.id,
+    nativeTokenInfo.info?.symbol,
   ]);
 
   const handleOnConfirm = useCallback(async () => {
@@ -541,6 +555,12 @@ function TxConfirmActions(props: IProps) {
     if (!sendSelectedFeeInfo || sendFeeStatus.errMessage) return true;
     if (preCheckTxStatus.errorMessage) return true;
     if (txAdvancedSettings.dataChanged) return true;
+    // Disable if custom RPC is unavailable AND user hasn't chosen to use OneKey RPC
+    if (
+      customRpcStatus?.isCustomRpcUnavailable &&
+      !customRpcStatus?.useDefaultRpcOnce
+    )
+      return true;
     return false;
   }, [
     txFeeInfoInit,
@@ -556,6 +576,8 @@ function TxConfirmActions(props: IProps) {
     sendFeeStatus.errMessage,
     preCheckTxStatus.errorMessage,
     txAdvancedSettings.dataChanged,
+    customRpcStatus?.isCustomRpcUnavailable,
+    customRpcStatus?.useDefaultRpcOnce,
   ]);
 
   usePageUnMounted(() => {

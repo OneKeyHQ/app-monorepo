@@ -1,3 +1,5 @@
+import type { IBackupProviderInfo } from '@onekeyhq/shared/src/cloudBackup/cloudBackupTypes';
+
 import { EAtomNames } from '../atomNames';
 import { globalAtom } from '../utils';
 
@@ -18,5 +20,35 @@ export const {
     isInProgress: false,
     isFirstEnabled: true,
     isFirstDisabled: true,
+  },
+});
+
+export type ICloudBackupStatusAtom = {
+  supportCloudBackup: boolean;
+  cloudBackupProviderName: string;
+  cloudBackupProviderIcon: string;
+  cloudBackupProviderInfo: IBackupProviderInfo | undefined;
+};
+export const { target: cloudBackupStatusAtom, use: useCloudBackupStatusAtom } =
+  globalAtom<ICloudBackupStatusAtom>({
+    name: EAtomNames.cloudBackupStatusAtom,
+    initialValue: {
+      supportCloudBackup: false,
+      cloudBackupProviderName: 'CloudDrive',
+      cloudBackupProviderIcon: 'CloudOutline',
+      cloudBackupProviderInfo: undefined,
+    },
+  });
+
+export type ICloudBackupExitPreventAtom = {
+  shouldPreventExit: boolean;
+};
+export const {
+  target: cloudBackupExitPreventAtom,
+  use: useCloudBackupExitPreventAtom,
+} = globalAtom<ICloudBackupExitPreventAtom>({
+  name: EAtomNames.cloudBackupExitPreventAtom,
+  initialValue: {
+    shouldPreventExit: false,
   },
 });

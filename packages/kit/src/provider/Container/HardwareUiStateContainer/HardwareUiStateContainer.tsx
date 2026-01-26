@@ -544,6 +544,7 @@ function HardwareUiStateContainerCmpControlled() {
           EHardwareUiStateAction.CLOSE_UI_WINDOW,
           EHardwareUiStateAction.PREVIOUS_ADDRESS,
           EHardwareUiStateAction.REQUEST_DEVICE_IN_BOOTLOADER_FOR_WEB_DEVICE,
+          EHardwareUiStateAction.REQUEST_DEVICE_FOR_SWITCH_FIRMWARE_WEB_DEVICE,
         ].includes(currentState?.action)
       ) {
         return false;
@@ -737,7 +738,7 @@ function HardwareUiStateContainerCmpControlled() {
     const callback = throttle(
       ({
         errorType,
-        payload,
+        payload: _payload,
         errorCode: _errorCode,
         errorMessage: _errorMessage,
       }: IHardwareErrorDialogPayload) => {
@@ -756,14 +757,11 @@ function HardwareUiStateContainerCmpControlled() {
           title: intl.formatMessage({
             id: ETranslations.communication_timeout,
           }),
+          description: intl.formatMessage({
+            id: ETranslations.troubleshooting_show_helper_cta_label,
+          }),
           showFooter: false,
-          renderContent: (
-            <DeviceNotFoundDialogContent
-              connectId={payload?.connectId as string | undefined}
-              // @ts-expect-error
-              inBluetoothCommunication={payload?.inBluetoothCommunication}
-            />
-          ),
+          renderContent: <DeviceNotFoundDialogContent />,
         });
       },
       2500, // Same throttle duration as other hardware dialog instances

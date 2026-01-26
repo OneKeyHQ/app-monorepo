@@ -21,7 +21,11 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import { buildAddressMapInfoKey } from '@onekeyhq/shared/src/utils/historyUtils';
-import { TX_RISKY_LEVEL_SPAM } from '@onekeyhq/shared/src/walletConnect/constant';
+import {
+  TX_RISKY_LEVEL_MALICIOUS,
+  TX_RISKY_LEVEL_SCAM,
+  TX_RISKY_LEVEL_SPAM,
+} from '@onekeyhq/shared/src/walletConnect/constant';
 import { EDecodedTxStatus, EReplaceTxType } from '@onekeyhq/shared/types/tx';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -45,11 +49,12 @@ import type {
 function TxActionCommonAvatar({
   avatar,
   networkLogoURI,
+  compact,
 }: Pick<
   ITxActionCommonListViewProps,
-  'avatar' | 'tableLayout' | 'networkLogoURI'
+  'avatar' | 'tableLayout' | 'networkLogoURI' | 'compact'
 >) {
-  const containerSize = '$10';
+  const containerSize = compact ? '$8' : '$10';
 
   const {
     activeAccount: { network: activeNetwork },
@@ -58,7 +63,7 @@ function TxActionCommonAvatar({
   if (!avatar.src || typeof avatar.src === 'string') {
     return (
       <Token
-        size="lg"
+        size={compact ? 'md' : 'lg'}
         isNFT={avatar.isNFT}
         fallbackIcon={avatar.fallbackIcon}
         tokenImageUri={avatar.src}
@@ -119,9 +124,10 @@ function TxActionCommonTitle({
   replaceType,
   status,
   riskyLevel,
+  compact,
 }: Pick<
   ITxActionCommonListViewProps,
-  'title' | 'tableLayout' | 'replaceType' | 'status' | 'riskyLevel'
+  'title' | 'tableLayout' | 'replaceType' | 'status' | 'riskyLevel' | 'compact'
 >) {
   const intl = useIntl();
 
@@ -131,7 +137,7 @@ function TxActionCommonTitle({
         numberOfLines={1}
         flexShrink={1}
         size="$bodyLgMedium"
-        {...(tableLayout && {
+        {...((tableLayout || compact) && {
           size: '$bodyMdMedium',
         })}
       >
@@ -152,9 +158,19 @@ function TxActionCommonTitle({
           {intl.formatMessage({ id: ETranslations.global_failed })}
         </Badge>
       ) : null}
-      {riskyLevel && riskyLevel > TX_RISKY_LEVEL_SPAM ? (
+      {riskyLevel && riskyLevel === TX_RISKY_LEVEL_SPAM ? (
+        <Badge badgeSize="sm" badgeType="default" ml="$2">
+          {intl.formatMessage({ id: ETranslations.global_spam })}
+        </Badge>
+      ) : null}
+      {riskyLevel && riskyLevel === TX_RISKY_LEVEL_MALICIOUS ? (
+        <Badge badgeSize="sm" badgeType="warning" ml="$2">
+          {intl.formatMessage({ id: ETranslations.global_malicious })}
+        </Badge>
+      ) : null}
+      {riskyLevel && riskyLevel === TX_RISKY_LEVEL_SCAM ? (
         <Badge badgeSize="sm" badgeType="critical" ml="$2">
-          {intl.formatMessage({ id: ETranslations.global_risk })}
+          {intl.formatMessage({ id: ETranslations.global_scam })}
         </Badge>
       ) : null}
     </XStack>
@@ -246,7 +262,10 @@ function TxActionCommonDescription({
 function TxActionCommonChange({
   change,
   tableLayout,
-}: Pick<ITxActionCommonListViewProps, 'tableLayout'> & { change: string }) {
+  compact,
+}: Pick<ITxActionCommonListViewProps, 'tableLayout' | 'compact'> & {
+  change: string;
+}) {
   return (
     <SizableText
       numberOfLines={1}
@@ -254,7 +273,7 @@ function TxActionCommonChange({
       {...(change?.includes('+') && {
         color: '$textSuccess',
       })}
-      {...(tableLayout && {
+      {...((tableLayout || compact) && {
         size: '$bodyMdMedium',
       })}
     >
@@ -343,6 +362,7 @@ function TxActionCommonListView(
     networkId,
     networkLogoURI,
     riskyLevel,
+    compact,
     ...rest
   } = props;
   const [settings] = useSettingsPersistAtom();
@@ -355,7 +375,13 @@ function TxActionCommonListView(
       flexDirection="column"
       alignItems="flex-start"
       userSelect="none"
-      opacity={riskyLevel && riskyLevel > TX_RISKY_LEVEL_SPAM ? 0.5 : 1}
+      opacity={
+        riskyLevel &&
+        (riskyLevel === TX_RISKY_LEVEL_MALICIOUS ||
+          riskyLevel === TX_RISKY_LEVEL_SCAM)
+          ? 0.5
+          : 1
+      }
       {...rest}
     >
       {/* Content */}
@@ -374,6 +400,7 @@ function TxActionCommonListView(
               avatar={avatar}
               tableLayout={tableLayout}
               networkLogoURI={networkLogoURI}
+              compact={compact}
             />
           ) : null}
           <Stack flex={1}>
@@ -383,6 +410,7 @@ function TxActionCommonListView(
               tableLayout={tableLayout}
               replaceType={replaceType}
               riskyLevel={riskyLevel}
+              compact={compact}
             />
             <XStack alignSelf="stretch">
               {timestamp &&
@@ -420,7 +448,11 @@ function TxActionCommonListView(
           })}
         >
           {typeof change === 'string' ? (
-            <TxActionCommonChange change={change} tableLayout={tableLayout} />
+            <TxActionCommonChange
+              change={change}
+              tableLayout={tableLayout}
+              compact={compact}
+            />
           ) : (
             change
           )}

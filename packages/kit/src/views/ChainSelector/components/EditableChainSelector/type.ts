@@ -8,6 +8,8 @@ export type IEditableChainSelectorContext = {
   setFrequentlyUsedItems?: (networks: IServerNetwork[]) => void;
 
   isEditMode?: boolean;
+  walletId: string;
+  indexedAccountId?: string;
   networkId?: string;
   searchText?: string;
   onPressItem?: (item: IServerNetwork) => void;
@@ -15,6 +17,14 @@ export type IEditableChainSelectorContext = {
 
   allNetworkItem?: IServerNetwork;
   setRecentNetworksHeight?: (height: number) => void;
+  accountNetworkValues: Record<string, string>;
+  accountNetworkValueCurrency?: string;
+  accountDeFiOverview: Record<
+    string,
+    {
+      netWorth: number;
+    }
+  >;
 };
 
 export type IEditableChainSelectorSection = {
@@ -28,4 +38,4 @@ export type IEditableChainSelectorSection = {
 
 export const CELL_HEIGHT = 48;
 
-export const ALL_NETWORK_HEADER_HEIGHT = 48;
+export const ALL_NETWORK_HEADER_HEIGHT = 32;

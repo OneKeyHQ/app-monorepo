@@ -44,7 +44,7 @@ function PerpPositionsList({
         title: intl.formatMessage({
           id: ETranslations.perp_token_selector_asset,
         }),
-        width: 180,
+        width: 110,
         align: 'left',
       },
       {
@@ -52,7 +52,7 @@ function PerpPositionsList({
         title: intl.formatMessage({
           id: ETranslations.perp_position_position_size,
         }),
-        minWidth: 140,
+        minWidth: 120,
         align: 'left',
         flex: 1,
       },
@@ -88,7 +88,7 @@ function PerpPositionsList({
         title: intl.formatMessage({
           id: ETranslations.perp_position_pnl,
         }),
-        minWidth: 160,
+        minWidth: 180,
         align: 'left',
         flex: 1,
       },
@@ -130,9 +130,10 @@ function PerpPositionsList({
         title: `${intl.formatMessage({
           id: ETranslations.perp_position_close,
         })}`,
-        minWidth: 100,
+        minWidth: 80,
         align: 'right',
         flex: 1,
+        fixed: true,
         ...(positionsLength > 0 && {
           onPress: () => showCloseAllPositionsDialog(),
         }),
@@ -155,17 +156,24 @@ function PerpPositionsList({
     });
   }, [positionsLength]);
 
-  const renderPositionRow = (item: { index: number }, _index: number) => {
-    return (
-      <PositionRow
-        mockedPosition={item}
-        isMobile={isMobile}
-        cellMinWidth={totalMinWidth}
-        columnConfigs={columnsConfig}
-        handleViewTpslOrders={handleViewTpslOrders}
-      />
-    );
-  };
+  const renderPositionRow = (
+    item: { index: number },
+    _index: number,
+    renderMode?: 'full' | 'left' | 'right',
+    isHovered?: boolean,
+    onHoverChange?: (index: number | null) => void,
+  ) => (
+    <PositionRow
+      mockedPosition={item}
+      isMobile={isMobile}
+      cellMinWidth={totalMinWidth}
+      columnConfigs={columnsConfig}
+      handleViewTpslOrders={handleViewTpslOrders}
+      renderMode={renderMode}
+      isHovered={isHovered}
+      onHoverChange={onHoverChange}
+    />
+  );
   const actions = useHyperliquidActions();
   return (
     <CommonTableListView

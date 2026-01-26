@@ -16,10 +16,10 @@ import {
 } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
-  EModalReferFriendsRoutes,
-  EModalRoutes,
+  ETabHomeRoutes,
+  ETabReferFriendsRoutes,
+  ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
@@ -61,7 +61,7 @@ async function processDeepLinkUrlAccount(
         }, 1500);
         return;
       }
-      switch (platformEnv.isNative ? hostname : path?.slice(1)) {
+      switch (hostname ?? path?.slice(1)) {
         case EOneKeyDeepLinkPath.url_account: {
           const query =
             queryParams as IEOneKeyDeepLinkParams[EOneKeyDeepLinkPath.url_account];
@@ -92,8 +92,9 @@ async function processDeepLinkUrlAccount(
             const { utm_source: utmSource, code } =
               queryParams as IEOneKeyDeepLinkParams[EOneKeyDeepLinkPath.invite_share];
             if (navigation) {
-              navigation.pushModal(EModalRoutes.ReferFriendsModal, {
-                screen: EModalReferFriendsRoutes.ReferAFriend,
+              // Navigate to Tab page instead of modal
+              navigation.switchTab(ETabRoutes.ReferFriends, {
+                screen: ETabReferFriendsRoutes.TabReferAFriend,
                 params: {
                   utmSource,
                   code,
@@ -106,6 +107,22 @@ async function processDeepLinkUrlAccount(
             );
           }
           break;
+        case EOneKeyDeepLinkPath.invited_by_friend:
+          {
+            const { code, page } =
+              queryParams as IEOneKeyDeepLinkParams[EOneKeyDeepLinkPath.invited_by_friend];
+            if (navigation) {
+              // Navigate to ReferralLandingPage which handles the modal opening
+              navigation.switchTab(ETabRoutes.Home, {
+                screen: ETabHomeRoutes.TabHomeReferralLanding,
+                params: {
+                  code,
+                  page: page ?? '',
+                },
+              });
+            }
+          }
+          break;
         case EOneKeyDeepLinkPath.cross_device_transfer:
           console.log('TODO implement cross_device_transfer deeplink');
           break;
@@ -113,7 +130,7 @@ async function processDeepLinkUrlAccount(
           break;
       }
     }
-  } catch (error) {
+  } catch (_error) {
     //
   }
 }
@@ -131,6 +148,7 @@ async function processDeepLinkWalletConnect({
 }: IProcessDeepLinkParams) {
   try {
     const { hostname, path, queryParams, scheme } = parsedUrl;
+
     let wcUri = '';
     // define deeplink schema at
     //  - packages/web/validation/deeplink.ios.json
@@ -154,7 +172,7 @@ async function processDeepLinkWalletConnect({
 
     // ** ios/android/desktop DeepLink
     //        onekey-wallet://wc
-    // eslint-disable-next-line spellcheck/spell-checker
+    // oxlint-disable-next-line @cspell/spellchecker
     // onekey-wallet://wc?uri=wc%3Afa75a793-a3fb-48e4-8629-8f1f034ec6eb%401%3Fbridge%3Dhttps%253A%252F%252Fy.bridge.walletconnect.org%26key%3D9e97f71a32b4e629cb60106295dca54d733d124da480b4031d0d848b678fd610/
     if (
       scheme === ONEKEY_APP_DEEP_LINK ||
@@ -177,7 +195,7 @@ async function processDeepLinkWalletConnect({
 
     // ** WalletConnect uri DeepLink
     //        wc:
-    // eslint-disable-next-line spellcheck/spell-checker
+    // oxlint-disable-next-line @cspell/spellchecker
     // wc:c157eb01-8262-40e4-963e-7ebee47d0eac@1?bridge=https%3A%2F%2F7.bridge.walletconnect.org&key=881d859aa3ae028e284dd03e3be1d09c486329a400509a39c85246813808956b
     if (
       scheme === WALLET_CONNECT_DEEP_LINK ||
@@ -189,7 +207,7 @@ async function processDeepLinkWalletConnect({
         throw new OneKeyLocalError('WalletConnect V1 is not supported');
       }
       // V2
-      // eslint-disable-next-line spellcheck/spell-checker
+      // oxlint-disable-next-line @cspell/spellchecker
       if (queryParams?.['relay-protocol'] && queryParams?.symKey) {
         wcUri = url;
       }

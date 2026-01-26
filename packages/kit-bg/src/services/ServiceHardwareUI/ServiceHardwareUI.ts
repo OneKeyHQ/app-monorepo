@@ -240,6 +240,21 @@ class ServiceHardwareUI extends ServiceBase {
   }
 
   @backgroundMethod()
+  async sendRequestDeviceForSwitchFirmwareWebDevice({
+    deviceId,
+  }: {
+    deviceId: string;
+  }) {
+    const { UI_RESPONSE } = await CoreSDKLoader();
+    await this.sendUiResponse({
+      type: UI_RESPONSE.SELECT_DEVICE_FOR_SWITCH_FIRMWARE_WEB_DEVICE,
+      payload: {
+        deviceId,
+      },
+    });
+  }
+
+  @backgroundMethod()
   async cleanHardwareUiState({
     hardClose,
   }: {
@@ -314,7 +329,7 @@ class ServiceHardwareUI extends ServiceBase {
           forceDeviceResetToHome: deviceResetToHome,
         });
       }
-    } catch (error) {
+    } catch (_error) {
       // closeHardwareUiStateDialog should be called safely, do not block caller
     }
   }
@@ -474,6 +489,7 @@ class ServiceHardwareUI extends ServiceBase {
           error: error as any,
           code: [
             HardwareErrorCode.ActionCancelled,
+            HardwareErrorCode.CallQueueActionCancelled,
             HardwareErrorCode.PinCancelled,
             HardwareErrorCode.DeviceNotFound,
             // Hardware interrupts generally have follow-up actions; skip reset to home

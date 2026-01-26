@@ -10,7 +10,7 @@ module.exports = async () => {
     // https://jestjs.io/docs/configuration#maxconcurrency-number
     maxConcurrency: 1,
     maxWorkers: 1,
-    // ts-jest, react-native, jest-expo, jest-expo/web,
+    // @swc/jest, react-native, jest-expo, jest-expo/web,
     preset: 'jest-expo/web', // require *.web.ts, do not require *.native.ts
     coverageProvider: 'v8',
     cacheDirectory: `${cacheDirectory}/.app-mono-jest-cache`,
@@ -52,11 +52,23 @@ module.exports = async () => {
       'node_modules/(?!(react-native-reanimated|react-native-aes-crypto|@keystonehq/bc-ur-registry-eth)/)',
     ],
     transform: {
-      '^.+\\.(ts|tsx)$': [
-        'ts-jest',
+      '^.+\\.[jt]sx?$': [
+        '@swc/jest',
         {
-          'diagnostics': {
-            warnOnly: true,
+          jsc: {
+            target: 'es2022',
+            parser: {
+              syntax: 'typescript',
+              tsx: true,
+              decorators: true,
+            },
+            transform: {
+              legacyDecorator: true,
+              decoratorMetadata: true,
+              react: {
+                runtime: 'automatic',
+              },
+            },
           },
         },
       ],

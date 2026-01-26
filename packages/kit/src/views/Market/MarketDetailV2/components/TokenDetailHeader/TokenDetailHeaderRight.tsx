@@ -13,6 +13,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
+import { STAT_FALLBACK_VALUE, normalizeStatValue } from '../../utils/statValue';
+
 import { ShareButton } from './ShareButton';
 
 interface IStatItemProps {
@@ -59,6 +61,10 @@ export function TokenDetailHeaderRight({
     address = '',
   } = tokenDetail || {};
 
+  const marketCapValue = normalizeStatValue(marketCap) ?? STAT_FALLBACK_VALUE;
+  const liquidityValue = normalizeStatValue(liquidity) ?? STAT_FALLBACK_VALUE;
+  const holdersValue = normalizeStatValue(holders) ?? STAT_FALLBACK_VALUE;
+
   const shareButton =
     networkId && platformEnv.isNative ? (
       <ShareButton
@@ -100,7 +106,7 @@ export function TokenDetailHeaderRight({
               currency: settingsPersistAtom.currencyInfo.symbol,
             }}
           >
-            {marketCap === '0' ? '--' : marketCap}
+            {marketCapValue}
           </NumberSizeableText>
         }
       />
@@ -116,7 +122,7 @@ export function TokenDetailHeaderRight({
               currency: settingsPersistAtom.currencyInfo.symbol,
             }}
           >
-            {liquidity === '0' ? '--' : liquidity}
+            {liquidityValue}
           </NumberSizeableText>
         }
       />
@@ -129,7 +135,7 @@ export function TokenDetailHeaderRight({
             color="$text"
             formatter="marketCap"
           >
-            {holders === 0 ? '--' : holders}
+            {holdersValue}
           </NumberSizeableText>
         }
       />

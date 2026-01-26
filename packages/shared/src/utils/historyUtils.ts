@@ -195,7 +195,7 @@ export function getHistoryTxDetailInfo({
 
 // sort history
 export function sortHistoryTxsByTime({ txs }: { txs: IAccountHistoryTx[] }) {
-  return txs.sort(
+  return txs.toSorted(
     (b, a) =>
       (a.decodedTx.updatedAt ?? a.decodedTx.createdAt ?? 0) -
       (b.decodedTx.updatedAt ?? b.decodedTx.createdAt ?? 0),
@@ -353,7 +353,7 @@ export function checkIsLowValueReceiveTx({
 
 export function checkIsScamTx({ tx }: { tx: IAccountHistoryTx }) {
   return (
-    tx.decodedTx.riskyLevel && tx.decodedTx.riskyLevel > TX_RISKY_LEVEL_SPAM
+    tx.decodedTx.riskyLevel && tx.decodedTx.riskyLevel >= TX_RISKY_LEVEL_SPAM
   );
 }
 

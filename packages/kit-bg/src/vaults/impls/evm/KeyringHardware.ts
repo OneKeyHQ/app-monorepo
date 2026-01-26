@@ -284,10 +284,13 @@ export class KeyringHardware extends KeyringHardwareBase {
   override async buildHwAllNetworkPrepareAccountsParams(
     params: IBuildHwAllNetworkPrepareAccountsParams,
   ): Promise<AllNetworkAddressParams | undefined> {
+    const chainId = await this.getNetworkChainId();
+
     return {
       network: this.hwSdkNetwork,
       path: params.path,
       showOnOneKey: false,
+      chainName: chainId,
     };
   }
 

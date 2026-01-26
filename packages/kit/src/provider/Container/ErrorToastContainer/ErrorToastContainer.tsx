@@ -9,8 +9,28 @@ import {
 
 import { getErrorAction } from './ErrorToasts';
 
-const ERROR_CODE = [403];
-const isFilterErrorCode = (code?: number) => code && ERROR_CODE.includes(code);
+// Get deduplication ID for HTTP status codes to prevent toast spam
+// @param httpStatusCode - HTTP status code (e.g., 403, 429, 503)
+const getDeduplicationId = (
+  httpStatusCode?: number,
+): { id: string | undefined; forceDeduplicate: boolean } => {
+  if (!httpStatusCode) return { id: undefined, forceDeduplicate: false };
+
+  // Forbidden - force deduplicate
+  if (httpStatusCode === 403)
+    return { id: 'error_403', forceDeduplicate: true };
+
+  // Rate limiting - force deduplicate to avoid spam
+  if (httpStatusCode === 429)
+    return { id: 'error_429', forceDeduplicate: true };
+
+  // Server errors (5xx) - force unified deduplication to prevent toast avalanche
+  if (httpStatusCode >= 500 && httpStatusCode < 600) {
+    return { id: 'error_5xx', forceDeduplicate: true };
+  }
+
+  return { id: undefined, forceDeduplicate: false };
+};
 
 export function ErrorToastContainer() {
   useEffect(() => {
@@ -18,19 +38,32 @@ export function ErrorToastContainer() {
       if (!p.title) {
         return;
       }
-      const message = p.message;
-      const toastIdByErrorCode = isFilterErrorCode(p.errorCode)
-        ? String(p.errorCode)
-        : undefined;
-      // Because the request error automatically toast will take the requestId as the message, when a large number of requests are reported at the same time, using the message as the toastId will toast frequently, so the title is prioritized as the toastId
-      const toastId =
-        p.toastId || toastIdByErrorCode || (p.title ? p.title : message);
-      const actions = getErrorAction(p.errorCode, message ?? '');
+      const statusCodeForDeduplicate =
+        p.httpStatusCode ??
+        (typeof p.errorCode === 'number' ? p.errorCode : undefined);
+      const deduplication = getDeduplicationId(statusCodeForDeduplicate);
+      // For critical errors (403, 429, 5xx), force deduplication to prevent toast spam
+      // Otherwise, respect custom toastId from caller
+      const toastId = deduplication.forceDeduplicate
+        ? deduplication.id
+        : p.toastId ||
+          deduplication.id ||
+          (p.errorCode !== undefined ? String(p.errorCode) : undefined) ||
+          p.title ||
+          p.requestId;
+
+      const actions = getErrorAction({
+        errorCode: p.errorCode,
+        requestId: p.requestId,
+        diagnosticText: p.diagnosticText,
+      });
 
       Toast[p.method]({
-        ...p,
+        title: p.title,
+        message: p.message,
         toastId,
         actions,
+        duration: p.duration,
       });
     };
     appEventBus.on(EAppEventBusNames.ShowToast, fn);

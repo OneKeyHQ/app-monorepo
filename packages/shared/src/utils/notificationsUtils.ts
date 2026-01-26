@@ -10,6 +10,7 @@ import {
 } from '../../types/notification';
 import appGlobals from '../appGlobals';
 import { EAppEventBusNames, appEventBus } from '../eventBus/appEventBus';
+import { defaultLogger } from '../logger/logger';
 import platformEnv from '../platformEnv';
 import { EModalAssetDetailRoutes, EModalRoutes } from '../routes';
 import { EModalNotificationsRoutes } from '../routes/notifications';
@@ -21,7 +22,10 @@ import { buildModalRouteParams } from './routeUtils';
 import timerUtils from './timerUtils';
 
 import type { INetworkAccount } from '../../types/account';
-import type { INotificationPushMessageInfo } from '../../types/notification';
+import type {
+  ENotificationPushTopicTypes,
+  INotificationPushMessageInfo,
+} from '../../types/notification';
 
 function convertWebPermissionToEnum(
   permission: NotificationPermission,
@@ -53,6 +57,21 @@ type IGetEarnAccountFunc = (params: {
   accountAddress: string;
   account: INetworkAccount;
 } | null>;
+
+const popToMainRoute = async (maxRetryTimes = 99) => {
+  if (maxRetryTimes <= 0) {
+    return;
+  }
+  const rootState = appGlobals.$navigationRef.current?.getRootState();
+  if (rootState?.routes?.[rootState.index]?.name === ERootRoutes.Main) {
+    return;
+  }
+  if (appGlobals.$navigationRef.current?.canGoBack()) {
+    appGlobals.$navigationRef.current?.goBack?.();
+  }
+  await timerUtils.wait(150);
+  await popToMainRoute(maxRetryTimes - 1);
+};
 
 export async function navigateToNotificationDetailByLocalParams({
   payload,
@@ -97,9 +116,20 @@ export async function navigateToNotificationDetailByLocalParams({
     }
   }
   if (screen === ERootRoutes.Main) {
-    appGlobals.$navigationRef.current?.goBack?.();
+    await popToMainRoute();
     await timerUtils.wait(350);
-    appGlobals.$navigationRef.current?.navigate(screen, navigationParams);
+    appGlobals.$navigationRef.current?.navigate(screen, navigationParams, {
+      pop: true,
+    });
+  } else if (screen === ERootRoutes.Modal) {
+    let rootNavigator = appGlobals.$navigationRef.current;
+    const rootState = appGlobals.$navigationRef.current?.getRootState();
+    if (rootState?.routes?.[rootState.index]?.name === ERootRoutes.Modal) {
+      while (rootNavigator?.getParent()) {
+        rootNavigator = rootNavigator.getParent();
+      }
+    }
+    rootNavigator?.navigate(screen, navigationParams);
   } else {
     appGlobals.$navigationRef.current?.dispatch(
       StackActions.push(screen, navigationParams),
@@ -114,7 +144,87 @@ export interface INavigateToNotificationDetailParams {
   navigation?: IAppNavigation;
   mode?: ENotificationPushMessageMode;
   payload?: string;
+  topicType?: ENotificationPushTopicTypes;
+  isRead?: boolean;
 }
+
+export function parseNotificationPayload(
+  mode: ENotificationPushMessageMode,
+  payload: string | undefined,
+  fallbackHandler: () => void,
+  extras?: {
+    params?: {
+      coin?: string;
+      type?: string;
+      [key: string]: any;
+    };
+    [key: string]: any;
+  },
+) {
+  switch (mode) {
+    case ENotificationPushMessageMode.page:
+      try {
+        const payloadObj = JSON.parse(payload || '');
+        appEventBus.emit(EAppEventBusNames.ShowNotificationPageNavigation, {
+          payload: payloadObj,
+          extras,
+        });
+      } catch (_error) {
+        fallbackHandler();
+      }
+      break;
+    case ENotificationPushMessageMode.dialog:
+      try {
+        const payloadObj = JSON.parse(payload || '');
+        appEventBus.emit(EAppEventBusNames.ShowNotificationViewDialog, {
+          payload: payloadObj,
+        });
+      } catch (_error) {
+        fallbackHandler();
+      }
+
+      break;
+    case ENotificationPushMessageMode.openInBrowser:
+      if (payload) {
+        openUrlExternal(payload);
+      }
+      break;
+    case ENotificationPushMessageMode.openInApp:
+      if (payload) {
+        openUrlInApp(payload);
+      }
+      break;
+    case ENotificationPushMessageMode.openInDapp:
+      appEventBus.emit(
+        EAppEventBusNames.ShowNotificationInDappPage,
+        payload as string,
+      );
+      break;
+    case ENotificationPushMessageMode.command:
+      try {
+        const { action, data } = JSON.parse(payload || '{}') as {
+          action?: string;
+          data?: Record<string, unknown>;
+        };
+        if (!action) {
+          fallbackHandler();
+          return;
+        }
+        // Merge extras.params with data, extras.params takes precedence for orderId etc.
+        const mergedData = { ...data, ...extras?.params };
+        appEventBus.emit(EAppEventBusNames.ExecuteNotificationCommand, {
+          action,
+          data: mergedData,
+        });
+      } catch (_error) {
+        fallbackHandler();
+      }
+      break;
+    default:
+      break;
+  }
+}
+
 async function navigateToNotificationDetail({
   notificationId,
   notificationAccountId,
@@ -123,14 +233,30 @@ async function navigateToNotificationDetail({
   navigation,
   mode,
   payload,
+  topicType,
+  isRead = false,
 }: INavigateToNotificationDetailParams) {
   let routes: string[] = [];
   let params: any = {};
   let shouldAckRead = true;
 
+  if (!isRead) {
+    setTimeout(() => {
+      defaultLogger.app.page.notificationItemClicked(
+        notificationId,
+        topicType || 'unknown',
+        isFromNotificationClick ? 'app' : 'system',
+      );
+    });
+  }
+
   if (isFromNotificationClick) {
-    const statusRoutes = appGlobals.$navigationRef.current?.getState().routes;
-    const currentRoute = statusRoutes?.[statusRoutes.length - 1];
+    const statusRoutes = platformEnv.isExtensionBackground
+      ? []
+      : appGlobals.$navigationRef.current?.getState().routes;
+    const currentRoute = statusRoutes?.length
+      ? statusRoutes?.[statusRoutes.length - 1]
+      : undefined;
     if (
       currentRoute &&
       currentRoute.name === ERootRoutes.Modal &&
@@ -193,41 +319,12 @@ async function navigateToNotificationDetail({
   }
 
   if (mode) {
-    switch (mode) {
-      case ENotificationPushMessageMode.page:
-        try {
-          const payloadObj = JSON.parse(payload || '');
-          appEventBus.emit(EAppEventBusNames.ShowNotificationPageNavigation, {
-            payload: payloadObj,
-          });
-        } catch (error) {
-          showFallbackUpdateDialog();
-        }
-        break;
-      case ENotificationPushMessageMode.dialog:
-        try {
-          const payloadObj = JSON.parse(payload || '');
-          appEventBus.emit(EAppEventBusNames.ShowNotificationViewDialog, {
-            payload: payloadObj,
-          });
-        } catch (error) {
-          showFallbackUpdateDialog();
-        }
-
-        break;
-      case ENotificationPushMessageMode.openInBrowser:
-        if (payload) {
-          openUrlExternal(payload);
-        }
-        break;
-      case ENotificationPushMessageMode.openInApp:
-        if (payload) {
-          openUrlInApp(payload);
-        }
-        break;
-      default:
-        break;
-    }
+    parseNotificationPayload(
+      mode,
+      payload,
+      showFallbackUpdateDialog,
+      message?.extras,
+    );
     return;
   }
 

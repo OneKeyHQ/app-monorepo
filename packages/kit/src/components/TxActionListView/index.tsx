@@ -20,6 +20,7 @@ type IProps = {
   replaceType?: EReplaceTxType;
   swapInfo?: ISwapTxInfo;
   hideValue?: boolean;
+  compact?: boolean;
 };
 
 function TxActionsListView(props: IProps) {
@@ -34,6 +35,7 @@ function TxActionsListView(props: IProps) {
     replaceType,
     swapInfo,
     hideValue,
+    compact,
   } = props;
   const actions = getDisplayedActions({ decodedTx });
   const action = actions[0];
@@ -59,6 +61,7 @@ function TxActionsListView(props: IProps) {
       replaceType={replaceType}
       swapInfo={swapInfo}
       hideValue={hideValue}
+      compact={compact}
     />
   );
 }

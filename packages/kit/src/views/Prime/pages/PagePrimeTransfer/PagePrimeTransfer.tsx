@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 import axios from 'axios';
 import { noop } from 'lodash';
-import { useIntl } from 'react-intl';
 
 import { Button, Dialog, Page } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -28,7 +27,6 @@ import { PrimeTransferExitPrevent } from './components/PrimeTransferExitPrevent'
 import { PrimeTransferHome } from './components/PrimeTransferHome';
 
 export default function PagePrimeTransfer() {
-  const intl = useIntl();
   const [primeTransferAtom] = usePrimeTransferAtom();
   const navigation = useAppNavigation();
   const { exitTransferFlow, disableExitPrevention } = usePrimeTransferExit();
@@ -36,6 +34,8 @@ export default function PagePrimeTransfer() {
   const route = useAppRoute<IPrimeParamList, EPrimePages.PrimeTransfer>();
   const routeParamsCode = route.params?.code;
   const routeParamsServer = route.params?.server;
+  const routeParamsTransferType = route.params?.transferType;
+  const routeParamsDefaultTab = route.params?.defaultTab;
 
   const initialCode = routeParamsCode || '';
 
@@ -130,10 +130,12 @@ export default function PagePrimeTransfer() {
     if (primeTransferAtom.status === EPrimeTransferStatus.init) {
       return (
         <PrimeTransferHome
+          transferType={routeParamsTransferType}
           remotePairingCode={remotePairingCode}
           setRemotePairingCode={setRemotePairingCode}
           autoConnect={!!routeParamsCode}
           autoConnectCustomServer={routeParamsServer || undefined}
+          defaultTab={routeParamsDefaultTab}
         />
       );
     }
@@ -143,7 +145,10 @@ export default function PagePrimeTransfer() {
     ) {
       return (
         <>
-          <PrimeTransferDirection remotePairingCode={remotePairingCode} />
+          <PrimeTransferDirection
+            remotePairingCode={remotePairingCode}
+            transferType={routeParamsTransferType}
+          />
         </>
       );
     }
@@ -151,6 +156,8 @@ export default function PagePrimeTransfer() {
   }, [
     routeParamsCode,
     routeParamsServer,
+    routeParamsDefaultTab,
+    routeParamsTransferType,
     primeTransferAtom.status,
     remotePairingCode,
   ]);
@@ -159,6 +166,20 @@ export default function PagePrimeTransfer() {
     if (process.env.NODE_ENV !== 'production') {
       return (
         <>
+          <Button
+            onPress={() => {
+              Dialog.debugMessage({
+                debugMessage: {
+                  code: routeParamsCode,
+                  server: routeParamsServer,
+                  transferType: routeParamsTransferType,
+                  defaultTab: routeParamsDefaultTab,
+                },
+              });
+            }}
+          >
+            Show Route Params
+          </Button>
           <Button
             onPress={async () => {
               const data =
@@ -215,7 +236,14 @@ export default function PagePrimeTransfer() {
       );
     }
     return <></>;
-  }, [navigation, disableExitPrevention]);
+  }, [
+    navigation,
+    disableExitPrevention,
+    routeParamsCode,
+    routeParamsServer,
+    routeParamsTransferType,
+    routeParamsDefaultTab,
+  ]);
 
   // const shouldPreventExit =
   //   primeTransferAtom.status === EPrimeTransferStatus.paired ||

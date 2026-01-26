@@ -1,14 +1,8 @@
-import { Fragment, useCallback } from 'react';
+import { Fragment, useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 
-import {
-  Button,
-  Divider,
-  SizableText,
-  Skeleton,
-  XStack,
-} from '@onekeyhq/components';
+import { Button, Divider, SizableText, XStack } from '@onekeyhq/components';
 import type { ISwapNativeTokenReserveGas } from '@onekeyhq/shared/types/swap/types';
 
 import { ESwapDirection, type ITradeType } from '../../hooks/useTradeType';
@@ -47,7 +41,6 @@ export function QuickAmountSelector({
 }: IQuickAmountSelectorProps) {
   const amounts =
     tradeType === ESwapDirection.BUY ? buyAmounts : sellPercentages;
-  const amountsLength = amounts.length;
 
   const handleAmountSelect = useCallback(
     (amount: { label: string; value: string | number }, index: number) => {
@@ -96,14 +89,21 @@ export function QuickAmountSelector({
       selectedTokenNetworkId,
     ],
   );
-
-  if (amounts.length === 0) {
-    return <Skeleton h="$8" w="100%" />;
-  }
-
+  const amountItems = useMemo(() => {
+    if (amounts.length === 0) {
+      return [
+        { label: '0.1', value: '0.1' },
+        { label: '0.5', value: '0.5' },
+        { label: '1', value: '1' },
+        { label: '10', value: '10' },
+      ];
+    }
+    return amounts;
+  }, [amounts]);
+  const amountsLength = amountItems.length;
   return (
     <XStack gap="$0" h="$8">
-      {amounts.map((amount, index) => (
+      {amountItems.map((amount, index) => (
         <Fragment key={`item-${amount.value}`}>
           <Button
             key={`button-${amount.value}`}

@@ -16,10 +16,14 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import type {
+  IFetchLimitOrderRes,
+  ISwapToken,
+} from '@onekeyhq/shared/types/swap/types';
 import {
   ESwapCancelLimitOrderSource,
   ESwapLimitOrderStatus,
-  type IFetchLimitOrderRes,
 } from '@onekeyhq/shared/types/swap/types';
 
 import LimitOrderListItem from '../../components/LimitOrderListItem';
@@ -30,6 +34,7 @@ import LimitOrderCancelDialog from './LimitOrderCancelDialog';
 interface ILimitOrderListProps {
   onClickCell: (item: IFetchLimitOrderRes) => void;
   isLoading?: boolean;
+  filterToken?: ISwapToken[];
   type: 'open' | 'history';
 }
 
@@ -42,6 +47,7 @@ interface ISectionData {
 const LimitOrderList = ({
   isLoading,
   type,
+  filterToken,
   onClickCell,
 }: ILimitOrderListProps) => {
   const { gtMd } = useMedia();
@@ -51,6 +57,7 @@ const LimitOrderList = ({
   );
   const { cancelLimitOrder } = useSwapBuildTx();
   const [{ swapLimitOrders }] = useInAppNotificationAtom();
+
   const runCancel = useCallback(
     async (item: IFetchLimitOrderRes) => {
       try {
@@ -122,14 +129,31 @@ const LimitOrderList = ({
           order.status !== ESwapLimitOrderStatus.PRESIGNATURE_PENDING,
       );
     }
+    if (filterToken) {
+      filteredData = filteredData.filter(
+        (order) =>
+          filterToken.some((t) =>
+            equalTokenNoCaseSensitive({
+              token1: t,
+              token2: order.fromTokenInfo,
+            }),
+          ) ||
+          filterToken.some((t) =>
+            equalTokenNoCaseSensitive({
+              token1: t,
+              token2: order.toTokenInfo,
+            }),
+          ),
+      );
+    }
     return (
-      filteredData?.sort((a, b) => {
+      filteredData?.toSorted((a, b) => {
         const aDate = new BigNumber(a.createdAt).toNumber();
         const bDate = new BigNumber(b.createdAt).toNumber();
         return bDate - aDate;
       }) ?? []
     );
-  }, [swapLimitOrders, type]);
+  }, [filterToken, swapLimitOrders, type]);
 
   const sectionData = useMemo(() => {
     const groupByDay = orderData.reduce<Record<string, IFetchLimitOrderRes[]>>(
@@ -169,6 +193,7 @@ const LimitOrderList = ({
       )),
     [gtMd],
   );
+
   return !swapLimitOrders.length && isLoading ? (
     loadingSkeleton
   ) : (

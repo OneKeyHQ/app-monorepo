@@ -1,18 +1,22 @@
 import type {
   IEarnWalletHistoryItem,
   IEarnWalletHistoryNetwork,
+  IHardwareRecordItem,
 } from '../referralCode/type';
 
 export enum EModalReferFriendsRoutes {
   ReferAFriend = 'ReferAFriend',
+  InvitedByFriend = 'InvitedByFriend',
   YourReferred = 'YourReferred',
   YourReferredWalletAddresses = 'YourReferredWalletAddresses',
   HardwareSalesReward = 'HardwareSalesReward',
-  OneKeyId = 'OneKeyId',
+  HardwareSalesOrderDetail = 'HardwareSalesOrderDetail',
   InviteReward = 'InviteReward',
   EditAddress = 'EditAddress',
   EarnReward = 'EarnReward',
   RewardDistributionHistory = 'RewardDistributionHistory',
+  ReferralLevel = 'ReferralLevel',
+  RedemptionHistory = 'RedemptionHistory',
 }
 
 export type IModalReferFriendsParamList = {
@@ -20,18 +24,35 @@ export type IModalReferFriendsParamList = {
     utmSource?: string;
     code?: string;
   };
+  [EModalReferFriendsRoutes.InvitedByFriend]: {
+    code: string;
+    page?: string;
+  };
   [EModalReferFriendsRoutes.YourReferred]: undefined;
   [EModalReferFriendsRoutes.YourReferredWalletAddresses]: {
     networks: IEarnWalletHistoryNetwork[];
     items: IEarnWalletHistoryItem[];
   };
-  [EModalReferFriendsRoutes.HardwareSalesReward]: undefined;
-  [EModalReferFriendsRoutes.OneKeyId]: undefined;
-  [EModalReferFriendsRoutes.InviteReward]: undefined;
+  [EModalReferFriendsRoutes.HardwareSalesReward]:
+    | {
+        showOrderDetail?: boolean;
+        orderId?: string;
+      }
+    | undefined;
+  [EModalReferFriendsRoutes.HardwareSalesOrderDetail]: {
+    data: IHardwareRecordItem;
+  };
+  [EModalReferFriendsRoutes.InviteReward]:
+    | {
+        showRewardDistributionHistory?: boolean;
+      }
+    | undefined;
   [EModalReferFriendsRoutes.EditAddress]: {
     enabledNetworks: string[];
     accountId: string;
     address?: string;
+    hideAddressBook?: boolean;
+    enableAllowListValidation?: boolean;
     onAddressAdded: ({
       address,
       networkId,
@@ -44,4 +65,6 @@ export type IModalReferFriendsParamList = {
     title: string;
   };
   [EModalReferFriendsRoutes.RewardDistributionHistory]: undefined;
+  [EModalReferFriendsRoutes.ReferralLevel]: undefined;
+  [EModalReferFriendsRoutes.RedemptionHistory]: undefined;
 };

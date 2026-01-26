@@ -1,5 +1,8 @@
 import type { IWalletAvatarProps } from '@onekeyhq/kit/src/components/WalletAvatar';
-import type { IDBIndexedAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type {
+  IDBIndexedAccount,
+  IDBWallet,
+} from '@onekeyhq/kit-bg/src/dbs/local/types';
 
 import type { AvatarImageProps } from 'tamagui';
 
@@ -22,8 +25,12 @@ export type IAccountGroupProps = {
 export type IWalletProps = {
   id: string;
   img: IWalletAvatarProps['img'];
-  status?: 'default' | 'connected';
+  status?: 'default' | 'connected' | 'keyless';
   type?: 'hd' | 'hw' | 'others';
   name: string;
   accounts: IAccountGroupProps[];
+};
+
+export type IAccountSelectorWalletInfo = IDBWallet & {
+  badge?: number | string;
 };

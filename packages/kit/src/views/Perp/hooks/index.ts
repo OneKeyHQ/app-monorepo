@@ -2,10 +2,12 @@ export { usePerpsActivePositionAtom } from '../../../states/jotai/contexts/hyper
 export { usePerpsActiveOpenOrdersAtom } from '../../../states/jotai/contexts/hyperliquid/atoms';
 export { usePerpTokenSelector } from './usePerpTokenSelector';
 export { usePerpSession } from './usePerpSession';
+export { usePerpsFavorites, type IFavoriteItem } from './usePerpsFavorites';
 
 export { useFundingCountdown } from './useFundingCountdown';
 export { useOrderConfirm } from './useOrderConfirm';
 export { useTradingPrice } from './useTradingPrice';
+export { useTradingCalculationsForSide } from './useTradingCalculationsForSide';
 
 export type { IPerpTokenSelectorReturn } from './usePerpTokenSelector';
 export type { IPerpSessionReturn } from './usePerpSession';

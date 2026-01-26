@@ -1,14 +1,15 @@
-import { act, useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import { useTokenDetail } from '../../hooks/useTokenDetail';
 
@@ -25,79 +26,129 @@ interface ISwapPanelWrapProps {
 }
 
 export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
-  const { networkId, tokenDetail } = useTokenDetail();
+  const { networkId, tokenDetail, isReady } = useTokenDetail();
   const intl = useIntl();
   const swapPanel = useSwapPanel({
     networkId: networkId || 'evm--1',
   });
+  const [hasInitialReady, setHasInitialReady] = useState(false);
 
   const {
     setPaymentToken,
     paymentToken,
     paymentAmount,
+    sellAmount,
     tradeType,
     setSlippage,
     slippage,
   } = swapPanel;
 
   const {
-    isLoading,
+    isLoading: speedSwapInitLoading,
     speedConfig,
     supportSpeedSwap: originalSupportSpeedSwap,
+    onlySupportCrossChain,
     defaultTokens,
     provider,
     swapMevNetConfig,
-  } = useSpeedSwapInit(networkId || '');
-
+  } = useSpeedSwapInit(networkId || '', true);
   const { activeAccount } = useActiveAccount({ num: 0 });
 
-  const checkAccountNetworkSupport = useCallback(() => {
-    if (
-      accountUtils.isImportedAccount({
-        accountId: activeAccount?.account?.id ?? '',
-      }) ||
-      accountUtils.isWatchingAccount({
-        accountId: activeAccount?.account?.id ?? '',
-      }) ||
-      accountUtils.isExternalAccount({
-        accountId: activeAccount?.account?.id ?? '',
-      })
-    ) {
-      const { impl } = networkUtils.parseNetworkId({
-        networkId: activeAccount?.network?.id ?? '',
-      });
-      const { impl: networkImpl } = networkUtils.parseNetworkId({
-        networkId: networkId ?? '',
-      });
-      return impl === networkImpl;
-    }
-    return true;
-  }, [activeAccount?.account?.id, activeAccount?.network?.id, networkId]);
+  const { result: accountNetworkNotSupported } = usePromiseResult(
+    async () => {
+      const result =
+        await backgroundApiProxy.serviceAccount.checkAccountNetworkNotSupported(
+          {
+            walletId: activeAccount?.wallet?.id ?? '',
+            accountId: activeAccount?.account?.id ?? '',
+            accountImpl: activeAccount?.account?.impl,
+            activeNetworkId: networkId ?? '',
+          },
+        );
+      return !!result?.networkImpl;
+    },
+    [
+      activeAccount?.wallet?.id,
+      activeAccount?.account?.id,
+      activeAccount?.account?.impl,
+      networkId,
+    ],
+    {
+      initResult: undefined,
+    },
+  );
 
   const supportSpeedSwap = useMemo(() => {
+    let isAccountNetworkSupported: boolean;
+    if (accountNetworkNotSupported) {
+      isAccountNetworkSupported = false;
+    } else {
+      isAccountNetworkSupported = true;
+    }
+
     const speedSwapEnabled = originalSupportSpeedSwap;
     const tokenSwapEnabled = tokenDetail?.supportSwap?.enable !== false;
     const isEnabled =
-      speedSwapEnabled && tokenSwapEnabled && checkAccountNetworkSupport();
-
+      speedSwapEnabled && tokenSwapEnabled && isAccountNetworkSupported;
     let warningMessage = !tokenSwapEnabled
       ? tokenDetail?.supportSwap?.warningMessage
       : undefined;
-    if (!checkAccountNetworkSupport() && !warningMessage) {
+    if (!isAccountNetworkSupported && !warningMessage) {
       warningMessage = intl.formatMessage({
         id: ETranslations.swap_page_alert_account_does_not_support_swap,
       });
     }
+    let actionTranslationId;
+    let actionToken: ISwapToken | undefined;
+    let actionOtherToken: ISwapToken | undefined;
+    if (!speedSwapEnabled) {
+      actionTranslationId = onlySupportCrossChain
+        ? ETranslations.promode_swap_unsupported_message_btc
+        : ETranslations.promode_swap_unsupported_message_regular;
+      actionToken = {
+        networkId: networkId || '',
+        contractAddress: tokenDetail?.address || '',
+        symbol: tokenDetail?.symbol || '',
+        decimals: tokenDetail?.decimals || 0,
+        logoURI: tokenDetail?.logoUrl || '',
+        isNative: !!tokenDetail?.isNative,
+      };
+      actionOtherToken = {
+        networkId: paymentToken?.networkId || '',
+        contractAddress: paymentToken?.contractAddress || '',
+        symbol: paymentToken?.symbol || '',
+        decimals: paymentToken?.decimals || 0,
+        logoURI: paymentToken?.logoURI || '',
+        isNative: paymentToken?.isNative || false,
+      };
+    }
     return {
       enabled: isEnabled,
       warningMessage,
+      actionTranslationId,
+      actionToken,
+      actionOtherToken,
+      onlySupportCrossChain,
     };
   }, [
+    accountNetworkNotSupported,
     intl,
-    checkAccountNetworkSupport,
+    networkId,
+    onlySupportCrossChain,
     originalSupportSpeedSwap,
+    paymentToken?.contractAddress,
+    paymentToken?.decimals,
+    paymentToken?.isNative,
+    paymentToken?.logoURI,
+    paymentToken?.networkId,
+    paymentToken?.symbol,
+    tokenDetail?.address,
+    tokenDetail?.decimals,
+    tokenDetail?.isNative,
+    tokenDetail?.logoUrl,
     tokenDetail?.supportSwap?.enable,
     tokenDetail?.supportSwap?.warningMessage,
+    tokenDetail?.symbol,
   ]);
 
   const useSpeedSwapActionsParams = {
@@ -122,7 +173,10 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     defaultTradeTokens: defaultTokens,
     provider,
     tradeType: tradeType || ESwapDirection.BUY,
-    fromTokenAmount: paymentAmount.toFixed(),
+    fromTokenAmount:
+      tradeType === ESwapDirection.BUY
+        ? paymentAmount.toFixed()
+        : sellAmount.toFixed(),
     antiMEV: swapMevNetConfig?.includes(swapPanel.networkId ?? ''),
     onCloseDialog,
   };
@@ -135,7 +189,8 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     speedSwapBuildTxLoading,
     checkTokenAllowanceLoading,
     speedSwapApproveHandler,
-    speedSwapApproveLoading,
+    speedSwapApproveActionLoading,
+    speedSwapApproveTransactionLoading,
     shouldApprove,
     balance,
     balanceToken,
@@ -145,7 +200,17 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     isWrapped,
   } = speedSwapActions;
 
+  const { result: mergeDeriveAssetsEnabled } = usePromiseResult(async () => {
+    const result = await backgroundApiProxy.serviceNetwork.getVaultSettings({
+      networkId: balanceToken?.networkId || '',
+    });
+    return result?.mergeDeriveAssetsEnabled;
+  }, [balanceToken?.networkId]);
+
   const filterDefaultTokens = useMemo(() => {
+    if (defaultTokens?.length === 1) {
+      return [...defaultTokens];
+    }
     return defaultTokens.filter(
       (token) =>
         !equalTokenNoCaseSensitive({
@@ -159,8 +224,9 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
   }, [defaultTokens, networkId, tokenDetail]);
 
   useEffect(() => {
-    if (filterDefaultTokens.length > 0 && !paymentToken) {
+    if (filterDefaultTokens.length > 0 && !paymentToken?.networkId) {
       setPaymentToken(filterDefaultTokens[0]);
+      return;
     }
     if (
       filterDefaultTokens.length > 0 &&
@@ -172,7 +238,12 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     ) {
       setPaymentToken(filterDefaultTokens[0]);
     }
-  }, [paymentToken, setPaymentToken, filterDefaultTokens]);
+  }, [
+    paymentToken?.networkId,
+    paymentToken?.contractAddress,
+    setPaymentToken,
+    filterDefaultTokens,
+  ]);
 
   useEffect(() => {
     if (speedConfig?.slippage) {
@@ -198,8 +269,49 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     };
   }, []);
 
+  const isActionLoading = useMemo(() => {
+    return (
+      speedSwapApproveActionLoading ||
+      speedSwapApproveTransactionLoading ||
+      speedSwapBuildTxLoading ||
+      checkTokenAllowanceLoading
+    );
+  }, [
+    speedSwapApproveActionLoading,
+    speedSwapApproveTransactionLoading,
+    speedSwapBuildTxLoading,
+    checkTokenAllowanceLoading,
+  ]);
+
+  useEffect(() => {
+    if (
+      !isActionLoading &&
+      isReady &&
+      !speedSwapInitLoading &&
+      originalSupportSpeedSwap !== undefined
+    ) {
+      setHasInitialReady(true);
+    }
+  }, [
+    isActionLoading,
+    isReady,
+    originalSupportSpeedSwap,
+    speedSwapInitLoading,
+  ]);
+
   return (
     <SwapPanelContent
+      activeAccount={activeAccount}
+      enableAddressTypeSelector={!!mergeDeriveAssetsEnabled}
+      currentMarketToken={{
+        networkId: networkId || '',
+        contractAddress: tokenDetail?.address || '',
+        symbol: tokenDetail?.symbol || '',
+        decimals: tokenDetail?.decimals || 0,
+        logoURI: tokenDetail?.logoUrl || '',
+        isNative: !!tokenDetail?.isNative,
+      }}
+      onCloseDialog={onCloseDialog}
       priceRate={priceRate}
       swapMevNetConfig={swapMevNetConfig}
       swapNativeTokenReserveGas={swapNativeTokenReserveGas}
@@ -207,12 +319,8 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
       balance={balance ?? new BigNumber(0)}
       balanceToken={balanceToken as IToken}
       balanceLoading={fetchBalanceLoading}
-      isLoading={
-        isLoading ||
-        speedSwapApproveLoading ||
-        speedSwapBuildTxLoading ||
-        checkTokenAllowanceLoading
-      }
+      isLoading={isActionLoading}
+      hasInitialReady={hasInitialReady}
       onSwap={handleSwap}
       isApproved={!shouldApprove}
       slippageAutoValue={speedConfig?.slippage}

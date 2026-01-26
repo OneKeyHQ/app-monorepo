@@ -65,8 +65,14 @@ export const PROVIDER_API_PRIVATE_WHITE_LIST_METHOD = [
   'tradingview_analytics_line',
   'tradingview_analytics_studyCreated',
   'tradingview_analytics_studyRemoved',
+  // Perps chart lines methods
+  'tradingview_perpsReady',
+  'tradingview_perpsOrderCancel',
+  'tradingview_lineDragCommit',
   'btc_requestAccount',
   'btc_signTransaction',
+  'wallet_getRookieGuideInfo',
+  'wallet_resetRookieGuideProgress',
 ];
 
 // white list method which can be called from any origin

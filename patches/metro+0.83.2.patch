@@ -1,0 +1,36 @@
+diff --git a/node_modules/metro/src/Assets.js b/node_modules/metro/src/Assets.js
+index 0870a4c..606db94 100644
+--- a/node_modules/metro/src/Assets.js
++++ b/node_modules/metro/src/Assets.js
+@@ -199,6 +199,8 @@ async function getAssetFiles(assetPath, platform = null) {
+   const assetData = await getAbsoluteAssetRecord(assetPath, platform);
+   return assetData.files;
+ }
++
++const GET_TOP_DIR_SYMBOL = "relative_dir_symbol";
+ async function getAsset(
+   relativePath,
+   projectRoot,
+@@ -206,17 +208,22 @@ async function getAsset(
+   platform = null,
+   assetExts,
+ ) {
++  if (relativePath.startsWith(GET_TOP_DIR_SYMBOL)) {
++    relativePath = relativePath.replaceAll(GET_TOP_DIR_SYMBOL, '..');
++  }
+   const assetData = AssetPaths.parse(
+     relativePath,
+     new Set(platform != null ? [platform] : []),
+   );
+   const absolutePath = _path.default.resolve(projectRoot, relativePath);
+   if (!assetExts.includes(assetData.type)) {
++    console.error(`'${relativePath}' cannot be loaded as its extension is not registered in assetExts`, absolutePath);
+     throw new Error(
+       `'${relativePath}' cannot be loaded as its extension is not registered in assetExts`,
+     );
+   }
+   if (!pathBelongsToRoots(absolutePath, [projectRoot, ...watchFolders])) {
++    console.error(`'${relativePath}' could not be found, because it cannot be found in the project root or any watch folder`, absolutePath);
+     throw new Error(
+       `'${relativePath}' could not be found, because it cannot be found in the project root or any watch folder`,
+     );

@@ -13,6 +13,7 @@ import {
   useCurrentTabScrollY,
   useMedia,
 } from '@onekeyhq/components';
+import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useTokenDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -26,6 +27,7 @@ import { TransactionItemNormal } from './layout/TransactionItemNormal/Transactio
 import { TransactionItemSmall } from './layout/TransactionItemSmall/TransactionItemSmall';
 
 import type { FlatListProps } from 'react-native';
+import type { SharedValue } from 'react-native-reanimated';
 
 interface ITransactionsHistoryProps {
   tokenAddress: string;
@@ -38,9 +40,8 @@ const useScrollEnd = platformEnv.isNative
       const scrollY = useCurrentTabScrollY();
 
       const debouncedOnScrollEnd = useDebouncedCallback(onScrollEnd, 150);
-
       useAnimatedReaction(
-        () => scrollY.value,
+        () => (scrollY as SharedValue<number>).value,
         (current, prev) => {
           if (current !== prev) {
             runOnJS(debouncedOnScrollEnd)();
@@ -56,12 +57,16 @@ export function TransactionsHistory({
   networkId,
   onScrollEnd,
 }: ITransactionsHistoryProps) {
-  const { websocketConfig } = useTokenDetail();
+  const { websocketConfig, isNative } = useTokenDetail();
   const isVisible = useRouteIsFocused();
   const { gtXl } = useMedia();
+  const currencyInfo = useCurrency();
 
+  // Enable polling mode for native tokens (which don't have WebSocket support)
+  // or for web non-xl screens without WebSocket txs enabled
   const normalMode =
-    !platformEnv.isNative && !gtXl && !(websocketConfig?.txs ?? false);
+    isNative ||
+    (!platformEnv.isNative && !gtXl && !(websocketConfig?.txs ?? false));
 
   const intl = useIntl();
   const {
@@ -83,6 +88,7 @@ export function TransactionsHistory({
     networkId,
     tokenAddress,
     enabled: !normalMode && isVisible,
+    currency: currencyInfo.id,
     onNewTransaction: addNewTransaction,
   });
 
@@ -120,6 +126,7 @@ export function TransactionsHistory({
       key={listKey}
       onEndReached={handleEndReached}
       onEndReachedThreshold={0.2}
+      windowSize={platformEnv.isNativeAndroid ? 3 : undefined}
       data={transactions}
       renderItem={renderItem}
       keyExtractor={keyExtractor}

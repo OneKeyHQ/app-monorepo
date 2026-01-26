@@ -81,7 +81,6 @@ export function RecoveryPhrase() {
   }, []);
 
   const { result: mnemonic = '' } = usePromiseResult(async () => {
-    console.log('RecoveryPhrase generateMnemonic');
     const routeMnemonic = route.params?.mnemonic;
     if (routeMnemonic) {
       ensureSensitiveTextEncoded(routeMnemonic);
@@ -125,7 +124,7 @@ export function RecoveryPhrase() {
           ...confuseWords.slice(index * 2, index * 2 + 2),
         ]),
       ])
-      .sort((a, b) => (a[0] as number) - (b[0] as number));
+      .toSorted((a, b) => (a[0] as number) - (b[0] as number));
   }, [phrases]);
 
   const handleConfirmPress = useCallback(async () => {

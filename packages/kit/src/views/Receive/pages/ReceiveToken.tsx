@@ -47,7 +47,10 @@ import { EConfirmOnDeviceType } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import AddressTypeSelector from '../../../components/AddressTypeSelector/AddressTypeSelector';
-import { HyperlinkText } from '../../../components/HyperlinkText';
+import {
+  FormatHyperlinkText,
+  HyperlinkText,
+} from '../../../components/HyperlinkText';
 import { NetworkAvatar } from '../../../components/NetworkAvatar';
 import { Token } from '../../../components/Token';
 import { useAccountData } from '../../../hooks/useAccountData';
@@ -102,7 +105,6 @@ function ReceiveToken() {
     account,
     network,
     wallet,
-    indexedAccountId,
   });
 
   const [currentDeriveType, setCurrentDeriveType] = useState<
@@ -219,7 +221,7 @@ function ReceiveToken() {
 
   const throttledSyncBTCFreshAddress = useThrottledCallback(
     (params: { networkId: string; accountId: string }) => {
-      void backgroundApiProxy.serviceAccountProfile.syncBTCFreshAddressByAccountId(
+      void backgroundApiProxy.serviceFreshAddress.syncBTCFreshAddressByAccountId(
         params,
       );
     },
@@ -242,19 +244,19 @@ function ReceiveToken() {
       copyAddressWithDeriveType({
         address: displayAddress,
         deriveInfo: currentDeriveInfo,
-        networkName: network?.shortname,
+        networkName: network?.name,
       });
     } else {
       copyAddressWithDeriveType({
         address: displayAddress,
-        networkName: network?.shortname,
+        networkName: network?.name,
       });
     }
   }, [
     copyAddressWithDeriveType,
     currentDeriveInfo,
     displayAddress,
-    network?.shortname,
+    network?.name,
     vaultSettings?.mergeDeriveAssetsEnabled,
   ]);
 
@@ -359,35 +361,53 @@ function ReceiveToken() {
 
   const fetchAccount = useCallback(async () => {
     if (!accountId && networkId && indexedAccountId) {
-      const defaultDeriveType =
-        await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
-          networkId,
-        });
-
-      const { accounts } =
-        await backgroundApiProxy.serviceAccount.getAccountsByIndexedAccounts({
-          indexedAccountIds: [indexedAccountId],
-          networkId,
-          deriveType: defaultDeriveType,
-        });
-
-      if (accounts?.[0]) {
-        const deriveResp =
-          await backgroundApiProxy.serviceNetwork.getDeriveTypeByTemplate({
+      try {
+        const defaultDeriveType =
+          await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
             networkId,
-            template: accounts[0].template,
-            accountId: accounts[0].id,
           });
-        setCurrentDeriveInfo(deriveResp.deriveInfo);
-        setCurrentDeriveType(deriveResp.deriveType);
-        setCurrentAccount(accounts[0]);
+
+        const { accounts } =
+          await backgroundApiProxy.serviceAccount.getAccountsByIndexedAccounts({
+            indexedAccountIds: [indexedAccountId],
+            networkId,
+            deriveType: defaultDeriveType,
+          });
+
+        if (accounts?.[0]) {
+          const deriveResp =
+            await backgroundApiProxy.serviceNetwork.getDeriveTypeByTemplate({
+              networkId,
+              template: accounts[0].template,
+              accountId: accounts[0].id,
+            });
+          setCurrentDeriveInfo(deriveResp.deriveInfo);
+          setCurrentDeriveType(deriveResp.deriveType);
+          setCurrentAccount(accounts[0]);
+        }
+      } catch (_e) {
+        // get default derive type account error, try to find the non-empty account
+        const { networkAccounts } =
+          await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
+            {
+              networkId,
+              indexedAccountId,
+              excludeEmptyAccount: true,
+            },
+          );
+        const nonEmptyAccount = networkAccounts.find((item) => item.account);
+        if (nonEmptyAccount) {
+          setCurrentAccount(nonEmptyAccount.account);
+          setCurrentDeriveType(nonEmptyAccount.deriveType);
+          setCurrentDeriveInfo(nonEmptyAccount.deriveInfo);
+        }
       }
     }
   }, [accountId, indexedAccountId, networkId]);
 
   useEffect(() => {
     void fetchAccount();
-  }, [fetchAccount]);
+  }, [fetchAccount, currentDeriveType, onDeriveTypeChange]);
 
   const throttledRefreshOnEvent = useThrottledCallback(
     () => {
@@ -808,6 +828,9 @@ function ReceiveToken() {
     nativeToken?.logoURI,
   ]);
 
+  const isPressable = useMemo(() => {
+    return !!(banner?.href || banner?.mode);
+  }, [banner?.href, banner?.mode]);
   return (
     <Page safeAreaEnabled={false}>
       <Page.Header
@@ -829,7 +852,7 @@ function ReceiveToken() {
               borderRadius="$2"
               borderCurve="continuous"
               userSelect="none"
-              {...(banner?.href
+              {...(isPressable
                 ? {
                     focusable: true,
                     focusVisibleStyle: {
@@ -850,16 +873,16 @@ function ReceiveToken() {
                     },
                     onPress: () => handleBannerOnPress(banner),
                   }
-                : null)}
+                : undefined)}
             >
               <Image
                 size="$5"
                 source={{ uri: banner.src }}
                 fallback={<NetworkAvatar size="$5" networkId={networkId} />}
               />
-              <SizableText size="$bodyMd" flex={1}>
+              <FormatHyperlinkText size="$bodyMd" flex={1}>
                 {banner.title}
-              </SizableText>
+              </FormatHyperlinkText>
             </XStack>
           ) : null}
         </YStack>

@@ -22,7 +22,6 @@ import { useEarnEventActive } from '../../hooks/useEarnEventActive';
 import { formatStakingDistanceToNowStrict } from '../utils';
 
 import { GridItem } from './GridItem';
-import { ProtocolApyRewards } from './ProtocolApyRewards';
 
 type IProfitInfoProps = {
   details: IStakeProtocolDetails;

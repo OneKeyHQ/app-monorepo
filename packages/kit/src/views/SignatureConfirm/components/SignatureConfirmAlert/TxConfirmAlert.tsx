@@ -7,15 +7,20 @@ import { useIntl } from 'react-intl';
 import type { IAlertType } from '@onekeyhq/components';
 import { Alert } from '@onekeyhq/components';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
+  useCustomRpcStatusAtom,
   useDecodedTxsAtom,
+  useNativeTokenInfoAtom,
   usePayWithTokenInfoAtom,
   usePreCheckTxStatusAtom,
   useSendFeeStatusAtom,
   useSendSelectedFeeInfoAtom,
   useSendTxStatusAtom,
+  useSignatureConfirmActions,
   useTronResourceRentalInfoAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
+import { showCustomRpcFallbackDialog } from '@onekeyhq/kit/src/views/Send/components/CustomRpcFallbackDialog';
 import type { ITransferPayload } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
@@ -23,6 +28,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
@@ -37,9 +43,11 @@ function TxConfirmAlert(props: IProps) {
   const { networkId, accountId, transferPayload } = props;
 
   const intl = useIntl();
+  const navigation = useAppNavigation();
   const [{ decodedTxs }] = useDecodedTxsAtom();
   const [sendFeeStatus] = useSendFeeStatusAtom();
   const [sendTxStatus] = useSendTxStatusAtom();
+  const [nativeTokenInfo] = useNativeTokenInfoAtom();
   const [sendSelectedFeeInfo] = useSendSelectedFeeInfoAtom();
   const [preCheckTxStatus] = usePreCheckTxStatusAtom();
   const { network } = useAccountData({
@@ -47,6 +55,9 @@ function TxConfirmAlert(props: IProps) {
   });
   const [payWithTokenInfo] = usePayWithTokenInfoAtom();
   const [tronResourceRentalInfo] = useTronResourceRentalInfoAtom();
+  const [customRpcStatus] = useCustomRpcStatusAtom();
+  const { updateCustomRpcStatus, clearCustomRpcStatus } =
+    useSignatureConfirmActions().current;
 
   const renderDecodedTxsAlert = useCallback(() => {
     const alerts = flatMap(
@@ -136,6 +147,28 @@ function TxConfirmAlert(props: IProps) {
               )})`
             : ''
         }`}
+        action={{
+          primary: intl.formatMessage({
+            id: ETranslations.global_top_up,
+          }),
+          onPrimaryPress() {
+            navigation.pushModal(EModalRoutes.ReceiveModal, {
+              screen: EModalReceiveRoutes.ReceiveSelector,
+              params: {
+                networkId,
+                accountId,
+                walletId: accountUtils.getWalletIdFromAccountId({ accountId }),
+                token: nativeTokenInfo.info,
+                onClose: () => {
+                  appEventBus.emit(
+                    EAppEventBusNames.RefreshNativeTokenInfo,
+                    undefined,
+                  );
+                },
+              },
+            });
+          },
+        }}
       />
     );
   }, [
@@ -149,6 +182,10 @@ function TxConfirmAlert(props: IProps) {
     payWithTokenInfo.symbol,
     intl,
     network?.symbol,
+    navigation,
+    networkId,
+    accountId,
+    nativeTokenInfo.info,
   ]);
 
   const renderPreCheckTxAlert = useCallback(() => {
@@ -163,6 +200,61 @@ function TxConfirmAlert(props: IProps) {
     }
     return null;
   }, [preCheckTxStatus]);
+
+  const handleSwitchToOneKeyRpc = useCallback(() => {
+    if (!customRpcStatus) return;
+
+    showCustomRpcFallbackDialog({
+      title: intl.formatMessage({
+        id: ETranslations.transfer_send_onekey_rpc_title,
+      }),
+      confirmText: intl.formatMessage({
+        id: ETranslations.transfer_send_onekey_rpc_button,
+      }),
+      cancelText: intl.formatMessage({
+        id: ETranslations.global_cancel,
+      }),
+      networkId: customRpcStatus.networkId,
+      onSwitchOnce: () => {
+        updateCustomRpcStatus({
+          ...customRpcStatus,
+          isCustomRpcUnavailable: false,
+          useDefaultRpcOnce: true,
+        });
+      },
+      onSwitchPermanently: () => {
+        clearCustomRpcStatus();
+      },
+      onCancel: () => {},
+    });
+  }, [intl, customRpcStatus, updateCustomRpcStatus, clearCustomRpcStatus]);
+
+  const renderCustomRpcUnavailableAlert = useCallback(() => {
+    if (
+      !customRpcStatus?.isCustomRpcUnavailable ||
+      customRpcStatus?.useDefaultRpcOnce
+    ) {
+      return null;
+    }
+    return (
+      <Alert
+        icon="InfoCircleOutline"
+        type="critical"
+        title={intl.formatMessage({
+          id: ETranslations.transfer_custom_rpc_fail_title,
+        })}
+        description={intl.formatMessage({
+          id: ETranslations.transfer_custom_rpc_fail_desc,
+        })}
+        action={{
+          primary: intl.formatMessage({
+            id: ETranslations.transfer_custom_rpc_fail_button,
+          }),
+          onPrimaryPress: handleSwitchToOneKeyRpc,
+        }}
+      />
+    );
+  }, [intl, customRpcStatus, handleSwitchToOneKeyRpc]);
 
   const renderChainSpecialAlert = useCallback(() => {
     if (
@@ -234,6 +326,7 @@ function TxConfirmAlert(props: IProps) {
 
   return (
     <>
+      {renderCustomRpcUnavailableAlert()}
       {renderTxFeeAlert()}
       {renderInsufficientNativeBalanceAlert()}
       {renderDecodedTxsAlert()}

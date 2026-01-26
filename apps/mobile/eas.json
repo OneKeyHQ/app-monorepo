@@ -4,18 +4,18 @@
   },
   "build": {
     "base": {
-      "node": "20.0.0",
+      "node": "24.13.0",
       "android": {
-        "image": "ubuntu-22.04-jdk-17-ndk-r26b",
-        "ndk": "26.1.10909125",
+        "image": "ubuntu-24.04-jdk-17-ndk-r27b",
+        "ndk": "27.1.12297006",
         "env": {
           "PLATFORM": "android"
         }
       },
       "ios": {
-        "image": "macos-sequoia-15.6-xcode-16.4",
+        "image": "macos-sequoia-15.6-xcode-26.0",
         "resourceClass": "medium",
-        "env": { 
+        "env": {
           "PLATFORM": "ios"
         }
       }
@@ -84,7 +84,6 @@
         "ascApiKeyPath": "./AscApiKey.p8"
       },
       "android": {
-        "serviceAccountKeyPath": "./pc-api-8644398719570171123-0-dcae07e2afab.json",
         "track": "internal"
       }
     }

@@ -1,7 +1,55 @@
+import type { EUtxoSelectionStrategy } from '@onekeyhq/shared/types/send';
+
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
 
 export class SendScene extends BaseScene {
+  @LogToLocal()
+  public coinControlSelected({
+    network,
+    selectedUtxoCount,
+    totalUtxoCount,
+    selectedUtxoKeys,
+  }: {
+    network: string | undefined;
+    selectedUtxoCount: number;
+    totalUtxoCount: number;
+    selectedUtxoKeys: string[];
+  }) {
+    return {
+      network,
+      selectedUtxoCount,
+      totalUtxoCount,
+      selectedUtxoKeys,
+    };
+  }
+
+  @LogToLocal()
+  public coinControlResult({
+    network,
+    inputCount,
+    outputCount,
+    fee,
+    txSize,
+    strategy,
+  }: {
+    network: string | undefined;
+    inputCount: number | undefined;
+    outputCount: number | undefined;
+    fee: string | number | undefined;
+    txSize: number | undefined;
+    strategy: EUtxoSelectionStrategy | undefined;
+  }) {
+    return {
+      network,
+      inputCount,
+      outputCount,
+      fee,
+      txSize,
+      strategy,
+    };
+  }
+
   @LogToServer()
   public sendSelect({
     network,
@@ -58,6 +106,8 @@ export class SendScene extends BaseScene {
     tokenType,
     tokenSymbol,
     tokenAddress,
+    feeToken,
+    feeFiatValue,
     tronIsResourceRentalNeeded,
     tronIsResourceRentalEnabled,
     tronIsSwapTrxEnabled,
@@ -72,6 +122,8 @@ export class SendScene extends BaseScene {
     tokenType: string | undefined;
     tokenSymbol: string | undefined;
     tokenAddress: string | undefined;
+    feeToken: string | undefined;
+    feeFiatValue: string | undefined;
     tronIsResourceRentalNeeded: boolean | undefined;
     tronIsResourceRentalEnabled: boolean | undefined;
     tronIsSwapTrxEnabled: boolean | undefined;
@@ -87,6 +139,8 @@ export class SendScene extends BaseScene {
       tokenType,
       tokenSymbol,
       tokenAddress,
+      feeToken,
+      feeFiatValue,
       tronIsResourceRentalNeeded,
       tronIsResourceRentalEnabled,
       tronIsSwapTrxEnabled,

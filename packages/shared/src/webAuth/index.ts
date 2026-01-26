@@ -56,7 +56,7 @@ export const verifiedWebAuth = async (credId: string) => {
       allowCredentials: [
         {
           type: 'public-key',
-          id: base64Decode(credId),
+          id: base64Decode(credId) as BufferSource,
         },
       ],
       userVerification: 'required',
@@ -66,7 +66,7 @@ export const verifiedWebAuth = async (credId: string) => {
   };
   try {
     return await navigator.credentials.get(getCredentialOptions);
-  } catch (e) {
+  } catch (_e) {
     return undefined;
   }
 };
@@ -119,7 +119,7 @@ export const registerWebAuth = async (credId?: string) => {
     if (cred) {
       return cred.id;
     }
-  } catch (e) {
+  } catch (_e) {
     return undefined;
   }
 };

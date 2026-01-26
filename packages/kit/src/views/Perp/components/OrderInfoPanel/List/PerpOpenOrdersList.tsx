@@ -9,13 +9,12 @@ import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/h
 import { usePerpsActiveOpenOrdersAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { showCancelAllOrdersDialog } from '../CancelAllOrdersModal';
 import { OpenOrdersRow } from '../Components/OpenOrdersRow';
 
 import { CommonTableListView, type IColumnConfig } from './CommonTableListView';
-
-import type { FrontendOrder } from '@nktkas/hyperliquid';
 
 interface IPerpOpenOrdersListProps {
   isMobile?: boolean;
@@ -29,7 +28,7 @@ function PerpOpenOrdersList({
   disableListScroll,
 }: IPerpOpenOrdersListProps) {
   const intl = useIntl();
-  const [{ openOrders: orders }] = usePerpsActiveOpenOrdersAtom();
+  const [{ openOrders }] = usePerpsActiveOpenOrdersAtom();
   const [currentUser] = usePerpsActiveAccountAtom();
   const actions = useHyperliquidActions();
   const [currentListPage, setCurrentListPage] = useState(1);
@@ -117,19 +116,20 @@ function PerpOpenOrdersList({
         title: intl.formatMessage({
           id: ETranslations.perp_open_orders_cancel_all,
         }),
-        minWidth: 100,
+        minWidth: 80,
         align: 'right',
         flex: 1,
-        ...(orders.length > 0 && {
+        fixed: true,
+        ...(openOrders.length > 0 && {
           onPress: () => showCancelAllOrdersDialog(),
         }),
       },
     ],
-    [intl, orders.length],
+    [intl, openOrders.length],
   );
 
   const handleCancelOrder = useCallback(
-    async (order: FrontendOrder) => {
+    async (order: IPerpsFrontendOrder) => {
       await actions.current.ensureTradingEnabled();
       const symbolMeta =
         await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
@@ -160,18 +160,25 @@ function PerpOpenOrdersList({
       ),
     [columnsConfig],
   );
-  const renderOrderRow = (item: FrontendOrder, _index: number) => {
-    return (
-      <OpenOrdersRow
-        order={item}
-        isMobile={isMobile}
-        cellMinWidth={totalMinWidth}
-        columnConfigs={columnsConfig}
-        handleCancelOrder={() => handleCancelOrder(item)}
-        index={_index}
-      />
-    );
-  };
+  const renderOrderRow = (
+    item: IPerpsFrontendOrder,
+    _index: number,
+    renderMode?: 'full' | 'left' | 'right',
+    isHovered?: boolean,
+    onHoverChange?: (index: number | null) => void,
+  ) => (
+    <OpenOrdersRow
+      order={item}
+      isMobile={isMobile}
+      cellMinWidth={totalMinWidth}
+      columnConfigs={columnsConfig}
+      handleCancelOrder={() => handleCancelOrder(item)}
+      index={_index}
+      renderMode={renderMode}
+      isHovered={isHovered}
+      onHoverChange={onHoverChange}
+    />
+  );
   return (
     <CommonTableListView
       onPullToRefresh={async () => {
@@ -186,12 +193,14 @@ function PerpOpenOrdersList({
       )}
       useTabsList={useTabsList}
       disableListScroll={disableListScroll}
-      enablePagination={!isMobile}
+      enablePagination
+      pageSize={isMobile ? 20 : 40}
+      paginationToBottom={isMobile}
       currentListPage={currentListPage}
       setCurrentListPage={setCurrentListPage}
       columns={columnsConfig}
       minTableWidth={totalMinWidth}
-      data={orders}
+      data={openOrders}
       isMobile={isMobile}
       renderRow={renderOrderRow}
       emptyMessage={intl.formatMessage({

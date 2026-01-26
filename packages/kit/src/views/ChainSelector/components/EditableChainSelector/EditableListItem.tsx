@@ -1,11 +1,14 @@
 import { useCallback, useContext, useMemo } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import { Button, SizableText, XStack } from '@onekeyhq/components';
+import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
+import { NETWORK_SHOW_VALUE_THRESHOLD_USD } from '@onekeyhq/shared/src/consts/networkConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { EditableChainSelectorContext } from './context';
@@ -41,9 +44,9 @@ const EditableListItemPinOrNot = ({ item }: { item: IServerNetworkMatch }) => {
 
   const onPinOrNot = useCallback(() => {
     if (frequentlyUsedItemsIds.has(item.id)) {
-      setFrequentlyUsedItems?.([
-        ...frequentlyUsedItems.filter((o) => o.id !== item.id),
-      ]);
+      setFrequentlyUsedItems?.(
+        frequentlyUsedItems.filter((o) => o.id !== item.id),
+      );
     } else {
       setFrequentlyUsedItems?.([...frequentlyUsedItems, item]);
     }
@@ -88,8 +91,15 @@ export const EditableListItem = ({
   actions,
 }: IEditableListItemProps) => {
   const intl = useIntl();
-  const { isEditMode, networkId, onPressItem, onEditCustomNetwork } =
-    useContext(EditableChainSelectorContext);
+  const {
+    isEditMode,
+    networkId,
+    onPressItem,
+    onEditCustomNetwork,
+    accountNetworkValues,
+    accountNetworkValueCurrency,
+    accountDeFiOverview,
+  } = useContext(EditableChainSelectorContext);
 
   const onPress = useMemo(() => {
     if (!isEditMode) {
@@ -97,6 +107,26 @@ export const EditableListItem = ({
     }
     return undefined;
   }, [isEditMode, item, onPressItem]);
+
+  const networkTotalValue = useMemo(() => {
+    if (item.isAllNetworks) {
+      const networkValue = Object.values(accountNetworkValues)
+        .reduce((acc, curr) => {
+          return acc.plus(curr ?? '0');
+        }, new BigNumber(0))
+        .toFixed();
+      const deFiValue = Object.values(accountDeFiOverview)
+        .reduce((acc, curr) => {
+          return acc.plus(curr?.netWorth ?? 0);
+        }, new BigNumber(0))
+        .toFixed();
+      return new BigNumber(networkValue).plus(deFiValue).toFixed();
+    }
+
+    return new BigNumber(accountDeFiOverview[item.id]?.netWorth ?? 0)
+      .plus(accountNetworkValues[item.id] ?? '0')
+      .toFixed();
+  }, [item.isAllNetworks, accountNetworkValues, accountDeFiOverview, item.id]);
 
   return (
     <ListItem
@@ -153,9 +183,10 @@ export const EditableListItem = ({
       )}
       onPress={onPress}
       disabled={isDisabled}
+      bg={networkId === item.id ? '$bgActive' : undefined}
     >
       <XStack gap="$5">
-        {isCustomNetworkEditable && isEditMode && !isDisabled ? (
+        {isCustomNetworkEditable && !isDisabled ? (
           <ListItem.IconButton
             icon="PencilOutline"
             title={intl.formatMessage({ id: ETranslations.global_edit })}
@@ -177,8 +208,20 @@ export const EditableListItem = ({
             />
           </>
         ) : null}
-        {networkId === item.id && !isEditMode ? (
-          <ListItem.CheckMark key="checkmark" />
+
+        {new BigNumber(networkTotalValue || 0).gt(
+          NETWORK_SHOW_VALUE_THRESHOLD_USD,
+        ) ? (
+          <Currency
+            hideValue
+            numberOfLines={1}
+            flexShrink={1}
+            size="$bodyLgMedium"
+            userSelect="none"
+            sourceCurrency={accountNetworkValueCurrency}
+          >
+            {networkTotalValue || '0'}
+          </Currency>
         ) : null}
       </XStack>
     </ListItem>
