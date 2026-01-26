@@ -377,8 +377,8 @@ function TxActionCommonListView(
       userSelect="none"
       opacity={
         riskyLevel &&
-        (riskyLevel === TX_RISKY_LEVEL_MALICIOUS ||
-          riskyLevel === TX_RISKY_LEVEL_SCAM)
+          (riskyLevel === TX_RISKY_LEVEL_MALICIOUS ||
+            riskyLevel === TX_RISKY_LEVEL_SCAM)
           ? 0.5
           : 1
       }
@@ -394,6 +394,7 @@ function TxActionCommonListView(
             flexGrow: 1,
             flexBasis: 1,
           })}
+          alignItems="center"
         >
           {showIcon ? (
             <TxActionCommonAvatar
@@ -414,7 +415,7 @@ function TxActionCommonListView(
             />
             <XStack alignSelf="stretch">
               {timestamp &&
-              (tableLayout || !(description && description.children)) ? (
+                (tableLayout || !(description && description.children)) ? (
                 <>
                   <SizableText size="$bodyMd" color="$textSubdued">
                     {formatTime(new Date(timestamp), {
