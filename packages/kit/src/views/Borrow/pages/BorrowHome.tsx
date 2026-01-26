@@ -14,7 +14,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IBorrowAlert } from '@onekeyhq/shared/types/staking';
 
 import { NoAddressWarning } from '../../Staking/components/ProtocolDetails/NoAddressWarning';
-import { useEarnAccount } from '../../Staking/hooks/useEarnAccount';
 import { BorrowProvider, useBorrowContext } from '../BorrowProvider';
 import { BorrowAlerts } from '../components/BorrowAlerts';
 import { BorrowCard } from '../components/BorrowCard';
@@ -78,18 +77,11 @@ const BorrowHomeContent = memo(
     const [healthFactorAlerts, setHealthFactorAlerts] = useState<
       IBorrowAlert[] | undefined
     >(undefined);
-    const { reserves, market } = useBorrowContext();
+    const { reserves, market, earnAccount } = useBorrowContext();
     const { activeAccount } = useActiveAccount({ num: 0 });
-    const {
-      earnAccount,
-      refreshAccount,
-      isLoading: isEarnAccountLoading,
-    } = useEarnAccount({
-      networkId: market?.networkId,
-    });
     const alerts = useMemo(
-      () => [...(reserves?.alerts ?? []), ...(healthFactorAlerts ?? [])],
-      [reserves?.alerts, healthFactorAlerts],
+      () => [...(reserves.data?.alerts ?? []), ...(healthFactorAlerts ?? [])],
+      [reserves.data?.alerts, healthFactorAlerts],
     );
     const accountId = activeAccount.account?.id ?? '';
     const walletId = activeAccount.wallet?.id;
@@ -98,25 +90,22 @@ const BorrowHomeContent = memo(
       if (!market?.networkId || !activeAccount.ready) {
         return false;
       }
-      // Wait for earnAccount to finish loading before showing warning
-      // This prevents flash when account exists but data is still loading
-      if (isEarnAccountLoading) {
-        return false;
-      }
-      return (!accountId && !indexedAccountId) || !earnAccount?.accountAddress;
+      return (
+        (!accountId && !indexedAccountId) || !earnAccount.data?.accountAddress
+      );
     }, [
       accountId,
       indexedAccountId,
-      earnAccount?.accountAddress,
+      earnAccount.data?.accountAddress,
       market?.networkId,
       activeAccount.ready,
-      isEarnAccountLoading,
     ]);
     const hasAlerts = Boolean(alerts?.length) || showNoAddressWarning;
 
+    const refreshEarnAccount = earnAccount.refresh;
     const handleCreateAddress = useCallback(async () => {
-      await refreshAccount();
-    }, [refreshAccount]);
+      await refreshEarnAccount();
+    }, [refreshEarnAccount]);
 
     const tabOptions = useMemo(
       () => [
