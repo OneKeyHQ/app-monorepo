@@ -1,5 +1,6 @@
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import supabaseStorageInstance from '@onekeyhq/shared/src/storage/instance/supabaseStorageInstance';
 import { getSupabaseAuthSessionKey } from '@onekeyhq/shared/src/storage/SupabaseStorage/consts';
 import { getSupabaseClient } from '@onekeyhq/shared/src/utils/supabaseClientUtils';
 
@@ -31,6 +32,7 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
   // No need to manually save token here
   @backgroundMethod()
   async saveAuthToken(_authToken: string) {
+    supabaseStorageInstance.getItemWithCache.clear();
     // Supabase storage instance automatically saves token, no manual save needed
   }
 }
