@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -x
+set -euo pipefail -x
 
 mkdir -p ./web-build/.well-known
 
@@ -10,5 +10,4 @@ rsync -r -c -v ./web-build/ ../mobile/android/app/src/main/assets/web-embed/
 
 rm -rf ../mobile/ios/OneKeyWallet/web-embed/
 rsync -r -c -v ./web-build/ ../mobile/ios/OneKeyWallet/web-embed/
-
 
