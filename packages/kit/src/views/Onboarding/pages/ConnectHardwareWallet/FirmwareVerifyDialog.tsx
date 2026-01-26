@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
-import { Linking, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 import {
   Anchor,
@@ -20,10 +20,8 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
-import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { FIRMWARE_CONTACT_US_URL } from '@onekeyhq/shared/src/config/appConfig';
 import {
   type OneKeyError,
   type OneKeyServerApiError,
@@ -736,7 +734,7 @@ export function EnumBasicDialogContentContainer({
                 } as any
               }
               variant="primary"
-              onPress={() => Linking.openURL(FIRMWARE_CONTACT_US_URL)}
+              onPress={() => showIntercom()}
             >
               {intl.formatMessage({ id: ETranslations.global_contact_us })}
             </Button>
@@ -789,7 +787,7 @@ export function EnumBasicDialogContentContainer({
                 } as any
               }
               variant="primary"
-              onPress={() => Linking.openURL(FIRMWARE_CONTACT_US_URL)}
+              onPress={() => showIntercom()}
             >
               {intl.formatMessage({ id: ETranslations.global_contact_us })}
             </Button>
@@ -953,8 +951,6 @@ export function FirmwareAuthenticationDialogContent({
     useNewProcess,
   });
 
-  const requestsUrl = useHelpLink({ path: 'requests/new' });
-
   const handleContinuePress = useCallback(() => {
     onContinue({ checked: false });
   }, [onContinue]);
@@ -978,7 +974,7 @@ export function FirmwareAuthenticationDialogContent({
       },
       unofficial: {
         onPress: async () => {
-          await Linking.openURL(requestsUrl);
+          await showIntercom();
         },
       },
       error: {
@@ -1011,7 +1007,6 @@ export function FirmwareAuthenticationDialogContent({
     handleDevSkipVerificationPress,
     versionCompareResult,
     onContinue,
-    requestsUrl,
     reset,
     setContentType,
     verify,
