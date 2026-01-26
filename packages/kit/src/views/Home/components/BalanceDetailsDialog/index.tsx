@@ -9,7 +9,6 @@ import {
   Dialog,
   Divider,
   ESwitchSize,
-  Icon,
   SizableText,
   Skeleton,
   Stack,
@@ -29,9 +28,13 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import type { IAccountDeriveInfoItems } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import {
+  openUrlExternal,
+  openUrlInDiscovery,
+} from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IFetchAccountDetailsResp } from '@onekeyhq/shared/types/address';
 
 const detailsBlockStyles: ComponentProps<typeof Stack> = {
@@ -47,12 +50,14 @@ function BalanceDetailsContent({
   deriveInfoItems,
   indexedAccountId,
   mergeDeriveAssetsEnabled,
+  onClose,
 }: {
   accountId: string;
   networkId: string;
   deriveInfoItems?: IAccountDeriveInfoItems[];
   indexedAccountId?: string;
   mergeDeriveAssetsEnabled?: boolean;
+  onClose?: () => void;
 }) {
   const [settings, setSettings] = useSettingsPersistAtom();
   const { result } = usePromiseResult(async () => {
@@ -248,7 +253,12 @@ function BalanceDetailsContent({
               iconAfter="QuestionmarkOutline"
               color="$textSubdued"
               onPress={() => {
-                openUrlExternal(whatIsFrozenBalanceUrl);
+                if (platformEnv.isDesktop || platformEnv.isNative) {
+                  onClose?.();
+                  openUrlInDiscovery({ url: whatIsFrozenBalanceUrl });
+                } else {
+                  openUrlExternal(whatIsFrozenBalanceUrl);
+                }
               }}
             >
               {appLocale.intl.formatMessage({
@@ -314,18 +324,24 @@ function BalanceDetailsContent({
                   alignItems="center"
                   userSelect="none"
                   onPress={() => {
-                    openUrlExternal(howToTransferOrdinalsAssetsUrl);
+                    if (platformEnv.isDesktop || platformEnv.isNative) {
+                      onClose?.();
+                      openUrlInDiscovery({
+                        url: howToTransferOrdinalsAssetsUrl,
+                      });
+                    } else {
+                      openUrlExternal(howToTransferOrdinalsAssetsUrl);
+                    }
                   }}
                   hoverStyle={{
                     opacity: 0.75,
                   }}
                 >
-                  <SizableText size="$bodyMd" color="$textSubdued" mr="$1.5">
+                  <SizableText size="$bodyMd" color="$textSubdued">
                     {appLocale.intl.formatMessage({
                       id: ETranslations.open_ordinals_transfer_tutorial_url_message,
                     })}
                   </SizableText>
-                  <Icon name="OpenOutline" size="$4" color="$iconSubdued" />
                 </XStack>
               </Stack>
               <Switch
@@ -353,6 +369,7 @@ function BalanceDetailsContent({
     network?.symbol,
     networkAccounts,
     networkId,
+    onClose,
     overview?.deriveItems,
     overview?.frozenBalanceParsed,
     setSettings,
@@ -446,8 +463,9 @@ export const showBalanceDetailsDialog = ({
   indexedAccountId?: string;
   deriveInfoItems?: IAccountDeriveInfoItems[];
   mergeDeriveAssetsEnabled?: boolean;
-}) =>
-  Dialog.show({
+}) => {
+  let dialogInstance: ReturnType<typeof Dialog.show>;
+  dialogInstance = Dialog.show({
     icon: 'CryptoCoinOutline',
     renderContent: (
       <BalanceDetailsContent
@@ -456,6 +474,9 @@ export const showBalanceDetailsDialog = ({
         deriveInfoItems={deriveInfoItems}
         indexedAccountId={indexedAccountId}
         mergeDeriveAssetsEnabled={mergeDeriveAssetsEnabled}
+        onClose={() => {
+          void dialogInstance?.close();
+        }}
       />
     ),
     showCancelButton: false,
@@ -467,3 +488,5 @@ export const showBalanceDetailsDialog = ({
     },
     ...dialogProps,
   });
+  return dialogInstance;
+};

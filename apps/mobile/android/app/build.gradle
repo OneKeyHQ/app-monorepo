@@ -230,6 +230,9 @@ dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
 
+    // AndroidX Core SplashScreen - fixes MIUI/HyperOS splash screen crashes
+    implementation("androidx.core:core-splashscreen:1.2.0-alpha02")
+
     def isGifEnabled = (findProperty('expo.gif.enabled') ?: "") == "true";
     def isWebpEnabled = (findProperty('expo.webp.enabled') ?: "") == "true";
     def isWebpAnimatedEnabled = (findProperty('expo.webp.animated') ?: "") == "true";

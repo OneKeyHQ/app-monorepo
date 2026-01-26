@@ -340,7 +340,7 @@
     "@metamask/eth-sig-util": "5.1.0",
     "@polkadot/api": "14.3.1",
     "@polkadot/util": "13.2.3",
-    "electron": "39.2.7",
+    "electron": "39.3.0",
     "@walletconnect/core": "2.21.7",
     "@walletconnect/utils": "2.21.7",
     "@walletconnect/types": "2.21.7",

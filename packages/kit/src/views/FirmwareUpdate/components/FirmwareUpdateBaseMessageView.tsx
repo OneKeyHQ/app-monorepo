@@ -10,8 +10,8 @@ import {
 } from '@onekeyhq/components';
 import type { IRichSizeableTextProps } from '@onekeyhq/components';
 import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
-import { FIRMWARE_CONTACT_US_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { ColorTokens } from 'tamagui';
@@ -83,7 +83,12 @@ function UpdateErrorTroubleshooting() {
               size="$bodyMd"
               color="$textSubdued"
               linkList={{
-                url: { url: FIRMWARE_CONTACT_US_URL },
+                url: {
+                  url: undefined,
+                  onPress: () => {
+                    void showIntercom();
+                  },
+                },
               }}
             >
               {text}
