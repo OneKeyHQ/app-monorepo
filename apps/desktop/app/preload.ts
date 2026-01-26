@@ -79,6 +79,15 @@ type IDesktopAPILegacy = {
   setSystemIdleTime: (idleTime: number, cb?: () => void) => void;
   testCrash: () => void;
   nobleBle: NobleBleAPI;
+  getCpuUsage: () => Promise<{ usage: number }>;
+  getMemoryUsage: () => Promise<{
+    private: number;
+    residentSet: number | undefined;
+    blink: {
+      allocated: string;
+      total: string;
+    };
+  }>;
 };
 declare global {
   // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -330,6 +339,9 @@ const desktopApi: IDesktopAPILegacy = Object.freeze({
     checkAvailability: () =>
       ipcRenderer.invoke(EOneKeyBleMessageKeys.BLE_AVAILABILITY_CHECK),
   },
+  getCpuUsage: () => ipcRenderer.invoke(ipcMessageKeys.SYSTEM_GET_CPU_USAGE),
+  getMemoryUsage: () =>
+    ipcRenderer.invoke(ipcMessageKeys.SYSTEM_GET_MEMORY_USAGE),
 });
 
 globalThis.desktopApi = desktopApi;

@@ -391,6 +391,7 @@ function BaseInput(
   useAutoScrollToTop(inputRef, autoScrollTopDelayMs);
 
   useImperativeHandle(forwardedRef, () => ({
+    // oxlint-disable-next-line no-misused-spread
     ...inputRef.current,
     focus: () => {
       inputRef.current?.focus();

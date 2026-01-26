@@ -1532,6 +1532,19 @@ class ServiceKeylessWallet extends ServiceBase {
       token,
       hashId,
     });
+    if (mode === EOnboardingV2OneKeyIDLoginMode.KeylessVerifyPinOnly) {
+      const keylessWallet =
+        await this.backgroundApi.serviceAccount.getKeylessWallet();
+      const walletOwnerId = keylessWallet?.keylessDetailsInfo?.keylessOwnerId;
+      if (!walletOwnerId) {
+        throw new OneKeyLocalError('Local keyless wallet not found.');
+      }
+      if (walletOwnerId !== ownerId) {
+        throw new OneKeyLocalError(
+          'The local keyless wallet does not match the server record. Please check that you are using the correct account.',
+        );
+      }
+    }
 
     await this.apiGetKeylessJuiceboxShare({
       ownerId,

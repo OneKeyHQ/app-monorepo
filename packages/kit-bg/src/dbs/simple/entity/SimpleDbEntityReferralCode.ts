@@ -15,6 +15,7 @@ export interface IReferralCodeData {
   myReferralCode: string;
   postConfig?: IInvitePostConfig;
   walletReferralCode?: Record<string, IWalletReferralCode>;
+  cachedInviteCode?: string;
 }
 
 export class SimpleDbEntityReferralCode extends SimpleDbEntityBase<IReferralCodeData> {
@@ -103,5 +104,20 @@ export class SimpleDbEntityReferralCode extends SimpleDbEntityBase<IReferralCode
       postConfig: undefined,
       walletReferralCode: {},
     });
+  }
+
+  async getCachedInviteCode(): Promise<string> {
+    const rawData = await this.getRawData();
+    return rawData?.cachedInviteCode ?? '';
+  }
+
+  async setCachedInviteCode(code: string) {
+    return this.setRawData(
+      (rawData) =>
+        ({
+          ...rawData,
+          cachedInviteCode: code,
+        } as IReferralCodeData),
+    );
   }
 }
