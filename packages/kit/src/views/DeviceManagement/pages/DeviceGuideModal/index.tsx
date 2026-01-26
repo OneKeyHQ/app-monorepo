@@ -20,11 +20,10 @@ import ProHomescreenLight from '@onekeyhq/kit/assets/device_management/pro-homes
 import TouchHomescreenDark from '@onekeyhq/kit/assets/device_management/touch-homescreen-dark.png';
 import TouchHomescreenLight from '@onekeyhq/kit/assets/device_management/touch-homescreen-light.png';
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import type { IAllWalletAvatarImageNames } from '@onekeyhq/shared/src/utils/avatarUtils';
+import { useNavigateToPickYourDevicePage } from '@onekeyhq/kit/src/views/Onboarding/hooks/useToOnBoardingPage';
 
 import { useBuyOneKeyHeaderRightButton } from '../../hooks/useBuyOneKeyHeaderRightButton';
 
@@ -73,13 +72,13 @@ function DeviceItem({
 
 function DeviceGuideModal() {
   const intl = useIntl();
-  const navigation = useAppNavigation();
+  const toOnBoardingPage = useNavigateToPickYourDevicePage();
   const { headerRight } = useBuyOneKeyHeaderRightButton();
   const themeVariant = useThemeVariant();
 
   const handleStartConnect = useCallback(() => {
-    navigation.push(EOnboardingPages.ConnectYourDevice);
-  }, [navigation]);
+    void toOnBoardingPage();
+  }, [toOnBoardingPage]);
 
   return (
     <Page>

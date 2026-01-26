@@ -19,7 +19,6 @@ import type {
   ISizableTextProps,
 } from '@onekeyhq/components';
 import {
-  ActionList,
   Badge,
   Dialog,
   ESwitchSize,
@@ -244,57 +243,48 @@ export function ClearAppCacheListItem(props: ICustomElementProps) {
   return <TabSettingsListItem {...props} onPress={onPress} drillIn />;
 }
 
-export function CleanDataListItem(props: ICustomElementProps) {
+export function ClearPendingTransactionsListItem(props: ICustomElementProps) {
   const intl = useIntl();
+  const onPress = useCallback(() => {
+    Dialog.show({
+      title: intl.formatMessage({
+        id: ETranslations.settings_clear_pending_transactions,
+      }),
+      description: intl.formatMessage({
+        id: ETranslations.settings_clear_pending_transactions_desc,
+      }),
+      tone: 'destructive',
+      onConfirmText: intl.formatMessage({
+        id: ETranslations.global_clear,
+      }),
+      onConfirm: async () => {
+        await backgroundApiProxy.serviceSetting.clearPendingTransaction();
+        appEventBus.emit(
+          EAppEventBusNames.ClearLocalHistoryPendingTxs,
+          undefined,
+        );
+        Toast.success({
+          title: intl.formatMessage({
+            id: ETranslations.global_success,
+          }),
+        });
+      },
+    });
+  }, [intl]);
+  return <TabSettingsListItem {...props} onPress={onPress} drillIn />;
+}
+
+export function ResetAppListItem(props: ICustomElementProps) {
+  const { iconProps, titleProps, ...restProps } = props;
   const resetApp = useResetApp();
   return (
-    <ActionList
-      offset={{ mainAxis: -4, crossAxis: -10 }}
-      title={props?.title || ''}
-      renderTrigger={
-        <TabSettingsListItem {...props} testID="setting-clear-data">
-          <ListItem.DrillIn name="ChevronDownSmallOutline" />
-        </TabSettingsListItem>
-      }
-      items={[
-        {
-          label: intl.formatMessage({
-            id: ETranslations.settings_clear_pending_transactions,
-          }),
-          onPress: () => {
-            Dialog.show({
-              title: intl.formatMessage({
-                id: ETranslations.settings_clear_pending_transactions,
-              }),
-              description: intl.formatMessage({
-                id: ETranslations.settings_clear_pending_transactions_desc,
-              }),
-              tone: 'destructive',
-              onConfirmText: intl.formatMessage({
-                id: ETranslations.global_clear,
-              }),
-              onConfirm: async () => {
-                await backgroundApiProxy.serviceSetting.clearPendingTransaction();
-                appEventBus.emit(
-                  EAppEventBusNames.ClearLocalHistoryPendingTxs,
-                  undefined,
-                );
-                Toast.success({
-                  title: intl.formatMessage({
-                    id: ETranslations.global_success,
-                  }),
-                });
-              },
-            });
-          },
-        },
-        {
-          label: intl.formatMessage({ id: ETranslations.settings_reset_app }),
-          destructive: true,
-          onPress: resetApp,
-          testID: 'setting-erase-data',
-        },
-      ]}
+    <TabSettingsListItem
+      {...restProps}
+      iconProps={{ ...iconProps, color: '$iconCritical' }}
+      titleProps={{ ...titleProps, color: '$textCritical' }}
+      onPress={resetApp}
+      testID="setting-erase-data"
+      drillIn
     />
   );
 }

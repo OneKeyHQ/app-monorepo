@@ -633,6 +633,7 @@ function TokenListViewCmp(props: IProps) {
       }
       extraData={limitedTokens.length}
       data={limitedTokens}
+      windowSize={platformEnv.isNativeAndroid && inTabList ? 3 : undefined}
       contentContainerStyle={resolvedContentContainerStyle as any}
       ListHeaderComponentStyle={resolvedListHeaderComponentStyle as any}
       ListFooterComponentStyle={resolvedListFooterComponentStyle as any}

@@ -31,13 +31,15 @@ const BorrowedHeader = ({
   data,
   borrowedBalanceLabel,
   apyLabel,
+  isDesktop,
 }: {
   data?: IBorrowReserveItem['borrowed'];
   borrowedBalanceLabel: string;
   apyLabel: string;
+  isDesktop?: boolean;
 }) => {
   return (
-    <XStack mt="$3" mb="$5" px="$5" gap="$5">
+    <XStack mt="$3" mb={isDesktop ? '$3' : '$2'} px="$5" gap="$5">
       {data?.borrowedBalance?.title ? (
         <XStack gap="$1" ai="center">
           <EarnText
@@ -269,6 +271,7 @@ export const BorrowedCard = () => {
             data={reserves?.borrowed}
             borrowedBalanceLabel={labels.borrowedBalance}
             apyLabel={labels.apy}
+            isDesktop={gtMd}
           />
         ) : null
       }

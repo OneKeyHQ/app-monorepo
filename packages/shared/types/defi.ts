@@ -13,6 +13,7 @@ export type IFetchAccountDeFiPositionsParams = {
   lowValueProtocolsThresholdUsd?: number;
   sourceCurrencyInfo?: ICurrencyItem;
   targetCurrencyInfo?: ICurrencyItem;
+  isForceRefresh?: boolean;
 };
 
 export enum EDeFiAssetType {

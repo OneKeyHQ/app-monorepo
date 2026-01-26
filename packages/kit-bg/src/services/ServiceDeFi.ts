@@ -113,6 +113,7 @@ class ServiceDeFi extends ServiceBase {
       sourceCurrencyInfo,
       targetCurrencyInfo,
       saveToLocal,
+      isForceRefresh,
     } = params;
 
     const isUrlAccount = accountUtils.isUrlAccountFn({ accountId });
@@ -161,6 +162,7 @@ class ServiceDeFi extends ServiceBase {
       {
         networkId,
         accountAddress,
+        isForceRefresh,
       },
       {
         signal: controller.signal,

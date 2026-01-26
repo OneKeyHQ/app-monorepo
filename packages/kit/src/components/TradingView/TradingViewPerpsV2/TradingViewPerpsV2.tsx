@@ -143,6 +143,7 @@ export function TradingViewPerpsV2(
     () => ({
       symbol: initialSymbolRef.current, // Use frozen initial symbol
       type: 'perps' as const,
+      storageNamespace: 'perps' as const,
     }),
     // Empty deps: only regenerate when component mounts or webviewKey changes (via external reloadHook)
     // eslint-disable-next-line react-hooks/exhaustive-deps

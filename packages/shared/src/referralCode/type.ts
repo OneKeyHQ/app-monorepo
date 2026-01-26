@@ -267,6 +267,18 @@ export interface IInvitePostConfig {
     amount: number;
     unit: string;
   };
+  inviteeDiscount: {
+    amount: number;
+    unit: string;
+  };
+  inviterRebate: {
+    amount: number;
+    unit: string;
+  };
+  theirDiscount: {
+    amount: number;
+    unit: string;
+  };
   locales: {
     Earn: {
       title: string;

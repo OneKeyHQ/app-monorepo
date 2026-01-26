@@ -248,11 +248,13 @@ export const HealthFactor = ({
             >
               {displayText}
             </SizableText>
-            <Icon
-              name="ChevronTriangleDownSmallOutline"
-              size="$4"
-              color={valueColor ?? '$text'}
-            />
+            <Stack style={{ transform: [{ rotate: '180deg' }] }}>
+              <Icon
+                name="ChevronTriangleUpSmallOutline"
+                size="$4"
+                color={valueColor ?? '$text'}
+              />
+            </Stack>
           </YStack>
         </Indicator>
       </Stack>

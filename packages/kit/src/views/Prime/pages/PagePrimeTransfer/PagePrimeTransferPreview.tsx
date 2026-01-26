@@ -48,6 +48,7 @@ import type {
 import { usePrimeTransferExit } from './components/hooks/usePrimeTransferExit';
 import { PrimeTransferExitPrevent } from './components/PrimeTransferExitPrevent';
 import { showPrimeTransferImportProcessingDialog } from './components/PrimeTransferImportProcessingDialog';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 function PreviewHeader({
   title,
@@ -547,6 +548,11 @@ export default function PagePrimeTransferPreview() {
 
           // exitTransferFlow();
           // await timerUtils.wait(1000);
+
+          // Delay to ensure the dialog is closed before proceeding
+          if (platformEnv.isNative) {
+            await timerUtils.wait(350);
+          }
 
           await backgroundApiProxy.servicePrimeTransfer.initImportProgress({
             selectedTransferData,

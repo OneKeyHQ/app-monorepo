@@ -161,7 +161,7 @@ function MobileMarketTokenFlatListBase({
       ListEmptyComponent={ListEmptyComponent}
       showsVerticalScrollIndicator
       contentContainerStyle={{
-        paddingTop: 8 + 170,
+        paddingTop: 8 + (platformEnv.isNative ? 170 : 0),
         paddingBottom: platformEnv.isNativeAndroid
           ? listContainerProps.paddingBottom
           : 16,

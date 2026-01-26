@@ -8,12 +8,14 @@ interface IUsePortfolioDataProps {
   tokenAddress: string;
   networkId: string;
   accountAddress?: string;
+  xpub?: string;
 }
 
 export function usePortfolioData({
   tokenAddress,
   networkId,
   accountAddress,
+  xpub,
 }: IUsePortfolioDataProps) {
   const {
     result: portfolioData,
@@ -25,16 +27,14 @@ export function usePortfolioData({
         return { list: [] };
       }
 
-      const response =
-        await backgroundApiProxy.serviceMarketV2.fetchMarketAccountPortfolio({
-          tokenAddress,
-          networkId,
-          accountAddress,
-        });
-
-      return response;
+      return backgroundApiProxy.serviceMarketV2.fetchMarketAccountPortfolio({
+        tokenAddress,
+        networkId,
+        accountAddress,
+        xpub,
+      });
     },
-    [tokenAddress, networkId, accountAddress],
+    [tokenAddress, networkId, accountAddress, xpub],
     {
       watchLoading: true,
       pollingInterval: timerUtils.getTimeDurationMs({ seconds: 5 }),
