@@ -529,6 +529,16 @@ class ServiceReferralCode extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getCachedInviteCode() {
+    return this.backgroundApi.simpleDb.referralCode.getCachedInviteCode();
+  }
+
+  @backgroundMethod()
+  async setCachedInviteCode(code: string) {
+    return this.backgroundApi.simpleDb.referralCode.setCachedInviteCode(code);
+  }
+
+  @backgroundMethod()
   async autoSignBoundReferralCodeMessageByHDWallet({
     unsignedMessage,
     networkId,
