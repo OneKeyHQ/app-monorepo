@@ -265,6 +265,13 @@ function BasicEarnHome({
   const onBannerPress = useCallback(
     async ({ hrefType, href }: IDiscoveryBanner) => {
       if (account || indexedAccount) {
+        // Handle /defi?mode=borrow - switch to borrow mode
+        if (href.includes('/defi') && href.includes('mode=borrow')) {
+          appEventBus.emit(EAppEventBusNames.SwitchEarnMode, {
+            mode: 'borrow',
+          });
+          return;
+        }
         if (href.includes('/defi/staking')) {
           const [path, query] = href.split('?');
           const paths = path.split('/');
