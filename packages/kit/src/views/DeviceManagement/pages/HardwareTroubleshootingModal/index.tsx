@@ -101,13 +101,6 @@ function HardwareTroubleshootingModal() {
     () => [
       {
         title: intl.formatMessage({
-          id: ETranslations.global_faqs_firmware_detection,
-        }),
-        icon: 'ErrorOutline',
-        link: 'https://help.onekey.so/articles/11461120',
-      },
-      {
-        title: intl.formatMessage({
           id: ETranslations.global_faqs_forgot_pin,
         }),
         icon: 'UnlockedOutline',
@@ -126,13 +119,6 @@ function HardwareTroubleshootingModal() {
         }),
         icon: 'ConsoleOutline',
         link: 'https://help.onekey.so/articles/11461126',
-      },
-      {
-        title: intl.formatMessage({
-          id: ETranslations.global_faqs_bridge_download,
-        }),
-        icon: 'DownloadOutline',
-        link: 'https://help.onekey.so/articles/11461117',
       },
       {
         title: intl.formatMessage({
@@ -238,7 +224,7 @@ function HardwareTroubleshootingModal() {
                 key={i}
                 pl={10}
                 pt={10}
-                flexBasis={media.gtMd ? '33.333%' : '50%'}
+                flexBasis="50%"
                 height="auto"
               >
                 <YStack
