@@ -257,9 +257,9 @@ await onConfirm(params);
 
 ## State Management
 
-### BorrowProvider 完整实现
+### BorrowProvider Full Implementation
 
-#### 类型定义
+#### Type Definition
 
 ```typescript
 import type { PropsWithChildren } from 'react';
@@ -271,7 +271,7 @@ import {
   useState,
 } from 'react';
 
-// 统一的异步数据类型
+// Unified async data type
 export type IAsyncData<T> = {
   data: T;
   loading: boolean;
@@ -327,7 +327,7 @@ const defaultAsyncData = <T,>(data: T): IAsyncData<T> => ({
 });
 ```
 
-#### Provider 实现
+#### Provider Implementation
 
 ```typescript
 const BorrowContext = createContext<IBorrowContextValue | null>(null);
@@ -346,12 +346,12 @@ export const BorrowProvider = ({ children }: PropsWithChildren) => {
   const [pendingTxs, setPendingTxsState] = useState<IStakePendingTx[]>([]);
 
   // ✅ State function pattern for cross-component communication
-  // 注意：useState 存储函数时需要使用 () => fn 形式
+  // Note: When storing functions in useState, use () => fn format
   const [refreshAllBorrowData, setRefreshAllBorrowDataState] = useState<
     () => Promise<void>
   >(() => () => Promise.resolve());
 
-  // Stable setter - 使用 useCallback 确保引用稳定
+  // Stable setter - use useCallback to ensure stable reference
   const setRefreshAllBorrowData = useCallback(
     (fn: () => Promise<void>) => {
       setRefreshAllBorrowDataState(() => fn);
@@ -424,7 +424,7 @@ export const useBorrowContext = () => {
 };
 ```
 
-#### 子组件注册刷新函数
+#### Child Component Registers Refresh Function
 
 ```typescript
 // In Overview.tsx
@@ -438,7 +438,7 @@ const refreshBorrowData = useCallback(async () => {
   await Promise.all(tasks);
 }, [refreshReserves, refreshBorrowRewards, refreshHealthFactor]);
 
-// 注册刷新函数到 Context
+// Register refresh function to Context
 useEffect(() => {
   setRefreshAllBorrowData(refreshBorrowData);
   return () => {
@@ -447,14 +447,14 @@ useEffect(() => {
 }, [refreshBorrowData, setRefreshAllBorrowData]);
 ```
 
-#### BorrowPendingBridge 调用
+#### BorrowPendingBridge Call
 
 ```typescript
 // In BorrowPendingBridge
 const { refreshAllBorrowData } = useBorrowContext();
 
 const handleRefresh = useCallback(async () => {
-  await refreshAllBorrowData(); // 直接调用，无需 .current
+  await refreshAllBorrowData(); // Call directly, no .current needed
 }, [refreshAllBorrowData]);
 ```
 
@@ -474,42 +474,42 @@ const defaultAsyncData = <T,>(data: T): IAsyncData<T> => ({
 });
 ```
 
-### useRef 使用规则
+### useRef Usage Rules
 
-**❌ 禁止：跨组件函数传递**
+**❌ Forbidden: Cross-component function passing**
 
 ```typescript
-// ❌ FORBIDDEN - 在 Context 中定义 ref
+// ❌ FORBIDDEN - Define ref in Context
 type IContextValue = {
   refreshDataRef: React.MutableRefObject<(() => Promise<void>) | null>;
 };
 
-// ❌ FORBIDDEN - 子组件设置 ref
+// ❌ FORBIDDEN - Child component sets ref
 useEffect(() => {
   refreshDataRef.current = myRefreshFunction;
 }, [myRefreshFunction, refreshDataRef]);
 
-// ❌ FORBIDDEN - 其他组件通过 ref 调用
+// ❌ FORBIDDEN - Other components call via ref
 await refreshDataRef.current?.();
 ```
 
-**✅ 允许：内部状态管理**
+**✅ Allowed: Internal state management**
 
 ```typescript
-// ✅ 缓存数据
+// ✅ Cache data
 const reservesResultRef = useRef<IBorrowReserveItem | undefined>(undefined);
 
-// ✅ 时间戳跟踪
+// ✅ Timestamp tracking
 const lastReservesUpdatedAtRef = useRef<number | null>(null);
 
-// ✅ 强制刷新计数器
+// ✅ Force refresh counter
 const forceRefreshCounterRef = useRef(0);
 
-// ✅ View Active 状态
+// ✅ View Active state
 const isViewActiveRef = useRef(isViewActive);
 ```
 
-详见 [state-management-guide.md](state-management-guide.md#useref-使用规则)
+See [state-management-guide.md](state-management-guide.md#useref-usage-rules)
 
 ### Data Status State Machine
 
@@ -551,7 +551,7 @@ enum EBorrowDataStatus {
                                           └──────────────┘
 ```
 
-**状态计算实现：**
+**Status Calculation Implementation:**
 
 ```typescript
 const dataStatus = useMemo(() => {
@@ -567,7 +567,7 @@ const dataStatus = useMemo(() => {
   if (shouldWaitForAccount) return EBorrowDataStatus.WaitingForAccount;
 
   if (reservesLoading) {
-    // 区分首次加载和刷新
+    // Distinguish between initial load and refresh
     if (!prevReservesDataRef.current || lastFetchKeyRef.current !== fetchKey) {
       return EBorrowDataStatus.LoadingReserves;
     }
@@ -592,7 +592,7 @@ const dataStatus = useMemo(() => {
 
 ---
 
-## BorrowDataGate 完整实现
+## BorrowDataGate Full Implementation
 
 The `BorrowDataGate` component orchestrates all data fetching.
 
@@ -605,14 +605,14 @@ The `BorrowDataGate` component orchestrates all data fetching.
 6. Sync data to Context using IAsyncData format
 7. Calculate and sync data status
 
-**常量定义：**
+**Constants:**
 
 ```typescript
 const BORROW_POLLING_INTERVAL = 1 * 60 * 1000; // 1 minute
 const BORROW_STALE_TTL = BORROW_POLLING_INTERVAL;
 ```
 
-**完整实现：**
+**Full Implementation:**
 
 ```typescript
 export const BorrowDataGate = ({
@@ -651,7 +651,7 @@ export const BorrowDataGate = ({
 
   const { fetchReserves } = useBorrowReserves();
 
-  // ✅ 内部状态管理使用 useRef
+  // ✅ Use useRef for internal state management
   const lastFetchKeyRef = useRef<string | null>(null);
   const lastReservesUpdatedAtRef = useRef<number | null>(null);
   const reservesResultRef = useRef<IBorrowReserveItem | undefined>(undefined);
@@ -672,7 +672,7 @@ export const BorrowDataGate = ({
     [market, accountId],
   );
 
-  // 主数据获取
+  // Main data fetching
   const {
     result: reservesResult,
     isLoading: reservesLoading,
@@ -721,7 +721,7 @@ export const BorrowDataGate = ({
     },
   );
 
-  // 强制刷新函数
+  // Force refresh function
   const refreshReservesWithForce = useMemo(() => {
     return async () => {
       forceRefreshCounterRef.current += 1;
@@ -729,7 +729,7 @@ export const BorrowDataGate = ({
     };
   }, [refreshReserves]);
 
-  // 计算数据状态
+  // Calculate data status
   const dataStatus = useMemo(() => {
     if (!isViewActive) return EBorrowDataStatus.Idle;
     if (marketsLoading) {
@@ -748,12 +748,12 @@ export const BorrowDataGate = ({
     return EBorrowDataStatus.Idle;
   }, [isViewActive, marketsLoading, market, fetchKey, shouldWaitForAccount, reservesLoading, reservesResult]);
 
-  // 同步 isViewActiveRef
+  // Sync isViewActiveRef
   useEffect(() => {
     isViewActiveRef.current = isViewActive;
   }, [isViewActive]);
 
-  // fetchKey 变化时清除缓存
+  // Clear cache when fetchKey changes
   useEffect(() => {
     if (lastFetchKeyRef.current !== fetchKey) {
       lastFetchKeyRef.current = fetchKey;
@@ -762,17 +762,17 @@ export const BorrowDataGate = ({
     }
   }, [fetchKey]);
 
-  // 同步 market 到 Context
+  // Sync market to Context
   useEffect(() => {
     setMarket(market ?? null);
   }, [market, setMarket]);
 
-  // 同步 dataStatus 到 Context
+  // Sync dataStatus to Context
   useEffect(() => {
     setBorrowDataStatus(dataStatus);
   }, [dataStatus, setBorrowDataStatus]);
 
-  // 同步 earnAccount 到 Context (IAsyncData 格式)
+  // Sync earnAccount to Context (IAsyncData format)
   useEffect(() => {
     setEarnAccount({
       data: earnAccountData ?? null,
@@ -781,7 +781,7 @@ export const BorrowDataGate = ({
     });
   }, [earnAccountData, earnAccountLoading, refreshAccount, setEarnAccount]);
 
-  // 同步 reserves 到 Context (IAsyncData 格式)
+  // Sync reserves to Context (IAsyncData format)
   useEffect(() => {
     const isLoading =
       dataStatus === EBorrowDataStatus.LoadingMarkets ||

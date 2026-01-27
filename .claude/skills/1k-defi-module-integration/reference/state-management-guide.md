@@ -4,25 +4,25 @@ This guide covers state management patterns used in DeFi modules, including IAsy
 
 ---
 
-## useRef 使用规则
+## useRef Usage Rules
 
-### 允许的场景（内部状态管理）
+### Allowed Scenarios (Internal State Management)
 
-以下场景可以使用 useRef：
+The following scenarios allow useRef:
 
-1. **缓存数据**：避免不必要的重新渲染
+1. **Cache Data**: Avoid unnecessary re-renders
    ```typescript
    const investmentMapRef = useRef<Map<string, IEarnPortfolioInvestment>>(new Map());
    const cachedResultRef = useRef<TData | undefined>(undefined);
    ```
 
-2. **时间戳/计数器**：跟踪最后更新时间或强制刷新计数
+2. **Timestamps/Counters**: Track last update time or force refresh count
    ```typescript
    const lastUpdatedAtRef = useRef<number | null>(null);
    const forceRefreshCounterRef = useRef(0);
    ```
 
-3. **Mounted 检测**：防止组件卸载后更新状态
+3. **Mounted Detection**: Prevent state updates after unmount
    ```typescript
    const isMountedRef = useRef(true);
    useEffect(() => {
@@ -31,7 +31,7 @@ This guide covers state management patterns used in DeFi modules, including IAsy
    }, []);
    ```
 
-4. **请求 ID 跟踪**：防止过期请求更新状态
+4. **Request ID Tracking**: Prevent stale requests from updating state
    ```typescript
    const stateRef = useRef<IRequestControllerState>({
      accountId: undefined,
@@ -39,7 +39,7 @@ This guide covers state management patterns used in DeFi modules, including IAsy
    });
    ```
 
-5. **View Active 状态**：跟踪视图是否活跃
+5. **View Active State**: Track if view is active
    ```typescript
    const isViewActiveRef = useRef(isViewActive);
    useEffect(() => {
@@ -47,35 +47,35 @@ This guide covers state management patterns used in DeFi modules, including IAsy
    }, [isViewActive]);
    ```
 
-### 禁止的场景（跨组件函数传递）
+### Forbidden Scenarios (Cross-Component Function Passing)
 
-**❌ 绝对禁止使用 useRef 在组件间传递函数**
+**❌ NEVER use useRef to pass functions between components**
 
-**错误示例：**
+**Bad Example:**
 ```typescript
-// ❌ FORBIDDEN - 在 Context 中定义 ref
+// ❌ FORBIDDEN - Define ref in Context
 type IContextValue = {
   refreshDataRef: React.MutableRefObject<(() => Promise<void>) | null>;
 };
 
-// ❌ FORBIDDEN - 子组件设置 ref
+// ❌ FORBIDDEN - Child component sets ref
 useEffect(() => {
   refreshDataRef.current = myRefreshFunction;
 }, [myRefreshFunction, refreshDataRef]);
 
-// ❌ FORBIDDEN - 其他组件通过 ref 调用
+// ❌ FORBIDDEN - Other components call via ref
 await refreshDataRef.current?.();
 ```
 
-**正确示例（State Function 模式）：**
+**Good Example (State Function Pattern):**
 ```typescript
-// ✅ CORRECT - 在 Context 中定义 state function
+// ✅ CORRECT - Define state function in Context
 type IContextValue = {
   refreshAllData: () => Promise<void>;
   setRefreshAllData: (fn: () => Promise<void>) => void;
 };
 
-// ✅ CORRECT - Provider 实现
+// ✅ CORRECT - Provider implementation
 const [refreshAllData, setRefreshAllDataState] = useState<() => Promise<void>>(
   () => () => Promise.resolve()
 );
@@ -87,21 +87,21 @@ const setRefreshAllData = useCallback(
   [],
 );
 
-// ✅ CORRECT - 子组件注册函数
+// ✅ CORRECT - Child component registers function
 useEffect(() => {
   setRefreshAllData(myRefreshFunction);
   return () => setRefreshAllData(() => Promise.resolve());
 }, [myRefreshFunction, setRefreshAllData]);
 
-// ✅ CORRECT - 其他组件直接调用
+// ✅ CORRECT - Other components call directly
 await refreshAllData();
 ```
 
-**为什么禁止 Ref 传递函数：**
-1. Ref 绕过 React 响应式系统，数据流难以追踪
-2. `.current` 可能为 null，需要额外的空值检查
-3. State function 模式更符合 React 声明式范式
-4. 更容易测试和调试
+**Why Ref Function Passing is Forbidden:**
+1. Refs bypass React's reactive system, making data flow hard to trace
+2. `.current` may be null, requiring extra null checks
+3. State function pattern aligns better with React's declarative paradigm
+4. Easier to test and debug
 
 ---
 
@@ -768,9 +768,9 @@ refresh({ provider: 'lido', networkId: 'evm--1', symbol: 'ETH' });
 
 ## Request Controller Pattern
 
-用于管理异步请求的生命周期，防止过期请求更新状态。
+Used to manage async request lifecycle and prevent stale requests from updating state.
 
-### 类型定义
+### Type Definition
 
 ```typescript
 interface IRequestControllerState {
@@ -781,7 +781,7 @@ interface IRequestControllerState {
 }
 ```
 
-### 实现
+### Implementation
 
 ```typescript
 function useRequestController(
@@ -841,11 +841,11 @@ function useRequestController(
 }
 ```
 
-### 使用场景
+### Usage Scenarios
 
 ```typescript
 const fetchData = useCallback(async () => {
-  // 检测账户是否变化
+  // Check if account has changed
   const requestId = hasAccountChanged()
     ? startNewRequest(true)
     : startNewRequest(false);
@@ -853,13 +853,13 @@ const fetchData = useCallback(async () => {
   try {
     const result = await fetchFromAPI();
 
-    // 检查请求是否过期（账户已切换或新请求已发起）
+    // Check if request is stale (account switched or new request started)
     if (isRequestStale(requestId)) return;
 
-    // 安全更新状态
+    // Safely update state
     updateState(result);
 
-    // 标记新账户加载完成
+    // Mark new account loading complete
     finishLoadingNewAccount();
   } catch (error) {
     if (isRequestStale(requestId)) return;
@@ -868,7 +868,7 @@ const fetchData = useCallback(async () => {
 }, [hasAccountChanged, startNewRequest, isRequestStale, finishLoadingNewAccount]);
 ```
 
-### 账户切换处理
+### Account Switch Handling
 
 ```typescript
 useEffect(() => {
@@ -885,11 +885,11 @@ useEffect(() => {
 
 ## Throttled/Debounced Updates Pattern
 
-用于优化频繁更新的性能。
+Used to optimize performance for frequent updates.
 
-### Throttled UI Updates（渐进式加载）
+### Throttled UI Updates (Progressive Loading)
 
-适用于并发请求场景，避免每个请求完成都触发重渲染：
+Suitable for concurrent request scenarios, avoiding re-renders on every request completion:
 
 ```typescript
 const throttledUIUpdate = useMemo(
@@ -904,7 +904,7 @@ const throttledUIUpdate = useMemo(
   [updateInvestments],
 );
 
-// 在并发请求中使用
+// Use in concurrent requests
 const limit = pLimit(6);
 const tasks = pairsToFetch.map(({ params }) =>
   limit(async () => {
@@ -914,7 +914,7 @@ const tasks = pairsToFetch.map(({ params }) =>
 
     requestMap.set(result.key, result.investment);
 
-    // 节流更新 UI，避免频繁重渲染
+    // Throttle UI updates to avoid frequent re-renders
     if (isMountedRef.current) {
       throttledUIUpdate(new Map(requestMap));
     }
@@ -923,13 +923,13 @@ const tasks = pairsToFetch.map(({ params }) =>
 
 await Promise.all(tasks);
 
-// 最后确保所有更新都已应用
+// Ensure all updates are applied at the end
 throttledUIUpdate.flush();
 ```
 
 ### Debounced Global State Sync
 
-适用于同步本地状态到全局 Jotai atoms，避免频繁写入：
+Suitable for syncing local state to global Jotai atoms, avoiding frequent writes:
 
 ```typescript
 const debouncedUpdateGlobalState = useMemo(() => {
@@ -938,7 +938,7 @@ const debouncedUpdateGlobalState = useMemo(() => {
       const latestAccount = actions.current.getEarnAccount(key);
       if (!latestAccount) return;
 
-      // 防止重复同步
+      // Only update if values changed (prevent duplicate sync)
       if (
         lastSyncedValuesRef.current.totalFiatValue === fiatValue &&
         lastSyncedValuesRef.current.earnings24h === earnings
@@ -964,7 +964,7 @@ const debouncedUpdateGlobalState = useMemo(() => {
   );
 }, [actions]);
 
-// 在状态变化时调用
+// Call when state changes
 useEffect(() => {
   if (!earnAccountKey || isLoadingNewAccount()) return;
 
@@ -975,9 +975,9 @@ useEffect(() => {
 }, [earnAccountKey, earnTotalFiatValue, earnTotalEarnings24hFiatValue, debouncedUpdateGlobalState, isLoadingNewAccount]);
 ```
 
-### 清理
+### Cleanup
 
-**重要**：必须在组件卸载时取消 throttle/debounce，防止内存泄漏和状态更新错误：
+**Important**: You must cancel throttle/debounce on component unmount to prevent memory leaks and state update errors:
 
 ```typescript
 useEffect(() => {

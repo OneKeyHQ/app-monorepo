@@ -91,6 +91,25 @@ Ask for clarification when:
 | Share feature | Yes / No | Yes |
 | Multi-token list | Yes / No | Based on token count |
 
+### State Management Decision
+
+When integrating a new DeFi module, analyze the state requirements and ask the user:
+
+| State Type | Recommendation | Examples |
+|------------|----------------|----------|
+| **Needs Persistence** (across page navigation) | Use Jotai atoms | Portfolio data, user preferences, cached investments |
+| **Page-scoped** (no persistence needed) | Use React Context | Current operation state, form data, temporary UI state |
+
+**When using this skill, you should:**
+1. Analyze the state requirements of the new module
+2. Ask the user whether the state needs to persist across page navigation
+3. Recommend Jotai for persistent state, Context for page-scoped state
+
+**Example question to ask:**
+> "Does this module's data need to persist when the user navigates away and returns? For example:
+> - If yes (like portfolio data that should be cached): Use Jotai atoms
+> - If no (like form state that resets on page exit): Use React Context"
+
 ---
 
 ## Quick Reference

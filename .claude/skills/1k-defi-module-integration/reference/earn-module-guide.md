@@ -214,19 +214,19 @@ This is the main hook for fetching portfolio data.
 
 ## useEarnPortfolio Hook Architecture
 
-### 概述
+### Overview
 
-`useEarnPortfolio` 是 Earn 模块的核心数据获取 hook，实现了：
-- 渐进式加载（Progressive Loading）
-- 请求过期检测（Request Staleness Prevention）
-- 账户切换检测（Account Change Detection）
-- 全局状态同步（Global State Sync）
+`useEarnPortfolio` is the core data fetching hook for the Earn module, implementing:
+- Progressive Loading
+- Request Staleness Prevention
+- Account Change Detection
+- Global State Sync
 
-### 文件位置
+### File Location
 
 `packages/kit/src/views/Earn/hooks/useEarnPortfolio.ts`
 
-### 返回类型
+### Return Type
 
 ```typescript
 export interface IUseEarnPortfolioReturn {
@@ -245,11 +245,11 @@ export interface IRefreshOptions {
 }
 ```
 
-### 内部 Hooks
+### Internal Hooks
 
 #### useInvestmentState
 
-管理投资数据的本地状态：
+Manages local state for investment data:
 
 ```typescript
 interface IInvestmentStateOptions {
@@ -270,7 +270,7 @@ function useInvestmentState(options: IInvestmentStateOptions = {}) {
       () => new BigNumber(options.initialTotalEarnings24hFiatValue || 0),
     );
 
-  // 使用 Map 缓存投资数据，避免重复计算
+  // Use Map to cache investment data, avoid redundant calculations
   const investmentMapRef = useRef<Map<string, IEarnPortfolioInvestment>>(
     options.initialInvestments && options.initialInvestments.length > 0
       ? buildInvestmentMapFromList(options.initialInvestments)
@@ -317,36 +317,36 @@ function useInvestmentState(options: IInvestmentStateOptions = {}) {
 
 #### useRequestController
 
-管理请求生命周期，防止过期请求更新状态（详见 [state-management-guide.md](state-management-guide.md#request-controller-pattern)）
+Manages request lifecycle, prevents stale requests from updating state (see [state-management-guide.md](state-management-guide.md#request-controller-pattern))
 
-### 数据流
+### Data Flow
 
 ```
-1. 账户切换检测
+1. Account change detection
    hasAccountChanged() → clearInvestments() → startNewRequest(true)
 
-2. 获取可用资产和账户
+2. Get available assets and accounts
    getAvailableAssetsV2() + getEarnAvailableAccountsParams()
 
-3. 构建账户-资产对
-   accountAssetPairs = accounts × assets (笛卡尔积)
+3. Build account-asset pairs
+   accountAssetPairs = accounts × assets (Cartesian product)
 
-4. 并发获取（限制 6 个并发）
+4. Concurrent fetching (limit 6 concurrent)
    pLimit(6) → fetchSingleInvestment()
 
-5. 节流更新 UI（500ms）
+5. Throttled UI update (500ms)
    throttledUIUpdate(requestMap)
 
-6. 最终更新
+6. Final update
    updateInvestments() → setPortfolioCache()
 
-7. 防抖同步全局状态（500ms）
+7. Debounced global state sync (500ms)
    debouncedUpdateGlobalState()
 ```
 
-### 核心实现
+### Core Implementation
 
-#### 并发获取投资数据
+#### Concurrent Investment Fetching
 
 ```typescript
 const fetchAndUpdateInvestments = useCallback(
@@ -359,7 +359,7 @@ const fetchAndUpdateInvestments = useCallback(
 
     const requestMap = new Map(investmentMapRef.current);
 
-    // 获取可用资产和账户
+    // Get available assets and accounts
     const [assets, accounts] = await Promise.all([
       backgroundApiProxy.serviceStaking.getAvailableAssetsV2(),
       backgroundApiProxy.serviceStaking.getEarnAvailableAccountsParams({
@@ -371,7 +371,7 @@ const fetchAndUpdateInvestments = useCallback(
 
     if (isRequestStale(requestId) || !isMountedRef.current) return;
 
-    // 构建账户-资产对
+    // Build account-asset pairs
     const accountAssetPairs: IAccountAssetPair[] = accounts.flatMap(
       (accountItem) =>
         assets
@@ -390,7 +390,7 @@ const fetchAndUpdateInvestments = useCallback(
           })),
     );
 
-    // 并发获取，限制 6 个
+    // Concurrent fetching, limit 6
     const keysUpdatedInThisSession = new Set<string>();
     const limit = pLimit(6);
 
@@ -412,7 +412,7 @@ const fetchAndUpdateInvestments = useCallback(
 
         keysUpdatedInThisSession.add(resultKey);
 
-        // 节流更新 UI
+        // Throttle UI update
         if (isMountedRef.current) {
           throttledUIUpdate(new Map(requestMap));
         }
@@ -421,10 +421,10 @@ const fetchAndUpdateInvestments = useCallback(
 
     await Promise.all(tasks);
 
-    // 确保所有更新都已应用
+    // Ensure all updates are applied
     throttledUIUpdate.flush();
 
-    // 更新全局缓存
+    // Update global cache
     const latestInvestments = updateInvestments(new Map(requestMap), true);
 
     if (earnAccountKey && latestInvestments) {
@@ -440,7 +440,7 @@ const fetchAndUpdateInvestments = useCallback(
 );
 ```
 
-### 轮询配置
+### Polling Configuration
 
 ```typescript
 usePromiseResult(
@@ -454,13 +454,13 @@ usePromiseResult(
   ],
   {
     watchLoading: true,
-    pollingInterval: timerUtils.getTimeDurationMs({ minute: 3 }), // 3 分钟
+    pollingInterval: timerUtils.getTimeDurationMs({ minute: 3 }), // 3 minutes
     overrideIsFocused: (isFocused) => isFocused && isActive,
   },
 );
 ```
 
-### 账户数据更新监听
+### Account Data Update Listener
 
 ```typescript
 useEffect(() => {
@@ -481,9 +481,9 @@ useEffect(() => {
 }, [shouldRegisterAccountListener]);
 ```
 
-### 投资数据聚合
+### Investment Data Aggregation
 
-按协议聚合投资数据，合并同一协议的多个资产：
+Aggregate investment data by protocol, merging multiple assets from the same protocol:
 
 ```typescript
 const aggregateByProtocol = (
@@ -505,7 +505,7 @@ const aggregateByProtocol = (
   return sortByFiatValueDesc(Array.from(protocolMap.values()));
 };
 
-// 在返回时使用
+// Use when returning
 const aggregatedInvestments = useMemo(
   () => aggregateByProtocol(investments),
   [investments],
