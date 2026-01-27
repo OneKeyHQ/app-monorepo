@@ -17,6 +17,7 @@ import { makeTabScreenOptions } from '../GlobalScreenOptions';
 import { createStackNavigator } from '../StackNavigator';
 
 import type { ITabNavigatorProps, ITabSubNavigatorConfig } from './types';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const Stack = createStackNavigator();
 
@@ -155,7 +156,7 @@ export function TabStackNavigator<RouteName extends string>({
       tabBarActiveTintColor={theme.iconActive.val}
       tabBarInactiveTintColor={theme.iconSubdued.val}
       tabBarStyle={
-        themeName === 'dark'
+        platformEnv.isNativeAndroid || themeName === 'dark'
           ? {
               backgroundColor: theme.bg.val,
             }
