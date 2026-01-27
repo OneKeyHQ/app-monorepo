@@ -61,6 +61,11 @@ public class JPushMethodVisitor extends MethodVisitor implements Opcodes {
             mv.visitMethodInsn(INVOKEVIRTUAL, "java/lang/String", "equals", "(Ljava/lang/Object;)Z", false);
             mv.visitJumpInsn(IFNE, continueLabel);
 
+            mv.visitVarInsn(ALOAD, 2);
+            mv.visitLdcInsn("cn.jpush.android.service.PluginFCMMessagingService");
+            mv.visitMethodInsn(INVOKEVIRTUAL, "java/lang/String", "equals", "(Ljava/lang/Object;)Z", false);
+            mv.visitJumpInsn(IFNE, continueLabel);
+
             // 如果不在允许列表中，返回新的空Bundle
             mv.visitTypeInsn(NEW, "android/os/Bundle");
             mv.visitInsn(DUP);
