@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -20,6 +20,40 @@ interface ILegacyUpdateProgressProps {
   phase?: 'firmware' | 'ble';
 }
 
+// Smooth progress hook - interpolates progress value for smoother animations
+function useSmoothProgress(targetProgress: number, step: number = 1) {
+  const [displayProgress, setDisplayProgress] = useState(targetProgress);
+  const animationRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    // Clear any existing animation
+    if (animationRef.current) {
+      clearInterval(animationRef.current);
+    }
+
+    // Animate towards target
+    animationRef.current = setInterval(() => {
+      setDisplayProgress((current) => {
+        if (current >= targetProgress) {
+          if (animationRef.current) {
+            clearInterval(animationRef.current);
+          }
+          return targetProgress;
+        }
+        return Math.min(current + step, targetProgress);
+      });
+    }, 30);
+
+    return () => {
+      if (animationRef.current) {
+        clearInterval(animationRef.current);
+      }
+    };
+  }, [targetProgress, step]);
+
+  return displayProgress;
+}
+
 export function LegacyUpdateProgress({
   step,
   progress,
@@ -27,6 +61,8 @@ export function LegacyUpdateProgress({
   phase,
 }: ILegacyUpdateProgressProps) {
   const intl = useIntl();
+  // Use smooth progress for fluid animation
+  const smoothProgress = useSmoothProgress(progress, 1);
 
   const stepTitle = useMemo(() => {
     switch (step) {
@@ -101,21 +137,39 @@ export function LegacyUpdateProgress({
       justifyContent="center"
       flex={1}
       py="$8"
+      animation="medium"
+      enterStyle={{
+        opacity: 0,
+        y: 10,
+      }}
+      opacity={1}
+      y={0}
     >
-      <XStack space="$2" alignItems="center">
+      <XStack
+        space="$2"
+        alignItems="center"
+        animation="quick"
+        enterStyle={{
+          opacity: 0,
+          scale: 0.95,
+        }}
+        opacity={1}
+        scale={1}
+      >
         <Spinner size="small" />
         <SizableText size="$headingLg">{stepTitle}</SizableText>
       </XStack>
 
       <Stack width="100%" maxWidth={400}>
-        <Progress value={progress} size="medium" />
+        <Progress value={smoothProgress} size="medium" animated />
         <SizableText
           size="$bodyMd"
           color="$textSubdued"
           textAlign="center"
           mt="$2"
+          animation="quick"
         >
-          {message || stepDescription || `${progress}%`}
+          {message || stepDescription || `${Math.round(smoothProgress)}%`}
         </SizableText>
       </Stack>
 
@@ -125,6 +179,11 @@ export function LegacyUpdateProgress({
           color="$textCaution"
           textAlign="center"
           mt="$4"
+          animation="medium"
+          enterStyle={{
+            opacity: 0,
+          }}
+          opacity={1}
         >
           {intl.formatMessage({
             id: ETranslations.update_keep_usb_connected_and_app_active,

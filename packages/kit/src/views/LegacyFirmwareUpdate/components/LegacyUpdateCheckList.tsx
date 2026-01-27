@@ -117,9 +117,30 @@ export function LegacyUpdateCheckList({
   }, [deviceType]);
 
   return (
-    <YStack space="$4">
+    <YStack
+      space="$4"
+      animation="medium"
+      enterStyle={{
+        opacity: 0,
+        y: 10,
+      }}
+      opacity={1}
+      y={0}
+    >
       {/* Device Info Section */}
-      <YStack backgroundColor="$bgSubdued" borderRadius="$3" px="$4" py="$2">
+      <YStack
+        backgroundColor="$bgSubdued"
+        borderRadius="$3"
+        px="$4"
+        py="$2"
+        animation="quick"
+        enterStyle={{
+          opacity: 0,
+          scale: 0.98,
+        }}
+        opacity={1}
+        scale={1}
+      >
         <InfoRow
           label={intl.formatMessage({ id: ETranslations.global_device })}
           value={deviceTypeDisplay}
@@ -156,7 +177,16 @@ export function LegacyUpdateCheckList({
       </YStack>
 
       {/* Check List Section */}
-      <YStack space="$2">
+      <YStack
+        space="$2"
+        animation="medium"
+        enterStyle={{
+          opacity: 0,
+          y: 5,
+        }}
+        opacity={1}
+        y={0}
+      >
         <SizableText size="$headingSm" color="$text">
           {intl.formatMessage({
             id: ETranslations.update_ready_to_upgrade_checklist,
@@ -179,15 +209,25 @@ export function LegacyUpdateCheckList({
       </YStack>
 
       {/* Start Button */}
-      <Button
-        variant="primary"
-        size="large"
-        disabled={!isAllChecked || isStarting}
-        loading={isStarting}
-        onPress={onStartUpdate}
+      <Stack
+        animation="slow"
+        enterStyle={{
+          opacity: 0,
+          y: 10,
+        }}
+        opacity={1}
+        y={0}
       >
-        {intl.formatMessage({ id: ETranslations.global_continue })}
-      </Button>
+        <Button
+          variant="primary"
+          size="large"
+          disabled={!isAllChecked || isStarting}
+          loading={isStarting}
+          onPress={onStartUpdate}
+        >
+          {intl.formatMessage({ id: ETranslations.global_continue })}
+        </Button>
+      </Stack>
     </YStack>
   );
 }

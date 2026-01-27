@@ -2,7 +2,13 @@ import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Alert, SizableText, Spinner, YStack } from '@onekeyhq/components';
+import {
+  Alert,
+  SizableText,
+  Spinner,
+  Stack,
+  YStack,
+} from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -35,17 +41,37 @@ export function MiniBootloaderModeGuide({
   }, [isNative]);
 
   return (
-    <YStack space="$4" p="$4">
-      <Alert
-        title={intl.formatMessage({
-          id: ETranslations.update_manually_entering_bootloader_mode,
-        })}
-        description={intl.formatMessage({
-          id: ETranslations.update_manually_entering_bootloader_mode_desc,
-        })}
-        type="warning"
-        fullBleed
-      />
+    <YStack
+      space="$4"
+      p="$4"
+      animation="medium"
+      enterStyle={{
+        opacity: 0,
+        y: 10,
+      }}
+      opacity={1}
+      y={0}
+    >
+      <Stack
+        animation="quick"
+        enterStyle={{
+          opacity: 0,
+          scale: 0.98,
+        }}
+        opacity={1}
+        scale={1}
+      >
+        <Alert
+          title={intl.formatMessage({
+            id: ETranslations.update_manually_entering_bootloader_mode,
+          })}
+          description={intl.formatMessage({
+            id: ETranslations.update_manually_entering_bootloader_mode_desc,
+          })}
+          type="warning"
+          fullBleed
+        />
+      </Stack>
 
       <YStack
         space="$3"
@@ -53,6 +79,13 @@ export function MiniBootloaderModeGuide({
         borderRadius="$3"
         borderWidth={1}
         borderColor="$borderSubdued"
+        animation="medium"
+        enterStyle={{
+          opacity: 0,
+          y: 5,
+        }}
+        opacity={1}
+        y={0}
       >
         <SizableText size="$headingMd">
           {intl.formatMessage({
@@ -69,7 +102,16 @@ export function MiniBootloaderModeGuide({
         </YStack>
       </YStack>
 
-      <YStack alignItems="center" space="$2" py="$4">
+      <YStack
+        alignItems="center"
+        space="$2"
+        py="$4"
+        animation="slow"
+        enterStyle={{
+          opacity: 0,
+        }}
+        opacity={1}
+      >
         <Spinner size="large" />
         <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
           {intl.formatMessage({

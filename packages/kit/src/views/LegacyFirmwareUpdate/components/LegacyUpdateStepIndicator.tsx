@@ -65,6 +65,9 @@ function StepDot({
       height="$2"
       borderRadius="$full"
       backgroundColor={bgColor}
+      animation="quick"
+      scale={isActive ? 1.25 : 1}
+      opacity={isCompleted || isActive ? 1 : 0.6}
     />
   );
 }
@@ -74,9 +77,18 @@ function StepConnector({ isCompleted }: { isCompleted: boolean }) {
     <Stack
       flex={1}
       height={2}
-      backgroundColor={isCompleted ? '$bgSuccessStrong' : '$bgDisabled'}
+      backgroundColor="$bgDisabled"
       mx="$1"
-    />
+      overflow="hidden"
+      borderRadius="$full"
+    >
+      <Stack
+        height="100%"
+        width={isCompleted ? '100%' : '0%'}
+        backgroundColor="$bgSuccessStrong"
+        animation="medium"
+      />
+    </Stack>
   );
 }
 

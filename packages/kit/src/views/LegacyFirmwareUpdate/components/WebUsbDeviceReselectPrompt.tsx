@@ -35,7 +35,18 @@ export function WebUsbDeviceReselectPrompt() {
   // Native (mobile) platforms use Bluetooth - show different UI
   if (isNative) {
     return (
-      <YStack space="$4" p="$4" alignItems="center">
+      <YStack
+        space="$4"
+        p="$4"
+        alignItems="center"
+        animation="medium"
+        enterStyle={{
+          opacity: 0,
+          y: 10,
+        }}
+        opacity={1}
+        y={0}
+      >
         <Alert
           title={intl.formatMessage({
             id: ETranslations.wallet_connect_hardware_wallet,
@@ -54,6 +65,13 @@ export function WebUsbDeviceReselectPrompt() {
           borderWidth={1}
           borderColor="$borderSubdued"
           width="100%"
+          animation="medium"
+          enterStyle={{
+            opacity: 0,
+            y: 5,
+          }}
+          opacity={1}
+          y={0}
         >
           <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
             {intl.formatMessage({
@@ -62,7 +80,16 @@ export function WebUsbDeviceReselectPrompt() {
           </SizableText>
         </YStack>
 
-        <YStack alignItems="center" space="$4" py="$4">
+        <YStack
+          alignItems="center"
+          space="$4"
+          py="$4"
+          animation="slow"
+          enterStyle={{
+            opacity: 0,
+          }}
+          opacity={1}
+        >
           <Spinner size="large" />
           <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
             {intl.formatMessage({
@@ -76,7 +103,18 @@ export function WebUsbDeviceReselectPrompt() {
 
   // Web/Extension platforms use WebUSB
   return (
-    <YStack space="$4" p="$4" alignItems="center">
+    <YStack
+      space="$4"
+      p="$4"
+      alignItems="center"
+      animation="medium"
+      enterStyle={{
+        opacity: 0,
+        y: 10,
+      }}
+      opacity={1}
+      y={0}
+    >
       <Alert
         title={intl.formatMessage({
           id: ETranslations.wallet_connect_hardware_wallet,
@@ -95,6 +133,13 @@ export function WebUsbDeviceReselectPrompt() {
         borderWidth={1}
         borderColor="$borderSubdued"
         width="100%"
+        animation="medium"
+        enterStyle={{
+          opacity: 0,
+          y: 5,
+        }}
+        opacity={1}
+        y={0}
       >
         <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
           {intl.formatMessage({
@@ -103,7 +148,18 @@ export function WebUsbDeviceReselectPrompt() {
         </SizableText>
       </YStack>
 
-      <YStack alignItems="center" space="$4" py="$4">
+      <YStack
+        alignItems="center"
+        space="$4"
+        py="$4"
+        animation="slow"
+        enterStyle={{
+          opacity: 0,
+          scale: 0.95,
+        }}
+        opacity={1}
+        scale={1}
+      >
         <Icon name="UsbOutline" size="$12" color="$iconSubdued" />
 
         <Button size="large" onPress={onReselectDevice}>
