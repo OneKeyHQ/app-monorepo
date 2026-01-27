@@ -110,6 +110,10 @@ function TokenDetailsHeader(props: IProps) {
 
         const data = tokensDetails[0];
 
+        if (!data) {
+          return undefined;
+        }
+
         if (isNil(data.fiatValue)) {
           data.fiatValue = '0';
         }
@@ -120,7 +124,7 @@ function TokenDetailsHeader(props: IProps) {
           isInit: true,
           data,
         });
-        return tokensDetails[0];
+        return data;
       },
       [
         accountId,
