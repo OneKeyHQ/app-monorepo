@@ -261,7 +261,7 @@ function BaseBulkSendAddressesInput() {
   ]);
 
   const handleSubmit = useCallback(() => {
-    if (!selectedNetworkId || !selectedAccountId || !selectedToken) {
+    if (!selectedNetworkId || !selectedAccountId || !selectedToken || !selectedTokenDetail) {
       return;
     }
 
@@ -282,6 +282,7 @@ function BaseBulkSendAddressesInput() {
         senders,
         receivers,
         tokenInfo: selectedToken,
+        tokenDetails: selectedTokenDetail,
         bulkSendMode,
       });
     } else {
@@ -293,6 +294,7 @@ function BaseBulkSendAddressesInput() {
           senders,
           receivers,
           tokenInfo: selectedToken,
+          tokenDetails: selectedTokenDetail,
           bulkSendMode,
         },
       });
@@ -302,6 +304,7 @@ function BaseBulkSendAddressesInput() {
     selectedNetworkId,
     selectedAccountId,
     selectedToken,
+    selectedTokenDetail,
     navigation,
     bulkSendMode,
     isInModal,

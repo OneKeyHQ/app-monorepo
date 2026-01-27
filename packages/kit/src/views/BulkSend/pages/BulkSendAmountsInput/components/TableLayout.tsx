@@ -426,9 +426,9 @@ function TransferInfoListSection() {
                         leftAddOnProps={
                           hasAmountError
                             ? {
-                                iconName: 'ErrorOutline',
-                                iconColor: '$iconCritical',
-                              }
+                              iconName: 'ErrorOutline',
+                              iconColor: '$iconCritical',
+                            }
                             : undefined
                         }
                         containerProps={{
@@ -460,23 +460,13 @@ function TransferInfoListSection() {
           </XStack>
         );
       })}
-
-      {/* Insufficient Balance Error */}
-      {isInsufficientBalance ? (
-        <XStack px="$5" py="$2" gap="$1" alignItems="center">
-          <Icon name="InfoCircleOutline" size="$4" color="$iconCritical" />
-          <SizableText size="$bodySm" color="$textCritical">
-            {intl.formatMessage({
-              id: ETranslations.send_error_insufficient_balance,
-            })}
-          </SizableText>
-        </XStack>
-      ) : null}
     </YStack>
   );
 }
 
 function TableLayout() {
+  const { isInsufficientBalance, tokenDetails, totalTokenAmount, tokenInfo } = useBulkSendAmountsInputContext();
+
   return (
     <YStack gap="$8">
       <XStack gap="$6">
@@ -484,6 +474,15 @@ function TableLayout() {
         <SetAmountPerAddressSection />
       </XStack>
       <TransferInfoListSection />
+      {/* Insufficient Balance Error */}
+      {isInsufficientBalance ? (
+        <XStack gap="$1" alignItems="center">
+          <Icon name="InfoCircleOutline" size="$4" color="$iconCritical" />
+          <SizableText size="$bodySm" color="$textCritical">
+            Insufficient balance, available balance: {tokenDetails?.balanceParsed} {tokenInfo.symbol}, total amount: {totalTokenAmount} {tokenInfo.symbol}
+          </SizableText>
+        </XStack>
+      ) : null}
     </YStack>
   );
 }
