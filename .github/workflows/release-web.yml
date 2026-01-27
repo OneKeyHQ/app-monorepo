@@ -10,7 +10,7 @@ on:
 
 jobs:
   test-web:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       TEST_ENDPOINT: app.onekeytest.com
 
@@ -111,7 +111,7 @@ jobs:
           force_orphan: true
 
   build-production:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     if: ${{ !github.event.workflow_run || (github.event.workflow_run && github.event.workflow_run.conclusion == 'success') }}
     steps:
@@ -198,7 +198,7 @@ jobs:
             ./apps/web/web-build/
 
   notify:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [test-web, build-production]
     if: ${{ github.event.workflow_run && always() }}
     steps:

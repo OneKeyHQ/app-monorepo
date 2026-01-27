@@ -7,7 +7,7 @@ on:
 
 jobs:
   # get-commit-id:
-  #   runs-on: ubuntu-latest
+  #   runs-on: ubuntu-24.04
   #   outputs:
   #     current_id: ${{ steps.current_id.outputs.current_id }}
   #     upstream_id:  ${{ steps.upstream_id.outputs.upstream_id }}
@@ -38,7 +38,7 @@ jobs:
   #         echo "upstream_id: $(git rev-parse --short HEAD)"
 
   daily-build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # needs: get-commit-id
     strategy:
       matrix:
