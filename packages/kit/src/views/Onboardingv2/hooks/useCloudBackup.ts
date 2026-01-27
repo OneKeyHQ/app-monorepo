@@ -35,6 +35,8 @@ import {
   showCloudBackupPasswordDialog,
 } from '../components/CloudBackupDialogs';
 
+let isBackupErrorDialogShowing = false;
+
 export function useCloudBackup() {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -253,6 +255,12 @@ export function useCloudBackup() {
         ) {
           // skip
         } else {
+          if (isBackupErrorDialogShowing) {
+            throw error;  
+          }
+
+          isBackupErrorDialogShowing = true;
+
           Dialog.show({
             title: intl.formatMessage({
               id: ETranslations.cloud_backup_failed,
@@ -268,11 +276,15 @@ export function useCloudBackup() {
               id: ETranslations.global_manage_backups,
             }),
             onCancel: () => {
+              isBackupErrorDialogShowing = false;
               void goToPageBackupList({ hideRestoreButton: true });
             },
             onConfirmText: intl.formatMessage({
               id: ETranslations.global_close,
             }),
+            onClose: () => {
+              isBackupErrorDialogShowing = false;
+            },
           });
         }
         throw error;

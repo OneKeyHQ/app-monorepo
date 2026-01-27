@@ -2,7 +2,13 @@ import { useRef } from 'react';
 
 import { type ScrollView as ScrollViewNative } from 'react-native';
 
-import { EPageType, ScrollView, YStack } from '@onekeyhq/components';
+import {
+  EPageType,
+  ScrollView,
+  XStack,
+  YStack,
+  useMedia,
+} from '@onekeyhq/components';
 import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 import type {
@@ -12,6 +18,7 @@ import type {
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 
+import SwapProviderListPanel from '../../components/SwapProviderListPanel';
 import SwapRecentTokenPairsGroup from '../../components/SwapRecentTokenPairsGroup';
 
 import LimitInfoContainer from './LimitInfoContainer';
@@ -23,7 +30,7 @@ import SwapQuoteInput from './SwapQuoteInput';
 import SwapQuoteResult from './SwapQuoteResult';
 
 interface ISwapOldSwapBridgeLimitContainerProps {
-  pageType: EPageType;
+  pageType?: EPageType;
   storeName: EJotaiContextStoreNames;
   onSelectToken: (type: ESwapDirectionType) => void;
   fetchLoading: boolean;
@@ -75,20 +82,73 @@ const SwapOldSwapBridgeLimitContainer = ({
   swapRecentTokenPairs,
 }: ISwapOldSwapBridgeLimitContainerProps) => {
   const scrollViewRef = useRef<ScrollViewNative>(null);
-  return (
-    <ScrollView
-      keyboardShouldPersistTaps="handled"
-      keyboardDismissMode="on-drag"
-      ref={scrollViewRef}
+  const { gtMd } = useMedia();
+
+  // Desktop: show provider panel on the right side
+  // Show when: on desktop (gtMd) and not in modal
+  const showDesktopProviderPanel = gtMd && pageType !== EPageType.modal;
+
+  const mainContent = (
+    <YStack
+      pt="$2.5"
+      px="$5"
+      gap="$5"
+      flex={1}
+      $gtMd={{
+        flex: 'unset',
+        pt: pageType === EPageType.modal ? '$2.5' : '$5',
+      }}
+      pb="$5"
     >
+      <LimitOrderOpenItem storeName={storeName} />
+      <SwapQuoteInput
+        onSelectToken={onSelectToken}
+        selectLoading={fetchLoading}
+        onSelectPercentageStage={onSelectPercentageStage}
+        onBalanceMaxPress={onBalanceMaxPress}
+      />
+      {swapTypeSwitch === ESwapTabSwitchType.LIMIT && !isWrapped ? (
+        <LimitInfoContainer />
+      ) : null}
+      <SwapActionsState
+        onPreSwap={onPreSwap}
+        onOpenRecipientAddress={onToAnotherAddressModal}
+        onSelectPercentageStage={onSelectPercentageStage}
+      />
+      <SwapQuoteResult
+        refreshAction={refreshAction}
+        onOpenProviderList={
+          showDesktopProviderPanel ? undefined : onOpenProviderList
+        }
+        quoteResult={quoteResult}
+        onOpenRecipient={onToAnotherAddressModal}
+      />
+      {alerts.states.length > 0 &&
+      !quoteLoading &&
+      !quoteEventFetching &&
+      alerts?.quoteId === (quoteResult?.quoteId ?? '') ? (
+        <SwapAlertContainer alerts={alerts.states} />
+      ) : null}
+      <SwapRecentTokenPairsGroup
+        onSelectTokenPairs={onSelectRecentTokenPairs}
+        tokenPairs={swapRecentTokenPairs}
+        fromTokenAmount={fromTokenAmountValue}
+      />
+      <SwapPendingHistoryListComponent pageType={pageType} />
+    </YStack>
+  );
+
+  if (showDesktopProviderPanel) {
+    // Clone mainContent with px="$0" to avoid double padding (outer XStack already has px="$5")
+    const mainContentWithoutPadding = (
       <YStack
         pt="$2.5"
-        px="$5"
+        px="$0"
         gap="$5"
         flex={1}
         $gtMd={{
           flex: 'unset',
-          pt: pageType === EPageType.modal ? '$2.5' : '$5',
+          pt: '$5',
         }}
         pb="$5"
       >
@@ -109,7 +169,7 @@ const SwapOldSwapBridgeLimitContainer = ({
         />
         <SwapQuoteResult
           refreshAction={refreshAction}
-          onOpenProviderList={onOpenProviderList}
+          onOpenProviderList={undefined}
           quoteResult={quoteResult}
           onOpenRecipient={onToAnotherAddressModal}
         />
@@ -126,6 +186,31 @@ const SwapOldSwapBridgeLimitContainer = ({
         />
         <SwapPendingHistoryListComponent pageType={pageType} />
       </YStack>
+    );
+    return (
+      <XStack flex={1} gap="$5" px="$5" alignItems="flex-start">
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          ref={scrollViewRef}
+          flex={1}
+        >
+          {mainContentWithoutPadding}
+        </ScrollView>
+        <YStack pt="$5" height={560}>
+          <SwapProviderListPanel refreshAction={refreshAction} />
+        </YStack>
+      </XStack>
+    );
+  }
+
+  return (
+    <ScrollView
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
+      ref={scrollViewRef}
+    >
+      {mainContent}
     </ScrollView>
   );
 };

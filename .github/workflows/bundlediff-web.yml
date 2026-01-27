@@ -16,7 +16,7 @@ jobs:
   # is required is that the stats.json be an artifact
   build-web-head:
     name: 'Build web head'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     steps:
@@ -79,7 +79,7 @@ jobs:
   # is required is that the stats.json be an artifact
   build-web-base:
     name: 'Build web base'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     steps:
@@ -140,7 +140,7 @@ jobs:
   # run the action against the stats.json files
   compare:
     name: 'Compare base & head bundle sizes'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [build-web-base, build-web-head]
     steps:
       - uses: actions/download-artifact@v4.1.7

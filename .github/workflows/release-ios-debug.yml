@@ -10,12 +10,12 @@ on:
 
 jobs:
   release-ios-debug:
-    runs-on: macos-14
+    runs-on: macos-26
     strategy:
       matrix:
         node-version: [24.x]
-        ruby-version: [2.7.x]
-        xcode-version: [15.3]
+        ruby-version: [3.4.4]
+        xcode-version: [26.0]
 
     steps:
       - name: Show executed time
@@ -85,13 +85,17 @@ jobs:
         run: |
           yarn postinstall
 
+      - name: Configure Git to use HTTPS instead of SSH
+        run: |
+          git config --global url."https://github.com/".insteadOf git@github.com:
+
       - name: Install Pods
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=8192'
         run: |
           cd apps/mobile/ios
-          gem install cocoapods -v 1.15.2
+          gem install cocoapods -v 1.16.2
           pod install
 
       - name: Build App File
