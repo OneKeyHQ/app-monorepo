@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import type {
   IMenu,
@@ -287,21 +287,26 @@ export function MenuHamburger() {
     setIsOpen((prev) => !prev);
   }, []);
 
-  if (!menu || !menu.items || menu.items.length === 0) {
+
+  const allItems = useMemo(() => {
+    // Flatten all menu items for hamburger menu display
+    const itemArray: IMenuItem[] = [];
+    menu?.items.forEach((menuItem) => {
+        if (menuItem.submenu && menuItem.submenu.items.length > 0) {
+        // Add a label item for the menu category
+        itemArray.push({
+            ...menuItem,
+            type: 'submenu',
+        });
+        }
+    });
+    return itemArray;
+  }, [menu])
+
+  console.log('allItems---', allItems)
+  if (allItems.length === 0 || !menu || !menu.items || menu.items.length === 0) {
     return null;
   }
-
-  // Flatten all menu items for hamburger menu display
-  const allItems: IMenuItem[] = [];
-  menu.items.forEach((menuItem) => {
-    if (menuItem.submenu && menuItem.submenu.items.length > 0) {
-      // Add a label item for the menu category
-      allItems.push({
-        ...menuItem,
-        type: 'submenu',
-      });
-    }
-  });
 
   return (
     <div
