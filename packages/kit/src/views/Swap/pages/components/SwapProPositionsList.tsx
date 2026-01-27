@@ -1,6 +1,6 @@
 import { useIntl } from 'react-intl';
 
-import { Divider, Empty, Skeleton, XStack, YStack } from '@onekeyhq/components';
+import { Empty, Skeleton, XStack, YStack } from '@onekeyhq/components';
 import {
   useSwapProEnableCurrentSymbolAtom,
   useSwapProSupportNetworksTokenListLoadingAtom,
@@ -10,6 +10,7 @@ import { type ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import SwapProPositionItem from '../../components/SwapProPositionItem';
 import SwapProPositionListFooter from '../../components/SwapProPositionListFooter';
+import SwapProPositionListHeader from '../../components/SwapProPositionListHeader';
 import { useSwapProPositionsListFilter } from '../../hooks/useSwapPro';
 
 interface ISwapProPositionsListProps {
@@ -44,16 +45,14 @@ const SwapProPositionsList = ({
   }
   return (
     <YStack>
+      <SwapProPositionListHeader />
       {finallyTokenList.length > 0 ? (
-        finallyTokenList.map((item, index) => (
-          <>
-            <SwapProPositionItem
-              key={item.contractAddress}
-              token={item}
-              onPress={onTokenPress}
-            />
-            {index < finallyTokenList.length - 1 ? <Divider /> : null}
-          </>
+        finallyTokenList.map((item) => (
+          <SwapProPositionItem
+            key={item.contractAddress}
+            token={item}
+            onPress={onTokenPress}
+          />
         ))
       ) : (
         <Empty
