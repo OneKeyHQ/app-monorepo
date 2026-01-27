@@ -152,6 +152,18 @@ const applyFixImageAssetsMiddleware = (middleware) => {
         'metro-sever: >>>>> the asset path is auto fixed >>>>>',
         req.url,
       );
+    } else if (
+      req.url.startsWith('/packages/components/svg/') &&
+      req.url.includes('.svg')
+    ) {
+      req.url = req.url.replace(
+        '/packages/components/svg/',
+        buildRelativeDirPath('/packages/components/svg/'),
+      );
+      console.log(
+        'metro-sever: >>>>> the svg asset path is auto fixed >>>>>',
+        req.url,
+      );
     }
     return middleware(req, res, next);
   };
