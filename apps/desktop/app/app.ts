@@ -5,10 +5,7 @@ import path from 'path';
 import { format as formatUrl } from 'url';
 
 import { initNobleBleSupport } from '@onekeyfe/hd-transport-electron';
-import {
-  attachTitlebarToWindow,
-  setupTitlebar,
-} from 'custom-electron-titlebar/main';
+import { attachTitlebarToWindow, setupTitlebar } from './titlebar/main';
 import {
   BrowserWindow,
   Menu,
