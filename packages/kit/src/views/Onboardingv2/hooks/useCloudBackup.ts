@@ -276,13 +276,13 @@ export function useCloudBackup() {
               id: ETranslations.global_manage_backups,
             }),
             onCancel: () => {
+              isBackupErrorDialogShowing = false;
               void goToPageBackupList({ hideRestoreButton: true });
             },
             onConfirmText: intl.formatMessage({
               id: ETranslations.global_close,
             }),
             onClose: () => {
-              // 弹窗关闭时重置标志，无论是点击取消、确认还是其他方式关闭
               isBackupErrorDialogShowing = false;
             },
           });
