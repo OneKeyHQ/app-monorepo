@@ -135,6 +135,7 @@ When integrating a new DeFi module, analyze the state requirements and ask the u
 | `EarnTooltip` | `Staking/components/ProtocolDetails/` | Info tooltips |
 | `PendingIndicator` | `Staking/components/StakingActivityIndicator/` | Pending tx indicator |
 | `ManagePositionContent` | `Staking/pages/ManagePosition/` | Shared manage position UI |
+| `ManagePosition` | `Borrow/components/ManagePosition/` | **Unified Borrow operation component (Supply/Withdraw/Borrow/Repay)** |
 
 ### State Management Patterns
 

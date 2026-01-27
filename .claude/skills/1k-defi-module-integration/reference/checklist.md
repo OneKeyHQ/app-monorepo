@@ -91,7 +91,36 @@ Use this checklist to ensure complete integration of a new DeFi module or protoc
 
 ## Phase 3: Operation Modals (Required)
 
-### For Each Operation Type
+### For Borrow Module (Using ManagePosition Component)
+
+The `ManagePosition` component is a unified component that handles all 4 borrow operations. Use it instead of creating separate operation components.
+
+- [ ] Import `ManagePosition` from `@onekeyhq/kit/src/views/Borrow/components/ManagePosition`
+- [ ] Set correct `action` prop: `'supply' | 'withdraw' | 'borrow' | 'repay'`
+- [ ] Pass `onConfirm` callback with `IManagePositionConfirmParams` type:
+  ```typescript
+  onConfirm={async ({ amount, withdrawAll, repayAll }) => {
+    // Handle the action
+  }}
+  ```
+- [ ] Set `isInModalContext` prop correctly (true for modals)
+- [ ] For Supply action:
+  - [ ] Pass `balance` as wallet balance
+  - [ ] Pass `maxBalance` for max supply limit (if applicable)
+- [ ] For Withdraw action:
+  - [ ] Pass `balance` as supplied balance
+  - [ ] Pass `selectableAssets` and `onTokenSelect` for multi-asset
+  - [ ] Handle `withdrawAll` flag in callback
+- [ ] For Borrow action:
+  - [ ] Pass `balance` as available to borrow
+  - [ ] Liquidation risk dialog is handled internally
+- [ ] For Repay action:
+  - [ ] Pass `balance` as wallet balance
+  - [ ] Pass `maxBalance` as debt balance (for repay all calculation)
+  - [ ] Pass `selectableAssets` and `onTokenSelect` for multi-asset
+  - [ ] Handle `repayAll` flag in callback
+
+### For Other Modules (Custom Operation Components)
 
 - [ ] Create operation component (`UniversalYourOperation/index.tsx`)
 - [ ] Implement amount input:
@@ -114,19 +143,22 @@ Use this checklist to ensure complete integration of a new DeFi module or protoc
 
 ### Risk Warnings (if applicable)
 
-- [ ] Implement liquidation risk dialog (for Borrow)
+- [ ] Implement liquidation risk dialog (for Borrow - handled by ManagePosition)
 - [ ] Implement slashing risk warning (for Staking)
 - [ ] Show warning before high-risk operations
 
 ### Token Selection (if multi-token)
 
-- [ ] Implement token selector modal or popover
+- [ ] For Borrow Supply/Borrow: Uses navigation mode (full-screen token selection)
+- [ ] For Borrow Withdraw/Repay: Uses popover mode (inline asset selector)
+- [ ] For other modules: Implement token selector modal or popover
 - [ ] Clear amount when token changes
 - [ ] Update validation for new token
 
 ### Shared Validation Hook
 
-- [ ] Create `useUniversalYourModuleAction` hook
+- [ ] For Borrow: Use `useUniversalBorrowAction` hook (already integrated in ManagePosition)
+- [ ] For other modules: Create `useUniversalYourModuleAction` hook
 - [ ] Implement debounced validation
 - [ ] Return validation results and errors
 

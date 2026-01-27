@@ -46,15 +46,43 @@ BorrowHome (integrated in Earn Tab)
 | `packages/kit/src/views/Borrow/components/BorrowedCard.tsx` | User's borrowed assets |
 | `packages/kit/src/views/Borrow/components/BorrowCard.tsx` | Available to borrow |
 
-### Operation Components
+### ManagePosition Component (Unified Operation Component)
+
+The `ManagePosition` component is a unified component that handles all 4 borrow operations (Supply, Withdraw, Borrow, Repay) through a single `action` prop. This reduces code duplication by 70-80%.
 
 | File | Purpose |
 |------|---------|
-| `packages/kit/src/views/Borrow/components/UniversalBorrowSupply/index.tsx` | Supply operation |
-| `packages/kit/src/views/Borrow/components/UniversalBorrowWithdraw/index.tsx` | Withdraw operation |
-| `packages/kit/src/views/Borrow/components/UniversalBorrowBorrow/index.tsx` | Borrow operation |
-| `packages/kit/src/views/Borrow/components/UniversalBorrowRepay/index.tsx` | Repay operation |
-| `packages/kit/src/views/Borrow/components/UniversalBorrowAction/index.tsx` | Shared validation hook |
+| `packages/kit/src/views/Borrow/components/ManagePosition/index.tsx` | Main entry, unified component for all 4 operations |
+| `packages/kit/src/views/Borrow/components/ManagePosition/ManagePositionContext.tsx` | Context for state management |
+| `packages/kit/src/views/Borrow/components/ManagePosition/types.ts` | Type definitions |
+
+#### ManagePosition Hooks
+
+| File | Purpose |
+|------|---------|
+| `packages/kit/src/views/Borrow/components/ManagePosition/hooks/useManagePositionState.ts` | Core state management (balance, validation, derived values) |
+| `packages/kit/src/views/Borrow/components/ManagePosition/hooks/useAmountInput.ts` | Amount input logic (onChange, onMax, percentage selection) |
+| `packages/kit/src/views/Borrow/components/ManagePosition/hooks/useTokenSelector.ts` | Token selector logic (navigation vs popover mode) |
+
+#### ManagePosition UI Modules
+
+| File | Purpose |
+|------|---------|
+| `packages/kit/src/views/Borrow/components/ManagePosition/modules/AmountInputSection.tsx` | Amount input area with token selector |
+| `packages/kit/src/views/Borrow/components/ManagePosition/modules/ActionFooter.tsx` | Confirm button and percentage keyboard |
+| `packages/kit/src/views/Borrow/components/ManagePosition/modules/InfoDisplaySection/index.tsx` | Info display area (health factor, APY, fees) |
+| `packages/kit/src/views/Borrow/components/ManagePosition/modules/InfoDisplaySection/HealthFactorInfo.tsx` | Health factor display |
+| `packages/kit/src/views/Borrow/components/ManagePosition/modules/InfoDisplaySection/PositionInfo.tsx` | Position info (supply/borrow amounts) |
+| `packages/kit/src/views/Borrow/components/ManagePosition/modules/InfoDisplaySection/ApyInfo.tsx` | APY details |
+| `packages/kit/src/views/Borrow/components/ManagePosition/modules/InfoDisplaySection/FeeInfo.tsx` | Fee information |
+| `packages/kit/src/views/Borrow/components/ManagePosition/modules/InfoDisplaySection/CollateralInfo.tsx` | Collateral info |
+| `packages/kit/src/views/Borrow/components/ManagePosition/modules/InfoDisplaySection/SwapOrBridgeInfo.tsx` | Swap/Bridge prompt |
+
+#### Shared Validation Hook
+
+| File | Purpose |
+|------|---------|
+| `packages/kit/src/views/Borrow/components/UniversalBorrowAction/index.tsx` | Shared validation hook (useUniversalBorrowAction) |
 
 ### Detail Pages
 
@@ -72,7 +100,7 @@ BorrowHome (integrated in Earn Tab)
 | `packages/kit/src/views/Borrow/hooks/useBorrowReserves.ts` | Fetch reserves |
 | `packages/kit/src/views/Borrow/hooks/useBorrowHealthFactor.ts` | Health factor with polling |
 | `packages/kit/src/views/Borrow/hooks/useBorrowRewards.ts` | Claimable rewards |
-| `packages/kit/src/views/Borrow/hooks/useUniversalBorrowHooks.ts` | Claim action |
+| `packages/kit/src/views/Borrow/hooks/useUniversalBorrowHooks.ts` | Transaction hooks (Supply, Withdraw, Borrow, Repay, Claim) |
 
 ### Utilities
 
@@ -83,175 +111,457 @@ BorrowHome (integrated in Earn Tab)
 
 ---
 
-## 4 Operation Types
+## ManagePosition Component
 
-### 1. Supply (Add Collateral)
+### Overview
 
-**Component:** `UniversalBorrowSupply`
+`ManagePosition` is a unified component that handles all 4 borrow operations (Supply, Withdraw, Borrow, Repay) through a single `action` prop. This reduces code duplication by 70-80%.
 
-**Props:**
+### Props
+
 ```typescript
-{
+interface IManagePositionProps {
+  // Core identifiers
   accountId: string;
   networkId: string;
   providerName: string;
   borrowMarketAddress: string;
   borrowReserveAddress: string;
-  balance: string;           // Wallet balance
-  maxBalance?: string;       // For max button
-  tokenSymbol: string;
-  tokenImageUri: string;
-  decimals: number;
-  price: string;
-  tokenInfo: ITokenInfo;
-  borrowReserves: IBorrowReserveItem;
+
+  // Action type - determines behavior
+  action: 'supply' | 'withdraw' | 'borrow' | 'repay';
+
+  // Token info
+  balance: string;           // Wallet balance (Supply/Repay) or Position balance (Withdraw/Borrow)
+  maxBalance?: string;       // For max button calculation
+  tokenSymbol?: string;
+  tokenImageUri?: string;
+  decimals?: number;
+  price?: string;
+  tokenInfo?: IEarnTokenInfo;
+
+  // UI configuration
   isDisabled?: boolean;
+  beforeFooter?: ReactElement | null;
   showApyDetail?: boolean;
   actionLabel?: string;
-  onConfirm: (params: ISupplyParams) => Promise<void>;
-}
-```
+  isInModalContext?: boolean;  // Modal context flag
 
-**Features:**
-- Amount input with percentage selector (25%, 50%, 75%, 100%)
-- Token selector (opens BorrowTokenSelect modal)
-- Health factor preview (current → after)
-- Supply APY display
-- "Can be used as collateral" indicator
-- Swap/Bridge options for token acquisition
-
-**Validation:**
-- Amount > 0
-- Amount <= wallet balance
-- Valid decimal places
-- Protocol-specific checks via `useUniversalBorrowAction`
-
-### 2. Withdraw (Remove Collateral)
-
-**Component:** `UniversalBorrowWithdraw`
-
-**Props:**
-```typescript
-{
-  accountId: string;
-  networkId: string;
-  providerName: string;
-  borrowMarketAddress: string;
-  borrowReserveAddress: string;
-  balance: string;           // Supplied amount
-  tokenSymbol: string;
-  tokenImageUri: string;
-  decimals: number;
-  price: string;
-  tokenInfo: ITokenInfo;
-  isDisabled?: boolean;
-  showApyDetail?: boolean;
-  actionLabel?: string;
-  selectableAssets?: ISelectableAsset[];  // For multi-asset withdrawal
+  // Token selection (for withdraw/repay popover mode)
+  selectableAssets?: IBorrowAsset[];
   selectableAssetsLoading?: boolean;
-  onTokenSelect?: (asset: ISelectableAsset) => void;
-  onConfirm: (params: IWithdrawParams) => Promise<void>;
+  onTokenSelect?: (item: IBorrowAsset) => void;
+
+  // Callbacks
+  onConfirm?: (params: IManagePositionConfirmParams) => Promise<void>;
+}
+
+interface IManagePositionConfirmParams {
+  amount: string;
+  withdrawAll?: boolean;  // For withdraw action
+  repayAll?: boolean;     // For repay action
 }
 ```
 
-**Features:**
-- Amount input
-- Asset selector popover (for multi-asset)
-- Health factor preview
-- "Withdraw All" option
-- Supply APY display
+### Action-Specific Behavior
 
-**Special:**
-- `isWithdrawAll` flag passed to `onConfirm`
-- Clears amount when token changes
+| Feature | Supply | Withdraw | Borrow | Repay |
+|---------|--------|----------|--------|-------|
+| Token Selector Mode | Navigation | Popover | Navigation | Popover |
+| Check Insufficient Balance | ✅ | ✅ | ❌ | ✅ |
+| Percentage Calculation Base | maxBalance | maxBalance | maxBalance | Wallet Balance |
+| Liquidation Risk Dialog | ❌ | ❌ | ✅ | ❌ |
+| isDisabled Affects Info Area | ❌ | ✅ | ✅ | ✅ |
+| Special Flag | - | withdrawAll | - | repayAll |
 
-### 3. Borrow
+### Usage Examples
 
-**Component:** `UniversalBorrowBorrow`
+```tsx
+import { ManagePosition } from '@onekeyhq/kit/src/views/Borrow/components/ManagePosition';
+import type { IManagePositionConfirmParams } from '@onekeyhq/kit/src/views/Borrow/components/ManagePosition';
 
-**Props:**
+// Supply
+<ManagePosition
+  accountId={accountId}
+  networkId={networkId}
+  providerName={providerName}
+  action="supply"
+  balance={walletBalance}
+  maxBalance={maxSupplyBalance}
+  tokenSymbol="USDC"
+  tokenImageUri={tokenLogo}
+  decimals={6}
+  price="1.00"
+  borrowMarketAddress={marketAddress}
+  borrowReserveAddress={reserveAddress}
+  onConfirm={async ({ amount }) => {
+    await handleSupply(amount);
+  }}
+/>
+
+// Withdraw with token selector
+<ManagePosition
+  accountId={accountId}
+  networkId={networkId}
+  providerName={providerName}
+  action="withdraw"
+  balance={suppliedBalance}
+  tokenSymbol="USDC"
+  tokenImageUri={tokenLogo}
+  decimals={6}
+  price="1.00"
+  borrowMarketAddress={marketAddress}
+  borrowReserveAddress={reserveAddress}
+  selectableAssets={suppliedAssets}
+  selectableAssetsLoading={isLoading}
+  onTokenSelect={handleTokenSelect}
+  onConfirm={async ({ amount, withdrawAll }) => {
+    await handleWithdraw(amount, withdrawAll);
+  }}
+/>
+
+// Borrow (liquidation risk dialog handled internally)
+<ManagePosition
+  accountId={accountId}
+  networkId={networkId}
+  providerName={providerName}
+  action="borrow"
+  balance={availableToBorrow}
+  tokenSymbol="USDC"
+  tokenImageUri={tokenLogo}
+  decimals={6}
+  price="1.00"
+  borrowMarketAddress={marketAddress}
+  borrowReserveAddress={reserveAddress}
+  onConfirm={async ({ amount }) => {
+    await handleBorrow(amount);
+  }}
+/>
+
+// Repay
+<ManagePosition
+  accountId={accountId}
+  networkId={networkId}
+  providerName={providerName}
+  action="repay"
+  balance={walletBalance}
+  maxBalance={debtBalance}  // Debt balance for repay all
+  tokenSymbol="USDC"
+  tokenImageUri={tokenLogo}
+  decimals={6}
+  price="1.00"
+  borrowMarketAddress={marketAddress}
+  borrowReserveAddress={reserveAddress}
+  selectableAssets={borrowedAssets}
+  selectableAssetsLoading={isLoading}
+  onTokenSelect={handleTokenSelect}
+  onConfirm={async ({ amount, repayAll }) => {
+    await handleRepay(amount, repayAll);
+  }}
+/>
+```
+
+### Internal Architecture
+
+```
+ManagePosition
+├── useManagePositionState()     # Core state (balance, validation, derived values)
+├── useAmountInput()             # Input handling (onChange, onMax, percentage)
+├── useTokenSelector()           # Token selector (navigation vs popover)
+├── useUniversalBorrowAction()   # Backend validation API
+├── ManagePositionContext        # Shared state via Context
+└── UI Modules
+    ├── AmountInputSection       # Input area
+    ├── InfoDisplaySection       # Info display
+    │   ├── HealthFactorInfo
+    │   ├── PositionInfo
+    │   ├── ApyInfo
+    │   ├── FeeInfo
+    │   ├── CollateralInfo
+    │   └── SwapOrBridgeInfo
+    └── ActionFooter             # Confirm button
+```
+
+### Token Selector Modes
+
+#### Navigation Mode (Supply/Borrow)
+
+Opens a full-screen token selection page:
+
 ```typescript
-{
+// In useTokenSelector.ts
+if (action === 'supply' || action === 'borrow') {
+  navigation.push(EModalStakingRoutes.BorrowTokenSelect, {
+    accountId,
+    networkId,
+    provider: providerName,
+    marketAddress: borrowMarketAddress,
+    action,
+    currentReserveAddress: borrowReserveAddress,
+    onSelect: (item: IBorrowAsset) => {
+      navigation.setParams({
+        reserveAddress: item.reserveAddress,
+        symbol: item.token.symbol,
+        logoURI: item.token.logoURI,
+      });
+    },
+  });
+}
+```
+
+#### Popover Mode (Withdraw/Repay)
+
+Shows a popover with selectable assets:
+
+```typescript
+// In useTokenSelector.ts
+if (action === 'withdraw' || action === 'repay') {
+  // Uses BorrowAssetSelectPopover component
+  const popoverContent = createBorrowAssetSelectPopoverContent({
+    assets: selectableAssets,
+    isLoading: selectableAssetsLoading,
+    selectedReserveAddress: borrowReserveAddress,
+    action: action as 'withdraw' | 'repay',
+    onSelect: (item) => {
+      setAmountValue('');  // Clear input when switching token
+      onTokenSelect?.(item);
+    },
+  });
+}
+```
+
+### Liquidation Risk Dialog (Borrow Only)
+
+For borrow action, the component automatically shows a liquidation risk confirmation dialog when the health factor is at risk:
+
+```typescript
+// In ActionFooter.tsx
+const handleConfirm = useCallback(async () => {
+  if (action === 'borrow' && actionResult?.riskOfLiquidationAlert) {
+    const confirmed = await showLiquidationRiskDialog();
+    if (!confirmed) return;
+  }
+  await onConfirm?.({ amount, withdrawAll, repayAll });
+}, [action, actionResult, amount, withdrawAll, repayAll, onConfirm]);
+```
+
+### Percentage Selection
+
+The percentage selector (25%, 50%, 75%, 100%) calculates differently based on action:
+
+```typescript
+// In useAmountInput.ts
+const onSelectPercentageStage = useCallback((stage: number) => {
+  let baseAmount: string;
+
+  if (action === 'repay') {
+    // Repay: percentage of wallet balance (not debt)
+    baseAmount = balance;
+  } else {
+    // Supply/Withdraw/Borrow: percentage of maxBalance
+    baseAmount = maxAmountValue;
+  }
+
+  const percentage = stage / 100;
+  const amount = new BigNumber(baseAmount).times(percentage).toFixed(decimals);
+  setAmountValue(amount);
+}, [action, balance, maxAmountValue, decimals, setAmountValue]);
+```
+
+### ManagePosition Context
+
+```typescript
+interface IManagePositionContextValue {
+  state: IManagePositionState;
+  actions: IManagePositionActions;
+  actionResult: IManagePositionActionResult | null;
+}
+
+interface IManagePositionState {
+  // Core identifiers
   accountId: string;
   networkId: string;
   providerName: string;
   borrowMarketAddress: string;
   borrowReserveAddress: string;
-  balance: string;           // Available to borrow
-  tokenSymbol: string;
-  tokenImageUri: string;
-  decimals: number;
-  price: string;
-  tokenInfo: ITokenInfo;
-  borrowReserves: IBorrowReserveItem;
-  isDisabled?: boolean;
-  showApyDetail?: boolean;
+
+  // Action configuration
+  action: TBorrowActionType;
   actionLabel?: string;
-  onConfirm: (params: IBorrowParams) => Promise<void>;
-}
-```
 
-**Features:**
-- Amount input with percentage selector
-- Token selector
-- Health factor preview
-- Borrow APY display
-- **Liquidation Risk Dialog** - Shows warning if borrowing increases risk
-
-**Liquidation Risk Handling:**
-```typescript
-const { riskOfLiquidationAlert } = useUniversalBorrowAction({
-  action: 'borrow',
-  // ... other params
-});
-
-// Before confirming, check risk
-if (riskOfLiquidationAlert) {
-  const confirmed = await showLiquidationRiskDialog();
-  if (!confirmed) return;
-}
-await onConfirm(params);
-```
-
-### 4. Repay
-
-**Component:** `UniversalBorrowRepay`
-
-**Props:**
-```typescript
-{
-  accountId: string;
-  networkId: string;
-  providerName: string;
-  borrowMarketAddress: string;
-  borrowReserveAddress: string;
-  balance: string;           // Wallet balance
-  maxBalance?: string;       // Debt balance (for repay all)
-  tokenSymbol: string;
-  tokenImageUri: string;
-  decimals: number;
+  // Token info
+  tokenSymbol?: string;
+  tokenImageUri?: string;
+  decimals?: number;
   price: string;
-  tokenInfo: ITokenInfo;
-  isDisabled?: boolean;
-  showApyDetail?: boolean;
-  actionLabel?: string;
-  selectableAssets?: ISelectableAsset[];
+  balance: string;
+  maxBalance?: string;
+  tokenInfo?: IEarnTokenInfo;
+  token?: IToken;
+  networkLogoURI?: string;
+
+  // UI state
+  isDisabled: boolean;
+  isInModalContext: boolean;
+  amountValue: string;
+  submitting: boolean;
+
+  // Derived values
+  maxAmountValue: string;
+  currentValue: string;
+  currencySymbol: string;
+
+  // Validation state
+  isInsufficientBalance: boolean;
+  isAmountInvalid: boolean;
+
+  // Action-specific flags
+  isWithdrawAll: boolean;
+  isRepayAll: boolean;
+
+  // Token selection
+  selectableAssets?: IBorrowAsset[];
   selectableAssetsLoading?: boolean;
-  onTokenSelect?: (asset: ISelectableAsset) => void;
-  onConfirm: (params: IRepayParams) => Promise<void>;
+  tokenSelectorMode: TTokenSelectorMode;
+  tokenSelectorTriggerProps: ITokenSelectorTriggerProps;
+
+  // UI configuration
+  showApyDetail: boolean;
+  beforeFooter?: ReactElement | null;
+}
+
+interface IManagePositionActions {
+  setAmountValue: (value: string) => void;
+  setSubmitting: (value: boolean) => void;
+  onChangeAmountValue: (value: string) => void;
+  onBlurAmountValue: () => void;
+  onMax: () => void;
+  onSelectPercentageStage: (stage: number) => void;
+  onTokenSelect?: (item: IBorrowAsset) => void;
+  handleOpenTokenSelector: () => void;
+  onSubmit: () => Promise<void>;
 }
 ```
 
-**Features:**
-- Amount input
-- Asset selector popover
-- Health factor preview
-- "Repay All" option
-- Borrow APY display
+### Usage in Modules
 
-**Special:**
-- `maxBalance` represents debt balance, not wallet balance
-- `isRepayAll` flag passed to `onConfirm`
+```typescript
+// In any module component
+import { useManagePositionContext } from '../ManagePositionContext';
+
+function AmountInputSection() {
+  const { state, actions } = useManagePositionContext();
+
+  return (
+    <StakingAmountInput
+      value={state.amountValue}
+      onChange={actions.onChangeAmountValue}
+      onMax={actions.onMax}
+      tokenSymbol={state.tokenSymbol}
+      tokenImageUri={state.tokenImageUri}
+      balance={state.balance}
+      isInsufficientBalance={state.isInsufficientBalance}
+      // ...
+    />
+  );
+}
+```
+
+---
+
+## Integration with Staking Module
+
+The `ManagePosition` component is used by the Staking module's `StakeSection` and `WithdrawSection` components when the Borrow API is enabled.
+
+### StakeSection Integration
+
+```typescript
+// In StakeSection.tsx
+import {
+  ManagePosition,
+  type IManagePositionConfirmParams,
+} from '@onekeyhq/kit/src/views/Borrow/components/ManagePosition';
+
+const StakeSection = ({ useBorrowApi, borrowAction, ... }) => {
+  const isBorrowStake =
+    borrowApiCtx.isBorrow &&
+    (borrowApiCtx.borrowApiParams.action === 'supply' ||
+      borrowApiCtx.borrowApiParams.action === 'borrow');
+
+  const onBorrowConfirm = useCallback(
+    async (params: IManagePositionConfirmParams) => {
+      const { amount } = params;
+      // Handle supply or borrow
+      await (action === 'borrow' ? handleBorrowBorrow : handleBorrowSupply)({
+        amount,
+        // ...
+      });
+    },
+    [...]
+  );
+
+  return isBorrowStake ? (
+    <ManagePosition
+      accountId={accountId}
+      networkId={networkId}
+      providerName={providerName}
+      action={borrowApiCtx.borrowApiParams.action as 'supply' | 'borrow'}
+      balance={tokenInfo?.balanceParsed ?? ''}
+      maxBalance={effectiveMaxBalance}
+      onConfirm={onBorrowConfirm}
+      isInModalContext={isInModalContext}
+      // ...
+    />
+  ) : (
+    <UniversalStake ... />
+  );
+};
+```
+
+### WithdrawSection Integration
+
+```typescript
+// In WithdrawSection.tsx
+import { ManagePosition } from '@onekeyhq/kit/src/views/Borrow/components/ManagePosition';
+import type { IManagePositionConfirmParams } from '@onekeyhq/kit/src/views/Borrow/components/ManagePosition';
+
+const WithdrawSection = ({ useBorrowApi, borrowAction, ... }) => {
+  const isBorrowWithdraw =
+    borrowApiCtx.isBorrow &&
+    (borrowApiCtx.borrowApiParams.action === 'withdraw' ||
+      borrowApiCtx.borrowApiParams.action === 'repay');
+
+  const onBorrowConfirm = useCallback(
+    async ({ amount, withdrawAll, repayAll }: IManagePositionConfirmParams) => {
+      if (action === 'repay') {
+        await handleBorrowRepay({ amount, repayAll, ... });
+      } else {
+        await handleBorrowWithdraw({ amount, withdrawAll, ... });
+      }
+    },
+    [...]
+  );
+
+  return isBorrowWithdraw ? (
+    <ManagePosition
+      accountId={accountId}
+      networkId={networkId}
+      providerName={providerName}
+      action={borrowApiCtx.borrowApiParams.action as 'withdraw' | 'repay'}
+      balance={effectiveBalance}
+      maxBalance={effectiveMaxBalance}
+      selectableAssets={assetsList.assets}
+      selectableAssetsLoading={assetsListLoading}
+      onTokenSelect={handleTokenSelect}
+      onConfirm={onBorrowConfirm}
+      isInModalContext={isInModalContext}
+      // ...
+    />
+  ) : (
+    <UniversalWithdraw ... />
+  );
+};
+```
 
 ---
 
