@@ -254,6 +254,12 @@ function VerifyPinPage() {
         setShowAttemptError(true);
 
         if (!isNil(errorInfo?.guessesRemaining) && newAttemptsRemaining <= 0) {
+          // Since IncorrectPinError is in the ignore list defined in errorToastUtils.ts and won't show a default Toast, we need to explicitly call Toast here
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.pin_attempts_exhausted,
+            }),
+          });
           void handleForgotPin();
           return;
         }
@@ -275,6 +281,7 @@ function VerifyPinPage() {
       );
     }
   }, [
+    intl,
     pin,
     mode,
     pinInputRef,
