@@ -2,7 +2,7 @@ import { cloneElement, useCallback, useMemo } from 'react';
 
 import { StyleSheet } from 'react-native';
 
-import { Badge, Stack, YStack } from '@onekeyhq/components';
+import { Badge, Icon, Stack, YStack } from '@onekeyhq/components';
 import type {
   IBadgeProps,
   IIconProps,
@@ -99,8 +99,11 @@ export function TabSettingsListGrid({
       iconProps={iconProps}
       title={item?.title}
       subtitle={item?.subtitle}
-      drillIn
+      drillIn={!item?.isExternalLink}
     >
+      {item?.isExternalLink ? (
+        <Icon name="ArrowTopRightOutline" size="$5" color="$iconSubdued" />
+      ) : null}
       {item?.badgeProps ? (
         <Badge
           badgeSize={item.badgeProps.badgeSize as IBadgeProps['badgeSize']}

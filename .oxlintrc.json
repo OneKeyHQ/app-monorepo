@@ -186,10 +186,11 @@
     "typescript/no-unnecessary-type-arguments": "off",
     "typescript/no-unnecessary-template-expression": "off",
     "typescript/no-duplicate-type-constituents": "off",
-    "typescript/no-misused-spread": "off",
     "typescript/no-redundant-type-constituents": "off",
     "typescript/require-array-sort-compare": "off",
-    "typescript/no-array-delete": "off",
+    "typescript/no-misused-spread": "error",
+    "typescript/no-array-delete": "error",
+    "typescript/no-misused-promises": ["error", { "checksVoidReturn": false }],
     // ============================================
     // TypeScript rules (matching ESLint config)
     // ============================================
