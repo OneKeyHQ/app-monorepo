@@ -755,7 +755,7 @@ class TimeoutThrottledDomListener<R, E extends DOMEvent> extends Disposable {
     node: any,
     type: string,
     handler: (event: R) => void,
-    eventMerger: IEventMerger<R, E> = <any>DEFAULT_EVENT_MERGER,
+    eventMerger: IEventMerger<R, E> = DEFAULT_EVENT_MERGER,
     minimumTimeMs: number = MINIMUM_TIME_MS,
   ) {
     super();
@@ -1071,7 +1071,7 @@ export const StandardWindow: IStandardWindow = new (class
       // modern browsers
       return window.scrollX;
     } else {
-      return document.body.scrollLeft + document.documentElement!.scrollLeft;
+      return document.body.scrollLeft + document.documentElement.scrollLeft;
     }
   }
 
@@ -1080,7 +1080,7 @@ export const StandardWindow: IStandardWindow = new (class
       // modern browsers
       return window.scrollY;
     } else {
-      return document.body.scrollTop + document.documentElement!.scrollTop;
+      return document.body.scrollTop + document.documentElement.scrollTop;
     }
   }
 })();
@@ -1469,7 +1469,7 @@ export function $<T extends HTMLElement>(
 
   attrs = attrs || {};
   Object.keys(attrs).forEach((name) => {
-    const value = attrs![name];
+    const value = attrs[name];
     if (/^on\w+$/.test(name)) {
       (<any>result)[name] = value;
     } else if (name === 'selected') {
@@ -1485,7 +1485,7 @@ export function $<T extends HTMLElement>(
     if (child instanceof Node) {
       result.appendChild(child);
     } else {
-      result.appendChild(document.createTextNode(child as string));
+      result.appendChild(document.createTextNode(child));
     }
   });
 

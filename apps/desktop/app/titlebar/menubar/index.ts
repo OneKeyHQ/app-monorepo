@@ -165,7 +165,7 @@ export class MenuBar extends Disposable {
 
     this._register(
       DOM.addDisposableListener(this.container, DOM.EventType.KEY_DOWN, (e) => {
-        const event = new StandardKeyboardEvent(e as KeyboardEvent);
+        const event = new StandardKeyboardEvent(e);
         let eventHandled = true;
         const key = !!e.key ? e.key.toLocaleLowerCase() : '';
 
@@ -227,7 +227,7 @@ export class MenuBar extends Disposable {
 
     this._register(
       DOM.addDisposableListener(this.container, DOM.EventType.FOCUS_IN, (e) => {
-        const event = e as FocusEvent;
+        const event = e;
 
         if (event.relatedTarget) {
           if (!this.container.contains(event.relatedTarget as HTMLElement)) {
@@ -242,7 +242,7 @@ export class MenuBar extends Disposable {
         this.container,
         DOM.EventType.FOCUS_OUT,
         (e) => {
-          const event = e as FocusEvent;
+          const event = e;
 
           // We are losing focus and there is a target, reset focusToReturn value as not to redirect
           if (
@@ -330,7 +330,7 @@ export class MenuBar extends Disposable {
             buttonElement,
             DOM.EventType.KEY_UP,
             (e) => {
-              const event = new StandardKeyboardEvent(e as KeyboardEvent);
+              const event = new StandardKeyboardEvent(e);
               let eventHandled = true;
 
               if (
@@ -473,7 +473,7 @@ export class MenuBar extends Disposable {
 
     this._register(
       DOM.addDisposableListener(buttonElement, DOM.EventType.KEY_UP, (e) => {
-        const event = new StandardKeyboardEvent(e as KeyboardEvent);
+        const event = new StandardKeyboardEvent(e);
         let eventHandled = true;
 
         const triggerKeys = [KeyCode.Enter];

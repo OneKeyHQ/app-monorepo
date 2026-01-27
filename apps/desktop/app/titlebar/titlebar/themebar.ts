@@ -5,9 +5,9 @@
 
 import type { IDisposable } from '../base/common/lifecycle';
 import { Disposable, toDisposable } from '../base/common/lifecycle';
-const baseTheme: string = require('static/theme/base.css');
-const macTheme: string = require('static/theme/mac.css');
-const winTheme: string = require('static/theme/win.css');
+const baseTheme: string = require('../theme/base.css');
+const macTheme: string = require('../theme/mac.css');
+const winTheme: string = require('../theme/win.css');
 
 export interface CssStyle {
   addRule(rule: string): void;

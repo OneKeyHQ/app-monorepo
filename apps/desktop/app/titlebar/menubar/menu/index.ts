@@ -486,7 +486,7 @@ export class CETMenu extends Disposable {
 
   private cancel(): void {
     if (document.activeElement instanceof HTMLElement) {
-      (<HTMLElement>document.activeElement).blur(); // remove focus from focused action
+      (document.activeElement).blur(); // remove focus from focused action
     }
 
     this._onDidCancel.fire();
