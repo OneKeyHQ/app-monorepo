@@ -667,6 +667,7 @@
   },
   "trustedDependencies": [
     "patch-package",
+    "@sentry/cli",
   ],
   "overrides": {
     "@babel/code-frame": "7.27.1",

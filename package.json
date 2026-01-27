@@ -10,7 +10,8 @@
     "node": ">=22"
   },
   "trustedDependencies": [
-    "patch-package"
+    "patch-package",
+    "@sentry/cli"
   ],
   "scripts": {
     "setup:env": "node -e \"const fs=require('fs');if(!fs.existsSync('.env'))fs.copyFileSync('.env.example','.env');\"",
