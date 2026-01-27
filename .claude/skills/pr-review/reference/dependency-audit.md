@@ -3,7 +3,7 @@
 ## Suggested commands
 - Show dependency diffs:
   - git diff -- package.json
-  - git diff -- yarn.lock pnpm-lock.yaml package-lock.json
+  - git diff -- bun.lockb yarn.lock pnpm-lock.yaml package-lock.json
 - Inspect package metadata:
   - npm view <pkg> version time maintainers repository dist.tarball
 - Locate entrypoints:

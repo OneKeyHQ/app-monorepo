@@ -2,28 +2,28 @@
 ## 🌍 环境配置
 
 1. 安装 [node.js LTS 版本（>= 16）](https://nodejs.org/en/)
-2. 安装 [yarn 包管理工具](https://yarnpkg.com/) 1.18.0 版本。（安装完成最新版本的 yarn 之后，根目录执行 `yarn policies set-version 1.18.0`）
+2. 安装 [Bun](https://bun.sh/)
 3. 安装 [git lfs](https://git-lfs.github.com/)（部分二进制文件在拉取和更新时需要）
 4. 启动 iOS 项目需确保本地 XCode 版本大于等于 13.3
 5. 启动 Android 项目需确保本地 JDK 版本大于等于 11
 
-通过 git 命令行工具拉取最新的代码之后，通过 `yarn` 命令在根目录安装项目依赖
+通过 git 命令行工具拉取最新的代码之后，通过 `bun install` 命令在根目录安装项目依赖
 
 安装所有 JS 依赖及子模块依赖
 
 ```
-yarn
+bun install
 ```
 
 ## 🛠 开发
 
 在根目录执行以下命令，从而开发不同的业务代码
 
-- `yarn app:web`: 开发网页模式，会启动静态服务器在本地 3000 端口
-- `yarn app:ios`: 通过 USB 连接 iphone 设备进行开发调试
-- `yarn app:android`: 调试安卓
-- `yarn app:desktop`: 开发桌面端模式
-- `yarn app:ext`: 开发浏览器插件
+- `bun run app:web`: 开发网页模式，会启动静态服务器在本地 3000 端口
+- `bun run app:ios`: 通过 USB 连接 iphone 设备进行开发调试
+- `bun run app:android`: 调试安卓
+- `bun run app:desktop`: 开发桌面端模式
+- `bun run app:ext`: 开发浏览器插件
 
 ### Android 项目配置
 
@@ -51,7 +51,7 @@ yarn
 
 `packages/` 目录下的每一个子目录即一个独立的项目，对应在 monorepo 名称即为对应目录中 **package.json** 的 `name` 字段的值。
 
-当需要给某一个子目录安装依赖时，只需要使用 `yarn workspace @onekeyhq/web add axios`。通过 `yarn workspace @onekeyhq/web` 这样的前缀，最终可以在根目录把 axios 模块安装到 web 这个子项目当中。
+当需要给某一个子目录安装依赖时，只需要使用 `bun add axios --cwd apps/web`。通过 `--cwd apps/web` 这样的参数，最终可以在根目录把 axios 模块安装到 web 这个子项目当中。
 
 部分依赖有原生部分，所以执行安装完 JS 依赖后需要进入 `apps/ios` 目录下执行 `pod install`。
 
@@ -59,8 +59,4 @@ yarn
 
 1. app 无法启动及各类环境启动问题
 
-任何启动阶段的环境，模块及依赖问题，都推荐先使用根目录下命令 `yarn clean`。命令中会清除所有子依赖，同时清除 yarn 的模块缓存，metro / babel 等工具缓存，之后重新启动项目尝试。
-
-2. yarn 安装依赖过程中或新增依赖时，提示 **error An unexpected error occurred: "expected workspace package to exist for**
-
-参考 https://github.com/yarnpkg/yarn/issues/7807，通过命令 `yarn policies set-version 1.18.0` 设置当前环境 yarn 版本为 1.18.0
+任何启动阶段的环境，模块及依赖问题，都推荐先使用根目录下命令 `bun run clean`。命令中会清除所有子依赖，同时清除模块缓存，metro / babel 等工具缓存，之后重新启动项目尝试。

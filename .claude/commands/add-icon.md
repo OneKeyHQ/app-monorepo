@@ -30,7 +30,7 @@ Execute the following workflow to add a new icon to the components package:
 
 4. **Generate React components**
    - Navigate to components package: `cd packages/components`
-   - Run the icon build command: `yarn icon:build`
+   - Run the icon build command: `bun run icon:build`
    - This will:
      - Convert SVG to React Native compatible TSX component
      - Update the index.ts exports automatically
@@ -51,7 +51,7 @@ Execute the following workflow to add a new icon to the components package:
 
 - **Color**: Always use `currentColor` for fill/stroke to allow dynamic coloring
 - **Naming**: SVG files use kebab-case, generated components use PascalCase
-- **Build**: Must run `yarn icon:build` after adding SVG to generate components
+- **Build**: Must run `bun run icon:build` after adding SVG to generate components
 - **Types**: Icon types are automatically updated in `Icons.tsx`
 
 ## Example
@@ -59,6 +59,6 @@ Execute the following workflow to add a new icon to the components package:
 ```bash
 # Add an outline icon named "atom"
 # 1. Create: packages/components/svg/outline/atom.svg
-# 2. Run: cd packages/components && yarn icon:build
+# 2. Run: cd packages/components && bun run icon:build
 # 3. Use: <Icon name="AtomOutline" />
 ```

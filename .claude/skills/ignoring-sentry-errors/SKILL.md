@@ -87,7 +87,7 @@ if (platformEnv.isDesktop && error.value) {
 ### 4) Verify changes
 
 ```bash
-yarn eslint packages/shared/src/modules3rdParty/sentry/basicOptions.ts --quiet
+bun run eslint packages/shared/src/modules3rdParty/sentry/basicOptions.ts --quiet
 ```
 
 ## Platform Detection

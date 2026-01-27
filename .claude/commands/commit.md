@@ -17,7 +17,7 @@ Or with options:
 ## What This Command Does
 
 1. Unless specified with `--no-verify`, automatically runs pre-commit checks:
-   - `yarn lint` to ensure code quality
+   - `bun run lint` to ensure code quality
 2. Checks which files are staged with `git status`
 3. If 0 files are staged, automatically adds all modified and new files with `git add`
 4. Performs a `git diff` to understand what changes are being committed
@@ -151,7 +151,7 @@ Example of splitting commits:
 
 ## Important Notes
 
-- By default, pre-commit checks (`yarn lint`) will run to ensure code quality
+- By default, pre-commit checks (`bun run lint`) will run to ensure code quality
 - If these checks fail, you'll be asked if you want to proceed with the commit anyway or fix the issues first
 - If specific files are already staged, the command will only commit those files
 - If no files are staged, it will automatically stage all modified and new files

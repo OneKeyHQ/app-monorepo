@@ -1,6 +1,6 @@
 ---
 name: fix-lint
-description: Helps fix oxlint errors and warnings in the OneKey codebase. Use when running yarn lint and encountering warnings, cleaning up code before committing, or fixing spellcheck, unused variable, or other linting warnings.
+description: Helps fix oxlint errors and warnings in the OneKey codebase. Use when running bun run lint and encountering warnings, cleaning up code before committing, or fixing spellcheck, unused variable, or other linting warnings.
 ---
 
 # Fix Lint Skill
@@ -12,7 +12,7 @@ This skill helps fix oxlint warnings in the OneKey app-monorepo codebase.
 ## Usage
 
 Use this skill when:
-- Running `yarn lint` and encountering warnings
+- Running `bun run lint` and encountering warnings
 - Cleaning up code before committing
 - Fixing spellcheck, unused variable, or other ESLint warnings
 
@@ -21,7 +21,7 @@ Use this skill when:
 ### Step 1: Run Lint and Analyze Warnings
 
 ```bash
-yarn lint:only 2>&1 | tail -100
+bun run lint:only 2>&1 | tail -100
 ```
 
 ### Step 2: Categorize Warnings
@@ -125,7 +125,7 @@ function Parent() {
 ### Step 4: Verify Fixes
 
 ```bash
-yarn lint:only 2>&1 | tail -50
+bun run lint:only 2>&1 | tail -50
 ```
 
 ## Common Patterns in This Codebase
@@ -158,7 +158,7 @@ const { used, unused: _unused } = usePromiseResult(...);
 
 1. **Run lint with increased memory** for large codebases:
    ```bash
-   yarn lint:only
+   bun run lint:only
    ```
 
 2. **Check if word is in skip list** before adding:
@@ -170,7 +170,7 @@ const { used, unused: _unused } = usePromiseResult(...);
 
 4. **Verify no regressions** after fixes:
    ```bash
-   yarn tsc:only
+   bun run tsc:only
    ```
 
 ## Files Modified During Lint Fixes

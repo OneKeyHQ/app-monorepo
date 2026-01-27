@@ -199,7 +199,7 @@ Show how changed files relate to each other:
 
 ```text
 ┌─────────────────────┐     ┌─────────────────────┐
-│   package.json      │────▶│     yarn.lock       │
+│   package.json      │────▶│     bun.lockb       │
 └─────────────────────┘     └─────────────────────┘
           │
           ▼

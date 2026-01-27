@@ -55,7 +55,7 @@ allowed-tools: Read, Grep, Glob
 **BEFORE ADDING ANY IMPORT:**
 1. Verify the import respects the hierarchy above
 2. Check if the import creates a circular dependency
-3. Run `yarn tsc:only` to validate no circular dependency introduced
+3. Run `bun run tsc:only` to validate no circular dependency introduced
 4. If unsure, find an alternative approach that respects the hierarchy
 
 **COMMON VIOLATIONS TO AVOID:**
@@ -77,7 +77,7 @@ allowed-tools: Read, Grep, Glob
 
 1. **Scope Impact Assessment**
    - Identify ALL packages/apps affected by the change
-   - Map dependencies that will be impacted (use `yarn why <package>` if needed)
+   - Map dependencies that will be impacted (use `bun pm why <package>` if needed)
    - Evaluate cross-platform implications (desktop/mobile/web/extension)
    - Assess backward compatibility requirements
 

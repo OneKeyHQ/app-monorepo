@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Overview
 
-OneKey is an open-source multi-chain crypto wallet with a monorepo architecture supporting desktop, mobile, web, and browser extension platforms. The codebase uses Yarn workspaces with TypeScript and React/React Native.
+OneKey is an open-source multi-chain crypto wallet with a monorepo architecture supporting desktop, mobile, web, and browser extension platforms. The codebase uses Bun workspaces with TypeScript and React/React Native.
 
 ## CRITICAL: Ultrathink Mode for Complex Operations
 
@@ -80,14 +80,14 @@ OneKey is an open-source multi-chain crypto wallet with a monorepo architecture 
 ## Essential Commands
 
 ```bash
-yarn app:desktop    # Start desktop dev
-yarn app:web        # Start web dev
-yarn app:ext        # Start extension dev
-yarn app:ios        # Start iOS dev
-yarn app:android    # Start Android dev
-yarn lint           # MANDATORY: Run after code changes
-yarn test           # MANDATORY: Run tests
-yarn tsc:only       # Quick type check
+bun run app:desktop    # Start desktop dev
+bun run app:web        # Start web dev
+bun run app:ext        # Start extension dev
+bun run app:ios        # Start iOS dev
+bun run app:android    # Start Android dev
+bun run lint           # MANDATORY: Run after code changes
+bun run test           # MANDATORY: Run tests
+bun run tsc:only       # Quick type check
 ```
 
 ## Skills Reference

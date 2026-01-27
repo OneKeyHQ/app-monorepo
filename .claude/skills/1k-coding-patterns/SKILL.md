@@ -46,7 +46,7 @@ allowed-tools: Read, Grep, Glob, Write, Edit
 
 ## Linting and Code Quality
 - ESLint warnings should be fixed before PRs
-- Run `yarn run lint` to check for and fix ESLint issues
+- Run `bun run lint` to check for and fix ESLint issues
 
 ## Comments and Documentation
 - All comments must be written in English

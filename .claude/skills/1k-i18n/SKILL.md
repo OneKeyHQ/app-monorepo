@@ -28,7 +28,7 @@ allowed-tools: Read, Grep, Glob, Bash
 
 ## Updating Translation Keys
 1. **Direct translation from design specs**: Update i18n directly based on design spec annotations without searching existing translation keys
-2. Run `yarn fetch:locale` to pull the latest translation keys from the remote system
+2. Run `bun run fetch:locale` to pull the latest translation keys from the remote system
 3. This command automatically updates `@onekeyhq/shared/src/locale/enum/translations.ts` with new translation enums
 4. For design spec translation keys like `prime::restore_purchases`, convert to code format:
    - Replace `::` with `_` (underscore)

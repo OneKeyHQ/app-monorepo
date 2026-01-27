@@ -15,7 +15,7 @@ function checkPort() {
     return;
   }
 
-  execSync('yarn run dev:main', {
+  execSync('bun run dev:main', {
     cwd: projectRoot,
     stdio: 'inherit',
   });

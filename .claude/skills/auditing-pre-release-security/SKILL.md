@@ -66,7 +66,7 @@ Ask for the missing ref. Do **not** assume defaults unless the user explicitly s
 ### Step B — Collect key diffs
 Focus on:
 - [ ] Source: `**/*.{js,ts,tsx}`
-- [ ] Dependencies: `**/package.json`, `yarn.lock`
+- [ ] Dependencies: `**/package.json`, `bun.lockb`
 - [ ] CI: `.github/workflows/**`
 - [ ] Expo/EAS configs: `eas.json`, `app.json`, `app.config.*`, build scripts
 
@@ -76,19 +76,17 @@ Focus on:
 - [ ] Version range policy checks:
   - Flag `*` / `latest` as High risk
   - Flag `^` / `~` as Medium risk (explain why this matters for release determinism)
-- [ ] If deps changed but `yarn.lock` did not, flag as High risk.
+- [ ] If deps changed but `bun.lockb` did not, flag as High risk.
 
 ### Step D — Lockfile determinism (best-effort)
-- [ ] Detect Yarn flavor: `yarn -v`
-- [ ] Try one:
-  - Yarn Berry: `yarn install --immutable`
-  - Yarn Classic: `yarn install --frozen-lockfile`
-- [ ] Record anomalies: `resolutions`, `patches`, non-registry sources, unexpected downloads.
+- [ ] Detect Bun version: `bun -v`
+- [ ] Try: `bun install --frozen-lockfile`
+- [ ] Record anomalies: `overrides`, `patches`, non-registry sources, unexpected downloads.
 
 ### Step E — Known vulnerability scanning (best-effort)
-- [ ] `yarn audit` (if available)
-- [ ] `osv-scanner` against `yarn.lock` (if available)
-- [ ] If missing tools, note “not run + reason”.
+- [ ] `bun audit` (if available)
+- [ ] `osv-scanner` against `bun.lockb` (if available)
+- [ ] If missing tools, note "not run + reason".
 
 ### Step F — New dependency deep inspection (node_modules)
 For each newly added **direct dependency**:

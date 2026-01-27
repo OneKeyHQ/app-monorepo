@@ -3,7 +3,7 @@ This file provides guidance to CodeX when working with code in this repository.
 
 ## Repository Overview
 
-OneKey is an open-source multi-chain crypto wallet with a monorepo architecture supporting desktop, mobile, web, and browser extension platforms. The codebase uses Yarn workspaces with TypeScript and React/React Native.
+OneKey is an open-source multi-chain crypto wallet with a monorepo architecture supporting desktop, mobile, web, and browser extension platforms. The codebase uses Bun workspaces with TypeScript and React/React Native.
 
 ## Review Guidelines
 
@@ -46,8 +46,8 @@ OneKey is an open-source multi-chain crypto wallet with a monorepo architecture 
 ### Deep Verification Protocol
 
 **MANDATORY CHECKS:**
-- Run complete `yarn lint` (accept 10-minute timeout for quality)
-- Execute `yarn tsc:only` for TypeScript validation
+- Run complete `bun run lint` (accept 10-minute timeout for quality)
+- Execute `bun run tsc:only` for TypeScript validation
 - Verify no circular dependencies introduced
 - Test on all affected platforms
 - Validate against existing code patterns
@@ -67,57 +67,57 @@ OneKey is an open-source multi-chain crypto wallet with a monorepo architecture 
 ### Application Development Commands
 
 **PLATFORM-SPECIFIC DEVELOPMENT**:
-- `yarn app:desktop` - Start desktop Electron app development
+- `bun run app:desktop` - Start desktop Electron app development
   - **Runtime**: 30-60 seconds to start
   - **Common issues**: Node version conflicts, missing native dependencies
-  - **Troubleshooting**: Run `yarn clean && yarn reinstall` if startup fails
-  
-- `yarn app:web` - Start web development server (port 3000)
+  - **Troubleshooting**: Run `bun run clean && bun run reinstall` if startup fails
+
+- `bun run app:web` - Start web development server (port 3000)
   - **Runtime**: 15-30 seconds to start
   - **Common issues**: Port 3000 already in use, webpack compilation errors
   - **Troubleshooting**: Kill existing processes on port 3000, check console for specific errors
-  
-- `yarn app:ext` - Start browser extension development
+
+- `bun run app:ext` - Start browser extension development
   - **Runtime**: 20-40 seconds to start
   - **Common issues**: Manifest v3 validation errors, permission issues
   - **Troubleshooting**: Check extension manifest validity, verify content security policy
-  
-- `yarn app:ios` - Start iOS mobile development
+
+- `bun run app:ios` - Start iOS mobile development
   - **Runtime**: 1-2 minutes (includes Metro bundler)
   - **Common issues**: Xcode setup, simulator issues, pod install failures
   - **Prerequisites**: Xcode installed, iOS simulator available
-  
-- `yarn app:android` - Start Android mobile development
+
+- `bun run app:android` - Start Android mobile development
   - **Runtime**: 1-2 minutes (includes Metro bundler)
   - **Common issues**: Android SDK path, emulator setup, gradle build failures
   - **Prerequisites**: Android Studio, SDK tools, emulator configured
-  
-- `yarn app:web-embed` - Start embeddable components development
+
+- `bun run app:web-embed` - Start embeddable components development
   - **Runtime**: 15-30 seconds
   - **Usage**: For developing standalone wallet components
 
 ### Build Commands
 
 **PRODUCTION BUILDS** (Use for final validation):
-- `yarn app:desktop:build` - Build desktop app for all platforms
+- `bun run app:desktop:build` - Build desktop app for all platforms
   - **Runtime**: 5-10 minutes (multi-platform build)
   - **Output**: Platform-specific installers in `apps/desktop/dist/`
   - **Common issues**: Code signing, platform-specific dependencies
   - **Verification**: Test installers on target platforms
 
-- `yarn app:ext:build` - Build browser extension
+- `bun run app:ext:build` - Build browser extension
   - **Runtime**: 2-3 minutes
   - **Output**: Extension packages in `apps/ext/dist/`
   - **Common issues**: Manifest validation, content security policy violations
   - **Verification**: Load extension in browser for testing
 
-- `yarn app:web:build` - Build web application
+- `bun run app:web:build` - Build web application
   - **Runtime**: 3-5 minutes
   - **Output**: Static files in `apps/web/dist/`
   - **Common issues**: Bundle size limits, missing environment variables
   - **Verification**: Serve built files and test functionality
 
-- `yarn app:native-bundle` - Bundle React Native app
+- `bun run app:native-bundle` - Bundle React Native app
   - **Runtime**: 3-5 minutes
   - **Output**: Platform-specific bundles
   - **Common issues**: Native module linking, Metro bundler errors
@@ -126,29 +126,29 @@ OneKey is an open-source multi-chain crypto wallet with a monorepo architecture 
 ### Development Tools & Quality Assurance
 
 **CRITICAL QUALITY COMMANDS** (YOU MUST run these after any code changes):
-- `yarn lint` - **MANDATORY** comprehensive linting (TypeScript, ESLint, folder structure, i18n) 
+- `bun run lint` - **MANDATORY** comprehensive linting (TypeScript, ESLint, folder structure, i18n)
   - **Expected runtime**: 5-10 minutes (NEVER skip due to timeout)
   - **Zero tolerance**: ALL warnings and errors MUST be fixed
   - **When it fails**: Check specific error categories and fix systematically
-- `yarn tsc:only` - **REQUIRED** TypeScript type checking
+- `bun run tsc:only` - **REQUIRED** TypeScript type checking
   - **Expected runtime**: 30-60 seconds
   - **Failure scenarios**: Circular dependencies, type mismatches, missing imports
   - **Action required**: Fix ALL TypeScript errors before proceeding
-- `yarn test` - **MANDATORY** Jest test execution
+- `bun run test` - **MANDATORY** Jest test execution
   - **Expected runtime**: 2-5 minutes depending on test scope
   - **Failure handling**: Investigate failed tests, do not ignore or skip
 
 **DEVELOPMENT QUALITY WORKFLOW**:
 1. Make code changes
-2. Run `yarn tsc:only` immediately to catch type errors
-3. Run `yarn lint` to ensure code quality (accept full timeout)
-4. Run `yarn test` to verify functionality
+2. Run `bun run tsc:only` immediately to catch type errors
+3. Run `bun run lint` to ensure code quality (accept full timeout)
+4. Run `bun run test` to verify functionality
 5. Only proceed if ALL commands pass without errors or warnings
 
 **OTHER TOOLS**:
-- `yarn lint:only` - ESLint only (use for quick syntax checks)
-- `yarn clean` - Clean all build artifacts and node_modules
-- `yarn reinstall` - Full clean install (use when dependency issues occur)
+- `bun run lint:only` - ESLint only (use for quick syntax checks)
+- `bun run clean` - Clean all build artifacts and node_modules
+- `bun run reinstall` - Full clean install (use when dependency issues occur)
 
 ## Architecture Overview
 
@@ -201,7 +201,7 @@ OneKey is an open-source multi-chain crypto wallet with a monorepo architecture 
 **BEFORE ADDING ANY IMPORT:**
 1. Verify the import respects the hierarchy above
 2. Check if the import creates a circular dependency
-3. Run `yarn tsc:only` to validate no circular dependency introduced
+3. Run `bun run tsc:only` to validate no circular dependency introduced
 4. If unsure, find an alternative approach that respects the hierarchy
 
 **COMMON VIOLATIONS TO AVOID:**
@@ -253,7 +253,7 @@ OneKey is an open-source multi-chain crypto wallet with a monorepo architecture 
 
 1. **Scope Impact Assessment**
    - Identify ALL packages/apps affected by the change
-   - Map dependencies that will be impacted (use `yarn why <package>` if needed)
+   - Map dependencies that will be impacted (use `bun pm why <package>` if needed)
    - Evaluate cross-platform implications (desktop/mobile/web/extension)
    - Assess backward compatibility requirements
 
@@ -415,7 +415,7 @@ OneKey is an open-source multi-chain crypto wallet with a monorepo architecture 
 
 ### Linting and Code Quality
 - ESLint warnings should be fixed before PRs
-- Run `yarn run lint` to check for and fix ESLint issues
+- Run `bun run lint` to check for and fix ESLint issues
 
 ### Comments and Documentation
 - All comments must be written in English
@@ -485,7 +485,7 @@ Follow the same format as commit messages:
 
 ### Updating Translation Keys
 1. **Direct translation from design specs**: Update i18n directly based on design spec annotations without searching existing translation keys
-2. Run `yarn fetch:locale` to pull the latest translation keys from the remote system
+2. Run `bun run fetch:locale` to pull the latest translation keys from the remote system
 3. This command automatically updates `@onekeyhq/shared/src/locale/enum/translations.ts` with new translation enums
 4. For design spec translation keys like `prime::restore_purchases`, convert to code format:
    - Replace `::` with `_` (underscore)

@@ -2,28 +2,28 @@
 ## 🌍 Configurazione dell'ambiente
 
 1. installare [node.js versione LTS (>= 16)](https://nodejs.org/en/)
-2. Installare lo [strumento di gestione dei pacchetti di filati](https://yarnpkg.com/) versione 1.18.0. (Dopo aver installato l'ultima versione di yarn, esegui `yarn policies set-version 1.18.0` nella directory principale)
+2. Installare [Bun](https://bun.sh/)
 3. installare [git lfs](https://git-lfs.github.com/) (necessario per tirare e aggiornare alcuni binari)
 4. Per avviare il progetto iOS, assicurati che la versione locale di XCode sia maggiore o uguale a 13.3
 5. Per avviare il progetto Android, assicurati che la versione JDK locale sia maggiore o uguale a 11
 
-Dopo aver prelevato l'ultimo codice tramite lo strumento a riga di comando git, installare le dipendenze del progetto nella directory principale con il comando ``yarn``
+Dopo aver prelevato l'ultimo codice tramite lo strumento a riga di comando git, installare le dipendenze del progetto nella directory principale con il comando `bun install`
 
 Installa tutte le dipendenze JS e i sottomoduli
 
 ```
-yarn
+bun install
 ```
 
 ## 🛠 Sviluppo
 
 Sviluppare codice commerciale diverso eseguendo i seguenti comandi nella directory principale
 
-- `yarn app:web`: sviluppa la modalità web, che avvierà localmente un server statico sulla porta 3000
-- `yarn app:ios`: debug dello sviluppo su dispositivi iphone tramite connessione USB
-- `yarn app:android`: debug di Android
-- `yarn app:desktop`: sviluppo in modalità desktop
-- `yarn app:ext`: sviluppa plugin per browser
+- `bun run app:web`: sviluppa la modalità web, che avvierà localmente un server statico sulla porta 3000
+- `bun run app:ios`: debug dello sviluppo su dispositivi iphone tramite connessione USB
+- `bun run app:android`: debug di Android
+- `bun run app:desktop`: sviluppo in modalità desktop
+- `bun run app:ext`: sviluppa plugin per browser
 
 ### Configurazione del progetto Android
 
@@ -51,7 +51,7 @@ I repository sono organizzati utilizzando il modello monorepo per mantenere il c
 
 Ogni sottodirectory sotto la directory `packages/` è un progetto separato, il cui nome è il valore del campo `name` nella directory **package.json** in monorepo.
 
-Quando hai bisogno di installare una dipendenza per una sottodirectory, usa semplicemente `yarn workspace @onekeyhq/web add axios`. Con un prefisso come `yarn workspace @onekeyhq/web`, il modulo axios può eventualmente essere installato nella directory principale del sottoprogetto web.
+Quando hai bisogno di installare una dipendenza per una sottodirectory, usa semplicemente `bun add axios --cwd apps/web`. Con un parametro come `--cwd apps/web`, il modulo axios può eventualmente essere installato nella directory principale del sottoprogetto web.
 
 Alcune delle dipendenze hanno parti native, quindi dovrai andare nella directory `apps/ios` ed eseguire `pod install` dopo aver installato le dipendenze JS.
 
@@ -59,8 +59,4 @@ Alcune delle dipendenze hanno parti native, quindi dovrai andare nella directory
 
 1. L'app non può essere avviata e vari problemi di avvio dell'ambiente
 
-Per qualsiasi problema relativo all'ambiente, ai moduli e alle dipendenze nella fase di avvio, si consiglia di utilizzare prima il comando `yarn clean` nella directory principale. Il comando cancellerà tutte le sotto-dipendenze, così come la cache del modulo di yarn, la cache di strumenti come metro/babel, e quindi riavvierà il progetto per provare.
-
-2. Durante l'installazione delle dipendenze o quando si aggiungono nuove dipendenze, il filato visualizzerà **errore Si è verificato un errore imprevisto: "prevista l'esistenza del pacchetto dell'area di lavoro per**
-
-Fare riferimento a https://github.com/yarnpkg/yarn/issues/7807, impostare la versione corrente del filato dell'ambiente su 1.18.0 tramite il comando `yarn policies set-version 1.18.0`
+Per qualsiasi problema relativo all'ambiente, ai moduli e alle dipendenze nella fase di avvio, si consiglia di utilizzare prima il comando `bun run clean` nella directory principale. Il comando cancellerà tutte le sotto-dipendenze, così come la cache del modulo, la cache di strumenti come metro/babel, e quindi riavvierà il progetto per provare.

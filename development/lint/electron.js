@@ -14,7 +14,7 @@ const desktopPath = path.join(projectPath, 'apps', 'desktop');
 
 // check if build:main is successful
 try {
-  const result = execSync(`cd ${desktopPath} && yarn build:main`).toString(
+  const result = execSync(`cd ${desktopPath} && bun run build:main`).toString(
     'utf-8',
   );
   console.log(result);
