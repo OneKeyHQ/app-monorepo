@@ -19,6 +19,12 @@ import type {
 // { sfSymbol: string }: for SF Symbols on iOS
 export type INativeTabBarIcon = ImageSourcePropType | { sfSymbol: string };
 
+// Props passed to nativeTabBarIcon function
+export type INativeTabBarIconProps = {
+  focused: boolean;
+  colorScheme: 'light' | 'dark';
+};
+
 export type ICommonScreenOptions = {
   headerShown?: boolean;
 };
@@ -42,7 +48,7 @@ export interface ITabNavigatorConfig<RouteName extends string> {
   name: RouteName;
   tabBarIcon: (focused?: boolean) => IKeyOfIcons;
   /** Native tab bar icon for react-native-bottom-tabs (iOS/Android only) */
-  nativeTabBarIcon?: (props: { focused: boolean }) => INativeTabBarIcon;
+  nativeTabBarIcon?: (props: INativeTabBarIconProps) => INativeTabBarIcon;
   translationId: ETranslations;
   collapseSideBarTranslationId?: ETranslations;
   children: ITabSubNavigatorConfig<any, any>[] | null;

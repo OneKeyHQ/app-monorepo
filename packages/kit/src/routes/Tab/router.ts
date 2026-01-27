@@ -17,35 +17,97 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabMarketRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 
-// Native tab icons using SF Symbols
-// SF Symbols are supported on iOS. For Android, the library handles fallback.
-// Reference: https://developer.apple.com/sf-symbols/
+// Native tab icons using PNG images with light/dark mode support
+const tabIconAssets = {
+  wallet: {
+    light: {
+      focused: require('@onekeyhq/kit/assets/tabbar/light/focused/Wallet.png'),
+      unfocused: require('@onekeyhq/kit/assets/tabbar/light/unfocused/Wallet.png'),
+    },
+    dark: {
+      focused: require('@onekeyhq/kit/assets/tabbar/dark/focused/Wallet.png'),
+      unfocused: require('@onekeyhq/kit/assets/tabbar/dark/unfocused/Wallet.png'),
+    },
+  },
+  swap: {
+    light: {
+      focused: require('@onekeyhq/kit/assets/tabbar/light/focused/SwapHor.png'),
+      unfocused: require('@onekeyhq/kit/assets/tabbar/light/unfocused/SwapHor.png'),
+    },
+    dark: {
+      focused: require('@onekeyhq/kit/assets/tabbar/dark/focused/SwapHor.png'),
+      unfocused: require('@onekeyhq/kit/assets/tabbar/dark/unfocused/SwapHor.png'),
+    },
+  },
+  discover: {
+    light: {
+      focused: require('@onekeyhq/kit/assets/tabbar/light/focused/CompassCircle.png'),
+      unfocused: require('@onekeyhq/kit/assets/tabbar/light/unfocused/CompassCircle.png'),
+    },
+    dark: {
+      focused: require('@onekeyhq/kit/assets/tabbar/dark/focused/CompassCircle.png'),
+      unfocused: require('@onekeyhq/kit/assets/tabbar/dark/unfocused/CompassCircle.png'),
+    },
+  },
+  market: {
+    light: {
+      focused: require('@onekeyhq/kit/assets/tabbar/light/focused/ChartTrendingUp2.png'),
+      unfocused: require('@onekeyhq/kit/assets/tabbar/light/unfocused/ChartTrendingUp2.png'),
+    },
+    dark: {
+      focused: require('@onekeyhq/kit/assets/tabbar/dark/focused/ChartTrendingUp2.png'),
+      unfocused: require('@onekeyhq/kit/assets/tabbar/dark/unfocused/ChartTrendingUp2.png'),
+    },
+  },
+  perp: {
+    light: {
+      focused: require('@onekeyhq/kit/assets/tabbar/light/focused/TradingViewCandles.png'),
+      unfocused: require('@onekeyhq/kit/assets/tabbar/light/unfocused/TradingViewCandles.png'),
+    },
+    dark: {
+      focused: require('@onekeyhq/kit/assets/tabbar/dark/focused/TradingViewCandles.png'),
+      unfocused: require('@onekeyhq/kit/assets/tabbar/dark/unfocused/TradingViewCandles.png'),
+    },
+  },
+  earn: {
+    light: {
+      focused: require('@onekeyhq/kit/assets/tabbar/light/focused/Coins.png'),
+      unfocused: require('@onekeyhq/kit/assets/tabbar/light/unfocused/Coins.png'),
+    },
+    dark: {
+      focused: require('@onekeyhq/kit/assets/tabbar/dark/focused/Coins.png'),
+      unfocused: require('@onekeyhq/kit/assets/tabbar/dark/unfocused/Coins.png'),
+    },
+  },
+  developer: {
+    light: {
+      focused: require('@onekeyhq/kit/assets/tabbar/light/focused/CodeBrackets.png'),
+      unfocused: require('@onekeyhq/kit/assets/tabbar/light/unfocused/CodeBrackets.png'),
+    },
+    dark: {
+      focused: require('@onekeyhq/kit/assets/tabbar/dark/focused/CodeBrackets.png'),
+      unfocused: require('@onekeyhq/kit/assets/tabbar/dark/unfocused/CodeBrackets.png'),
+    },
+  },
+};
+
+type ITabIconProps = { focused: boolean; colorScheme: 'light' | 'dark' };
+
 const nativeTabIcons = {
-  wallet: ({ focused }: { focused: boolean }): INativeTabBarIcon => ({
-    sfSymbol: focused ? 'wallet.pass.fill' : 'wallet.pass',
-  }),
-  swap: ({ focused }: { focused: boolean }): INativeTabBarIcon => ({
-    sfSymbol: focused
-      ? 'arrow.left.arrow.right.circle.fill'
-      : 'arrow.left.arrow.right.circle',
-  }),
-  discover: ({ focused }: { focused: boolean }): INativeTabBarIcon => ({
-    sfSymbol: focused ? 'safari.fill' : 'safari',
-  }),
-  market: ({ focused }: { focused: boolean }): INativeTabBarIcon => ({
-    sfSymbol: focused
-      ? 'chart.line.uptrend.xyaxis.circle.fill'
-      : 'chart.line.uptrend.xyaxis.circle',
-  }),
-  perp: ({ focused }: { focused: boolean }): INativeTabBarIcon => ({
-    sfSymbol: focused ? 'chart.bar.fill' : 'chart.bar',
-  }),
-  earn: ({ focused }: { focused: boolean }): INativeTabBarIcon => ({
-    sfSymbol: focused ? 'dollarsign.circle.fill' : 'dollarsign.circle',
-  }),
-  developer: ({ focused }: { focused: boolean }): INativeTabBarIcon => ({
-    sfSymbol: focused ? 'hammer.fill' : 'hammer',
-  }),
+  wallet: ({ focused, colorScheme }: ITabIconProps): INativeTabBarIcon =>
+    tabIconAssets.wallet[colorScheme][focused ? 'focused' : 'unfocused'],
+  swap: ({ focused, colorScheme }: ITabIconProps): INativeTabBarIcon =>
+    tabIconAssets.swap[colorScheme][focused ? 'focused' : 'unfocused'],
+  discover: ({ focused, colorScheme }: ITabIconProps): INativeTabBarIcon =>
+    tabIconAssets.discover[colorScheme][focused ? 'focused' : 'unfocused'],
+  market: ({ focused, colorScheme }: ITabIconProps): INativeTabBarIcon =>
+    tabIconAssets.market[colorScheme][focused ? 'focused' : 'unfocused'],
+  perp: ({ focused, colorScheme }: ITabIconProps): INativeTabBarIcon =>
+    tabIconAssets.perp[colorScheme][focused ? 'focused' : 'unfocused'],
+  earn: ({ focused, colorScheme }: ITabIconProps): INativeTabBarIcon =>
+    tabIconAssets.earn[colorScheme][focused ? 'focused' : 'unfocused'],
+  developer: ({ focused, colorScheme }: ITabIconProps): INativeTabBarIcon =>
+    tabIconAssets.developer[colorScheme][focused ? 'focused' : 'unfocused'],
 };
 
 import { usePerpTabConfig } from '../../hooks/usePerpTabConfig';

@@ -12,7 +12,7 @@ import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
 
-import { useTheme } from '../../../hooks';
+import { useTheme, useThemeName } from '../../../hooks';
 import { makeTabScreenOptions } from '../GlobalScreenOptions';
 import { createStackNavigator } from '../StackNavigator';
 
@@ -73,6 +73,8 @@ export function TabStackNavigator<RouteName extends string>({
 }: ITabNavigatorProps<RouteName>) {
   const intl = useIntl();
   const theme = useTheme();
+  const themeName = useThemeName();
+  const colorScheme = themeName?.includes('dark') ? 'dark' : 'light';
 
   // Handle tab press events for logging and event bus notifications
   const handleTabPress = useCallback((routeName: string) => {
@@ -106,7 +108,10 @@ export function TabStackNavigator<RouteName extends string>({
             options={{
               // Type assertion needed because our INativeTabBarIcon uses string for sfSymbol
               // while react-native-bottom-tabs expects SFSymbol type from sf-symbols-typescript
-              tabBarIcon: nativeTabBarIcon as any,
+              tabBarIcon: nativeTabBarIcon
+                ? ((({ focused }: { focused: boolean }) =>
+                    nativeTabBarIcon({ focused, colorScheme })) as any)
+                : undefined,
               tabBarLabel: intl.formatMessage({ id: translationId }),
             }}
             listeners={{
@@ -144,7 +149,7 @@ export function TabStackNavigator<RouteName extends string>({
     }
 
     return screens;
-  }, [config, extraConfig, intl, handleTabPress]);
+  }, [config, extraConfig, intl, handleTabPress, colorScheme]);
 
   return (
     <NativeTab.Navigator
