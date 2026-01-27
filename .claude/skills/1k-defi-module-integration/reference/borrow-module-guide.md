@@ -257,15 +257,45 @@ await onConfirm(params);
 
 ## State Management
 
-### BorrowProvider Context
+### BorrowProvider 完整实现
+
+#### 类型定义
 
 ```typescript
+import type { PropsWithChildren } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+} from 'react';
+
+// 统一的异步数据类型
+export type IAsyncData<T> = {
+  data: T;
+  loading: boolean;
+  refresh: () => Promise<void>;
+};
+
+export type IBorrowEarnAccount = {
+  walletId?: string;
+  accountId?: string;
+  networkId?: string;
+  accountAddress?: string;
+  account?: {
+    id: string;
+    indexedAccountId?: string;
+    pub?: string;
+  };
+} | null;
+
 type IBorrowContextValue = {
   // Market (sync data)
   market: IBorrowMarketItem | null;
   setMarket: React.Dispatch<React.SetStateAction<IBorrowMarketItem | null>>;
 
-  // Async data with unified format
+  // Async data - unified format
   earnAccount: IAsyncData<IBorrowEarnAccount>;
   setEarnAccount: React.Dispatch<React.SetStateAction<IAsyncData<IBorrowEarnAccount>>>;
 
@@ -276,17 +306,156 @@ type IBorrowContextValue = {
   borrowDataStatus: EBorrowDataStatus;
   setBorrowDataStatus: React.Dispatch<React.SetStateAction<EBorrowDataStatus>>;
 
-  // Swap config
+  // Other
   swapConfig: ISwapConfig;
-
-  // Pending transactions
   pendingTxs: IStakePendingTx[];
   setPendingTxs: (txs: IStakePendingTx[]) => void;
 
-  // Refresh function for external triggers (set by Overview, used by BorrowPendingBridge)
+  // ✅ State function pattern (NOT ref) for cross-component communication
   refreshAllBorrowData: () => Promise<void>;
   setRefreshAllBorrowData: (fn: () => Promise<void>) => void;
 };
+```
+
+#### Helper Function
+
+```typescript
+const defaultAsyncData = <T,>(data: T): IAsyncData<T> => ({
+  data,
+  loading: false,
+  refresh: () => Promise.resolve(),
+});
+```
+
+#### Provider 实现
+
+```typescript
+const BorrowContext = createContext<IBorrowContextValue | null>(null);
+
+export const BorrowProvider = ({ children }: PropsWithChildren) => {
+  const [market, setMarket] = useState<IBorrowMarketItem | null>(null);
+  const [earnAccount, setEarnAccount] = useState<IAsyncData<IBorrowEarnAccount>>(
+    defaultAsyncData(null),
+  );
+  const [reserves, setReserves] = useState<IAsyncData<IBorrowReserveItem | null>>(
+    defaultAsyncData(null),
+  );
+  const [borrowDataStatus, setBorrowDataStatus] = useState<EBorrowDataStatus>(
+    EBorrowDataStatus.Idle,
+  );
+  const [pendingTxs, setPendingTxsState] = useState<IStakePendingTx[]>([]);
+
+  // ✅ State function pattern for cross-component communication
+  // 注意：useState 存储函数时需要使用 () => fn 形式
+  const [refreshAllBorrowData, setRefreshAllBorrowDataState] = useState<
+    () => Promise<void>
+  >(() => () => Promise.resolve());
+
+  // Stable setter - 使用 useCallback 确保引用稳定
+  const setRefreshAllBorrowData = useCallback(
+    (fn: () => Promise<void>) => {
+      setRefreshAllBorrowDataState(() => fn);
+    },
+    [],
+  );
+
+  // Stable setter for pending transactions
+  const setPendingTxs = useCallback((txs: IStakePendingTx[]) => {
+    setPendingTxsState(txs);
+  }, []);
+
+  // Fetch swap config when market networkId changes
+  const { result: swapConfig } = usePromiseResult(
+    async () => {
+      const networkId = market?.networkId;
+      if (!networkId) {
+        return defaultSwapConfig;
+      }
+      return backgroundApiProxy.serviceSwap.checkSupportSwap({ networkId });
+    },
+    [market?.networkId],
+    { initResult: defaultSwapConfig },
+  );
+
+  const contextValue = useMemo(
+    () => ({
+      market,
+      setMarket,
+      earnAccount,
+      setEarnAccount,
+      reserves,
+      setReserves,
+      borrowDataStatus,
+      setBorrowDataStatus,
+      swapConfig,
+      pendingTxs,
+      setPendingTxs,
+      refreshAllBorrowData,
+      setRefreshAllBorrowData,
+    }),
+    [
+      market,
+      earnAccount,
+      reserves,
+      borrowDataStatus,
+      swapConfig,
+      pendingTxs,
+      setPendingTxs,
+      refreshAllBorrowData,
+      setRefreshAllBorrowData,
+    ],
+  );
+
+  return (
+    <BorrowContext.Provider value={contextValue}>
+      {children}
+    </BorrowContext.Provider>
+  );
+};
+
+export const useBorrowContext = () => {
+  const context = useContext(BorrowContext);
+  if (!context) {
+    throw new OneKeyLocalError(
+      'useBorrowContext must be used within a BorrowProvider',
+    );
+  }
+  return context;
+};
+```
+
+#### 子组件注册刷新函数
+
+```typescript
+// In Overview.tsx
+const { reserves, setRefreshAllBorrowData } = useBorrowContext();
+
+const refreshReserves = reserves.refresh;
+const refreshBorrowData = useCallback(async () => {
+  const tasks: Array<Promise<void>> = [];
+  tasks.push(refreshReserves());
+  tasks.push(refreshBorrowRewards(), refreshHealthFactor());
+  await Promise.all(tasks);
+}, [refreshReserves, refreshBorrowRewards, refreshHealthFactor]);
+
+// 注册刷新函数到 Context
+useEffect(() => {
+  setRefreshAllBorrowData(refreshBorrowData);
+  return () => {
+    setRefreshAllBorrowData(() => Promise.resolve());
+  };
+}, [refreshBorrowData, setRefreshAllBorrowData]);
+```
+
+#### BorrowPendingBridge 调用
+
+```typescript
+// In BorrowPendingBridge
+const { refreshAllBorrowData } = useBorrowContext();
+
+const handleRefresh = useCallback(async () => {
+  await refreshAllBorrowData(); // 直接调用，无需 .current
+}, [refreshAllBorrowData]);
 ```
 
 ### IAsyncData<T> Pattern
@@ -298,52 +467,49 @@ type IAsyncData<T> = {
   refresh: () => Promise<void>;
 };
 
-const defaultAsyncData = <T>(data: T): IAsyncData<T> => ({
+const defaultAsyncData = <T,>(data: T): IAsyncData<T> => ({
   data,
   loading: false,
   refresh: () => Promise.resolve(),
 });
 ```
 
-### Forbidden Pattern: Ref for Cross-Component Communication
+### useRef 使用规则
 
-**NEVER use `useRef` for cross-component function passing** unless absolutely necessary.
+**❌ 禁止：跨组件函数传递**
 
-**Why this is forbidden:**
-1. Ref pattern bypasses React's reactive system, making data flow hard to trace
-2. `.current` may be null, requiring extra null checks
-3. State function pattern is more aligned with React's declarative paradigm
-4. Easier to test and debug
-
-**Bad Example (FORBIDDEN):**
 ```typescript
-// Define ref in Context
-refreshDataRef: React.MutableRefObject<(() => Promise<void>) | null>;
+// ❌ FORBIDDEN - 在 Context 中定义 ref
+type IContextValue = {
+  refreshDataRef: React.MutableRefObject<(() => Promise<void>) | null>;
+};
 
-// Child component sets ref
+// ❌ FORBIDDEN - 子组件设置 ref
 useEffect(() => {
   refreshDataRef.current = myRefreshFunction;
 }, [myRefreshFunction, refreshDataRef]);
 
-// Other component calls via ref
+// ❌ FORBIDDEN - 其他组件通过 ref 调用
 await refreshDataRef.current?.();
 ```
 
-**Good Example:**
+**✅ 允许：内部状态管理**
+
 ```typescript
-// Define state function in Context
-refreshAllData: () => Promise<void>;
-setRefreshAllData: (fn: () => Promise<void>) => void;
+// ✅ 缓存数据
+const reservesResultRef = useRef<IBorrowReserveItem | undefined>(undefined);
 
-// Child component sets function
-useEffect(() => {
-  setRefreshAllData(myRefreshFunction);
-  return () => setRefreshAllData(() => Promise.resolve());
-}, [myRefreshFunction, setRefreshAllData]);
+// ✅ 时间戳跟踪
+const lastReservesUpdatedAtRef = useRef<number | null>(null);
 
-// Other component calls directly
-await refreshAllData();
+// ✅ 强制刷新计数器
+const forceRefreshCounterRef = useRef(0);
+
+// ✅ View Active 状态
+const isViewActiveRef = useRef(isViewActive);
 ```
+
+详见 [state-management-guide.md](state-management-guide.md#useref-使用规则)
 
 ### Data Status State Machine
 
@@ -360,24 +526,73 @@ enum EBorrowDataStatus {
 
 **State Transitions:**
 ```
-Idle
-  ↓ (view becomes active)
-LoadingMarkets
-  ↓ (markets loaded)
-WaitingForAccount
-  ↓ (account resolved)
-LoadingReserves
-  ↓ (reserves loaded)
-Ready
-  ↓ (refresh triggered)
-Refreshing
-  ↓ (refresh complete)
-Ready
+                    ┌─────────────────────────────────────┐
+                    │                                     │
+                    ▼                                     │
+┌──────┐    ┌───────────────┐    ┌───────────────────┐   │
+│ Idle │───▶│LoadingMarkets │───▶│WaitingForAccount  │   │
+└──────┘    └───────────────┘    └───────────────────┘   │
+                                          │              │
+                                          ▼              │
+                                 ┌─────────────────┐     │
+                                 │ LoadingReserves │     │
+                                 └─────────────────┘     │
+                                          │              │
+                                          ▼              │
+                                 ┌─────────────────┐     │
+                                 │     Ready       │◀────┘
+                                 └─────────────────┘
+                                          │
+                                          ▼
+                                 ┌─────────────────┐
+                                 │   Refreshing    │
+                                 └─────────────────┘
+                                          │
+                                          └──────────────┘
+```
+
+**状态计算实现：**
+
+```typescript
+const dataStatus = useMemo(() => {
+  if (!isViewActive) return EBorrowDataStatus.Idle;
+
+  if (marketsLoading) {
+    if (!market) return EBorrowDataStatus.LoadingMarkets;
+    return EBorrowDataStatus.Refreshing;
+  }
+
+  if (!market || !fetchKey) return EBorrowDataStatus.Idle;
+
+  if (shouldWaitForAccount) return EBorrowDataStatus.WaitingForAccount;
+
+  if (reservesLoading) {
+    // 区分首次加载和刷新
+    if (!prevReservesDataRef.current || lastFetchKeyRef.current !== fetchKey) {
+      return EBorrowDataStatus.LoadingReserves;
+    }
+    return EBorrowDataStatus.Refreshing;
+  }
+
+  if (reservesResult !== undefined) {
+    return EBorrowDataStatus.Ready;
+  }
+
+  return EBorrowDataStatus.Idle;
+}, [
+  isViewActive,
+  marketsLoading,
+  market,
+  fetchKey,
+  shouldWaitForAccount,
+  reservesLoading,
+  reservesResult,
+]);
 ```
 
 ---
 
-## BorrowDataGate
+## BorrowDataGate 完整实现
 
 The `BorrowDataGate` component orchestrates all data fetching.
 
@@ -387,39 +602,213 @@ The `BorrowDataGate` component orchestrates all data fetching.
 3. Fetch reserves via `useBorrowReserves`
 4. Manage polling (1 minute interval)
 5. Handle stale data (1 minute TTL)
-6. Sync data to Context
+6. Sync data to Context using IAsyncData format
+7. Calculate and sync data status
 
-**Key Implementation:**
+**常量定义：**
+
 ```typescript
-const BorrowDataGate = ({ children, isActive = true }) => {
+const BORROW_POLLING_INTERVAL = 1 * 60 * 1000; // 1 minute
+const BORROW_STALE_TTL = BORROW_POLLING_INTERVAL;
+```
+
+**完整实现：**
+
+```typescript
+export const BorrowDataGate = ({
+  children,
+  isActive = true,
+  onBorrowNetworksChange,
+}: {
+  children: ReactNode;
+  isActive?: boolean;
+  onBorrowNetworksChange?: (networkIds: string[]) => void;
+}) => {
   const isFocused = useIsFocused();
   const isViewActive = isFocused && isActive;
+  const isViewActiveRef = useRef(isViewActive);
 
-  // Fetch markets
-  const { markets, isLoading: marketsLoading } = useBorrowMarkets({ isActive: isViewActive });
+  const {
+    markets,
+    isLoading: marketsLoading,
+    refetchMarkets,
+  } = useBorrowMarkets({ isActive: isViewActive });
+  const market = useMemo(() => markets?.[0], [markets]);
 
-  // Fetch reserves with caching
-  const { result: reservesResult, isLoading: reservesLoading, run: refreshReserves } = usePromiseResult(
-    async () => {
-      // Check stale time, force refresh counter
-      // Return cached data if not stale
-      // Fetch fresh data if needed
-    },
-    [dependencies],
-    {
-      pollingInterval: isViewActive ? POLLING_INTERVAL : undefined,
-      revalidateOnFocus: true,
-    }
+  const {
+    setMarket,
+    setReserves,
+    setEarnAccount,
+    setBorrowDataStatus,
+  } = useBorrowContext();
+
+  const { activeAccount } = useActiveAccount({ num: 0 });
+  const {
+    earnAccount: earnAccountData,
+    refreshAccount,
+    isLoading: earnAccountLoading,
+  } = useEarnAccount({ networkId: market?.networkId });
+
+  const { fetchReserves } = useBorrowReserves();
+
+  // ✅ 内部状态管理使用 useRef
+  const lastFetchKeyRef = useRef<string | null>(null);
+  const lastReservesUpdatedAtRef = useRef<number | null>(null);
+  const reservesResultRef = useRef<IBorrowReserveItem | undefined>(undefined);
+  const forceRefreshCounterRef = useRef(0);
+  const lastForceRefreshCounterRef = useRef(0);
+  const prevReservesDataRef = useRef<IBorrowReserveItem | null>(null);
+
+  const accountId = earnAccountData?.accountId ?? earnAccountData?.account?.id;
+  const shouldWaitForAccount =
+    !activeAccount.ready ||
+    (activeAccount.account?.id !== undefined && earnAccountData === undefined);
+
+  const fetchKey = useMemo(
+    () =>
+      !isEmpty(market)
+        ? `${market.provider}-${market.marketAddress}-${accountId ?? 'public'}`
+        : null,
+    [market, accountId],
   );
 
-  // Sync to Context
+  // 主数据获取
+  const {
+    result: reservesResult,
+    isLoading: reservesLoading,
+    run: refreshReserves,
+  } = usePromiseResult(
+    async () => {
+      if (!fetchKey || !market || shouldWaitForAccount) {
+        return reservesResultRef.current;
+      }
+      if (!isViewActiveRef.current) {
+        return reservesResultRef.current;
+      }
+
+      const lastUpdatedAt = lastReservesUpdatedAtRef.current;
+      const isStale = !lastUpdatedAt || Date.now() - lastUpdatedAt > BORROW_STALE_TTL;
+      const shouldForceRefresh =
+        forceRefreshCounterRef.current > lastForceRefreshCounterRef.current;
+      const hasNoCache = reservesResultRef.current === undefined;
+      const shouldFetch = shouldForceRefresh || isStale || hasNoCache;
+
+      if (!shouldFetch) {
+        return reservesResultRef.current;
+      }
+
+      lastForceRefreshCounterRef.current = forceRefreshCounterRef.current;
+
+      const result = await fetchReserves({
+        provider: market.provider,
+        networkId: market.networkId,
+        marketAddress: market.marketAddress,
+        accountId,
+      });
+
+      reservesResultRef.current = result;
+      lastReservesUpdatedAtRef.current = Date.now();
+      return result;
+    },
+    [fetchKey, market, accountId, shouldWaitForAccount, fetchReserves],
+    {
+      watchLoading: true,
+      checkIsFocused: true,
+      undefinedResultIfReRun: true,
+      undefinedResultIfError: true,
+      pollingInterval: isViewActive ? BORROW_POLLING_INTERVAL : undefined,
+      revalidateOnFocus: true,
+    },
+  );
+
+  // 强制刷新函数
+  const refreshReservesWithForce = useMemo(() => {
+    return async () => {
+      forceRefreshCounterRef.current += 1;
+      await refreshReserves();
+    };
+  }, [refreshReserves]);
+
+  // 计算数据状态
+  const dataStatus = useMemo(() => {
+    if (!isViewActive) return EBorrowDataStatus.Idle;
+    if (marketsLoading) {
+      if (!market) return EBorrowDataStatus.LoadingMarkets;
+      return EBorrowDataStatus.Refreshing;
+    }
+    if (!market || !fetchKey) return EBorrowDataStatus.Idle;
+    if (shouldWaitForAccount) return EBorrowDataStatus.WaitingForAccount;
+    if (reservesLoading) {
+      if (!prevReservesDataRef.current || lastFetchKeyRef.current !== fetchKey) {
+        return EBorrowDataStatus.LoadingReserves;
+      }
+      return EBorrowDataStatus.Refreshing;
+    }
+    if (reservesResult !== undefined) return EBorrowDataStatus.Ready;
+    return EBorrowDataStatus.Idle;
+  }, [isViewActive, marketsLoading, market, fetchKey, shouldWaitForAccount, reservesLoading, reservesResult]);
+
+  // 同步 isViewActiveRef
   useEffect(() => {
-    setReserves({
-      data: reservesResult,
-      loading: isLoading,
-      refresh: refreshWithForce,
+    isViewActiveRef.current = isViewActive;
+  }, [isViewActive]);
+
+  // fetchKey 变化时清除缓存
+  useEffect(() => {
+    if (lastFetchKeyRef.current !== fetchKey) {
+      lastFetchKeyRef.current = fetchKey;
+      lastReservesUpdatedAtRef.current = null;
+      reservesResultRef.current = undefined;
+    }
+  }, [fetchKey]);
+
+  // 同步 market 到 Context
+  useEffect(() => {
+    setMarket(market ?? null);
+  }, [market, setMarket]);
+
+  // 同步 dataStatus 到 Context
+  useEffect(() => {
+    setBorrowDataStatus(dataStatus);
+  }, [dataStatus, setBorrowDataStatus]);
+
+  // 同步 earnAccount 到 Context (IAsyncData 格式)
+  useEffect(() => {
+    setEarnAccount({
+      data: earnAccountData ?? null,
+      loading: earnAccountLoading ?? false,
+      refresh: () => refreshAccount(),
     });
-  }, [reservesResult, isLoading, refreshWithForce]);
+  }, [earnAccountData, earnAccountLoading, refreshAccount, setEarnAccount]);
+
+  // 同步 reserves 到 Context (IAsyncData 格式)
+  useEffect(() => {
+    const isLoading =
+      dataStatus === EBorrowDataStatus.LoadingMarkets ||
+      dataStatus === EBorrowDataStatus.WaitingForAccount ||
+      dataStatus === EBorrowDataStatus.LoadingReserves;
+
+    let dataToSet: IBorrowReserveItem | null = prevReservesDataRef.current;
+
+    if (dataStatus === EBorrowDataStatus.LoadingMarkets ||
+        dataStatus === EBorrowDataStatus.WaitingForAccount) {
+      dataToSet = null;
+    } else if (dataStatus === EBorrowDataStatus.LoadingReserves) {
+      if (lastFetchKeyRef.current !== fetchKey) {
+        dataToSet = null;
+      }
+    } else if (dataStatus === EBorrowDataStatus.Ready && reservesResult !== undefined) {
+      dataToSet = reservesResult;
+    }
+
+    prevReservesDataRef.current = dataToSet;
+
+    setReserves({
+      data: dataToSet,
+      loading: isLoading,
+      refresh: refreshReservesWithForce,
+    });
+  }, [dataStatus, fetchKey, reservesResult, refreshReservesWithForce, setReserves]);
 
   return <>{children}</>;
 };

@@ -2,6 +2,109 @@
 
 This guide covers state management patterns used in DeFi modules, including IAsyncData, Pending transactions, Tag system, and refresh strategies.
 
+---
+
+## useRef 使用规则
+
+### 允许的场景（内部状态管理）
+
+以下场景可以使用 useRef：
+
+1. **缓存数据**：避免不必要的重新渲染
+   ```typescript
+   const investmentMapRef = useRef<Map<string, IEarnPortfolioInvestment>>(new Map());
+   const cachedResultRef = useRef<TData | undefined>(undefined);
+   ```
+
+2. **时间戳/计数器**：跟踪最后更新时间或强制刷新计数
+   ```typescript
+   const lastUpdatedAtRef = useRef<number | null>(null);
+   const forceRefreshCounterRef = useRef(0);
+   ```
+
+3. **Mounted 检测**：防止组件卸载后更新状态
+   ```typescript
+   const isMountedRef = useRef(true);
+   useEffect(() => {
+     isMountedRef.current = true;
+     return () => { isMountedRef.current = false; };
+   }, []);
+   ```
+
+4. **请求 ID 跟踪**：防止过期请求更新状态
+   ```typescript
+   const stateRef = useRef<IRequestControllerState>({
+     accountId: undefined,
+     requestId: '',
+   });
+   ```
+
+5. **View Active 状态**：跟踪视图是否活跃
+   ```typescript
+   const isViewActiveRef = useRef(isViewActive);
+   useEffect(() => {
+     isViewActiveRef.current = isViewActive;
+   }, [isViewActive]);
+   ```
+
+### 禁止的场景（跨组件函数传递）
+
+**❌ 绝对禁止使用 useRef 在组件间传递函数**
+
+**错误示例：**
+```typescript
+// ❌ FORBIDDEN - 在 Context 中定义 ref
+type IContextValue = {
+  refreshDataRef: React.MutableRefObject<(() => Promise<void>) | null>;
+};
+
+// ❌ FORBIDDEN - 子组件设置 ref
+useEffect(() => {
+  refreshDataRef.current = myRefreshFunction;
+}, [myRefreshFunction, refreshDataRef]);
+
+// ❌ FORBIDDEN - 其他组件通过 ref 调用
+await refreshDataRef.current?.();
+```
+
+**正确示例（State Function 模式）：**
+```typescript
+// ✅ CORRECT - 在 Context 中定义 state function
+type IContextValue = {
+  refreshAllData: () => Promise<void>;
+  setRefreshAllData: (fn: () => Promise<void>) => void;
+};
+
+// ✅ CORRECT - Provider 实现
+const [refreshAllData, setRefreshAllDataState] = useState<() => Promise<void>>(
+  () => () => Promise.resolve()
+);
+
+const setRefreshAllData = useCallback(
+  (fn: () => Promise<void>) => {
+    setRefreshAllDataState(() => fn);
+  },
+  [],
+);
+
+// ✅ CORRECT - 子组件注册函数
+useEffect(() => {
+  setRefreshAllData(myRefreshFunction);
+  return () => setRefreshAllData(() => Promise.resolve());
+}, [myRefreshFunction, setRefreshAllData]);
+
+// ✅ CORRECT - 其他组件直接调用
+await refreshAllData();
+```
+
+**为什么禁止 Ref 传递函数：**
+1. Ref 绕过 React 响应式系统，数据流难以追踪
+2. `.current` 可能为 null，需要额外的空值检查
+3. State function 模式更符合 React 声明式范式
+4. 更容易测试和调试
+
+---
+
 ## IAsyncData<T> Pattern
 
 ### Definition
@@ -659,6 +762,234 @@ const refresh = useCallback(
 
 // Usage
 refresh({ provider: 'lido', networkId: 'evm--1', symbol: 'ETH' });
+```
+
+---
+
+## Request Controller Pattern
+
+用于管理异步请求的生命周期，防止过期请求更新状态。
+
+### 类型定义
+
+```typescript
+interface IRequestControllerState {
+  accountId: string | undefined;
+  indexedAccountId: string | undefined;
+  requestId: string;
+  isLoadingNewAccount: boolean;
+}
+```
+
+### 实现
+
+```typescript
+function useRequestController(
+  accountId: string | undefined,
+  indexedAccountId: string | undefined,
+) {
+  const stateRef = useRef<IRequestControllerState>({
+    accountId,
+    indexedAccountId,
+    requestId: '',
+    isLoadingNewAccount: true,
+  });
+
+  const hasAccountChanged = useCallback(() => {
+    const state = stateRef.current;
+    return (
+      state.accountId !== accountId ||
+      state.indexedAccountId !== indexedAccountId
+    );
+  }, [accountId, indexedAccountId]);
+
+  const startNewRequest = useCallback(
+    (isAccountChange = false) => {
+      const newRequestId = generateUUID();
+      stateRef.current = {
+        accountId,
+        indexedAccountId,
+        requestId: newRequestId,
+        isLoadingNewAccount: isAccountChange
+          ? true
+          : stateRef.current.isLoadingNewAccount,
+      };
+      return newRequestId;
+    },
+    [accountId, indexedAccountId],
+  );
+
+  const isRequestStale = useCallback((requestId: string) => {
+    return requestId !== stateRef.current.requestId;
+  }, []);
+
+  const finishLoadingNewAccount = useCallback(() => {
+    stateRef.current.isLoadingNewAccount = false;
+  }, []);
+
+  const isLoadingNewAccount = useCallback(() => {
+    return stateRef.current.isLoadingNewAccount;
+  }, []);
+
+  return {
+    hasAccountChanged,
+    startNewRequest,
+    isRequestStale,
+    finishLoadingNewAccount,
+    isLoadingNewAccount,
+  };
+}
+```
+
+### 使用场景
+
+```typescript
+const fetchData = useCallback(async () => {
+  // 检测账户是否变化
+  const requestId = hasAccountChanged()
+    ? startNewRequest(true)
+    : startNewRequest(false);
+
+  try {
+    const result = await fetchFromAPI();
+
+    // 检查请求是否过期（账户已切换或新请求已发起）
+    if (isRequestStale(requestId)) return;
+
+    // 安全更新状态
+    updateState(result);
+
+    // 标记新账户加载完成
+    finishLoadingNewAccount();
+  } catch (error) {
+    if (isRequestStale(requestId)) return;
+    handleError(error);
+  }
+}, [hasAccountChanged, startNewRequest, isRequestStale, finishLoadingNewAccount]);
+```
+
+### 账户切换处理
+
+```typescript
+useEffect(() => {
+  if (hasAccountChanged()) {
+    clearInvestments();
+    throttledUIUpdate.cancel();
+    startNewRequest(true);
+    setIsLoading(true);
+  }
+}, [hasAccountChanged, clearInvestments, throttledUIUpdate, startNewRequest]);
+```
+
+---
+
+## Throttled/Debounced Updates Pattern
+
+用于优化频繁更新的性能。
+
+### Throttled UI Updates（渐进式加载）
+
+适用于并发请求场景，避免每个请求完成都触发重渲染：
+
+```typescript
+const throttledUIUpdate = useMemo(
+  () =>
+    throttle(
+      (newMap: Map<string, IEarnPortfolioInvestment>) => {
+        updateInvestments(newMap, false);
+      },
+      500,
+      { leading: true, trailing: true },
+    ),
+  [updateInvestments],
+);
+
+// 在并发请求中使用
+const limit = pLimit(6);
+const tasks = pairsToFetch.map(({ params }) =>
+  limit(async () => {
+    const result = await fetchSingleInvestment(params);
+
+    if (isRequestStale(requestId)) return;
+
+    requestMap.set(result.key, result.investment);
+
+    // 节流更新 UI，避免频繁重渲染
+    if (isMountedRef.current) {
+      throttledUIUpdate(new Map(requestMap));
+    }
+  }),
+);
+
+await Promise.all(tasks);
+
+// 最后确保所有更新都已应用
+throttledUIUpdate.flush();
+```
+
+### Debounced Global State Sync
+
+适用于同步本地状态到全局 Jotai atoms，避免频繁写入：
+
+```typescript
+const debouncedUpdateGlobalState = useMemo(() => {
+  return debounce(
+    (key: string, fiatValue: string, earnings: string) => {
+      const latestAccount = actions.current.getEarnAccount(key);
+      if (!latestAccount) return;
+
+      // 防止重复同步
+      if (
+        lastSyncedValuesRef.current.totalFiatValue === fiatValue &&
+        lastSyncedValuesRef.current.earnings24h === earnings
+      ) {
+        return;
+      }
+
+      lastSyncedValuesRef.current = {
+        totalFiatValue: fiatValue,
+        earnings24h: earnings
+      };
+
+      actions.current.updateEarnAccounts({
+        key,
+        earnAccount: {
+          ...latestAccount,
+          totalFiatValue: fiatValue,
+          earnings24h: earnings,
+        },
+      });
+    },
+    500,
+  );
+}, [actions]);
+
+// 在状态变化时调用
+useEffect(() => {
+  if (!earnAccountKey || isLoadingNewAccount()) return;
+
+  const totalFiatValueStr = earnTotalFiatValue.toFixed();
+  const earnings24hStr = earnTotalEarnings24hFiatValue.toFixed();
+
+  debouncedUpdateGlobalState(earnAccountKey, totalFiatValueStr, earnings24hStr);
+}, [earnAccountKey, earnTotalFiatValue, earnTotalEarnings24hFiatValue, debouncedUpdateGlobalState, isLoadingNewAccount]);
+```
+
+### 清理
+
+**重要**：必须在组件卸载时取消 throttle/debounce，防止内存泄漏和状态更新错误：
+
+```typescript
+useEffect(() => {
+  isMountedRef.current = true;
+
+  return () => {
+    isMountedRef.current = false;
+    throttledUIUpdate.cancel();
+    debouncedUpdateGlobalState.cancel();
+    investmentMapRef.current.clear();
+  };
+}, [throttledUIUpdate, debouncedUpdateGlobalState, investmentMapRef]);
 ```
 
 ---

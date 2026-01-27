@@ -212,6 +212,313 @@ This is the main hook for fetching portfolio data.
 
 ---
 
+## useEarnPortfolio Hook Architecture
+
+### 概述
+
+`useEarnPortfolio` 是 Earn 模块的核心数据获取 hook，实现了：
+- 渐进式加载（Progressive Loading）
+- 请求过期检测（Request Staleness Prevention）
+- 账户切换检测（Account Change Detection）
+- 全局状态同步（Global State Sync）
+
+### 文件位置
+
+`packages/kit/src/views/Earn/hooks/useEarnPortfolio.ts`
+
+### 返回类型
+
+```typescript
+export interface IUseEarnPortfolioReturn {
+  investments: IEarnPortfolioInvestment[];
+  earnTotalFiatValue: BigNumber;
+  earnTotalEarnings24hFiatValue: BigNumber;
+  isLoading: boolean;
+  refresh: (options?: IRefreshOptions) => Promise<void>;
+}
+
+export interface IRefreshOptions {
+  provider?: string;
+  networkId?: string;
+  symbol?: string;
+  rewardSymbol?: string;
+}
+```
+
+### 内部 Hooks
+
+#### useInvestmentState
+
+管理投资数据的本地状态：
+
+```typescript
+interface IInvestmentStateOptions {
+  initialInvestments?: IEarnPortfolioInvestment[];
+  initialTotalFiatValue?: string;
+  initialTotalEarnings24hFiatValue?: string;
+}
+
+function useInvestmentState(options: IInvestmentStateOptions = {}) {
+  const [investments, setInvestments] = useState<IEarnPortfolioInvestment[]>(
+    () => options.initialInvestments ?? [],
+  );
+  const [earnTotalFiatValue, setEarnTotalFiatValue] = useState<BigNumber>(
+    () => new BigNumber(options.initialTotalFiatValue || 0),
+  );
+  const [earnTotalEarnings24hFiatValue, setEarnTotalEarnings24hFiatValue] =
+    useState<BigNumber>(
+      () => new BigNumber(options.initialTotalEarnings24hFiatValue || 0),
+    );
+
+  // 使用 Map 缓存投资数据，避免重复计算
+  const investmentMapRef = useRef<Map<string, IEarnPortfolioInvestment>>(
+    options.initialInvestments && options.initialInvestments.length > 0
+      ? buildInvestmentMapFromList(options.initialInvestments)
+      : new Map(),
+  );
+
+  const updateInvestments = useCallback(
+    (
+      newMap: Map<string, IEarnPortfolioInvestment>,
+      shouldUpdateTotals = true,
+    ): IEarnPortfolioInvestment[] => {
+      const validInvestments = filterValidInvestments(newMap.values());
+      const sorted = sortByFiatValueDesc(validInvestments);
+      setInvestments(sorted);
+
+      if (shouldUpdateTotals) {
+        setEarnTotalFiatValue(calculateTotalFiatValue(sorted));
+        setEarnTotalEarnings24hFiatValue(calculateTotalEarnings24hValue(sorted));
+      }
+
+      investmentMapRef.current = buildInvestmentMapFromList(validInvestments);
+      return sorted;
+    },
+    [],
+  );
+
+  const clearInvestments = useCallback(() => {
+    investmentMapRef.current.clear();
+    setInvestments([]);
+    setEarnTotalFiatValue(new BigNumber(0));
+    setEarnTotalEarnings24hFiatValue(new BigNumber(0));
+  }, []);
+
+  return {
+    investments,
+    earnTotalFiatValue,
+    earnTotalEarnings24hFiatValue,
+    investmentMapRef,
+    updateInvestments,
+    clearInvestments,
+  };
+}
+```
+
+#### useRequestController
+
+管理请求生命周期，防止过期请求更新状态（详见 [state-management-guide.md](state-management-guide.md#request-controller-pattern)）
+
+### 数据流
+
+```
+1. 账户切换检测
+   hasAccountChanged() → clearInvestments() → startNewRequest(true)
+
+2. 获取可用资产和账户
+   getAvailableAssetsV2() + getEarnAvailableAccountsParams()
+
+3. 构建账户-资产对
+   accountAssetPairs = accounts × assets (笛卡尔积)
+
+4. 并发获取（限制 6 个并发）
+   pLimit(6) → fetchSingleInvestment()
+
+5. 节流更新 UI（500ms）
+   throttledUIUpdate(requestMap)
+
+6. 最终更新
+   updateInvestments() → setPortfolioCache()
+
+7. 防抖同步全局状态（500ms）
+   debouncedUpdateGlobalState()
+```
+
+### 核心实现
+
+#### 并发获取投资数据
+
+```typescript
+const fetchAndUpdateInvestments = useCallback(
+  async (options?: IRefreshOptions) => {
+    if (!isActive || !isMountedRef.current) return;
+
+    const requestId = hasAccountChanged()
+      ? startNewRequest(true)
+      : startNewRequest(false);
+
+    const requestMap = new Map(investmentMapRef.current);
+
+    // 获取可用资产和账户
+    const [assets, accounts] = await Promise.all([
+      backgroundApiProxy.serviceStaking.getAvailableAssetsV2(),
+      backgroundApiProxy.serviceStaking.getEarnAvailableAccountsParams({
+        accountId: accountIdValue,
+        networkId: allNetworkId,
+        indexedAccountId: accountIndexedAccountIdValue || indexedAccountIdValue,
+      }),
+    ]);
+
+    if (isRequestStale(requestId) || !isMountedRef.current) return;
+
+    // 构建账户-资产对
+    const accountAssetPairs: IAccountAssetPair[] = accounts.flatMap(
+      (accountItem) =>
+        assets
+          .filter((asset) => asset.networkId === accountItem.networkId)
+          .map((asset) => ({
+            isAirdrop: asset.type === 'airdrop',
+            params: {
+              accountId: accountIdValue || '',
+              accountAddress: accountItem.accountAddress,
+              networkId: accountItem.networkId,
+              provider: asset.provider,
+              symbol: asset.symbol,
+              ...(asset.vault && { vault: asset.vault }),
+              ...(accountItem.publicKey && { publicKey: accountItem.publicKey }),
+            },
+          })),
+    );
+
+    // 并发获取，限制 6 个
+    const keysUpdatedInThisSession = new Set<string>();
+    const limit = pLimit(6);
+
+    const tasks = accountAssetPairs.map(({ params, isAirdrop }) =>
+      limit(async () => {
+        if (isRequestStale(requestId) || !isMountedRef.current) return;
+
+        const result = await fetchSingleInvestment(params, isAirdrop);
+
+        if (isRequestStale(requestId) || !isMountedRef.current || !result) return;
+
+        const { key: resultKey, investment: newInv, remove } = result;
+
+        if (remove) {
+          requestMap.delete(resultKey);
+        } else if (newInv) {
+          requestMap.set(resultKey, newInv);
+        }
+
+        keysUpdatedInThisSession.add(resultKey);
+
+        // 节流更新 UI
+        if (isMountedRef.current) {
+          throttledUIUpdate(new Map(requestMap));
+        }
+      }),
+    );
+
+    await Promise.all(tasks);
+
+    // 确保所有更新都已应用
+    throttledUIUpdate.flush();
+
+    // 更新全局缓存
+    const latestInvestments = updateInvestments(new Map(requestMap), true);
+
+    if (earnAccountKey && latestInvestments) {
+      setPortfolioCache((prev) => ({
+        ...prev,
+        [earnAccountKey]: latestInvestments,
+      }));
+    }
+
+    finishLoadingNewAccount();
+  },
+  [/* dependencies */],
+);
+```
+
+### 轮询配置
+
+```typescript
+usePromiseResult(
+  fetchAndUpdateInvestments,
+  [
+    isActive,
+    accountIdValue,
+    indexedAccountIdValue,
+    allNetworkId,
+    fetchAndUpdateInvestments,
+  ],
+  {
+    watchLoading: true,
+    pollingInterval: timerUtils.getTimeDurationMs({ minute: 3 }), // 3 分钟
+    overrideIsFocused: (isFocused) => isFocused && isActive,
+  },
+);
+```
+
+### 账户数据更新监听
+
+```typescript
+useEffect(() => {
+  if (!shouldRegisterAccountListener) {
+    return undefined;
+  }
+
+  const handleAccountDataUpdate = () => {
+    if (isSyncingAtomRef.current) return;
+    void fetchRef.current();
+  };
+
+  appEventBus.on(EAppEventBusNames.AccountDataUpdate, handleAccountDataUpdate);
+
+  return () => {
+    appEventBus.off(EAppEventBusNames.AccountDataUpdate, handleAccountDataUpdate);
+  };
+}, [shouldRegisterAccountListener]);
+```
+
+### 投资数据聚合
+
+按协议聚合投资数据，合并同一协议的多个资产：
+
+```typescript
+const aggregateByProtocol = (
+  investments: IEarnPortfolioInvestment[],
+): IEarnPortfolioInvestment[] => {
+  const protocolMap = investments.reduce((map, investment) => {
+    const protocolKey = investment.protocol.providerDetail.code;
+    const existing = map.get(protocolKey);
+
+    if (existing) {
+      map.set(protocolKey, mergeInvestments(existing, investment));
+    } else {
+      map.set(protocolKey, { ...investment });
+    }
+
+    return map;
+  }, new Map<string, IEarnPortfolioInvestment>());
+
+  return sortByFiatValueDesc(Array.from(protocolMap.values()));
+};
+
+// 在返回时使用
+const aggregatedInvestments = useMemo(
+  () => aggregateByProtocol(investments),
+  [investments],
+);
+
+return {
+  investments: aggregatedInvestments,
+  // ...
+};
+```
+
+---
+
 ## Pending Transaction Handling
 
 ### useStakingPendingTxs Hook
