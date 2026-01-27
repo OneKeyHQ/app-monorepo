@@ -54,13 +54,25 @@ config.resolver.extraNodeModules = {
 // Fix for Metro resolver with "subpath exports"
 config.resolver.unstable_enablePackageExports = false;
 
-// Manual alias for a subpath export when package exports are disabled.
+// Manual alias for subpath exports when package exports are disabled.
 const hyperliquidSigningPath = require.resolve('@nktkas/hyperliquid/signing');
+// Resolve multiformats ESM package (used by @zondax/izari-filecoin)
+const multiformatsPath = path.resolve(
+  __dirname,
+  '../../node_modules/multiformats/dist/src/index.js',
+);
 config.resolver.resolveRequest = (context, moduleName, platform) => {
   if (moduleName === '@nktkas/hyperliquid/signing') {
     return {
       type: 'sourceFile',
       filePath: hyperliquidSigningPath,
+    };
+  }
+  // Handle multiformats ESM resolution (package uses exports field only)
+  if (moduleName === 'multiformats' || moduleName === 'multiformats/index.js') {
+    return {
+      type: 'sourceFile',
+      filePath: multiformatsPath,
     };
   }
   return resolve(context, moduleName, platform);
