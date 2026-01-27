@@ -203,6 +203,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
         tabBarIcon: (focused?: boolean) =>
           focused ? 'TradingViewCandlesSolid' : 'TradingViewCandlesOutline',
         translationId: ETranslations.global_perp,
+        nativeTabBarIcon: nativeTabIcons.perp,
         freezeOnBlur: Boolean(params?.freezeOnBlur),
         rewrite: perpTabShowWeb ? '/perps' : undefined,
         exact: true,
@@ -215,6 +216,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
         tabBarIcon: (focused?: boolean) =>
           focused ? 'TradingViewCandlesSolid' : 'TradingViewCandlesOutline',
         translationId: ETranslations.global_perp,
+        nativeTabBarIcon: nativeTabIcons.perp,
         freezeOnBlur: Boolean(params?.freezeOnBlur),
         children: perpRouters,
         rewrite: perpTabShowWeb ? undefined : '/perps',
@@ -263,6 +265,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
             tabBarIcon: (focused?: boolean) =>
               focused ? 'CodeBracketsSolid' : 'CodeBracketsOutline',
             translationId: ETranslations.global_dev_mode,
+            nativeTabBarIcon: nativeTabIcons.developer,
             freezeOnBlur: Boolean(params?.freezeOnBlur),
             rewrite: '/dev',
             exact: true,
