@@ -4,9 +4,10 @@ import {
   POLLING_DEBOUNCE_INTERVAL,
   POLLING_INTERVAL_FOR_TOKEN,
 } from '@onekeyhq/shared/src/consts/walletConsts';
-import type {
+import {
   EModalBulkSendRoutes,
-  IModalBulkSendParamList,
+  ETabHomeRoutes,
+  type IModalBulkSendParamList,
 } from '@onekeyhq/shared/src/routes';
 import {
   EAmountInputMode,
@@ -113,6 +114,8 @@ function BaseBulkSendAmountsInput() {
 }
 
 function BulkSendAmountsInput() {
+  const navigation = useAppNavigation();
+
   const route = useAppRoute<
     IModalBulkSendParamList,
     EModalBulkSendRoutes.BulkSendAmountsInput
@@ -126,7 +129,47 @@ function BulkSendAmountsInput() {
     tokenInfo,
     tokenDetails: initialTokenDetails,
     bulkSendMode,
+    isInModal,
   } = route.params ?? {};
+
+  // Validate required parameters and redirect if missing
+  useEffect(() => {
+    const hasRequiredParams =
+      networkId &&
+      senders?.length > 0 &&
+      receivers?.length > 0 &&
+      tokenInfo &&
+      bulkSendMode;
+
+    if (!hasRequiredParams) {
+      if (isInModal) {
+        navigation.replace(EModalBulkSendRoutes.BulkSendAddressesInput, {
+          networkId,
+          accountId,
+          indexedAccountId: undefined,
+          tokenInfo,
+          isInModal: true,
+        });
+      } else {
+        navigation.replace(ETabHomeRoutes.TabHomeBulkSendAddressesInput, {
+          networkId,
+          accountId,
+          indexedAccountId: undefined,
+          tokenInfo,
+          isInModal: false,
+        });
+      }
+    }
+  }, [
+    networkId,
+    accountId,
+    senders,
+    receivers,
+    tokenInfo,
+    bulkSendMode,
+    isInModal,
+    navigation,
+  ]);
 
   const [tokenDetails, setTokenDetails] = useState<
     ({ info: IToken } & ITokenFiat) | undefined

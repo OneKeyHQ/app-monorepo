@@ -99,10 +99,11 @@ export const homeRouters: ITabSubNavigatorConfig<any, any>[] = [
     name: ETabHomeRoutes.TabHomeBulkSendAddressesInput,
     component: BulkSendAddressesInput,
     exact: true,
-    rewrite: '/bulk-send',
+    rewrite: '/bulk-send-addresses',
   },
   {
     name: ETabHomeRoutes.TabHomeBulkSendAmountsInput,
     component: BulkSendAmountsInput,
+    rewrite: '/bulk-send-amounts',
   },
 ];
