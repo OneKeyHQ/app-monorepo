@@ -41,8 +41,13 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import BigNumber from 'bignumber.js';
 
 function BaseBulkSendAmountsInput() {
-  const { tokenDetails, tokenDetailsState, bulkSendMode, isAmountValid, isInsufficientBalance } =
-    useBulkSendAmountsInputContext();
+  const {
+    tokenDetails,
+    tokenDetailsState,
+    bulkSendMode,
+    isAmountValid,
+    isInsufficientBalance,
+  } = useBulkSendAmountsInputContext();
 
   const navigation = useAppNavigation();
 
@@ -156,7 +161,7 @@ function BulkSendAmountsInput() {
         amountInputMode,
         amountInputErrors,
         amountInputValues,
-        transferInfoErrors
+        transferInfoErrors,
       }),
     [amountInputMode, amountInputErrors, amountInputValues, transferInfoErrors],
   );
@@ -175,9 +180,16 @@ function BulkSendAmountsInput() {
   useEffect(() => {
     if (bulkSendMode === EBulkSendMode.OneToMany && tokenDetails) {
       const totalTokenAmountBN = new BigNumber(totalTokenAmount ?? '0');
-      setIsInsufficientBalance(totalTokenAmountBN.gt(tokenDetails.balanceParsed));
+      setIsInsufficientBalance(
+        totalTokenAmountBN.gt(tokenDetails.balanceParsed),
+      );
     }
-  }, [totalTokenAmount, tokenDetails?.balanceParsed, bulkSendMode, tokenDetails]);
+  }, [
+    totalTokenAmount,
+    tokenDetails?.balanceParsed,
+    bulkSendMode,
+    tokenDetails,
+  ]);
 
   usePromiseResult(
     async () => {

@@ -6,6 +6,7 @@ import {
   Input,
   SizableText,
   Stack,
+  Tooltip,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -377,20 +378,48 @@ function TransferInfoListSection() {
             {/* AMOUNT */}
             <Stack width={80} alignItems="flex-end">
               {isCustomMode ? (
-                <Input
-                  value={transfer.amount}
-                  onChangeText={(value) => handleAmountChange(index, value)}
-                  placeholder="0"
-                  keyboardType="decimal-pad"
-                  textAlign="right"
-                  size="small"
-                  containerProps={{
-                    width: '100%',
-                    borderWidth: hasAmountError ? 1 : 0,
-                    borderColor: hasAmountError ? '$borderCritical' : undefined,
-                    backgroundColor: '$bgSubdued',
-                  }}
-                />
+                hasAmountError ? (
+                  <Stack width="100%">
+                    <Tooltip
+                      placement="top"
+                      renderTrigger={
+                        <Input
+                          value={transfer.amount}
+                          onChangeText={(value) =>
+                            handleAmountChange(index, value)
+                          }
+                          placeholder="0"
+                          keyboardType="decimal-pad"
+                          textAlign="right"
+                          size="small"
+                          error
+                          leftAddOnProps={{
+                            iconName: 'ErrorOutline',
+                            iconColor: '$iconCritical',
+                          }}
+                          containerProps={{
+                            width: '100%',
+                            backgroundColor: '$bgSubdued',
+                          }}
+                        />
+                      }
+                      renderContent={errors?.amount}
+                    />
+                  </Stack>
+                ) : (
+                  <Input
+                    value={transfer.amount}
+                    onChangeText={(value) => handleAmountChange(index, value)}
+                    placeholder="0"
+                    keyboardType="decimal-pad"
+                    textAlign="right"
+                    size="small"
+                    containerProps={{
+                      width: '100%',
+                      backgroundColor: '$bgSubdued',
+                    }}
+                  />
+                )
               ) : (
                 <SizableText size="$bodyLgMedium">
                   {transfer.amount || '0'}
@@ -415,39 +444,6 @@ function TransferInfoListSection() {
   );
 }
 
-function AmountErrorsList() {
-  const { transferInfoErrors } = useBulkSendAmountsInputContext();
-
-  const amountErrors = useMemo(() => {
-    const errors: { line: number; message: string }[] = [];
-    Object.keys(transferInfoErrors).forEach((key) => {
-      const index = Number(key);
-      const error = transferInfoErrors[index];
-      if (error?.amount) {
-        errors.push({ line: index + 1, message: error.amount });
-      }
-    });
-    return errors.toSorted((a, b) => a.line - b.line);
-  }, [transferInfoErrors]);
-
-  if (amountErrors.length === 0) {
-    return null;
-  }
-
-  return (
-    <YStack gap="$1">
-      {amountErrors.map(({ line, message }) => (
-        <XStack key={line} gap="$1" alignItems="center">
-          <Icon name="InfoCircleOutline" size="$4" color="$iconCritical" />
-          <SizableText size="$bodySm" color="$textCritical">
-            Line {line}: {message}
-          </SizableText>
-        </XStack>
-      ))}
-    </YStack>
-  );
-}
-
 function TableLayout() {
   return (
     <YStack gap="$8">
@@ -455,10 +451,7 @@ function TableLayout() {
         <AssetSection />
         <SetAmountPerAddressSection />
       </XStack>
-      <YStack gap="$3">
-        <TransferInfoListSection />
-        <AmountErrorsList />
-      </YStack>
+      <TransferInfoListSection />
     </YStack>
   );
 }
