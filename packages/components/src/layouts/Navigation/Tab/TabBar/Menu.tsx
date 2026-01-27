@@ -5,8 +5,8 @@ import type {
   IMenuItem,
 } from '@onekeyhq/kit-bg/src/desktopApis/DesktopApiSystem';
 
-import { Icon } from '../../../../primitives';
-import { useThemeName } from '../../../../hooks';
+import { Icon } from '@onekeyhq/components/src/primitives';
+import { useThemeName } from '@onekeyhq/components/src/hooks';
 
 function MenuItemComponent({
   item,
@@ -130,7 +130,7 @@ function MenuDropdown({
   );
 }
 
-function Menu() {
+export function Menu() {
   const [menu, setMenu] = useState<IMenu | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [activeMenuIndex, setActiveMenuIndex] = useState<number | null>(null);

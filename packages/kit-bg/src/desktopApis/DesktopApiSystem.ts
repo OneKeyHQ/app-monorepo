@@ -53,6 +53,7 @@ export interface IMenuItem {
   role: IMenuItemRole | null;
   accelerator: string | null;
   icon: string | null;
+  // cspell:ignore sublabel
   sublabel: string;
   toolTip: string;
   enabled: boolean;
