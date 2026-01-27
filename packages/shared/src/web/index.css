@@ -311,7 +311,7 @@ w3m-modal {
 
 .desktop-menu-dropdown {
   position: absolute;
-  top: 100%;
+  top: 60px;
   left: 0;
   min-width: 200px;
   background-color: var(--menu-bg, #2c2c2c);
