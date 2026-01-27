@@ -3,29 +3,32 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *-------------------------------------------------------------------------------------------- */
 
-import { MenuItem } from 'electron'
-import { CETMenuItem, IMenuStyle } from './item'
-import { IMenuOptions } from './index'
-import { $, append } from 'base/common/dom'
-import { MenuBarOptions } from 'menubar/menubar-options'
-import { IMenuIcons } from 'menubar'
+import type { MenuItem } from 'electron';
+import type { IMenuStyle } from './item';
+import { CETMenuItem } from './item';
+import type { IMenuOptions } from './index';
+import { $, append } from '../../base/common/dom';
+import type { MenuBarOptions } from '../menubar-options';
+import type { IMenuIcons } from '..';
 
 export class CETSeparator extends CETMenuItem {
-	private separatorElement?: HTMLElement
+  private separatorElement?: HTMLElement;
 
-	constructor(item: MenuItem, submenuIcons: IMenuIcons, submenuParentOptions: MenuBarOptions, submenuOptions: IMenuOptions) {
-		super(item, submenuIcons, submenuParentOptions, submenuOptions)
-	}
+  
 
-	render(container: HTMLElement) {
-		if (container) {
-			this.separatorElement = append(container, $('a.cet-action-label.separator', { role: 'presentation' }))
-		}
-	}
+  override render(container: HTMLElement) {
+    if (container) {
+      this.separatorElement = append(
+        container,
+        $('a.cet-action-label.separator', { role: 'presentation' }),
+      );
+    }
+  }
 
-	updateStyle(style: IMenuStyle) {
-		if (this.separatorElement && style.separatorColor) {
-			this.separatorElement.style.borderBottomColor = style.separatorColor.toString()
-		}
-	}
+  override updateStyle(style: IMenuStyle) {
+    if (this.separatorElement && style.separatorColor) {
+      this.separatorElement.style.borderBottomColor =
+        style.separatorColor.toString();
+    }
+  }
 }

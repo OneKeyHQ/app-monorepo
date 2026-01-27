@@ -8,14 +8,18 @@
  * being used e.g. in HTMLElement.innerHTML.
  */
 export function escape(html: string): string {
-	return html.replace(/[<>&]/g, function (match) {
-		switch (match) {
-			case '<': return '&lt;';
-			case '>': return '&gt;';
-			case '&': return '&amp;';
-			default: return match;
-		}
-	});
+  return html.replace(/[<>&]/g, function (match) {
+    switch (match) {
+      case '<':
+        return '&lt;';
+      case '>':
+        return '&gt;';
+      case '&':
+        return '&amp;';
+      default:
+        return match;
+    }
+  });
 }
 
 /**
@@ -24,8 +28,8 @@ export function escape(html: string): string {
  * @param needle the thing to trim (default is a blank)
  */
 export function trim(haystack: string, needle: string = ' '): string {
-	const trimmed = ltrim(haystack, needle);
-	return rtrim(trimmed, needle);
+  const trimmed = ltrim(haystack, needle);
+  return rtrim(trimmed, needle);
 }
 
 /**
@@ -34,21 +38,21 @@ export function trim(haystack: string, needle: string = ' '): string {
  * @param needle the thing to trim
  */
 export function ltrim(haystack: string, needle: string): string {
-	if (!haystack || !needle) {
-		return haystack;
-	}
+  if (!haystack || !needle) {
+    return haystack;
+  }
 
-	const needleLen = needle.length;
-	if (needleLen === 0 || haystack.length === 0) {
-		return haystack;
-	}
+  const needleLen = needle.length;
+  if (needleLen === 0 || haystack.length === 0) {
+    return haystack;
+  }
 
-	let offset = 0;
+  let offset = 0;
 
-	while (haystack.indexOf(needle, offset) === offset) {
-		offset = offset + needleLen;
-	}
-	return haystack.substring(offset);
+  while (haystack.indexOf(needle, offset) === offset) {
+    offset = offset + needleLen;
+  }
+  return haystack.substring(offset);
 }
 
 /**
@@ -57,30 +61,30 @@ export function ltrim(haystack: string, needle: string): string {
  * @param needle the thing to trim
  */
 export function rtrim(haystack: string, needle: string): string {
-	if (!haystack || !needle) {
-		return haystack;
-	}
+  if (!haystack || !needle) {
+    return haystack;
+  }
 
-	const needleLen = needle.length,
-		haystackLen = haystack.length;
+  const needleLen = needle.length,
+    haystackLen = haystack.length;
 
-	if (needleLen === 0 || haystackLen === 0) {
-		return haystack;
-	}
+  if (needleLen === 0 || haystackLen === 0) {
+    return haystack;
+  }
 
-	let offset = haystackLen,
-		idx = -1;
+  let offset = haystackLen,
+    idx = -1;
 
-	while (true) {
-		idx = haystack.lastIndexOf(needle, offset - 1);
-		if (idx === -1 || idx + needleLen !== offset) {
-			break;
-		}
-		if (idx === 0) {
-			return '';
-		}
-		offset = idx;
-	}
+  while (true) {
+    idx = haystack.lastIndexOf(needle, offset - 1);
+    if (idx === -1 || idx + needleLen !== offset) {
+      break;
+    }
+    if (idx === 0) {
+      return '';
+    }
+    offset = idx;
+  }
 
-	return haystack.substring(0, offset);
+  return haystack.substring(0, offset);
 }
