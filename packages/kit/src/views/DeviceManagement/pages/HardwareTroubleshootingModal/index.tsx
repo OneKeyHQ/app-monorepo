@@ -233,13 +233,7 @@ function HardwareTroubleshootingModal() {
             mb="$3"
           >
             {hardwareTroubleshootingQuestions.map((_, i) => (
-              <Stack
-                key={i}
-                pl={10}
-                pt={10}
-                flexBasis="50%"
-                height="auto"
-              >
+              <Stack key={i} pl={10} pt={10} flexBasis="50%" height="auto">
                 <YStack
                   flex={1}
                   role="button"
