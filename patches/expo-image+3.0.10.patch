@@ -1,53 +1,78 @@
 diff --git a/node_modules/expo-image/android/src/main/java/expo/modules/image/CustomDownsampleStrategy.kt b/node_modules/expo-image/android/src/main/java/expo/modules/image/CustomDownsampleStrategy.kt
-index 00e8ca9..ad070dd 100644
+index 00e8ca9..f872d02 100644
 --- a/node_modules/expo-image/android/src/main/java/expo/modules/image/CustomDownsampleStrategy.kt
 +++ b/node_modules/expo-image/android/src/main/java/expo/modules/image/CustomDownsampleStrategy.kt
-@@ -186,11 +186,26 @@ class SafeDownsampleStrategy(
+@@ -63,6 +63,13 @@ class PlaceholderDownsampleStrategy(
+   }
+ }
+ 
++/**
++ * PATCHED: Shared memory limit constant for all downsample strategies.
++ * 16MB allows approximately 2000x2000 ARGB_8888 images.
++ * This prevents OOM when loading large animated GIFs.
++ */
++private const val MAX_SAFE_BITMAP_SIZE = 16 * 1024 * 1024 // 16 MB
++
+ class ContentFitDownsampleStrategy(
+   private val target: ImageViewWrapperTarget,
+   private val contentFit: ContentFit
+@@ -95,8 +102,25 @@ class ContentFitDownsampleStrategy(
+       requestedHeight.toFloat()
+     )
+ 
+-    // We don't want to upscale the image
+-    return min(1f, aspectRation)
++    // PATCHED: Apply memory safety limit in addition to content fit scaling.
++    // This prevents OOM when loading large images (especially animated GIFs).
++    val contentFitScale = min(1f, aspectRation)
++
++    // Calculate the resulting size after content fit scaling
++    val scaledWidth = sourceWidth * contentFitScale
++    val scaledHeight = sourceHeight * contentFitScale
++    val scaledSize = scaledWidth * scaledHeight * 4 // Assume ARGB_8888 (4 bytes per pixel)
++
++    if (scaledSize > MAX_SAFE_BITMAP_SIZE) {
++      // Need additional downsampling to fit within memory limit
++      val srcAspectRatio = min(scaledWidth, scaledHeight).toDouble() / max(scaledWidth, scaledHeight).toDouble()
++      val dstArea = MAX_SAFE_BITMAP_SIZE / 4
++      val dstLongerSide = floor(sqrt(dstArea.toDouble() / srcAspectRatio)).toInt()
++      val safetyScale = dstLongerSide.toFloat() / max(scaledWidth, scaledHeight)
++      return contentFitScale * safetyScale
++    }
++
++    return contentFitScale
+   }
+ 
+   private fun calculateScaleFactor(
+@@ -186,11 +210,17 @@ class SafeDownsampleStrategy(
  
    private val maxBitmapSize by lazy {
      if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
 -      return@lazy -1
-+      // PATCHED: Provide 48MB limit for Android < Q to prevent OOM
-+      // Increased from 32MB to 48MB to reduce Bitmap allocation failures
-+      // that cause NullPointerException in penfeizhou GIF decoder
-+      return@lazy 48 * 1024 * 1024 // 48 MB
++      // PATCHED: Use shared MAX_SAFE_BITMAP_SIZE constant for Android < Q.
++      // This prevents OOM when loading large animated GIFs.
++      return@lazy MAX_SAFE_BITMAP_SIZE
      }
  
      return@lazy try {
 -      val defaultSize = 100 * 1024 * 1024 // 100 MB - from `RecordingCanvas` src
-+      // PATCHED: Reduced from 100MB to 48MB to prevent OutOfMemoryError with large GIFs
-+      // Balanced approach:
-+      // - 32MB was too restrictive, causing null Bitmap allocations
-+      // - 48MB provides better allocation success rate while still preventing OOM
-+      //
-+      // Large animated GIFs can easily cause OOM crashes. Example:
-+      // - 2000x2000 GIF with ARGB_8888 = 16MB per frame
-+      // - With multiple frames in memory, this can exceed 100MB
-+      //
-+      // 48MB limit allows:
-+      // - 1732x1732 ARGB_8888 images
-+      // - 2449x2449 RGB_565 images
-+      val defaultSize = 48 * 1024 * 1024 // 48 MB (reduced from 100 MB)
++      // PATCHED: Reduced from 100MB to 16MB to prevent OutOfMemoryError with large GIFs.
++      // 16MB allows approximately 2000x2000 ARGB_8888 images.
++      // For animated GIFs, each frame is decoded separately, so even with this limit,
++      // a GIF with many frames can still cause memory pressure.
++      val defaultSize = MAX_SAFE_BITMAP_SIZE
  
        // We're trying to get the value of `ro.hwui.max_texture_allocation_size` property
        // which is used by `RecordingCanvas` to determine the maximum bitmap size.
-@@ -202,8 +217,17 @@ class SafeDownsampleStrategy(
+@@ -202,8 +232,9 @@ class SafeDownsampleStrategy(
        (getIntMethod.invoke(null, "ro.hwui.max_texture_allocation_size", defaultSize) as Int)
          .coerceAtLeast(defaultSize)
      } catch (e: Throwable) {
 -      // If something goes wrong we just return -1 and don't downsample the image.
 -      -1
-+      // PATCHED: Changed from -1 (no limit) to 48MB fallback
-+      // On Android < Q or when system property read fails, we still need memory protection
-+      // Returning -1 means no downsampling, which causes OOM with large images
-+      //
-+      // Increased from 32MB to 48MB to reduce Bitmap allocation failures
-+      // that cause NullPointerException in penfeizhou GIF decoder
-+      //
-+      // This ensures all Android versions have memory protection:
-+      // - Android Q+: uses system property (coerced to minimum 48MB)
-+      // - Android < Q and error cases: use 48MB hardcoded limit
-+      48 * 1024 * 1024 // 48 MB fallback (was -1)
++      // PATCHED: Changed from -1 (no limit) to MAX_SAFE_BITMAP_SIZE fallback.
++      // Returning -1 means no downsampling, which causes OOM with large images.
++      MAX_SAFE_BITMAP_SIZE
      }
    }
  
