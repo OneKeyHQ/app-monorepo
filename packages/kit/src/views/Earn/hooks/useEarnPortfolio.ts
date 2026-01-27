@@ -128,7 +128,7 @@ const hasAnyAirdropAssets = (
 const sortByFiatValueDesc = (
   investments: IEarnPortfolioInvestment[],
 ): IEarnPortfolioInvestment[] =>
-  [...investments].toSorted((a, b) => {
+  investments.toSorted((a, b) => {
     const valueA = new BigNumber(a.totalFiatValue || '0');
     const valueB = new BigNumber(b.totalFiatValue || '0');
     return valueB.comparedTo(valueA);

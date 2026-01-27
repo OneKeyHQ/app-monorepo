@@ -47,6 +47,11 @@ public class MainActivity extends ReactActivity {
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
+    // Install AndroidX SplashScreen before super.onCreate() to fix MIUI/HyperOS crashes
+    // where system's replaceUmiTheme method fails with NullPointerException
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+      androidx.core.splashscreen.SplashScreen.installSplashScreen(this);
+    }
     super.onCreate(null);
     setTheme(R.style.AppTheme);
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {

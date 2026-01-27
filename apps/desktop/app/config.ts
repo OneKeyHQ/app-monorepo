@@ -83,4 +83,8 @@ export const ipcMessageKeys = {
 
   // Bluetooth
   BLUETOOTH_CHECK_AVAILABILITY: 'bluetooth/checkAvailability',
+
+  // System Resources
+  SYSTEM_GET_CPU_USAGE: 'system/getCpuUsage',
+  SYSTEM_GET_MEMORY_USAGE: 'system/getMemoryUsage',
 };

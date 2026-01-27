@@ -111,7 +111,7 @@ function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
             dismissOnOverlayPress,
           }) => {
             const customOptions: IModalNavigationOptions = {
-              ...options,
+              ...(typeof options === 'function' ? {} : options),
               shouldPopOnClickBackdrop,
               dismissOnOverlayPress,
               title: translationId
