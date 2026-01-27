@@ -163,7 +163,7 @@ export function TabStackNavigator<RouteName extends string>({
       }
       screenOptions={{
         freezeOnBlur: true,
-        preventsDefault: true,
+        preventsDefault: false,
         lazy: false,
       }}
     >
