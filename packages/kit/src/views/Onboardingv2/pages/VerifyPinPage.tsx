@@ -19,6 +19,7 @@ import {
   EOnboardingV2OneKeyIDLoginMode,
 } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector/AccountSelectorProvider';
@@ -34,7 +35,6 @@ import {
 } from '../components/PinInputLayout';
 
 import type { RouteProp } from '@react-navigation/core';
-import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 const MAX_ATTEMPTS = JUICEBOX_ALLOWED_GUESSES;
 
@@ -140,21 +140,30 @@ function VerifyPinPage() {
     [pinInputRef],
   );
 
-  const handleForgotPin = useCallback(async () => {
-    if (isVerifyPinOnly) {
-      await backgroundApiProxy.servicePassword.promptPasswordVerify({
-        reason: EReasonForNeedPassword.Security,
-      });
-      navigation.push(EOnboardingPagesV2.CreatePin, {
-        action: EKeylessFinalizeAction.ResetPin,
-      });
-    } else {
-      // Navigate to ResetPinGuide page which is a guide page showing instructions
-      // on how to reset PIN using another device, not the actual reset operation page.
-      // The actual reset operation happens in CreatePinPage when action is ResetPin.
-      navigation.push(EOnboardingPagesV2.ResetPinGuide);
-    }
-  }, [navigation, isVerifyPinOnly]);
+  const handleForgotPin = useCallback(
+    async ({
+      shouldVerifyPasswordFirst,
+    }: { shouldVerifyPasswordFirst?: boolean } = {}) => {
+      if (isVerifyPinOnly) {
+        if (shouldVerifyPasswordFirst) {
+          await backgroundApiProxy.servicePassword.promptPasswordVerify({
+            reason: EReasonForNeedPassword.Security,
+          });
+        } else {
+          await backgroundApiProxy.servicePassword.clearCachedPassword();
+        }
+        navigation.push(EOnboardingPagesV2.CreatePin, {
+          action: EKeylessFinalizeAction.ResetPin,
+        });
+      } else {
+        // Navigate to ResetPinGuide page which is a guide page showing instructions
+        // on how to reset PIN using another device, not the actual reset operation page.
+        // The actual reset operation happens in CreatePinPage when action is ResetPin.
+        navigation.push(EOnboardingPagesV2.ResetPinGuide);
+      }
+    },
+    [navigation, isVerifyPinOnly],
+  );
 
   // Check rate limit status - reusable function
   const checkRateLimitStatus = useCallback(
@@ -400,7 +409,9 @@ function VerifyPinPage() {
           ? intl.formatMessage({ id: ETranslations.forgot_pin })
           : intl.formatMessage({ id: ETranslations.reset_pin })
       }
-      onSecondaryButtonPress={handleForgotPin}
+      onSecondaryButtonPress={() =>
+        handleForgotPin({ shouldVerifyPasswordFirst: true })
+      }
       value={pin}
       onChange={handlePinChange}
       onSubmit={handleVerify}
