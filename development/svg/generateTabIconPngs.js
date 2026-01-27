@@ -2,7 +2,7 @@
  * Script to generate PNG icons from React Native SVG components for native tab bar
  *
  * Usage:
- *   1. Install sharp: npm install sharp (or yarn add sharp)
+ *   1. Install @resvg/resvg-js: npm install @resvg/resvg-js
  *   2. Run: node development/svg/generateTabIconPngs.js
  *
  * Output:
@@ -145,10 +145,13 @@ ${pathElements}
 }
 
 /**
- * Try to require sharp from multiple locations
+ * Try to require resvg-js from multiple locations
  */
-function tryRequireSharp() {
-  const possiblePaths = ['sharp', '/tmp/svg2png_temp/node_modules/sharp'];
+function tryRequireResvg() {
+  const possiblePaths = [
+    '@resvg/resvg-js',
+    '/tmp/svg2png_temp/node_modules/@resvg/resvg-js',
+  ];
 
   for (const p of possiblePaths) {
     try {
@@ -161,13 +164,19 @@ function tryRequireSharp() {
 }
 
 /**
- * Convert SVG to PNG using sharp
+ * Convert SVG to PNG using resvg-js
  */
-async function svgToPng(svgString, outputPath, size, sharpModule) {
-  await sharpModule(Buffer.from(svgString))
-    .resize(size, size)
-    .png()
-    .toFile(outputPath);
+function svgToPng(svgString, outputPath, size, resvgModule) {
+  const { Resvg } = resvgModule;
+  const resvg = new Resvg(svgString, {
+    fitTo: {
+      mode: 'width',
+      value: size,
+    },
+  });
+  const pngData = resvg.render();
+  const pngBuffer = pngData.asPng();
+  fs.writeFileSync(outputPath, pngBuffer);
   return true;
 }
 
@@ -190,7 +199,6 @@ async function main() {
       unfocused: path.join(outputDir, 'dark', 'unfocused'),
       focused: path.join(outputDir, 'dark', 'focused'),
     },
-    svg: path.join(outputDir, 'svg'),
   };
 
   // Create all directories
@@ -200,20 +208,18 @@ async function main() {
   Object.values(dirs.dark).forEach((dir) => {
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   });
-  if (!fs.existsSync(dirs.svg)) fs.mkdirSync(dirs.svg, { recursive: true });
 
-  const sharpModule = tryRequireSharp();
-  const sharpAvailable = !!sharpModule;
+  const resvgModule = tryRequireResvg();
+  const resvgAvailable = !!resvgModule;
 
-  if (!sharpAvailable) {
+  if (!resvgAvailable) {
+    console.log('Error: @resvg/resvg-js module not available.');
+    console.log('To install, run:');
     console.log(
-      'Note: sharp module not available. Will only generate SVG files.',
-    );
-    console.log('To generate PNG files, run:');
-    console.log(
-      '  cd /tmp && mkdir -p svg2png_temp && cd svg2png_temp && npm init -y && npm install sharp',
+      '  cd /tmp && mkdir -p svg2png_temp && cd svg2png_temp && npm init -y && npm install @resvg/resvg-js',
     );
     console.log('Then run this script again.\n');
+    process.exit(1);
   }
 
   console.log('Processing tab icons...\n');
@@ -244,73 +250,34 @@ async function main() {
       .replace('Outline', '')
       .replace('Custom', '');
 
-    // Generate SVG file (using light mode color as default)
-    const svgContent = generateSvg(
-      parsedData,
-      BASE_SIZE,
-      ICON_COLORS.light[focusState],
-    );
-    const svgPath = path.join(dirs.svg, `${icon.name}.svg`);
-    fs.writeFileSync(svgPath, svgContent);
-    console.log(`  Created SVG: svg/${icon.name}.svg`);
-
     // Generate PNG files for both light and dark modes
-    if (sharpAvailable) {
-      for (const theme of ['light', 'dark']) {
-        const color = ICON_COLORS[theme][focusState];
-        const targetDir = dirs[theme][focusState];
+    for (const theme of ['light', 'dark']) {
+      const color = ICON_COLORS[theme][focusState];
+      const targetDir = dirs[theme][focusState];
 
-        for (const scale of SCALES) {
-          const size = BASE_SIZE * scale;
-          const suffix = scale === 1 ? '' : `@${scale}x`;
-          const pngName = `${baseName}${suffix}.png`;
-          const pngPath = path.join(targetDir, pngName);
+      for (const scale of SCALES) {
+        const size = BASE_SIZE * scale;
+        const suffix = scale === 1 ? '' : `@${scale}x`;
+        const pngName = `${baseName}${suffix}.png`;
+        const pngPath = path.join(targetDir, pngName);
 
-          const scaledSvg = generateSvg(parsedData, size, color);
-          await svgToPng(scaledSvg, pngPath, size, sharpModule);
-          console.log(`  Created PNG: ${theme}/${focusState}/${pngName}`);
-        }
+        const scaledSvg = generateSvg(parsedData, size, color);
+        svgToPng(scaledSvg, pngPath, size, resvgModule);
+        console.log(`  Created PNG: ${theme}/${focusState}/${pngName}`);
       }
     }
   }
 
   console.log('\nDone!');
-
-  if (sharpAvailable) {
-    console.log(`\nPNG files generated in: ${outputDir}`);
-    console.log(
-      '- light/unfocused/: Outline icons for inactive tabs (light mode)',
-    );
-    console.log('- light/focused/: Solid icons for active tabs (light mode)');
-    console.log(
-      '- dark/unfocused/: Outline icons for inactive tabs (dark mode)',
-    );
-    console.log('- dark/focused/: Solid icons for active tabs (dark mode)');
-  }
-
-  console.log(`\nSVG files generated in: ${dirs.svg}`);
-
-  // Generate usage example
-  const usageExample = `
-// Example usage in Tab/router.ts:
-//
-// Import the icons for both themes
-// const tabIconWalletLight = require('@onekeyhq/kit/assets/tabbar/light/unfocused/Wallet.png');
-// const tabIconWalletFocusedLight = require('@onekeyhq/kit/assets/tabbar/light/focused/Wallet.png');
-// const tabIconWalletDark = require('@onekeyhq/kit/assets/tabbar/dark/unfocused/Wallet.png');
-// const tabIconWalletFocusedDark = require('@onekeyhq/kit/assets/tabbar/dark/focused/Wallet.png');
-//
-// Then in nativeTabBarIcon (with theme detection):
-// nativeTabBarIcon: ({ focused }) => {
-//   const isDark = useTheme(); // or however you detect dark mode
-//   if (isDark) {
-//     return focused ? tabIconWalletFocusedDark : tabIconWalletDark;
-//   }
-//   return focused ? tabIconWalletFocusedLight : tabIconWalletLight;
-// },
-`;
-
-  console.log(usageExample);
+  console.log(`\nPNG files generated in: ${outputDir}`);
+  console.log(
+    '- light/unfocused/: Outline icons for inactive tabs (light mode)',
+  );
+  console.log('- light/focused/: Solid icons for active tabs (light mode)');
+  console.log(
+    '- dark/unfocused/: Outline icons for inactive tabs (dark mode)',
+  );
+  console.log('- dark/focused/: Solid icons for active tabs (dark mode)');
 }
 
 main().catch(console.error);
