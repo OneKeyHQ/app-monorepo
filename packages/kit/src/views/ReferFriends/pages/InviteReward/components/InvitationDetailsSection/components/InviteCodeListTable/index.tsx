@@ -141,6 +141,7 @@ export function InviteCodeListTable({
       {/* Scrollable columns */}
       <ScrollView
         ref={scrollViewRef}
+        flex={1}
         horizontal
         showsHorizontalScrollIndicator
         bounces={false}
