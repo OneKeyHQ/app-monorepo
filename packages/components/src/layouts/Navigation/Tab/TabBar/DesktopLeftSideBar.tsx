@@ -53,7 +53,7 @@ import type {
 } from '@react-navigation/routers';
 import type { MotiTransition } from 'moti';
 import type { GestureResponderEvent } from 'react-native';
-import { Menu } from './Menu';
+import {  MenuHamburger } from './Menu';
 
 function TabItemView({
   isCollapse,
@@ -457,7 +457,7 @@ export function DesktopLeftSideBar({
     >
       {
         platformEnv.isDesktopMac ? (
-          <Menu />
+          <MenuHamburger />
         ) : null
       }
       {platformEnv.isDesktopMac ? (

@@ -130,7 +130,7 @@ function MenuDropdown({
   );
 }
 
-export function Menu() {
+function Menu() {
   const [menu, setMenu] = useState<IMenu | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [activeMenuIndex, setActiveMenuIndex] = useState<number | null>(null);
