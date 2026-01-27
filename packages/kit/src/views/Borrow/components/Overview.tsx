@@ -102,14 +102,8 @@ export const Overview = ({
   isActive?: boolean;
   onHealthFactorAlertsChange?: (alerts?: IBorrowAlert[]) => void;
 }) => {
-  const {
-    reserves,
-    market,
-    earnAccount,
-    pendingTxs,
-    refreshRewardsRef,
-    refreshBorrowDataRef,
-  } = useBorrowContext();
+  const { reserves, market, earnAccount, pendingTxs, setRefreshAllBorrowData } =
+    useBorrowContext();
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
   const navigation = useAppNavigation();
@@ -206,10 +200,6 @@ export const Overview = ({
     await Promise.all(tasks);
   }, [refreshBorrowRewards, refreshHealthFactor, refreshReserves]);
 
-  useEffect(() => {
-    refreshRewardsRef.current = refreshBorrowRewards;
-  }, [refreshBorrowRewards, refreshRewardsRef]);
-
   const requestRefresh = useCallback(
     async (_reason: 'manual' | 'txSuccess') => {
       setIsManualRefreshing(true);
@@ -228,13 +218,11 @@ export const Overview = ({
   );
 
   useEffect(() => {
-    refreshBorrowDataRef.current = refreshBorrowDataForPending;
+    setRefreshAllBorrowData(refreshBorrowDataForPending);
     return () => {
-      if (refreshBorrowDataRef.current === refreshBorrowDataForPending) {
-        refreshBorrowDataRef.current = null;
-      }
+      setRefreshAllBorrowData(() => Promise.resolve());
     };
-  }, [refreshBorrowDataForPending, refreshBorrowDataRef]);
+  }, [refreshBorrowDataForPending, setRefreshAllBorrowData]);
 
   const handleHistoryPress = useCallback(() => {
     if (!provider || !networkId || !marketAddress || !earnAccountId) return;

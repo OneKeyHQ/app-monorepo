@@ -283,9 +283,9 @@ type IBorrowContextValue = {
   pendingTxs: IStakePendingTx[];
   setPendingTxs: (txs: IStakePendingTx[]) => void;
 
-  // Refs for external refresh triggers
-  refreshRewardsRef: React.MutableRefObject<(() => Promise<void>) | null>;
-  refreshBorrowDataRef: React.MutableRefObject<(() => Promise<void>) | null>;
+  // Refresh function for external triggers (set by Overview, used by BorrowPendingBridge)
+  refreshAllBorrowData: () => Promise<void>;
+  setRefreshAllBorrowData: (fn: () => Promise<void>) => void;
 };
 ```
 
@@ -303,6 +303,46 @@ const defaultAsyncData = <T>(data: T): IAsyncData<T> => ({
   loading: false,
   refresh: () => Promise.resolve(),
 });
+```
+
+### Forbidden Pattern: Ref for Cross-Component Communication
+
+**NEVER use `useRef` for cross-component function passing** unless absolutely necessary.
+
+**Why this is forbidden:**
+1. Ref pattern bypasses React's reactive system, making data flow hard to trace
+2. `.current` may be null, requiring extra null checks
+3. State function pattern is more aligned with React's declarative paradigm
+4. Easier to test and debug
+
+**Bad Example (FORBIDDEN):**
+```typescript
+// Define ref in Context
+refreshDataRef: React.MutableRefObject<(() => Promise<void>) | null>;
+
+// Child component sets ref
+useEffect(() => {
+  refreshDataRef.current = myRefreshFunction;
+}, [myRefreshFunction, refreshDataRef]);
+
+// Other component calls via ref
+await refreshDataRef.current?.();
+```
+
+**Good Example:**
+```typescript
+// Define state function in Context
+refreshAllData: () => Promise<void>;
+setRefreshAllData: (fn: () => Promise<void>) => void;
+
+// Child component sets function
+useEffect(() => {
+  setRefreshAllData(myRefreshFunction);
+  return () => setRefreshAllData(() => Promise.resolve());
+}, [myRefreshFunction, setRefreshAllData]);
+
+// Other component calls directly
+await refreshAllData();
 ```
 
 ### Data Status State Machine
@@ -465,7 +505,7 @@ Bridges external pending transactions to the Borrow Context.
 
 ```typescript
 const BorrowPendingBridge = ({ pendingTxs, onRegisterBorrowRefresh }) => {
-  const { setPendingTxs, refreshBorrowDataRef } = useBorrowContext();
+  const { setPendingTxs, refreshAllBorrowData } = useBorrowContext();
 
   // Sync pending transactions
   useEffect(() => {
@@ -474,8 +514,8 @@ const BorrowPendingBridge = ({ pendingTxs, onRegisterBorrowRefresh }) => {
 
   // Register refresh handler
   const handleRefresh = useCallback(async () => {
-    await refreshBorrowDataRef.current?.();
-  }, [refreshBorrowDataRef]);
+    await refreshAllBorrowData();
+  }, [refreshAllBorrowData]);
 
   useEffect(() => {
     onRegisterBorrowRefresh?.(handleRefresh);

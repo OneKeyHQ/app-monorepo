@@ -4,7 +4,6 @@ import {
   useCallback,
   useContext,
   useMemo,
-  useRef,
   useState,
 } from 'react';
 
@@ -69,9 +68,9 @@ type IBorrowContextValue = {
   pendingTxs: IStakePendingTx[];
   setPendingTxs: (txs: IStakePendingTx[]) => void;
 
-  // Refs for external refresh triggers (used by Overview component)
-  refreshRewardsRef: React.MutableRefObject<(() => Promise<void>) | null>;
-  refreshBorrowDataRef: React.MutableRefObject<(() => Promise<void>) | null>;
+  // Refresh function for external triggers (set by Overview, used by BorrowPendingBridge)
+  refreshAllBorrowData: () => Promise<void>;
+  setRefreshAllBorrowData: (fn: () => Promise<void>) => void;
 };
 
 const defaultSwapConfig: ISwapConfig = {
@@ -98,9 +97,15 @@ export const BorrowProvider = ({
   );
   const [pendingTxs, setPendingTxsState] = useState<IStakePendingTx[]>([]);
 
-  // Refs for external refresh triggers
-  const refreshRewardsRef = useRef<(() => Promise<void>) | null>(null);
-  const refreshBorrowDataRef = useRef<(() => Promise<void>) | null>(null);
+  // Refresh function for external triggers
+  const [refreshAllBorrowData, setRefreshAllBorrowDataState] = useState<
+    () => Promise<void>
+  >(() => () => Promise.resolve());
+
+  // Stable setter that won't cause unnecessary re-renders
+  const setRefreshAllBorrowData = useCallback((fn: () => Promise<void>) => {
+    setRefreshAllBorrowDataState(() => fn);
+  }, []);
 
   // Stable setter that won't cause unnecessary re-renders
   const setPendingTxs = useCallback((txs: IStakePendingTx[]) => {
@@ -135,8 +140,8 @@ export const BorrowProvider = ({
       swapConfig,
       pendingTxs,
       setPendingTxs,
-      refreshRewardsRef,
-      refreshBorrowDataRef,
+      refreshAllBorrowData,
+      setRefreshAllBorrowData,
     }),
     [
       market,
@@ -146,6 +151,8 @@ export const BorrowProvider = ({
       swapConfig,
       pendingTxs,
       setPendingTxs,
+      refreshAllBorrowData,
+      setRefreshAllBorrowData,
     ],
   );
 

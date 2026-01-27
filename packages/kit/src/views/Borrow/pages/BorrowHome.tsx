@@ -43,7 +43,7 @@ const BorrowPendingBridge = ({
   pendingTxs?: IStakePendingTx[];
   onRegisterBorrowRefresh?: (handler: (() => Promise<void>) | null) => void;
 }) => {
-  const { setPendingTxs, refreshBorrowDataRef } = useBorrowContext();
+  const { setPendingTxs, refreshAllBorrowData } = useBorrowContext();
   const pendingIdsRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -55,8 +55,8 @@ const BorrowPendingBridge = ({
   }, [pendingTxs, setPendingTxs]);
 
   const handleRefresh = useCallback(async () => {
-    await refreshBorrowDataRef.current?.();
-  }, [refreshBorrowDataRef]);
+    await refreshAllBorrowData();
+  }, [refreshAllBorrowData]);
 
   useEffect(() => {
     if (!onRegisterBorrowRefresh) return undefined;
@@ -77,7 +77,8 @@ const BorrowHomeContent = memo(
     const [healthFactorAlerts, setHealthFactorAlerts] = useState<
       IBorrowAlert[] | undefined
     >(undefined);
-    const { reserves, market, earnAccount } = useBorrowContext();
+    const { reserves, market, earnAccount, refreshAllBorrowData } =
+      useBorrowContext();
     const { activeAccount } = useActiveAccount({ num: 0 });
     const alerts = useMemo(
       () => [...(reserves.data?.alerts ?? []), ...(healthFactorAlerts ?? [])],
@@ -105,7 +106,8 @@ const BorrowHomeContent = memo(
     const refreshEarnAccount = earnAccount.refresh;
     const handleCreateAddress = useCallback(async () => {
       await refreshEarnAccount();
-    }, [refreshEarnAccount]);
+      await refreshAllBorrowData();
+    }, [refreshEarnAccount, refreshAllBorrowData]);
 
     const tabOptions = useMemo(
       () => [
