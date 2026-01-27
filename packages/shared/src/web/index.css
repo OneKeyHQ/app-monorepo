@@ -247,10 +247,6 @@ textarea {
   height: 100%;
 }
 
-body > div.cet-container {
-  z-index: unset;
-}
-
 /* 
   Add break-all class to handle word breaking in web platform,
   since react-native doesn't support wordBreak property directly.
@@ -258,15 +254,6 @@ body > div.cet-container {
 */
 .break-all {
   word-break: break-all;
-}
-
-/* Hide title bar icon on Windows/Linux Desktop */
-.onekey-body > .cet-titlebar > .cet-icon {
-  display: none;
-}
-
-.onekey-body > .cet-titlebar > .cet-menubar {
-  margin-left: 16px;
 }
 
 .normal-scrollbar::-webkit-scrollbar {

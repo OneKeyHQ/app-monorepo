@@ -200,7 +200,9 @@ function Menu() {
   return (
     <div
       ref={containerRef}
-      className={`desktop-menu-container ${themeName === 'light' ? 'light-theme' : ''}`}
+      className={`desktop-menu-container ${
+        themeName === 'light' ? 'light-theme' : ''
+      }`}
       style={{
         display: 'flex',
         flexDirection: 'row',
@@ -287,31 +289,36 @@ export function MenuHamburger() {
     setIsOpen((prev) => !prev);
   }, []);
 
-
   const allItems = useMemo(() => {
     // Flatten all menu items for hamburger menu display
     const itemArray: IMenuItem[] = [];
     menu?.items.forEach((menuItem) => {
-        if (menuItem.submenu && menuItem.submenu.items.length > 0) {
+      if (menuItem.submenu && menuItem.submenu.items.length > 0) {
         // Add a label item for the menu category
         itemArray.push({
-            ...menuItem,
-            type: 'submenu',
+          ...menuItem,
+          type: 'submenu',
         });
-        }
+      }
     });
     return itemArray;
-  }, [menu])
+  }, [menu]);
 
-  console.log('allItems---', allItems)
-  if (allItems.length === 0 || !menu || !menu.items || menu.items.length === 0) {
+  if (
+    allItems.length === 0 ||
+    !menu ||
+    !menu.items ||
+    menu.items.length === 0
+  ) {
     return null;
   }
 
   return (
     <div
       ref={containerRef}
-      className={`desktop-menu-container ${themeName === 'light' ? 'light-theme' : ''}`}
+      className={`desktop-menu-container ${
+        themeName === 'light' ? 'light-theme' : ''
+      }`}
     >
       <div className="desktop-menu-trigger" onClick={toggleMenu}>
         <Icon

@@ -24,7 +24,7 @@ export const updateRootViewBackgroundColor: IUpdateRootViewBackgroundColor = (
     }
     // startup theme on desktop: apps/desktop/app/app.ts 213L
     if (platformEnv.isDesktop) {
-      globalThis.desktopApi?.changeTheme(theme);
+      globalThis.desktopApiProxy.system.changeTheme(theme);
     }
   });
 };

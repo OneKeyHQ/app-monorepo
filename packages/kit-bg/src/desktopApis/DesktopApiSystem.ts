@@ -2,7 +2,7 @@ import os from 'os';
 import path from 'path';
 
 import * as Sentry from '@sentry/electron/main';
-import { app, Menu, shell, systemPreferences } from 'electron';
+import { Menu, app, shell, systemPreferences } from 'electron';
 import logger from 'electron-log/main';
 import si from 'systeminformation';
 
@@ -10,6 +10,7 @@ import type { IDesktopSystemInfo } from '@onekeyhq/desktop/app/config';
 import * as store from '@onekeyhq/desktop/app/libs/store';
 import type { IMacBundleInfo } from '@onekeyhq/desktop/app/libs/utils';
 import {
+  getBackgroundColor,
   getMacAppId,
   parseContentPList,
 } from '@onekeyhq/desktop/app/libs/utils';
@@ -18,7 +19,6 @@ import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import type { IMediaType, IPrefType } from '@onekeyhq/shared/types/desktop';
 
 import type { IDesktopApi } from './instance/IDesktopApi';
-
 
 export type IMenuItemType = 'normal' | 'separator' | 'submenu';
 
@@ -342,6 +342,13 @@ class DesktopApiSystem {
       return item.icon.toDataURL();
     }
     return null;
+  }
+
+  async changeTheme(theme: 'light' | 'dark'): Promise<void> {
+    store.setTheme(theme);
+    const safelyBrowserWindow =
+      globalThis.$desktopMainAppFunctions?.getSafelyBrowserWindow?.();
+    safelyBrowserWindow?.setBackgroundColor(getBackgroundColor(theme));
   }
 }
 
