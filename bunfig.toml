@@ -6,10 +6,9 @@
 linker = "hoisted"
 globalCache = false
 
-
 # Enable deduplication for monorepo workspaces
 deduplicateDependencies = true
 
-[install.scopes]
-# GitHub Package Registry for @onekeyhq scope
-"@onekeyhq" = { url = "https://npm.pkg.github.com", token = "$BUN_AUTH_TOKEN" }
+[resolve]
+# Prefer CommonJS over ESM for better Metro bundler compatibility
+prefer = "cjs"
