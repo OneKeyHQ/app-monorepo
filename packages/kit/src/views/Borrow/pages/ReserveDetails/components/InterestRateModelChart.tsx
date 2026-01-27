@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useTheme } from '@tamagui/core';
-import { LineType, createChart } from 'lightweight-charts';
+import { createChart } from 'lightweight-charts';
 
 import { Skeleton, Stack, XStack, YStack } from '@onekeyhq/components';
 import type { ILightweightChartTheme } from '@onekeyhq/kit/src/components/LightweightChart/types';
@@ -37,11 +37,6 @@ import type {
   UTCTimestamp,
 } from 'lightweight-charts';
 
-const getUtilizationLineTimeDelta = (timeValue: number) =>
-  Math.max(Number.EPSILON * timeValue, Number.EPSILON);
-
-const toTimestamp = (value: number) => value as UTCTimestamp;
-
 export function InterestRateModelChart({
   borrowCurve,
   supplyCurve,
@@ -56,6 +51,7 @@ export function InterestRateModelChart({
 
   const [hoverData, setHoverData] = useState<IHoverData | null>(null);
   const [containerWidth, setContainerWidth] = useState<number>(0);
+  const [verticalLineX, setVerticalLineX] = useState<number | null>(null);
 
   const {
     utilizationRatioLabel,
@@ -232,59 +228,38 @@ export function InterestRateModelChart({
       });
     });
 
-    // Add current utilization vertical line marker if available
-    if (utilizationRatio) {
-      const currentUtilRatio = normalizeUtilization(
-        parseFloat(utilizationRatio),
-      );
-      const currentUtilTime = convertUtilizationToTime(currentUtilRatio);
-      const iconSubduedColor = theme.iconSubdued?.val || '#8C8CA1';
+    // Calculate current utilization vertical line x coordinate
+    const currentUtilTime = utilizationRatio
+      ? convertUtilizationToTime(
+          normalizeUtilization(parseFloat(utilizationRatio)),
+        )
+      : null;
 
-      // Find the max value to draw the line from bottom to top
-      const rawMaxValue = Math.max(
-        ...chartData.supplyData.map((d) => d.value),
-        ...chartData.borrowData.map((d) => d.value),
-      );
-      const maxValue = rawMaxValue > 0 ? rawMaxValue : 1;
+    const updateVerticalLinePosition = () => {
+      if (currentUtilTime !== null) {
+        const xCoord = chart.timeScale().timeToCoordinate(currentUtilTime as UTCTimestamp);
+        setVerticalLineX(xCoord);
+      } else {
+        setVerticalLineX(null);
+      }
+    };
 
-      const minTime = BASE_TIMESTAMP;
-      const maxTime = BASE_TIMESTAMP + UTILIZATION_RANGE;
-      const currentUtilTimeValue = Number(currentUtilTime);
-      const lineTimeDelta = getUtilizationLineTimeDelta(currentUtilTimeValue);
-      const lineStartTime = toTimestamp(
-        Math.max(minTime, currentUtilTimeValue - lineTimeDelta),
-      );
-      const lineEndTime = toTimestamp(
-        Math.min(maxTime, currentUtilTimeValue + lineTimeDelta),
-      );
-
-      // Add a vertical line series at the current utilization position
-      const verticalLineSeries = chart.addLineSeries({
-        color: iconSubduedColor,
-        lineWidth: 2,
-        priceLineVisible: false,
-        lastValueVisible: false,
-        crosshairMarkerVisible: false,
-        lineType: LineType.WithSteps,
-        lineStyle: 0, // Solid line
-      });
-
-      // Draw a near-vertical line using two extremely close timestamps.
-      verticalLineSeries.setData([
-        { time: lineStartTime, value: 0 },
-        { time: lineEndTime, value: maxValue * 1.1 },
-      ]);
-    }
+    // Update position after chart is ready
+    chart.timeScale().subscribeVisibleTimeRangeChange(updateVerticalLinePosition);
 
     chartRef.current = chart;
 
     chart.timeScale().fitContent();
+
+    // Initial position update after fitContent
+    requestAnimationFrame(updateVerticalLinePosition);
 
     // Handle resize
     const resizeObserver = new ResizeObserver((entries) => {
       if (entries.length === 0 || entries[0].target !== container) return;
       const { width: newWidth } = entries[0].contentRect;
       chart.applyOptions({ width: newWidth });
+      updateVerticalLinePosition();
     });
 
     resizeObserver.observe(container);
@@ -361,6 +336,17 @@ export function InterestRateModelChart({
             utilizationRatioLabel={utilizationRatioLabel}
             borrowApyLabel={borrowApyLabel}
             supplyApyLabel={supplyApyLabel}
+          />
+        ) : null}
+        {verticalLineX !== null ? (
+          <Stack
+            position="absolute"
+            left={verticalLineX}
+            top={0}
+            bottom={0}
+            width={2}
+            backgroundColor="$iconSubdued"
+            pointerEvents="none"
           />
         ) : null}
         <Stack ref={chartContainerRef} width="100%" height={CHART_HEIGHT} />

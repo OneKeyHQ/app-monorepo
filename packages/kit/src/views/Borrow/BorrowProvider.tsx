@@ -86,9 +86,9 @@ export const BorrowProvider = ({
   value?: IBorrowContextValue;
 }>) => {
   const [market, setMarket] = useState<IBorrowMarketItem | null>(null);
-  const [earnAccount, setEarnAccount] = useState<
-    IAsyncData<IBorrowEarnAccount>
-  >(defaultAsyncData(null));
+  const [earnAccount, setEarnAccount] = useState<IAsyncData<IBorrowEarnAccount>>(
+    defaultAsyncData(null),
+  );
   const [reserves, setReserves] = useState<
     IAsyncData<IBorrowReserveItem | null>
   >(defaultAsyncData(null));
@@ -103,9 +103,12 @@ export const BorrowProvider = ({
   >(() => () => Promise.resolve());
 
   // Stable setter that won't cause unnecessary re-renders
-  const setRefreshAllBorrowData = useCallback((fn: () => Promise<void>) => {
-    setRefreshAllBorrowDataState(() => fn);
-  }, []);
+  const setRefreshAllBorrowData = useCallback(
+    (fn: () => Promise<void>) => {
+      setRefreshAllBorrowDataState(() => fn);
+    },
+    [],
+  );
 
   // Stable setter that won't cause unnecessary re-renders
   const setPendingTxs = useCallback((txs: IStakePendingTx[]) => {
