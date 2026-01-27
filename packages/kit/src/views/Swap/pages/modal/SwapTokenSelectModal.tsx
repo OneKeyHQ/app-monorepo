@@ -547,9 +547,9 @@ const SwapTokenSelectPage = ({
       <Page.Body>
         <XStack px="$5" pb="$2">
           <SizableText size="$bodyMd" color="$textSubdued" pr="$2">
-            {`${intl.formatMessage({
+            {intl.formatMessage({
               id: ETranslations.token_selector_network,
-            })}`}
+            })}
           </SizableText>
           <XStack>
             <SizableText size="$bodyMd">
@@ -602,9 +602,9 @@ const SwapTokenSelectPage = ({
               !searchKeywordDebounce ? (
                 <YStack px="$5" pt="$3" gap="$2">
                   <SizableText size="$bodyMd" color="$textSubdued" pr="$2">
-                    {`${intl.formatMessage({
+                    {intl.formatMessage({
                       id: ETranslations.swap_token_selector_popular_token,
-                    })}`}
+                    })}
                   </SizableText>
                   <SwapPopularTokenGroup
                     onSelectToken={onSelectToken}

@@ -1427,8 +1427,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                 },
                 {
                   percentage: `${showTax.dividedBy(100).toNumber()}%`,
-                  token: `${toToken?.symbol ?? ''}`,
-                  action: `${actionLabel}`,
+                  token: toToken?.symbol ?? '',
+                  action: actionLabel,
                 },
               ),
               message: appLocale.intl.formatMessage({
@@ -1458,8 +1458,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                 },
                 {
                   percentage: `${showTax.dividedBy(100).toNumber()}%`,
-                  token: `${fromToken?.symbol ?? ''}`,
-                  action: `${actionLabel}`,
+                  token: fromToken?.symbol ?? '',
+                  action: actionLabel,
                 },
               ),
               message: appLocale.intl.formatMessage({
