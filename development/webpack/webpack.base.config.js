@@ -74,7 +74,7 @@ const baseResolve = ({ platform, configName, basePath }) => ({
   },
   fallback: {
     'crypto': require.resolve(
-      '@onekeyhq/shared/src/modules3rdParty/cross-crypto/index.js',
+      path.join(basePath, '../../packages/shared/src/modules3rdParty/cross-crypto/index.js'),
     ),
     stream: require.resolve('stream-browserify'),
     path: false,
