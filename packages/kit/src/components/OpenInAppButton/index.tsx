@@ -85,6 +85,7 @@ export function OpenInAppButton({
             </SizableText>
             <Button
               size="small"
+              iconAfter="ArrowTopRightOutline"
               onPress={() => {
                 openUrlExternal(DOWNLOAD_MOBILE_APP_URL);
               }}
