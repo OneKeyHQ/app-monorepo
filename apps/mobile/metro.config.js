@@ -33,7 +33,17 @@ config.resolver.sourceExts = [
   'd.ts',
   'cjs', // Needed for superstruct: https://github.com/ianstormtaylor/superstruct/issues/404#issuecomment-800182972
   'min.js',
+  'svgx', // For react-native-bottom-tabs SVG icons (using .svgx to avoid conflict with react-native-svg)
 ];
+
+// Configure SVG transformer for .svgx files (used by react-native-bottom-tabs)
+config.resolver.assetExts = (config.resolver.assetExts || []).filter(
+  (ext) => ext !== 'svgx',
+);
+config.transformer = config.transformer || {};
+config.transformer.babelTransformerPath = require.resolve(
+  './svgx-transformer.js',
+);
 
 // Provide extra shims/polyfills for node modules
 config.resolver.extraNodeModules = {

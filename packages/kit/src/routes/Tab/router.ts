@@ -8,6 +8,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import type {
+  INativeTabBarIcon,
   ITabNavigatorConfig,
   ITabNavigatorExtraConfig,
 } from '@onekeyhq/components/src/layouts/Navigation/Navigator/types';
@@ -15,6 +16,37 @@ import { useIsGtMdNonNative } from '@onekeyhq/kit/src/views/DeviceManagement/hoo
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabMarketRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
+
+// Native tab icons using SF Symbols
+// SF Symbols are supported on iOS. For Android, the library handles fallback.
+// Reference: https://developer.apple.com/sf-symbols/
+const nativeTabIcons = {
+  wallet: ({ focused }: { focused: boolean }): INativeTabBarIcon => ({
+    sfSymbol: focused ? 'wallet.pass.fill' : 'wallet.pass',
+  }),
+  swap: ({ focused }: { focused: boolean }): INativeTabBarIcon => ({
+    sfSymbol: focused
+      ? 'arrow.left.arrow.right.circle.fill'
+      : 'arrow.left.arrow.right.circle',
+  }),
+  discover: ({ focused }: { focused: boolean }): INativeTabBarIcon => ({
+    sfSymbol: focused ? 'safari.fill' : 'safari',
+  }),
+  market: ({ focused }: { focused: boolean }): INativeTabBarIcon => ({
+    sfSymbol: focused
+      ? 'chart.line.uptrend.xyaxis.circle.fill'
+      : 'chart.line.uptrend.xyaxis.circle',
+  }),
+  perp: ({ focused }: { focused: boolean }): INativeTabBarIcon => ({
+    sfSymbol: focused ? 'chart.bar.fill' : 'chart.bar',
+  }),
+  earn: ({ focused }: { focused: boolean }): INativeTabBarIcon => ({
+    sfSymbol: focused ? 'dollarsign.circle.fill' : 'dollarsign.circle',
+  }),
+  developer: ({ focused }: { focused: boolean }): INativeTabBarIcon => ({
+    sfSymbol: focused ? 'hammer.fill' : 'hammer',
+  }),
+};
 
 import { usePerpTabConfig } from '../../hooks/usePerpTabConfig';
 import { developerRouters } from '../../views/Developer/router';
@@ -49,6 +81,7 @@ const getDiscoverRouterConfig = (
     exact: true,
     tabBarIcon: (focused?: boolean) =>
       focused ? 'CompassCircleSolid' : 'CompassCircleOutline',
+    nativeTabBarIcon: nativeTabIcons.discover,
     translationId: platformEnv.isNative
       ? ETranslations.global_discover
       : ETranslations.global_browser,
@@ -121,6 +154,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
         name: ETabRoutes.Home,
         tabBarIcon: (focused?: boolean) =>
           focused ? 'WalletSolid' : 'WalletOutline',
+        nativeTabBarIcon: nativeTabIcons.wallet,
         translationId: ETranslations.global_wallet,
         freezeOnBlur: Boolean(params?.freezeOnBlur),
         rewrite: '/',
@@ -154,6 +188,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
         name: ETabRoutes.Swap,
         tabBarIcon: (focused?: boolean) =>
           focused ? 'SwapHorSolid' : 'SwapHorOutline',
+        nativeTabBarIcon: nativeTabIcons.swap,
         translationId: ETranslations.global_trade,
         freezeOnBlur: Boolean(params?.freezeOnBlur),
         rewrite: '/swap',
