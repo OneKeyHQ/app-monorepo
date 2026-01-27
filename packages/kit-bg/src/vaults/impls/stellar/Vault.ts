@@ -855,8 +855,8 @@ export default class Vault extends VaultBase {
   override async buildUnsignedTx(
     params: IBuildUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
-    const builtEncodedTx = (params.encodedTx ??
-      (await this.buildEncodedTx(params))) as IEncodedTxStellar | undefined;
+    const builtEncodedTx =
+      params.encodedTx ?? (await this.buildEncodedTx(params));
 
     if (!builtEncodedTx) {
       throw new OneKeyInternalError('encodedTx is required');
@@ -1767,7 +1767,7 @@ export default class Vault extends VaultBase {
 
     // Get suggested fee (per op) from network
     const fee = await client.getSuggestedFee();
-    const encodedTx = _params.encodedTx as IEncodedTxStellar | undefined;
+    const encodedTx = _params.encodedTx;
     const operationCount = this._getOperationCountFromEncodedTx(encodedTx);
     const safeOperationCount = Math.max(operationCount, 1);
 

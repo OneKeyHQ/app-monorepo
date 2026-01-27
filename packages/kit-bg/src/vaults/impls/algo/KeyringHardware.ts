@@ -170,9 +170,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {
     const { unsignedTx, deviceParams } = params;
-    const encodedTx = unsignedTx.encodedTx as
-      | IEncodedTxAlgo
-      | IEncodedTxGroupAlgo;
+    const encodedTx = unsignedTx.encodedTx;
 
     if (isArray(encodedTx)) {
       const signedTxs = [];

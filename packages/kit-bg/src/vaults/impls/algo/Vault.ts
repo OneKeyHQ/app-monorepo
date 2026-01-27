@@ -225,9 +225,7 @@ export default class Vault extends VaultBase {
     params: IBuildDecodedTxParams,
   ): Promise<IDecodedTx> {
     const { unsignedTx } = params;
-    const encodedTx = unsignedTx.encodedTx as
-      | IEncodedTxAlgo
-      | IEncodedTxGroupAlgo;
+    const encodedTx = unsignedTx.encodedTx;
     const accountAddress = await this.getAccountAddress();
     const actions: IDecodedTxAction[] = [];
     const notes: string[] = [];
@@ -305,7 +303,7 @@ export default class Vault extends VaultBase {
       if (nativeToken) {
         const amount = nativeTx.amt?.toString() || '0';
         // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-        const to = sdkAlgo.encodeAddress(nativeTx.rcv!);
+        const to = sdkAlgo.encodeAddress(nativeTx.rcv);
         const transfer: IDecodedTxTransferInfo = {
           from: sender,
           to,
@@ -329,7 +327,7 @@ export default class Vault extends VaultBase {
 
     if (nativeTx.type === sdkAlgo.TransactionType.axfer) {
       // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-      const to = sdkAlgo.encodeAddress(nativeTx.arcv!);
+      const to = sdkAlgo.encodeAddress(nativeTx.arcv);
       const token = await this.backgroundApi.serviceToken.getToken({
         networkId: this.networkId,
         // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
@@ -452,9 +450,7 @@ export default class Vault extends VaultBase {
     params: IUpdateUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
     const { unsignedTx, nativeAmountInfo, feeInfo } = params;
-    let encodedTxNew = unsignedTx.encodedTx as
-      | IEncodedTxAlgo
-      | IEncodedTxGroupAlgo;
+    let encodedTxNew = unsignedTx.encodedTx;
     if (!isArray(encodedTxNew)) {
       if (feeInfo) {
         if (!unsignedTx.transfersInfo || isEmpty(unsignedTx.transfersInfo)) {

@@ -243,7 +243,7 @@ export function AdaManageContent({
   ]);
 
   const handleUndelegate = useCallback(async () => {
-    const withdrawToken = tokenInfo?.token as IToken | undefined;
+    const withdrawToken = tokenInfo?.token;
     const executeWithdraw = async () => {
       await handleWithdraw({
         symbol,

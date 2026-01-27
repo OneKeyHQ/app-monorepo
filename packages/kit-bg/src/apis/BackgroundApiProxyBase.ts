@@ -149,7 +149,7 @@ export class BackgroundApiProxyBase
     appEventBus.registerBroadcastMethods(
       EEventBusBroadcastMethodNames.uiToBg,
       async (type, payload) => {
-        await this.emitEvent(type as any, payload);
+        await this.emitEvent(type, payload);
       },
     );
     globalErrorHandler.addListener(errorToastUtils.showToastOfError);

@@ -183,9 +183,7 @@ export const useManagePage = ({
     );
 
     // Get withdraw action from managePageData
-    const withdrawAction = managePageData.withdraw as
-      | IEarnWithdrawActionIcon
-      | undefined;
+    const withdrawAction = managePageData.withdraw;
 
     return {
       symbol,

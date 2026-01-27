@@ -2313,9 +2313,7 @@ class ServicePrimeTransfer extends ServiceBase {
           importedAccount,
           encryptedCredential: credential || '',
           password,
-          credentialDecrypted: credentialDecryptedUsed as
-            | ICoreImportedCredential
-            | undefined,
+          credentialDecrypted: credentialDecryptedUsed,
           networkId,
         });
 

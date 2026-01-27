@@ -26,7 +26,7 @@ export const Label = styled(TMLabel, {
           lineHeight: font?.lineHeight[variant],
           fontWeight: font?.weight[variant],
           textTransform: font?.transform[variant],
-          letterSpacing: font?.letterSpacing[variant] as any,
+          letterSpacing: font?.letterSpacing[variant],
         } as any;
       },
     },

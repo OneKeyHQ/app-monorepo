@@ -814,7 +814,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
 
                   return sdkAllNetworkGetAddressResponse;
                 },
-              )) as IHwAllNetworkPrepareAccountsItem[];
+              ));
             } catch (error) {
               console.log('sdk.allNetworkGetAddress error', error);
               appEventBus.emit(

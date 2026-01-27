@@ -900,9 +900,7 @@ export default class ServiceHyperliquid extends ServiceBase {
     let status: IPerpsActiveAccountStatusInfoAtom | undefined;
 
     const selectedAccount = await perpsActiveAccountAtom.get();
-    const accountAddress = selectedAccount.accountAddress?.toLowerCase() as
-      | IHex
-      | undefined;
+    const accountAddress = selectedAccount.accountAddress?.toLowerCase();
     let agentCredential: ICoreHyperLiquidAgentCredential | undefined;
 
     try {
@@ -1140,9 +1138,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         const agentToRemove = (
           nonOneKeyAgents.length ? nonOneKeyAgents : extraAgents
         ).toSorted((a, b) => a.validUntil - b.validUntil)?.[0];
-        const agentNameToRemove = agentToRemove?.name as
-          | EHyperLiquidAgentName
-          | undefined;
+        const agentNameToRemove = agentToRemove?.name;
         if (agentToRemove) {
           if (
             agentNameToRemove &&

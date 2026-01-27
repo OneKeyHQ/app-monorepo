@@ -112,7 +112,7 @@ async function getDeviceVersion(params: IGetDeviceVersionParams): Promise<{
     await CoreSDKLoader();
   const { device, features } = params;
   const knownDevice = device as KnownDevice | undefined;
-  const dbDevice = device as IDBDevice | undefined;
+  const dbDevice = device;
   const usedFeatures =
     features || dbDevice?.featuresInfo || knownDevice?.features;
 

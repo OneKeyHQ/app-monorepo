@@ -259,7 +259,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       inputs: transformToOneKeyInputs(inputs, utxos),
       derivationType,
       ...cardanoParams,
-    } as any);
+    });
     if (!res.success) {
       throw convertDeviceError(res.payload);
     }

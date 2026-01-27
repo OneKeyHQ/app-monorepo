@@ -148,7 +148,7 @@ function useBulkRevoke() {
             withoutNonce: true,
             withUuid: true,
           });
-        unsignedTxs.push(unsignedTx as IUnsignedTxPro & IHasId);
+        unsignedTxs.push(unsignedTx);
       }
 
       setIsBuildingRevokeTxs(false);

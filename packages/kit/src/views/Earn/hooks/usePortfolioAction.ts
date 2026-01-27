@@ -207,12 +207,10 @@ export const usePortfolioAction = ({
 
         const latestClaimWithKycAction = buttons.find(
           (button) => button.type === 'claimWithKyc',
-        ) as IEarnClaimWithKycActionIcon | undefined;
+        );
 
         const latestClaimAction = !latestClaimWithKycAction
-          ? (buttons.find((button) => button.type === 'claim') as
-              | IEarnClaimActionIcon
-              | undefined)
+          ? buttons.find((button) => button.type === 'claim')
           : undefined;
 
         // Priority: claimWithKyc > claim > no response

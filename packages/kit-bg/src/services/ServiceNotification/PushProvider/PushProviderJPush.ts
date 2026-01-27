@@ -136,7 +136,7 @@ export class PushProviderJPush extends PushProviderBase {
         msgId,
         image: notification?.extras?.image,
         params: extraParams,
-      } as any,
+      },
     };
 
     if (

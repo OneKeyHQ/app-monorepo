@@ -55,7 +55,7 @@ enum ETransferServerErrorCode {
 function convertToLocalError(
   serverError: unknown | IOneKeyError,
 ): IOneKeyError {
-  const e = serverError as IOneKeyError | undefined;
+  const e = serverError;
   if (!e) {
     return new OneKeyLocalError('Unknown transfer server error');
   }

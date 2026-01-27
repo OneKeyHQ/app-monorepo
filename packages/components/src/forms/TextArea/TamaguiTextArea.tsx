@@ -78,4 +78,4 @@ export const TextArea = TextAreaFrame.styleable<IInputExtraProps, any, any>(
 
     return <TextAreaFrame {...linesProp} {...props} />;
   },
-) as typeof Input;
+);

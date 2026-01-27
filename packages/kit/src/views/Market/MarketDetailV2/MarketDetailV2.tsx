@@ -37,9 +37,7 @@ function MarketDetail({
   ITabMarketParamList,
   ETabMarketRoutes.MarketDetailV2 | ETabMarketRoutes.MarketNativeDetail
 >) {
-  const params = route.params as
-    | ITabMarketParamList[ETabMarketRoutes.MarketDetailV2]
-    | ITabMarketParamList[ETabMarketRoutes.MarketNativeDetail];
+  const params = route.params;
 
   const network = params.network;
   const isNative = params.isNative;

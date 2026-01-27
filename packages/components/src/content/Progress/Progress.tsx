@@ -134,7 +134,7 @@ export const ProgressFrame = styled(ThemeableStack, {
           width =
             typeof widthVal === 'number'
               ? widthVal
-              : getVariableValue(getSize(widthVal as any));
+              : getVariableValue(getSize(widthVal));
         }
 
         const size = Math.round(getVariableValue(getSize(val)) * 0.25);

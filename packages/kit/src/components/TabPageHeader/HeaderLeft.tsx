@@ -55,10 +55,7 @@ function SegmentText({
   const intl = useIntl();
   const handlePress = useCallback(() => {
     appEventBus.emit(EAppEventBusNames.SwitchDiscoveryTabInNative, {
-      tab: translationId as
-        | ETranslations.global_market
-        | ETranslations.global_browser
-        | ETranslations.global_earn,
+      tab: translationId,
     });
   }, [translationId]);
   return (

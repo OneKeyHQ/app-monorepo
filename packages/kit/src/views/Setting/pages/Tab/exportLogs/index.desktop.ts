@@ -154,19 +154,18 @@ export const uploadLogBundle = async ({
       throw new OneKeyLocalError('Upload failed: invalid response');
     }
 
-    const responseData = response as IApiClientResponse<ILogUploadResponse> &
-      Record<string, any>;
+    const responseData = response;
 
     if (typeof responseData.code === 'number' && responseData.code !== 0) {
       const errorMessage =
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        (responseData?.data as any)?.message ||
+        (responseData?.data)?.message ||
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        (responseData as any)?.message ||
+        (responseData)?.message ||
         'Upload failed';
       throw new OneKeyServerApiError({
         message: errorMessage,
-        data: responseData as any,
+        data: responseData,
         code: responseData.code,
       });
     }

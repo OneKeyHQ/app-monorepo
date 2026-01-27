@@ -312,7 +312,7 @@ export class RealmDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
     await Promise.all(
       pairs.map(async (oldRecord) => {
         // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-        const newRecord = await updater(oldRecord[1]!);
+        const newRecord = await updater(oldRecord[1]);
         if (newRecord instanceof Realm.Object) {
           return newRecord;
         }

@@ -291,7 +291,7 @@ function BasicAccountAvatar({
       ) : (
         <Image
           size={containerSize}
-          source={uriSource as IImageProps['source']}
+          source={uriSource}
           style={
             {
               borderCurve: 'continuous',

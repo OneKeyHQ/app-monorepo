@@ -855,7 +855,7 @@ const ProtocolDetailsPage = () => {
         (i) =>
           i.type === EStakingActionType.Withdraw ||
           i.type === EStakingActionType.WithdrawOrder,
-      ) as IEarnWithdrawActionIcon | IEarnWithdrawOrderActionIcon;
+      );
     return {
       text: item?.text.text,
       buttonProps: {
@@ -869,7 +869,7 @@ const ProtocolDetailsPage = () => {
   const activateActionProps = useMemo(() => {
     const item = detailInfo?.actions?.find(
       (i) => i.type === EStakingActionType.Activate,
-    ) as IEarnActivateActionIcon | undefined;
+    );
     return {
       text: item?.text.text,
       buttonProps: {
@@ -924,7 +924,7 @@ const ProtocolDetailsPage = () => {
   const receiveActionProps = useMemo(() => {
     const item = detailInfo?.actions?.find(
       (i) => i.type === EStakingActionType.Receive,
-    ) as IEarnReceiveActionIcon | undefined;
+    );
     return {
       text: item?.text.text,
       buttonProps: {
@@ -956,7 +956,7 @@ const ProtocolDetailsPage = () => {
   const tradeActionProps = useMemo(() => {
     const item = detailInfo?.actions?.find(
       (i) => i.type === EStakingActionType.Trade,
-    ) as IEarnTradeActionIcon | undefined;
+    );
     return {
       text: item?.text.text,
       buttonProps: {

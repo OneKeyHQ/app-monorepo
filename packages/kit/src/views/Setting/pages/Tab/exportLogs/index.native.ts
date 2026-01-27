@@ -231,7 +231,7 @@ export const uploadLogBundle = async ({
     try {
       const response = await fetch(uploadUrl, {
         method: 'POST',
-        headers: fallbackHeaders as any,
+        headers: fallbackHeaders,
         body: form,
       });
       httpStatus = response.status;

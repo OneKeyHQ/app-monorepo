@@ -46,9 +46,7 @@ function useExternalAccountActivate({ num }: { num: number }) {
       return;
     }
 
-    const connectionInfo = (
-      activeAccountRef.current?.account as IDBExternalAccount | undefined
-    )?.connectionInfo;
+    const connectionInfo = activeAccountRef.current?.account?.connectionInfo;
 
     if (!connectionInfo) {
       return;

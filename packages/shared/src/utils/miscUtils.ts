@@ -7,7 +7,7 @@ import type {
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 
 export function generateUUID(options?: { removeDashes?: boolean }) {
-  const uuidString = uuid.v4() as string;
+  const uuidString = uuid.v4();
   return options?.removeDashes ? uuidString.replace(/-/g, '') : uuidString;
 }
 

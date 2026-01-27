@@ -230,7 +230,7 @@ function MoreTabItemView({
 
   return (
     <Tooltip
-      ref={tooltipRef as React.RefObject<ITooltipRef>}
+      ref={tooltipRef}
       placement="right-start"
       offset={{ mainAxis: 6, crossAxis: -28 }}
       hovering

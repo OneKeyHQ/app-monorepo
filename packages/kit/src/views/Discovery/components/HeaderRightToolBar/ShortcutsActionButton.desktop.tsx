@@ -103,7 +103,7 @@ export function ShortcutsActionButton() {
               onPress: handleDisconnect,
               testID: `action-list-item-disconnect`,
             },
-          ].filter(Boolean) as IActionListItemProps[],
+          ].filter(Boolean),
         },
       ]}
       renderTrigger={

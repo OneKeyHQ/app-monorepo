@@ -472,9 +472,7 @@ export function DeriveTypeSelectorFormInput(
           await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
             networkId,
           });
-        let fixedValue = viewItems?.items?.[0]?.value as
-          | IAccountDeriveTypes
-          | undefined;
+        let fixedValue = viewItems?.items?.[0]?.value;
         if (
           defaultDeriveType &&
           viewItems?.items?.length &&

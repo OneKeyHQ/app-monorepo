@@ -1731,7 +1731,7 @@ export function ConnectYourDevicePage() {
             value={tabValue}
             onChange={(v) => {
               console.log('🔍 Tab selected:', v);
-              setTabValue(v as any);
+              setTabValue(v);
             }}
             options={[
               {

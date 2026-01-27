@@ -158,7 +158,7 @@ export const {
     return {
       canTrade,
       canCreateAddress,
-      accountAddress: account?.accountAddress?.toLowerCase() as IHex | null,
+      accountAddress: account?.accountAddress?.toLowerCase(),
       accountNotSupport,
       details,
     };

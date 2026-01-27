@@ -1382,7 +1382,7 @@ class ServiceHardware extends ServiceBase {
 
     await localDb.updateDeviceVersionInfo({
       dbDeviceId: dbDevice.id,
-      versionCacheInfo: filteredVersionInfo as IDeviceVersionCacheInfo,
+      versionCacheInfo: filteredVersionInfo,
       bitcoinOnlyFlag,
     });
     if (bitcoinOnlyFlag) {

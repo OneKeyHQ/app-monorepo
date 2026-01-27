@@ -229,7 +229,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       payload.id = generateUUID();
     }
     payload.timestamp = Date.now();
-    this.buildWebTabs.call(set, { data: [...tabs, payload as IWebTab] });
+    this.buildWebTabs.call(set, { data: [...tabs, payload] });
     this.setCurrentWebTab.call(set, payload.id ?? '');
     const endTime = performance.now();
     console.log(`addBlankWebTab took ${endTime - startTime} milliseconds.`);

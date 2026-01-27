@@ -19,4 +19,4 @@ export type IAlgoAccountInformation = {
 
 export type { AccountInformation as ISdkAlgoAccountInformation };
 
-export default sdk as typeof import('algosdk');
+export default sdk;

@@ -274,10 +274,7 @@ export function UniversalBorrowRepay({
     }
   }, [amountValue, isRepayAll, onConfirm]);
 
-  const token = useMemo(
-    () => _tokenInfo?.token as IToken | undefined,
-    [_tokenInfo?.token],
-  );
+  const token = useMemo(() => _tokenInfo?.token, [_tokenInfo?.token]);
 
   // Wrap onTokenSelect to clear amount when token changes
   const handleTokenSelectInternal = useCallback(

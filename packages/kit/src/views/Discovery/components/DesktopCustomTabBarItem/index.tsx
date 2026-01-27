@@ -187,7 +187,7 @@ function DesktopCustomTabBarItem({
               onPress: closeTab,
               testID: `action-list-item-close`,
             },
-          ].filter(Boolean) as IActionListItemProps[],
+          ].filter(Boolean),
         },
       ].filter(Boolean),
     // eslint-disable-next-line react-hooks/exhaustive-deps

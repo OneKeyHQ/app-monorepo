@@ -83,7 +83,7 @@ function UTXODetails() {
         return new Set<string>();
       }
 
-      const utxoAccount = account as IDBUtxoAccount | undefined;
+      const utxoAccount = account;
       const xpubSegwit = utxoAccount?.xpubSegwit ?? utxoAccount?.xpub;
 
       if (!xpubSegwit) {

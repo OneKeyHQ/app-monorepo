@@ -120,7 +120,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         ...v,
         [num]: {
           ...v[num],
-        } as any,
+        },
       }),
       'refresh',
     );

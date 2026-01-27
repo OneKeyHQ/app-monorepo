@@ -131,7 +131,7 @@ function showToastOfError(error: IOneKeyError | unknown | undefined) {
         title: err?.message ?? 'Error',
         requestId: err?.requestId,
         diagnosticText,
-        i18nKey: err?.key as ETranslations | undefined,
+        i18nKey: err?.key,
       });
     })();
   }

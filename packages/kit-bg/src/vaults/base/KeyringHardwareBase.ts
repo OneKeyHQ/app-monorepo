@@ -52,7 +52,7 @@ export abstract class KeyringHardwareBase extends KeyringBase {
           connectId,
         },
       );
-    const r = (sdk as typeof HardwareSDK) ?? HardwareSDK;
+    const r = sdk ?? HardwareSDK;
 
     defaultLogger.account.accountCreatePerf.getHardwareSDKInstanceDone();
 

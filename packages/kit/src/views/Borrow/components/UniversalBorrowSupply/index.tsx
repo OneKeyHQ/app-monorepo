@@ -261,10 +261,7 @@ export function UniversalBorrowSupply({
     }
   }, [amountValue, onConfirm]);
 
-  const token = useMemo(
-    () => tokenInfo?.token as IToken | undefined,
-    [tokenInfo?.token],
-  );
+  const token = useMemo(() => tokenInfo?.token, [tokenInfo?.token]);
 
   useEffect(() => {
     setAmountValue('');
