@@ -4,7 +4,9 @@ import {
   Icon,
   IconButton,
   Input,
+  NumberSizeableText,
   SizableText,
+  Skeleton,
   Stack,
   Tooltip,
   XStack,
@@ -31,7 +33,7 @@ function AssetSection() {
   const { network } = useAccountData({ networkId });
 
   return (
-    <YStack gap="$1.5" flex={1}>
+    <YStack gap="$1.5" flex={1} flexBasis={0} minWidth={0}>
       <SizableText size="$bodyMdMedium">Asset</SizableText>
       <ListItem
         mx="$0"
@@ -58,6 +60,7 @@ function SetAmountPerAddressSection() {
     networkId,
     tokenInfo,
     tokenDetails,
+    tokenDetailsState,
     transfersInfo,
     amountInputMode,
     amountInputValues,
@@ -70,46 +73,25 @@ function SetAmountPerAddressSection() {
 
   const [settings] = useSettingsPersistAtom();
 
-  const { primaryText, secondaryText } = useMemo(() => {
+  const primaryText = useMemo(() => {
     const tokenSymbol = tokenInfo.symbol;
-
-    const secondaryText = `Total: ${totalTokenAmount} ${tokenSymbol} (${totalFiatAmount}${settings.currencyInfo.symbol})`;
 
     switch (amountInputMode) {
       case EAmountInputMode.Specified: {
         const specifiedAmount = amountInputValues.specifiedAmount || '0';
-        return {
-          primaryText: `${specifiedAmount} ${tokenSymbol}`,
-          secondaryText,
-        };
+        return `${specifiedAmount} ${tokenSymbol}`;
       }
       case EAmountInputMode.Range: {
         const min = amountInputValues.rangeMin || '0';
         const max = amountInputValues.rangeMax || '0';
-        return {
-          primaryText: `${min} ${tokenSymbol} ~ ${max} ${tokenSymbol}`,
-          secondaryText,
-        };
+        return `${min} ${tokenSymbol} ~ ${max} ${tokenSymbol}`;
       }
       case EAmountInputMode.Custom:
-        return {
-          primaryText: 'Custom',
-          secondaryText,
-        };
+        return 'Custom';
       default:
-        return {
-          primaryText: `0 ${tokenSymbol}`,
-          secondaryText: undefined,
-        };
+        return `0 ${tokenSymbol}`;
     }
-  }, [
-    amountInputMode,
-    amountInputValues,
-    totalTokenAmount,
-    totalFiatAmount,
-    settings.currencyInfo.symbol,
-    tokenInfo.symbol,
-  ]);
+  }, [amountInputMode, amountInputValues, tokenInfo.symbol]);
 
   const handlePress = useCallback(() => {
     showSetAmountPerAddressDialog({
@@ -162,14 +144,58 @@ function SetAmountPerAddressSection() {
     setTransfersInfo,
   ]);
 
+  const renderSecondary = useCallback(() => {
+    // Only show loading state when token details haven't been initialized yet
+    if (!tokenDetailsState.initialized && tokenDetailsState.isRefreshing) {
+      return <Skeleton.BodyMd />;
+    }
+
+    return (
+      <XStack alignItems="center" gap="$1" flexWrap="wrap">
+        <SizableText size="$bodyMd" color="$textSubdued">
+          Total:
+        </SizableText>
+        <NumberSizeableText
+          formatter="balance"
+          size="$bodyMd"
+          color="$textSubdued"
+          formatterOptions={{ tokenSymbol: tokenInfo.symbol }}
+        >
+          {totalTokenAmount}
+        </NumberSizeableText>
+        <SizableText size="$bodyMd" color="$textSubdued">
+          (
+        </SizableText>
+        <NumberSizeableText
+          formatter="value"
+          size="$bodyMd"
+          color="$textSubdued"
+          formatterOptions={{ currency: settings.currencyInfo.symbol }}
+        >
+          {totalFiatAmount}
+        </NumberSizeableText>
+        <SizableText size="$bodyMd" color="$textSubdued">
+          )
+        </SizableText>
+      </XStack>
+    );
+  }, [
+    tokenDetailsState.isRefreshing,
+    tokenDetailsState.initialized,
+    tokenInfo.symbol,
+    totalTokenAmount,
+    totalFiatAmount,
+    settings.currencyInfo.symbol,
+  ]);
+
   return (
-    <YStack gap="$1.5" flex={1}>
+    <YStack gap="$1.5" flex={1} flexBasis={0} minWidth={0}>
       <SizableText size="$bodyMdMedium">Set amount per address</SizableText>
       <ListItem mx="$-3" drillIn onPress={handlePress}>
         <ListItem.Text
           flex={1}
           primary={primaryText}
-          secondary={secondaryText}
+          secondary={renderSecondary()}
         />
       </ListItem>
     </YStack>
