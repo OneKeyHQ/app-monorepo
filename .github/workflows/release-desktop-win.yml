@@ -10,7 +10,7 @@ on:
 
 jobs:
   release-desktop-win:
-    runs-on: windows-latest
+    runs-on: windows-2025
     strategy:
       matrix:
         node-version: [24.x]
