@@ -10,7 +10,7 @@ on:
 
 jobs:
   release-desktop-bundle:
-    runs-on: macos-latest
+    runs-on: unbuntu-latest
     strategy:
       matrix:
         node-version: [24.x]
