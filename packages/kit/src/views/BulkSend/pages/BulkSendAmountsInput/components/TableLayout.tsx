@@ -1,4 +1,5 @@
 import { useCallback, useMemo } from 'react';
+import { useIntl } from 'react-intl';
 
 import {
   Icon,
@@ -13,6 +14,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { EAmountInputMode } from '@onekeyhq/shared/types/bulkSend';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
@@ -210,7 +212,10 @@ function TransferInfoListSection() {
     tokenInfo,
     transferInfoErrors,
     setTransferInfoErrors,
+    isInsufficientBalance,
   } = useBulkSendAmountsInputContext();
+
+  const intl = useIntl();
 
   const handleDelete = useCallback(
     (index: number) => {
@@ -312,7 +317,7 @@ function TransferInfoListSection() {
             TO
           </SizableText>
         </Stack>
-        <Stack width={80}>
+        <Stack width={100}>
           <SizableText
             size="$headingXs"
             color="$textSubdued"
@@ -402,50 +407,39 @@ function TransferInfoListSection() {
             </YStack>
 
             {/* AMOUNT */}
-            <Stack width={80} alignItems="flex-end">
+            <Stack width={100} alignItems="flex-end">
               {isCustomMode ? (
-                hasAmountError ? (
-                  <Stack width="100%">
-                    <Tooltip
-                      placement="top"
-                      renderTrigger={
-                        <Input
-                          value={transfer.amount}
-                          onChangeText={(value) =>
-                            handleAmountChange(index, value)
-                          }
-                          placeholder="0"
-                          keyboardType="decimal-pad"
-                          textAlign="right"
-                          size="small"
-                          error
-                          leftAddOnProps={{
-                            iconName: 'ErrorOutline',
-                            iconColor: '$iconCritical',
-                          }}
-                          containerProps={{
-                            width: '100%',
-                            backgroundColor: '$bgSubdued',
-                          }}
-                        />
-                      }
-                      renderContent={errors?.amount}
-                    />
-                  </Stack>
-                ) : (
-                  <Input
-                    value={transfer.amount}
-                    onChangeText={(value) => handleAmountChange(index, value)}
-                    placeholder="0"
-                    keyboardType="decimal-pad"
-                    textAlign="right"
-                    size="small"
-                    containerProps={{
-                      width: '100%',
-                      backgroundColor: '$bgSubdued',
-                    }}
+                <Stack width="100%">
+                  <Tooltip
+                    placement="top"
+                    renderTrigger={
+                      <Input
+                        value={transfer.amount}
+                        onChangeText={(value) =>
+                          handleAmountChange(index, value)
+                        }
+                        placeholder="0"
+                        keyboardType="decimal-pad"
+                        textAlign="right"
+                        size="small"
+                        error={hasAmountError}
+                        leftAddOnProps={
+                          hasAmountError
+                            ? {
+                                iconName: 'ErrorOutline',
+                                iconColor: '$iconCritical',
+                              }
+                            : undefined
+                        }
+                        containerProps={{
+                          width: '100%',
+                          backgroundColor: '$bgSubdued',
+                        }}
+                      />
+                    }
+                    renderContent={hasAmountError ? errors?.amount : ''}
                   />
-                )
+                </Stack>
               ) : (
                 <SizableText size="$bodyLgMedium">
                   {transfer.amount || '0'}
@@ -466,6 +460,18 @@ function TransferInfoListSection() {
           </XStack>
         );
       })}
+
+      {/* Insufficient Balance Error */}
+      {isInsufficientBalance ? (
+        <XStack px="$5" py="$2" gap="$1" alignItems="center">
+          <Icon name="InfoCircleOutline" size="$4" color="$iconCritical" />
+          <SizableText size="$bodySm" color="$textCritical">
+            {intl.formatMessage({
+              id: ETranslations.send_error_insufficient_balance,
+            })}
+          </SizableText>
+        </XStack>
+      ) : null}
     </YStack>
   );
 }
