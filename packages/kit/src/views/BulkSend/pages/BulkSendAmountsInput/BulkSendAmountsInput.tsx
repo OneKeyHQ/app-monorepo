@@ -18,6 +18,7 @@ import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { getBulkSendContractAddress } from '@onekeyhq/shared/src/consts/bulkSendContractAddress';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import BulkSendBar from '../../components/BulkSendBar';
 import BulkSendContentWrapper from '../../components/BulkSendContentWrapper';
@@ -30,7 +31,10 @@ import {
 } from './components/Context';
 import TableLayout from './components/TableLayout';
 import MobileLayout from './components/MobileLayout';
-import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
+import type {
+  IApproveInfo,
+  ITransferInfo,
+} from '@onekeyhq/kit-bg/src/vaults/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   type IAmountInputError,
@@ -43,9 +47,14 @@ import BigNumber from 'bignumber.js';
 
 function BaseBulkSendAmountsInput() {
   const {
+    accountId,
+    networkId,
+    tokenInfo,
     tokenDetails,
     tokenDetailsState,
     bulkSendMode,
+    transfersInfo,
+    totalTokenAmount,
     isAmountValid,
     isInsufficientBalance,
   } = useBulkSendAmountsInputContext();
@@ -54,16 +63,109 @@ function BaseBulkSendAmountsInput() {
 
   const media = useMedia();
 
-  const handleSubmit = useCallback(() => {
-    console.log('handleSubmit');
-  }, []);
+  const [isBuilding, setIsBuilding] = useState(false);
+
+  // Check if token needs approval (native tokens don't need approval)
+  const needsApproval = useMemo(() => {
+    if (!tokenInfo) return false;
+    return !tokenInfo.isNative;
+  }, [tokenInfo]);
+
+  // Get BulkSend contract address for current network
+  const bulkSendContractAddress = useMemo(() => {
+    const addresses = getBulkSendContractAddress();
+    return addresses[networkId];
+  }, [networkId]);
+
+  const handleSubmit = useCallback(async () => {
+    if (bulkSendMode !== EBulkSendMode.OneToMany) return;
+    if (!accountId || !networkId || !tokenInfo || !bulkSendContractAddress)
+      return;
+
+    setIsBuilding(true);
+
+    try {
+      const sender = transfersInfo[0]?.from;
+      if (!sender) return;
+
+      const approvesInfo: IApproveInfo[] = [];
+
+      // Check if token needs approval (native tokens don't need approval)
+      if (needsApproval) {
+        // Fetch current allowance using swap service
+        const allowanceResponse =
+          await backgroundApiProxy.serviceSwap.fetchApproveAllowance({
+            networkId,
+            tokenAddress: tokenInfo.address,
+            spenderAddress: bulkSendContractAddress,
+            walletAddress: sender,
+            accountId,
+            amount: totalTokenAmount,
+          });
+
+        // If not approved or allowance is insufficient, prepare approve info
+        if (!allowanceResponse?.isApproved) {
+          const baseTokenInfo = {
+            ...tokenInfo,
+            isNative: !!tokenInfo.isNative,
+            name: tokenInfo.name ?? tokenInfo.symbol,
+          };
+
+          // Handle USDT-like tokens that require reset approval first
+          if (allowanceResponse?.shouldResetApprove) {
+            approvesInfo.push({
+              owner: sender,
+              spender: bulkSendContractAddress,
+              amount: '0',
+              isMax: false,
+              tokenInfo: baseTokenInfo,
+            });
+          }
+
+          // Add the actual approval
+          approvesInfo.push({
+            owner: sender,
+            spender: bulkSendContractAddress,
+            amount: totalTokenAmount,
+            isMax: false,
+            tokenInfo: baseTokenInfo,
+          });
+        }
+      }
+
+      // Build batch transfer info
+      const batchTransferInfo = {
+        transfersInfo,
+        tokenInfo,
+      };
+
+      // TODO: Navigate to confirmation page with approvesInfo and batchTransferInfo
+      console.log('Approves Info:', approvesInfo);
+      console.log('Batch Transfer Info:', batchTransferInfo);
+    } catch (error) {
+      console.error('Failed to build transactions:', error);
+    } finally {
+      setIsBuilding(false);
+    }
+  }, [
+    bulkSendMode,
+    accountId,
+    networkId,
+    tokenInfo,
+    bulkSendContractAddress,
+    transfersInfo,
+    needsApproval,
+    totalTokenAmount,
+  ]);
 
   const isSubmitDisabled = useMemo(() => {
     return (
       !tokenDetailsState.initialized ||
       (tokenDetailsState.isRefreshing && !tokenDetails) ||
       !isAmountValid ||
-      isInsufficientBalance
+      isInsufficientBalance ||
+      isBuilding ||
+      !bulkSendContractAddress
     );
   }, [
     tokenDetailsState.initialized,
@@ -71,6 +173,8 @@ function BaseBulkSendAmountsInput() {
     tokenDetails,
     isAmountValid,
     isInsufficientBalance,
+    isBuilding,
+    bulkSendContractAddress,
   ]);
 
   return (
@@ -105,6 +209,7 @@ function BaseBulkSendAmountsInput() {
             confirmButtonProps={{
               onPress: handleSubmit,
               disabled: isSubmitDisabled,
+              loading: isBuilding,
             }}
           />
         </BulkSendContentWrapper>
