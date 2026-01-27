@@ -1,0 +1,37 @@
+diff --git a/node_modules/react-native-bottom-tabs/lib/module/TabView.js b/node_modules/react-native-bottom-tabs/lib/module/TabView.js
+index 3ab92c7..81ca149 100644
+--- a/node_modules/react-native-bottom-tabs/lib/module/TabView.js
++++ b/node_modules/react-native-bottom-tabs/lib/module/TabView.js
+@@ -199,7 +199,7 @@ const TabView = ({
+       ,
+       icons: renderCustomTabBar ? undefined : resolvedIconAssets,
+       selectedPage: focusedKey,
+-      tabBarHidden: !!renderCustomTabBar,
++      tabBarHidden: props.tabBarHidden ?? !!renderCustomTabBar,
+       onTabLongPress: handleTabLongPress,
+       onPageSelected: handlePageSelected,
+       onTabBarMeasured: handleTabBarMeasured,
+diff --git a/node_modules/react-native-bottom-tabs/src/TabView.tsx b/node_modules/react-native-bottom-tabs/src/TabView.tsx
+index 41b9cb3..af65f18 100644
+--- a/node_modules/react-native-bottom-tabs/src/TabView.tsx
++++ b/node_modules/react-native-bottom-tabs/src/TabView.tsx
+@@ -201,6 +201,10 @@ interface Props<Route extends BaseRoute> {
+    * @platform ios
+    */
+   renderBottomAccessoryView?: BottomAccessoryViewProps['renderBottomAccessoryView'];
++  /**
++   * Whether the tab bar is hidden.
++   */
++  tabBarHidden?: boolean;
+ }
+ 
+ const ANDROID_MAX_TABS = 100;
+@@ -392,7 +396,7 @@ const TabView = <Route extends BaseRoute>({
+         // When rendering a custom tab bar, icons can be React elements, which will not be properly resolved.
+         icons={renderCustomTabBar ? undefined : resolvedIconAssets}
+         selectedPage={focusedKey}
+-        tabBarHidden={!!renderCustomTabBar}
++        tabBarHidden={props.tabBarHidden ?? !!renderCustomTabBar}
+         onTabLongPress={handleTabLongPress}
+         onPageSelected={handlePageSelected}
+         onTabBarMeasured={handleTabBarMeasured}

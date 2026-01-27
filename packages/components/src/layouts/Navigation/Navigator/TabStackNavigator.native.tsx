@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { createNativeBottomTabNavigator } from '@bottom-tabs/react-navigation';
 import { useIntl } from 'react-intl';
@@ -75,6 +75,18 @@ export function TabStackNavigator<RouteName extends string>({
   const intl = useIntl();
   const theme = useTheme();
   const themeName = useThemeName();
+  const [tabBarHidden, setTabBarHidden] = useState(false);
+
+  // Listen for HideTabBar events to show/hide the tab bar
+  useEffect(() => {
+    const handler = (hidden: boolean) => {
+      setTabBarHidden(hidden);
+    };
+    appEventBus.on(EAppEventBusNames.HideTabBar, handler);
+    return () => {
+      appEventBus.off(EAppEventBusNames.HideTabBar, handler);
+    };
+  }, []);
 
   // Handle tab press events for logging and event bus notifications
   const handleTabPress = useCallback((routeName: string) => {
@@ -153,6 +165,7 @@ export function TabStackNavigator<RouteName extends string>({
       labeled
       hapticFeedbackEnabled
       disablePageAnimations
+      tabBarHidden={tabBarHidden}
       tabBarActiveTintColor={theme.iconActive.val}
       tabBarInactiveTintColor={theme.iconSubdued.val}
       tabBarStyle={
