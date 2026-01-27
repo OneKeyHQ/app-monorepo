@@ -1,11 +1,9 @@
 // https://jestjs.io/docs/configuration
 const { defaults } = require('jest-config');
-const util = require('node:util');
-const exec = util.promisify(require('node:child_process').exec);
+const path = require('path');
 
 module.exports = async () => {
-  const { stdout } = await exec('yarn config get cacheFolder');
-  const cacheDirectory = stdout.trim().replace('\n', '');
+  const cacheDirectory = path.join(__dirname, 'node_modules/.cache');
   return {
     // https://jestjs.io/docs/configuration#maxconcurrency-number
     maxConcurrency: 1,

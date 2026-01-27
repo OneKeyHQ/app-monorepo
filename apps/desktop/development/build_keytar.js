@@ -6,14 +6,41 @@ console.log('Current working directory:', process.cwd());
 console.log('Operating system:', process.platform);
 console.log('Architecture:', process.arch);
 
-const keytarPath = path.join(
-  __dirname,
-  '..',
-  '..',
-  '..',
-  'node_modules',
-  'keytar',
-);
+// Try to find keytar in different locations (supports both yarn and bun)
+const possiblePaths = [
+  path.join(__dirname, '..', '..', '..', 'node_modules', 'keytar'),
+  path.join(
+    __dirname,
+    '..',
+    '..',
+    '..',
+    'node_modules',
+    '.bun',
+    'keytar@7.9.0',
+    'node_modules',
+    'keytar',
+  ),
+];
+
+let keytarPath = null;
+for (const p of possiblePaths) {
+  if (fs.existsSync(p)) {
+    keytarPath = p;
+    break;
+  }
+}
+
+if (!keytarPath) {
+  // Try to resolve via require.resolve
+  try {
+    keytarPath = path.dirname(require.resolve('keytar/package.json'));
+  } catch (e) {
+    console.error('Could not find keytar package');
+    process.exit(1);
+  }
+}
+
+console.log('Found keytar at:', keytarPath);
 process.chdir(keytarPath);
 
 try {

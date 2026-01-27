@@ -32,41 +32,42 @@ jobs:
           always-auth: true
           scope: '@onekeyhq'
 
-      - name: Get yarn cache directory path
-        id: yarn-cache-dir-path
-        run: echo "dir=${{ github.workspace }}/.yarn" >> "$GITHUB_OUTPUT"
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
 
-      - name: Cache dependencies
+      - name: Cache Bun dependencies
         uses: actions/cache@v4
-        id: yarn-cache
+        id: bun-cache
         with:
           path: |
-            ${{ steps.yarn-cache-dir-path.outputs.dir }}
+            ~/.bun/install/cache
             **/node_modules
-          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock', '**/patches/**') }}
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb', '**/patches/**') }}
           restore-keys: |
-            ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock', '**/patches/**') }}
+            ${{ runner.os }}-bun-
 
       - name: Install Dependency
-        if: steps.yarn-cache.outputs.cache-hit != 'true'
+        if: steps.bun-cache.outputs.cache-hit != 'true'
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BUN_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=4096'
         run: |
-          yarn
+          bun install
 
       - name: Run postinstall only (cache hit)
-        if: steps.yarn-cache.outputs.cache-hit == 'true'
+        if: steps.bun-cache.outputs.cache-hit == 'true'
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BUN_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=4096'
         run: |
-          yarn postinstall
+          bun run postinstall
 
       - name: Generate stats.json
         env:
           NODE_OPTIONS: '--max_old_space_size=4096'
-        run: yarn stats:ios
+        run: bun run stats:ios
 
       - name: Upload stats.json
         uses: actions/upload-artifact@v4
@@ -94,42 +95,43 @@ jobs:
           registry-url: 'https://npm.pkg.github.com'
           always-auth: true
           scope: '@onekeyhq'
-          
-      - name: Get yarn cache directory path
-        id: yarn-cache-dir-path
-        run: echo "dir=${{ github.workspace }}/.yarn" >> "$GITHUB_OUTPUT"
 
-      - name: Cache dependencies
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Cache Bun dependencies
         uses: actions/cache@v4
-        id: yarn-cache
+        id: bun-cache
         with:
           path: |
-            ${{ steps.yarn-cache-dir-path.outputs.dir }}
+            ~/.bun/install/cache
             **/node_modules
-          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock', '**/patches/**') }}
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb', '**/patches/**') }}
           restore-keys: |
-            ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock', '**/patches/**') }}
+            ${{ runner.os }}-bun-
 
       - name: Install Dependency
-        if: steps.yarn-cache.outputs.cache-hit != 'true'
+        if: steps.bun-cache.outputs.cache-hit != 'true'
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BUN_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=4096'
         run: |
-          yarn
+          bun install
 
       - name: Run postinstall only (cache hit)
-        if: steps.yarn-cache.outputs.cache-hit == 'true'
+        if: steps.bun-cache.outputs.cache-hit == 'true'
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BUN_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=4096'
         run: |
-          yarn postinstall
+          bun run postinstall
 
       - name: Generate stats.json
         env:
           NODE_OPTIONS: '--max_old_space_size=4096'
-        run: yarn stats:ios
+        run: bun run stats:ios
 
       - name: Upload stats.json
         uses: actions/upload-artifact@v4

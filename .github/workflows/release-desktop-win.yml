@@ -59,37 +59,37 @@ jobs:
           always-auth: true
           scope: '@onekeyhq'
 
-      - name: Get yarn cache directory path
-        id: yarn-cache-dir-path
-        shell: pwsh
-        run: echo "dir=${{ github.workspace }}/.yarn" >> "$GITHUB_OUTPUT"
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
 
-      - name: Cache dependencies
+      - name: Cache Bun dependencies
         uses: actions/cache@v4
-        id: yarn-cache
+        id: bun-cache
         with:
           path: |
-            ${{ steps.yarn-cache-dir-path.outputs.dir }}
+            ~/.bun/install/cache
             **/node_modules
-          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock', '**/patches/**') }}
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb', '**/patches/**') }}
           restore-keys: |
-            ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock', '**/patches/**') }}
+            ${{ runner.os }}-bun-
 
       - name: Install Dep
-        if: steps.yarn-cache.outputs.cache-hit != 'true'
+        if: steps.bun-cache.outputs.cache-hit != 'true'
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BUN_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=8192'
         run: |
-          yarn
+          bun install
 
       - name: Run postinstall only (cache hit)
-        if: steps.yarn-cache.outputs.cache-hit == 'true'
+        if: steps.bun-cache.outputs.cache-hit == 'true'
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BUN_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=8192'
         run: |
-          yarn postinstall
+          bun run postinstall
 
       - name: Setup Code Signing file
         run: |
@@ -106,7 +106,7 @@ jobs:
           CSC_LINK: './sign.p12'
         run: |
           cd apps/desktop
-          yarn build:win
+          bun run build:win
 
       - name: Upload x64 Windows exe
         uses: actions/upload-artifact@v4
@@ -130,7 +130,7 @@ jobs:
             ./apps/desktop/build-electron/*.exe
             !./apps/desktop/build-electron/*-x64.exe
             !./apps/desktop/build-electron/*-arm64.exe
-      
+
       - name: Upload Artifacts latest.yml
         uses: actions/upload-artifact@v4
         with:
@@ -163,4 +163,3 @@ jobs:
           artifact-version-name: '${{ env.BUILD_APP_VERSION }}@${{ env.BUILD_NUMBER }}'
           artifact-version-code: '${{ env.BUILD_NUMBER }}'
           artifact-download-url: '${{ env.ARTIFACTS_URL }}'
-

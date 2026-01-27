@@ -4,16 +4,18 @@
   "main": "index.js",
   "scripts": {
     "start": "WEB_PORT=3008 webpack serve",
-    "clean": "yarn clean:build",
+    "clean": "bun run clean:build",
     "clean:build": "rimraf ./web-build && rimraf .tamagui && rimraf ./node_modules/.cache",
     "build": "cross-env NODE_ENV=production webpack build && bash ./postbuild.sh",
-    "_folderslint": "yarn folderslint"
+    "_folderslint": "bun run folderslint"
   },
   "private": true,
   "dependencies": {
-    "@onekeyhq/components": "*",
-    "@onekeyhq/kit": "*",
-    "@onekeyhq/shared": "*"
+    "@onekeyhq/components": "workspace:*",
+    "@onekeyhq/core": "workspace:*",
+    "@onekeyhq/kit": "workspace:*",
+    "@onekeyhq/kit-bg": "workspace:*",
+    "@onekeyhq/shared": "workspace:*"
   },
   "devDependencies": {
     "cross-env": "7.0.3",

@@ -48,6 +48,11 @@ jobs:
           scope: '@onekeyhq'
           node-version: '24.x'
 
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
       - name: Setup ENV
         run: |
           eval "$(node -e 'const v=require("./apps/web/package.json").version; console.log("pkg_version="+v)')"
@@ -57,43 +62,39 @@ jobs:
           # For test environment, use GitHub Pages URL
           echo "PUBLIC_URL=https://${{ env.TEST_ENDPOINT }}/" >> $GITHUB_ENV
 
-      - name: Get yarn cache directory path
-        id: yarn-cache-dir-path
-        run: echo "dir=${{ github.workspace }}/.yarn" >> "$GITHUB_OUTPUT"
-
-      - name: Cache dependencies
+      - name: Cache Bun dependencies
         uses: actions/cache@v4
-        id: yarn-cache
+        id: bun-cache
         with:
           path: |
-            ${{ steps.yarn-cache-dir-path.outputs.dir }}
+            ~/.bun/install/cache
             **/node_modules
-          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock', '**/patches/**') }}
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb', '**/patches/**') }}
           restore-keys: |
-            ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock', '**/patches/**') }}
+            ${{ runner.os }}-bun-
 
       - name: Install Dependency
-        if: steps.yarn-cache.outputs.cache-hit != 'true'
+        if: steps.bun-cache.outputs.cache-hit != 'true'
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BUN_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=4096'
         run: |
-          yarn
+          bun install
 
       - name: Run postinstall only (cache hit)
-        if: steps.yarn-cache.outputs.cache-hit == 'true'
+        if: steps.bun-cache.outputs.cache-hit == 'true'
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BUN_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=4096'
         run: |
-          yarn postinstall
+          bun run postinstall
 
       - name: Build Target
         env:
           PUBLIC_URL: ${{ env.PUBLIC_URL }}
           NODE_OPTIONS: '--max_old_space_size=4096'
         run: |
-          yarn app:web:build
+          bun run app:web:build
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
@@ -143,6 +144,11 @@ jobs:
           scope: '@onekeyhq'
           node-version: '24.x'
 
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
       - name: Setup ENV
         run: |
           eval "$(node -e 'const v=require("./apps/web/package.json").version; console.log("pkg_version="+v)')"
@@ -152,43 +158,39 @@ jobs:
           # For production environment, use production URL
           echo "PUBLIC_URL=https://app-assets.onekey.so/${{ github.sha }}-${{ env.BUILD_NUMBER }}/" >> $GITHUB_ENV
 
-      - name: Get yarn cache directory path
-        id: yarn-cache-dir-path
-        run: echo "dir=${{ github.workspace }}/.yarn" >> "$GITHUB_OUTPUT"
-
-      - name: Cache dependencies
+      - name: Cache Bun dependencies
         uses: actions/cache@v4
-        id: yarn-cache
+        id: bun-cache
         with:
           path: |
-            ${{ steps.yarn-cache-dir-path.outputs.dir }}
+            ~/.bun/install/cache
             **/node_modules
-          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock', '**/patches/**') }}
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb', '**/patches/**') }}
           restore-keys: |
-            ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock', '**/patches/**') }}
+            ${{ runner.os }}-bun-
 
       - name: Install Dependency
-        if: steps.yarn-cache.outputs.cache-hit != 'true'
+        if: steps.bun-cache.outputs.cache-hit != 'true'
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BUN_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=4096'
         run: |
-          yarn
+          bun install
 
       - name: Run postinstall only (cache hit)
-        if: steps.yarn-cache.outputs.cache-hit == 'true'
+        if: steps.bun-cache.outputs.cache-hit == 'true'
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BUN_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=4096'
         run: |
-          yarn postinstall
+          bun run postinstall
 
       - name: Build Target
         env:
           PUBLIC_URL: ${{ env.PUBLIC_URL }}
           NODE_OPTIONS: '--max_old_space_size=4096'
         run: |
-          yarn app:web:build
+          bun run app:web:build
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4

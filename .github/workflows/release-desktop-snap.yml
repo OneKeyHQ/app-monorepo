@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  
+
   release-desktop-snap:
     runs-on: ubuntu-latest
     strategy:
@@ -29,8 +29,8 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libudev-dev 
-      - name: Run Shared Env Setup  
+          sudo apt-get install -y libudev-dev
+      - name: Run Shared Env Setup
         uses: ./.github/actions/shared-env
         with:
           env_file_name: ".env"
@@ -67,36 +67,37 @@ jobs:
           always-auth: true
           scope: '@onekeyhq'
 
-      - name: Get yarn cache directory path
-        id: yarn-cache-dir-path
-        run: echo "dir=${{ github.workspace }}/.yarn" >> "$GITHUB_OUTPUT"
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
 
-      - name: Cache dependencies
+      - name: Cache Bun dependencies
         uses: actions/cache@v4
-        id: yarn-cache
+        id: bun-cache
         with:
           path: |
-            ${{ steps.yarn-cache-dir-path.outputs.dir }}
+            ~/.bun/install/cache
             **/node_modules
-          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock', '**/patches/**') }}
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb', '**/patches/**') }}
           restore-keys: |
-            ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock', '**/patches/**') }}
+            ${{ runner.os }}-bun-
 
       - name: Install Dep
-        if: steps.yarn-cache.outputs.cache-hit != 'true'
+        if: steps.bun-cache.outputs.cache-hit != 'true'
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BUN_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=8192'
         run: |
-          yarn
+          bun install
 
       - name: Run postinstall only (cache hit)
-        if: steps.yarn-cache.outputs.cache-hit == 'true'
+        if: steps.bun-cache.outputs.cache-hit == 'true'
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BUN_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=8192'
         run: |
-          yarn postinstall
+          bun run postinstall
 
       - name: Build and Sign Snap Linux
         env:
@@ -108,7 +109,7 @@ jobs:
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
           CSC_LINK: './sign.p12'
           SNAP: true
-        run: 'cd apps/desktop && yarn build:snap'
+        run: 'cd apps/desktop && bun run build:snap'
 
       - name: Upload Artifacts Release
         uses: actions/upload-artifact@v4

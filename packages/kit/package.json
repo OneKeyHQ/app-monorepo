@@ -4,7 +4,10 @@
   "private": true,
   "main": "src/index.tsx",
   "dependencies": {
-    "@onekeyhq/components": "*",
+    "@onekeyhq/components": "workspace:*",
+    "@onekeyhq/core": "workspace:*",
+    "@onekeyhq/kit-bg": "workspace:*",
+    "@onekeyhq/shared": "workspace:*",
     "@types/url-parse": "^1.4.8",
     "date-fns": "2.30.0",
     "expo-camera": "16.1.10",
@@ -20,7 +23,7 @@
     "zbar.wasm": "^2.1.1"
   },
   "scripts": {
-    "_folderslint": "yarn folderslint",
+    "_folderslint": "bun run folderslint",
     "lint": "tsc --noEmit && eslint . --ext .ts,.tsx",
     "lint:fix": "tsc --noEmit && eslint . --ext .ts,.tsx --fix"
   },

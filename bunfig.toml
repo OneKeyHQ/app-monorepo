@@ -1,0 +1,16 @@
+# Bun configuration for OneKey app-monorepo
+
+[install]
+# Use node_modules linker (similar to yarn's nodeLinker: node-modules)
+globalCache = false
+
+# Use hardlink backend for traditional node_modules structure with hoisting
+# This ensures all packages are hoisted to top-level node_modules/
+backend = "hardlink"
+
+# Enable deduplication and hoisting for monorepo workspaces
+deduplicateDependencies = true
+
+[install.scopes]
+# GitHub Package Registry for @onekeyhq scope
+"@onekeyhq" = { url = "https://npm.pkg.github.com", token = "$BUN_AUTH_TOKEN" }

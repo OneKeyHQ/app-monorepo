@@ -1,4 +1,4 @@
-const { execSync, execFileSync } = require('child_process');
+const { execFileSync } = require('child_process');
 const { exit } = require('process');
 const { parse } = require('@aivenio/tsc-output-parser');
 const path = require('path');
@@ -39,9 +39,7 @@ function handleProblems(result) {
 
 const tsConfigPath = path.join(__dirname, '../../tsconfig.json');
 try {
-  const cacheFolder = execSync('yarn config get cacheFolder')
-    .toString('utf-8')
-    .trim();
+  const cacheFolder = path.join(__dirname, '../../node_modules/.cache');
   console.log(`[${getTimestamp()}] Using tsconfig: ${tsConfigPath}`);
   console.log(`[${getTimestamp()}] Using cache folder: ${cacheFolder}`);
   const tsBuildInfoPath = path.join(cacheFolder, '.app-mono-ts-cache');
