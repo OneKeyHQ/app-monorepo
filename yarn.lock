@@ -8939,9 +8939,9 @@ __metadata:
     react-native-crypto: "npm:^2.2.0"
     react-native-dns-lookup: "npm:1.0.6"
     react-native-fast-pbkdf2: "npm:^0.3.1"
-    react-native-file-logger: "npm:0.7.1"
+    react-native-file-logger: "npm:0.7.2"
     react-native-fs: "npm:@dr.pogodin/react-native-fs@2.34.0"
-    react-native-gesture-handler: "npm:2.29.1"
+    react-native-gesture-handler: "npm:2.30.0"
     react-native-get-random-values: "npm:@onekeyfe/react-native-get-random-values@1.1.14"
     react-native-image-colors: "npm:^2.5.0"
     react-native-image-crop-picker: "npm:0.50.0"
@@ -8955,12 +8955,12 @@ __metadata:
     react-native-pager-view: "npm:7.0.1"
     react-native-passkeys: "npm:0.3.3"
     react-native-performance-stats: "npm:0.2.3"
-    react-native-permissions: "npm:5.4.2"
+    react-native-permissions: "npm:5.4.4"
     react-native-ping: "npm:1.2.8"
     react-native-purchases: "npm:8.11.9"
     react-native-qrcode-styled: "npm:0.4.0"
     react-native-reanimated: "npm:4.2.1"
-    react-native-restart: "npm:react-native-restart-newarch@1.0.80"
+    react-native-restart: "npm:react-native-restart-newarch@1.0.82"
     react-native-safe-area-context: "npm:5.6.2"
     react-native-screens: "npm:4.20.0"
     react-native-svg: "npm:15.15.1"
@@ -36963,15 +36963,15 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-file-logger@npm:0.7.1":
-  version: 0.7.1
-  resolution: "react-native-file-logger@npm:0.7.1"
+"react-native-file-logger@npm:0.7.2":
+  version: 0.7.2
+  resolution: "react-native-file-logger@npm:0.7.2"
   dependencies:
     util: "npm:^0.12.5"
   peerDependencies:
     react: ">=16.0.0"
     react-native: ">=0.60.0"
-  checksum: 10/9e399a8e3a68ae825cc9cc60b956c32ebeeadf2959ba8d77786a1be4bcf3f8916897bdc3dae64b3f4790abf95a4241af739059726c71b478563c11c3557d20a8
+  checksum: 10/7630114bdac7004f4837f8cc9387bd756da167890156771d7d7309927e6b62427771082644262af974d97933f4cf2df1a4afe21ec6f62ecc9fd8e39a98cbbb9c
   languageName: node
   linkType: hard
 
@@ -36997,9 +36997,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-gesture-handler@npm:2.29.1":
-  version: 2.29.1
-  resolution: "react-native-gesture-handler@npm:2.29.1"
+"react-native-gesture-handler@npm:2.30.0":
+  version: 2.30.0
+  resolution: "react-native-gesture-handler@npm:2.30.0"
   dependencies:
     "@egjs/hammerjs": "npm:^2.0.17"
     hoist-non-react-statics: "npm:^3.3.0"
@@ -37007,7 +37007,7 @@ __metadata:
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 10/349517d8e0b3ed5282bc3f8536945dee3439c9cfe773fe26f248a4ccb53049169d484371bb0612a081c3860eff492db7f4dcbac528ff9b5ff1d504d04eb06f5f
+  checksum: 10/242b1eb29202bc9fc7bf0271c3da102559adc9f2810441465b6d78c1a8ed8f65bdd91335957c841a4716f796be3e7b87d1d55629d6803ea12e1be832d89c946c
   languageName: node
   linkType: hard
 
@@ -37207,9 +37207,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-permissions@npm:5.4.2":
-  version: 5.4.2
-  resolution: "react-native-permissions@npm:5.4.2"
+"react-native-permissions@npm:5.4.4":
+  version: 5.4.4
+  resolution: "react-native-permissions@npm:5.4.4"
   peerDependencies:
     react: ">=18.1.0"
     react-native: ">=0.70.0"
@@ -37217,7 +37217,7 @@ __metadata:
   peerDependenciesMeta:
     react-native-windows:
       optional: true
-  checksum: 10/b58250476b4fc3affe08f7c28454fe42267ceef8097499c96da773b5c8e2cb8e18940ca586f28194615342890bf30ae298e9cf647682b30478cc9b867d2e0d90
+  checksum: 10/9a31237a47ecdb01e33c25d3e926db6d8de90629d019c61b2e7127b9e83be544b77bc2bab49c46e295a8c667abbfde9c6efbba180d92c51e9f9a9dedba9d4ba7
   languageName: node
   linkType: hard
 
@@ -37287,12 +37287,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-restart@npm:react-native-restart-newarch@1.0.80":
-  version: 1.0.80
-  resolution: "react-native-restart-newarch@npm:1.0.80"
+"react-native-restart@npm:react-native-restart-newarch@1.0.82":
+  version: 1.0.82
+  resolution: "react-native-restart-newarch@npm:1.0.82"
   peerDependencies:
     react-native: ">=0.60.0"
-  checksum: 10/35f3c5dd350377cd0955ea5f8753fa805349ec1629a2086c20db67e18014626b031f24da1bbebca20959838ce6c7421e0a6b8b6eb1457ca1d96bf0cf1c7cd127
+  checksum: 10/e1497edff01bb96000750bb17d3fef4bd79ed81c82d1c4d65fca6991a6d6e235abb399a0267e153bb979c4c51ae8003d194050583f8bb83732e246c5185b05f6
   languageName: node
   linkType: hard
 
