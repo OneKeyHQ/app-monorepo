@@ -74,7 +74,7 @@ export function TabStackNavigator<RouteName extends string>({
   const intl = useIntl();
   const theme = useTheme();
   const themeName = useThemeName();
-  const colorScheme = themeName?.includes('dark') ? 'dark' : 'light';
+  const colorScheme = themeName === 'dark' ? 'dark' : 'light';
 
   // Handle tab press events for logging and event bus notifications
   const handleTabPress = useCallback((routeName: string) => {
@@ -155,8 +155,12 @@ export function TabStackNavigator<RouteName extends string>({
     <NativeTab.Navigator
       labeled
       hapticFeedbackEnabled
+      disablePageAnimations
       tabBarActiveTintColor={theme.iconActive.val}
       tabBarInactiveTintColor={theme.iconSubdued.val}
+      tabBarStyle={colorScheme === 'dark' ? {
+        backgroundColor:  theme.bg.val
+      }: undefined}
       screenOptions={{
         freezeOnBlur: true,
         lazy: false,
