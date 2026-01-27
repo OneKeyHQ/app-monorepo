@@ -17,97 +17,37 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabMarketRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 
-// Native tab icons using PNG images with light/dark mode support
-const tabIconAssets = {
-  wallet: {
-    light: {
-      focused: require('@onekeyhq/kit/assets/tabbar/light/focused/Wallet.png'),
-      unfocused: require('@onekeyhq/kit/assets/tabbar/light/unfocused/Wallet.png'),
-    },
-    dark: {
-      focused: require('@onekeyhq/kit/assets/tabbar/dark/focused/Wallet.png'),
-      unfocused: require('@onekeyhq/kit/assets/tabbar/dark/unfocused/Wallet.png'),
-    },
-  },
-  swap: {
-    light: {
-      focused: require('@onekeyhq/kit/assets/tabbar/light/focused/SwapHor.png'),
-      unfocused: require('@onekeyhq/kit/assets/tabbar/light/unfocused/SwapHor.png'),
-    },
-    dark: {
-      focused: require('@onekeyhq/kit/assets/tabbar/dark/focused/SwapHor.png'),
-      unfocused: require('@onekeyhq/kit/assets/tabbar/dark/unfocused/SwapHor.png'),
-    },
-  },
-  discover: {
-    light: {
-      focused: require('@onekeyhq/kit/assets/tabbar/light/focused/CompassCircle.png'),
-      unfocused: require('@onekeyhq/kit/assets/tabbar/light/unfocused/CompassCircle.png'),
-    },
-    dark: {
-      focused: require('@onekeyhq/kit/assets/tabbar/dark/focused/CompassCircle.png'),
-      unfocused: require('@onekeyhq/kit/assets/tabbar/dark/unfocused/CompassCircle.png'),
-    },
-  },
-  market: {
-    light: {
-      focused: require('@onekeyhq/kit/assets/tabbar/light/focused/ChartTrendingUp2.png'),
-      unfocused: require('@onekeyhq/kit/assets/tabbar/light/unfocused/ChartTrendingUp2.png'),
-    },
-    dark: {
-      focused: require('@onekeyhq/kit/assets/tabbar/dark/focused/ChartTrendingUp2.png'),
-      unfocused: require('@onekeyhq/kit/assets/tabbar/dark/unfocused/ChartTrendingUp2.png'),
-    },
-  },
-  perp: {
-    light: {
-      focused: require('@onekeyhq/kit/assets/tabbar/light/focused/TradingViewCandles.png'),
-      unfocused: require('@onekeyhq/kit/assets/tabbar/light/unfocused/TradingViewCandles.png'),
-    },
-    dark: {
-      focused: require('@onekeyhq/kit/assets/tabbar/dark/focused/TradingViewCandles.png'),
-      unfocused: require('@onekeyhq/kit/assets/tabbar/dark/unfocused/TradingViewCandles.png'),
-    },
-  },
-  earn: {
-    light: {
-      focused: require('@onekeyhq/kit/assets/tabbar/light/focused/Coins.png'),
-      unfocused: require('@onekeyhq/kit/assets/tabbar/light/unfocused/Coins.png'),
-    },
-    dark: {
-      focused: require('@onekeyhq/kit/assets/tabbar/dark/focused/Coins.png'),
-      unfocused: require('@onekeyhq/kit/assets/tabbar/dark/unfocused/Coins.png'),
-    },
-  },
-  developer: {
-    light: {
-      focused: require('@onekeyhq/kit/assets/tabbar/light/focused/CodeBrackets.png'),
-      unfocused: require('@onekeyhq/kit/assets/tabbar/light/unfocused/CodeBrackets.png'),
-    },
-    dark: {
-      focused: require('@onekeyhq/kit/assets/tabbar/dark/focused/CodeBrackets.png'),
-      unfocused: require('@onekeyhq/kit/assets/tabbar/dark/unfocused/CodeBrackets.png'),
-    },
-  },
-};
-
-type ITabIconProps = { focused: boolean; colorScheme: 'light' | 'dark' };
-
+// Native tab icons using SVG files from @onekeyhq/components/svg
+// The native tab bar will tint icons using tabBarActiveTintColor/tabBarInactiveTintColor
 const nativeTabIcons = {
-  wallet: ({ focused, colorScheme }: ITabIconProps): INativeTabBarIcon =>
-    tabIconAssets.wallet[colorScheme][focused ? 'focused' : 'unfocused'],
-  swap: ({ focused, colorScheme }: ITabIconProps): INativeTabBarIcon =>
-    tabIconAssets.swap[colorScheme][focused ? 'focused' : 'unfocused'],
-  discover: ({ focused, colorScheme }: ITabIconProps): INativeTabBarIcon =>
-    tabIconAssets.discover[colorScheme][focused ? 'focused' : 'unfocused'],
-  market: ({ focused, colorScheme }: ITabIconProps): INativeTabBarIcon =>
-    tabIconAssets.market[colorScheme][focused ? 'focused' : 'unfocused'],
-  perp: ({ focused, colorScheme }: ITabIconProps): INativeTabBarIcon =>
-    tabIconAssets.perp[colorScheme][focused ? 'focused' : 'unfocused'],
-  earn: ({ focused, colorScheme }: ITabIconProps): INativeTabBarIcon =>
-    tabIconAssets.earn[colorScheme][focused ? 'focused' : 'unfocused'],
-  developer: ({ focused, colorScheme }: ITabIconProps): INativeTabBarIcon =>
-    tabIconAssets.developer[colorScheme][focused ? 'focused' : 'unfocused'],
+  wallet: ({ focused }: { focused: boolean }): INativeTabBarIcon =>
+    focused
+      ? require('@onekeyhq/components/svg/solid/wallet.svg')
+      : require('@onekeyhq/components/svg/outline/wallet.svg'),
+  swap: ({ focused }: { focused: boolean }): INativeTabBarIcon =>
+    focused
+      ? require('@onekeyhq/components/svg/solid/swap-hor.svg')
+      : require('@onekeyhq/components/svg/outline/swap-hor.svg'),
+  discover: ({ focused }: { focused: boolean }): INativeTabBarIcon =>
+    focused
+      ? require('@onekeyhq/components/svg/solid/compass-circle.svg')
+      : require('@onekeyhq/components/svg/outline/compass-circle.svg'),
+  market: ({ focused }: { focused: boolean }): INativeTabBarIcon =>
+    focused
+      ? require('@onekeyhq/components/svg/solid/chart-trending-up2.svg')
+      : require('@onekeyhq/components/svg/outline/chart-trending-up2.svg'),
+  perp: ({ focused }: { focused: boolean }): INativeTabBarIcon =>
+    focused
+      ? require('@onekeyhq/components/svg/solid/trading-view-candles.svg')
+      : require('@onekeyhq/components/svg/outline/trading-view-candles.svg'),
+  earn: ({ focused }: { focused: boolean }): INativeTabBarIcon =>
+    focused
+      ? require('@onekeyhq/components/svg/solid/coins.svg')
+      : require('@onekeyhq/components/svg/outline/coins.svg'),
+  developer: ({ focused }: { focused: boolean }): INativeTabBarIcon =>
+    focused
+      ? require('@onekeyhq/components/svg/solid/code-brackets.svg')
+      : require('@onekeyhq/components/svg/outline/code-brackets.svg'),
 };
 
 import { usePerpTabConfig } from '../../hooks/usePerpTabConfig';

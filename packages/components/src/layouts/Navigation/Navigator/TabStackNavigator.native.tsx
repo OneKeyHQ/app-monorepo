@@ -74,7 +74,6 @@ export function TabStackNavigator<RouteName extends string>({
   const intl = useIntl();
   const theme = useTheme();
   const themeName = useThemeName();
-  const colorScheme = themeName === 'dark' ? 'dark' : 'light';
 
   // Handle tab press events for logging and event bus notifications
   const handleTabPress = useCallback((routeName: string) => {
@@ -108,10 +107,7 @@ export function TabStackNavigator<RouteName extends string>({
             options={{
               // Type assertion needed because our INativeTabBarIcon uses string for sfSymbol
               // while react-native-bottom-tabs expects SFSymbol type from sf-symbols-typescript
-              tabBarIcon: nativeTabBarIcon
-                ? ((({ focused }: { focused: boolean }) =>
-                    nativeTabBarIcon({ focused, colorScheme })) as any)
-                : undefined,
+              tabBarIcon: nativeTabBarIcon as any,
               tabBarLabel: intl.formatMessage({ id: translationId }),
             }}
             listeners={{
@@ -149,7 +145,7 @@ export function TabStackNavigator<RouteName extends string>({
     }
 
     return screens;
-  }, [config, extraConfig, intl, handleTabPress, colorScheme]);
+  }, [config, extraConfig, intl, handleTabPress]);
 
   return (
     <NativeTab.Navigator
@@ -158,11 +154,16 @@ export function TabStackNavigator<RouteName extends string>({
       disablePageAnimations
       tabBarActiveTintColor={theme.iconActive.val}
       tabBarInactiveTintColor={theme.iconSubdued.val}
-      tabBarStyle={colorScheme === 'dark' ? {
-        backgroundColor:  theme.bg.val
-      }: undefined}
+      tabBarStyle={
+        themeName === 'dark'
+          ? {
+              backgroundColor: theme.bg.val,
+            }
+          : undefined
+      }
       screenOptions={{
         freezeOnBlur: true,
+        preventsDefault: true,
         lazy: false,
       }}
     >

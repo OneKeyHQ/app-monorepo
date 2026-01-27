@@ -1,13 +1,12 @@
 /**
- * Script to generate PNG icons from React Native SVG components for native tab bar
+ * Script to generate SVG icons from React Native SVG components for native tab bar
  *
  * Usage:
- *   1. Install @resvg/resvg-js: npm install @resvg/resvg-js
- *   2. Run: node development/svg/generateTabIconPngs.js
+ *   Run: node development/svg/generateTabIconPngs.js
  *
  * Output:
- *   - Creates PNG files in packages/kit/assets/tabbar/ directory
- *   - Generates @1x, @2x, @3x versions for React Native
+ *   - Creates SVG files in packages/kit/assets/tabbar/ directory
+ *   - SVG files can be used directly with react-native-bottom-tabs
  */
 
 const fs = require('fs');
@@ -48,29 +47,13 @@ const TAB_ICONS = [
   { name: 'GiftOutline', source: 'outline/Gift.tsx' },
 ];
 
-// Base sizes for PNG output (will generate @1x, @2x, @3x)
-const BASE_SIZE = 24;
-const SCALES = [1, 2, 3];
-
-// Icon colors for light and dark modes
-const ICON_COLORS = {
-  light: {
-    unfocused: '#8C8CA1', // Gray for inactive tabs in light mode
-    focused: '#000000', // Black for active tabs in light mode
-  },
-  dark: {
-    unfocused: '#8C8CA1', // Gray for inactive tabs in dark mode
-    focused: '#FFFFFF', // White for active tabs in dark mode
-  },
-};
-
 // Source directory for React SVG components
 const reactDir = path.join(
   ROOT_DIR,
   'packages/components/src/primitives/Icon/react',
 );
-// Output directory for generated PNG files
-const outputDir = path.join(ROOT_DIR, 'packages/kit/assets/tabbar');
+// Output directory for generated SVG files
+const outputDir = path.join(ROOT_DIR, 'packages/kit/assets/tabbar/svg');
 
 /**
  * Parse React Native SVG component file and extract SVG content
@@ -124,60 +107,25 @@ function parseReactSvgComponent(filePath) {
 
 /**
  * Generate SVG string from parsed data
+ * Note: Using currentColor allows the native tab bar to tint the icon
  */
-function generateSvg(parsedData, size, color) {
+function generateSvg(parsedData) {
   const { viewBox, paths } = parsedData;
 
   const pathElements = paths
     .map((p) => {
-      const fill = p.fill === 'currentColor' ? color : p.fill;
+      // Keep currentColor so native tab bar can apply tint
       let attrs = `d="${p.d}"`;
-      if (fill) attrs += ` fill="${fill}"`;
+      if (p.fill) attrs += ` fill="${p.fill}"`;
       if (p.fillRule) attrs += ` fill-rule="${p.fillRule}"`;
       if (p.clipRule) attrs += ` clip-rule="${p.clipRule}"`;
       return `  <path ${attrs}/>`;
     })
     .join('\n');
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="${viewBox}" fill="none">
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}" fill="none">
 ${pathElements}
 </svg>`;
-}
-
-/**
- * Try to require resvg-js from multiple locations
- */
-function tryRequireResvg() {
-  const possiblePaths = [
-    '@resvg/resvg-js',
-    '/tmp/svg2png_temp/node_modules/@resvg/resvg-js',
-  ];
-
-  for (const p of possiblePaths) {
-    try {
-      return require(p);
-    } catch {
-      continue;
-    }
-  }
-  return null;
-}
-
-/**
- * Convert SVG to PNG using resvg-js
- */
-function svgToPng(svgString, outputPath, size, resvgModule) {
-  const { Resvg } = resvgModule;
-  const resvg = new Resvg(svgString, {
-    fitTo: {
-      mode: 'width',
-      value: size,
-    },
-  });
-  const pngData = resvg.render();
-  const pngBuffer = pngData.asPng();
-  fs.writeFileSync(outputPath, pngBuffer);
-  return true;
 }
 
 /**
@@ -187,39 +135,6 @@ async function main() {
   // Create output directory
   if (!fs.existsSync(outputDir)) {
     fs.mkdirSync(outputDir, { recursive: true });
-  }
-
-  // Create subdirectories for different states and themes
-  const dirs = {
-    light: {
-      unfocused: path.join(outputDir, 'light', 'unfocused'),
-      focused: path.join(outputDir, 'light', 'focused'),
-    },
-    dark: {
-      unfocused: path.join(outputDir, 'dark', 'unfocused'),
-      focused: path.join(outputDir, 'dark', 'focused'),
-    },
-  };
-
-  // Create all directories
-  Object.values(dirs.light).forEach((dir) => {
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  });
-  Object.values(dirs.dark).forEach((dir) => {
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  });
-
-  const resvgModule = tryRequireResvg();
-  const resvgAvailable = !!resvgModule;
-
-  if (!resvgAvailable) {
-    console.log('Error: @resvg/resvg-js module not available.');
-    console.log('To install, run:');
-    console.log(
-      '  cd /tmp && mkdir -p svg2png_temp && cd svg2png_temp && npm init -y && npm install @resvg/resvg-js',
-    );
-    console.log('Then run this script again.\n');
-    process.exit(1);
   }
 
   console.log('Processing tab icons...\n');
@@ -239,45 +154,15 @@ async function main() {
     // Parse the React component
     const parsedData = parseReactSvgComponent(sourcePath);
 
-    // Determine if this is a focused (Solid) or unfocused (Outline) icon
-    const isFocused =
-      icon.name.includes('Solid') || icon.name.includes('Custom');
-    const focusState = isFocused ? 'focused' : 'unfocused';
-
-    // Generate base icon name (remove Solid/Outline/Custom suffix)
-    const baseName = icon.name
-      .replace('Solid', '')
-      .replace('Outline', '')
-      .replace('Custom', '');
-
-    // Generate PNG files for both light and dark modes
-    for (const theme of ['light', 'dark']) {
-      const color = ICON_COLORS[theme][focusState];
-      const targetDir = dirs[theme][focusState];
-
-      for (const scale of SCALES) {
-        const size = BASE_SIZE * scale;
-        const suffix = scale === 1 ? '' : `@${scale}x`;
-        const pngName = `${baseName}${suffix}.png`;
-        const pngPath = path.join(targetDir, pngName);
-
-        const scaledSvg = generateSvg(parsedData, size, color);
-        svgToPng(scaledSvg, pngPath, size, resvgModule);
-        console.log(`  Created PNG: ${theme}/${focusState}/${pngName}`);
-      }
-    }
+    // Generate SVG file
+    const svgContent = generateSvg(parsedData);
+    const svgPath = path.join(outputDir, `${icon.name}.svg`);
+    fs.writeFileSync(svgPath, svgContent);
+    console.log(`  Created: ${icon.name}.svg`);
   }
 
   console.log('\nDone!');
-  console.log(`\nPNG files generated in: ${outputDir}`);
-  console.log(
-    '- light/unfocused/: Outline icons for inactive tabs (light mode)',
-  );
-  console.log('- light/focused/: Solid icons for active tabs (light mode)');
-  console.log(
-    '- dark/unfocused/: Outline icons for inactive tabs (dark mode)',
-  );
-  console.log('- dark/focused/: Solid icons for active tabs (dark mode)');
+  console.log(`\nSVG files generated in: ${outputDir}`);
 }
 
 main().catch(console.error);
