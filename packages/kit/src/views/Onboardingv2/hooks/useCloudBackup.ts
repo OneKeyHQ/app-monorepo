@@ -35,7 +35,6 @@ import {
   showCloudBackupPasswordDialog,
 } from '../components/CloudBackupDialogs';
 
-// 防止备份失败弹窗重复显示的全局标志
 let isBackupErrorDialogShowing = false;
 
 export function useCloudBackup() {
@@ -256,13 +255,10 @@ export function useCloudBackup() {
         ) {
           // skip
         } else {
-          // 检查是否已经显示过弹窗，如果是则跳过
           if (isBackupErrorDialogShowing) {
-            defaultLogger.common.warn('Backup error dialog already showing, skipping duplicate');
-            throw error; // 直接抛出错误，不显示弹窗
+            throw error;  
           }
 
-          // 设置标志为 true，表示弹窗正在显示
           isBackupErrorDialogShowing = true;
 
           Dialog.show({
@@ -347,8 +343,6 @@ export function useCloudBackup() {
         } finally {
           void loadingDialog?.close?.();
           setCheckLoading(false);
-          // 重置弹窗显示标志，防止影响下次备份
-          isBackupErrorDialogShowing = false;
           await cloudBackupExitPreventAtom.set(
             (v): ICloudBackupExitPreventAtom => ({
               ...v,
