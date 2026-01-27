@@ -1,11 +1,16 @@
-import semver from 'semver';
-
 import { EDeviceType } from '@onekeyfe/hd-shared';
+import semver from 'semver';
 
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import {
   ELegacyFirmwareUpdateSteps,
@@ -15,17 +20,18 @@ import {
 } from '../../states/jotai/atoms/legacyFirmwareUpdate';
 import ServiceBase from '../ServiceBase';
 import { FIRMWARE_UPDATE_MIN_VERSION_ALLOWED } from '../ServiceFirmwareUpdate/firmwareUpdateConsts';
+import serviceHardwareUtils from '../ServiceHardware/serviceHardwareUtils';
 
 import { ClassicFirmwareHandler } from './handlers/ClassicFirmwareHandler';
 import { MiniFirmwareHandler } from './handlers/MiniFirmwareHandler';
 import { TouchFirmwareHandler } from './handlers/TouchFirmwareHandler';
 
-import type { ILegacyFirmwareUpdateStepInfo } from '../../states/jotai/atoms/legacyFirmwareUpdate';
 import type {
   ILegacyFlowCheckParams,
   ILegacyUpdateParams,
   ILegacyUpdateResult,
 } from './types';
+import type { ILegacyFirmwareUpdateStepInfo } from '../../states/jotai/atoms/legacyFirmwareUpdate';
 import type { IDeviceType } from '@onekeyfe/hd-core';
 
 @backgroundClass()
@@ -86,6 +92,25 @@ class ServiceLegacyFirmwareUpdate extends ServiceBase {
   ): Promise<ILegacyUpdateResult> {
     const { deviceType } = params;
 
+    // Emit begin firmware update event
+    appEventBus.emit(EAppEventBusNames.BeginFirmwareUpdate, undefined);
+
+    // Wait for other hardware tasks to stop processing
+    await timerUtils.wait(3000);
+
+    // Lock transport type during firmware update to prevent auto-switching
+    // This prevents the system from switching to BLE when USB device is temporarily
+    // unavailable during device reboot
+    const currentTransportType =
+      await this.backgroundApi.serviceSetting.getHardwareTransportType();
+    await this.backgroundApi.serviceHardware.setForceTransportType({
+      forceTransportType: currentTransportType,
+    });
+    serviceHardwareUtils.hardwareLog(
+      'startLegacyUpdate: locked transport type',
+      currentTransportType,
+    );
+
     try {
       // Set running state
       await legacyFirmwareUpdateRunningAtom.set(true);
@@ -112,7 +137,7 @@ class ServiceLegacyFirmwareUpdate extends ServiceBase {
           break;
 
         default:
-          throw new Error(`Unsupported device type: ${deviceType}`);
+          throw new OneKeyLocalError(`Unsupported device type: ${deviceType}`);
       }
 
       // Set complete state
@@ -127,6 +152,15 @@ class ServiceLegacyFirmwareUpdate extends ServiceBase {
       throw error;
     } finally {
       await legacyFirmwareUpdateRunningAtom.set(false);
+
+      // Always clear transport type lock when firmware update completes (success or failure)
+      await this.backgroundApi.serviceHardware.clearForceTransportType();
+      serviceHardwareUtils.hardwareLog(
+        'startLegacyUpdate: cleared transport type lock',
+      );
+
+      // Emit finish firmware update event
+      appEventBus.emit(EAppEventBusNames.FinishFirmwareUpdate, undefined);
     }
   }
 
