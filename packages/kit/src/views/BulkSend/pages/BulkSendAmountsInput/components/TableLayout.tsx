@@ -1,5 +1,4 @@
 import { useCallback, useMemo } from 'react';
-import { useIntl } from 'react-intl';
 
 import {
   Icon,
@@ -9,12 +8,10 @@ import {
   SizableText,
   Skeleton,
   Stack,
-  Tooltip,
   XStack,
   YStack,
 } from '@onekeyhq/components';
 import { EAmountInputMode } from '@onekeyhq/shared/types/bulkSend';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
@@ -212,10 +209,7 @@ function TransferInfoListSection() {
     tokenInfo,
     transferInfoErrors,
     setTransferInfoErrors,
-    isInsufficientBalance,
   } = useBulkSendAmountsInputContext();
-
-  const intl = useIntl();
 
   const handleDelete = useCallback(
     (index: number) => {
@@ -409,37 +403,31 @@ function TransferInfoListSection() {
             {/* AMOUNT */}
             <Stack width={100} alignItems="flex-end">
               {isCustomMode ? (
-                <Stack width="100%">
-                  <Tooltip
-                    placement="top"
-                    renderTrigger={
-                      <Input
-                        value={transfer.amount}
-                        onChangeText={(value) =>
-                          handleAmountChange(index, value)
+                <Input
+                  value={transfer.amount}
+                  onChangeText={(value) => handleAmountChange(index, value)}
+                  placeholder="0"
+                  keyboardType="decimal-pad"
+                  textAlign="right"
+                  size="small"
+                  error={hasAmountError}
+                  leftAddOnProps={
+                    hasAmountError
+                      ? {
+                          iconName: 'ErrorOutline',
+                          iconColor: '$iconCritical',
+                          tooltipProps: {
+                            placement: 'top',
+                            renderContent: errors?.amount,
+                          },
                         }
-                        placeholder="0"
-                        keyboardType="decimal-pad"
-                        textAlign="right"
-                        size="small"
-                        error={hasAmountError}
-                        leftAddOnProps={
-                          hasAmountError
-                            ? {
-                              iconName: 'ErrorOutline',
-                              iconColor: '$iconCritical',
-                            }
-                            : undefined
-                        }
-                        containerProps={{
-                          width: '100%',
-                          backgroundColor: '$bgSubdued',
-                        }}
-                      />
-                    }
-                    renderContent={hasAmountError ? errors?.amount : ''}
-                  />
-                </Stack>
+                      : undefined
+                  }
+                  containerProps={{
+                    width: '100%',
+                    backgroundColor: '$bgSubdued',
+                  }}
+                />
               ) : (
                 <SizableText size="$bodyLgMedium">
                   {transfer.amount || '0'}
@@ -465,7 +453,8 @@ function TransferInfoListSection() {
 }
 
 function TableLayout() {
-  const { isInsufficientBalance, tokenDetails, totalTokenAmount, tokenInfo } = useBulkSendAmountsInputContext();
+  const { isInsufficientBalance, tokenDetails, totalTokenAmount, tokenInfo } =
+    useBulkSendAmountsInputContext();
 
   return (
     <YStack gap="$8">
@@ -479,7 +468,9 @@ function TableLayout() {
         <XStack gap="$1" alignItems="center">
           <Icon name="InfoCircleOutline" size="$4" color="$iconCritical" />
           <SizableText size="$bodySm" color="$textCritical">
-            Insufficient balance, available balance: {tokenDetails?.balanceParsed} {tokenInfo.symbol}, total amount: {totalTokenAmount} {tokenInfo.symbol}
+            Insufficient balance, available balance:{' '}
+            {tokenDetails?.balanceParsed} {tokenInfo.symbol}, total amount:{' '}
+            {totalTokenAmount} {tokenInfo.symbol}
           </SizableText>
         </XStack>
       ) : null}

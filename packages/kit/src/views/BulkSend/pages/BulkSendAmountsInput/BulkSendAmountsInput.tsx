@@ -118,8 +118,15 @@ function BulkSendAmountsInput() {
     EModalBulkSendRoutes.BulkSendAmountsInput
   >();
 
-  const { networkId, accountId, senders, receivers, tokenInfo, tokenDetails: initialTokenDetails, bulkSendMode } =
-    route.params ?? {};
+  const {
+    networkId,
+    accountId,
+    senders,
+    receivers,
+    tokenInfo,
+    tokenDetails: initialTokenDetails,
+    bulkSendMode,
+  } = route.params ?? {};
 
   const [tokenDetails, setTokenDetails] = useState<
     ({ info: IToken } & ITokenFiat) | undefined

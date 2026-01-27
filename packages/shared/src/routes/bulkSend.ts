@@ -1,11 +1,11 @@
-import type { IToken, ITokenFiat } from "../../types/token";
-import type { EBulkSendMode } from "../../types/bulkSend";
+import type { IToken, ITokenFiat } from '../../types/token';
+import type { EBulkSendMode } from '../../types/bulkSend';
 
 export enum EModalBulkSendRoutes {
-  BulkSendAddressesInput = "bulkSendAddressesInput",
-  BulkSendAmountsInput = "BulkSendAmountsInput",
-  BulkSendReview = "BulkSendReview",
-  BulkSendProcess = "BulkSendProcess",
+  BulkSendAddressesInput = 'bulkSendAddressesInput',
+  BulkSendAmountsInput = 'BulkSendAmountsInput',
+  BulkSendReview = 'BulkSendReview',
+  BulkSendProcess = 'BulkSendProcess',
 }
 
 export type IModalBulkSendParamList = {

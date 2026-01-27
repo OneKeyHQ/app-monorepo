@@ -1,15 +1,15 @@
-import type { IToken, ITokenFiat } from "@onekeyhq/shared/types/token";
-import type { EBulkSendMode } from "@onekeyhq/shared/types/bulkSend";
+import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
+import type { EBulkSendMode } from '@onekeyhq/shared/types/bulkSend';
 
 export enum ETabHomeRoutes {
-  TabHome = "TabHome",
-  TabHomeUrlAccountPage = "TabHomeUrlAccountPage",
-  TabHomeUrlAccountLanding = "TabHomeUrlAccountLanding",
-  TabHomeReferralLanding = "TabHomeReferralLanding",
-  TabHomeReferralLandingWithoutPage = "TabHomeReferralLandingWithoutPage",
-  TabHomeReferralLandingCodeOnly = "TabHomeReferralLandingCodeOnly",
-  TabHomeBulkSendAddressesInput = "TabHomeBulkSendAddressesInput",
-  TabHomeBulkSendAmountsInput = "TabHomeBulkSendAmountsInput",
+  TabHome = 'TabHome',
+  TabHomeUrlAccountPage = 'TabHomeUrlAccountPage',
+  TabHomeUrlAccountLanding = 'TabHomeUrlAccountLanding',
+  TabHomeReferralLanding = 'TabHomeReferralLanding',
+  TabHomeReferralLandingWithoutPage = 'TabHomeReferralLandingWithoutPage',
+  TabHomeReferralLandingCodeOnly = 'TabHomeReferralLandingCodeOnly',
+  TabHomeBulkSendAddressesInput = 'TabHomeBulkSendAddressesInput',
+  TabHomeBulkSendAmountsInput = 'TabHomeBulkSendAmountsInput',
 }
 
 export type ITabHomeUrlAccountParamList = {

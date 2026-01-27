@@ -261,7 +261,12 @@ function BaseBulkSendAddressesInput() {
   ]);
 
   const handleSubmit = useCallback(() => {
-    if (!selectedNetworkId || !selectedAccountId || !selectedToken || !selectedTokenDetail) {
+    if (
+      !selectedNetworkId ||
+      !selectedAccountId ||
+      !selectedToken ||
+      !selectedTokenDetail
+    ) {
       return;
     }
 
