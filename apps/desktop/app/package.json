@@ -2,6 +2,12 @@
   "name": "@onekeyhq/desktop",
   "version": "1.0.0",
   "main": "dist/app.js",
+  "trustedDependencies": [
+    "@onekeyfe/electron-mac-icloud",
+    "@stoprocent/noble",
+    "@stoprocent/bluetooth-hci-socket",
+    "electron-check-biometric-auth-changed"
+  ],
   "description": "Anti-scam crypto wallet for every chain. Supports major blockchains like Bitcoin, Ethereum, Solana, Tron and more.",
   "private": true,
   "author": "OneKey <hi@onekey.so>",
