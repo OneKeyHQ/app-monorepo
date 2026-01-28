@@ -229,7 +229,7 @@ const TradesHistoryRow = memo(
                 })}
               </SizableText>
               <SizableText size="$bodySm">
-                {`${tradeBaseInfo.priceFormatted}`}
+                {tradeBaseInfo.priceFormatted}
               </SizableText>
             </YStack>
             <YStack gap="$1" flex={1} alignItems="flex-start">
@@ -238,9 +238,7 @@ const TradesHistoryRow = memo(
                   id: ETranslations.perp_position_position_size,
                 })}
               </SizableText>
-              <SizableText size="$bodySm">
-                {`${tradeBaseInfo.size}`}
-              </SizableText>
+              <SizableText size="$bodySm">{tradeBaseInfo.size}</SizableText>
             </YStack>
             <YStack gap="$1" flex={1} alignItems="flex-start">
               <SizableText size="$bodySm" color="$textSubdued">
@@ -249,7 +247,7 @@ const TradesHistoryRow = memo(
                 })}
               </SizableText>
               <SizableText size="$bodySm">
-                {`${tradeBaseInfo.tradeValueFormatted}`}
+                {tradeBaseInfo.tradeValueFormatted}
               </SizableText>
             </YStack>
             <YStack gap="$1" flex={1} alignItems="flex-end">
@@ -259,7 +257,7 @@ const TradesHistoryRow = memo(
                 })}
               </SizableText>
               <SizableText size="$bodySm">
-                {`${tradeBaseInfo.feeFormatted}`}
+                {tradeBaseInfo.feeFormatted}
               </SizableText>
             </YStack>
           </XStack>
@@ -348,7 +346,9 @@ const TradesHistoryRow = memo(
                 numberOfLines={1}
                 ellipsizeMode="tail"
                 size="$bodySm"
-              >{`${tradeBaseInfo.priceFormatted}`}</SizableText>
+              >
+                {tradeBaseInfo.priceFormatted}
+              </SizableText>
             </XStack>
 
             {/* Position size */}
@@ -375,7 +375,7 @@ const TradesHistoryRow = memo(
                 ellipsizeMode="tail"
                 size="$bodySm"
               >
-                {`${tradeBaseInfo.tradeValueFormatted}`}
+                {tradeBaseInfo.tradeValueFormatted}
               </SizableText>
             </XStack>
 
@@ -390,7 +390,7 @@ const TradesHistoryRow = memo(
                 ellipsizeMode="tail"
                 size="$bodySm"
               >
-                {`${tradeBaseInfo.feeFormatted}`}
+                {tradeBaseInfo.feeFormatted}
               </SizableText>
             </XStack>
           </>

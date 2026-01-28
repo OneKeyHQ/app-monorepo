@@ -127,7 +127,7 @@ export default function PrimeDeviceLimit() {
                 .join(' ');
               const instanceIdLastHash = device.instanceId?.slice(0, 8);
 
-              title = `${device.platformName || device.platform}`;
+              title = device.platformName || device.platform;
               subtitle = `${appFullNameWithVersion} · ${formatDistanceToNow(
                 new Date(device.lastLoginTime),
               )}`;
