@@ -11,20 +11,21 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EAmountInputMode } from '@onekeyhq/shared/types/bulkSend';
 
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
-import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 
-import { useBulkSendAmountsInputContext } from './Context';
-import { showSetAmountPerAddressDialog } from './SetAmountPerAddressDialog';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   generateAmountsFromSpecifiedAmount,
   generateRandomAmountsFromRange,
 } from '../../../utils';
-import { validateTokenAmount } from '@onekeyhq/shared/src/utils/tokenUtils';
+
+import { useBulkSendAmountsInputContext } from './Context';
+import { showSetAmountPerAddressDialog } from './SetAmountPerAddressDialog';
+import { useTransferInfoActions } from './useTransferInfoActions';
 
 function AssetSection() {
   const { networkId, tokenInfo, tokenDetails } =
@@ -211,72 +212,13 @@ function TransferInfoListSection() {
     setTransferInfoErrors,
   } = useBulkSendAmountsInputContext();
 
-  const handleDelete = useCallback(
-    (index: number) => {
-      const newTransfersInfo = [...transfersInfo];
-      newTransfersInfo.splice(index, 1);
-      setTransfersInfo(newTransfersInfo);
-
-      // Remove the error for the deleted index and shift subsequent indices
-      const newErrors = { ...transferInfoErrors };
-      delete newErrors[index];
-      const shiftedErrors: typeof newErrors = {};
-      Object.keys(newErrors).forEach((key) => {
-        const keyNum = Number(key);
-        if (keyNum > index) {
-          shiftedErrors[keyNum - 1] = newErrors[keyNum];
-        } else {
-          shiftedErrors[keyNum] = newErrors[keyNum];
-        }
-      });
-      setTransferInfoErrors(shiftedErrors);
-    },
-    [
-      transfersInfo,
-      setTransfersInfo,
-      transferInfoErrors,
-      setTransferInfoErrors,
-    ],
-  );
-
-  const handleAmountChange = useCallback(
-    (index: number, value: string) => {
-      const newTransfersInfo = [...transfersInfo];
-      newTransfersInfo[index] = {
-        ...newTransfersInfo[index],
-        amount: value,
-      };
-      setTransfersInfo(newTransfersInfo);
-
-      // Validate and update errors
-      const { isValid, error } = validateTokenAmount({
-        token: tokenInfo,
-        amount: value,
-      });
-      const newErrors = { ...transferInfoErrors };
-      if (!isValid && error) {
-        newErrors[index] = {
-          ...newErrors[index],
-          amount: error,
-        };
-      } else if (newErrors[index]) {
-        const { amount: _, ...rest } = newErrors[index];
-        if (Object.keys(rest).length === 0) {
-          delete newErrors[index];
-        } else {
-          newErrors[index] = rest;
-        }
-      }
-      setTransferInfoErrors(newErrors);
-    },
-    [
-      transfersInfo,
-      setTransfersInfo,
-      tokenInfo,
-      transferInfoErrors,
-      setTransferInfoErrors,
-    ],
-  );
+  const { handleDeleteTransfer, handleAmountChange } = useTransferInfoActions({
+    tokenInfo,
+    transfersInfo,
+    setTransfersInfo,
+    transferInfoErrors,
+    setTransferInfoErrors,
+  });
 
   const isCustomMode = amountInputMode === EAmountInputMode.Custom;
 
@@ -442,7 +384,7 @@ function TransferInfoListSection() {
                 variant="tertiary"
                 size="small"
                 disabled={transfersInfo.length === 1}
-                onPress={() => handleDelete(index)}
+                onPress={() => handleDeleteTransfer(index)}
               />
             </Stack>
           </XStack>

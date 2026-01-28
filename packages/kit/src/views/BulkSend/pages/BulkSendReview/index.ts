@@ -1,3 +1,3 @@
-import BulkSendReview from "./BulkSendReview";
+import BulkSendReview from './BulkSendReview';
 
 export default BulkSendReview;

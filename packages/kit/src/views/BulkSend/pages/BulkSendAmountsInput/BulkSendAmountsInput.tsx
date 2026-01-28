@@ -140,14 +140,12 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
       let prevNonce: number | undefined;
       for (const approveInfo of approvesInfo) {
         const unsignedTx =
-          await backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx(
-            {
-              networkId,
-              accountId,
-              approveInfo,
-              prevNonce,
-            },
-          );
+          await backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx({
+            networkId,
+            accountId,
+            approveInfo,
+            prevNonce,
+          });
         prevNonce = unsignedTx.nonce;
         unsignedTxs.push(unsignedTx);
       }

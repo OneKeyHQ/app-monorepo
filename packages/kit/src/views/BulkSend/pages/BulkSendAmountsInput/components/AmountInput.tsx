@@ -249,6 +249,7 @@ export function RangeAmountInput() {
                 keyboardType="decimal-pad"
                 containerProps={{
                   width: '100%',
+                  borderWidth: 0,
                 }}
                 fontSize={28}
                 fontWeight="600"
@@ -299,6 +300,7 @@ export function RangeAmountInput() {
                 keyboardType="decimal-pad"
                 containerProps={{
                   width: '100%',
+                  borderWidth: 0,
                 }}
                 fontSize={28}
                 fontWeight="600"

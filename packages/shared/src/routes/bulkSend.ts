@@ -1,13 +1,13 @@
-import type { IToken, ITokenFiat } from "../../types/token";
-import type { EBulkSendMode } from "../../types/bulkSend";
-import type { IUnsignedTxPro } from "@onekeyhq/core/src/types";
-import type { ITransferInfo } from "@onekeyhq/kit-bg/src/vaults/types";
+import type { IToken, ITokenFiat } from '../../types/token';
+import type { EBulkSendMode } from '../../types/bulkSend';
+import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 
 export enum EModalBulkSendRoutes {
-  BulkSendAddressesInput = "bulkSendAddressesInput",
-  BulkSendAmountsInput = "BulkSendAmountsInput",
-  BulkSendReview = "BulkSendReview",
-  BulkSendProcess = "BulkSendProcess",
+  BulkSendAddressesInput = 'bulkSendAddressesInput',
+  BulkSendAmountsInput = 'BulkSendAmountsInput',
+  BulkSendReview = 'BulkSendReview',
+  BulkSendProcess = 'BulkSendProcess',
 }
 
 export type IModalBulkSendParamList = {
