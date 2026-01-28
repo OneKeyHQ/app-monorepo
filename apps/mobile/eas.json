@@ -47,9 +47,9 @@
       },
       "android": {
         "buildType": "apk",
-        "gradleCommand": ":app:assembleProdRelease",
+        "gradleCommand": ":app:assembleGoogleRelease",
         "env": {
-          "ANDROID_CHANNEL": "direct"
+          "ANDROID_CHANNEL": "google"
         }
       },
       "ios": {
