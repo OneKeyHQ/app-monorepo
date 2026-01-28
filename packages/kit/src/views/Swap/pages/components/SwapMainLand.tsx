@@ -1244,7 +1244,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     }
     // Desktop with provider panel needs wider layout
     if (showDesktopProviderPanel) {
-      return 880;
+      return 960;
     }
     return 500;
   }, [pageType, showDesktopProviderPanel]);
