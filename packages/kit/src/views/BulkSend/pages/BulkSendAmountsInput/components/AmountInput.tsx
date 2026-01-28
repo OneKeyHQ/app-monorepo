@@ -82,8 +82,8 @@ export function SpecifiedAmountInput() {
   // Calculate fiat value
   const fiatValue = useMemo(() => {
     const amount = new BigNumber(amountInputValues.specifiedAmount || '0');
-    if (amount.isNaN() || !tokenDetails?.price) return '$0.00';
-    return `$${amount.times(tokenDetails.price).toFixed(2)}`;
+    if (amount.isNaN() || !tokenDetails?.price) return '0';
+    return `${amount.times(tokenDetails.price).toFixed(2)}`;
   }, [amountInputValues.specifiedAmount, tokenDetails?.price]);
 
   return (

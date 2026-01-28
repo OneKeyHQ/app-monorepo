@@ -50,7 +50,8 @@ function BaseBulkSendReview() {
   );
 
   // Determine button text based on whether approvals are needed
-  const confirmButtonText = approvesInfo.length > 0 ? 'Approve and Confirm' : 'Confirm';
+  const confirmButtonText =
+    approvesInfo.length > 0 ? 'Approve and Confirm' : 'Confirm';
 
   // Handle editing approval amount
   const handleEditApproval = useCallback(
@@ -165,7 +166,6 @@ function BaseBulkSendReview() {
 }
 
 function BulkSendReview() {
-
   const route = useAppRoute<
     IModalBulkSendParamList,
     EModalBulkSendRoutes.BulkSendReview
@@ -202,8 +202,6 @@ function BulkSendReview() {
     [networkId],
     { initResult: null },
   );
-
-
 
   const contextValue = useMemo(
     () => ({
