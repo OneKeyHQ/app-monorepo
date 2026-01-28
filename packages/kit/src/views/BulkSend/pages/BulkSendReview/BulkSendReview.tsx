@@ -1,7 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 
-import { ActionList, Page, YStack } from '@onekeyhq/components';
-import type { IActionListItemProps } from '@onekeyhq/components';
+import { Page, YStack } from '@onekeyhq/components';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -169,33 +168,6 @@ function BaseBulkSendReview() {
     ],
   );
 
-  // Handle fee level press - open fee selector action list
-  const handleFeeLevelPress = useCallback(() => {
-    // Only allow fee editing for single tx
-    if (isMultiTxs || !vaultSettings?.editFeeEnabled) return;
-
-    const items: IActionListItemProps[] = feeState.feeSelectorItems.map(
-      (item, index) => ({
-        label: item.label,
-        checkMark: feeState.selectedFee.presetIndex === index,
-        onPress: () => {
-          handleFeeChange(index);
-        },
-      }),
-    );
-
-    ActionList.show({
-      title: '',
-      items,
-    });
-  }, [
-    isMultiTxs,
-    vaultSettings?.editFeeEnabled,
-    feeState.feeSelectorItems,
-    feeState.selectedFee.presetIndex,
-    handleFeeChange,
-  ]);
-
   // Handle retry fee estimation (force loading state)
   const handleRetryFeeEstimation = useCallback(() => {
     forceRefreshFee();
@@ -261,11 +233,10 @@ function BaseBulkSendReview() {
             feeLevel={feeLabel}
             isMultiTxs={isMultiTxs}
             isInitialized={feeState.isInitialized}
-            onFeeLevelPress={
-              !isMultiTxs && vaultSettings?.editFeeEnabled
-                ? handleFeeLevelPress
-                : undefined
-            }
+            feeSelectorItems={feeState.feeSelectorItems}
+            selectedFeeIndex={feeState.selectedFee.presetIndex}
+            onFeeChange={handleFeeChange}
+            editFeeEnabled={vaultSettings?.editFeeEnabled}
           />
 
           {/* Transaction Details - Bottom Section */}

@@ -1,6 +1,7 @@
 import { useIntl } from 'react-intl';
 
 import {
+  ActionList,
   Icon,
   NumberSizeableText,
   SizableText,
@@ -8,8 +9,10 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import type { IActionListItemProps } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IFeeSelectorItem } from '@onekeyhq/shared/types/fee';
 import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 
 type Props = {
@@ -18,9 +21,13 @@ type Props = {
   networkFeeFiat: string;
   nativeSymbol: string;
   feeLevel: string;
-  onFeeLevelPress?: () => void;
   isMultiTxs?: boolean;
   isInitialized?: boolean;
+  // Fee selector props
+  feeSelectorItems?: IFeeSelectorItem[];
+  selectedFeeIndex?: number;
+  onFeeChange?: (index: number) => void;
+  editFeeEnabled?: boolean;
 };
 
 function BulkSendReviewCostCard({
@@ -29,9 +36,12 @@ function BulkSendReviewCostCard({
   networkFeeFiat,
   nativeSymbol,
   feeLevel,
-  onFeeLevelPress,
   isMultiTxs,
   isInitialized,
+  feeSelectorItems,
+  selectedFeeIndex,
+  onFeeChange,
+  editFeeEnabled,
 }: Props) {
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
@@ -86,25 +96,58 @@ function BulkSendReviewCostCard({
                   )}
                 </XStack>
                 {/* Fee Level - Only show for single tx */}
-                {!isMultiTxs && (feeLevel || isError) ? (
-                  <XStack
-                    gap="$1"
-                    alignItems="center"
-                    onPress={isError ? undefined : onFeeLevelPress}
-                    cursor={!isError && onFeeLevelPress ? 'pointer' : undefined}
-                  >
-                    <SizableText size="$bodyMd" color="$textSubdued">
-                      {isError ? '-' : feeLevel}
-                    </SizableText>
-                    {!isError && onFeeLevelPress ? (
-                      <Icon
-                        name="ChevronGrabberVerOutline"
-                        size="$4"
-                        color="$iconSubdued"
-                      />
-                    ) : null}
-                  </XStack>
-                ) : null}
+                {!isMultiTxs && (feeLevel || isError)
+                  ? (() => {
+                    const canEditFee =
+                      !isError &&
+                      editFeeEnabled &&
+                      feeSelectorItems &&
+                      feeSelectorItems.length > 0 &&
+                      onFeeChange;
+
+                    const triggerContent = (
+                      <XStack gap="$1" alignItems="center" cursor="pointer">
+                        <SizableText size="$bodyMd" color="$textSubdued">
+                          {isError ? '-' : feeLevel}
+                        </SizableText>
+                        {canEditFee ? (
+                          <Icon
+                            name="ChevronGrabberVerOutline"
+                            size="$4"
+                            color="$iconSubdued"
+                          />
+                        ) : null}
+                      </XStack>
+                    );
+
+                    if (canEditFee) {
+                      const items: IActionListItemProps[] =
+                        feeSelectorItems.map((item, index) => ({
+                          label: item.label,
+                          extra:
+                            selectedFeeIndex === index ? (
+                              <Icon
+                                name="CheckLargeSolid"
+                                size="$5"
+                              />
+                            ) : undefined,
+                          onPress: () => {
+                            onFeeChange(index);
+                          },
+                        }));
+
+                      return (
+                        <ActionList
+                          title=""
+                          items={items}
+                          renderTrigger={triggerContent}
+                        />
+                      );
+                    }
+
+                    return triggerContent;
+                  })()
+                  : null}
               </>
             )}
           </YStack>
