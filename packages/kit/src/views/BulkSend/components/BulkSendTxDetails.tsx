@@ -4,6 +4,7 @@ import {
   Icon,
   IconButton,
   Input,
+  NumberSizeableText,
   SizableText,
   Stack,
   XStack,
@@ -97,20 +98,20 @@ function TransferListItem({
       );
     }
 
-    const displayAmount = isSend
-      ? `-${amount} ${tokenSymbol}`
-      : `+${amount} ${tokenSymbol}`;
+    const displayAmount = isSend ? `-${amount}` : `+${amount}`;
     const textColor = isSend ? '$text' : '$textSuccess';
 
     return (
-      <SizableText
+      <NumberSizeableText
         size="$bodyMdMedium"
         color={textColor}
         textAlign="right"
         flexShrink={0}
+        formatter="balance"
+        formatterOptions={{ tokenSymbol }}
       >
         {displayAmount}
-      </SizableText>
+      </NumberSizeableText>
     );
   };
 
