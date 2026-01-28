@@ -101,18 +101,18 @@ const OpenOrdersRow = memo(
       const type = (() => {
         if (side === 'B') {
           if (reduceOnly) {
-            return `${intl.formatMessage({
+            return intl.formatMessage({
               id: ETranslations.perp_order_close_short, // Close Short
-            })}`;
+            });
           }
           return intl.formatMessage({
             id: ETranslations.perp_long, // Long
           });
         }
         if (reduceOnly) {
-          return `${intl.formatMessage({
+          return intl.formatMessage({
             id: ETranslations.perp_order_close_long, // Close Long
-          })}`;
+          });
         }
         return intl.formatMessage({
           id: ETranslations.perp_short, // Short
@@ -185,9 +185,9 @@ const OpenOrdersRow = memo(
         );
         tpslOrders.forEach((child: IPerpsFrontendOrder) => {
           if (child.orderType.startsWith('Take')) {
-            tpPrice = `${numberFormat(child.triggerPx, priceFormatter)}`;
+            tpPrice = numberFormat(child.triggerPx, priceFormatter);
           } else if (child.orderType.startsWith('Stop')) {
-            slPrice = `${numberFormat(child.triggerPx, priceFormatter)}`;
+            slPrice = numberFormat(child.triggerPx, priceFormatter);
           }
         });
       }
@@ -305,7 +305,7 @@ const OpenOrdersRow = memo(
               })}
             </SizableText>
             <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
-              {`${orderBaseInfo.triggerCondition}`}
+              {orderBaseInfo.triggerCondition}
             </SizableText>
           </XStack>
           <XStack
@@ -318,11 +318,9 @@ const OpenOrdersRow = memo(
                 id: ETranslations.perp_position_tp_sl,
               })}
             </SizableText>
-            <SizableText
-              numberOfLines={1}
-              ellipsizeMode="tail"
-              size="$bodySm"
-            >{`${tpslInfo.tpsl}`}</SizableText>
+            <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
+              {tpslInfo.tpsl}
+            </SizableText>
           </XStack>
         </ListItem>
       );
@@ -420,7 +418,9 @@ const OpenOrdersRow = memo(
                 numberOfLines={1}
                 ellipsizeMode="tail"
                 size="$bodySm"
-              >{`${orderBaseInfo.sizeFormatted}`}</SizableText>
+              >
+                {orderBaseInfo.sizeFormatted}
+              </SizableText>
             </XStack>
 
             {/* Original size */}
@@ -433,7 +433,9 @@ const OpenOrdersRow = memo(
                 numberOfLines={1}
                 ellipsizeMode="tail"
                 size="$bodySm"
-              >{`${orderBaseInfo.origSizeFormatted}`}</SizableText>
+              >
+                {orderBaseInfo.origSizeFormatted}
+              </SizableText>
             </XStack>
 
             {/* value */}
@@ -446,7 +448,9 @@ const OpenOrdersRow = memo(
                 numberOfLines={1}
                 ellipsizeMode="tail"
                 size="$bodySm"
-              >{`${orderBaseInfo.valueFormatted}`}</SizableText>
+              >
+                {orderBaseInfo.valueFormatted}
+              </SizableText>
             </XStack>
 
             {/* Execute price */}
