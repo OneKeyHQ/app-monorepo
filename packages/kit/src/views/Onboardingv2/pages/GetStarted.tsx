@@ -319,17 +319,40 @@ function GetStarted() {
   const { enableKeylessWalletLoading, checkKeylessWalletLocalExistence } =
     useKeylessWallet();
 
+  // Track which provider is currently loading
+  const [loadingProvider, setLoadingProvider] =
+    useState<EOAuthSocialLoginProvider | null>(null);
+
   const handleCreateOrImportWallet = () => {
     navigation.push(EOnboardingPagesV2.CreateOrImportWallet);
   };
 
   const handleGoogleLogin = useCallback(async () => {
-    defaultLogger.account.wallet.onboard({
-      onboardMethod: 'createKeylessWallet',
-    });
-    await checkKeylessWalletLocalExistence({
-      signInProvider: EOAuthSocialLoginProvider.Google,
-    });
+    setLoadingProvider(EOAuthSocialLoginProvider.Google);
+    try {
+      defaultLogger.account.wallet.onboard({
+        onboardMethod: 'createKeylessWallet',
+      });
+      await checkKeylessWalletLocalExistence({
+        signInProvider: EOAuthSocialLoginProvider.Google,
+      });
+    } finally {
+      setLoadingProvider(null);
+    }
+  }, [checkKeylessWalletLocalExistence]);
+
+  const handleAppleLogin = useCallback(async () => {
+    setLoadingProvider(EOAuthSocialLoginProvider.Apple);
+    try {
+      defaultLogger.account.wallet.onboard({
+        onboardMethod: 'createKeylessWallet',
+      });
+      await checkKeylessWalletLocalExistence({
+        signInProvider: EOAuthSocialLoginProvider.Apple,
+      });
+    } finally {
+      setLoadingProvider(null);
+    }
   }, [checkKeylessWalletLocalExistence]);
 
   // Cache theme values to avoid multiple useThemeValue calls during render
@@ -444,13 +467,13 @@ function GetStarted() {
                   </XStack>
                 </Button>
                 {isKeylessWalletEnabled ? (
-                  <XStack gap="$2">
+                  <>
                     <Button
-                      flex={1}
                       bg="$gray3"
                       hoverStyle={{ bg: '$gray4' }}
                       pressStyle={{ bg: '$gray5' }}
                       size="large"
+                      alignSelf="stretch"
                       childrenAsText={false}
                       onPress={
                         enableKeylessWalletLoading
@@ -460,7 +483,9 @@ function GetStarted() {
                     >
                       <XStack gap="$2" alignItems="center">
                         <AnimatePresence exitBeforeEnter initial={false}>
-                          {enableKeylessWalletLoading ? (
+                          {enableKeylessWalletLoading &&
+                          loadingProvider ===
+                            EOAuthSocialLoginProvider.Google ? (
                             <YStack
                               key="loading"
                               animation="quick"
@@ -495,12 +520,67 @@ function GetStarted() {
                       hoverStyle={{ bg: '$gray4' }}
                       pressStyle={{ bg: '$gray5' }}
                       size="large"
+                      alignSelf="stretch"
                       childrenAsText={false}
-                      onPress={handleCreateOrImportWallet}
+                      onPress={
+                        enableKeylessWalletLoading
+                          ? undefined
+                          : handleAppleLogin
+                      }
                     >
-                      <Icon name="DotHorOutline" size="$5" />
+                      <XStack gap="$2" alignItems="center">
+                        <AnimatePresence exitBeforeEnter initial={false}>
+                          {enableKeylessWalletLoading &&
+                          loadingProvider ===
+                            EOAuthSocialLoginProvider.Apple ? (
+                            <YStack
+                              key="loading"
+                              animation="quick"
+                              animateOnly={['transform', 'opacity']}
+                              enterStyle={{ scale: 0.7, opacity: 0 }}
+                              exitStyle={{ scale: 0.7, opacity: 0 }}
+                            >
+                              <Spinner size="small" />
+                            </YStack>
+                          ) : (
+                            <YStack
+                              key="icon"
+                              animation="quick"
+                              animateOnly={['transform', 'opacity']}
+                              enterStyle={{ scale: 0.7, opacity: 0 }}
+                              exitStyle={{ scale: 0.7, opacity: 0 }}
+                            >
+                              <Icon name="AppleBrand" size="$5" />
+                            </YStack>
+                          )}
+                        </AnimatePresence>
+                        <SizableText size="$bodyLgMedium">
+                          {intl.formatMessage(
+                            { id: ETranslations.continue_with_social_platform },
+                            { platform: 'Apple' },
+                          )}
+                        </SizableText>
+                      </XStack>
                     </Button>
-                  </XStack>
+                    <Stack
+                      cursor="pointer"
+                      onPress={handleCreateOrImportWallet}
+                      hoverStyle={{ opacity: 0.8 }}
+                      pressStyle={{ opacity: 0.6 }}
+                      py="$2"
+                    >
+                      <SizableText
+                        size="$bodyMd"
+                        color="$textSubdued"
+                        textAlign="center"
+                        textDecorationLine="underline"
+                      >
+                        {intl.formatMessage({
+                          id: ETranslations.more_options,
+                        })}
+                      </SizableText>
+                    </Stack>
+                  </>
                 ) : (
                   <Button
                     bg="$gray3"
