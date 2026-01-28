@@ -14,6 +14,7 @@ import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
 
 import {
   ESplitViewType,
+  useOrientation,
   useSplitViewType,
   useTheme,
   useThemeName,
@@ -166,17 +167,18 @@ export function TabStackNavigator<RouteName extends string>({
   }, [config, extraConfig, intl, handleTabPress]);
 
   const splitViewType = useSplitViewType();
+  const isLandscape = useOrientation();
   const hidden = useMemo(() => {
     switch (splitViewType) {
       case ESplitViewType.MAIN:
         return false;
       case ESplitViewType.SUB:
-        return true;
+        return isLandscape;
       default:
         tabBarHidden;
     }
     return tabBarHidden;
-  }, [tabBarHidden, splitViewType]);
+  }, [tabBarHidden, splitViewType, isLandscape]);
   return (
     <NativeTab.Navigator
       labeled

@@ -26,6 +26,8 @@ import { useTabNameContext as useNativeTabNameContext } from './TabNameContext';
 import { useFocusedTab } from './useFocusedTab';
 
 import type { useEventEmitter } from './useEventEmitter';
+import { useDualScreenWidth } from '@onekeyhq/shared/src/modules/DualScreenInfo/index.android';
+import { isDualScreenDevice } from '@onekeyhq/shared/src/modules/DualScreenInfo';
 
 export const useTabNameContext = useNativeTabNameContext;
 
@@ -78,8 +80,12 @@ export function useTabIsRefreshingFocused() {
 
 export * from './useCurrentTabScrollY';
 
-export const useTabContainerWidth = platformEnv.isNative
+const useNativeTabContainerWidth = isDualScreenDevice()
   ? () => {
+      const dualScreenWidth = useDualScreenWidth();
+      return dualScreenWidth;
+    }
+  : () => {
       const isTablet = useIsNativeTablet();
       const isLandscape = useOrientation();
       const { width } = useWindowDimensions();
@@ -94,7 +100,10 @@ export const useTabContainerWidth = platformEnv.isNative
       }
       // In portrait or non-tablet, use full screen width
       return width;
-    }
+    };
+
+export const useTabContainerWidth = platformEnv.isNative
+  ? useNativeTabContainerWidth
   : () => {
       const [{ isCollapsed: leftSidebarCollapsed = false }] =
         useAppSideBarStatusAtom();
