@@ -57,6 +57,7 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
     bulkSendMode,
     transfersInfo,
     totalTokenAmount,
+    totalFiatAmount,
     isAmountValid,
     isInsufficientBalance,
   } = useBulkSendAmountsInputContext();
@@ -159,23 +160,26 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
         }),
       );
 
+      const params = {
+        networkId,
+        accountId,
+        unsignedTxs,
+        tokenInfo,
+        transfersInfo,
+        bulkSendMode,
+        isInModal,
+        totalTokenAmount,
+        totalFiatAmount,
+      };
+
       if (isInModal) {
-        navigation.push(EModalBulkSendRoutes.BulkSendReview, {
-          networkId,
-          accountId,
-          unsignedTxs,
-        });
+        navigation.push(EModalBulkSendRoutes.BulkSendReview, params);
       } else {
         navigation.pushModal(EModalRoutes.BulkSendModal, {
           screen: EModalBulkSendRoutes.BulkSendReview,
-          params: {
-            networkId,
-            accountId,
-            unsignedTxs,
-          },
+          params,
         });
       }
-
     } catch (error) {
       console.error('Failed to build transactions:', error);
     } finally {
@@ -192,6 +196,7 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
     totalTokenAmount,
     isInModal,
     navigation,
+    totalFiatAmount,
   ]);
 
   const isSubmitDisabled = useMemo(() => {
