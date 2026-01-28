@@ -4,8 +4,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useEarnActions } from '@onekeyhq/kit/src/states/jotai/contexts/earn/actions';
-import { UniversalBorrowBorrow } from '@onekeyhq/kit/src/views/Borrow/components/UniversalBorrowBorrow';
-import { UniversalBorrowSupply } from '@onekeyhq/kit/src/views/Borrow/components/UniversalBorrowSupply';
+import {
+  type IManagePositionConfirmParams,
+  ManagePosition,
+} from '@onekeyhq/kit/src/views/Borrow/components/ManagePosition';
 import {
   useUniversalBorrowBorrow,
   useUniversalBorrowSupply,
@@ -47,7 +49,6 @@ export const StakeSection = ({
   borrowMarketAddress,
   borrowReserveAddress,
   borrowAction,
-  borrowReserves,
   borrowActionLabel,
 }: {
   accountId: string;
@@ -88,8 +89,6 @@ export const StakeSection = ({
     borrowApiCtx.isBorrow &&
     (borrowApiCtx.borrowApiParams.action === 'supply' ||
       borrowApiCtx.borrowApiParams.action === 'borrow');
-  const BorrowStakeComponent =
-    borrowAction === 'borrow' ? UniversalBorrowBorrow : UniversalBorrowSupply;
 
   const { result: estimateFeeUTXO } = usePromiseResult(async () => {
     if (!hasRequiredData || !networkUtils.isBTCNetwork(networkId)) {
@@ -289,7 +288,8 @@ export const StakeSection = ({
   }, [borrowAction, protocolInfo?.maxSupplyBalance]);
 
   const onBorrowConfirm = useCallback(
-    async (amount: string) => {
+    async (params: IManagePositionConfirmParams) => {
+      const { amount } = params;
       if (!hasRequiredData || !borrowApiCtx.isBorrow) return;
 
       const token = tokenInfo?.token as IToken;
@@ -351,10 +351,11 @@ export const StakeSection = ({
       (borrowAction === 'supply' || borrowAction === 'borrow')
     ) {
       return (
-        <BorrowStakeComponent
+        <ManagePosition
           accountId={accountId}
           networkId={networkId}
           providerName=""
+          action={borrowAction}
           balance="0"
           price="0"
           tokenImageUri={fallbackTokenImageUri}
@@ -363,9 +364,8 @@ export const StakeSection = ({
           borrowMarketAddress={borrowMarketAddress}
           borrowReserveAddress={borrowReserveAddress}
           beforeFooter={beforeFooter}
-          borrowReserves={borrowReserves}
           actionLabel={borrowActionLabel}
-          maxBalance={undefined}
+          isInModalContext={isInModalContext}
         />
       );
     }
@@ -391,10 +391,11 @@ export const StakeSection = ({
   return (
     <>
       {isBorrowStake ? (
-        <BorrowStakeComponent
+        <ManagePosition
           accountId={accountId}
           networkId={networkId}
           providerName={providerName}
+          action={borrowApiCtx.borrowApiParams.action as 'supply' | 'borrow'}
           decimals={
             protocolInfo?.protocolInputDecimals ?? tokenInfo?.token?.decimals
           }
@@ -414,8 +415,8 @@ export const StakeSection = ({
           }
           beforeFooter={beforeFooter}
           showApyDetail={showApyDetail}
-          borrowReserves={borrowReserves}
           actionLabel={borrowActionLabel}
+          isInModalContext={isInModalContext}
         />
       ) : (
         <UniversalStake

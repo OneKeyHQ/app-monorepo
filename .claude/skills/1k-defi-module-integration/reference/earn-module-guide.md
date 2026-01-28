@@ -710,3 +710,559 @@ const pendingCount = pendingTxs.filter(
 
 {pendingCount > 0 && <PendingIndicator num={pendingCount} />}
 ```
+
+---
+
+## Time-Based Protocols (e.g., Pendle PT)
+
+This section covers protocols with time-based features like maturity dates, expiration, or time-locked operations.
+
+### Maturity Date Display
+
+For protocols with maturity/expiration dates, use consistent formatting:
+
+```typescript
+import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
+
+// Display maturity date
+const maturityDisplay = formatDate(new Date(maturityTimestamp), {
+  hideYear: false,  // Show year for dates far in future
+});
+// Output: "15 Jan 2026"
+
+// Display days remaining
+const daysRemaining = Math.ceil(
+  (maturityTimestamp - Date.now()) / (1000 * 60 * 60 * 24)
+);
+const remainingDisplay = `${daysRemaining} days left`;
+```
+
+**UI Pattern:**
+```tsx
+<XStack alignItems="center" gap="$2">
+  <SizableText size="$bodyMd">{maturityDisplay}</SizableText>
+  <Badge type="default">{remainingDisplay}</Badge>
+</XStack>
+```
+
+### Maturity Status Enum
+
+Define status based on time until maturity:
+
+```typescript
+enum EMaturityStatus {
+  Active = 'Active',           // Normal trading, > 7 days to maturity
+  MaturingSoon = 'MaturingSoon', // 7 days or less to maturity
+  Matured = 'Matured',         // Past maturity, can redeem
+}
+
+function getMaturityStatus(maturityTimestamp: number): EMaturityStatus {
+  const now = Date.now();
+  const daysUntilMaturity = (maturityTimestamp - now) / (1000 * 60 * 60 * 24);
+
+  if (daysUntilMaturity <= 0) {
+    return EMaturityStatus.Matured;
+  }
+  if (daysUntilMaturity <= 7) {
+    return EMaturityStatus.MaturingSoon;
+  }
+  return EMaturityStatus.Active;
+}
+```
+
+**Status Badge Colors:**
+```tsx
+const statusBadgeType: Record<EMaturityStatus, 'success' | 'warning' | 'info'> = {
+  [EMaturityStatus.Active]: 'info',
+  [EMaturityStatus.MaturingSoon]: 'warning',
+  [EMaturityStatus.Matured]: 'success',
+};
+
+<Badge type={statusBadgeType[status]}>{status}</Badge>
+```
+
+### Conditional Operations
+
+Some operations are only available under certain conditions (e.g., Redeem only after maturity):
+
+```typescript
+interface IOperationAvailability {
+  available: boolean;
+  reason?: string;           // Why unavailable
+  availableAt?: number;      // Timestamp when it becomes available
+}
+
+function getRedeemAvailability(maturityTimestamp: number): IOperationAvailability {
+  const now = Date.now();
+
+  if (now < maturityTimestamp) {
+    return {
+      available: false,
+      reason: 'Available after maturity',
+      availableAt: maturityTimestamp,
+    };
+  }
+
+  return { available: true };
+}
+```
+
+**UI Pattern for Conditional Buttons:**
+```tsx
+function ConditionalActionButton({
+  availability,
+  onPress,
+  children,
+}: {
+  availability: IOperationAvailability;
+  onPress: () => void;
+  children: React.ReactNode;
+}) {
+  const intl = useIntl();
+
+  if (!availability.available) {
+    const disabledText = availability.availableAt
+      ? intl.formatMessage(
+          { id: ETranslations.earn_available_after },
+          { date: formatDate(new Date(availability.availableAt)) }
+        )
+      : availability.reason;
+
+    return (
+      <Button disabled onPress={onPress}>
+        {disabledText}
+      </Button>
+    );
+  }
+
+  return <Button onPress={onPress}>{children}</Button>;
+}
+```
+
+---
+
+## Protocol-Specific Customization
+
+### Extending ManagePositionContent
+
+For protocols requiring custom manage position UI, create a dedicated component:
+
+**File Location:** `packages/kit/src/views/Staking/pages/ManagePosition/components/`
+
+**Example: PendlePTManageContent.tsx**
+```typescript
+import type { IManagePositionContentProps } from './ManagePositionContent';
+
+export function PendlePTManageContent(props: IManagePositionContentProps) {
+  const { details, networkId, symbol, provider } = props;
+
+  // Extract Pendle-specific data
+  const maturityDate = details.pendleInfo?.maturityDate;
+  const maturityStatus = getMaturityStatus(maturityDate);
+
+  return (
+    <YStack>
+      {/* Maturity Info Header */}
+      <MaturityInfoSection
+        maturityDate={maturityDate}
+        status={maturityStatus}
+      />
+
+      {/* Operation Tabs: Buy / Sell / Redeem */}
+      <PendleOperationTabs
+        maturityStatus={maturityStatus}
+        {...props}
+      />
+    </YStack>
+  );
+}
+```
+
+**Register in ManagePositionContent.tsx:**
+```typescript
+// In ManagePositionContent.tsx
+if (provider === EEarnProviderEnum.Pendle) {
+  return <PendlePTManageContent {...props} />;
+}
+```
+
+### Custom Detail Page Sections
+
+Add protocol-specific sections to the detail page:
+
+**Example Sections for Pendle PT:**
+
+1. **Underlying Asset Section**
+```tsx
+function UnderlyingAssetSection({ underlyingAsset }: { underlyingAsset: IUnderlyingAsset }) {
+  return (
+    <GridSection title="Underlying Asset">
+      <XStack alignItems="center" gap="$2">
+        <Image source={{ uri: underlyingAsset.logoURI }} size={24} />
+        <SizableText>{underlyingAsset.symbol}</SizableText>
+      </XStack>
+      <SizableText size="$bodySm" color="$textSubdued">
+        {underlyingAsset.name}
+      </SizableText>
+    </GridSection>
+  );
+}
+```
+
+2. **Maturity Info Section**
+```tsx
+function MaturityInfoSection({ maturityDate, status }: IMaturityInfoProps) {
+  return (
+    <GridSection title="Maturity">
+      <XStack justifyContent="space-between">
+        <SizableText>Maturity Date</SizableText>
+        <SizableText>{formatDate(new Date(maturityDate))}</SizableText>
+      </XStack>
+      <XStack justifyContent="space-between">
+        <SizableText>Status</SizableText>
+        <Badge type={statusBadgeType[status]}>{status}</Badge>
+      </XStack>
+    </GridSection>
+  );
+}
+```
+
+3. **Implied APY Section**
+```tsx
+function ImpliedApySection({ impliedApy, marketApy }: IApyComparisonProps) {
+  return (
+    <GridSection title="APY Comparison">
+      <XStack justifyContent="space-between">
+        <SizableText>Fixed APY (Implied)</SizableText>
+        <SizableText color="$textSuccess">{impliedApy}%</SizableText>
+      </XStack>
+      <XStack justifyContent="space-between">
+        <SizableText>Market Reference APY</SizableText>
+        <SizableText>{marketApy}%</SizableText>
+      </XStack>
+    </GridSection>
+  );
+}
+```
+
+### Type Extension Pattern
+
+Extend existing types for protocol-specific data:
+
+```typescript
+// In packages/shared/types/staking.ts or a new pendle.ts file
+
+interface IUnderlyingAsset {
+  symbol: string;
+  name: string;
+  address: string;
+  logoURI: string;
+  decimals: number;
+}
+
+interface IPendlePosition extends IEarnPortfolioInvestment {
+  // Pendle-specific fields
+  maturityDate: number;              // Unix timestamp
+  maturityStatus: EMaturityStatus;
+  underlyingAsset: IUnderlyingAsset;
+  impliedApy: string;                // e.g., "5.23"
+  ptPrice: string;                   // PT price in underlying terms
+  discount: string;                  // Discount rate, e.g., "2.5" for 2.5%
+}
+
+// Extend provider enum
+enum EEarnProviderEnum {
+  // ... existing providers
+  Pendle = 'Pendle',
+}
+```
+
+---
+
+## Multi-Variant Assets
+
+For protocols where the same underlying asset has multiple variants (e.g., different maturity dates):
+
+### Grouping by Maturity
+
+```typescript
+interface IGroupedAssets {
+  underlyingSymbol: string;
+  underlyingLogoURI: string;
+  variants: IPendlePosition[];
+}
+
+function groupByUnderlying(positions: IPendlePosition[]): IGroupedAssets[] {
+  const grouped = positions.reduce((acc, position) => {
+    const key = position.underlyingAsset.symbol;
+    if (!acc[key]) {
+      acc[key] = {
+        underlyingSymbol: position.underlyingAsset.symbol,
+        underlyingLogoURI: position.underlyingAsset.logoURI,
+        variants: [],
+      };
+    }
+    acc[key].variants.push(position);
+    return acc;
+  }, {} as Record<string, IGroupedAssets>);
+
+  // Sort variants by maturity date within each group
+  Object.values(grouped).forEach((group) => {
+    group.variants.sort((a, b) => a.maturityDate - b.maturityDate);
+  });
+
+  return Object.values(grouped);
+}
+```
+
+### Filtering and Sorting
+
+```typescript
+interface IMaturityFilter {
+  minDays?: number;
+  maxDays?: number;
+  status?: EMaturityStatus[];
+}
+
+function filterByMaturity(
+  positions: IPendlePosition[],
+  filter: IMaturityFilter
+): IPendlePosition[] {
+  return positions.filter((position) => {
+    const daysUntilMaturity = Math.ceil(
+      (position.maturityDate - Date.now()) / (1000 * 60 * 60 * 24)
+    );
+
+    if (filter.minDays !== undefined && daysUntilMaturity < filter.minDays) {
+      return false;
+    }
+    if (filter.maxDays !== undefined && daysUntilMaturity > filter.maxDays) {
+      return false;
+    }
+    if (filter.status && !filter.status.includes(position.maturityStatus)) {
+      return false;
+    }
+
+    return true;
+  });
+}
+
+// Sort options
+type ISortOption = 'maturity_asc' | 'maturity_desc' | 'apy_desc' | 'tvl_desc';
+
+function sortPositions(
+  positions: IPendlePosition[],
+  sortBy: ISortOption
+): IPendlePosition[] {
+  return [...positions].sort((a, b) => {
+    switch (sortBy) {
+      case 'maturity_asc':
+        return a.maturityDate - b.maturityDate;
+      case 'maturity_desc':
+        return b.maturityDate - a.maturityDate;
+      case 'apy_desc':
+        return parseFloat(b.impliedApy) - parseFloat(a.impliedApy);
+      case 'tvl_desc':
+        return parseFloat(b.tvl || '0') - parseFloat(a.tvl || '0');
+      default:
+        return 0;
+    }
+  });
+}
+```
+
+### Grouped List UI Pattern
+
+```tsx
+function GroupedAssetList({ groups }: { groups: IGroupedAssets[] }) {
+  return (
+    <YStack>
+      {groups.map((group) => (
+        <Accordion key={group.underlyingSymbol}>
+          <Accordion.Trigger>
+            <XStack alignItems="center" gap="$2">
+              <Image source={{ uri: group.underlyingLogoURI }} size={32} />
+              <SizableText fontWeight="600">{group.underlyingSymbol}</SizableText>
+              <Badge>{group.variants.length} maturities</Badge>
+            </XStack>
+          </Accordion.Trigger>
+          <Accordion.Content>
+            {group.variants.map((variant) => (
+              <MaturityVariantRow key={variant.maturityDate} position={variant} />
+            ))}
+          </Accordion.Content>
+        </Accordion>
+      ))}
+    </YStack>
+  );
+}
+```
+
+---
+
+## Operation Tab Pattern (Buy/Sell)
+
+For protocols with multiple operation types in a single modal:
+
+### Tab Structure
+
+```tsx
+type IOperationTab = 'buy' | 'sell' | 'redeem';
+
+function PendleOperationTabs({
+  maturityStatus,
+  ...props
+}: IManagePositionContentProps & { maturityStatus: EMaturityStatus }) {
+  const [activeTab, setActiveTab] = useState<IOperationTab>('buy');
+
+  // Redeem tab only available after maturity
+  const tabs: { key: IOperationTab; label: string; disabled?: boolean }[] = [
+    { key: 'buy', label: 'Buy' },
+    { key: 'sell', label: 'Sell early' },
+    {
+      key: 'redeem',
+      label: 'Redeem',
+      disabled: maturityStatus !== EMaturityStatus.Matured,
+    },
+  ];
+
+  return (
+    <YStack>
+      <SegmentControl
+        value={activeTab}
+        onChange={setActiveTab}
+        options={tabs.map((t) => ({
+          value: t.key,
+          label: t.label,
+          disabled: t.disabled,
+        }))}
+      />
+
+      {activeTab === 'buy' && <BuyPTContent {...props} />}
+      {activeTab === 'sell' && <SellPTContent {...props} />}
+      {activeTab === 'redeem' && <RedeemPTContent {...props} />}
+    </YStack>
+  );
+}
+```
+
+### Input/Output Display Pattern
+
+```tsx
+function SwapPreview({
+  inputToken,
+  inputAmount,
+  outputToken,
+  outputAmount,
+  exchangeRate,
+}: ISwapPreviewProps) {
+  return (
+    <YStack gap="$3">
+      {/* Input Section */}
+      <YStack>
+        <SizableText size="$bodySm" color="$textSubdued">You pay</SizableText>
+        <XStack justifyContent="space-between" alignItems="center">
+          <XStack alignItems="center" gap="$2">
+            <Image source={{ uri: inputToken.logoURI }} size={24} />
+            <SizableText>{inputToken.symbol}</SizableText>
+          </XStack>
+          <SizableText fontWeight="600">{inputAmount}</SizableText>
+        </XStack>
+      </YStack>
+
+      {/* Arrow */}
+      <Icon name="ArrowDownOutline" size={20} color="$iconSubdued" />
+
+      {/* Output Section */}
+      <YStack>
+        <SizableText size="$bodySm" color="$textSubdued">You receive</SizableText>
+        <XStack justifyContent="space-between" alignItems="center">
+          <XStack alignItems="center" gap="$2">
+            <Image source={{ uri: outputToken.logoURI }} size={24} />
+            <SizableText>{outputToken.symbol}</SizableText>
+          </XStack>
+          <SizableText fontWeight="600">{outputAmount}</SizableText>
+        </XStack>
+      </YStack>
+
+      {/* Exchange Rate */}
+      <XStack justifyContent="space-between">
+        <SizableText size="$bodySm" color="$textSubdued">Rate</SizableText>
+        <SizableText size="$bodySm">
+          1 {inputToken.symbol} = {exchangeRate} {outputToken.symbol}
+        </SizableText>
+      </XStack>
+    </YStack>
+  );
+}
+```
+
+### Step Indicator Pattern
+
+```tsx
+interface ITransactionStep {
+  key: string;
+  label: string;
+  status: 'pending' | 'active' | 'completed';
+}
+
+function StepIndicator({ steps }: { steps: ITransactionStep[] }) {
+  return (
+    <XStack alignItems="center" gap="$2">
+      {steps.map((step, index) => (
+        <React.Fragment key={step.key}>
+          <XStack alignItems="center" gap="$1">
+            <StepBadge status={step.status}>{index + 1}</StepBadge>
+            <SizableText
+              size="$bodySm"
+              color={step.status === 'active' ? '$text' : '$textSubdued'}
+            >
+              {step.label}
+            </SizableText>
+          </XStack>
+          {index < steps.length - 1 && (
+            <Icon name="ChevronRightSmallOutline" size={16} color="$iconSubdued" />
+          )}
+        </React.Fragment>
+      ))}
+    </XStack>
+  );
+}
+
+// Usage
+const steps: ITransactionStep[] = [
+  { key: 'approve', label: 'Approve', status: 'completed' },
+  { key: 'swap', label: 'Swap', status: 'active' },
+];
+
+<StepIndicator steps={steps} />
+```
+
+### Percentage Quick Select
+
+```tsx
+function PercentageSelector({
+  onSelect,
+  selectedPercentage,
+}: {
+  onSelect: (percentage: number) => void;
+  selectedPercentage?: number;
+}) {
+  const percentages = [25, 50, 75, 100];
+
+  return (
+    <XStack gap="$2">
+      {percentages.map((pct) => (
+        <Button
+          key={pct}
+          size="small"
+          variant={selectedPercentage === pct ? 'primary' : 'secondary'}
+          onPress={() => onSelect(pct)}
+        >
+          {pct}%
+        </Button>
+      ))}
+    </XStack>
+  );
+}
+```
