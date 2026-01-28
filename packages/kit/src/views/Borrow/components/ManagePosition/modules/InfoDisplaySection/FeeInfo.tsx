@@ -1,10 +1,10 @@
 import { useIntl } from 'react-intl';
 
 import { XStack } from '@onekeyhq/components';
+import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
+import { EarnTooltip } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnTooltip';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { EarnText } from '../../../../../Staking/components/ProtocolDetails/EarnText';
-import { EarnTooltip } from '../../../../../Staking/components/ProtocolDetails/EarnTooltip';
 import { BorrowInfoItem } from '../../../BorrowInfoItem';
 
 import type { IFeeInfoProps } from '../../types';

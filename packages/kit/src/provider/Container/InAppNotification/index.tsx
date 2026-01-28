@@ -460,8 +460,7 @@ const InAppNotification = () => {
               EEarnLabels.Supply,
             ].includes(label);
           const isBorrowTransaction =
-            label &&
-            [EEarnLabels.Borrow, EEarnLabels.Repay].includes(label);
+            label && [EEarnLabels.Borrow, EEarnLabels.Repay].includes(label);
 
           if (isEarnTransaction || isBorrowTransaction) {
             earnAction = (

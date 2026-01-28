@@ -94,9 +94,7 @@ const hasAnyAirdropAssets = (
   }>,
 ): boolean =>
   assets.length > 0 &&
-  assets.some(
-    (asset) => asset.airdropAssets && asset.airdropAssets.length > 0,
-  );
+  assets.some((asset) => asset.airdropAssets && asset.airdropAssets.length > 0);
 
 const sortByFiatValueDesc = (
   investments: IEarnPortfolioInvestment[],
@@ -324,7 +322,9 @@ function useInvestmentState(options: IInvestmentStateOptions = {}) {
 
       if (shouldUpdateTotals) {
         setEarnTotalFiatValue(calculateTotalFiatValue(sorted));
-        setEarnTotalEarnings24hFiatValue(calculateTotalEarnings24hValue(sorted));
+        setEarnTotalEarnings24hFiatValue(
+          calculateTotalEarnings24hValue(sorted),
+        );
       }
 
       investmentMapRef.current = buildInvestmentMapFromList(validInvestments);
@@ -647,8 +647,7 @@ export const useEarnPortfolio = ({
             if (!newInv) return;
 
             const existingInMap = requestMap.get(resultKey);
-            const hasUpdatedInSession =
-              keysUpdatedInThisSession.has(resultKey);
+            const hasUpdatedInSession = keysUpdatedInThisSession.has(resultKey);
 
             let finalInv = newInv;
             if (hasUpdatedInSession && existingInMap) {
@@ -772,7 +771,10 @@ export const useEarnPortfolio = ({
       void fetchRef.current();
     };
 
-    appEventBus.on(EAppEventBusNames.AccountDataUpdate, handleAccountDataUpdate);
+    appEventBus.on(
+      EAppEventBusNames.AccountDataUpdate,
+      handleAccountDataUpdate,
+    );
 
     return () => {
       appEventBus.off(
@@ -790,39 +792,36 @@ export const useEarnPortfolio = ({
 
   // Debounced global state sync
   const debouncedUpdateGlobalState = useMemo(() => {
-    return debounce(
-      (key: string, fiatValue: string, earnings: string) => {
-        const latestAccount = actions.current.getEarnAccount(key);
-        if (!latestAccount) return;
+    return debounce((key: string, fiatValue: string, earnings: string) => {
+      const latestAccount = actions.current.getEarnAccount(key);
+      if (!latestAccount) return;
 
-        if (
-          lastSyncedValuesRef.current.totalFiatValue === fiatValue &&
-          lastSyncedValuesRef.current.earnings24h === earnings
-        ) {
-          return;
-        }
+      if (
+        lastSyncedValuesRef.current.totalFiatValue === fiatValue &&
+        lastSyncedValuesRef.current.earnings24h === earnings
+      ) {
+        return;
+      }
 
-        isSyncingAtomRef.current = true;
-        lastSyncedValuesRef.current = {
+      isSyncingAtomRef.current = true;
+      lastSyncedValuesRef.current = {
+        totalFiatValue: fiatValue,
+        earnings24h: earnings,
+      };
+
+      actions.current.updateEarnAccounts({
+        key,
+        earnAccount: {
+          ...latestAccount,
           totalFiatValue: fiatValue,
           earnings24h: earnings,
-        };
+        },
+      });
 
-        actions.current.updateEarnAccounts({
-          key,
-          earnAccount: {
-            ...latestAccount,
-            totalFiatValue: fiatValue,
-            earnings24h: earnings,
-          },
-        });
-
-        setTimeout(() => {
-          isSyncingAtomRef.current = false;
-        }, 100);
-      },
-      500,
-    );
+      setTimeout(() => {
+        isSyncingAtomRef.current = false;
+      }, 100);
+    }, 500);
   }, [actions]);
 
   // Sync totals to global state

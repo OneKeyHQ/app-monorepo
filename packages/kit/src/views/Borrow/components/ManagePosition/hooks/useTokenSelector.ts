@@ -10,18 +10,18 @@ import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import type { IBorrowAsset } from '@onekeyhq/shared/types/staking';
 
 import {
-  createBorrowAssetSelectPopoverContent,
   type IBorrowAssetSelectAction,
+  createBorrowAssetSelectPopoverContent,
 } from '../../BorrowAssetSelectPopover';
 
 import type {
+  IBorrowActionType,
+  ITokenSelectorMode,
   ITokenSelectorTriggerProps,
-  TBorrowActionType,
-  TTokenSelectorMode,
 } from '../types';
 
 export interface IUseTokenSelectorParams {
-  action: TBorrowActionType;
+  action: IBorrowActionType;
   accountId: string;
   networkId: string;
   providerName: string;
@@ -51,7 +51,7 @@ export function useTokenSelector({
   onTokenSelect,
   setAmountValue,
 }: IUseTokenSelectorParams): {
-  selectorMode: TTokenSelectorMode;
+  selectorMode: ITokenSelectorMode;
   handleOpenTokenSelector: () => void;
   tokenSelectorTriggerProps: ITokenSelectorTriggerProps;
 } {
@@ -60,7 +60,7 @@ export function useTokenSelector({
   const intl = useIntl();
 
   // Determine selector mode based on action
-  const selectorMode = useMemo<TTokenSelectorMode>(() => {
+  const selectorMode = useMemo<ITokenSelectorMode>(() => {
     if (action === 'supply' || action === 'borrow') {
       // Check if we have the required params for navigation
       if (accountId && networkId && providerName && borrowMarketAddress) {

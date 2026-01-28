@@ -30,6 +30,13 @@ export function ManagePosition(props: IManagePositionProps) {
     isDisabled,
     onConfirm,
     onTokenSelect,
+    decimals,
+    balance,
+    maxBalance,
+    tokenSymbol,
+    tokenImageUri,
+    selectableAssets,
+    selectableAssetsLoading,
   } = props;
 
   // State management
@@ -49,9 +56,9 @@ export function ManagePosition(props: IManagePositionProps) {
     onBlurAmountValue,
   } = useAmountInput({
     action,
-    decimals: props.decimals,
-    balance: props.balance,
-    maxBalance: props.maxBalance,
+    decimals,
+    balance,
+    maxBalance,
     amountValue,
     setAmountValue,
   });
@@ -65,11 +72,11 @@ export function ManagePosition(props: IManagePositionProps) {
       providerName,
       borrowMarketAddress,
       borrowReserveAddress,
-      tokenSymbol: props.tokenSymbol,
-      tokenImageUri: props.tokenImageUri,
+      tokenSymbol,
+      tokenImageUri,
       networkLogoURI: baseState.networkLogoURI,
-      selectableAssets: props.selectableAssets,
-      selectableAssetsLoading: props.selectableAssetsLoading,
+      selectableAssets,
+      selectableAssetsLoading,
       onTokenSelect,
       setAmountValue,
     });
@@ -122,7 +129,13 @@ export function ManagePosition(props: IManagePositionProps) {
       tokenSelectorMode: selectorMode,
       tokenSelectorTriggerProps,
     }),
-    [baseState, amountValue, submitting, selectorMode, tokenSelectorTriggerProps],
+    [
+      baseState,
+      amountValue,
+      submitting,
+      selectorMode,
+      tokenSelectorTriggerProps,
+    ],
   );
 
   // Build actions
@@ -177,11 +190,10 @@ export { useManagePositionContext } from './ManagePositionContext';
 export type {
   IManagePositionProps,
   IManagePositionConfirmParams,
-  TBorrowActionType,
+  IBorrowActionType,
 } from './types';
 
 // Re-export modules for custom composition
 export { AmountInputSection } from './modules/AmountInputSection';
 export { InfoDisplaySection } from './modules/InfoDisplaySection';
 export { ActionFooter } from './modules/ActionFooter';
-

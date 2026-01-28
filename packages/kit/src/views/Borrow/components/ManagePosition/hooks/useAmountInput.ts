@@ -7,10 +7,10 @@ import { validateAmountInputForStaking } from '@onekeyhq/kit/src/utils/validateA
 import { useOnBlurAmountValue } from '@onekeyhq/kit/src/views/Staking/components/StakingAmountInput';
 import { countDecimalPlaces } from '@onekeyhq/kit/src/views/Staking/utils/utils';
 
-import type { TBorrowActionType } from '../types';
+import type { IBorrowActionType } from '../types';
 
 export interface IUseAmountInputParams {
-  action: TBorrowActionType;
+  action: IBorrowActionType;
   decimals?: number;
   balance: string;
   maxBalance?: string;
@@ -70,7 +70,7 @@ export function useAmountInput({
       // Repay uses wallet balance for percentage calculation
       // Other actions use maxBalance (debt balance) if provided
       const balanceForPercent =
-        action === 'repay' ? balance : (maxBalance ?? balance);
+        action === 'repay' ? balance : maxBalance ?? balance;
       onChangeAmountValue(
         calcPercentBalance({
           balance: balanceForPercent,

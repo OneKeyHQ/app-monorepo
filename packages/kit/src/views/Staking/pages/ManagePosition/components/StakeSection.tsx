@@ -5,8 +5,8 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useEarnActions } from '@onekeyhq/kit/src/states/jotai/contexts/earn/actions';
 import {
-  ManagePosition,
   type IManagePositionConfirmParams,
+  ManagePosition,
 } from '@onekeyhq/kit/src/views/Borrow/components/ManagePosition';
 import {
   useUniversalBorrowBorrow,
@@ -90,7 +90,6 @@ export const StakeSection = ({
     borrowApiCtx.isBorrow &&
     (borrowApiCtx.borrowApiParams.action === 'supply' ||
       borrowApiCtx.borrowApiParams.action === 'borrow');
-
 
   const { result: estimateFeeUTXO } = usePromiseResult(async () => {
     if (!hasRequiredData || !networkUtils.isBTCNetwork(networkId)) {

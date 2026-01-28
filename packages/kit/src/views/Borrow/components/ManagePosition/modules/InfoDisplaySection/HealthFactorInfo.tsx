@@ -1,9 +1,9 @@
 import { useIntl } from 'react-intl';
 
 import { Icon, XStack, YStack } from '@onekeyhq/components';
+import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { EarnText } from '../../../../../Staking/components/ProtocolDetails/EarnText';
 import { BorrowInfoItem } from '../../../BorrowInfoItem';
 
 import type { IHealthFactorInfoProps } from '../../types';

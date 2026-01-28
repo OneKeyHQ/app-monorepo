@@ -237,7 +237,9 @@ export function InterestRateModelChart({
 
     const updateVerticalLinePosition = () => {
       if (currentUtilTime !== null) {
-        const xCoord = chart.timeScale().timeToCoordinate(currentUtilTime as UTCTimestamp);
+        const xCoord = chart
+          .timeScale()
+          .timeToCoordinate(currentUtilTime as UTCTimestamp);
         setVerticalLineX(xCoord);
       } else {
         setVerticalLineX(null);
@@ -245,7 +247,9 @@ export function InterestRateModelChart({
     };
 
     // Update position after chart is ready
-    chart.timeScale().subscribeVisibleTimeRangeChange(updateVerticalLinePosition);
+    chart
+      .timeScale()
+      .subscribeVisibleTimeRangeChange(updateVerticalLinePosition);
 
     chartRef.current = chart;
 

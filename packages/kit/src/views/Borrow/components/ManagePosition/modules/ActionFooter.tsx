@@ -11,9 +11,9 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { showLiquidationRiskDialog } from '../../showLiquidationRiskDialog';
 import { useManagePositionContext } from '../ManagePositionContext';
 
-import type { IActionFooterProps, TBorrowActionType } from '../types';
+import type { IActionFooterProps, IBorrowActionType } from '../types';
 
-const ACTION_LABEL_MAP: Record<TBorrowActionType, ETranslations> = {
+const ACTION_LABEL_MAP: Record<IBorrowActionType, ETranslations> = {
   supply: ETranslations.defi_supply,
   withdraw: ETranslations.global_withdraw,
   borrow: ETranslations.global_borrow,

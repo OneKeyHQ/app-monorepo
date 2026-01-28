@@ -5,15 +5,15 @@ import { useIntl } from 'react-intl';
 import { Alert, Stack, YStack, useMedia } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
 import { StakingAmountInput } from '@onekeyhq/kit/src/views/Staking/components/StakingAmountInput';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { EarnText } from '../../../../Staking/components/ProtocolDetails/EarnText';
 import { useManagePositionContext } from '../ManagePositionContext';
 
-import type { IAmountInputSectionProps, TBorrowActionType } from '../types';
+import type { IAmountInputSectionProps, IBorrowActionType } from '../types';
 
-const ACTION_LABEL_MAP: Record<TBorrowActionType, ETranslations> = {
+const ACTION_LABEL_MAP: Record<IBorrowActionType, ETranslations> = {
   supply: ETranslations.defi_supply,
   withdraw: ETranslations.global_withdraw,
   borrow: ETranslations.global_borrow,

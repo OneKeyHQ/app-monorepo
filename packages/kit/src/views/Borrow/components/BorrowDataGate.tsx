@@ -47,12 +47,8 @@ export const BorrowDataGate = ({
     onBorrowNetworksChange?.(borrowNetworkIds);
   }, [borrowNetworkIds, onBorrowNetworksChange, isViewActive]);
 
-  const {
-    setMarket,
-    setReserves,
-    setEarnAccount,
-    setBorrowDataStatus,
-  } = useBorrowContext();
+  const { setMarket, setReserves, setEarnAccount, setBorrowDataStatus } =
+    useBorrowContext();
 
   const { activeAccount } = useActiveAccount({ num: 0 });
   const {
@@ -165,7 +161,10 @@ export const BorrowDataGate = ({
     if (shouldWaitForAccount) return EBorrowDataStatus.WaitingForAccount;
 
     if (reservesLoading) {
-      if (!prevReservesDataRef.current || lastFetchKeyRef.current !== fetchKey) {
+      if (
+        !prevReservesDataRef.current ||
+        lastFetchKeyRef.current !== fetchKey
+      ) {
         return EBorrowDataStatus.LoadingReserves;
       }
       return EBorrowDataStatus.Refreshing;
@@ -235,15 +234,20 @@ export const BorrowDataGate = ({
 
     // Determine the data to set
     let dataToSet: IBorrowReserveItem | null = prevReservesDataRef.current;
-    if (dataStatus === EBorrowDataStatus.LoadingMarkets ||
-        dataStatus === EBorrowDataStatus.WaitingForAccount) {
+    if (
+      dataStatus === EBorrowDataStatus.LoadingMarkets ||
+      dataStatus === EBorrowDataStatus.WaitingForAccount
+    ) {
       dataToSet = null;
     } else if (dataStatus === EBorrowDataStatus.LoadingReserves) {
       if (lastFetchKeyRef.current !== fetchKey) {
         lastFetchKeyRef.current = fetchKey;
         dataToSet = null;
       }
-    } else if (dataStatus === EBorrowDataStatus.Ready && reservesResult !== undefined) {
+    } else if (
+      dataStatus === EBorrowDataStatus.Ready &&
+      reservesResult !== undefined
+    ) {
       dataToSet = reservesResult;
     }
 

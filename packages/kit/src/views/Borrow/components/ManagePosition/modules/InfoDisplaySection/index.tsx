@@ -1,5 +1,3 @@
-import { useMemo } from 'react';
-
 import { StyleSheet } from 'react-native';
 
 import { Divider, YStack } from '@onekeyhq/components';
@@ -48,9 +46,7 @@ export function InfoDisplaySection({
 
   // Determine if we should show swap/bridge based on action
   const shouldShowSwapOrBridge =
-    showSwapOrBridge &&
-    token &&
-    (action === 'supply' || action === 'repay');
+    showSwapOrBridge && token && (action === 'supply' || action === 'repay');
 
   const hasPrimaryInfo = hasHealthFactor || hasMySupply || hasMyBorrow;
   const hasSecondaryInfo =
@@ -68,7 +64,7 @@ export function InfoDisplaySection({
   // - Supply: shows divider when token exists and has primary or secondary info
   // - Borrow/Repay: always shows divider
   // - Withdraw: shows divider when has primary info AND has secondary info
-  const showDivider = useMemo(() => {
+  const showDivider = (() => {
     if (action === 'supply') {
       // Supply: complex condition from original code
       return (
@@ -85,20 +81,8 @@ export function InfoDisplaySection({
       return true;
     }
     // Withdraw: show divider when both sections have content
-    return (
-      (hasHealthFactor || hasMySupply) &&
-      (hasApyDetail || hasRefundFee)
-    );
-  }, [
-    action,
-    token,
-    hasHealthFactor,
-    hasMySupply,
-    hasApyDetail,
-    hasRefundableFee,
-    hasRefundFee,
-    hasCanBeCollateral,
-  ]);
+    return (hasHealthFactor || hasMySupply) && (hasApyDetail || hasRefundFee);
+  })();
 
   return (
     <YStack
@@ -118,10 +102,16 @@ export function InfoDisplaySection({
             />
           ) : null}
           {hasMySupply ? (
-            <PositionInfo type="supply" data={transactionConfirmation.mySupply!} />
+            <PositionInfo
+              type="supply"
+              data={transactionConfirmation.mySupply!}
+            />
           ) : null}
           {hasMyBorrow ? (
-            <PositionInfo type="borrow" data={transactionConfirmation.myBorrow!} />
+            <PositionInfo
+              type="borrow"
+              data={transactionConfirmation.myBorrow!}
+            />
           ) : null}
         </YStack>
       ) : null}
@@ -133,10 +123,16 @@ export function InfoDisplaySection({
       {hasSecondaryInfo ? (
         <YStack gap="$6">
           {hasApyDetail ? (
-            <ApyInfo action={action} data={transactionConfirmation.apyDetail!} />
+            <ApyInfo
+              action={action}
+              data={transactionConfirmation.apyDetail!}
+            />
           ) : null}
           {hasRefundableFee ? (
-            <FeeInfo type="refundable" data={transactionConfirmation.refundableFee!} />
+            <FeeInfo
+              type="refundable"
+              data={transactionConfirmation.refundableFee!}
+            />
           ) : null}
           {hasRefundFee ? (
             <FeeInfo type="refund" data={transactionConfirmation.refundFee!} />

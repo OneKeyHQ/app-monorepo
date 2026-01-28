@@ -13,9 +13,9 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 // Action Types
 // ============================================================================
 
-export type TBorrowActionType = 'supply' | 'withdraw' | 'borrow' | 'repay';
+export type IBorrowActionType = 'supply' | 'withdraw' | 'borrow' | 'repay';
 
-export type TTokenSelectorMode = 'navigation' | 'popover' | 'disabled';
+export type ITokenSelectorMode = 'navigation' | 'popover' | 'disabled';
 
 // ============================================================================
 // Confirm Params
@@ -38,7 +38,7 @@ export interface IManagePositionProps {
   providerName: string;
   borrowMarketAddress: string;
   borrowReserveAddress: string;
-  action: TBorrowActionType;
+  action: IBorrowActionType;
 
   // Token info
   balance: string;
@@ -78,7 +78,7 @@ export interface IManagePositionState {
   borrowReserveAddress: string;
 
   // Action configuration
-  action: TBorrowActionType;
+  action: IBorrowActionType;
   actionLabel?: string;
 
   // Token info
@@ -114,7 +114,7 @@ export interface IManagePositionState {
   isRepayAll: boolean;
 
   // Token selection
-  tokenSelectorMode: TTokenSelectorMode;
+  tokenSelectorMode: ITokenSelectorMode;
   selectableAssets?: IBorrowAsset[];
   selectableAssetsLoading?: boolean;
   tokenSelectorTriggerProps: ITokenSelectorTriggerProps;
@@ -170,9 +170,9 @@ export interface IManagePositionContextValue {
 // ============================================================================
 
 export interface IActionTabBarProps {
-  tabs: Array<{ key: TBorrowActionType; label: string }>;
-  activeTab: TBorrowActionType;
-  onTabChange: (tab: TBorrowActionType) => void;
+  tabs: Array<{ key: IBorrowActionType; label: string }>;
+  activeTab: IBorrowActionType;
+  onTabChange: (tab: IBorrowActionType) => void;
   rightContent?: ReactNode;
 }
 
@@ -208,7 +208,7 @@ export interface IPositionInfoProps {
 }
 
 export interface IApyInfoProps {
-  action: TBorrowActionType;
+  action: IBorrowActionType;
   data: NonNullable<IBorrowTransactionConfirmation['apyDetail']>;
 }
 
@@ -240,6 +240,9 @@ export interface ITokenSelectorTriggerProps {
     title: string;
     content:
       | ReactElement
-      | ((props: { isOpen?: boolean; closePopover: () => void }) => ReactElement);
+      | ((props: {
+          isOpen?: boolean;
+          closePopover: () => void;
+        }) => ReactElement);
   };
 }

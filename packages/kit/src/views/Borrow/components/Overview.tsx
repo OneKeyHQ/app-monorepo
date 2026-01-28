@@ -102,13 +102,8 @@ export const Overview = ({
   isActive?: boolean;
   onHealthFactorAlertsChange?: (alerts?: IBorrowAlert[]) => void;
 }) => {
-  const {
-    reserves,
-    market,
-    earnAccount,
-    pendingTxs,
-    setRefreshAllBorrowData,
-  } = useBorrowContext();
+  const { reserves, market, earnAccount, pendingTxs, setRefreshAllBorrowData } =
+    useBorrowContext();
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
   const navigation = useAppNavigation();
@@ -390,7 +385,8 @@ export const Overview = ({
                 onPress={handleHistoryPress}
               />
             ) : null}
-            {!reserves.data?.overview?.history?.disabled && pendingCount === 0 ? (
+            {!reserves.data?.overview?.history?.disabled &&
+            pendingCount === 0 ? (
               <XStack
                 ai="center"
                 gap="$1"
@@ -552,7 +548,10 @@ export const Overview = ({
         needDivider
         title={{ text: labels.netApy }}
         text={
-          reserves.data?.overview?.netApy ?? { text: '-', color: '$textDisabled' }
+          reserves.data?.overview?.netApy ?? {
+            text: '-',
+            color: '$textDisabled',
+          }
         }
       />
       <OverviewItem
