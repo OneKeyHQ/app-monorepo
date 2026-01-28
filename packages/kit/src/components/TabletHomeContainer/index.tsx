@@ -9,27 +9,26 @@ import {
 } from 'react';
 
 import {
+  ESplitViewType,
   Image,
   SizableText,
   YStack,
   useIsNativeTablet,
   useOrientation,
-  useSplitMainView,
-  useSplitSubView,
+  useSplitViewType,
 } from '@onekeyhq/components';
 
 import type { LayoutChangeEvent } from 'react-native';
 
 export function TabletHomeContainer({ children }: PropsWithChildren) {
-  const isMainView = useSplitMainView();
-  const isDetailView = useSplitSubView();
+  const splitViewType = useSplitViewType();
   const isLandscape = useOrientation();
 
-  if (isMainView && !isLandscape) {
+  if (splitViewType === ESplitViewType.MAIN && !isLandscape) {
     return null;
   }
 
-  if (isDetailView && isLandscape) {
+  if (splitViewType === ESplitViewType.SUB && isLandscape) {
     return (
       <YStack flex={1} justifyContent="center" alignItems="center" gap="$4">
         <Image source={require('@onekeyhq/kit/assets/logo.png')} size={124} />

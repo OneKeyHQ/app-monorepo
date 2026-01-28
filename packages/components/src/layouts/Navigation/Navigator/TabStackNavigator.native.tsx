@@ -13,8 +13,8 @@ import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
 
 import {
-  useSplitMainView,
-  useSplitSubView,
+  ESplitViewType,
+  useSplitViewType,
   useTheme,
   useThemeName,
 } from '../../../hooks';
@@ -165,17 +165,18 @@ export function TabStackNavigator<RouteName extends string>({
     return screens;
   }, [config, extraConfig, intl, handleTabPress]);
 
-  const isDetailView = useSplitSubView();
-  const isMainView = useSplitMainView();
+  const splitViewType = useSplitViewType();
   const hidden = useMemo(() => {
-    if (isMainView) {
-      return true;
-    }
-    if (isDetailView) {
-      return false;
+    switch (splitViewType) {
+      case ESplitViewType.MAIN:
+        return false;
+      case ESplitViewType.SUB:
+        return true;
+      default:
+        tabBarHidden;
     }
     return tabBarHidden;
-  }, [tabBarHidden, isMainView, isDetailView]);
+  }, [tabBarHidden, splitViewType]);
   return (
     <NativeTab.Navigator
       labeled
