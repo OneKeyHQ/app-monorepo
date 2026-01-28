@@ -11,13 +11,11 @@ import {
 } from '@onekeyhq/kit/src/components/LightweightChart/utils/chartOptions';
 
 import {
-  BASE_TIMESTAMP,
   CHART_HEIGHT,
   INTEREST_RATE_CHART_COLORS,
   InterestRateModelHeader,
   InterestRateModelLegend,
   InterestRateModelTooltip,
-  UTILIZATION_RANGE,
   calculatePopoverPosition,
   convertTimeToUtilization,
   convertUtilizationToTime,
@@ -269,6 +267,9 @@ export function InterestRateModelChart({
     resizeObserver.observe(container);
 
     return () => {
+      chart
+        .timeScale()
+        .unsubscribeVisibleTimeRangeChange(updateVerticalLinePosition);
       resizeObserver.disconnect();
       chart.remove();
       chartRef.current = null;
