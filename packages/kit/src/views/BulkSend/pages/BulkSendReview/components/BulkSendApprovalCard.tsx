@@ -1,3 +1,6 @@
+import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
+
 import {
   Accordion,
   Divider,
@@ -10,6 +13,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { Token } from '@onekeyhq/kit/src/components/Token';
@@ -123,14 +127,23 @@ function BulkSendApprovalCard({
   networkImageUri,
   onEditApproval,
 }: Props) {
+  const intl = useIntl();
+
   if (approvesInfo.length === 0) {
     return null;
   }
 
+  // Check if any approval is unlimited
+  const hasUnlimitedApproval = approvesInfo.some((info) => info.isMax);
+
   // Calculate total approval amount (excluding reset approvals)
-  const totalApprovalAmount = approvesInfo
-    .filter((info) => info.amount !== '0')
-    .reduce((sum, info) => sum + Number(info.amount), 0);
+  // If any approval is unlimited, show "Unlimited"
+  const totalApprovalAmount = hasUnlimitedApproval
+    ? null
+    : approvesInfo
+        .filter((info) => info.amount !== '0')
+        .reduce((sum, info) => sum.plus(info.amount || '0'), new BigNumber(0))
+        .toFixed();
 
   const tokenSymbol = approvesInfo[0]?.tokenInfo?.symbol ?? 'Token';
 
@@ -149,11 +162,16 @@ function BulkSendApprovalCard({
               focusStyle={{}}
               pressStyle={{}}
               borderWidth={0}
+              outlineWidth={0}
               backgroundColor="transparent"
             >
               {({ open }: { open: boolean }) => (
                 <>
-                  <SizableText size="$headingSm">Token approval</SizableText>
+                  <SizableText size="$headingSm">
+                    {intl.formatMessage({
+                      id: ETranslations.global_approval,
+                    })}
+                  </SizableText>
                   <XStack
                     flex={1}
                     gap="$2"
@@ -166,13 +184,21 @@ function BulkSendApprovalCard({
                           size="xs"
                           tokenImageUri={approvesInfo[0]?.tokenInfo?.logoURI}
                         />
-                        <NumberSizeableText
-                          size="$bodyMdMedium"
-                          formatter="balance"
-                          formatterOptions={{ tokenSymbol }}
-                        >
-                          {String(totalApprovalAmount)}
-                        </NumberSizeableText>
+                        {hasUnlimitedApproval ? (
+                          <SizableText size="$bodyMdMedium">
+                            {intl.formatMessage({
+                              id: ETranslations.approve_edit_unlimited_amount,
+                            })}
+                          </SizableText>
+                        ) : (
+                          <NumberSizeableText
+                            size="$bodyMdMedium"
+                            formatter="balance"
+                            formatterOptions={{ tokenSymbol }}
+                          >
+                            {totalApprovalAmount ?? '0'}
+                          </NumberSizeableText>
+                        )}
                       </>
                     ) : null}
                     <View

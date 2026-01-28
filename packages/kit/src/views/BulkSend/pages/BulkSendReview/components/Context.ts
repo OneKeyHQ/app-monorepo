@@ -4,7 +4,28 @@ import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { EBulkSendMode } from '@onekeyhq/shared/types/bulkSend';
+import type {
+  EFeeType,
+  ESendFeeStatus,
+  IFeeInfoUnit,
+  IFeeSelectorItem,
+} from '@onekeyhq/shared/types/fee';
 import type { IToken } from '@onekeyhq/shared/types/token';
+
+export type IBulkSendFeeState = {
+  feeStatus: ESendFeeStatus;
+  errMessage: string;
+  isInitialized: boolean; // true after first successful fee estimation
+  feeSelectorItems: IFeeSelectorItem[];
+  selectedFee: {
+    feeType: EFeeType;
+    presetIndex: number;
+  };
+  totalFeeNative: string;
+  totalFeeFiat: string;
+  nativeSymbol: string;
+  feeInfos: IFeeInfoUnit[];
+};
 
 export type IBulkSendReviewContext = {
   // Static data from route params
@@ -19,11 +40,18 @@ export type IBulkSendReviewContext = {
   // Fetched data
   networkImageUri: string | undefined;
 
+  // Original data for reset
+  initialApprovesInfoRef: React.MutableRefObject<IApproveInfo[]>;
+
   // Mutable state
   approvesInfo: IApproveInfo[];
   setApprovesInfo: React.Dispatch<React.SetStateAction<IApproveInfo[]>>;
   unsignedTxs: IUnsignedTxPro[];
   setUnsignedTxs: React.Dispatch<React.SetStateAction<IUnsignedTxPro[]>>;
+
+  // Fee state
+  feeState: IBulkSendFeeState;
+  setFeeState: React.Dispatch<React.SetStateAction<IBulkSendFeeState>>;
 };
 
 export const BulkSendReviewContext = createContext<IBulkSendReviewContext>({
@@ -43,10 +71,28 @@ export const BulkSendReviewContext = createContext<IBulkSendReviewContext>({
 
   networkImageUri: undefined,
 
+  initialApprovesInfoRef: { current: [] },
+
   approvesInfo: [],
   setApprovesInfo: () => {},
   unsignedTxs: [],
   setUnsignedTxs: () => {},
+
+  feeState: {
+    feeStatus: 'Loading' as ESendFeeStatus,
+    errMessage: '',
+    isInitialized: false,
+    feeSelectorItems: [],
+    selectedFee: {
+      feeType: 'Standard' as EFeeType,
+      presetIndex: 1,
+    },
+    totalFeeNative: '0',
+    totalFeeFiat: '0',
+    nativeSymbol: '',
+    feeInfos: [],
+  },
+  setFeeState: () => {},
 });
 
 export const useBulkSendReviewContext = () => useContext(BulkSendReviewContext);
