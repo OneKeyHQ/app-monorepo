@@ -1,7 +1,10 @@
 import type { IToken, ITokenFiat } from '../../types/token';
 import type { EBulkSendMode } from '../../types/bulkSend';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
-import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
+import type {
+  IApproveInfo,
+  ITransferInfo,
+} from '@onekeyhq/kit-bg/src/vaults/types';
 
 export enum EModalBulkSendRoutes {
   BulkSendAddressesInput = 'bulkSendAddressesInput',
@@ -35,6 +38,7 @@ export type IModalBulkSendParamList = {
     networkId: string;
     accountId: string | undefined;
     unsignedTxs: IUnsignedTxPro[];
+    approvesInfo: IApproveInfo[];
     tokenInfo: IToken;
     transfersInfo: ITransferInfo[];
     bulkSendMode: EBulkSendMode;

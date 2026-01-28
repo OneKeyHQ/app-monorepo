@@ -20,7 +20,7 @@ type Props = {
   tokenInfo: IToken;
   editMode: boolean;
   transfersInfo: ITransferInfo[];
-  transferInfoErrors: ITransferInfoErrors;
+  transferInfoErrors?: ITransferInfoErrors;
   onDeleteTransfer?: (index: number) => void;
   onAmountChange?: (index: number, amount: string) => void;
 };
@@ -108,7 +108,7 @@ function TransferListItem({
         textAlign="right"
         flexShrink={0}
         formatter="balance"
-        formatterOptions={{ tokenSymbol }}
+        formatterOptions={{ tokenSymbol, showPlusMinusSigns: true }}
       >
         {displayAmount}
       </NumberSizeableText>
@@ -258,7 +258,7 @@ function BulkSendTxDetails(props: Props) {
   const getTransferError = useCallback(
     (indices: number[], field: 'from' | 'to' | 'amount') => {
       for (const index of indices) {
-        const error = transferInfoErrors[index];
+        const error = transferInfoErrors?.[index];
         if (error?.[field]) {
           return error[field];
         }

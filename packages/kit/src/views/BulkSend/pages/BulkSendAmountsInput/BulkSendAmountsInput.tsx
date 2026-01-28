@@ -162,6 +162,7 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
         networkId,
         accountId,
         unsignedTxs,
+        approvesInfo,
         tokenInfo,
         transfersInfo,
         bulkSendMode,
