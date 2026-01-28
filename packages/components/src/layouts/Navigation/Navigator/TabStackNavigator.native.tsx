@@ -12,7 +12,7 @@ import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
 
-import { useTheme, useThemeName } from '../../../hooks';
+import { useIsTabletDetailView, useIsTabletMainView, useTheme, useThemeName } from '../../../hooks';
 import { makeTabScreenOptions } from '../GlobalScreenOptions';
 import { createStackNavigator } from '../StackNavigator';
 
@@ -160,13 +160,24 @@ export function TabStackNavigator<RouteName extends string>({
     return screens;
   }, [config, extraConfig, intl, handleTabPress]);
 
+  const isDetailView = useIsTabletDetailView();
+  const isMainView = useIsTabletMainView();
+  const hidden = useMemo(() => {
+    if (isMainView) {
+      return true;
+    }
+    if (isDetailView) {
+      return false;
+    }
+    return  tabBarHidden;
+  }, [tabBarHidden, isMainView, isDetailView])
   return (
     <NativeTab.Navigator
       labeled
       hapticFeedbackEnabled
       disablePageAnimations
       sidebarAdaptable={false}
-      tabBarHidden={tabBarHidden}
+      tabBarHidden={hidden}
       tabBarActiveTintColor={theme.iconActive.val}
       tabBarInactiveTintColor={theme.iconSubdued.val}
       tabBarStyle={
