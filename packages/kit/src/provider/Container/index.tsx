@@ -3,7 +3,7 @@ import { RootSiblingParent } from 'react-native-root-siblings';
 import {
   ESplitViewType,
   SplitViewContext,
-  useIsNativeTablet,
+  isNativeTablet,
 } from '@onekeyhq/components';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
@@ -88,7 +88,7 @@ const splitMainViewContext = { viewType: ESplitViewType.MAIN };
 const splitSubViewContext = { viewType: ESplitViewType.SUB };
 
 export function Container() {
-  const isTablet = useIsNativeTablet();
+  const isTablet = isNativeTablet();
   if (isTablet) {
     return (
       <RootSiblingParent>

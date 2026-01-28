@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 
-import { useIsNativeTablet, useIsSplitView } from '@onekeyhq/components';
+import { isNativeTablet, useIsSplitView } from '@onekeyhq/components';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import {
   EAppEventBusNames,
@@ -20,7 +20,7 @@ export const useNotifyTabBarDisplay = isNative
   ? (isActive: boolean) => {
       const isFocused = useIsFocused({ disableLockScreenCheck: true });
       const isLandscape = useIsSplitView();
-      const isTablet = useIsNativeTablet();
+      const isTablet = isNativeTablet();
 
       const hideTabBar = isActive && isFocused;
 

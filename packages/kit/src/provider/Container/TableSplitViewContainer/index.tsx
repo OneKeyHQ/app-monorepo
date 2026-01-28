@@ -9,6 +9,7 @@ export function TableSplitViewContainer({
 }) {
   const isLandscape = useIsSplitView();
   const display = isLandscape ? 'flex' : 'none';
+  alert(`isLandscape:${isLandscape}`)
   return (
     <XStack flex={1}>
       <YStack flex={1} display={display}>

@@ -13,7 +13,7 @@ import {
   Image,
   SizableText,
   YStack,
-  useIsNativeTablet,
+  isNativeTablet,
   useIsSplitView,
   useSplitViewType,
 } from '@onekeyhq/components';
@@ -52,7 +52,7 @@ export const useTabletModalPageWidth = () => {
 };
 
 export function TabletModalContainer({ children }: PropsWithChildren) {
-  const isTablet = useIsNativeTablet();
+  const isTablet = isNativeTablet();
   const [width, setWidth] = useState(0);
   const onLayout = useCallback(
     (event: LayoutChangeEvent) => {

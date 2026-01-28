@@ -5,7 +5,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   Page,
-  useIsNativeTablet,
+  isNativeTablet,
   useMedia,
   useIsSplitView,
 } from '@onekeyhq/components';
@@ -89,7 +89,7 @@ function MarketDetailV2(
   >,
 ) {
   const isLandscape = useIsSplitView();
-  const isTablet = useIsNativeTablet();
+  const isTablet = isNativeTablet();
   useFocusEffect(
     useCallback(() => {
       if (platformEnv.isExtension || (isTablet && isLandscape)) {
