@@ -6,6 +6,7 @@ import {
 } from '@onekeyhq/shared/src/consts/walletConsts';
 import {
   EModalBulkSendRoutes,
+  EModalRoutes,
   ETabHomeRoutes,
   type IModalBulkSendParamList,
 } from '@onekeyhq/shared/src/routes';
@@ -44,8 +45,9 @@ import {
 import { calculateIsAmountValid, calculateTotalAmounts } from '../../utils';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import BigNumber from 'bignumber.js';
+import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 
-function BaseBulkSendAmountsInput() {
+function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
   const {
     accountId,
     networkId,
@@ -133,15 +135,47 @@ function BaseBulkSendAmountsInput() {
         }
       }
 
-      // Build batch transfer info
-      const batchTransferInfo = {
-        transfersInfo,
-        tokenInfo,
-      };
+      const unsignedTxs: IUnsignedTxPro[] = [];
+      let prevNonce: number | undefined;
+      for (const approveInfo of approvesInfo) {
+        const unsignedTx =
+          await backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx(
+            {
+              networkId,
+              accountId,
+              approveInfo,
+              prevNonce,
+            },
+          );
+        prevNonce = unsignedTx.nonce;
+        unsignedTxs.push(unsignedTx);
+      }
+      unsignedTxs.push(
+        await backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx({
+          networkId,
+          accountId,
+          transfersInfo,
+          prevNonce,
+        }),
+      );
 
-      // TODO: Navigate to confirmation page with approvesInfo and batchTransferInfo
-      console.log('Approves Info:', approvesInfo);
-      console.log('Batch Transfer Info:', batchTransferInfo);
+      if (isInModal) {
+        navigation.push(EModalBulkSendRoutes.BulkSendReview, {
+          networkId,
+          accountId,
+          unsignedTxs,
+        });
+      } else {
+        navigation.pushModal(EModalRoutes.BulkSendModal, {
+          screen: EModalBulkSendRoutes.BulkSendReview,
+          params: {
+            networkId,
+            accountId,
+            unsignedTxs,
+          },
+        });
+      }
+
     } catch (error) {
       console.error('Failed to build transactions:', error);
     } finally {
@@ -156,6 +190,8 @@ function BaseBulkSendAmountsInput() {
     transfersInfo,
     needsApproval,
     totalTokenAmount,
+    isInModal,
+    navigation,
   ]);
 
   const isSubmitDisabled = useMemo(() => {
@@ -513,7 +549,7 @@ function BulkSendAmountsInput() {
 
   return (
     <BulkSendAmountsInputContext.Provider value={context}>
-      <BaseBulkSendAmountsInput />
+      <BaseBulkSendAmountsInput isInModal={isInModal} />
     </BulkSendAmountsInputContext.Provider>
   );
 }
