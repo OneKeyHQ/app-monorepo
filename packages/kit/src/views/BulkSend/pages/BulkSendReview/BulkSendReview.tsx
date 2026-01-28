@@ -33,11 +33,8 @@ function BaseBulkSendReview() {
     accountId,
     tokenInfo,
     transfersInfo,
-    networkImageUri,
     approvesInfo,
     unsignedTxs,
-    totalTokenAmount,
-    totalFiatAmount,
     setApprovesInfo,
     setUnsignedTxs,
     initialApprovesInfoRef,
@@ -200,41 +197,20 @@ function BaseBulkSendReview() {
       <Page.Body>
         <YStack>
           {/* Fee Error Alert - Top Section */}
-          <BulkSendReviewAlert
-            feeStatus={feeState.feeStatus}
-            errMessage={feeState.errMessage}
-            isRetrying={feeState.feeStatus === ESendFeeStatus.Loading}
-            onRetry={handleRetryFeeEstimation}
-          />
+          <BulkSendReviewAlert onRetry={handleRetryFeeEstimation} />
 
           {/* Grand Summary - Top Section */}
-          <BulkSendReviewGrandSummary
-            tokenInfo={tokenInfo}
-            networkImageUri={networkImageUri}
-            totalTokenAmount={totalTokenAmount}
-            totalFiatAmount={totalFiatAmount}
-          />
+          <BulkSendReviewGrandSummary />
 
           {/* Approval Card - Show if there are approvals */}
           {approvesInfo.length > 0 ? (
-            <BulkSendApprovalCard
-              approvesInfo={approvesInfo}
-              networkImageUri={networkImageUri}
-              onEditApproval={handleEditApproval}
-            />
+            <BulkSendApprovalCard onEditApproval={handleEditApproval} />
           ) : null}
 
           {/* Cost Card - Middle Section */}
           <BulkSendReviewCostCard
-            feeStatus={feeState.feeStatus}
-            networkFee={feeState.totalFeeNative}
-            networkFeeFiat={feeState.totalFeeFiat}
-            nativeSymbol={feeState.nativeSymbol}
             feeLevel={feeLabel}
             isMultiTxs={isMultiTxs}
-            isInitialized={feeState.isInitialized}
-            feeSelectorItems={feeState.feeSelectorItems}
-            selectedFeeIndex={feeState.selectedFee.presetIndex}
             onFeeChange={handleFeeChange}
             editFeeEnabled={vaultSettings?.editFeeEnabled}
           />

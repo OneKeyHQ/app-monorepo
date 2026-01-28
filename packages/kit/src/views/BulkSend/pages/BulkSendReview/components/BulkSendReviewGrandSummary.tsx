@@ -4,23 +4,14 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { Token } from '@onekeyhq/kit/src/components/Token';
 
-type Props = {
-  tokenInfo: IToken;
-  networkImageUri?: string;
-  totalTokenAmount: string;
-  totalFiatAmount: string;
-};
+import { useBulkSendReviewContext } from './Context';
 
-function BulkSendReviewGrandSummary({
-  tokenInfo,
-  networkImageUri,
-  totalTokenAmount,
-  totalFiatAmount,
-}: Props) {
+function BulkSendReviewGrandSummary() {
+  const { tokenInfo, networkImageUri, totalTokenAmount, totalFiatAmount } =
+    useBulkSendReviewContext();
   return (
     <YStack gap="$1" alignItems="center" py="$3">
       <SizableText size="$bodyLgMedium" color="$textSubdued">

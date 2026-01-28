@@ -6,20 +6,16 @@ import { Alert, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 
+import { useBulkSendReviewContext } from './Context';
+
 type IProps = {
-  feeStatus: ESendFeeStatus;
-  errMessage: string;
-  isRetrying?: boolean;
   onRetry: () => void;
 };
 
-function BulkSendReviewAlert({
-  feeStatus,
-  errMessage,
-  isRetrying,
-  onRetry,
-}: IProps) {
+function BulkSendReviewAlert({ onRetry }: IProps) {
   const intl = useIntl();
+  const { feeState } = useBulkSendReviewContext();
+  const { feeStatus, errMessage } = feeState;
 
   const renderFeeErrorAlert = useCallback(() => {
     if (!errMessage) {
@@ -35,13 +31,13 @@ function BulkSendReviewAlert({
           primary: intl.formatMessage({
             id: ETranslations.global_retry,
           }),
-          isPrimaryLoading: isRetrying || feeStatus === ESendFeeStatus.Loading,
+          isPrimaryLoading: feeStatus === ESendFeeStatus.Loading,
           isPrimaryDisabled: feeStatus === ESendFeeStatus.Loading,
           onPrimaryPress: onRetry,
         }}
       />
     );
-  }, [errMessage, intl, isRetrying, onRetry, feeStatus]);
+  }, [errMessage, intl, onRetry, feeStatus]);
 
   return <YStack px="$5">{renderFeeErrorAlert()}</YStack>;
 }

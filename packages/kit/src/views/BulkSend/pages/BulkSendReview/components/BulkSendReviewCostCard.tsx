@@ -12,39 +12,35 @@ import {
 import type { IActionListItemProps } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IFeeSelectorItem } from '@onekeyhq/shared/types/fee';
 import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 
+import { useBulkSendReviewContext } from './Context';
+
 type Props = {
-  feeStatus: ESendFeeStatus;
-  networkFee: string;
-  networkFeeFiat: string;
-  nativeSymbol: string;
   feeLevel: string;
   isMultiTxs?: boolean;
-  isInitialized?: boolean;
-  // Fee selector props
-  feeSelectorItems?: IFeeSelectorItem[];
-  selectedFeeIndex?: number;
   onFeeChange?: (index: number) => void;
   editFeeEnabled?: boolean;
 };
 
 function BulkSendReviewCostCard({
-  feeStatus,
-  networkFee,
-  networkFeeFiat,
-  nativeSymbol,
   feeLevel,
   isMultiTxs,
-  isInitialized,
-  feeSelectorItems,
-  selectedFeeIndex,
   onFeeChange,
   editFeeEnabled,
 }: Props) {
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
+  const { feeState } = useBulkSendReviewContext();
+  const {
+    feeStatus,
+    totalFeeNative: networkFee,
+    totalFeeFiat: networkFeeFiat,
+    nativeSymbol,
+    isInitialized,
+    feeSelectorItems,
+    selectedFee,
+  } = feeState;
 
   // Only show loading skeleton when not initialized
   // After initialization, keep showing the current fee data during polling
@@ -98,55 +94,52 @@ function BulkSendReviewCostCard({
                 {/* Fee Level - Only show for single tx */}
                 {!isMultiTxs && (feeLevel || isError)
                   ? (() => {
-                    const canEditFee =
-                      !isError &&
-                      editFeeEnabled &&
-                      feeSelectorItems &&
-                      feeSelectorItems.length > 0 &&
-                      onFeeChange;
+                      const canEditFee =
+                        !isError &&
+                        editFeeEnabled &&
+                        feeSelectorItems &&
+                        feeSelectorItems.length > 0 &&
+                        onFeeChange;
 
-                    const triggerContent = (
-                      <XStack gap="$1" alignItems="center" cursor="pointer">
-                        <SizableText size="$bodyMd" color="$textSubdued">
-                          {isError ? '-' : feeLevel}
-                        </SizableText>
-                        {canEditFee ? (
-                          <Icon
-                            name="ChevronGrabberVerOutline"
-                            size="$4"
-                            color="$iconSubdued"
-                          />
-                        ) : null}
-                      </XStack>
-                    );
-
-                    if (canEditFee) {
-                      const items: IActionListItemProps[] =
-                        feeSelectorItems.map((item, index) => ({
-                          label: item.label,
-                          extra:
-                            selectedFeeIndex === index ? (
-                              <Icon
-                                name="CheckLargeSolid"
-                                size="$5"
-                              />
-                            ) : undefined,
-                          onPress: () => {
-                            onFeeChange(index);
-                          },
-                        }));
-
-                      return (
-                        <ActionList
-                          title=""
-                          items={items}
-                          renderTrigger={triggerContent}
-                        />
+                      const triggerContent = (
+                        <XStack gap="$1" alignItems="center" cursor="pointer">
+                          <SizableText size="$bodyMd" color="$textSubdued">
+                            {isError ? '-' : feeLevel}
+                          </SizableText>
+                          {canEditFee ? (
+                            <Icon
+                              name="ChevronGrabberVerOutline"
+                              size="$4"
+                              color="$iconSubdued"
+                            />
+                          ) : null}
+                        </XStack>
                       );
-                    }
 
-                    return triggerContent;
-                  })()
+                      if (canEditFee) {
+                        const items: IActionListItemProps[] =
+                          feeSelectorItems.map((item, index) => ({
+                            label: item.label,
+                            extra:
+                              selectedFee.presetIndex === index ? (
+                                <Icon name="CheckLargeSolid" size="$5" />
+                              ) : undefined,
+                            onPress: () => {
+                              onFeeChange(index);
+                            },
+                          }));
+
+                        return (
+                          <ActionList
+                            title=""
+                            items={items}
+                            renderTrigger={triggerContent}
+                          />
+                        );
+                      }
+
+                      return triggerContent;
+                    })()
                   : null}
               </>
             )}

@@ -18,6 +18,8 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { Token } from '@onekeyhq/kit/src/components/Token';
 
+import { useBulkSendReviewContext } from './Context';
+
 type IApprovalItemProps = {
   approveInfo: IApproveInfo;
   networkImageUri?: string;
@@ -117,17 +119,12 @@ function ApprovalItem({
 }
 
 type Props = {
-  approvesInfo: IApproveInfo[];
-  networkImageUri?: string;
   onEditApproval?: (index: number) => void;
 };
 
-function BulkSendApprovalCard({
-  approvesInfo,
-  networkImageUri,
-  onEditApproval,
-}: Props) {
+function BulkSendApprovalCard({ onEditApproval }: Props) {
   const intl = useIntl();
+  const { approvesInfo, networkImageUri } = useBulkSendReviewContext();
 
   if (approvesInfo.length === 0) {
     return null;
