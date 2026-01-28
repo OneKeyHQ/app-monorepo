@@ -82,18 +82,18 @@ export const useTabContainerWidth = platformEnv.isNative
   ? () => {
       const isTablet = useIsNativeTablet();
       const isLandscape = useOrientation();
-      const { width, height } = useWindowDimensions();
+      const { width } = useWindowDimensions();
       const isIpadModalPage = useIsIpadModalPage();
       const ipadModalPageWidth = useIPadModalPageWidth();
       if (isIpadModalPage) {
         return ipadModalPageWidth || 640;
       }
-      if (isTablet) {
-        return isLandscape
-          ? Math.max(width, height) / 2
-          : Math.min(width, height);
+      if (isTablet && isLandscape) {
+        // In landscape split view, use half of the screen width
+        return width / 2;
       }
-      return Math.min(width, height);
+      // In portrait or non-tablet, use full screen width
+      return width;
     }
   : () => {
       const [{ isCollapsed: leftSidebarCollapsed = false }] =
