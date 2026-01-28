@@ -493,12 +493,15 @@ function BulkSendAmountsInput() {
 
     const _transfersInfo = generateTransfersInfo();
 
-    if (
-      _transfersInfo.every(
-        (transfer) => transfer.amount === _transfersInfo[0].amount,
-      )
-    ) {
+    const firstAmount = _transfersInfo[0]?.amount ?? '';
+    if (_transfersInfo.every((transfer) => transfer.amount === firstAmount)) {
       setAmountInputMode(EAmountInputMode.Specified);
+      if (firstAmount) {
+        setAmountInputValues((prev) => ({
+          ...prev,
+          specifiedAmount: firstAmount,
+        }));
+      }
     } else {
       setAmountInputMode(EAmountInputMode.Custom);
     }
