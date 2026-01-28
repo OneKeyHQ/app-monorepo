@@ -2205,6 +2205,65 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
+  - react-native-bottom-tabs (1.1.0):
+    - boost
+    - DoubleConversion
+    - fast_float
+    - fmt
+    - glog
+    - hermes-engine
+    - RCT-Folly
+    - RCT-Folly/Fabric
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - react-native-bottom-tabs/common (= 1.1.0)
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - SocketRocket
+    - SwiftUIIntrospect (~> 1.0)
+    - Yoga
+  - react-native-bottom-tabs/common (1.1.0):
+    - boost
+    - DoubleConversion
+    - fast_float
+    - fmt
+    - glog
+    - hermes-engine
+    - RCT-Folly
+    - RCT-Folly/Fabric
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - SocketRocket
+    - SwiftUIIntrospect (~> 1.0)
+    - Yoga
   - react-native-capture-protection (2.3.0):
     - boost
     - DoubleConversion
@@ -3359,7 +3418,7 @@ PODS:
     - ExpoModulesCore
   - RealmJS (20.2.0):
     - React
-  - RestartNewArch (1.0.80):
+  - RestartNewArch (1.0.82):
     - boost
     - DoubleConversion
     - fast_float
@@ -3418,7 +3477,7 @@ PODS:
     - Yoga
   - RNDnsLookup (1.0.6):
     - React
-  - RNFileLogger (0.7.1):
+  - RNFileLogger (0.7.2):
     - boost
     - CocoaLumberjack (~> 3)
     - DoubleConversion
@@ -3448,7 +3507,7 @@ PODS:
     - SocketRocket
     - SSZipArchive (~> 2)
     - Yoga
-  - RNGestureHandler (2.29.1):
+  - RNGestureHandler (2.30.0):
     - boost
     - DoubleConversion
     - fast_float
@@ -3600,7 +3659,7 @@ PODS:
     - RNNotifee/NotifeeCore (= 9.1.8)
   - RNNotifee/NotifeeCore (9.1.8):
     - React-Core
-  - RNPermissions (5.4.2):
+  - RNPermissions (5.4.4):
     - boost
     - DoubleConversion
     - fast_float
@@ -3723,7 +3782,7 @@ PODS:
     - RNWorklets
     - SocketRocket
     - Yoga
-  - RNScreens (4.19.0):
+  - RNScreens (4.20.0):
     - boost
     - DoubleConversion
     - fast_float
@@ -3750,10 +3809,10 @@ PODS:
     - ReactCodegen
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
-    - RNScreens/common (= 4.19.0)
+    - RNScreens/common (= 4.20.0)
     - SocketRocket
     - Yoga
-  - RNScreens/common (4.19.0):
+  - RNScreens/common (4.20.0):
     - boost
     - DoubleConversion
     - fast_float
@@ -4039,6 +4098,7 @@ PODS:
   - SPAlert (4.2.0)
   - SPIndicator (1.6.4)
   - SSZipArchive (2.5.5)
+  - SwiftUIIntrospect (1.3.0)
   - TOCropViewController (2.7.4)
   - Yoga (0.0.0)
   - ZXingObjC/Core (3.6.9)
@@ -4135,6 +4195,7 @@ DEPENDENCIES:
   - React-microtasksnativemodule (from `../../../node_modules/react-native/ReactCommon/react/nativemodule/microtasks`)
   - react-native-aes (from `../../../node_modules/react-native-aes-crypto`)
   - react-native-ble-plx (from `../../../node_modules/react-native-ble-plx`)
+  - react-native-bottom-tabs (from `../../../node_modules/react-native-bottom-tabs`)
   - react-native-capture-protection (from `../../../node_modules/react-native-capture-protection`)
   - react-native-cloud-fs (from `../../../node_modules/react-native-cloud-fs`)
   - "react-native-compat (from `../../../node_modules/@walletconnect/react-native-compat`)"
@@ -4241,6 +4302,7 @@ SPEC REPOS:
     - SPAlert
     - SPIndicator
     - SSZipArchive
+    - SwiftUIIntrospect
     - TOCropViewController
     - ZXingObjC
 
@@ -4416,6 +4478,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native-aes-crypto"
   react-native-ble-plx:
     :path: "../../../node_modules/react-native-ble-plx"
+  react-native-bottom-tabs:
+    :path: "../../../node_modules/react-native-bottom-tabs"
   react-native-capture-protection:
     :path: "../../../node_modules/react-native-capture-protection"
   react-native-cloud-fs:
@@ -4670,6 +4734,7 @@ SPEC CHECKSUMS:
   React-microtasksnativemodule: 6c4ee39a36958c39c97b074d28f360246a335e84
   react-native-aes: e38d08f68d27e85d14590b7ef0b404ceebf5f891
   react-native-ble-plx: effae4e8e465c52768497f87abd2b95791eb2de2
+  react-native-bottom-tabs: e33312fc663d163f0be73d3474dfb448ba38dad8
   react-native-capture-protection: a8abb2b0880aa1808e3724aa3fc7e56e72225a24
   react-native-cloud-fs: 03ad849da6cecc3cb58ed970ce4078a2e0814848
   react-native-compat: 1ba0ce8c1f2826dba8e78121a7be28229bbb54d9
@@ -4725,20 +4790,20 @@ SPEC CHECKSUMS:
   ReactNativeLiteCard: a956217791416e6ae0ce9166d4db1d0aad8f733c
   ReactNativePasskeys: 9e950e8cbf0e7d6aad9df4dcd21cee0efeb4e5cd
   RealmJS: 1c37c6bdfe060f4caa0f9175aa0eedb962622ee1
-  RestartNewArch: 7891005200669c32baafd962bed6c2f8d1353846
+  RestartNewArch: 5a57520ab7d9131d21edf0e17ecf8116f8ab5b72
   RevenueCat: 7e1d0768fb287c9983173c9b28e39ccbeeb828a9
   RNCAsyncStorage: 29f0230e1a25f36c20b05f65e2eb8958d6526e82
   RNDnsLookup: db4a89381b80ec1a5153088518d2c4f8e51f2521
-  RNFileLogger: 5f13e0115cf71f27c032195a55567f5b473db4e7
-  RNGestureHandler: 29bbca60c881e5243e219e3fe0016060002ed389
+  RNFileLogger: 53ac6041f77d6b82f4d9b8e12c116c8876771367
+  RNGestureHandler: e37bdb684df1ac17c7e1d8f71a3311b2793c186b
   RNGoogleSignin: 628d629e8dca39fc4ab70e30cf55bb3fc284f518
   RNImageCropPicker: 882ced4c8ec0ce16b59456d935af91d9126cfd49
   RNJuiceboxSdk: a2e85ef9d73eac5547cc89d0a4b7b0f6e798d253
   RNNotifee: 5e3b271e8ea7456a36eec994085543c9adca9168
-  RNPermissions: 808e11d2ffe4d8ddea33d8304310a28f281b6a0a
+  RNPermissions: d0f185d461a25bb0f75fdd58c855ba0988fe18ab
   RNPurchases: 4c820359d90fab9c83ffd3ef5471d59db72e2ed1
   RNReanimated: 464375ff2caa801358547c44eca894ff0bf68e74
-  RNScreens: ffbb0296608eb3560de641a711bbdb663ed1f6b4
+  RNScreens: 714e10b6b554f7dc7ad9f78dcf36dc8e3fc73415
   RNSentry: a20c5194cc6d7902683276f399a6eb5206fb9f05
   RNSVG: d260beec1775108e1bd065a0ed666ff2c5565158
   RNWorklets: 8068c8af4b241eb2c19221310729e4c440bee023
@@ -4753,6 +4818,7 @@ SPEC CHECKSUMS:
   SPAlert: 735da1f16a887e294719217572ce1f936d8c8782
   SPIndicator: 93e0a4fb23de51294ac48e874c0f081a5e293e4f
   SSZipArchive: c69881e8ac5521f0e622291387add5f60f30f3c4
+  SwiftUIIntrospect: fee9aa07293ee280373a591e1824e8ddc869ba5d
   TOCropViewController: 80b8985ad794298fb69d3341de183f33d1853654
   Yoga: 728df40394d49f3f471688747cf558158b3a3bd1
   ZXingObjC: 8898711ab495761b2dbbdec76d90164a6d7e14c5

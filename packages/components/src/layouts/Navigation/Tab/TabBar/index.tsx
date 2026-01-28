@@ -30,7 +30,7 @@ export default function NavigationBar({
     return null;
   }
 
-  if (platformEnv.isNativeAndroid || isShowMobileBottomTabBar) {
+  if (isShowMobileBottomTabBar) {
     return <MobileBottomTabBar {...props} />;
   }
   return <DesktopLeftSideBar {...props} />;

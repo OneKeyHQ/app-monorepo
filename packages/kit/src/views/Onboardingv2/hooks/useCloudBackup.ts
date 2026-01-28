@@ -256,7 +256,7 @@ export function useCloudBackup() {
           // skip
         } else {
           if (isBackupErrorDialogShowing) {
-            throw error;  
+            throw error;
           }
 
           isBackupErrorDialogShowing = true;
