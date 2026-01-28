@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 
-import { Dialog, Page, YStack } from '@onekeyhq/components';
+import { ActionList, Page, YStack } from '@onekeyhq/components';
+import type { IActionListItemProps } from '@onekeyhq/components';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -14,7 +15,6 @@ import {
 import { EFeeType, ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 
 import BulkSendApprovalCard from './components/BulkSendApprovalCard';
-import BulkSendFeeSelector from './components/BulkSendFeeSelector';
 import BulkSendReviewAlert from './components/BulkSendReviewAlert';
 import BulkSendReviewCostCard from './components/BulkSendReviewCostCard';
 import BulkSendReviewGrandSummary from './components/BulkSendReviewGrandSummary';
@@ -169,24 +169,24 @@ function BaseBulkSendReview() {
     ],
   );
 
-  // Handle fee level press - open fee selector dialog
+  // Handle fee level press - open fee selector action list
   const handleFeeLevelPress = useCallback(() => {
     // Only allow fee editing for single tx
     if (isMultiTxs || !vaultSettings?.editFeeEnabled) return;
 
-    const dialogInstance = Dialog.show({
-      title: 'Network Fee',
-      showFooter: false,
-      renderContent: (
-        <BulkSendFeeSelector
-          feeSelectorItems={feeState.feeSelectorItems}
-          selectedIndex={feeState.selectedFee.presetIndex}
-          onSelect={(index) => {
-            handleFeeChange(index);
-            void dialogInstance.close();
-          }}
-        />
-      ),
+    const items: IActionListItemProps[] = feeState.feeSelectorItems.map(
+      (item, index) => ({
+        label: item.label,
+        checkMark: feeState.selectedFee.presetIndex === index,
+        onPress: () => {
+          handleFeeChange(index);
+        },
+      }),
+    );
+
+    ActionList.show({
+      title: '',
+      items,
     });
   }, [
     isMultiTxs,
