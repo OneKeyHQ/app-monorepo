@@ -197,7 +197,7 @@ const SwapOldSwapBridgeLimitContainer = ({
         >
           {mainContentWithoutPadding}
         </ScrollView>
-        <YStack pt="$5" height={560}>
+        <YStack pt="$5" maxHeight={480}>
           <SwapProviderListPanel refreshAction={refreshAction} />
         </YStack>
       </XStack>
