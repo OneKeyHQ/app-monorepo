@@ -678,7 +678,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       );
     }
 
-    const key = `${accountId}`;
+    const key = accountId;
     let dbAccount: IDBAccount | undefined;
     if (dbAccountCache) {
       await this.mutexBuildOnChainHistoryTxGetDBAccount.runExclusive(

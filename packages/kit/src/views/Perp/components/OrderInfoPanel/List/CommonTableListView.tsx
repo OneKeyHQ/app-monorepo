@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { InputAccessoryView, Keyboard } from 'react-native';
@@ -26,6 +26,17 @@ import {
   YStack,
   useIsKeyboardShown,
 } from '@onekeyhq/components';
+import {
+  FixedColumnShadowOverlay,
+  SimpleEdgeShadowOverlay,
+} from '@onekeyhq/kit/src/components/FixedColumnShadowOverlay';
+import {
+  SHADOW_CONSTANTS,
+  getWebClipPath,
+  getWebShadowStyle,
+  useFixedColumnShadow,
+} from '@onekeyhq/kit/src/hooks/useFixedColumnShadow';
+import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -272,7 +283,7 @@ export interface IColumnConfig {
   tooltip?: string;
   key: string;
   title: string;
-  width?: number; // 固定宽度
+  width?: number; // Fixed width
   minWidth?: number;
   flex?: number;
   align?: 'left' | 'center' | 'right';
@@ -340,6 +351,8 @@ export function CommonTableListView<T>({
   ListHeaderComponent,
 }: ICommonTableListViewProps<T>) {
   const shouldUseTabsList = useTabsList ?? true;
+  const themeVariant = useThemeVariant();
+  const isDark = themeVariant === 'dark';
 
   const scrollableColumns = useMemo(
     () => columns.filter((c) => !c.fixed),
@@ -367,46 +380,18 @@ export function CommonTableListView<T>({
 
   const [hoveredRowIndex, setHoveredRowIndex] = useState<number | null>(null);
 
-  // Fixed column shadow management (web/desktop only)
-  // Native: Shadow effect is not supported, this logic is skipped via platformEnv check
-  // Web/Desktop: Uses ResizeObserver and scroll position to show/hide shadow for fixed columns
-  const [showFixedShadow, setShowFixedShadow] = useState(true);
-  const scrollViewRef = useRef<React.ElementRef<typeof ScrollView>>(null);
-
-  // Get underlying DOM element from ScrollView (web/desktop only)
-  // Native: Returns null as DOM APIs are not available
-  // Web/Desktop: Uses getScrollableNode() to access the actual scrollable HTMLElement
-  const getScrollElement = useCallback((): HTMLElement | null => {
-    if (platformEnv.isNative) return null;
-    const ref = scrollViewRef.current;
-    if (!ref) return null;
-    const scrollableNode = ref.getScrollableNode?.();
-    return scrollableNode instanceof HTMLElement ? scrollableNode : null;
-  }, []);
-
-  const checkShadowVisibility = useCallback(() => {
-    const element = getScrollElement();
-    if (!element) return;
-    const { scrollLeft, scrollWidth, clientWidth } = element;
-    const needsScroll = scrollWidth > clientWidth + 1;
-    const isScrolledToEnd = scrollLeft + clientWidth >= scrollWidth - 1;
-    const shouldShow = needsScroll && !isScrolledToEnd;
-    setShowFixedShadow((prev) => (prev !== shouldShow ? shouldShow : prev));
-  }, [getScrollElement]);
-
-  // Monitor scroll container size changes to update shadow visibility (web/desktop only)
-  // Native: Skipped via platformEnv.isNative check
-  // Web/Desktop: Uses ResizeObserver (web API) to detect when container is resized
-  useEffect(() => {
-    if (platformEnv.isNative || !hasFixedColumns) return;
-    if (typeof ResizeObserver === 'undefined') return;
-    const element = getScrollElement();
-    if (!element) return;
-    checkShadowVisibility();
-    const resizeObserver = new ResizeObserver(checkShadowVisibility);
-    resizeObserver.observe(element);
-    return () => resizeObserver.disconnect();
-  }, [hasFixedColumns, checkShadowVisibility, getScrollElement]);
+  // Fixed column shadow management using shared hook
+  // Right-fixed column: shadow shows when scrollable content is not scrolled to end
+  const {
+    showShadow: showFixedShadow,
+    scrollViewRef,
+    handleNativeScroll,
+    handleWebScroll,
+  } = useFixedColumnShadow({
+    position: 'right',
+    enabled: hasFixedColumns,
+    initialVisible: true,
+  });
 
   const paginatedData = useMemo<T[]>(() => {
     if (!enablePagination || data.length <= pageSize || !currentListPage) {
@@ -505,13 +490,22 @@ export function CommonTableListView<T>({
         />
       </DebugRenderTracker>
     );
+
+    // Wrap with shadow overlay for native platforms
+    const ListWithShadow = (
+      <Stack flex={1} position="relative">
+        {ListContent}
+        <SimpleEdgeShadowOverlay isDark={isDark} position="right" />
+      </Stack>
+    );
+
     if (
       (paginationToBottom && currentListPage && totalPages > 1) ||
       onViewAll
     ) {
       return (
         <YStack flex={1}>
-          {ListContent}
+          {ListWithShadow}
           <PaginationFooter
             isMobile={isMobile}
             currentPage={currentListPage ?? 1}
@@ -526,7 +520,7 @@ export function CommonTableListView<T>({
         </YStack>
       );
     }
-    return ListContent;
+    return ListWithShadow;
   }
 
   const renderHeaderCell = (column: IColumnConfig, _index: number) => (
@@ -592,7 +586,9 @@ export function CommonTableListView<T>({
             horizontal
             showsHorizontalScrollIndicator
             nestedScrollEnabled
-            onScroll={checkShadowVisibility}
+            onScroll={
+              platformEnv.isNative ? handleNativeScroll : handleWebScroll
+            }
             scrollEventThrottle={16}
             contentContainerStyle={{
               minWidth: scrollableMinWidth,
@@ -673,11 +669,17 @@ export function CommonTableListView<T>({
               $platform-web={{
                 boxShadow:
                   showFixedShadow && paginatedData.length > 0
-                    ? '-4px 0 8px rgba(0, 0, 0, 0.08)'
+                    ? getWebShadowStyle('right', isDark)
                     : 'none',
-                transition: 'box-shadow 0.2s ease-in-out',
+                clipPath: getWebClipPath('right'),
+                transition: `box-shadow ${SHADOW_CONSTANTS.TRANSITION_DURATION} ease-in-out`,
               }}
             >
+              <FixedColumnShadowOverlay
+                position="right"
+                visible={showFixedShadow && paginatedData.length > 0}
+                isDark={isDark}
+              />
               <XStack
                 py="$2"
                 px="$3"

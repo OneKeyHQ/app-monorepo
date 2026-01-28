@@ -1384,3 +1384,4 @@ htmls
 Unclaimable
 linea
 zksyncera
+svgx

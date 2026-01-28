@@ -81,9 +81,7 @@ const SwapProviderInfoItem = ({
         <XStack
           alignItems="center"
           userSelect="none"
-          hoverStyle={{
-            opacity: 0.5,
-          }}
+          hoverStyle={onPress ? { opacity: 0.5 } : undefined}
           onPress={onPress}
           cursor={onPress ? 'pointer' : undefined}
         >

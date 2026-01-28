@@ -133,7 +133,9 @@ function CommonAssetContent(props: IProps) {
         {attributes?.length ? (
           <XStack m="$-1" pt="$2.5" flexWrap="wrap">
             {attributes?.map(({ traitType, value, displayType }) =>
-              isObject(value) || (traitType === '' && value === '') ? null : (
+              isObject(value) ||
+              isNil(value) ||
+              (traitType === '' && value === '') ? null : (
                 <Stack
                   key={traitType}
                   py="$2"
@@ -151,7 +153,7 @@ function CommonAssetContent(props: IProps) {
                       ? formatDate(
                           new Date(
                             Number(value) *
-                              (value.toString().length === 10 ? 1000 : 1),
+                              (String(value).length === 10 ? 1000 : 1),
                           ),
                           {},
                         )

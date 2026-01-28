@@ -113,11 +113,11 @@ abstract class ProviderApiBase {
     }
     let networkName = '';
     if (request.origin) {
-      const prevNetworkId = this.connectedNetworkCache[`${request.origin}`];
+      const prevNetworkId = this.connectedNetworkCache[request.origin];
       if (prevNetworkId && prevNetworkId !== networks?.[0]?.id) {
         networkName = networks?.[0]?.name;
       }
-      this.connectedNetworkCache[`${request.origin}`] = networks?.[0]?.id;
+      this.connectedNetworkCache[request.origin] = networks?.[0]?.id;
     }
     return networkName;
   }

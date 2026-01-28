@@ -404,7 +404,7 @@ export function AccountSelectorWalletListSideBar({
             borderCurve="continuous"
           />
         )}
-        keyExtractor={(item) => `${item.id}`}
+        keyExtractor={(item) => item.id}
         data={wallets as IAccountSelectorWalletInfo[]}
         onDragEnd={async (result) => {
           if (!walletsResult) {

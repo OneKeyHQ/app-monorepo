@@ -222,11 +222,9 @@ const PositionRowDesktopEntryPrice = memo(
           justifyContent={calcCellAlign(columnConfig.align)}
           alignItems="center"
         >
-          <SizableText
-            numberOfLines={1}
-            ellipsizeMode="tail"
-            size="$bodySm"
-          >{`${priceInfo.entryPriceFormatted}`}</SizableText>
+          <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
+            {priceInfo.entryPriceFormatted}
+          </SizableText>
         </XStack>
       </DebugRenderTracker>
     );
@@ -276,11 +274,9 @@ const PositionRowDesktopLiqPrice = memo(
           justifyContent={calcCellAlign(columnConfig.align)}
           alignItems="center"
         >
-          <SizableText
-            numberOfLines={1}
-            ellipsizeMode="tail"
-            size="$bodySm"
-          >{`${priceInfo.liquidationPriceFormatted}`}</SizableText>
+          <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
+            {priceInfo.liquidationPriceFormatted}
+          </SizableText>
         </XStack>
       </DebugRenderTracker>
     );
@@ -874,7 +870,7 @@ const PositionRowMobilePositionSize = memo(
               })}
             </SizableText>
             <SizableText size="$bodySm" color="$textSubdued">
-              {`${isSizeViewChange ? '(USD)' : `(${assetInfo.assetSymbol})`}`}
+              {isSizeViewChange ? '(USD)' : `(${assetInfo.assetSymbol})`}
             </SizableText>
           </XStack>
           <Icon name="RepeatOutline" size="$3" color="$textSubdued" />
@@ -944,7 +940,7 @@ const PositionRowMobileEntryPrice = memo(
           })}
         </SizableText>
         <SizableText size="$bodySmMedium">
-          {`${priceInfo.entryPriceFormatted}`}
+          {priceInfo.entryPriceFormatted}
         </SizableText>
       </YStack>
     );
@@ -1099,10 +1095,9 @@ const PositionRowMobileTPSL = memo(({ coin }: { coin: string }) => {
           id: ETranslations.perp_position_tp_sl,
         })}
       </SizableText>
-      <SizableText
-        size="$bodySmMedium"
-        numberOfLines={1}
-      >{`${tpslInfo.tpsl}`}</SizableText>
+      <SizableText size="$bodySmMedium" numberOfLines={1}>
+        {tpslInfo.tpsl}
+      </SizableText>
     </YStack>
   );
 });
@@ -1138,7 +1133,7 @@ const PositionRowMobileLiqPrice = memo(
           })}
         </SizableText>
         <SizableText size="$bodySmMedium">
-          {`${priceInfo.liquidationPriceFormatted}`}
+          {priceInfo.liquidationPriceFormatted}
         </SizableText>
       </YStack>
     );
