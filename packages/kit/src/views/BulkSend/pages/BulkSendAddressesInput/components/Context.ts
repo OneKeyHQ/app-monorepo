@@ -3,6 +3,11 @@ import { createContext, useContext } from 'react';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 import { EBulkSendMode } from '@onekeyhq/shared/types/bulkSend';
 
+export type ITokenDetailsState = {
+  initialized: boolean;
+  isRefreshing: boolean;
+};
+
 export type IBulkSendAddressesInputContext = {
   selectedAccountId: string | undefined;
   setSelectedAccountId: (accountId: string | undefined) => void;
@@ -16,14 +21,12 @@ export type IBulkSendAddressesInputContext = {
   setSelectedTokenDetail: (
     tokenDetail: ({ info: IToken } & ITokenFiat) | undefined,
   ) => void;
-  tokenDetailsState: {
-    initialized: boolean;
-    isRefreshing: boolean;
-  };
-  setTokenDetailsState: (state: {
-    initialized: boolean;
-    isRefreshing: boolean;
-  }) => void;
+  tokenDetailsState: ITokenDetailsState;
+  setTokenDetailsState: (
+    state:
+      | ITokenDetailsState
+      | ((prev: ITokenDetailsState) => ITokenDetailsState),
+  ) => void;
   bulkSendMode: EBulkSendMode;
   setBulkSendMode: (bulkSendMode: EBulkSendMode) => void;
 };

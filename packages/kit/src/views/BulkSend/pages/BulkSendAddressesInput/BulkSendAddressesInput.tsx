@@ -1,6 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { Form, Page, YStack, useForm } from '@onekeyhq/components';
+import {
+  POLLING_DEBOUNCE_INTERVAL,
+  POLLING_INTERVAL_FOR_TOKEN,
+} from '@onekeyhq/shared/src/consts/walletConsts';
 import type { IModalBulkSendParamList } from '@onekeyhq/shared/src/routes';
 import {
   EModalBulkSendRoutes,
@@ -15,18 +19,19 @@ import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import ReceiverAddressesInput from './components/AddressesInput/ReceiverAddressesInput';
 import SenderAddressesInput from './components/AddressesInput/SenderAddressesInput';
 import AssetSelectorTrigger from './components/AssetSelectorTrigger';
 import BulkSendBar from '../../components/BulkSendBar';
 import BulkSendContentWrapper from '../../components/BulkSendContentWrapper';
+import BulkSendHeader from '../../components/BulkSendHeader';
 import {
   BulkSendAddressesInputContext,
   useBulkSendAddressesInputContext,
 } from './components/Context';
-import BulkSendHeader from '../../components/BulkSendHeader';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EBulkSendMode } from '@onekeyhq/shared/types/bulkSend';
 
 function BaseBulkSendAddressesInput() {
@@ -144,51 +149,79 @@ function BaseBulkSendAddressesInput() {
     setSelectedIndexedAccountId,
   ]);
 
-  const fetchSelectedTokenFiatInfo = useCallback(async () => {
+  // Reset token details state when account/network/token changes
+  useEffect(() => {
     if (selectedAccountId && selectedNetworkId && selectedToken) {
-      const [checkInscriptionProtectionEnabled, vaultSettings] =
-        await Promise.all([
-          backgroundApiProxy.serviceSetting.checkInscriptionProtectionEnabled({
-            networkId: selectedNetworkId,
-            accountId: selectedAccountId,
-          }),
-          backgroundApiProxy.serviceNetwork.getVaultSettings({
-            networkId: selectedNetworkId,
-          }),
-        ]);
-      const withCheckInscription =
-        checkInscriptionProtectionEnabled && vaultSettings.hasFrozenBalance;
-
-      try {
-        const resp = await backgroundApiProxy.serviceToken.fetchTokensDetails({
-          accountId: selectedAccountId,
-          networkId: selectedNetworkId,
-          contractList: [selectedToken.address],
-          withFrozenBalance: true,
-          withCheckInscription,
-        });
-
-        if (resp[0]) {
-          setSelectedTokenDetail(resp[0]);
-        } else {
-          setSelectedTokenDetail(undefined);
-        }
-      } catch (_) {
-        setSelectedTokenDetail(undefined);
-      } finally {
-        setTokenDetailsState({
-          initialized: true,
-          isRefreshing: false,
-        });
-      }
+      setTokenDetailsState({
+        initialized: false,
+        isRefreshing: true,
+      });
     }
   }, [
     selectedAccountId,
     selectedNetworkId,
     selectedToken,
-    setSelectedTokenDetail,
     setTokenDetailsState,
   ]);
+
+  usePromiseResult(
+    async () => {
+      if (selectedAccountId && selectedNetworkId && selectedToken) {
+        console.log('addresses input fetchSelectedTokenFiatInfo');
+
+        const [checkInscriptionProtectionEnabled, vaultSettings] =
+          await Promise.all([
+            backgroundApiProxy.serviceSetting.checkInscriptionProtectionEnabled(
+              {
+                networkId: selectedNetworkId,
+                accountId: selectedAccountId,
+              },
+            ),
+            backgroundApiProxy.serviceNetwork.getVaultSettings({
+              networkId: selectedNetworkId,
+            }),
+          ]);
+        const withCheckInscription =
+          checkInscriptionProtectionEnabled && vaultSettings.hasFrozenBalance;
+
+        try {
+          const resp = await backgroundApiProxy.serviceToken.fetchTokensDetails(
+            {
+              accountId: selectedAccountId,
+              networkId: selectedNetworkId,
+              contractList: [selectedToken.address],
+              withFrozenBalance: true,
+              withCheckInscription,
+            },
+          );
+
+          if (resp[0]) {
+            setSelectedTokenDetail(resp[0]);
+          } else {
+            setSelectedTokenDetail(undefined);
+          }
+        } catch (_) {
+          setSelectedTokenDetail(undefined);
+        } finally {
+          setTokenDetailsState({
+            initialized: true,
+            isRefreshing: false,
+          });
+        }
+      }
+    },
+    [
+      selectedAccountId,
+      selectedNetworkId,
+      selectedToken,
+      setSelectedTokenDetail,
+      setTokenDetailsState,
+    ],
+    {
+      debounced: POLLING_DEBOUNCE_INTERVAL,
+      pollingInterval: POLLING_INTERVAL_FOR_TOKEN,
+    },
+  );
 
   const fetchSelectedAccountAddress = useCallback(async () => {
     if (selectedAccountId && selectedNetworkId) {
@@ -205,39 +238,6 @@ function BaseBulkSendAddressesInput() {
   useEffect(() => {
     void initBulkSendInfo();
   }, [initBulkSendInfo]);
-
-  const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
-    null,
-  );
-
-  useEffect(() => {
-    if (pollingIntervalRef.current) {
-      clearInterval(pollingIntervalRef.current);
-      pollingIntervalRef.current = null;
-    }
-
-    if (selectedAccountId && selectedNetworkId && selectedToken) {
-      setTokenDetailsState({ initialized: false, isRefreshing: true });
-      void fetchSelectedTokenFiatInfo();
-
-      pollingIntervalRef.current = setInterval(() => {
-        void fetchSelectedTokenFiatInfo();
-      }, 15_000);
-    }
-
-    return () => {
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-        pollingIntervalRef.current = null;
-      }
-    };
-  }, [
-    fetchSelectedTokenFiatInfo,
-    selectedAccountId,
-    selectedNetworkId,
-    selectedToken,
-    setTokenDetailsState,
-  ]);
 
   useEffect(() => {
     if (selectedAccountId && selectedNetworkId) {
