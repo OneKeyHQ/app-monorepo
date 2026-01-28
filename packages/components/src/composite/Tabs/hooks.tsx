@@ -13,7 +13,7 @@ import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
 import { useAppSideBarStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useIsNativeTablet, useOrientation } from '../../hooks';
+import { useIsNativeTablet, useIsSplitView } from '../../hooks';
 import { useIPadModalPageWidth, useIsIpadModalPage } from '../../layouts';
 import {
   DESKTOP_MODE_UI_PAGE_BORDER_WIDTH,
@@ -87,7 +87,7 @@ const useNativeTabContainerWidth = isDualScreenDevice()
     }
   : () => {
       const isTablet = useIsNativeTablet();
-      const isLandscape = useOrientation();
+      const isLandscape = useIsSplitView();
       const { width } = useWindowDimensions();
       const isIpadModalPage = useIsIpadModalPage();
       const ipadModalPageWidth = useIPadModalPageWidth();

@@ -14,7 +14,7 @@ import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
 
 import {
   ESplitViewType,
-  useOrientation,
+  useIsSplitView,
   useSplitViewType,
   useTheme,
   useThemeName,
@@ -167,7 +167,7 @@ export function TabStackNavigator<RouteName extends string>({
   }, [config, extraConfig, intl, handleTabPress]);
 
   const splitViewType = useSplitViewType();
-  const isLandscape = useOrientation();
+  const isLandscape = useIsSplitView();
   const hidden = useMemo(() => {
     switch (splitViewType) {
       case ESplitViewType.MAIN:

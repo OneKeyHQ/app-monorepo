@@ -34,9 +34,10 @@ export const isSpanning = () => {
 };
 
 export const useIsSpanningInDualScreen = () => {
-  const [isSpanningInDualScreen, setIsSpanningInDualScreen] = useState(() =>
-    isSpanning(),
-  );
+  const [isSpanningInDualScreen, setIsSpanningInDualScreen] = useState(() => {
+    const spanning = isSpanning();
+    return spanning;
+  });
   useEffect(() => {
     if (!isDualScreenDevice()) {
       return;

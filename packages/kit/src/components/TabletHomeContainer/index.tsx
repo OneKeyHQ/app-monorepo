@@ -14,7 +14,7 @@ import {
   SizableText,
   YStack,
   useIsNativeTablet,
-  useOrientation,
+  useIsSplitView,
   useSplitViewType,
 } from '@onekeyhq/components';
 
@@ -22,7 +22,7 @@ import type { LayoutChangeEvent } from 'react-native';
 
 export function TabletHomeContainer({ children }: PropsWithChildren) {
   const splitViewType = useSplitViewType();
-  const isLandscape = useOrientation();
+  const isLandscape = useIsSplitView();
 
   if (splitViewType === ESplitViewType.MAIN && !isLandscape) {
     return null;

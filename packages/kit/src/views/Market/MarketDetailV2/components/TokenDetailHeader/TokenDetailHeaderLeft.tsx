@@ -10,7 +10,7 @@ import {
   XStack,
   YStack,
   useMedia,
-  useOrientation,
+  useIsSplitView,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useNetworkLogoUri } from '@onekeyhq/kit/src/hooks/useNetworkLogoUri';
@@ -41,7 +41,7 @@ export function TokenDetailHeaderLeft({
   showMediaAndSecurity = true,
   isNative = false,
 }: ITokenDetailHeaderLeftProps) {
-  const isLandscape = useOrientation();
+  const isLandscape = useIsSplitView();
   const { width: windowScreenWidth } = useWindowDimensions();
   const screenWidth = useMemo(() => {
     return isLandscape ? windowScreenWidth / 2 : windowScreenWidth;

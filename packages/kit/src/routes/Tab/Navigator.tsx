@@ -9,7 +9,7 @@ import {
   Stack,
   TabStackNavigator,
   useMedia,
-  useOrientation,
+  useIsSplitView,
   useSplitMainView,
   useSplitSubView,
 } from '@onekeyhq/components';
@@ -72,7 +72,7 @@ const useCheckTabsChangedInDev = platformEnv.isDev
 
 export function TabNavigator() {
   const { freezeOnBlur } = useContext(TabFreezeOnBlurContext);
-  const isLandscape = useOrientation();
+  const isLandscape = useIsSplitView();
   const routerConfigParams = useMemo(() => ({ freezeOnBlur }), [freezeOnBlur]);
   const config = useTabRouterConfig(routerConfigParams);
   const isShowWebTabBar = platformEnv.isDesktop;

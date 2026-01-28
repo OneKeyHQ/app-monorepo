@@ -7,7 +7,7 @@ import {
   Page,
   useIsNativeTablet,
   useMedia,
-  useOrientation,
+  useIsSplitView,
 } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -88,7 +88,7 @@ function MarketDetailV2(
     ETabMarketRoutes.MarketDetailV2 | ETabMarketRoutes.MarketNativeDetail
   >,
 ) {
-  const isLandscape = useOrientation();
+  const isLandscape = useIsSplitView();
   const isTablet = useIsNativeTablet();
   useFocusEffect(
     useCallback(() => {

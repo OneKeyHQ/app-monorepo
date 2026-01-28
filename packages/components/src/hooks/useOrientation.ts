@@ -10,13 +10,13 @@ import {
 } from '@onekeyhq/shared/src/modules/DualScreenInfo';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-export const useOrientation = () => {
+export const useIsSplitView = isDualScreenDevice() ? () => {
+    const isSpanning = useIsSpanningInDualScreen();
+    return isSpanning;
+} : () => {
   const [isLandscape, setIsLandscape] = useState(
     Dimensions.get('window').width > Dimensions.get('window').height,
   );
-
-  const isSpanning = useIsSpanningInDualScreen();
-
   useEffect(() => {
     const handleOrientationChange = (
       event: ScreenOrientation.OrientationChangeEvent,
@@ -37,8 +37,8 @@ export const useOrientation = () => {
     };
   }, []);
 
-  return isDualScreenDevice() ? isSpanning : isLandscape;
-};
+  return isLandscape;
+}
 
 export const useIsWebHorizontalLayout = () => {
   const { gtMd } = useMedia();

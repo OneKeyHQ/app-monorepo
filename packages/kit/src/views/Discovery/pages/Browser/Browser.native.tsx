@@ -13,7 +13,7 @@ import {
   XStack,
   YStack,
   rootNavigationRef,
-  useOrientation,
+  useIsSplitView,
   useSafeAreaInsets,
   useSplitMainView,
   useSplitSubView,
@@ -169,7 +169,7 @@ function MobileBrowser() {
     useRoute<
       RouteProp<ITabDiscoveryParamList, ETabDiscoveryRoutes.TabDiscovery>
     >();
-  const isLandscape = useOrientation();
+  const isLandscape = useIsSplitView();
   const { earnTab } = route?.params || {};
   const [settings] = useSettingsPersistAtom();
   const selectedHeaderTab =
