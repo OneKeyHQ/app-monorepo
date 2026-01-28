@@ -49,7 +49,6 @@ export const StakeSection = ({
   borrowMarketAddress,
   borrowReserveAddress,
   borrowAction,
-  borrowReserves,
   borrowActionLabel,
 }: {
   accountId: string;

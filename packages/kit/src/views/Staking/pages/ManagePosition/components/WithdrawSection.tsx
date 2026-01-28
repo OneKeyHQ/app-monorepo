@@ -4,7 +4,6 @@ import { useCallback, useMemo, useState } from 'react';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ManagePosition } from '@onekeyhq/kit/src/views/Borrow/components/ManagePosition';
-import type { IManagePositionConfirmParams } from '@onekeyhq/kit/src/views/Borrow/components/ManagePosition';
 import {
   useUniversalBorrowRepay,
   useUniversalBorrowWithdraw,
