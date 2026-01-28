@@ -506,8 +506,18 @@ function BulkSendAmountsInput() {
       setAmountInputMode(EAmountInputMode.Custom);
     }
 
+    // Initialize rangeMin to '0' for OneToMany mode
+    if (bulkSendMode === EBulkSendMode.OneToMany) {
+      setAmountInputValues((prev) => ({
+        ...prev,
+        rangeMin: '0',
+        rangeMax: initialTokenDetails.balanceParsed,
+      }));
+    }
+
     setTransfersInfo(_transfersInfo);
-  }, [bulkSendMode, senders, receivers, tokenInfo]);
+  }, [bulkSendMode, senders, receivers, tokenInfo, initialTokenDetails?.balanceParsed]);
+
 
   const context = useMemo<IBulkSendAmountsInputContext>(
     () => ({

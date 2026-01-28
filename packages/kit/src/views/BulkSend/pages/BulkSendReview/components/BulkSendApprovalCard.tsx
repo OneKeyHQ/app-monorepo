@@ -153,10 +153,13 @@ function BulkSendApprovalCard({
             >
               {({ open }: { open: boolean }) => (
                 <>
-                  <SizableText size="$headingSm">
-                    Token approval
-                  </SizableText>
-                  <XStack flex={1} gap="$2" alignItems="center" justifyContent="flex-end">
+                  <SizableText size="$headingSm">Token approval</SizableText>
+                  <XStack
+                    flex={1}
+                    gap="$2"
+                    alignItems="center"
+                    justifyContent="flex-end"
+                  >
                     {!open ? (
                       <>
                         <Token
@@ -187,7 +190,10 @@ function BulkSendApprovalCard({
                 </>
               )}
             </Accordion.Trigger>
-            <Accordion.HeightAnimator animation="quick" backgroundColor="transparent">
+            <Accordion.HeightAnimator
+              animation="quick"
+              backgroundColor="transparent"
+            >
               <Accordion.Content
                 animation="quick"
                 exitStyle={{ opacity: 0 }}
