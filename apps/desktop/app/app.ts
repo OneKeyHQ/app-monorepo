@@ -6,10 +6,6 @@ import { format as formatUrl } from 'url';
 
 import { initNobleBleSupport } from '@onekeyfe/hd-transport-electron';
 import {
-  attachTitlebarToWindow,
-  setupTitlebar,
-} from 'custom-electron-titlebar/main';
-import {
   BrowserWindow,
   Menu,
   app,
@@ -56,6 +52,7 @@ import {
 import { initSentry } from './sentry';
 import { startServices } from './service';
 import { setMainWindowForOAuthServer } from './service/oauthLocalServer/oauthLocalServer';
+import { getBackgroundColor } from './libs/utils';
 
 logger.initialize();
 logger.transports.file.maxSize = 1024 * 1024 * 10;
@@ -109,10 +106,6 @@ const sdkConnectSrc = isDev
 
 const isMac = process.platform === 'darwin';
 const isWin = process.platform === 'win32';
-
-if (!isMac) {
-  setupTitlebar();
-}
 
 let systemIdleInterval: ReturnType<typeof setInterval>;
 
@@ -443,17 +436,7 @@ function systemIdleHandler(setIdleTime: number, event: Electron.IpcMainEvent) {
 
 const theme = store.getTheme();
 
-// colors from packages/components/tamagui.config.ts
-const themeColors = {
-  light: '#ffffff',
-  dark: '#0f0f0f',
-};
-
 logger.info('theme >>>> ', theme, nativeTheme.shouldUseDarkColors);
-
-const getBackgroundColor = (key: string) =>
-  themeColors[key as keyof typeof themeColors] ||
-  themeColors[nativeTheme.shouldUseDarkColors ? 'dark' : 'light'];
 
 const ratio = 16 / 9;
 const defaultSize = 1200;
@@ -484,7 +467,7 @@ async function createMainWindow() {
     show: false,
     title: APP_TITLE_NAME,
     titleBarStyle: 'hidden',
-    titleBarOverlay: !isMac,
+    // titleBarOverlay: !isMac,
     trafficLightPosition: { x: 20, y: 20 },
     autoHideMenuBar: true,
     frame: true,
@@ -516,9 +499,6 @@ async function createMainWindow() {
     ...savedWinBounds,
   });
 
-  if (!isMac) {
-    attachTitlebarToWindow(browserWindow);
-  }
   const getSafelyBrowserWindow = () => {
     if (browserWindow && !browserWindow.isDestroyed()) {
       return browserWindow;
@@ -636,12 +616,6 @@ async function createMainWindow() {
 
   ipcMain.on(ipcMessageKeys.IS_DEV, (event) => {
     event.returnValue = isDev;
-  });
-
-  ipcMain.on(ipcMessageKeys.THEME_UPDATE, (event, themeKey: string) => {
-    const safelyBrowserWindow = getSafelyBrowserWindow();
-    store.setTheme(themeKey);
-    safelyBrowserWindow?.setBackgroundColor(getBackgroundColor(themeKey));
   });
 
   ipcMain.on(ipcMessageKeys.APP_IS_FOCUSED, (event) => {
