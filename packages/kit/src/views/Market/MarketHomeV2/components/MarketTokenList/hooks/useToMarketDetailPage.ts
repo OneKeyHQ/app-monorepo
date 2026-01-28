@@ -109,6 +109,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
 
         // Clean existing token detail pages in tablet split view mode before pushing new one
         if (isTabletMainView || isTabletDetailView) {
+          navigation.switchTab(ETabRoutes.Discovery);
           appEventBus.emit(
             EAppEventBusNames.CleanTokenDetailInTabletDetailView,
             undefined,
