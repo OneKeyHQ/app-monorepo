@@ -53,6 +53,7 @@ import type {
 } from '@react-navigation/routers';
 import type { MotiTransition } from 'moti';
 import type { GestureResponderEvent } from 'react-native';
+import { MenuHamburger } from './Menu';
 
 function TabItemView({
   isCollapse,
@@ -438,7 +439,6 @@ export function DesktopLeftSideBar({
     },
     [],
   );
-
   return (
     <MotiView
       testID="Desktop-AppSideBar-Container"
@@ -455,6 +455,7 @@ export function DesktopLeftSideBar({
         zIndex: 2,
       }}
     >
+      {!platformEnv.isDesktopMac ? <MenuHamburger /> : null}
       {platformEnv.isDesktopMac ? (
         // @ts-expect-error https://www.electronjs.org/docs/latest/tutorial/custom-window-interactions
         <XStack

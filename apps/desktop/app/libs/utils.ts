@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 
 import plist from '@expo/plist';
-import { app } from 'electron';
+import { app, nativeTheme } from 'electron';
 
 // Bool 2 Text
 export const b2t = (bool: boolean) => (bool ? 'Yes' : 'No');
@@ -79,3 +79,12 @@ export const getMacAppId = () => {
   const bundleInfo = parseContentPList();
   return bundleInfo?.CFBundleIdentifier || '';
 };
+
+// colors from packages/components/tamagui.config.ts
+const themeColors = {
+  light: '#ffffff',
+  dark: '#0f0f0f',
+};
+export const getBackgroundColor = (key: string) =>
+  themeColors[key as keyof typeof themeColors] ||
+  themeColors[nativeTheme.shouldUseDarkColors ? 'dark' : 'light'];
