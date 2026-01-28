@@ -290,6 +290,161 @@ The `ManagePosition` component is a unified component that handles all 4 borrow 
 
 ---
 
+## Phase 7.5: Protocol-Specific Features (Optional)
+
+Use this phase for protocols with unique characteristics that require additional UI patterns.
+
+### Time-Based Protocols (e.g., Pendle PT)
+
+For protocols with maturity dates, expiration, or time-locked operations:
+
+- [ ] Define maturity status enum (`Active`, `MaturingSoon`, `Matured`)
+- [ ] Implement `getMaturityStatus(timestamp)` helper function
+- [ ] Maturity date display implemented:
+  - [ ] Format: "15 Jan 2026"
+  - [ ] Days remaining: "21 days left"
+  - [ ] Status badge with appropriate color
+- [ ] Conditional operation logic implemented:
+  - [ ] Define `IOperationAvailability` type
+  - [ ] Implement availability check for each operation
+  - [ ] Disable buttons with reason when unavailable
+  - [ ] Show "Available after [date]" message
+- [ ] Countdown/timer UI components (if real-time updates needed)
+
+### Protocol Detail Page Customization
+
+For protocols requiring custom detail page sections:
+
+- [ ] Extended position type defined (e.g., `IPendlePosition extends IEarnPortfolioInvestment`)
+- [ ] Custom ManageContent component created:
+  - [ ] File: `Staking/pages/ManagePosition/components/YourProtocolManageContent.tsx`
+  - [ ] Registered in `ManagePositionContent.tsx` router
+- [ ] Custom detail sections added:
+  - [ ] Underlying Asset section (if applicable)
+  - [ ] Maturity/Expiration info section (if applicable)
+  - [ ] APY comparison section (Fixed vs Variable)
+  - [ ] Yield preview chart (if applicable)
+
+### Multi-Variant Assets (e.g., same asset with different maturities)
+
+For protocols where one underlying asset has multiple variants:
+
+- [ ] Grouping logic implemented:
+  - [ ] `groupByUnderlying()` function
+  - [ ] Sort variants within each group
+- [ ] Filter by variant implemented:
+  - [ ] Filter UI (popover or inline)
+  - [ ] Filter state management
+  - [ ] Clear filter option
+- [ ] Sort options added:
+  - [ ] By maturity date (asc/desc)
+  - [ ] By APY (desc)
+  - [ ] By TVL (desc)
+- [ ] Grouped list UI:
+  - [ ] Accordion/expandable groups
+  - [ ] Variant count badge
+  - [ ] Individual variant rows
+
+### Operation Tab Pattern (Buy/Sell/Redeem)
+
+For protocols with multiple operation types in a single modal:
+
+- [ ] Tab switching implemented:
+  - [ ] SegmentControl or Tab component
+  - [ ] Tab state management
+  - [ ] Conditional tab availability (e.g., Redeem only after maturity)
+- [ ] Input/Output display pattern:
+  - [ ] "You pay" section with token and amount
+  - [ ] Arrow indicator
+  - [ ] "You receive" section with token and amount
+  - [ ] Exchange rate display
+- [ ] Step indicator implemented:
+  - [ ] Step badges (1, 2, ...)
+  - [ ] Step labels (Approve, Swap, etc.)
+  - [ ] Step status (pending, active, completed)
+- [ ] Percentage quick select (25%, 50%, 75%, 100%)
+
+### Earn Category Tabs (if adding new category)
+
+For protocols that belong to a new Earn category:
+
+- [ ] New category tab added to EarnMainTabs:
+  - [ ] Tab key defined
+  - [ ] Tab label with i18n
+  - [ ] Tab content component
+- [ ] Category filter logic:
+  - [ ] Filter investments by category
+  - [ ] Update Overview stats for category
+- [ ] Category-specific empty state
+
+---
+
+## Phase 7.6: Borrow-Specific Features (Optional)
+
+Use this phase for Borrow module features that require additional UI patterns.
+
+### Repay with Collateral
+
+For implementing the "Repay with Collateral" feature:
+
+- [ ] Repay source toggle implemented:
+  - [ ] SegmentControl with "From wallet balance" / "With Collateral" options
+  - [ ] State reset logic when switching source
+  - [ ] Conditional rendering based on selected source
+- [ ] Dual amount input implemented:
+  - [ ] Repay amount input (debt token)
+  - [ ] Using amount input (collateral token)
+  - [ ] Bidirectional sync with debounce
+  - [ ] Active input tracking
+  - [ ] Loading state during calculation
+- [ ] Collateral selector implemented:
+  - [ ] Popover with available collateral assets
+  - [ ] Display collateral balance + USD value
+  - [ ] Amount recalculation on collateral change
+- [ ] Swap-related UI implemented:
+  - [ ] Exchange rate display (e.g., "1 SOL = 100.01 USDC")
+  - [ ] Price impact display with color coding
+  - [ ] Slippage settings (Auto / Custom)
+- [ ] Position change preview:
+  - [ ] Health factor change (current → after)
+  - [ ] My borrow change (current → after)
+  - [ ] Remaining collateral display
+- [ ] Backend integration:
+  - [ ] `getRepayWithCollateralQuote()` API call
+  - [ ] Quote refresh on input change
+  - [ ] Transaction building with slippage
+
+### New Lending Protocol Integration
+
+For adding a new lending protocol (e.g., AAVE, Compound):
+
+- [ ] Protocol types defined:
+  - [ ] Protocol-specific market type
+  - [ ] Protocol-specific reserve type
+  - [ ] Protocol feature flags
+  - [ ] Provider added to `EBorrowProvider` enum
+- [ ] Backend service extended:
+  - [ ] `get{Protocol}Markets()` implemented
+  - [ ] `get{Protocol}Reserves()` implemented
+  - [ ] `get{Protocol}HealthFactor()` implemented (if applicable)
+  - [ ] Protocol-specific action methods implemented
+  - [ ] `getBorrowReserves()` updated to handle new provider
+- [ ] Protocol-specific UI (if needed):
+  - [ ] Custom components for unique features (e.g., E-Mode selector)
+  - [ ] ManagePosition extended for protocol differences
+  - [ ] Protocol-specific info sections added
+- [ ] Tag system updated:
+  - [ ] `buildBorrowTag()` handles protocol-specific actions
+  - [ ] `parseBorrowTag()` handles new tag formats
+- [ ] Testing completed:
+  - [ ] All 4 basic operations tested
+  - [ ] Protocol-specific features tested
+  - [ ] Health factor calculation verified
+  - [ ] Rewards claiming tested
+  - [ ] Error handling tested
+
+---
+
 ## Phase 8: Testing
 
 ### Functional Testing

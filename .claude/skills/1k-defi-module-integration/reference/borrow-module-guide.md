@@ -1609,3 +1609,756 @@ const {
   />
 )}
 ```
+
+---
+
+## Repay with Collateral Pattern
+
+This section covers the "Repay with Collateral" feature, which allows users to repay debt using their collateral assets instead of wallet balance.
+
+### Overview
+
+| Aspect | Standard Repay | Repay with Collateral |
+|--------|---------------|----------------------|
+| Source | Wallet balance | Collateral assets |
+| Input | Single amount | Dual amount (Repay ↔ Using) |
+| Token Selection | Debt token | Collateral token |
+| Swap Required | No | Yes (collateral → debt) |
+| Slippage | Not needed | Required |
+| Price Impact | Not shown | Must show |
+
+### Repay Source Toggle
+
+```tsx
+type TRepaySource = 'wallet' | 'collateral';
+
+function RepaySourceToggle({
+  value,
+  onChange,
+}: {
+  value: TRepaySource;
+  onChange: (source: TRepaySource) => void;
+}) {
+  return (
+    <SegmentControl
+      value={value}
+      onChange={onChange}
+      options={[
+        { value: 'wallet', label: 'From wallet balance' },
+        { value: 'collateral', label: 'With Collateral' },
+      ]}
+    />
+  );
+}
+```
+
+**State Reset on Toggle:**
+```typescript
+const handleSourceChange = useCallback((source: TRepaySource) => {
+  setRepaySource(source);
+  // Reset amounts when switching source
+  setRepayAmount('');
+  setUsingAmount('');
+  // Reset selected collateral
+  if (source === 'collateral') {
+    setSelectedCollateral(defaultCollateral);
+  }
+}, [defaultCollateral]);
+```
+
+### Dual Amount Input Pattern
+
+For operations involving asset conversion (e.g., repay with collateral), implement dual input with bidirectional sync.
+
+**State Structure:**
+```typescript
+interface IDualInputState {
+  repayAmount: string;           // Debt token amount to repay
+  usingAmount: string;           // Collateral token amount to use
+  activeInput: 'repay' | 'using'; // Which input is being edited
+  isCalculating: boolean;        // Quote calculation in progress
+}
+
+const [dualInput, setDualInput] = useState<IDualInputState>({
+  repayAmount: '',
+  usingAmount: '',
+  activeInput: 'repay',
+  isCalculating: false,
+});
+```
+
+**Bidirectional Sync Logic:**
+```typescript
+// When repay amount changes, calculate using amount
+const calculateUsingAmount = useDebouncedCallback(
+  async (repayAmount: string) => {
+    if (!repayAmount || dualInput.activeInput !== 'repay') return;
+
+    setDualInput(prev => ({ ...prev, isCalculating: true }));
+
+    try {
+      const quote = await backgroundApiProxy.serviceStaking.getRepayWithCollateralQuote({
+        networkId,
+        provider,
+        marketAddress,
+        debtReserveAddress,
+        collateralReserveAddress: selectedCollateral.reserveAddress,
+        repayAmount,
+        slippage,
+      });
+
+      setDualInput(prev => ({
+        ...prev,
+        usingAmount: quote.collateralAmount,
+        isCalculating: false,
+      }));
+      setExchangeRate(quote.exchangeRate);
+      setPriceImpact(quote.priceImpact);
+    } catch (error) {
+      setDualInput(prev => ({ ...prev, isCalculating: false }));
+    }
+  },
+  300,
+);
+
+// When using amount changes, calculate repay amount
+const calculateRepayAmount = useDebouncedCallback(
+  async (usingAmount: string) => {
+    if (!usingAmount || dualInput.activeInput !== 'using') return;
+
+    setDualInput(prev => ({ ...prev, isCalculating: true }));
+
+    try {
+      const quote = await backgroundApiProxy.serviceStaking.getRepayWithCollateralQuote({
+        networkId,
+        provider,
+        marketAddress,
+        debtReserveAddress,
+        collateralReserveAddress: selectedCollateral.reserveAddress,
+        collateralAmount: usingAmount,
+        slippage,
+      });
+
+      setDualInput(prev => ({
+        ...prev,
+        repayAmount: quote.repayAmount,
+        isCalculating: false,
+      }));
+      setExchangeRate(quote.exchangeRate);
+      setPriceImpact(quote.priceImpact);
+    } catch (error) {
+      setDualInput(prev => ({ ...prev, isCalculating: false }));
+    }
+  },
+  300,
+);
+```
+
+**UI Component:**
+```tsx
+function DualAmountInput({
+  repayToken,
+  collateralToken,
+  dualInput,
+  onRepayAmountChange,
+  onUsingAmountChange,
+  exchangeRate,
+  priceImpact,
+}: IDualAmountInputProps) {
+  return (
+    <YStack gap="$3">
+      {/* Repay Amount Input */}
+      <YStack>
+        <SizableText size="$bodySm" color="$textSubdued">Repay</SizableText>
+        <XStack justifyContent="space-between" alignItems="center">
+          <NumberInput
+            value={dualInput.repayAmount}
+            onChange={(value) => {
+              onRepayAmountChange(value);
+            }}
+            onFocus={() => setDualInput(prev => ({ ...prev, activeInput: 'repay' }))}
+          />
+          <TokenSelector token={repayToken} disabled />
+        </XStack>
+        <XStack justifyContent="space-between">
+          <SizableText size="$bodySm" color="$textSubdued">
+            ${formatCurrency(repayAmountUsd)}
+          </SizableText>
+          <SizableText size="$bodySm" color="$textSubdued">
+            Available {repayToken.available} <Pressable onPress={onMax}>Max</Pressable>
+          </SizableText>
+        </XStack>
+      </YStack>
+
+      {/* Swap Arrow */}
+      <XStack justifyContent="center">
+        <Icon name="ArrowUpDownOutline" size={20} color="$iconSubdued" />
+      </XStack>
+
+      {/* Using Amount Input */}
+      <YStack>
+        <SizableText size="$bodySm" color="$textSubdued">Using</SizableText>
+        <XStack justifyContent="space-between" alignItems="center">
+          <NumberInput
+            value={dualInput.usingAmount}
+            onChange={(value) => {
+              onUsingAmountChange(value);
+            }}
+            onFocus={() => setDualInput(prev => ({ ...prev, activeInput: 'using' }))}
+          />
+          <CollateralSelector
+            selected={collateralToken}
+            onSelect={onCollateralSelect}
+          />
+        </XStack>
+        <XStack justifyContent="space-between">
+          <SizableText size="$bodySm" color={getPriceImpactColor(priceImpact)}>
+            ${formatCurrency(usingAmountUsd)} ({priceImpact})
+          </SizableText>
+        </XStack>
+      </YStack>
+
+      {/* Exchange Rate */}
+      <XStack justifyContent="space-between">
+        <SizableText size="$bodySm" color="$textSubdued">
+          1 {collateralToken.symbol} = {exchangeRate} {repayToken.symbol}
+        </SizableText>
+      </XStack>
+    </YStack>
+  );
+}
+```
+
+### Collateral Selector
+
+Unlike the standard token selector, the collateral selector shows:
+- Available collateral balance
+- USD value of collateral
+- Only assets that are currently supplied as collateral
+
+```tsx
+interface ICollateralAsset {
+  reserveAddress: string;
+  token: {
+    symbol: string;
+    logoURI: string;
+    decimals: number;
+  };
+  collateralBalance: string;      // Amount supplied as collateral
+  collateralBalanceUsd: string;   // USD value
+}
+
+function CollateralSelector({
+  selected,
+  assets,
+  onSelect,
+}: {
+  selected: ICollateralAsset;
+  assets: ICollateralAsset[];
+  onSelect: (asset: ICollateralAsset) => void;
+}) {
+  return (
+    <Popover>
+      <Popover.Trigger>
+        <XStack alignItems="center" gap="$1" cursor="pointer">
+          <Image source={{ uri: selected.token.logoURI }} size={24} />
+          <SizableText>{selected.token.symbol}</SizableText>
+          <Icon name="ChevronDownSmallOutline" size={16} />
+        </XStack>
+      </Popover.Trigger>
+      <Popover.Content>
+        <YStack>
+          <XStack justifyContent="space-between" px="$3" py="$2">
+            <SizableText size="$bodySm" color="$textSubdued">Asset</SizableText>
+            <SizableText size="$bodySm" color="$textSubdued">Available</SizableText>
+          </XStack>
+          {assets.map((asset) => (
+            <Pressable
+              key={asset.reserveAddress}
+              onPress={() => onSelect(asset)}
+            >
+              <XStack
+                justifyContent="space-between"
+                alignItems="center"
+                px="$3"
+                py="$2"
+                bg={asset.reserveAddress === selected.reserveAddress ? '$bgActive' : undefined}
+              >
+                <XStack alignItems="center" gap="$2">
+                  <Image source={{ uri: asset.token.logoURI }} size={32} />
+                  <SizableText>{asset.token.symbol}</SizableText>
+                </XStack>
+                <YStack alignItems="flex-end">
+                  <SizableText>
+                    {asset.collateralBalance} {asset.token.symbol}
+                  </SizableText>
+                  <SizableText size="$bodySm" color="$textSubdued">
+                    ${asset.collateralBalanceUsd}
+                  </SizableText>
+                </YStack>
+              </XStack>
+            </Pressable>
+          ))}
+        </YStack>
+      </Popover.Content>
+    </Popover>
+  );
+}
+```
+
+### Slippage Settings
+
+For operations involving swaps, implement slippage settings:
+
+```typescript
+interface ISlippageSettings {
+  mode: 'auto' | 'custom';
+  value: string;  // Percentage, e.g., "0.5"
+}
+
+const DEFAULT_SLIPPAGE = '0.5';
+
+function SlippageSettings({
+  settings,
+  onChange,
+}: {
+  settings: ISlippageSettings;
+  onChange: (settings: ISlippageSettings) => void;
+}) {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  return (
+    <YStack>
+      <Pressable onPress={() => setIsExpanded(!isExpanded)}>
+        <XStack justifyContent="space-between" alignItems="center">
+          <XStack alignItems="center" gap="$1">
+            <SizableText size="$bodySm" color="$textSubdued">Slippage</SizableText>
+            <Tooltip content="Maximum price difference you're willing to accept">
+              <Icon name="InfoCircleOutline" size={14} color="$iconSubdued" />
+            </Tooltip>
+          </XStack>
+          <XStack alignItems="center" gap="$1">
+            <SizableText size="$bodySm">
+              {settings.mode === 'auto' ? `Auto (${DEFAULT_SLIPPAGE}%)` : `${settings.value}%`}
+            </SizableText>
+            <Icon
+              name={isExpanded ? 'ChevronUpSmallOutline' : 'ChevronRightSmallOutline'}
+              size={16}
+              color="$iconSubdued"
+            />
+          </XStack>
+        </XStack>
+      </Pressable>
+
+      {isExpanded && (
+        <XStack gap="$2" mt="$2">
+          <Button
+            size="small"
+            variant={settings.mode === 'auto' ? 'primary' : 'secondary'}
+            onPress={() => onChange({ mode: 'auto', value: DEFAULT_SLIPPAGE })}
+          >
+            Auto
+          </Button>
+          {['0.1', '0.5', '1.0'].map((value) => (
+            <Button
+              key={value}
+              size="small"
+              variant={settings.mode === 'custom' && settings.value === value ? 'primary' : 'secondary'}
+              onPress={() => onChange({ mode: 'custom', value })}
+            >
+              {value}%
+            </Button>
+          ))}
+          <NumberInput
+            value={settings.mode === 'custom' ? settings.value : ''}
+            onChange={(value) => onChange({ mode: 'custom', value })}
+            placeholder="Custom"
+            suffix="%"
+            size="small"
+          />
+        </XStack>
+      )}
+    </YStack>
+  );
+}
+```
+
+### Price Impact Display
+
+Show price impact with color-coded severity:
+
+```typescript
+type TPriceImpactSeverity = 'low' | 'medium' | 'high';
+
+function getPriceImpactSeverity(impact: string): TPriceImpactSeverity {
+  const impactNum = Math.abs(parseFloat(impact));
+  if (impactNum < 0.5) return 'low';
+  if (impactNum < 2) return 'medium';
+  return 'high';
+}
+
+function getPriceImpactColor(impact: string): string {
+  const severity = getPriceImpactSeverity(impact);
+  switch (severity) {
+    case 'low':
+      return '$textSubdued';
+    case 'medium':
+      return '$textCaution';
+    case 'high':
+      return '$textCritical';
+  }
+}
+
+function PriceImpactDisplay({ impact, usdValue }: { impact: string; usdValue: string }) {
+  const severity = getPriceImpactSeverity(impact);
+  const color = getPriceImpactColor(impact);
+
+  return (
+    <XStack alignItems="center" gap="$1">
+      <SizableText size="$bodySm" color={color}>
+        ${usdValue} ({impact}%)
+      </SizableText>
+      {severity === 'high' && (
+        <Icon name="AlertTriangleOutline" size={14} color="$iconCritical" />
+      )}
+    </XStack>
+  );
+}
+```
+
+### Repay with Collateral Info Display
+
+Show the impact of the operation on user's position:
+
+```tsx
+function RepayWithCollateralInfo({
+  healthFactor,
+  myBorrow,
+  remainingCollateral,
+}: IRepayWithCollateralInfoProps) {
+  return (
+    <YStack gap="$3">
+      {/* Health Factor Change */}
+      <XStack justifyContent="space-between" alignItems="center">
+        <SizableText>Health factor</SizableText>
+        <XStack alignItems="center" gap="$2">
+          <SizableText color={getHealthFactorColor(healthFactor.current)}>
+            {healthFactor.current}
+          </SizableText>
+          <Icon name="ArrowRightOutline" size={14} color="$iconSubdued" />
+          <SizableText color={getHealthFactorColor(healthFactor.after)}>
+            {healthFactor.after}
+          </SizableText>
+        </XStack>
+      </XStack>
+      {healthFactor.after < 1.5 && (
+        <SizableText size="$bodySm" color="$textCritical">
+          Liquidation at &lt; 1.0
+        </SizableText>
+      )}
+
+      {/* My Borrow Change */}
+      <XStack justifyContent="space-between" alignItems="center">
+        <SizableText>My borrow</SizableText>
+        <XStack alignItems="center" gap="$2">
+          <YStack alignItems="flex-end">
+            <SizableText>{myBorrow.current}</SizableText>
+            <SizableText size="$bodySm" color="$textSubdued">
+              ${myBorrow.currentUsd}
+            </SizableText>
+          </YStack>
+          <Icon name="ArrowRightOutline" size={14} color="$iconSubdued" />
+          <YStack alignItems="flex-end">
+            <SizableText>{myBorrow.after}</SizableText>
+            <SizableText size="$bodySm" color="$textSubdued">
+              ${myBorrow.afterUsd}
+            </SizableText>
+          </YStack>
+        </XStack>
+      </XStack>
+
+      {/* Remaining Collateral */}
+      <XStack justifyContent="space-between" alignItems="center">
+        <SizableText>Remaining collateral</SizableText>
+        <SizableText>
+          {remainingCollateral.amount} {remainingCollateral.symbol} (${remainingCollateral.usd})
+        </SizableText>
+      </XStack>
+    </YStack>
+  );
+}
+```
+
+---
+
+## Adding a New Lending Protocol
+
+This section provides a comprehensive guide for integrating a new lending protocol (e.g., AAVE, Compound) into the Borrow module.
+
+### Protocol Feature Comparison
+
+Before integration, understand the protocol's features:
+
+| Feature | Morpho | AAVE v3 | Compound v3 |
+|---------|--------|---------|-------------|
+| Health Factor | ✅ | ✅ | ❌ (uses Account Liquidity) |
+| Multiple Markets | ✅ | ✅ | ✅ |
+| Flash Loans | ❌ | ✅ | ❌ |
+| Isolation Mode | ❌ | ✅ | ❌ |
+| E-Mode (Efficiency Mode) | ❌ | ✅ | ❌ |
+| Variable Rate | ✅ | ✅ | ✅ |
+| Stable Rate | ❌ | ✅ | ❌ |
+| Rewards | ✅ | ✅ | ✅ |
+| Permit (Gasless Approval) | ❌ | ✅ | ✅ |
+
+### Step 1: Define Protocol Types
+
+**Location:** `packages/shared/types/borrow/`
+
+```typescript
+// protocols/aave.ts
+export enum EAaveFeature {
+  IsolationMode = 'IsolationMode',
+  EMode = 'EMode',
+  StableRate = 'StableRate',
+}
+
+export interface IAaveMarket extends IBorrowMarketItem {
+  provider: 'aave';
+  features: EAaveFeature[];
+  eModeCategories?: IAaveEModeCategory[];
+}
+
+export interface IAaveEModeCategory {
+  id: number;
+  label: string;
+  ltv: string;
+  liquidationThreshold: string;
+  liquidationBonus: string;
+  assets: string[];  // Reserve addresses in this category
+}
+
+export interface IAaveReserve extends IBorrowReserveItem {
+  // AAVE-specific fields
+  stableBorrowRate?: string;
+  variableBorrowRate: string;
+  isIsolated?: boolean;
+  isolationModeTotalDebt?: string;
+  isolationModeDebtCeiling?: string;
+  eModeCategory?: number;
+}
+```
+
+### Step 2: Extend Provider Enum
+
+**Location:** `packages/shared/types/staking.ts`
+
+```typescript
+export enum EBorrowProvider {
+  Morpho = 'morpho',
+  Aave = 'aave',
+  Compound = 'compound',
+  // Add new provider here
+}
+```
+
+### Step 3: Implement Backend Service Methods
+
+**Location:** `packages/kit-bg/src/services/ServiceStaking.ts`
+
+```typescript
+// Add protocol-specific methods
+class ServiceStaking {
+  // ... existing methods
+
+  // AAVE-specific: Get E-Mode categories
+  @backgroundMethod()
+  async getAaveEModeCategories(params: {
+    networkId: string;
+    marketAddress: string;
+  }): Promise<IAaveEModeCategory[]> {
+    // Implementation
+  }
+
+  // AAVE-specific: Set E-Mode
+  @backgroundMethod()
+  async setAaveEMode(params: {
+    networkId: string;
+    marketAddress: string;
+    accountId: string;
+    categoryId: number;
+  }): Promise<IEncodedTx> {
+    // Implementation
+  }
+
+  // Protocol-agnostic methods should handle provider differences internally
+  @backgroundMethod()
+  async getBorrowReserves(params: IBorrowReservesParams): Promise<IBorrowReserveItem> {
+    const { provider } = params;
+
+    switch (provider) {
+      case EBorrowProvider.Aave:
+        return this.getAaveReserves(params);
+      case EBorrowProvider.Morpho:
+        return this.getMorphoReserves(params);
+      case EBorrowProvider.Compound:
+        return this.getCompoundReserves(params);
+      default:
+        throw new Error(`Unsupported provider: ${provider}`);
+    }
+  }
+}
+```
+
+### Step 4: Protocol-Specific UI Components (if needed)
+
+For protocols with unique features, create dedicated UI components:
+
+**Example: AAVE E-Mode Selector**
+
+```tsx
+// packages/kit/src/views/Borrow/components/AaveEModeSelector.tsx
+function AaveEModeSelector({
+  categories,
+  currentCategory,
+  onSelect,
+}: {
+  categories: IAaveEModeCategory[];
+  currentCategory: number;
+  onSelect: (categoryId: number) => void;
+}) {
+  return (
+    <YStack>
+      <XStack justifyContent="space-between" alignItems="center">
+        <SizableText>E-Mode</SizableText>
+        <Popover>
+          <Popover.Trigger>
+            <XStack alignItems="center" gap="$1" cursor="pointer">
+              <SizableText>
+                {currentCategory === 0
+                  ? 'Disabled'
+                  : categories.find(c => c.id === currentCategory)?.label}
+              </SizableText>
+              <Icon name="ChevronDownSmallOutline" size={16} />
+            </XStack>
+          </Popover.Trigger>
+          <Popover.Content>
+            <YStack>
+              <Pressable onPress={() => onSelect(0)}>
+                <XStack px="$3" py="$2">
+                  <SizableText>Disabled</SizableText>
+                </XStack>
+              </Pressable>
+              {categories.map((category) => (
+                <Pressable key={category.id} onPress={() => onSelect(category.id)}>
+                  <YStack px="$3" py="$2">
+                    <SizableText>{category.label}</SizableText>
+                    <SizableText size="$bodySm" color="$textSubdued">
+                      LTV: {category.ltv}% | Liquidation: {category.liquidationThreshold}%
+                    </SizableText>
+                  </YStack>
+                </Pressable>
+              ))}
+            </YStack>
+          </Popover.Content>
+        </Popover>
+      </XStack>
+    </YStack>
+  );
+}
+```
+
+### Step 5: Extend ManagePosition (if needed)
+
+For protocols with significantly different operation flows:
+
+```typescript
+// In ManagePosition/index.tsx
+function ManagePosition(props: IManagePositionProps) {
+  const { providerName, action } = props;
+
+  // Protocol-specific rendering
+  if (providerName === EBorrowProvider.Aave && action === 'borrow') {
+    return <AaveBorrowContent {...props} />;
+  }
+
+  // Default rendering
+  return <DefaultManagePositionContent {...props} />;
+}
+```
+
+### Step 6: Update Tag System
+
+**Location:** `packages/kit/src/views/Staking/utils/utils.ts`
+
+```typescript
+// Extend tag format if protocol has unique operations
+export function buildBorrowTag(params: {
+  provider: string;
+  action: TBorrowAction | 'setEMode';  // Add protocol-specific actions
+  claimIds?: string[];
+  eModeCategory?: number;  // AAVE-specific
+}): string {
+  const { provider, action, claimIds, eModeCategory } = params;
+  let tag = `borrow:${provider}:${action}`;
+
+  if (claimIds?.length) {
+    tag += `:${claimIds.join(',')}`;
+  }
+  if (eModeCategory !== undefined) {
+    tag += `:emode-${eModeCategory}`;
+  }
+
+  return tag;
+}
+```
+
+### Step 7: Testing Checklist
+
+- [ ] Test all 4 basic operations (Supply, Withdraw, Borrow, Repay)
+- [ ] Test protocol-specific features (E-Mode, Isolation Mode, etc.)
+- [ ] Test health factor calculation and display
+- [ ] Test liquidation risk warnings
+- [ ] Test rewards claiming
+- [ ] Test pending transaction tracking
+- [ ] Test error handling for protocol-specific errors
+- [ ] Test on all supported networks for the protocol
+- [ ] Test responsive layout (desktop/mobile)
+
+### Protocol Integration Checklist
+
+```markdown
+## New Protocol Integration Checklist
+
+### Phase 1: Type Definitions
+- [ ] Define protocol-specific types in `packages/shared/types/borrow/`
+- [ ] Add provider to `EBorrowProvider` enum
+- [ ] Define protocol feature flags
+
+### Phase 2: Backend Service
+- [ ] Implement `get{Protocol}Markets()` method
+- [ ] Implement `get{Protocol}Reserves()` method
+- [ ] Implement `get{Protocol}HealthFactor()` method (if applicable)
+- [ ] Implement protocol-specific action methods
+- [ ] Update `getBorrowReserves()` to handle new provider
+- [ ] Update `getBorrowTransactionConfirmation()` to handle new provider
+
+### Phase 3: UI Components
+- [ ] Determine if protocol needs custom UI components
+- [ ] Create protocol-specific components (if needed)
+- [ ] Update ManagePosition to handle protocol differences
+- [ ] Add protocol-specific info sections to detail page
+
+### Phase 4: Tag System
+- [ ] Update `buildBorrowTag()` for protocol-specific actions
+- [ ] Update `parseBorrowTag()` to handle new tag formats
+- [ ] Test pending transaction tracking
+
+### Phase 5: Testing
+- [ ] Test all operations on testnet
+- [ ] Test all operations on mainnet
+- [ ] Test edge cases (max amounts, zero balance, etc.)
+- [ ] Test error scenarios
+- [ ] Test responsive layout
+```
+```
