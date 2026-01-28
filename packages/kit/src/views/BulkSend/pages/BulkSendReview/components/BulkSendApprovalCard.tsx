@@ -137,8 +137,8 @@ function BulkSendApprovalCard({
   return (
     <YStack px="$5" py="$3">
       <YStack bg="$bgSubdued" borderRadius="$3" py="$2" overflow="hidden">
-        <Accordion type="single" collapsible defaultValue="">
-          <Accordion.Item value="approval">
+        <Accordion type="single" collapsible defaultValue="" bg="transparent">
+          <Accordion.Item value="approval" bg="transparent">
             <Accordion.Trigger
               flexDirection="row"
               justifyContent="space-between"
@@ -146,13 +146,17 @@ function BulkSendApprovalCard({
               px="$4"
               py="$1"
               unstyled
+              focusStyle={{}}
+              pressStyle={{}}
+              borderWidth={0}
+              backgroundColor="transparent"
             >
               {({ open }: { open: boolean }) => (
                 <>
-                  <SizableText flex={1} size="$headingSm">
+                  <SizableText size="$headingSm">
                     Token approval
                   </SizableText>
-                  <XStack gap="$2" alignItems="center">
+                  <XStack flex={1} gap="$2" alignItems="center" justifyContent="flex-end">
                     {!open ? (
                       <>
                         <Token
@@ -183,8 +187,13 @@ function BulkSendApprovalCard({
                 </>
               )}
             </Accordion.Trigger>
-            <Accordion.HeightAnimator animation="quick">
-              <Accordion.Content animation="quick" exitStyle={{ opacity: 0 }}>
+            <Accordion.HeightAnimator animation="quick" backgroundColor="transparent">
+              <Accordion.Content
+                animation="quick"
+                exitStyle={{ opacity: 0 }}
+                backgroundColor="transparent"
+                padding="$0"
+              >
                 {approvesInfo.map((approveInfo, index) => (
                   <ApprovalItem
                     key={`${approveInfo.spender}-${approveInfo.amount}-${index}`}
