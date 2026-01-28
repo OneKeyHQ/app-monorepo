@@ -3,8 +3,8 @@ import { useCallback } from 'react';
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
   rootNavigationRef,
-  useIsTabletDetailView,
-  useIsTabletMainView,
+  useSplitMainView,
+  useSplitSubView,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -45,8 +45,8 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
   const navigation =
     useAppNavigation<IPageNavigationProp<ITabMarketParamList>>();
   const tokenDetailActions = useTokenDetailActions();
-  const isTabletMainView = useIsTabletMainView();
-  const isTabletDetailView = useIsTabletDetailView();
+  const isTabletMainView = useSplitMainView();
+  const isTabletDetailView = useSplitSubView();
 
   const toMarketDetailPage = useCallback(
     async (item: IMarketToken) => {

@@ -13,16 +13,16 @@ import {
   SizableText,
   YStack,
   useIsNativeTablet,
-  useIsTabletDetailView,
-  useIsTabletMainView,
   useOrientation,
+  useSplitMainView,
+  useSplitSubView,
 } from '@onekeyhq/components';
 
 import type { LayoutChangeEvent } from 'react-native';
 
 export function TabletHomeContainer({ children }: PropsWithChildren) {
-  const isMainView = useIsTabletMainView();
-  const isDetailView = useIsTabletDetailView();
+  const isMainView = useSplitMainView();
+  const isDetailView = useSplitSubView();
   const isLandscape = useOrientation();
 
   if (isMainView && !isLandscape) {

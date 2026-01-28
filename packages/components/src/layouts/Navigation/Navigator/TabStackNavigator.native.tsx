@@ -12,7 +12,12 @@ import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
 
-import { useIsTabletDetailView, useIsTabletMainView, useTheme, useThemeName } from '../../../hooks';
+import {
+  useSplitMainView,
+  useSplitSubView,
+  useTheme,
+  useThemeName,
+} from '../../../hooks';
 import { makeTabScreenOptions } from '../GlobalScreenOptions';
 import { createStackNavigator } from '../StackNavigator';
 
@@ -160,8 +165,8 @@ export function TabStackNavigator<RouteName extends string>({
     return screens;
   }, [config, extraConfig, intl, handleTabPress]);
 
-  const isDetailView = useIsTabletDetailView();
-  const isMainView = useIsTabletMainView();
+  const isDetailView = useSplitSubView();
+  const isMainView = useSplitMainView();
   const hidden = useMemo(() => {
     if (isMainView) {
       return true;
@@ -169,8 +174,8 @@ export function TabStackNavigator<RouteName extends string>({
     if (isDetailView) {
       return false;
     }
-    return  tabBarHidden;
-  }, [tabBarHidden, isMainView, isDetailView])
+    return tabBarHidden;
+  }, [tabBarHidden, isMainView, isDetailView]);
   return (
     <NativeTab.Navigator
       labeled

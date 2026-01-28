@@ -1,8 +1,8 @@
 import { RootSiblingParent } from 'react-native-root-siblings';
 
 import {
-  ETabletViewType,
-  TabletModeViewContext,
+  ESplitViewType,
+  SplitViewContext,
   useIsNativeTablet,
 } from '@onekeyhq/components';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
@@ -84,8 +84,8 @@ function MainRouter() {
   return <NavigationContainer />;
 }
 
-const tabletMainViewContext = { viewType: ETabletViewType.MAIN };
-const tabletDetailViewContext = { viewType: ETabletViewType.DETAIL };
+const splitMainViewContext = { viewType: ESplitViewType.MAIN };
+const splitSubViewContext = { viewType: ESplitViewType.SUB };
 
 export function Container() {
   const isTablet = useIsNativeTablet();
@@ -95,14 +95,14 @@ export function Container() {
         <AppStateLockContainer>
           <TableSplitViewContainer
             mainRouter={
-              <TabletModeViewContext.Provider value={tabletMainViewContext}>
+              <SplitViewContext.Provider value={splitMainViewContext}>
                 <MainRouter />
-              </TabletModeViewContext.Provider>
+              </SplitViewContext.Provider>
             }
             detailRouter={
-              <TabletModeViewContext.Provider value={tabletDetailViewContext}>
+              <SplitViewContext.Provider value={splitSubViewContext}>
                 <DetailRouter />
-              </TabletModeViewContext.Provider>
+              </SplitViewContext.Provider>
             }
           />
           <GlobalWalletConnectModalContainer />

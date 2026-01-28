@@ -8,10 +8,10 @@ import {
   Portal,
   Stack,
   TabStackNavigator,
-  useIsTabletDetailView,
-  useIsTabletMainView,
   useMedia,
   useOrientation,
+  useSplitMainView,
+  useSplitSubView,
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -38,7 +38,7 @@ const useIsIOSTabNavigatorFocused =
 let isRendered = false;
 function InPageTabContainer() {
   const isRenderedRef = useRef(isRendered);
-  const isTabletMainView = useIsTabletMainView();
+  const isTabletMainView = useSplitMainView();
   if (isRenderedRef.current || isTabletMainView) {
     return null;
   }
@@ -78,7 +78,7 @@ export function TabNavigator() {
   const isShowWebTabBar = platformEnv.isDesktop;
   const isFocused = useIsIOSTabNavigatorFocused();
   const { gtMd } = useMedia();
-  const isTabletDetailView = useIsTabletDetailView();
+  const isTabletDetailView = useSplitSubView();
 
   useCheckTabsChangedInDev(config);
 
