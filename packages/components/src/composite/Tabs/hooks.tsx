@@ -13,7 +13,7 @@ import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
 import { useAppSideBarStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useIsNativeTablet, useOrientation } from '../../hooks';
+import { isNativeTablet, useIsSplitView } from '../../hooks';
 import { useIPadModalPageWidth, useIsIpadModalPage } from '../../layouts';
 import {
   DESKTOP_MODE_UI_PAGE_BORDER_WIDTH,
@@ -26,6 +26,8 @@ import { useTabNameContext as useNativeTabNameContext } from './TabNameContext';
 import { useFocusedTab } from './useFocusedTab';
 
 import type { useEventEmitter } from './useEventEmitter';
+import { useDualScreenWidth } from '@onekeyhq/shared/src/modules/DualScreenInfo/index.android';
+import { isDualScreenDevice } from '@onekeyhq/shared/src/modules/DualScreenInfo';
 
 export const useTabNameContext = useNativeTabNameContext;
 
@@ -78,23 +80,30 @@ export function useTabIsRefreshingFocused() {
 
 export * from './useCurrentTabScrollY';
 
-export const useTabContainerWidth = platformEnv.isNative
+const useNativeTabContainerWidth = isDualScreenDevice()
   ? () => {
-      const isTablet = useIsNativeTablet();
-      const isLandscape = useOrientation();
-      const { width, height } = useWindowDimensions();
+      const dualScreenWidth = useDualScreenWidth();
+      return dualScreenWidth;
+    }
+  : () => {
+      const isTablet = isNativeTablet();
+      const isLandscape = useIsSplitView();
+      const { width } = useWindowDimensions();
       const isIpadModalPage = useIsIpadModalPage();
       const ipadModalPageWidth = useIPadModalPageWidth();
       if (isIpadModalPage) {
         return ipadModalPageWidth || 640;
       }
-      if (isTablet) {
-        return isLandscape
-          ? Math.max(width, height) / 2
-          : Math.min(width, height);
+      if (isTablet && isLandscape) {
+        // In landscape split view, use half of the screen width
+        return width / 2;
       }
-      return Math.min(width, height);
-    }
+      // In portrait or non-tablet, use full screen width
+      return width;
+    };
+
+export const useTabContainerWidth = platformEnv.isNative
+  ? useNativeTabContainerWidth
   : () => {
       const [{ isCollapsed: leftSidebarCollapsed = false }] =
         useAppSideBarStatusAtom();
