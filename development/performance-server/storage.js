@@ -103,8 +103,6 @@ function appendEvent(sessionId, event) {
 
 // Update session metadata
 function updateSessionMeta(sessionId, event) {
-  const sessionDir = getSessionDir(sessionId);
-
   let meta = {
     sessionId,
     platform: event.platform || 'unknown',
