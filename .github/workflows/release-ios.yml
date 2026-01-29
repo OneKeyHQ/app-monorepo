@@ -14,6 +14,9 @@ on:
         required: false
         default: ''
 
+env:
+  YARN_ENABLE_GLOBAL_CACHE: true
+
 jobs:
   release-ios:
     runs-on: ubuntu-24.04

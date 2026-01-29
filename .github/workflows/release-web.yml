@@ -8,6 +8,9 @@ on:
       - completed
   workflow_dispatch:
 
+env:
+  YARN_ENABLE_GLOBAL_CACHE: true
+
 jobs:
   test-web:
     runs-on: ubuntu-24.04

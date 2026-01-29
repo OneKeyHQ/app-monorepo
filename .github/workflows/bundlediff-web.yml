@@ -10,6 +10,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+env:
+  YARN_ENABLE_GLOBAL_CACHE: true
+
 jobs:
   # Build current and upload stats.json
   # You may replace this with your own build method. All that

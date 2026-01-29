@@ -8,13 +8,16 @@ on:
       - completed
   workflow_dispatch:
 
+env:
+  YARN_ENABLE_GLOBAL_CACHE: true
+
 jobs:
   release-desktop-mas:
     runs-on: macos-26
     strategy:
       matrix:
         node-version: [24.x]
-          cache: 'yarn'
+        cache: ['yarn']
 
     if: ${{ !github.event.workflow_run || (github.event.workflow_run && github.event.workflow_run.conclusion == 'success') }}
     steps:

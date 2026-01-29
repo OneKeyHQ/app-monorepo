@@ -8,13 +8,16 @@ on:
         required: false
         default: ''
 
+env:
+  YARN_ENABLE_GLOBAL_CACHE: true
+
 jobs:
   release-android-debug:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
         node-version: [24.x]
-          cache: 'yarn'
+        cache: ['yarn']
 
     steps:
       - name: Show executed time

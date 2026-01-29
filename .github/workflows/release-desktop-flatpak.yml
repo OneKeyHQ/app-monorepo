@@ -12,13 +12,16 @@ permissions:
   contents: read
   actions: write
 
+env:
+  YARN_ENABLE_GLOBAL_CACHE: true
+
 jobs:
   release-desktop-flatpak:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
         node-version: [24.x]
-          cache: 'yarn'
+        cache: ['yarn']
 
     if: ${{ !github.event.workflow_run || (github.event.workflow_run && github.event.workflow_run.conclusion == 'success') }}
     steps:

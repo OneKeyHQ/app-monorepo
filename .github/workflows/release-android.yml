@@ -14,6 +14,9 @@ on:
         required: false
         default: ''
 
+env:
+  YARN_ENABLE_GLOBAL_CACHE: true
+
 jobs:
   release-android:
     runs-on: ubuntu-24.04
