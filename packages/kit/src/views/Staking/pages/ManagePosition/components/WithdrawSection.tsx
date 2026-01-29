@@ -3,8 +3,7 @@ import { useCallback, useMemo, useState } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { UniversalBorrowRepay } from '@onekeyhq/kit/src/views/Borrow/components/UniversalBorrowRepay';
-import { UniversalBorrowWithdraw } from '@onekeyhq/kit/src/views/Borrow/components/UniversalBorrowWithdraw';
+import { ManagePosition } from '@onekeyhq/kit/src/views/Borrow/components/ManagePosition';
 import {
   useUniversalBorrowRepay,
   useUniversalBorrowWithdraw,
@@ -130,8 +129,6 @@ export const WithdrawSection = ({
     borrowApiCtx.isBorrow &&
     (borrowApiCtx.borrowApiParams.action === 'withdraw' ||
       borrowApiCtx.borrowApiParams.action === 'repay');
-  const BorrowWithdrawComponent =
-    borrowAction === 'repay' ? UniversalBorrowRepay : UniversalBorrowWithdraw;
   const token = useMemo(() => tokenInfo?.token as IToken, [tokenInfo]);
 
   // Determine the effective token info (from selected asset or default)
@@ -350,10 +347,11 @@ export const WithdrawSection = ({
       (borrowAction === 'withdraw' || borrowAction === 'repay')
     ) {
       return (
-        <BorrowWithdrawComponent
+        <ManagePosition
           accountId={accountId}
           networkId={networkId}
           providerName=""
+          action={borrowAction}
           balance="0"
           price="0"
           isDisabled
@@ -363,6 +361,7 @@ export const WithdrawSection = ({
           tokenImageUri={fallbackTokenImageUri}
           tokenSymbol={tokenInfo?.token.symbol}
           actionLabel={borrowActionLabel}
+          isInModalContext={isInModalContext}
         />
       );
     }
@@ -388,16 +387,17 @@ export const WithdrawSection = ({
   return (
     <>
       {isBorrowWithdraw ? (
-        <BorrowWithdrawComponent
+        <ManagePosition
+          accountId={accountId}
+          networkId={networkId}
+          providerName={providerName}
+          action={borrowApiCtx.borrowApiParams.action as 'withdraw' | 'repay'}
           price={tokenInfo?.price ? String(tokenInfo.price) : '0'}
           decimals={effectiveDecimals}
           balance={effectiveBalance}
           maxBalance={effectiveMaxBalance}
-          accountId={accountId}
-          networkId={networkId}
           tokenSymbol={effectiveTokenSymbol}
           tokenImageUri={effectiveTokenImageUri}
-          providerName={providerName}
           onConfirm={onBorrowConfirm}
           tokenInfo={tokenInfo}
           isDisabled={isDisabled}
@@ -411,6 +411,7 @@ export const WithdrawSection = ({
           selectableAssets={assetsList.assets}
           selectableAssetsLoading={assetsListLoading}
           onTokenSelect={handleTokenSelect}
+          isInModalContext={isInModalContext}
         />
       ) : (
         <UniversalWithdraw

@@ -16,7 +16,7 @@ on:
 
 jobs:
   release-android:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     if: ${{ !github.event.workflow_run || (github.event.workflow_run && github.event.workflow_run.conclusion == 'success') }}
     steps:
       - name: Show executed time

@@ -229,7 +229,7 @@ export function useUniversalBorrowAction({
   }, 300);
 
   useEffect(() => {
-    if (!isReady || !amount || isAmountInvalid(amount)) {
+    if (!isReady || (amount && isAmountInvalid(amount))) {
       setCheckAmountMessage('');
       setCheckAmountAlerts([]);
       setCheckAmountLoading(false);
@@ -238,7 +238,7 @@ export function useUniversalBorrowAction({
       return;
     }
 
-    void checkAmount(amount);
+    void checkAmount(amount || '0');
   }, [amount, checkAmount, isReady, repayAll]);
 
   const isCheckAmountMessageError = useMemo(

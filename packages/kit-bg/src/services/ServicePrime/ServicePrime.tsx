@@ -92,7 +92,7 @@ class ServicePrime extends ServiceBase {
           {},
           {
             headers: {
-              'X-Onekey-Request-Token': `${accessToken}`,
+              'X-Onekey-Request-Token': accessToken,
             },
           },
         );
@@ -151,7 +151,7 @@ class ServicePrime extends ServiceBase {
       {},
       {
         headers: {
-          'X-Onekey-Request-Token': `${accessToken}`,
+          'X-Onekey-Request-Token': accessToken,
         },
       },
     );
@@ -170,7 +170,7 @@ class ServicePrime extends ServiceBase {
       '/prime/v1/user/devices',
       {
         headers: {
-          'X-Onekey-Request-Token': `${accessToken}`,
+          'X-Onekey-Request-Token': accessToken,
         },
       },
     );
