@@ -472,7 +472,7 @@ const BaseDevSettingsSection = () => {
                       windowHeight: Dimensions.get('window').height,
                       windowWidth: Dimensions.get('window').width,
                       screenHeight: Dimensions.get('screen').height,
-                      screenWidh: Dimensions.get('screen').width,
+                      screenWidth: Dimensions.get('screen').width,
                     },
                   });
                 }}
