@@ -451,7 +451,7 @@ function GetStarted() {
               gap={38}
               justifyContent="center"
               alignItems="center"
-              pb="$9"
+              pb={58}
             >
               <DecorativeOneKeyLogo />
               <Stack gap="$4" minWidth="$80" zIndex={1}>
