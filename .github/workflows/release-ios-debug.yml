@@ -14,6 +14,7 @@ jobs:
     strategy:
       matrix:
         node-version: [24.x]
+          cache: 'yarn'
         ruby-version: [3.4.4]
         xcode-version: [26.0]
 
@@ -46,6 +47,7 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node-version }}
+          cache: 'yarn'
           registry-url: 'https://npm.pkg.github.com'
           scope: '@onekeyhq'
 

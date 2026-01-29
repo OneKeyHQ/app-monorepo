@@ -46,6 +46,7 @@ jobs:
           registry-url: 'https://npm.pkg.github.com'
           scope: '@onekeyhq'
           node-version: '24.x'
+          cache: 'yarn'
 
       - name: Setup ENV
         run: |
@@ -130,6 +131,7 @@ jobs:
           registry-url: 'https://npm.pkg.github.com'
           scope: '@onekeyhq'
           node-version: '24.x'
+          cache: 'yarn'
 
       - name: Setup ENV
         run: |

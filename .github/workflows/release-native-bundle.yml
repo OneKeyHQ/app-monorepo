@@ -14,6 +14,7 @@ jobs:
     strategy:
       matrix:
         node-version: [24.x]
+          cache: 'yarn'
 
     if: ${{ !github.event.workflow_run || (github.event.workflow_run && github.event.workflow_run.conclusion == 'success') }}
     steps:
@@ -54,6 +55,7 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node-version }}
+          cache: 'yarn'
           registry-url: 'https://npm.pkg.github.com'
           scope: '@onekeyhq'
 
