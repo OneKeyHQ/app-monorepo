@@ -627,6 +627,18 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                   if (newUpdateQuoteRes) {
                     return newUpdateQuoteRes;
                   }
+                  // OK-49700: 如果旧报价的 fromAmount 与当前询价的 fromTokenAmount 相同，
+                  // 则更新旧报价的 eventId 为当前的 eventId，这样它就不会被 eventId 过滤掉，
+                  // 实现再次询价时保留旧报价、只更新部分渠道商报价的效果
+                  if (
+                    oldQuoteRes.fromAmount === event.params.fromTokenAmount &&
+                    quoteEventTotalCount.eventId
+                  ) {
+                    return {
+                      ...oldQuoteRes,
+                      eventId: quoteEventTotalCount.eventId,
+                    };
+                  }
                   return oldQuoteRes;
                 });
                 const newAddQuoteRes = quoteResultsUpdateSlippage.filter(

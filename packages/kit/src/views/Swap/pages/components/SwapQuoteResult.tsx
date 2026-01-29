@@ -356,9 +356,11 @@ const SwapQuoteResult = ({
             toToken={toToken}
             showLock={!!quoteResult?.allowanceResult}
             onPress={
-              quoteResult?.info.provider && swapQuoteList?.length > 1
+              quoteResult?.info.provider &&
+              swapQuoteList?.length > 1 &&
+              onOpenProviderList
                 ? () => {
-                    onOpenProviderList?.();
+                    onOpenProviderList();
                   }
                 : undefined
             }
@@ -489,9 +491,9 @@ const SwapQuoteResult = ({
                   toToken={toToken}
                   showLock={!!quoteResult?.allowanceResult}
                   onPress={
-                    quoteResult?.info.provider
+                    quoteResult?.info.provider && onOpenProviderList
                       ? () => {
-                          onOpenProviderList?.();
+                          onOpenProviderList();
                         }
                       : undefined
                   }

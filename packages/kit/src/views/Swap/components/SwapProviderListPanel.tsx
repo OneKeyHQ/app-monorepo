@@ -368,8 +368,8 @@ const SwapProviderListPanel = ({
       borderWidth={1}
       borderColor="$borderSubdued"
       bg="$bg"
-      minWidth={320}
-      maxWidth={400}
+      minWidth={360}
+      maxWidth={440}
     >
       {/* Header */}
       <XStack
