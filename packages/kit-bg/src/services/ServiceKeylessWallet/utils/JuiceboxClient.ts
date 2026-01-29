@@ -12,6 +12,7 @@ import {
   OneKeyLocalError,
   RequestLimitExceededError,
 } from '@onekeyhq/shared/src/errors';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -187,13 +188,22 @@ export class JuiceboxClient {
     // TODO add juicebox token subject (sub) as prefix to userInfo, like: sub:${userInfo}
     const userInfoBytes = bufferUtils.utf8ToBytes(userInfo);
 
-    // Call SDK register method
-    await this.client.register(
-      pinBytes,
-      secretBytes, // secret exceeds the maximum of 128 bytes
-      userInfoBytes,
-      JUICEBOX_ALLOWED_GUESSES,
-    );
+    try {
+      // Call SDK register method
+      await this.client.register(
+        pinBytes,
+        secretBytes, // secret exceeds the maximum of 128 bytes
+        userInfoBytes,
+        JUICEBOX_ALLOWED_GUESSES,
+      );
+    } catch (e) {
+      defaultLogger.wallet.keyless.juiceboxRegisterError({
+        message: (e as Error)?.message || 'Juicebox register failed',
+        sdkError: e,
+        plainError: errorUtils.toPlainErrorObject(e),
+      });
+      throw e;
+    }
 
     // Clear token cache after successful registration
     // this.clearTokenCache();
@@ -277,6 +287,7 @@ export class JuiceboxClient {
             id: ETranslations.failed_to_recover_secret_from_storage,
           }),
         sdkError: error,
+        plainError: errorUtils.toPlainErrorObject(error),
       });
 
       if (!isNil(guessesRemaining)) {
