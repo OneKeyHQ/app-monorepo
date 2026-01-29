@@ -56,9 +56,9 @@ const getDualScreenInfoWidth = () => {
   const { width: windowWidth } = Dimensions.get('window');
   const { width: screenWidth } = Dimensions.get('screen');
   if (isSpanning()) {
-    return screenWidth / 2;
+    return Math.max(windowWidth, screenWidth) / 2;
   }
-  return windowWidth;
+  return Math.min(windowWidth, screenWidth);
 };
 
 export const useDualScreenWidth = () => {
