@@ -19,6 +19,8 @@ import {
   type IFeeInfoUnit,
   type IFeeSelectorItem,
   type IFeesInfoUnit,
+  type IGasEIP1559,
+  type IGasLegacy,
   type ISendSelectedFeeInfo,
 } from '@onekeyhq/shared/types/fee';
 
@@ -81,6 +83,10 @@ export function useBulkSendFeeEstimation({
 
         let txFee: IFeesInfoUnit | undefined;
         let estimateFeeParams: IEstimateFeeParams | undefined;
+        // Store per-tx fee info for batch estimation
+        let perTxFeeInfos:
+          | { gas?: IGasLegacy[]; gasEIP1559?: IGasEIP1559[] }[]
+          | undefined;
 
         // Try batch estimate for multi-txs
         if (isMultiTxs) {
@@ -96,11 +102,17 @@ export function useBulkSendFeeEstimation({
                   networkId,
                   encodedTxs: encodedTxList,
                 });
+              // Use first tx's fee for fee selector display (all txs share same gas price)
               txFee = {
                 common: multiTxsFeeResult.common,
                 gas: multiTxsFeeResult.txFees[0]?.gas,
                 gasEIP1559: multiTxsFeeResult.txFees[0]?.gasEIP1559,
               };
+              // Store per-tx gas info for accurate fee calculation
+              perTxFeeInfos = multiTxsFeeResult.txFees.map((tf) => ({
+                gas: tf.gas,
+                gasEIP1559: tf.gasEIP1559,
+              }));
             } catch (e) {
               console.error('Batch estimate fee failed, fallback to single', e);
             }
@@ -215,8 +227,19 @@ export function useBulkSendFeeEstimation({
 
         for (let i = 0; i < unsignedTxs.length; i += 1) {
           const unsignedTx = unsignedTxs[i];
+          // Use per-tx fee info if available (from batch estimation)
+          // Otherwise use the shared selectedFeeInfo
+          let txFeeInfo = selectedFeeInfo;
+          if (perTxFeeInfos && perTxFeeInfos[i]) {
+            const perTxFee = perTxFeeInfos[i];
+            txFeeInfo = {
+              ...selectedFeeInfo,
+              gas: perTxFee.gas?.[selectedPresetIndex],
+              gasEIP1559: perTxFee.gasEIP1559?.[selectedPresetIndex],
+            };
+          }
           const feeResult = calculateFeeForSend({
-            feeInfo: selectedFeeInfo,
+            feeInfo: txFeeInfo,
             nativeTokenPrice: txFee.common?.nativeTokenPrice ?? 0,
             txSize: unsignedTx.txSize,
             estimateFeeParams,
@@ -225,7 +248,7 @@ export function useBulkSendFeeEstimation({
           totalNative = totalNative.plus(feeResult.totalNative);
           totalFiat = totalFiat.plus(feeResult.totalFiat);
           feeInfos.push({
-            feeInfo: selectedFeeInfo,
+            feeInfo: txFeeInfo,
             total: feeResult.total,
             totalNative: feeResult.totalNative,
             totalFiat: feeResult.totalFiat,
@@ -248,6 +271,7 @@ export function useBulkSendFeeEstimation({
           totalFeeFiat: totalFiat.toFixed(),
           nativeSymbol: txFee.common?.nativeSymbol ?? '',
           feeInfos,
+          perTxFeeInfos,
         }));
 
         return {
@@ -325,6 +349,8 @@ export function useBulkSendFeeEstimation({
       const selectedFeeInfo = feeState.feeSelectorItems[presetIndex]?.feeInfo;
       if (!selectedFeeInfo) return;
 
+      const { perTxFeeInfos } = feeState;
+
       // Recalculate total fee
       let totalNative = new BigNumber(0);
       let totalFiat = new BigNumber(0);
@@ -332,8 +358,18 @@ export function useBulkSendFeeEstimation({
 
       for (let i = 0; i < unsignedTxs.length; i += 1) {
         const unsignedTx = unsignedTxs[i];
+        // Use per-tx fee info if available (from batch estimation)
+        let txFeeInfo = selectedFeeInfo;
+        if (perTxFeeInfos && perTxFeeInfos[i]) {
+          const perTxFee = perTxFeeInfos[i];
+          txFeeInfo = {
+            ...selectedFeeInfo,
+            gas: perTxFee.gas?.[presetIndex],
+            gasEIP1559: perTxFee.gasEIP1559?.[presetIndex],
+          };
+        }
         const feeResult = calculateFeeForSend({
-          feeInfo: selectedFeeInfo,
+          feeInfo: txFeeInfo,
           nativeTokenPrice: selectedFeeInfo.common?.nativeTokenPrice ?? 0,
           txSize: unsignedTx.txSize,
         });
@@ -341,7 +377,7 @@ export function useBulkSendFeeEstimation({
         totalNative = totalNative.plus(feeResult.totalNative);
         totalFiat = totalFiat.plus(feeResult.totalFiat);
         feeInfos.push({
-          feeInfo: selectedFeeInfo,
+          feeInfo: txFeeInfo,
           total: feeResult.total,
           totalNative: feeResult.totalNative,
           totalFiat: feeResult.totalFiat,
@@ -361,7 +397,12 @@ export function useBulkSendFeeEstimation({
         feeInfos,
       }));
     },
-    [feeState.feeSelectorItems, setFeeState, unsignedTxs],
+    [
+      feeState.feeSelectorItems,
+      feeState.perTxFeeInfos,
+      setFeeState,
+      unsignedTxs,
+    ],
   );
 
   // Force refresh fee (for tx updates)

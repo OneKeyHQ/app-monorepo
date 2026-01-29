@@ -8,6 +8,8 @@ import type {
   EFeeType,
   ESendFeeStatus,
   IFeeSelectorItem,
+  IGasEIP1559,
+  IGasLegacy,
   ISendSelectedFeeInfo,
 } from '@onekeyhq/shared/types/fee';
 import type { IToken } from '@onekeyhq/shared/types/token';
@@ -25,6 +27,8 @@ export type IBulkSendFeeState = {
   totalFeeFiat: string;
   nativeSymbol: string;
   feeInfos: ISendSelectedFeeInfo[];
+  // Per-tx gas info from batch estimation (each tx may have different gas limits)
+  perTxFeeInfos?: { gas?: IGasLegacy[]; gasEIP1559?: IGasEIP1559[] }[];
 };
 
 export type IBulkSendReviewContext = {
