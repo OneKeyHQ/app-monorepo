@@ -1907,6 +1907,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         set(swapFromTokenAmountAtom(), { value: '', isInput: false });
         set(swapToTokenAmountAtom(), { value: '', isInput: false });
       }
+      // OK-49718: Clear quote list when switching type to prevent showing stale data
+      set(swapQuoteListAtom(), []);
+      set(swapQuoteEventTotalCountAtom(), { count: 0 });
       set(swapTypeSwitchAtom(), type);
       if (platformEnv.isNative && type === ESwapTabSwitchType.LIMIT) {
         return;
