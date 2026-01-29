@@ -71,7 +71,6 @@ jobs:
         with:
           path: |
             ${{ steps.yarn-cache-dir-path.outputs.dir }}
-            **/node_modules
           key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock', '**/patches/**') }}
           restore-keys: |
             ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock', '**/patches/**') }}
@@ -82,7 +81,7 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=8192'
         run: |
-          yarn install --immutable --prefer-offline
+          yarn install --immutable
 
       - name: Run postinstall only (cache hit)
         if: steps.yarn-cache.outputs.cache-hit == 'true'
