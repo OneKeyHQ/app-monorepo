@@ -21,7 +21,6 @@ jobs:
     strategy:
       matrix:
         node-version: [24.x]
-        cache: ['yarn']
 
     if: ${{ !github.event.workflow_run || (github.event.workflow_run && github.event.workflow_run.conclusion == 'success') }}
     steps:
