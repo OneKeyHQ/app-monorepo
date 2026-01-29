@@ -102,7 +102,7 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=8192'
         run: |
-          yarn install --immutable --cached
+          yarn install --immutable
 
       - name: Run postinstall only (cache hit)
         if: steps.yarn-cache.outputs.cache-hit == 'true'
