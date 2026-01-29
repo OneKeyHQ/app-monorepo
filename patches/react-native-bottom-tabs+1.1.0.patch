@@ -1,3 +1,57 @@
+diff --git a/node_modules/react-native-bottom-tabs/ios/TabViewImpl.swift b/node_modules/react-native-bottom-tabs/ios/TabViewImpl.swift
+index 72938be..a7a3c15 100644
+--- a/node_modules/react-native-bottom-tabs/ios/TabViewImpl.swift
++++ b/node_modules/react-native-bottom-tabs/ios/TabViewImpl.swift
+@@ -80,7 +80,7 @@ struct TabViewImpl: View {
+         .configureAppearance(props: props, tabBar: tabBar)
+       #endif
+       .tintColor(props.selectedActiveTintColor)
+-      .getSidebarAdaptable(enabled: props.sidebarAdaptable ?? false)
++      .applyTabViewStyle(sidebarAdaptable: props.sidebarAdaptable ?? false)
+       .onChange(of: props.selectedPage ?? "") { newValue in
+         #if !os(macOS)
+           if props.disablePageAnimations {
+@@ -214,6 +214,40 @@ extension View {
+     }
+   }
+ 
++  @ViewBuilder
++  func applyTabViewStyle(sidebarAdaptable: Bool) -> some View {
++    if #available(iOS 18.0, macOS 15.0, tvOS 18.0, visionOS 2.0, *) {
++      #if compiler(>=6.0)
++      if sidebarAdaptable {
++        self.tabViewStyle(.sidebarAdaptable)
++      } else {
++        #if os(iOS)
++        // Force compact horizontal size class on iPad to keep TabBar at bottom
++        // iPhone is already compact by default, no modification needed
++        if UIDevice.current.userInterfaceIdiom == .pad {
++          self
++            .tabViewStyle(.tabBarOnly)
++            .environment(\.horizontalSizeClass, .compact)
++        } else {
++          self.tabViewStyle(.tabBarOnly)
++        }
++        #elseif os(macOS)
++        // Force compact horizontal size class on macOS to keep TabBar at bottom
++        self
++          .tabViewStyle(.tabBarOnly)
++          .environment(\.horizontalSizeClass, .compact)
++        #else
++        self.tabViewStyle(.tabBarOnly)
++        #endif
++      }
++      #else
++      self
++      #endif
++    } else {
++      self
++    }
++  }
++
+   @ViewBuilder
+   func tabBadge(_ data: String?) -> some View {
+     if #available(iOS 15.0, macOS 15.0, visionOS 2.0, tvOS 15.0, *) {
 diff --git a/node_modules/react-native-bottom-tabs/lib/module/TabView.js b/node_modules/react-native-bottom-tabs/lib/module/TabView.js
 index 3ab92c7..81ca149 100644
 --- a/node_modules/react-native-bottom-tabs/lib/module/TabView.js
