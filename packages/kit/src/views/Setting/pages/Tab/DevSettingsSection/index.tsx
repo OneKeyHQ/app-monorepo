@@ -469,6 +469,10 @@ const BaseDevSettingsSection = () => {
                       react_native_dsn: platformEnv.isNative
                         ? process.env.SENTRY_DSN_REACT_NATIVE
                         : '',
+                      windowHeight: Dimensions.get('window').height,
+                      windowWidth: Dimensions.get('window').width,
+                      screenHeight: Dimensions.get('screen').height,
+                      screenWidh: Dimensions.get('screen').width,
                     },
                   });
                 }}
