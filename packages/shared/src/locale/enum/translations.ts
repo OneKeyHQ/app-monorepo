@@ -1545,6 +1545,7 @@
   global_hidden_wallet_desc = 'global.hidden_wallet_desc',
   global_hide = 'global.hide',
   global_history = 'global.history',
+  global_home = 'global.home',
   global_homescreen = 'global.homescreen',
   global_i_got_it = 'global.i_got_it',
   global_i_saved_the_phrase = 'global.i_saved_the_phrase',

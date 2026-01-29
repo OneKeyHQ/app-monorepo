@@ -1540,6 +1540,7 @@
   "global.hidden_wallet_desc": "A passphrase or hidden wallet PIN is required",
   "global.hide": "Hide",
   "global.history": "History",
+  "global.home": "Home",
   "global.homescreen": "Homescreen",
   "global.i_got_it": "I got it",
   "global.i_saved_the_phrase": "I've saved the phrase",
