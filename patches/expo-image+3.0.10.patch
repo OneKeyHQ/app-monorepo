@@ -105,10 +105,10 @@ index 818e050..271ae26 100644
    # Swift/Objective-C compatibility
    s.pod_target_xcconfig = {
 diff --git a/node_modules/expo-image/ios/ImageLoader.swift b/node_modules/expo-image/ios/ImageLoader.swift
-index a0dacf9..62e08dd 100644
+index a0dacf9..b22c929 100644
 --- a/node_modules/expo-image/ios/ImageLoader.swift
 +++ b/node_modules/expo-image/ios/ImageLoader.swift
-@@ -6,7 +6,7 @@ import ExpoModulesCore
+@@ -6,12 +6,18 @@ import ExpoModulesCore
  internal final class ImageLoader {
    static let shared = ImageLoader()
  
@@ -117,7 +117,18 @@ index a0dacf9..62e08dd 100644
      cache: SDImageCache.shared,
      loader: SDImageLoadersManager.shared
    )
-@@ -20,14 +20,44 @@ internal final class ImageLoader {
+ 
+   func load(_ source: ImageSource, maxSize: CGSize? = nil) async throws -> UIImage {
++    // PATCHED: Guard against nil or empty URI to prevent EXC_BAD_ACCESS crash in SDWebImageManager.cacheKeyForURL
++    // When source.uri is nil or empty, SDWebImage crashes when trying to generate a cache key.
++    guard let sourceUri = source.uri, !sourceUri.absoluteString.isEmpty else {
++      throw ImageLoadingFailed()
++    }
++
+     // This loader uses only the disk cache. We may want to give more control on this, but the memory cache
+     // doesn't make much sense for shared refs as they're kept in memory as long as their JS objects.
+     var context = createSDWebImageContext(forSource: source, cachePolicy: .disk)
+@@ -20,14 +26,44 @@ internal final class ImageLoader {
        context[.imageThumbnailPixelSize] = maxSize
      }
  
@@ -153,7 +164,7 @@ index a0dacf9..62e08dd 100644
 +
 +    return try await withTaskCancellationHandler {
 +      try await withCheckedThrowingContinuation { continuation in
-+        let operation = self.imageManager.loadImage(with: source.uri, context: context, progress: nil) { image, _, error, _, finished, _ in
++        let operation = self.imageManager.loadImage(with: sourceUri, context: context, progress: nil) { image, _, error, _, finished, _ in
 +          guard finished else { return }
 +          if let image {
 +            continuation.resume(returning: image)
@@ -193,6 +204,43 @@ index b44f431..9a51548 100644
      SDImageCodersManager.shared.addCoder(SDImageHEICCoder.shared)
    }
  
+diff --git a/node_modules/expo-image/ios/ImageView.swift b/node_modules/expo-image/ios/ImageView.swift
+index c33ec33..fbc50ae 100644
+--- a/node_modules/expo-image/ios/ImageView.swift
++++ b/node_modules/expo-image/ios/ImageView.swift
+@@ -177,10 +177,17 @@ public final class ImageView: ExpoView {
+       return
+     }
+ 
++    // PATCHED: Guard against nil or empty URI to prevent EXC_BAD_ACCESS crash in SDWebImageManager.cacheKeyForURL
++    // When source.uri is nil or empty, SDWebImage crashes when trying to generate a cache key.
++    guard let sourceUri = source.uri, !sourceUri.absoluteString.isEmpty else {
++      onError(["error": "Image source URI is nil or empty"])
++      return
++    }
++
+     onLoadStart([:])
+ 
+     pendingOperation = imageManager.loadImage(
+-      with: source.uri,
++      with: sourceUri,
+       options: loadingOptions,
+       context: context,
+       progress: imageLoadProgress(_:_:_:),
+@@ -336,7 +343,12 @@ public final class ImageView: ExpoView {
+ 
+     let isPlaceholderHash = placeholder.isBlurhash || placeholder.isThumbhash
+ 
+-    imageManager.loadImage(with: placeholder.uri, context: context, progress: nil) { [weak self] placeholder, _, _, _, finished, _ in
++    // PATCHED: Guard against nil or empty URI to prevent EXC_BAD_ACCESS crash in SDWebImageManager.cacheKeyForURL
++    guard let placeholderUri = placeholder.uri, !placeholderUri.absoluteString.isEmpty else {
++      return
++    }
++
++    imageManager.loadImage(with: placeholderUri, context: context, progress: nil) { [weak self] placeholder, _, _, _, finished, _ in
+       guard let self, let placeholder, finished else {
+         return
+       }
 diff --git a/node_modules/expo-image/src/index.ts b/node_modules/expo-image/src/index.ts
 index 6fa0066..ea0ad81 100644
 --- a/node_modules/expo-image/src/index.ts

@@ -496,8 +496,7 @@ const SwapProviderListPanel = ({
                 </SizableText>
               </Stack>
             </MotiView>
-          ) : (isLoading || isWaitingForNewQuoteRef.current) &&
-            !hasQuotes ? (
+          ) : (isLoading || isWaitingForNewQuoteRef.current) && !hasQuotes ? (
             <MotiView
               key="loading"
               from={{ opacity: 0 }}
