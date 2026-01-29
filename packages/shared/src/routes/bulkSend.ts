@@ -5,6 +5,7 @@ import type {
   IApproveInfo,
   ITransferInfo,
 } from '@onekeyhq/kit-bg/src/vaults/types';
+import type { ISendTxOnSuccessData } from '../../types/tx';
 
 export enum EModalBulkSendRoutes {
   BulkSendAddressesInput = 'bulkSendAddressesInput',
@@ -45,5 +46,7 @@ export type IModalBulkSendParamList = {
     totalTokenAmount: string;
     totalFiatAmount: string;
     isInModal?: boolean;
+    onSuccess?: (data: ISendTxOnSuccessData[]) => void;
+    onFail?: (error: Error) => void;
   };
 };

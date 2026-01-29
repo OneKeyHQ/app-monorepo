@@ -19,6 +19,7 @@ import {
   type IFeeInfoUnit,
   type IFeeSelectorItem,
   type IFeesInfoUnit,
+  type ISendSelectedFeeInfo,
 } from '@onekeyhq/shared/types/fee';
 
 import type { IBulkSendFeeState } from '../components/Context';
@@ -208,7 +209,7 @@ export function useBulkSendFeeEstimation({
         }
 
         // Calculate fees for each transaction
-        const feeInfos: IFeeInfoUnit[] = [];
+        const feeInfos: ISendSelectedFeeInfo[] = [];
         let totalNative = new BigNumber(0);
         let totalFiat = new BigNumber(0);
 
@@ -223,7 +224,14 @@ export function useBulkSendFeeEstimation({
 
           totalNative = totalNative.plus(feeResult.totalNative);
           totalFiat = totalFiat.plus(feeResult.totalFiat);
-          feeInfos.push(selectedFeeInfo);
+          feeInfos.push({
+            feeInfo: selectedFeeInfo,
+            total: feeResult.total,
+            totalNative: feeResult.totalNative,
+            totalFiat: feeResult.totalFiat,
+            totalNativeForDisplay: feeResult.totalNativeForDisplay,
+            totalFiatForDisplay: feeResult.totalFiatForDisplay,
+          });
         }
 
         setFeeState((prev) => ({
@@ -320,7 +328,7 @@ export function useBulkSendFeeEstimation({
       // Recalculate total fee
       let totalNative = new BigNumber(0);
       let totalFiat = new BigNumber(0);
-      const feeInfos: IFeeInfoUnit[] = [];
+      const feeInfos: ISendSelectedFeeInfo[] = [];
 
       for (let i = 0; i < unsignedTxs.length; i += 1) {
         const unsignedTx = unsignedTxs[i];
@@ -332,7 +340,14 @@ export function useBulkSendFeeEstimation({
 
         totalNative = totalNative.plus(feeResult.totalNative);
         totalFiat = totalFiat.plus(feeResult.totalFiat);
-        feeInfos.push(selectedFeeInfo);
+        feeInfos.push({
+          feeInfo: selectedFeeInfo,
+          total: feeResult.total,
+          totalNative: feeResult.totalNative,
+          totalFiat: feeResult.totalFiat,
+          totalNativeForDisplay: feeResult.totalNativeForDisplay,
+          totalFiatForDisplay: feeResult.totalFiatForDisplay,
+        });
       }
 
       setFeeState((prev) => ({

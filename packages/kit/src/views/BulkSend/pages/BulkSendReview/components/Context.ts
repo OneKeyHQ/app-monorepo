@@ -7,8 +7,8 @@ import { EBulkSendMode } from '@onekeyhq/shared/types/bulkSend';
 import type {
   EFeeType,
   ESendFeeStatus,
-  IFeeInfoUnit,
   IFeeSelectorItem,
+  ISendSelectedFeeInfo,
 } from '@onekeyhq/shared/types/fee';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
@@ -24,7 +24,7 @@ export type IBulkSendFeeState = {
   totalFeeNative: string;
   totalFeeFiat: string;
   nativeSymbol: string;
-  feeInfos: IFeeInfoUnit[];
+  feeInfos: ISendSelectedFeeInfo[];
 };
 
 export type IBulkSendReviewContext = {
@@ -52,6 +52,10 @@ export type IBulkSendReviewContext = {
   // Fee state
   feeState: IBulkSendFeeState;
   setFeeState: React.Dispatch<React.SetStateAction<IBulkSendFeeState>>;
+
+  // Submit state
+  isSubmitting: boolean;
+  setIsSubmitting: React.Dispatch<React.SetStateAction<boolean>>;
 };
 
 export const BulkSendReviewContext = createContext<IBulkSendReviewContext>({
@@ -93,6 +97,9 @@ export const BulkSendReviewContext = createContext<IBulkSendReviewContext>({
     feeInfos: [],
   },
   setFeeState: () => {},
+
+  isSubmitting: false,
+  setIsSubmitting: () => {},
 });
 
 export const useBulkSendReviewContext = () => useContext(BulkSendReviewContext);

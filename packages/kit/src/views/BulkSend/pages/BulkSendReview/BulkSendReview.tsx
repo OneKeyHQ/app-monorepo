@@ -1,6 +1,8 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 
-import { Page, YStack } from '@onekeyhq/components';
+import { useIntl } from 'react-intl';
+
+import { Page, Toast, YStack } from '@onekeyhq/components';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -11,7 +13,12 @@ import {
   type EModalBulkSendRoutes,
   type IModalBulkSendParamList,
 } from '@onekeyhq/shared/src/routes';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EFeeType, ESendFeeStatus } from '@onekeyhq/shared/types/fee';
+
+import { usePreCheckFeeInfo } from '../../../SignatureConfirm/hooks/usePreCheckFeeInfo';
 
 import BulkSendApprovalCard from './components/BulkSendApprovalCard';
 import BulkSendReviewAlert from './components/BulkSendReviewAlert';
@@ -27,7 +34,13 @@ import {
   useBulkSendReviewContext,
 } from './components/Context';
 
-function BaseBulkSendReview() {
+function BaseBulkSendReview({
+  onSuccess,
+  onFail,
+}: {
+  onSuccess?: (data: any[]) => void;
+  onFail?: (error: Error) => void;
+}) {
   const {
     networkId,
     accountId,
@@ -40,8 +53,11 @@ function BaseBulkSendReview() {
     initialApprovesInfoRef,
     feeState,
     setFeeState,
+    isSubmitting,
+    setIsSubmitting,
   } = useBulkSendReviewContext();
 
+  const intl = useIntl();
   const navigation = useAppNavigation();
   const isMultiTxs = unsignedTxs.length > 1;
 
@@ -54,6 +70,10 @@ function BaseBulkSendReview() {
       feeState,
       setFeeState,
     });
+
+  // Fee overflow check hook
+  const { checkFeeInfoIsOverflow, showFeeInfoOverflowConfirm } =
+    usePreCheckFeeInfo();
 
   // Determine button text based on whether approvals are needed
   const confirmButtonText =
@@ -174,22 +194,129 @@ function BaseBulkSendReview() {
     navigation.pop();
   }, [navigation]);
 
-  const handleConfirm = useCallback(() => {
-    // TODO: Implement confirm logic - sign and send transactions
-    console.log('Confirm pressed');
-    console.log('Selected fee infos:', feeState.feeInfos);
-  }, [feeState.feeInfos]);
+  const handleConfirm = useCallback(async () => {
+    if (!accountId) return;
+
+    const { serviceSend } = backgroundApiProxy;
+
+    setIsSubmitting(true);
+
+    // Step 1: Pre-check unsigned transactions
+    try {
+      await serviceSend.precheckUnsignedTxs({
+        networkId,
+        accountId,
+        unsignedTxs,
+        precheckTiming: ESendPreCheckTimingEnum.Confirm,
+        feeInfos: feeState.feeInfos,
+      });
+    } catch (e: any) {
+      setIsSubmitting(false);
+      onFail?.(e as Error);
+      throw e;
+    }
+
+    // Step 2: Update unsigned transactions before sending
+    let newUnsignedTxs: IUnsignedTxPro[];
+    try {
+      newUnsignedTxs = await serviceSend.updateUnSignedTxBeforeSending({
+        accountId,
+        networkId,
+        unsignedTxs,
+        feeInfos: feeState.feeInfos,
+      });
+    } catch (e: any) {
+      setIsSubmitting(false);
+      onFail?.(e as Error);
+      throw e;
+    }
+
+    // Step 3: Check fee overflow for each transaction
+    for (let i = 0; i < newUnsignedTxs.length; i += 1) {
+      const feeInfo = feeState.feeInfos[i];
+      if (feeInfo) {
+        const isFeeInfoOverflow = await checkFeeInfoIsOverflow({
+          accountId,
+          networkId,
+          feeAmount: feeInfo.totalNative,
+          feeSymbol: feeInfo.feeInfo.common?.nativeSymbol ?? '',
+          encodedTx: newUnsignedTxs[i].encodedTx,
+        });
+
+        if (isFeeInfoOverflow) {
+          const isConfirmed = await showFeeInfoOverflowConfirm();
+          if (!isConfirmed) {
+            setIsSubmitting(false);
+            return;
+          }
+          // User confirmed, no need to check remaining transactions
+          break;
+        }
+      }
+    }
+
+    // Step 4: Sign and send transactions
+    try {
+      const result = await serviceSend.batchSignAndSendTransaction({
+        accountId,
+        networkId,
+        unsignedTxs: newUnsignedTxs,
+        feeInfos: feeState.feeInfos,
+        signOnly: false,
+        transferPayload: undefined,
+      });
+
+      // Step 5: Show success toast
+      Toast.success({
+        title: intl.formatMessage({
+          id: ETranslations.feedback_transaction_submitted,
+        }),
+      });
+
+      setIsSubmitting(false);
+      onSuccess?.(result);
+
+      // Step 6: Handle QR account navigation
+      if (accountUtils.isQrAccount({ accountId })) {
+        navigation.popStack();
+      } else {
+        navigation.pop();
+      }
+    } catch (e: any) {
+      // Handle QR account navigation on error
+      if (accountUtils.isQrAccount({ accountId })) {
+        navigation.popStack();
+      }
+      setIsSubmitting(false);
+      onFail?.(e as Error);
+      throw e;
+    }
+  }, [
+    accountId,
+    networkId,
+    unsignedTxs,
+    feeState.feeInfos,
+    setIsSubmitting,
+    onFail,
+    onSuccess,
+    checkFeeInfoIsOverflow,
+    showFeeInfoOverflowConfirm,
+    intl,
+    navigation,
+  ]);
 
   // Determine if confirm button should be disabled
   // Only disable when:
   // 1. Not initialized yet (initial loading)
   // 2. Force loading (tx update)
   // 3. Error state (no valid fee data)
+  // 4. Currently submitting
   const isConfirmDisabled =
     !feeState.isInitialized ||
     (feeState.feeStatus === ESendFeeStatus.Loading &&
       !feeState.isInitialized) ||
-    feeState.feeStatus === ESendFeeStatus.Error;
+    feeState.feeStatus === ESendFeeStatus.Error ||
+    isSubmitting;
 
   return (
     <Page scrollEnabled>
@@ -233,6 +360,7 @@ function BaseBulkSendReview() {
           confirmButtonProps={{
             onPress: handleConfirm,
             disabled: isConfirmDisabled,
+            loading: isSubmitting,
           }}
         />
       </Page.Footer>
@@ -256,6 +384,8 @@ function BulkSendReview() {
     bulkSendMode,
     totalTokenAmount,
     totalFiatAmount,
+    onSuccess,
+    onFail,
   } = route.params ?? {};
 
   // Local state for approves info (can be modified by editor)
@@ -289,6 +419,9 @@ function BulkSendReview() {
     feeInfos: [],
   });
 
+  // Submit state
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   // Fetch network info for network icon
   const { result: networkInfo } = usePromiseResult(
     async () => {
@@ -316,6 +449,8 @@ function BulkSendReview() {
       setUnsignedTxs,
       feeState,
       setFeeState,
+      isSubmitting,
+      setIsSubmitting,
     }),
     [
       networkId,
@@ -329,6 +464,7 @@ function BulkSendReview() {
       approvesInfo,
       unsignedTxs,
       feeState,
+      isSubmitting,
     ],
   );
 
@@ -338,7 +474,7 @@ function BulkSendReview() {
 
   return (
     <BulkSendReviewContext.Provider value={contextValue}>
-      <BaseBulkSendReview />
+      <BaseBulkSendReview onSuccess={onSuccess} onFail={onFail} />
     </BulkSendReviewContext.Provider>
   );
 }
