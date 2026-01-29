@@ -6,8 +6,8 @@ import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   Page,
   isNativeTablet,
-  useMedia,
   useIsSplitView,
+  useMedia,
 } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {

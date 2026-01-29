@@ -3,7 +3,7 @@ import type { ComponentProps } from 'react';
 
 import { random } from 'lodash';
 import { useIntl } from 'react-intl';
-import { I18nManager } from 'react-native';
+import { Dimensions, I18nManager } from 'react-native';
 
 import {
   Accordion,

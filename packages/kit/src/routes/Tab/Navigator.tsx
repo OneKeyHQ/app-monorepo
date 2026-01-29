@@ -8,8 +8,8 @@ import {
   Portal,
   Stack,
   TabStackNavigator,
-  useMedia,
   useIsSplitView,
+  useMedia,
   useSplitMainView,
   useSplitSubView,
 } from '@onekeyhq/components';

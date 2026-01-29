@@ -9,8 +9,8 @@ import {
   SizableText,
   XStack,
   YStack,
-  useMedia,
   useIsSplitView,
+  useMedia,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useNetworkLogoUri } from '@onekeyhq/kit/src/hooks/useNetworkLogoUri';
