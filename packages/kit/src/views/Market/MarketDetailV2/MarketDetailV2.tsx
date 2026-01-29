@@ -5,9 +5,9 @@ import { useFocusEffect } from '@react-navigation/native';
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   Page,
-  useIsNativeTablet,
+  isNativeTablet,
+  useIsSplitView,
   useMedia,
-  useOrientation,
 } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -88,8 +88,8 @@ function MarketDetailV2(
     ETabMarketRoutes.MarketDetailV2 | ETabMarketRoutes.MarketNativeDetail
   >,
 ) {
-  const isLandscape = useOrientation();
-  const isTablet = useIsNativeTablet();
+  const isLandscape = useIsSplitView();
+  const isTablet = isNativeTablet();
   useFocusEffect(
     useCallback(() => {
       if (platformEnv.isExtension || (isTablet && isLandscape)) {

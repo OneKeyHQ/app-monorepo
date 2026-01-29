@@ -20,9 +20,11 @@ import {
   useSwapManualSelectQuoteProvidersAtom,
   useSwapProviderSortAtom,
   useSwapQuoteCurrentSelectAtom,
+  useSwapQuoteEventTotalCountAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapSortedQuoteListAtom,
+  useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -129,6 +131,8 @@ const SwapProviderListPanel = ({
   const [currentSelectQuote] = useSwapQuoteCurrentSelectAtom();
   const quoteLoading = useSwapQuoteLoading();
   const quoteEventFetching = useSwapQuoteEventFetching();
+  const [swapTypeSwitch] = useSwapTypeSwitchAtom();
+  const [quoteEventTotalCount] = useSwapQuoteEventTotalCountAtom();
 
   // Cache the previous list to show during refresh (prevents flash to empty)
   const cachedListRef = useRef<IFetchQuoteResult[]>([]);
@@ -141,6 +145,12 @@ const SwapProviderListPanel = ({
   }`;
   // Track if we're in a refresh cycle (list was cleared but we had data)
   const isRefreshingRef = useRef(false);
+  // Track swap type switch changes to reset cache (OK-49718)
+  const prevSwapTypeSwitchRef = useRef(swapTypeSwitch);
+  // Track quote event id changes to reset cache when new quote starts (OK-49718)
+  const prevQuoteEventIdRef = useRef(quoteEventTotalCount.eventId);
+  // Track if waiting for new quote to prevent flash to empty state (OK-49718)
+  const isWaitingForNewQuoteRef = useRef(false);
 
   // Reset cache when tokens change
   if (prevTokenKeyRef.current !== currentTokenKey) {
@@ -148,6 +158,29 @@ const SwapProviderListPanel = ({
     cachedListRef.current = [];
     hadPreviousQuotesRef.current = false;
     isRefreshingRef.current = false;
+    isWaitingForNewQuoteRef.current = true;
+  }
+
+  // Reset cache when swap type switch changes (Swap/Limit/Bridge) (OK-49718)
+  if (prevSwapTypeSwitchRef.current !== swapTypeSwitch) {
+    prevSwapTypeSwitchRef.current = swapTypeSwitch;
+    cachedListRef.current = [];
+    hadPreviousQuotesRef.current = false;
+    isRefreshingRef.current = false;
+    isWaitingForNewQuoteRef.current = true;
+  }
+
+  // Reset cache when a new quote event starts (different eventId means new quote request) (OK-49718)
+  // Also reset when quote is cleared (eventId becomes undefined or count becomes 0)
+  if (
+    prevQuoteEventIdRef.current !== quoteEventTotalCount.eventId ||
+    (quoteEventTotalCount.count === 0 && prevQuoteEventIdRef.current)
+  ) {
+    prevQuoteEventIdRef.current = quoteEventTotalCount.eventId;
+    cachedListRef.current = [];
+    hadPreviousQuotesRef.current = false;
+    isRefreshingRef.current = false;
+    isWaitingForNewQuoteRef.current = true;
   }
 
   const isLoading = quoteLoading || quoteEventFetching;
@@ -161,11 +194,15 @@ const SwapProviderListPanel = ({
     isRefreshingRef.current = true;
   }
 
+  // Check if we should skip animation before updating the waiting state
+  const wasWaitingForNewQuote = isWaitingForNewQuoteRef.current;
+
   // Update cache when we have new data
   if (swapSortedList.length > 0) {
     cachedListRef.current = swapSortedList;
     hadPreviousQuotesRef.current = true;
     isRefreshingRef.current = false;
+    isWaitingForNewQuoteRef.current = false;
   }
 
   // Use cached list during refresh to prevent flash
@@ -190,15 +227,21 @@ const SwapProviderListPanel = ({
   );
 
   // Determine if an item is new (wasn't in previous list)
+  // Skip animation when transitioning from loading/waiting state (OK-49718)
   const isNewItemRef = useRef<Set<string>>(new Set());
   if (displayList.length > 0) {
-    const newItems = new Set<string>();
-    currentProviderKeys.forEach((key) => {
-      if (!prevProviderKeysRef.current.has(key)) {
-        newItems.add(key);
-      }
-    });
-    isNewItemRef.current = newItems;
+    // If we were waiting for new quote, skip animation for the first batch
+    if (wasWaitingForNewQuote || prevProviderKeysRef.current.size === 0) {
+      isNewItemRef.current = new Set();
+    } else {
+      const newItems = new Set<string>();
+      currentProviderKeys.forEach((key) => {
+        if (!prevProviderKeysRef.current.has(key)) {
+          newItems.add(key);
+        }
+      });
+      isNewItemRef.current = newItems;
+    }
     prevProviderKeysRef.current = currentProviderKeys;
   }
 
@@ -453,7 +496,8 @@ const SwapProviderListPanel = ({
                 </SizableText>
               </Stack>
             </MotiView>
-          ) : isLoading && !hasQuotes && !hadPreviousQuotesRef.current ? (
+          ) : (isLoading || isWaitingForNewQuoteRef.current) &&
+            !hasQuotes ? (
             <MotiView
               key="loading"
               from={{ opacity: 0 }}
