@@ -52,7 +52,6 @@ jobs:
           node-version: 24.x
           cache: 'yarn'
           registry-url: 'https://registry.npmjs.org'
-          always-auth: true
           scope: '@onekeyhq'
 
       - name: Setup keys secret
