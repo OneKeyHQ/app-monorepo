@@ -1978,8 +1978,6 @@ class ServiceKeylessWallet extends ServiceBase {
         juiceboxShareX,
       });
 
-      // throw new OneKeyLocalError('test33275923746234');
-
       // Make sure juiceboxShare is uploaded successfully before uploading backend share
       const _backendShareData: IKeylessBackendShare =
         await this.apiUploadKeylessBackendShare({

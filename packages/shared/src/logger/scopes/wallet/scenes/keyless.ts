@@ -1,3 +1,5 @@
+import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal } from '../../../base/decorators';
 
@@ -6,13 +8,33 @@ export class KeylessScene extends BaseScene {
   public juiceboxRecoverError({
     message,
     sdkError,
+    plainError,
   }: {
-    message?: string;
-    sdkError?: unknown;
+    message: string;
+    sdkError: unknown;
+    plainError: IOneKeyError;
   }) {
     return {
       message,
       sdkError,
+      plainError,
+    };
+  }
+
+  @LogToLocal({ level: 'error' })
+  public juiceboxRegisterError({
+    message,
+    sdkError,
+    plainError,
+  }: {
+    message: string;
+    sdkError: unknown;
+    plainError: IOneKeyError;
+  }) {
+    return {
+      message,
+      sdkError,
+      plainError,
     };
   }
 
