@@ -17,6 +17,7 @@ allowed-tools: Read, Grep, Glob, Write, Edit
 | Restricted patterns | [restricted-patterns.md](references/rules/restricted-patterns.md) | Forbidden: `toLocaleLowerCase`, direct hd-core import |
 | Error handling | [error-handling.md](references/rules/error-handling.md) | Try/catch for async, user-friendly messages |
 | Code quality | [code-quality.md](references/rules/code-quality.md) | English comments, lint before commit |
+| Cross-platform | [cross-platform.md](references/rules/cross-platform.md) | Use `platformEnv`, file extensions for platform code |
 
 ## Critical Rules Summary
 
@@ -103,9 +104,22 @@ yarn lint:only
 yarn tsc:only
 ```
 
+### Cross-Platform
+
+```typescript
+// ✅ CORRECT - Use platformEnv
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+if (platformEnv.isNative) { /* mobile */ }
+
+// ✅ CORRECT - Use file extensions
+// MyComponent.native.tsx, MyComponent.web.tsx
+
+// ❌ FORBIDDEN
+if (typeof window !== 'undefined') { }
+```
+
 ## Related Skills
 
 - `/1k-state-management` - Jotai atom patterns
-- `/1k-cross-platform` - Platform-specific code
 - `/1k-architecture` - Project structure and import rules
 - `/1k-dev-workflows` - Lint fixes, pre-commit tasks
