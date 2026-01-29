@@ -99,9 +99,12 @@ try {
 ### Code Quality
 
 ```bash
-# Run before every commit
-yarn lint:only
-yarn tsc:only
+# Pre-commit (fast, recommended)
+yarn lint:staged
+yarn tsc:staged
+
+# CI only (full project check)
+yarn lint
 ```
 
 ### Cross-Platform

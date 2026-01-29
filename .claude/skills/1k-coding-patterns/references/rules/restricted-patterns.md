@@ -109,8 +109,10 @@ Before every commit:
 - [ ] No direct `localDbInstance` imports
 - [ ] No edits to `translations.ts` or locale JSON files
 - [ ] No unjustified `any` or `@ts-ignore`
-- [ ] `yarn lint:staged` passes (or `yarn lint:only` for full check)
-- [ ] `yarn tsc:staged` passes (or `yarn tsc:only` for full check)
+- [ ] `yarn lint:staged` passes
+- [ ] `yarn tsc:staged` passes
+
+**Note:** Full lint (`yarn lint`) runs in CI only.
 
 ## How to Fix Common Violations
 
