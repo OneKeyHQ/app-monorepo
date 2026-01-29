@@ -4,16 +4,31 @@ Linting, documentation, and general code quality standards for OneKey.
 
 ## Linting
 
-### Pre-Commit Requirements
-
-ESLint warnings should be fixed before PRs. Run these commands before committing:
+### Lint Commands
 
 ```bash
-# Check for lint errors
+# Lint all files
 yarn lint:only
 
-# Check TypeScript types
+# Lint only staged files (fast, for pre-commit)
+yarn lint:staged
+
+# Type check (full project)
 yarn tsc:only
+yarn tsc:staged  # Same as tsc:only, for pre-commit
+```
+
+**Note:** TypeScript requires full project context and cannot check individual files.
+
+### Pre-Commit Workflow
+
+For fast pre-commit validation:
+```bash
+# Lint only modified files
+yarn lint:staged
+
+# Or with type check (slower but more thorough)
+yarn lint:staged && yarn tsc:staged
 ```
 
 ### Common Lint Fixes

@@ -72,13 +72,18 @@ const legacyResult = legacyApi.call();
 
 ### 6. Committing Failing Code
 
-```typescript
-// ❌ FORBIDDEN
-git commit  // with lint errors or TypeScript errors
+```bash
+# ❌ FORBIDDEN
+git commit  # with lint errors or TypeScript errors
 
-// ✅ CORRECT
-yarn lint:only  // Fix all errors first
-yarn tsc:only   // Ensure types pass
+# ✅ CORRECT - Full check
+yarn lint:only  # Lint all files
+yarn tsc:only   # Type check all files
+git commit
+
+# ✅ CORRECT - Fast pre-commit (recommended)
+yarn lint:staged  # Only lint staged files
+yarn tsc:staged   # Type check
 git commit
 ```
 
@@ -104,8 +109,8 @@ Before every commit:
 - [ ] No direct `localDbInstance` imports
 - [ ] No edits to `translations.ts` or locale JSON files
 - [ ] No unjustified `any` or `@ts-ignore`
-- [ ] `yarn lint:only` passes
-- [ ] `yarn tsc:only` passes
+- [ ] `yarn lint:staged` passes (or `yarn lint:only` for full check)
+- [ ] `yarn tsc:staged` passes (or `yarn tsc:only` for full check)
 
 ## How to Fix Common Violations
 
