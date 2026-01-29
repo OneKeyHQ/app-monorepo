@@ -70,11 +70,21 @@ Ask for clarification when:
 - Operations: Supply, Withdraw, Borrow, Repay
 - Data: Health factor, collateral, debt, APY
 - Examples: Aave, Compound, Morpho
+- Advanced features: Repay with Collateral (swap-based repayment)
+- See: [borrow-module-guide.md - Repay with Collateral](reference/borrow-module-guide.md#repay-with-collateral-pattern)
 
 **New Module**:
 - Operations differ significantly from Earn/Borrow
 - Requires independent Tab or unique UI
 - Examples: Pendle (PT/YT), GMX (perpetuals)
+
+**Time-Based Protocol** (Fixed-rate yield):
+- Operations: Buy, Sell, Redeem (conditional on maturity)
+- Data: Maturity date, implied APY, underlying asset, discount rate
+- Special features: Maturity status, conditional operations, multi-variant assets
+- Examples: Pendle PT
+- Integration: As sub-module of Earn Tab (Fixed-rate category)
+- See: [earn-module-guide.md - Time-Based Protocols](reference/earn-module-guide.md#time-based-protocols-eg-pendle-pt)
 
 ---
 
@@ -90,6 +100,12 @@ Ask for clarification when:
 | Charts | APY history / Interest model / None | Based on type |
 | Share feature | Yes / No | Yes |
 | Multi-token list | Yes / No | Based on token count |
+| **Time-based features** | Maturity date / Conditional ops / None | Based on protocol |
+| **Multi-variant assets** | Group by underlying / Flat list | Based on protocol |
+| **Operation tabs** | Single op / Tab switching (Buy/Sell/Redeem) | Based on protocol |
+| **Repay with collateral** | Wallet balance only / With collateral option | Based on protocol |
+| **Dual amount input** | Single input / Bidirectional sync | Based on operation |
+| **Slippage settings** | Not needed / Auto / Custom | Based on swap involvement |
 
 ### State Management Decision
 
@@ -135,6 +151,7 @@ When integrating a new DeFi module, analyze the state requirements and ask the u
 | `EarnTooltip` | `Staking/components/ProtocolDetails/` | Info tooltips |
 | `PendingIndicator` | `Staking/components/StakingActivityIndicator/` | Pending tx indicator |
 | `ManagePositionContent` | `Staking/pages/ManagePosition/` | Shared manage position UI |
+| `ManagePosition` | `Borrow/components/ManagePosition/` | **Unified Borrow operation component (Supply/Withdraw/Borrow/Repay)** |
 
 ### State Management Patterns
 
