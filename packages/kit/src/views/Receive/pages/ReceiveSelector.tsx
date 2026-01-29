@@ -3,7 +3,7 @@ import { useCallback, useEffect } from 'react';
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import type { IKeyOfIcons } from '@onekeyhq/components';
+import type { ColorTokens, IKeyOfIcons } from '@onekeyhq/components';
 import {
   Accordion,
   Button,
@@ -13,6 +13,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import type { IExchangeConfig } from '@onekeyhq/shared/src/consts/exchangeConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
@@ -22,13 +23,14 @@ import {
   openUrlInDiscovery,
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type { IToken } from '@onekeyhq/shared/types/token';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { ListItem } from '../../../components/ListItem';
 import { useReviewControl } from '../../../components/ReviewControl';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { useHelpLink } from '../../../hooks/useHelpLink';
+import { useExchangeAppDetection } from '../../../hooks/useExchangeAppDetection';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { HomeTokenListProviderMirror } from '../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import { WalletActionBuy } from '../../Home/components/WalletActions/WalletActionBuy';
@@ -67,18 +69,12 @@ function ReceiveOptions({
   );
 }
 
+const HELP_CENTER_URL = 'https://help.onekey.so';
+
 function ReceiveSelectorContent() {
   const intl = useIntl();
-  // oxlint-disable-next-line @cspell/spellchecker
-  const binanceHelpLink = useHelpLink({
-    path: 'articles/12553421',
-  });
-  const okxHelpLink = useHelpLink({
-    path: 'articles/12553973',
-  });
-  const coinbaseHelpLink = useHelpLink({
-    path: 'articles/12561338',
-  });
+
+  const { sortedExchanges, isExchangeInstalled } = useExchangeAppDetection();
 
   const showBuyAction = useReviewControl();
 
@@ -146,6 +142,50 @@ function ReceiveSelectorContent() {
       }
     },
     [token, isSupported, url],
+  );
+
+  const handleExchangePress = useCallback(
+    (config: IExchangeConfig) => {
+      const isInstalled = isExchangeInstalled(config.id);
+
+      // Mobile with app installed → Navigate to token selection flow
+      if (platformEnv.isNative && isInstalled) {
+        navigation.push(EModalReceiveRoutes.ReceiveSelectToken, {
+          title: intl.formatMessage({ id: ETranslations.global_select_crypto }),
+          networkId,
+          accountId,
+          indexedAccountId,
+          onSelect: async (selectedToken: IToken) => {
+            navigation.push(EModalReceiveRoutes.ReceiveToken, {
+              networkId: selectedToken.networkId ?? networkId,
+              accountId: selectedToken.accountId ?? accountId,
+              walletId,
+              token: selectedToken,
+              indexedAccountId,
+              exchangeSource: config.id,
+            });
+          },
+        });
+        return;
+      }
+
+      // Fallback: Open help article
+      const helpLink = `${HELP_CENTER_URL}/articles/${config.helpArticleId}`;
+      if (platformEnv.isDesktop || platformEnv.isNative) {
+        openUrlInDiscovery({ url: helpLink });
+      } else {
+        openUrlExternal(helpLink);
+      }
+    },
+    [
+      isExchangeInstalled,
+      navigation,
+      networkId,
+      accountId,
+      walletId,
+      indexedAccountId,
+      intl,
+    ],
   );
 
   useEffect(() => () => void onClose?.(), [onClose]);
@@ -390,91 +430,31 @@ function ReceiveSelectorContent() {
                       })}
                     </SizableText>
                     <XStack gap="$5" flexWrap="wrap">
-                      <Button
-                        size="small"
-                        variant="tertiary"
-                        childrenAsText={false}
-                        onPress={() => {
-                          // oxlint-disable-next-line @cspell/spellchecker
-                          if (platformEnv.isDesktop || platformEnv.isNative) {
-                            openUrlInDiscovery({ url: binanceHelpLink });
-                          } else {
-                            openUrlExternal(binanceHelpLink);
-                          }
-                        }}
-                      >
-                        <XStack alignItems="center" gap="$2">
-                          <YStack
-                            p={2}
-                            borderRadius="$1"
-                            borderCurve="continuous"
-                            bg="$yellow6"
-                          >
-                            <Icon
-                              size="$3"
-                              name="BinanceBrand"
-                              color="$yellow11"
-                            />
-                          </YStack>
-                          <SizableText>Binance</SizableText>
-                        </XStack>
-                      </Button>
-                      <Button
-                        size="small"
-                        variant="tertiary"
-                        childrenAsText={false}
-                        onPress={() => {
-                          if (platformEnv.isDesktop || platformEnv.isNative) {
-                            openUrlInDiscovery({ url: okxHelpLink });
-                          } else {
-                            openUrlExternal(okxHelpLink);
-                          }
-                        }}
-                      >
-                        <XStack alignItems="center" gap="$2">
-                          <YStack
-                            p={2}
-                            borderRadius="$1"
-                            borderCurve="continuous"
-                            bg="$neutral6"
-                          >
-                            <Icon
-                              size="$3"
-                              name="OkxBrand"
-                              color="$neutral11"
-                            />
-                          </YStack>
-                          <SizableText>OKX</SizableText>
-                        </XStack>
-                      </Button>
-                      <Button
-                        size="small"
-                        variant="tertiary"
-                        childrenAsText={false}
-                        onPress={() => {
-                          if (platformEnv.isDesktop || platformEnv.isNative) {
-                            openUrlInDiscovery({ url: coinbaseHelpLink });
-                          } else {
-                            openUrlExternal(coinbaseHelpLink);
-                          }
-                        }}
-                      >
-                        <XStack alignItems="center" gap="$2">
-                          <YStack
-                            p={2}
-                            borderRadius="$1"
-                            borderCurve="continuous"
-                            bg="$blue6"
-                          >
-                            <Icon
-                              size="$3"
-                              name="CoinbaseBrand"
-                              color="$blue11"
-                            />
-                          </YStack>
-                          <SizableText>Coinbase</SizableText>
-                        </XStack>
-                      </Button>
+                      {sortedExchanges.map((config) => (
+                        <Button
+                          key={config.id}
+                          size="small"
+                          variant="tertiary"
+                          childrenAsText={false}
+                          onPress={() => handleExchangePress(config)}
+                        >
+                          <XStack alignItems="center" gap="$2">
+                            <YStack
+                              p={2}
+                              borderRadius="$1"
+                              borderCurve="continuous"
+                              bg={config.iconBgColor as ColorTokens}
+                            >
+                              <Icon
+                                size="$3"
+                                name={config.iconName}
+                                color={config.iconColor as ColorTokens}
+                              />
+                            </YStack>
+                            <SizableText>{config.name}</SizableText>
+                          </XStack>
+                        </Button>
+                      ))}
                     </XStack>
                   </Accordion.Content>
                 </Accordion.HeightAnimator>
