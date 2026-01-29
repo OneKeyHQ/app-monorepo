@@ -6,6 +6,48 @@ allowed-tools: Read, Grep, Glob, Write, Edit
 
 # OneKey Coding Patterns and Best Practices
 
+## Quick Reference
+
+| Topic | Guide | Key Files |
+|-------|-------|-----------|
+| Date formatting | [date-formatting.md](references/rules/date-formatting.md) | `packages/shared/src/utils/dateUtils.ts` |
+| Internationalization | [i18n.md](references/rules/i18n.md) | `packages/shared/src/locale/` |
+| Promise handling | Below | - |
+| React components | Below | - |
+| Error handling | Below | - |
+
+## Date Formatting
+
+See: [references/rules/date-formatting.md](references/rules/date-formatting.md)
+
+**Core rule:** NEVER use native JavaScript date methods. ALWAYS use OneKey's date utilities.
+
+```typescript
+// ❌ FORBIDDEN
+date.toLocaleDateString()
+
+// ✅ CORRECT
+import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
+formatDate(date, { hideSeconds: true });
+```
+
+## Internationalization (i18n)
+
+See: [references/rules/i18n.md](references/rules/i18n.md)
+
+**Core rules:**
+- ❌ NEVER modify `translations.ts` or locale JSON files (auto-generated)
+- ❌ NEVER hardcode text strings
+- ✅ ALWAYS use `ETranslations` enum with `formatMessage`
+
+```typescript
+import { useIntl } from 'react-intl';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
+const intl = useIntl();
+intl.formatMessage({ id: ETranslations.global__confirm });
+```
+
 ## General Development
 - Develop functions with a test-driven development mindset, ensuring each low-level function or method intended for reuse performs a single, atomic task, but avoid adding unnecessary abstraction layers
 
@@ -114,3 +156,9 @@ async function useHardware() {
 // BAD: Direct import
 import { HardwareSDK } from '@onekeyfe/hd-core'; // ❌
 ```
+
+## Related Skills
+
+- `/1k-state-management` - Jotai atom patterns
+- `/1k-cross-platform` - Platform-specific code
+- `/1k-architecture` - Project structure and import rules
