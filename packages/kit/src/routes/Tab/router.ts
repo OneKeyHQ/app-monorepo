@@ -215,7 +215,6 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
         trackId: 'global-earn',
         hideOnTabBar: platformEnv.isNative,
       },
-      !platformEnv.isNative ? referFriendsTabConfig : undefined,
       platformEnv.isNative
         ? undefined
         : {
@@ -228,6 +227,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
             trackId: 'global-my-onekey',
             hideOnTabBar: isModalStack,
           },
+      !platformEnv.isNative ? referFriendsTabConfig : undefined,
       isShowMDDiscover ? getDiscoverRouterConfig(params) : undefined,
       isShowDesktopDiscover ? getDiscoverRouterConfig(params) : undefined,
       platformEnv.isDev

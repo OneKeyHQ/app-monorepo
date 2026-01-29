@@ -67,24 +67,29 @@ allowed-tools: Bash, Read
 
 ## Development Tools & Quality Assurance
 
-**CRITICAL QUALITY COMMANDS** (YOU MUST run these after any code changes):
-- `yarn lint` - **MANDATORY** comprehensive linting (TypeScript, ESLint, folder structure, i18n)
-  - **Expected runtime**: 5-10 minutes (NEVER skip due to timeout)
+### Pre-commit Commands (Local Development)
+
+**Use these for fast pre-commit validation:**
+- `yarn lint:staged` - Lint only staged files (fast, recommended for pre-commit)
+- `yarn tsc:staged` - Type check (same as tsc:only)
+
+**Pre-commit workflow:**
+```bash
+yarn lint:staged && yarn tsc:staged && git commit -m "your message"
+```
+
+### CI Commands (Full Project Check)
+
+**These run in CI pipeline, not for local pre-commit:**
+- `yarn lint` - **CI ONLY** comprehensive linting (TypeScript, ESLint, folder structure, i18n)
+  - **Expected runtime**: 5-10 minutes
   - **Zero tolerance**: ALL warnings and errors MUST be fixed
-  - **When it fails**: Check specific error categories and fix systematically
-- `yarn test` - **MANDATORY** Jest test execution
-  - **Expected runtime**: 2-5 minutes depending on test scope
-  - **Failure handling**: Investigate failed tests, do not ignore or skip
+- `yarn lint:only` - Quick oxlint check (all files)
+- `yarn tsc:only` - Full TypeScript type check
+- `yarn test` - Jest test execution
 
-**DEVELOPMENT QUALITY WORKFLOW**:
-1. Make code changes
-2. Run `yarn tsc:only` immediately to catch type errors
-3. Run `yarn lint` to ensure code quality (accept full timeout)
-4. Run `yarn test` to verify functionality
-5. Only proceed if ALL commands pass without errors or warnings
+### Other Tools
 
-**OTHER TOOLS**:
-- `yarn lint:only` - ESLint only (use for quick syntax checks)
 - `yarn clean` - Clean all build artifacts and node_modules
 - `yarn reinstall` - Full clean install (use when dependency issues occur)
 
