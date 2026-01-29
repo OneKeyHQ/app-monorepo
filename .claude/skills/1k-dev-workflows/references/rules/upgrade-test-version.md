@@ -1,9 +1,3 @@
----
-name: creating-upgrade-test-version
-description: Creates test version branches for testing app upgrade functionality. Use when preparing upgrade test builds, testing version migration, or when the user mentions test version, 9005.x.x version numbers, upgrade testing, or version upgrade QA. Automates branch creation, version bumping, and build number hardcoding for upgrade flow verification.
-allowed-tools: Read, Write, Edit, Bash, Glob, Grep, AskUserQuestion
----
-
 # Creating Upgrade Test Version
 
 Automates the creation of test version branches with hardcoded build configurations for testing app upgrade functionality and version migration flows.
@@ -124,18 +118,6 @@ git push -u origin <test_version>
 | `.github/actions/shared-env/action.yml` | Hardcode BUILD_NUMBER, remove conditionals |
 | `.github/workflows/release-android.yml` | Hardcode BUILD_NUMBER in .env.version write |
 | `apps/mobile/android/app/build.gradle` | Update versionCode and versionName |
-
-## Example Execution
-
-For test version `9005.20.0` on date `2026-01-13`:
-
-1. Build number = `2026011300 + 30` = `2026011330` (10 digits)
-2. Create branch `9005.20.0`
-3. Set VERSION=`9005.20.0` in `.env.version`
-4. Hardcode BUILD_NUMBER=`2026011330` in shared-env action
-5. Hardcode BUILD_NUMBER=`2026011330` in release-android workflow
-6. Set versionCode=`2026011330`, versionName=`"9005.20.0"` in build.gradle
-7. Commit and push
 
 ## Validation Checklist
 
