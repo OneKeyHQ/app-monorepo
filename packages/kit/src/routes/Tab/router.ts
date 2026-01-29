@@ -1,18 +1,13 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { CommonActions } from '@react-navigation/native';
 
-import {
-  getTokenValue,
-  rootNavigationRef,
-  useMedia,
-} from '@onekeyhq/components';
+import { rootNavigationRef, useMedia } from '@onekeyhq/components';
 import type {
   INativeTabBarIcon,
   ITabNavigatorConfig,
   ITabNavigatorExtraConfig,
 } from '@onekeyhq/components/src/layouts/Navigation/Navigator/types';
-import { useIsGtMdNonNative } from '@onekeyhq/kit/src/views/DeviceManagement/hooks/useToMyOneKeyModal';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabMarketRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -69,86 +64,71 @@ type IGetTabRouterParams = {
   freezeOnBlur?: boolean;
 };
 
-const useIsShowDesktopDiscover = () => {
-  return useMemo(() => platformEnv.isDesktop, []);
-};
-
 const getDiscoverRouterConfig = (
   params?: IGetTabRouterParams,
   tabBarStyle?: ITabNavigatorConfig<ETabRoutes>['tabBarStyle'],
-) => {
-  const discoverRouterConfig: ITabNavigatorConfig<ETabRoutes> = {
-    name: ETabRoutes.Discovery,
-    rewrite: '/discovery',
-    exact: true,
-    tabBarIcon: (focused?: boolean) =>
-      focused ? 'CompassCircleSolid' : 'CompassCircleOutline',
-    nativeTabBarIcon: nativeTabIcons.discover,
-    translationId: platformEnv.isNative
-      ? ETranslations.global_discover
-      : ETranslations.global_browser,
-    freezeOnBlur: Boolean(params?.freezeOnBlur),
-    children: discoveryRouters,
-    tabBarStyle,
-    trackId: 'global-browser',
-  };
-  return discoverRouterConfig;
-};
+): ITabNavigatorConfig<ETabRoutes> => ({
+  name: ETabRoutes.Discovery,
+  rewrite: '/discovery',
+  exact: true,
+  tabBarIcon: (focused?: boolean) =>
+    focused ? 'CompassCircleSolid' : 'CompassCircleOutline',
+  nativeTabBarIcon: nativeTabIcons.discover,
+  translationId: platformEnv.isNative
+    ? ETranslations.global_discover
+    : ETranslations.global_browser,
+  freezeOnBlur: Boolean(params?.freezeOnBlur),
+  children: discoveryRouters,
+  tabBarStyle,
+  trackId: 'global-browser',
+});
 
 export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
   const { md } = useMedia();
 
   const { isModalStack } = useDeviceManagerModalStyle();
-  const isShowDesktopDiscover = useIsShowDesktopDiscover();
+  const isShowDesktopDiscover = platformEnv.isDesktop;
   const isWebDappMode = platformEnv.isWebDappMode;
-  const isShowMDDiscover = useMemo(
-    () =>
-      !isShowDesktopDiscover &&
-      !platformEnv.isWebDappMode &&
-      !platformEnv.isExtensionUiPopup &&
-      !(platformEnv.isExtensionUiSidePanel && md),
-    [isShowDesktopDiscover, md],
-  );
+  const isShowMDDiscover =
+    !isShowDesktopDiscover &&
+    !platformEnv.isWebDappMode &&
+    !platformEnv.isExtensionUiPopup &&
+    !(platformEnv.isExtensionUiSidePanel && md);
 
-  const isGtMdNonNative = useIsGtMdNonNative();
   const shouldShowMarketTab = !(
     platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel
   );
 
   const { perpDisabled, perpTabShowWeb } = usePerpTabConfig();
-  // Custom Market tab press handler - only for non-mobile platforms
-  const handleMarketTabPress = useMemo(() => {
-    return () => {
-      const navigation = rootNavigationRef.current;
-      if (navigation) {
-        // Always navigate to Market home when this handler is called
-        // Since this is only called when Market tab is already selected,
-        // we can assume user wants to go to Market home
-        navigation.dispatch(
-          CommonActions.navigate({
-            name: ETabRoutes.Market,
-            params: {
-              screen: ETabMarketRoutes.TabMarket,
-            },
-            pop: true,
-          }),
-        );
-      }
-    };
+  const handleMarketTabPress = useCallback(() => {
+    const nav = rootNavigationRef.current;
+    if (nav) {
+      nav.dispatch(
+        CommonActions.navigate({
+          name: ETabRoutes.Market,
+          params: {
+            screen: ETabMarketRoutes.TabMarket,
+          },
+          pop: true,
+        }),
+      );
+    }
   }, []);
 
-  const referFriendsTabConfig = useMemo(() => {
-    return {
+  const referFriendsTabConfig = useMemo(
+    () => ({
       name: ETabRoutes.ReferFriends,
-      tabBarIcon: () => 'GiftOutline',
+      tabBarIcon: (focused?: boolean) =>
+        focused ? 'GiftSolid' : 'GiftOutline',
       translationId: ETranslations.sidebar_refer_a_friend,
       rewrite: '/refer-friends',
       exact: true,
       children: referFriendsRouters,
       trackId: 'global-referral',
       freezeOnBlur: Boolean(params?.freezeOnBlur),
-    };
-  }, [params?.freezeOnBlur]);
+    }),
+    [params?.freezeOnBlur],
+  );
 
   return useMemo(() => {
     const tabs = [
@@ -229,23 +209,13 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
           focused ? 'CoinsSolid' : 'CoinsOutline',
         translationId: ETranslations.global_earn,
         freezeOnBlur: Boolean(params?.freezeOnBlur),
-        inMoreAction: true,
         rewrite: '/defi',
         exact: true,
         children: earnRouters,
         trackId: 'global-earn',
         hideOnTabBar: platformEnv.isNative,
       },
-      !platformEnv.isNative && isWebDappMode
-        ? referFriendsTabConfig
-        : undefined,
-      // In non-DAPP mode, show ReferFriends in more actions
-      !platformEnv.isNative &&
-        !isWebDappMode && {
-          ...referFriendsTabConfig,
-          inMoreAction: true,
-          hideOnTabBar: !isGtMdNonNative,
-        },
+      !platformEnv.isNative ? referFriendsTabConfig : undefined,
       platformEnv.isNative
         ? undefined
         : {
@@ -259,6 +229,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
             hideOnTabBar: isModalStack,
           },
       isShowMDDiscover ? getDiscoverRouterConfig(params) : undefined,
+      isShowDesktopDiscover ? getDiscoverRouterConfig(params) : undefined,
       platformEnv.isDev
         ? {
             name: ETabRoutes.Developer,
@@ -272,11 +243,6 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
             children: developerRouters,
             trackId: 'global-dev',
           }
-        : undefined,
-      isShowDesktopDiscover
-        ? getDiscoverRouterConfig(params, {
-            marginTop: getTokenValue('$4', 'size'),
-          })
         : undefined,
     ].filter((i) => !!i);
 
@@ -299,11 +265,10 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
     handleMarketTabPress,
     perpTabShowWeb,
     perpDisabled,
-    referFriendsTabConfig,
-    isGtMdNonNative,
     isModalStack,
     isShowMDDiscover,
     isShowDesktopDiscover,
+    referFriendsTabConfig,
   ]) as ITabNavigatorConfig<ETabRoutes>[];
 };
 
