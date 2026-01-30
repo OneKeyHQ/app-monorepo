@@ -1,7 +1,7 @@
 /* eslint-disable import/order */
 import '@walletconnect/react-native-compat'; // polyfill for react-native
 
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 
 import { ConstantsUtil } from '@reown/appkit-common-react-native';
 
