@@ -103,12 +103,56 @@ See detailed workflow in: [.claude/skills/1k-new-skill/SKILL.md](../.claude/skil
 - 📅 **Monthly**: Run basic analysis to track growth
 - 📅 **After major additions**: Run detailed analysis
 - 📅 **Before releases**: Ensure no skills >10k tokens
+- 🆕 **After creating/modifying skills**: REQUIRED - Run analysis before committing
 
 **Add to your workflow:**
 ```bash
-# Add to pre-release checklist
+# Required: After creating or modifying any skill
+python3 development/analyze-skills-tokens.py --sort-by-size
+
+# Check specific skill
+python3 development/analyze-skills-tokens.py --detailed | grep -A 5 "your-skill-name"
+
+# Pre-release checklist
 python3 development/analyze-skills-tokens.py --sort-by-size
 ```
+
+### Required: Post-Creation Self-Check
+
+**ALWAYS run after creating or modifying skills:**
+
+1. **Create/modify skill** - Write SKILL.md and reference files
+2. **Run analysis** - `python3 development/analyze-skills-tokens.py --sort-by-size`
+3. **Verify results** - Check token count and recommendations
+4. **Take action** - Split if needed, or document justification for size
+5. **Commit** - Only after verification passes
+
+**Acceptance criteria:**
+- ✅ New skill <5k tokens (ideal) OR
+- ✅ 5-10k tokens with documented high correlation (>50% usage together) OR
+- ✅ >10k tokens split into focused skills before committing
+
+**Example workflow:**
+```bash
+# 1. Create new skill
+mkdir -p .claude/skills/1k-my-feature/references/rules
+# ... write SKILL.md and rules ...
+
+# 2. REQUIRED: Run analysis
+python3 development/analyze-skills-tokens.py --sort-by-size
+
+# 3. Check your skill
+python3 development/analyze-skills-tokens.py --detailed | grep -A 10 "1k-my-feature"
+
+# 4. If >10k tokens, split before proceeding
+# If 5-10k tokens, document why topics are correlated
+
+# 5. Only then commit
+git add .claude/skills/1k-my-feature/
+git commit -m "feat: add 1k-my-feature skill (X tokens, verified)"
+```
+
+This ensures all new skills are optimized from day one.
 
 ## Current Status
 

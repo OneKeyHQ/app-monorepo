@@ -297,6 +297,37 @@ After gathering requirements and applying best practices:
 2. Write SKILL.md with quick reference table
 3. Add rule files for each topic
 4. Summarize what was created
+5. **Run token analysis to verify optimization** (REQUIRED)
+
+### Token Analysis (Self-Check)
+
+**ALWAYS run after creating or modifying skills:**
+
+```bash
+# Run token analysis
+python3 development/analyze-skills-tokens.py --sort-by-size
+
+# Check your new skill's token count
+python3 development/analyze-skills-tokens.py --detailed | grep -A 5 "your-skill-name"
+```
+
+**Verification checklist:**
+- [ ] New skill is <5,000 tokens (ideal)
+- [ ] If >5,000 tokens: Topics are highly correlated (>50% usage together)
+- [ ] If >10,000 tokens: Plan immediate split
+- [ ] SKILL.md has Quick Reference (avoid forcing full file load)
+- [ ] No duplicate content across skills
+
+**Action based on results:**
+
+| Token Count | Action |
+|-------------|--------|
+| < 2,000 | ✅ Excellent - proceed |
+| 2,000 - 5,000 | ✅ Good - proceed, monitor growth |
+| 5,000 - 10,000 | ⚠️ Review: Can topics be split? If highly correlated, proceed with Quick Reference |
+| > 10,000 | 🚨 Split before committing |
+
+See [development/SKILLS-TOKEN-MONITORING.md](../../../development/SKILLS-TOKEN-MONITORING.md) for detailed guidance.
 
 ## Example: Skill with multiple rules
 
