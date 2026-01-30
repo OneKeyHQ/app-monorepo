@@ -49,8 +49,34 @@ public class MainActivity extends ReactActivity {
   protected void onCreate(Bundle savedInstanceState) {
     // Install AndroidX SplashScreen before super.onCreate() to fix MIUI/HyperOS crashes
     // where system's replaceUmiTheme method fails with NullPointerException
+    // Added defensive error handling for OPPO and other vendor-specific crashes
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-      androidx.core.splashscreen.SplashScreen.installSplashScreen(this);
+      try {
+        androidx.core.splashscreen.SplashScreen splashScreen = androidx.core.splashscreen.SplashScreen.installSplashScreen(this);
+        // Add custom exit animation listener to catch and handle SurfaceControl crashes
+        // This prevents NullPointerException during splash screen transition on OPPO/MIUI devices
+        splashScreen.setOnExitAnimationListener(splashScreenView -> {
+          try {
+            // Immediately remove the splash screen without animation to avoid SurfaceControl issues
+            if (splashScreenView != null && splashScreenView.getView() != null) {
+              splashScreenView.remove();
+            }
+          } catch (Exception e) {
+            Log.e("MainActivity", "Error during splash screen exit animation", e);
+            // Fallback: try to remove the view directly
+            try {
+              if (splashScreenView != null && splashScreenView.getView() != null && splashScreenView.getView().getParent() != null) {
+                ((android.view.ViewGroup) splashScreenView.getView().getParent()).removeView(splashScreenView.getView());
+              }
+            } catch (Exception fallbackError) {
+              Log.e("MainActivity", "Fallback splash screen removal also failed", fallbackError);
+            }
+          }
+        });
+      } catch (Exception e) {
+        Log.e("MainActivity", "Failed to install AndroidX splash screen, will use fallback", e);
+        // If AndroidX splash screen fails, we'll rely on the Expo splash screen as fallback
+      }
     }
     super.onCreate(null);
     setTheme(R.style.AppTheme);
@@ -63,7 +89,12 @@ public class MainActivity extends ReactActivity {
         );
     }
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-      SplashScreenManager.INSTANCE.registerOnActivity(this);
+      try {
+        SplashScreenManager.INSTANCE.registerOnActivity(this);
+      } catch (Exception e) {
+        Log.e("MainActivity", "Failed to register SplashScreenManager", e);
+        // Continue without splash screen manager if it fails
+      }
     }
     I18nUtil sharedI18nUtilInstance = I18nUtil.getInstance();
     sharedI18nUtilInstance.allowRTL(getApplicationContext(), true);
