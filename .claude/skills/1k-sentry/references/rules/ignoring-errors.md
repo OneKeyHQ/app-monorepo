@@ -1,8 +1,3 @@
----
-name: ignoring-sentry-errors
-description: Filters specific errors from Sentry reporting in this OneKey monorepo. Use when needing to ignore/suppress/filter Sentry errors, add error exclusions, or stop certain errors from being reported. Handles platform-specific filtering (desktop/mobile/web/extension).
----
-
 # Ignoring Sentry Errors
 
 Follow this workflow to add new error filters to Sentry configuration.
@@ -90,19 +85,6 @@ if (platformEnv.isDesktop && error.value) {
 yarn eslint packages/shared/src/modules3rdParty/sentry/basicOptions.ts --quiet
 ```
 
-## Platform Detection
-
-Use `platformEnv` for platform-specific filtering:
-```typescript
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
-platformEnv.isDesktop    // Electron desktop app
-platformEnv.isNative     // React Native (iOS/Android)
-platformEnv.isWeb        // Web browser
-platformEnv.isExtension  // Browser extension
-platformEnv.isWebEmbed   // Embedded web components
-```
-
 ## Best Practices
 
 1. **Check shorter strings first** - Better performance for `includes()` chains
@@ -123,10 +105,3 @@ if (
   return true;
 }
 ```
-
-## Related Files
-
-- Main Sentry config: `apps/desktop/app/sentry.ts`
-- Desktop renderer: `packages/shared/src/modules3rdParty/sentry/index.desktop.ts`
-- Web/Extension: `packages/shared/src/modules3rdParty/sentry/index.ts`
-- Native: `packages/shared/src/modules3rdParty/sentry/index.native.ts`

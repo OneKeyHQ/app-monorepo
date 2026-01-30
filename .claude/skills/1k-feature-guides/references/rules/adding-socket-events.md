@@ -1,11 +1,6 @@
----
-name: 1k-adding-socket-events
-description: Adds new WebSocket event subscriptions to OneKey. Use when implementing new socket events, handling server push messages, or adding real-time data subscriptions. Socket, WebSocket, event, subscription, push, real-time.
----
-
 # Adding WebSocket Event Subscriptions
 
-This skill documents how to add new WebSocket event subscriptions in the OneKey app.
+This guide documents how to add new WebSocket event subscriptions in the OneKey app.
 
 ## Overview
 
