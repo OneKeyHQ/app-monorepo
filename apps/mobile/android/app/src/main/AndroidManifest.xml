@@ -49,6 +49,8 @@
     <package android:name="im.token.app"/>
     <package android:name="app.phantom"/>
     <package android:name="org.toshi"/>
+    <package android:name="com.binance.dev"/>
+    <package android:name="com.okinc.okex.gp"/>
   </queries>
   <application
   android:usesCleartextTraffic="true"
