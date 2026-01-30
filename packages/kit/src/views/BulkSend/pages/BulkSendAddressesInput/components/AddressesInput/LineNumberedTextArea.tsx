@@ -1,7 +1,11 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { TextInput as RNTextInput, StyleSheet } from 'react-native';
+import {
+  type ScrollView as RNScrollView,
+  TextInput as RNTextInput,
+  StyleSheet,
+} from 'react-native';
 
 import {
   IconButton,
@@ -95,11 +99,14 @@ function LineNumberedTextArea({
 }: ILineNumberedTextAreaProps) {
   const intl = useIntl();
   const inputRef = useRef<RNTextInput>(null);
+  const scrollViewRef = useRef<RNScrollView>(null);
   const [lineHeights, setLineHeights] = useState<Record<number, number>>({});
   const { getClipboard } = useClipboard();
   const theme = useTheme();
   const textColor = theme.text?.val;
+  const placeholderColor = theme.textPlaceholder?.val;
   const [inputText, setInputText] = useState<string>(value);
+  const [contentHeight, setContentHeight] = useState(0);
 
   // Calculate height based on singleLine mode
   const height = singleLine && !heightProp ? SINGLE_LINE_HEIGHT : heightProp;
@@ -187,6 +194,20 @@ function LineNumberedTextArea({
   // Show line numbers based on prop
   const showLineNumbers = showLineNumbersProp;
 
+  // Auto-scroll to bottom when content height changes
+  useEffect(() => {
+    if (contentHeight > 0 && scrollViewRef.current) {
+      const scrollHeight = height ?? maxHeight;
+      if (contentHeight > scrollHeight) {
+        scrollViewRef.current.scrollToEnd({ animated: true });
+      }
+    }
+  }, [contentHeight, height, maxHeight]);
+
+  const handleContentSizeChange = useCallback((_w: number, h: number) => {
+    setContentHeight(h);
+  }, []);
+
   const handleUpload = useCallback(() => {
     showUploadCSVDialog({
       onUploaded: (uploadedLines) => {
@@ -221,25 +242,39 @@ function LineNumberedTextArea({
   const styles = useMemo(
     () =>
       StyleSheet.create({
-        textInput: {
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          paddingTop: PADDING_VERTICAL,
-          paddingBottom: PADDING_VERTICAL,
-          paddingLeft: PADDING_HORIZONTAL,
-          paddingRight: PADDING_HORIZONTAL,
-          fontSize: FONT_SIZE,
-          lineHeight: LINE_HEIGHT,
-          // Use transparent color but ensure caret is visible
-          color: platformEnv.isNative ? 'rgba(0,0,0,0.01)' : 'transparent',
-          textAlignVertical: 'top',
-          // Web: caretColor makes cursor visible even with transparent text
-          ...(platformEnv.isNative ? {} : { caretColor: textColor }),
-        } as any,
-      }),
+        textInput: platformEnv.isNative
+          ? {
+              // Native: TextInput is the main content, not overlaid
+              flex: 1,
+              paddingTop: PADDING_VERTICAL,
+              paddingBottom: PADDING_VERTICAL,
+              paddingLeft: PADDING_HORIZONTAL,
+              paddingRight: PADDING_HORIZONTAL,
+              fontSize: FONT_SIZE,
+              lineHeight: LINE_HEIGHT,
+              textAlignVertical: 'top',
+              fontFamily: 'System',
+              includeFontPadding: false,
+              color: textColor,
+            }
+          : {
+              // Web: TextInput is overlaid on display layer
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              paddingTop: PADDING_VERTICAL,
+              paddingBottom: PADDING_VERTICAL,
+              paddingLeft: PADDING_HORIZONTAL,
+              paddingRight: PADDING_HORIZONTAL,
+              fontSize: FONT_SIZE,
+              lineHeight: LINE_HEIGHT,
+              textAlignVertical: 'top',
+              color: 'transparent',
+              caretColor: textColor,
+            },
+      } as any),
     [textColor],
   );
 
@@ -256,6 +291,7 @@ function LineNumberedTextArea({
         cursor="text"
       >
         <ScrollView
+          ref={scrollViewRef}
           height={height}
           maxHeight={height ?? maxHeight}
           minHeight={height ?? minHeight}
@@ -295,55 +331,65 @@ function LineNumberedTextArea({
 
             {/* Content area */}
             <Stack flex={1} position="relative">
-              {/* Display layer - styled text with word wrap */}
-              <YStack
-                pt={PADDING_VERTICAL}
-                pb={PADDING_VERTICAL}
-                pl={PADDING_HORIZONTAL}
-                pr={PADDING_HORIZONTAL}
-                pointerEvents="none"
-              >
-                {hasContent ? (
-                  lines.map((line, index) => {
-                    const lineNumber = index + 1;
-                    const hasError = errorLineNumbers.has(lineNumber);
+              {/* Display layer - styled text with word wrap (hidden on native where TextInput shows text directly) */}
+              {platformEnv.isNative ? null : (
+                <YStack
+                  pt={PADDING_VERTICAL}
+                  pb={PADDING_VERTICAL}
+                  pl={PADDING_HORIZONTAL}
+                  pr={PADDING_HORIZONTAL}
+                  pointerEvents="none"
+                >
+                  {hasContent ? (
+                    lines.map((line, index) => {
+                      const lineNumber = index + 1;
+                      const hasError = errorLineNumbers.has(lineNumber);
 
-                    return (
-                      <Stack
-                        key={index}
-                        onLayout={(e: LayoutChangeEvent) =>
-                          handleLineLayout(index, e)
-                        }
-                      >
-                        <SizableText
-                          fontSize={FONT_SIZE}
-                          lineHeight={LINE_HEIGHT}
-                          color={hasError ? '$textCritical' : '$text'}
+                      return (
+                        <Stack
+                          key={index}
+                          onLayout={(e: LayoutChangeEvent) =>
+                            handleLineLayout(index, e)
+                          }
                         >
-                          {line || ' '}
-                        </SizableText>
-                      </Stack>
-                    );
-                  })
-                ) : (
-                  <SizableText
-                    fontSize={FONT_SIZE}
-                    lineHeight={LINE_HEIGHT}
-                    color="$textPlaceholder"
-                  >
-                    {placeholder}
-                  </SizableText>
-                )}
-              </YStack>
+                          <SizableText
+                            fontSize={FONT_SIZE}
+                            lineHeight={LINE_HEIGHT}
+                            color={hasError ? '$textCritical' : '$text'}
+                          >
+                            {line || ' '}
+                          </SizableText>
+                        </Stack>
+                      );
+                    })
+                  ) : (
+                    <SizableText
+                      fontSize={FONT_SIZE}
+                      lineHeight={LINE_HEIGHT}
+                      color="$textPlaceholder"
+                    >
+                      {placeholder}
+                    </SizableText>
+                  )}
+                </YStack>
+              )}
 
-              {/* Input layer - transparent textarea */}
+              {/* Input layer - visible on native, transparent overlay on web */}
               <RNTextInput
                 ref={inputRef}
                 value={value}
+                placeholder={platformEnv.isNative ? placeholder : undefined}
+                placeholderTextColor={placeholderColor}
                 onChange={() => {
                   onInputTypeChange?.(EInputAddressChangeType.Manual);
                 }}
                 onChangeText={handleChangeText}
+                onContentSizeChange={(e) =>
+                  handleContentSizeChange(
+                    e.nativeEvent.contentSize.width,
+                    e.nativeEvent.contentSize.height,
+                  )
+                }
                 editable={!disabled}
                 multiline
                 style={styles.textInput}
@@ -390,7 +436,7 @@ function LineNumberedTextArea({
                     })}
                   />
                 ) : null}
-                {showUpload && (platformEnv.isWeb || platformEnv.isDesktop) ? (
+                {showUpload ? (
                   <IconButton
                     variant="tertiary"
                     icon="UploadOutline"

@@ -121,9 +121,9 @@ function TransferListItem({
       tooltipProps: platformEnv.isNative
         ? undefined
         : {
-          renderContent: amountError,
-          placement: 'top',
-        },
+            renderContent: amountError,
+            placement: 'top',
+          },
     };
   }, [hasAmountError, amountError, handleErrorIconPress]);
 

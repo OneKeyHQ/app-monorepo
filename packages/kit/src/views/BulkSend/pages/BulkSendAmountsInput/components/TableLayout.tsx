@@ -339,13 +339,13 @@ function TransferInfoListSection() {
                   leftAddOnProps={
                     hasAmountError
                       ? {
-                        iconName: 'ErrorOutline',
-                        iconColor: '$iconCritical',
-                        tooltipProps: {
-                          placement: 'top',
-                          renderContent: errors?.amount,
-                        },
-                      }
+                          iconName: 'ErrorOutline',
+                          iconColor: '$iconCritical',
+                          tooltipProps: {
+                            placement: 'top',
+                            renderContent: errors?.amount,
+                          },
+                        }
                       : undefined
                   }
                   containerProps={{
@@ -354,7 +354,12 @@ function TransferInfoListSection() {
                   }}
                 />
               ) : (
-                <SizableText size="$bodyLgMedium" width="100%" flex={1} textAlign="right">
+                <SizableText
+                  size="$bodyLgMedium"
+                  width="100%"
+                  flex={1}
+                  textAlign="right"
+                >
                   {transfer.amount || '-'}
                 </SizableText>
               )}
