@@ -8,6 +8,9 @@ on:
         required: false
         default: ''
 
+env:
+  YARN_ENABLE_GLOBAL_CACHE: true
+
 jobs:
   release-android-debug:
     runs-on: ubuntu-24.04
@@ -25,7 +28,7 @@ jobs:
         run: rm -rf /opt/hostedtoolcache
 
       - name: Checkout Source Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v6
         with:
           lfs: true
 
@@ -52,43 +55,23 @@ jobs:
           cache: 'gradle'
 
       - name: Setup Node
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node-version }}
+          cache: 'yarn'
           registry-url: 'https://npm.pkg.github.com'
-          always-auth: true
           scope: '@onekeyhq'
 
       - name: Get yarn cache directory path
         id: yarn-cache-dir-path
         run: echo "dir=${{ github.workspace }}/.yarn" >> "$GITHUB_OUTPUT"
 
-      - name: Cache dependencies
-        uses: actions/cache@v4
-        id: yarn-cache
-        with:
-          path: |
-            ${{ steps.yarn-cache-dir-path.outputs.dir }}
-            **/node_modules
-          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock', '**/patches/**') }}
-          restore-keys: |
-            ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock', '**/patches/**') }}
-
       - name: Install Dep
-        if: steps.yarn-cache.outputs.cache-hit != 'true'
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=8192'
         run: |
-          yarn
-
-      - name: Run postinstall only (cache hit)
-        if: steps.yarn-cache.outputs.cache-hit == 'true'
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NODE_OPTIONS: '--max_old_space_size=8192'
-        run: |
-          yarn postinstall
+          yarn install --immutable
 
       - name: Build APK
         env:

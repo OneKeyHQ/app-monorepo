@@ -8653,6 +8653,7 @@ __metadata:
     text-encoding: "npm:^0.7.0"
     timeout-signal: "npm:^2.0.0"
     tonweb: "npm:^0.0.66"
+    tsc-files: "npm:^1.1.4"
     typescript: "npm:5.9.3"
     ua-parser-js: "npm:^2.0.4"
     ultra-runner: "npm:^3.10.5"
@@ -41499,6 +41500,17 @@ __metadata:
   version: 0.1.13
   resolution: "ts-interface-checker@npm:0.1.13"
   checksum: 10/9f7346b9e25bade7a1050c001ec5a4f7023909c0e1644c5a96ae20703a131627f081479e6622a4ecee2177283d0069e651e507bedadd3904fc4010ab28ffce00
+  languageName: node
+  linkType: hard
+
+"tsc-files@npm:^1.1.4":
+  version: 1.1.4
+  resolution: "tsc-files@npm:1.1.4"
+  peerDependencies:
+    typescript: ">=3"
+  bin:
+    tsc-files: cli.js
+  checksum: 10/4acae1dcfe635f3153051707ed747acd095f7fb67ebb767133f80fe6a9bad572eecb062ac2077e06fcfff547e4bbc4eb9e04b64305f0dd11d62ff1d3eb638601
   languageName: node
   linkType: hard
 
