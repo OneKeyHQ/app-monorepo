@@ -1,6 +1,6 @@
 ---
 name: 1k-dev-workflows
-description: Development workflow helpers for OneKey. Use when fixing lint warnings, creating test version branches, or performing pre-commit/pre-release tasks. Covers oxlint fixes, spellcheck, unused variables, and upgrade testing workflows.
+description: Development workflow helpers for OneKey. Use when fixing lint warnings, creating test version branches, performing pre-commit/pre-release tasks, or analyzing and fixing Sentry errors. Covers oxlint fixes, spellcheck, unused variables, upgrade testing workflows, and Sentry crash report analysis.
 ---
 
 # Development Workflows
@@ -16,6 +16,7 @@ Common development workflows and automation helpers for the OneKey monorepo.
 | Type check | `yarn tsc:only` | Full project type check |
 | Type check (staged) | `yarn tsc:staged` | Pre-commit type check |
 | Create test version | See [upgrade-test-version.md](references/rules/upgrade-test-version.md) | Manual workflow |
+| Fix Sentry errors | See [fix-sentry-errors.md](references/rules/fix-sentry-errors.md) | Analyze and fix crash reports |
 
 ## Lint Commands
 
@@ -52,6 +53,56 @@ const { used, unused: _unused } = obj;
 // Unused parameter → prefix with _
 function foo(used: string, _unused: number) {}
 ```
+
+## Fix Sentry Errors
+
+See: [references/rules/fix-sentry-errors.md](references/rules/fix-sentry-errors.md)
+
+Workflow for analyzing and fixing production errors from Sentry crash reports.
+
+### Quick Start
+
+1. **Obtain Sentry JSON log file** from crash report
+2. **Analyze error** using Python scripts to extract key info:
+   - Error type (AppHang, ANR, Crash, etc.)
+   - Device and OS information
+   - Stack traces and threads
+   - User actions (breadcrumbs)
+3. **Identify root cause** from stack traces and breadcrumbs
+4. **Implement fix** following common patterns:
+   - Concurrent request control
+   - Main thread offloading
+   - Error boundaries
+   - Memory optimization
+5. **Verify fix** with linting and testing
+6. **Create PR** with detailed analysis
+
+### Common Fix Patterns
+
+```typescript
+// Concurrent request control - prevent UI blocking
+private async executeBatched<T>(
+  tasks: Array<() => Promise<T>>,
+  concurrency = 3,
+): Promise<Array<PromiseSettledResult<T>>> {
+  const results: Array<PromiseSettledResult<T>> = [];
+  for (let i = 0; i < tasks.length; i += concurrency) {
+    const batch = tasks.slice(i, i + concurrency);
+    const batchResults = await Promise.allSettled(
+      batch.map((task) => task()),
+    );
+    results.push(...batchResults);
+  }
+  return results;
+}
+```
+
+### When to Use
+
+- Analyzing iOS AppHang errors (5+ second freezes)
+- Fixing Android ANR (Application Not Responding)
+- Investigating crash reports with stack traces
+- Understanding user actions before crashes
 
 ## Pre-commit Workflow
 
