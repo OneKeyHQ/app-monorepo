@@ -294,7 +294,10 @@ dependencies {
     // implementation("com.android.billingclient:billing:$billingVersion")
 
     // Detox (Android instrumentation tests)
-    androidTestImplementation('com.wix:detox:+') { transitive = true }
+    // Keep this pinned (no '+') to ensure reproducible builds and reduce supply-chain risk.
+    // When upgrading Detox, update this to match the JS `detox` version.
+    def detoxVersion = "20.46.3"
+    androidTestImplementation("com.wix:detox:${detoxVersion}") { transitive = true }
     androidTestImplementation('androidx.test:runner:1.5.2')
     androidTestImplementation('androidx.test:rules:1.5.0')
     androidTestImplementation('androidx.test.ext:junit:1.1.5')
