@@ -22,6 +22,7 @@ import {
 import type { IBadgeType } from '@onekeyhq/components';
 import { useClipboard } from '@onekeyhq/components/src/hooks/useClipboard';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
@@ -42,6 +43,8 @@ export default function PrimeMyOrders() {
   const intl = useIntl();
   const { copyText } = useClipboard();
   const [showAlert, setShowAlert] = useState(true);
+
+  const { user } = useOneKeyAuth();
 
   const { result: orders, isLoading } = usePromiseResult(
     () => backgroundApiProxy.servicePrime.apiFetchShopifyOrders(),
@@ -65,9 +68,15 @@ export default function PrimeMyOrders() {
     [copyText],
   );
 
-  const handleOrderDetails = useCallback((_order: IShopifyOrder) => {
-    openUrlUtils.openUrlExternal(FIND_ORDER_URL);
-  }, []);
+  const handleOrderDetails = useCallback(
+    (order: IShopifyOrder) => {
+      const trackOrderUrl = `https://onekey.so/track-order?order=${encodeURIComponent(
+        order.orderNumber,
+      )}&token=${encodeURIComponent(user?.email ?? '')}`;
+      openUrlUtils.openUrlExternal(trackOrderUrl);
+    },
+    [user?.email],
+  );
 
   const { gtMd } = useMedia();
 
