@@ -78,5 +78,5 @@ Topics covered:
 ## Related Skills
 
 - `/1k-coding-patterns` - General coding patterns and conventions
-- `/1k-dev-workflows` - Sentry error analysis (includes performance issues)
+- `/1k-sentry-analysis` - Sentry error analysis (includes performance issues)
 - `/react-native-best-practices` - React Native specific optimizations

@@ -64,4 +64,4 @@ import { localDb } from '...';
 - `/1k-performance` - Performance optimization
 - `/1k-state-management` - Jotai atom patterns
 - `/1k-architecture` - Project structure and import rules
-- `/1k-dev-workflows` - Lint fixes, pre-commit tasks
+- `/1k-code-quality` - Lint fixes, pre-commit tasks

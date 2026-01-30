@@ -45,15 +45,20 @@ ls -la .claude/skills/
 | Category | Skill | Merge candidates |
 |----------|-------|------------------|
 | Feature development | `1k-feature-guides` | New chains, socket events, notifications, pages, routes |
-| Development workflows | `1k-dev-workflows` | Lint fixes, test versions, pre-commit tasks |
+| Code quality | `1k-code-quality` | Lint fixes, pre-commit tasks, documentation |
+| Sentry analysis | `1k-sentry-analysis` | Crash reports, AppHang, ANR fixes |
+| Test versions | `1k-test-version` | Upgrade testing, version migration |
 | Native module patches | `1k-patching-native-modules` | iOS/Android crash fixes, native code patches |
-| Error monitoring | `1k-sentry` | Error filtering, crash analysis |
+| Error monitoring | `1k-sentry` | Error filtering, crash configuration |
 | Architecture | `1k-architecture` | Project structure, import rules |
 | Coding patterns | `1k-coding-patterns` | React patterns, TypeScript conventions |
+| Performance | `1k-performance` | Optimization, concurrent requests, memoization |
+| Error handling | `1k-error-handling` | Try/catch, error boundaries, user-facing errors |
 | State management | `1k-state-management` | Jotai atoms, global state |
 | Cross-platform | `1k-cross-platform` | Platform-specific code |
-| Git workflow | `1k-git-workflow` | Branching, commits, PRs |
+| Date formatting | `1k-date-formatting` | Date/time display, locale formatting |
 | i18n | `1k-i18n` | Translations, locales |
+| Git workflow | `1k-git-workflow` | Branching, commits, PRs |
 | Dev commands | `1k-dev-commands` | Build, test, lint commands |
 
 ### Merging workflow

@@ -151,4 +151,4 @@ Topics covered:
 ## Related Skills
 
 - `/1k-coding-patterns` - General coding patterns and promise handling
-- `/1k-dev-workflows` - Sentry error analysis and fixes
+- `/1k-sentry-analysis` - Sentry error analysis and fixes

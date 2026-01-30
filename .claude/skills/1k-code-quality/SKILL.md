@@ -128,19 +128,27 @@ const user = await fetchUser(userId);
 const user = await fetch(`/api/users/${userId}`).then(r => r.json());
 ```
 
-## Detailed Guide
+## Detailed Guides
 
-For comprehensive code quality guidelines and examples, see [code-quality.md](references/rules/code-quality.md).
-
-Topics covered:
+### Code Quality Standards
+See [code-quality.md](references/rules/code-quality.md) for comprehensive guidelines:
 - Linting commands and pre-commit workflow
-- Common lint fixes (unused variables, floating promises, etc.)
 - Comment and documentation standards
 - Language requirements (English only)
 - Single responsibility principle
 - Avoiding over-abstraction
 - Consistent naming conventions
 - Code quality checklist
+
+### Fixing Lint Warnings
+See [fix-lint.md](references/rules/fix-lint.md) for complete lint fix workflow:
+- Analyzing lint warnings
+- Categorizing lint errors
+- Common fix patterns by category
+- Spellcheck fixes
+- Unused variable/parameter handling
+- Automated fix strategies
+- Testing after fixes
 
 ## Spellcheck
 
@@ -168,5 +176,6 @@ echo "yourword" >> development/spellCheckerSkipWords.txt
 
 ## Related Skills
 
-- `/1k-dev-workflows` - Development workflows and lint fixes
+- `/1k-sentry-analysis` - Sentry error analysis and fixes
+- `/1k-test-version` - Test version creation workflow
 - `/1k-coding-patterns` - General coding patterns
