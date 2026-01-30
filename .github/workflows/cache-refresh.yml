@@ -1,0 +1,160 @@
+name: Cache Refresh
+
+# 目的 (Purpose):
+# 定期刷新 GitHub Actions setup-node 的 yarn 缓存，以确保 CI/CD 流程使用最新的依赖版本
+# Periodically refresh the setup-node yarn cache in GitHub Actions to ensure CI/CD pipelines use up-to-date dependencies
+#
+# 工作原理 (How it works):
+# 1. 在 x 分支上定期运行（每周一次）或手动触发
+#    Runs on the x branch on a schedule (weekly) or can be manually triggered
+# 2. 使用 actions/setup-node 的 cache: 'yarn' 功能来创建/更新缓存
+#    Uses actions/setup-node's cache: 'yarn' feature to create/update cache
+# 3. 执行 yarn install 安装所有依赖，这会更新缓存内容
+#    Runs yarn install to install all dependencies, which updates the cache content
+# 4. GitHub Actions 会自动保存更新后的缓存供其他 workflows 使用
+#    GitHub Actions automatically saves the updated cache for other workflows to use
+#
+# 为什么需要这个 (Why this is needed):
+# - 防止缓存过期导致其他 workflows 依赖安装失败
+#   Prevents cache expiration from causing dependency installation failures in other workflows
+# - 确保所有 CI jobs 使用一致的、最新的依赖版本
+#   Ensures all CI jobs use consistent, up-to-date dependency versions
+# - 减少其他 workflows 的首次运行时间（缓存已准备好）
+#   Reduces first-run time for other workflows (cache is pre-warmed)
+
+on:
+  # 定时触发：每周日 UTC 时间 00:00（北京时间周日上午 8:00）
+  # Scheduled trigger: Every Sunday at 00:00 UTC (8:00 AM Beijing time)
+  schedule:
+    - cron: '0 0 * * 0'
+
+  # 手动触发：允许通过 GitHub UI 手动运行此 workflow
+  # Manual trigger: Allow running this workflow manually from GitHub UI
+  workflow_dispatch:
+
+  # 仅在 x 分支有推送时触发（可选，用于测试）
+  # Trigger on push to x branch (optional, for testing)
+  push:
+    branches:
+      - x
+    paths:
+      - 'package.json'
+      - 'yarn.lock'
+      - '.yarnrc.yml'
+
+# 取消正在运行的相同 workflow
+# Cancel currently running workflows from the same group
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # 启用 Yarn 全局缓存以提高性能
+  # Enable Yarn global cache for better performance
+  YARN_ENABLE_GLOBAL_CACHE: true
+
+jobs:
+  refresh-cache:
+    # Job 名称：刷新 Node.js 和 Yarn 缓存
+    # Job name: Refresh Node.js and Yarn cache
+    name: Refresh setup-node yarn cache
+
+    # 运行环境：使用 Ubuntu 24.04
+    # Runner: Use Ubuntu 24.04
+    runs-on: ubuntu-24.04
+
+    strategy:
+      matrix:
+        # Node.js 版本矩阵：为 24.x 版本创建缓存
+        # Node.js version matrix: Create cache for version 24.x
+        node-version: [24.x]
+
+    steps:
+      # 步骤 1: 检出代码
+      # Step 1: Checkout code
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          ref: x  # 明确指定检出 x 分支 / Explicitly checkout x branch
+          lfs: true  # 启用 Git LFS 支持 / Enable Git LFS support
+
+      # 步骤 2: 设置 Node.js 环境并启用 Yarn 缓存
+      # Step 2: Setup Node.js environment and enable Yarn cache
+      # 这一步会：
+      # This step will:
+      # - 安装指定版本的 Node.js / Install specified Node.js version
+      # - 检查是否存在有效的 yarn 缓存 / Check for existing yarn cache
+      # - 如果缓存存在，恢复缓存 / Restore cache if it exists
+      # - 如果缓存不存在或已过期，准备创建新缓存 / Prepare to create new cache if not exists or expired
+      - name: Setup Node.js ${{ matrix.node-version }} with Yarn cache
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'yarn'  # 启用 Yarn 缓存 / Enable Yarn caching
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@onekeyhq'
+
+      # 步骤 3: 获取 Yarn 缓存目录路径
+      # Step 3: Get Yarn cache directory path
+      # 用于日志输出和调试 / For logging and debugging purposes
+      - name: Get yarn cache directory path
+        id: yarn-cache-dir-path
+        run: echo "dir=${{ github.workspace }}/.yarn" >> "$GITHUB_OUTPUT"
+
+      # 步骤 4: 安装依赖以刷新缓存
+      # Step 4: Install dependencies to refresh cache
+      # 这一步会：
+      # This step will:
+      # - 下载并安装所有 package.json 中定义的依赖 / Download and install all dependencies from package.json
+      # - 更新 .yarn/cache 目录中的缓存文件 / Update cache files in .yarn/cache directory
+      # - GitHub Actions 会在 job 结束时自动保存更新后的缓存 / GitHub Actions will auto-save updated cache at job end
+      - name: Install dependencies (refresh cache)
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: '--max_old_space_size=4096'
+        run: |
+          echo "Installing dependencies to refresh yarn cache..."
+          yarn install --immutable
+          echo "✅ Dependencies installed successfully"
+          echo "📦 Cache will be automatically saved by setup-node action"
+
+      # 步骤 5: 显示缓存统计信息
+      # Step 5: Display cache statistics
+      - name: Display cache statistics
+        run: |
+          echo "=== Yarn Cache Statistics ==="
+          echo "Cache directory: ${{ steps.yarn-cache-dir-path.outputs.dir }}"
+          if [ -d "${{ steps.yarn-cache-dir-path.outputs.dir }}/cache" ]; then
+            echo "Cache size: $(du -sh ${{ steps.yarn-cache-dir-path.outputs.dir }}/cache | cut -f1)"
+            echo "Number of cached packages: $(find ${{ steps.yarn-cache-dir-path.outputs.dir }}/cache -type f | wc -l)"
+          else
+            echo "Cache directory not found (using global cache)"
+          fi
+          echo "============================="
+
+      # 步骤 6: 验证依赖完整性
+      # Step 6: Verify dependency integrity
+      - name: Verify dependency integrity
+        run: |
+          echo "Verifying installed dependencies..."
+          yarn install --immutable --immutable-cache --check-cache
+          echo "✅ All dependencies verified successfully"
+
+# 注意事项 (Important Notes):
+# 1. 缓存键由 setup-node 自动生成，基于：
+#    Cache key is automatically generated by setup-node based on:
+#    - 操作系统版本 / OS version
+#    - Node.js 版本 / Node.js version
+#    - yarn.lock 文件的哈希值 / Hash of yarn.lock file
+#
+# 2. 当 yarn.lock 文件改变时，会自动创建新的缓存
+#    A new cache is automatically created when yarn.lock changes
+#
+# 3. GitHub Actions 缓存有 10GB 限制，旧缓存会自动清理
+#    GitHub Actions has a 10GB cache limit, old caches are auto-cleaned
+#
+# 4. 缓存会在 7 天未使用后自动过期
+#    Caches expire automatically after 7 days of no use
+#
+# 5. 此 workflow 应定期运行以保持缓存新鲜
+#    This workflow should run regularly to keep cache fresh
