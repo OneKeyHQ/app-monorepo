@@ -11,8 +11,41 @@ Workflow for analyzing and fixing errors from Sentry crash reports in the OneKey
 ## Workflow Overview
 
 ```
-1. Obtain Sentry JSON log → 2. Analyze error → 3. Identify root cause → 4. Implement fix → 5. Test & verify → 6. Create PR
+1. Obtain Sentry JSON log
+   ↓
+2. Analyze error
+   ↓
+3. Identify root cause
+   ↓
+4. Generate bug analysis log
+   ↓
+🚨 WAIT FOR USER CONFIRMATION 🚨
+   ↓
+5. Implement fix (only after approval)
+   ↓
+6. Test & verify
+   ↓
+7. Create PR
 ```
+
+**CRITICAL REQUIREMENTS**:
+
+1. ✅ **Always create a bug analysis log** in `node_modules/.cache/bugs/` directory before implementing fixes
+2. 🚨 **MUST wait for user confirmation** before starting any code changes
+3. ✅ **Bug analysis must be complete** with all sections filled
+
+**What the bug analysis log provides**:
+- Traceable evidence of the issue
+- Clear documentation of root cause analysis
+- Strong association with error locations in code
+- Proof of correct problem identification
+- Reference for future similar issues
+
+**Why wait for confirmation**:
+- Prevents implementing wrong solutions
+- Ensures correct problem understanding
+- Allows team discussion and alternative approaches
+- Creates accountability and proper workflow
 
 ## Step 1: Obtain Sentry Error JSON Log
 
@@ -160,7 +193,263 @@ for bc in breadcrumbs[-10:]:
 | Memory pressure warnings | Memory leak or excessive allocation | Optimize data structures, implement cleanup |
 | Repeated failed API calls | Network error handling issues | Add retry logic, better error handling |
 
-## Step 4: Implement Fix
+## Step 4: Generate Bug Analysis Log
+
+**CRITICAL**: Before implementing any fix, create a comprehensive bug analysis document in the `node_modules/.cache/bugs/` directory.
+
+### Create Bug Analysis Directory (if not exists)
+
+```bash
+mkdir -p node_modules/.cache/bugs
+```
+
+**Note**: This directory is in `.gitignore` by default (under `node_modules/`), so bug analysis logs won't be committed to the repository. They serve as local documentation during development.
+
+### Bug Analysis Document Structure
+
+Create a file: `node_modules/.cache/bugs/<descriptive-name>-<event_id_short>.md`
+
+Example: `node_modules/.cache/bugs/ios-app-hang-swap-token-fetch-37b865c8.md`
+
+### Required Sections
+
+```markdown
+# Bug Analysis: [Brief Title]
+
+**Sentry Event ID**: `<full_event_id>`
+**Date**: YYYY-MM-DD
+**Severity**: Critical/High/Medium/Low
+**Platform**: iOS/Android/Web/Extension
+**Affected Version**: x.y.z
+
+## 1. Error Overview
+
+| Field | Value |
+|-------|-------|
+| Error Type | AppHang/ANR/Crash/JS Error |
+| Device | iPhone X, Pixel 6, etc. |
+| OS Version | iOS 16.7.11, Android 13, etc. |
+| Occurrence Time | 2026-01-30 04:01:42 UTC |
+| User Impact | App freeze, crash, data loss, etc. |
+
+## 2. Error Details
+
+### Exception Information
+```
+[Paste exception type, value, and key details]
+```
+
+### Stack Trace (Main Thread/Crashed Thread)
+```
+[Paste relevant stack trace showing the crash location]
+```
+
+**Key Frames** (with file locations):
+- Frame 1: `packages/kit/src/path/file.ts:123` - Function name
+- Frame 2: `packages/kit/src/path/file.ts:456` - Function name
+
+## 3. User Actions (Breadcrumbs)
+
+What the user was doing before the crash:
+```
+- 04:01:35 [navigation] Navigated to Swap page
+- 04:01:37 [http] GET /tokens?network=evm--1 (200 OK)
+- 04:01:37 [http] GET /tokens?network=evm--56 (200 OK)
+- 04:01:37 [http] GET /tokens?network=evm--137 (200 OK)
+... [10+ concurrent requests]
+```
+
+## 4. Root Cause Analysis
+
+### Problem Identification
+[Detailed explanation of what caused the issue]
+
+### Code Location
+**File**: `packages/kit/src/states/jotai/contexts/swap/actions.ts`
+**Lines**: 1803-1820
+**Function**: `swapLoadAllNetworkTokenList`
+
+**Problematic Code**:
+```typescript
+// Line 1803-1820 (before fix)
+const requests = accountAddressList.map((networkDataString) => {
+  return this.updateAllNetworkTokenList.call(...);
+});
+
+await Promise.all(requests); // ❌ 10+ concurrent requests blocking UI
+```
+
+### Why This Causes the Error
+[Explain the technical reason]
+
+Example:
+- 10+ simultaneous HTTP requests created
+- All requests fired at once using `Promise.all()`
+- Main thread blocked during navigation animation
+- iOS watchdog detected 5+ second hang
+- Result: App marked as unresponsive
+
+### Impact Scope
+- **Affected Users**: Users on low-end devices (iPhone 7, older Android)
+- **Frequency**: Occurs when switching between multiple networks on Swap page
+- **Severity**: High - App becomes unresponsive, poor UX
+
+## 5. Proposed Solution
+
+### Fix Strategy
+[Describe the approach to fix the issue]
+
+Example:
+1. Implement batched request execution
+2. Limit concurrent requests to 3 per batch
+3. Use `Promise.allSettled` to handle failures gracefully
+
+### Code Changes Required
+
+**File**: `packages/kit/src/states/jotai/contexts/swap/actions.ts`
+
+**Add helper method** (Line ~122):
+```typescript
+private async executeBatched<T>(
+  tasks: Array<() => Promise<T>>,
+  concurrency = 3,
+): Promise<Array<PromiseSettledResult<T>>> {
+  const results: Array<PromiseSettledResult<T>> = [];
+
+  for (let i = 0; i < tasks.length; i += concurrency) {
+    const batch = tasks.slice(i, i + concurrency);
+    const batchResults = await Promise.allSettled(
+      batch.map((task) => task()),
+    );
+    results.push(...batchResults);
+  }
+
+  return results;
+}
+```
+
+**Update method** (Line 1803-1820):
+```typescript
+// Before:
+const requests = accountAddressList.map(...);
+await Promise.all(requests);
+
+// After:
+const tasks = accountAddressList.map((...) => () => fetchData(...));
+const results = await this.executeBatched(tasks, 3);
+```
+
+### Expected Outcome
+- ✅ UI thread no longer blocked
+- ✅ Smooth navigation animations
+- ✅ Better error handling
+- ✅ Improved performance on low-end devices
+
+## 6. Testing Plan
+
+### Manual Testing
+- [ ] Test on iPhone 7 (iOS 16.7.11)
+- [ ] Rapidly switch between networks on Swap page
+- [ ] Verify no app freeze or hang
+- [ ] Test with poor network conditions
+
+### Automated Testing
+- [ ] Run `yarn lint:staged`
+- [ ] Run `yarn tsc:staged`
+- [ ] Verify no regressions in related tests
+
+### Performance Metrics
+- Before: 5000ms+ hang time
+- After: <100ms response time (expected)
+
+## 7. Related Issues
+
+- Sentry Event: `37b865c80c014b12b9c3f7bf45af75ea`
+- Similar pattern in `swapProLoadSupportNetworksTokenList` (also needs fix)
+- Related to issue OK-XXXXX (if applicable)
+
+## 8. Prevention
+
+To prevent similar issues in the future:
+- ✅ Always use batched execution for multiple network requests
+- ✅ Set concurrency limits for parallel operations
+- ✅ Test on low-end devices during development
+- ✅ Monitor Sentry for similar patterns
+
+## 9. References
+
+- Stack Overflow: [Link if applicable]
+- React Native docs: [Link if applicable]
+- Internal documentation: [Link if applicable]
+```
+
+### Example Command to Create File
+
+```bash
+cat > node_modules/.cache/bugs/ios-app-hang-swap-token-fetch-37b865c8.md << 'EOF'
+[Paste the bug analysis content here]
+EOF
+```
+
+### Verification Checklist
+
+Before proceeding to implement the fix, verify your bug analysis includes:
+
+- [ ] **Sentry Event ID** - Full event ID for traceability
+- [ ] **Exact file locations** - Full file paths with line numbers
+- [ ] **Code snippets** - Actual problematic code quoted from files
+- [ ] **Strong association** - Direct link between error and code location
+- [ ] **Root cause explanation** - Technical reasoning, not just symptoms
+- [ ] **Proposed solution** - Specific code changes with examples
+- [ ] **Testing plan** - How to verify the fix works
+- [ ] **Prevention measures** - How to avoid similar issues
+
+### Benefits of Bug Analysis Logs
+
+1. **Traceable Evidence**: Clear record of issue investigation
+2. **Knowledge Sharing**: Team members can learn from past issues
+3. **Pattern Recognition**: Identify recurring problems
+4. **Review Reference**: Useful during PR reviews
+5. **Documentation**: Helpful for onboarding and maintenance
+
+### 🚨 CRITICAL: Wait for User Confirmation
+
+**DO NOT proceed to Step 5 (Implement Fix) until:**
+
+1. ✅ Bug analysis log is complete and comprehensive
+2. ✅ All sections are filled out with accurate information
+3. ✅ Code locations are verified and correct
+4. ✅ Root cause analysis is clear and well-reasoned
+5. ✅ **User has reviewed and confirmed** the bug analysis
+
+**Why this is critical:**
+- Ensures correct problem identification before spending time on fixes
+- Prevents implementing wrong solutions
+- Allows team discussion and alternative approaches
+- Creates accountability and traceability
+
+**Workflow:**
+```bash
+# 1. Create bug analysis log
+vim node_modules/.cache/bugs/issue-description-<event_id_short>.md
+
+# 2. Share the analysis log path with user
+# "I've created a bug analysis log at:
+# node_modules/.cache/bugs/issue-description-<event_id_short>.md
+#
+# Please review the analysis and confirm before I proceed with the fix."
+
+# 3. WAIT for user confirmation
+# Do NOT start coding until user says "proceed" or "approved"
+
+# 4. Only after confirmation, proceed to implement fix
+```
+
+**Note**: Bug analysis logs in `node_modules/.cache/bugs/` are not committed to git (they're in .gitignore). They serve as local documentation during the fix development process. The analysis is included in the PR description instead.
+
+## Step 5: Implement Fix
+
+**PREREQUISITE**: Bug analysis log must be completed and user-approved (Step 4).
 
 ### Common Fix Patterns
 
@@ -264,7 +553,7 @@ const loadMore = () => {
 };
 ```
 
-## Step 5: Verify Fix
+## Step 6: Verify Fix
 
 ### Run Linting and Type Checks
 
@@ -291,7 +580,7 @@ yarn tsc:staged
    - Test related features
    - Verify no new errors introduced
 
-## Step 6: Create PR
+## Step 7: Create PR
 
 ### Commit Message Format
 
