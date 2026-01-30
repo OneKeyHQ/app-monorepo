@@ -20,14 +20,18 @@ function BulkSendBar() {
     [handleBackPress],
   );
 
-  return (
-    <TabPageHeader
-      sceneName={EAccountSelectorSceneName.home}
-      tabRoute={ETabRoutes.Market}
-      customHeaderLeftItems={customHeaderLeft}
-      hideSearch={!media.gtMd}
-    />
-  );
+  if (media.gtMd) {
+    return (
+      <TabPageHeader
+        sceneName={EAccountSelectorSceneName.home}
+        tabRoute={ETabRoutes.Market}
+        customHeaderLeftItems={customHeaderLeft}
+        hideSearch={!media.gtMd}
+      />
+    );
+  }
+
+  return null;
 }
 
 export default BulkSendBar;

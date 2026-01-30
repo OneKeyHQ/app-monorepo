@@ -8,8 +8,11 @@ import {
   NumberSizeableText,
   SizableText,
   Stack,
+  Toast,
+  Tooltip,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import type { IInputAddOnProps } from '@onekeyhq/components/src/forms/Input/InputAddOnItem';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
@@ -19,6 +22,12 @@ import {
 } from '@onekeyhq/shared/types/bulkSend';
 import type { IToken } from '@onekeyhq/shared/types/token';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+// Fixed width for input field to ensure consistent layout
+const INPUT_WIDTH = 130;
+// Fixed width for address to prevent wrapping
+const ADDRESS_WIDTH = 120;
 
 type Props = {
   tokenInfo: IToken;
@@ -44,6 +53,18 @@ type ITransferListItemProps = {
   onAmountChange?: (amount: string) => void;
 };
 
+// Filter input to only allow numbers and decimal point
+function filterNumericInput(text: string): string {
+  // Remove all characters except digits and decimal point
+  let filtered = text.replace(/[^0-9.]/g, '');
+  // Ensure only one decimal point
+  const parts = filtered.split('.');
+  if (parts.length > 2) {
+    filtered = `${parts[0]}.${parts.slice(1).join('')}`;
+  }
+  return filtered;
+}
+
 function TransferListItem({
   address,
   amount,
@@ -56,17 +77,32 @@ function TransferListItem({
   onDelete,
   onAmountChange,
 }: ITransferListItemProps) {
-  const shortenedAddress = accountUtils.shortenAddress({ address });
+  const media = useMedia();
+  // On small screens, use shorter address format (6 leading + 4 trailing)
+  const shortenedAddress = accountUtils.shortenAddress({
+    address,
+    leadingLength: media.gtMd ? 8 : 6,
+    trailingLength: media.gtMd ? 6 : 4,
+  });
   const isSend = type === 'send';
   const hasAddressError = !!addressError;
   const hasAmountError = !!amountError;
 
   const handleAmountChange = useCallback(
     (text: string) => {
-      onAmountChange?.(text);
+      // Filter to only allow numeric input
+      const filteredText = filterNumericInput(text);
+      onAmountChange?.(filteredText);
     },
     [onAmountChange],
   );
+
+  // Show error toast on mobile when tapping error icon
+  const handleErrorIconPress = useCallback(() => {
+    if (platformEnv.isNative && amountError) {
+      Toast.error({ title: amountError });
+    }
+  }, [amountError]);
 
   const inputAddOns = useMemo<IInputAddOnProps[]>(() => {
     const addOns: IInputAddOnProps[] = [
@@ -77,31 +113,39 @@ function TransferListItem({
     return addOns;
   }, [tokenSymbol]);
 
-  const errorInputAddOns = useMemo<IInputAddOnProps[]>(() => {
-    const addOns: IInputAddOnProps[] = [
-      {
-        iconName: 'ErrorOutline',
-        iconColor: '$iconCritical',
-        tooltipProps: {
-          renderContent: amountError,
-          placement: 'top',
-        },
-      },
-    ];
-    return addOns;
-  }, [amountError]);
+  const errorLeftAddOnProps = useMemo<IInputAddOnProps | undefined>(() => {
+    if (!hasAmountError) return undefined;
+    return {
+      iconName: 'ErrorOutline',
+      iconColor: '$iconCritical',
+      onPress: handleErrorIconPress,
+      tooltipProps: platformEnv.isNative
+        ? undefined
+        : {
+            renderContent: amountError,
+            placement: 'top',
+          },
+    };
+  }, [hasAmountError, amountError, handleErrorIconPress]);
 
   const renderAmount = () => {
     if (editMode) {
       return (
         <Input
-          flex={1}
+          width={INPUT_WIDTH}
           value={amount}
           onChangeText={handleAmountChange}
           placeholder="0"
           keyboardType="decimal-pad"
           error={hasAmountError}
-          addOns={hasAmountError ? errorInputAddOns : inputAddOns}
+          leftAddOnProps={errorLeftAddOnProps}
+          addOns={inputAddOns}
+          textAlign="right"
+          containerProps={{
+            width: INPUT_WIDTH,
+            borderWidth: 0,
+            bg: '$bgSubdued',
+          }}
         />
       );
     }
@@ -123,30 +167,50 @@ function TransferListItem({
     );
   };
 
+  // Render address with tooltip
+  const renderAddress = () => {
+    const addressText = (
+      <SizableText
+        size="$bodyMdMedium"
+        color={hasAddressError ? '$textCritical' : '$text'}
+        numberOfLines={1}
+      >
+        {shortenedAddress}
+      </SizableText>
+    );
+
+    // On mobile, show tooltip on press; on desktop, show on hover
+    return (
+      <Tooltip
+        renderTrigger={addressText}
+        renderContent={address}
+        placement="top"
+      />
+    );
+  };
+
   return (
-    <XStack
-      gap="$3"
-      py="$2"
-      alignItems={editMode ? 'center' : 'flex-start'}
-    >
-      <YStack justifyContent="center" flexShrink={0}>
-        <SizableText
-          size="$bodyMdMedium"
-          color={hasAddressError ? '$textCritical' : '$text'}
-        >
-          {shortenedAddress}
-        </SizableText>
+    <XStack gap="$3" py="$2" alignItems={editMode ? 'center' : 'flex-start'}>
+      <YStack
+        justifyContent="center"
+        flexShrink={0}
+        width={ADDRESS_WIDTH}
+        minWidth={ADDRESS_WIDTH}
+      >
+        {renderAddress()}
         {hasAddressError ? (
           <XStack gap="$1" alignItems="center">
             <Icon name="InfoCircleOutline" size="$4" color="$iconCritical" />
-            <SizableText size="$bodyMd" color="$textCritical">
+            <SizableText size="$bodyMd" color="$textCritical" numberOfLines={1}>
               {addressError}
             </SizableText>
           </XStack>
         ) : null}
       </YStack>
 
-      <Stack flex={1}>{renderAmount()}</Stack>
+      <Stack flex={1} alignItems="flex-end">
+        {renderAmount()}
+      </Stack>
 
       {onDelete ? (
         <IconButton
@@ -330,6 +394,7 @@ function BulkSendTxDetails(props: Props) {
             tokenSymbol={tokenSymbol}
             type="receive"
             addressError={getTransferError(receiver.indices, 'to')}
+            amountError={getTransferError(receiver.indices, 'amount')}
             editMode={editMode && canEditReceiver}
             deleteDisabled={isDeleteDisabled}
             onDelete={

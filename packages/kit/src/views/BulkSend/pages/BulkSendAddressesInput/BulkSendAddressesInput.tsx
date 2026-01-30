@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { Form, Page, YStack, useForm } from '@onekeyhq/components';
+import { Form, Page, YStack, useForm, useMedia } from '@onekeyhq/components';
 import {
   POLLING_DEBOUNCE_INTERVAL,
   POLLING_INTERVAL_FOR_TOKEN,
@@ -28,6 +28,7 @@ import AssetSelectorTrigger from './components/AssetSelectorTrigger';
 import BulkSendBar from '../../components/BulkSendBar';
 import BulkSendContentWrapper from '../../components/BulkSendContentWrapper';
 import BulkSendHeader from '../../components/BulkSendHeader';
+import { useBulkSendMobileHeader } from '../../components/BulkSendMobileHeader';
 import {
   BulkSendAddressesInputContext,
   useBulkSendAddressesInputContext,
@@ -59,6 +60,9 @@ function BaseBulkSendAddressesInput() {
     tokenDetailsState,
     bulkSendMode,
   } = useBulkSendAddressesInputContext();
+
+  const media = useMedia();
+  const { headerTitle } = useBulkSendMobileHeader({ bulkSendMode });
 
   const form = useForm({
     defaultValues: {
@@ -317,6 +321,7 @@ function BaseBulkSendAddressesInput() {
 
   return (
     <Page scrollEnabled>
+      {media.gtMd ? null : <Page.Header headerTitle={headerTitle} />}
       <BulkSendBar />
       <Page.Body>
         <BulkSendContentWrapper>
@@ -358,9 +363,7 @@ function BaseBulkSendAddressesInput() {
           }}
         >
           <Page.FooterActions
-            $gtMd={{
-              px: '$0',
-            }}
+            px="$0"
             onConfirmText="Next"
             confirmButtonProps={{
               onPress: handleSubmit,

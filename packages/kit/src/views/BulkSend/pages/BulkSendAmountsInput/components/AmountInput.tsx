@@ -83,7 +83,7 @@ export function SpecifiedAmountInput() {
   const fiatValue = useMemo(() => {
     const amount = new BigNumber(amountInputValues.specifiedAmount || '0');
     if (amount.isNaN() || !tokenDetails?.price) return '0';
-    return `${amount.times(tokenDetails.price).toFixed(2)}`;
+    return amount.times(tokenDetails.price).toFixed(2);
   }, [amountInputValues.specifiedAmount, tokenDetails?.price]);
 
   return (
@@ -372,42 +372,33 @@ function CustomAmountDisplay({ inDialog }: { inDialog?: boolean }) {
       renderAvatar={() => (
         <Token
           tokenImageUri={tokenDetails?.info.logoURI}
-          size="sm"
+          size="lg"
           showNetworkIcon
           networkImageUri={network?.logoURI}
           networkId={network?.id}
         />
       )}
-      bg="$bgSubdued"
       mx="$0"
-      $gtMd={{
-        px: '$0',
-        bg: '$bgApp',
-      }}
+      px="$0"
     >
-      <XStack alignItems="center" gap="$2" justifyContent="space-between">
-        <ListItem.Text
-          flex={1}
-          primary={
-            <NumberSizeableText
-              size="$bodyLgMedium"
-              formatter="balance"
-              formatterOptions={{ tokenSymbol }}
-            >
-              {totalTokenAmount}
-            </NumberSizeableText>
-          }
-          secondary={
-            <NumberSizeableText
-              size="$bodyMd"
-              color="$textSubdued"
-              formatter="value"
-              formatterOptions={{ currency: settings.currencyInfo.symbol }}
-            >
-              {totalFiatAmount}
-            </NumberSizeableText>
-          }
-        />
+      <XStack alignItems="center" gap="$2" flex={1}>
+        <YStack flex={1}>
+          <NumberSizeableText
+            size="$bodyLgMedium"
+            formatter="balance"
+            formatterOptions={{ tokenSymbol }}
+          >
+            {totalTokenAmount}
+          </NumberSizeableText>
+          <NumberSizeableText
+            size="$bodyMd"
+            color="$textSubdued"
+            formatter="value"
+            formatterOptions={{ currency: settings.currencyInfo.symbol }}
+          >
+            {totalFiatAmount}
+          </NumberSizeableText>
+        </YStack>
         <SizableText size="$bodyMd" color="$textSubdued">
           Sending Amount
         </SizableText>

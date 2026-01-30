@@ -15,6 +15,17 @@ export type IPreviewState = {
   rangePreviewed: boolean;
 };
 
+// Mobile-specific data structure for each mode
+export type IMobileModeData = {
+  transfersInfo: ITransferInfo[];
+  transferInfoErrors: ITransferInfoErrors;
+  isInsufficientBalance: boolean;
+  totalTokenAmount: string;
+  totalFiatAmount: string;
+};
+
+export type IMobileModeDataByMode = Record<EAmountInputMode, IMobileModeData>;
+
 export type IBulkSendAmountsInputContext = {
   accountId: string | undefined;
   networkId: string;
@@ -32,6 +43,7 @@ export type IBulkSendAmountsInputContext = {
     isRefreshing: boolean;
   }) => void;
   bulkSendMode: EBulkSendMode;
+  // Desktop uses these directly
   transfersInfo: ITransferInfo[];
   setTransfersInfo: (transfersInfo: ITransferInfo[]) => void;
   amountInputMode: EAmountInputMode;
@@ -52,6 +64,21 @@ export type IBulkSendAmountsInputContext = {
   // Preview state for Specified/Range modes
   previewState: IPreviewState;
   setPreviewState: (state: IPreviewState) => void;
+  // Mobile-specific: data by mode
+  mobileModeData: IMobileModeDataByMode;
+  setMobileModeData: (data: IMobileModeDataByMode) => void;
+  // Helper to update current mode's data
+  updateCurrentModeData: (data: Partial<IMobileModeData>) => void;
+  // Get current mode's data for mobile
+  currentModeData: IMobileModeData;
+};
+
+const defaultModeData: IMobileModeData = {
+  transfersInfo: [],
+  transferInfoErrors: {},
+  isInsufficientBalance: false,
+  totalTokenAmount: '0',
+  totalFiatAmount: '0',
 };
 
 export const BulkSendAmountsInputContext =
@@ -96,6 +123,15 @@ export const BulkSendAmountsInputContext =
       rangePreviewed: false,
     },
     setPreviewState: () => {},
+    // Mobile-specific
+    mobileModeData: {
+      [EAmountInputMode.Specified]: { ...defaultModeData },
+      [EAmountInputMode.Range]: { ...defaultModeData },
+      [EAmountInputMode.Custom]: { ...defaultModeData },
+    },
+    setMobileModeData: () => {},
+    updateCurrentModeData: () => {},
+    currentModeData: { ...defaultModeData },
   });
 
 export const useBulkSendAmountsInputContext = () =>

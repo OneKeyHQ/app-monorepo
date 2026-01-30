@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { Dialog, Stack, YStack } from '@onekeyhq/components';
 import {
-  type EAmountInputMode,
+  EAmountInputMode,
   EBulkSendMode,
   type IAmountInputError,
   type IAmountInputValues,
@@ -10,7 +10,7 @@ import {
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 
-import { BulkSendAmountsInputContext } from './Context';
+import { BulkSendAmountsInputContext, type IMobileModeData } from './Context';
 import { AmountInputSection } from './AmountInput';
 import { AmountPreview } from './AmountPreview';
 import { calculateIsAmountValid, calculateTotalAmounts } from '../../../utils';
@@ -110,6 +110,39 @@ function SetAmountPerAddressDialogContent({
         rangePreviewed: false,
       },
       setPreviewState: () => {},
+      // Mobile-specific (not used in dialog, but required by context type)
+      mobileModeData: {
+        [EAmountInputMode.Specified]: {
+          transfersInfo: [],
+          transferInfoErrors: {},
+          isInsufficientBalance: false,
+          totalTokenAmount: '0',
+          totalFiatAmount: '0',
+        } as IMobileModeData,
+        [EAmountInputMode.Range]: {
+          transfersInfo: [],
+          transferInfoErrors: {},
+          isInsufficientBalance: false,
+          totalTokenAmount: '0',
+          totalFiatAmount: '0',
+        } as IMobileModeData,
+        [EAmountInputMode.Custom]: {
+          transfersInfo: [],
+          transferInfoErrors: {},
+          isInsufficientBalance: false,
+          totalTokenAmount: '0',
+          totalFiatAmount: '0',
+        } as IMobileModeData,
+      },
+      setMobileModeData: () => {},
+      updateCurrentModeData: () => {},
+      currentModeData: {
+        transfersInfo: [],
+        transferInfoErrors: {},
+        isInsufficientBalance: false,
+        totalTokenAmount: '0',
+        totalFiatAmount: '0',
+      } as IMobileModeData,
     }),
     [
       accountId,

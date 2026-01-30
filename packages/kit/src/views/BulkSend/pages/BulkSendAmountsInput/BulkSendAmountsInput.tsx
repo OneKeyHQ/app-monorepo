@@ -24,10 +24,13 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import BulkSendBar from '../../components/BulkSendBar';
 import BulkSendContentWrapper from '../../components/BulkSendContentWrapper';
 import BulkSendHeader from '../../components/BulkSendHeader';
+import { useBulkSendMobileHeader } from '../../components/BulkSendMobileHeader';
 
 import {
   BulkSendAmountsInputContext,
   type IBulkSendAmountsInputContext,
+  type IMobileModeData,
+  type IMobileModeDataByMode,
   type IPreviewState,
   useBulkSendAmountsInputContext,
 } from './components/Context';
@@ -48,6 +51,7 @@ import { calculateIsAmountValid, calculateTotalAmounts } from '../../utils';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import BigNumber from 'bignumber.js';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import { isEmpty } from 'lodash';
 
 function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
   const {
@@ -67,18 +71,35 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
     previewState,
     setPreviewState,
     setTransfersInfo,
+    // Mobile-specific
+    currentModeData,
+    updateCurrentModeData,
   } = useBulkSendAmountsInputContext();
 
   const navigation = useAppNavigation();
 
   const media = useMedia();
+  const { headerTitle } = useBulkSendMobileHeader({ bulkSendMode });
 
   const [isBuilding, setIsBuilding] = useState(false);
+
+  // For mobile Specified/Range modes, we need to update both shared and mode-specific data
+  // when handlePreview generates new amounts
+  const setTransfersInfoWithModeUpdate = useCallback(
+    (newTransfersInfo: ITransferInfo[]) => {
+      setTransfersInfo(newTransfersInfo);
+      // Also update mode-specific data for mobile
+      if (!media.gtMd && amountInputMode !== EAmountInputMode.Custom) {
+        updateCurrentModeData({ transfersInfo: newTransfersInfo });
+      }
+    },
+    [setTransfersInfo, media.gtMd, amountInputMode, updateCurrentModeData],
+  );
 
   const { handlePreview, shouldShowTxDetails, hidePreview } = useAmountPreview({
     tokenInfo,
     transfersInfo,
-    setTransfersInfo,
+    setTransfersInfo: setTransfersInfoWithModeUpdate,
     previewState,
     setPreviewState,
   });
@@ -120,8 +141,19 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
 
     setIsBuilding(true);
 
+    // For mobile, use mode-specific data; for desktop, use shared data
+    const effectiveTransfersInfo = !media.gtMd
+      ? currentModeData.transfersInfo
+      : transfersInfo;
+    const effectiveTotalTokenAmount = !media.gtMd
+      ? currentModeData.totalTokenAmount
+      : totalTokenAmount;
+    const effectiveTotalFiatAmount = !media.gtMd
+      ? currentModeData.totalFiatAmount
+      : totalFiatAmount;
+
     try {
-      const sender = transfersInfo[0]?.from;
+      const sender = effectiveTransfersInfo[0]?.from;
       if (!sender) return;
 
       const approvesInfo: IApproveInfo[] = [];
@@ -136,7 +168,7 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
             spenderAddress: bulkSendContractAddress,
             walletAddress: sender,
             accountId,
-            amount: totalTokenAmount,
+            amount: effectiveTotalTokenAmount,
           });
 
         // If not approved or allowance is insufficient, prepare approve info
@@ -162,7 +194,7 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
           approvesInfo.push({
             owner: sender,
             spender: bulkSendContractAddress,
-            amount: totalTokenAmount,
+            amount: effectiveTotalTokenAmount,
             isMax: false,
             tokenInfo: baseTokenInfo,
           });
@@ -186,7 +218,7 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
         await backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx({
           networkId,
           accountId,
-          transfersInfo,
+          transfersInfo: effectiveTransfersInfo,
           prevNonce,
         }),
       );
@@ -197,11 +229,11 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
         unsignedTxs,
         approvesInfo,
         tokenInfo,
-        transfersInfo,
+        transfersInfo: effectiveTransfersInfo,
         bulkSendMode,
         isInModal,
-        totalTokenAmount,
-        totalFiatAmount,
+        totalTokenAmount: effectiveTotalTokenAmount,
+        totalFiatAmount: effectiveTotalFiatAmount,
       };
 
       if (isInModal) {
@@ -226,25 +258,51 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
     transfersInfo,
     needsApproval,
     totalTokenAmount,
+    totalFiatAmount,
     isInModal,
     navigation,
-    totalFiatAmount,
     amountInputMode,
     amountInputValues,
     shouldShowTxDetails,
     handlePreview,
     media.gtMd,
+    currentModeData.transfersInfo,
+    currentModeData.totalTokenAmount,
+    currentModeData.totalFiatAmount,
   ]);
 
   const isSubmitDisabled = useMemo(() => {
-    return (
+    // Base conditions that always apply
+    const baseConditions =
       !tokenDetailsState.initialized ||
       (tokenDetailsState.isRefreshing && !tokenDetails) ||
-      !isAmountValid ||
-      isInsufficientBalance ||
       isBuilding ||
-      !bulkSendContractAddress
-    );
+      !bulkSendContractAddress;
+
+    if (baseConditions) return true;
+
+    // For mobile view:
+    if (!media.gtMd) {
+      // Issue 1: In Specified/Range modes, if already in preview mode (Transaction Detail shown),
+      // allow proceeding even if input has validation errors - use already generated Transfer Info
+      if (isInPreviewMode) {
+        // In preview mode, check mode-specific insufficient balance
+        return currentModeData.isInsufficientBalance;
+      }
+
+      // Issue 2: In Custom mode, check mode-specific transferInfoErrors
+      if (amountInputMode === EAmountInputMode.Custom) {
+        const hasTransferErrors = !isEmpty(currentModeData.transferInfoErrors);
+        return (
+          hasTransferErrors ||
+          currentModeData.isInsufficientBalance ||
+          currentModeData.transfersInfo.length === 0
+        );
+      }
+    }
+
+    // Default validation for desktop and mobile non-preview modes
+    return !isAmountValid || isInsufficientBalance;
   }, [
     tokenDetailsState.initialized,
     tokenDetailsState.isRefreshing,
@@ -253,6 +311,12 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
     isInsufficientBalance,
     isBuilding,
     bulkSendContractAddress,
+    media.gtMd,
+    isInPreviewMode,
+    amountInputMode,
+    currentModeData.isInsufficientBalance,
+    currentModeData.transferInfoErrors,
+    currentModeData.transfersInfo.length,
   ]);
 
   // Handle back button press
@@ -271,6 +335,7 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
 
   return (
     <Page scrollEnabled>
+      {media.gtMd ? null : <Page.Header headerTitle={headerTitle} />}
       <BulkSendBar />
       <Page.Body>
         <BulkSendContentWrapper>
@@ -288,9 +353,7 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
           }}
         >
           <Page.FooterActions
-            $gtMd={{
-              px: '$0',
-            }}
+            px="$0"
             onConfirmText={confirmButtonText}
             onCancelText="Back"
             cancelButtonProps={{
@@ -404,6 +467,88 @@ function BulkSendAmountsInput() {
     specifiedPreviewed: false,
     rangePreviewed: false,
   });
+
+  // Mobile-specific: independent data for each mode
+  const defaultModeData: IMobileModeData = useMemo(
+    () => ({
+      transfersInfo: [],
+      transferInfoErrors: {},
+      isInsufficientBalance: false,
+      totalTokenAmount: '0',
+      totalFiatAmount: '0',
+    }),
+    [],
+  );
+
+  const [mobileModeData, setMobileModeData] = useState<IMobileModeDataByMode>({
+    [EAmountInputMode.Specified]: { ...defaultModeData },
+    [EAmountInputMode.Range]: { ...defaultModeData },
+    [EAmountInputMode.Custom]: { ...defaultModeData },
+  });
+
+  // Helper to update current mode's data
+  const updateCurrentModeData = useCallback(
+    (data: Partial<IMobileModeData>) => {
+      setMobileModeData((prev) => ({
+        ...prev,
+        [amountInputMode]: {
+          ...prev[amountInputMode],
+          ...data,
+        },
+      }));
+    },
+    [amountInputMode],
+  );
+
+  // Get current mode's data for mobile
+  const currentModeData = useMemo(
+    () => mobileModeData[amountInputMode],
+    [mobileModeData, amountInputMode],
+  );
+
+  // Update mobile mode data with calculated values when transfersInfo changes
+  // Use JSON.stringify to detect actual changes in transfersInfo array
+  const currentModeTransfersInfoJson = JSON.stringify(
+    currentModeData.transfersInfo.map((t) => ({ to: t.to, amount: t.amount })),
+  );
+  useEffect(() => {
+    const modeTransfersInfo = currentModeData.transfersInfo;
+    if (modeTransfersInfo.length > 0 && tokenDetails) {
+      const {
+        totalTokenAmount: modeTotalToken,
+        totalFiatAmount: modeTotalFiat,
+      } = calculateTotalAmounts({
+        transfersInfo: modeTransfersInfo,
+        tokenPrice: tokenDetails.price,
+      });
+      const modeIsInsufficient = new BigNumber(modeTotalToken).gt(
+        tokenDetails.balanceParsed,
+      );
+
+      // Only update if values actually changed
+      if (
+        currentModeData.totalTokenAmount !== modeTotalToken ||
+        currentModeData.totalFiatAmount !== modeTotalFiat ||
+        currentModeData.isInsufficientBalance !== modeIsInsufficient
+      ) {
+        setMobileModeData((prev) => ({
+          ...prev,
+          [amountInputMode]: {
+            ...prev[amountInputMode],
+            totalTokenAmount: modeTotalToken,
+            totalFiatAmount: modeTotalFiat,
+            isInsufficientBalance: modeIsInsufficient,
+          },
+        }));
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    currentModeTransfersInfoJson,
+    amountInputMode,
+    tokenDetails?.price,
+    tokenDetails?.balanceParsed,
+  ]);
 
   // Calculate if current mode is valid using shared logic
   const isAmountValid = useMemo(
@@ -571,6 +716,33 @@ function BulkSendAmountsInput() {
     }
 
     setTransfersInfo(_transfersInfo);
+
+    // Initialize mobile mode data for all three modes
+    // Custom mode uses the generated transfersInfo
+    // Specified and Range modes start with empty data (populated on Preview)
+    setMobileModeData({
+      [EAmountInputMode.Specified]: {
+        transfersInfo: [],
+        transferInfoErrors: {},
+        isInsufficientBalance: false,
+        totalTokenAmount: '0',
+        totalFiatAmount: '0',
+      },
+      [EAmountInputMode.Range]: {
+        transfersInfo: [],
+        transferInfoErrors: {},
+        isInsufficientBalance: false,
+        totalTokenAmount: '0',
+        totalFiatAmount: '0',
+      },
+      [EAmountInputMode.Custom]: {
+        transfersInfo: _transfersInfo,
+        transferInfoErrors: {},
+        isInsufficientBalance: false,
+        totalTokenAmount: '0',
+        totalFiatAmount: '0',
+      },
+    });
   }, [
     bulkSendMode,
     senders,
@@ -605,6 +777,11 @@ function BulkSendAmountsInput() {
       isInsufficientBalance,
       previewState,
       setPreviewState,
+      // Mobile-specific
+      mobileModeData,
+      setMobileModeData,
+      updateCurrentModeData,
+      currentModeData,
     }),
     [
       networkId,
@@ -624,6 +801,9 @@ function BulkSendAmountsInput() {
       totalFiatAmount,
       isInsufficientBalance,
       previewState,
+      mobileModeData,
+      updateCurrentModeData,
+      currentModeData,
     ],
   );
 
