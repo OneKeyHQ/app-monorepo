@@ -1,6 +1,6 @@
 ---
 name: 1k-coding-patterns
-description: Coding patterns and best practices for OneKey development. Use when writing React components, handling promises, error handling, or following code conventions. Triggers on react, component, hooks, promise, async, await, error, pattern, convention, typescript.
+description: Coding patterns and best practices for OneKey development. Use when writing React components, handling promises, error handling, performance optimization, or following code conventions. Triggers on react, component, hooks, promise, async, await, error, pattern, convention, typescript, performance, optimization, concurrent, batching, memoization, bridge, freeze, hang.
 allowed-tools: Read, Grep, Glob, Write, Edit
 ---
 
@@ -10,6 +10,7 @@ allowed-tools: Read, Grep, Glob, Write, Edit
 
 | Topic | Guide | Key Points |
 |-------|-------|------------|
+| Performance | [performance.md](references/rules/performance.md) | Limit concurrent requests, optimize bridge crossings, memoization |
 | Date formatting | [date-formatting.md](references/rules/date-formatting.md) | Use `formatDate()` from dateUtils, never native JS |
 | Internationalization | [i18n.md](references/rules/i18n.md) | Use `ETranslations` enum, never hardcode strings |
 | Promise handling | [promise-handling.md](references/rules/promise-handling.md) | Always await or use `void`, never floating promises |
@@ -20,6 +21,33 @@ allowed-tools: Read, Grep, Glob, Write, Edit
 | Cross-platform | [cross-platform.md](references/rules/cross-platform.md) | Use `platformEnv`, file extensions for platform code |
 
 ## Critical Rules Summary
+
+### Performance Optimization
+
+```typescript
+// ❌ FORBIDDEN - Too many concurrent requests
+const requests = items.map(item => fetchData(item));
+await Promise.all(requests); // Can freeze UI with 15+ requests
+
+// ✅ CORRECT - Batched with concurrency limit
+async function executeBatched<T>(
+  tasks: Array<() => Promise<T>>,
+  concurrency = 3,
+): Promise<Array<PromiseSettledResult<T>>> {
+  const results: Array<PromiseSettledResult<T>> = [];
+  for (let i = 0; i < tasks.length; i += concurrency) {
+    const batch = tasks.slice(i, i + concurrency);
+    const batchResults = await Promise.allSettled(
+      batch.map((task) => task()),
+    );
+    results.push(...batchResults);
+  }
+  return results;
+}
+
+const tasks = items.map(item => () => fetchData(item));
+await executeBatched(tasks, 3); // Max 3 concurrent
+```
 
 ### Date Formatting
 
