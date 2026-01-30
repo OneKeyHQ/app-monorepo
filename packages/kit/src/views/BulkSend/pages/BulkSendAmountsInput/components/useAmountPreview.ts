@@ -1,18 +1,12 @@
-import { useCallback } from 'react';
+import { useCallback } from "react";
 
-import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
-import {
-  EAmountInputMode,
-  type IAmountInputValues,
-} from '@onekeyhq/shared/types/bulkSend';
-import type { IToken } from '@onekeyhq/shared/types/token';
+import type { ITransferInfo } from "@onekeyhq/kit-bg/src/vaults/types";
+import { EAmountInputMode, type IAmountInputValues } from "@onekeyhq/shared/types/bulkSend";
+import type { IToken } from "@onekeyhq/shared/types/token";
 
-import {
-  generateAmountsFromSpecifiedAmount,
-  generateRandomAmountsFromRange,
-} from '../../../utils';
+import { generateAmountsFromSpecifiedAmount, generateRandomAmountsFromRange } from "../../../utils";
 
-import type { IPreviewState } from './Context';
+import type { IPreviewState } from "./Context";
 
 type IUseAmountPreviewParams = {
   tokenInfo: IToken;
@@ -46,7 +40,7 @@ export function useAmountPreview({
         }));
       } else if (mode === EAmountInputMode.Specified) {
         const amounts = generateAmountsFromSpecifiedAmount({
-          specifiedAmount: values.specifiedAmount ?? '0',
+          specifiedAmount: values.specifiedAmount ?? "0",
           transfersInfo,
         });
         newTransfersInfo = transfersInfo.map((transfer, index) => ({
@@ -57,7 +51,7 @@ export function useAmountPreview({
 
       setTransfersInfo(newTransfersInfo);
     },
-    [tokenInfo.decimals, transfersInfo, setTransfersInfo],
+    [tokenInfo?.decimals, transfersInfo, setTransfersInfo],
   );
 
   const handlePreview = useCallback(

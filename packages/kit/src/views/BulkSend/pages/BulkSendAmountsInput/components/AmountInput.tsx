@@ -41,6 +41,8 @@ export function SpecifiedAmountInput() {
 
   const { network } = useAccountData({ networkId });
 
+  const [settings] = useSettingsPersistAtom();
+
   const isLoading =
     !tokenDetailsState.initialized && tokenDetailsState.isRefreshing;
   const balance = tokenDetails?.balanceParsed ?? '0';
@@ -83,7 +85,7 @@ export function SpecifiedAmountInput() {
   const fiatValue = useMemo(() => {
     const amount = new BigNumber(amountInputValues.specifiedAmount || '0');
     if (amount.isNaN() || !tokenDetails?.price) return '0';
-    return amount.times(tokenDetails.price).toFixed(2);
+    return amount.times(tokenDetails.price).toFixed();
   }, [amountInputValues.specifiedAmount, tokenDetails?.price]);
 
   return (
@@ -99,6 +101,7 @@ export function SpecifiedAmountInput() {
         valueProps={{
           value: fiatValue,
           loading: isLoading,
+          currency: settings.currencyInfo.symbol,
         }}
         tokenSelectorTriggerProps={{
           selectedTokenImageUri: tokenDetails?.info.logoURI,

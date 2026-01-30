@@ -5,7 +5,6 @@ import {
   Icon,
   IconButton,
   Input,
-  NumberSizeableText,
   SizableText,
   Stack,
   Toast,
@@ -122,9 +121,9 @@ function TransferListItem({
       tooltipProps: platformEnv.isNative
         ? undefined
         : {
-            renderContent: amountError,
-            placement: 'top',
-          },
+          renderContent: amountError,
+          placement: 'top',
+        },
     };
   }, [hasAmountError, amountError, handleErrorIconPress]);
 
@@ -154,16 +153,14 @@ function TransferListItem({
     const textColor = isSend ? '$text' : '$textSuccess';
 
     return (
-      <NumberSizeableText
+      <SizableText
         size="$bodyMdMedium"
         color={textColor}
         textAlign="right"
         flexShrink={0}
-        formatter="balance"
-        formatterOptions={{ tokenSymbol, showPlusMinusSigns: true }}
       >
-        {displayAmount}
-      </NumberSizeableText>
+        {`${displayAmount} ${tokenSymbol}`}
+      </SizableText>
     );
   };
 

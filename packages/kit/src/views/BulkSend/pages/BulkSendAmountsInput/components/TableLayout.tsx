@@ -326,7 +326,7 @@ function TransferInfoListSection() {
             </YStack>
 
             {/* AMOUNT */}
-            <Stack width={100} alignItems="flex-end">
+            <Stack width={100} alignItems="flex-end" flexWrap="wrap">
               {isCustomMode ? (
                 <Input
                   value={transfer.amount}
@@ -339,13 +339,13 @@ function TransferInfoListSection() {
                   leftAddOnProps={
                     hasAmountError
                       ? {
-                          iconName: 'ErrorOutline',
-                          iconColor: '$iconCritical',
-                          tooltipProps: {
-                            placement: 'top',
-                            renderContent: errors?.amount,
-                          },
-                        }
+                        iconName: 'ErrorOutline',
+                        iconColor: '$iconCritical',
+                        tooltipProps: {
+                          placement: 'top',
+                          renderContent: errors?.amount,
+                        },
+                      }
                       : undefined
                   }
                   containerProps={{
@@ -354,8 +354,8 @@ function TransferInfoListSection() {
                   }}
                 />
               ) : (
-                <SizableText size="$bodyLgMedium">
-                  {transfer.amount || '0'}
+                <SizableText size="$bodyLgMedium" width="100%" flex={1} textAlign="right">
+                  {transfer.amount || '-'}
                 </SizableText>
               )}
             </Stack>

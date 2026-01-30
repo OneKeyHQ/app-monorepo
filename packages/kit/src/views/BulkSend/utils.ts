@@ -74,6 +74,55 @@ function getDecimalPlaces(value: string): number {
   return parts.length > 1 ? parts[1].length : 0;
 }
 
+const MAX_INPUT_DECIMALS = 4;
+const SIGNIFICANT_FIGURES = 3;
+
+/**
+ * Formats a BigNumber value with appropriate decimal places.
+ * - Follows input precision when reasonable
+ * - Uses significant figures for very small values to avoid showing 0.00
+ * - Caps at token decimals
+ */
+function formatWithSmartDecimals(
+  value: BigNumber,
+  inputDecimals: number,
+  tokenDecimals: number,
+): string {
+  if (value.isZero()) {
+    return '0';
+  }
+
+  const absValue = value.abs();
+
+  // For values >= 1, use input decimals (capped)
+  if (absValue.gte(1)) {
+    const decimals = Math.min(
+      inputDecimals <= MAX_INPUT_DECIMALS ? inputDecimals : MAX_INPUT_DECIMALS,
+      tokenDecimals,
+    );
+    return value.toFixed(decimals, BigNumber.ROUND_DOWN);
+  }
+
+  // For values < 1, ensure we show meaningful digits
+  // Calculate minimum decimals needed for significant figures
+  const log10 = Math.floor(Math.log10(absValue.toNumber()));
+  const minDecimalsForSigFigs = -log10 + SIGNIFICANT_FIGURES - 1;
+
+  let finalDecimals: number;
+  if (inputDecimals <= MAX_INPUT_DECIMALS) {
+    // Use the larger of: input decimals or minimum needed for sig figs
+    finalDecimals = Math.max(inputDecimals, minDecimalsForSigFigs);
+  } else {
+    // Input is too long, just use sig figs
+    finalDecimals = minDecimalsForSigFigs;
+  }
+
+  return value.toFixed(
+    Math.min(finalDecimals, tokenDecimals),
+    BigNumber.ROUND_DOWN,
+  );
+}
+
 /**
  * Generates random amounts for each transfer within the specified range.
  *
@@ -84,8 +133,8 @@ function getDecimalPlaces(value: string): number {
  *     AND not exceed the corresponding balance[i]
  *   - If length > 1 but !== transfersInfo.length: throws an error
  *
- * Generated values will have minimal decimal places based on the input range,
- * with 2 extra decimal places for randomness (capped at token decimals).
+ * Generated values will have smart decimal places based on value magnitude:
+ * larger values get fewer decimals, smaller values get more.
  */
 export function generateRandomAmountsFromRange({
   transfersInfo,
@@ -108,11 +157,10 @@ export function generateRandomAmountsFromRange({
     return [];
   }
 
-  // Calculate output decimal places: max of input decimals + 2, capped at token decimals
+  // Get input decimal places as minimum precision floor
   const minDecimals = getDecimalPlaces(rangeMin);
   const maxDecimals = getDecimalPlaces(rangeMax);
   const inputDecimals = Math.max(minDecimals, maxDecimals);
-  const outputDecimals = Math.min(inputDecimals + 2, decimals);
 
   // Validate balance array length
   if (balance !== undefined && balance.length > 1 && balance.length !== count) {
@@ -203,7 +251,7 @@ export function generateRandomAmountsFromRange({
   }
 
   return randomAmounts.map((amount) =>
-    amount.toFixed(outputDecimals, BigNumber.ROUND_DOWN),
+    formatWithSmartDecimals(amount, inputDecimals, decimals),
   );
 }
 
