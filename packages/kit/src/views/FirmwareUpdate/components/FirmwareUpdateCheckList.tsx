@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -31,6 +31,15 @@ export function FirmwareUpdateCheckList({
   const [, setStepInfo] = useFirmwareUpdateStepInfoAtom();
   const [, setWorkflowIsRunning] = useFirmwareUpdateWorkflowRunningAtom();
   const [{ hardwareTransportType }] = useSettingsPersistAtom();
+  const isMountedRef = useRef(true);
+
+  useEffect(
+    () => () => {
+      isMountedRef.current = false;
+    },
+    [],
+  );
+
   const [checkValueList, setCheckValueList] = useState([
     {
       label: intl.formatMessage({
@@ -76,6 +85,7 @@ export function FirmwareUpdateCheckList({
   ]);
   const onCheckChanged = useCallback(
     (checkValue: { value: boolean }) => {
+      if (!isMountedRef.current) return;
       checkValue.value = !checkValue.value;
       setCheckValueList([...checkValueList]);
     },
@@ -117,6 +127,15 @@ export function FirmwareUpdateCheckList({
                 const updateFirmwareInfo = result?.updateInfos?.firmware;
                 try {
                   await dialog.close();
+
+                  // Wait for React Native Fabric to complete view cleanup
+                  // This prevents RetryableMountingLayerException during rapid navigation
+                  await new Promise((resolve) => {
+                    setTimeout(resolve, 100);
+                  });
+
+                  if (!isMountedRef.current) return;
+
                   setStepInfo({
                     step: EFirmwareUpdateSteps.updateStart,
                     payload: {
@@ -179,6 +198,8 @@ export function FirmwareUpdateCheckList({
                     toFirmwareType &&
                     fromFirmwareType !== toFirmwareType;
 
+                  if (!isMountedRef.current) return;
+
                   setStepInfo({
                     step: EFirmwareUpdateSteps.updateDone,
                     payload: {
@@ -186,6 +207,8 @@ export function FirmwareUpdateCheckList({
                     },
                   });
                 } catch (error) {
+                  if (!isMountedRef.current) return;
+
                   const err = toPlainErrorObject(error as any);
                   setStepInfo({
                     step: EFirmwareUpdateSteps.error,
@@ -205,7 +228,9 @@ export function FirmwareUpdateCheckList({
                     errorMessage: err?.message,
                   });
                 } finally {
-                  setWorkflowIsRunning(false);
+                  if (isMountedRef.current) {
+                    setWorkflowIsRunning(false);
+                  }
                 }
               }
             : undefined

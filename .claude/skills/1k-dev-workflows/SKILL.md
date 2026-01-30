@@ -11,37 +11,32 @@ Common development workflows and automation helpers for the OneKey monorepo.
 
 | Task | Command | Description |
 |------|---------|-------------|
-| Lint all files | `yarn lint:only` | Full project lint |
 | Lint staged files | `yarn lint:staged` | Pre-commit: only modified files |
-| Type check | `yarn tsc:only` | Full project type check |
 | Type check (staged) | `yarn tsc:staged` | Pre-commit type check |
+| Comprehensive lint | `yarn lint` | Full project lint (~1 min) |
 | Create test version | See [upgrade-test-version.md](references/rules/upgrade-test-version.md) | Manual workflow |
 
 ## Lint Commands
 
 See: [references/rules/fix-lint.md](references/rules/fix-lint.md)
 
-### Lint All Files
-```bash
-yarn lint:only
-```
-
-### Lint Staged Files (Pre-commit)
+### Lint Staged Files (Recommended for Pre-commit)
 ```bash
 # Only lint files that are staged for commit - fast!
 yarn lint:staged
 ```
 
-### Type Check
+### Type Check Staged Files (Recommended for Pre-commit)
 ```bash
-# Full project type check
-yarn tsc:only
-
-# Same as above, for pre-commit use
+# Type check staged files only
 yarn tsc:staged
 ```
 
-**Note:** TypeScript requires full project context and cannot check individual files.
+### Comprehensive Validation (For CI or Pre-PR)
+```bash
+# Full project lint (~1 minute)
+yarn lint
+```
 
 ## Common Lint Fixes
 
