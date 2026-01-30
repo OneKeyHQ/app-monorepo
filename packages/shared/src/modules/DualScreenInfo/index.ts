@@ -1,4 +1,4 @@
-import { Dimensions } from "react-native";
+import { Dimensions } from 'react-native';
 
 export const isDualScreenDevice = () => {
   return false;
@@ -17,5 +17,5 @@ export const useIsSpanningInDualScreen = () => {
 };
 
 export const useDualScreenWidth = () => {
-  return Dimensions.get("window").width;
+  return Dimensions.get('window').width;
 };
