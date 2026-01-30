@@ -375,9 +375,9 @@ function AppDataSection() {
 
       {config?.isCloudSyncEnabled || isServerMasterPasswordSet ? (
         <ListItem
-          title={`${intl.formatMessage({
+          title={intl.formatMessage({
             id: ETranslations.prime_change_backup_password,
-          })}`}
+          })}
           icon="Key2Outline"
           drillIn
           onPress={async () => {

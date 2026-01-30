@@ -1392,3 +1392,4 @@ Subresource
 keystonehq
 htmls
 Unclaimable
+svgx

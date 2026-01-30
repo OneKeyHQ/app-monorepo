@@ -38,6 +38,13 @@ import ProviderApiBase from './ProviderApiBase';
 import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
 import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
 
+interface ISignOptions {
+  readonly preferNoSetFee?: boolean;
+  readonly preferNoSetMemo?: boolean;
+
+  readonly disableBalanceCheck?: boolean;
+}
+
 @backgroundClass()
 class ProviderApiCosmos extends ProviderApiBase {
   public providerName = IInjectedProviderNames.cosmos;
@@ -316,14 +323,15 @@ class ProviderApiCosmos extends ProviderApiBase {
     params: {
       signer: string;
       signDoc: ICosmosStdSignDoc;
-      signOptions?: any;
+      signOptions?: ISignOptions;
     },
   ): Promise<any> {
     defaultLogger.discovery.dapp.dappRequest({ request });
-    const txWrapper = TransactionWrapper.fromAminoSignDoc(
-      params.signDoc,
-      undefined,
-    );
+    const txWrapper = TransactionWrapper.fromAminoSignDoc({
+      signDoc: params.signDoc,
+      msg: undefined,
+      signOptions: params.signOptions,
+    });
 
     const networkId = this.convertCosmosChainId(params.signDoc.chain_id);
     if (!networkId) throw new OneKeyLocalError('Invalid chainId');

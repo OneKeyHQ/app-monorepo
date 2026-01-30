@@ -198,12 +198,12 @@ export function formatDuration(duration: Duration, zero?: boolean) {
 
 export function formatRelativeDate(date: Date) {
   const formatRelativeLocale: Record<string, string> = {
-    yesterday: `${appLocale.intl.formatMessage({
+    yesterday: appLocale.intl.formatMessage({
       id: ETranslations.global_date_yesterday,
-    })}`,
-    today: `${appLocale.intl.formatMessage({
+    }),
+    today: appLocale.intl.formatMessage({
       id: ETranslations.global_date_today,
-    })}`,
+    }),
     other: 'yyyy/LL/dd',
   };
 

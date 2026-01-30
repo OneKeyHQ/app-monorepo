@@ -259,4 +259,8 @@ export class WalletScene extends BaseScene {
       onboardingExit: true,
     };
   }
+
+  @LogToLocal()
+  @LogToServer()
+  public walletPullToRefresh() {}
 }

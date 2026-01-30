@@ -37,6 +37,7 @@ import type {
 } from '@onekeyhq/shared/types/signatureRecord';
 
 import { useGetSignatureSections } from './hooks';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const SendTransactionItem = ({ data }: { data: ISendTransactionData }) => {
   const intl = useIntl();
@@ -54,7 +55,7 @@ const SendTransactionItem = ({ data }: { data: ISendTransactionData }) => {
           formatter="balance"
           numberOfLines={1}
           formatterOptions={{
-            tokenSymbol: `${data.token.symbol.toUpperCase()}`,
+            tokenSymbol: data.token.symbol.toUpperCase(),
             showPlusMinusSigns: true,
           }}
         >
@@ -92,7 +93,7 @@ const ApproveTransactionItem = ({
           numberOfLines={1}
           flexShrink={1}
           formatterOptions={{
-            tokenSymbol: `${data.token.symbol.toUpperCase()}`,
+            tokenSymbol: data.token.symbol.toUpperCase(),
             showPlusMinusSigns: true,
           }}
         >
@@ -364,6 +365,7 @@ export const Transactions = () => {
       stickySectionHeadersEnabled={false}
       contentContainerStyle={{ paddingBottom: 40 }}
       sections={sections}
+      windowSize={platformEnv.isNativeAndroid ? 3 : undefined}
       // estimatedItemSize={158}
       ItemSeparatorComponent={null}
       SectionSeparatorComponent={null}

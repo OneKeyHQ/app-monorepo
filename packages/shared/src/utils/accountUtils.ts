@@ -595,7 +595,7 @@ function buildAccountLocalAssetsKey({
     return `${networkId}_${(xpub || accountAddress) ?? ''}`.toLowerCase();
   }
 
-  return `${(xpub || accountAddress) ?? ''}`.toLowerCase();
+  return ((xpub || accountAddress) ?? '').toLowerCase();
 }
 
 function isAccountCompatibleWithNetwork({

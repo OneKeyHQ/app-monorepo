@@ -26,6 +26,7 @@ import {
   useTradingViewMessageHandler,
 } from './messageHandlers';
 
+import type { IMarksTimeRange } from './messageHandlers';
 import type { ICustomReceiveHandlerData } from './types';
 import type { IWebViewRef } from '../../WebView/types';
 import type { WebViewProps } from 'react-native-webview';
@@ -42,8 +43,6 @@ interface IBaseTradingViewV2Props {
 }
 
 export type ITradingViewV2Props = IBaseTradingViewV2Props & IStackStyle;
-
-import type { IMarksTimeRange } from './messageHandlers';
 
 export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   const webRef = useRef<IWebViewRef | null>(null);
@@ -83,7 +82,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
       networkId,
       address: tokenAddress,
       symbol: useHyperLiquid ? hyperLiquidSymbol : symbol,
-      ...(useHyperLiquid && { type: 'perps' }),
+      type: useHyperLiquid ? 'perps' : 'market',
       storageNamespace: 'market',
     };
   }, [

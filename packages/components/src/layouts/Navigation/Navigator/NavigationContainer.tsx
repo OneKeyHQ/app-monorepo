@@ -17,7 +17,7 @@ import { useMMKVDevTools } from '@rozenite/mmkv-plugin';
 import { useNetworkActivityDevTools } from '@rozenite/network-activity-plugin';
 import { useReactNavigationDevTools } from '@rozenite/react-navigation-plugin';
 
-import { useIsTabletMainView } from '@onekeyhq/components/src/hooks/useTabletMode';
+import { useSplitMainView } from '@onekeyhq/components/src/hooks/useSplitView';
 import { useTheme } from '@onekeyhq/components/src/shared/tamagui';
 import type { GetProps } from '@onekeyhq/components/src/shared/tamagui';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
@@ -92,7 +92,7 @@ const useNativeDevTools =
     : () => {};
 
 export function NavigationContainer(props: IBasicNavigationContainerProps) {
-  const isTabletMainView = useIsTabletMainView();
+  const isTabletMainView = useSplitMainView();
   const handleReady = useCallback(() => {
     navigationIntegration.registerNavigationContainer(
       isTabletMainView ? tabletMainViewNavigationRef : rootNavigationRef,

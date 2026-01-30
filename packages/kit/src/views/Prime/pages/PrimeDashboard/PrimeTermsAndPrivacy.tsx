@@ -30,8 +30,9 @@ export function PrimeTermsAndPrivacy() {
           }}
           size="$bodyMd"
           color="$textInteractive"
+          textDecorationLine="underline"
         >
-          {chunks[0]}
+          {chunks[0]} ↗
         </SizableText>
       ) : (
         <Anchor
@@ -39,7 +40,6 @@ export function PrimeTermsAndPrivacy() {
           size="$bodyMd"
           color="$textInteractive"
           target="_blank"
-          textDecorationLine="none"
         >
           {chunks}
         </Anchor>

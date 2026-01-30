@@ -19,13 +19,13 @@ import { useDownloadProgress } from '@onekeyhq/shared/src/modules3rdParty/auto-u
 import type { IAppUpdatePagesParamList } from '@onekeyhq/shared/src/routes';
 import { EAppUpdateRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 
 import { HyperlinkText } from '../../../components/HyperlinkText';
 import {
   useAppUpdateInfo,
   useDownloadPackage,
 } from '../../../components/UpdateReminder/hooks';
-import { useHelpLink } from '../../../hooks/useHelpLink';
 
 const STEP_INDEX_MAP: Record<EAppUpdateStatus, number> = {
   [EAppUpdateStatus.failed]: -2,
@@ -65,10 +65,9 @@ function RetryButton({ onPress }: IButtonProps) {
 
 function ContactUsButton() {
   const intl = useIntl();
-  const requestsUrl = useHelpLink({ path: 'requests/new' });
   const onPress = useCallback(() => {
-    openUrlExternal(requestsUrl);
-  }, [requestsUrl]);
+    void showIntercom();
+  }, []);
   return (
     <XStack>
       <Button onPress={onPress}>

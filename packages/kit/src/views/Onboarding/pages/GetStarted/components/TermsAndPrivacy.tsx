@@ -32,17 +32,12 @@ export function TermsAndPrivacy(props?: ITermsAndPrivacyProps) {
             openUrlExternal(link);
           }}
           size="$bodySm"
+          textDecorationLine="underline"
         >
-          {chunks[0]}
+          {chunks[0]} ↗
         </SizableText>
       ) : (
-        <Anchor
-          href={link}
-          size="$bodySm"
-          color="$textSubdued"
-          target="_blank"
-          textDecorationLine="none"
-        >
+        <Anchor href={link} size="$bodySm" color="$textSubdued" target="_blank">
           {chunks}
         </Anchor>
       ),

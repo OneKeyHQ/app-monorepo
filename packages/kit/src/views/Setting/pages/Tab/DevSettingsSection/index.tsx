@@ -3,7 +3,7 @@ import type { ComponentProps } from 'react';
 
 import { random } from 'lodash';
 import { useIntl } from 'react-intl';
-import { I18nManager } from 'react-native';
+import { Dimensions, I18nManager } from 'react-native';
 
 import {
   Accordion,
@@ -469,6 +469,10 @@ const BaseDevSettingsSection = () => {
                       react_native_dsn: platformEnv.isNative
                         ? process.env.SENTRY_DSN_REACT_NATIVE
                         : '',
+                      windowHeight: Dimensions.get('window').height,
+                      windowWidth: Dimensions.get('window').width,
+                      screenHeight: Dimensions.get('screen').height,
+                      screenWidth: Dimensions.get('screen').width,
                     },
                   });
                 }}

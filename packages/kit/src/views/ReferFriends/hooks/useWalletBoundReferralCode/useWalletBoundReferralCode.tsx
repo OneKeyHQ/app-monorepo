@@ -246,6 +246,8 @@ export function useWalletBoundReferralCode({
               isBound: true,
             },
           });
+          // Clear cached invite code after successful binding
+          await backgroundApiProxy.serviceReferralCode.setCachedInviteCode('');
           Toast.success({
             title: intl.formatMessage({
               id: ETranslations.global_success,

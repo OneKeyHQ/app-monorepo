@@ -10,7 +10,7 @@ on:
 
 jobs:
   release-desktop-mas:
-    runs-on: macos-latest
+    runs-on: macos-26
     strategy:
       matrix:
         node-version: [24.x]
@@ -156,7 +156,9 @@ jobs:
           APPLEID: ${{ secrets.APPLEID }}
           APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
         run: |
-          xcrun altool --validate-app --f ./apps/desktop/build-electron/mas-universal/*.pkg -t macOS -u $APPLEID -p $APPLEIDPASS --show-progress
+          PKG_FILE=$(ls ./apps/desktop/build-electron/mas-universal/*.pkg)
+          echo "Found package: $PKG_FILE"
+          xcrun altool --validate-app --file "$PKG_FILE" -t macOS -u "$APPLEID" -p "$APPLEIDPASS" --show-progress
 
       - name: upload mas for Testflight
         continue-on-error: true
@@ -164,7 +166,9 @@ jobs:
           APPLEID: ${{ secrets.APPLEID }}
           APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
         run: |
-          xcrun altool --upload-app --f ./apps/desktop/build-electron/mas-universal/*.pkg -t macOS -u $APPLEID -p $APPLEIDPASS --show-progress
+          PKG_FILE=$(ls ./apps/desktop/build-electron/mas-universal/*.pkg)
+          echo "Uploading package: $PKG_FILE"
+          xcrun altool --upload-app --file "$PKG_FILE" -t macOS -u "$APPLEID" -p "$APPLEIDPASS" --show-progress
 
       - name: 'Notify to Slack'
         if: ${{ github.event.workflow_run }}

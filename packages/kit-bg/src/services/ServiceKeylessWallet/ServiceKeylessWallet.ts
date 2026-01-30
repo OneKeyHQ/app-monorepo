@@ -1528,16 +1528,36 @@ class ServiceKeylessWallet extends ServiceBase {
     const { hashId } = await this.apiGetKeylessBackendShare({
       token,
     });
+    defaultLogger.wallet.keyless.verifyKeylessBackendShareRetrieved();
+
     const ownerId = await this.buildKeylessOwnerIdFromSocialToken({
       token,
       hashId,
     });
+    defaultLogger.wallet.keyless.verifyKeylessOwnerIdGenerated();
+
+    if (mode === EOnboardingV2OneKeyIDLoginMode.KeylessVerifyPinOnly) {
+      const keylessWallet =
+        await this.backgroundApi.serviceAccount.getKeylessWallet();
+
+      const walletOwnerId = keylessWallet?.keylessDetailsInfo?.keylessOwnerId;
+      if (!walletOwnerId) {
+        throw new OneKeyLocalError('Local keyless wallet not found.');
+      }
+      if (walletOwnerId !== ownerId) {
+        throw new OneKeyLocalError(
+          'The local keyless wallet does not match the server record. Please check that you are using the correct account.',
+        );
+      }
+      defaultLogger.wallet.keyless.verifyKeylessWalletValidated();
+    }
 
     await this.apiGetKeylessJuiceboxShare({
       ownerId,
       token,
       pin,
     });
+    defaultLogger.wallet.keyless.verifyKeylessJuiceboxShareRetrieved();
 
     // Save tokens to secure storage (refreshToken with passcode, token without)
     if (
@@ -1553,8 +1573,10 @@ class ServiceKeylessWallet extends ServiceBase {
         password,
         backgroundApi: this.backgroundApi,
       });
+      defaultLogger.wallet.keyless.verifyKeylessTokensStored();
     }
     void this.apiUpdatePinConfirmStatus({ token });
+    defaultLogger.wallet.keyless.verifyKeylessPinConfirmStatusUpdated();
   }
 
   @backgroundMethod()
@@ -1629,12 +1651,14 @@ class ServiceKeylessWallet extends ServiceBase {
     if (!backendShareData) {
       throw new OneKeyLocalError('Backend share not found');
     }
+    defaultLogger.wallet.keyless.resetKeylessBackendShareRetrieved();
 
     // 1. Get ownerId from token
     const ownerId = await this.buildKeylessOwnerIdFromSocialToken({
       token,
       hashId,
     });
+    defaultLogger.wallet.keyless.resetKeylessOwnerIdGenerated();
 
     // 3. Get mnemonicPassword from secure storage
     const mnemonicPassword =
@@ -1650,6 +1674,7 @@ class ServiceKeylessWallet extends ServiceBase {
       });
       throw new KeylessDataCorruptedError();
     }
+    defaultLogger.wallet.keyless.resetKeylessMnemonicPasswordRetrieved();
 
     // 3.1. Verify mnemonicPassword can decrypt backendShareData and matches local keyless wallet
     const decryptedMnemonic = await this.decryptKeylessMnemonic({
@@ -1661,6 +1686,7 @@ class ServiceKeylessWallet extends ServiceBase {
         'Mnemonic password does not match backend share data. Please verify your credentials.',
       );
     }
+    defaultLogger.wallet.keyless.resetKeylessMnemonicVerified();
 
     // 3.2. Verify decrypted mnemonic matches local keyless wallet mnemonic
     const keylessWallet =
@@ -1668,7 +1694,10 @@ class ServiceKeylessWallet extends ServiceBase {
     if (!keylessWallet) {
       throw new OneKeyLocalError('Keyless wallet not found.');
     }
+
     const credential = await localDb.getCredential(keylessWallet.id);
+    defaultLogger.wallet.keyless.resetKeylessCredentialVerified();
+
     const rs = await decryptRevealableSeed({
       rs: credential.credential,
       password,
@@ -1679,6 +1708,7 @@ class ServiceKeylessWallet extends ServiceBase {
         'Decrypted mnemonic does not match local keyless wallet. Please verify your credentials.',
       );
     }
+    defaultLogger.wallet.keyless.resetKeylessMnemonicDecrypted();
 
     // 4. Get x-coordinates from stored data
     // juiceboxShareX is stored in backendShareData for recovery
@@ -1692,6 +1722,7 @@ class ServiceKeylessWallet extends ServiceBase {
       shareBase64: backendShareData.backendShare,
       missingX: backendShareData.juiceboxShareX,
     });
+    defaultLogger.wallet.keyless.resetKeylessJuiceboxShareRecovered();
 
     // 6. Upload juiceboxShare with new PIN
     await this.apiUploadKeylessJuiceboxShare({
@@ -1700,6 +1731,9 @@ class ServiceKeylessWallet extends ServiceBase {
       pin: newPin,
       backendShareX,
       ownerId,
+    });
+    defaultLogger.wallet.keyless.resetKeylessJuiceboxShareUploaded({
+      backendShareX,
     });
 
     // Save tokens to secure storage (refreshToken with passcode, token without)
@@ -1711,9 +1745,11 @@ class ServiceKeylessWallet extends ServiceBase {
         password,
         backgroundApi: this.backgroundApi,
       });
+      defaultLogger.wallet.keyless.resetKeylessTokensStored();
     }
 
     void this.apiResetPinConfirmStatus({ token });
+    defaultLogger.wallet.keyless.resetKeylessPinConfirmStatusUpdated();
 
     return { success: true };
   }
@@ -1748,12 +1784,14 @@ class ServiceKeylessWallet extends ServiceBase {
     if (!backendShareData) {
       throw new OneKeyLocalError('Backend share not found');
     }
+    defaultLogger.wallet.keyless.restoreKeylessBackendShareRetrieved();
 
     // check if keyless wallet is initialized
     const ownerId = await this.buildKeylessOwnerIdFromSocialToken({
       token,
       hashId,
     });
+    defaultLogger.wallet.keyless.restoreKeylessOwnerIdGenerated();
 
     // Get juicebox share from juicebox network
     const juiceboxShareData = await this.apiGetKeylessJuiceboxShare({
@@ -1764,6 +1802,7 @@ class ServiceKeylessWallet extends ServiceBase {
     if (!juiceboxShareData) {
       throw new OneKeyLocalError('Juicebox share not found');
     }
+    defaultLogger.wallet.keyless.restoreKeylessJuiceboxShareRetrieved();
 
     // Combine shares to recover mnemonic password
     const mnemonicPasswordShares = [
@@ -1774,12 +1813,14 @@ class ServiceKeylessWallet extends ServiceBase {
       mnemonicPasswordShares.map((s) => new Uint8Array(s)),
     );
     const mnemonicPassword = bufferUtils.bytesToBase64(mnemonicPasswordBytes);
+    defaultLogger.wallet.keyless.restoreKeylessMnemonicPasswordRecovered();
 
     // Decrypt mnemonic using recovered password
     const mnemonic = await this.decryptKeylessMnemonic({
       encryptedMnemonic: backendShareData.encryptedMnemonic,
       mnemonicPassword,
     });
+    defaultLogger.wallet.keyless.restoreKeylessMnemonicDecrypted();
 
     // Save mnemonicPassword to secure storage for Reset PIN flow
     await keylessMnemonicPasswordStorage.saveMnemonicPasswordToStorage({
@@ -1788,6 +1829,7 @@ class ServiceKeylessWallet extends ServiceBase {
       password,
       backgroundApi: this.backgroundApi,
     });
+    defaultLogger.wallet.keyless.restoreKeylessMnemonicPasswordStored();
 
     // Save tokens to secure storage (refreshToken with passcode, token without)
     if (refreshToken) {
@@ -1798,9 +1840,11 @@ class ServiceKeylessWallet extends ServiceBase {
         password,
         backgroundApi: this.backgroundApi,
       });
+      defaultLogger.wallet.keyless.restoreKeylessTokensStored();
     }
 
     void this.apiUpdatePinConfirmStatus({ token });
+    defaultLogger.wallet.keyless.restorePinConfirmStatusUpdated();
 
     const keylessProvider = this.buildKeylessProviderFromSocialToken({ token });
 
@@ -1859,18 +1903,23 @@ class ServiceKeylessWallet extends ServiceBase {
 
     // 1. Acquire distributed lock
     const { lockId, hashId } = await this.apiAcquireCreationLock({ token });
+    defaultLogger.wallet.keyless.createKeylessLockAcquired({ lockId });
 
     try {
       // 2. Double-check if already created (check inside lock for safety)
       const isCreated = await this.isKeylessWalletCreatedOnServer({ token });
+
       if (isCreated) {
         throw new OneKeyLocalError('Keyless wallet already created');
       }
+      defaultLogger.wallet.keyless.createKeylessWalletNotYetCreated();
 
       const ownerId = await this.buildKeylessOwnerIdFromSocialToken({
         token,
         hashId,
       });
+      defaultLogger.wallet.keyless.createKeylessOwnerIdGenerated();
+
       let mnemonic = '';
       const devSettings = await devSettingsPersistAtom.get();
       if (devSettings.enabled && customMnemonic && customMnemonic.trim()) {
@@ -1884,11 +1933,15 @@ class ServiceKeylessWallet extends ServiceBase {
         mnemonic,
         mnemonicPassword,
       });
+      defaultLogger.wallet.keyless.createKeylessMnemonicEncrypted();
+
       const mnemonicPasswordShares = await shamirUtils.split(
         new Uint8Array(mnemonicPasswordBytes),
         2,
         2,
       );
+      defaultLogger.wallet.keyless.createKeylessMnemonicPasswordShared();
+
       const [mnemonicPasswordShare1, mnemonicPasswordShare2] =
         mnemonicPasswordShares;
       const backendShare: string = bufferUtils.bytesToBase64(
@@ -1911,6 +1964,7 @@ class ServiceKeylessWallet extends ServiceBase {
         password,
         backgroundApi: this.backgroundApi,
       });
+      defaultLogger.wallet.keyless.createKeylessMnemonicPasswordStored();
 
       const _juiceboxShareData: IKeylessJuiceboxShare =
         await this.apiUploadKeylessJuiceboxShare({
@@ -1920,6 +1974,11 @@ class ServiceKeylessWallet extends ServiceBase {
           pin,
           backendShareX, // Store the other share's x-coordinate for recovery
         });
+      defaultLogger.wallet.keyless.createKeylessJuiceboxShareUploaded({
+        juiceboxShareX,
+      });
+
+      // throw new OneKeyLocalError('test33275923746234');
 
       // Make sure juiceboxShare is uploaded successfully before uploading backend share
       const _backendShareData: IKeylessBackendShare =
@@ -1930,6 +1989,9 @@ class ServiceKeylessWallet extends ServiceBase {
           backendShare,
           juiceboxShareX, // Store the other share's x-coordinate for recovery
         });
+      defaultLogger.wallet.keyless.createKeylessBackendShareUploaded({
+        backendShareX,
+      });
 
       // Save tokens to secure storage (refreshToken with passcode, token without)
       if (refreshToken) {
@@ -1940,6 +2002,7 @@ class ServiceKeylessWallet extends ServiceBase {
           password,
           backgroundApi: this.backgroundApi,
         });
+        defaultLogger.wallet.keyless.createKeylessTokensStored();
       }
 
       // void this.apiUpdatePinConfirmStatus({ token });

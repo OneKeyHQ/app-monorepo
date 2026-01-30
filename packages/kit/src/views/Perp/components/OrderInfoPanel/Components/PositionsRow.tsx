@@ -38,7 +38,7 @@ import { showClosePositionDialog } from '../ClosePositionModal';
 import { showSetTpslDialog } from '../SetTpslModal';
 import { calcCellAlign, getColumnStyle } from '../utils';
 
-import type { IColumnConfig } from '../List/CommonTableListView';
+import type { IColumnConfig, IRenderMode } from '../List/CommonTableListView';
 
 interface IPositionRowProps {
   mockedPosition: {
@@ -48,6 +48,9 @@ interface IPositionRowProps {
   columnConfigs: IColumnConfig[];
   handleViewTpslOrders: () => void;
   isMobile?: boolean;
+  renderMode?: IRenderMode;
+  isHovered?: boolean;
+  onHoverChange?: (index: number | null) => void;
 }
 
 interface IAssetInfo {
@@ -219,11 +222,9 @@ const PositionRowDesktopEntryPrice = memo(
           justifyContent={calcCellAlign(columnConfig.align)}
           alignItems="center"
         >
-          <SizableText
-            numberOfLines={1}
-            ellipsizeMode="tail"
-            size="$bodySm"
-          >{`${priceInfo.entryPriceFormatted}`}</SizableText>
+          <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
+            {priceInfo.entryPriceFormatted}
+          </SizableText>
         </XStack>
       </DebugRenderTracker>
     );
@@ -273,11 +274,9 @@ const PositionRowDesktopLiqPrice = memo(
           justifyContent={calcCellAlign(columnConfig.align)}
           alignItems="center"
         >
-          <SizableText
-            numberOfLines={1}
-            ellipsizeMode="tail"
-            size="$bodySm"
-          >{`${priceInfo.liquidationPriceFormatted}`}</SizableText>
+          <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
+            {priceInfo.liquidationPriceFormatted}
+          </SizableText>
         </XStack>
       </DebugRenderTracker>
     );
@@ -568,17 +567,11 @@ const PositionRowDesktopActions = memo(
   ({
     columnConfig,
     onClosePosition,
-    rowIndex,
-    isRowHovered,
   }: {
     columnConfig: IColumnConfig;
     onClosePosition: (type: 'market' | 'limit') => void;
-    rowIndex?: number;
-    isRowHovered?: boolean;
   }) => {
     const intl = useIntl();
-    const isOddRow = rowIndex !== undefined && rowIndex % 2 === 1;
-    const baseBgColor = isRowHovered || !isOddRow ? '$bgApp' : '$bgSubdued';
     return (
       <DebugRenderTracker
         position="bottom-right"
@@ -590,25 +583,7 @@ const PositionRowDesktopActions = memo(
           justifyContent={calcCellAlign(columnConfig.align)}
           alignItems="center"
           gap="$2"
-          {...(columnConfig?.fixed && {
-            position: 'sticky' as any,
-            right: 0,
-            zIndex: 1,
-            backgroundColor: baseBgColor,
-            pr: '$2',
-          })}
         >
-          {columnConfig?.fixed && isRowHovered ? (
-            <XStack
-              position="absolute"
-              top={0}
-              left={0}
-              right={0}
-              bottom={0}
-              backgroundColor="$bgHover"
-              pointerEvents="none"
-            />
-          ) : null}
           <XStack cursor="pointer" onPress={() => onClosePosition('market')}>
             <SizableText
               cursor="pointer"
@@ -658,6 +633,9 @@ interface IPositionRowDesktopProps {
   onAdjustMargin: () => void;
   onViewTpslOrders: () => void;
   onShare: () => void;
+  renderMode?: IRenderMode;
+  isHovered?: boolean;
+  onHoverChange?: (index: number | null) => void;
 }
 
 const PositionRowDesktop = memo(
@@ -677,8 +655,17 @@ const PositionRowDesktop = memo(
     onAdjustMargin,
     onViewTpslOrders,
     onShare,
+    renderMode = 'full',
+    isHovered,
+    onHoverChange,
   }: IPositionRowDesktopProps) => {
-    const [isHovered, setIsHovered] = useState(false);
+    const isOddRow = mockedPosition.index % 2 === 1;
+    const baseBgColor = isOddRow ? '$bgSubdued' : '$bgApp';
+    const bgColor = isHovered ? '$bgHover' : baseBgColor;
+
+    const shouldRenderLeft = renderMode === 'full' || renderMode === 'left';
+    const shouldRenderRight = renderMode === 'full' || renderMode === 'right';
+
     return (
       <DebugRenderTracker
         position="left-center"
@@ -686,72 +673,69 @@ const PositionRowDesktop = memo(
         name="PositionRowDesktop"
       >
         <XStack
-          minWidth={cellMinWidth}
+          minWidth={renderMode === 'full' ? cellMinWidth : undefined}
           py="$1.5"
           px="$3"
           display="flex"
           flex={1}
           alignItems="center"
-          hoverStyle={{ bg: '$bgHover' }}
-          onHoverIn={() => setIsHovered(true)}
-          onHoverOut={() => setIsHovered(false)}
-          {...(mockedPosition.index % 2 === 1
-            ? {
-                backgroundColor: '$bgSubdued',
-              }
-            : {
-                backgroundColor: '$bgApp',
-              })}
+          backgroundColor={bgColor}
+          onHoverIn={() => onHoverChange?.(mockedPosition.index)}
+          onHoverOut={() => onHoverChange?.(null)}
         >
-          <PositionRowDesktopSymbolAndLeverage
-            columnConfig={columnConfigs[0]}
-            assetInfo={assetInfo}
-            onChangeAsset={onChangeAsset}
-          />
-          <PositionRowDesktopPositionSize
-            columnConfig={columnConfigs[1]}
-            sizeInfo={sizeInfo}
-          />
-          <PositionRowDesktopEntryPrice
-            columnConfig={columnConfigs[2]}
-            priceInfo={priceInfo}
-          />
-          <PositionRowDesktopMarkPrice
-            columnConfig={columnConfigs[3]}
-            coin={coin}
-          />
-          <PositionRowDesktopLiqPrice
-            columnConfig={columnConfigs[4]}
-            priceInfo={priceInfo}
-          />
-          <PositionRowDesktopPnL
-            columnConfig={columnConfigs[5]}
-            otherInfo={otherInfo}
-            onShare={onShare}
-          />
-          <PositionRowDesktopMargin
-            columnConfig={columnConfigs[6]}
-            otherInfo={otherInfo}
-            isIsolatedMode={isIsolatedMode}
-            onAdjustMargin={onAdjustMargin}
-          />
-          <PositionRowDesktopFunding
-            columnConfig={columnConfigs[7]}
-            otherInfo={otherInfo}
-            assetInfo={assetInfo}
-          />
-          <PositionRowDesktopTPSL
-            columnConfig={columnConfigs[8]}
-            coin={coin}
-            onSetTpsl={onSetTpsl}
-            onViewTpslOrders={onViewTpslOrders}
-          />
-          <PositionRowDesktopActions
-            columnConfig={columnConfigs[9]}
-            onClosePosition={onClosePosition}
-            rowIndex={mockedPosition.index}
-            isRowHovered={isHovered}
-          />
+          {shouldRenderLeft ? (
+            <>
+              <PositionRowDesktopSymbolAndLeverage
+                columnConfig={columnConfigs[0]}
+                assetInfo={assetInfo}
+                onChangeAsset={onChangeAsset}
+              />
+              <PositionRowDesktopPositionSize
+                columnConfig={columnConfigs[1]}
+                sizeInfo={sizeInfo}
+              />
+              <PositionRowDesktopEntryPrice
+                columnConfig={columnConfigs[2]}
+                priceInfo={priceInfo}
+              />
+              <PositionRowDesktopMarkPrice
+                columnConfig={columnConfigs[3]}
+                coin={coin}
+              />
+              <PositionRowDesktopLiqPrice
+                columnConfig={columnConfigs[4]}
+                priceInfo={priceInfo}
+              />
+              <PositionRowDesktopPnL
+                columnConfig={columnConfigs[5]}
+                otherInfo={otherInfo}
+                onShare={onShare}
+              />
+              <PositionRowDesktopMargin
+                columnConfig={columnConfigs[6]}
+                otherInfo={otherInfo}
+                isIsolatedMode={isIsolatedMode}
+                onAdjustMargin={onAdjustMargin}
+              />
+              <PositionRowDesktopFunding
+                columnConfig={columnConfigs[7]}
+                otherInfo={otherInfo}
+                assetInfo={assetInfo}
+              />
+              <PositionRowDesktopTPSL
+                columnConfig={columnConfigs[8]}
+                coin={coin}
+                onSetTpsl={onSetTpsl}
+                onViewTpslOrders={onViewTpslOrders}
+              />
+            </>
+          ) : null}
+          {shouldRenderRight ? (
+            <PositionRowDesktopActions
+              columnConfig={columnConfigs[9]}
+              onClosePosition={onClosePosition}
+            />
+          ) : null}
         </XStack>
       </DebugRenderTracker>
     );
@@ -886,7 +870,7 @@ const PositionRowMobilePositionSize = memo(
               })}
             </SizableText>
             <SizableText size="$bodySm" color="$textSubdued">
-              {`${isSizeViewChange ? '(USD)' : `(${assetInfo.assetSymbol})`}`}
+              {isSizeViewChange ? '(USD)' : `(${assetInfo.assetSymbol})`}
             </SizableText>
           </XStack>
           <Icon name="RepeatOutline" size="$3" color="$textSubdued" />
@@ -956,7 +940,7 @@ const PositionRowMobileEntryPrice = memo(
           })}
         </SizableText>
         <SizableText size="$bodySmMedium">
-          {`${priceInfo.entryPriceFormatted}`}
+          {priceInfo.entryPriceFormatted}
         </SizableText>
       </YStack>
     );
@@ -1111,10 +1095,9 @@ const PositionRowMobileTPSL = memo(({ coin }: { coin: string }) => {
           id: ETranslations.perp_position_tp_sl,
         })}
       </SizableText>
-      <SizableText
-        size="$bodySmMedium"
-        numberOfLines={1}
-      >{`${tpslInfo.tpsl}`}</SizableText>
+      <SizableText size="$bodySmMedium" numberOfLines={1}>
+        {tpslInfo.tpsl}
+      </SizableText>
     </YStack>
   );
 });
@@ -1150,7 +1133,7 @@ const PositionRowMobileLiqPrice = memo(
           })}
         </SizableText>
         <SizableText size="$bodySmMedium">
-          {`${priceInfo.liquidationPriceFormatted}`}
+          {priceInfo.liquidationPriceFormatted}
         </SizableText>
       </YStack>
     );
@@ -1292,6 +1275,9 @@ const PositionRow = memo(
     columnConfigs,
     isMobile,
     handleViewTpslOrders,
+    renderMode = 'full',
+    isHovered,
+    onHoverChange,
   }: IPositionRowProps) => {
     const navigation = useAppNavigation();
     const actions = useHyperliquidActions();
@@ -1566,6 +1552,9 @@ const PositionRow = memo(
         onAdjustMargin={handleAdjustMargin}
         onViewTpslOrders={handleViewTpslOrders}
         onShare={handleShare}
+        renderMode={renderMode}
+        isHovered={isHovered}
+        onHoverChange={onHoverChange}
       />
     );
   },

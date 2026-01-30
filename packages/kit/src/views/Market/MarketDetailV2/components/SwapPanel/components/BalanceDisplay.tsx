@@ -12,6 +12,7 @@ import {
 import { DeriveTypeSelectorTriggerIconRenderer } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
 import AddressTypeSelector from '@onekeyhq/kit/src/components/AddressTypeSelector/AddressTypeSelector';
 import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useSelectedDeriveTypeAtom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/atoms';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -43,9 +44,15 @@ export function BalanceDisplay({
   activeAccount,
 }: IBalanceDisplayProps) {
   const intl = useIntl();
-  const onSelect = useCallback(async () => {
-    appEventBus.emit(EAppEventBusNames.NetworkDeriveTypeChanged, undefined);
-  }, []);
+  const [, setSelectedDeriveType] = useSelectedDeriveTypeAtom();
+
+  const onSelect = useCallback(
+    async (value: { account: any; deriveInfo: any; deriveType: any }) => {
+      setSelectedDeriveType(value.deriveType);
+      appEventBus.emit(EAppEventBusNames.NetworkDeriveTypeChanged, undefined);
+    },
+    [setSelectedDeriveType],
+  );
 
   return (
     <XStack justifyContent="space-between" alignItems="center" height="$6">

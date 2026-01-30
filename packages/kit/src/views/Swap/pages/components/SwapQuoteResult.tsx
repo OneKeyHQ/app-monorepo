@@ -135,7 +135,7 @@ const SwapQuoteResult = ({
             {
               id: ETranslations.swap_page_buy_sell_tax,
             },
-            { token: `${tokenInfo?.symbol ?? ''}` },
+            { token: tokenInfo?.symbol ?? '' },
           )}
           isLoading={swapQuoteLoading}
           valueComponent={
@@ -229,7 +229,7 @@ const SwapQuoteResult = ({
       allFeeFiatValue.toFixed(),
       allFeeFiatValueFormatter,
     );
-    return `${allFeeFiatValueFormat}`;
+    return allFeeFiatValueFormat;
   }, [
     quoteResult?.oneKeyFeeExtraInfo?.oneKeyFeeAmount,
     quoteResult?.kind,
@@ -356,9 +356,11 @@ const SwapQuoteResult = ({
             toToken={toToken}
             showLock={!!quoteResult?.allowanceResult}
             onPress={
-              quoteResult?.info.provider && swapQuoteList?.length > 1
+              quoteResult?.info.provider &&
+              swapQuoteList?.length > 1 &&
+              onOpenProviderList
                 ? () => {
-                    onOpenProviderList?.();
+                    onOpenProviderList();
                   }
                 : undefined
             }
@@ -489,9 +491,9 @@ const SwapQuoteResult = ({
                   toToken={toToken}
                   showLock={!!quoteResult?.allowanceResult}
                   onPress={
-                    quoteResult?.info.provider
+                    quoteResult?.info.provider && onOpenProviderList
                       ? () => {
-                          onOpenProviderList?.();
+                          onOpenProviderList();
                         }
                       : undefined
                   }

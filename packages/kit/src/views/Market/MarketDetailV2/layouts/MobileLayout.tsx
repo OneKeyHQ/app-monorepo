@@ -38,7 +38,7 @@ import {
   TokenOverview,
 } from '../components';
 import { usePortfolioData } from '../components/InformationTabs/components/Portfolio/hooks/usePortfolioData';
-import { useNetworkAccountAddress } from '../components/InformationTabs/hooks/useNetworkAccountAddress';
+import { useNetworkAccount } from '../components/InformationTabs/hooks/useNetworkAccount';
 import { MobileInformationTabs } from '../components/InformationTabs/layout/MobileInformationTabs';
 import SwapFlashBtn from '../components/SwapPanel/components/SwapFlashBtn';
 import { SwapPanelWrap } from '../components/SwapPanel/SwapPanelWrap';
@@ -48,11 +48,14 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
   const { tokenAddress, networkId, tokenDetail, isNative, websocketConfig } =
     useTokenDetail();
   const intl = useIntl();
-  const { accountAddress } = useNetworkAccountAddress(networkId);
+
+  const { accountAddress, xpub } = useNetworkAccount(networkId);
+
   const { portfolioData, isRefreshing } = usePortfolioData({
     tokenAddress,
     networkId,
     accountAddress,
+    xpub,
   });
   const tabNames = useMemo(
     () => [
