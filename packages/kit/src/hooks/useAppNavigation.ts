@@ -8,7 +8,7 @@ import {
   popToTabRootScreen,
   rootNavigationRef,
   switchTab,
-  useIsTabletMainView,
+  useSplitMainView,
 } from '@onekeyhq/components';
 import type {
   IModalNavigationProp,
@@ -87,7 +87,7 @@ function useAppNavigation<
   // rootNavigationRef
   const navigation = useNavigation<P>();
   const navigationRef = useRef(navigation);
-  const isTabletMainView = useIsTabletMainView();
+  const isTabletMainView = useSplitMainView();
   const pushModalLockRef = useRef(false);
 
   if (navigationRef.current !== navigation) {

@@ -196,7 +196,7 @@ export class JuiceboxClient {
     );
 
     // Clear token cache after successful registration
-    this.clearTokenCache();
+    // this.clearTokenCache();
   }
 
   /**
