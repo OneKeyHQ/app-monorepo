@@ -3,37 +3,31 @@ import { useCallback, useEffect } from 'react';
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import type { ColorTokens, IKeyOfIcons } from '@onekeyhq/components';
+import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
   Accordion,
-  Button,
   Icon,
   Page,
   SizableText,
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import type { IExchangeConfig } from '@onekeyhq/shared/src/consts/exchangeConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
 import { EModalReceiveRoutes } from '@onekeyhq/shared/src/routes';
-import {
-  openUrlExternal,
-  openUrlInDiscovery,
-} from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import type { IToken } from '@onekeyhq/shared/types/token';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { ListItem } from '../../../components/ListItem';
 import { useReviewControl } from '../../../components/ReviewControl';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { useExchangeAppDetection } from '../../../hooks/useExchangeAppDetection';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { HomeTokenListProviderMirror } from '../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import { WalletActionBuy } from '../../Home/components/WalletActions/WalletActionBuy';
+import { WalletActionExchange } from '../../Home/components/WalletActions/WalletActionExchange';
 import { WalletActionReceive } from '../../Home/components/WalletActions/WalletActionReceive';
 
 import type { IListItemProps } from '../../../components/ListItem';
@@ -69,12 +63,8 @@ function ReceiveOptions({
   );
 }
 
-const HELP_CENTER_URL = 'https://help.onekey.so';
-
 function ReceiveSelectorContent() {
   const intl = useIntl();
-
-  const { sortedExchanges, isExchangeInstalled } = useExchangeAppDetection();
 
   const showBuyAction = useReviewControl();
 
@@ -83,8 +73,17 @@ function ReceiveSelectorContent() {
       RouteProp<IModalReceiveParamList, EModalReceiveRoutes.ReceiveSelector>
     >();
 
-  const { accountId, networkId, walletId, indexedAccountId, token, onClose } =
-    route.params ?? {};
+  // Get active account from context as fallback when route params are not provided
+  const {
+    activeAccount: { account, network, wallet, indexedAccount },
+  } = useActiveAccount({ num: 0 });
+
+  // Use route params if provided, otherwise fallback to active account
+  const accountId = route.params?.accountId ?? account?.id;
+  const networkId = route.params?.networkId ?? network?.id;
+  const walletId = route.params?.walletId ?? wallet?.id;
+  const indexedAccountId = route.params?.indexedAccountId ?? indexedAccount?.id;
+  const { token, onClose } = route.params ?? {};
 
   const navigation = useAppNavigation();
 
@@ -142,50 +141,6 @@ function ReceiveSelectorContent() {
       }
     },
     [token, isSupported, url],
-  );
-
-  const handleExchangePress = useCallback(
-    (config: IExchangeConfig) => {
-      const isInstalled = isExchangeInstalled(config.id);
-
-      // Mobile with app installed → Navigate to token selection flow
-      if (platformEnv.isNative && isInstalled) {
-        navigation.push(EModalReceiveRoutes.ReceiveSelectToken, {
-          title: intl.formatMessage({ id: ETranslations.global_select_crypto }),
-          networkId,
-          accountId,
-          indexedAccountId,
-          onSelect: async (selectedToken: IToken) => {
-            navigation.push(EModalReceiveRoutes.ReceiveToken, {
-              networkId: selectedToken.networkId ?? networkId,
-              accountId: selectedToken.accountId ?? accountId,
-              walletId,
-              token: selectedToken,
-              indexedAccountId,
-              exchangeSource: config.id,
-            });
-          },
-        });
-        return;
-      }
-
-      // Fallback: Open help article
-      const helpLink = `${HELP_CENTER_URL}/articles/${config.helpArticleId}`;
-      if (platformEnv.isDesktop || platformEnv.isNative) {
-        openUrlInDiscovery({ url: helpLink });
-      } else {
-        openUrlExternal(helpLink);
-      }
-    },
-    [
-      isExchangeInstalled,
-      navigation,
-      networkId,
-      accountId,
-      walletId,
-      indexedAccountId,
-      intl,
-    ],
   );
 
   useEffect(() => () => void onClose?.(), [onClose]);
@@ -429,33 +384,7 @@ function ReceiveSelectorContent() {
                         id: ETranslations.learn_how_to_withdraw_crypto_from_exchange,
                       })}
                     </SizableText>
-                    <XStack gap="$5" flexWrap="wrap">
-                      {sortedExchanges.map((config) => (
-                        <Button
-                          key={config.id}
-                          size="small"
-                          variant="tertiary"
-                          childrenAsText={false}
-                          onPress={() => handleExchangePress(config)}
-                        >
-                          <XStack alignItems="center" gap="$2">
-                            <YStack
-                              p={2}
-                              borderRadius="$1"
-                              borderCurve="continuous"
-                              bg={config.iconBgColor as ColorTokens}
-                            >
-                              <Icon
-                                size="$3"
-                                name={config.iconName}
-                                color={config.iconColor as ColorTokens}
-                              />
-                            </YStack>
-                            <SizableText>{config.name}</SizableText>
-                          </XStack>
-                        </Button>
-                      ))}
-                    </XStack>
+                    <WalletActionExchange />
                   </Accordion.Content>
                 </Accordion.HeightAnimator>
               </Accordion.Item>

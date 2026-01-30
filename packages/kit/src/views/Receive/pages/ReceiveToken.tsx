@@ -30,7 +30,6 @@ import type {
   IAccountDeriveInfo,
   IAccountDeriveTypes,
 } from '@onekeyhq/kit-bg/src/vaults/types';
-import { EXCHANGE_CONFIGS } from '@onekeyhq/shared/src/consts/exchangeConsts';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -90,6 +89,13 @@ function ReceiveToken() {
     btcUsedAddressPath,
     exchangeSource,
   } = route.params;
+
+  console.log('[ExchangeDebug] ReceiveToken params', JSON.stringify({
+    exchangeSource,
+    networkId,
+    accountId,
+    allParams: route.params,
+  }));
 
   const { openExchangeApp } = useExchangeAppDetection();
 
@@ -223,31 +229,44 @@ function ReceiveToken() {
       });
   }, [network?.logoURI]);
 
-  // Auto-copy address when coming from exchange flow
+  // Auto-copy address and jump to exchange app when coming from exchange flow
   const hasAutoCopiedRef = useRef(false);
   useEffect(() => {
+    console.log('[ExchangeDebug] auto-copy check', JSON.stringify({
+      exchangeSource,
+      displayAddress,
+      shouldShowAddress,
+      hasAutoCopied: hasAutoCopiedRef.current,
+    }));
     if (
       exchangeSource &&
       displayAddress &&
       shouldShowAddress &&
       !hasAutoCopiedRef.current
     ) {
+      console.log('[ExchangeDebug] auto-copy triggered');
       hasAutoCopiedRef.current = true;
-      const timer = setTimeout(() => {
-        if (vaultSettings?.mergeDeriveAssetsEnabled && currentDeriveInfo) {
-          copyAddressWithDeriveType({
-            address: displayAddress,
-            deriveInfo: currentDeriveInfo,
-            networkName: network?.name,
-          });
-        } else {
-          copyAddressWithDeriveType({
-            address: displayAddress,
-            networkName: network?.name,
-          });
-        }
-      }, 300);
-      return () => clearTimeout(timer);
+      // Copy address first
+      if (vaultSettings?.mergeDeriveAssetsEnabled && currentDeriveInfo) {
+        copyAddressWithDeriveType({
+          address: displayAddress,
+          deriveInfo: currentDeriveInfo,
+          networkName: network?.name,
+        });
+      } else {
+        copyAddressWithDeriveType({
+          address: displayAddress,
+          networkName: network?.name,
+        });
+      }
+      // Then jump to exchange app after 1s delay
+      if (platformEnv.isNative) {
+        const timer = setTimeout(() => {
+          console.log('[ExchangeDebug] jumping to exchange app', exchangeSource);
+          openExchangeApp(exchangeSource);
+        }, 1000);
+        return () => clearTimeout(timer);
+      }
     }
   }, [
     exchangeSource,
@@ -257,6 +276,7 @@ function ReceiveToken() {
     currentDeriveInfo,
     network?.name,
     vaultSettings?.mergeDeriveAssetsEnabled,
+    openExchangeApp,
   ]);
 
   const throttledSyncBTCFreshAddress = useThrottledCallback(
@@ -641,12 +661,6 @@ function ReceiveToken() {
   const renderReceiveFooter = useCallback(() => {
     if (!currentAccount || !network || !wallet) return null;
 
-    const exchangeName =
-      exchangeSource && exchangeSource in EXCHANGE_CONFIGS
-        ? (EXCHANGE_CONFIGS as Record<string, { name: string }>)[exchangeSource]
-            .name
-        : undefined;
-
     return (
       <YStack
         backgroundColor="$bgSubdued"
@@ -710,19 +724,6 @@ function ReceiveToken() {
             {renderCopyAddressButton()}
           </XStack>
         </YStack>
-        {/* Open Exchange button when coming from exchange flow */}
-        {exchangeSource &&
-        platformEnv.isNative &&
-        shouldShowAddress &&
-        exchangeName ? (
-          <Button
-            variant="primary"
-            size="large"
-            onPress={() => openExchangeApp(exchangeSource)}
-          >
-            {`Open ${exchangeName}`}
-          </Button>
-        ) : null}
         {renderVerifyAddressButton()}
         {shouldShowAddress && !isEnableBTCFreshAddressSetting ? (
           <SizableText size="$bodyMd" color="$textSubdued">
@@ -783,8 +784,6 @@ function ReceiveToken() {
     walletId,
     navigation,
     isBtcUsedAddressVerifyMode,
-    exchangeSource,
-    openExchangeApp,
   ]);
 
   const renderReceiveQrCode = useCallback(() => {

@@ -9,6 +9,7 @@ import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import type { EExchangeId } from '@onekeyhq/shared/src/consts/exchangeConsts';
 import type {
   IAccountToken,
   IToken,
@@ -27,6 +28,7 @@ function useReceiveToken({
   tokenListState,
   isMultipleDerive,
   indexedAccountId,
+  exchangeSource,
 }: {
   accountId: string;
   networkId: string;
@@ -39,6 +41,7 @@ function useReceiveToken({
     initialized: boolean;
   };
   isMultipleDerive?: boolean;
+  exchangeSource?: EExchangeId;
 }) {
   const intl = useIntl();
   const {
@@ -202,6 +205,7 @@ function useReceiveToken({
                 walletId,
                 token: t,
                 indexedAccountId,
+                exchangeSource,
               });
               return;
             }
@@ -212,6 +216,7 @@ function useReceiveToken({
               walletId,
               token: t,
               indexedAccountId,
+              exchangeSource,
             });
           },
         };
@@ -239,6 +244,7 @@ function useReceiveToken({
       vaultSettings?.isSingleToken,
       vaultSettings?.mergeDeriveAssetsEnabled,
       walletId,
+      exchangeSource,
     ],
   );
 

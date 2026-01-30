@@ -11,6 +11,10 @@ import { useWindowDimensions } from 'react-native';
 import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { useAppSideBarStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
+import {
+  isDualScreenDevice,
+  useDualScreenWidth,
+} from '@onekeyhq/shared/src/modules/DualScreenInfo';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { isNativeTablet, useIsSplitView } from '../../hooks';
@@ -26,10 +30,6 @@ import { useTabNameContext as useNativeTabNameContext } from './TabNameContext';
 import { useFocusedTab } from './useFocusedTab';
 
 import type { useEventEmitter } from './useEventEmitter';
-import {
-  isDualScreenDevice,
-  useDualScreenWidth,
-} from '@onekeyhq/shared/src/modules/DualScreenInfo';
 
 export const useTabNameContext = useNativeTabNameContext;
 
