@@ -1,6 +1,7 @@
 ---
 name: 1k-patching-native-modules
 description: Patches native modules (expo-image, react-native, etc.) to fix native crashes or bugs. 
+disable-model-invocation: true
 ---
 
 # Patching Native Modules
