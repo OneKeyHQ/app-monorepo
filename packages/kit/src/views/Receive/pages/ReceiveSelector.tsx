@@ -3,7 +3,7 @@ import { useCallback, useEffect } from 'react';
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import type { ColorTokens, IKeyOfIcons } from '@onekeyhq/components';
+import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
   Accordion,
   Icon,
@@ -12,13 +12,11 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import type { IExchangeConfig } from '@onekeyhq/shared/src/consts/exchangeConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
 import { EModalReceiveRoutes } from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import type { IToken } from '@onekeyhq/shared/types/token';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
@@ -64,8 +62,6 @@ function ReceiveOptions({
     </ListItem>
   );
 }
-
-const HELP_CENTER_URL = 'https://help.onekey.so';
 
 function ReceiveSelectorContent() {
   const intl = useIntl();
@@ -145,50 +141,6 @@ function ReceiveSelectorContent() {
       }
     },
     [token, isSupported, url],
-  );
-
-  const handleExchangePress = useCallback(
-    (config: IExchangeConfig) => {
-      const isInstalled = isExchangeInstalled(config.id);
-
-      // Mobile with app installed → Navigate to token selection flow
-      if (platformEnv.isNative && isInstalled) {
-        navigation.push(EModalReceiveRoutes.ReceiveSelectToken, {
-          title: intl.formatMessage({ id: ETranslations.global_select_crypto }),
-          networkId,
-          accountId,
-          indexedAccountId,
-          onSelect: async (selectedToken: IToken) => {
-            navigation.push(EModalReceiveRoutes.ReceiveToken, {
-              networkId: selectedToken.networkId ?? networkId,
-              accountId: selectedToken.accountId ?? accountId,
-              walletId,
-              token: selectedToken,
-              indexedAccountId,
-              exchangeSource: config.id,
-            });
-          },
-        });
-        return;
-      }
-
-      // Fallback: Open help article
-      const helpLink = `${HELP_CENTER_URL}/articles/${config.helpArticleId}`;
-      if (platformEnv.isDesktop || platformEnv.isNative) {
-        openUrlInDiscovery({ url: helpLink });
-      } else {
-        openUrlExternal(helpLink);
-      }
-    },
-    [
-      isExchangeInstalled,
-      navigation,
-      networkId,
-      accountId,
-      walletId,
-      indexedAccountId,
-      intl,
-    ],
   );
 
   useEffect(() => () => void onClose?.(), [onClose]);

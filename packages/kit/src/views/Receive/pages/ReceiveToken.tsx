@@ -273,7 +273,7 @@ function ReceiveToken() {
             '[ExchangeDebug] jumping to exchange app',
             exchangeSource,
           );
-          openExchangeApp(exchangeSource);
+          void openExchangeApp(exchangeSource);
         }, 1000);
         return () => clearTimeout(timer);
       }

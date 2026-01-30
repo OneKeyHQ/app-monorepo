@@ -41,10 +41,13 @@ function WalletActionExchange() {
 
   const handleExchangePress = useCallback(
     (config: IExchangeConfig) => {
-      console.log('[ExchangeDebug] handleExchangePress', JSON.stringify({
-        configId: config.id,
-        configName: config.name,
-      }));
+      console.log(
+        '[ExchangeDebug] handleExchangePress',
+        JSON.stringify({
+          configId: config.id,
+          configName: config.name,
+        }),
+      );
       const isInstalled = isExchangeInstalled(config.id);
       console.log('[ExchangeDebug] isInstalled', JSON.stringify(isInstalled));
 
@@ -59,12 +62,15 @@ function WalletActionExchange() {
           aggregateTokenSelectorScreen:
             EModalReceiveRoutes.ReceiveSelectAggregateToken,
           onSelect: async (selectedToken: IToken) => {
-            console.log('[ExchangeDebug] onSelect called', JSON.stringify({
-              exchangeSource: config.id,
-              selectedToken,
-              networkId: selectedToken.networkId ?? networkId,
-              accountId: selectedToken.accountId ?? accountId,
-            }));
+            console.log(
+              '[ExchangeDebug] onSelect called',
+              JSON.stringify({
+                exchangeSource: config.id,
+                selectedToken,
+                networkId: selectedToken.networkId ?? networkId,
+                accountId: selectedToken.accountId ?? accountId,
+              }),
+            );
             navigation.push(EModalReceiveRoutes.ReceiveToken, {
               networkId: selectedToken.networkId ?? networkId,
               accountId: selectedToken.accountId ?? accountId,

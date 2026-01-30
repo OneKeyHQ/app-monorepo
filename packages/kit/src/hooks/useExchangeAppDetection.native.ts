@@ -49,7 +49,7 @@ export function useExchangeAppDetection() {
               config.deepLinkScheme,
             );
             results[id] = canOpen;
-          } catch (e) {
+          } catch (_e) {
             results[id] = false;
           }
         }),
