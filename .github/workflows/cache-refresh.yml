@@ -1,20 +1,25 @@
 name: Cache Refresh
 
 # Purpose:
-# Manually refresh the setup-node yarn cache in GitHub Actions to ensure CI/CD pipelines use up-to-date dependencies
+# Refresh the setup-node yarn cache in GitHub Actions to ensure CI/CD pipelines use up-to-date dependencies
 #
 # How it works:
-# 1. Manually trigger this workflow from GitHub UI
-# 2. Uses actions/setup-node's cache: 'yarn' feature to create/update cache
-# 3. Runs yarn install to install all dependencies, which updates the cache content
-# 4. GitHub Actions automatically saves the updated cache for other workflows to use
+# 1. Automatically triggers when package.json changes on x branch (dependency updates)
+# 2. Can also be manually triggered from GitHub UI
+# 3. Uses actions/setup-node's cache: 'yarn' feature to create/update cache
+# 4. Runs yarn install to install all dependencies, which updates the cache content
+# 5. GitHub Actions automatically saves the updated cache for other workflows to use
 #
 # Why this is needed:
 # - Prevents cache expiration from causing dependency installation failures in other workflows
 # - Ensures all CI jobs use consistent, up-to-date dependency versions
 # - Reduces first-run time for other workflows (cache is pre-warmed)
 #
-# How to use:
+# Triggers:
+# - Automatic: When package.json is modified and pushed to x branch
+# - Manual: Via GitHub Actions UI
+#
+# How to manually trigger:
 # 1. Go to GitHub Actions page
 # 2. Select "Cache Refresh" workflow
 # 3. Click "Run workflow" button
@@ -23,6 +28,13 @@ name: Cache Refresh
 on:
   # Manual trigger: Allow running this workflow manually from GitHub UI
   workflow_dispatch:
+
+  # Auto trigger: Run when package.json changes on x branch
+  push:
+    branches:
+      - x
+    paths:
+      - 'package.json'
 
 # Cancel currently running workflows from the same group
 concurrency:
@@ -121,6 +133,6 @@ jobs:
 #
 # 4. Caches expire automatically after 7 days of no use
 #
-# 5. This workflow needs to be manually triggered to refresh cache
+# 5. This workflow auto-runs when package.json changes on x branch
 #
-# 6. Recommended to run manually after dependency updates or when cache is about to expire
+# 6. Can also be manually triggered when cache is about to expire or after major dependency updates
