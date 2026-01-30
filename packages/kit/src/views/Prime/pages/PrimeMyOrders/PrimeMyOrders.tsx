@@ -64,7 +64,7 @@ export default function PrimeMyOrders() {
     [copyText],
   );
 
-  const handleOrderDetails = useCallback((order: IShopifyOrder) => {
+  const handleOrderDetails = useCallback((_order: IShopifyOrder) => {
     openUrlUtils.openUrlExternal(FIND_ORDER_URL);
   }, []);
 
