@@ -20,6 +20,7 @@ import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 export function FirmwareUpdateCheckList({
   result,
@@ -130,9 +131,7 @@ export function FirmwareUpdateCheckList({
 
                   // Wait for React Native Fabric to complete view cleanup
                   // This prevents RetryableMountingLayerException during rapid navigation
-                  await new Promise((resolve) => {
-                    setTimeout(resolve, 100);
-                  });
+                  await timerUtils.wait(150);
 
                   if (!isMountedRef.current) return;
 
