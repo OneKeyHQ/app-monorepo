@@ -52,10 +52,30 @@ git checkout -b feat/my-new-feature
 ```
 
 ### Committing Changes
+
+**Option 1: Use /commit command (Recommended)**
 ```bash
+/commit
+```
+The `/commit` command automatically runs pre-commit checks (`yarn lint:staged` and `yarn tsc:staged`) and creates a well-formatted commit message.
+
+**Option 2: Manual commit with pre-checks**
+```bash
+# Stage your changes
 git add .
+
+# Run pre-commit checks (MANDATORY)
+yarn lint:staged
+yarn tsc:staged
+
+# If checks pass, commit
 git commit -m "feat: add user profile page"
 ```
+
+**IMPORTANT**:
+- NEVER commit code that fails linting or TypeScript compilation
+- Pre-commit checks are mandatory as specified in CLAUDE.md
+- The `/commit` command handles this automatically
 
 ### Pushing and Creating PR
 ```bash
