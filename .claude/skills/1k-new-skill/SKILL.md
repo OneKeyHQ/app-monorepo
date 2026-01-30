@@ -40,6 +40,59 @@ ls -la .claude/skills/
 - Different trigger keywords and use cases
 - Would make existing skill too large or unfocused
 
+### Token optimization considerations
+
+**When to split existing skills:**
+
+Skills should be split when they become too large, causing unnecessary token consumption on every load. Use these criteria:
+
+**🚨 SPLIT if any of these apply:**
+- **File size**: Reference file >10 KB or >1000 lines
+- **Usage frequency mismatch**: Topics used in very different scenarios
+- **Independent workflows**: Topics don't share common patterns
+- **Specific trigger words**: Topic has distinct keywords that rarely overlap
+
+**✅ KEEP TOGETHER if:**
+- **High correlation**: Topics frequently used together (>50% overlap)
+- **Shared concepts**: Common patterns, terminology, or workflows
+- **Small files**: All reference files <5 KB each
+- **Natural grouping**: User thinks of topics as related
+
+**Token savings formula:**
+
+```
+Token Savings = (Skill_Size × Probability_Not_Needed) - Split_Overhead
+
+Where:
+- Skill_Size: Total tokens in skill (SKILL.md + all references)
+- Probability_Not_Needed: % of tasks that don't need this topic
+- Split_Overhead: ~500-1000 tokens (new SKILL.md + metadata)
+```
+
+**Real-world examples from our codebase:**
+
+| Original | Size | Split Into | Token Savings |
+|----------|------|------------|---------------|
+| `1k-coding-patterns` | 15 KB (9 files) | 6 focused skills | 47-53% in 90% cases |
+| `1k-dev-workflows` | 43 KB (3 files) | 3 focused skills | 80% when not doing Sentry |
+
+**Splitting strategies:**
+
+1. **Conservative split** (safe, minimal disruption):
+   - Split only the largest, most independent file
+   - Keep related topics together
+   - Example: Split 34 KB Sentry analysis from 43 KB workflows
+
+2. **Moderate split** (balanced):
+   - Split 3-5 distinct topics into separate skills
+   - Keep core patterns together
+   - Example: Split date, i18n, error-handling, cross-platform, code-quality
+
+3. **Aggressive split** (maximum optimization):
+   - Each major topic becomes its own skill
+   - Only keep truly inseparable content together
+   - Use when: Very large skill (>50 KB), low topic correlation
+
 ### Existing skill categories for OneKey
 
 | Category | Skill | Merge candidates |
@@ -86,6 +139,57 @@ If merging into existing skill:
    |---------|-------|-----------|
    | Existing topic | [existing.md](references/rules/existing.md) | `path/to/files` |
    | **New topic** | [new-topic.md](references/rules/new-topic.md) | `path/to/files` |  <!-- Add this -->
+   ```
+
+### Splitting workflow
+
+If splitting an existing skill:
+
+1. **Analyze current skill:**
+   ```bash
+   # Check file sizes
+   ls -lh .claude/skills/<skill-name>/references/rules/
+   wc -l .claude/skills/<skill-name>/references/rules/*.md
+   ```
+
+2. **Identify split candidates:**
+   - Files >10 KB or >1000 lines
+   - Topics with distinct trigger words
+   - Workflows used independently
+
+3. **Create new skill directories:**
+   ```bash
+   mkdir -p .claude/skills/<new-skill-1>/references/rules
+   mkdir -p .claude/skills/<new-skill-2>/references/rules
+   ```
+
+4. **Move files (git tracks as rename):**
+   ```bash
+   mv .claude/skills/<old-skill>/references/rules/<topic>.md \
+      .claude/skills/<new-skill>/references/rules/
+   ```
+
+5. **Create SKILL.md for each new skill:**
+   - Write focused description with specific trigger words
+   - Add Quick Reference section
+   - Include Related Skills section
+
+6. **Update original skill SKILL.md:**
+   - Remove split topics from Quick Reference
+   - Update Related Skills to point to new skills
+
+7. **Update cross-references:**
+   ```bash
+   # Find all skills that reference the old skill
+   grep -r "old-skill" .claude/skills/*/SKILL.md
+
+   # Update each reference to point to appropriate new skill
+   ```
+
+8. **Commit with clear message:**
+   ```bash
+   git add -A .claude/skills/
+   git commit -m "refactor: split <old-skill> into focused skills"
    ```
 
 ## 2) Gather requirements (for new skills)
@@ -234,10 +338,53 @@ See: [references/rules/adding-chains.md](references/rules/adding-chains.md)
 
 ## Anti-patterns to avoid
 
+### Structure & Organization
 - ❌ Creating new skill when content fits existing category
-- ❌ Vague descriptions like "Helps with documents"
 - ❌ Putting all content in SKILL.md (use references/rules for detail)
-- ❌ Multiple approaches without clear defaults
 - ❌ Deeply nested file references (keep one level deep)
-- ❌ Over-explaining what Claude already knows
 - ❌ Forgetting `1k-` prefix for OneKey skills
+
+### Content Quality
+- ❌ Vague descriptions like "Helps with documents"
+- ❌ Multiple approaches without clear defaults
+- ❌ Over-explaining what Claude already knows
+- ❌ Missing trigger keywords in description
+
+### Token Optimization Anti-patterns
+- ❌ **Keeping bloated skills**: Not splitting when files exceed 10 KB
+- ❌ **Over-splitting**: Creating separate skills for highly correlated topics
+- ❌ **Ignoring usage patterns**: Not considering which topics are used together
+- ❌ **Vague trigger words**: Using generic triggers that cause unnecessary loading
+- ❌ **No Quick Reference**: Forcing full file load instead of showing summary first
+- ❌ **Duplicate content**: Copying content across skills instead of cross-referencing
+
+### Examples of Good vs Bad Splitting
+
+**❌ BAD: Over-splitting**
+```
+1k-date-format-display
+1k-date-format-parse
+1k-date-format-locale
+```
+*Problem: These are always used together, split overhead > savings*
+
+**✅ GOOD: Focused skill**
+```
+1k-date-formatting
+├── SKILL.md (Quick Reference)
+└── references/rules/date-formatting.md
+```
+
+**❌ BAD: Keeping bloated**
+```
+1k-coding-patterns (15 KB, 9 unrelated files)
+```
+*Problem: Loading all patterns even when only need one*
+
+**✅ GOOD: Split by independence**
+```
+1k-coding-patterns (core patterns only)
+1k-date-formatting (independent utility)
+1k-i18n (independent utility)
+1k-error-handling (independent patterns)
+```
