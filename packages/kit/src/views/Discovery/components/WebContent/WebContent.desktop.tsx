@@ -41,7 +41,8 @@ function WebContent({ id, url }: IWebContentProps) {
 
   const getNavStatusInfo = useCallback(() => {
     const ref = webviewRefs[id];
-    const webviewRef = ref.innerRef as IElectronWebView;
+    // Fix: Prevent crash when ref is undefined during webview destruction or race conditions
+    const webviewRef = ref?.innerRef as IElectronWebView;
     if (!webviewRef) {
       return;
     }
