@@ -30,6 +30,7 @@ import type {
   IAccountDeriveInfo,
   IAccountDeriveTypes,
 } from '@onekeyhq/kit-bg/src/vaults/types';
+import { EXCHANGE_CONFIGS } from '@onekeyhq/shared/src/consts/exchangeConsts';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -90,12 +91,15 @@ function ReceiveToken() {
     exchangeSource,
   } = route.params;
 
-  console.log('[ExchangeDebug] ReceiveToken params', JSON.stringify({
-    exchangeSource,
-    networkId,
-    accountId,
-    allParams: route.params,
-  }));
+  console.log(
+    '[ExchangeDebug] ReceiveToken params',
+    JSON.stringify({
+      exchangeSource,
+      networkId,
+      accountId,
+      allParams: route.params,
+    }),
+  );
 
   const { openExchangeApp } = useExchangeAppDetection();
 
@@ -232,12 +236,15 @@ function ReceiveToken() {
   // Auto-copy address and jump to exchange app when coming from exchange flow
   const hasAutoCopiedRef = useRef(false);
   useEffect(() => {
-    console.log('[ExchangeDebug] auto-copy check', JSON.stringify({
-      exchangeSource,
-      displayAddress,
-      shouldShowAddress,
-      hasAutoCopied: hasAutoCopiedRef.current,
-    }));
+    console.log(
+      '[ExchangeDebug] auto-copy check',
+      JSON.stringify({
+        exchangeSource,
+        displayAddress,
+        shouldShowAddress,
+        hasAutoCopied: hasAutoCopiedRef.current,
+      }),
+    );
     if (
       exchangeSource &&
       displayAddress &&
@@ -262,7 +269,10 @@ function ReceiveToken() {
       // Then jump to exchange app after 1s delay
       if (platformEnv.isNative) {
         const timer = setTimeout(() => {
-          console.log('[ExchangeDebug] jumping to exchange app', exchangeSource);
+          console.log(
+            '[ExchangeDebug] jumping to exchange app',
+            exchangeSource,
+          );
           openExchangeApp(exchangeSource);
         }, 1000);
         return () => clearTimeout(timer);
@@ -661,6 +671,12 @@ function ReceiveToken() {
   const renderReceiveFooter = useCallback(() => {
     if (!currentAccount || !network || !wallet) return null;
 
+    const exchangeName =
+      exchangeSource && exchangeSource in EXCHANGE_CONFIGS
+        ? (EXCHANGE_CONFIGS as Record<string, { name: string }>)[exchangeSource]
+            .name
+        : undefined;
+
     return (
       <YStack
         backgroundColor="$bgSubdued"
@@ -724,6 +740,19 @@ function ReceiveToken() {
             {renderCopyAddressButton()}
           </XStack>
         </YStack>
+        {/* Open Exchange button when coming from exchange flow */}
+        {exchangeSource &&
+        platformEnv.isNative &&
+        shouldShowAddress &&
+        exchangeName ? (
+          <Button
+            variant="primary"
+            size="large"
+            onPress={() => openExchangeApp(exchangeSource)}
+          >
+            {`Open ${exchangeName}`}
+          </Button>
+        ) : null}
         {renderVerifyAddressButton()}
         {shouldShowAddress && !isEnableBTCFreshAddressSetting ? (
           <SizableText size="$bodyMd" color="$textSubdued">
@@ -784,6 +813,8 @@ function ReceiveToken() {
     walletId,
     navigation,
     isBtcUsedAddressVerifyMode,
+    exchangeSource,
+    openExchangeApp,
   ]);
 
   const renderReceiveQrCode = useCallback(() => {
