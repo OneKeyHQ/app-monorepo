@@ -447,7 +447,12 @@ function GetStarted() {
                 </GridItem>
               </YStack>
             </YStack>
-            <YStack gap={44} justifyContent="center" alignItems="center">
+            <YStack
+              gap={38}
+              justifyContent="center"
+              alignItems="center"
+              pb={58}
+            >
               <DecorativeOneKeyLogo />
               <Stack gap="$4" minWidth="$80" zIndex={1}>
                 <Button
@@ -562,24 +567,18 @@ function GetStarted() {
                         </SizableText>
                       </XStack>
                     </Button>
-                    <Stack
-                      cursor="pointer"
+                    <Button
+                      variant="tertiary"
+                      size="large"
+                      alignSelf="stretch"
+                      mx="$0"
+                      borderRadius="$3"
                       onPress={handleCreateOrImportWallet}
-                      hoverStyle={{ opacity: 0.8 }}
-                      pressStyle={{ opacity: 0.6 }}
-                      py="$2"
                     >
-                      <SizableText
-                        size="$bodyMd"
-                        color="$textSubdued"
-                        textAlign="center"
-                        textDecorationLine="underline"
-                      >
-                        {intl.formatMessage({
-                          id: ETranslations.more_options,
-                        })}
-                      </SizableText>
-                    </Stack>
+                      {intl.formatMessage({
+                        id: ETranslations.more_options,
+                      })}
+                    </Button>
                   </>
                 ) : (
                   <Button
