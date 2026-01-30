@@ -46,6 +46,7 @@ function BaseBulkSendReview({
     accountId,
     tokenInfo,
     transfersInfo,
+    bulkSendMode,
     approvesInfo,
     unsignedTxs,
     setApprovesInfo,
@@ -347,6 +348,7 @@ function BaseBulkSendReview({
             editMode={false}
             tokenInfo={tokenInfo}
             transfersInfo={transfersInfo}
+            bulkSendMode={bulkSendMode}
           />
         </YStack>
       </Page.Body>

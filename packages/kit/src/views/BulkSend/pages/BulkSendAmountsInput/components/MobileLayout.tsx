@@ -13,6 +13,7 @@ function MobileLayout() {
     transfersInfo,
     transferInfoErrors,
     amountInputMode,
+    bulkSendMode,
     setTransfersInfo,
     setTransferInfoErrors,
   } = useBulkSendAmountsInputContext();
@@ -35,6 +36,7 @@ function MobileLayout() {
         editMode={isEditMode}
         transfersInfo={transfersInfo}
         transferInfoErrors={transferInfoErrors}
+        bulkSendMode={bulkSendMode}
         onDeleteTransfer={handleDeleteTransfer}
         onAmountChange={isEditMode ? handleAmountChange : undefined}
       />

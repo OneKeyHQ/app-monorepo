@@ -12,7 +12,10 @@ import {
 } from '@onekeyhq/components';
 import type { IInputAddOnProps } from '@onekeyhq/components/src/forms/Input/InputAddOnItem';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
-import type { ITransferInfoErrors } from '@onekeyhq/shared/types/bulkSend';
+import {
+  EBulkSendMode,
+  type ITransferInfoErrors,
+} from '@onekeyhq/shared/types/bulkSend';
 import type { IToken } from '@onekeyhq/shared/types/token';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
@@ -21,6 +24,7 @@ type Props = {
   editMode: boolean;
   transfersInfo: ITransferInfo[];
   transferInfoErrors?: ITransferInfoErrors;
+  bulkSendMode?: EBulkSendMode;
   onDeleteTransfer?: (index: number) => void;
   onAmountChange?: (index: number, amount: string) => void;
 };
@@ -33,6 +37,7 @@ type ITransferListItemProps = {
   addressError?: string;
   amountError?: string;
   editMode: boolean;
+  deleteDisabled?: boolean;
   onDelete?: () => void;
   onAmountChange?: (amount: string) => void;
 };
@@ -45,6 +50,7 @@ function TransferListItem({
   addressError,
   amountError,
   editMode,
+  deleteDisabled,
   onDelete,
   onAmountChange,
 }: ITransferListItemProps) {
@@ -84,7 +90,7 @@ function TransferListItem({
   }, [amountError]);
 
   const renderAmount = () => {
-    if (isSend && editMode) {
+    if (editMode) {
       return (
         <Input
           flex={1}
@@ -120,7 +126,7 @@ function TransferListItem({
       gap="$3"
       px="$5"
       py="$2"
-      alignItems={editMode && isSend ? 'center' : 'flex-start'}
+      alignItems={editMode ? 'center' : 'flex-start'}
     >
       <YStack justifyContent="center" flexShrink={0}>
         <SizableText
@@ -146,6 +152,7 @@ function TransferListItem({
           icon="DeleteOutline"
           variant="tertiary"
           size="small"
+          disabled={deleteDisabled}
           onPress={onDelete}
         />
       ) : null}
@@ -178,9 +185,21 @@ function BulkSendTxDetails(props: Props) {
     editMode,
     transfersInfo,
     transferInfoErrors,
+    bulkSendMode,
     onDeleteTransfer,
     onAmountChange,
   } = props;
+
+  // Disable delete when only one transfer exists
+  const isDeleteDisabled = transfersInfo.length <= 1;
+
+  // Permission rules based on bulk send mode
+  const canEditSender =
+    bulkSendMode === EBulkSendMode.ManyToOne ||
+    bulkSendMode === EBulkSendMode.ManyToMany;
+  const canEditReceiver =
+    bulkSendMode === EBulkSendMode.OneToMany ||
+    bulkSendMode === EBulkSendMode.ManyToMany;
 
   const tokenSymbol = tokenInfo.symbol;
 
@@ -284,14 +303,15 @@ function BulkSendTxDetails(props: Props) {
             type="send"
             addressError={getTransferError(sender.indices, 'from')}
             amountError={getTransferError(sender.indices, 'amount')}
-            editMode={editMode}
+            editMode={editMode && canEditSender}
+            deleteDisabled={isDeleteDisabled}
             onDelete={
-              onDeleteTransfer
+              onDeleteTransfer && canEditSender
                 ? () => handleDeleteSender(sender.indices)
                 : undefined
             }
             onAmountChange={
-              editMode && sender.indices.length === 1
+              editMode && canEditSender && sender.indices.length === 1
                 ? (amount) => handleAmountChange(sender.indices[0], amount)
                 : undefined
             }
@@ -308,10 +328,16 @@ function BulkSendTxDetails(props: Props) {
             tokenSymbol={tokenSymbol}
             type="receive"
             addressError={getTransferError(receiver.indices, 'to')}
-            editMode={false}
+            editMode={editMode && canEditReceiver}
+            deleteDisabled={isDeleteDisabled}
             onDelete={
-              onDeleteTransfer
+              onDeleteTransfer && canEditReceiver
                 ? () => handleDeleteReceiver(receiver.indices)
+                : undefined
+            }
+            onAmountChange={
+              editMode && canEditReceiver && receiver.indices.length === 1
+                ? (amount) => handleAmountChange(receiver.indices[0], amount)
                 : undefined
             }
           />

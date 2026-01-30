@@ -2,14 +2,14 @@ import { useCallback } from 'react';
 
 import { useNavigation as useReactNavigation } from '@react-navigation/native';
 
-import { useIsTabletDetailView } from '@onekeyhq/components';
+import { useSplitSubView } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETabHomeRoutes } from '@onekeyhq/shared/src/routes';
 
 export function useBulkSendBackNavigation() {
   const navigation = useAppNavigation();
   const reactNavigation = useReactNavigation();
-  const isTabletDetailView = useIsTabletDetailView();
+  const isTabletDetailView = useSplitSubView();
 
   const handleBackPress = useCallback(() => {
     if (isTabletDetailView) {
