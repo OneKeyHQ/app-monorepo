@@ -209,7 +209,9 @@ mkdir -p node_modules/.cache/bugs
 
 Create a file: `node_modules/.cache/bugs/<descriptive-name>-<event_id_short>.md`
 
-Example: `node_modules/.cache/bugs/ios-app-hang-swap-token-fetch-37b865c8.md`
+**Examples**:
+- `node_modules/.cache/bugs/logger-undefined-crash-6db69603.md` (Logger crash case)
+- `node_modules/.cache/bugs/ios-app-hang-swap-token-fetch-37b865c8.md` (App hang case)
 
 ### Required Sections
 
@@ -261,38 +263,137 @@ What the user was doing before the crash:
 
 ## 4. Root Cause Analysis
 
+**🔗 CRITICAL REQUIREMENT**: 根本原因分析必须**环环相扣，逐步递进**
+
+- ✅ 每个证据都要建立在前一个证据的基础上
+- ✅ 逻辑推理必须从一个点自然流向下一个点
+- ✅ 形成完整的证据链，不能有跳跃或断层
+- ✅ 每一步结论都要有代码或数据支撑
+
+**Poor Example** (❌ 跳跃式分析):
+```
+1. 用户切换 Passphrase
+2. Logger 是 undefined
+3. 应用崩溃
+```
+*问题: 缺少中间步骤，无法证明因果关系*
+
+**Good Example** (✅ 环环相扣):
+```
+1. 用户切换 Passphrase → 触发 SDK deviceSettings 调用 [Evidence: Stack trace]
+2. SDK 处理设置 → 可能导致设备断开重连 [Evidence: Breadcrumbs]
+3. 断开事件触发 → 调用 disconnectListener [Evidence: Code at line X]
+4. 同时 SDK dispose 可能在执行 → 清理内部状态 [Evidence: Lifecycle code]
+5. Logger 实例被清理或未初始化 → Log$b = undefined [Evidence: getLogger return]
+6. 事件处理器仍尝试记录日志 → Log$b.debug() [Evidence: Crash line]
+7. 访问 undefined 的属性 → TypeError crash [Evidence: Sentry log]
+```
+*每一步都有证据支撑，逻辑连贯*
+
 ### Problem Identification
-[Detailed explanation of what caused the issue]
+[Detailed explanation of what caused the issue - be specific and technical]
 
-### Code Location
-**File**: `packages/kit/src/states/jotai/contexts/swap/actions.ts`
-**Lines**: 1803-1820
-**Function**: `swapLoadAllNetworkTokenList`
+Example:
+```
+In hardware device disconnect scenarios, the @onekeyfe/hd-core SDK attempts to call
+logger.debug() but the logger object may be undefined in certain edge cases, causing
+a "Cannot read property 'debug' of undefined" crash.
+```
 
-**Problematic Code**:
-```typescript
-// Line 1803-1820 (before fix)
-const requests = accountAddressList.map((networkDataString) => {
-  return this.updateAllNetworkTokenList.call(...);
-});
+### Call Chain (Recommended)
+Visualize the execution flow leading to the error:
+```
+User Action: Toggle Passphrase switch
+    ↓
+Update device settings: ServiceHardware.setPassphraseEnabled()
+    ↓
+SDK processing: sdk.deviceSettings({ usePassphrase: true })
+    ↓
+Device disconnect event triggered
+    ↓
+App listener: ExternalControllerEvm.disconnectListeners[accountId]
+    ↓
+Call: serviceDappSide.disconnectExternalWallet()
+    ↓
+SDK internal: Attempt to log message
+    ↓
+Error: Log$b.debug(...) → Log$b is undefined
+    ↓
+💥 Crash: Cannot read property 'debug' of undefined
+```
 
-await Promise.all(requests); // ❌ 10+ concurrent requests blocking UI
+### Source Code Evidence (CRITICAL - Must Include)
+
+**⚠️ IMPORTANT**: Provide actual source code locations with line numbers as proof.
+
+#### Evidence 1: Logger Class Definition
+**Location**: `@onekeyfe/hd-core/dist/index.js:831-838`
+
+```javascript
+class Log$g {
+    debug(...args) {  // ← debug is a method of Log$g class
+        this.addMessage('debug', this.prefix, ...args);
+        sendLogMessage(this.prefix, ...args);
+        if (!this.enabled) return;
+        console.log(this.prefix, ...args);
+    }
+}
+```
+
+#### Evidence 2: Logger Access Pattern
+**Location**: `@onekeyfe/hd-core/dist/index.js:936`
+
+```javascript
+const getLogger = (key) => LoggerMap[key];  // ← May return undefined
+```
+
+#### Evidence 3: Logger Usage
+**Location**: `@onekeyfe/hd-core/dist/index.js:27063`
+
+```javascript
+if (DataManager.getSettings('env') === 'react-native') {
+    Log$b.debug('_filterCommonTypes: ', JSON.stringify(res));  // ← Direct call
+} else {
+    Log$b.debug('_filterCommonTypes: ', res);
+}
+// ⚠️ No null check - will crash if Log$b is undefined
 ```
 
 ### Why This Causes the Error
-[Explain the technical reason]
+[Explain the technical reason with evidence]
 
-Example:
-- 10+ simultaneous HTTP requests created
-- All requests fired at once using `Promise.all()`
-- Main thread blocked during navigation animation
-- iOS watchdog detected 5+ second hang
-- Result: App marked as unresponsive
+**Race Condition Analysis**:
+```
+Thread 1: User Operation          Thread 2: SDK Internal
+─────────────────────             ──────────────────────
+User toggles Passphrase
+    ↓
+Call sdk.deviceSettings()    ──→  Device starts processing
+    ↓                               ↓
+May switch transport type         Device processing...
+(BLE ⇄ USB)                         ↓
+    ↓                              Settings updated
+resetHardwareSDKInstance()          ↓
+    ↓                              Disconnect event triggered
+HardwareSDK = undefined             ↓
+    ↓                              disconnectListeners called
+SDK partially cleaned               ↓
+                                   Try to access logger
+                                   ↓
+                               ❌ logger may be undefined
+```
+
+**Root cause**:
+- SDK dispose process may partially clean internal state
+- Async disconnect events may still be in processing queue
+- Event handler code may try to access cleaned-up context
+- `Log$b.debug()` crashes when `Log$b` is undefined
 
 ### Impact Scope
-- **Affected Users**: Users on low-end devices (iPhone 7, older Android)
-- **Frequency**: Occurs when switching between multiple networks on Swap page
-- **Severity**: High - App becomes unresponsive, poor UX
+- **Affected Users**: All iOS users using hardware devices
+- **Frequency**: Rare (~0.01% of sessions, race condition dependent)
+- **Severity**: High - App crash, potential data loss
+- **Platform**: iOS React Native (primary), possibly Android
 
 ## 5. Proposed Solution
 
@@ -386,20 +487,53 @@ To prevent similar issues in the future:
 ### Example Command to Create File
 
 ```bash
-cat > node_modules/.cache/bugs/ios-app-hang-swap-token-fetch-37b865c8.md << 'EOF'
+cat > node_modules/.cache/bugs/logger-undefined-crash-6db69603.md << 'EOF'
 [Paste the bug analysis content here]
 EOF
 ```
+
+### Real-World Example
+
+**Complete bug analysis document**: [`bug-analysis-logger-undefined-crash.md`](../../../../Downloads/bug-analysis-logger-undefined-crash%20(1).md)
+
+This is an actual bug analysis from production that demonstrates:
+- ✅ Comprehensive error analysis with Sentry Event ID
+- ✅ Clear reproduction steps and user impact assessment
+- ✅ Detailed root cause analysis with code evidence
+- ✅ Source code location references with line numbers
+- ✅ Call chain visualization showing the error flow
+- ✅ Both application-layer fixes and SDK-layer recommendations
+- ✅ Complete testing plan and follow-up actions
+
+**Key characteristics of this example**:
+1. **Third-party SDK issue**: Logger undefined in `@onekeyfe/hd-core`
+2. **Detailed evidence**: Multiple source code locations with line numbers
+3. **Root cause**: Race condition during SDK cleanup
+4. **Fix approach**: Defensive error handling at application boundaries
+5. **Prevention**: Recommendations for SDK maintainers
+
+**What makes this a good analysis**:
+- Strong association between error and code location (provable)
+- Clear explanation of why the error occurs (race condition)
+- Both immediate fixes and long-term improvements
+- Includes sample issue template for SDK maintainers
 
 ### Verification Checklist
 
 Before proceeding to implement the fix, verify your bug analysis includes:
 
 - [ ] **Sentry Event ID** - Full event ID for traceability
-- [ ] **Exact file locations** - Full file paths with line numbers
-- [ ] **Code snippets** - Actual problematic code quoted from files
-- [ ] **Strong association** - Direct link between error and code location
-- [ ] **Root cause explanation** - Technical reasoning, not just symptoms
+- [ ] **Exact file locations** - Full file paths with line numbers (e.g., `file.ts:123-145`)
+- [ ] **Code snippets** - Actual problematic code quoted from files with line numbers
+- [ ] **Strong association** - Direct link between error and code location (provable)
+- [ ] **🔗 Evidence chain** - Root cause analysis must be interlocking and progressive:
+  - [ ] Each evidence builds on the previous one
+  - [ ] Logic flows naturally without gaps
+  - [ ] Complete chain from user action to crash
+  - [ ] Every conclusion supported by code or data
+- [ ] **Call chain visualization** - Shows execution flow leading to error
+- [ ] **Race condition analysis** - If applicable, show timing issues
+- [ ] **Root cause explanation** - Technical reasoning with evidence, not just symptoms
 - [ ] **Proposed solution** - Specific code changes with examples
 - [ ] **Testing plan** - How to verify the fix works
 - [ ] **Prevention measures** - How to avoid similar issues
