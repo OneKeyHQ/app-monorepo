@@ -105,13 +105,13 @@ export const shortcutsMap: Record<
     keys: [shortcutsKeys.CmdOrCtrl, '5'],
     desc: 'Earn Tab',
   },
-  [EShortcutEvents.TabReferAFriend]: {
-    keys: [shortcutsKeys.CmdOrCtrl, '6'],
-    desc: 'Refer a Friend Tab',
-  },
   [EShortcutEvents.TabMyOneKey]: {
-    keys: [shortcutsKeys.CmdOrCtrl, '7'],
+    keys: [shortcutsKeys.CmdOrCtrl, '6'],
     desc: 'My OneKey Tab',
+  },
+  [EShortcutEvents.TabReferAFriend]: {
+    keys: [shortcutsKeys.CmdOrCtrl, '7'],
+    desc: 'Refer a Friend Tab',
   },
   [EShortcutEvents.TabBrowser]: {
     keys: [shortcutsKeys.CmdOrCtrl, '8'],

@@ -1,15 +1,10 @@
----
-name: 1k-date-formatting
-description: Guides proper date and time formatting in OneKey app. Use when displaying dates/times in UI, formatting timestamps, or when dates need to follow app locale settings. Date, time, locale, formatDate, dateUtils.
----
+# Date Formatting
 
-# Date Formatting Skill
-
-This skill ensures consistent date and time formatting across the OneKey app, respecting user locale settings.
+This guide ensures consistent date and time formatting across the OneKey app, respecting user locale settings.
 
 ## Usage
 
-Use this skill when:
+Use this guide when:
 - Displaying dates or times in UI components
 - Formatting timestamps from API responses
 - Ensuring dates follow the app's language/locale settings
