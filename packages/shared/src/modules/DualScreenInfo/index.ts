@@ -17,5 +17,5 @@ export const useIsSpanningInDualScreen = () => {
 };
 
 export const useDualScreenWidth = () => {
-  return Dimensions;
+  return Dimensions.get("window").width;
 };
