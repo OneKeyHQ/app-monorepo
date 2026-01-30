@@ -368,10 +368,20 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
             }}
           >{!media.gtMd ? (
             <AmountPreview
+              containerProps={{
+                mb: '$4',
+              }}
               amountInputValues={amountInputValues}
               amountInputMode={amountInputMode}
               tokenDetails={tokenDetails}
-              transfersInfo={currentModeData.transfersInfo}
+              transfersInfo={
+                amountInputMode === EAmountInputMode.Custom
+                  ? currentModeData.transfersInfo
+                  : transfersInfo
+              }
+              isInPreviewMode={isInPreviewMode}
+              previewTotalTokenAmount={currentModeData.totalTokenAmount}
+              previewTotalFiatAmount={currentModeData.totalFiatAmount}
             />
           ) : null}
           </Page.FooterActions>

@@ -53,6 +53,7 @@ export function SpecifiedAmountInput() {
       setAmountInputValues({
         ...amountInputValues,
         specifiedAmount: value,
+        
       });
 
       const { error } = validateTokenAmount({
