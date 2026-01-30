@@ -36,6 +36,7 @@ import {
 } from './components/Context';
 import TableLayout from './components/TableLayout';
 import MobileLayout from './components/MobileLayout';
+import { AmountPreview } from './components/AmountPreview';
 import { useAmountPreview } from './components/useAmountPreview';
 import type {
   IApproveInfo,
@@ -352,6 +353,7 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
             maxWidth: '$180',
           }}
         >
+
           <Page.FooterActions
             px="$0"
             onConfirmText={confirmButtonText}
@@ -364,7 +366,15 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
               disabled: isSubmitDisabled,
               loading: isBuilding,
             }}
-          />
+          >{!media.gtMd ? (
+            <AmountPreview
+              amountInputValues={amountInputValues}
+              amountInputMode={amountInputMode}
+              tokenDetails={tokenDetails}
+              transfersInfo={currentModeData.transfersInfo}
+            />
+          ) : null}
+          </Page.FooterActions>
         </BulkSendContentWrapper>
       </Page.Footer>
     </Page>

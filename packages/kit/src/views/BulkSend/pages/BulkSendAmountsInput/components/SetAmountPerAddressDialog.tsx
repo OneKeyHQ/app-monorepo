@@ -26,10 +26,26 @@ type ISetAmountPerAddressDialogProps = {
   onConfirm: (mode: EAmountInputMode, values: IAmountInputValues) => void;
 };
 
-function DialogAmountPreview() {
+function DialogAmountPreview({
+  amountInputValues,
+  amountInputMode,
+  tokenDetails,
+  transfersInfo,
+}: {
+  amountInputValues: IAmountInputValues;
+  amountInputMode: EAmountInputMode;
+  tokenDetails: ({ info: IToken } & ITokenFiat) | undefined;
+  transfersInfo: ITransferInfo[];
+}) {
   return (
     <Stack mt="$6">
-      <AmountPreview inDialog />
+      <AmountPreview
+        inDialog
+        amountInputValues={amountInputValues}
+        amountInputMode={amountInputMode}
+        tokenDetails={tokenDetails}
+        transfersInfo={transfersInfo}
+      />
     </Stack>
   );
 }
@@ -163,7 +179,12 @@ function SetAmountPerAddressDialogContent({
     <BulkSendAmountsInputContext.Provider value={contextValue}>
       <YStack>
         <AmountInputSection inDialog />
-        <DialogAmountPreview />
+        <DialogAmountPreview
+          amountInputValues={amountInputValues}
+          amountInputMode={amountInputMode}
+          tokenDetails={tokenDetails}
+          transfersInfo={transfersInfo}
+        />
         <Dialog.Footer
           onConfirm={handleConfirm}
           onConfirmText="Confirm"

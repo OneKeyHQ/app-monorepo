@@ -5,16 +5,32 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { EAmountInputMode } from '@onekeyhq/shared/types/bulkSend';
-import { useBulkSendAmountsInputContext } from './Context';
+import {
+  EAmountInputMode,
+  type IAmountInputValues,
+} from '@onekeyhq/shared/types/bulkSend';
+import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
+import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import BigNumber from 'bignumber.js';
 import { useMemo } from 'react';
 import { calculateTotalAmounts } from '../../../utils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
-export function AmountPreview({ inDialog }: { inDialog?: boolean }) {
-  const { amountInputValues, amountInputMode, tokenDetails, transfersInfo } =
-    useBulkSendAmountsInputContext();
+type IAmountPreviewProps = {
+  inDialog?: boolean;
+  amountInputValues: IAmountInputValues;
+  amountInputMode: EAmountInputMode;
+  tokenDetails: ({ info: IToken } & ITokenFiat) | undefined;
+  transfersInfo: ITransferInfo[];
+};
+
+export function AmountPreview({
+  inDialog,
+  amountInputValues,
+  amountInputMode,
+  tokenDetails,
+  transfersInfo,
+}: IAmountPreviewProps) {
 
   const [settings] = useSettingsPersistAtom();
 
