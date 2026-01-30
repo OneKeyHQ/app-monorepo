@@ -54,6 +54,11 @@ Android:
 - Android SDK Platform-Tools (`adb`) and Emulator (`emulator`) available
 - At least one AVD created (Android Studio -> Device Manager)
 
+Android Detox dependency note:
+
+- Do NOT use a dynamic Gradle version like `com.wix:detox:+` (non-reproducible, supply-chain risk).
+- Keep `apps/mobile/android/app/build.gradle` pinned to an exact Detox AAR version, and keep it aligned with the JS `detox` version in `apps/mobile/package.json`.
+
 Note: no need to `npm install detox-cli --global` (we use the repo dependency).
 
 ## One-time setup (per perf machine)
