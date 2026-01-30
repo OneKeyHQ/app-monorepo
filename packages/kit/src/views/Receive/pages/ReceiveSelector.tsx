@@ -23,6 +23,7 @@ import { AccountSelectorProviderMirror } from '../../../components/AccountSelect
 import { ListItem } from '../../../components/ListItem';
 import { useReviewControl } from '../../../components/ReviewControl';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { useExchangeAppDetection } from '../../../hooks/useExchangeAppDetection';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { HomeTokenListProviderMirror } from '../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
@@ -65,6 +66,9 @@ function ReceiveOptions({
 
 function ReceiveSelectorContent() {
   const intl = useIntl();
+
+  // Pre-trigger exchange app detection to avoid UI flash when accordion expands
+  useExchangeAppDetection();
 
   const showBuyAction = useReviewControl();
 

@@ -8,7 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   ALL_EXCHANGE_IDS,
-  type EExchangeId,
+  EExchangeId,
   EXCHANGE_CONFIGS,
   type IExchangeConfig,
 } from '@onekeyhq/shared/src/consts/exchangeConsts';
@@ -45,8 +45,10 @@ export function useExchangeAppDetection() {
         ALL_EXCHANGE_IDS.map(async (id) => {
           const config = EXCHANGE_CONFIGS[id];
           try {
+            // Use appOpenUrl for detection on Android
+            // canOpenURL('bnc://') fails on Android, but 'bnc://app.binance.com/mp/app' works
             const canOpen = await openUrlUtils.linkingCanOpenURL(
-              config.deepLinkScheme,
+              config.appOpenUrl,
             );
             results[id] = canOpen;
           } catch (_e) {
@@ -62,21 +64,27 @@ export function useExchangeAppDetection() {
     void detectApps();
   }, []);
 
-  // Sort exchanges: installed apps first, then uninstalled
+  // Sort exchanges: Binance always first if installed, then other installed apps, then uninstalled
   const sortedExchanges = useMemo((): IExchangeConfig[] => {
-    const installed: IExchangeConfig[] = [];
-    const notInstalled: IExchangeConfig[] = [];
+    const binanceConfig = EXCHANGE_CONFIGS[EExchangeId.Binance];
+    const isBinanceInstalled = installedStatus[EExchangeId.Binance];
 
-    for (const id of ALL_EXCHANGE_IDS) {
-      const config = EXCHANGE_CONFIGS[id];
-      if (installedStatus[id]) {
-        installed.push(config);
-      } else {
-        notInstalled.push(config);
-      }
+    // Other exchanges (excluding Binance)
+    const otherIds = ALL_EXCHANGE_IDS.filter(
+      (id) => id !== EExchangeId.Binance,
+    );
+    const otherInstalled = otherIds
+      .filter((id) => installedStatus[id])
+      .map((id) => EXCHANGE_CONFIGS[id]);
+    const otherNotInstalled = otherIds
+      .filter((id) => !installedStatus[id])
+      .map((id) => EXCHANGE_CONFIGS[id]);
+
+    // Binance first if installed, otherwise between installed and not-installed
+    if (isBinanceInstalled) {
+      return [binanceConfig, ...otherInstalled, ...otherNotInstalled];
     }
-
-    return [...installed, ...notInstalled];
+    return [...otherInstalled, binanceConfig, ...otherNotInstalled];
   }, [installedStatus]);
 
   const isExchangeInstalled = useCallback(
