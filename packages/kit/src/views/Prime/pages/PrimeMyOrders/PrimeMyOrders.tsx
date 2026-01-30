@@ -33,6 +33,7 @@ const BUY_ONEKEY_URL = 'https://shop.onekey.so';
 
 const shopifyStatusToBadgeType: Record<string, IBadgeType> = {
   fulfilled: 'success',
+  shipped: 'info',
   cancelled: 'warning',
   unfulfilled: 'default',
 };
