@@ -14,6 +14,9 @@ on:
         required: false
         default: ''
 
+env:
+  YARN_ENABLE_GLOBAL_CACHE: true
+
 jobs:
   release-ios:
     runs-on: ubuntu-24.04
@@ -24,7 +27,7 @@ jobs:
           echo "Executed at: $(date '+%Y-%m-%d %H:%M:%S')"
 
       - name: Checkout Source Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v6
         with:
           lfs: true
 
@@ -47,11 +50,11 @@ jobs:
           sentry_dsn_ext: ${{ secrets.SENTRY_DSN_EXT }}
 
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v6
         with:
           node-version: 24.x
+          cache: 'yarn'
           registry-url: 'https://npm.pkg.github.com'
-          always-auth: true
           scope: '@onekeyhq'
 
       - name: Setup keys secret
@@ -102,32 +105,12 @@ jobs:
         id: yarn-cache-dir-path
         run: echo "dir=${{ github.workspace }}/.yarn" >> "$GITHUB_OUTPUT"
 
-      - name: Cache dependencies
-        uses: actions/cache@v4
-        id: yarn-cache
-        with:
-          path: |
-            ${{ steps.yarn-cache-dir-path.outputs.dir }}
-            **/node_modules
-          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock', '**/patches/**') }}
-          restore-keys: |
-            ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock', '**/patches/**') }}
-
       - name: Install Dep
-        if: steps.yarn-cache.outputs.cache-hit != 'true'
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=8192'
         run: |
-          yarn
-
-      - name: Run postinstall only (cache hit)
-        if: steps.yarn-cache.outputs.cache-hit == 'true'
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NODE_OPTIONS: '--max_old_space_size=8192'
-        run: |
-          yarn postinstall
+          yarn install --immutable
 
       - name: Build on EAS And Auto Submit
         if: ${{ github.event.workflow_run }}
