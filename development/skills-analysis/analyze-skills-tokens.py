@@ -6,9 +6,9 @@ This script analyzes all skills in .claude/skills/ and estimates token usage.
 Helps identify skills that should be split to optimize token consumption.
 
 Usage:
-    python3 development/analyze-skills-tokens.py
-    python3 development/analyze-skills-tokens.py --detailed
-    python3 development/analyze-skills-tokens.py --sort-by-size
+    python3 development/skills-analysis/analyze-skills-tokens.py
+    python3 development/skills-analysis/analyze-skills-tokens.py --detailed
+    python3 development/skills-analysis/analyze-skills-tokens.py --sort-by-size
 """
 
 import os

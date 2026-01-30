@@ -305,10 +305,10 @@ After gathering requirements and applying best practices:
 
 ```bash
 # Run token analysis
-python3 development/analyze-skills-tokens.py --sort-by-size
+python3 development/skills-analysis/analyze-skills-tokens.py --sort-by-size
 
 # Check your new skill's token count
-python3 development/analyze-skills-tokens.py --detailed | grep -A 5 "your-skill-name"
+python3 development/skills-analysis/analyze-skills-tokens.py --detailed | grep -A 5 "your-skill-name"
 ```
 
 **Verification checklist:**
@@ -327,7 +327,7 @@ python3 development/analyze-skills-tokens.py --detailed | grep -A 5 "your-skill-
 | 5,000 - 10,000 | ⚠️ Review: Can topics be split? If highly correlated, proceed with Quick Reference |
 | > 10,000 | 🚨 Split before committing |
 
-See [development/SKILLS-TOKEN-MONITORING.md](../../../development/SKILLS-TOKEN-MONITORING.md) for detailed guidance.
+See [development/skills-analysis/SKILLS-TOKEN-MONITORING.md](../../../development/skills-analysis/SKILLS-TOKEN-MONITORING.md) for detailed guidance.
 
 ## Example: Skill with multiple rules
 

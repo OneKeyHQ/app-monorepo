@@ -17,13 +17,13 @@ Claude Code loads skills on-demand based on trigger words. Large skills cause:
 
 ```bash
 # Basic analysis (sorted by name)
-python3 development/analyze-skills-tokens.py
+python3 development/skills-analysis/analyze-skills-tokens.py
 
 # Sort by size (largest first)
-python3 development/analyze-skills-tokens.py --sort-by-size
+python3 development/skills-analysis/analyze-skills-tokens.py --sort-by-size
 
 # Detailed breakdown per file
-python3 development/analyze-skills-tokens.py --detailed
+python3 development/skills-analysis/analyze-skills-tokens.py --detailed
 ```
 
 ### Understanding the Output
@@ -108,13 +108,13 @@ See detailed workflow in: [.claude/skills/1k-new-skill/SKILL.md](../.claude/skil
 **Add to your workflow:**
 ```bash
 # Required: After creating or modifying any skill
-python3 development/analyze-skills-tokens.py --sort-by-size
+python3 development/skills-analysis/analyze-skills-tokens.py --sort-by-size
 
 # Check specific skill
-python3 development/analyze-skills-tokens.py --detailed | grep -A 5 "your-skill-name"
+python3 development/skills-analysis/analyze-skills-tokens.py --detailed | grep -A 5 "your-skill-name"
 
 # Pre-release checklist
-python3 development/analyze-skills-tokens.py --sort-by-size
+python3 development/skills-analysis/analyze-skills-tokens.py --sort-by-size
 ```
 
 ### Required: Post-Creation Self-Check
@@ -122,7 +122,7 @@ python3 development/analyze-skills-tokens.py --sort-by-size
 **ALWAYS run after creating or modifying skills:**
 
 1. **Create/modify skill** - Write SKILL.md and reference files
-2. **Run analysis** - `python3 development/analyze-skills-tokens.py --sort-by-size`
+2. **Run analysis** - `python3 development/skills-analysis/analyze-skills-tokens.py --sort-by-size`
 3. **Verify results** - Check token count and recommendations
 4. **Take action** - Split if needed, or document justification for size
 5. **Commit** - Only after verification passes
@@ -139,10 +139,10 @@ mkdir -p .claude/skills/1k-my-feature/references/rules
 # ... write SKILL.md and rules ...
 
 # 2. REQUIRED: Run analysis
-python3 development/analyze-skills-tokens.py --sort-by-size
+python3 development/skills-analysis/analyze-skills-tokens.py --sort-by-size
 
 # 3. Check your skill
-python3 development/analyze-skills-tokens.py --detailed | grep -A 10 "1k-my-feature"
+python3 development/skills-analysis/analyze-skills-tokens.py --detailed | grep -A 10 "1k-my-feature"
 
 # 4. If >10k tokens, split before proceeding
 # If 5-10k tokens, document why topics are correlated
