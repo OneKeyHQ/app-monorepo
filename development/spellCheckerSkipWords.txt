@@ -897,6 +897,7 @@ utxo
 Utxo
 utxos
 Utxos
+valtio
 varint
 Varint
 Varuint
