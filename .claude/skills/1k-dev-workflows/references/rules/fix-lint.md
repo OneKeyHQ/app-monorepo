@@ -1,20 +1,39 @@
----
-name: fix-lint
-description: Helps fix oxlint errors and warnings in the OneKey codebase. Use when running yarn lint and encountering warnings, cleaning up code before committing, or fixing spellcheck, unused variable, or other linting warnings.
----
+# Fix Lint
 
-# Fix Lint Skill
-
-This skill helps fix oxlint warnings in the OneKey app-monorepo codebase.
+Helps fix oxlint warnings in the OneKey app-monorepo codebase.
 
 **IMPORTANT**: This project uses **oxlint** (not ESLint). The active linting configuration is in `.oxlintrc.json`.
 
+## Lint Commands
+
+### Lint All Files
+```bash
+yarn lint:only
+```
+
+### Lint Staged Files (Pre-commit)
+```bash
+# Only lint files staged for commit - fast for pre-commit checks
+yarn lint:staged
+```
+
+### Type Check
+```bash
+# Full project type check
+yarn tsc:only
+
+# Same as above, for pre-commit use
+yarn tsc:staged
+```
+
+**Note:** TypeScript requires full project context and cannot check individual files.
+
 ## Usage
 
-Use this skill when:
+Use this when:
 - Running `yarn lint` and encountering warnings
 - Cleaning up code before committing
-- Fixing spellcheck, unused variable, or other ESLint warnings
+- Fixing spellcheck, unused variable, or other linting warnings
 
 ## Workflow
 
@@ -128,6 +147,23 @@ function Parent() {
 yarn lint:only 2>&1 | tail -50
 ```
 
+## Pre-commit Workflow
+
+For fast pre-commit validation, only lint modified files:
+```bash
+# Lint only staged files
+yarn lint:staged
+
+# Then commit
+git commit -m "your message"
+
+# Or combine
+yarn lint:staged && git commit -m "your message"
+
+# With type check
+yarn lint:staged && yarn tsc:staged && git commit -m "your message"
+```
+
 ## Common Patterns in This Codebase
 
 ### Translation Key Typos
@@ -156,24 +192,17 @@ const { used, unused: _unused } = usePromiseResult(...);
 
 ## Tips
 
-1. **Run lint with increased memory** for large codebases:
-   ```bash
-   yarn lint:only
-   ```
-
-2. **Check if word is in skip list** before adding:
+1. **Check if word is in skip list** before adding:
    ```bash
    grep -i "wordToCheck" development/spellCheckerSkipWords.txt
    ```
 
-3. **For bulk fixes**, use Task agents to parallelize work across multiple files
-
-4. **Verify no regressions** after fixes:
+2. **Verify no regressions** after fixes:
    ```bash
    yarn tsc:only
    ```
 
-## Files Modified During Lint Fixes
+## Key Files
 
-- `development/spellCheckerSkipWords.txt` - Add technical terms and known typos (one word per line, use `#` for comments)
-- Various `.ts` and `.tsx` files - Fix unused variables and imports
+- `development/spellCheckerSkipWords.txt` - Add technical terms and known typos
+- `.oxlintrc.json` - Linting configuration

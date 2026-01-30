@@ -1540,6 +1540,7 @@
   "global.hidden_wallet_desc": "需要输入 Passphrase 或隐藏钱包的 PIN 码",
   "global.hide": "隐藏",
   "global.history": "历史记录",
+  "global.home": "首页",
   "global.homescreen": "主屏幕",
   "global.i_got_it": "我明白了",
   "global.i_saved_the_phrase": "我已保存此助记词",

@@ -6,111 +6,123 @@ allowed-tools: Read, Grep, Glob, Write, Edit
 
 # OneKey Coding Patterns and Best Practices
 
-## General Development
-- Develop functions with a test-driven development mindset, ensuring each low-level function or method intended for reuse performs a single, atomic task, but avoid adding unnecessary abstraction layers
+## Quick Reference
 
-## Promise Handling - MANDATORY COMPLIANCE
-- **ALWAYS** await Promises; use `void` prefix ONLY if intentionally not awaiting
-- **ZERO TOLERANCE** for floating promises - they cause unhandled rejections
-- **FOLLOW** the `@typescript-eslint/no-floating-promises` rule strictly
-- **BEFORE ANY ASYNC OPERATION**: Consider error scenarios and add appropriate try/catch blocks
-- **VERIFY**: All Promise chains have proper error handling
+| Topic | Guide | Key Points |
+|-------|-------|------------|
+| Date formatting | [date-formatting.md](references/rules/date-formatting.md) | Use `formatDate()` from dateUtils, never native JS |
+| Internationalization | [i18n.md](references/rules/i18n.md) | Use `ETranslations` enum, never hardcode strings |
+| Promise handling | [promise-handling.md](references/rules/promise-handling.md) | Always await or use `void`, never floating promises |
+| React components | [react-components.md](references/rules/react-components.md) | Named imports, functional components, no FC type |
+| Restricted patterns | [restricted-patterns.md](references/rules/restricted-patterns.md) | Forbidden: `toLocaleLowerCase`, direct hd-core import |
+| Error handling | [error-handling.md](references/rules/error-handling.md) | Try/catch for async, user-friendly messages |
+| Code quality | [code-quality.md](references/rules/code-quality.md) | English comments, lint before commit |
+| Cross-platform | [cross-platform.md](references/rules/cross-platform.md) | Use `platformEnv`, file extensions for platform code |
 
-## React Components
-- Avoid default React import; use named imports only
-- Prefer functional components over class components
-- Use pure functions to create components; avoid importing `import type { FC } from 'react'`
-- Follow React hooks rules (dependencies array, call only at top level)
-- Use the `usePromiseResult` and `useAsyncCall` hooks with proper dependency arrays
+## Critical Rules Summary
 
-## Restricted Patterns - STRICTLY FORBIDDEN
+### Date Formatting
 
-**ABSOLUTELY FORBIDDEN PATTERNS**:
-- ❌ **NEVER** use `toLocaleLowerCase()` or `toLocaleUpperCase()` → Use `toLowerCase()` and `toUpperCase()` instead
-- ❌ **NEVER** directly import from `'@onekeyfe/hd-core'` → ALWAYS use `const {} = await CoreSDKLoader()` pattern
-- ❌ **NEVER** import `localDbInstance` directly → ALWAYS use `localDb` instead
-- ❌ **NEVER** modify auto-generated files (`translations.ts`, locale JSON files)
-- ❌ **NEVER** bypass TypeScript types with `any` or `@ts-ignore` without documented justification
-- ❌ **NEVER** commit code that fails linting or TypeScript compilation
-
-**VIOLATION CONSEQUENCES**:
-- Build failures and broken development environment
-- Security vulnerabilities and data corruption
-- Breaking multi-platform compatibility
-- Circular dependency hell
-
-## Error Handling
-- Use try/catch blocks for async operations that might fail
-- Provide appropriate error messages and fallbacks
-- Consider using the `useAsyncCall` hook for operations that need loading/error states
-
-## Linting and Code Quality
-- ESLint warnings should be fixed before PRs
-- Run `yarn run lint` to check for and fix ESLint issues
-
-## Comments and Documentation
-- All comments must be written in English
-- Use clear and concise English for inline comments, function documentation, and code explanations
-- Avoid using non-English languages in comments to maintain consistency and accessibility for all developers
-- Do not use Chinese comments; always use English comments only
-
-## Code Examples
-
-### Correct Promise Handling
 ```typescript
-// GOOD: Properly awaited
-async function fetchData() {
-  try {
-    const result = await apiCall();
-    return result;
-  } catch (error) {
-    console.error('Failed to fetch:', error);
-    throw error;
-  }
-}
+// ❌ FORBIDDEN
+date.toLocaleDateString()
 
-// GOOD: Intentionally not awaited (with void)
-void backgroundTask();
+// ✅ CORRECT
+import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
+formatDate(date, { hideSeconds: true });
+```
 
-// BAD: Floating promise
-function badExample() {
-  apiCall(); // ❌ Will trigger lint error
+### Internationalization
+
+```typescript
+// ❌ FORBIDDEN
+<Text>Confirm</Text>
+
+// ✅ CORRECT
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+intl.formatMessage({ id: ETranslations.global__confirm });
+```
+
+### Promise Handling
+
+```typescript
+// ❌ FORBIDDEN - floating promise
+apiCall();
+
+// ✅ CORRECT
+await apiCall();
+// or
+void apiCall(); // intentionally not awaited
+```
+
+### React Components
+
+```typescript
+// ❌ FORBIDDEN
+import React, { FC } from 'react';
+const MyComponent: FC<Props> = () => {};
+
+// ✅ CORRECT
+import { useState, useCallback } from 'react';
+function MyComponent({ prop }: { prop: string }) {}
+```
+
+### Restricted Patterns
+
+```typescript
+// ❌ FORBIDDEN
+string.toLocaleLowerCase()
+import { x } from '@onekeyfe/hd-core';
+import { localDbInstance } from '...';
+
+// ✅ CORRECT
+string.toLowerCase()
+const { x } = await CoreSDKLoader();
+import { localDb } from '...';
+```
+
+### Error Handling
+
+```typescript
+// ❌ BAD - silent failure
+try { await risky(); } catch (e) {}
+
+// ✅ CORRECT
+try {
+  await risky();
+} catch (error) {
+  console.error('Failed:', error);
+  Toast.error({ title: 'Operation failed' });
 }
 ```
 
-### Correct React Component Pattern
-```typescript
-// GOOD: Named imports, functional component
-import { useState, useEffect, useCallback } from 'react';
-import { Stack, Button } from '@onekeyhq/components';
+### Code Quality
 
-function MyComponent({ data }: { data: MyData }) {
-  const [state, setState] = useState(null);
+```bash
+# Pre-commit (fast, recommended)
+yarn lint:staged
+yarn tsc:staged
 
-  const handlePress = useCallback(() => {
-    // handler logic
-  }, []);
-
-  return (
-    <Stack>
-      <Button onPress={handlePress}>Action</Button>
-    </Stack>
-  );
-}
-
-// BAD: Default import, FC type
-import React, { FC } from 'react'; // ❌
-const MyComponent: FC<Props> = () => {}; // ❌
+# CI only (full project check)
+yarn lint
 ```
 
-### Correct HD Core Usage
-```typescript
-// GOOD: Use CoreSDKLoader
-async function useHardware() {
-  const { HardwareSDK } = await CoreSDKLoader();
-  // use HardwareSDK
-}
+### Cross-Platform
 
-// BAD: Direct import
-import { HardwareSDK } from '@onekeyfe/hd-core'; // ❌
+```typescript
+// ✅ CORRECT - Use platformEnv
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+if (platformEnv.isNative) { /* mobile */ }
+
+// ✅ CORRECT - Use file extensions
+// MyComponent.native.tsx, MyComponent.web.tsx
+
+// ❌ FORBIDDEN
+if (typeof window !== 'undefined') { }
 ```
+
+## Related Skills
+
+- `/1k-state-management` - Jotai atom patterns
+- `/1k-architecture` - Project structure and import rules
+- `/1k-dev-workflows` - Lint fixes, pre-commit tasks

@@ -1540,6 +1540,7 @@
   "global.hidden_wallet_desc": "จำเป็นต้องใช้ Passphrase หรือรหัส PIN กระเป๋าเงินที่ซ่อนอยู่",
   "global.hide": "ซ่อน",
   "global.history": "ประวัติศาสตร์",
+  "global.home": "หน้าแรก",
   "global.homescreen": "หน้าจอหลัก",
   "global.i_got_it": "ฉันเข้าใจแล้ว",
   "global.i_saved_the_phrase": "ฉันได้บันทึกวลีนี้แล้ว",

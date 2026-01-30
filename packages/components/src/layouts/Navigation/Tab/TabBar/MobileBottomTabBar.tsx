@@ -5,7 +5,7 @@ import { StyleSheet, View } from 'react-native';
 import { useThrottledCallback } from 'use-debounce';
 
 import {
-  useIsNativeTablet,
+  isNativeTablet,
   useSafeAreaInsets,
 } from '@onekeyhq/components/src/hooks';
 import { Stack } from '@onekeyhq/components/src/primitives';
@@ -48,7 +48,7 @@ export default function MobileBottomTabBar({
 }) {
   const { routes } = state;
   const { bottom } = useSafeAreaInsets();
-  const isTablet = useIsNativeTablet();
+  const isTablet = isNativeTablet();
   const onTabPress = useCallback(
     (
       route: RouteProp<Record<string, object | undefined>, string>,
