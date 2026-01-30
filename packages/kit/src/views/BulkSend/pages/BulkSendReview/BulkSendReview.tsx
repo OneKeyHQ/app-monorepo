@@ -323,7 +323,7 @@ function BaseBulkSendReview({
     <Page scrollEnabled>
       <Page.Header title="Review transaction" />
       <Page.Body>
-        <YStack>
+        <YStack gap="$6">
           {/* Fee Error Alert - Top Section */}
           <BulkSendReviewAlert onRetry={handleRetryFeeEstimation} />
 
@@ -349,6 +349,9 @@ function BaseBulkSendReview({
             tokenInfo={tokenInfo}
             transfersInfo={transfersInfo}
             bulkSendMode={bulkSendMode}
+            containerProps={{
+              px: '$5',
+            }}
           />
         </YStack>
       </Page.Body>

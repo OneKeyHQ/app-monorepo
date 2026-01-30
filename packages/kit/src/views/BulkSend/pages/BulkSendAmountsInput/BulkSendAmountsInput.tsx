@@ -28,10 +28,12 @@ import BulkSendHeader from '../../components/BulkSendHeader';
 import {
   BulkSendAmountsInputContext,
   type IBulkSendAmountsInputContext,
+  type IPreviewState,
   useBulkSendAmountsInputContext,
 } from './components/Context';
 import TableLayout from './components/TableLayout';
 import MobileLayout from './components/MobileLayout';
+import { useAmountPreview } from './components/useAmountPreview';
 import type {
   IApproveInfo,
   ITransferInfo,
@@ -60,6 +62,11 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
     totalFiatAmount,
     isAmountValid,
     isInsufficientBalance,
+    amountInputMode,
+    amountInputValues,
+    previewState,
+    setPreviewState,
+    setTransfersInfo,
   } = useBulkSendAmountsInputContext();
 
   const navigation = useAppNavigation();
@@ -67,6 +74,21 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
   const media = useMedia();
 
   const [isBuilding, setIsBuilding] = useState(false);
+
+  const { handlePreview, shouldShowTxDetails, hidePreview } = useAmountPreview({
+    tokenInfo,
+    transfersInfo,
+    setTransfersInfo,
+    previewState,
+    setPreviewState,
+  });
+
+  // Check if we're in preview mode (TransactionDetail is shown for Specified/Range)
+  // Only applies to mobile view
+  const isInPreviewMode =
+    !media.gtMd &&
+    amountInputMode !== EAmountInputMode.Custom &&
+    shouldShowTxDetails(amountInputMode);
 
   // Check if token needs approval (native tokens don't need approval)
   const needsApproval = useMemo(() => {
@@ -84,6 +106,17 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
     if (bulkSendMode !== EBulkSendMode.OneToMany) return;
     if (!accountId || !networkId || !tokenInfo || !bulkSendContractAddress)
       return;
+
+    // For mobile view only: Specified/Range mode requires preview step
+    // Desktop (gtMd) skips preview and goes directly to review
+    if (
+      !media.gtMd &&
+      amountInputMode !== EAmountInputMode.Custom &&
+      !shouldShowTxDetails(amountInputMode)
+    ) {
+      handlePreview(amountInputMode, amountInputValues);
+      return;
+    }
 
     setIsBuilding(true);
 
@@ -196,6 +229,11 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
     isInModal,
     navigation,
     totalFiatAmount,
+    amountInputMode,
+    amountInputValues,
+    shouldShowTxDetails,
+    handlePreview,
+    media.gtMd,
   ]);
 
   const isSubmitDisabled = useMemo(() => {
@@ -216,6 +254,20 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
     isBuilding,
     bulkSendContractAddress,
   ]);
+
+  // Handle back button press
+  const handleBack = useCallback(() => {
+    // If in preview mode (TransactionDetail shown for Specified/Range), hide it first
+    if (isInPreviewMode) {
+      hidePreview(amountInputMode);
+      return;
+    }
+    // Otherwise, navigate back
+    navigation.pop();
+  }, [isInPreviewMode, hidePreview, amountInputMode, navigation]);
+
+  // Determine button text based on preview state
+  const confirmButtonText = isInPreviewMode ? 'Review' : 'Next';
 
   return (
     <Page scrollEnabled>
@@ -239,12 +291,10 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
             $gtMd={{
               px: '$0',
             }}
-            onConfirmText="Review"
+            onConfirmText={confirmButtonText}
             onCancelText="Back"
             cancelButtonProps={{
-              onPress: () => {
-                navigation.pop();
-              },
+              onPress: handleBack,
             }}
             confirmButtonProps={{
               onPress: handleSubmit,
@@ -348,6 +398,12 @@ function BulkSendAmountsInput() {
     useState<ITransferInfoErrors>({});
 
   const [transfersInfo, setTransfersInfo] = useState<ITransferInfo[]>([]);
+
+  // Preview state for Specified/Range modes
+  const [previewState, setPreviewState] = useState<IPreviewState>({
+    specifiedPreviewed: false,
+    rangePreviewed: false,
+  });
 
   // Calculate if current mode is valid using shared logic
   const isAmountValid = useMemo(
@@ -547,6 +603,8 @@ function BulkSendAmountsInput() {
       totalTokenAmount,
       totalFiatAmount,
       isInsufficientBalance,
+      previewState,
+      setPreviewState,
     }),
     [
       networkId,
@@ -565,6 +623,7 @@ function BulkSendAmountsInput() {
       totalTokenAmount,
       totalFiatAmount,
       isInsufficientBalance,
+      previewState,
     ],
   );
 

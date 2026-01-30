@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from 'react';
 
 import {
+  type IYStackProps,
   Icon,
   IconButton,
   Input,
@@ -27,6 +28,7 @@ type Props = {
   bulkSendMode?: EBulkSendMode;
   onDeleteTransfer?: (index: number) => void;
   onAmountChange?: (index: number, amount: string) => void;
+  containerProps?: IYStackProps;
 };
 
 type ITransferListItemProps = {
@@ -124,7 +126,6 @@ function TransferListItem({
   return (
     <XStack
       gap="$3"
-      px="$5"
       py="$2"
       alignItems={editMode ? 'center' : 'flex-start'}
     >
@@ -169,7 +170,7 @@ type ITransferSectionProps = {
 function TransferSection({ title, count, children }: ITransferSectionProps) {
   return (
     <YStack>
-      <XStack px="$5" py="$1">
+      <XStack py="$1">
         <SizableText size="$headingSm" color="$textSubdued">
           {title} ({count})
         </SizableText>
@@ -188,6 +189,7 @@ function BulkSendTxDetails(props: Props) {
     bulkSendMode,
     onDeleteTransfer,
     onAmountChange,
+    containerProps,
   } = props;
 
   // Disable delete when only one transfer exists
@@ -288,8 +290,8 @@ function BulkSendTxDetails(props: Props) {
   );
 
   return (
-    <YStack gap="$3" py="$3">
-      <XStack px="$5" py="$1">
+    <YStack gap="$3" {...containerProps}>
+      <XStack py="$1">
         <SizableText size="$headingLg">Transaction details</SizableText>
       </XStack>
 
@@ -306,7 +308,7 @@ function BulkSendTxDetails(props: Props) {
             editMode={editMode && canEditSender}
             deleteDisabled={isDeleteDisabled}
             onDelete={
-              onDeleteTransfer && canEditSender
+              onDeleteTransfer && canEditSender && !isDeleteDisabled
                 ? () => handleDeleteSender(sender.indices)
                 : undefined
             }
@@ -331,7 +333,7 @@ function BulkSendTxDetails(props: Props) {
             editMode={editMode && canEditReceiver}
             deleteDisabled={isDeleteDisabled}
             onDelete={
-              onDeleteTransfer && canEditReceiver
+              onDeleteTransfer && canEditReceiver && !isDeleteDisabled
                 ? () => handleDeleteReceiver(receiver.indices)
                 : undefined
             }

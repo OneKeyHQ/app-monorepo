@@ -18,13 +18,9 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 
-import {
-  generateAmountsFromSpecifiedAmount,
-  generateRandomAmountsFromRange,
-} from '../../../utils';
-
 import { useBulkSendAmountsInputContext } from './Context';
 import { showSetAmountPerAddressDialog } from './SetAmountPerAddressDialog';
+import { useAmountPreview } from './useAmountPreview';
 import { useTransferInfoActions } from './useTransferInfoActions';
 
 function AssetSection() {
@@ -69,9 +65,19 @@ function SetAmountPerAddressSection() {
     totalTokenAmount,
     totalFiatAmount,
     setTransfersInfo,
+    previewState,
+    setPreviewState,
   } = useBulkSendAmountsInputContext();
 
   const [settings] = useSettingsPersistAtom();
+
+  const { updateTransfersInfoWithAmounts } = useAmountPreview({
+    tokenInfo,
+    transfersInfo,
+    setTransfersInfo,
+    previewState,
+    setPreviewState,
+  });
 
   const primaryText = useMemo(() => {
     const tokenSymbol = tokenInfo.symbol;
@@ -105,30 +111,7 @@ function SetAmountPerAddressSection() {
       onConfirm: (mode, values) => {
         setAmountInputMode(mode);
         setAmountInputValues(values);
-        let newTransfersInfo = [...transfersInfo];
-
-        if (mode === EAmountInputMode.Range) {
-          const amounts = generateRandomAmountsFromRange({
-            transfersInfo,
-            rangeMin: values.rangeMin,
-            rangeMax: values.rangeMax,
-            decimals: tokenInfo.decimals,
-          });
-          newTransfersInfo = transfersInfo.map((transfer, index) => ({
-            ...transfer,
-            amount: amounts[index],
-          }));
-        } else {
-          const amounts = generateAmountsFromSpecifiedAmount({
-            specifiedAmount: values.specifiedAmount ?? '0',
-            transfersInfo,
-          });
-          newTransfersInfo = transfersInfo.map((transfer, index) => ({
-            ...transfer,
-            amount: amounts[index],
-          }));
-        }
-        setTransfersInfo(newTransfersInfo);
+        updateTransfersInfoWithAmounts(mode, values);
       },
     });
   }, [
@@ -141,7 +124,7 @@ function SetAmountPerAddressSection() {
     amountInputValues,
     setAmountInputMode,
     setAmountInputValues,
-    setTransfersInfo,
+    updateTransfersInfoWithAmounts,
   ]);
 
   const renderSecondary = useCallback(() => {

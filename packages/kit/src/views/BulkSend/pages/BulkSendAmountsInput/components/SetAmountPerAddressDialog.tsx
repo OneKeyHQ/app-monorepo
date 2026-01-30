@@ -105,6 +105,11 @@ function SetAmountPerAddressDialogContent({
       totalTokenAmount,
       totalFiatAmount,
       isInsufficientBalance: false,
+      previewState: {
+        specifiedPreviewed: false,
+        rangePreviewed: false,
+      },
+      setPreviewState: () => {},
     }),
     [
       accountId,

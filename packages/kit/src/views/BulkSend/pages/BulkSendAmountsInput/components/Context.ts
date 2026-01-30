@@ -10,6 +10,11 @@ import {
 } from '@onekeyhq/shared/types/bulkSend';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 
+export type IPreviewState = {
+  specifiedPreviewed: boolean;
+  rangePreviewed: boolean;
+};
+
 export type IBulkSendAmountsInputContext = {
   accountId: string | undefined;
   networkId: string;
@@ -44,6 +49,9 @@ export type IBulkSendAmountsInputContext = {
   totalTokenAmount: string;
   totalFiatAmount: string;
   isInsufficientBalance: boolean;
+  // Preview state for Specified/Range modes
+  previewState: IPreviewState;
+  setPreviewState: (state: IPreviewState) => void;
 };
 
 export const BulkSendAmountsInputContext =
@@ -83,6 +91,11 @@ export const BulkSendAmountsInputContext =
     totalTokenAmount: '0',
     totalFiatAmount: '0',
     isInsufficientBalance: false,
+    previewState: {
+      specifiedPreviewed: false,
+      rangePreviewed: false,
+    },
+    setPreviewState: () => {},
   });
 
 export const useBulkSendAmountsInputContext = () =>
