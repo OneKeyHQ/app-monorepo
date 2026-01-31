@@ -61,11 +61,6 @@ export default function WebViewModal() {
         if (innerWebView && 'stopLoading' in innerWebView) {
           (innerWebView as any).stopLoading?.();
         }
-
-        // Small delay to allow WebView to cleanup properly before navigation proceeds
-        setTimeout(() => {
-          webview?.reload?.();
-        }, 100);
       } catch (error) {
         // Ignore errors during cleanup - native resources may already be freed
         console.log('WebView cleanup error:', error);
