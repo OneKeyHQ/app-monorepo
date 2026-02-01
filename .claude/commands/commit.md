@@ -154,7 +154,9 @@ Example of splitting commits:
 ## Important Notes
 
 - By default, pre-commit checks (`yarn lint:staged` and `yarn tsc:staged`) will run on staged files
-- These checks are fast because they only check staged .ts/.tsx files, not the entire codebase
+- These checks are fast because they only check staged files, not the entire codebase:
+  - `lint:staged`: Lints only staged .ts/.tsx files using oxlint
+  - `tsc:staged`: Type-checks only staged files using tsc-files with tsgo (10x faster than standard tsc)
 - If checks fail, you'll be asked if you want to proceed with the commit anyway or fix the issues first
 - If specific files are already staged, the command will only commit those files
 - If no files are staged, it will automatically stage all modified and new files

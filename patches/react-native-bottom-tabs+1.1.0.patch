@@ -1,3 +1,25 @@
+diff --git a/node_modules/react-native-bottom-tabs/android/src/main/java/com/rcttabview/RCTTabView.kt b/node_modules/react-native-bottom-tabs/android/src/main/java/com/rcttabview/RCTTabView.kt
+index 23cd875..b0d2fbf 100644
+--- a/node_modules/react-native-bottom-tabs/android/src/main/java/com/rcttabview/RCTTabView.kt
++++ b/node_modules/react-native-bottom-tabs/android/src/main/java/com/rcttabview/RCTTabView.kt
+@@ -227,6 +227,17 @@ class ReactBottomNavigationView(context: Context) : LinearLayout(context) {
+     } else {
+       bottomNavigation.visibility = VISIBLE
+     }
++
++    // Force re-measure and notify JS about the new layout dimensions
++    post {
++      val dpWidth = Utils.convertPixelsToDp(context, layoutHolder.width)
++      val dpHeight = Utils.convertPixelsToDp(context, layoutHolder.height)
++      onNativeLayoutListener?.invoke(dpWidth, dpHeight)
++
++      // Update tab bar height measurement (0 when hidden)
++      val tabBarHeight = if (isHidden) 0 else Utils.convertPixelsToDp(context, bottomNavigation.height).toInt()
++      onTabBarMeasuredListener?.invoke(tabBarHeight)
++    }
+   }
+ 
+   fun updateItems(items: MutableList<TabInfo>) {
 diff --git a/node_modules/react-native-bottom-tabs/ios/TabViewImpl.swift b/node_modules/react-native-bottom-tabs/ios/TabViewImpl.swift
 index 72938be..a7a3c15 100644
 --- a/node_modules/react-native-bottom-tabs/ios/TabViewImpl.swift
