@@ -15,6 +15,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useExchangeAppDetection } from '@onekeyhq/kit/src/hooks/useExchangeAppDetection';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { HELP_CENTER_URL } from '@onekeyhq/shared/src/config/appConfig';
 import {
   EExchangeId,
@@ -38,6 +39,9 @@ function WalletActionExchange() {
   } = useActiveAccount({ num: 0 });
 
   const { sortedExchanges, isExchangeInstalled } = useExchangeAppDetection();
+  const [devSettings] = useDevSettingsPersistAtom();
+  const enableBinanceConnect =
+    devSettings.enabled && devSettings.settings?.enableBinanceConnect;
 
   const accountId = account?.id ?? '';
   const networkId = network?.id ?? '';
@@ -89,7 +93,13 @@ function WalletActionExchange() {
               });
 
             // 5. Redirect to Binance
-            await openUrlUtils.linkingOpenURL(result.redirectUrl);
+            // Native: use linkingOpenURL to potentially open Binance app
+            // Other platforms: use system browser
+            if (platformEnv.isNative) {
+              await openUrlUtils.linkingOpenURL(result.redirectUrl);
+            } else {
+              openUrlExternal(result.redirectUrl);
+            }
 
             // 6. Close the modal
             navigation.popToTop();
@@ -117,14 +127,18 @@ function WalletActionExchange() {
     async (config: IExchangeConfig) => {
       const isInstalled = isExchangeInstalled(config.id);
 
-      // Binance with app installed -> Use Binance Connect flow
-      if (
-        config.id === EExchangeId.Binance &&
-        platformEnv.isNative &&
-        isInstalled
-      ) {
-        await handleBinancePress();
-        return;
+      // Binance Connect flow:
+      // - When enableBinanceConnect flag is ON: available on all platforms
+      // - When flag is OFF: only available on native with Binance app installed (original behavior)
+      if (config.id === EExchangeId.Binance) {
+        const shouldUseBinanceConnect = enableBinanceConnect
+          ? true // Flag ON: all platforms use Binance Connect
+          : platformEnv.isNative && isInstalled; // Flag OFF: original behavior
+
+        if (shouldUseBinanceConnect) {
+          await handleBinancePress();
+          return;
+        }
       }
 
       // Other exchanges with app installed -> Original flow (show receive address)
@@ -161,6 +175,7 @@ function WalletActionExchange() {
     },
     [
       isExchangeInstalled,
+      enableBinanceConnect,
       handleBinancePress,
       navigation,
       intl,

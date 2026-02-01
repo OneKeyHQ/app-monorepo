@@ -78,6 +78,9 @@ export interface IDevSettings {
   enableMockMarketBanner?: boolean;
   // Test accounts for OneKey ID login testing
   testAccounts?: ITestAccount[];
+  // Enable Binance Connect flow for all platforms (not just native with app installed)
+  // When enabled, uses system browser to open Binance redirect URL on all platforms
+  enableBinanceConnect?: boolean;
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;
