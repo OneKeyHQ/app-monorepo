@@ -53,7 +53,6 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalRoutes,
@@ -64,6 +63,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { EModalBulkCopyAddressesRoutes } from '@onekeyhq/shared/src/routes/bulkCopyAddresses';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -86,6 +86,7 @@ import { OneKeyIdAvatar } from '../../views/Setting/pages/OneKeyId';
 import { ESettingsTabNames } from '../../views/Setting/pages/Tab/config';
 import { AccountSelectorProviderMirror } from '../AccountSelector';
 import { useEditPrimeProfileDialog } from '../RenameDialog';
+import { useReviewControl } from '../ReviewControl';
 import { UpdateReminder } from '../UpdateReminder';
 import {
   isShowAppUpdateUIWhenUpdating,
@@ -1140,6 +1141,7 @@ const MoreActionMoreGrid = () => {
   const intl = useIntl();
   const { closePopover } = usePopoverContext();
   const { loginOneKeyId } = useOneKeyAuth();
+  const show = useReviewControl();
   const handleHelpAndSupport = useCallback(() => {
     void showIntercom();
   }, []);
@@ -1175,19 +1177,22 @@ const MoreActionMoreGrid = () => {
         testID: 'referral' as const,
         onPress: handleReferFriends,
       },
-      {
-        title: intl.formatMessage({ id: ETranslations.global_redeem }),
-        icon: 'TicketOutline' as const,
-        onPress: handleRedeem,
-        trackID: 'wallet-redeem',
-      },
-    ];
+      show
+        ? {
+            title: intl.formatMessage({ id: ETranslations.global_redeem }),
+            icon: 'TicketOutline' as const,
+            onPress: handleRedeem,
+            trackID: 'wallet-redeem',
+          }
+        : null,
+    ].filter(Boolean);
   }, [
     handleHelpAndSupport,
     handleRedeem,
     intl,
     themeVariant,
     handleReferFriends,
+    show,
   ]);
   return (
     <BaseMoreActionGrid
