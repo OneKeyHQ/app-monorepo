@@ -15,6 +15,7 @@ import {
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { EXT_RATE_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import externalWalletLogoUtils from '@onekeyhq/shared/src/utils/externalWalletLogoUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IExternalConnectionInfo } from '@onekeyhq/shared/types/externalWallet.types';
@@ -131,7 +132,7 @@ function OneKeyWalletItem({ networkType }: { networkType?: string }) {
   const intl = useIntl();
   const { isOneKeyInstalled, getOneKeyConnectionInfo } =
     useOneKeyWalletDetection();
-  const { connectToWalletWithDialog, loading } = useConnectExternalWallet();
+  const { connectToWalletWithDialog } = useConnectExternalWallet();
 
   const handlePress = useCallback(() => {
     if (isOneKeyInstalled) {
@@ -140,7 +141,14 @@ function OneKeyWalletItem({ networkType }: { networkType?: string }) {
         void connectToWalletWithDialog(connectionInfo);
       }
     } else {
-      openUrlExternal(EXT_RATE_URL.chrome);
+      // Select store URL based on browser type
+      let storeUrl = EXT_RATE_URL.chrome;
+      if (platformEnv.isRuntimeFirefox) {
+        storeUrl = EXT_RATE_URL.firefox;
+      } else if (platformEnv.isRuntimeEdge) {
+        storeUrl = EXT_RATE_URL.edge;
+      }
+      openUrlExternal(storeUrl);
     }
   }, [isOneKeyInstalled, getOneKeyConnectionInfo, connectToWalletWithDialog]);
 
@@ -179,16 +187,12 @@ function OneKeyWalletItem({ networkType }: { networkType?: string }) {
             borderCurve="continuous"
             overflow="hidden"
           >
-            {loading ? (
-              <Spinner size="small" />
-            ) : (
-              <Icon
-                name="OnekeyBrand"
-                size="$10"
-                bg="#44D62C"
-                borderRadius="$2"
-              />
-            )}
+            <Icon
+              name="OnekeyBrand"
+              size="$10"
+              bg="#44D62C"
+              borderRadius="$2"
+            />
           </Stack>
           <Stack flex={1} justifyContent="center">
             <XStack alignItems="center" gap="$2">
