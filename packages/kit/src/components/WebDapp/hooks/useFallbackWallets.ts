@@ -17,7 +17,6 @@ function useFallbackWallets(): IFallbackWalletMeta[] {
     const okxWalletInfo = externalWalletLogoUtils.getLogoInfo('okx');
     const phantomWalletInfo = externalWalletLogoUtils.getLogoInfo('phantom');
     const coinbaseWalletInfo = externalWalletLogoUtils.getLogoInfo('coinbase');
-    const imtokenWalletInfo = externalWalletLogoUtils.getLogoInfo('imtoken');
     const zerionWalletInfo = externalWalletLogoUtils.getLogoInfo('zerion');
 
     const fallbackWallets: IFallbackWalletMeta[] = [
@@ -43,14 +42,6 @@ function useFallbackWallets(): IFallbackWalletMeta[] {
         storeUrl: WALLET_STORE_URLS.coinbase,
         logo: coinbaseWalletInfo.logo,
         name: coinbaseWalletInfo.name,
-        networkType: 'EVM',
-      },
-      {
-        key: 'imtoken',
-        detectKeywords: ['imtoken'],
-        storeUrl: WALLET_STORE_URLS.imtoken,
-        logo: imtokenWalletInfo.logo,
-        name: imtokenWalletInfo.name,
         networkType: 'EVM',
       },
       {
