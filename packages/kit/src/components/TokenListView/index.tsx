@@ -30,6 +30,7 @@ import {
   sortTokensByPrice,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
+import type { IExchangeFilter } from '@onekeyhq/shared/types/exchange';
 import { ETokenListSortType } from '@onekeyhq/shared/types/token';
 import type {
   IAccountToken,
@@ -117,6 +118,8 @@ type IProps = {
   plainMode?: boolean;
   limit?: number;
   deferTokenManagement?: boolean;
+  /** Filter tokens by exchange supported assets */
+  exchangeFilter?: IExchangeFilter;
 };
 
 function TokenListViewCmp(props: IProps) {
@@ -158,6 +161,7 @@ function TokenListViewCmp(props: IProps) {
     plainMode,
     limit,
     deferTokenManagement,
+    exchangeFilter,
   } = props;
 
   const intl = useIntl();
@@ -249,6 +253,19 @@ function TokenListViewCmp(props: IProps) {
       resultTokens = resultTokens.filter((item) => !item.defiMarked);
     }
 
+    // Filter by exchange supported assets (e.g., Binance Connect)
+    if (exchangeFilter?.supportedAssets) {
+      resultTokens = resultTokens.filter((item) => {
+        const networkAssets =
+          exchangeFilter.supportedAssets[item.networkId ?? ''];
+        if (!networkAssets) return false;
+
+        const symbolUpper = (item.symbol ?? '').toUpperCase();
+        const assetConfig = networkAssets[symbolUpper];
+        return assetConfig?.withdrawEnable === true;
+      });
+    }
+
     return resultTokens;
   }, [
     showActiveAccountTokenList,
@@ -264,6 +281,7 @@ function TokenListViewCmp(props: IProps) {
     keepDefaultZeroBalanceTokens,
     homeDefaultTokenMap,
     customTokens,
+    exchangeFilter,
   ]);
 
   const [searchTokenState] = useSearchTokenStateAtom();

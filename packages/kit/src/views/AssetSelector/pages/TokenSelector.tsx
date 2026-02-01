@@ -73,6 +73,7 @@ function TokenSelector() {
     hideZeroBalanceTokens,
     keepDefaultZeroBalanceTokens,
     enableNetworkAfterSelect,
+    exchangeFilter,
   } = route.params;
 
   const { network, account } = useAccountData({ networkId, accountId });
@@ -409,6 +410,7 @@ function TokenSelector() {
           hideZeroBalanceTokens={hideZeroBalanceTokens}
           keepDefaultZeroBalanceTokens={keepDefaultZeroBalanceTokens}
           showNetworkIcon={isAllNetworks ?? network?.isAllNetworks}
+          exchangeFilter={exchangeFilter}
           emptyProps={{
             mt: '24%',
           }}
