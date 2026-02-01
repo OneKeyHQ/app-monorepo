@@ -14,11 +14,21 @@ interface IFallbackWalletMeta {
 
 function useFallbackWallets(): IFallbackWalletMeta[] {
   return useMemo(() => {
+    const okxWalletInfo = externalWalletLogoUtils.getLogoInfo('okx');
     const phantomWalletInfo = externalWalletLogoUtils.getLogoInfo('phantom');
     const coinbaseWalletInfo = externalWalletLogoUtils.getLogoInfo('coinbase');
-    const okxWalletInfo = externalWalletLogoUtils.getLogoInfo('okx');
+    const imtokenWalletInfo = externalWalletLogoUtils.getLogoInfo('imtoken');
+    const zerionWalletInfo = externalWalletLogoUtils.getLogoInfo('zerion');
 
     const fallbackWallets: IFallbackWalletMeta[] = [
+      {
+        key: 'okx',
+        detectKeywords: ['okx'],
+        storeUrl: WALLET_STORE_URLS.okx,
+        logo: okxWalletInfo.logo,
+        name: okxWalletInfo.name,
+        networkType: 'EVM',
+      },
       {
         key: 'phantom',
         detectKeywords: ['phantom'],
@@ -36,11 +46,19 @@ function useFallbackWallets(): IFallbackWalletMeta[] {
         networkType: 'EVM',
       },
       {
-        key: 'okx',
-        detectKeywords: ['okx'],
-        storeUrl: WALLET_STORE_URLS.okx,
-        logo: okxWalletInfo.logo,
-        name: okxWalletInfo.name,
+        key: 'imtoken',
+        detectKeywords: ['imtoken'],
+        storeUrl: WALLET_STORE_URLS.imtoken,
+        logo: imtokenWalletInfo.logo,
+        name: imtokenWalletInfo.name,
+        networkType: 'EVM',
+      },
+      {
+        key: 'zerion',
+        detectKeywords: ['zerion'],
+        storeUrl: WALLET_STORE_URLS.zerion,
+        logo: zerionWalletInfo.logo,
+        name: zerionWalletInfo.name,
         networkType: 'EVM',
       },
     ];
