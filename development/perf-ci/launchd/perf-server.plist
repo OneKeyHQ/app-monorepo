@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+    <key>Label</key>
+    <string>so.onekey.perf-server</string>
+
+    <key>WorkingDirectory</key>
+    <!-- Replace with your repo root, e.g. /Users/<you>/repos/app-monorepo -->
+    <string>__REPO_ROOT__</string>
+
+    <key>ProgramArguments</key>
+    <array>
+      <string>/usr/bin/env</string>
+      <string>node</string>
+      <string>development/performance-server/server.js</string>
+    </array>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+      <key>PERF_OUTPUT_DIR</key>
+      <!-- Replace with an absolute path, e.g. /Users/<you>/perf-sessions -->
+      <string>__HOME_DIR__/perf-sessions</string>
+      <key>PERF_SERVER_PORT</key>
+      <string>9527</string>
+      <key>PATH</key>
+      <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>__HOME_DIR__/perf-logs/perf-server.log</string>
+    <key>StandardErrorPath</key>
+    <string>__HOME_DIR__/perf-logs/perf-server.error.log</string>
+  </dict>
+</plist>
