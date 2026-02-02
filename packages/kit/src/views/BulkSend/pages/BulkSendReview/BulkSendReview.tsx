@@ -11,6 +11,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import {
   EModalBulkSendRoutes,
+  EModalRoutes,
   EModalSignatureConfirmRoutes,
   ETabHomeRoutes,
   type IModalBulkSendParamList,
@@ -257,25 +258,19 @@ function BaseBulkSendReview({
   }, [navigation]);
 
   // Navigate back to address input page after successful transaction
-  const navigateToAddressInput = useCallback(() => {
-    if (isInModal) {
-      navigation.replace(EModalBulkSendRoutes.BulkSendAddressesInput, {
-        networkId,
-        accountId,
-        indexedAccountId: undefined,
-        tokenInfo,
-        isInModal: true,
-      });
-    } else {
-      navigation.replace(ETabHomeRoutes.TabHomeBulkSendAddressesInput, {
-        networkId,
-        accountId,
-        indexedAccountId: undefined,
-        tokenInfo,
-        isInModal: false,
-      });
+  const navigateAfterSuccess = useCallback(() => {
+
+    if (accountUtils.isQrAccount({ accountId: accountId ?? '' })) {
+      navigation.popStack();
     }
-  }, [isInModal, navigation, networkId, accountId, tokenInfo]);
+
+    if (isInModal) {
+
+      navigation.pop();
+    } else {
+      navigation.popStack();
+    }
+  }, [isInModal, navigation, accountId]);
 
   const handleConfirm = useCallback(async () => {
     if (!accountId) return;
@@ -357,8 +352,7 @@ function BaseBulkSendReview({
         setIsSubmitting(false);
         onSuccess?.(results);
 
-        // Navigate back to address input page
-        navigateToAddressInput();
+        navigateAfterSuccess();
       } catch (e: any) {
         setIsSubmitting(false);
         // Check if user cancelled
@@ -394,7 +388,7 @@ function BaseBulkSendReview({
       onSuccess?.(result);
 
       // Step 7: Navigate back to address input page
-      navigateToAddressInput();
+      navigateAfterSuccess();
     } catch (e: any) {
       // Handle QR account navigation on error
       if (accountUtils.isQrAccount({ accountId })) {
@@ -417,7 +411,7 @@ function BaseBulkSendReview({
     intl,
     navigation,
     handleTronTxsOneByOne,
-    navigateToAddressInput,
+    navigateAfterSuccess,
   ]);
 
   // Determine if confirm button should be disabled

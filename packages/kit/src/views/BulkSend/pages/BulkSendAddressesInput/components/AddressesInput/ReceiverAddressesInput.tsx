@@ -1,13 +1,11 @@
 /* eslint-disable no-continue */
 import { useCallback, useState } from 'react';
 
-import BigNumber from 'bignumber.js';
-import { isNil } from 'lodash';
-
 import { Form } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import { EReceiverMode } from '@onekeyhq/shared/types/bulkSend';
+import { validateTokenAmount } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import { useBulkSendAddressesInputContext } from '../Context';
 import { useDebouncedValidation } from '@onekeyhq/kit/src/views/BulkSend/hooks/useDebouncedValidation';
@@ -40,24 +38,21 @@ function ReceiverAddressesInput() {
 
   const validateAmount = useCallback(
     (amount: string): string | boolean => {
-      const amountBN = new BigNumber(amount);
-      if (amountBN.isNaN()) {
-        return 'Invalid amount';
+      if (!selectedToken) {
+        return 'Token not selected';
       }
 
-      if (amountBN.isNegative()) {
-        return 'Amount must be greater than 0';
-      }
+      const { isValid, error } = validateTokenAmount({
+        token: selectedToken,
+        amount,
+        allowZero: false,
+        customErrorMessages: {
+          zeroAmount: 'Amount must be greater than 0',
+        },
+      });
 
-      // check token decimals
-      if (selectedToken && !isNil(selectedToken.decimals)) {
-        const amountDecimals = amountBN.decimalPlaces();
-        if (
-          amountDecimals !== null &&
-          amountDecimals > selectedToken.decimals
-        ) {
-          return `Amount must be less than or equal to ${selectedToken.decimals} decimal places`;
-        }
+      if (!isValid && error) {
+        return error;
       }
 
       return true;

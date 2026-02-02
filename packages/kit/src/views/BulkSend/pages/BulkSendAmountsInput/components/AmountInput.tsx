@@ -53,7 +53,6 @@ export function SpecifiedAmountInput() {
       setAmountInputValues({
         ...amountInputValues,
         specifiedAmount: value,
-        
       });
 
       const { error } = validateTokenAmount({
@@ -62,8 +61,10 @@ export function SpecifiedAmountInput() {
           .times(transfersInfo.length)
           .toFixed(),
         maxAmount: balance ?? '0',
+        allowZero: false,
         customErrorMessages: {
           maxAmount: 'Insufficient balance',
+          zeroAmount: 'Amount must be greater than 0',
         },
       });
       setAmountInputErrors({
@@ -142,9 +143,11 @@ export function RangeAmountInput() {
         token: tokenInfo,
         amount: min,
         maxAmount: balance,
+        allowZero: false,
         customErrorMessages: {
           emptyAmount: 'Min is required',
           maxAmount: 'Insufficient balance',
+          zeroAmount: 'Min must be greater than 0',
         },
       });
       errors.rangeMin = rangeMinError;
@@ -152,9 +155,11 @@ export function RangeAmountInput() {
         token: tokenInfo,
         amount: max,
         maxAmount: balance,
+        allowZero: false,
         customErrorMessages: {
           emptyAmount: 'Max is required',
           maxAmount: 'Insufficient balance',
+          zeroAmount: 'Max must be greater than 0',
         },
       });
       errors.rangeMax = rangeMaxError;

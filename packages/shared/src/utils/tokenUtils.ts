@@ -1147,6 +1147,7 @@ export function validateTokenAmount({
   amount,
   allowEmpty = false,
   allowNegative = false,
+  allowZero = true,
   minAmount,
   maxAmount,
   customErrorMessages,
@@ -1155,12 +1156,14 @@ export function validateTokenAmount({
   amount: string;
   allowEmpty?: boolean;
   allowNegative?: boolean;
+  allowZero?: boolean;
   minAmount?: string;
   maxAmount?: string;
   customErrorMessages?: {
     emptyAmount?: string;
     invalidAmount?: string;
     negativeAmount?: string;
+    zeroAmount?: string;
     minAmount?: string;
     maxAmount?: string;
     decimalPlaces?: string;
@@ -1196,6 +1199,13 @@ export function validateTokenAmount({
     return {
       isValid: false,
       error: customErrorMessages?.negativeAmount ?? 'Cannot be negative',
+    };
+  }
+
+  if (!allowZero && amountBN.isZero()) {
+    return {
+      isValid: false,
+      error: customErrorMessages?.zeroAmount ?? 'Amount must be greater than 0',
     };
   }
 

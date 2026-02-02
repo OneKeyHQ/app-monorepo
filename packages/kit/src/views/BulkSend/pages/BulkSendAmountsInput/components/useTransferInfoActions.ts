@@ -64,6 +64,10 @@ export function useTransferInfoActions({
       const { isValid, error } = validateTokenAmount({
         token: tokenInfo,
         amount: value,
+        allowZero: false,
+        customErrorMessages: {
+          zeroAmount: 'Amount must be greater than 0',
+        },
       });
       const newErrors = { ...transferInfoErrors };
       if (!isValid && error) {
