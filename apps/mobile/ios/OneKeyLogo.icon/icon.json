@@ -23,8 +23,8 @@
       "appearance" : "dark",
       "value" : {
         "linear-gradient" : [
-          "srgb:0.26667,0.83922,0.17255,1.00000",
-          "extended-srgb:0.15686,0.80392,0.25490,1.00000"
+          "extended-gray:0.20546,1.00000",
+          "extended-gray:0.00000,1.00000"
         ],
         "orientation" : {
           "start" : {
@@ -126,8 +126,8 @@
               "value" : true
             }
           ],
-          "image-name" : "App Icon Green BG.svg",
-          "name" : "App Icon Green BG",
+          "image-name" : "App-Icon-Green-BG.svg",
+          "name" : "App-Icon-Green-BG",
           "position" : {
             "scale" : 3.29,
             "translation-in-points" : [
@@ -137,32 +137,20 @@
           }
         },
         {
-          "blend-mode-specializations" : [
-            {
-              "appearance" : "dark",
-              "value" : "normal"
-            }
-          ],
-          "glass" : true,
           "hidden-specializations" : [
             {
-              "value" : false
+              "appearance" : "light",
+              "value" : true
             },
             {
-              "appearance" : "dark",
-              "value" : false
+              "appearance" : "tinted",
+              "value" : true
             }
           ],
-          "image-name" : "App Icon Black BG.svg",
-          "name" : "App Icon Black BG",
-          "opacity-specializations" : [
-            {
-              "appearance" : "dark",
-              "value" : 1
-            }
-          ],
+          "image-name" : "KEY-only-Green.svg",
+          "name" : "KEY-only-Green",
           "position" : {
-            "scale" : 3.29,
+            "scale" : 10.189999999999998,
             "translation-in-points" : [
               0,
               0
