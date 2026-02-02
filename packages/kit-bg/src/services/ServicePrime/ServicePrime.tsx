@@ -29,6 +29,7 @@ import type {
   IPrimeServerUserInfo,
   IPrimeSubscriptionInfo,
   IPrimeUserInfo,
+  IShopifyOrder,
 } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import {
@@ -791,6 +792,15 @@ class ServicePrime extends ServiceBase {
   @backgroundMethod()
   async getLocalUserInfo() {
     return primePersistAtom.get();
+  }
+
+  @backgroundMethod()
+  async apiFetchShopifyOrders(): Promise<IShopifyOrder[]> {
+    const client = await this.getPrimeClient();
+    const result = await client.get<IApiClientResponse<IShopifyOrder[]>>(
+      '/prime/v1/user/shopify-orders',
+    );
+    return result?.data?.data ?? [];
   }
 
   @backgroundMethod()

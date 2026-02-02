@@ -12,6 +12,7 @@ import {
   OneKeyLocalError,
   RequestLimitExceededError,
 } from '@onekeyhq/shared/src/errors';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -187,13 +188,31 @@ export class JuiceboxClient {
     // TODO add juicebox token subject (sub) as prefix to userInfo, like: sub:${userInfo}
     const userInfoBytes = bufferUtils.utf8ToBytes(userInfo);
 
-    // Call SDK register method
-    await this.client.register(
-      pinBytes,
-      secretBytes, // secret exceeds the maximum of 128 bytes
-      userInfoBytes,
-      JUICEBOX_ALLOWED_GUESSES,
-    );
+    try {
+      // throw new Error();
+
+      // Call SDK register method
+      await this.client.register(
+        pinBytes,
+        secretBytes, // secret exceeds the maximum of 128 bytes
+        userInfoBytes,
+        JUICEBOX_ALLOWED_GUESSES,
+      );
+    } catch (e) {
+      const errorMessage =
+        (e as Error)?.message ||
+        appLocale.intl.formatMessage({
+          id: ETranslations.global_unknown_error_retry_message,
+        });
+      defaultLogger.wallet.keyless.juiceboxRegisterError({
+        message: errorMessage,
+        sdkError: e,
+        plainError: errorUtils.toPlainErrorObject(e),
+      });
+      throw new OneKeyLocalError({
+        message: errorMessage,
+      });
+    }
 
     // Clear token cache after successful registration
     // this.clearTokenCache();
@@ -270,13 +289,15 @@ export class JuiceboxClient {
       const guessesRemaining =
         error?.guesses_remaining ?? error?.guessesRemaining;
 
+      const errorMessage =
+        error?.message ||
+        appLocale.intl.formatMessage({
+          id: ETranslations.global_unknown_error_retry_message,
+        });
       defaultLogger.wallet.keyless.juiceboxRecoverError({
-        message:
-          error?.message ||
-          appLocale.intl.formatMessage({
-            id: ETranslations.failed_to_recover_secret_from_storage,
-          }),
+        message: errorMessage,
         sdkError: error,
+        plainError: errorUtils.toPlainErrorObject(error),
       });
 
       if (!isNil(guessesRemaining)) {
@@ -292,11 +313,7 @@ export class JuiceboxClient {
       }
 
       throw new OneKeyLocalError({
-        message:
-          error?.message ||
-          appLocale.intl.formatMessage({
-            id: ETranslations.failed_to_recover_secret_from_storage,
-          }),
+        message: errorMessage,
         data: {
           guessesRemaining,
           reason: error?.reason,

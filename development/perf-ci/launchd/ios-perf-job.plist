@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+    <key>Label</key>
+    <string>so.onekey.ios-perf-job</string>
+
+    <key>WorkingDirectory</key>
+    <!-- Replace with your repo root, e.g. /Users/<you>/repos/app-monorepo -->
+    <string>__REPO_ROOT__</string>
+
+    <key>ProgramArguments</key>
+    <array>
+      <string>/usr/bin/env</string>
+      <string>node</string>
+      <!-- Choose one:
+           - Debug (Metro):  development/perf-ci/run-ios-perf-detox-debug.js
+           - Release (no Metro): development/perf-ci/run-ios-perf-detox-release.js
+      -->
+      <string>development/perf-ci/run-ios-perf-detox-release.js</string>
+    </array>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+      <key>PATH</key>
+      <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+
+      <key>PERF_JOB_OUTPUT_ROOT</key>
+      <string>__HOME_DIR__/perf-reports</string>
+
+      <!-- Prefer pinning to a specific pre-configured simulator UDID to preserve wallet/app state -->
+      <!-- <key>DETOX_DEVICE_UDID</key><string>YOUR_SIMULATOR_UDID</string> -->
+
+      <!-- Set this on the machine (recommended) -->
+      <!-- <key>SLACK_WEBHOOK_URL</key><string>https://hooks.slack.com/services/...</string> -->
+    </dict>
+
+    <!-- Run multiple times per day -->
+    <key>StartCalendarInterval</key>
+    <array>
+      <dict>
+        <key>Hour</key>
+        <integer>9</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+      </dict>
+      <dict>
+        <key>Hour</key>
+        <integer>14</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+      </dict>
+      <dict>
+        <key>Hour</key>
+        <integer>19</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+      </dict>
+    </array>
+
+    <key>StandardOutPath</key>
+    <string>__HOME_DIR__/perf-logs/ios-perf-job.log</string>
+    <key>StandardErrorPath</key>
+    <string>__HOME_DIR__/perf-logs/ios-perf-job.error.log</string>
+  </dict>
+</plist>

@@ -28,6 +28,7 @@ export { default as CryptoOrg } from './CryptoOrg';
 export { default as DiamondBadge } from './DiamondBadge';
 export { default as Dogecoin } from './Dogecoin';
 export { default as EmptyNft } from './EmptyNft';
+export { default as EmptyOrder } from './EmptyOrder';
 export { default as EthCircle } from './EthCircle';
 export { default as Ethereum } from './Ethereum';
 export { default as EthereumClassic } from './EthereumClassic';
