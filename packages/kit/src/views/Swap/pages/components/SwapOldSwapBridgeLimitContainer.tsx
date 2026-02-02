@@ -220,7 +220,7 @@ const SwapOldSwapBridgeLimitContainer = ({
       </YStack>
     );
     return (
-      <XStack gap="$2" px="$5" alignItems="flex-start">
+      <XStack gap="$2" px="$5" alignItems="stretch">
         <ScrollView
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
