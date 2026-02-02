@@ -296,7 +296,7 @@
   "cloud_backup_failed_google_desc": "সম্ভাব্য কারণসমূহ:\n১. নেটওয়ার্ক সংযোগজনিত সমস্যা\n২. সঠিক Google অ্যাকাউন্টে সাইন ইন করা নেই\n৩. Google Drive সিঙ্ক সক্রিয় নেই\n৪. Google Drive-এ পর্যাপ্ত স্টোরেজ নেই (আপনি “Manage Backups”-এ পুরনো ব্যাকআপ মুছে জায়গা খালি করতে পারেন)",
   "coming_soon": "শীঘ্রই আসছে",
   "coming_soon_desc": "আমরা বর্তমানে এই বৈশিষ্ট্যটি বিকাশ করছি এবং শীঘ্রই এটি উপলব্ধ করাব।",
-  "communication.communicating": "যোগাযোগ করা হচ্ছে...",
+  "communication.communicating": "আপনার ডিভাইসের সাথে সংযোগ স্থাপন করা হচ্ছে…",
   "communication.not_detected_bluetooth_fallback": "USB সনাক্ত করা যায়নি। OneKey এখন ব্লুটুথ চেষ্টা করবে — অনুগ্রহ করে অনুরোধ করা হলে ব্লুটুথ অ্যাক্সেসের অনুমতি দিন।",
   "communication.not_detected_bluetooth_no_permission": "USB সনাক্ত করা যায়নি। অনুগ্রহ করে USB-এর মাধ্যমে সংযোগ করুন, অথবা আপনার সিস্টেম সেটিংসে OneKey-কে Bluetooth অ্যাক্সেস দিন।",
   "communication.not_detected_bluetooth_not_paired": "USB সনাক্ত করা যায়নি। ব্লুটুথ পেয়ারিং-এ পরিবর্তন করা হচ্ছে।",
