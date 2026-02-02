@@ -1,6 +1,7 @@
 ---
 name: 1k-patching-native-modules
-description: Patches native modules (expo-image, react-native, etc.) to fix crashes or bugs. Use when analyzing iOS/Android crash logs, fixing native module issues, or generating patch files. Handles Sentry crash analysis, Swift/Kotlin code fixes, and patch-package workflow.
+description: Patches native modules (expo-image, react-native, etc.) to fix native crashes or bugs. 
+disable-model-invocation: true
 ---
 
 # Patching Native Modules
