@@ -14,7 +14,11 @@ import LineNumberedTextArea from './LineNumberedTextArea';
 
 import type { ILineError } from './LineNumberedTextArea';
 
-function ReceiverAddressesInput() {
+type IReceiverAddressesInputProps = {
+  maxLines?: number;
+};
+
+function ReceiverAddressesInput({ maxLines }: IReceiverAddressesInputProps) {
   const { selectedAccountId, selectedNetworkId, selectedToken } =
     useBulkSendAddressesInputContext();
   const { network } = useAccountData({ networkId: selectedNetworkId });
@@ -78,6 +82,16 @@ function ReceiverAddressesInput() {
       const lines = value.split('\n');
       const lineErrors: ILineError[] = [];
       const seenAddresses = new Map<string, number>();
+
+      // Check max lines limit
+      if (maxLines && lines.length > maxLines) {
+        lineErrors.push({
+          lineNumber: -1,
+          message: `Maximum ${maxLines} addresses allowed, currently ${lines.length}`,
+        });
+        setErrors(lineErrors);
+        return lineErrors[0].message;
+      }
 
       let receiverMode: EReceiverMode | undefined;
 
@@ -195,7 +209,7 @@ function ReceiverAddressesInput() {
       }
       return true;
     },
-    [parseLineMode, validateAddress, validateAmount],
+    [maxLines, parseLineMode, validateAddress, validateAmount],
   );
 
   const debouncedValidateAddresses = useDebouncedValidation(

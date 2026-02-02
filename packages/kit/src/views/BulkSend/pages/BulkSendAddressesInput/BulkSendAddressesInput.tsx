@@ -347,7 +347,7 @@ function BaseBulkSendAddressesInput() {
             >
               <Form form={form}>
                 <SenderAddressesInput />
-                <ReceiverAddressesInput />
+                <ReceiverAddressesInput maxLines={500} />
               </Form>
             </AccountSelectorProviderMirror>
           </YStack>

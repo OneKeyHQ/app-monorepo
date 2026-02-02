@@ -10,10 +10,8 @@ import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import {
-  EModalBulkSendRoutes,
-  EModalRoutes,
+  type EModalBulkSendRoutes,
   EModalSignatureConfirmRoutes,
-  ETabHomeRoutes,
   type IModalBulkSendParamList,
 } from '@onekeyhq/shared/src/routes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
