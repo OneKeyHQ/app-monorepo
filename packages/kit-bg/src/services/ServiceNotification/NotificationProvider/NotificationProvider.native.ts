@@ -214,7 +214,11 @@ export default class NotificationProvider extends NotificationProviderBase {
     await scheduleNotificationAsync({
       identifier: uuid,
       content,
-      trigger: { type: SchedulableTriggerInputTypes.TIME_INTERVAL, repeats: false, seconds: 1 },
+      trigger: {
+        type: SchedulableTriggerInputTypes.TIME_INTERVAL,
+        repeats: false,
+        seconds: 1,
+      },
     });
 
     // 5秒后移除expo通知
