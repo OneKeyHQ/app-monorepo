@@ -16,6 +16,18 @@ This skill provides a structured approach to reviewing PRs in the OneKey monorep
 - Base branch: `x` (main branch)
 - Use triple-dot diff: `git fetch origin && git diff origin/x...HEAD`
 
+## Relationship with `pr-review` Skill
+
+This skill complements the existing `pr-review` skill:
+
+| Aspect | `pr-review` | `1k-code-review-pr` |
+|--------|-------------|---------------------|
+| Focus | **Security** & supply-chain risk | **Build reliability** & runtime quality |
+| Best for | Dependency updates, auth changes, sensitive data | Business logic, UI components, scripts |
+| Depth | Deep security analysis | Practical code patterns |
+
+**Recommendation**: For complex PRs, use both skills for comprehensive coverage.
+
 ## Review Checklist
 
 ### 1. Accidental File Commits (HIGH PRIORITY)
