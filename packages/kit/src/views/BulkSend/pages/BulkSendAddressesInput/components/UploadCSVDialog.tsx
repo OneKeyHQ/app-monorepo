@@ -15,6 +15,7 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const MAX_LINES = 500;
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
 type IUploadCSVContentProps = {
   onUploaded?: (lines: string[]) => void;
@@ -90,6 +91,11 @@ function UploadCSVContent({ onUploaded }: IUploadCSVContentProps) {
     async (file: File) => {
       if (!isValidCSVFile(file)) {
         Toast.error({ title: 'Please upload a CSV file' });
+        return;
+      }
+
+      if (file.size > MAX_FILE_SIZE) {
+        Toast.error({ title: 'File too large. Maximum size is 5MB' });
         return;
       }
 

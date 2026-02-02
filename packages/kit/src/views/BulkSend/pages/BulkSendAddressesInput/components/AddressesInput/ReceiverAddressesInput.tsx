@@ -8,6 +8,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import { useDebouncedValidation } from '@onekeyhq/kit/src/views/BulkSend/hooks/useDebouncedValidation';
 import { validateTokenAmount } from '@onekeyhq/shared/src/utils/tokenUtils';
+import type { IAddressValidation } from '@onekeyhq/shared/types/address';
 import { EReceiverMode } from '@onekeyhq/shared/types/bulkSend';
 
 import { useBulkSendAddressesInputContext } from '../Context';
@@ -28,16 +29,21 @@ function ReceiverAddressesInput({ maxLines }: IReceiverAddressesInputProps) {
   const [errors, setErrors] = useState<ILineError[]>([]);
 
   const validateAddress = useCallback(
-    async (address: string): Promise<string | boolean> => {
+    async (
+      address: string,
+    ): Promise<{ isValid: false; error: string } | IAddressValidation> => {
       const result =
         await backgroundApiProxy.serviceValidator.localValidateAddress({
           networkId: selectedNetworkId ?? '',
           address: address.trim(),
         });
       if (!result.isValid) {
-        return `Not a valid ${network?.name ?? ''} address`;
+        return {
+          isValid: false,
+          error: `Not a valid ${network?.name ?? ''} address`,
+        };
       }
-      return true;
+      return result;
     },
     [selectedNetworkId, network?.name],
   );
@@ -83,7 +89,6 @@ function ReceiverAddressesInput({ maxLines }: IReceiverAddressesInputProps) {
 
       const lines = value.split('\n');
       const lineErrors: ILineError[] = [];
-      const seenAddresses = new Map<string, number>();
 
       // Check max lines limit
       if (maxLines && lines.length > maxLines) {
@@ -97,7 +102,7 @@ function ReceiverAddressesInput({ maxLines }: IReceiverAddressesInputProps) {
 
       let receiverMode: EReceiverMode | undefined;
 
-      // Phase 1: Synchronous validation (format, duplicates, amounts)
+      // Phase 1: Synchronous validation (format, amounts)
       // Collect addresses that need async validation
       const addressesToValidate: { index: number; address: string }[] = [];
 
@@ -124,19 +129,7 @@ function ReceiverAddressesInput({ maxLines }: IReceiverAddressesInputProps) {
         }
 
         if (receiverMode === EReceiverMode.AddressOnly) {
-          // Check for duplicate address
-          const normalizedAddress = line.toLowerCase();
-          const seenAddressIndex = seenAddresses.get(normalizedAddress);
-          if (seenAddressIndex !== undefined) {
-            lineErrors.push({
-              lineNumber: i + 1,
-              message: `Duplicate address (same as line ${seenAddressIndex})`,
-            });
-            continue;
-          }
-          seenAddresses.set(normalizedAddress, i + 1);
-
-          // Queue address for async validation
+          // Queue address for async validation (duplicate check moved to Phase 2)
           addressesToValidate.push({ index: i, address: line });
         } else {
           // AddressAndAmount mode
@@ -151,19 +144,7 @@ function ReceiverAddressesInput({ maxLines }: IReceiverAddressesInputProps) {
 
           const [address, amount] = parts.map((p) => p.trim());
 
-          // Check for duplicate address
-          const normalizedAddress = address.toLowerCase();
-          const seenAddressIndex = seenAddresses.get(normalizedAddress);
-          if (seenAddressIndex !== undefined) {
-            lineErrors.push({
-              lineNumber: i + 1,
-              message: `Duplicate address (same as line ${seenAddressIndex})`,
-            });
-            continue;
-          }
-          seenAddresses.set(normalizedAddress, i + 1);
-
-          // Queue address for async validation
+          // Queue address for async validation (duplicate check moved to Phase 2)
           addressesToValidate.push({ index: i, address });
 
           // Validate amount synchronously
@@ -180,7 +161,7 @@ function ReceiverAddressesInput({ maxLines }: IReceiverAddressesInputProps) {
         }
       }
 
-      // Phase 2: Concurrent address validation with rate limiting
+      // Phase 2: Concurrent address validation with rate limiting and duplicate detection
       if (addressesToValidate.length > 0) {
         const limit = pLimit(10); // Max 10 concurrent validations
         const validationResults = await Promise.all(
@@ -192,13 +173,27 @@ function ReceiverAddressesInput({ maxLines }: IReceiverAddressesInputProps) {
           ),
         );
 
-        // Collect validation errors
+        // Collect validation errors and check for duplicates using normalized addresses
+        const seenNormalizedAddresses = new Map<string, number>();
         for (const { index, result } of validationResults) {
-          if (result !== true) {
+          if (!result.isValid) {
             lineErrors.push({
               lineNumber: index + 1,
-              message: typeof result === 'string' ? result : 'Invalid address',
+              message: 'error' in result ? result.error : 'Invalid address',
             });
+          } else {
+            // Use normalizedAddress from validation result for duplicate detection
+            // This handles network-specific address normalization (e.g., Tron is case-sensitive)
+            const normalizedAddress = result.normalizedAddress;
+            const seenIndex = seenNormalizedAddresses.get(normalizedAddress);
+            if (seenIndex !== undefined) {
+              lineErrors.push({
+                lineNumber: index + 1,
+                message: `Duplicate address (same as line ${seenIndex})`,
+              });
+            } else {
+              seenNormalizedAddresses.set(normalizedAddress, index + 1);
+            }
           }
         }
 
