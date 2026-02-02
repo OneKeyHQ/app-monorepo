@@ -296,7 +296,7 @@
   "cloud_backup_failed_google_desc": "संभावित कारण:\n1. नेटवर्क कनेक्शन संबंधी समस्याएँ\n2. सही Google खाते में साइन इन नहीं किया है\n3. Google Drive सिंक सक्षम नहीं है\n4. Google Drive में अपर्याप्त स्टोरेज (आप “Manage Backups” में पुराने बैकअप हटाकर जगह खाली कर सकते हैं)",
   "coming_soon": "जल्द ही आ रहा है",
   "coming_soon_desc": "हम वर्तमान में इस सुविधा का विकास कर रहे हैं और जल्द ही इसे उपलब्ध कराएंगे।",
-  "communication.communicating": "संचार किया जा रहा है...",
+  "communication.communicating": "आपके डिवाइस से कनेक्शन स्थापित किया जा रहा है…",
   "communication.not_detected_bluetooth_fallback": "USB का पता नहीं चला। OneKey अब ब्लूटूथ आज़माएगा — कृपया अनुरोध किए जाने पर ब्लूटूथ एक्सेस की अनुमति दें।",
   "communication.not_detected_bluetooth_no_permission": "USB का पता नहीं चला। कृपया USB के माध्यम से कनेक्ट करें, या अपने सिस्टम सेटिंग्स में OneKey को ब्लूटूथ एक्सेस की अनुमति दें।",
   "communication.not_detected_bluetooth_not_paired": "USB का पता नहीं चला। ब्लूटूथ पेयरिंग पर स्विच किया जा रहा है।",

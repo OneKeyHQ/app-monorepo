@@ -329,9 +329,13 @@ function TokenSelector() {
         initialized: false,
         isRefreshing: true,
       });
+      refreshActiveAccountTokenList({
+        tokens: [],
+        keys: '',
+      });
       const r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
-        accountId,
-        networkId,
+        accountId: activeAccountId,
+        networkId: activeNetworkId,
         indexedAccountId,
         flag: 'token-selector',
       });
@@ -353,11 +357,9 @@ function TokenSelector() {
       });
     }
   }, [
-    accountId,
     activeAccountId,
     activeNetworkId,
     indexedAccountId,
-    networkId,
     refreshActiveAccountTokenList,
     refreshTokenListMap,
     showActiveAccountTokenList,

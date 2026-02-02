@@ -296,7 +296,7 @@
   "cloud_backup_failed_google_desc": "Возможные причины:\n1. Проблемы с сетевым подключением\n2. Вы не вошли в нужный аккаунт Google\n3. Синхронизация с Google Drive не включена\n4. Недостаточно места в Google Drive (вы можете удалить старые резервные копии в разделе \"Управление резервными копиями\", чтобы освободить место)",
   "coming_soon": "Скоро будет доступно",
   "coming_soon_desc": "Мы в настоящее время разрабатываем эту функцию и скоро сделаем ее доступной.",
-  "communication.communicating": "Связь устанавливается...",
+  "communication.communicating": "Подключение к вашему устройству…",
   "communication.not_detected_bluetooth_fallback": "USB не обнаружен. OneKey теперь попробует подключиться через Bluetooth — пожалуйста, разрешите доступ к Bluetooth, когда появится запрос.",
   "communication.not_detected_bluetooth_no_permission": "USB не обнаружен. Пожалуйста, подключите устройство через USB или предоставьте OneKey доступ к Bluetooth в настройках вашей системы.",
   "communication.not_detected_bluetooth_not_paired": "USB не обнаружен. Переключение на сопряжение по Bluetooth.",
