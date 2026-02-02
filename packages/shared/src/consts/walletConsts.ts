@@ -37,4 +37,6 @@ export const WALLET_STORE_URLS = {
     'https://chromewebstore.google.com/detail/coinbase-wallet-extension/hnfanknocfeofbddgcijnmhnfnkdnaad',
   phantom:
     'https://chromewebstore.google.com/detail/phantom/bfnaelmomeimhlpmgjnjophhpkkoljpa',
-} as const satisfies Record<'okx' | 'coinbase' | 'phantom', string>;
+  zerion:
+    'https://chromewebstore.google.com/detail/zerion-wallet-crypto-defi/klghhnkeealcohjjanjjdaeeggmfmlpl',
+} as const satisfies Record<'okx' | 'coinbase' | 'phantom' | 'zerion', string>;

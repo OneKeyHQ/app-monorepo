@@ -25,7 +25,7 @@ jobs:
           Write-Host "Executed at: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
 
       - name: Checkout Source Code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
           lfs: true
 

@@ -1,10 +1,14 @@
+---
+name: 1k-code-quality
+description: Code quality standards for OneKey. Use when fixing lint warnings, running pre-commit tasks, handling unused variables, writing comments, or ensuring code quality. All comments must be in English. Triggers on lint, linting, eslint, oxlint, tsc, type check, unused variable, comment, documentation, spellcheck, code quality, pre-commit, yarn lint.
+allowed-tools: Read, Grep, Glob
+---
+
 # Code Quality
 
 Linting, documentation, and general code quality standards for OneKey.
 
-## Linting
-
-### Lint Commands
+## Lint Commands
 
 ```bash
 # Pre-commit (fast, only staged files)
@@ -19,7 +23,7 @@ yarn tsc:only    # Full type check
 
 **Note:** `yarn lint` is for CI only. For pre-commit, always use `yarn lint:staged`.
 
-### Pre-Commit Workflow
+## Pre-Commit Workflow
 
 For fast pre-commit validation:
 ```bash
@@ -30,7 +34,7 @@ yarn lint:staged
 yarn lint:staged && yarn tsc:staged
 ```
 
-### Common Lint Fixes
+## Common Lint Fixes
 
 ```typescript
 // Unused variable - prefix with underscore
@@ -47,28 +51,9 @@ void someAsyncFunction();   // ✅ OK (fire-and-forget)
 await someAsyncFunction();  // ✅ OK (wait for result)
 ```
 
-### Spellcheck
+## Language Requirements
 
-If a technical term triggers spellcheck errors, add it to the skip list:
-
-```bash
-# Check if word exists
-grep -i "yourword" development/spellCheckerSkipWords.txt
-
-# Add if not present (ask team lead first)
-echo "yourword" >> development/spellCheckerSkipWords.txt
-```
-
-## Comments and Documentation
-
-### Language Requirements
-
-- **All comments must be written in English**
-- Use clear and concise English for inline comments, function documentation, and code explanations
-- Avoid using non-English languages in comments
-- Do not use Chinese comments; always use English comments only
-
-### Comment Examples
+**All comments must be written in English:**
 
 ```typescript
 // ✅ GOOD: English comment
@@ -88,7 +73,7 @@ async function fetchBalance(address: string): Promise<bigint> {
 }
 ```
 
-### When to Comment
+## When to Comment
 
 ```typescript
 // ✅ GOOD: Explain non-obvious logic
@@ -102,19 +87,12 @@ const fee = isPremium ? baseFee * 0.5 : baseFee;
 // ❌ BAD: Obvious comment
 // Set the value to 5
 const value = 5;
-
-// ❌ BAD: Comment that could be code
-// Check if user is logged in
-if (user !== null) { ... }
-// Better:
-if (isLoggedIn(user)) { ... }
 ```
 
-## General Development Principles
+## Development Principles
 
 ### Single Responsibility
-
-Develop functions with a test-driven development mindset, ensuring each low-level function or method intended for reuse performs a single, atomic task.
+Each function should perform a single, atomic task:
 
 ```typescript
 // ✅ GOOD: Single responsibility
@@ -134,8 +112,7 @@ async function fetchUserBalanceAndUpdateUI(userId: string) {
 ```
 
 ### Avoid Over-Abstraction
-
-Avoid adding unnecessary abstraction layers. Don't create helpers for one-time operations.
+Don't create helpers for one-time operations:
 
 ```typescript
 // ❌ BAD: Over-abstracted
@@ -151,22 +128,37 @@ const user = await fetchUser(userId);
 const user = await fetch(`/api/users/${userId}`).then(r => r.json());
 ```
 
-### Consistent Naming
+## Detailed Guides
 
-```typescript
-// Boolean variables: use is/has/should prefix
-const isLoading = true;
-const hasPermission = false;
-const shouldRefresh = true;
+### Code Quality Standards
+See [code-quality.md](references/rules/code-quality.md) for comprehensive guidelines:
+- Linting commands and pre-commit workflow
+- Comment and documentation standards
+- Language requirements (English only)
+- Single responsibility principle
+- Avoiding over-abstraction
+- Consistent naming conventions
+- Code quality checklist
 
-// Event handlers: use handle prefix
-const handlePress = () => {};
-const handleSubmit = () => {};
+### Fixing Lint Warnings
+See [fix-lint.md](references/rules/fix-lint.md) for complete lint fix workflow:
+- Analyzing lint warnings
+- Categorizing lint errors
+- Common fix patterns by category
+- Spellcheck fixes
+- Unused variable/parameter handling
+- Automated fix strategies
+- Testing after fixes
 
-// Async functions: use verb describing action
-async function fetchUser() {}
-async function submitForm() {}
-async function validateInput() {}
+## Spellcheck
+
+If a technical term triggers spellcheck errors:
+```bash
+# Check if word exists
+grep -i "yourword" development/spellCheckerSkipWords.txt
+
+# Add if not present (ask team lead first)
+echo "yourword" >> development/spellCheckerSkipWords.txt
 ```
 
 ## Checklist
@@ -175,13 +167,15 @@ async function validateInput() {}
 - [ ] `yarn lint:staged` passes
 - [ ] `yarn tsc:staged` passes
 
-### CI (automated)
-- [ ] `yarn lint` passes
-- [ ] `yarn tsc:only` passes
-
 ### Code Quality
 - [ ] All comments are in English
 - [ ] No commented-out code committed
 - [ ] Functions have single responsibility
 - [ ] No unnecessary abstractions
 - [ ] Consistent naming conventions
+
+## Related Skills
+
+- `/1k-sentry-analysis` - Sentry error analysis and fixes
+- `/1k-test-version` - Test version creation workflow
+- `/1k-coding-patterns` - General coding patterns

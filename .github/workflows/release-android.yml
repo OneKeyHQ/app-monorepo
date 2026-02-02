@@ -27,7 +27,7 @@ jobs:
           echo "Executed at: $(date '+%Y-%m-%d %H:%M:%S')"
 
       - name: Checkout Source Code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
           lfs: true
 
