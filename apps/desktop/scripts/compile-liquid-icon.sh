@@ -11,10 +11,16 @@ OUTPUT_PATH="./resources/icons"
 PLIST_PATH="$OUTPUT_PATH/assetcatalog_generated_info.plist"
 DEVELOPMENT_REGION="en"
 
+# Create output directory if it doesn't exist
+mkdir -p "$OUTPUT_PATH"
+
 # Check if actool is available
 if ! command -v actool &> /dev/null; then
     echo "Warning: actool not found. Skipping Liquid Glass icon compilation."
-    echo "This tool requires Xcode and is only available on macOS 26+."
+    echo "This tool requires Xcode. macOS 26+ SDK is needed for Liquid Glass icon compilation."
+    echo "Creating empty Assets.car placeholder to prevent build failure."
+    # 创建空的 Assets.car 占位符，防止构建失败
+    touch "$OUTPUT_PATH/Assets.car"
     exit 0
 fi
 
@@ -22,11 +28,11 @@ fi
 if [ ! -d "$ICON_PATH" ]; then
     echo "Warning: Icon source not found at $ICON_PATH"
     echo "Skipping Liquid Glass icon compilation."
+    echo "Creating empty Assets.car placeholder to prevent build failure."
+    # 创建空的 Assets.car 占位符，防止构建失败
+    touch "$OUTPUT_PATH/Assets.car"
     exit 0
 fi
-
-# Create output directory if it doesn't exist
-mkdir -p "$OUTPUT_PATH"
 
 # Compile the icon
 echo "Running actool to compile icon..."
