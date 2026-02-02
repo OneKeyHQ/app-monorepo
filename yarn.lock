@@ -8634,13 +8634,13 @@ __metadata:
     node-notifier: "npm:^10.0.1"
     openpgp: "npm:5.11.3"
     oxfmt: "npm:^0.24.0"
-    oxlint: "npm:1.42.0"
+    oxlint: "npm:1.43.0"
     oxlint-tsgolint: "npm:^0.11.2"
     p-limit: "npm:^6.2.0"
     p-retry: "npm:^6.2.1"
     p-timeout: "npm:^6.1.4"
     patch-package: "npm:8.0.0"
-    prettier: "npm:3.6.2"
+    prettier: "npm:3.8.1"
     prettier-oxc-parser: "npm:^0.2.0"
     progress-bar-webpack-plugin: "npm:^2.1.0"
     punycode: "npm:^2.3.1"
@@ -9863,58 +9863,58 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@oxlint/darwin-arm64@npm:1.42.0":
-  version: 1.42.0
-  resolution: "@oxlint/darwin-arm64@npm:1.42.0"
+"@oxlint/darwin-arm64@npm:1.43.0":
+  version: 1.43.0
+  resolution: "@oxlint/darwin-arm64@npm:1.43.0"
   conditions: os=darwin & cpu=arm64
   languageName: node
   linkType: hard
 
-"@oxlint/darwin-x64@npm:1.42.0":
-  version: 1.42.0
-  resolution: "@oxlint/darwin-x64@npm:1.42.0"
+"@oxlint/darwin-x64@npm:1.43.0":
+  version: 1.43.0
+  resolution: "@oxlint/darwin-x64@npm:1.43.0"
   conditions: os=darwin & cpu=x64
   languageName: node
   linkType: hard
 
-"@oxlint/linux-arm64-gnu@npm:1.42.0":
-  version: 1.42.0
-  resolution: "@oxlint/linux-arm64-gnu@npm:1.42.0"
+"@oxlint/linux-arm64-gnu@npm:1.43.0":
+  version: 1.43.0
+  resolution: "@oxlint/linux-arm64-gnu@npm:1.43.0"
   conditions: os=linux & cpu=arm64 & libc=glibc
   languageName: node
   linkType: hard
 
-"@oxlint/linux-arm64-musl@npm:1.42.0":
-  version: 1.42.0
-  resolution: "@oxlint/linux-arm64-musl@npm:1.42.0"
+"@oxlint/linux-arm64-musl@npm:1.43.0":
+  version: 1.43.0
+  resolution: "@oxlint/linux-arm64-musl@npm:1.43.0"
   conditions: os=linux & cpu=arm64 & libc=musl
   languageName: node
   linkType: hard
 
-"@oxlint/linux-x64-gnu@npm:1.42.0":
-  version: 1.42.0
-  resolution: "@oxlint/linux-x64-gnu@npm:1.42.0"
+"@oxlint/linux-x64-gnu@npm:1.43.0":
+  version: 1.43.0
+  resolution: "@oxlint/linux-x64-gnu@npm:1.43.0"
   conditions: os=linux & cpu=x64 & libc=glibc
   languageName: node
   linkType: hard
 
-"@oxlint/linux-x64-musl@npm:1.42.0":
-  version: 1.42.0
-  resolution: "@oxlint/linux-x64-musl@npm:1.42.0"
+"@oxlint/linux-x64-musl@npm:1.43.0":
+  version: 1.43.0
+  resolution: "@oxlint/linux-x64-musl@npm:1.43.0"
   conditions: os=linux & cpu=x64 & libc=musl
   languageName: node
   linkType: hard
 
-"@oxlint/win32-arm64@npm:1.42.0":
-  version: 1.42.0
-  resolution: "@oxlint/win32-arm64@npm:1.42.0"
+"@oxlint/win32-arm64@npm:1.43.0":
+  version: 1.43.0
+  resolution: "@oxlint/win32-arm64@npm:1.43.0"
   conditions: os=win32 & cpu=arm64
   languageName: node
   linkType: hard
 
-"@oxlint/win32-x64@npm:1.42.0":
-  version: 1.42.0
-  resolution: "@oxlint/win32-x64@npm:1.42.0"
+"@oxlint/win32-x64@npm:1.43.0":
+  version: 1.43.0
+  resolution: "@oxlint/win32-x64@npm:1.43.0"
   conditions: os=win32 & cpu=x64
   languageName: node
   linkType: hard
@@ -35119,18 +35119,18 @@ __metadata:
   languageName: node
   linkType: hard
 
-"oxlint@npm:1.42.0":
-  version: 1.42.0
-  resolution: "oxlint@npm:1.42.0"
+"oxlint@npm:1.43.0":
+  version: 1.43.0
+  resolution: "oxlint@npm:1.43.0"
   dependencies:
-    "@oxlint/darwin-arm64": "npm:1.42.0"
-    "@oxlint/darwin-x64": "npm:1.42.0"
-    "@oxlint/linux-arm64-gnu": "npm:1.42.0"
-    "@oxlint/linux-arm64-musl": "npm:1.42.0"
-    "@oxlint/linux-x64-gnu": "npm:1.42.0"
-    "@oxlint/linux-x64-musl": "npm:1.42.0"
-    "@oxlint/win32-arm64": "npm:1.42.0"
-    "@oxlint/win32-x64": "npm:1.42.0"
+    "@oxlint/darwin-arm64": "npm:1.43.0"
+    "@oxlint/darwin-x64": "npm:1.43.0"
+    "@oxlint/linux-arm64-gnu": "npm:1.43.0"
+    "@oxlint/linux-arm64-musl": "npm:1.43.0"
+    "@oxlint/linux-x64-gnu": "npm:1.43.0"
+    "@oxlint/linux-x64-musl": "npm:1.43.0"
+    "@oxlint/win32-arm64": "npm:1.43.0"
+    "@oxlint/win32-x64": "npm:1.43.0"
   peerDependencies:
     oxlint-tsgolint: ">=0.11.2"
   dependenciesMeta:
@@ -35155,7 +35155,7 @@ __metadata:
       optional: true
   bin:
     oxlint: bin/oxlint
-  checksum: 10/ca9767e366f4d04413bacada598d805537ab3f7f23d148f9951e3239b17a1b497afe180e7427e608960baa77cd9690628ee7ea008e96baea52164500ff67a3e6
+  checksum: 10/179a01354cdfd79964155a0d5812fc26eca3bbd22e2860bb30b109a5ad8697289fff7eca2b5959d4171d440c9119a15ec6526340190f8a906ad692b699a242e8
   languageName: node
   linkType: hard
 
@@ -36514,12 +36514,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"prettier@npm:3.6.2":
-  version: 3.6.2
-  resolution: "prettier@npm:3.6.2"
+"prettier@npm:3.8.1":
+  version: 3.8.1
+  resolution: "prettier@npm:3.8.1"
   bin:
     prettier: bin/prettier.cjs
-  checksum: 10/1213691706bcef1371d16ef72773c8111106c3533b660b1cc8ec158bd109cdf1462804125f87f981f23c4a3dba053b6efafda30ab0114cc5b4a725606bb9ff26
+  checksum: 10/3da1cf8c1ef9bea828aa618553696c312e951f810bee368f6887109b203f18ee869fe88f66e65f9cf60b7cb1f2eae859892c860a300c062ff8ec69c381fc8dbd
   languageName: node
   linkType: hard
 
