@@ -1,6 +1,11 @@
+import { useCallback } from 'react';
 import { StyleSheet } from 'react-native';
 
+import { useIntl } from 'react-intl';
+
 import {
+  Badge,
+  Icon,
   Image,
   SizableText,
   Spinner,
@@ -8,12 +13,17 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { EXT_RATE_URL } from '@onekeyhq/shared/src/config/appConfig';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import externalWalletLogoUtils from '@onekeyhq/shared/src/utils/externalWalletLogoUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IExternalConnectionInfo } from '@onekeyhq/shared/types/externalWallet.types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
+import { useConnectExternalWallet } from '../../hooks/useWebDapp/useConnectExternalWallet';
+import { useOneKeyWalletDetection } from '../../hooks/useWebDapp/useOneKeyWalletDetection';
 import { useWalletConnection } from '../../hooks/useWebDapp/useWalletConnection';
 
 import { useFallbackWallets } from './hooks/useFallbackWallets';
@@ -117,6 +127,96 @@ function WalletItem({
   );
 }
 
+// OneKey wallet item - always shown first with Recommended badge
+function OneKeyWalletItem({ networkType }: { networkType?: string }) {
+  const intl = useIntl();
+  const { isOneKeyInstalled, getOneKeyConnectionInfo } =
+    useOneKeyWalletDetection();
+  const { connectToWalletWithDialog } = useConnectExternalWallet();
+
+  const handlePress = useCallback(() => {
+    if (isOneKeyInstalled) {
+      const connectionInfo = getOneKeyConnectionInfo();
+      if (connectionInfo) {
+        void connectToWalletWithDialog(connectionInfo);
+      }
+    } else {
+      // Select store URL based on browser type
+      let storeUrl = EXT_RATE_URL.chrome;
+      if (platformEnv.isRuntimeFirefox) {
+        storeUrl = EXT_RATE_URL.firefox;
+      } else if (platformEnv.isRuntimeEdge) {
+        storeUrl = EXT_RATE_URL.edge;
+      }
+      openUrlExternal(storeUrl);
+    }
+  }, [isOneKeyInstalled, getOneKeyConnectionInfo, connectToWalletWithDialog]);
+
+  return (
+    <Stack flexBasis="50%" p="$1.5">
+      <Stack
+        borderRadius="$3"
+        borderWidth={StyleSheet.hairlineWidth}
+        borderColor="$borderSubdued"
+        py="$3"
+        px="$5"
+        cursor="pointer"
+        hoverStyle={{
+          bg: '$bgStrong',
+        }}
+        pressStyle={{
+          bg: '$bgActive',
+        }}
+        onPress={handlePress}
+        focusable
+        focusVisibleStyle={{
+          outlineColor: '$focusRing',
+          outlineStyle: 'solid',
+          outlineWidth: 2,
+          outlineOffset: 2,
+        }}
+        minHeight={70}
+      >
+        <XStack alignItems="center" gap="$3" flex={1}>
+          <Stack
+            w="$10"
+            h="$10"
+            alignItems="center"
+            justifyContent="center"
+            borderRadius="$2"
+            borderCurve="continuous"
+            overflow="hidden"
+          >
+            <Icon
+              name="OnekeyBrand"
+              size="$10"
+              bg="#44D62C"
+              borderRadius="$2"
+            />
+          </Stack>
+          <Stack flex={1} justifyContent="center">
+            <XStack alignItems="center" gap="$2">
+              <SizableText userSelect="none" size="$bodyLgMedium">
+                OneKey
+              </SizableText>
+              <Badge badgeType="success" badgeSize="sm">
+                {intl.formatMessage({ id: ETranslations.earn_recommended })}
+              </Badge>
+            </XStack>
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {isOneKeyInstalled
+                ? networkType
+                : intl.formatMessage({
+                    id: ETranslations.wallet_onekey_wallet_without_description,
+                  })}
+            </SizableText>
+          </Stack>
+        </XStack>
+      </Stack>
+    </Stack>
+  );
+}
+
 // Reusable WalletConnect component
 function WalletConnectItem({ impl }: { impl?: string }) {
   return (
@@ -206,10 +306,11 @@ function ExternalWalletList({ impl }: { impl?: string }) {
   return (
     <Stack px="$5" py="$4">
       <XStack flexWrap="wrap" mx="$-1.5">
+        {/* OneKey - always first with Recommended badge */}
+        <OneKeyWalletItem networkType={networkLabel} />
         {/* detected wallets - filter out injected wallets and OneKey wallets */}
         {walletItems}
         {fallbackWalletItems}
-
         {/* WalletConnect - put at the end */}
         <WalletConnectItem impl={impl} />
       </XStack>

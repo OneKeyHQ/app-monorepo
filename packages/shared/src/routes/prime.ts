@@ -24,6 +24,7 @@ export enum EPrimePages {
   PrimeTransferPreview = 'PrimeTransferPreview',
   OneKeyId = 'OneKeyId',
   KeylessWallet = 'KeylessWallet',
+  PrimeMyOrders = 'PrimeMyOrders',
 }
 
 export enum EPrimeFeatures {
@@ -71,4 +72,5 @@ export type IPrimeParamList = {
   [EPrimePages.KeylessWallet]: {
     mode?: EOnboardingV2KeylessWalletCreationMode;
   };
+  [EPrimePages.PrimeMyOrders]: undefined;
 };
