@@ -296,7 +296,7 @@
   "cloud_backup_failed_google_desc": "Raisons possibles :\n1. Problèmes de connexion réseau\n2. Non connecté au compte Google correct\n3. Synchronisation Google Drive non activée\n4. Espace de stockage Google Drive insuffisant (vous pouvez supprimer les anciennes sauvegardes dans « Gérer les sauvegardes » pour libérer de l'espace)",
   "coming_soon": "Bientôt disponible",
   "coming_soon_desc": "Nous développons actuellement cette fonctionnalité et la rendrons disponible prochainement.",
-  "communication.communicating": "Communication en cours...",
+  "communication.communicating": "Connecting to your appareil…",
   "communication.not_detected_bluetooth_fallback": "USB non détecté. OneKey va maintenant essayer de se connecter via Bluetooth — veuillez autoriser l'accès Bluetooth lorsque vous y êtes invité.",
   "communication.not_detected_bluetooth_no_permission": "USB non détecté. Veuillez vous connecter via USB, ou accorder l'accès Bluetooth à OneKey dans les paramètres de votre système.",
   "communication.not_detected_bluetooth_not_paired": "USB non détecté. Passage à l'appairage Bluetooth.",
