@@ -126,8 +126,8 @@
               "value" : true
             }
           ],
-          "image-name" : "App Icon Green BG.svg",
-          "name" : "App Icon Green BG",
+          "image-name" : "App-Icon-Green-BG.svg",
+          "name" : "App-Icon-Green-BG",
           "position" : {
             "scale" : 3.29,
             "translation-in-points" : [
