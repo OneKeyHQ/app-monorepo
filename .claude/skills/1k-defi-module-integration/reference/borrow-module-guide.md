@@ -46,15 +46,43 @@ BorrowHome (integrated in Earn Tab)
 | `packages/kit/src/views/Borrow/components/BorrowedCard.tsx` | User's borrowed assets |
 | `packages/kit/src/views/Borrow/components/BorrowCard.tsx` | Available to borrow |
 
-### Operation Components
+### ManagePosition Component (Unified Operation Component)
+
+The `ManagePosition` component is a unified component that handles all 4 borrow operations (Supply, Withdraw, Borrow, Repay) through a single `action` prop. This reduces code duplication by 70-80%.
 
 | File | Purpose |
 |------|---------|
-| `packages/kit/src/views/Borrow/components/UniversalBorrowSupply/index.tsx` | Supply operation |
-| `packages/kit/src/views/Borrow/components/UniversalBorrowWithdraw/index.tsx` | Withdraw operation |
-| `packages/kit/src/views/Borrow/components/UniversalBorrowBorrow/index.tsx` | Borrow operation |
-| `packages/kit/src/views/Borrow/components/UniversalBorrowRepay/index.tsx` | Repay operation |
-| `packages/kit/src/views/Borrow/components/UniversalBorrowAction/index.tsx` | Shared validation hook |
+| `packages/kit/src/views/Borrow/components/ManagePosition/index.tsx` | Main entry, unified component for all 4 operations |
+| `packages/kit/src/views/Borrow/components/ManagePosition/ManagePositionContext.tsx` | Context for state management |
+| `packages/kit/src/views/Borrow/components/ManagePosition/types.ts` | Type definitions |
+
+#### ManagePosition Hooks
+
+| File | Purpose |
+|------|---------|
+| `packages/kit/src/views/Borrow/components/ManagePosition/hooks/useManagePositionState.ts` | Core state management (balance, validation, derived values) |
+| `packages/kit/src/views/Borrow/components/ManagePosition/hooks/useAmountInput.ts` | Amount input logic (onChange, onMax, percentage selection) |
+| `packages/kit/src/views/Borrow/components/ManagePosition/hooks/useTokenSelector.ts` | Token selector logic (navigation vs popover mode) |
+
+#### ManagePosition UI Modules
+
+| File | Purpose |
+|------|---------|
+| `packages/kit/src/views/Borrow/components/ManagePosition/modules/AmountInputSection.tsx` | Amount input area with token selector |
+| `packages/kit/src/views/Borrow/components/ManagePosition/modules/ActionFooter.tsx` | Confirm button and percentage keyboard |
+| `packages/kit/src/views/Borrow/components/ManagePosition/modules/InfoDisplaySection/index.tsx` | Info display area (health factor, APY, fees) |
+| `packages/kit/src/views/Borrow/components/ManagePosition/modules/InfoDisplaySection/HealthFactorInfo.tsx` | Health factor display |
+| `packages/kit/src/views/Borrow/components/ManagePosition/modules/InfoDisplaySection/PositionInfo.tsx` | Position info (supply/borrow amounts) |
+| `packages/kit/src/views/Borrow/components/ManagePosition/modules/InfoDisplaySection/ApyInfo.tsx` | APY details |
+| `packages/kit/src/views/Borrow/components/ManagePosition/modules/InfoDisplaySection/FeeInfo.tsx` | Fee information |
+| `packages/kit/src/views/Borrow/components/ManagePosition/modules/InfoDisplaySection/CollateralInfo.tsx` | Collateral info |
+| `packages/kit/src/views/Borrow/components/ManagePosition/modules/InfoDisplaySection/SwapOrBridgeInfo.tsx` | Swap/Bridge prompt |
+
+#### Shared Validation Hook
+
+| File | Purpose |
+|------|---------|
+| `packages/kit/src/views/Borrow/components/UniversalBorrowAction/index.tsx` | Shared validation hook (useUniversalBorrowAction) |
 
 ### Detail Pages
 
@@ -72,7 +100,7 @@ BorrowHome (integrated in Earn Tab)
 | `packages/kit/src/views/Borrow/hooks/useBorrowReserves.ts` | Fetch reserves |
 | `packages/kit/src/views/Borrow/hooks/useBorrowHealthFactor.ts` | Health factor with polling |
 | `packages/kit/src/views/Borrow/hooks/useBorrowRewards.ts` | Claimable rewards |
-| `packages/kit/src/views/Borrow/hooks/useUniversalBorrowHooks.ts` | Claim action |
+| `packages/kit/src/views/Borrow/hooks/useUniversalBorrowHooks.ts` | Transaction hooks (Supply, Withdraw, Borrow, Repay, Claim) |
 
 ### Utilities
 
@@ -83,175 +111,457 @@ BorrowHome (integrated in Earn Tab)
 
 ---
 
-## 4 Operation Types
+## ManagePosition Component
 
-### 1. Supply (Add Collateral)
+### Overview
 
-**Component:** `UniversalBorrowSupply`
+`ManagePosition` is a unified component that handles all 4 borrow operations (Supply, Withdraw, Borrow, Repay) through a single `action` prop. This reduces code duplication by 70-80%.
 
-**Props:**
+### Props
+
 ```typescript
-{
+interface IManagePositionProps {
+  // Core identifiers
   accountId: string;
   networkId: string;
   providerName: string;
   borrowMarketAddress: string;
   borrowReserveAddress: string;
-  balance: string;           // Wallet balance
-  maxBalance?: string;       // For max button
-  tokenSymbol: string;
-  tokenImageUri: string;
-  decimals: number;
-  price: string;
-  tokenInfo: ITokenInfo;
-  borrowReserves: IBorrowReserveItem;
+
+  // Action type - determines behavior
+  action: 'supply' | 'withdraw' | 'borrow' | 'repay';
+
+  // Token info
+  balance: string;           // Wallet balance (Supply/Repay) or Position balance (Withdraw/Borrow)
+  maxBalance?: string;       // For max button calculation
+  tokenSymbol?: string;
+  tokenImageUri?: string;
+  decimals?: number;
+  price?: string;
+  tokenInfo?: IEarnTokenInfo;
+
+  // UI configuration
   isDisabled?: boolean;
+  beforeFooter?: ReactElement | null;
   showApyDetail?: boolean;
   actionLabel?: string;
-  onConfirm: (params: ISupplyParams) => Promise<void>;
-}
-```
+  isInModalContext?: boolean;  // Modal context flag
 
-**Features:**
-- Amount input with percentage selector (25%, 50%, 75%, 100%)
-- Token selector (opens BorrowTokenSelect modal)
-- Health factor preview (current → after)
-- Supply APY display
-- "Can be used as collateral" indicator
-- Swap/Bridge options for token acquisition
-
-**Validation:**
-- Amount > 0
-- Amount <= wallet balance
-- Valid decimal places
-- Protocol-specific checks via `useUniversalBorrowAction`
-
-### 2. Withdraw (Remove Collateral)
-
-**Component:** `UniversalBorrowWithdraw`
-
-**Props:**
-```typescript
-{
-  accountId: string;
-  networkId: string;
-  providerName: string;
-  borrowMarketAddress: string;
-  borrowReserveAddress: string;
-  balance: string;           // Supplied amount
-  tokenSymbol: string;
-  tokenImageUri: string;
-  decimals: number;
-  price: string;
-  tokenInfo: ITokenInfo;
-  isDisabled?: boolean;
-  showApyDetail?: boolean;
-  actionLabel?: string;
-  selectableAssets?: ISelectableAsset[];  // For multi-asset withdrawal
+  // Token selection (for withdraw/repay popover mode)
+  selectableAssets?: IBorrowAsset[];
   selectableAssetsLoading?: boolean;
-  onTokenSelect?: (asset: ISelectableAsset) => void;
-  onConfirm: (params: IWithdrawParams) => Promise<void>;
+  onTokenSelect?: (item: IBorrowAsset) => void;
+
+  // Callbacks
+  onConfirm?: (params: IManagePositionConfirmParams) => Promise<void>;
+}
+
+interface IManagePositionConfirmParams {
+  amount: string;
+  withdrawAll?: boolean;  // For withdraw action
+  repayAll?: boolean;     // For repay action
 }
 ```
 
-**Features:**
-- Amount input
-- Asset selector popover (for multi-asset)
-- Health factor preview
-- "Withdraw All" option
-- Supply APY display
+### Action-Specific Behavior
 
-**Special:**
-- `isWithdrawAll` flag passed to `onConfirm`
-- Clears amount when token changes
+| Feature | Supply | Withdraw | Borrow | Repay |
+|---------|--------|----------|--------|-------|
+| Token Selector Mode | Navigation | Popover | Navigation | Popover |
+| Check Insufficient Balance | ✅ | ✅ | ❌ | ✅ |
+| Percentage Calculation Base | maxBalance | maxBalance | maxBalance | Wallet Balance |
+| Liquidation Risk Dialog | ❌ | ❌ | ✅ | ❌ |
+| isDisabled Affects Info Area | ❌ | ✅ | ✅ | ✅ |
+| Special Flag | - | withdrawAll | - | repayAll |
 
-### 3. Borrow
+### Usage Examples
 
-**Component:** `UniversalBorrowBorrow`
+```tsx
+import { ManagePosition } from '@onekeyhq/kit/src/views/Borrow/components/ManagePosition';
+import type { IManagePositionConfirmParams } from '@onekeyhq/kit/src/views/Borrow/components/ManagePosition';
 
-**Props:**
+// Supply
+<ManagePosition
+  accountId={accountId}
+  networkId={networkId}
+  providerName={providerName}
+  action="supply"
+  balance={walletBalance}
+  maxBalance={maxSupplyBalance}
+  tokenSymbol="USDC"
+  tokenImageUri={tokenLogo}
+  decimals={6}
+  price="1.00"
+  borrowMarketAddress={marketAddress}
+  borrowReserveAddress={reserveAddress}
+  onConfirm={async ({ amount }) => {
+    await handleSupply(amount);
+  }}
+/>
+
+// Withdraw with token selector
+<ManagePosition
+  accountId={accountId}
+  networkId={networkId}
+  providerName={providerName}
+  action="withdraw"
+  balance={suppliedBalance}
+  tokenSymbol="USDC"
+  tokenImageUri={tokenLogo}
+  decimals={6}
+  price="1.00"
+  borrowMarketAddress={marketAddress}
+  borrowReserveAddress={reserveAddress}
+  selectableAssets={suppliedAssets}
+  selectableAssetsLoading={isLoading}
+  onTokenSelect={handleTokenSelect}
+  onConfirm={async ({ amount, withdrawAll }) => {
+    await handleWithdraw(amount, withdrawAll);
+  }}
+/>
+
+// Borrow (liquidation risk dialog handled internally)
+<ManagePosition
+  accountId={accountId}
+  networkId={networkId}
+  providerName={providerName}
+  action="borrow"
+  balance={availableToBorrow}
+  tokenSymbol="USDC"
+  tokenImageUri={tokenLogo}
+  decimals={6}
+  price="1.00"
+  borrowMarketAddress={marketAddress}
+  borrowReserveAddress={reserveAddress}
+  onConfirm={async ({ amount }) => {
+    await handleBorrow(amount);
+  }}
+/>
+
+// Repay
+<ManagePosition
+  accountId={accountId}
+  networkId={networkId}
+  providerName={providerName}
+  action="repay"
+  balance={walletBalance}
+  maxBalance={debtBalance}  // Debt balance for repay all
+  tokenSymbol="USDC"
+  tokenImageUri={tokenLogo}
+  decimals={6}
+  price="1.00"
+  borrowMarketAddress={marketAddress}
+  borrowReserveAddress={reserveAddress}
+  selectableAssets={borrowedAssets}
+  selectableAssetsLoading={isLoading}
+  onTokenSelect={handleTokenSelect}
+  onConfirm={async ({ amount, repayAll }) => {
+    await handleRepay(amount, repayAll);
+  }}
+/>
+```
+
+### Internal Architecture
+
+```
+ManagePosition
+├── useManagePositionState()     # Core state (balance, validation, derived values)
+├── useAmountInput()             # Input handling (onChange, onMax, percentage)
+├── useTokenSelector()           # Token selector (navigation vs popover)
+├── useUniversalBorrowAction()   # Backend validation API
+├── ManagePositionContext        # Shared state via Context
+└── UI Modules
+    ├── AmountInputSection       # Input area
+    ├── InfoDisplaySection       # Info display
+    │   ├── HealthFactorInfo
+    │   ├── PositionInfo
+    │   ├── ApyInfo
+    │   ├── FeeInfo
+    │   ├── CollateralInfo
+    │   └── SwapOrBridgeInfo
+    └── ActionFooter             # Confirm button
+```
+
+### Token Selector Modes
+
+#### Navigation Mode (Supply/Borrow)
+
+Opens a full-screen token selection page:
+
 ```typescript
-{
+// In useTokenSelector.ts
+if (action === 'supply' || action === 'borrow') {
+  navigation.push(EModalStakingRoutes.BorrowTokenSelect, {
+    accountId,
+    networkId,
+    provider: providerName,
+    marketAddress: borrowMarketAddress,
+    action,
+    currentReserveAddress: borrowReserveAddress,
+    onSelect: (item: IBorrowAsset) => {
+      navigation.setParams({
+        reserveAddress: item.reserveAddress,
+        symbol: item.token.symbol,
+        logoURI: item.token.logoURI,
+      });
+    },
+  });
+}
+```
+
+#### Popover Mode (Withdraw/Repay)
+
+Shows a popover with selectable assets:
+
+```typescript
+// In useTokenSelector.ts
+if (action === 'withdraw' || action === 'repay') {
+  // Uses BorrowAssetSelectPopover component
+  const popoverContent = createBorrowAssetSelectPopoverContent({
+    assets: selectableAssets,
+    isLoading: selectableAssetsLoading,
+    selectedReserveAddress: borrowReserveAddress,
+    action: action as 'withdraw' | 'repay',
+    onSelect: (item) => {
+      setAmountValue('');  // Clear input when switching token
+      onTokenSelect?.(item);
+    },
+  });
+}
+```
+
+### Liquidation Risk Dialog (Borrow Only)
+
+For borrow action, the component automatically shows a liquidation risk confirmation dialog when the health factor is at risk:
+
+```typescript
+// In ActionFooter.tsx
+const handleConfirm = useCallback(async () => {
+  if (action === 'borrow' && actionResult?.riskOfLiquidationAlert) {
+    const confirmed = await showLiquidationRiskDialog();
+    if (!confirmed) return;
+  }
+  await onConfirm?.({ amount, withdrawAll, repayAll });
+}, [action, actionResult, amount, withdrawAll, repayAll, onConfirm]);
+```
+
+### Percentage Selection
+
+The percentage selector (25%, 50%, 75%, 100%) calculates differently based on action:
+
+```typescript
+// In useAmountInput.ts
+const onSelectPercentageStage = useCallback((stage: number) => {
+  let baseAmount: string;
+
+  if (action === 'repay') {
+    // Repay: percentage of wallet balance (not debt)
+    baseAmount = balance;
+  } else {
+    // Supply/Withdraw/Borrow: percentage of maxBalance
+    baseAmount = maxAmountValue;
+  }
+
+  const percentage = stage / 100;
+  const amount = new BigNumber(baseAmount).times(percentage).toFixed(decimals);
+  setAmountValue(amount);
+}, [action, balance, maxAmountValue, decimals, setAmountValue]);
+```
+
+### ManagePosition Context
+
+```typescript
+interface IManagePositionContextValue {
+  state: IManagePositionState;
+  actions: IManagePositionActions;
+  actionResult: IManagePositionActionResult | null;
+}
+
+interface IManagePositionState {
+  // Core identifiers
   accountId: string;
   networkId: string;
   providerName: string;
   borrowMarketAddress: string;
   borrowReserveAddress: string;
-  balance: string;           // Available to borrow
-  tokenSymbol: string;
-  tokenImageUri: string;
-  decimals: number;
-  price: string;
-  tokenInfo: ITokenInfo;
-  borrowReserves: IBorrowReserveItem;
-  isDisabled?: boolean;
-  showApyDetail?: boolean;
+
+  // Action configuration
+  action: TBorrowActionType;
   actionLabel?: string;
-  onConfirm: (params: IBorrowParams) => Promise<void>;
-}
-```
 
-**Features:**
-- Amount input with percentage selector
-- Token selector
-- Health factor preview
-- Borrow APY display
-- **Liquidation Risk Dialog** - Shows warning if borrowing increases risk
-
-**Liquidation Risk Handling:**
-```typescript
-const { riskOfLiquidationAlert } = useUniversalBorrowAction({
-  action: 'borrow',
-  // ... other params
-});
-
-// Before confirming, check risk
-if (riskOfLiquidationAlert) {
-  const confirmed = await showLiquidationRiskDialog();
-  if (!confirmed) return;
-}
-await onConfirm(params);
-```
-
-### 4. Repay
-
-**Component:** `UniversalBorrowRepay`
-
-**Props:**
-```typescript
-{
-  accountId: string;
-  networkId: string;
-  providerName: string;
-  borrowMarketAddress: string;
-  borrowReserveAddress: string;
-  balance: string;           // Wallet balance
-  maxBalance?: string;       // Debt balance (for repay all)
-  tokenSymbol: string;
-  tokenImageUri: string;
-  decimals: number;
+  // Token info
+  tokenSymbol?: string;
+  tokenImageUri?: string;
+  decimals?: number;
   price: string;
-  tokenInfo: ITokenInfo;
-  isDisabled?: boolean;
-  showApyDetail?: boolean;
-  actionLabel?: string;
-  selectableAssets?: ISelectableAsset[];
+  balance: string;
+  maxBalance?: string;
+  tokenInfo?: IEarnTokenInfo;
+  token?: IToken;
+  networkLogoURI?: string;
+
+  // UI state
+  isDisabled: boolean;
+  isInModalContext: boolean;
+  amountValue: string;
+  submitting: boolean;
+
+  // Derived values
+  maxAmountValue: string;
+  currentValue: string;
+  currencySymbol: string;
+
+  // Validation state
+  isInsufficientBalance: boolean;
+  isAmountInvalid: boolean;
+
+  // Action-specific flags
+  isWithdrawAll: boolean;
+  isRepayAll: boolean;
+
+  // Token selection
+  selectableAssets?: IBorrowAsset[];
   selectableAssetsLoading?: boolean;
-  onTokenSelect?: (asset: ISelectableAsset) => void;
-  onConfirm: (params: IRepayParams) => Promise<void>;
+  tokenSelectorMode: TTokenSelectorMode;
+  tokenSelectorTriggerProps: ITokenSelectorTriggerProps;
+
+  // UI configuration
+  showApyDetail: boolean;
+  beforeFooter?: ReactElement | null;
+}
+
+interface IManagePositionActions {
+  setAmountValue: (value: string) => void;
+  setSubmitting: (value: boolean) => void;
+  onChangeAmountValue: (value: string) => void;
+  onBlurAmountValue: () => void;
+  onMax: () => void;
+  onSelectPercentageStage: (stage: number) => void;
+  onTokenSelect?: (item: IBorrowAsset) => void;
+  handleOpenTokenSelector: () => void;
+  onSubmit: () => Promise<void>;
 }
 ```
 
-**Features:**
-- Amount input
-- Asset selector popover
-- Health factor preview
-- "Repay All" option
-- Borrow APY display
+### Usage in Modules
 
-**Special:**
-- `maxBalance` represents debt balance, not wallet balance
-- `isRepayAll` flag passed to `onConfirm`
+```typescript
+// In any module component
+import { useManagePositionContext } from '../ManagePositionContext';
+
+function AmountInputSection() {
+  const { state, actions } = useManagePositionContext();
+
+  return (
+    <StakingAmountInput
+      value={state.amountValue}
+      onChange={actions.onChangeAmountValue}
+      onMax={actions.onMax}
+      tokenSymbol={state.tokenSymbol}
+      tokenImageUri={state.tokenImageUri}
+      balance={state.balance}
+      isInsufficientBalance={state.isInsufficientBalance}
+      // ...
+    />
+  );
+}
+```
+
+---
+
+## Integration with Staking Module
+
+The `ManagePosition` component is used by the Staking module's `StakeSection` and `WithdrawSection` components when the Borrow API is enabled.
+
+### StakeSection Integration
+
+```typescript
+// In StakeSection.tsx
+import {
+  ManagePosition,
+  type IManagePositionConfirmParams,
+} from '@onekeyhq/kit/src/views/Borrow/components/ManagePosition';
+
+const StakeSection = ({ useBorrowApi, borrowAction, ... }) => {
+  const isBorrowStake =
+    borrowApiCtx.isBorrow &&
+    (borrowApiCtx.borrowApiParams.action === 'supply' ||
+      borrowApiCtx.borrowApiParams.action === 'borrow');
+
+  const onBorrowConfirm = useCallback(
+    async (params: IManagePositionConfirmParams) => {
+      const { amount } = params;
+      // Handle supply or borrow
+      await (action === 'borrow' ? handleBorrowBorrow : handleBorrowSupply)({
+        amount,
+        // ...
+      });
+    },
+    [...]
+  );
+
+  return isBorrowStake ? (
+    <ManagePosition
+      accountId={accountId}
+      networkId={networkId}
+      providerName={providerName}
+      action={borrowApiCtx.borrowApiParams.action as 'supply' | 'borrow'}
+      balance={tokenInfo?.balanceParsed ?? ''}
+      maxBalance={effectiveMaxBalance}
+      onConfirm={onBorrowConfirm}
+      isInModalContext={isInModalContext}
+      // ...
+    />
+  ) : (
+    <UniversalStake ... />
+  );
+};
+```
+
+### WithdrawSection Integration
+
+```typescript
+// In WithdrawSection.tsx
+import { ManagePosition } from '@onekeyhq/kit/src/views/Borrow/components/ManagePosition';
+import type { IManagePositionConfirmParams } from '@onekeyhq/kit/src/views/Borrow/components/ManagePosition';
+
+const WithdrawSection = ({ useBorrowApi, borrowAction, ... }) => {
+  const isBorrowWithdraw =
+    borrowApiCtx.isBorrow &&
+    (borrowApiCtx.borrowApiParams.action === 'withdraw' ||
+      borrowApiCtx.borrowApiParams.action === 'repay');
+
+  const onBorrowConfirm = useCallback(
+    async ({ amount, withdrawAll, repayAll }: IManagePositionConfirmParams) => {
+      if (action === 'repay') {
+        await handleBorrowRepay({ amount, repayAll, ... });
+      } else {
+        await handleBorrowWithdraw({ amount, withdrawAll, ... });
+      }
+    },
+    [...]
+  );
+
+  return isBorrowWithdraw ? (
+    <ManagePosition
+      accountId={accountId}
+      networkId={networkId}
+      providerName={providerName}
+      action={borrowApiCtx.borrowApiParams.action as 'withdraw' | 'repay'}
+      balance={effectiveBalance}
+      maxBalance={effectiveMaxBalance}
+      selectableAssets={assetsList.assets}
+      selectableAssetsLoading={assetsListLoading}
+      onTokenSelect={handleTokenSelect}
+      onConfirm={onBorrowConfirm}
+      isInModalContext={isInModalContext}
+      // ...
+    />
+  ) : (
+    <UniversalWithdraw ... />
+  );
+};
+```
 
 ---
 
@@ -1298,4 +1608,757 @@ const {
     title={checkAmountMessage}
   />
 )}
+```
+
+---
+
+## Repay with Collateral Pattern
+
+This section covers the "Repay with Collateral" feature, which allows users to repay debt using their collateral assets instead of wallet balance.
+
+### Overview
+
+| Aspect | Standard Repay | Repay with Collateral |
+|--------|---------------|----------------------|
+| Source | Wallet balance | Collateral assets |
+| Input | Single amount | Dual amount (Repay ↔ Using) |
+| Token Selection | Debt token | Collateral token |
+| Swap Required | No | Yes (collateral → debt) |
+| Slippage | Not needed | Required |
+| Price Impact | Not shown | Must show |
+
+### Repay Source Toggle
+
+```tsx
+type TRepaySource = 'wallet' | 'collateral';
+
+function RepaySourceToggle({
+  value,
+  onChange,
+}: {
+  value: TRepaySource;
+  onChange: (source: TRepaySource) => void;
+}) {
+  return (
+    <SegmentControl
+      value={value}
+      onChange={onChange}
+      options={[
+        { value: 'wallet', label: 'From wallet balance' },
+        { value: 'collateral', label: 'With Collateral' },
+      ]}
+    />
+  );
+}
+```
+
+**State Reset on Toggle:**
+```typescript
+const handleSourceChange = useCallback((source: TRepaySource) => {
+  setRepaySource(source);
+  // Reset amounts when switching source
+  setRepayAmount('');
+  setUsingAmount('');
+  // Reset selected collateral
+  if (source === 'collateral') {
+    setSelectedCollateral(defaultCollateral);
+  }
+}, [defaultCollateral]);
+```
+
+### Dual Amount Input Pattern
+
+For operations involving asset conversion (e.g., repay with collateral), implement dual input with bidirectional sync.
+
+**State Structure:**
+```typescript
+interface IDualInputState {
+  repayAmount: string;           // Debt token amount to repay
+  usingAmount: string;           // Collateral token amount to use
+  activeInput: 'repay' | 'using'; // Which input is being edited
+  isCalculating: boolean;        // Quote calculation in progress
+}
+
+const [dualInput, setDualInput] = useState<IDualInputState>({
+  repayAmount: '',
+  usingAmount: '',
+  activeInput: 'repay',
+  isCalculating: false,
+});
+```
+
+**Bidirectional Sync Logic:**
+```typescript
+// When repay amount changes, calculate using amount
+const calculateUsingAmount = useDebouncedCallback(
+  async (repayAmount: string) => {
+    if (!repayAmount || dualInput.activeInput !== 'repay') return;
+
+    setDualInput(prev => ({ ...prev, isCalculating: true }));
+
+    try {
+      const quote = await backgroundApiProxy.serviceStaking.getRepayWithCollateralQuote({
+        networkId,
+        provider,
+        marketAddress,
+        debtReserveAddress,
+        collateralReserveAddress: selectedCollateral.reserveAddress,
+        repayAmount,
+        slippage,
+      });
+
+      setDualInput(prev => ({
+        ...prev,
+        usingAmount: quote.collateralAmount,
+        isCalculating: false,
+      }));
+      setExchangeRate(quote.exchangeRate);
+      setPriceImpact(quote.priceImpact);
+    } catch (error) {
+      setDualInput(prev => ({ ...prev, isCalculating: false }));
+    }
+  },
+  300,
+);
+
+// When using amount changes, calculate repay amount
+const calculateRepayAmount = useDebouncedCallback(
+  async (usingAmount: string) => {
+    if (!usingAmount || dualInput.activeInput !== 'using') return;
+
+    setDualInput(prev => ({ ...prev, isCalculating: true }));
+
+    try {
+      const quote = await backgroundApiProxy.serviceStaking.getRepayWithCollateralQuote({
+        networkId,
+        provider,
+        marketAddress,
+        debtReserveAddress,
+        collateralReserveAddress: selectedCollateral.reserveAddress,
+        collateralAmount: usingAmount,
+        slippage,
+      });
+
+      setDualInput(prev => ({
+        ...prev,
+        repayAmount: quote.repayAmount,
+        isCalculating: false,
+      }));
+      setExchangeRate(quote.exchangeRate);
+      setPriceImpact(quote.priceImpact);
+    } catch (error) {
+      setDualInput(prev => ({ ...prev, isCalculating: false }));
+    }
+  },
+  300,
+);
+```
+
+**UI Component:**
+```tsx
+function DualAmountInput({
+  repayToken,
+  collateralToken,
+  dualInput,
+  onRepayAmountChange,
+  onUsingAmountChange,
+  exchangeRate,
+  priceImpact,
+}: IDualAmountInputProps) {
+  return (
+    <YStack gap="$3">
+      {/* Repay Amount Input */}
+      <YStack>
+        <SizableText size="$bodySm" color="$textSubdued">Repay</SizableText>
+        <XStack justifyContent="space-between" alignItems="center">
+          <NumberInput
+            value={dualInput.repayAmount}
+            onChange={(value) => {
+              onRepayAmountChange(value);
+            }}
+            onFocus={() => setDualInput(prev => ({ ...prev, activeInput: 'repay' }))}
+          />
+          <TokenSelector token={repayToken} disabled />
+        </XStack>
+        <XStack justifyContent="space-between">
+          <SizableText size="$bodySm" color="$textSubdued">
+            ${formatCurrency(repayAmountUsd)}
+          </SizableText>
+          <SizableText size="$bodySm" color="$textSubdued">
+            Available {repayToken.available} <Pressable onPress={onMax}>Max</Pressable>
+          </SizableText>
+        </XStack>
+      </YStack>
+
+      {/* Swap Arrow */}
+      <XStack justifyContent="center">
+        <Icon name="ArrowUpDownOutline" size={20} color="$iconSubdued" />
+      </XStack>
+
+      {/* Using Amount Input */}
+      <YStack>
+        <SizableText size="$bodySm" color="$textSubdued">Using</SizableText>
+        <XStack justifyContent="space-between" alignItems="center">
+          <NumberInput
+            value={dualInput.usingAmount}
+            onChange={(value) => {
+              onUsingAmountChange(value);
+            }}
+            onFocus={() => setDualInput(prev => ({ ...prev, activeInput: 'using' }))}
+          />
+          <CollateralSelector
+            selected={collateralToken}
+            onSelect={onCollateralSelect}
+          />
+        </XStack>
+        <XStack justifyContent="space-between">
+          <SizableText size="$bodySm" color={getPriceImpactColor(priceImpact)}>
+            ${formatCurrency(usingAmountUsd)} ({priceImpact})
+          </SizableText>
+        </XStack>
+      </YStack>
+
+      {/* Exchange Rate */}
+      <XStack justifyContent="space-between">
+        <SizableText size="$bodySm" color="$textSubdued">
+          1 {collateralToken.symbol} = {exchangeRate} {repayToken.symbol}
+        </SizableText>
+      </XStack>
+    </YStack>
+  );
+}
+```
+
+### Collateral Selector
+
+Unlike the standard token selector, the collateral selector shows:
+- Available collateral balance
+- USD value of collateral
+- Only assets that are currently supplied as collateral
+
+```tsx
+interface ICollateralAsset {
+  reserveAddress: string;
+  token: {
+    symbol: string;
+    logoURI: string;
+    decimals: number;
+  };
+  collateralBalance: string;      // Amount supplied as collateral
+  collateralBalanceUsd: string;   // USD value
+}
+
+function CollateralSelector({
+  selected,
+  assets,
+  onSelect,
+}: {
+  selected: ICollateralAsset;
+  assets: ICollateralAsset[];
+  onSelect: (asset: ICollateralAsset) => void;
+}) {
+  return (
+    <Popover>
+      <Popover.Trigger>
+        <XStack alignItems="center" gap="$1" cursor="pointer">
+          <Image source={{ uri: selected.token.logoURI }} size={24} />
+          <SizableText>{selected.token.symbol}</SizableText>
+          <Icon name="ChevronDownSmallOutline" size={16} />
+        </XStack>
+      </Popover.Trigger>
+      <Popover.Content>
+        <YStack>
+          <XStack justifyContent="space-between" px="$3" py="$2">
+            <SizableText size="$bodySm" color="$textSubdued">Asset</SizableText>
+            <SizableText size="$bodySm" color="$textSubdued">Available</SizableText>
+          </XStack>
+          {assets.map((asset) => (
+            <Pressable
+              key={asset.reserveAddress}
+              onPress={() => onSelect(asset)}
+            >
+              <XStack
+                justifyContent="space-between"
+                alignItems="center"
+                px="$3"
+                py="$2"
+                bg={asset.reserveAddress === selected.reserveAddress ? '$bgActive' : undefined}
+              >
+                <XStack alignItems="center" gap="$2">
+                  <Image source={{ uri: asset.token.logoURI }} size={32} />
+                  <SizableText>{asset.token.symbol}</SizableText>
+                </XStack>
+                <YStack alignItems="flex-end">
+                  <SizableText>
+                    {asset.collateralBalance} {asset.token.symbol}
+                  </SizableText>
+                  <SizableText size="$bodySm" color="$textSubdued">
+                    ${asset.collateralBalanceUsd}
+                  </SizableText>
+                </YStack>
+              </XStack>
+            </Pressable>
+          ))}
+        </YStack>
+      </Popover.Content>
+    </Popover>
+  );
+}
+```
+
+### Slippage Settings
+
+For operations involving swaps, implement slippage settings:
+
+```typescript
+interface ISlippageSettings {
+  mode: 'auto' | 'custom';
+  value: string;  // Percentage, e.g., "0.5"
+}
+
+const DEFAULT_SLIPPAGE = '0.5';
+
+function SlippageSettings({
+  settings,
+  onChange,
+}: {
+  settings: ISlippageSettings;
+  onChange: (settings: ISlippageSettings) => void;
+}) {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  return (
+    <YStack>
+      <Pressable onPress={() => setIsExpanded(!isExpanded)}>
+        <XStack justifyContent="space-between" alignItems="center">
+          <XStack alignItems="center" gap="$1">
+            <SizableText size="$bodySm" color="$textSubdued">Slippage</SizableText>
+            <Tooltip content="Maximum price difference you're willing to accept">
+              <Icon name="InfoCircleOutline" size={14} color="$iconSubdued" />
+            </Tooltip>
+          </XStack>
+          <XStack alignItems="center" gap="$1">
+            <SizableText size="$bodySm">
+              {settings.mode === 'auto' ? `Auto (${DEFAULT_SLIPPAGE}%)` : `${settings.value}%`}
+            </SizableText>
+            <Icon
+              name={isExpanded ? 'ChevronUpSmallOutline' : 'ChevronRightSmallOutline'}
+              size={16}
+              color="$iconSubdued"
+            />
+          </XStack>
+        </XStack>
+      </Pressable>
+
+      {isExpanded && (
+        <XStack gap="$2" mt="$2">
+          <Button
+            size="small"
+            variant={settings.mode === 'auto' ? 'primary' : 'secondary'}
+            onPress={() => onChange({ mode: 'auto', value: DEFAULT_SLIPPAGE })}
+          >
+            Auto
+          </Button>
+          {['0.1', '0.5', '1.0'].map((value) => (
+            <Button
+              key={value}
+              size="small"
+              variant={settings.mode === 'custom' && settings.value === value ? 'primary' : 'secondary'}
+              onPress={() => onChange({ mode: 'custom', value })}
+            >
+              {value}%
+            </Button>
+          ))}
+          <NumberInput
+            value={settings.mode === 'custom' ? settings.value : ''}
+            onChange={(value) => onChange({ mode: 'custom', value })}
+            placeholder="Custom"
+            suffix="%"
+            size="small"
+          />
+        </XStack>
+      )}
+    </YStack>
+  );
+}
+```
+
+### Price Impact Display
+
+Show price impact with color-coded severity:
+
+```typescript
+type TPriceImpactSeverity = 'low' | 'medium' | 'high';
+
+function getPriceImpactSeverity(impact: string): TPriceImpactSeverity {
+  const impactNum = Math.abs(parseFloat(impact));
+  if (impactNum < 0.5) return 'low';
+  if (impactNum < 2) return 'medium';
+  return 'high';
+}
+
+function getPriceImpactColor(impact: string): string {
+  const severity = getPriceImpactSeverity(impact);
+  switch (severity) {
+    case 'low':
+      return '$textSubdued';
+    case 'medium':
+      return '$textCaution';
+    case 'high':
+      return '$textCritical';
+  }
+}
+
+function PriceImpactDisplay({ impact, usdValue }: { impact: string; usdValue: string }) {
+  const severity = getPriceImpactSeverity(impact);
+  const color = getPriceImpactColor(impact);
+
+  return (
+    <XStack alignItems="center" gap="$1">
+      <SizableText size="$bodySm" color={color}>
+        ${usdValue} ({impact}%)
+      </SizableText>
+      {severity === 'high' && (
+        <Icon name="AlertTriangleOutline" size={14} color="$iconCritical" />
+      )}
+    </XStack>
+  );
+}
+```
+
+### Repay with Collateral Info Display
+
+Show the impact of the operation on user's position:
+
+```tsx
+function RepayWithCollateralInfo({
+  healthFactor,
+  myBorrow,
+  remainingCollateral,
+}: IRepayWithCollateralInfoProps) {
+  return (
+    <YStack gap="$3">
+      {/* Health Factor Change */}
+      <XStack justifyContent="space-between" alignItems="center">
+        <SizableText>Health factor</SizableText>
+        <XStack alignItems="center" gap="$2">
+          <SizableText color={getHealthFactorColor(healthFactor.current)}>
+            {healthFactor.current}
+          </SizableText>
+          <Icon name="ArrowRightOutline" size={14} color="$iconSubdued" />
+          <SizableText color={getHealthFactorColor(healthFactor.after)}>
+            {healthFactor.after}
+          </SizableText>
+        </XStack>
+      </XStack>
+      {healthFactor.after < 1.5 && (
+        <SizableText size="$bodySm" color="$textCritical">
+          Liquidation at &lt; 1.0
+        </SizableText>
+      )}
+
+      {/* My Borrow Change */}
+      <XStack justifyContent="space-between" alignItems="center">
+        <SizableText>My borrow</SizableText>
+        <XStack alignItems="center" gap="$2">
+          <YStack alignItems="flex-end">
+            <SizableText>{myBorrow.current}</SizableText>
+            <SizableText size="$bodySm" color="$textSubdued">
+              ${myBorrow.currentUsd}
+            </SizableText>
+          </YStack>
+          <Icon name="ArrowRightOutline" size={14} color="$iconSubdued" />
+          <YStack alignItems="flex-end">
+            <SizableText>{myBorrow.after}</SizableText>
+            <SizableText size="$bodySm" color="$textSubdued">
+              ${myBorrow.afterUsd}
+            </SizableText>
+          </YStack>
+        </XStack>
+      </XStack>
+
+      {/* Remaining Collateral */}
+      <XStack justifyContent="space-between" alignItems="center">
+        <SizableText>Remaining collateral</SizableText>
+        <SizableText>
+          {remainingCollateral.amount} {remainingCollateral.symbol} (${remainingCollateral.usd})
+        </SizableText>
+      </XStack>
+    </YStack>
+  );
+}
+```
+
+---
+
+## Adding a New Lending Protocol
+
+This section provides a comprehensive guide for integrating a new lending protocol (e.g., AAVE, Compound) into the Borrow module.
+
+### Protocol Feature Comparison
+
+Before integration, understand the protocol's features:
+
+| Feature | Morpho | AAVE v3 | Compound v3 |
+|---------|--------|---------|-------------|
+| Health Factor | ✅ | ✅ | ❌ (uses Account Liquidity) |
+| Multiple Markets | ✅ | ✅ | ✅ |
+| Flash Loans | ❌ | ✅ | ❌ |
+| Isolation Mode | ❌ | ✅ | ❌ |
+| E-Mode (Efficiency Mode) | ❌ | ✅ | ❌ |
+| Variable Rate | ✅ | ✅ | ✅ |
+| Stable Rate | ❌ | ✅ | ❌ |
+| Rewards | ✅ | ✅ | ✅ |
+| Permit (Gasless Approval) | ❌ | ✅ | ✅ |
+
+### Step 1: Define Protocol Types
+
+**Location:** `packages/shared/types/borrow/`
+
+```typescript
+// protocols/aave.ts
+export enum EAaveFeature {
+  IsolationMode = 'IsolationMode',
+  EMode = 'EMode',
+  StableRate = 'StableRate',
+}
+
+export interface IAaveMarket extends IBorrowMarketItem {
+  provider: 'aave';
+  features: EAaveFeature[];
+  eModeCategories?: IAaveEModeCategory[];
+}
+
+export interface IAaveEModeCategory {
+  id: number;
+  label: string;
+  ltv: string;
+  liquidationThreshold: string;
+  liquidationBonus: string;
+  assets: string[];  // Reserve addresses in this category
+}
+
+export interface IAaveReserve extends IBorrowReserveItem {
+  // AAVE-specific fields
+  stableBorrowRate?: string;
+  variableBorrowRate: string;
+  isIsolated?: boolean;
+  isolationModeTotalDebt?: string;
+  isolationModeDebtCeiling?: string;
+  eModeCategory?: number;
+}
+```
+
+### Step 2: Extend Provider Enum
+
+**Location:** `packages/shared/types/staking.ts`
+
+```typescript
+export enum EBorrowProvider {
+  Morpho = 'morpho',
+  Aave = 'aave',
+  Compound = 'compound',
+  // Add new provider here
+}
+```
+
+### Step 3: Implement Backend Service Methods
+
+**Location:** `packages/kit-bg/src/services/ServiceStaking.ts`
+
+```typescript
+// Add protocol-specific methods
+class ServiceStaking {
+  // ... existing methods
+
+  // AAVE-specific: Get E-Mode categories
+  @backgroundMethod()
+  async getAaveEModeCategories(params: {
+    networkId: string;
+    marketAddress: string;
+  }): Promise<IAaveEModeCategory[]> {
+    // Implementation
+  }
+
+  // AAVE-specific: Set E-Mode
+  @backgroundMethod()
+  async setAaveEMode(params: {
+    networkId: string;
+    marketAddress: string;
+    accountId: string;
+    categoryId: number;
+  }): Promise<IEncodedTx> {
+    // Implementation
+  }
+
+  // Protocol-agnostic methods should handle provider differences internally
+  @backgroundMethod()
+  async getBorrowReserves(params: IBorrowReservesParams): Promise<IBorrowReserveItem> {
+    const { provider } = params;
+
+    switch (provider) {
+      case EBorrowProvider.Aave:
+        return this.getAaveReserves(params);
+      case EBorrowProvider.Morpho:
+        return this.getMorphoReserves(params);
+      case EBorrowProvider.Compound:
+        return this.getCompoundReserves(params);
+      default:
+        throw new Error(`Unsupported provider: ${provider}`);
+    }
+  }
+}
+```
+
+### Step 4: Protocol-Specific UI Components (if needed)
+
+For protocols with unique features, create dedicated UI components:
+
+**Example: AAVE E-Mode Selector**
+
+```tsx
+// packages/kit/src/views/Borrow/components/AaveEModeSelector.tsx
+function AaveEModeSelector({
+  categories,
+  currentCategory,
+  onSelect,
+}: {
+  categories: IAaveEModeCategory[];
+  currentCategory: number;
+  onSelect: (categoryId: number) => void;
+}) {
+  return (
+    <YStack>
+      <XStack justifyContent="space-between" alignItems="center">
+        <SizableText>E-Mode</SizableText>
+        <Popover>
+          <Popover.Trigger>
+            <XStack alignItems="center" gap="$1" cursor="pointer">
+              <SizableText>
+                {currentCategory === 0
+                  ? 'Disabled'
+                  : categories.find(c => c.id === currentCategory)?.label}
+              </SizableText>
+              <Icon name="ChevronDownSmallOutline" size={16} />
+            </XStack>
+          </Popover.Trigger>
+          <Popover.Content>
+            <YStack>
+              <Pressable onPress={() => onSelect(0)}>
+                <XStack px="$3" py="$2">
+                  <SizableText>Disabled</SizableText>
+                </XStack>
+              </Pressable>
+              {categories.map((category) => (
+                <Pressable key={category.id} onPress={() => onSelect(category.id)}>
+                  <YStack px="$3" py="$2">
+                    <SizableText>{category.label}</SizableText>
+                    <SizableText size="$bodySm" color="$textSubdued">
+                      LTV: {category.ltv}% | Liquidation: {category.liquidationThreshold}%
+                    </SizableText>
+                  </YStack>
+                </Pressable>
+              ))}
+            </YStack>
+          </Popover.Content>
+        </Popover>
+      </XStack>
+    </YStack>
+  );
+}
+```
+
+### Step 5: Extend ManagePosition (if needed)
+
+For protocols with significantly different operation flows:
+
+```typescript
+// In ManagePosition/index.tsx
+function ManagePosition(props: IManagePositionProps) {
+  const { providerName, action } = props;
+
+  // Protocol-specific rendering
+  if (providerName === EBorrowProvider.Aave && action === 'borrow') {
+    return <AaveBorrowContent {...props} />;
+  }
+
+  // Default rendering
+  return <DefaultManagePositionContent {...props} />;
+}
+```
+
+### Step 6: Update Tag System
+
+**Location:** `packages/kit/src/views/Staking/utils/utils.ts`
+
+```typescript
+// Extend tag format if protocol has unique operations
+export function buildBorrowTag(params: {
+  provider: string;
+  action: TBorrowAction | 'setEMode';  // Add protocol-specific actions
+  claimIds?: string[];
+  eModeCategory?: number;  // AAVE-specific
+}): string {
+  const { provider, action, claimIds, eModeCategory } = params;
+  let tag = `borrow:${provider}:${action}`;
+
+  if (claimIds?.length) {
+    tag += `:${claimIds.join(',')}`;
+  }
+  if (eModeCategory !== undefined) {
+    tag += `:emode-${eModeCategory}`;
+  }
+
+  return tag;
+}
+```
+
+### Step 7: Testing Checklist
+
+- [ ] Test all 4 basic operations (Supply, Withdraw, Borrow, Repay)
+- [ ] Test protocol-specific features (E-Mode, Isolation Mode, etc.)
+- [ ] Test health factor calculation and display
+- [ ] Test liquidation risk warnings
+- [ ] Test rewards claiming
+- [ ] Test pending transaction tracking
+- [ ] Test error handling for protocol-specific errors
+- [ ] Test on all supported networks for the protocol
+- [ ] Test responsive layout (desktop/mobile)
+
+### Protocol Integration Checklist
+
+```markdown
+## New Protocol Integration Checklist
+
+### Phase 1: Type Definitions
+- [ ] Define protocol-specific types in `packages/shared/types/borrow/`
+- [ ] Add provider to `EBorrowProvider` enum
+- [ ] Define protocol feature flags
+
+### Phase 2: Backend Service
+- [ ] Implement `get{Protocol}Markets()` method
+- [ ] Implement `get{Protocol}Reserves()` method
+- [ ] Implement `get{Protocol}HealthFactor()` method (if applicable)
+- [ ] Implement protocol-specific action methods
+- [ ] Update `getBorrowReserves()` to handle new provider
+- [ ] Update `getBorrowTransactionConfirmation()` to handle new provider
+
+### Phase 3: UI Components
+- [ ] Determine if protocol needs custom UI components
+- [ ] Create protocol-specific components (if needed)
+- [ ] Update ManagePosition to handle protocol differences
+- [ ] Add protocol-specific info sections to detail page
+
+### Phase 4: Tag System
+- [ ] Update `buildBorrowTag()` for protocol-specific actions
+- [ ] Update `parseBorrowTag()` to handle new tag formats
+- [ ] Test pending transaction tracking
+
+### Phase 5: Testing
+- [ ] Test all operations on testnet
+- [ ] Test all operations on mainnet
+- [ ] Test edge cases (max amounts, zero balance, etc.)
+- [ ] Test error scenarios
+- [ ] Test responsive layout
+```
 ```

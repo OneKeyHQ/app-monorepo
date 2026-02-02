@@ -1,21 +1,80 @@
 diff --git a/node_modules/@tamagui/web/dist/cjs/hooks/useMedia.native.js b/node_modules/@tamagui/web/dist/cjs/hooks/useMedia.native.js
-index 47addac..3b32c89 100644
+index 47addac..a99b154 100644
 --- a/node_modules/@tamagui/web/dist/cjs/hooks/useMedia.native.js
 +++ b/node_modules/@tamagui/web/dist/cjs/hooks/useMedia.native.js
-@@ -160,11 +160,60 @@ function unlisten() {
+@@ -160,11 +160,130 @@ function unlisten() {
    }), dispose.clear();
  }
  var setupVersion = -1;
 +
-+
 +const ExpoDevice = require('expo-device');
-+function isTabletOrAndroid(callback) {
-+  if (import_constants.isAndroid) {
-+    callback(true);
-+  } else if (ExpoDevice.deviceType === ExpoDevice.DeviceType.TABLET) {
-+    callback(true);
++const ScreenOrientation = require('expo-screen-orientation');
++const { Dimensions } = require('react-native');
++const { ReactNativeDeviceUtils } = require('@onekeyfe/react-native-device-utils');
++
++// Breakpoint thresholds
++const BREAKPOINT_SM = 640;   // gtSm: minWidth 640
++const BREAKPOINT_MD = 768;   // gtMd: minWidth 768
++
++// Orientation constants from expo-screen-orientation
++const ORIENTATION_LANDSCAPE_LEFT = 3;
++const ORIENTATION_LANDSCAPE_RIGHT = 4;
++
++// Check if device is a DualScreen device
++let isDualScreen;
++function isDualScreenDevice() {
++  if (isDualScreen === undefined) {
++    isDualScreen = ReactNativeDeviceUtils.isDualScreenDevice();
++  }
++  return isDualScreen;
++}
++
++// Check if current orientation is landscape using expo-screen-orientation
++function isLandscapeOrientation(callback) {
++  ScreenOrientation.getOrientationAsync().then((orientation) => {
++    const isLandscape = orientation === ORIENTATION_LANDSCAPE_LEFT ||
++                        orientation === ORIENTATION_LANDSCAPE_RIGHT;
++    callback(isLandscape);
++  });
++}
++
++// Get breakpoint level for spanning layout
++function getSpanningBreakpointLevel() {
++  const { width } = Dimensions.get('window');
++  const halfWidth = width / 2;
++
++  if (halfWidth >= BREAKPOINT_MD) {
++    return 'md';    // halfWidth >= 768: use md breakpoint
++  } else if (halfWidth >= BREAKPOINT_SM) {
++    return 'gtSm';  // 640 <= halfWidth < 768: use gtSm breakpoint
 +  } else {
-+    callback(false);
++    return 'sm';    // halfWidth < 640: use sm breakpoint
++  }
++}
++
++// Get media query override info
++// callback receives: { shouldOverride: boolean, breakpointLevel: string | null }
++function getMediaOverride(callback) {
++  if (isDualScreenDevice() && ReactNativeDeviceUtils.isSpanning()) {
++    // DualScreen device in spanning mode: determine breakpoint based on half screen width
++    callback({ shouldOverride: true, breakpointLevel: getSpanningBreakpointLevel() });
++  } else if (ExpoDevice.deviceType === ExpoDevice.DeviceType.TABLET) {
++    // Tablet: check if landscape (spanning layout)
++    isLandscapeOrientation((isLandscape) => {
++      if (isLandscape) {
++        // Tablet landscape: determine breakpoint based on half screen width
++        callback({ shouldOverride: true, breakpointLevel: getSpanningBreakpointLevel() });
++      } else {
++        // Tablet portrait: lock to md
++        callback({ shouldOverride: true, breakpointLevel: 'md' });
++      }
++    });
++  } else if (import_constants.isAndroid) {
++    // Non-spanning layout + Android: lock to md
++    callback({ shouldOverride: true, breakpointLevel: 'md' });
++  } else {
++    // Other cases: no override, use default matchMedia result
++    callback({ shouldOverride: false, breakpointLevel: null });
 +  }
 +}
 +
@@ -24,43 +83,54 @@ index 47addac..3b32c89 100644
      var update = function() {
        var next = !!getMatch().matches;
 -      next !== mediaState[key2] && (mediaState = _object_spread_props(_object_spread({}, mediaState), _define_property({}, key2, next)), updateCurrentState());
-+      isTabletOrAndroid((_result5) => {
-+        if (_result5) {
-+           switch (key2) {
-+            case 'md':
-+              next = true;
-+              break;
-+            case 'gtMd':
-+              next = false;
-+              break;
-+            case '2md':
-+              next = false;
-+              break;
-+            case 'gt2md':
-+              next = false;
-+              break;
-+            case 'lg':
-+              next = false;
-+              break;
-+            case 'gtLg':
-+              next = false;
-+              break;
-+            case 'xl':
-+              next = false;
-+              break;
-+            case 'gtXl':
-+              next = false;
-+              break;
-+            case '2xl':
-+              next = false;
-+              break;
-+            case 'gt2xl':
-+              next = false;
-+              break;
-+           }
++      getMediaOverride((override) => {
++        if (override.shouldOverride) {
++          var level = override.breakpointLevel;
++          // Override media query result based on breakpoint level
++          if (level === 'sm') {
++            // halfWidth < 640: use sm breakpoint
++            if (key2 === 'sm') next = true;
++            else if (key2 === 'gtSm') next = false;
++            else if (key2 === 'md') next = false;
++            else if (key2 === 'gtMd') next = false;
++            else if (key2 === '2md') next = false;
++            else if (key2 === 'gt2md') next = false;
++            else if (key2 === 'lg') next = false;
++            else if (key2 === 'gtLg') next = false;
++            else if (key2 === 'xl') next = false;
++            else if (key2 === 'gtXl') next = false;
++            else if (key2 === '2xl') next = false;
++            else if (key2 === 'gt2xl') next = false;
++          } else if (level === 'gtSm') {
++            // 640 <= halfWidth < 768: use gtSm breakpoint
++            if (key2 === 'sm') next = false;
++            else if (key2 === 'gtSm') next = true;
++            else if (key2 === 'md') next = false;
++            else if (key2 === 'gtMd') next = false;
++            else if (key2 === '2md') next = false;
++            else if (key2 === 'gt2md') next = false;
++            else if (key2 === 'lg') next = false;
++            else if (key2 === 'gtLg') next = false;
++            else if (key2 === 'xl') next = false;
++            else if (key2 === 'gtXl') next = false;
++            else if (key2 === '2xl') next = false;
++            else if (key2 === 'gt2xl') next = false;
++          } else if (level === 'md') {
++            // halfWidth >= 768 or Android non-spanning: use md breakpoint
++            if (key2 === 'md') next = true;
++            else if (key2 === 'gtMd') next = false;
++            else if (key2 === '2md') next = false;
++            else if (key2 === 'gt2md') next = false;
++            else if (key2 === 'lg') next = false;
++            else if (key2 === 'gtLg') next = false;
++            else if (key2 === 'xl') next = false;
++            else if (key2 === 'gtXl') next = false;
++            else if (key2 === '2xl') next = false;
++            else if (key2 === 'gt2xl') next = false;
++          }
 +        }
 +        next !== mediaState[key2] && (mediaState = _object_spread_props(_object_spread({}, mediaState), _define_property({}, key2, next)), updateCurrentState());
-+      })
++      });
      }, str = mediaObjectToString(mediaQueryConfig[key2], key2), getMatch = function() {
        return (0, import_matchMedia.matchMedia)(str);
      }, match = getMatch();

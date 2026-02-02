@@ -198,33 +198,30 @@ function FavoritesBar() {
   }
 
   return (
-    <XStack position="relative" h={40} alignItems="flex-start">
-      <XStack
-        alignItems="center"
-        h={40}
-        bg="$bgApp"
-        borderBottomWidth="$px"
-        borderBottomColor="$borderSubdued"
-        pl="$3"
-        flexShrink={0}
-      >
-        <DisplayModeToggle
-          displayMode={displayMode}
-          onToggle={toggleDisplayMode}
-        />
-      </XStack>
-      <Stack position="relative" flex={1} h={40} pr="$2">
+    <XStack
+      position="relative"
+      h={40}
+      alignItems="center"
+      gap="$3"
+      borderBottomWidth="$px"
+      borderBottomColor="$borderSubdued"
+      flex={1}
+      pl="$5"
+    >
+      <Icon name="StarSolid" size="$3" color="$icon" />
+      <DisplayModeToggle
+        displayMode={displayMode}
+        onToggle={toggleDisplayMode}
+      />
+      <Stack position="relative" flex={1} h={40} justifyContent="center">
         <ScrollView
           ref={scrollRef as any}
           horizontal
           showsHorizontalScrollIndicator={false}
           bg="$bgApp"
-          borderBottomWidth="$px"
-          borderBottomColor="$borderSubdued"
           h={24}
           contentContainerStyle={{
             alignItems: 'center',
-            px: '$2',
             gap: '$1',
           }}
           onScroll={updateScrollState}

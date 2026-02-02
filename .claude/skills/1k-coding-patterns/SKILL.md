@@ -6,111 +6,62 @@ allowed-tools: Read, Grep, Glob, Write, Edit
 
 # OneKey Coding Patterns and Best Practices
 
-## General Development
-- Develop functions with a test-driven development mindset, ensuring each low-level function or method intended for reuse performs a single, atomic task, but avoid adding unnecessary abstraction layers
+## Quick Reference
 
-## Promise Handling - MANDATORY COMPLIANCE
-- **ALWAYS** await Promises; use `void` prefix ONLY if intentionally not awaiting
-- **ZERO TOLERANCE** for floating promises - they cause unhandled rejections
-- **FOLLOW** the `@typescript-eslint/no-floating-promises` rule strictly
-- **BEFORE ANY ASYNC OPERATION**: Consider error scenarios and add appropriate try/catch blocks
-- **VERIFY**: All Promise chains have proper error handling
+| Topic | Guide | Key Points |
+|-------|-------|------------|
+| Promise handling | [promise-handling.md](references/rules/promise-handling.md) | Always await or use `void`, never floating promises |
+| React components | [react-components.md](references/rules/react-components.md) | Named imports, functional components, no FC type |
+| Restricted patterns | [restricted-patterns.md](references/rules/restricted-patterns.md) | Forbidden: `toLocaleLowerCase`, direct hd-core import |
 
-## React Components
-- Avoid default React import; use named imports only
-- Prefer functional components over class components
-- Use pure functions to create components; avoid importing `import type { FC } from 'react'`
-- Follow React hooks rules (dependencies array, call only at top level)
-- Use the `usePromiseResult` and `useAsyncCall` hooks with proper dependency arrays
+## Critical Rules Summary
 
-## Restricted Patterns - STRICTLY FORBIDDEN
+### Promise Handling
 
-**ABSOLUTELY FORBIDDEN PATTERNS**:
-- ❌ **NEVER** use `toLocaleLowerCase()` or `toLocaleUpperCase()` → Use `toLowerCase()` and `toUpperCase()` instead
-- ❌ **NEVER** directly import from `'@onekeyfe/hd-core'` → ALWAYS use `const {} = await CoreSDKLoader()` pattern
-- ❌ **NEVER** import `localDbInstance` directly → ALWAYS use `localDb` instead
-- ❌ **NEVER** modify auto-generated files (`translations.ts`, locale JSON files)
-- ❌ **NEVER** bypass TypeScript types with `any` or `@ts-ignore` without documented justification
-- ❌ **NEVER** commit code that fails linting or TypeScript compilation
-
-**VIOLATION CONSEQUENCES**:
-- Build failures and broken development environment
-- Security vulnerabilities and data corruption
-- Breaking multi-platform compatibility
-- Circular dependency hell
-
-## Error Handling
-- Use try/catch blocks for async operations that might fail
-- Provide appropriate error messages and fallbacks
-- Consider using the `useAsyncCall` hook for operations that need loading/error states
-
-## Linting and Code Quality
-- ESLint warnings should be fixed before PRs
-- Run `yarn run lint` to check for and fix ESLint issues
-
-## Comments and Documentation
-- All comments must be written in English
-- Use clear and concise English for inline comments, function documentation, and code explanations
-- Avoid using non-English languages in comments to maintain consistency and accessibility for all developers
-- Do not use Chinese comments; always use English comments only
-
-## Code Examples
-
-### Correct Promise Handling
 ```typescript
-// GOOD: Properly awaited
-async function fetchData() {
-  try {
-    const result = await apiCall();
-    return result;
-  } catch (error) {
-    console.error('Failed to fetch:', error);
-    throw error;
-  }
-}
+// ❌ FORBIDDEN - floating promise
+apiCall();
 
-// GOOD: Intentionally not awaited (with void)
-void backgroundTask();
-
-// BAD: Floating promise
-function badExample() {
-  apiCall(); // ❌ Will trigger lint error
-}
+// ✅ CORRECT
+await apiCall();
+// or
+void apiCall(); // intentionally not awaited
 ```
 
-### Correct React Component Pattern
+### React Components
+
 ```typescript
-// GOOD: Named imports, functional component
-import { useState, useEffect, useCallback } from 'react';
-import { Stack, Button } from '@onekeyhq/components';
+// ❌ FORBIDDEN
+import React, { FC } from 'react';
+const MyComponent: FC<Props> = () => {};
 
-function MyComponent({ data }: { data: MyData }) {
-  const [state, setState] = useState(null);
-
-  const handlePress = useCallback(() => {
-    // handler logic
-  }, []);
-
-  return (
-    <Stack>
-      <Button onPress={handlePress}>Action</Button>
-    </Stack>
-  );
-}
-
-// BAD: Default import, FC type
-import React, { FC } from 'react'; // ❌
-const MyComponent: FC<Props> = () => {}; // ❌
+// ✅ CORRECT
+import { useState, useCallback } from 'react';
+function MyComponent({ prop }: { prop: string }) {}
 ```
 
-### Correct HD Core Usage
-```typescript
-// GOOD: Use CoreSDKLoader
-async function useHardware() {
-  const { HardwareSDK } = await CoreSDKLoader();
-  // use HardwareSDK
-}
+### Restricted Patterns
 
-// BAD: Direct import
-import { HardwareSDK } from '@onekeyfe/hd-core'; // ❌
+```typescript
+// ❌ FORBIDDEN
+string.toLocaleLowerCase()
+import { x } from '@onekeyfe/hd-core';
+import { localDbInstance } from '...';
+
+// ✅ CORRECT
+string.toLowerCase()
+const { x } = await CoreSDKLoader();
+import { localDb } from '...';
 ```
+
+## Related Skills
+
+- `/1k-date-formatting` - Date and time formatting
+- `/1k-i18n` - Internationalization and translations
+- `/1k-error-handling` - Error handling patterns
+- `/1k-cross-platform` - Platform-specific code
+- `/1k-code-quality` - Linting and code quality
+- `/1k-performance` - Performance optimization
+- `/1k-state-management` - Jotai atom patterns
+- `/1k-architecture` - Project structure and import rules
+- `/1k-code-quality` - Lint fixes, pre-commit tasks

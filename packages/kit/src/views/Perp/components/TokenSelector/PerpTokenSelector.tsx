@@ -545,19 +545,13 @@ function BasePerpTokenSelectorContent({
           )}
         >
           <Tabs.Tab name={tabNames.favorites}>
-            {activeTab === 'favorites'
-              ? renderTokenList(listDataByTab.favorites, listRefFavorites, true)
-              : null}
+            {renderTokenList(listDataByTab.favorites, listRefFavorites, true)}
           </Tabs.Tab>
           <Tabs.Tab name={tabNames.all}>
-            {activeTab === 'all'
-              ? renderTokenList(listDataByTab.all, listRefAll, false)
-              : null}
+            {renderTokenList(listDataByTab.all, listRefAll, false)}
           </Tabs.Tab>
           <Tabs.Tab name={tabNames.hip3}>
-            {activeTab === 'hip3'
-              ? renderTokenList(listDataByTab.hip3, listRefHip3, false)
-              : null}
+            {renderTokenList(listDataByTab.hip3, listRefHip3, false)}
           </Tabs.Tab>
         </Tabs.Container>
       </YStack>
@@ -605,7 +599,8 @@ function BasePerpTokenSelector() {
             gap="$3"
             bg="$bgApp"
             cursor="pointer"
-            p="$2"
+            px="$2"
+            py="$1.5"
             borderRadius="$full"
             hoverStyle={{
               bg: '$bgHover',

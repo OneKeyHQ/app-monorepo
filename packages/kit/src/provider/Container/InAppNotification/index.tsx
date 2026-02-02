@@ -17,7 +17,12 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EModalRoutes, EModalSwapRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EModalRoutes,
+  EModalSwapRoutes,
+  ETabEarnRoutes,
+  ETabRoutes,
+} from '@onekeyhq/shared/src/routes';
 import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
 import notificationsUtils from '@onekeyhq/shared/src/utils/notificationsUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -25,6 +30,7 @@ import {
   ENotificationPushTopicTypes,
   type INotificationPushMessageInfo,
 } from '@onekeyhq/shared/types/notification';
+import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 import {
   ESwapApproveTransactionStatus,
   ESwapSource,
@@ -408,7 +414,7 @@ const InAppNotification = () => {
   }, [intl, setInAppNotificationAtom, speedSwapApprovingTransaction?.status]);
 
   useEffect(() => {
-    const callback = ({
+    const callback = async ({
       notificationId,
       title,
       description,
@@ -425,6 +431,64 @@ const InAppNotification = () => {
       const isSystemTopic =
         (topicType as ENotificationPushTopicTypes) ===
         ENotificationPushTopicTypes.system;
+
+      // Check if this is an Earn/Borrow transaction by looking up local history
+      let earnAction: JSX.Element | undefined;
+      const { transactionHash, networkId, accountAddress } =
+        remotePushMessageInfo?.extras?.params || {};
+
+      if (transactionHash && networkId && accountAddress) {
+        try {
+          const historyId = `${networkId}_${transactionHash}_${accountAddress}_`;
+          const localTx =
+            await backgroundApiProxy.simpleDb.localHistory.getLocalHistoryTxById(
+              {
+                networkId,
+                accountAddress,
+                historyId,
+              },
+            );
+
+          const label = localTx?.stakingInfo?.label;
+          const isEarnTransaction =
+            label &&
+            [
+              EEarnLabels.Stake,
+              EEarnLabels.Claim,
+              EEarnLabels.Redeem,
+              EEarnLabels.Withdraw,
+              EEarnLabels.Supply,
+            ].includes(label);
+          const isBorrowTransaction =
+            label && [EEarnLabels.Borrow, EEarnLabels.Repay].includes(label);
+
+          if (isEarnTransaction || isBorrowTransaction) {
+            earnAction = (
+              <Button
+                variant="primary"
+                size="small"
+                onPress={() => {
+                  navigation.switchTab(ETabRoutes.Earn, {
+                    screen: ETabEarnRoutes.EarnHome,
+                    params: { mode: isBorrowTransaction ? 'borrow' : 'earn' },
+                  });
+                }}
+              >
+                <SizableText size="$bodyMdMedium" color="$textInverse">
+                  {intl.formatMessage({
+                    id: isBorrowTransaction
+                      ? ETranslations.global_borrow
+                      : ETranslations.global_earn,
+                  })}
+                </SizableText>
+              </Button>
+            );
+          }
+        } catch {
+          // Ignore errors when looking up local history
+        }
+      }
+
       const toast = Toast.notification({
         title,
         message: description,
@@ -434,6 +498,8 @@ const InAppNotification = () => {
           : remotePushMessageInfo?.extras?.image,
         duration: 10 * 1000,
         imageUri: remotePushMessageInfo?.extras?.image,
+        actions: earnAction,
+        actionsAlign: 'left',
         onPress: async () => {
           setTimeout(async () => {
             await whenAppUnlocked();
@@ -458,7 +524,7 @@ const InAppNotification = () => {
     return () => {
       appEventBus.off(EAppEventBusNames.ShowInAppPushNotification, callback);
     };
-  }, [navigation]);
+  }, [intl, navigation]);
 
   return null;
 };

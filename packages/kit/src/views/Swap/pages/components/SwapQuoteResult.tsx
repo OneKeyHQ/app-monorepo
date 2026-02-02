@@ -356,9 +356,11 @@ const SwapQuoteResult = ({
             toToken={toToken}
             showLock={!!quoteResult?.allowanceResult}
             onPress={
-              quoteResult?.info.provider && swapQuoteList?.length > 1
+              quoteResult?.info.provider &&
+              swapQuoteList?.length > 1 &&
+              onOpenProviderList
                 ? () => {
-                    onOpenProviderList?.();
+                    onOpenProviderList();
                   }
                 : undefined
             }
@@ -426,14 +428,8 @@ const SwapQuoteResult = ({
               />
             )}
           </Accordion.Trigger>
-          <Accordion.HeightAnimator animation="quick">
-            <Accordion.Content
-              gap="$4"
-              p="$0"
-              animation="quick"
-              enterStyle={{ opacity: 0 }}
-              exitStyle={{ opacity: 0 }}
-            >
+          <Accordion.HeightAnimator animation="quick" overflow="hidden">
+            <Accordion.Content gap="$4" p="$0">
               <Divider mt="$4" />
               {swapProviderSupportReceiveAddress &&
               swapEnableRecipientAddress ? (
@@ -489,9 +485,9 @@ const SwapQuoteResult = ({
                   toToken={toToken}
                   showLock={!!quoteResult?.allowanceResult}
                   onPress={
-                    quoteResult?.info.provider
+                    quoteResult?.info.provider && onOpenProviderList
                       ? () => {
-                          onOpenProviderList?.();
+                          onOpenProviderList();
                         }
                       : undefined
                   }

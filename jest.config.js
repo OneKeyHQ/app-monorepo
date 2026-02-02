@@ -83,6 +83,8 @@ module.exports = async () => {
       ],
     ],
     testPathIgnorePatterns: [
+      // Detox E2E tests have their own Jest config under apps/mobile/e2e and must not run in unit-test CI.
+      'apps/mobile/e2e',
       'packages/core/src/chains/ada',
       'packages/core/src/chains/algo',
       'packages/core/src/chains/apt',

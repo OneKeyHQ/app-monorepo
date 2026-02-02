@@ -505,7 +505,17 @@ export function ConfirmOnDeviceToastContent({
   );
 }
 
-export function CommonDeviceLoading({ children }: { children?: any }) {
+export function CommonDeviceLoading({
+  children,
+  deviceType,
+  walletName,
+  bleName,
+}: {
+  children?: any;
+  deviceType?: IDeviceType;
+  walletName?: string;
+  bleName?: string;
+}) {
   const [{ hardwareTransportType }] = useSettingsPersistAtom();
   const { result: communicationMethod } = usePromiseResult<'bluetooth' | 'usb'>(
     async () => {
@@ -527,7 +537,12 @@ export function CommonDeviceLoading({ children }: { children?: any }) {
   );
   return (
     <>
-      <CommunicatingLottieView method={communicationMethod} />
+      <CommunicatingLottieView
+        method={communicationMethod}
+        deviceType={deviceType}
+        walletName={walletName}
+        bleName={bleName}
+      />
       {children}
     </>
   );
