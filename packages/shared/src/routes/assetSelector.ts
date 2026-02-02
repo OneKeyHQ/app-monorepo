@@ -86,6 +86,8 @@ export type IAggregateTokenSelectorParams = {
   closeAfterSelect?: boolean;
   enableNetworkAfterSelect?: boolean;
   hideZeroBalanceTokens?: boolean;
+  /** Filter tokens by exchange supported assets - used to show loading state */
+  exchangeFilter?: IExchangeFilter;
 };
 
 export type IAssetSelectorParamList = {

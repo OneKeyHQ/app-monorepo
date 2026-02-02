@@ -256,11 +256,25 @@ function TokenListViewCmp(props: IProps) {
     // Filter by exchange supported assets (e.g., Binance Connect)
     if (exchangeFilter?.supportedAssets) {
       resultTokens = resultTokens.filter((item) => {
+        const symbolUpper = (
+          item.commonSymbol ??
+          item.symbol ??
+          ''
+        ).toUpperCase();
+
+        // For aggregate tokens, check if the symbol is supported in ANY network
+        if (item.isAggregateToken) {
+          return Object.values(exchangeFilter.supportedAssets).some(
+            (networkAssets) =>
+              networkAssets[symbolUpper]?.withdrawEnable === true,
+          );
+        }
+
+        // For regular tokens, check the specific network
         const networkAssets =
           exchangeFilter.supportedAssets[item.networkId ?? ''];
         if (!networkAssets) return false;
 
-        const symbolUpper = (item.symbol ?? '').toUpperCase();
         const assetConfig = networkAssets[symbolUpper];
         return assetConfig?.withdrawEnable === true;
       });
@@ -629,6 +643,7 @@ function TokenListViewCmp(props: IProps) {
             withSwapAction={withSwapAction}
             showNetworkIcon={showNetworkIcon}
             withAggregateBadge={withAggregateBadge}
+            showProcessingState={!!exchangeFilter}
             {...(tableLayout
               ? undefined
               : {
@@ -682,6 +697,7 @@ function TokenListViewCmp(props: IProps) {
             withSwapAction={withSwapAction}
             showNetworkIcon={showNetworkIcon}
             withAggregateBadge={withAggregateBadge}
+            showProcessingState={!!exchangeFilter}
           />
           {isTokenSelector &&
           tokenSelectorSearchTokenState.isSearching &&
