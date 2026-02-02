@@ -11,12 +11,17 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import {
   type EModalBulkSendRoutes,
+  EModalSignatureConfirmRoutes,
   type IModalBulkSendParamList,
 } from '@onekeyhq/shared/src/routes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { waitAsync } from '@onekeyhq/shared/src/utils/promiseUtils';
+import type { ISendSelectedFeeInfo } from '@onekeyhq/shared/types/fee';
 import { EFeeType, ESendFeeStatus } from '@onekeyhq/shared/types/fee';
+import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
 import { usePreCheckFeeInfo } from '../../../SignatureConfirm/hooks/usePreCheckFeeInfo';
 
@@ -191,6 +196,60 @@ function BaseBulkSendReview({
     forceRefreshFee();
   }, [forceRefreshFee]);
 
+  // Handle Tron transactions one by one
+  const handleTronTxsOneByOne = useCallback(
+    async (txs: IUnsignedTxPro[], txFeeInfos: ISendSelectedFeeInfo[]) => {
+      const allResults: ISendTxOnSuccessData[] = [];
+
+      for (let i = 0, len = txs.length; i < len; i += 1) {
+        const unsignedTx = txs[i];
+        const isFirstTx = i === 0;
+
+        // Set fee info from Review page estimation
+        // This is critical for multi-tx scenarios where later txs can't estimate fee
+        // until earlier txs are confirmed (e.g., approve must be on-chain before swap)
+        const txFeeInfo = txFeeInfos[i];
+        if (txFeeInfo?.feeInfo) {
+          unsignedTx.feeInfo = txFeeInfo.feeInfo;
+        }
+
+        // Add delay between transactions (except first one)
+        if (!isFirstTx) {
+          await waitAsync(300);
+        }
+
+        const result: ISendTxOnSuccessData[] = await new Promise(
+          (resolve, reject) => {
+            navigation.push(EModalSignatureConfirmRoutes.TxConfirm, {
+              accountId: accountId ?? '',
+              networkId: networkId ?? '',
+              unsignedTxs: [unsignedTx],
+              popStack: false,
+              useFeeInTx: true, // Use the fee info we set on unsignedTx
+              onSuccess: (data: ISendTxOnSuccessData[]) => {
+                resolve(data);
+              },
+              onFail: (error: Error) => {
+                reject(error);
+              },
+              onCancel: () => {
+                reject(new Error('User cancelled'));
+              },
+            });
+          },
+        );
+
+        // Collect results
+        if (result && result.length > 0) {
+          allResults.push(...result);
+        }
+      }
+
+      return allResults;
+    },
+    [navigation, accountId, networkId],
+  );
+
   const handleCancel = useCallback(() => {
     navigation.pop();
   }, [navigation]);
@@ -256,7 +315,45 @@ function BaseBulkSendReview({
       }
     }
 
-    // Step 4: Sign and send transactions
+    // Step 4: Check if Tron network - confirm transactions one by one
+    if (networkUtils.isTronNetworkByNetworkId(networkId)) {
+      try {
+        // Pass fee infos from Review page estimation
+        const results = await handleTronTxsOneByOne(
+          newUnsignedTxs,
+          feeState.feeInfos,
+        );
+
+        // Show success toast
+        Toast.success({
+          title: intl.formatMessage({
+            id: ETranslations.feedback_transaction_submitted,
+          }),
+        });
+
+        setIsSubmitting(false);
+        onSuccess?.(results);
+
+        // Navigate back
+        if (accountUtils.isQrAccount({ accountId })) {
+          navigation.popStack();
+        } else {
+          navigation.pop();
+        }
+      } catch (e: any) {
+        setIsSubmitting(false);
+        // Check if user cancelled
+        if (e?.message === 'User cancelled') {
+          // Stay on current page, do nothing
+          return;
+        }
+        onFail?.(e as Error);
+        throw e;
+      }
+      return;
+    }
+
+    // Step 5: Sign and send transactions (for non-Tron networks)
     try {
       const result = await serviceSend.batchSignAndSendTransaction({
         accountId,
@@ -267,7 +364,7 @@ function BaseBulkSendReview({
         transferPayload: undefined,
       });
 
-      // Step 5: Show success toast
+      // Step 6: Show success toast
       Toast.success({
         title: intl.formatMessage({
           id: ETranslations.feedback_transaction_submitted,
@@ -277,7 +374,7 @@ function BaseBulkSendReview({
       setIsSubmitting(false);
       onSuccess?.(result);
 
-      // Step 6: Handle QR account navigation
+      // Step 7: Handle QR account navigation
       if (accountUtils.isQrAccount({ accountId })) {
         navigation.popStack();
       } else {
@@ -304,6 +401,7 @@ function BaseBulkSendReview({
     showFeeInfoOverflowConfirm,
     intl,
     navigation,
+    handleTronTxsOneByOne,
   ]);
 
   // Determine if confirm button should be disabled
