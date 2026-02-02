@@ -10,8 +10,9 @@ import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import {
-  type EModalBulkSendRoutes,
+  EModalBulkSendRoutes,
   EModalSignatureConfirmRoutes,
+  ETabHomeRoutes,
   type IModalBulkSendParamList,
 } from '@onekeyhq/shared/src/routes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -61,6 +62,7 @@ function BaseBulkSendReview({
     setFeeState,
     isSubmitting,
     setIsSubmitting,
+    isInModal,
   } = useBulkSendReviewContext();
 
   const intl = useIntl();
@@ -254,6 +256,27 @@ function BaseBulkSendReview({
     navigation.pop();
   }, [navigation]);
 
+  // Navigate back to address input page after successful transaction
+  const navigateToAddressInput = useCallback(() => {
+    if (isInModal) {
+      navigation.replace(EModalBulkSendRoutes.BulkSendAddressesInput, {
+        networkId,
+        accountId,
+        indexedAccountId: undefined,
+        tokenInfo,
+        isInModal: true,
+      });
+    } else {
+      navigation.replace(ETabHomeRoutes.TabHomeBulkSendAddressesInput, {
+        networkId,
+        accountId,
+        indexedAccountId: undefined,
+        tokenInfo,
+        isInModal: false,
+      });
+    }
+  }, [isInModal, navigation, networkId, accountId, tokenInfo]);
+
   const handleConfirm = useCallback(async () => {
     if (!accountId) return;
 
@@ -334,12 +357,8 @@ function BaseBulkSendReview({
         setIsSubmitting(false);
         onSuccess?.(results);
 
-        // Navigate back
-        if (accountUtils.isQrAccount({ accountId })) {
-          navigation.popStack();
-        } else {
-          navigation.pop();
-        }
+        // Navigate back to address input page
+        navigateToAddressInput();
       } catch (e: any) {
         setIsSubmitting(false);
         // Check if user cancelled
@@ -374,12 +393,8 @@ function BaseBulkSendReview({
       setIsSubmitting(false);
       onSuccess?.(result);
 
-      // Step 7: Handle QR account navigation
-      if (accountUtils.isQrAccount({ accountId })) {
-        navigation.popStack();
-      } else {
-        navigation.pop();
-      }
+      // Step 7: Navigate back to address input page
+      navigateToAddressInput();
     } catch (e: any) {
       // Handle QR account navigation on error
       if (accountUtils.isQrAccount({ accountId })) {
@@ -402,6 +417,7 @@ function BaseBulkSendReview({
     intl,
     navigation,
     handleTronTxsOneByOne,
+    navigateToAddressInput,
   ]);
 
   // Determine if confirm button should be disabled
@@ -487,6 +503,7 @@ function BulkSendReview() {
     bulkSendMode,
     totalTokenAmount,
     totalFiatAmount,
+    isInModal,
     onSuccess,
     onFail,
   } = route.params ?? {};
@@ -544,6 +561,7 @@ function BulkSendReview() {
       bulkSendMode,
       totalTokenAmount,
       totalFiatAmount,
+      isInModal,
       networkImageUri: networkInfo?.logoURI,
       initialApprovesInfoRef,
       approvesInfo,
@@ -563,6 +581,7 @@ function BulkSendReview() {
       bulkSendMode,
       totalTokenAmount,
       totalFiatAmount,
+      isInModal,
       networkInfo?.logoURI,
       approvesInfo,
       unsignedTxs,

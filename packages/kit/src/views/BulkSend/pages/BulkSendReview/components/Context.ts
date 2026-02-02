@@ -40,6 +40,7 @@ export type IBulkSendReviewContext = {
   bulkSendMode: EBulkSendMode;
   totalTokenAmount: string;
   totalFiatAmount: string;
+  isInModal?: boolean;
 
   // Fetched data
   networkImageUri: string | undefined;
@@ -76,6 +77,7 @@ export const BulkSendReviewContext = createContext<IBulkSendReviewContext>({
   bulkSendMode: EBulkSendMode.OneToMany,
   totalTokenAmount: '0',
   totalFiatAmount: '0',
+  isInModal: undefined,
 
   networkImageUri: undefined,
 
