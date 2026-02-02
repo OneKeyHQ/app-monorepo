@@ -7,17 +7,17 @@ Linting, documentation, and general code quality standards for OneKey.
 ### Lint Commands
 
 ```bash
-# Pre-commit (fast, only staged files)
-yarn lint:staged
-yarn tsc:staged
+# Recommended for daily development (fast, only staged files)
+yarn lint:staged   # Lint staged files only
+yarn tsc:staged    # Type check staged files only
 
-# CI only (full project check)
-yarn lint        # Comprehensive: TypeScript, ESLint, folder structure, i18n
-yarn lint:only   # Quick: oxlint only
-yarn tsc:only    # Full type check
+# Full project check (for CI or comprehensive pre-PR validation)
+yarn lint          # Comprehensive lint (~1 minute)
 ```
 
-**Note:** `yarn lint` is for CI only. For pre-commit, always use `yarn lint:staged`.
+**✅ Recommended**: For daily development, use `yarn lint:staged` and `yarn tsc:staged` to run checks only on your staged files. This is much faster than full project checks.
+
+**Note:** `yarn lint` runs a comprehensive check and takes ~1 minute. Use it for CI or final pre-PR validation.
 
 ### Pre-Commit Workflow
 
@@ -176,8 +176,7 @@ async function validateInput() {}
 - [ ] `yarn tsc:staged` passes
 
 ### CI (automated)
-- [ ] `yarn lint` passes
-- [ ] `yarn tsc:only` passes
+- [ ] `yarn lint` passes (~1 minute)
 
 ### Code Quality
 - [ ] All comments are in English
