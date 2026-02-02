@@ -308,9 +308,11 @@ function BulkSendTxDetails(props: IProps) {
   const handleDeleteSender = useCallback(
     (indices: number[]) => {
       // Delete in descending order to avoid index shifting issues
-      [...indices].sort((a, b) => b - a).forEach((index) => {
-        onDeleteTransfer?.(index);
-      });
+      [...indices]
+        .toSorted((a, b) => b - a)
+        .forEach((index) => {
+          onDeleteTransfer?.(index);
+        });
     },
     [onDeleteTransfer],
   );
@@ -318,9 +320,11 @@ function BulkSendTxDetails(props: IProps) {
   const handleDeleteReceiver = useCallback(
     (indices: number[]) => {
       // Delete in descending order to avoid index shifting issues
-      [...indices].sort((a, b) => b - a).forEach((index) => {
-        onDeleteTransfer?.(index);
-      });
+      [...indices]
+        .toSorted((a, b) => b - a)
+        .forEach((index) => {
+          onDeleteTransfer?.(index);
+        });
     },
     [onDeleteTransfer],
   );
