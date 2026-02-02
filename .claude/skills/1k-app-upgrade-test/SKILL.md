@@ -1,7 +1,8 @@
 ---
-name: 1k-test-version
-description: Create test version branches for app upgrade testing. Use when creating test builds to verify upgrade flows, version migrations, or release candidate testing. Automates version number and build number configuration. Triggers on test version, upgrade test, version migration, test build, QA version, release candidate, build number, 9XXX version.
+name: 1k-app-upgrade-test
+description: Create test versions to verify app auto-update functionality. Use when testing update flows, version migration, or validating app upgrade mechanisms. Automates version number and build number configuration for testing the auto-update system. Triggers on auto update, app upgrade, update testing, upgrade flow, version migration, test build, 9XXX version.
 allowed-tools: Read, Grep, Glob, Write, Edit, Bash
+disable-model-invocation: true
 ---
 
 # Test Version Creation
