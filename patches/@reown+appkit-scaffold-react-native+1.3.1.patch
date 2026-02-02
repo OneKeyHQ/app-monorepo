@@ -13,11 +13,35 @@ index 2afcde5..22d684c 100644
 +  const [safeSnapshot, setSafeSnapshot] = (0, _react.useState)(fallbackValue);
 +  const [isInitialized, setIsInitialized] = (0, _react.useState)(false);
 +  const retryCountRef = (0, _react.useRef)(0);
++  const isSubscribedRef = (0, _react.useRef)(false);
 +
 +  (0, _react.useEffect)(() => {
 +    let mounted = true;
 +    let timeoutId;
 +    let unsubscribe;
++
++    const setupSubscription = () => {
++      if (isSubscribedRef.current || !mounted) return;
++
++      try {
++        unsubscribe = (0, _valtio.subscribe)(proxyObject, () => {
++          if (mounted) {
++            try {
++              const snap = (0, _valtio.snapshot)(proxyObject);
++              if (snap) setSafeSnapshot(snap);
++            } catch (err) {
++              isSubscribedRef.current = false;
++              retryCountRef.current = 0;
++              attemptSnapshot();
++            }
++          }
++        });
++        isSubscribedRef.current = true;
++      } catch (err) {
++        isSubscribedRef.current = false;
++        attemptSnapshot();
++      }
++    };
 +
 +    const attemptSnapshot = () => {
 +      if (!mounted) return;
@@ -28,6 +52,9 @@ index 2afcde5..22d684c 100644
 +          setSafeSnapshot(snap);
 +          setIsInitialized(true);
 +          retryCountRef.current = 0;
++
++          // Immediately setup subscription after successful snapshot
++          setupSubscription();
 +        }
 +      } catch (err) {
 +        retryCountRef.current += 1;
@@ -43,33 +70,15 @@ index 2afcde5..22d684c 100644
 +
 +    attemptSnapshot();
 +
-+    // Subscribe to changes once initialized
-+    if (isInitialized) {
-+      try {
-+        unsubscribe = (0, _valtio.subscribe)(proxyObject, () => {
-+          if (mounted) {
-+            try {
-+              const snap = (0, _valtio.snapshot)(proxyObject);
-+              if (snap) setSafeSnapshot(snap);
-+            } catch (err) {
-+              setIsInitialized(false);
-+              retryCountRef.current = 0;
-+              attemptSnapshot();
-+            }
-+          }
-+        });
-+      } catch (err) {
-+        setIsInitialized(false);
-+        attemptSnapshot();
-+      }
-+    }
-+
 +    return () => {
 +      mounted = false;
 +      clearTimeout(timeoutId);
-+      unsubscribe?.();
++      if (unsubscribe) {
++        unsubscribe();
++        isSubscribedRef.current = false;
++      }
 +    };
-+  }, [proxyObject, retryDelay, maxRetries, onError, isInitialized]);
++  }, [proxyObject, retryDelay, maxRetries, onError]);
 +
 +  return safeSnapshot;
 +}
@@ -87,6 +96,7 @@ index 2afcde5..22d684c 100644
 +};
 +
 +const ACCOUNT_CONTROLLER_FALLBACK = {
++  caipAddress: undefined,
 +  isConnected: false,
 +  tokenBalance: [],
 +  smartAccountDeployed: false,
@@ -153,11 +163,35 @@ index f93d8c6..8c3bb66 100644
 +  const [safeSnapshot, setSafeSnapshot] = useState(fallbackValue);
 +  const [isInitialized, setIsInitialized] = useState(false);
 +  const retryCountRef = useRef(0);
++  const isSubscribedRef = useRef(false);
 +
 +  useEffect(() => {
 +    let mounted = true;
 +    let timeoutId;
 +    let unsubscribe;
++
++    const setupSubscription = () => {
++      if (isSubscribedRef.current || !mounted) return;
++
++      try {
++        unsubscribe = subscribe(proxyObject, () => {
++          if (mounted) {
++            try {
++              const snap = snapshot(proxyObject);
++              if (snap) setSafeSnapshot(snap);
++            } catch (err) {
++              isSubscribedRef.current = false;
++              retryCountRef.current = 0;
++              attemptSnapshot();
++            }
++          }
++        });
++        isSubscribedRef.current = true;
++      } catch (err) {
++        isSubscribedRef.current = false;
++        attemptSnapshot();
++      }
++    };
 +
 +    const attemptSnapshot = () => {
 +      if (!mounted) return;
@@ -168,6 +202,9 @@ index f93d8c6..8c3bb66 100644
 +          setSafeSnapshot(snap);
 +          setIsInitialized(true);
 +          retryCountRef.current = 0;
++
++          // Immediately setup subscription after successful snapshot
++          setupSubscription();
 +        }
 +      } catch (err) {
 +        retryCountRef.current += 1;
@@ -183,33 +220,15 @@ index f93d8c6..8c3bb66 100644
 +
 +    attemptSnapshot();
 +
-+    // Subscribe to changes once initialized
-+    if (isInitialized) {
-+      try {
-+        unsubscribe = subscribe(proxyObject, () => {
-+          if (mounted) {
-+            try {
-+              const snap = snapshot(proxyObject);
-+              if (snap) setSafeSnapshot(snap);
-+            } catch (err) {
-+              setIsInitialized(false);
-+              retryCountRef.current = 0;
-+              attemptSnapshot();
-+            }
-+          }
-+        });
-+      } catch (err) {
-+        setIsInitialized(false);
-+        attemptSnapshot();
-+      }
-+    }
-+
 +    return () => {
 +      mounted = false;
 +      clearTimeout(timeoutId);
-+      unsubscribe?.();
++      if (unsubscribe) {
++        unsubscribe();
++        isSubscribedRef.current = false;
++      }
 +    };
-+  }, [proxyObject, retryDelay, maxRetries, onError, isInitialized]);
++  }, [proxyObject, retryDelay, maxRetries, onError]);
 +
 +  return safeSnapshot;
 +}
@@ -227,6 +246,7 @@ index f93d8c6..8c3bb66 100644
 +};
 +
 +const ACCOUNT_CONTROLLER_FALLBACK = {
++  caipAddress: undefined,
 +  isConnected: false,
 +  tokenBalance: [],
 +  smartAccountDeployed: false,
@@ -300,11 +320,35 @@ index 6823724..e86b0e3 100644
 +  const [safeSnapshot, setSafeSnapshot] = useState<T>(fallbackValue);
 +  const [isInitialized, setIsInitialized] = useState(false);
 +  const retryCountRef = useRef(0);
++  const isSubscribedRef = useRef(false);
 +
 +  useEffect(() => {
 +    let mounted = true;
 +    let timeoutId: NodeJS.Timeout;
 +    let unsubscribe: (() => void) | undefined;
++
++    const setupSubscription = () => {
++      if (isSubscribedRef.current || !mounted) return;
++
++      try {
++        unsubscribe = subscribe(proxyObject, () => {
++          if (mounted) {
++            try {
++              const snap = snapshot(proxyObject);
++              if (snap) setSafeSnapshot(snap);
++            } catch (err) {
++              isSubscribedRef.current = false;
++              retryCountRef.current = 0;
++              attemptSnapshot();
++            }
++          }
++        });
++        isSubscribedRef.current = true;
++      } catch (err) {
++        isSubscribedRef.current = false;
++        attemptSnapshot();
++      }
++    };
 +
 +    const attemptSnapshot = () => {
 +      if (!mounted) return;
@@ -315,6 +359,9 @@ index 6823724..e86b0e3 100644
 +          setSafeSnapshot(snap);
 +          setIsInitialized(true);
 +          retryCountRef.current = 0;
++
++          // Immediately setup subscription after successful snapshot
++          setupSubscription();
 +        }
 +      } catch (err) {
 +        retryCountRef.current += 1;
@@ -330,33 +377,15 @@ index 6823724..e86b0e3 100644
 +
 +    attemptSnapshot();
 +
-+    // Subscribe to changes once initialized
-+    if (isInitialized) {
-+      try {
-+        unsubscribe = subscribe(proxyObject, () => {
-+          if (mounted) {
-+            try {
-+              const snap = snapshot(proxyObject);
-+              if (snap) setSafeSnapshot(snap);
-+            } catch (err) {
-+              setIsInitialized(false);
-+              retryCountRef.current = 0;
-+              attemptSnapshot();
-+            }
-+          }
-+        });
-+      } catch (err) {
-+        setIsInitialized(false);
-+        attemptSnapshot();
-+      }
-+    }
-+
 +    return () => {
 +      mounted = false;
 +      clearTimeout(timeoutId);
-+      unsubscribe?.();
++      if (unsubscribe) {
++        unsubscribe();
++        isSubscribedRef.current = false;
++      }
 +    };
-+  }, [proxyObject, retryDelay, maxRetries, onError, isInitialized]);
++  }, [proxyObject, retryDelay, maxRetries, onError]);
 +
 +  return safeSnapshot;
 +}
@@ -374,6 +403,7 @@ index 6823724..e86b0e3 100644
 +};
 +
 +const ACCOUNT_CONTROLLER_FALLBACK = {
++  caipAddress: undefined,
 +  isConnected: false,
 +  tokenBalance: [],
 +  smartAccountDeployed: false,
@@ -423,8 +453,8 @@ index ac3a35a..58c4a88 100644
      margin: 0,
 -    justifyContent: 'flex-end'
 +    justifyContent: 'flex-end',
-+    zIndex: 99993173111111,                                                                                   
-+    elevation: 99993173111111 
++    zIndex: 999999,
++    elevation: 999999 
    },
    card: {
      borderBottomLeftRadius: 0,
