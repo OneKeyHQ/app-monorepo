@@ -4,11 +4,14 @@ import type {
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
+import type { ITokenSelectorParamList } from './assetSelector';
+
 export enum EChainSelectorPages {
   AccountChainSelector = 'AccountChainSelector',
   ChainSelector = 'ChainSelector',
   AddCustomNetwork = 'AddCustomNetwork',
   AllNetworksManager = 'AllNetworksManager',
+  TokenSelector = 'TokenSelector',
 }
 export type IAccountChainSelectorRouteParams = IAccountSelectorRouteParams &
   IAccountSelectorAvailableNetworks & {
@@ -25,9 +28,11 @@ export type IChainSelectorParams = {
   disableNetworkIds?: string[];
   grouped?: boolean;
   excludeAllNetworkItem?: boolean;
+  closeAfterSelect?: boolean;
 };
 
 export type IChainSelectorParamList = {
+  [EChainSelectorPages.TokenSelector]: ITokenSelectorParamList;
   [EChainSelectorPages.AccountChainSelector]: IAccountChainSelectorRouteParams;
   [EChainSelectorPages.ChainSelector]?: IChainSelectorParams;
   [EChainSelectorPages.AddCustomNetwork]: {

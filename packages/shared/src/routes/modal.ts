@@ -8,6 +8,7 @@ import type { IModalAssetDetailsParamList } from './assetDetails';
 import type { IModalAssetListParamList } from './assetList';
 import type { IAssetSelectorParamList } from './assetSelector';
 import type { IModalBulkCopyAddressesParamList } from './bulkCopyAddresses';
+import type { IModalBulkSendParamList } from './bulkSend';
 import type { IChainSelectorParamList } from './chainSelector';
 import type { ICloudBackupParamList } from './cloudBackup';
 import type { IDAppConnectionModalParamList } from './dAppConnection';
@@ -75,6 +76,7 @@ export enum EModalRoutes {
   DeviceManagementModal = 'DeviceManagementModal',
   ReferFriendsModal = 'ReferFriendsModal',
   BulkCopyAddressesModal = 'BulkCopyAddressesModal',
+  BulkSendModal = 'BulkSendModal',
   ApprovalManagementModal = 'ApprovalManagementModal',
   SignAndVerifyModal = 'SignAndVerifyModal',
   NetworkDoctorModal = 'NetworkDoctorModal',
@@ -117,6 +119,7 @@ export type IModalParamList = {
   [EModalRoutes.WalletAddress]: IModalWalletAddressParamList;
   [EModalRoutes.WebViewModal]: IModalWebViewParamList;
   [EModalRoutes.BulkCopyAddressesModal]: IModalBulkCopyAddressesParamList;
+  [EModalRoutes.BulkSendModal]: IModalBulkSendParamList;
   [EModalRoutes.ApprovalManagementModal]: IModalApprovalManagementParamList;
   [EModalRoutes.SignAndVerifyModal]: IModalSignAndVerifyParamList;
   [EModalRoutes.PerpModal]: IModalPerpParamList;

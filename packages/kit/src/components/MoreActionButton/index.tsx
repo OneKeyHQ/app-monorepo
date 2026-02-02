@@ -74,6 +74,7 @@ import { useOnLock } from '../../hooks/useOnLock';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { useReferFriends } from '../../hooks/useReferFriends';
 import { useThemeVariant } from '../../hooks/useThemeVariant';
+import { useNavigateToBulkSend } from '../../views/BulkSend/hooks/useNavigateToBulkSend';
 import { useDeviceManagerNavigation } from '../../views/DeviceManagement/hooks/useDeviceManagerNavigation';
 import { HomeFirmwareUpdateReminder } from '../../views/FirmwareUpdate/components/HomeFirmwareUpdateReminder';
 import { WalletXfpStatusReminder } from '../../views/Home/components/WalletXfpStatusReminder/WalletXfpStatusReminder';
@@ -976,6 +977,7 @@ function MoreActionGeneralGrid() {
 const MoreActionWalletGrid = () => {
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const navigateToBulkSend = useNavigateToBulkSend();
   const handleBackup = useCallback(() => {
     navigation.pushModal(EModalRoutes.SettingModal, {
       screen: EModalSettingRoutes.SettingListSubModal,
@@ -1021,7 +1023,7 @@ const MoreActionWalletGrid = () => {
   const { user } = useOneKeyAuth();
   const isPrimeUser = user?.primeSubscription?.isActive && user?.onekeyUserId;
   const {
-    activeAccount: { wallet, network },
+    activeAccount: { account, network, wallet, indexedAccount },
   } = useActiveAccount({ num: 0 });
   const checkIsPrimeUser = useCallback(
     (showFeature: EPrimeFeatures) => {
@@ -1041,7 +1043,7 @@ const MoreActionWalletGrid = () => {
     },
     [navigation, user, network?.id],
   );
-  const openBulkCopyAddressesModal = useCallback(async () => {
+  const openBulkCopyAddressesModule = useCallback(async () => {
     const networkId = networkUtils.toNetworkIdFallback({
       networkId: network?.id,
       allNetworkFallbackToBtc: true,
@@ -1059,6 +1061,24 @@ const MoreActionWalletGrid = () => {
       },
     });
   }, [network?.id, checkIsPrimeUser, navigation, wallet?.id]);
+
+  const openBulkSendModule = useCallback(async () => {
+    if (!checkIsPrimeUser(EPrimeFeatures.BulkSend)) {
+      return;
+    }
+
+    void navigateToBulkSend({
+      networkId: network?.id,
+      accountId: account?.id,
+      indexedAccountId: indexedAccount?.id,
+    });
+  }, [
+    network?.id,
+    account?.id,
+    indexedAccount?.id,
+    navigateToBulkSend,
+    checkIsPrimeUser,
+  ]);
 
   const items = useMemo(() => {
     return [
@@ -1111,9 +1131,26 @@ const MoreActionWalletGrid = () => {
                   entryPoint: 'moreActions',
                 });
               }
-              void openBulkCopyAddressesModal();
+              void openBulkCopyAddressesModule();
             },
             trackID: 'bulk-copy-addresses-in-more-action',
+            isPrimeFeature: true,
+          },
+      platformEnv.isWebDappMode
+        ? undefined
+        : {
+            title: 'Bulk Send',
+            icon: 'ChevronDoubleUpOutline' as const,
+            onPress: () => {
+              if (!isPrimeUser) {
+                defaultLogger.prime.subscription.primeEntryClick({
+                  featureName: EPrimeFeatures.BulkSend,
+                  entryPoint: 'moreActions',
+                });
+              }
+              void openBulkSendModule();
+            },
+            trackID: 'bulk-send-in-more-action',
             isPrimeFeature: true,
           },
     ].filter(Boolean);
@@ -1125,7 +1162,8 @@ const MoreActionWalletGrid = () => {
     handleSecurity,
     intl,
     isPrimeUser,
-    openBulkCopyAddressesModal,
+    openBulkCopyAddressesModule,
+    openBulkSendModule,
   ]);
   return (
     <BaseMoreActionGrid

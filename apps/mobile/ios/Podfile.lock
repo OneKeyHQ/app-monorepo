@@ -2322,6 +2322,34 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
+  - react-native-document-picker (12.0.1):
+    - boost
+    - DoubleConversion
+    - fast_float
+    - fmt
+    - glog
+    - hermes-engine
+    - RCT-Folly
+    - RCT-Folly/Fabric
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - SocketRocket
+    - Yoga
   - react-native-fast-pbkdf2 (0.3.1):
     - React-Core
   - react-native-keyboard-controller (1.19.6):
@@ -4199,6 +4227,7 @@ DEPENDENCIES:
   - react-native-capture-protection (from `../../../node_modules/react-native-capture-protection`)
   - react-native-cloud-fs (from `../../../node_modules/react-native-cloud-fs`)
   - "react-native-compat (from `../../../node_modules/@walletconnect/react-native-compat`)"
+  - "react-native-document-picker (from `../../../node_modules/@react-native-documents/picker`)"
   - react-native-fast-pbkdf2 (from `../../../node_modules/react-native-fast-pbkdf2`)
   - react-native-keyboard-controller (from `../../../node_modules/react-native-keyboard-controller`)
   - "react-native-netinfo (from `../../../node_modules/@react-native-community/netinfo`)"
@@ -4486,6 +4515,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native-cloud-fs"
   react-native-compat:
     :path: "../../../node_modules/@walletconnect/react-native-compat"
+  react-native-document-picker:
+    :path: "../../../node_modules/@react-native-documents/picker"
   react-native-fast-pbkdf2:
     :path: "../../../node_modules/react-native-fast-pbkdf2"
   react-native-keyboard-controller:
@@ -4738,6 +4769,7 @@ SPEC CHECKSUMS:
   react-native-capture-protection: a8abb2b0880aa1808e3724aa3fc7e56e72225a24
   react-native-cloud-fs: 03ad849da6cecc3cb58ed970ce4078a2e0814848
   react-native-compat: 1ba0ce8c1f2826dba8e78121a7be28229bbb54d9
+  react-native-document-picker: dc2d83366e47e89e7c51e8a41eab99c1d54e941c
   react-native-fast-pbkdf2: 329e89b9929a51ed4d9ba88bf355a266f13d9d93
   react-native-keyboard-controller: 68ef492814f125fb67dbebbe8aadc9b3e459e821
   react-native-netinfo: cec9c4e86083cb5b6aba0e0711f563e2fbbff187

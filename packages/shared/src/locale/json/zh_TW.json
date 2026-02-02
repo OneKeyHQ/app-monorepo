@@ -296,7 +296,7 @@
   "cloud_backup_failed_google_desc": "可能的原因:\n1. 網路連線問題\n2. 未登入正確的 Google 帳戶\n3. Google Drive 同步未啟用\n4. Google Drive 儲存空間不足（您可以在「管理備份」中刪除舊備份以釋放空間）",
   "coming_soon": "即將上線",
   "coming_soon_desc": "我們正在開發此功能，將於近期推出",
-  "communication.communicating": "通訊中...",
+  "communication.communicating": "正在連接您的裝置…",
   "communication.not_detected_bluetooth_fallback": "未檢測到 USB。OneKey 現在將嘗試使用藍牙 — 當提示時請允許藍牙存取權限。",
   "communication.not_detected_bluetooth_no_permission": "未偵測到 USB 連接。請透過USB連接，或在系統設定中授予OneKey藍牙存取權限。",
   "communication.not_detected_bluetooth_not_paired": "未偵測到 USB 連接。切換至藍牙配對。",
