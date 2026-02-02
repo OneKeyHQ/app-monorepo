@@ -23,6 +23,7 @@ export enum ETabRoutes {
   MultiTabBrowser = 'MultiTabBrowser',
   DeviceManagement = 'DeviceManagement',
   ReferFriends = 'ReferFriends',
+  BulkSend = 'BulkSend',
 }
 
 export type ITabStackParamList = {
@@ -37,4 +38,5 @@ export type ITabStackParamList = {
   [ETabRoutes.MultiTabBrowser]: IMultiTabBrowserParamList;
   [ETabRoutes.DeviceManagement]: ITabDeviceManagementParamList;
   [ETabRoutes.ReferFriends]: ITabReferFriendsParamList;
+  [ETabRoutes.BulkSend]: undefined;
 };

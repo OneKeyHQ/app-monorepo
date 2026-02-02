@@ -75,6 +75,16 @@ jobs:
         run: |
           yarn install --immutable
 
+      - name: Compile macOS Liquid Glass Icon
+        run: |
+          cd apps/desktop
+          bash scripts/compile-liquid-icon.sh
+
+      - name: Verify Liquid Glass Icon
+        run: |
+          cd apps/desktop
+          bash scripts/verify-icon-compatibility.sh
+
       - name: Setup Code Signing file
         run: |
           echo ${{ secrets.DESKTOP_KEYS_SECRET }} | base64 -d > apps/desktop/sign.p12

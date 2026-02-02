@@ -2,7 +2,13 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { ActionList, Icon, IconButton, useMedia } from '@onekeyhq/components';
+import {
+  ActionList,
+  Button,
+  Icon,
+  IconButton,
+  useMedia,
+} from '@onekeyhq/components';
 import type { IActionListItemProps } from '@onekeyhq/components';
 import { useInviteCodeList } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/InvitationDetailsSection/hooks/useInviteCodeList';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -146,24 +152,19 @@ export function FilterButton({
     });
   }, [intl, sections]);
 
-  // Render trigger (shared between desktop and mobile)
-  const renderTrigger = useMemo(
-    () => (
-      <IconButton
-        icon={hasActiveFilters ? 'Filter1Solid' : 'Filter1Outline'}
-        variant="tertiary"
-        title={intl.formatMessage({ id: ETranslations.referral_filter })}
-      />
-    ),
-    [hasActiveFilters, intl],
-  );
-
-  // Desktop: Use component-style ActionList (works correctly)
+  // Desktop: Use component-style ActionList with Button trigger
   if (gtMd) {
     return (
       <ActionList
         title={intl.formatMessage({ id: ETranslations.referral_filter })}
-        renderTrigger={renderTrigger}
+        renderTrigger={
+          <Button
+            size="small"
+            icon={hasActiveFilters ? 'Filter1Solid' : 'Filter1Outline'}
+          >
+            {intl.formatMessage({ id: ETranslations.referral_filter })}
+          </Button>
+        }
         sections={sections}
         floatingPanelProps={{
           width: '$56',

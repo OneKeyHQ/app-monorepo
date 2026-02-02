@@ -153,7 +153,9 @@ const SwapProviderListPanel = ({
   const isWaitingForNewQuoteRef = useRef(false);
 
   // ScrollView ref for auto-scrolling to selected provider (OK-49778)
-  const scrollViewRef = useRef<{ scrollTo: (options: { y: number; animated?: boolean }) => void } | null>(null);
+  const scrollViewRef = useRef<{
+    scrollTo: (options: { y: number; animated?: boolean }) => void;
+  } | null>(null);
   // Track previous loading state for detecting when loading completes
   const prevIsLoadingRef = useRef(false);
 
@@ -305,7 +307,12 @@ const SwapProviderListPanel = ({
     prevIsLoadingRef.current = isLoading;
 
     // Only scroll when loading just completed (transition from loading to not loading)
-    if (wasLoading && !isLoading && currentSelectQuote && availableList.length > 0) {
+    if (
+      wasLoading &&
+      !isLoading &&
+      currentSelectQuote &&
+      availableList.length > 0
+    ) {
       const selectedIndex = availableList.findIndex(
         (item) =>
           item.info.provider === currentSelectQuote.info.provider &&
