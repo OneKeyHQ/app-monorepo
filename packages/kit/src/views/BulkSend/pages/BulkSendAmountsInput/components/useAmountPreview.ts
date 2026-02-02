@@ -19,7 +19,7 @@ type IUseAmountPreviewParams = {
   transfersInfo: ITransferInfo[];
   setTransfersInfo: (transfersInfo: ITransferInfo[]) => void;
   previewState: IPreviewState;
-  setPreviewState: (state: IPreviewState) => void;
+  setPreviewState: React.Dispatch<React.SetStateAction<IPreviewState>>;
 };
 
 export function useAmountPreview({
@@ -68,16 +68,16 @@ export function useAmountPreview({
 
       switch (mode) {
         case EAmountInputMode.Specified:
-          setPreviewState({ ...previewState, specifiedPreviewed: true });
+          setPreviewState((prev) => ({ ...prev, specifiedPreviewed: true }));
           break;
         case EAmountInputMode.Range:
-          setPreviewState({ ...previewState, rangePreviewed: true });
+          setPreviewState((prev) => ({ ...prev, rangePreviewed: true }));
           break;
         default:
           break;
       }
     },
-    [updateTransfersInfoWithAmounts, previewState, setPreviewState],
+    [updateTransfersInfoWithAmounts, setPreviewState],
   );
 
   const shouldShowTxDetails = useCallback(
@@ -100,16 +100,16 @@ export function useAmountPreview({
     (mode: EAmountInputMode) => {
       switch (mode) {
         case EAmountInputMode.Specified:
-          setPreviewState({ ...previewState, specifiedPreviewed: false });
+          setPreviewState((prev) => ({ ...prev, specifiedPreviewed: false }));
           break;
         case EAmountInputMode.Range:
-          setPreviewState({ ...previewState, rangePreviewed: false });
+          setPreviewState((prev) => ({ ...prev, rangePreviewed: false }));
           break;
         default:
           break;
       }
     },
-    [previewState, setPreviewState],
+    [setPreviewState],
   );
 
   return {

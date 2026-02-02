@@ -63,7 +63,7 @@ export type IBulkSendAmountsInputContext = {
   isInsufficientBalance: boolean;
   // Preview state for Specified/Range modes
   previewState: IPreviewState;
-  setPreviewState: (state: IPreviewState) => void;
+  setPreviewState: React.Dispatch<React.SetStateAction<IPreviewState>>;
   // Mobile-specific: data by mode
   mobileModeData: IMobileModeDataByMode;
   setMobileModeData: (data: IMobileModeDataByMode) => void;

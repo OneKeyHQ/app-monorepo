@@ -1,6 +1,8 @@
 /* eslint-disable no-continue */
 import { useCallback, useState } from 'react';
 
+import pLimit from 'p-limit';
+
 import { Form } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
@@ -95,6 +97,10 @@ function ReceiverAddressesInput({ maxLines }: IReceiverAddressesInputProps) {
 
       let receiverMode: EReceiverMode | undefined;
 
+      // Phase 1: Synchronous validation (format, duplicates, amounts)
+      // Collect addresses that need async validation
+      const addressesToValidate: { index: number; address: string }[] = [];
+
       for (let i = 0; i < lines.length; i += 1) {
         const line = lines[i].trim();
 
@@ -130,17 +136,8 @@ function ReceiverAddressesInput({ maxLines }: IReceiverAddressesInputProps) {
           }
           seenAddresses.set(normalizedAddress, i + 1);
 
-          // Validate address only
-          const addressValidationResult = await validateAddress(line);
-          if (addressValidationResult !== true) {
-            lineErrors.push({
-              lineNumber: i + 1,
-              message:
-                typeof addressValidationResult === 'string'
-                  ? addressValidationResult
-                  : 'Invalid address',
-            });
-          }
+          // Queue address for async validation
+          addressesToValidate.push({ index: i, address: line });
         } else {
           // AddressAndAmount mode
           const parts = line.split(',');
@@ -166,16 +163,10 @@ function ReceiverAddressesInput({ maxLines }: IReceiverAddressesInputProps) {
           }
           seenAddresses.set(normalizedAddress, i + 1);
 
-          const addressValidationResult = await validateAddress(address);
-          if (addressValidationResult !== true) {
-            lineErrors.push({
-              lineNumber: i + 1,
-              message:
-                typeof addressValidationResult === 'string'
-                  ? addressValidationResult
-                  : 'Invalid address',
-            });
-          }
+          // Queue address for async validation
+          addressesToValidate.push({ index: i, address });
+
+          // Validate amount synchronously
           const amountValidationResult = validateAmount(amount);
           if (amountValidationResult !== true) {
             lineErrors.push({
@@ -187,6 +178,32 @@ function ReceiverAddressesInput({ maxLines }: IReceiverAddressesInputProps) {
             });
           }
         }
+      }
+
+      // Phase 2: Concurrent address validation with rate limiting
+      if (addressesToValidate.length > 0) {
+        const limit = pLimit(10); // Max 10 concurrent validations
+        const validationResults = await Promise.all(
+          addressesToValidate.map(({ index, address }) =>
+            limit(async () => {
+              const result = await validateAddress(address);
+              return { index, result };
+            }),
+          ),
+        );
+
+        // Collect validation errors
+        for (const { index, result } of validationResults) {
+          if (result !== true) {
+            lineErrors.push({
+              lineNumber: index + 1,
+              message: typeof result === 'string' ? result : 'Invalid address',
+            });
+          }
+        }
+
+        // Sort errors by line number for consistent display
+        lineErrors.sort((a, b) => a.lineNumber - b.lineNumber);
       }
 
       setErrors(lineErrors);
