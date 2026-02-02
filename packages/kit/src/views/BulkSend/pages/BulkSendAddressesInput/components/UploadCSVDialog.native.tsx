@@ -1,6 +1,12 @@
 import { useCallback, useState } from 'react';
 
-import DocumentPicker from 'react-native-document-picker';
+import {
+  errorCodes,
+  isErrorWithCode,
+  keepLocalCopy,
+  pick,
+  types,
+} from '@react-native-documents/picker';
 
 import {
   Button,
@@ -16,6 +22,7 @@ import {
 import RNFS from '@onekeyhq/shared/src/modules3rdParty/react-native-fs';
 
 const MAX_LINES = 500;
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const CHUNK_SIZE = 64 * 1024; // 64KB chunks
 
 type IUploadCSVContentProps = {
@@ -78,19 +85,36 @@ function UploadCSVContent({ onUploaded }: IUploadCSVContentProps) {
 
   const handleUploadClick = useCallback(async () => {
     try {
-      const result = await DocumentPicker.pickSingle({
-        type: [DocumentPicker.types.plainText, DocumentPicker.types.csv],
-        copyTo: 'cachesDirectory',
+      const [result] = await pick({
+        type: [types.plainText, types.csv],
       });
 
-      if (!result.fileCopyUri) {
+      if (!result?.uri) {
         Toast.error({ title: 'Failed to access file' });
+        return;
+      }
+
+      // Check file size before copying
+      if (result.size && result.size > MAX_FILE_SIZE) {
+        Toast.error({ title: 'File too large. Maximum size is 5MB' });
         return;
       }
 
       setIsLoading(true);
 
-      const filePath = result.fileCopyUri.replace(/^file:\/\//, '');
+      // Copy file to local cache for reading
+      const [localCopyResult] = await keepLocalCopy({
+        files: [{ uri: result.uri, fileName: result.name ?? 'upload.csv' }],
+        destination: 'cachesDirectory',
+      });
+
+      if (localCopyResult.status !== 'success') {
+        Toast.error({ title: 'Failed to copy file' });
+        setIsLoading(false);
+        return;
+      }
+
+      const filePath = localCopyResult.localUri.replace(/^file:\/\//, '');
       // Read MAX_LINES + 1 to detect if file exceeds limit
       const lines = await readFileStreamingLines(filePath, MAX_LINES);
 
@@ -120,7 +144,9 @@ function UploadCSVContent({ onUploaded }: IUploadCSVContentProps) {
       onUploaded?.(lines);
       void dialog.close();
     } catch (error) {
-      if (!DocumentPicker.isCancel(error)) {
+      const isCanceled =
+        isErrorWithCode(error) && error.code === errorCodes.OPERATION_CANCELED;
+      if (!isCanceled) {
         Toast.error({ title: 'Failed to read file' });
       }
     } finally {
