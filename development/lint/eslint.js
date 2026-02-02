@@ -13,7 +13,10 @@ console.log(`[${getTimestamp()}] Oxlint check started...`);
 const oxlintStartTime = Date.now();
 
 try {
-  const cpus = os.cpus().length;
+  const cpus =
+    process.platform === 'darwin'
+      ? Math.min(os.cpus().length, 4)
+      : os.cpus().length;
   console.log(`Using ${cpus} threads for oxlint...`);
   const oxlintResult = execSync(
     `npx oxlint --tsconfig ./tsconfig.json --type-aware --threads=${cpus} . --fix`,
