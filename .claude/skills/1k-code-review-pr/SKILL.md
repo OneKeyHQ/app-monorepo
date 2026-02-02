@@ -861,23 +861,29 @@ useEffect(() => {
 }, [type]);
 ```
 
-**Pattern 2: Ref values captured at wrong time**
+**Pattern 2: State/callback captured at wrong time**
 ```typescript
-// Bad: cleanup uses stale captured ref
+// Bad: callback captured at setup time, becomes stale
 useEffect(() => {
-  const currentRef = webviewRef.current;  // Captured at setup
-  return () => {
-    currentRef?.stopLoading();  // May be stale!
-  };
-}, []);
+  const savedCallback = onUpdate;  // Captured at setup
+  const interval = setInterval(() => {
+    savedCallback(getData());  // Uses stale callback!
+  }, 1000);
+  return () => clearInterval(interval);
+}, []);  // Missing onUpdate dependency
 
-// Good: access current value at cleanup time
+// Good: use ref for latest callback value
+const onUpdateRef = useRef(onUpdate);
+onUpdateRef.current = onUpdate;  // Always fresh
 useEffect(() => {
-  return () => {
-    webviewRef.current?.stopLoading();  // Current value at cleanup
-  };
+  const interval = setInterval(() => {
+    onUpdateRef.current(getData());  // Always uses latest
+  }, 1000);
+  return () => clearInterval(interval);
 }, []);
 ```
+
+**Note on Refs in Cleanup:** For DOM/component refs (like `webviewRef`), you SHOULD capture the ref before cleanup to ensure you're cleaning up the correct resource. See Section 11, Pattern 3 for the correct ref cleanup pattern.
 
 **Pattern 3: State derived from props not updating**
 ```typescript
