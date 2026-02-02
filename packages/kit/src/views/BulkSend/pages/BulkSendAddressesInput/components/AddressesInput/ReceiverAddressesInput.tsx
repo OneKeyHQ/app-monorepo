@@ -4,11 +4,11 @@ import { useCallback, useState } from 'react';
 import { Form } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
-import { EReceiverMode } from '@onekeyhq/shared/types/bulkSend';
+import { useDebouncedValidation } from '@onekeyhq/kit/src/views/BulkSend/hooks/useDebouncedValidation';
 import { validateTokenAmount } from '@onekeyhq/shared/src/utils/tokenUtils';
+import { EReceiverMode } from '@onekeyhq/shared/types/bulkSend';
 
 import { useBulkSendAddressesInputContext } from '../Context';
-import { useDebouncedValidation } from '@onekeyhq/kit/src/views/BulkSend/hooks/useDebouncedValidation';
 
 import LineNumberedTextArea from './LineNumberedTextArea';
 
@@ -64,13 +64,13 @@ function ReceiverAddressesInput({ maxLines }: IReceiverAddressesInputProps) {
     [selectedToken],
   );
 
-  const parseLineMode = useCallback((line: string): EReceiverMode => {
-    // Check if line contains a comma (address,amount format)
-    if (line.includes(',')) {
-      return EReceiverMode.AddressAndAmount;
-    }
-    return EReceiverMode.AddressOnly;
-  }, []);
+  const parseLineMode = useCallback(
+    (line: string): EReceiverMode =>
+      line.includes(',')
+        ? EReceiverMode.AddressAndAmount
+        : EReceiverMode.AddressOnly,
+    [],
+  );
 
   const handleValidateAddresses = useCallback(
     async (value: string) => {

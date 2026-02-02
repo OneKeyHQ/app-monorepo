@@ -1,14 +1,14 @@
 import BigNumber from 'bignumber.js';
+import { isEmpty } from 'lodash';
 
+import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EAmountInputMode,
   type IAmountInputError,
   type IAmountInputValues,
   type ITransferInfoErrors,
 } from '@onekeyhq/shared/types/bulkSend';
-import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import { isEmpty } from 'lodash';
 
 export function calculateIsAmountValid({
   amountInputMode,
@@ -262,5 +262,5 @@ export function generateAmountsFromSpecifiedAmount({
   specifiedAmount: string;
   transfersInfo: ITransferInfo[];
 }): string[] {
-  return transfersInfo.map((_) => specifiedAmount);
+  return transfersInfo.map(() => specifiedAmount);
 }

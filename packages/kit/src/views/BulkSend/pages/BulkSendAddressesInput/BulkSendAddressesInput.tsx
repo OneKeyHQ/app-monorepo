@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { Form, Page, YStack, useForm, useMedia } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   POLLING_DEBOUNCE_INTERVAL,
   POLLING_INTERVAL_FOR_TOKEN,
@@ -14,26 +20,21 @@ import {
 import bulkSendUtils from '@onekeyhq/shared/src/utils/bulkSendUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import { EBulkSendMode } from '@onekeyhq/shared/types/bulkSend';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
-import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import ReceiverAddressesInput from './components/AddressesInput/ReceiverAddressesInput';
-import SenderAddressesInput from './components/AddressesInput/SenderAddressesInput';
-import AssetSelectorTrigger from './components/AssetSelectorTrigger';
 import BulkSendBar from '../../components/BulkSendBar';
 import BulkSendContentWrapper from '../../components/BulkSendContentWrapper';
 import BulkSendHeader from '../../components/BulkSendHeader';
 import { useBulkSendMobileHeader } from '../../components/BulkSendMobileHeader';
+
+import ReceiverAddressesInput from './components/AddressesInput/ReceiverAddressesInput';
+import SenderAddressesInput from './components/AddressesInput/SenderAddressesInput';
+import AssetSelectorTrigger from './components/AssetSelectorTrigger';
 import {
   BulkSendAddressesInputContext,
   useBulkSendAddressesInputContext,
 } from './components/Context';
-import { EBulkSendMode } from '@onekeyhq/shared/types/bulkSend';
 
 function BaseBulkSendAddressesInput() {
   const route = useAppRoute<

@@ -15,20 +15,20 @@ import {
 } from '@onekeyhq/components';
 import type { IInputAddOnProps } from '@onekeyhq/components/src/forms/Input/InputAddOnItem';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   EBulkSendMode,
   type ITransferInfoErrors,
 } from '@onekeyhq/shared/types/bulkSend';
 import type { IToken } from '@onekeyhq/shared/types/token';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 // Fixed width for input field to ensure consistent layout
 const INPUT_WIDTH = 130;
 // Fixed width for address to prevent wrapping
 const ADDRESS_WIDTH = 120;
 
-type Props = {
+type IProps = {
   tokenInfo: IToken;
   editMode: boolean;
   transfersInfo: ITransferInfo[];
@@ -103,14 +103,10 @@ function TransferListItem({
     }
   }, [amountError]);
 
-  const inputAddOns = useMemo<IInputAddOnProps[]>(() => {
-    const addOns: IInputAddOnProps[] = [
-      {
-        label: tokenSymbol,
-      },
-    ];
-    return addOns;
-  }, [tokenSymbol]);
+  const inputAddOns = useMemo<IInputAddOnProps[]>(
+    () => [{ label: tokenSymbol }],
+    [tokenSymbol],
+  );
 
   const errorLeftAddOnProps = useMemo<IInputAddOnProps | undefined>(() => {
     if (!hasAmountError) return undefined;
@@ -241,7 +237,7 @@ function TransferSection({ title, count, children }: ITransferSectionProps) {
   );
 }
 
-function BulkSendTxDetails(props: Props) {
+function BulkSendTxDetails(props: IProps) {
   const {
     tokenInfo,
     editMode,
@@ -330,9 +326,7 @@ function BulkSendTxDetails(props: Props) {
   );
 
   const handleAmountChange = useCallback(
-    (index: number, amount: string) => {
-      onAmountChange?.(index, amount);
-    },
+    (index: number, amount: string) => onAmountChange?.(index, amount),
     [onAmountChange],
   );
 
@@ -366,7 +360,7 @@ function BulkSendTxDetails(props: Props) {
             type="send"
             addressError={getTransferError(sender.indices, 'from')}
             amountError={getTransferError(sender.indices, 'amount')}
-            editMode={editMode && canEditSender}
+            editMode={Boolean(editMode && canEditSender)}
             deleteDisabled={isDeleteDisabled}
             onDelete={
               onDeleteTransfer && canEditSender && !isDeleteDisabled
@@ -392,7 +386,7 @@ function BulkSendTxDetails(props: Props) {
             type="receive"
             addressError={getTransferError(receiver.indices, 'to')}
             amountError={getTransferError(receiver.indices, 'amount')}
-            editMode={editMode && canEditReceiver}
+            editMode={Boolean(editMode && canEditReceiver)}
             deleteDisabled={isDeleteDisabled}
             onDelete={
               onDeleteTransfer && canEditReceiver && !isDeleteDisabled

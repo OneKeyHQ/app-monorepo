@@ -12,19 +12,18 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { getSharedInputStyles } from '@onekeyhq/components/src/forms/Input/sharedStyles';
+import { AmountInput as BaseAmountInput } from '@onekeyhq/kit/src/components/AmountInput';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { Token } from '@onekeyhq/kit/src/components/Token';
+import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { validateTokenAmount } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   EAmountInputMode,
   type IAmountInputError,
 } from '@onekeyhq/shared/types/bulkSend';
 
-import { AmountInput as BaseAmountInput } from '@onekeyhq/kit/src/components/AmountInput';
-import { Token } from '@onekeyhq/kit/src/components/Token';
-import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
-
 import { useBulkSendAmountsInputContext } from './Context';
-import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { validateTokenAmount } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 export function SpecifiedAmountInput() {
   const {
@@ -420,14 +419,14 @@ export function AmountInputSection({ inDialog }: { inDialog?: boolean }) {
   const { amountInputMode, setAmountInputMode, setAmountInputErrors } =
     useBulkSendAmountsInputContext();
 
-  const segmentOptions = useMemo(() => {
-    const options = [
+  const segmentOptions = useMemo(
+    () => [
       { label: 'Specified', value: EAmountInputMode.Specified },
       { label: 'Range', value: EAmountInputMode.Range },
       { label: 'Custom', value: EAmountInputMode.Custom },
-    ];
-    return options;
-  }, []);
+    ],
+    [],
+  );
 
   const handleModeChange = useCallback(
     (value: string | number) => {

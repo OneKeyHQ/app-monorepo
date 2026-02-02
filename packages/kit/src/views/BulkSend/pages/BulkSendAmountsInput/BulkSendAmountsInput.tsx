@@ -1,9 +1,24 @@
+import { useCallback, useEffect, useMemo, useState } from 'react';
+
+import BigNumber from 'bignumber.js';
+import { isEmpty } from 'lodash';
+
 import { Page, useMedia } from '@onekeyhq/components';
+import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import type {
+  IApproveInfo,
+  ITransferInfo,
+} from '@onekeyhq/kit-bg/src/vaults/types';
+import { getBulkSendContractAddress } from '@onekeyhq/shared/src/consts/bulkSendContractAddress';
 import {
   POLLING_DEBOUNCE_INTERVAL,
   POLLING_INTERVAL_FOR_TOKEN,
 } from '@onekeyhq/shared/src/consts/walletConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EModalBulkSendRoutes,
   EModalRoutes,
@@ -13,19 +28,19 @@ import {
 import {
   EAmountInputMode,
   EBulkSendMode,
+  type IAmountInputError,
+  type IAmountInputValues,
+  type ITransferInfoErrors,
 } from '@onekeyhq/shared/types/bulkSend';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
-
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { getBulkSendContractAddress } from '@onekeyhq/shared/src/consts/bulkSendContractAddress';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import BulkSendBar from '../../components/BulkSendBar';
 import BulkSendContentWrapper from '../../components/BulkSendContentWrapper';
 import BulkSendHeader from '../../components/BulkSendHeader';
 import { useBulkSendMobileHeader } from '../../components/BulkSendMobileHeader';
+import { calculateIsAmountValid, calculateTotalAmounts } from '../../utils';
 
+import { AmountPreview } from './components/AmountPreview';
 import {
   BulkSendAmountsInputContext,
   type IBulkSendAmountsInputContext,
@@ -34,25 +49,9 @@ import {
   type IPreviewState,
   useBulkSendAmountsInputContext,
 } from './components/Context';
-import TableLayout from './components/TableLayout';
 import MobileLayout from './components/MobileLayout';
-import { AmountPreview } from './components/AmountPreview';
+import TableLayout from './components/TableLayout';
 import { useAmountPreview } from './components/useAmountPreview';
-import type {
-  IApproveInfo,
-  ITransferInfo,
-} from '@onekeyhq/kit-bg/src/vaults/types';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import {
-  type IAmountInputError,
-  type IAmountInputValues,
-  type ITransferInfoErrors,
-} from '@onekeyhq/shared/types/bulkSend';
-import { calculateIsAmountValid, calculateTotalAmounts } from '../../utils';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import BigNumber from 'bignumber.js';
-import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
-import { isEmpty } from 'lodash';
 
 function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
   const {
@@ -113,10 +112,10 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
     shouldShowTxDetails(amountInputMode);
 
   // Check if token needs approval (native tokens don't need approval)
-  const needsApproval = useMemo(() => {
-    if (!tokenInfo) return false;
-    return !tokenInfo.isNative;
-  }, [tokenInfo]);
+  const needsApproval = useMemo(
+    () => tokenInfo && !tokenInfo.isNative,
+    [tokenInfo],
+  );
 
   // Get BulkSend contract address for current network
   const bulkSendContractAddress = useMemo(() => {
@@ -353,7 +352,6 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
             maxWidth: '$180',
           }}
         >
-
           <Page.FooterActions
             px="$0"
             onConfirmText={confirmButtonText}
@@ -366,24 +364,25 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
               disabled: isSubmitDisabled,
               loading: isBuilding,
             }}
-          >{!media.gtMd ? (
-            <AmountPreview
-              containerProps={{
-                mb: '$4',
-              }}
-              amountInputValues={amountInputValues}
-              amountInputMode={amountInputMode}
-              tokenDetails={tokenDetails}
-              transfersInfo={
-                amountInputMode === EAmountInputMode.Custom
-                  ? currentModeData.transfersInfo
-                  : transfersInfo
-              }
-              isInPreviewMode={isInPreviewMode}
-              previewTotalTokenAmount={currentModeData.totalTokenAmount}
-              previewTotalFiatAmount={currentModeData.totalFiatAmount}
-            />
-          ) : null}
+          >
+            {!media.gtMd ? (
+              <AmountPreview
+                containerProps={{
+                  mb: '$4',
+                }}
+                amountInputValues={amountInputValues}
+                amountInputMode={amountInputMode}
+                tokenDetails={tokenDetails}
+                transfersInfo={
+                  amountInputMode === EAmountInputMode.Custom
+                    ? currentModeData.transfersInfo
+                    : transfersInfo
+                }
+                isInPreviewMode={isInPreviewMode}
+                previewTotalTokenAmount={currentModeData.totalTokenAmount}
+                previewTotalFiatAmount={currentModeData.totalFiatAmount}
+              />
+            ) : null}
           </Page.FooterActions>
         </BulkSendContentWrapper>
       </Page.Footer>

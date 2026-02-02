@@ -9,35 +9,34 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   type EModalBulkSendRoutes,
   EModalSignatureConfirmRoutes,
   type IModalBulkSendParamList,
 } from '@onekeyhq/shared/src/routes';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { waitAsync } from '@onekeyhq/shared/src/utils/promiseUtils';
 import type { ISendSelectedFeeInfo } from '@onekeyhq/shared/types/fee';
 import { EFeeType, ESendFeeStatus } from '@onekeyhq/shared/types/fee';
+import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
 import { usePreCheckFeeInfo } from '../../../SignatureConfirm/hooks/usePreCheckFeeInfo';
+import BulkSendTxDetails from '../../components/BulkSendTxDetails';
 
 import BulkSendApprovalCard from './components/BulkSendApprovalCard';
 import BulkSendReviewAlert from './components/BulkSendReviewAlert';
 import BulkSendReviewCostCard from './components/BulkSendReviewCostCard';
 import BulkSendReviewGrandSummary from './components/BulkSendReviewGrandSummary';
-import BulkSendTxDetails from '../../components/BulkSendTxDetails';
-import { showStandaloneApproveEditor } from './components/StandaloneApproveEditor';
-import { useBulkSendFeeEstimation } from './hooks/useBulkSendFeeEstimation';
-
 import {
   BulkSendReviewContext,
   type IBulkSendFeeState,
   useBulkSendReviewContext,
 } from './components/Context';
+import { showStandaloneApproveEditor } from './components/StandaloneApproveEditor';
+import { useBulkSendFeeEstimation } from './hooks/useBulkSendFeeEstimation';
 
 function BaseBulkSendReview({
   onSuccess,
@@ -193,9 +192,10 @@ function BaseBulkSendReview({
   );
 
   // Handle retry fee estimation (force loading state)
-  const handleRetryFeeEstimation = useCallback(() => {
-    forceRefreshFee();
-  }, [forceRefreshFee]);
+  const handleRetryFeeEstimation = useCallback(
+    () => forceRefreshFee(),
+    [forceRefreshFee],
+  );
 
   // Handle Tron transactions one by one
   const handleTronTxsOneByOne = useCallback(
@@ -251,19 +251,15 @@ function BaseBulkSendReview({
     [navigation, accountId, networkId],
   );
 
-  const handleCancel = useCallback(() => {
-    navigation.pop();
-  }, [navigation]);
+  const handleCancel = useCallback(() => navigation.pop(), [navigation]);
 
   // Navigate back to address input page after successful transaction
   const navigateAfterSuccess = useCallback(() => {
-
     if (accountUtils.isQrAccount({ accountId: accountId ?? '' })) {
       navigation.popStack();
     }
 
     if (isInModal) {
-
       navigation.pop();
     } else {
       navigation.popStack();
@@ -351,10 +347,10 @@ function BaseBulkSendReview({
         onSuccess?.(results);
 
         navigateAfterSuccess();
-      } catch (e: any) {
+      } catch (e) {
         setIsSubmitting(false);
         // Check if user cancelled
-        if (e?.message === 'User cancelled') {
+        if (e instanceof Error && e.message === 'User cancelled') {
           // Stay on current page, do nothing
           return;
         }

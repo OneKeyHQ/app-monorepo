@@ -31,29 +31,31 @@ export function useAmountPreview({
 }: IUseAmountPreviewParams) {
   const updateTransfersInfoWithAmounts = useCallback(
     (mode: EAmountInputMode, values: IAmountInputValues) => {
-      let newTransfersInfo = [...transfersInfo];
+      let amounts: string[] = [];
 
-      if (mode === EAmountInputMode.Range) {
-        const amounts = generateRandomAmountsFromRange({
-          transfersInfo,
-          rangeMin: values.rangeMin,
-          rangeMax: values.rangeMax,
-          decimals: tokenInfo.decimals,
-        });
-        newTransfersInfo = transfersInfo.map((transfer, index) => ({
-          ...transfer,
-          amount: amounts[index],
-        }));
-      } else if (mode === EAmountInputMode.Specified) {
-        const amounts = generateAmountsFromSpecifiedAmount({
-          specifiedAmount: values.specifiedAmount ?? '0',
-          transfersInfo,
-        });
-        newTransfersInfo = transfersInfo.map((transfer, index) => ({
-          ...transfer,
-          amount: amounts[index],
-        }));
+      switch (mode) {
+        case EAmountInputMode.Range:
+          amounts = generateRandomAmountsFromRange({
+            transfersInfo,
+            rangeMin: values.rangeMin,
+            rangeMax: values.rangeMax,
+            decimals: tokenInfo.decimals,
+          });
+          break;
+        case EAmountInputMode.Specified:
+          amounts = generateAmountsFromSpecifiedAmount({
+            specifiedAmount: values.specifiedAmount ?? '0',
+            transfersInfo,
+          });
+          break;
+        default:
+          return;
       }
+
+      const newTransfersInfo = transfersInfo.map((transfer, index) => ({
+        ...transfer,
+        amount: amounts[index],
+      }));
 
       setTransfersInfo(newTransfersInfo);
     },
@@ -64,10 +66,15 @@ export function useAmountPreview({
     (mode: EAmountInputMode, values: IAmountInputValues) => {
       updateTransfersInfoWithAmounts(mode, values);
 
-      if (mode === EAmountInputMode.Specified) {
-        setPreviewState({ ...previewState, specifiedPreviewed: true });
-      } else if (mode === EAmountInputMode.Range) {
-        setPreviewState({ ...previewState, rangePreviewed: true });
+      switch (mode) {
+        case EAmountInputMode.Specified:
+          setPreviewState({ ...previewState, specifiedPreviewed: true });
+          break;
+        case EAmountInputMode.Range:
+          setPreviewState({ ...previewState, rangePreviewed: true });
+          break;
+        default:
+          break;
       }
     },
     [updateTransfersInfoWithAmounts, previewState, setPreviewState],
@@ -75,26 +82,31 @@ export function useAmountPreview({
 
   const shouldShowTxDetails = useCallback(
     (mode: EAmountInputMode) => {
-      if (mode === EAmountInputMode.Custom) {
-        return true;
+      switch (mode) {
+        case EAmountInputMode.Custom:
+          return true;
+        case EAmountInputMode.Specified:
+          return previewState.specifiedPreviewed;
+        case EAmountInputMode.Range:
+          return previewState.rangePreviewed;
+        default:
+          return false;
       }
-      if (mode === EAmountInputMode.Specified) {
-        return previewState.specifiedPreviewed;
-      }
-      if (mode === EAmountInputMode.Range) {
-        return previewState.rangePreviewed;
-      }
-      return false;
     },
     [previewState],
   );
 
   const hidePreview = useCallback(
     (mode: EAmountInputMode) => {
-      if (mode === EAmountInputMode.Specified) {
-        setPreviewState({ ...previewState, specifiedPreviewed: false });
-      } else if (mode === EAmountInputMode.Range) {
-        setPreviewState({ ...previewState, rangePreviewed: false });
+      switch (mode) {
+        case EAmountInputMode.Specified:
+          setPreviewState({ ...previewState, specifiedPreviewed: false });
+          break;
+        case EAmountInputMode.Range:
+          setPreviewState({ ...previewState, rangePreviewed: false });
+          break;
+        default:
+          break;
       }
     },
     [previewState, setPreviewState],
