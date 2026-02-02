@@ -125,9 +125,11 @@ function WebContent({ id, url }: IWebContentProps) {
     [getWebTabById, id, setWebTabData],
   );
   const onDomReady = useCallback(() => {
-    const ref = webviewRefs[id] as IElectronWebView;
-    // @ts-expect-error
-    ref.__domReady = true;
+    const ref = webviewRefs[id];
+    if (ref) {
+      // @ts-expect-error
+      ref.__domReady = true;
+    }
   }, [id]);
   const webview = useMemo(
     () => {
