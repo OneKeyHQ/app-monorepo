@@ -1,8 +1,10 @@
+// cspell:ignore oxlintrc
 const { execSync } = require('child_process');
 const { exit } = require('process');
 const os = require('os');
 const fs = require('fs');
 const path = require('path');
+const JSON5 = require('json5');
 
 const getTimestamp = () => new Date().toLocaleTimeString();
 
@@ -19,9 +21,11 @@ let originalOxlintrc = null;
 
 if (isCI) {
   try {
-    console.log(`[${getTimestamp()}] Modifying .oxlintrc.json for CI environment...`);
+    console.log(
+      `[${getTimestamp()}] Modifying .oxlintrc.json for CI environment...`,
+    );
     originalOxlintrc = fs.readFileSync(oxlintrcPath, 'utf-8');
-    const oxlintrc = JSON.parse(originalOxlintrc);
+    const oxlintrc = JSON5.parse(originalOxlintrc);
 
     // Remove eslint-plugin-prettier from jsPlugins
     if (oxlintrc.jsPlugins) {
@@ -43,7 +47,9 @@ if (isCI) {
     }
 
     fs.writeFileSync(oxlintrcPath, JSON.stringify(oxlintrc, null, 2) + '\n');
-    console.log(`[${getTimestamp()}] .oxlintrc.json modified for CI (prettier rules disabled)`);
+    console.log(
+      `[${getTimestamp()}] .oxlintrc.json modified for CI (prettier rules disabled)`,
+    );
   } catch (error) {
     console.error('Failed to modify .oxlintrc.json:', error);
     exit(1);
