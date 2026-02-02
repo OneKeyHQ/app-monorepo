@@ -599,7 +599,8 @@ function BasePerpTokenSelector() {
             gap="$3"
             bg="$bgApp"
             cursor="pointer"
-            p="$2"
+            px="$2"
+            py="$1.5"
             borderRadius="$full"
             hoverStyle={{
               bg: '$bgHover',
