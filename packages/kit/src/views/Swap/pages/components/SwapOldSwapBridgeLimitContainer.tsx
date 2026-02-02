@@ -1,15 +1,18 @@
 import { useRef } from 'react';
 
+import { useIntl } from 'react-intl';
 import { type ScrollView as ScrollViewNative } from 'react-native';
 
 import {
   EPageType,
   ScrollView,
+  SizableText,
   XStack,
   YStack,
   useMedia,
 } from '@onekeyhq/components';
 import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 import type {
   ESwapDirectionType,
@@ -25,6 +28,7 @@ import LimitInfoContainer from './LimitInfoContainer';
 import LimitOrderOpenItem from './LimitOrderOpenItem';
 import SwapActionsState from './SwapActionsState';
 import SwapAlertContainer from './SwapAlertContainer';
+import SwapHeaderRightActionContainer from './SwapHeaderRightActionContainer';
 import SwapPendingHistoryListComponent from './SwapPendingHistoryList';
 import SwapQuoteInput from './SwapQuoteInput';
 import SwapQuoteResult from './SwapQuoteResult';
@@ -82,11 +86,21 @@ const SwapOldSwapBridgeLimitContainer = ({
   swapRecentTokenPairs,
 }: ISwapOldSwapBridgeLimitContainerProps) => {
   const scrollViewRef = useRef<ScrollViewNative>(null);
-  const { gtMd } = useMedia();
+  const { gtLg } = useMedia();
+  const intl = useIntl();
+
+  let swapTitle: string;
+  if (swapTypeSwitch === ESwapTabSwitchType.BRIDGE) {
+    swapTitle = intl.formatMessage({ id: ETranslations.swap_page_bridge });
+  } else if (swapTypeSwitch === ESwapTabSwitchType.LIMIT) {
+    swapTitle = intl.formatMessage({ id: ETranslations.swap_page_limit });
+  } else {
+    swapTitle = intl.formatMessage({ id: ETranslations.swap_page_swap });
+  }
 
   // Desktop: show provider panel on the right side
-  // Show when: on desktop (gtMd) and not in modal
-  const showDesktopProviderPanel = gtMd && pageType !== EPageType.modal;
+  // Show when: on large desktop (gtLg) and not in modal
+  const showDesktopProviderPanel = gtLg && pageType !== EPageType.modal;
 
   const mainContent = (
     <YStack
@@ -96,7 +110,6 @@ const SwapOldSwapBridgeLimitContainer = ({
       flex={1}
       $gtMd={{
         flex: 'unset',
-        pt: pageType === EPageType.modal ? '$2.5' : '$5',
       }}
       pb="$5"
     >
@@ -139,19 +152,30 @@ const SwapOldSwapBridgeLimitContainer = ({
   );
 
   if (showDesktopProviderPanel) {
-    // Clone mainContent with px="$0" to avoid double padding (outer XStack already has px="$5")
-    const mainContentWithoutPadding = (
+    // Clone mainContent with card styling for desktop
+    const mainContentWithCard = (
       <YStack
-        pt="$2.5"
-        px="$0"
+        p="$6"
         gap="$5"
-        flex={1}
-        $gtMd={{
-          flex: 'unset',
-          pt: '$5',
+        borderRadius="$6"
+        borderWidth={1}
+        borderColor="$borderSubdued"
+        elevationAndroid="$1"
+        style={{
+          shadowColor: 'rgba(0, 0, 0, 0.08)',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 1,
+          shadowRadius: 20,
         }}
-        pb="$5"
       >
+        <XStack alignItems="center" justifyContent="space-between">
+          <SizableText size="$headingLg">{swapTitle}</SizableText>
+          <SwapHeaderRightActionContainer
+            pageType={pageType}
+            iconSize="$5"
+            iconColor="$iconStrong"
+          />
+        </XStack>
         <LimitOrderOpenItem storeName={storeName} />
         <SwapQuoteInput
           onSelectToken={onSelectToken}
@@ -188,16 +212,16 @@ const SwapOldSwapBridgeLimitContainer = ({
       </YStack>
     );
     return (
-      <XStack flex={1} gap="$5" px="$5" alignItems="flex-start">
+      <XStack gap="$5" px="$5" alignItems="flex-start">
         <ScrollView
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
           ref={scrollViewRef}
-          flex={1}
+          flexBasis="50%"
         >
-          {mainContentWithoutPadding}
+          <YStack pt="$5">{mainContentWithCard}</YStack>
         </ScrollView>
-        <YStack pt="$5" maxHeight={480}>
+        <YStack pt="$5" flexBasis="50%">
           <SwapProviderListPanel refreshAction={refreshAction} />
         </YStack>
       </XStack>

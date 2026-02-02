@@ -367,7 +367,7 @@ const SwapProviderListPanel = ({
 
   const renderLoadingSkeleton = useCallback(
     () => (
-      <YStack gap="$2" px="$3" py="$2">
+      <YStack gap="$2" px="$5" py="$3">
         {Array.from({ length: 3 }).map((_, index) => (
           <AnimatedSkeletonItem key={index} index={index} />
         ))}
@@ -407,23 +407,19 @@ const SwapProviderListPanel = ({
   return (
     <YStack
       flex={1}
-      borderRadius="$4"
+      borderRadius="$6"
       borderWidth={1}
       borderColor="$borderSubdued"
-      bg="$bg"
-      minWidth={360}
-      maxWidth={440}
     >
       {/* Header */}
       <XStack
-        px="$4"
-        py="$3"
+        px="$6"
+        pt="$6"
+        pb="$3"
         alignItems="center"
         justifyContent="space-between"
-        borderBottomWidth={1}
-        borderBottomColor="$borderSubdued"
       >
-        <SizableText size="$headingMd" color="$text">
+        <SizableText size="$headingLg" color="$text">
           {intl.formatMessage({ id: ETranslations.provider_title })}
         </SizableText>
         {quoteLoading && shouldShowContent ? (
@@ -445,7 +441,7 @@ const SwapProviderListPanel = ({
             exit={{ opacity: 0, translateY: -8 }}
             transition={{ type: 'timing', duration: 200 } as any}
           >
-            <XStack px="$4" pt="$3">
+            <XStack px="$5" pt="$3">
               <Select
                 title={intl.formatMessage({
                   id: ETranslations.provider_sort_title,
@@ -515,7 +511,7 @@ const SwapProviderListPanel = ({
               animate={{ opacity: 1 }}
               transition={{ type: 'timing', duration: 150 } as any}
             >
-              <YStack px="$3" pb="$3">
+              <YStack px="$5" pb="$5">
                 {/* Available Providers */}
                 {availableList.length > 0 ? (
                   <YStack>
