@@ -19,7 +19,9 @@ try {
   const isMacOS = os.platform() === 'darwin';
   const cpus = isMacOS ? Math.min(os.cpus().length, 4) : os.cpus().length;
   const fixFlag = isCI ? '' : ' --fix';
-  console.log(`Using ${cpus} threads for oxlint...${isCI ? ' (CI mode, no --fix)' : ''}`);
+  console.log(
+    `Using ${cpus} threads for oxlint...${isCI ? ' (CI mode, no --fix)' : ''}`,
+  );
   const oxlintResult = execSync(
     `npx oxlint --tsconfig ./tsconfig.json --type-aware --threads=${cpus} .${fixFlag}`,
     { encoding: 'utf-8', stdio: 'pipe' },
