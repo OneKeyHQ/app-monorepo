@@ -428,14 +428,8 @@ const SwapQuoteResult = ({
               />
             )}
           </Accordion.Trigger>
-          <Accordion.HeightAnimator animation="quick">
-            <Accordion.Content
-              gap="$4"
-              p="$0"
-              animation="quick"
-              enterStyle={{ opacity: 0 }}
-              exitStyle={{ opacity: 0 }}
-            >
+          <Accordion.HeightAnimator animation="quick" overflow="hidden">
+            <Accordion.Content gap="$4" p="$0">
               <Divider mt="$4" />
               {swapProviderSupportReceiveAddress &&
               swapEnableRecipientAddress ? (
