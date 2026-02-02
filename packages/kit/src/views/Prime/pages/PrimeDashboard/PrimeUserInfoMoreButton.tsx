@@ -163,6 +163,18 @@ function PrimeUserInfoMoreButtonDropDownMenu({
       />
       <ActionList.Item
         label={intl.formatMessage({
+          id: ETranslations.prime_my_order,
+        })}
+        icon="CartOutline"
+        onClose={handleActionListClose}
+        onPress={() => {
+          navigation.pushModal(EModalRoutes.PrimeModal, {
+            screen: EPrimePages.PrimeMyOrders,
+          });
+        }}
+      />
+      <ActionList.Item
+        label={intl.formatMessage({
           id: ETranslations.prime_log_out,
         })}
         icon="LogoutOutline"
