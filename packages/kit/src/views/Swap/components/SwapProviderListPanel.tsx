@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useRef } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { AnimatePresence, MotiView } from 'moti';
@@ -152,6 +152,11 @@ const SwapProviderListPanel = ({
   // Track if waiting for new quote to prevent flash to empty state (OK-49718)
   const isWaitingForNewQuoteRef = useRef(false);
 
+  // ScrollView ref for auto-scrolling to selected provider (OK-49778)
+  const scrollViewRef = useRef<{ scrollTo: (options: { y: number; animated?: boolean }) => void } | null>(null);
+  // Track previous loading state for detecting when loading completes
+  const prevIsLoadingRef = useRef(false);
+
   // Reset cache when tokens change
   if (prevTokenKeyRef.current !== currentTokenKey) {
     prevTokenKeyRef.current = currentTokenKey;
@@ -293,6 +298,31 @@ const SwapProviderListPanel = ({
       ),
     [displayList],
   );
+
+  // Auto-scroll to selected provider when loading completes (OK-49778)
+  useEffect(() => {
+    const wasLoading = prevIsLoadingRef.current;
+    prevIsLoadingRef.current = isLoading;
+
+    // Only scroll when loading just completed (transition from loading to not loading)
+    if (wasLoading && !isLoading && currentSelectQuote && availableList.length > 0) {
+      const selectedIndex = availableList.findIndex(
+        (item) =>
+          item.info.provider === currentSelectQuote.info.provider &&
+          item.info.providerName === currentSelectQuote.info.providerName,
+      );
+
+      if (selectedIndex > 0 && scrollViewRef.current) {
+        // Estimate item height: ~120px per item (including padding and margins)
+        const estimatedItemHeight = 120;
+        const scrollY = selectedIndex * estimatedItemHeight;
+        // Add a small delay to ensure the list is rendered
+        setTimeout(() => {
+          scrollViewRef.current?.scrollTo({ y: scrollY, animated: true });
+        }, 100);
+      }
+    }
+  }, [isLoading, currentSelectQuote, availableList]);
 
   const onSelectQuote = useCallback(
     (item: IFetchQuoteResult) => {
@@ -473,7 +503,7 @@ const SwapProviderListPanel = ({
       </AnimatePresence>
 
       {/* Content */}
-      <ScrollView flex={1}>
+      <ScrollView flex={1} ref={scrollViewRef as any}>
         <AnimatePresence>
           {!shouldShowContent ? (
             <MotiView

@@ -161,9 +161,8 @@ const SwapTxHistoryListCell = ({
     item.swapInfo.otherFeeInfos,
   ]);
   return (
-    <XStack overflow="visible" flex={1} px="$4">
+    <XStack flex={1} px="$2">
       <XStack
-        mx="$-2"
         px="$2"
         py="$2.5"
         flex={1}
