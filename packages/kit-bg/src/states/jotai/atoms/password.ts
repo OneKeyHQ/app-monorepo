@@ -162,6 +162,10 @@ export const {
 
 export const { target: appIsLocked, use: useAppIsLockedAtom } =
   globalAtomComputed<boolean>((get) => {
+    // WebDappMode only supports connecting external wallets, no local wallet data to protect
+    if (platformEnv.isWebDappMode) {
+      return false;
+    }
     const { isMigrationModalOpen, isProcessing } = get(v4migrationAtom.atom());
     if (isMigrationModalOpen || isProcessing) {
       return false;
