@@ -5,17 +5,72 @@
  */
 
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 
 const OUTPUT_DIR =
-  process.env.PERF_OUTPUT_DIR ||
-  path.join(__dirname, '../output/perf-sessions');
+  process.env.PERF_OUTPUT_DIR || path.join(os.homedir(), 'perf-sessions');
+const OVERVIEW_PATH = path.join(OUTPUT_DIR, 'sessions.overview.jsonl');
 
 // Ensure output directory exists
 function ensureDir(dir) {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
+}
+
+function getMetaPath(sessionId) {
+  return path.join(getSessionDir(sessionId), 'meta.json');
+}
+
+function readMeta(sessionId) {
+  const metaPath = getMetaPath(sessionId);
+  if (!fs.existsSync(metaPath)) return null;
+  try {
+    return JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+function writeMeta(sessionId, meta) {
+  const metaPath = getMetaPath(sessionId);
+  ensureDir(path.dirname(metaPath));
+  fs.writeFileSync(metaPath, JSON.stringify(meta, null, 2), 'utf8');
+}
+
+function appendOverviewLine(summary) {
+  ensureDir(OUTPUT_DIR);
+  fs.appendFileSync(OVERVIEW_PATH, `${JSON.stringify(summary)}\n`, 'utf8');
+}
+
+function buildSessionSummary(meta) {
+  const keyMarks =
+    meta?.keyMarks && typeof meta.keyMarks === 'object' ? meta.keyMarks : {};
+  const startMark = keyMarks['Home:refresh:start:tokens'];
+  const doneMark = keyMarks['Home:refresh:done:tokens'];
+  const tokensSpanMs =
+    Number.isFinite(startMark) && Number.isFinite(doneMark)
+      ? doneMark - startMark
+      : null;
+
+  const eventCounts = meta?.eventCounts ?? {};
+  const functionCallCount = Number.isFinite(eventCounts?.function_call)
+    ? eventCounts.function_call
+    : null;
+
+  return {
+    sessionId: meta?.sessionId || null,
+    platform: meta?.platform || 'unknown',
+    startTime: meta?.startTime ?? null,
+    endTime: meta?.endTime ?? null,
+    durationMs: meta?.durationMs ?? null,
+    tokensStartMs: Number.isFinite(startMark) ? startMark : null,
+    tokensDoneMs: Number.isFinite(doneMark) ? doneMark : null,
+    tokensSpanMs,
+    functionCallCount,
+    eventCounts,
+  };
 }
 
 // Get session directory path
@@ -48,25 +103,17 @@ function appendEvent(sessionId, event) {
 
 // Update session metadata
 function updateSessionMeta(sessionId, event) {
-  const sessionDir = getSessionDir(sessionId);
-  const metaPath = path.join(sessionDir, 'meta.json');
-
   let meta = {
     sessionId,
     platform: event.platform || 'unknown',
     startTime: Date.now(),
     lastUpdate: Date.now(),
     eventCounts: {},
+    keyMarks: {},
   };
 
   // Load existing meta if exists
-  if (fs.existsSync(metaPath)) {
-    try {
-      meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
-    } catch {
-      // ignore parse errors
-    }
-  }
+  meta = readMeta(sessionId) || meta;
 
   // Update counts
   const eventType = event.type || 'unknown';
@@ -76,7 +123,47 @@ function updateSessionMeta(sessionId, event) {
     meta.platform = event.platform;
   }
 
-  fs.writeFileSync(metaPath, JSON.stringify(meta, null, 2), 'utf8');
+  // Track first-seen timestamps for important marks so we can build quick summaries without scanning logs.
+  if (eventType === 'mark') {
+    const name = event?.data?.name;
+    const ts = event?.timestamp;
+    if (typeof name === 'string' && Number.isFinite(ts)) {
+      meta.keyMarks =
+        meta.keyMarks && typeof meta.keyMarks === 'object' ? meta.keyMarks : {};
+      if (!Number.isFinite(meta.keyMarks[name])) {
+        meta.keyMarks[name] = ts;
+      }
+    }
+  }
+
+  writeMeta(sessionId, meta);
+}
+
+/**
+ * Finalize a session (typically on WebSocket close) and append an overview line once.
+ *
+ * This is best-effort: failures should not crash the server.
+ */
+function finalizeSession(sessionId, { endTime = Date.now() } = {}) {
+  const meta = readMeta(sessionId);
+  if (!meta) return null;
+
+  if (!Number.isFinite(meta.startTime)) {
+    meta.startTime = endTime;
+  }
+  meta.endTime = endTime;
+  meta.durationMs = Number.isFinite(meta.startTime)
+    ? endTime - meta.startTime
+    : null;
+
+  // Prevent duplicate overview entries for the same session.
+  if (!meta.indexedAt) {
+    meta.indexedAt = Date.now();
+    appendOverviewLine(buildSessionSummary(meta));
+  }
+
+  writeMeta(sessionId, meta);
+  return meta;
 }
 
 // List all sessions
@@ -205,6 +292,8 @@ function clearOldSessions(maxAgeDays = 7) {
 module.exports = {
   OUTPUT_DIR,
   appendEvent,
+  finalizeSession,
+  OVERVIEW_PATH,
   listSessions,
   getSessionData,
   clearOldSessions,
