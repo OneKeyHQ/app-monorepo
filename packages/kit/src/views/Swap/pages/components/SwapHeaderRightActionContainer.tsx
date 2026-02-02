@@ -522,10 +522,7 @@ const SwapHeaderRightActionContainer = ({
         <HeaderIconButton
           icon="SliderHorOutline"
           onPress={onOpenSwapSettings}
-          iconProps={{
-            size: iconSize ?? '$5',
-            color: iconColor ?? '$iconSubdued',
-          }}
+          iconProps={{ size: iconSize ?? 20, color: iconColor }}
           size="medium"
         />
       )}
@@ -563,10 +560,7 @@ const SwapHeaderRightActionContainer = ({
         <HeaderIconButton
           icon="ClockTimeHistoryOutline"
           onPress={onOpenHistoryListModal}
-          iconProps={{
-            size: iconSize ?? '$5',
-            color: iconColor ?? '$iconSubdued',
-          }}
+          iconProps={{ size: iconSize ?? 20, color: iconColor ?? '$icon' }}
           size="medium"
         />
       )}

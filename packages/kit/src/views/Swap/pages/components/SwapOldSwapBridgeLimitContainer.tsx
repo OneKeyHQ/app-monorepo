@@ -99,8 +99,11 @@ const SwapOldSwapBridgeLimitContainer = ({
   }
 
   // Desktop: show provider panel on the right side
-  // Show when: on large desktop (gtLg) and not in modal
-  const showDesktopProviderPanel = gtLg && pageType !== EPageType.modal;
+  // Show when: on large desktop (gtLg), not in modal, and not in Limit mode
+  const showDesktopProviderPanel =
+    gtLg &&
+    pageType !== EPageType.modal &&
+    swapTypeSwitch !== ESwapTabSwitchType.LIMIT;
 
   const mainContent = (
     <YStack
@@ -110,6 +113,11 @@ const SwapOldSwapBridgeLimitContainer = ({
       flex={1}
       $gtMd={{
         flex: 'unset',
+      }}
+      $gtLg={{
+        maxWidth: 480,
+        alignSelf: 'center',
+        width: '100%',
       }}
       pb="$5"
     >
@@ -161,11 +169,14 @@ const SwapOldSwapBridgeLimitContainer = ({
         borderWidth={1}
         borderColor="$borderSubdued"
         elevationAndroid="$1"
+        $platform-web={{
+          boxShadow: '0px 0px 24px 0px rgba(0, 0, 0, 0.06)',
+        }}
         style={{
           shadowColor: 'rgba(0, 0, 0, 0.08)',
-          shadowOffset: { width: 0, height: 4 },
+          shadowOffset: { width: 0, height: 0 },
           shadowOpacity: 1,
-          shadowRadius: 20,
+          shadowRadius: 24,
         }}
       >
         <XStack alignItems="center" justifyContent="space-between">
@@ -183,9 +194,6 @@ const SwapOldSwapBridgeLimitContainer = ({
           onSelectPercentageStage={onSelectPercentageStage}
           onBalanceMaxPress={onBalanceMaxPress}
         />
-        {swapTypeSwitch === ESwapTabSwitchType.LIMIT && !isWrapped ? (
-          <LimitInfoContainer />
-        ) : null}
         <SwapActionsState
           onPreSwap={onPreSwap}
           onOpenRecipientAddress={onToAnotherAddressModal}
@@ -212,14 +220,14 @@ const SwapOldSwapBridgeLimitContainer = ({
       </YStack>
     );
     return (
-      <XStack gap="$5" px="$5" alignItems="flex-start">
+      <XStack gap="$2" px="$5" alignItems="flex-start">
         <ScrollView
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
           ref={scrollViewRef}
           flexBasis="50%"
         >
-          <YStack pt="$5">{mainContentWithCard}</YStack>
+          <YStack p="$5">{mainContentWithCard}</YStack>
         </ScrollView>
         <YStack pt="$5" flexBasis="50%">
           <SwapProviderListPanel refreshAction={refreshAction} />

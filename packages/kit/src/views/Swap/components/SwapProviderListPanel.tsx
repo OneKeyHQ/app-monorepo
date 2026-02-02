@@ -410,6 +410,16 @@ const SwapProviderListPanel = ({
       borderRadius="$6"
       borderWidth={1}
       borderColor="$borderSubdued"
+      elevationAndroid="$1"
+      $platform-web={{
+        boxShadow: '0px 0px 24px 0px rgba(0, 0, 0, 0.06)',
+      }}
+      style={{
+        shadowColor: 'rgba(0, 0, 0, 0.08)',
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 1,
+        shadowRadius: 24,
+      }}
     >
       {/* Header */}
       <XStack
@@ -420,7 +430,7 @@ const SwapProviderListPanel = ({
         justifyContent="space-between"
       >
         <SizableText size="$headingLg" color="$text">
-          {intl.formatMessage({ id: ETranslations.provider_title })}
+          {intl.formatMessage({ id: ETranslations.Limit_info_provider })}
         </SizableText>
         {quoteLoading && shouldShowContent ? (
           <Skeleton width={18} height={18} radius="round" />
