@@ -103,9 +103,9 @@ export default function PrimeMyOrders() {
         >
           {/* Product Image */}
           <Image
-            width={40}
-            height={40}
-            borderRadius="$2"
+            width={48}
+            height={48}
+            borderRadius="$3"
             source={{ uri: firstLineItem?.imageUrl }}
           />
 
@@ -114,7 +114,7 @@ export default function PrimeMyOrders() {
             <XStack alignItems="center" gap="$2">
               {/* Order Number + Copy */}
               <XStack alignItems="center" gap="$1">
-                <SizableText size="$bodyMdMedium">
+                <SizableText size="$bodyLgMedium">
                   {item.orderNumber}
                 </SizableText>
                 <IconButton
@@ -137,7 +137,7 @@ export default function PrimeMyOrders() {
             </XStack>
 
             {/* Items count and date */}
-            <SizableText size="$bodySm" color="$textSubdued">
+            <SizableText size="$bodySmMedium" color="$textSubdued">
               {intl.formatMessage(
                 { id: ETranslations.global_number_items },
                 { number: item.itemCount },
@@ -179,7 +179,7 @@ export default function PrimeMyOrders() {
 
     if (hasOrders) {
       return (
-        <YStack flex={1} p="$4" gap="$4">
+        <YStack flex={1} pb="$4" px={gtMd ? 60 : 20} gap="$2.5">
           {/* Alert Banner */}
           {showAlert ? (
             <Alert
