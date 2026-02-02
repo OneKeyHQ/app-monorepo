@@ -3,6 +3,7 @@ import {
   AndroidNotificationPriority,
   DEFAULT_ACTION_IDENTIFIER,
   IosAuthorizationStatus,
+  SchedulableTriggerInputTypes,
   addNotificationResponseReceivedListener,
   cancelScheduledNotificationAsync,
   dismissNotificationAsync,
@@ -208,10 +209,16 @@ export default class NotificationProvider extends NotificationProviderBase {
 
     console.log('showNotification native scheduleNotificationAsync', content);
     // JPush.addLocalNotification
+    // Use { seconds: 1 } instead of null to ensure proper notification metadata initialization
+    // This fixes crash: "notification and action should not be null" in NotificationForwarderActivity
     await scheduleNotificationAsync({
       identifier: uuid,
       content,
-      trigger: null,
+      trigger: {
+        type: SchedulableTriggerInputTypes.TIME_INTERVAL,
+        repeats: false,
+        seconds: 1,
+      },
     });
 
     // 5秒后移除expo通知
