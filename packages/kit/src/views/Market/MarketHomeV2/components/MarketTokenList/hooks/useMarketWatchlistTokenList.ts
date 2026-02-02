@@ -8,22 +8,12 @@ import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 
 import {
   SORT_MAP,
+  getNativeTokenInfo,
   getNetworkLogoUri,
   transformApiItemToToken,
 } from '../utils/tokenListHelpers';
 
 import type { IMarketToken } from '../MarketTokenData';
-
-// Helper function to check if token is native and get normalized address for matching
-// Uses isNative field with fallback to address length check for backward compatibility
-function getNativeTokenInfo(
-  isNativeField: boolean | undefined,
-  address: string | undefined,
-) {
-  const isNative = isNativeField ?? (address?.length ?? 0) < 30;
-  const normalizedAddress = isNative ? '' : (address ?? '').toLowerCase();
-  return { isNative, normalizedAddress };
-}
 
 export interface IUseMarketWatchlistTokenListParams {
   watchlist: IMarketWatchListItemV2[];
