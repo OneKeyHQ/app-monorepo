@@ -306,6 +306,7 @@ function ensureSessionsDirWritable(sessionsDir) {
         '- Point PERF_SESSIONS_DIR (and PERF_OUTPUT_DIR for performance-server) to a writable folder, e.g. ~/perf-sessions',
         '- Or pre-create the directory with correct ownership/permissions on the test machine',
       ].join('\n'),
+      { cause: e },
     );
   }
 }

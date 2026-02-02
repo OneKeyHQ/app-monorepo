@@ -40,7 +40,6 @@ export function AmountPreview({
   previewTotalFiatAmount,
   containerProps,
 }: IAmountPreviewProps) {
-
   const [settings] = useSettingsPersistAtom();
 
   // Determine if we should show Total amount section

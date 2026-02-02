@@ -63,7 +63,10 @@ const getLogFilePath = async (filename: string) => {
     return platformEnv.isNativeAndroid ? `file://${filepath}` : filepath;
   } catch (error) {
     // If zip fails, return the latest log file from NATIVE_LOG_DIR_PATH
-    console.error('Failed to zip logs, falling back to latest log file:', error);
+    console.error(
+      'Failed to zip logs, falling back to latest log file:',
+      error,
+    );
 
     const dirExists = await RNFS.exists(NATIVE_LOG_DIR_PATH);
     if (!dirExists) {

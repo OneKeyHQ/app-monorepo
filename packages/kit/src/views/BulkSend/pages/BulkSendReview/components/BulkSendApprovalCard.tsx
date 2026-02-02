@@ -20,7 +20,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 
 import { useBulkSendReviewContext } from './Context';
-import { openExplorerAddressUrl } from '../../../../../utils/explorerUtils';
+import { openExplorerAddressUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 
 type IApprovalItemProps = {
   approveInfo: IApproveInfo;
@@ -145,9 +145,9 @@ function BulkSendApprovalCard({ onEditApproval }: Props) {
   const totalApprovalAmount = hasUnlimitedApproval
     ? null
     : approvesInfo
-      .filter((info) => info.amount !== '0')
-      .reduce((sum, info) => sum.plus(info.amount || '0'), new BigNumber(0))
-      .toFixed();
+        .filter((info) => info.amount !== '0')
+        .reduce((sum, info) => sum.plus(info.amount || '0'), new BigNumber(0))
+        .toFixed();
 
   const tokenSymbol = approvesInfo[0]?.tokenInfo?.symbol ?? 'Token';
 
