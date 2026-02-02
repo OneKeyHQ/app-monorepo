@@ -165,7 +165,7 @@ export function DesktopTabItem(
       <YStack
         {...tabBarItemStyle}
         alignItems="center"
-        py={size === 'small' ? '$1.5' : '$2'}
+        py="$2"
         $gtMd={
           {
             flexDirection: 'row',
@@ -274,7 +274,6 @@ export function DesktopTabItem(
     ),
     [
       tabBarItemStyle,
-      size,
       selected,
       isContextMenuOpened,
       isHovered,

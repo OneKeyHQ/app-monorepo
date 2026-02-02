@@ -1,23 +1,13 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  IconButton,
-  SizableText,
-  Stack,
-  Tooltip,
-  XStack,
-  useClipboard,
-} from '@onekeyhq/components';
+import { useClipboard } from '@onekeyhq/components';
 import type {
   IActionListItemProps,
   IPropsWithTestId,
 } from '@onekeyhq/components';
-import {
-  DesktopTabItem,
-  DesktopTabItemImage,
-} from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/DesktopTabItem';
+import { DesktopTabItem } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/DesktopTabItem';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
@@ -231,19 +221,7 @@ function DesktopCustomTabBarItem({
         actionList={actionListItems}
         onClose={closeTab}
         tabBarStyle={
-          isCollapse
-            ? {
-                alignItems: 'center',
-                justifyContent: 'center',
-              }
-            : undefined
-        }
-        tabBarItemStyle={
-          isCollapse
-            ? {
-                height: 36,
-              }
-            : undefined
+          isCollapse ? { justifyContent: 'center' as const } : undefined
         }
       />
     );
@@ -261,76 +239,10 @@ function DesktopCustomTabBarItem({
     onPress,
   ]);
 
-  const [showTooltip, setShowTooltip] = useState(false);
-  const showTooltipRef = useRef(showTooltip);
-  showTooltipRef.current = showTooltip;
-  const showTooltipTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const closeTooltipTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const handleHoverIn = useCallback(() => {
-    if (showTooltipRef.current) {
-      if (closeTooltipTimer.current) {
-        clearTimeout(closeTooltipTimer.current);
-      }
-    } else {
-      showTooltipTimer.current = setTimeout(() => {
-        setShowTooltip(true);
-      }, 250);
-    }
-  }, []);
-  const handleHoverOut = useCallback(() => {
-    if (showTooltipRef.current) {
-      closeTooltipTimer.current = setTimeout(() => {
-        setShowTooltip(false);
-      }, 250);
-    } else if (showTooltipTimer.current) {
-      clearTimeout(showTooltipTimer.current);
-    }
-  }, []);
-
   if (!tab) {
     return null;
   }
 
-  if (isCollapse) {
-    return (
-      <Tooltip
-        open={showTooltip}
-        placement="right"
-        renderContent={
-          <XStack
-            gap="$2"
-            onHoverIn={handleHoverIn}
-            onHoverOut={handleHoverOut}
-          >
-            <IconButton
-              size="small"
-              icon="CrossedSmallOutline"
-              variant="tertiary"
-              focusVisibleStyle={undefined}
-              title={
-                <Tooltip.Text shortcutKey={EShortcutEvents.CloseTab}>
-                  {intl.formatMessage({
-                    id: ETranslations.global_close,
-                  })}
-                </Tooltip.Text>
-              }
-              onPress={closeTab}
-            />
-            <DesktopTabItemImage avatarSrc={tab?.favicon} selected={isActive} />
-            <SizableText size="$bodyMd" numberOfLines={1}>
-              {label}
-            </SizableText>
-          </XStack>
-        }
-        renderTrigger={
-          <Stack onHoverIn={handleHoverIn} onHoverOut={handleHoverOut}>
-            {tabItem}
-          </Stack>
-        }
-      />
-    );
-  }
   return tabItem;
 }
 

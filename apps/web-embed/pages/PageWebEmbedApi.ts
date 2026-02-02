@@ -111,7 +111,7 @@ const PageWebEmbedApi = memo(() => {
     }
     isInitExecuted = true;
     init();
-    printMessageToBody(`${globalThis.location.href}`);
+    printMessageToBody(globalThis.location.href);
   }, []);
   return null;
 });

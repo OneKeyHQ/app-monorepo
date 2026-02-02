@@ -1042,9 +1042,9 @@ function FeeEditor(props: IProps) {
 
             <YStack>
               <Form.Field
-                label={`${intl.formatMessage({
+                label={intl.formatMessage({
                   id: ETranslations.form__priority_fee,
-                })}`}
+                })}
                 name="priorityFee"
                 description={
                   replaceTxMode ? null : recommendPriorityFee.description

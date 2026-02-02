@@ -35,7 +35,7 @@ function TransactionAmountBase({
       <YStack width="49%" alignItems="flex-end">
         <XStack>
           <SizableText size="$bodyMd" color={typeColor} numberOfLines={1}>
-            {`${baseSign}`}
+            {baseSign}
           </SizableText>
 
           <NumberSizeableText
@@ -49,7 +49,7 @@ function TransactionAmountBase({
 
         <XStack>
           <SizableText size="$bodyMd" numberOfLines={1}>
-            {`${quoteSign}`}
+            {quoteSign}
           </SizableText>
 
           <NumberSizeableText autoFormatter="value-marketCap" size="$bodyMd">

@@ -74,6 +74,7 @@ const icons = {
   DiamondBadgeIllus: () => import("./react/illus/DiamondBadge"),
   DogecoinIllus: () => import("./react/illus/Dogecoin"),
   EmptyNftIllus: () => import("./react/illus/EmptyNft"),
+  EmptyOrderIllus: () => import("./react/illus/EmptyOrder"),
   EthCircleIllus: () => import("./react/illus/EthCircle"),
   EthereumIllus: () => import("./react/illus/Ethereum"),
   EthereumClassicIllus: () => import("./react/illus/EthereumClassic"),

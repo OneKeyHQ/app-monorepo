@@ -9,7 +9,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
 
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
-import { useEarnAccount } from '../../Staking/hooks/useEarnAccount';
 import { EManagePositionType } from '../../Staking/pages/ManagePosition/hooks/useManagePage';
 import { EBorrowDataStatus } from '../borrowDataStatus';
 import { useBorrowContext } from '../BorrowProvider';
@@ -28,15 +27,15 @@ import { Card } from './Card';
 type ISupplyAsset = IBorrowReserveItem['supply']['assets'][number];
 
 export const SupplyCard = () => {
-  const { reserves, market, borrowDataStatus } = useBorrowContext();
+  const { reserves, market, borrowDataStatus, earnAccount } =
+    useBorrowContext();
   const intl = useIntl();
   const navigation = useAppNavigation();
-  const { earnAccount } = useEarnAccount({ networkId: market?.networkId });
   const { gtMd, gtLg } = useMedia();
   const [showZeroBalance, setShowZeroBalance] = useState(true);
-  const accountId = earnAccount?.account?.id || '';
-  const walletId = earnAccount?.walletId || '';
-  const indexedAccountId = earnAccount?.account?.indexedAccountId;
+  const accountId = earnAccount.data?.account?.id || '';
+  const walletId = earnAccount.data?.walletId || '';
+  const indexedAccountId = earnAccount.data?.account?.indexedAccountId;
 
   const handleManageSupply = useCallback(
     (item: ISupplyAsset) => {
@@ -52,10 +51,10 @@ export const SupplyCard = () => {
         providerLogoURI: market.logoURI,
         logoURI: item.token.logoURI,
         type: EManagePositionType.Supply,
-        borrowReserves: reserves ?? undefined,
+        borrowReserves: reserves.data ?? undefined,
       });
     },
-    [navigation, market, accountId, reserves],
+    [navigation, market, accountId, reserves.data],
   );
 
   const handlePressRow = useCallback(
@@ -88,16 +87,16 @@ export const SupplyCard = () => {
 
   // Filter data based on showZeroBalance (mobile always shows all assets)
   const filteredAssets = useMemo(() => {
-    if (!reserves?.supply?.assets) return [];
+    if (!reserves.data?.supply?.assets) return [];
     // Mobile: always show all assets
-    if (!gtMd) return reserves.supply.assets;
+    if (!gtMd) return reserves.data.supply.assets;
     // Desktop: filter based on showZeroBalance toggle
-    if (showZeroBalance) return reserves.supply.assets;
-    return reserves.supply.assets.filter((asset) => {
+    if (showZeroBalance) return reserves.data.supply.assets;
+    return reserves.data.supply.assets.filter((asset) => {
       const balance = new BigNumber(asset?.walletBalance?.title?.text || '0');
       return balance.gt(0);
     });
-  }, [reserves?.supply?.assets, showZeroBalance, gtMd]);
+  }, [reserves.data?.supply?.assets, showZeroBalance, gtMd]);
 
   const labels = useMemo(
     () => ({

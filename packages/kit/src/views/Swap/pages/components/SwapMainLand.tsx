@@ -15,6 +15,7 @@ import {
   YStack,
   useInModalDialog,
   useInTabDialog,
+  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -135,6 +136,7 @@ interface ISwapMainLoadProps {
 const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const { preSwapStepsStart, preSwapBeforeStepActions } = useSwapBuildTx();
   const intl = useIntl();
+  const { gtMd } = useMedia();
   const { fetchLoading } = useSwapInit(swapInitParams);
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
@@ -409,7 +411,10 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
         maxAmount = BigNumber.max(
           0,
           maxAmount.minus(new BigNumber(reserveGas)),
-        ).decimalPlaces(fromSelectToken?.decimals ?? 6, BigNumber.ROUND_DOWN);
+        ).decimalPlaces(
+          Number(fromSelectToken?.decimals ?? 6),
+          BigNumber.ROUND_DOWN,
+        );
       }
       let reserveGasFormatted: string | undefined | number = reserveGas;
       if (reserveGas) {
@@ -466,7 +471,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
       const fromTokenBalanceBN = new BigNumber(fromTokenBalance ?? 0);
       const amountBN = fromTokenBalanceBN.multipliedBy(stage / 100);
       const amountAfterDecimal = amountBN.decimalPlaces(
-        fromSelectToken?.decimals ?? 6,
+        Number(fromSelectToken?.decimals ?? 6),
         BigNumber.ROUND_DOWN,
       );
       if (
@@ -1098,7 +1103,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     }
 
     // Sort by networkId to ensure consistent order
-    const sortedNetworks = [...filteredNetworks].toSorted((a, b) =>
+    const sortedNetworks = filteredNetworks.toSorted((a, b) =>
       a.networkId.localeCompare(b.networkId),
     );
 
@@ -1133,7 +1138,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     if (!platformEnv.isNative) {
       return (
         <SwapOldSwapBridgeLimitContainer
-          pageType={pageType ?? EPageType.modal}
+          pageType={pageType}
           storeName={storeName}
           onSelectToken={onSelectToken}
           fetchLoading={fetchLoading}
@@ -1228,13 +1233,29 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     isWrapped,
   ]);
 
+  // Desktop: show provider panel on the right side, need wider layout
+  // Show when: on desktop (gtMd), not in modal, and not on native platform
+  const showDesktopProviderPanel =
+    gtMd && pageType !== EPageType.modal && !platformEnv.isNative;
+
+  const containerMaxWidth = useMemo(() => {
+    if (pageType === EPageType.modal) {
+      return '100%';
+    }
+    // Desktop with provider panel needs wider layout
+    if (showDesktopProviderPanel) {
+      return 960;
+    }
+    return 500;
+  }, [pageType, showDesktopProviderPanel]);
+
   return (
     <YStack
       testID="swap-content-container"
       flex={1}
       marginHorizontal="auto"
       width="100%"
-      maxWidth={pageType === EPageType.modal ? '100%' : 500}
+      maxWidth={containerMaxWidth}
       pt="$2.5"
       $gtMd={{
         flex: 'unset',

@@ -627,6 +627,18 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                   if (newUpdateQuoteRes) {
                     return newUpdateQuoteRes;
                   }
+                  // OK-49700: 如果旧报价的 fromAmount 与当前询价的 fromTokenAmount 相同，
+                  // 则更新旧报价的 eventId 为当前的 eventId，这样它就不会被 eventId 过滤掉，
+                  // 实现再次询价时保留旧报价、只更新部分渠道商报价的效果
+                  if (
+                    oldQuoteRes.fromAmount === event.params.fromTokenAmount &&
+                    quoteEventTotalCount.eventId
+                  ) {
+                    return {
+                      ...oldQuoteRes,
+                      eventId: quoteEventTotalCount.eventId,
+                    };
+                  }
                   return oldQuoteRes;
                 });
                 const newAddQuoteRes = quoteResultsUpdateSlippage.filter(
@@ -1427,8 +1439,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                 },
                 {
                   percentage: `${showTax.dividedBy(100).toNumber()}%`,
-                  token: `${toToken?.symbol ?? ''}`,
-                  action: `${actionLabel}`,
+                  token: toToken?.symbol ?? '',
+                  action: actionLabel,
                 },
               ),
               message: appLocale.intl.formatMessage({
@@ -1458,8 +1470,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                 },
                 {
                   percentage: `${showTax.dividedBy(100).toNumber()}%`,
-                  token: `${fromToken?.symbol ?? ''}`,
-                  action: `${actionLabel}`,
+                  token: fromToken?.symbol ?? '',
+                  action: actionLabel,
                 },
               ),
               message: appLocale.intl.formatMessage({
@@ -1895,6 +1907,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         set(swapFromTokenAmountAtom(), { value: '', isInput: false });
         set(swapToTokenAmountAtom(), { value: '', isInput: false });
       }
+      // OK-49718: Clear quote list when switching type to prevent showing stale data
+      set(swapQuoteListAtom(), []);
+      set(swapQuoteEventTotalCountAtom(), { count: 0 });
       set(swapTypeSwitchAtom(), type);
       if (platformEnv.isNative && type === ESwapTabSwitchType.LIMIT) {
         return;

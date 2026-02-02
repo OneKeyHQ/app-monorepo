@@ -319,17 +319,40 @@ function GetStarted() {
   const { enableKeylessWalletLoading, checkKeylessWalletLocalExistence } =
     useKeylessWallet();
 
+  // Track which provider is currently loading
+  const [loadingProvider, setLoadingProvider] =
+    useState<EOAuthSocialLoginProvider | null>(null);
+
   const handleCreateOrImportWallet = () => {
     navigation.push(EOnboardingPagesV2.CreateOrImportWallet);
   };
 
   const handleGoogleLogin = useCallback(async () => {
-    defaultLogger.account.wallet.onboard({
-      onboardMethod: 'createKeylessWallet',
-    });
-    await checkKeylessWalletLocalExistence({
-      signInProvider: EOAuthSocialLoginProvider.Google,
-    });
+    setLoadingProvider(EOAuthSocialLoginProvider.Google);
+    try {
+      defaultLogger.account.wallet.onboard({
+        onboardMethod: 'createKeylessWallet',
+      });
+      await checkKeylessWalletLocalExistence({
+        signInProvider: EOAuthSocialLoginProvider.Google,
+      });
+    } finally {
+      setLoadingProvider(null);
+    }
+  }, [checkKeylessWalletLocalExistence]);
+
+  const handleAppleLogin = useCallback(async () => {
+    setLoadingProvider(EOAuthSocialLoginProvider.Apple);
+    try {
+      defaultLogger.account.wallet.onboard({
+        onboardMethod: 'createKeylessWallet',
+      });
+      await checkKeylessWalletLocalExistence({
+        signInProvider: EOAuthSocialLoginProvider.Apple,
+      });
+    } finally {
+      setLoadingProvider(null);
+    }
   }, [checkKeylessWalletLocalExistence]);
 
   // Cache theme values to avoid multiple useThemeValue calls during render
@@ -424,7 +447,12 @@ function GetStarted() {
                 </GridItem>
               </YStack>
             </YStack>
-            <YStack gap={44} justifyContent="center" alignItems="center">
+            <YStack
+              gap={38}
+              justifyContent="center"
+              alignItems="center"
+              pb={58}
+            >
               <DecorativeOneKeyLogo />
               <Stack gap="$4" minWidth="$80" zIndex={1}>
                 <Button
@@ -444,13 +472,13 @@ function GetStarted() {
                   </XStack>
                 </Button>
                 {isKeylessWalletEnabled ? (
-                  <XStack gap="$2">
+                  <>
                     <Button
-                      flex={1}
                       bg="$gray3"
                       hoverStyle={{ bg: '$gray4' }}
                       pressStyle={{ bg: '$gray5' }}
                       size="large"
+                      alignSelf="stretch"
                       childrenAsText={false}
                       onPress={
                         enableKeylessWalletLoading
@@ -460,7 +488,9 @@ function GetStarted() {
                     >
                       <XStack gap="$2" alignItems="center">
                         <AnimatePresence exitBeforeEnter initial={false}>
-                          {enableKeylessWalletLoading ? (
+                          {enableKeylessWalletLoading &&
+                          loadingProvider ===
+                            EOAuthSocialLoginProvider.Google ? (
                             <YStack
                               key="loading"
                               animation="quick"
@@ -495,12 +525,61 @@ function GetStarted() {
                       hoverStyle={{ bg: '$gray4' }}
                       pressStyle={{ bg: '$gray5' }}
                       size="large"
+                      alignSelf="stretch"
                       childrenAsText={false}
+                      onPress={
+                        enableKeylessWalletLoading
+                          ? undefined
+                          : handleAppleLogin
+                      }
+                    >
+                      <XStack gap="$2" alignItems="center">
+                        <AnimatePresence exitBeforeEnter initial={false}>
+                          {enableKeylessWalletLoading &&
+                          loadingProvider ===
+                            EOAuthSocialLoginProvider.Apple ? (
+                            <YStack
+                              key="loading"
+                              animation="quick"
+                              animateOnly={['transform', 'opacity']}
+                              enterStyle={{ scale: 0.7, opacity: 0 }}
+                              exitStyle={{ scale: 0.7, opacity: 0 }}
+                            >
+                              <Spinner size="small" />
+                            </YStack>
+                          ) : (
+                            <YStack
+                              key="icon"
+                              animation="quick"
+                              animateOnly={['transform', 'opacity']}
+                              enterStyle={{ scale: 0.7, opacity: 0 }}
+                              exitStyle={{ scale: 0.7, opacity: 0 }}
+                            >
+                              <Icon name="AppleBrand" size="$5" />
+                            </YStack>
+                          )}
+                        </AnimatePresence>
+                        <SizableText size="$bodyLgMedium">
+                          {intl.formatMessage(
+                            { id: ETranslations.continue_with_social_platform },
+                            { platform: 'Apple' },
+                          )}
+                        </SizableText>
+                      </XStack>
+                    </Button>
+                    <Button
+                      variant="tertiary"
+                      size="large"
+                      alignSelf="stretch"
+                      mx="$0"
+                      borderRadius="$3"
                       onPress={handleCreateOrImportWallet}
                     >
-                      <Icon name="DotHorOutline" size="$5" />
+                      {intl.formatMessage({
+                        id: ETranslations.more_options,
+                      })}
                     </Button>
-                  </XStack>
+                  </>
                 ) : (
                   <Button
                     bg="$gray3"

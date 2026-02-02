@@ -9,27 +9,26 @@ import {
 } from 'react';
 
 import {
+  ESplitViewType,
   Image,
   SizableText,
   YStack,
-  useIsNativeTablet,
-  useIsTabletDetailView,
-  useIsTabletMainView,
-  useOrientation,
+  isNativeTablet,
+  useIsSplitView,
+  useSplitViewType,
 } from '@onekeyhq/components';
 
 import type { LayoutChangeEvent } from 'react-native';
 
 export function TabletHomeContainer({ children }: PropsWithChildren) {
-  const isMainView = useIsTabletMainView();
-  const isDetailView = useIsTabletDetailView();
-  const isLandscape = useOrientation();
+  const splitViewType = useSplitViewType();
+  const isLandscape = useIsSplitView();
 
-  if (isMainView && !isLandscape) {
+  if (splitViewType === ESplitViewType.MAIN && !isLandscape) {
     return null;
   }
 
-  if (isDetailView && isLandscape) {
+  if (splitViewType === ESplitViewType.SUB && isLandscape) {
     return (
       <YStack flex={1} justifyContent="center" alignItems="center" gap="$4">
         <Image source={require('@onekeyhq/kit/assets/logo.png')} size={124} />
@@ -53,7 +52,7 @@ export const useTabletModalPageWidth = () => {
 };
 
 export function TabletModalContainer({ children }: PropsWithChildren) {
-  const isTablet = useIsNativeTablet();
+  const isTablet = isNativeTablet();
   const [width, setWidth] = useState(0);
   const onLayout = useCallback(
     (event: LayoutChangeEvent) => {

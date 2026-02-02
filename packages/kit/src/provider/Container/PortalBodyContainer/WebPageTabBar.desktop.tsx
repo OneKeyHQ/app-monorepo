@@ -2,12 +2,10 @@ import { useMedia } from '@onekeyhq/components';
 
 import DesktopCustomTabBar from '../../../views/Discovery/pages/DesktopCustomTabBar';
 
-const useShowWebBars = () => {
+export function WebPageTabBar({ isExpanded }: { isExpanded?: boolean }) {
   const { gtMd } = useMedia();
-  return gtMd;
-};
-
-export const WebPageTabBar = () => {
-  const isShowWebBars = useShowWebBars();
-  return isShowWebBars ? <DesktopCustomTabBar /> : null;
-};
+  if (!gtMd) {
+    return null;
+  }
+  return <DesktopCustomTabBar isExpanded={isExpanded} />;
+}

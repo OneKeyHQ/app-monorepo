@@ -5,7 +5,7 @@ export class ClientTon {
   readonly rpc: JsonRPCRequest;
 
   constructor({ url }: { url: string }) {
-    this.rpc = new JsonRPCRequest(`${url}`);
+    this.rpc = new JsonRPCRequest(url);
   }
 
   async getMasterChainInfo(): Promise<{ blockHeight: number }> {

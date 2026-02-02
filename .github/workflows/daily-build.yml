@@ -7,14 +7,14 @@ on:
 
 jobs:
   # get-commit-id:
-  #   runs-on: ubuntu-latest
+  #   runs-on: ubuntu-24.04
   #   outputs:
   #     current_id: ${{ steps.current_id.outputs.current_id }}
   #     upstream_id:  ${{ steps.upstream_id.outputs.upstream_id }}
 
   #   steps:
   #     - name: Clone Build History Branch
-  #       uses: actions/checkout@v3
+  #       uses: actions/checkout@v4
   #       with:
   #         ref: buildhistory
       
@@ -25,7 +25,7 @@ jobs:
   #         echo "current_id: $(sed -n 1p ./build_version)"
 
   #     - name: Clone Main Branch
-  #       uses: actions/checkout@v3
+  #       uses: actions/checkout@v4
   #       with:
   #         ref: x
   #         path: onekey
@@ -38,7 +38,7 @@ jobs:
   #         echo "upstream_id: $(git rev-parse --short HEAD)"
 
   daily-build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # needs: get-commit-id
     strategy:
       matrix:
@@ -77,7 +77,7 @@ jobs:
 
 
       # - name: Clone Build History Branch
-      #   uses: actions/checkout@v3
+      #   uses: actions/checkout@v4
       #   with:
       #     ref: buildhistory
 

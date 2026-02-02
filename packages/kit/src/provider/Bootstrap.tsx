@@ -13,8 +13,8 @@ import {
   getDialogInstances,
   getFormInstances,
   rootNavigationRef,
-  useIsTabletDetailView,
   useShortcuts,
+  useSplitSubView,
 } from '@onekeyhq/components';
 import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
 import {
@@ -299,6 +299,11 @@ const useDesktopEvents = platformEnv.isDesktop
           case EShortcutEvents.TabBrowser:
             ensureModalClosedAndNavigate(() => {
               navigation.switchTab(ETabRoutes.Discovery);
+            });
+            break;
+          case EShortcutEvents.TabDeveloper:
+            ensureModalClosedAndNavigate(() => {
+              navigation.switchTab(ETabRoutes.Developer);
             });
             break;
           case EShortcutEvents.NewTab2:
@@ -586,7 +591,7 @@ export const useRemindDevelopmentBuildExtension =
     : noop;
 
 export const useTabletDetailView = () => {
-  const isTabletDetailView = useIsTabletDetailView();
+  const isTabletDetailView = useSplitSubView();
   const appNavigation = useAppNavigation();
   useEffect(() => {
     if (isTabletDetailView) {

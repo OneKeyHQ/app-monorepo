@@ -9,7 +9,6 @@ import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
 
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
 import { EarnTooltip } from '../../Staking/components/ProtocolDetails/EarnTooltip';
-import { useEarnAccount } from '../../Staking/hooks/useEarnAccount';
 import { EManagePositionType } from '../../Staking/pages/ManagePosition/hooks/useManagePage';
 import { EBorrowDataStatus } from '../borrowDataStatus';
 import { useBorrowContext } from '../BorrowProvider';
@@ -70,14 +69,14 @@ const BorrowedHeader = ({
 };
 
 export const BorrowedCard = () => {
-  const { reserves, market, borrowDataStatus } = useBorrowContext();
+  const { reserves, market, borrowDataStatus, earnAccount } =
+    useBorrowContext();
   const intl = useIntl();
   const navigation = useAppNavigation();
-  const { earnAccount } = useEarnAccount({ networkId: market?.networkId });
   const { gtMd, gtLg } = useMedia();
-  const accountId = earnAccount?.account?.id || '';
-  const walletId = earnAccount?.walletId || '';
-  const indexedAccountId = earnAccount?.account?.indexedAccountId;
+  const accountId = earnAccount.data?.account?.id || '';
+  const walletId = earnAccount.data?.walletId || '';
+  const indexedAccountId = earnAccount.data?.account?.indexedAccountId;
 
   const handleManageRepay = useCallback(
     (item: IBorrowedAsset) => {
@@ -93,10 +92,10 @@ export const BorrowedCard = () => {
         providerLogoURI: market.logoURI,
         logoURI: item.token.logoURI,
         type: EManagePositionType.Repay,
-        borrowReserves: reserves ?? undefined,
+        borrowReserves: reserves.data ?? undefined,
       });
     },
-    [navigation, market, accountId, reserves],
+    [navigation, market, accountId, reserves.data],
   );
 
   const handlePressRow = useCallback(
@@ -243,13 +242,13 @@ export const BorrowedCard = () => {
   );
 
   const hasData = useMemo(
-    () => (reserves?.borrowed?.assets || []).length > 0,
-    [reserves?.borrowed?.assets],
+    () => (reserves.data?.borrowed?.assets || []).length > 0,
+    [reserves.data?.borrowed?.assets],
   );
 
   const hasSupplied = useMemo(
-    () => (reserves?.supplied?.assets || []).length > 0,
-    [reserves?.supplied?.assets],
+    () => (reserves.data?.supplied?.assets || []).length > 0,
+    [reserves.data?.supplied?.assets],
   );
 
   const emptyContent = useMemo(
@@ -268,7 +267,7 @@ export const BorrowedCard = () => {
       renderHeader={
         !showLoading && hasData ? (
           <BorrowedHeader
-            data={reserves?.borrowed}
+            data={reserves.data?.borrowed}
             borrowedBalanceLabel={labels.borrowedBalance}
             apyLabel={labels.apy}
             isDesktop={gtMd}
@@ -277,7 +276,7 @@ export const BorrowedCard = () => {
       }
     >
       <BorrowTableList<IBorrowedAsset>
-        data={reserves?.borrowed?.assets || []}
+        data={reserves.data?.borrowed?.assets || []}
         isLoading={showLoading}
         columns={gtMd ? desktopColumns : mobileColumns}
         onPressRow={handlePressRow}

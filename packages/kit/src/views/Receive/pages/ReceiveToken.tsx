@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
-import { Linking, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { getColors } from 'react-native-image-colors';
 import { useThrottledCallback } from 'use-debounce';
 
@@ -36,6 +36,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
 import { EModalReceiveRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -56,7 +57,6 @@ import { Token } from '../../../components/Token';
 import { useAccountData } from '../../../hooks/useAccountData';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useCopyAddressWithDeriveType } from '../../../hooks/useCopyAccountAddress';
-import { useHelpLink } from '../../../hooks/useHelpLink';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useWalletBanner } from '../../../hooks/useWalletBanner';
 import { EAddressState } from '../types';
@@ -139,8 +139,6 @@ function ReceiveToken() {
   const [hardwareUiState] = useHardwareUiStateAtom();
 
   const copyAddressWithDeriveType = useCopyAddressWithDeriveType();
-
-  const requestsUrl = useHelpLink({ path: 'requests/new' });
 
   const { result: banner } = usePromiseResult(async () => {
     const banners =
@@ -314,7 +312,7 @@ function ReceiveToken() {
           onConfirmText: intl.formatMessage({
             id: ETranslations.global_contact_us,
           }),
-          onConfirm: () => Linking.openURL(requestsUrl),
+          onConfirm: () => showIntercom(),
           confirmButtonProps: {
             variant: 'primary',
           },
@@ -339,7 +337,6 @@ function ReceiveToken() {
     displayAddress,
     intl,
     networkId,
-    requestsUrl,
     verificationPath,
     wallet?.type,
     walletId,
