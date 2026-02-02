@@ -5,6 +5,19 @@ import type { IMarketTokenListItem } from '@onekeyhq/shared/types/marketV2';
 
 import type { IMarketToken } from '../MarketTokenData';
 
+// Helper function to check if token is native and get normalized address for matching
+// Only uses fallback address length check when isNative field is not present (undefined)
+// This ensures online data with isNative field won't use fallback logic
+export function getNativeTokenInfo(
+  isNativeField: boolean | undefined,
+  address: string | undefined,
+) {
+  const isNative =
+    isNativeField !== undefined ? isNativeField : (address?.length ?? 0) < 30;
+  const normalizedAddress = isNative ? '' : (address ?? '').toLowerCase();
+  return { isNative, normalizedAddress };
+}
+
 // Mapping of column keys to token fields, shared by multiple hooks
 // These map API sort parameters to component token properties
 export const SORT_MAP: Record<string, keyof IMarketToken> = {
