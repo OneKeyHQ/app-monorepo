@@ -15,6 +15,7 @@ import type {
 } from '@onekeyhq/core/src/chains/tron/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import { getBulkSendContractAddress } from '@onekeyhq/shared/src/consts/bulkSendContractAddress';
 import {
   InsufficientBalance,
   OneKeyInternalError,
@@ -341,8 +342,294 @@ export default class Vault extends VaultBase {
     return this._buildEncodedTxFromBatchTransfer(transfersInfo);
   }
 
-  async _buildEncodedTxFromBatchTransfer(transfersInfo: ITransferInfo[]) {
-    return {} as Types.Transaction;
+  async _buildEncodedTxFromBatchTransfer(
+    transfersInfo: ITransferInfo[],
+  ): Promise<IEncodedTxTron> {
+    if (transfersInfo.length === 0) {
+      throw new OneKeyLocalError(
+        'buildEncodedTx ERROR: transfersInfo is empty',
+      );
+    }
+
+    const bulkSendContractAddresses = getBulkSendContractAddress();
+    const contractAddress = bulkSendContractAddresses[this.networkId];
+
+    if (!contractAddress) {
+      throw new OneKeyLocalError(
+        `BulkSend contract not deployed on network: ${this.networkId}`,
+      );
+    }
+
+    const network = await this.getNetwork();
+    const firstTransfer = transfersInfo[0];
+    const { from, tokenInfo } = firstTransfer;
+
+    if (!tokenInfo) {
+      throw new OneKeyLocalError(
+        'buildEncodedTx ERROR: transferInfo.tokenInfo is missing',
+      );
+    }
+
+    // Check if all amounts are the same
+    const firstAmount = firstTransfer.amount;
+    const isSameAmount = transfersInfo.every((t) => t.amount === firstAmount);
+
+    if (tokenInfo.isNative) {
+      return this._buildNativeBatchTransfer({
+        transfersInfo,
+        from,
+        contractAddress,
+        isSameAmount,
+        decimals: network.decimals,
+      });
+    }
+
+    return this._buildTokenBatchTransfer({
+      transfersInfo,
+      from,
+      contractAddress,
+      tokenInfo,
+      isSameAmount,
+    });
+  }
+
+  private async _buildNativeBatchTransfer(params: {
+    transfersInfo: ITransferInfo[];
+    from: string;
+    contractAddress: string;
+    isSameAmount: boolean;
+    decimals: number;
+  }): Promise<IEncodedTxTron> {
+    const { transfersInfo, from, contractAddress, isSameAmount, decimals } =
+      params;
+
+    const recipients = transfersInfo.map((t) => t.to);
+
+    if (isSameAmount) {
+      // Use sendTRXSameAmount for better energy efficiency
+      const amountOnChain = new BigNumber(transfersInfo[0].amount)
+        .shiftedBy(decimals)
+        .toFixed(0);
+      const totalValue = new BigNumber(amountOnChain)
+        .times(transfersInfo.length)
+        .toNumber();
+
+      const [
+        {
+          result: { result },
+          transaction,
+        },
+      ] = await this.backgroundApi.serviceAccountProfile.sendProxyRequest<{
+        result: { result: boolean };
+        transaction: Types.Transaction;
+      }>({
+        networkId: this.networkId,
+        body: [
+          {
+            route: 'tronweb',
+            params: {
+              method: 'transactionBuilder.triggerSmartContract',
+              params: [
+                contractAddress,
+                'sendTRXSameAmount(address[],uint256)',
+                { callValue: totalValue },
+                [
+                  { type: 'address[]', value: recipients },
+                  { type: 'uint256', value: amountOnChain },
+                ],
+                from,
+              ],
+            },
+          },
+        ],
+      });
+
+      if (!result) {
+        throw new OneKeyInternalError(
+          'Unable to build native batch transfer transaction',
+        );
+      }
+
+      return this._extendTxExpiration({
+        transaction,
+        expiration: TRON_TX_EXPIRATION_TIME,
+      });
+    }
+
+    // Use sendTRX for different amounts
+    const transfers = transfersInfo.map((t) => ({
+      recipient: t.to,
+      amount: new BigNumber(t.amount).shiftedBy(decimals).toFixed(0),
+    }));
+
+    const totalValue = transfers
+      .reduce((sum, t) => sum.plus(t.amount), new BigNumber(0))
+      .toNumber();
+
+    // Build tuple array for (address recipient, uint256 amount)[]
+    const transferTuples = transfers.map((t) => [t.recipient, t.amount]);
+
+    const [
+      {
+        result: { result },
+        transaction,
+      },
+    ] = await this.backgroundApi.serviceAccountProfile.sendProxyRequest<{
+      result: { result: boolean };
+      transaction: Types.Transaction;
+    }>({
+      networkId: this.networkId,
+      body: [
+        {
+          route: 'tronweb',
+          params: {
+            method: 'transactionBuilder.triggerSmartContract',
+            params: [
+              contractAddress,
+              'sendTRX((address,uint256)[])',
+              { callValue: totalValue },
+              [{ type: '(address,uint256)[]', value: transferTuples }],
+              from,
+            ],
+          },
+        },
+      ],
+    });
+
+    if (!result) {
+      throw new OneKeyInternalError(
+        'Unable to build native batch transfer transaction',
+      );
+    }
+
+    return this._extendTxExpiration({
+      transaction,
+      expiration: TRON_TX_EXPIRATION_TIME,
+    });
+  }
+
+  private async _buildTokenBatchTransfer(params: {
+    transfersInfo: ITransferInfo[];
+    from: string;
+    contractAddress: string;
+    tokenInfo: NonNullable<ITransferInfo['tokenInfo']>;
+    isSameAmount: boolean;
+  }): Promise<IEncodedTxTron> {
+    const { transfersInfo, from, contractAddress, tokenInfo, isSameAmount } =
+      params;
+
+    if (!tokenInfo.address) {
+      throw new OneKeyLocalError(
+        'buildEncodedTx ERROR: transferInfo.tokenInfo.address is missing',
+      );
+    }
+
+    if (isNil(tokenInfo.decimals)) {
+      throw new OneKeyLocalError(
+        'buildEncodedTx ERROR: transferInfo.tokenInfo.decimals is missing',
+      );
+    }
+
+    const recipients = transfersInfo.map((t) => t.to);
+
+    if (isSameAmount) {
+      // Use sendTRC20SameAmount for better energy efficiency
+      const amountOnChain = new BigNumber(transfersInfo[0].amount)
+        .shiftedBy(tokenInfo.decimals)
+        .toFixed(0);
+
+      const [
+        {
+          result: { result },
+          transaction,
+        },
+      ] = await this.backgroundApi.serviceAccountProfile.sendProxyRequest<{
+        result: { result: boolean };
+        transaction: Types.Transaction;
+      }>({
+        networkId: this.networkId,
+        body: [
+          {
+            route: 'tronweb',
+            params: {
+              method: 'transactionBuilder.triggerSmartContract',
+              params: [
+                contractAddress,
+                'sendTRC20SameAmount(address,address[],uint256)',
+                {},
+                [
+                  { type: 'address', value: tokenInfo.address },
+                  { type: 'address[]', value: recipients },
+                  { type: 'uint256', value: amountOnChain },
+                ],
+                from,
+              ],
+            },
+          },
+        ],
+      });
+
+      if (!result) {
+        throw new OneKeyInternalError(
+          'Unable to build token batch transfer transaction',
+        );
+      }
+
+      return this._extendTxExpiration({
+        transaction,
+        expiration: TRON_TX_EXPIRATION_TIME,
+      });
+    }
+
+    // Use sendTRC20 for different amounts
+    const transfers = transfersInfo.map((t) => ({
+      recipient: t.to,
+      amount: new BigNumber(t.amount).shiftedBy(tokenInfo.decimals).toFixed(0),
+    }));
+
+    // Build tuple array for (address recipient, uint256 amount)[]
+    const transferTuples = transfers.map((t) => [t.recipient, t.amount]);
+
+    const [
+      {
+        result: { result },
+        transaction,
+      },
+    ] = await this.backgroundApi.serviceAccountProfile.sendProxyRequest<{
+      result: { result: boolean };
+      transaction: Types.Transaction;
+    }>({
+      networkId: this.networkId,
+      body: [
+        {
+          route: 'tronweb',
+          params: {
+            method: 'transactionBuilder.triggerSmartContract',
+            params: [
+              contractAddress,
+              'sendTRC20(address,(address,uint256)[])',
+              {},
+              [
+                { type: 'address', value: tokenInfo.address },
+                { type: '(address,uint256)[]', value: transferTuples },
+              ],
+              from,
+            ],
+          },
+        },
+      ],
+    });
+
+    if (!result) {
+      throw new OneKeyInternalError(
+        'Unable to build token batch transfer transaction',
+      );
+    }
+
+    return this._extendTxExpiration({
+      transaction,
+      expiration: TRON_TX_EXPIRATION_TIME,
+    });
   }
 
   override async buildDecodedTx(
