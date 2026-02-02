@@ -227,6 +227,14 @@ const modal: IWalletConnectModalShared = {
     openNativeModalRef.current = openNativeModal;
     const closeNativeModalRef = useRef(closeNativeModal);
     closeNativeModalRef.current = closeNativeModal;
+    const isMountedRef = useRef(true);
+
+    useEffect(
+      () => () => {
+        isMountedRef.current = false;
+      },
+      [],
+    );
 
     console.log('isNativeModalOpen', isNativeModalOpen);
 
@@ -243,6 +251,7 @@ const modal: IWalletConnectModalShared = {
       // // resetApp(); // onSessionDelete
       // ClientCtrl.setInitialized(true);
 
+      if (!isMountedRef.current) return;
       setShouldRenderNativeModal(true);
 
       // try {
@@ -252,6 +261,8 @@ const modal: IWalletConnectModalShared = {
       // }
 
       await timerUtils.wait(600); // wait modal render done
+
+      if (!isMountedRef.current) return;
 
       console.log(
         'WalletConnectModalContainer openNativeModalRef: ------------------------ ',
@@ -267,6 +278,10 @@ const modal: IWalletConnectModalShared = {
 
     const closeModal = useCallback(async () => {
       await closeNativeModalRef.current();
+
+      // Wait for React Native Fabric to complete view cleanup
+      // This prevents valtio destructuring errors during rapid modal state changes
+      await timerUtils.wait(100);
     }, []);
 
     useEffect(() => {
@@ -277,6 +292,7 @@ const modal: IWalletConnectModalShared = {
             console.log('setShouldRenderNativeModal false');
             // setShouldRenderNativeModal(false);
           }
+          if (!isMountedRef.current) return;
           appEventBus.emit(EAppEventBusNames.WalletConnectModalState, {
             open: isNativeModalOpen,
           });

@@ -7694,18 +7694,18 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/cross-inpage-provider-core@npm:2.2.58":
-  version: 2.2.58
-  resolution: "@onekeyfe/cross-inpage-provider-core@npm:2.2.58"
+"@onekeyfe/cross-inpage-provider-core@npm:2.2.59-alpha.1":
+  version: 2.2.59-alpha.1
+  resolution: "@onekeyfe/cross-inpage-provider-core@npm:2.2.59-alpha.1"
   dependencies:
     "@noble/hashes": "npm:^1.7.1"
-    "@onekeyfe/cross-inpage-provider-errors": "npm:2.2.58"
-    "@onekeyfe/cross-inpage-provider-events": "npm:2.2.58"
-    "@onekeyfe/cross-inpage-provider-types": "npm:2.2.58"
+    "@onekeyfe/cross-inpage-provider-errors": "npm:2.2.59-alpha.1"
+    "@onekeyfe/cross-inpage-provider-events": "npm:2.2.59-alpha.1"
+    "@onekeyfe/cross-inpage-provider-types": "npm:2.2.59-alpha.1"
     events: "npm:^3.3.0"
     lodash-es: "npm:^4.17.21"
     ms: "npm:^2.1.3"
-  checksum: 10/ce2ee35301d1b637d4b1bf9559e13662ec6c62b4b50b05dbb473d6cb36561c2906adce7d58f600fede1e301e296ceb2bf0a5182baa341ff281393b40dc1860c1
+  checksum: 10/a11ecb8c3478f9e7c85d9593776fbddc48512c591e2ebde85ff9c2aea4768e98d7d3ca08859f956700e958fb135ec7550343c671ed8e3f4c2df6b82e940c0b8d
   languageName: node
   linkType: hard
 
@@ -7723,12 +7723,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/cross-inpage-provider-errors@npm:2.2.58":
-  version: 2.2.58
-  resolution: "@onekeyfe/cross-inpage-provider-errors@npm:2.2.58"
+"@onekeyfe/cross-inpage-provider-errors@npm:2.2.59-alpha.1":
+  version: 2.2.59-alpha.1
+  resolution: "@onekeyfe/cross-inpage-provider-errors@npm:2.2.59-alpha.1"
   dependencies:
     fast-safe-stringify: "npm:^2.0.6"
-  checksum: 10/c7883b327fde448f5895153289f343e2aca6dd56df4853e32ef42f0fb003a1f5ec269ee4c19b6b10a780523a8ef49c799598afaa2b15e29a4ba153ced16ae36b
+  checksum: 10/a50a5699036f2661941cde885872f6ed026df63c30052be38c2e7f4bee6969e5f2171ce98c2466670fad14f765e7dab8f19b2ffe5c6b631324b311e18286192f
   languageName: node
   linkType: hard
 
@@ -7741,10 +7741,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/cross-inpage-provider-events@npm:2.2.58":
-  version: 2.2.58
-  resolution: "@onekeyfe/cross-inpage-provider-events@npm:2.2.58"
-  checksum: 10/d996bb694a5264aebc017be03c3503106591a13de37a72d5f6cbf0162f26747b514367625e0728ece2644829504b629982e43fe9ec251b893374433efb69f966
+"@onekeyfe/cross-inpage-provider-events@npm:2.2.59-alpha.1":
+  version: 2.2.59-alpha.1
+  resolution: "@onekeyfe/cross-inpage-provider-events@npm:2.2.59-alpha.1"
+  checksum: 10/46eec63aeb8d77f9066fc48f9c04f3536abd54135852caf3d172016dfc26962f8f05a4322abe57f2d41bd17d979c471fa46e94d6b6f2f7af5ab866f06e17e6d9
   languageName: node
   linkType: hard
 
@@ -7755,16 +7755,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/cross-inpage-provider-injected@npm:2.2.58":
-  version: 2.2.58
-  resolution: "@onekeyfe/cross-inpage-provider-injected@npm:2.2.58"
+"@onekeyfe/cross-inpage-provider-injected@npm:2.2.59-alpha.1":
+  version: 2.2.59-alpha.1
+  resolution: "@onekeyfe/cross-inpage-provider-injected@npm:2.2.59-alpha.1"
   dependencies:
-    "@onekeyfe/cross-inpage-provider-core": "npm:2.2.58"
-    "@onekeyfe/cross-inpage-provider-types": "npm:2.2.58"
-    "@onekeyfe/desktop-bridge-injected": "npm:2.2.58"
-    "@onekeyfe/extension-bridge-injected": "npm:2.2.58"
-    "@onekeyfe/inpage-providers-hub": "npm:2.2.58"
-    "@onekeyfe/native-bridge-injected": "npm:2.2.58"
+    "@onekeyfe/cross-inpage-provider-core": "npm:2.2.59-alpha.1"
+    "@onekeyfe/cross-inpage-provider-types": "npm:2.2.59-alpha.1"
+    "@onekeyfe/desktop-bridge-injected": "npm:2.2.59-alpha.1"
+    "@onekeyfe/extension-bridge-injected": "npm:2.2.59-alpha.1"
+    "@onekeyfe/inpage-providers-hub": "npm:2.2.59-alpha.1"
+    "@onekeyfe/native-bridge-injected": "npm:2.2.59-alpha.1"
     buffer: "npm:^6.0.3"
     cipher-base: "npm:^1.0.6"
     crypto-browserify: "npm:^3.12.0"
@@ -7773,14 +7773,14 @@ __metadata:
     sha.js: "npm:^2.4.12"
   peerDependencies:
     electron: "*"
-  checksum: 10/61929a28b359b07fc259b26bcc24766b1f663cd5b67a7e8de12989b65e3fedc56adf6bd0df67beaefccd1ba2650bd4a8851cac8d332d817cbf8f1c823e564540
+  checksum: 10/c7559f1201f34a9be27314af2917f73635ffc049efef33cdd77ccd99e5c4ee8db8acc63a4a9aefcac4a62b100a6a5d232af75425179228cd6bfe2dcf65862737
   languageName: node
   linkType: hard
 
-"@onekeyfe/cross-inpage-provider-types@npm:2.2.58":
-  version: 2.2.58
-  resolution: "@onekeyfe/cross-inpage-provider-types@npm:2.2.58"
-  checksum: 10/45bd623a30ab03fe0d3503cec62a62c197c121a534c5cc457d2a3ee71720318c881c633a4b279db70d6e19814c0e959d0453e9972cd061d522d7221807cdfe49
+"@onekeyfe/cross-inpage-provider-types@npm:2.2.59-alpha.1":
+  version: 2.2.59-alpha.1
+  resolution: "@onekeyfe/cross-inpage-provider-types@npm:2.2.59-alpha.1"
+  checksum: 10/d08001a70e49d79d95d3eff3ec878a9edd5e96ac6cefc9c4196433134a934eb3a8aa7ebd4ef036078231c02c08c967bd4c0bbd285df01fcd2b21b1778569d3ce
   languageName: node
   linkType: hard
 
@@ -7791,15 +7791,15 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/desktop-bridge-injected@npm:2.2.58":
-  version: 2.2.58
-  resolution: "@onekeyfe/desktop-bridge-injected@npm:2.2.58"
+"@onekeyfe/desktop-bridge-injected@npm:2.2.59-alpha.1":
+  version: 2.2.59-alpha.1
+  resolution: "@onekeyfe/desktop-bridge-injected@npm:2.2.59-alpha.1"
   dependencies:
-    "@onekeyfe/cross-inpage-provider-core": "npm:2.2.58"
-    "@onekeyfe/cross-inpage-provider-types": "npm:2.2.58"
+    "@onekeyfe/cross-inpage-provider-core": "npm:2.2.59-alpha.1"
+    "@onekeyfe/cross-inpage-provider-types": "npm:2.2.59-alpha.1"
   peerDependencies:
     electron: "*"
-  checksum: 10/771cd36e1303e68c0b778d3aaa4c8c0dec3a82b2c80b6538b3d818b1202aadad6d494b293d443a29fb094eacb1e88d9be36b90c2a8afdb6270c26f6b089da6b5
+  checksum: 10/5f425e8d0c705246b806f04a3584e15924c5381519241849e695fe9e8363f51aae818622196f0dde8a9439de57c480135d6c969c910a6fed0d16e3ee9c3a2946
   languageName: node
   linkType: hard
 
@@ -7814,24 +7814,24 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/extension-bridge-hosted@npm:2.2.58":
-  version: 2.2.58
-  resolution: "@onekeyfe/extension-bridge-hosted@npm:2.2.58"
+"@onekeyfe/extension-bridge-hosted@npm:2.2.59-alpha.1":
+  version: 2.2.59-alpha.1
+  resolution: "@onekeyfe/extension-bridge-hosted@npm:2.2.59-alpha.1"
   dependencies:
-    "@onekeyfe/cross-inpage-provider-core": "npm:2.2.58"
-    "@onekeyfe/cross-inpage-provider-types": "npm:2.2.58"
+    "@onekeyfe/cross-inpage-provider-core": "npm:2.2.59-alpha.1"
+    "@onekeyfe/cross-inpage-provider-types": "npm:2.2.59-alpha.1"
     uuid: "npm:^8.3.2"
-  checksum: 10/bac113a933b9c4167d133fe050d61b1693190fef181df5a8c0b0cd332e8546e77990b218c3b29c8557d5636d620066412f42690060c3c9977d2a737676d338fc
+  checksum: 10/c7cac2121abc4690b5e79268a995269f982f2f1ec85a545f42e7fb6841c66b4b6b33193ab3225377f07c1461b6452fc6f452653713b05be262356c70a09f234c
   languageName: node
   linkType: hard
 
-"@onekeyfe/extension-bridge-injected@npm:2.2.58":
-  version: 2.2.58
-  resolution: "@onekeyfe/extension-bridge-injected@npm:2.2.58"
+"@onekeyfe/extension-bridge-injected@npm:2.2.59-alpha.1":
+  version: 2.2.59-alpha.1
+  resolution: "@onekeyfe/extension-bridge-injected@npm:2.2.59-alpha.1"
   dependencies:
-    "@onekeyfe/cross-inpage-provider-core": "npm:2.2.58"
-    "@onekeyfe/cross-inpage-provider-types": "npm:2.2.58"
-  checksum: 10/32349a45e263e3a075820ea34fd02e390dd6c7e310f62f9dcf9f31ac68d445ba566d2689bfadd6b49ced0acb6cd0fcfad0b5e989da054255ae6d0621919e9303
+    "@onekeyfe/cross-inpage-provider-core": "npm:2.2.59-alpha.1"
+    "@onekeyfe/cross-inpage-provider-types": "npm:2.2.59-alpha.1"
+  checksum: 10/e0ea0160f4d98e7630fa5f6e633fa203d7023ff912503b28eb02510d3a4d04985b1f06d4b0ce17c9e652eabb2acfb504684eecd06abd1b965aba1d365b1ff107
   languageName: node
   linkType: hard
 
@@ -7981,36 +7981,36 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/inpage-providers-hub@npm:2.2.58":
-  version: 2.2.58
-  resolution: "@onekeyfe/inpage-providers-hub@npm:2.2.58"
+"@onekeyfe/inpage-providers-hub@npm:2.2.59-alpha.1":
+  version: 2.2.59-alpha.1
+  resolution: "@onekeyfe/inpage-providers-hub@npm:2.2.59-alpha.1"
   dependencies:
-    "@onekeyfe/cross-inpage-provider-core": "npm:2.2.58"
-    "@onekeyfe/cross-inpage-provider-types": "npm:2.2.58"
-    "@onekeyfe/onekey-algo-provider": "npm:2.2.58"
-    "@onekeyfe/onekey-alph-provider": "npm:2.2.58"
-    "@onekeyfe/onekey-aptos-provider": "npm:2.2.58"
-    "@onekeyfe/onekey-bfc-provider": "npm:2.2.58"
-    "@onekeyfe/onekey-btc-provider": "npm:2.2.58"
-    "@onekeyfe/onekey-cardano-provider": "npm:2.2.58"
-    "@onekeyfe/onekey-conflux-provider": "npm:2.2.58"
-    "@onekeyfe/onekey-cosmos-provider": "npm:2.2.58"
-    "@onekeyfe/onekey-eth-provider": "npm:2.2.58"
-    "@onekeyfe/onekey-neo-provider": "npm:2.2.58"
-    "@onekeyfe/onekey-nostr-provider": "npm:2.2.58"
-    "@onekeyfe/onekey-polkadot-provider": "npm:2.2.58"
-    "@onekeyfe/onekey-private-provider": "npm:2.2.58"
-    "@onekeyfe/onekey-scdo-provider": "npm:2.2.58"
-    "@onekeyfe/onekey-solana-provider": "npm:2.2.58"
-    "@onekeyfe/onekey-stellar-provider": "npm:2.2.58"
-    "@onekeyfe/onekey-sui-provider": "npm:2.2.58"
-    "@onekeyfe/onekey-ton-provider": "npm:2.2.58"
-    "@onekeyfe/onekey-tron-provider": "npm:2.2.58"
-    "@onekeyfe/onekey-webln-provider": "npm:2.2.58"
+    "@onekeyfe/cross-inpage-provider-core": "npm:2.2.59-alpha.1"
+    "@onekeyfe/cross-inpage-provider-types": "npm:2.2.59-alpha.1"
+    "@onekeyfe/onekey-algo-provider": "npm:2.2.59-alpha.1"
+    "@onekeyfe/onekey-alph-provider": "npm:2.2.59-alpha.1"
+    "@onekeyfe/onekey-aptos-provider": "npm:2.2.59-alpha.1"
+    "@onekeyfe/onekey-bfc-provider": "npm:2.2.59-alpha.1"
+    "@onekeyfe/onekey-btc-provider": "npm:2.2.59-alpha.1"
+    "@onekeyfe/onekey-cardano-provider": "npm:2.2.59-alpha.1"
+    "@onekeyfe/onekey-conflux-provider": "npm:2.2.59-alpha.1"
+    "@onekeyfe/onekey-cosmos-provider": "npm:2.2.59-alpha.1"
+    "@onekeyfe/onekey-eth-provider": "npm:2.2.59-alpha.1"
+    "@onekeyfe/onekey-neo-provider": "npm:2.2.59-alpha.1"
+    "@onekeyfe/onekey-nostr-provider": "npm:2.2.59-alpha.1"
+    "@onekeyfe/onekey-polkadot-provider": "npm:2.2.59-alpha.1"
+    "@onekeyfe/onekey-private-provider": "npm:2.2.59-alpha.1"
+    "@onekeyfe/onekey-scdo-provider": "npm:2.2.59-alpha.1"
+    "@onekeyfe/onekey-solana-provider": "npm:2.2.59-alpha.1"
+    "@onekeyfe/onekey-stellar-provider": "npm:2.2.59-alpha.1"
+    "@onekeyfe/onekey-sui-provider": "npm:2.2.59-alpha.1"
+    "@onekeyfe/onekey-ton-provider": "npm:2.2.59-alpha.1"
+    "@onekeyfe/onekey-tron-provider": "npm:2.2.59-alpha.1"
+    "@onekeyfe/onekey-webln-provider": "npm:2.2.59-alpha.1"
     cipher-base: "npm:^1.0.6"
     lodash-es: "npm:^4.17.21"
     preact: "npm:^10.25.1"
-  checksum: 10/9977ec0a4bba27dac27cf4e59b05816c2198b43e246c25c5712e111e6d8134b060a744da37381e2a2aa3ce3f6876b1f20e82b99994880ab3a96756a5a789ea1a
+  checksum: 10/5ee177f95588023982a9d774b61d5e6f377f7979167a51010eff7619cb9a0019de9a743d09de1bf7d78f77bc846f73f33525093cb78e2bdaf274fc5797e6a21e
   languageName: node
   linkType: hard
 
@@ -8038,305 +8038,305 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/native-bridge-injected@npm:2.2.58":
-  version: 2.2.58
-  resolution: "@onekeyfe/native-bridge-injected@npm:2.2.58"
+"@onekeyfe/native-bridge-injected@npm:2.2.59-alpha.1":
+  version: 2.2.59-alpha.1
+  resolution: "@onekeyfe/native-bridge-injected@npm:2.2.59-alpha.1"
   dependencies:
-    "@onekeyfe/cross-inpage-provider-core": "npm:2.2.58"
-    "@onekeyfe/cross-inpage-provider-types": "npm:2.2.58"
-  checksum: 10/00b93f3f1434e64b844eb35d79ba274497ed9ba862a9aa5dd817b5d2625d5a4cf778c11de7fafa5066be698c8537eb9b9cd5e93a282e904838d7ff34e515368e
+    "@onekeyfe/cross-inpage-provider-core": "npm:2.2.59-alpha.1"
+    "@onekeyfe/cross-inpage-provider-types": "npm:2.2.59-alpha.1"
+  checksum: 10/2f794275b9273aeb9d664aa4a9beeb6df3be1250341420ab50b4483f46e1d4474844de0a1b2a42258ad3f5907720568b38bfd992efb5850658f2ae5bb834cfaf
   languageName: node
   linkType: hard
 
-"@onekeyfe/onekey-algo-provider@npm:2.2.58":
-  version: 2.2.58
-  resolution: "@onekeyfe/onekey-algo-provider@npm:2.2.58"
+"@onekeyfe/onekey-algo-provider@npm:2.2.59-alpha.1":
+  version: 2.2.59-alpha.1
+  resolution: "@onekeyfe/onekey-algo-provider@npm:2.2.59-alpha.1"
   dependencies:
-    "@onekeyfe/cross-inpage-provider-core": "npm:2.2.58"
-    "@onekeyfe/cross-inpage-provider-errors": "npm:2.2.58"
-    "@onekeyfe/cross-inpage-provider-types": "npm:2.2.58"
-    "@onekeyfe/extension-bridge-injected": "npm:2.2.58"
-  checksum: 10/21a4ee673490ea647eab10bd457539cb7c9ced855565a88a678f466b54b39c1c2b74f1391c309861192e4cbb9bf00e3cff181539c3280ec8bb28a262ad47f496
+    "@onekeyfe/cross-inpage-provider-core": "npm:2.2.59-alpha.1"
+    "@onekeyfe/cross-inpage-provider-errors": "npm:2.2.59-alpha.1"
+    "@onekeyfe/cross-inpage-provider-types": "npm:2.2.59-alpha.1"
+    "@onekeyfe/extension-bridge-injected": "npm:2.2.59-alpha.1"
+  checksum: 10/1cb83956048cb09b1e387b73ae83a2f5a25ac00555666148489d0092d29007c0c537bf2ca9a077e189bc08ba3424438ba493c096389e8cfe323015cac6c7c43b
   languageName: node
   linkType: hard
 
-"@onekeyfe/onekey-alph-provider@npm:2.2.58":
-  version: 2.2.58
-  resolution: "@onekeyfe/onekey-alph-provider@npm:2.2.58"
+"@onekeyfe/onekey-alph-provider@npm:2.2.59-alpha.1":
+  version: 2.2.59-alpha.1
+  resolution: "@onekeyfe/onekey-alph-provider@npm:2.2.59-alpha.1"
   dependencies:
     "@alephium/get-extension-wallet": "npm:^1.5.2"
     "@alephium/walletconnect-provider": "npm:^1.5.2"
     "@alephium/web3": "npm:^1.5.2"
-    "@onekeyfe/cross-inpage-provider-core": "npm:2.2.58"
-    "@onekeyfe/cross-inpage-provider-errors": "npm:2.2.58"
-    "@onekeyfe/cross-inpage-provider-types": "npm:2.2.58"
-    "@onekeyfe/extension-bridge-injected": "npm:2.2.58"
+    "@onekeyfe/cross-inpage-provider-core": "npm:2.2.59-alpha.1"
+    "@onekeyfe/cross-inpage-provider-errors": "npm:2.2.59-alpha.1"
+    "@onekeyfe/cross-inpage-provider-types": "npm:2.2.59-alpha.1"
+    "@onekeyfe/extension-bridge-injected": "npm:2.2.59-alpha.1"
     cipher-base: "npm:^1.0.6"
     elliptic: "npm:^6.6.1"
     patch-package: "npm:^8.0.0"
     pbkdf2: "npm:^3.1.3"
     sha.js: "npm:^2.4.12"
-  checksum: 10/416fcbfed937aee4d8aaba12c02f5529ba328e8543f83cd09cb348717273ca34b490bd35c7ada023541441df8493a3e98dbdf9f33348aa60279862ba09e7f5ba
+  checksum: 10/c1402f68b60e02093d806c5baf9e35602aeca0be1ec1cf5daf34024ddceabaf24828201252ee59b2776e5c0ebaf605185d223ecd40005a1bc0aaf2cd0057a6ca
   languageName: node
   linkType: hard
 
-"@onekeyfe/onekey-aptos-provider@npm:2.2.58":
-  version: 2.2.58
-  resolution: "@onekeyfe/onekey-aptos-provider@npm:2.2.58"
+"@onekeyfe/onekey-aptos-provider@npm:2.2.59-alpha.1":
+  version: 2.2.59-alpha.1
+  resolution: "@onekeyfe/onekey-aptos-provider@npm:2.2.59-alpha.1"
   dependencies:
     "@aptos-labs/wallet-standard": "npm:^0.5.1"
-    "@onekeyfe/cross-inpage-provider-core": "npm:2.2.58"
-    "@onekeyfe/cross-inpage-provider-errors": "npm:2.2.58"
-    "@onekeyfe/cross-inpage-provider-types": "npm:2.2.58"
-    "@onekeyfe/extension-bridge-injected": "npm:2.2.58"
+    "@onekeyfe/cross-inpage-provider-core": "npm:2.2.59-alpha.1"
+    "@onekeyfe/cross-inpage-provider-errors": "npm:2.2.59-alpha.1"
+    "@onekeyfe/cross-inpage-provider-types": "npm:2.2.59-alpha.1"
+    "@onekeyfe/extension-bridge-injected": "npm:2.2.59-alpha.1"
     "@wallet-standard/core": "npm:1.0.3"
     eth-rpc-errors: "npm:^4.0.3"
   peerDependencies:
     "@aptos-labs/ts-sdk": ^1.30.0
-  checksum: 10/5a2108fb7e046bfbb77bc6f921910dc71402efa0021ea32524f01738286cafcc2725c84576920d18a60341f3d9f8192e3414281e0af0471d29dde4de2a5b2e2a
+  checksum: 10/1494a27d08baee4aa316835d2550138ba665453acbda4066d2297cd2f0315c7553f6d13d72ae40b3651dc02650bc7b70c2749d508b7ca8994bb8a32ca4351276
   languageName: node
   linkType: hard
 
-"@onekeyfe/onekey-bfc-provider@npm:2.2.58":
-  version: 2.2.58
-  resolution: "@onekeyfe/onekey-bfc-provider@npm:2.2.58"
+"@onekeyfe/onekey-bfc-provider@npm:2.2.59-alpha.1":
+  version: 2.2.59-alpha.1
+  resolution: "@onekeyfe/onekey-bfc-provider@npm:2.2.59-alpha.1"
   dependencies:
     "@benfen/bfc.js": "npm:0.2.7"
-    "@onekeyfe/cross-inpage-provider-core": "npm:2.2.58"
-    "@onekeyfe/cross-inpage-provider-errors": "npm:2.2.58"
-    "@onekeyfe/cross-inpage-provider-types": "npm:2.2.58"
-    "@onekeyfe/extension-bridge-injected": "npm:2.2.58"
+    "@onekeyfe/cross-inpage-provider-core": "npm:2.2.59-alpha.1"
+    "@onekeyfe/cross-inpage-provider-errors": "npm:2.2.59-alpha.1"
+    "@onekeyfe/cross-inpage-provider-types": "npm:2.2.59-alpha.1"
+    "@onekeyfe/extension-bridge-injected": "npm:2.2.59-alpha.1"
     eth-rpc-errors: "npm:^4.0.3"
     mitt: "npm:^3.0.0"
-  checksum: 10/cbf1801cb22db9f201efb34391dbce4f31b4d8892ce489b17bd566505ef6bac29ca6b2941937458f1602c16360551ecfb64808ee867daf5a9f6190ad6b5f66c4
+  checksum: 10/dc2a96be59bfa339bd8cec1f834f20007220f8956397b37c07c43130a1bd0921d89dfe58c992c7a52b936ed0d7cdc34b4da4324c0ae05980355993482606b92d
   languageName: node
   linkType: hard
 
-"@onekeyfe/onekey-btc-provider@npm:2.2.58":
-  version: 2.2.58
-  resolution: "@onekeyfe/onekey-btc-provider@npm:2.2.58"
+"@onekeyfe/onekey-btc-provider@npm:2.2.59-alpha.1":
+  version: 2.2.59-alpha.1
+  resolution: "@onekeyfe/onekey-btc-provider@npm:2.2.59-alpha.1"
   dependencies:
-    "@onekeyfe/cross-inpage-provider-core": "npm:2.2.58"
-    "@onekeyfe/cross-inpage-provider-errors": "npm:2.2.58"
-    "@onekeyfe/cross-inpage-provider-types": "npm:2.2.58"
-    "@onekeyfe/extension-bridge-injected": "npm:2.2.58"
-  checksum: 10/30dad99e1e662662ea93ba1648269bd8998e569a184fd208bb21655c94fd2ef080f1e09167e41ce3ad31d964cdb35ddd2083e1f27c40e055eaea2e4248340e8b
+    "@onekeyfe/cross-inpage-provider-core": "npm:2.2.59-alpha.1"
+    "@onekeyfe/cross-inpage-provider-errors": "npm:2.2.59-alpha.1"
+    "@onekeyfe/cross-inpage-provider-types": "npm:2.2.59-alpha.1"
+    "@onekeyfe/extension-bridge-injected": "npm:2.2.59-alpha.1"
+  checksum: 10/279fe4c719a50b548b5f68c1b3bc0623acc4db6d75b39b25d0cee7fd8ff4bb768c45e00230a660a8afd01965e981b17de840bd6a8db4265b7c18830b4a96defc
   languageName: node
   linkType: hard
 
-"@onekeyfe/onekey-cardano-provider@npm:2.2.58":
-  version: 2.2.58
-  resolution: "@onekeyfe/onekey-cardano-provider@npm:2.2.58"
+"@onekeyfe/onekey-cardano-provider@npm:2.2.59-alpha.1":
+  version: 2.2.59-alpha.1
+  resolution: "@onekeyfe/onekey-cardano-provider@npm:2.2.59-alpha.1"
   dependencies:
-    "@onekeyfe/cross-inpage-provider-core": "npm:2.2.58"
-    "@onekeyfe/cross-inpage-provider-errors": "npm:2.2.58"
-    "@onekeyfe/cross-inpage-provider-types": "npm:2.2.58"
-    "@onekeyfe/extension-bridge-injected": "npm:2.2.58"
-  checksum: 10/8f5575ea7df5bc9342b2474d90934b0f3d771bfd2fc1b31b24d247ea6bf0852d06a756e513a2907dba5a8e62316a77476aff79f6cc726ecc97a2c291d826b793
+    "@onekeyfe/cross-inpage-provider-core": "npm:2.2.59-alpha.1"
+    "@onekeyfe/cross-inpage-provider-errors": "npm:2.2.59-alpha.1"
+    "@onekeyfe/cross-inpage-provider-types": "npm:2.2.59-alpha.1"
+    "@onekeyfe/extension-bridge-injected": "npm:2.2.59-alpha.1"
+  checksum: 10/bc0b69c04b48020628cc5dfaabeb597368c67fb56b6a798a79750f587c03328daacf6301087722a570d0405a2be5e625dae964922e1cd1b3424442204aab3ce9
   languageName: node
   linkType: hard
 
-"@onekeyfe/onekey-conflux-provider@npm:2.2.58":
-  version: 2.2.58
-  resolution: "@onekeyfe/onekey-conflux-provider@npm:2.2.58"
+"@onekeyfe/onekey-conflux-provider@npm:2.2.59-alpha.1":
+  version: 2.2.59-alpha.1
+  resolution: "@onekeyfe/onekey-conflux-provider@npm:2.2.59-alpha.1"
   dependencies:
-    "@onekeyfe/cross-inpage-provider-core": "npm:2.2.58"
-    "@onekeyfe/cross-inpage-provider-errors": "npm:2.2.58"
-    "@onekeyfe/cross-inpage-provider-types": "npm:2.2.58"
-    "@onekeyfe/extension-bridge-injected": "npm:2.2.58"
-  checksum: 10/80bd9f0aa4cd7e0f99259fc7ac550e18c3da1a0687950cc60d4a6bb02c0493c11b4bc1a0f22d96597ac0b93a368f8ee055549adbddd11175926929411f28f322
+    "@onekeyfe/cross-inpage-provider-core": "npm:2.2.59-alpha.1"
+    "@onekeyfe/cross-inpage-provider-errors": "npm:2.2.59-alpha.1"
+    "@onekeyfe/cross-inpage-provider-types": "npm:2.2.59-alpha.1"
+    "@onekeyfe/extension-bridge-injected": "npm:2.2.59-alpha.1"
+  checksum: 10/188c923e37c727fc9151e9de805aa4c76a441893b946d0c018b495860714e3fa634357f9ac8a04266c034dc5e0c448ad6e1e522978b364599da5dab20381c2c5
   languageName: node
   linkType: hard
 
-"@onekeyfe/onekey-cosmos-provider@npm:2.2.58":
-  version: 2.2.58
-  resolution: "@onekeyfe/onekey-cosmos-provider@npm:2.2.58"
+"@onekeyfe/onekey-cosmos-provider@npm:2.2.59-alpha.1":
+  version: 2.2.59-alpha.1
+  resolution: "@onekeyfe/onekey-cosmos-provider@npm:2.2.59-alpha.1"
   dependencies:
-    "@onekeyfe/cross-inpage-provider-core": "npm:2.2.58"
-    "@onekeyfe/cross-inpage-provider-errors": "npm:2.2.58"
-    "@onekeyfe/cross-inpage-provider-types": "npm:2.2.58"
-    "@onekeyfe/extension-bridge-injected": "npm:2.2.58"
+    "@onekeyfe/cross-inpage-provider-core": "npm:2.2.59-alpha.1"
+    "@onekeyfe/cross-inpage-provider-errors": "npm:2.2.59-alpha.1"
+    "@onekeyfe/cross-inpage-provider-types": "npm:2.2.59-alpha.1"
+    "@onekeyfe/extension-bridge-injected": "npm:2.2.59-alpha.1"
     eth-rpc-errors: "npm:^4.0.3"
     lodash-es: "npm:^4.17.21"
     long: "npm:^4.0.0"
     mitt: "npm:^3.0.0"
-  checksum: 10/d755c6d886bf4cfc88e99385fbded8464259cc83a3c5f2816637a0dc3877f8b8909d5dbc375cffd4cee1fdafc438a27634e127f4e4662d26b2719d62e55b5f13
+  checksum: 10/41d8d0066553d713c14e3c28014259248b2236639d197d39072c1991fe76fa30a31f947c34c3809ed844c732557357654713e5cf93f7c17d9bb8713cf19ba7c8
   languageName: node
   linkType: hard
 
-"@onekeyfe/onekey-cross-webview@npm:2.2.58":
-  version: 2.2.58
-  resolution: "@onekeyfe/onekey-cross-webview@npm:2.2.58"
+"@onekeyfe/onekey-cross-webview@npm:2.2.59-alpha.1":
+  version: 2.2.59-alpha.1
+  resolution: "@onekeyfe/onekey-cross-webview@npm:2.2.59-alpha.1"
   dependencies:
-    "@onekeyfe/cross-inpage-provider-core": "npm:2.2.58"
-    "@onekeyfe/cross-inpage-provider-types": "npm:2.2.58"
+    "@onekeyfe/cross-inpage-provider-core": "npm:2.2.59-alpha.1"
+    "@onekeyfe/cross-inpage-provider-types": "npm:2.2.59-alpha.1"
   peerDependencies:
     electron: "*"
     react-native-webview: "*"
-  checksum: 10/74cbbd11535ef62782ab9c9e640ca537d15270f4dc09a1d9671d9d3013e29c3fed7b7363eb12106a162242de8485f82ad2abddf603320f06ce31986da3cade99
+  checksum: 10/e05185d79967f86a98cc318dae49dea22a034b1c0caf6611e6a4a19b73daee271f12c6c65768474e49bbdc1a41f789101ccfbc196560c27e5a895d0b198eac71
   languageName: node
   linkType: hard
 
-"@onekeyfe/onekey-eth-provider@npm:2.2.58":
-  version: 2.2.58
-  resolution: "@onekeyfe/onekey-eth-provider@npm:2.2.58"
+"@onekeyfe/onekey-eth-provider@npm:2.2.59-alpha.1":
+  version: 2.2.59-alpha.1
+  resolution: "@onekeyfe/onekey-eth-provider@npm:2.2.59-alpha.1"
   dependencies:
-    "@onekeyfe/cross-inpage-provider-core": "npm:2.2.58"
-    "@onekeyfe/cross-inpage-provider-errors": "npm:2.2.58"
-    "@onekeyfe/cross-inpage-provider-types": "npm:2.2.58"
-    "@onekeyfe/extension-bridge-injected": "npm:2.2.58"
+    "@onekeyfe/cross-inpage-provider-core": "npm:2.2.59-alpha.1"
+    "@onekeyfe/cross-inpage-provider-errors": "npm:2.2.59-alpha.1"
+    "@onekeyfe/cross-inpage-provider-types": "npm:2.2.59-alpha.1"
+    "@onekeyfe/extension-bridge-injected": "npm:2.2.59-alpha.1"
     eth-rpc-errors: "npm:^4.0.3"
     uuid: "npm:^8.3.2"
-  checksum: 10/a13201880bb3d2b6f4f44351c8f5734f89bae1cf1a78ee8b7176d23215e1d482e577f480c97ba0785cb1bc56898a82462922cc5aaa792b0783e758fb5c5cf0b0
+  checksum: 10/d9e01551e511a298a76ae4343ac5bf1a1e572a9907270e34cc1949c2ada0f2aaa8baa9a540867939eeec94954eadd7a2db0fbd5e556f2d78a72a458dd0192e2d
   languageName: node
   linkType: hard
 
-"@onekeyfe/onekey-neo-provider@npm:2.2.58":
-  version: 2.2.58
-  resolution: "@onekeyfe/onekey-neo-provider@npm:2.2.58"
+"@onekeyfe/onekey-neo-provider@npm:2.2.59-alpha.1":
+  version: 2.2.59-alpha.1
+  resolution: "@onekeyfe/onekey-neo-provider@npm:2.2.59-alpha.1"
   dependencies:
-    "@onekeyfe/cross-inpage-provider-core": "npm:2.2.58"
-    "@onekeyfe/cross-inpage-provider-errors": "npm:2.2.58"
-    "@onekeyfe/cross-inpage-provider-types": "npm:2.2.58"
-    "@onekeyfe/extension-bridge-injected": "npm:2.2.58"
-  checksum: 10/81c86694199be1e88697f54f1c52412d747835b058625586a667003dd782923b6987b919fb0a6b49fe4e0fcd4d3b6515ffb286b7bae04dd7a2fa3751ff138c78
+    "@onekeyfe/cross-inpage-provider-core": "npm:2.2.59-alpha.1"
+    "@onekeyfe/cross-inpage-provider-errors": "npm:2.2.59-alpha.1"
+    "@onekeyfe/cross-inpage-provider-types": "npm:2.2.59-alpha.1"
+    "@onekeyfe/extension-bridge-injected": "npm:2.2.59-alpha.1"
+  checksum: 10/7ed85f9dabd49d4eb887da35ee918c1966f404fb69bb5bcbb569f1d76e0fbc7ce49cebf095de0bb6afa6aee710b05db4bb1f10fe9cdf7259706060743a10d242
   languageName: node
   linkType: hard
 
-"@onekeyfe/onekey-nostr-provider@npm:2.2.58":
-  version: 2.2.58
-  resolution: "@onekeyfe/onekey-nostr-provider@npm:2.2.58"
+"@onekeyfe/onekey-nostr-provider@npm:2.2.59-alpha.1":
+  version: 2.2.59-alpha.1
+  resolution: "@onekeyfe/onekey-nostr-provider@npm:2.2.59-alpha.1"
   dependencies:
-    "@onekeyfe/cross-inpage-provider-core": "npm:2.2.58"
-    "@onekeyfe/cross-inpage-provider-errors": "npm:2.2.58"
-    "@onekeyfe/cross-inpage-provider-types": "npm:2.2.58"
-    "@onekeyfe/extension-bridge-injected": "npm:2.2.58"
-  checksum: 10/89f02024c5da155a9fe11eb44590e51581bbb5c5977b269028cd4ed477d415c87ae435220592b1df6990f026ae7ab4ab245f149284906ef79d22ae5335232560
+    "@onekeyfe/cross-inpage-provider-core": "npm:2.2.59-alpha.1"
+    "@onekeyfe/cross-inpage-provider-errors": "npm:2.2.59-alpha.1"
+    "@onekeyfe/cross-inpage-provider-types": "npm:2.2.59-alpha.1"
+    "@onekeyfe/extension-bridge-injected": "npm:2.2.59-alpha.1"
+  checksum: 10/f395e89484631f88164078268474f09fa3480d73ac6c9cf6456cbb8aa3df6f5f188bc8798cdbe286dc8f92ffaea54bae22c170ac4b1846a3f41cda96b3b618e6
   languageName: node
   linkType: hard
 
-"@onekeyfe/onekey-polkadot-provider@npm:2.2.58":
-  version: 2.2.58
-  resolution: "@onekeyfe/onekey-polkadot-provider@npm:2.2.58"
+"@onekeyfe/onekey-polkadot-provider@npm:2.2.59-alpha.1":
+  version: 2.2.59-alpha.1
+  resolution: "@onekeyfe/onekey-polkadot-provider@npm:2.2.59-alpha.1"
   dependencies:
-    "@onekeyfe/cross-inpage-provider-core": "npm:2.2.58"
-    "@onekeyfe/cross-inpage-provider-errors": "npm:2.2.58"
-    "@onekeyfe/cross-inpage-provider-types": "npm:2.2.58"
-    "@onekeyfe/extension-bridge-injected": "npm:2.2.58"
+    "@onekeyfe/cross-inpage-provider-core": "npm:2.2.59-alpha.1"
+    "@onekeyfe/cross-inpage-provider-errors": "npm:2.2.59-alpha.1"
+    "@onekeyfe/cross-inpage-provider-types": "npm:2.2.59-alpha.1"
+    "@onekeyfe/extension-bridge-injected": "npm:2.2.59-alpha.1"
     "@polkadot/extension-inject": "npm:^0.46.3"
     eth-rpc-errors: "npm:^4.0.3"
     mitt: "npm:^3.0.0"
-  checksum: 10/771a8347b436661b03cd6607368c8d1934101762bd7447e73275eb69faf960108f8845fceddfe3d497787e8c22ff5947746994e0249dd94c5e20da8664d41565
+  checksum: 10/3f31fefdb15d1d43145e1821f511d008310af363f517ed8781c4a498153eb9e645144a3f3ab19fb6459b28efaee9207a70a34ec8b68ab7b59d693e5d70b69558
   languageName: node
   linkType: hard
 
-"@onekeyfe/onekey-private-provider@npm:2.2.58":
-  version: 2.2.58
-  resolution: "@onekeyfe/onekey-private-provider@npm:2.2.58"
+"@onekeyfe/onekey-private-provider@npm:2.2.59-alpha.1":
+  version: 2.2.59-alpha.1
+  resolution: "@onekeyfe/onekey-private-provider@npm:2.2.59-alpha.1"
   dependencies:
-    "@onekeyfe/cross-inpage-provider-core": "npm:2.2.58"
-    "@onekeyfe/cross-inpage-provider-errors": "npm:2.2.58"
-    "@onekeyfe/cross-inpage-provider-types": "npm:2.2.58"
-    "@onekeyfe/extension-bridge-injected": "npm:2.2.58"
-  checksum: 10/7cfa647a8e353d390c6d938a488447bfa965091d07d08b6875243c84415b56eae47a09b43f92b72c1ce097f1586a9e4c72f475ff7de19998bc8bd9c8e486df08
+    "@onekeyfe/cross-inpage-provider-core": "npm:2.2.59-alpha.1"
+    "@onekeyfe/cross-inpage-provider-errors": "npm:2.2.59-alpha.1"
+    "@onekeyfe/cross-inpage-provider-types": "npm:2.2.59-alpha.1"
+    "@onekeyfe/extension-bridge-injected": "npm:2.2.59-alpha.1"
+  checksum: 10/e3eb32e1a29f3df658e3bdf77c27d325d32d41dd4d1dcc70003cfcf230072c83c3a43790e8242b7b7d92228b7f6ab05c0867becc7a09b169276e01e24535fda3
   languageName: node
   linkType: hard
 
-"@onekeyfe/onekey-scdo-provider@npm:2.2.58":
-  version: 2.2.58
-  resolution: "@onekeyfe/onekey-scdo-provider@npm:2.2.58"
+"@onekeyfe/onekey-scdo-provider@npm:2.2.59-alpha.1":
+  version: 2.2.59-alpha.1
+  resolution: "@onekeyfe/onekey-scdo-provider@npm:2.2.59-alpha.1"
   dependencies:
-    "@onekeyfe/cross-inpage-provider-core": "npm:2.2.58"
-    "@onekeyfe/cross-inpage-provider-errors": "npm:2.2.58"
-    "@onekeyfe/cross-inpage-provider-types": "npm:2.2.58"
-    "@onekeyfe/extension-bridge-injected": "npm:2.2.58"
-  checksum: 10/70a7b72be86144a3660f4a3b084fe37153b8096098cf5531ffc9c7bf56a22a1239bd89f80fa21732c5c5e1a8a60ec30e57829464d567f8d1afff4ef2e9b6c56a
+    "@onekeyfe/cross-inpage-provider-core": "npm:2.2.59-alpha.1"
+    "@onekeyfe/cross-inpage-provider-errors": "npm:2.2.59-alpha.1"
+    "@onekeyfe/cross-inpage-provider-types": "npm:2.2.59-alpha.1"
+    "@onekeyfe/extension-bridge-injected": "npm:2.2.59-alpha.1"
+  checksum: 10/4bbb75c0ecfe2432e24f78713c2fd6e4ea3f7d45dda851efb5853b43ac00133ec0b7e0458988e8402877610eff780e6b1cf1c372efc36869508963737cb20295
   languageName: node
   linkType: hard
 
-"@onekeyfe/onekey-solana-provider@npm:2.2.58":
-  version: 2.2.58
-  resolution: "@onekeyfe/onekey-solana-provider@npm:2.2.58"
+"@onekeyfe/onekey-solana-provider@npm:2.2.59-alpha.1":
+  version: 2.2.59-alpha.1
+  resolution: "@onekeyfe/onekey-solana-provider@npm:2.2.59-alpha.1"
   dependencies:
-    "@onekeyfe/cross-inpage-provider-core": "npm:2.2.58"
-    "@onekeyfe/cross-inpage-provider-errors": "npm:2.2.58"
-    "@onekeyfe/cross-inpage-provider-types": "npm:2.2.58"
-    "@onekeyfe/extension-bridge-injected": "npm:2.2.58"
+    "@onekeyfe/cross-inpage-provider-core": "npm:2.2.59-alpha.1"
+    "@onekeyfe/cross-inpage-provider-errors": "npm:2.2.59-alpha.1"
+    "@onekeyfe/cross-inpage-provider-types": "npm:2.2.59-alpha.1"
+    "@onekeyfe/extension-bridge-injected": "npm:2.2.59-alpha.1"
     "@solana/wallet-standard-features": "npm:^1.1.0"
     "@solana/web3.js": "npm:^1.98.0"
     "@wallet-standard/base": "npm:^1.0.1"
     bs58: "npm:^5.0.0"
-  checksum: 10/186d9b7a6352cde012cf0f7ebea2820166ef03f46d68e8e045c0985d2ba3b531676a53b08d34951441ab946c758f733af004d0d19d8bd3c45d36d1b5e5c85938
+  checksum: 10/2d5436fd66f4ce366c1938f7fc832b350c76455b4b79b50db831bb27870ff898647dbe5ad11d8742bb142f4ab5a4a2e62e4a20ff4c3d7cc580a0675752715b50
   languageName: node
   linkType: hard
 
-"@onekeyfe/onekey-stellar-provider@npm:2.2.58":
-  version: 2.2.58
-  resolution: "@onekeyfe/onekey-stellar-provider@npm:2.2.58"
+"@onekeyfe/onekey-stellar-provider@npm:2.2.59-alpha.1":
+  version: 2.2.59-alpha.1
+  resolution: "@onekeyfe/onekey-stellar-provider@npm:2.2.59-alpha.1"
   dependencies:
-    "@onekeyfe/cross-inpage-provider-core": "npm:2.2.58"
-    "@onekeyfe/cross-inpage-provider-errors": "npm:2.2.58"
-    "@onekeyfe/cross-inpage-provider-types": "npm:2.2.58"
-    "@onekeyfe/extension-bridge-injected": "npm:2.2.58"
-  checksum: 10/3e9c0019e7dc959ff784cd8eac681d84606d50f0bc71edac77762fe731e62465e7652b20669b5c8282c6418c0c30a12312a18f2065b9ad2451fba2baaf9c7b85
+    "@onekeyfe/cross-inpage-provider-core": "npm:2.2.59-alpha.1"
+    "@onekeyfe/cross-inpage-provider-errors": "npm:2.2.59-alpha.1"
+    "@onekeyfe/cross-inpage-provider-types": "npm:2.2.59-alpha.1"
+    "@onekeyfe/extension-bridge-injected": "npm:2.2.59-alpha.1"
+  checksum: 10/595a5373d68fa17f3e3b93b5d4352c1b763c01b331244c7f672ce02c4005f5851a5fbc377b4679f6eb1dac196edc90e9aac41015779b29eca22149aec5cb3f8e
   languageName: node
   linkType: hard
 
-"@onekeyfe/onekey-sui-provider@npm:2.2.58":
-  version: 2.2.58
-  resolution: "@onekeyfe/onekey-sui-provider@npm:2.2.58"
+"@onekeyfe/onekey-sui-provider@npm:2.2.59-alpha.1":
+  version: 2.2.59-alpha.1
+  resolution: "@onekeyfe/onekey-sui-provider@npm:2.2.59-alpha.1"
   dependencies:
     "@mysten/wallet-standard": "npm:^0.14.0"
-    "@onekeyfe/cross-inpage-provider-core": "npm:2.2.58"
-    "@onekeyfe/cross-inpage-provider-errors": "npm:2.2.58"
-    "@onekeyfe/cross-inpage-provider-types": "npm:2.2.58"
-    "@onekeyfe/extension-bridge-injected": "npm:2.2.58"
+    "@onekeyfe/cross-inpage-provider-core": "npm:2.2.59-alpha.1"
+    "@onekeyfe/cross-inpage-provider-errors": "npm:2.2.59-alpha.1"
+    "@onekeyfe/cross-inpage-provider-types": "npm:2.2.59-alpha.1"
+    "@onekeyfe/extension-bridge-injected": "npm:2.2.59-alpha.1"
     eth-rpc-errors: "npm:^4.0.3"
     mitt: "npm:^3.0.0"
-  checksum: 10/6cc1c62cf6de65465b7074086e5c354d5fdd4163e7f9e7fe61934b4870b138e25ecf3ad2d623fc63340cec3ed679da72ff7da6a929016590ff88569d5aa7f265
+  checksum: 10/ec3b8cea70d9e073f35c14f9c9a69af6d63056d8cfbe364b837d86ba0ec39589369e7163044bf4933ccae7ba2b9f6284be117b89c89ec373d32503efc357572a
   languageName: node
   linkType: hard
 
-"@onekeyfe/onekey-ton-provider@npm:2.2.58":
-  version: 2.2.58
-  resolution: "@onekeyfe/onekey-ton-provider@npm:2.2.58"
+"@onekeyfe/onekey-ton-provider@npm:2.2.59-alpha.1":
+  version: 2.2.59-alpha.1
+  resolution: "@onekeyfe/onekey-ton-provider@npm:2.2.59-alpha.1"
   dependencies:
-    "@onekeyfe/cross-inpage-provider-core": "npm:2.2.58"
-    "@onekeyfe/cross-inpage-provider-errors": "npm:2.2.58"
-    "@onekeyfe/cross-inpage-provider-types": "npm:2.2.58"
-    "@onekeyfe/extension-bridge-injected": "npm:2.2.58"
+    "@onekeyfe/cross-inpage-provider-core": "npm:2.2.59-alpha.1"
+    "@onekeyfe/cross-inpage-provider-errors": "npm:2.2.59-alpha.1"
+    "@onekeyfe/cross-inpage-provider-types": "npm:2.2.59-alpha.1"
+    "@onekeyfe/extension-bridge-injected": "npm:2.2.59-alpha.1"
     "@tonconnect/protocol": "npm:^2.3.0"
-  checksum: 10/83c79ddee1b693303fe5c310041cf459c1a88bee0b874d928f0b90efa7381d7dcbf4471466736c51168431548470391fc31f6808a79aa6d5148011433976753d
+  checksum: 10/306429df18a57f6422dd77e3d4603440fc8200d7e3bc424db83e3944f59b17187a7dbc80e2a41d6081938c2c4a6576d89045ae075c9376723cd2fd707914eb3b
   languageName: node
   linkType: hard
 
-"@onekeyfe/onekey-tron-provider@npm:2.2.58":
-  version: 2.2.58
-  resolution: "@onekeyfe/onekey-tron-provider@npm:2.2.58"
+"@onekeyfe/onekey-tron-provider@npm:2.2.59-alpha.1":
+  version: 2.2.59-alpha.1
+  resolution: "@onekeyfe/onekey-tron-provider@npm:2.2.59-alpha.1"
   dependencies:
     "@noble/secp256k1": "npm:1.7.1"
-    "@onekeyfe/cross-inpage-provider-core": "npm:2.2.58"
-    "@onekeyfe/cross-inpage-provider-errors": "npm:2.2.58"
-    "@onekeyfe/cross-inpage-provider-types": "npm:2.2.58"
-    "@onekeyfe/extension-bridge-injected": "npm:2.2.58"
+    "@onekeyfe/cross-inpage-provider-core": "npm:2.2.59-alpha.1"
+    "@onekeyfe/cross-inpage-provider-errors": "npm:2.2.59-alpha.1"
+    "@onekeyfe/cross-inpage-provider-types": "npm:2.2.59-alpha.1"
+    "@onekeyfe/extension-bridge-injected": "npm:2.2.59-alpha.1"
     lodash-es: "npm:^4.17.21"
     querystring: "npm:^0.2.1"
     sunweb: "npm:^1.0.7"
     tronweb: "npm:^6.0.1"
     uuid: "npm:^8.3.2"
-  checksum: 10/510b9b432ff058920be4aabfccac795d0ccc06426334381503015c0110538267f7f62a8121422e23b31fb6d705b109534403c8e5336cad030775a1d236ab703b
+  checksum: 10/54a22fbae99113e1d300c631e5f48746d8332e53e6898cac262c12daa82b1c793ba687f091f7a65104e8bba64143bcfbd303bbd97617c269839192c2127290ca
   languageName: node
   linkType: hard
 
-"@onekeyfe/onekey-webln-provider@npm:2.2.58":
-  version: 2.2.58
-  resolution: "@onekeyfe/onekey-webln-provider@npm:2.2.58"
+"@onekeyfe/onekey-webln-provider@npm:2.2.59-alpha.1":
+  version: 2.2.59-alpha.1
+  resolution: "@onekeyfe/onekey-webln-provider@npm:2.2.59-alpha.1"
   dependencies:
-    "@onekeyfe/cross-inpage-provider-core": "npm:2.2.58"
-    "@onekeyfe/cross-inpage-provider-errors": "npm:2.2.58"
-    "@onekeyfe/cross-inpage-provider-types": "npm:2.2.58"
-    "@onekeyfe/extension-bridge-injected": "npm:2.2.58"
-  checksum: 10/ac338473016e07bec76a74db900c7a1a99142311292759d462923d3fc015149656257cec772479c53a2c8cba4dbcb1a0f63e320e065fdf1240d10e12cf15d5f1
+    "@onekeyfe/cross-inpage-provider-core": "npm:2.2.59-alpha.1"
+    "@onekeyfe/cross-inpage-provider-errors": "npm:2.2.59-alpha.1"
+    "@onekeyfe/cross-inpage-provider-types": "npm:2.2.59-alpha.1"
+    "@onekeyfe/extension-bridge-injected": "npm:2.2.59-alpha.1"
+  checksum: 10/047adc276cf54fe139dc536ea8cfe25f3b41260f6728e31b8f6a3289ab5077f0ebee8d4e284bcbdd75181f1d3a43bd1226ca0032cfa70eabda7aca8117006874
   languageName: node
   linkType: hard
 
@@ -8493,11 +8493,11 @@ __metadata:
     "@mysten/sui": "npm:1.28.0"
     "@ngraveio/bc-ur": "npm:^1.1.13"
     "@nktkas/hyperliquid": "npm:0.29.1"
-    "@onekeyfe/cross-inpage-provider-core": "npm:2.2.58"
-    "@onekeyfe/cross-inpage-provider-errors": "npm:2.2.58"
-    "@onekeyfe/cross-inpage-provider-injected": "npm:2.2.58"
-    "@onekeyfe/cross-inpage-provider-types": "npm:2.2.58"
-    "@onekeyfe/extension-bridge-hosted": "npm:2.2.58"
+    "@onekeyfe/cross-inpage-provider-core": "npm:2.2.59-alpha.1"
+    "@onekeyfe/cross-inpage-provider-errors": "npm:2.2.59-alpha.1"
+    "@onekeyfe/cross-inpage-provider-injected": "npm:2.2.59-alpha.1"
+    "@onekeyfe/cross-inpage-provider-types": "npm:2.2.59-alpha.1"
+    "@onekeyfe/extension-bridge-hosted": "npm:2.2.59-alpha.1"
     "@onekeyfe/hd-ble-sdk": "npm:1.1.22"
     "@onekeyfe/hd-common-connect-sdk": "npm:1.1.22"
     "@onekeyfe/hd-core": "npm:1.1.22"
@@ -8505,7 +8505,7 @@ __metadata:
     "@onekeyfe/hd-transport": "npm:1.1.22"
     "@onekeyfe/hd-transport-electron": "npm:1.1.22"
     "@onekeyfe/hd-web-sdk": "npm:1.1.22"
-    "@onekeyfe/onekey-cross-webview": "npm:2.2.58"
+    "@onekeyfe/onekey-cross-webview": "npm:2.2.59-alpha.1"
     "@open-wc/webpack-import-meta-loader": "npm:^0.4.7"
     "@pmmmwh/react-refresh-webpack-plugin": "npm:^0.5.11"
     "@polkadot/extension-inject": "npm:0.54.1"
