@@ -296,7 +296,7 @@
   "cloud_backup_failed_google_desc": "Các lý do có thể:\n1. Sự cố kết nối mạng\n2. Chưa đăng nhập đúng tài khoản Google\n3. Chưa bật đồng bộ Google Drive\n4. Dung lượng Google Drive không đủ (bạn có thể xóa các bản sao lưu cũ trong “Quản lý bản sao lưu” để giải phóng dung lượng)",
   "coming_soon": "Sắp ra mắt",
   "coming_soon_desc": "Chúng tôi đang phát triển tính năng này và sẽ cung cấp nó trong thời gian sắp tới.",
-  "communication.communicating": "Đang liên lạc...",
+  "communication.communicating": "Đang kết nối với thiết bị của bạn…",
   "communication.not_detected_bluetooth_fallback": "Không phát hiện USB. OneKey sẽ thử kết nối qua Bluetooth — vui lòng cho phép truy cập Bluetooth khi được yêu cầu.",
   "communication.not_detected_bluetooth_no_permission": "Không phát hiện USB. Vui lòng cắm thiết bị qua USB hoặc cấp quyền truy cập Bluetooth cho OneKey trong cài đặt hệ thống của bạn.",
   "communication.not_detected_bluetooth_not_paired": "Không phát hiện USB. Chuyển sang ghép nối Bluetooth.",
