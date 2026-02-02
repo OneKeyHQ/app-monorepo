@@ -337,6 +337,30 @@ index 577bebe..ad0f253 100644
  #pragma mark - RCTBackedTextInputDelegate
  
  - (BOOL)textInputShouldBeginEditing
+diff --git a/node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios/ReactCommon/RCTTurboModule.mm b/node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios/ReactCommon/RCTTurboModule.mm
+index 2a67797..57f7c7a 100644
+--- a/node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios/ReactCommon/RCTTurboModule.mm
++++ b/node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios/ReactCommon/RCTTurboModule.mm
+@@ -57,6 +57,9 @@ static int32_t getUniqueId()
+ 
+ static jsi::String convertNSStringToJSIString(jsi::Runtime &runtime, NSString *value)
+ {
++  if (value == nil) {
++    return jsi::String::createFromUtf8(runtime, "");
++  }
+   return jsi::String::createFromUtf8(runtime, [value UTF8String] ? [value UTF8String] : "");
+ }
+ 
+@@ -89,6 +92,9 @@ static int32_t getUniqueId()
+ 
+ jsi::Value convertObjCObjectToJSIValue(jsi::Runtime &runtime, id value)
+ {
++  if (value == nil) {
++    return jsi::Value::null();
++  }
+   if ([value isKindOfClass:[NSString class]]) {
+     return convertNSStringToJSIString(runtime, (NSString *)value);
+   } else if ([value isKindOfClass:[NSNumber class]]) {
 diff --git a/node_modules/react-native/ReactCommon/react/renderer/components/textinput/TextInputEventEmitter.cpp b/node_modules/react-native/ReactCommon/react/renderer/components/textinput/TextInputEventEmitter.cpp
 index a9bc219..0fc50bf 100644
 --- a/node_modules/react-native/ReactCommon/react/renderer/components/textinput/TextInputEventEmitter.cpp
