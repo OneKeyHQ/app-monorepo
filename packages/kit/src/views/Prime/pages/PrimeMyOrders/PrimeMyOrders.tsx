@@ -30,7 +30,7 @@ import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IShopifyOrder } from '@onekeyhq/shared/types/prime/primeTypes';
 
 const FIND_ORDER_URL = 'https://orders.onekey.so';
-const BUY_ONEKEY_URL = 'https://shop.onekey.so';
+const BUY_ONEKEY_URL = 'https://onekey.so/shop';
 
 const shopifyStatusToBadgeType: Record<string, IBadgeType> = {
   fulfilled: 'success',
