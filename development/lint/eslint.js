@@ -4,6 +4,9 @@ const os = require('os');
 
 const getTimestamp = () => new Date().toLocaleTimeString();
 
+// Detect CI environment - most CI platforms set CI=true
+const isCI = !!process.env.CI;
+
 console.log(`[${getTimestamp()}] Lint check started...`);
 
 // ============================================
@@ -14,9 +17,10 @@ const oxlintStartTime = Date.now();
 
 try {
   const cpus = os.cpus().length;
-  console.log(`Using ${cpus} threads for oxlint...`);
+  const fixFlag = isCI ? '' : ' --fix';
+  console.log(`Using ${cpus} threads for oxlint...${isCI ? ' (CI mode, no --fix)' : ''}`);
   const oxlintResult = execSync(
-    `npx oxlint --tsconfig ./tsconfig.json --type-aware --threads=${cpus} . --fix`,
+    `npx oxlint --tsconfig ./tsconfig.json --type-aware --threads=${cpus} .${fixFlag}`,
     { encoding: 'utf-8', stdio: 'pipe' },
   );
 

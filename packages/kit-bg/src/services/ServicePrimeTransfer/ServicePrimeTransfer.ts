@@ -882,10 +882,13 @@ class ServicePrimeTransfer extends ServiceBase {
     // Filter out keyless wallets
     const filteredWallets = wallets.filter((wallet) => !wallet.isKeyless);
 
-    const walletAccountMap = filteredWallets.reduce((summary, current) => {
-      summary[current.id] = current;
-      return summary;
-    }, {} as Record<string, IDBWallet>);
+    const walletAccountMap = filteredWallets.reduce(
+      (summary, current) => {
+        summary[current.id] = current;
+        return summary;
+      },
+      {} as Record<string, IDBWallet>,
+    );
     let { accounts: allAccounts } = await serviceAccount.getAllAccounts();
 
     const importedWallet = await serviceAccount.getWalletSafe({
@@ -1205,13 +1208,13 @@ class ServicePrimeTransfer extends ServiceBase {
       appVersion: version ?? '',
       isWatchingOnly: Boolean(
         !Object.keys(privateData?.wallets || {}).length &&
-          !Object.keys(privateData?.importedAccounts || {}).length &&
-          Object.keys(privateData?.watchingAccounts || {}).length,
+        !Object.keys(privateData?.importedAccounts || {}).length &&
+        Object.keys(privateData?.watchingAccounts || {}).length,
       ),
       isEmptyData: Boolean(
         !Object.keys(privateData?.wallets || {}).length &&
-          !Object.keys(privateData?.importedAccounts || {}).length &&
-          !Object.keys(privateData?.watchingAccounts || {}).length,
+        !Object.keys(privateData?.importedAccounts || {}).length &&
+        !Object.keys(privateData?.watchingAccounts || {}).length,
       ),
     };
   }

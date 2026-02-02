@@ -49,7 +49,7 @@ function SegmentText({
   translationId,
   selected,
 }: {
-  translationId: typeof discoveryTabs[number];
+  translationId: (typeof discoveryTabs)[number];
   selected: boolean;
 }) {
   const intl = useIntl();

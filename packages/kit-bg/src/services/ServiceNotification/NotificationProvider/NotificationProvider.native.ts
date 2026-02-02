@@ -115,7 +115,7 @@ export default class NotificationProvider extends NotificationProviderBase {
           shouldPlaySound: true,
           shouldSetBadge: true,
           priority: AndroidNotificationPriority.DEFAULT,
-        } as NotificationBehavior),
+        }) as NotificationBehavior,
     });
 
     // Notifications.removeNotificationSubscription(sub1);

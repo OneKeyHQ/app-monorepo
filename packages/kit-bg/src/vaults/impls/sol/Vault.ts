@@ -881,9 +881,8 @@ export default class Vault extends VaultBase {
           if (destinationAta && !createdAta[destinationAta]) {
             try {
               // Get the ATA account info to find the owner and mint
-              const ataAccountInfo = await this._getAssociatedAccountInfo(
-                destinationAta,
-              );
+              const ataAccountInfo =
+                await this._getAssociatedAccountInfo(destinationAta);
               const { mint, owner } = ataAccountInfo;
 
               ataDetails.push({

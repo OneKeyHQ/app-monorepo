@@ -65,26 +65,26 @@ function LNMakeInvoiceForm(props: IMakeInvoiceFormProps) {
       maxSendAmount:
         lnUnit === ELightningUnit.BTC
           ? chainValueUtils.convertSatsToBtc(invoiceConfig?.maxSendAmount ?? 0)
-          : invoiceConfig?.maxSendAmount ?? 0,
+          : (invoiceConfig?.maxSendAmount ?? 0),
       maxReceiveAmount:
         lnUnit === ELightningUnit.BTC
           ? chainValueUtils.convertSatsToBtc(
               invoiceConfig?.maxReceiveAmount ?? 0,
             )
-          : invoiceConfig?.maxReceiveAmount ?? 0,
+          : (invoiceConfig?.maxReceiveAmount ?? 0),
     };
   }, [invoiceConfig, lnUnit]);
 
   const linkedMinAmount = useMemo(() => {
     return lnUnit === ELightningUnit.BTC
       ? chainValueUtils.convertSatsToBtc(minimumAmount ?? 0)
-      : minimumAmount ?? 0;
+      : (minimumAmount ?? 0);
   }, [lnUnit, minimumAmount]);
 
   const linkedMaxAmount = useMemo(() => {
     return lnUnit === ELightningUnit.BTC
       ? chainValueUtils.convertSatsToBtc(maximumAmount ?? 0)
-      : maximumAmount ?? 0;
+      : (maximumAmount ?? 0);
   }, [lnUnit, maximumAmount]);
 
   const minAmount = new BigNumber(linkedMinAmount).toNumber();

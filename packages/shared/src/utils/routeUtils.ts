@@ -255,13 +255,13 @@ export const buildAllowList = (
           },
         }
       : !perpDisabled
-      ? {
-          [pagePath`${ERootRoutes.Main}${ETabRoutes.Perp}`]: {
-            showUrl: true,
-            showParams: true,
-          },
-        }
-      : {}),
+        ? {
+            [pagePath`${ERootRoutes.Main}${ETabRoutes.Perp}`]: {
+              showUrl: true,
+              showParams: true,
+            },
+          }
+        : {}),
   } as Record<string, IAllowSettingItem>;
 
   if (platformEnv.isExtension) {

@@ -9,9 +9,7 @@ const NotificationList = LazyLoadPage(
 
 const NotificationIntroduction = LazyLoadPage(
   () =>
-    import(
-      '@onekeyhq/kit/src/views/Notifications/pages/NotificationIntroduction'
-    ),
+    import('@onekeyhq/kit/src/views/Notifications/pages/NotificationIntroduction'),
 );
 
 export const ModalNotificationsRouter: IModalFlowNavigatorConfig<

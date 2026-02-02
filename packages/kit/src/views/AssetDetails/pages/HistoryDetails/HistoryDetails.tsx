@@ -491,7 +491,7 @@ function HistoryDetails() {
               { id: ETranslations.explore_addresses_count },
               { 'number': utxoSends.length },
             )
-          : utxoSends[0]?.from ?? sends[0]?.from ?? decodedTx.signer;
+          : (utxoSends[0]?.from ?? sends[0]?.from ?? decodedTx.signer);
 
       const to =
         utxoReceives.length > 1
@@ -499,10 +499,10 @@ function HistoryDetails() {
               { id: ETranslations.explore_addresses_count },
               { 'number': utxoReceives.length },
             )
-          : utxoReceives[0]?.to ??
+          : (utxoReceives[0]?.to ??
             receives[0]?.to ??
             decodedTx.to ??
-            decodedTx.actions[0]?.assetTransfer?.to;
+            decodedTx.actions[0]?.assetTransfer?.to);
       return {
         from,
         to,

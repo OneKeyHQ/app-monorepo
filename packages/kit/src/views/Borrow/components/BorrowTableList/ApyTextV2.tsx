@@ -40,8 +40,8 @@ function hasSectionContent(section?: IBorrowApyDetailSection) {
   if (!section) return false;
   return Boolean(
     section.items.length ||
-      section.apyComponents?.length ||
-      section.descriptions?.length,
+    section.apyComponents?.length ||
+    section.descriptions?.length,
   );
 }
 

@@ -26,7 +26,7 @@ setNotificationHandler({
       shouldPlaySound: true,
       shouldSetBadge: true,
       priority: AndroidNotificationPriority.DEFAULT,
-    } as NotificationBehavior),
+    }) as NotificationBehavior,
 });
 
 const sdk: IDemoNotificationSdk = {

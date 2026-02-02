@@ -7,16 +7,12 @@ import { LazyLoadPage } from '../../../components/LazyLoadPage';
 
 const SendDataInput = LazyLoadPage(
   () =>
-    import(
-      '@onekeyhq/kit/src/views/Send/pages/SendDataInput/SendDataInputContainer'
-    ),
+    import('@onekeyhq/kit/src/views/Send/pages/SendDataInput/SendDataInputContainer'),
 );
 
 const SendReplaceTx = LazyLoadPage(
   () =>
-    import(
-      '@onekeyhq/kit/src/views/Send/pages/SendReplaceTx/SendReplaceTxContainer'
-    ),
+    import('@onekeyhq/kit/src/views/Send/pages/SendReplaceTx/SendReplaceTxContainer'),
 );
 
 const TokenSelector = LazyLoadPage(
@@ -30,16 +26,12 @@ const DeriveTypesAddress = LazyLoadPage(
 
 const SendConfirmFromDApp = LazyLoadPage(
   () =>
-    import(
-      '@onekeyhq/kit/src/views/Send/pages/SendConfirmFromDApp/SendConfirmFromDApp'
-    ),
+    import('@onekeyhq/kit/src/views/Send/pages/SendConfirmFromDApp/SendConfirmFromDApp'),
 );
 
 const SendConfirmFromSwap = LazyLoadPage(
   () =>
-    import(
-      '@onekeyhq/kit/src/views/Send/pages/SendConfirmFromSwap/SendConfirmFromSwap'
-    ),
+    import('@onekeyhq/kit/src/views/Send/pages/SendConfirmFromSwap/SendConfirmFromSwap'),
 );
 
 const CoinControlPage = LazyLoadPage(

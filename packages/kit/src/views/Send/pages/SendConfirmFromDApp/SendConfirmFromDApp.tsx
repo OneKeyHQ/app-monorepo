@@ -90,7 +90,7 @@ function SendConfirmFromDApp() {
         dappDomain: $sourceInfo.origin,
         action: 'SendTxn',
         network: networkId,
-        failReason: error ? error?.message ?? String(error) : undefined,
+        failReason: error ? (error?.message ?? String(error)) : undefined,
       });
     },
     [$sourceInfo, networkId],
