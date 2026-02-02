@@ -13,7 +13,6 @@ index 2afcde5..22d684c 100644
 +  const [safeSnapshot, setSafeSnapshot] = (0, _react.useState)(fallbackValue);
 +  const [isInitialized, setIsInitialized] = (0, _react.useState)(false);
 +  const retryCountRef = (0, _react.useRef)(0);
-+  const isSubscribedRef = (0, _react.useRef)(false);
 +
 +  (0, _react.useEffect)(() => {
 +    let mounted = true;
@@ -29,9 +28,6 @@ index 2afcde5..22d684c 100644
 +          setSafeSnapshot(snap);
 +          setIsInitialized(true);
 +          retryCountRef.current = 0;
-+
-+          // Immediately setup subscription after successful snapshot
-+          setupSubscription();
 +        }
 +      } catch (err) {
 +        retryCountRef.current += 1;
@@ -45,9 +41,10 @@ index 2afcde5..22d684c 100644
 +      }
 +    };
 +
-+    const setupSubscription = () => {
-+      if (isSubscribedRef.current || !mounted) return;
++    attemptSnapshot();
 +
++    // Subscribe to changes once initialized
++    if (isInitialized) {
 +      try {
 +        unsubscribe = (0, _valtio.subscribe)(proxyObject, () => {
 +          if (mounted) {
@@ -55,30 +52,24 @@ index 2afcde5..22d684c 100644
 +              const snap = (0, _valtio.snapshot)(proxyObject);
 +              if (snap) setSafeSnapshot(snap);
 +            } catch (err) {
-+              isSubscribedRef.current = false;
++              setIsInitialized(false);
 +              retryCountRef.current = 0;
 +              attemptSnapshot();
 +            }
 +          }
 +        });
-+        isSubscribedRef.current = true;
 +      } catch (err) {
-+        isSubscribedRef.current = false;
++        setIsInitialized(false);
 +        attemptSnapshot();
 +      }
-+    };
-+
-+    attemptSnapshot();
++    }
 +
 +    return () => {
 +      mounted = false;
 +      clearTimeout(timeoutId);
-+      if (unsubscribe) {
-+        unsubscribe();
-+        isSubscribedRef.current = false;
-+      }
++      unsubscribe?.();
 +    };
-+  }, [proxyObject, retryDelay, maxRetries, onError]);
++  }, [proxyObject, retryDelay, maxRetries, onError, isInitialized]);
 +
 +  return safeSnapshot;
 +}
@@ -96,7 +87,6 @@ index 2afcde5..22d684c 100644
 +};
 +
 +const ACCOUNT_CONTROLLER_FALLBACK = {
-+  caipAddress: undefined,
 +  isConnected: false,
 +  tokenBalance: [],
 +  smartAccountDeployed: false,
@@ -163,7 +153,6 @@ index f93d8c6..8c3bb66 100644
 +  const [safeSnapshot, setSafeSnapshot] = useState(fallbackValue);
 +  const [isInitialized, setIsInitialized] = useState(false);
 +  const retryCountRef = useRef(0);
-+  const isSubscribedRef = useRef(false);
 +
 +  useEffect(() => {
 +    let mounted = true;
@@ -179,9 +168,6 @@ index f93d8c6..8c3bb66 100644
 +          setSafeSnapshot(snap);
 +          setIsInitialized(true);
 +          retryCountRef.current = 0;
-+
-+          // Immediately setup subscription after successful snapshot
-+          setupSubscription();
 +        }
 +      } catch (err) {
 +        retryCountRef.current += 1;
@@ -195,9 +181,10 @@ index f93d8c6..8c3bb66 100644
 +      }
 +    };
 +
-+    const setupSubscription = () => {
-+      if (isSubscribedRef.current || !mounted) return;
++    attemptSnapshot();
 +
++    // Subscribe to changes once initialized
++    if (isInitialized) {
 +      try {
 +        unsubscribe = subscribe(proxyObject, () => {
 +          if (mounted) {
@@ -205,30 +192,24 @@ index f93d8c6..8c3bb66 100644
 +              const snap = snapshot(proxyObject);
 +              if (snap) setSafeSnapshot(snap);
 +            } catch (err) {
-+              isSubscribedRef.current = false;
++              setIsInitialized(false);
 +              retryCountRef.current = 0;
 +              attemptSnapshot();
 +            }
 +          }
 +        });
-+        isSubscribedRef.current = true;
 +      } catch (err) {
-+        isSubscribedRef.current = false;
++        setIsInitialized(false);
 +        attemptSnapshot();
 +      }
-+    };
-+
-+    attemptSnapshot();
++    }
 +
 +    return () => {
 +      mounted = false;
 +      clearTimeout(timeoutId);
-+      if (unsubscribe) {
-+        unsubscribe();
-+        isSubscribedRef.current = false;
-+      }
++      unsubscribe?.();
 +    };
-+  }, [proxyObject, retryDelay, maxRetries, onError]);
++  }, [proxyObject, retryDelay, maxRetries, onError, isInitialized]);
 +
 +  return safeSnapshot;
 +}
@@ -246,7 +227,6 @@ index f93d8c6..8c3bb66 100644
 +};
 +
 +const ACCOUNT_CONTROLLER_FALLBACK = {
-+  caipAddress: undefined,
 +  isConnected: false,
 +  tokenBalance: [],
 +  smartAccountDeployed: false,
@@ -291,7 +271,7 @@ index f93d8c6..8c3bb66 100644
    const authProvider = connectors.find(c => c.type === 'AUTH')?.provider;
    const AuthView = authProvider?.AuthView;
 diff --git a/node_modules/@reown/appkit-scaffold-react-native/src/modal/w3m-modal/index.tsx b/node_modules/@reown/appkit-scaffold-react-native/src/modal/w3m-modal/index.tsx
-index 6823724..e86b0e3 100644
+index 6823724..197bc89 100644
 --- a/node_modules/@reown/appkit-scaffold-react-native/src/modal/w3m-modal/index.tsx
 +++ b/node_modules/@reown/appkit-scaffold-react-native/src/modal/w3m-modal/index.tsx
 @@ -1,5 +1,5 @@
@@ -302,7 +282,7 @@ index 6823724..e86b0e3 100644
  import { useWindowDimensions, StatusBar } from 'react-native';
  import Modal from 'react-native-modal';
  import { Card, ThemeProvider } from '@reown/appkit-ui-react-native';
-@@ -26,14 +26,125 @@ import { Snackbar } from '../../partials/w3m-snackbar';
+@@ -26,14 +26,135 @@ import { Snackbar } from '../../partials/w3m-snackbar';
  import { useCustomDimensions } from '../../hooks/useCustomDimensions';
  import styles from './styles';
  
@@ -444,7 +424,7 @@ index 6823724..e86b0e3 100644
    const authProvider = connectors.find(c => c.type === 'AUTH')?.provider as AppKitFrameProvider;
    const AuthView = authProvider?.AuthView;
 diff --git a/node_modules/@reown/appkit-scaffold-react-native/src/modal/w3m-modal/styles.ts b/node_modules/@reown/appkit-scaffold-react-native/src/modal/w3m-modal/styles.ts
-index ac3a35a..58c4a88 100644
+index ac3a35a..331ceb3 100644
 --- a/node_modules/@reown/appkit-scaffold-react-native/src/modal/w3m-modal/styles.ts
 +++ b/node_modules/@reown/appkit-scaffold-react-native/src/modal/w3m-modal/styles.ts
 @@ -3,7 +3,9 @@ import { StyleSheet } from 'react-native';
@@ -454,7 +434,7 @@ index ac3a35a..58c4a88 100644
 -    justifyContent: 'flex-end'
 +    justifyContent: 'flex-end',
 +    zIndex: 999999,
-+    elevation: 999999 
++    elevation: 999999
    },
    card: {
      borderBottomLeftRadius: 0,
