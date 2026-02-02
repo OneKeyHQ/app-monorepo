@@ -82,17 +82,8 @@ jobs:
 
       - name: Verify Liquid Glass Icon
         run: |
-          if [ -f "apps/desktop/resources/icons/Assets.car" ]; then
-            SIZE=$(stat -f%z "apps/desktop/resources/icons/Assets.car" 2>/dev/null || stat -c%s "apps/desktop/resources/icons/Assets.car" 2>/dev/null || echo "0")
-            if [ "$SIZE" -gt 1000 ]; then
-              echo "✓ Assets.car generated successfully ($(ls -lh apps/desktop/resources/icons/Assets.car | awk '{print $5}'))"
-            else
-              echo "⚠ Warning: Assets.car exists but appears to be a placeholder. macOS 26+ Liquid Glass icons will not be available."
-            fi
-          else
-            echo "✗ Error: Assets.car was not generated."
-            exit 1
-          fi
+          cd apps/desktop
+          bash scripts/verify-icon-compatibility.sh
 
       - name: Install the Apple certificate and provisioning profile for build mas
         env:
