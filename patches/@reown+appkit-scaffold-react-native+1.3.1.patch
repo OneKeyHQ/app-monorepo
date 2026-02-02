@@ -20,29 +20,6 @@ index 2afcde5..22d684c 100644
 +    let timeoutId;
 +    let unsubscribe;
 +
-+    const setupSubscription = () => {
-+      if (isSubscribedRef.current || !mounted) return;
-+
-+      try {
-+        unsubscribe = (0, _valtio.subscribe)(proxyObject, () => {
-+          if (mounted) {
-+            try {
-+              const snap = (0, _valtio.snapshot)(proxyObject);
-+              if (snap) setSafeSnapshot(snap);
-+            } catch (err) {
-+              isSubscribedRef.current = false;
-+              retryCountRef.current = 0;
-+              attemptSnapshot();
-+            }
-+          }
-+        });
-+        isSubscribedRef.current = true;
-+      } catch (err) {
-+        isSubscribedRef.current = false;
-+        attemptSnapshot();
-+      }
-+    };
-+
 +    const attemptSnapshot = () => {
 +      if (!mounted) return;
 +
@@ -65,6 +42,29 @@ index 2afcde5..22d684c 100644
 +        } else {
 +          onError?.(err);
 +        }
++      }
++    };
++
++    const setupSubscription = () => {
++      if (isSubscribedRef.current || !mounted) return;
++
++      try {
++        unsubscribe = (0, _valtio.subscribe)(proxyObject, () => {
++          if (mounted) {
++            try {
++              const snap = (0, _valtio.snapshot)(proxyObject);
++              if (snap) setSafeSnapshot(snap);
++            } catch (err) {
++              isSubscribedRef.current = false;
++              retryCountRef.current = 0;
++              attemptSnapshot();
++            }
++          }
++        });
++        isSubscribedRef.current = true;
++      } catch (err) {
++        isSubscribedRef.current = false;
++        attemptSnapshot();
 +      }
 +    };
 +
@@ -170,29 +170,6 @@ index f93d8c6..8c3bb66 100644
 +    let timeoutId;
 +    let unsubscribe;
 +
-+    const setupSubscription = () => {
-+      if (isSubscribedRef.current || !mounted) return;
-+
-+      try {
-+        unsubscribe = subscribe(proxyObject, () => {
-+          if (mounted) {
-+            try {
-+              const snap = snapshot(proxyObject);
-+              if (snap) setSafeSnapshot(snap);
-+            } catch (err) {
-+              isSubscribedRef.current = false;
-+              retryCountRef.current = 0;
-+              attemptSnapshot();
-+            }
-+          }
-+        });
-+        isSubscribedRef.current = true;
-+      } catch (err) {
-+        isSubscribedRef.current = false;
-+        attemptSnapshot();
-+      }
-+    };
-+
 +    const attemptSnapshot = () => {
 +      if (!mounted) return;
 +
@@ -215,6 +192,29 @@ index f93d8c6..8c3bb66 100644
 +        } else {
 +          onError?.(err);
 +        }
++      }
++    };
++
++    const setupSubscription = () => {
++      if (isSubscribedRef.current || !mounted) return;
++
++      try {
++        unsubscribe = subscribe(proxyObject, () => {
++          if (mounted) {
++            try {
++              const snap = snapshot(proxyObject);
++              if (snap) setSafeSnapshot(snap);
++            } catch (err) {
++              isSubscribedRef.current = false;
++              retryCountRef.current = 0;
++              attemptSnapshot();
++            }
++          }
++        });
++        isSubscribedRef.current = true;
++      } catch (err) {
++        isSubscribedRef.current = false;
++        attemptSnapshot();
 +      }
 +    };
 +
@@ -327,29 +327,6 @@ index 6823724..e86b0e3 100644
 +    let timeoutId: NodeJS.Timeout;
 +    let unsubscribe: (() => void) | undefined;
 +
-+    const setupSubscription = () => {
-+      if (isSubscribedRef.current || !mounted) return;
-+
-+      try {
-+        unsubscribe = subscribe(proxyObject, () => {
-+          if (mounted) {
-+            try {
-+              const snap = snapshot(proxyObject);
-+              if (snap) setSafeSnapshot(snap);
-+            } catch (err) {
-+              isSubscribedRef.current = false;
-+              retryCountRef.current = 0;
-+              attemptSnapshot();
-+            }
-+          }
-+        });
-+        isSubscribedRef.current = true;
-+      } catch (err) {
-+        isSubscribedRef.current = false;
-+        attemptSnapshot();
-+      }
-+    };
-+
 +    const attemptSnapshot = () => {
 +      if (!mounted) return;
 +
@@ -372,6 +349,29 @@ index 6823724..e86b0e3 100644
 +        } else {
 +          onError?.(err as Error);
 +        }
++      }
++    };
++
++    const setupSubscription = () => {
++      if (isSubscribedRef.current || !mounted) return;
++
++      try {
++        unsubscribe = subscribe(proxyObject, () => {
++          if (mounted) {
++            try {
++              const snap = snapshot(proxyObject);
++              if (snap) setSafeSnapshot(snap);
++            } catch (err) {
++              isSubscribedRef.current = false;
++              retryCountRef.current = 0;
++              attemptSnapshot();
++            }
++          }
++        });
++        isSubscribedRef.current = true;
++      } catch (err) {
++        isSubscribedRef.current = false;
++        attemptSnapshot();
 +      }
 +    };
 +
