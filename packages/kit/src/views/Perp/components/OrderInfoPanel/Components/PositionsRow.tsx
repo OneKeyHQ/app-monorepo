@@ -125,7 +125,6 @@ const PositionRowDesktopSymbolAndLeverage = memo(
           alignItems="center"
           justifyContent={calcCellAlign(columnConfig.align)}
           gap="$2"
-          pl="$2"
           cursor="pointer"
           onPress={onChangeAsset}
         >
@@ -675,7 +674,8 @@ const PositionRowDesktop = memo(
         <XStack
           minWidth={renderMode === 'full' ? cellMinWidth : undefined}
           py="$1.5"
-          px="$3"
+          pl="22px"
+          pr="$3"
           display="flex"
           flex={1}
           alignItems="center"
