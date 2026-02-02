@@ -45,7 +45,6 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import { HomeTokenListProviderMirror } from '@onekeyhq/kit/src/views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import {
-  useAppSideBarStatusAtom,
   useFirmwareUpdatesDetectStatusPersistAtom,
   useHardwareWalletXfpStatusAtom,
   useNotificationsAtom,
@@ -1450,7 +1449,6 @@ function MoreButtonWithDot({
   onPress?: IButtonProps['onPress'];
 }) {
   const intl = useIntl();
-  const [{ isCollapsed }] = useAppSideBarStatusAtom();
   const isDesktopMode = useIsDesktopModeUIInTabPages();
   const isShowUpgradeDot = useIsShowAppUpdateDot();
   const isShowRedDot = useIsShowRedDot();
@@ -1462,12 +1460,12 @@ function MoreButtonWithDot({
         <Dot
           color="$blue8"
           top={isDesktopMode ? 0 : '$-2'}
-          right={isDesktopMode && isCollapsed ? undefined : '$-2.5'}
+          right={isDesktopMode ? undefined : '$-2.5'}
         />
       );
     }
     return null;
-  }, [isCollapsed, isDesktopMode, isShowUpgradeDot]);
+  }, [isDesktopMode, isShowUpgradeDot]);
 
   // Small dot for desktop (similar to DesktopTabItem)
   const desktopDot = useMemo(() => {
@@ -1497,43 +1495,12 @@ function MoreButtonWithDot({
   }, []);
 
   if (isDesktopMode) {
-    // Collapsed: icon only (no text below)
-    if (isCollapsed) {
-      return (
-        <YStack p="$2" borderRadius="$2" hoverStyle={{ bg: '$bgHover' }}>
-          <Stack position="relative">
-            <Icon name="DotGridOutline" size="$5" />
-            {desktopDot}
-          </Stack>
-        </YStack>
-      );
-    }
-
-    // Expanded: horizontal layout (icon + text)
     return (
-      <YStack
-        userSelect="none"
-        flexDirection="row"
-        alignItems="center"
-        px="$2"
-        py="$2"
-        borderRadius="$2"
-        hoverStyle={{ bg: '$bgHover' }}
-      >
+      <YStack p="$2" borderRadius="$2" hoverStyle={{ bg: '$bgHover' }}>
         <Stack position="relative">
           <Icon name="DotGridOutline" size="$5" />
           {desktopDot}
         </Stack>
-        <SizableText
-          flex={1}
-          numberOfLines={1}
-          mx="$2"
-          cursor="default"
-          color="$text"
-          size="$bodyMd"
-        >
-          {intl.formatMessage({ id: ETranslations.address_book_menu_title })}
-        </SizableText>
       </YStack>
     );
   }
@@ -1554,14 +1521,12 @@ function MoreButtonWithDot({
 function MoreActionButtonCmp() {
   const intl = useIntl();
   const isDesktopMode = useIsDesktopModeUIInTabPages();
-  const [{ isCollapsed }] = useAppSideBarStatusAtom();
   const media = useMedia();
   if (!isDesktopMode) {
     return <MoreButtonWithDot />;
   }
 
-  // Collapsed: show tooltip; Expanded: no tooltip (text is visible)
-  const trigger = isCollapsed ? (
+  const trigger = (
     <Tooltip
       placement={platformEnv.isWebDappMode || media.md ? 'bottom' : 'right'}
       renderTrigger={<MoreButtonWithDot />}
@@ -1569,8 +1534,6 @@ function MoreActionButtonCmp() {
         id: ETranslations.address_book_menu_title,
       })}
     />
-  ) : (
-    <MoreButtonWithDot />
   );
 
   return (
