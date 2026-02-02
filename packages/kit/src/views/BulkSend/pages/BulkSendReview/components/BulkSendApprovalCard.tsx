@@ -11,6 +11,7 @@ import {
   View,
   XStack,
   YStack,
+  useClipboard,
 } from '@onekeyhq/components';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -19,6 +20,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 
 import { useBulkSendReviewContext } from './Context';
+import { openExplorerAddressUrl } from '../../../../../utils/explorerUtils';
 
 type IApprovalItemProps = {
   approveInfo: IApproveInfo;
@@ -40,6 +42,7 @@ function ApprovalItem({
 
   const isResetApproval = approveInfo.amount === '0';
   const displayAmount = isResetApproval ? 'Reset to 0' : approveInfo.amount;
+  const { copyText } = useClipboard();
 
   return (
     <YStack>
@@ -101,7 +104,11 @@ function ApprovalItem({
             variant="tertiary"
             size="small"
             onPress={() => {
-              // TODO: Open explorer
+              void openExplorerAddressUrl({
+                networkId: tokenInfo?.networkId ?? '',
+                address: approveInfo.spender,
+                openInExternal: true,
+              });
             }}
           />
           <IconButton
@@ -109,7 +116,7 @@ function ApprovalItem({
             variant="tertiary"
             size="small"
             onPress={() => {
-              // TODO: Copy address
+              copyText(approveInfo.spender);
             }}
           />
         </XStack>
@@ -138,9 +145,9 @@ function BulkSendApprovalCard({ onEditApproval }: Props) {
   const totalApprovalAmount = hasUnlimitedApproval
     ? null
     : approvesInfo
-        .filter((info) => info.amount !== '0')
-        .reduce((sum, info) => sum.plus(info.amount || '0'), new BigNumber(0))
-        .toFixed();
+      .filter((info) => info.amount !== '0')
+      .reduce((sum, info) => sum.plus(info.amount || '0'), new BigNumber(0))
+      .toFixed();
 
   const tokenSymbol = approvesInfo[0]?.tokenInfo?.symbol ?? 'Token';
 

@@ -22,11 +22,17 @@ export function calculateIsAmountValid({
   transferInfoErrors?: ITransferInfoErrors;
 }): boolean {
   switch (amountInputMode) {
-    case EAmountInputMode.Specified:
+    case EAmountInputMode.Specified: {
+      const specifiedAmountBN = new BigNumber(
+        amountInputValues.specifiedAmount || '0',
+      );
       return (
         !amountInputErrors.specifiedAmount &&
-        amountInputValues.specifiedAmount !== ''
+        amountInputValues.specifiedAmount !== '' &&
+        !specifiedAmountBN.isZero() &&
+        !specifiedAmountBN.isNaN()
       );
+    }
     case EAmountInputMode.Range:
       return (
         !amountInputErrors.rangeMin &&

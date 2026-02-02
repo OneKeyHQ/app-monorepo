@@ -407,12 +407,13 @@ function LineNumberedTextArea({
         {hasActions || showAddressBadges ? (
           <XStack
             justifyContent="space-between"
-            flexWrap="nowrap"
+            flexWrap="wrap"
             alignItems="center"
             py="$3"
             px="$3"
+            gap="$2"
           >
-            <XStack gap="$2" flex={1}>
+            <XStack gap="$2" flex={1} flexWrap="wrap" minWidth={0}>
               {addressBadges?.map((badge) => (
                 <AddressBadge
                   key={badge.label}
@@ -424,7 +425,7 @@ function LineNumberedTextArea({
               ))}
             </XStack>
             {hasActions ? (
-              <XStack justifyContent="flex-end" gap="$6">
+              <XStack justifyContent="flex-end" gap="$6" ml="auto">
                 {showPaste ? (
                   <IconButton
                     variant="tertiary"

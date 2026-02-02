@@ -138,15 +138,15 @@ export function RangeAmountInput() {
     (min: string, max: string): IAmountInputError => {
       const errors: IAmountInputError = {};
 
+      // rangeMin can be 0 (it's just the lower bound of the range)
       const { error: rangeMinError } = validateTokenAmount({
         token: tokenInfo,
         amount: min,
         maxAmount: balance,
-        allowZero: false,
+        allowZero: true,
         customErrorMessages: {
           emptyAmount: 'Min is required',
           maxAmount: 'Insufficient balance',
-          zeroAmount: 'Min must be greater than 0',
         },
       });
       errors.rangeMin = rangeMinError;
@@ -416,8 +416,15 @@ function CustomAmountDisplay({ inDialog }: { inDialog?: boolean }) {
 }
 
 export function AmountInputSection({ inDialog }: { inDialog?: boolean }) {
-  const { amountInputMode, setAmountInputMode, setAmountInputErrors } =
-    useBulkSendAmountsInputContext();
+  const {
+    amountInputMode,
+    setAmountInputMode,
+    setAmountInputErrors,
+    transfersInfo,
+    tokenInfo,
+    tokenDetails,
+    amountInputValues,
+  } = useBulkSendAmountsInputContext();
 
   const segmentOptions = useMemo(
     () => [
@@ -428,13 +435,107 @@ export function AmountInputSection({ inDialog }: { inDialog?: boolean }) {
     [],
   );
 
+  const validateSpecifiedAmount = useCallback(() => {
+    const balance = tokenDetails?.balanceParsed ?? '0';
+    const { error } = validateTokenAmount({
+      token: tokenInfo,
+      amount: new BigNumber(amountInputValues.specifiedAmount || '0')
+        .times(transfersInfo.length)
+        .toFixed(),
+      maxAmount: balance,
+      allowZero: false,
+      customErrorMessages: {
+        maxAmount: 'Insufficient balance',
+        zeroAmount: 'Amount must be greater than 0',
+      },
+    });
+    return { specifiedAmount: error };
+  }, [
+    tokenInfo,
+    tokenDetails?.balanceParsed,
+    amountInputValues.specifiedAmount,
+    transfersInfo.length,
+  ]);
+
+  const validateRangeAmount = useCallback(() => {
+    const balance = tokenDetails?.balanceParsed ?? '0';
+    const errors: IAmountInputError = {};
+
+    // rangeMin can be 0 (it's just the lower bound of the range)
+    const { error: rangeMinError } = validateTokenAmount({
+      token: tokenInfo,
+      amount: amountInputValues.rangeMin,
+      maxAmount: balance,
+      allowZero: true,
+      customErrorMessages: {
+        emptyAmount: 'Min is required',
+        maxAmount: 'Insufficient balance',
+      },
+    });
+    errors.rangeMin = rangeMinError;
+
+    const { error: rangeMaxError } = validateTokenAmount({
+      token: tokenInfo,
+      amount: amountInputValues.rangeMax,
+      maxAmount: balance,
+      allowZero: false,
+      customErrorMessages: {
+        emptyAmount: 'Max is required',
+        maxAmount: 'Insufficient balance',
+        zeroAmount: 'Max must be greater than 0',
+      },
+    });
+    errors.rangeMax = rangeMaxError;
+
+    // Check max > min
+    if (!errors.rangeMin && !errors.rangeMax) {
+      const minBN = new BigNumber(amountInputValues.rangeMin);
+      const maxBN = new BigNumber(amountInputValues.rangeMax);
+      if (maxBN.isLessThanOrEqualTo(minBN)) {
+        errors.rangeMax = 'Max must be greater than Min';
+      }
+    }
+
+    return errors;
+  }, [
+    tokenInfo,
+    tokenDetails?.balanceParsed,
+    amountInputValues.rangeMin,
+    amountInputValues.rangeMax,
+  ]);
+
   const handleModeChange = useCallback(
     (value: string | number) => {
-      setAmountInputMode(value as EAmountInputMode);
-      // Clear errors when switching modes
-      setAmountInputErrors({});
+      const newMode = value as EAmountInputMode;
+      setAmountInputMode(newMode);
+
+      // Only re-validate in Dialog mode (Desktop)
+      // MobileLayout has independent data for each mode, so no need to re-validate
+      if (!inDialog) {
+        setAmountInputErrors({});
+        return;
+      }
+
+      // Re-validate based on the new mode (Dialog only)
+      switch (newMode) {
+        case EAmountInputMode.Specified:
+          setAmountInputErrors(validateSpecifiedAmount());
+          break;
+        case EAmountInputMode.Range:
+          setAmountInputErrors(validateRangeAmount());
+          break;
+        case EAmountInputMode.Custom:
+        default:
+          setAmountInputErrors({});
+      }
     },
-    [setAmountInputMode, setAmountInputErrors],
+    [
+      inDialog,
+      setAmountInputMode,
+      setAmountInputErrors,
+      validateSpecifiedAmount,
+      validateRangeAmount,
+    ],
   );
 
   const renderContent = useCallback(() => {

@@ -679,7 +679,7 @@ function BulkSendAmountsInput() {
           return receivers.map((receiver) => ({
             from: sender.address,
             to: receiver.address,
-            amount: receiver.amount ?? '0',
+            amount: receiver.amount ?? '',
             tokenInfo,
           }));
         }
@@ -689,7 +689,7 @@ function BulkSendAmountsInput() {
           return senders.map((sender) => ({
             from: sender.address,
             to: receiver.address,
-            amount: sender.amount ?? '0',
+            amount: sender.amount ?? '',
             tokenInfo,
           }));
         }
@@ -702,7 +702,7 @@ function BulkSendAmountsInput() {
           return senders.map((sender, i) => ({
             from: sender.address,
             to: receivers[i].address,
-            amount: receivers[i].amount ?? sender.amount ?? '0',
+            amount: receivers[i].amount ?? sender.amount ?? '',
             tokenInfo,
           }));
         }

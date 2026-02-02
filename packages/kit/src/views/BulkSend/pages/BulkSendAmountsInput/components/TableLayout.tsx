@@ -12,7 +12,11 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { EAmountInputMode } from '@onekeyhq/shared/types/bulkSend';
+import {
+  EAmountInputMode,
+  type ITransferInfoErrors,
+} from '@onekeyhq/shared/types/bulkSend';
+import { validateTokenAmount } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
@@ -62,6 +66,7 @@ function SetAmountPerAddressSection() {
     amountInputValues,
     setAmountInputMode,
     setAmountInputValues,
+    setTransferInfoErrors,
     totalTokenAmount,
     totalFiatAmount,
     setTransfersInfo,
@@ -78,6 +83,24 @@ function SetAmountPerAddressSection() {
     previewState,
     setPreviewState,
   });
+
+  const validateTransfersInfo = useCallback(() => {
+    const errors: ITransferInfoErrors = {};
+    transfersInfo.forEach((transfer, index) => {
+      const { isValid, error } = validateTokenAmount({
+        token: tokenInfo,
+        amount: transfer.amount,
+        allowZero: false,
+        customErrorMessages: {
+          zeroAmount: 'Amount must be greater than 0',
+        },
+      });
+      if (!isValid && error) {
+        errors[index] = { amount: error };
+      }
+    });
+    return errors;
+  }, [transfersInfo, tokenInfo]);
 
   const primaryText = useMemo(() => {
     const tokenSymbol = tokenInfo.symbol;
@@ -112,6 +135,12 @@ function SetAmountPerAddressSection() {
         setAmountInputMode(mode);
         setAmountInputValues(values);
         updateTransfersInfoWithAmounts(mode, values);
+        // Validate transfersInfo when switching to Custom mode
+        if (mode === EAmountInputMode.Custom) {
+          setTransferInfoErrors(validateTransfersInfo());
+        } else {
+          setTransferInfoErrors({});
+        }
       },
     });
   }, [
@@ -125,6 +154,8 @@ function SetAmountPerAddressSection() {
     setAmountInputMode,
     setAmountInputValues,
     updateTransfersInfoWithAmounts,
+    setTransferInfoErrors,
+    validateTransfersInfo,
   ]);
 
   const renderSecondary = useCallback(() => {
