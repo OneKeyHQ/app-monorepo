@@ -10,7 +10,7 @@
  *
  * Environment variables:
  *   PERF_SERVER_PORT - Server port (default: 9527)
- *   PERF_OUTPUT_DIR  - Output directory (default: development/output/perf-sessions)
+ *   PERF_OUTPUT_DIR  - Output directory (default: $HOME/perf-sessions)
  */
 
 const http = require('http');
@@ -56,6 +56,21 @@ const httpServer = http.createServer((req, res) => {
 
   // API routes
   const segments = url.pathname.split('/').filter(Boolean);
+  if (segments[0] === 'api' && segments[1] === 'health') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(
+      JSON.stringify(
+        {
+          ok: true,
+          port: PORT,
+          outputDir: storage.OUTPUT_DIR,
+        },
+        null,
+        2,
+      ),
+    );
+    return;
+  }
   if (segments[0] === 'api' && segments[1] === 'sessions') {
     const sessionId = segments[2];
     const action = segments[3];
@@ -183,6 +198,14 @@ wss.on('connection', (ws, req) => {
           `[WS] Session ended: ${sessionId} (${session.eventCount} events)`,
         );
         activeSessions.delete(sessionId);
+      }
+      try {
+        storage.finalizeSession(sessionId);
+      } catch (err) {
+        console.error(
+          `[WS] Failed to finalize session ${sessionId}:`,
+          err?.message || String(err),
+        );
       }
     }
   });

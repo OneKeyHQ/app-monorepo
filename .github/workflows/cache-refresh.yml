@@ -65,7 +65,7 @@ jobs:
     steps:
       # Step 1: Checkout code
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
           ref: x  # Explicitly checkout x branch
           lfs: true  # Enable Git LFS support
