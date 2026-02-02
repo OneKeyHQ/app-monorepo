@@ -48,16 +48,16 @@ export const PERP_LAYOUT_CONFIG = {
   enableAutoCollapse: false,
   main: {
     marketMinWidth: 400,
-    tradingMinWidth: 300,
+    tradingMinWidth: 280,
     tradingMaxWidth: 800,
     tradingDefaultWidth: 300,
-    tradingDefaultWidthXl: 400,
+    tradingDefaultWidthXl: 340,
   },
   leftPanel: {
     charts: {
       minHeight: 0,
       collapseThreshold: 350,
-      defaultRatio: 60,
+      defaultRatio: 65,
     },
     infoPanel: {
       minHeight: 42,
@@ -65,6 +65,6 @@ export const PERP_LAYOUT_CONFIG = {
     },
   },
   orderBook: {
-    width: 250,
+    width: 280,
   },
 } as const;
