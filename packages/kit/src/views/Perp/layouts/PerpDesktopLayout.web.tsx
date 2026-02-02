@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { Allotment } from 'allotment';
 import 'allotment/dist/style.css';
+import './PerpAllotment.css';
 import { debounce } from 'lodash';
 
 import {
