@@ -307,8 +307,8 @@ function BulkSendTxDetails(props: IProps) {
 
   const handleDeleteSender = useCallback(
     (indices: number[]) => {
-      // Delete all transfers from this sender
-      indices.forEach((index) => {
+      // Delete in descending order to avoid index shifting issues
+      [...indices].sort((a, b) => b - a).forEach((index) => {
         onDeleteTransfer?.(index);
       });
     },
@@ -317,8 +317,8 @@ function BulkSendTxDetails(props: IProps) {
 
   const handleDeleteReceiver = useCallback(
     (indices: number[]) => {
-      // Delete all transfers to this receiver
-      indices.forEach((index) => {
+      // Delete in descending order to avoid index shifting issues
+      [...indices].sort((a, b) => b - a).forEach((index) => {
         onDeleteTransfer?.(index);
       });
     },
