@@ -7,7 +7,6 @@ import {
   Badge,
   Checkbox,
   DashText,
-  Divider,
   IconButton,
   Popover,
   SizableText,
