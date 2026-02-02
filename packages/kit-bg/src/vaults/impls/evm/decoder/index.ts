@@ -9,15 +9,10 @@ class EVMContractDecoder {
 
   private erc1155Interface: ethers.utils.Interface;
 
-  private batchTransferInterface: ethers.utils.Interface;
-
   constructor() {
     this.erc20Interface = new ethers.utils.Interface(ABI.ERC20);
     this.erc721Interface = new ethers.utils.Interface(ABI.ERC721);
     this.erc1155Interface = new ethers.utils.Interface(ABI.ERC1155);
-    this.batchTransferInterface = new ethers.utils.Interface(
-      ABI.BATCH_TRANSFER,
-    );
   }
 
   public parseERC20(
@@ -45,16 +40,6 @@ class EVMContractDecoder {
   ): ethers.utils.TransactionDescription | null {
     try {
       return this.erc1155Interface.parseTransaction(tx);
-    } catch (_error) {
-      return null;
-    }
-  }
-
-  public parseBatchTransfer(
-    tx: ethers.Transaction,
-  ): ethers.utils.TransactionDescription | null {
-    try {
-      return this.batchTransferInterface.parseTransaction(tx);
     } catch (_error) {
       return null;
     }

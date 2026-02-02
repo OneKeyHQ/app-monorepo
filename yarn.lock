@@ -8902,6 +8902,7 @@ __metadata:
     "@react-native-async-storage/async-storage": "npm:2.2.0"
     "@react-native-community/netinfo": "npm:11.4.1"
     "@react-native-community/slider": "npm:5.0.1"
+    "@react-native-documents/picker": "npm:^12.0.1"
     "@react-native-google-signin/google-signin": "npm:16.1.0"
     "@react-native/metro-config": "npm:0.81.5"
     "@reown/appkit-ethers5-react-native": "npm:1.3.1"
@@ -12009,6 +12010,16 @@ __metadata:
   version: 5.0.1
   resolution: "@react-native-community/slider@npm:5.0.1"
   checksum: 10/0356357f43d52c56aab2abd10340855c33a2c84b8d856eadc09aa6d78128555513b627085e5e52b8b4ecfb10d949ae5e3193425eb369e4a75e7309130c5549a8
+  languageName: node
+  linkType: hard
+
+"@react-native-documents/picker@npm:^12.0.1":
+  version: 12.0.1
+  resolution: "@react-native-documents/picker@npm:12.0.1"
+  peerDependencies:
+    react: "*"
+    react-native: ">=0.79.0"
+  checksum: 10/5d915828a2baade9b476589738c2dc4ac192b4444006e198e15676e952991bdbf472163bb739592abf581fb7402a193c9cc49319fa986fb7fd6434aaae3a3a68
   languageName: node
   linkType: hard
 
