@@ -64,7 +64,6 @@ function PerpsRewardPageWrapper() {
   // Pagination state
   const [cursor, setCursor] = useState<string | undefined>();
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const PAGE_SIZE = 10;
 
   const handleSort = useCallback(
     (field: IPerpsInvitesSortBy) => {
@@ -133,9 +132,8 @@ function PerpsRewardPageWrapper() {
     );
     setCurrentInvites(result);
 
-    // Update cursor for pagination
-    const hasMore = (result.items?.length ?? 0) >= PAGE_SIZE;
-    setCursor(hasMore ? result.cursor ?? undefined : undefined);
+    // Update cursor for pagination - trust API's cursor
+    setCursor(result.cursor ?? undefined);
 
     // Update the count for current tab
     if (activeTab === 'undistributed') {
@@ -176,9 +174,8 @@ function PerpsRewardPageWrapper() {
         items: [...(prev?.items ?? []), ...(result.items ?? [])],
       }));
 
-      // Update cursor
-      const hasMore = (result.items?.length ?? 0) >= PAGE_SIZE;
-      setCursor(hasMore ? result.cursor ?? undefined : undefined);
+      // Update cursor - trust API's cursor
+      setCursor(result.cursor ?? undefined);
     } catch (error) {
       console.error('Failed to load more:', error);
     } finally {

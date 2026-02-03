@@ -399,6 +399,7 @@ class ServiceReferralCode extends ServiceBase {
       hideZeroVolume?: boolean;
       sortBy?: string;
       sortOrder?: string;
+      cursor?: string;
     } = {
       tab: params.tab,
       timeRange: params.timeRange,
@@ -420,6 +421,9 @@ class ServiceReferralCode extends ServiceBase {
     }
     if (params.sortOrder) {
       queryParams.sortOrder = params.sortOrder;
+    }
+    if (params.cursor) {
+      queryParams.cursor = params.cursor;
     }
     const response = await client.get<{ data: IPerpsInvitesResponse }>(
       '/rebate/v1/invite/perps-invites',
