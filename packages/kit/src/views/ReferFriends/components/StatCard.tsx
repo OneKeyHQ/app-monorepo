@@ -1,6 +1,6 @@
 import { StyleSheet } from 'react-native';
 
-import type { IStackStyle } from '@onekeyhq/components';
+import type { IKeyOfIcons, IStackStyle } from '@onekeyhq/components';
 import {
   Icon,
   IconButton,
@@ -13,11 +13,12 @@ import type { ColorTokens } from '@onekeyhq/components/src/shared/tamagui';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 
 export interface IStatCardProps {
-  icon: 'CoinOutline' | 'ClockTimeHistoryOutline' | 'HourglassOutline';
+  icon: IKeyOfIcons;
   iconBgColor: IStackStyle['bg'];
   iconColor: ColorTokens;
   title: string;
-  amount: string;
+  value: string;
+  isCurrency?: boolean;
   prefix?: string;
   subtitle?: string;
   showRefreshButton?: boolean;
@@ -32,7 +33,8 @@ export function StatCard({
   iconBgColor,
   iconColor,
   title,
-  amount,
+  value,
+  isCurrency = true,
   prefix,
   subtitle,
   showRefreshButton,
@@ -41,7 +43,7 @@ export function StatCard({
   isWide,
   fullWidth,
 }: IStatCardProps) {
-  const getAmountSize = () => {
+  const getValueSize = () => {
     if (fullWidth) {
       return '$heading4xl';
     }
@@ -51,6 +53,7 @@ export function StatCard({
   return (
     <YStack
       flex={fullWidth ? undefined : 1}
+      flexBasis={fullWidth ? undefined : 0}
       borderWidth={StyleSheet.hairlineWidth}
       borderColor="$borderSubdued"
       borderRadius="$3"
@@ -82,13 +85,19 @@ export function StatCard({
           </SizableText>
           <XStack ai="baseline">
             {prefix ? (
-              <SizableText size={getAmountSize()} color="$text">
+              <SizableText size={getValueSize()} color="$text">
                 {prefix}
               </SizableText>
             ) : null}
-            <Currency size={getAmountSize()} color="$text" formatter="value">
-              {amount}
-            </Currency>
+            {isCurrency ? (
+              <Currency size={getValueSize()} color="$text" formatter="value">
+                {value}
+              </Currency>
+            ) : (
+              <SizableText size={getValueSize()} color="$text">
+                {value}
+              </SizableText>
+            )}
           </XStack>
         </YStack>
         {subtitle ? (
