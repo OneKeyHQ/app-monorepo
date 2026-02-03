@@ -239,9 +239,8 @@ export function useImportAddressForm({
             networkId: values.networkId ?? '',
             shouldCheckDuplicateName: true,
           };
-      const r = await backgroundApiProxy.serviceAccount.addWatchingAccount(
-        data,
-      );
+      const r =
+        await backgroundApiProxy.serviceAccount.addWatchingAccount(data);
 
       const accountId = r?.accounts?.[0]?.id;
       if (accountId) {

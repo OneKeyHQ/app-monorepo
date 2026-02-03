@@ -6,23 +6,17 @@ import { LazyLoadPage } from '../../../components/LazyLoadPage';
 
 const PageFirmwareUpdateChangeLog = LazyLoadPage(
   () =>
-    import(
-      '@onekeyhq/kit/src/views/FirmwareUpdate/pages/PageFirmwareUpdateChangeLog'
-    ),
+    import('@onekeyhq/kit/src/views/FirmwareUpdate/pages/PageFirmwareUpdateChangeLog'),
 );
 
 const PageFirmwareUpdateInstall = LazyLoadPage(
   () =>
-    import(
-      '@onekeyhq/kit/src/views/FirmwareUpdate/pages/PageFirmwareUpdateInstall'
-    ),
+    import('@onekeyhq/kit/src/views/FirmwareUpdate/pages/PageFirmwareUpdateInstall'),
 );
 
 const PageFirmwareUpdateInstallV2 = LazyLoadPage(
   () =>
-    import(
-      '@onekeyhq/kit/src/views/FirmwareUpdate/pages/PageFirmwareUpdateInstallV2'
-    ),
+    import('@onekeyhq/kit/src/views/FirmwareUpdate/pages/PageFirmwareUpdateInstallV2'),
 );
 export const ModalFirmwareUpdateStack: IModalFlowNavigatorConfig<
   EModalFirmwareUpdateRoutes,

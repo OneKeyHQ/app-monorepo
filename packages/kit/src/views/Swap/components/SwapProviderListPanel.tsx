@@ -378,8 +378,7 @@ const SwapProviderListPanel = ({
             }
             selected={Boolean(
               item.info.provider === currentSelectQuote?.info.provider &&
-                item.info.providerName ===
-                  currentSelectQuote?.info.providerName,
+              item.info.providerName === currentSelectQuote?.info.providerName,
             )}
             fromTokenAmount={fromTokenAmount.value}
             fromToken={fromToken}

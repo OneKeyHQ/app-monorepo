@@ -300,7 +300,7 @@ function PasswordVerify({
               size="large"
               editable={Boolean(
                 status.value !== EPasswordVerifyStatus.VERIFYING &&
-                  !disableInput,
+                !disableInput,
               )}
               placeholder={intl.formatMessage({
                 id: ETranslations.auth_enter_your_passcode,
@@ -354,7 +354,7 @@ function PasswordVerify({
               }}
               editable={Boolean(
                 status.value !== EPasswordVerifyStatus.VERIFYING &&
-                  !disableInput,
+                !disableInput,
               )}
               onComplete={onPassCodeComplete}
               clearCode={passCodeClear}

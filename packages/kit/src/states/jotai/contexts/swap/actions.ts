@@ -1564,7 +1564,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                   swapAddressInfo.accountInfo?.indexedAccount?.id,
                 accountId: swapAddressInfo.accountInfo?.indexedAccount?.id
                   ? undefined
-                  : swapAddressInfo.accountInfo?.account?.id ?? '',
+                  : (swapAddressInfo.accountInfo?.account?.id ?? ''),
                 dbAccount: swapAddressInfo.accountInfo?.dbAccount,
                 networkId: token.networkId,
               });

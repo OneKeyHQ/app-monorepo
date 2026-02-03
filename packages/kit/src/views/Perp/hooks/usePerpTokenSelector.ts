@@ -187,7 +187,7 @@ export function usePerpTokenSelector() {
     const perDexCounts = (assetsByDex ?? []).map((items) => items?.length ?? 0);
     const resultCount =
       activeTab === 'hip3'
-        ? perDexCounts[1] ?? 0
+        ? (perDexCounts[1] ?? 0)
         : perDexCounts.reduce((sum, count) => sum + count, 0);
 
     logSearchEvent({

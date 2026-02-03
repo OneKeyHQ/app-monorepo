@@ -105,9 +105,8 @@ abstract class ProviderApiBase {
   );
 
   async _getConnectedNetworkName(request: IJsBridgeMessagePayload) {
-    const networks = await this.backgroundApi.serviceDApp.getConnectedNetworks(
-      request,
-    );
+    const networks =
+      await this.backgroundApi.serviceDApp.getConnectedNetworks(request);
     if (!networks?.[0]) {
       return null;
     }

@@ -138,7 +138,7 @@ export function AccountSelectorAccountListItem({
     () =>
       Boolean(
         addressCreationState?.indexedAccountId === indexedAccount?.id &&
-          addressCreationState?.walletId === focusedWalletInfo?.wallet?.id,
+        addressCreationState?.walletId === focusedWalletInfo?.wallet?.id,
       ),
     [
       addressCreationState?.indexedAccountId,

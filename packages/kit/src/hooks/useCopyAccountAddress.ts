@@ -78,7 +78,7 @@ export const useCopyAccountAddress = () => {
                   ? intl.formatMessage({
                       id: deriveInfo.labelKey,
                     })
-                  : deriveInfo.label ?? '',
+                  : (deriveInfo.label ?? ''),
               },
             ),
             message: account.address,
@@ -130,7 +130,7 @@ export const useCopyAddressWithDeriveType = () => {
                 ? intl.formatMessage({
                     id: deriveInfo.labelKey,
                   })
-                : deriveInfo.label ?? '',
+                : (deriveInfo.label ?? ''),
             },
           ),
           message: address,
