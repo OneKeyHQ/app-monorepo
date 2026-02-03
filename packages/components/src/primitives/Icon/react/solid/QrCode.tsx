@@ -7,13 +7,7 @@ const SvgQrCode = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path
-      d="M7 16a1 1 0 1 1 0 2 1 1 0 0 1 0-2"
-      style={{
-        fill: '#000',
-        fillOpacity: 1,
-      }}
-    />
+    <Path d="M7 16a1 1 0 1 1 0 2 1 1 0 0 1 0-2" />
     <Path
       fillRule="evenodd"
       d="M9 13a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2zm-4 6h4v-4H5z"
