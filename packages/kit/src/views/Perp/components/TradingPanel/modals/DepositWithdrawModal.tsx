@@ -472,7 +472,7 @@ function DepositWithdrawContent({
                   deriveType: defaultDeriveType ?? 'default',
                   accountId: selectedAccount.indexedAccountId
                     ? undefined
-                    : selectedAccount.accountId ?? '',
+                    : (selectedAccount.accountId ?? ''),
                 });
               const [tokenDetailsRes, nativeTokenConfigRes] = await Promise.all(
                 [
@@ -607,7 +607,7 @@ function DepositWithdrawContent({
     const rawBalance =
       selectedAction === 'withdraw'
         ? withdrawable || '0'
-        : currentPerpsDepositSelectedToken?.balanceParsed ?? '0';
+        : (currentPerpsDepositSelectedToken?.balanceParsed ?? '0');
     const balanceFormatted = numberFormat(rawBalance, { formatter: 'balance' });
     const displayBalance =
       selectedAction === 'withdraw'

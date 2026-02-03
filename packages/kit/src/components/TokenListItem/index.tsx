@@ -93,7 +93,7 @@ export function TokenListItem({
               </SizableText>
             </Stack>
           ) : (
-            tokenName ?? ''
+            (tokenName ?? '')
           )
         }
       />

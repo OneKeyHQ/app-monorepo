@@ -83,7 +83,7 @@ export class DeviceScannerUtils {
     this.scanMap[this.searchIndex] = true;
     const time = platformEnv.isNativeAndroid
       ? 2000
-      : pollInterval ?? POLL_INTERVAL;
+      : (pollInterval ?? POLL_INTERVAL);
     const rate = pollIntervalRate ?? POLL_INTERVAL_RATE;
     poll(time, this.searchIndex, rate);
   }

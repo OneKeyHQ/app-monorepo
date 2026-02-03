@@ -8,16 +8,19 @@ import type { ISignatureItemQueryParams } from '@onekeyhq/shared/types/signature
 import { SignatureContext } from './Context';
 
 export const groupBy = <T extends { createdAt: number }>(items: T[]) => {
-  const resp = items.reduce((acc, item) => {
-    const title = formatDate(new Date(item.createdAt), {
-      hideTimeForever: true,
-    });
-    if (!acc[title]) {
-      acc[title] = [];
-    }
-    acc[title].push(item);
-    return acc;
-  }, {} as Record<string, T[]>);
+  const resp = items.reduce(
+    (acc, item) => {
+      const title = formatDate(new Date(item.createdAt), {
+        hideTimeForever: true,
+      });
+      if (!acc[title]) {
+        acc[title] = [];
+      }
+      acc[title].push(item);
+      return acc;
+    },
+    {} as Record<string, T[]>,
+  );
   return Object.entries(resp).map(([title, data]) => ({
     title,
     data,

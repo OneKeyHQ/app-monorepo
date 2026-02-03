@@ -12,8 +12,8 @@ type IDeepPartial<T> = {
   [P in keyof T]?: T[P] extends (infer U)[]
     ? IDeepPartial<U>[]
     : T[P] extends readonly (infer X)[]
-    ? readonly IDeepPartial<X>[]
-    : IDeepPartial<T[P]>;
+      ? readonly IDeepPartial<X>[]
+      : IDeepPartial<T[P]>;
 };
 
 // type IPriceNumber = number;

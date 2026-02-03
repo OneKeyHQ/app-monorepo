@@ -150,8 +150,8 @@ export default function BorrowTokenSelectModal() {
         key: 'asset',
         render: (item: IBorrowSelectAsset) => {
           const balance = isBorrowAction
-            ? item.available ?? emptyBalance
-            : item.walletBalance ?? item.balance ?? emptyBalance;
+            ? (item.available ?? emptyBalance)
+            : (item.walletBalance ?? item.balance ?? emptyBalance);
           return (
             <AssetWithAmountField
               token={item.token}
@@ -199,8 +199,8 @@ export default function BorrowTokenSelectModal() {
         key: 'walletBalance',
         render: (item: IBorrowSelectAsset) => {
           const balance = isBorrowAction
-            ? item.available ?? emptyBalance
-            : item.walletBalance ?? item.balance ?? emptyBalance;
+            ? (item.available ?? emptyBalance)
+            : (item.walletBalance ?? item.balance ?? emptyBalance);
           return (
             <AmountField
               title={balance.title}
@@ -216,8 +216,8 @@ export default function BorrowTokenSelectModal() {
         key: 'position',
         render: (item: IBorrowSelectAsset) => {
           const positionBalance = isBorrowAction
-            ? item.borrowed ?? emptyBalance
-            : item.supplied ?? emptyBalance;
+            ? (item.borrowed ?? emptyBalance)
+            : (item.supplied ?? emptyBalance);
           return (
             <AmountField
               title={positionBalance.title}

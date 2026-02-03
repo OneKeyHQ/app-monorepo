@@ -62,7 +62,7 @@ function BasicTokenListItem(props: ITokenListItemProps) {
               $key={token.$key}
               name={
                 token.isAggregateToken
-                  ? token.commonSymbol ?? token.symbol
+                  ? (token.commonSymbol ?? token.symbol)
                   : token.symbol
               }
               isAggregateToken={token.isAggregateToken}
@@ -109,7 +109,7 @@ function BasicTokenListItem(props: ITokenListItemProps) {
             withAggregateBadge={withAggregateBadge ?? isTokenSelector}
             name={
               token.isAggregateToken
-                ? token.commonSymbol ?? token.symbol
+                ? (token.commonSymbol ?? token.symbol)
                 : token.symbol
             }
             isAggregateToken={token.isAggregateToken}

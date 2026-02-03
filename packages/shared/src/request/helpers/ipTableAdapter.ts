@@ -85,9 +85,8 @@ async function getMappedDomainForIpLookup(
 
   try {
     const { getEndpointsMap } = await import('../../config/endpointsMap');
-    const { ONEKEY_API_HOST, ONEKEY_TEST_API_HOST } = await import(
-      '../../config/appConfig'
-    );
+    const { ONEKEY_API_HOST, ONEKEY_TEST_API_HOST } =
+      await import('../../config/appConfig');
     const endpointsMap = await getEndpointsMap();
     const isTestEnv = endpointsMap.wallet?.includes(ONEKEY_TEST_API_HOST);
     return isTestEnv ? ONEKEY_TEST_API_HOST : ONEKEY_API_HOST;

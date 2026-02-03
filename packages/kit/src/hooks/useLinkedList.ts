@@ -262,7 +262,7 @@ export function useLinkedList<T extends IHasId>(
         setCircular: (v: boolean) => {
           deck.circular = v;
         },
-      } as const),
+      }) as const,
     [deck],
   );
 }

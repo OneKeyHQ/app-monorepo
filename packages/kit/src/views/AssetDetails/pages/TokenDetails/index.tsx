@@ -535,7 +535,7 @@ function TokenDetailsView() {
             name={
               item.deriveInfo.labelKey
                 ? intl.formatMessage({ id: item.deriveInfo.labelKey })
-                : item.deriveInfo.label ?? String(index)
+                : (item.deriveInfo.label ?? String(index))
             }
           >
             <TokenDetailsViews

@@ -13,7 +13,8 @@ import { NetworksSearchPanel } from './NetworksSearchPanel';
 import type { INetworksSearchPanelProps } from './NetworksSearchPanel';
 
 interface IMoreButtonProps
-  extends Omit<IButtonProps, 'children'>,
+  extends
+    Omit<IButtonProps, 'children'>,
     Omit<INetworksSearchPanelProps, 'networkId'> {
   selectedNetworkId?: string;
   customTrigger?: (isOpen: boolean, onPress: () => void) => ReactNode;

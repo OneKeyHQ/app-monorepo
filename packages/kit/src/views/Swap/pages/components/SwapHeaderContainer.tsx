@@ -3,7 +3,13 @@ import { memo, useCallback, useEffect, useRef } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { EPageType, IStackProps } from '@onekeyhq/components';
-import { SizableText, Stack, XStack } from '@onekeyhq/components';
+import {
+  SegmentControl,
+  SizableText,
+  Stack,
+  XStack,
+  useMedia,
+} from '@onekeyhq/components';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useSwapActions,
@@ -75,14 +81,18 @@ interface ISwapHeaderContainerProps {
   pageType?: EPageType;
   defaultSwapType?: ESwapTabSwitchType;
   showSwapPro?: boolean;
+  /** Hide right action buttons (settings/history) - used when they're shown elsewhere in desktop layout */
+  hideRightActions?: boolean;
 }
 
 const SwapHeaderContainer = ({
   pageType,
   defaultSwapType,
   showSwapPro,
+  hideRightActions,
 }: ISwapHeaderContainerProps) => {
   const intl = useIntl();
+  const { gtLg } = useMedia();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const { swapTypeSwitchAction } = useSwapActions().current;
   const { networkId } = useSwapAddressInfo(ESwapDirectionType.FROM);
@@ -118,6 +128,86 @@ const SwapHeaderContainer = ({
     },
     [updateSelectedAccountNetwork],
   );
+
+  const handleSwapTypeChange = useCallback(
+    async (value: string | number) => {
+      const newType = value as ESwapTabSwitchType;
+      if (swapTypeSwitch === newType) return;
+
+      if (newType === ESwapTabSwitchType.LIMIT) {
+        void swapTypeSwitchAction(ESwapTabSwitchType.LIMIT, networkId);
+      } else {
+        if (fromToken?.networkId && fromToken?.networkId !== networkId) {
+          await updateSelectedAccountNetworkAction(fromToken?.networkId);
+        }
+        void swapTypeSwitchAction(newType, fromToken?.networkId || networkId);
+      }
+    },
+    [
+      swapTypeSwitch,
+      swapTypeSwitchAction,
+      networkId,
+      fromToken?.networkId,
+      updateSelectedAccountNetworkAction,
+    ],
+  );
+
+  // Desktop layout (gtLg and not modal): use SegmentControl
+  const showDesktopLayout =
+    gtLg && pageType !== 'modal' && !platformEnv.isNative;
+
+  const segmentOptions = [
+    {
+      label: intl.formatMessage({ id: ETranslations.swap_page_swap }),
+      value: ESwapTabSwitchType.SWAP,
+    },
+    {
+      label: intl.formatMessage({ id: ETranslations.swap_page_bridge }),
+      value: ESwapTabSwitchType.BRIDGE,
+    },
+    {
+      label: intl.formatMessage({
+        id: showSwapPro
+          ? ETranslations.dexmarket_pro
+          : ETranslations.swap_page_limit,
+      }),
+      value: ESwapTabSwitchType.LIMIT,
+    },
+  ];
+
+  if (showDesktopLayout) {
+    return (
+      <XStack justifyContent="center" px="$5">
+        <SegmentControl
+          value={swapTypeSwitch}
+          options={segmentOptions.map((opt) => ({
+            ...opt,
+            label: (
+              <SizableText
+                size="$headingSm"
+                color={swapTypeSwitch === opt.value ? '$text' : '$textSubdued'}
+              >
+                {opt.label}
+              </SizableText>
+            ),
+          }))}
+          onChange={handleSwapTypeChange}
+          slotBackgroundColor="$neutral3"
+          activeBackgroundColor="$bg"
+          borderRadius="$full"
+          p="$1"
+          segmentControlItemStyleProps={{
+            py: '$2',
+            px: '$7',
+            borderRadius: '$full',
+            '$platform-web': {
+              boxShadow: 'none',
+            },
+          }}
+        />
+      </XStack>
+    );
+  }
 
   return (
     <XStack justifyContent="space-between" px="$5">
@@ -170,7 +260,9 @@ const SwapHeaderContainer = ({
           })}
         </CustomTabItem>
       </XStack>
-      <SwapHeaderRightActionContainer pageType={pageType} />
+      {!hideRightActions ? (
+        <SwapHeaderRightActionContainer pageType={pageType} />
+      ) : null}
     </XStack>
   );
 };

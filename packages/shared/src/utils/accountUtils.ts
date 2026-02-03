@@ -261,9 +261,9 @@ function isHwHiddenWallet({
 }): boolean {
   return Boolean(
     wallet &&
-      (isHwWallet({ walletId: wallet.id }) ||
-        isQrWallet({ walletId: wallet.id })) &&
-      wallet.passphraseState,
+    (isHwWallet({ walletId: wallet.id }) ||
+      isQrWallet({ walletId: wallet.id })) &&
+    wallet.passphraseState,
   );
 }
 

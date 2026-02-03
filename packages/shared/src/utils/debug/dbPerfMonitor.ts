@@ -248,9 +248,12 @@ function logResult({ autoReset, isWarning, muteLog }: ILogResultParams = {}) {
         resetData();
       } else {
         clearTimeout(resetTimer);
-        resetTimer = setTimeout(() => {
-          resetData();
-        }, resetThreshold - (now - resetStartTime));
+        resetTimer = setTimeout(
+          () => {
+            resetData();
+          },
+          resetThreshold - (now - resetStartTime),
+        );
       }
     }
   }
