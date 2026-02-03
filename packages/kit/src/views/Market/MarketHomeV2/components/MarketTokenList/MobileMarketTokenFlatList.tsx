@@ -8,6 +8,7 @@ import {
   Spinner,
   Stack,
   Tabs,
+  useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -142,6 +143,7 @@ function MobileMarketTokenFlatListBase({
     [],
   );
 
+  const tabBarHeight = useScrollContentTabBarOffset();
   return (
     <Tabs.FlatList<IMarketToken>
       data={loading ? EMPTY_DATA : data}
@@ -164,7 +166,7 @@ function MobileMarketTokenFlatListBase({
         paddingTop: 8 + (platformEnv.isNative ? 170 : 0),
         paddingBottom: platformEnv.isNativeAndroid
           ? listContainerProps.paddingBottom
-          : 16,
+          : tabBarHeight,
       }}
     />
   );
