@@ -1,6 +1,10 @@
 import { memo, useCallback, useMemo } from 'react';
 
-import { Tabs, YStack, useTabContainerWidth } from '@onekeyhq/components';
+import {
+  Tabs,
+  YStack,
+  useTabContainerWidth,
+} from '@onekeyhq/components';
 import { useTabBarHeight } from '@onekeyhq/components/src/layouts/Page/hooks';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 

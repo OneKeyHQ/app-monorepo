@@ -7,6 +7,7 @@ import {
   Stack,
   Table,
   useMedia,
+  useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
 import type { ITableColumn } from '@onekeyhq/components';
 import {
@@ -205,6 +206,7 @@ function MarketTokenListBase({
 
     return null;
   }, [isLoadingMore, showEndReachedIndicator, canLoadMore, data.length]);
+  const tabBarHeight = useScrollContentTabBarOffset();
 
   return (
     <Stack flex={1} width="100%">
@@ -243,7 +245,9 @@ function MarketTokenListBase({
                   ? {
                       paddingBottom: SPINNER_HEIGHT * 2,
                     }
-                  : undefined
+                  : {
+                    paddingBottom: tabBarHeight
+                  }
               }
               stickyHeader
               scrollEnabled
