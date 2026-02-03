@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import { YStack } from '../../primitives';
 
@@ -21,22 +21,39 @@ export function ScrollView({
 
   const focusedTabValue = useConvertAnimatedToValue(focusedTab, '');
 
-  useEffect(() => {
-    if (focusedTabValue === currentTabName) {
+  const updateElementRef = useCallback(
+    (element: Element | null) => {
       if (
         scrollTabElementsRef?.current &&
         !scrollTabElementsRef?.current[currentTabName]
       ) {
         scrollTabElementsRef.current[currentTabName] = {} as any;
       }
-      scrollTabElementsRef.current[currentTabName].element =
-        ref.current as HTMLElement;
+      if (element) {
+        scrollTabElementsRef.current[currentTabName].element =
+          element as HTMLElement;
+      }
+    },
+    [currentTabName, scrollTabElementsRef],
+  );
+
+  const callbackRef = useCallback(
+    (element: Element | null) => {
+      ref.current = element;
+      updateElementRef(element);
+    },
+    [updateElementRef],
+  );
+
+  useEffect(() => {
+    if (focusedTabValue === currentTabName) {
+      updateElementRef(ref.current);
       registerChild(ref.current);
     }
-  }, [focusedTabValue, currentTabName, registerChild, scrollTabElementsRef]);
+  }, [focusedTabValue, currentTabName, registerChild, updateElementRef]);
 
   return (
-    <YStack flex={1} style={style} ref={ref as any} width={width}>
+    <YStack flex={1} style={style} ref={callbackRef as any} width={width}>
       {children}
     </YStack>
   );

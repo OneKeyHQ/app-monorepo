@@ -178,6 +178,7 @@ export function Container({
   const isSwitchingTabRef = useRef(false);
 
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
+  const observedElementRef = useRef<HTMLElement | null>(null);
   const updateListContainerHeightTimerId = useRef<ReturnType<
     typeof setTimeout
   > | null>(null);
@@ -194,17 +195,19 @@ export function Container({
       };
 
       if (listContainerRef.current) {
-        if (resizeObserverRef.current) {
-          resizeObserverRef.current.disconnect();
-        }
-        const height =
-          scrollTabElementsRef.current?.[focusedTab.value]?.element
-            ?.clientHeight;
+        const element =
+          scrollTabElementsRef.current?.[focusedTab.value]?.element;
+        const height = element?.clientHeight;
 
         if (height) {
           (listContainerRef.current as HTMLElement).style.maxHeight =
             `${height}px`;
-          setTimeout(() => {
+
+          // Only recreate ResizeObserver if the observed element changed
+          if (observedElementRef.current !== element) {
+            if (resizeObserverRef.current) {
+              resizeObserverRef.current.disconnect();
+            }
             resizeObserverRef.current = new ResizeObserver((entries) => {
               const entry = entries[0];
               if (entry && entry.contentRect.height) {
@@ -216,12 +219,9 @@ export function Container({
                 retryNext();
               }
             });
-            const element =
-              scrollTabElementsRef.current?.[focusedTab.value]?.element;
-            if (element) {
-              resizeObserverRef.current.observe(element);
-            }
-          }, 100);
+            resizeObserverRef.current.observe(element);
+            observedElementRef.current = element;
+          }
         } else {
           console.error(
             `cannot update tab ${focusedTab.value} list container height: ${
@@ -243,6 +243,7 @@ export function Container({
       if (resizeObserverRef.current) {
         resizeObserverRef.current.disconnect();
       }
+      observedElementRef.current = null;
       if (updateListContainerHeightTimerId.current) {
         clearTimeout(updateListContainerHeightTimerId.current);
       }
