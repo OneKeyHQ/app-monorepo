@@ -192,6 +192,7 @@ export default class ServiceHyperliquid extends ServiceBase {
     bannerConfig,
     depositTokenConfig,
     hyperLiquidErrorLocales,
+    tokenSearchAliases,
   }: IPerpServerConfigResponse) {
     let shouldNotifyToDapp = false;
 
@@ -262,6 +263,7 @@ export default class ServiceHyperliquid extends ServiceBase {
             customLocalStorageV2 || prev?.hyperliquidCustomLocalStorageV2,
           hyperliquidErrorLocales:
             hyperLiquidErrorLocales || prev?.hyperliquidErrorLocales,
+          tokenSearchAliases: tokenSearchAliases || prev?.tokenSearchAliases,
         };
         if (isEqual(newConfig, prev)) {
           return (
@@ -329,6 +331,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       bannerConfig: resData?.data?.bannerConfig,
       depositTokenConfig: resData?.data?.depositTokenConfig,
       hyperLiquidErrorLocales: resData?.data?.hyperLiquidErrorLocales,
+      tokenSearchAliases: resData?.data?.tokenSearchAliases,
     });
     return resData;
   }
@@ -349,6 +352,14 @@ export default class ServiceHyperliquid extends ServiceBase {
       promise: true,
     },
   );
+
+  @backgroundMethod()
+  async getTokenSearchAliases() {
+    // Ensure config is loaded (uses memoizee cache)
+    void this.updatePerpsConfigByServerWithCache();
+    const config = await this.backgroundApi.simpleDb.perp.getPerpData();
+    return config.tokenSearchAliases;
+  }
 
   private _filterFills(fills: IFill[]) {
     return fills.filter(
