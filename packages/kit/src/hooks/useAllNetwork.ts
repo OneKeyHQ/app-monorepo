@@ -31,7 +31,9 @@ import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { perfTokenListView } from '../components/TokenListView/perfTokenListView';
 
 import { usePromiseResult } from './usePromiseResult';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+const CONCURRENCY_LIMIT = platformEnv.isNative ? 8 : 10;
 // useRef not working as expected, so use a global object
 const currentRequestsUUID = { current: '' };
 
@@ -589,7 +591,7 @@ function useAllNetworkRequests<T>(params: {
             resp = (
               await promiseAllSettledEnhanced(requestFactories, {
                 continueOnError: true,
-                concurrency: 8,
+                concurrency: CONCURRENCY_LIMIT,
               })
             ).filter(Boolean);
           } catch (e) {
@@ -615,7 +617,7 @@ function useAllNetworkRequests<T>(params: {
             const r = (
               await promiseAllSettledEnhanced(factories, {
                 continueOnError: true,
-                concurrency: 8,
+                concurrency: CONCURRENCY_LIMIT,
               })
             ).filter(Boolean) as Array<T>;
             respTemp.push(...r);
@@ -640,7 +642,7 @@ function useAllNetworkRequests<T>(params: {
             const r = (
               await promiseAllSettledEnhanced(factories, {
                 continueOnError: true,
-                concurrency: 8,
+                concurrency: CONCURRENCY_LIMIT,
               })
             ).filter(Boolean) as Array<T>;
             respTemp.push(...r);
