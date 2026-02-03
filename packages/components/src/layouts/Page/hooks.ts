@@ -141,6 +141,13 @@ export const useTabBarHeight = () => {
   return bottom || 0;
 };
 
+export const useScrollContentTabBarOffset = platformEnv.isNativeIOS
+  ? () => {
+      const nativeTabBarHeight = useNativeTabBarHeight();
+      return nativeTabBarHeight ?? 0;
+    }
+  : () => undefined;
+
 export const useSafeKeyboardAnimationStyle = () => {
   const safeBottomHeight = useSafeAreaBottom();
   const keyboardHeightValue = useSharedValue(0);
@@ -153,7 +160,7 @@ export const useSafeKeyboardAnimationStyle = () => {
     keyboardWillShow: (e) => {
       const keyboardHeight = e.endCoordinates.height;
       keyboardHeightValue.value = updateHeightWhenKeyboardShown(
-        keyboardHeight - safeBottomHeight - tabBarHeight,
+        keyboardHeight - tabBarHeight,
       );
     },
     keyboardWillHide: () => {
