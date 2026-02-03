@@ -9,6 +9,6 @@ export function useThemeVariant() {
 
   const colorScheme = useSystemColorScheme();
   const themeVariant =
-    theme === 'system' ? colorScheme ?? defaultColorScheme : theme;
+    theme === 'system' ? (colorScheme ?? defaultColorScheme) : theme;
   return themeVariant;
 }

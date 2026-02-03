@@ -232,8 +232,8 @@ export function ActionButton({
 
   let isButtonDisabled = Boolean(
     (shouldDisable || disabled || !hasAmount) &&
-      !shouldCreateAddress?.result &&
-      !noAccount,
+    !shouldCreateAddress?.result &&
+    !noAccount,
   );
 
   if (!hasAmount && !hasClickedWithoutAmount) {

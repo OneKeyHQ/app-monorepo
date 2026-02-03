@@ -188,10 +188,13 @@ export const {
 >((get) => {
   const { openOrders } = get(perpsActiveOpenOrdersAtom());
   const filteredOpenOrders = openOrders.filter((o) => !o.coin.startsWith('@'));
-  return filteredOpenOrders.reduce((acc, order, index) => {
-    acc[order.coin] = [...(acc[order.coin] || []), index];
-    return acc;
-  }, {} as { [coin: string]: number[] });
+  return filteredOpenOrders.reduce(
+    (acc, order, index) => {
+      acc[order.coin] = [...(acc[order.coin] || []), index];
+      return acc;
+    },
+    {} as { [coin: string]: number[] },
+  );
 });
 
 export const perpsOpenOrdersByCoinAtomCache = new Map<

@@ -41,16 +41,14 @@ config.resolver.assetExts = (config.resolver.assetExts || []).filter(
   (ext) => ext !== 'svgx',
 );
 config.transformer = config.transformer || {};
-config.transformer.babelTransformerPath = require.resolve(
-  './svgx-transformer.js',
-);
+config.transformer.babelTransformerPath =
+  require.resolve('./svgx-transformer.js');
 
 // Provide extra shims/polyfills for node modules
 config.resolver.extraNodeModules = {
   ...config.resolver.extraNodeModules,
-  crypto: require.resolve(
-    '@onekeyhq/shared/src/modules3rdParty/cross-crypto/index.native.js',
-  ),
+  crypto:
+    require.resolve('@onekeyhq/shared/src/modules3rdParty/cross-crypto/index.native.js'),
   fs: require.resolve('react-native-level-fs'),
   path: require.resolve('path-browserify'),
   stream: require.resolve('readable-stream'),

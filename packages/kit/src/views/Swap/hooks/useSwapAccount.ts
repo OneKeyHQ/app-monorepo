@@ -205,8 +205,8 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
 
   const tokenNetworkId = useMemo(() => {
     return type === ESwapDirectionType.FROM
-      ? currentSelectNetwork?.networkId ?? fromToken?.networkId ?? ''
-      : currentSelectNetwork?.networkId ?? toToken?.networkId ?? '';
+      ? (currentSelectNetwork?.networkId ?? fromToken?.networkId ?? '')
+      : (currentSelectNetwork?.networkId ?? toToken?.networkId ?? '');
   }, [
     type,
     fromToken?.networkId,
@@ -334,8 +334,8 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
                 account: {
                   ...activeAccount.account,
                   id: isAllNetwork
-                    ? accountForAllNet?.id ?? ''
-                    : activeAccount.account?.id ?? '',
+                    ? (accountForAllNet?.id ?? '')
+                    : (activeAccount.account?.id ?? ''),
                 },
               }
             : undefined),
@@ -347,8 +347,8 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
                 account: {
                   ...activeAccount.account,
                   id: isAllNetwork
-                    ? accountForAllNet?.id ?? ''
-                    : activeAccount.account?.id ?? '',
+                    ? (accountForAllNet?.id ?? '')
+                    : (activeAccount.account?.id ?? ''),
                 },
               }
             : undefined),

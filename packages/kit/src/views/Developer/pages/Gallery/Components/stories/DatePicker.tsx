@@ -240,73 +240,73 @@ function AllVariantsDemo() {
 
 function DatePickerGallery() {
   return (
-  <Layout
-    componentName="DatePicker"
-    description="Date picker component supporting single date selection, date range selection, year selection, month selection, and multi-select mode. Built on @rehookify/datepicker, uses OneKey's Popover component for Web/Desktop floating panels, and automatically switches to bottom Sheet on Native."
-    suggestions={[
-      'Single date selection for birthdays, deadlines, etc.',
-      'Date range selection for filtering time periods, hotel booking, etc.',
-      'Year selection for birth year, graduation year, etc.',
-      'Month selection for billing month, report month, etc.',
-      'Multi-select mode for selecting multiple meeting dates, scheduling, etc.',
-      'Use minDate and maxDate to restrict selectable date range',
-      'Supports disabled state',
-      'Web supports mouse hover preview for range selection',
-    ]}
-    boundaryConditions={[
-      'minDate and maxDate restrict selectable date range',
-      'Disabled state prevents opening the picker',
-      'Range picker auto-closes after selecting the end date',
-      'Year picker displays 12 years at a time',
-      'Month picker displays 12 months for the current year',
-    ]}
-    elements={[
-      {
-        title: 'Basic Usage',
-        element: <DatePickerBasicDemo />,
-      },
-      {
-        title: 'With Placeholder',
-        element: <DatePickerWithPlaceholderDemo />,
-      },
-      {
-        title: 'Disabled',
-        element: <DatePickerDisabledDemo />,
-      },
-      {
-        title: 'Date Range Constraint',
-        element: <DatePickerWithRangeDemo />,
-      },
-      {
-        title: 'Range Picker',
-        element: <RangePickerDemo />,
-      },
-      {
-        title: 'Range Picker (Empty)',
-        element: <RangePickerEmptyDemo />,
-      },
-      {
-        title: 'Range Picker (Constrained)',
-        element: <RangePickerConstrainedDemo />,
-      },
-      {
-        title: 'Year Picker',
-        element: <YearPickerDemo />,
-      },
-      {
-        title: 'Month Picker',
-        element: <MonthPickerDemo />,
-      },
-      {
-        title: 'Multi-Select',
-        element: <MultiSelectPickerDemo />,
-      },
-      {
-        title: 'All Variants',
-        element: <AllVariantsDemo />,
-      },
-    ]}
-  />
+    <Layout
+      componentName="DatePicker"
+      description="Date picker component supporting single date selection, date range selection, year selection, month selection, and multi-select mode. Built on @rehookify/datepicker, uses OneKey's Popover component for Web/Desktop floating panels, and automatically switches to bottom Sheet on Native."
+      suggestions={[
+        'Single date selection for birthdays, deadlines, etc.',
+        'Date range selection for filtering time periods, hotel booking, etc.',
+        'Year selection for birth year, graduation year, etc.',
+        'Month selection for billing month, report month, etc.',
+        'Multi-select mode for selecting multiple meeting dates, scheduling, etc.',
+        'Use minDate and maxDate to restrict selectable date range',
+        'Supports disabled state',
+        'Web supports mouse hover preview for range selection',
+      ]}
+      boundaryConditions={[
+        'minDate and maxDate restrict selectable date range',
+        'Disabled state prevents opening the picker',
+        'Range picker auto-closes after selecting the end date',
+        'Year picker displays 12 years at a time',
+        'Month picker displays 12 months for the current year',
+      ]}
+      elements={[
+        {
+          title: 'Basic Usage',
+          element: <DatePickerBasicDemo />,
+        },
+        {
+          title: 'With Placeholder',
+          element: <DatePickerWithPlaceholderDemo />,
+        },
+        {
+          title: 'Disabled',
+          element: <DatePickerDisabledDemo />,
+        },
+        {
+          title: 'Date Range Constraint',
+          element: <DatePickerWithRangeDemo />,
+        },
+        {
+          title: 'Range Picker',
+          element: <RangePickerDemo />,
+        },
+        {
+          title: 'Range Picker (Empty)',
+          element: <RangePickerEmptyDemo />,
+        },
+        {
+          title: 'Range Picker (Constrained)',
+          element: <RangePickerConstrainedDemo />,
+        },
+        {
+          title: 'Year Picker',
+          element: <YearPickerDemo />,
+        },
+        {
+          title: 'Month Picker',
+          element: <MonthPickerDemo />,
+        },
+        {
+          title: 'Multi-Select',
+          element: <MultiSelectPickerDemo />,
+        },
+        {
+          title: 'All Variants',
+          element: <AllVariantsDemo />,
+        },
+      ]}
+    />
   );
 }
 

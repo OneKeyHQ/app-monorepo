@@ -58,9 +58,8 @@ function HistoryListModal() {
 
   const [page, setPage] = useState(1);
   const { result: dataSource = [], run } = usePromiseResult(async () => {
-    const data = await backgroundApiProxy.serviceDiscovery.fetchHistoryData(
-      page,
-    );
+    const data =
+      await backgroundApiProxy.serviceDiscovery.fetchHistoryData(page);
 
     return data;
   }, [page]);

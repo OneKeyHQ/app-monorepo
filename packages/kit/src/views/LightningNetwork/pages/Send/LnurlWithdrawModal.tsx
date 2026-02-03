@@ -107,7 +107,7 @@ function LnurlWithdrawModal() {
       const amountSats =
         lnUnit === ELightningUnit.BTC
           ? chainValueUtils.convertBtcToSats(formValue.amount ?? 0)
-          : formValue.amount ?? 0;
+          : (formValue.amount ?? 0);
 
       const amount = new BigNumber(amountSats).toNumber();
       try {

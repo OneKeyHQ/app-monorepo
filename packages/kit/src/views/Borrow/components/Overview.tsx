@@ -560,10 +560,10 @@ export const Overview = ({
         text={
           isHealthFactorLoading && !healthFactorData
             ? undefined
-            : healthFactorData?.healthFactor?.text ?? {
+            : (healthFactorData?.healthFactor?.text ?? {
                 text: '-',
                 color: '$textDisabled',
-              }
+              })
         }
         isLoading={isHealthFactorLoading ? !healthFactorData : undefined}
         tooltip={
@@ -610,10 +610,10 @@ export const Overview = ({
         text={
           isRewardsLoading && !borrowRewards
             ? undefined
-            : borrowRewards?.description ?? {
+            : (borrowRewards?.description ?? {
                 text: amountPlaceholder,
                 color: '$textDisabled',
-              }
+              })
         }
         isLoading={isRewardsLoading ? !borrowRewards : undefined}
         action={
