@@ -67,10 +67,10 @@ export function usePerpTokenSelector() {
     tokenSearchAliasesRef.current = tokenSearchAliases;
     actions.current.updateAllAssetsFiltered({
       allAssetsByDex: allAssetsRef.current,
-      query: searchQuery,
+      query: '',
       tokenSearchAliases,
     });
-  }, [actions, searchQuery]);
+  }, [actions]);
 
   useEffect(() => {
     void refreshAllAssets();
