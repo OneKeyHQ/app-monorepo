@@ -952,7 +952,7 @@
   "edit_fee_custom_set_as_default_description": "{network}のすべての将来のトランザクションのデフォルトとして設定する",
   "email_verification_rate_limit": "新しい確認コードをリクエストする前に{rest}秒お待ちください",
   "energy_consumed": "消費エネルギー",
-  "enter_account_name_address_or_domain": "アカウント名アドレスまたはドメインを入力してください",
+  "enter_account_name_address_or_domain": "アカウント名、アドレスまたはドメインを入力してください",
   "enter_passcode": "パスコードを入力してください",
   "enter_password": "パスワードを入力する",
   "enter_pin.desc": "キーパッドのレイアウトについては、デバイスの画面を確認してください。",
