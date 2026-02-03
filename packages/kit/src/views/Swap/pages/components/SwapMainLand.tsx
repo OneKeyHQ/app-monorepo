@@ -136,7 +136,7 @@ interface ISwapMainLoadProps {
 const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const { preSwapStepsStart, preSwapBeforeStepActions } = useSwapBuildTx();
   const intl = useIntl();
-  const { gtMd } = useMedia();
+  const { gtLg } = useMedia();
   const { fetchLoading } = useSwapInit(swapInitParams);
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
@@ -1234,9 +1234,9 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   ]);
 
   // Desktop: show provider panel on the right side, need wider layout
-  // Show when: on desktop (gtMd), not in modal, and not on native platform
+  // Show when: on large desktop (gtLg), not in modal, and not on native platform
   const showDesktopProviderPanel =
-    gtMd && pageType !== EPageType.modal && !platformEnv.isNative;
+    gtLg && pageType !== EPageType.modal && !platformEnv.isNative;
 
   const containerMaxWidth = useMemo(() => {
     if (pageType === EPageType.modal) {
@@ -1244,7 +1244,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     }
     // Desktop with provider panel needs wider layout
     if (showDesktopProviderPanel) {
-      return 960;
+      return 1200;
     }
     return 500;
   }, [pageType, showDesktopProviderPanel]);
@@ -1257,9 +1257,10 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
       width="100%"
       maxWidth={containerMaxWidth}
       pt="$2.5"
+      gap="$2"
       $gtMd={{
         flex: 'unset',
-        pt: pageType === EPageType.modal ? '$2.5' : '$5',
+        pt: pageType === EPageType.modal ? '$2.5' : '$16',
       }}
     >
       <SwapTipsContainer />
@@ -1267,6 +1268,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
         pageType={pageType}
         defaultSwapType={swapInitParams?.swapTabSwitchType}
         showSwapPro={platformEnv.isNative}
+        hideRightActions={showDesktopProviderPanel}
       />
       {focusSwapPro ? (
         <SwapProContainer
