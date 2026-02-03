@@ -21,6 +21,7 @@ import { EAtomNames } from '../atomNames';
 import { globalAtom, globalAtomComputedR } from '../utils';
 
 import type { IAccountDeriveTypes } from '../../../vaults/types';
+import type { IPerpDynamicTab } from '../../../services/ServiceWebviewPerp/ServiceWebviewPerp';
 
 // #region Active Account
 export interface IPerpsActiveAccountAtom {
@@ -262,6 +263,15 @@ export const {
     direction: 'desc',
     activeTab: 'all',
   },
+});
+
+// Token Selector Dynamic Tabs (from server config)
+export const {
+  target: perpTokenSelectorTabsAtom,
+  use: usePerpTokenSelectorTabsAtom,
+} = globalAtom<IPerpDynamicTab[]>({
+  name: EAtomNames.perpTokenSelectorTabsAtom,
+  initialValue: [],
 });
 
 export type IPerpFavoritesDisplayMode = 'price' | 'percent';

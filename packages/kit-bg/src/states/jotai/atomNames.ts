@@ -88,6 +88,7 @@ export enum EAtomNames {
   perpsCandlesWebviewMountedAtom = 'perpsCandlesWebviewMountedAtom',
   perpsWebSocketDataUpdateTimesAtom = 'perpsWebSocketDataUpdateTimesAtom',
   perpTokenSelectorConfigPersistAtom = 'perpTokenSelectorConfigPersistAtom',
+  perpTokenSelectorTabsAtom = 'perpTokenSelectorTabsAtom',
   perpTokenFavoritesPersistAtom = 'perpTokenFavoritesPersistAtom',
   perpsDepositOrderAtom = 'perpsDepositOrderAtom',
   perpsLastUsedLeverageAtom = 'perpsLastUsedLeverageAtom',

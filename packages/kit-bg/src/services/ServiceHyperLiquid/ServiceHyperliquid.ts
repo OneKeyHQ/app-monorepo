@@ -68,6 +68,7 @@ import {
   perpsDepositTokensAtom,
   perpsLastUsedLeverageAtom,
   perpsTradesHistoryDataAtom,
+  perpTokenSelectorTabsAtom,
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
 
@@ -193,6 +194,7 @@ export default class ServiceHyperliquid extends ServiceBase {
     depositTokenConfig,
     hyperLiquidErrorLocales,
     tokenSearchAliases,
+    tokenSelectorTabs,
   }: IPerpServerConfigResponse) {
     let shouldNotifyToDapp = false;
 
@@ -264,6 +266,7 @@ export default class ServiceHyperliquid extends ServiceBase {
           hyperliquidErrorLocales:
             hyperLiquidErrorLocales || prev?.hyperliquidErrorLocales,
           tokenSearchAliases: tokenSearchAliases || prev?.tokenSearchAliases,
+          tokenSelectorTabs: tokenSelectorTabs ?? prev?.tokenSelectorTabs,
         };
         if (isEqual(newConfig, prev)) {
           return (
@@ -277,6 +280,11 @@ export default class ServiceHyperliquid extends ServiceBase {
 
     // Update the error resolver locale data.
     hyperLiquidErrorResolver.updateLocales(hyperLiquidErrorLocales);
+
+    // Update token selector tabs atom
+    if (tokenSelectorTabs) {
+      await perpTokenSelectorTabsAtom.set(tokenSelectorTabs);
+    }
 
     if (shouldNotifyToDapp) {
       const config = await this.backgroundApi.simpleDb.perp.getPerpData();
@@ -332,6 +340,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       depositTokenConfig: resData?.data?.depositTokenConfig,
       hyperLiquidErrorLocales: resData?.data?.hyperLiquidErrorLocales,
       tokenSearchAliases: resData?.data?.tokenSearchAliases,
+      tokenSelectorTabs: resData?.data?.tokenSelectorTabs,
     });
     return resData;
   }
