@@ -1,4 +1,3 @@
-export { default as Svg4K } from './4K';
 export { default as Bridge } from './Bridge';
 export { default as WcPaperToilet } from './WcPaperToilet';
 export { default as AccessibilityEye } from './AccessibilityEye';
