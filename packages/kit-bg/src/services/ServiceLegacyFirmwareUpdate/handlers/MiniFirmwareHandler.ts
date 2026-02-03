@@ -1,95 +1,101 @@
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
+
 import { ELegacyFirmwareUpdateSteps } from '../../../states/jotai/atoms/legacyFirmwareUpdate';
-import {
-  preCheckAndUpdateBootloader,
-  waitForDeviceRestart,
-} from '../utils/bootloaderPreCheck';
 
 import type { ILegacyUpdateParams, ILegacyUpdateResult } from '../types';
 import type ServiceLegacyFirmwareUpdate from '../ServiceLegacyFirmwareUpdate';
-
-const DEVICE_RESTART_WAIT_MS = 15_000;
 
 export class MiniFirmwareHandler {
   /**
    * Mini device upgrade flow
    *
-   * Mini devices require:
-   * 1. Manual bootloader mode entry (user must hold button + insert USB)
-   * 2. Bootloader pre-check and update if needed
-   * 3. Firmware update
+   * Mini devices require manual bootloader mode entry:
+   * 1. User must hold button + insert USB to enter bootloader
+   * 2. SDK will throw FirmwareUpdateManuallyEnterBoot error if not in bootloader mode
+   * 3. We catch this error and show guidance UI
+   * 4. User enters bootloader mode, device reconnects
+   * 5. Update is restarted (user clicks "Start Update" again)
+   *
+   * Note: Mini cannot use RebootToBootloader command - it will brick the device!
+   * SDK handles bootloader pre-check and update internally via firmwareUpdateV2.
    */
   async update(
     params: ILegacyUpdateParams,
     service: ServiceLegacyFirmwareUpdate,
   ): Promise<ILegacyUpdateResult> {
-    const { connectId, isBootloaderMode, targetFirmwareVersion, deviceType } =
-      params;
+    const { connectId, targetFirmwareVersion, deviceType } = params;
 
-    // 1. Check if device is in bootloader mode
-    if (!isBootloaderMode) {
-      await service.setStep(ELegacyFirmwareUpdateSteps.waitingBootloaderMode, {
-        deviceType: deviceType,
-      });
-      // UI will show guidance for user to enter bootloader mode
-      // User action required, then flow restarts
-      return {
-        success: false,
-        needsBootloaderMode: true,
-        deviceType,
-      };
-    }
-
-    // 2. Bootloader pre-check and update
-    await service.setStep(ELegacyFirmwareUpdateSteps.checkingBootloader);
-    await service.setProgress(10, 'Checking bootloader...');
+    // 1. Set downloading state
+    await service.setStep(ELegacyFirmwareUpdateSteps.downloadingFirmware, {
+      firmwareField: 'firmware',
+    });
+    await service.setProgress(20, 'Preparing firmware update...');
 
     const sdk = await service.getSDKInstance(connectId);
 
-    if (targetFirmwareVersion) {
-      const bootloaderResult = await preCheckAndUpdateBootloader({
-        sdk,
-        connectId,
-        targetFirmwareVersion,
-        deviceType,
-      });
-
-      if (bootloaderResult.needsUpdate) {
-        await service.setStep(ELegacyFirmwareUpdateSteps.updatingBootloader);
-        await service.setProgress(20, 'Updating bootloader...');
-
-        if (!bootloaderResult.updateSuccess) {
-          throw new Error('Bootloader update failed');
-        }
-
-        // WebUSB: Need to reselect device after bootloader update (PID changes)
-        await service.setStep(ELegacyFirmwareUpdateSteps.requestDeviceReselect);
-
-        // Wait for device restart
-        await service.setProgress(30, 'Waiting for device restart...');
-        await waitForDeviceRestart(DEVICE_RESTART_WAIT_MS);
-      }
-    }
-
-    // 3. Execute firmware update
+    // 2. Execute firmware update
+    // SDK will:
+    // - Check if device needs to enter bootloader mode manually (Mini always does)
+    // - Throw FirmwareUpdateManuallyEnterBoot error if not in bootloader mode
+    // - Handle bootloader pre-check and update if needed
+    // - Download and install firmware
     await service.setStep(ELegacyFirmwareUpdateSteps.installingFirmware, {
       phase: 'firmware',
     });
     await service.setProgress(50, 'Installing firmware...');
 
     // Convert version string to array format (e.g., "3.5.0" -> [3, 5, 0])
-    // This matches the normal firmware update flow in ServiceFirmwareUpdate
     const versionArr = targetFirmwareVersion
       ?.split('.')
       .map((v) => parseInt(v, 10));
 
-    const result = await sdk.firmwareUpdateV2(connectId, {
-      updateType: 'firmware',
-      platform: 'web',
-      ...(versionArr ? { version: versionArr } : {}),
-    });
+    try {
+      const result = await sdk.firmwareUpdateV2(connectId, {
+        updateType: 'firmware',
+        platform: 'web',
+        ...(versionArr ? { version: versionArr } : {}),
+      });
 
-    if (!result.success) {
-      throw new Error(result.payload?.error || 'Firmware update failed');
+      if (!result.success) {
+        // Check if SDK indicates manual bootloader mode is needed
+        if (
+          result.payload?.code ===
+          HardwareErrorCode.FirmwareUpdateManuallyEnterBoot
+        ) {
+          await service.setStep(
+            ELegacyFirmwareUpdateSteps.waitingBootloaderMode,
+            {
+              deviceType,
+            },
+          );
+          return {
+            success: false,
+            needsBootloaderMode: true,
+            deviceType,
+          };
+        }
+        throw new Error(result.payload?.error || 'Firmware update failed');
+      }
+    } catch (error: any) {
+      // SDK throws FirmwareUpdateManuallyEnterBoot error when Mini is not in bootloader mode
+      if (
+        error?.errorCode ===
+          HardwareErrorCode.FirmwareUpdateManuallyEnterBoot ||
+        error?.code === HardwareErrorCode.FirmwareUpdateManuallyEnterBoot
+      ) {
+        await service.setStep(
+          ELegacyFirmwareUpdateSteps.waitingBootloaderMode,
+          {
+            deviceType,
+          },
+        );
+        return {
+          success: false,
+          needsBootloaderMode: true,
+          deviceType,
+        };
+      }
+      throw error;
     }
 
     await service.setProgress(100, 'Upgrade complete');

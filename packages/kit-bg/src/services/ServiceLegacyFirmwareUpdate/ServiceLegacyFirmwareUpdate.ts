@@ -140,8 +140,22 @@ class ServiceLegacyFirmwareUpdate extends ServiceBase {
           throw new OneKeyLocalError(`Unsupported device type: ${deviceType}`);
       }
 
+      // If device needs bootloader mode, don't set to done
+      // UI will show guidance and user needs to manually enter bootloader mode
+      // Then restart the update process
+      if (result.needsBootloaderMode) {
+        // Step is already set to waitingBootloaderMode by the handler
+        // Keep running state true and transport lock active
+        // User will restart the update after entering bootloader mode
+        return result;
+      }
+
       // Set complete state
       await this.setStep(ELegacyFirmwareUpdateSteps.done);
+
+      // Clean up on successful completion
+      await this.cleanupAfterUpdate();
+
       return result;
     } catch (error: unknown) {
       const errorMessage =
@@ -149,18 +163,11 @@ class ServiceLegacyFirmwareUpdate extends ServiceBase {
       await this.setStep(ELegacyFirmwareUpdateSteps.error, {
         error: errorMessage,
       });
+
+      // Clean up on error
+      await this.cleanupAfterUpdate();
+
       throw error;
-    } finally {
-      await legacyFirmwareUpdateRunningAtom.set(false);
-
-      // Always clear transport type lock when firmware update completes (success or failure)
-      await this.backgroundApi.serviceHardware.clearForceTransportType();
-      serviceHardwareUtils.hardwareLog(
-        'startLegacyUpdate: cleared transport type lock',
-      );
-
-      // Emit finish firmware update event
-      appEventBus.emit(EAppEventBusNames.FinishFirmwareUpdate, undefined);
     }
   }
 
@@ -221,7 +228,25 @@ class ServiceLegacyFirmwareUpdate extends ServiceBase {
    */
   @backgroundMethod()
   async exitUpdateWorkflow(): Promise<void> {
+    await this.cleanupAfterUpdate();
     await this.resetState();
+  }
+
+  /**
+   * Clean up resources after firmware update completes or fails
+   * This includes clearing transport type lock and emitting events
+   */
+  private async cleanupAfterUpdate(): Promise<void> {
+    await legacyFirmwareUpdateRunningAtom.set(false);
+
+    // Clear transport type lock
+    await this.backgroundApi.serviceHardware.clearForceTransportType();
+    serviceHardwareUtils.hardwareLog(
+      'startLegacyUpdate: cleared transport type lock',
+    );
+
+    // Emit finish firmware update event
+    appEventBus.emit(EAppEventBusNames.FinishFirmwareUpdate, undefined);
   }
 
   // ==================== SDK Access ====================
