@@ -337,7 +337,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
     fetchProtocolData,
   ]);
 
-  const tabBarheight = useScrollContentTabBarOffset()
+  const tabBarHeight = useScrollContentTabBarOffset();
 
   return (
     <EarnPageContainer
@@ -346,7 +346,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
       pageTitle={customHeaderLeft}
       customHeaderRightItems={platformEnv.isNative ? <></> : undefined}
       contentContainerStyle={{
-        pb: tabBarheight
+        pb: tabBarHeight,
       }}
       breadcrumbProps={{
         items: [

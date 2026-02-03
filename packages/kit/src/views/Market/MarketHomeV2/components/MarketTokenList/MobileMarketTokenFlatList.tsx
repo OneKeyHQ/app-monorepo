@@ -143,7 +143,7 @@ function MobileMarketTokenFlatListBase({
     [],
   );
 
-  const tabBarheight = useScrollContentTabBarOffset();
+  const tabBarHeight = useScrollContentTabBarOffset();
   return (
     <Tabs.FlatList<IMarketToken>
       data={loading ? EMPTY_DATA : data}
@@ -166,7 +166,7 @@ function MobileMarketTokenFlatListBase({
         paddingTop: 8 + (platformEnv.isNative ? 170 : 0),
         paddingBottom: platformEnv.isNativeAndroid
           ? listContainerProps.paddingBottom
-          : tabBarheight,
+          : tabBarHeight,
       }}
     />
   );

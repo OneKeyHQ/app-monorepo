@@ -240,15 +240,11 @@ function MarketTokenListBase({
             <Table<IMarketToken>
               // Add padding bottom to content container to provide space for loading spinner
               // Fix Android loading spinner visibility issue by ensuring proper content height
-              contentContainerStyle={
-                platformEnv.isNativeAndroid
-                  ? {
-                      paddingBottom: SPINNER_HEIGHT * 2,
-                    }
-                  : {
-                    paddingBottom: tabBarHeight
-                  }
-              }
+              contentContainerStyle={{
+                paddingBottom: platformEnv.isNativeAndroid
+                  ? SPINNER_HEIGHT * 2
+                  : tabBarHeight,
+              }}
               stickyHeader
               scrollEnabled
               columns={marketTokenColumns}

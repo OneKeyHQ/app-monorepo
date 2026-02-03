@@ -128,7 +128,10 @@ const BorrowHomeContent = memo(
     const isMidWidth = gtMd && !gtLg;
 
     return (
-      <ScrollView flex={1} contentContainerStyle={{ paddingBottom: tabBarHeight }}>
+      <ScrollView
+        flex={1}
+        contentContainerStyle={{ paddingBottom: tabBarHeight }}
+      >
         {header ? <YStack pb="$4">{header}</YStack> : null}
         <YStack flex={1} px="$5" pb="$10">
           <Markets />

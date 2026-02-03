@@ -3,7 +3,13 @@ import { useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import natsort from 'natsort';
 
-import { Input, ListView, Page, View, useScrollContentTabBarOffset } from '@onekeyhq/components';
+import {
+  Input,
+  ListView,
+  Page,
+  View,
+  useScrollContentTabBarOffset,
+} from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useGalleryPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
