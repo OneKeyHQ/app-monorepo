@@ -473,11 +473,11 @@ function PerpTickerBarDesktop() {
       borderBottomWidth="$px"
       borderBottomColor="$borderSubdued"
       py="$4"
-      px="$3"
+      px="$2.5"
       alignItems="center"
       justifyContent="flex-start"
       gap="$6"
-      h={62}
+      h={54}
     >
       <XStack gap="$4" alignItems="center">
         <PerpTokenSelector />

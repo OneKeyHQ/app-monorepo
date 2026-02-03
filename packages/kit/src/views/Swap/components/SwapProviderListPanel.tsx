@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useRef } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { AnimatePresence, MotiView } from 'moti';
@@ -152,6 +152,13 @@ const SwapProviderListPanel = ({
   // Track if waiting for new quote to prevent flash to empty state (OK-49718)
   const isWaitingForNewQuoteRef = useRef(false);
 
+  // ScrollView ref for auto-scrolling to selected provider (OK-49778)
+  const scrollViewRef = useRef<{
+    scrollTo: (options: { y: number; animated?: boolean }) => void;
+  } | null>(null);
+  // Track previous loading state for detecting when loading completes
+  const prevIsLoadingRef = useRef(false);
+
   // Reset cache when tokens change
   if (prevTokenKeyRef.current !== currentTokenKey) {
     prevTokenKeyRef.current = currentTokenKey;
@@ -294,6 +301,36 @@ const SwapProviderListPanel = ({
     [displayList],
   );
 
+  // Auto-scroll to selected provider when loading completes (OK-49778)
+  useEffect(() => {
+    const wasLoading = prevIsLoadingRef.current;
+    prevIsLoadingRef.current = isLoading;
+
+    // Only scroll when loading just completed (transition from loading to not loading)
+    if (
+      wasLoading &&
+      !isLoading &&
+      currentSelectQuote &&
+      availableList.length > 0
+    ) {
+      const selectedIndex = availableList.findIndex(
+        (item) =>
+          item.info.provider === currentSelectQuote.info.provider &&
+          item.info.providerName === currentSelectQuote.info.providerName,
+      );
+
+      if (selectedIndex > 0 && scrollViewRef.current) {
+        // Estimate item height: ~120px per item (including padding and margins)
+        const estimatedItemHeight = 120;
+        const scrollY = selectedIndex * estimatedItemHeight;
+        // Add a small delay to ensure the list is rendered
+        setTimeout(() => {
+          scrollViewRef.current?.scrollTo({ y: scrollY, animated: true });
+        }, 100);
+      }
+    }
+  }, [isLoading, currentSelectQuote, availableList]);
+
   const onSelectQuote = useCallback(
     (item: IFetchQuoteResult) => {
       setSwapManualSelect(item);
@@ -367,7 +404,7 @@ const SwapProviderListPanel = ({
 
   const renderLoadingSkeleton = useCallback(
     () => (
-      <YStack gap="$2" px="$3" py="$2">
+      <YStack gap="$2" px="$5" py="$3">
         {Array.from({ length: 3 }).map((_, index) => (
           <AnimatedSkeletonItem key={index} index={index} />
         ))}
@@ -396,6 +433,80 @@ const SwapProviderListPanel = ({
     [intl],
   );
 
+  const renderInitialState = useCallback(
+    () => (
+      <MotiView
+        key="empty-input"
+        from={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ type: 'timing', duration: 200 } as any}
+        style={{ flex: 1 }}
+      >
+        <YStack
+          flex={1}
+          alignItems="center"
+          justifyContent="center"
+          px="$6"
+          py="$16"
+          gap="$4"
+        >
+          <SizableText size="$headingXl" color="$text" textAlign="center">
+            Swap with the best price
+          </SizableText>
+          <SizableText
+            size="$bodyMd"
+            color="$textSubdued"
+            textAlign="center"
+            px="$4"
+          >
+            Compare quotes from top DEX aggregators and find the best rates
+            across 400+ DEXs and 30+ networks.
+          </SizableText>
+          <XStack flexWrap="wrap" justifyContent="center" gap="$3" pt="$4">
+            <XStack
+              alignItems="center"
+              gap="$1.5"
+              px="$2"
+              py="$1"
+              borderRadius="$2"
+              bg="$bgSubdued"
+            >
+              <SizableText size="$bodySm" color="$textSuccess">
+                Fast quotes
+              </SizableText>
+            </XStack>
+            <XStack
+              alignItems="center"
+              gap="$1.5"
+              px="$2"
+              py="$1"
+              borderRadius="$2"
+              bg="$bgSubdued"
+            >
+              <SizableText size="$bodySm" color="$textSuccess">
+                MEV Protection
+              </SizableText>
+            </XStack>
+            <XStack
+              alignItems="center"
+              gap="$1.5"
+              px="$2"
+              py="$1"
+              borderRadius="$2"
+              bg="$bgSubdued"
+            >
+              <SizableText size="$bodySm" color="$textSuccess">
+                Best rates
+              </SizableText>
+            </XStack>
+          </XStack>
+        </YStack>
+      </MotiView>
+    ),
+    [],
+  );
+
   const hasFromAndToToken = fromToken && toToken;
   const hasFromAmount =
     fromTokenAmount.value &&
@@ -407,96 +518,77 @@ const SwapProviderListPanel = ({
   return (
     <YStack
       flex={1}
-      borderRadius="$4"
+      borderRadius="$6"
       borderWidth={1}
       borderColor="$borderSubdued"
-      bg="$bg"
-      minWidth={360}
-      maxWidth={440}
+      elevationAndroid="$1"
+      $platform-web={{
+        boxShadow: '0px 0px 24px 0px rgba(0, 0, 0, 0.06)',
+      }}
+      style={{
+        shadowColor: 'rgba(0, 0, 0, 0.08)',
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 1,
+        shadowRadius: 24,
+      }}
     >
-      {/* Header */}
-      <XStack
-        px="$4"
-        py="$3"
-        alignItems="center"
-        justifyContent="space-between"
-        borderBottomWidth={1}
-        borderBottomColor="$borderSubdued"
-      >
-        <SizableText size="$headingMd" color="$text">
-          {intl.formatMessage({ id: ETranslations.provider_title })}
-        </SizableText>
-        {quoteLoading && shouldShowContent ? (
-          <Skeleton width={18} height={18} radius="round" />
-        ) : (
-          <SwapRefreshButton
-            refreshAction={refreshAction}
-            disabled={!hasQuotes}
-          />
-        )}
-      </XStack>
+      {/* Header - only show when there's content to display */}
+      {shouldShowContent ? (
+        <XStack
+          px="$6"
+          pt="$6"
+          pb="$3"
+          alignItems="center"
+          justifyContent="space-between"
+        >
+          <SizableText size="$headingLg" color="$text">
+            {intl.formatMessage({ id: ETranslations.Limit_info_provider })}
+          </SizableText>
+          {quoteLoading ? (
+            <Skeleton width={18} height={18} radius="round" />
+          ) : (
+            <SwapRefreshButton
+              refreshAction={refreshAction}
+              disabled={!hasQuotes}
+            />
+          )}
+        </XStack>
+      ) : null}
 
-      {/* Sort Selector with animation */}
-      <AnimatePresence>
-        {shouldShowContent && hasQuotes ? (
-          <MotiView
-            from={{ opacity: 0, translateY: -8 }}
-            animate={{ opacity: 1, translateY: 0 }}
-            exit={{ opacity: 0, translateY: -8 }}
-            transition={{ type: 'timing', duration: 200 } as any}
-          >
-            <XStack px="$4" pt="$3">
-              <Select
-                title={intl.formatMessage({
-                  id: ETranslations.provider_sort_title,
-                })}
-                items={swapProviderSortSelectItems}
-                onChange={onSelectSortChange}
-                value={providerSort}
-                renderTrigger={({ value, label, placeholder }) => (
-                  <Button
-                    alignSelf="flex-start"
-                    variant="tertiary"
-                    size="small"
-                    icon="FilterSortSolid"
-                    iconAfter="ChevronDownSmallOutline"
-                  >
-                    <SizableText size="$bodySm">
-                      {value ? label : placeholder}
-                    </SizableText>
-                  </Button>
-                )}
-              />
-            </XStack>
-          </MotiView>
-        ) : null}
-      </AnimatePresence>
+      {/* Sort Selector */}
+      {shouldShowContent && hasQuotes ? (
+        <XStack px="$5" pt="$3">
+          <Select
+            title={intl.formatMessage({
+              id: ETranslations.provider_sort_title,
+            })}
+            items={swapProviderSortSelectItems}
+            onChange={onSelectSortChange}
+            value={providerSort}
+            renderTrigger={({ value, label, placeholder }) => (
+              <Button
+                alignSelf="flex-start"
+                variant="tertiary"
+                size="small"
+                icon="FilterSortSolid"
+                iconAfter="ChevronDownSmallOutline"
+              >
+                <SizableText size="$bodySm">
+                  {value ? label : placeholder}
+                </SizableText>
+              </Button>
+            )}
+          />
+        </XStack>
+      ) : null}
 
       {/* Content */}
-      <ScrollView flex={1}>
+      <ScrollView flex={1} ref={scrollViewRef as any}>
         <AnimatePresence>
-          {!shouldShowContent ? (
-            <MotiView
-              key="empty-input"
-              from={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ type: 'timing', duration: 200 } as any}
-            >
-              <Stack
-                flex={1}
-                alignItems="center"
-                justifyContent="center"
-                py="$8"
-              >
-                <SizableText size="$bodyMd" color="$textSubdued">
-                  {intl.formatMessage({
-                    id: ETranslations.swap_page_button_enter_amount,
-                  })}
-                </SizableText>
-              </Stack>
-            </MotiView>
-          ) : (isLoading || isWaitingForNewQuoteRef.current) && !hasQuotes ? (
+          {!shouldShowContent ? renderInitialState() : null}
+          {shouldShowContent &&
+          (isLoading || isWaitingForNewQuoteRef.current) &&
+          !hasQuotes ? (
             <MotiView
               key="loading"
               from={{ opacity: 0 }}
@@ -506,16 +598,21 @@ const SwapProviderListPanel = ({
             >
               {renderLoadingSkeleton()}
             </MotiView>
-          ) : !hasQuotes ? (
-            renderEmptyState()
-          ) : (
+          ) : null}
+          {shouldShowContent &&
+          !hasQuotes &&
+          !isLoading &&
+          !isWaitingForNewQuoteRef.current
+            ? renderEmptyState()
+            : null}
+          {shouldShowContent && hasQuotes ? (
             <MotiView
               key="content"
               from={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ type: 'timing', duration: 150 } as any}
             >
-              <YStack px="$3" pb="$3">
+              <YStack px="$5" pb="$5">
                 {/* Available Providers */}
                 {availableList.length > 0 ? (
                   <YStack>
@@ -553,7 +650,7 @@ const SwapProviderListPanel = ({
                 ) : null}
               </YStack>
             </MotiView>
-          )}
+          ) : null}
         </AnimatePresence>
       </ScrollView>
     </YStack>

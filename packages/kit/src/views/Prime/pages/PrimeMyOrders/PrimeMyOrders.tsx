@@ -24,13 +24,15 @@ import { useClipboard } from '@onekeyhq/components/src/hooks/useClipboard';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import {
+  ONEKEY_ORDERS_URL,
+  ONEKEY_SHOP_URL,
+  ONEKEY_TRACK_ORDER_URL,
+} from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IShopifyOrder } from '@onekeyhq/shared/types/prime/primeTypes';
-
-const FIND_ORDER_URL = 'https://orders.onekey.so';
-const BUY_ONEKEY_URL = 'https://shop.onekey.so';
 
 const shopifyStatusToBadgeType: Record<string, IBadgeType> = {
   fulfilled: 'success',
@@ -53,11 +55,11 @@ export default function PrimeMyOrders() {
   );
 
   const handleFindMyOrder = () => {
-    openUrlUtils.openUrlExternal(FIND_ORDER_URL);
+    openUrlUtils.openUrlExternal(ONEKEY_ORDERS_URL);
   };
 
   const handleBuyOneKey = () => {
-    openUrlUtils.openUrlExternal(BUY_ONEKEY_URL);
+    openUrlUtils.openUrlExternal(ONEKEY_SHOP_URL);
   };
 
   const handleCopyOrderNumber = useCallback(
@@ -70,7 +72,7 @@ export default function PrimeMyOrders() {
 
   const handleOrderDetails = useCallback(
     (order: IShopifyOrder) => {
-      const trackOrderUrl = `https://onekey.so/track-order?order=${encodeURIComponent(
+      const trackOrderUrl = `${ONEKEY_TRACK_ORDER_URL}?order=${encodeURIComponent(
         order.orderNumber,
       )}&token=${encodeURIComponent(user?.email ?? '')}`;
       openUrlUtils.openUrlExternal(trackOrderUrl);

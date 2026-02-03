@@ -1,0 +1,39 @@
+/* Custom Allotment sash styles - drag handle in center */
+
+/* Vertical sash (between left/right panels) - add centered drag handle */
+[class*="sash-module_sash"][class*="vertical"]::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 4px;
+  height: 28px;
+  background-color: rgb(180, 180, 180);
+  border-radius: 2px;
+  pointer-events: none;
+  transition: background-color 0.15s ease;
+}
+
+[class*="sash-module_sash"][class*="vertical"]:hover::after {
+  background-color: rgb(160, 160, 160);
+}
+
+/* Horizontal sash (between top/bottom panels) - add centered drag handle */
+[class*="sash-module_sash"][class*="horizontal"]::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 28px;
+  height: 4px;
+  background-color: rgb(180, 180, 180);
+  border-radius: 2px;
+  pointer-events: none;
+  transition: background-color 0.15s ease;
+}
+
+[class*="sash-module_sash"][class*="horizontal"]:hover::after {
+  background-color: rgb(160, 160, 160);
+}

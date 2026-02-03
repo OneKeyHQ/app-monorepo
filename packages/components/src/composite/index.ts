@@ -1,5 +1,6 @@
 export * from './Banner';
 export * from './Carousel';
+export * from './DatePicker';
 export * from './Dialog';
 export * from './ImageCrop';
 export * from './SegmentSlider';

@@ -131,6 +131,9 @@ const SwapAlertContainer = ({ alerts }: ISwapAlertContainerProps) => {
   const createAlert = useCallback(
     (item: ISwapAlertState, index: number) => {
       const { alertLevel, title, icon, message, action } = item;
+      if (!message && !title) {
+        return null;
+      }
       if (
         action?.actionType === ESwapAlertActionType.CREATE_ADDRESS &&
         action?.actionData?.key === accountManualCreatingAtom.key &&
