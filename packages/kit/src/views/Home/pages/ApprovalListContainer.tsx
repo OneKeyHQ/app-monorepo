@@ -192,7 +192,7 @@ function ApprovalListContainer() {
           pt: '$3',
         },
         contentContainerStyle: {
-          pb: tabBarHeight
+          pb: tabBarHeight,
         },
       }}
       {...(media.gtLg && {
