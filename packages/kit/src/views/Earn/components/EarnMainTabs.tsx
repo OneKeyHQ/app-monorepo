@@ -14,6 +14,7 @@ import {
   XStack,
   YStack,
   rootNavigationRef,
+  useScrollContentTabBarOffset,
   useTabContainerWidth,
   useTheme,
 } from '@onekeyhq/components';
@@ -57,6 +58,7 @@ const TabContentContainer = ({
   withHorizontalPadding?: boolean;
   maxWidth?: number;
 }) => {
+  const tabBarHeight = useScrollContentTabBarOffset();
   return (
     <Tabs.ScrollView>
       <YStack
@@ -65,6 +67,7 @@ const TabContentContainer = ({
         gap="$8"
         {...(withHorizontalPadding ? { px: '$5' } : {})}
         {...(maxWidth ? { maxWidth } : {})}
+        style={tabBarHeight ? { paddingBottom: tabBarHeight } : undefined}
       >
         {children}
       </YStack>

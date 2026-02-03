@@ -9,6 +9,7 @@ import {
   XStack,
   YStack,
   useMedia,
+  useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -55,6 +56,7 @@ export function EarnPageContainer({
   showTabPageHeader = true,
 }: IEarnPageContainerProps) {
   const media = useMedia();
+  const tabBarHeight = useScrollContentTabBarOffset();
   const navigation = useAppNavigation();
 
   const handleBack = useCallback(() => {
@@ -112,6 +114,7 @@ export function EarnPageContainer({
         <ScrollView
           contentContainerStyle={{
             py: media.gtMd ? '$6' : 0,
+            paddingBottom: tabBarHeight,
             ...contentContainerStyle,
           }}
           refreshControl={refreshControl}
