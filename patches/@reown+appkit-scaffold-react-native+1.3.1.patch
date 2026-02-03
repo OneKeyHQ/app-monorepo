@@ -1,8 +1,8 @@
 diff --git a/node_modules/@reown/appkit-scaffold-react-native/lib/commonjs/modal/w3m-modal/index.js b/node_modules/@reown/appkit-scaffold-react-native/lib/commonjs/modal/w3m-modal/index.js
-index 2afcde5..22d684c 100644
+index 2afcde5..dcfe496 100644
 --- a/node_modules/@reown/appkit-scaffold-react-native/lib/commonjs/modal/w3m-modal/index.js
 +++ b/node_modules/@reown/appkit-scaffold-react-native/lib/commonjs/modal/w3m-modal/index.js
-@@ -17,30 +17,122 @@ var _w3mSnackbar = require("../../partials/w3m-snackbar");
+@@ -17,30 +17,129 @@ var _w3mSnackbar = require("../../partials/w3m-snackbar");
  var _useCustomDimensions = require("../../hooks/useCustomDimensions");
  var _styles = _interopRequireDefault(require("./styles"));
  function _interopRequireDefault(e) { return e && e.__esModule ? e : { default: e }; }
@@ -11,13 +11,38 @@ index 2afcde5..22d684c 100644
 +function useSafeSnapshot(proxyObject, fallbackValue, options = {}) {
 +  const { retryDelay = 50, maxRetries = 10, onError } = options;
 +  const [safeSnapshot, setSafeSnapshot] = (0, _react.useState)(fallbackValue);
-+  const [isInitialized, setIsInitialized] = (0, _react.useState)(false);
 +  const retryCountRef = (0, _react.useRef)(0);
++  const isSubscribedRef = (0, _react.useRef)(false);
++  const onErrorRef = (0, _react.useRef)(onError);
++  onErrorRef.current = onError;
 +
 +  (0, _react.useEffect)(() => {
 +    let mounted = true;
 +    let timeoutId;
 +    let unsubscribe;
++
++    const setupSubscription = () => {
++      if (isSubscribedRef.current || !mounted) return;
++
++      try {
++        unsubscribe = (0, _valtio.subscribe)(proxyObject, () => {
++          if (mounted) {
++            try {
++              const snap = (0, _valtio.snapshot)(proxyObject);
++              if (snap) setSafeSnapshot(snap);
++            } catch (err) {
++              isSubscribedRef.current = false;
++              retryCountRef.current = 0;
++              attemptSnapshot();
++            }
++          }
++        });
++        isSubscribedRef.current = true;
++      } catch (err) {
++        isSubscribedRef.current = false;
++        attemptSnapshot();
++      }
++    };
 +
 +    const attemptSnapshot = () => {
 +      if (!mounted) return;
@@ -26,8 +51,8 @@ index 2afcde5..22d684c 100644
 +        const snap = (0, _valtio.snapshot)(proxyObject);
 +        if (snap && mounted) {
 +          setSafeSnapshot(snap);
-+          setIsInitialized(true);
 +          retryCountRef.current = 0;
++          setupSubscription();
 +        }
 +      } catch (err) {
 +        retryCountRef.current += 1;
@@ -36,40 +61,22 @@ index 2afcde5..22d684c 100644
 +          const delay = retryDelay * Math.min(retryCountRef.current, 5);
 +          timeoutId = setTimeout(attemptSnapshot, delay);
 +        } else {
-+          onError?.(err);
++          onErrorRef.current?.(err);
 +        }
 +      }
 +    };
 +
 +    attemptSnapshot();
 +
-+    // Subscribe to changes once initialized
-+    if (isInitialized) {
-+      try {
-+        unsubscribe = (0, _valtio.subscribe)(proxyObject, () => {
-+          if (mounted) {
-+            try {
-+              const snap = (0, _valtio.snapshot)(proxyObject);
-+              if (snap) setSafeSnapshot(snap);
-+            } catch (err) {
-+              setIsInitialized(false);
-+              retryCountRef.current = 0;
-+              attemptSnapshot();
-+            }
-+          }
-+        });
-+      } catch (err) {
-+        setIsInitialized(false);
-+        attemptSnapshot();
-+      }
-+    }
-+
 +    return () => {
 +      mounted = false;
 +      clearTimeout(timeoutId);
-+      unsubscribe?.();
++      if (unsubscribe) {
++        unsubscribe();
++        isSubscribedRef.current = false;
++      }
 +    };
-+  }, [proxyObject, retryDelay, maxRetries, onError, isInitialized]);
++  }, [proxyObject, retryDelay, maxRetries]);
 +
 +  return safeSnapshot;
 +}
@@ -131,7 +138,7 @@ index 2afcde5..22d684c 100644
    const authProvider = connectors.find(c => c.type === 'AUTH')?.provider;
    const AuthView = authProvider?.AuthView;
 diff --git a/node_modules/@reown/appkit-scaffold-react-native/lib/module/modal/w3m-modal/index.js b/node_modules/@reown/appkit-scaffold-react-native/lib/module/modal/w3m-modal/index.js
-index f93d8c6..8c3bb66 100644
+index f93d8c6..26ec7b3 100644
 --- a/node_modules/@reown/appkit-scaffold-react-native/lib/module/modal/w3m-modal/index.js
 +++ b/node_modules/@reown/appkit-scaffold-react-native/lib/module/modal/w3m-modal/index.js
 @@ -1,5 +1,5 @@
@@ -142,7 +149,7 @@ index f93d8c6..8c3bb66 100644
  import { useWindowDimensions, StatusBar } from 'react-native';
  import Modal from 'react-native-modal';
  import { Card, ThemeProvider } from '@reown/appkit-ui-react-native';
-@@ -10,30 +10,122 @@ import { Header } from '../../partials/w3m-header';
+@@ -10,30 +10,129 @@ import { Header } from '../../partials/w3m-header';
  import { Snackbar } from '../../partials/w3m-snackbar';
  import { useCustomDimensions } from '../../hooks/useCustomDimensions';
  import styles from './styles';
@@ -151,13 +158,38 @@ index f93d8c6..8c3bb66 100644
 +function useSafeSnapshot(proxyObject, fallbackValue, options = {}) {
 +  const { retryDelay = 50, maxRetries = 10, onError } = options;
 +  const [safeSnapshot, setSafeSnapshot] = useState(fallbackValue);
-+  const [isInitialized, setIsInitialized] = useState(false);
 +  const retryCountRef = useRef(0);
++  const isSubscribedRef = useRef(false);
++  const onErrorRef = useRef(onError);
++  onErrorRef.current = onError;
 +
 +  useEffect(() => {
 +    let mounted = true;
 +    let timeoutId;
 +    let unsubscribe;
++
++    const setupSubscription = () => {
++      if (isSubscribedRef.current || !mounted) return;
++
++      try {
++        unsubscribe = subscribe(proxyObject, () => {
++          if (mounted) {
++            try {
++              const snap = snapshot(proxyObject);
++              if (snap) setSafeSnapshot(snap);
++            } catch (err) {
++              isSubscribedRef.current = false;
++              retryCountRef.current = 0;
++              attemptSnapshot();
++            }
++          }
++        });
++        isSubscribedRef.current = true;
++      } catch (err) {
++        isSubscribedRef.current = false;
++        attemptSnapshot();
++      }
++    };
 +
 +    const attemptSnapshot = () => {
 +      if (!mounted) return;
@@ -166,8 +198,8 @@ index f93d8c6..8c3bb66 100644
 +        const snap = snapshot(proxyObject);
 +        if (snap && mounted) {
 +          setSafeSnapshot(snap);
-+          setIsInitialized(true);
 +          retryCountRef.current = 0;
++          setupSubscription();
 +        }
 +      } catch (err) {
 +        retryCountRef.current += 1;
@@ -176,40 +208,22 @@ index f93d8c6..8c3bb66 100644
 +          const delay = retryDelay * Math.min(retryCountRef.current, 5);
 +          timeoutId = setTimeout(attemptSnapshot, delay);
 +        } else {
-+          onError?.(err);
++          onErrorRef.current?.(err);
 +        }
 +      }
 +    };
 +
 +    attemptSnapshot();
 +
-+    // Subscribe to changes once initialized
-+    if (isInitialized) {
-+      try {
-+        unsubscribe = subscribe(proxyObject, () => {
-+          if (mounted) {
-+            try {
-+              const snap = snapshot(proxyObject);
-+              if (snap) setSafeSnapshot(snap);
-+            } catch (err) {
-+              setIsInitialized(false);
-+              retryCountRef.current = 0;
-+              attemptSnapshot();
-+            }
-+          }
-+        });
-+      } catch (err) {
-+        setIsInitialized(false);
-+        attemptSnapshot();
-+      }
-+    }
-+
 +    return () => {
 +      mounted = false;
 +      clearTimeout(timeoutId);
-+      unsubscribe?.();
++      if (unsubscribe) {
++        unsubscribe();
++        isSubscribedRef.current = false;
++      }
 +    };
-+  }, [proxyObject, retryDelay, maxRetries, onError, isInitialized]);
++  }, [proxyObject, retryDelay, maxRetries]);
 +
 +  return safeSnapshot;
 +}
@@ -271,7 +285,7 @@ index f93d8c6..8c3bb66 100644
    const authProvider = connectors.find(c => c.type === 'AUTH')?.provider;
    const AuthView = authProvider?.AuthView;
 diff --git a/node_modules/@reown/appkit-scaffold-react-native/src/modal/w3m-modal/index.tsx b/node_modules/@reown/appkit-scaffold-react-native/src/modal/w3m-modal/index.tsx
-index 6823724..197bc89 100644
+index 6823724..8fe5d95 100644
 --- a/node_modules/@reown/appkit-scaffold-react-native/src/modal/w3m-modal/index.tsx
 +++ b/node_modules/@reown/appkit-scaffold-react-native/src/modal/w3m-modal/index.tsx
 @@ -1,5 +1,5 @@
@@ -298,39 +312,15 @@ index 6823724..197bc89 100644
 +): T {
 +  const { retryDelay = 50, maxRetries = 10, onError } = options;
 +  const [safeSnapshot, setSafeSnapshot] = useState<T>(fallbackValue);
-+  const [isInitialized, setIsInitialized] = useState(false);
 +  const retryCountRef = useRef(0);
 +  const isSubscribedRef = useRef(false);
++  const onErrorRef = useRef(onError);
++  onErrorRef.current = onError;
 +
 +  useEffect(() => {
 +    let mounted = true;
 +    let timeoutId: NodeJS.Timeout;
 +    let unsubscribe: (() => void) | undefined;
-+
-+    const attemptSnapshot = () => {
-+      if (!mounted) return;
-+
-+      try {
-+        const snap = snapshot(proxyObject);
-+        if (snap && mounted) {
-+          setSafeSnapshot(snap);
-+          setIsInitialized(true);
-+          retryCountRef.current = 0;
-+
-+          // Immediately setup subscription after successful snapshot
-+          setupSubscription();
-+        }
-+      } catch (err) {
-+        retryCountRef.current += 1;
-+
-+        if (retryCountRef.current < maxRetries) {
-+          const delay = retryDelay * Math.min(retryCountRef.current, 5);
-+          timeoutId = setTimeout(attemptSnapshot, delay);
-+        } else {
-+          onError?.(err as Error);
-+        }
-+      }
-+    };
 +
 +    const setupSubscription = () => {
 +      if (isSubscribedRef.current || !mounted) return;
@@ -355,6 +345,30 @@ index 6823724..197bc89 100644
 +      }
 +    };
 +
++    const attemptSnapshot = () => {
++      if (!mounted) return;
++
++      try {
++        const snap = snapshot(proxyObject);
++        if (snap && mounted) {
++          setSafeSnapshot(snap);
++          retryCountRef.current = 0;
++
++          // Immediately setup subscription after successful snapshot
++          setupSubscription();
++        }
++      } catch (err) {
++        retryCountRef.current += 1;
++
++        if (retryCountRef.current < maxRetries) {
++          const delay = retryDelay * Math.min(retryCountRef.current, 5);
++          timeoutId = setTimeout(attemptSnapshot, delay);
++        } else {
++          onErrorRef.current?.(err as Error);
++        }
++      }
++    };
++
 +    attemptSnapshot();
 +
 +    return () => {
@@ -365,7 +379,7 @@ index 6823724..197bc89 100644
 +        isSubscribedRef.current = false;
 +      }
 +    };
-+  }, [proxyObject, retryDelay, maxRetries, onError]);
++  }, [proxyObject, retryDelay, maxRetries]);
 +
 +  return safeSnapshot;
 +}

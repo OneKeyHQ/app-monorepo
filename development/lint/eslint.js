@@ -67,7 +67,10 @@ try {
     process.platform === 'darwin'
       ? Math.min(os.cpus().length, 4)
       : os.cpus().length;
-  console.log(`Using ${cpus} threads for oxlint...`);
+  const fixFlag = isCI ? '' : ' --fix';
+  console.log(
+    `Using ${cpus} threads for oxlint...${isCI ? ' (CI mode, no --fix)' : ''}`,
+  );
   const oxlintResult = execSync(
     `npx oxlint --tsconfig ./tsconfig.json --type-aware --threads=${cpus} .${fixFlag}`,
     { encoding: 'utf-8', stdio: 'pipe' },
