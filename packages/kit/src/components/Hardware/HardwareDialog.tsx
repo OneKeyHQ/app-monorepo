@@ -42,7 +42,7 @@ export const buildBleSettingsDialogProps = (
           zIndex: undefined,
         }
       : undefined,
-  } as const);
+  }) as const;
 
 function OpenBleSettingDialogContainer(
   props: any,
@@ -85,7 +85,7 @@ export const buildBleNotifyChangeError = (intl: IntlShape): IDialogShowProps =>
           zIndex: undefined,
         }
       : undefined,
-  } as const);
+  }) as const;
 
 function OpenBleNotifyChangeErrorDialogContainer(
   props: any,
@@ -219,4 +219,4 @@ export const buildWebDeviceAccessDialogProps = ({
       />
     ),
     showFooter: false,
-  } as const);
+  }) as const;

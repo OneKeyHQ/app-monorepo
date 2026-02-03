@@ -39,7 +39,7 @@ export const Anchor = AnchorFrame.styleable<IAnchorProps, any, any>(
 
     // Apply underline when showExternalIndicator is true (unless explicitly overridden)
     const resolvedTextDecorationLine = showExternalIndicator
-      ? textDecorationLine ?? 'underline'
+      ? (textDecorationLine ?? 'underline')
       : textDecorationLine;
 
     // Append " ↗" indicator when showExternalIndicator is true

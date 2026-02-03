@@ -1,10 +1,60 @@
+// cspell:ignore oxlintrc
 const { execSync } = require('child_process');
 const { exit } = require('process');
 const os = require('os');
+const fs = require('fs');
+const path = require('path');
+const JSON5 = require('json5');
 
 const getTimestamp = () => new Date().toLocaleTimeString();
 
+// Detect CI environment - most CI platforms set CI=true
+const isCI = !!process.env.CI;
+
 console.log(`[${getTimestamp()}] Lint check started...`);
+
+// ============================================
+// Modify .oxlintrc.json in CI environment
+// ============================================
+const oxlintrcPath = path.join(__dirname, '../../.oxlintrc.json');
+let originalOxlintrc = null;
+
+if (isCI) {
+  try {
+    console.log(
+      `[${getTimestamp()}] Modifying .oxlintrc.json for CI environment...`,
+    );
+    originalOxlintrc = fs.readFileSync(oxlintrcPath, 'utf-8');
+    const oxlintrc = JSON5.parse(originalOxlintrc);
+
+    // Remove eslint-plugin-prettier from jsPlugins
+    if (oxlintrc.jsPlugins) {
+      oxlintrc.jsPlugins = oxlintrc.jsPlugins.filter(
+        (plugin) => plugin !== 'eslint-plugin-prettier',
+      );
+    }
+
+    // Remove eslint-config-prettier from extends
+    if (oxlintrc.extends) {
+      oxlintrc.extends = oxlintrc.extends.filter(
+        (extend) => extend !== 'eslint-config-prettier',
+      );
+    }
+
+    // Remove prettier/prettier from rules
+    if (oxlintrc.rules && oxlintrc.rules['prettier/prettier']) {
+      delete oxlintrc.rules['prettier/prettier'];
+    }
+
+    fs.writeFileSync(oxlintrcPath, JSON.stringify(oxlintrc, null, 2) + '\n');
+    console.log(
+      `[${getTimestamp()}] .oxlintrc.json modified for CI (prettier rules disabled)`,
+    );
+  } catch (error) {
+    console.error('Failed to modify .oxlintrc.json:', error);
+    exit(1);
+  }
+}
 
 // ============================================
 // Run Oxlint first (fast)
@@ -13,10 +63,14 @@ console.log(`[${getTimestamp()}] Oxlint check started...`);
 const oxlintStartTime = Date.now();
 
 try {
-  const cpus = os.cpus().length;
-  console.log(`Using ${cpus} threads for oxlint...`);
+  const isMacOS = os.platform() === 'darwin';
+  const cpus = isMacOS ? Math.min(os.cpus().length, 4) : os.cpus().length;
+  const fixFlag = isCI ? '' : ' --fix';
+  console.log(
+    `Using ${cpus} threads for oxlint...${isCI ? ' (CI mode, no --fix)' : ''}`,
+  );
   const oxlintResult = execSync(
-    `npx oxlint --tsconfig ./tsconfig.json --type-aware --threads=${cpus} . --fix`,
+    `npx oxlint --tsconfig ./tsconfig.json --type-aware --threads=${cpus} .${fixFlag}`,
     { encoding: 'utf-8', stdio: 'pipe' },
   );
 
@@ -47,7 +101,30 @@ try {
     console.error(error.stderr.toString('utf-8'));
   }
   console.log(`[${getTimestamp()}] Oxlint check failed. (${oxlintDuration}s)`);
+
+  // Restore original .oxlintrc.json in CI environment before exit
+  if (isCI && originalOxlintrc) {
+    try {
+      fs.writeFileSync(oxlintrcPath, originalOxlintrc);
+      console.log(`[${getTimestamp()}] .oxlintrc.json restored`);
+    } catch (restoreError) {
+      console.error('Failed to restore .oxlintrc.json:', restoreError);
+    }
+  }
+
   exit(1);
+}
+
+// ============================================
+// Restore .oxlintrc.json in CI environment
+// ============================================
+if (isCI && originalOxlintrc) {
+  try {
+    fs.writeFileSync(oxlintrcPath, originalOxlintrc);
+    console.log(`[${getTimestamp()}] .oxlintrc.json restored`);
+  } catch (error) {
+    console.error('Failed to restore .oxlintrc.json:', error);
+  }
 }
 
 // ============================================

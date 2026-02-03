@@ -410,13 +410,13 @@ function HomeOverviewContainer() {
                 {...numberFormatter}
                 size={
                   md
-                    ? balanceSizeList.find(
+                    ? (balanceSizeList.find(
                         (item) =>
                           numberFormatAsRenderText(
                             String(debouncedBalanceString),
                             numberFormatter,
                           ).length >= item.length,
-                      )?.size ?? defaultBalanceSize
+                      )?.size ?? defaultBalanceSize)
                     : defaultBalanceSize
                 }
               >

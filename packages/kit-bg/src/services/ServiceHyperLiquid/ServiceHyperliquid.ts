@@ -790,7 +790,7 @@ export default class ServiceHyperliquid extends ServiceBase {
           const ethNetworkId = PERPS_NETWORK_ID;
           const getNetworkAccountParams = {
             indexedAccountId: indexedAccountId ?? undefined,
-            accountId: indexedAccountId ? undefined : accountId ?? undefined,
+            accountId: indexedAccountId ? undefined : (accountId ?? undefined),
             networkId: ethNetworkId,
             deriveType: deriveType || 'default',
           };

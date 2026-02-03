@@ -120,8 +120,8 @@ export default function PageDevUnitTests() {
         key.length === 0
           ? 'emptyKey'
           : data.length === 0
-          ? 'emptyData'
-          : 'normal';
+            ? 'emptyData'
+            : 'normal';
       const expected = HASH_TEST_SNAPSHOTS.hmacSHA256[testCase];
       setHmac256Valid(resultHex === expected);
     } catch (error) {
@@ -142,8 +142,8 @@ export default function PageDevUnitTests() {
         key.length === 0
           ? 'emptyKey'
           : data.length === 0
-          ? 'emptyData'
-          : 'normal';
+            ? 'emptyData'
+            : 'normal';
       const expected = HASH_TEST_SNAPSHOTS.hmacSHA512[testCase];
       setHmac512Valid(resultHex === expected);
     } catch (error) {

@@ -87,7 +87,7 @@ export function SuggestedAndExploreSection({
                   (_i, idx) =>
                     ({
                       dappId: `first-${idx}`,
-                    } as IDApp),
+                    }) as IDApp,
                 ),
                 chunkSize,
               )}

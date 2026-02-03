@@ -242,9 +242,8 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
           throw new OneKeyLocalError('Offering not found');
         }
 
-        const makePurchaseResult = await PurchasesReactNative.purchasePackage(
-          offering,
-        );
+        const makePurchaseResult =
+          await PurchasesReactNative.purchasePackage(offering);
 
         if (
           makePurchaseResult?.customerInfo?.entitlements?.active?.Prime

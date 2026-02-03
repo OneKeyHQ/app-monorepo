@@ -195,7 +195,7 @@ const usePerpDeposit = (
             indexedAccountId,
             networkId: token.networkId ?? '',
             deriveType: defaultDeriveType ?? 'default',
-            accountId: indexedAccountId ? undefined : selectedAccountId ?? '',
+            accountId: indexedAccountId ? undefined : (selectedAccountId ?? ''),
           });
         const perpAccountDefaultDeriveType =
           await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
@@ -203,7 +203,7 @@ const usePerpDeposit = (
           });
         const perpAccount =
           await backgroundApiProxy.serviceAccount.getNetworkAccount({
-            accountId: indexedAccountId ? undefined : selectedAccountId ?? '',
+            accountId: indexedAccountId ? undefined : (selectedAccountId ?? ''),
             indexedAccountId,
             deriveType: perpAccountDefaultDeriveType ?? 'default',
             networkId: PERPS_NETWORK_ID,
@@ -1054,9 +1054,8 @@ const usePerpDeposit = (
     if (!token?.networkId) {
       throw new OneKeyError('token.networkId is required');
     }
-    const { transferInfo, encodedTx, swapInfo } = await buildQuoteRes(
-      perpDepositQuote,
-    );
+    const { transferInfo, encodedTx, swapInfo } =
+      await buildQuoteRes(perpDepositQuote);
     const { unsignedTxArr } = await getApproveUnSignedTxArr(
       perpDepositQuote?.result,
     );

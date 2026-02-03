@@ -17,8 +17,10 @@ import type { IButtonProps, IIconProps, IKeyOfIcons } from '../../primitives';
 import type { ITooltipProps } from '../Tooltip';
 import type { GestureResponderEvent } from 'react-native';
 
-export interface IIconButtonProps
-  extends Omit<IButtonProps, 'iconAfter' | 'children' | 'icon'> {
+export interface IIconButtonProps extends Omit<
+  IButtonProps,
+  'iconAfter' | 'children' | 'icon'
+> {
   icon: IKeyOfIcons;
   iconSize?: IIconProps['size'];
   iconProps?: IIconProps;
