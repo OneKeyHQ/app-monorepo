@@ -592,10 +592,13 @@ class ServiceNetwork extends ServiceBase {
       useDefaultPinnedNetworks,
     );
     networkIds = networkIds.filter((id) => id !== getNetworkIdsMap().onekeyall);
-    const networkIdsIndex = networkIds.reduce((result, item, index) => {
-      result[item] = index;
-      return result;
-    }, {} as Record<string, number>);
+    const networkIdsIndex = networkIds.reduce(
+      (result, item, index) => {
+        result[item] = index;
+        return result;
+      },
+      {} as Record<string, number>,
+    );
     const resp = await this.getNetworksByIds({ networkIds });
     const sorted = resp.networks.toSorted(
       (a, b) => networkIdsIndex[a.id] - networkIdsIndex[b.id],
@@ -1526,21 +1529,14 @@ class ServiceNetwork extends ServiceBase {
       return;
     }
 
-    // filter out all network
-    const filteredData = Object.fromEntries(
-      Object.entries(data).filter(
-        ([networkId]) => !networkUtils.isAllNetwork({ networkId }),
-      ),
-    );
-
     return this.backgroundApi.simpleDb.recentNetworks.updateRecentNetworks(
-      filteredData,
+      data,
     );
   }
 
   @backgroundMethod()
   async updateRecentNetwork({ networkId }: { networkId: string }) {
-    if (!networkId || networkUtils.isAllNetwork({ networkId })) {
+    if (!networkId) {
       return;
     }
     const timestamp = Date.now();

@@ -276,9 +276,8 @@ export class HardwareConnectionManager {
       }
 
       // No USB devices, check if Bluetooth is available before fallback
-      const bluetoothAvailable = await this.detectBluetoothAvailability(
-        hardwareCallContext,
-      );
+      const bluetoothAvailable =
+        await this.detectBluetoothAvailability(hardwareCallContext);
       if (bluetoothAvailable) {
         return EHardwareTransportType.DesktopWebBle;
       }
@@ -361,9 +360,8 @@ export class HardwareConnectionManager {
         };
       }
 
-      const optimalType = await this.determineOptimalTransportType(
-        hardwareCallContext,
-      );
+      const optimalType =
+        await this.determineOptimalTransportType(hardwareCallContext);
       const shouldSwitch = this.actualTransportType !== optimalType;
 
       console.log(

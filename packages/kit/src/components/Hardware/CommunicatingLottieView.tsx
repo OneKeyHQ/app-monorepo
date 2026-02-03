@@ -5,6 +5,10 @@ import { LottieView, YStack } from '@onekeyhq/components';
 import BluetoothSignalSpreading from '@onekeyhq/kit/assets/animations/bluetooth_signal_spreading.json';
 import CommunicatingWithUSBLottie from '@onekeyhq/kit/assets/animations/communicating-with-usb.json';
 
+import { DeviceInfoCard } from './DeviceInfoCard';
+
+import type { IDeviceInfoCardProps } from './DeviceInfoCard';
+
 function Container({ children, ...rest }: IYStackProps) {
   return (
     <YStack
@@ -25,9 +29,23 @@ function Container({ children, ...rest }: IYStackProps) {
 
 export default function CommunicatingLottieView({
   method,
+  deviceType,
+  walletName,
+  bleName,
 }: {
   method: 'usb' | 'bluetooth';
-}) {
+} & IDeviceInfoCardProps) {
+  const deviceInfoCard = (
+    <DeviceInfoCard
+      deviceType={deviceType}
+      walletName={walletName}
+      bleName={bleName}
+      position="absolute"
+      bottom="$2"
+      left="$2"
+    />
+  );
+
   if (method === 'usb') {
     return (
       <Container>
@@ -61,6 +79,7 @@ export default function CommunicatingLottieView({
           autoPlay
           loop
         />
+        {deviceInfoCard}
       </Container>
     );
   }
@@ -97,6 +116,7 @@ export default function CommunicatingLottieView({
         autoPlay
         loop
       />
+      {deviceInfoCard}
     </Container>
   );
 }

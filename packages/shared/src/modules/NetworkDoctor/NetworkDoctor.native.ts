@@ -394,9 +394,8 @@ export class NetworkDoctor {
     const startTime = Date.now();
     const hostname = this.targetDomain ?? '';
     try {
-      const { getIpAddressesForHostname } = await import(
-        'react-native-dns-lookup'
-      );
+      const { getIpAddressesForHostname } =
+        await import('react-native-dns-lookup');
       const ips = await getIpAddressesForHostname(hostname);
 
       const result = {
@@ -807,8 +806,8 @@ export class NetworkDoctor {
           log.status && log.status >= 200 && log.status < 300
             ? '✓'
             : log.status
-            ? '✗'
-            : '?';
+              ? '✗'
+              : '?';
         const statusText = log.status ? `${log.status}` : 'NO_STATUS';
         const durationText = log.duration ? `${log.duration}ms` : 'N/A';
 

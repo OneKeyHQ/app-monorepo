@@ -74,7 +74,7 @@ function WeblnMakeInvoiceModal() {
       const amount =
         lnUnit === ELightningUnit.BTC
           ? chainValueUtils.convertBtcToSats(values.amount ?? 0)
-          : values.amount ?? 0;
+          : (values.amount ?? 0);
       try {
         const invoice = await backgroundApiProxy.serviceLightning.createInvoice(
           {

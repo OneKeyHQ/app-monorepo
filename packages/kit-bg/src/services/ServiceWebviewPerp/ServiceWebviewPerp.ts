@@ -19,6 +19,10 @@ import thirdpartyLocaleConverter from '@onekeyhq/shared/src/locale/thirdpartyLoc
 import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale/type';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
+import type {
+  ITokenSearchAliasItem,
+  ITokenSearchAliases,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
@@ -182,6 +186,9 @@ export interface IPerpServerCommonConfig {
   ipDisablePerp?: boolean;
 }
 
+// Re-export types from perpsUtils for backward compatibility
+export type { ITokenSearchAliasItem, ITokenSearchAliases };
+
 export interface IPerpServerConfigResponse {
   referrerConfig: IPerpServerReferrerConfig;
   customSettings?: IHyperliquidCustomSettings;
@@ -197,6 +204,7 @@ export interface IPerpServerConfigResponse {
   bannerConfig?: IPerpServerBannerConfig;
   depositTokenConfig?: IPerpServerDepositConfig[];
   hyperLiquidErrorLocales?: IHyperLiquidErrorLocaleItem[];
+  tokenSearchAliases?: ITokenSearchAliases;
 }
 @backgroundClass()
 class ServiceWebviewPerp extends ServiceBase {

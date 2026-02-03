@@ -74,13 +74,11 @@ export class Analytics {
       // Lazy load IP Table adapter to avoid circular dependencies in tests
       let ipTableAdapter;
       try {
-        const { isSupportIpTablePlatform } = await import(
-          '../utils/ipTableUtils'
-        );
+        const { isSupportIpTablePlatform } =
+          await import('../utils/ipTableUtils');
         if (isSupportIpTablePlatform()) {
-          const { createIpTableAdapter } = await import(
-            '../request/helpers/ipTableAdapter'
-          );
+          const { createIpTableAdapter } =
+            await import('../request/helpers/ipTableAdapter');
           ipTableAdapter = createIpTableAdapter(baseConfig);
         }
       } catch (error) {

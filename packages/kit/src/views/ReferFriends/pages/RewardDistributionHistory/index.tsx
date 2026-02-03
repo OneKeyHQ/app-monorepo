@@ -38,22 +38,25 @@ type ISectionListItem = {
 const formatSections = (items: IInvitePaidHistory['items']) => {
   const groupedData: Record<string, IInvitePaidHistory['items']> = items.reduce<
     Record<string, any[]>
-  >((acc, item) => {
-    const date = new Date(item.createdAt);
-    const year = date.getFullYear();
-    const month = date.getMonth() + 1;
-    const day = date.getDate();
-    const dateKey = `${year}-${month.toString().padStart(2, '0')}-${day
-      .toString()
-      .padStart(2, '0')}`;
+  >(
+    (acc, item) => {
+      const date = new Date(item.createdAt);
+      const year = date.getFullYear();
+      const month = date.getMonth() + 1;
+      const day = date.getDate();
+      const dateKey = `${year}-${month.toString().padStart(2, '0')}-${day
+        .toString()
+        .padStart(2, '0')}`;
 
-    if (!acc[dateKey]) {
-      acc[dateKey] = [];
-    }
+      if (!acc[dateKey]) {
+        acc[dateKey] = [];
+      }
 
-    acc[dateKey].push(item);
-    return acc;
-  }, {} as Record<string, IInvitePaidHistory['items']>);
+      acc[dateKey].push(item);
+      return acc;
+    },
+    {} as Record<string, IInvitePaidHistory['items']>,
+  );
 
   return Object.keys(groupedData).map((dateKey) => {
     const date = new Date(groupedData[dateKey][0].createdAt);

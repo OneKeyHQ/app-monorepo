@@ -24,19 +24,28 @@ import { useClipboard } from '@onekeyhq/components/src/hooks/useClipboard';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import {
+  ONEKEY_ORDERS_URL,
+  ONEKEY_SHOP_URL,
+  ONEKEY_TRACK_ORDER_URL,
+} from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IShopifyOrder } from '@onekeyhq/shared/types/prime/primeTypes';
-
-const FIND_ORDER_URL = 'https://orders.onekey.so';
-const BUY_ONEKEY_URL = 'https://shop.onekey.so';
 
 const shopifyStatusToBadgeType: Record<string, IBadgeType> = {
   fulfilled: 'success',
   shipped: 'info',
   cancelled: 'warning',
   unfulfilled: 'default',
+};
+
+const shopifyStatusToI18nKey: Record<string, ETranslations> = {
+  fulfilled: ETranslations.prime_fulfillment_status_fulfilled,
+  shipped: ETranslations.prime_fulfillment_status_shipped,
+  cancelled: ETranslations.prime_fulfillment_status_cancelled,
+  unfulfilled: ETranslations.prime_fulfillment_status_unfulfilled,
 };
 
 export default function PrimeMyOrders() {
@@ -53,24 +62,24 @@ export default function PrimeMyOrders() {
   );
 
   const handleFindMyOrder = () => {
-    openUrlUtils.openUrlExternal(FIND_ORDER_URL);
+    openUrlUtils.openUrlExternal(ONEKEY_ORDERS_URL);
   };
 
   const handleBuyOneKey = () => {
-    openUrlUtils.openUrlExternal(BUY_ONEKEY_URL);
+    openUrlUtils.openUrlExternal(ONEKEY_SHOP_URL);
   };
 
   const handleCopyOrderNumber = useCallback(
     (orderNumber: string, event?: { stopPropagation?: () => void }) => {
       event?.stopPropagation?.();
-      copyText(orderNumber);
+      copyText(orderNumber, ETranslations.prime_order_number_copy);
     },
     [copyText],
   );
 
   const handleOrderDetails = useCallback(
     (order: IShopifyOrder) => {
-      const trackOrderUrl = `https://onekey.so/track-order?order=${encodeURIComponent(
+      const trackOrderUrl = `${ONEKEY_TRACK_ORDER_URL}?order=${encodeURIComponent(
         order.orderNumber,
       )}&token=${encodeURIComponent(user?.email ?? '')}`;
       openUrlUtils.openUrlExternal(trackOrderUrl);
@@ -118,7 +127,7 @@ export default function PrimeMyOrders() {
                   {item.orderNumber}
                 </SizableText>
                 <IconButton
-                  icon="Copy1Outline"
+                  icon="Copy3Outline"
                   size="small"
                   variant="tertiary"
                   onPress={(e) => handleCopyOrderNumber(item.orderNumber, e)}
@@ -132,7 +141,11 @@ export default function PrimeMyOrders() {
                 }
                 badgeSize="sm"
               >
-                {item.status}
+                {intl.formatMessage({
+                  id:
+                    shopifyStatusToI18nKey[item.status.toLowerCase()] ??
+                    ETranslations.prime_fulfillment_status_unfulfilled,
+                })}
               </Badge>
             </XStack>
 
@@ -160,7 +173,12 @@ export default function PrimeMyOrders() {
               {intl.formatMessage({ id: ETranslations.global_details })}
             </Button>
           ) : (
-            <Icon name="ChevronRightSmallOutline" color="$iconSubdued" />
+            <IconButton
+              icon="OpenOutline"
+              size="small"
+              variant="tertiary"
+              onPress={() => handleOrderDetails(item)}
+            />
           )}
         </XStack>
       );
@@ -179,23 +197,7 @@ export default function PrimeMyOrders() {
 
     if (hasOrders) {
       return (
-        <YStack flex={1} pb="$4" px={gtMd ? 60 : 20} gap="$2.5">
-          {/* Alert Banner */}
-          {showAlert ? (
-            <Alert
-              type="info"
-              icon="CartOutline"
-              title={intl.formatMessage({
-                id: ETranslations.prime_order_link_title,
-              })}
-              description={intl.formatMessage({
-                id: ETranslations.prime_order_link_desc,
-              })}
-              closable
-              onClose={() => setShowAlert(false)}
-            />
-          ) : null}
-
+        <YStack flex={1} pb="$4">
           {/* Order List */}
           <ListView
             data={orders}
@@ -203,6 +205,27 @@ export default function PrimeMyOrders() {
             keyExtractor={(item) => item.orderNumber}
             estimatedItemSize={100}
             ItemSeparatorComponent={() => <Stack h="$3" />}
+            ListHeaderComponent={
+              showAlert ? (
+                <Alert
+                  type="info"
+                  icon="CartOutline"
+                  title={intl.formatMessage({
+                    id: ETranslations.prime_order_link_title,
+                  })}
+                  description={intl.formatMessage({
+                    id: ETranslations.prime_order_link_desc,
+                  })}
+                  closable
+                  onClose={() => setShowAlert(false)}
+                  mb="$2.5"
+                />
+              ) : null
+            }
+            contentContainerStyle={{
+              px: gtMd ? 60 : 20,
+              pb: '$4',
+            }}
           />
         </YStack>
       );
