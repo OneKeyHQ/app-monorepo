@@ -1529,21 +1529,14 @@ class ServiceNetwork extends ServiceBase {
       return;
     }
 
-    // filter out all network
-    const filteredData = Object.fromEntries(
-      Object.entries(data).filter(
-        ([networkId]) => !networkUtils.isAllNetwork({ networkId }),
-      ),
-    );
-
     return this.backgroundApi.simpleDb.recentNetworks.updateRecentNetworks(
-      filteredData,
+      data,
     );
   }
 
   @backgroundMethod()
   async updateRecentNetwork({ networkId }: { networkId: string }) {
-    if (!networkId || networkUtils.isAllNetwork({ networkId })) {
+    if (!networkId) {
       return;
     }
     const timestamp = Date.now();
