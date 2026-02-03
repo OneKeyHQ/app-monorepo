@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 
@@ -15,9 +15,23 @@ type IProps = {
 
 const unSupportedImage = ['data:image/svg+xml;'];
 
+enum EMediaState {
+  Image = 'image',
+  Video = 'video',
+  Unsupported = 'unsupported',
+}
+
 function CommonAssetImage(props: IProps) {
   const { nft } = props;
-  const [isVideo, setIsVideo] = useState<boolean>(!!nft.metadata?.image);
+  const [mediaState, setMediaState] = useState<EMediaState>(EMediaState.Image);
+
+  const handleImageError = useCallback(() => {
+    setMediaState(EMediaState.Video);
+  }, []);
+
+  const handleVideoError = useCallback(() => {
+    setMediaState(EMediaState.Unsupported);
+  }, []);
 
   const isUnSupportedImageInNative = useMemo(
     () =>
@@ -29,27 +43,16 @@ function CommonAssetImage(props: IProps) {
     return <UnSupportedImageContainer src={nft.metadata?.image} />;
   }
 
-  return (
-    <>
-      <Stack width="100%" height="100%" borderRadius={12}>
-        {isVideo ? (
-          <Video
-            source={{ uri: nft.metadata?.image }}
-            controls
-            onError={() => setIsVideo(false)}
-            style={{
-              width: '100%',
-              height: '100%',
-              position: 'absolute',
-              zIndex: 1,
-            }}
-          />
-        ) : (
+  const renderMedia = () => {
+    switch (mediaState) {
+      case EMediaState.Image:
+        return (
           <Stack width="100%" height="100%">
             <Image
               src={nft.metadata?.image}
               w="100%"
               h="100%"
+              onError={handleImageError}
               fallback={
                 <Image.Fallback
                   w="100%"
@@ -63,7 +66,32 @@ function CommonAssetImage(props: IProps) {
               }
             />
           </Stack>
-        )}
+        );
+      case EMediaState.Video:
+        return (
+          <Video
+            source={{ uri: nft.metadata?.image }}
+            controls
+            onError={handleVideoError}
+            style={{
+              width: '100%',
+              height: '100%',
+              position: 'absolute',
+              zIndex: 1,
+            }}
+          />
+        );
+      case EMediaState.Unsupported:
+        return <UnSupportedImageContainer src={nft.metadata?.image} />;
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <>
+      <Stack width="100%" height="100%" borderRadius={12}>
+        {renderMedia()}
       </Stack>
 
       {nft.collectionType === ENFTType.ERC1155 &&

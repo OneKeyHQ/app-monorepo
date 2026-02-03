@@ -1,4 +1,4 @@
-import { memo, useState } from 'react';
+import { memo, useCallback, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 
@@ -16,6 +16,12 @@ import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import { SHOW_NFT_AMOUNT_MAX } from '@onekeyhq/shared/src/consts/walletConsts';
 import { ENFTType, type IAccountNFT } from '@onekeyhq/shared/types/nft';
 
+enum EMediaState {
+  Image = 'image',
+  Video = 'video',
+  Fallback = 'fallback',
+}
+
 type IProps = {
   nft: IAccountNFT;
   onPress?: (token: IAccountNFT) => void;
@@ -25,8 +31,16 @@ type IProps = {
 
 function BasicNFTListItem(props: IProps) {
   const { nft, onPress, isAllNetworks } = props;
-  const [isVideo, setIsVideo] = useState<boolean>(!!nft.metadata?.image);
   const { network } = useAccountData({ networkId: nft.networkId });
+  const [mediaState, setMediaState] = useState<EMediaState>(EMediaState.Image);
+
+  const handleImageError = useCallback(() => {
+    setMediaState(EMediaState.Video);
+  }, []);
+
+  const handleVideoError = useCallback(() => {
+    setMediaState(EMediaState.Fallback);
+  }, []);
 
   return (
     <Stack
@@ -54,27 +68,14 @@ function BasicNFTListItem(props: IProps) {
         }}
       >
         <Stack position="absolute" left={0} top={0} right={0} bottom={0}>
-          {isVideo ? (
-            <Stack bg="$bgApp" w="100%" h="100%">
-              <Video
-                onError={() => setIsVideo(false)}
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  position: 'absolute',
-                  zIndex: 1,
-                }}
-                autoPlay={false}
-                source={{ uri: nft.metadata?.image }}
-              />
-            </Stack>
-          ) : (
-            <Stack bg="$bgApp" w="100%" h="100%">
+          <Stack bg="$bgApp" w="100%" h="100%">
+            {mediaState === EMediaState.Image ? (
               <Image
                 w="100%"
                 h="100%"
                 borderRadius="$2.5"
                 source={{ uri: nft.metadata?.image }}
+                onError={handleImageError}
                 fallback={
                   <Image.Fallback
                     w="100%"
@@ -91,8 +92,31 @@ function BasicNFTListItem(props: IProps) {
                   </Image.Fallback>
                 }
               />
-            </Stack>
-          )}
+            ) : null}
+            {mediaState === EMediaState.Video ? (
+              <Video
+                onError={handleVideoError}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                }}
+                autoPlay={false}
+                source={{ uri: nft.metadata?.image }}
+              />
+            ) : null}
+            {mediaState === EMediaState.Fallback ? (
+              <Stack
+                w="100%"
+                h="100%"
+                borderRadius="$2.5"
+                bg="$bgStrong"
+                justifyContent="center"
+                alignItems="center"
+              >
+                <Icon name="ImageSquareWavesOutline" color="$iconDisabled" />
+              </Stack>
+            ) : null}
+          </Stack>
           {nft.collectionType === ENFTType.ERC1155 &&
           new BigNumber(nft.amount ?? 1).gt(1) ? (
             <Stack

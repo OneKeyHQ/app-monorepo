@@ -37,6 +37,11 @@ const networkIdsMap = getNetworkIdsMap();
 function NFTListContainer() {
   const { isFocused, isHeaderRefreshing, setIsHeaderRefreshing } =
     useTabIsRefreshingFocused();
+  const hasBeenFocusedRef = useRef(false);
+  if (isFocused) {
+    hasBeenFocusedRef.current = true;
+  }
+  const hasBeenFocused = hasBeenFocusedRef.current;
   const { updateAllNetworksState } = useAccountOverviewActions().current;
   const { updateSearchKey } = useNFTListActions().current;
   const [nftListState, setNftListState] = useState({
@@ -345,6 +350,10 @@ function NFTListContainer() {
       appEventBus.off(EAppEventBusNames.NetworkDeriveTypeChanged, fn);
     };
   }, [handleRefreshAllNetworkData, isFocused, network?.isAllNetworks, run]);
+
+  if (!hasBeenFocused) {
+    return null;
+  }
 
   return (
     <NFTListView

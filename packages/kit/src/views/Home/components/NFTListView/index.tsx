@@ -202,7 +202,7 @@ function NFTListView(props: IProps) {
     <Tabs.FlatList
       // @ts-ignore
       horizontalPadding={20}
-      windowSize={platformEnv.isNativeAndroid ? 3 : undefined}
+      windowSize={platformEnv.isNative ? 3 : undefined}
       nestedScrollEnabled={platformEnv.isNativeAndroid}
       refreshControl={
         !platformEnv.isNativeAndroid && onRefresh ? (
