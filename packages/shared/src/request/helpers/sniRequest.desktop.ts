@@ -23,9 +23,8 @@ export async function sniRequest(
     }
 
     // Call main process via proxy
-    const response: ISniResponse = await desktopApiProxy.sniRequest.request(
-      config,
-    );
+    const response: ISniResponse =
+      await desktopApiProxy.sniRequest.request(config);
 
     return response;
   } catch (error) {

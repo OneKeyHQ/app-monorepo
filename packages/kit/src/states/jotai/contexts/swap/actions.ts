@@ -1145,18 +1145,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       }
       // check account
       if (!swapFromAddressInfo.accountInfo?.wallet) {
-        alertsRes = [
-          ...alertsRes,
-          {
-            message: appLocale.intl.formatMessage({
-              id: ETranslations.swap_page_button_no_connected_wallet,
-            }),
-            alertLevel: ESwapAlertLevel.ERROR,
-            noConnectWallet: true,
-          },
-        ];
+        // Set noConnectWallet flag without showing alert message
         set(swapAlertsAtom(), {
-          states: alertsRes,
+          states: [{ noConnectWallet: true }],
           quoteId: quoteResult?.quoteId ?? '',
         });
         return;
@@ -1549,7 +1540,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                   swapAddressInfo.accountInfo?.indexedAccount?.id,
                 accountId: swapAddressInfo.accountInfo?.indexedAccount?.id
                   ? undefined
-                  : swapAddressInfo.accountInfo?.account?.id ?? '',
+                  : (swapAddressInfo.accountInfo?.account?.id ?? ''),
                 dbAccount: swapAddressInfo.accountInfo?.dbAccount,
                 networkId: token.networkId,
               });

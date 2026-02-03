@@ -108,8 +108,7 @@ export const NetworkSelectorTriggerDappConnectionCmp = ({
   </XStack>
 );
 
-export interface INetworkSelectorTriggerDappConnectionProps
-  extends IXStackProps {
+export interface INetworkSelectorTriggerDappConnectionProps extends IXStackProps {
   num: number;
   beforeShowTrigger?: () => Promise<void>;
   loadingDuration?: number;

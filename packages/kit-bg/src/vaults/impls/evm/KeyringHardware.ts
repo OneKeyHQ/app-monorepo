@@ -367,9 +367,8 @@ export class KeyringHardware extends KeyringHardwareBase {
         for (let i = 0; i < publicKeys.length; i += 1) {
           const item = publicKeys[i];
           const { path, address, __hwExtraInfo__ } = item;
-          const { normalizedAddress } = await this.vault.validateAddress(
-            address,
-          );
+          const { normalizedAddress } =
+            await this.vault.validateAddress(address);
           const addressInfo: ICoreApiGetAddressItem = {
             address: normalizedAddress || address,
             path,

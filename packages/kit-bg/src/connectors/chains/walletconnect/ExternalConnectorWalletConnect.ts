@@ -21,9 +21,7 @@ import type { WalletConnectDappSideProvider } from '../../../services/ServiceWal
 import type { ConnectorEventMap } from '@wagmi/core';
 import type { Chain, Client, ProviderConnectInfo, ProviderMessage } from 'viem';
 
-export class ExternalConnectorWalletConnect
-  implements IExternalConnectorBase<WalletConnectDappSideProvider>
-{
+export class ExternalConnectorWalletConnect implements IExternalConnectorBase<WalletConnectDappSideProvider> {
   icon?: string | undefined;
 
   id = 'walletconnect';

@@ -598,7 +598,8 @@ export function CommonTableListView<T>({
             <YStack flex={1} minWidth={scrollableMinWidth} cursor="default">
               <XStack
                 py="$2"
-                px="$3"
+                pl="$5"
+                pr="$3"
                 display="flex"
                 minWidth={scrollableMinWidth}
                 width="100%"

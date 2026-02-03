@@ -160,14 +160,17 @@ function CurrentConnectionModal() {
               sceneUrl: memoizedResult?.origin ?? '',
             }}
             enabledNum={accountsInfo.map((account) => account.num)}
-            availableNetworksMap={accountsInfo.reduce((acc, account) => {
-              if (Array.isArray(account.availableNetworkIds)) {
-                acc[account.num] = {
-                  networkIds: account.availableNetworkIds,
-                };
-              }
-              return acc;
-            }, {} as Record<number, { networkIds: string[] }>)}
+            availableNetworksMap={accountsInfo.reduce(
+              (acc, account) => {
+                if (Array.isArray(account.availableNetworkIds)) {
+                  acc[account.num] = {
+                    networkIds: account.availableNetworkIds,
+                  };
+                }
+                return acc;
+              },
+              {} as Record<number, { networkIds: string[] }>,
+            )}
           >
             <ListView
               data={accountsInfo}

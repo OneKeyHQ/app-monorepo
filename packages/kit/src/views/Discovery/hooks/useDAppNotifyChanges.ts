@@ -109,7 +109,7 @@ export function useDAppNotifyChangesBase({
         return;
       }
       // @ts-expect-error
-      if (innerRef.__dy) {
+      if (innerRef.__domReady) {
         notifyChanges(url, 'immediately');
       } else {
         const timer = setTimeout(() => {

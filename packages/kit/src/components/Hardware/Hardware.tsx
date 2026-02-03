@@ -447,17 +447,13 @@ export function ConfirmOnDeviceToastContent({
       case EDeviceType.Classic:
       case EDeviceType.Classic1s:
       case EDeviceType.ClassicPure:
-        return import(
-          '@onekeyhq/kit/assets/animations/confirm-on-classic.json'
-        );
+        return import('@onekeyhq/kit/assets/animations/confirm-on-classic.json');
       case EDeviceType.Mini:
         return import('@onekeyhq/kit/assets/animations/confirm-on-mini.json');
       case EDeviceType.Touch:
         return import('@onekeyhq/kit/assets/animations/confirm-on-touch.json');
       case EDeviceType.Pro:
-        return import(
-          '@onekeyhq/kit/assets/animations/confirm-on-pro-dark.json'
-        );
+        return import('@onekeyhq/kit/assets/animations/confirm-on-pro-dark.json');
       default:
         // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-case-declarations
         const checkType = deviceType;
@@ -505,7 +501,17 @@ export function ConfirmOnDeviceToastContent({
   );
 }
 
-export function CommonDeviceLoading({ children }: { children?: any }) {
+export function CommonDeviceLoading({
+  children,
+  deviceType,
+  walletName,
+  bleName,
+}: {
+  children?: any;
+  deviceType?: IDeviceType;
+  walletName?: string;
+  bleName?: string;
+}) {
   const [{ hardwareTransportType }] = useSettingsPersistAtom();
   const { result: communicationMethod } = usePromiseResult<'bluetooth' | 'usb'>(
     async () => {
@@ -527,7 +533,12 @@ export function CommonDeviceLoading({ children }: { children?: any }) {
   );
   return (
     <>
-      <CommunicatingLottieView method={communicationMethod} />
+      <CommunicatingLottieView
+        method={communicationMethod}
+        deviceType={deviceType}
+        walletName={walletName}
+        bleName={bleName}
+      />
       {children}
     </>
   );
@@ -550,19 +561,13 @@ export function EnterPinOnDevice({
       case EDeviceType.Classic:
       case EDeviceType.Classic1s:
       case EDeviceType.ClassicPure:
-        return import(
-          '@onekeyhq/kit/assets/animations/enter-pin-on-classic.json'
-        );
+        return import('@onekeyhq/kit/assets/animations/enter-pin-on-classic.json');
       case EDeviceType.Mini:
         return import('@onekeyhq/kit/assets/animations/enter-pin-on-mini.json');
       case EDeviceType.Touch:
-        return import(
-          '@onekeyhq/kit/assets/animations/enter-pin-on-touch.json'
-        );
+        return import('@onekeyhq/kit/assets/animations/enter-pin-on-touch.json');
       case EDeviceType.Pro:
-        return import(
-          '@onekeyhq/kit/assets/animations/enter-pin-on-pro-dark.json'
-        );
+        return import('@onekeyhq/kit/assets/animations/enter-pin-on-pro-dark.json');
       default:
         // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-case-declarations
         const checkType = deviceType;
@@ -1056,21 +1061,13 @@ export function EnterPassphraseOnDevice({
       case EDeviceType.Classic:
       case EDeviceType.Classic1s:
       case EDeviceType.ClassicPure:
-        return import(
-          '@onekeyhq/kit/assets/animations/enter-passphrase-on-classic.json'
-        );
+        return import('@onekeyhq/kit/assets/animations/enter-passphrase-on-classic.json');
       case EDeviceType.Mini:
-        return import(
-          '@onekeyhq/kit/assets/animations/enter-passphrase-on-mini.json'
-        );
+        return import('@onekeyhq/kit/assets/animations/enter-passphrase-on-mini.json');
       case EDeviceType.Touch:
-        return import(
-          '@onekeyhq/kit/assets/animations/enter-passphrase-on-touch.json'
-        );
+        return import('@onekeyhq/kit/assets/animations/enter-passphrase-on-touch.json');
       case EDeviceType.Pro:
-        return import(
-          '@onekeyhq/kit/assets/animations/enter-passphrase-on-pro-dark.json'
-        );
+        return import('@onekeyhq/kit/assets/animations/enter-passphrase-on-pro-dark.json');
       default:
         // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-case-declarations
         const checkType = deviceType;

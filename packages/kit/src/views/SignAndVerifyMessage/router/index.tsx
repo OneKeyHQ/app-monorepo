@@ -6,9 +6,7 @@ import { LazyLoadPage } from '../../../components/LazyLoadPage';
 
 const SignAndVerifyMessage = LazyLoadPage(
   () =>
-    import(
-      '@onekeyhq/kit/src/views/SignAndVerifyMessage/pages/SignAndVerifyMessage'
-    ),
+    import('@onekeyhq/kit/src/views/SignAndVerifyMessage/pages/SignAndVerifyMessage'),
 );
 
 export const ModalSignAndVerifyRouter: IModalFlowNavigatorConfig<

@@ -221,9 +221,8 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
         };
         // TODO check package user is Matched to id
         // TODO check if user has already purchased
-        const purchase = await Purchases.getSharedInstance().purchase(
-          purchaseParams,
-        );
+        const purchase =
+          await Purchases.getSharedInstance().purchase(purchaseParams);
 
         primePaymentUtils.trackPrimeSubscriptionSuccess({
           paywallPackage,

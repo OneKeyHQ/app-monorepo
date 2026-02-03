@@ -102,7 +102,7 @@ const InAppNotification = () => {
       void backgroundApiProxy.serviceSwap.swapLimitOrdersFetchLoop(
         activeAccount?.indexedAccount?.id,
         !activeAccount?.indexedAccount?.id
-          ? activeAccount?.account?.id ?? activeAccount?.dbAccount?.id
+          ? (activeAccount?.account?.id ?? activeAccount?.dbAccount?.id)
           : undefined,
       );
     },

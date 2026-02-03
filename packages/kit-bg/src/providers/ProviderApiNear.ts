@@ -101,9 +101,8 @@ class ProviderApiNear extends ProviderApiBase {
     networkId: string;
     nodeUrls: string[];
   }> {
-    const networks = await this.backgroundApi.serviceDApp.getConnectedNetworks(
-      request,
-    );
+    const networks =
+      await this.backgroundApi.serviceDApp.getConnectedNetworks(request);
 
     if (networks[0]) {
       return {

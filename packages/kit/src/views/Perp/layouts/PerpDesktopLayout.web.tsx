@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { Allotment } from 'allotment';
 import 'allotment/dist/style.css';
+import './PerpAllotment.css';
 import { debounce } from 'lodash';
 
 import {
@@ -235,65 +236,67 @@ function PerpDesktopLayout() {
                   snap={PERP_LAYOUT_CONFIG.enableAutoCollapse}
                   preferredSize={`${PERP_LAYOUT_CONFIG.leftPanel.charts.defaultRatio}%`}
                 >
-                  <XStack
+                  <YStack
                     height="100%"
                     borderBottomWidth="$px"
                     borderBottomColor="$borderSubdued"
                   >
-                    <YStack flex={1} position="relative">
-                      <YStack flex={1}>
-                        <PerpTickerBar />
-                        <PerpCandles />
+                    <PerpTickerBar />
+                    <XStack flex={1} overflow="hidden">
+                      <YStack flex={1} position="relative">
+                        <YStack flex={1}>
+                          <PerpCandles />
+                        </YStack>
+
+                        {gtXl ? (
+                          <Stack
+                            position="absolute"
+                            top="50%"
+                            right={layoutState.orderBook.visible ? -4 : 3.5}
+                            zIndex={2}
+                            marginTop={-2}
+                          >
+                            <IconButton
+                              icon={
+                                layoutState.orderBook.visible
+                                  ? 'ChevronRightSmallSolid'
+                                  : 'ChevronLeftSmallSolid'
+                              }
+                              size="small"
+                              variant="tertiary"
+                              bg="$bg"
+                              borderWidth="$px"
+                              borderColor="$borderSubdued"
+                              borderRadius="$1"
+                              p="$0"
+                              h={30}
+                              w={16}
+                              hoverStyle={{
+                                borderColor: '$border',
+                              }}
+                              pressStyle={{
+                                borderColor: '$border',
+                              }}
+                              cursor="pointer"
+                              onPress={toggleOrderBook}
+                            />
+                          </Stack>
+                        ) : null}
                       </YStack>
 
-                      {gtXl ? (
-                        <Stack
-                          position="absolute"
-                          top="50%"
-                          right={layoutState.orderBook.visible ? -4 : 3.5}
-                          zIndex={2}
-                          marginTop={-2}
+                      {gtXl && layoutState.orderBook.visible ? (
+                        <YStack
+                          borderLeftWidth="$px"
+                          borderLeftColor="$borderSubdued"
+                          w={PERP_LAYOUT_CONFIG.orderBook.width}
+                          height="100%"
+                          overflow="hidden"
                         >
-                          <IconButton
-                            icon={
-                              layoutState.orderBook.visible
-                                ? 'ChevronRightSmallSolid'
-                                : 'ChevronLeftSmallSolid'
-                            }
-                            size="small"
-                            variant="tertiary"
-                            bg="$bg"
-                            borderWidth="$px"
-                            borderColor="$borderSubdued"
-                            borderRadius="$1"
-                            p="$0"
-                            h={30}
-                            w={16}
-                            hoverStyle={{
-                              borderColor: '$border',
-                            }}
-                            pressStyle={{
-                              borderColor: '$border',
-                            }}
-                            cursor="pointer"
-                            onPress={toggleOrderBook}
-                          />
-                        </Stack>
+                          <PerpOrderBookResizable />
+                        </YStack>
                       ) : null}
-                    </YStack>
-
-                    {gtXl && layoutState.orderBook.visible ? (
-                      <YStack
-                        borderLeftWidth="$px"
-                        borderLeftColor="$borderSubdued"
-                        w={PERP_LAYOUT_CONFIG.orderBook.width}
-                        height="100%"
-                        overflow="hidden"
-                      >
-                        <PerpOrderBookResizable />
-                      </YStack>
-                    ) : null}
-                  </XStack>
+                    </XStack>
+                  </YStack>
                 </Allotment.Pane>
 
                 <Allotment.Pane
