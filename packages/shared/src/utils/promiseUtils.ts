@@ -145,7 +145,11 @@ export async function promiseAllSettledEnhanced<T>(
   const { continueOnError, concurrency } = options ?? {};
 
   // When concurrency is set and items are task factories, execute in batches
-  if (concurrency && concurrency > 0 && typeof promisesOrFactories[0] === 'function') {
+  if (
+    concurrency &&
+    concurrency > 0 &&
+    typeof promisesOrFactories[0] === 'function'
+  ) {
     const factories = promisesOrFactories as (() => Promise<T>)[];
     const results: (T | null)[] = [];
     for (let i = 0; i < factories.length; i += concurrency) {
