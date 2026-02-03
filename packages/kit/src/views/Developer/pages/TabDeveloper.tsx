@@ -11,6 +11,7 @@ import {
   Stack,
   TextArea,
   YStack,
+  useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import { TabletHomeContainer } from '@onekeyhq/kit/src/components/TabletHomeContainer';
@@ -177,6 +178,7 @@ function TestRefreshCmp() {
 const TestRefresh = memo(TestRefreshCmp);
 
 const TabDeveloper = () => {
+  const tabBarHeight = useScrollContentTabBarOffset();
   const navigation =
     useAppNavigation<IPageNavigationProp<ITabDeveloperParamList>>();
 
@@ -196,7 +198,7 @@ const TabDeveloper = () => {
             flex={1}
             width="100%"
             paddingHorizontal="$5"
-            contentContainerStyle={{ paddingBottom: '$5' }}
+            contentContainerStyle={{ paddingBottom: tabBarHeight ?? '$5' }}
             gap="$5"
           >
             <PartContainer title="Components">
