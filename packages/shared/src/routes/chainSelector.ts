@@ -12,12 +12,23 @@ export enum EChainSelectorPages {
   AddCustomNetwork = 'AddCustomNetwork',
   AllNetworksManager = 'AllNetworksManager',
   TokenSelector = 'TokenSelector',
+  UnifiedNetworkSelector = 'UnifiedNetworkSelector',
 }
 export type IAccountChainSelectorRouteParams = IAccountSelectorRouteParams &
   IAccountSelectorAvailableNetworks & {
     editable?: boolean;
     recentNetworksEnabled?: boolean;
     recordNetworkHistoryEnabled?: boolean;
+  };
+
+export type IUnifiedNetworkSelectorRouteParams = IAccountSelectorRouteParams &
+  IAccountSelectorAvailableNetworks & {
+    editable?: boolean;
+    recordNetworkHistoryEnabled?: boolean;
+    // From AllNetworksManager
+    onNetworksChanged?: () => Promise<void>;
+    // New
+    defaultTab?: 'portfolio' | 'network';
   };
 
 export type IChainSelectorParams = {
@@ -35,6 +46,7 @@ export type IChainSelectorParamList = {
   [EChainSelectorPages.TokenSelector]: ITokenSelectorParamList;
   [EChainSelectorPages.AccountChainSelector]: IAccountChainSelectorRouteParams;
   [EChainSelectorPages.ChainSelector]?: IChainSelectorParams;
+  [EChainSelectorPages.UnifiedNetworkSelector]: IUnifiedNetworkSelectorRouteParams;
   [EChainSelectorPages.AddCustomNetwork]: {
     state: 'add' | 'edit';
     networkId?: string;
