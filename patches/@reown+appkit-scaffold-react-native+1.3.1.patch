@@ -1,8 +1,8 @@
 diff --git a/node_modules/@reown/appkit-scaffold-react-native/lib/commonjs/modal/w3m-modal/index.js b/node_modules/@reown/appkit-scaffold-react-native/lib/commonjs/modal/w3m-modal/index.js
-index 2afcde5..413cb0b 100644
+index 2afcde5..09da6a3 100644
 --- a/node_modules/@reown/appkit-scaffold-react-native/lib/commonjs/modal/w3m-modal/index.js
 +++ b/node_modules/@reown/appkit-scaffold-react-native/lib/commonjs/modal/w3m-modal/index.js
-@@ -17,30 +17,135 @@ var _w3mSnackbar = require("../../partials/w3m-snackbar");
+@@ -17,30 +17,139 @@ var _w3mSnackbar = require("../../partials/w3m-snackbar");
  var _useCustomDimensions = require("../../hooks/useCustomDimensions");
  var _styles = _interopRequireDefault(require("./styles"));
  function _interopRequireDefault(e) { return e && e.__esModule ? e : { default: e }; }
@@ -20,6 +20,10 @@ index 2afcde5..413cb0b 100644
 +    let mounted = true;
 +    let timeoutId;
 +    let unsubscribe;
++
++    // Reset retry count for fresh effect run (e.g. when proxyObject changes)
++    retryCountRef.current = 0;
++    isSubscribedRef.current = false;
 +
 +    const setupSubscription = () => {
 +      if (isSubscribedRef.current || !mounted) return;
@@ -144,7 +148,7 @@ index 2afcde5..413cb0b 100644
    const authProvider = connectors.find(c => c.type === 'AUTH')?.provider;
    const AuthView = authProvider?.AuthView;
 diff --git a/node_modules/@reown/appkit-scaffold-react-native/lib/module/modal/w3m-modal/index.js b/node_modules/@reown/appkit-scaffold-react-native/lib/module/modal/w3m-modal/index.js
-index f93d8c6..42aeee0 100644
+index f93d8c6..0a55f6f 100644
 --- a/node_modules/@reown/appkit-scaffold-react-native/lib/module/modal/w3m-modal/index.js
 +++ b/node_modules/@reown/appkit-scaffold-react-native/lib/module/modal/w3m-modal/index.js
 @@ -1,5 +1,5 @@
@@ -155,7 +159,7 @@ index f93d8c6..42aeee0 100644
  import { useWindowDimensions, StatusBar } from 'react-native';
  import Modal from 'react-native-modal';
  import { Card, ThemeProvider } from '@reown/appkit-ui-react-native';
-@@ -10,30 +10,135 @@ import { Header } from '../../partials/w3m-header';
+@@ -10,30 +10,139 @@ import { Header } from '../../partials/w3m-header';
  import { Snackbar } from '../../partials/w3m-snackbar';
  import { useCustomDimensions } from '../../hooks/useCustomDimensions';
  import styles from './styles';
@@ -173,6 +177,10 @@ index f93d8c6..42aeee0 100644
 +    let mounted = true;
 +    let timeoutId;
 +    let unsubscribe;
++
++    // Reset retry count for fresh effect run (e.g. when proxyObject changes)
++    retryCountRef.current = 0;
++    isSubscribedRef.current = false;
 +
 +    const setupSubscription = () => {
 +      if (isSubscribedRef.current || !mounted) return;
@@ -297,7 +305,7 @@ index f93d8c6..42aeee0 100644
    const authProvider = connectors.find(c => c.type === 'AUTH')?.provider;
    const AuthView = authProvider?.AuthView;
 diff --git a/node_modules/@reown/appkit-scaffold-react-native/src/modal/w3m-modal/index.tsx b/node_modules/@reown/appkit-scaffold-react-native/src/modal/w3m-modal/index.tsx
-index 6823724..a434ead 100644
+index 6823724..1e78fc8 100644
 --- a/node_modules/@reown/appkit-scaffold-react-native/src/modal/w3m-modal/index.tsx
 +++ b/node_modules/@reown/appkit-scaffold-react-native/src/modal/w3m-modal/index.tsx
 @@ -1,5 +1,5 @@
@@ -308,7 +316,7 @@ index 6823724..a434ead 100644
  import { useWindowDimensions, StatusBar } from 'react-native';
  import Modal from 'react-native-modal';
  import { Card, ThemeProvider } from '@reown/appkit-ui-react-native';
-@@ -26,14 +26,140 @@ import { Snackbar } from '../../partials/w3m-snackbar';
+@@ -26,14 +26,144 @@ import { Snackbar } from '../../partials/w3m-snackbar';
  import { useCustomDimensions } from '../../hooks/useCustomDimensions';
  import styles from './styles';
  
@@ -333,6 +341,10 @@ index 6823724..a434ead 100644
 +    let mounted = true;
 +    let timeoutId: NodeJS.Timeout;
 +    let unsubscribe: (() => void) | undefined;
++
++    // Reset retry count for fresh effect run (e.g. when proxyObject changes)
++    retryCountRef.current = 0;
++    isSubscribedRef.current = false;
 +
 +    const setupSubscription = () => {
 +      if (isSubscribedRef.current || !mounted) return;
