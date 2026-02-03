@@ -197,23 +197,7 @@ export default function PrimeMyOrders() {
 
     if (hasOrders) {
       return (
-        <YStack flex={1} pb="$4" px={gtMd ? 60 : 20} gap="$2.5">
-          {/* Alert Banner */}
-          {showAlert ? (
-            <Alert
-              type="info"
-              icon="CartOutline"
-              title={intl.formatMessage({
-                id: ETranslations.prime_order_link_title,
-              })}
-              description={intl.formatMessage({
-                id: ETranslations.prime_order_link_desc,
-              })}
-              closable
-              onClose={() => setShowAlert(false)}
-            />
-          ) : null}
-
+        <YStack flex={1} pb="$4">
           {/* Order List */}
           <ListView
             data={orders}
@@ -221,6 +205,27 @@ export default function PrimeMyOrders() {
             keyExtractor={(item) => item.orderNumber}
             estimatedItemSize={100}
             ItemSeparatorComponent={() => <Stack h="$3" />}
+            ListHeaderComponent={
+              showAlert ? (
+                <Alert
+                  type="info"
+                  icon="CartOutline"
+                  title={intl.formatMessage({
+                    id: ETranslations.prime_order_link_title,
+                  })}
+                  description={intl.formatMessage({
+                    id: ETranslations.prime_order_link_desc,
+                  })}
+                  closable
+                  onClose={() => setShowAlert(false)}
+                  mb="$2.5"
+                />
+              ) : null
+            }
+            contentContainerStyle={{
+              px: gtMd ? 60 : 20,
+              pb: '$4',
+            }}
           />
         </YStack>
       );
