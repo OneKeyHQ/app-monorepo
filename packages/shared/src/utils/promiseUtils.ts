@@ -139,10 +139,32 @@ export function isPromiseObject(obj: any) {
 }
 
 export async function promiseAllSettledEnhanced<T>(
-  promises: Promise<T>[],
-  options?: { continueOnError?: boolean },
+  promisesOrFactories: Promise<T>[] | (() => Promise<T>)[],
+  options?: { continueOnError?: boolean; concurrency?: number },
 ): Promise<(T | null)[]> {
-  if (!options?.continueOnError) {
+  const { continueOnError, concurrency } = options ?? {};
+
+  // When concurrency is set and items are task factories, execute in batches
+  if (concurrency && concurrency > 0 && typeof promisesOrFactories[0] === 'function') {
+    const factories = promisesOrFactories as (() => Promise<T>)[];
+    const results: (T | null)[] = [];
+    for (let i = 0; i < factories.length; i += concurrency) {
+      const batch = factories.slice(i, i + concurrency).map((fn) => fn());
+      if (continueOnError) {
+        const settled = await Promise.allSettled(batch);
+        results.push(
+          ...settled.map((r) => (r.status === 'fulfilled' ? r.value : null)),
+        );
+      } else {
+        const settled = await Promise.all(batch);
+        results.push(...settled);
+      }
+    }
+    return results;
+  }
+
+  const promises = promisesOrFactories as Promise<T>[];
+  if (!continueOnError) {
     return Promise.all(promises);
   }
 

@@ -574,20 +574,22 @@ function useAllNetworkRequests<T>(params: {
         // );
         if (allNetworkDataInit.current) {
           const allNetworks = accountsInfo;
-          const requests = allNetworks.map((networkDataString) => {
+          const requestFactories = allNetworks.map((networkDataString) => {
             const { accountId, networkId, dbAccount } = networkDataString;
-            return allNetworkRequests({
-              accountId,
-              networkId,
-              dbAccount,
-              allNetworkDataInit: allNetworkDataInit.current,
-            });
+            return () =>
+              allNetworkRequests({
+                accountId,
+                networkId,
+                dbAccount,
+                allNetworkDataInit: allNetworkDataInit.current,
+              });
           });
 
           try {
             resp = (
-              await promiseAllSettledEnhanced(requests, {
+              await promiseAllSettledEnhanced(requestFactories, {
                 continueOnError: true,
+                concurrency: 8,
               })
             ).filter(Boolean);
           } catch (e) {
@@ -598,20 +600,22 @@ function useAllNetworkRequests<T>(params: {
         } else {
           const respTemp: Array<T> = [];
           try {
-            const promises = Array.from(accountsInfoBackendIndexed).map(
+            const factories = Array.from(accountsInfoBackendIndexed).map(
               (networkDataString) => {
                 // eslint-disable-next-line @typescript-eslint/no-unused-vars
                 const { accountId, networkId, apiAddress } = networkDataString;
-                return allNetworkRequests({
-                  accountId,
-                  networkId,
-                  allNetworkDataInit: allNetworkDataInit.current,
-                });
+                return () =>
+                  allNetworkRequests({
+                    accountId,
+                    networkId,
+                    allNetworkDataInit: allNetworkDataInit.current,
+                  });
               },
             );
             const r = (
-              await promiseAllSettledEnhanced(promises, {
+              await promiseAllSettledEnhanced(factories, {
                 continueOnError: true,
+                concurrency: 8,
               })
             ).filter(Boolean) as Array<T>;
             respTemp.push(...r);
@@ -621,20 +625,22 @@ function useAllNetworkRequests<T>(params: {
           }
 
           try {
-            const promises = Array.from(accountsInfoBackendNotIndexed).map(
+            const factories = Array.from(accountsInfoBackendNotIndexed).map(
               (networkDataString) => {
                 // eslint-disable-next-line @typescript-eslint/no-unused-vars
                 const { accountId, networkId, apiAddress } = networkDataString;
-                return allNetworkRequests({
-                  accountId,
-                  networkId,
-                  allNetworkDataInit: allNetworkDataInit.current,
-                });
+                return () =>
+                  allNetworkRequests({
+                    accountId,
+                    networkId,
+                    allNetworkDataInit: allNetworkDataInit.current,
+                  });
               },
             );
             const r = (
-              await promiseAllSettledEnhanced(promises, {
+              await promiseAllSettledEnhanced(factories, {
                 continueOnError: true,
+                concurrency: 8,
               })
             ).filter(Boolean) as Array<T>;
             respTemp.push(...r);
