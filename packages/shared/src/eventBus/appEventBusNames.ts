@@ -40,6 +40,7 @@ export enum EAppEventBusNames {
   ExtensionContextMenuUpdate = 'ExtensionContextMenuUpdate',
   ShowFirmwareUpdateFromBootloaderMode = 'ShowFirmwareUpdateFromBootloaderMode',
   ShowFirmwareUpdateForce = 'ShowFirmwareUpdateForce',
+  ShowLegacyFirmwareUpdate = 'ShowLegacyFirmwareUpdate', // trigger legacy firmware update flow for devices below min version
   BeginFirmwareUpdate = 'BeginFirmwareUpdate', // notification begin hardware update, stop hardware progressing
   FinishFirmwareUpdate = 'FinishFirmwareUpdate',
   LoadWebEmbedWebView = 'LoadWebEmbedWebView',

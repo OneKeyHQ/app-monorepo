@@ -207,6 +207,13 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.ShowFirmwareUpdateForce]: {
     connectId: string | undefined;
   };
+  [EAppEventBusNames.ShowLegacyFirmwareUpdate]: {
+    connectId: string | undefined;
+    deviceType: string;
+    firmwareVersion: string;
+    bootloaderVersion: string;
+    isBootloaderMode?: boolean;
+  };
   [EAppEventBusNames.BeginFirmwareUpdate]: undefined;
   [EAppEventBusNames.FinishFirmwareUpdate]: undefined;
   [EAppEventBusNames.LoadWebEmbedWebView]: undefined;

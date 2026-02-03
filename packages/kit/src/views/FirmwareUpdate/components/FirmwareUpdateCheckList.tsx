@@ -21,10 +21,24 @@ import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/devi
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
+import type { IDeviceType } from '@onekeyfe/hd-core';
+
+export type IOpenLegacyUpdateModalParams = {
+  connectId: string | undefined;
+  deviceType: IDeviceType | string;
+  currentFirmwareVersion: string;
+  currentBootloaderVersion: string;
+  targetFirmwareVersion?: string;
+  isBootloaderMode?: boolean;
+  autoStart?: boolean;
+};
+
 export function FirmwareUpdateCheckList({
   result,
+  openLegacyUpdateModal,
 }: {
   result: ICheckAllFirmwareReleaseResult | undefined;
+  openLegacyUpdateModal?: (params: IOpenLegacyUpdateModalParams) => void;
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -109,6 +123,26 @@ export function FirmwareUpdateCheckList({
         onConfirm={
           result
             ? async (dialog) => {
+                // Handle legacy firmware update flow
+                if (result?.needsLegacyFlow && openLegacyUpdateModal) {
+                  await dialog.close();
+                  // Close current modal and open Legacy update modal with autoStart
+                  navigation.popStack();
+                  openLegacyUpdateModal({
+                    connectId: result.updatingConnectId,
+                    deviceType: result.deviceType || '',
+                    currentFirmwareVersion:
+                      result.updateInfos?.firmware?.fromVersion || '',
+                    currentBootloaderVersion:
+                      result.updateInfos?.bootloader?.fromVersion || '',
+                    targetFirmwareVersion:
+                      result.updateInfos?.firmware?.toVersion || '',
+                    isBootloaderMode: result.isBootloaderMode,
+                    autoStart: true,
+                  });
+                  return;
+                }
+
                 const useV2FirmwareUpdateFlow =
                   await deviceUtils.shouldUseV2FirmwareUpdateFlow({
                     features: result?.features,

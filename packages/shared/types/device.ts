@@ -119,6 +119,8 @@ export type ICheckAllFirmwareReleaseResult = {
     bridge: IHardwareBridgeReleasePayload | undefined;
   };
   totalPhase: IDeviceFirmwareType[];
+  /** Indicates if the device needs legacy firmware update flow (firmware below minimum version) */
+  needsLegacyFlow?: boolean;
 };
 
 export type IDeviceResponseUnsuccessful = Unsuccessful;

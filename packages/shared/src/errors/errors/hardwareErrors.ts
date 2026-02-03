@@ -207,19 +207,6 @@ export class NeedOneKeyBridgeUpgrade extends OneKeyHardwareError {
   override code = ECustomOneKeyHardwareError.NeedOneKeyBridgeUpgrade;
 }
 
-export class NeedFirmwareUpgradeFromWeb extends OneKeyHardwareError {
-  constructor(props?: IOneKeyErrorHardwareProps) {
-    super(
-      normalizeErrorProps(props, {
-        defaultMessage: 'NeedFirmwareUpgradeFromWeb',
-        defaultKey: ETranslations.update_update_in_official_web_tool_desc_copy,
-      }),
-    );
-  }
-
-  override code = ECustomOneKeyHardwareError.NeedFirmwareUpgradeFromWeb;
-}
-
 export class FirmwareUpdateBatteryTooLow extends OneKeyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps) {
     super(

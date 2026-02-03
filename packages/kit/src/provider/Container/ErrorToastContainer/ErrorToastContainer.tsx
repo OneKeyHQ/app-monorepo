@@ -53,7 +53,6 @@ export function ErrorToastContainer() {
           p.requestId;
 
       const actions = getErrorAction({
-        errorCode: p.errorCode,
         requestId: p.requestId,
         diagnosticText: p.diagnosticText,
       });

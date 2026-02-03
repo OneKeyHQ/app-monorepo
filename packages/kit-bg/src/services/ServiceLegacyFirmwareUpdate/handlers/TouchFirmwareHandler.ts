@@ -14,7 +14,7 @@ export class TouchFirmwareHandler {
     params: ILegacyUpdateParams,
     service: ServiceLegacyFirmwareUpdate,
   ): Promise<ILegacyUpdateResult> {
-    const { connectId, deviceType } = params;
+    const { connectId, deviceType, targetFirmwareVersion } = params;
 
     // 1. Set downloading state
     await service.setStep(ELegacyFirmwareUpdateSteps.downloadingFirmware, {
@@ -31,9 +31,16 @@ export class TouchFirmwareHandler {
     });
     await service.setProgress(50, 'Installing firmware...');
 
+    // Convert version string to array format (e.g., "4.5.0" -> [4, 5, 0])
+    // This matches the normal firmware update flow in ServiceFirmwareUpdate
+    const versionArr = targetFirmwareVersion
+      ?.split('.')
+      .map((v) => parseInt(v, 10));
+
     const result = await sdk.firmwareUpdateV2(connectId, {
       updateType: 'firmware',
       platform: 'web',
+      ...(versionArr ? { version: versionArr } : {}),
     });
 
     if (!result.success) {

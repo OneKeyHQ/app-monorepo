@@ -524,6 +524,7 @@ export class FirmwareUpdateExit extends OneKeyAppError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'FirmwareUpdateExit',
+        defaultAutoToast: false,
       }),
     );
   }

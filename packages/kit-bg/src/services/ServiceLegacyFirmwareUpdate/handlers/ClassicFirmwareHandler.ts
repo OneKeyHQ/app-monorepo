@@ -62,9 +62,16 @@ export class ClassicFirmwareHandler {
     });
     await service.setProgress(50, 'Installing firmware...');
 
+    // Convert version string to array format (e.g., "3.5.0" -> [3, 5, 0])
+    // This matches the normal firmware update flow in ServiceFirmwareUpdate
+    const versionArr = targetFirmwareVersion
+      ?.split('.')
+      .map((v) => parseInt(v, 10));
+
     const firmwareResult = await sdk.firmwareUpdateV2(connectId, {
       updateType: 'firmware',
       platform: 'web',
+      ...(versionArr ? { version: versionArr } : {}),
     });
 
     if (!firmwareResult.success) {

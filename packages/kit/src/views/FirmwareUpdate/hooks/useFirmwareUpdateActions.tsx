@@ -238,6 +238,85 @@ export function useFirmwareUpdateActions() {
     [intl, openChangeLogModal],
   );
 
+  // ==================== Legacy Firmware Update ====================
+
+  /**
+   * Check if legacy firmware update flow should be used
+   * Returns true for devices with firmware version below minimum limit (Web/Extension only)
+   */
+  const shouldUseLegacyFlow = useCallback(
+    async (params: {
+      deviceType: IDeviceType | string;
+      firmwareVersion: string;
+      bootloaderVersion: string;
+    }): Promise<boolean> => {
+      return backgroundApiProxy.serviceLegacyFirmwareUpdate.shouldUseLegacyFlow(
+        params,
+      );
+    },
+    [],
+  );
+
+  /**
+   * Open legacy firmware update modal for devices with low firmware versions
+   */
+  const openLegacyUpdateModal = useCallback(
+    ({
+      connectId,
+      deviceType,
+      currentFirmwareVersion,
+      currentBootloaderVersion,
+      targetFirmwareVersion,
+      isBootloaderMode,
+      autoStart,
+    }: {
+      connectId: string | undefined;
+      deviceType: IDeviceType | string;
+      currentFirmwareVersion: string;
+      currentBootloaderVersion: string;
+      targetFirmwareVersion?: string;
+      isBootloaderMode?: boolean;
+      /** If true, skip CheckList and start update immediately (CheckList was already confirmed) */
+      autoStart?: boolean;
+    }) => {
+      if (rootNavigationRef.current) {
+        rootNavigationRef.current?.dispatch(
+          StackActions.push(ERootRoutes.Modal, {
+            screen: EModalRoutes.LegacyFirmwareUpdateModal,
+            params: {
+              screen: EModalLegacyFirmwareUpdateRoutes.LegacyUpdate,
+              params: {
+                connectId,
+                deviceType,
+                currentFirmwareVersion,
+                currentBootloaderVersion,
+                targetFirmwareVersion,
+                isBootloaderMode,
+                autoStart,
+              },
+            },
+          }),
+        );
+      } else {
+        navigation.pushModal(EModalRoutes.LegacyFirmwareUpdateModal, {
+          screen: EModalLegacyFirmwareUpdateRoutes.LegacyUpdate,
+          params: {
+            connectId,
+            deviceType,
+            currentFirmwareVersion,
+            currentBootloaderVersion,
+            targetFirmwareVersion,
+            isBootloaderMode,
+            autoStart,
+          },
+        });
+      }
+    },
+    [navigation],
+  );
+
+  // ==================== CheckList ====================
+
   const showCheckList = useCallback(
     ({ result }: { result: ICheckAllFirmwareReleaseResult | undefined }) => {
       let title;
@@ -284,85 +363,18 @@ export function useFirmwareUpdateActions() {
       Dialog.confirm({
         title,
         icon: 'ChecklistOutline',
-        renderContent: <FirmwareUpdateCheckList result={result} />,
+        renderContent: (
+          <FirmwareUpdateCheckList
+            result={result}
+            openLegacyUpdateModal={openLegacyUpdateModal}
+          />
+        ),
         onConfirmText: intl.formatMessage({
           id: ETranslations.global_continue,
         }),
       });
     },
-    [intl],
-  );
-
-  // ==================== Legacy Firmware Update ====================
-
-  /**
-   * Check if legacy firmware update flow should be used
-   * Returns true for devices with firmware version below minimum limit (Web/Extension only)
-   */
-  const shouldUseLegacyFlow = useCallback(
-    async (params: {
-      deviceType: IDeviceType | string;
-      firmwareVersion: string;
-      bootloaderVersion: string;
-    }): Promise<boolean> => {
-      return backgroundApiProxy.serviceLegacyFirmwareUpdate.shouldUseLegacyFlow(
-        params,
-      );
-    },
-    [],
-  );
-
-  /**
-   * Open legacy firmware update modal for devices with low firmware versions
-   */
-  const openLegacyUpdateModal = useCallback(
-    ({
-      connectId,
-      deviceType,
-      currentFirmwareVersion,
-      currentBootloaderVersion,
-      targetFirmwareVersion,
-      isBootloaderMode,
-    }: {
-      connectId: string | undefined;
-      deviceType: IDeviceType | string;
-      currentFirmwareVersion: string;
-      currentBootloaderVersion: string;
-      targetFirmwareVersion?: string;
-      isBootloaderMode?: boolean;
-    }) => {
-      if (rootNavigationRef.current) {
-        rootNavigationRef.current?.dispatch(
-          StackActions.push(ERootRoutes.Modal, {
-            screen: EModalRoutes.LegacyFirmwareUpdateModal,
-            params: {
-              screen: EModalLegacyFirmwareUpdateRoutes.LegacyUpdate,
-              params: {
-                connectId,
-                deviceType,
-                currentFirmwareVersion,
-                currentBootloaderVersion,
-                targetFirmwareVersion,
-                isBootloaderMode,
-              },
-            },
-          }),
-        );
-      } else {
-        navigation.pushModal(EModalRoutes.LegacyFirmwareUpdateModal, {
-          screen: EModalLegacyFirmwareUpdateRoutes.LegacyUpdate,
-          params: {
-            connectId,
-            deviceType,
-            currentFirmwareVersion,
-            currentBootloaderVersion,
-            targetFirmwareVersion,
-            isBootloaderMode,
-          },
-        });
-      }
-    },
-    [navigation],
+    [intl, openLegacyUpdateModal],
   );
 
   return {

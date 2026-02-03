@@ -4,14 +4,11 @@ import { useIntl } from 'react-intl';
 
 import { Button, useClipboard } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { ECustomOneKeyHardwareError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 interface IErrorActionParams {
-  errorCode?: number;
   requestId?: string;
   diagnosticText?: string;
 }
@@ -118,31 +115,10 @@ function CopyDiagnosticButton({ diagnosticText }: { diagnosticText: string }) {
   );
 }
 
-function NeedFirmwareUpgradeFromWebButton() {
-  const intl = useIntl();
-
-  return (
-    <Button
-      size="small"
-      onPress={() => {
-        openUrlExternal('https://firmware.onekey.so/');
-      }}
-    >
-      {intl.formatMessage({ id: ETranslations.update_update_now })}
-    </Button>
-  );
-}
-
 export function getErrorAction({
-  errorCode,
   requestId,
   diagnosticText,
 }: IErrorActionParams) {
-  // Special case: firmware upgrade button
-  if (errorCode === ECustomOneKeyHardwareError.NeedFirmwareUpgradeFromWeb) {
-    return <NeedFirmwareUpgradeFromWebButton />;
-  }
-
   // Default: show contact support + copy diagnostic info buttons
   if (diagnosticText && requestId) {
     return [

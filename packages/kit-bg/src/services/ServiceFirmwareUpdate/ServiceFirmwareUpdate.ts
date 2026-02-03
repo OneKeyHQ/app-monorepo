@@ -15,7 +15,6 @@ import {
   FirmwareUpdateTasksClear,
   InitIframeLoadFail,
   InitIframeTimeout,
-  NeedFirmwareUpgradeFromWeb,
   NeedOneKeyBridgeUpgrade,
   OneKeyLocalError,
   UseDesktopToUpdateFirmware,
@@ -580,6 +579,17 @@ class ServiceFirmwareUpdate extends ServiceBase {
       // ignore
     }
 
+    // Check if device needs legacy firmware update flow
+    const needsLegacyFlow = this.checkNeedsLegacyFlow({
+      deviceType,
+      firmwareVersion: firmware?.fromVersion,
+      bootloaderVersion: bootloader?.fromVersion,
+      isBootloaderMode:
+        (await deviceUtils.getDeviceModeFromFeatures({ features })) ===
+        EOneKeyDeviceMode.bootloader,
+      hasBootloaderUpgrade: bootloader?.hasUpgrade,
+    });
+
     return {
       updatingConnectId: fixedUpdatingConnectId,
       originalConnectId,
@@ -600,7 +610,72 @@ class ServiceFirmwareUpdate extends ServiceBase {
         bridge,
       },
       totalPhase: totalPhase.filter(Boolean),
+      needsLegacyFlow,
     };
+  }
+
+  /**
+   * Check if device needs legacy firmware update flow based on version limits
+   */
+  private checkNeedsLegacyFlow({
+    deviceType,
+    firmwareVersion,
+    bootloaderVersion,
+    isBootloaderMode,
+    hasBootloaderUpgrade,
+  }: {
+    deviceType: IDeviceType | undefined;
+    firmwareVersion: string | undefined;
+    bootloaderVersion: string | undefined;
+    isBootloaderMode: boolean;
+    hasBootloaderUpgrade: boolean | undefined;
+  }): boolean {
+    // Pro devices don't use legacy flow
+    if (deviceType === EDeviceType.Pro || !deviceType) {
+      return false;
+    }
+
+    const minVersionMap = FIRMWARE_UPDATE_MIN_VERSION_ALLOWED;
+    const minVersions = minVersionMap[deviceType];
+    if (!minVersions) {
+      return false;
+    }
+
+    // In bootloader mode, check bootloader version
+    if (isBootloaderMode) {
+      // If bootloader needs upgrade but version is unknown, use legacy flow
+      if (hasBootloaderUpgrade && !bootloaderVersion) {
+        return true;
+      }
+      if (
+        bootloaderVersion &&
+        minVersions.bootloader &&
+        semver.lt(bootloaderVersion, minVersions.bootloader)
+      ) {
+        return true;
+      }
+      return false;
+    }
+
+    // Check firmware version
+    if (
+      firmwareVersion &&
+      minVersions.firmware &&
+      semver.lt(firmwareVersion, minVersions.firmware)
+    ) {
+      return true;
+    }
+
+    // Check bootloader version
+    if (
+      bootloaderVersion &&
+      minVersions.bootloader &&
+      semver.lt(bootloaderVersion, minVersions.bootloader)
+    ) {
+      return true;
+    }
+
+    return false;
   }
 
   @backgroundMethod()
@@ -2016,75 +2091,10 @@ class ServiceFirmwareUpdate extends ServiceBase {
   }
 
   async validateMinVersionAllowed(params: IUpdateFirmwareWorkflowParams) {
-    const minVersionMap = FIRMWARE_UPDATE_MIN_VERSION_ALLOWED;
-
-    const mockShouldUpdateFromWeb =
-      await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
-        'shouldUpdateFromWeb',
-      );
-
-    if (mockShouldUpdateFromWeb === true) {
-      throw new NeedFirmwareUpgradeFromWeb();
-    }
-
-    const deviceType = params.releaseResult?.deviceType;
-
-    const checkFn = ({
-      updateInfo,
-      minVersion,
-    }: {
-      updateInfo: IFirmwareUpdateInfo | IBootloaderUpdateInfo | undefined;
-      minVersion: string | undefined;
-    }) => {
-      if (
-        deviceType &&
-        updateInfo?.hasUpgrade &&
-        updateInfo?.fromVersion &&
-        minVersion &&
-        semver.lt(updateInfo?.fromVersion || '', minVersion || '')
-      ) {
-        throw new NeedFirmwareUpgradeFromWeb();
-      }
-    };
-
-    // bootloader mode device may return wrong firmware current version. so we skip this check
-    if (params.releaseResult?.isBootloaderMode) {
-      // only check bootloader version at boot mode
-      checkFn({
-        updateInfo: params.releaseResult?.updateInfos?.bootloader,
-        minVersion: minVersionMap?.[deviceType || 'unknown']?.bootloader,
-      });
-      if (
-        params.releaseResult?.updateInfos?.bootloader?.hasUpgrade &&
-        !params.releaseResult?.updateInfos?.bootloader?.fromVersion
-      ) {
-        throw new NeedFirmwareUpgradeFromWeb();
-      }
-      return;
-    }
-
-    checkFn({
-      updateInfo: params.releaseResult?.updateInfos?.firmware,
-      minVersion: minVersionMap?.[deviceType || 'unknown']?.firmware,
-    });
-
-    checkFn({
-      updateInfo: params.releaseResult?.updateInfos?.ble,
-      minVersion: minVersionMap?.[deviceType || 'unknown']?.ble,
-    });
-
-    const updateDevDeviceBootloaderOnAppAllowed =
-      await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
-        'updateDevDeviceBootloaderOnAppAllowed',
-      );
-
-    if (updateDevDeviceBootloaderOnAppAllowed !== true) {
-      checkFn({
-        updateInfo: params.releaseResult?.updateInfos?.bootloader,
-        minVersion:
-          minVersionMap?.[deviceType || 'unknown']?.bootloader || '2.0.0',
-      });
-    }
+    // Legacy device check is now handled in checkAllFirmwareRelease
+    // and the UI redirects to Legacy flow before reaching this point.
+    // This function is kept for backwards compatibility but is now a no-op.
+    void params;
   }
 
   async validateMnemonicBackuped(params: IUpdateFirmwareWorkflowParams) {

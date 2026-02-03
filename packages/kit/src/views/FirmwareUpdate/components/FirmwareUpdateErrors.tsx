@@ -19,7 +19,6 @@ import {
   FIRMWARE_MANUAL_ENTERING_BOOTLOADER_MODE_GUIDE,
   FIRMWARE_UPDATE_BRIDGE_GUIDE,
   FIRMWARE_UPDATE_FULL_RES_GUIDE,
-  FIRMWARE_UPDATE_WEB_TOOLS_URL,
 } from '@onekeyhq/shared/src/config/appConfig';
 import {
   ECustomOneKeyHardwareError,
@@ -92,33 +91,6 @@ function ShouldUpdateBridge({
         }}
         onConfirmText={intl.formatMessage({
           id: ETranslations.global_view_tutorial,
-        })}
-        confirmButtonProps={{ iconAfter: 'ArrowTopRightOutline' }}
-      />
-    </Stack>
-  );
-}
-
-function ShouldUpdateByWeb() {
-  const intl = useIntl();
-  return (
-    <Stack>
-      <FirmwareUpdateBaseMessageView
-        icon="InfoCircleOutline"
-        title={intl.formatMessage({
-          id: ETranslations.update_update_in_official_web_tool,
-        })}
-        message={intl.formatMessage({
-          id: ETranslations.update_update_in_official_web_tool_desc,
-        })}
-        linkList={{ url: { url: FIRMWARE_UPDATE_WEB_TOOLS_URL } }}
-      />
-      <FirmwareUpdatePageFooter
-        onConfirm={() => {
-          openUrlExternal(FIRMWARE_UPDATE_WEB_TOOLS_URL);
-        }}
-        onConfirmText={intl.formatMessage({
-          id: ETranslations.global_visit_website,
         })}
         confirmButtonProps={{ iconAfter: 'ArrowTopRightOutline' }}
       />
@@ -419,18 +391,6 @@ export function useFirmwareUpdateErrors({
     ) {
       return {
         content: <ShouldUpdateBridge result={result} />,
-        retryText: defaultRetryText,
-      };
-    }
-
-    if (
-      isHardwareErrorByCode({
-        error,
-        code: ECustomOneKeyHardwareError.NeedFirmwareUpgradeFromWeb,
-      })
-    ) {
-      return {
-        content: <ShouldUpdateByWeb />,
         retryText: defaultRetryText,
       };
     }

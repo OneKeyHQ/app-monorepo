@@ -23,19 +23,19 @@ export const FIRMWARE_UPDATE_MIN_VERSION_ALLOWED: Partial<
     // ble: '0.0.0',
     bootloader: '2.4.2',
   },
+  // Classic series now use normal update flow (startUpdateWorkflow)
+  // No version restrictions needed - SDK handles all firmware versions
   [EDeviceType.Classic]: {
-    firmware: '3.0.0',
-    // ble: '0.0.0',
-    bootloader: '2.0.0',
+    // firmware: '3.0.0',
+    // bootloader: '2.0.0',
   },
   [EDeviceType.Classic1s]: {
-    firmware: '3.0.0',
-    // ble: '0.0.0',
-    bootloader: '2.0.0',
+    // firmware: '3.0.0',
+    // bootloader: '2.0.0',
   },
   [EDeviceType.ClassicPure]: {
-    firmware: '3.0.0',
-    bootloader: '2.0.0',
+    // firmware: '3.0.0',
+    // bootloader: '2.0.0',
   },
   [EDeviceType.Mini]: {
     firmware: '3.0.0',

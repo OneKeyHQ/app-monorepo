@@ -12,5 +12,7 @@ export type IModalLegacyFirmwareUpdateParamList = {
     currentBootloaderVersion: string;
     targetFirmwareVersion?: string;
     isBootloaderMode?: boolean;
+    /** If true, skip CheckList and start update immediately (CheckList was already confirmed) */
+    autoStart?: boolean;
   };
 };

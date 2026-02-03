@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { EFirmwareType } from '@onekeyfe/hd-shared';
+import { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
 import { useIntl } from 'react-intl';
 
 import type {
@@ -25,6 +25,7 @@ import {
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IBleFirmwareUpdateInfo,
   IBootloaderUpdateInfo,
@@ -290,6 +291,26 @@ export function FirmwareChangeLogView({
   const { showCheckList } = useFirmwareUpdateActions();
 
   const handleConfirmClick = useCallback(async () => {
+    // Mini device does not support Bluetooth, must use USB
+    // On Native platforms (iOS/Android), only Bluetooth is available
+    // So Mini cannot be updated on Native platforms
+    if (result?.deviceType === EDeviceType.Mini && platformEnv.isNative) {
+      Dialog.show({
+        icon: 'TypeCoutline',
+        title: intl.formatMessage({
+          id: ETranslations.upgrade_use_usb,
+        }),
+        description: intl.formatMessage({
+          id: ETranslations.upgrade_recommend_usb,
+        }),
+        onConfirmText: intl.formatMessage({
+          id: ETranslations.global_got_it,
+        }),
+        showCancelButton: false,
+      });
+      return;
+    }
+
     const isUSBDeviceAvailable =
       await backgroundApiProxy.serviceHardware.detectUSBDeviceAvailability();
     if (!isUSBDeviceAvailable) {

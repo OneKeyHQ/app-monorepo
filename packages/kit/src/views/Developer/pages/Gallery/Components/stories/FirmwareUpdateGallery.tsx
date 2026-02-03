@@ -316,11 +316,6 @@ function FirmwareUpdateGalleryStaticUI() {
           result={FIRMWARE_UPDATE_UPDATE_INFO_SAMPLE as any}
           error={new AllErrors.NeedOneKeyBridgeUpgrade()}
         />
-        <SizableText size="$heading2xl">** 需要在网页端升级</SizableText>
-        <FirmwareUpdateErrorDemo
-          result={FIRMWARE_UPDATE_UPDATE_INFO_SAMPLE as any}
-          error={new AllErrors.NeedFirmwareUpgradeFromWeb()}
-        />
         <SizableText size="$heading2xl">** 需要手动升级全量资源</SizableText>
         <FirmwareUpdateErrorDemo
           result={FIRMWARE_UPDATE_UPDATE_INFO_SAMPLE as any}

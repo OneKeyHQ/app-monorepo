@@ -8,7 +8,6 @@ export enum ECustomOneKeyHardwareError {
   // TODO: remove this error code
   NeedFirmwareUpgrade = 4030,
   NeedOneKeyBridgeUpgrade = 4031,
-  NeedFirmwareUpgradeFromWeb = 4032,
   DeviceMethodCallTimeout = 4080,
   FirmwareUpdateBatteryTooLow = 4081,
 }

@@ -1,11 +1,17 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { Page, YStack } from '@onekeyhq/components';
+import { StackActions } from '@react-navigation/routers';
+
+import { Page, YStack, rootNavigationRef } from '@onekeyhq/components';
 import {
   ELegacyFirmwareUpdateSteps,
-  useLegacyFirmwareUpdateProgressAtom,
   useLegacyFirmwareUpdateStepAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EModalFirmwareUpdateRoutes,
+  EModalRoutes,
+  ERootRoutes,
+} from '@onekeyhq/shared/src/routes';
 import type {
   EModalLegacyFirmwareUpdateRoutes,
   IModalLegacyFirmwareUpdateParamList,
@@ -15,11 +21,10 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useAppRoute } from '../../../hooks/useAppRoute';
 import { FirmwareUpdatePageLayout } from '../../FirmwareUpdate/components/FirmwareUpdatePageLayout';
+import { LegacyFirmwareInstallingView } from '../components/LegacyFirmwareInstallingView';
 import { LegacyFirmwareUpdateExitPrevent } from '../components/LegacyFirmwareUpdateExitPrevent';
 import { LegacyUpdateCheckList } from '../components/LegacyUpdateCheckList';
-import { LegacyUpdateProgress } from '../components/LegacyUpdateProgress';
 import { LegacyUpdateResult } from '../components/LegacyUpdateResult';
-import { LegacyUpdateStepIndicator } from '../components/LegacyUpdateStepIndicator';
 import { MiniBootloaderModeGuide } from '../components/MiniBootloaderModeGuide';
 import { WebUsbDeviceReselectPrompt } from '../components/WebUsbDeviceReselectPrompt';
 
@@ -37,12 +42,15 @@ function PageLegacyFirmwareUpdate() {
     currentBootloaderVersion,
     targetFirmwareVersion,
     isBootloaderMode,
+    autoStart,
   } = route.params;
 
   const [stepInfo] = useLegacyFirmwareUpdateStepAtom();
-  const [progressInfo] = useLegacyFirmwareUpdateProgressAtom();
   const [isStarting, setIsStarting] = useState(false);
-  const [hasStarted, setHasStarted] = useState(false);
+  // If autoStart is true, we skip the CheckList (it was already confirmed)
+  const [hasStarted, setHasStarted] = useState(!!autoStart);
+  // Track if we've already triggered the continuation to normal flow
+  const hasTriggeredContinuation = useRef(false);
 
   const isDone = stepInfo.step === ELegacyFirmwareUpdateSteps.done;
   const isError = stepInfo.step === ELegacyFirmwareUpdateSteps.error;
@@ -94,6 +102,48 @@ function PageLegacyFirmwareUpdate() {
     [],
   );
 
+  // Auto-start update if autoStart is true (CheckList was already confirmed)
+  useEffect(() => {
+    if (
+      autoStart &&
+      !isStarting &&
+      stepInfo.step === ELegacyFirmwareUpdateSteps.idle
+    ) {
+      void handleStartUpdate();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoStart]);
+
+  // When Legacy firmware update completes, automatically continue to normal flow
+  // for remaining updates (bootloader, BLE, etc.)
+  useEffect(() => {
+    if (isDone && !hasTriggeredContinuation.current) {
+      hasTriggeredContinuation.current = true;
+
+      // Show "complete" state briefly (handled by LegacyFirmwareInstallingView),
+      // then continue to normal flow for remaining updates
+      setTimeout(() => {
+        // Close this Legacy modal and open normal ChangeLog modal
+        navigation.popStack();
+
+        // Open normal firmware update ChangeLog modal for remaining updates
+        if (rootNavigationRef.current) {
+          rootNavigationRef.current?.dispatch(
+            StackActions.push(ERootRoutes.Modal, {
+              screen: EModalRoutes.FirmwareUpdateModal,
+              params: {
+                screen: EModalFirmwareUpdateRoutes.ChangeLog,
+                params: {
+                  connectId,
+                },
+              },
+            }),
+          );
+        }
+      }, 3000); // Wait 3s to show completion message before transitioning
+    }
+  }, [isDone, connectId, navigation]);
+
   const content = useMemo(() => {
     // Show check list when idle and not started
     if (isIdle && !hasStarted) {
@@ -135,33 +185,13 @@ function PageLegacyFirmwareUpdate() {
       );
     }
 
-    // Done state
-    if (isDone) {
-      const needOnboarding =
-        stepInfo.step === ELegacyFirmwareUpdateSteps.done &&
-        stepInfo.payload?.needOnboarding;
-
-      return (
-        <LegacyUpdateResult
-          success
-          needOnboarding={needOnboarding}
-          onClose={onCloseModal}
-        />
-      );
-    }
-
-    // Running state - show progress
-    const phase =
-      stepInfo.step === ELegacyFirmwareUpdateSteps.installingFirmware
-        ? stepInfo.payload?.phase
-        : undefined;
-
+    // Running and Done states - use unified progress view (same as normal flow)
     return (
-      <LegacyUpdateProgress
-        step={stepInfo.step}
-        progress={progressInfo.progress}
-        message={progressInfo.message}
-        phase={phase}
+      <LegacyFirmwareInstallingView
+        deviceType={deviceType}
+        currentFirmwareVersion={currentFirmwareVersion}
+        currentBootloaderVersion={currentBootloaderVersion}
+        targetFirmwareVersion={targetFirmwareVersion}
       />
     );
   }, [
@@ -177,39 +207,32 @@ function PageLegacyFirmwareUpdate() {
     isError,
     handleRetry,
     onCloseModal,
-    isDone,
-    progressInfo,
   ]);
 
   const footerContent = useMemo(() => {
-    // Footer is handled by LegacyUpdateResult for done/error states
-    if (isDone || isError) {
+    // Footer is handled by LegacyUpdateResult for error state
+    if (isError) {
       return null;
     }
     // Footer is handled by LegacyUpdateCheckList for idle state
     if (isIdle && !hasStarted) {
       return null;
     }
+    // When done, don't show footer - we automatically continue to normal flow
+    // for remaining updates (bootloader, BLE, etc.)
     return null;
-  }, [isDone, isError, isIdle, hasStarted]);
-
-  const showStepIndicator = hasStarted && !isError;
+  }, [isError, isIdle, hasStarted]);
 
   return (
     <Page scrollEnabled>
       <FirmwareUpdatePageLayout
         containerStyle={{
-          py: '$4',
+          py: '0',
           px: '$5',
         }}
       >
         {isRunning ? <LegacyFirmwareUpdateExitPrevent /> : null}
-        <YStack flex={1}>
-          {showStepIndicator ? (
-            <LegacyUpdateStepIndicator currentStep={stepInfo.step} />
-          ) : null}
-          {content}
-        </YStack>
+        <YStack flex={1}>{content}</YStack>
         {footerContent}
       </FirmwareUpdatePageLayout>
     </Page>
