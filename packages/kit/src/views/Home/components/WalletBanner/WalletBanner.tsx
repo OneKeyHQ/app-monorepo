@@ -121,7 +121,9 @@ function BannerItem({
       onPress={handlePress}
     >
       <XStack ai="center">
-        {item.src ? <Image size={60} mx="$2.5" source={{ uri: item.src }} /> : null}
+        {item.src ? (
+          <Image size={60} mx="$2.5" source={{ uri: item.src }} />
+        ) : null}
         {item.title && item.description ? (
           <YStack flex={1} gap="$2" ml={!item.src ? '$4' : undefined}>
             <SizableText size="$bodyXs" color="$text" numberOfLines={1} w={184}>
