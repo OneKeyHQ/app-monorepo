@@ -41,6 +41,13 @@ const shopifyStatusToBadgeType: Record<string, IBadgeType> = {
   unfulfilled: 'default',
 };
 
+const shopifyStatusToI18nKey: Record<string, ETranslations> = {
+  fulfilled: ETranslations.prime_fulfillment_status_fulfilled,
+  shipped: ETranslations.prime_fulfillment_status_shipped,
+  cancelled: ETranslations.prime_fulfillment_status_cancelled,
+  unfulfilled: ETranslations.prime_fulfillment_status_unfulfilled,
+};
+
 export default function PrimeMyOrders() {
   const intl = useIntl();
   const { copyText } = useClipboard();
@@ -65,7 +72,7 @@ export default function PrimeMyOrders() {
   const handleCopyOrderNumber = useCallback(
     (orderNumber: string, event?: { stopPropagation?: () => void }) => {
       event?.stopPropagation?.();
-      copyText(orderNumber);
+      copyText(orderNumber, ETranslations.prime_order_number_copy);
     },
     [copyText],
   );
@@ -120,7 +127,7 @@ export default function PrimeMyOrders() {
                   {item.orderNumber}
                 </SizableText>
                 <IconButton
-                  icon="Copy1Outline"
+                  icon="Copy3Outline"
                   size="small"
                   variant="tertiary"
                   onPress={(e) => handleCopyOrderNumber(item.orderNumber, e)}
@@ -134,7 +141,11 @@ export default function PrimeMyOrders() {
                 }
                 badgeSize="sm"
               >
-                {item.status}
+                {intl.formatMessage({
+                  id:
+                    shopifyStatusToI18nKey[item.status.toLowerCase()] ??
+                    ETranslations.prime_fulfillment_status_unfulfilled,
+                })}
               </Badge>
             </XStack>
 
@@ -162,7 +173,12 @@ export default function PrimeMyOrders() {
               {intl.formatMessage({ id: ETranslations.global_details })}
             </Button>
           ) : (
-            <Icon name="ChevronRightSmallOutline" color="$iconSubdued" />
+            <IconButton
+              icon="OpenOutline"
+              size="small"
+              variant="tertiary"
+              onPress={() => handleOrderDetails(item)}
+            />
           )}
         </XStack>
       );
