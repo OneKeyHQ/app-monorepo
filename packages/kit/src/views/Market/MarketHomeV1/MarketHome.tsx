@@ -123,6 +123,7 @@ function MarketHome() {
               tab.page
             ) : (
               <Tabs.ScrollView
+                showsVerticalScrollIndicator={false}
                 scrollEnabled={false}
                 contentContainerStyle={{ overflow: 'hidden' }}
               >
