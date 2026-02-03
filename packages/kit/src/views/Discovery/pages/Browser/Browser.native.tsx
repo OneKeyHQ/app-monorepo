@@ -258,13 +258,25 @@ function MobileBrowser() {
     };
   }, [closeCurrentWebTab]);
 
-  const content = useMemo(
-    () =>
-      tabs.map((t) => (
+  const MAX_RENDERED_TABS = 3;
+  const recentTabIdsRef = useRef<string[]>([]);
+
+  const content = useMemo(() => {
+    if (activeTabId) {
+      const prev = recentTabIdsRef.current;
+      const updated = [
+        activeTabId,
+        ...prev.filter((id) => id !== activeTabId),
+      ].slice(0, MAX_RENDERED_TABS);
+      recentTabIdsRef.current = updated;
+    }
+    const renderSet = new Set(recentTabIdsRef.current);
+    return tabs
+      .filter((t) => renderSet.has(t.id))
+      .map((t) => (
         <MobileBrowserContent id={t.id} key={t.id} onScroll={handleScroll} />
-      )),
-    [tabs, handleScroll],
-  );
+      ));
+  }, [tabs, activeTabId, handleScroll]);
 
   const handleSearchBarPress = useCallback(
     (url: string) => {

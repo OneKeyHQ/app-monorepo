@@ -50,7 +50,9 @@ function MobileBrowserContent({
               flex={1}
               mt="$3"
               // https://github.com/gre/react-native-view-shot/issues/7
-              collapsable={platformEnv.isNativeAndroid ? false : undefined}
+              collapsable={
+                platformEnv.isNativeAndroid && isActive ? false : undefined
+              }
               bg={platformEnv.isNativeAndroid ? '$bgApp' : undefined}
             >
               <WebContent
