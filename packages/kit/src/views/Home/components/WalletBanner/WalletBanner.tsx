@@ -32,8 +32,8 @@ const staticBanners: IWalletBanner[] = [
   {
     _id: 'static-1',
     id: 'static-1',
-    src: "",
-    title: "Use USDT to cover fees",
+    src: '',
+    title: 'Use USDT to cover fees',
     description: '',
     button: '',
     rank: 0,
@@ -42,10 +42,10 @@ const staticBanners: IWalletBanner[] = [
     useSystemBrowser: false,
     theme: 'light',
     icon: {
-      name: "GasSolid"
+      name: 'GasSolid',
     },
     mode: ENotificationPushMessageMode.openInDapp,
-    payload: "https://onekey.so",
+    payload: 'https://onekey.so',
   },
   {
     _id: 'static-2',
@@ -60,10 +60,10 @@ const staticBanners: IWalletBanner[] = [
     useSystemBrowser: false,
     theme: 'light',
     icon: {
-      name: "GiftSolid"
+      name: 'GiftSolid',
     },
     mode: ENotificationPushMessageMode.openInDapp,
-    payload: "https://onekey.so",
+    payload: 'https://onekey.so',
   },
   {
     _id: 'static-3',
@@ -78,10 +78,10 @@ const staticBanners: IWalletBanner[] = [
     useSystemBrowser: false,
     theme: 'light',
     icon: {
-      name: "PenSolid",
+      name: 'PenSolid',
     },
     mode: ENotificationPushMessageMode.openInDapp,
-    payload: "https://onekey.so",
+    payload: 'https://onekey.so',
   },
 ];
 
@@ -95,8 +95,8 @@ function BannerItem({
   onDismiss: (item: IWalletBanner) => void;
 }) {
   const handlePress = useCallback(() => {
-    onPress(item)
-  }, [onPress, item])
+    onPress(item);
+  }, [onPress, item]);
   return (
     <XStack
       w={280}
@@ -120,52 +120,38 @@ function BannerItem({
       }}
       onPress={handlePress}
     >
-      <XStack gap="$1" ai="center">
-        {item.src ? <Image size={72} source={{ uri: item.src }} /> : null}
-        {
-          item.title && item.description ? (
-            <YStack
-              flex={1}
-              gap="$2"
-              py="$2"
-              ml={!item.src ? '$4' : undefined}
-            >
-              <SizableText
-                size="$bodyXs"
-                color="$text"
-                numberOfLines={1}
-                w={200}
-              >
-                {item.title}
-              </SizableText>
-              {item.description ? (
-                <SizableText
-                  w={200}
-                  fontWeight={600}
-                  fontSize={14}
-                  numberOfLines={2}
-                >
-                  {item.description}
-                </SizableText>
-              ) : null}
-            </YStack>
-          ) : null
-        }
-        {
-          item.title && !item.description ? (
-            <SizableText
-              w={152}
-              left="$4"
-              top="$4"
-              position="absolute"
-              fontWeight={600}
-              fontSize={14}
-              numberOfLines={2}
-            >
+      <XStack ai="center">
+        {item.src ? <Image size={60} mx="$2.5" source={{ uri: item.src }} /> : null}
+        {item.title && item.description ? (
+          <YStack flex={1} gap="$2" ml={!item.src ? '$4' : undefined}>
+            <SizableText size="$bodyXs" color="$text" numberOfLines={1} w={184}>
               {item.title}
             </SizableText>
-          ) : null
-        }
+            {item.description ? (
+              <SizableText
+                w={184}
+                fontWeight={600}
+                fontSize={14}
+                numberOfLines={2}
+              >
+                {item.description}
+              </SizableText>
+            ) : null}
+          </YStack>
+        ) : null}
+        {item.title && !item.description ? (
+          <SizableText
+            w={184}
+            left="$4"
+            top="$4"
+            position="absolute"
+            fontWeight={600}
+            fontSize={14}
+            numberOfLines={2}
+          >
+            {item.title}
+          </SizableText>
+        ) : null}
       </XStack>
 
       {item.closeable ? (
