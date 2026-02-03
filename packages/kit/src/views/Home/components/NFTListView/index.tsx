@@ -2,7 +2,13 @@ import type { ComponentProps } from 'react';
 import { useCallback, useMemo } from 'react';
 
 import type { IStackProps, ListView } from '@onekeyhq/components';
-import { Stack, Tabs, useMedia, useStyle } from '@onekeyhq/components';
+import {
+  Stack,
+  Tabs,
+  useMedia,
+  useScrollContentTabBarOffset,
+  useStyle,
+} from '@onekeyhq/components';
 import { EmptyNFT, EmptySearch } from '@onekeyhq/kit/src/components/Empty';
 import { NFTListLoadingView } from '@onekeyhq/kit/src/components/Loading';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -144,13 +150,14 @@ function NFTListView(props: IProps) {
       ),
     [flexBasis, handleOnPressNFT, isAllNetworks],
   );
+  const tabBarHeight = useScrollContentTabBarOffset();
   const contentContainerStyle = useMemo(
     () => ({
       mt: '$3',
-      pb: '$6',
+      pb: tabBarHeight ?? '$6',
       px: '$2.5',
     }),
-    [],
+    [tabBarHeight],
   );
 
   const { result: extensionActiveTabDAppInfo } = useActiveTabDAppInfo();
