@@ -4,7 +4,7 @@ import { isEmpty, uniqBy } from 'lodash';
 
 import {
   useMedia,
-  useTabBarHeight,
+  useScrollContentTabBarOffset,
   useTabIsRefreshingFocused,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -477,7 +477,7 @@ function TxHistoryListContainer(
     recomputeLayout,
   ]);
 
-  const tabBarHeight = useTabBarHeight();
+  const tabBarHeight = useScrollContentTabBarOffset();
 
   return (
     <TxHistoryListView
