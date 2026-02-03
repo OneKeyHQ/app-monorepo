@@ -8,11 +8,11 @@ import { StyleSheet } from 'react-native';
 import {
   Button,
   Empty,
+  LottieView,
   ScrollView,
   Select,
   SizableText,
   Skeleton,
-  LottieView,
   Stack,
   XStack,
   YStack,
