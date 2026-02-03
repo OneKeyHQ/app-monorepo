@@ -2,7 +2,7 @@ function median(nums) {
   const arr = nums
     .filter((n) => Number.isFinite(n))
     .slice()
-    .sort((a, b) => a - b);
+    .toSorted((a, b) => a - b);
   if (!arr.length) return null;
   const mid = Math.floor(arr.length / 2);
   if (arr.length % 2 === 1) return arr[mid];

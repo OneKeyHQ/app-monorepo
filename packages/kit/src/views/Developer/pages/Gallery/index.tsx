@@ -60,6 +60,12 @@ const CheckboxGallery = LazyLoadPage(
       '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Checkbox'
     ),
 );
+const DatePickerGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/DatePicker'
+    ),
+);
 const DialogGallery = LazyLoadPage(
   () =>
     import(
@@ -749,6 +755,7 @@ export const galleryScreenList: {
     name: EGalleryRoutes.ComponentNetworkDoctor,
     component: NetworkDoctorGallery,
   },
+  { name: EGalleryRoutes.ComponentDatePicker, component: DatePickerGallery },
   { name: EGalleryRoutes.ComponentDialog, component: DialogGallery },
   { name: EGalleryRoutes.ComponentEmpty, component: EmptyGallery },
   { name: EGalleryRoutes.ComponentSend, component: SendGallery },

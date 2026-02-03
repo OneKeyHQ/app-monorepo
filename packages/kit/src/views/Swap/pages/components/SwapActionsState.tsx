@@ -257,6 +257,7 @@ const SwapActionsState = ({
           size={isModalPage && !md ? 'medium' : 'large'}
           variant="primary"
           disabled={swapActionState.disabled || swapActionState.isLoading}
+          borderRadius="$full"
         >
           {quoting || quoteLoading ? (
             <LottieView

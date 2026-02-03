@@ -8513,6 +8513,7 @@ __metadata:
     "@polkadot/util-crypto": "npm:13.2.3"
     "@prettier/plugin-oxc": "npm:^0.1.3"
     "@react-native-community/cli": "npm:^18.0.1"
+    "@rehookify/datepicker": "npm:^6.6.8"
     "@reown/appkit": "npm:1.8.1"
     "@reown/appkit-ethers5-react-native": "npm:1.3.1"
     "@reown/walletkit": "npm:1.2.10"
@@ -8902,6 +8903,7 @@ __metadata:
     "@react-native-async-storage/async-storage": "npm:2.2.0"
     "@react-native-community/netinfo": "npm:11.4.1"
     "@react-native-community/slider": "npm:5.0.1"
+    "@react-native-documents/picker": "npm:^12.0.1"
     "@react-native-google-signin/google-signin": "npm:16.1.0"
     "@react-native/metro-config": "npm:0.81.5"
     "@reown/appkit-ethers5-react-native": "npm:1.3.1"
@@ -12012,6 +12014,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@react-native-documents/picker@npm:^12.0.1":
+  version: 12.0.1
+  resolution: "@react-native-documents/picker@npm:12.0.1"
+  peerDependencies:
+    react: "*"
+    react-native: ">=0.79.0"
+  checksum: 10/5d915828a2baade9b476589738c2dc4ac192b4444006e198e15676e952991bdbf472163bb739592abf581fb7402a193c9cc49319fa986fb7fd6434aaae3a3a68
+  languageName: node
+  linkType: hard
+
 "@react-native-google-signin/google-signin@npm:16.1.0":
   version: 16.1.0
   resolution: "@react-native-google-signin/google-signin@npm:16.1.0"
@@ -12369,6 +12381,15 @@ __metadata:
   version: 0.1.1
   resolution: "@realm/fetch@npm:0.1.1"
   checksum: 10/f69598bdb7678c9e8f430aecbd45e99a2c5ea03795ad10e9d3986786d9ad119c60585293a90f968400ee94f735a26cc835d439d188a23092f495a7daa32a6d28
+  languageName: node
+  linkType: hard
+
+"@rehookify/datepicker@npm:^6.6.8":
+  version: 6.6.8
+  resolution: "@rehookify/datepicker@npm:6.6.8"
+  peerDependencies:
+    react: ^16.8.0 || ^17 || ^18 || ^19
+  checksum: 10/6d52111be2f2d7446eed2815a3ece2ab6a78a9db416cc70460bf050b28cf0dd75d83aa4ddbd986b993a835294a885035ee6b0e6fba4813f5a2f967dc65f25a54
   languageName: node
   linkType: hard
 
