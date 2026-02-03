@@ -5,7 +5,7 @@ import { EIndexedDBBucketNames } from './types';
 
 export const IS_DB_BUCKET_SUPPORT = Boolean(
   platformEnv.isRuntimeBrowser &&
-    (globalThis?.navigator as INavigator)?.storageBuckets,
+  (globalThis?.navigator as INavigator)?.storageBuckets,
 );
 
 const LOCAL_DB_NAME = 'OneKeyV5';

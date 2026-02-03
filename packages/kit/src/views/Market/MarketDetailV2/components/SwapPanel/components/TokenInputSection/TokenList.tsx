@@ -143,10 +143,10 @@ export function TokenList({
         {displayTokens?.map((token: IEnhancedToken) => {
           const isDisabled = Boolean(
             currentSelectToken &&
-              equalTokenNoCaseSensitive({
-                token1: currentSelectToken,
-                token2: token,
-              }),
+            equalTokenNoCaseSensitive({
+              token1: currentSelectToken,
+              token2: token,
+            }),
           );
           const onPress = () => {
             if (isDisabled) return;

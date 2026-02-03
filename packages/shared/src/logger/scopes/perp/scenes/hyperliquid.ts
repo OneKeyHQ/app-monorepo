@@ -25,8 +25,10 @@ export interface IHyperLiquidAccountContext {
   exchangeAccountAddress: string | null;
 }
 
-export interface IHyperLiquidLogParams<TRequest, TResponse>
-  extends IHyperLiquidAccountContext {
+export interface IHyperLiquidLogParams<
+  TRequest,
+  TResponse,
+> extends IHyperLiquidAccountContext {
   request: TRequest;
   response?: TResponse;
   error?: Record<string, unknown>;

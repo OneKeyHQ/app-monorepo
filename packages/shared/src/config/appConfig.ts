@@ -131,5 +131,11 @@ export const ONEKEY_SIFU_URL = 'https://onekey.so/products/onekey-sifu';
 
 export const ONEKEY_BUY_HARDWARE_URL = 'https://bit.ly/3YtpXgh';
 
+export const ONEKEY_SHOP_URL = 'https://onekey.so/shop';
+
+export const ONEKEY_ORDERS_URL = 'https://orders.onekey.so';
+
+export const ONEKEY_TRACK_ORDER_URL = 'https://onekey.so/track-order';
+
 export const REFERRAL_IMAGE_BASE_URL =
   'https://uni.onekey-asset.com/static/referral';

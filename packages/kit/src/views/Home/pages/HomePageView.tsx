@@ -123,7 +123,7 @@ export function HomePageView({
     ? intl.formatMessage({
         id: deriveInfo?.labelKey,
       })
-    : deriveInfo?.label ?? '';
+    : (deriveInfo?.label ?? '');
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [isHide, setIsHide] = useState(false);

@@ -23,6 +23,7 @@ type ISelectorPluginProps = IAddressPluginProps & {
   onBeforeAccountSelectorOpen?: () => void;
   currentAddress?: string;
   clearNotMatch?: boolean;
+  accountSelectorOnly?: boolean;
 };
 
 const AddressBookPlugin: FC<ISelectorPluginProps> = ({
@@ -90,6 +91,7 @@ const AccountSelectorAddressBookPlugin: FC<ISelectorPluginProps> = ({
   clearNotMatch,
   disabled,
   onActiveAccountChange,
+  accountSelectorOnly,
 }) => {
   const intl = useIntl();
   const accountSelectorNum = num ?? 0;
@@ -193,6 +195,21 @@ const AccountSelectorAddressBookPlugin: FC<ISelectorPluginProps> = ({
     clearNotMatch,
   ]);
 
+  if (accountSelectorOnly) {
+    return (
+      <IconButton
+        title={intl.formatMessage({
+          id: ETranslations.send_to_contacts_tooltip,
+        })}
+        disabled={disabled}
+        variant="tertiary"
+        icon="PeopleCircleOutline"
+        testID={testID}
+        onPress={onShowAccountSelector}
+      />
+    );
+  }
+
   return (
     <ActionList
       disabled={disabled}
@@ -246,6 +263,7 @@ export const SelectorPlugin: FC<ISelectorPluginProps> = ({
   currentAddress,
   clearNotMatch,
   disabled,
+  accountSelectorOnly,
 }) => {
   if (num !== undefined) {
     return (
@@ -261,6 +279,7 @@ export const SelectorPlugin: FC<ISelectorPluginProps> = ({
         clearNotMatch={clearNotMatch}
         onExtraDataChange={onExtraDataChange}
         disabled={disabled}
+        accountSelectorOnly={accountSelectorOnly}
       />
     );
   }

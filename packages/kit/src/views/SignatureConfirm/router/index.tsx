@@ -6,22 +6,16 @@ import { LazyLoadPage } from '../../../components/LazyLoadPage';
 
 const TxConfirmFromDApp = LazyLoadPage(
   () =>
-    import(
-      '@onekeyhq/kit/src/views/Send/pages/SendConfirmFromDApp/SendConfirmFromDApp'
-    ),
+    import('@onekeyhq/kit/src/views/Send/pages/SendConfirmFromDApp/SendConfirmFromDApp'),
 );
 
 const MessageConfirmFromDApp = LazyLoadPage(
   () =>
-    import(
-      '@onekeyhq/kit/src/views/SignatureConfirm/pages/MessageConfirm/MessageConfirmFromDapp'
-    ),
+    import('@onekeyhq/kit/src/views/SignatureConfirm/pages/MessageConfirm/MessageConfirmFromDapp'),
 );
 const TxConfirmFromSwap = LazyLoadPage(
   () =>
-    import(
-      '@onekeyhq/kit/src/views/Send/pages/SendConfirmFromSwap/SendConfirmFromSwap'
-    ),
+    import('@onekeyhq/kit/src/views/Send/pages/SendConfirmFromSwap/SendConfirmFromSwap'),
 );
 
 const TxTokenSelector = LazyLoadPage(
@@ -30,9 +24,7 @@ const TxTokenSelector = LazyLoadPage(
 
 const TxAggregateTokenSelector = LazyLoadPage(
   () =>
-    import(
-      '@onekeyhq/kit/src/views/AssetSelector/pages/AggregateTokenSelector'
-    ),
+    import('@onekeyhq/kit/src/views/AssetSelector/pages/AggregateTokenSelector'),
 );
 
 const TxDeriveTypesAddress = LazyLoadPage(
@@ -42,58 +34,42 @@ const TxDeriveTypesAddress = LazyLoadPage(
 
 const TxDataInput = LazyLoadPage(
   () =>
-    import(
-      '@onekeyhq/kit/src/views/Send/pages/SendDataInput/SendDataInputContainer'
-    ),
+    import('@onekeyhq/kit/src/views/Send/pages/SendDataInput/SendDataInputContainer'),
 );
 
 const TxReplace = LazyLoadPage(
   () =>
-    import(
-      '@onekeyhq/kit/src/views/Send/pages/SendReplaceTx/SendReplaceTxContainer'
-    ),
+    import('@onekeyhq/kit/src/views/Send/pages/SendReplaceTx/SendReplaceTxContainer'),
 );
 
 const TxConfirm = LazyLoadPage(
   () =>
-    import(
-      '@onekeyhq/kit/src/views/SignatureConfirm/pages/TxConfirm/TxConfirm'
-    ),
+    import('@onekeyhq/kit/src/views/SignatureConfirm/pages/TxConfirm/TxConfirm'),
 );
 
 const MessageConfirm = LazyLoadPage(
   () =>
-    import(
-      '@onekeyhq/kit/src/views/SignatureConfirm/pages/MessageConfirm/MessageConfirm'
-    ),
+    import('@onekeyhq/kit/src/views/SignatureConfirm/pages/MessageConfirm/MessageConfirm'),
 );
 
 const LnurlPayRequestModal = LazyLoadPage(
   () =>
-    import(
-      '@onekeyhq/kit/src/views/LightningNetwork/pages/Send/LnurlPayRequestModal'
-    ),
+    import('@onekeyhq/kit/src/views/LightningNetwork/pages/Send/LnurlPayRequestModal'),
 );
 
 const LnurlWithdrawModal = LazyLoadPage(
   () =>
-    import(
-      '@onekeyhq/kit/src/views/LightningNetwork/pages/Send/LnurlWithdrawModal'
-    ),
+    import('@onekeyhq/kit/src/views/LightningNetwork/pages/Send/LnurlWithdrawModal'),
 );
 
 const LnurlAuthModal = LazyLoadPage(
   () =>
-    import(
-      '@onekeyhq/kit/src/views/LightningNetwork/pages/Send/LnurlAuthModal'
-    ),
+    import('@onekeyhq/kit/src/views/LightningNetwork/pages/Send/LnurlAuthModal'),
 );
 
 const WeblnSendPaymentModal = LazyLoadPage(
   () =>
-    import(
-      '@onekeyhq/kit/src/views/LightningNetwork/pages/Webln/WeblnSendPaymentModal'
-    ),
+    import('@onekeyhq/kit/src/views/LightningNetwork/pages/Webln/WeblnSendPaymentModal'),
 );
 
 export const ModalSignatureConfirmStack: IModalFlowNavigatorConfig<

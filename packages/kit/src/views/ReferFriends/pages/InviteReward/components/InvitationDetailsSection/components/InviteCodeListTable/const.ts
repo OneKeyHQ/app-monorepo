@@ -25,6 +25,6 @@ export const SORTABLE_COLUMNS = [
  * Type for sortable columns
  */
 export type ISortableColumn =
-  typeof SORTABLE_COLUMNS[number] extends EInviteCodeListTableColumn
-    ? typeof SORTABLE_COLUMNS[number]
+  (typeof SORTABLE_COLUMNS)[number] extends EInviteCodeListTableColumn
+    ? (typeof SORTABLE_COLUMNS)[number]
     : never;

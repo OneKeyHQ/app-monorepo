@@ -51,9 +51,9 @@ export interface IDBInitOptions<DBTypes extends DBSchema | unknown = unknown> {
   }) => void;
 }
 
-export class IndexedDBPromised<DBTypes extends DBSchema | unknown = unknown>
-  implements IDBPDatabase<DBTypes>
-{
+export class IndexedDBPromised<
+  DBTypes extends DBSchema | unknown = unknown,
+> implements IDBPDatabase<DBTypes> {
   private bucketName: string;
 
   name: string;
@@ -474,9 +474,8 @@ export class IndexedDBPromised<DBTypes extends DBSchema | unknown = unknown>
     bucketName: string;
     name: string;
   }): Promise<IDBDatabase> {
-    const dbFactory = await IndexedDBPromised.getBucketIndexedDBFactory(
-      bucketName,
-    );
+    const dbFactory =
+      await IndexedDBPromised.getBucketIndexedDBFactory(bucketName);
     const request: IDBOpenDBRequest = dbFactory.deleteDatabase(name);
     return indexedDBPromisedUtils.toPromiseResult({ request });
     // return new Promise((resolve, reject) => {

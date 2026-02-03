@@ -1566,7 +1566,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           accountDefaultNameMap[target.indexedAccount.id];
         return Boolean(
           accountDefaultName &&
-            target.indexedAccount.name === accountDefaultName,
+          target.indexedAccount.name === accountDefaultName,
         );
       },
     });
@@ -3091,7 +3091,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const isUsingDefaultName = () =>
       Boolean(
         walletToAdd.passphraseState &&
-          walletToAdd.name === hiddenDefaultWalletName,
+        walletToAdd.name === hiddenDefaultWalletName,
       );
 
     const syncManager =

@@ -30,7 +30,7 @@ export function HeaderNavigation({
   const activeKey =
     controlledActiveKey === null
       ? null
-      : controlledActiveKey ?? internalActiveKey;
+      : (controlledActiveKey ?? internalActiveKey);
 
   const handleTabPress = (item: IHeaderNavigationItem) => {
     if (controlledActiveKey === undefined) {

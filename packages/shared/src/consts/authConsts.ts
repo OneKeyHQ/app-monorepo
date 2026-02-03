@@ -294,7 +294,7 @@ export const KEYLESS_BACKEND_SHARE_PAYLOAD_GCM_AAD =
 // Helper function to get AAD by version
 export function getKeylessAadByVersion(
   type: keyof typeof KEYLESS_AAD_VERSIONS,
-  version?: keyof typeof KEYLESS_AAD_VERSIONS[typeof type],
+  version?: keyof (typeof KEYLESS_AAD_VERSIONS)[typeof type],
 ): string {
   const targetVersion = version || KEYLESS_AAD_CURRENT_VERSION[type];
   return KEYLESS_AAD_VERSIONS[type][targetVersion];
