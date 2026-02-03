@@ -326,7 +326,17 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   async resumeSubscriptions(): Promise<void> {
     await this.enableSubscriptionsHandler();
     console.log('updateSubscriptions__by__resumeSubscriptions');
+
+    // Reconnect if socket is CLOSED (iOS closes WebSocket when app is in background)
+    const client = await this.getWebSocketClient();
+    if (client?.transport?.socket?.readyState === WebSocket.CLOSED) {
+      console.log('resumeSubscriptions__reconnecting_closed_socket');
+      await this.disconnect();
+      await this.getWebSocketClient();
+    }
+
     await this.updateSubscriptions();
+
     const hookInfo = await perpsCandlesWebviewReloadHookAtom.get();
     if (hookInfo.reloadHook <= -1) {
       await perpsCandlesWebviewReloadHookAtom.set({

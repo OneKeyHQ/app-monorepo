@@ -41,6 +41,13 @@ const shopifyStatusToBadgeType: Record<string, IBadgeType> = {
   unfulfilled: 'default',
 };
 
+const shopifyStatusToI18nKey: Record<string, ETranslations> = {
+  fulfilled: ETranslations.prime_fulfillment_status_fulfilled,
+  shipped: ETranslations.prime_fulfillment_status_shipped,
+  cancelled: ETranslations.prime_fulfillment_status_cancelled,
+  unfulfilled: ETranslations.prime_fulfillment_status_unfulfilled,
+};
+
 export default function PrimeMyOrders() {
   const intl = useIntl();
   const { copyText } = useClipboard();
@@ -65,7 +72,7 @@ export default function PrimeMyOrders() {
   const handleCopyOrderNumber = useCallback(
     (orderNumber: string, event?: { stopPropagation?: () => void }) => {
       event?.stopPropagation?.();
-      copyText(orderNumber);
+      copyText(orderNumber, ETranslations.prime_order_number_copy);
     },
     [copyText],
   );
@@ -120,7 +127,7 @@ export default function PrimeMyOrders() {
                   {item.orderNumber}
                 </SizableText>
                 <IconButton
-                  icon="Copy1Outline"
+                  icon="Copy3Outline"
                   size="small"
                   variant="tertiary"
                   onPress={(e) => handleCopyOrderNumber(item.orderNumber, e)}
@@ -134,7 +141,11 @@ export default function PrimeMyOrders() {
                 }
                 badgeSize="sm"
               >
-                {item.status}
+                {intl.formatMessage({
+                  id:
+                    shopifyStatusToI18nKey[item.status.toLowerCase()] ??
+                    ETranslations.prime_fulfillment_status_unfulfilled,
+                })}
               </Badge>
             </XStack>
 
@@ -162,7 +173,12 @@ export default function PrimeMyOrders() {
               {intl.formatMessage({ id: ETranslations.global_details })}
             </Button>
           ) : (
-            <Icon name="ChevronRightSmallOutline" color="$iconSubdued" />
+            <IconButton
+              icon="OpenOutline"
+              size="small"
+              variant="tertiary"
+              onPress={() => handleOrderDetails(item)}
+            />
           )}
         </XStack>
       );
@@ -181,23 +197,7 @@ export default function PrimeMyOrders() {
 
     if (hasOrders) {
       return (
-        <YStack flex={1} pb="$4" px={gtMd ? 60 : 20} gap="$2.5">
-          {/* Alert Banner */}
-          {showAlert ? (
-            <Alert
-              type="info"
-              icon="CartOutline"
-              title={intl.formatMessage({
-                id: ETranslations.prime_order_link_title,
-              })}
-              description={intl.formatMessage({
-                id: ETranslations.prime_order_link_desc,
-              })}
-              closable
-              onClose={() => setShowAlert(false)}
-            />
-          ) : null}
-
+        <YStack flex={1} pb="$4">
           {/* Order List */}
           <ListView
             data={orders}
@@ -205,6 +205,27 @@ export default function PrimeMyOrders() {
             keyExtractor={(item) => item.orderNumber}
             estimatedItemSize={100}
             ItemSeparatorComponent={() => <Stack h="$3" />}
+            ListHeaderComponent={
+              showAlert ? (
+                <Alert
+                  type="info"
+                  icon="CartOutline"
+                  title={intl.formatMessage({
+                    id: ETranslations.prime_order_link_title,
+                  })}
+                  description={intl.formatMessage({
+                    id: ETranslations.prime_order_link_desc,
+                  })}
+                  closable
+                  onClose={() => setShowAlert(false)}
+                  mb="$2.5"
+                />
+              ) : null
+            }
+            contentContainerStyle={{
+              px: gtMd ? 60 : 20,
+              pb: '$4',
+            }}
           />
         </YStack>
       );
