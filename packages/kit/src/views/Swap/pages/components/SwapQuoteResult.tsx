@@ -217,8 +217,8 @@ const SwapQuoteResult = ({
     );
     const tokenPriceBN = new BigNumber(
       quoteResult?.kind === ESwapQuoteKind.SELL
-        ? toToken?.price ?? '0'
-        : fromToken?.price ?? '0',
+        ? (toToken?.price ?? '0')
+        : (fromToken?.price ?? '0'),
     );
     const oneKeyFeeFiatValue = oneKeyFeeAmountBN.multipliedBy(tokenPriceBN);
     const estimatedFeeFiatValue = new BigNumber(

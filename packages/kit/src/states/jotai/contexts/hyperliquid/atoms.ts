@@ -4,6 +4,7 @@ import {
   resolveTradingSizeBN,
   sanitizeManualSize,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
+import type { ITokenSearchAliases } from '@onekeyhq/shared/src/utils/perpsUtils';
 import { XYZ_ASSET_ID_OFFSET } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type {
@@ -51,6 +52,11 @@ export const { atom: perpsAllAssetCtxsAtom, use: usePerpsAllAssetCtxsAtom } =
   }>({
     assetCtxsByDex: [],
   });
+
+export const {
+  atom: perpsTokenSearchAliasesAtom,
+  use: usePerpsTokenSearchAliasesAtom,
+} = contextAtom<ITokenSearchAliases | undefined>(undefined);
 
 export const { atom: l2BookAtom, use: useL2BookAtom } =
   contextAtom<HL.IBook | null>(null);
@@ -182,10 +188,13 @@ export const {
 >((get) => {
   const { openOrders } = get(perpsActiveOpenOrdersAtom());
   const filteredOpenOrders = openOrders.filter((o) => !o.coin.startsWith('@'));
-  return filteredOpenOrders.reduce((acc, order, index) => {
-    acc[order.coin] = [...(acc[order.coin] || []), index];
-    return acc;
-  }, {} as { [coin: string]: number[] });
+  return filteredOpenOrders.reduce(
+    (acc, order, index) => {
+      acc[order.coin] = [...(acc[order.coin] || []), index];
+      return acc;
+    },
+    {} as { [coin: string]: number[] },
+  );
 });
 
 export const perpsOpenOrdersByCoinAtomCache = new Map<

@@ -80,19 +80,17 @@ function BannerItem<T extends IBannerData>({
       ) : null}
 
       <Stack position="absolute" {...itemTitleContainerStyle}>
-        {
-          // TODO：Lokalise processes \n as \\n when handling translations
-          item.title?.split(/\n|\\n/).map((text, index) => (
-            <SizableText
-              key={index}
-              color={item.theme === 'dark' ? '$textDark' : '$textLight'}
-              size="$headingLg"
-              {...item.titleTextProps}
-            >
-              {text}
-            </SizableText>
-          ))
-        }
+        {// TODO：Lokalise processes \n as \\n when handling translations
+        item.title?.split(/\n|\\n/).map((text, index) => (
+          <SizableText
+            key={index}
+            color={item.theme === 'dark' ? '$textDark' : '$textLight'}
+            size="$headingLg"
+            {...item.titleTextProps}
+          >
+            {text}
+          </SizableText>
+        ))}
       </Stack>
     </Stack>
   );

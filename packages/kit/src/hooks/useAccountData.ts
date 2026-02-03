@@ -90,7 +90,7 @@ export function useAccountData<T extends IUseAccountDataResult>({
           ]);
           addressType = addressTypeResp.typeKey
             ? intl.formatMessage({ id: addressTypeResp.typeKey })
-            : addressTypeResp.type ?? '';
+            : (addressTypeResp.type ?? '');
 
           deriveType = deriveResp.deriveType;
           deriveInfo = deriveResp.deriveInfo;
@@ -114,7 +114,7 @@ export function useAccountData<T extends IUseAccountDataResult>({
 
           addressType = addressTypeResp.typeKey
             ? intl.formatMessage({ id: addressTypeResp.typeKey })
-            : addressTypeResp.type ?? '';
+            : (addressTypeResp.type ?? '');
 
           deriveType = deriveTypeResp;
           deriveInfo = deriveInfoResp?.item;

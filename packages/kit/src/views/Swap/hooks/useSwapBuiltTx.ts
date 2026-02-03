@@ -555,7 +555,7 @@ export function useSwapBuildTx() {
             await backgroundApiProxy.serviceSwap.swapLimitOrdersFetchLoop(
               fromAccountIndexedAccountId,
               !fromAccountIndexedAccountId
-                ? fromAccountId ?? dbAccountId
+                ? (fromAccountId ?? dbAccountId)
                 : undefined,
               true,
             );
@@ -1663,7 +1663,7 @@ export function useSwapBuildTx() {
         void backgroundApiProxy.serviceSwap.swapLimitOrdersFetchLoop(
           fromAccountIndexedAccountId,
           !fromAccountIndexedAccountId
-            ? fromAccountId ?? dbAccountId
+            ? (fromAccountId ?? dbAccountId)
             : undefined,
           true,
         );
@@ -2263,12 +2263,12 @@ export function useSwapBuildTx() {
                     : selectQuoteRes.fromTokenInfo.decimals;
                 const finalAmountBN = new BigNumber(
                   selectQuoteRes.kind === ESwapQuoteKind.SELL
-                    ? swapLimitPriceToAmount ??
-                      selectQuoteRes.toAmount ??
-                      unSignedOrder.buyAmount
-                    : swapLimitPriceFromAmount ??
-                      selectQuoteRes.fromAmount ??
-                      unSignedOrder.sellAmount,
+                    ? (swapLimitPriceToAmount ??
+                        selectQuoteRes.toAmount ??
+                        unSignedOrder.buyAmount)
+                    : (swapLimitPriceFromAmount ??
+                        selectQuoteRes.fromAmount ??
+                        unSignedOrder.sellAmount),
                 ).shiftedBy(decimals);
                 if (selectQuoteRes.kind === ESwapQuoteKind.SELL) {
                   finalBuyAmount = finalAmountBN.toFixed();

@@ -373,8 +373,8 @@ export function UniversalWithdraw({
       }
       const isOverflowDecimals = Boolean(
         decimals &&
-          Number(decimals) > 0 &&
-          countDecimalPlaces(value) > decimals,
+        Number(decimals) > 0 &&
+        countDecimalPlaces(value) > decimals,
       );
       if (isOverflowDecimals) {
         setAmountValue((oldValue) => oldValue);

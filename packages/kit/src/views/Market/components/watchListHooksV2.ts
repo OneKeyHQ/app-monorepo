@@ -34,7 +34,7 @@ export const useWatchListV2Action = () => {
       // Calculate sortIndex to make new items appear at the top
       const firstSortIndex =
         isMounted && watchListData.length > 0
-          ? watchListData[0].sortIndex ?? 1000
+          ? (watchListData[0].sortIndex ?? 1000)
           : 1000;
 
       const watchListItems: IMarketWatchListItemV2[] = items.map(

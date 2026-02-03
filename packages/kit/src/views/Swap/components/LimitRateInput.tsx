@@ -29,9 +29,11 @@ const LimitRateInput = ({
   const currency = useMemo(
     () => ({
       from: !reverse
-        ? fromTokenInfo?.symbol ?? '-'
-        : toTokenInfo?.symbol ?? '-',
-      to: !reverse ? toTokenInfo?.symbol ?? '-' : fromTokenInfo?.symbol ?? '-',
+        ? (fromTokenInfo?.symbol ?? '-')
+        : (toTokenInfo?.symbol ?? '-'),
+      to: !reverse
+        ? (toTokenInfo?.symbol ?? '-')
+        : (fromTokenInfo?.symbol ?? '-'),
     }),
     [fromTokenInfo, toTokenInfo, reverse],
   );

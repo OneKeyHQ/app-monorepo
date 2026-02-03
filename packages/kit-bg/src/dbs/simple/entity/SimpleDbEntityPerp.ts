@@ -7,6 +7,7 @@ import type {
   IMarginTableMap as IMarginTablesMap,
   IPerpsUniverse,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
+import type { ITokenSearchAliases } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type {
   IHyperLiquidErrorLocaleItem,
   IPerpOrderBookTickOptionPersist,
@@ -49,6 +50,7 @@ export interface ISimpleDbPerpData {
   hyperliquidErrorLocales?: IHyperLiquidErrorLocaleItem[];
   dexAbstractionEnabledUsers?: Record<string, boolean>; // user address -> HIP-3 DEX abstraction enabled status
   referralPromptOptedOut?: Record<string, boolean>; // user address -> whether user has opted out of referral promotion
+  tokenSearchAliases?: ITokenSearchAliases; // token search aliases from server
 }
 
 export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {

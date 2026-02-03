@@ -657,9 +657,8 @@ export default class VaultBtc extends VaultBase {
   override async validateGeneralInput(
     params: IValidateGeneralInputParams,
   ): Promise<IGeneralInputValidation> {
-    const { result, inputDecoded: input } = await this.baseValidateGeneralInput(
-      params,
-    );
+    const { result, inputDecoded: input } =
+      await this.baseValidateGeneralInput(params);
 
     if (result.addressResult?.isValid && result.addressResult?.encoding) {
       const settings = await this.getVaultSettings();

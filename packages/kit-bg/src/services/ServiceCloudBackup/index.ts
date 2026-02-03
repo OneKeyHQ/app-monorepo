@@ -141,10 +141,13 @@ class ServiceCloudBackup extends ServiceBase {
     const { wallets } = await serviceAccount.getWallets();
     defaultLogger.cloudBackup.getDataForBackupScene.getWallets(wallets.length);
 
-    const walletAccountMap = wallets.reduce((summary, current) => {
-      summary[current.id] = current;
-      return summary;
-    }, {} as Record<string, IDBWallet>);
+    const walletAccountMap = wallets.reduce(
+      (summary, current) => {
+        summary[current.id] = current;
+        return summary;
+      },
+      {} as Record<string, IDBWallet>,
+    );
     const { accounts: allAccounts } = await serviceAccount.getAllAccounts();
     defaultLogger.cloudBackup.getDataForBackupScene.getAllAccounts(
       allAccounts.length,
@@ -405,16 +408,19 @@ class ServiceCloudBackup extends ServiceBase {
     const metaData = await this.getMetaDataFromCloud();
 
     return Object.values(
-      metaData.reduce((backupDeviceList, item) => {
-        const deviceKey = `${item.deviceInfo.deviceName}_${item.deviceInfo.osName}`;
-        if (
-          !backupDeviceList[deviceKey] ||
-          backupDeviceList[deviceKey].backupTime < item.backupTime
-        ) {
-          backupDeviceList[deviceKey] = item;
-        }
-        return backupDeviceList;
-      }, {} as Record<string, IMetaDataObject>),
+      metaData.reduce(
+        (backupDeviceList, item) => {
+          const deviceKey = `${item.deviceInfo.deviceName}_${item.deviceInfo.osName}`;
+          if (
+            !backupDeviceList[deviceKey] ||
+            backupDeviceList[deviceKey].backupTime < item.backupTime
+          ) {
+            backupDeviceList[deviceKey] = item;
+          }
+          return backupDeviceList;
+        },
+        {} as Record<string, IMetaDataObject>,
+      ),
     ).toSorted((a, b) => b.backupTime - a.backupTime);
   }
 

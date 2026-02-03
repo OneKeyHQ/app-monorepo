@@ -1057,20 +1057,21 @@ const amounts = userInput.split(',').map(v => {
 
 ## Review Workflow
 
-1. **Scope**: Run `git diff origin/x...HEAD --stat` to understand change scope
-2. **Files**: Check for accidental commits and generated file references
-3. **Scripts**: Review shell scripts for proper error handling and placeholders
-4. **CI**: Verify CI workflows have appropriate verification steps
-5. **Hooks**: Check React hooks for dependency issues, memory leaks, infinite loops
-6. **Requests**: Verify concurrent/sequential request handling is optimized
-7. **Dependencies**: Check for deprecated packages in new dependencies
-8. **Errors**: Ensure proper error handling with user feedback
-9. **Null Safety**: Check for missing null/undefined guards
-10. **Race Conditions**: Look for Fabric race conditions, cleanup issues
-11. **Platform**: Check Android/iOS specific crash patterns
-12. **Type Safety**: Verify numeric types before BigNumber/decimal operations
-13. **Stale Data**: Check for cache clearing on context switches
-14. **Debounce**: Verify debounced async functions return proper promises
-15. **Security**: Review security aspects for bulk/batch operations
-16. **Docs**: Ensure PR description matches actual changes
-17. **Report**: Generate structured report with priorities and fix suggestions
+1. **Checkout**: Switch to the PR branch before reviewing: `gh pr checkout <PR_NUMBER>` (skip if already on the target branch)
+2. **Scope**: Run `git diff origin/x...HEAD --stat` to understand change scope
+3. **Files**: Check for accidental commits and generated file references
+4. **Scripts**: Review shell scripts for proper error handling and placeholders
+5. **CI**: Verify CI workflows have appropriate verification steps
+6. **Hooks**: Check React hooks for dependency issues, memory leaks, infinite loops
+7. **Requests**: Verify concurrent/sequential request handling is optimized
+8. **Dependencies**: Check for deprecated packages in new dependencies
+9. **Errors**: Ensure proper error handling with user feedback
+10. **Null Safety**: Check for missing null/undefined guards
+11. **Race Conditions**: Look for Fabric race conditions, cleanup issues
+12. **Platform**: Check Android/iOS specific crash patterns
+13. **Type Safety**: Verify numeric types before BigNumber/decimal operations
+14. **Stale Data**: Check for cache clearing on context switches
+15. **Debounce**: Verify debounced async functions return proper promises
+16. **Security**: Review security aspects for bulk/batch operations
+17. **Docs**: Ensure PR description matches actual changes
+18. **Report**: Generate structured report with priorities and fix suggestions

@@ -395,7 +395,7 @@ class ProviderApiAptos extends ProviderApiBase {
     const { account, accountInfo } = await this._getAccountByAddress(
       request,
       params.asFeePayer
-        ? rawTxn.feePayerAddress?.bcsToHex().toStringWithoutPrefix() ?? ''
+        ? (rawTxn.feePayerAddress?.bcsToHex().toStringWithoutPrefix() ?? '')
         : rawTxn.rawTransaction.sender.bcsToHex().toStringWithoutPrefix(),
     );
     const encodeTx = {

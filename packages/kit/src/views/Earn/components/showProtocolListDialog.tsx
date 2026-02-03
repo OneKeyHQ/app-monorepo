@@ -74,14 +74,18 @@ const getSectionTitle = (group: string): string => {
 const groupProtocolsByGroup = (
   protocols: IStakeProtocolListItem[],
 ): IProtocolSection[] => {
-  const grouped = protocols.reduce((acc, protocol) => {
-    const group = protocol.provider.group || EStakeProtocolGroupEnum.Available;
-    if (!acc[group]) {
-      acc[group] = [];
-    }
-    acc[group].push(protocol);
-    return acc;
-  }, {} as Record<string, IStakeProtocolListItem[]>);
+  const grouped = protocols.reduce(
+    (acc, protocol) => {
+      const group =
+        protocol.provider.group || EStakeProtocolGroupEnum.Available;
+      if (!acc[group]) {
+        acc[group] = [];
+      }
+      acc[group].push(protocol);
+      return acc;
+    },
+    {} as Record<string, IStakeProtocolListItem[]>,
+  );
 
   // Convert to sections array and sort by group priority
   const groupOrder = [

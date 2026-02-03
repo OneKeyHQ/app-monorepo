@@ -221,12 +221,12 @@ const LimitOrderCard = ({
         <SizableText size="$bodySm">
           {`1 ${
             limitPriceReverse
-              ? item?.toTokenInfo?.symbol ?? '-'
-              : item?.fromTokenInfo?.symbol ?? '-'
+              ? (item?.toTokenInfo?.symbol ?? '-')
+              : (item?.fromTokenInfo?.symbol ?? '-')
           } = ${limitPrice ?? '-'} ${
             limitPriceReverse
-              ? item?.fromTokenInfo?.symbol ?? '-'
-              : item?.toTokenInfo?.symbol ?? '-'
+              ? (item?.fromTokenInfo?.symbol ?? '-')
+              : (item?.toTokenInfo?.symbol ?? '-')
           }`}
         </SizableText>
       </YStack>
