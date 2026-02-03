@@ -160,10 +160,10 @@ export const EditableChainSelectorContent = ({
       return data.length === 0
         ? []
         : [
-          {
-            data,
-          },
-        ];
+            {
+              data,
+            },
+          ];
     }
 
     const tempFrequentlyUsedItemsSet = new Set(
@@ -326,8 +326,8 @@ export const EditableChainSelectorContent = ({
       sections
         .slice(0, _initialScrollIndex.sectionIndex)
         .reduce((prev, section) => prev + section.data.length, 0) +
-      (_initialScrollIndex?.itemIndex ?? 0) <=
-      7
+        (_initialScrollIndex?.itemIndex ?? 0) <=
+        7
     ) {
       return { sectionIndex: 0, itemIndex: undefined };
     }
@@ -482,7 +482,11 @@ export const EditableChainSelectorContent = ({
               mt: '$4',
             }}
             onPressItem={onPressItem}
-            availableNetworks={[...mainnetItems, ...testnetItems, allNetworkItem].filter(Boolean)}
+            availableNetworks={[
+              ...mainnetItems,
+              ...testnetItems,
+              allNetworkItem,
+            ].filter(Boolean)}
             showAllNetwork={showAllNetworkInRecentNetworks}
           />
         ) : null}
