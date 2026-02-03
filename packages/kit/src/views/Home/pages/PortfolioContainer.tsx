@@ -1,6 +1,13 @@
 import { useMemo } from 'react';
 
-import { Stack, Tabs, XStack, YStack, useMedia } from '@onekeyhq/components';
+import {
+  Stack,
+  Tabs,
+  XStack,
+  YStack,
+  useMedia,
+  useScrollContentTabBarOffset,
+} from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
@@ -72,13 +79,14 @@ function PortfolioContainerWithProvider() {
   const {
     activeAccount: { account },
   } = useActiveAccount({ num: 0 });
-
+  const tabBarHeight = useScrollContentTabBarOffset();
   return (
     <HomeTokenListProviderMirrorWrapper accountId={account?.id ?? ''}>
       <ProviderJotaiContextDeFiList>
         <ProviderJotaiContextHistoryList>
           <ProviderJotaiContextEarn>
             <Tabs.ScrollView
+              contentContainerStyle={{ paddingBottom: tabBarHeight }}
               nestedScrollEnabled={platformEnv.isNativeAndroid}
               refreshControl={
                 !platformEnv.isNativeAndroid ? (

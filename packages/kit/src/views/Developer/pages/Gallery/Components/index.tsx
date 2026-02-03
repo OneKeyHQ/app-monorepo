@@ -3,7 +3,13 @@ import { useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import natsort from 'natsort';
 
-import { Input, ListView, Page, View } from '@onekeyhq/components';
+import {
+  Input,
+  ListView,
+  Page,
+  View,
+  useScrollContentTabBarOffset,
+} from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useGalleryPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -28,6 +34,7 @@ const Index = () => {
     filteredComponents.unshift(galleryLastRoute);
   }
 
+  const tabBarHeight = useScrollContentTabBarOffset();
   return (
     <Page>
       <Page.Body>
@@ -49,6 +56,7 @@ const Index = () => {
           flex={1}
           contentContainerStyle={{
             py: 20,
+            pb: tabBarHeight,
           }}
           data={filteredComponents}
           renderItem={({ item }) => (
