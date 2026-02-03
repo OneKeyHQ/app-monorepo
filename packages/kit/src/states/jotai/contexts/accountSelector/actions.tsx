@@ -1230,12 +1230,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       },
     ) => {
       const { servicePassword } = backgroundApiProxy;
-      const { mnemonic: realMnemonic } = await serviceAccount.validateMnemonic(
-        mnemonic,
-      );
-      const { tonMnemonicToKeyPair } = await import(
-        '@onekeyhq/core/src/secret/ton-mnemonic'
-      );
+      const { mnemonic: realMnemonic } =
+        await serviceAccount.validateMnemonic(mnemonic);
+      const { tonMnemonicToKeyPair } =
+        await import('@onekeyhq/core/src/secret/ton-mnemonic');
       const keyPair = await tonMnemonicToKeyPair(realMnemonic.split(' '));
       const secretKeyUint8Array = platformEnv.isNative
         ? new Uint8Array(Object.values(keyPair.secretKey))

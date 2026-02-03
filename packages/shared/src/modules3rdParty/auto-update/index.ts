@@ -13,7 +13,7 @@ import type {
 } from './type';
 
 const downloadPackage: IDownloadPackage = async () =>
-  ({} as IUpdateDownloadedEvent);
+  ({}) as IUpdateDownloadedEvent;
 
 const downloadASC: IDownloadASC = async () => Promise.resolve();
 

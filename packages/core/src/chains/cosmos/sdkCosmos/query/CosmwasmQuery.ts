@@ -48,9 +48,9 @@ export class CosmwasmQuery implements IQuery {
     );
 
     return axios
-      .get<{ data: unknown }>(
-        `/cosmwasm/wasm/v1/contract/${contractAddress}/smart/${queryBase64}`,
-      )
+      .get<{
+        data: unknown;
+      }>(`/cosmwasm/wasm/v1/contract/${contractAddress}/smart/${queryBase64}`)
       .then((i) => i.data.data);
   }
 

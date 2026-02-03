@@ -78,7 +78,10 @@ class BaseBip32KeyDeriver implements IBip32KeyDeriver {
    * and CKD functions) doesn't follow BIP-0032 but SLIP-0010. */
 
   // eslint-disable-next-line no-useless-constructor
-  constructor(private key: Buffer, private curve: CurveForKD) {
+  constructor(
+    private key: Buffer,
+    private curve: CurveForKD,
+  ) {
     // noop
   }
 
@@ -267,7 +270,10 @@ class BaseBip32KeyDeriver implements IBip32KeyDeriver {
 
 class ED25519Bip32KeyDeriver implements IBip32KeyDeriver {
   // eslint-disable-next-line no-useless-constructor
-  constructor(private key: Buffer, private curve: BaseCurve) {
+  constructor(
+    private key: Buffer,
+    private curve: BaseCurve,
+  ) {
     // noop
   }
 

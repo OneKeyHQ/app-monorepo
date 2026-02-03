@@ -1398,18 +1398,18 @@ async function loadHomeRefresh(sessionId = state.currentSessionId) {
               ? formatMs(data.startSinceSessionStartMs)
               : '-'
           } → End: ${
-      data.endSinceSessionStartMs != null
-        ? formatMs(data.endSinceSessionStartMs)
-        : '-'
-    }</div>
+            data.endSinceSessionStartMs != null
+              ? formatMs(data.endSinceSessionStartMs)
+              : '-'
+          }</div>
         </div>
         <div>
           <div class="text-xs text-slate-400">Function Calls</div>
           <div class="font-semibold">${
             data.totals?.functionCalls || 0
           } calls, ${formatMs(
-      data.totals?.functionTotalDuration || 0,
-    )} total</div>
+            data.totals?.functionTotalDuration || 0,
+          )} total</div>
         </div>
       </div>
       ${
@@ -1464,8 +1464,8 @@ async function loadJsBlock(sessionId = state.currentSessionId) {
         <div class="border border-dark-border rounded p-3 mb-2">
           <div class="flex justify-between items-center mb-2">
             <div class="font-semibold text-red-400">#${i + 1} Block: ${formatMs(
-          w.span,
-        )}</div>
+              w.span,
+            )}</div>
             <div class="text-xs text-slate-400">${
               w.totals?.functionCalls || 0
             } function calls</div>
@@ -1524,8 +1524,8 @@ async function loadLowFps(sessionId = state.currentSessionId) {
             <div class="text-xs text-slate-400">FPS: ${
               w.fps?.min?.toFixed(0) || '-'
             } - ${w.fps?.max?.toFixed(0) || '-'} (avg ${
-          w.fps?.avg?.toFixed(1) || '-'
-        })</div>
+              w.fps?.avg?.toFixed(1) || '-'
+            })</div>
           </div>
           ${
             topFns

@@ -6,8 +6,10 @@ import { ChainSelectorListView } from '@onekeyhq/kit/src/views/ChainSelector/com
 import type { IServerNetworkMatch } from '@onekeyhq/kit/src/views/ChainSelector/types';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
-export interface INetworksSearchPanelProps
-  extends Omit<ComponentProps<typeof ChainSelectorListView>, 'networks'> {
+export interface INetworksSearchPanelProps extends Omit<
+  ComponentProps<typeof ChainSelectorListView>,
+  'networks'
+> {
   networks?: IServerNetwork[];
   onNetworkSelect?: (network: IServerNetwork) => void;
 }

@@ -56,8 +56,8 @@ function PrimeTransferImportProcessingDialogContent({
     // return false;
     return Boolean(
       importProgress &&
-        !importProgress.isImporting &&
-        importProgress.current >= importProgress.total,
+      !importProgress.isImporting &&
+      importProgress.current >= importProgress.total,
     );
   }, [importProgress]);
 
@@ -205,7 +205,7 @@ function PrimeTransferImportProcessingDialogContent({
                         ? `${importProgress?.current || 0}/${
                             importProgress?.total || 0
                           } ${progressPercentage}%`
-                        : importProgress?.current ?? 0,
+                        : (importProgress?.current ?? 0),
                     },
                   )} ${progressPercentage}%`;
                 }

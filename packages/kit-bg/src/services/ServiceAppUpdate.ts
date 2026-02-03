@@ -142,11 +142,14 @@ class ServiceAppUpdate extends ServiceBase {
   @backgroundMethod()
   public async downloadPackage() {
     clearTimeout(downloadTimeoutId);
-    downloadTimeoutId = setTimeout(async () => {
-      await this.downloadPackageFailed({
-        message: ETranslations.update_download_timed_out_check_connection,
-      });
-    }, timerUtils.getTimeDurationMs({ minute: 30 }));
+    downloadTimeoutId = setTimeout(
+      async () => {
+        await this.downloadPackageFailed({
+          message: ETranslations.update_download_timed_out_check_connection,
+        });
+      },
+      timerUtils.getTimeDurationMs({ minute: 30 }),
+    );
     await appUpdatePersistAtom.set((prev) => ({
       ...prev,
       downloadedEvent: undefined,

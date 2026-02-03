@@ -40,10 +40,13 @@ export default function ChainSelectorPage({
       disableNetwork = networks.filter((o) => disableNetworkIds.includes(o.id));
     }
     if (networkIds && networkIds.length > 0) {
-      const networkIdIndex = networkIds.reduce((acc, item, index) => {
-        acc[item] = index;
-        return acc;
-      }, {} as Record<string, number>);
+      const networkIdIndex = networkIds.reduce(
+        (acc, item, index) => {
+          acc[item] = index;
+          return acc;
+        },
+        {} as Record<string, number>,
+      );
       networks = networks.filter((o) => {
         let isOK = networkIds.includes(o.id);
         if (disableNetworkIds && disableNetworkIds?.length > 0) {

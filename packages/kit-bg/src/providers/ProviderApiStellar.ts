@@ -304,9 +304,8 @@ class ProviderApiStellar extends ProviderApiBase {
   ): Promise<IGetNetworkResult> {
     defaultLogger.discovery.dapp.dappRequest({ request });
 
-    const networks = await this.backgroundApi.serviceDApp.getConnectedNetworks(
-      request,
-    );
+    const networks =
+      await this.backgroundApi.serviceDApp.getConnectedNetworks(request);
 
     if (!networks || networks.length === 0) {
       throw web3Errors.provider.unauthorized('No network connected');
