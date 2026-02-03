@@ -1,12 +1,16 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgClouds = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      stroke="currentColor"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M11.051 7.36a4.001 4.001 0 1 1 7.188 2.988M11.05 7.36a6 6 0 0 1 2.885 2.228c.324.467.938.676 1.49.54a4.5 4.5 0 0 1 2.813.22M11.05 7.36A6 6 0 1 0 9 19h7.5a4.5 4.5 0 0 0 1.739-8.652"
+      fillRule="evenodd"
+      d="M10.36 6.132A7 7 0 1 0 9 20h7.5a5.5 5.5 0 0 0 3.102-10.042 5 5 0 1 0-9.241-3.825Zm1.89.667a7 7 0 0 1 2.508 2.22c.07.1.248.183.431.138a5.5 5.5 0 0 1 2.584-.009 3 3 0 0 0-5.523-2.35ZM9 8a5 5 0 0 0 0 10h7.5a3.5 3.5 0 1 0-.836-6.9c-.921.226-1.972-.108-2.55-.943A4.99 4.99 0 0 0 9 8"
+      clipRule="evenodd"
     />
   </Svg>
 );

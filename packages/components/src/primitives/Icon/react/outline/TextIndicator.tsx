@@ -1,14 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgTextIndicator = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M3 6h5m0 0h5M8 6v12m9-15h2m0 0h2m-2 0v18m0 0h-2m2 0h2"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M21 2a1 1 0 1 1 0 2h-1v16h1a1 1 0 1 1 0 2h-4a1 1 0 1 1 0-2h1V4h-1a1 1 0 1 1 0-2zM7 18V7H3a1 1 0 0 1 0-2h10a1 1 0 1 1 0 2H9v11a1 1 0 1 1-2 0" />
   </Svg>
 );
 export default SvgTextIndicator;

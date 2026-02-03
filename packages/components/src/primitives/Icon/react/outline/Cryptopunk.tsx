@@ -1,0 +1,13 @@
+import Svg, { Path } from 'react-native-svg';
+import type { SvgProps } from 'react-native-svg';
+const SvgCryptopunk = (props: SvgProps) => (
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M17 6a2 2 0 0 0-2-2H9a2 2 0 0 0-2 2zm-7.707 7.293a1 1 0 0 1 1.414 0c.444.444.805.691 1.205.812.4.12.958.147 1.846-.075a1 1 0 1 1 .484 1.94c-1.112.278-2.054.305-2.904.05-.85-.254-1.489-.757-2.045-1.313a1 1 0 0 1 0-1.414M11.01 9a1 1 0 1 1 0 2H11a1 1 0 1 1 0-2zm4 0a1 1 0 1 1 0 2H15a1 1 0 1 1 0-2zM21 6a1 1 0 1 1 0 2h-2v8a4 4 0 0 1-4 4h-3v1a1 1 0 1 1-2 0v-2a1 1 0 0 1 1-1h4a2 2 0 0 0 2-2V8H7v2a1 1 0 0 1-.897.995l-.206.01a1 1 0 0 0 0 1.99l.206.01A1 1 0 0 1 7 14v7a1 1 0 1 1-2 0v-6.175A3 3 0 0 1 3 12c0-1.306.835-2.414 2-2.826V6a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4z" />
+  </Svg>
+);
+export default SvgCryptopunk;

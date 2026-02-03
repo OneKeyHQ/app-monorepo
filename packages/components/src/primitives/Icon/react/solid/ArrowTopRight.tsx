@@ -1,13 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgArrowTopRight = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      fill="currentColor"
-      fillRule="evenodd"
-      d="M8 6a1 1 0 0 1 1-1h7a3 3 0 0 1 3 3v7a1 1 0 1 1-2 0V8.414l-9.793 9.793a1 1 0 0 1-1.414-1.414L15.586 7H9a1 1 0 0 1-1-1"
-      clipRule="evenodd"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M19 14.818a.982.982 0 1 1-1.964 0V8.352l-9.86 9.86a.982.982 0 1 1-1.388-1.388l9.86-9.86H9.182a.982.982 0 0 1 0-1.964h8.836c.542 0 .982.44.982.982z" />
   </Svg>
 );
 export default SvgArrowTopRight;

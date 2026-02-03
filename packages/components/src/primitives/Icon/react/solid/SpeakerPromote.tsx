@@ -1,11 +1,15 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgSpeakerPromote = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      fill="currentColor"
       fillRule="evenodd"
-      d="M15.088 2.877a3 3 0 0 1 3.91 2.858v1.391a4.002 4.002 0 0 1 0 7.748v1.39a3 3 0 0 1-3.91 2.86l-1.45-.462A4 4 0 0 1 5.997 17v-.779l-1.912-.61a3 3 0 0 1-2.088-2.858V9.247a3 3 0 0 1 2.088-2.858l2.488-.794a1 1 0 0 1 .145-.055zm-7.09 13.99V17a2 2 0 0 0 3.705 1.046l-3.705-1.18Zm12-5.867a2 2 0 0 1-1 1.732V9.268a2 2 0 0 1 1 1.732M6 7.878v6.244l-1.306-.416a1 1 0 0 1-.696-.953V9.247a1 1 0 0 1 .696-.953z"
+      d="M16.305 2.827a1.96 1.96 0 0 1 2.555 1.868V7.4a3.923 3.923 0 0 1 0 7.596V17.7a1.96 1.96 0 0 1-2.555 1.868l-2.7-.86a3.921 3.921 0 0 1-7.489-1.628v-.764L3.56 15.5a1.96 1.96 0 0 1-1.365-1.867v-4.87A1.96 1.96 0 0 1 3.56 6.894L6.68 5.9a1 1 0 0 1 .143-.054l9.482-3.018ZM8.077 16.948v.13a1.96 1.96 0 0 0 3.632 1.026zm11.763-5.751a1.96 1.96 0 0 1-.98 1.698V9.5c.586.339.98.972.98 1.698ZM6.118 8.136v6.122l-1.963-.626v-4.87z"
       clipRule="evenodd"
     />
   </Svg>
