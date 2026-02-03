@@ -1042,12 +1042,17 @@ export class UnknownHardwareError extends OneKeyHardwareError {
       .filter(Boolean)
       .join(' : ');
     super(
-      normalizeErrorProps(props, {
-        defaultMessage: message || 'Unknown Hardware Error',
-        defaultKey: ETranslations.feedback_request_failed,
-        alwaysAppendDefaultMessage: true,
-        // defaultAutoToast: true,
-      }),
+      normalizeErrorProps(
+        {
+          info: { 'message': message },
+        },
+        {
+          defaultMessage: message || 'Unknown Hardware Error',
+          defaultKey: ETranslations.wallet_action_failed,
+          alwaysAppendDefaultMessage: true,
+          // defaultAutoToast: true,
+        },
+      ),
     );
   }
 }

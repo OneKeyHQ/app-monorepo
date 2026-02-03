@@ -952,7 +952,7 @@
   "edit_fee_custom_set_as_default_description": "Set as default for all future transactions on {network}",
   "email_verification_rate_limit": "Please wait {rest} seconds before requesting a new verification code",
   "energy_consumed": "Energy consumed",
-  "enter_account_name_address_or_domain": "Enter account name address or domain",
+  "enter_account_name_address_or_domain": "Enter account name, address or domain",
   "enter_passcode": "Enter passcode",
   "enter_password": "Enter password",
   "enter_pin.desc": "Check device screen for keypad layout.",
