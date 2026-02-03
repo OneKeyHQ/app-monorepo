@@ -1,6 +1,6 @@
-import type { IServerNetwork } from '@onekeyhq/shared/types';
+import type { IServerNetwork } from "@onekeyhq/shared/types";
 
-import type { IServerNetworkMatch } from '../../types';
+import type { IServerNetworkMatch } from "../../types";
 
 export type IEditableChainSelectorContext = {
   frequentlyUsedItemsIds: Set<string>;

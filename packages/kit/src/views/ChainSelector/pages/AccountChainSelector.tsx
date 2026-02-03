@@ -164,6 +164,7 @@ const EditableAccountChainSelector = ({
 
   return (
     <EditableChainSelector
+      showAllNetworkInRecentNetworks
       walletId={wallet?.id}
       networkId={network?.id}
       accountId={account?.id}
