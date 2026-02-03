@@ -11,6 +11,7 @@ import {
   XStack,
   YStack,
   useMedia,
+  useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -336,12 +337,17 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
     fetchProtocolData,
   ]);
 
+  const tabBarHeight = useScrollContentTabBarOffset();
+
   return (
     <EarnPageContainer
       sceneName={EAccountSelectorSceneName.home}
       tabRoute={ETabRoutes.Earn}
       pageTitle={customHeaderLeft}
       customHeaderRightItems={platformEnv.isNative ? <></> : undefined}
+      contentContainerStyle={{
+        pb: tabBarHeight,
+      }}
       breadcrumbProps={{
         items: [
           {
