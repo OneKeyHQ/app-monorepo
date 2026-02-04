@@ -1,13 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgArrowTriangleBottom = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      stroke="currentColor"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M17.002 5H6.998C5.515 5 4.55 6.562 5.213 7.889l5.002 10.008c.736 1.47 2.834 1.47 3.57 0l5.002-10.008C19.45 6.562 18.485 5 17.002 5Z"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M17.983 4.001c1.47 0 2.478 1.54 1.805 2.89l-5.983 11.995c-.74 1.484-2.87 1.484-3.61 0L4.212 6.89C3.54 5.54 4.546 4 6.018 4h11.965ZM6.006 6.002l-.003.002 5.98 11.99.002.002q.005.002.015.003.01 0 .014-.003l.003-.003 5.98-11.989-.003-.002z" />
   </Svg>
 );
 export default SvgArrowTriangleBottom;

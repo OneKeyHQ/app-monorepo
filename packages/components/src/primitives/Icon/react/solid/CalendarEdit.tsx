@@ -1,10 +1,17 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgCalendarEdit = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M8.947 3.079a.991.991 0 1 0-1.982 0v.991H4.982A1.98 1.98 0 0 0 3 6.053v12.886c0 1.095.888 1.982 1.982 1.982h5.948a.991.991 0 1 0 0-1.982H4.982v-8.921H18.86a.991.991 0 1 0 1.982 0V6.053A1.98 1.98 0 0 0 18.86 4.07h-1.983v-.99a.991.991 0 0 0-1.982 0v.991H8.947z" />
     <Path
-      fill="currentColor"
-      d="M9 3a1 1 0 0 0-2 0v1H6a3 3 0 0 0-3 3v11a3 3 0 0 0 3 3h5a1 1 0 1 0 0-2H6a1 1 0 0 1-1-1v-8h14v1a1 1 0 1 0 2 0V7a3 3 0 0 0-3-3h-1V3a1 1 0 1 0-2 0v1H9zm12.707 11.293a2.414 2.414 0 0 0-3.414 0l-3.414 3.414A3 3 0 0 0 14 19.828V21a1 1 0 0 0 1 1h1.172a3 3 0 0 0 2.12-.879l3.415-3.414a2.414 2.414 0 0 0 0-3.414"
+      fillRule="evenodd"
+      d="M21.253 13.982a1.98 1.98 0 0 0-2.804 0l-3.965 3.966c-.371.371-.58.875-.58 1.401v1.572a.99.99 0 0 0 .99.991h1.573c.526 0 1.03-.209 1.402-.58l3.965-3.965a1.983 1.983 0 0 0 0-2.804l-.581-.58Z"
+      clipRule="evenodd"
     />
   </Svg>
 );

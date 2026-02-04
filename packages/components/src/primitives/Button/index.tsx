@@ -6,7 +6,6 @@ import {
   type FontSizeTokens,
   ThemeableStack,
   type ThemeableStackProps,
-  getTokenValue,
   styled,
   useProps,
   withStaticProperties,
@@ -23,7 +22,13 @@ import type { IIconProps, IKeyOfIcons } from '../Icon';
 export interface IButtonProps extends ThemeableStackProps {
   type?: ButtonHTMLAttributes<HTMLButtonElement>['type'];
   size?: 'small' | 'medium' | 'large';
-  variant?: 'secondary' | 'tertiary' | 'primary' | 'destructive' | 'link';
+  variant?:
+    | 'secondary'
+    | 'tertiary'
+    | 'primary'
+    | 'destructive'
+    | 'accent'
+    | 'link';
   icon?: IKeyOfIcons;
   iconAfter?: IKeyOfIcons;
   disabled?: boolean;
@@ -95,6 +100,14 @@ const BUTTON_VARIANTS: Record<
     activeBg: '$bgStrongActive',
     focusRingColor: '$focusRing',
   },
+  accent: {
+    color: '$textOnColor',
+    iconColor: '$iconOnColor',
+    bg: '$bgAccent',
+    hoverBg: '$bgAccentHover',
+    activeBg: '$bgAccentActive',
+    focusRingColor: '$focusRing',
+  },
   link: {
     color: '$textInfo',
     iconColor: '$iconInfo',
@@ -146,19 +159,16 @@ const useSizeStyles = (size: IButtonProps['size']) =>
       small: {
         py: '$1',
         px: '$2.5',
-        borderRadius: getTokenValue('$size.2'),
         textVariant: '$bodyMdMedium',
       },
       medium: {
         py: '$1.5',
         px: '$3.5',
-        borderRadius: getTokenValue('$size.2'),
         textVariant: '$bodyLgMedium',
       },
       large: {
         py: '$3',
         px: '$5',
-        borderRadius: getTokenValue('$size.3'),
         textVariant: '$bodyLgMedium',
       },
     };
@@ -172,6 +182,7 @@ export const ButtonFrame = styled(ThemeableStack, {
   flexDirection: 'row',
   justifyContent: 'center',
   alignItems: 'center',
+  borderRadius: '$full',
 } as IButtonProps);
 
 function ButtonIcon({
@@ -216,7 +227,7 @@ const ButtonComponent = ButtonFrame.styleable<IButtonProps, any, any>(
       ...rest
     } = useProps(props, {});
 
-    const { py, px, borderRadius, textVariant } = useSizeStyles(size);
+    const { py, px, textVariant } = useSizeStyles(size);
 
     const { sharedFrameStyles, iconColor, color } = getSharedButtonStyles({
       variant,
@@ -237,7 +248,6 @@ const ButtonComponent = ButtonFrame.styleable<IButtonProps, any, any>(
         mx={variant === 'tertiary' ? -9 : '$0'}
         py={variant === 'tertiary' ? '$1' : py}
         px={variant === 'tertiary' ? '$2' : px}
-        borderRadius={borderRadius}
         borderCurve="continuous"
         disabled={!!disabled || !!loading}
         aria-disabled={!!disabled || !!loading}

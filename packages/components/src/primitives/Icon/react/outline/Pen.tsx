@@ -1,22 +1,17 @@
-import Svg, { G, Circle, Path, Defs, ClipPath } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgPen = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <G clipPath="url(#a)">
-      <Circle cx={10} cy={14.143} r={2} fill="currentColor" />
-      <Path
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="m18.086 11.713-3.291 6.946a2 2 0 0 1-1.545 1.126L3 21.142m15.086-9.428-5.657-5.657m5.657 5.656.164.165c.69.69 1.81.69 2.5 0v0c.69-.69.69-1.81 0-2.5l-5.985-5.986c-.69-.69-1.81-.69-2.5 0v0c-.69.69-.69 1.81 0 2.5l.164.165M3 21.142l1.29-10.296a2 2 0 0 1 1.148-1.568l6.991-3.221M3 21.142l7-7"
-      />
-    </G>
-    <Defs>
-      <ClipPath id="a">
-        <Path fill="#fff" d="M0 0h24v24H0z" />
-      </ClipPath>
-    </Defs>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path
+      fillRule="evenodd"
+      d="M11.942 2.302a2 2 0 0 1 2.828 0l7.071 7.071a2 2 0 0 1 0 2.828l-1.086 1.086a2 2 0 0 1-2.514.256l-2.935 6.195a2 2 0 0 1-1.544 1.126l-10.79 1.43h-.016a1 1 0 0 1-.205.003l-.04-.005-.071-.012q-.026-.006-.053-.013a1 1 0 0 1-.16-.057 1 1 0 0 1-.086-.045l-.038-.021-.05-.035-.039-.029a1 1 0 0 1-.15-.15q-.013-.016-.027-.035a1 1 0 0 1-.136-.256l-.005-.012-.014-.04-.01-.044-.01-.04a1 1 0 0 1-.02-.201v-.01l.001-.03.004-.069.002-.016 1.36-10.848a2 2 0 0 1 1.147-1.567l6.235-2.874a2 2 0 0 1 .265-2.5zm-6.748 8.276-.998 7.954 3.72-3.72a2 2 0 1 1 1.427 1.401l-3.709 3.709 7.865-1.04 3.222-6.8-4.665-4.667zm7.076-5.776.698.698.01.009 5.657 5.657.008.009.698.698 1.086-1.086-7.071-7.071z"
+      clipRule="evenodd"
+    />
   </Svg>
 );
 export default SvgPen;
