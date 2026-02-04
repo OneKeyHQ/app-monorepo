@@ -12,6 +12,7 @@ import {
   Tabs,
   XStack,
   YStack,
+  useScrollContentTabBarOffset,
   useTabContainerWidth,
 } from '@onekeyhq/components';
 import type { ITabBarItemProps } from '@onekeyhq/components/src/composite/Tabs/TabBar';
@@ -96,6 +97,7 @@ export function HomePageView({
   onPressHide?: () => void;
   sceneName: EAccountSelectorSceneName;
 }) {
+  const tabBarHeight = useScrollContentTabBarOffset();
   const intl = useIntl();
   const {
     activeAccount: {
@@ -342,7 +344,11 @@ export function HomePageView({
   const tabs = useMemo(() => {
     if (isWalletNotBackedUp) {
       return (
-        <ScrollView h="100%" nestedScrollEnabled={platformEnv.isNativeAndroid}>
+        <ScrollView
+          h="100%"
+          nestedScrollEnabled={platformEnv.isNativeAndroid}
+          contentContainerStyle={{ paddingBottom: tabBarHeight }}
+        >
           {renderHeader()}
           <NotBackedUpEmpty />
         </ScrollView>
@@ -376,6 +382,7 @@ export function HomePageView({
       </Tabs.Container>
     );
   }, [
+    tabBarHeight,
     account?.id,
     account?.indexedAccountId,
     handleRenderItem,
@@ -540,7 +547,11 @@ export function HomePageView({
     let content = (
       <ScrollView
         h="100%"
-        contentContainerStyle={{ justifyContent: 'center', flexGrow: 1 }}
+        contentContainerStyle={{
+          justifyContent: 'center',
+          flexGrow: 1,
+          pb: tabBarHeight,
+        }}
       >
         {platformEnv.isWebDappMode ? <WebDappEmptyView /> : <EmptyWallet />}
       </ScrollView>
@@ -587,6 +598,7 @@ export function HomePageView({
     sceneName,
     handleTabPageLayout,
     homePageContent,
+    tabBarHeight,
   ]);
 
   return useMemo(() => {

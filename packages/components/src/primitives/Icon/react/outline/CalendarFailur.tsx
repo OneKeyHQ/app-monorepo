@@ -1,14 +1,18 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgCalendarFailur = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M11 20H6a2 2 0 0 1-2-2V9m0 0V7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2M4 9h16m0 0v2M8 5V3m8 2V3m0 13 2 2m0 0 2 2m-2-2-2 2m2-2 2-2"
+      fillRule="evenodd"
+      d="M16 2.5a1 1 0 0 1 1 1v1h2a2 2 0 0 1 2 2v5a1 1 0 1 1-2 0v-1H5v9h6a1 1 0 1 1 0 2H5a2 2 0 0 1-2-2v-13a2 2 0 0 1 2-2h2v-1a1 1 0 0 1 2 0v1h6v-1a1 1 0 0 1 1-1m-11 6h14v-2H5z"
+      clipRule="evenodd"
     />
+    <Path d="M19.293 15.793a1 1 0 1 1 1.414 1.414L19.414 18.5l1.293 1.293a1 1 0 0 1-1.414 1.414L18 19.914l-1.293 1.293a1 1 0 0 1-1.414-1.414l1.293-1.293-1.293-1.293a1 1 0 1 1 1.414-1.414L18 17.086z" />
   </Svg>
 );
 export default SvgCalendarFailur;

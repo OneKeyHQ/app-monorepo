@@ -1,11 +1,15 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgChevronLargeDown = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      fill="currentColor"
       fillRule="evenodd"
-      d="M2.126 9.515a1 1 0 0 1 1.36-.389l8.028 4.46a1 1 0 0 0 .972 0l8.028-4.46a1 1 0 0 1 .972 1.748l-8.03 4.46a3 3 0 0 1-2.913 0l-8.029-4.46a1 1 0 0 1-.388-1.36Z"
+      d="M2.333 9.504a.98.98 0 0 1 1.331-.38L12 13.753l8.336-4.63a.979.979 0 0 1 .95 1.711l-8.335 4.63a1.96 1.96 0 0 1-1.902 0l-8.335-4.63a.98.98 0 0 1-.38-1.331Z"
       clipRule="evenodd"
     />
   </Svg>

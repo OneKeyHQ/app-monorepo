@@ -45,13 +45,13 @@ export const DayCell = memo(
           borderBottomRightRadius: 0,
         }
       : isRangeEnd
-      ? {
-          borderTopRightRadius: '$2' as const,
-          borderBottomRightRadius: '$2' as const,
-          borderTopLeftRadius: 0,
-          borderBottomLeftRadius: 0,
-        }
-      : {};
+        ? {
+            borderTopRightRadius: '$2' as const,
+            borderBottomRightRadius: '$2' as const,
+            borderTopLeftRadius: 0,
+            borderBottomLeftRadius: 0,
+          }
+        : {};
 
     const innerBg = !day.disabled && isSelected ? '$bgPrimary' : 'transparent';
     const outerBg =
@@ -62,8 +62,8 @@ export const DayCell = memo(
       day.disabled || !day.inCurrentMonth
         ? '$textDisabled'
         : isSelected
-        ? '$textInverse'
-        : '$text';
+          ? '$textInverse'
+          : '$text';
 
     return (
       <Stack

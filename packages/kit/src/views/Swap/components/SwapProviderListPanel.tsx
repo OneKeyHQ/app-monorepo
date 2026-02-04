@@ -6,8 +6,11 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
+  Badge,
   Button,
+  Divider,
   Empty,
+  Icon,
   LottieView,
   ScrollView,
   Select,
@@ -380,7 +383,8 @@ const SwapProviderListPanel = ({
             }
             selected={Boolean(
               item.info.provider === currentSelectQuote?.info.provider &&
-              item.info.providerName === currentSelectQuote?.info.providerName,
+                item.info.providerName ===
+                  currentSelectQuote?.info.providerName,
             )}
             fromTokenAmount={fromTokenAmount.value}
             fromToken={fromToken}
@@ -419,64 +423,117 @@ const SwapProviderListPanel = ({
 
   const renderInitialState = useCallback(
     () => (
-      <YStack
-        flex={1}
-        alignItems="center"
-        justifyContent="center"
-        px="$6"
-        py="$16"
-        gap="$4"
-      >
-        <SizableText size="$headingXl" color="$text" textAlign="center">
-          Swap with the best price
-        </SizableText>
-        <SizableText
-          size="$bodyMd"
-          color="$textSubdued"
-          textAlign="center"
-          px="$4"
-        >
-          Compare quotes from top DEX aggregators and find the best rates
-          across 400+ DEXs and 30+ networks.
-        </SizableText>
-        <XStack flexWrap="wrap" justifyContent="center" gap="$3" pt="$4">
-          <XStack
-            alignItems="center"
-            gap="$1.5"
-            px="$2"
-            py="$1"
-            borderRadius="$2"
-            bg="$bgSubdued"
+      <YStack p="$6" gap="$6">
+        {/* Header - ONEKEY SWAP */}
+        <XStack alignItems="center" mb="$6">
+          <SizableText
+            color="$text"
+            fontWeight="900"
+            textTransform="uppercase"
+            size="$headingMd"
           >
-            <SizableText size="$bodySm" color="$textSuccess">
-              Fast quotes
-            </SizableText>
-          </XStack>
-          <XStack
-            alignItems="center"
-            gap="$1.5"
-            px="$2"
-            py="$1"
-            borderRadius="$2"
-            bg="$bgSubdued"
+            ONEKEY{' '}
+          </SizableText>
+          <SizableText
+            color="$textSuccess"
+            fontWeight="900"
+            textTransform="uppercase"
+            size="$headingMd"
           >
-            <SizableText size="$bodySm" color="$textSuccess">
-              MEV Protection
-            </SizableText>
-          </XStack>
-          <XStack
-            alignItems="center"
-            gap="$1.5"
-            px="$2"
-            py="$1"
-            borderRadius="$2"
-            bg="$bgSubdued"
-          >
-            <SizableText size="$bodySm" color="$textSuccess">
-              Best rates
-            </SizableText>
-          </XStack>
+            SWAP
+          </SizableText>
         </XStack>
+        {/* Hero Section */}
+        <Stack position="relative" mb="$8">
+          {/* Hero Content */}
+          <YStack maxWidth={340} zIndex={1}>
+            <XStack alignItems="center" gap="$2" mb="$4">
+              <SizableText color="$text" fontWeight="900" size="$heading3xl">
+                Zero Fees
+              </SizableText>
+            </XStack>
+            <SizableText
+              size="$bodyMd"
+              color="$textSubdued"
+              style={{ lineHeight: 26 }}
+            >
+              No hidden charges or protocol margins. We route directly to the
+              source for the best net price.
+            </SizableText>
+          </YStack>
+
+          {/* Green glow background */}
+          <Stack
+            position="absolute"
+            right={20}
+            bottom={-60}
+            width={320}
+            height={320}
+            borderRadius="$full"
+            bg="$bgSuccessStrong"
+            opacity={0.08}
+            pointerEvents="none"
+            $platform-web={{
+              filter: 'blur(80px)',
+            }}
+          />
+
+          {/* Giant "0" */}
+          <Stack
+            position="absolute"
+            right={-2}
+            top="50%"
+            style={{ transform: [{ translateY: -90 }] }}
+            pointerEvents="none"
+          >
+            <SizableText
+              color="$textSuccess"
+              opacity={0.06}
+              userSelect="none"
+              style={{
+                fontSize: 224,
+                lineHeight: 180,
+                fontWeight: '900',
+                letterSpacing: -11,
+              }}
+            >
+              0
+            </SizableText>
+          </Stack>
+        </Stack>
+        <Divider />
+        {/* Feature Cards */}
+        <XStack gap="$7" mt="$6">
+          <Badge bg="$bgSubdued" borderRadius="$full" px="$3" py="$2" gap="$2">
+            <Icon name="ShieldCheckDoneSolid" size="$5" color="$iconSuccess" />
+            <SizableText size="$bodyMdMedium" fontWeight="700">
+              MEV Shield
+            </SizableText>
+          </Badge>
+          <Badge bg="$bgSubdued" borderRadius="$full" px="$3" py="$2" gap="$2">
+            <Icon name="BranchesSolid" size="$5" color="$iconSuccess" />
+            <SizableText size="$bodyMdMedium" fontWeight="700">
+              Smart Route
+            </SizableText>
+          </Badge>
+          <Badge bg="$bgSubdued" borderRadius="$full" px="$3" py="$2" gap="$2">
+            <Icon name="DollarSolid" size="$5" color="$iconSuccess" />
+            <SizableText size="$bodyMdMedium" fontWeight="700">
+              Zero Fees
+            </SizableText>
+          </Badge>
+        </XStack>
+        <YStack width={440}>
+          <SizableText
+            size="$bodyMd"
+            color="$textSubdued"
+            style={{ lineHeight: 26 }}
+          >
+            Experience lightning-fast swaps with private MEV protection and
+            intelligent routing across 400+ liquidity sources for maximum
+            security and optimal price execution.
+          </SizableText>
+        </YStack>
       </YStack>
     ),
     [],
@@ -509,7 +566,8 @@ const SwapProviderListPanel = ({
 
   return (
     <YStack
-      flex={1}
+      minHeight={520}
+      maxHeight={820}
       borderRadius="$6"
       borderWidth={1}
       borderColor="$borderSubdued"
@@ -524,7 +582,6 @@ const SwapProviderListPanel = ({
         shadowRadius: 24,
       }}
     >
-      {/* Header - only show when there's content to display */}
       {shouldShowContent ? (
         <XStack
           px="$6"
@@ -576,10 +633,10 @@ const SwapProviderListPanel = ({
 
       {/* Content */}
       <ScrollView flex={1} ref={scrollViewRef as any}>
-        <AnimatePresence>
-          {/* Initial state - no tokens/amount selected */}
-          {!shouldShowContent ? renderInitialState() : null}
+        {/* Initial state - no tokens/amount selected - Direct render without animation */}
+        {!shouldShowContent ? renderInitialState() : null}
 
+        <AnimatePresence>
           {/* Phase 1: Spinner - no total event received yet (covers gap before loading starts) */}
           {shouldShowContent && !hasQuotes && !hasReceivedTotal ? (
             <MotiView
@@ -588,6 +645,7 @@ const SwapProviderListPanel = ({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ type: 'timing', duration: 150 } as any}
+              exitTransition={{ type: 'timing', duration: 0 } as any}
             >
               <YStack
                 flex={1}

@@ -1,11 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgCall = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      fill="currentColor"
-      d="M6 3C4.383 3 2.91 4.344 3.132 6.12c.958 7.695 7.055 13.791 14.75 14.75 1.776.22 3.12-1.251 3.12-2.87v-1.312a3 3 0 0 0-2.138-2.873l-1.531-.46a2.83 2.83 0 0 0-2.81.709c-.266.266-.609.283-.826.149a12.1 12.1 0 0 1-3.908-3.908c-.135-.218-.118-.56.149-.827a2.83 2.83 0 0 0 .708-2.81l-.46-1.53A3 3 0 0 0 7.313 3H6.001Z"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M5.072 3c-1.083 0-2.03.891-1.959 2.053.525 8.505 7.33 15.31 15.835 15.834C20.109 20.96 21 20.012 21 18.93v-3.043a1.99 1.99 0 0 0-1.418-1.907l-2.704-.81a1.99 1.99 0 0 0-1.98.498l-.745.746a12 12 0 0 1-4.566-4.565l.746-.746c.518-.518.71-1.278.5-1.98L10.02 4.42A1.99 1.99 0 0 0 8.114 3z" />
   </Svg>
 );
 export default SvgCall;
