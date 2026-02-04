@@ -952,7 +952,7 @@
   "edit_fee_custom_set_as_default_description": "Als Standard für alle zukünftigen Transaktionen auf {network} festlegen",
   "email_verification_rate_limit": "Bitte warte {rest} Sekunden, bevor du einen neuen Bestätigungscode anforderst",
   "energy_consumed": "Verbrauchte Energie",
-  "enter_account_name_address_or_domain": "Geben Sie den Kontonamen Adresse oder die Domain ein",
+  "enter_account_name_address_or_domain": "Geben Sie den Kontonamen, die Adresse oder die Domain ein",
   "enter_passcode": "Passcode eingeben",
   "enter_password": "Passwort eingeben",
   "enter_pin.desc": "Überprüfen Sie das Bildschirmgerät auf die Tastaturanordnung.",

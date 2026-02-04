@@ -952,7 +952,7 @@
   "edit_fee_custom_set_as_default_description": "Définir comme valeur par défaut pour toutes les transactions futures sur {network}",
   "email_verification_rate_limit": "Veuillez patienter {rest} secondes avant de demander un nouveau code de vérification",
   "energy_consumed": "Énergie consommée",
-  "enter_account_name_address_or_domain": "Entrez le nom du compte adresse ou domaine",
+  "enter_account_name_address_or_domain": "Entrez le nom du compte, l'adresse ou le domaine",
   "enter_passcode": "Entrez le code d'accès",
   "enter_password": "Entrer le mot de passe",
   "enter_pin.desc": "Vérifiez l'agencement du clavier sur l'écran de l'appareil.",

@@ -952,7 +952,7 @@
   "edit_fee_custom_set_as_default_description": "设为 {network} 网络未来交易的默认值",
   "email_verification_rate_limit": "请等待 {rest} 秒后再请求新的验证码",
   "energy_consumed": "能量消耗",
-  "enter_account_name_address_or_domain": "输入账户名称地址或域名",
+  "enter_account_name_address_or_domain": "输入账户名称、地址或域名",
   "enter_passcode": "输入密码",
   "enter_password": "输入密码",
   "enter_pin.desc": "请查看设备屏幕上的键盘布局。",
