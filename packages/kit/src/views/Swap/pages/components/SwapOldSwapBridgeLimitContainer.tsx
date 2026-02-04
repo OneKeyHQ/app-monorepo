@@ -114,11 +114,13 @@ const SwapOldSwapBridgeLimitContainer = ({
       $gtMd={{
         flex: 'unset',
       }}
-      $gtLg={{
-        maxWidth: 480,
-        alignSelf: 'center',
-        width: '100%',
-      }}
+      {...(pageType !== EPageType.modal && {
+        $gtLg: {
+          maxWidth: 480,
+          alignSelf: 'center',
+          width: '100%',
+        },
+      })}
       pb="$5"
     >
       <LimitOrderOpenItem storeName={storeName} />
