@@ -1,11 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgChartColumnarSignal = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      fill="currentColor"
-      d="M15.67 5.665a2.665 2.665 0 0 1 5.33 0v12.67a2.665 2.665 0 1 1-5.33 0zm-3.675 2.669a2.665 2.665 0 0 0-2.665 2.665v7.337a2.665 2.665 0 1 0 5.33 0v-7.337a2.665 2.665 0 0 0-2.665-2.665m-6.33 4.443A2.665 2.665 0 0 0 3 15.442v2.893a2.665 2.665 0 0 0 5.33 0v-2.893a2.665 2.665 0 0 0-2.665-2.665"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M12.66 8.334a2 2 0 0 1 2 2V19a2 2 0 0 1-2 2h-1.33a2 2 0 0 1-2-2v-8.666a2 2 0 0 1 2-2zm-6.33 4.443a2 2 0 0 1 2 2V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4.223a2 2 0 0 1 2-2zM19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-1.33a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" />
   </Svg>
 );
 export default SvgChartColumnarSignal;

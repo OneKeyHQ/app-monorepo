@@ -1,11 +1,15 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgCube = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      fill="currentColor"
       fillRule="evenodd"
-      d="M10.53 2.68a3 3 0 0 1 2.94 0l6 3.375q.256.143.474.33L12 10.853 4.056 6.384a3 3 0 0 1 .473-.33zM3.051 8.114A3 3 0 0 0 3 8.67v6.66a3 3 0 0 0 1.53 2.615l6 3.375q.228.129.47.214v-8.949L3.053 8.114ZM13 21.534q.241-.086.47-.214l6-3.375A3 3 0 0 0 21 15.33V8.67q0-.283-.052-.556l-7.947 4.471v8.949Z"
+      d="M11.03 2.549a1.98 1.98 0 0 1 1.94 0l6.93 3.897.02.011L12 10.911 4.08 6.457l.02-.01zM3.092 8.17v7.75A1.98 1.98 0 0 0 4.1 17.648l6.91 3.887v-8.908L3.09 8.17Zm9.898 13.362 6.909-3.886a1.98 1.98 0 0 0 1.01-1.725v-7.75l-7.919 4.454z"
       clipRule="evenodd"
     />
   </Svg>

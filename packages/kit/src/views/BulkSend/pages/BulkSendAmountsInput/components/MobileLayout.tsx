@@ -1,4 +1,7 @@
+import { useIntl } from 'react-intl';
+
 import { Icon, SizableText, XStack, YStack } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EAmountInputMode } from '@onekeyhq/shared/types/bulkSend';
 
 import BulkSendTxDetails from '../../../components/BulkSendTxDetails';
@@ -9,6 +12,7 @@ import { useAmountPreview } from './useAmountPreview';
 import { useTransferInfoActions } from './useTransferInfoActions';
 
 function MobileLayout() {
+  const intl = useIntl();
   const {
     tokenInfo,
     tokenDetails,
@@ -77,8 +81,16 @@ function MobileLayout() {
         <XStack gap="$1" alignItems="center">
           <Icon name="InfoCircleOutline" size="$4" color="$iconCritical" />
           <SizableText size="$bodySm" color="$textCritical">
-            Insufficient balance, available: {tokenDetails?.balanceParsed}{' '}
-            {tokenInfo.symbol}, total: {totalTokenAmount} {tokenInfo.symbol}
+            {intl.formatMessage(
+              {
+                id: ETranslations.wallet_bulk_send_insufficient_balance_detail,
+              },
+              {
+                available: tokenDetails?.balanceParsed,
+                symbol: tokenInfo.symbol,
+                total: totalTokenAmount,
+              },
+            )}
           </SizableText>
         </XStack>
       ) : null}

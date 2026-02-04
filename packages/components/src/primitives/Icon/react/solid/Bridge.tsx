@@ -7,11 +7,7 @@ const SvgBridge = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path
-      fill="#000"
-      d="M12 6a7 7 0 0 0-7 7 1 1 0 1 1-2 0 9 9 0 0 1 18 0 1 1 0 1 1-2 0 7 7 0 0 0-7-7"
-    />
-    <Path d="M6 18a2 2 0 1 1-4 0 2 2 0 0 1 4 0M20 20a2 2 0 1 0 0-4 2 2 0 0 0 0 4" />
+    <Path d="M12 6a7 7 0 0 0-7 7 1 1 0 1 1-2 0 9 9 0 0 1 18 0 1 1 0 1 1-2 0 7 7 0 0 0-7-7M6 18a2 2 0 1 1-4 0 2 2 0 0 1 4 0m14 2a2 2 0 1 0 0-4 2 2 0 0 0 0 4" />
   </Svg>
 );
 export default SvgBridge;

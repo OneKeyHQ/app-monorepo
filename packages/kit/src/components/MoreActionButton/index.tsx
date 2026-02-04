@@ -1139,7 +1139,9 @@ const MoreActionWalletGrid = () => {
       platformEnv.isWebDappMode
         ? undefined
         : {
-            title: 'Bulk Send',
+            title: intl.formatMessage({
+              id: ETranslations.wallet_bulk_send_title_desktop,
+            }),
             icon: 'ChevronDoubleUpOutline' as const,
             onPress: () => {
               if (!isPrimeUser) {

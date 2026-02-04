@@ -1,14 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgChevronDoubleRight = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="m14 16 3.293-3.293a1 1 0 0 0 0-1.414L14 8m-7 8 3.293-3.293a1 1 0 0 0 0-1.414L7 8"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M6.29 7.331a.99.99 0 0 1 1.403 0l3.441 3.442a1.736 1.736 0 0 1 0 2.454L7.693 16.67a.992.992 0 1 1-1.402-1.403L9.557 12 6.29 8.734a.99.99 0 0 1 0-1.403m6.943 0a.99.99 0 0 1 1.403 0l3.442 3.442a1.736 1.736 0 0 1 0 2.454l-3.442 3.442a.992.992 0 1 1-1.402-1.403L16.5 12l-3.267-3.266a.99.99 0 0 1 0-1.403" />
   </Svg>
 );
 export default SvgChevronDoubleRight;
