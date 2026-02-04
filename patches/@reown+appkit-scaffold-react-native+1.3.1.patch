@@ -1,8 +1,144 @@
 diff --git a/node_modules/@reown/appkit-scaffold-react-native/lib/commonjs/modal/w3m-modal/index.js b/node_modules/@reown/appkit-scaffold-react-native/lib/commonjs/modal/w3m-modal/index.js
-index 2afcde5..4ee2428 100644
+index 2afcde5..09da6a3 100644
 --- a/node_modules/@reown/appkit-scaffold-react-native/lib/commonjs/modal/w3m-modal/index.js
 +++ b/node_modules/@reown/appkit-scaffold-react-native/lib/commonjs/modal/w3m-modal/index.js
-@@ -40,7 +40,7 @@ function AppKit() {
+@@ -17,30 +17,139 @@ var _w3mSnackbar = require("../../partials/w3m-snackbar");
+ var _useCustomDimensions = require("../../hooks/useCustomDimensions");
+ var _styles = _interopRequireDefault(require("./styles"));
+ function _interopRequireDefault(e) { return e && e.__esModule ? e : { default: e }; }
++
++// Safe wrapper for useSnapshot that handles uninitialized proxies
++function useSafeSnapshot(proxyObject, fallbackValue, options = {}) {
++  const { retryDelay = 50, maxRetries = 10, onError } = options;
++  const [safeSnapshot, setSafeSnapshot] = (0, _react.useState)(fallbackValue);
++  const retryCountRef = (0, _react.useRef)(0);
++  const isSubscribedRef = (0, _react.useRef)(false);
++  const onErrorRef = (0, _react.useRef)(onError);
++  onErrorRef.current = onError;
++
++  (0, _react.useEffect)(() => {
++    let mounted = true;
++    let timeoutId;
++    let unsubscribe;
++
++    // Reset retry count for fresh effect run (e.g. when proxyObject changes)
++    retryCountRef.current = 0;
++    isSubscribedRef.current = false;
++
++    const setupSubscription = () => {
++      if (isSubscribedRef.current || !mounted) return;
++
++      try {
++        unsubscribe = (0, _valtio.subscribe)(proxyObject, () => {
++          if (mounted) {
++            try {
++              const snap = (0, _valtio.snapshot)(proxyObject);
++              if (snap) setSafeSnapshot(snap);
++            } catch (err) {
++              // Unsubscribe old subscription before re-attempting
++              if (unsubscribe) {
++                unsubscribe();
++                unsubscribe = undefined;
++              }
++              isSubscribedRef.current = false;
++              retryCountRef.current = 0;
++              attemptSnapshot();
++            }
++          }
++        });
++        isSubscribedRef.current = true;
++      } catch (err) {
++        isSubscribedRef.current = false;
++        attemptSnapshot();
++      }
++    };
++
++    const attemptSnapshot = () => {
++      if (!mounted) return;
++
++      try {
++        const snap = (0, _valtio.snapshot)(proxyObject);
++        if (snap && mounted) {
++          setSafeSnapshot(snap);
++          retryCountRef.current = 0;
++          setupSubscription();
++        }
++      } catch (err) {
++        retryCountRef.current += 1;
++
++        if (retryCountRef.current < maxRetries) {
++          const delay = retryDelay * Math.min(retryCountRef.current, 5);
++          timeoutId = setTimeout(attemptSnapshot, delay);
++        } else {
++          onErrorRef.current?.(err);
++        }
++      }
++    };
++
++    attemptSnapshot();
++
++    return () => {
++      mounted = false;
++      clearTimeout(timeoutId);
++      if (unsubscribe) {
++        unsubscribe();
++        isSubscribedRef.current = false;
++      }
++    };
++  }, [proxyObject, retryDelay, maxRetries]);
++
++  return safeSnapshot;
++}
++
++// Fallback values matching Controller defaults
++const MODAL_CONTROLLER_FALLBACK = {
++  open: false,
++  loading: false
++};
++
++const CONNECTOR_CONTROLLER_FALLBACK = {
++  connectors: [],
++  connectedConnector: undefined,
++  authLoading: false
++};
++
++const ACCOUNT_CONTROLLER_FALLBACK = {
++  caipAddress: undefined,
++  isConnected: false,
++  tokenBalance: [],
++  smartAccountDeployed: false,
++  preferredAccountType: 'eoa'
++};
++
++const THEME_CONTROLLER_FALLBACK = {
++  themeMode: undefined,
++  themeVariables: {}
++};
++
+ function AppKit() {
+   const {
+     open,
+     loading
+-  } = (0, _valtio.useSnapshot)(_appkitCoreReactNative.ModalController.state);
++  } = useSafeSnapshot(_appkitCoreReactNative.ModalController.state, MODAL_CONTROLLER_FALLBACK);
+   const {
+     connectors,
+     connectedConnector
+-  } = (0, _valtio.useSnapshot)(_appkitCoreReactNative.ConnectorController.state);
++  } = useSafeSnapshot(_appkitCoreReactNative.ConnectorController.state, CONNECTOR_CONTROLLER_FALLBACK);
+   const {
+     caipAddress,
+     isConnected
+-  } = (0, _valtio.useSnapshot)(_appkitCoreReactNative.AccountController.state);
++  } = useSafeSnapshot(_appkitCoreReactNative.AccountController.state, ACCOUNT_CONTROLLER_FALLBACK);
+   const {
+     themeMode,
+     themeVariables
+-  } = (0, _valtio.useSnapshot)(_appkitCoreReactNative.ThemeController.state);
++  } = useSafeSnapshot(_appkitCoreReactNative.ThemeController.state, THEME_CONTROLLER_FALLBACK);
+   const {
+     height
+   } = (0, _reactNative.useWindowDimensions)();
    const {
      isLandscape
    } = (0, _useCustomDimensions.useCustomDimensions)();
@@ -12,10 +148,154 @@ index 2afcde5..4ee2428 100644
    const authProvider = connectors.find(c => c.type === 'AUTH')?.provider;
    const AuthView = authProvider?.AuthView;
 diff --git a/node_modules/@reown/appkit-scaffold-react-native/lib/module/modal/w3m-modal/index.js b/node_modules/@reown/appkit-scaffold-react-native/lib/module/modal/w3m-modal/index.js
-index f93d8c6..d5444a0 100644
+index f93d8c6..0a55f6f 100644
 --- a/node_modules/@reown/appkit-scaffold-react-native/lib/module/modal/w3m-modal/index.js
 +++ b/node_modules/@reown/appkit-scaffold-react-native/lib/module/modal/w3m-modal/index.js
-@@ -33,7 +33,7 @@ export function AppKit() {
+@@ -1,5 +1,5 @@
+-import { useSnapshot } from 'valtio';
+-import { useCallback, useEffect } from 'react';
++import { useSnapshot, snapshot, subscribe } from 'valtio';
++import { useCallback, useEffect, useState, useRef } from 'react';
+ import { useWindowDimensions, StatusBar } from 'react-native';
+ import Modal from 'react-native-modal';
+ import { Card, ThemeProvider } from '@reown/appkit-ui-react-native';
+@@ -10,30 +10,139 @@ import { Header } from '../../partials/w3m-header';
+ import { Snackbar } from '../../partials/w3m-snackbar';
+ import { useCustomDimensions } from '../../hooks/useCustomDimensions';
+ import styles from './styles';
++
++// Safe wrapper for useSnapshot that handles uninitialized proxies
++function useSafeSnapshot(proxyObject, fallbackValue, options = {}) {
++  const { retryDelay = 50, maxRetries = 10, onError } = options;
++  const [safeSnapshot, setSafeSnapshot] = useState(fallbackValue);
++  const retryCountRef = useRef(0);
++  const isSubscribedRef = useRef(false);
++  const onErrorRef = useRef(onError);
++  onErrorRef.current = onError;
++
++  useEffect(() => {
++    let mounted = true;
++    let timeoutId;
++    let unsubscribe;
++
++    // Reset retry count for fresh effect run (e.g. when proxyObject changes)
++    retryCountRef.current = 0;
++    isSubscribedRef.current = false;
++
++    const setupSubscription = () => {
++      if (isSubscribedRef.current || !mounted) return;
++
++      try {
++        unsubscribe = subscribe(proxyObject, () => {
++          if (mounted) {
++            try {
++              const snap = snapshot(proxyObject);
++              if (snap) setSafeSnapshot(snap);
++            } catch (err) {
++              // Unsubscribe old subscription before re-attempting
++              if (unsubscribe) {
++                unsubscribe();
++                unsubscribe = undefined;
++              }
++              isSubscribedRef.current = false;
++              retryCountRef.current = 0;
++              attemptSnapshot();
++            }
++          }
++        });
++        isSubscribedRef.current = true;
++      } catch (err) {
++        isSubscribedRef.current = false;
++        attemptSnapshot();
++      }
++    };
++
++    const attemptSnapshot = () => {
++      if (!mounted) return;
++
++      try {
++        const snap = snapshot(proxyObject);
++        if (snap && mounted) {
++          setSafeSnapshot(snap);
++          retryCountRef.current = 0;
++          setupSubscription();
++        }
++      } catch (err) {
++        retryCountRef.current += 1;
++
++        if (retryCountRef.current < maxRetries) {
++          const delay = retryDelay * Math.min(retryCountRef.current, 5);
++          timeoutId = setTimeout(attemptSnapshot, delay);
++        } else {
++          onErrorRef.current?.(err);
++        }
++      }
++    };
++
++    attemptSnapshot();
++
++    return () => {
++      mounted = false;
++      clearTimeout(timeoutId);
++      if (unsubscribe) {
++        unsubscribe();
++        isSubscribedRef.current = false;
++      }
++    };
++  }, [proxyObject, retryDelay, maxRetries]);
++
++  return safeSnapshot;
++}
++
++// Fallback values matching Controller defaults
++const MODAL_CONTROLLER_FALLBACK = {
++  open: false,
++  loading: false
++};
++
++const CONNECTOR_CONTROLLER_FALLBACK = {
++  connectors: [],
++  connectedConnector: undefined,
++  authLoading: false
++};
++
++const ACCOUNT_CONTROLLER_FALLBACK = {
++  caipAddress: undefined,
++  isConnected: false,
++  tokenBalance: [],
++  smartAccountDeployed: false,
++  preferredAccountType: 'eoa'
++};
++
++const THEME_CONTROLLER_FALLBACK = {
++  themeMode: undefined,
++  themeVariables: {}
++};
++
+ export function AppKit() {
+   const {
+     open,
+     loading
+-  } = useSnapshot(ModalController.state);
++  } = useSafeSnapshot(ModalController.state, MODAL_CONTROLLER_FALLBACK);
+   const {
+     connectors,
+     connectedConnector
+-  } = useSnapshot(ConnectorController.state);
++  } = useSafeSnapshot(ConnectorController.state, CONNECTOR_CONTROLLER_FALLBACK);
+   const {
+     caipAddress,
+     isConnected
+-  } = useSnapshot(AccountController.state);
++  } = useSafeSnapshot(AccountController.state, ACCOUNT_CONTROLLER_FALLBACK);
+   const {
+     themeMode,
+     themeVariables
+-  } = useSnapshot(ThemeController.state);
++  } = useSafeSnapshot(ThemeController.state, THEME_CONTROLLER_FALLBACK);
+   const {
+     height
+   } = useWindowDimensions();
    const {
      isLandscape
    } = useCustomDimensions();
@@ -25,11 +305,160 @@ index f93d8c6..d5444a0 100644
    const authProvider = connectors.find(c => c.type === 'AUTH')?.provider;
    const AuthView = authProvider?.AuthView;
 diff --git a/node_modules/@reown/appkit-scaffold-react-native/src/modal/w3m-modal/index.tsx b/node_modules/@reown/appkit-scaffold-react-native/src/modal/w3m-modal/index.tsx
-index 6823724..ad717fc 100644
+index 6823724..1e78fc8 100644
 --- a/node_modules/@reown/appkit-scaffold-react-native/src/modal/w3m-modal/index.tsx
 +++ b/node_modules/@reown/appkit-scaffold-react-native/src/modal/w3m-modal/index.tsx
-@@ -33,7 +33,7 @@ export function AppKit() {
-   const { themeMode, themeVariables } = useSnapshot(ThemeController.state);
+@@ -1,5 +1,5 @@
+-import { useSnapshot } from 'valtio';
+-import { useCallback, useEffect } from 'react';
++import { useSnapshot, snapshot, subscribe } from 'valtio';
++import { useCallback, useEffect, useState, useRef } from 'react';
+ import { useWindowDimensions, StatusBar } from 'react-native';
+ import Modal from 'react-native-modal';
+ import { Card, ThemeProvider } from '@reown/appkit-ui-react-native';
+@@ -26,14 +26,144 @@ import { Snackbar } from '../../partials/w3m-snackbar';
+ import { useCustomDimensions } from '../../hooks/useCustomDimensions';
+ import styles from './styles';
+ 
++// Safe wrapper for useSnapshot that handles uninitialized proxies
++function useSafeSnapshot<T extends object>(
++  proxyObject: T,
++  fallbackValue: T,
++  options: {
++    retryDelay?: number;
++    maxRetries?: number;
++    onError?: (error: Error) => void;
++  } = {}
++): T {
++  const { retryDelay = 50, maxRetries = 10, onError } = options;
++  const [safeSnapshot, setSafeSnapshot] = useState<T>(fallbackValue);
++  const retryCountRef = useRef(0);
++  const isSubscribedRef = useRef(false);
++  const onErrorRef = useRef(onError);
++  onErrorRef.current = onError;
++
++  useEffect(() => {
++    let mounted = true;
++    let timeoutId: NodeJS.Timeout;
++    let unsubscribe: (() => void) | undefined;
++
++    // Reset retry count for fresh effect run (e.g. when proxyObject changes)
++    retryCountRef.current = 0;
++    isSubscribedRef.current = false;
++
++    const setupSubscription = () => {
++      if (isSubscribedRef.current || !mounted) return;
++
++      try {
++        unsubscribe = subscribe(proxyObject, () => {
++          if (mounted) {
++            try {
++              const snap = snapshot(proxyObject);
++              if (snap) setSafeSnapshot(snap);
++            } catch (err) {
++              // Unsubscribe old subscription before re-attempting
++              if (unsubscribe) {
++                unsubscribe();
++                unsubscribe = undefined;
++              }
++              isSubscribedRef.current = false;
++              retryCountRef.current = 0;
++              attemptSnapshot();
++            }
++          }
++        });
++        isSubscribedRef.current = true;
++      } catch (err) {
++        isSubscribedRef.current = false;
++        attemptSnapshot();
++      }
++    };
++
++    const attemptSnapshot = () => {
++      if (!mounted) return;
++
++      try {
++        const snap = snapshot(proxyObject);
++        if (snap && mounted) {
++          setSafeSnapshot(snap);
++          retryCountRef.current = 0;
++
++          // Immediately setup subscription after successful snapshot
++          setupSubscription();
++        }
++      } catch (err) {
++        retryCountRef.current += 1;
++
++        if (retryCountRef.current < maxRetries) {
++          const delay = retryDelay * Math.min(retryCountRef.current, 5);
++          timeoutId = setTimeout(attemptSnapshot, delay);
++        } else {
++          onErrorRef.current?.(err as Error);
++        }
++      }
++    };
++
++    attemptSnapshot();
++
++    return () => {
++      mounted = false;
++      clearTimeout(timeoutId);
++      if (unsubscribe) {
++        unsubscribe();
++        isSubscribedRef.current = false;
++      }
++    };
++  }, [proxyObject, retryDelay, maxRetries]);
++
++  return safeSnapshot;
++}
++
++// Fallback values matching Controller defaults
++const MODAL_CONTROLLER_FALLBACK = {
++  open: false,
++  loading: false
++};
++
++const CONNECTOR_CONTROLLER_FALLBACK = {
++  connectors: [],
++  connectedConnector: undefined,
++  authLoading: false
++};
++
++const ACCOUNT_CONTROLLER_FALLBACK = {
++  caipAddress: undefined,
++  isConnected: false,
++  tokenBalance: [],
++  smartAccountDeployed: false,
++  preferredAccountType: 'eoa' as const
++};
++
++const THEME_CONTROLLER_FALLBACK = {
++  themeMode: undefined,
++  themeVariables: {}
++};
++
+ export function AppKit() {
+-  const { open, loading } = useSnapshot(ModalController.state);
+-  const { connectors, connectedConnector } = useSnapshot(ConnectorController.state);
+-  const { caipAddress, isConnected } = useSnapshot(AccountController.state);
+-  const { themeMode, themeVariables } = useSnapshot(ThemeController.state);
++  const { open, loading } = useSafeSnapshot(
++    ModalController.state,
++    MODAL_CONTROLLER_FALLBACK
++  );
++  const { connectors, connectedConnector } = useSafeSnapshot(
++    ConnectorController.state,
++    CONNECTOR_CONTROLLER_FALLBACK
++  );
++  const { caipAddress, isConnected } = useSafeSnapshot(
++    AccountController.state,
++    ACCOUNT_CONTROLLER_FALLBACK
++  );
++  const { themeMode, themeVariables } = useSafeSnapshot(
++    ThemeController.state,
++    THEME_CONTROLLER_FALLBACK
++  );
    const { height } = useWindowDimensions();
    const { isLandscape } = useCustomDimensions();
 -  const portraitHeight = height - 80;
@@ -38,7 +467,7 @@ index 6823724..ad717fc 100644
    const authProvider = connectors.find(c => c.type === 'AUTH')?.provider as AppKitFrameProvider;
    const AuthView = authProvider?.AuthView;
 diff --git a/node_modules/@reown/appkit-scaffold-react-native/src/modal/w3m-modal/styles.ts b/node_modules/@reown/appkit-scaffold-react-native/src/modal/w3m-modal/styles.ts
-index ac3a35a..58c4a88 100644
+index ac3a35a..331ceb3 100644
 --- a/node_modules/@reown/appkit-scaffold-react-native/src/modal/w3m-modal/styles.ts
 +++ b/node_modules/@reown/appkit-scaffold-react-native/src/modal/w3m-modal/styles.ts
 @@ -3,7 +3,9 @@ import { StyleSheet } from 'react-native';
@@ -47,8 +476,8 @@ index ac3a35a..58c4a88 100644
      margin: 0,
 -    justifyContent: 'flex-end'
 +    justifyContent: 'flex-end',
-+    zIndex: 99993173111111,                                                                                   
-+    elevation: 99993173111111 
++    zIndex: 999999,
++    elevation: 999999
    },
    card: {
      borderBottomLeftRadius: 0,
