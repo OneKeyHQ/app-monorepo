@@ -35,6 +35,7 @@ import {
   openUrlExternal,
   openUrlInDiscovery,
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IEndpointEnv } from '@onekeyhq/shared/types/endpoint';
 
 import { useOneKeyAuth } from '../components/OneKeyAuth/useOneKeyAuth';
@@ -134,13 +135,9 @@ export const useReferFriends = () => {
             params,
           });
         } else {
-          navigation.switchTab<ETabRoutes.ReferFriends>(
-            ETabRoutes.ReferFriends,
-            {
-              screen: ETabReferFriendsRoutes.TabInviteReward,
-              params,
-            },
-          );
+          navigation.switchTab(ETabRoutes.ReferFriends);
+          await timerUtils.wait(50);
+          navigation.push(ETabReferFriendsRoutes.TabInviteReward, params);
         }
       } else {
         void loginOneKeyId({ toOneKeyIdPageOnLoginSuccess: false });
@@ -159,12 +156,11 @@ export const useReferFriends = () => {
             params,
           });
         } else {
-          navigation.switchTab<ETabRoutes.ReferFriends>(
-            ETabRoutes.ReferFriends,
-            {
-              screen: ETabReferFriendsRoutes.TabHardwareSalesReward,
-              params,
-            },
+          navigation.switchTab(ETabRoutes.ReferFriends);
+          await timerUtils.wait(50);
+          navigation.push(
+            ETabReferFriendsRoutes.TabHardwareSalesReward,
+            params,
           );
         }
       } else {
@@ -197,11 +193,13 @@ export const useReferFriends = () => {
       });
     } else {
       // Web: use Tab
-      navigation.switchTab<ETabRoutes.ReferFriends>(ETabRoutes.ReferFriends, {
-        screen: shouldShowInviteReward
+      navigation.switchTab(ETabRoutes.ReferFriends);
+      await timerUtils.wait(50);
+      navigation.push(
+        shouldShowInviteReward
           ? ETabReferFriendsRoutes.TabInviteReward
           : ETabReferFriendsRoutes.TabReferAFriend,
-      });
+      );
     }
   }, [navigation]);
 
@@ -242,19 +240,19 @@ export const useReferFriends = () => {
         ? getReferralUrl(myReferralCode)
         : myReferralCode;
 
-      const handleConfirm = () => {
+      const handleConfirm = async () => {
         if (isLogin) {
           if (platformEnv.isNative) {
             navigation.pushModal(EModalRoutes.ReferFriendsModal, {
               screen: EModalReferFriendsRoutes.InviteReward,
             });
           } else {
-            navigation.switchTab<ETabRoutes.ReferFriends>(
-              ETabRoutes.ReferFriends,
-              {
-                screen: ETabReferFriendsRoutes.TabInviteReward,
-              },
-            );
+            navigation.switchTab(ETabRoutes.ReferFriends);
+            await timerUtils.wait(50);
+            navigation.reset({
+              index: 0,
+              routes: [{ name: ETabReferFriendsRoutes.TabInviteReward }],
+            });
           }
         } else {
           void loginOneKeyId({ toOneKeyIdPageOnLoginSuccess: false });

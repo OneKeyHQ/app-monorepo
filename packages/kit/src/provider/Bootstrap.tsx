@@ -266,9 +266,7 @@ const useDesktopEvents = platformEnv.isDesktop
             break;
           case EShortcutEvents.TabEarn:
             ensureModalClosedAndNavigate(() => {
-              navigation.switchTab(ETabRoutes.Earn, {
-                screen: ETabEarnRoutes.EarnHome,
-              });
+              navigation.switchTab(ETabRoutes.Earn);
             });
             break;
           case EShortcutEvents.TabSwap:
@@ -308,12 +306,7 @@ const useDesktopEvents = platformEnv.isDesktop
             break;
           case EShortcutEvents.NewTab2:
             if (platformEnv.isDesktop) {
-              navigation.switchTab(ETabRoutes.MultiTabBrowser, {
-                screen: EMultiTabBrowserRoutes.MultiTabBrowser,
-                params: {
-                  action: 'create_new_tab',
-                },
-              });
+              navigation.switchTab(ETabRoutes.MultiTabBrowser);
             } else {
               navigation.pushModal(EModalRoutes.DiscoveryModal, {
                 screen: EDiscoveryModalRoutes.SearchModal,
