@@ -186,7 +186,7 @@ function BasePerpTokenSelectorContent({
             direction: prev?.direction ?? DEFAULT_PERP_TOKEN_SORT_DIRECTION,
             activeTab: tab,
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          } as any),
+          }) as any,
       );
     },
     [setSelectorConfig],
