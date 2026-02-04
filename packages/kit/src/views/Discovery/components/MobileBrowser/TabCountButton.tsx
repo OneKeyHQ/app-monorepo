@@ -30,13 +30,9 @@ function TabCountButton({ testID }: ITabCountButtonProps) {
   const navigation =
     useAppNavigation<IPageNavigationProp<IDiscoveryModalParamList>>();
 
-  const handleShowTabList = useCallback(async () => {
-    try {
-      if (!displayHomePage) {
-        await takeScreenshot();
-      }
-    } catch (e) {
-      console.error(e);
+  const handleShowTabList = useCallback(() => {
+    if (!displayHomePage) {
+      void takeScreenshot();
     }
     navigation.pushModal(EModalRoutes.DiscoveryModal, {
       screen: EDiscoveryModalRoutes.MobileTabList,
