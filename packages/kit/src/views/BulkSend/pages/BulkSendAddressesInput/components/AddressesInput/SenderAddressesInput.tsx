@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { isEmpty } from 'lodash';
-import { useIntl } from 'react-intl';
 
 import {
   Form,
@@ -13,7 +12,6 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   EInputAddressChangeType,
@@ -25,7 +23,6 @@ import { useBulkSendAddressesInputContext } from '../Context';
 import { useDebouncedValidation } from '@onekeyhq/kit/src/views/BulkSend/hooks/useDebouncedValidation';
 
 function SenderAddressesInput() {
-  const intl = useIntl();
   const {
     selectedAccountId,
     selectedNetworkId,
@@ -46,9 +43,7 @@ function SenderAddressesInput() {
     async (_value: string) => {
       if (!_value) {
         setAddressBadges([]);
-        return intl.formatMessage({
-          id: ETranslations.wallet_bulk_send_error_sender_required,
-        });
+        return 'Sender address(es) is required';
       }
 
       const result =
@@ -67,9 +62,7 @@ function SenderAddressesInput() {
             });
 
           if (isEmpty(walletAccountItems)) {
-            return intl.formatMessage({
-              id: ETranslations.wallet_bulk_send_error_address_not_found,
-            });
+            return 'Address not found in your wallet';
           }
 
           let accountItem:
@@ -152,27 +145,19 @@ function SenderAddressesInput() {
           }
 
           if (isWatchingAccount) {
-            return intl.formatMessage({
-              id: ETranslations.wallet_bulk_send_error_watching_account,
-            });
+            return 'Address is a watching account';
           }
 
           return true;
         } catch (_) {
           setAddressBadges([]);
-          return intl.formatMessage({
-            id: ETranslations.wallet_bulk_send_error_address_not_found,
-          });
+          return 'Address not found in your wallet';
         }
       }
       setAddressBadges([]);
-      return intl.formatMessage(
-        { id: ETranslations.wallet_bulk_send_error_invalid_network_address },
-        { network: network?.name ?? '' },
-      );
+      return `Not a valid ${network?.name ?? ''} address`;
     },
     [
-      intl,
       network?.name,
       selectedNetworkId,
       setSelectedAccountId,
@@ -189,7 +174,7 @@ function SenderAddressesInput() {
       return (
         <XStack alignItems="center" gap="$1" mt="$1.5">
           <SizableText size="$bodyMd" color="$textSubdued">
-            {intl.formatMessage({ id: ETranslations.wallet_bulk_send_balance })}
+            Balance:
           </SizableText>
           <NumberSizeableText
             formatter="balance"
@@ -208,7 +193,6 @@ function SenderAddressesInput() {
     }
     return null;
   }, [
-    intl,
     tokenDetailsState.initialized,
     tokenDetailsState.isRefreshing,
     selectedTokenDetail?.info.symbol,
@@ -247,9 +231,7 @@ function SenderAddressesInput() {
   return (
     <Form.Field
       name="senderAddresses"
-      label={intl.formatMessage({
-        id: ETranslations.wallet_bulk_send_label_sending_addresses,
-      })}
+      label="Sending Address(es)"
       description={renderSenderAddressesDescription()}
       rules={{
         validate: debouncedValidateAddresses,
@@ -262,9 +244,7 @@ function SenderAddressesInput() {
         showPaste
         // TODO: init account selector with selected account id or indexed account id
         showAccountSelector
-        placeholder={intl.formatMessage({
-          id: ETranslations.wallet_bulk_send_placeholder_address,
-        })}
+        placeholder="Enter address"
         showLineNumbers={false}
         accountSelector={{
           num: 0,

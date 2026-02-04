@@ -1,7 +1,6 @@
 import { useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { useIntl } from 'react-intl';
 
 import {
   Input,
@@ -12,7 +11,6 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { getSharedInputStyles } from '@onekeyhq/components/src/forms/Input/sharedStyles';
 import { AmountInput as BaseAmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -28,7 +26,6 @@ import {
 import { useBulkSendAmountsInputContext } from './Context';
 
 export function SpecifiedAmountInput() {
-  const intl = useIntl();
   const {
     networkId,
     tokenInfo,
@@ -65,12 +62,8 @@ export function SpecifiedAmountInput() {
         maxAmount: balance ?? '0',
         allowZero: false,
         customErrorMessages: {
-          maxAmount: intl.formatMessage({
-            id: ETranslations.swap_page_button_insufficient_balance,
-          }),
-          zeroAmount: intl.formatMessage({
-            id: ETranslations.wallet_bulk_send_error_amount_zero,
-          }),
+          maxAmount: 'Insufficient balance',
+          zeroAmount: 'Amount must be greater than 0',
         },
       });
       setAmountInputErrors({
@@ -79,7 +72,6 @@ export function SpecifiedAmountInput() {
       });
     },
     [
-      intl,
       amountInputValues,
       setAmountInputValues,
       tokenInfo,
@@ -129,7 +121,6 @@ export function SpecifiedAmountInput() {
 }
 
 export function RangeAmountInput() {
-  const intl = useIntl();
   const {
     tokenDetails,
     amountInputValues,
@@ -154,12 +145,8 @@ export function RangeAmountInput() {
         maxAmount: balance,
         allowZero: true,
         customErrorMessages: {
-          emptyAmount: intl.formatMessage({
-            id: ETranslations.wallet_bulk_send_error_min_required,
-          }),
-          maxAmount: intl.formatMessage({
-            id: ETranslations.swap_page_button_insufficient_balance,
-          }),
+          emptyAmount: 'Min is required',
+          maxAmount: 'Insufficient balance',
         },
       });
       errors.rangeMin = rangeMinError;
@@ -169,15 +156,9 @@ export function RangeAmountInput() {
         maxAmount: balance,
         allowZero: false,
         customErrorMessages: {
-          emptyAmount: intl.formatMessage({
-            id: ETranslations.wallet_bulk_send_error_max_required,
-          }),
-          maxAmount: intl.formatMessage({
-            id: ETranslations.swap_page_button_insufficient_balance,
-          }),
-          zeroAmount: intl.formatMessage({
-            id: ETranslations.wallet_bulk_send_error_max_zero,
-          }),
+          emptyAmount: 'Max is required',
+          maxAmount: 'Insufficient balance',
+          zeroAmount: 'Max must be greater than 0',
         },
       });
       errors.rangeMax = rangeMaxError;
@@ -186,15 +167,13 @@ export function RangeAmountInput() {
         const minBN = new BigNumber(min);
         const maxBN = new BigNumber(max);
         if (maxBN.isLessThanOrEqualTo(minBN)) {
-          errors.rangeMax = intl.formatMessage({
-            id: ETranslations.wallet_bulk_send_error_max_less_than_min,
-          });
+          errors.rangeMax = 'Max must be greater than Min';
         }
       }
 
       return errors;
     },
-    [intl, tokenInfo, balance],
+    [tokenInfo, balance],
   );
 
   const handleMinChange = useCallback(
@@ -325,9 +304,7 @@ export function RangeAmountInput() {
                 flex={1}
                 value={amountInputValues.rangeMax}
                 onChangeText={handleMaxChange}
-                placeholder={intl.formatMessage({
-                  id: ETranslations.wallet_bulk_send_placeholder_max,
-                })}
+                placeholder="Max"
                 keyboardType="decimal-pad"
                 containerProps={{
                   width: '100%',
@@ -369,7 +346,6 @@ export function RangeAmountInput() {
 }
 
 function CustomAmountDisplay({ inDialog }: { inDialog?: boolean }) {
-  const intl = useIntl();
   const {
     networkId,
     tokenDetails,
@@ -393,9 +369,7 @@ function CustomAmountDisplay({ inDialog }: { inDialog?: boolean }) {
           textAlign="center"
           maxWidth={256}
         >
-          {intl.formatMessage({
-            id: ETranslations.wallet_bulk_send_custom_mode_hint,
-          })}
+          Each transfer will use the amount you entered.
         </SizableText>
       </YStack>
     );
@@ -434,9 +408,7 @@ function CustomAmountDisplay({ inDialog }: { inDialog?: boolean }) {
           </NumberSizeableText>
         </YStack>
         <SizableText size="$bodyMd" color="$textSubdued">
-          {intl.formatMessage({
-            id: ETranslations.wallet_bulk_send_sending_amount,
-          })}
+          Sending Amount
         </SizableText>
       </XStack>
     </ListItem>
@@ -444,7 +416,6 @@ function CustomAmountDisplay({ inDialog }: { inDialog?: boolean }) {
 }
 
 export function AmountInputSection({ inDialog }: { inDialog?: boolean }) {
-  const intl = useIntl();
   const {
     amountInputMode,
     setAmountInputMode,
@@ -457,26 +428,11 @@ export function AmountInputSection({ inDialog }: { inDialog?: boolean }) {
 
   const segmentOptions = useMemo(
     () => [
-      {
-        label: intl.formatMessage({
-          id: ETranslations.wallet_bulk_send_amount_mode_specified,
-        }),
-        value: EAmountInputMode.Specified,
-      },
-      {
-        label: intl.formatMessage({
-          id: ETranslations.wallet_bulk_send_amount_mode_range,
-        }),
-        value: EAmountInputMode.Range,
-      },
-      {
-        label: intl.formatMessage({
-          id: ETranslations.wallet_bulk_send_amount_mode_custom,
-        }),
-        value: EAmountInputMode.Custom,
-      },
+      { label: 'Specified', value: EAmountInputMode.Specified },
+      { label: 'Range', value: EAmountInputMode.Range },
+      { label: 'Custom', value: EAmountInputMode.Custom },
     ],
-    [intl],
+    [],
   );
 
   const validateSpecifiedAmount = useCallback(() => {
@@ -489,17 +445,12 @@ export function AmountInputSection({ inDialog }: { inDialog?: boolean }) {
       maxAmount: balance,
       allowZero: false,
       customErrorMessages: {
-        maxAmount: intl.formatMessage({
-          id: ETranslations.swap_page_button_insufficient_balance,
-        }),
-        zeroAmount: intl.formatMessage({
-          id: ETranslations.wallet_bulk_send_error_amount_zero,
-        }),
+        maxAmount: 'Insufficient balance',
+        zeroAmount: 'Amount must be greater than 0',
       },
     });
     return { specifiedAmount: error };
   }, [
-    intl,
     tokenInfo,
     tokenDetails?.balanceParsed,
     amountInputValues.specifiedAmount,
@@ -517,12 +468,8 @@ export function AmountInputSection({ inDialog }: { inDialog?: boolean }) {
       maxAmount: balance,
       allowZero: true,
       customErrorMessages: {
-        emptyAmount: intl.formatMessage({
-          id: ETranslations.wallet_bulk_send_error_min_required,
-        }),
-        maxAmount: intl.formatMessage({
-          id: ETranslations.swap_page_button_insufficient_balance,
-        }),
+        emptyAmount: 'Min is required',
+        maxAmount: 'Insufficient balance',
       },
     });
     errors.rangeMin = rangeMinError;
@@ -533,15 +480,9 @@ export function AmountInputSection({ inDialog }: { inDialog?: boolean }) {
       maxAmount: balance,
       allowZero: false,
       customErrorMessages: {
-        emptyAmount: intl.formatMessage({
-          id: ETranslations.wallet_bulk_send_error_max_required,
-        }),
-        maxAmount: intl.formatMessage({
-          id: ETranslations.swap_page_button_insufficient_balance,
-        }),
-        zeroAmount: intl.formatMessage({
-          id: ETranslations.wallet_bulk_send_error_max_zero,
-        }),
+        emptyAmount: 'Max is required',
+        maxAmount: 'Insufficient balance',
+        zeroAmount: 'Max must be greater than 0',
       },
     });
     errors.rangeMax = rangeMaxError;
@@ -551,15 +492,12 @@ export function AmountInputSection({ inDialog }: { inDialog?: boolean }) {
       const minBN = new BigNumber(amountInputValues.rangeMin);
       const maxBN = new BigNumber(amountInputValues.rangeMax);
       if (maxBN.isLessThanOrEqualTo(minBN)) {
-        errors.rangeMax = intl.formatMessage({
-          id: ETranslations.wallet_bulk_send_error_max_less_than_min,
-        });
+        errors.rangeMax = 'Max must be greater than Min';
       }
     }
 
     return errors;
   }, [
-    intl,
     tokenInfo,
     tokenDetails?.balanceParsed,
     amountInputValues.rangeMin,
