@@ -157,51 +157,66 @@ function PageLegacyFirmwareUpdate() {
             response.payload &&
             response.payload.length > 0
           ) {
-            // Device detected - try to restart update with bootloader mode flag
-            // The SDK will verify if the device is actually in bootloader mode
-            console.log(
-              'Device detected, attempting to restart update with bootloader mode...',
-            );
+            const device = response.payload[0];
+            console.log('Device detected:', device);
 
-            // Mark as restarting to prevent multiple attempts
-            isRestartingRef.current = true;
-
-            // Restart the update with bootloader mode flag
-            setIsStarting(true);
+            // Try to get device features to check bootloader mode
             try {
-              const result =
-                await backgroundApiProxy.serviceLegacyFirmwareUpdate.startLegacyUpdate(
-                  {
-                    connectId,
-                    deviceType,
-                    currentFirmwareVersion,
-                    currentBootloaderVersion,
-                    targetFirmwareVersion,
-                    isBootloaderMode: true, // User has entered bootloader mode manually
+              const features =
+                await backgroundApiProxy.serviceHardware.getFeatures({
+                  connectId: device.connectId || undefined,
+                  params: {
+                    allowEmptyConnectId: true,
                   },
+                });
+
+              console.log('Device features:', features);
+
+              // Only proceed if device is in bootloader mode
+              if (features?.bootloader_mode === true) {
+                console.log(
+                  'Device confirmed in bootloader mode, starting update...',
                 );
 
-              // If the update still needs bootloader mode, the device wasn't in bootloader mode
-              // Reset the flag and continue polling
-              if (result.needsBootloaderMode) {
-                console.log(
-                  'Device not in bootloader mode yet, continuing to poll...',
-                );
-                isRestartingRef.current = false;
-              } else {
-                // Update succeeded or is in progress, stop polling
+                // Mark as restarting to prevent multiple attempts
+                isRestartingRef.current = true;
+
+                // Clear polling interval
                 if (intervalId) {
                   clearInterval(intervalId);
                   intervalId = null;
                 }
                 setIsPolling(false);
+
+                // Restart the update with bootloader mode flag
+                setIsStarting(true);
+                try {
+                  await backgroundApiProxy.serviceLegacyFirmwareUpdate.startLegacyUpdate(
+                    {
+                      connectId: device.connectId || connectId,
+                      deviceType,
+                      currentFirmwareVersion,
+                      currentBootloaderVersion,
+                      targetFirmwareVersion,
+                      isBootloaderMode: true,
+                    },
+                  );
+                } catch (error) {
+                  console.log('Start update error:', error);
+                  // Reset the flag to allow retrying
+                  isRestartingRef.current = false;
+                  setIsPolling(true);
+                } finally {
+                  setIsStarting(false);
+                }
+              } else {
+                console.log(
+                  'Device not in bootloader mode yet, continuing to poll...',
+                );
               }
-            } catch (error) {
-              console.log('Restart update error:', error);
-              // Reset the flag to allow retrying
-              isRestartingRef.current = false;
-            } finally {
-              setIsStarting(false);
+            } catch (featuresError) {
+              console.log('Get features error:', featuresError);
+              // Continue polling - device might not be ready
             }
           }
         } catch (error) {

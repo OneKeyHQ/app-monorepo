@@ -3,7 +3,6 @@ import { useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
-  Alert,
   Image,
   SizableText,
   Spinner,
@@ -76,33 +75,13 @@ export function MiniBootloaderModeGuide({
         />
       </Stack>
 
-      <Stack
-        animation="quick"
-        enterStyle={{
-          opacity: 0,
-          scale: 0.98,
-        }}
-        opacity={1}
-        scale={1}
-      >
-        <Alert
-          title={intl.formatMessage({
-            id: ETranslations.update_manually_entering_bootloader_mode,
-          })}
-          description={intl.formatMessage({
-            id: ETranslations.update_manually_entering_bootloader_mode_desc,
-          })}
-          type="warning"
-          fullBleed
-        />
-      </Stack>
-
       <YStack
         gap="$3"
         p="$4"
         borderRadius="$3"
         borderWidth={1}
         borderColor="$borderSubdued"
+        backgroundColor="$bgSubdued"
         animation="medium"
         enterStyle={{
           opacity: 0,
@@ -113,7 +92,7 @@ export function MiniBootloaderModeGuide({
       >
         <SizableText size="$headingMd">
           {intl.formatMessage({
-            id: ETranslations.update_reboot_to_bootloader_mode,
+            id: ETranslations.update_manually_entering_bootloader_mode,
           })}
         </SizableText>
 
