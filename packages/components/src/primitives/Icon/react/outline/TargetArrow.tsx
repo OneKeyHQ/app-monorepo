@@ -1,14 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgTargetArrow = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M21 12a9 9 0 1 1-9-9m4.771 10.5A5.002 5.002 0 0 1 7 12a5 5 0 0 1 3.5-4.771M14 10h3.172a2 2 0 0 0 1.414-.586l2.628-2.628a.25.25 0 0 0-.098-.414L18.5 5.5l-.872-2.616a.25.25 0 0 0-.414-.098l-2.628 2.628A2 2 0 0 0 14 6.83zm0 0-2 2"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M2 12C2 6.477 6.477 2 12 2a1 1 0 0 1 0 2 8 8 0 1 0 8 8 1 1 0 0 1 2 0c0 5.523-4.477 10-10 10S2 17.523 2 12m4 0a6 6 0 0 1 4.2-5.726 1 1 0 0 1 .6 1.909 4 4 0 1 0 5.018 5.018 1 1 0 0 1 1.908.598A6 6 0 0 1 6 12M16.635 1.967a1.25 1.25 0 0 1 1.877.443l.064.157.714 2.142 2.143.715a1.25 1.25 0 0 1 .488 2.07L19 10.413a2 2 0 0 1-1.414.586h-3.172l-1.707 1.707a1 1 0 1 1-1.414-1.414L13 9.586V6.414A2 2 0 0 1 13.586 5l2.92-2.921zM15 9h2.586l2.062-2.063-1.464-.488a1 1 0 0 1-.632-.633l-.49-1.465L15 6.414z" />
   </Svg>
 );
 export default SvgTargetArrow;

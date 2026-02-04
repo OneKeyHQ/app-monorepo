@@ -112,6 +112,30 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     | ReturnType<typeof setTimeout>
     | undefined;
 
+  /**
+   * Execute promises in batches with concurrency control to prevent overwhelming the system
+   * This fixes iOS app hangs when fetching token lists for multiple networks simultaneously
+   * @param tasks - Array of promise-returning functions to execute
+   * @param concurrency - Maximum number of concurrent promises (default: 3)
+   * @returns Array of settled results
+   */
+  private async executeBatched<T>(
+    tasks: Array<() => Promise<T>>,
+    concurrency = 3,
+  ): Promise<Array<PromiseSettledResult<T>>> {
+    const results: Array<PromiseSettledResult<T>> = [];
+
+    for (let i = 0; i < tasks.length; i += concurrency) {
+      const batch = tasks.slice(i, i + concurrency);
+      const batchResults = await Promise.allSettled(
+        batch.map((task) => task()),
+      );
+      results.push(...batchResults);
+    }
+
+    return results;
+  }
+
   // Set swap pro select token with persistence
   // If token is provided: set to atom and save to db
   // If token is not provided: load from db, if db is empty, use defaultToken
@@ -1791,27 +1815,37 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           .filter(
             (item) => !networkUtils.isAllNetwork({ networkId: item.networkId }),
           );
-        const requests = accountAddressList.map((networkDataString) => {
+
+        // Create tasks as functions to delay execution until batched
+        const tasks = accountAddressList.map((networkDataString) => {
           const {
             apiAddress,
             networkId: accountNetworkId,
             accountId,
           } = networkDataString;
-          return this.updateAllNetworkTokenList.call(
-            set,
-            accountNetworkId,
-            accountId,
-            apiAddress,
-            !currentSwapAllNetworkTokenList,
-            indexedAccountId ?? otherWalletTypeAccountId ?? '',
-          );
+          return () =>
+            this.updateAllNetworkTokenList.call(
+              set,
+              accountNetworkId,
+              accountId,
+              apiAddress,
+              !currentSwapAllNetworkTokenList,
+              indexedAccountId ?? otherWalletTypeAccountId ?? '',
+            );
         });
 
+        // Execute requests in batches of 3 to prevent UI thread blocking
+        const results = await this.executeBatched(tasks, 3);
+
         if (!currentSwapAllNetworkTokenList) {
-          await Promise.all(requests);
+          // First fetch: just wait for completion, updates happen in updateAllNetworkTokenList
         } else {
-          const result = await Promise.all(requests);
-          const allTokensResult = (result.filter(Boolean) ?? []).flat();
+          // Subsequent fetches: collect results and update atom
+          const allTokensResult = results
+            .filter((r) => r.status === 'fulfilled' && r.value)
+            .map((r) => (r as PromiseFulfilledResult<any>).value)
+            .filter(Boolean)
+            .flat();
           set(swapAllNetworkTokenListMapAtom(), (v) => ({
             ...v,
             [accountIdKey]: allTokensResult,
@@ -1848,25 +1882,33 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           .filter(
             (item) => !networkUtils.isAllNetwork({ networkId: item.networkId }),
           );
-        const requests = accountAddressList.map((networkDataString) => {
+
+        // Create tasks as functions to delay execution until batched
+        const tasks = accountAddressList.map((networkDataString) => {
           const {
             apiAddress,
             networkId: accountNetworkId,
             accountId,
           } = networkDataString;
-          return backgroundApiProxy.serviceSwap.fetchSwapTokens({
-            networkId: accountNetworkId,
-            accountNetworkId,
-            accountAddress: apiAddress,
-            accountId,
-            onlyAccountTokens: true,
-            isAllNetworkFetchAccountTokens: true,
-            protocol: ESwapTabSwitchType.SWAP,
-          });
+          return () =>
+            backgroundApiProxy.serviceSwap.fetchSwapTokens({
+              networkId: accountNetworkId,
+              accountNetworkId,
+              accountAddress: apiAddress,
+              accountId,
+              onlyAccountTokens: true,
+              isAllNetworkFetchAccountTokens: true,
+              protocol: ESwapTabSwitchType.SWAP,
+            });
         });
 
-        const result = await Promise.all(requests);
-        const sortedResult = result
+        // Execute requests in batches of 3 to prevent UI thread blocking
+        const results = await this.executeBatched(tasks, 3);
+
+        // Extract successful results and sort by fiat value
+        const sortedResult = results
+          .filter((r) => r.status === 'fulfilled' && r.value)
+          .map((r) => (r as PromiseFulfilledResult<any>).value)
           .filter(Boolean)
           .flat()
           .toSorted((a, b) => {

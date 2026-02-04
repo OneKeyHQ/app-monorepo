@@ -1,21 +1,27 @@
+import { useIntl } from 'react-intl';
+
 import {
   NumberSizeableText,
   SizableText,
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { Token } from '@onekeyhq/kit/src/components/Token';
 
 import { useBulkSendReviewContext } from './Context';
 
 function BulkSendReviewGrandSummary() {
+  const intl = useIntl();
   const { tokenInfo, networkImageUri, totalTokenAmount, totalFiatAmount } =
     useBulkSendReviewContext();
   return (
     <YStack gap="$1" alignItems="center" py="$3">
       <SizableText size="$bodyLgMedium" color="$textSubdued">
-        Sending amount
+        {intl.formatMessage({
+          id: ETranslations.wallet_bulk_send_sending_amount,
+        })}
       </SizableText>
       <XStack gap="$3" alignItems="center" justifyContent="center">
         <Token

@@ -1,5 +1,7 @@
 import { useCallback, useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Icon,
   IconButton,
@@ -12,11 +14,12 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { validateTokenAmount } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   EAmountInputMode,
   type ITransferInfoErrors,
 } from '@onekeyhq/shared/types/bulkSend';
-import { validateTokenAmount } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
@@ -28,13 +31,16 @@ import { useAmountPreview } from './useAmountPreview';
 import { useTransferInfoActions } from './useTransferInfoActions';
 
 function AssetSection() {
+  const intl = useIntl();
   const { networkId, tokenInfo, tokenDetails } =
     useBulkSendAmountsInputContext();
   const { network } = useAccountData({ networkId });
 
   return (
     <YStack gap="$1.5" flex={1} flexBasis={0} minWidth={0}>
-      <SizableText size="$bodyMdMedium">Asset</SizableText>
+      <SizableText size="$bodyMdMedium">
+        {intl.formatMessage({ id: ETranslations.wallet_bulk_send_label_asset })}
+      </SizableText>
       <ListItem
         mx="$0"
         px="$0"
@@ -55,6 +61,7 @@ function AssetSection() {
 }
 
 function SetAmountPerAddressSection() {
+  const intl = useIntl();
   const {
     accountId,
     networkId,
@@ -92,7 +99,9 @@ function SetAmountPerAddressSection() {
         amount: transfer.amount,
         allowZero: false,
         customErrorMessages: {
-          zeroAmount: 'Amount must be greater than 0',
+          zeroAmount: intl.formatMessage({
+            id: ETranslations.wallet_bulk_send_error_amount_zero,
+          }),
         },
       });
       if (!isValid && error) {
@@ -100,7 +109,7 @@ function SetAmountPerAddressSection() {
       }
     });
     return errors;
-  }, [transfersInfo, tokenInfo]);
+  }, [intl, transfersInfo, tokenInfo]);
 
   const primaryText = useMemo(() => {
     const tokenSymbol = tokenInfo.symbol;
@@ -116,11 +125,13 @@ function SetAmountPerAddressSection() {
         return `${min} ${tokenSymbol} ~ ${max} ${tokenSymbol}`;
       }
       case EAmountInputMode.Custom:
-        return 'Custom';
+        return intl.formatMessage({
+          id: ETranslations.wallet_bulk_send_amount_mode_custom,
+        });
       default:
         return `0 ${tokenSymbol}`;
     }
-  }, [amountInputMode, amountInputValues, tokenInfo.symbol]);
+  }, [intl, amountInputMode, amountInputValues, tokenInfo.symbol]);
 
   const handlePress = useCallback(() => {
     showSetAmountPerAddressDialog({
@@ -167,7 +178,7 @@ function SetAmountPerAddressSection() {
     return (
       <XStack alignItems="center" gap="$1" flexWrap="wrap">
         <SizableText size="$bodyMd" color="$textSubdued">
-          Total:
+          {intl.formatMessage({ id: ETranslations.wallet_bulk_send_total })}
         </SizableText>
         <NumberSizeableText
           formatter="balance"
@@ -194,6 +205,7 @@ function SetAmountPerAddressSection() {
       </XStack>
     );
   }, [
+    intl,
     tokenDetailsState.isRefreshing,
     tokenDetailsState.initialized,
     tokenInfo.symbol,
@@ -204,7 +216,11 @@ function SetAmountPerAddressSection() {
 
   return (
     <YStack gap="$1.5" flex={1} flexBasis={0} minWidth={0}>
-      <SizableText size="$bodyMdMedium">Set amount per address</SizableText>
+      <SizableText size="$bodyMdMedium">
+        {intl.formatMessage({
+          id: ETranslations.wallet_bulk_send_label_set_amount,
+        })}
+      </SizableText>
       <ListItem mx="$-3" drillIn onPress={handlePress}>
         <ListItem.Text
           flex={1}
@@ -217,6 +233,7 @@ function SetAmountPerAddressSection() {
 }
 
 function TransferInfoListSection() {
+  const intl = useIntl();
   const {
     transfersInfo,
     setTransfersInfo,
@@ -255,7 +272,9 @@ function TransferInfoListSection() {
             color="$textSubdued"
             textTransform="uppercase"
           >
-            FROM
+            {intl.formatMessage({
+              id: ETranslations.wallet_bulk_send_table_from,
+            })}
           </SizableText>
         </XStack>
         <Stack flex={1} minWidth={0}>
@@ -264,7 +283,9 @@ function TransferInfoListSection() {
             color="$textSubdued"
             textTransform="uppercase"
           >
-            TO
+            {intl.formatMessage({
+              id: ETranslations.wallet_bulk_send_table_to,
+            })}
           </SizableText>
         </Stack>
         <Stack width={100}>
@@ -274,7 +295,9 @@ function TransferInfoListSection() {
             textTransform="uppercase"
             textAlign="right"
           >
-            AMOUNT
+            {intl.formatMessage({
+              id: ETranslations.wallet_bulk_send_table_amount,
+            })}
           </SizableText>
         </Stack>
         <Stack width={64}>
@@ -284,7 +307,9 @@ function TransferInfoListSection() {
             textTransform="uppercase"
             textAlign="right"
           >
-            ACTION
+            {intl.formatMessage({
+              id: ETranslations.wallet_bulk_send_table_action,
+            })}
           </SizableText>
         </Stack>
       </XStack>
@@ -414,6 +439,7 @@ function TransferInfoListSection() {
 }
 
 function TableLayout() {
+  const intl = useIntl();
   const { isInsufficientBalance, tokenDetails, totalTokenAmount, tokenInfo } =
     useBulkSendAmountsInputContext();
 
@@ -429,9 +455,16 @@ function TableLayout() {
         <XStack gap="$1" alignItems="center">
           <Icon name="InfoCircleOutline" size="$4" color="$iconCritical" />
           <SizableText size="$bodySm" color="$textCritical">
-            Insufficient balance, available balance:{' '}
-            {tokenDetails?.balanceParsed} {tokenInfo.symbol}, total amount:{' '}
-            {totalTokenAmount} {tokenInfo.symbol}
+            {intl.formatMessage(
+              {
+                id: ETranslations.wallet_bulk_send_insufficient_balance_detail_desktop,
+              },
+              {
+                available: tokenDetails?.balanceParsed,
+                symbol: tokenInfo.symbol,
+                total: totalTokenAmount,
+              },
+            )}
           </SizableText>
         </XStack>
       ) : null}

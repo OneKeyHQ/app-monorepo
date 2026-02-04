@@ -1,17 +1,18 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgCookies = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      fill="currentColor"
       fillRule="evenodd"
       d="M2 12C2 6.477 6.477 2 12 2q.578 0 1.14.064a1 1 0 0 1 .88 1.119 2.5 2.5 0 0 0 2.144 2.795 1 1 0 0 1 .858.858 2.5 2.5 0 0 0 3.352 2.007 1 1 0 0 1 1.32.691c.2.79.306 1.616.306 2.466 0 5.523-4.477 10-10 10S2 17.523 2 12m10-8a8 8 0 1 0 7.936 6.98 4.5 4.5 0 0 1-4.743-3.172A4.5 4.5 0 0 1 12.028 4z"
       clipRule="evenodd"
     />
-    <Path
-      fill="currentColor"
-      d="M10 8.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0m4 3a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0m4 2.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0m-5 2.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0M8 14a1 1 0 1 1-2 0 1 1 0 0 1 2 0"
-    />
+    <Path d="M10 8.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0m4 3a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0m4 2.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0m-5 2.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0M8 14a1 1 0 1 1-2 0 1 1 0 0 1 2 0" />
   </Svg>
 );
 export default SvgCookies;

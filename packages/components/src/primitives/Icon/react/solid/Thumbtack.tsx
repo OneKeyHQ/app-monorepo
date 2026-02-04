@@ -1,11 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgThumbtack = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      fill="currentColor"
-      d="M9.5 2a3 3 0 0 0-3 3v2.229a5.7 5.7 0 0 1-1.667 4.023A2.85 2.85 0 0 0 4 13.264V15a1 1 0 0 0 1 1h6v5a1 1 0 1 0 2 0v-5h6a1 1 0 0 0 1-1v-1.736c0-.754-.3-1.478-.833-2.012A5.7 5.7 0 0 1 17.5 7.23V5a3 3 0 0 0-3-3z"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M8.5 2a2 2 0 0 0-2 2v2.997a6.25 6.25 0 0 1-1.83 4.42l-.377.376A1 1 0 0 0 4 12.5V14a2 2 0 0 0 2 2h5v5a1 1 0 1 0 2 0v-5h5a2 2 0 0 0 2-2v-1.5a1 1 0 0 0-.293-.707l-.376-.377a6.25 6.25 0 0 1-1.831-4.42V4a2 2 0 0 0-2-2z" />
   </Svg>
 );
 export default SvgThumbtack;

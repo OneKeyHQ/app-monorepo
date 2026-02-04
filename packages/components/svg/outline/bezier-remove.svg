@@ -1,4 +1,3 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
-  <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-    d="M16 6v1a1 1 0 0 0 1 1h1m-2-2V5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-1m-2-2H8M6 8v8m2 2h8m2-2V8m-4 4h-4m10 7v-2a1 1 0 0 0-1-1h-2a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1ZM5 20h2a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1ZM5 8h2a1 1 0 0 0 1-1V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1Z" />
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 24 24">
+  <path  d="M17 19h2v-2h-2v2ZM5 19h2v-2H5v2Zm9-8a1 1 0 1 1 0 2h-4a1 1 0 1 1 0-2h4Zm3-4h2V5h-2v2ZM5 7h2V5H5v2Zm4 .5A1.5 1.5 0 0 1 7.5 9H7v6h.5A1.5 1.5 0 0 1 9 16.5v.5h6v-.5a1.5 1.5 0 0 1 1.5-1.5h.5V9h-.5A1.5 1.5 0 0 1 15 7.5V7H9v.5Zm12 0A1.5 1.5 0 0 1 19.5 9H19v6h.5a1.5 1.5 0 0 1 1.5 1.5v3a1.5 1.5 0 0 1-1.5 1.5h-3a1.5 1.5 0 0 1-1.5-1.5V19H9v.5A1.5 1.5 0 0 1 7.5 21h-3A1.5 1.5 0 0 1 3 19.5v-3A1.5 1.5 0 0 1 4.5 15H5V9h-.5A1.5 1.5 0 0 1 3 7.5v-3A1.5 1.5 0 0 1 4.5 3h3A1.5 1.5 0 0 1 9 4.5V5h6v-.5A1.5 1.5 0 0 1 16.5 3h3A1.5 1.5 0 0 1 21 4.5v3Z"/>
 </svg>

@@ -1,11 +1,15 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgChatGroup = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      fill="currentColor"
       fillRule="evenodd"
-      d="M19.002 3a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3h-1v1a3 3 0 0 1-3 3h-4.24l-4.274 2.374a1 1 0 0 1-1.486-.874V19a3 3 0 0 1-3-3v-6a3 3 0 0 1 3-3h1V6a3 3 0 0 1 3-3zm-11 4h7a3 3 0 0 1 3 3v3h1a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1h-10a1 1 0 0 0-1 1z"
+      d="M20.002 3a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2v2a2 2 0 0 1-2 2h-5.24l-4.274 2.374a1 1 0 0 1-1.486-.874V19h-1a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h2V5a2 2 0 0 1 2-2zm-12 4h8a2 2 0 0 1 2 2v4h2V5h-12z"
       clipRule="evenodd"
     />
   </Svg>
