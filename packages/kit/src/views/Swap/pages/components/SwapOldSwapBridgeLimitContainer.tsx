@@ -220,16 +220,11 @@ const SwapOldSwapBridgeLimitContainer = ({
       </YStack>
     );
     return (
-      <XStack gap="$2" px="$5" alignItems="stretch">
-        <ScrollView
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
-          ref={scrollViewRef}
-          flexBasis="50%"
-        >
-          <YStack p="$5">{mainContentWithCard}</YStack>
-        </ScrollView>
-        <YStack pt="$5" flexBasis="50%">
+      <XStack gap="$1" px="$5">
+        <YStack p="$5" flexBasis="50%">
+          <YStack>{mainContentWithCard}</YStack>
+        </YStack>
+        <YStack p="$5" flexBasis="50%">
           <SwapProviderListPanel refreshAction={refreshAction} />
         </YStack>
       </XStack>
