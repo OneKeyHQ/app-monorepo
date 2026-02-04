@@ -453,7 +453,7 @@ function WebBannerScroller({
           />
         ))}
       </ScrollView>
-      {gtMd && showLeftArrow ? (
+      {gtMd ? (
         <Stack
           position="absolute"
           left={0}
@@ -461,14 +461,15 @@ function WebBannerScroller({
           bottom={0}
           zIndex={1}
           justifyContent="center"
-          px="$2"
-          bg="rgba(255,255,255,0.72)"
-          $theme-dark={{ bg: 'rgba(0,0,0,0.72)' }}
-          $platform-web={{
-            style: {
-              backdropFilter: 'blur(12px)',
-              WebkitBackdropFilter: 'blur(12px)',
-            },
+          pl="$1"
+          pr="$4"
+          opacity={showLeftArrow ? 1 : 0}
+          pointerEvents={showLeftArrow ? 'auto' : 'none'}
+          animation="quick"
+          animateOnly={['opacity']}
+          style={{
+            background:
+              'linear-gradient(90deg, var(--bgApp) 40%, transparent 100%)',
           }}
         >
           <IconButton
@@ -482,7 +483,7 @@ function WebBannerScroller({
           />
         </Stack>
       ) : null}
-      {gtMd && showRightArrow ? (
+      {gtMd ? (
         <Stack
           position="absolute"
           right={0}
@@ -490,14 +491,15 @@ function WebBannerScroller({
           bottom={0}
           zIndex={1}
           justifyContent="center"
-          px="$2"
-          bg="rgba(255,255,255,0.72)"
-          $theme-dark={{ bg: 'rgba(0,0,0,0.72)' }}
-          $platform-web={{
-            style: {
-              backdropFilter: 'blur(12px)',
-              WebkitBackdropFilter: 'blur(12px)',
-            },
+          pr="$1"
+          pl="$4"
+          opacity={showRightArrow ? 1 : 0}
+          pointerEvents={showRightArrow ? 'auto' : 'none'}
+          animation="quick"
+          animateOnly={['opacity']}
+          style={{
+            background:
+              'linear-gradient(270deg, var(--bgApp) 40%, transparent 100%)',
           }}
         >
           <IconButton
