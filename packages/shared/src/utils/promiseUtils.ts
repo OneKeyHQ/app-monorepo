@@ -151,6 +151,7 @@ export async function promiseAllSettledEnhanced<T>(
   if (
     concurrency &&
     concurrency > 0 &&
+    promisesOrFactories.length > 0 &&
     typeof promisesOrFactories[0] === 'function'
   ) {
     const factories = promisesOrFactories as (() => Promise<T>)[];

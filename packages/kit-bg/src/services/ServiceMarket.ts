@@ -161,7 +161,7 @@ class ServiceMarket extends ServiceBase {
               },
             });
           }
-          return Promise.resolve({ data: { data: [] } });
+          return Promise.resolve({ data: { data: [] as IMarketDetailPool[] } });
         }),
         { continueOnError: true, concurrency: PROMISE_CONCURRENCY_LIMIT },
       );

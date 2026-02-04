@@ -287,10 +287,10 @@ class ServiceDiscovery extends ServiceBase {
         dataSource.map((i) => async () => ({
           ...i,
           logo: generateIcon
-            ? await this.buildWebsiteIconUrl(i.url)
+            ? await this.buildWebsiteIconUrl(i.url).catch(() => undefined)
             : undefined,
         })),
-        { continueOnError: true, concurrency: PROMISE_CONCURRENCY_LIMIT },
+        { concurrency: PROMISE_CONCURRENCY_LIMIT },
       )
     ).filter(Boolean);
 
