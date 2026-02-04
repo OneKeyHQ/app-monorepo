@@ -952,7 +952,7 @@
   "edit_fee_custom_set_as_default_description": "{network} पर सभी भविष्य के लेनदेन के लिए डिफ़ॉल्ट के रूप में सेट करें",
   "email_verification_rate_limit": "नया सत्यापन कोड का अनुरोध करने से पहले कृपया {rest} सेकंड प्रतीक्षा करें",
   "energy_consumed": "खपत की गई ऊर्जा",
-  "enter_account_name_address_or_domain": "输入账户名称地址或域名",
+  "enter_account_name_address_or_domain": "输入账户名称、地址或域名",
   "enter_passcode": "पासकोड दर्ज करें",
   "enter_password": "पास वर्ड दर्ज करें",
   "enter_pin.desc": "डिवाइस स्क्रीन की जांच करें कीपैड लेआउट के लिए।",

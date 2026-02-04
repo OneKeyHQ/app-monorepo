@@ -952,7 +952,7 @@
   "edit_fee_custom_set_as_default_description": "Установить по умолчанию для всех будущих транзакций в {network}",
   "email_verification_rate_limit": "Пожалуйста, подождите {rest} секунд перед запросом нового кода подтверждения",
   "energy_consumed": "Потребленная энергия",
-  "enter_account_name_address_or_domain": "Введите имя учетной записи адрес или домен",
+  "enter_account_name_address_or_domain": "Введите имя учетной записи, адрес или домен",
   "enter_passcode": "Введите код доступа",
   "enter_password": "Введите пароль",
   "enter_pin.desc": "Проверьте экран устройства для отображения раскладки клавиатуры.",

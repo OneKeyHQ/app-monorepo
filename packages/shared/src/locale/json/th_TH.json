@@ -952,7 +952,7 @@
   "edit_fee_custom_set_as_default_description": "ตั้งเป็นค่าเริ่มต้นสำหรับธุรกรรมทั้งหมดในอนาคตบน {network}",
   "email_verification_rate_limit": "โปรดรอ {rest} วินาทีก่อนที่จะขอรหัสยืนยันใหม่",
   "energy_consumed": "พลังงานที่ใช้ไป",
-  "enter_account_name_address_or_domain": "กรุณาใส่ชื่อบัญชี ที่อยู่ หรือโดเมน",
+  "enter_account_name_address_or_domain": "输入账户名称、ที่อยู่或域名",
   "enter_passcode": "กรุณาใส่รหัสผ่าน",
   "enter_password": "ใส่รหัสผ่าน",
   "enter_pin.desc": "ตรวจสอบหน้าจออุปกรณ์สำหรับรูปแบบแป้นพิมพ์",
