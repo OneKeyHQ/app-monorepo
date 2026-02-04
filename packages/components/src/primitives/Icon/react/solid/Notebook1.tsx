@@ -1,15 +1,16 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgNotebook1 = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M6 21.5h-.5a2 2 0 0 1-2-2v-15a2 2 0 0 1 2-2H6z" />
     <Path
-      fill="currentColor"
-      d="M6 2.541A3 3 0 0 0 3.5 5.5v13A3 3 0 0 0 6 21.459V2.54Z"
-    />
-    <Path
-      fill="currentColor"
       fillRule="evenodd"
-      d="M8 21.5h9.5a3 3 0 0 0 3-3v-13a3 3 0 0 0-3-3H8zM13 7a1 1 0 1 0 0 2h2.5a1 1 0 1 0 0-2zm0 4a1 1 0 1 0 0 2h2.5a1 1 0 1 0 0-2z"
+      d="M18.5 2.5a2 2 0 0 1 2 2v15a2 2 0 0 1-2 2H8v-19zM13 11a1 1 0 1 0 0 2h2.5a1 1 0 1 0 0-2zm0-4a1 1 0 1 0 0 2h2.5a1 1 0 1 0 0-2z"
       clipRule="evenodd"
     />
   </Svg>

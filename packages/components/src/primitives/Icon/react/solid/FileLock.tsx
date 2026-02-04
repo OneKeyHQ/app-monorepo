@@ -1,16 +1,17 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgFileLock = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M6 2h6v6a2 2 0 0 0 2 2h6v10a2 2 0 0 1-2 2h-5.17c.11-.313.17-.65.17-1v-4c0-.98-.47-1.852-1.198-2.399A5.002 5.002 0 0 0 4 12V4a2 2 0 0 1 2-2" />
+    <Path d="M14 2.586 19.414 8H14z" />
     <Path
-      fill="currentColor"
-      d="M7 2h5v5a3 3 0 0 0 3 3h5v9a3 3 0 0 1-3 3h-5.127a3.5 3.5 0 0 0 .627-2v-2a3.5 3.5 0 0 0-1.025-2.474A4.5 4.5 0 0 0 4 12.646V5a3 3 0 0 1 3-3"
-    />
-    <Path fill="currentColor" d="M14 2.586 19.414 8H15a1 1 0 0 1-1-1z" />
-    <Path
-      fill="currentColor"
       fillRule="evenodd"
-      d="M10 16.268V16a3 3 0 1 0-6 0v.268A2 2 0 0 0 3 18v2a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-2a2 2 0 0 0-1-1.732M6 16h2a1 1 0 1 0-2 0m3 2H5v2h4z"
+      d="M3 17a1 1 0 0 1 1-1 3 3 0 1 1 6 0 1 1 0 0 1 1 1v4a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1zm6 1H5v2h4zm-1-2a1 1 0 1 0-2 0z"
       clipRule="evenodd"
     />
   </Svg>

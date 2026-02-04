@@ -1,20 +1,21 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgCamera = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      stroke="currentColor"
-      strokeLinecap="square"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M5 7h1.43a2 2 0 0 0 1.664-.89l.812-1.22A2 2 0 0 1 10.57 4h2.86a2 2 0 0 1 1.664.89l.812 1.22A2 2 0 0 0 17.57 7H19a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z"
+      fillRule="evenodd"
+      d="M12 9a4 4 0 1 1 0 8 4 4 0 0 1 0-8m0 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4"
+      clipRule="evenodd"
     />
     <Path
-      stroke="currentColor"
-      strokeLinecap="square"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M15 13a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"
+      fillRule="evenodd"
+      d="M13.965 3a2 2 0 0 1 1.664.89L17.035 6H20a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h2.965L8.37 3.89A2 2 0 0 1 10.035 3zM8.629 7.11A2 2 0 0 1 6.965 8H4v11h16V8h-2.965a2 2 0 0 1-1.592-.79l-.072-.1L13.965 5h-3.93L8.63 7.11Z"
+      clipRule="evenodd"
     />
   </Svg>
 );
