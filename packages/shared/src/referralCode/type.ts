@@ -463,6 +463,7 @@ export enum EExportTimeRange {
   OneMonth = '1month',
   ThreeMonths = '3months',
   SixMonths = '6months',
+  Custom = 'custom',
 }
 
 export enum EExportTab {

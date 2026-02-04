@@ -17,6 +17,8 @@ import { EExportTimeRange } from '@onekeyhq/shared/src/referralCode/type';
 export interface IFilterState {
   timeRange: EExportTimeRange;
   inviteCode?: string;
+  startTime?: number;
+  endTime?: number;
 }
 
 interface IFilterButtonProps {
