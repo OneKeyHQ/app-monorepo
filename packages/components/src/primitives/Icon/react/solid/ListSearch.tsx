@@ -1,17 +1,18 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgListSearch = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      fill="currentColor"
-      d="M4 3a1 1 0 0 0 0 2h13a1 1 0 1 0 0-2zm0 5a1 1 0 0 0 0 2h5a1 1 0 0 0 0-2zm0 6a1 1 0 1 0 0 2h5a1 1 0 1 0 0-2zm0 5a1 1 0 1 0 0 2h13a1 1 0 1 0 0-2z"
-    />
-    <Path
-      fill="currentColor"
       fillRule="evenodd"
-      d="M16 8a4 4 0 1 0 2.032 7.446l.989.99a1 1 0 1 0 1.414-1.415l-.989-.99A4 4 0 0 0 16 8m-2 4a2 2 0 1 1 4 0 2 2 0 0 1-4 0"
+      d="M14.366 4.5a7 7 0 1 0 4.19 12.608l2.099 2.1a1 1 0 0 0 1.414-1.415l-2.098-2.099A7 7 0 0 0 14.366 4.5m-.004 4a3 3 0 0 0-3 3 1 1 0 1 1-2 0 5 5 0 0 1 5-5 1 1 0 1 1 0 2"
       clipRule="evenodd"
     />
+    <Path d="M1.366 6.5a1 1 0 0 1 1-1h3a1 1 0 0 1 0 2h-3a1 1 0 0 1-1-1m0 5a1 1 0 0 1 1-1h2a1 1 0 1 1 0 2h-2a1 1 0 0 1-1-1m1 4a1 1 0 1 0 0 2h3a1 1 0 1 0 0-2z" />
   </Svg>
 );
 export default SvgListSearch;

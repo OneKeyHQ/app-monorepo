@@ -1,15 +1,19 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgDisk2 = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path fill="currentColor" d="M10 15a2 2 0 1 1 4 0 2 2 0 0 1-4 0" />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M10 15a2 2 0 1 1 4 0 2 2 0 0 1-4 0" />
     <Path
-      fill="currentColor"
       fillRule="evenodd"
-      d="M6 3h2v5a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V3h.172a3 3 0 0 1 2.12.879l1.83 1.828A3 3 0 0 1 21 7.828V18a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3m6 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8"
+      d="M5 3h3v5a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V3h.586A2 2 0 0 1 18 3.586L20.414 6A2 2 0 0 1 21 7.414V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2m7 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8"
       clipRule="evenodd"
     />
-    <Path fill="currentColor" d="M10 3h4v4h-4z" />
+    <Path d="M10 3h4v4h-4z" />
   </Svg>
 );
 export default SvgDisk2;

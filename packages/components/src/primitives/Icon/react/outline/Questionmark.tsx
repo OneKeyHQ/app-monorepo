@@ -1,20 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgQuestionmark = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      fill="currentColor"
-      fillRule="evenodd"
-      d="M12 4a8 8 0 1 0 0 16 8 8 0 0 0 0-16M2 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10S2 17.523 2 12"
-      clipRule="evenodd"
-    />
-    <Path
-      fill="currentColor"
-      fillRule="evenodd"
-      d="M12 9a1 1 0 0 0-.879.522 1 1 0 0 1-1.754-.96A3 3 0 0 1 12 7c1.515 0 2.567 1.006 2.866 2.189.302 1.189-.156 2.574-1.524 3.258A.62.62 0 0 0 13 13a1 1 0 1 1-2 0c0-.992.56-1.898 1.447-2.342.455-.227.572-.618.48-.978C12.836 9.314 12.529 9 12 9"
-      clipRule="evenodd"
-    />
-    <Path fill="currentColor" d="M13 16a1 1 0 1 1-2 0 1 1 0 0 1 2 0" />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M20 12a8 8 0 1 0-16 0 8 8 0 0 0 16 0m-9 4.01V16a1 1 0 1 1 2 0v.01a1 1 0 1 1-2 0M11 13v-.5a2 2 0 0 1 .8-1.6L13 10V9h-2v.5a1 1 0 1 1-2 0V9a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1a2 2 0 0 1-.8 1.6l-1.2.9v.5a1 1 0 1 1-2 0m11-1c0 5.523-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2s10 4.477 10 10" />
   </Svg>
 );
 export default SvgQuestionmark;

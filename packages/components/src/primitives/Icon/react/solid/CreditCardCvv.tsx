@@ -1,12 +1,16 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgCreditCardCvv = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path fill="currentColor" d="M5 4a3 3 0 0 0-3 3v2h20V7a3 3 0 0 0-3-3z" />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M20 4H4a2 2 0 0 0-2 2v3h20V5.999A2 2 0 0 0 20 4" />
     <Path
-      fill="currentColor"
       fillRule="evenodd"
-      d="M2 17v-6h20v6a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3m5-4a1 1 0 1 0 0 2h3a1 1 0 1 0 0-2z"
+      d="M2 18v-7h20v7a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2m5-5a1 1 0 1 0 0 2h3a1 1 0 1 0 0-2z"
       clipRule="evenodd"
     />
   </Svg>
