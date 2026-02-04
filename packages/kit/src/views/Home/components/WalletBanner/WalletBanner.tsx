@@ -281,7 +281,7 @@ function NativeBannerScroller({
             const ref = refMap[focusedTab.value];
             if (ref) {
               const nextY = startScrollY.value - e.translationY;
-              scrollTo(ref, 0, Math.max(0, nextY) - contentInset, false);
+              scrollTo(ref, 0, Math.max(0, nextY - contentInset), false);
             }
           }
         })

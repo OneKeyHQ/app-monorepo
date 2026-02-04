@@ -373,6 +373,7 @@ function MobileBrowser() {
   const browserSwipeHandlers = useEdgeSwipeDetection({
     tabCount: 1,
     onSwipeRight: switchToEarn, // Browser → Earn
+    screenEdgeWidth: 30,
   });
 
   const [tabPageHeight, setTabPageHeight] = useState(

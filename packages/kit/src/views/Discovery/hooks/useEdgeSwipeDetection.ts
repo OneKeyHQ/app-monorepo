@@ -115,7 +115,7 @@ export function useEdgeSwipeDetection({
       }
 
       // Right swipe at left boundary → switch to prev outer tab
-      if (
+      else if (
         wasAtFirstTab.current &&
         dx > SWIPE_THRESHOLD &&
         onSwipeRightRef.current

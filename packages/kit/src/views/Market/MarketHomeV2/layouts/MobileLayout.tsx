@@ -89,7 +89,7 @@ function MobileLayoutComponent({
 
   return (
     <Tabs.Container
-      ref={tabsRef as any}
+      ref={tabsRef as React.RefObject<ITabContainerRef>}
       width={platformEnv.isNative ? tabContainerWidth : undefined}
       renderTabBar={renderTabBar}
       initialTabName={initialTabName}
