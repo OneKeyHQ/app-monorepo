@@ -1,9 +1,12 @@
 import { useCallback } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { SizableText, YStack } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type { EBulkSendMode } from '@onekeyhq/shared/types/bulkSend';
 import bulkSendUtils from '@onekeyhq/shared/src/utils/bulkSendUtils';
+import type { EBulkSendMode } from '@onekeyhq/shared/types/bulkSend';
 
 type IUseBulkSendMobileHeaderOptions = {
   bulkSendMode: EBulkSendMode;
@@ -12,6 +15,7 @@ type IUseBulkSendMobileHeaderOptions = {
 export function useBulkSendMobileHeader({
   bulkSendMode,
 }: IUseBulkSendMobileHeaderOptions) {
+  const intl = useIntl();
   const renderHeaderTitle = useCallback(
     () => (
       <YStack
@@ -25,7 +29,7 @@ export function useBulkSendMobileHeader({
             textAlign: 'center',
           })}
         >
-          Bulk send
+          {intl.formatMessage({ id: ETranslations.wallet_bulk_send_title })}
         </SizableText>
         <SizableText
           size="$bodySm"
@@ -38,7 +42,7 @@ export function useBulkSendMobileHeader({
         </SizableText>
       </YStack>
     ),
-    [bulkSendMode],
+    [bulkSendMode, intl],
   );
 
   return {

@@ -1,15 +1,16 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgCrop = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M15 9H9v6h6z" />
     <Path
-      fill="currentColor"
-      d="M14.5 9H9v5.5a.5.5 0 0 0 .5.5H15V9.5a.5.5 0 0 0-.5-.5"
-    />
-    <Path
-      fill="currentColor"
       fillRule="evenodd"
-      d="M6 2a1 1 0 0 1 1 1v2h9a3 3 0 0 1 3 3v9h2a1 1 0 1 1 0 2h-2v2a1 1 0 1 1-2 0v-2H8a3 3 0 0 1-3-3V7H3a1 1 0 0 1 0-2h2V3a1 1 0 0 1 1-1m1 14V7h9a1 1 0 0 1 1 1v9H8a1 1 0 0 1-1-1"
+      d="M6 2a1 1 0 0 1 1 1v2h10a2 2 0 0 1 2 2v10h2a1 1 0 1 1 0 2h-2v2a1 1 0 1 1-2 0v-2H7a2 2 0 0 1-2-2V7H3a1 1 0 0 1 0-2h2V3a1 1 0 0 1 1-1m1 15V7h10v10z"
       clipRule="evenodd"
     />
   </Svg>

@@ -1,11 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgJudgeGavel = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      fill="#000"
-      d="M18.457 4.043a2.77 2.77 0 0 0-3.914 0l-4 4a2.768 2.768 0 0 0 3.914 3.914l1.293-1.293 4.043 4.043a1 1 0 0 0 1.414-1.414L17.164 9.25l1.293-1.293a2.77 2.77 0 0 0 0-3.914m-13.75 3.25a1 1 0 0 0-1.414 1.414l1.5 1.5a1 1 0 0 0 1.414-1.414zM2 12a1 1 0 1 0 0 2h2a1 1 0 1 0 0-2zm1.595 6.051A3 3 0 0 1 6.442 16h6.117a3 3 0 0 1 2.846 2.051l.316.949H16a1 1 0 1 1 0 2H3a1 1 0 1 1 0-2h.28z"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M4 12a1 1 0 1 1 0 2H2a1 1 0 1 1 0-2zm-.707-4.707a1 1 0 0 1 1.414 0l1.5 1.5a1 1 0 1 1-1.414 1.414l-1.5-1.5a1 1 0 0 1 0-1.414M17.914 3.5a2 2 0 0 0-2.828 0L10 8.586a2 2 0 0 0 0 2.828l1.086 1.086a2 2 0 0 0 2.828 0l1.836-1.836 4.043 4.043a1 1 0 0 0 1.414-1.414L17.164 9.25 19 7.414a2 2 0 0 0 0-2.828zM5.72 16a2 2 0 0 0-1.897 1.367L3.28 19H3a1 1 0 1 0 0 2h13a1 1 0 1 0 0-2h-.28l-.543-1.633A2 2 0 0 0 13.279 16H5.721Z" />
   </Svg>
 );
 export default SvgJudgeGavel;

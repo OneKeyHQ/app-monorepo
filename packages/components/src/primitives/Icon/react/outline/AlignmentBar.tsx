@@ -1,14 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgAlignmentBar = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M3 5v14M9 6h12M9 12h12M9 18h7"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M2 19V5a1 1 0 0 1 2 0v14a1 1 0 1 1-2 0m14-2a1 1 0 1 1 0 2H9a1 1 0 1 1 0-2zm5-6a1 1 0 1 1 0 2H9a1 1 0 1 1 0-2zm0-6a1 1 0 1 1 0 2H9a1 1 0 0 1 0-2z" />
   </Svg>
 );
 export default SvgAlignmentBar;

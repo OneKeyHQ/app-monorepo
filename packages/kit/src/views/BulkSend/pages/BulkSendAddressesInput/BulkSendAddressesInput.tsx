@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { Form, Page, YStack, useForm, useMedia } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -12,6 +14,7 @@ import {
   POLLING_INTERVAL_FOR_TOKEN,
 } from '@onekeyhq/shared/src/consts/walletConsts';
 import type { IModalBulkSendParamList } from '@onekeyhq/shared/src/routes';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EModalBulkSendRoutes,
   ETabHomeRoutes,
@@ -62,6 +65,7 @@ function BaseBulkSendAddressesInput() {
     bulkSendMode,
   } = useBulkSendAddressesInputContext();
 
+  const intl = useIntl();
   const media = useMedia();
   const { headerTitle } = useBulkSendMobileHeader({ bulkSendMode });
 
@@ -365,7 +369,9 @@ function BaseBulkSendAddressesInput() {
         >
           <Page.FooterActions
             px="$0"
-            onConfirmText="Next"
+            onConfirmText={intl.formatMessage({
+              id: ETranslations.wallet_bulk_send_btn_next,
+            })}
             confirmButtonProps={{
               onPress: handleSubmit,
               disabled: isSubmitDisabled,

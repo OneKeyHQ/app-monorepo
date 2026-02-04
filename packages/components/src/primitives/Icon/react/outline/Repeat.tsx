@@ -1,14 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgRepeat = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="m17.25 3 2.47 2.47a.75.75 0 0 1 0 1.06L17.25 9M6.75 21l-2.47-2.47a.75.75 0 0 1 0-1.06L6.75 15M5 18h13a2 2 0 0 0 2-2v-3M4 11V8a2 2 0 0 1 2-2h13"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M20 12a1 1 0 0 1 1 1v4a2 2 0 0 1-2 2H6.164l1.293 1.293a1 1 0 0 1-1.414 1.414l-2.646-2.646a1.5 1.5 0 0 1 0-2.121l2.646-2.647a1 1 0 0 1 1.414 1.414L6.164 17H19v-4a1 1 0 0 1 1-1m-3.457-9.707a1 1 0 0 1 1.414 0l2.647 2.647a1.5 1.5 0 0 1 0 2.12l-2.647 2.647a1 1 0 0 1-1.414-1.414L17.836 7H5v4a1 1 0 0 1-2 0V7a2 2 0 0 1 2-2h12.836l-1.293-1.293a1 1 0 0 1 0-1.414" />
   </Svg>
 );
 export default SvgRepeat;

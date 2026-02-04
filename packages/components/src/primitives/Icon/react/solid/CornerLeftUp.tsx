@@ -1,10 +1,16 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgCornerLeftUp = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      fill="currentColor"
-      d="M12.707 6.793a1 1 0 0 1-1.414 1.414L9 5.914V16a3 3 0 0 0 3 3h8a1 1 0 1 1 0 2h-8a5 5 0 0 1-5-5V5.914L4.707 8.207a1 1 0 0 1-1.414-1.414L6.586 3.5a2 2 0 0 1 2.828 0z"
+      fillRule="evenodd"
+      d="M20.038 19.995c0-.555-.45-1.004-1.005-1.004H9.99V6.345l2.304 2.304a1.005 1.005 0 1 0 1.421-1.421l-4.019-4.02a1.005 1.005 0 0 0-1.42 0l-4.02 4.02a1.005 1.005 0 0 0 1.421 1.42l2.304-2.303V18.99c0 1.11.9 2.01 2.01 2.01h9.042c.555 0 1.005-.45 1.005-1.006Z"
+      clipRule="evenodd"
     />
   </Svg>
 );

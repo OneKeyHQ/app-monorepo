@@ -1,3 +1,8 @@
+import { useMemo } from 'react';
+
+import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
+
 import {
   Divider,
   type IYStackProps,
@@ -6,15 +11,14 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EAmountInputMode,
   type IAmountInputValues,
 } from '@onekeyhq/shared/types/bulkSend';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
-import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
-import BigNumber from 'bignumber.js';
-import { useMemo } from 'react';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 type IAmountPreviewProps = {
   inDialog?: boolean;
@@ -40,6 +44,7 @@ export function AmountPreview({
   previewTotalFiatAmount,
   containerProps,
 }: IAmountPreviewProps) {
+  const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
 
   // Determine if we should show Total amount section
@@ -127,7 +132,9 @@ export function AmountPreview({
         <>
           <YStack>
             <SizableText size="$bodyMd" color="$textSubdued">
-              Total amount
+              {intl.formatMessage({
+                id: ETranslations.wallet_bulk_send_total_amount,
+              })}
             </SizableText>
             <XStack alignItems="center" gap="$1">
               <NumberSizeableText
@@ -161,7 +168,9 @@ export function AmountPreview({
         <XStack py="$0.5" alignItems="center" justifyContent="space-between">
           <XStack gap="$1" alignItems="center">
             <SizableText size="$bodyMd" color="$textSubdued">
-              Available:
+              {intl.formatMessage({
+                id: ETranslations.wallet_bulk_send_available,
+              })}
             </SizableText>
             <NumberSizeableText
               size="$bodyMd"

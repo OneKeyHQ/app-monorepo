@@ -1,13 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgCursor = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      stroke="currentColor"
-      strokeLinejoin="round"
-      strokeWidth={2.056}
-      d="m3.69 4.964 5.39 15.362c.302.86 1.504.901 1.863.064l2.677-6.245a1 1 0 0 1 .525-.525l6.244-2.677c.838-.36.798-1.561-.063-1.863L4.964 3.69a1 1 0 0 0-1.275 1.274Z"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M3.09 5.002c-.41-1.151.654-2.264 1.801-1.947l.11.035 16.212 5.776c1.284.458 1.338 2.254.083 2.787l-6.77 2.873-2.873 6.77c-.533 1.255-2.329 1.201-2.786-.083zm7.228 14.287 2.438-5.741.062-.13c.16-.296.418-.53.73-.662l5.741-2.438L5.351 5.35l4.967 13.938Z" />
   </Svg>
 );
 export default SvgCursor;
