@@ -261,10 +261,7 @@ function NativeBannerScroller({
           'worklet';
           // Determine direction on first significant movement
           if (isHorizontal.value === undefined) {
-            if (
-              Math.abs(e.translationX) > 5 ||
-              Math.abs(e.translationY) > 5
-            ) {
+            if (Math.abs(e.translationX) > 5 || Math.abs(e.translationY) > 5) {
               isHorizontal.value =
                 Math.abs(e.translationX) > Math.abs(e.translationY);
               runOnJS(setHasDragged)(true);
