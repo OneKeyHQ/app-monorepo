@@ -40,13 +40,8 @@ function ApprovalItem({
     address: approveInfo.spender,
   });
 
-  const intl = useIntl();
   const isResetApproval = approveInfo.amount === '0';
-  const displayAmount = isResetApproval
-    ? intl.formatMessage({
-        id: ETranslations.wallet_bulk_send_approval_reset_to_zero,
-      })
-    : approveInfo.amount;
+  const displayAmount = isResetApproval ? 'Reset to 0' : approveInfo.amount;
   const { copyText } = useClipboard();
 
   return (
@@ -63,13 +58,7 @@ function ApprovalItem({
             {tokenInfo?.symbol ?? 'Token'}
           </SizableText>
           <SizableText size="$bodyMd" color="$textSubdued">
-            {isResetApproval
-              ? intl.formatMessage({
-                  id: ETranslations.wallet_bulk_send_approval_reset,
-                })
-              : intl.formatMessage({
-                  id: ETranslations.wallet_bulk_send_approval_approve,
-                })}
+            {isResetApproval ? 'Reset Approval' : 'Approve'}
           </SizableText>
         </YStack>
         <XStack gap="$3" alignItems="center">
@@ -100,18 +89,12 @@ function ApprovalItem({
       <XStack gap="$3" alignItems="center" minHeight={48} px="$4" py="$2">
         <YStack flex={1}>
           <SizableText size="$bodyMd" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.wallet_bulk_send_approval_spender,
-            })}
+            Spender
           </SizableText>
         </YStack>
         <XStack gap="$3" alignItems="center">
           <YStack alignItems="flex-end">
-            <SizableText size="$bodyMdMedium">
-              {intl.formatMessage({
-                id: ETranslations.wallet_bulk_send_approval_spender_name,
-              })}
-            </SizableText>
+            <SizableText size="$bodyMdMedium">OneKey</SizableText>
             <SizableText size="$bodyMd" color="$textSubdued">
               {shortenedSpender}
             </SizableText>

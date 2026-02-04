@@ -1,7 +1,5 @@
 import { EBulkSendMode } from '../../types/bulkSend';
 import { getNetworkIdsMap } from '../config/networkIds';
-import { ETranslations } from '../locale';
-import { appLocale } from '../locale/appLocale';
 
 import networkUtils from './networkUtils';
 
@@ -42,21 +40,13 @@ function fixBulkSendSupportedNetworkId({ networkId }: { networkId: string }) {
 function getBulkSendModeLabel(bulkSendMode: EBulkSendMode) {
   switch (bulkSendMode) {
     case EBulkSendMode.OneToMany:
-      return appLocale.intl.formatMessage({
-        id: ETranslations.wallet_bulk_send_mode_one_to_many,
-      });
+      return 'One to Many';
     case EBulkSendMode.ManyToOne:
-      return appLocale.intl.formatMessage({
-        id: ETranslations.wallet_bulk_send_mode_many_to_one,
-      });
+      return 'Many to One';
     case EBulkSendMode.ManyToMany:
-      return appLocale.intl.formatMessage({
-        id: ETranslations.wallet_bulk_send_mode_many_to_many,
-      });
+      return 'Many to Many';
     default:
-      return appLocale.intl.formatMessage({
-        id: ETranslations.wallet_bulk_send_mode_unknown,
-      });
+      return 'Unknown';
   }
 }
 
