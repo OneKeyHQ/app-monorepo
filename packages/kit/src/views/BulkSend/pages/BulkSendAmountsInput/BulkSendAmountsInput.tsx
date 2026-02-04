@@ -2,8 +2,18 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { isEmpty } from 'lodash';
+import { useIntl } from 'react-intl';
 
-import { Page, useMedia } from '@onekeyhq/components';
+import {
+  NumberSizeableText,
+  Page,
+  SizableText,
+  XStack,
+  YStack,
+  useMedia,
+} from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -37,7 +47,6 @@ import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 import BulkSendBar from '../../components/BulkSendBar';
 import BulkSendContentWrapper from '../../components/BulkSendContentWrapper';
 import BulkSendHeader from '../../components/BulkSendHeader';
-import { useBulkSendMobileHeader } from '../../components/BulkSendMobileHeader';
 import { calculateIsAmountValid, calculateTotalAmounts } from '../../utils';
 
 import { AmountPreview } from './components/AmountPreview';
@@ -68,6 +77,9 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
     isInsufficientBalance,
     amountInputMode,
     amountInputValues,
+    setAmountInputValues,
+    amountInputErrors,
+    setAmountInputErrors,
     previewState,
     setPreviewState,
     setTransfersInfo,
@@ -76,10 +88,12 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
     updateCurrentModeData,
   } = useBulkSendAmountsInputContext();
 
+  const intl = useIntl();
   const navigation = useAppNavigation();
 
   const media = useMedia();
-  const { headerTitle } = useBulkSendMobileHeader({ bulkSendMode });
+
+  const [settings] = useSettingsPersistAtom();
 
   const [isBuilding, setIsBuilding] = useState(false);
 
@@ -96,12 +110,13 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
     [setTransfersInfo, media.gtMd, amountInputMode, updateCurrentModeData],
   );
 
-  const { handlePreview, shouldShowTxDetails, hidePreview } = useAmountPreview({
+  const { handlePreview, shouldShowTxDetails } = useAmountPreview({
     tokenInfo,
     transfersInfo,
     setTransfersInfo: setTransfersInfoWithModeUpdate,
     previewState,
     setPreviewState,
+    balance: tokenDetails?.balanceParsed,
   });
 
   // Check if we're in preview mode (TransactionDetail is shown for Specified/Range)
@@ -135,7 +150,13 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
       amountInputMode !== EAmountInputMode.Custom &&
       !shouldShowTxDetails(amountInputMode)
     ) {
-      handlePreview(amountInputMode, amountInputValues);
+      handlePreview(
+        amountInputMode,
+        amountInputValues,
+        amountInputMode === EAmountInputMode.Range
+          ? previewState.rangePreviewAmounts
+          : undefined,
+      );
       return;
     }
 
@@ -269,6 +290,7 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
     currentModeData.transfersInfo,
     currentModeData.totalTokenAmount,
     currentModeData.totalFiatAmount,
+    previewState.rangePreviewAmounts,
   ]);
 
   const isSubmitDisabled = useMemo(() => {
@@ -319,23 +341,76 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
     currentModeData.transfersInfo.length,
   ]);
 
-  // Handle back button press
-  const handleBack = useCallback(() => {
-    // If in preview mode (TransactionDetail shown for Specified/Range), hide it first
-    if (isInPreviewMode) {
-      hidePreview(amountInputMode);
-      return;
-    }
-    // Otherwise, navigate back
-    navigation.pop();
-  }, [isInPreviewMode, hidePreview, amountInputMode, navigation]);
+  // Determine button text based on preview state and insufficient balance
+  const confirmButtonText = useMemo(() => {
+    // Only show "Insufficient Balance" in Custom mode
+    const hasInsufficientBalance = !media.gtMd
+      ? amountInputMode === EAmountInputMode.Custom || isInPreviewMode
+        ? currentModeData.isInsufficientBalance
+        : false
+      : amountInputMode === EAmountInputMode.Custom && isInsufficientBalance;
 
-  // Determine button text based on preview state
-  const confirmButtonText = isInPreviewMode ? 'Review' : 'Next';
+    if (hasInsufficientBalance) {
+      return intl.formatMessage({
+        id: ETranslations.swap_page_button_insufficient_balance,
+      });
+    }
+    // Desktop: always show "Review" (no preview mode, goes directly to review page)
+    // Mobile: show "Review" only after preview, otherwise show "Next"
+    if (media.gtMd) {
+      return intl.formatMessage({ id: ETranslations.wallet_bulk_send_btn_review });
+    }
+    return isInPreviewMode
+      ? intl.formatMessage({ id: ETranslations.wallet_bulk_send_btn_review })
+      : intl.formatMessage({ id: ETranslations.wallet_bulk_send_btn_next });
+  }, [
+    intl,
+    media.gtMd,
+    amountInputMode,
+    isInPreviewMode,
+    currentModeData.isInsufficientBalance,
+    isInsufficientBalance,
+  ]);
+
+  // Handle Max button press - fills in max amount per address
+  const handleMaxPress = useCallback(() => {
+    if (!tokenInfo) return;
+    if (amountInputMode !== EAmountInputMode.Specified) return;
+    const balance = tokenDetails?.balanceParsed ?? '0';
+    if (!balance || transfersInfo.length === 0) return;
+    const maxAmountPerAddress = new BigNumber(balance)
+      .dividedBy(transfersInfo.length)
+      .decimalPlaces(tokenInfo.decimals, BigNumber.ROUND_DOWN)
+      .toFixed();
+    setAmountInputValues({
+      ...amountInputValues,
+      specifiedAmount: maxAmountPerAddress,
+    });
+    // Clear any existing errors since max amount is always valid
+    setAmountInputErrors({
+      ...amountInputErrors,
+      specifiedAmount: undefined,
+    });
+  }, [
+    amountInputMode,
+    tokenDetails?.balanceParsed,
+    transfersInfo.length,
+    setAmountInputValues,
+    amountInputValues,
+    tokenInfo,
+    setAmountInputErrors,
+    amountInputErrors,
+  ]);
 
   return (
     <Page scrollEnabled>
-      {media.gtMd ? null : <Page.Header headerTitle={headerTitle} />}
+      {media.gtMd ? null : (
+        <Page.Header
+          headerTitle={intl.formatMessage({
+            id: ETranslations.wallet_bulk_send_set_amount_title,
+          })}
+        />
+      )}
       <BulkSendBar />
       <Page.Body>
         <BulkSendContentWrapper>
@@ -355,23 +430,52 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
           <Page.FooterActions
             px="$0"
             onConfirmText={confirmButtonText}
-            onCancelText="Back"
-            cancelButtonProps={{
-              onPress: handleBack,
-            }}
             confirmButtonProps={{
               onPress: handleSubmit,
               disabled: isSubmitDisabled,
               loading: isBuilding,
             }}
           >
-            {!media.gtMd ? (
+            {media.gtMd ? (
+              // Desktop: Show Total amount on the left
+              <YStack gap="$1">
+                <SizableText size="$bodySm" color="$textSubdued">
+                  {intl.formatMessage({
+                    id: ETranslations.wallet_bulk_send_total_amount,
+                  })}
+                </SizableText>
+                <XStack alignItems="center" gap="$1">
+                  <NumberSizeableText
+                    size="$bodyLgMedium"
+                    formatter="balance"
+                    formatterOptions={{ tokenSymbol: tokenInfo?.symbol }}
+                  >
+                    {totalTokenAmount}
+                  </NumberSizeableText>
+                  <SizableText size="$bodyMd" color="$textSubdued">
+                    (
+                    <NumberSizeableText
+                      size="$bodyMd"
+                      formatter="value"
+                      formatterOptions={{
+                        currency: settings.currencyInfo.symbol,
+                      }}
+                    >
+                      {totalFiatAmount}
+                    </NumberSizeableText>
+                    )
+                  </SizableText>
+                </XStack>
+              </YStack>
+            ) : (
+              // Mobile: Show AmountPreview
               <AmountPreview
                 containerProps={{
                   mb: '$4',
                 }}
                 amountInputValues={amountInputValues}
                 amountInputMode={amountInputMode}
+                amountInputErrors={amountInputErrors}
                 tokenDetails={tokenDetails}
                 transfersInfo={
                   amountInputMode === EAmountInputMode.Custom
@@ -381,8 +485,19 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
                 isInPreviewMode={isInPreviewMode}
                 previewTotalTokenAmount={currentModeData.totalTokenAmount}
                 previewTotalFiatAmount={currentModeData.totalFiatAmount}
+                rangePreviewAmounts={previewState.rangePreviewAmounts}
+                onMaxPress={
+                  amountInputMode === EAmountInputMode.Specified
+                    ? handleMaxPress
+                    : undefined
+                }
+                isInsufficientBalance={
+                  amountInputMode === EAmountInputMode.Custom || isInPreviewMode
+                    ? currentModeData.isInsufficientBalance
+                    : false
+                }
               />
-            ) : null}
+            )}
           </Page.FooterActions>
         </BulkSendContentWrapper>
       </Page.Footer>
@@ -408,6 +523,14 @@ function BulkSendAmountsInput() {
     bulkSendMode,
     isInModal,
   } = route.params ?? {};
+
+  // Check if receivers have custom amounts (from address input with "address,amount" format)
+  const hasCustomAmounts = useMemo(
+    () =>
+      receivers?.some((r) => r.amount !== undefined && r.amount !== '') ??
+      false,
+    [receivers],
+  );
 
   // Validate required parameters and redirect if missing
   useEffect(() => {
@@ -485,6 +608,7 @@ function BulkSendAmountsInput() {
   const [previewState, setPreviewState] = useState<IPreviewState>({
     specifiedPreviewed: false,
     rangePreviewed: false,
+    rangePreviewAmounts: [],
   });
 
   // Mobile-specific: independent data for each mode
@@ -531,13 +655,18 @@ function BulkSendAmountsInput() {
     currentModeData.transfersInfo.map((t) => ({ to: t.to, amount: t.amount })),
   );
   useEffect(() => {
-    const modeTransfersInfo = currentModeData.transfersInfo;
-    if (modeTransfersInfo.length > 0 && tokenDetails) {
+    if (!tokenDetails) return;
+
+    // Use functional update to avoid race conditions - read latest state inside setState
+    setMobileModeData((prev) => {
+      const modeData = prev[amountInputMode];
+      if (modeData.transfersInfo.length === 0) return prev;
+
       const {
         totalTokenAmount: modeTotalToken,
         totalFiatAmount: modeTotalFiat,
       } = calculateTotalAmounts({
-        transfersInfo: modeTransfersInfo,
+        transfersInfo: modeData.transfersInfo,
         tokenPrice: tokenDetails.price,
       });
       const modeIsInsufficient = new BigNumber(modeTotalToken).gt(
@@ -546,21 +675,23 @@ function BulkSendAmountsInput() {
 
       // Only update if values actually changed
       if (
-        currentModeData.totalTokenAmount !== modeTotalToken ||
-        currentModeData.totalFiatAmount !== modeTotalFiat ||
-        currentModeData.isInsufficientBalance !== modeIsInsufficient
+        modeData.totalTokenAmount === modeTotalToken &&
+        modeData.totalFiatAmount === modeTotalFiat &&
+        modeData.isInsufficientBalance === modeIsInsufficient
       ) {
-        setMobileModeData((prev) => ({
-          ...prev,
-          [amountInputMode]: {
-            ...prev[amountInputMode],
-            totalTokenAmount: modeTotalToken,
-            totalFiatAmount: modeTotalFiat,
-            isInsufficientBalance: modeIsInsufficient,
-          },
-        }));
+        return prev;
       }
-    }
+
+      return {
+        ...prev,
+        [amountInputMode]: {
+          ...modeData,
+          totalTokenAmount: modeTotalToken,
+          totalFiatAmount: modeTotalFiat,
+          isInsufficientBalance: modeIsInsufficient,
+        },
+      };
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     currentModeTransfersInfoJson,
@@ -740,26 +871,11 @@ function BulkSendAmountsInput() {
     // Custom mode uses the generated transfersInfo
     // Specified and Range modes start with empty data (populated on Preview)
     setMobileModeData({
-      [EAmountInputMode.Specified]: {
-        transfersInfo: [],
-        transferInfoErrors: {},
-        isInsufficientBalance: false,
-        totalTokenAmount: '0',
-        totalFiatAmount: '0',
-      },
-      [EAmountInputMode.Range]: {
-        transfersInfo: [],
-        transferInfoErrors: {},
-        isInsufficientBalance: false,
-        totalTokenAmount: '0',
-        totalFiatAmount: '0',
-      },
+      [EAmountInputMode.Specified]: { ...defaultModeData },
+      [EAmountInputMode.Range]: { ...defaultModeData },
       [EAmountInputMode.Custom]: {
+        ...defaultModeData,
         transfersInfo: _transfersInfo,
-        transferInfoErrors: {},
-        isInsufficientBalance: false,
-        totalTokenAmount: '0',
-        totalFiatAmount: '0',
       },
     });
   }, [
@@ -768,12 +884,14 @@ function BulkSendAmountsInput() {
     receivers,
     tokenInfo,
     initialTokenDetails?.balanceParsed,
+    defaultModeData,
   ]);
 
   const context = useMemo<IBulkSendAmountsInputContext>(
     () => ({
       accountId,
       networkId,
+      hasCustomAmounts,
       tokenInfo,
       tokenDetails,
       setTokenDetails,
@@ -805,6 +923,7 @@ function BulkSendAmountsInput() {
     [
       networkId,
       accountId,
+      hasCustomAmounts,
       tokenDetails,
       tokenDetailsState,
       bulkSendMode,
