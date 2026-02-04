@@ -18,6 +18,7 @@ import {
   Stack,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -363,6 +364,137 @@ function NativeBannerScroller({
   );
 }
 
+function useScrollElement(scrollViewRef: React.RefObject<any>) {
+  return useCallback((): HTMLElement | null => {
+    const node = scrollViewRef.current;
+    if (!node) return null;
+    if (typeof node.getScrollableNode === 'function') {
+      return node.getScrollableNode() as HTMLElement;
+    }
+    if (node instanceof HTMLElement) {
+      return node;
+    }
+    return null;
+  }, [scrollViewRef]);
+}
+
+function WebBannerScroller({
+  banners,
+  handleBannerOnPress,
+  handleDismiss,
+}: {
+  banners: IWalletBanner[];
+  handleBannerOnPress: (item: IWalletBanner) => void;
+  handleDismiss: (item: IWalletBanner) => void;
+}) {
+  const { gtMd } = useMedia();
+  const scrollViewRef = useRef<any>(null);
+  const [showLeftArrow, setShowLeftArrow] = useState(false);
+  const [showRightArrow, setShowRightArrow] = useState(false);
+  const getScrollElement = useScrollElement(scrollViewRef);
+
+  const updateArrows = useCallback(() => {
+    const el = getScrollElement();
+    if (!el) return;
+    const { scrollLeft, scrollWidth, clientWidth } = el;
+    setShowLeftArrow(scrollLeft > 1);
+    setShowRightArrow(scrollLeft < scrollWidth - clientWidth - 1);
+  }, [getScrollElement]);
+
+  useEffect(() => {
+    const el = getScrollElement();
+    if (!el) return;
+    const onScroll = () => updateArrows();
+    el.addEventListener('scroll', onScroll, { passive: true });
+    const observer = new ResizeObserver(() => updateArrows());
+    observer.observe(el);
+    updateArrows();
+    return () => {
+      el.removeEventListener('scroll', onScroll);
+      observer.disconnect();
+    };
+  }, [getScrollElement, updateArrows, banners.length]);
+
+  const handleScrollLeft = useCallback(() => {
+    const el = getScrollElement();
+    if (!el) return;
+    el.scrollBy({
+      left: -(BANNER_ITEM_WIDTH + BANNER_GAP),
+      behavior: 'smooth',
+    });
+  }, [getScrollElement]);
+
+  const handleScrollRight = useCallback(() => {
+    const el = getScrollElement();
+    if (!el) return;
+    el.scrollBy({
+      left: BANNER_ITEM_WIDTH + BANNER_GAP,
+      behavior: 'smooth',
+    });
+  }, [getScrollElement]);
+
+  return (
+    <YStack py="$2.5" bg="$bgApp" position="relative">
+      <ScrollView
+        ref={scrollViewRef}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{
+          paddingHorizontal: 20,
+          gap: 8,
+        }}
+      >
+        {banners.map((item) => (
+          <BannerItem
+            key={item.id}
+            item={item}
+            onPress={handleBannerOnPress}
+            onDismiss={handleDismiss}
+          />
+        ))}
+      </ScrollView>
+      {gtMd && showLeftArrow ? (
+        <Stack
+          position="absolute"
+          left="$2"
+          top="50%"
+          y={-16}
+          zIndex={1}
+        >
+          <IconButton
+            size="small"
+            icon="ChevronLeftOutline"
+            onPress={handleScrollLeft}
+            bg="$bg"
+            borderWidth={1}
+            borderColor="$borderSubdued"
+            elevation={2}
+          />
+        </Stack>
+      ) : null}
+      {gtMd && showRightArrow ? (
+        <Stack
+          position="absolute"
+          right="$2"
+          top="50%"
+          y={-16}
+          zIndex={1}
+        >
+          <IconButton
+            size="small"
+            icon="ChevronRightOutline"
+            onPress={handleScrollRight}
+            bg="$bg"
+            borderWidth={1}
+            borderColor="$borderSubdued"
+            elevation={2}
+          />
+        </Stack>
+      ) : null}
+    </YStack>
+  );
+}
+
 function WalletBanner() {
   const {
     activeAccount: { account, network, wallet },
@@ -480,25 +612,11 @@ function WalletBanner() {
   }
 
   return (
-    <YStack py="$2.5" bg="$bgApp">
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{
-          paddingHorizontal: 20,
-          gap: 8,
-        }}
-      >
-        {banners.map((item) => (
-          <BannerItem
-            key={item.id}
-            item={item}
-            onPress={handleBannerOnPress}
-            onDismiss={handleDismiss}
-          />
-        ))}
-      </ScrollView>
-    </YStack>
+    <WebBannerScroller
+      banners={banners}
+      handleBannerOnPress={handleBannerOnPress}
+      handleDismiss={handleDismiss}
+    />
   );
 }
 
