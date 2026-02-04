@@ -203,8 +203,6 @@ function FavoritesBar() {
       h={40}
       alignItems="center"
       gap="$3"
-      borderBottomWidth="$px"
-      borderBottomColor="$borderSubdued"
       flex={1}
       pl="$5"
     >

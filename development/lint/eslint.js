@@ -63,8 +63,10 @@ console.log(`[${getTimestamp()}] Oxlint check started...`);
 const oxlintStartTime = Date.now();
 
 try {
-  const isMacOS = os.platform() === 'darwin';
-  const cpus = isMacOS ? Math.min(os.cpus().length, 4) : os.cpus().length;
+  const cpus =
+    process.platform === 'darwin'
+      ? Math.min(os.cpus().length, 4)
+      : os.cpus().length;
   const fixFlag = isCI ? '' : ' --fix';
   console.log(
     `Using ${cpus} threads for oxlint...${isCI ? ' (CI mode, no --fix)' : ''}`,

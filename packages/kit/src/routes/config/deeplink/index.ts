@@ -28,6 +28,7 @@ import { urlAccountNavigation } from '../../../views/Home/pages/urlAccount/urlAc
 import { marketNavigation } from '../../../views/Market/marketUtils';
 
 import { registerHandler } from './handler';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 type IDeepLinkUrlParsedResult = {
   type: 'walletConnect';
@@ -93,12 +94,19 @@ async function processDeepLinkUrlAccount(
               queryParams as IEOneKeyDeepLinkParams[EOneKeyDeepLinkPath.invite_share];
             if (navigation) {
               // Navigate to Tab page instead of modal
-              navigation.switchTab(ETabRoutes.ReferFriends, {
-                screen: ETabReferFriendsRoutes.TabReferAFriend,
-                params: {
-                  utmSource,
-                  code,
-                },
+              navigation.switchTab(ETabRoutes.ReferFriends);
+              await timerUtils.wait(50);
+              navigation.reset({
+                index: 0,
+                routes: [
+                  {
+                    name: ETabReferFriendsRoutes.TabReferAFriend,
+                    params: {
+                      utmSource,
+                      code,
+                    },
+                  },
+                ],
               });
             }
             defaultLogger.referral.page.enterReferralGuideFromDeepLink(
@@ -113,12 +121,11 @@ async function processDeepLinkUrlAccount(
               queryParams as IEOneKeyDeepLinkParams[EOneKeyDeepLinkPath.invited_by_friend];
             if (navigation) {
               // Navigate to ReferralLandingPage which handles the modal opening
-              navigation.switchTab(ETabRoutes.Home, {
-                screen: ETabHomeRoutes.TabHomeReferralLanding,
-                params: {
-                  code,
-                  page: page ?? '',
-                },
+              navigation.switchTab(ETabRoutes.Home);
+              await timerUtils.wait(50);
+              navigation.push(ETabHomeRoutes.TabHomeReferralLanding, {
+                code,
+                page: page ?? '',
               });
             }
           }
