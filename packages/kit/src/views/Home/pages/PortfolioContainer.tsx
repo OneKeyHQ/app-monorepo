@@ -86,6 +86,7 @@ function PortfolioContainerWithProvider() {
         <ProviderJotaiContextHistoryList>
           <ProviderJotaiContextEarn>
             <Tabs.ScrollView
+              showsVerticalScrollIndicator={false}
               contentContainerStyle={{ paddingBottom: tabBarHeight }}
               nestedScrollEnabled={platformEnv.isNativeAndroid}
               refreshControl={
