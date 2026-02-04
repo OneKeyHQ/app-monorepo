@@ -477,6 +477,7 @@ const SwapTokenSelectPage = ({
       onSelectToken,
       searchKeywordDebounce,
       settingsPersistAtom.currencyInfo.symbol,
+      type,
     ],
   );
 
