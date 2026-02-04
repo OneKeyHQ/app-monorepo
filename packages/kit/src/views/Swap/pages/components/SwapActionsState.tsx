@@ -247,7 +247,7 @@ const SwapActionsState = ({
   const costSavingsComponent = useMemo(() => {
     const hasCostSavings =
       currentQuoteRes?.fee?.costSavings &&
-      new BigNumber(currentQuoteRes.fee.costSavings).gt(0);
+      new BigNumber(currentQuoteRes?.fee?.costSavings || 0).gt(0);
 
     if (hasCostSavings) {
       const isLoadingQuote = quoting || quoteLoading;
@@ -283,7 +283,7 @@ const SwapActionsState = ({
                 currency: settingsPersistAtom.currencyInfo.symbol,
               }}
             >
-              {currentQuoteRes.fee.costSavings}
+              {currentQuoteRes.fee?.costSavings}
             </NumberSizeableText>
           </XStack>
         );
