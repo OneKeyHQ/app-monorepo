@@ -1,14 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgGarage = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      stroke="currentColor"
-      strokeLinecap="square"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M7 19v-4m10 4v-4M7 15h10M7 15v-2a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2M3.992 8.421l7-4.083a2 2 0 0 1 2.016 0l7 4.083A2 2 0 0 1 21 10.15V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-6.851a2 2 0 0 1 .992-1.728Z"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M8.037 12.074v1.982h7.926v-1.982zm0 5.944h7.926v-1.981H8.037zm9.908 0h1.981V9.671L12 5.047 4.074 9.67v8.348h1.981v-5.945c0-1.094.888-1.982 1.982-1.982h7.926c1.094 0 1.982.888 1.982 1.982v5.944Zm3.962 0A1.98 1.98 0 0 1 19.926 20H4.074a1.98 1.98 0 0 1-1.982-1.982V9.671c0-.705.375-1.357.983-1.712l7.926-4.624c.617-.36 1.38-.36 1.998 0l7.925 4.624c.61.355.983 1.007.983 1.712z" />
   </Svg>
 );
 export default SvgGarage;

@@ -1,11 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgPanoramaView = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      fill="currentColor"
-      d="M23 7.047c0-2.062-2.004-3.428-3.905-2.952-4.826 1.21-9.364 1.21-14.19 0C3.004 3.619 1 4.985 1 7.047v9.904c0 2.069 2.015 3.434 3.917 2.952 4.802-1.215 9.364-1.215 14.166 0 1.902.482 3.917-.883 3.917-2.952z"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M23 6.014c0-1.376-1.335-2.303-2.604-1.931-5.754 1.686-11.038 1.686-16.792 0C2.335 3.71 1 4.638 1 6.014v11.971c0 1.38 1.343 2.307 2.613 1.93 5.723-1.699 11.051-1.699 16.774 0 1.27.377 2.613-.55 2.613-1.93V6.015Z" />
   </Svg>
 );
 export default SvgPanoramaView;

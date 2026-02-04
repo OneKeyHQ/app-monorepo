@@ -1,11 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgTelevision = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      fill="currentColor"
-      d="M6.71 2.886a1 1 0 0 1 1.404-.175L12 5.733l3.886-3.022a1 1 0 0 1 1.228 1.578L14.914 6H19a3 3 0 0 1 3 3v9a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3V9a3 3 0 0 1 3-3h4.085L6.886 4.29a1 1 0 0 1-.175-1.404Z"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M2 4.75a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2zm4.326 15.945A17.4 17.4 0 0 1 12 19.75c1.985 0 3.892.332 5.675.945a1 1 0 1 0 .65-1.89A19.4 19.4 0 0 0 12 17.75c-2.209 0-4.336.37-6.325 1.054a1 1 0 1 0 .65 1.892Z" />
   </Svg>
 );
 export default SvgTelevision;

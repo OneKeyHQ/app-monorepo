@@ -1,11 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgMonitor = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      fill="currentColor"
-      d="M2 6a3 3 0 0 1 3-3h14a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3zm4.326 14.946A17.4 17.4 0 0 1 12 20c1.985 0 3.892.332 5.675.946a1 1 0 1 0 .65-1.892A19.4 19.4 0 0 0 12 18c-2.209 0-4.336.37-6.325 1.054a1 1 0 1 0 .65 1.892Z"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M6.854 3.376a.973.973 0 0 1 1.365-.171L12 6.145l3.781-2.94a.973.973 0 1 1 1.195 1.536l-2.14 1.664h4.948c1.075 0 1.946.872 1.946 1.946v10.703A1.946 1.946 0 0 1 19.784 21H4.216a1.946 1.946 0 0 1-1.946-1.946V8.351c0-1.074.871-1.946 1.946-1.946h4.948l-2.14-1.664a.973.973 0 0 1-.17-1.365" />
   </Svg>
 );
 export default SvgMonitor;

@@ -21,6 +21,9 @@ const ButtonGallery = () => (
             <Button icon="PlaceholderOutline" variant="tertiary">
               Tertiary
             </Button>
+            <Button icon="PlaceholderOutline" variant="accent">
+              Accent
+            </Button>
           </YStack>
         ),
       },
@@ -60,6 +63,9 @@ const ButtonGallery = () => (
             <Button disabled variant="tertiary">
               Tertiary
             </Button>
+            <Button disabled variant="accent">
+              Accent
+            </Button>
           </Stack>
         ),
       },
@@ -76,6 +82,9 @@ const ButtonGallery = () => (
             </Button>
             <Button loading variant="tertiary">
               Tertiary
+            </Button>
+            <Button loading variant="accent">
+              Accent
             </Button>
           </Stack>
         ),

@@ -1,11 +1,15 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgCopy1 = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      fill="currentColor"
       fillRule="evenodd"
-      d="M2 4.25A2.25 2.25 0 0 1 4.25 2h9.5A2.25 2.25 0 0 1 16 4.25V8h3.75A2.25 2.25 0 0 1 22 10.25v9.5A2.25 2.25 0 0 1 19.75 22h-9.5A2.25 2.25 0 0 1 8 19.75V16H4.25A2.25 2.25 0 0 1 2 13.75zM14 8h-3.75A2.25 2.25 0 0 0 8 10.25V14H4.25a.25.25 0 0 1-.25-.25v-9.5A.25.25 0 0 1 4.25 4h9.5a.25.25 0 0 1 .25.25z"
+      d="M2 3.5A1.5 1.5 0 0 1 3.5 2h11A1.5 1.5 0 0 1 16 3.5V8h4.5A1.5 1.5 0 0 1 22 9.5v11a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 8 20.5V16H3.5A1.5 1.5 0 0 1 2 14.5zM14 8H9.5A1.5 1.5 0 0 0 8 9.5V14H4V4h10z"
       clipRule="evenodd"
     />
   </Svg>
