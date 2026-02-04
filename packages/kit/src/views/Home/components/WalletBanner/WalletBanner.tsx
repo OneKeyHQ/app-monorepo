@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { isNil } from 'lodash';
 
@@ -12,6 +19,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useWalletBanner } from '@onekeyhq/kit/src/hooks/useWalletBanner';
@@ -25,6 +33,21 @@ import type { IWalletBanner } from '@onekeyhq/shared/types/walletBanner';
 
 import type { GestureResponderEvent } from 'react-native';
 import { ENotificationPushMessageMode } from '@onekeyhq/shared/types/notification';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, {
+  clamp,
+  runOnJS,
+  scrollTo,
+  useAnimatedStyle,
+  useSharedValue,
+  withDecay,
+} from 'react-native-reanimated';
+// Access the collapsible-tab-view internal context for programmatic vertical scroll
+import { Context as CollapsibleTabContext } from 'react-native-collapsible-tab-view/src/Context';
+
+const BANNER_ITEM_WIDTH = 280;
+const BANNER_GAP = 8;
+const BANNER_PADDING_H = 20;
 
 const closedBanners: Record<string, boolean> = {};
 
@@ -99,7 +122,7 @@ function BannerItem({
   }, [onPress, item]);
   return (
     <XStack
-      w={280}
+      w={BANNER_ITEM_WIDTH}
       h={108}
       p="$1"
       bg="$bgSubdued"
@@ -180,6 +203,157 @@ function BannerItem({
         </Stack>
       ) : null}
     </XStack>
+  );
+}
+
+function NativeBannerScroller({
+  banners,
+  handleBannerOnPress,
+  handleDismiss,
+}: {
+  banners: IWalletBanner[];
+  handleBannerOnPress: (item: IWalletBanner) => void;
+  handleDismiss: (item: IWalletBanner) => void;
+}) {
+  // Access collapsible-tab-view context to programmatically drive vertical scroll
+  const tabsContext = useContext(CollapsibleTabContext);
+  const refMap = tabsContext?.refMap;
+  const focusedTab = tabsContext?.focusedTab;
+  const scrollYCurrent = tabsContext?.scrollYCurrent;
+  const contentInset = tabsContext?.contentInset ?? 0;
+
+  // Suppress onPress when a drag gesture occurred
+  const hasDraggedRef = useRef(false);
+  const setHasDragged = useCallback((value: boolean) => {
+    hasDraggedRef.current = value;
+  }, []);
+
+  const translateX = useSharedValue(0);
+  const startTranslateX = useSharedValue(0);
+  const startScrollY = useSharedValue(0);
+  const isHorizontal = useSharedValue<boolean | undefined>(undefined);
+
+  const [containerWidth, setContainerWidth] = useState(0);
+
+  const actualMaxTranslateX = useMemo(() => {
+    const totalWidth =
+      banners.length * BANNER_ITEM_WIDTH +
+      (banners.length - 1) * BANNER_GAP +
+      BANNER_PADDING_H * 2;
+    const width = containerWidth || 375;
+    return Math.max(0, totalWidth - width);
+  }, [banners.length, containerWidth]);
+
+  const panGesture = useMemo(
+    () =>
+      Gesture.Pan()
+        .onBegin(() => {
+          'worklet';
+          runOnJS(setHasDragged)(false);
+        })
+        .onStart(() => {
+          'worklet';
+          startTranslateX.value = translateX.value;
+          startScrollY.value = scrollYCurrent?.value ?? 0;
+          isHorizontal.value = undefined;
+        })
+        .onUpdate((e) => {
+          'worklet';
+          // Determine direction on first significant movement
+          if (isHorizontal.value === undefined) {
+            if (
+              Math.abs(e.translationX) > 5 ||
+              Math.abs(e.translationY) > 5
+            ) {
+              isHorizontal.value =
+                Math.abs(e.translationX) > Math.abs(e.translationY);
+              runOnJS(setHasDragged)(true);
+            }
+            return;
+          }
+
+          if (isHorizontal.value) {
+            // Horizontal: drive banner translateX
+            translateX.value = clamp(
+              startTranslateX.value + e.translationX,
+              -actualMaxTranslateX,
+              0,
+            );
+          } else if (refMap && focusedTab) {
+            // Vertical: programmatically scroll the underlying tab ScrollView
+            const ref = refMap[focusedTab.value];
+            if (ref) {
+              const nextY = startScrollY.value - e.translationY;
+              scrollTo(ref, 0, Math.max(0, nextY) - contentInset, false);
+            }
+          }
+        })
+        .onEnd((e) => {
+          'worklet';
+          if (isHorizontal.value) {
+            translateX.value = withDecay({
+              velocity: e.velocityX,
+              clamp: [-actualMaxTranslateX, 0],
+            });
+          }
+        }),
+    [
+      translateX,
+      startTranslateX,
+      startScrollY,
+      isHorizontal,
+      actualMaxTranslateX,
+      refMap,
+      focusedTab,
+      scrollYCurrent,
+      contentInset,
+      setHasDragged,
+    ],
+  );
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: translateX.value }],
+  }));
+
+  const wrappedHandleBannerOnPress = useCallback(
+    (item: IWalletBanner) => {
+      if (hasDraggedRef.current) {
+        return;
+      }
+      handleBannerOnPress(item);
+    },
+    [handleBannerOnPress],
+  );
+
+  return (
+    <YStack
+      py="$2.5"
+      bg="$bgApp"
+      overflow="hidden"
+      onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
+    >
+      <GestureDetector gesture={panGesture}>
+        <Animated.View
+          style={[
+            {
+              flexDirection: 'row',
+              paddingHorizontal: BANNER_PADDING_H,
+              gap: BANNER_GAP,
+            },
+            animatedStyle,
+          ]}
+        >
+          {banners.map((item) => (
+            <BannerItem
+              key={item.id}
+              item={item}
+              onPress={wrappedHandleBannerOnPress}
+              onDismiss={handleDismiss}
+            />
+          ))}
+        </Animated.View>
+      </GestureDetector>
+    </YStack>
   );
 }
 
@@ -287,6 +461,16 @@ function WalletBanner() {
 
   if (banners.length === 0) {
     return null;
+  }
+
+  if (platformEnv.isNative) {
+    return (
+      <NativeBannerScroller
+        banners={banners}
+        handleBannerOnPress={handleBannerOnPress}
+        handleDismiss={handleDismiss}
+      />
+    );
   }
 
   return (
