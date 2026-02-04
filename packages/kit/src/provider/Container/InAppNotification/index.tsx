@@ -466,8 +466,11 @@ const InAppNotification = () => {
               <Button
                 variant="primary"
                 size="small"
-                onPress={async () => {
+                onPress={() => {
                   navigation.switchTab(ETabRoutes.Earn);
+                  appEventBus.emit(EAppEventBusNames.SwitchEarnMode, {
+                    mode: isBorrowTransaction ? 'borrow' : 'earn',
+                  });
                 }}
               >
                 <SizableText size="$bodyMdMedium" color="$textInverse">
