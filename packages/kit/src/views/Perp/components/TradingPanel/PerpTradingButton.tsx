@@ -14,6 +14,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorCreateAddressButton } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorCreateAddressButton';
+import { useAccountSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorTrigger';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useSelectedAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { ITradingFormData } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
@@ -64,6 +65,7 @@ export function PerpTradingButton({
     usePerpsShouldShowEnableTradingButtonAtom();
   const { midPrice } = useTradingPrice();
   const themeVariant = useThemeVariant();
+  const { showAccountSelector } = useAccountSelectorTrigger({ num: 0 });
   const isAccountLoading = useMemo<boolean>(() => {
     return (
       perpsAccountLoading.enableTradingLoading ||
@@ -274,9 +276,13 @@ export function PerpTradingButton({
       );
     }
     return (
-      <Button {...sharedButtonProps} disabled>
+      <Button
+        {...sharedButtonProps}
+        variant="primary"
+        onPress={showAccountSelector}
+      >
         {intl.formatMessage({
-          id: ETranslations.perp_trade_button_account_unsupported,
+          id: ETranslations.global_connect_wallet,
         })}
       </Button>
     );
