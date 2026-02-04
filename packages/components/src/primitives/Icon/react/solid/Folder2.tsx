@@ -1,11 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgFolder2 = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      fill="currentColor"
-      d="M2 6a3 3 0 0 1 3-3h4.172a3 3 0 0 1 2.12.879l.83.828a1 1 0 0 0 .706.293H19a3 3 0 0 1 3 3v1.535A4 4 0 0 0 20 9H4c-.729 0-1.412.195-2 .535zm0 7v4a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-4a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M2 5a2 2 0 0 1 2-2h5.586A2 2 0 0 1 11 3.586L12.414 5H20a2 2 0 0 1 2 2v2.17c-.313-.11-.65-.17-1-.17H3c-.35 0-.687.06-1 .17zm0 7v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1" />
   </Svg>
 );
 export default SvgFolder2;

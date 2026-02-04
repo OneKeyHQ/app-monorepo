@@ -1,14 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgNumberedList = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M12 17h8M12 7h8M6 9.5v-5l-2 1m.25 9.5s.65-.5 1.361-.5A1.39 1.39 0 0 1 7 15.889C7 17.689 4 18 4 19.5h3.25"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M6 15.889a.39.39 0 0 0-.388-.389c-.137 0-.317.054-.502.146a2 2 0 0 0-.201.114l-.048.033-.007.005v-.002a1 1 0 0 1-1.213-1.589l.004-.003.004-.003.012-.01.038-.027.119-.08c.097-.063.234-.147.401-.23.318-.157.819-.354 1.393-.354A2.39 2.39 0 0 1 8 15.889c0 .765-.33 1.353-.732 1.79-.306.333-.68.603-1.004.821h.986a1 1 0 0 1 0 2H4a1 1 0 0 1-1-1c0-.754.392-1.3.779-1.668.364-.347.836-.641 1.174-.862.385-.252.657-.445.842-.646.161-.175.205-.3.205-.435M20 16a1 1 0 0 1 0 2h-8a1 1 0 1 1 0-2zM5 9.5V6.118l-.552.277a1 1 0 0 1-.895-1.79l2-1A1 1 0 0 1 7 4.5v5a1 1 0 0 1-2 0M20 6a1 1 0 1 1 0 2h-8a1 1 0 1 1 0-2z" />
   </Svg>
 );
 export default SvgNumberedList;

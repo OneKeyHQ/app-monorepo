@@ -2,8 +2,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { isEmpty } from 'lodash';
+import { useIntl } from 'react-intl';
 
 import { Page, useMedia } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -54,6 +56,7 @@ import TableLayout from './components/TableLayout';
 import { useAmountPreview } from './components/useAmountPreview';
 
 function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
+  const intl = useIntl();
   const {
     accountId,
     networkId,
@@ -331,7 +334,9 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
   }, [isInPreviewMode, hidePreview, amountInputMode, navigation]);
 
   // Determine button text based on preview state
-  const confirmButtonText = isInPreviewMode ? 'Review' : 'Next';
+  const confirmButtonText = isInPreviewMode
+    ? intl.formatMessage({ id: ETranslations.wallet_bulk_send_btn_review })
+    : intl.formatMessage({ id: ETranslations.wallet_bulk_send_btn_next });
 
   return (
     <Page scrollEnabled>
@@ -355,7 +360,9 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
           <Page.FooterActions
             px="$0"
             onConfirmText={confirmButtonText}
-            onCancelText="Back"
+            onCancelText={intl.formatMessage({
+              id: ETranslations.wallet_bulk_send_btn_back,
+            })}
             cancelButtonProps={{
               onPress: handleBack,
             }}

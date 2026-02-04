@@ -1,18 +1,14 @@
-import Svg, { Rect, Circle } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgDice1 = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Rect
-      width={16}
-      height={16}
-      x={4}
-      y={4}
-      stroke="currentColor"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      rx={2}
-    />
-    <Circle cx={12} cy={12} r={1.5} fill="currentColor" />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M5 5v14h14V5zm16 14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    <Path d="M12 10.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3" />
   </Svg>
 );
 export default SvgDice1;

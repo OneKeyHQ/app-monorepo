@@ -1,11 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgRefreshCcw = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      fill="currentColor"
-      d="M7.043 7A7.15 7.15 0 0 1 12 5a7 7 0 0 1 7 7 1 1 0 1 0 2 0 9 9 0 0 0-9-9 9.15 9.15 0 0 0-6 2.244V4a1 1 0 0 0-2 0v3.25C4 8.216 4.783 9 5.75 9h3a1 1 0 0 0 0-2zM5 12a1 1 0 1 0-2 0 9 9 0 0 0 9 9 9.15 9.15 0 0 0 6.012-2.254V20a1 1 0 1 0 2 0v-3.25a1.75 1.75 0 0 0-1.75-1.75h-3.25a1 1 0 1 0 0 2h1.945A7.15 7.15 0 0 1 12 19a7 7 0 0 1-7-7"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M18.012 20v-1.259A9.15 9.15 0 0 1 12 21a9 9 0 0 1-9-9 1 1 0 1 1 2 0 7 7 0 0 0 7 7c1.91 0 3.673-.765 4.954-2h-1.942a1 1 0 0 1 0-2h3.5a1.5 1.5 0 0 1 1.5 1.5V20a1 1 0 1 1-2 0M19 12a7 7 0 0 0-7-7c-1.91 0-3.673.765-4.954 2H8.75a1 1 0 0 1 0 2H5.5A1.5 1.5 0 0 1 4 7.5V4a1 1 0 0 1 2 0v1.248A9.15 9.15 0 0 1 12 3a9 9 0 0 1 9 9 1 1 0 1 1-2 0" />
   </Svg>
 );
 export default SvgRefreshCcw;
