@@ -61,7 +61,7 @@ export function InvitationDetailsSection({
 
   return (
     <YStack gap="$4" pb="$6" $md={{ flexDirection: 'column' }}>
-      <XStack px="$5" pb="$1">
+      <XStack px="$pagePadding" pb="$1">
         <SectionHeader
           translationId={ETranslations.referral_invitation_details}
         />
@@ -69,7 +69,7 @@ export function InvitationDetailsSection({
 
       <XStack
         gap="$2"
-        px="$5"
+        px="$pagePadding"
         alignItems="center"
         jc="space-between"
         flexWrap="wrap"
@@ -98,7 +98,7 @@ export function InvitationDetailsSection({
           rightColumn={<OnChainReward onChain={Onchain} />}
         />
       ) : (
-        <YStack px="$5" gap="$4">
+        <YStack px="$pagePadding" gap="$4">
           <InviteCodeListTable
             codeListData={codeListData}
             isLoading={isLoading ?? false}

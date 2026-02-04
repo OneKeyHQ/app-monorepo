@@ -42,6 +42,7 @@ export function InviteCodeStepImage({ step }: IInviteCodeStepImageProps) {
       h={imageHeight}
       resizeMode="contain"
       opacity={themeVariant === 'dark' ? 0.95 : 1}
+      alignSelf="center"
     />
   );
 }

@@ -127,11 +127,11 @@ function DeviceListItem({
   return (
     <ListItem
       mx="$0"
-      px="$5"
+      px="$pagePadding"
       minHeight={80}
       borderRadius="$0"
       $gtMd={{
-        px: '$4',
+        px: '$pagePadding',
         minHeight: 88,
       }}
       renderAvatar={() => (
@@ -352,7 +352,6 @@ function DeviceManagementV2ListWeb() {
       {renderHeader()}
       <Page.Body
         alignItems="stretch"
-        h="100%"
         $gtMd={{
           overflow: 'hidden',
           borderTopLeftRadius: '$4',
@@ -360,46 +359,46 @@ function DeviceManagementV2ListWeb() {
         }}
       >
         {showHeader ? (
-          <YStack
-            w="100%"
-            h="100%"
-            maxWidth="640px"
-            mx="auto"
-            px="$0"
-            py="$0"
-            gap="$6"
-            bg="$bgApp"
-            $gtMd={{
-              px: '$5',
-              py: '$8',
-            }}
-          >
-            <SectionHeader />
-            <ListView
+          <Page.Container flex={1} padded={false}>
+            <YStack
               flex={1}
-              contentContainerStyle={
-                gtMd
-                  ? {
-                      paddingTop: 0,
-                      borderRadius: '$4',
-                      bg: '$bgApp',
-                      borderColor: '$borderSubdued',
-                      overflow: 'hidden',
-                      borderWidth: '$px',
-                    }
-                  : {
-                      paddingTop: 0,
-                      bg: '$bgApp',
-                    }
-              }
-              keyExtractor={(item) => item.wallet.id}
-              data={hwQrWalletList}
-              renderItem={renderItem}
-              estimatedItemSize={88}
-              ListEmptyComponent={ListEmptyComponent}
-              ItemSeparatorComponent={ItemSeparatorComponent}
-            />
-          </YStack>
+              w="100%"
+              px="$0"
+              py="$0"
+              gap="$6"
+              bg="$bgApp"
+              $gtMd={{
+                px: '$pagePadding',
+                py: '$8',
+              }}
+            >
+              <SectionHeader />
+              <ListView
+                flex={1}
+                contentContainerStyle={
+                  gtMd
+                    ? {
+                        paddingTop: 0,
+                        borderRadius: '$4',
+                        bg: '$bgApp',
+                        borderColor: '$borderSubdued',
+                        overflow: 'hidden',
+                        borderWidth: '$px',
+                      }
+                    : {
+                        paddingTop: 0,
+                        bg: '$bgApp',
+                      }
+                }
+                keyExtractor={(item) => item.wallet.id}
+                data={hwQrWalletList}
+                renderItem={renderItem}
+                estimatedItemSize={88}
+                ListEmptyComponent={ListEmptyComponent}
+                ItemSeparatorComponent={ItemSeparatorComponent}
+              />
+            </YStack>
+          </Page.Container>
         ) : null}
         {!existingDevices && !isLoading ? <DeviceGuideView /> : null}
       </Page.Body>

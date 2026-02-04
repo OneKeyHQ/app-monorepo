@@ -21,10 +21,10 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { ENotificationPushMessageMode } from '@onekeyhq/shared/types/notification';
 import type { IWalletBanner } from '@onekeyhq/shared/types/walletBanner';
 
 import type { GestureResponderEvent } from 'react-native';
-import { ENotificationPushMessageMode } from '@onekeyhq/shared/types/notification';
 
 const closedBanners: Record<string, boolean> = {};
 
@@ -295,7 +295,7 @@ function WalletBanner() {
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{
-          paddingHorizontal: 20,
+          paddingHorizontal: '$pagePadding',
           gap: 8,
         }}
       >

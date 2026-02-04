@@ -41,12 +41,14 @@ function BaseHomeHeaderContainer() {
     if (platformEnv.isNative || media.gtMd) {
       return (
         <YStack
-          $gtMd={{ flexDirection: 'row' }}
+          p="$5"
+          gap="$5"
+          $gtMd={{ flexDirection: 'row', gap: '$4' }}
           bg="$bgApp"
           pointerEvents="box-none"
         >
-          <ReceiveInfo containerProps={{ m: '$5' }} />
-          <ReferralCodeBlock containerProps={{ m: '$5' }} />
+          <ReceiveInfo />
+          <ReferralCodeBlock />
         </YStack>
       );
     }
@@ -78,7 +80,8 @@ function BaseHomeHeaderContainer() {
       <Stack
         testID="Wallet-Tab-Header"
         gap="$5"
-        p="$5"
+        py="$5"
+        px="$pagePadding"
         bg="$bgApp"
         $gtLg={{
           flexDirection: 'row',

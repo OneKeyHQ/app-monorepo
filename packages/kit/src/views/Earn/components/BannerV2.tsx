@@ -57,14 +57,14 @@ function BannerV2Cmp({ data, onBannerPress, isActive = true }: IBannerV2Props) {
 
       if (!media.gtSm) {
         return (
-          <Stack px="$5">
+          <Stack px="$pagePadding">
             <BannerItemV2 item={item} onPress={onBannerPress} />
           </Stack>
         );
       }
 
       return (
-        <Stack pl={isFirst ? '$5' : 0} pr={isLast ? '$5' : BANNER_GAP_TOKEN}>
+        <Stack pl={isFirst ? '$pagePadding' : 0} pr={isLast ? '$pagePadding' : BANNER_GAP_TOKEN}>
           <BannerItemV2 item={item} onPress={onBannerPress} />
         </Stack>
       );
@@ -96,7 +96,7 @@ function BannerV2Cmp({ data, onBannerPress, isActive = true }: IBannerV2Props) {
 
       if (canShowStaticRow) {
         return (
-          <XStack px="$5" paddingVertical={30} gap={BANNER_GAP_TOKEN}>
+          <XStack px="$pagePadding" paddingVertical={30} gap={BANNER_GAP_TOKEN}>
             {data.map((item) => (
               <Stack key={item.src} width={DESKTOP_BANNER_WIDTH}>
                 <BannerItemV2 item={item} onPress={onBannerPress} />

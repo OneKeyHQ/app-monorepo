@@ -558,6 +558,7 @@ const mergedTokens = createTokens({
     '-24': -96,
     '-28': -112,
     '-32': -128,
+    'pagePadding': 20,
     'pageWidth': 1024,
   },
   color: {

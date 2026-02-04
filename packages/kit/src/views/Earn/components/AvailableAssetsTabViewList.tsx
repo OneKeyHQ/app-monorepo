@@ -288,7 +288,7 @@ export function AvailableAssetsTabViewList() {
 
   return (
     <YStack gap="$3">
-      <SizableText px="$5" size="$headingLg">
+      <SizableText px="$pagePadding" size="$headingLg">
         {intl.formatMessage({ id: ETranslations.earn_available_assets })}
       </SizableText>
       <Tabs.TabBar

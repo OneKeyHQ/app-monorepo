@@ -338,7 +338,7 @@ function BasicEarnHome({
       renderHeader: () => (
         <YStack gap="$4" pt="$4" bg="$bgApp" pointerEvents="box-none">
           <YStack gap="$7.5">
-            <YStack px="$5">
+            <YStack px="$pagePadding">
               <Overview
                 onRefresh={refreshEarnData}
                 isLoading={isLoading}
@@ -444,7 +444,6 @@ function BasicEarnHome({
         showTabPageHeader={media.gtMd}
         sceneName={EAccountSelectorSceneName.home}
         tabRoute={ETabRoutes.Earn}
-        disableMaxWidth
         contentContainerStyle={{
           py: 0,
         }}
@@ -458,7 +457,7 @@ function BasicEarnHome({
           earn={
             <YStack flex={1}>
               <YStack>
-                <XStack px="$5">
+                <XStack px="$pagePadding">
                   <Overview
                     onRefresh={refreshEarnData}
                     isLoading={isLoading}

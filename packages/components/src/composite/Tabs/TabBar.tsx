@@ -34,7 +34,7 @@ export function TabBarItem({
       // minWidth={52}
       ai="center"
       jc="center"
-      ml={20}
+      ml="$pagePadding"
       key={name}
       onPress={handlePress}
       position="relative"
