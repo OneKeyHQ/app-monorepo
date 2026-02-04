@@ -132,9 +132,12 @@ function CommonAssetContent(props: IProps) {
         </Heading>
         {attributes?.length ? (
           <XStack m="$-1" pt="$2.5" flexWrap="wrap">
+            {/* Filter out attributes with nil traitType/value to prevent
+                Fabric renderer from calling .toString() on undefined */}
             {attributes?.map(({ traitType, value, displayType }) =>
               isObject(value) ||
               isNil(value) ||
+              isNil(traitType) ||
               (traitType === '' && value === '') ? null : (
                 <Stack
                   key={traitType}
@@ -157,7 +160,7 @@ function CommonAssetContent(props: IProps) {
                           ),
                           {},
                         )
-                      : value}
+                      : String(value)}
                   </SizableText>
                 </Stack>
               ),
