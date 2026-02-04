@@ -46,6 +46,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IAccountChainSelectorRouteParams,
   IAccountSelectorRouteParamsExtraConfig,
+  IUnifiedNetworkSelectorRouteParams,
 } from '@onekeyhq/shared/src/routes';
 import {
   EAccountManagerStacksRoutes,
@@ -668,6 +669,24 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     ) => {
       navigation.pushModal(EModalRoutes.ChainSelectorModal, {
         screen: EChainSelectorPages.AccountChainSelector,
+        params: routeParams,
+      });
+    },
+  );
+
+  showUnifiedNetworkSelector = contextAtomMethod(
+    (
+      _,
+      set,
+      {
+        navigation,
+        ...routeParams
+      }: {
+        navigation: ReturnType<typeof useAppNavigation>;
+      } & IUnifiedNetworkSelectorRouteParams,
+    ) => {
+      navigation.pushModal(EModalRoutes.ChainSelectorModal, {
+        screen: EChainSelectorPages.UnifiedNetworkSelector,
         params: routeParams,
       });
     },
@@ -2326,6 +2345,7 @@ export function useAccountSelectorActions() {
   const refresh = actions.refresh.use();
   const showAccountSelector = actions.showAccountSelector.use();
   const showChainSelector = actions.showChainSelector.use();
+  const showUnifiedNetworkSelector = actions.showUnifiedNetworkSelector.use();
   const removeWallet = actions.removeWallet.use();
   const removeAccount = actions.removeAccount.use();
   const createHDWallet = actions.createHDWallet.use();
@@ -2366,6 +2386,7 @@ export function useAccountSelectorActions() {
     updateSelectedAccountForSingletonAccount,
     showAccountSelector,
     showChainSelector,
+    showUnifiedNetworkSelector,
     removeWallet,
     removeAccount,
     createHDWallet,
