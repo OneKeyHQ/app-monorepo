@@ -360,7 +360,9 @@ const SwapTokenSelectPage = ({
       let badgeText: string | undefined;
       if (rawItem.freeFeeObject && rawItem.freeFeeObject.tokenList) {
         const targetToken =
-          type === ESwapDirectionType.FROM ? toTokenRef.current : fromTokenRef.current;
+          type === ESwapDirectionType.FROM
+            ? toTokenRef.current
+            : fromTokenRef.current;
         if (targetToken) {
           const hasMatch = rawItem.freeFeeObject.tokenList.some((feeToken) =>
             equalTokenNoCaseSensitive({
