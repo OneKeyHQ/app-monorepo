@@ -133,7 +133,6 @@ export function NavigationContainer(props: IBasicNavigationContainerProps) {
 export const switchTab = <T extends ETabRoutes>(
   route: T,
   params?: {
-    screen: keyof ITabStackParamList[T];
     params?: ITabStackParamList[T][keyof ITabStackParamList[T]];
   },
 ) => {
