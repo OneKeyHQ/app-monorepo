@@ -10,6 +10,7 @@ import {
 import { isNil } from 'lodash';
 
 import {
+  CollapsibleTabContext,
   Icon,
   IconButton,
   Image,
@@ -42,8 +43,6 @@ import Animated, {
   useSharedValue,
   withDecay,
 } from 'react-native-reanimated';
-// Access the collapsible-tab-view internal context for programmatic vertical scroll
-import { Context as CollapsibleTabContext } from 'react-native-collapsible-tab-view/src/Context';
 
 const BANNER_ITEM_WIDTH = 280;
 const BANNER_GAP = 8;
@@ -467,6 +466,8 @@ function WebBannerScroller({
           pointerEvents={showLeftArrow ? 'auto' : 'none'}
           animation="quick"
           animateOnly={['opacity']}
+          // Web-only: `background` and `linear-gradient` are CSS properties.
+          // This component only renders on web (WebBannerScroller).
           style={{
             background:
               'linear-gradient(90deg, var(--bgApp) 40%, transparent 100%)',
@@ -497,6 +498,8 @@ function WebBannerScroller({
           pointerEvents={showRightArrow ? 'auto' : 'none'}
           animation="quick"
           animateOnly={['opacity']}
+          // Web-only: `background` and `linear-gradient` are CSS properties.
+          // This component only renders on web (WebBannerScroller).
           style={{
             background:
               'linear-gradient(270deg, var(--bgApp) 40%, transparent 100%)',
