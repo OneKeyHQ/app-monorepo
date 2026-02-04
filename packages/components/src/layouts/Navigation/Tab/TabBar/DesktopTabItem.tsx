@@ -199,7 +199,7 @@ export function DesktopTabItem(
               flexShrink={0}
               name={icon}
               color={selected ? '$iconActive' : '$iconSubdued'}
-              size="$5"
+              size={size === 'small' ? '$5' : '$6'}
               {...tabBarIconStyle}
             />
             {showDot ? (
@@ -283,6 +283,7 @@ export function DesktopTabItem(
       reloadOnPress,
       rest,
       icon,
+      size,
       tabBarIconStyle,
       showDot,
       showAvatar,
