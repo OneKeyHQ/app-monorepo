@@ -853,8 +853,8 @@ class ServiceStaking extends ServiceBase {
     );
 
     const enabledItems = itemsWithEnabledStatus
-      .filter((r) => r?.isEnabled)
-      .map((r) => r!.item);
+      .filter((r): r is NonNullable<typeof r> => r != null && !!r.isEnabled)
+      .map((r) => r.item);
 
     return enabledItems;
   }
