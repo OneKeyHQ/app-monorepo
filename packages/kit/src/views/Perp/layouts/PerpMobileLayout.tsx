@@ -10,6 +10,7 @@ import {
   SizableText,
   XStack,
   YStack,
+  useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
@@ -90,6 +91,7 @@ export const TabBarItem = memo(
 TabBarItem.displayName = 'TabBarItem';
 
 export function PerpMobileLayout() {
+  const tabBarHeight = useScrollContentTabBarOffset();
   const [activeTab, setActiveTab] = useState<ETabName>(ETabName.Positions);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -135,7 +137,7 @@ export function PerpMobileLayout() {
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: '$bgApp' }}
-      contentContainerStyle={{ flexGrow: 1 }}
+      contentContainerStyle={{ flexGrow: 1, paddingBottom: tabBarHeight }}
       showsVerticalScrollIndicator={false}
       stickyHeaderIndices={[1]}
       refreshControl={
