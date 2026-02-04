@@ -1,12 +1,3 @@
-import type { Context } from 'react';
+export { Context as CollapsibleTabContext } from 'react-native-collapsible-tab-view/src/Context';
 
-import { Context as NativeCollapsibleTabContext } from 'react-native-collapsible-tab-view/src/Context';
-
-import type { ITabContextType } from './context';
-
-// Native: re-export Context from react-native-collapsible-tab-view,
-// cast to shared ITabContextType for consistent typing across platforms.
-export const CollapsibleTabContext =
-  NativeCollapsibleTabContext as unknown as Context<
-    ITabContextType<string> | undefined
-  >;
+export type { ContextType as ICollapsibleTabContextType } from 'react-native-collapsible-tab-view/src/types';

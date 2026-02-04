@@ -1,11 +1,15 @@
-import type { Context } from 'react';
+import { createContext } from 'react';
 
-import { TabsContext } from './context';
+import type {
+  ContextType,
+  TabName,
+} from 'react-native-collapsible-tab-view/src/types';
 
-import type { ITabContextType } from './context';
+// Web: standalone context with the same type as native.
+// On native the collapsible-tab-view Container provides the value;
+// on web this defaults to undefined (NativeBannerScroller is native-only).
+export const CollapsibleTabContext = createContext<
+  ContextType<TabName> | undefined
+>(undefined);
 
-// Web: re-export TabsContext which provides the same shape
-// (focusedTab, refMap, scrollYCurrent, contentInset, etc.)
-export const CollapsibleTabContext = TabsContext as unknown as Context<
-  ITabContextType<string> | undefined
->;
+export type { ContextType as ICollapsibleTabContextType } from 'react-native-collapsible-tab-view/src/types';
