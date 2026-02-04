@@ -22,9 +22,10 @@ export const useTakeScreenshot = (id?: string | null) => {
     // can complete before the synchronous GPU snapshot blocks it
     await timerUtils.setTimeoutPromised(undefined, 100);
     try {
-      // TODO: replace captureRef with WKWebView.takeSnapshot to avoid blocking the main thread.
-      // captureRef calls drawViewHierarchyInRect:afterScreenUpdates: synchronously on the main thread,
-      // while WKWebView.takeSnapshot renders asynchronously on the GPU side.
+      // TODO: replace captureRef with platform-native async snapshot APIs to avoid blocking the main thread.
+      // captureRef calls drawViewHierarchyInRect:afterScreenUpdates: synchronously on the main thread.
+      // - iOS: use WKWebView.takeSnapshot(with:completionHandler:) which renders asynchronously on the GPU side.
+      // - Android: use PixelCopy.request() (API 24+) which captures the Surface content asynchronously.
       const imageUri = await captureRef(captureViewRefs[id ?? ''], {
         format: 'jpg',
         quality: 0.2,
