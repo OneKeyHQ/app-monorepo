@@ -1,11 +1,15 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgCrossedSmall = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      fill="currentColor"
       fillRule="evenodd"
-      d="M7.293 7.293a1 1 0 0 1 1.414 0L12 10.586l3.293-3.293a1 1 0 1 1 1.414 1.414L13.414 12l3.293 3.293a1 1 0 0 1-1.414 1.414L12 13.414l-3.293 3.293a1 1 0 0 1-1.414-1.414L10.586 12 7.293 8.707a1 1 0 0 1 0-1.414"
+      d="M7.19 7.19a1.5 1.5 0 0 1 2.12 0L12 9.878l2.69-2.69a1.5 1.5 0 0 1 2.12 2.122L14.122 12l2.69 2.69a1.5 1.5 0 0 1-2.122 2.12L12 14.122l-2.69 2.69a1.5 1.5 0 0 1-2.12-2.122L9.878 12l-2.69-2.69a1.5 1.5 0 0 1 0-2.12Z"
       clipRule="evenodd"
     />
   </Svg>

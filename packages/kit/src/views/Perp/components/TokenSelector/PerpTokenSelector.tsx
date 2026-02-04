@@ -449,7 +449,7 @@ function BasePerpTokenSelectorContent({
         isFavoritesTab && data.length === 0 && !searchQuery;
 
       return (
-        <Tabs.ScrollView>
+        <Tabs.ScrollView showsVerticalScrollIndicator={false}>
           <YStack>
             {!isFavoritesTab || data.length > 0 ? <TokenListHeader /> : null}
             <YStack height={350}>

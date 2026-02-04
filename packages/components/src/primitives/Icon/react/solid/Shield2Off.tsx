@@ -1,11 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgShield2Off = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      fill="currentColor"
-      d="m18.889 18.792 2.486 1.989a1 1 0 1 0 1.25-1.562l-20-16a1 1 0 1 0-1.25 1.562l1.822 1.457A3 3 0 0 0 3 7.308V13a9 9 0 0 0 15.889 5.792M21 13c0 .741-.09 1.461-.258 2.15L6.547 3.794l4.25-1.86a3 3 0 0 1 2.405 0l6 2.626A3 3 0 0 1 21 7.308z"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M1.219 3.58a1 1 0 0 1 1.406-.156l20 16a1 1 0 1 1-1.25 1.561l-2.486-1.99A9 9 0 0 1 3 13.204V6.859q.001-.268.068-.518L1.375 4.985A1 1 0 0 1 1.22 3.58Zm9.979-1.616a2 2 0 0 1 1.604 0l7 3.062A2 2 0 0 1 21 6.858v6.346c0 .74-.09 1.461-.259 2.15L6.547 4z" />
   </Svg>
 );
 export default SvgShield2Off;

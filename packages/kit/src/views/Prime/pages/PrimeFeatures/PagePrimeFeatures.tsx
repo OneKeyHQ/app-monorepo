@@ -567,16 +567,6 @@ export default function PagePrimeFeatures() {
     showAllFeatures,
   ]);
 
-  // const { height: windowHeight } = useWindowDimensions();
-  // const { top, bottom } = useSafeAreaInsets();
-  // const _height = useMemo(() => {
-  //   if (platformEnv.isNative) {
-  //     const TAB_BAR_HEIGHT = 54;
-  //     return windowHeight - top - bottom - TAB_BAR_HEIGHT - 120;
-  //   }
-  //   return '100%';
-  // }, [windowHeight, top, bottom]);
-
   const page = (
     <>
       {showAllFeatures ? <Page.BackButton /> : <Page.CloseButton />}
