@@ -30,6 +30,7 @@ export function SelectorTrigger() {
       num={0}
       size="small"
       recordNetworkHistoryEnabled
+      unifiedMode
     />
   );
 }

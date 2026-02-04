@@ -16,7 +16,7 @@ export function TabSwitcher({ activeTab, onTabChange }: ITabSwitcherProps) {
   const intl = useIntl();
 
   const handleValueChange = useCallback(
-    (value: string) => {
+    (value: string | number) => {
       onTabChange(value as ITabType);
     },
     [onTabChange],
