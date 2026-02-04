@@ -54,6 +54,7 @@ import type { IHyperLiquidSignatureRSV } from '@onekeyhq/shared/types/hyperliqui
 
 import localDb from '../../dbs/local/localDb';
 import {
+  perpTokenSelectorTabsAtom,
   perpsAccountLoadingInfoAtom,
   perpsActiveAccountAtom,
   perpsActiveAccountStatusAtom,
@@ -68,7 +69,6 @@ import {
   perpsDepositTokensAtom,
   perpsLastUsedLeverageAtom,
   perpsTradesHistoryDataAtom,
-  perpTokenSelectorTabsAtom,
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
 
@@ -799,7 +799,7 @@ export default class ServiceHyperliquid extends ServiceBase {
           const ethNetworkId = PERPS_NETWORK_ID;
           const getNetworkAccountParams = {
             indexedAccountId: indexedAccountId ?? undefined,
-            accountId: indexedAccountId ? undefined : (accountId ?? undefined),
+            accountId: indexedAccountId ? undefined : accountId ?? undefined,
             networkId: ethNetworkId,
             deriveType: deriveType || 'default',
           };

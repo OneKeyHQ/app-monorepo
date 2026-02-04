@@ -20,8 +20,8 @@ import type { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 import { EAtomNames } from '../atomNames';
 import { globalAtom, globalAtomComputedR } from '../utils';
 
-import type { IAccountDeriveTypes } from '../../../vaults/types';
 import type { IPerpDynamicTab } from '../../../services/ServiceWebviewPerp/ServiceWebviewPerp';
+import type { IAccountDeriveTypes } from '../../../vaults/types';
 
 // #region Active Account
 export interface IPerpsActiveAccountAtom {
