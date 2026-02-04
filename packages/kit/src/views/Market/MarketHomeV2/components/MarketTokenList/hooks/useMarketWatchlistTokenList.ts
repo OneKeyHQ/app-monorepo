@@ -5,10 +5,10 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
-import type { IMarketTokenListItem } from '@onekeyhq/shared/types/marketV2';
 
 import {
   SORT_MAP,
+  getNativeTokenInfo,
   getNetworkLogoUri,
   transformApiItemToToken,
 } from '../utils/tokenListHelpers';
@@ -89,47 +89,34 @@ export function useMarketWatchlistTokenList({
       { chainId: string; sortIndex: number; isNative: boolean }
     > = {};
     watchlist.forEach((w) => {
-      const key = `${w.chainId}:${w.contractAddress.toLowerCase()}`;
+      const { isNative, normalizedAddress } = getNativeTokenInfo(
+        w.isNative,
+        w.contractAddress,
+      );
+      const key = `${w.chainId}:${normalizedAddress}`;
       tokenMap[key] = {
         chainId: w.chainId,
         sortIndex: w.sortIndex ?? 0,
-        isNative: w.isNative ?? false,
+        isNative,
       };
     });
 
     const transformed: IMarketToken[] = apiResult.list
       .filter((item) => item && item.address != null)
       .map((item) => {
-        // Get isNative from watchlist data since API doesn't return it
-        let address = item.address;
         const networkId = item.networkId || '';
-        const key = `${networkId}:${address.toLowerCase()}`;
+        const { normalizedAddress } = getNativeTokenInfo(
+          item.isNative,
+          item.address,
+        );
+        const key = `${networkId}:${normalizedAddress}`;
 
         const tokenInfo = tokenMap[key];
         const chainId = tokenInfo?.chainId || networkId;
         const networkLogoUri = getNetworkLogoUri(chainId);
         const sortIndex = tokenInfo?.sortIndex;
-        let isNative = tokenInfo?.isNative ?? false; // Get isNative from watchlist
 
-        // TODO: Remove this after we have a better way to handle native tokens
-        // Special handling for native tokens (short addresses)
-        if (address.length < 30) {
-          if (item.symbol === 'SUI' && networkId === 'sui--mainnet') {
-            address = '0x2::sui::SUI';
-          } else {
-            address = '';
-          }
-          isNative = true;
-        }
-
-        // Add isNative to the API item
-        const itemWithNative = {
-          ...item,
-          address,
-          isNative,
-        } as IMarketTokenListItem & { isNative: boolean };
-
-        return transformApiItemToToken(itemWithNative, {
+        return transformApiItemToToken(item, {
           chainId,
           networkLogoUri,
           sortIndex,
@@ -141,10 +128,17 @@ export function useMarketWatchlistTokenList({
       .map((watchlistItem) => {
         // Find corresponding token in transformed data
         const found = transformed.find((token) => {
-          const tokenKey = token.address.toLowerCase();
-          const watchlistKey = watchlistItem.contractAddress.toLowerCase();
-          const chainMatches = watchlistItem.chainId === token.chainId;
-          return tokenKey === watchlistKey && chainMatches;
+          const { normalizedAddress: tokenKey } = getNativeTokenInfo(
+            token.isNative,
+            token.address,
+          );
+          const { normalizedAddress: watchlistKey } = getNativeTokenInfo(
+            watchlistItem.isNative,
+            watchlistItem.contractAddress,
+          );
+          return (
+            tokenKey === watchlistKey && watchlistItem.chainId === token.chainId
+          );
         });
 
         return found;

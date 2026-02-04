@@ -82,9 +82,8 @@ class ServiceNetworkDoctor extends ServiceBase {
    */
   @backgroundMethod()
   async runNetworkDiagnostics(): Promise<boolean> {
-    const { NetworkDoctor } = await import(
-      '@onekeyhq/shared/src/modules/NetworkDoctor'
-    );
+    const { NetworkDoctor } =
+      await import('@onekeyhq/shared/src/modules/NetworkDoctor');
 
     const currentState = await networkDoctorStateAtom.get();
 

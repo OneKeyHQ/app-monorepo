@@ -80,13 +80,13 @@ yarn lint:staged && yarn tsc:staged && git commit -m "your message"
 
 ### CI Commands (Full Project Check)
 
-**These run in CI pipeline, not for local pre-commit:**
-- `yarn lint` - **CI ONLY** comprehensive linting (TypeScript, ESLint, folder structure, i18n)
-  - **Expected runtime**: 5-10 minutes
+**These run in CI pipeline or for comprehensive validation:**
+- `yarn lint` - Comprehensive linting (TypeScript, ESLint, folder structure, i18n)
+  - **Expected runtime**: ~1 minute
   - **Zero tolerance**: ALL warnings and errors MUST be fixed
-- `yarn lint:only` - Quick oxlint check (all files)
-- `yarn tsc:only` - Full TypeScript type check
+  - **Use case**: CI pipeline and comprehensive pre-PR checks
 - `yarn test` - Jest test execution
+  - **Use case**: CI pipeline and test validation
 
 ### Other Tools
 

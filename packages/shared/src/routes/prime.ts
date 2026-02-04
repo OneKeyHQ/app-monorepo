@@ -30,6 +30,7 @@ export enum EPrimePages {
 export enum EPrimeFeatures {
   OneKeyCloud = 'OneKeyCloud',
   BulkCopyAddresses = 'BulkCopyAddresses',
+  BulkSend = 'BulkSend',
   BulkRevoke = 'BulkRevoke',
   DeviceManagement = 'DeviceManagement',
   CloudTransfer = 'CloudTransfer',

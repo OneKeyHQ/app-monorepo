@@ -1,15 +1,20 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgClockSnooze = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      fill="currentColor"
-      d="M19 1a1 1 0 1 0 0 2h1l-1.8 2.4A1 1 0 0 0 19 7h3a1 1 0 1 0 0-2h-1l1.8-2.4A1 1 0 0 0 22 1z"
+      fillRule="evenodd"
+      d="M20.5 9.5q.594-.001 1.153-.121c.226.835.347 1.714.347 2.621 0 5.523-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2c1.12 0 2.196.184 3.2.523A5.5 5.5 0 0 0 20.5 9.5M13 8a1 1 0 1 0-2 0v4a1 1 0 0 0 .293.707l2.5 2.5a1 1 0 0 0 1.414-1.414L13 11.586z"
+      clipRule="evenodd"
     />
     <Path
-      fill="currentColor"
       fillRule="evenodd"
-      d="M16 3.487a.94.94 0 0 0-.608-.897A10 10 0 0 0 12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10c0-.788-.091-1.555-.264-2.292-.1-.425-.491-.708-.928-.708H18a2 2 0 0 1-2-2zM12 7a1 1 0 0 1 1 1v3.586l2.207 2.207a1 1 0 0 1-1.414 1.414l-2.5-2.5A1 1 0 0 1 11 12V8a1 1 0 0 1 1-1"
+      d="M18 2a1 1 0 0 1 1-1h3a1 1 0 0 1 .8 1.6L21 5h1a1 1 0 1 1 0 2h-3a1 1 0 0 1-.8-1.6L20 3h-1a1 1 0 0 1-1-1"
       clipRule="evenodd"
     />
   </Svg>

@@ -202,9 +202,8 @@ export async function convertHyperLiquidResponse<T>(
 
     if (response?.status === 'err' && typeof response.response === 'string') {
       const originalMessage = response.response;
-      const resolved = await hyperLiquidErrorResolver.resolveAsync(
-        originalMessage,
-      );
+      const resolved =
+        await hyperLiquidErrorResolver.resolveAsync(originalMessage);
 
       if (
         resolved.localizedMessage &&

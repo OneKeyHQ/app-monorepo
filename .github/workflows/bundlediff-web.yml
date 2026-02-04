@@ -27,7 +27,7 @@ jobs:
         with:
           ref: ${{github.event.pull_request.head.ref}}
 
-      - name: Setup Node.js v20
+      - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
           node-version: 24.x
@@ -70,7 +70,7 @@ jobs:
         with:
           ref: ${{ github.base_ref }}
 
-      - name: Setup Node.js v20
+      - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
           node-version: 24.x

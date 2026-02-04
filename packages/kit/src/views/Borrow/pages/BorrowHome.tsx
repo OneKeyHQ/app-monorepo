@@ -8,6 +8,7 @@ import {
   XStack,
   YStack,
   useMedia,
+  useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -71,6 +72,7 @@ const BorrowPendingBridge = ({
 
 const BorrowHomeContent = memo(
   ({ header, isActive = true }: IBorrowHomeProps) => {
+    const tabBarHeight = useScrollContentTabBarOffset();
     const { gtMd, gtLg } = useMedia();
     const intl = useIntl();
     const [activeTab, setActiveTab] = useState<IBorrowTab>('supply');
@@ -126,7 +128,10 @@ const BorrowHomeContent = memo(
     const isMidWidth = gtMd && !gtLg;
 
     return (
-      <ScrollView flex={1}>
+      <ScrollView
+        flex={1}
+        contentContainerStyle={{ paddingBottom: tabBarHeight }}
+      >
         {header ? <YStack pb="$4">{header}</YStack> : null}
         <YStack flex={1} px="$5" pb="$10">
           <Markets />

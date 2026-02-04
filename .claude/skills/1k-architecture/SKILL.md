@@ -55,8 +55,7 @@ allowed-tools: Read, Grep, Glob
 **BEFORE ADDING ANY IMPORT:**
 1. Verify the import respects the hierarchy above
 2. Check if the import creates a circular dependency
-3. Run `yarn tsc:only` to validate no circular dependency introduced
-4. If unsure, find an alternative approach that respects the hierarchy
+3. If unsure, find an alternative approach that respects the hierarchy
 
 **COMMON VIOLATIONS TO AVOID:**
 - ❌ Importing from `@onekeyhq/kit` in `@onekeyhq/components`

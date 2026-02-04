@@ -42,6 +42,7 @@ import { getTokenPriceChangeStyle } from '@onekeyhq/shared/src/utils/tokenUtils'
 import type { IMarketTokenListItem } from '@onekeyhq/shared/types/marketV2';
 
 import { useNavigateToMarketTab } from '../../../Market/hooks';
+import { getNativeTokenInfo } from '../../../Market/MarketHomeV2/components/MarketTokenList/utils/tokenListHelpers';
 import { EMarketHomeTab } from '../../../Market/MarketHomeV2/types';
 import { RichBlock } from '../RichBlock/RichBlock';
 import { RichTable } from '../RichTable';
@@ -419,21 +420,21 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
       const tokenMap = new Map<string, IMarketTokenListItem>();
       response.list.forEach((item: IMarketTokenListItem) => {
         const networkId = item.networkId ?? item.chainId ?? '';
-        let address = item.address ?? '';
-
-        if (address.length < 30) {
-          address = '';
-        }
-
-        const key = `${networkId}:${address.toLowerCase()}`;
+        const { normalizedAddress } = getNativeTokenInfo(
+          item.isNative,
+          item.address,
+        );
+        const key = `${networkId}:${normalizedAddress}`;
         tokenMap.set(key, item);
       });
 
       const displayTokens: IFavoriteTokenDisplay[] = targetList
         .map((targetItem) => {
-          const key = `${
-            targetItem.chainId
-          }:${targetItem.contractAddress.toLowerCase()}`;
+          const { normalizedAddress } = getNativeTokenInfo(
+            targetItem.isNative,
+            targetItem.contractAddress,
+          );
+          const key = `${targetItem.chainId}:${normalizedAddress}`;
           const item = tokenMap.get(key);
 
           if (!item) {

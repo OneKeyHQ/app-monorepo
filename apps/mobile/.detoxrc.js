@@ -175,18 +175,12 @@ module.exports = {
   devices: {
     simulator: {
       type: 'ios.simulator',
-      device: {
-        ...(deviceUdid ? { id: deviceUdid } : { type: deviceName }),
-      },
+      device: deviceUdid ? { id: deviceUdid } : { type: deviceName },
     },
 
     androidEmulator: {
       type: 'android.emulator',
-      device: {
-        // Recommend pinning this on the perf machine (EnvironmentVariables / export).
-        // If not set, we try best-effort autodetect.
-        ...(androidAvdName ? { avdName: androidAvdName } : {}),
-      },
+      device: androidAvdName ? { avdName: androidAvdName } : {},
     },
   },
 

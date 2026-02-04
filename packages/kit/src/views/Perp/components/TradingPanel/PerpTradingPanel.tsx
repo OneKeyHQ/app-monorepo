@@ -117,7 +117,6 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
   const content = (
     <YStack
       gap="$2"
-      pt={isMobile ? undefined : '$3'}
       px={isMobile ? undefined : '$2.5'}
       flex={isMobile ? 1 : undefined}
       justifyContent={isMobile ? 'space-between' : undefined}

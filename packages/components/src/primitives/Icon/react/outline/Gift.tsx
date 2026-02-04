@@ -1,12 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgGift = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      stroke="currentColor"
-      strokeWidth={2}
-      d="M19 11.732V18a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-6.268m14 0V11.5m0 .232A2 2 0 0 0 18 8H6a2 2 0 0 0-1 3.732m14 0A2 2 0 0 1 18 12H6a2 2 0 0 1-1-.268m0-.232v.232M12 8V6.333M12 8h-1.667A3.333 3.333 0 0 1 7 4.667C7 3.747 7.746 3 8.667 3A3.333 3.333 0 0 1 12 6.333M12 8h1.667A3.333 3.333 0 0 0 17 4.667C17 3.747 16.254 3 15.333 3A3.333 3.333 0 0 0 12 6.333M12 8v12"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M18 13h-5v6h5zm-7 6v-6H6v6zm2-10v2h6V9zm-8 2h6V9H5zm11-6.333A.667.667 0 0 0 15.333 4 2.333 2.333 0 0 0 13 6.333V7h.667A2.333 2.333 0 0 0 16 4.667m-8 0A2.333 2.333 0 0 0 10.333 7H11v-.667A2.333 2.333 0 0 0 8.667 4 .667.667 0 0 0 8 4.667m10 0c0 .86-.251 1.66-.683 2.333H19a2 2 0 0 1 2 2v2c0 .74-.403 1.383-1 1.73V19a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-6.27c-.597-.347-1-.99-1-1.73V9a2 2 0 0 1 2-2h1.683A4.3 4.3 0 0 1 6 4.667 2.667 2.667 0 0 1 8.667 2c1.34 0 2.538.609 3.333 1.564A4.32 4.32 0 0 1 15.333 2 2.667 2.667 0 0 1 18 4.667" />
   </Svg>
 );
 export default SvgGift;

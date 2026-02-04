@@ -184,6 +184,7 @@ export interface IMarketTokenListItem {
   liquidity?: string;
   chainId?: string;
   communityRecognized?: boolean;
+  isNative?: boolean;
 }
 
 export interface IMarketTokenListResponse {

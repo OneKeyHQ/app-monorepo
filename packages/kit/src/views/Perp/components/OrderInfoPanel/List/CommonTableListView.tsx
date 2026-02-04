@@ -430,6 +430,7 @@ export function CommonTableListView<T>({
     const ListContent = (
       <DebugRenderTracker {...listViewDebugRenderTrackerProps}>
         <ListComponent
+          showsVerticalScrollIndicator={false}
           refreshControl={
             shouldUseTabsList && onPullToRefresh ? (
               <PullToRefresh onRefresh={onPullToRefresh} />
@@ -571,6 +572,7 @@ export function CommonTableListView<T>({
   return (
     <YStack flex={1}>
       <Tabs.ScrollView
+        showsVerticalScrollIndicator={false}
         style={{
           flex: 1,
         }}
@@ -598,7 +600,8 @@ export function CommonTableListView<T>({
             <YStack flex={1} minWidth={scrollableMinWidth} cursor="default">
               <XStack
                 py="$2"
-                px="$3"
+                pl="$5"
+                pr="$3"
                 display="flex"
                 minWidth={scrollableMinWidth}
                 width="100%"

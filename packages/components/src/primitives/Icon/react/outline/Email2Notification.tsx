@@ -1,14 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgEmail2Notification = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M13 5H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-4M2.998 9c2.507 1.884 5.624 3 9.002 3 1.385 0 2.726-.188 4-.54M23 6a3 3 0 1 1-6 0 3 3 0 0 1 6 0"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M2 18V9.055a1 1 0 0 1 0-.116V6a2 2 0 0 1 2-2h9a1 1 0 1 1 0 2H4v2.49A13.93 13.93 0 0 0 11.999 11c1.294 0 2.547-.175 3.735-.503a1 1 0 1 1 .531 1.928A16 16 0 0 1 12 13a15.93 15.93 0 0 1-8-2.142V18h16v-5a1 1 0 1 1 2 0v5a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2M22 6a2 2 0 1 0-4 0 2 2 0 0 0 4 0m2 0a4 4 0 1 1-8 0 4 4 0 0 1 8 0" />
   </Svg>
 );
 export default SvgEmail2Notification;

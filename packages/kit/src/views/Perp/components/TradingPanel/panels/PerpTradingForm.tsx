@@ -7,7 +7,6 @@ import {
   Badge,
   Checkbox,
   DashText,
-  Divider,
   IconButton,
   Popover,
   SizableText,
@@ -377,35 +376,38 @@ function PerpTradingForm({
         </>
       ) : (
         <>
-          <YStack>
-            <XStack>
-              {orderTypeOptions.map((option) => (
-                <XStack
-                  pb="$2.5"
-                  key={option.value}
-                  ml="$2.5"
-                  mr="$2"
-                  borderBottomWidth={
-                    formData.type === option.value ? '$0.5' : '$0'
+          <XStack
+            mx="$-2.5"
+            h={54}
+            alignItems="center"
+            borderBottomWidth="$px"
+            borderBottomColor="$borderSubdued"
+          >
+            {orderTypeOptions.map((option) => (
+              <XStack
+                h={54}
+                key={option.value}
+                ml="$5"
+                alignItems="center"
+                borderBottomWidth={
+                  formData.type === option.value ? '$0.5' : '$0'
+                }
+                borderBottomColor="$borderActive"
+                onPress={() => handleOrderTypeChange(option.name)}
+                cursor="pointer"
+              >
+                <SizableText
+                  size="$headingXs"
+                  fontSize={14}
+                  color={
+                    formData.type === option.value ? '$text' : '$textSubdued'
                   }
-                  borderBottomColor="$borderActive"
-                  onPress={() => handleOrderTypeChange(option.name)}
-                  cursor="pointer"
                 >
-                  <SizableText
-                    size="$headingXs"
-                    fontSize={14}
-                    color={
-                      formData.type === option.value ? '$text' : '$textSubdued'
-                    }
-                  >
-                    {option.name}
-                  </SizableText>
-                </XStack>
-              ))}
-            </XStack>
-            <Divider />
-          </YStack>
+                  {option.name}
+                </SizableText>
+              </XStack>
+            ))}
+          </XStack>
 
           <XStack alignItems="center" flex={1} gap="$3">
             <YStack flex={1}>

@@ -1753,8 +1753,7 @@ export interface IEarnRegisterSignMessageResponse {
   toast?: IEarnToast;
 }
 
-export interface IVerifyRegisterSignMessageParams
-  extends IBuildRegisterSignMessageParams {
+export interface IVerifyRegisterSignMessageParams extends IBuildRegisterSignMessageParams {
   signature: string;
   message: string;
 }

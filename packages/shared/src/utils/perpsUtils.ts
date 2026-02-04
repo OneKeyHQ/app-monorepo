@@ -1238,6 +1238,68 @@ export function parseDexCoin(coin: string): {
   };
 }
 
+export interface ITokenSearchAliasItem {
+  subtitles?: Record<string, string>;
+  aliases: string[];
+}
+
+export type ITokenSearchAliases = Record<string, ITokenSearchAliasItem>;
+
+/**
+ * Find token symbols by search alias
+ * @param query - Search query (already lowercased)
+ * @param serverAliases - Server-provided aliases
+ * @returns Matched symbol list
+ */
+export function findTokensByAlias(
+  query: string,
+  serverAliases?: ITokenSearchAliases,
+): string[] {
+  if (!serverAliases || Object.keys(serverAliases).length === 0) {
+    return [];
+  }
+
+  return Object.entries(serverAliases)
+    .filter(([, item]) =>
+      item.aliases?.some((alias) => alias.toLowerCase().includes(query)),
+    )
+    .map(([symbol]) => symbol);
+}
+
+/**
+ * Get token subtitle for display based on locale
+ * @param tokenName - Token name/symbol (e.g., "BTC", "xyz:AAPL")
+ * @param locale - Current app locale (e.g., "zh-CN", "en-US")
+ * @param serverAliases - Server-provided aliases with subtitles
+ * @returns Subtitle string or undefined
+ */
+export function getTokenSubtitle(
+  tokenName: string,
+  locale: string,
+  serverAliases?: ITokenSearchAliases,
+): string | undefined {
+  if (!serverAliases) return undefined;
+
+  const item = serverAliases[tokenName];
+  if (!item?.subtitles) return undefined;
+
+  // Try exact locale match first
+  if (item.subtitles[locale]) {
+    return item.subtitles[locale];
+  }
+
+  // Try language code only (e.g., "zh" from "zh-CN")
+  const langCode = locale.split('-')[0];
+  const matchingKey = Object.keys(item.subtitles).find(
+    (key) => key.startsWith(langCode) || key === langCode,
+  );
+  if (matchingKey) {
+    return item.subtitles[matchingKey];
+  }
+
+  return undefined;
+}
+
 export {
   formatAssetCtx,
   formatLargeNumber,
@@ -1298,4 +1360,6 @@ export default {
   resolveTradingSizeBN,
   parseSignatureToRSV,
   getHyperliquidTokenImageUrl,
+  findTokensByAlias,
+  getTokenSubtitle,
 };

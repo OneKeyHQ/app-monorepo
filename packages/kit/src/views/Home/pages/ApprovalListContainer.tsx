@@ -2,7 +2,11 @@ import { memo, useCallback, useEffect } from 'react';
 
 import { CanceledError } from 'axios';
 
-import { useMedia, useTabIsRefreshingFocused } from '@onekeyhq/components';
+import {
+  useMedia,
+  useScrollContentTabBarOffset,
+  useTabIsRefreshingFocused,
+} from '@onekeyhq/components';
 import {
   POLLING_DEBOUNCE_INTERVAL,
   POLLING_INTERVAL_FOR_APPROVAL,
@@ -169,6 +173,7 @@ function ApprovalListContainer() {
     };
   }, [isFocused, run]);
 
+  const tabBarHeight = useScrollContentTabBarOffset();
   return isFirstFocused ? (
     <ApprovalListView
       accountId={account?.id ?? ''}
@@ -185,6 +190,9 @@ function ApprovalListContainer() {
       listViewStyleProps={{
         ListHeaderComponentStyle: {
           pt: '$3',
+        },
+        contentContainerStyle: {
+          pb: tabBarHeight,
         },
       }}
       {...(media.gtLg && {

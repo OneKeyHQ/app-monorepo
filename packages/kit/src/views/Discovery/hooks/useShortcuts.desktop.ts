@@ -35,6 +35,9 @@ export const useDiscoveryShortcuts = () => {
       return;
     }
     const tabIndex = tabs.findIndex((t) => t.id === activeTabId);
+    if (tabIndex === -1) {
+      return;
+    }
     if (tabs[tabIndex].isPinned) {
       navigation.switchTab(ETabRoutes.Discovery);
     } else {

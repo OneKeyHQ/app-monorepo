@@ -103,8 +103,8 @@ function getTxActionTransferInfo(
               { 'count': filteredReceives.length },
             )
           : filteredReceives[0]
-          ? filteredReceives[0].to
-          : receives[0].to;
+            ? filteredReceives[0].to
+            : receives[0].to;
     } else if (type === EOnChainHistoryTxType.Receive) {
       const filteredSends = sends.filter((send) => !send.isOwn);
       transferTarget =
@@ -114,8 +114,8 @@ function getTxActionTransferInfo(
               { 'count': filteredSends.length },
             )
           : filteredSends[0]
-          ? filteredSends[0].from
-          : sends[0].from;
+            ? filteredSends[0].from
+            : sends[0].from;
     }
   } else {
     transferTarget = to;
@@ -209,8 +209,8 @@ function buildTransferChangeInfo({
         : amountBN.multipliedBy(transfers[0]?.price ?? 0).toFixed();
     }
     changeSymbol = transfers[0]?.isNFT
-      ? transfers[0]?.name ?? ''
-      : transfers[0]?.symbol ?? '';
+      ? (transfers[0]?.name ?? '')
+      : (transfers[0]?.symbol ?? '');
   } else {
     const tokens = uniq(map(transfers, 'tokenIdOnNetwork'));
     if (tokens.length === 1) {

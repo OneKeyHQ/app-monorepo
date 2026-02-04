@@ -55,58 +55,42 @@ const V4MigrationDevSettings = LazyLoadPage(
 
 const PageDevUnitTests = LazyLoadPage(
   () =>
-    import(
-      '@onekeyhq/kit/src/views/Setting/pages/DevUnitTests/PageDevUnitTests'
-    ),
+    import('@onekeyhq/kit/src/views/Setting/pages/DevUnitTests/PageDevUnitTests'),
 );
 
 const DesktopApiProxyTestDevSettings = LazyLoadPage(
   () =>
-    import(
-      '@onekeyhq/kit/src/views/Setting/pages/Tab/DevSettingsSection/DesktopApiProxyTestDevSettings'
-    ),
+    import('@onekeyhq/kit/src/views/Setting/pages/Tab/DevSettingsSection/DesktopApiProxyTestDevSettings'),
 );
 
 const PerpGallery = LazyLoadPage(
   () =>
-    import(
-      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/PerpGallery'
-    ),
+    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/PerpGallery'),
 );
 
 const CryptoGallery = LazyLoadPage(
   () =>
-    import(
-      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/CryptoGallery'
-    ),
+    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/CryptoGallery'),
 );
 
 const CloudBackupGallery = LazyLoadPage(
   () =>
-    import(
-      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/CloudBackupGallery'
-    ),
+    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/CloudBackupGallery'),
 );
 
 const AuthGallery = LazyLoadPage(
   () =>
-    import(
-      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/AuthGallery'
-    ),
+    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/AuthGallery'),
 );
 
 const KeylessWalletGallery = LazyLoadPage(
   () =>
-    import(
-      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/KeylessWalletGallery'
-    ),
+    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/KeylessWalletGallery'),
 );
 
 const StorageGallery = LazyLoadPage(
   () =>
-    import(
-      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/StorageGallery'
-    ),
+    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/StorageGallery'),
 );
 
 const ExportCustomNetworkConfig = LazyLoadPage(
@@ -116,16 +100,12 @@ const ExportCustomNetworkConfig = LazyLoadPage(
 
 const NotificationsSettings = LazyLoadPage(
   () =>
-    import(
-      '@onekeyhq/kit/src/views/Setting/pages/Notifications/NotificationsSettings'
-    ),
+    import('@onekeyhq/kit/src/views/Setting/pages/Notifications/NotificationsSettings'),
 );
 
 const ManageAccountActivity = LazyLoadPage(
   () =>
-    import(
-      '@onekeyhq/kit/src/views/Setting/pages/Notifications/ManageAccountActivity'
-    ),
+    import('@onekeyhq/kit/src/views/Setting/pages/Notifications/ManageAccountActivity'),
 );
 
 const AlignPrimaryAccountModal = LazyLoadPage(
@@ -158,9 +138,7 @@ const OneKeyIdKeylessWalletPage = LazyLoadPage(
 
 const DevAppUpdateModalSettingModal = LazyLoadPage(
   () =>
-    import(
-      '@onekeyhq/kit/src/views/Setting/pages/DevAppUpdateModalSettingModal'
-    ),
+    import('@onekeyhq/kit/src/views/Setting/pages/DevAppUpdateModalSettingModal'),
 );
 
 export const BasicModalSettingStack: IModalFlowNavigatorConfig<

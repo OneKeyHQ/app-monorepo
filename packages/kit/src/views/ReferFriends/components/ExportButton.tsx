@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { IconButton, Toast } from '@onekeyhq/components';
+import { Button, IconButton, Toast, useMedia } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EExportSubject,
@@ -26,6 +26,7 @@ export function ExportButton({
   tab = EExportTab.Earn,
 }: IExportButtonProps) {
   const intl = useIntl();
+  const { gtMd } = useMedia();
   const { exportInviteData, isExporting } = useExportInviteData();
 
   const handleExport = useCallback(async () => {
@@ -49,6 +50,19 @@ export function ExportButton({
       });
     }
   }, [exportInviteData, intl, inviteCode, subject, tab, timeRange]);
+
+  if (gtMd) {
+    return (
+      <Button
+        size="small"
+        icon="DownloadOutline"
+        loading={isExporting}
+        onPress={handleExport}
+      >
+        {intl.formatMessage({ id: ETranslations.global_export })}
+      </Button>
+    );
+  }
 
   return (
     <IconButton

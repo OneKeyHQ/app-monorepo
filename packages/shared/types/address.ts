@@ -12,6 +12,7 @@ export enum EInputAddressChangeType {
   Manual = 'manual',
   Paste = 'paste',
   Scan = 'scan',
+  Upload = 'upload',
   AddressBook = 'AddressBook',
   AccountSelector = 'AccountSelector',
 }

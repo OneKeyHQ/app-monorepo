@@ -330,7 +330,8 @@ const OpenOrdersRow = memo(
       <XStack
         flex={1}
         py="$1.5"
-        px="$3"
+        pl="$5"
+        pr="$3"
         alignItems="center"
         backgroundColor={bgColor}
         onHoverIn={() => onHoverChange?.(index)}
@@ -344,7 +345,6 @@ const OpenOrdersRow = memo(
               {...getColumnStyle(columnConfigs[0])}
               justifyContent="center"
               alignItems={calcCellAlign(columnConfigs[0].align)}
-              pl="$2"
             >
               <SizableText
                 numberOfLines={1}

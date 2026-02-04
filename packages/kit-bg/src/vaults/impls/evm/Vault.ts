@@ -11,6 +11,7 @@ import { verifyPersonalSignMessage } from '@onekeyhq/core/src/chains/evm/sdkEvm/
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import { getBulkSendContractAddress } from '@onekeyhq/shared/src/consts/bulkSendContractAddress';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   OneKeyError,
@@ -57,6 +58,7 @@ import type {
 } from '@onekeyhq/shared/types/serverToken';
 import { EWrappedType } from '@onekeyhq/shared/types/swap/types';
 import type { IToken } from '@onekeyhq/shared/types/token';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type {
   IDecodedTx,
   IDecodedTxAction,
@@ -72,6 +74,7 @@ import { VaultBase } from '../../base/VaultBase';
 
 import { EVMContractDecoder } from './decoder';
 import {
+  ABI,
   EErc1155MethodSelectors,
   EErc1155TxDescriptionName,
   EErc20MethodSelectors,
@@ -663,14 +666,200 @@ export default class Vault extends VaultBase {
     return data;
   }
 
-  async _buildEncodedTxFromBatchTransfer(transfersInfo: ITransferInfo[]) {
-    console.log(transfersInfo);
-    // TODO EVM batch transfer through contract
+  async _buildEncodedTxFromBatchTransfer(
+    transfersInfo: ITransferInfo[],
+  ): Promise<IEncodedTxEvm> {
+    if (transfersInfo.length === 0) {
+      throw new OneKeyLocalError(
+        'buildEncodedTx ERROR: transfersInfo is empty',
+      );
+    }
+
+    const bulkSendContractAddresses = getBulkSendContractAddress();
+    const contractAddress = bulkSendContractAddresses[this.networkId];
+
+    if (!contractAddress) {
+      throw new OneKeyLocalError(
+        `BulkSend contract not deployed on network: ${this.networkId}`,
+      );
+    }
+
+    const network = await this.getNetwork();
+    const firstTransfer = transfersInfo[0];
+    const { from, tokenInfo } = firstTransfer;
+
+    if (!tokenInfo) {
+      throw new OneKeyLocalError(
+        'buildEncodedTx ERROR: transferInfo.tokenInfo is missing',
+      );
+    }
+
+    const bulkSendInterface = new ethers.utils.Interface(ABI.BULK_SEND);
+
+    // Check if all amounts are the same
+    const firstAmount = firstTransfer.amount;
+    const isSameAmount = transfersInfo.every((t) => t.amount === firstAmount);
+
+    if (tokenInfo.isNative) {
+      return this._buildNativeBatchTransfer({
+        transfersInfo,
+        from,
+        contractAddress,
+        network,
+        bulkSendInterface,
+        isSameAmount,
+      });
+    }
+
+    return this._buildTokenBatchTransfer({
+      transfersInfo,
+      from,
+      contractAddress,
+      tokenInfo,
+      bulkSendInterface,
+      isSameAmount,
+    });
+  }
+
+  private _buildNativeBatchTransfer(params: {
+    transfersInfo: ITransferInfo[];
+    from: string;
+    contractAddress: string;
+    network: IServerNetwork;
+    bulkSendInterface: ethers.utils.Interface;
+    isSameAmount: boolean;
+  }): IEncodedTxEvm {
+    const {
+      transfersInfo,
+      from,
+      contractAddress,
+      network,
+      bulkSendInterface,
+      isSameAmount,
+    } = params;
+
+    const recipients = transfersInfo.map((t) => t.to);
+
+    if (isSameAmount) {
+      // Use sendNativeSameAmount for better gas efficiency
+      const amountOnChain = chainValueUtils.convertAmountToChainValue({
+        network,
+        value: transfersInfo[0].amount,
+      });
+      const totalValue = new BigNumber(amountOnChain).times(
+        transfersInfo.length,
+      );
+
+      const data = bulkSendInterface.encodeFunctionData(
+        'sendNativeSameAmount',
+        [recipients, amountOnChain],
+      );
+
+      return {
+        from,
+        to: contractAddress,
+        value: numberUtils.numberToHex(totalValue.toFixed()),
+        data,
+      };
+    }
+
+    // Use sendNative for different amounts
+    const transfers = transfersInfo.map((t) => ({
+      recipient: t.to,
+      amount: chainValueUtils.convertAmountToChainValue({
+        network,
+        value: t.amount,
+      }),
+    }));
+
+    const totalValue = transfers.reduce(
+      (sum, t) => sum.plus(t.amount),
+      new BigNumber(0),
+    );
+
+    const data = bulkSendInterface.encodeFunctionData('sendNative', [
+      transfers,
+    ]);
+
     return {
-      from: '',
-      to: '',
-      value: '0',
-      data: '0x',
+      from,
+      to: contractAddress,
+      value: numberUtils.numberToHex(totalValue.toFixed()),
+      data,
+    };
+  }
+
+  private _buildTokenBatchTransfer(params: {
+    transfersInfo: ITransferInfo[];
+    from: string;
+    contractAddress: string;
+    tokenInfo: IToken;
+    bulkSendInterface: ethers.utils.Interface;
+    isSameAmount: boolean;
+  }): IEncodedTxEvm {
+    const {
+      transfersInfo,
+      from,
+      contractAddress,
+      tokenInfo,
+      bulkSendInterface,
+      isSameAmount,
+    } = params;
+
+    if (!tokenInfo.address) {
+      throw new OneKeyLocalError(
+        'buildEncodedTx ERROR: transferInfo.tokenInfo.address is missing',
+      );
+    }
+
+    if (isNil(tokenInfo.decimals)) {
+      throw new OneKeyLocalError(
+        'buildEncodedTx ERROR: transferInfo.tokenInfo.decimals is missing',
+      );
+    }
+
+    const recipients = transfersInfo.map((t) => t.to);
+
+    if (isSameAmount) {
+      // Use sendTokenSameAmount for better gas efficiency
+      const amountOnChain = chainValueUtils.convertTokenAmountToChainValue({
+        token: tokenInfo,
+        value: transfersInfo[0].amount,
+      });
+
+      const data = bulkSendInterface.encodeFunctionData('sendTokenSameAmount', [
+        tokenInfo.address,
+        recipients,
+        amountOnChain,
+      ]);
+
+      return {
+        from,
+        to: contractAddress,
+        value: '0x0',
+        data,
+      };
+    }
+
+    // Use sendToken for different amounts
+    const transfers = transfersInfo.map((t) => ({
+      recipient: t.to,
+      amount: chainValueUtils.convertTokenAmountToChainValue({
+        token: tokenInfo,
+        value: t.amount,
+      }),
+    }));
+
+    const data = bulkSendInterface.encodeFunctionData('sendToken', [
+      tokenInfo.address,
+      transfers,
+    ]);
+
+    return {
+      from,
+      to: contractAddress,
+      value: '0x0',
+      data,
     };
   }
 

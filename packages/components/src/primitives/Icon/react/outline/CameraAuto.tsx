@@ -1,14 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgCameraAuto = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M13.818 14.5 12 10.5l-1.818 4m3.636 0L14.5 16m-.682-1.5h-3.636m0 0L9.5 16M6.43 7H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-1.43a2 2 0 0 1-1.664-.89l-.812-1.22A2 2 0 0 0 13.43 4h-2.86a2 2 0 0 0-1.664.89l-.812 1.22A2 2 0 0 1 6.43 7"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M17.035 8a2 2 0 0 1-1.664-.89L13.965 5h-3.93L8.63 7.11A2 2 0 0 1 6.965 8H4v11h16V8zM12 9.5a1 1 0 0 1 .91.586l2.5 5.5a1 1 0 0 1-1.82.828l-.415-.914h-2.35l-.415.914a1 1 0 0 1-1.82-.828l2.5-5.5.07-.127A1 1 0 0 1 12 9.5m-.266 4h.532L12 12.916zM22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h2.965L8.37 3.89A2 2 0 0 1 10.035 3h3.93a2 2 0 0 1 1.664.89L17.035 6H20a2 2 0 0 1 2 2z" />
   </Svg>
 );
 export default SvgCameraAuto;

@@ -15,16 +15,12 @@ const DeviceDetail = LazyLoadRootTabPage(
 
 const HardwareTroubleshooting = LazyLoadRootTabPage(
   () =>
-    import(
-      '../../../views/DeviceManagement/pages/HardwareTroubleshootingModal'
-    ),
+    import('../../../views/DeviceManagement/pages/HardwareTroubleshootingModal'),
 );
 
 const BuyOneKeyHardwareWallet = LazyLoadRootTabPage(
   () =>
-    import(
-      '@onekeyhq/kit/src/views/Onboarding/pages/ConnectHardwareWallet/OneKeyHardwareWallet'
-    ),
+    import('@onekeyhq/kit/src/views/Onboarding/pages/ConnectHardwareWallet/OneKeyHardwareWallet'),
 );
 
 export const deviceManagementRouters: ITabSubNavigatorConfig<any, any>[] = [

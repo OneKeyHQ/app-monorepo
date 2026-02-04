@@ -118,8 +118,10 @@ export type IDialogContainerProps = PropsWithChildren<
   }
 >;
 
-export interface IDialogShowProps
-  extends Omit<IDialogContainerProps, 'name' | 'onClose'> {
+export interface IDialogShowProps extends Omit<
+  IDialogContainerProps,
+  'name' | 'onClose'
+> {
   portalContainer?: EPortalContainerConstantName;
   /**
    * If true, the dialog will be rendered on top of all views.

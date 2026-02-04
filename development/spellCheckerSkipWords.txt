@@ -1393,5 +1393,8 @@ Subresource
 keystonehq
 htmls
 Unclaimable
+linea
+zksyncera
 svgx
 zerion
+Schedulable

@@ -12,6 +12,7 @@ import { ModalApprovalManagementStack } from '../../views/ApprovalManagement/rou
 import { AppUpdateRouter } from '../../views/AppUpdate/router';
 import { AssetSelectorRouter } from '../../views/AssetSelector/router';
 import { BulkCopyAddressesModalRouter } from '../../views/BulkCopyAddresses/router';
+import { BulkSendModalRouter } from '../../views/BulkSend/router';
 import { ChainSelectorRouter } from '../../views/ChainSelector/router';
 import { CloudBackupPages } from '../../views/CloudBackup/router';
 import { DAppConnectionRouter } from '../../views/DAppConnection/router';
@@ -208,6 +209,10 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
   {
     name: EModalRoutes.BulkCopyAddressesModal,
     children: BulkCopyAddressesModalRouter,
+  },
+  {
+    name: EModalRoutes.BulkSendModal,
+    children: BulkSendModalRouter,
   },
   {
     name: EModalRoutes.ApprovalManagementModal,

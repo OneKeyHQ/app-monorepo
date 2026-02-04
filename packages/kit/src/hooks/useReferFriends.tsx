@@ -224,12 +224,12 @@ export const useReferFriends = () => {
       const sourceConfig: IInvitePostConfig['locales']['Earn'] =
         source === 'Perps' && postConfig?.locales.Perps
           ? postConfig.locales.Perps
-          : postConfig?.locales.Earn ?? {
+          : (postConfig?.locales.Earn ?? {
               title: '',
               subtitle: '',
               for_you: { title: '', subtitle: '' },
               for_your_friend: { title: '', subtitle: '' },
-            };
+            });
 
       const getReferralUrl = (code: string) =>
         buildReferralUrl({

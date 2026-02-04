@@ -147,7 +147,7 @@ export function parseTokenAddress(address: string): {
 export function getSACAddress(
   assetCode: string,
   assetIssuer: string,
-  network?: typeof Networks[keyof typeof Networks],
+  network?: (typeof Networks)[keyof typeof Networks],
 ): string {
   try {
     const asset = new Asset(assetCode, assetIssuer);

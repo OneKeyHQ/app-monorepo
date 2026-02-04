@@ -76,11 +76,6 @@ const legacyResult = legacyApi.call();
 # ❌ FORBIDDEN
 git commit  # with lint errors or TypeScript errors
 
-# ✅ CORRECT - Full check
-yarn lint:only  # Lint all files
-yarn tsc:only   # Type check all files
-git commit
-
 # ✅ CORRECT - Fast pre-commit (recommended)
 yarn lint:staged  # Only lint staged files
 yarn tsc:staged   # Type check

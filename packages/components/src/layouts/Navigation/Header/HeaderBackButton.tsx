@@ -1,13 +1,11 @@
 import type { ReactNode } from 'react';
-import { memo, useCallback, useMemo } from 'react';
+import { memo } from 'react';
 
-import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { type IIconButtonProps } from '../../../actions';
 
 import HeaderButtonGroup from './HeaderButtonGroup';
-import { useHeaderCollapseButtonVisibility } from './HeaderCollapseButton';
 import HeaderIconButton from './HeaderIconButton';
 
 import type { IOnekeyStackHeaderProps } from './HeaderScreenOptions';
@@ -48,21 +46,9 @@ function HeaderBackButton({
     renderLeft?: (props: any) => ReactNode | undefined;
     canGoBack?: boolean;
   }) {
-  const isVerticalLayout = useMedia().md;
   const showCloseButton =
     (isModelScreen || isOnboardingScreen) && !isRootScreen && !canGoBack;
-  const showCollapseButton = isRootScreen && !isVerticalLayout;
   const showBackButton = canGoBack || showCloseButton;
-
-  const headerCollapseButtonProps = useMemo(
-    () => ({
-      hideWhenOpen: true,
-    }),
-    [],
-  );
-
-  const { shouldHide: shouldHideCollapseButton } =
-    useHeaderCollapseButtonVisibility(headerCollapseButtonProps);
 
   const renderBackButton = () => {
     if (canGoBack) {
@@ -74,22 +60,13 @@ function HeaderBackButton({
     return null;
   };
 
-  const renderCollapseButton = useCallback(() => null, []);
-
   // If neither button should be shown, return null early.
-  if (!showCollapseButton && !showBackButton && !renderLeft) {
+  if (!showBackButton && !renderLeft) {
     return null;
-  }
-
-  if (showCollapseButton && !showBackButton && !renderLeft) {
-    if (shouldHideCollapseButton) {
-      return null;
-    }
   }
 
   return (
     <HeaderButtonGroup mr="$4">
-      {renderCollapseButton()}
       {!renderLeft ? renderBackButton() : null}
       {renderLeft
         ? renderLeft({
