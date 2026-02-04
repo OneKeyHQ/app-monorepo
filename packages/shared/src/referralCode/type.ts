@@ -476,6 +476,8 @@ export interface IExportInviteDataParams {
   timeRange: EExportTimeRange;
   inviteCode?: string;
   tab?: EExportTab;
+  startTime?: number;
+  endTime?: number;
 }
 
 // API returns CSV string directly

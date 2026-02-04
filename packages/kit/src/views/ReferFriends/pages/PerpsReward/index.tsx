@@ -117,7 +117,9 @@ function PerpsRewardPageWrapper() {
   // Get the effective timeRange for API calls
   // When using custom date range (startTime/endTime), don't pass 'custom', pass 'all' instead
   const effectiveTimeRange =
-    filterState.startTime && filterState.endTime ? 'all' : filterState.timeRange;
+    filterState.startTime && filterState.endTime
+      ? 'all'
+      : filterState.timeRange;
 
   // Fetch counts for both tabs
   const fetchCounts = useCallback(async () => {
@@ -144,7 +146,12 @@ function PerpsRewardPageWrapper() {
     if (totalResult.status === 'fulfilled') {
       setTotalCount(totalResult.value.total);
     }
-  }, [effectiveTimeRange, filterState.startTime, filterState.endTime, filterState.inviteCode]);
+  }, [
+    effectiveTimeRange,
+    filterState.startTime,
+    filterState.endTime,
+    filterState.inviteCode,
+  ]);
 
   // Fetch current tab data (resets pagination)
   const fetchCurrentTab = useCallback(async () => {
@@ -375,6 +382,8 @@ function PerpsRewardPageWrapper() {
                     subject={EExportSubject.Perp}
                     timeRange={filterState.timeRange}
                     inviteCode={filterState.inviteCode}
+                    startTime={filterState.startTime}
+                    endTime={filterState.endTime}
                   />
                 </XStack>
               </XStack>
