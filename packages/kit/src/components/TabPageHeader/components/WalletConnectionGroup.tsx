@@ -1,4 +1,4 @@
-import { type ReactNode, memo, useMemo, useState } from 'react';
+import { type ReactNode, memo, useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -19,7 +19,7 @@ import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
-
+import { AllNetworksManagerTrigger } from '../../AccountSelector/AllNetworksManagerTrigger';
 function AccountSelectorTriggerWithSpotlight({
   isFocus,
   linkNetworkId,
@@ -81,7 +81,7 @@ export function WalletConnectionGroup({
 }: IWalletConnectionGroupProps) {
   const { gtMd } = useMedia();
   const {
-    activeAccount: { wallet },
+    activeAccount: { wallet, network },
   } = useActiveAccount({
     num: 0,
   });
@@ -112,6 +112,26 @@ export function WalletConnectionGroup({
   const shouldShowNetworkSelector =
     showNetworkSelector && tabRoute === ETabRoutes.Home && gtMd;
 
+  const renderNetworkSelectorTrigger = useCallback(() => {
+
+    if (!shouldShowNetworkSelector || isNonBackedUpWallet) {
+      return null;
+    }
+
+    if (network?.isAllNetworks) {
+      return <AllNetworksManagerTrigger
+        num={0}
+        unifiedMode
+      />;
+    }
+    return <NetworkSelectorTriggerHome
+      num={0}
+      recordNetworkHistoryEnabled
+      hideOnNoAccount
+      unifiedMode
+    />;
+  }, [network?.isAllNetworks, shouldShowNetworkSelector, isNonBackedUpWallet]);
+
   return (
     <XStack gap="$3" ai="center">
       <MemoizedAccountSelectorTriggerWithSpotlight
@@ -119,14 +139,7 @@ export function WalletConnectionGroup({
         linkNetworkId={linkNetworkId}
         hideAddress={hideAddress}
       />
-      {shouldShowNetworkSelector && !isNonBackedUpWallet ? (
-        <NetworkSelectorTriggerHome
-          num={0}
-          recordNetworkHistoryEnabled
-          hideOnNoAccount
-          unifiedMode
-        />
-      ) : null}
+      {renderNetworkSelectorTrigger()}
       {showAccountInfo && !isNonBackedUpWallet ? (
         <AccountSelectorActiveAccountHome
           num={0}

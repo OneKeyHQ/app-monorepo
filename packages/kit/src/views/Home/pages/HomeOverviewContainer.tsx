@@ -33,7 +33,6 @@ import { calculateAccountTokensValue } from '@onekeyhq/shared/src/utils/tokenUti
 import { EHomeTab } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { AllNetworksManagerTrigger } from '../../../components/AccountSelector/AllNetworksManagerTrigger';
 import NumberSizeableTextWrapper from '../../../components/NumberSizeableTextWrapper';
 import { showResourceDetailsDialog } from '../../../components/Resource';
 import { useDebounce } from '../../../hooks/useDebounce';
@@ -235,10 +234,10 @@ function HomeOverviewContainer() {
               accountId: accountValueId,
               value:
                 accountWorth.worth[
-                  accountUtils.buildAccountValueKey({
-                    accountId: account.id,
-                    networkId: network.id,
-                  })
+                accountUtils.buildAccountValueKey({
+                  accountId: account.id,
+                  networkId: network.id,
+                })
                 ],
               currency: settings.currencyInfo.id,
             },
@@ -369,13 +368,6 @@ function HomeOverviewContainer() {
   return (
     <YStack gap="$2.5" alignItems="flex-start">
       <YStack w="100%" gap="$2">
-        <AllNetworksManagerTrigger
-          num={0}
-          containerProps={{
-            ml: '$1',
-          }}
-          showSkeleton={showSkeleton}
-        />
         {showSkeleton ? (
           <Skeleton.Heading5Xl my="$-0.5" />
         ) : (
@@ -411,12 +403,12 @@ function HomeOverviewContainer() {
                 size={
                   md
                     ? (balanceSizeList.find(
-                        (item) =>
-                          numberFormatAsRenderText(
-                            String(debouncedBalanceString),
-                            numberFormatter,
-                          ).length >= item.length,
-                      )?.size ?? defaultBalanceSize)
+                      (item) =>
+                        numberFormatAsRenderText(
+                          String(debouncedBalanceString),
+                          numberFormatter,
+                        ).length >= item.length,
+                    )?.size ?? defaultBalanceSize)
                     : defaultBalanceSize
                 }
               >

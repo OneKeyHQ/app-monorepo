@@ -8,7 +8,6 @@ import {
   Empty,
   SearchBar,
   SectionList,
-  SizableText,
   Stack,
   Tooltip,
   XStack,
