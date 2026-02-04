@@ -19,6 +19,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import bulkSendUtils from '@onekeyhq/shared/src/utils/bulkSendUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EBulkSendMode } from '@onekeyhq/shared/types/bulkSend';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
@@ -265,7 +266,7 @@ function BaseBulkSendAddressesInput() {
     selectedTokenDetail,
   ]);
 
-  const handleSubmit = useCallback(() => {
+  const handleSubmit = useCallback(async () => {
     if (
       !selectedNetworkId ||
       !selectedAccountId ||
@@ -296,17 +297,16 @@ function BaseBulkSendAddressesInput() {
         bulkSendMode,
       });
     } else {
-      navigation.switchTab(ETabRoutes.Home, {
-        screen: ETabHomeRoutes.TabHomeBulkSendAmountsInput,
-        params: {
-          networkId: selectedNetworkId,
-          accountId: selectedAccountId,
-          senders,
-          receivers,
-          tokenInfo: selectedToken,
-          tokenDetails: selectedTokenDetail,
-          bulkSendMode,
-        },
+      navigation.switchTab(ETabRoutes.Home);
+      await timerUtils.wait(50);
+      navigation.push(ETabHomeRoutes.TabHomeBulkSendAmountsInput, {
+        networkId: selectedNetworkId,
+        accountId: selectedAccountId,
+        senders,
+        receivers,
+        tokenInfo: selectedToken,
+        tokenDetails: selectedTokenDetail,
+        bulkSendMode,
       });
     }
   }, [

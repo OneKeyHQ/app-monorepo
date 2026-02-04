@@ -9,6 +9,7 @@ import {
   ETabHomeRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IToken } from '@onekeyhq/shared/types/token';
 import { useMedia } from '@onekeyhq/components';
 
@@ -44,14 +45,13 @@ export function useNavigateToBulkSend() {
           },
         });
       } else if (media.gtMd) {
-        navigation.switchTab(ETabRoutes.Home, {
-          screen: ETabHomeRoutes.TabHomeBulkSendAddressesInput,
-          params: {
-            networkId,
-            accountId,
-            indexedAccountId,
-            tokenInfo,
-          },
+        navigation.switchTab(ETabRoutes.Home);
+        await timerUtils.wait(50);
+        navigation.push(ETabHomeRoutes.TabHomeBulkSendAddressesInput, {
+          networkId,
+          accountId,
+          indexedAccountId,
+          tokenInfo,
         });
       } else {
         navigation.pushModal(EModalRoutes.BulkSendModal, {

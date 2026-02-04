@@ -164,9 +164,7 @@ function useWebHeaderNavigation({
       }
 
       if (key === 'defi') {
-        navigation.switchTab(ETabRoutes.Earn, {
-          screen: ETabEarnRoutes.EarnHome,
-        });
+        navigation.switchTab(ETabRoutes.Earn);
         return;
       }
 
