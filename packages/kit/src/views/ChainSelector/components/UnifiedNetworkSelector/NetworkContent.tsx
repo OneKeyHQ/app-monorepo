@@ -53,6 +53,7 @@ export function NetworkContent({
       accountNetworkValues,
       accountNetworkValueCurrency,
       accountDeFiOverview,
+      zeroValue,
     },
     run: refreshLocalData,
   } = usePromiseResult(
@@ -87,6 +88,7 @@ export function NetworkContent({
           chainSelectorNetworks: sortedChainSelectorNetworks,
           formattedAccountNetworkValues,
           accountDeFiOverview: _accountDeFiOverview,
+          zeroValue,
         } = await backgroundApiProxy.serviceNetwork.sortChainSelectorNetworksByValue(
           {
             walletId: accountUtils.getWalletIdFromAccountId({
@@ -103,6 +105,7 @@ export function NetworkContent({
           accountNetworkValues: formattedAccountNetworkValues,
           accountNetworkValueCurrency: _accountsValue[0].currency,
           accountDeFiOverview: _accountDeFiOverview,
+          zeroValue
         };
       }
 
@@ -110,6 +113,7 @@ export function NetworkContent({
         chainSelectorNetworks: _chainSelectorNetworks,
         accountNetworkValues: {},
         accountDeFiOverview: {},
+        zeroValue: true,
       };
     },
     [accountId, networkIds, walletId, indexedAccountId, networkId],
@@ -118,6 +122,7 @@ export function NetworkContent({
         chainSelectorNetworks: defaultChainSelectorNetworks,
         accountNetworkValues: {},
         accountDeFiOverview: {},
+        zeroValue: true,
       },
     },
   );
@@ -222,11 +227,13 @@ export function NetworkContent({
 
   return (
     <EditableChainSelectorContent
+      recentNetworksEnabled
       showAllNetworkInRecentNetworks
       walletId={walletId}
       networkId={networkId}
       accountId={accountId}
       indexedAccountId={indexedAccountId}
+      zeroValue={zeroValue}
       mainnetItems={chainSelectorNetworks.mainnetItems}
       testnetItems={chainSelectorNetworks.testnetItems}
       unavailableItems={chainSelectorNetworks.unavailableItems}

@@ -7,6 +7,7 @@ import {
   HeaderIconButton,
   Page,
   SizableText,
+  XStack,
   YStack,
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -419,7 +420,7 @@ function UnifiedNetworkSelector() {
   // Header title renderer
   const renderHeaderTitle = useCallback(() => {
     if (showTabSwitcher) {
-      return <TabSwitcher activeTab={activeTab} onTabChange={setActiveTab} />;
+      return <TabSwitcher activeTab={activeTab} onTabChange={setActiveTab} />
     }
 
     // Show simple title for network-only mode

@@ -17,8 +17,11 @@ import {
   Page,
   SearchBar,
   SectionList,
+  SizableText,
   SortableSectionList,
   Stack,
+  Tooltip,
+  YStack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -32,7 +35,7 @@ import RecentNetworks from '../RecentNetworks';
 
 import { EditableChainSelectorContext } from './context';
 import { EditableListItem } from './EditableListItem';
-import { ALL_NETWORK_HEADER_HEIGHT, CELL_HEIGHT } from './type';
+import { ALL_NETWORK_HEADER_HEIGHT, CELL_HEIGHT, ZERO_VALUE_TOOLTIP_HEIGHT } from './type';
 
 import type {
   IEditableChainSelectorContext,
@@ -52,17 +55,42 @@ const ListEmptyComponent = () => {
 };
 
 const ListHeaderComponent = () => {
-  const { allNetworkItem, searchText } = useContext(
+  const { allNetworkItem, searchText, zeroValue } = useContext(
     EditableChainSelectorContext,
   );
 
-  return (
-    <Stack>
-      {!allNetworkItem || searchText?.trim() ? null : (
-        <EditableListItem item={allNetworkItem} isEditable={false} />
-      )}
-    </Stack>
-  );
+  if (searchText?.trim()) {
+    return null;
+  }
+
+  if (zeroValue && !allNetworkItem) {
+    return null;
+  }
+
+
+  return <YStack>
+    {
+      zeroValue ? null : <Tooltip
+        renderContent="部分非热门网络可能未列入自动检测网络中，确认后回到钱包页面将会进行进一步查询。"
+        renderTrigger={
+          <Stack px="$5" py="$3">
+            <SizableText
+              size="$bodyMdMedium"
+              textDecorationLine="underline"
+              textDecorationColor="$textSubdued"
+              textDecorationStyle="dotted"
+            >
+              Found assets on these networks
+            </SizableText>
+          </Stack>
+        }
+      />
+    }
+    {!allNetworkItem ? null : (
+      <EditableListItem item={allNetworkItem} isEditable={false} />
+    )}
+  </YStack>
+
 };
 
 type IEditableChainSelectorContentProps = {
@@ -91,6 +119,7 @@ type IEditableChainSelectorContentProps = {
     }
   >;
   showAllNetworkInRecentNetworks?: boolean;
+  zeroValue?: boolean;
 };
 
 export const EditableChainSelectorContent = ({
@@ -112,6 +141,7 @@ export const EditableChainSelectorContent = ({
   onFrequentlyUsedItemsChange,
   accountDeFiOverview,
   showAllNetworkInRecentNetworks,
+  zeroValue,
 }: IEditableChainSelectorContentProps) => {
   const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
@@ -126,6 +156,9 @@ export const EditableChainSelectorContent = ({
     () => (allNetworkItem && !searchText?.trim?.()) ?? true,
     [allNetworkItem, searchText],
   );
+
+  const showNonZeroValueTooltip = useMemo(() => (!zeroValue && !searchText?.trim?.()) ?? true,
+    [zeroValue, searchText]);
 
   const [recentNetworksHeight, setRecentNetworksHeight] = useState(0);
 
@@ -160,10 +193,10 @@ export const EditableChainSelectorContent = ({
       return data.length === 0
         ? []
         : [
-            {
-              data,
-            },
-          ];
+          {
+            data,
+          },
+        ];
     }
 
     const tempFrequentlyUsedItemsSet = new Set(
@@ -190,7 +223,9 @@ export const EditableChainSelectorContent = ({
       .toSorted((a, b) => a.title.charCodeAt(0) - b.title.charCodeAt(0));
 
     const _sections: IEditableChainSelectorSection[] = [
-      { data: tempFrequentlyUsedItems, draggable: true },
+      {
+        data: tempFrequentlyUsedItems, draggable: true,
+      },
       ...mainnetSections,
     ];
 
@@ -225,9 +260,10 @@ export const EditableChainSelectorContent = ({
   const listHeaderHeight = useMemo(() => {
     return (
       recentNetworksHeight +
-      (showAllNetworkHeader ? ALL_NETWORK_HEADER_HEIGHT : 0)
+      (showAllNetworkHeader ? ALL_NETWORK_HEADER_HEIGHT : 0) +
+      (showNonZeroValueTooltip ? ZERO_VALUE_TOOLTIP_HEIGHT : 0)
     );
-  }, [showAllNetworkHeader, recentNetworksHeight]);
+  }, [showAllNetworkHeader, recentNetworksHeight, showNonZeroValueTooltip]);
 
   const dragItemOverflowHitSlop = useMemo(() => {
     const dragCount = tempFrequentlyUsedItems.length;
@@ -326,8 +362,8 @@ export const EditableChainSelectorContent = ({
       sections
         .slice(0, _initialScrollIndex.sectionIndex)
         .reduce((prev, section) => prev + section.data.length, 0) +
-        (_initialScrollIndex?.itemIndex ?? 0) <=
-        7
+      (_initialScrollIndex?.itemIndex ?? 0) <=
+      7
     ) {
       return { sectionIndex: 0, itemIndex: undefined };
     }
@@ -359,6 +395,7 @@ export const EditableChainSelectorContent = ({
       accountNetworkValues,
       accountNetworkValueCurrency,
       accountDeFiOverview,
+      zeroValue,
     }),
     [
       walletId,
@@ -375,6 +412,7 @@ export const EditableChainSelectorContent = ({
       onFrequentlyUsedItemsChange,
       onEditCustomNetwork,
       accountDeFiOverview,
+      zeroValue,
     ],
   );
   const renderItem = useCallback(
@@ -512,7 +550,7 @@ export const EditableChainSelectorContent = ({
                 if (index === -1) {
                   return {
                     index,
-                    offset: showAllNetworkHeader ? listHeaderHeight : 0,
+                    offset: (showAllNetworkHeader || showNonZeroValueTooltip) ? listHeaderHeight : 0,
                     length: 0,
                   };
                 }
