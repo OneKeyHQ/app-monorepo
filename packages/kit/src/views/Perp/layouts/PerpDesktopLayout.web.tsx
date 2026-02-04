@@ -213,7 +213,13 @@ function PerpDesktopLayout() {
         <FavoritesBar />
       </YStack>
 
-      <Stack ref={containerRef} flex={1} display="flex">
+      <Stack
+        ref={containerRef}
+        flex={1}
+        display="flex"
+        borderTopWidth="$px"
+        borderTopColor="$borderSubdued"
+      >
         <Allotment
           ref={mainAllotmentRef}
           defaultSizes={mainSizes}
