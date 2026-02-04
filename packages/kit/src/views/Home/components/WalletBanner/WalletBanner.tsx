@@ -456,10 +456,20 @@ function WebBannerScroller({
       {gtMd && showLeftArrow ? (
         <Stack
           position="absolute"
-          left="$2"
-          top="50%"
-          y={-16}
+          left={0}
+          top={0}
+          bottom={0}
           zIndex={1}
+          justifyContent="center"
+          px="$2"
+          bg="rgba(255,255,255,0.72)"
+          $theme-dark={{ bg: 'rgba(0,0,0,0.72)' }}
+          $platform-web={{
+            style: {
+              backdropFilter: 'blur(12px)',
+              WebkitBackdropFilter: 'blur(12px)',
+            },
+          }}
         >
           <IconButton
             size="small"
@@ -475,10 +485,20 @@ function WebBannerScroller({
       {gtMd && showRightArrow ? (
         <Stack
           position="absolute"
-          right="$2"
-          top="50%"
-          y={-16}
+          right={0}
+          top={0}
+          bottom={0}
           zIndex={1}
+          justifyContent="center"
+          px="$2"
+          bg="rgba(255,255,255,0.72)"
+          $theme-dark={{ bg: 'rgba(0,0,0,0.72)' }}
+          $platform-web={{
+            style: {
+              backdropFilter: 'blur(12px)',
+              WebkitBackdropFilter: 'blur(12px)',
+            },
+          }}
         >
           <IconButton
             size="small"
