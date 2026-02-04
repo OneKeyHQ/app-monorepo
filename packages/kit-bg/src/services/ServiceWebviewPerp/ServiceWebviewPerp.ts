@@ -186,6 +186,12 @@ export interface IPerpServerCommonConfig {
   ipDisablePerp?: boolean;
 }
 
+export interface IPerpDynamicTab {
+  tabId: string;
+  name: string;
+  tokens: string[];
+}
+
 // Re-export types from perpsUtils for backward compatibility
 export type { ITokenSearchAliasItem, ITokenSearchAliases };
 
@@ -205,6 +211,7 @@ export interface IPerpServerConfigResponse {
   depositTokenConfig?: IPerpServerDepositConfig[];
   hyperLiquidErrorLocales?: IHyperLiquidErrorLocaleItem[];
   tokenSearchAliases?: ITokenSearchAliases;
+  tokenSelectorTabs?: IPerpDynamicTab[];
 }
 @backgroundClass()
 class ServiceWebviewPerp extends ServiceBase {
