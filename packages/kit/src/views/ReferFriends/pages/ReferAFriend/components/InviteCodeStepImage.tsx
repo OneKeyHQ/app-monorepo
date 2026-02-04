@@ -30,7 +30,7 @@ export function InviteCodeStepImage({ step }: IInviteCodeStepImageProps) {
   const isDesktop = gtSm || platformEnv.isExtensionUiPopup;
   const lottieSource =
     LOTTIE_MAP[step][themeVariant === 'dark' ? 'dark' : 'light'];
-  const width = isDesktop ? DESKTOP_WIDTH : screenWidth;
+  const width = gtSm ? DESKTOP_WIDTH : screenWidth;
   const height = isDesktop ? width * DESKTOP_ASPECT_RATIO : screenWidth;
   const shouldLoop = step === 2;
 
