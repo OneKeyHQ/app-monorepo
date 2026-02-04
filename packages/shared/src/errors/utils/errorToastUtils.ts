@@ -83,10 +83,6 @@ function showToastOfError(error: IOneKeyError | unknown | undefined) {
   if (err?.code === HardwareErrorCode.DefectiveFirmware) {
     return;
   }
-  // Ignore NewFirmwareForceUpdate errors - firmware update modal will be shown instead
-  if (err?.code === HardwareErrorCode.NewFirmwareForceUpdate) {
-    return;
-  }
   let shouldMuteToast = false;
   if (
     err?.className === EOneKeyErrorClassNames.OneKeyServerApiError &&

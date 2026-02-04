@@ -684,8 +684,6 @@ export class NewFirmwareForceUpdate extends OneKeyHardwareError {
       normalizeErrorProps(props, {
         defaultMessage: 'NewFirmwareForceUpdate',
         defaultKey: ETranslations.hardware_need_force_upgrade_firmware,
-        // Disable auto toast because the firmware update modal will be shown
-        defaultAutoToast: false,
       }),
     );
   }
