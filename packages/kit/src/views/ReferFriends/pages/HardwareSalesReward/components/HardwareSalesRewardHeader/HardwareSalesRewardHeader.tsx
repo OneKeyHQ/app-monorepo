@@ -3,12 +3,15 @@ import { useMemo } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { XStack, YStack, useMedia } from '@onekeyhq/components';
+import { useMedia } from '@onekeyhq/components';
 import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IHardwareCumulativeRewards } from '@onekeyhq/shared/src/referralCode/type';
 
-import { StatCard } from './StatCard';
+import {
+  RewardHeaderLayout,
+  StatCard,
+} from '@onekeyhq/kit/src/views/ReferFriends/components';
 
 interface IHardwareSalesRewardHeaderProps {
   cumulativeRewards: IHardwareCumulativeRewards;
@@ -49,81 +52,60 @@ export function HardwareSalesRewardHeader({
     }).format(date);
   }, [cumulativeRewards, locale]);
 
-  const renderSecondaryCards = (isWide: boolean) => (
-    <>
-      <StatCard
-        icon="ClockTimeHistoryOutline"
-        iconBgColor="$bgStrong"
-        iconColor="$icon"
-        title={intl.formatMessage({
-          id: ETranslations.referral_undistributed,
-        })}
-        amount={undistributed}
-        subtitle={intl.formatMessage(
-          { id: ETranslations.referral_expected_by_date },
-          {
-            date: formattedNextDistributionDate,
-          },
-        )}
-        isWide={isWide}
-      />
-      <StatCard
-        icon="HourglassOutline"
-        iconBgColor="$bgStrong"
-        iconColor="$icon"
-        title={intl.formatMessage({
-          id: ETranslations.referral_pending,
-        })}
-        amount={pending}
-        prefix={isPendingZero ? undefined : '~'}
-        subtitle={intl.formatMessage({
-          id: ETranslations.referral_days_to_confirm,
-        })}
-        isWide={isWide}
-      />
-    </>
-  );
-
-  // Wide screen layout: 3 cards in a row
-  if (isWideScreen) {
-    return (
-      <XStack gap="$3" pb="$8" px="$5">
+  return (
+    <RewardHeaderLayout
+      primaryCard={
         <StatCard
           icon="CoinOutline"
           iconBgColor="$bgSuccess"
           iconColor="$iconSuccess"
           title={intl.formatMessage({
-            id: ETranslations.referral_total_reward,
+            id: isWideScreen
+              ? ETranslations.referral_total_reward
+              : ETranslations.earn_referral_total_earned,
           })}
-          amount={totalEarned}
+          value={totalEarned}
           showRefreshButton
           isLoading={isLoading}
           onRefresh={onRefresh}
-          isWide
+          isWide={isWideScreen}
+          fullWidth={!isWideScreen}
         />
-        {renderSecondaryCards(true)}
-      </XStack>
-    );
-  }
-
-  // Narrow screen layout: 1 card on top, 2 cards below
-  return (
-    <YStack gap="$3" pb="$8" px="$5">
-      <StatCard
-        icon="CoinOutline"
-        iconBgColor="$bgSuccess"
-        iconColor="$iconSuccess"
-        title={intl.formatMessage({
-          id: ETranslations.earn_referral_total_earned,
-        })}
-        amount={totalEarned}
-        showRefreshButton
-        isLoading={isLoading}
-        onRefresh={onRefresh}
-        isWide={false}
-        fullWidth
-      />
-      <XStack gap="$3">{renderSecondaryCards(false)}</XStack>
-    </YStack>
+      }
+      secondaryCards={
+        <>
+          <StatCard
+            icon="ClockTimeHistoryOutline"
+            iconBgColor="$bgStrong"
+            iconColor="$icon"
+            title={intl.formatMessage({
+              id: ETranslations.referral_undistributed,
+            })}
+            value={undistributed}
+            subtitle={intl.formatMessage(
+              { id: ETranslations.referral_expected_by_date },
+              {
+                date: formattedNextDistributionDate,
+              },
+            )}
+            isWide={isWideScreen}
+          />
+          <StatCard
+            icon="HourglassOutline"
+            iconBgColor="$bgStrong"
+            iconColor="$icon"
+            title={intl.formatMessage({
+              id: ETranslations.referral_pending,
+            })}
+            value={pending}
+            prefix={isPendingZero ? undefined : '~'}
+            subtitle={intl.formatMessage({
+              id: ETranslations.referral_days_to_confirm,
+            })}
+            isWide={isWideScreen}
+          />
+        </>
+      }
+    />
   );
 }
