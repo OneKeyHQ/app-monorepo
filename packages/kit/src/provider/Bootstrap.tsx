@@ -308,7 +308,7 @@ const useDesktopEvents = platformEnv.isDesktop
           case EShortcutEvents.NewTab2:
             if (platformEnv.isDesktop) {
               navigation.switchTab(ETabRoutes.MultiTabBrowser);
-              timerUtils.wait(50).then(() => {
+              void timerUtils.wait(50).then(() => {
                 appEventBus.emit(
                   EAppEventBusNames.CreateNewBrowserTab,
                   undefined,
