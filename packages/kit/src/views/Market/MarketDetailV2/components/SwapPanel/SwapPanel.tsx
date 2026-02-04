@@ -124,10 +124,11 @@ export function SwapPanel({
     );
   }
 
+  if (disableTrade) {
+    return null;
+  }
+
   if (platformEnv.isNative) {
-    if (disableTrade) {
-      return null;
-    }
     return (
       <YStack>
         <Divider />
