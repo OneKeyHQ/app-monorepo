@@ -43,6 +43,7 @@ import { runAfterTokensDone } from '../../../hooks/useRunAfterTokensDone';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { whenAppUnlocked } from '../../../utils/passwordUtils';
 import { handleSwapNavigation } from '../../../views/Swap/hooks/useSwapNavigation';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 const InAppNotification = () => {
   const [
@@ -466,8 +467,9 @@ const InAppNotification = () => {
               <Button
                 variant="primary"
                 size="small"
-                onPress={() => {
+                onPress={async () => {
                   navigation.switchTab(ETabRoutes.Earn);
+                  await timerUtils.wait(50)
                   appEventBus.emit(EAppEventBusNames.SwitchEarnMode, {
                     mode: isBorrowTransaction ? 'borrow' : 'earn',
                   });
