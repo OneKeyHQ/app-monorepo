@@ -22,6 +22,9 @@ export const useTakeScreenshot = (id?: string | null) => {
     // can complete before the synchronous GPU snapshot blocks it
     await timerUtils.setTimeoutPromised(undefined, 100);
     try {
+      // TODO: replace captureRef with WKWebView.takeSnapshot to avoid blocking the main thread.
+      // captureRef calls drawViewHierarchyInRect:afterScreenUpdates: synchronously on the main thread,
+      // while WKWebView.takeSnapshot renders asynchronously on the GPU side.
       const imageUri = await captureRef(captureViewRefs[id ?? ''], {
         format: 'jpg',
         quality: 0.2,
