@@ -32,6 +32,9 @@ type IPortfolioContentProps = {
     mainNetworks: IServerNetworkMatch[];
     frequentlyUsedNetworks: IServerNetworkMatch[];
   };
+  accountNetworkValues: Record<string, string>;
+  accountNetworkValueCurrency?: string;
+  accountDeFiOverview: Record<string, { netWorth: number }>;
 };
 
 function PortfolioContent({
@@ -48,6 +51,9 @@ function PortfolioContent({
   isCreatingMissingAddresses,
   setIsCreatingMissingAddresses,
   networks,
+  accountNetworkValues,
+  accountNetworkValueCurrency,
+  accountDeFiOverview,
 }: IPortfolioContentProps) {
   const contextValue = useMemo(
     () => ({
@@ -64,6 +70,9 @@ function PortfolioContent({
       setIsCreatingEnabledAddresses,
       isCreatingMissingAddresses,
       setIsCreatingMissingAddresses,
+      accountNetworkValues,
+      accountNetworkValueCurrency,
+      accountDeFiOverview,
     }),
     [
       walletId,
@@ -79,6 +88,9 @@ function PortfolioContent({
       setIsCreatingEnabledAddresses,
       isCreatingMissingAddresses,
       setIsCreatingMissingAddresses,
+      accountNetworkValues,
+      accountNetworkValueCurrency,
+      accountDeFiOverview,
     ],
   );
 

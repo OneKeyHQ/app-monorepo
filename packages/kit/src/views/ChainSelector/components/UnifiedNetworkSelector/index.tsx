@@ -145,6 +145,16 @@ function UnifiedNetworkSelector() {
 
   const [searchKey, setSearchKey] = useState('');
 
+  // Network values for portfolio tab
+  const [accountNetworkValues, setAccountNetworkValues] = useState<
+    Record<string, string>
+  >({});
+  const [accountNetworkValueCurrency, setAccountNetworkValueCurrency] =
+    useState<string | undefined>(undefined);
+  const [accountDeFiOverview, setAccountDeFiOverview] = useState<
+    Record<string, { netWorth: number }>
+  >({});
+
   const [enabledNetworksWithoutAccount, setEnabledNetworksWithoutAccount] =
     useState<
       {
@@ -195,7 +205,45 @@ function UnifiedNetworkSelector() {
       mainNetworks: compatibleNetworks.mainnetItems,
       frequentlyUsedNetworks: compatibleNetworks.frequentlyUsedItems,
     });
-  }, [accountId, walletId]);
+
+    // Fetch network values for portfolio tab
+    const [_accountsValue, _localDeFiOverview] = await Promise.all([
+      backgroundApiProxy.serviceAccountProfile.getAllNetworkAccountsValue({
+        accounts: [{ accountId: indexedAccountId ?? accountId ?? '' }],
+      }),
+      backgroundApiProxy.serviceDeFi.getAccountsLocalDeFiOverview({
+        accounts: [
+          {
+            accountId: indexedAccountId ?? accountId ?? '',
+            accountAddress: undefined,
+            networkId: networkId ?? '',
+            indexedAccountId,
+          },
+        ],
+      }),
+    ]);
+
+    if (_accountsValue[0] || _localDeFiOverview[0]) {
+      const {
+        formattedAccountNetworkValues,
+        accountDeFiOverview: _accountDeFiOverview,
+      } =
+        await backgroundApiProxy.serviceNetwork.sortChainSelectorNetworksByValue(
+          {
+            walletId: accountUtils.getWalletIdFromAccountId({
+              accountId: _accountsValue[0]?.accountId ?? '',
+            }),
+            chainSelectorNetworks: compatibleNetworks,
+            accountNetworkValues: _accountsValue[0]?.value ?? {},
+            localDeFiOverview: _localDeFiOverview[0]?.overview ?? {},
+          },
+        );
+
+      setAccountNetworkValues(formattedAccountNetworkValues ?? {});
+      setAccountNetworkValueCurrency(_accountsValue[0]?.currency);
+      setAccountDeFiOverview(_accountDeFiOverview ?? {});
+    }
+  }, [accountId, walletId, indexedAccountId, networkId]);
 
   // Network tab callbacks
   const handleNetworkPressItem = useCallback(
@@ -335,6 +383,19 @@ function UnifiedNetworkSelector() {
 
     appEventBus.emit(EAppEventBusNames.EnabledNetworksChanged, undefined);
 
+    // Switch to All Networks if not already on it
+    if (!networkUtils.isAllNetwork({ networkId })) {
+      // Record All Networks as the recent network
+      void backgroundApiProxy.serviceNetwork.updateRecentNetwork({
+        networkId: getNetworkIdsMap().onekeyall,
+      });
+
+      void actions.current.updateSelectedAccountNetwork({
+        num,
+        networkId: getNetworkIdsMap().onekeyall,
+      });
+    }
+
     navigation.pop();
 
     void onNetworksChanged?.();
@@ -342,12 +403,15 @@ function UnifiedNetworkSelector() {
     setIsCreatingEnabledAddresses(false);
   }, [
     accountId,
+    actions,
     createAddress,
     enabledNetworks,
     indexedAccountId,
     navigation,
+    networkId,
     networksState.disabledNetworks,
     networksState.enabledNetworks,
+    num,
     onNetworksChanged,
     walletId,
   ]);
@@ -469,6 +533,9 @@ function UnifiedNetworkSelector() {
             isCreatingMissingAddresses={isCreatingMissingAddresses}
             setIsCreatingMissingAddresses={setIsCreatingMissingAddresses}
             networks={networks}
+            accountNetworkValues={accountNetworkValues}
+            accountNetworkValueCurrency={accountNetworkValueCurrency}
+            accountDeFiOverview={accountDeFiOverview}
           />
         ) : (
           <NetworkContent
