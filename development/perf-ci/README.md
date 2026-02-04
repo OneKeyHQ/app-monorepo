@@ -131,6 +131,12 @@ Desktop:
 yarn perf:desktop:release
 ```
 
+Extension (MV3):
+
+```bash
+yarn perf:ext:release
+```
+
 You can also run scripts directly:
 
 ```bash
@@ -262,6 +268,7 @@ Files:
 - Android Release: `development/perf-ci/thresholds/android.release.json`
 - Web Release: `development/perf-ci/thresholds/web.release.json`
 - Desktop Release: `development/perf-ci/thresholds/desktop.release.json`
+- Ext Release: `development/perf-ci/thresholds/ext.release.json`
 
 If a threshold value is `null`, that metric is not used for regression judgement (but still reported).
 
