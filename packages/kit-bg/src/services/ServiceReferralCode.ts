@@ -22,7 +22,11 @@ import type {
   IInvitePaidHistory,
   IInvitePostConfig,
   IInviteSummary,
+  IPerpsCumulativeRewardsParams,
+  IPerpsCumulativeRewardsResponse,
   IPerpsInviteeRewardsResponse,
+  IPerpsInvitesParams,
+  IPerpsInvitesResponse,
   IPerpsRecordsResponse,
   IRedemptionCodeRedeemParams,
   IRedemptionCodeRedeemResponse,
@@ -270,6 +274,35 @@ class ServiceReferralCode extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getPerpsCumulativeRewards(
+    params: IPerpsCumulativeRewardsParams,
+  ): Promise<IPerpsCumulativeRewardsResponse> {
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
+    const queryParams: {
+      timeRange?: string;
+      startTime?: number;
+      endTime?: number;
+      inviteCode?: string;
+    } = {};
+    if (params.timeRange) {
+      queryParams.timeRange = params.timeRange;
+    }
+    if (params.startTime) {
+      queryParams.startTime = params.startTime;
+    }
+    if (params.endTime) {
+      queryParams.endTime = params.endTime;
+    }
+    if (params.inviteCode) {
+      queryParams.inviteCode = params.inviteCode;
+    }
+    const response = await client.get<{
+      data: IPerpsCumulativeRewardsResponse;
+    }>('/rebate/v1/invite/perps-cumulative-rewards', { params: queryParams });
+    return response.data.data;
+  }
+
+  @backgroundMethod()
   async getPositions(
     accounts: { networkId: string; accountAddress: string }[],
   ) {
@@ -348,6 +381,53 @@ class ServiceReferralCode extends ServiceBase {
     const response = await client.get<{ data: IPerpsInviteeRewardsResponse }>(
       '/rebate/v1/invite/perps-invitee-rewards',
       { params },
+    );
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async getPerpsInvites(
+    params: IPerpsInvitesParams,
+  ): Promise<IPerpsInvitesResponse> {
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
+    const queryParams: {
+      tab: string;
+      timeRange: string;
+      startTime?: number;
+      endTime?: number;
+      inviteCode?: string;
+      hideZeroVolume?: boolean;
+      sortBy?: string;
+      sortOrder?: string;
+      cursor?: string;
+    } = {
+      tab: params.tab,
+      timeRange: params.timeRange,
+    };
+    if (params.startTime) {
+      queryParams.startTime = params.startTime;
+    }
+    if (params.endTime) {
+      queryParams.endTime = params.endTime;
+    }
+    if (params.inviteCode) {
+      queryParams.inviteCode = params.inviteCode;
+    }
+    if (params.hideZeroVolume !== undefined) {
+      queryParams.hideZeroVolume = params.hideZeroVolume;
+    }
+    if (params.sortBy) {
+      queryParams.sortBy = params.sortBy;
+    }
+    if (params.sortOrder) {
+      queryParams.sortOrder = params.sortOrder;
+    }
+    if (params.cursor) {
+      queryParams.cursor = params.cursor;
+    }
+    const response = await client.get<{ data: IPerpsInvitesResponse }>(
+      '/rebate/v1/invite/perps-invites',
+      { params: queryParams },
     );
     return response.data.data;
   }
