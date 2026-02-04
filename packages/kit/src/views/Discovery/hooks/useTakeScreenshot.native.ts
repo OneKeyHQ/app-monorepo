@@ -37,7 +37,7 @@ export const useTakeScreenshot = (id?: string | null) => {
         },
       ]);
       const path = getScreenshotPath(`${id}-${Date.now()}.jpg`);
-      actionsRef.current.setWebTabData({
+      actionsRef.current?.setWebTabData({
         id,
         thumbnail: path,
       });
