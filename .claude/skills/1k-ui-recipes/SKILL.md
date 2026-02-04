@@ -1,6 +1,6 @@
 ---
 name: 1k-ui-recipes
-description: Practical UI recipes for OneKey. Use when dealing with iOS tab bar scroll content overlap, scroll view padding, fade-in/fade-out transitions with startViewTransition, smooth state transition animations, or horizontal scroll gesture conflicts inside collapsible tab headers. Triggers on tab bar, scroll overlap, paddingBottom, tabBarHeight, useScrollContentTabBarOffset, startViewTransition, useTransition, fade, transition, smooth switch, iOS scroll, bottom padding, content hidden, tab bar offset, collapsible tab, horizontal scroll, gesture conflict, renderHeader, scrollview in header, react-native-collapsible-tab-view, banner scroll, GestureDetector, pan gesture, vertical scroll blocked.
+description: UI recipes for scroll offset (useScrollContentTabBarOffset), view transitions (startViewTransition), and horizontal scroll in collapsible tab headers (CollapsibleTabContext).
 allowed-tools: Read, Grep, Glob
 ---
 
