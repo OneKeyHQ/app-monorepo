@@ -62,6 +62,7 @@ import { useOnLock } from '../hooks/useOnLock';
 import { useRunAfterTokensDone } from '../hooks/useRunAfterTokensDone';
 
 import type { IntlShape } from 'react-intl';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 const useOnLockCallback = platformEnv.isDesktop
   ? useOnLock
@@ -307,6 +308,12 @@ const useDesktopEvents = platformEnv.isDesktop
           case EShortcutEvents.NewTab2:
             if (platformEnv.isDesktop) {
               navigation.switchTab(ETabRoutes.MultiTabBrowser);
+              timerUtils.wait(50).then(() => {
+                appEventBus.emit(
+                  EAppEventBusNames.CreateNewBrowserTab,
+                  undefined,
+                );
+              });
             } else {
               navigation.pushModal(EModalRoutes.DiscoveryModal, {
                 screen: EDiscoveryModalRoutes.SearchModal,

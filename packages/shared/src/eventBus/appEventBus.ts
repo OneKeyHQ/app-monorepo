@@ -454,6 +454,7 @@ export interface IAppEventBusPayload {
     action: string;
     data?: Record<string, unknown>;
   };
+  [EAppEventBusNames.CreateNewBrowserTab]: undefined;
 }
 
 export enum EEventBusBroadcastMethodNames {

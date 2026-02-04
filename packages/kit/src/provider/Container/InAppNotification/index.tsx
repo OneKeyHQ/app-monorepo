@@ -20,12 +20,10 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EModalRoutes,
   EModalSwapRoutes,
-  ETabEarnRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
 import notificationsUtils from '@onekeyhq/shared/src/utils/notificationsUtils';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
   ENotificationPushTopicTypes,

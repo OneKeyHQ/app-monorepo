@@ -3,7 +3,5 @@ export enum EMultiTabBrowserRoutes {
 }
 
 export type IMultiTabBrowserParamList = {
-  [EMultiTabBrowserRoutes.MultiTabBrowser]: {
-    action?: 'create_new_tab';
-  };
+  [EMultiTabBrowserRoutes.MultiTabBrowser]: undefined;
 };
