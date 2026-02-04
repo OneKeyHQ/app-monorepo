@@ -18,7 +18,7 @@ export function PerpsReward({ perpsCumulativeRewards }: IPerpsRewardProps) {
     new BigNumber(perpsCumulativeRewards.undistributedReward).isGreaterThan(0);
 
   const handlePress = () => {
-    navigateToPerpsReward();
+    void navigateToPerpsReward();
   };
 
   return (
