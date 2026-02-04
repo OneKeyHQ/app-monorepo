@@ -2,16 +2,13 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { SizableText, XStack, YStack } from '@onekeyhq/components';
-import { useNavigateToEarnReward } from '@onekeyhq/kit/src/views/ReferFriends/pages/EarnReward/hooks/useNavigateToEarnReward';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { useNavigateToEarnReward } from '../../../EarnReward/hooks/useNavigateToEarnReward';
 import { Card } from '../RewardCard';
 import { NoRewardYet } from '../shared/NoRewardYet';
 
 import { useOnChainReward } from './hooks/useOnChainReward';
-import { usePerpReward } from './hooks/usePerpReward';
-import { RewardDetailTooltip } from './RewardDetailTooltip';
 
 import type { IOnChainRewardProps } from './types';
 
@@ -22,10 +19,8 @@ export function OnChainReward({ onChain }: IOnChainRewardProps) {
   const { earnToken, onChainSummary, hasEarnRewards } = useOnChainReward({
     onChain,
   });
-  const { perpToken, perpSummary, hasPerpRewards } = usePerpReward({ onChain });
   const navigateToEarnReward = useNavigateToEarnReward();
   const intl = useIntl();
-  const showRewards = hasEarnRewards || hasPerpRewards;
   const toEarnRewardPage = useCallback(() => {
     navigateToEarnReward(onChain.title || '');
   }, [navigateToEarnReward, onChain.title]);
@@ -33,50 +28,27 @@ export function OnChainReward({ onChain }: IOnChainRewardProps) {
   return (
     <Card.Container flex={1}>
       <Card.Title
-        icon="AtomOutline"
-        title={onChain.title}
+        icon="CoinsOutline"
+        title="DeFi"
         description={intl.formatMessage({
           id: ETranslations.referral_onchain_desc,
         })}
         showChevron
         onPress={toEarnRewardPage}
       />
-      {showRewards ? (
-        <YStack gap="$3">
-          {hasEarnRewards ? (
-            <XStack gap="$2" ai="center" jc="space-between">
-              <XStack gap="$2" ai="center">
-                <SizableText size="$bodyMd" color="$textSubdued">
-                  DeFi
-                </SizableText>
-                <RewardDetailTooltip
-                  rewards={onChain.available}
-                  iconSize="$5"
-                />
-              </XStack>
-              <Card.TokenValue
-                tokenImageUri={earnToken?.logoURI || DEFAULT_EARN_IMAGE_URL}
-                amount={onChainSummary || 0}
-                symbol={earnToken?.symbol || 'USDC'}
-              />
-            </XStack>
-          ) : null}
-
-          {hasPerpRewards ? (
-            <XStack gap="$2" ai="center" jc="space-between">
-              <XStack gap="$2" ai="center">
-                <SizableText size="$bodyMd" color="$textSubdued">
-                  {intl.formatMessage({ id: ETranslations.global_perp })}
-                </SizableText>
-              </XStack>
-              <Card.TokenValue
-                tokenImageUri={perpToken?.logoURI || DEFAULT_EARN_IMAGE_URL}
-                amount={perpSummary || 0}
-                symbol={perpToken?.symbol || 'USDC'}
-              />
-            </XStack>
-          ) : null}
-        </YStack>
+      {hasEarnRewards ? (
+        <Card.Item
+          label={intl.formatMessage({
+            id: ETranslations.referral_undistributed,
+          })}
+          value={
+            <Card.TokenValue
+              tokenImageUri={earnToken?.logoURI || DEFAULT_EARN_IMAGE_URL}
+              amount={onChainSummary || 0}
+              symbol={earnToken?.symbol || 'USDC'}
+            />
+          }
+        />
       ) : (
         <NoRewardYet />
       )}

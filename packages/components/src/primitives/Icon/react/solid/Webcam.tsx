@@ -1,11 +1,17 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgWebcam = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M12 8a2 2 0 1 0 0 4 2 2 0 0 0 0-4" />
     <Path
-      fill="currentColor"
-      stroke="currentColor"
-      d="M11.5 17.938v-.441l-.438-.055A7.501 7.501 0 0 1 12 2.5a7.5 7.5 0 0 1 .938 14.942l-.438.055V20.5H17a.5.5 0 0 1 0 1H7a.5.5 0 0 1 0-1h4.5zM10.5 10a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0ZM12 5.5a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9Z"
+      fillRule="evenodd"
+      d="M12 2a8 8 0 0 0-1 15.938V20H7a1 1 0 1 0 0 2h10a1 1 0 1 0 0-2h-4v-2.062A8.001 8.001 0 0 0 12 2m-4 8a4 4 0 1 1 8 0 4 4 0 0 1-8 0"
+      clipRule="evenodd"
     />
   </Svg>
 );

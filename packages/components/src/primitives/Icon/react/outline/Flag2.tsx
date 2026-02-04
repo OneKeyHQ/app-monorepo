@@ -1,14 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgFlag2 = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M5 15V4.62c0-.38.214-.726.566-.868C6.303 3.456 7.656 3 9 3c1.991 0 4.009 2 6 2 .888 0 1.78-.199 2.495-.42.71-.218 1.505.292 1.505 1.035v8.766a.92.92 0 0 1-.566.867c-.737.296-2.09.752-3.434.752-1.991 0-4.009-2-6-2s-4 1-4 1m0 0v6"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M18 5.477a.2.2 0 0 0-.045-.042.32.32 0 0 0-.242-.045c-2.39.561-4.572-.17-6.412-.683-1.89-.528-3.517-.874-5.301-.19v8.897c2.232-.617 4.246-.083 6.02.417 2.188.616 3.972 1.15 5.98.38V5.476Zm2 8.769c0 .74-.421 1.493-1.198 1.801-2.765 1.097-5.24.297-7.325-.29-1.954-.551-3.632-.947-5.477-.238v5.346a1 1 0 0 1-2 0V4.484c0-.741.421-1.495 1.198-1.803l.232-.088c2.388-.862 4.537-.336 6.408.187 2.002.56 3.633 1.082 5.418.663a2.32 2.32 0 0 1 1.815.333c.518.349.929.947.929 1.703z" />
   </Svg>
 );
 export default SvgFlag2;

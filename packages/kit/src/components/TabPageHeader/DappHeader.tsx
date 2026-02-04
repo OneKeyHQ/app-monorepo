@@ -19,7 +19,10 @@ import {
 } from '@onekeyhq/components';
 import { useCurrencySections } from '@onekeyhq/kit/src/hooks/useCurrencySections';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { DOWNLOAD_URL } from '@onekeyhq/shared/src/config/appConfig';
+import {
+  DOWNLOAD_MOBILE_APP_URL,
+  DOWNLOAD_URL,
+} from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EModalReceiveRoutes,
@@ -41,7 +44,6 @@ import { AccountSelectorProviderMirror } from '../AccountSelector';
 import { ListItem } from '../ListItem';
 
 import {
-  DownloadButton,
   HeaderNotificationIconButton,
   LanguageButton,
   ThemeButton,
@@ -223,6 +225,28 @@ function DownloadOneKeyWalletListItem() {
   );
 }
 
+function DownloadAppButton() {
+  const handlePress = useCallback(() => {
+    openUrlExternal(DOWNLOAD_MOBILE_APP_URL);
+  }, []);
+
+  return (
+    <Button
+      size="small"
+      h="$8"
+      icon="DownloadOutline"
+      bg="#49DF58"
+      color="#000000"
+      iconColor="#000000"
+      hoverStyle={{ bg: '#3ECC4D' }}
+      pressStyle={{ bg: '#35B844' }}
+      onPress={handlePress}
+    >
+      APP
+    </Button>
+  );
+}
+
 // function Web3GuideListItem() {
 //   const intl = useIntl();
 //   const handlePress = useCallback(() => {
@@ -360,6 +384,7 @@ function DepositButton() {
 }
 
 function RightActions({ tabRoute }: { tabRoute: ETabRoutes }) {
+  const { gtLg } = useMedia();
   const {
     activeAccount: { wallet, account },
   } = useActiveAccount({
@@ -370,6 +395,7 @@ function RightActions({ tabRoute }: { tabRoute: ETabRoutes }) {
 
   return (
     <XStack ai="center" gap="$2">
+      {gtLg ? <DownloadAppButton /> : null}
       <XStack
         ai="center"
         px={isWalletConnected ? '$1.5' : undefined}
@@ -387,12 +413,12 @@ function RightActions({ tabRoute }: { tabRoute: ETabRoutes }) {
         borderRadius="$2"
         bg="$bgStrong"
       >
+        <UniversalSearchInput size="small" />
         <HeaderNotificationIconButton
           testID="header-right-notification"
           size="small"
         />
         <MoreDappAction size="small" />
-        <DownloadButton size="small" />
         <LanguageButton size="small" />
         <ThemeButton size="small" />
       </XStack>
@@ -458,13 +484,7 @@ export function DappHeader({
   );
 
   const renderDesktopHeaderTitle = useCallback(
-    () => (
-      <HeaderTitle sceneName={sceneName}>
-        <XStack maxWidth={288} width="100%">
-          <UniversalSearchInput />
-        </XStack>
-      </HeaderTitle>
-    ),
+    () => <HeaderTitle sceneName={sceneName} />,
     [sceneName],
   );
 

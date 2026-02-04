@@ -198,7 +198,9 @@ function MobilePerpMarket() {
               renderTabBar={() => null}
             >
               <Tabs.Tab name="orderbook">
-                <Tabs.ScrollView>{orderBookContent}</Tabs.ScrollView>
+                <Tabs.ScrollView showsVerticalScrollIndicator={false}>
+                  {orderBookContent}
+                </Tabs.ScrollView>
               </Tabs.Tab>
             </Tabs.Container>
           </YStack>

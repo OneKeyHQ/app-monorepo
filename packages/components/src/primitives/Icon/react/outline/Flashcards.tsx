@@ -1,0 +1,17 @@
+import Svg, { Path } from 'react-native-svg';
+import type { SvgProps } from 'react-native-svg';
+const SvgFlashcards = (props: SvgProps) => (
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path
+      fillRule="evenodd"
+      d="m12.18 2.123 7.957.837a2 2 0 0 1 1.78 2.197l-1.15 10.94a2 2 0 0 1-2.198 1.78l-3.543-.372.14 1.338a2 2 0 0 1-1.779 2.198l-7.956.836a2 2 0 0 1-2.198-1.78l-1.15-10.94a2 2 0 0 1 1.78-2.197l5.862-.617.257-2.44a2 2 0 0 1 2.199-1.78ZM4.072 8.948l1.15 10.94 7.955-.836-1.149-10.94zM11.76 6.13l.06-.006a2 2 0 0 1 2.198 1.78l.795 7.569 3.966.417 1.15-10.94-7.957-.837z"
+      clipRule="evenodd"
+    />
+  </Svg>
+);
+export default SvgFlashcards;

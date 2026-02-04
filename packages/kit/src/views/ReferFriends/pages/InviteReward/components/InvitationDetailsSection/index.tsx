@@ -3,13 +3,16 @@ import { useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import { XStack, YStack } from '@onekeyhq/components';
-import { SimpleTabs } from '@onekeyhq/kit/src/views/ReferFriends/components/SimpleTabs';
+import {
+  ResponsiveThreeColumnLayout,
+  SimpleTabs,
+} from '@onekeyhq/kit/src/views/ReferFriends/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { HardwareSalesReward } from '../HardwareSalesReward';
 import { OnChainReward } from '../OnChainReward';
+import { PerpsReward, usePerpsCumulativeRewards } from '../PerpsReward';
 import { SectionHeader } from '../SectionHeader';
-import { ResponsiveTwoColumnLayout } from '../shared';
 
 import { CreateCodeButton } from './components/CreateCodeButton';
 import { InviteCodeListTable } from './components/InviteCodeListTable';
@@ -28,6 +31,9 @@ export function InvitationDetailsSection({
 
   // Fetch invite code list data
   const { codeListData, isLoading, refetch } = useInviteCodeList();
+
+  // Fetch Perps cumulative rewards
+  const { perpsCumulativeRewards } = usePerpsCumulativeRewards();
 
   // Handle code creation: refresh list and switch to table tab if on reward tab
   const handleCodeCreated = () => {
@@ -88,14 +94,17 @@ export function InvitationDetailsSection({
       </XStack>
 
       {selectedTab === EInvitationDetailsTab.REWARD ? (
-        <ResponsiveTwoColumnLayout
-          leftColumn={
+        <ResponsiveThreeColumnLayout
+          firstColumn={
             <HardwareSalesReward
               hardwareSales={HardwareSales}
               nextDistribution={cumulativeRewards.nextDistribution}
             />
           }
-          rightColumn={<OnChainReward onChain={Onchain} />}
+          secondColumn={
+            <PerpsReward perpsCumulativeRewards={perpsCumulativeRewards} />
+          }
+          thirdColumn={<OnChainReward onChain={Onchain} />}
         />
       ) : (
         <YStack px="$5" gap="$4">

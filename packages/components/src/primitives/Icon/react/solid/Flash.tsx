@@ -1,11 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgFlash = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      fill="currentColor"
-      d="M14.002 2.401c0-1.484-1.925-2.067-2.748-.832L3.188 13.668c-.665.997.05 2.332 1.248 2.332h5.566v5.599c0 1.484 1.925 2.067 2.748.832l8.066-12.099C21.48 9.335 20.766 8 19.568 8h-5.566z"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M16.089 3.345c.6-1.86-1.786-3.358-3.146-1.79L4.132 11.712c-1.026 1.182-.215 3.072 1.39 3.072h4.29l-1.897 5.87c-.6 1.86 1.786 3.359 3.146 1.79l8.811-10.156c1.026-1.182.215-3.072-1.39-3.072h-4.29z" />
   </Svg>
 );
 export default SvgFlash;

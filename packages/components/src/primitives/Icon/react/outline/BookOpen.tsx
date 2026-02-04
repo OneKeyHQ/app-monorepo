@@ -1,14 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgBookOpen = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M12 8a3 3 0 0 1 3-3h5.5A1.5 1.5 0 0 1 22 6.5v11a1.5 1.5 0 0 1-1.5 1.5h-5.223a3.64 3.64 0 0 0-1.926.522A3.66 3.66 0 0 0 12 21m0-13a3 3 0 0 0-3-3H3.5A1.5 1.5 0 0 0 2 6.5v11A1.5 1.5 0 0 0 3.5 19h5.223c.68 0 1.347.164 1.926.522S11.696 20.392 12 21m0-13v13"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M15 6a2 2 0 0 0-2 2v10.571A4.7 4.7 0 0 1 15.277 18H21V6zM3 18h5.723c.776 0 1.564.175 2.277.571V8a2 2 0 0 0-2-2H3zm20 0a2 2 0 0 1-2 2h-5.723c-.52 0-1 .126-1.4.373-.42.26-.761.632-.982 1.074a1 1 0 0 1-1.79 0 2.66 2.66 0 0 0-.982-1.074c-.4-.247-.88-.373-1.4-.373H3a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h6a4 4 0 0 1 3 1.355A4 4 0 0 1 15 4h6a2 2 0 0 1 2 2z" />
   </Svg>
 );
 export default SvgBookOpen;
