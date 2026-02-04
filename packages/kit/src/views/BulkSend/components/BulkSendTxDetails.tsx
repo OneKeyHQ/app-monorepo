@@ -1,5 +1,7 @@
 import { useCallback, useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   type IYStackProps,
   Icon,
@@ -13,6 +15,7 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IInputAddOnProps } from '@onekeyhq/components/src/forms/Input/InputAddOnItem';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -238,6 +241,7 @@ function TransferSection({ title, count, children }: ITransferSectionProps) {
 }
 
 function BulkSendTxDetails(props: IProps) {
+  const intl = useIntl();
   const {
     tokenInfo,
     editMode,
@@ -351,10 +355,19 @@ function BulkSendTxDetails(props: IProps) {
   return (
     <YStack gap="$3" {...containerProps}>
       <XStack py="$1">
-        <SizableText size="$headingLg">Transaction details</SizableText>
+        <SizableText size="$headingLg">
+          {intl.formatMessage({
+            id: ETranslations.wallet_bulk_send_section_tx_details,
+          })}
+        </SizableText>
       </XStack>
 
-      <TransferSection title="Sending address" count={senders.length}>
+      <TransferSection
+        title={intl.formatMessage({
+          id: ETranslations.wallet_bulk_send_section_sending_address,
+        })}
+        count={senders.length}
+      >
         {senders.map((sender) => (
           <TransferListItem
             key={sender.address}
@@ -380,7 +393,12 @@ function BulkSendTxDetails(props: IProps) {
         ))}
       </TransferSection>
 
-      <TransferSection title="Receiving address" count={receivers.length}>
+      <TransferSection
+        title={intl.formatMessage({
+          id: ETranslations.wallet_bulk_send_section_receiving_address,
+        })}
+        count={receivers.length}
+      >
         {receivers.map((receiver) => (
           <TransferListItem
             key={receiver.address}
