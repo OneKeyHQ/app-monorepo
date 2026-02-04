@@ -28,6 +28,9 @@ import { LegacyUpdateResult } from '../components/LegacyUpdateResult';
 import { MiniBootloaderModeGuide } from '../components/MiniBootloaderModeGuide';
 import { WebUsbDeviceReselectPrompt } from '../components/WebUsbDeviceReselectPrompt';
 
+// Device polling interval in milliseconds (same as firmware-updater-web)
+const DEVICE_POLLING_INTERVAL = 5000;
+
 function PageLegacyFirmwareUpdate() {
   const route = useAppRoute<
     IModalLegacyFirmwareUpdateParamList,
@@ -51,10 +54,17 @@ function PageLegacyFirmwareUpdate() {
   const [hasStarted, setHasStarted] = useState(!!autoStart);
   // Track if we've already triggered the continuation to normal flow
   const hasTriggeredContinuation = useRef(false);
+  // Track device polling state
+  const [isPolling, setIsPolling] = useState(false);
+  const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
+    null,
+  );
 
   const isDone = stepInfo.step === ELegacyFirmwareUpdateSteps.done;
   const isError = stepInfo.step === ELegacyFirmwareUpdateSteps.error;
   const isIdle = stepInfo.step === ELegacyFirmwareUpdateSteps.idle;
+  const isWaitingBootloaderMode =
+    stepInfo.step === ELegacyFirmwareUpdateSteps.waitingBootloaderMode;
   const isRunning =
     !isIdle &&
     stepInfo.step !== ELegacyFirmwareUpdateSteps.done &&
@@ -114,6 +124,89 @@ function PageLegacyFirmwareUpdate() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoStart]);
 
+  // Device polling when waiting for bootloader mode
+  // Similar to firmware-updater-web, poll every 5 seconds to detect device connection
+  useEffect(() => {
+    let intervalId: ReturnType<typeof setInterval> | null = null;
+
+    // Start polling when in waitingBootloaderMode state
+    if (isWaitingBootloaderMode) {
+      setIsPolling(true);
+
+      const pollForDevice = async () => {
+        try {
+          const response =
+            await backgroundApiProxy.serviceHardware.searchDevices();
+
+          if (
+            response &&
+            response.success &&
+            response.payload &&
+            response.payload.length > 0
+          ) {
+            // Device detected - try to restart update with bootloader mode flag
+            // The SDK will verify if the device is actually in bootloader mode
+            console.log(
+              'Device detected, attempting to restart update with bootloader mode...',
+            );
+
+            // Clear the polling interval
+            if (intervalId) {
+              clearInterval(intervalId);
+              intervalId = null;
+            }
+            setIsPolling(false);
+
+            // Restart the update with bootloader mode flag
+            setIsStarting(true);
+            try {
+              await backgroundApiProxy.serviceLegacyFirmwareUpdate.startLegacyUpdate(
+                {
+                  connectId,
+                  deviceType,
+                  currentFirmwareVersion,
+                  currentBootloaderVersion,
+                  targetFirmwareVersion,
+                  isBootloaderMode: true, // User has entered bootloader mode manually
+                },
+              );
+            } finally {
+              setIsStarting(false);
+            }
+          }
+        } catch (error) {
+          console.log('Device polling error:', error);
+          // Continue polling even on error
+        }
+      };
+
+      // Poll immediately once
+      void pollForDevice();
+
+      // Set up interval polling
+      intervalId = setInterval(pollForDevice, DEVICE_POLLING_INTERVAL);
+      pollingIntervalRef.current = intervalId;
+    }
+
+    // Cleanup on unmount or when state changes
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+    };
+  }, [
+    isWaitingBootloaderMode,
+    connectId,
+    deviceType,
+    currentFirmwareVersion,
+    currentBootloaderVersion,
+    targetFirmwareVersion,
+  ]);
+
   // When Legacy firmware update completes, automatically continue to normal flow
   // for remaining updates (bootloader, BLE, etc.)
   useEffect(() => {
@@ -164,6 +257,7 @@ function PageLegacyFirmwareUpdate() {
       return (
         <MiniBootloaderModeGuide
           deviceType={stepInfo.payload?.deviceType || deviceType}
+          isPolling={isPolling}
         />
       );
     }
@@ -207,6 +301,7 @@ function PageLegacyFirmwareUpdate() {
     isError,
     handleRetry,
     onCloseModal,
+    isPolling,
   ]);
 
   const footerContent = useMemo(() => {

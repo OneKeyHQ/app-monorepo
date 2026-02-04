@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Alert,
+  Image,
   SizableText,
   Spinner,
   Stack,
@@ -12,12 +13,16 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import ImgEnterBootGuideMini from '../../FirmwareUpdate/assets/enter-boot-guide-mini.png';
+
 interface IMiniBootloaderModeGuideProps {
   deviceType: string;
+  isPolling?: boolean;
 }
 
 export function MiniBootloaderModeGuide({
   deviceType: _deviceType,
+  isPolling = false,
 }: IMiniBootloaderModeGuideProps) {
   const intl = useIntl();
 
@@ -42,7 +47,7 @@ export function MiniBootloaderModeGuide({
 
   return (
     <YStack
-      space="$4"
+      gap="$4"
       p="$4"
       animation="medium"
       enterStyle={{
@@ -52,6 +57,25 @@ export function MiniBootloaderModeGuide({
       opacity={1}
       y={0}
     >
+      {/* Illustration Image */}
+      <Stack
+        alignItems="center"
+        animation="quick"
+        enterStyle={{
+          opacity: 0,
+          scale: 0.95,
+        }}
+        opacity={1}
+        scale={1}
+      >
+        <Image
+          w={353}
+          h={224}
+          source={ImgEnterBootGuideMini}
+          borderRadius="$3"
+        />
+      </Stack>
+
       <Stack
         animation="quick"
         enterStyle={{
@@ -74,7 +98,7 @@ export function MiniBootloaderModeGuide({
       </Stack>
 
       <YStack
-        space="$3"
+        gap="$3"
         p="$4"
         borderRadius="$3"
         borderWidth={1}
@@ -93,7 +117,7 @@ export function MiniBootloaderModeGuide({
           })}
         </SizableText>
 
-        <YStack space="$2">
+        <YStack gap="$2">
           {steps.map((step, index) => (
             <SizableText key={index} size="$bodyMd" color="$textSubdued">
               {`${index + 1}. ${step}`}
@@ -104,7 +128,7 @@ export function MiniBootloaderModeGuide({
 
       <YStack
         alignItems="center"
-        space="$2"
+        gap="$2"
         py="$4"
         animation="slow"
         enterStyle={{
@@ -114,9 +138,11 @@ export function MiniBootloaderModeGuide({
       >
         <Spinner size="large" />
         <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
-          {intl.formatMessage({
-            id: ETranslations.wallet_connect_hardware_wallet,
-          })}
+          {isPolling
+            ? 'Detecting device in bootloader mode...'
+            : intl.formatMessage({
+                id: ETranslations.wallet_connect_hardware_wallet,
+              })}
         </SizableText>
       </YStack>
     </YStack>
