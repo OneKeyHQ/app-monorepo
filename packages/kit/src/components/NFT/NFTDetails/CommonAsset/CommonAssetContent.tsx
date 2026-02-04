@@ -134,13 +134,13 @@ function CommonAssetContent(props: IProps) {
           <XStack m="$-1" pt="$2.5" flexWrap="wrap">
             {/* Filter out attributes with nil traitType/value to prevent
                 Fabric renderer from calling .toString() on undefined */}
-            {attributes?.map(({ traitType, value, displayType }) =>
+            {attributes?.map(({ traitType, value, displayType }, index) =>
               isObject(value) ||
               isNil(value) ||
               isNil(traitType) ||
               (traitType === '' && value === '') ? null : (
                 <Stack
-                  key={traitType}
+                  key={`${traitType}-${index}`}
                   py="$2"
                   px="$3.5"
                   m="$1"
