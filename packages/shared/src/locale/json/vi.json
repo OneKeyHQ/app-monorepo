@@ -952,7 +952,7 @@
   "edit_fee_custom_set_as_default_description": "Đặt làm mặc định cho tất cả các giao dịch trong tương lai trên {network}",
   "email_verification_rate_limit": "Vui lòng đợi {rest} giây trước khi yêu cầu mã xác minh mới",
   "energy_consumed": "Năng lượng tiêu thụ",
-  "enter_account_name_address_or_domain": "Nhập địa chỉ tên tài khoản hoặc miền",
+  "enter_account_name_address_or_domain": "Nhập tên tài khoản, địa chỉ hoặc miền",
   "enter_passcode": "Nhập mã bảo vệ",
   "enter_password": "Nhập mật khẩu",
   "enter_pin.desc": "Kiểm tra màn hình thiết bị để xem bố cục bàn phím.",
