@@ -1,4 +1,4 @@
-import { memo, useCallback, useState } from 'react';
+import { memo } from 'react';
 
 import BigNumber from 'bignumber.js';
 
@@ -12,15 +12,13 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
+import {
+  ENFTMediaState,
+  useNFTMediaState,
+} from '@onekeyhq/kit/src/components/NFT/useNFTMediaState';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import { SHOW_NFT_AMOUNT_MAX } from '@onekeyhq/shared/src/consts/walletConsts';
 import { ENFTType, type IAccountNFT } from '@onekeyhq/shared/types/nft';
-
-enum EMediaState {
-  Image = 'image',
-  Video = 'video',
-  Fallback = 'fallback',
-}
 
 type IProps = {
   nft: IAccountNFT;
@@ -32,15 +30,9 @@ type IProps = {
 function BasicNFTListItem(props: IProps) {
   const { nft, onPress, isAllNetworks } = props;
   const { network } = useAccountData({ networkId: nft.networkId });
-  const [mediaState, setMediaState] = useState<EMediaState>(EMediaState.Image);
-
-  const handleImageError = useCallback(() => {
-    setMediaState(EMediaState.Video);
-  }, []);
-
-  const handleVideoError = useCallback(() => {
-    setMediaState(EMediaState.Fallback);
-  }, []);
+  const imageUri = nft.metadata?.image;
+  const { mediaState, handleImageError, handleVideoError } =
+    useNFTMediaState(imageUri);
 
   return (
     <Stack
@@ -69,12 +61,12 @@ function BasicNFTListItem(props: IProps) {
       >
         <Stack position="absolute" left={0} top={0} right={0} bottom={0}>
           <Stack bg="$bgApp" w="100%" h="100%">
-            {mediaState === EMediaState.Image ? (
+            {mediaState === ENFTMediaState.Image ? (
               <Image
                 w="100%"
                 h="100%"
                 borderRadius="$2.5"
-                source={{ uri: nft.metadata?.image }}
+                source={{ uri: imageUri }}
                 onError={handleImageError}
                 fallback={
                   <Image.Fallback
@@ -93,7 +85,7 @@ function BasicNFTListItem(props: IProps) {
                 }
               />
             ) : null}
-            {mediaState === EMediaState.Video ? (
+            {mediaState === ENFTMediaState.Video ? (
               <Video
                 onError={handleVideoError}
                 style={{
@@ -101,10 +93,10 @@ function BasicNFTListItem(props: IProps) {
                   height: '100%',
                 }}
                 autoPlay={false}
-                source={{ uri: nft.metadata?.image }}
+                source={{ uri: imageUri }}
               />
             ) : null}
-            {mediaState === EMediaState.Fallback ? (
+            {mediaState === ENFTMediaState.Fallback ? (
               <Stack
                 w="100%"
                 h="100%"

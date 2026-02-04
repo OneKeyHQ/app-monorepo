@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 
@@ -6,6 +6,8 @@ import { Icon, Image, SizableText, Stack, Video } from '@onekeyhq/components';
 import { SHOW_NFT_AMOUNT_MAX } from '@onekeyhq/shared/src/consts/walletConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ENFTType, type IAccountNFT } from '@onekeyhq/shared/types/nft';
+
+import { ENFTMediaState, useNFTMediaState } from '../../useNFTMediaState';
 
 import { UnSupportedImageContainer } from './UnSupportedImageContainer';
 
@@ -15,46 +17,29 @@ type IProps = {
 
 const unSupportedImage = ['data:image/svg+xml;'];
 
-enum EMediaState {
-  Image = 'image',
-  Video = 'video',
-  Unsupported = 'unsupported',
-}
-
 function CommonAssetImage(props: IProps) {
   const { nft } = props;
-  const [mediaState, setMediaState] = useState<EMediaState>(EMediaState.Image);
-
-  // Reset mediaState when nft changes (e.g. FlatList cell recycling)
-  useEffect(() => {
-    setMediaState(EMediaState.Image);
-  }, [nft.metadata?.image]);
-
-  const handleImageError = useCallback(() => {
-    setMediaState(EMediaState.Video);
-  }, []);
-
-  const handleVideoError = useCallback(() => {
-    setMediaState(EMediaState.Unsupported);
-  }, []);
+  const imageUri = nft.metadata?.image;
+  const { mediaState, handleImageError, handleVideoError } =
+    useNFTMediaState(imageUri);
 
   const isUnSupportedImageInNative = useMemo(
     () =>
       platformEnv.isNative &&
-      !!unSupportedImage.find((i) => nft.metadata?.image?.includes(i)),
-    [nft.metadata?.image],
+      !!unSupportedImage.find((i) => imageUri?.includes(i)),
+    [imageUri],
   );
   if (isUnSupportedImageInNative) {
-    return <UnSupportedImageContainer src={nft.metadata?.image} />;
+    return <UnSupportedImageContainer src={imageUri} />;
   }
 
   const renderMedia = () => {
     switch (mediaState) {
-      case EMediaState.Image:
+      case ENFTMediaState.Image:
         return (
           <Stack width="100%" height="100%">
             <Image
-              src={nft.metadata?.image}
+              src={imageUri}
               w="100%"
               h="100%"
               onError={handleImageError}
@@ -72,10 +57,10 @@ function CommonAssetImage(props: IProps) {
             />
           </Stack>
         );
-      case EMediaState.Video:
+      case ENFTMediaState.Video:
         return (
           <Video
-            source={{ uri: nft.metadata?.image }}
+            source={{ uri: imageUri }}
             controls
             onError={handleVideoError}
             style={{
@@ -86,8 +71,8 @@ function CommonAssetImage(props: IProps) {
             }}
           />
         );
-      case EMediaState.Unsupported:
-        return <UnSupportedImageContainer src={nft.metadata?.image} />;
+      case ENFTMediaState.Fallback:
+        return <UnSupportedImageContainer src={imageUri} />;
       default:
         return null;
     }
