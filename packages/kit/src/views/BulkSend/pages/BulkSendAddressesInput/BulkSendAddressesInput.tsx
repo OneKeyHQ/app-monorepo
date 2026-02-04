@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { Form, Page, YStack, useForm, useMedia } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -7,6 +9,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   POLLING_DEBOUNCE_INTERVAL,
   POLLING_INTERVAL_FOR_TOKEN,
@@ -38,6 +41,7 @@ import {
 } from './components/Context';
 
 function BaseBulkSendAddressesInput() {
+  const intl = useIntl();
   const route = useAppRoute<
     IModalBulkSendParamList,
     EModalBulkSendRoutes.BulkSendAddressesInput
@@ -365,7 +369,9 @@ function BaseBulkSendAddressesInput() {
         >
           <Page.FooterActions
             px="$0"
-            onConfirmText="Next"
+            onConfirmText={intl.formatMessage({
+              id: ETranslations.wallet_bulk_send_btn_next,
+            })}
             confirmButtonProps={{
               onPress: handleSubmit,
               disabled: isSubmitDisabled,

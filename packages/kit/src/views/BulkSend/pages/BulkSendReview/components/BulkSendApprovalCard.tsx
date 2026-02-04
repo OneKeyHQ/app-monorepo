@@ -35,13 +35,18 @@ function ApprovalItem({
   index,
   onEdit,
 }: IApprovalItemProps) {
+  const intl = useIntl();
   const tokenInfo = approveInfo.tokenInfo;
   const shortenedSpender = accountUtils.shortenAddress({
     address: approveInfo.spender,
   });
 
   const isResetApproval = approveInfo.amount === '0';
-  const displayAmount = isResetApproval ? 'Reset to 0' : approveInfo.amount;
+  const displayAmount = isResetApproval
+    ? intl.formatMessage({
+        id: ETranslations.wallet_bulk_send_approval_reset_to_zero,
+      })
+    : approveInfo.amount;
   const { copyText } = useClipboard();
 
   return (
@@ -58,7 +63,13 @@ function ApprovalItem({
             {tokenInfo?.symbol ?? 'Token'}
           </SizableText>
           <SizableText size="$bodyMd" color="$textSubdued">
-            {isResetApproval ? 'Reset Approval' : 'Approve'}
+            {isResetApproval
+              ? intl.formatMessage({
+                  id: ETranslations.wallet_bulk_send_approval_reset,
+                })
+              : intl.formatMessage({
+                  id: ETranslations.global_approve,
+                })}
           </SizableText>
         </YStack>
         <XStack gap="$3" alignItems="center">
@@ -89,7 +100,9 @@ function ApprovalItem({
       <XStack gap="$3" alignItems="center" minHeight={48} px="$4" py="$2">
         <YStack flex={1}>
           <SizableText size="$bodyMd" color="$textSubdued">
-            Spender
+            {intl.formatMessage({
+              id: ETranslations.wallet_bulk_send_approval_spender,
+            })}
           </SizableText>
         </YStack>
         <XStack gap="$3" alignItems="center">
@@ -152,7 +165,7 @@ function BulkSendApprovalCard({ onEditApproval }: Props) {
   const tokenSymbol = approvesInfo[0]?.tokenInfo?.symbol ?? 'Token';
 
   return (
-    <YStack px="$5" py="$3">
+    <YStack px="$5">
       <YStack bg="$bgSubdued" borderRadius="$3" py="$2" overflow="hidden">
         <Accordion type="single" collapsible defaultValue="" bg="transparent">
           <Accordion.Item value="approval" bg="transparent">
