@@ -11,6 +11,21 @@ import PasswordVerifyContainer from '../../../components/Password/container/Pass
 import AppStateLock from './components/AppStateLock';
 import { AppStateUpdater } from './components/AppStateUpdater';
 
+const isLockContainerTampered = (el: HTMLElement): boolean => {
+  const style = globalThis.getComputedStyle(el);
+  if (
+    style.display === 'none' ||
+    style.visibility === 'hidden' ||
+    parseFloat(style.opacity) < 0.1 ||
+    style.pointerEvents === 'none' ||
+    el.offsetWidth === 0 ||
+    el.offsetHeight === 0
+  ) {
+    return true;
+  }
+  return false;
+};
+
 const useWebLockCheck = (isLocked: boolean) => {
   const lockContainerRef = useRef<HTMLElement | null>(null);
   const lockedRef = useRef(isLocked);
@@ -18,12 +33,23 @@ const useWebLockCheck = (isLocked: boolean) => {
     lockedRef.current = isLocked;
   }
   const checkIsLockContainerExist = useCallback(() => {
-    if (lockContainerRef?.current && lockedRef.current) {
-      if (!document.body.contains(lockContainerRef.current)) {
-        globalThis.location.reload();
-      }
-      setTimeout(checkIsLockContainerExist, 300);
+    if (!lockedRef.current) {
+      return;
     }
+    if (
+      !lockContainerRef.current ||
+      !document.body.contains(lockContainerRef.current) ||
+      isLockContainerTampered(lockContainerRef.current)
+    ) {
+      if (!lockContainerRef.current) {
+        // ref not yet assigned, keep polling until mounted
+        setTimeout(checkIsLockContainerExist, 300);
+        return;
+      }
+      globalThis.location.reload();
+      return;
+    }
+    setTimeout(checkIsLockContainerExist, 300);
   }, []);
   useEffect(() => {
     if (!platformEnv.isNative && isLocked) {
