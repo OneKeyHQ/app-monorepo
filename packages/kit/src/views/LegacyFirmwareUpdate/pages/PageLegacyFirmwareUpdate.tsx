@@ -59,6 +59,8 @@ function PageLegacyFirmwareUpdate() {
   const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
     null,
   );
+  // Track if we're currently attempting to restart the update
+  const isRestartingRef = useRef(false);
 
   const isDone = stepInfo.step === ELegacyFirmwareUpdateSteps.done;
   const isError = stepInfo.step === ELegacyFirmwareUpdateSteps.error;
@@ -129,11 +131,22 @@ function PageLegacyFirmwareUpdate() {
   useEffect(() => {
     let intervalId: ReturnType<typeof setInterval> | null = null;
 
+    // Reset the restarting flag when entering waitingBootloaderMode state
+    if (isWaitingBootloaderMode) {
+      isRestartingRef.current = false;
+    }
+
     // Start polling when in waitingBootloaderMode state
     if (isWaitingBootloaderMode) {
       setIsPolling(true);
 
       const pollForDevice = async () => {
+        // Skip if already attempting to restart
+        if (isRestartingRef.current) {
+          console.log('Device polling: already restarting, skip this poll');
+          return;
+        }
+
         try {
           const response =
             await backgroundApiProxy.serviceHardware.searchDevices();
@@ -150,26 +163,43 @@ function PageLegacyFirmwareUpdate() {
               'Device detected, attempting to restart update with bootloader mode...',
             );
 
-            // Clear the polling interval
-            if (intervalId) {
-              clearInterval(intervalId);
-              intervalId = null;
-            }
-            setIsPolling(false);
+            // Mark as restarting to prevent multiple attempts
+            isRestartingRef.current = true;
 
             // Restart the update with bootloader mode flag
             setIsStarting(true);
             try {
-              await backgroundApiProxy.serviceLegacyFirmwareUpdate.startLegacyUpdate(
-                {
-                  connectId,
-                  deviceType,
-                  currentFirmwareVersion,
-                  currentBootloaderVersion,
-                  targetFirmwareVersion,
-                  isBootloaderMode: true, // User has entered bootloader mode manually
-                },
-              );
+              const result =
+                await backgroundApiProxy.serviceLegacyFirmwareUpdate.startLegacyUpdate(
+                  {
+                    connectId,
+                    deviceType,
+                    currentFirmwareVersion,
+                    currentBootloaderVersion,
+                    targetFirmwareVersion,
+                    isBootloaderMode: true, // User has entered bootloader mode manually
+                  },
+                );
+
+              // If the update still needs bootloader mode, the device wasn't in bootloader mode
+              // Reset the flag and continue polling
+              if (result.needsBootloaderMode) {
+                console.log(
+                  'Device not in bootloader mode yet, continuing to poll...',
+                );
+                isRestartingRef.current = false;
+              } else {
+                // Update succeeded or is in progress, stop polling
+                if (intervalId) {
+                  clearInterval(intervalId);
+                  intervalId = null;
+                }
+                setIsPolling(false);
+              }
+            } catch (error) {
+              console.log('Restart update error:', error);
+              // Reset the flag to allow retrying
+              isRestartingRef.current = false;
             } finally {
               setIsStarting(false);
             }
@@ -180,10 +210,8 @@ function PageLegacyFirmwareUpdate() {
         }
       };
 
-      // Poll immediately once
-      void pollForDevice();
-
-      // Set up interval polling
+      // Delay the first poll to give user time to enter bootloader mode
+      // Don't poll immediately to avoid the flicker issue
       intervalId = setInterval(pollForDevice, DEVICE_POLLING_INTERVAL);
       pollingIntervalRef.current = intervalId;
     }
