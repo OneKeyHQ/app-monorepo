@@ -1,8 +1,11 @@
 import { isArray, isEmpty, isFunction, isNil, isPlainObject } from 'lodash';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { IOneKeyError } from '../errors/types/errorTypes';
+
+export const PROMISE_CONCURRENCY_LIMIT = platformEnv.isNative ? 8 : 10;
 
 export const createDelayPromise = <T>(
   delay: number,

@@ -23,7 +23,10 @@ import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils, {
   isEnabledNetworksInAllNetworks,
 } from '@onekeyhq/shared/src/utils/networkUtils';
-import { promiseAllSettledEnhanced } from '@onekeyhq/shared/src/utils/promiseUtils';
+import {
+  PROMISE_CONCURRENCY_LIMIT,
+  promiseAllSettledEnhanced,
+} from '@onekeyhq/shared/src/utils/promiseUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
@@ -31,9 +34,8 @@ import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { perfTokenListView } from '../components/TokenListView/perfTokenListView';
 
 import { usePromiseResult } from './usePromiseResult';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-const CONCURRENCY_LIMIT = platformEnv.isNative ? 8 : 10;
+const CONCURRENCY_LIMIT = PROMISE_CONCURRENCY_LIMIT;
 // useRef not working as expected, so use a global object
 const currentRequestsUUID = { current: '' };
 
@@ -526,9 +528,9 @@ function useAllNetworkRequests<T>(params: {
           try {
             perf.markStart('allNetworkCacheRequests');
             const cachedData = (
-              await Promise.all(
+              await promiseAllSettledEnhanced(
                 Array.from(accountsInfo).map(
-                  async (networkDataString: IAllNetworkAccountInfo) => {
+                  (networkDataString: IAllNetworkAccountInfo) => async () => {
                     const {
                       accountId,
                       networkId,
@@ -546,6 +548,7 @@ function useAllNetworkRequests<T>(params: {
                     return cachedDataResult as unknown;
                   },
                 ),
+                { continueOnError: true, concurrency: CONCURRENCY_LIMIT },
               )
             ).filter(Boolean);
             perf.markEnd('allNetworkCacheRequests');
