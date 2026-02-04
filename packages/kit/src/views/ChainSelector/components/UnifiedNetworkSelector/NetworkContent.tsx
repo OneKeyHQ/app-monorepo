@@ -105,7 +105,7 @@ export function NetworkContent({
           accountNetworkValues: formattedAccountNetworkValues,
           accountNetworkValueCurrency: _accountsValue[0].currency,
           accountDeFiOverview: _accountDeFiOverview,
-          zeroValue
+          zeroValue,
         };
       }
 

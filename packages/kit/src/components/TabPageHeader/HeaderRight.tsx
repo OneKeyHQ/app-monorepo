@@ -27,13 +27,12 @@ export function MoreAction() {
 }
 
 export function SelectorTrigger() {
-  const { activeAccount: { network } } = useActiveAccount({ num: 0 });
+  const {
+    activeAccount: { network },
+  } = useActiveAccount({ num: 0 });
 
   if (network?.isAllNetworks) {
-    return <AllNetworksManagerTrigger
-      num={0}
-      unifiedMode
-    />;
+    return <AllNetworksManagerTrigger num={0} unifiedMode />;
   }
 
   return (

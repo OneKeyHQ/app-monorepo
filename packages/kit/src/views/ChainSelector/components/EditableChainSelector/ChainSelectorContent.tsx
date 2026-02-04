@@ -35,7 +35,11 @@ import RecentNetworks from '../RecentNetworks';
 
 import { EditableChainSelectorContext } from './context';
 import { EditableListItem } from './EditableListItem';
-import { ALL_NETWORK_HEADER_HEIGHT, CELL_HEIGHT, ZERO_VALUE_TOOLTIP_HEIGHT } from './type';
+import {
+  ALL_NETWORK_HEADER_HEIGHT,
+  CELL_HEIGHT,
+  ZERO_VALUE_TOOLTIP_HEIGHT,
+} from './type';
 
 import type {
   IEditableChainSelectorContext,
@@ -67,30 +71,30 @@ const ListHeaderComponent = () => {
     return null;
   }
 
-
-  return <YStack>
-    {
-      zeroValue ? null : <Tooltip
-        renderContent="部分非热门网络可能未列入自动检测网络中，确认后回到钱包页面将会进行进一步查询。"
-        renderTrigger={
-          <Stack px="$5" py="$3">
-            <SizableText
-              size="$bodyMdMedium"
-              textDecorationLine="underline"
-              textDecorationColor="$textSubdued"
-              textDecorationStyle="dotted"
-            >
-              Found assets on these networks
-            </SizableText>
-          </Stack>
-        }
-      />
-    }
-    {!allNetworkItem ? null : (
-      <EditableListItem item={allNetworkItem} isEditable={false} />
-    )}
-  </YStack>
-
+  return (
+    <YStack>
+      {zeroValue ? null : (
+        <Tooltip
+          renderContent="部分非热门网络可能未列入自动检测网络中，确认后回到钱包页面将会进行进一步查询。"
+          renderTrigger={
+            <Stack px="$5" py="$3">
+              <SizableText
+                size="$bodyMdMedium"
+                textDecorationLine="underline"
+                textDecorationColor="$textSubdued"
+                textDecorationStyle="dotted"
+              >
+                Found assets on these networks
+              </SizableText>
+            </Stack>
+          }
+        />
+      )}
+      {!allNetworkItem ? null : (
+        <EditableListItem item={allNetworkItem} isEditable={false} />
+      )}
+    </YStack>
+  );
 };
 
 type IEditableChainSelectorContentProps = {
@@ -157,8 +161,10 @@ export const EditableChainSelectorContent = ({
     [allNetworkItem, searchText],
   );
 
-  const showNonZeroValueTooltip = useMemo(() => (!zeroValue && !searchText?.trim?.()) ?? true,
-    [zeroValue, searchText]);
+  const showNonZeroValueTooltip = useMemo(
+    () => (!zeroValue && !searchText?.trim?.()) ?? true,
+    [zeroValue, searchText],
+  );
 
   const [recentNetworksHeight, setRecentNetworksHeight] = useState(0);
 
@@ -193,10 +199,10 @@ export const EditableChainSelectorContent = ({
       return data.length === 0
         ? []
         : [
-          {
-            data,
-          },
-        ];
+            {
+              data,
+            },
+          ];
     }
 
     const tempFrequentlyUsedItemsSet = new Set(
@@ -224,7 +230,8 @@ export const EditableChainSelectorContent = ({
 
     const _sections: IEditableChainSelectorSection[] = [
       {
-        data: tempFrequentlyUsedItems, draggable: true,
+        data: tempFrequentlyUsedItems,
+        draggable: true,
       },
       ...mainnetSections,
     ];
@@ -362,8 +369,8 @@ export const EditableChainSelectorContent = ({
       sections
         .slice(0, _initialScrollIndex.sectionIndex)
         .reduce((prev, section) => prev + section.data.length, 0) +
-      (_initialScrollIndex?.itemIndex ?? 0) <=
-      7
+        (_initialScrollIndex?.itemIndex ?? 0) <=
+        7
     ) {
       return { sectionIndex: 0, itemIndex: undefined };
     }
@@ -550,7 +557,10 @@ export const EditableChainSelectorContent = ({
                 if (index === -1) {
                   return {
                     index,
-                    offset: (showAllNetworkHeader || showNonZeroValueTooltip) ? listHeaderHeight : 0,
+                    offset:
+                      showAllNetworkHeader || showNonZeroValueTooltip
+                        ? listHeaderHeight
+                        : 0,
                     length: 0,
                   };
                 }
