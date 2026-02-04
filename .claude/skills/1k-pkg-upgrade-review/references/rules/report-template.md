@@ -155,16 +155,36 @@ Use these criteria to determine the conclusion:
 - Package deprecated without migration path
 - Security concerns with new version
 
-## Posting to PR
+## Posting to PR (REQUIRED)
 
-After generating the report, optionally post a summary as a PR comment:
+After generating the local report file, the full report MUST be posted as a PR comment so team members can review it directly in the PR.
 
 ```bash
+# Post the full report as a PR comment
+gh pr comment PR_NUMBER --body "$(cat node_modules/.cache/pkg-upgrade/REPORT_FILE.md)"
+```
+
+If the report exceeds GitHub's comment length limit (~65536 chars), split into multiple comments:
+
+```bash
+# Comment 1: Code diff and call sites
 gh pr comment PR_NUMBER --body "$(cat <<'EOF'
-## PACKAGE OLD -> NEW 代码差异分析
+# PACKAGE OLD -> NEW 升级分析 (1/2)
 
-### Key findings summary...
+## 一、代码差异
+...
 
+## 二、项目中的调用位置
+...
+EOF
+)"
+
+# Comment 2: Compatibility assessment
+gh pr comment PR_NUMBER --body "$(cat <<'EOF'
+# PACKAGE OLD -> NEW 升级分析 (2/2)
+
+## 三、兼容性评估
+...
 EOF
 )"
 ```

@@ -16,7 +16,8 @@ Evaluates npm/yarn package version upgrades by performing source-level diff anal
 | Topic | Guide | Description |
 |-------|-------|-------------|
 | Review workflow | [review-workflow.md](references/rules/review-workflow.md) | Step-by-step review process |
-| Report template | [report-template.md](references/rules/report-template.md) | Output format and example |
+| Report template | [report-template.md](references/rules/report-template.md) | Output format and risk guidelines |
+| Example report | [example-report.md](references/example-report.md) | Real case: @isaacs/brace-expansion 5.0.0 -> 5.0.1 |
 
 ## When to Use
 
@@ -36,6 +37,7 @@ Evaluates npm/yarn package version upgrades by performing source-level diff anal
 7. **Trace** each call site to verify argument usage and compatibility
 8. **Assess** compatibility risks: signature, return type, return content, side effects
 9. **Generate** structured report to `node_modules/.cache/pkg-upgrade/`
+10. **Post** the full report as a PR comment via `gh pr comment`
 
 ## Key Commands
 
@@ -66,7 +68,8 @@ npm view PKG@NEW_VER dist.integrity
 
 ## Report Output
 
-Reports are saved to: `node_modules/.cache/pkg-upgrade/<package-name>-<old>-to-<new>.md`
+- **Local file**: `node_modules/.cache/pkg-upgrade/<package-name>-<old>-to-<new>.md`
+- **PR comment**: The full report MUST also be posted as a comment on the PR via `gh pr comment`
 
 ## Related Skills
 

@@ -217,3 +217,16 @@ Output path: `node_modules/.cache/pkg-upgrade/<package-name>-<old>-to-<new>.md`
 mkdir -p node_modules/.cache/pkg-upgrade
 # Write report using Write tool
 ```
+
+## Step 10: Post Report to PR Comment (REQUIRED)
+
+The full report MUST be posted as a comment on the PR. This ensures the review is visible to all team members directly in the PR.
+
+```bash
+# Post the full report as a PR comment
+gh pr comment PR_NUMBER --body "$(cat node_modules/.cache/pkg-upgrade/REPORT_FILE.md)"
+```
+
+If the report exceeds GitHub comment length limits, split into key sections:
+1. First comment: Sections 一 (code diff) and 二 (call sites)
+2. Second comment: Section 三 (compatibility assessment)
