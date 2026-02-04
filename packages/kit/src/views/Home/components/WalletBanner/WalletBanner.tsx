@@ -36,7 +36,6 @@ import { ENotificationPushMessageMode } from '@onekeyhq/shared/types/notificatio
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   clamp,
-  runOnJS,
   scrollTo,
   useAnimatedStyle,
   useSharedValue,
@@ -222,10 +221,24 @@ function NativeBannerScroller({
   const scrollYCurrent = tabsContext?.scrollYCurrent;
   const contentInset = tabsContext?.contentInset ?? 0;
 
-  // Suppress onPress when a drag gesture occurred
-  const hasDraggedRef = useRef(false);
-  const setHasDragged = useCallback((value: boolean) => {
-    hasDraggedRef.current = value;
+  // Track touch distance on JS thread to suppress onPress during drags.
+  // Using JS-thread onTouchStart/onTouchMove instead of runOnJS from worklet
+  // avoids async timing issues where onPress fires before runOnJS callback.
+  const touchStartRef = useRef({ x: 0, y: 0 });
+  const touchDistanceRef = useRef(0);
+
+  const handleTouchStart = useCallback((e: GestureResponderEvent) => {
+    touchStartRef.current = {
+      x: e.nativeEvent.pageX,
+      y: e.nativeEvent.pageY,
+    };
+    touchDistanceRef.current = 0;
+  }, []);
+
+  const handleTouchMove = useCallback((e: GestureResponderEvent) => {
+    const dx = Math.abs(e.nativeEvent.pageX - touchStartRef.current.x);
+    const dy = Math.abs(e.nativeEvent.pageY - touchStartRef.current.y);
+    touchDistanceRef.current = Math.max(dx, dy);
   }, []);
 
   const translateX = useSharedValue(0);
@@ -247,10 +260,6 @@ function NativeBannerScroller({
   const panGesture = useMemo(
     () =>
       Gesture.Pan()
-        .onBegin(() => {
-          'worklet';
-          runOnJS(setHasDragged)(false);
-        })
         .onStart(() => {
           'worklet';
           startTranslateX.value = translateX.value;
@@ -264,7 +273,6 @@ function NativeBannerScroller({
             if (Math.abs(e.translationX) > 5 || Math.abs(e.translationY) > 5) {
               isHorizontal.value =
                 Math.abs(e.translationX) > Math.abs(e.translationY);
-              runOnJS(setHasDragged)(true);
             }
             return;
           }
@@ -304,7 +312,6 @@ function NativeBannerScroller({
       focusedTab,
       scrollYCurrent,
       contentInset,
-      setHasDragged,
     ],
   );
 
@@ -314,7 +321,7 @@ function NativeBannerScroller({
 
   const wrappedHandleBannerOnPress = useCallback(
     (item: IWalletBanner) => {
-      if (hasDraggedRef.current) {
+      if (touchDistanceRef.current > 5) {
         return;
       }
       handleBannerOnPress(item);
@@ -328,6 +335,8 @@ function NativeBannerScroller({
       bg="$bgApp"
       overflow="hidden"
       onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
     >
       <GestureDetector gesture={panGesture}>
         <Animated.View
