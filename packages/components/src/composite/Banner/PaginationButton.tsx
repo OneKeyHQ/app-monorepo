@@ -76,7 +76,7 @@ export function PaginationButton({
         variant={variant}
         icon={icon}
         onPress={onPress}
-        iconProps={hoverOpacity}
+        iconProps={{ opacity: hoverOpacity.opacity }}
         theme={theme}
         onMouseEnter={onMouseEnter}
       />

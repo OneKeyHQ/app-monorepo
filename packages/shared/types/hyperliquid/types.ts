@@ -234,7 +234,7 @@ export type IPerpTokenSortDirection = 'asc' | 'desc';
 export interface IPerpTokenSelectorConfig {
   field: IPerpTokenSortField;
   direction: IPerpTokenSortDirection;
-  activeTab: IPerpTokenSelectorTab;
+  activeTab: IPerpTokenSelectorTab | string; // string for dynamic tabs
 }
 
 // Deprecated: Use IPerpTokenSelectorConfig instead

@@ -61,6 +61,7 @@ export const useColumnsDesktop = (
             from={watchlistFrom || EWatchlistFrom.Homepage}
             tokenSymbol={record.symbol}
             size="small"
+            isNative={record.isNative}
           />
         </Stack>
       ),

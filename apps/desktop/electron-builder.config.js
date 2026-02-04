@@ -35,6 +35,10 @@ module.exports = {
         'from': 'app/build/static/bin/bridge/mac-${arch}',
         'to': 'bin/bridge',
       },
+      {
+        'from': 'resources/icons/Assets.car',
+        'to': 'Assets.car',
+      },
     ],
     'icon': 'app/build/static/images/icons/512x512.png',
     'artifactName': 'OneKey-Wallet-${version}-mac-${arch}.${ext}',
@@ -55,6 +59,7 @@ module.exports = {
       'OneKey_Desktop_DeveloperId.provisionprofile',
     ),
     'extendInfo': {
+      'CFBundleIconName': 'OneKeyLogo',
       'NSCameraUsageDescription': 'Please allow OneKey to use your camera',
       'NSBluetoothAlwaysUsageDescription':
         'OneKey wallet needs Bluetooth access to communicate with hardware wallets',

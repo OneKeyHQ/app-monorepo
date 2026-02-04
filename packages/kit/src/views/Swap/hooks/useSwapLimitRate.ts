@@ -109,13 +109,13 @@ export const useSwapLimitRate = () => {
             : new BigNumber(1).div(inputBN);
           const newReverseRateValue = newReverseRate
             .decimalPlaces(
-              limitPriceMarketPrice.fromToken?.decimals ?? 0,
+              Number(limitPriceMarketPrice.fromToken?.decimals ?? 0),
               BigNumber.ROUND_HALF_UP,
             )
             .toFixed();
           const newRateValue = newRate
             .decimalPlaces(
-              limitPriceMarketPrice.toToken?.decimals ?? 0,
+              Number(limitPriceMarketPrice.toToken?.decimals ?? 0),
               BigNumber.ROUND_HALF_UP,
             )
             .toFixed();
@@ -175,7 +175,7 @@ export const useSwapLimitRate = () => {
       const useRateBN = new BigNumber(limitPriceUseRate.rate ?? '0');
       const rateBN = priceMarketBN.multipliedBy(percentageBN);
       const formatRate = rateBN.decimalPlaces(
-        limitPriceMarketPrice.toToken?.decimals ?? 0,
+        Number(limitPriceMarketPrice.toToken?.decimals ?? 0),
         BigNumber.ROUND_HALF_UP,
       );
       const limitPriceEqualMarket = useRateBN.eq(formatRate);
@@ -204,11 +204,11 @@ export const useSwapLimitRate = () => {
         ? new BigNumber(0)
         : new BigNumber(1).div(rateBN);
       const formatRate = rateBN.decimalPlaces(
-        limitPriceMarketPrice.toToken?.decimals ?? 0,
+        Number(limitPriceMarketPrice.toToken?.decimals ?? 0),
         BigNumber.ROUND_HALF_UP,
       );
       const formatReverseRate = reverseRateBN.decimalPlaces(
-        limitPriceMarketPrice.fromToken?.decimals ?? 0,
+        Number(limitPriceMarketPrice.fromToken?.decimals ?? 0),
         BigNumber.ROUND_HALF_UP,
       );
       setLimitPriceUseRate((v) => ({

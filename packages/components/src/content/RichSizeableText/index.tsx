@@ -43,23 +43,29 @@ export function RichSizeableText({
           values={
             {
               ...(linkList
-                ? Object.keys(linkList).reduce((values, key) => {
-                    // eslint-disable-next-line react/no-unstable-nested-components
-                    values[key] = (text) => {
-                      const link = linkList[key];
-                      return (
-                        <SizableText
-                          color="$textInfo"
-                          cursor="pointer"
-                          onPress={() => onLinkDidPress(link)}
-                          {...link}
-                        >
-                          {text}
-                        </SizableText>
-                      );
-                    };
-                    return values;
-                  }, {} as Record<string, string | ((value: any) => React.JSX.Element)>)
+                ? Object.keys(linkList).reduce(
+                    (values, key) => {
+                      // eslint-disable-next-line react/no-unstable-nested-components
+                      values[key] = (text) => {
+                        const link = linkList[key];
+                        return (
+                          <SizableText
+                            color="$textInfo"
+                            cursor="pointer"
+                            onPress={() => onLinkDidPress(link)}
+                            {...link}
+                          >
+                            {text}
+                          </SizableText>
+                        );
+                      };
+                      return values;
+                    },
+                    {} as Record<
+                      string,
+                      string | ((value: any) => React.JSX.Element)
+                    >,
+                  )
                 : {}),
               ...i18NValues,
             } as Record<string, any>

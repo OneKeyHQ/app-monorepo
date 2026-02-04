@@ -85,6 +85,7 @@ const PasswordSetupContainer = ({
       const finalPassword =
         mode === EPasswordMode.PASSCODE ? confirmPassCode : confirmPassword;
       setLoading(true);
+      let isPasswordSetSuccess = false;
       try {
         if (isBiologyAuthSwitchOn && isSupport) {
           const res = await setWebAuthEnable(true);
@@ -99,6 +100,7 @@ const PasswordSetupContainer = ({
             encodePassword,
             mode,
           );
+        isPasswordSetSuccess = true;
         Toast.success({
           title: intl.formatMessage({ id: ETranslations.auth_passcode_set }),
         });
@@ -155,11 +157,15 @@ const PasswordSetupContainer = ({
       } catch (e) {
         console.log('e.stack', (e as Error)?.stack);
         console.error(e);
-        Toast.error({
-          title: intl.formatMessage({
-            id: ETranslations.feedback_passcode_set_failed,
-          }),
-        });
+        if (!isPasswordSetSuccess) {
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.feedback_passcode_set_failed,
+            }),
+          });
+        } else {
+          throw e;
+        }
       } finally {
         setLoading(false);
       }

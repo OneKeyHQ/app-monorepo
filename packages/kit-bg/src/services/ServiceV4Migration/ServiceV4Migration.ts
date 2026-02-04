@@ -1232,10 +1232,13 @@ class ServiceV4Migration extends ServiceBase {
     const customNetworkRpcMap = reduxData?.settings?.customNetworkRpcMap;
     if (customNetworkRpcMap) {
       const v4networks = await this.getV4AllNetworks();
-      const networkNameMap = v4networks.reduce((result, item) => {
-        result[item.id] = item.name;
-        return result;
-      }, {} as Record<string, string>);
+      const networkNameMap = v4networks.reduce(
+        (result, item) => {
+          result[item.id] = item.name;
+          return result;
+        },
+        {} as Record<string, string>,
+      );
       return Object.entries(customNetworkRpcMap).map(([key, value]) => ({
         networkId: key,
         networkName: networkNameMap[key] ?? key,
@@ -1266,10 +1269,13 @@ class ServiceV4Migration extends ServiceBase {
             o.address?.toLowerCase(),
           ).filter((o) => Boolean(o.address)),
         }))
-        .reduce((result, item) => {
-          result[item.networkId] = item.tokens;
-          return result;
-        }, {} as Record<string, IV4Token[]>);
+        .reduce(
+          (result, item) => {
+            result[item.networkId] = item.tokens;
+            return result;
+          },
+          {} as Record<string, IV4Token[]>,
+        );
     }
   }
 

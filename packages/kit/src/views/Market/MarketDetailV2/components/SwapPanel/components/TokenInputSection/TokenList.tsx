@@ -52,19 +52,21 @@ export function TokenList({
     ) {
       return null;
     }
-
+    const defaultDeriveType =
+      await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+        networkId: currentNetworkId ?? '',
+      });
     return backgroundApiProxy.serviceAccount.getNetworkAccount({
       accountId: activeAccount?.indexedAccount?.id
         ? undefined
         : activeAccount?.account?.id,
       indexedAccountId: activeAccount?.indexedAccount?.id ?? '',
       networkId: currentNetworkId,
-      deriveType: activeAccount.deriveType ?? 'default',
+      deriveType: defaultDeriveType ?? 'default',
     });
   }, [
     activeAccount?.indexedAccount?.id,
     activeAccount?.account?.id,
-    activeAccount.deriveType,
     currentNetworkId,
   ]);
 
@@ -141,10 +143,10 @@ export function TokenList({
         {displayTokens?.map((token: IEnhancedToken) => {
           const isDisabled = Boolean(
             currentSelectToken &&
-              equalTokenNoCaseSensitive({
-                token1: currentSelectToken,
-                token2: token,
-              }),
+            equalTokenNoCaseSensitive({
+              token1: currentSelectToken,
+              token2: token,
+            }),
           );
           const onPress = () => {
             if (isDisabled) return;

@@ -63,7 +63,7 @@ export default class ServiceBase {
           await this.backgroundApi.simpleDb.prime.getAuthToken();
         if (authToken) {
           // TODO use cookie instead of simpleDb
-          config.headers['X-Onekey-Request-Token'] = `${authToken}`;
+          config.headers['X-Onekey-Request-Token'] = authToken;
         }
         return config;
       });

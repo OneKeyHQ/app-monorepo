@@ -17,8 +17,12 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
 import { Token } from '@onekeyhq/kit/src/components/Token';
-import { usePerpsAllAssetsFilteredAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
+import {
+  usePerpsAllAssetsFilteredAtom,
+  usePerpsTokenSearchAliasesAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import { usePerpTokenFavoritesPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
@@ -27,6 +31,7 @@ import {
 } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   getHyperliquidTokenImageUrl,
+  getTokenSubtitle,
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IPerpsUniverse } from '@onekeyhq/shared/types/hyperliquid';
@@ -47,6 +52,7 @@ interface ITokenSelectorRowContextValue {
     name: string;
     displayName: string;
     dexLabel?: string;
+    subtitle?: string;
     maxLeverage: number;
     assetId: number;
   };
@@ -160,7 +166,7 @@ const TokenInfoCellDesktop = memo(() => {
                 {token.maxLeverage}x
               </SizableText>
             </XStack>
-            {token.dexLabel ? (
+            {token.subtitle ? (
               <XStack
                 borderRadius="$1"
                 bg="$bgInfo"
@@ -174,7 +180,7 @@ const TokenInfoCellDesktop = memo(() => {
                   color="$textInfo"
                   lineHeight={16}
                 >
-                  {token.dexLabel}
+                  {token.subtitle}
                 </SizableText>
               </XStack>
             ) : null}
@@ -182,7 +188,7 @@ const TokenInfoCellDesktop = memo(() => {
         </XStack>
       </DebugRenderTracker>
     ),
-    [token.displayName, token.maxLeverage, token.dexLabel, token.name],
+    [token.displayName, token.subtitle, token.maxLeverage, token.name],
   );
   return content;
 });
@@ -430,27 +436,11 @@ const TokenNameMobile = memo(() => {
         name="TokenNameMobile"
         offsetY={10}
       >
-        <XStack gap="$1.5" alignItems="center" justifyContent="center">
-          <SizableText size="$bodyMdMedium">{token.displayName}</SizableText>
+        <YStack gap="$0">
+          <XStack gap="$1.5" alignItems="center" justifyContent="center">
+            <SizableText size="$bodyMdMedium">{token.displayName}</SizableText>
 
-          <XStack gap="$1">
-            <XStack
-              borderRadius="$1"
-              bg="$bgInfo"
-              justifyContent="center"
-              alignItems="center"
-              px="$1.5"
-            >
-              <SizableText
-                fontSize={10}
-                alignSelf="center"
-                color="$textInfo"
-                lineHeight={16}
-              >
-                {token.maxLeverage}x
-              </SizableText>
-            </XStack>
-            {token.dexLabel ? (
+            <XStack gap="$1">
               <XStack
                 borderRadius="$1"
                 bg="$bgInfo"
@@ -464,15 +454,33 @@ const TokenNameMobile = memo(() => {
                   color="$textInfo"
                   lineHeight={16}
                 >
-                  {token.dexLabel}
+                  {token.maxLeverage}x
                 </SizableText>
               </XStack>
-            ) : null}
+              {token.subtitle ? (
+                <XStack
+                  borderRadius="$1"
+                  bg="$bgInfo"
+                  justifyContent="center"
+                  alignItems="center"
+                  px="$1.5"
+                >
+                  <SizableText
+                    fontSize={10}
+                    alignSelf="center"
+                    color="$textInfo"
+                    lineHeight={16}
+                  >
+                    {token.subtitle}
+                  </SizableText>
+                </XStack>
+              ) : null}
+            </XStack>
           </XStack>
-        </XStack>
+        </YStack>
       </DebugRenderTracker>
     ),
-    [token.displayName, token.maxLeverage, token.dexLabel],
+    [token.displayName, token.subtitle, token.maxLeverage],
   );
   return content;
 });
@@ -623,6 +631,8 @@ TokenSelectorRowMobile.displayName = 'TokenSelectorRowMobile';
 const PerpTokenSelectorRow = memo(
   ({ mockedToken, onPress, isOnModal }: IPerpTokenSelectorRowProps) => {
     const [filteredAssets] = usePerpsAllAssetsFilteredAtom();
+    const [tokenSearchAliases] = usePerpsTokenSearchAliasesAtom();
+    const locale = useLocaleVariant();
     const tokensByDex = filteredAssets.assetsByDex || [];
     const assets: IPerpsUniverse[] = tokensByDex[mockedToken.dexIndex] || [];
     const token: IPerpsUniverse | undefined = assets[mockedToken.index];
@@ -642,6 +652,10 @@ const PerpTokenSelectorRow = memo(
     );
 
     const parsed = useMemo(() => parseDexCoin(tokenName), [tokenName]);
+    const subtitle = useMemo(
+      () => getTokenSubtitle(tokenName, locale, tokenSearchAliases),
+      [tokenName, locale, tokenSearchAliases],
+    );
 
     const contextValue: ITokenSelectorRowContextValue = useMemo(
       () => ({
@@ -649,6 +663,7 @@ const PerpTokenSelectorRow = memo(
           name: tokenName,
           displayName: parsed.displayName,
           dexLabel: parsed.dexLabel,
+          subtitle,
           maxLeverage: tokenMaxLeverage,
           assetId: tokenAssetId,
         },
@@ -669,6 +684,7 @@ const PerpTokenSelectorRow = memo(
         tokenAssetId,
         parsed.displayName,
         parsed.dexLabel,
+        subtitle,
         assetCtx,
         isLoading,
         handlePress,

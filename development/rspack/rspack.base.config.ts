@@ -103,9 +103,8 @@ const baseResolve = ({
     ),
   },
   fallback: {
-    crypto: require.resolve(
-      '@onekeyhq/shared/src/modules3rdParty/cross-crypto/index.js',
-    ),
+    crypto:
+      require.resolve('@onekeyhq/shared/src/modules3rdParty/cross-crypto/index.js'),
     stream: require.resolve('stream-browserify'),
     path: false,
     https: false,
@@ -137,6 +136,9 @@ const buildBasePlugins: (
     'process.env.PERF_MONITOR_ENABLED': JSON.stringify(
       process.env.PERF_MONITOR_ENABLED || '',
     ),
+    'process.env.VERSION': JSON.stringify(process.env.VERSION),
+    'process.env.BUNDLE_VERSION': JSON.stringify(process.env.BUNDLE_VERSION),
+    'process.env.BUILD_NUMBER': JSON.stringify(process.env.BUILD_NUMBER),
   }),
   new rspack.ProvidePlugin({
     Buffer: ['buffer', 'Buffer'],

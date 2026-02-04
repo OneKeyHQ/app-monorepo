@@ -196,9 +196,6 @@ export default function PickYourDevice() {
                 right: 8,
                 bottom: 8,
               }}
-              style={{
-                textDecoration: 'none',
-              }}
             >
               {intl.formatMessage({ id: ETranslations.global_buy_one })}
             </Anchor>

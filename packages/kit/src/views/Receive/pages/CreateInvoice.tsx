@@ -82,13 +82,13 @@ function CreateInvoice() {
       maxSendAmount:
         lnUnit === ELightningUnit.BTC
           ? chainValueUtils.convertSatsToBtc(invoiceConfig?.maxSendAmount ?? 0)
-          : invoiceConfig?.maxSendAmount ?? 0,
+          : (invoiceConfig?.maxSendAmount ?? 0),
       maxReceiveAmount:
         lnUnit === ELightningUnit.BTC
           ? chainValueUtils.convertSatsToBtc(
               invoiceConfig?.maxReceiveAmount ?? 0,
             )
-          : invoiceConfig?.maxReceiveAmount ?? 0,
+          : (invoiceConfig?.maxReceiveAmount ?? 0),
     };
   }, [invoiceConfig, lnUnit]);
 

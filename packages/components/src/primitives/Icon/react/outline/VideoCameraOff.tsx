@@ -1,0 +1,13 @@
+import Svg, { Path } from 'react-native-svg';
+import type { SvgProps } from 'react-native-svg';
+const SvgVideoCameraOff = (props: SvgProps) => (
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M1.883 1.963a1 1 0 0 1 1.404.17l14.5 18.5a1 1 0 0 1-1.574 1.234l-1.662-2.121q-.026.002-.05.004h-10a2 2 0 0 1-2-2v-12c0-.374.102-.723.28-1.022l-1.068-1.36a1 1 0 0 1 .17-1.405M12.987 17.75 4.5 6.923V17.75zm9.513-1.81a1.5 1.5 0 0 1-2.17 1.341l-5.277-2.638a1 1 0 0 1-.553-.894v-8h-5a1 1 0 0 1 0-2h5a2 2 0 0 1 2 2v2.382l3.83-1.914.188-.08a1.5 1.5 0 0 1 1.982 1.42zm-6-2.81 4 2V8.368l-4 2v2.765Z" />
+  </Svg>
+);
+export default SvgVideoCameraOff;

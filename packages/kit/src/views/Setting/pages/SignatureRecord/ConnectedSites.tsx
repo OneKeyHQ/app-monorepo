@@ -57,7 +57,7 @@ const ConnectedSiteItem = ({ item }: { item: IConnectedSite }) => (
           }
         />
         <SizableText size="$bodyLgMedium" numberOfLines={1} flexShrink={1}>
-          {`${getConnectedSiteTitle(item.url)}`}
+          {getConnectedSiteTitle(item.url)}
         </SizableText>
       </XStack>
       <YStack p="$3" backgroundColor="$bgSubdued">

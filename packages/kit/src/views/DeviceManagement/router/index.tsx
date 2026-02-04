@@ -13,9 +13,7 @@ const DeviceDetailModal = LazyLoadPage(
 
 const BuyOneKeyHardwareWallet = LazyLoadPage(
   () =>
-    import(
-      '@onekeyhq/kit/src/views/Onboarding/pages/ConnectHardwareWallet/OneKeyHardwareWallet'
-    ),
+    import('@onekeyhq/kit/src/views/Onboarding/pages/ConnectHardwareWallet/OneKeyHardwareWallet'),
 );
 
 const HardwareTroubleshootingModal = LazyLoadPage(

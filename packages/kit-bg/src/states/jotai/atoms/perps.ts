@@ -20,6 +20,7 @@ import type { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 import { EAtomNames } from '../atomNames';
 import { globalAtom, globalAtomComputedR } from '../utils';
 
+import type { IPerpDynamicTab } from '../../../services/ServiceWebviewPerp/ServiceWebviewPerp';
 import type { IAccountDeriveTypes } from '../../../vaults/types';
 
 // #region Active Account
@@ -262,6 +263,15 @@ export const {
     direction: 'desc',
     activeTab: 'all',
   },
+});
+
+// Token Selector Dynamic Tabs (from server config)
+export const {
+  target: perpTokenSelectorTabsAtom,
+  use: usePerpTokenSelectorTabsAtom,
+} = globalAtom<IPerpDynamicTab[]>({
+  name: EAtomNames.perpTokenSelectorTabsAtom,
+  initialValue: [],
 });
 
 export type IPerpFavoritesDisplayMode = 'price' | 'percent';

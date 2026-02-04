@@ -98,7 +98,9 @@ export function RootStackNavigator<
             name={name}
             component={component}
             options={(optionsInfo) => ({
-              ...options,
+              ...(typeof options === 'function'
+                ? options(optionsInfo as any)
+                : options),
               ...getOptionsWithType(type, optionsInfo),
             })}
           />

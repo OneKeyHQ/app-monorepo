@@ -126,7 +126,10 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
       const maxAmount = BigNumber.max(
         0,
         balance.minus(new BigNumber(reserveGas)),
-      ).decimalPlaces(balanceToken?.decimals ?? 6, BigNumber.ROUND_DOWN);
+      ).decimalPlaces(
+        Number(balanceToken?.decimals ?? 6),
+        BigNumber.ROUND_DOWN,
+      );
 
       if (tradeType === ESwapDirection.BUY) {
         setPaymentAmount(maxAmount);
@@ -172,7 +175,10 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
         tradeType === ESwapDirection.BUY
           ? paymentAmountRef.current?.toFixed()
           : sellAmountRef.current?.toFixed(),
-      ).decimalPlaces(balanceToken?.decimals ?? 0, BigNumber.ROUND_DOWN);
+      ).decimalPlaces(
+        Number(balanceToken?.decimals ?? 0),
+        BigNumber.ROUND_DOWN,
+      );
       if (tradeType === ESwapDirection.BUY) {
         setPaymentAmount(changeAmount);
         tokenBuyInputRef.current?.setValue(changeAmount.toFixed());

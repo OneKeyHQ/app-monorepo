@@ -11,8 +11,8 @@ import {
   Tabs,
   XStack,
   YStack,
-  useIsNativeTablet,
-  useOrientation,
+  isNativeTablet,
+  useIsSplitView,
 } from '@onekeyhq/components';
 import { usePerpsActiveAssetAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -101,8 +101,8 @@ function MobilePerpMarket() {
     );
   }, [coin, themeVariant, onPressTokenSelector, onPageGoBack, intl]);
 
-  const isTablet = useIsNativeTablet();
-  const isLandscape = useOrientation();
+  const isTablet = isNativeTablet();
+  const isLandscape = useIsSplitView();
   useEffect(() => {
     if (isTablet && isLandscape) {
       return;
@@ -198,7 +198,9 @@ function MobilePerpMarket() {
               renderTabBar={() => null}
             >
               <Tabs.Tab name="orderbook">
-                <Tabs.ScrollView>{orderBookContent}</Tabs.ScrollView>
+                <Tabs.ScrollView showsVerticalScrollIndicator={false}>
+                  {orderBookContent}
+                </Tabs.ScrollView>
               </Tabs.Tab>
             </Tabs.Container>
           </YStack>

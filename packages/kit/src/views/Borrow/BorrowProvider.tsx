@@ -4,7 +4,6 @@ import {
   useCallback,
   useContext,
   useMemo,
-  useRef,
   useState,
 } from 'react';
 
@@ -21,34 +20,57 @@ import { EBorrowDataStatus } from './borrowDataStatus';
 
 import type { ISwapConfig } from './components/BorrowTableList';
 
-export type IBorrowRefreshReservesFn = (options?: {
-  alwaysSetState?: boolean;
-}) => Promise<void>;
-
-type IBorrowRef<T> = {
-  current: T | null;
+// Unified async data type for all requests
+export type IAsyncData<T> = {
+  data: T;
+  loading: boolean;
+  refresh: () => Promise<void>;
 };
 
-export const borrowRefreshReservesRef: IBorrowRef<IBorrowRefreshReservesFn> = {
-  current: null,
-};
+export type IBorrowEarnAccount = {
+  walletId?: string;
+  accountId?: string;
+  networkId?: string;
+  accountAddress?: string;
+  account?: {
+    id: string;
+    indexedAccountId?: string;
+    pub?: string;
+  };
+} | null;
+
+const defaultAsyncData = <T,>(data: T): IAsyncData<T> => ({
+  data,
+  loading: false,
+  refresh: () => Promise.resolve(),
+});
 
 type IBorrowContextValue = {
-  reserves: IBorrowReserveItem | null;
-  setReserves: React.Dispatch<React.SetStateAction<IBorrowReserveItem | null>>;
+  // Market (sync data)
   market: IBorrowMarketItem | null;
   setMarket: React.Dispatch<React.SetStateAction<IBorrowMarketItem | null>>;
-  reservesLoading: boolean;
-  setReservesLoading: React.Dispatch<React.SetStateAction<boolean>>;
+
+  // Async data requests - unified format
+  earnAccount: IAsyncData<IBorrowEarnAccount>;
+  setEarnAccount: React.Dispatch<
+    React.SetStateAction<IAsyncData<IBorrowEarnAccount>>
+  >;
+
+  reserves: IAsyncData<IBorrowReserveItem | null>;
+  setReserves: React.Dispatch<
+    React.SetStateAction<IAsyncData<IBorrowReserveItem | null>>
+  >;
+
+  // Other state
   borrowDataStatus: EBorrowDataStatus;
   setBorrowDataStatus: React.Dispatch<React.SetStateAction<EBorrowDataStatus>>;
   swapConfig: ISwapConfig;
-  // Pending transactions state
   pendingTxs: IStakePendingTx[];
   setPendingTxs: (txs: IStakePendingTx[]) => void;
-  refreshReservesRef: IBorrowRef<IBorrowRefreshReservesFn>;
-  refreshRewardsRef: IBorrowRef<() => Promise<void>>;
-  refreshBorrowDataRef: IBorrowRef<() => Promise<void>>;
+
+  // Refresh function for external triggers (set by Overview, used by BorrowPendingBridge)
+  refreshAllBorrowData: () => Promise<void>;
+  setRefreshAllBorrowData: (fn: () => Promise<void>) => void;
 };
 
 const defaultSwapConfig: ISwapConfig = {
@@ -63,16 +85,27 @@ export const BorrowProvider = ({
 }: PropsWithChildren<{
   value?: IBorrowContextValue;
 }>) => {
-  const [reserves, setReserves] = useState<IBorrowReserveItem | null>(null);
   const [market, setMarket] = useState<IBorrowMarketItem | null>(null);
-  const [reservesLoading, setReservesLoading] = useState(false);
+  const [earnAccount, setEarnAccount] = useState<
+    IAsyncData<IBorrowEarnAccount>
+  >(defaultAsyncData(null));
+  const [reserves, setReserves] = useState<
+    IAsyncData<IBorrowReserveItem | null>
+  >(defaultAsyncData(null));
   const [borrowDataStatus, setBorrowDataStatus] = useState<EBorrowDataStatus>(
     EBorrowDataStatus.Idle,
   );
   const [pendingTxs, setPendingTxsState] = useState<IStakePendingTx[]>([]);
-  const refreshReservesRef = borrowRefreshReservesRef;
-  const refreshRewardsRef = useRef<(() => Promise<void>) | null>(null);
-  const refreshBorrowDataRef = useRef<(() => Promise<void>) | null>(null);
+
+  // Refresh function for external triggers
+  const [refreshAllBorrowData, setRefreshAllBorrowDataState] = useState<
+    () => Promise<void>
+  >(() => () => Promise.resolve());
+
+  // Stable setter that won't cause unnecessary re-renders
+  const setRefreshAllBorrowData = useCallback((fn: () => Promise<void>) => {
+    setRefreshAllBorrowDataState(() => fn);
+  }, []);
 
   // Stable setter that won't cause unnecessary re-renders
   const setPendingTxs = useCallback((txs: IStakePendingTx[]) => {
@@ -94,35 +127,34 @@ export const BorrowProvider = ({
     { initResult: defaultSwapConfig },
   );
 
-  const contextValue = useMemo(() => {
-    return {
-      reserves,
-      setReserves,
+  const contextValue = useMemo(
+    () => ({
       market,
       setMarket,
-      reservesLoading,
-      setReservesLoading,
+      earnAccount,
+      setEarnAccount,
+      reserves,
+      setReserves,
       borrowDataStatus,
       setBorrowDataStatus,
       swapConfig,
       pendingTxs,
       setPendingTxs,
-      refreshReservesRef,
-      refreshRewardsRef,
-      refreshBorrowDataRef,
-    };
-  }, [
-    reserves,
-    market,
-    reservesLoading,
-    borrowDataStatus,
-    swapConfig,
-    pendingTxs,
-    setPendingTxs,
-    refreshReservesRef,
-    refreshRewardsRef,
-    refreshBorrowDataRef,
-  ]);
+      refreshAllBorrowData,
+      setRefreshAllBorrowData,
+    }),
+    [
+      market,
+      earnAccount,
+      reserves,
+      borrowDataStatus,
+      swapConfig,
+      pendingTxs,
+      setPendingTxs,
+      refreshAllBorrowData,
+      setRefreshAllBorrowData,
+    ],
+  );
 
   return (
     <BorrowContext.Provider value={contextValue}>

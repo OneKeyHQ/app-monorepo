@@ -268,10 +268,13 @@ export const useSuggestion = (
             words.push(...formValues.slice(words.length, currentPhraseLength));
           }
           form.reset(
-            words.reduce((prev, next, index) => {
-              prev[`phrase${index + 1}`] = next;
-              return prev;
-            }, {} as Record<`phrase${number}`, string>),
+            words.reduce(
+              (prev, next, index) => {
+                prev[`phrase${index + 1}`] = next;
+                return prev;
+              },
+              {} as Record<`phrase${number}`, string>,
+            ),
           );
           resetSuggestions();
           await timerUtils.wait(10);

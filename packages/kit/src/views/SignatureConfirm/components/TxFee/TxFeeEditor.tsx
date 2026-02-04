@@ -251,7 +251,7 @@ function TxFeeEditor(props: IProps) {
       ).toFixed(),
       maxBaseFee: originalMaxBaseFee.isGreaterThan(0)
         ? originalMaxBaseFee.toFixed()
-        : customFee?.gasEIP1559?.baseFeePerGas ?? '0',
+        : (customFee?.gasEIP1559?.baseFeePerGas ?? '0'),
       // fee utxo
       feeRate: new BigNumber(customFee?.feeUTXO?.feeRate ?? '0').toFixed(),
       // fee sol
@@ -1166,9 +1166,9 @@ function TxFeeEditor(props: IProps) {
 
             <YStack>
               <Form.Field
-                label={`${intl.formatMessage({
+                label={intl.formatMessage({
                   id: ETranslations.form__priority_fee,
-                })}`}
+                })}
                 name="priorityFee"
                 description={
                   replaceTxMode ? null : recommendPriorityFee.description

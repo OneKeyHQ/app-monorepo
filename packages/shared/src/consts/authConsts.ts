@@ -193,8 +193,11 @@ export const SUPABASE_PUBLIC_API_KEY =
 
 // --- onekey prod
 export const KEYLESS_SUPABASE_PROJECT_URL = 'https://auth.onekey.so'; // onekeytest
+// export const KEYLESS_SUPABASE_PUBLIC_API_KEY =
+// oxlint-disable-next-line @cspell/spellchecker
+//   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzY3NzU4MzUwLCJleHAiOjE5MjU0MzgzNTB9.n-g7Amu-dMVpBgQ8i8gSYFjBvbDPC55ZqYIttPh8CYk';
 export const KEYLESS_SUPABASE_PUBLIC_API_KEY =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzY3NzU4MzUwLCJleHAiOjE5MjU0MzgzNTB9.n-g7Amu-dMVpBgQ8i8gSYFjBvbDPC55ZqYIttPh8CYk';
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzY5MTc1MzMxLCJleHAiOjE5MjY4NTUzMzF9.d0Zd8eBV8L_EcKDXiJRNTEYGw-dX6IdyDCr0nvOiLqg';
 
 // --- onekeytest
 // export const KEYLESS_SUPABASE_PROJECT_URL =
@@ -291,7 +294,7 @@ export const KEYLESS_BACKEND_SHARE_PAYLOAD_GCM_AAD =
 // Helper function to get AAD by version
 export function getKeylessAadByVersion(
   type: keyof typeof KEYLESS_AAD_VERSIONS,
-  version?: keyof typeof KEYLESS_AAD_VERSIONS[typeof type],
+  version?: keyof (typeof KEYLESS_AAD_VERSIONS)[typeof type],
 ): string {
   const targetVersion = version || KEYLESS_AAD_CURRENT_VERSION[type];
   return KEYLESS_AAD_VERSIONS[type][targetVersion];

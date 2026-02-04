@@ -1,9 +1,18 @@
 import { useRef } from 'react';
 
+import { useIntl } from 'react-intl';
 import { type ScrollView as ScrollViewNative } from 'react-native';
 
-import { EPageType, ScrollView, YStack } from '@onekeyhq/components';
+import {
+  EPageType,
+  ScrollView,
+  SizableText,
+  XStack,
+  YStack,
+  useMedia,
+} from '@onekeyhq/components';
 import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 import type {
   ESwapDirectionType,
@@ -12,18 +21,20 @@ import type {
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 
+import SwapProviderListPanel from '../../components/SwapProviderListPanel';
 import SwapRecentTokenPairsGroup from '../../components/SwapRecentTokenPairsGroup';
 
 import LimitInfoContainer from './LimitInfoContainer';
 import LimitOrderOpenItem from './LimitOrderOpenItem';
 import SwapActionsState from './SwapActionsState';
 import SwapAlertContainer from './SwapAlertContainer';
+import SwapHeaderRightActionContainer from './SwapHeaderRightActionContainer';
 import SwapPendingHistoryListComponent from './SwapPendingHistoryList';
 import SwapQuoteInput from './SwapQuoteInput';
 import SwapQuoteResult from './SwapQuoteResult';
 
 interface ISwapOldSwapBridgeLimitContainerProps {
-  pageType: EPageType;
+  pageType?: EPageType;
   storeName: EJotaiContextStoreNames;
   onSelectToken: (type: ESwapDirectionType) => void;
   fetchLoading: boolean;
@@ -75,23 +86,109 @@ const SwapOldSwapBridgeLimitContainer = ({
   swapRecentTokenPairs,
 }: ISwapOldSwapBridgeLimitContainerProps) => {
   const scrollViewRef = useRef<ScrollViewNative>(null);
-  return (
-    <ScrollView
-      keyboardShouldPersistTaps="handled"
-      keyboardDismissMode="on-drag"
-      ref={scrollViewRef}
+  const { gtLg } = useMedia();
+  const intl = useIntl();
+
+  let swapTitle: string;
+  if (swapTypeSwitch === ESwapTabSwitchType.BRIDGE) {
+    swapTitle = intl.formatMessage({ id: ETranslations.swap_page_bridge });
+  } else if (swapTypeSwitch === ESwapTabSwitchType.LIMIT) {
+    swapTitle = intl.formatMessage({ id: ETranslations.swap_page_limit });
+  } else {
+    swapTitle = intl.formatMessage({ id: ETranslations.swap_page_swap });
+  }
+
+  // Desktop: show provider panel on the right side
+  // Show when: on large desktop (gtLg), not in modal, and not in Limit mode
+  const showDesktopProviderPanel =
+    gtLg &&
+    pageType !== EPageType.modal &&
+    swapTypeSwitch !== ESwapTabSwitchType.LIMIT;
+
+  const mainContent = (
+    <YStack
+      pt="$2.5"
+      px="$5"
+      gap="$5"
+      flex={1}
+      $gtMd={{
+        flex: 'unset',
+      }}
+      {...(pageType !== EPageType.modal && {
+        $gtLg: {
+          maxWidth: 480,
+          alignSelf: 'center',
+          width: '100%',
+        },
+      })}
+      pb="$5"
     >
+      <LimitOrderOpenItem storeName={storeName} />
+      <SwapQuoteInput
+        onSelectToken={onSelectToken}
+        selectLoading={fetchLoading}
+        onSelectPercentageStage={onSelectPercentageStage}
+        onBalanceMaxPress={onBalanceMaxPress}
+      />
+      {swapTypeSwitch === ESwapTabSwitchType.LIMIT && !isWrapped ? (
+        <LimitInfoContainer />
+      ) : null}
+      <SwapActionsState
+        onPreSwap={onPreSwap}
+        onOpenRecipientAddress={onToAnotherAddressModal}
+        onSelectPercentageStage={onSelectPercentageStage}
+      />
+      <SwapQuoteResult
+        refreshAction={refreshAction}
+        onOpenProviderList={
+          showDesktopProviderPanel ? undefined : onOpenProviderList
+        }
+        quoteResult={quoteResult}
+        onOpenRecipient={onToAnotherAddressModal}
+      />
+      {alerts.states.length > 0 &&
+      !quoteLoading &&
+      !quoteEventFetching &&
+      alerts?.quoteId === (quoteResult?.quoteId ?? '') ? (
+        <SwapAlertContainer alerts={alerts.states} />
+      ) : null}
+      <SwapRecentTokenPairsGroup
+        onSelectTokenPairs={onSelectRecentTokenPairs}
+        tokenPairs={swapRecentTokenPairs}
+        fromTokenAmount={fromTokenAmountValue}
+      />
+      <SwapPendingHistoryListComponent pageType={pageType} />
+    </YStack>
+  );
+
+  if (showDesktopProviderPanel) {
+    // Clone mainContent with card styling for desktop
+    const mainContentWithCard = (
       <YStack
-        pt="$2.5"
-        px="$5"
+        p="$6"
         gap="$5"
-        flex={1}
-        $gtMd={{
-          flex: 'unset',
-          pt: pageType === EPageType.modal ? '$2.5' : '$5',
+        borderRadius="$6"
+        borderWidth={1}
+        borderColor="$borderSubdued"
+        elevationAndroid="$1"
+        $platform-web={{
+          boxShadow: '0px 0px 24px 0px rgba(0, 0, 0, 0.06)',
         }}
-        pb="$5"
+        style={{
+          shadowColor: 'rgba(0, 0, 0, 0.08)',
+          shadowOffset: { width: 0, height: 0 },
+          shadowOpacity: 1,
+          shadowRadius: 24,
+        }}
       >
+        <XStack alignItems="center" justifyContent="space-between">
+          <SizableText size="$headingLg">{swapTitle}</SizableText>
+          <SwapHeaderRightActionContainer
+            pageType={pageType}
+            iconSize="$5"
+            iconColor="$iconStrong"
+          />
+        </XStack>
         <LimitOrderOpenItem storeName={storeName} />
         <SwapQuoteInput
           onSelectToken={onSelectToken}
@@ -99,9 +196,6 @@ const SwapOldSwapBridgeLimitContainer = ({
           onSelectPercentageStage={onSelectPercentageStage}
           onBalanceMaxPress={onBalanceMaxPress}
         />
-        {swapTypeSwitch === ESwapTabSwitchType.LIMIT && !isWrapped ? (
-          <LimitInfoContainer />
-        ) : null}
         <SwapActionsState
           onPreSwap={onPreSwap}
           onOpenRecipientAddress={onToAnotherAddressModal}
@@ -109,7 +203,7 @@ const SwapOldSwapBridgeLimitContainer = ({
         />
         <SwapQuoteResult
           refreshAction={refreshAction}
-          onOpenProviderList={onOpenProviderList}
+          onOpenProviderList={undefined}
           quoteResult={quoteResult}
           onOpenRecipient={onToAnotherAddressModal}
         />
@@ -126,6 +220,26 @@ const SwapOldSwapBridgeLimitContainer = ({
         />
         <SwapPendingHistoryListComponent pageType={pageType} />
       </YStack>
+    );
+    return (
+      <XStack gap="$1" px="$5">
+        <YStack p="$5" flexBasis="50%">
+          <YStack>{mainContentWithCard}</YStack>
+        </YStack>
+        <YStack p="$5" flexBasis="50%">
+          <SwapProviderListPanel refreshAction={refreshAction} />
+        </YStack>
+      </XStack>
+    );
+  }
+
+  return (
+    <ScrollView
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
+      ref={scrollViewRef}
+    >
+      {mainContent}
     </ScrollView>
   );
 };

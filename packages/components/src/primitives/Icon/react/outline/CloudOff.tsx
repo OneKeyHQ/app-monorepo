@@ -1,14 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgCloudOff = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M10.78 5.124A6 6 0 0 1 18 11a4 4 0 0 1 3.826 5.17M18.9 18.899 7.287 7.287a6 6 0 0 0-.961 1.758A5.001 5.001 0 0 0 7 19h11q.465-.001.899-.101Zm0 0L21 21 3 3"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M2.293 2.293a1 1 0 0 1 1.414 0l18 18a1 1 0 0 1-1.338 1.483l-.076-.069-1.738-1.738q-.274.03-.555.031H7A6 6 0 0 1 5.598 8.165q.175-.393.394-.759L2.293 3.707a1 1 0 0 1 0-1.414M21 15a3 3 0 0 0-3-3 1 1 0 0 1-1-1 5 5 0 0 0-6.018-4.896 1 1 0 0 1-.404-1.96 7 7 0 0 1 8.36 5.944 5 5 0 0 1 3.845 6.374 1 1 0 0 1-1.913-.584q.128-.416.13-.878M3 14a4 4 0 0 0 4 4h9.586L7.469 8.883a5 5 0 0 0-.198.488 1 1 0 0 1-.812.665A4 4 0 0 0 3 14" />
   </Svg>
 );
 export default SvgCloudOff;

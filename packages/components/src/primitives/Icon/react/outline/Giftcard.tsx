@@ -1,14 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgGiftcard = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M14 5v7m0 0v7m0-7h7m-7 0H3m11 0 3-3m-3 3-3-3m3 3 3 3m-3-3-3 3m-6 4h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M20 13h-3.586l1.293 1.293a1 1 0 1 1-1.414 1.414L15 14.414V18h5zm-7 5v-3.586l-1.293 1.293a1 1 0 1 1-1.414-1.414L11.586 13H4v5zm2-12v3.586l1.293-1.293a1 1 0 1 1 1.414 1.414L16.414 11H20V6zM4 11h7.586l-1.293-1.293a1 1 0 1 1 1.414-1.414L13 9.586V6H4zm18 7a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z" />
   </Svg>
 );
 export default SvgGiftcard;

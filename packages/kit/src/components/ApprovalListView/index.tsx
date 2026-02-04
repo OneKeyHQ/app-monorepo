@@ -186,6 +186,7 @@ function ApprovalListViewCmp(props: IProps) {
     <ListComponent
       // @ts-ignore
       estimatedItemSize={tableLayout ? undefined : 60}
+      showsVerticalScrollIndicator={false}
       ref={ListComponentRef as any}
       nestedScrollEnabled={platformEnv.isNativeAndroid ? inTabList : false}
       refreshControl={

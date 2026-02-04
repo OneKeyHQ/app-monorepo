@@ -32,9 +32,7 @@ const EmailOTPDialog = LazyLoadPage(
 
 const PrimeLoginEmailDialogV2 = LazyLoadPage(
   () =>
-    import(
-      '@onekeyhq/kit/src/views/Prime/components/PrimeLoginEmailDialogV2/PrimeLoginEmailDialogV2'
-    ),
+    import('@onekeyhq/kit/src/views/Prime/components/PrimeLoginEmailDialogV2/PrimeLoginEmailDialogV2'),
   0,
   true,
   <Stack>

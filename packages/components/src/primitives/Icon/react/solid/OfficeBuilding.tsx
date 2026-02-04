@@ -1,13 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgOfficeBuilding = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      fill="currentColor"
-      fillRule="evenodd"
-      d="M20 19V6a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v13H3a1 1 0 1 0 0 2h18a1 1 0 1 0 0-2zM9 7a1 1 0 0 0 0 2h1a1 1 0 1 0 0-2zm5 0a1 1 0 1 0 0 2h1a1 1 0 1 0 0-2zm-5 4a1 1 0 1 0 0 2h1a1 1 0 1 0 0-2zm5 0a1 1 0 1 0 0 2h1a1 1 0 1 0 0-2zm-5 4a1 1 0 1 0 0 2h1a1 1 0 1 0 0-2zm5 0a1 1 0 1 0 0 2h1a1 1 0 1 0 0-2z"
-      clipRule="evenodd"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M12.91 4.272c1.003 0 1.817.815 1.817 1.819V7H14a1 1 0 1 0 0 2h1a1 1 0 0 0 .996-1.09h2.367c1.004 0 1.819.813 1.819 1.818v8.181h.909a.91.91 0 0 1 0 1.819H2.909a.91.91 0 0 1 0-1.819h.91V6.091c0-1.004.814-1.819 1.818-1.819h7.272ZM14.726 11H14a1 1 0 1 0 0 2h.727v2H14a1 1 0 1 0 0 2h.727v.91h3.636V9.727h-3.636zM9 15a1 1 0 1 0 0 2h1a1 1 0 1 0 0-2zm0-4a1 1 0 0 0-.873 1.486.91.91 0 0 0 .236 1.787h1.819a.91.91 0 0 0 .57-1.617A1 1 0 0 0 10 11zm0-4a1 1 0 0 0-.574 1.818h-.063a.91.91 0 0 0 0 1.819h1.819a.91.91 0 0 0 .305-1.765A.998.998 0 0 0 10 7z" />
   </Svg>
 );
 export default SvgOfficeBuilding;

@@ -65,22 +65,25 @@ function extractParenthesizedContent(input: string) {
 }
 
 function mergeAssets(assets: (IDeFiAsset & { type: EDeFiAssetType })[]) {
-  return assets.reduce((acc, asset) => {
-    const existingAsset = acc.find(
-      (a) => a.symbol === asset.symbol && a.address === asset.address,
-    );
-    if (existingAsset) {
-      existingAsset.value = new BigNumber(existingAsset.value)
-        .plus(asset.value)
-        .toNumber();
-      existingAsset.amount = new BigNumber(existingAsset.amount)
-        .plus(asset.amount)
-        .toFixed();
-    } else {
-      acc.push(asset);
-    }
-    return acc;
-  }, [] as (IDeFiAsset & { type: EDeFiAssetType })[]);
+  return assets.reduce(
+    (acc, asset) => {
+      const existingAsset = acc.find(
+        (a) => a.symbol === asset.symbol && a.address === asset.address,
+      );
+      if (existingAsset) {
+        existingAsset.value = new BigNumber(existingAsset.value)
+          .plus(asset.value)
+          .toNumber();
+        existingAsset.amount = new BigNumber(existingAsset.amount)
+          .plus(asset.amount)
+          .toFixed();
+      } else {
+        acc.push(asset);
+      }
+      return acc;
+    },
+    [] as (IDeFiAsset & { type: EDeFiAssetType })[],
+  );
 }
 
 function buildProtocolMapKey({

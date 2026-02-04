@@ -6,10 +6,6 @@ import { format as formatUrl } from 'url';
 
 import { initNobleBleSupport } from '@onekeyfe/hd-transport-electron';
 import {
-  attachTitlebarToWindow,
-  setupTitlebar,
-} from 'custom-electron-titlebar/main';
-import {
   BrowserWindow,
   Menu,
   app,
@@ -56,6 +52,7 @@ import {
 import { initSentry } from './sentry';
 import { startServices } from './service';
 import { setMainWindowForOAuthServer } from './service/oauthLocalServer/oauthLocalServer';
+import { getBackgroundColor } from './libs/utils';
 
 logger.initialize();
 logger.transports.file.maxSize = 1024 * 1024 * 10;
@@ -109,10 +106,6 @@ const sdkConnectSrc = isDev
 
 const isMac = process.platform === 'darwin';
 const isWin = process.platform === 'win32';
-
-if (!isMac) {
-  setupTitlebar();
-}
 
 let systemIdleInterval: ReturnType<typeof setInterval>;
 
@@ -443,17 +436,7 @@ function systemIdleHandler(setIdleTime: number, event: Electron.IpcMainEvent) {
 
 const theme = store.getTheme();
 
-// colors from packages/components/tamagui.config.ts
-const themeColors = {
-  light: '#ffffff',
-  dark: '#0f0f0f',
-};
-
 logger.info('theme >>>> ', theme, nativeTheme.shouldUseDarkColors);
-
-const getBackgroundColor = (key: string) =>
-  themeColors[key as keyof typeof themeColors] ||
-  themeColors[nativeTheme.shouldUseDarkColors ? 'dark' : 'light'];
 
 const ratio = 16 / 9;
 const defaultSize = 1200;
@@ -484,7 +467,7 @@ async function createMainWindow() {
     show: false,
     title: APP_TITLE_NAME,
     titleBarStyle: 'hidden',
-    titleBarOverlay: !isMac,
+    // titleBarOverlay: !isMac,
     trafficLightPosition: { x: 20, y: 20 },
     autoHideMenuBar: true,
     frame: true,
@@ -516,9 +499,6 @@ async function createMainWindow() {
     ...savedWinBounds,
   });
 
-  if (!isMac) {
-    attachTitlebarToWindow(browserWindow);
-  }
   const getSafelyBrowserWindow = () => {
     if (browserWindow && !browserWindow.isDestroyed()) {
       return browserWindow;
@@ -638,12 +618,6 @@ async function createMainWindow() {
     event.returnValue = isDev;
   });
 
-  ipcMain.on(ipcMessageKeys.THEME_UPDATE, (event, themeKey: string) => {
-    const safelyBrowserWindow = getSafelyBrowserWindow();
-    store.setTheme(themeKey);
-    safelyBrowserWindow?.setBackgroundColor(getBackgroundColor(themeKey));
-  });
-
   ipcMain.on(ipcMessageKeys.APP_IS_FOCUSED, (event) => {
     const safelyBrowserWindow = getSafelyBrowserWindow();
     event.returnValue = safelyBrowserWindow?.isFocused();
@@ -655,6 +629,58 @@ async function createMainWindow() {
 
   ipcMain.on(ipcMessageKeys.APP_TEST_CRASH, () => {
     throw new OneKeyLocalError('Test Electron Native crash 996');
+  });
+
+  // System Resources
+  ipcMain.handle(ipcMessageKeys.SYSTEM_GET_CPU_USAGE, async () => {
+    try {
+      const cpuUsage = process.getCPUUsage();
+      // Calculate CPU usage percentage
+      const totalUsage = cpuUsage.percentCPUUsage;
+      return {
+        usage: totalUsage,
+      };
+    } catch (error) {
+      console.error('Failed to get CPU usage:', error);
+      return { usage: 0 };
+    }
+  });
+
+  ipcMain.handle(ipcMessageKeys.SYSTEM_GET_MEMORY_USAGE, async () => {
+    try {
+      const memoryUsage = await process.getProcessMemoryInfo();
+      const blinkMemory = process.getBlinkMemoryInfo();
+
+      // Format memory value: if < 1, keep 2 decimals; if >= 1, round to integer
+      const formatMemoryValue = (valueInKB: number): string => {
+        const valueInMB = valueInKB / 1024;
+        if (valueInMB < 1) {
+          return valueInMB.toFixed(2);
+        }
+        return Math.round(valueInMB).toString();
+      };
+
+      // private: available on all platforms (macOS, Windows, Linux)
+      // residentSet: only available on Linux and Windows
+      // blinkMemory: Blink (rendering engine) memory usage
+      return {
+        private: Math.round(memoryUsage.private / 1024), // Convert KB to MB
+        residentSet: memoryUsage.residentSet
+          ? Math.round(memoryUsage.residentSet / 1024)
+          : undefined, // Convert KB to MB, undefined on macOS
+        blink: {
+          allocated: formatMemoryValue(blinkMemory.allocated), // Formatted string
+          total: formatMemoryValue(blinkMemory.total), // Formatted string
+        },
+      };
+    } catch (error) {
+      console.error('Failed to get memory usage:', error);
+      return {
+        private: 0,
+        residentSet: undefined,
+        blink: { allocated: '0', total: '0' },
+      };
+    }
   });
 
   desktopApi.desktopApiSetup();
@@ -780,7 +806,6 @@ async function createMainWindow() {
     session.defaultSession.protocol.interceptFileProtocol(
       PROTOCOL,
       (request, callback) => {
-        console.log('request url', request);
         const jsSdkPattern = '/static/js-sdk/';
         const jsSdkIndex = request.url.indexOf(jsSdkPattern);
 

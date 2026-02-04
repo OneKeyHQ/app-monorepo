@@ -1964,7 +1964,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
               !semver.valid(actualVersionStr) ||
               !semver.eq(actualVersionStr, expectedVersionStr)
             ) {
-              versionMismatches.push(`${expectedVersionStr}`);
+              versionMismatches.push(expectedVersionStr);
             }
           }
         };

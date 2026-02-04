@@ -206,8 +206,10 @@ export interface IActionListSection {
   items: IActionListItemProps[];
 }
 
-export interface IActionListProps
-  extends Omit<IPopoverProps, 'renderContent' | 'open' | 'onOpenChange'> {
+export interface IActionListProps extends Omit<
+  IPopoverProps,
+  'renderContent' | 'open' | 'onOpenChange'
+> {
   items?: IActionListItemProps[];
   sections?: IActionListSection[];
   onOpenChange?: (isOpen: boolean) => void;

@@ -551,7 +551,7 @@ function BulkCopyAddresses({
                 title={
                   deriveInfo.labelKey
                     ? intl.formatMessage({ id: deriveInfo.labelKey })
-                    : deriveInfo.label ?? ''
+                    : (deriveInfo.label ?? '')
                 }
                 mx={0}
                 px={0}
@@ -610,7 +610,7 @@ function BulkCopyAddresses({
                 ).map(([deriveType, deriveInfo]) => ({
                   label: deriveInfo.labelKey
                     ? intl.formatMessage({ id: deriveInfo.labelKey })
-                    : deriveInfo.label ?? '',
+                    : (deriveInfo.label ?? ''),
                   value: deriveType as IAccountDeriveTypes,
                 }))}
                 floatingPanelProps={{

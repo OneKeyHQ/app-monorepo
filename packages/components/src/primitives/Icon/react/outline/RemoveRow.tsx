@@ -1,13 +1,17 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgRemoveRow = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M20.293 15.293a1 1 0 1 1 1.414 1.414L20.414 18l1.293 1.293a1 1 0 1 1-1.414 1.414L19 19.414l-1.293 1.293a1 1 0 1 1-1.414-1.414L17.586 18l-1.293-1.293a1 1 0 1 1 1.414-1.414L19 16.586z" />
     <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M3 12v5a2 2 0 0 0 2 2h6m-8-7V7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v5zm14 5 2 2m0 0 2 2m-2-2-2 2m2-2 2-2"
+      fillRule="evenodd"
+      d="M20 3a2 2 0 0 1 2 2v6a1 1 0 0 1-1 1H4v5h7a1 1 0 1 1 0 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zM4 10h16V5H4z"
+      clipRule="evenodd"
     />
   </Svg>
 );

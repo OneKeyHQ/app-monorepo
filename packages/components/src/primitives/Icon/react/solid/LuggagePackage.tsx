@@ -1,11 +1,15 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgLuggagePackage = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      fill="currentColor"
       fillRule="evenodd"
-      d="M11 4a1 1 0 0 0-1 1h4a1 1 0 0 0-1-1zm5 1a3 3 0 0 0-3-3h-2a3 3 0 0 0-3 3H6a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3 1 1 0 1 0 2 0h8a1 1 0 1 0 2 0 3 3 0 0 0 3-3V8a3 3 0 0 0-3-3zM9 9a1 1 0 0 1 1 1v6a1 1 0 1 1-2 0v-6a1 1 0 0 1 1-1m6 0a1 1 0 0 1 1 1v6a1 1 0 1 1-2 0v-6a1 1 0 0 1 1-1"
+      d="M8 4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v1h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-1a1 1 0 1 1-2 0H8a1 1 0 1 1-2 0H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h3zm2 1h4V4h-4zM9 9a1 1 0 0 1 1 1v6a1 1 0 1 1-2 0v-6a1 1 0 0 1 1-1m6 0a1 1 0 0 1 1 1v6a1 1 0 1 1-2 0v-6a1 1 0 0 1 1-1"
       clipRule="evenodd"
     />
   </Svg>

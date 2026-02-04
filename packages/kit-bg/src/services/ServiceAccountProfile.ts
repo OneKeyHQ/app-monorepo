@@ -727,12 +727,15 @@ class ServiceAccountProfile extends ServiceBase {
       if (!currencyInfo) {
         throw new OneKeyLocalError('Currency not found');
       }
-      usdValue = Object.entries(value).reduce((acc, [n, v]) => {
-        acc[n] = new BigNumber(v)
-          .div(new BigNumber(currencyInfo.value))
-          .toFixed();
-        return acc;
-      }, {} as Record<string, string>);
+      usdValue = Object.entries(value).reduce(
+        (acc, [n, v]) => {
+          acc[n] = new BigNumber(v)
+            .div(new BigNumber(currencyInfo.value))
+            .toFixed();
+          return acc;
+        },
+        {} as Record<string, string>,
+      );
     }
 
     const usdAccountValue = {

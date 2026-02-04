@@ -143,7 +143,10 @@ const SwapProInputContainer = ({
           const balanceBN = new BigNumber(inputToken.balanceParsed);
           const inputNewAmount = balanceBN
             .multipliedBy(percentage)
-            .decimalPlaces(inputToken?.decimals ?? 0, BigNumber.ROUND_DOWN)
+            .decimalPlaces(
+              Number(inputToken?.decimals ?? 0),
+              BigNumber.ROUND_DOWN,
+            )
             .toFixed();
           handleInputChange(inputNewAmount);
         }

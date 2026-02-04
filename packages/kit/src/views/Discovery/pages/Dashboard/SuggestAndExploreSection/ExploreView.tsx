@@ -110,7 +110,7 @@ export function ExploreView({
             (_, index) =>
               ({
                 dappId: index.toString(),
-              } as IDApp),
+              }) as IDApp,
           ),
           chunkSize,
         ),

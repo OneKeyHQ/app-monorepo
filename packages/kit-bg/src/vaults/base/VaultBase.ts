@@ -425,9 +425,8 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     params: IBroadcastTransactionParams,
   ): Promise<ISignedTxPro> {
     const { signedTx } = params;
-    const txid = await this.backgroundApi.serviceSend.broadcastTransaction(
-      params,
-    );
+    const txid =
+      await this.backgroundApi.serviceSend.broadcastTransaction(params);
     return {
       ...signedTx,
       txid,
@@ -678,7 +677,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       );
     }
 
-    const key = `${accountId}`;
+    const key = accountId;
     let dbAccount: IDBAccount | undefined;
     if (dbAccountCache) {
       await this.mutexBuildOnChainHistoryTxGetDBAccount.runExclusive(

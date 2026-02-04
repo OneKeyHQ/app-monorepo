@@ -425,9 +425,12 @@ export default class ServiceNotification extends ServiceBase {
         result.desktopNotification;
       delete result?.desktopNotification;
       clearTimeout(this.clearDesktopNotificationCacheTimer);
-      this.clearDesktopNotificationCacheTimer = setTimeout(() => {
-        this.desktopNotificationCache = {};
-      }, timerUtils.getTimeDurationMs({ minute: 3 }));
+      this.clearDesktopNotificationCacheTimer = setTimeout(
+        () => {
+          this.desktopNotificationCache = {};
+        },
+        timerUtils.getTimeDurationMs({ minute: 3 }),
+      );
     }
     return result;
   }

@@ -207,7 +207,7 @@ export function useSpeedSwapActions(props: {
           symbol: tradeTokenRef.current?.symbol ?? '',
           logoURI: tokenDetail[0]?.logoURI
             ? tokenDetail[0]?.logoURI
-            : tradeTokenRef.current?.logoURI ?? '',
+            : (tradeTokenRef.current?.logoURI ?? ''),
         });
       }
     })();
@@ -389,9 +389,8 @@ export function useSpeedSwapActions(props: {
       protocol: EProtocolOfExchange.SWAP,
       kind: ESwapQuoteKind.SELL,
     };
-    const buildRes = await backgroundApiProxy.serviceSwap.fetchBuildSpeedSwapTx(
-      buildParams,
-    );
+    const buildRes =
+      await backgroundApiProxy.serviceSwap.fetchBuildSpeedSwapTx(buildParams);
     if (!buildRes) {
       setSpeedSwapBuildTxLoading(false);
       return;

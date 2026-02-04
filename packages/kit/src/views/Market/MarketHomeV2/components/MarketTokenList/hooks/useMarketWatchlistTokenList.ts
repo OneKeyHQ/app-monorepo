@@ -5,10 +5,10 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
-import type { IMarketTokenListItem } from '@onekeyhq/shared/types/marketV2';
 
 import {
   SORT_MAP,
+  getNativeTokenInfo,
   getNetworkLogoUri,
   transformApiItemToToken,
 } from '../utils/tokenListHelpers';
@@ -89,60 +89,56 @@ export function useMarketWatchlistTokenList({
       { chainId: string; sortIndex: number; isNative: boolean }
     > = {};
     watchlist.forEach((w) => {
-      const key = `${w.chainId}:${w.contractAddress.toLowerCase()}`;
+      const { isNative, normalizedAddress } = getNativeTokenInfo(
+        w.isNative,
+        w.contractAddress,
+      );
+      const key = `${w.chainId}:${normalizedAddress}`;
       tokenMap[key] = {
         chainId: w.chainId,
         sortIndex: w.sortIndex ?? 0,
-        isNative: w.isNative ?? false,
+        isNative,
       };
     });
 
-    const transformed: IMarketToken[] = apiResult.list.map((item) => {
-      // Get isNative from watchlist data since API doesn't return it
-      let address = item.address;
-      const networkId = item.networkId || '';
-      const key = `${networkId}:${address.toLowerCase()}`;
+    const transformed: IMarketToken[] = apiResult.list
+      .filter((item) => item && item.address != null)
+      .map((item) => {
+        const networkId = item.networkId || '';
+        const { normalizedAddress } = getNativeTokenInfo(
+          item.isNative,
+          item.address,
+        );
+        const key = `${networkId}:${normalizedAddress}`;
 
-      const tokenInfo = tokenMap[key];
-      const chainId = tokenInfo?.chainId || networkId;
-      const networkLogoUri = getNetworkLogoUri(chainId);
-      const sortIndex = tokenInfo?.sortIndex;
-      let isNative = tokenInfo?.isNative ?? false; // Get isNative from watchlist
+        const tokenInfo = tokenMap[key];
+        const chainId = tokenInfo?.chainId || networkId;
+        const networkLogoUri = getNetworkLogoUri(chainId);
+        const sortIndex = tokenInfo?.sortIndex;
 
-      // TODO: Remove this after we have a better way to handle native tokens
-      // Special handling for native tokens (short addresses)
-      if (address.length < 30) {
-        if (item.symbol === 'SUI' && networkId === 'sui--mainnet') {
-          address = '0x2::sui::SUI';
-        } else {
-          address = '';
-        }
-        isNative = true;
-      }
-
-      // Add isNative to the API item
-      const itemWithNative = {
-        ...item,
-        address,
-        isNative,
-      } as IMarketTokenListItem & { isNative: boolean };
-
-      return transformApiItemToToken(itemWithNative, {
-        chainId,
-        networkLogoUri,
-        sortIndex,
+        return transformApiItemToToken(item, {
+          chainId,
+          networkLogoUri,
+          sortIndex,
+        });
       });
-    });
 
     // Build result array in watchlist order to maintain correct sorting
     const filteredTransformed = watchlist
       .map((watchlistItem) => {
         // Find corresponding token in transformed data
         const found = transformed.find((token) => {
-          const tokenKey = token.address.toLowerCase();
-          const watchlistKey = watchlistItem.contractAddress.toLowerCase();
-          const chainMatches = watchlistItem.chainId === token.chainId;
-          return tokenKey === watchlistKey && chainMatches;
+          const { normalizedAddress: tokenKey } = getNativeTokenInfo(
+            token.isNative,
+            token.address,
+          );
+          const { normalizedAddress: watchlistKey } = getNativeTokenInfo(
+            watchlistItem.isNative,
+            watchlistItem.contractAddress,
+          );
+          return (
+            tokenKey === watchlistKey && watchlistItem.chainId === token.chainId
+          );
         });
 
         return found;
@@ -161,7 +157,7 @@ export function useMarketWatchlistTokenList({
   const sortedData = useMemo(() => {
     if (!sortBy || !sortType) {
       // Default: use sortIndex for natural watchlist ordering (ascending)
-      return [...transformedData].toSorted((a, b) => {
+      return transformedData.toSorted((a, b) => {
         const av = a.sortIndex ?? 0;
         const bv = b.sortIndex ?? 0;
         return av - bv;
@@ -170,7 +166,7 @@ export function useMarketWatchlistTokenList({
 
     // Custom sorting
     const key = SORT_MAP[sortBy] || sortBy;
-    return [...transformedData].toSorted((a, b) => {
+    return transformedData.toSorted((a, b) => {
       const av = a[key] as number;
       const bv = b[key] as number;
       if (av === bv) return 0;

@@ -13,10 +13,10 @@ import {
   XStack,
   YStack,
   rootNavigationRef,
-  useIsTabletDetailView,
-  useIsTabletMainView,
-  useOrientation,
+  useIsSplitView,
   useSafeAreaInsets,
+  useSplitMainView,
+  useSplitSubView,
 } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -162,14 +162,14 @@ const popToDiscoveryHomePage = () => {
 };
 
 function MobileBrowser() {
-  const isTabletMainView = useIsTabletMainView();
-  const isTabletDetailView = useIsTabletDetailView();
+  const isTabletMainView = useSplitMainView();
+  const isTabletDetailView = useSplitSubView();
   const isDualScreen = isDualScreenDevice();
   const route =
     useRoute<
       RouteProp<ITabDiscoveryParamList, ETabDiscoveryRoutes.TabDiscovery>
     >();
-  const isLandscape = useOrientation();
+  const isLandscape = useIsSplitView();
   const { earnTab } = route?.params || {};
   const [settings] = useSettingsPersistAtom();
   const selectedHeaderTab =

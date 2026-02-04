@@ -63,3 +63,19 @@ export enum ESecurityPasswordType {
   CloudSyncR1 = 'CloudSyncR1', // risk level 1 (low), for wallet names, bookmarks, etc.
   CloudSyncR5 = 'CloudSyncR5', // risk level 5 (high), for wallet private keys, mnemonic words, etc.
 }
+
+export type IShopifyOrderLineItem = {
+  title: string;
+  quantity: number;
+  imageUrl: string;
+};
+
+export type IShopifyOrder = {
+  orderNumber: string;
+  status: string;
+  itemCount: number;
+  createdAt: string;
+  totalPrice: string;
+  currencyCode: string;
+  lineItems: IShopifyOrderLineItem[];
+};

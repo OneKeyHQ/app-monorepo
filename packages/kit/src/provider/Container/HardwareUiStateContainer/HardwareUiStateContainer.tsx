@@ -40,8 +40,12 @@ import {
 import type { IHardwareErrorDialogPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
+import {
+  EFirmwareUpdateTipMessages,
+  type IOneKeyDeviceFeatures,
+} from '@onekeyhq/shared/types/device';
 
 import {
   BluetoothDevicePairingContent,
@@ -107,9 +111,26 @@ function HardwareSingletonDialogCmp(
   // TODO make sure toast is last session action
   // TODO pin -> passpharse -> confirm -> address -> sign -> confirm
 
+  // Extract device info for display in loading dialogs
+  const deviceInfoForDisplay = useMemo(() => {
+    const deviceType = state?.payload?.deviceType;
+    const features = (
+      state?.payload?.rawPayload as
+        | { features?: IOneKeyDeviceFeatures }
+        | undefined
+    )?.features;
+    const walletName = features?.label ?? undefined;
+    const bleName = deviceUtils.buildDeviceBleName({ features });
+    return { deviceType, walletName, bleName };
+  }, [state?.payload?.deviceType, state?.payload?.rawPayload]);
+
   const defaultLoadingView = useMemo(
     () => (
-      <CommonDeviceLoading>
+      <CommonDeviceLoading
+        deviceType={deviceInfoForDisplay.deviceType}
+        walletName={deviceInfoForDisplay.walletName}
+        bleName={deviceInfoForDisplay.bleName}
+      >
         {platformEnv.isDev ? (
           <SizableText size="$bodySmMedium">
             {action || 'unknow action'}
@@ -117,7 +138,7 @@ function HardwareSingletonDialogCmp(
         ) : null}
       </CommonDeviceLoading>
     ),
-    [action],
+    [action, deviceInfoForDisplay],
   );
 
   useEffect(() => {

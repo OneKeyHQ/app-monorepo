@@ -70,7 +70,7 @@ function AllNetworksManagerTrigger({
     if (!shouldEnableCompatQuery) {
       return '';
     }
-    return isDeferredReady ? wallet?.id ?? '' : '';
+    return isDeferredReady ? (wallet?.id ?? '') : '';
   }, [isDeferredReady, shouldEnableCompatQuery, wallet?.id]);
 
   const {

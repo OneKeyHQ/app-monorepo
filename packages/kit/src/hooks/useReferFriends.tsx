@@ -31,7 +31,10 @@ import {
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import {
+  openUrlExternal,
+  openUrlInDiscovery,
+} from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IEndpointEnv } from '@onekeyhq/shared/types/endpoint';
 
 import { useOneKeyAuth } from '../components/OneKeyAuth/useOneKeyAuth';
@@ -221,12 +224,12 @@ export const useReferFriends = () => {
       const sourceConfig: IInvitePostConfig['locales']['Earn'] =
         source === 'Perps' && postConfig?.locales.Perps
           ? postConfig.locales.Perps
-          : postConfig?.locales.Earn ?? {
+          : (postConfig?.locales.Earn ?? {
               title: '',
               subtitle: '',
               for_you: { title: '', subtitle: '' },
               for_your_friend: { title: '', subtitle: '' },
-            };
+            });
 
       const getReferralUrl = (code: string) =>
         buildReferralUrl({
@@ -377,10 +380,11 @@ export const useReferFriends = () => {
           id: ETranslations.referral_intro_learn_more,
         }),
         onCancel: () => {
-          openUrlExternal(REFERRAL_HELP_LINK);
-        },
-        cancelButtonProps: {
-          iconAfter: 'OpenOutline',
+          if (platformEnv.isDesktop || platformEnv.isNative) {
+            openUrlInDiscovery({ url: REFERRAL_HELP_LINK });
+          } else {
+            openUrlExternal(REFERRAL_HELP_LINK);
+          }
         },
         onConfirmText: intl.formatMessage({
           id: isLogin

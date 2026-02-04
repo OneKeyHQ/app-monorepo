@@ -5,12 +5,12 @@ import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
-  Anchor,
   Badge,
   Button,
   Form,
   Icon,
   Input,
+  SizableText,
   Skeleton,
   Stack,
   Toast,
@@ -39,6 +39,10 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import {
+  openUrlExternal,
+  openUrlInDiscovery,
+} from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import MainInfoBlock from './MainBlock';
 
@@ -339,16 +343,23 @@ function ReferralCodeBlock({
         actions={
           <Form form={form}>
             <YStack gap="$2" alignItems="flex-start">
-              <Anchor
-                href={referralHelpLink}
+              <SizableText
                 color="$textSubdued"
                 size="$bodyMd"
                 textDecorationLine="underline"
+                cursor="pointer"
+                onPress={() => {
+                  if (platformEnv.isDesktop || platformEnv.isNative) {
+                    openUrlInDiscovery({ url: referralHelpLink });
+                  } else {
+                    openUrlExternal(referralHelpLink);
+                  }
+                }}
               >
                 {intl.formatMessage({
                   id: ETranslations.referral_code_tutorial_label,
                 })}
-              </Anchor>
+              </SizableText>
               {renderReferralCodeActions()}
             </YStack>
           </Form>

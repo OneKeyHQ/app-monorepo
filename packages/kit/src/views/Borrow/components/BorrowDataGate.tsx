@@ -46,18 +46,19 @@ export const BorrowDataGate = ({
   useEffect(() => {
     onBorrowNetworksChange?.(borrowNetworkIds);
   }, [borrowNetworkIds, onBorrowNetworksChange, isViewActive]);
-  const {
-    reserves,
-    setMarket,
-    setReserves,
-    setReservesLoading,
-    setBorrowDataStatus,
-    refreshReservesRef,
-  } = useBorrowContext();
+
+  const { setMarket, setReserves, setEarnAccount, setBorrowDataStatus } =
+    useBorrowContext();
+
   const { activeAccount } = useActiveAccount({ num: 0 });
-  const { earnAccount } = useEarnAccount({
+  const {
+    earnAccount: earnAccountData,
+    refreshAccount,
+    isLoading: earnAccountLoading,
+  } = useEarnAccount({
     networkId: market?.networkId,
   });
+
   const { fetchReserves } = useBorrowReserves();
   const lastFetchKeyRef = useRef<string | null>(null);
   const prevFetchKeyRef = useRef<string | null>(null);
@@ -66,11 +67,13 @@ export const BorrowDataGate = ({
   const forceRefreshCounterRef = useRef(0);
   const lastForceRefreshCounterRef = useRef(0);
   const wasActiveRef = useRef(isViewActive);
-  const accountId = earnAccount?.accountId ?? earnAccount?.account?.id;
+  const prevReservesDataRef = useRef<IBorrowReserveItem | null>(null);
+
+  const accountId = earnAccountData?.accountId ?? earnAccountData?.account?.id;
   const activeAccountId = activeAccount.account?.id;
   const shouldWaitForAccount =
     !activeAccount.ready ||
-    (activeAccountId !== undefined && earnAccount === undefined);
+    (activeAccountId !== undefined && earnAccountData === undefined);
   const marketProvider = market?.provider;
   const marketNetworkId = market?.networkId;
   const marketAddress = market?.marketAddress;
@@ -141,6 +144,13 @@ export const BorrowDataGate = ({
     },
   );
 
+  const refreshReservesWithForce = useMemo(() => {
+    return async () => {
+      forceRefreshCounterRef.current += 1;
+      await refreshReserves();
+    };
+  }, [refreshReserves]);
+
   const dataStatus = useMemo(() => {
     if (!isViewActive) return EBorrowDataStatus.Idle;
     if (marketsLoading) {
@@ -151,7 +161,10 @@ export const BorrowDataGate = ({
     if (shouldWaitForAccount) return EBorrowDataStatus.WaitingForAccount;
 
     if (reservesLoading) {
-      if (!reserves || lastFetchKeyRef.current !== fetchKey) {
+      if (
+        !prevReservesDataRef.current ||
+        lastFetchKeyRef.current !== fetchKey
+      ) {
         return EBorrowDataStatus.LoadingReserves;
       }
       return EBorrowDataStatus.Refreshing;
@@ -169,7 +182,6 @@ export const BorrowDataGate = ({
     fetchKey,
     shouldWaitForAccount,
     reservesLoading,
-    reserves,
     reservesResult,
   ]);
 
@@ -195,56 +207,65 @@ export const BorrowDataGate = ({
   }, [market, setMarket]);
 
   useEffect(() => {
-    switch (dataStatus) {
-      case EBorrowDataStatus.Idle:
-        setReservesLoading(false);
-        break;
-      case EBorrowDataStatus.LoadingMarkets:
-      case EBorrowDataStatus.WaitingForAccount:
-        setReserves(null);
-        setReservesLoading(true);
-        break;
-      case EBorrowDataStatus.LoadingReserves:
-        if (lastFetchKeyRef.current !== fetchKey) {
-          lastFetchKeyRef.current = fetchKey;
-          setReserves(null);
-        }
-        setReservesLoading(true);
-        break;
-      case EBorrowDataStatus.Refreshing:
-        setReservesLoading(false);
-        break;
-      case EBorrowDataStatus.Ready:
-        if (reservesResult !== undefined) {
-          setReserves(reservesResult);
-        }
-        setReservesLoading(false);
-        break;
-      default:
-        break;
-    }
-  }, [dataStatus, fetchKey, reservesResult, setReserves, setReservesLoading]);
-
-  useEffect(() => {
     setBorrowDataStatus(dataStatus);
   }, [dataStatus, setBorrowDataStatus]);
-
-  const refreshReservesWithForce = useMemo(() => {
-    return async () => {
-      forceRefreshCounterRef.current += 1;
-      await refreshReserves();
-    };
-  }, [refreshReserves]);
-
-  useEffect(() => {
-    refreshReservesRef.current = refreshReservesWithForce;
-  }, [refreshReservesRef, refreshReservesWithForce]);
 
   useEffect(() => {
     if (reservesResult !== undefined) {
       reservesResultRef.current = reservesResult;
     }
   }, [reservesResult]);
+
+  // Sync earnAccount to Context using IAsyncData format
+  useEffect(() => {
+    setEarnAccount({
+      data: earnAccountData ?? null,
+      loading: earnAccountLoading ?? false,
+      refresh: () => refreshAccount(),
+    });
+  }, [earnAccountData, earnAccountLoading, refreshAccount, setEarnAccount]);
+
+  // Sync reserves to Context using IAsyncData format
+  useEffect(() => {
+    const isLoading =
+      dataStatus === EBorrowDataStatus.LoadingMarkets ||
+      dataStatus === EBorrowDataStatus.WaitingForAccount ||
+      dataStatus === EBorrowDataStatus.LoadingReserves;
+
+    // Determine the data to set
+    let dataToSet: IBorrowReserveItem | null = prevReservesDataRef.current;
+    if (
+      dataStatus === EBorrowDataStatus.LoadingMarkets ||
+      dataStatus === EBorrowDataStatus.WaitingForAccount
+    ) {
+      dataToSet = null;
+    } else if (dataStatus === EBorrowDataStatus.LoadingReserves) {
+      if (lastFetchKeyRef.current !== fetchKey) {
+        lastFetchKeyRef.current = fetchKey;
+        dataToSet = null;
+      }
+    } else if (
+      dataStatus === EBorrowDataStatus.Ready &&
+      reservesResult !== undefined
+    ) {
+      dataToSet = reservesResult;
+    }
+
+    // Update the ref for next comparison
+    prevReservesDataRef.current = dataToSet;
+
+    setReserves({
+      data: dataToSet,
+      loading: isLoading,
+      refresh: refreshReservesWithForce,
+    });
+  }, [
+    dataStatus,
+    fetchKey,
+    reservesResult,
+    refreshReservesWithForce,
+    setReserves,
+  ]);
 
   return <>{children}</>;
 };

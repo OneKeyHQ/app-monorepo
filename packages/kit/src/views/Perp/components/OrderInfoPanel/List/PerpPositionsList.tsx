@@ -127,9 +127,9 @@ function PerpPositionsList({
       },
       {
         key: 'closeAll',
-        title: `${intl.formatMessage({
+        title: intl.formatMessage({
           id: ETranslations.perp_position_close,
-        })}`,
+        }),
         minWidth: 80,
         align: 'right',
         flex: 1,

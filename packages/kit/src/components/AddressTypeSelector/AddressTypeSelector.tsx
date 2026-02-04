@@ -650,12 +650,12 @@ function AddressTypeSelector(props: IProps) {
 
   if (isSelectorDisabled) {
     return showTriggerWhenDisabled
-      ? renderSelectorTrigger ?? (
+      ? (renderSelectorTrigger ?? (
           <AddressTypeSelectorTrigger
             activeDeriveInfo={activeDeriveInfo}
             disableSelector={isSelectorDisabled}
           />
-        )
+        ))
       : null;
   }
 

@@ -8,6 +8,6 @@ export class BackgroundScene extends BaseScene {
     if (['serviceSetting.refreshLastActivity'].includes(serviceAndMethodName)) {
       return NO_LOG_OUTPUT;
     }
-    return `${serviceAndMethodName}`;
+    return serviceAndMethodName;
   }
 }

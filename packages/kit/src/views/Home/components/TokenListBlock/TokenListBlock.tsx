@@ -1679,8 +1679,8 @@ function TokenListBlock({
       } else {
         updateAccountWorth({
           accountId: mergeDeriveAddressData
-            ? indexedAccount?.id ?? ''
-            : account?.id ?? '',
+            ? (indexedAccount?.id ?? '')
+            : (account?.id ?? ''),
           initialized: true,
           worth: tokenListWorth,
           createAtNetworkWorth: tokenListValue,

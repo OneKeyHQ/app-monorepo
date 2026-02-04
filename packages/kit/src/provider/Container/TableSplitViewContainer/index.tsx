@@ -1,4 +1,4 @@
-import { Divider, XStack, YStack, useOrientation } from '@onekeyhq/components';
+import { Divider, XStack, YStack, useIsSplitView } from '@onekeyhq/components';
 
 export function TableSplitViewContainer({
   mainRouter,
@@ -7,7 +7,7 @@ export function TableSplitViewContainer({
   mainRouter: React.ReactNode;
   detailRouter: React.ReactNode;
 }) {
-  const isLandscape = useOrientation();
+  const isLandscape = useIsSplitView();
   const display = isLandscape ? 'flex' : 'none';
   return (
     <XStack flex={1}>

@@ -1,10 +1,16 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgBasket = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      fill="currentColor"
-      d="M9.428 4.372a1 1 0 0 0-1.856-.743L5.823 8H4a1 1 0 0 0-.449.106 2 2 0 0 0-1.32 2.252l1.486 8.179A3 3 0 0 0 6.67 21h10.66a3 3 0 0 0 2.951-2.463l1.487-8.18a2 2 0 0 0-1.319-2.25A1 1 0 0 0 20 8h-1.823l-1.748-4.371a1 1 0 0 0-1.857.743L16.021 8H7.978z"
+      fillRule="evenodd"
+      d="m21.77 9.796-1.722 9.487a1.975 1.975 0 0 1-1.949 1.622H5.902c-.96 0-1.77-.682-1.949-1.622l-1.73-9.487a1.485 1.485 0 0 1 1.463-1.75h2.196l1.732-4.324A1 1 0 0 1 8.9 3.168a1 1 0 0 1 .554 1.286L8.019 8.045h7.963l-1.434-3.59a.984.984 0 0 1 .554-1.287.984.984 0 0 1 1.286.554l1.731 4.323h2.196c.93 0 1.623.841 1.464 1.751z"
+      clipRule="evenodd"
     />
   </Svg>
 );

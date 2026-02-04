@@ -10,6 +10,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IExternalConnectionInfo } from '@onekeyhq/shared/types/externalWallet.types';
 
 import { ConnectToWalletDialogContent } from '../../components/WebDapp/ConnectToWalletDialogContent';
@@ -36,6 +37,14 @@ export function useWalletConnection({
   } = useConnectExternalWallet();
 
   const dialogRef = useRef<IDialogInstance | null>(null);
+  const isMountedRef = useRef(true);
+
+  useEffect(
+    () => () => {
+      isMountedRef.current = false;
+    },
+    [],
+  );
 
   // Only add WalletConnect modal state listener for retry button
   const loadingRef = useRef(loading);
@@ -48,7 +57,7 @@ export function useWalletConnection({
       return;
     }
     const fn = (state: { open: boolean }) => {
-      if (state.open === false && loadingRef.current) {
+      if (state.open === false && loadingRef.current && isMountedRef.current) {
         hideLoading();
       }
     };
@@ -64,6 +73,10 @@ export function useWalletConnection({
         // Dialog component will cover the WalletConnectSDK modal, so we need to manually close the Dialog
         // search: zIndex: 99993173
         await dialogRef.current?.close();
+
+        // Wait for React Native Fabric to complete view cleanup
+        // This prevents race conditions when opening WalletConnect modal
+        await timerUtils.wait(100);
       }
     };
     appEventBus.on(EAppEventBusNames.WalletConnectModalState, fn);
@@ -85,6 +98,14 @@ export function useWalletConnection({
     // Don't check loading state - let user try again if needed
     await dialogRef.current?.close();
 
+    // Wait for React Native Fabric to complete view cleanup
+    // This prevents valtio destructuring errors in WalletConnect modal
+    if (platformEnv.isNative) {
+      await timerUtils.wait(100);
+    }
+
+    if (!isMountedRef.current) return;
+
     if (shouldShowDialogLoading) {
       dialogRef.current = Dialog.show({
         title: intl.formatMessage(
@@ -96,7 +117,9 @@ export function useWalletConnection({
         showFooter: false,
         dismissOnOverlayPress: false,
         onClose() {
-          setLoadingRef.current?.(false);
+          if (isMountedRef.current) {
+            setLoadingRef.current?.(false);
+          }
         },
         renderContent: (
           <ConnectToWalletDialogContent

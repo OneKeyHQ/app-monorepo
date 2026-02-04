@@ -18,5 +18,5 @@ export * from './useShortcuts';
 export * from './useStyle';
 export * from './useUpdateEffect';
 export * from './useVisibilityChange';
-export * from './useTabletMode';
+export * from './useSplitView';
 export * from './useIsTablet';

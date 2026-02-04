@@ -43,6 +43,7 @@ import type { IAllNetworksDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entit
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import { useAllNetworksPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -115,6 +116,7 @@ function SingleWalletAddressListItem({ network }: { network: IServerNetwork }) {
     setIsAllNetworksEnabled,
     setAccountsCreated,
     actionType,
+    othersWalletAddress,
   } = useContext(WalletAddressContext);
 
   const isEnabledNetwork = isAllNetworksEnabled[network.id];
@@ -129,6 +131,10 @@ function SingleWalletAddressListItem({ network }: { network: IServerNetwork }) {
     [networkAccountMap, network.id],
   );
 
+  const isOthersWallet = accountUtils.isOthersWallet({
+    walletId: walletId ?? '',
+  });
+
   const subtitle = useMemo(() => {
     if (account) {
       if (networkUtils.isLightningNetworkByNetworkId(network.id)) {
@@ -138,12 +144,42 @@ function SingleWalletAddressListItem({ network }: { network: IServerNetwork }) {
       return accountUtils.shortenAddress({ address: account.apiAddress });
     }
 
+    // For EVM Others Wallets with ViewInExplorer, show the shared address
+    if (
+      isOthersWallet &&
+      othersWalletAddress &&
+      actionType === EWalletAddressActionType.ViewInExplorer
+    ) {
+      return accountUtils.shortenAddress({ address: othersWalletAddress });
+    }
+
     return intl.formatMessage({
       id: ETranslations.copy_address_modal_item_create_address_instruction,
     });
-  }, [account, intl, network.id]);
+  }, [
+    account,
+    intl,
+    network.id,
+    isOthersWallet,
+    othersWalletAddress,
+    actionType,
+  ]);
 
   const onPress = useCallback(async () => {
+    // For EVM Others Wallets with ViewInExplorer, use the shared address directly
+    // without trying to create a new account
+    if (
+      actionType === EWalletAddressActionType.ViewInExplorer &&
+      isOthersWallet &&
+      othersWalletAddress
+    ) {
+      await openExplorerAddressUrl({
+        networkId: network.id,
+        address: othersWalletAddress,
+      });
+      return;
+    }
+
     if (!account) {
       try {
         setLoading(true);
@@ -225,6 +261,8 @@ function SingleWalletAddressListItem({ network }: { network: IServerNetwork }) {
     refreshLocalData,
     appNavigation,
     copyAccountAddress,
+    isOthersWallet,
+    othersWalletAddress,
   ]);
 
   const avatar = useMemo(
@@ -647,10 +685,73 @@ function WalletAddressPageMainView({
       });
 
       perf.markStart('getChainSelectorNetworksCompatibleWithAccountId');
-      const networks =
-        await backgroundApiProxy.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId(
-          { accountId, walletId, excludeTestNetwork },
+
+      // For EVM Others Wallets with ViewInExplorer action, fetch all EVM networks
+      // instead of just the networks compatible with the account
+      let networks: {
+        mainnetItems: IServerNetwork[];
+        testnetItems: IServerNetwork[];
+        unavailableItems: IServerNetwork[];
+        frequentlyUsedItems: IServerNetwork[];
+      };
+
+      const isOthersWallet = accountUtils.isOthersWallet({
+        walletId: walletId ?? '',
+      });
+
+      let accountImpl: string | undefined;
+      let othersWalletAddress: string | undefined;
+      if (isOthersWallet && accountId) {
+        try {
+          const account =
+            await backgroundApiProxy.serviceAccount.getDBAccountSafe({
+              accountId,
+            });
+          accountImpl = account?.impl;
+          othersWalletAddress = account?.address;
+        } catch {
+          // ignore error
+        }
+      }
+
+      const shouldShowAllEvmNetworks =
+        isOthersWallet &&
+        accountImpl === IMPL_EVM &&
+        actionType === EWalletAddressActionType.ViewInExplorer;
+
+      if (shouldShowAllEvmNetworks) {
+        // Fetch all EVM networks for EVM Others Wallets
+        const { networks: evmNetworks } =
+          await backgroundApiProxy.serviceNetwork.getNetworksByImpls({
+            impls: [IMPL_EVM],
+          });
+
+        const mainnetItems = evmNetworks.filter((n) => !n.isTestnet);
+        const testnetItems = excludeTestNetwork
+          ? []
+          : evmNetworks.filter((n) => n.isTestnet);
+
+        // Get frequently used networks that are EVM
+        const frequentlyUsed =
+          await backgroundApiProxy.serviceNetwork.getNetworkSelectorPinnedNetworks(
+            { useDefaultPinnedNetworks: true },
+          );
+        const frequentlyUsedItems = frequentlyUsed.filter((n) =>
+          networkUtils.isEvmNetwork({ networkId: n.id }),
         );
+
+        networks = {
+          mainnetItems,
+          testnetItems,
+          unavailableItems: [],
+          frequentlyUsedItems,
+        };
+      } else {
+        networks =
+          await backgroundApiProxy.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId(
+            { accountId, walletId, excludeTestNetwork },
+          );
+      }
       perf.markEnd('getChainSelectorNetworksCompatibleWithAccountId');
 
       // perf.markStart('buildNetworkIds');
@@ -708,6 +809,7 @@ function WalletAddressPageMainView({
         networksAccount,
         networks,
         allNetworksState,
+        othersWalletAddress,
       };
     },
     [
@@ -716,6 +818,7 @@ function WalletAddressPageMainView({
       excludeTestNetwork,
       includingNotEqualGlobalDeriveTypeAccount,
       includingDeriveTypeMismatchInDefaultVisibleNetworks,
+      actionType,
     ],
     {
       watchLoading: true,
@@ -731,6 +834,7 @@ function WalletAddressPageMainView({
           unavailableItems: [],
           frequentlyUsedItems: [],
         },
+        othersWalletAddress: undefined,
       },
     },
   );
@@ -829,6 +933,7 @@ function WalletAddressPageMainView({
       allNetworksStateInit,
       originalAllNetworksStateInit,
       actionType,
+      othersWalletAddress: result.othersWalletAddress,
     };
     return contextData;
   }, [
@@ -842,6 +947,7 @@ function WalletAddressPageMainView({
     accountsCreated,
     isAllNetworksEnabled,
     result.networksAccount,
+    result.othersWalletAddress,
   ]);
 
   return (

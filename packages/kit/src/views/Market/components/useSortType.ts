@@ -50,7 +50,7 @@ export const useSortType = (
       const columnValue = listDataRef.current[0]?.[sortByType?.columnName];
       if (sortByType?.order) {
         if (isNumericColumn(columnValue)) {
-          return listDataRef.current?.slice().toSorted((a, b) => {
+          return listDataRef.current?.toSorted((a, b) => {
             const numberA = getNumericValue(
               a,
               sortByType.columnName,
@@ -67,7 +67,7 @@ export const useSortType = (
           });
         }
         if (typeof columnValue === 'string') {
-          return listDataRef.current?.slice().toSorted((a, b) => {
+          return listDataRef.current?.toSorted((a, b) => {
             const stringA = a[sortByType.columnName] as string;
             const stringB = b[sortByType.columnName] as string;
             return sortByType.order === 'desc'

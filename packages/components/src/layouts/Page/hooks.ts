@@ -1,6 +1,7 @@
 import { useContext, useEffect, useMemo, useRef } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
+import { BottomTabBarHeightContext } from './BottomTabBarHeightContext';
 import { useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -122,13 +123,30 @@ export const useSafeAreaBottom = () => {
   return safeAreaEnabled && isModalPage ? bottom : 0;
 };
 
-export const TAB_BAR_HEIGHT = 54;
+// Returns native-measured tab bar height (includes safe area on iOS).
+// Returns undefined when outside a tab navigator.
+const useNativeTabBarHeight = () =>
+  useContext(BottomTabBarHeightContext) ?? undefined;
 
 export const useTabBarHeight = () => {
   const { bottom } = useSafeAreaInsets();
   const isModalPage = useIsOverlayPage();
-  return isModalPage ? 0 : TAB_BAR_HEIGHT + bottom;
+  // Native measured height from react-native-bottom-tabs (includes safe area on iOS)
+  const nativeTabBarHeight = useNativeTabBarHeight();
+  if (isModalPage) return 0;
+  // Prefer native measured value; fall back to constant + safe area
+  if (nativeTabBarHeight) {
+    return nativeTabBarHeight;
+  }
+  return bottom || 0;
 };
+
+export const useScrollContentTabBarOffset = platformEnv.isNativeIOS
+  ? () => {
+      const nativeTabBarHeight = useNativeTabBarHeight();
+      return nativeTabBarHeight ?? 0;
+    }
+  : () => undefined;
 
 export const useSafeKeyboardAnimationStyle = () => {
   const safeBottomHeight = useSafeAreaBottom();
@@ -142,7 +160,7 @@ export const useSafeKeyboardAnimationStyle = () => {
     keyboardWillShow: (e) => {
       const keyboardHeight = e.endCoordinates.height;
       keyboardHeightValue.value = updateHeightWhenKeyboardShown(
-        keyboardHeight - safeBottomHeight - tabBarHeight,
+        keyboardHeight - tabBarHeight,
       );
     },
     keyboardWillHide: () => {

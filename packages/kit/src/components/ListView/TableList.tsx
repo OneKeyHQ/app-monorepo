@@ -596,7 +596,7 @@ function BasicTableList<T>({
     if (!column?.comparator) return data;
 
     const { comparator } = column;
-    const sorted = [...data].toSorted((a, b) => {
+    const sorted = data.toSorted((a, b) => {
       const result = comparator(a, b);
       return sortDirection === 'asc' ? result : -result;
     });

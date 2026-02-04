@@ -241,7 +241,7 @@ export const {
     }),
   );
   let sortedList = [...resetList];
-  const gasFeeSorted = resetList.slice().toSorted((a, b) => {
+  const gasFeeSorted = resetList.toSorted((a, b) => {
     const aBig = new BigNumber(a.fee?.estimatedFeeFiatValue || Infinity);
     const bBig = new BigNumber(b.fee?.estimatedFeeFiatValue || Infinity);
     return aBig.comparedTo(bBig);
@@ -250,13 +250,13 @@ export const {
     sortedList = [...gasFeeSorted];
   }
   if (sortType === ESwapProviderSort.SWAP_DURATION) {
-    sortedList = resetList.slice().toSorted((a, b) => {
+    sortedList = resetList.toSorted((a, b) => {
       const aVal = new BigNumber(a.estimatedTime || Infinity);
       const bVal = new BigNumber(b.estimatedTime || Infinity);
       return aVal.comparedTo(bVal);
     });
   }
-  const receivedSorted = resetList.slice().toSorted((a, b) => {
+  const receivedSorted = resetList.toSorted((a, b) => {
     // check toAmountSlippage
     const aToAmountSlippage = new BigNumber(a.toAmountSlippage || 0).plus(1);
     const bToAmountSlippage = new BigNumber(b.toAmountSlippage || 0).plus(1);
@@ -292,7 +292,7 @@ export const {
     }
     return bVal.comparedTo(aVal);
   });
-  const receivedOriginalSorted = resetList.slice().toSorted((a, b) => {
+  const receivedOriginalSorted = resetList.toSorted((a, b) => {
     const aVal = new BigNumber(a.toAmount || 0);
     const bVal = new BigNumber(b.toAmount || 0);
     // Check if limit exists for a and b
@@ -336,13 +336,13 @@ export const {
     recommendedSortedApproved.length > 0 &&
     receivedSorted[0].allowanceResult
   ) {
-    const recommendedSortedApprovedSorted = recommendedSortedApproved
-      .slice()
-      .toSorted((a, b) => {
+    const recommendedSortedApprovedSorted = recommendedSortedApproved.toSorted(
+      (a, b) => {
         const aVal = new BigNumber(a.toAmount || 0);
         const bVal = new BigNumber(b.toAmount || 0);
         return bVal.comparedTo(aVal);
-      });
+      },
+    );
     const recommendedSortedAllowanceSortedBestAmountBN = new BigNumber(
       recommendedSortedApprovedSorted[0].toAmount || 0,
     );
@@ -370,7 +370,7 @@ export const {
   if (sortType === ESwapProviderSort.RECOMMENDED) {
     sortedList = [...recommendedSorted];
   }
-  sortedList = sortedList.slice().toSorted((a, b) => {
+  sortedList = sortedList.toSorted((a, b) => {
     if (a.limit && b.limit) {
       const aMin = new BigNumber(a.limit?.min || 0);
       const aMax = new BigNumber(a.limit?.max || 0);

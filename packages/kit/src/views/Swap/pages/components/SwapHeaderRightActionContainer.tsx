@@ -4,7 +4,7 @@ import BigNumber from 'bignumber.js';
 import { debounce } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import type { IPageNavigationProp } from '@onekeyhq/components';
+import type { ColorTokens, IPageNavigationProp } from '@onekeyhq/components';
 import {
   Badge,
   Button,
@@ -415,8 +415,12 @@ const SwapSettingsDialogContent = () => {
 
 const SwapHeaderRightActionContainer = ({
   pageType,
+  iconSize,
+  iconColor,
 }: {
   pageType?: EPageType;
+  iconSize?: number | `$${string}`;
+  iconColor?: ColorTokens;
 }) => {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
@@ -518,7 +522,7 @@ const SwapHeaderRightActionContainer = ({
         <HeaderIconButton
           icon="SliderHorOutline"
           onPress={onOpenSwapSettings}
-          iconProps={{ size: 24 }}
+          iconProps={{ size: iconSize ?? 20, color: iconColor }}
           size="medium"
         />
       )}
@@ -556,7 +560,7 @@ const SwapHeaderRightActionContainer = ({
         <HeaderIconButton
           icon="ClockTimeHistoryOutline"
           onPress={onOpenHistoryListModal}
-          iconProps={{ size: 24 }}
+          iconProps={{ size: iconSize ?? 20, color: iconColor ?? '$icon' }}
           size="medium"
         />
       )}

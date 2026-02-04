@@ -1,3 +1,6 @@
+import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
+import type { EBulkSendMode } from '@onekeyhq/shared/types/bulkSend';
+
 export enum ETabHomeRoutes {
   TabHome = 'TabHome',
   TabHomeUrlAccountPage = 'TabHomeUrlAccountPage',
@@ -5,6 +8,8 @@ export enum ETabHomeRoutes {
   TabHomeReferralLanding = 'TabHomeReferralLanding',
   TabHomeReferralLandingWithoutPage = 'TabHomeReferralLandingWithoutPage',
   TabHomeReferralLandingCodeOnly = 'TabHomeReferralLandingCodeOnly',
+  TabHomeBulkSendAddressesInput = 'TabHomeBulkSendAddressesInput',
+  TabHomeBulkSendAmountsInput = 'TabHomeBulkSendAmountsInput',
 }
 
 export type ITabHomeUrlAccountParamList = {
@@ -30,5 +35,25 @@ export type ITabHomeParamList = {
   };
   [ETabHomeRoutes.TabHomeReferralLandingCodeOnly]: {
     code: string;
+  };
+  [ETabHomeRoutes.TabHomeBulkSendAddressesInput]: {
+    networkId: string | undefined;
+    accountId: string | undefined;
+    indexedAccountId: string | undefined;
+    tokenInfo?: IToken;
+    isInModal?: boolean;
+  };
+  [ETabHomeRoutes.TabHomeBulkSendAmountsInput]: {
+    networkId: string;
+    accountId: string | undefined;
+    senders: {
+      address: string;
+      amount: string | undefined;
+    }[];
+    receivers: { address: string; amount: string | undefined }[];
+    tokenInfo: IToken;
+    tokenDetails: { info: IToken } & ITokenFiat;
+    bulkSendMode: EBulkSendMode;
+    isInModal?: boolean;
   };
 } & ITabHomeUrlAccountParamList;

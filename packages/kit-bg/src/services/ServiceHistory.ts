@@ -125,9 +125,8 @@ class ServiceHistory extends ServiceBase {
         xpub: account.accountXpub,
       }));
 
-      localHistoryPendingTxs = await this.getAccountsLocalHistoryPendingTxs(
-        allNetworksParams,
-      );
+      localHistoryPendingTxs =
+        await this.getAccountsLocalHistoryPendingTxs(allNetworksParams);
     } else {
       localHistoryPendingTxs = await this.getAccountLocalHistoryPendingTxs({
         networkId,
@@ -222,9 +221,8 @@ class ServiceHistory extends ServiceBase {
         xpub: account.accountXpub,
       }));
 
-      localHistoryConfirmedTxs = await this.getAccountsLocalHistoryConfirmedTxs(
-        allNetworksParams,
-      );
+      localHistoryConfirmedTxs =
+        await this.getAccountsLocalHistoryConfirmedTxs(allNetworksParams);
     } else {
       localHistoryConfirmedTxs = await this.getAccountLocalHistoryConfirmedTxs({
         networkId,
@@ -296,9 +294,8 @@ class ServiceHistory extends ServiceBase {
         }),
       );
 
-      const updateResult = await this.batchUpdateLocalHistoryTxs(
-        allNetworksParams,
-      );
+      const updateResult =
+        await this.batchUpdateLocalHistoryTxs(allNetworksParams);
       finalPendingTxs = updateResult.allFinalPendingTxs;
       confirmedTxsToSave = updateResult.allConfirmedTxsToSave;
     } else {
@@ -579,9 +576,8 @@ class ServiceHistory extends ServiceBase {
       xpub: account.accountXpub,
     }));
 
-    const allNetworksPendingTxs = await this.getAccountsLocalHistoryPendingTxs(
-      allNetworksParams,
-    );
+    const allNetworksPendingTxs =
+      await this.getAccountsLocalHistoryPendingTxs(allNetworksParams);
 
     return allNetworksPendingTxs;
   }

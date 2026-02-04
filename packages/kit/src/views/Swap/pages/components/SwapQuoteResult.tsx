@@ -135,7 +135,7 @@ const SwapQuoteResult = ({
             {
               id: ETranslations.swap_page_buy_sell_tax,
             },
-            { token: `${tokenInfo?.symbol ?? ''}` },
+            { token: tokenInfo?.symbol ?? '' },
           )}
           isLoading={swapQuoteLoading}
           valueComponent={
@@ -217,8 +217,8 @@ const SwapQuoteResult = ({
     );
     const tokenPriceBN = new BigNumber(
       quoteResult?.kind === ESwapQuoteKind.SELL
-        ? toToken?.price ?? '0'
-        : fromToken?.price ?? '0',
+        ? (toToken?.price ?? '0')
+        : (fromToken?.price ?? '0'),
     );
     const oneKeyFeeFiatValue = oneKeyFeeAmountBN.multipliedBy(tokenPriceBN);
     const estimatedFeeFiatValue = new BigNumber(
@@ -229,7 +229,7 @@ const SwapQuoteResult = ({
       allFeeFiatValue.toFixed(),
       allFeeFiatValueFormatter,
     );
-    return `${allFeeFiatValueFormat}`;
+    return allFeeFiatValueFormat;
   }, [
     quoteResult?.oneKeyFeeExtraInfo?.oneKeyFeeAmount,
     quoteResult?.kind,
@@ -356,9 +356,11 @@ const SwapQuoteResult = ({
             toToken={toToken}
             showLock={!!quoteResult?.allowanceResult}
             onPress={
-              quoteResult?.info.provider && swapQuoteList?.length > 1
+              quoteResult?.info.provider &&
+              swapQuoteList?.length > 1 &&
+              onOpenProviderList
                 ? () => {
-                    onOpenProviderList?.();
+                    onOpenProviderList();
                   }
                 : undefined
             }
@@ -426,14 +428,8 @@ const SwapQuoteResult = ({
               />
             )}
           </Accordion.Trigger>
-          <Accordion.HeightAnimator animation="quick">
-            <Accordion.Content
-              gap="$4"
-              p="$0"
-              animation="quick"
-              enterStyle={{ opacity: 0 }}
-              exitStyle={{ opacity: 0 }}
-            >
+          <Accordion.HeightAnimator animation="quick" overflow="hidden">
+            <Accordion.Content gap="$4" p="$0">
               <Divider mt="$4" />
               {swapProviderSupportReceiveAddress &&
               swapEnableRecipientAddress ? (
@@ -489,9 +485,9 @@ const SwapQuoteResult = ({
                   toToken={toToken}
                   showLock={!!quoteResult?.allowanceResult}
                   onPress={
-                    quoteResult?.info.provider
+                    quoteResult?.info.provider && onOpenProviderList
                       ? () => {
-                          onOpenProviderList?.();
+                          onOpenProviderList();
                         }
                       : undefined
                   }

@@ -85,9 +85,9 @@ yarn app:web        # Start web dev
 yarn app:ext        # Start extension dev
 yarn app:ios        # Start iOS dev
 yarn app:android    # Start Android dev
-yarn lint           # MANDATORY: Run after code changes
+yarn lint:staged    # MANDATORY: Lint staged files before commit
+yarn tsc:staged     # MANDATORY: Type check staged files before commit
 yarn test           # MANDATORY: Run tests
-yarn tsc:only       # Quick type check
 ```
 
 ## Skills Reference

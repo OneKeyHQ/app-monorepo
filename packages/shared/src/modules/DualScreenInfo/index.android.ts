@@ -34,21 +34,42 @@ export const isSpanning = () => {
 };
 
 export const useIsSpanningInDualScreen = () => {
-  const [isSpanningInDualScreen, setIsSpanningInDualScreen] = useState(() =>
-    isSpanning(),
-  );
+  const [isSpanningInDualScreen, setIsSpanningInDualScreen] = useState(() => {
+    const spanning = isSpanning();
+    return spanning;
+  });
   useEffect(() => {
     if (!isDualScreenDevice()) {
       return;
     }
-    const listenerId = ReactNativeDeviceUtils.addSpanningChangedListener(
-      (result) => {
-        setIsSpanningInDualScreen(result && isTabletScreen());
-      },
-    );
+    const windowListener = Dimensions.addEventListener('change', () => {
+      setIsSpanningInDualScreen(isSpanning() && isTabletScreen());
+    });
     return () => {
-      ReactNativeDeviceUtils.removeSpanningChangedListener(listenerId);
+      windowListener?.remove();
     };
   }, []);
   return isSpanningInDualScreen;
+};
+
+const getDualScreenInfoWidth = () => {
+  const { width: windowWidth } = Dimensions.get('window');
+  const { width: screenWidth } = Dimensions.get('screen');
+  if (isSpanning()) {
+    return Math.max(windowWidth, screenWidth) / 2;
+  }
+  return Math.min(windowWidth, screenWidth);
+};
+
+export const useDualScreenWidth = () => {
+  const [width, setWidth] = useState(() => getDualScreenInfoWidth());
+  useEffect(() => {
+    const windowListener = Dimensions.addEventListener('change', () => {
+      setWidth(getDualScreenInfoWidth());
+    });
+    return () => {
+      windowListener?.remove();
+    };
+  }, []);
+  return width;
 };

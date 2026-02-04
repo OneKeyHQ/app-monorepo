@@ -196,13 +196,16 @@ export function AccountSelectorWalletListSideBar({
       hideNonBackedUpWallet &&
       !focusWalletChanged.current
     ) {
-      const backedUpWalletsMap = walletsResult.wallets.reduce((acc, wallet) => {
-        acc[wallet.id] = wallet;
-        wallet.hiddenWallets?.forEach((hiddenWallet) => {
-          acc[hiddenWallet.id] = hiddenWallet;
-        });
-        return acc;
-      }, {} as Record<string, IDBWallet>);
+      const backedUpWalletsMap = walletsResult.wallets.reduce(
+        (acc, wallet) => {
+          acc[wallet.id] = wallet;
+          wallet.hiddenWallets?.forEach((hiddenWallet) => {
+            acc[hiddenWallet.id] = hiddenWallet;
+          });
+          return acc;
+        },
+        {} as Record<string, IDBWallet>,
+      );
 
       if (
         !backedUpWalletsMap[selectedAccount.focusedWallet ?? ''] &&
@@ -404,7 +407,7 @@ export function AccountSelectorWalletListSideBar({
             borderCurve="continuous"
           />
         )}
-        keyExtractor={(item) => `${item.id}`}
+        keyExtractor={(item) => item.id}
         data={wallets as IAccountSelectorWalletInfo[]}
         onDragEnd={async (result) => {
           if (!walletsResult) {

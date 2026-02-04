@@ -247,10 +247,6 @@ textarea {
   height: 100%;
 }
 
-body > div.cet-container {
-  z-index: unset;
-}
-
 /* 
   Add break-all class to handle word breaking in web platform,
   since react-native doesn't support wordBreak property directly.
@@ -258,15 +254,6 @@ body > div.cet-container {
 */
 .break-all {
   word-break: break-all;
-}
-
-/* Hide title bar icon on Windows/Linux Desktop */
-.onekey-body > .cet-titlebar > .cet-icon {
-  display: none;
-}
-
-.onekey-body > .cet-titlebar > .cet-menubar {
-  margin-left: 16px;
 }
 
 .normal-scrollbar::-webkit-scrollbar {
@@ -286,6 +273,149 @@ body > div.cet-container {
 
 w3m-modal {
   z-index: 99993173;
+}
+
+/* Desktop Menu Styles */
+.desktop-menu-container {
+  position: relative;
+  -webkit-app-region: no-drag;
+}
+
+.desktop-menu-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.desktop-menu-trigger:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.desktop-menu-dropdown {
+  position: absolute;
+  top: 60px;
+  left: 0;
+  min-width: 200px;
+  background-color: var(--menu-bg, #2c2c2c);
+  border: 1px solid var(--menu-border, #404040);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  padding: 4px 0;
+  z-index: 10000;
+  opacity: 0;
+  transform: translateY(-8px);
+  pointer-events: none;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.desktop-menu-dropdown.open {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.desktop-menu-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  margin: 0 4px;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--menu-text, #e5e5e5);
+  font-size: 13px;
+  line-height: 1.4;
+  transition: background-color 0.1s ease;
+  white-space: nowrap;
+}
+
+.desktop-menu-item:hover {
+  background-color: var(--menu-hover, rgba(255, 255, 255, 0.08));
+}
+
+.desktop-menu-item.disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.desktop-menu-item.disabled:hover {
+  background-color: transparent;
+}
+
+.desktop-menu-item-icon {
+  width: 16px;
+  height: 16px;
+  margin-right: 8px;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+
+.desktop-menu-item-icon-placeholder {
+  width: 16px;
+  height: 16px;
+  margin-right: 8px;
+  flex-shrink: 0;
+}
+
+.desktop-menu-item-label {
+  flex: 1;
+}
+
+.desktop-menu-item-accelerator {
+  margin-left: 24px;
+  color: var(--menu-text-secondary, #999);
+  font-size: 12px;
+}
+
+.desktop-menu-item-arrow {
+  margin-left: 8px;
+  font-size: 10px;
+  color: var(--menu-text-secondary, #999);
+}
+
+.desktop-menu-separator {
+  height: 1px;
+  background-color: var(--menu-border, #404040);
+  margin: 4px 12px;
+}
+
+.desktop-menu-submenu {
+  position: absolute;
+  left: 100%;
+  top: -4px;
+  min-width: 180px;
+  background-color: var(--menu-bg, #2c2c2c);
+  border: 1px solid var(--menu-border, #404040);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  padding: 4px 0;
+  z-index: 10001;
+  opacity: 0;
+  transform: translateX(-8px);
+  pointer-events: none;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.desktop-menu-item:hover > .desktop-menu-submenu {
+  opacity: 1;
+  transform: translateX(0);
+  pointer-events: auto;
+}
+
+/* Light theme support */
+.light-theme .desktop-menu-dropdown,
+.light-theme .desktop-menu-submenu {
+  --menu-bg: #ffffff;
+  --menu-border: #e5e5e5;
+  --menu-text: #1a1a1a;
+  --menu-text-secondary: #666;
+  --menu-hover: rgba(0, 0, 0, 0.06);
 }
 
 /* Keep Intercom floating UI behind toast notifications (z-index 1e6) */

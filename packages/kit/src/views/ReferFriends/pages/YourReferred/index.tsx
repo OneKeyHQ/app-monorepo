@@ -219,7 +219,10 @@ function YourReferredPageWrapper() {
                 id: ETranslations.global_wallet,
               })}
             >
-              <Tabs.ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
+              <Tabs.ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ paddingBottom: 40 }}
+              >
                 <WalletList />
               </Tabs.ScrollView>
             </Tabs.Tab>
@@ -228,7 +231,10 @@ function YourReferredPageWrapper() {
                 id: ETranslations.referral_referred_type_3,
               })}
             >
-              <Tabs.ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
+              <Tabs.ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ paddingBottom: 40 }}
+              >
                 <HardwareSales />
               </Tabs.ScrollView>
             </Tabs.Tab>

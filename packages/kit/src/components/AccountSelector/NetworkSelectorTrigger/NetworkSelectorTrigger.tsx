@@ -112,9 +112,9 @@ function NetworkSelectorTriggerHomeCmp({
 
   const networkTriggerText = useMemo(() => {
     if (network?.isAllNetworks) {
-      return `${intl.formatMessage({
+      return intl.formatMessage({
         id: ETranslations.global_all_networks,
-      })}`;
+      });
     }
 
     return network?.name;
