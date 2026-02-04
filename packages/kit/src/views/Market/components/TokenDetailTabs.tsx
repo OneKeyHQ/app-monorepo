@@ -141,7 +141,9 @@ function BasicTokenDetailTabs({
     >
       {tabConfigs.map((tab) => (
         <Tabs.Tab key={tab.title} name={tab.title}>
-          <Tabs.ScrollView>{tab.page}</Tabs.ScrollView>
+          <Tabs.ScrollView showsVerticalScrollIndicator={false}>
+            {tab.page}
+          </Tabs.ScrollView>
         </Tabs.Tab>
       ))}
     </Tabs.Container>
