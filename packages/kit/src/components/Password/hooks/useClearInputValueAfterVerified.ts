@@ -20,6 +20,7 @@ export const useClearInputValueAfterVerified = platformEnv.isNative
       useEffect(() => {
         if (status === EPasswordVerifyStatus.VERIFIED) {
           setTimeout(() => {
+            // Explicit delay to ensure DOM update completes before clearing
             if (formContainerRef.current) {
               const inputs =
                 formContainerRef.current.querySelectorAll<HTMLInputElement>(
@@ -29,7 +30,7 @@ export const useClearInputValueAfterVerified = platformEnv.isNative
                 input.value = '';
               });
             }
-          });
+          }, 50);
         }
       }, [status]);
 
