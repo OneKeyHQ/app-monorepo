@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 
@@ -24,6 +24,11 @@ enum EMediaState {
 function CommonAssetImage(props: IProps) {
   const { nft } = props;
   const [mediaState, setMediaState] = useState<EMediaState>(EMediaState.Image);
+
+  // Reset mediaState when nft changes (e.g. FlatList cell recycling)
+  useEffect(() => {
+    setMediaState(EMediaState.Image);
+  }, [nft.metadata?.image]);
 
   const handleImageError = useCallback(() => {
     setMediaState(EMediaState.Video);
