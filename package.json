@@ -53,6 +53,8 @@
     "perf:web:release": "node development/perf-ci/run-web-perf-release.js",
     "perf:web:release:daemon": "node development/perf-ci/run-web-perf-release-daemon.js",
     "perf:web:prepare": "node development/perf-ci/run-web-perf-prepare.js",
+    "perf:desktop:release": "node development/perf-ci/run-desktop-perf-release.js",
+    "perf:desktop:release:daemon": "node development/perf-ci/run-desktop-perf-release-daemon.js",
     "icon:build": "yarn workspace @onekeyhq/components icon:build",
     "fetch:locale": "yarn op yarn workspace @onekeyhq/shared fetch:locale",
     "clean": "yarn workspaces foreach -A  -p run clean && node ./development/scripts/clean_workspace.js",

@@ -125,6 +125,12 @@ yarn perf:web:release --headed
 PERF_SKIP_BUILD=1 yarn perf:web:release --headed
 ```
 
+Desktop:
+
+```bash
+yarn perf:desktop:release
+```
+
 You can also run scripts directly:
 
 ```bash
@@ -255,6 +261,7 @@ Files:
 - Android Debug: `development/perf-ci/thresholds/android.debug.json`
 - Android Release: `development/perf-ci/thresholds/android.release.json`
 - Web Release: `development/perf-ci/thresholds/web.release.json`
+- Desktop Release: `development/perf-ci/thresholds/desktop.release.json`
 
 If a threshold value is `null`, that metric is not used for regression judgement (but still reported).
 
