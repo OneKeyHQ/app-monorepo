@@ -47,7 +47,7 @@ interface IEarnMainTabsProps {
   defaultTab?: 'assets' | 'portfolio' | 'faqs';
   portfolioData: IUseEarnPortfolioReturn;
   header?: React.ReactNode;
-  tabsRef?: React.RefObject<ITabContainerRef>;
+  tabsRef?: React.RefObject<ITabContainerRef | null>;
 }
 
 const TabContentContainer = ({
@@ -154,6 +154,7 @@ const EarnMainTabsComponent = ({
         tabsRef.current.jumpToTab(targetTabName);
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [defaultTab, initialTabName, isFocused]);
 
   useEffect(() => {
@@ -166,12 +167,14 @@ const EarnMainTabsComponent = ({
     return () => {
       appEventBus.off(EAppEventBusNames.SwitchEarnTab, callback);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [getTabName]);
 
   useEffect(
     () => () => {
       tabsRef.current = null;
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
 

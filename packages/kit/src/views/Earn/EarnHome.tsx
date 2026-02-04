@@ -69,7 +69,7 @@ function BasicEarnHome({
   showHeader?: boolean;
   showContent?: boolean;
   overrideDefaultTab?: 'assets' | 'portfolio' | 'faqs';
-  tabsRef?: React.RefObject<ITabContainerRef>;
+  tabsRef?: React.RefObject<ITabContainerRef | null>;
 }) {
   const route = useAppRoute<ITabEarnParamList, ETabEarnRoutes.EarnHome>();
   const { activeAccount } = useActiveAccount({ num: 0 });
@@ -511,7 +511,7 @@ export function EarnHomeWithProvider({
   showHeader?: boolean;
   showContent?: boolean;
   defaultTab?: 'assets' | 'portfolio' | 'faqs';
-  tabsRef?: React.RefObject<ITabContainerRef>;
+  tabsRef?: React.RefObject<ITabContainerRef | null>;
 }) {
   return (
     <AccountSelectorProviderMirror

@@ -173,7 +173,7 @@ function BaseMarketHomeWithProvider({
   tabsRef,
 }: {
   isFocused?: boolean;
-  tabsRef?: React.RefObject<ITabContainerRef>;
+  tabsRef?: React.RefObject<ITabContainerRef | null>;
 }) {
   const { mobileProps } = useMarketHomeLayoutProps();
   return isFocused ? <MobileLayout {...mobileProps} tabsRef={tabsRef} /> : null;
@@ -184,7 +184,7 @@ export function MarketHomeWithProvider({
   tabsRef,
 }: {
   isFocused?: boolean;
-  tabsRef?: React.RefObject<ITabContainerRef>;
+  tabsRef?: React.RefObject<ITabContainerRef | null>;
 }) {
   return (
     <AccountSelectorProviderMirror

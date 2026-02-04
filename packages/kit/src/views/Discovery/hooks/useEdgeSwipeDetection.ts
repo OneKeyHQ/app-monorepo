@@ -30,7 +30,7 @@ export function useEdgeSwipeDetection({
   onSwipeRight,
   screenEdgeWidth,
 }: {
-  tabsRef?: RefObject<ITabContainerRef>;
+  tabsRef?: RefObject<ITabContainerRef | null>;
   tabCount: number;
   onSwipeLeft?: () => void;
   onSwipeRight?: () => void;

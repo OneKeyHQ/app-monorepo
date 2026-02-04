@@ -25,7 +25,7 @@ interface IMobileLayoutProps {
   };
   selectedNetworkId: string;
   onTabChange: (tabId: IMarketHomeTabValue) => void;
-  tabsRef?: RefObject<ITabContainerRef>;
+  tabsRef?: RefObject<ITabContainerRef | null>;
 }
 
 function MobileLayoutComponent({
@@ -89,7 +89,8 @@ function MobileLayoutComponent({
 
   return (
     <Tabs.Container
-      ref={tabsRef as React.RefObject<ITabContainerRef>}
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ref={tabsRef as any}
       width={platformEnv.isNative ? tabContainerWidth : undefined}
       renderTabBar={renderTabBar}
       initialTabName={initialTabName}
