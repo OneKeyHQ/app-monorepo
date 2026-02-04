@@ -60,7 +60,7 @@ const TabContentContainer = ({
 }) => {
   const tabBarHeight = useScrollContentTabBarOffset();
   return (
-    <Tabs.ScrollView>
+    <Tabs.ScrollView showsVerticalScrollIndicator={false}>
       <YStack
         pt="$6"
         pb="$6"

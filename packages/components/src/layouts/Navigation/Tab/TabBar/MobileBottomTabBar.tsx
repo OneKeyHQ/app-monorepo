@@ -120,13 +120,16 @@ export default function MobileBottomTabBar({
           }
         };
 
-        const renderItemContent = (renderActive: boolean) => (
+        const renderItemContent = (
+          renderActive: boolean,
+          isOverlay: boolean,
+        ) => (
           <MobileTabItem
             testID="Mobile-AppTabBar-TabItem-Icon"
             // @ts-expect-error
             icon={options?.tabBarIcon?.(renderActive) as IKeyOfIcons}
             label={options?.tabBarLabel as string}
-            style={[StyleSheet.absoluteFill]}
+            {...(isOverlay && { style: [StyleSheet.absoluteFill] })}
             selected={renderActive}
             {...(!(isActive === renderActive) && {
               opacity: 0,
@@ -141,8 +144,8 @@ export default function MobileBottomTabBar({
             key={route.name}
             onPress={onPress}
           >
-            {renderItemContent(false)}
-            {renderItemContent(true)}
+            {renderItemContent(false, false)}
+            {renderItemContent(true, true)}
           </Stack>
         );
       }),

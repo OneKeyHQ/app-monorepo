@@ -3,10 +3,15 @@ import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 import BigNumber from 'bignumber.js';
 import { AnimatePresence, MotiView } from 'moti';
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import {
+  Badge,
   Button,
+  Divider,
   Empty,
+  Icon,
+  LottieView,
   ScrollView,
   Select,
   SizableText,
@@ -81,7 +86,7 @@ const AnimatedProviderItem = memo(
   ),
 );
 
-// Animated skeleton item
+// Animated skeleton item - matches real card dimensions
 const AnimatedSkeletonItem = memo(({ index }: { index: number }) => (
   <MotiView
     from={{
@@ -91,6 +96,10 @@ const AnimatedSkeletonItem = memo(({ index }: { index: number }) => (
     animate={{
       opacity: 1,
       translateY: 0,
+    }}
+    exit={{
+      opacity: 0,
+      translateY: -8,
     }}
     transition={
       {
@@ -102,17 +111,13 @@ const AnimatedSkeletonItem = memo(({ index }: { index: number }) => (
   >
     <Stack
       borderRadius="$4"
-      borderWidth={1}
+      my="$2"
+      overflow="hidden"
+      borderCurve="continuous"
+      borderWidth={StyleSheet.hairlineWidth}
       borderColor="$borderSubdued"
-      p="$3"
     >
-      <XStack alignItems="center" gap="$3">
-        <Skeleton width={40} height={40} radius="round" />
-        <YStack flex={1} gap="$2">
-          <Skeleton width={120} height={16} />
-          <Skeleton width={80} height={14} />
-        </YStack>
-      </XStack>
+      <Skeleton height={102} radius="square" />
     </Stack>
   </MotiView>
 ));
@@ -401,107 +406,134 @@ const SwapProviderListPanel = ({
     ],
   );
 
-  const renderLoadingSkeleton = useCallback(
-    () => (
-      <YStack gap="$2" px="$5" py="$3">
-        {Array.from({ length: 3 }).map((_, index) => (
-          <AnimatedSkeletonItem key={index} index={index} />
-        ))}
-      </YStack>
-    ),
-    [],
-  );
-
   const renderEmptyState = useCallback(
     () => (
-      <MotiView
-        from={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ type: 'timing', duration: 200 } as any}
-      >
-        <Stack flex={1} alignItems="center" justifyContent="center" py="$8">
-          <Empty
-            icon="SearchOutline"
-            title={intl.formatMessage({
-              id: ETranslations.global_no_results,
-            })}
-          />
-        </Stack>
-      </MotiView>
+      <Stack flex={1} alignItems="center" justifyContent="center" py="$8">
+        <Empty
+          icon="SearchOutline"
+          title={intl.formatMessage({
+            id: ETranslations.global_no_results,
+          })}
+        />
+      </Stack>
     ),
     [intl],
   );
 
   const renderInitialState = useCallback(
     () => (
-      <MotiView
-        key="empty-input"
-        from={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        transition={{ type: 'timing', duration: 200 } as any}
-        style={{ flex: 1 }}
-      >
-        <YStack
-          flex={1}
-          alignItems="center"
-          justifyContent="center"
-          px="$6"
-          py="$16"
-          gap="$4"
-        >
-          <SizableText size="$headingXl" color="$text" textAlign="center">
-            Swap with the best price
+      <YStack p="$6" gap="$6">
+        {/* Header - ONEKEY SWAP */}
+        <XStack alignItems="center" mb="$6">
+          <SizableText
+            color="$text"
+            fontWeight="900"
+            textTransform="uppercase"
+            size="$headingMd"
+          >
+            ONEKEY{' '}
           </SizableText>
+          <SizableText
+            color="$textSuccess"
+            fontWeight="900"
+            textTransform="uppercase"
+            size="$headingMd"
+          >
+            SWAP
+          </SizableText>
+        </XStack>
+        {/* Hero Section */}
+        <Stack position="relative" mb="$8">
+          {/* Hero Content */}
+          <YStack maxWidth={340} zIndex={1}>
+            <XStack alignItems="center" gap="$2" mb="$4">
+              <SizableText color="$text" fontWeight="900" size="$heading3xl">
+                Zero Fees
+              </SizableText>
+            </XStack>
+            <SizableText
+              size="$bodyMd"
+              color="$textSubdued"
+              style={{ lineHeight: 26 }}
+            >
+              No hidden charges or protocol margins. We route directly to the
+              source for the best net price.
+            </SizableText>
+          </YStack>
+
+          {/* Green glow background */}
+          <Stack
+            position="absolute"
+            right={20}
+            bottom={-60}
+            width={320}
+            height={320}
+            borderRadius="$full"
+            bg="$bgSuccessStrong"
+            opacity={0.08}
+            pointerEvents="none"
+            $platform-web={{
+              filter: 'blur(80px)',
+            }}
+          />
+
+          {/* Giant "0" */}
+          <Stack
+            position="absolute"
+            right={-2}
+            top="50%"
+            style={{ transform: [{ translateY: -90 }] }}
+            pointerEvents="none"
+          >
+            <SizableText
+              color="$textSuccess"
+              opacity={0.06}
+              userSelect="none"
+              style={{
+                fontSize: 224,
+                lineHeight: 180,
+                fontWeight: '900',
+                letterSpacing: -11,
+              }}
+            >
+              0
+            </SizableText>
+          </Stack>
+        </Stack>
+        <Divider />
+        {/* Feature Cards */}
+        <XStack gap="$7" mt="$6">
+          <Badge bg="$bgSubdued" borderRadius="$full" px="$3" py="$2" gap="$2">
+            <Icon name="ShieldCheckDoneSolid" size="$5" color="$iconSuccess" />
+            <SizableText size="$bodyMdMedium" fontWeight="700">
+              MEV Shield
+            </SizableText>
+          </Badge>
+          <Badge bg="$bgSubdued" borderRadius="$full" px="$3" py="$2" gap="$2">
+            <Icon name="BranchesSolid" size="$5" color="$iconSuccess" />
+            <SizableText size="$bodyMdMedium" fontWeight="700">
+              Smart Route
+            </SizableText>
+          </Badge>
+          <Badge bg="$bgSubdued" borderRadius="$full" px="$3" py="$2" gap="$2">
+            <Icon name="DollarSolid" size="$5" color="$iconSuccess" />
+            <SizableText size="$bodyMdMedium" fontWeight="700">
+              Zero Fees
+            </SizableText>
+          </Badge>
+        </XStack>
+        <YStack width={440}>
           <SizableText
             size="$bodyMd"
             color="$textSubdued"
-            textAlign="center"
-            px="$4"
+            style={{ lineHeight: 26 }}
           >
-            Compare quotes from top DEX aggregators and find the best rates
-            across 400+ DEXs and 30+ networks.
+            Experience lightning-fast swaps with private MEV protection and
+            intelligent routing across 400+ liquidity sources for maximum
+            security and optimal price execution.
           </SizableText>
-          <XStack flexWrap="wrap" justifyContent="center" gap="$3" pt="$4">
-            <XStack
-              alignItems="center"
-              gap="$1.5"
-              px="$2"
-              py="$1"
-              borderRadius="$2"
-              bg="$bgSubdued"
-            >
-              <SizableText size="$bodySm" color="$textSuccess">
-                Fast quotes
-              </SizableText>
-            </XStack>
-            <XStack
-              alignItems="center"
-              gap="$1.5"
-              px="$2"
-              py="$1"
-              borderRadius="$2"
-              bg="$bgSubdued"
-            >
-              <SizableText size="$bodySm" color="$textSuccess">
-                MEV Protection
-              </SizableText>
-            </XStack>
-            <XStack
-              alignItems="center"
-              gap="$1.5"
-              px="$2"
-              py="$1"
-              borderRadius="$2"
-              bg="$bgSubdued"
-            >
-              <SizableText size="$bodySm" color="$textSuccess">
-                Best rates
-              </SizableText>
-            </XStack>
-          </XStack>
         </YStack>
-      </MotiView>
+      </YStack>
     ),
     [],
   );
@@ -512,11 +544,29 @@ const SwapProviderListPanel = ({
     !new BigNumber(fromTokenAmount.value).isZero() &&
     !new BigNumber(fromTokenAmount.value).isNaN();
   const shouldShowContent = hasFromAndToToken && hasFromAmount;
+
+  // Clear cache immediately when content should not be displayed (e.g., amount cleared)
+  // This prevents stale list data from persisting during AnimatePresence exit
+  if (!shouldShowContent) {
+    cachedListRef.current = [];
+    hadPreviousQuotesRef.current = false;
+    isRefreshingRef.current = false;
+  }
+
   const hasQuotes = displayList.length > 0;
+
+  // Whether the SSE total event has been received
+  const hasReceivedTotal = quoteEventTotalCount.count > 0;
+  // Number of skeleton placeholders for providers not yet received
+  const remainingSkeletonCount =
+    hasReceivedTotal && quoteEventFetching
+      ? Math.max(0, quoteEventTotalCount.count - displayList.length)
+      : 0;
 
   return (
     <YStack
-      flex={1}
+      minHeight={520}
+      maxHeight={820}
       borderRadius="$6"
       borderWidth={1}
       borderColor="$borderSubdued"
@@ -531,7 +581,6 @@ const SwapProviderListPanel = ({
         shadowRadius: 24,
       }}
     >
-      {/* Header - only show when there's content to display */}
       {shouldShowContent ? (
         <XStack
           px="$6"
@@ -583,39 +632,75 @@ const SwapProviderListPanel = ({
 
       {/* Content */}
       <ScrollView flex={1} ref={scrollViewRef as any}>
+        {/* Initial state - no tokens/amount selected - Direct render without animation */}
+        {!shouldShowContent ? renderInitialState() : null}
+
         <AnimatePresence>
-          {!shouldShowContent ? renderInitialState() : null}
-          {shouldShowContent &&
-          (isLoading || isWaitingForNewQuoteRef.current) &&
-          !hasQuotes ? (
+          {/* Phase 1: Spinner - no total event received yet (covers gap before loading starts) */}
+          {shouldShowContent && !hasQuotes && !hasReceivedTotal ? (
             <MotiView
-              key="loading"
+              key="spinner"
               from={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ type: 'timing', duration: 150 } as any}
+              exitTransition={{ type: 'timing', duration: 0 } as any}
             >
-              {renderLoadingSkeleton()}
+              <YStack
+                flex={1}
+                alignItems="center"
+                justifyContent="center"
+                py="$16"
+                gap="$3"
+              >
+                <LottieView
+                  source={require('@onekeyhq/kit/assets/animations/swap_loading.json')}
+                  autoPlay
+                  loop
+                  style={{
+                    width: 48,
+                    height: 20,
+                  }}
+                />
+                <SizableText size="$bodyLgMedium" color="$textSubdued">
+                  {intl.formatMessage({
+                    id: ETranslations.swap_page_button_fetching_quotes,
+                  })}
+                </SizableText>
+              </YStack>
             </MotiView>
           ) : null}
+
+          {/* Phase 2+3: Data cards + skeleton placeholders for remaining */}
           {shouldShowContent &&
-          !hasQuotes &&
-          !isLoading &&
-          !isWaitingForNewQuoteRef.current
-            ? renderEmptyState()
-            : null}
-          {shouldShowContent && hasQuotes ? (
+          (hasQuotes || (hasReceivedTotal && quoteEventFetching)) ? (
             <MotiView
               key="content"
               from={{ opacity: 0 }}
               animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
               transition={{ type: 'timing', duration: 150 } as any}
+              exitTransition={{ type: 'timing', duration: 0 } as any}
             >
               <YStack px="$5" pb="$5">
                 {/* Available Providers */}
                 {availableList.length > 0 ? (
                   <YStack>
                     {availableList.map((item) => renderItem(item))}
+                  </YStack>
+                ) : null}
+
+                {/* Skeleton placeholders for providers not yet received */}
+                {remainingSkeletonCount > 0 ? (
+                  <YStack>
+                    {Array.from({ length: remainingSkeletonCount }).map(
+                      (_, index) => (
+                        <AnimatedSkeletonItem
+                          key={`skeleton-${index}`}
+                          index={index}
+                        />
+                      ),
+                    )}
                   </YStack>
                 ) : null}
 
@@ -650,6 +735,14 @@ const SwapProviderListPanel = ({
               </YStack>
             </MotiView>
           ) : null}
+
+          {/* Empty state - total received, all providers responded, no results */}
+          {shouldShowContent &&
+          !hasQuotes &&
+          hasReceivedTotal &&
+          !quoteEventFetching
+            ? renderEmptyState()
+            : null}
         </AnimatePresence>
       </ScrollView>
     </YStack>

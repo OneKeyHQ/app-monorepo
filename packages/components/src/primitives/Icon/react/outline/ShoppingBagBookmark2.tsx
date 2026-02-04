@@ -1,0 +1,13 @@
+import Svg, { Path } from 'react-native-svg';
+import type { SvgProps } from 'react-native-svg';
+const SvgShoppingBagBookmark2 = (props: SvgProps) => (
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M14.067 6.057a1.981 1.981 0 0 0-3.962 0v.99h3.962zm5.942 7.924a.99.99 0 0 1 .991.99v5.943a.99.99 0 0 1-1.5.85l-1.968-1.182-1.966 1.181a.99.99 0 0 1-1.5-.849v-5.943a.99.99 0 0 1 .991-.99zm-3.961 5.183.976-.585.12-.062a.99.99 0 0 1 .898.062l.977.586v-3.203h-2.971zm0-12.116h.635a1.98 1.98 0 0 1 1.958 1.68l.328 2.13a.99.99 0 1 1-1.958.303l-.328-2.132H7.488L5.812 19.924h5.284a.99.99 0 0 1 0 1.98H5.812a1.98 1.98 0 0 1-1.958-2.281L5.53 8.728c.149-.966.98-1.68 1.958-1.68h.636v-.99a3.962 3.962 0 1 1 7.924 0z" />
+  </Svg>
+);
+export default SvgShoppingBagBookmark2;

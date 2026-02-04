@@ -290,7 +290,7 @@ function ReceiveSelectorContent() {
                   {({ open }: { open: boolean }) => (
                     <>
                       <YStack bg="$neutral3" p="$2" borderRadius="$full">
-                        <Icon name="SwitchHorOutline" />
+                        <Icon name="SwitchHorOutline" color="$iconActive" />
                       </YStack>
                       <ListItem.Text
                         flex={1}

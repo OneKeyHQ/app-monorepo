@@ -1,11 +1,15 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgCalendar3Add = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      fill="currentColor"
       fillRule="evenodd"
-      d="M8 2a1 1 0 0 1 1 1v1h6V3a1 1 0 1 1 2 0v1h1a3 3 0 0 1 3 3v11a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3h1V3a1 1 0 0 1 1-1m5 8a1 1 0 1 0-2 0v1.5H9.5a1 1 0 1 0 0 2H11V15a1 1 0 0 0 2 0v-1.5h1.5a1 1 0 1 0 0-2H13z"
+      d="M8 2a1 1 0 0 1 1 1v1h6V3a1 1 0 1 1 2 0v1h2a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2V3a1 1 0 0 1 1-1m5 8a1 1 0 1 0-2 0v1.5H9.5a1 1 0 1 0 0 2H11V15a1 1 0 0 0 2 0v-1.5h1.5a1 1 0 1 0 0-2H13z"
       clipRule="evenodd"
     />
   </Svg>

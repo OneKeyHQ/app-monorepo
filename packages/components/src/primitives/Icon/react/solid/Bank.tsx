@@ -1,11 +1,15 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgBank = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      fill="currentColor"
       fillRule="evenodd"
-      d="M22 7.764a2.236 2.236 0 0 1-2 2.224v6.381c.648.355 1.16.947 1.404 1.682l.106.317A2 2 0 0 1 19.613 21H4.387a2 2 0 0 1-1.897-2.632l.105-.317A3 3 0 0 1 4 16.37V9.988a2.236 2.236 0 0 1-.764-4.224l7.422-3.711a3 3 0 0 1 2.684 0l7.422 3.711a2.24 2.24 0 0 1 1.236 2M16 10h2v6h-2zm-8 6H6v-6h2zm2 0v-6h4v6z"
+      d="M12.889 1.946a1.99 1.99 0 0 0-1.778 0L3.16 5.922A1.99 1.99 0 0 0 2.06 7.7v.38c0 1.097.89 1.987 1.989 1.987v6.097c-.542.21-.978.652-1.169 1.226l-.331.994A1.988 1.988 0 0 0 4.435 21h15.132a1.988 1.988 0 0 0 1.886-2.616l-.331-.994a1.99 1.99 0 0 0-1.17-1.226v-6.097c1.097 0 1.987-.89 1.987-1.988V7.7c0-.752-.425-1.44-1.099-1.777l-7.95-3.977Zm5.075 8.121h-1.988v5.963h1.987zm-3.976 5.963v-5.963h-3.976v5.963zm-5.964 0v-5.963H6.037v5.963z"
       clipRule="evenodd"
     />
   </Svg>
