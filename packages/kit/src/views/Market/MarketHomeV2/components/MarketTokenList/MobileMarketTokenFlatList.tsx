@@ -146,6 +146,7 @@ function MobileMarketTokenFlatListBase({
   const tabBarHeight = useScrollContentTabBarOffset();
   return (
     <Tabs.FlatList<IMarketToken>
+      showsVerticalScrollIndicator={false}
       data={loading ? EMPTY_DATA : data}
       renderItem={renderItem}
       keyExtractor={keyExtractor}
@@ -161,7 +162,6 @@ function MobileMarketTokenFlatListBase({
       ListHeaderComponent={ListHeaderComponent}
       ListFooterComponent={ListFooterComponent}
       ListEmptyComponent={ListEmptyComponent}
-      showsVerticalScrollIndicator
       contentContainerStyle={{
         paddingTop: 8 + (platformEnv.isNative ? 170 : 0),
         paddingBottom: platformEnv.isNativeAndroid

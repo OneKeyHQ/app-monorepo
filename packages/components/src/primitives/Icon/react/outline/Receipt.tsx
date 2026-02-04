@@ -1,14 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgReceipt = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M10 14h4m-3.75-5.05L11.3 10l2.45-2.45M5 5v14.388a.5.5 0 0 0 .748.434l2.287-1.306a1 1 0 0 1 .944-.027l2.574 1.287a1 1 0 0 0 .894 0l2.574-1.287a1 1 0 0 1 .944.026l2.287 1.308a.5.5 0 0 0 .748-.435V5a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M6.333 3.89v14.003l.644-.552.069-.054a.945.945 0 0 1 1.161.054l1.588 1.361 1.59-1.361.069-.054a.944.944 0 0 1 1.16.054l1.59 1.361 1.589-1.361.068-.054a.944.944 0 0 1 1.162.054l.644.552V3.89zm4.722 6.61a.945.945 0 1 1 0 1.89H9.166a.945.945 0 1 1 0-1.89h1.89Zm3.779-3.777a.945.945 0 1 1 0 1.889H9.166a.945.945 0 0 1 0-1.89zm4.722 13.223a.944.944 0 0 1-1.559.717l-1.59-1.362-1.588 1.362a.945.945 0 0 1-1.23 0L12 19.3l-1.59 1.363a.945.945 0 0 1-1.229 0l-1.59-1.362-1.589 1.362a.944.944 0 0 1-1.558-.717V3.89A1.89 1.89 0 0 1 6.333 2h11.334a1.89 1.89 0 0 1 1.89 1.89v16.056Z" />
   </Svg>
 );
 export default SvgReceipt;

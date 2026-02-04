@@ -1,11 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgShield = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      fill="currentColor"
-      d="M12.975 2.278a3 3 0 0 0-1.95 0l-6 2.063A3 3 0 0 0 3 7.178v4.735c0 2.806 1.149 4.83 2.813 6.404 1.572 1.489 3.632 2.6 5.555 3.637l.157.084a1 1 0 0 0 .95 0l.157-.084c1.923-1.037 3.983-2.148 5.556-3.637C19.85 16.742 21 14.72 21 11.913V7.178a3 3 0 0 0-2.025-2.837z"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M12.649 2.224a2 2 0 0 0-1.297 0l-6.98 2.399a1.99 1.99 0 0 0-1.346 1.886v5.433c0 2.799 1.146 4.816 2.804 6.386 1.568 1.485 3.622 2.592 5.54 3.626l.157.085c.295.16.651.16.947 0l.156-.085c1.918-1.034 3.972-2.142 5.54-3.626 1.659-1.57 2.804-3.587 2.804-6.386V6.509c0-.852-.54-1.61-1.346-1.886l-6.98-2.4Z" />
   </Svg>
 );
 export default SvgShield;

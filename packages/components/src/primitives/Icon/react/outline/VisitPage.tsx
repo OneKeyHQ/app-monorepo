@@ -1,28 +1,19 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgVisitPage = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M21 12.25V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h7"
+      fillRule="evenodd"
+      d="M14.293 14.293a1 1 0 0 1 1-.25l6.5 2a1.002 1.002 0 0 1 .154 1.852l-2.702 1.35-1.35 2.702a1 1 0 0 1-1.851-.153l-2-6.5a1 1 0 0 1 .249-1.001m2.929 4.526.383-.766a1 1 0 0 1 .448-.448l.766-.383-2.308-.711.71 2.308Z"
+      clipRule="evenodd"
     />
-    <Path
-      fill="currentColor"
-      stroke="currentColor"
-      strokeLinecap="square"
-      strokeWidth={0.75}
-      d="M5.875 8.75a.875.875 0 1 0 1.75 0 .875.875 0 0 0-1.75 0Zm3.5 0a.875.875 0 1 0 1.75 0 .875.875 0 0 0-1.75 0Zm3.5 0a.875.875 0 1 0 1.75 0 .875.875 0 0 0-1.75 0Z"
-    />
-    <Path
-      stroke="currentColor"
-      strokeLinecap="square"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="m14.5 14.5 6.5 2-3 1.5-1.5 3z"
-    />
+    <Path d="M19.5 3.5a2 2 0 0 1 2 2v6.25a1 1 0 1 1-2 0V5.5h-16v13h8a1 1 0 1 1 0 2h-8a2 2 0 0 1-2-2v-13a2 2 0 0 1 2-2z" />
+    <Path d="M6.25 7a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5m3.5 0a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5m3.5 0a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5" />
   </Svg>
 );
 export default SvgVisitPage;

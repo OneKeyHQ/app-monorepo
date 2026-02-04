@@ -12,6 +12,21 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabMarketRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 
+import { usePerpTabConfig } from '../../hooks/usePerpTabConfig';
+import { developerRouters } from '../../views/Developer/router';
+import { useDeviceManagerModalStyle } from '../../views/DeviceManagement/hooks/useDeviceManagerModalStyle';
+import { homeRouters } from '../../views/Home/router';
+import { perpRouters } from '../../views/Perp/router';
+import { perpTradeRouters as perpWebviewRouters } from '../../views/PerpTrade/router';
+
+import { deviceManagementRouters } from './DeviceManagement/router';
+import { discoveryRouters } from './Discovery/router';
+import { earnRouters } from './Earn/router';
+import { marketRouters } from './Marktet/router';
+import { multiTabBrowserRouters } from './MultiTabBrowser/router';
+import { referFriendsRouters } from './ReferFriends/router';
+import { swapRouters } from './Swap/router';
+
 // Native tab icons using SVG files from @onekeyhq/components/svg
 // The native tab bar will tint icons using tabBarActiveTintColor/tabBarInactiveTintColor
 const nativeTabIcons = {
@@ -44,21 +59,6 @@ const nativeTabIcons = {
       ? require('@onekeyhq/components/svg/solid/code-brackets.svg')
       : require('@onekeyhq/components/svg/outline/code-brackets.svg'),
 };
-
-import { usePerpTabConfig } from '../../hooks/usePerpTabConfig';
-import { developerRouters } from '../../views/Developer/router';
-import { useDeviceManagerModalStyle } from '../../views/DeviceManagement/hooks/useDeviceManagerModalStyle';
-import { homeRouters } from '../../views/Home/router';
-import { perpRouters } from '../../views/Perp/router';
-import { perpTradeRouters as perpWebviewRouters } from '../../views/PerpTrade/router';
-
-import { deviceManagementRouters } from './DeviceManagement/router';
-import { discoveryRouters } from './Discovery/router';
-import { earnRouters } from './Earn/router';
-import { marketRouters } from './Marktet/router';
-import { multiTabBrowserRouters } from './MultiTabBrowser/router';
-import { referFriendsRouters } from './ReferFriends/router';
-import { swapRouters } from './Swap/router';
 
 type IGetTabRouterParams = {
   freezeOnBlur?: boolean;
@@ -219,7 +219,8 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
         ? undefined
         : {
             name: ETabRoutes.DeviceManagement,
-            tabBarIcon: () => 'OnekeyDeviceCustom',
+            tabBarIcon: (focused?: boolean) =>
+              focused ? 'OnekeyProSolid' : 'OnekeyProOutline',
             translationId: ETranslations.global_device,
             freezeOnBlur: Boolean(params?.freezeOnBlur),
             exact: true,
