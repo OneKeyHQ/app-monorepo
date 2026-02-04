@@ -1,4 +1,4 @@
-import { useCallback, useContext, useMemo, useRef } from 'react';
+import { useCallback, useContext, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -128,7 +128,15 @@ function NetworksSectionList() {
               <Tooltip
                 renderContent="部分非热门网络可能未列入自动检测网络中，确认后回到钱包页面将会进行进一步查询。"
                 renderTrigger={
-                  <SectionList.SectionHeader title={item.section.title} px="$0" style={{ textDecorationLine: 'underline', textDecorationColor: '$textSubdued', textDecorationStyle: 'dotted' }} />
+                  <SectionList.SectionHeader
+                    title={item.section.title}
+                    px="$0"
+                    style={{
+                      textDecorationLine: 'underline',
+                      textDecorationColor: '$textSubdued',
+                      textDecorationStyle: 'dotted',
+                    }}
+                  />
                 }
               />
               <XStack gap="$3" alignItems="center">
@@ -148,18 +156,14 @@ function NetworksSectionList() {
                   }}
                 />
               </XStack>
-            </XStack >
+            </XStack>
           );
         }
         return <SectionList.SectionHeader title={item.section.title} />;
       }
       return <Stack />;
     },
-    [
-      accountNetworkValueCurrency,
-      getSectionCheckState,
-      toggleSectionNetworks,
-    ],
+    [accountNetworkValueCurrency, getSectionCheckState, toggleSectionNetworks],
   );
 
   return (
@@ -200,8 +204,8 @@ function NetworksSectionList() {
               platformEnv.isNative
                 ? undefined
                 : {
-                  minHeight: '100vh',
-                }
+                    minHeight: '100vh',
+                  }
             }
             estimatedItemSize={48}
             sections={sections}

@@ -104,7 +104,9 @@ function NetworkSelectorTriggerHomeCmp({
     showChainSelector,
   } = useNetworkSelectorTrigger({ num });
 
-  const { showUnifiedNetworkSelector } = useUnifiedNetworkSelectorTrigger({ num });
+  const { showUnifiedNetworkSelector } = useUnifiedNetworkSelectorTrigger({
+    num,
+  });
 
   const intl = useIntl();
 
@@ -133,7 +135,12 @@ function NetworkSelectorTriggerHomeCmp({
     } else {
       showChainSelector({ recordNetworkHistoryEnabled });
     }
-  }, [unifiedMode, showUnifiedNetworkSelector, showChainSelector, recordNetworkHistoryEnabled]);
+  }, [
+    unifiedMode,
+    showUnifiedNetworkSelector,
+    showChainSelector,
+    recordNetworkHistoryEnabled,
+  ]);
 
   if (hideOnNoAccount && !accountName) {
     return null;

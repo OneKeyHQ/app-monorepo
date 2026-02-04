@@ -167,16 +167,19 @@ function NetworkListHeader() {
           justifyContent="space-between"
           alignItems="center"
         >
-          <Tooltip renderContent="选择越多，加载时间会变长，请根据需要选择网络。" renderTrigger={
-            <SizableText
-              size="$bodyLgMedium"
-              textDecorationLine="underline"
-              textDecorationStyle="dotted"
-            >
-              {/* TODO: Add proper translation key for "View assets from n networks" */}
-              {`View assets from ${enabledNetworks.length} networks`}
-            </SizableText>
-          } />
+          <Tooltip
+            renderContent="选择越多，加载时间会变长，请根据需要选择网络。"
+            renderTrigger={
+              <SizableText
+                size="$bodyLgMedium"
+                textDecorationLine="underline"
+                textDecorationStyle="dotted"
+              >
+                {/* TODO: Add proper translation key for "View assets from n networks" */}
+                {`View assets from ${enabledNetworks.length} networks`}
+              </SizableText>
+            }
+          />
           <Button size="media" variant="tertiary" onPress={handleToggleAll}>
             {isAllNetworksEnabled
               ? intl.formatMessage({ id: ETranslations.global_deselect_all })

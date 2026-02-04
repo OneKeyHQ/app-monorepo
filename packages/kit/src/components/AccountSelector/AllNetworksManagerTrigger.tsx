@@ -7,7 +7,6 @@ import {
   Skeleton,
   Stack,
   XStack,
-  YStack,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
@@ -27,7 +26,6 @@ import { useUnifiedNetworkSelectorTrigger } from './hooks/useUnifiedNetworkSelec
 
 const MAX_DISPLAY_NETWORKS = 2;
 
-
 function AllNetworksManagerTrigger({
   num,
   showSkeleton,
@@ -43,7 +41,9 @@ function AllNetworksManagerTrigger({
     activeAccount: { network, wallet, account, indexedAccount },
   } = useActiveAccount({ num });
 
-  const { showUnifiedNetworkSelector } = useUnifiedNetworkSelectorTrigger({ num });
+  const { showUnifiedNetworkSelector } = useUnifiedNetworkSelectorTrigger({
+    num,
+  });
 
   const shouldEnableCompatQuery =
     Boolean(network?.id) &&
@@ -122,9 +122,11 @@ function AllNetworksManagerTrigger({
   }, [isDeferredReady, run, shouldEnableCompatQuery]);
 
   const handleOnPress = useCallback(() => {
-
     if (unifiedMode) {
-      showUnifiedNetworkSelector({ recordNetworkHistoryEnabled: true, defaultTab: 'portfolio' });
+      showUnifiedNetworkSelector({
+        recordNetworkHistoryEnabled: true,
+        defaultTab: 'portfolio',
+      });
       return;
     }
     navigation.pushModal(EModalRoutes.ChainSelectorModal, {
@@ -139,7 +141,15 @@ function AllNetworksManagerTrigger({
         },
       },
     });
-  }, [navigation, wallet?.id, account?.id, indexedAccount?.id, run, unifiedMode, showUnifiedNetworkSelector]);
+  }, [
+    navigation,
+    wallet?.id,
+    account?.id,
+    indexedAccount?.id,
+    run,
+    unifiedMode,
+    showUnifiedNetworkSelector,
+  ]);
 
   if (
     !networkUtils.isAllNetwork({ networkId: network?.id }) ||
@@ -214,7 +224,9 @@ function AllNetworksManagerTrigger({
             borderColor="$bgApp"
           >
             <SizableText size="$bodySm">
-              +{enabledNetworksCompatibleWithWalletId.length - MAX_DISPLAY_NETWORKS}
+              +
+              {enabledNetworksCompatibleWithWalletId.length -
+                MAX_DISPLAY_NETWORKS}
             </SizableText>
           </XStack>
         ) : null}

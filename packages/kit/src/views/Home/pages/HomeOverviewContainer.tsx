@@ -234,10 +234,10 @@ function HomeOverviewContainer() {
               accountId: accountValueId,
               value:
                 accountWorth.worth[
-                accountUtils.buildAccountValueKey({
-                  accountId: account.id,
-                  networkId: network.id,
-                })
+                  accountUtils.buildAccountValueKey({
+                    accountId: account.id,
+                    networkId: network.id,
+                  })
                 ],
               currency: settings.currencyInfo.id,
             },
@@ -403,12 +403,12 @@ function HomeOverviewContainer() {
                 size={
                   md
                     ? (balanceSizeList.find(
-                      (item) =>
-                        numberFormatAsRenderText(
-                          String(debouncedBalanceString),
-                          numberFormatter,
-                        ).length >= item.length,
-                    )?.size ?? defaultBalanceSize)
+                        (item) =>
+                          numberFormatAsRenderText(
+                            String(debouncedBalanceString),
+                            numberFormatter,
+                          ).length >= item.length,
+                      )?.size ?? defaultBalanceSize)
                     : defaultBalanceSize
                 }
               >

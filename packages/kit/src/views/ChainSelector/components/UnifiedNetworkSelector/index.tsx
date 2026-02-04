@@ -7,7 +7,6 @@ import {
   HeaderIconButton,
   Page,
   SizableText,
-  XStack,
   YStack,
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -32,13 +31,13 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import useAppNavigation from '../../../../hooks/useAppNavigation';
-import { usePromiseResult } from '../../../../hooks/usePromiseResult';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useAccountSelectorActions,
   useActiveAccount,
-} from '../../../../states/jotai/contexts/accountSelector';
+} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { NetworkContent } from './NetworkContent';
 import PortfolioContent from './PortfolioContent';
 import { TabSwitcher } from './TabSwitcher';
@@ -71,12 +70,7 @@ function UnifiedNetworkSelector() {
   } = route.params;
 
   const {
-    activeAccount: {
-      network: activeNetwork,
-      account,
-      wallet,
-      indexedAccount,
-    },
+    activeAccount: { network: activeNetwork, account, wallet, indexedAccount },
   } = useActiveAccount({ num });
 
   const walletId = wallet?.id ?? '';
@@ -420,7 +414,7 @@ function UnifiedNetworkSelector() {
   // Header title renderer
   const renderHeaderTitle = useCallback(() => {
     if (showTabSwitcher) {
-      return <TabSwitcher activeTab={activeTab} onTabChange={setActiveTab} />
+      return <TabSwitcher activeTab={activeTab} onTabChange={setActiveTab} />;
     }
 
     // Show simple title for network-only mode

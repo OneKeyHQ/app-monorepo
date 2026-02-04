@@ -113,23 +113,21 @@ export function WalletConnectionGroup({
     showNetworkSelector && tabRoute === ETabRoutes.Home && gtMd;
 
   const renderNetworkSelectorTrigger = useCallback(() => {
-
     if (!shouldShowNetworkSelector || isNonBackedUpWallet) {
       return null;
     }
 
     if (network?.isAllNetworks) {
-      return <AllNetworksManagerTrigger
-        num={0}
-        unifiedMode
-      />;
+      return <AllNetworksManagerTrigger num={0} unifiedMode />;
     }
-    return <NetworkSelectorTriggerHome
-      num={0}
-      recordNetworkHistoryEnabled
-      hideOnNoAccount
-      unifiedMode
-    />;
+    return (
+      <NetworkSelectorTriggerHome
+        num={0}
+        recordNetworkHistoryEnabled
+        hideOnNoAccount
+        unifiedMode
+      />
+    );
   }, [network?.isAllNetworks, shouldShowNetworkSelector, isNonBackedUpWallet]);
 
   return (
