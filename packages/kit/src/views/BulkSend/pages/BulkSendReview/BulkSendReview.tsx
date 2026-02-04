@@ -83,11 +83,7 @@ function BaseBulkSendReview({
 
   // Determine button text based on whether approvals are needed
   const confirmButtonText =
-    approvesInfo.length > 0
-      ? intl.formatMessage({
-          id: ETranslations.wallet_bulk_send_btn_approve_and_confirm,
-        })
-      : intl.formatMessage({ id: ETranslations.wallet_bulk_send_btn_confirm });
+    approvesInfo.length > 0 ? 'Approve and Confirm' : 'Confirm';
 
   // Handle editing approval amount
   const handleEditApproval = useCallback(
@@ -427,11 +423,7 @@ function BaseBulkSendReview({
 
   return (
     <Page scrollEnabled>
-      <Page.Header
-        title={intl.formatMessage({
-          id: ETranslations.wallet_bulk_send_review_title,
-        })}
-      />
+      <Page.Header title="Review transaction" />
       <Page.Body>
         <YStack gap="$6">
           {/* Fee Error Alert - Top Section */}
@@ -468,9 +460,7 @@ function BaseBulkSendReview({
       <Page.Footer>
         <Page.FooterActions
           onConfirmText={confirmButtonText}
-          onCancelText={intl.formatMessage({
-            id: ETranslations.wallet_bulk_send_btn_cancel,
-          })}
+          onCancelText="Cancel"
           cancelButtonProps={{
             onPress: handleCancel,
           }}

@@ -114,11 +114,7 @@ function AssetSelectorTrigger() {
   return (
     <YStack gap="$1.5">
       {media.gtMd ? null : (
-        <SizableText size="$bodyMdMedium">
-          {intl.formatMessage({
-            id: ETranslations.wallet_bulk_send_label_asset,
-          })}
-        </SizableText>
+        <SizableText size="$bodyMdMedium">Asset</SizableText>
       )}
       <ListItem
         drillIn={media.md}
