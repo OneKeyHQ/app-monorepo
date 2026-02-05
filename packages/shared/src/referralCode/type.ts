@@ -215,7 +215,7 @@ export type IPerpsInvitesSortOrder = 'asc' | 'desc';
 
 export interface IPerpsInvitesParams {
   tab: 'undistributed' | 'total';
-  timeRange: string;
+  timeRange?: EExportTimeRange;
   startTime?: number;
   endTime?: number;
   inviteCode?: string;
@@ -575,7 +575,7 @@ export interface IHardwareRecordsResponse {
 
 // Perps cumulative rewards response
 export interface IPerpsCumulativeRewardsParams {
-  timeRange?: string;
+  timeRange?: EExportTimeRange;
   startTime?: number;
   endTime?: number;
   inviteCode?: string;
