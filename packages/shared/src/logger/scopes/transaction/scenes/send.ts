@@ -1,7 +1,7 @@
-import type { EUtxoSelectionStrategy } from '@onekeyhq/shared/types/send';
+import type { EUtxoSelectionStrategy } from "@onekeyhq/shared/types/send";
 
-import { BaseScene } from '../../../base/baseScene';
-import { LogToLocal, LogToServer } from '../../../base/decorators';
+import { BaseScene } from "../../../base/baseScene";
+import { LogToLocal, LogToServer } from "../../../base/decorators";
 
 export class SendScene extends BaseScene {
   @LogToLocal()
@@ -88,11 +88,7 @@ export class SendScene extends BaseScene {
   }
 
   @LogToServer()
-  public addressInput({
-    addressInputMethod,
-  }: {
-    addressInputMethod: string | undefined;
-  }) {
+  public addressInput({ addressInputMethod }: { addressInputMethod: string | undefined }) {
     return {
       addressInputMethod,
     };
@@ -108,6 +104,8 @@ export class SendScene extends BaseScene {
     tokenAddress,
     feeToken,
     feeFiatValue,
+    txnParseType,
+    txnOrigin,
     tronIsResourceRentalNeeded,
     tronIsResourceRentalEnabled,
     tronIsSwapTrxEnabled,
@@ -118,6 +116,8 @@ export class SendScene extends BaseScene {
   }: {
     network: string | undefined;
     txnType: string | undefined;
+    txnParseType: string | undefined;
+    txnOrigin: string | undefined;
     interactContract: string | undefined;
     tokenType: string | undefined;
     tokenSymbol: string | undefined;
@@ -135,6 +135,8 @@ export class SendScene extends BaseScene {
     return {
       network,
       txnType,
+      txnParseType,
+      txnOrigin,
       interactContract,
       tokenType,
       tokenSymbol,

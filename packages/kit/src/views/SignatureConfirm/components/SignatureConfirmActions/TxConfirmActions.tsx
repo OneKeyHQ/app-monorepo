@@ -180,8 +180,8 @@ function TxConfirmActions(props: IProps) {
         unsignedTxs,
         nativeAmountInfo: nativeTokenTransferAmountToUpdate.isMaxSend
           ? {
-              maxSendAmount: nativeTokenTransferAmountToUpdate.amountToUpdate,
-            }
+            maxSendAmount: nativeTokenTransferAmountToUpdate.amountToUpdate,
+          }
           : undefined,
         precheckTiming: ESendPreCheckTimingEnum.Confirm,
         feeInfos: sendSelectedFeeInfo?.feeInfos,
@@ -240,8 +240,8 @@ function TxConfirmActions(props: IProps) {
           : nonceInfo,
         nativeAmountInfo: nativeTokenTransferAmountToUpdate.isMaxSend
           ? {
-              maxSendAmount: nativeTokenTransferAmountToUpdate.amountToUpdate,
-            }
+            maxSendAmount: nativeTokenTransferAmountToUpdate.amountToUpdate,
+          }
           : undefined,
         feeInfoEditable,
         tronResourceRentalInfo,
@@ -297,7 +297,7 @@ function TxConfirmActions(props: IProps) {
           replaceTxInfo = {
             replaceType:
               new BigNumber(encodedTx.value).isZero() &&
-              checkIsEmptyData(encodedTx.data)
+                checkIsEmptyData(encodedTx.data)
                 ? EReplaceTxType.Cancel
                 : EReplaceTxType.SpeedUp,
             replaceHistoryId: localPendingTxWithSameNonce.id,
@@ -339,6 +339,8 @@ function TxConfirmActions(props: IProps) {
           swapInfo,
           stakingInfo,
         }),
+        txnParseType: isUndefined(result?.[0].decodedTx.txParseType) ? undefined : result?.[0].decodedTx.txParseType,
+        txnOrigin: isUndefined(sourceInfo?.origin) ? undefined : sourceInfo.origin,
         feeToken: isUndefined(sendSelectedFeeInfo?.feeInfos?.[0]?.totalNative)
           ? undefined
           : `${sendSelectedFeeInfo?.feeInfos?.[0]?.totalNative} ${nativeTokenInfo.info?.symbol}`,
