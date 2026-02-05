@@ -206,7 +206,9 @@ function NFTListView(props: IProps) {
       windowSize={platformEnv.isNativeAndroid ? 3 : undefined}
       nestedScrollEnabled={platformEnv.isNativeAndroid}
       refreshControl={
-        onRefresh ? <PullToRefresh onRefresh={onRefresh} /> : undefined
+        !platformEnv.isNativeAndroid && onRefresh ? (
+          <PullToRefresh onRefresh={onRefresh} />
+        ) : undefined
       }
       key={platformEnv.isNative ? numColumns : undefined}
       contentContainerStyle={style as any}

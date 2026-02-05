@@ -190,7 +190,9 @@ function ApprovalListViewCmp(props: IProps) {
       ref={ListComponentRef as any}
       nestedScrollEnabled={platformEnv.isNativeAndroid ? inTabList : false}
       refreshControl={
-        onRefresh ? <PullToRefresh onRefresh={onRefresh} /> : undefined
+        !platformEnv.isNativeAndroid && onRefresh ? (
+          <PullToRefresh onRefresh={onRefresh} />
+        ) : undefined
       }
       windowSize={platformEnv.isNativeAndroid && inTabList ? 3 : undefined}
       extraData={filteredApprovals?.length ?? 0}
