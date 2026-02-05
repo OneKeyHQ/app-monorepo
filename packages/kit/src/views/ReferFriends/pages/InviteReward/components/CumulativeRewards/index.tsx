@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -64,6 +64,7 @@ export function CumulativeRewards({
   const { activeAccount } = useActiveAccount({ num: 0 });
 
   const isNewEditWithdrawAddress = withdrawAddresses.length === 0;
+  const [isAddressVisible, setIsAddressVisible] = useState(true);
 
   const toEditAddressPage = useCallback(() => {
     navigateToEditAddress({
@@ -166,7 +167,7 @@ export function CumulativeRewards({
             </SizableText>
 
             {withdrawAddresses.length ? (
-              <XStack gap="$1" ai="center">
+              <XStack gap="$1.5" ai="center">
                 <NetworkAvatar
                   networkId={withdrawAddresses[0].networkId}
                   size="$4"
@@ -177,10 +178,24 @@ export function CumulativeRewards({
                   flexShrink={1}
                   numberOfLines={10}
                 >
-                  {accountUtils.shortenAddress({
-                    address: withdrawAddresses[0].address,
-                  })}
+                  {isAddressVisible
+                    ? accountUtils.shortenAddress({
+                        address: withdrawAddresses[0].address,
+                      })
+                    : '**********'}
                 </SizableText>
+                <IconButton
+                  icon={isAddressVisible ? 'EyeOffOutline' : 'EyeOutline'}
+                  variant="tertiary"
+                  size="small"
+                  onPress={() => {
+                    const newVisibility = !isAddressVisible;
+                    setIsAddressVisible(newVisibility);
+                    defaultLogger.referral.page.toggleReceivingAddressVisibility(
+                      newVisibility,
+                    );
+                  }}
+                />
               </XStack>
             ) : (
               <SizableText
