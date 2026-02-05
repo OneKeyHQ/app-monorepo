@@ -139,9 +139,7 @@ export const useReferFriends = () => {
           await timerUtils.wait(50);
           rootNavigationRef.current?.reset({
             index: 0,
-            routes: [
-              { name: ETabReferFriendsRoutes.TabInviteReward, params },
-            ],
+            routes: [{ name: ETabReferFriendsRoutes.TabInviteReward, params }],
           });
         }
       } else {
