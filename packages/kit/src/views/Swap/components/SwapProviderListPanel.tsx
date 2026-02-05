@@ -65,9 +65,9 @@ const AnimatedProviderItem = memo(
       from={
         isNewItem
           ? {
-              opacity: 0,
-              translateY: 8,
-            }
+            opacity: 0,
+            translateY: 8,
+          }
           : undefined
       }
       animate={{
@@ -145,9 +145,8 @@ const SwapProviderListPanel = ({
   const hadPreviousQuotesRef = useRef(false);
   // Track token changes to reset cache
   const prevTokenKeyRef = useRef('');
-  const currentTokenKey = `${fromToken?.contractAddress ?? ''}-${
-    toToken?.contractAddress ?? ''
-  }`;
+  const currentTokenKey = `${fromToken?.contractAddress ?? ''}-${toToken?.contractAddress ?? ''
+    }`;
   // Track if we're in a refresh cycle (list was cleared but we had data)
   const isRefreshingRef = useRef(false);
   // Track swap type switch changes to reset cache (OK-49718)
@@ -221,8 +220,8 @@ const SwapProviderListPanel = ({
   // Show cached data when: loading with empty list but had previous data, OR during refresh
   const displayList =
     (isLoading || isRefreshingRef.current) &&
-    swapSortedList.length === 0 &&
-    cachedListRef.current.length > 0
+      swapSortedList.length === 0 &&
+      cachedListRef.current.length > 0
       ? cachedListRef.current
       : swapSortedList;
 
@@ -377,8 +376,8 @@ const SwapProviderListPanel = ({
             onPress={
               !disabled
                 ? () => {
-                    onSelectQuote(item);
-                  }
+                  onSelectQuote(item);
+                }
                 : undefined
             }
             selected={Boolean(
@@ -408,7 +407,7 @@ const SwapProviderListPanel = ({
 
   const renderEmptyState = useCallback(
     () => (
-      <Stack flex={1} alignItems="center" justifyContent="center" py="$8">
+      <Stack alignItems="center" justifyContent="center" py="$8">
         <Empty
           icon="SearchOutline"
           title={intl.formatMessage({
@@ -563,6 +562,122 @@ const SwapProviderListPanel = ({
       ? Math.max(0, quoteEventTotalCount.count - displayList.length)
       : 0;
 
+  const contentArea = (
+    <>
+      {/* Initial state - no tokens/amount selected - Direct render without animation */}
+      {!shouldShowContent ? renderInitialState() : null}
+
+      <AnimatePresence>
+        {/* Phase 1: Spinner - no total event received yet (covers gap before loading starts) */}
+        {shouldShowContent && !hasQuotes && !hasReceivedTotal ? (
+          <MotiView
+            key="spinner"
+            from={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ type: 'timing', duration: 150 } as any}
+            exitTransition={{ type: 'timing', duration: 0 } as any}
+          >
+            <YStack
+              alignItems="center"
+              justifyContent="center"
+              py="$16"
+              gap="$3"
+            >
+              <LottieView
+                source={require('@onekeyhq/kit/assets/animations/swap_loading.json')}
+                autoPlay
+                loop
+                style={{
+                  width: 48,
+                  height: 20,
+                }}
+              />
+              <SizableText size="$bodyLgMedium" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.swap_page_button_fetching_quotes,
+                })}
+              </SizableText>
+            </YStack>
+          </MotiView>
+        ) : null}
+
+        {/* Phase 2+3: Data cards + skeleton placeholders for remaining */}
+        {shouldShowContent &&
+          (hasQuotes || (hasReceivedTotal && quoteEventFetching)) ? (
+          <MotiView
+            key="content"
+            from={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ type: 'timing', duration: 150 } as any}
+            exitTransition={{ type: 'timing', duration: 0 } as any}
+          >
+            <YStack px="$5" pb="$5">
+              {/* Available Providers */}
+              {availableList.length > 0 ? (
+                <YStack>
+                  {availableList.map((item) => renderItem(item))}
+                </YStack>
+              ) : null}
+
+              {/* Skeleton placeholders for providers not yet received */}
+              {remainingSkeletonCount > 0 ? (
+                <YStack>
+                  {Array.from({ length: remainingSkeletonCount }).map(
+                    (_, index) => (
+                      <AnimatedSkeletonItem
+                        key={`skeleton-${index}`}
+                        index={index}
+                      />
+                    ),
+                  )}
+                </YStack>
+              ) : null}
+
+              {/* Unavailable Providers */}
+              {unavailableList.length > 0 ? (
+                <YStack>
+                  <MotiView
+                    from={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={
+                      {
+                        type: 'timing',
+                        duration: 200,
+                      } as any
+                    }
+                  >
+                    <SizableText
+                      size="$bodySmMedium"
+                      color="$textSubdued"
+                      px="$1"
+                      pt="$3"
+                      pb="$1"
+                    >
+                      {intl.formatMessage({
+                        id: ETranslations.provider_unavailable,
+                      })}
+                    </SizableText>
+                  </MotiView>
+                  {unavailableList.map((item) => renderItem(item))}
+                </YStack>
+              ) : null}
+            </YStack>
+          </MotiView>
+        ) : null}
+
+        {/* Empty state - total received, all providers responded, no results */}
+        {shouldShowContent &&
+          !hasQuotes &&
+          hasReceivedTotal &&
+          !quoteEventFetching
+          ? renderEmptyState()
+          : null}
+      </AnimatePresence>
+    </>
+  );
+
   return (
     <YStack
       minHeight={520}
@@ -573,6 +688,8 @@ const SwapProviderListPanel = ({
       elevationAndroid="$1"
       $platform-web={{
         boxShadow: '0px 0px 24px 0px rgba(0, 0, 0, 0.06)',
+        // Limit max height to viewport height minus some spacing
+        maxHeight: 'calc(100vh - 200px)',
       }}
       style={{
         shadowColor: 'rgba(0, 0, 0, 0.08)',
@@ -630,120 +747,8 @@ const SwapProviderListPanel = ({
         </XStack>
       ) : null}
 
-      {/* Content */}
-      <ScrollView flex={1} ref={scrollViewRef as any}>
-        {/* Initial state - no tokens/amount selected - Direct render without animation */}
-        {!shouldShowContent ? renderInitialState() : null}
-
-        <AnimatePresence>
-          {/* Phase 1: Spinner - no total event received yet (covers gap before loading starts) */}
-          {shouldShowContent && !hasQuotes && !hasReceivedTotal ? (
-            <MotiView
-              key="spinner"
-              from={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ type: 'timing', duration: 150 } as any}
-              exitTransition={{ type: 'timing', duration: 0 } as any}
-            >
-              <YStack
-                flex={1}
-                alignItems="center"
-                justifyContent="center"
-                py="$16"
-                gap="$3"
-              >
-                <LottieView
-                  source={require('@onekeyhq/kit/assets/animations/swap_loading.json')}
-                  autoPlay
-                  loop
-                  style={{
-                    width: 48,
-                    height: 20,
-                  }}
-                />
-                <SizableText size="$bodyLgMedium" color="$textSubdued">
-                  {intl.formatMessage({
-                    id: ETranslations.swap_page_button_fetching_quotes,
-                  })}
-                </SizableText>
-              </YStack>
-            </MotiView>
-          ) : null}
-
-          {/* Phase 2+3: Data cards + skeleton placeholders for remaining */}
-          {shouldShowContent &&
-          (hasQuotes || (hasReceivedTotal && quoteEventFetching)) ? (
-            <MotiView
-              key="content"
-              from={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ type: 'timing', duration: 150 } as any}
-              exitTransition={{ type: 'timing', duration: 0 } as any}
-            >
-              <YStack px="$5" pb="$5">
-                {/* Available Providers */}
-                {availableList.length > 0 ? (
-                  <YStack>
-                    {availableList.map((item) => renderItem(item))}
-                  </YStack>
-                ) : null}
-
-                {/* Skeleton placeholders for providers not yet received */}
-                {remainingSkeletonCount > 0 ? (
-                  <YStack>
-                    {Array.from({ length: remainingSkeletonCount }).map(
-                      (_, index) => (
-                        <AnimatedSkeletonItem
-                          key={`skeleton-${index}`}
-                          index={index}
-                        />
-                      ),
-                    )}
-                  </YStack>
-                ) : null}
-
-                {/* Unavailable Providers */}
-                {unavailableList.length > 0 ? (
-                  <YStack>
-                    <MotiView
-                      from={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={
-                        {
-                          type: 'timing',
-                          duration: 200,
-                        } as any
-                      }
-                    >
-                      <SizableText
-                        size="$bodySmMedium"
-                        color="$textSubdued"
-                        px="$1"
-                        pt="$3"
-                        pb="$1"
-                      >
-                        {intl.formatMessage({
-                          id: ETranslations.provider_unavailable,
-                        })}
-                      </SizableText>
-                    </MotiView>
-                    {unavailableList.map((item) => renderItem(item))}
-                  </YStack>
-                ) : null}
-              </YStack>
-            </MotiView>
-          ) : null}
-
-          {/* Empty state - total received, all providers responded, no results */}
-          {shouldShowContent &&
-          !hasQuotes &&
-          hasReceivedTotal &&
-          !quoteEventFetching
-            ? renderEmptyState()
-            : null}
-        </AnimatePresence>
+      <ScrollView flex={1} ref={scrollViewRef as any} nestedScrollEnabled>
+        {contentArea}
       </ScrollView>
     </YStack>
   );

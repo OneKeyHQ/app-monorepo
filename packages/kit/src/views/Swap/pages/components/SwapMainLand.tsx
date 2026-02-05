@@ -1250,7 +1250,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   }, [pageType, swapTypeSwitch]);
 
   return (
-    <Page.Container layout={containerLayout} padded={false}>
+    <Page.Container flex={1} layout={containerLayout} padded={false}>
       <YStack
         testID="swap-content-container"
         flex={1}
