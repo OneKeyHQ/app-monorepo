@@ -14,6 +14,10 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
+import {
+  PROMISE_CONCURRENCY_LIMIT,
+  promiseAllSettledEnhanced,
+} from '@onekeyhq/shared/src/utils/promiseUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
@@ -835,8 +839,8 @@ class ServiceStaking extends ServiceBase {
     }
 
     // Check enabled status for all items
-    const itemsWithEnabledStatus = await Promise.all(
-      allItems.map(async (item) => {
+    const itemsWithEnabledStatus = await promiseAllSettledEnhanced(
+      allItems.map((item) => async () => {
         const stakingConfig = await this.getStakingConfigs({
           networkId: item.network.networkId,
           symbol: params.symbol,
@@ -845,11 +849,12 @@ class ServiceStaking extends ServiceBase {
         const isEnabled = stakingConfig?.enabled;
         return { item, isEnabled };
       }),
+      { continueOnError: true, concurrency: PROMISE_CONCURRENCY_LIMIT },
     );
 
     const enabledItems = itemsWithEnabledStatus
-      .filter(({ isEnabled }) => isEnabled)
-      .map(({ item }) => item);
+      .filter((r): r is NonNullable<typeof r> => r != null && !!r.isEnabled)
+      .map((r) => r.item);
 
     return enabledItems;
   }
@@ -1022,23 +1027,18 @@ class ServiceStaking extends ServiceBase {
     const accounts = await this.getEarnAvailableAccountsParams(params);
     const client = await this.getRawDataClient(EServiceEndpointEnum.Earn);
     const overviewData = (
-      await Promise.allSettled(
-        accounts.map((account) =>
-          client.get<{
-            data: IEarnAccountResponse;
-          }>(`/earn/v1/overview`, { params: account }),
+      await promiseAllSettledEnhanced(
+        accounts.map(
+          (account) => () =>
+            client.get<{
+              data: IEarnAccountResponse;
+            }>(`/earn/v1/overview`, { params: account }),
         ),
+        { continueOnError: true, concurrency: PROMISE_CONCURRENCY_LIMIT },
       )
-    )
-      .filter((result) => result.status === 'fulfilled')
-      .map(
-        (result) =>
-          (
-            result as PromiseFulfilledResult<{
-              data: { data: IEarnAccountResponse };
-            }>
-          ).value,
-      );
+    ).filter(Boolean) as {
+      data: { data: IEarnAccountResponse };
+    }[];
 
     const { totalFiatValue, earnings24h, hasClaimableAssets } =
       overviewData.reduce(
