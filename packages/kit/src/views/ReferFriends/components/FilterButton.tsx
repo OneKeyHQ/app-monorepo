@@ -34,26 +34,6 @@ export function FilterButton({
   const { codeListData } = useInviteCodeList();
   const { gtMd } = useMedia();
 
-  const timeRangeOptions = useMemo(
-    () => [
-      {
-        label: intl.formatMessage({
-          id: ETranslations.referral_filter_alltime,
-        }),
-        value: EExportTimeRange.All,
-      },
-      {
-        label: intl.formatMessage({ id: ETranslations.referral_filter_30 }),
-        value: EExportTimeRange.OneMonth,
-      },
-      {
-        label: intl.formatMessage({ id: ETranslations.referral_filter_90 }),
-        value: EExportTimeRange.ThreeMonths,
-      },
-    ],
-    [intl],
-  );
-
   const inviteCodeOptions = useMemo(() => {
     const options: Array<{
       label: string;
@@ -82,13 +62,6 @@ export function FilterButton({
     return options;
   }, [intl, codeListData]);
 
-  const handleTimeRangeSelect = useCallback(
-    (value: EExportTimeRange) => {
-      onFilterChange({ timeRange: value });
-    },
-    [onFilterChange],
-  );
-
   const handleInviteCodeSelect = useCallback(
     (value?: string) => {
       onFilterChange({ inviteCode: value });
@@ -98,17 +71,6 @@ export function FilterButton({
 
   const sections = useMemo(() => {
     return [
-      {
-        title: intl.formatMessage({ id: ETranslations.referral_filter_time }),
-        items: timeRangeOptions.map((option) => ({
-          label: option.label,
-          extra:
-            filterState.timeRange === option.value ? (
-              <Icon name="CheckRadioSolid" size="$5" color="$icon" />
-            ) : undefined,
-          onPress: () => handleTimeRangeSelect(option.value),
-        })) as IActionListItemProps[],
-      },
       {
         title: intl.formatMessage({
           id: ETranslations.referral_code_list,
@@ -125,21 +87,11 @@ export function FilterButton({
         })) as IActionListItemProps[],
       },
     ];
-  }, [
-    intl,
-    timeRangeOptions,
-    inviteCodeOptions,
-    filterState,
-    handleTimeRangeSelect,
-    handleInviteCodeSelect,
-  ]);
+  }, [intl, inviteCodeOptions, filterState, handleInviteCodeSelect]);
 
   // Check if any filters are active (not default values)
   const hasActiveFilters = useMemo(() => {
-    return (
-      filterState.timeRange !== EExportTimeRange.All ||
-      filterState.inviteCode !== undefined
-    );
+    return filterState.inviteCode !== undefined;
   }, [filterState]);
 
   // Handle mobile click to show ActionList
