@@ -115,10 +115,10 @@ function PerpsRewardPageWrapper() {
   const currentDatePickerValue = intermediateDateRange ?? datePickerValue;
 
   // Get the effective timeRange for API calls
-  // When using custom date range (startTime/endTime), don't pass 'custom', pass 'all' instead
+  // When using custom date range (startTime/endTime), don't pass timeRange
   const effectiveTimeRange =
     filterState.startTime && filterState.endTime
-      ? 'all'
+      ? undefined
       : filterState.timeRange;
 
   // Fetch counts for both tabs
