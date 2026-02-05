@@ -1,6 +1,6 @@
 ---
 name: 1k-git-workflow
-description: Git workflow and conventions for OneKey development. Use when creating branches, committing code, or creating PRs. Triggers on git, branch, commit, PR, pull request, merge, workflow.
+description: Git workflow and conventions — branching, commit messages, and PR creation.
 allowed-tools: Bash, Read
 ---
 

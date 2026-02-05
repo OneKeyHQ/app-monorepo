@@ -469,7 +469,7 @@ const InAppNotification = () => {
                 size="small"
                 onPress={async () => {
                   navigation.switchTab(ETabRoutes.Earn);
-                  await timerUtils.wait(50)
+                  await timerUtils.wait(50);
                   appEventBus.emit(EAppEventBusNames.SwitchEarnMode, {
                     mode: isBorrowTransaction ? 'borrow' : 'earn',
                   });

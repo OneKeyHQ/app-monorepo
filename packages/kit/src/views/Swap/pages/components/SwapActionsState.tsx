@@ -251,8 +251,7 @@ const SwapActionsState = ({
 
     if (hasCostSavings) {
       const isLoadingQuote = quoting || quoteLoading;
-      const shouldShow =
-        hasEverShownCostSavingsRef.current || !isLoadingQuote;
+      const shouldShow = hasEverShownCostSavingsRef.current || !isLoadingQuote;
 
       if (shouldShow) {
         if (!hasEverShownCostSavingsRef.current) {

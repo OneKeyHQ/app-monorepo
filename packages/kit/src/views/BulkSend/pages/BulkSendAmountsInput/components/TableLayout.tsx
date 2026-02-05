@@ -494,7 +494,9 @@ function AmountCard() {
       <XStack alignItems="center" justifyContent="space-between">
         <XStack gap="$1" alignItems="center">
           <SizableText size="$bodySm" color="$textSubdued">
-            {intl.formatMessage({ id: ETranslations.wallet_bulk_send_available })}
+            {intl.formatMessage({
+              id: ETranslations.wallet_bulk_send_available,
+            })}
           </SizableText>
           <NumberSizeableText
             size="$bodySm"
@@ -561,7 +563,9 @@ function TransferInfoListSection() {
             color="$textSubdued"
             textTransform="uppercase"
           >
-            {intl.formatMessage({ id: ETranslations.wallet_bulk_send_table_from })}
+            {intl.formatMessage({
+              id: ETranslations.wallet_bulk_send_table_from,
+            })}
           </SizableText>
         </XStack>
         <Stack flex={1} minWidth={0}>
@@ -570,7 +574,9 @@ function TransferInfoListSection() {
             color="$textSubdued"
             textTransform="uppercase"
           >
-            {intl.formatMessage({ id: ETranslations.wallet_bulk_send_table_to })}
+            {intl.formatMessage({
+              id: ETranslations.wallet_bulk_send_table_to,
+            })}
           </SizableText>
         </Stack>
         <Stack width={100}>

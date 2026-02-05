@@ -27,3 +27,4 @@ export type { ITabContainerRef, ITabContainerProps } from './Container';
 export * from './hooks';
 
 export { startViewTransition } from './utils';
+export { CollapsibleTabContext } from './CollapsibleTabContext';
