@@ -12,7 +12,7 @@ index 83c5549..aaeca52 100644
  export { MaterialTabBar } from './MaterialTabBar/TabBar';
  export { MaterialTabItem } from './MaterialTabBar/TabItem';
 diff --git a/node_modules/react-native-collapsible-tab-view/src/Container.tsx b/node_modules/react-native-collapsible-tab-view/src/Container.tsx
-index e782b90..4c84729 100644
+index e782b90..47a565b 100644
 --- a/node_modules/react-native-collapsible-tab-view/src/Container.tsx
 +++ b/node_modules/react-native-collapsible-tab-view/src/Container.tsx
 @@ -1,5 +1,5 @@
@@ -44,7 +44,36 @@ index e782b90..4c84729 100644
  
        const indexDecimal: ContextType['indexDecimal'] = useSharedValue(
          index.value
-@@ -349,42 +351,73 @@ export const Container = React.memo(
+@@ -274,19 +276,23 @@ export const Container = React.memo(
+         }
+       )
+ 
++      // Keep derived value for context consumers (useHeaderMeasurements etc.)
+       const headerTranslateY = useDerivedValue(() => {
+         return revealHeaderOnScroll
+           ? -accDiffClamp.value
+           : -Math.min(scrollYCurrent.value, headerScrollDistance.value)
+       }, [revealHeaderOnScroll])
+ 
++      // Compute translateY directly from source shared values instead of
++      // reading from the derived value. This eliminates one level of
++      // reactivity indirection, ensuring the style updates in the exact
++      // same worklet pass as the scroll event — no frame delay.
+       const stylez = useAnimatedStyle(() => {
++        const translateY = revealHeaderOnScroll
++          ? -accDiffClamp.value
++          : -Math.min(scrollYCurrent.value, headerScrollDistance.value)
+         return {
+-          transform: [
+-            {
+-              translateY: headerTranslateY.value,
+-            },
+-          ],
++          transform: [{ translateY }],
+         }
+       }, [revealHeaderOnScroll])
+ 
+@@ -349,42 +355,73 @@ export const Container = React.memo(
          [onTabPress]
        )
  
@@ -147,7 +176,7 @@ index e782b90..4c84729 100644
                pointerEvents="box-none"
                style={[
                  styles.topContainer,
-@@ -393,6 +426,7 @@ export const Container = React.memo(
+@@ -393,6 +430,7 @@ export const Container = React.memo(
                ]}
              >
                <View
@@ -155,7 +184,7 @@ index e782b90..4c84729 100644
                  style={[styles.container, styles.headerContainer]}
                  onLayout={getHeaderHeight}
                  pointerEvents="box-none"
-@@ -409,6 +443,7 @@ export const Container = React.memo(
+@@ -409,6 +447,7 @@ export const Container = React.memo(
                    })}
                </View>
                <View
