@@ -133,6 +133,11 @@ const SwapOldSwapBridgeLimitContainer = ({
       {swapTypeSwitch === ESwapTabSwitchType.LIMIT && !isWrapped ? (
         <LimitInfoContainer />
       ) : null}
+      <SwapActionsState
+        onPreSwap={onPreSwap}
+        onOpenRecipientAddress={onToAnotherAddressModal}
+        onSelectPercentageStage={onSelectPercentageStage}
+      />
       <SwapQuoteResult
         refreshAction={refreshAction}
         onOpenProviderList={
@@ -142,9 +147,9 @@ const SwapOldSwapBridgeLimitContainer = ({
         onOpenRecipient={onToAnotherAddressModal}
       />
       {alerts.states.length > 0 &&
-      !quoteLoading &&
-      !quoteEventFetching &&
-      alerts?.quoteId === (quoteResult?.quoteId ?? '') ? (
+        !quoteLoading &&
+        !quoteEventFetching &&
+        alerts?.quoteId === (quoteResult?.quoteId ?? '') ? (
         <SwapAlertContainer alerts={alerts.states} />
       ) : null}
       <SwapRecentTokenPairsGroup
@@ -153,11 +158,6 @@ const SwapOldSwapBridgeLimitContainer = ({
         fromTokenAmount={fromTokenAmountValue}
       />
       <SwapPendingHistoryListComponent pageType={pageType} />
-      <SwapActionsState
-        onPreSwap={onPreSwap}
-        onOpenRecipientAddress={onToAnotherAddressModal}
-        onSelectPercentageStage={onSelectPercentageStage}
-      />
     </YStack>
   );
 
@@ -196,6 +196,11 @@ const SwapOldSwapBridgeLimitContainer = ({
           onSelectPercentageStage={onSelectPercentageStage}
           onBalanceMaxPress={onBalanceMaxPress}
         />
+        <SwapActionsState
+          onPreSwap={onPreSwap}
+          onOpenRecipientAddress={onToAnotherAddressModal}
+          onSelectPercentageStage={onSelectPercentageStage}
+        />
         <SwapQuoteResult
           refreshAction={refreshAction}
           onOpenProviderList={undefined}
@@ -203,9 +208,9 @@ const SwapOldSwapBridgeLimitContainer = ({
           onOpenRecipient={onToAnotherAddressModal}
         />
         {alerts.states.length > 0 &&
-        !quoteLoading &&
-        !quoteEventFetching &&
-        alerts?.quoteId === (quoteResult?.quoteId ?? '') ? (
+          !quoteLoading &&
+          !quoteEventFetching &&
+          alerts?.quoteId === (quoteResult?.quoteId ?? '') ? (
           <SwapAlertContainer alerts={alerts.states} />
         ) : null}
         <SwapRecentTokenPairsGroup
@@ -214,11 +219,6 @@ const SwapOldSwapBridgeLimitContainer = ({
           fromTokenAmount={fromTokenAmountValue}
         />
         <SwapPendingHistoryListComponent pageType={pageType} />
-        <SwapActionsState
-          onPreSwap={onPreSwap}
-          onOpenRecipientAddress={onToAnotherAddressModal}
-          onSelectPercentageStage={onSelectPercentageStage}
-        />
       </YStack>
     );
     return (
