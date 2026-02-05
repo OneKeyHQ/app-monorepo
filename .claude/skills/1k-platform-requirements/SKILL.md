@@ -110,7 +110,7 @@ Firefox manifest extends Chrome manifest but may have different requirements. Cu
 grep '"electron":' apps/desktop/package.json
 ```
 
-**Current version**: Electron 39.3.0
+**Current version**: Electron 39.5.1
 
 **Electron 39 OS Requirements**:
 - macOS: 10.15+ (Catalina)
