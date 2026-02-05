@@ -21,6 +21,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EExportSubject,
+  EExportTimeRange,
   type IPerpsCumulativeRewardsResponse,
   type IPerpsInvitesResponse,
   type IPerpsInvitesSortBy,
@@ -113,6 +114,13 @@ function PerpsRewardPageWrapper() {
 
   // Use intermediate state if available, otherwise use confirmed datePickerValue
   const currentDatePickerValue = intermediateDateRange ?? datePickerValue;
+
+  // Clear intermediate state when switching to preset time range
+  useEffect(() => {
+    if (filterState.timeRange !== EExportTimeRange.Custom) {
+      setIntermediateDateRange(null);
+    }
+  }, [filterState.timeRange]);
 
   // Get the effective timeRange for API calls
   // When using custom date range (startTime/endTime), don't pass timeRange
@@ -380,7 +388,7 @@ function PerpsRewardPageWrapper() {
                   />
                   <ExportButton
                     subject={EExportSubject.Perp}
-                    timeRange={filterState.timeRange}
+                    timeRange={effectiveTimeRange}
                     inviteCode={filterState.inviteCode}
                     startTime={filterState.startTime}
                     endTime={filterState.endTime}
