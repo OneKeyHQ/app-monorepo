@@ -44,7 +44,9 @@ function ReceiverAddressesInput({ maxLines }: IReceiverAddressesInputProps) {
         return {
           isValid: false,
           error: intl.formatMessage(
-            { id: ETranslations.wallet_bulk_send_error_invalid_network_address },
+            {
+              id: ETranslations.wallet_bulk_send_error_invalid_network_address,
+            },
             { network: network?.name ?? '' },
           ),
         };
@@ -224,7 +226,9 @@ function ReceiverAddressesInput({ maxLines }: IReceiverAddressesInputProps) {
               lineErrors.push({
                 lineNumber: index + 1,
                 message: intl.formatMessage(
-                  { id: ETranslations.wallet_bulk_send_error_duplicate_address },
+                  {
+                    id: ETranslations.wallet_bulk_send_error_duplicate_address,
+                  },
                   { line: seenIndex },
                 ),
               });
