@@ -129,11 +129,31 @@ export function isUTF8(buf: Buffer): boolean {
   return true;
 }
 
+/**
+ * Validate email address
+ * Also rejects internationalized domain names (IDN) like 中文.com
+ * because our email provider doesn't support them
+ */
 function isValidEmail(email: string): boolean {
   if (!email || !isString(email)) {
     return false;
   }
-  return validator.isEmail(email);
+  if (!validator.isEmail(email)) {
+    return false;
+  }
+  // Check if domain contains only ASCII characters
+  const atIndex = email.lastIndexOf('@');
+  if (atIndex === -1) {
+    return false;
+  }
+  const domain = email.slice(atIndex + 1);
+  // Reject IDN domains (non-ASCII characters)
+  for (let i = 0; i < domain.length; i += 1) {
+    if (domain.charCodeAt(i) > 127) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function addSeparatorToString({
