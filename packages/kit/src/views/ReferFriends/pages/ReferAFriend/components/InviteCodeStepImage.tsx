@@ -1,21 +1,20 @@
 import { useWindowDimensions } from 'react-native';
 
-import { Image, useMedia } from '@onekeyhq/components';
+import { LottieView, Stack, useMedia } from '@onekeyhq/components';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
-import { REFERRAL_IMAGE_BASE_URL } from '@onekeyhq/shared/src/config/appConfig';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-const DESKTOP_IMAGE_ASPECT_RATIO = 284 / 640;
-const DESKTOP_IMAGE_WIDTH = 540;
+const DESKTOP_ASPECT_RATIO = 284 / 640;
+const DESKTOP_WIDTH = 540;
 
-const IMAGE_MAP = {
+const LOTTIE_MAP = {
   1: {
-    mobile: `${REFERRAL_IMAGE_BASE_URL}/1-1.png`,
-    desktop: `${REFERRAL_IMAGE_BASE_URL}/1-2.png`,
+    light: require('@onekeyhq/kit/assets/animations/_mov_referHardware.json'),
+    dark: require('@onekeyhq/kit/assets/animations/_mov_referHardware_dark.json'),
   },
   2: {
-    mobile: `${REFERRAL_IMAGE_BASE_URL}/2-1.png`,
-    desktop: `${REFERRAL_IMAGE_BASE_URL}/2-2.png`,
+    light: require('@onekeyhq/kit/assets/animations/_mov_refer.json'),
+    dark: require('@onekeyhq/kit/assets/animations/_mov_refer_dark.json'),
   },
 } as const;
 
@@ -28,20 +27,23 @@ export function InviteCodeStepImage({ step }: IInviteCodeStepImageProps) {
   const themeVariant = useThemeVariant();
   const { width: screenWidth } = useWindowDimensions();
 
-  const isDesktopImage = gtSm || platformEnv.isExtensionUiPopup;
-  const imageUri = IMAGE_MAP[step][isDesktopImage ? 'desktop' : 'mobile'];
-  const imageWidth = gtSm ? DESKTOP_IMAGE_WIDTH : screenWidth;
-  const imageHeight = isDesktopImage
-    ? imageWidth * DESKTOP_IMAGE_ASPECT_RATIO
-    : screenWidth;
+  const isDesktop = gtSm || platformEnv.isExtensionUiPopup;
+  const lottieSource =
+    LOTTIE_MAP[step][themeVariant === 'dark' ? 'dark' : 'light'];
+  const width = gtSm ? DESKTOP_WIDTH : screenWidth;
+  const height = isDesktop ? width * DESKTOP_ASPECT_RATIO : screenWidth;
+  const shouldLoop = step === 2;
 
   return (
-    <Image
-      source={{ uri: imageUri }}
-      w={imageWidth}
-      h={imageHeight}
-      resizeMode="contain"
-      opacity={themeVariant === 'dark' ? 0.95 : 1}
-    />
+    <Stack w={width} h={height} alignSelf="center">
+      <LottieView
+        source={lottieSource}
+        width={width}
+        height={height}
+        autoPlay
+        loop={shouldLoop}
+        resizeMode="contain"
+      />
+    </Stack>
   );
 }
