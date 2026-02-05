@@ -1,6 +1,6 @@
 ---
 name: 1k-date-formatting
-description: Date and time formatting for OneKey applications. Use when displaying dates, timestamps, or formatting time in UI components. Always use OneKey utilities instead of native JS date methods. Triggers on date, time, timestamp, formatDate, formatTime, toLocaleDateString, toLocaleString, dateUtils, locale, format, display date, show time, datetime, calendar.
+description: Date and time formatting — use OneKey dateUtils (formatDate/formatTime) instead of native JS date methods.
 allowed-tools: Read, Grep, Glob
 ---
 

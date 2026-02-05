@@ -137,7 +137,10 @@ export const useReferFriends = () => {
         } else {
           navigation.switchTab(ETabRoutes.ReferFriends);
           await timerUtils.wait(50);
-          navigation.push(ETabReferFriendsRoutes.TabInviteReward, params);
+          rootNavigationRef.current?.reset({
+            index: 0,
+            routes: [{ name: ETabReferFriendsRoutes.TabInviteReward, params }],
+          });
         }
       } else {
         void loginOneKeyId({ toOneKeyIdPageOnLoginSuccess: false });
@@ -158,7 +161,7 @@ export const useReferFriends = () => {
         } else {
           navigation.switchTab(ETabRoutes.ReferFriends);
           await timerUtils.wait(50);
-          navigation.push(
+          rootNavigationRef.current?.navigate(
             ETabReferFriendsRoutes.TabHardwareSalesReward,
             params,
           );
@@ -195,11 +198,16 @@ export const useReferFriends = () => {
       // Web: use Tab
       navigation.switchTab(ETabRoutes.ReferFriends);
       await timerUtils.wait(50);
-      navigation.push(
-        shouldShowInviteReward
-          ? ETabReferFriendsRoutes.TabInviteReward
-          : ETabReferFriendsRoutes.TabReferAFriend,
-      );
+      rootNavigationRef.current?.reset({
+        index: 0,
+        routes: [
+          {
+            name: shouldShowInviteReward
+              ? ETabReferFriendsRoutes.TabInviteReward
+              : ETabReferFriendsRoutes.TabReferAFriend,
+          },
+        ],
+      });
     }
   }, [navigation]);
 
