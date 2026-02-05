@@ -363,6 +363,7 @@ export function HomePageView({
         renderTabBar={(props: any) => (
           <Tabs.TabBar
             {...props}
+            variant="pill"
             renderItem={handleRenderItem}
             renderToolbar={({ focusedTab }) => (
               <TabHeaderSettings focusedTab={focusedTab} />
