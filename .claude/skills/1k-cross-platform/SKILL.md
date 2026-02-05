@@ -1,6 +1,6 @@
 ---
 name: 1k-cross-platform
-description: Cross-platform development patterns for OneKey. Use when writing platform-specific code, handling platform differences, or working with native/web/desktop/extension platforms. Triggers on platform, native, web, desktop, extension, iOS, Android, Electron, platformEnv, .native.ts, .web.ts, .desktop.ts, .ext.ts, cross-platform, multi-platform.
+description: Cross-platform development patterns — platform-specific code (.native.ts/.web.ts/.desktop.ts/.ext.ts) and platformEnv usage.
 allowed-tools: Read, Grep, Glob
 ---
 
