@@ -40,7 +40,7 @@ function PortfolioContainer() {
 
   if (tableLayout) {
     return (
-      <XStack pt="$3" pb="$4" px="$5" gap="$6">
+      <XStack pt="$3" pb="$4" px="$pagePadding" gap="$6">
         <YStack flex={1} gap="$8">
           <TokenListBlock showRecentHistory={showRecentHistory} tableLayout />
           <DeFiListBlock tableLayout />
@@ -63,7 +63,7 @@ function PortfolioContainer() {
   }
 
   return (
-    <YStack gap="$6" px="$5" pt="$3" pb="$4">
+    <YStack gap="$6" px="$pagePadding" pt="$3" pb="$4">
       <TokenListBlock />
       <DeFiListBlock />
       <PopularTrading />

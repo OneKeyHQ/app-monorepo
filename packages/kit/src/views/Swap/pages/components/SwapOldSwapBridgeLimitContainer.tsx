@@ -222,7 +222,7 @@ const SwapOldSwapBridgeLimitContainer = ({
       </YStack>
     );
     return (
-      <XStack gap="$1" px="$5">
+      <XStack>
         <YStack p="$5" flexBasis="50%">
           <YStack>{mainContentWithCard}</YStack>
         </YStack>

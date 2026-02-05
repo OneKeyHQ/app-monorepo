@@ -21,7 +21,7 @@ export function PageContainer({ children, lazyLoad, fullPage }: IPageProps) {
       <BasicPage lazyLoad={lazyLoad} fullPage={fullPage}>
         {scrollEnabled ? (
           <ScrollView {...scrollProps}>
-            <Animated.View style={safeKeyboardAnimationStyle}>
+            <Animated.View style={[{ flex: 1 }, safeKeyboardAnimationStyle]}>
               {children}
             </Animated.View>
           </ScrollView>
