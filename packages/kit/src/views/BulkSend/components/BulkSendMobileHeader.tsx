@@ -42,7 +42,7 @@ export function useBulkSendMobileHeader({
         </SizableText>
       </YStack>
     ),
-    [bulkSendMode, intl],
+    [intl, bulkSendMode],
   );
 
   return {

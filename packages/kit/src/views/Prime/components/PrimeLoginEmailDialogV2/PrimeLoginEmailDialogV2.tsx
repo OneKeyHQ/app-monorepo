@@ -12,7 +12,7 @@ import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKey
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
-import { DevTestAccountSelector } from '../OneKeyIDLoginDialog/DevTestAccountSelector';
+import { DevTestAccountSelector } from '../PrimeDevUtils/DevTestAccountSelector';
 import { PrimeLoginEmailCodeDialogV2 } from '../PrimeLoginEmailCodeDialogV2';
 
 function PrimeLoginEmailDialogV2(props: {

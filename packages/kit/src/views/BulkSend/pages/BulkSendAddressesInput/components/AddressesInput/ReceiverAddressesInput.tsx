@@ -5,10 +5,10 @@ import pLimit from 'p-limit';
 import { useIntl } from 'react-intl';
 
 import { Form } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import { useDebouncedValidation } from '@onekeyhq/kit/src/views/BulkSend/hooks/useDebouncedValidation';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { validateTokenAmount } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IAddressValidation } from '@onekeyhq/shared/types/address';
 import { EReceiverMode } from '@onekeyhq/shared/types/bulkSend';
@@ -44,9 +44,7 @@ function ReceiverAddressesInput({ maxLines }: IReceiverAddressesInputProps) {
         return {
           isValid: false,
           error: intl.formatMessage(
-            {
-              id: ETranslations.wallet_bulk_send_error_invalid_network_address,
-            },
+            { id: ETranslations.wallet_bulk_send_error_invalid_network_address },
             { network: network?.name ?? '' },
           ),
         };
@@ -226,9 +224,7 @@ function ReceiverAddressesInput({ maxLines }: IReceiverAddressesInputProps) {
               lineErrors.push({
                 lineNumber: index + 1,
                 message: intl.formatMessage(
-                  {
-                    id: ETranslations.wallet_bulk_send_error_duplicate_address,
-                  },
+                  { id: ETranslations.wallet_bulk_send_error_duplicate_address },
                   { line: seenIndex },
                 ),
               });
@@ -297,7 +293,6 @@ function ReceiverAddressesInput({ maxLines }: IReceiverAddressesInputProps) {
         placeholder={intl.formatMessage({
           id: ETranslations.wallet_bulk_send_placeholder_addresses,
         })}
-        height={120}
         errors={errors}
         networkId={selectedNetworkId}
         accountId={selectedAccountId}

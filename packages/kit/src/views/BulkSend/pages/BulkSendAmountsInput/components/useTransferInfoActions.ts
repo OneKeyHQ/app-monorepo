@@ -1,15 +1,12 @@
 import { useCallback } from 'react';
 
-import { useIntl } from 'react-intl';
-
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { validateTokenAmount } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import type {
   ITransferInfoError,
   ITransferInfoErrors,
 } from '@onekeyhq/shared/types/bulkSend';
 import type { IToken } from '@onekeyhq/shared/types/token';
+import { validateTokenAmount } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 type IUseTransferInfoActionsParams = {
   tokenInfo: IToken;
@@ -26,8 +23,6 @@ export function useTransferInfoActions({
   transferInfoErrors,
   setTransferInfoErrors,
 }: IUseTransferInfoActionsParams) {
-  const intl = useIntl();
-
   const handleDeleteTransfer = useCallback(
     (index: number) => {
       const newTransfersInfo = [...transfersInfo];
@@ -71,9 +66,7 @@ export function useTransferInfoActions({
         amount: value,
         allowZero: false,
         customErrorMessages: {
-          zeroAmount: intl.formatMessage({
-            id: ETranslations.wallet_bulk_send_error_amount_zero,
-          }),
+          zeroAmount: 'Amount must be greater than 0',
         },
       });
       const newErrors = { ...transferInfoErrors };
@@ -93,7 +86,6 @@ export function useTransferInfoActions({
       setTransferInfoErrors(newErrors);
     },
     [
-      intl,
       transfersInfo,
       setTransfersInfo,
       tokenInfo,

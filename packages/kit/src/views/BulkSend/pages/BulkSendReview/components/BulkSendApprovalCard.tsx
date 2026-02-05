@@ -35,12 +35,12 @@ function ApprovalItem({
   index,
   onEdit,
 }: IApprovalItemProps) {
+  const intl = useIntl();
   const tokenInfo = approveInfo.tokenInfo;
   const shortenedSpender = accountUtils.shortenAddress({
     address: approveInfo.spender,
   });
 
-  const intl = useIntl();
   const isResetApproval = approveInfo.amount === '0';
   const displayAmount = isResetApproval
     ? intl.formatMessage({
@@ -68,7 +68,7 @@ function ApprovalItem({
                   id: ETranslations.wallet_bulk_send_approval_reset,
                 })
               : intl.formatMessage({
-                  id: ETranslations.wallet_bulk_send_approval_approve,
+                  id: ETranslations.global_approve,
                 })}
           </SizableText>
         </YStack>
@@ -107,11 +107,7 @@ function ApprovalItem({
         </YStack>
         <XStack gap="$3" alignItems="center">
           <YStack alignItems="flex-end">
-            <SizableText size="$bodyMdMedium">
-              {intl.formatMessage({
-                id: ETranslations.wallet_bulk_send_approval_spender_name,
-              })}
-            </SizableText>
+            <SizableText size="$bodyMdMedium">OneKey</SizableText>
             <SizableText size="$bodyMd" color="$textSubdued">
               {shortenedSpender}
             </SizableText>
@@ -169,7 +165,7 @@ function BulkSendApprovalCard({ onEditApproval }: Props) {
   const tokenSymbol = approvesInfo[0]?.tokenInfo?.symbol ?? 'Token';
 
   return (
-    <YStack px="$5" py="$3">
+    <YStack px="$5">
       <YStack bg="$bgSubdued" borderRadius="$3" py="$2" overflow="hidden">
         <Accordion type="single" collapsible defaultValue="" bg="transparent">
           <Accordion.Item value="approval" bg="transparent">

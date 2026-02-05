@@ -300,9 +300,7 @@ function UploadCSVContent({ onUploaded }: IUploadCSVContentProps) {
           icon="DownloadOutline"
           onPress={handleDownloadTemplate}
         >
-          {intl.formatMessage({
-            id: ETranslations.wallet_bulk_send_btn_template,
-          })}
+          {intl.formatMessage({ id: ETranslations.wallet_bulk_send_btn_template })}
         </Button>
       </XStack>
     </Stack>

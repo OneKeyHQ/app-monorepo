@@ -255,8 +255,6 @@ function BaseBulkSendReview({
     [navigation, accountId, networkId],
   );
 
-  const handleCancel = useCallback(() => navigation.pop(), [navigation]);
-
   // Navigate back to address input page after successful transaction
   const navigateAfterSuccess = useCallback(() => {
     if (accountUtils.isQrAccount({ accountId: accountId ?? '' })) {
@@ -433,25 +431,25 @@ function BaseBulkSendReview({
         })}
       />
       <Page.Body>
-        <YStack gap="$6">
+        <YStack gap="$8">
           {/* Fee Error Alert - Top Section */}
           <BulkSendReviewAlert onRetry={handleRetryFeeEstimation} />
 
           {/* Grand Summary - Top Section */}
           <BulkSendReviewGrandSummary />
 
-          {/* Approval Card - Show if there are approvals */}
-          {approvesInfo.length > 0 ? (
-            <BulkSendApprovalCard onEditApproval={handleEditApproval} />
-          ) : null}
-
-          {/* Cost Card - Middle Section */}
-          <BulkSendReviewCostCard
-            feeLevel={feeLabel}
-            isMultiTxs={isMultiTxs}
-            onFeeChange={handleFeeChange}
-            editFeeEnabled={vaultSettings?.editFeeEnabled}
-          />
+          {/* Approval & Cost Cards */}
+          <YStack gap="$4">
+            {approvesInfo.length > 0 ? (
+              <BulkSendApprovalCard onEditApproval={handleEditApproval} />
+            ) : null}
+            <BulkSendReviewCostCard
+              feeLevel={feeLabel}
+              isMultiTxs={isMultiTxs}
+              onFeeChange={handleFeeChange}
+              editFeeEnabled={vaultSettings?.editFeeEnabled}
+            />
+          </YStack>
 
           {/* Transaction Details - Bottom Section */}
           <BulkSendTxDetails
@@ -468,12 +466,6 @@ function BaseBulkSendReview({
       <Page.Footer>
         <Page.FooterActions
           onConfirmText={confirmButtonText}
-          onCancelText={intl.formatMessage({
-            id: ETranslations.wallet_bulk_send_btn_cancel,
-          })}
-          cancelButtonProps={{
-            onPress: handleCancel,
-          }}
           confirmButtonProps={{
             onPress: handleConfirm,
             disabled: isConfirmDisabled,

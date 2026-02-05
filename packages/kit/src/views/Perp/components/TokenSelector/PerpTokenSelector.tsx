@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call */
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -24,8 +25,10 @@ import {
   usePerpsAllAssetCtxsAtom,
   usePerpsAllAssetsFilteredAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
+import type { IPerpDynamicTab } from '@onekeyhq/kit-bg/src/services/ServiceWebviewPerp/ServiceWebviewPerp';
 import {
   usePerpTokenSelectorConfigPersistAtom,
+  usePerpTokenSelectorTabsAtom,
   usePerpsActiveAssetAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -162,6 +165,8 @@ function BasePerpTokenSelectorContent({
   const [{ assetCtxsByDex }] = usePerpsAllAssetCtxsAtom();
   const [selectorConfig, setSelectorConfig] =
     usePerpTokenSelectorConfigPersistAtom();
+  const [dynamicTabsRaw] = usePerpTokenSelectorTabsAtom();
+  const dynamicTabs: IPerpDynamicTab[] = dynamicTabsRaw;
 
   const tabNames = useMemo(
     () => ({
@@ -173,12 +178,16 @@ function BasePerpTokenSelectorContent({
   );
   const activeTab = selectorConfig?.activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB;
   const setActiveTab = useCallback(
-    (tab: 'all' | 'hip3' | 'favorites') => {
-      setSelectorConfig((prev) => ({
-        field: prev?.field ?? DEFAULT_PERP_TOKEN_SORT_FIELD,
-        direction: prev?.direction ?? DEFAULT_PERP_TOKEN_SORT_DIRECTION,
-        activeTab: tab,
-      }));
+    (tab: string) => {
+      setSelectorConfig(
+        (prev) =>
+          ({
+            field: prev?.field ?? DEFAULT_PERP_TOKEN_SORT_FIELD,
+            direction: prev?.direction ?? DEFAULT_PERP_TOKEN_SORT_DIRECTION,
+            activeTab: tab,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          } as any),
+      );
     },
     [setSelectorConfig],
   );
@@ -207,10 +216,29 @@ function BasePerpTokenSelectorContent({
   );
   const listRefAll = useRef<IListViewRef<ITokenSelectorListItem> | null>(null);
   const listRefHip3 = useRef<IListViewRef<ITokenSelectorListItem> | null>(null);
+  const dynamicListRefsRef = useRef<
+    Record<string, IListViewRef<ITokenSelectorListItem> | null>
+  >({});
   const activeTabRef = useRef(activeTab);
   activeTabRef.current = activeTab;
   const lastSortRef = useRef<{ field?: string; direction?: string } | null>(
     null,
+  );
+
+  // Get dynamic list ref by tabId
+  const getDynamicListRef = useCallback(
+    (tabId: string) => ({
+      current: dynamicListRefsRef.current[tabId] ?? null,
+    }),
+    [],
+  );
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _setDynamicListRef = useCallback(
+    (tabId: string, ref: IListViewRef<ITokenSelectorListItem> | null) => {
+      dynamicListRefsRef.current[tabId] = ref;
+    },
+    [],
   );
 
   useEffect(() => {
@@ -416,20 +444,58 @@ function BasePerpTokenSelectorContent({
       favoriteAssetIds.has(`${item.dexIndex}-${item.assetId}`),
     );
 
+    // Build data for dynamic tabs
+    const dynamicTabsData: Record<string, ITokenSelectorListItem[]> = {};
+    for (const tab of dynamicTabs) {
+      const tokenSet = new Set(tab.tokens);
+      const filtered = combinedEntries
+        .filter((entry) => tokenSet.has(entry.asset.name))
+        .map((entry) => ({
+          dexIndex: entry.dexIndex,
+          index: entry.index,
+          assetId: entry.assetId,
+        }));
+      // Only include tabs with matching tokens
+      if (filtered.length > 0) {
+        dynamicTabsData[tab.tabId] = filtered;
+      }
+    }
+
     return {
       favorites: listFavorites,
       all: listAll,
       hip3: listHip3,
+      dynamic: dynamicTabsData,
     };
   }, [
     assetCtxsByDex,
     assetsByDex,
     buildListData,
     computeSortValues,
+    dynamicTabs,
     favoriteItems,
     sortCompare,
     selectorConfig?.field,
   ]);
+
+  // Filter to visible dynamic tabs (those with data)
+  const visibleDynamicTabs = useMemo<IPerpDynamicTab[]>(
+    () =>
+      dynamicTabs.filter(
+        (tab) => (listDataByTab.dynamic[tab.tabId]?.length ?? 0) > 0,
+      ),
+    [dynamicTabs, listDataByTab.dynamic],
+  );
+
+  // Handle case where active tab no longer exists (e.g., dynamic tab removed by server)
+  useEffect(() => {
+    const fixedTabIds = ['favorites', 'all', 'hip3'];
+    const dynamicTabIds = visibleDynamicTabs.map((t) => t.tabId);
+    const allValidTabs = [...fixedTabIds, ...dynamicTabIds];
+    if (!allValidTabs.includes(activeTab)) {
+      setActiveTab('all');
+    }
+  }, [activeTab, visibleDynamicTabs, setActiveTab]);
 
   const keyExtractor = useCallback(
     (item: { dexIndex: number; index: number; assetId?: number }) => {
@@ -516,6 +582,11 @@ function BasePerpTokenSelectorContent({
           initialTabName={(() => {
             if (activeTab === 'hip3') return tabNames.hip3;
             if (activeTab === 'favorites') return tabNames.favorites;
+            // Check if activeTab is a dynamic tab
+            const dynamicTab = visibleDynamicTabs.find(
+              (t: IPerpDynamicTab) => t.tabId === activeTab,
+            );
+            if (dynamicTab) return dynamicTab.name;
             return tabNames.all;
           })()}
           onTabChange={({ tabName }) => {
@@ -525,6 +596,18 @@ function BasePerpTokenSelectorContent({
             }
             if (tabName === tabNames.favorites) {
               setActiveTab('favorites');
+              return;
+            }
+            if (tabName === tabNames.all) {
+              setActiveTab('all');
+              return;
+            }
+            // Check if it's a dynamic tab
+            const dynamicTab = visibleDynamicTabs.find(
+              (t: IPerpDynamicTab) => t.name === tabName,
+            );
+            if (dynamicTab) {
+              setActiveTab(dynamicTab.tabId);
               return;
             }
             setActiveTab('all');
@@ -553,6 +636,18 @@ function BasePerpTokenSelectorContent({
           <Tabs.Tab name={tabNames.hip3}>
             {renderTokenList(listDataByTab.hip3, listRefHip3, false)}
           </Tabs.Tab>
+          {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            visibleDynamicTabs.map((tab: IPerpDynamicTab) => (
+              <Tabs.Tab key={tab.tabId} name={tab.name}>
+                {renderTokenList(
+                  listDataByTab.dynamic[tab.tabId] ?? [],
+                  getDynamicListRef(tab.tabId),
+                  false,
+                )}
+              </Tabs.Tab>
+            )) as any
+          }
         </Tabs.Container>
       </YStack>
     </YStack>

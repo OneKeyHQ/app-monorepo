@@ -1140,7 +1140,7 @@ const MoreActionWalletGrid = () => {
         ? undefined
         : {
             title: intl.formatMessage({
-              id: ETranslations.wallet_bulk_send_title_desktop,
+              id: ETranslations.wallet_bulk_send_title,
             }),
             icon: 'ChevronDoubleUpOutline' as const,
             onPress: () => {
