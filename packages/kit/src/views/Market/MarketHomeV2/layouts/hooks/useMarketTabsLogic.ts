@@ -91,6 +91,13 @@ export function useMarketTabsLogic(
       // Mark as internal update to prevent useEffect from re-triggering scroll
       isInternalUpdateRef.current = true;
 
+      // Reset after a short delay to handle cases where atom value doesn't change
+      // (e.g., clicking the already-active tab), so future external navigations work.
+      // Using setTimeout ensures this runs after React's useEffect (which uses MessageChannel).
+      setTimeout(() => {
+        isInternalUpdateRef.current = false;
+      }, 100);
+
       // Primary state update - this is the source of truth
       setSelectedTabAtom({ tab: tabValue });
       onTabChange(tabValue);
