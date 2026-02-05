@@ -133,7 +133,8 @@ export function FirmwareUpdateCheckList({
                   // This prevents RetryableMountingLayerException during rapid navigation
                   await timerUtils.wait(150);
 
-                  if (!isMountedRef.current) return;
+                  // Allow workflow to continue even if component unmounts
+                  // The workflow runs in background service and doesn't depend on component lifecycle
 
                   setStepInfo({
                     step: EFirmwareUpdateSteps.updateStart,
