@@ -42,3 +42,4 @@ export const Tabs = {
 
 export * from './hooks';
 export { startViewTransition } from './utils';
+export { CollapsibleTabContext } from './CollapsibleTabContext';

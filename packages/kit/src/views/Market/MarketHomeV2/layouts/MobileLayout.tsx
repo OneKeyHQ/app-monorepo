@@ -1,6 +1,7 @@
 import { memo, useCallback, useMemo } from 'react';
 
 import { Tabs, YStack, useTabContainerWidth } from '@onekeyhq/components';
+import type { ITabContainerRef } from '@onekeyhq/components';
 import { useTabBarHeight } from '@onekeyhq/components/src/layouts/Page/hooks';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -12,6 +13,7 @@ import { useMarketTabsLogic } from './hooks';
 
 import type { ITimeRangeSelectorValue } from '../components/TimeRangeSelector';
 import type { IMarketHomeTabValue } from '../types';
+import type { RefObject } from 'react';
 import type { TabBarProps } from 'react-native-collapsible-tab-view';
 
 interface IMobileLayoutProps {
@@ -23,12 +25,14 @@ interface IMobileLayoutProps {
   };
   selectedNetworkId: string;
   onTabChange: (tabId: IMarketHomeTabValue) => void;
+  tabsRef?: RefObject<ITabContainerRef | null>;
 }
 
 function MobileLayoutComponent({
   filterBarProps,
   selectedNetworkId,
   onTabChange,
+  tabsRef,
 }: IMobileLayoutProps) {
   const { watchlistTabName, trendingTabName, handleTabChange, selectedTab } =
     useMarketTabsLogic(onTabChange);
@@ -85,6 +89,8 @@ function MobileLayoutComponent({
 
   return (
     <Tabs.Container
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ref={tabsRef as any}
       width={platformEnv.isNative ? tabContainerWidth : undefined}
       renderTabBar={renderTabBar}
       initialTabName={initialTabName}
