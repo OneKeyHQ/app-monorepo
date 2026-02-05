@@ -141,20 +141,27 @@ export function FirmwareUpdateCheckList({
                     firmwareVersions: parseFirmwareVersions(result),
                   });
 
+                  // Prepare update workflow based on firmware version
                   if (useV2FirmwareUpdateFlow) {
                     await backgroundApiProxy.serviceFirmwareUpdate.clearHardwareUiStateBeforeStartUpdateWorkflow();
                     navigation.push(EModalFirmwareUpdateRoutes.InstallV2, {
                       result,
                     });
-                    await dialog.close();
+                  } else {
+                    navigation.push(EModalFirmwareUpdateRoutes.Install, {
+                      result,
+                    });
+                  }
 
-                    // Wait for React Native Fabric to complete view cleanup
-                    // This prevents RetryableMountingLayerException during rapid navigation
-                    await timerUtils.wait(150);
+                  // Close dialog and wait for cleanup
+                  await dialog.close();
+                  await timerUtils.wait(150);
 
-                    if (!isMountedRef.current) return;
+                  if (!isMountedRef.current) return;
 
-                    setWorkflowIsRunning(true);
+                  // Start update workflow
+                  setWorkflowIsRunning(true);
+                  if (useV2FirmwareUpdateFlow) {
                     await backgroundApiProxy.serviceFirmwareUpdate.startUpdateWorkflowV2(
                       {
                         backuped: true,
@@ -163,18 +170,6 @@ export function FirmwareUpdateCheckList({
                       },
                     );
                   } else {
-                    navigation.push(EModalFirmwareUpdateRoutes.Install, {
-                      result,
-                    });
-                    await dialog.close();
-
-                    // Wait for React Native Fabric to complete view cleanup
-                    // This prevents RetryableMountingLayerException during rapid navigation
-                    await timerUtils.wait(150);
-
-                    if (!isMountedRef.current) return;
-
-                    setWorkflowIsRunning(true);
                     await backgroundApiProxy.serviceFirmwareUpdate.startUpdateWorkflow(
                       {
                         backuped: true,
