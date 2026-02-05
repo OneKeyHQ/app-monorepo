@@ -384,6 +384,7 @@ export function HomePageView({
         ref={tabsRef as any}
         key={key}
         allowHeaderOverscroll
+        useNativeHeaderAnimation
         renderHeader={renderHeader}
         renderTabBar={renderTabBar}
       >
