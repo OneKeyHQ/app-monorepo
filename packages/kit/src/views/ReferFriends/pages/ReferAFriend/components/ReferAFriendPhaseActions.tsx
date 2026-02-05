@@ -21,7 +21,8 @@ interface IReferAFriendPhaseActionsProps {
 export function ReferAFriendPhaseActions({
   phaseState,
   setPhaseState,
-  _placement = 'inline',
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  placement = 'inline',
 }: IReferAFriendPhaseActionsProps) {
   const intl = useIntl();
   const { toInviteRewardPage } = useReferFriends();

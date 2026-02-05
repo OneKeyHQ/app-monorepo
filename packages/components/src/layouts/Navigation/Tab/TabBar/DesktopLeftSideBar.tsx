@@ -79,6 +79,7 @@ function TabItemView({
     () =>
       options.hideOnTabBar ? null : (
         <YStack
+          w="100%"
           ai="center"
           gap="$0.5"
           pt={6}
@@ -110,6 +111,9 @@ function TabItemView({
             cursor="default"
             color="$text"
             textAlign="center"
+            numberOfLines={2}
+            wordWrap="break-word"
+            maxWidth="100%"
           >
             {options.collapseTabBarLabel ?? options.tabBarLabel ?? route.name}
           </SizableText>
