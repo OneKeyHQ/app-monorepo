@@ -37,7 +37,8 @@ function MarketBannerListSkeletonComponent({
 }: {
   isSmallScreen: boolean;
 }) {
-  const skeletonItems = [0, 1, 2].map((i) => (
+  const skeletonCount = isSmallScreen ? 3 : 7;
+  const skeletonItems = Array.from({ length: skeletonCount }, (_, i) => (
     <MarketBannerItemSkeleton key={i} />
   ));
 
