@@ -4,13 +4,13 @@ import { useIntl } from 'react-intl';
 
 import type { IStackStyle, IXStackProps } from '@onekeyhq/components';
 import {
-  IconButton,
   SearchBar,
   Shortcut,
   View,
   XStack,
   useIsWebHorizontalLayout,
 } from '@onekeyhq/components';
+import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
@@ -39,10 +39,12 @@ export function UniversalSearchInput({
 
   if (size === 'small') {
     return (
-      <IconButton
-        variant="tertiary"
+      <HeaderIconButton
+        size="small"
         icon="SearchOutline"
-        title="Search everything"
+        title={intl.formatMessage({
+          id: ETranslations.global_search_everything,
+        })}
         onPress={toUniversalSearchPage}
       />
     );
