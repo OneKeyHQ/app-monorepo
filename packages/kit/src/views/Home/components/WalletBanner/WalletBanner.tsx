@@ -1,8 +1,16 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { isNil } from 'lodash';
 
 import {
+  CollapsibleTabContext,
   Icon,
   IconButton,
   Image,
@@ -11,7 +19,9 @@ import {
   Stack,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useWalletBanner } from '@onekeyhq/kit/src/hooks/useWalletBanner';
@@ -25,6 +35,18 @@ import type { IWalletBanner } from '@onekeyhq/shared/types/walletBanner';
 
 import type { GestureResponderEvent } from 'react-native';
 import { ENotificationPushMessageMode } from '@onekeyhq/shared/types/notification';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, {
+  clamp,
+  scrollTo,
+  useAnimatedStyle,
+  useSharedValue,
+  withDecay,
+} from 'react-native-reanimated';
+
+const BANNER_ITEM_WIDTH = 280;
+const BANNER_GAP = 8;
+const BANNER_PADDING_H = 20;
 
 const closedBanners: Record<string, boolean> = {};
 
@@ -99,7 +121,7 @@ function BannerItem({
   }, [onPress, item]);
   return (
     <XStack
-      w={280}
+      w={BANNER_ITEM_WIDTH}
       h={108}
       p="$1"
       bg="$bgSubdued"
@@ -180,6 +202,321 @@ function BannerItem({
         </Stack>
       ) : null}
     </XStack>
+  );
+}
+
+function NativeBannerScroller({
+  banners,
+  handleBannerOnPress,
+  handleDismiss,
+}: {
+  banners: IWalletBanner[];
+  handleBannerOnPress: (item: IWalletBanner) => void;
+  handleDismiss: (item: IWalletBanner) => void;
+}) {
+  // Access collapsible-tab-view context to programmatically drive vertical scroll
+  const tabsContext = useContext(CollapsibleTabContext);
+  const refMap = tabsContext?.refMap;
+  const focusedTab = tabsContext?.focusedTab;
+  const scrollYCurrent = tabsContext?.scrollYCurrent;
+  const contentInset = tabsContext?.contentInset ?? 0;
+
+  // Track touch distance on JS thread to suppress onPress during drags.
+  // Using JS-thread onTouchStart/onTouchMove instead of runOnJS from worklet
+  // avoids async timing issues where onPress fires before runOnJS callback.
+  const touchStartRef = useRef({ x: 0, y: 0 });
+  const touchDistanceRef = useRef(0);
+
+  const handleTouchStart = useCallback((e: GestureResponderEvent) => {
+    touchStartRef.current = {
+      x: e.nativeEvent.pageX,
+      y: e.nativeEvent.pageY,
+    };
+    touchDistanceRef.current = 0;
+  }, []);
+
+  const handleTouchMove = useCallback((e: GestureResponderEvent) => {
+    const dx = Math.abs(e.nativeEvent.pageX - touchStartRef.current.x);
+    const dy = Math.abs(e.nativeEvent.pageY - touchStartRef.current.y);
+    touchDistanceRef.current = Math.max(dx, dy);
+  }, []);
+
+  const translateX = useSharedValue(0);
+  const startTranslateX = useSharedValue(0);
+  const startScrollY = useSharedValue(0);
+  const isHorizontal = useSharedValue<boolean | undefined>(undefined);
+
+  const [containerWidth, setContainerWidth] = useState(0);
+
+  const actualMaxTranslateX = useMemo(() => {
+    const totalWidth =
+      banners.length * BANNER_ITEM_WIDTH +
+      (banners.length - 1) * BANNER_GAP +
+      BANNER_PADDING_H * 2;
+    const width = containerWidth || 375;
+    return Math.max(0, totalWidth - width);
+  }, [banners.length, containerWidth]);
+
+  const panGesture = useMemo(
+    () =>
+      Gesture.Pan()
+        .onStart(() => {
+          'worklet';
+          startTranslateX.value = translateX.value;
+          startScrollY.value = scrollYCurrent?.value ?? 0;
+          isHorizontal.value = undefined;
+        })
+        .onUpdate((e) => {
+          'worklet';
+          // Determine direction on first significant movement
+          if (isHorizontal.value === undefined) {
+            if (Math.abs(e.translationX) > 5 || Math.abs(e.translationY) > 5) {
+              isHorizontal.value =
+                Math.abs(e.translationX) > Math.abs(e.translationY);
+            }
+            return;
+          }
+
+          if (isHorizontal.value) {
+            // Horizontal: drive banner translateX
+            translateX.value = clamp(
+              startTranslateX.value + e.translationX,
+              -actualMaxTranslateX,
+              0,
+            );
+          } else if (refMap && focusedTab) {
+            // Vertical: programmatically scroll the underlying tab ScrollView
+            const ref = refMap[focusedTab.value];
+            if (ref) {
+              const nextY = startScrollY.value - e.translationY;
+              scrollTo(ref, 0, Math.max(0, nextY - contentInset), false);
+            }
+          }
+        })
+        .onEnd((e) => {
+          'worklet';
+          if (isHorizontal.value) {
+            translateX.value = withDecay({
+              velocity: e.velocityX,
+              clamp: [-actualMaxTranslateX, 0],
+            });
+          }
+        }),
+    [
+      translateX,
+      startTranslateX,
+      startScrollY,
+      isHorizontal,
+      actualMaxTranslateX,
+      refMap,
+      focusedTab,
+      scrollYCurrent,
+      contentInset,
+    ],
+  );
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: translateX.value }],
+  }));
+
+  const wrappedHandleBannerOnPress = useCallback(
+    (item: IWalletBanner) => {
+      if (touchDistanceRef.current > 5) {
+        return;
+      }
+      handleBannerOnPress(item);
+    },
+    [handleBannerOnPress],
+  );
+
+  return (
+    <YStack
+      py="$2.5"
+      bg="$bgApp"
+      overflow="hidden"
+      onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+    >
+      <GestureDetector gesture={panGesture}>
+        <Animated.View
+          style={[
+            {
+              flexDirection: 'row',
+              paddingHorizontal: BANNER_PADDING_H,
+              gap: BANNER_GAP,
+            },
+            animatedStyle,
+          ]}
+        >
+          {banners.map((item) => (
+            <BannerItem
+              key={item.id}
+              item={item}
+              onPress={wrappedHandleBannerOnPress}
+              onDismiss={handleDismiss}
+            />
+          ))}
+        </Animated.View>
+      </GestureDetector>
+    </YStack>
+  );
+}
+
+function useScrollElement(scrollViewRef: React.RefObject<any>) {
+  return useCallback((): HTMLElement | null => {
+    const node = scrollViewRef.current;
+    if (!node) return null;
+    if (typeof node.getScrollableNode === 'function') {
+      return node.getScrollableNode() as HTMLElement;
+    }
+    if (node instanceof HTMLElement) {
+      return node;
+    }
+    return null;
+  }, [scrollViewRef]);
+}
+
+function WebBannerScroller({
+  banners,
+  handleBannerOnPress,
+  handleDismiss,
+}: {
+  banners: IWalletBanner[];
+  handleBannerOnPress: (item: IWalletBanner) => void;
+  handleDismiss: (item: IWalletBanner) => void;
+}) {
+  const { gtMd } = useMedia();
+  const scrollViewRef = useRef<any>(null);
+  const [showLeftArrow, setShowLeftArrow] = useState(false);
+  const [showRightArrow, setShowRightArrow] = useState(false);
+  const getScrollElement = useScrollElement(scrollViewRef);
+
+  const updateArrows = useCallback(() => {
+    const el = getScrollElement();
+    if (!el) return;
+    const { scrollLeft, scrollWidth, clientWidth } = el;
+    setShowLeftArrow(scrollLeft > 1);
+    setShowRightArrow(scrollLeft < scrollWidth - clientWidth - 1);
+  }, [getScrollElement]);
+
+  useEffect(() => {
+    const el = getScrollElement();
+    if (!el) return;
+    const onScroll = () => updateArrows();
+    el.addEventListener('scroll', onScroll, { passive: true });
+    const observer = new ResizeObserver(() => updateArrows());
+    observer.observe(el);
+    updateArrows();
+    return () => {
+      el.removeEventListener('scroll', onScroll);
+      observer.disconnect();
+    };
+  }, [getScrollElement, updateArrows, banners.length]);
+
+  const handleScrollLeft = useCallback(() => {
+    const el = getScrollElement();
+    if (!el) return;
+    el.scrollBy({
+      left: -(BANNER_ITEM_WIDTH + BANNER_GAP),
+      behavior: 'smooth',
+    });
+  }, [getScrollElement]);
+
+  const handleScrollRight = useCallback(() => {
+    const el = getScrollElement();
+    if (!el) return;
+    el.scrollBy({
+      left: BANNER_ITEM_WIDTH + BANNER_GAP,
+      behavior: 'smooth',
+    });
+  }, [getScrollElement]);
+
+  return (
+    <YStack py="$2.5" bg="$bgApp" position="relative">
+      <ScrollView
+        ref={scrollViewRef}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{
+          paddingHorizontal: 20,
+          gap: 8,
+        }}
+      >
+        {banners.map((item) => (
+          <BannerItem
+            key={item.id}
+            item={item}
+            onPress={handleBannerOnPress}
+            onDismiss={handleDismiss}
+          />
+        ))}
+      </ScrollView>
+      {gtMd ? (
+        <Stack
+          position="absolute"
+          left={0}
+          top={0}
+          bottom={0}
+          zIndex={1}
+          justifyContent="center"
+          pl="$1"
+          pr="$4"
+          opacity={showLeftArrow ? 1 : 0}
+          pointerEvents={showLeftArrow ? 'auto' : 'none'}
+          animation="quick"
+          animateOnly={['opacity']}
+          // Web-only: `background` and `linear-gradient` are CSS properties.
+          // This component only renders on web (WebBannerScroller).
+          style={{
+            background:
+              'linear-gradient(90deg, var(--bgApp) 40%, transparent 100%)',
+          }}
+        >
+          <IconButton
+            size="small"
+            icon="ChevronLeftOutline"
+            onPress={handleScrollLeft}
+            bg="$bg"
+            borderWidth={1}
+            borderColor="$borderSubdued"
+            elevation={2}
+          />
+        </Stack>
+      ) : null}
+      {gtMd ? (
+        <Stack
+          position="absolute"
+          right={0}
+          top={0}
+          bottom={0}
+          zIndex={1}
+          justifyContent="center"
+          pr="$1"
+          pl="$4"
+          opacity={showRightArrow ? 1 : 0}
+          pointerEvents={showRightArrow ? 'auto' : 'none'}
+          animation="quick"
+          animateOnly={['opacity']}
+          // Web-only: `background` and `linear-gradient` are CSS properties.
+          // This component only renders on web (WebBannerScroller).
+          style={{
+            background:
+              'linear-gradient(270deg, var(--bgApp) 40%, transparent 100%)',
+          }}
+        >
+          <IconButton
+            size="small"
+            icon="ChevronRightOutline"
+            onPress={handleScrollRight}
+            bg="$bg"
+            borderWidth={1}
+            borderColor="$borderSubdued"
+            elevation={2}
+          />
+        </Stack>
+      ) : null}
+    </YStack>
   );
 }
 
@@ -289,26 +626,22 @@ function WalletBanner() {
     return null;
   }
 
+  if (platformEnv.isNative) {
+    return (
+      <NativeBannerScroller
+        banners={banners}
+        handleBannerOnPress={handleBannerOnPress}
+        handleDismiss={handleDismiss}
+      />
+    );
+  }
+
   return (
-    <YStack py="$2.5" bg="$bgApp">
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{
-          paddingHorizontal: 20,
-          gap: 8,
-        }}
-      >
-        {banners.map((item) => (
-          <BannerItem
-            key={item.id}
-            item={item}
-            onPress={handleBannerOnPress}
-            onDismiss={handleDismiss}
-          />
-        ))}
-      </ScrollView>
-    </YStack>
+    <WebBannerScroller
+      banners={banners}
+      handleBannerOnPress={handleBannerOnPress}
+      handleDismiss={handleDismiss}
+    />
   );
 }
 

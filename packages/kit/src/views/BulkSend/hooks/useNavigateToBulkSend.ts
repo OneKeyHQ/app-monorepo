@@ -11,7 +11,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IToken } from '@onekeyhq/shared/types/token';
-import { useMedia } from '@onekeyhq/components';
+import { rootNavigationRef, useMedia } from '@onekeyhq/components';
 
 export function useNavigateToBulkSend() {
   const navigation = useAppNavigation();
@@ -46,8 +46,8 @@ export function useNavigateToBulkSend() {
         });
       } else if (media.gtMd) {
         navigation.switchTab(ETabRoutes.Home);
-        await timerUtils.wait(50);
-        navigation.push(ETabHomeRoutes.TabHomeBulkSendAddressesInput, {
+        await timerUtils.wait(150);
+        rootNavigationRef.current?.navigate(ETabHomeRoutes.TabHomeBulkSendAddressesInput, {
           networkId,
           accountId,
           indexedAccountId,

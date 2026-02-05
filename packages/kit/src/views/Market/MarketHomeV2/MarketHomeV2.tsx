@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { Page, useMedia } from '@onekeyhq/components';
+import type { ITabContainerRef } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -169,17 +170,21 @@ export function MarketHomeV2() {
 
 function BaseMarketHomeWithProvider({
   isFocused = true,
+  tabsRef,
 }: {
   isFocused?: boolean;
+  tabsRef?: React.RefObject<ITabContainerRef | null>;
 }) {
   const { mobileProps } = useMarketHomeLayoutProps();
-  return isFocused ? <MobileLayout {...mobileProps} /> : null;
+  return isFocused ? <MobileLayout {...mobileProps} tabsRef={tabsRef} /> : null;
 }
 
 export function MarketHomeWithProvider({
   isFocused = true,
+  tabsRef,
 }: {
   isFocused?: boolean;
+  tabsRef?: React.RefObject<ITabContainerRef | null>;
 }) {
   return (
     <AccountSelectorProviderMirror
@@ -192,7 +197,7 @@ export function MarketHomeWithProvider({
       <MarketWatchListProviderMirrorV2
         storeName={EJotaiContextStoreNames.marketWatchListV2}
       >
-        <BaseMarketHomeWithProvider isFocused={isFocused} />
+        <BaseMarketHomeWithProvider isFocused={isFocused} tabsRef={tabsRef} />
       </MarketWatchListProviderMirrorV2>
     </AccountSelectorProviderMirror>
   );
