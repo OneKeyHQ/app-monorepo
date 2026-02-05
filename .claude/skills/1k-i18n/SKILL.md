@@ -1,6 +1,6 @@
 ---
 name: 1k-i18n
-description: Internationalization and translation management for OneKey. Use when adding translations, displaying text, handling locales, or managing translation keys. NEVER modify auto-generated translation files. Triggers on i18n, translation, locale, formatMessage, useIntl, ETranslations, text, string, hardcode, intl, translate, language, localization, internationalization.
+description: Internationalization — translations (ETranslations, useIntl, formatMessage) and locale management. NEVER modify auto-generated translation files.
 allowed-tools: Read, Grep, Glob
 ---
 
