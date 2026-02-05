@@ -106,9 +106,6 @@ export function TokenDetailHeaderLeft({
           }
         : {})}
     >
-      {!platformEnv.isNative && !md ? marketStar : null}
-      {isNative && !platformEnv.isNative && !md ? shareButton : null}
-
       <XStack gap="$3" ai="center">
         <Token
           size="md"
@@ -120,7 +117,10 @@ export function TokenDetailHeaderLeft({
         <YStack>
           <XStack ai="center" gap="$1">
             <SizableText
-              size="$bodyLgMedium"
+              size="$headingLg"
+              $gtMd={{
+                size: '$heading2xl',
+              }}
               color="$text"
               numberOfLines={1}
               maxWidth="$60"

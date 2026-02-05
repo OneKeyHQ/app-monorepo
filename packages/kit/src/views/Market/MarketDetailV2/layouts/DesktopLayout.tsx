@@ -39,7 +39,7 @@ export function DesktopLayout() {
   return (
     <XStack flex={1}>
       {/* Left column */}
-      <YStack flex={1}>
+      <YStack flex={1} borderRightWidth="$px" borderRightColor="$borderSubdued">
         {/* Header */}
         <TokenDetailHeader />
 
@@ -67,9 +67,9 @@ export function DesktopLayout() {
       </YStack>
 
       {/* Right column */}
-      <Stack w={320}>
+      <Stack w={340}>
         <ScrollView>
-          <Stack w={320} pb={platformEnv.isWeb ? '$12' : undefined}>
+          <Stack w={340} pb={platformEnv.isWeb ? '$12' : undefined}>
             <Stack px="$5">
               <PerpetualTradingBanner />
             </Stack>
