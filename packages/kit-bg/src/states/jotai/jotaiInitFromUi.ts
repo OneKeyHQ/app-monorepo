@@ -51,7 +51,6 @@ export async function jotaiInitFromUi({
       const atomInfo = allAtoms[key] as unknown;
       if (!isCrossAtomLike(atomInfo)) {
         return;
-        return;
       }
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
       const atomObj = atomInfo.atom() as unknown as IJotaiWritableAtomPro<
