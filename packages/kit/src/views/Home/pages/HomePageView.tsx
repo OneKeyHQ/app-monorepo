@@ -46,7 +46,6 @@ import { deferHeavyWorkUntilUIIdle } from '../../../utils/deferHeavyWork';
 import { NetworkUnsupportedWarning } from '../../Staking/components/ProtocolDetails/NetworkUnsupportedWarning';
 import { HomeSupportedWallet } from '../components/HomeSupportedWallet';
 import { NotBackedUpEmpty } from '../components/NotBakcedUp';
-import { PullToRefresh, onHomePageRefresh } from '../components/PullToRefresh';
 
 import { ApprovalListContainerWithProvider } from './ApprovalListContainer';
 import { HomeHeaderContainer } from './HomeHeaderContainer';
@@ -60,33 +59,6 @@ import type { LayoutChangeEvent } from 'react-native';
 
 const networksSupportBulkRevokeApproval =
   getNetworksSupportBulkRevokeApproval();
-
-interface IAndroidScrollContainerProps {
-  children: React.ReactNode;
-}
-const AndroidScrollContainer = platformEnv.isNativeAndroid
-  ? ({ children }: IAndroidScrollContainerProps) => {
-      const [height, setHeight] = useState(0);
-      const handleLayout = (event: LayoutChangeEvent) => {
-        setHeight(event.nativeEvent.layout.height);
-      };
-      return (
-        <YStack flex={1} onLayout={handleLayout}>
-          {height > 0 ? (
-            <ScrollView
-              nestedScrollEnabled
-              refreshControl={<PullToRefresh onRefresh={onHomePageRefresh} />}
-              contentContainerStyle={{ height }}
-            >
-              {children}
-            </ScrollView>
-          ) : null}
-        </YStack>
-      );
-    }
-  : ({ children }: IAndroidScrollContainerProps) => {
-      return children;
-    };
 
 export function HomePageView({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -564,11 +536,7 @@ export function HomePageView({
     );
 
     if (wallet) {
-      content = platformEnv.isNative ? (
-        <AndroidScrollContainer>{homePageContent}</AndroidScrollContainer>
-      ) : (
-        homePageContent
-      );
+      content = homePageContent;
       // This is a temporary hack solution, need to fix the layout of headerLeft and headerRight
     }
     return (

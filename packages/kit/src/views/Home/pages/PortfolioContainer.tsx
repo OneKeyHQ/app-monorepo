@@ -90,9 +90,7 @@ function PortfolioContainerWithProvider() {
               contentContainerStyle={{ paddingBottom: tabBarHeight }}
               nestedScrollEnabled={platformEnv.isNativeAndroid}
               refreshControl={
-                !platformEnv.isNativeAndroid ? (
-                  <PullToRefresh onRefresh={onHomePageRefresh} />
-                ) : undefined
+                <PullToRefresh onRefresh={onHomePageRefresh} />
               }
             >
               <PortfolioContainer />

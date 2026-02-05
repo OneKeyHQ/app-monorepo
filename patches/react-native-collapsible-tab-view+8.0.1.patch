@@ -11,8 +11,34 @@ index 83c5549..aaeca52 100644
  export type { HeaderMeasurements } from './hooks';
  export { MaterialTabBar } from './MaterialTabBar/TabBar';
  export { MaterialTabItem } from './MaterialTabBar/TabItem';
+diff --git a/node_modules/react-native-collapsible-tab-view/src/Container.tsx b/node_modules/react-native-collapsible-tab-view/src/Container.tsx
+index e782b90..01977ea 100644
+--- a/node_modules/react-native-collapsible-tab-view/src/Container.tsx
++++ b/node_modules/react-native-collapsible-tab-view/src/Container.tsx
+@@ -95,7 +95,7 @@ export const Container = React.memo(
+       const [tabBarHeight, getTabBarHeight] =
+         useLayoutHeight(initialTabBarHeight)
+ 
+-      const [headerHeight, getHeaderHeight] = useLayoutHeight(
++      const [headerHeight, getHeaderHeight, headerHeightSV] = useLayoutHeight(
+         !renderHeader ? 0 : initialHeaderHeight
+       )
+       const initialIndex = React.useMemo(
+@@ -141,8 +141,10 @@ export const Container = React.memo(
+       const calculateNextOffset = useSharedValue(initialIndex)
+       const headerScrollDistance: ContextType['headerScrollDistance'] =
+         useDerivedValue(() => {
+-          return headerHeight !== undefined ? headerHeight - minHeaderHeight : 0
+-        }, [headerHeight, minHeaderHeight])
++          return headerHeightSV.value > 0
++            ? headerHeightSV.value - minHeaderHeight
++            : 0
++        }, [minHeaderHeight])
+ 
+       const indexDecimal: ContextType['indexDecimal'] = useSharedValue(
+         index.value
 diff --git a/node_modules/react-native-collapsible-tab-view/src/hooks.tsx b/node_modules/react-native-collapsible-tab-view/src/hooks.tsx
-index ba7dffa..35c3b1d 100644
+index ba7dffa..b9ed92a 100644
 --- a/node_modules/react-native-collapsible-tab-view/src/hooks.tsx
 +++ b/node_modules/react-native-collapsible-tab-view/src/hooks.tsx
 @@ -101,7 +101,11 @@ export function useTabProps<T extends TabName>(
@@ -28,7 +54,7 @@ index ba7dffa..35c3b1d 100644
    return c
  }
  
-@@ -114,21 +118,27 @@ export function useTabsContext(): ContextType<TabName> {
+@@ -114,23 +118,31 @@ export function useTabsContext(): ContextType<TabName> {
   */
  export function useTabNameContext(): TabName {
    const c = useContext(TabNameContext)
@@ -44,6 +70,7 @@ index ba7dffa..35c3b1d 100644
  export function useLayoutHeight(initialHeight: number = 0) {
    const [height, setHeight] = useState(initialHeight)
 +  const heightRef = useRef(initialHeight)
++  const animatedHeight = useSharedValue(initialHeight)
  
    const getHeight = useCallback(
      (event: LayoutChangeEvent) => {
@@ -52,15 +79,19 @@ index ba7dffa..35c3b1d 100644
 +      const latestHeight = Math.round(event.nativeEvent.layout.height)
 +      if (latestHeight !== heightRef.current) {
 +        heightRef.current = latestHeight
++        animatedHeight.value = latestHeight
          setHeight(latestHeight)
        }
      },
 -    [height, setHeight]
 +    []
    )
-   return [height, getHeight] as const
+-  return [height, getHeight] as const
++  return [height, getHeight, animatedHeight] as const
  }
-@@ -579,11 +589,11 @@ export function useAfterMountEffect(
+ /**
+  * Hook to access some key styles that make the whole thing work.
+@@ -579,11 +591,11 @@ export function useAfterMountEffect(
  export function useConvertAnimatedToValue<T>(
    animatedValue: Animated.SharedValue<T>
  ) {

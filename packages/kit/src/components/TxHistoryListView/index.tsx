@@ -452,9 +452,7 @@ function BaseTxHistoryListView(props: IProps) {
       nestedScrollEnabled={platformEnv.isNativeAndroid ? inTabList : false}
       removeClippedSubviews={platformEnv.isNativeAndroid}
       refreshControl={
-        !platformEnv.isNativeAndroid && onRefresh ? (
-          <PullToRefresh onRefresh={onRefresh} />
-        ) : undefined
+        onRefresh ? <PullToRefresh onRefresh={onRefresh} /> : undefined
       }
       // @ts-ignore
       estimatedItemSize={platformEnv.isNative ? 60 : 56}
