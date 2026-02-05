@@ -47,8 +47,6 @@ import SwapRefreshButton from './SwapRefreshButton';
 
 interface ISwapProviderListPanelProps {
   refreshAction: (manual?: boolean) => void;
-  disableInternalScroll?: boolean; // For desktop layout, let page-level scroll handle overflow
-  useFlexHeight?: boolean; // Use flex height instead of fixed maxHeight
 }
 
 // Animated wrapper for each provider item
@@ -67,9 +65,9 @@ const AnimatedProviderItem = memo(
       from={
         isNewItem
           ? {
-              opacity: 0,
-              translateY: 8,
-            }
+            opacity: 0,
+            translateY: 8,
+          }
           : undefined
       }
       animate={{
@@ -126,8 +124,6 @@ const AnimatedSkeletonItem = memo(({ index }: { index: number }) => (
 
 const SwapProviderListPanel = ({
   refreshAction,
-  disableInternalScroll = false,
-  useFlexHeight = false,
 }: ISwapProviderListPanelProps) => {
   const intl = useIntl();
   const [swapSortedList] = useSwapSortedQuoteListAtom();
@@ -149,9 +145,8 @@ const SwapProviderListPanel = ({
   const hadPreviousQuotesRef = useRef(false);
   // Track token changes to reset cache
   const prevTokenKeyRef = useRef('');
-  const currentTokenKey = `${fromToken?.contractAddress ?? ''}-${
-    toToken?.contractAddress ?? ''
-  }`;
+  const currentTokenKey = `${fromToken?.contractAddress ?? ''}-${toToken?.contractAddress ?? ''
+    }`;
   // Track if we're in a refresh cycle (list was cleared but we had data)
   const isRefreshingRef = useRef(false);
   // Track swap type switch changes to reset cache (OK-49718)
@@ -225,8 +220,8 @@ const SwapProviderListPanel = ({
   // Show cached data when: loading with empty list but had previous data, OR during refresh
   const displayList =
     (isLoading || isRefreshingRef.current) &&
-    swapSortedList.length === 0 &&
-    cachedListRef.current.length > 0
+      swapSortedList.length === 0 &&
+      cachedListRef.current.length > 0
       ? cachedListRef.current
       : swapSortedList;
 
@@ -381,8 +376,8 @@ const SwapProviderListPanel = ({
             onPress={
               !disabled
                 ? () => {
-                    onSelectQuote(item);
-                  }
+                  onSelectQuote(item);
+                }
                 : undefined
             }
             selected={Boolean(
@@ -609,7 +604,7 @@ const SwapProviderListPanel = ({
 
         {/* Phase 2+3: Data cards + skeleton placeholders for remaining */}
         {shouldShowContent &&
-        (hasQuotes || (hasReceivedTotal && quoteEventFetching)) ? (
+          (hasQuotes || (hasReceivedTotal && quoteEventFetching)) ? (
           <MotiView
             key="content"
             from={{ opacity: 0 }}
@@ -674,9 +669,9 @@ const SwapProviderListPanel = ({
 
         {/* Empty state - total received, all providers responded, no results */}
         {shouldShowContent &&
-        !hasQuotes &&
-        hasReceivedTotal &&
-        !quoteEventFetching
+          !hasQuotes &&
+          hasReceivedTotal &&
+          !quoteEventFetching
           ? renderEmptyState()
           : null}
       </AnimatePresence>
@@ -686,7 +681,7 @@ const SwapProviderListPanel = ({
   return (
     <YStack
       minHeight={520}
-      {...(!disableInternalScroll && { maxHeight: 820 })}
+      maxHeight={820}
       borderRadius="$6"
       borderWidth={1}
       borderColor="$borderSubdued"
@@ -752,14 +747,9 @@ const SwapProviderListPanel = ({
         </XStack>
       ) : null}
 
-      {/* Content - with or without ScrollView depending on layout */}
-      {disableInternalScroll ? (
-        <YStack pb="$5">{contentArea}</YStack>
-      ) : (
-        <ScrollView flex={1} ref={scrollViewRef as any} nestedScrollEnabled>
-          {contentArea}
-        </ScrollView>
-      )}
+      <ScrollView flex={1} ref={scrollViewRef as any} nestedScrollEnabled>
+        {contentArea}
+      </ScrollView>
     </YStack>
   );
 };
