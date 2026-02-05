@@ -12,9 +12,16 @@ index 83c5549..aaeca52 100644
  export { MaterialTabBar } from './MaterialTabBar/TabBar';
  export { MaterialTabItem } from './MaterialTabBar/TabItem';
 diff --git a/node_modules/react-native-collapsible-tab-view/src/Container.tsx b/node_modules/react-native-collapsible-tab-view/src/Container.tsx
-index e782b90..01977ea 100644
+index e782b90..4c84729 100644
 --- a/node_modules/react-native-collapsible-tab-view/src/Container.tsx
 +++ b/node_modules/react-native-collapsible-tab-view/src/Container.tsx
+@@ -1,5 +1,5 @@
+ import React from 'react'
+-import { StyleSheet, useWindowDimensions, View } from 'react-native'
++import { Platform, StyleSheet, useWindowDimensions, View } from 'react-native'
+ import PagerView from 'react-native-pager-view'
+ import Animated, {
+   runOnJS,
 @@ -95,7 +95,7 @@ export const Container = React.memo(
        const [tabBarHeight, getTabBarHeight] =
          useLayoutHeight(initialTabBarHeight)
@@ -37,6 +44,125 @@ index e782b90..01977ea 100644
  
        const indexDecimal: ContextType['indexDecimal'] = useSharedValue(
          index.value
+@@ -349,42 +351,73 @@ export const Container = React.memo(
+         [onTabPress]
+       )
+ 
++      const contextValue = React.useMemo(
++        () => ({
++          contentInset,
++          tabBarHeight,
++          headerHeight,
++          refMap,
++          tabNames,
++          index,
++          snapThreshold,
++          revealHeaderOnScroll,
++          focusedTab,
++          accDiffClamp,
++          indexDecimal,
++          containerHeight,
++          minHeaderHeight,
++          scrollYCurrent,
++          scrollY,
++          setRef,
++          headerScrollDistance,
++          accScrollY,
++          oldAccScrollY,
++          offset,
++          snappingTo,
++          contentHeights,
++          headerTranslateY,
++          width,
++          allowHeaderOverscroll,
++        }),
++        [
++          contentInset,
++          tabBarHeight,
++          headerHeight,
++          refMap,
++          tabNames,
++          index,
++          snapThreshold,
++          revealHeaderOnScroll,
++          focusedTab,
++          accDiffClamp,
++          indexDecimal,
++          containerHeight,
++          minHeaderHeight,
++          scrollYCurrent,
++          scrollY,
++          setRef,
++          headerScrollDistance,
++          accScrollY,
++          oldAccScrollY,
++          offset,
++          snappingTo,
++          contentHeights,
++          headerTranslateY,
++          width,
++          allowHeaderOverscroll,
++        ]
++      )
++
+       return (
+-        <Context.Provider
+-          value={{
+-            contentInset,
+-            tabBarHeight,
+-            headerHeight,
+-            refMap,
+-            tabNames,
+-            index,
+-            snapThreshold,
+-            revealHeaderOnScroll,
+-            focusedTab,
+-            accDiffClamp,
+-            indexDecimal,
+-            containerHeight,
+-            minHeaderHeight,
+-            scrollYCurrent,
+-            scrollY,
+-            setRef,
+-            headerScrollDistance,
+-            accScrollY,
+-            oldAccScrollY,
+-            offset,
+-            snappingTo,
+-            contentHeights,
+-            headerTranslateY,
+-            width,
+-            allowHeaderOverscroll,
+-          }}
+-        >
++        <Context.Provider value={contextValue}>
++
+           <Animated.View
+             style={[styles.container, { width }, containerStyle]}
+             onLayout={getContainerLayoutHeight}
+             pointerEvents="box-none"
+           >
+             <Animated.View
++              renderToHardwareTextureAndroid={Platform.OS === 'android'}
+               pointerEvents="box-none"
+               style={[
+                 styles.topContainer,
+@@ -393,6 +426,7 @@ export const Container = React.memo(
+               ]}
+             >
+               <View
++                collapsable={false}
+                 style={[styles.container, styles.headerContainer]}
+                 onLayout={getHeaderHeight}
+                 pointerEvents="box-none"
+@@ -409,6 +443,7 @@ export const Container = React.memo(
+                   })}
+               </View>
+               <View
++                collapsable={false}
+                 style={[styles.container, styles.tabBarContainer]}
+                 onLayout={getTabBarHeight}
+                 pointerEvents="box-none"
 diff --git a/node_modules/react-native-collapsible-tab-view/src/hooks.tsx b/node_modules/react-native-collapsible-tab-view/src/hooks.tsx
 index ba7dffa..b9ed92a 100644
 --- a/node_modules/react-native-collapsible-tab-view/src/hooks.tsx

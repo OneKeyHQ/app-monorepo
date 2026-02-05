@@ -67,16 +67,22 @@ interface IAndroidScrollContainerProps {
 const AndroidScrollContainer = platformEnv.isNativeAndroid
   ? ({ children }: IAndroidScrollContainerProps) => {
       const [height, setHeight] = useState(0);
-      const handleLayout = (event: LayoutChangeEvent) => {
-        setHeight(event.nativeEvent.layout.height);
-      };
+      const heightRef = useRef(0);
+      const handleLayout = useCallback((event: LayoutChangeEvent) => {
+        const h = Math.round(event.nativeEvent.layout.height);
+        if (h !== heightRef.current) {
+          heightRef.current = h;
+          setHeight(h);
+        }
+      }, []);
+      const contentContainerStyle = useMemo(() => ({ height }), [height]);
       return (
         <YStack flex={1} onLayout={handleLayout}>
           {height > 0 ? (
             <ScrollView
               nestedScrollEnabled
               refreshControl={<PullToRefresh onRefresh={onHomePageRefresh} />}
-              contentContainerStyle={{ height }}
+              contentContainerStyle={contentContainerStyle}
             >
               {children}
             </ScrollView>
