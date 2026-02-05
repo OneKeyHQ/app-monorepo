@@ -50,7 +50,7 @@ export async function jotaiInitFromUi({
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       const atomInfo = allAtoms[key] as unknown;
       if (!isCrossAtomLike(atomInfo)) {
-        warnMissingAtomExportOnce(key, 'init');
+        return;
         return;
       }
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
