@@ -86,8 +86,8 @@ function BaseBulkSendReview({
   const confirmButtonText =
     approvesInfo.length > 0
       ? intl.formatMessage({
-          id: ETranslations.wallet_bulk_send_btn_approve_and_confirm,
-        })
+        id: ETranslations.wallet_bulk_send_btn_approve_and_confirm,
+      })
       : intl.formatMessage({ id: ETranslations.wallet_bulk_send_btn_confirm });
 
   // Handle editing approval amount
@@ -341,13 +341,6 @@ function BaseBulkSendReview({
           newUnsignedTxs,
           feeState.feeInfos,
         );
-
-        // Show success toast
-        Toast.success({
-          title: intl.formatMessage({
-            id: ETranslations.feedback_transaction_submitted,
-          }),
-        });
 
         setIsSubmitting(false);
         onSuccess?.(results);
