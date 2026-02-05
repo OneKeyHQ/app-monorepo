@@ -27,6 +27,10 @@ import {
 } from '@onekeyhq/shared/src/types/changeHistory';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import imageUtils from '@onekeyhq/shared/src/utils/imageUtils';
+import {
+  PROMISE_CONCURRENCY_LIMIT,
+  promiseAllSettledEnhanced,
+} from '@onekeyhq/shared/src/utils/promiseUtils';
 import sortUtils from '@onekeyhq/shared/src/utils/sortUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
@@ -229,25 +233,28 @@ class ServiceDiscovery extends ServiceBase {
       const result = await this._checkUrlSecurity(params);
       // Directly accessing the URL might be blocked by browser security policies,
       //  so it needs to be converted to a base64 image
-      const baseImages = await Promise.allSettled([
-        result?.dapp?.logo
-          ? imageUtils.getBase64ImageFromUrl(result.dapp.logo)
-          : Promise.resolve(''),
-        ...(result?.dapp?.origins?.length
-          ? result.dapp.origins.map((origin) =>
-              imageUtils.getBase64ImageFromUrl(origin.logo),
-            )
-          : []),
-      ]);
+      const baseImages = await promiseAllSettledEnhanced(
+        [
+          result?.dapp?.logo
+            ? () => imageUtils.getBase64ImageFromUrl(result.dapp!.logo)
+            : () => Promise.resolve(''),
+          ...(result?.dapp?.origins?.length
+            ? result.dapp.origins.map(
+                (origin) => () => imageUtils.getBase64ImageFromUrl(origin.logo),
+              )
+            : []),
+        ],
+        { continueOnError: true, concurrency: PROMISE_CONCURRENCY_LIMIT },
+      );
 
-      if (result?.dapp?.logo && baseImages[0].status === 'fulfilled') {
-        result.dapp.logo = baseImages[0].value as string;
+      if (result?.dapp?.logo && baseImages[0]) {
+        result.dapp.logo = baseImages[0] as string;
       }
       if (result?.dapp?.origins?.length && baseImages.length > 1) {
         result.dapp.origins.forEach((origin, index) => {
           const imageResult = baseImages[index + 1];
-          if (origin && imageResult && imageResult.status === 'fulfilled') {
-            origin.logo = imageResult.value as string;
+          if (origin && imageResult) {
+            origin.logo = imageResult as string;
           }
         });
       }
@@ -275,12 +282,17 @@ class ServiceDiscovery extends ServiceBase {
     if (isNumber(sliceCount)) {
       dataSource = dataSource.slice(0, sliceCount);
     }
-    const bookmarks = await Promise.all(
-      dataSource.map(async (i) => ({
-        ...i,
-        logo: generateIcon ? await this.buildWebsiteIconUrl(i.url) : undefined,
-      })),
-    );
+    const bookmarks = (
+      await promiseAllSettledEnhanced(
+        dataSource.map((i) => async () => ({
+          ...i,
+          logo: generateIcon
+            ? await this.buildWebsiteIconUrl(i.url).catch(() => undefined)
+            : undefined,
+        })),
+        { concurrency: PROMISE_CONCURRENCY_LIMIT },
+      )
+    ).filter(Boolean);
 
     return bookmarks;
   }
