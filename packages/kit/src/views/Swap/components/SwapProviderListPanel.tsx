@@ -406,6 +406,19 @@ const SwapProviderListPanel = ({
     ],
   );
 
+  const renderLoadingSkeleton = useCallback(
+    () => (
+      <YStack px="$5" pb="$5">
+        <AnimatePresence>
+          {[0, 1, 2].map((index) => (
+            <AnimatedSkeletonItem key={index} index={index} />
+          ))}
+        </AnimatePresence>
+      </YStack>
+    ),
+    [],
+  );
+
   const renderEmptyState = useCallback(
     () => (
       <Stack flex={1} alignItems="center" justifyContent="center" py="$8">

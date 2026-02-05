@@ -1,5 +1,7 @@
 import { useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Accordion,
   Icon,
@@ -7,57 +9,49 @@ import {
   Stack,
   YStack,
 } from '@onekeyhq/components';
-
-type IFAQItem = {
-  question: string;
-  answer: string;
-};
-
-const FAQ_ITEMS: IFAQItem[] = [
-  {
-    question: 'What is OneKey Swap?',
-    answer:
-      'OneKey Swap is a DEX aggregator that searches across 400+ decentralized exchanges and liquidity sources to find you the best rates. Our smart routing technology automatically splits and routes your trade for optimal execution.',
-  },
-  {
-    question: 'How does OneKey find the best price?',
-    answer:
-      'Our algorithm compares quotes from hundreds of DEXs and liquidity pools in real-time. When beneficial, it splits your order across multiple sources to minimize slippage and maximize the amount you receive.',
-  },
-  {
-    question: 'What are the fees?',
-    answer:
-      'OneKey charges a 0.3% service fee on swaps. Stablecoin-to-stablecoin swaps are completely free (0% fee). Network gas fees are separate and paid directly to the blockchain.',
-  },
-  {
-    question: 'What is slippage?',
-    answer:
-      'Slippage is the difference between the expected price and actual execution price, caused by market movements during transaction processing. You can adjust slippage tolerance in settings. Default is 0.5%, which works for most trades.',
-  },
-  {
-    question: 'What is MEV protection?',
-    answer:
-      'MEV (Maximal Extractable Value) protection shields your transactions from front-running bots that profit by manipulating transaction order. OneKey provides built-in MEV protection on Ethereum, Solana, BSC, and other supported networks.',
-  },
-  {
-    question: 'Why did my swap fail?',
-    answer:
-      'Common reasons include: price moved beyond your slippage tolerance, insufficient gas fees, token contract restrictions, or network congestion. Try increasing slippage tolerance, adjusting gas fees, or waiting for network conditions to improve.',
-  },
-  {
-    question: 'What is token approval?',
-    answer:
-      'Before swapping a token for the first time, you must approve the smart contract to access it. You can choose unlimited approval (convenient, one-time) or exact amount (more secure, requires approval each time). Approvals can be revoked in settings.',
-  },
-];
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 function SwapFAQ() {
-  const faqItems = useMemo(() => FAQ_ITEMS, []);
+  const intl = useIntl();
+
+  const faqItems = useMemo(
+    () => [
+      {
+        question: intl.formatMessage({ id: ETranslations.swap_faq_q1 }),
+        answer: intl.formatMessage({ id: ETranslations.swap_faq_a1 }),
+      },
+      {
+        question: intl.formatMessage({ id: ETranslations.swap_faq_q2 }),
+        answer: intl.formatMessage({ id: ETranslations.swap_faq_a2 }),
+      },
+      {
+        question: intl.formatMessage({ id: ETranslations.swap_faq_q3 }),
+        answer: intl.formatMessage({ id: ETranslations.swap_faq_a3 }),
+      },
+      {
+        question: intl.formatMessage({ id: ETranslations.swap_faq_q4 }),
+        answer: intl.formatMessage({ id: ETranslations.swap_faq_a4 }),
+      },
+      {
+        question: intl.formatMessage({ id: ETranslations.swap_faq_q5 }),
+        answer: intl.formatMessage({ id: ETranslations.swap_faq_a5 }),
+      },
+      {
+        question: intl.formatMessage({ id: ETranslations.swap_faq_q6 }),
+        answer: intl.formatMessage({ id: ETranslations.swap_faq_a6 }),
+      },
+      {
+        question: intl.formatMessage({ id: ETranslations.swap_faq_q7 }),
+        answer: intl.formatMessage({ id: ETranslations.swap_faq_a7 }),
+      },
+    ],
+    [intl],
+  );
 
   return (
     <YStack gap="$4">
       <SizableText size="$heading2xl" color="$text" fontWeight="600">
-        FAQ
+        {intl.formatMessage({ id: ETranslations.swap_faq_title })}
       </SizableText>
       <YStack>
         <Accordion type="multiple">
