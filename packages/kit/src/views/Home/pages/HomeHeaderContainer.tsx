@@ -22,9 +22,8 @@ function BaseHomeHeaderContainer() {
 
   const media = useMedia();
 
-  // Solve the problem of list scroll elements disappearing in the extension by using a hack approach.
-  const [showReceiveInfo, setShowReceiveInfo] = useState(true);
-  const [showReferralCodeBlock, setShowReferralCodeBlock] = useState(true);
+  const [showReceiveInfo, setShowReceiveInfo] = useState(false);
+  const [showReferralCodeBlock, setShowReferralCodeBlock] = useState(false);
 
   const isWalletNotBackedUp = useMemo(() => {
     if (wallet && wallet.type === WALLET_TYPE_HD && !wallet.backuped) {
@@ -32,6 +31,9 @@ function BaseHomeHeaderContainer() {
     }
     return false;
   }, [wallet]);
+
+  const shouldShowInitBlock =
+    !isWalletNotBackedUp && (showReceiveInfo || showReferralCodeBlock);
 
   const renderWalletInitBlock = useCallback(() => {
     if (isWalletNotBackedUp) {
@@ -41,64 +43,85 @@ function BaseHomeHeaderContainer() {
     if (platformEnv.isNative || media.gtMd) {
       return (
         <YStack
-          $gtMd={{ flexDirection: 'row' }}
+          display={shouldShowInitBlock ? 'flex' : 'none'}
+          px="$pagePadding"
+          gap="$5"
+          $gtMd={{ flexDirection: 'row', gap: '$4' }}
           bg="$bgApp"
           pointerEvents="box-none"
         >
-          <ReceiveInfo containerProps={{ m: '$5' }} />
-          <ReferralCodeBlock containerProps={{ m: '$5' }} />
+          <ReceiveInfo setShowReceiveInfo={setShowReceiveInfo} />
+          <ReferralCodeBlock
+            setShowReferralCodeBlock={setShowReferralCodeBlock}
+          />
         </YStack>
       );
     }
 
+    // Extension: always mount children so hooks run and report visibility.
+    // Use height={0}+overflow="hidden" to hide individual blocks without unmounting.
     return (
       <YStack
+        display={shouldShowInitBlock ? 'flex' : 'none'}
         $gtMd={{ flexDirection: 'row' }}
+        px="$pagePadding"
+        gap="$2"
         bg="$bgApp"
         pointerEvents="box-none"
       >
-        {showReceiveInfo ? (
-          <Stack height={270} m="$5">
-            <ReceiveInfo setShowReceiveInfo={setShowReceiveInfo} />
-          </Stack>
-        ) : null}
-        {showReferralCodeBlock ? (
-          <Stack height={270} m="$5">
-            <ReferralCodeBlock
-              setShowReferralCodeBlock={setShowReferralCodeBlock}
-            />
-          </Stack>
-        ) : null}
+        <Stack
+          height={showReceiveInfo ? 270 : 0}
+          overflow={showReceiveInfo ? 'visible' : 'hidden'}
+        >
+          <ReceiveInfo setShowReceiveInfo={setShowReceiveInfo} />
+        </Stack>
+        <Stack
+          height={showReferralCodeBlock ? 270 : 0}
+          overflow={showReferralCodeBlock ? 'visible' : 'hidden'}
+        >
+          <ReferralCodeBlock
+            setShowReferralCodeBlock={setShowReferralCodeBlock}
+          />
+        </Stack>
       </YStack>
     );
-  }, [isWalletNotBackedUp, media.gtMd, showReceiveInfo, showReferralCodeBlock]);
+  }, [
+    isWalletNotBackedUp,
+    media.gtMd,
+    shouldShowInitBlock,
+    showReceiveInfo,
+    showReferralCodeBlock,
+  ]);
 
   return (
     <HomeTokenListProviderMirror>
-      <Stack
-        testID="Wallet-Tab-Header"
-        gap="$5"
-        p="$5"
-        bg="$bgApp"
-        $gtLg={{
-          flexDirection: 'row',
-          justifyContent: 'space-between',
-        }}
-        pointerEvents="box-none"
-      >
-        <Stack gap="$2.5" flex={1}>
-          <HomeOverviewContainer />
+      <YStack pb="$8" gap="$8">
+        <Stack
+          testID="Wallet-Tab-Header"
+          gap="$5"
+          pt="$8"
+          px="$pagePadding"
+          bg="$bgApp"
+          $gtLg={{
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+          }}
+          pointerEvents="box-none"
+        >
+          <Stack gap="$2.5" flex={1}>
+            <HomeOverviewContainer />
+          </Stack>
+          {isWalletNotBackedUp ? null : (
+            <WalletActions
+              $gtLg={{
+                pt: 0,
+              }}
+            />
+          )}
         </Stack>
-        {isWalletNotBackedUp ? null : (
-          <WalletActions
-            $gtLg={{
-              pt: 0,
-            }}
-          />
-        )}
-      </Stack>
-      {isWalletNotBackedUp ? null : <WalletBanner />}
-      {renderWalletInitBlock()}
+        {isWalletNotBackedUp ? null : <WalletBanner />}
+        {renderWalletInitBlock()}
+      </YStack>
     </HomeTokenListProviderMirror>
   );
 }

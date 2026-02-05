@@ -21,12 +21,11 @@ interface IReferAFriendPhaseActionsProps {
 export function ReferAFriendPhaseActions({
   phaseState,
   setPhaseState,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   placement = 'inline',
 }: IReferAFriendPhaseActionsProps) {
   const intl = useIntl();
   const { toInviteRewardPage } = useReferFriends();
-  const isFooter = placement === 'footer';
-
   const handleBackToIntro = useCallback(() => {
     setPhaseState(undefined);
     setTimeout(() => {
@@ -59,7 +58,7 @@ export function ReferAFriendPhaseActions({
       <Button
         variant="primary"
         w="100%"
-        size={isFooter ? 'large' : undefined}
+        size="large"
         onPress={handleNext}
       >
         {intl.formatMessage({
@@ -75,7 +74,7 @@ export function ReferAFriendPhaseActions({
         <Button
           variant="secondary"
           flex={1}
-          size={isFooter ? 'large' : undefined}
+          size="large"
           onPress={handleBackToIntro}
         >
           {intl.formatMessage({
@@ -85,7 +84,7 @@ export function ReferAFriendPhaseActions({
         <Button
           variant="primary"
           flex={1}
-          size={isFooter ? 'large' : undefined}
+          size="large"
           onPress={handleJoin}
         >
           {intl.formatMessage({

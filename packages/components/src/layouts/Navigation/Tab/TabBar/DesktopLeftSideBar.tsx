@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import type { IActionListSection } from '@onekeyhq/components/src/actions';
 import { useSafeAreaInsets } from '@onekeyhq/components/src/hooks';
 import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
 import {
@@ -26,7 +27,6 @@ import { DesktopTabItem } from './DesktopTabItem';
 import { MenuHamburger } from './Menu';
 
 import type { ITabNavigatorExtraConfig } from '../../Navigator/types';
-import type { IActionListSection } from '@onekeyhq/components/src/actions';
 import type {
   BottomTabBarProps,
   BottomTabNavigationOptions,
@@ -99,7 +99,7 @@ function TabItemView({
             trackId={options.trackId}
             aria-current={isActive ? 'page' : undefined}
             selected={isActive}
-            tabBarStyle={[options.tabBarStyle, { width: 36 }]}
+            tabBarStyle={[options.tabBarStyle, { width: 40 }]}
             // @ts-expect-error
             icon={options?.tabBarIcon?.(isActive) as IKeyOfIcons}
             label=""

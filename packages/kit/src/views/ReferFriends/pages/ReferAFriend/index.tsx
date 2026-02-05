@@ -22,8 +22,6 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import { ReferFriendsPageContainer } from '../../components';
-
 import { ReferAFriendHowToPhase } from './components/ReferAFriendHowToPhase';
 import { ReferAFriendIntroPhase } from './components/ReferAFriendIntroPhase';
 import { ReferAFriendPhaseActions } from './components/ReferAFriendPhaseActions';
@@ -44,7 +42,7 @@ function ReferAFriendPage({
   showInlineActions,
 }: IReferAFriendPageProps) {
   return (
-    <YStack $gtMd={{ py: '$5' }} pb="$5" maxWidth={640} mx="auto" flex={1}>
+    <YStack $gtMd={{ py: '$5' }} pb="$5" flex={1} justifyContent="center">
       <AnimatePresence exitBeforeEnter>
         {phaseState === EPhaseState.next ? (
           <YStack
@@ -115,7 +113,10 @@ function ReferAFriendPageWrapper() {
   const shouldShowFooter = !showInlineActions && !!postConfig && !!phaseState;
 
   return (
-    <Page scrollEnabled>
+    <Page
+      scrollEnabled
+      scrollProps={{ contentContainerStyle: { flexGrow: 1 } }}
+    >
       {platformEnv.isNative || isModalMode || md ? (
         <Page.Header
           title={intl.formatMessage({
@@ -130,7 +131,7 @@ function ReferAFriendPageWrapper() {
         />
       )}
       <Page.Body>
-        <ReferFriendsPageContainer flex={1}>
+        <Page.Container layout="compact" flex={1}>
           {postConfig ? (
             <ReferAFriendPage
               postConfig={postConfig}
@@ -139,7 +140,7 @@ function ReferAFriendPageWrapper() {
               showInlineActions={showInlineActions}
             />
           ) : null}
-        </ReferFriendsPageContainer>
+        </Page.Container>
       </Page.Body>
 
       {shouldShowFooter ? (
