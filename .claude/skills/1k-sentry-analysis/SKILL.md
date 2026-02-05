@@ -1,6 +1,6 @@
 ---
 name: 1k-sentry-analysis
-description: Analyze and fix production errors from Sentry crash reports. Use when investigating AppHang, ANR, crashes, or production errors. Includes complete workflow from JSON analysis to bug fix implementation with evidence-based methodology. Triggers on sentry, crash, AppHang, ANR, error analysis, production error, bug analysis, crash report, freeze, hang, not responding, stacktrace, breadcrumbs, exception.
+description: Analyze and fix production errors from Sentry crash reports (AppHang, ANR, crashes, stacktraces).
 allowed-tools: Read, Grep, Glob, Write, Edit, Bash
 disable-model-invocation: true
 ---

@@ -1,6 +1,6 @@
 ---
 name: 1k-pkg-upgrade-review
-description: Reviews npm/yarn package version upgrades by diffing source code between versions, tracing all call sites in project and node_modules, and generating compatibility reports. Use when reviewing Dependabot PRs, dependency bumps, package upgrades, or lockfile changes. Triggers on package upgrade, dependency bump, Dependabot, npm update, yarn upgrade, lockfile, version bump, pkg upgrade.
+description: Reviews package version upgrades — diffs source between versions, traces call sites, and generates compatibility reports.
 disable-model-invocation: true
 allowed-tools: Read, Grep, Glob, Bash, WebFetch, Write
 ---

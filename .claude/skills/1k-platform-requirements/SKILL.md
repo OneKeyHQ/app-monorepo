@@ -1,6 +1,6 @@
 ---
 name: 1k-platform-requirements
-description: Documents minimum SDK/OS version requirements for all OneKey platforms. Use when checking platform compatibility, understanding deployment targets, verifying version requirements, or when user asks if their device can run the project. Triggers on minimum version, SDK version, API level, deployment target, platform requirements, iOS version, Android version, Chrome version, Electron version, can I run, environment check, device compatibility, check environment.
+description: Minimum SDK/OS version requirements for all OneKey platforms (iOS, Android, Chrome, Electron).
 allowed-tools: Read, Grep, Glob, Bash
 ---
 

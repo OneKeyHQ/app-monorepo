@@ -16,6 +16,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { useAccountSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorTrigger';
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -34,6 +35,44 @@ import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import { MarketWatchListProviderMirrorV2 } from '../../../MarketWatchListProviderMirrorV2';
 
 import { SwapPanelWrap } from './SwapPanelWrap';
+
+function LgTradeButton({
+  swapToken,
+  onShowSwapDialog,
+}: {
+  swapToken: ISwapToken;
+  onShowSwapDialog?: (swapToken?: ISwapToken) => void;
+}) {
+  const intl = useIntl();
+  const { activeAccount, showAccountSelector } = useAccountSelectorTrigger({
+    num: 0,
+    showConnectWalletModalInDappMode: true,
+  });
+  const noAccount =
+    !activeAccount?.indexedAccount?.id && !activeAccount?.account?.id;
+
+  if (platformEnv.isWeb && noAccount) {
+    return (
+      <View p="$3">
+        <Button size="large" variant="primary" onPress={showAccountSelector}>
+          {intl.formatMessage({ id: ETranslations.global_connect })}
+        </Button>
+      </View>
+    );
+  }
+
+  return (
+    <View p="$3">
+      <Button
+        size="large"
+        variant="primary"
+        onPress={() => onShowSwapDialog?.(swapToken)}
+      >
+        {intl.formatMessage({ id: ETranslations.dexmarket_details_trade })}
+      </Button>
+    </View>
+  );
+}
 
 export function SwapPanel({
   swapToken,
@@ -85,10 +124,11 @@ export function SwapPanel({
     );
   }
 
+  if (disableTrade) {
+    return null;
+  }
+
   if (platformEnv.isNative) {
-    if (disableTrade) {
-      return null;
-    }
     return (
       <YStack>
         <Divider />
@@ -160,20 +200,6 @@ export function SwapPanel({
     );
   }
 
-  if (media.lg) {
-    return (
-      <View p="$3">
-        <Button
-          size="large"
-          variant="primary"
-          onPress={() => onShowSwapDialog?.(swapToken)}
-        >
-          {intl.formatMessage({ id: ETranslations.dexmarket_details_trade })}
-        </Button>
-      </View>
-    );
-  }
-
   return (
     <View>
       <AccountSelectorProviderMirror
@@ -183,11 +209,18 @@ export function SwapPanel({
         }}
         enabledNum={[0]}
       >
-        <MarketWatchListProviderMirrorV2
-          storeName={EJotaiContextStoreNames.marketWatchListV2}
-        >
-          <SwapPanelWrap />
-        </MarketWatchListProviderMirrorV2>
+        {media.lg ? (
+          <LgTradeButton
+            swapToken={swapToken}
+            onShowSwapDialog={onShowSwapDialog}
+          />
+        ) : (
+          <MarketWatchListProviderMirrorV2
+            storeName={EJotaiContextStoreNames.marketWatchListV2}
+          >
+            <SwapPanelWrap />
+          </MarketWatchListProviderMirrorV2>
+        )}
       </AccountSelectorProviderMirror>
     </View>
   );
