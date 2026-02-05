@@ -71,10 +71,10 @@ function ChangeLogSection({
   title: string;
   accordionValue: string;
   updateInfo:
-    | IFirmwareUpdateInfo
-    | IBleFirmwareUpdateInfo
-    | IBootloaderUpdateInfo
-    | undefined;
+  | IFirmwareUpdateInfo
+  | IBleFirmwareUpdateInfo
+  | IBootloaderUpdateInfo
+  | undefined;
 }) {
   return (
     <Accordion.Item value={accordionValue}>
@@ -289,11 +289,7 @@ export function FirmwareChangeLogView({
   const [, setStepInfo] = useFirmwareUpdateStepInfoAtom();
   const { showCheckList } = useFirmwareUpdateActions();
 
-  const handleConfirmClick = useCallback(
-    async (
-      _close?: (extra?: { flag?: string }) => void,
-      _closePageStack?: (extra?: { flag?: string }) => void,
-    ) => {
+  const handleConfirmClick = useCallback(async () => {
       const isUSBDeviceAvailable =
         await backgroundApiProxy.serviceHardware.detectUSBDeviceAvailability();
       if (!isUSBDeviceAvailable) {
