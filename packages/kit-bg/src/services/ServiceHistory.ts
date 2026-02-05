@@ -16,6 +16,10 @@ import {
   getOnChainHistoryTxStatus,
   isAccountCompatibleWithTx,
 } from '@onekeyhq/shared/src/utils/historyUtils';
+import {
+  PROMISE_CONCURRENCY_LIMIT,
+  promiseAllSettledEnhanced,
+} from '@onekeyhq/shared/src/utils/promiseUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IAddressInfo } from '@onekeyhq/shared/types/address';
@@ -144,14 +148,16 @@ class ServiceHistory extends ServiceBase {
     const pendingTxs: IAccountHistoryTx[] = [];
 
     // Fetch details of locally pending transactions
-    const onChainHistoryTxsDetails = await Promise.all(
-      localHistoryPendingTxs.map((tx) =>
-        this.fetchHistoryTxDetails({
-          accountId: tx.decodedTx.accountId,
-          networkId: tx.decodedTx.networkId,
-          txid: tx.decodedTx.txid,
-        }),
+    const onChainHistoryTxsDetails = await promiseAllSettledEnhanced(
+      localHistoryPendingTxs.map(
+        (tx) => () =>
+          this.fetchHistoryTxDetails({
+            accountId: tx.decodedTx.accountId,
+            networkId: tx.decodedTx.networkId,
+            txid: tx.decodedTx.txid,
+          }),
       ),
+      { continueOnError: true, concurrency: PROMISE_CONCURRENCY_LIMIT },
     );
 
     for (const localHistoryPendingTx of localHistoryPendingTxs) {
@@ -259,40 +265,43 @@ class ServiceHistory extends ServiceBase {
     let confirmedTxsToSave: IAccountHistoryTx[] = [];
 
     if (isAllNetworks) {
-      const allNetworksParams = await Promise.all(
-        accounts.map(async (account) => {
-          const filteredPendingTxs = pendingTxs.filter((tx) =>
-            isAccountCompatibleWithTx({ account, tx }),
-          );
-          let pendingTxsToModify: IAccountHistoryTx[] = [];
-          try {
-            pendingTxsToModify = await this.getPendingTxsToModify({
-              accountId: account.accountId,
-              networkId: account.networkId,
-              pendingTxs: filteredPendingTxs,
-            });
-          } catch (error) {
-            console.error(
-              `Failed to get pendingTxsToUpdate for account ${account.accountId}:`,
-              error,
+      const allNetworksParams = (
+        await promiseAllSettledEnhanced(
+          accounts.map((account) => async () => {
+            const filteredPendingTxs = pendingTxs.filter((tx) =>
+              isAccountCompatibleWithTx({ account, tx }),
             );
-            pendingTxsToModify = [];
-          }
-          return {
-            networkId: account.networkId,
-            accountAddress: account.apiAddress,
-            xpub: account.accountXpub,
-            pendingTxs: filteredPendingTxs,
-            confirmedTxs: mergedConfirmedTxs.filter((tx) =>
-              isAccountCompatibleWithTx({ account, tx }),
-            ),
-            onChainHistoryTxs: onChainHistoryTxs.filter((tx) =>
-              isAccountCompatibleWithTx({ account, tx }),
-            ),
-            pendingTxsToModify,
-          };
-        }),
-      );
+            let pendingTxsToModify: IAccountHistoryTx[] = [];
+            try {
+              pendingTxsToModify = await this.getPendingTxsToModify({
+                accountId: account.accountId,
+                networkId: account.networkId,
+                pendingTxs: filteredPendingTxs,
+              });
+            } catch (error) {
+              console.error(
+                `Failed to get pendingTxsToUpdate for account ${account.accountId}:`,
+                error,
+              );
+              pendingTxsToModify = [];
+            }
+            return {
+              networkId: account.networkId,
+              accountAddress: account.apiAddress,
+              xpub: account.accountXpub,
+              pendingTxs: filteredPendingTxs,
+              confirmedTxs: mergedConfirmedTxs.filter((tx) =>
+                isAccountCompatibleWithTx({ account, tx }),
+              ),
+              onChainHistoryTxs: onChainHistoryTxs.filter((tx) =>
+                isAccountCompatibleWithTx({ account, tx }),
+              ),
+              pendingTxsToModify,
+            };
+          }),
+          { continueOnError: true, concurrency: PROMISE_CONCURRENCY_LIMIT },
+        )
+      ).filter(Boolean);
 
       const updateResult =
         await this.batchUpdateLocalHistoryTxs(allNetworksParams);
