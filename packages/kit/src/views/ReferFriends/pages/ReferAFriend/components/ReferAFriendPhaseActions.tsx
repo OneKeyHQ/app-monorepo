@@ -21,7 +21,7 @@ interface IReferAFriendPhaseActionsProps {
 export function ReferAFriendPhaseActions({
   phaseState,
   setPhaseState,
-  placement = 'inline',
+  _placement = 'inline',
 }: IReferAFriendPhaseActionsProps) {
   const intl = useIntl();
   const { toInviteRewardPage } = useReferFriends();
