@@ -23,7 +23,10 @@ import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils, {
   isEnabledNetworksInAllNetworks,
 } from '@onekeyhq/shared/src/utils/networkUtils';
-import { promiseAllSettledEnhanced } from '@onekeyhq/shared/src/utils/promiseUtils';
+import {
+  PROMISE_CONCURRENCY_LIMIT,
+  promiseAllSettledEnhanced,
+} from '@onekeyhq/shared/src/utils/promiseUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
@@ -32,6 +35,7 @@ import { perfTokenListView } from '../components/TokenListView/perfTokenListView
 
 import { usePromiseResult } from './usePromiseResult';
 
+const CONCURRENCY_LIMIT = PROMISE_CONCURRENCY_LIMIT;
 // useRef not working as expected, so use a global object
 const currentRequestsUUID = { current: '' };
 
@@ -524,9 +528,9 @@ function useAllNetworkRequests<T>(params: {
           try {
             perf.markStart('allNetworkCacheRequests');
             const cachedData = (
-              await Promise.all(
+              await promiseAllSettledEnhanced(
                 Array.from(accountsInfo).map(
-                  async (networkDataString: IAllNetworkAccountInfo) => {
+                  (networkDataString: IAllNetworkAccountInfo) => async () => {
                     const {
                       accountId,
                       networkId,
@@ -544,6 +548,7 @@ function useAllNetworkRequests<T>(params: {
                     return cachedDataResult as unknown;
                   },
                 ),
+                { continueOnError: true, concurrency: CONCURRENCY_LIMIT },
               )
             ).filter(Boolean);
             perf.markEnd('allNetworkCacheRequests');
@@ -574,20 +579,22 @@ function useAllNetworkRequests<T>(params: {
         // );
         if (allNetworkDataInit.current) {
           const allNetworks = accountsInfo;
-          const requests = allNetworks.map((networkDataString) => {
+          const requestFactories = allNetworks.map((networkDataString) => {
             const { accountId, networkId, dbAccount } = networkDataString;
-            return allNetworkRequests({
-              accountId,
-              networkId,
-              dbAccount,
-              allNetworkDataInit: allNetworkDataInit.current,
-            });
+            return () =>
+              allNetworkRequests({
+                accountId,
+                networkId,
+                dbAccount,
+                allNetworkDataInit: allNetworkDataInit.current,
+              });
           });
 
           try {
             resp = (
-              await promiseAllSettledEnhanced(requests, {
+              await promiseAllSettledEnhanced(requestFactories, {
                 continueOnError: true,
+                concurrency: CONCURRENCY_LIMIT,
               })
             ).filter(Boolean);
           } catch (e) {
@@ -598,20 +605,22 @@ function useAllNetworkRequests<T>(params: {
         } else {
           const respTemp: Array<T> = [];
           try {
-            const promises = Array.from(accountsInfoBackendIndexed).map(
+            const factories = Array.from(accountsInfoBackendIndexed).map(
               (networkDataString) => {
                 // eslint-disable-next-line @typescript-eslint/no-unused-vars
                 const { accountId, networkId, apiAddress } = networkDataString;
-                return allNetworkRequests({
-                  accountId,
-                  networkId,
-                  allNetworkDataInit: allNetworkDataInit.current,
-                });
+                return () =>
+                  allNetworkRequests({
+                    accountId,
+                    networkId,
+                    allNetworkDataInit: allNetworkDataInit.current,
+                  });
               },
             );
             const r = (
-              await promiseAllSettledEnhanced(promises, {
+              await promiseAllSettledEnhanced(factories, {
                 continueOnError: true,
+                concurrency: CONCURRENCY_LIMIT,
               })
             ).filter(Boolean) as Array<T>;
             respTemp.push(...r);
@@ -621,20 +630,22 @@ function useAllNetworkRequests<T>(params: {
           }
 
           try {
-            const promises = Array.from(accountsInfoBackendNotIndexed).map(
+            const factories = Array.from(accountsInfoBackendNotIndexed).map(
               (networkDataString) => {
                 // eslint-disable-next-line @typescript-eslint/no-unused-vars
                 const { accountId, networkId, apiAddress } = networkDataString;
-                return allNetworkRequests({
-                  accountId,
-                  networkId,
-                  allNetworkDataInit: allNetworkDataInit.current,
-                });
+                return () =>
+                  allNetworkRequests({
+                    accountId,
+                    networkId,
+                    allNetworkDataInit: allNetworkDataInit.current,
+                  });
               },
             );
             const r = (
-              await promiseAllSettledEnhanced(promises, {
+              await promiseAllSettledEnhanced(factories, {
                 continueOnError: true,
+                concurrency: CONCURRENCY_LIMIT,
               })
             ).filter(Boolean) as Array<T>;
             respTemp.push(...r);
