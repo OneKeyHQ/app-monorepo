@@ -5,9 +5,7 @@ import { AnimatePresence, MotiView } from 'moti';
 import { useIntl } from 'react-intl';
 
 import {
-  Badge,
   Button,
-  Divider,
   Empty,
   Icon,
   ScrollView,
@@ -438,120 +436,250 @@ const SwapProviderListPanel = ({
 
   const renderInitialState = useCallback(
     () => (
-      <YStack p="$6" gap="$6">
-        {/* Header - ONEKEY SWAP */}
-        <XStack alignItems="center" mb="$6">
-          <SizableText
-            color="$text"
-            fontWeight="900"
-            textTransform="uppercase"
-            size="$headingMd"
-          >
-            ONEKEY{' '}
-          </SizableText>
-          <SizableText
-            color="$textSuccess"
-            fontWeight="900"
-            textTransform="uppercase"
-            size="$headingMd"
-          >
-            SWAP
-          </SizableText>
-        </XStack>
-        {/* Hero Section */}
-        <Stack position="relative" mb="$8">
-          {/* Hero Content */}
-          <YStack maxWidth={340} zIndex={1}>
-            <XStack alignItems="center" gap="$2" mb="$4">
-              <SizableText color="$text" fontWeight="900" size="$heading3xl">
-                Zero Fees
+      <XStack
+        overflow="hidden"
+        px="$10"
+        py="$12"
+        gap="$4"
+        flex={1}
+        justifyContent="space-between"
+      >
+        {/* Left Column */}
+        <YStack width="40%" justifyContent="space-between">
+          {/* Top Content */}
+          <YStack gap="$5" mt="$2" justifyContent="space-between">
+            {/* Title */}
+            <YStack>
+              <SizableText
+                color="$text"
+                style={{
+                  fontSize: 32,
+                  fontWeight: '900',
+                  lineHeight: 38,
+                  letterSpacing: -0.5,
+                }}
+                $platform-web={{
+                  // @ts-ignore
+                  WebkitTextStroke: '0.3px currentColor',
+                }}
+              >
+                {intl.formatMessage({
+                  id: ETranslations.swap_provider_panel_title_line1,
+                })}
               </SizableText>
-            </XStack>
+              <SizableText
+                color="$text"
+                style={{
+                  fontSize: 32,
+                  fontWeight: '900',
+                  lineHeight: 38,
+                  letterSpacing: -0.5,
+                }}
+                $platform-web={{
+                  // @ts-ignore
+                  WebkitTextStroke: '0.3px currentColor',
+                }}
+              >
+                {intl.formatMessage({
+                  id: ETranslations.swap_provider_panel_title_line2,
+                })}
+              </SizableText>
+            </YStack>
+
+            {/* Description */}
             <SizableText
               size="$bodyMd"
               color="$textSubdued"
-              style={{ lineHeight: 26 }}
+              style={{ lineHeight: 20 }}
             >
-              No hidden charges or protocol margins. We route directly to the
-              source for the best net price.
+              {intl.formatMessage({
+                id: ETranslations.swap_provider_panel_desc,
+              })}
             </SizableText>
+
+            {/* Badges */}
+            <XStack gap="$2" mt={60} flexWrap="wrap">
+              <XStack
+                alignSelf="flex-start"
+                px="$2.5"
+                py="$1"
+                borderRadius="$full"
+                borderWidth={1}
+                borderColor="$borderSuccessSubdued"
+                bg="$bgSuccessSubdued"
+                alignItems="center"
+                gap="$2"
+              >
+                <Stack
+                  width={8}
+                  height={8}
+                  borderRadius="$full"
+                  bg="$iconSuccess"
+                />
+                <SizableText
+                  color="$textSuccess"
+                  style={{
+                    fontSize: 10,
+                    fontWeight: '700',
+                    textTransform: 'uppercase',
+                    letterSpacing: 0.8,
+                  }}
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.swap_provider_panel_badge_dexs,
+                  })}
+                </SizableText>
+              </XStack>
+
+              <XStack
+                alignSelf="flex-start"
+                px="$2.5"
+                py="$1"
+                borderRadius="$full"
+                borderWidth={1}
+                borderColor="$borderSubdued"
+                alignItems="center"
+              >
+                <SizableText
+                  color="$textSubdued"
+                  style={{
+                    fontSize: 10,
+                    fontWeight: '700',
+                    textTransform: 'uppercase',
+                    letterSpacing: 0.8,
+                  }}
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.swap_provider_panel_badge_chains,
+                  })}
+                </SizableText>
+              </XStack>
+
+              <XStack
+                alignSelf="flex-start"
+                px="$2.5"
+                py="$1"
+                borderRadius="$full"
+                borderWidth={1}
+                borderColor="$borderSubdued"
+                alignItems="center"
+              >
+                <SizableText
+                  color="$textSubdued"
+                  style={{
+                    fontSize: 10,
+                    fontWeight: '700',
+                    textTransform: 'uppercase',
+                    letterSpacing: 0.8,
+                  }}
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.swap_provider_panel_badge_availability,
+                  })}
+                </SizableText>
+              </XStack>
+            </XStack>
           </YStack>
-
-          {/* Green glow background */}
-          <Stack
-            position="absolute"
-            right={20}
-            bottom={-60}
-            width={320}
-            height={320}
-            borderRadius="$full"
-            bg="$bgSuccessStrong"
-            opacity={0.08}
-            pointerEvents="none"
-            $platform-web={{
-              filter: 'blur(80px)',
-            }}
-          />
-
-          {/* Giant "0" */}
-          <Stack
-            position="absolute"
-            right={-2}
-            top="50%"
-            style={{ transform: [{ translateY: -90 }] }}
-            pointerEvents="none"
-          >
-            <SizableText
-              color="$textSuccess"
-              opacity={0.06}
-              userSelect="none"
-              style={{
-                fontSize: 224,
-                lineHeight: 180,
-                fontWeight: '900',
-                letterSpacing: -11,
-              }}
-            >
-              0
-            </SizableText>
-          </Stack>
-        </Stack>
-        <Divider />
-        {/* Feature Cards */}
-        <XStack gap="$7" mt="$6">
-          <Badge bg="$bgSubdued" borderRadius="$full" px="$3" py="$2" gap="$2">
-            <Icon name="ShieldCheckDoneSolid" size="$5" color="$iconSuccess" />
-            <SizableText size="$bodyMdMedium" fontWeight="700">
-              MEV Shield
-            </SizableText>
-          </Badge>
-          <Badge bg="$bgSubdued" borderRadius="$full" px="$3" py="$2" gap="$2">
-            <Icon name="BranchesSolid" size="$5" color="$iconSuccess" />
-            <SizableText size="$bodyMdMedium" fontWeight="700">
-              Smart Route
-            </SizableText>
-          </Badge>
-          <Badge bg="$bgSubdued" borderRadius="$full" px="$3" py="$2" gap="$2">
-            <Icon name="DollarSolid" size="$5" color="$iconSuccess" />
-            <SizableText size="$bodyMdMedium" fontWeight="700">
-              Zero Fees
-            </SizableText>
-          </Badge>
-        </XStack>
-        <YStack width={440}>
-          <SizableText
-            size="$bodyMd"
-            color="$textSubdued"
-            style={{ lineHeight: 26 }}
-          >
-            Experience lightning-fast swaps with private MEV protection and
-            intelligent routing across 400+ liquidity sources for maximum
-            security and optimal price execution.
-          </SizableText>
         </YStack>
-      </YStack>
+
+        {/* Right Column - Feature List */}
+        <YStack width="50%" justifyContent="center" gap="$6">
+          <XStack alignItems="flex-start" gap="$3">
+            <Icon
+              name="DollarSolid"
+              size="$7"
+              color="$iconSuccess"
+              flexShrink={0}
+            />
+            <YStack flex={1} gap="$1">
+              <SizableText size="$bodyMdMedium" color="$text" fontWeight="600">
+                {intl.formatMessage({
+                  id: ETranslations.swap_provider_panel_feature_zero_fee,
+                })}
+              </SizableText>
+              <SizableText size="$bodySm" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.swap_provider_panel_feature_zero_fee_desc,
+                })}
+              </SizableText>
+            </YStack>
+          </XStack>
+
+          <Stack ml="$10" height={0.5} bg="$borderSubdued" opacity={0.5} />
+
+          {/* MEV Shield */}
+          <XStack alignItems="flex-start" gap="$3">
+            <Icon
+              name="Shield2CheckSolid"
+              size="$7"
+              color="$iconSuccess"
+              flexShrink={0}
+            />
+            <YStack flex={1} gap="$1">
+              <SizableText size="$bodyMdMedium" color="$text" fontWeight="600">
+                {intl.formatMessage({
+                  id: ETranslations.swap_provider_panel_feature_mev,
+                })}
+              </SizableText>
+              <SizableText size="$bodySm" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.swap_provider_panel_feature_mev_desc,
+                })}
+              </SizableText>
+            </YStack>
+          </XStack>
+
+          <Stack ml="$10" height={0.5} bg="$borderSubdued" opacity={0.5} />
+
+          {/* Smart Routing */}
+          <XStack alignItems="flex-start" gap="$3">
+            <Icon
+              name="SplitSolid"
+              size="$7"
+              color="$iconSuccess"
+              flexShrink={0}
+            />
+            <YStack flex={1} gap="$1">
+              <SizableText size="$bodyMdMedium" color="$text" fontWeight="600">
+                {intl.formatMessage({
+                  id: ETranslations.swap_provider_panel_feature_routing,
+                })}
+              </SizableText>
+              <SizableText size="$bodySm" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.swap_provider_panel_feature_routing_desc,
+                })}
+              </SizableText>
+            </YStack>
+          </XStack>
+
+          <Stack ml="$10" height={0.5} bg="$borderSubdued" opacity={0.5} />
+
+          {/* High Liquidity */}
+          <XStack alignItems="flex-start" gap="$3">
+            <Icon
+              name="HandCoinsSolid"
+              size="$7"
+              color="$iconSuccess"
+              flexShrink={0}
+            />
+            <YStack flex={1} gap="$1">
+              <SizableText size="$bodyMdMedium" color="$text" fontWeight="600">
+                {intl.formatMessage({
+                  id: ETranslations.swap_provider_panel_feature_liquidity,
+                })}
+              </SizableText>
+              <SizableText size="$bodySm" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.swap_provider_panel_feature_liquidity_desc,
+                })}
+              </SizableText>
+            </YStack>
+          </XStack>
+        </YStack>
+      </XStack>
     ),
-    [],
+    [intl],
   );
 
   const hasFromAndToToken = fromToken && toToken;
@@ -564,7 +692,7 @@ const SwapProviderListPanel = ({
 
   return (
     <YStack
-      minHeight={520}
+      minHeight={500}
       maxHeight={820}
       borderRadius="$6"
       borderWidth={1}
@@ -629,77 +757,79 @@ const SwapProviderListPanel = ({
         </XStack>
       ) : null}
 
-      {/* Content */}
-      <ScrollView flex={1} ref={scrollViewRef as any}>
-        <AnimatePresence>
-          {!shouldShowContent ? renderInitialState() : null}
-          {shouldShowContent &&
-          (isLoading || isWaitingForNewQuoteRef.current) &&
-          !hasQuotes ? (
-            <MotiView
-              key="loading"
-              from={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ type: 'timing', duration: 150 } as any}
-            >
-              {renderLoadingSkeleton()}
-            </MotiView>
-          ) : null}
-          {shouldShowContent &&
-          !hasQuotes &&
-          !isLoading &&
-          !isWaitingForNewQuoteRef.current
-            ? renderEmptyState()
-            : null}
-          {shouldShowContent && hasQuotes ? (
-            <MotiView
-              key="content"
-              from={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ type: 'timing', duration: 150 } as any}
-            >
-              <YStack px="$5" pb="$5">
-                {/* Available Providers */}
-                {availableList.length > 0 ? (
-                  <YStack>
-                    {availableList.map((item) => renderItem(item))}
-                  </YStack>
-                ) : null}
+      {/* Initial State - outside ScrollView for proper height */}
+      {!shouldShowContent ? renderInitialState() : null}
 
-                {/* Unavailable Providers */}
-                {unavailableList.length > 0 ? (
-                  <YStack>
-                    <MotiView
-                      from={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={
-                        {
-                          type: 'timing',
-                          duration: 200,
-                        } as any
-                      }
-                    >
-                      <SizableText
-                        size="$bodySmMedium"
-                        color="$textSubdued"
-                        px="$1"
-                        pt="$3"
-                        pb="$1"
+      {/* Content */}
+      {shouldShowContent ? (
+        <ScrollView flex={1} ref={scrollViewRef as any}>
+          <AnimatePresence>
+            {(isLoading || isWaitingForNewQuoteRef.current) && !hasQuotes ? (
+              <MotiView
+                key="loading"
+                from={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ type: 'timing', duration: 150 } as any}
+              >
+                {renderLoadingSkeleton()}
+              </MotiView>
+            ) : null}
+            {shouldShowContent &&
+            !hasQuotes &&
+            !isLoading &&
+            !isWaitingForNewQuoteRef.current
+              ? renderEmptyState()
+              : null}
+            {shouldShowContent && hasQuotes ? (
+              <MotiView
+                key="content"
+                from={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ type: 'timing', duration: 150 } as any}
+              >
+                <YStack px="$5" pb="$5">
+                  {/* Available Providers */}
+                  {availableList.length > 0 ? (
+                    <YStack>
+                      {availableList.map((item) => renderItem(item))}
+                    </YStack>
+                  ) : null}
+
+                  {/* Unavailable Providers */}
+                  {unavailableList.length > 0 ? (
+                    <YStack>
+                      <MotiView
+                        from={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={
+                          {
+                            type: 'timing',
+                            duration: 200,
+                          } as any
+                        }
                       >
-                        {intl.formatMessage({
-                          id: ETranslations.provider_unavailable,
-                        })}
-                      </SizableText>
-                    </MotiView>
-                    {unavailableList.map((item) => renderItem(item))}
-                  </YStack>
-                ) : null}
-              </YStack>
-            </MotiView>
-          ) : null}
-        </AnimatePresence>
-      </ScrollView>
+                        <SizableText
+                          size="$bodySmMedium"
+                          color="$textSubdued"
+                          px="$1"
+                          pt="$3"
+                          pb="$1"
+                        >
+                          {intl.formatMessage({
+                            id: ETranslations.provider_unavailable,
+                          })}
+                        </SizableText>
+                      </MotiView>
+                      {unavailableList.map((item) => renderItem(item))}
+                    </YStack>
+                  ) : null}
+                </YStack>
+              </MotiView>
+            ) : null}
+          </AnimatePresence>
+        </ScrollView>
+      ) : null}
     </YStack>
   );
 };
