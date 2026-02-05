@@ -1,14 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgChecklist = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M13 16h7m-7-8h7M4 9l1.5 1 3-4M4 17l1.5 1 3-4"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M7.7 13.4a1 1 0 1 1 1.6 1.2l-3 4a1 1 0 0 1-1.355.232l-1.5-1a1 1 0 1 1 1.11-1.664l.713.474zM20 15a1 1 0 1 1 0 2h-7a1 1 0 0 1 0-2zM7.7 5.4a1 1 0 1 1 1.6 1.2l-3 4a1 1 0 0 1-1.355.232l-1.5-1a1 1 0 1 1 1.11-1.664l.713.475zM20 7a1 1 0 1 1 0 2h-7a1 1 0 1 1 0-2z" />
   </Svg>
 );
 export default SvgChecklist;

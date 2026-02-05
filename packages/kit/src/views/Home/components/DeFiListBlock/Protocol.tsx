@@ -341,7 +341,7 @@ function Protocol({
           flexDirection="row"
           justifyContent="space-between"
           alignItems="center"
-          px="$5"
+          px="$pagePadding"
           py="$3"
           bg="$bgSubdued"
           borderWidth={0}

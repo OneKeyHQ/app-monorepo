@@ -1,14 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgChecklistBoxSearch = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="m7.543 9.498 1.125.75 1.872-2.496M14.058 9h2m-8.515 6.499 1.125.75 1.872-2.496M10 20H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v4m-.879 9.121a3 3 0 1 1-4.242-4.242 3 3 0 0 1 4.242 4.242m0 0L21 21"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M14.172 14.172a4 4 0 0 1 6.274 4.86l1.261 1.261a1 1 0 1 1-1.414 1.414l-1.26-1.26a4.001 4.001 0 0 1-4.861-6.275m4.242 1.414a2 2 0 1 0-2.828 2.828 2 2 0 0 0 2.828-2.828M9.74 13.153a1 1 0 0 1 1.6 1.2L9.469 16.85a1 1 0 0 1-1.355.232l-1.125-.75a1 1 0 0 1 1.11-1.664l.337.225zm0-6a1 1 0 0 1 1.6 1.2l-1.871 2.495a1 1 0 0 1-1.355.232l-1.125-.75a1 1 0 0 1 1.11-1.664l.337.225zM19 10V5H5v14h5a1 1 0 1 1 0 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v5a1 1 0 1 1-2 0m-2.942-2a1 1 0 1 1 0 2h-2a1 1 0 0 1 0-2z" />
   </Svg>
 );
 export default SvgChecklistBoxSearch;

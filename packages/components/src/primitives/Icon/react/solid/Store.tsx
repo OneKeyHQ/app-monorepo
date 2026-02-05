@@ -1,13 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgStore = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      fill="currentColor"
-      fillRule="evenodd"
-      d="M4.6 4.2A3 3 0 0 1 7 3h10a3 3 0 0 1 2.4 1.2l2.4 3.2a1 1 0 0 1 .2.6v1a4 4 0 0 1-1 2.646V18a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3v-6.354A4 4 0 0 1 2 9V8a1 1 0 0 1 .2-.6zm.4 8.674V18a1 1 0 0 0 1 1h3v-2a3 3 0 1 1 6 0v2h3a1 1 0 0 0 1-1v-5.126a4.01 4.01 0 0 1-4-1.228A4 4 0 0 1 12 13a4 4 0 0 1-3-1.354 3.99 3.99 0 0 1-4 1.228"
-      clipRule="evenodd"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M15.557 10.293A4.51 4.51 0 0 0 19.095 12c.684 0 1.328-.15 1.905-.419V19a2 2 0 0 1-2 2h-4a1 1 0 0 1-1-1v-3a1.5 1.5 0 0 0-1.5-1.5h-1A1.5 1.5 0 0 0 10 17v3a1 1 0 0 1-1 1H5a2 2 0 0 1-2-2v-7.419c.576.268 1.22.419 1.904.419a4.51 4.51 0 0 0 3.538-1.707A4.55 4.55 0 0 0 12 12c1.445 0 2.724-.67 3.557-1.707M7.417 7.66a2.52 2.52 0 1 1-5.006-.535l.344-2.408A2 2 0 0 1 4.734 3H7.75zm7.136-.403a2.56 2.56 0 1 1-5.107 0L9.75 3h4.5zM19.265 3a2 2 0 0 1 1.98 1.717l.343 2.408a2.519 2.519 0 1 1-5.005.535L16.25 3z" />
   </Svg>
 );
 export default SvgStore;

@@ -96,7 +96,7 @@ export function AccountSelectorTriggerBase({
               opacity: 0.8,
             }}
           >
-            {intl.formatMessage({ id: ETranslations.global_connect_wallet })}
+            {intl.formatMessage({ id: ETranslations.global_connect })}
           </Button>
         ) : (
           <>

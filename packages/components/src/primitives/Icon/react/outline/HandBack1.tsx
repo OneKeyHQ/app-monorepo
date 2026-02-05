@@ -1,13 +1,16 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgHandBack1 = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M16 8V7a2 2 0 1 1 4 0v6.83m0 0V11m0 2.83a7.17 7.17 0 0 1-13.516 3.339L3.5 11.5l.75-.938a2 2 0 0 1 2.812-.313L8 11V6a2 2 0 1 1 4 0v4m0-2V5a2 2 0 1 1 4 0v6"
+      fillRule="evenodd"
+      d="M14 4a1 1 0 0 0-1 1v5a1 1 0 1 1-2 0V6a1 1 0 1 0-2 0v5a1 1 0 0 1-1.625.78l-.938-.75a1 1 0 0 0-1.406.157l-.341.427 2.679 5.09A6.17 6.17 0 0 0 19 13.828V7a1 1 0 1 0-2 0v4a1 1 0 1 1-2 0V5a1 1 0 0 0-1-1m2.895.21A3 3 0 0 1 21 7v6.83a8.17 8.17 0 0 1-15.401 3.805l-2.984-5.67a1 1 0 0 1 .104-1.09l.75-.938A3 3 0 0 1 7 9.055V6a3 3 0 0 1 4.471-2.615 3.001 3.001 0 0 1 5.424.825"
+      clipRule="evenodd"
     />
   </Svg>
 );

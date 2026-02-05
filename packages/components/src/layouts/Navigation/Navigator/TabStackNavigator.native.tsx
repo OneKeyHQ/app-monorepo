@@ -17,7 +17,6 @@ import {
   useIsSplitView,
   useSplitViewType,
   useTheme,
-  useThemeName,
 } from '../../../hooks';
 import { makeTabScreenOptions } from '../GlobalScreenOptions';
 import { createStackNavigator } from '../StackNavigator';
@@ -80,7 +79,6 @@ export function TabStackNavigator<RouteName extends string>({
 }: ITabNavigatorProps<RouteName>) {
   const intl = useIntl();
   const theme = useTheme();
-  const themeName = useThemeName();
   const [tabBarHidden, setTabBarHidden] = useState(false);
 
   // Listen for HideTabBar events to show/hide the tab bar
@@ -189,10 +187,8 @@ export function TabStackNavigator<RouteName extends string>({
       tabBarActiveTintColor={theme.iconActive.val}
       tabBarInactiveTintColor={theme.iconSubdued.val}
       tabBarStyle={
-        platformEnv.isNativeAndroid || themeName === 'dark'
-          ? {
-              backgroundColor: theme.bg.val,
-            }
+        platformEnv.isNativeAndroid
+          ? { backgroundColor: theme.bg.val }
           : undefined
       }
       screenOptions={{

@@ -44,9 +44,7 @@ const CheckboxGallery = LazyLoadPage(
 );
 const DatePickerGallery = LazyLoadPage(
   () =>
-    import(
-      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/DatePicker'
-    ),
+    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/DatePicker'),
 );
 const DialogGallery = LazyLoadPage(
   () =>

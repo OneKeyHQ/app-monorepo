@@ -1,13 +1,16 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgAlignBottom = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="m16.25 13-3.543 3.543a1 1 0 0 1-1.414 0L7.75 13M12 3v13.25M19 21H5"
+      fillRule="evenodd"
+      d="M4 21a1 1 0 0 0 1 1h14a1 1 0 1 0 0-2H5a1 1 0 0 0-1 1m6.586-3.75a2 2 0 0 0 2.828 0l3.543-3.543a1 1 0 0 0-1.414-1.414L13 14.836V3a1 1 0 1 0-2 0v11.836l-2.543-2.543a1 1 0 0 0-1.414 1.414z"
+      clipRule="evenodd"
     />
   </Svg>
 );

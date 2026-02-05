@@ -3,9 +3,12 @@ import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 import BigNumber from 'bignumber.js';
 import { AnimatePresence, MotiView } from 'moti';
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import {
+  Badge,
   Button,
+  Divider,
   Empty,
   Icon,
   ScrollView,
@@ -82,7 +85,7 @@ const AnimatedProviderItem = memo(
   ),
 );
 
-// Animated skeleton item
+// Animated skeleton item - matches real card dimensions
 const AnimatedSkeletonItem = memo(({ index }: { index: number }) => (
   <MotiView
     from={{
@@ -92,6 +95,10 @@ const AnimatedSkeletonItem = memo(({ index }: { index: number }) => (
     animate={{
       opacity: 1,
       translateY: 0,
+    }}
+    exit={{
+      opacity: 0,
+      translateY: -8,
     }}
     transition={
       {
@@ -103,17 +110,13 @@ const AnimatedSkeletonItem = memo(({ index }: { index: number }) => (
   >
     <Stack
       borderRadius="$4"
-      borderWidth={1}
+      my="$2"
+      overflow="hidden"
+      borderCurve="continuous"
+      borderWidth={StyleSheet.hairlineWidth}
       borderColor="$borderSubdued"
-      p="$3"
     >
-      <XStack alignItems="center" gap="$3">
-        <Skeleton width={40} height={40} radius="round" />
-        <YStack flex={1} gap="$2">
-          <Skeleton width={120} height={16} />
-          <Skeleton width={80} height={14} />
-        </YStack>
-      </XStack>
+      <Skeleton height={102} radius="square" />
     </Stack>
   </MotiView>
 ));
@@ -403,33 +406,16 @@ const SwapProviderListPanel = ({
     ],
   );
 
-  const renderLoadingSkeleton = useCallback(
-    () => (
-      <YStack gap="$2" px="$5" py="$3">
-        {Array.from({ length: 3 }).map((_, index) => (
-          <AnimatedSkeletonItem key={index} index={index} />
-        ))}
-      </YStack>
-    ),
-    [],
-  );
-
   const renderEmptyState = useCallback(
     () => (
-      <MotiView
-        from={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ type: 'timing', duration: 200 } as any}
-      >
-        <Stack flex={1} alignItems="center" justifyContent="center" py="$8">
-          <Empty
-            icon="SearchOutline"
-            title={intl.formatMessage({
-              id: ETranslations.global_no_results,
-            })}
-          />
-        </Stack>
-      </MotiView>
+      <Stack flex={1} alignItems="center" justifyContent="center" py="$8">
+        <Empty
+          icon="SearchOutline"
+          title={intl.formatMessage({
+            id: ETranslations.global_no_results,
+          })}
+        />
+      </Stack>
     ),
     [intl],
   );
@@ -688,7 +674,24 @@ const SwapProviderListPanel = ({
     !new BigNumber(fromTokenAmount.value).isZero() &&
     !new BigNumber(fromTokenAmount.value).isNaN();
   const shouldShowContent = hasFromAndToToken && hasFromAmount;
+
+  // Clear cache immediately when content should not be displayed (e.g., amount cleared)
+  // This prevents stale list data from persisting during AnimatePresence exit
+  if (!shouldShowContent) {
+    cachedListRef.current = [];
+    hadPreviousQuotesRef.current = false;
+    isRefreshingRef.current = false;
+  }
+
   const hasQuotes = displayList.length > 0;
+
+  // Whether the SSE total event has been received
+  const hasReceivedTotal = quoteEventTotalCount.count > 0;
+  // Number of skeleton placeholders for providers not yet received
+  const remainingSkeletonCount =
+    hasReceivedTotal && quoteEventFetching
+      ? Math.max(0, quoteEventTotalCount.count - displayList.length)
+      : 0;
 
   return (
     <YStack

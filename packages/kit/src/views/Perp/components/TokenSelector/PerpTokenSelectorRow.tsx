@@ -148,14 +148,7 @@ const TokenInfoCellDesktop = memo(() => {
             tokenImageUri={getHyperliquidTokenImageUrl(token.displayName)}
             fallbackIcon="CryptoCoinOutline"
           />
-          <YStack gap="$0">
-            <SizableText size="$bodySmMedium">{token.displayName}</SizableText>
-            {token.subtitle ? (
-              <SizableText size="$bodySm" color="$textSubdued">
-                {token.subtitle}
-              </SizableText>
-            ) : null}
-          </YStack>
+          <SizableText size="$bodySmMedium">{token.displayName}</SizableText>
           <XStack gap="$1">
             <XStack
               borderRadius="$1"
@@ -173,7 +166,7 @@ const TokenInfoCellDesktop = memo(() => {
                 {token.maxLeverage}x
               </SizableText>
             </XStack>
-            {token.dexLabel ? (
+            {token.subtitle ? (
               <XStack
                 borderRadius="$1"
                 bg="$bgInfo"
@@ -187,7 +180,7 @@ const TokenInfoCellDesktop = memo(() => {
                   color="$textInfo"
                   lineHeight={16}
                 >
-                  {token.dexLabel}
+                  {token.subtitle}
                 </SizableText>
               </XStack>
             ) : null}
@@ -195,13 +188,7 @@ const TokenInfoCellDesktop = memo(() => {
         </XStack>
       </DebugRenderTracker>
     ),
-    [
-      token.displayName,
-      token.subtitle,
-      token.maxLeverage,
-      token.dexLabel,
-      token.name,
-    ],
+    [token.displayName, token.subtitle, token.maxLeverage, token.name],
   );
   return content;
 });
@@ -470,7 +457,7 @@ const TokenNameMobile = memo(() => {
                   {token.maxLeverage}x
                 </SizableText>
               </XStack>
-              {token.dexLabel ? (
+              {token.subtitle ? (
                 <XStack
                   borderRadius="$1"
                   bg="$bgInfo"
@@ -484,21 +471,16 @@ const TokenNameMobile = memo(() => {
                     color="$textInfo"
                     lineHeight={16}
                   >
-                    {token.dexLabel}
+                    {token.subtitle}
                   </SizableText>
                 </XStack>
               ) : null}
             </XStack>
           </XStack>
-          {token.subtitle ? (
-            <SizableText size="$bodySm" color="$textSubdued">
-              {token.subtitle}
-            </SizableText>
-          ) : null}
         </YStack>
       </DebugRenderTracker>
     ),
-    [token.displayName, token.subtitle, token.maxLeverage, token.dexLabel],
+    [token.displayName, token.subtitle, token.maxLeverage],
   );
   return content;
 });

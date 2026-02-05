@@ -1,13 +1,14 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgScooter = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      fill="#000"
-      fillRule="evenodd"
-      d="M13 5a1 1 0 0 1 1-1h.86a3 3 0 0 1 2.942 2.412l1.33 6.645a3.501 3.501 0 1 1-3.987 4.443h-6.29A3.502 3.502 0 0 1 2 16.5a3.5 3.5 0 0 1 6.855-1h6.29a3.51 3.51 0 0 1 1.99-2.224l-1.294-6.472a1 1 0 0 0-.98-.804H14a1 1 0 0 1-1-1M4 16.5a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0m13 0a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0"
-      clipRule="evenodd"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M7 16.5a1.5 1.5 0 1 0-3 0 1.5 1.5 0 0 0 3 0m2 0a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0m11 0a1.5 1.5 0 1 0-3 0 1.5 1.5 0 0 0 3 0m2 0a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0" />
+    <Path d="M15.68 4a2 2 0 0 1 1.962 1.607l1.588 7.947a1 1 0 0 1-1.96.392L15.68 6H14a1 1 0 1 1 0-2zm-.18 11.5a1 1 0 1 1 0 2h-7a1 1 0 1 1 0-2z" />
   </Svg>
 );
 export default SvgScooter;

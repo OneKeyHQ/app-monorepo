@@ -1,14 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgProcessor = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M12 4.997v-2M16 5V3M8 5V2.996M12 21v-2m4 2v-2m-8 2v-2m11-3h2m-2-8h2m-2 4h2M3 12h2m-2 4h2M3 8h2m10.001 4A3.001 3.001 0 1 1 9 12a3.001 3.001 0 0 1 6 0ZM7 19h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M6 6v12h12V6zm8.001 6a2.001 2.001 0 1 0-4.002 0A2.001 2.001 0 0 0 14 12Zm2 0a4.002 4.002 0 1 1-8.003 0A4.002 4.002 0 0 1 16 12ZM20 7h1a1 1 0 1 1 0 2h-1v2h1a1 1 0 1 1 0 2h-1v2h1a1 1 0 1 1 0 2h-1v1a2 2 0 0 1-2 2h-1v1a1 1 0 1 1-2 0v-1h-2v1a1 1 0 1 1-2 0v-1H9v1a1 1 0 1 1-2 0v-1H6a2 2 0 0 1-2-2v-1H3a1 1 0 1 1 0-2h1v-2H3a1 1 0 1 1 0-2h1V9H3a1 1 0 0 1 0-2h1V6a2 2 0 0 1 2-2h1V2.996a1 1 0 0 1 2 0V4h2V2.996a1 1 0 0 1 2 0V4h2V3a1 1 0 1 1 2 0v1h1a2 2 0 0 1 2 2z" />
   </Svg>
 );
 export default SvgProcessor;

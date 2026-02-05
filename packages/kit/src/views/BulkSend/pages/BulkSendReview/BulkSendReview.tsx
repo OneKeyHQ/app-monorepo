@@ -12,6 +12,7 @@ import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   type EModalBulkSendRoutes,
+  EModalRoutes,
   EModalSignatureConfirmRoutes,
   type IModalBulkSendParamList,
 } from '@onekeyhq/shared/src/routes';
@@ -83,7 +84,11 @@ function BaseBulkSendReview({
 
   // Determine button text based on whether approvals are needed
   const confirmButtonText =
-    approvesInfo.length > 0 ? 'Approve and Confirm' : 'Confirm';
+    approvesInfo.length > 0
+      ? intl.formatMessage({
+        id: ETranslations.wallet_bulk_send_btn_approve_and_confirm,
+      })
+      : intl.formatMessage({ id: ETranslations.wallet_bulk_send_btn_confirm });
 
   // Handle editing approval amount
   const handleEditApproval = useCallback(
@@ -221,20 +226,23 @@ function BaseBulkSendReview({
 
         const result: ISendTxOnSuccessData[] = await new Promise(
           (resolve, reject) => {
-            navigation.push(EModalSignatureConfirmRoutes.TxConfirm, {
-              accountId: accountId ?? '',
-              networkId: networkId ?? '',
-              unsignedTxs: [unsignedTx],
-              popStack: false,
-              useFeeInTx: true, // Use the fee info we set on unsignedTx
-              onSuccess: (data: ISendTxOnSuccessData[]) => {
-                resolve(data);
-              },
-              onFail: (error: Error) => {
-                reject(error);
-              },
-              onCancel: () => {
-                reject(new Error('User cancelled'));
+            navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
+              screen: EModalSignatureConfirmRoutes.TxConfirm,
+              params: {
+                accountId: accountId ?? '',
+                networkId: networkId ?? '',
+                unsignedTxs: [unsignedTx],
+                popStack: false,
+                useFeeInTx: true, // Use the fee info we set on unsignedTx
+                onSuccess: (data: ISendTxOnSuccessData[]) => {
+                  resolve(data);
+                },
+                onFail: (error: Error) => {
+                  reject(error);
+                },
+                onCancel: () => {
+                  reject(new Error('User cancelled'));
+                },
               },
             });
           },
@@ -250,8 +258,6 @@ function BaseBulkSendReview({
     },
     [navigation, accountId, networkId],
   );
-
-  const handleCancel = useCallback(() => navigation.pop(), [navigation]);
 
   // Navigate back to address input page after successful transaction
   const navigateAfterSuccess = useCallback(() => {
@@ -336,13 +342,6 @@ function BaseBulkSendReview({
           feeState.feeInfos,
         );
 
-        // Show success toast
-        Toast.success({
-          title: intl.formatMessage({
-            id: ETranslations.feedback_transaction_submitted,
-          }),
-        });
-
         setIsSubmitting(false);
         onSuccess?.(results);
 
@@ -423,27 +422,31 @@ function BaseBulkSendReview({
 
   return (
     <Page scrollEnabled>
-      <Page.Header title="Review transaction" />
+      <Page.Header
+        title={intl.formatMessage({
+          id: ETranslations.wallet_bulk_send_review_title,
+        })}
+      />
       <Page.Body>
-        <YStack gap="$6">
+        <YStack gap="$8">
           {/* Fee Error Alert - Top Section */}
           <BulkSendReviewAlert onRetry={handleRetryFeeEstimation} />
 
           {/* Grand Summary - Top Section */}
           <BulkSendReviewGrandSummary />
 
-          {/* Approval Card - Show if there are approvals */}
-          {approvesInfo.length > 0 ? (
-            <BulkSendApprovalCard onEditApproval={handleEditApproval} />
-          ) : null}
-
-          {/* Cost Card - Middle Section */}
-          <BulkSendReviewCostCard
-            feeLevel={feeLabel}
-            isMultiTxs={isMultiTxs}
-            onFeeChange={handleFeeChange}
-            editFeeEnabled={vaultSettings?.editFeeEnabled}
-          />
+          {/* Approval & Cost Cards */}
+          <YStack gap="$4">
+            {approvesInfo.length > 0 ? (
+              <BulkSendApprovalCard onEditApproval={handleEditApproval} />
+            ) : null}
+            <BulkSendReviewCostCard
+              feeLevel={feeLabel}
+              isMultiTxs={isMultiTxs}
+              onFeeChange={handleFeeChange}
+              editFeeEnabled={vaultSettings?.editFeeEnabled}
+            />
+          </YStack>
 
           {/* Transaction Details - Bottom Section */}
           <BulkSendTxDetails
@@ -460,10 +463,6 @@ function BaseBulkSendReview({
       <Page.Footer>
         <Page.FooterActions
           onConfirmText={confirmButtonText}
-          onCancelText="Cancel"
-          cancelButtonProps={{
-            onPress: handleCancel,
-          }}
           confirmButtonProps={{
             onPress: handleConfirm,
             disabled: isConfirmDisabled,

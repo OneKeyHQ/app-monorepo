@@ -179,7 +179,7 @@ const Rebate = ({
             <Stack
               bg="$bgSubdued"
               mt="$2.5"
-              px="$5"
+              px="$pagePadding"
               py="$3.5"
               borderTopWidth={1}
               borderTopColor="$borderSubdued"
@@ -384,7 +384,7 @@ const OverviewComponent = ({
               id: ETranslations.earn_24h_earnings,
             })}
             renderContent={
-              <SizableText px="$5" py="$4">
+              <SizableText px="$pagePadding" py="$4">
                 {intl.formatMessage({
                   id: ETranslations.earn_24h_earnings_tooltip,
                 })}

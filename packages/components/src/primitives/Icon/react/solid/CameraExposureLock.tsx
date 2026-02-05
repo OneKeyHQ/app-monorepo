@@ -1,15 +1,16 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgCameraExposureLock = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M5 3a2 2 0 0 0-2 2v3a1 1 0 0 0 2 0V5h3a1 1 0 0 0 0-2zm11 0a1 1 0 1 0 0 2h3v3a1 1 0 1 0 2 0V5a2 2 0 0 0-2-2zM5 16a1 1 0 1 0-2 0v3a2 2 0 0 0 2 2h3a1 1 0 1 0 0-2H5zm16 0a1 1 0 1 0-2 0v3h-3a1 1 0 1 0 0 2h3a2 2 0 0 0 2-2z" />
     <Path
-      fill="currentColor"
-      d="M5 6a1 1 0 0 1 1-1h2a1 1 0 0 0 0-2H6a3 3 0 0 0-3 3v2a1 1 0 0 0 2 0zm11-3a1 1 0 1 0 0 2h2a1 1 0 0 1 1 1v2a1 1 0 1 0 2 0V6a3 3 0 0 0-3-3zM5 16a1 1 0 1 0-2 0v2a3 3 0 0 0 3 3h2a1 1 0 1 0 0-2H6a1 1 0 0 1-1-1zm16 0a1 1 0 1 0-2 0v2a1 1 0 0 1-1 1h-2a1 1 0 1 0 0 2h2a3 3 0 0 0 3-3z"
-    />
-    <Path
-      fill="currentColor"
       fillRule="evenodd"
-      d="M15 10.268V10a3 3 0 1 0-6 0v.268A2 2 0 0 0 8 12v2a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-2a2 2 0 0 0-1-1.732M11 10h2a1 1 0 1 0-2 0"
+      d="M15 10.085V10a3 3 0 1 0-6 0v.085A1.5 1.5 0 0 0 8 11.5v3A1.5 1.5 0 0 0 9.5 16h5a1.5 1.5 0 0 0 1.5-1.5v-3a1.5 1.5 0 0 0-1-1.415M11 10h2a1 1 0 1 0-2 0"
       clipRule="evenodd"
     />
   </Svg>

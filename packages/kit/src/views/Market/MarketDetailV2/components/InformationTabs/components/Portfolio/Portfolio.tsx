@@ -60,6 +60,7 @@ function PortfolioBase({
 
   return (
     <Tabs.FlatList<IMarketAccountPortfolioItem>
+      showsVerticalScrollIndicator={false}
       data={portfolioData}
       windowSize={platformEnv.isNativeAndroid ? 3 : undefined}
       contentContainerStyle={{
@@ -69,7 +70,6 @@ function PortfolioBase({
       keyExtractor={(item: IMarketAccountPortfolioItem) =>
         `${item.accountAddress}-${item.tokenAddress}`
       }
-      showsVerticalScrollIndicator
       ListEmptyComponent={
         isRefreshing ? (
           <PortfolioSkeleton />

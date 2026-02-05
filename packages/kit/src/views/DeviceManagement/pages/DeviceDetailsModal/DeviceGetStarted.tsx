@@ -46,7 +46,8 @@ function DeviceBanner() {
         autoPlayInterval={5000}
         renderItem={({ item }) => (
           <YStack
-            width={320}
+            width={316}
+            mx="$1"
             borderRadius="$3"
             overflow="hidden"
             position="relative"
@@ -56,8 +57,6 @@ function DeviceBanner() {
           >
             <Stack
               height={180}
-              borderTopLeftRadius="$3"
-              borderTopRightRadius="$3"
             >
               <Image
                 source={{ uri: item.image }}
@@ -90,8 +89,6 @@ function DeviceBanner() {
               bg="$bgStrong"
               ai="center"
               jc="center"
-              borderBottomLeftRadius="$3"
-              borderBottomRightRadius="$3"
             >
               <SizableText
                 size="$headingSm"

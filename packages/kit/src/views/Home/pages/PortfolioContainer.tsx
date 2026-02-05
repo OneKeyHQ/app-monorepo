@@ -1,6 +1,13 @@
 import { useMemo } from 'react';
 
-import { Stack, Tabs, XStack, YStack, useMedia } from '@onekeyhq/components';
+import {
+  Stack,
+  Tabs,
+  XStack,
+  YStack,
+  useMedia,
+  useScrollContentTabBarOffset,
+} from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
@@ -33,7 +40,7 @@ function PortfolioContainer() {
 
   if (tableLayout) {
     return (
-      <XStack pt="$3" pb="$4" px="$5" gap="$6">
+      <XStack pt="$3" pb="$4" px="$pagePadding" gap="$6">
         <YStack flex={1} gap="$8">
           <TokenListBlock showRecentHistory={showRecentHistory} tableLayout />
           <DeFiListBlock tableLayout />
@@ -56,7 +63,7 @@ function PortfolioContainer() {
   }
 
   return (
-    <YStack gap="$6" px="$5" pt="$3" pb="$4">
+    <YStack gap="$6" px="$pagePadding" pt="$3" pb="$4">
       <TokenListBlock />
       <DeFiListBlock />
       <PopularTrading />
@@ -72,13 +79,15 @@ function PortfolioContainerWithProvider() {
   const {
     activeAccount: { account },
   } = useActiveAccount({ num: 0 });
-
+  const tabBarHeight = useScrollContentTabBarOffset();
   return (
     <HomeTokenListProviderMirrorWrapper accountId={account?.id ?? ''}>
       <ProviderJotaiContextDeFiList>
         <ProviderJotaiContextHistoryList>
           <ProviderJotaiContextEarn>
             <Tabs.ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingBottom: tabBarHeight }}
               nestedScrollEnabled={platformEnv.isNativeAndroid}
               refreshControl={
                 !platformEnv.isNativeAndroid ? (
