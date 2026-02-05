@@ -1258,7 +1258,10 @@ export default class Vault extends VaultBase {
     const ownerAddress = convertEvmToTronAddress(from);
     const contractAddress = convertEvmToTronAddress(to);
 
-    const callValue = new BigNumber(value).toFixed();
+    // value is hex string from LiquidMesh API, ensure proper hex parsing
+    const callValue = new BigNumber(
+      value.startsWith('0x') ? value : `0x${value}`,
+    ).toFixed();
 
     const functionSelector = data.slice(2, 10);
 
