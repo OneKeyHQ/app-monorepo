@@ -69,7 +69,7 @@ function EarnListView() {
       contentContainerProps={
         platformEnv.isNative
           ? {
-              mx: '$-5',
+              mx: '$-pagePadding',
             }
           : undefined
       }

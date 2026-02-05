@@ -1,5 +1,3 @@
-import { useCallback } from 'react';
-
 import { useIntl } from 'react-intl';
 
 import { Alert, YStack } from '@onekeyhq/components';
@@ -17,12 +15,12 @@ function BulkSendReviewAlert({ onRetry }: IProps) {
   const { feeState } = useBulkSendReviewContext();
   const { feeStatus, errMessage } = feeState;
 
-  const renderFeeErrorAlert = useCallback(() => {
-    if (!errMessage) {
-      return null;
-    }
+  if (!errMessage) {
+    return null;
+  }
 
-    return (
+  return (
+    <YStack px="$5">
       <Alert
         icon="ErrorOutline"
         type="critical"
@@ -36,10 +34,8 @@ function BulkSendReviewAlert({ onRetry }: IProps) {
           onPrimaryPress: onRetry,
         }}
       />
-    );
-  }, [errMessage, intl, onRetry, feeStatus]);
-
-  return <YStack px="$5">{renderFeeErrorAlert()}</YStack>;
+    </YStack>
+  );
 }
 
 export default BulkSendReviewAlert;

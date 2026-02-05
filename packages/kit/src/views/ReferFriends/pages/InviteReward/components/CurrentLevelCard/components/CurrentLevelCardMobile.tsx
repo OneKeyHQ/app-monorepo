@@ -14,7 +14,7 @@ export function CurrentLevelCardMobile(props: ICurrentLevelCardProps) {
   const { levelIcon, levelLabel, commissionRates } = useCurrentLevelCard(props);
 
   return (
-    <YStack px="$5" pb="$5" w="100%">
+    <YStack px="$pagePadding" pb="$5" w="100%">
       <YStack
         borderRadius="$3"
         borderWidth="$px"

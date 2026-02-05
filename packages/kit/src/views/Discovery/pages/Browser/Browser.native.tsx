@@ -3,7 +3,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRoute } from '@react-navigation/core';
 import * as ExpoDevice from 'expo-device';
 import { Freeze } from 'react-freeze';
-import { BackHandler, type LayoutChangeEvent } from 'react-native';
+import { BackHandler, type LayoutChangeEvent, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 
 import {
@@ -18,6 +18,7 @@ import {
   useSplitMainView,
   useSplitSubView,
 } from '@onekeyhq/components';
+import type { ITabContainerRef } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { LazyPageContainer } from '@onekeyhq/kit/src/components/LazyPageContainer';
@@ -57,6 +58,7 @@ import { HandleRebuildBrowserData } from '../../components/HandleData/HandleRebu
 import HeaderRightToolBar from '../../components/HeaderRightToolBar';
 import MobileBrowserBottomBar from '../../components/MobileBrowser/MobileBrowserBottomBar';
 import { useDAppNotifyChanges } from '../../hooks/useDAppNotifyChanges';
+import { useEdgeSwipeDetection } from '../../hooks/useEdgeSwipeDetection';
 import useMobileBottomBarAnimation from '../../hooks/useMobileBottomBarAnimation';
 import {
   useActiveTabId,
@@ -331,6 +333,49 @@ function MobileBrowser() {
     handleGoBackHome,
   });
 
+  // Edge swipe detection for switching between Market / Browser / Earn
+  const marketTabsRef = useRef<ITabContainerRef>(null);
+  const earnTabsRef = useRef<ITabContainerRef>(null);
+
+  const MARKET_TAB_COUNT = 2;
+  const EARN_TAB_COUNT = 3;
+
+  const switchToMarket = useCallback(() => {
+    void backgroundApiProxy.serviceSetting.setSelectedBrowserTab(
+      ETranslations.global_market,
+    );
+  }, []);
+  const switchToBrowser = useCallback(() => {
+    void backgroundApiProxy.serviceSetting.setSelectedBrowserTab(
+      ETranslations.global_browser,
+    );
+  }, []);
+  const switchToEarn = useCallback(() => {
+    void backgroundApiProxy.serviceSetting.setSelectedBrowserTab(
+      ETranslations.global_earn,
+    );
+  }, []);
+
+  // Tab order (left → right): Market → Earn → Browser
+  const marketSwipeHandlers = useEdgeSwipeDetection({
+    tabsRef: marketTabsRef,
+    tabCount: MARKET_TAB_COUNT,
+    onSwipeLeft: switchToEarn, // Market → Earn
+  });
+
+  const earnSwipeHandlers = useEdgeSwipeDetection({
+    tabsRef: earnTabsRef,
+    tabCount: EARN_TAB_COUNT,
+    onSwipeLeft: switchToBrowser, // Earn → Browser
+    onSwipeRight: switchToMarket, // Earn → Market
+  });
+
+  const browserSwipeHandlers = useEdgeSwipeDetection({
+    tabCount: 1,
+    onSwipeRight: switchToEarn, // Browser → Earn
+    screenEdgeWidth: 30,
+  });
+
   const [tabPageHeight, setTabPageHeight] = useState(
     platformEnv.isNativeIOS ? 153 : 100,
   );
@@ -393,18 +438,21 @@ function MobileBrowser() {
       <Page.Body>
         {/* Market Tab */}
         {isShowContent ? (
-          <Stack
-            flex={1}
-            display={
-              selectedHeaderTab === ETranslations.global_market
-                ? undefined
-                : 'none'
-            }
+          <View
+            {...marketSwipeHandlers}
+            style={{
+              flex: 1,
+              display:
+                selectedHeaderTab === ETranslations.global_market
+                  ? 'flex'
+                  : 'none',
+            }}
           >
             <MarketHomeWithProvider
               isFocused={selectedHeaderTab === ETranslations.global_market}
+              tabsRef={marketTabsRef}
             />
-          </Stack>
+          </View>
         ) : null}
         {/* Browser Tab */}
         <Stack
@@ -419,9 +467,15 @@ function MobileBrowser() {
         >
           <HandleRebuildBrowserData />
           <Stack flex={1}>
-            <Stack display={showDiscoveryPage ? 'flex' : 'none'}>
+            <View
+              {...browserSwipeHandlers}
+              style={{
+                display: showDiscoveryPage ? 'flex' : 'none',
+                flex: showDiscoveryPage ? 1 : undefined,
+              }}
+            >
               <DashboardContent onScroll={handleScroll} />
-            </Stack>
+            </View>
             {!isTabletMainView ? (
               <Freeze freeze={showDiscoveryPage}>{content}</Freeze>
             ) : null}
@@ -446,20 +500,23 @@ function MobileBrowser() {
           </Freeze>
         </Stack>
         {isShowContent ? (
-          <Stack
-            flex={1}
-            display={
-              selectedHeaderTab === ETranslations.global_earn
-                ? undefined
-                : 'none'
-            }
+          <View
+            {...earnSwipeHandlers}
+            style={{
+              flex: 1,
+              display:
+                selectedHeaderTab === ETranslations.global_earn
+                  ? 'flex'
+                  : 'none',
+            }}
           >
             <EarnHomeWithProvider
               showHeader={false}
               showContent={selectedHeaderTab === ETranslations.global_earn}
               defaultTab={earnTab}
+              tabsRef={earnTabsRef}
             />
-          </Stack>
+          </View>
         ) : null}
       </Page.Body>
       {showDiscoveryPage ? (

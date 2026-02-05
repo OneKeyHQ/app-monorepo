@@ -3,6 +3,8 @@ import { isEmpty } from 'lodash';
 
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EAmountInputMode,
   type IAmountInputError,
@@ -35,8 +37,7 @@ export function calculateIsAmountValid({
     }
     case EAmountInputMode.Range:
       return (
-        !amountInputErrors.rangeMin &&
-        !amountInputErrors.rangeMax &&
+        !amountInputErrors.rangeError &&
         amountInputValues.rangeMin !== '' &&
         amountInputValues.rangeMax !== ''
       );
@@ -156,7 +157,7 @@ export function generateRandomAmountsFromRange({
   decimals: number;
 }): string[] {
   const min = new BigNumber(rangeMin);
-  const max = new BigNumber(rangeMax);
+  let max = new BigNumber(rangeMax);
   const count = transfersInfo.length;
 
   if (min.isNaN() || max.isNaN() || count === 0) {
@@ -173,6 +174,20 @@ export function generateRandomAmountsFromRange({
     throw new OneKeyLocalError(
       `Balance array length (${balance.length}) must equal transfersInfo length (${count}) when providing multiple balances`,
     );
+  }
+
+  // When single balance constraint exists, use balance/count as effective max
+  // This ensures total amount won't exceed balance without needing excessive scaling
+  let totalBalanceBN: BigNumber | undefined;
+  if (balance !== undefined && balance.length === 1) {
+    totalBalanceBN = new BigNumber(balance[0]);
+    if (!totalBalanceBN.isNaN()) {
+      const avgBalancePerTransfer = totalBalanceBN.dividedBy(count);
+      // Use the smaller of: user's max or average balance per transfer
+      if (max.isGreaterThan(avgBalancePerTransfer)) {
+        max = avgBalancePerTransfer;
+      }
+    }
   }
 
   // Generate random amounts within [min, max]
@@ -200,65 +215,95 @@ export function generateRandomAmountsFromRange({
     randomAmounts.push(amount);
   }
 
-  // Case 1: Single total balance constraint
-  if (balance !== undefined && balance.length === 1) {
-    const totalBalanceBN = new BigNumber(balance[0]);
-    if (!totalBalanceBN.isNaN()) {
-      // Calculate total
-      let total = randomAmounts.reduce(
+  // Case 1: Single total balance constraint - scale down if total exceeds balance
+  if (totalBalanceBN && !totalBalanceBN.isNaN()) {
+    // Calculate total
+    let total = randomAmounts.reduce(
+      (sum, amt) => sum.plus(amt),
+      new BigNumber(0),
+    );
+
+    // If total exceeds balance, scale down proportionally
+    if (total.isGreaterThan(totalBalanceBN)) {
+      const scaleFactor = totalBalanceBN.dividedBy(total);
+      for (let i = 0; i < randomAmounts.length; i += 1) {
+        let scaled = randomAmounts[i].times(scaleFactor);
+        // Ensure scaled amount is at least min (if possible)
+        if (scaled.isLessThan(min)) {
+          scaled = min;
+        }
+        // Ensure scaled amount doesn't exceed max
+        if (scaled.isGreaterThan(max)) {
+          scaled = max;
+        }
+        randomAmounts[i] = scaled;
+      }
+
+      // Recalculate total after clamping
+      total = randomAmounts.reduce(
         (sum, amt) => sum.plus(amt),
         new BigNumber(0),
       );
 
-      // If total exceeds balance, scale down proportionally
+      // If still over balance after clamping, reduce amounts starting from largest
       if (total.isGreaterThan(totalBalanceBN)) {
-        const scaleFactor = totalBalanceBN.dividedBy(total);
-        for (let i = 0; i < randomAmounts.length; i += 1) {
-          let scaled = randomAmounts[i].times(scaleFactor);
-          // Ensure scaled amount is at least min (if possible)
-          if (scaled.isLessThan(min)) {
-            scaled = min;
-          }
-          // Ensure scaled amount doesn't exceed max
-          if (scaled.isGreaterThan(max)) {
-            scaled = max;
-          }
-          randomAmounts[i] = scaled;
-        }
+        const excess = total.minus(totalBalanceBN);
+        // Sort indices by amount descending
+        const indices = randomAmounts
+          .map((_, idx) => idx)
+          .toSorted((a, b) => randomAmounts[b].comparedTo(randomAmounts[a]));
 
-        // Recalculate total after clamping
-        total = randomAmounts.reduce(
-          (sum, amt) => sum.plus(amt),
-          new BigNumber(0),
-        );
-
-        // If still over balance after clamping, reduce amounts starting from largest
-        if (total.isGreaterThan(totalBalanceBN)) {
-          const excess = total.minus(totalBalanceBN);
-          // Sort indices by amount descending
-          const indices = randomAmounts
-            .map((_, idx) => idx)
-            .toSorted((a, b) => randomAmounts[b].comparedTo(randomAmounts[a]));
-
-          let remaining = excess;
-          for (const idx of indices) {
-            if (remaining.isLessThanOrEqualTo(0)) break;
-            const current = randomAmounts[idx];
-            const canReduce = current.minus(min);
-            if (canReduce.isGreaterThan(0)) {
-              const reduction = BigNumber.min(canReduce, remaining);
-              randomAmounts[idx] = current.minus(reduction);
-              remaining = remaining.minus(reduction);
-            }
+        let remaining = excess;
+        for (const idx of indices) {
+          if (remaining.isLessThanOrEqualTo(0)) break;
+          const current = randomAmounts[idx];
+          const canReduce = current.minus(min);
+          if (canReduce.isGreaterThan(0)) {
+            const reduction = BigNumber.min(canReduce, remaining);
+            randomAmounts[idx] = current.minus(reduction);
+            remaining = remaining.minus(reduction);
           }
         }
       }
     }
   }
 
-  return randomAmounts.map((amount) =>
+  // Format amounts with smart decimals
+  const formattedAmounts = randomAmounts.map((amount) =>
     formatWithSmartDecimals(amount, inputDecimals, decimals),
   );
+
+  // Final check: ensure formatted total doesn't exceed balance due to rounding
+  if (totalBalanceBN && !totalBalanceBN.isNaN()) {
+    const formattedTotal = formattedAmounts.reduce(
+      (sum, amt) => sum.plus(amt),
+      new BigNumber(0),
+    );
+
+    if (formattedTotal.isGreaterThan(totalBalanceBN)) {
+      // Find the largest amount and reduce it to compensate for rounding error
+      const excess = formattedTotal.minus(totalBalanceBN);
+      let maxIdx = 0;
+      let maxVal = new BigNumber(formattedAmounts[0]);
+      for (let i = 1; i < formattedAmounts.length; i += 1) {
+        const val = new BigNumber(formattedAmounts[i]);
+        if (val.isGreaterThan(maxVal)) {
+          maxVal = val;
+          maxIdx = i;
+        }
+      }
+      // Reduce the largest amount by the excess, respecting min
+      const adjusted = maxVal.minus(excess);
+      if (adjusted.gte(min)) {
+        formattedAmounts[maxIdx] = adjusted.toFixed(
+          decimals,
+          BigNumber.ROUND_DOWN,
+        );
+      }
+    }
+  }
+
+  return formattedAmounts;
 }
 
 export function generateAmountsFromSpecifiedAmount({
@@ -269,4 +314,43 @@ export function generateAmountsFromSpecifiedAmount({
   transfersInfo: ITransferInfo[];
 }): string[] {
   return transfersInfo.map(() => specifiedAmount);
+}
+
+/**
+ * Validates a range amount input.
+ * Returns an error message if validation fails, undefined otherwise.
+ */
+export function validateRangeInput({
+  rangeMin,
+  rangeMax,
+  balance,
+}: {
+  rangeMin: string;
+  rangeMax: string;
+  balance: string;
+}): string | undefined {
+  const minBN = new BigNumber(rangeMin || '0');
+  const maxBN = new BigNumber(rangeMax || '0');
+  const balanceBN = new BigNumber(balance);
+
+  // Only check if min exceeds balance (min must be achievable)
+  // max > balance is allowed - generation logic will use balance/count as effective max
+  if (minBN.isGreaterThan(balanceBN)) {
+    return appLocale.intl.formatMessage({
+      id: ETranslations.swap_page_button_insufficient_balance,
+    });
+  }
+
+  // Check if min >= max (invalid range)
+  if (
+    rangeMin !== '' &&
+    rangeMax !== '' &&
+    minBN.isGreaterThanOrEqualTo(maxBN)
+  ) {
+    return appLocale.intl.formatMessage({
+      id: ETranslations.wallet_bulk_send_error_proper_range,
+    });
+  }
+
+  return undefined;
 }

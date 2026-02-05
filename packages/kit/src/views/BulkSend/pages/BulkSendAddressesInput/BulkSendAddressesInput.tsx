@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { Form, Page, YStack, useForm, useMedia } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -7,6 +9,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   POLLING_DEBOUNCE_INTERVAL,
   POLLING_INTERVAL_FOR_TOKEN,
@@ -19,6 +22,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import bulkSendUtils from '@onekeyhq/shared/src/utils/bulkSendUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EBulkSendMode } from '@onekeyhq/shared/types/bulkSend';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
@@ -37,6 +41,7 @@ import {
 } from './components/Context';
 
 function BaseBulkSendAddressesInput() {
+  const intl = useIntl();
   const route = useAppRoute<
     IModalBulkSendParamList,
     EModalBulkSendRoutes.BulkSendAddressesInput
@@ -265,7 +270,7 @@ function BaseBulkSendAddressesInput() {
     selectedTokenDetail,
   ]);
 
-  const handleSubmit = useCallback(() => {
+  const handleSubmit = useCallback(async () => {
     if (
       !selectedNetworkId ||
       !selectedAccountId ||
@@ -296,17 +301,16 @@ function BaseBulkSendAddressesInput() {
         bulkSendMode,
       });
     } else {
-      navigation.switchTab(ETabRoutes.Home, {
-        screen: ETabHomeRoutes.TabHomeBulkSendAmountsInput,
-        params: {
-          networkId: selectedNetworkId,
-          accountId: selectedAccountId,
-          senders,
-          receivers,
-          tokenInfo: selectedToken,
-          tokenDetails: selectedTokenDetail,
-          bulkSendMode,
-        },
+      navigation.switchTab(ETabRoutes.Home);
+      await timerUtils.wait(50);
+      navigation.push(ETabHomeRoutes.TabHomeBulkSendAmountsInput, {
+        networkId: selectedNetworkId,
+        accountId: selectedAccountId,
+        senders,
+        receivers,
+        tokenInfo: selectedToken,
+        tokenDetails: selectedTokenDetail,
+        bulkSendMode,
       });
     }
   }, [
@@ -365,7 +369,9 @@ function BaseBulkSendAddressesInput() {
         >
           <Page.FooterActions
             px="$0"
-            onConfirmText="Next"
+            onConfirmText={intl.formatMessage({
+              id: ETranslations.wallet_bulk_send_btn_next,
+            })}
             confirmButtonProps={{
               onPress: handleSubmit,
               disabled: isSubmitDisabled,

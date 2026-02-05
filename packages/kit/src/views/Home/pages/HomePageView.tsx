@@ -13,7 +13,6 @@ import {
   XStack,
   YStack,
   useScrollContentTabBarOffset,
-  useTabContainerWidth,
 } from '@onekeyhq/components';
 import type { ITabBarItemProps } from '@onekeyhq/components/src/composite/Tabs/TabBar';
 import { TabBarItem } from '@onekeyhq/components/src/composite/Tabs/TabBar';
@@ -279,8 +278,6 @@ export function HomePageView({
     return <HomeHeaderContainer />;
   }, []);
 
-  const tabContainerWidth: any = useTabContainerWidth();
-
   const tabConfigs = useMemo(() => {
     return [
       {
@@ -362,11 +359,11 @@ export function HomePageView({
         ref={tabsRef as any}
         key={key}
         allowHeaderOverscroll
-        width={tabContainerWidth}
         renderHeader={renderHeader}
         renderTabBar={(props: any) => (
           <Tabs.TabBar
             {...props}
+            variant="pill"
             renderItem={handleRenderItem}
             renderToolbar={({ focusedTab }) => (
               <TabHeaderSettings focusedTab={focusedTab} />
@@ -392,7 +389,6 @@ export function HomePageView({
     network?.id,
     renderHeader,
     tabConfigs,
-    tabContainerWidth,
   ]);
 
   const handleSwitchWalletHomeTab = useCallback(
@@ -568,26 +564,31 @@ export function HomePageView({
     return (
       <>
         <Page.Body>
-          {platformEnv.isNative ? (
-            <Stack h={tabPageHeight} />
-          ) : (
-            <TabPageHeader sceneName={sceneName} tabRoute={ETabRoutes.Home} />
-          )}
-          <NetworkAlert />
-          {content}
-          {platformEnv.isNative ? (
-            <YStack
-              position="absolute"
-              top={-20}
-              left={0}
-              bg="$bgApp"
-              pt="$5"
-              width="100%"
-              onLayout={handleTabPageLayout}
-            >
+          <Page.Container flex={1} padded={false}>
+            {platformEnv.isNative ? (
+              <Stack h={tabPageHeight} />
+            ) : (
               <TabPageHeader sceneName={sceneName} tabRoute={ETabRoutes.Home} />
-            </YStack>
-          ) : null}
+            )}
+            <NetworkAlert />
+            {content}
+            {platformEnv.isNative ? (
+              <YStack
+                position="absolute"
+                top={-20}
+                left={0}
+                bg="$bgApp"
+                pt="$5"
+                width="100%"
+                onLayout={handleTabPageLayout}
+              >
+                <TabPageHeader
+                  sceneName={sceneName}
+                  tabRoute={ETabRoutes.Home}
+                />
+              </YStack>
+            ) : null}
+          </Page.Container>
         </Page.Body>
       </>
     );

@@ -147,9 +147,9 @@ const SwapOldSwapBridgeLimitContainer = ({
         onOpenRecipient={onToAnotherAddressModal}
       />
       {alerts.states.length > 0 &&
-      !quoteLoading &&
-      !quoteEventFetching &&
-      alerts?.quoteId === (quoteResult?.quoteId ?? '') ? (
+        !quoteLoading &&
+        !quoteEventFetching &&
+        alerts?.quoteId === (quoteResult?.quoteId ?? '') ? (
         <SwapAlertContainer alerts={alerts.states} />
       ) : null}
       <SwapRecentTokenPairsGroup
@@ -208,9 +208,9 @@ const SwapOldSwapBridgeLimitContainer = ({
           onOpenRecipient={onToAnotherAddressModal}
         />
         {alerts.states.length > 0 &&
-        !quoteLoading &&
-        !quoteEventFetching &&
-        alerts?.quoteId === (quoteResult?.quoteId ?? '') ? (
+          !quoteLoading &&
+          !quoteEventFetching &&
+          alerts?.quoteId === (quoteResult?.quoteId ?? '') ? (
           <SwapAlertContainer alerts={alerts.states} />
         ) : null}
         <SwapRecentTokenPairsGroup
@@ -222,7 +222,7 @@ const SwapOldSwapBridgeLimitContainer = ({
       </YStack>
     );
     return (
-      <XStack gap="$1" px="$5">
+      <XStack>
         <YStack p="$5" flexBasis="50%">
           <YStack>{mainContentWithCard}</YStack>
         </YStack>
