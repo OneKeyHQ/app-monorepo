@@ -24,6 +24,7 @@ export const Tabs = {
 };
 
 export type { ITabContainerRef, ITabContainerProps } from './Container';
+export type { ITabBarVariant, ITabBarItemProps } from './TabBar';
 export * from './hooks';
 
 export { startViewTransition } from './utils';

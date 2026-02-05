@@ -530,7 +530,7 @@ export function DappHeader({
         headerRight={renderMobileHeaderRight}
       />
       {!hideSearch ? (
-        <XStack px="$5" pt="$2" pb="$2">
+        <XStack px="$pagePadding" pt="$2" pb="$2">
           <UniversalSearchInput />
         </XStack>
       ) : null}

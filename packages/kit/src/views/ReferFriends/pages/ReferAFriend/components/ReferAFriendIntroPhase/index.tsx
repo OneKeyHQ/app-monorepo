@@ -49,7 +49,7 @@ export function ReferAFriendIntroPhase({
     <YStack gap="$5">
       <InviteCodeStepImage step={1} />
 
-      <Stack maxWidth={480} mx="auto" gap="$10" px="$5">
+      <Stack maxWidth={480} mx="auto" gap="$10">
         <ReferralBenefitsList
           title={intl.formatMessage(
             {
