@@ -12,6 +12,7 @@ import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   type EModalBulkSendRoutes,
+  EModalRoutes,
   EModalSignatureConfirmRoutes,
   type IModalBulkSendParamList,
 } from '@onekeyhq/shared/src/routes';
@@ -85,8 +86,8 @@ function BaseBulkSendReview({
   const confirmButtonText =
     approvesInfo.length > 0
       ? intl.formatMessage({
-          id: ETranslations.wallet_bulk_send_btn_approve_and_confirm,
-        })
+        id: ETranslations.wallet_bulk_send_btn_approve_and_confirm,
+      })
       : intl.formatMessage({ id: ETranslations.wallet_bulk_send_btn_confirm });
 
   // Handle editing approval amount
@@ -225,20 +226,23 @@ function BaseBulkSendReview({
 
         const result: ISendTxOnSuccessData[] = await new Promise(
           (resolve, reject) => {
-            navigation.push(EModalSignatureConfirmRoutes.TxConfirm, {
-              accountId: accountId ?? '',
-              networkId: networkId ?? '',
-              unsignedTxs: [unsignedTx],
-              popStack: false,
-              useFeeInTx: true, // Use the fee info we set on unsignedTx
-              onSuccess: (data: ISendTxOnSuccessData[]) => {
-                resolve(data);
-              },
-              onFail: (error: Error) => {
-                reject(error);
-              },
-              onCancel: () => {
-                reject(new Error('User cancelled'));
+            navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
+              screen: EModalSignatureConfirmRoutes.TxConfirm,
+              params: {
+                accountId: accountId ?? '',
+                networkId: networkId ?? '',
+                unsignedTxs: [unsignedTx],
+                popStack: false,
+                useFeeInTx: true, // Use the fee info we set on unsignedTx
+                onSuccess: (data: ISendTxOnSuccessData[]) => {
+                  resolve(data);
+                },
+                onFail: (error: Error) => {
+                  reject(error);
+                },
+                onCancel: () => {
+                  reject(new Error('User cancelled'));
+                },
               },
             });
           },
@@ -337,13 +341,6 @@ function BaseBulkSendReview({
           newUnsignedTxs,
           feeState.feeInfos,
         );
-
-        // Show success toast
-        Toast.success({
-          title: intl.formatMessage({
-            id: ETranslations.feedback_transaction_submitted,
-          }),
-        });
 
         setIsSubmitting(false);
         onSuccess?.(results);
