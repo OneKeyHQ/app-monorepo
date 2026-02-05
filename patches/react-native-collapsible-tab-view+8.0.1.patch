@@ -12,7 +12,7 @@ index 83c5549..aaeca52 100644
  export { MaterialTabBar } from './MaterialTabBar/TabBar';
  export { MaterialTabItem } from './MaterialTabBar/TabItem';
 diff --git a/node_modules/react-native-collapsible-tab-view/src/hooks.tsx b/node_modules/react-native-collapsible-tab-view/src/hooks.tsx
-index ba7dffa..e12c0c2 100644
+index ba7dffa..35c3b1d 100644
 --- a/node_modules/react-native-collapsible-tab-view/src/hooks.tsx
 +++ b/node_modules/react-native-collapsible-tab-view/src/hooks.tsx
 @@ -101,7 +101,11 @@ export function useTabProps<T extends TabName>(
@@ -28,7 +28,7 @@ index ba7dffa..e12c0c2 100644
    return c
  }
  
-@@ -114,7 +118,11 @@ export function useTabsContext(): ContextType<TabName> {
+@@ -114,21 +118,27 @@ export function useTabsContext(): ContextType<TabName> {
   */
  export function useTabNameContext(): TabName {
    const c = useContext(TabNameContext)
@@ -41,7 +41,26 @@ index ba7dffa..e12c0c2 100644
    return c
  }
  
-@@ -579,11 +587,11 @@ export function useAfterMountEffect(
+ export function useLayoutHeight(initialHeight: number = 0) {
+   const [height, setHeight] = useState(initialHeight)
++  const heightRef = useRef(initialHeight)
+ 
+   const getHeight = useCallback(
+     (event: LayoutChangeEvent) => {
+-      const latestHeight = event.nativeEvent.layout.height
+-      if (latestHeight !== height) {
++      const latestHeight = Math.round(event.nativeEvent.layout.height)
++      if (latestHeight !== heightRef.current) {
++        heightRef.current = latestHeight
+         setHeight(latestHeight)
+       }
+     },
+-    [height, setHeight]
++    []
+   )
+   return [height, getHeight] as const
+ }
+@@ -579,11 +589,11 @@ export function useAfterMountEffect(
  export function useConvertAnimatedToValue<T>(
    animatedValue: Animated.SharedValue<T>
  ) {

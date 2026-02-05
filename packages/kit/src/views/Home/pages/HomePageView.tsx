@@ -315,27 +315,46 @@ export function HomePageView({
     ].filter(Boolean);
   }, [intl, isNFTEnabled, isBulkRevokeApprovalEnabled]);
 
-  const handleRenderItem = useCallback(
-    (props: ITabBarItemProps) => {
-      const tabId = tabConfigs.find((i) => i.name === props.name)?.id;
-      return (
-        <XStack position="relative">
-          <TabBarItem {...props} />
-          {tabId === EHomeWalletTab.Approvals && hasRiskApprovals ? (
-            <Stack
-              position="absolute"
-              right={-6}
-              top={12}
-              w="$1.5"
-              h="$1.5"
-              bg="$iconCritical"
-              borderRadius="$full"
-            />
-          ) : null}
-        </XStack>
-      );
-    },
-    [hasRiskApprovals, tabConfigs],
+  const tabConfigsRef = useRef(tabConfigs);
+  tabConfigsRef.current = tabConfigs;
+
+  const handleRenderItem = useCallback((props: ITabBarItemProps) => {
+    const tabId = tabConfigsRef.current.find((i) => i.name === props.name)?.id;
+    return (
+      <XStack position="relative">
+        <TabBarItem {...props} />
+        {tabId === EHomeWalletTab.Approvals && hasRiskApprovalsRef.current ? (
+          <Stack
+            position="absolute"
+            right={-6}
+            top={12}
+            w="$1.5"
+            h="$1.5"
+            bg="$iconCritical"
+            borderRadius="$full"
+          />
+        ) : null}
+      </XStack>
+    );
+  }, []);
+
+  const renderToolbar = useCallback(
+    ({ focusedTab }: { focusedTab: string }) => (
+      <TabHeaderSettings focusedTab={focusedTab} />
+    ),
+    [],
+  );
+
+  const renderTabBar = useCallback(
+    (props: any) => (
+      <Tabs.TabBar
+        {...props}
+        variant="pill"
+        renderItem={handleRenderItem}
+        renderToolbar={renderToolbar}
+      />
+    ),
+    [handleRenderItem, renderToolbar],
   );
 
   const tabs = useMemo(() => {
@@ -360,16 +379,7 @@ export function HomePageView({
         key={key}
         allowHeaderOverscroll
         renderHeader={renderHeader}
-        renderTabBar={(props: any) => (
-          <Tabs.TabBar
-            {...props}
-            variant="pill"
-            renderItem={handleRenderItem}
-            renderToolbar={({ focusedTab }) => (
-              <TabHeaderSettings focusedTab={focusedTab} />
-            )}
-          />
-        )}
+        renderTabBar={renderTabBar}
       >
         {tabConfigs.map((tab) => (
           <Tabs.Tab key={tab.name} name={tab.name}>
@@ -382,12 +392,12 @@ export function HomePageView({
     tabBarHeight,
     account?.id,
     account?.indexedAccountId,
-    handleRenderItem,
     isBulkRevokeApprovalEnabled,
     isNFTEnabled,
     isWalletNotBackedUp,
     network?.id,
     renderHeader,
+    renderTabBar,
     tabConfigs,
   ]);
 
