@@ -55,9 +55,7 @@ function DeviceBanner() {
             onPress={() => handleOpen(item)}
             pressStyle={{ scale: 0.98 }}
           >
-            <Stack
-              height={180}
-            >
+            <Stack height={180}>
               <Image
                 source={{ uri: item.image }}
                 style={{ width: '100%', height: '100%' }}
@@ -83,13 +81,7 @@ function DeviceBanner() {
                 <Icon name="PlayCircleSolid" size="$14" color="$whiteA12" />
               </Stack>
             </Stack>
-            <XStack
-              px="$3"
-              py="$3"
-              bg="$bgStrong"
-              ai="center"
-              jc="center"
-            >
+            <XStack px="$3" py="$3" bg="$bgStrong" ai="center" jc="center">
               <SizableText
                 size="$headingSm"
                 color="$text"
