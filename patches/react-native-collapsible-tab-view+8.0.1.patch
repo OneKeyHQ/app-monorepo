@@ -12,17 +12,25 @@ index 83c5549..aaeca52 100644
  export { MaterialTabBar } from './MaterialTabBar/TabBar';
  export { MaterialTabItem } from './MaterialTabBar/TabItem';
 diff --git a/node_modules/react-native-collapsible-tab-view/src/Container.tsx b/node_modules/react-native-collapsible-tab-view/src/Container.tsx
-index e782b90..4c49c49 100644
+index e782b90..a4e8822 100644
 --- a/node_modules/react-native-collapsible-tab-view/src/Container.tsx
 +++ b/node_modules/react-native-collapsible-tab-view/src/Container.tsx
 @@ -1,5 +1,5 @@
  import React from 'react'
 -import { StyleSheet, useWindowDimensions, View } from 'react-native'
-+import { Platform, StyleSheet, useWindowDimensions, View } from 'react-native'
++import { Animated as RNAnimated, Platform, StyleSheet, useWindowDimensions, View } from 'react-native'
  import PagerView from 'react-native-pager-view'
  import Animated, {
    runOnJS,
-@@ -95,7 +95,7 @@ export const Container = React.memo(
+@@ -78,6 +78,7 @@ export const Container = React.memo(
+         onTabChange,
+         width: customWidth,
+         allowHeaderOverscroll,
++        useNativeHeaderAnimation = false,
+       },
+       ref
+     ) => {
+@@ -95,7 +96,7 @@ export const Container = React.memo(
        const [tabBarHeight, getTabBarHeight] =
          useLayoutHeight(initialTabBarHeight)
  
@@ -31,7 +39,7 @@ index e782b90..4c49c49 100644
          !renderHeader ? 0 : initialHeaderHeight
        )
        const initialIndex = React.useMemo(
-@@ -141,8 +141,10 @@ export const Container = React.memo(
+@@ -141,8 +142,10 @@ export const Container = React.memo(
        const calculateNextOffset = useSharedValue(initialIndex)
        const headerScrollDistance: ContextType['headerScrollDistance'] =
          useDerivedValue(() => {
@@ -44,7 +52,7 @@ index e782b90..4c49c49 100644
  
        const indexDecimal: ContextType['indexDecimal'] = useSharedValue(
          index.value
-@@ -274,21 +276,30 @@ export const Container = React.memo(
+@@ -274,21 +277,49 @@ export const Container = React.memo(
          }
        )
  
@@ -80,13 +88,32 @@ index e782b90..4c49c49 100644
 -            },
 -          ],
 +          transform: [{ translateY: headerTranslateY.value }],
++        }
++      }, [])
++
++      // Native animated header: uses RN's Animated driver for same-frame updates
++      const nativeScrollY = React.useRef(new RNAnimated.Value(0)).current
++      const headerScrollDist = Math.max((headerHeight || 0) - minHeaderHeight, 0)
++
++      const nativeHeaderStyle = React.useMemo(() => {
++        if (!useNativeHeaderAnimation || headerScrollDist <= 0) return undefined
++        // On iOS with contentInset, contentOffset.y starts at -contentInset
++        const base = IS_IOS ? -contentInset : 0
++        return {
++          transform: [{
++            translateY: nativeScrollY.interpolate({
++              inputRange: [base, base + headerScrollDist],
++              outputRange: [0, -headerScrollDist],
++              extrapolate: 'clamp',
++            })
++          }]
          }
 -      }, [revealHeaderOnScroll])
-+      }, [])
++      }, [useNativeHeaderAnimation, nativeScrollY, headerScrollDist, contentInset])
  
        const onTabPress = React.useCallback(
          (name: TabName) => {
-@@ -349,42 +360,73 @@ export const Container = React.memo(
+@@ -349,50 +380,86 @@ export const Container = React.memo(
          [onTabPress]
        )
  
@@ -117,6 +144,8 @@ index e782b90..4c49c49 100644
 +          headerTranslateY,
 +          width,
 +          allowHeaderOverscroll,
++          useNativeHeaderAnimation,
++          nativeScrollY: useNativeHeaderAnimation ? nativeScrollY : undefined,
 +        }),
 +        [
 +          contentInset,
@@ -144,6 +173,8 @@ index e782b90..4c49c49 100644
 +          headerTranslateY,
 +          width,
 +          allowHeaderOverscroll,
++          useNativeHeaderAnimation,
++          nativeScrollY,
 +        ]
 +      )
 +
@@ -184,27 +215,48 @@ index e782b90..4c49c49 100644
              onLayout={getContainerLayoutHeight}
              pointerEvents="box-none"
            >
-             <Animated.View
-+              renderToHardwareTextureAndroid={Platform.OS === 'android'}
-               pointerEvents="box-none"
-               style={[
-                 styles.topContainer,
-@@ -393,6 +435,7 @@ export const Container = React.memo(
-               ]}
-             >
+-            <Animated.View
+-              pointerEvents="box-none"
+-              style={[
+-                styles.topContainer,
+-                headerContainerStyle,
+-                !cancelTranslation && stylez,
+-              ]}
+-            >
++            {React.createElement(
++              useNativeHeaderAnimation ? RNAnimated.View : Animated.View,
++              {
++                renderToHardwareTextureAndroid: Platform.OS === 'android',
++                pointerEvents: 'box-none',
++                style: useNativeHeaderAnimation
++                  ? [styles.topContainer, headerContainerStyle as any, nativeHeaderStyle]
++                  : [styles.topContainer, headerContainerStyle, !cancelTranslation && stylez],
++              },
                <View
 +                collapsable={false}
                  style={[styles.container, styles.headerContainer]}
                  onLayout={getHeaderHeight}
                  pointerEvents="box-none"
-@@ -409,6 +452,7 @@ export const Container = React.memo(
+@@ -407,8 +474,9 @@ export const Container = React.memo(
+                     onTabPress,
+                     tabProps,
                    })}
-               </View>
+-              </View>
++              </View>,
                <View
 +                collapsable={false}
                  style={[styles.container, styles.tabBarContainer]}
                  onLayout={getTabBarHeight}
                  pointerEvents="box-none"
+@@ -425,7 +493,7 @@ export const Container = React.memo(
+                     tabProps,
+                   })}
+               </View>
+-            </Animated.View>
++            )}
+ 
+             <AnimatedPagerView
+               ref={containerRef}
 diff --git a/node_modules/react-native-collapsible-tab-view/src/FlashList.tsx b/node_modules/react-native-collapsible-tab-view/src/FlashList.tsx
 index 9ce60da..68e0b0e 100644
 --- a/node_modules/react-native-collapsible-tab-view/src/FlashList.tsx
@@ -271,9 +323,18 @@ index 2bd6b9c..c421fbc 100644
        contentOffset={memoContentOffset}
        automaticallyAdjustContentInsets={false}
 diff --git a/node_modules/react-native-collapsible-tab-view/src/hooks.tsx b/node_modules/react-native-collapsible-tab-view/src/hooks.tsx
-index ba7dffa..c453650 100644
+index ba7dffa..4bcc7f5 100644
 --- a/node_modules/react-native-collapsible-tab-view/src/hooks.tsx
 +++ b/node_modules/react-native-collapsible-tab-view/src/hooks.tsx
+@@ -8,7 +8,7 @@ import {
+   useEffect,
+   useRef,
+ } from 'react'
+-import { LayoutChangeEvent, StyleSheet, ViewProps } from 'react-native'
++import { Animated as RNAnimated, LayoutChangeEvent, StyleSheet, ViewProps } from 'react-native'
+ import { ContainerRef, RefComponent } from 'react-native-collapsible-tab-view'
+ import { PagerViewOnPageScrollEvent } from 'react-native-pager-view'
+ import Animated, {
 @@ -101,7 +101,11 @@ export function useTabProps<T extends TabName>(
   */
  export function useTabsContext(): ContextType<TabName> {
@@ -324,7 +385,7 @@ index ba7dffa..c453650 100644
  }
  /**
   * Hook to access some key styles that make the whole thing work.
-@@ -265,6 +277,7 @@ export const useScrollHandlerY = (name: TabName) => {
+@@ -265,10 +277,13 @@ export const useScrollHandlerY = (name: TabName) => {
      accScrollY,
      offset,
      headerScrollDistance,
@@ -332,7 +393,13 @@ index ba7dffa..c453650 100644
      snappingTo,
      contentHeights,
      indexDecimal,
-@@ -403,6 +416,14 @@ export const useScrollHandlerY = (name: TabName) => {
+     allowHeaderOverscroll,
++    useNativeHeaderAnimation,
++    nativeScrollY,
+   } = useTabsContext()
+ 
+   const enabled = useSharedValue(false)
+@@ -403,6 +418,14 @@ export const useScrollHandlerY = (name: TabName) => {
                accDiffClamp.value = Math.max(0, nextValue)
              }
            }
@@ -347,7 +414,70 @@ index ba7dffa..c453650 100644
          }
        },
        onBeginDrag: () => {
-@@ -579,11 +600,11 @@ export function useAfterMountEffect(
+@@ -508,7 +531,61 @@ export const useScrollHandlerY = (name: TabName) => {
+     [revealHeaderOnScroll, refMap, snapThreshold, enabled, scrollTo]
+   )
+ 
+-  return { scrollHandler, enable }
++  // Native animated scroll handler: uses RN Animated.event with useNativeDriver
++  // for same-frame header animation on Android
++  const enabledRef = useRef(false)
++  const nativeScrollHandler = useMemo(() => {
++    if (!useNativeHeaderAnimation || !nativeScrollY) return null
++    return RNAnimated.event(
++      [{ nativeEvent: { contentOffset: { y: nativeScrollY } } }],
++      {
++        useNativeDriver: true,
++        listener: (event: any) => {
++          if (!enabledRef.current) return
++          const rawY = event.nativeEvent.contentOffset.y
++          const adjustedY = IS_IOS ? rawY + contentInset : rawY
++          runOnUI(() => {
++            'worklet'
++            if (focusedTab.value !== name) return
++            scrollYCurrent.value = adjustedY
++            scrollY.value[name] = adjustedY
++            oldAccScrollY.value = accScrollY.value
++            accScrollY.value = adjustedY + offset.value
++            if (headerTranslateY) {
++              headerTranslateY.value = revealHeaderOnScroll
++                ? -accDiffClamp.value
++                : -Math.min(adjustedY, headerScrollDistance.value)
++            }
++          })()
++        }
++      }
++    )
++  }, [
++    useNativeHeaderAnimation,
++    nativeScrollY,
++    name,
++    contentInset,
++    revealHeaderOnScroll,
++  ])
++
++  const origEnable = enable
++  const enableWithRef = useCallback(
++    (toggle: boolean) => {
++      'worklet'
++      origEnable(toggle)
++      runOnJS(setEnabledRefFn)(toggle)
++    },
++    [origEnable]
++  )
++
++  const setEnabledRefFn = useCallback((value: boolean) => {
++    enabledRef.current = value
++  }, [])
++
++  return {
++    scrollHandler: nativeScrollHandler || scrollHandler,
++    enable: nativeScrollHandler ? enableWithRef : enable,
++  }
+ }
+ 
+ type ForwardRefType<T> =
+@@ -579,11 +656,11 @@ export function useAfterMountEffect(
  export function useConvertAnimatedToValue<T>(
    animatedValue: Animated.SharedValue<T>
  ) {
@@ -373,3 +503,33 @@ index 3d0be9d..94c928f 100644
  } from './hooks'
  export type { HeaderMeasurements } from './hooks'
  
+diff --git a/node_modules/react-native-collapsible-tab-view/src/types.ts b/node_modules/react-native-collapsible-tab-view/src/types.ts
+index 00fbafc..f1e5c74 100644
+--- a/node_modules/react-native-collapsible-tab-view/src/types.ts
++++ b/node_modules/react-native-collapsible-tab-view/src/types.ts
+@@ -132,6 +132,15 @@ export type CollapsibleProps = {
+    * @default false
+    */
+   allowHeaderOverscroll?: boolean
++
++  /**
++   * Use React Native's native Animated driver for header animation.
++   * Eliminates the 1-frame lag between scroll and header movement on Android
++   * by binding scroll offset to header transform at the native level.
++   *
++   * @default false
++   */
++  useNativeHeaderAnimation?: boolean
+ }
+ 
+ export type ContextType<T extends TabName = TabName> = {
+@@ -223,6 +232,9 @@ export type ContextType<T extends TabName = TabName> = {
+   allowHeaderOverscroll?: boolean
+ 
+   minHeaderHeight: number
++
++  useNativeHeaderAnimation?: boolean
++  nativeScrollY?: any
+ }
+ 
+ export type ScrollViewProps = ComponentProps<typeof Animated.ScrollView>
