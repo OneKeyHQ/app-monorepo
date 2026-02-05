@@ -6,62 +6,12 @@ import type { IDateRange } from '@onekeyhq/components';
 
 import type { IFilterState } from '../components/FilterButton';
 
-// Helper to calculate date range from preset time range
-const getDateRangeFromTimeRange = (
-  timeRange: EExportTimeRange,
-): { startTime?: number; endTime?: number } => {
-  const now = new Date();
-  const endOfDay = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate(),
-    23,
-    59,
-    59,
-    999,
-  );
-  const endTime = endOfDay.getTime();
-
-  switch (timeRange) {
-    case EExportTimeRange.OneMonth: {
-      const startDate = new Date(endOfDay);
-      startDate.setMonth(startDate.getMonth() - 1);
-      startDate.setHours(0, 0, 0, 0);
-      return { startTime: startDate.getTime(), endTime };
-    }
-    case EExportTimeRange.ThreeMonths: {
-      const startDate = new Date(endOfDay);
-      startDate.setMonth(startDate.getMonth() - 3);
-      startDate.setHours(0, 0, 0, 0);
-      return { startTime: startDate.getTime(), endTime };
-    }
-    case EExportTimeRange.SixMonths: {
-      const startDate = new Date(endOfDay);
-      startDate.setMonth(startDate.getMonth() - 6);
-      startDate.setHours(0, 0, 0, 0);
-      return { startTime: startDate.getTime(), endTime };
-    }
-    default:
-      return { startTime: undefined, endTime: undefined };
-  }
-};
-
 // Helper to get IDateRange from filterState for DatePicker display
 export const getDatePickerValue = (filterState: IFilterState): IDateRange => {
   if (filterState.startTime && filterState.endTime) {
     return {
       start: new Date(filterState.startTime),
       end: new Date(filterState.endTime),
-    };
-  }
-  // Calculate from preset time range
-  const { startTime, endTime } = getDateRangeFromTimeRange(
-    filterState.timeRange,
-  );
-  if (startTime && endTime) {
-    return {
-      start: new Date(startTime),
-      end: new Date(endTime),
     };
   }
   return { start: null, end: null };
