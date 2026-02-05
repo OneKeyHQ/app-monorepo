@@ -1,0 +1,14 @@
+import Svg, { Path } from 'react-native-svg';
+import type { SvgProps } from 'react-native-svg';
+const SvgCallIncoming = (props: SvgProps) => (
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M5.072 3c-1.083 0-2.03.892-1.959 2.053.525 8.505 7.329 15.309 15.834 15.834 1.16.071 2.052-.876 2.052-1.959v-3.042a1.99 1.99 0 0 0-1.419-1.907l-2.703-.81a1.99 1.99 0 0 0-1.98.498l-.745.746a12 12 0 0 1-4.565-4.565l.745-.746c.518-.518.71-1.278.5-1.98L10.02 4.42A1.99 1.99 0 0 0 8.114 3z" />
+    <Path d="M20.005 8.974c0 .55-.446.995-.995.995h-3.982a.995.995 0 0 1-.996-.995V4.992a.995.995 0 1 1 1.991 0V6.57l3.278-3.278A.995.995 0 1 1 20.71 4.7l-3.278 3.278h1.579c.55 0 .995.446.995.996Z" />
+  </Svg>
+);
+export default SvgCallIncoming;

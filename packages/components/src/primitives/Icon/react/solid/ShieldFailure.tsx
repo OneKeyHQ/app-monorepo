@@ -1,0 +1,17 @@
+import Svg, { Path } from 'react-native-svg';
+import type { SvgProps } from 'react-native-svg';
+const SvgShieldFailure = (props: SvgProps) => (
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path
+      fillRule="evenodd"
+      d="M11.343 1.793a2.02 2.02 0 0 1 1.314 0l7.076 2.432a2.02 2.02 0 0 1 1.364 1.912v5.507c0 2.837-1.161 4.882-2.843 6.473-1.589 1.505-3.671 2.628-5.615 3.676l-.159.086c-.3.161-.66.161-.96 0l-.158-.086c-1.944-1.048-4.027-2.17-5.616-3.675-1.681-1.592-2.843-3.637-2.843-6.474V6.137c0-.863.548-1.631 1.365-1.912zm3.393 12.17a1.01 1.01 0 0 1-1.429 0L12 12.657l-1.307 1.306a1.01 1.01 0 0 1-1.429-1.43l1.307-1.306L9.264 9.92a1.01 1.01 0 0 1 1.43-1.43L12 9.799l1.307-1.307a1.01 1.01 0 1 1 1.43 1.43l-1.307 1.306 1.306 1.307a1.01 1.01 0 0 1 0 1.43Z"
+      clipRule="evenodd"
+    />
+  </Svg>
+);
+export default SvgShieldFailure;

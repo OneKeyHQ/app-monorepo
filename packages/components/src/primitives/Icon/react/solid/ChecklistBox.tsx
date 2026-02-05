@@ -1,0 +1,17 @@
+import Svg, { Path } from 'react-native-svg';
+import type { SvgProps } from 'react-native-svg';
+const SvgChecklistBox = (props: SvgProps) => (
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path
+      fillRule="evenodd"
+      d="M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zm8.34 3.352a1 1 0 1 0-1.6-1.2L8.436 8.891l-.338-.225a1 1 0 0 0-1.11 1.664l1.125.75a1 1 0 0 0 1.355-.232zM14.058 8a1 1 0 0 0 0 2h2a1 1 0 1 0 0-2zm-2.718 6.353a1 1 0 1 0-1.6-1.2l-1.304 1.74-.338-.226a1 1 0 0 0-1.11 1.664l1.125.75a1 1 0 0 0 1.355-.232zM14 14a1 1 0 1 0 0 2h2a1 1 0 1 0 0-2z"
+      clipRule="evenodd"
+    />
+  </Svg>
+);
+export default SvgChecklistBox;

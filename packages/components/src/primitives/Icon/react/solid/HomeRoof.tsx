@@ -1,0 +1,13 @@
+import Svg, { Path } from 'react-native-svg';
+import type { SvgProps } from 'react-native-svg';
+const SvgHomeRoof = (props: SvgProps) => (
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M12.492 1.791a2 2 0 0 0-.984 0c-.374.095-.695.327-.95.512l-.072.05-8.568 6.135a1 1 0 1 0 1.164 1.626L4 9.457v8.975c0 .252 0 .498.017.706.019.229.063.499.201.77a2 2 0 0 0 .874.874c.271.138.541.182.77.201.208.017.454.017.706.017h10.864c.252 0 .498 0 .706-.017a2 2 0 0 0 .77-.201 2 2 0 0 0 .874-.874 2 2 0 0 0 .201-.77c.017-.208.017-.454.017-.706V9.457l.918.657a1 1 0 1 0 1.164-1.626l-8.569-6.134-.07-.051c-.256-.185-.577-.417-.951-.512" />
+  </Svg>
+);
+export default SvgHomeRoof;

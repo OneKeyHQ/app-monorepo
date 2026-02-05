@@ -290,7 +290,7 @@ function WalletBanner() {
   }
 
   return (
-    <YStack py="$2.5" bg="$bgApp">
+    <YStack bg="$bgApp">
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}

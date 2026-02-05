@@ -1,0 +1,18 @@
+import Svg, { Path } from 'react-native-svg';
+import type { SvgProps } from 'react-native-svg';
+const SvgLayoutSearch = (props: SvgProps) => (
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M5.568 3H10a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5.568c0-.252 0-.498.017-.706a2 2 0 0 1 .201-.77 2 2 0 0 1 .874-.874 2 2 0 0 1 .77-.201C5.07 3 5.316 3 5.568 3m13.57.017c.229.019.499.063.77.201a2 2 0 0 1 .874.874c.138.271.182.541.201.77.017.208.017.454.017.706V10a1 1 0 0 1-1 1h-6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h4.432c.252 0 .498 0 .706.017M3 14a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H5.568c-.252 0-.498 0-.706-.017a2 2 0 0 1-.77-.201 2 2 0 0 1-.874-.874 2 2 0 0 1-.201-.77C3 18.93 3 18.684 3 18.432z" />
+    <Path
+      fillRule="evenodd"
+      d="M19.828 14.172a4 4 0 1 0-.796 6.275l1.26 1.26a1 1 0 0 0 1.415-1.413l-1.26-1.261a4 4 0 0 0-.619-4.86Zm-4.242 1.414a2 2 0 1 1 2.828 2.828 2 2 0 0 1-2.828-2.828"
+      clipRule="evenodd"
+    />
+  </Svg>
+);
+export default SvgLayoutSearch;

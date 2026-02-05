@@ -1,0 +1,13 @@
+import Svg, { Path } from 'react-native-svg';
+import type { SvgProps } from 'react-native-svg';
+const SvgActivity = (props: SvgProps) => (
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M7.174 11.602 9 5.82l4.808 15.226c.368 1.164 2.016 1.164 2.384 0l2.54-8.047H22a1 1 0 1 0 0-2h-3.267a2 2 0 0 0-1.907 1.398L15 18.18 10.192 2.953c-.368-1.165-2.016-1.165-2.384 0L5.268 11H2a1 1 0 1 0 0 2h3.267a2 2 0 0 0 1.907-1.397Z" />
+  </Svg>
+);
+export default SvgActivity;

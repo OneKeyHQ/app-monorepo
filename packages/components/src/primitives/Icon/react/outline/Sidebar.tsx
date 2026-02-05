@@ -1,0 +1,14 @@
+import Svg, { Path } from 'react-native-svg';
+import type { SvgProps } from 'react-native-svg';
+const SvgSidebar = (props: SvgProps) => (
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M12 6v12h8V6zM4 18h6V6H4zm18 0a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z" />
+    <Path d="M7.5 15.25a.5.5 0 1 0-.6.49l.1.01a.5.5 0 0 0 .5-.5m0-3.25a.5.5 0 1 0-1 0 .5.5 0 0 0 1 0m0-3.25a.5.5 0 1 0-1 0 .5.5 0 0 0 1 0m.75 6.5a1.25 1.25 0 0 1-2.493.128l-.007-.128.007-.128a1.25 1.25 0 0 1 2.493.128m0-3.25a1.25 1.25 0 0 1-2.493.128L5.75 12l.007-.128A1.25 1.25 0 0 1 8.25 12m0-3.25a1.25 1.25 0 0 1-2.493.128L5.75 8.75l.007-.128A1.25 1.25 0 0 1 7 7.5l.128.007A1.25 1.25 0 0 1 8.25 8.75" />
+  </Svg>
+);
+export default SvgSidebar;

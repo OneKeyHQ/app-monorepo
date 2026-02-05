@@ -1,0 +1,15 @@
+import Svg, { Path } from 'react-native-svg';
+import type { SvgProps } from 'react-native-svg';
+const SvgMinimize = (props: SvgProps) => (
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M10.15 12.463a1.85 1.85 0 0 1 1.85 1.85v4.624a1.85 1.85 0 0 1-1.85 1.85H4.6a1.85 1.85 0 0 1-1.85-1.85v-4.625a1.85 1.85 0 0 1 1.85-1.85h5.55Z" />
+    <Path d="M19.4 3.213a1.85 1.85 0 0 1 1.85 1.85v8.325a1.85 1.85 0 0 1-1.85 1.85h-4.625a.925.925 0 1 1 0-1.85H19.4V5.063H5.525v4.625a.925.925 0 1 1-1.85 0V5.063a1.85 1.85 0 0 1 1.85-1.85z" />
+    <Path d="M13.85 11.537a.925.925 0 0 1-.925-.925V7.839a.925.925 0 1 1 1.85 0v.541l1.196-1.196a.925.925 0 0 1 1.308 1.309l-1.196 1.196h.542a.925.925 0 0 1 0 1.85H13.85Z" />
+  </Svg>
+);
+export default SvgMinimize;

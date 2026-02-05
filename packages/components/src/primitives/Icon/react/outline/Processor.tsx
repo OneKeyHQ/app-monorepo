@@ -1,0 +1,13 @@
+import Svg, { Path } from 'react-native-svg';
+import type { SvgProps } from 'react-native-svg';
+const SvgProcessor = (props: SvgProps) => (
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M6 6v12h12V6zm8.001 6a2.001 2.001 0 1 0-4.002 0A2.001 2.001 0 0 0 14 12Zm2 0a4.002 4.002 0 1 1-8.003 0A4.002 4.002 0 0 1 16 12ZM20 7h1a1 1 0 1 1 0 2h-1v2h1a1 1 0 1 1 0 2h-1v2h1a1 1 0 1 1 0 2h-1v1a2 2 0 0 1-2 2h-1v1a1 1 0 1 1-2 0v-1h-2v1a1 1 0 1 1-2 0v-1H9v1a1 1 0 1 1-2 0v-1H6a2 2 0 0 1-2-2v-1H3a1 1 0 1 1 0-2h1v-2H3a1 1 0 1 1 0-2h1V9H3a1 1 0 0 1 0-2h1V6a2 2 0 0 1 2-2h1V2.996a1 1 0 0 1 2 0V4h2V2.996a1 1 0 0 1 2 0V4h2V3a1 1 0 1 1 2 0v1h1a2 2 0 0 1 2 2z" />
+  </Svg>
+);
+export default SvgProcessor;
