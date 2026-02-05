@@ -123,7 +123,7 @@ const AlertFrame = styled(XStack, {
     },
     fullBleed: {
       true: {
-        paddingHorizontal: '$5',
+        paddingHorizontal: '$pagePadding',
         borderLeftWidth: 0,
         borderRightWidth: 0,
         borderRadius: 0,

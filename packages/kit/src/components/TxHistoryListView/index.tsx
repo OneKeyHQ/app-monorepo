@@ -139,7 +139,7 @@ const ListFooterComponent = ({
           alignItems="center"
           justifyContent="center"
           gap="$2"
-          px="$5"
+          px="$pagePadding"
           py="$6"
         >
           <SizableText size="$bodySm" color="$textSubdued" textAlign="center">
@@ -231,7 +231,7 @@ function TxHistoryListViewSectionHeader(
   if (data[0] && data[0].decodedTx.status === EDecodedTxStatus.Pending) {
     return (
       <XStack
-        px="$5"
+        px="$pagePadding"
         py="$2"
         alignItems="center"
         bg="$bgApp"
@@ -252,7 +252,7 @@ function TxHistoryListViewSectionHeader(
   }
 
   return (
-    <Stack py="$2" px="$5" mt={index === 0 ? '$0' : '$5'}>
+    <Stack py="$2" px="$pagePadding" mt={index === 0 ? '$0' : '$5'}>
       <SizableText size="$headingXs" color="$textSubdued">
         {titleText}
       </SizableText>

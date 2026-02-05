@@ -205,7 +205,7 @@ function ApprovalListHeader({
     }
 
     return (
-      <YStack px="$5" py="$3" gap="$5" opacity={isVisible ? 1 : 0}>
+      <YStack px="$pagePadding" py="$3" gap="$5" opacity={isVisible ? 1 : 0}>
         <Alert
           onClose={handleCloseApprovalsAlert}
           icon="ShieldExclamationOutline"
