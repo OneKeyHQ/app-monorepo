@@ -99,7 +99,7 @@ const MarketSelectorDesktop = ({
   }, [backgroundColor]);
 
   return (
-    <Stack px="$5" pt="$5" pb="$1">
+    <Stack px="$pagePadding" pt="$5" pb="$1">
       <SegmentControl
         value={mode}
         options={options}

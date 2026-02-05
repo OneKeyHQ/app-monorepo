@@ -1,6 +1,6 @@
 ---
 name: 1k-state-management
-description: Jotai state management patterns for OneKey. Use when working with atoms, global state, feature state, or context atoms. Triggers on jotai, atom, state, globalAtom, contextAtom, store, persistence, settings.
+description: Jotai state management patterns — atoms, globalAtom, contextAtom, and persistence.
 allowed-tools: Read, Grep, Glob, Write, Edit
 ---
 
