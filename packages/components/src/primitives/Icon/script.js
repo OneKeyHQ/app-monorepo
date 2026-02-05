@@ -57,12 +57,6 @@ const typesTemplate = `
   export type IKeyOfIcons = keyof typeof icons;
   export default icons;
 `;
-prettier
-  .format(typesTemplate, { parser: 'typescript' })
-  .then((formatted) => {
-    fs.writeFileSync(
-      path.resolve(__dirname, `./Icons.tsx`),
-      formatted,
-      'utf8',
-    );
-  });
+prettier.format(typesTemplate, { parser: 'typescript' }).then((formatted) => {
+  fs.writeFileSync(path.resolve(__dirname, `./Icons.tsx`), formatted, 'utf8');
+});
