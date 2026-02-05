@@ -274,10 +274,13 @@ class ServiceDeFi extends ServiceBase {
     }
 
     await this.backgroundApi.simpleDb.deFi.updateEnabledNetworksMap({
-      enabledNetworksMap: networkIds.reduce((acc, networkId) => {
-        acc[networkId] = true;
-        return acc;
-      }, {} as Record<string, boolean>),
+      enabledNetworksMap: networkIds.reduce(
+        (acc, networkId) => {
+          acc[networkId] = true;
+          return acc;
+        },
+        {} as Record<string, boolean>,
+      ),
     });
   }
 

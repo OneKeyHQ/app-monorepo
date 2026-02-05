@@ -1,4 +1,5 @@
 import { app, globalShortcut } from 'electron';
+import logger from 'electron-log/main';
 
 import type { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { shortcutsMap } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
@@ -14,7 +15,15 @@ export function registerShortcuts(
     if (disableAllShortcuts) {
       return;
     }
-    Object.entries(shortcutsMap).forEach(([eventName, { keys }]) => {
+
+    const failedShortcuts: Array<{
+      event: string;
+      key: string;
+      description: string;
+    }> = [];
+    let successCount = 0;
+
+    Object.entries(shortcutsMap).forEach(([eventName, { keys, desc }]) => {
       if (keys?.length) {
         const shortcutsKey = keys
           .map((key) => {
@@ -28,11 +37,41 @@ export function registerShortcuts(
             }
           })
           .join('+');
-        globalShortcut.register(shortcutsKey, () => {
+
+        const success = globalShortcut.register(shortcutsKey, () => {
           callback(eventName as EShortcutEvents);
         });
+
+        if (success) {
+          successCount += 1;
+        } else {
+          const conflictInfo = {
+            event: eventName,
+            key: shortcutsKey,
+            description: desc,
+          };
+          failedShortcuts.push(conflictInfo);
+          logger.warn(
+            `[Shortcuts] Failed to register shortcut: ${shortcutsKey} (${desc}) - Event: ${eventName}. This shortcut may be occupied by another application or system.`,
+          );
+        }
       }
     });
+
+    // Log summary
+    const totalShortcuts = Object.keys(shortcutsMap).filter(
+      (key) => shortcutsMap[key as EShortcutEvents].keys?.length,
+    ).length;
+    logger.info(
+      `[Shortcuts] Registration complete: ${successCount}/${totalShortcuts} shortcuts registered successfully.`,
+    );
+
+    if (failedShortcuts.length > 0) {
+      logger.warn(
+        `[Shortcuts] ${failedShortcuts.length} shortcut(s) failed to register:`,
+        failedShortcuts.map((s) => `${s.key} (${s.description})`).join(', '),
+      );
+    }
   });
 }
 

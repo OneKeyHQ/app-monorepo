@@ -643,8 +643,7 @@ export interface IBroadcastTransactionParams {
   useDefaultRpc?: boolean;
 }
 
-export interface IBroadcastTransactionByCustomRpcParams
-  extends IBroadcastTransactionParams {
+export interface IBroadcastTransactionByCustomRpcParams extends IBroadcastTransactionParams {
   customRpcInfo: IDBCustomRpc;
 }
 

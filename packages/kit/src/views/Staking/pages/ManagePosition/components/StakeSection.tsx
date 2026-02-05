@@ -445,8 +445,8 @@ export const StakeSection = ({
             spenderAddress: earnUtils.isVaultBasedProvider({
               providerName: protocolInfo?.provider || '',
             })
-              ? protocolInfo?.vault ?? ''
-              : protocolInfo?.approve?.approveTarget ?? '',
+              ? (protocolInfo?.vault ?? '')
+              : (protocolInfo?.approve?.approveTarget ?? ''),
             token: tokenInfo?.token,
           }}
           beforeFooter={beforeFooter}

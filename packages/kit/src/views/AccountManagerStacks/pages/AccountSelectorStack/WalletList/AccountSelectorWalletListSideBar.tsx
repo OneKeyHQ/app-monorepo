@@ -196,13 +196,16 @@ export function AccountSelectorWalletListSideBar({
       hideNonBackedUpWallet &&
       !focusWalletChanged.current
     ) {
-      const backedUpWalletsMap = walletsResult.wallets.reduce((acc, wallet) => {
-        acc[wallet.id] = wallet;
-        wallet.hiddenWallets?.forEach((hiddenWallet) => {
-          acc[hiddenWallet.id] = hiddenWallet;
-        });
-        return acc;
-      }, {} as Record<string, IDBWallet>);
+      const backedUpWalletsMap = walletsResult.wallets.reduce(
+        (acc, wallet) => {
+          acc[wallet.id] = wallet;
+          wallet.hiddenWallets?.forEach((hiddenWallet) => {
+            acc[hiddenWallet.id] = hiddenWallet;
+          });
+          return acc;
+        },
+        {} as Record<string, IDBWallet>,
+      );
 
       if (
         !backedUpWalletsMap[selectedAccount.focusedWallet ?? ''] &&

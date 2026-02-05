@@ -1010,7 +1010,7 @@ export function useSwapPositionsSupportTokenListAction() {
           })),
           activeAccount?.indexedAccount?.id,
           !activeAccount?.indexedAccount?.id
-            ? activeAccount?.account?.id ?? activeAccount?.dbAccount?.id
+            ? (activeAccount?.account?.id ?? activeAccount?.dbAccount?.id)
             : undefined,
         );
       }
@@ -1438,7 +1438,7 @@ export function useSwapLimitPriceCheck(
         })
       ) {
         toAmount = swapQuoteCurrentSelect?.isWrapped
-          ? swapQuoteCurrentSelect?.toAmount ?? ''
+          ? (swapQuoteCurrentSelect?.toAmount ?? '')
           : '';
       }
       setToInputAmount({

@@ -111,9 +111,8 @@ class ServiceKeylessWallet extends ServiceBase {
     let client = juiceboxClientCache.get(token);
     if (!client) {
       juiceboxClientCache.clear();
-      const { JuiceboxClient: JuiceboxClientRuntime } = await import(
-        './utils/JuiceboxClient'
-      );
+      const { JuiceboxClient: JuiceboxClientRuntime } =
+        await import('./utils/JuiceboxClient');
       client = new JuiceboxClientRuntime();
       await client.exchangeToken(token);
       juiceboxClientCache.set(token, client);

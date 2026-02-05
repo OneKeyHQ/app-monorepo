@@ -581,9 +581,8 @@ export async function buildSimpleTransaction(
 
   let gasUnitPrice: number | undefined = input.gasUnitPrice;
 
-  const { sequence_number: sequenceNumber } = await aptosClient.getAccount(
-    sender,
-  );
+  const { sequence_number: sequenceNumber } =
+    await aptosClient.getAccount(sender);
 
   if ('function' in payload) {
     // function

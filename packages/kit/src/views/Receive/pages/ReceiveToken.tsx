@@ -123,7 +123,7 @@ function ReceiveToken() {
 
   const displayAddress = isBtcUsedAddressVerifyMode
     ? btcUsedAddress
-    : currentAccount?.address ?? '';
+    : (currentAccount?.address ?? '');
   const verificationPath = isBtcUsedAddressVerifyMode
     ? btcUsedAddressPath
     : currentAccount?.addressDetail?.receiveAddressPath;

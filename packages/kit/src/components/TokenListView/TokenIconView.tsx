@@ -72,8 +72,8 @@ function TokenIconView(props: IProps) {
       aggregateTokenList?.length === 1 &&
       allAggregateTokenList.length === 0) ||
     (tokenHasBalance && tokenHasBalanceCount === 1)
-      ? tokenHasBalance?.networkId ?? firstAggregateToken?.networkId ?? ''
-      : networkId ?? '';
+      ? (tokenHasBalance?.networkId ?? firstAggregateToken?.networkId ?? '')
+      : (networkId ?? '');
 
   const network = useMemo(() => {
     if (!selectedNetworkId) {

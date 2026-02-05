@@ -451,9 +451,8 @@ async function batchGetKeysByAsyncSubCalls(
   const seedBuffer: Buffer = bufferUtils.toBuffer(seed);
 
   // Generate master key
-  let key: IBip32ExtendedKey = await deriver.generateMasterKeyFromSeedAsync(
-    seedBuffer,
-  );
+  let key: IBip32ExtendedKey =
+    await deriver.generateMasterKeyFromSeedAsync(seedBuffer);
 
   // Process prefix path components
   const prefixComponents = prefix.split('/').filter((p) => p !== 'm');
@@ -593,9 +592,8 @@ async function batchGetPublicKeys(
     !platformEnv.isJest &&
     !globalThis.$onekeyAppWebembedApiWebviewInitFailed
   ) {
-    const keys = await appGlobals.$webembedApiProxy.secret.batchGetPublicKeys(
-      params,
-    );
+    const keys =
+      await appGlobals.$webembedApiProxy.secret.batchGetPublicKeys(params);
     return keys.map((key) => ({
       path: key.path,
       parentFingerPrint: Buffer.from(key.parentFingerPrint, 'hex'),
@@ -774,9 +772,8 @@ async function mnemonicToSeedAsync(
     !platformEnv.isJest &&
     !globalThis.$onekeyAppWebembedApiWebviewInitFailed
   ) {
-    const hex = await appGlobals.$webembedApiProxy.secret.mnemonicToSeedAsync(
-      params,
-    );
+    const hex =
+      await appGlobals.$webembedApiProxy.secret.mnemonicToSeedAsync(params);
     return Buffer.from(hex, 'hex');
   }
   const isValid = validateMnemonic(params.mnemonic);

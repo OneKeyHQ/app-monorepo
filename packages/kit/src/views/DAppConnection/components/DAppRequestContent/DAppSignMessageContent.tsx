@@ -78,10 +78,13 @@ function DAppSignMessageContent({
         messageObject = messageObject.message ?? messageObject;
         if (Array.isArray(messageObject)) {
           const v1Message: ITypedDataV1[] = messageObject;
-          messageObject = v1Message.reduce((acc, cur) => {
-            acc[cur.name] = cur.value;
-            return acc;
-          }, {} as Record<string, string>);
+          messageObject = v1Message.reduce(
+            (acc, cur) => {
+              acc[cur.name] = cur.value;
+              return acc;
+            },
+            {} as Record<string, string>,
+          );
         }
         return JSON.stringify(messageObject, null, 2);
       }
@@ -94,7 +97,7 @@ function DAppSignMessageContent({
           messageObject = messageObject?.message ?? messageObject;
           return JSON.stringify(
             typeof messageObject === 'string'
-              ? JSON.parse(messageObject) ?? {}
+              ? (JSON.parse(messageObject) ?? {})
               : messageObject,
             null,
             2,

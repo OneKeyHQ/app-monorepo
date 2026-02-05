@@ -2,7 +2,13 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { RefreshControl, ScrollView } from 'react-native';
 
-import { IconButton, Skeleton, XStack, YStack } from '@onekeyhq/components';
+import {
+  IconButton,
+  Skeleton,
+  XStack,
+  YStack,
+  useScrollContentTabBarOffset,
+} from '@onekeyhq/components';
 import {
   useSwapFromTokenAmountAtom,
   useSwapProErrorAlertAtom,
@@ -80,6 +86,7 @@ const SwapProContainer = ({
   const [, setSwapProInputAmount] = useSwapProInputAmountAtom();
   const [, setFromInputAmount] = useSwapFromTokenAmountAtom();
   const [, setSwapProSliderValue] = useSwapProSliderValueAtom();
+  const tabBarHeight = useScrollContentTabBarOffset();
   const scrollViewRef = useRef<ScrollView>(null);
   const { fetchTokenMarketDetailInfo } = useSwapProTokenDetailInfo();
   const [swapProErrorAlert] = useSwapProErrorAlertAtom();
@@ -158,6 +165,7 @@ const SwapProContainer = ({
       contentContainerStyle={{
         flexGrow: 1,
         paddingHorizontal: 20,
+        paddingBottom: tabBarHeight,
       }}
       showsVerticalScrollIndicator={false}
       stickyHeaderIndices={[0]}

@@ -123,6 +123,7 @@ export function TransactionsHistory({
 
   return (
     <Tabs.FlatList<IMarketTokenTransaction>
+      showsVerticalScrollIndicator={false}
       key={listKey}
       onEndReached={handleEndReached}
       onEndReachedThreshold={0.2}
@@ -130,7 +131,6 @@ export function TransactionsHistory({
       data={transactions}
       renderItem={renderItem}
       keyExtractor={keyExtractor}
-      showsVerticalScrollIndicator
       ListEmptyComponent={
         isRefreshing ? (
           <TransactionsSkeleton />

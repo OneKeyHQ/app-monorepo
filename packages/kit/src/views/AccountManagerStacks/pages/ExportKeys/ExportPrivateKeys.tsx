@@ -97,8 +97,8 @@ function ExportPrivateKeysPage({
     () =>
       Boolean(
         account &&
-          !indexedAccount &&
-          accountUtils.isImportedAccount({ accountId: account?.id }),
+        !indexedAccount &&
+        accountUtils.isImportedAccount({ accountId: account?.id }),
       ),
     [account, indexedAccount],
   );
@@ -107,8 +107,8 @@ function ExportPrivateKeysPage({
     () =>
       Boolean(
         account &&
-          !indexedAccount &&
-          accountUtils.isWatchingAccount({ accountId: account?.id }),
+        !indexedAccount &&
+        accountUtils.isWatchingAccount({ accountId: account?.id }),
       ),
     [account, indexedAccount],
   );

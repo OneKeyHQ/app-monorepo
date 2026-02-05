@@ -2,7 +2,12 @@ import { useCallback, useRef } from 'react';
 
 import { type ScrollView as ScrollViewNative } from 'react-native';
 
-import { EPageType, ScrollView, YStack } from '@onekeyhq/components';
+import {
+  EPageType,
+  ScrollView,
+  YStack,
+  useScrollContentTabBarOffset,
+} from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 import type {
@@ -73,6 +78,7 @@ const SwapBridgeMdContainer = ({
   swapRecentTokenPairs,
   supportNetworksList,
 }: ISwapBridgeMdContainerProps) => {
+  const tabBarHeight = useScrollContentTabBarOffset();
   const scrollViewRef = useRef<ScrollViewNative>(null);
   const onSearchClickCallback = useCallback(() => {
     onSelectToken(ESwapDirectionType.FROM);
@@ -97,6 +103,7 @@ const SwapBridgeMdContainer = ({
       keyboardDismissMode="on-drag"
       ref={scrollViewRef}
       showsVerticalScrollIndicator={false}
+      contentContainerStyle={{ paddingBottom: tabBarHeight }}
     >
       <YStack
         pt="$2.5"

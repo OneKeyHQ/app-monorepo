@@ -1335,9 +1335,7 @@ export default class Vault extends VaultBase {
           url: '/api/v1/order/create',
           data: {
             ...createOrderParams,
-            sourceFlag: (
-              await this.getNetwork()
-            ).isTestnet
+            sourceFlag: (await this.getNetwork()).isTestnet
               ? TRON_SOURCE_FLAG_TESTNET
               : TRON_SOURCE_FLAG_MAINNET,
           },
@@ -1366,9 +1364,7 @@ export default class Vault extends VaultBase {
             orderId,
             fromHash: signedTx.txid,
             signedData: JSON.parse(signedTx.rawTx),
-            sourceFlag: (
-              await this.getNetwork()
-            ).isTestnet
+            sourceFlag: (await this.getNetwork()).isTestnet
               ? TRON_SOURCE_FLAG_TESTNET
               : TRON_SOURCE_FLAG_MAINNET,
           },

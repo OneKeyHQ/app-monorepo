@@ -80,9 +80,8 @@ let lastPushAbleNavigation:
 const PUSH_MODAL_LOCK_DURATION_MS = 300;
 
 function useAppNavigation<
-  P extends
-    | IPageNavigationProp<any>
-    | IModalNavigationProp<any> = IPageNavigationProp<any>,
+  P extends IPageNavigationProp<any> | IModalNavigationProp<any> =
+    IPageNavigationProp<any>,
 >() {
   // rootNavigationRef
   const navigation = useNavigation<P>();

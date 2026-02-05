@@ -1,13 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgNotification = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      fill="currentColor"
-      fillRule="evenodd"
-      d="M12 2a7.85 7.85 0 0 0-7.784 6.815l-.905 6.789A3 3 0 0 0 6.284 19h1.07c.904 1.748 2.607 3 4.646 3s3.742-1.252 4.646-3h1.07a3 3 0 0 0 2.973-3.396l-.905-6.789A7.85 7.85 0 0 0 12 2m2.222 17H9.778c.61.637 1.399 1 2.222 1s1.613-.363 2.222-1"
-      clipRule="evenodd"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M12 2C7.792 2 4.198 5.173 3.75 9.356l-.724 5.9A2 2 0 0 0 5.01 17.5h13.978a2 2 0 0 0 1.985-2.244l-.724-5.9C19.802 5.173 16.208 2 12 2m4.584 17H7.416a5.001 5.001 0 0 0 9.168 0" />
   </Svg>
 );
 export default SvgNotification;

@@ -484,9 +484,8 @@ export default class VaultDot extends VaultBase {
       .toFixed();
 
     const customRpcClient = await this.getCustomApiPromise();
-    const { decodedUnsigned: decodedUnsignedTx } = await this._decodeUnsignedTx(
-      encodedTx,
-    );
+    const { decodedUnsigned: decodedUnsignedTx } =
+      await this._decodeUnsignedTx(encodedTx);
 
     const subVault = await this.getSubVault();
     const updatedUnsigned = await subVault.updateUnsignedTx({
@@ -691,9 +690,8 @@ export default class VaultDot extends VaultBase {
     }
     const { unsignedTx, feeInfo } = params;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxDot;
-    const { decodedUnsigned: decodedUnsignedTx } = await this._decodeUnsignedTx(
-      encodedTx,
-    );
+    const { decodedUnsigned: decodedUnsignedTx } =
+      await this._decodeUnsignedTx(encodedTx);
     const actionType = getTransactionTypeFromTxInfo(decodedUnsignedTx);
 
     if (actionType === EDecodedTxActionType.ASSET_TRANSFER) {

@@ -16,16 +16,14 @@ const UrlAccountPageContainer = LazyLoadPage(async () => {
 });
 
 const UrlAccountLanding = LazyLoadPage(async () => {
-  const { UrlAccountLanding: UrlAccountLandingModule } = await import(
-    '../pages/urlAccount/UrlAccountPage'
-  );
+  const { UrlAccountLanding: UrlAccountLandingModule } =
+    await import('../pages/urlAccount/UrlAccountPage');
   return { default: UrlAccountLandingModule };
 });
 
 const ReferralLanding = LazyLoadPage(async () => {
-  const { ReferralLandingPage } = await import(
-    '../pages/referralLanding/ReferralLandingPage'
-  );
+  const { ReferralLandingPage } =
+    await import('../pages/referralLanding/ReferralLandingPage');
   return { default: ReferralLandingPage };
 });
 

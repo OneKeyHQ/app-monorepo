@@ -144,13 +144,16 @@ export function Container({
     initialTabName || tabNames[0] || '',
   );
   const scrollTabElementDict = useMemo(() => {
-    return tabNames.reduce((acc, name) => {
-      acc[name] = {
-        element: null,
-        height: 0,
-      };
-      return acc;
-    }, {} as { [key: string]: { element: HTMLElement | null; height: number } });
+    return tabNames.reduce(
+      (acc, name) => {
+        acc[name] = {
+          element: null,
+          height: 0,
+        };
+        return acc;
+      },
+      {} as { [key: string]: { element: HTMLElement | null; height: number } },
+    );
   }, [tabNames]);
   const scrollTabElementsRef = useRef<{
     [key: string]: {
@@ -199,16 +202,14 @@ export function Container({
             ?.clientHeight;
 
         if (height) {
-          (
-            listContainerRef.current as HTMLElement
-          ).style.maxHeight = `${height}px`;
+          (listContainerRef.current as HTMLElement).style.maxHeight =
+            `${height}px`;
           setTimeout(() => {
             resizeObserverRef.current = new ResizeObserver((entries) => {
               const entry = entries[0];
               if (entry && entry.contentRect.height) {
-                (
-                  listContainerRef.current as HTMLElement
-                ).style.maxHeight = `${entry.contentRect.height}px`;
+                (listContainerRef.current as HTMLElement).style.maxHeight =
+                  `${entry.contentRect.height}px`;
               } else {
                 // When quickly removing and adding observer nodes, ResizeObserver API has a delay
                 // and there's a chance it won't get the current node height, so we need delayed retries

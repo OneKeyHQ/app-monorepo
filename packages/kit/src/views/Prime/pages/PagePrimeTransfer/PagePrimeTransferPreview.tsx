@@ -369,9 +369,9 @@ export default function PagePrimeTransferPreview() {
         (acc, wallet) => {
           const shouldDisabled = Boolean(
             platformEnv.isWebDappMode &&
-              accountUtils.isHdWallet({
-                walletId: wallet?.id || '',
-              }),
+            accountUtils.isHdWallet({
+              walletId: wallet?.id || '',
+            }),
           );
           acc[wallet.id] = {
             checked: !shouldDisabled,
@@ -392,9 +392,9 @@ export default function PagePrimeTransferPreview() {
         (acc, account) => {
           const shouldDisabled = Boolean(
             platformEnv.isWebDappMode &&
-              accountUtils.isImportedAccount({
-                accountId: account?.id || '',
-              }),
+            accountUtils.isImportedAccount({
+              accountId: account?.id || '',
+            }),
           );
 
           acc[account.id] = {
@@ -412,13 +412,16 @@ export default function PagePrimeTransferPreview() {
       ),
       watchingAccount: Object.values(
         transferData?.privateData?.watchingAccounts || {},
-      ).reduce((acc, account) => {
-        acc[account.id] = {
-          checked: true,
-          disabled: false,
-        };
-        return acc;
-      }, {} as { [id: string]: { checked: boolean; disabled: boolean } }),
+      ).reduce(
+        (acc, account) => {
+          acc[account.id] = {
+            checked: true,
+            disabled: false,
+          };
+          return acc;
+        },
+        {} as { [id: string]: { checked: boolean; disabled: boolean } },
+      ),
     };
   }, [
     transferData?.privateData?.wallets,

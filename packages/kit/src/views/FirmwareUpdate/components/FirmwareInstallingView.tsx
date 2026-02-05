@@ -33,7 +33,7 @@ export function FirmwareInstallingViewBase({
   const isDone = stepInfo.step === EFirmwareUpdateSteps.updateDone;
   const needOnboarding =
     stepInfo.step === EFirmwareUpdateSteps.updateDone
-      ? stepInfo.payload?.needOnboarding ?? false
+      ? (stepInfo.payload?.needOnboarding ?? false)
       : false;
 
   const content = useMemo(() => {

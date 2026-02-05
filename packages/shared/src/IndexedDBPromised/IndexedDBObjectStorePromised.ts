@@ -28,8 +28,7 @@ export class IndexedDBObjectStorePromised<
   >,
   StoreName extends StoreNames<DBTypes> = StoreNames<DBTypes>,
   Mode extends IDBTransactionMode = 'readonly',
-> implements IDBPObjectStore<DBTypes, TxStores, StoreName, Mode>
-{
+> implements IDBPObjectStore<DBTypes, TxStores, StoreName, Mode> {
   readonly store: IDBObjectStore;
 
   readonly mode: Mode;

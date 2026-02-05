@@ -1,12 +1,14 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgHomeDoor2 = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      fill="currentColor"
-      d="M10.108 1.999a3 3 0 0 1 3.784 0l6 4.875A3 3 0 0 1 21 9.202V18a3 3 0 0 1-3 3h-2v-6a3 3 0 0 0-3-3h-2a3 3 0 0 0-3 3v6H6a3 3 0 0 1-3-3V9.202a3 3 0 0 1 1.108-2.328z"
-    />
-    <Path fill="currentColor" d="M10 21h4v-6a1 1 0 0 0-1-1h-2a1 1 0 0 0-1 1z" />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M10.739 1.756a2 2 0 0 1 2.522 0l7 5.687A2 2 0 0 1 21 8.995V19.02a2 2 0 0 1-2 2h-3v-8a1 1 0 0 0-1-1H9a1 1 0 0 0-1 1v8H5a2 2 0 0 1-2-2V8.995a2 2 0 0 1 .739-1.552z" />
+    <Path d="M10 21.02h4v-7h-4z" />
   </Svg>
 );
 export default SvgHomeDoor2;

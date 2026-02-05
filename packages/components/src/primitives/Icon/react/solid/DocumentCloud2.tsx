@@ -1,17 +1,20 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgDocumentCloud2 = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      fill="currentColor"
       fillRule="evenodd"
-      d="M4 5a3 3 0 0 1 3-3h10a3 3 0 0 1 3 3v8.168A6.25 6.25 0 0 0 11.167 22H7a3 3 0 0 1-3-3zm3 1a1 1 0 0 1 1-1h6a1 1 0 1 1 0 2H8a1 1 0 0 1-1-1m0 4a1 1 0 0 1 1-1h2a1 1 0 1 1 0 2H8a1 1 0 0 1-1-1"
+      d="M18 2a2 2 0 0 1 2 2v9.168A6.25 6.25 0 0 0 11.167 22H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zM8 9a1 1 0 0 0 0 2h2a1 1 0 1 0 0-2zm0-4a1 1 0 0 0 0 2h6a1 1 0 1 0 0-2z"
       clipRule="evenodd"
     />
     <Path
-      fill="currentColor"
       fillRule="evenodd"
-      d="M15.75 13.5a4.25 4.25 0 0 0 0 8.5h2.75a3.5 3.5 0 0 0 .523-6.961A4.24 4.24 0 0 0 15.75 13.5m-2.25 4.25a2.25 2.25 0 0 1 4.147-1.21 1 1 0 0 0 .844.46h.009a1.5 1.5 0 0 1 0 3h-2.75a2.25 2.25 0 0 1-2.25-2.25"
+      d="M15.75 13.5c1.318 0 2.494.6 3.273 1.54A3.5 3.5 0 0 1 18.5 22h-2.75a4.25 4.25 0 0 1 0-8.5m0 2a2.25 2.25 0 0 0 0 4.5h2.75a1.5 1.5 0 0 0 0-3h-.009a1 1 0 0 1-.845-.46 2.25 2.25 0 0 0-1.896-1.04"
       clipRule="evenodd"
     />
   </Svg>

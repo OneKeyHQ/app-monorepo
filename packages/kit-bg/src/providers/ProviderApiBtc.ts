@@ -263,9 +263,8 @@ class ProviderApiBtc extends ProviderApiBase {
     const defaultNetwork = await this.backgroundApi.serviceNetwork.getNetwork({
       networkId: getNetworkIdsMap().btc,
     });
-    const defaultChain = await networkUtils.getBtcDappNetworkName(
-      defaultNetwork,
-    );
+    const defaultChain =
+      await networkUtils.getBtcDappNetworkName(defaultNetwork);
     try {
       const networks =
         await this.backgroundApi.serviceDApp.getConnectedNetworks({

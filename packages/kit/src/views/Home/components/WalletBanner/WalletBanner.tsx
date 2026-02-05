@@ -1,22 +1,19 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { isNil } from 'lodash';
-import { StyleSheet } from 'react-native';
-import { useDebouncedCallback } from 'use-debounce';
 
 import {
-  Carousel,
   Icon,
   IconButton,
   Image,
+  ScrollView,
   SizableText,
+  Stack,
   XStack,
   YStack,
-  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useWalletBanner } from '@onekeyhq/kit/src/hooks/useWalletBanner';
 import {
   useAccountOverviewActions,
@@ -27,8 +24,164 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IWalletBanner } from '@onekeyhq/shared/types/walletBanner';
 
 import type { GestureResponderEvent } from 'react-native';
+import { ENotificationPushMessageMode } from '@onekeyhq/shared/types/notification';
 
 const closedBanners: Record<string, boolean> = {};
+
+const staticBanners: IWalletBanner[] = [
+  {
+    _id: 'static-1',
+    id: 'static-1',
+    src: '',
+    title: 'Use USDT to cover fees',
+    description: '',
+    button: '',
+    rank: 0,
+    closeable: false,
+    closeForever: false,
+    useSystemBrowser: false,
+    theme: 'light',
+    icon: {
+      name: 'GasSolid',
+    },
+    mode: ENotificationPushMessageMode.openInDapp,
+    payload: 'https://onekey.so',
+  },
+  {
+    _id: 'static-2',
+    id: 'static-2',
+    src: '',
+    title: 'Invite friends and get rewards',
+    description: '',
+    button: '',
+    rank: 0,
+    closeable: false,
+    closeForever: false,
+    useSystemBrowser: false,
+    theme: 'light',
+    icon: {
+      name: 'GiftSolid',
+    },
+    mode: ENotificationPushMessageMode.openInDapp,
+    payload: 'https://onekey.so',
+  },
+  {
+    _id: 'static-3',
+    id: 'static-3',
+    src: '',
+    title: 'Sign & verify message',
+    description: '',
+    button: '',
+    rank: 0,
+    closeable: false,
+    closeForever: false,
+    useSystemBrowser: false,
+    theme: 'light',
+    icon: {
+      name: 'PenSolid',
+    },
+    mode: ENotificationPushMessageMode.openInDapp,
+    payload: 'https://onekey.so',
+  },
+];
+
+function BannerItem({
+  item,
+  onPress,
+  onDismiss,
+}: {
+  item: IWalletBanner;
+  onPress: (item: IWalletBanner) => void;
+  onDismiss: (item: IWalletBanner) => void;
+}) {
+  const handlePress = useCallback(() => {
+    onPress(item);
+  }, [onPress, item]);
+  return (
+    <XStack
+      w={280}
+      h={108}
+      p="$1"
+      bg="$bgSubdued"
+      borderRadius="$4"
+      borderCurve="continuous"
+      hoverStyle={{
+        bg: '$bgHover',
+      }}
+      pressStyle={{
+        bg: '$bgActive',
+      }}
+      focusable
+      focusVisibleStyle={{
+        outlineColor: '$focusRing',
+        outlineWidth: 2,
+        outlineStyle: 'solid',
+        outlineOffset: -2,
+      }}
+      onPress={handlePress}
+    >
+      <XStack ai="center">
+        {item.src ? (
+          <Image size={60} mx="$2.5" source={{ uri: item.src }} />
+        ) : null}
+        {item.title && item.description ? (
+          <YStack flex={1} gap="$2" ml={!item.src ? '$4' : undefined}>
+            <SizableText size="$bodyXs" color="$text" numberOfLines={1} w={184}>
+              {item.title}
+            </SizableText>
+            {item.description ? (
+              <SizableText
+                w={184}
+                fontWeight={600}
+                fontSize={14}
+                numberOfLines={2}
+              >
+                {item.description}
+              </SizableText>
+            ) : null}
+          </YStack>
+        ) : null}
+        {item.title && !item.description ? (
+          <SizableText
+            w={184}
+            left="$4"
+            top="$4"
+            position="absolute"
+            fontWeight={600}
+            fontSize={14}
+            numberOfLines={2}
+          >
+            {item.title}
+          </SizableText>
+        ) : null}
+      </XStack>
+
+      {item.closeable ? (
+        <IconButton
+          position="absolute"
+          top="$2"
+          right="$2"
+          size="small"
+          variant="tertiary"
+          onPress={(event: GestureResponderEvent) => {
+            event.stopPropagation();
+            onDismiss(item);
+          }}
+          icon="CrossedSmallOutline"
+        />
+      ) : null}
+      {item.icon ? (
+        <Stack position="absolute" right="$4" bottom="$4">
+          <Icon
+            name={item.icon.name}
+            size={item.icon.size || 24}
+            style={{ color: item.icon.color || '#32B826' }}
+          />
+        </Stack>
+      ) : null}
+    </XStack>
+  );
+}
 
 function WalletBanner() {
   const {
@@ -39,10 +192,11 @@ function WalletBanner() {
 
   const bannersInitRef = useRef(false);
 
-  const { gtSm } = useMedia();
-  const themeVariant = useThemeVariant();
-
-  const [{ banners }] = useWalletTopBannersAtom();
+  const [{ banners: remoteBanners }] = useWalletTopBannersAtom();
+  const banners = useMemo(
+    () => [...remoteBanners, ...staticBanners],
+    [remoteBanners],
+  );
   const { updateWalletTopBanners } = useAccountOverviewActions().current;
 
   const { handleBannerOnPress } = useWalletBanner({
@@ -112,16 +266,6 @@ function WalletBanner() {
     }
   }, []);
 
-  const { gtMd } = useMedia();
-
-  const handlePageChanged = useDebouncedCallback((index: number) => {
-    if (banners[index]) {
-      defaultLogger.wallet.walletBanner.walletBannerViewed({
-        bannerId: banners[index].id,
-      });
-    }
-  }, 180);
-
   const initLocalBanners = useCallback(async () => {
     const walletBannerRawData =
       await backgroundApiProxy.simpleDb.walletBanner.getRawData();
@@ -147,180 +291,23 @@ function WalletBanner() {
 
   return (
     <YStack py="$2.5" bg="$bgApp">
-      <Carousel
-        loop={false}
-        marginRatio={gtMd ? 0.28 : 0}
-        data={banners}
-        autoPlayInterval={3800}
-        maxPageWidth={840}
-        containerStyle={{
-          height: gtSm ? 98 : 90,
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{
+          paddingHorizontal: 20,
+          gap: 8,
         }}
-        paginationContainerStyle={{
-          marginBottom: 0,
-        }}
-        onPageChanged={handlePageChanged}
-        renderItem={({ item }: { item: IWalletBanner }) => {
-          return (
-            <YStack
-              px="$5"
-              pt="$0.5"
-              $platform-native={{
-                h: gtSm ? 82 : 73,
-              }}
-            >
-              <XStack
-                key={item.id}
-                flex={1}
-                gap="$4"
-                alignItems="center"
-                p="$4"
-                pr="$10"
-                bg="$bg"
-                $lg={{
-                  gap: '$3',
-                  py: '$3',
-                }}
-                borderRadius="$3"
-                $platform-native={{
-                  borderWidth: StyleSheet.hairlineWidth,
-                  borderColor: '$borderSubdued',
-                  borderCurve: 'continuous',
-                }}
-                $platform-android={{ elevation: 0.5 }}
-                $platform-ios={{
-                  shadowColor: '#000',
-                  shadowOffset: { width: 0, height: 0.5 },
-                  shadowOpacity: 0.2,
-                  shadowRadius: 0.5,
-                }}
-                $platform-web={{
-                  boxShadow:
-                    '0 8px 12px -4px rgba(0, 0, 0, 0.08), 0 0 2px 0 rgba(0, 0, 0, 0.10), 0 1px 2px 0 rgba(0, 0, 0, 0.10)',
-                  ...(themeVariant === 'dark' && {
-                    borderWidth: 1,
-                    borderColor: '$borderSubdued',
-                  }),
-                }}
-                hoverStyle={{
-                  bg: '$bgHover',
-                }}
-                pressStyle={{
-                  bg: '$bgActive',
-                }}
-                focusable
-                focusVisibleStyle={{
-                  outlineColor: '$focusRing',
-                  outlineWidth: 2,
-                  outlineStyle: 'solid',
-                  outlineOffset: -2,
-                }}
-                onPress={() => handleBannerOnPress(item)}
-              >
-                <Image
-                  size="$12"
-                  borderRadius="$1"
-                  borderCurve="continuous"
-                  source={{ uri: item.src }}
-                  fallback={
-                    <Image.Fallback
-                      w="100%"
-                      h="100%"
-                      borderRadius="$2.5"
-                      bg="$bgStrong"
-                      justifyContent="center"
-                      alignItems="center"
-                    >
-                      <Icon
-                        name="ImageSquareWavesOutline"
-                        color="$iconDisabled"
-                      />
-                    </Image.Fallback>
-                  }
-                />
-                {gtSm ? (
-                  <YStack gap="$0.5" flex={1}>
-                    <SizableText size="$bodyLgMedium" numberOfLines={2}>
-                      {item.title}
-                    </SizableText>
-                    {item.description ? (
-                      <SizableText
-                        size="$bodyMd"
-                        color="$textSubdued"
-                        numberOfLines={1}
-                      >
-                        {item.description}
-                      </SizableText>
-                    ) : null}
-                  </YStack>
-                ) : (
-                  <SizableText size="$bodyMdMedium" flex={1} numberOfLines={2}>
-                    {item.title}
-                    {item.description ? (
-                      <>
-                        <SizableText size="$bodyMd" color="$textSubdued">
-                          {' '}
-                          -{' '}
-                        </SizableText>
-                        <SizableText size="$bodyMd" color="$textSubdued">
-                          {item.description}
-                        </SizableText>
-                      </>
-                    ) : null}
-                  </SizableText>
-                )}
-
-                {/* <XStack
-                  gap="$5"
-                  alignItems="center"
-                  $lg={{
-                    display: 'none',
-                  }}
-                >
-                  {item.closeable ? (
-                    <Button
-                      size="small"
-                      variant="tertiary"
-                      onPress={() => handleDismiss(item)}
-                      pointerEvents="auto"
-                    >
-                      {intl.formatMessage({
-                        id: ETranslations.explore_dismiss,
-                      })}
-                    </Button>
-                  ) : null}
-                  <Button
-                    size="small"
-                    variant="primary"
-                    onPress={() => handleClick(item)}
-                    pointerEvents="auto"
-                  >
-                    {item.button ||
-                      intl.formatMessage({
-                        id: ETranslations.global_check_it_out,
-                      })}
-                  </Button>
-                </XStack> */}
-
-                {item.closeable ? (
-                  <IconButton
-                    position="absolute"
-                    top="$2.5"
-                    right="$2.5"
-                    size="small"
-                    variant="tertiary"
-                    onPress={(event: GestureResponderEvent) => {
-                      event.stopPropagation();
-                      void handleDismiss(item);
-                    }}
-                    icon="CrossedSmallOutline"
-                  />
-                ) : null}
-              </XStack>
-            </YStack>
-          );
-        }}
-      />
+      >
+        {banners.map((item) => (
+          <BannerItem
+            key={item.id}
+            item={item}
+            onPress={handleBannerOnPress}
+            onDismiss={handleDismiss}
+          />
+        ))}
+      </ScrollView>
     </YStack>
   );
 }

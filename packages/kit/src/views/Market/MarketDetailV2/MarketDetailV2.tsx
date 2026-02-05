@@ -52,7 +52,7 @@ function MarketDetail({
   const networkId =
     networkUtils.getNetworkIdFromShortCode({ shortCode: network }) || network;
   const isNativeBoolean =
-    typeof isNative === 'string' ? isNative === 'true' : isNative ?? false;
+    typeof isNative === 'string' ? isNative === 'true' : (isNative ?? false);
 
   // Track market entry analytics
   useMarketEnterAnalytics();

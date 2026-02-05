@@ -84,9 +84,8 @@ export function useEarnRewards(filterState: IFilterState) {
     if (totalResult.status === 'fulfilled' && totalResult.value.items) {
       processItems(totalResult.value.items);
     }
-    const response = await backgroundApiProxy.serviceReferralCode.getPositions(
-      accounts,
-    );
+    const response =
+      await backgroundApiProxy.serviceReferralCode.getPositions(accounts);
 
     const newVaultAmount = {} as IVaultAmount;
     for (const item of response.list) {

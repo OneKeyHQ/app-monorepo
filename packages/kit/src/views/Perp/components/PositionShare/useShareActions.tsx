@@ -49,9 +49,8 @@ export function useShareActions(referralQrCodeUrl?: string) {
 
           if (!isGranted && canRequest) {
             try {
-              const requestResult = await MediaLibrary.requestPermissionsAsync(
-                true,
-              );
+              const requestResult =
+                await MediaLibrary.requestPermissionsAsync(true);
               if (requestResult?.status !== 'granted') {
                 return { success: false, permissionDenied: true };
               }

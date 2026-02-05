@@ -315,7 +315,7 @@ class ServicePrime extends ServiceBase {
     const serverPasswordUUID = serverUserInfo?.pwdHash;
     const isServerMasterPasswordSet = Boolean(
       serverPasswordUUID &&
-        serverPasswordUUID !== RESET_CLOUD_SYNC_MASTER_PASSWORD_UUID,
+      serverPasswordUUID !== RESET_CLOUD_SYNC_MASTER_PASSWORD_UUID,
     );
     await primeServerMasterPasswordStatusAtom.set((v) => ({
       ...v,
