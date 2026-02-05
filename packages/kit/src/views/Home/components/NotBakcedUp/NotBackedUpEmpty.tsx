@@ -128,7 +128,7 @@ function NotBackedUp() {
   }, [account?.id, network?.id, updateAccountOverviewState]);
 
   return (
-    <YStack gap="$5" px="$5" pb="$6">
+    <YStack gap="$5" px="$pagePadding" pb="$6">
       <YStack $gtMd={{ flexDirection: 'row' }} gap="$5">
         <Theme inverse>
           <MainInfoBlock

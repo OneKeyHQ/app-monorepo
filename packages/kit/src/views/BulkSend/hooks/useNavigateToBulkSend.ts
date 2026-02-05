@@ -6,12 +6,12 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalBulkSendRoutes,
   EModalRoutes,
+  ERootRoutes,
   ETabHomeRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IToken } from '@onekeyhq/shared/types/token';
-import { useMedia } from '@onekeyhq/components';
+import { rootNavigationRef, useMedia } from '@onekeyhq/components';
 
 export function useNavigateToBulkSend() {
   const navigation = useAppNavigation();
@@ -45,14 +45,24 @@ export function useNavigateToBulkSend() {
           },
         });
       } else if (media.gtMd) {
-        navigation.switchTab(ETabRoutes.Home);
-        await timerUtils.wait(50);
-        navigation.push(ETabHomeRoutes.TabHomeBulkSendAddressesInput, {
-          networkId,
-          accountId,
-          indexedAccountId,
-          tokenInfo,
-        });
+        rootNavigationRef.current?.navigate(
+          ERootRoutes.Main,
+          {
+            screen: ETabRoutes.Home,
+            params: {
+              screen: ETabHomeRoutes.TabHomeBulkSendAddressesInput,
+              params: {
+                networkId,
+                accountId,
+                indexedAccountId,
+                tokenInfo,
+              },
+            },
+          },
+          {
+            pop: true,
+          },
+        );
       } else {
         navigation.pushModal(EModalRoutes.BulkSendModal, {
           screen: EModalBulkSendRoutes.BulkSendAddressesInput,

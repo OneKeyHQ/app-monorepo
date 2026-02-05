@@ -115,37 +115,31 @@ function DeviceDetailsModalV2Cmp({ walletId }: { walletId: string }) {
         testID="device-details-content"
         $gtMd={{ pt: '$8' }}
       >
-        <XStack
-          w="100%"
-          maxWidth="$pageWidth"
-          mx="auto"
-          px="$5"
-          bg="$bgApp"
-          gap="$8"
-          alignItems="flex-start"
-        >
-          <YStack gap="$8" flex={1}>
-            <DeviceBasicInfo />
-            {isQrWallet ? (
-              <DeviceSectionQrInfo />
-            ) : (
-              <>
-                <DeviceUpdateAlert type="bottom" />
-                <DeviceSectionSupport
-                  onPressCheckForUpdates={onPressCheckForUpdates}
-                />
-                <DeviceSectionGeneral />
-                <DeviceSectionSecurity />
-                <DeviceSectionAdvance />
-                <DeviceSectionDeviceConnect />
-                <DeviceSectionDangerZone
-                  onPressCheckForUpdates={onPressCheckForUpdates}
-                />
-              </>
-            )}
-          </YStack>
-          <DeviceGetStartedLayout />
-        </XStack>
+        <Page.Container>
+          <XStack bg="$bgApp" gap="$8" alignItems="flex-start">
+            <YStack gap="$8" flex={1}>
+              <DeviceBasicInfo />
+              {isQrWallet ? (
+                <DeviceSectionQrInfo />
+              ) : (
+                <>
+                  <DeviceUpdateAlert type="bottom" />
+                  <DeviceSectionSupport
+                    onPressCheckForUpdates={onPressCheckForUpdates}
+                  />
+                  <DeviceSectionGeneral />
+                  <DeviceSectionSecurity />
+                  <DeviceSectionAdvance />
+                  <DeviceSectionDeviceConnect />
+                  <DeviceSectionDangerZone
+                    onPressCheckForUpdates={onPressCheckForUpdates}
+                  />
+                </>
+              )}
+            </YStack>
+            <DeviceGetStartedLayout />
+          </XStack>
+        </Page.Container>
       </Page.Body>
     </Page>
   );

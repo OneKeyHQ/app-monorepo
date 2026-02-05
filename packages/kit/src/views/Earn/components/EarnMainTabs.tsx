@@ -47,6 +47,7 @@ interface IEarnMainTabsProps {
   defaultTab?: 'assets' | 'portfolio' | 'faqs';
   portfolioData: IUseEarnPortfolioReturn;
   header?: React.ReactNode;
+  tabsRef?: React.RefObject<ITabContainerRef | null>;
 }
 
 const TabContentContainer = ({
@@ -82,10 +83,12 @@ const EarnMainTabsComponent = ({
   defaultTab,
   portfolioData,
   header,
+  tabsRef: externalTabsRef,
 }: IEarnMainTabsProps) => {
   const intl = useIntl();
   const theme = useTheme();
-  const tabsRef = useRef<ITabContainerRef>(null);
+  const internalTabsRef = useRef<ITabContainerRef>(null);
+  const tabsRef = externalTabsRef || internalTabsRef;
   const { hideSmallAssets, setHideSmallAssets } = useEarnHideSmallAssets();
 
   const tabNames = useMemo(
@@ -151,6 +154,7 @@ const EarnMainTabsComponent = ({
         tabsRef.current.jumpToTab(targetTabName);
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [defaultTab, initialTabName, isFocused]);
 
   useEffect(() => {
@@ -163,12 +167,14 @@ const EarnMainTabsComponent = ({
     return () => {
       appEventBus.off(EAppEventBusNames.SwitchEarnTab, callback);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [getTabName]);
 
   useEffect(
     () => () => {
       tabsRef.current = null;
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
 
