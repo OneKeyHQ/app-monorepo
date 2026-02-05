@@ -88,6 +88,7 @@ import type {
   IValidateGeneralInputParams,
 } from '../../types';
 import type { Types } from 'tronweb';
+import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 
 const INFINITE_AMOUNT_HEX =
   '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff';
@@ -308,12 +309,10 @@ export default class Vault extends VaultBase {
                     method: 'transactionBuilder.sendTrx',
                     params: [
                       to,
-                      parseInt(
-                        new BigNumber(amount)
-                          .shiftedBy(tokenInfo.decimals)
-                          .toFixed(),
-                        10,
-                      ),
+                      chainValueUtils.convertAmountToChainValue({
+                        network: await this.getNetwork(),
+                        value: amount,
+                      }),
                       from,
                     ],
                   },
@@ -380,7 +379,6 @@ export default class Vault extends VaultBase {
         from,
         contractAddress,
         isSameAmount,
-        decimals: network.decimals,
       });
     }
 
@@ -398,21 +396,22 @@ export default class Vault extends VaultBase {
     from: string;
     contractAddress: string;
     isSameAmount: boolean;
-    decimals: number;
   }): Promise<IEncodedTxTron> {
-    const { transfersInfo, from, contractAddress, isSameAmount, decimals } =
-      params;
+    const { transfersInfo, from, contractAddress, isSameAmount } = params;
+
+    const network = await this.getNetwork();
 
     const recipients = transfersInfo.map((t) => t.to);
 
     if (isSameAmount) {
       // Use sendTRXSameAmount for better energy efficiency
-      const amountOnChain = new BigNumber(transfersInfo[0].amount)
-        .shiftedBy(decimals)
-        .toFixed(0);
+      const amountOnChain = chainValueUtils.convertAmountToChainValue({
+        network,
+        value: transfersInfo[0].amount,
+      });
       const totalValue = new BigNumber(amountOnChain)
         .times(transfersInfo.length)
-        .toNumber();
+        .toFixed();
 
       const [
         {
@@ -459,12 +458,15 @@ export default class Vault extends VaultBase {
     // Use sendTRX for different amounts
     const transfers = transfersInfo.map((t) => ({
       recipient: t.to,
-      amount: new BigNumber(t.amount).shiftedBy(decimals).toFixed(0),
+      amount: chainValueUtils.convertAmountToChainValue({
+        network,
+        value: t.amount,
+      }),
     }));
 
     const totalValue = transfers
       .reduce((sum, t) => sum.plus(t.amount), new BigNumber(0))
-      .toNumber();
+      .toFixed();
 
     // Build tuple array for (address recipient, uint256 amount)[]
     const transferTuples = transfers.map((t) => [t.recipient, t.amount]);
@@ -534,9 +536,10 @@ export default class Vault extends VaultBase {
 
     if (isSameAmount) {
       // Use sendTRC20SameAmount for better energy efficiency
-      const amountOnChain = new BigNumber(transfersInfo[0].amount)
-        .shiftedBy(tokenInfo.decimals)
-        .toFixed(0);
+      const amountOnChain = chainValueUtils.convertTokenAmountToChainValue({
+        token: tokenInfo,
+        value: transfersInfo[0].amount,
+      });
 
       const [
         {
@@ -584,7 +587,10 @@ export default class Vault extends VaultBase {
     // Use sendTRC20 for different amounts
     const transfers = transfersInfo.map((t) => ({
       recipient: t.to,
-      amount: new BigNumber(t.amount).shiftedBy(tokenInfo.decimals).toFixed(0),
+      amount: chainValueUtils.convertTokenAmountToChainValue({
+        token: tokenInfo,
+        value: t.amount,
+      }),
     }));
 
     // Build tuple array for (address recipient, uint256 amount)[]
@@ -1000,9 +1006,10 @@ export default class Vault extends VaultBase {
                   method: 'transactionBuilder.sendTrx',
                   params: [
                     TronWeb.utils.address.fromHex(toAddressHex),
-                    new BigNumber(nativeAmountInfo.maxSendAmount)
-                      .shiftedBy(network.decimals)
-                      .toNumber(),
+                    chainValueUtils.convertAmountToChainValue({
+                      network,
+                      value: nativeAmountInfo.maxSendAmount,
+                    }),
                     TronWeb.utils.address.fromHex(fromAddressHex),
                   ],
                 },
@@ -1198,7 +1205,7 @@ export default class Vault extends VaultBase {
                 signatureDataHex,
                 {
                   feeLimit: 300_000_000,
-                  callValue: parseInt(value, 10),
+                  callValue: new BigNumber(value).toFixed(),
                 },
                 buildTxParams,
                 from,
@@ -1251,7 +1258,10 @@ export default class Vault extends VaultBase {
     const ownerAddress = convertEvmToTronAddress(from);
     const contractAddress = convertEvmToTronAddress(to);
 
-    const callValue = parseInt(value, 16);
+    // value is hex string from LiquidMesh API, ensure proper hex parsing
+    const callValue = new BigNumber(
+      value.startsWith('0x') ? value : `0x${value}`,
+    ).toFixed();
 
     const functionSelector = data.slice(2, 10);
 
