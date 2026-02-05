@@ -279,13 +279,13 @@ export function useFirmwareUpdateActions() {
         });
       }
 
-      Dialog.confirm({
+      Dialog.show({
         title,
         icon: 'ChecklistOutline',
         renderContent: <FirmwareUpdateCheckList result={result} />,
-        onConfirmText: intl.formatMessage({
-          id: ETranslations.global_continue,
-        }),
+        dismissOnOverlayPress: false,
+        showExitButton: false,
+        showFooter: false,
       });
     },
     [intl],

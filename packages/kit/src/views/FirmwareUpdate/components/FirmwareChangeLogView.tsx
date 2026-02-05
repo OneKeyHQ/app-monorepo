@@ -289,32 +289,38 @@ export function FirmwareChangeLogView({
   const [, setStepInfo] = useFirmwareUpdateStepInfoAtom();
   const { showCheckList } = useFirmwareUpdateActions();
 
-  const handleConfirmClick = useCallback(async () => {
-    const isUSBDeviceAvailable =
-      await backgroundApiProxy.serviceHardware.detectUSBDeviceAvailability();
-    if (!isUSBDeviceAvailable) {
-      Dialog.show({
-        icon: 'TypeCoutline',
-        title: intl.formatMessage({
-          id: ETranslations.upgrade_use_usb,
-        }),
-        description: intl.formatMessage({
-          id: ETranslations.upgrade_recommend_usb,
-        }),
-        onConfirmText: intl.formatMessage({
-          id: ETranslations.global_got_it,
-        }),
-        showCancelButton: false,
+  const handleConfirmClick = useCallback(
+    async (
+      _close?: (extra?: { flag?: string }) => void,
+      _closePageStack?: (extra?: { flag?: string }) => void,
+    ) => {
+      const isUSBDeviceAvailable =
+        await backgroundApiProxy.serviceHardware.detectUSBDeviceAvailability();
+      if (!isUSBDeviceAvailable) {
+        Dialog.show({
+          icon: 'TypeCoutline',
+          title: intl.formatMessage({
+            id: ETranslations.upgrade_use_usb,
+          }),
+          description: intl.formatMessage({
+            id: ETranslations.upgrade_recommend_usb,
+          }),
+          onConfirmText: intl.formatMessage({
+            id: ETranslations.global_got_it,
+          }),
+          showCancelButton: false,
+        });
+        return;
+      }
+      setStepInfo({
+        step: EFirmwareUpdateSteps.showCheckList,
+        payload: undefined,
       });
-      return;
-    }
-    setStepInfo({
-      step: EFirmwareUpdateSteps.showCheckList,
-      payload: undefined,
-    });
-    showCheckList({ result });
-    onConfirmClick?.();
-  }, [result, showCheckList, onConfirmClick, setStepInfo, intl]);
+      showCheckList({ result });
+      onConfirmClick?.();
+    },
+    [result, showCheckList, onConfirmClick, setStepInfo, intl],
+  );
 
   const updateFirmwareInfo = result?.updateInfos?.firmware;
 

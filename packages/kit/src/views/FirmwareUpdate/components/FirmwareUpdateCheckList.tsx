@@ -127,14 +127,6 @@ export function FirmwareUpdateCheckList({
 
                 const updateFirmwareInfo = result?.updateInfos?.firmware;
                 try {
-                  await dialog.close();
-
-                  // Wait for React Native Fabric to complete view cleanup
-                  // This prevents RetryableMountingLayerException during rapid navigation
-                  await timerUtils.wait(150);
-
-                  if (!isMountedRef.current) return;
-
                   setStepInfo({
                     step: EFirmwareUpdateSteps.updateStart,
                     payload: {
@@ -154,6 +146,14 @@ export function FirmwareUpdateCheckList({
                     navigation.push(EModalFirmwareUpdateRoutes.InstallV2, {
                       result,
                     });
+                    await dialog.close();
+
+                    // Wait for React Native Fabric to complete view cleanup
+                    // This prevents RetryableMountingLayerException during rapid navigation
+                    await timerUtils.wait(150);
+
+                    if (!isMountedRef.current) return;
+
                     setWorkflowIsRunning(true);
                     await backgroundApiProxy.serviceFirmwareUpdate.startUpdateWorkflowV2(
                       {
@@ -166,6 +166,14 @@ export function FirmwareUpdateCheckList({
                     navigation.push(EModalFirmwareUpdateRoutes.Install, {
                       result,
                     });
+                    await dialog.close();
+
+                    // Wait for React Native Fabric to complete view cleanup
+                    // This prevents RetryableMountingLayerException during rapid navigation
+                    await timerUtils.wait(150);
+
+                    if (!isMountedRef.current) return;
+
                     setWorkflowIsRunning(true);
                     await backgroundApiProxy.serviceFirmwareUpdate.startUpdateWorkflow(
                       {
