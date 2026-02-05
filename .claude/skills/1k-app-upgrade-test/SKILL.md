@@ -1,6 +1,6 @@
 ---
 name: 1k-app-upgrade-test
-description: Create test versions to verify app auto-update functionality. Use when testing update flows, version migration, or validating app upgrade mechanisms. Automates version number and build number configuration for testing the auto-update system. Triggers on auto update, app upgrade, update testing, upgrade flow, version migration, test build, 9XXX version.
+description: Create test versions to verify app auto-update functionality and version migration.
 allowed-tools: Read, Grep, Glob, Write, Edit, Bash
 disable-model-invocation: true
 ---
