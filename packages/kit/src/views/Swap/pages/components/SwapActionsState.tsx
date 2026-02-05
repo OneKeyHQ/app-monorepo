@@ -267,16 +267,15 @@ const SwapActionsState = ({
             px="$3"
             py="$1.5"
             borderRadius="$full"
-            borderWidth="$0.5"
-            borderColor="$bgSuccess"
+            bg="$bgSuccessSubdued"
             alignSelf="center"
           >
-            <SizableText size="$bodyMd" color="$textSuccess">
+            <SizableText size="$bodyMd" color="$textSuccessStrong">
               Saved you
             </SizableText>
             <NumberSizeableText
               size="$bodyMd"
-              color="$textSuccess"
+              color="$textSuccessStrong"
               formatter="value"
               formatterOptions={{
                 currency: settingsPersistAtom.currencyInfo.symbol,
@@ -313,7 +312,9 @@ const SwapActionsState = ({
           : {})}
       >
         {recipientComponent}
-        <Stack>
+        <Stack gap="$2">
+          {/* In modal: show savings above button; In non-modal: show below */}
+          {isModalPage && !md ? costSavingsComponent : null}
           <Button
             onPress={onActionHandlerBefore}
             size={isModalPage && !md ? 'medium' : 'large'}
@@ -339,7 +340,8 @@ const SwapActionsState = ({
               swapActionState.label
             )}
           </Button>
-          {costSavingsComponent}
+          {/* In non-modal: show savings below button */}
+          {!isModalPage || md ? costSavingsComponent : null}
         </Stack>
       </Stack>
     ),

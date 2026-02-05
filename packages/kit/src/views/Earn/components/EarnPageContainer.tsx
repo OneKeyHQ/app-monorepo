@@ -106,7 +106,10 @@ export function EarnPageContainer({
           }}
           refreshControl={refreshControl}
         >
-          <Page.Container padded={false} layout={disableMaxWidth ? 'full' : 'regular'}>
+          <Page.Container
+            padded={false}
+            layout={disableMaxWidth ? 'full' : 'regular'}
+          >
             {showBreadcrumb || showHeader ? (
               <XStack px="$3" pb="$5" gap="$5" ai="center">
                 {showBreadcrumb ? <Breadcrumb {...breadcrumbProps} /> : null}
