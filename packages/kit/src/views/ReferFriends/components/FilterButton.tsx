@@ -12,7 +12,7 @@ import {
 import type { IActionListItemProps } from '@onekeyhq/components';
 import { useInviteCodeList } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/InvitationDetailsSection/hooks/useInviteCodeList';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EExportTimeRange } from '@onekeyhq/shared/src/referralCode/type';
+import type { EExportTimeRange } from '@onekeyhq/shared/src/referralCode/type';
 
 export interface IFilterState {
   timeRange: EExportTimeRange;
