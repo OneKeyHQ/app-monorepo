@@ -82,8 +82,13 @@ function PerpsRewardPageWrapper() {
     [sortBy],
   );
 
-  const { filterState, updateFilter, setCustomDateRange, datePickerValue } =
-    useRewardFilter();
+  const {
+    filterState,
+    updateFilter,
+    setCustomDateRange,
+    clearCustomDateRange,
+    datePickerValue,
+  } = useRewardFilter();
 
   // Intermediate state for date range selection (before both dates are selected)
   const [intermediateDateRange, setIntermediateDateRange] =
@@ -105,11 +110,12 @@ function PerpsRewardPageWrapper() {
         // Only start date selected - update intermediate state
         setIntermediateDateRange(range);
       } else {
-        // No dates selected - clear
+        // No dates selected - clear both intermediate and filter state
         setIntermediateDateRange(null);
+        clearCustomDateRange();
       }
     },
-    [setCustomDateRange],
+    [setCustomDateRange, clearCustomDateRange],
   );
 
   // Use intermediate state if available, otherwise use confirmed datePickerValue
