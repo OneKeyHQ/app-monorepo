@@ -1914,8 +1914,6 @@ class ServiceStaking extends ServiceBase {
 
   @backgroundMethod()
   async getBlockRegion() {
-    return null;
-
     try {
       const isIpConnection =
         await this.backgroundApi.serviceIpTable.isUsingIpConnection();

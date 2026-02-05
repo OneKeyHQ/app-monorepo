@@ -122,29 +122,48 @@ function PillTabBarContent({
   tabItems: React.ReactNode;
   renderToolbar?: React.ReactNode;
 }) {
-  const [scrollX, setScrollX] = useState(0);
-  const [containerWidth, setContainerWidth] = useState(0);
-  const [contentWidth, setContentWidth] = useState(0);
+  const [showLeft, setShowLeft] = useState(false);
+  const [showRight, setShowRight] = useState(false);
+  const scrollStateRef = useRef({
+    scrollX: 0,
+    containerWidth: 0,
+    contentWidth: 0,
+  });
 
-  const showLeft = scrollX > PILL_GRADIENT_THRESHOLD;
-  const showRight =
-    contentWidth > containerWidth &&
-    scrollX < contentWidth - containerWidth - PILL_GRADIENT_THRESHOLD;
+  const updateGradientVisibility = useCallback(() => {
+    const { scrollX, containerWidth, contentWidth } = scrollStateRef.current;
+    const newShowLeft = scrollX > PILL_GRADIENT_THRESHOLD;
+    const newShowRight =
+      contentWidth > containerWidth &&
+      scrollX < contentWidth - containerWidth - PILL_GRADIENT_THRESHOLD;
+
+    setShowLeft((prev) => (prev !== newShowLeft ? newShowLeft : prev));
+    setShowRight((prev) => (prev !== newShowRight ? newShowRight : prev));
+  }, []);
 
   const handleScroll = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-      setScrollX(e.nativeEvent.contentOffset.x);
+      scrollStateRef.current.scrollX = e.nativeEvent.contentOffset.x;
+      updateGradientVisibility();
     },
-    [],
+    [updateGradientVisibility],
   );
 
-  const handleLayout = useCallback((e: LayoutChangeEvent) => {
-    setContainerWidth(e.nativeEvent.layout.width);
-  }, []);
+  const handleLayout = useCallback(
+    (e: LayoutChangeEvent) => {
+      scrollStateRef.current.containerWidth = e.nativeEvent.layout.width;
+      updateGradientVisibility();
+    },
+    [updateGradientVisibility],
+  );
 
-  const handleContentSizeChange = useCallback((width: number) => {
-    setContentWidth(width);
-  }, []);
+  const handleContentSizeChange = useCallback(
+    (width: number) => {
+      scrollStateRef.current.contentWidth = width;
+      updateGradientVisibility();
+    },
+    [updateGradientVisibility],
+  );
 
   return (
     <XStack ai="center" jc="space-between">

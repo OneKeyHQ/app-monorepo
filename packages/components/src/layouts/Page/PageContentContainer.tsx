@@ -1,5 +1,3 @@
-import { useMemo } from 'react';
-
 import { Stack } from '../../primitives';
 
 import type {
@@ -10,7 +8,7 @@ import type {
 function getMaxWidth(layout: IPageContentContainerLayout) {
   switch (layout) {
     case 'compact':
-      return 520 as unknown as number;
+      return 520;
     case 'regular':
       return 1140;
     default:
@@ -24,25 +22,23 @@ export function PageContentContainer({
   padded = true,
   ...props
 }: IPageContentContainerProps) {
-  return useMemo(() => {
-    const maxWidth = getMaxWidth(layout);
-    return (
-      <Stack
-        width="100%"
-        {...(padded ? { px: '$pagePadding' } : undefined)}
-        {...(maxWidth
-          ? {
-              $gtMd: {
-                maxWidth,
-                width: '100%',
-                mx: 'auto',
-              },
-            }
-          : undefined)}
-        {...props}
-      >
-        {children}
-      </Stack>
-    );
-  }, [children, layout, padded, props]);
+  const maxWidth = getMaxWidth(layout);
+  return (
+    <Stack
+      width="100%"
+      {...(padded ? { px: '$pagePadding' } : undefined)}
+      {...(maxWidth
+        ? {
+            $gtMd: {
+              maxWidth,
+              width: '100%',
+              mx: 'auto',
+            },
+          }
+        : undefined)}
+      {...props}
+    >
+      {children}
+    </Stack>
+  );
 }
