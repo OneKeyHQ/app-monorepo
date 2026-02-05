@@ -12,7 +12,7 @@ index 83c5549..aaeca52 100644
  export { MaterialTabBar } from './MaterialTabBar/TabBar';
  export { MaterialTabItem } from './MaterialTabBar/TabItem';
 diff --git a/node_modules/react-native-collapsible-tab-view/src/Container.tsx b/node_modules/react-native-collapsible-tab-view/src/Container.tsx
-index e782b90..47a565b 100644
+index e782b90..4c49c49 100644
 --- a/node_modules/react-native-collapsible-tab-view/src/Container.tsx
 +++ b/node_modules/react-native-collapsible-tab-view/src/Container.tsx
 @@ -1,5 +1,5 @@
@@ -44,36 +44,49 @@ index e782b90..47a565b 100644
  
        const indexDecimal: ContextType['indexDecimal'] = useSharedValue(
          index.value
-@@ -274,19 +276,23 @@ export const Container = React.memo(
+@@ -274,21 +276,30 @@ export const Container = React.memo(
          }
        )
  
-+      // Keep derived value for context consumers (useHeaderMeasurements etc.)
-       const headerTranslateY = useDerivedValue(() => {
-         return revealHeaderOnScroll
-           ? -accDiffClamp.value
-           : -Math.min(scrollYCurrent.value, headerScrollDistance.value)
-       }, [revealHeaderOnScroll])
+-      const headerTranslateY = useDerivedValue(() => {
+-        return revealHeaderOnScroll
+-          ? -accDiffClamp.value
+-          : -Math.min(scrollYCurrent.value, headerScrollDistance.value)
+-      }, [revealHeaderOnScroll])
++      // Use a plain shared value so the scroll handler can write to it
++      // directly in the same worklet pass — zero reactive overhead.
++      const headerTranslateY: ContextType['headerTranslateY'] =
++        useSharedValue(0)
++
++      // Fallback reaction: keeps headerTranslateY in sync for cases that
++      // bypass the scroll handler (animated snapping, tab switches, etc.)
++      useAnimatedReaction(
++        () => {
++          return revealHeaderOnScroll
++            ? -accDiffClamp.value
++            : -Math.min(scrollYCurrent.value, headerScrollDistance.value)
++        },
++        (result) => {
++          headerTranslateY.value = result
++        },
++        [revealHeaderOnScroll]
++      )
  
-+      // Compute translateY directly from source shared values instead of
-+      // reading from the derived value. This eliminates one level of
-+      // reactivity indirection, ensuring the style updates in the exact
-+      // same worklet pass as the scroll event — no frame delay.
        const stylez = useAnimatedStyle(() => {
-+        const translateY = revealHeaderOnScroll
-+          ? -accDiffClamp.value
-+          : -Math.min(scrollYCurrent.value, headerScrollDistance.value)
          return {
 -          transform: [
 -            {
 -              translateY: headerTranslateY.value,
 -            },
 -          ],
-+          transform: [{ translateY }],
++          transform: [{ translateY: headerTranslateY.value }],
          }
-       }, [revealHeaderOnScroll])
+-      }, [revealHeaderOnScroll])
++      }, [])
  
-@@ -349,42 +355,73 @@ export const Container = React.memo(
+       const onTabPress = React.useCallback(
+         (name: TabName) => {
+@@ -349,42 +360,73 @@ export const Container = React.memo(
          [onTabPress]
        )
  
@@ -176,7 +189,7 @@ index e782b90..47a565b 100644
                pointerEvents="box-none"
                style={[
                  styles.topContainer,
-@@ -393,6 +430,7 @@ export const Container = React.memo(
+@@ -393,6 +435,7 @@ export const Container = React.memo(
                ]}
              >
                <View
@@ -184,7 +197,7 @@ index e782b90..47a565b 100644
                  style={[styles.container, styles.headerContainer]}
                  onLayout={getHeaderHeight}
                  pointerEvents="box-none"
-@@ -409,6 +447,7 @@ export const Container = React.memo(
+@@ -409,6 +452,7 @@ export const Container = React.memo(
                    })}
                </View>
                <View
@@ -192,8 +205,73 @@ index e782b90..47a565b 100644
                  style={[styles.container, styles.tabBarContainer]}
                  onLayout={getTabBarHeight}
                  pointerEvents="box-none"
+diff --git a/node_modules/react-native-collapsible-tab-view/src/FlashList.tsx b/node_modules/react-native-collapsible-tab-view/src/FlashList.tsx
+index 9ce60da..68e0b0e 100644
+--- a/node_modules/react-native-collapsible-tab-view/src/FlashList.tsx
++++ b/node_modules/react-native-collapsible-tab-view/src/FlashList.tsx
+@@ -156,7 +156,7 @@ function FlashListImpl<R>(
+       contentContainerStyle={memoContentContainerStyle}
+       bouncesZoom={false}
+       onScroll={scrollHandler}
+-      scrollEventThrottle={16}
++      scrollEventThrottle={1}
+       contentInset={memoContentInset}
+       contentOffset={memoContentOffset}
+       refreshControl={memoRefreshControl}
+diff --git a/node_modules/react-native-collapsible-tab-view/src/FlatList.tsx b/node_modules/react-native-collapsible-tab-view/src/FlatList.tsx
+index e7a6981..05d5c9c 100644
+--- a/node_modules/react-native-collapsible-tab-view/src/FlatList.tsx
++++ b/node_modules/react-native-collapsible-tab-view/src/FlatList.tsx
+@@ -110,7 +110,7 @@ function FlatListImpl<R>(
+       progressViewOffset={progressViewOffset}
+       onScroll={scrollHandler}
+       onContentSizeChange={scrollContentSizeChangeHandlers}
+-      scrollEventThrottle={16}
++      scrollEventThrottle={1}
+       contentInset={memoContentInset}
+       contentOffset={memoContentOffset}
+       automaticallyAdjustContentInsets={false}
+diff --git a/node_modules/react-native-collapsible-tab-view/src/MasonryFlashList.tsx b/node_modules/react-native-collapsible-tab-view/src/MasonryFlashList.tsx
+index 93756ae..d1cb43e 100644
+--- a/node_modules/react-native-collapsible-tab-view/src/MasonryFlashList.tsx
++++ b/node_modules/react-native-collapsible-tab-view/src/MasonryFlashList.tsx
+@@ -159,7 +159,7 @@ function MasonryFlashListImpl<R>(
+       ref={refWorkaround}
+       bouncesZoom={false}
+       onScroll={scrollHandler}
+-      scrollEventThrottle={16}
++      scrollEventThrottle={1}
+       contentInset={memoContentInset}
+       contentOffset={memoContentOffset}
+       refreshControl={memoRefreshControl}
+diff --git a/node_modules/react-native-collapsible-tab-view/src/ScrollView.tsx b/node_modules/react-native-collapsible-tab-view/src/ScrollView.tsx
+index 712a65b..d1c051c 100644
+--- a/node_modules/react-native-collapsible-tab-view/src/ScrollView.tsx
++++ b/node_modules/react-native-collapsible-tab-view/src/ScrollView.tsx
+@@ -120,7 +120,7 @@ export const ScrollView = React.forwardRef<
+         contentContainerStyle={memoContentContainerStyle}
+         onScroll={scrollHandler}
+         onContentSizeChange={scrollContentSizeChangeHandlers}
+-        scrollEventThrottle={16}
++        scrollEventThrottle={1}
+         contentInset={memoContentInset}
+         contentOffset={memoContentOffset}
+         automaticallyAdjustContentInsets={false}
+diff --git a/node_modules/react-native-collapsible-tab-view/src/SectionList.tsx b/node_modules/react-native-collapsible-tab-view/src/SectionList.tsx
+index 2bd6b9c..c421fbc 100644
+--- a/node_modules/react-native-collapsible-tab-view/src/SectionList.tsx
++++ b/node_modules/react-native-collapsible-tab-view/src/SectionList.tsx
+@@ -117,7 +117,7 @@ function SectionListImpl<R>(
+       progressViewOffset={progressViewOffset}
+       onScroll={scrollHandler}
+       onContentSizeChange={scrollContentSizeChangeHandlers}
+-      scrollEventThrottle={16}
++      scrollEventThrottle={1}
+       contentInset={memoContentInset}
+       contentOffset={memoContentOffset}
+       automaticallyAdjustContentInsets={false}
 diff --git a/node_modules/react-native-collapsible-tab-view/src/hooks.tsx b/node_modules/react-native-collapsible-tab-view/src/hooks.tsx
-index ba7dffa..b9ed92a 100644
+index ba7dffa..c453650 100644
 --- a/node_modules/react-native-collapsible-tab-view/src/hooks.tsx
 +++ b/node_modules/react-native-collapsible-tab-view/src/hooks.tsx
 @@ -101,7 +101,11 @@ export function useTabProps<T extends TabName>(
@@ -246,7 +324,30 @@ index ba7dffa..b9ed92a 100644
  }
  /**
   * Hook to access some key styles that make the whole thing work.
-@@ -579,11 +591,11 @@ export function useAfterMountEffect(
+@@ -265,6 +277,7 @@ export const useScrollHandlerY = (name: TabName) => {
+     accScrollY,
+     offset,
+     headerScrollDistance,
++    headerTranslateY,
+     snappingTo,
+     contentHeights,
+     indexDecimal,
+@@ -403,6 +416,14 @@ export const useScrollHandlerY = (name: TabName) => {
+               accDiffClamp.value = Math.max(0, nextValue)
+             }
+           }
++
++          // Directly set header position in the same worklet execution
++          // as the scroll event — no reactive dispatch overhead.
++          if (headerTranslateY) {
++            headerTranslateY.value = revealHeaderOnScroll
++              ? -accDiffClamp.value
++              : -Math.min(scrollYCurrent.value, headerScrollDistance.value)
++          }
+         }
+       },
+       onBeginDrag: () => {
+@@ -579,11 +600,11 @@ export function useAfterMountEffect(
  export function useConvertAnimatedToValue<T>(
    animatedValue: Animated.SharedValue<T>
  ) {
