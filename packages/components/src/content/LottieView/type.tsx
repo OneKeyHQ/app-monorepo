@@ -12,6 +12,7 @@ export type ILottieViewProps = Omit<
   autoPlay?: boolean;
   resizeMode?: 'cover' | 'contain' | 'center';
   loop?: boolean;
+  renderMode?: LottieNativeProps['renderMode'];
 } & Omit<StackProps, 'width' | 'height'> & {
     width?: StackProps['width'];
     height?: StackProps['height'];

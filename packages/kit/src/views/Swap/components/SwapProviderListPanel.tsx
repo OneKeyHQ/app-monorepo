@@ -425,7 +425,6 @@ const SwapProviderListPanel = ({
         px="$10"
         py="$12"
         gap="$4"
-        flex={1}
         justifyContent="space-between"
       >
         {/* Left Column */}
@@ -692,122 +691,112 @@ const SwapProviderListPanel = ({
       : 0;
 
   const contentArea = (
-    <>
-      {/* Initial state - no tokens/amount selected - Direct render without animation */}
-      {!shouldShowContent ? renderInitialState() : null}
+    <AnimatePresence>
+      {/* Phase 1: Spinner - no total event received yet (covers gap before loading starts) */}
+      {shouldShowContent && !hasQuotes && !hasReceivedTotal ? (
+        <MotiView
+          key="spinner"
+          from={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ type: 'timing', duration: 150 } as any}
+          exitTransition={{ type: 'timing', duration: 0 } as any}
+        >
+          <YStack alignItems="center" justifyContent="center" py="$16" gap="$3">
+            <LottieView
+              source={require('@onekeyhq/kit/assets/animations/swap_loading.json')}
+              autoPlay
+              loop
+              style={{
+                width: 48,
+                height: 20,
+              }}
+            />
+            <SizableText size="$bodyLgMedium" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.swap_page_button_fetching_quotes,
+              })}
+            </SizableText>
+          </YStack>
+        </MotiView>
+      ) : null}
 
-      <AnimatePresence>
-        {/* Phase 1: Spinner - no total event received yet (covers gap before loading starts) */}
-        {shouldShowContent && !hasQuotes && !hasReceivedTotal ? (
-          <MotiView
-            key="spinner"
-            from={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ type: 'timing', duration: 150 } as any}
-            exitTransition={{ type: 'timing', duration: 0 } as any}
-          >
-            <YStack
-              alignItems="center"
-              justifyContent="center"
-              py="$16"
-              gap="$3"
-            >
-              <LottieView
-                source={require('@onekeyhq/kit/assets/animations/swap_loading.json')}
-                autoPlay
-                loop
-                style={{
-                  width: 48,
-                  height: 20,
-                }}
-              />
-              <SizableText size="$bodyLgMedium" color="$textSubdued">
-                {intl.formatMessage({
-                  id: ETranslations.swap_page_button_fetching_quotes,
-                })}
-              </SizableText>
-            </YStack>
-          </MotiView>
-        ) : null}
+      {/* Phase 2+3: Data cards + skeleton placeholders for remaining */}
+      {shouldShowContent &&
+      (hasQuotes || (hasReceivedTotal && quoteEventFetching)) ? (
+        <MotiView
+          key="content"
+          from={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ type: 'timing', duration: 150 } as any}
+          exitTransition={{ type: 'timing', duration: 0 } as any}
+        >
+          <YStack px="$5" pb="$5">
+            {/* Available Providers */}
+            {availableList.length > 0 ? (
+              <YStack>{availableList.map((item) => renderItem(item))}</YStack>
+            ) : null}
 
-        {/* Phase 2+3: Data cards + skeleton placeholders for remaining */}
-        {shouldShowContent &&
-        (hasQuotes || (hasReceivedTotal && quoteEventFetching)) ? (
-          <MotiView
-            key="content"
-            from={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ type: 'timing', duration: 150 } as any}
-            exitTransition={{ type: 'timing', duration: 0 } as any}
-          >
-            <YStack px="$5" pb="$5">
-              {/* Available Providers */}
-              {availableList.length > 0 ? (
-                <YStack>{availableList.map((item) => renderItem(item))}</YStack>
-              ) : null}
+            {/* Skeleton placeholders for providers not yet received */}
+            {remainingSkeletonCount > 0 ? (
+              <YStack>
+                {Array.from({ length: remainingSkeletonCount }).map(
+                  (_, index) => (
+                    <AnimatedSkeletonItem
+                      key={`skeleton-${index}`}
+                      index={index}
+                    />
+                  ),
+                )}
+              </YStack>
+            ) : null}
 
-              {/* Skeleton placeholders for providers not yet received */}
-              {remainingSkeletonCount > 0 ? (
-                <YStack>
-                  {Array.from({ length: remainingSkeletonCount }).map(
-                    (_, index) => (
-                      <AnimatedSkeletonItem
-                        key={`skeleton-${index}`}
-                        index={index}
-                      />
-                    ),
-                  )}
-                </YStack>
-              ) : null}
-
-              {/* Unavailable Providers */}
-              {unavailableList.length > 0 ? (
-                <YStack>
-                  <MotiView
-                    from={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={
-                      {
-                        type: 'timing',
-                        duration: 200,
-                      } as any
-                    }
+            {/* Unavailable Providers */}
+            {unavailableList.length > 0 ? (
+              <YStack>
+                <MotiView
+                  from={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={
+                    {
+                      type: 'timing',
+                      duration: 200,
+                    } as any
+                  }
+                >
+                  <SizableText
+                    size="$bodySmMedium"
+                    color="$textSubdued"
+                    px="$1"
+                    pt="$3"
+                    pb="$1"
                   >
-                    <SizableText
-                      size="$bodySmMedium"
-                      color="$textSubdued"
-                      px="$1"
-                      pt="$3"
-                      pb="$1"
-                    >
-                      {intl.formatMessage({
-                        id: ETranslations.provider_unavailable,
-                      })}
-                    </SizableText>
-                  </MotiView>
-                  {unavailableList.map((item) => renderItem(item))}
-                </YStack>
-              ) : null}
-            </YStack>
-          </MotiView>
-        ) : null}
+                    {intl.formatMessage({
+                      id: ETranslations.provider_unavailable,
+                    })}
+                  </SizableText>
+                </MotiView>
+                {unavailableList.map((item) => renderItem(item))}
+              </YStack>
+            ) : null}
+          </YStack>
+        </MotiView>
+      ) : null}
 
-        {/* Empty state - total received, all providers responded, no results */}
-        {shouldShowContent &&
-        !hasQuotes &&
-        hasReceivedTotal &&
-        !quoteEventFetching
-          ? renderEmptyState()
-          : null}
-      </AnimatePresence>
-    </>
+      {/* Empty state - total received, all providers responded, no results */}
+      {shouldShowContent &&
+      !hasQuotes &&
+      hasReceivedTotal &&
+      !quoteEventFetching
+        ? renderEmptyState()
+        : null}
+    </AnimatePresence>
   );
 
   return (
     <YStack
-      minHeight={500}
+      minHeight={480}
       maxHeight={820}
       borderRadius="$6"
       borderWidth={1}
@@ -874,9 +863,19 @@ const SwapProviderListPanel = ({
         </XStack>
       ) : null}
 
-      <ScrollView flex={1} ref={scrollViewRef as any} nestedScrollEnabled>
-        {contentArea}
-      </ScrollView>
+      {/* Initial state - no tokens/amount selected - rendered outside ScrollView */}
+      {!shouldShowContent ? (
+        <Stack flex={1} justifyContent="center">
+          {renderInitialState()}
+        </Stack>
+      ) : null}
+
+      {/* ScrollView only shown when content is available */}
+      {shouldShowContent ? (
+        <ScrollView flex={1} ref={scrollViewRef as any} nestedScrollEnabled>
+          {contentArea}
+        </ScrollView>
+      ) : null}
     </YStack>
   );
 };

@@ -1,7 +1,8 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
+import { useDebouncedCallback } from 'use-debounce';
 
 import {
   Button,
@@ -26,7 +27,7 @@ import {
 } from '@onekeyhq/shared/types/bulkSend';
 import { validateTokenAmount } from '@onekeyhq/shared/src/utils/tokenUtils';
 
-import { validateRangeInput } from '../../../utils';
+import { filterNumericInput, validateRangeInput } from '../../../utils';
 
 import { useBulkSendAmountsInputContext } from './Context';
 import { useAmountPreview } from './useAmountPreview';
@@ -216,30 +217,84 @@ function AmountCard() {
     ],
   );
 
-  // Handle range amount change
-  const handleRangeChange = useCallback(
-    (field: 'rangeMin' | 'rangeMax', value: string) => {
-      const newValues = { ...amountInputValues, [field]: value };
-      setAmountInputValues(newValues);
+  // Local display values for range inputs (immediate UI feedback)
+  const [localRangeMin, setLocalRangeMin] = useState(
+    amountInputValues.rangeMin,
+  );
+  const [localRangeMax, setLocalRangeMax] = useState(
+    amountInputValues.rangeMax,
+  );
+
+  // Keep local values in sync with external changes (e.g., mode switch)
+  const prevAmountInputValuesRef = useRef(amountInputValues);
+  useEffect(() => {
+    const prev = prevAmountInputValuesRef.current;
+    if (prev.rangeMin !== amountInputValues.rangeMin) {
+      setLocalRangeMin(amountInputValues.rangeMin);
+    }
+    if (prev.rangeMax !== amountInputValues.rangeMax) {
+      setLocalRangeMax(amountInputValues.rangeMax);
+    }
+    prevAmountInputValuesRef.current = amountInputValues;
+  }, [amountInputValues]);
+
+  // Refs for stable access in debounced callback
+  const amountInputValuesRef = useRef(amountInputValues);
+  amountInputValuesRef.current = amountInputValues;
+  const amountInputErrorsRef = useRef(amountInputErrors);
+  amountInputErrorsRef.current = amountInputErrors;
+  const localRangeMinRef = useRef(localRangeMin);
+  localRangeMinRef.current = localRangeMin;
+  const localRangeMaxRef = useRef(localRangeMax);
+  localRangeMaxRef.current = localRangeMax;
+
+  // Debounced handler for validation and transfer info update
+  const debouncedRangeUpdate = useDebouncedCallback(
+    (newValues: { rangeMin: string; rangeMax: string }) => {
+      const fullValues = {
+        ...amountInputValuesRef.current,
+        rangeMin: newValues.rangeMin,
+        rangeMax: newValues.rangeMax,
+      };
+      setAmountInputValues(fullValues);
 
       const error = validateRangeInput({
         rangeMin: newValues.rangeMin,
         rangeMax: newValues.rangeMax,
         balance,
       });
-      setAmountInputErrors({ ...amountInputErrors, rangeError: error });
+      setAmountInputErrors({
+        ...amountInputErrorsRef.current,
+        rangeError: error,
+      });
 
-      updateTransfersInfoWithAmounts(amountInputMode, newValues);
+      updateTransfersInfoWithAmounts(amountInputMode, fullValues);
     },
-    [
-      amountInputValues,
-      setAmountInputValues,
-      balance,
-      amountInputErrors,
-      setAmountInputErrors,
-      updateTransfersInfoWithAmounts,
-      amountInputMode,
-    ],
+    300,
+  );
+
+  const handleRangeMinChange = useCallback(
+    (value: string) => {
+      const filtered = filterNumericInput(value);
+      setLocalRangeMin(filtered);
+      debouncedRangeUpdate({
+        rangeMin: filtered,
+        rangeMax: localRangeMaxRef.current,
+      });
+    },
+    [debouncedRangeUpdate],
+  );
+
+  const handleRangeMaxChange = useCallback(
+    (value: string) => {
+      const filtered = filterNumericInput(value);
+      setLocalRangeMax(filtered);
+      debouncedRangeUpdate({
+        rangeMin: localRangeMinRef.current,
+        rangeMax: filtered,
+      });
+    },
+    [debouncedRangeUpdate],
   );
 
   // Handle Max button press
@@ -281,18 +336,18 @@ function AmountCard() {
     return amount.times(tokenDetails.price).toFixed();
   }, [amountInputValues.specifiedAmount, tokenDetails?.price]);
 
-  // Calculate fiat values for range
+  // Calculate fiat values for range from local values for immediate feedback
   const minFiatValue = useMemo(() => {
-    const amount = new BigNumber(amountInputValues.rangeMin || '0');
+    const amount = new BigNumber(localRangeMin || '0');
     if (amount.isNaN() || !tokenDetails?.price) return '0';
     return amount.times(tokenDetails.price).toFixed();
-  }, [amountInputValues.rangeMin, tokenDetails?.price]);
+  }, [localRangeMin, tokenDetails?.price]);
 
   const maxFiatValue = useMemo(() => {
-    const amount = new BigNumber(amountInputValues.rangeMax || '0');
+    const amount = new BigNumber(localRangeMax || '0');
     if (amount.isNaN() || !tokenDetails?.price) return '0';
     return amount.times(tokenDetails.price).toFixed();
-  }, [amountInputValues.rangeMax, tokenDetails?.price]);
+  }, [localRangeMax, tokenDetails?.price]);
 
   // Guard: Don't render if tokenInfo is not available
   if (!tokenInfo) {
@@ -339,8 +394,8 @@ function AmountCard() {
               <XStack alignItems="center" px="$3.5" pt="$2.5" pb="$1">
                 <Input
                   flex={1}
-                  value={amountInputValues.rangeMin}
-                  onChangeText={(value) => handleRangeChange('rangeMin', value)}
+                  value={localRangeMin}
+                  onChangeText={handleRangeMinChange}
                   placeholder="0"
                   keyboardType="decimal-pad"
                   containerProps={{
@@ -386,8 +441,8 @@ function AmountCard() {
               <XStack alignItems="center" px="$3.5" pt="$2.5" pb="$1">
                 <Input
                   flex={1}
-                  value={amountInputValues.rangeMax}
-                  onChangeText={(value) => handleRangeChange('rangeMax', value)}
+                  value={localRangeMax}
+                  onChangeText={handleRangeMaxChange}
                   placeholder="0"
                   keyboardType="decimal-pad"
                   containerProps={{
