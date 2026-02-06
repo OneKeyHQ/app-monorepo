@@ -309,15 +309,16 @@ function UnifiedNetworkSelector() {
   );
 
   const isSameEnabledNetworks = useMemo(() => {
-    return enabledNetworks.length === originalEnabledNetworks.length && enabledNetworks.every((network) =>
-      originalEnabledNetworks.find((item) => item.id === network.id),
+    return (
+      enabledNetworks.length === originalEnabledNetworks.length &&
+      enabledNetworks.every((network) =>
+        originalEnabledNetworks.find((item) => item.id === network.id),
+      )
     );
   }, [enabledNetworks, originalEnabledNetworks]);
 
   // Portfolio tab done handler
   const handlePortfolioDone = useCallback(async () => {
-
-
     if (!isSameEnabledNetworks) {
       setIsCreatingEnabledAddresses(true);
 
@@ -496,13 +497,7 @@ function UnifiedNetworkSelector() {
     }
 
     return false;
-  }, [
-    enabledNetworks,
-    isCreatingEnabledAddresses,
-    isCreatingMissingAddresses,
-  ]);
-
-
+  }, [enabledNetworks, isCreatingEnabledAddresses, isCreatingMissingAddresses]);
 
   return (
     <Page
