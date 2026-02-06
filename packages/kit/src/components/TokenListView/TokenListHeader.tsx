@@ -90,7 +90,7 @@ function TokenListHeader({ tableLayout }: IProps) {
   }
 
   return (
-    <ListItem testID="Wallet-Token-List-Header">
+    <ListItem testID="Wallet-Token-List-Header" mx="$0" px="$0">
       <Stack flexGrow={1} flexBasis={0} alignItems="flex-start">
         <SortButton
           label={intl.formatMessage({ id: ETranslations.global_asset })}

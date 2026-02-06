@@ -26,6 +26,7 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { RawActions } from './RawActions';
 import { useWalletActionConfig } from './useWalletActionConfig';
+import { WalletActionBuyMain } from './WalletActionBuyMain';
 import { WalletActionMore } from './WalletActionMore';
 import { WalletActionPerp } from './WalletActionPerp';
 import { WalletActionReceive } from './WalletActionReceive';
@@ -251,6 +252,8 @@ function WalletActions({ ...rest }: IXStackProps) {
             useSelector
           />
         );
+      case 'buy':
+        return <WalletActionBuyMain key="buy" customization={customization} />;
       case 'swap':
         return platformEnv.isExtensionUiPopup ||
           platformEnv.isExtensionUiSidePanel ? (

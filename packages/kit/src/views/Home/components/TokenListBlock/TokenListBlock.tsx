@@ -2074,7 +2074,7 @@ function TokenListBlock({
       subTitle={renderSubTitle()}
       headerActions={renderHeaderActions()}
       content={renderContent()}
-      plainContentContainer={!tableLayout}
+      plainContentContainer
     />
   );
 }

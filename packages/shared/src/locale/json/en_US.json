@@ -3665,6 +3665,8 @@
   "swap.faq_a6": "Common reasons include: price moved beyond your slippage tolerance, insufficient gas fees, token contract restrictions, or network congestion. Try increasing slippage tolerance, adjusting gas fees, or waiting for network conditions to improve.",
   "swap.faq_a7": "Before swapping a token for the first time, you must approve the smart contract to access it. You can choose unlimited approval (convenient, one-time) or exact amount (more secure, requires approval each time). Approvals can be revoked anytime in Approval Management.",
   "swap.faq_a8": "Our aggregator uses the routing contracts of each aggregator directly, without using any contracts developed by us. Therefore, when you swap through us, the security you inherit is exactly the same as swapping directly through these aggregators' official UIs.",
+  "swap.faq_help_center_for": "For more details, visit our ",
+  "swap.faq_help_center_help": "Help Center",
   "swap.faq_q1": "What is OneKey Swap?",
   "swap.faq_q2": "How does OneKey find the best price?",
   "swap.faq_q3": "What are the fees?",
