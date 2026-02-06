@@ -19,7 +19,8 @@ export function InvitedByFriendImage() {
 
   const isDesktop =
     !platformEnv.isNative && (gtSm || platformEnv.isExtensionUiPopup);
-  const lottieSource = LOTTIE_SOURCE[themeVariant === 'dark' ? 'dark' : 'light'];
+  const lottieSource =
+    LOTTIE_SOURCE[themeVariant === 'dark' ? 'dark' : 'light'];
   const width = !platformEnv.isNative && gtSm ? DESKTOP_WIDTH : screenWidth;
   const height = isDesktop ? width * DESKTOP_ASPECT_RATIO : screenWidth;
 

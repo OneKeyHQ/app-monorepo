@@ -21,6 +21,7 @@ import type {
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 
+import SwapFAQ from '../../components/SwapFAQ';
 import SwapProviderListPanel from '../../components/SwapProviderListPanel';
 import SwapRecentTokenPairsGroup from '../../components/SwapRecentTokenPairsGroup';
 
@@ -147,9 +148,9 @@ const SwapOldSwapBridgeLimitContainer = ({
         onOpenRecipient={onToAnotherAddressModal}
       />
       {alerts.states.length > 0 &&
-      !quoteLoading &&
-      !quoteEventFetching &&
-      alerts?.quoteId === (quoteResult?.quoteId ?? '') ? (
+        !quoteLoading &&
+        !quoteEventFetching &&
+        alerts?.quoteId === (quoteResult?.quoteId ?? '') ? (
         <SwapAlertContainer alerts={alerts.states} />
       ) : null}
       <SwapRecentTokenPairsGroup
@@ -208,9 +209,9 @@ const SwapOldSwapBridgeLimitContainer = ({
           onOpenRecipient={onToAnotherAddressModal}
         />
         {alerts.states.length > 0 &&
-        !quoteLoading &&
-        !quoteEventFetching &&
-        alerts?.quoteId === (quoteResult?.quoteId ?? '') ? (
+          !quoteLoading &&
+          !quoteEventFetching &&
+          alerts?.quoteId === (quoteResult?.quoteId ?? '') ? (
           <SwapAlertContainer alerts={alerts.states} />
         ) : null}
         <SwapRecentTokenPairsGroup
@@ -222,14 +223,19 @@ const SwapOldSwapBridgeLimitContainer = ({
       </YStack>
     );
     return (
-      <XStack gap="$1" px="$5">
-        <YStack p="$5" flexBasis="50%">
-          <YStack>{mainContentWithCard}</YStack>
-        </YStack>
-        <YStack p="$5" flexBasis="50%">
-          <SwapProviderListPanel refreshAction={refreshAction} />
-        </YStack>
-      </XStack>
+      <ScrollView>
+        <XStack gap="$1" px="$5">
+          <YStack p="$5" flexBasis="50%">
+            <YStack gap="$12">
+              {mainContentWithCard}
+              <SwapFAQ />
+            </YStack>
+          </YStack>
+          <YStack p="$5" flexBasis="50%">
+            <SwapProviderListPanel refreshAction={refreshAction} />
+          </YStack>
+        </XStack>
+      </ScrollView>
     );
   }
 
