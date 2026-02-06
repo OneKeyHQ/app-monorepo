@@ -18,6 +18,7 @@ import {
   ETabRoutes,
   type IModalBulkSendParamList,
 } from '@onekeyhq/shared/src/routes';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { waitAsync } from '@onekeyhq/shared/src/utils/promiseUtils';
@@ -351,6 +352,13 @@ function BaseBulkSendReview({
           feeState.feeInfos,
         );
 
+        defaultLogger.prime.usage.bulkSendSuccess({
+          recipientCount: transfersInfo.length,
+          sendMode: bulkSendMode,
+          network: networkId ?? '',
+          tokenSymbol: tokenInfo?.symbol ?? '',
+        });
+
         setIsSubmitting(false);
         onSuccess?.(results);
 
@@ -386,6 +394,13 @@ function BaseBulkSendReview({
         }),
       });
 
+      defaultLogger.prime.usage.bulkSendSuccess({
+        recipientCount: transfersInfo.length,
+        sendMode: bulkSendMode,
+        network: networkId ?? '',
+        tokenSymbol: tokenInfo?.symbol ?? '',
+      });
+
       setIsSubmitting(false);
       onSuccess?.(result);
 
@@ -414,6 +429,9 @@ function BaseBulkSendReview({
     navigation,
     handleTronTxsOneByOne,
     navigateAfterSuccess,
+    bulkSendMode,
+    transfersInfo.length,
+    tokenInfo?.symbol,
   ]);
 
   // Determine if confirm button should be disabled
