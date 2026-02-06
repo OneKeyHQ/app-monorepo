@@ -40,7 +40,7 @@ index 7a739fc..10c5d9a 100644
  export type ScrollViewProps = ComponentProps<typeof Animated.ScrollView>;
  export type CollapsibleStyle = {
 diff --git a/node_modules/react-native-collapsible-tab-view/src/Container.tsx b/node_modules/react-native-collapsible-tab-view/src/Container.tsx
-index e782b90..7fa86e4 100644
+index e782b90..3293fca 100644
 --- a/node_modules/react-native-collapsible-tab-view/src/Container.tsx
 +++ b/node_modules/react-native-collapsible-tab-view/src/Container.tsx
 @@ -1,9 +1,10 @@
@@ -103,7 +103,7 @@ index e782b90..7fa86e4 100644
        )
  
        // derived from scrollX
-@@ -258,37 +265,152 @@ export const Container = React.memo(
+@@ -258,37 +265,142 @@ export const Container = React.memo(
                scrollYCurrent.value =
                  scrollY.value[tabNames.value[index.value]] || 0
              }
@@ -181,22 +181,18 @@ index e782b90..7fa86e4 100644
 +
 +      // Sync nativeScrollY and scroll the tab's ScrollView when tab changes
 +      const syncTabScrollPosition = React.useCallback((tabName: string, targetY: number) => {
-+        console.log('test>>>>> [syncTabScrollPosition] called with tab:', tabName, 'targetY:', targetY)
 +        if (useNativeHeaderAnimation) {
 +          nativeScrollY.setValue(targetY)
-+          console.log('test>>>>> [syncTabScrollPosition] nativeScrollY.setValue done')
 +
 +          // Retry scrollTo multiple times to ensure ScrollView is ready
 +          const scrollToPosition = (attempt: number) => {
 +            // Use refMapRef.current to get the latest refMap
 +            const ref = refMapRef.current[tabName]
-+            console.log('test>>>>> [syncTabScrollPosition] attempt:', attempt, 'ref:', !!ref, 'refMapKeys:', Object.keys(refMapRef.current))
 +            if (ref) {
 +              runOnUI(() => {
 +                'worklet'
 +                scrollToImpl(ref, 0, targetY - contentInset, false)
 +              })()
-+              console.log('test>>>>> [syncTabScrollPosition] scrollToImpl called with:', targetY - contentInset)
 +            }
 +            // Retry a few times to ensure scroll is applied
 +            if (attempt < 3) {
@@ -217,11 +213,6 @@ index e782b90..7fa86e4 100644
 +            const prevTabStoredScrollY = scrollY.value[prevTab] || 0
 +            const newTabStoredScrollY = scrollY.value[currentTab] || 0
 +
-+            console.log('test>>>>> [useAnimatedReaction] tab switch:', prevTab, '->', currentTab)
-+            console.log('test>>>>> [useAnimatedReaction] prevTab scrollY:', prevTabStoredScrollY,
-+              'newTab scrollY:', newTabStoredScrollY,
-+              'headerDist:', headerDist)
-+
 +            // Determine the target scroll position for the new tab
 +            // Keep the header collapse state consistent across tabs
 +            // Use a small threshold (1px) to handle floating point precision issues
@@ -239,7 +230,6 @@ index e782b90..7fa86e4 100644
 +              targetScrollY = prevTabHeaderCollapseAmount
 +              // Update the stored scroll position for this tab
 +              scrollY.value = { ...scrollY.value, [currentTab]: targetScrollY }
-+              console.log('test>>>>> [useAnimatedReaction] adjusting newTab scrollY to:', targetScrollY)
 +            }
 +
 +            // Update scrollYCurrent to reflect the target scroll
@@ -271,7 +261,7 @@ index e782b90..7fa86e4 100644
  
        const onTabPress = React.useCallback(
          (name: TabName) => {
-@@ -349,50 +471,86 @@ export const Container = React.memo(
+@@ -349,50 +461,86 @@ export const Container = React.memo(
          [onTabPress]
        )
  
@@ -395,7 +385,7 @@ index e782b90..7fa86e4 100644
                  style={[styles.container, styles.headerContainer]}
                  onLayout={getHeaderHeight}
                  pointerEvents="box-none"
-@@ -407,8 +565,9 @@ export const Container = React.memo(
+@@ -407,8 +555,9 @@ export const Container = React.memo(
                      onTabPress,
                      tabProps,
                    })}
@@ -406,7 +396,7 @@ index e782b90..7fa86e4 100644
                  style={[styles.container, styles.tabBarContainer]}
                  onLayout={getTabBarHeight}
                  pointerEvents="box-none"
-@@ -425,7 +584,7 @@ export const Container = React.memo(
+@@ -425,7 +574,7 @@ export const Container = React.memo(
                      tabProps,
                    })}
                </View>
@@ -764,7 +754,7 @@ index 2bd6b9c..ac74e88 100644
        contentOffset={memoContentOffset}
        automaticallyAdjustContentInsets={false}
 diff --git a/node_modules/react-native-collapsible-tab-view/src/hooks.tsx b/node_modules/react-native-collapsible-tab-view/src/hooks.tsx
-index ba7dffa..64d1e42 100644
+index ba7dffa..41e3a28 100644
 --- a/node_modules/react-native-collapsible-tab-view/src/hooks.tsx
 +++ b/node_modules/react-native-collapsible-tab-view/src/hooks.tsx
 @@ -8,7 +8,7 @@ import {
@@ -880,7 +870,7 @@ index ba7dffa..64d1e42 100644
        if (
          isSyncNeeded &&
          isSyncNeeded !== wasSyncNeeded &&
-@@ -505,10 +534,68 @@ export const useScrollHandlerY = (name: TabName) => {
+@@ -505,10 +534,67 @@ export const useScrollHandlerY = (name: TabName) => {
          }
        }
      },
@@ -906,7 +896,6 @@ index ba7dffa..64d1e42 100644
 +          const adjustedY = IS_IOS ? rawY + contentInset : rawY
 +          // Directly write to shared values from JS thread (allowed)
 +          // Header animation is driven by native interpolation, so no lag
-+          console.log('test>>>>> [nativeScrollHandler] tab:', name, 'rawY:', rawY, 'adjustedY:', adjustedY)
 +          scrollYCurrent.value = adjustedY
 +          // Use spread operator to trigger SharedValue synchronization
 +          // Direct property assignment (scrollY.value[name] = x) doesn't
@@ -951,7 +940,7 @@ index ba7dffa..64d1e42 100644
  }
  
  type ForwardRefType<T> =
-@@ -579,11 +666,11 @@ export function useAfterMountEffect(
+@@ -579,11 +665,11 @@ export function useAfterMountEffect(
  export function useConvertAnimatedToValue<T>(
    animatedValue: Animated.SharedValue<T>
  ) {
