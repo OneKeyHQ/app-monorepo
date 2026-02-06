@@ -28,6 +28,7 @@ import PassCodeInput, {
   AUTO_FOCUS_DELAY_MS,
   PIN_CELL_COUNT,
 } from './PassCodeInput';
+import { dismissKeyboardWithDelay } from '@onekeyhq/shared/src/keyboard';
 
 export interface IPasswordSetupForm {
   password: string;
@@ -108,12 +109,14 @@ const PasswordSetup = ({
       intl.formatMessage({ id: ETranslations.auth_set_passcode })
     );
   }, [confirmBtnText, intl, passCodeFirstStep]);
-  const onPassCodeNext = useCallback(() => {
+  const onPassCodeNext = useCallback(async () => {
     setPassCodeConfirm(true);
+    if (platformEnv.isNativeAndroid) {
+      await dismissKeyboardWithDelay(150);
+    }
     onStepChange?.('confirm');
-    setTimeout(() => {
-      form.setFocus('confirmPassCode');
-    }, 150);
+    await timerUtils.wait(150)
+    form.setFocus('confirmPassCode');
   }, [form, onStepChange]);
 
   const clearPasscodeTimeOut = useCallback(() => {
@@ -364,7 +367,7 @@ const PasswordSetup = ({
                   form.clearErrors('confirmPassCode');
                 }}
                 editable
-                autoFocus={passCodeConfirm}
+                autoFocus={platformEnv.isNativeAndroid ? false : passCodeConfirm}
                 clearCodeAndFocus={passCodeConfirmClear}
                 onComplete={form.handleSubmit(onSetupPassword)}
                 autoFocusDelayMs={AUTO_FOCUS_DELAY_MS}
