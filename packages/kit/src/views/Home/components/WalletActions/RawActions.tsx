@@ -18,6 +18,7 @@ import {
   SizableText,
   Stack,
   XStack,
+  useMedia,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -36,10 +37,12 @@ function ActionItem({
   showButtonStyle = false,
   ...rest
 }: IActionItemsProps) {
+  const media = useMedia();
+
   if (showButtonStyle) {
     return (
       <Button
-        size="small"
+        size={media.gtMd ? 'medium' : 'small'}
         icon={icon}
         {...rest}
       >
@@ -179,6 +182,7 @@ function ActionMore({
   showButtonStyle?: boolean;
 }) {
   const intl = useIntl();
+  const media = useMedia();
   return (
     <ActionList
       title={intl.formatMessage({
@@ -189,7 +193,10 @@ function ActionMore({
       }}
       renderTrigger={
         showButtonStyle ? (
-          <Button size="small" icon="DotHorOutline" />
+          <Button
+            size={media.gtMd ? 'medium' : 'small'}
+            icon="DotHorOutline"
+          />
         ) : (
           <ActionItem
             icon="DotHorOutline"

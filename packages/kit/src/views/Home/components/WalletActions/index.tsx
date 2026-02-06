@@ -3,7 +3,6 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp, IXStackProps } from '@onekeyhq/components';
-import { useMedia } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -240,8 +239,6 @@ function WalletActionSend({
 
 function WalletActions({ ...rest }: IXStackProps) {
   const { config, getActionCustomization } = useWalletActionConfig();
-  const media = useMedia();
-  const showButtonStyle = media.gtSm;
 
   const renderActionComponent = (actionType: string) => {
     const customization = getActionCustomization(actionType as any);
@@ -252,7 +249,7 @@ function WalletActions({ ...rest }: IXStackProps) {
           <WalletActionSend
             key="send"
             customization={customization}
-            showButtonStyle={showButtonStyle}
+            showButtonStyle
           />
         );
       case 'receive':
@@ -260,7 +257,7 @@ function WalletActions({ ...rest }: IXStackProps) {
           <WalletActionReceive
             key="receive"
             customization={customization}
-            showButtonStyle={showButtonStyle}
+            showButtonStyle
             useSelector
           />
         );
@@ -270,13 +267,13 @@ function WalletActions({ ...rest }: IXStackProps) {
           <WalletActionPerp
             key="perp"
             customization={customization}
-            showButtonStyle={showButtonStyle}
+            showButtonStyle
           />
         ) : (
           <WalletActionSwap
             key="swap"
             customization={customization}
-            showButtonStyle={showButtonStyle}
+            showButtonStyle
           />
         );
       case 'perp':
@@ -284,7 +281,7 @@ function WalletActions({ ...rest }: IXStackProps) {
           <WalletActionPerp
             key="perp"
             customization={customization}
-            showButtonStyle={showButtonStyle}
+            showButtonStyle
           />
         );
       case 'staking':
@@ -292,7 +289,7 @@ function WalletActions({ ...rest }: IXStackProps) {
           <WalletActionStaking
             key="staking"
             customization={customization}
-            showButtonStyle={showButtonStyle}
+            showButtonStyle
           />
         );
       default:
@@ -303,16 +300,16 @@ function WalletActions({ ...rest }: IXStackProps) {
   return (
     <RawActions
       {...rest}
-      {...(showButtonStyle && {
-        $gtSm: {
-          flexDirection: 'row',
-          justifyContent: 'flex-start',
-          gap: '$2.5',
-        },
-      })}
+      justifyContent="flex-start"
+      gap="$2.5"
+      $gtSm={{
+        flexDirection: 'row',
+        justifyContent: 'flex-start',
+        gap: '$2.5',
+      }}
     >
       {config.mainActions.map(renderActionComponent).filter(Boolean)}
-      <WalletActionMore showButtonStyle={showButtonStyle} />
+      <WalletActionMore showButtonStyle />
     </RawActions>
   );
 }
