@@ -40,7 +40,7 @@ index 7a739fc..10c5d9a 100644
  export type ScrollViewProps = ComponentProps<typeof Animated.ScrollView>;
  export type CollapsibleStyle = {
 diff --git a/node_modules/react-native-collapsible-tab-view/src/Container.tsx b/node_modules/react-native-collapsible-tab-view/src/Container.tsx
-index e782b90..a4e8822 100644
+index e782b90..78dfe11 100644
 --- a/node_modules/react-native-collapsible-tab-view/src/Container.tsx
 +++ b/node_modules/react-native-collapsible-tab-view/src/Container.tsx
 @@ -1,5 +1,5 @@
@@ -80,7 +80,7 @@ index e782b90..a4e8822 100644
  
        const indexDecimal: ContextType['indexDecimal'] = useSharedValue(
          index.value
-@@ -274,21 +277,49 @@ export const Container = React.memo(
+@@ -274,21 +277,67 @@ export const Container = React.memo(
          }
        )
  
@@ -116,12 +116,31 @@ index e782b90..a4e8822 100644
 -            },
 -          ],
 +          transform: [{ translateY: headerTranslateY.value }],
-+        }
+         }
+-      }, [revealHeaderOnScroll])
 +      }, [])
 +
 +      // Native animated header: uses RN's Animated driver for same-frame updates
 +      const nativeScrollY = React.useRef(new RNAnimated.Value(0)).current
 +      const headerScrollDist = Math.max((headerHeight || 0) - minHeaderHeight, 0)
++
++      // Sync nativeScrollY when tab changes
++      const syncNativeScrollY = React.useCallback((newScrollY: number) => {
++        if (useNativeHeaderAnimation) {
++          nativeScrollY.setValue(newScrollY)
++        }
++      }, [useNativeHeaderAnimation, nativeScrollY])
++
++      // Listen to scrollYCurrent changes to sync nativeScrollY on tab switch
++      useAnimatedReaction(
++        () => scrollYCurrent.value,
++        (current) => {
++          if (useNativeHeaderAnimation) {
++            runOnJS(syncNativeScrollY)(current)
++          }
++        },
++        [useNativeHeaderAnimation]
++      )
 +
 +      const nativeHeaderStyle = React.useMemo(() => {
 +        if (!useNativeHeaderAnimation || headerScrollDist <= 0) return undefined
@@ -135,13 +154,12 @@ index e782b90..a4e8822 100644
 +              extrapolate: 'clamp',
 +            })
 +          }]
-         }
--      }, [revealHeaderOnScroll])
++        }
 +      }, [useNativeHeaderAnimation, nativeScrollY, headerScrollDist, contentInset])
  
        const onTabPress = React.useCallback(
          (name: TabName) => {
-@@ -349,50 +380,86 @@ export const Container = React.memo(
+@@ -349,50 +398,86 @@ export const Container = React.memo(
          [onTabPress]
        )
  
@@ -265,7 +283,7 @@ index e782b90..a4e8822 100644
                  style={[styles.container, styles.headerContainer]}
                  onLayout={getHeaderHeight}
                  pointerEvents="box-none"
-@@ -407,8 +474,9 @@ export const Container = React.memo(
+@@ -407,8 +492,9 @@ export const Container = React.memo(
                      onTabPress,
                      tabProps,
                    })}
@@ -276,7 +294,7 @@ index e782b90..a4e8822 100644
                  style={[styles.container, styles.tabBarContainer]}
                  onLayout={getTabBarHeight}
                  pointerEvents="box-none"
-@@ -425,7 +493,7 @@ export const Container = React.memo(
+@@ -425,7 +511,7 @@ export const Container = React.memo(
                      tabProps,
                    })}
                </View>
