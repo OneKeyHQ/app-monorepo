@@ -40,7 +40,7 @@ index 7a739fc..10c5d9a 100644
  export type ScrollViewProps = ComponentProps<typeof Animated.ScrollView>;
  export type CollapsibleStyle = {
 diff --git a/node_modules/react-native-collapsible-tab-view/src/Container.tsx b/node_modules/react-native-collapsible-tab-view/src/Container.tsx
-index e782b90..7649dc1 100644
+index e782b90..f5bf36b 100644
 --- a/node_modules/react-native-collapsible-tab-view/src/Container.tsx
 +++ b/node_modules/react-native-collapsible-tab-view/src/Container.tsx
 @@ -1,5 +1,5 @@
@@ -80,7 +80,7 @@ index e782b90..7649dc1 100644
  
        const indexDecimal: ContextType['indexDecimal'] = useSharedValue(
          index.value
-@@ -274,21 +277,69 @@ export const Container = React.memo(
+@@ -274,21 +277,72 @@ export const Container = React.memo(
          }
        )
  
@@ -136,12 +136,15 @@ index e782b90..7649dc1 100644
 +        () => focusedTab.value,
 +        (currentTab, prevTab) => {
 +          if (useNativeHeaderAnimation && currentTab !== prevTab && prevTab !== undefined) {
-+            // Tab changed - sync nativeScrollY with the new tab's scroll position
-+            const newScrollY = scrollY.value[currentTab] ?? 0
-+            runOnJS(syncNativeScrollY)(newScrollY)
++            // Maintain current header visual position when switching tabs
++            // The interpolation maps: base → 0, base + headerScrollDist → -headerScrollDist
++            // So to achieve headerTranslateY, we need: nativeScrollY = base - headerTranslateY
++            const base = IS_IOS ? -contentInset : 0
++            const targetScrollY = base - headerTranslateY.value
++            runOnJS(syncNativeScrollY)(targetScrollY)
 +          }
 +        },
-+        [useNativeHeaderAnimation]
++        [useNativeHeaderAnimation, contentInset]
 +      )
 +
 +      const nativeHeaderStyle = React.useMemo(() => {
@@ -161,7 +164,7 @@ index e782b90..7649dc1 100644
  
        const onTabPress = React.useCallback(
          (name: TabName) => {
-@@ -349,50 +400,86 @@ export const Container = React.memo(
+@@ -349,50 +403,86 @@ export const Container = React.memo(
          [onTabPress]
        )
  
@@ -285,7 +288,7 @@ index e782b90..7649dc1 100644
                  style={[styles.container, styles.headerContainer]}
                  onLayout={getHeaderHeight}
                  pointerEvents="box-none"
-@@ -407,8 +494,9 @@ export const Container = React.memo(
+@@ -407,8 +497,9 @@ export const Container = React.memo(
                      onTabPress,
                      tabProps,
                    })}
@@ -296,7 +299,7 @@ index e782b90..7649dc1 100644
                  style={[styles.container, styles.tabBarContainer]}
                  onLayout={getTabBarHeight}
                  pointerEvents="box-none"
-@@ -425,7 +513,7 @@ export const Container = React.memo(
+@@ -425,7 +516,7 @@ export const Container = React.memo(
                      tabProps,
                    })}
                </View>

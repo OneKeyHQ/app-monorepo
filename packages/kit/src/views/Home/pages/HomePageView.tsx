@@ -384,7 +384,7 @@ export function HomePageView({
         ref={tabsRef as any}
         key={key}
         allowHeaderOverscroll
-        useNativeHeaderAnimation
+        useNativeHeaderAnimation={platformEnv.isNativeAndroid}
         renderHeader={renderHeader}
         renderTabBar={renderTabBar}
       >
