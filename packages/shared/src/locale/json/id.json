@@ -3668,6 +3668,7 @@
   "swap.faq_q6": "Mengapa pertukaran saya gagal?",
   "swap.faq_q7": "Apa itu persetujuan token?",
   "swap.faq_title": "FAQ",
+  "swap.fee_save": "Biaya 0% · {fee} Tersimpan!",
   "swap.limit_amount": "Jual {num1} {fromToken} untuk {num2} {toToken}",
   "swap.loading_content": "Menghitung harga terbaik...",
   "swap.native_token_max_tip": "Harap sisakan sejumlah kecil token untuk membayar biaya jaringan, jika tidak transaksi akan gagal.",

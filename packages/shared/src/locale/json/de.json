@@ -3668,6 +3668,7 @@
   "swap.faq_q6": "Warum ist mein tausch fehlgeschlagen?",
   "swap.faq_q7": "Was ist token-genehmigung?",
   "swap.faq_title": "Häufig gestellte Fragen",
+  "swap.fee_save": "0 % Gebühr · {fee} gespeichert!",
   "swap.limit_amount": "Verkaufe {num1} {fromToken} für {num2} {toToken}",
   "swap.loading_content": "Berechnung des besten Preises...",
   "swap.native_token_max_tip": "Bitte reservieren Sie eine kleine Menge an Token, um die Netzwerkgebühren zu bezahlen, da die Transaktion sonst fehlschlägt.",

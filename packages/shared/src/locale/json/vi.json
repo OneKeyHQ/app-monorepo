@@ -3668,6 +3668,7 @@
   "swap.faq_q6": "Tại sao việc hoán đổi của tôi lại thất bại?",
   "swap.faq_q7": "Điều gì là phê duyệt mã thông báo?",
   "swap.faq_title": "Câu hỏi thường gặp",
+  "swap.fee_save": "Phí 0% · {fee} Đã lưu!",
   "swap.limit_amount": "Bán {num1} {fromToken} để nhận {num2} {toToken}",
   "swap.loading_content": "Đang tính toán giá tốt nhất...",
   "swap.native_token_max_tip": "Vui lòng giữ lại một lượng nhỏ token để trả phí mạng, nếu không giao dịch sẽ thất bại.",

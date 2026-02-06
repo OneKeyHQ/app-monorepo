@@ -3668,6 +3668,7 @@
   "swap.faq_q6": "Why did my swap fail?",
   "swap.faq_q7": "What is token approval?",
   "swap.faq_title": "FAQ",
+  "swap.fee_save": "0% fee · {fee} saved!",
   "swap.limit_amount": "Sell {num1} {fromToken} for {num2} {toToken}",
   "swap.loading_content": "Calculating the best price...",
   "swap.native_token_max_tip": "Please reserve a small amount of tokens to pay for network fees, otherwise the transaction will fail.",

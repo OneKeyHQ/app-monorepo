@@ -3668,6 +3668,7 @@
   "swap.faq_q6": "为什么我的兑换失败了？",
   "swap.faq_q7": "什么是代币授权？",
   "swap.faq_title": "常见问题",
+  "swap.fee_save": "免手续费 · 已节省 {fee}！",
   "swap.limit_amount": "卖出 {num1} {fromToken} 购买 {num2} {toToken}",
   "swap.loading_content": "正在计算最佳价格...",
   "swap.native_token_max_tip": "请保留少量代币用于支付网络费用，否则交易将会失败。",

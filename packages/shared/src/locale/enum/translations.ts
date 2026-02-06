@@ -3673,6 +3673,7 @@
   swap_faq_q6 = 'swap.faq_q6',
   swap_faq_q7 = 'swap.faq_q7',
   swap_faq_title = 'swap.faq_title',
+  swap_fee_save = 'swap.fee_save',
   swap_limit_amount = 'swap.limit_amount',
   swap_loading_content = 'swap.loading_content',
   swap_native_token_max_tip = 'swap.native_token_max_tip',

@@ -3668,6 +3668,7 @@
   "swap.faq_q6": "Por que minha troca falhou?",
   "swap.faq_q7": "O que é aprovação de token?",
   "swap.faq_title": "Perguntas Frequentes",
+  "swap.fee_save": "Taxa de 0% · {fee} Salvo!",
   "swap.limit_amount": "Vender {num1} {fromToken} por {num2} {toToken}",
   "swap.loading_content": "Calculando o melhor preço...",
   "swap.native_token_max_tip": "Por favor, reserve uma pequena quantidade de tokens para pagar as taxas de rede, caso contrário a transação falhará.",

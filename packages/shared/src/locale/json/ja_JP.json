@@ -3668,6 +3668,7 @@
   "swap.faq_q6": "なぜ私のスワップは失敗したのですか？",
   "swap.faq_q7": "トークン承認とは何ですか？",
   "swap.faq_title": "FAQ",
+  "swap.fee_save": "手数料0% · {fee} 救われました！",
   "swap.limit_amount": "{num1} {fromToken}を{num2} {toToken}で売却",
   "swap.loading_content": "最適な価格を計算中...",
   "swap.native_token_max_tip": "ネットワーク手数料の支払いのために、少量のトークンを残しておいてください。そうしないと、トランザクションが失敗します。",

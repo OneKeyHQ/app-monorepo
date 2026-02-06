@@ -3668,6 +3668,7 @@
   "swap.faq_q6": "왜 내 스왑이 실패했나요?",
   "swap.faq_q7": "토큰 승인이란 무엇인가요?",
   "swap.faq_title": "자주 묻는 질문",
+  "swap.fee_save": "수수료 0% · {fee} 저장됨!",
   "swap.limit_amount": "{num1} {fromToken}을(를) {num2} {toToken}에 판매",
   "swap.loading_content": "최적의 가격 계산 중...",
   "swap.native_token_max_tip": "네트워크 수수료를 지불할 수 있도록 소량의 토큰을 남겨두세요. 그렇지 않으면 거래가 실패할 수 있습니다.",
