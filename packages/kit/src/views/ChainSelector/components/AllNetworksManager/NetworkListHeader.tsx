@@ -14,7 +14,6 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAccountSelectorCreateAddress } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorCreateAddress';
 import { useEnabledNetworksCompatibleWithWalletIdInAllNetworks } from '@onekeyhq/kit/src/hooks/useAllNetwork';
-import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   EAppEventBusNames,
@@ -69,20 +68,15 @@ function NetworkListHeader() {
   const handleCreateMissingAddresses = useCallback(async () => {
     setIsCreatingMissingAddresses(true);
 
-    const enabledNetworksWithoutAccountTemp: {
-      networkId: string;
-      deriveType: IAccountDeriveTypes;
-    }[] = [];
-
-    for (const network of enabledNetworksWithoutAccount) {
-      enabledNetworksWithoutAccountTemp.push({
+    const enabledNetworksWithoutAccountTemp = await Promise.all(
+      enabledNetworksWithoutAccount.map(async (network) => ({
         networkId: network.id,
         deriveType:
           await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
             networkId: network.id,
           }),
-      });
-    }
+      })),
+    );
 
     try {
       await createAddress({

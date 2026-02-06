@@ -93,13 +93,21 @@ function AllNetworksManagerTrigger({
       if (shouldEnableCompatQuery && !isDeferredReady) {
         return;
       }
-      await run({ alwaysSetState: true });
+      try {
+        await run({ alwaysSetState: true });
+      } catch {
+        // silently ignore refresh errors
+      }
     };
     const refreshDeriveTypeChanged = async () => {
       if (shouldEnableCompatQuery && !isDeferredReady) {
         return;
       }
-      await run({ alwaysSetState: true });
+      try {
+        await run({ alwaysSetState: true });
+      } catch {
+        // silently ignore refresh errors
+      }
     };
     appEventBus.on(
       EAppEventBusNames.NetworkDeriveTypeChanged,

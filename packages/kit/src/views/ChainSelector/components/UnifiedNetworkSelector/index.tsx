@@ -329,27 +329,25 @@ function UnifiedNetworkSelector() {
       }
     }
 
-    const enabledNetworksWithoutAccountTemp: {
-      networkId: string;
-      deriveType: IAccountDeriveTypes;
-    }[] = [];
-
-    for (let i = 0; i < enabledNetworks.length; i += 1) {
-      const network = enabledNetworks[i];
-
-      const deriveType =
-        await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
-          networkId: network.id,
-        });
-
-      const networkAccount = networkAccountMap[`${network.id}_${deriveType}`];
-      if (!networkAccount) {
-        enabledNetworksWithoutAccountTemp.push({
-          networkId: network.id,
-          deriveType,
-        });
-      }
-    }
+    const enabledNetworksWithoutAccountTemp = (
+      await Promise.all(
+        enabledNetworks.map(async (network) => {
+          const deriveType =
+            await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
+              { networkId: network.id },
+            );
+          const networkAccount =
+            networkAccountMap[`${network.id}_${deriveType}`];
+          if (!networkAccount) {
+            return { networkId: network.id, deriveType };
+          }
+          return null;
+        }),
+      )
+    ).filter(
+      (item): item is { networkId: string; deriveType: IAccountDeriveTypes } =>
+        item !== null,
+    );
 
     setEnabledNetworksWithoutAccount(enabledNetworksWithoutAccountTemp);
 
@@ -365,9 +363,9 @@ function UnifiedNetworkSelector() {
           },
           customNetworks: enabledNetworksWithoutAccountTemp,
         });
-      } catch (error) {
+      } catch (_error) {
         setIsCreatingEnabledAddresses(false);
-        throw error;
+        return;
       }
     }
 

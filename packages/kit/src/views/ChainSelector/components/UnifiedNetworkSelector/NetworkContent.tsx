@@ -129,7 +129,11 @@ export function NetworkContent({
 
   useEffect(() => {
     const fn = async () => {
-      await refreshLocalData();
+      try {
+        await refreshLocalData();
+      } catch {
+        // silently ignore refresh errors
+      }
     };
     appEventBus.on(EAppEventBusNames.AddedCustomNetwork, fn);
     return () => {
