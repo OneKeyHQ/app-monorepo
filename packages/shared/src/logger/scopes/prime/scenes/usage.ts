@@ -1,3 +1,5 @@
+import type { EBulkSendMode } from '@onekeyhq/shared/types/bulkSend';
+
 import { BaseScene } from '../../../base/baseScene';
 import { LogToServer } from '../../../base/decorators';
 
@@ -20,6 +22,30 @@ export class PrimeUsageScene extends BaseScene {
   @LogToServer()
   public bulkCopyAddressSuccess() {
     return {};
+  }
+
+  /**
+   * Bulk send usage
+   * Triggered when a Prime user successfully completes a bulk send operation
+   */
+  @LogToServer()
+  public bulkSendSuccess({
+    recipientCount,
+    sendMode,
+    network,
+    tokenSymbol,
+  }: {
+    recipientCount: number;
+    sendMode: EBulkSendMode;
+    network: string;
+    tokenSymbol: string;
+  }) {
+    return {
+      recipientCount,
+      sendMode,
+      network,
+      tokenSymbol,
+    };
   }
 
   /**

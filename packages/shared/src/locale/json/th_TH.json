@@ -2755,6 +2755,7 @@
   "perps.token_selector_perps": "ผู้กระทำผิด",
   "perps.token_selector_stocks": "หุ้น",
   "perps.trade_reward": "ผลตอบแทนการค้า",
+  "perps_footer.help_us_better": "ช่วยเราปรับปรุงให้ดีขึ้น",
   "pick_your_device": "เลือกอุปกรณ์ของคุณ",
   "pin_attempts_cooldown": "ลองอีกครั้งใน {seconds}.",
   "pin_attempts_exhausted": "เกินจำนวนครั้งที่พยายามป้อน PIN สูงสุดแล้ว โปรดรีเซ็ต PIN ของคุณ。",

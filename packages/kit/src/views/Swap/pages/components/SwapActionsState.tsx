@@ -4,10 +4,10 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
+  Badge,
   Button,
   Icon,
   LottieView,
-  NumberSizeableText,
   Page,
   SizableText,
   Stack,
@@ -39,6 +39,7 @@ import {
   EOnboardingV2Routes,
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   ESwapDirectionType,
   ESwapQuoteKind,
@@ -258,32 +259,31 @@ const SwapActionsState = ({
           hasEverShownCostSavingsRef.current = true;
         }
 
+        const formattedFee = numberFormat(
+          currentQuoteRes.fee?.costSavings ?? '0',
+          {
+            formatter: 'value',
+            formatterOptions: {
+              currency: settingsPersistAtom.currencyInfo.symbol,
+            },
+          },
+        );
+
         return (
-          <XStack
-            alignItems="center"
-            justifyContent="center"
-            gap="$1"
-            mt="$2"
-            px="$3"
-            py="$1.5"
-            borderRadius="$full"
-            bg="$bgSuccessSubdued"
+          <Badge
+            badgeSize="sm"
+            badgeType="success"
             alignSelf="center"
+            gap="$1.5"
           >
-            <SizableText size="$bodyMd" color="$textSuccessStrong">
-              Saved you
+            <Icon name="PartyCelebrateSolid" size="$3" color="$iconSuccess" />
+            <SizableText size="$bodySmMedium" color="$textSuccess">
+              {intl.formatMessage(
+                { id: ETranslations.swap_fee_save },
+                { fee: formattedFee },
+              )}
             </SizableText>
-            <NumberSizeableText
-              size="$bodyMd"
-              color="$textSuccessStrong"
-              formatter="value"
-              formatterOptions={{
-                currency: settingsPersistAtom.currencyInfo.symbol,
-              }}
-            >
-              {currentQuoteRes.fee?.costSavings}
-            </NumberSizeableText>
-          </XStack>
+          </Badge>
         );
       }
     } else {
@@ -295,6 +295,7 @@ const SwapActionsState = ({
     settingsPersistAtom.currencyInfo.symbol,
     quoting,
     quoteLoading,
+    intl,
   ]);
 
   const actionComponent = useMemo(
