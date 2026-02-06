@@ -43,6 +43,7 @@ export function InviteCodeStepImage({ step }: IInviteCodeStepImageProps) {
         autoPlay
         loop={shouldLoop}
         resizeMode="contain"
+        renderMode="AUTOMATIC"
       />
     </Stack>
   );
