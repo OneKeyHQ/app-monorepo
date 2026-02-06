@@ -1,4 +1,4 @@
-import { type ReactNode, memo, useMemo, useState } from 'react';
+import { type ReactNode, memo, useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -19,7 +19,7 @@ import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
-
+import { AllNetworksManagerTrigger } from '../../AccountSelector/AllNetworksManagerTrigger';
 function AccountSelectorTriggerWithSpotlight({
   isFocus,
   linkNetworkId,
@@ -79,9 +79,10 @@ export function WalletConnectionGroup({
   showNetworkSelector = true,
   showAccountInfo = true,
 }: IWalletConnectionGroupProps) {
-  const { gtMd } = useMedia();
+  const { md } = useMedia();
+  const isMobileLayout = md || platformEnv.isNative;
   const {
-    activeAccount: { wallet },
+    activeAccount: { wallet, network },
   } = useActiveAccount({
     num: 0,
   });
@@ -110,7 +111,53 @@ export function WalletConnectionGroup({
   }
 
   const shouldShowNetworkSelector =
-    showNetworkSelector && tabRoute === ETabRoutes.Home && gtMd;
+    showNetworkSelector && tabRoute === ETabRoutes.Home;
+
+  const renderNetworkSelectorTrigger = useCallback(
+    (size?: 'small' | 'large') => {
+      if (!shouldShowNetworkSelector || isNonBackedUpWallet) {
+        return null;
+      }
+
+      if (network?.isAllNetworks) {
+        return <AllNetworksManagerTrigger num={0} unifiedMode />;
+      }
+      return (
+        <NetworkSelectorTriggerHome
+          num={0}
+          size={size}
+          recordNetworkHistoryEnabled
+          hideOnNoAccount
+          unifiedMode
+        />
+      );
+    },
+    [network?.isAllNetworks, shouldShowNetworkSelector, isNonBackedUpWallet],
+  );
+
+  if (isMobileLayout) {
+    return (
+      <XStack flex={1} ai="center" jc="space-between">
+        <XStack gap="$3" ai="center">
+          <MemoizedAccountSelectorTriggerWithSpotlight
+            isFocus={isFocus}
+            linkNetworkId={linkNetworkId}
+            hideAddress={hideAddress}
+          />
+          {showAccountInfo && !isNonBackedUpWallet ? (
+            <AccountSelectorActiveAccountHome
+              num={0}
+              showAccountAddress={false}
+              showCopyButton={tabRoute === ETabRoutes.Home}
+              showCreateAddressButton={false}
+              showNoAddressTip={false}
+            />
+          ) : null}
+        </XStack>
+        {renderNetworkSelectorTrigger('small')}
+      </XStack>
+    );
+  }
 
   return (
     <XStack gap="$3" ai="center">
@@ -119,13 +166,7 @@ export function WalletConnectionGroup({
         linkNetworkId={linkNetworkId}
         hideAddress={hideAddress}
       />
-      {shouldShowNetworkSelector && !isNonBackedUpWallet ? (
-        <NetworkSelectorTriggerHome
-          num={0}
-          recordNetworkHistoryEnabled
-          hideOnNoAccount
-        />
-      ) : null}
+      {renderNetworkSelectorTrigger()}
       {showAccountInfo && !isNonBackedUpWallet ? (
         <AccountSelectorActiveAccountHome
           num={0}

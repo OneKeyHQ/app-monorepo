@@ -24,7 +24,7 @@ export function TrendingSectionItems({
   const innerDataSource =
     dataSource.length > 0
       ? dataSource
-      : Array<IDApp>(14)
+      : Array<IDApp>(20)
           .fill({
             dappId: '',
             logo: '',
@@ -46,7 +46,7 @@ export function TrendingSectionItems({
       if (media.sm) return 8;
       if (media['2md']) return 10;
       if (media.xl) return 12;
-      return 14;
+      return 20;
     };
     setNumberOfItems(calculateNumberOfItems());
   }, [media.gtXl, media.gt2Md, media.gtSm, media]);
@@ -55,7 +55,7 @@ export function TrendingSectionItems({
     <YStack
       flexDirection="row"
       flexWrap="wrap"
-      rowGap="$2"
+      rowGap="$4"
       py="$2"
       {...restProps}
     >
@@ -65,7 +65,7 @@ export function TrendingSectionItems({
           width="25%"
           $gtSm={{ width: '20%' }}
           $gt2Md={{ width: '16.6%' }}
-          $gtXl={{ width: '14.2%' }}
+          $gtXl={{ width: '10%' }}
         >
           <TrendingSectionItem
             logo={dApp.logo}
