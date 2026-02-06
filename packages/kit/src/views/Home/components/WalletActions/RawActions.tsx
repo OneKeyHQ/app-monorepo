@@ -39,12 +39,8 @@ function ActionItem({
   if (showButtonStyle) {
     return (
       <Button
+        size="small"
         icon={icon}
-        {...(!label && {
-          py: '$2',
-          pl: '$2.5',
-          pr: '$0.5',
-        })}
         {...rest}
       >
         {label}
@@ -192,15 +188,16 @@ function ActionMore({
         w: '$60',
       }}
       renderTrigger={
-        <ActionItem
-          icon="DotHorOutline"
-          showButtonStyle={showButtonStyle}
-          {...(!showButtonStyle && {
-            label: intl.formatMessage({
+        showButtonStyle ? (
+          <Button size="small" icon="DotHorOutline" />
+        ) : (
+          <ActionItem
+            icon="DotHorOutline"
+            label={intl.formatMessage({
               id: ETranslations.global_more,
-            }),
-          })}
-        />
+            })}
+          />
+        )
       }
       renderItemsAsync={renderItemsAsync}
     />

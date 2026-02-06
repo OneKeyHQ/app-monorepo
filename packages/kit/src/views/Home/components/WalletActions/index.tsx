@@ -307,7 +307,7 @@ function WalletActions({ ...rest }: IXStackProps) {
         $gtSm: {
           flexDirection: 'row',
           justifyContent: 'flex-start',
-          gap: '$2',
+          gap: '$2.5',
         },
       })}
     >
