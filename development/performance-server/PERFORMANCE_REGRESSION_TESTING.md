@@ -385,6 +385,11 @@ These metrics apply to every page and should be checked on every test session:
 | **Repeated Rapid Calls** | Same function called within 100ms window | `/api/sessions/:id/repeated-calls?mode=rapid` | New repeated call pattern appearing |
 | **Storage I/O** | AsyncStorage read/write operations | `storage:*` marks | Total duration > 30% increase |
 | **SimpleDB I/O** | SimpleDB CRUD operations | `simpledb:*` marks | Total duration > 30% increase |
+| **Navigation Transition FPS** | FPS during any page navigation animation (250ms modal) | FPS samples during transition | Drop below 40 fps |
+| **Dialog Animation FPS** | FPS during any dialog open/close animation (300ms) | FPS samples during animation | Drop below 40 fps |
+| **Toast Appearance** | Time from trigger to toast visible on screen | Interaction timing | > 200ms |
+| **Image Load (Cached)** | Time from render to cached image visible | Interaction timing | > 100ms |
+| **Clipboard Copy → Toast** | Time from copy action to confirmation toast | Interaction timing | > 500ms |
 
 ---
 
@@ -539,8 +544,11 @@ perfMark('scroll:end:TokenList');
 | **JS Block Events** | `jsblock:*` marks during startup | 0 blocks > 300ms | Any new block > 300ms |
 | **Memory at Idle** | Heap after Home is fully loaded and idle (5s) | M: < 150MB, D/W/E: < 200MB | > 20% increase |
 
+| **Deep Link → Target Page** | URL scheme/universal link → target page visible | M: < 3000ms, D/W/E: < 2000ms | > 25% increase |
+| **Deep Link Parse** | Receive URL → parsed and route determined | < 50ms all platforms | > 100ms |
+
 **Platform-specific notes**:
-- **Mobile**: Also measure native splash screen dismiss → `app:start` gap if instrumented
+- **Mobile**: Also measure native splash screen dismiss → `app:start` gap if instrumented. Deep links add ~200ms overhead for route parsing.
 - **Extension**: Measure popup open time separately (popup has its own cold start)
 - **Desktop**: Measure Electron main process ready → renderer `app:start`
 
@@ -575,9 +583,13 @@ perfMark('scroll:end:TokenList');
 | **SimpleDB Operations** | `simpledb:*` marks during refresh | Total < 300ms | > 30% increase |
 | **Background Calls** | `bgcall:*` marks during refresh | Total < 1000ms | > 25% increase |
 | **Pull-to-Refresh Total** | User pulls → all data refreshed | M: < 3000ms | > 20% increase |
+| **Pull-to-Refresh FPS** | FPS during pull gesture + animation (1200ms spinner) | M: >= 55 fps | Drop below 45 fps |
+| **Tab Switch (Portfolio ↔ NFTs ↔ History)** | Tap tab → new content visible (100ms callback delay) | < 200ms all platforms | > 300ms |
+| **Tab Switch FPS** | FPS during tab content transition | >= 50 fps all platforms | Drop below 40 fps |
+| **Keyboard Open FPS (Search)** | FPS when keyboard appears for search | M: >= 45 fps | Drop below 35 fps |
 
 **Platform-specific notes**:
-- **Mobile**: Test with 50+ tokens, 5+ networks to stress token list rendering. The collapsible tab header animation is a common FPS bottleneck.
+- **Mobile**: Test with 50+ tokens, 5+ networks to stress token list rendering. The collapsible tab header animation is a common FPS bottleneck. Pull-to-refresh has a fixed 1200ms animation — measure total cycle including data refresh.
 - **Extension Popup**: Token list in a smaller viewport — test scroll performance in 550x600 popup size
 - **Web/Desktop**: Test with large screen showing all tokens without scroll; also test with virtualized scrolling via react-virtualized
 
@@ -597,8 +609,12 @@ perfMark('scroll:end:TokenList');
 | **Price Chart Render** | Chart data loaded → chart painted | < 1000ms all platforms | > 25% increase |
 | **Transaction History Load** | First batch of transactions rendered | < 1500ms all platforms | > 20% increase |
 | **History Scroll FPS** | FPS during transaction history SectionList scroll | M: >= 50 fps, D/W/E: >= 55 fps | Drop below 30 fps for > 500ms |
+| **Tab Switch Latency** | Tap tab → new tab content visible (100ms callback) | < 200ms all platforms | > 300ms |
 | **Tab Switch FPS** | FPS during tab switch animation | >= 50 fps all platforms | Drop below 40 fps |
-| **Chart Interaction FPS** | FPS during chart pinch/zoom/pan | M: >= 45 fps, D/W/E: >= 50 fps | Drop below 30 fps |
+| **Chart Interaction FPS** | FPS during chart pinch/zoom/pan (25ms throttle) | M: >= 45 fps, D/W/E: >= 50 fps | Drop below 30 fps |
+| **Chart Crosshair Response** | Cursor/finger move → crosshair + tooltip update | < 25ms (throttled) | > 50ms |
+| **Navigation Transition FPS** | FPS during modal open animation (250ms) | >= 50 fps all platforms | Drop below 40 fps |
+| **Back Navigation** | Back press → Home page visible | < 300ms all platforms | > 400ms |
 | **Memory Delta** | Heap increase from Home → Token Detail | < 30MB | > 50% increase |
 
 ---
@@ -621,9 +637,15 @@ perfMark('scroll:end:TokenList');
 | **Confirm Page Load** | SendDataInput submit → SendConfirm interactive | < 800ms all platforms | > 20% increase |
 | **Transaction Sign & Broadcast** | Confirm → SendFeedback (success/fail) | < 3000ms (excl. hardware) | > 25% increase |
 | **FPS During Input** | FPS while typing address/amount | >= 55 fps all platforms | Drop below 45 fps |
+| **Keyboard Open FPS** | FPS when keyboard appears for address/amount input | M: >= 45 fps | Drop below 35 fps |
+| **Keyboard Close FPS** | FPS when keyboard dismisses | M: >= 45 fps | Drop below 35 fps |
+| **Navigation Transition (→ Confirm)** | Send form submit → confirm page animation complete (250ms) | < 400ms all platforms | > 500ms |
+| **Send Button Response** | Confirm button tap → action initiated | < 100ms all platforms | > 200ms |
+| **Clipboard Paste → Address Fill** | Paste address → field populated + validated | < 300ms all platforms | > 500ms |
+| **Confirmation Dialog FPS** | FPS during send confirmation dialog animation (300ms) | >= 50 fps | Drop below 40 fps |
 
 **Platform-specific notes**:
-- **Mobile**: Test keyboard open/close impact on FPS
+- **Mobile**: Test keyboard open/close impact on FPS — address/amount inputs trigger layout reflow
 - **Extension Popup**: Form layout in compact viewport
 - **All**: Hardware wallet signing is excluded from broadcast timing — measure software wallet only
 
@@ -642,6 +664,8 @@ perfMark('scroll:end:TokenList');
 | **Page Open** | Navigation → QR code visible | M: < 500ms, E: < 400ms, W: < 300ms, D: < 400ms | > 25% increase |
 | **QR Code Render** | Address ready → QR drawn | < 200ms all platforms | > 50% increase |
 | **Address Derivation** | For HD wallets, time to derive address | < 1000ms all platforms | > 30% increase |
+| **Copy Address (Clipboard)** | Tap copy → address in clipboard + toast visible | < 300ms all platforms | > 500ms |
+| **Navigation Transition FPS** | FPS during modal open animation (250ms) | >= 50 fps all platforms | Drop below 40 fps |
 
 ---
 
@@ -659,12 +683,15 @@ perfMark('scroll:end:TokenList');
 | **Quote Fetch** | Amount entered → first quote displayed | < 3000ms all platforms | > 20% increase |
 | **Token Selector Open** | Tap → token list rendered with balances | < 600ms all platforms | > 30% increase |
 | **Token Selector Scroll FPS** | FPS during token selector list scroll | M: >= 50 fps, D/W/E: >= 55 fps | Drop below 40 fps |
-| **Token Search** | Keystroke → filtered results | < 200ms all platforms | > 50% increase |
+| **Token Search** | Keystroke → filtered results (50ms debounce) | < 200ms all platforms | > 50% increase |
 | **Provider Comparison Load** | Quote done → provider list rendered | < 1000ms all platforms | > 25% increase |
 | **Provider List Scroll FPS** | FPS during provider list scroll | >= 55 fps all platforms | Drop below 45 fps |
 | **Swap Confirm Page** | Submit → confirm page interactive | < 500ms all platforms | > 25% increase |
 | **History List Scroll FPS** | FPS during swap history list scroll | M: >= 50 fps, D/W/E: >= 55 fps | Drop below 40 fps |
 | **FPS During Interaction** | FPS while interacting with swap form | >= 55 fps all platforms | Drop below 45 fps |
+| **Swap Confirm Button Response** | Confirm tap → transaction initiated | < 100ms all platforms | > 200ms |
+| **Keyboard Open FPS (Amount Input)** | FPS when keyboard appears for amount entry | M: >= 45 fps | Drop below 35 fps |
+| **Navigation Transition FPS** | FPS during modal push/pop animations (250ms) | >= 50 fps all platforms | Drop below 40 fps |
 
 ---
 
@@ -683,8 +710,10 @@ perfMark('scroll:end:TokenList');
 | **Token List Scroll FPS** | FPS during market token list scroll | M: >= 50 fps, D/W/E: >= 55 fps | Drop below 40 fps for > 500ms |
 | **Scroll with Sparklines FPS** | FPS during scroll (sparkline charts rendering) | M: >= 45 fps, D/W/E: >= 50 fps | Drop below 35 fps |
 | **Sort Operation** | Column header tap → list re-sorted | < 300ms all platforms | > 50% increase |
-| **Search** | Keystroke → filtered results | < 200ms all platforms | > 50% increase |
+| **Search** | Keystroke → filtered results (50ms debounce) | < 200ms all platforms | > 50% increase |
+| **Sort Tap Response** | Column header tap → visual feedback | < 50ms all platforms | > 100ms |
 | **Pagination Load** | Scroll to bottom → next 20 items loaded | < 500ms all platforms | > 30% increase |
+| **Image Load (Token Icons)** | Token icon cache hit → visible | < 50ms (cached), < 500ms (network) | > 30% increase |
 | **Memory Footprint** | Heap after loading 500+ tokens | < 80MB (incremental over baseline) | > 30% increase |
 
 **Platform-specific notes**:
@@ -706,7 +735,9 @@ perfMark('scroll:end:TokenList');
 | **Page Open** | Navigation → basic info visible | M: < 800ms, E: < 700ms, W: < 600ms, D: < 700ms | > 20% increase |
 | **Chart Load** | Page open → TradingView chart interactive | < 2000ms all platforms | > 25% increase |
 | **Chart Timeframe Switch** | Tap timeframe → chart redrawn | < 1000ms all platforms | > 30% increase |
-| **Chart Pan/Zoom FPS** | FPS during chart pinch/zoom/pan | M: >= 45 fps, D/W/E: >= 50 fps | Drop below 30 fps |
+| **Chart Pan/Zoom FPS** | FPS during chart pinch/zoom/pan (25ms hover throttle) | M: >= 45 fps, D/W/E: >= 50 fps | Drop below 30 fps |
+| **Chart Crosshair Response** | Move → crosshair + tooltip update (25ms throttle) | < 25ms | > 50ms |
+| **Chart Data Update** | New data → chart re-render (30ms debounce) | < 100ms all platforms | > 200ms |
 | **Content Scroll FPS** | FPS during page content scroll | M: >= 50 fps, D/W/E: >= 55 fps | Drop below 40 fps |
 | **Memory Delta** | Heap increase from Market → Market Detail | < 50MB | > 40% increase |
 
@@ -731,6 +762,8 @@ perfMark('scroll:end:TokenList');
 | **Bookmark List Scroll FPS** | FPS scrolling bookmark list | >= 55 fps all platforms | Drop below 45 fps |
 | **Memory Per Tab** | Heap increase per open DApp tab | M: < 50MB, D/W/E: < 80MB | > 40% increase |
 | **DApp Injection Time** | Provider injection into WebView | < 500ms all platforms | > 50% increase |
+| **Tab Switch (Browser Tabs)** | Switch between open DApp tabs | < 500ms all platforms | > 30% increase |
+| **DApp Search Response** | Keystroke → search results (50ms debounce) | < 300ms all platforms | > 50% increase |
 
 **Platform-specific notes**:
 - **Mobile**: WebView is heavy — monitor memory carefully with multiple tabs
@@ -753,7 +786,10 @@ perfMark('scroll:end:TokenList');
 | **Protocol List Load** | API response → full list rendered | < 2000ms all platforms | > 20% increase |
 | **Protocol List Scroll FPS** | FPS during protocol card list scroll | >= 55 fps | Drop below 40 fps |
 | **Filter/Sort** | Apply filter → list updated | < 300ms | > 50% increase |
+| **Filter Tap Response** | Tap filter → visual feedback | < 50ms | > 100ms |
 | **Portfolio Data Load** | Page open → portfolio values displayed | < 2000ms | > 25% increase |
+| **Protocol Card Tap → Detail** | Tap card → detail page navigation (250ms animation) | < 400ms | > 500ms |
+| **Navigation Transition FPS** | FPS during detail page push animation | >= 50 fps | Drop below 40 fps |
 
 ---
 
@@ -773,6 +809,9 @@ perfMark('scroll:end:TokenList');
 | **Stake Form Open** | Tap Stake → form interactive | < 500ms all platforms | > 30% increase |
 | **Stake Preview Calculation** | Amount input → expected reward shown | < 1000ms all platforms | > 30% increase |
 | **Withdraw Form Open** | Tap Withdraw → form interactive | < 500ms all platforms | > 30% increase |
+| **Stake Button Response** | Confirm stake tap → transaction initiated | < 100ms all platforms | > 200ms |
+| **Navigation Transition FPS** | FPS during modal push/pop animations (250ms) | >= 50 fps all platforms | Drop below 40 fps |
+| **Keyboard Open FPS (Amount Input)** | FPS when keyboard appears for stake/withdraw amount | M: >= 45 fps | Drop below 35 fps |
 
 ---
 
@@ -791,6 +830,9 @@ perfMark('scroll:end:TokenList');
 | **Sub-page Navigation** | Tap item → sub-page rendered | < 300ms all platforms | > 30% increase |
 | **Clear Cache Operation** | Tap clear → operation complete | < 3000ms all platforms | > 30% increase |
 | **Custom RPC Save** | Save RPC URL → validated and saved | < 1000ms all platforms | > 30% increase |
+| **Biometric Prompt Appear** | Tap biometric setting → native dialog visible | < 200ms (native OS) | > 400ms |
+| **Biometric → Unlock** | Successful scan → action authorized | < 100ms (post-scan) | > 300ms |
+| **Navigation Transition FPS** | FPS during settings sub-page navigation (250ms) | >= 50 fps all platforms | Drop below 40 fps |
 
 ---
 
@@ -810,6 +852,8 @@ perfMark('scroll:end:TokenList');
 | **Drag Reorder FPS** | FPS during drag-and-drop reorder | M: >= 50 fps, D/W/E: >= 55 fps | Drop below 40 fps |
 | **Account Switch** | Tap account → Home refreshed with new data | < 2000ms all platforms | > 20% increase |
 | **Batch Account Creation** | Submit → accounts created | < 5000ms for 10 accounts | > 25% increase |
+| **Selector Open Animation FPS** | FPS during bottom sheet open animation (300ms) | >= 50 fps all platforms | Drop below 40 fps |
+| **Drag Start Response** | Long press → drag handle active | < 200ms all platforms | > 300ms |
 
 ---
 
@@ -829,6 +873,10 @@ perfMark('scroll:end:TokenList');
 | **Import from Mnemonic** | Paste phrase → wallet restored | < 3000ms all platforms | > 25% increase |
 | **Import Account Discovery** | Phrase accepted → accounts discovered | < 5000ms all platforms | > 25% increase |
 | **Hardware Connect** | Tap Connect → device recognized | < 5000ms (excl. user action) | > 30% increase |
+| **Mnemonic Paste (Clipboard)** | Paste phrase → all words populated | < 200ms all platforms | > 400ms |
+| **Keyboard Open FPS** | FPS when keyboard appears for mnemonic/password input | M: >= 45 fps | Drop below 35 fps |
+| **Navigation Transition FPS** | FPS during onboarding step transitions (250ms) | >= 50 fps all platforms | Drop below 40 fps |
+| **Password Dialog FPS** | FPS during password setup dialog animation (300ms) | >= 50 fps all platforms | Drop below 40 fps |
 
 ---
 
@@ -846,11 +894,15 @@ perfMark('scroll:end:TokenList');
 | **Account List in Approval** | Sheet open → accounts rendered | < 300ms all platforms | > 30% increase |
 | **Account List Scroll FPS** | FPS scrolling accounts in approval sheet | >= 55 fps all platforms | Drop below 45 fps |
 | **Approval Confirm** | User confirms → DApp receives response | < 500ms all platforms | > 30% increase |
+| **Approve Button Response** | Tap approve → action initiated | < 100ms all platforms | > 200ms |
 | **Signature Confirm Load** | Sign request → confirm page rendered | < 600ms all platforms | > 25% increase |
+| **WalletConnect Pairing** | Scan QR → WC pairing established | < 3000ms M | > 5000ms |
+| **WC Session Proposal → UI** | Session proposal received → approval UI visible | < 500ms all platforms | > 800ms |
+| **Approval Sheet Animation FPS** | FPS during bottom sheet open animation (300ms) | >= 50 fps all platforms | Drop below 40 fps |
 
 **Platform-specific notes**:
 - **Extension**: This is the most frequent modal in extension — popup must open fast
-- **Mobile**: WalletConnect deep link → approval sheet timing
+- **Mobile**: WalletConnect deep link → approval sheet timing. WC pairing should complete within 3s, session proposal → UI within 500ms.
 
 ---
 
@@ -867,7 +919,9 @@ perfMark('scroll:end:TokenList');
 | **History List Load** | Page open → first batch rendered | < 1000ms all platforms | > 20% increase |
 | **History List Scroll FPS** | FPS during history SectionList scroll | M: >= 50 fps, D/W/E: >= 55 fps | Drop below 30 fps for > 500ms |
 | **Section Header Sticky FPS** | FPS when sticky section headers transition | M: >= 50 fps | Drop below 40 fps |
-| **History Detail Open** | Tap transaction → detail rendered | < 400ms all platforms | > 30% increase |
+| **History Detail Open** | Tap transaction → detail rendered (250ms nav animation) | < 400ms all platforms | > 30% increase |
+| **History Detail Navigation FPS** | FPS during detail modal open animation | >= 50 fps all platforms | Drop below 40 fps |
+| **Copy TxHash (Clipboard)** | Tap copy → hash in clipboard + toast visible | < 300ms all platforms | > 500ms |
 | **Pagination / Load More** | Scroll to bottom → next batch appended | < 800ms all platforms | > 25% increase |
 | **Memory Growth** | Heap increase per 100 items loaded | < 10MB | > 40% increase |
 
@@ -924,8 +978,15 @@ When adding a new page to regression testing, use this template:
 | Metric | Mark / Source | Target | Regression Threshold |
 |--------|--------------|--------|---------------------|
 | **Page Open (TTI)** | Navigation → interactive | < Xms | > Y% increase |
+| **Navigation Transition FPS** | FPS during modal open animation (250ms) | >= 50 fps | Drop below 40 fps |
 | **Data Load** | data:start → data:done | < Xms | > Y% increase |
 | **List Scroll FPS** | FPS during list scroll | M: >= X fps, D/W/E: >= Y fps | Drop below Z fps for > 500ms |
+| **Tab Switch** | Tab tap → new content visible (if tabs present) | < 200ms | > 300ms |
+| **Button Response** | Primary action button tap → action initiated | < 100ms | > 200ms |
+| **Keyboard Open FPS** | FPS during keyboard appearance (if inputs present) | M: >= 45 fps | Drop below 35 fps |
+| **Dialog Animation FPS** | FPS during dialog open/close (if dialogs present) | >= 50 fps | Drop below 40 fps |
+| **Search Response** | Keystroke → filtered results (if search present) | < 200ms | > 300ms |
+| **Clipboard Copy** | Tap copy → toast visible (if copy actions present) | < 300ms | > 500ms |
 | **Memory Delta** | Heap increase entering page | < XMB | > Y% increase |
 ```
 
@@ -1091,6 +1152,22 @@ jq '.keyMarks.marks["Home:refresh:done:tokens"].first.sinceSessionStartMs' basel
 | Onboarding create wallet | ✅ | ✅ | ✅ | ✅ | ✅ |
 | DApp connection approve | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Transaction history scroll FPS | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Interaction Metrics** | | | | | |
+| Navigation transition FPS (250ms modal) | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Button tap → action response | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Tab switch latency (Home tabs) | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Dialog open/close animation FPS (300ms) | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Pull-to-refresh cycle (1200ms anim) | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Search/filter response time | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Keyboard open/close FPS | ✅ | ✅ | — | — | — |
+| Chart interaction FPS (pan/zoom) | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Clipboard copy → toast | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Biometric auth timing | ✅ | ✅ | — | — | ✅ |
+| QR scanner open + decode | ✅ | ✅ | — | — | — |
+| WalletConnect pairing + session | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Deep link → target page | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Image loading (token icons, NFTs) | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Toast appearance timing | ✅ | ✅ | ✅ | ✅ | ✅ |
 
 ---
 
@@ -1153,6 +1230,17 @@ jq '.keyMarks.marks["Home:refresh:done:tokens"].first.sinceSessionStartMs' basel
 | `History:mount` | History page | History page open |
 | `History:list:done` | After list render | List render complete |
 | `History:scroll:start/end` | History list scroll | Scroll FPS correlation |
+| `Nav:push:start` / `Nav:push:animated` / `Nav:push:interactive` | Navigation system | Page transition timing |
+| `Tab:switch:start` / `Tab:switch:visible` | Tabs container | Tab switch latency |
+| `Dialog:open` / `Dialog:ready` / `Dialog:close` | Dialog component | Dialog animation timing |
+| `PullRefresh:start` / `PullRefresh:complete` | Pull-to-refresh | Refresh cycle timing |
+| `Search:start` / `Search:results` | Search hooks | Search response timing |
+| `Clipboard:copy` / `Clipboard:toast` | useClipboard | Clipboard operation timing |
+| `Button:press` / `Button:complete` | Button component | Button response timing |
+| `WC:pairing:start` / `WC:pairing:done` | WalletConnect | WC session timing |
+| `DeepLink:receive` / `DeepLink:navigate` | Deep link handler | Deep link handling timing |
+| `Biometric:prompt` / `Biometric:done` | Auth flow | Biometric auth timing |
+| `Scanner:open` / `Scanner:decode` | QR scanner | QR scanning timing |
 
 ---
 
