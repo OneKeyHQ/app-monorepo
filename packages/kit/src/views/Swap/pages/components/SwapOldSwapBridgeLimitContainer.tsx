@@ -148,9 +148,9 @@ const SwapOldSwapBridgeLimitContainer = ({
         onOpenRecipient={onToAnotherAddressModal}
       />
       {alerts.states.length > 0 &&
-        !quoteLoading &&
-        !quoteEventFetching &&
-        alerts?.quoteId === (quoteResult?.quoteId ?? '') ? (
+      !quoteLoading &&
+      !quoteEventFetching &&
+      alerts?.quoteId === (quoteResult?.quoteId ?? '') ? (
         <SwapAlertContainer alerts={alerts.states} />
       ) : null}
       <SwapRecentTokenPairsGroup
@@ -209,9 +209,9 @@ const SwapOldSwapBridgeLimitContainer = ({
           onOpenRecipient={onToAnotherAddressModal}
         />
         {alerts.states.length > 0 &&
-          !quoteLoading &&
-          !quoteEventFetching &&
-          alerts?.quoteId === (quoteResult?.quoteId ?? '') ? (
+        !quoteLoading &&
+        !quoteEventFetching &&
+        alerts?.quoteId === (quoteResult?.quoteId ?? '') ? (
           <SwapAlertContainer alerts={alerts.states} />
         ) : null}
         <SwapRecentTokenPairsGroup
