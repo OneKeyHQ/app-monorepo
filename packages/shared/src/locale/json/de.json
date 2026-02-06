@@ -3665,6 +3665,8 @@
   "swap.faq_a6": "Häufige gründe sind: der preis hat sich über Ihre slippage-toleranz hinaus bewegt, unzureichende gasgebühren, einschränkungen des token-vertrags oder netzwerküberlastung. versuchen Sie, die slippage-toleranz zu erhöhen, die gasgebühren anzupassen oder auf eine verbesserung der netzwerkbedingungen zu warten.",
   "swap.faq_a7": "Bevor du einen token zum ersten mal tauschst, musst du den smart contract genehmigen, um darauf zuzugreifen. du kannst unbegrenzte genehmigung (bequem, einmalig) oder einen genauen betrag (sicherer, erfordert bei jedem mal genehmigung) wählen. genehmigungen können jederzeit im genehmigungsmanagement widerrufen werden.",
   "swap.faq_a8": "Unser Aggregator verwendet die Routing-Verträge jedes Aggregators direkt, ohne irgendwelche von uns entwickelten Verträge zu nutzen. Daher ist die Sicherheit, die Sie erben, genau die gleiche wie beim direkten Tausch über die offiziellen UIs dieser Aggregatoren.",
+  "swap.faq_help_center_for": "Für weitere Details besuchen Sie unser",
+  "swap.faq_help_center_help": "Hilfezentrum",
   "swap.faq_q1": "Was ist OneKey Swap?",
   "swap.faq_q2": "Wie findet OneKey den besten Preis?",
   "swap.faq_q3": "Was sind die Gebühren?",

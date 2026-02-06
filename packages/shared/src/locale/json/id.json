@@ -3665,6 +3665,8 @@
   "swap.faq_a6": "Alasan umum termasuk: harga bergerak melampaui toleransi slippage Anda, biaya gas tidak mencukupi, pembatasan kontrak token, atau kemacetan jaringan. coba tingkatkan toleransi slippage, sesuaikan biaya gas, atau tunggu kondisi jaringan membaik.",
   "swap.faq_a7": "Sebelum menukar token untuk pertama kalinya, Anda harus menyetujui kontrak pintar untuk mengaksesnya. Anda dapat memilih persetujuan tanpa batas (nyaman, sekali saja) atau jumlah yang tepat (lebih aman, memerlukan persetujuan setiap kali). Persetujuan dapat dicabut kapan saja di Manajemen Persetujuan.",
   "swap.faq_a8": "Aggregator kami menggunakan kontrak routing dari setiap aggregator secara langsung, tanpa menggunakan kontrak yang dikembangkan oleh kami. Oleh karena itu, ketika Anda melakukan swap melalui kami, keamanan yang Anda warisi persis sama dengan melakukan swap langsung melalui UI resmi aggregator ini.",
+  "swap.faq_help_center_for": "Untuk informasi lebih lanjut, kunjungi kami",
+  "swap.faq_help_center_help": "Pusat Bantuan",
   "swap.faq_q1": "Apa itu OneKey Swap?",
   "swap.faq_q2": "Bagaimana OneKey menemukan harga terbaik?",
   "swap.faq_q3": "Apa biaya yang dikenakan?",

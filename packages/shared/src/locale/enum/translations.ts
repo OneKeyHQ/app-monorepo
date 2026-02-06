@@ -3,6 +3,26 @@
 // @ts-ignore
 /* eslint-disable  */
   
+  // This file is automatically created by `yarn fetch:locale`.
+
+// @ts-ignore
+/* eslint-disable  */
+  
+  // This file is automatically created by `yarn fetch:locale`.
+
+// @ts-ignore
+/* eslint-disable  */
+  
+  // This file is automatically created by `yarn fetch:locale`.
+
+// @ts-ignore
+/* eslint-disable  */
+  
+  // This file is automatically created by `yarn fetch:locale`.
+
+// @ts-ignore
+/* eslint-disable  */
+  
   export enum ETranslations {
   Limit_expire_day = 'Limit.expire_day',
   Limit_expire_days = 'Limit.expire_days',
@@ -3670,6 +3690,8 @@
   swap_faq_a6 = 'swap.faq_a6',
   swap_faq_a7 = 'swap.faq_a7',
   swap_faq_a8 = 'swap.faq_a8',
+  swap_faq_help_center_for = 'swap.faq_help_center_for',
+  swap_faq_help_center_help = 'swap.faq_help_center_help',
   swap_faq_q1 = 'swap.faq_q1',
   swap_faq_q2 = 'swap.faq_q2',
   swap_faq_q3 = 'swap.faq_q3',

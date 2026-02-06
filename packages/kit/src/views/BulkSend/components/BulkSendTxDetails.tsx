@@ -27,6 +27,8 @@ import {
 } from '@onekeyhq/shared/types/bulkSend';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
+import { filterNumericInput } from '../utils';
+
 // Fixed width for input field to ensure consistent layout
 const INPUT_WIDTH = 130;
 // Fixed width for address to prevent wrapping
@@ -55,18 +57,6 @@ type ITransferListItemProps = {
   onDelete?: () => void;
   onAmountChange?: (amount: string) => void;
 };
-
-// Filter input to only allow numbers and decimal point
-function filterNumericInput(text: string): string {
-  // Remove all characters except digits and decimal point
-  let filtered = text.replace(/[^0-9.]/g, '');
-  // Ensure only one decimal point
-  const parts = filtered.split('.');
-  if (parts.length > 2) {
-    filtered = `${parts[0]}.${parts.slice(1).join('')}`;
-  }
-  return filtered;
-}
 
 function TransferListItem({
   address,
