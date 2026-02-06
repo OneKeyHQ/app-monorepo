@@ -22,10 +22,8 @@ import type {
   ISectionListProps,
   ISortableSectionListRef,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -217,33 +215,10 @@ export const ChainSelectorSectionList: FC<IChainSelectorSectionListProps> = ({
     setText(value.trim());
   }, []);
 
-  const { result: frequentlyUsedNetworks, isLoading } = usePromiseResult(
-    async () => {
-      const _frequentlyUsed =
-        await backgroundApiProxy.serviceNetwork.getNetworkSelectorPinnedNetworks(
-          {
-            useDefaultPinnedNetworks: true,
-          },
-        );
-      const availableNetworksMapFromNetworks = new Map(
-        networks.map((network) => [network.id, network]),
-      );
-      return _frequentlyUsed.filter((network) =>
-        availableNetworksMapFromNetworks.has(network.id),
-      );
-    },
-    [networks],
-    {
-      initResult: [],
-      watchLoading: true,
-    },
-  );
-
   const { sections } = usePureChainSelectorSections({
     networks,
     searchKey: text,
     unavailableNetworks: unavailable,
-    frequentlyUsedNetworks,
   });
 
   const layoutList = useMemo(() => {
@@ -420,10 +395,8 @@ export const ChainSelectorSectionList: FC<IChainSelectorSectionListProps> = ({
   );
 
   const loading = useMemo(() => {
-    return platformEnv.isNative
-      ? isPending || isLoading || isTyping
-      : isPending || isLoading;
-  }, [isLoading, isPending, isTyping]);
+    return platformEnv.isNative ? isPending || isTyping : isPending;
+  }, [isPending, isTyping]);
 
   const loadingElement = useMemo(
     () =>

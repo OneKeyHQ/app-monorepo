@@ -64,7 +64,10 @@ function BannerV2Cmp({ data, onBannerPress, isActive = true }: IBannerV2Props) {
       }
 
       return (
-        <Stack pl={isFirst ? '$pagePadding' : 0} pr={isLast ? '$pagePadding' : BANNER_GAP_TOKEN}>
+        <Stack
+          pl={isFirst ? '$pagePadding' : 0}
+          pr={isLast ? '$pagePadding' : BANNER_GAP_TOKEN}
+        >
           <BannerItemV2 item={item} onPress={onBannerPress} />
         </Stack>
       );

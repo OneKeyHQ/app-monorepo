@@ -169,7 +169,7 @@ const TokenInfoCellDesktop = memo(() => {
             {token.subtitle ? (
               <XStack
                 borderRadius="$1"
-                bg="$bgInfo"
+                bg="$bgStrong"
                 justifyContent="center"
                 alignItems="center"
                 px="$1.5"
@@ -177,7 +177,7 @@ const TokenInfoCellDesktop = memo(() => {
                 <SizableText
                   fontSize={10}
                   alignSelf="center"
-                  color="$textInfo"
+                  color="$textSubdued"
                   lineHeight={16}
                 >
                   {token.subtitle}
@@ -460,7 +460,7 @@ const TokenNameMobile = memo(() => {
               {token.subtitle ? (
                 <XStack
                   borderRadius="$1"
-                  bg="$bgInfo"
+                  bg="$bgStrong"
                   justifyContent="center"
                   alignItems="center"
                   px="$1.5"
@@ -468,7 +468,7 @@ const TokenNameMobile = memo(() => {
                   <SizableText
                     fontSize={10}
                     alignSelf="center"
-                    color="$textInfo"
+                    color="$textSubdued"
                     lineHeight={16}
                   >
                     {token.subtitle}

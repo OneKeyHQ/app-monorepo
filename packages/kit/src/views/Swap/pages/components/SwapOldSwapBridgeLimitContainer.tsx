@@ -21,6 +21,7 @@ import type {
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 
+import SwapFAQ from '../../components/SwapFAQ';
 import SwapProviderListPanel from '../../components/SwapProviderListPanel';
 import SwapRecentTokenPairsGroup from '../../components/SwapRecentTokenPairsGroup';
 
@@ -222,14 +223,19 @@ const SwapOldSwapBridgeLimitContainer = ({
       </YStack>
     );
     return (
-      <XStack>
-        <YStack p="$5" flexBasis="50%">
-          <YStack>{mainContentWithCard}</YStack>
-        </YStack>
-        <YStack p="$5" flexBasis="50%">
-          <SwapProviderListPanel refreshAction={refreshAction} />
-        </YStack>
-      </XStack>
+      <ScrollView>
+        <XStack gap="$1" px="$5">
+          <YStack p="$5" flexBasis="50%">
+            <YStack gap="$12">
+              {mainContentWithCard}
+              <SwapFAQ />
+            </YStack>
+          </YStack>
+          <YStack p="$5" flexBasis="50%">
+            <SwapProviderListPanel refreshAction={refreshAction} />
+          </YStack>
+        </XStack>
+      </ScrollView>
     );
   }
 
