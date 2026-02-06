@@ -12,6 +12,18 @@ import {
   type ITransferInfoErrors,
 } from '@onekeyhq/shared/types/bulkSend';
 
+// Filter input to only allow numbers and decimal point
+export function filterNumericInput(text: string): string {
+  // Remove all characters except digits and decimal point
+  let filtered = text.replace(/[^0-9.]/g, '');
+  // Ensure only one decimal point
+  const parts = filtered.split('.');
+  if (parts.length > 2) {
+    filtered = `${parts[0]}.${parts.slice(1).join('')}`;
+  }
+  return filtered;
+}
+
 export function calculateIsAmountValid({
   amountInputMode,
   amountInputErrors,

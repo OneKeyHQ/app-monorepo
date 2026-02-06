@@ -67,16 +67,22 @@ interface IAndroidScrollContainerProps {
 const AndroidScrollContainer = platformEnv.isNativeAndroid
   ? ({ children }: IAndroidScrollContainerProps) => {
       const [height, setHeight] = useState(0);
-      const handleLayout = (event: LayoutChangeEvent) => {
-        setHeight(event.nativeEvent.layout.height);
-      };
+      const heightRef = useRef(0);
+      const handleLayout = useCallback((event: LayoutChangeEvent) => {
+        const h = Math.round(event.nativeEvent.layout.height);
+        if (h !== heightRef.current) {
+          heightRef.current = h;
+          setHeight(h);
+        }
+      }, []);
+      const contentContainerStyle = useMemo(() => ({ height }), [height]);
       return (
         <YStack flex={1} onLayout={handleLayout}>
           {height > 0 ? (
             <ScrollView
               nestedScrollEnabled
               refreshControl={<PullToRefresh onRefresh={onHomePageRefresh} />}
-              contentContainerStyle={{ height }}
+              contentContainerStyle={contentContainerStyle}
             >
               {children}
             </ScrollView>
@@ -315,9 +321,12 @@ export function HomePageView({
     ].filter(Boolean);
   }, [intl, isNFTEnabled, isBulkRevokeApprovalEnabled]);
 
+  const tabConfigsRef = useRef(tabConfigs);
+  tabConfigsRef.current = tabConfigs;
+
   const handleRenderItem = useCallback(
     (props: ITabBarItemProps) => {
-      const tabId = tabConfigs.find((i) => i.name === props.name)?.id;
+      const tabId = tabConfigsRef.current.find((i) => i.name === props.name)?.id;
       return (
         <XStack position="relative">
           <TabBarItem {...props} />
@@ -335,7 +344,26 @@ export function HomePageView({
         </XStack>
       );
     },
-    [hasRiskApprovals, tabConfigs],
+    [hasRiskApprovals],
+  );
+
+  const renderToolbar = useCallback(
+    ({ focusedTab }: { focusedTab: string }) => (
+      <TabHeaderSettings focusedTab={focusedTab} />
+    ),
+    [],
+  );
+
+  const renderTabBar = useCallback(
+    (props: any) => (
+      <Tabs.TabBar
+        {...props}
+        variant="pill"
+        renderItem={handleRenderItem}
+        renderToolbar={renderToolbar}
+      />
+    ),
+    [handleRenderItem, renderToolbar],
   );
 
   const tabs = useMemo(() => {
@@ -359,17 +387,9 @@ export function HomePageView({
         ref={tabsRef as any}
         key={key}
         allowHeaderOverscroll
+        useNativeHeaderAnimation={platformEnv.isNativeAndroid}
         renderHeader={renderHeader}
-        renderTabBar={(props: any) => (
-          <Tabs.TabBar
-            {...props}
-            variant="pill"
-            renderItem={handleRenderItem}
-            renderToolbar={({ focusedTab }) => (
-              <TabHeaderSettings focusedTab={focusedTab} />
-            )}
-          />
-        )}
+        renderTabBar={renderTabBar}
       >
         {tabConfigs.map((tab) => (
           <Tabs.Tab key={tab.name} name={tab.name}>
@@ -382,12 +402,12 @@ export function HomePageView({
     tabBarHeight,
     account?.id,
     account?.indexedAccountId,
-    handleRenderItem,
     isBulkRevokeApprovalEnabled,
     isNFTEnabled,
     isWalletNotBackedUp,
     network?.id,
     renderHeader,
+    renderTabBar,
     tabConfigs,
   ]);
 
