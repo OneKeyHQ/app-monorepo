@@ -242,7 +242,6 @@ export function NetworkContent({
       testnetItems={chainSelectorNetworks.testnetItems}
       unavailableItems={chainSelectorNetworks.unavailableItems}
       frequentlyUsedItems={chainSelectorNetworks.frequentlyUsedItems}
-      allNetworkItem={chainSelectorNetworks.allNetworkItem}
       accountDeFiOverview={accountDeFiOverview}
       accountNetworkValues={accountNetworkValues}
       accountNetworkValueCurrency={accountNetworkValueCurrency}

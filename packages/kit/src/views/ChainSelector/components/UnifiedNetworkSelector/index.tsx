@@ -307,74 +307,86 @@ function UnifiedNetworkSelector() {
     [navigation],
   );
 
+  const isSameEnabledNetworks = useMemo(() => {
+    return enabledNetworks.length === originalEnabledNetworks.length && enabledNetworks.every((network) =>
+      originalEnabledNetworks.find((item) => item.id === network.id),
+    );
+  }, [enabledNetworks, originalEnabledNetworks]);
+
   // Portfolio tab done handler
   const handlePortfolioDone = useCallback(async () => {
-    setIsCreatingEnabledAddresses(true);
 
-    const { accountsInfo } =
-      await backgroundApiProxy.serviceAllNetwork.getAllNetworkAccounts({
-        accountId: accountId ?? '',
-        indexedAccountId,
-        networkId: getNetworkIdsMap().onekeyall,
-        deriveType: undefined,
-        excludeTestNetwork: true,
+
+    if (!isSameEnabledNetworks) {
+      setIsCreatingEnabledAddresses(true);
+
+      const { accountsInfo } =
+        await backgroundApiProxy.serviceAllNetwork.getAllNetworkAccounts({
+          accountId: accountId ?? '',
+          indexedAccountId,
+          networkId: getNetworkIdsMap().onekeyall,
+          deriveType: undefined,
+          excludeTestNetwork: true,
+        });
+
+      const networkAccountMap: Record<string, IAllNetworkAccountInfo> = {};
+      for (let i = 0; i < accountsInfo.length; i += 1) {
+        const item = accountsInfo[i];
+        const { networkId: itemNetworkId, deriveType, dbAccount } = item;
+        if (dbAccount) {
+          networkAccountMap[`${itemNetworkId}_${deriveType ?? ''}`] = item;
+        }
+      }
+
+      const enabledNetworksWithoutAccountTemp: {
+        networkId: string;
+        deriveType: IAccountDeriveTypes;
+      }[] = [];
+
+      for (let i = 0; i < enabledNetworks.length; i += 1) {
+        const network = enabledNetworks[i];
+
+        const deriveType =
+          await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+            networkId: network.id,
+          });
+
+        const networkAccount = networkAccountMap[`${network.id}_${deriveType}`];
+        if (!networkAccount) {
+          enabledNetworksWithoutAccountTemp.push({
+            networkId: network.id,
+            deriveType,
+          });
+        }
+      }
+
+      setEnabledNetworksWithoutAccount(enabledNetworksWithoutAccountTemp);
+
+      if (enabledNetworksWithoutAccountTemp.length > 0) {
+        try {
+          await createAddress({
+            num: 0,
+            account: {
+              walletId,
+              networkId: getNetworkIdsMap().onekeyall,
+              indexedAccountId,
+              deriveType: 'default',
+            },
+            customNetworks: enabledNetworksWithoutAccountTemp,
+          });
+        } catch (error) {
+          setIsCreatingEnabledAddresses(false);
+          throw error;
+        }
+      }
+
+      await backgroundApiProxy.serviceAllNetwork.updateAllNetworksState({
+        enabledNetworks: networksState.enabledNetworks,
+        disabledNetworks: networksState.disabledNetworks,
       });
 
-    const networkAccountMap: Record<string, IAllNetworkAccountInfo> = {};
-    for (let i = 0; i < accountsInfo.length; i += 1) {
-      const item = accountsInfo[i];
-      const { networkId: itemNetworkId, deriveType, dbAccount } = item;
-      if (dbAccount) {
-        networkAccountMap[`${itemNetworkId}_${deriveType ?? ''}`] = item;
-      }
+      appEventBus.emit(EAppEventBusNames.EnabledNetworksChanged, undefined);
     }
-
-    const enabledNetworksWithoutAccountTemp = (
-      await Promise.all(
-        enabledNetworks.map(async (network) => {
-          const deriveType =
-            await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
-              { networkId: network.id },
-            );
-          const networkAccount =
-            networkAccountMap[`${network.id}_${deriveType}`];
-          if (!networkAccount) {
-            return { networkId: network.id, deriveType };
-          }
-          return null;
-        }),
-      )
-    ).filter(
-      (item): item is { networkId: string; deriveType: IAccountDeriveTypes } =>
-        item !== null,
-    );
-
-    setEnabledNetworksWithoutAccount(enabledNetworksWithoutAccountTemp);
-
-    if (enabledNetworksWithoutAccountTemp.length > 0) {
-      try {
-        await createAddress({
-          num: 0,
-          account: {
-            walletId,
-            networkId: getNetworkIdsMap().onekeyall,
-            indexedAccountId,
-            deriveType: 'default',
-          },
-          customNetworks: enabledNetworksWithoutAccountTemp,
-        });
-      } catch (_error) {
-        setIsCreatingEnabledAddresses(false);
-        return;
-      }
-    }
-
-    await backgroundApiProxy.serviceAllNetwork.updateAllNetworksState({
-      enabledNetworks: networksState.enabledNetworks,
-      disabledNetworks: networksState.disabledNetworks,
-    });
-
-    appEventBus.emit(EAppEventBusNames.EnabledNetworksChanged, undefined);
 
     // Switch to All Networks if not already on it
     if (!networkUtils.isAllNetwork({ networkId })) {
@@ -407,6 +419,7 @@ function UnifiedNetworkSelector() {
     num,
     onNetworksChanged,
     walletId,
+    isSameEnabledNetworks,
   ]);
 
   // Header title renderer
@@ -481,21 +494,14 @@ function UnifiedNetworkSelector() {
       return true;
     }
 
-    if (
-      enabledNetworks.length === originalEnabledNetworks.length &&
-      enabledNetworks.every((network) =>
-        originalEnabledNetworks.find((item) => item.id === network.id),
-      )
-    ) {
-      return true;
-    }
     return false;
   }, [
     enabledNetworks,
     isCreatingEnabledAddresses,
     isCreatingMissingAddresses,
-    originalEnabledNetworks,
   ]);
+
+
 
   return (
     <Page
