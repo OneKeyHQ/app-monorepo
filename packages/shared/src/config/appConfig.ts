@@ -123,8 +123,7 @@ export const ONEKEY_HEALTH_CHECK_URL = '/wallet/v1/health';
 
 export const SUPPORT_URL = 'https://help.onekey.so/hc/requests/new';
 
-export const SWAP_FAQ_HELP_URL =
-  'https://help.onekey.so/articles/13608266';
+export const SWAP_FAQ_HELP_URL = 'https://help.onekey.so/articles/13608266';
 
 export const HYPERLIQUID_EXPLORER_URL = 'https://hypurrscan.io/address/';
 
