@@ -21,7 +21,6 @@ import SwapRefreshButton from './SwapRefreshButton';
 interface ISwapQuoteResultRateProps {
   rate?: string;
   isBest?: boolean;
-  isFreeOneKeyFee?: boolean;
   fromToken?: ISwapToken;
   toToken?: ISwapToken;
   providerIcon?: string;
@@ -37,7 +36,6 @@ const SwapQuoteResultRate = ({
   isBest,
   quoting,
   fromToken,
-  isFreeOneKeyFee,
   toToken,
   providerIcon,
   isLoading,
@@ -143,17 +141,10 @@ const SwapQuoteResultRate = ({
             opacity={openResult ? 0 : 1}
             // gap="$2"
           >
-            {isBest && !isFreeOneKeyFee ? (
+            {isBest ? (
               <Badge badgeSize="sm" marginRight="$2" badgeType="success">
                 {intl.formatMessage({
                   id: ETranslations.global_best,
-                })}
-              </Badge>
-            ) : null}
-            {isFreeOneKeyFee ? (
-              <Badge badgeSize="sm" marginRight="$2" badgeType="info">
-                {intl.formatMessage({
-                  id: ETranslations.swap_stablecoin_0_fee,
                 })}
               </Badge>
             ) : null}

@@ -2755,6 +2755,7 @@
   "perps.token_selector_perps": "犯人",
   "perps.token_selector_stocks": "株式",
   "perps.trade_reward": "取引報酬",
+  "perps_footer.help_us_better": "改善にご協力ください",
   "pick_your_device": "デバイスを選択",
   "pin_attempts_cooldown": "{seconds}後にもう一度お試しください。",
   "pin_attempts_exhausted": "最大PIN試行回数を超えました。PINをリセットしてください。",

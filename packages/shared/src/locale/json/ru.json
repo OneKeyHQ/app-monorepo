@@ -2755,6 +2755,7 @@
   "perps.token_selector_perps": "Преступники",
   "perps.token_selector_stocks": "Акции",
   "perps.trade_reward": "Торговое вознаграждение",
+  "perps_footer.help_us_better": "Помогите нам улучшить",
   "pick_your_device": "Выберите своё устройство",
   "pin_attempts_cooldown": "Повторите попытку через {seconds}.",
   "pin_attempts_exhausted": "Превышено максимальное количество попыток ввода PIN-кода. Пожалуйста, сбросьте ваш PIN-код.",

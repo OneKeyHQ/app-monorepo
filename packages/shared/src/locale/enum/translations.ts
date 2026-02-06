@@ -2780,6 +2780,7 @@
   perps_token_selector_perps = 'perps.token_selector_perps',
   perps_token_selector_stocks = 'perps.token_selector_stocks',
   perps_trade_reward = 'perps.trade_reward',
+  perps_footer_help_us_better = 'perps_footer.help_us_better',
   pick_your_device = 'pick_your_device',
   pin_attempts_cooldown = 'pin_attempts_cooldown',
   pin_attempts_exhausted = 'pin_attempts_exhausted',
