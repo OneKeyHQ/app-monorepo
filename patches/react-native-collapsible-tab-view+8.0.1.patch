@@ -181,22 +181,18 @@ index e782b90..7fa86e4 100644
 +
 +      // Sync nativeScrollY and scroll the tab's ScrollView when tab changes
 +      const syncTabScrollPosition = React.useCallback((tabName: string, targetY: number) => {
-+        console.log('test>>>>> [syncTabScrollPosition] called with tab:', tabName, 'targetY:', targetY)
 +        if (useNativeHeaderAnimation) {
 +          nativeScrollY.setValue(targetY)
-+          console.log('test>>>>> [syncTabScrollPosition] nativeScrollY.setValue done')
 +
 +          // Retry scrollTo multiple times to ensure ScrollView is ready
 +          const scrollToPosition = (attempt: number) => {
 +            // Use refMapRef.current to get the latest refMap
 +            const ref = refMapRef.current[tabName]
-+            console.log('test>>>>> [syncTabScrollPosition] attempt:', attempt, 'ref:', !!ref, 'refMapKeys:', Object.keys(refMapRef.current))
 +            if (ref) {
 +              runOnUI(() => {
 +                'worklet'
 +                scrollToImpl(ref, 0, targetY - contentInset, false)
 +              })()
-+              console.log('test>>>>> [syncTabScrollPosition] scrollToImpl called with:', targetY - contentInset)
 +            }
 +            // Retry a few times to ensure scroll is applied
 +            if (attempt < 3) {
@@ -217,11 +213,6 @@ index e782b90..7fa86e4 100644
 +            const prevTabStoredScrollY = scrollY.value[prevTab] || 0
 +            const newTabStoredScrollY = scrollY.value[currentTab] || 0
 +
-+            console.log('test>>>>> [useAnimatedReaction] tab switch:', prevTab, '->', currentTab)
-+            console.log('test>>>>> [useAnimatedReaction] prevTab scrollY:', prevTabStoredScrollY,
-+              'newTab scrollY:', newTabStoredScrollY,
-+              'headerDist:', headerDist)
-+
 +            // Determine the target scroll position for the new tab
 +            // Keep the header collapse state consistent across tabs
 +            // Use a small threshold (1px) to handle floating point precision issues
@@ -239,7 +230,6 @@ index e782b90..7fa86e4 100644
 +              targetScrollY = prevTabHeaderCollapseAmount
 +              // Update the stored scroll position for this tab
 +              scrollY.value = { ...scrollY.value, [currentTab]: targetScrollY }
-+              console.log('test>>>>> [useAnimatedReaction] adjusting newTab scrollY to:', targetScrollY)
 +            }
 +
 +            // Update scrollYCurrent to reflect the target scroll
@@ -906,7 +896,6 @@ index ba7dffa..64d1e42 100644
 +          const adjustedY = IS_IOS ? rawY + contentInset : rawY
 +          // Directly write to shared values from JS thread (allowed)
 +          // Header animation is driven by native interpolation, so no lag
-+          console.log('test>>>>> [nativeScrollHandler] tab:', name, 'rawY:', rawY, 'adjustedY:', adjustedY)
 +          scrollYCurrent.value = adjustedY
 +          // Use spread operator to trigger SharedValue synchronization
 +          // Direct property assignment (scrollY.value[name] = x) doesn't
