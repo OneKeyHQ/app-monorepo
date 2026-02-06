@@ -404,23 +404,22 @@ function AmountCard() {
               borderColor={sharedStyles.borderColor}
               overflow="hidden"
             >
-              <Input
-                value={localRangeMin}
-                onChangeText={handleRangeMinChange}
-                placeholder="0"
-                keyboardType="decimal-pad"
-                containerProps={{
-                  borderWidth: 0,
-                  mx: '$3.5',
-                  mt: '$2.5',
-                  mb: '$1',
-                  overflow: 'hidden',
-                }}
-                bg="transparent"
-                fontSize={24}
-                fontWeight="600"
-                px="$0"
-              />
+              <XStack alignItems="center" px="$3.5" pt="$2.5" pb="$1">
+                <Input
+                  flex={1}
+                  value={localRangeMin}
+                  onChangeText={handleRangeMinChange}
+                  placeholder="0"
+                  keyboardType="decimal-pad"
+                  containerProps={{
+                    borderWidth: 0,
+                  }}
+                  bg="transparent"
+                  fontSize={24}
+                  fontWeight="600"
+                  px="$0"
+                />
+              </XStack>
               <XStack
                 alignItems="center"
                 justifyContent="space-between"
@@ -461,23 +460,22 @@ function AmountCard() {
               borderColor={sharedStyles.borderColor}
               overflow="hidden"
             >
-              <Input
-                value={localRangeMax}
-                onChangeText={handleRangeMaxChange}
-                placeholder="0"
-                keyboardType="decimal-pad"
-                containerProps={{
-                  borderWidth: 0,
-                  mx: '$3.5',
-                  mt: '$2.5',
-                  mb: '$1',
-                  overflow: 'hidden',
-                }}
-                bg="transparent"
-                fontSize={24}
-                fontWeight="600"
-                px="$0"
-              />
+              <XStack alignItems="center" px="$3.5" pt="$2.5" pb="$1">
+                <Input
+                  flex={1}
+                  value={localRangeMax}
+                  onChangeText={handleRangeMaxChange}
+                  placeholder="0"
+                  keyboardType="decimal-pad"
+                  containerProps={{
+                    borderWidth: 0,
+                  }}
+                  bg="transparent"
+                  fontSize={24}
+                  fontWeight="600"
+                  px="$0"
+                />
+              </XStack>
               <XStack
                 alignItems="center"
                 justifyContent="space-between"
