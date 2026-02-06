@@ -117,7 +117,7 @@ const PasswordSetup = ({
       await dismissKeyboardWithDelay(150);
     }
     onStepChange?.('confirm');
-    await timerUtils.wait(150)
+    await timerUtils.wait(150);
     form.setFocus('confirmPassCode');
   }, [form, onStepChange]);
 
@@ -369,7 +369,9 @@ const PasswordSetup = ({
                   form.clearErrors('confirmPassCode');
                 }}
                 editable
-                autoFocus={platformEnv.isNativeAndroid ? false : passCodeConfirm}
+                autoFocus={
+                  platformEnv.isNativeAndroid ? false : passCodeConfirm
+                }
                 clearCodeAndFocus={passCodeConfirmClear}
                 onComplete={form.handleSubmit(onSetupPassword)}
                 autoFocusDelayMs={AUTO_FOCUS_DELAY_MS}
