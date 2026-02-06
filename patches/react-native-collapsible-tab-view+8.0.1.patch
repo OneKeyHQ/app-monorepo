@@ -40,7 +40,7 @@ index 7a739fc..10c5d9a 100644
  export type ScrollViewProps = ComponentProps<typeof Animated.ScrollView>;
  export type CollapsibleStyle = {
 diff --git a/node_modules/react-native-collapsible-tab-view/src/Container.tsx b/node_modules/react-native-collapsible-tab-view/src/Container.tsx
-index e782b90..fa31fb9 100644
+index e782b90..7fa86e4 100644
 --- a/node_modules/react-native-collapsible-tab-view/src/Container.tsx
 +++ b/node_modules/react-native-collapsible-tab-view/src/Container.tsx
 @@ -1,9 +1,10 @@
@@ -103,7 +103,7 @@ index e782b90..fa31fb9 100644
        )
  
        // derived from scrollX
-@@ -258,37 +265,150 @@ export const Container = React.memo(
+@@ -258,37 +265,152 @@ export const Container = React.memo(
                scrollYCurrent.value =
                  scrollY.value[tabNames.value[index.value]] || 0
              }
@@ -223,18 +223,20 @@ index e782b90..fa31fb9 100644
 +              'headerDist:', headerDist)
 +
 +            // Determine the target scroll position for the new tab
-+            // If the previous tab's header was collapsed (scrollY >= headerDist),
-+            // ensure the new tab also has the header collapsed
++            // Keep the header collapse state consistent across tabs
 +            // Use a small threshold (1px) to handle floating point precision issues
 +            const COLLAPSE_THRESHOLD = 1
 +            let targetScrollY = newTabStoredScrollY
-+            const prevTabHeaderCollapsed = prevTabStoredScrollY >= headerDist - COLLAPSE_THRESHOLD
-+            const newTabHeaderCollapsed = newTabStoredScrollY >= headerDist - COLLAPSE_THRESHOLD
 +
-+            if (prevTabHeaderCollapsed && !newTabHeaderCollapsed) {
-+              // Previous tab had collapsed header, but new tab doesn't
-+              // Scroll the new tab to collapse the header
-+              targetScrollY = headerDist
++            // Calculate the header collapse amount from each tab
++            // This is clamped to headerDist since that's the maximum the header can collapse
++            const prevTabHeaderCollapseAmount = Math.min(prevTabStoredScrollY, headerDist)
++            const newTabHeaderCollapseAmount = Math.min(newTabStoredScrollY, headerDist)
++
++            // If the collapse amounts are different, adjust the new tab's scroll position
++            // to match the previous tab's header collapse state
++            if (Math.abs(prevTabHeaderCollapseAmount - newTabHeaderCollapseAmount) > COLLAPSE_THRESHOLD) {
++              targetScrollY = prevTabHeaderCollapseAmount
 +              // Update the stored scroll position for this tab
 +              scrollY.value = { ...scrollY.value, [currentTab]: targetScrollY }
 +              console.log('test>>>>> [useAnimatedReaction] adjusting newTab scrollY to:', targetScrollY)
@@ -269,7 +271,7 @@ index e782b90..fa31fb9 100644
  
        const onTabPress = React.useCallback(
          (name: TabName) => {
-@@ -349,50 +469,86 @@ export const Container = React.memo(
+@@ -349,50 +471,86 @@ export const Container = React.memo(
          [onTabPress]
        )
  
@@ -393,7 +395,7 @@ index e782b90..fa31fb9 100644
                  style={[styles.container, styles.headerContainer]}
                  onLayout={getHeaderHeight}
                  pointerEvents="box-none"
-@@ -407,8 +563,9 @@ export const Container = React.memo(
+@@ -407,8 +565,9 @@ export const Container = React.memo(
                      onTabPress,
                      tabProps,
                    })}
@@ -404,7 +406,7 @@ index e782b90..fa31fb9 100644
                  style={[styles.container, styles.tabBarContainer]}
                  onLayout={getTabBarHeight}
                  pointerEvents="box-none"
-@@ -425,7 +582,7 @@ export const Container = React.memo(
+@@ -425,7 +584,7 @@ export const Container = React.memo(
                      tabProps,
                    })}
                </View>
