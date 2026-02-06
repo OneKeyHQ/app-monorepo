@@ -457,10 +457,7 @@ function BasePerpTokenSelectorContent({
           index: entry.index,
           assetId: entry.assetId,
         }));
-      // Only include tabs with matching tokens
-      if (filtered.length > 0) {
-        dynamicTabsData[tab.tabId] = filtered;
-      }
+      dynamicTabsData[tab.tabId] = filtered;
     }
 
     return {
@@ -482,11 +479,8 @@ function BasePerpTokenSelectorContent({
 
   // Filter to visible dynamic tabs (those with data)
   const visibleDynamicTabs = useMemo<IPerpDynamicTab[]>(
-    () =>
-      dynamicTabs.filter(
-        (tab) => (listDataByTab.dynamic[tab.tabId]?.length ?? 0) > 0,
-      ),
-    [dynamicTabs, listDataByTab.dynamic],
+    () => dynamicTabs,
+    [dynamicTabs],
   );
 
   // Handle case where active tab no longer exists (e.g., dynamic tab removed by server)
