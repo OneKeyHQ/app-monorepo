@@ -40,17 +40,22 @@ index 7a739fc..10c5d9a 100644
  export type ScrollViewProps = ComponentProps<typeof Animated.ScrollView>;
  export type CollapsibleStyle = {
 diff --git a/node_modules/react-native-collapsible-tab-view/src/Container.tsx b/node_modules/react-native-collapsible-tab-view/src/Container.tsx
-index e782b90..f5bf36b 100644
+index e782b90..fa31fb9 100644
 --- a/node_modules/react-native-collapsible-tab-view/src/Container.tsx
 +++ b/node_modules/react-native-collapsible-tab-view/src/Container.tsx
-@@ -1,5 +1,5 @@
+@@ -1,9 +1,10 @@
  import React from 'react'
 -import { StyleSheet, useWindowDimensions, View } from 'react-native'
 +import { Animated as RNAnimated, Platform, StyleSheet, useWindowDimensions, View } from 'react-native'
  import PagerView from 'react-native-pager-view'
  import Animated, {
    runOnJS,
-@@ -78,6 +78,7 @@ export const Container = React.memo(
+   runOnUI,
++  scrollTo,
+   useAnimatedReaction,
+   useAnimatedStyle,
+   useDerivedValue,
+@@ -78,6 +79,7 @@ export const Container = React.memo(
          onTabChange,
          width: customWidth,
          allowHeaderOverscroll,
@@ -58,7 +63,7 @@ index e782b90..f5bf36b 100644
        },
        ref
      ) => {
-@@ -95,7 +96,7 @@ export const Container = React.memo(
+@@ -95,7 +97,7 @@ export const Container = React.memo(
        const [tabBarHeight, getTabBarHeight] =
          useLayoutHeight(initialTabBarHeight)
  
@@ -67,7 +72,7 @@ index e782b90..f5bf36b 100644
          !renderHeader ? 0 : initialHeaderHeight
        )
        const initialIndex = React.useMemo(
-@@ -141,8 +142,10 @@ export const Container = React.memo(
+@@ -141,8 +143,10 @@ export const Container = React.memo(
        const calculateNextOffset = useSharedValue(initialIndex)
        const headerScrollDistance: ContextType['headerScrollDistance'] =
          useDerivedValue(() => {
@@ -80,8 +85,52 @@ index e782b90..f5bf36b 100644
  
        const indexDecimal: ContextType['indexDecimal'] = useSharedValue(
          index.value
-@@ -274,21 +277,72 @@ export const Container = React.memo(
-         }
+@@ -174,12 +178,15 @@ export const Container = React.memo(
+           return afterRender.value === 1
+         },
+         (trigger) => {
+-          if (trigger) {
++          // Skip scroll sync when using native header animation to avoid nested scroll issues
++          if (trigger && !useNativeHeaderAnimation) {
+             afterRender.value = 0
+             resyncTabScroll()
++          } else if (trigger) {
++            afterRender.value = 0
+           }
+         },
+-        [tabNamesArray, refMap, afterRender, contentInset]
++        [tabNamesArray, refMap, afterRender, contentInset, useNativeHeaderAnimation]
+       )
+ 
+       // derived from scrollX
+@@ -258,37 +265,150 @@ export const Container = React.memo(
+               scrollYCurrent.value =
+                 scrollY.value[tabNames.value[index.value]] || 0
+             }
+-            runOnJS(toggleSyncScrollFrame)(true)
++            // Skip aggressive scroll sync when using native header animation
++            // to avoid interfering with Android nested scroll
++            if (!useNativeHeaderAnimation) {
++              runOnJS(toggleSyncScrollFrame)(true)
++            }
+           }
+         },
+-        []
++        [useNativeHeaderAnimation]
+       )
+ 
+       useAnimatedReaction(
+         () => headerHeight,
+         (_current, prev) => {
+-          if (prev === undefined) {
++          // Skip scroll sync when using native header animation to avoid nested scroll issues
++          if (prev === undefined && !useNativeHeaderAnimation) {
+             // sync scroll if we started with undefined header height
+             resyncTabScroll()
+           }
+-        }
++        },
++        [useNativeHeaderAnimation]
        )
  
 -      const headerTranslateY = useDerivedValue(() => {
@@ -124,27 +173,83 @@ index e782b90..f5bf36b 100644
 +      const nativeScrollY = React.useRef(new RNAnimated.Value(0)).current
 +      const headerScrollDist = Math.max((headerHeight || 0) - minHeaderHeight, 0)
 +
-+      // Sync nativeScrollY when tab changes (NOT on every scroll)
-+      const syncNativeScrollY = React.useCallback((newScrollY: number) => {
++      // Use ref to always access the latest refMap
++      const refMapRef = React.useRef(refMap)
++      React.useEffect(() => {
++        refMapRef.current = refMap
++      }, [refMap])
++
++      // Sync nativeScrollY and scroll the tab's ScrollView when tab changes
++      const syncTabScrollPosition = React.useCallback((tabName: string, targetY: number) => {
++        console.log('test>>>>> [syncTabScrollPosition] called with tab:', tabName, 'targetY:', targetY)
 +        if (useNativeHeaderAnimation) {
-+          nativeScrollY.setValue(newScrollY)
++          nativeScrollY.setValue(targetY)
++          console.log('test>>>>> [syncTabScrollPosition] nativeScrollY.setValue done')
++
++          // Retry scrollTo multiple times to ensure ScrollView is ready
++          const scrollToPosition = (attempt: number) => {
++            // Use refMapRef.current to get the latest refMap
++            const ref = refMapRef.current[tabName]
++            console.log('test>>>>> [syncTabScrollPosition] attempt:', attempt, 'ref:', !!ref, 'refMapKeys:', Object.keys(refMapRef.current))
++            if (ref) {
++              runOnUI(() => {
++                'worklet'
++                scrollToImpl(ref, 0, targetY - contentInset, false)
++              })()
++              console.log('test>>>>> [syncTabScrollPosition] scrollToImpl called with:', targetY - contentInset)
++            }
++            // Retry a few times to ensure scroll is applied
++            if (attempt < 3) {
++              setTimeout(() => scrollToPosition(attempt + 1), 50)
++            }
++          }
++          // Start first attempt after a short delay
++          setTimeout(() => scrollToPosition(0), 16)
 +        }
-+      }, [useNativeHeaderAnimation, nativeScrollY])
++      }, [useNativeHeaderAnimation, nativeScrollY, contentInset])
 +
 +      // Only sync nativeScrollY when focused tab changes, not on every scroll
 +      useAnimatedReaction(
 +        () => focusedTab.value,
 +        (currentTab, prevTab) => {
 +          if (useNativeHeaderAnimation && currentTab !== prevTab && prevTab !== undefined) {
-+            // Maintain current header visual position when switching tabs
-+            // The interpolation maps: base → 0, base + headerScrollDist → -headerScrollDist
-+            // So to achieve headerTranslateY, we need: nativeScrollY = base - headerTranslateY
-+            const base = IS_IOS ? -contentInset : 0
-+            const targetScrollY = base - headerTranslateY.value
-+            runOnJS(syncNativeScrollY)(targetScrollY)
++            const headerDist = headerScrollDistance.value
++            const prevTabStoredScrollY = scrollY.value[prevTab] || 0
++            const newTabStoredScrollY = scrollY.value[currentTab] || 0
++
++            console.log('test>>>>> [useAnimatedReaction] tab switch:', prevTab, '->', currentTab)
++            console.log('test>>>>> [useAnimatedReaction] prevTab scrollY:', prevTabStoredScrollY,
++              'newTab scrollY:', newTabStoredScrollY,
++              'headerDist:', headerDist)
++
++            // Determine the target scroll position for the new tab
++            // If the previous tab's header was collapsed (scrollY >= headerDist),
++            // ensure the new tab also has the header collapsed
++            // Use a small threshold (1px) to handle floating point precision issues
++            const COLLAPSE_THRESHOLD = 1
++            let targetScrollY = newTabStoredScrollY
++            const prevTabHeaderCollapsed = prevTabStoredScrollY >= headerDist - COLLAPSE_THRESHOLD
++            const newTabHeaderCollapsed = newTabStoredScrollY >= headerDist - COLLAPSE_THRESHOLD
++
++            if (prevTabHeaderCollapsed && !newTabHeaderCollapsed) {
++              // Previous tab had collapsed header, but new tab doesn't
++              // Scroll the new tab to collapse the header
++              targetScrollY = headerDist
++              // Update the stored scroll position for this tab
++              scrollY.value = { ...scrollY.value, [currentTab]: targetScrollY }
++              console.log('test>>>>> [useAnimatedReaction] adjusting newTab scrollY to:', targetScrollY)
++            }
++
++            // Update scrollYCurrent to reflect the target scroll
++            scrollYCurrent.value = targetScrollY
++            // Update headerTranslateY based on target scroll position
++            headerTranslateY.value = -Math.min(targetScrollY, headerDist)
++
++            // Sync nativeScrollY and scroll the new tab's ScrollView
++            runOnJS(syncTabScrollPosition)(currentTab, targetScrollY)
 +          }
 +        },
-+        [useNativeHeaderAnimation, contentInset]
++        [useNativeHeaderAnimation]
 +      )
 +
 +      const nativeHeaderStyle = React.useMemo(() => {
@@ -164,7 +269,7 @@ index e782b90..f5bf36b 100644
  
        const onTabPress = React.useCallback(
          (name: TabName) => {
-@@ -349,50 +403,86 @@ export const Container = React.memo(
+@@ -349,50 +469,86 @@ export const Container = React.memo(
          [onTabPress]
        )
  
@@ -288,7 +393,7 @@ index e782b90..f5bf36b 100644
                  style={[styles.container, styles.headerContainer]}
                  onLayout={getHeaderHeight}
                  pointerEvents="box-none"
-@@ -407,8 +497,9 @@ export const Container = React.memo(
+@@ -407,8 +563,9 @@ export const Container = React.memo(
                      onTabPress,
                      tabProps,
                    })}
@@ -299,7 +404,7 @@ index e782b90..f5bf36b 100644
                  style={[styles.container, styles.tabBarContainer]}
                  onLayout={getTabBarHeight}
                  pointerEvents="box-none"
-@@ -425,7 +516,7 @@ export const Container = React.memo(
+@@ -425,7 +582,7 @@ export const Container = React.memo(
                      tabProps,
                    })}
                </View>
@@ -657,7 +762,7 @@ index 2bd6b9c..ac74e88 100644
        contentOffset={memoContentOffset}
        automaticallyAdjustContentInsets={false}
 diff --git a/node_modules/react-native-collapsible-tab-view/src/hooks.tsx b/node_modules/react-native-collapsible-tab-view/src/hooks.tsx
-index ba7dffa..3dfd865 100644
+index ba7dffa..64d1e42 100644
 --- a/node_modules/react-native-collapsible-tab-view/src/hooks.tsx
 +++ b/node_modules/react-native-collapsible-tab-view/src/hooks.tsx
 @@ -8,7 +8,7 @@ import {
@@ -733,7 +838,22 @@ index ba7dffa..3dfd865 100644
    } = useTabsContext()
  
    const enabled = useSharedValue(false)
-@@ -403,6 +418,14 @@ export const useScrollHandlerY = (name: TabName) => {
+@@ -296,10 +311,13 @@ export const useScrollHandlerY = (name: TabName) => {
+   useAnimatedReaction(
+     () => scrollAnimation.value,
+     (val) => {
++      // Skip scroll sync when using native header animation to avoid nested scroll issues
++      if (useNativeHeaderAnimation) return
+       if (val !== undefined) {
+         scrollTo(refMap[name], 0, val, false, '[useAnimatedReaction scroll]')
+       }
+-    }
++    },
++    [useNativeHeaderAnimation]
+   )
+ 
+   const onMomentumEnd = () => {
+@@ -403,6 +421,14 @@ export const useScrollHandlerY = (name: TabName) => {
                accDiffClamp.value = Math.max(0, nextValue)
              }
            }
@@ -748,8 +868,22 @@ index ba7dffa..3dfd865 100644
          }
        },
        onBeginDrag: () => {
-@@ -508,7 +531,61 @@ export const useScrollHandlerY = (name: TabName) => {
-     [revealHeaderOnScroll, refMap, snapThreshold, enabled, scrollTo]
+@@ -465,6 +491,9 @@ export const useScrollHandlerY = (name: TabName) => {
+       return isChangingPane
+     },
+     (isSyncNeeded, wasSyncNeeded) => {
++      // Skip scroll sync when using native header animation to avoid nested scroll issues on Android
++      if (useNativeHeaderAnimation) return
++
+       if (
+         isSyncNeeded &&
+         isSyncNeeded !== wasSyncNeeded &&
+@@ -505,10 +534,68 @@ export const useScrollHandlerY = (name: TabName) => {
+         }
+       }
+     },
+-    [revealHeaderOnScroll, refMap, snapThreshold, enabled, scrollTo]
++    [revealHeaderOnScroll, refMap, snapThreshold, enabled, scrollTo, useNativeHeaderAnimation]
    )
  
 -  return { scrollHandler, enable }
@@ -770,8 +904,12 @@ index ba7dffa..3dfd865 100644
 +          const adjustedY = IS_IOS ? rawY + contentInset : rawY
 +          // Directly write to shared values from JS thread (allowed)
 +          // Header animation is driven by native interpolation, so no lag
++          console.log('test>>>>> [nativeScrollHandler] tab:', name, 'rawY:', rawY, 'adjustedY:', adjustedY)
 +          scrollYCurrent.value = adjustedY
-+          scrollY.value[name] = adjustedY
++          // Use spread operator to trigger SharedValue synchronization
++          // Direct property assignment (scrollY.value[name] = x) doesn't
++          // trigger change detection between JS and UI threads
++          scrollY.value = { ...scrollY.value, [name]: adjustedY }
 +          oldAccScrollY.value = accScrollY.value
 +          accScrollY.value = adjustedY + offset.value
 +        }
@@ -811,7 +949,7 @@ index ba7dffa..3dfd865 100644
  }
  
  type ForwardRefType<T> =
-@@ -579,11 +656,11 @@ export function useAfterMountEffect(
+@@ -579,11 +666,11 @@ export function useAfterMountEffect(
  export function useConvertAnimatedToValue<T>(
    animatedValue: Animated.SharedValue<T>
  ) {
