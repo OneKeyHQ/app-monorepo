@@ -197,7 +197,7 @@ function NetworksSectionList() {
               // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
               listRef.current._listRef._hasDoneInitialScroll = false;
             }
-            setSearchKey(text.trim());
+            setSearchKey(text);
           }}
           {...(!platformEnv.isNative && {
             autoFocus: true,

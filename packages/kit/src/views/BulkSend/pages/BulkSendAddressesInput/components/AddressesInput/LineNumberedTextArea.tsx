@@ -337,48 +337,55 @@ function LineNumberedTextArea({
 
             {/* Content area */}
             <Stack flex={1} position="relative">
-              {/* Display layer - styled text with word wrap (hidden on native where TextInput shows text directly) */}
-              {platformEnv.isNative ? null : (
-                <YStack
-                  pt={PADDING_VERTICAL}
-                  pb={PADDING_VERTICAL}
-                  pl={contentPaddingLeft}
-                  pr={PADDING_HORIZONTAL}
-                  pointerEvents="none"
-                >
-                  {hasContent ? (
-                    lines.map((line, index) => {
-                      const lineNumber = index + 1;
-                      const hasError = errorLineNumbers.has(lineNumber);
+              {/* Display layer - styled text with word wrap; on native used as invisible measurement layer for line heights */}
+              <YStack
+                pt={PADDING_VERTICAL}
+                pb={PADDING_VERTICAL}
+                pl={contentPaddingLeft}
+                pr={PADDING_HORIZONTAL}
+                pointerEvents="none"
+                {...(platformEnv.isNative
+                  ? {
+                      position: 'absolute' as const,
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      opacity: 0,
+                    }
+                  : {})}
+              >
+                {hasContent ? (
+                  lines.map((line, index) => {
+                    const lineNumber = index + 1;
+                    const hasError = errorLineNumbers.has(lineNumber);
 
-                      return (
-                        <Stack
-                          key={index}
-                          onLayout={(e: LayoutChangeEvent) =>
-                            handleLineLayout(index, e)
-                          }
+                    return (
+                      <Stack
+                        key={index}
+                        onLayout={(e: LayoutChangeEvent) =>
+                          handleLineLayout(index, e)
+                        }
+                      >
+                        <SizableText
+                          fontSize={FONT_SIZE}
+                          lineHeight={LINE_HEIGHT}
+                          color={hasError ? '$textCritical' : '$text'}
                         >
-                          <SizableText
-                            fontSize={FONT_SIZE}
-                            lineHeight={LINE_HEIGHT}
-                            color={hasError ? '$textCritical' : '$text'}
-                          >
-                            {line || ' '}
-                          </SizableText>
-                        </Stack>
-                      );
-                    })
-                  ) : (
-                    <SizableText
-                      fontSize={FONT_SIZE}
-                      lineHeight={LINE_HEIGHT}
-                      color="$textPlaceholder"
-                    >
-                      {placeholder}
-                    </SizableText>
-                  )}
-                </YStack>
-              )}
+                          {line || ' '}
+                        </SizableText>
+                      </Stack>
+                    );
+                  })
+                ) : (
+                  <SizableText
+                    fontSize={FONT_SIZE}
+                    lineHeight={LINE_HEIGHT}
+                    color="$textPlaceholder"
+                  >
+                    {placeholder}
+                  </SizableText>
+                )}
+              </YStack>
 
               {/* Input layer - visible on native, transparent overlay on web */}
               <RNTextInput

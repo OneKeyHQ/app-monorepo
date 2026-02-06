@@ -3665,6 +3665,8 @@
   "swap.faq_a6": "Les raisons courantes incluent : le prix a dépassé votre tolérance de glissement, des frais de gaz insuffisants, des restrictions de contrat de jeton ou une congestion du réseau. essayez d'augmenter la tolérance de glissement, d'ajuster les frais de gaz ou d'attendre que les conditions du réseau s'améliorent.",
   "swap.faq_a7": "Avant d'échanger un jeton pour la première fois, vous devez approuver le contrat intelligent pour y accéder. vous pouvez choisir une approbation illimitée (pratique, unique) ou un montant exact (plus sécurisé, nécessite une approbation à chaque fois). les approbations peuvent être révoquées à tout moment dans la gestion des approbations.",
   "swap.faq_a8": "Notre agrégateur utilise directement les contrats de routage de chaque agrégateur, sans utiliser de contrats développés par nous. Par conséquent, lorsque vous échangez par notre intermédiaire, la sécurité que vous héritez est exactement la même que celle d'un échange directement via les interfaces officielles de ces agrégateurs.",
+  "swap.faq_help_center_for": "Pour plus de détails, visitez notre",
+  "swap.faq_help_center_help": "Centre d'aide",
   "swap.faq_q1": "Qu'est-ce que OneKey Swap ?",
   "swap.faq_q2": "Comment OneKey trouve-t-il le meilleur prix ?",
   "swap.faq_q3": "Quels sont les frais ?",
