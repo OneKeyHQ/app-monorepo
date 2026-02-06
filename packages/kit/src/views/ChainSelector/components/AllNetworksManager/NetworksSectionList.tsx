@@ -3,9 +3,19 @@ import { useCallback, useContext, useRef } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { IListViewRef } from '@onekeyhq/components';
-import { Empty, SearchBar, SectionList, Stack } from '@onekeyhq/components';
+import {
+  Checkbox,
+  Empty,
+  SearchBar,
+  SectionList,
+  Stack,
+  Tooltip,
+  XStack,
+} from '@onekeyhq/components';
+import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { isEnabledNetworksInAllNetworks } from '@onekeyhq/shared/src/utils/networkUtils';
 
 import { usePureChainSelectorSections } from '../../hooks/usePureChainSelectorSections';
 
@@ -33,26 +43,135 @@ const ListEmptyComponent = () => {
 function NetworksSectionList() {
   const intl = useIntl();
 
-  const { networks, searchKey, setSearchKey } = useContext(
-    AllNetworksManagerContext,
-  );
+  const {
+    networks,
+    searchKey,
+    setSearchKey,
+    accountNetworkValues,
+    accountNetworkValueCurrency,
+    accountDeFiOverview,
+    networksState,
+    setNetworksState,
+  } = useContext(AllNetworksManagerContext);
 
   const listRef = useRef<IListViewRef<any> | null>(null);
 
   const { sections } = usePureChainSelectorSections({
     networks: networks.mainNetworks,
-    frequentlyUsedNetworks: networks.frequentlyUsedNetworks,
     searchKey,
+    accountNetworkValues,
+    accountDeFiOverview,
   });
+
+  // Check if all networks in a section are enabled
+  const getSectionCheckState = useCallback(
+    (sectionData: IServerNetworkMatch[]) => {
+      const enabledCount = sectionData.filter((network) =>
+        isEnabledNetworksInAllNetworks({
+          networkId: network.id,
+          enabledNetworks: networksState.enabledNetworks,
+          disabledNetworks: networksState.disabledNetworks,
+          isTestnet: network.isTestnet,
+        }),
+      ).length;
+
+      if (enabledCount === 0) return false;
+      if (enabledCount === sectionData.length) return true;
+      return 'indeterminate';
+    },
+    [networksState.enabledNetworks, networksState.disabledNetworks],
+  );
+
+  // Toggle all networks in a section
+  const toggleSectionNetworks = useCallback(
+    (sectionData: IServerNetworkMatch[], enable: boolean) => {
+      const updates = sectionData.reduce(
+        (acc, network) => {
+          acc.enabledNetworks[network.id] = enable;
+          acc.disabledNetworks[network.id] = !enable;
+          return acc;
+        },
+        {
+          enabledNetworks: {} as Record<string, boolean>,
+          disabledNetworks: {} as Record<string, boolean>,
+        },
+      );
+
+      setNetworksState((prev) => ({
+        enabledNetworks: {
+          ...prev.enabledNetworks,
+          ...updates.enabledNetworks,
+        },
+        disabledNetworks: {
+          ...prev.disabledNetworks,
+          ...updates.disabledNetworks,
+        },
+      }));
+    },
+    [setNetworksState],
+  );
 
   const renderSectionHeader = useCallback(
     (item: { section: IPureChainSelectorSectionListItem }) => {
       if (item.section.title) {
+        // Show total value and checkbox for "Found assets on these networks" section
+        if (item.section.totalValue) {
+          const checkState = getSectionCheckState(item.section.data);
+          return (
+            <XStack
+              px="$5"
+              py="$2"
+              bg="$bg"
+              justifyContent="space-between"
+              alignItems="center"
+            >
+              <Tooltip
+                placement="bottom-start"
+                renderContent={intl.formatMessage({
+                  id: ETranslations.network_auto_detection_tip,
+                })}
+                renderTrigger={
+                  <SectionList.SectionHeader
+                    title={item.section.title}
+                    px="$0"
+                    style={{
+                      textDecorationLine: 'underline',
+                      textDecorationColor: '$textSubdued',
+                      textDecorationStyle: 'dotted',
+                    }}
+                  />
+                }
+              />
+              <XStack gap="$3" alignItems="center">
+                <Currency
+                  hideValue
+                  numberOfLines={1}
+                  size="$bodyLgMedium"
+                  sourceCurrency={accountNetworkValueCurrency}
+                >
+                  {item.section.totalValue}
+                </Currency>
+                <Checkbox
+                  value={checkState}
+                  onChange={() => {
+                    const shouldEnable = checkState !== true;
+                    toggleSectionNetworks(item.section.data, shouldEnable);
+                  }}
+                />
+              </XStack>
+            </XStack>
+          );
+        }
         return <SectionList.SectionHeader title={item.section.title} />;
       }
       return <Stack />;
     },
-    [],
+    [
+      accountNetworkValueCurrency,
+      getSectionCheckState,
+      intl,
+      toggleSectionNetworks,
+    ],
   );
 
   return (
