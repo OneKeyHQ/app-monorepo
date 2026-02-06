@@ -28,6 +28,7 @@ import { NetworkAvatar } from '../../NetworkAvatar';
 import { useNetworkSelectorTrigger } from '../hooks/useNetworkSelectorTrigger';
 
 import type { IChainSelectorInputProps } from '../../ChainSelectorInput';
+import { useUnifiedNetworkSelectorTrigger } from '../hooks/useUnifiedNetworkSelectorTrigger';
 
 function useNetworkSelectorItems() {
   const { serviceNetwork } = backgroundApiProxy;
@@ -90,16 +91,22 @@ function NetworkSelectorTriggerHomeCmp({
   recordNetworkHistoryEnabled,
   hideOnNoAccount = false,
   size = 'large',
+  unifiedMode = false,
 }: {
   num: number;
   recordNetworkHistoryEnabled?: boolean;
   hideOnNoAccount?: boolean;
   size?: 'small' | 'large';
+  unifiedMode?: boolean;
 }) {
   const {
     activeAccount: { network, accountName },
     showChainSelector,
   } = useNetworkSelectorTrigger({ num });
+
+  const { showUnifiedNetworkSelector } = useUnifiedNetworkSelectorTrigger({
+    num,
+  });
 
   const intl = useIntl();
 
@@ -121,6 +128,19 @@ function NetworkSelectorTriggerHomeCmp({
   }, [intl, network?.isAllNetworks, network?.name]);
 
   const isLarge = size === 'large';
+
+  const handlePress = useCallback(() => {
+    if (unifiedMode) {
+      showUnifiedNetworkSelector({ recordNetworkHistoryEnabled });
+    } else {
+      showChainSelector({ recordNetworkHistoryEnabled });
+    }
+  }, [
+    unifiedMode,
+    showUnifiedNetworkSelector,
+    showChainSelector,
+    recordNetworkHistoryEnabled,
+  ]);
 
   if (hideOnNoAccount && !accountName) {
     return null;
@@ -149,32 +169,30 @@ function NetworkSelectorTriggerHomeCmp({
       }}
       hitSlop={NATIVE_HIT_SLOP}
       userSelect="none"
-      onPress={() => showChainSelector({ recordNetworkHistoryEnabled })}
+      onPress={handlePress}
     >
-      <NetworkAvatar networkId={network?.id} size={isLarge ? '$5' : '$6'} />
+      <NetworkAvatar networkId={network?.id} size="$6" />
       {isLarge ? (
-        <>
-          <SizableText
-            testID="account-network-trigger-button-text"
-            pl="$2"
-            size="$bodyMd"
-            maxWidth="$28"
-            $gtXl={{
-              maxWidth: '$32',
-            }}
-            flexShrink={1}
-            numberOfLines={1}
-          >
-            {networkTriggerText}
-          </SizableText>
-          <Icon
-            name="ChevronDownSmallOutline"
-            color="$iconSubdued"
-            size="$5"
-            flexShrink={0}
-          />
-        </>
+        <SizableText
+          testID="account-network-trigger-button-text"
+          pl="$2"
+          size="$bodyMd"
+          maxWidth="$28"
+          $gtXl={{
+            maxWidth: '$32',
+          }}
+          flexShrink={1}
+          numberOfLines={1}
+        >
+          {networkTriggerText}
+        </SizableText>
       ) : null}
+      <Icon
+        name="ChevronDownSmallOutline"
+        color="$iconSubdued"
+        size="$5"
+        flexShrink={0}
+      />
     </XStack>
   );
 }
