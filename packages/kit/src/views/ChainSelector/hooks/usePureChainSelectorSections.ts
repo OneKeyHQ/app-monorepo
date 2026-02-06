@@ -106,8 +106,9 @@ export function usePureChainSelectorSections({
     // Add networks with value section at the top
     if (networksWithValue.length > 0) {
       _sections.unshift({
-        // TODO: Add proper translation key for "Found assets on these networks"
-        title: 'Found assets on these networks',
+        title: intl.formatMessage({
+          id: ETranslations.network_found_assets_on_networks,
+        }),
         data: networksWithValue,
         totalValue: totalValue.toFixed(),
       });

@@ -133,7 +133,7 @@ function NetworkListHeader() {
   }, [isAllNetworksEnabled, setNetworksState, toggleAllNetworks]);
 
   return (
-    <Stack mt="$4">
+    <Stack mt="$4" pb="$3">
       {enabledNetworksWithoutAccount.length > 0 ? (
         <Stack px="$5" pb="$5">
           <Alert
@@ -168,15 +168,20 @@ function NetworkListHeader() {
           alignItems="center"
         >
           <Tooltip
-            renderContent="选择越多，加载时间会变长，请根据需要选择网络。"
+            placement="bottom-start"
+            renderContent={intl.formatMessage({
+              id: ETranslations.network_selection_performance_tip,
+            })}
             renderTrigger={
               <SizableText
                 size="$bodyLgMedium"
                 textDecorationLine="underline"
                 textDecorationStyle="dotted"
               >
-                {/* TODO: Add proper translation key for "View assets from n networks" */}
-                {`View assets from ${enabledNetworks.length} networks`}
+                {intl.formatMessage(
+                  { id: ETranslations.network_view_assets_from_n_networks },
+                  { count: enabledNetworks.length },
+                )}
               </SizableText>
             }
           />

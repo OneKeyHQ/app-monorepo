@@ -59,6 +59,7 @@ const ListEmptyComponent = () => {
 };
 
 const ListHeaderComponent = () => {
+  const intl = useIntl();
   const { allNetworkItem, searchText, zeroValue } = useContext(
     EditableChainSelectorContext,
   );
@@ -74,21 +75,26 @@ const ListHeaderComponent = () => {
   return (
     <YStack>
       {zeroValue ? null : (
-        <Tooltip
-          renderContent="部分非热门网络可能未列入自动检测网络中，确认后回到钱包页面将会进行进一步查询。"
-          renderTrigger={
-            <Stack px="$5" py="$3">
+        <Stack px="$5" py="$3">
+          <Tooltip
+            placement="bottom-start"
+            renderContent={intl.formatMessage({
+              id: ETranslations.network_auto_detection_tip,
+            })}
+            renderTrigger={
               <SizableText
                 size="$bodyMdMedium"
                 textDecorationLine="underline"
                 textDecorationColor="$textSubdued"
                 textDecorationStyle="dotted"
               >
-                Found assets on these networks
+                {intl.formatMessage({
+                  id: ETranslations.network_found_assets_on_networks,
+                })}
               </SizableText>
-            </Stack>
-          }
-        />
+            }
+          />
+        </Stack>
       )}
       {!allNetworkItem ? null : (
         <EditableListItem item={allNetworkItem} isEditable={false} />

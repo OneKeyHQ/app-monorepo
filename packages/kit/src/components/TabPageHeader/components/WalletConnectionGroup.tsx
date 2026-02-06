@@ -79,7 +79,8 @@ export function WalletConnectionGroup({
   showNetworkSelector = true,
   showAccountInfo = true,
 }: IWalletConnectionGroupProps) {
-  const { gtMd } = useMedia();
+  const { md } = useMedia();
+  const isMobileLayout = md || platformEnv.isNative;
   const {
     activeAccount: { wallet, network },
   } = useActiveAccount({
@@ -110,25 +111,53 @@ export function WalletConnectionGroup({
   }
 
   const shouldShowNetworkSelector =
-    showNetworkSelector && tabRoute === ETabRoutes.Home && gtMd;
+    showNetworkSelector && tabRoute === ETabRoutes.Home;
 
-  const renderNetworkSelectorTrigger = useCallback(() => {
-    if (!shouldShowNetworkSelector || isNonBackedUpWallet) {
-      return null;
-    }
+  const renderNetworkSelectorTrigger = useCallback(
+    (size?: 'small' | 'large') => {
+      if (!shouldShowNetworkSelector || isNonBackedUpWallet) {
+        return null;
+      }
 
-    if (network?.isAllNetworks) {
-      return <AllNetworksManagerTrigger num={0} unifiedMode />;
-    }
+      if (network?.isAllNetworks) {
+        return <AllNetworksManagerTrigger num={0} unifiedMode />;
+      }
+      return (
+        <NetworkSelectorTriggerHome
+          num={0}
+          size={size}
+          recordNetworkHistoryEnabled
+          hideOnNoAccount
+          unifiedMode
+        />
+      );
+    },
+    [network?.isAllNetworks, shouldShowNetworkSelector, isNonBackedUpWallet],
+  );
+
+  if (isMobileLayout) {
     return (
-      <NetworkSelectorTriggerHome
-        num={0}
-        recordNetworkHistoryEnabled
-        hideOnNoAccount
-        unifiedMode
-      />
+      <XStack flex={1} ai="center" jc="space-between">
+        <XStack gap="$3" ai="center">
+          <MemoizedAccountSelectorTriggerWithSpotlight
+            isFocus={isFocus}
+            linkNetworkId={linkNetworkId}
+            hideAddress={hideAddress}
+          />
+          {showAccountInfo && !isNonBackedUpWallet ? (
+            <AccountSelectorActiveAccountHome
+              num={0}
+              showAccountAddress={false}
+              showCopyButton={tabRoute === ETabRoutes.Home}
+              showCreateAddressButton={false}
+              showNoAddressTip={false}
+            />
+          ) : null}
+        </XStack>
+        {renderNetworkSelectorTrigger('small')}
+      </XStack>
     );
-  }, [network?.isAllNetworks, shouldShowNetworkSelector, isNonBackedUpWallet]);
+  }
 
   return (
     <XStack gap="$3" ai="center">

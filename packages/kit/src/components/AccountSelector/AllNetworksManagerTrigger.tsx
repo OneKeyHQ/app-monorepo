@@ -192,10 +192,9 @@ function AllNetworksManagerTrigger({
       }}
       userSelect="none"
       onPress={handleOnPress}
-      gap="$1"
       alignItems="center"
     >
-      <XStack>
+      <XStack alignItems="center">
         {enabledNetworksCompatibleWithWalletId
           ?.slice(0, MAX_DISPLAY_NETWORKS)
           .map((item, index) => (
@@ -209,19 +208,21 @@ function AllNetworksManagerTrigger({
                 ml: '$-2',
               })}
             >
-              <NetworkAvatarBase logoURI={item?.logoURI} size="$5" />
+              <NetworkAvatarBase logoURI={item?.logoURI} size="$6" />
             </Stack>
           ))}
         {enabledNetworksCompatibleWithWalletId.length > MAX_DISPLAY_NETWORKS ? (
           <XStack
             px="$1"
-            py="$0.5"
             bg="$gray5"
             borderRadius="$full"
             ml="$-2"
             zIndex={999}
             borderWidth={2}
             borderColor="$bgApp"
+            alignItems="center"
+            justifyContent="center"
+            h={28}
           >
             <SizableText size="$bodySm">
               +

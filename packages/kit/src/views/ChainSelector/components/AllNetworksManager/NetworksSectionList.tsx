@@ -126,7 +126,10 @@ function NetworksSectionList() {
               alignItems="center"
             >
               <Tooltip
-                renderContent="部分非热门网络可能未列入自动检测网络中，确认后回到钱包页面将会进行进一步查询。"
+                placement="bottom-start"
+                renderContent={intl.formatMessage({
+                  id: ETranslations.network_auto_detection_tip,
+                })}
                 renderTrigger={
                   <SectionList.SectionHeader
                     title={item.section.title}
@@ -163,7 +166,12 @@ function NetworksSectionList() {
       }
       return <Stack />;
     },
-    [accountNetworkValueCurrency, getSectionCheckState, toggleSectionNetworks],
+    [
+      accountNetworkValueCurrency,
+      getSectionCheckState,
+      intl,
+      toggleSectionNetworks,
+    ],
   );
 
   return (

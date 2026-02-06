@@ -171,30 +171,28 @@ function NetworkSelectorTriggerHomeCmp({
       userSelect="none"
       onPress={handlePress}
     >
-      <NetworkAvatar networkId={network?.id} size={isLarge ? '$5' : '$6'} />
+      <NetworkAvatar networkId={network?.id} size="$6" />
       {isLarge ? (
-        <>
-          <SizableText
-            testID="account-network-trigger-button-text"
-            pl="$2"
-            size="$bodyMd"
-            maxWidth="$28"
-            $gtXl={{
-              maxWidth: '$32',
-            }}
-            flexShrink={1}
-            numberOfLines={1}
-          >
-            {networkTriggerText}
-          </SizableText>
-          <Icon
-            name="ChevronDownSmallOutline"
-            color="$iconSubdued"
-            size="$5"
-            flexShrink={0}
-          />
-        </>
+        <SizableText
+          testID="account-network-trigger-button-text"
+          pl="$2"
+          size="$bodyMd"
+          maxWidth="$28"
+          $gtXl={{
+            maxWidth: '$32',
+          }}
+          flexShrink={1}
+          numberOfLines={1}
+        >
+          {networkTriggerText}
+        </SizableText>
       ) : null}
+      <Icon
+        name="ChevronDownSmallOutline"
+        color="$iconSubdued"
+        size="$5"
+        flexShrink={0}
+      />
     </XStack>
   );
 }

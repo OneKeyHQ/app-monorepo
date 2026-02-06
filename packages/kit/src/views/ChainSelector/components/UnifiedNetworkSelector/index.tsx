@@ -511,6 +511,7 @@ function UnifiedNetworkSelector() {
       <Page.Header
         headerTitle={renderHeaderTitle}
         headerRight={renderHeaderRight}
+        headerTitleAlign="center"
       />
       <Page.Body>
         {activeTab === 'portfolio' ? (
