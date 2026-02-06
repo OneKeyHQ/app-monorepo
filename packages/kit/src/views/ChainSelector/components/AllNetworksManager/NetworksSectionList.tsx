@@ -212,8 +212,8 @@ function NetworksSectionList() {
               platformEnv.isNative
                 ? undefined
                 : {
-                  minHeight: '100vh',
-                }
+                    minHeight: '100vh',
+                  }
             }
             estimatedItemSize={48}
             sections={sections}
