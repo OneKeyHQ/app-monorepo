@@ -193,10 +193,9 @@ function ActionMore({
       }}
       renderTrigger={
         showButtonStyle ? (
-          <Button
+          <IconButton
             size={media.gtMd ? 'large' : 'medium'}
             icon="DotHorOutline"
-            px={media.gtMd ? '$3' : '$1.5'}
           />
         ) : (
           <ActionItem
