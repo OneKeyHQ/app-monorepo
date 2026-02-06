@@ -351,7 +351,7 @@ index 2bd6b9c..c421fbc 100644
        contentOffset={memoContentOffset}
        automaticallyAdjustContentInsets={false}
 diff --git a/node_modules/react-native-collapsible-tab-view/src/hooks.tsx b/node_modules/react-native-collapsible-tab-view/src/hooks.tsx
-index ba7dffa..49d4389 100644
+index ba7dffa..109dbb7 100644
 --- a/node_modules/react-native-collapsible-tab-view/src/hooks.tsx
 +++ b/node_modules/react-native-collapsible-tab-view/src/hooks.tsx
 @@ -8,7 +8,7 @@ import {
@@ -442,7 +442,7 @@ index ba7dffa..49d4389 100644
          }
        },
        onBeginDrag: () => {
-@@ -508,7 +531,62 @@ export const useScrollHandlerY = (name: TabName) => {
+@@ -508,7 +531,61 @@ export const useScrollHandlerY = (name: TabName) => {
      [revealHeaderOnScroll, refMap, snapThreshold, enabled, scrollTo]
    )
  
@@ -450,18 +450,6 @@ index ba7dffa..49d4389 100644
 +  // Native animated scroll handler: uses RN Animated.event with useNativeDriver
 +  // for same-frame header animation on Android
 +  const enabledRef = useRef(false)
-+
-+  // Worklet to sync scroll state - must be defined outside useMemo
-+  const syncScrollState = useCallback((adjustedY: number, tabName: string) => {
-+    'worklet'
-+    if (focusedTab.value !== tabName) return
-+    scrollYCurrent.value = adjustedY
-+    scrollY.value[tabName] = adjustedY
-+    oldAccScrollY.value = accScrollY.value
-+    accScrollY.value = adjustedY + offset.value
-+    // Note: headerTranslateY is handled by native driver interpolation,
-+    // we only sync state here for tab switching purposes
-+  }, [focusedTab, scrollYCurrent, scrollY, oldAccScrollY, accScrollY, offset])
 +
 +  const nativeScrollHandler = useMemo(() => {
 +    if (!useNativeHeaderAnimation || !nativeScrollY) return null
@@ -471,9 +459,15 @@ index ba7dffa..49d4389 100644
 +        useNativeDriver: true,
 +        listener: (event: any) => {
 +          if (!enabledRef.current) return
++          if (focusedTab.value !== name) return
 +          const rawY = event.nativeEvent.contentOffset.y
 +          const adjustedY = IS_IOS ? rawY + contentInset : rawY
-+          runOnUI(syncScrollState)(adjustedY, name)
++          // Directly write to shared values from JS thread (allowed)
++          // Header animation is driven by native interpolation, so no lag
++          scrollYCurrent.value = adjustedY
++          scrollY.value[name] = adjustedY
++          oldAccScrollY.value = accScrollY.value
++          accScrollY.value = adjustedY + offset.value
 +        }
 +      }
 +    )
@@ -482,7 +476,12 @@ index ba7dffa..49d4389 100644
 +    nativeScrollY,
 +    name,
 +    contentInset,
-+    syncScrollState,
++    focusedTab,
++    scrollYCurrent,
++    scrollY,
++    oldAccScrollY,
++    accScrollY,
++    offset,
 +  ])
 +
 +  const origEnable = enable
@@ -506,7 +505,7 @@ index ba7dffa..49d4389 100644
  }
  
  type ForwardRefType<T> =
-@@ -579,11 +657,11 @@ export function useAfterMountEffect(
+@@ -579,11 +656,11 @@ export function useAfterMountEffect(
  export function useConvertAnimatedToValue<T>(
    animatedValue: Animated.SharedValue<T>
  ) {
