@@ -2755,6 +2755,7 @@
   "perps.token_selector_perps": "犯罪分子",
   "perps.token_selector_stocks": "股票",
   "perps.trade_reward": "交易獎勵",
+  "perps_footer.help_us_better": "提交反馈",
   "pick_your_device": "選擇你的裝置",
   "pin_attempts_cooldown": "請在 {seconds} 後再試。",
   "pin_attempts_exhausted": "超過最大 PIN 嘗試次數。請重設您的 PIN。",

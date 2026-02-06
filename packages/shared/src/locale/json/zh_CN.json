@@ -2755,6 +2755,7 @@
   "perps.token_selector_perps": "永续合约",
   "perps.token_selector_stocks": "股票",
   "perps.trade_reward": "交易奖励",
+  "perps_footer.help_us_better": "提交反馈",
   "pick_your_device": "选择您的设备",
   "pin_attempts_cooldown": "请在 {seconds} 后再试。",
   "pin_attempts_exhausted": "超过最大 PIN 尝试次数。请重置您的 PIN。",

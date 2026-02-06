@@ -2,6 +2,8 @@ import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import { Linking } from 'react-native';
+
 import {
   Accordion,
   Icon,
@@ -9,6 +11,7 @@ import {
   Stack,
   YStack,
 } from '@onekeyhq/components';
+import { SWAP_FAQ_HELP_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 function SwapFAQ() {
@@ -25,8 +28,21 @@ function SwapFAQ() {
         answer: intl.formatMessage({ id: ETranslations.swap_faq_a2 }),
       },
       {
+        question: intl.formatMessage({ id: ETranslations.swap_faq_q8 }),
+        answer: intl.formatMessage({ id: ETranslations.swap_faq_a8 }),
+      },
+      {
         question: intl.formatMessage({ id: ETranslations.swap_faq_q3 }),
         answer: intl.formatMessage({ id: ETranslations.swap_faq_a3 }),
+        link: {
+          prefix: intl.formatMessage({
+            id: ETranslations.swap_faq_help_center_for,
+          }),
+          text: intl.formatMessage({
+            id: ETranslations.swap_faq_help_center_help,
+          }),
+          url: SWAP_FAQ_HELP_URL,
+        },
       },
       {
         question: intl.formatMessage({ id: ETranslations.swap_faq_q4 }),
@@ -55,7 +71,7 @@ function SwapFAQ() {
       </SizableText>
       <YStack>
         <Accordion type="multiple">
-          {faqItems.map(({ question, answer }, index) => (
+          {faqItems.map(({ question, answer, link }, index) => (
             <YStack key={String(index)}>
               {index > 0 ? (
                 <Stack height={1} bg="$borderSubdued" my="$2" />
@@ -111,6 +127,21 @@ function SwapFAQ() {
                     <SizableText size="$bodyLg" color="$textSubdued">
                       {answer}
                     </SizableText>
+                    {link ? (
+                      <SizableText size="$bodyLg" color="$textSubdued" mt="$2">
+                        {link.prefix}
+                        <SizableText
+                          size="$bodyLg"
+                          color="$textInteractive"
+                          cursor="pointer"
+                          hoverStyle={{ opacity: 0.6 }}
+                          onPress={() => Linking.openURL(link.url)}
+                          textDecorationLine="underline"
+                        >
+                          {link.text}
+                        </SizableText>
+                      </SizableText>
+                    ) : null}
                   </Accordion.Content>
                 </Accordion.HeightAnimator>
               </Accordion.Item>

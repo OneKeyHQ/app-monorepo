@@ -1,10 +1,21 @@
-import { Image, Page, Stack, XStack, useMedia } from '@onekeyhq/components';
+import {
+  Icon,
+  Page,
+  SizableText,
+  XStack,
+  useMedia,
+} from '@onekeyhq/components';
+import { useIntl } from 'react-intl';
+
 import { usePerpsNetworkStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { NetworkStatusBadge } from '../../../components/NetworkStatusBadge';
 import { PerpRefreshButton } from '../../../components/PerpRefreshButton';
-import { usePerpsLogo } from '../hooks/usePerpsLogo';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
+const PERP_TELEGRAM_URL = 'https://t.me/OneKeyPerps';
 
 function PerpNetworkStatus() {
   const [networkStatus] = usePerpsNetworkStatusAtom();
@@ -15,7 +26,7 @@ function PerpNetworkStatus() {
 
 export function PerpContentFooter() {
   const { gtSm } = useMedia();
-  const { poweredByHyperliquidLogo } = usePerpsLogo();
+  const intl = useIntl();
 
   if (!platformEnv.isNative && !platformEnv.isWebDappMode && gtSm) {
     return (
@@ -29,15 +40,24 @@ export function PerpContentFooter() {
           p="$2"
           justifyContent="space-between"
         >
-          <PerpNetworkStatus />
-          <PerpRefreshButton ml="$2" />
-          <Stack flex={1} />
-          <Image
-            source={poweredByHyperliquidLogo}
-            w={145}
-            h={25}
-            resizeMode="contain"
-          />
+          <XStack alignItems="center" gap="$2">
+            <PerpNetworkStatus />
+            <PerpRefreshButton />
+          </XStack>
+          <XStack
+            alignItems="center"
+            gap="$1"
+            cursor="pointer"
+            hoverStyle={{ opacity: 0.6 }}
+            onPress={() => openUrlExternal(PERP_TELEGRAM_URL)}
+          >
+            <Icon name="TelegramBrand" size="$4" color="$iconSubdued" />
+            <SizableText size="$bodySm" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.perps_footer_help_us_better,
+              })}
+            </SizableText>
+          </XStack>
         </XStack>
       </Page.Footer>
     );

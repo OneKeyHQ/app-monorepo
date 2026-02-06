@@ -2755,6 +2755,7 @@
   "perps.token_selector_perps": "Täter",
   "perps.token_selector_stocks": "Aktien",
   "perps.trade_reward": "Handelsbelohnung",
+  "perps_footer.help_us_better": "Help Us Improve",
   "pick_your_device": "Wähle dein Gerät aus",
   "pin_attempts_cooldown": "Versuche es in {seconds} erneut.",
   "pin_attempts_exhausted": "Maximale Anzahl an PIN-Versuchen überschritten. Bitte setzen Sie Ihre PIN zurück.",
