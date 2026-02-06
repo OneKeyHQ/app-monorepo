@@ -266,7 +266,7 @@ function BasicTabHeaderSettings({ focusedTab }: { focusedTab: string }) {
         return null;
     }
   }, [approvalName, portfolioName, focusedTab, historyName]);
-  return <XStack pr="$5">{content}</XStack>;
+  return <XStack pr="$pagePadding">{content}</XStack>;
 }
 
 export const TabHeaderSettings = memo(BasicTabHeaderSettings);

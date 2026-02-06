@@ -172,7 +172,7 @@ function ProtocolListDialogContent({
 
   const renderSectionHeader = useCallback(
     ({ section }: { section: IProtocolSection }) => (
-      <YStack px="$5" pb="$2" h={28}>
+      <YStack px="$pagePadding" pb="$2" h={28}>
         <SizableText
           size="$bodyMdMedium"
           color={
@@ -237,13 +237,13 @@ function ProtocolListDialogContent({
     return (
       <YStack gap="$2">
         {/* Section Header Skeleton */}
-        <YStack px="$5" pb="$2">
+        <YStack px="$pagePadding" pb="$2">
           <Skeleton h="$5" w={120} borderRadius="$2" />
         </YStack>
 
         {/* ListItem Skeletons */}
         {Array.from({ length: 2 }).map((_, index) => (
-          <ListItem key={index} mx="$0" px="$5">
+          <ListItem key={index} mx="$0" px="$pagePadding">
             <Skeleton w="$10" h="$10" borderRadius="$2" />
             <YStack flex={1} gap="$2">
               <Skeleton h="$4" w={120} borderRadius="$2" />
@@ -262,7 +262,7 @@ function ProtocolListDialogContent({
     return (
       <YStack alignItems="center" flex={1}>
         <Empty
-          px="$5"
+          px="$pagePadding"
           py="$0"
           width="100%"
           icon="ErrorOutline"
