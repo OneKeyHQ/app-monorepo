@@ -90,9 +90,8 @@ const ListHeaderComponent = () => {
           }
         />
       )}
-      {!allNetworkItem ? null : (
-        <EditableListItem item={allNetworkItem} isEditable={false} />
-      )}
+      {allNetworkItem ? <EditableListItem item={allNetworkItem} isEditable={false} />
+        : null}
     </YStack>
   );
 };
@@ -157,12 +156,12 @@ export const EditableChainSelectorContent = ({
   const lastIsEditMode = usePrevious(isEditMode);
   const searchTextTrim = searchText.trim();
   const showAllNetworkHeader = useMemo(
-    () => (allNetworkItem && !searchText?.trim?.()) ?? true,
+    () => allNetworkItem && !searchText?.trim?.(),
     [allNetworkItem, searchText],
   );
 
   const showNonZeroValueTooltip = useMemo(
-    () => (!zeroValue && !searchText?.trim?.()) ?? true,
+    () => !zeroValue && !searchText?.trim?.(),
     [zeroValue, searchText],
   );
 
@@ -199,10 +198,10 @@ export const EditableChainSelectorContent = ({
       return data.length === 0
         ? []
         : [
-            {
-              data,
-            },
-          ];
+          {
+            data,
+          },
+        ];
     }
 
     const tempFrequentlyUsedItemsSet = new Set(
@@ -271,6 +270,7 @@ export const EditableChainSelectorContent = ({
       (showNonZeroValueTooltip ? ZERO_VALUE_TOOLTIP_HEIGHT : 0)
     );
   }, [showAllNetworkHeader, recentNetworksHeight, showNonZeroValueTooltip]);
+
 
   const dragItemOverflowHitSlop = useMemo(() => {
     const dragCount = tempFrequentlyUsedItems.length;
@@ -369,8 +369,8 @@ export const EditableChainSelectorContent = ({
       sections
         .slice(0, _initialScrollIndex.sectionIndex)
         .reduce((prev, section) => prev + section.data.length, 0) +
-        (_initialScrollIndex?.itemIndex ?? 0) <=
-        7
+      (_initialScrollIndex?.itemIndex ?? 0) <=
+      7
     ) {
       return { sectionIndex: 0, itemIndex: undefined };
     }
