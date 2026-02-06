@@ -102,13 +102,21 @@ class ServiceReferralCode extends ServiceBase {
     const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
     const queryParams: {
       subject: string;
-      timeRange: string;
+      timeRange?: string;
       inviteCode?: string;
       tab?: string;
+      startTime?: number;
+      endTime?: number;
     } = {
       subject: params.subject,
-      timeRange: params.timeRange,
     };
+    // Only pass timeRange when not using custom date range
+    if (params.startTime && params.endTime) {
+      queryParams.startTime = params.startTime;
+      queryParams.endTime = params.endTime;
+    } else {
+      queryParams.timeRange = params.timeRange;
+    }
     if (params.inviteCode) {
       queryParams.inviteCode = params.inviteCode;
     }
@@ -392,7 +400,7 @@ class ServiceReferralCode extends ServiceBase {
     const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
     const queryParams: {
       tab: string;
-      timeRange: string;
+      timeRange?: string;
       startTime?: number;
       endTime?: number;
       inviteCode?: string;
@@ -402,8 +410,10 @@ class ServiceReferralCode extends ServiceBase {
       cursor?: string;
     } = {
       tab: params.tab,
-      timeRange: params.timeRange,
     };
+    if (params.timeRange) {
+      queryParams.timeRange = params.timeRange;
+    }
     if (params.startTime) {
       queryParams.startTime = params.startTime;
     }

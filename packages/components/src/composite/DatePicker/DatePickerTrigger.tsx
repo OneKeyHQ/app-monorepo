@@ -29,11 +29,11 @@ const formatTriggerValue = (
         placeholder ||
         intl.formatMessage({ id: ETranslations.global_select_date_range })
       );
-    const fmt = { formatTemplate: 'yyyy-MM-dd', hideTimeForever: true };
+    const fmt = { formatTemplate: 'yyyy/MM/dd', hideTimeForever: true };
     const startStr = range.start ? formatDate(range.start, fmt) : '';
     const endStr = range.end ? formatDate(range.end, fmt) : '';
     if (startStr && endStr) {
-      return `${startStr} → ${endStr}`;
+      return `${startStr}  —  ${endStr}`;
     }
     return (
       startStr ||
@@ -71,7 +71,7 @@ const formatTriggerValue = (
 
   const date = value as Date;
   return formatDate(date, {
-    formatTemplate: 'yyyy-MM-dd',
+    formatTemplate: 'yyyy/MM/dd',
     hideTimeForever: true,
   });
 };
@@ -115,7 +115,7 @@ export const DatePickerTrigger = memo(
           disabled={disabled}
           placeholder={placeholder || displayValue}
           readonly
-          size="medium"
+          size="small"
           addOns={[
             hasValue && onClear
               ? {
