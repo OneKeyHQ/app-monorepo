@@ -2755,6 +2755,7 @@
   "perps.token_selector_perps": "Pelaku",
   "perps.token_selector_stocks": "Saham",
   "perps.trade_reward": "Hadiah perdagangan",
+  "perps_footer.help_us_better": "Help Us Improve",
   "pick_your_device": "Pilih perangkat Anda",
   "pin_attempts_cooldown": "Coba lagi dalam {seconds}.",
   "pin_attempts_exhausted": "Jumlah maksimum percobaan PIN terlampaui. Silakan atur ulang PIN Anda.",
