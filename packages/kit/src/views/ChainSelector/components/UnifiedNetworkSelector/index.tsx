@@ -7,6 +7,7 @@ import {
   HeaderIconButton,
   Page,
   SizableText,
+  Stack,
   YStack,
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -518,26 +519,29 @@ function UnifiedNetworkSelector() {
         headerTitleAlign="center"
       />
       <Page.Body>
-        {activeTab === 'portfolio' ? (
-          <PortfolioContent
-            walletId={walletId}
-            accountId={accountId}
-            indexedAccountId={indexedAccountId}
-            networksState={networksState}
-            setNetworksState={setNetworksState}
-            enabledNetworks={enabledNetworks}
-            searchKey={searchKey}
-            setSearchKey={setSearchKey}
-            isCreatingEnabledAddresses={isCreatingEnabledAddresses}
-            setIsCreatingEnabledAddresses={setIsCreatingEnabledAddresses}
-            isCreatingMissingAddresses={isCreatingMissingAddresses}
-            setIsCreatingMissingAddresses={setIsCreatingMissingAddresses}
-            networks={networks}
-            accountNetworkValues={accountNetworkValues}
-            accountNetworkValueCurrency={accountNetworkValueCurrency}
-            accountDeFiOverview={accountDeFiOverview}
-          />
-        ) : (
+        {showTabSwitcher ? (
+          <Stack flex={1} display={activeTab === 'portfolio' ? 'flex' : 'none'}>
+            <PortfolioContent
+              walletId={walletId}
+              accountId={accountId}
+              indexedAccountId={indexedAccountId}
+              networksState={networksState}
+              setNetworksState={setNetworksState}
+              enabledNetworks={enabledNetworks}
+              searchKey={searchKey}
+              setSearchKey={setSearchKey}
+              isCreatingEnabledAddresses={isCreatingEnabledAddresses}
+              setIsCreatingEnabledAddresses={setIsCreatingEnabledAddresses}
+              isCreatingMissingAddresses={isCreatingMissingAddresses}
+              setIsCreatingMissingAddresses={setIsCreatingMissingAddresses}
+              networks={networks}
+              accountNetworkValues={accountNetworkValues}
+              accountNetworkValueCurrency={accountNetworkValueCurrency}
+              accountDeFiOverview={accountDeFiOverview}
+            />
+          </Stack>
+        ) : null}
+        <Stack flex={1} display={activeTab === 'network' ? 'flex' : 'none'}>
           <NetworkContent
             walletId={walletId}
             accountId={accountId}
@@ -548,7 +552,7 @@ function UnifiedNetworkSelector() {
             onAddCustomNetwork={handleAddCustomNetwork}
             onEditCustomNetwork={handleEditCustomNetwork}
           />
-        )}
+        </Stack>
       </Page.Body>
       {activeTab === 'portfolio' && (
         <Page.Footer>
