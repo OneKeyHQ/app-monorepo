@@ -3665,6 +3665,8 @@
   "swap.faq_a6": "Các lý do phổ biến bao gồm: giá đã di chuyển vượt quá mức độ chấp nhận trượt giá của bạn, phí gas không đủ, hạn chế hợp đồng token, hoặc tắc nghẽn mạng. hãy thử tăng mức độ chấp nhận trượt giá, điều chỉnh phí gas, hoặc chờ đợi điều kiện mạng cải thiện.",
   "swap.faq_a7": "Trước khi hoán đổi một mã thông báo lần đầu tiên, bạn phải phê duyệt hợp đồng thông minh để truy cập nó. bạn có thể chọn phê duyệt không giới hạn (tiện lợi, một lần) hoặc số tiền chính xác (an toàn hơn, yêu cầu phê duyệt mỗi lần). các phê duyệt có thể bị thu hồi bất cứ lúc nào trong Quản lý Phê duyệt.",
   "swap.faq_a8": "Bộ tổng hợp của chúng tôi sử dụng các hợp đồng định tuyến của từng bộ tổng hợp trực tiếp, mà không sử dụng bất kỳ hợp đồng nào do chúng tôi phát triển. Do đó, khi bạn hoán đổi qua chúng tôi, bảo mật mà bạn thừa hưởng hoàn toàn giống như khi hoán đổi trực tiếp qua các giao diện người dùng chính thức của những bộ tổng hợp này.",
+  "swap.faq_help_center_for": "Để biết thêm chi tiết, hãy truy cập vào chúng tôi",
+  "swap.faq_help_center_help": "Trung tâm trợ giúp",
   "swap.faq_q1": "Điều gì là OneKey Swap?",
   "swap.faq_q2": "Làm thế nào OneKey tìm được giá tốt nhất?",
   "swap.faq_q3": "Phí là bao nhiêu?",
