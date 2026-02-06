@@ -103,6 +103,10 @@ module.exports = {
   'side_panel': {
     'default_path': 'ui-side-panel.html',
   },
+  'host_permissions': [
+    'https://app.onekeytest.com/*',
+    'http://localhost/*',
+  ],
   'permissions': [
     'offscreen',
     // 'https://dapp-server.onekey.so/*', // allow CORS requests in firefox
