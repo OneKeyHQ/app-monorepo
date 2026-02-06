@@ -92,10 +92,10 @@ export function NetworkContent({
         } = await backgroundApiProxy.serviceNetwork.sortChainSelectorNetworksByValue(
           {
             walletId: accountUtils.getWalletIdFromAccountId({
-              accountId: _accountsValue[0].accountId,
+              accountId: _accountsValue[0]?.accountId ?? '',
             }),
             chainSelectorNetworks: _chainSelectorNetworks,
-            accountNetworkValues: _accountsValue[0].value ?? {},
+            accountNetworkValues: _accountsValue[0]?.value ?? {},
             localDeFiOverview: _localDeFiOverview[0]?.overview ?? {},
           },
         );
@@ -103,7 +103,7 @@ export function NetworkContent({
         return {
           chainSelectorNetworks: sortedChainSelectorNetworks,
           accountNetworkValues: formattedAccountNetworkValues,
-          accountNetworkValueCurrency: _accountsValue[0].currency,
+          accountNetworkValueCurrency: _accountsValue[0]?.currency,
           accountDeFiOverview: _accountDeFiOverview,
           zeroValue,
         };
