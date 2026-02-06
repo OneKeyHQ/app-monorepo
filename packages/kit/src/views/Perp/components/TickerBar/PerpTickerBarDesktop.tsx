@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useEffect, useState } from 'react';
 
 import { isString } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -16,6 +16,7 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePerpsActiveAssetCtxAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
@@ -312,7 +313,12 @@ function TickerBarFundingRateCountdown() {
       position="bottom-right"
       offsetX={10}
     >
-      <SizableText size="$headingXs" color="$text">
+      <SizableText
+        size="$headingXs"
+        color="$text"
+        fontFamily="$monoRegular"
+        fontVariant={['tabular-nums']}
+      >
         {countdown}
       </SizableText>
     </DebugRenderTracker>
@@ -466,6 +472,57 @@ function TickerBarFundingRate() {
   );
 }
 
+function TickerBarOneKeyFee() {
+  const intl = useIntl();
+  const [builderFeeRate, setBuilderFeeRate] = useState<number | undefined>();
+
+  useEffect(() => {
+    void backgroundApiProxy.simpleDb.perp
+      .getExpectMaxBuilderFee()
+      .then((fee) => {
+        setBuilderFeeRate(fee);
+      });
+  }, []);
+
+  // Only show when builderFeeRate is 0
+  if (builderFeeRate === undefined || builderFeeRate !== 0) {
+    return null;
+  }
+
+  return (
+    <DebugRenderTracker name="TickerBarOneKeyFee">
+      <YStack>
+        <Tooltip
+          placement="top"
+          renderTrigger={
+            <DashText
+              size="$bodySm"
+              color="$textSubdued"
+              dashColor="$textDisabled"
+              dashThickness={0.5}
+              cursor="help"
+            >
+              {intl.formatMessage({
+                id: ETranslations.referral_perps_onekey_fee,
+              })}
+            </DashText>
+          }
+          renderContent={
+            <SizableText size="$bodySm">
+              {intl.formatMessage({
+                id: ETranslations.perps_fee_desc,
+              })}
+            </SizableText>
+          }
+        />
+        <SizableText size="$headingXs" color="$textSuccess">
+          0%
+        </SizableText>
+      </YStack>
+    </DebugRenderTracker>
+  );
+}
+
 function PerpTickerBarDesktop() {
   const content = (
     <XStack
@@ -499,6 +556,7 @@ function PerpTickerBarDesktop() {
         }}
       >
         <TickerBarOraclePrice />
+        <TickerBarOneKeyFee />
         <TickerBar24hVolume />
         <TickerBarOpenInterest />
         <TickerBarFundingRate />

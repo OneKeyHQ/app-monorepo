@@ -1,4 +1,4 @@
-import { memo, useMemo } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -13,6 +13,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePerpsActiveAssetCtxAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -44,6 +45,15 @@ function MobilePerpMarketHeader() {
   const intl = useIntl();
   const { isReady, hasError } = usePerpSession();
   const [assetCtx] = usePerpsActiveAssetCtxAtom();
+  const [builderFeeRate, setBuilderFeeRate] = useState<number | undefined>();
+
+  useEffect(() => {
+    void backgroundApiProxy.simpleDb.perp
+      .getExpectMaxBuilderFee()
+      .then((fee) => {
+        setBuilderFeeRate(fee);
+      });
+  }, []);
 
   const {
     midPrice,
@@ -245,6 +255,45 @@ function MobilePerpMarketHeader() {
               {fundingDisplay}
             </SizableText>
           </StatRow>
+
+          {builderFeeRate === 0 ? (
+            <XStack alignItems="center" justifyContent="space-between" gap="$1">
+              <Popover
+                title={intl.formatMessage({
+                  id: ETranslations.referral_perps_onekey_fee,
+                })}
+                renderTrigger={
+                  <DashText
+                    size="$bodySm"
+                    color="$textSubdued"
+                    dashColor="$textDisabled"
+                    dashThickness={0.5}
+                  >
+                    {intl.formatMessage({
+                      id: ETranslations.referral_perps_onekey_fee,
+                    })}
+                  </DashText>
+                }
+                renderContent={
+                  <YStack px="$5" pb="$4">
+                    <SizableText size="$bodyMd" color="$text">
+                      {intl.formatMessage({
+                        id: ETranslations.perps_fee_desc,
+                      })}
+                    </SizableText>
+                  </YStack>
+                }
+              />
+              <SizableText
+                size="$bodySmMedium"
+                flex={1}
+                textAlign="right"
+                color="$green11"
+              >
+                0%
+              </SizableText>
+            </XStack>
+          ) : null}
         </YStack>
       </XStack>
     </YStack>
