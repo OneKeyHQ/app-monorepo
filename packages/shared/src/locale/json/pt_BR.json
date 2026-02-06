@@ -3665,6 +3665,8 @@
   "swap.faq_a6": "Razões comuns incluem: o preço se moveu além da sua tolerância a slippage, taxas de gas insuficientes, restrições do contrato do token ou congestionamento da rede. tente aumentar a tolerância a slippage, ajustar as taxas de gas ou esperar que as condições da rede melhorem.",
   "swap.faq_a7": "Antes de trocar um token pela primeira vez, você deve aprovar o contrato inteligente para acessá-lo. você pode escolher aprovação ilimitada (conveniente, única) ou valor exato (mais seguro, requer aprovação a cada vez). aprovações podem ser revogadas a qualquer momento na Gestão de Aprovações.",
   "swap.faq_a8": "Nosso agregador utiliza os contratos de roteamento de cada agregador diretamente, sem usar quaisquer contratos desenvolvidos por nós. Portanto, quando você troca conosco, a segurança que você herda é exatamente a mesma que trocar diretamente através das UIs oficiais desses agregadores.",
+  "swap.faq_help_center_for": "Para mais detalhes, visite nosso",
+  "swap.faq_help_center_help": "Central de Ajuda",
   "swap.faq_q1": "O que é o OneKey Swap?",
   "swap.faq_q2": "Como o OneKey encontra o melhor preço?",
   "swap.faq_q3": "Quais são as taxas?",
