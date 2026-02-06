@@ -2,7 +2,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Page, Toast, YStack } from '@onekeyhq/components';
+import { Page, Toast, YStack, rootNavigationRef } from '@onekeyhq/components';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -14,6 +14,8 @@ import {
   type EModalBulkSendRoutes,
   EModalRoutes,
   EModalSignatureConfirmRoutes,
+  ETabHomeRoutes,
+  ETabRoutes,
   type IModalBulkSendParamList,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -86,8 +88,8 @@ function BaseBulkSendReview({
   const confirmButtonText =
     approvesInfo.length > 0
       ? intl.formatMessage({
-          id: ETranslations.wallet_bulk_send_btn_approve_and_confirm,
-        })
+        id: ETranslations.wallet_bulk_send_btn_approve_and_confirm,
+      })
       : intl.formatMessage({ id: ETranslations.wallet_bulk_send_btn_confirm });
 
   // Handle editing approval amount
@@ -265,10 +267,17 @@ function BaseBulkSendReview({
       // Mobile: close the entire bulk send modal stack
       navigation.popStack();
     } else {
-      // Desktop: close the Review modal, then pop tab stack to root
-      await navigation.popToMainRoute();
+      navigation.popStack();
       await waitAsync(50);
-      await navigation.popToTabRootScreen();
+      rootNavigationRef.current?.navigate(
+        ETabRoutes.Home,
+        {
+          screen: ETabHomeRoutes.TabHome,
+        },
+        {
+          pop: true,
+        },
+      );
     }
   }, [isInModal, navigation]);
 
