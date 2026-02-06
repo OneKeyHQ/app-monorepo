@@ -55,7 +55,16 @@ export function ExportButton({
         }),
       });
     }
-  }, [exportInviteData, intl, inviteCode, subject, tab, timeRange, startTime, endTime]);
+  }, [
+    exportInviteData,
+    intl,
+    inviteCode,
+    subject,
+    tab,
+    timeRange,
+    startTime,
+    endTime,
+  ]);
 
   if (gtMd) {
     return (

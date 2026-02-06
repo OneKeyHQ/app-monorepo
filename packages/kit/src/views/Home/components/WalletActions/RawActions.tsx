@@ -41,11 +41,7 @@ function ActionItem({
 
   if (showButtonStyle) {
     return (
-      <Button
-        size={media.gtMd ? 'large' : 'medium'}
-        icon={icon}
-        {...rest}
-      >
+      <Button size={media.gtMd ? 'large' : 'medium'} icon={icon} {...rest}>
         {label}
       </Button>
     );

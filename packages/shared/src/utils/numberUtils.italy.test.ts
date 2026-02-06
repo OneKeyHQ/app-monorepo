@@ -887,10 +887,9 @@ describe('numberUtils.italy.test', () => {
 
     // balance with tokenSymbol
     expect(
-      formatDisplayNumber(
-        formatBalance('4512.1242', { tokenSymbol: 'ETH' }),
-        { splitDecimal: true },
-      ),
+      formatDisplayNumber(formatBalance('4512.1242', { tokenSymbol: 'ETH' }), {
+        splitDecimal: true,
+      }),
     ).toEqual(['4.512', { value: ',1242', type: 'decimal' }, ' ', 'ETH']);
 
     // leading zeros > 4 (should keep existing array behavior)
