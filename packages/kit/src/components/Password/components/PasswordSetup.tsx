@@ -111,6 +111,8 @@ const PasswordSetup = ({
   }, [confirmBtnText, intl, passCodeFirstStep]);
   const onPassCodeNext = useCallback(async () => {
     setPassCodeConfirm(true);
+    // Fix Android keyboard not appearing: dismiss keyboard before switching to confirm step,
+    // then manually setFocus after a delay to ensure the keyboard pops up correctly.
     if (platformEnv.isNativeAndroid) {
       await dismissKeyboardWithDelay(150);
     }
