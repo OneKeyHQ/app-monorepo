@@ -39,8 +39,8 @@ function ActionItem({
   if (showButtonStyle) {
     return (
       <Button
+        icon={icon}
         {...(!label && {
-          icon,
           py: '$2',
           pl: '$2.5',
           pr: '$0.5',
@@ -177,8 +177,10 @@ function ActionStaking(props: IActionItemsProps) {
 
 function ActionMore({
   renderItemsAsync,
+  showButtonStyle = false,
 }: {
   renderItemsAsync: IActionListProps['renderItemsAsync'];
+  showButtonStyle?: boolean;
 }) {
   const intl = useIntl();
   return (
@@ -192,8 +194,11 @@ function ActionMore({
       renderTrigger={
         <ActionItem
           icon="DotHorOutline"
-          label={intl.formatMessage({
-            id: ETranslations.global_more,
+          showButtonStyle={showButtonStyle}
+          {...(!showButtonStyle && {
+            label: intl.formatMessage({
+              id: ETranslations.global_more,
+            }),
           })}
         />
       }

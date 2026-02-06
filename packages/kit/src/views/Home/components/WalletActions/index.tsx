@@ -3,6 +3,7 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp, IXStackProps } from '@onekeyhq/components';
+import { useMedia } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -36,8 +37,10 @@ import type { IActionCustomization } from './types';
 
 function WalletActionSend({
   customization,
+  showButtonStyle,
 }: {
   customization?: IActionCustomization;
+  showButtonStyle?: boolean;
 }) {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
@@ -229,6 +232,7 @@ function WalletActionSend({
       disabled={customization?.disabled ?? vaultSettings?.disabledSendAction}
       label={customization?.label}
       icon={customization?.icon}
+      showButtonStyle={showButtonStyle}
       trackID="wallet-send"
     />
   );
@@ -236,33 +240,60 @@ function WalletActionSend({
 
 function WalletActions({ ...rest }: IXStackProps) {
   const { config, getActionCustomization } = useWalletActionConfig();
+  const media = useMedia();
+  const showButtonStyle = media.gtSm;
 
   const renderActionComponent = (actionType: string) => {
     const customization = getActionCustomization(actionType as any);
 
     switch (actionType) {
       case 'send':
-        return <WalletActionSend key="send" customization={customization} />;
+        return (
+          <WalletActionSend
+            key="send"
+            customization={customization}
+            showButtonStyle={showButtonStyle}
+          />
+        );
       case 'receive':
         return (
           <WalletActionReceive
             key="receive"
             customization={customization}
+            showButtonStyle={showButtonStyle}
             useSelector
           />
         );
       case 'swap':
         return platformEnv.isExtensionUiPopup ||
           platformEnv.isExtensionUiSidePanel ? (
-          <WalletActionPerp key="perp" customization={customization} />
+          <WalletActionPerp
+            key="perp"
+            customization={customization}
+            showButtonStyle={showButtonStyle}
+          />
         ) : (
-          <WalletActionSwap key="swap" customization={customization} />
+          <WalletActionSwap
+            key="swap"
+            customization={customization}
+            showButtonStyle={showButtonStyle}
+          />
         );
       case 'perp':
-        return <WalletActionPerp key="perp" customization={customization} />;
+        return (
+          <WalletActionPerp
+            key="perp"
+            customization={customization}
+            showButtonStyle={showButtonStyle}
+          />
+        );
       case 'staking':
         return (
-          <WalletActionStaking key="staking" customization={customization} />
+          <WalletActionStaking
+            key="staking"
+            customization={customization}
+            showButtonStyle={showButtonStyle}
+          />
         );
       default:
         return null;
@@ -270,9 +301,18 @@ function WalletActions({ ...rest }: IXStackProps) {
   };
 
   return (
-    <RawActions {...rest}>
+    <RawActions
+      {...rest}
+      {...(showButtonStyle && {
+        $gtSm: {
+          flexDirection: 'row',
+          justifyContent: 'flex-start',
+          gap: '$2',
+        },
+      })}
+    >
       {config.mainActions.map(renderActionComponent).filter(Boolean)}
-      <WalletActionMore />
+      <WalletActionMore showButtonStyle={showButtonStyle} />
     </RawActions>
   );
 }

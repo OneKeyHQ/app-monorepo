@@ -27,7 +27,11 @@ import { WalletActionSwap } from './WalletActionSwap';
 import { WalletActionViewInExplorer } from './WalletActionViewInExplorer';
 import { WalletActionVote } from './WalletActionVote';
 
-export function WalletActionMore() {
+export function WalletActionMore({
+  showButtonStyle,
+}: {
+  showButtonStyle?: boolean;
+} = {}) {
   const [devSettings] = useDevSettingsPersistAtom();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { account, network } = activeAccount;
@@ -249,5 +253,10 @@ export function WalletActionMore() {
     ],
   );
 
-  return <RawActions.More renderItemsAsync={renderItemsAsync} />;
+  return (
+    <RawActions.More
+      renderItemsAsync={renderItemsAsync}
+      showButtonStyle={showButtonStyle}
+    />
+  );
 }
