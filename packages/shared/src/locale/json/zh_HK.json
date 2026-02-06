@@ -3672,7 +3672,7 @@
   "swap.faq_q6": "為什麼我的交換失敗了？",
   "swap.faq_q7": "什麼是代幣授權？",
   "swap.faq_title": "常見問題",
-  "swap.fee_save": "免手續費 · 已節省 {fee}！",
+  "swap.fee_save": "0 手續費 · 已節省 {fee}！",
   "swap.limit_amount": "賣出 {num1} {fromToken} 買入 {num2} {toToken}",
   "swap.loading_content": "計算最佳價格中...",
   "swap.native_token_max_tip": "請保留少量代幣以支付網絡費用，否則交易將會失敗。",
