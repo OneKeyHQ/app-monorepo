@@ -399,6 +399,7 @@ function HomeOverviewContainer() {
                 hideValue
                 flexShrink={1}
                 minWidth={0}
+                splitDecimal
                 {...numberFormatter}
                 size={
                   md
