@@ -76,4 +76,10 @@ export class PageScene extends BaseScene {
   }) {
     return params;
   }
+
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public toggleReceivingAddressVisibility(isVisible: boolean) {
+    return { isVisible };
+  }
 }
