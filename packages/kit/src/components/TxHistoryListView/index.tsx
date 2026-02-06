@@ -448,6 +448,7 @@ function BaseTxHistoryListView(props: IProps) {
   return (
     <ListComponent
       ref={(ref ?? ListComponentRef) as any}
+      showsVerticalScrollIndicator={false}
       windowSize={platformEnv.isNativeAndroid && inTabList ? 3 : undefined}
       nestedScrollEnabled={platformEnv.isNativeAndroid ? inTabList : false}
       removeClippedSubviews={platformEnv.isNativeAndroid}
