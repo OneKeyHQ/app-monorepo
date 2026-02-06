@@ -11,6 +11,7 @@ import type {
 import {
   Dialog,
   EPageType,
+  Page,
   Toast,
   YStack,
   useInModalDialog,
@@ -1238,63 +1239,62 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const showDesktopProviderPanel =
     gtLg && pageType !== EPageType.modal && !platformEnv.isNative;
 
-  const containerMaxWidth = useMemo(() => {
+  const containerLayout = useMemo(() => {
     if (pageType === EPageType.modal) {
-      return '100%';
+      return 'full' as const;
     }
-    // Desktop with provider panel needs wider layout
-    if (showDesktopProviderPanel) {
-      return 1200;
+    if (swapTypeSwitch === ESwapTabSwitchType.LIMIT) {
+      return 'compact' as const;
     }
-    return 500;
-  }, [pageType, showDesktopProviderPanel]);
+    return 'regular' as const;
+  }, [pageType, swapTypeSwitch]);
 
   return (
-    <YStack
-      testID="swap-content-container"
-      flex={1}
-      marginHorizontal="auto"
-      width="100%"
-      maxWidth={containerMaxWidth}
-      pt="$2.5"
-      gap="$2"
-      $gtMd={{
-        flex: 'unset',
-        pt: pageType === EPageType.modal ? '$2.5' : '$16',
-      }}
-    >
-      <SwapTipsContainer />
-      <SwapHeaderContainer
-        pageType={pageType}
-        defaultSwapType={swapInitParams?.swapTabSwitchType}
-        showSwapPro={platformEnv.isNative}
-        hideRightActions={showDesktopProviderPanel}
-      />
-      {focusSwapPro ? (
-        <SwapProContainer
-          onProSelectToken={onProSelectToken}
-          onOpenOrdersClick={onOpenOrdersClick}
-          onSwapProActionClick={onPreSwap}
-          onSelectPercentageStage={onSelectPercentageStage}
-          onBalanceMaxPress={onBalanceMaxPress}
-          handleSelectAccountClick={handleSelectAccountClick}
-          onProMarketDetail={onProMarketDetail}
-          onTokenPress={onTokenPress}
-          supportNetworksList={SwapProSupportNetworksList}
-          config={{
-            isLoading,
-            speedConfig,
-            balanceLoading,
-            isMEV,
-            hasEnoughBalance,
-            supportSpeedSwap,
-            onlySupportCrossChain,
-          }}
+    <Page.Container flex={1} layout={containerLayout} padded={false}>
+      <YStack
+        testID="swap-content-container"
+        flex={1}
+        width="100%"
+        pt="$2.5"
+        gap="$2"
+        $gtMd={{
+          flex: 'unset',
+          pt: pageType === EPageType.modal ? '$2.5' : '$16',
+        }}
+      >
+        <SwapTipsContainer />
+        <SwapHeaderContainer
+          pageType={pageType}
+          defaultSwapType={swapInitParams?.swapTabSwitchType}
+          showSwapPro={platformEnv.isNative}
+          hideRightActions={showDesktopProviderPanel}
         />
-      ) : (
-        renderSwapSwapBridgeContainer()
-      )}
-    </YStack>
+        {focusSwapPro ? (
+          <SwapProContainer
+            onProSelectToken={onProSelectToken}
+            onOpenOrdersClick={onOpenOrdersClick}
+            onSwapProActionClick={onPreSwap}
+            onSelectPercentageStage={onSelectPercentageStage}
+            onBalanceMaxPress={onBalanceMaxPress}
+            handleSelectAccountClick={handleSelectAccountClick}
+            onProMarketDetail={onProMarketDetail}
+            onTokenPress={onTokenPress}
+            supportNetworksList={SwapProSupportNetworksList}
+            config={{
+              isLoading,
+              speedConfig,
+              balanceLoading,
+              isMEV,
+              hasEnoughBalance,
+              supportSpeedSwap,
+              onlySupportCrossChain,
+            }}
+          />
+        ) : (
+          renderSwapSwapBridgeContainer()
+        )}
+      </YStack>
+    </Page.Container>
   );
 };
 

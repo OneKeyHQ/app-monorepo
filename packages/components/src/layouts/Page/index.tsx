@@ -7,6 +7,7 @@ import { Portal } from '../../hocs';
 import { PageBody } from './PageBody';
 import { PageBackButton, PageClose, PageCloseButton } from './PageClose';
 import { PageContainer } from './PageContainer';
+import { PageContentContainer } from './PageContentContainer';
 import { PageContext } from './PageContext';
 import { Every, PageEvery } from './PageEvery';
 import { PageFooter } from './PageFooter';
@@ -21,7 +22,13 @@ import { PageLifeCycle } from './PageLifeCycle';
 import type { IPageFooterRef } from './PageContext';
 import type { IPageProps } from './type';
 
-export type { IPageProps, IPageFooterProps, IPageLifeCycle } from './type';
+export type {
+  IPageProps,
+  IPageFooterProps,
+  IPageLifeCycle,
+  IPageContentContainerProps,
+  IPageContentContainerLayout,
+} from './type';
 
 function PagePortal({ pagePortalId }: { pagePortalId: string }) {
   return pagePortalId ? <Portal.Container name={pagePortalId} /> : null;
@@ -97,6 +104,7 @@ export const Page = withStaticProperties(PageProvider, {
   Header: PageHeader,
   Body: PageBody,
   Footer: PageFooter,
+  Container: PageContentContainer,
   FooterActions,
   CancelButton: FooterCancelButton,
   ConfirmButton: FooterConfirmButton,
