@@ -53,6 +53,7 @@ import {
 
 import {
   type IFavoriteItem,
+  usePerpActiveTabValidation,
   usePerpTokenSelector,
   usePerpsFavorites,
 } from '../../hooks';
@@ -446,18 +447,18 @@ function BasePerpTokenSelectorContent({
       favoriteAssetIds.has(`${item.dexIndex}-${item.assetId}`),
     );
 
-    // Build data for dynamic tabs
+    // Build data for dynamic tabs (filter from sorted listAll to preserve sort order)
     const dynamicTabsData: Record<string, ITokenSelectorListItem[]> = {};
     for (const tab of dynamicTabs) {
       const tokenSet = new Set(tab.tokens);
-      const filtered = combinedEntries
-        .filter((entry) => tokenSet.has(entry.asset.name))
-        .map((entry) => ({
-          dexIndex: entry.dexIndex,
-          index: entry.index,
-          assetId: entry.assetId,
-        }));
-      dynamicTabsData[tab.tabId] = filtered;
+      const matchingIds = new Set(
+        combinedEntries
+          .filter((entry) => tokenSet.has(entry.asset.name))
+          .map((entry) => `${entry.dexIndex}-${entry.assetId}`),
+      );
+      dynamicTabsData[tab.tabId] = listAll.filter((item) =>
+        matchingIds.has(`${item.dexIndex}-${item.assetId}`),
+      );
     }
 
     return {
@@ -483,15 +484,13 @@ function BasePerpTokenSelectorContent({
     [dynamicTabs],
   );
 
-  // Handle case where active tab no longer exists (e.g., dynamic tab removed by server)
-  useEffect(() => {
-    const fixedTabIds = ['favorites', 'all', 'hip3'];
-    const dynamicTabIds = visibleDynamicTabs.map((t) => t.tabId);
-    const allValidTabs = [...fixedTabIds, ...dynamicTabIds];
-    if (!allValidTabs.includes(activeTab)) {
-      setActiveTab('all');
-    }
-  }, [activeTab, visibleDynamicTabs, setActiveTab]);
+  usePerpActiveTabValidation({
+    activeTab,
+    setActiveTab,
+    assetsByDex,
+    dynamicTabs,
+    visibleDynamicTabs,
+  });
 
   const keyExtractor = useCallback(
     (item: { dexIndex: number; index: number; assetId?: number }) => {
