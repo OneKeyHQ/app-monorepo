@@ -6,9 +6,7 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
-  Badge,
   Button,
-  Divider,
   Empty,
   Icon,
   LottieView,
@@ -404,19 +402,6 @@ const SwapProviderListPanel = ({
       settingsPersist.currencyInfo.symbol,
       toToken,
     ],
-  );
-
-  const renderLoadingSkeleton = useCallback(
-    () => (
-      <YStack px="$5" pb="$5">
-        <AnimatePresence>
-          {[0, 1, 2].map((index) => (
-            <AnimatedSkeletonItem key={index} index={index} />
-          ))}
-        </AnimatePresence>
-      </YStack>
-    ),
-    [],
   );
 
   const renderEmptyState = useCallback(
