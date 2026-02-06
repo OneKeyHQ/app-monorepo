@@ -1685,6 +1685,7 @@ class ServiceNetwork extends ServiceBase {
         chainSelectorNetworks,
         formattedAccountNetworkValues,
         accountDeFiOverview: localDeFiOverview,
+        zeroValue: true,
       };
     }
 
