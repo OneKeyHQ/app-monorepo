@@ -564,9 +564,17 @@ function WalletAccordionItemContainer({
         const newValue = value;
 
         if (newValue && newSettings?.[wallet.id]?.accounts) {
+          const existingAccountIds = new Set(
+            (wallet.dbAccounts ?? wallet.dbIndexedAccounts ?? []).map(
+              (a) => a.id,
+            ),
+          );
           let enabledAccountsCount = 0;
-          Object.values(newSettings?.[wallet.id]?.accounts || {}).forEach(
-            (item) => {
+          Object.entries(newSettings?.[wallet.id]?.accounts || {}).forEach(
+            ([accountId, item]) => {
+              if (!existingAccountIds.has(accountId)) {
+                return;
+              }
               if (item.enabled) {
                 enabledAccountsCount += 1;
                 if (
@@ -609,16 +617,22 @@ function WalletAccordionItemContainer({
     if (!isWalletEnabled) {
       return 0;
     }
-    return Object.values(
+    const existingAccountIds = new Set(
+      (wallet.dbAccounts ?? wallet.dbIndexedAccounts ?? []).map((a) => a.id),
+    );
+    return Object.entries(
       accountNotificationSettings?.[wallet.id]?.accounts ?? {},
-    ).filter((account) => account.enabled === true).length;
-    // return (
-    //   totalAccountsCount -
-    //   Object.values(
-    //     accountNotificationSettings?.[wallet.id]?.accounts ?? {},
-    //   ).filter((account) => account.enabled === false).length
-    // );
-  }, [isWalletEnabled, accountNotificationSettings, wallet.id]);
+    ).filter(
+      ([accountId, account]) =>
+        account.enabled === true && existingAccountIds.has(accountId),
+    ).length;
+  }, [
+    isWalletEnabled,
+    accountNotificationSettings,
+    wallet.id,
+    wallet.dbAccounts,
+    wallet.dbIndexedAccounts,
+  ]);
 
   return (
     <WalletAccordionItemMemo
