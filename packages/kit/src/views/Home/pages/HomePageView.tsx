@@ -324,25 +324,28 @@ export function HomePageView({
   const tabConfigsRef = useRef(tabConfigs);
   tabConfigsRef.current = tabConfigs;
 
-  const handleRenderItem = useCallback((props: ITabBarItemProps) => {
-    const tabId = tabConfigsRef.current.find((i) => i.name === props.name)?.id;
-    return (
-      <XStack position="relative">
-        <TabBarItem {...props} />
-        {tabId === EHomeWalletTab.Approvals && hasRiskApprovalsRef.current ? (
-          <Stack
-            position="absolute"
-            right={-6}
-            top={12}
-            w="$1.5"
-            h="$1.5"
-            bg="$iconCritical"
-            borderRadius="$full"
-          />
-        ) : null}
-      </XStack>
-    );
-  }, []);
+  const handleRenderItem = useCallback(
+    (props: ITabBarItemProps) => {
+      const tabId = tabConfigsRef.current.find((i) => i.name === props.name)?.id;
+      return (
+        <XStack position="relative">
+          <TabBarItem {...props} />
+          {tabId === EHomeWalletTab.Approvals && hasRiskApprovals ? (
+            <Stack
+              position="absolute"
+              right={-6}
+              top={12}
+              w="$1.5"
+              h="$1.5"
+              bg="$iconCritical"
+              borderRadius="$full"
+            />
+          ) : null}
+        </XStack>
+      );
+    },
+    [hasRiskApprovals],
+  );
 
   const renderToolbar = useCallback(
     ({ focusedTab }: { focusedTab: string }) => (
