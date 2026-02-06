@@ -27,6 +27,9 @@ export const AllNetworksManagerContext = createContext<{
   setIsCreatingEnabledAddresses: React.Dispatch<React.SetStateAction<boolean>>;
   isCreatingMissingAddresses: boolean;
   setIsCreatingMissingAddresses: React.Dispatch<React.SetStateAction<boolean>>;
+  accountNetworkValues: Record<string, string>;
+  accountNetworkValueCurrency?: string;
+  accountDeFiOverview: Record<string, { netWorth: number }>;
 }>({
   walletId: '',
   indexedAccountId: undefined,
@@ -47,4 +50,7 @@ export const AllNetworksManagerContext = createContext<{
   setIsCreatingEnabledAddresses: () => {},
   isCreatingMissingAddresses: false,
   setIsCreatingMissingAddresses: () => {},
+  accountNetworkValues: {},
+  accountNetworkValueCurrency: undefined,
+  accountDeFiOverview: {},
 });
