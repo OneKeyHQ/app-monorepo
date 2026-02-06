@@ -42,7 +42,7 @@ function ActionItem({
   if (showButtonStyle) {
     return (
       <Button
-        size={media.gtMd ? 'medium' : 'small'}
+        size={media.gtMd ? 'large' : 'medium'}
         icon={icon}
         {...rest}
       >
@@ -194,8 +194,9 @@ function ActionMore({
       renderTrigger={
         showButtonStyle ? (
           <Button
-            size={media.gtMd ? 'medium' : 'small'}
+            size={media.gtMd ? 'large' : 'medium'}
             icon="DotHorOutline"
+            px={media.gtMd ? '$3' : '$1.5'}
           />
         ) : (
           <ActionItem
