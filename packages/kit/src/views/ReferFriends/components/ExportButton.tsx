@@ -17,6 +17,8 @@ interface IExportButtonProps {
   timeRange?: EExportTimeRange;
   inviteCode?: string;
   tab?: EExportTab;
+  startTime?: number;
+  endTime?: number;
 }
 
 export function ExportButton({
@@ -24,6 +26,8 @@ export function ExportButton({
   timeRange = EExportTimeRange.All,
   inviteCode,
   tab = EExportTab.Earn,
+  startTime,
+  endTime,
 }: IExportButtonProps) {
   const intl = useIntl();
   const { gtMd } = useMedia();
@@ -36,6 +40,8 @@ export function ExportButton({
         timeRange,
         inviteCode,
         tab,
+        startTime,
+        endTime,
       });
       Toast.success({
         title: intl.formatMessage({
@@ -49,7 +55,7 @@ export function ExportButton({
         }),
       });
     }
-  }, [exportInviteData, intl, inviteCode, subject, tab, timeRange]);
+  }, [exportInviteData, intl, inviteCode, subject, tab, timeRange, startTime, endTime]);
 
   if (gtMd) {
     return (
