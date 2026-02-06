@@ -299,10 +299,55 @@ index 9ce60da..68e0b0e 100644
        contentOffset={memoContentOffset}
        refreshControl={memoRefreshControl}
 diff --git a/node_modules/react-native-collapsible-tab-view/src/FlatList.tsx b/node_modules/react-native-collapsible-tab-view/src/FlatList.tsx
-index e7a6981..05d5c9c 100644
+index e7a6981..e58a15f 100644
 --- a/node_modules/react-native-collapsible-tab-view/src/FlatList.tsx
 +++ b/node_modules/react-native-collapsible-tab-view/src/FlatList.tsx
-@@ -110,7 +110,7 @@ function FlatListImpl<R>(
+@@ -1,5 +1,5 @@
+ import React from 'react'
+-import { FlatList as RNFlatList, FlatListProps } from 'react-native'
++import { Animated as RNAnimated, FlatList as RNFlatList, FlatListProps } from 'react-native'
+ 
+ import { AnimatedFlatList } from './helpers'
+ import {
+@@ -13,13 +13,18 @@ import {
+   useUpdateScrollViewContentSize,
+ } from './hooks'
+ 
++const RNAnimatedFlatList = RNAnimated.createAnimatedComponent(RNFlatList)
++
+ /**
+  * Used as a memo to prevent rerendering too often when the context changes.
+  * See: https://github.com/facebook/react/issues/15156#issuecomment-474590693
+  */
+ const FlatListMemo = React.memo(
+-  React.forwardRef<RNFlatList, React.PropsWithChildren<FlatListProps<unknown>>>(
+-    (props, passRef) => {
++  React.forwardRef<RNFlatList, React.PropsWithChildren<FlatListProps<unknown>> & { useNativeDriver?: boolean }>(
++    ({ useNativeDriver, ...props }, passRef) => {
++      if (useNativeDriver) {
++        return <RNAnimatedFlatList ref={passRef as any} {...props} />
++      }
+       return <AnimatedFlatList ref={passRef} {...props} />
+     }
+   )
+@@ -36,7 +41,7 @@ function FlatListImpl<R>(
+   passRef: React.Ref<RNFlatList>
+ ): React.ReactElement {
+   const name = useTabNameContext()
+-  const { setRef, contentInset } = useTabsContext()
++  const { setRef, contentInset, useNativeHeaderAnimation } = useTabsContext()
+   const ref = useSharedAnimatedRef<RNFlatList<unknown>>(passRef)
+ 
+   const { scrollHandler, enable } = useScrollHandlerY(name)
+@@ -102,6 +107,7 @@ function FlatListImpl<R>(
+     // @ts-expect-error typescript complains about `unknown` in the memo, it should be T
+     <FlatListMemo
+       {...rest}
++      useNativeDriver={useNativeHeaderAnimation}
+       onLayout={onLayout}
+       ref={ref}
+       bouncesZoom={false}
+@@ -110,7 +116,7 @@ function FlatListImpl<R>(
        progressViewOffset={progressViewOffset}
        onScroll={scrollHandler}
        onContentSizeChange={scrollContentSizeChangeHandlers}
@@ -325,10 +370,55 @@ index 93756ae..d1cb43e 100644
        contentOffset={memoContentOffset}
        refreshControl={memoRefreshControl}
 diff --git a/node_modules/react-native-collapsible-tab-view/src/ScrollView.tsx b/node_modules/react-native-collapsible-tab-view/src/ScrollView.tsx
-index 712a65b..d1c051c 100644
+index 712a65b..fc9752b 100644
 --- a/node_modules/react-native-collapsible-tab-view/src/ScrollView.tsx
 +++ b/node_modules/react-native-collapsible-tab-view/src/ScrollView.tsx
-@@ -120,7 +120,7 @@ export const ScrollView = React.forwardRef<
+@@ -1,5 +1,5 @@
+ import React from 'react'
+-import { ScrollViewProps, ScrollView as RNScrollView } from 'react-native'
++import { Animated as RNAnimated, ScrollViewProps, ScrollView as RNScrollView } from 'react-native'
+ import Animated from 'react-native-reanimated'
+ 
+ import {
+@@ -18,8 +18,18 @@ import {
+  * See: https://github.com/facebook/react/issues/15156#issuecomment-474590693
+  */
+ const ScrollViewMemo = React.memo(
+-  React.forwardRef<RNScrollView, React.PropsWithChildren<ScrollViewProps>>(
+-    (props, passRef) => {
++  React.forwardRef<RNScrollView, React.PropsWithChildren<ScrollViewProps> & { useNativeDriver?: boolean }>(
++    ({ useNativeDriver, ...props }, passRef) => {
++      // When using native driver for header animation, use RN's Animated.ScrollView
++      // Otherwise use Reanimated's Animated.ScrollView
++      if (useNativeDriver) {
++        return (
++          <RNAnimated.ScrollView
++            ref={passRef as any}
++            {...props}
++          />
++        )
++      }
+       return (
+         <Animated.ScrollView
+           // @ts-expect-error reanimated types are broken on ref
+@@ -51,7 +61,7 @@ export const ScrollView = React.forwardRef<
+   ) => {
+     const name = useTabNameContext()
+     const ref = useSharedAnimatedRef<RNScrollView>(passRef)
+-    const { setRef, contentInset } = useTabsContext()
++    const { setRef, contentInset, useNativeHeaderAnimation } = useTabsContext()
+     const {
+       style: _style,
+       contentContainerStyle: _contentContainerStyle,
+@@ -113,6 +123,7 @@ export const ScrollView = React.forwardRef<
+     return (
+       <ScrollViewMemo
+         {...rest}
++        useNativeDriver={useNativeHeaderAnimation}
+         onLayout={onLayout}
+         ref={ref}
+         bouncesZoom={false}
+@@ -120,7 +131,7 @@ export const ScrollView = React.forwardRef<
          contentContainerStyle={memoContentContainerStyle}
          onScroll={scrollHandler}
          onContentSizeChange={scrollContentSizeChangeHandlers}
