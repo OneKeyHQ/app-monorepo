@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 
 import {
   errorCodes,
@@ -14,7 +14,6 @@ import {
   Dialog,
   Icon,
   SizableText,
-  Spinner,
   Stack,
   Toast,
   XStack,
@@ -89,9 +88,10 @@ async function readFileStreamingLines(
 function UploadCSVContent({ onUploaded }: IUploadCSVContentProps) {
   const intl = useIntl();
   const dialog = useDialogInstance();
-  const [isLoading, setIsLoading] = useState(false);
 
   const handleUploadClick = useCallback(async () => {
+    // Close dialog first so the FullWindowOverlay doesn't block the native file picker on iOS
+    void dialog.close();
     try {
       const [result] = await pick({
         type: [types.plainText, types.csv],
@@ -116,8 +116,6 @@ function UploadCSVContent({ onUploaded }: IUploadCSVContentProps) {
         return;
       }
 
-      setIsLoading(true);
-
       // Copy file to local cache for reading
       const [localCopyResult] = await keepLocalCopy({
         files: [{ uri: result.uri, fileName: result.name ?? 'upload.csv' }],
@@ -130,7 +128,6 @@ function UploadCSVContent({ onUploaded }: IUploadCSVContentProps) {
             id: ETranslations.wallet_bulk_send_csv_copy_failed,
           }),
         });
-        setIsLoading(false);
         return;
       }
 
@@ -144,7 +141,6 @@ function UploadCSVContent({ onUploaded }: IUploadCSVContentProps) {
             id: ETranslations.wallet_bulk_send_csv_empty,
           }),
         });
-        setIsLoading(false);
         return;
       }
 
@@ -159,7 +155,6 @@ function UploadCSVContent({ onUploaded }: IUploadCSVContentProps) {
             id: ETranslations.wallet_bulk_send_csv_empty,
           }),
         });
-        setIsLoading(false);
         return;
       }
 
@@ -173,7 +168,6 @@ function UploadCSVContent({ onUploaded }: IUploadCSVContentProps) {
       }
 
       onUploaded?.(lines);
-      void dialog.close();
     } catch (error) {
       const isCanceled =
         isErrorWithCode(error) && error.code === errorCodes.OPERATION_CANCELED;
@@ -184,8 +178,6 @@ function UploadCSVContent({ onUploaded }: IUploadCSVContentProps) {
           }),
         });
       }
-    } finally {
-      setIsLoading(false);
     }
   }, [intl, onUploaded, dialog]);
 
@@ -210,25 +202,19 @@ function UploadCSVContent({ onUploaded }: IUploadCSVContentProps) {
         px="$5"
         alignItems="center"
         gap="$3"
-        onPress={isLoading ? undefined : handleUploadClick}
-        cursor={isLoading ? 'default' : 'pointer'}
-        hoverStyle={isLoading ? undefined : { bg: '$bgHover' }}
-        pressStyle={isLoading ? undefined : { bg: '$bgActive' }}
+        onPress={handleUploadClick}
+        cursor="pointer"
+        hoverStyle={{ bg: '$bgHover' }}
+        pressStyle={{ bg: '$bgActive' }}
       >
-        {isLoading ? (
-          <Spinner size="large" />
-        ) : (
-          <>
-            <Stack bg="$bgStrong" p="$2" borderRadius="$full">
-              <Icon name="UploadOutline" size="$6" color="$icon" />
-            </Stack>
-            <SizableText size="$bodyMdMedium" textAlign="center">
-              {intl.formatMessage({
-                id: ETranslations.wallet_bulk_send_csv_click_to_upload,
-              })}
-            </SizableText>
-          </>
-        )}
+        <Stack bg="$bgStrong" p="$2" borderRadius="$full">
+          <Icon name="UploadOutline" size="$6" color="$icon" />
+        </Stack>
+        <SizableText size="$bodyMdMedium" textAlign="center">
+          {intl.formatMessage({
+            id: ETranslations.wallet_bulk_send_csv_click_to_upload,
+          })}
+        </SizableText>
       </Stack>
 
       {/* Template Info Row */}

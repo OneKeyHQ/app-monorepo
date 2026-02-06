@@ -64,7 +64,7 @@ const ListHeaderComponent = () => {
     EditableChainSelectorContext,
   );
 
-  if (searchText?.trim()) {
+  if (searchText) {
     return null;
   }
 
@@ -161,14 +161,13 @@ export const EditableChainSelectorContent = ({
   );
   const listRef = useRef<ISortableSectionListRef<any> | null>(null);
   const lastIsEditMode = usePrevious(isEditMode);
-  const searchTextTrim = searchText.trim();
   const showAllNetworkHeader = useMemo(
-    () => allNetworkItem && !searchText?.trim?.(),
+    () => allNetworkItem && !searchText,
     [allNetworkItem, searchText],
   );
 
   const showNonZeroValueTooltip = useMemo(
-    () => !zeroValue && !searchText?.trim?.(),
+    () => !zeroValue && !searchText,
     [zeroValue, searchText],
   );
 
@@ -200,8 +199,8 @@ export const EditableChainSelectorContent = ({
   const networkFuseSearch = useFuseSearch(networksToSearch);
 
   const sections = useMemo<IEditableChainSelectorSection[]>(() => {
-    if (searchTextTrim) {
-      const data = networkFuseSearch(searchTextTrim);
+    if (searchText) {
+      const data = networkFuseSearch(searchText);
       return data.length === 0
         ? []
         : [
@@ -265,7 +264,7 @@ export const EditableChainSelectorContent = ({
     testnetItems,
     tempFrequentlyUsedItems,
     unavailableItems,
-    searchTextTrim,
+    searchText,
     intl,
     networkFuseSearch,
   ]);
@@ -402,7 +401,7 @@ export const EditableChainSelectorContent = ({
         onEditCustomNetwork?.(network);
       },
       isEditMode,
-      searchText: searchTextTrim,
+      searchText,
       allNetworkItem,
       setRecentNetworksHeight,
       accountNetworkValues,
@@ -418,7 +417,7 @@ export const EditableChainSelectorContent = ({
       onPressItem,
       onAddCustomNetwork,
       isEditMode,
-      searchTextTrim,
+      searchText,
       allNetworkItem,
       accountNetworkValues,
       accountNetworkValueCurrency,
@@ -520,7 +519,7 @@ export const EditableChainSelectorContent = ({
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
                 listRef.current._listRef._hasDoneInitialScroll = false;
               }
-              setSearchText(text.trim());
+              setSearchText(text);
             }}
             {...(!platformEnv.isNative && {
               autoFocus: true,

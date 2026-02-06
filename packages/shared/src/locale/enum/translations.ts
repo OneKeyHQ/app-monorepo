@@ -3,6 +3,26 @@
 // @ts-ignore
 /* eslint-disable  */
   
+  // This file is automatically created by `yarn fetch:locale`.
+
+// @ts-ignore
+/* eslint-disable  */
+  
+  // This file is automatically created by `yarn fetch:locale`.
+
+// @ts-ignore
+/* eslint-disable  */
+  
+  // This file is automatically created by `yarn fetch:locale`.
+
+// @ts-ignore
+/* eslint-disable  */
+  
+  // This file is automatically created by `yarn fetch:locale`.
+
+// @ts-ignore
+/* eslint-disable  */
+  
   export enum ETranslations {
   Limit_expire_day = 'Limit.expire_day',
   Limit_expire_days = 'Limit.expire_days',
@@ -2760,6 +2780,7 @@
   perps_token_selector_perps = 'perps.token_selector_perps',
   perps_token_selector_stocks = 'perps.token_selector_stocks',
   perps_trade_reward = 'perps.trade_reward',
+  perps_footer_help_us_better = 'perps_footer.help_us_better',
   pick_your_device = 'pick_your_device',
   pin_attempts_cooldown = 'pin_attempts_cooldown',
   pin_attempts_exhausted = 'pin_attempts_exhausted',
@@ -3670,6 +3691,8 @@
   swap_faq_a6 = 'swap.faq_a6',
   swap_faq_a7 = 'swap.faq_a7',
   swap_faq_a8 = 'swap.faq_a8',
+  swap_faq_help_center_for = 'swap.faq_help_center_for',
+  swap_faq_help_center_help = 'swap.faq_help_center_help',
   swap_faq_q1 = 'swap.faq_q1',
   swap_faq_q2 = 'swap.faq_q2',
   swap_faq_q3 = 'swap.faq_q3',

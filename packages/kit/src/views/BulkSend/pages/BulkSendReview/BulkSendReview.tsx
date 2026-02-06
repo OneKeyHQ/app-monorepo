@@ -2,7 +2,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Page, Toast, YStack } from '@onekeyhq/components';
+import { Page, Toast, YStack, rootNavigationRef } from '@onekeyhq/components';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -14,8 +14,11 @@ import {
   type EModalBulkSendRoutes,
   EModalRoutes,
   EModalSignatureConfirmRoutes,
+  ETabHomeRoutes,
+  ETabRoutes,
   type IModalBulkSendParamList,
 } from '@onekeyhq/shared/src/routes';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { waitAsync } from '@onekeyhq/shared/src/utils/promiseUtils';
@@ -259,18 +262,25 @@ function BaseBulkSendReview({
     [navigation, accountId, networkId],
   );
 
-  // Navigate back to address input page after successful transaction
-  const navigateAfterSuccess = useCallback(() => {
-    if (accountUtils.isQrAccount({ accountId: accountId ?? '' })) {
-      navigation.popStack();
-    }
-
+  // Navigate back to wallet home after successful transaction
+  const navigateAfterSuccess = useCallback(async () => {
     if (isInModal) {
-      navigation.pop();
+      // Mobile: close the entire bulk send modal stack
+      navigation.popStack();
     } else {
       navigation.popStack();
+      await waitAsync(50);
+      rootNavigationRef.current?.navigate(
+        ETabRoutes.Home,
+        {
+          screen: ETabHomeRoutes.TabHome,
+        },
+        {
+          pop: true,
+        },
+      );
     }
-  }, [isInModal, navigation, accountId]);
+  }, [isInModal, navigation]);
 
   const handleConfirm = useCallback(async () => {
     if (!accountId) return;
@@ -342,10 +352,17 @@ function BaseBulkSendReview({
           feeState.feeInfos,
         );
 
+        defaultLogger.prime.usage.bulkSendSuccess({
+          recipientCount: transfersInfo.length,
+          sendMode: bulkSendMode,
+          network: networkId ?? '',
+          tokenSymbol: tokenInfo?.symbol ?? '',
+        });
+
         setIsSubmitting(false);
         onSuccess?.(results);
 
-        navigateAfterSuccess();
+        await navigateAfterSuccess();
       } catch (e) {
         setIsSubmitting(false);
         // Check if user cancelled
@@ -377,11 +394,18 @@ function BaseBulkSendReview({
         }),
       });
 
+      defaultLogger.prime.usage.bulkSendSuccess({
+        recipientCount: transfersInfo.length,
+        sendMode: bulkSendMode,
+        network: networkId ?? '',
+        tokenSymbol: tokenInfo?.symbol ?? '',
+      });
+
       setIsSubmitting(false);
       onSuccess?.(result);
 
-      // Step 7: Navigate back to address input page
-      navigateAfterSuccess();
+      // Step 7: Navigate back to wallet home
+      await navigateAfterSuccess();
     } catch (e: any) {
       // Handle QR account navigation on error
       if (accountUtils.isQrAccount({ accountId })) {
@@ -405,6 +429,9 @@ function BaseBulkSendReview({
     navigation,
     handleTronTxsOneByOne,
     navigateAfterSuccess,
+    bulkSendMode,
+    transfersInfo.length,
+    tokenInfo?.symbol,
   ]);
 
   // Determine if confirm button should be disabled
