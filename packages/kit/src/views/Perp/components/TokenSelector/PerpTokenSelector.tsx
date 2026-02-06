@@ -14,6 +14,7 @@ import {
   SizableText,
   Spinner,
   Tabs,
+  Tooltip,
   XStack,
   YStack,
   usePopoverContext,
@@ -675,11 +676,21 @@ function PerpTokenSelectorContent({
 const PerpTokenSelectorContentMemo = memo(PerpTokenSelectorContent);
 
 function BasePerpTokenSelector() {
+  const intl = useIntl();
   const [isOpen, setIsOpen] = useState(false);
   const [currentToken] = usePerpsActiveAssetAtom();
   const { coin } = currentToken;
   const parsedActive = useMemo(() => parseDexCoin(coin), [coin]);
   const [isLoading, setIsLoading] = useState(false);
+  const [builderFeeRate, setBuilderFeeRate] = useState<number | undefined>();
+
+  useEffect(() => {
+    void backgroundApiProxy.simpleDb.perp
+      .getExpectMaxBuilderFee()
+      .then((fee) => {
+        setBuilderFeeRate(fee);
+      });
+  }, []);
   const content = useMemo(
     () => (
       <Popover
@@ -718,6 +729,25 @@ function BasePerpTokenSelector() {
             <SizableText size="$heading2xl">
               {parsedActive.displayName}USDC
             </SizableText>
+            {builderFeeRate === 0 ? (
+              <Tooltip
+                placement="bottom"
+                renderTrigger={
+                  <Badge badgeType="success" badgeSize="sm">
+                    {intl.formatMessage({
+                      id: ETranslations.perp_0_fee,
+                    })}
+                  </Badge>
+                }
+                renderContent={
+                  <SizableText size="$bodySm">
+                    {intl.formatMessage({
+                      id: ETranslations.perps_fee_desc,
+                    })}
+                  </SizableText>
+                }
+              />
+            ) : null}
             <Icon name="ChevronBottomOutline" size="$4" />
             {isLoading ? <Spinner size="small" /> : null}
           </Badge>
@@ -730,7 +760,7 @@ function BasePerpTokenSelector() {
         )}
       />
     ),
-    [isOpen, isLoading, parsedActive.displayName],
+    [isOpen, isLoading, parsedActive.displayName, builderFeeRate, intl],
   );
   return (
     <DebugRenderTracker name="PerpTokenSelector">{content}</DebugRenderTracker>
