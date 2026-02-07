@@ -481,11 +481,16 @@ function BasePerpTokenSelectorContent({
     selectorConfig?.field,
   ]);
 
-  // Filter to visible dynamic tabs (those with data)
-  const visibleDynamicTabs = useMemo<IPerpDynamicTab[]>(
-    () => dynamicTabsRaw ?? [],
-    [dynamicTabsRaw],
-  );
+  // Filter to visible dynamic tabs (those with matching tokens)
+  const visibleDynamicTabs = useMemo<IPerpDynamicTab[]>(() => {
+    const assetsByDexTyped: IPerpsUniverse[][] = assetsByDex || [];
+    const allAssetNames = new Set(
+      assetsByDexTyped.flatMap((assets) => assets.map((a) => a.name)),
+    );
+    return (dynamicTabsRaw ?? []).filter((tab) =>
+      tab.tokens.some((token) => allAssetNames.has(token)),
+    );
+  }, [assetsByDex, dynamicTabsRaw]);
 
   usePerpActiveTabValidation({
     activeTab,
