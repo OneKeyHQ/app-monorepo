@@ -221,9 +221,22 @@ export const useReferFriends = () => {
       copyAsUrl = false,
     ) => {
       const isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
-      const myReferralCode =
-        await backgroundApiProxy.serviceReferralCode.getMyReferralCode();
-
+      let myReferralCode = '';
+      if (isLogin) {
+        try {
+          // Fetch fresh primary code from API to avoid stale cache
+          const summary =
+            await backgroundApiProxy.serviceReferralCode.getSummaryInfo();
+          myReferralCode = summary.inviteCode || '';
+        } catch {
+          // Fall back to cached code on API failure
+          myReferralCode =
+            await backgroundApiProxy.serviceReferralCode.getMyReferralCode();
+        }
+      } else {
+        myReferralCode =
+          await backgroundApiProxy.serviceReferralCode.getMyReferralCode();
+      }
       const postConfig: IInvitePostConfig | undefined =
         await backgroundApiProxy.serviceReferralCode.getPostConfig();
 
