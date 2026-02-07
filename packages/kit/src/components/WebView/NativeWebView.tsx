@@ -29,7 +29,11 @@ import { createMessageInjectedScript } from './utils';
 
 import type { IInpageProviderWebViewProps, IWebViewRef } from './types';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
-import type { WebViewMessageEvent, WebViewProps } from 'react-native-webview';
+import type {
+  WebViewMessageEvent,
+  WebViewProps,
+  WebViewRenderProcessGoneEvent,
+} from 'react-native-webview';
 
 export type INativeWebViewProps = WebViewProps & IInpageProviderWebViewProps;
 
@@ -64,6 +68,7 @@ const NativeWebView = forwardRef(
     const refreshControlRef = useMemo(() => createRef<RefreshControl>(), []);
     const [isRefresh] = useState(false);
     const isUnmountingRef = useRef(false);
+    const [webViewKey, setWebViewKey] = useState(0);
 
     const onRefresh = useCallback(() => {
       if (isUnmountingRef.current) return;
@@ -241,6 +246,19 @@ const NativeWebView = forwardRef(
       [onScroll, pullToRefreshEnabled, refreshControlRef],
     );
 
+    const handleRenderProcessGone = useCallback(
+      (event: WebViewRenderProcessGoneEvent) => {
+        if (isUnmountingRef.current) return;
+        const { didCrash } = event.nativeEvent;
+        console.warn(
+          `WebView render process gone (didCrash: ${didCrash}), recreating WebView`,
+        );
+        // Bump key to force React to unmount the dead WebView and mount a fresh one
+        setWebViewKey((prev) => prev + 1);
+      },
+      [],
+    );
+
     const debuggingEnabled = useMemo(() => {
       if (__DEV__) {
         return true;
@@ -281,6 +299,7 @@ const NativeWebView = forwardRef(
       }
       return (
         <WebView
+          key={webViewKey}
           cacheEnabled={false}
           style={styles.container}
           originWhitelist={['*']}
@@ -308,11 +327,13 @@ const NativeWebView = forwardRef(
           onScroll={safeOnScroll}
           scrollEventThrottle={16}
           webviewDebuggingEnabled={debuggingEnabled}
+          onRenderProcessGone={handleRenderProcessGone}
           {...props}
         />
       );
     }, [
       debuggingEnabled,
+      handleRenderProcessGone,
       injectedJavaScriptBeforeContentLoaded,
       safeOnLoad,
       safeOnLoadEnd,
@@ -324,6 +345,7 @@ const NativeWebView = forwardRef(
       renderLoading,
       src,
       useGeckoView,
+      webViewKey,
       webViewOnLoadStart,
       webviewOnMessage,
       allowsBackForwardNavigationGestures,
