@@ -1,10 +1,12 @@
-import { forwardRef, memo, useImperativeHandle } from 'react';
+import { memo } from 'react';
 
 import type { IListViewProps, IPopoverProps } from '@onekeyhq/components';
-import { GradientMask, ScrollView, XStack } from '@onekeyhq/components';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
-import { useNetworkFilterScroll } from '../../hooks/useNetworkFilterScroll';
+import {
+  ScrollableFilterBar,
+  useScrollableFilterBar,
+} from '@onekeyhq/kit/src/components/ScrollableFilterBar';
 
 import { MarketNetworkStartFilterItem } from './MarketNetworkStartFilterItem';
 import { NetworksFilterItem } from './NetworksFilterItem';
@@ -21,103 +23,61 @@ interface IMarketNetworkFilterMobileProps {
   startListSelect?: boolean;
 }
 
-// Layout constants for mobile network filter scrolling
-const MOBILE_LAYOUT_CONSTANTS = {
-  SCROLL_OFFSET_ADJUSTMENT: 4,
-  LEFT_GRADIENT_THRESHOLD: 2, // Minimum scroll distance to show left gradient
-} as const;
-
-export interface IMarketNetworkFilterMobileRef {
-  scrollToNetwork: (networkId: string) => void;
+function NetworksFilterItemWithLayout({
+  network,
+  isSelected,
+  onPress,
+}: {
+  network: IServerNetwork;
+  isSelected: boolean;
+  onPress: () => void;
+}) {
+  const { handleItemLayout } = useScrollableFilterBar();
+  return (
+    <NetworksFilterItem
+      networkName={network.name}
+      networkImageUri={network.logoURI}
+      isSelected={isSelected}
+      isAllNetworks={network.isAllNetworks}
+      onPress={onPress}
+      onLayout={(event) => handleItemLayout(network.id, event)}
+    />
+  );
 }
 
-const MarketNetworkFilterMobile = forwardRef<
-  IMarketNetworkFilterMobileRef,
-  IMarketNetworkFilterMobileProps
->(
-  (
-    {
-      networks,
-      selectedNetwork,
-      onSelectNetwork,
-      containerStyle,
-      onStartListSelect,
-      startListSelect,
-    },
-    ref,
-  ) => {
-    const {
-      scrollViewRef,
-      shouldShowLeftGradient,
-      shouldShowRightGradient,
-      handleLayout,
-      handleContentSizeChange,
-      handleItemLayout,
-      handleScroll,
-      scrollToNetwork,
-    } = useNetworkFilterScroll({
-      layoutConstants: MOBILE_LAYOUT_CONSTANTS,
-      enableMoreButton: false,
-      moreButtonWidth: 0,
-    });
+function MarketNetworkFilterMobileImpl({
+  networks,
+  selectedNetwork,
+  onSelectNetwork,
+  containerStyle,
+  onStartListSelect,
+  startListSelect,
+}: IMarketNetworkFilterMobileProps) {
+  return (
+    <ScrollableFilterBar
+      selectedItemId={selectedNetwork?.id}
+      itemGap="$2"
+      itemPr="$3"
+      contentContainerStyle={containerStyle}
+    >
+      {onStartListSelect ? (
+        <MarketNetworkStartFilterItem
+          isSelected={startListSelect}
+          onPress={onStartListSelect}
+        />
+      ) : null}
+      {networks.map((network) => (
+        <NetworksFilterItemWithLayout
+          key={network.id}
+          network={network}
+          isSelected={network?.id === selectedNetwork?.id}
+          onPress={() => onSelectNetwork(network)}
+        />
+      ))}
+    </ScrollableFilterBar>
+  );
+}
 
-    useImperativeHandle(
-      ref,
-      () => ({
-        scrollToNetwork,
-      }),
-      [scrollToNetwork],
-    );
-    return (
-      <XStack position="relative" maxWidth="100%" overflow="hidden">
-        <XStack flex={1} position="relative">
-          <ScrollView
-            ref={scrollViewRef}
-            horizontal
-            contentContainerStyle={containerStyle}
-            showsHorizontalScrollIndicator={false}
-            onScroll={handleScroll}
-            scrollEventThrottle={16}
-            onLayout={handleLayout}
-            onContentSizeChange={handleContentSizeChange}
-          >
-            <XStack gap="$2" pr="$3">
-              {onStartListSelect ? (
-                <MarketNetworkStartFilterItem
-                  isSelected={startListSelect}
-                  onPress={onStartListSelect}
-                />
-              ) : null}
-              {networks.map((network) => (
-                <NetworksFilterItem
-                  key={network.id}
-                  networkName={network.name}
-                  networkImageUri={network.logoURI}
-                  isSelected={network?.id === selectedNetwork?.id}
-                  isAllNetworks={network.isAllNetworks}
-                  onPress={() => onSelectNetwork(network)}
-                  onLayout={(event) => handleItemLayout(network.id, event)}
-                />
-              ))}
-            </XStack>
-          </ScrollView>
+const MarketNetworkFilterMobile = memo(MarketNetworkFilterMobileImpl);
 
-          <GradientMask
-            opacity={shouldShowLeftGradient ? 1 : 0}
-            position="left"
-          />
-          <GradientMask
-            opacity={shouldShowRightGradient ? 1 : 0}
-            position="right"
-          />
-        </XStack>
-      </XStack>
-    );
-  },
-);
-
-MarketNetworkFilterMobile.displayName = 'MarketNetworkFilterMobile';
-
-const MarketNetworkFilterMobileComponent = memo(MarketNetworkFilterMobile);
-
-export { MarketNetworkFilterMobileComponent as MarketNetworkFilterMobile };
+export { MarketNetworkFilterMobile };
