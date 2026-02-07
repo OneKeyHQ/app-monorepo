@@ -32,8 +32,8 @@ import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 import type {
   WebViewMessageEvent,
   WebViewProps,
-  WebViewRenderProcessGoneEvent,
 } from 'react-native-webview';
+import type { WebViewRenderProcessGoneEvent } from 'react-native-webview/lib/WebViewTypes';
 
 export type INativeWebViewProps = WebViewProps & IInpageProviderWebViewProps;
 
