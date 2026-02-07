@@ -169,7 +169,10 @@ function BasePerpTokenSelectorContent({
   const [selectorConfig, setSelectorConfig] =
     usePerpTokenSelectorConfigPersistAtom();
   const [dynamicTabsRaw] = usePerpTokenSelectorTabsAtom();
-  const dynamicTabs: IPerpDynamicTab[] = dynamicTabsRaw ?? [];
+  const dynamicTabs: IPerpDynamicTab[] = useMemo(
+    () => dynamicTabsRaw ?? [],
+    [dynamicTabsRaw],
+  );
 
   const tabNames = useMemo(
     () => ({
@@ -480,8 +483,8 @@ function BasePerpTokenSelectorContent({
 
   // Filter to visible dynamic tabs (those with data)
   const visibleDynamicTabs = useMemo<IPerpDynamicTab[]>(
-    () => dynamicTabs,
-    [dynamicTabs],
+    () => dynamicTabsRaw ?? [],
+    [dynamicTabsRaw],
   );
 
   usePerpActiveTabValidation({
