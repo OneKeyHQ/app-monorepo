@@ -120,7 +120,8 @@ function MobileTokenSelectorModal({
   const { favoriteItems } = usePerpsFavorites();
   const [selectorConfig, setSelectorConfig] =
     usePerpTokenSelectorConfigPersistAtom();
-  const [dynamicTabs] = usePerpTokenSelectorTabsAtom();
+  const [dynamicTabsRaw] = usePerpTokenSelectorTabsAtom();
+  const dynamicTabs = dynamicTabsRaw ?? [];
   const activeTab = selectorConfig?.activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB;
   const listRef = useRef<IListViewRef<ITokenSelectorListItem> | null>(null);
 
@@ -311,7 +312,7 @@ function MobileTokenSelectorModal({
     activeTab,
     setActiveTab,
     assetsByDex,
-    dynamicTabs,
+    dynamicTabs: dynamicTabsRaw,
     visibleDynamicTabs,
   });
 

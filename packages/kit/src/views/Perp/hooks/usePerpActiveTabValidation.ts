@@ -22,14 +22,15 @@ function usePerpActiveTabValidation({
   activeTab: string;
   setActiveTab: (tab: string) => void;
   assetsByDex: IPerpsUniverse[][] | undefined;
-  dynamicTabs: IPerpDynamicTab[];
+  // null = not loaded yet, [] = loaded but server returned no tabs
+  dynamicTabs: IPerpDynamicTab[] | null;
   visibleDynamicTabs: IPerpDynamicTab[];
 }) {
   const hasAssetsLoaded = useMemo(
     () => (assetsByDex || []).some((assets) => assets.length > 0),
     [assetsByDex],
   );
-  const hasDynamicTabs = dynamicTabs.length > 0;
+  const dynamicTabsLoaded = dynamicTabs !== null;
   const visibleDynamicTabIds = useMemo(
     () => new Set(visibleDynamicTabs.map((tab) => tab.tabId)),
     [visibleDynamicTabs],
@@ -40,13 +41,8 @@ function usePerpActiveTabValidation({
     if ((FIXED_TAB_IDS as readonly string[]).includes(activeTab)) {
       return;
     }
-    // Wait until assets have loaded before validating
-    if (!hasAssetsLoaded) {
-      return;
-    }
-    // Wait for dynamic tabs to load before validating dynamic tab IDs
-    // (hasDynamicTabs being false means tabs haven't loaded yet)
-    if (!hasDynamicTabs) {
+    // Wait until both assets and dynamic tabs have loaded before validating
+    if (!hasAssetsLoaded || !dynamicTabsLoaded) {
       return;
     }
     if (!visibleDynamicTabIds.has(activeTab)) {
@@ -54,7 +50,7 @@ function usePerpActiveTabValidation({
     }
   }, [
     activeTab,
-    hasDynamicTabs,
+    dynamicTabsLoaded,
     hasAssetsLoaded,
     visibleDynamicTabIds,
     setActiveTab,
