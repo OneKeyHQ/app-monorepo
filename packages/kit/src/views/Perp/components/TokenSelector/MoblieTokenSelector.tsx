@@ -303,10 +303,10 @@ function MobileTokenSelectorModal({
     const allAssetNames = new Set(
       assetsByDexTyped.flatMap((assets) => assets.map((a) => a.name)),
     );
-    return dynamicTabs.filter((tab) =>
+    return (dynamicTabsRaw ?? []).filter((tab) =>
       tab.tokens.some((token) => allAssetNames.has(token)),
     );
-  }, [assetsByDex, dynamicTabs]);
+  }, [assetsByDex, dynamicTabsRaw]);
 
   usePerpActiveTabValidation({
     activeTab,
