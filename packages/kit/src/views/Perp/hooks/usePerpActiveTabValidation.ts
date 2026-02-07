@@ -44,9 +44,12 @@ function usePerpActiveTabValidation({
     if (!hasAssetsLoaded) {
       return;
     }
-    const isActiveDynamicTabValid =
-      hasDynamicTabs && visibleDynamicTabIds.has(activeTab);
-    if (!isActiveDynamicTabValid) {
+    // Wait for dynamic tabs to load before validating dynamic tab IDs
+    // (hasDynamicTabs being false means tabs haven't loaded yet)
+    if (!hasDynamicTabs) {
+      return;
+    }
+    if (!visibleDynamicTabIds.has(activeTab)) {
       setActiveTab('all');
     }
   }, [
