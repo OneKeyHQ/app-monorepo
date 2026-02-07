@@ -654,7 +654,18 @@ test('Normal encryption/decryption', async () => {
 });
 
 test('Incorrect password', async () => {
-  const encrypted = await encryptAsync({ password, data: Buffer.from('1111') });
+  // Use fixed salt/IV to make the test deterministic.
+  // AES-CBC has no authentication, so with random salt/IV there is a ~1/256
+  // chance that garbage plaintext has valid PKCS7 padding and decryption
+  // "succeeds" instead of throwing, making the test flaky.
+  const customSalt = Buffer.alloc(32, 0xaa);
+  const customIv = Buffer.alloc(16, 0xbb);
+  const encrypted = await encryptAsync({
+    password,
+    data: Buffer.from('1111'),
+    customSalt,
+    customIv,
+  });
   await expect(
     decryptAsync({
       password: password + password,
