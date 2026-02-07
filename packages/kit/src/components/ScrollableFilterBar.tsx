@@ -15,7 +15,7 @@ import { ScrollView } from 'react-native';
 
 import { GradientMask, Stack, XStack, useStyle } from '@onekeyhq/components';
 
-import type { SpaceTokens, ViewStyle } from 'tamagui';
+import type { SpaceTokens } from 'tamagui';
 import type {
   LayoutChangeEvent,
   NativeScrollEvent,
@@ -58,7 +58,7 @@ const DEFAULT_LAYOUT_CONSTANTS = {
 } as const;
 
 const AUTO_SCROLL_DELAY_MS = 100;
-const EMPTY_STYLE: ViewStyle = {};
+const EMPTY_STYLE: Record<string, unknown> = {};
 
 // ---------------------------------------------------------------------------
 //  Props
