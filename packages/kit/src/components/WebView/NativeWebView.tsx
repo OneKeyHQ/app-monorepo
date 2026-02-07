@@ -29,10 +29,7 @@ import { createMessageInjectedScript } from './utils';
 
 import type { IInpageProviderWebViewProps, IWebViewRef } from './types';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
-import type {
-  WebViewMessageEvent,
-  WebViewProps,
-} from 'react-native-webview';
+import type { WebViewMessageEvent, WebViewProps } from 'react-native-webview';
 import type { WebViewRenderProcessGoneEvent } from 'react-native-webview/lib/WebViewTypes';
 
 export type INativeWebViewProps = WebViewProps & IInpageProviderWebViewProps;
