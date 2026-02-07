@@ -14,57 +14,67 @@ import type { AppStateStatus } from 'react-native';
 export const LottieView = forwardRef<
   typeof AnimatedLottieView,
   ILottieViewProps
->(({ source, loop = true, resizeMode, autoPlay = true, renderMode, ...props }, ref) => {
-  const animationRef = useRef<AnimatedLottieView | null>(null);
+>(
+  (
+    { source, loop = true, resizeMode, autoPlay = true, renderMode, ...props },
+    ref,
+  ) => {
+    const animationRef = useRef<AnimatedLottieView | null>(null);
 
-  const appStateRef = useRef(AppState.currentState);
-  const [restProps, style] = usePropsAndStyle(props, {
-    resolveValues: 'auto',
-  });
-  useEffect(() => {
-    // fix animation is stopped after entered background state on iOS
-    // https://github.com/lottie-react-native/lottie-react-native/issues/412
-    const handleStateChange = (nextAppState: AppStateStatus) => {
-      if (
-        appStateRef.current &&
-        /inactive|background/.exec(appStateRef.current) &&
-        nextAppState === 'active'
-      ) {
+    const appStateRef = useRef(AppState.currentState);
+    const [restProps, style] = usePropsAndStyle(props, {
+      resolveValues: 'auto',
+    });
+    useEffect(() => {
+      // fix animation is stopped after entered background state on iOS
+      // https://github.com/lottie-react-native/lottie-react-native/issues/412
+      const handleStateChange = (nextAppState: AppStateStatus) => {
+        if (
+          appStateRef.current &&
+          /inactive|background/.exec(appStateRef.current) &&
+          nextAppState === 'active'
+        ) {
+          animationRef.current?.play?.();
+        }
+        appStateRef.current = nextAppState;
+      };
+      const subscription = AppState.addEventListener(
+        'change',
+        handleStateChange,
+      );
+      return () => {
+        subscription.remove();
+      };
+    }, []);
+
+    useImperativeHandle(ref as any, () => ({
+      play: () => {
         animationRef.current?.play?.();
-      }
-      appStateRef.current = nextAppState;
-    };
-    const subscription = AppState.addEventListener('change', handleStateChange);
-    return () => {
-      subscription.remove();
-    };
-  }, []);
+      },
+      pause: () => {
+        animationRef.current?.pause?.();
+      },
+      reset: () => {
+        animationRef.current?.reset();
+      },
+    }));
 
-  useImperativeHandle(ref as any, () => ({
-    play: () => {
-      animationRef.current?.play?.();
-    },
-    pause: () => {
-      animationRef.current?.pause?.();
-    },
-    reset: () => {
-      animationRef.current?.reset();
-    },
-  }));
-
-  return (
-    <AnimatedLottieView
-      autoPlay={autoPlay}
-      resizeMode={resizeMode}
-      source={source as LottieNativeProps['source']}
-      loop={loop}
-      style={style as any}
-      {...(restProps as any)}
-      ref={animationRef as LegacyRef<AnimatedLottieView>}
-      renderMode={renderMode ?? (platformEnv.isNativeIOS ? 'SOFTWARE' : undefined)}
-    />
-  );
-});
+    return (
+      <AnimatedLottieView
+        autoPlay={autoPlay}
+        resizeMode={resizeMode}
+        source={source as LottieNativeProps['source']}
+        loop={loop}
+        style={style as any}
+        {...(restProps as any)}
+        ref={animationRef as LegacyRef<AnimatedLottieView>}
+        renderMode={
+          renderMode ?? (platformEnv.isNativeIOS ? 'SOFTWARE' : undefined)
+        }
+      />
+    );
+  },
+);
 
 LottieView.displayName = 'LottieView';
 

@@ -77,7 +77,7 @@ export function TokenListItem({
           badgeText ? (
             <XStack alignItems="center" gap="$2">
               <SizableText size="$bodyLgMedium">{tokenSymbol}</SizableText>
-              <Badge badgeType="info" badgeSize="sm">
+              <Badge badgeType="success" badgeSize="sm">
                 {badgeText}
               </Badge>
             </XStack>

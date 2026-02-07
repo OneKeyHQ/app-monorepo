@@ -215,7 +215,7 @@ export type IPerpsInvitesSortOrder = 'asc' | 'desc';
 
 export interface IPerpsInvitesParams {
   tab: 'undistributed' | 'total';
-  timeRange: string;
+  timeRange?: EExportTimeRange;
   startTime?: number;
   endTime?: number;
   inviteCode?: string;
@@ -463,6 +463,7 @@ export enum EExportTimeRange {
   OneMonth = '1month',
   ThreeMonths = '3months',
   SixMonths = '6months',
+  Custom = 'custom',
 }
 
 export enum EExportTab {
@@ -475,6 +476,8 @@ export interface IExportInviteDataParams {
   timeRange: EExportTimeRange;
   inviteCode?: string;
   tab?: EExportTab;
+  startTime?: number;
+  endTime?: number;
 }
 
 // API returns CSV string directly
@@ -572,7 +575,7 @@ export interface IHardwareRecordsResponse {
 
 // Perps cumulative rewards response
 export interface IPerpsCumulativeRewardsParams {
-  timeRange?: string;
+  timeRange?: EExportTimeRange;
   startTime?: number;
   endTime?: number;
   inviteCode?: string;

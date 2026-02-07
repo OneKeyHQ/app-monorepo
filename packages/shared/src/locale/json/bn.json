@@ -2755,6 +2755,7 @@
   "perps.token_selector_perps": "পারপস",
   "perps.token_selector_stocks": "স্টক",
   "perps.trade_reward": "ট্রেড পুরষ্কার",
+  "perps_footer.help_us_better": "আমাদের উন্নতিতে সাহায্য করুন",
   "pick_your_device": "আপনার ডিভাইস নির্বাচন করুন",
   "pin_attempts_cooldown": "{seconds} পরে আবার চেষ্টা করুন।",
   "pin_attempts_exhausted": "সর্বাধিক PIN প্রচেষ্টা অতিক্রম করা হয়েছে। দয়া করে আপনার PIN পুনরায় সেট করুন।",

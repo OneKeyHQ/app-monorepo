@@ -12,8 +12,10 @@ import type { IActionCustomization } from './types';
 
 function WalletActionStaking({
   customization,
+  showButtonStyle,
 }: {
   customization?: IActionCustomization;
+  showButtonStyle?: boolean;
 }) {
   const { activeAccount } = useActiveAccount({ num: 0 });
 
@@ -40,6 +42,7 @@ function WalletActionStaking({
       onPress={handleStaking}
       label={customization?.label}
       icon={customization?.icon}
+      showButtonStyle={showButtonStyle}
       disabled={customization?.disabled}
     />
   );
