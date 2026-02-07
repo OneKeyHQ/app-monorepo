@@ -279,6 +279,7 @@ function MoreActionContentHeader({
         {items.map((item) => (
           <MoreActionContentHeaderItem
             key={item.title}
+            title={item.title}
             icon={item.icon as IKeyOfIcons}
             onPress={item.onPress}
             trackID={item.trackID}
