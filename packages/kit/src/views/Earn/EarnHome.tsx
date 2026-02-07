@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { View } from 'react-native';
 
 import { RefreshControl, XStack, YStack, useMedia } from '@onekeyhq/components';
 import type { ITabContainerRef } from '@onekeyhq/components';
@@ -349,7 +350,15 @@ function BasicEarnHome({
                 filteredEarnings24h={filteredEarnings24h}
               />
             </YStack>
-            {banners ? <YStack width="100%">{banners}</YStack> : null}
+            {banners ? (
+              <View
+                onTouchStart={(e) => e.stopPropagation()}
+                onTouchMove={(e) => e.stopPropagation()}
+                onTouchEnd={(e) => e.stopPropagation()}
+              >
+                <YStack width="100%">{banners}</YStack>
+              </View>
+            ) : null}
           </YStack>
         </YStack>
       ),
