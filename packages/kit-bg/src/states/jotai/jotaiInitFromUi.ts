@@ -30,7 +30,7 @@ export async function jotaiUpdateFromUiByBgBroadcast(
     return;
   }
   // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-  const atomObj = atomInfo.atom() as unknown as IJotaiWritableAtomPro<
+  const atomObj = atomInfo.atom() as IJotaiWritableAtomPro<
     any,
     any,
     any
@@ -53,7 +53,7 @@ export async function jotaiInitFromUi({
         return;
       }
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-      const atomObj = atomInfo.atom() as unknown as IJotaiWritableAtomPro<
+      const atomObj = atomInfo.atom() as IJotaiWritableAtomPro<
         any,
         any,
         any

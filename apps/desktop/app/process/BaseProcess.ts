@@ -116,8 +116,7 @@ export default abstract class BaseProcess {
     logger.info([
       'Starting process:',
       `- Path: ${processPath}`,
-      // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-      `- Params: ${params}`,
+      `- Params: ${params.join(' ')}`,
       `- CWD: ${processDir}`,
     ]);
     this.process = spawn(processPath, params, {

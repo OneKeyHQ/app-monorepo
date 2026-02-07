@@ -584,7 +584,7 @@ async function createMainWindow() {
             return;
           }
           callback(requestedPath);
-        } catch (e) {
+        } catch (_e) {
           // Best-effort: let Electron handle it.
           callback(request.url);
         }

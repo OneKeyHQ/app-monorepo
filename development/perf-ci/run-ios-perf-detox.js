@@ -13,7 +13,6 @@
  */
 
 const path = require('path');
-const fs = require('fs');
 const os = require('os');
 const { execCmd } = require('./lib/exec');
 const { ensureDir, readJson, writeJson, fileExists } = require('./lib/fs');

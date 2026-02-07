@@ -284,7 +284,7 @@ async function main() {
   const enableExtensions = webExtensionsEnabled();
   // Extensions are generally not supported/reliable in headless mode.
   // Default to headed unless explicitly requested otherwise.
-  const headless = hasFlag('--headless') ? true : hasFlag('--headed') ? false : false;
+  const headless = hasFlag('--headless');
 
   const startedAt = new Date().toISOString();
   const meta = {
