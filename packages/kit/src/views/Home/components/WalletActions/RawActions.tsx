@@ -18,6 +18,7 @@ import {
   SizableText,
   Stack,
   XStack,
+  useMedia,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -36,17 +37,11 @@ function ActionItem({
   showButtonStyle = false,
   ...rest
 }: IActionItemsProps) {
+  const media = useMedia();
+
   if (showButtonStyle) {
     return (
-      <Button
-        {...(!label && {
-          icon,
-          py: '$2',
-          pl: '$2.5',
-          pr: '$0.5',
-        })}
-        {...rest}
-      >
+      <Button size={media.gtMd ? 'large' : 'medium'} icon={icon} {...rest}>
         {label}
       </Button>
     );
@@ -177,10 +172,13 @@ function ActionStaking(props: IActionItemsProps) {
 
 function ActionMore({
   renderItemsAsync,
+  showButtonStyle = false,
 }: {
   renderItemsAsync: IActionListProps['renderItemsAsync'];
+  showButtonStyle?: boolean;
 }) {
   const intl = useIntl();
+  const media = useMedia();
   return (
     <ActionList
       title={intl.formatMessage({
@@ -190,12 +188,19 @@ function ActionMore({
         w: '$60',
       }}
       renderTrigger={
-        <ActionItem
-          icon="DotHorOutline"
-          label={intl.formatMessage({
-            id: ETranslations.global_more,
-          })}
-        />
+        showButtonStyle ? (
+          <IconButton
+            size={media.gtMd ? 'large' : 'medium'}
+            icon="DotHorOutline"
+          />
+        ) : (
+          <ActionItem
+            icon="DotHorOutline"
+            label={intl.formatMessage({
+              id: ETranslations.global_more,
+            })}
+          />
+        )
       }
       renderItemsAsync={renderItemsAsync}
     />
