@@ -326,7 +326,9 @@ export function HomePageView({
 
   const handleRenderItem = useCallback(
     (props: ITabBarItemProps) => {
-      const tabId = tabConfigsRef.current.find((i) => i.name === props.name)?.id;
+      const tabId = tabConfigsRef.current.find(
+        (i) => i.name === props.name,
+      )?.id;
       return (
         <XStack position="relative">
           <TabBarItem {...props} />
