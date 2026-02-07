@@ -1,15 +1,15 @@
 /* eslint-disable no-restricted-globals */
 import { precacheAndRoute } from 'workbox-precaching';
-import { registerRoute, NavigationRoute } from 'workbox-routing';
+import { NavigationRoute, registerRoute } from 'workbox-routing';
 import {
   CacheFirst,
-  StaleWhileRevalidate,
   NetworkFirst,
+  StaleWhileRevalidate,
 } from 'workbox-strategies';
 import { ExpirationPlugin } from 'workbox-expiration';
 
 // Precache app shell (manifest injected by InjectManifest at build time)
-precacheAndRoute(self.__WB_MANIFEST);
+precacheAndRoute(globalThis.__WB_MANIFEST);
 
 // Navigation requests -> NetworkFirst (SPA routing, offline fallback to cached index.html)
 registerRoute(
