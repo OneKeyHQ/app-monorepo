@@ -21,6 +21,7 @@
 - [平台图例](#平台图例)
 - [页面与指标](#页面与指标)
   - [1. 应用冷启动](#1-应用冷启动)
+    - [各平台冷启动性能约束](#各平台冷启动性能约束)
   - [2. 首页 / 钱包总览](#2-首页--钱包总览)
   - [3. Token 详情](#3-token-详情)
   - [4. 发送交易流程](#4-发送交易流程)
@@ -549,6 +550,107 @@ perfMark('scroll:end:TokenList');
 - **移动端**：还需测量原生启动屏消失 → `app:start` 之间的间隔（如已插桩）。Deep Link 增加约 200ms 的路由解析开销。
 - **扩展端**：单独测量 popup 打开时间（popup 有自己的冷启动）
 - **桌面端**：测量 Electron 主进程就绪 → 渲染进程 `app:start`
+
+#### 各平台冷启动性能约束
+
+以下按平台拆分详细的冷启动阶段约束。每个平台的启动流程不同，因此拆分的阶段和目标值也不同。
+
+##### iOS（移动端）
+
+| 阶段 | 测量方式 | Release 目标 | Debug 目标 | 劣化阈值 |
+|------|---------|-------------|-----------|---------|
+| **原生启动 → JS 执行** | 启动屏消失 → `app:start` | < 500ms | < 1500ms | 增加 > 30% |
+| **JS Bundle 加载** | Hermes 字节码加载耗时 | < 300ms | < 800ms（含 Metro） | 增加 > 25% |
+| **JS 执行 → 首页挂载** | `app:start` → `Home:overview:mount` | < 2000ms | < 5000ms | 增加 > 20% |
+| **Tokens 开始时间** | `Home:refresh:start:tokens` 距会话开始 | < 3948ms | < 10858ms | 中位数 > 阈值 |
+| **Tokens 加载耗时** | `start:tokens` → `done:tokens` | < 2550ms | < 3403ms | 中位数 > 阈值 |
+| **端到端 TTI** | 进程启动 → 首页可交互 | < 4000ms | < 12000ms | 增加 > 20% |
+| **函数调用总数** | `function_call.log` 行数 | < 671 | < 942 | 中位数 > 阈值 |
+| **启动期间 JS 阻塞** | `jsblock:*` marks（> 300ms） | 0 个 | 0 个 | 出现新阻塞 |
+| **空闲内存** | 首页加载后空闲 5s 的堆 | < 150MB | < 200MB | 增加 > 20% |
+
+##### Android（移动端）
+
+| 阶段 | 测量方式 | Release 目标 | Debug 目标 | 劣化阈值 |
+|------|---------|-------------|-----------|---------|
+| **原生启动 → JS 执行** | Activity 创建 → `app:start` | < 600ms | < 2000ms | 增加 > 30% |
+| **JS Bundle 加载** | Hermes 字节码加载耗时 | < 400ms | < 1200ms（含 Metro） | 增加 > 25% |
+| **JS 执行 → 首页挂载** | `app:start` → `Home:overview:mount` | < 2000ms | < 6000ms | 增加 > 20% |
+| **Tokens 开始时间** | `Home:refresh:start:tokens` 距会话开始 | < 3101ms | < 14965ms | 中位数 > 阈值 |
+| **Tokens 加载耗时** | `start:tokens` → `done:tokens` | < 4898ms | < 8467ms | 中位数 > 阈值 |
+| **端到端 TTI** | 进程启动 → 首页可交互 | < 5000ms | < 16000ms | 增加 > 20% |
+| **函数调用总数** | `function_call.log` 行数 | < 899 | < 1784 | 中位数 > 阈值 |
+| **启动期间 JS 阻塞** | `jsblock:*` marks（> 300ms） | 0 个 | 0 个 | 出现新阻塞 |
+| **空闲内存** | 首页加载后空闲 5s 的堆 | < 180MB | < 250MB | 增加 > 20% |
+
+> **注**：Android Debug 由于 Metro + Babel 插桩开销，阈值显著高于 Release。实际优化应以 Release 构建为准。
+
+##### 浏览器扩展端（Extension）
+
+扩展端有两种冷启动场景：**Popup 打开**和 **Side Panel / Full Page 打开**。
+
+| 阶段 | 测量方式 | Popup 目标 | Side Panel / Full Page 目标 | 劣化阈值 |
+|------|---------|-----------|---------------------------|---------|
+| **Service Worker 激活** | SW 注册 → `app:start` | < 200ms | < 200ms | 增加 > 50% |
+| **JS Bundle 解析与执行** | 脚本加载 → 框架就绪 | < 400ms | < 500ms | 增加 > 25% |
+| **JS 执行 → 首页挂载** | `app:start` → `Home:overview:mount` | < 1500ms | < 1500ms | 增加 > 20% |
+| **Tokens 加载耗时** | `start:tokens` → `done:tokens` | < 1500ms | < 1500ms | 增加 > 15% |
+| **端到端 TTI** | 用户点击图标 → 首页可交互 | < 2000ms | < 2500ms | 增加 > 20% |
+| **函数调用总数** | `function_call.log` 行数 | < 500 | < 600 | 增加 > 15% |
+| **启动期间 JS 阻塞** | `jsblock:*` marks（> 200ms） | 0 个 | 0 个 | 出现新阻塞 |
+| **空闲内存** | 首页加载后空闲 5s 的堆 | < 100MB | < 150MB | 增加 > 20% |
+| **Popup 首帧渲染** | 点击图标 → 首帧像素渲染 | < 500ms | — | > 800ms |
+
+> **注**：Popup 在 550×600 受限视口中运行，需特别关注首帧渲染速度，因为用户对 Popup 响应的即时性期望更高。MV3 Service Worker 可能需要从休眠中唤醒，增加冷启动延迟。
+
+##### Web 端
+
+| 阶段 | 测量方式 | 目标 | 劣化阈值 |
+|------|---------|------|---------|
+| **HTML 文档加载** | `navigationStart` → `DOMContentLoaded` | < 500ms | 增加 > 25% |
+| **JS Bundle 解析与执行** | 主 bundle 脚本加载 → 框架就绪 | < 600ms | 增加 > 25% |
+| **JS 执行 → 首页挂载** | `app:start` → `Home:overview:mount` | < 1200ms | 增加 > 20% |
+| **Tokens 加载耗时** | `start:tokens` → `done:tokens` | < 1200ms | 增加 > 15% |
+| **端到端 TTI** | `navigationStart` → 首页可交互 | < 2500ms | 增加 > 20% |
+| **首次内容绘制（FCP）** | `performance.getEntriesByName('first-contentful-paint')` | < 800ms | > 1200ms |
+| **最大内容绘制（LCP）** | `PerformanceObserver` LCP | < 1500ms | > 2000ms |
+| **累计布局偏移（CLS）** | `PerformanceObserver` CLS | < 0.1 | > 0.25 |
+| **首次输入延迟（FID）** | `PerformanceObserver` FID | < 100ms | > 200ms |
+| **函数调用总数** | `function_call.log` 行数 | < 500 | 增加 > 15% |
+| **启动期间 JS 阻塞** | Long Tasks API（> 300ms） | 0 个 | 出现新阻塞 |
+| **空闲内存** | 首页加载后空闲 5s 的堆 | < 150MB | 增加 > 20% |
+| **JS Bundle 体积** | 主 bundle gzip 后 | < 2MB | 增加 > 10% |
+
+> **注**：Web 端引入 Core Web Vitals（FCP、LCP、CLS、FID）指标作为补充。这些指标可通过浏览器原生 Performance API 采集，无需额外插桩。Bundle 体积直接影响 JS 解析时间，需持续监控。
+
+##### 桌面端（Desktop / Electron）
+
+| 阶段 | 测量方式 | 目标 | 劣化阈值 |
+|------|---------|------|---------|
+| **Electron 主进程启动** | 进程启动 → 主进程 `ready` 事件 | < 800ms | 增加 > 25% |
+| **主进程 → 渲染进程就绪** | `ready` → 渲染进程 `app:start` | < 500ms | 增加 > 25% |
+| **JS 执行 → 首页挂载** | `app:start` → `Home:overview:mount` | < 1500ms | 增加 > 20% |
+| **Tokens 加载耗时** | `start:tokens` → `done:tokens` | < 1500ms | 增加 > 15% |
+| **端到端 TTI** | 进程启动 → 首页可交互 | < 3000ms | 增加 > 20% |
+| **窗口首帧可见** | 进程启动 → `BrowserWindow` 首帧显示 | < 1500ms | > 2000ms |
+| **函数调用总数** | `function_call.log` 行数 | < 600 | 增加 > 15% |
+| **启动期间 JS 阻塞** | `jsblock:*` marks（> 300ms） | 0 个 | 出现新阻塞 |
+| **空闲内存（渲染进程）** | 首页加载后空闲 5s 的堆 | < 200MB | 增加 > 20% |
+| **空闲内存（主进程）** | 首页加载后空闲 5s 的堆 | < 80MB | 增加 > 25% |
+| **IPC 通信耗时** | 主进程 ↔ 渲染进程 IPC 往返 | < 10ms | > 30ms |
+
+> **注**：桌面端需同时监控主进程和渲染进程的资源消耗。Electron 主进程负责窗口管理、硬件钱包通信等，渲染进程负责 UI。IPC 通信延迟过高会导致用户操作卡顿。
+
+##### 各平台冷启动目标汇总
+
+| 指标 | iOS Release | Android Release | Extension (Popup) | Web | Desktop |
+|------|:----------:|:--------------:|:-----------------:|:---:|:-------:|
+| **端到端 TTI** | < 4000ms | < 5000ms | < 2000ms | < 2500ms | < 3000ms |
+| **JS → 首页挂载** | < 2000ms | < 2000ms | < 1500ms | < 1200ms | < 1500ms |
+| **Tokens 加载** | < 2550ms | < 4898ms | < 1500ms | < 1200ms | < 1500ms |
+| **函数调用预算** | < 671 | < 899 | < 500 | < 500 | < 600 |
+| **空闲内存** | < 150MB | < 180MB | < 100MB | < 150MB | < 200MB |
+| **JS 阻塞（> 300ms）** | 0 | 0 | 0 | 0 | 0 |
 
 ---
 
