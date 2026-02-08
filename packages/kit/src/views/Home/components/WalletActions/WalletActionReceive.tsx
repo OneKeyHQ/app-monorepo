@@ -24,6 +24,7 @@ function WalletActionReceive({
   source,
   sameModal,
   useSelector,
+  showButtonStyle,
 }: {
   customization?: IActionCustomization;
   renderTrigger?: (props: {
@@ -33,6 +34,7 @@ function WalletActionReceive({
   source?: IWalletActionBaseParams['source'];
   sameModal?: boolean;
   useSelector?: boolean;
+  showButtonStyle?: boolean;
 } = {}) {
   const {
     activeAccount: {
@@ -119,6 +121,7 @@ function WalletActionReceive({
       onPress={handleReceiveOnPress}
       label={customization?.label}
       icon={customization?.icon}
+      showButtonStyle={showButtonStyle}
       trackID="wallet-receive"
     />
   );

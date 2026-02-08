@@ -79,6 +79,7 @@ export interface IDisplayNumber {
     roundValue?: string;
     isZero?: boolean;
     isCapped?: boolean;
+    decimalSymbol?: string;
   } & IFormatterOptions;
 }
 
@@ -601,7 +602,15 @@ export const formatAntonym: IFormatNumberFunc = (value, options) => {
   };
 };
 
-export const formatDisplayNumber = (value: IDisplayNumber) => {
+export type IFormatDisplayNumberPart =
+  | string
+  | { value: number; type: 'sub' }
+  | { value: string; type: 'decimal' };
+
+export const formatDisplayNumber = (
+  value: IDisplayNumber,
+  options?: { splitDecimal?: boolean },
+): string | IFormatDisplayNumberPart[] => {
   const {
     formattedValue,
     meta: {
@@ -616,6 +625,7 @@ export const formatDisplayNumber = (value: IDisplayNumber) => {
       tokenSymbol,
       isZero,
       keepLeadingZero,
+      decimalSymbol,
     },
   } = value;
   const isNegativeNumber =
@@ -632,7 +642,7 @@ export const formatDisplayNumber = (value: IDisplayNumber) => {
     }
     return formattedValue;
   }
-  const strings = [];
+  const strings: IFormatDisplayNumberPart[] = [];
   if (leading) {
     strings.push(leading);
   }
@@ -662,6 +672,18 @@ export const formatDisplayNumber = (value: IDisplayNumber) => {
     strings.push(formattedZero);
     strings.push({ value: leadingZeros, type: 'sub' });
     strings.push(valueWithoutSign.slice(leadingZeros + 2 + startsNumberIndex));
+  } else if (options?.splitDecimal) {
+    const decSym = decimalSymbol || lazyDecimalSymbol(2);
+    const decIndex = valueWithoutSign.lastIndexOf(decSym);
+    if (decIndex >= 0) {
+      strings.push(valueWithoutSign.slice(0, decIndex));
+      strings.push({
+        value: valueWithoutSign.slice(decIndex),
+        type: 'decimal',
+      });
+    } else {
+      strings.push(valueWithoutSign);
+    }
   } else {
     strings.push(valueWithoutSign);
   }
@@ -675,7 +697,13 @@ export const formatDisplayNumber = (value: IDisplayNumber) => {
     strings.push(' ');
     strings.push(tokenSymbol);
   }
-  return leadingZeros && leadingZeros > 4 ? strings : strings.join('');
+  if (
+    options?.splitDecimal ||
+    (leadingZeros && leadingZeros > 4 && !keepLeadingZero)
+  ) {
+    return strings;
+  }
+  return strings.join('');
 };
 
 export const NUMBER_FORMATTER = {
@@ -699,15 +727,18 @@ export interface INumberFormatProps {
   hideValue?: boolean;
   formatter?: keyof typeof NUMBER_FORMATTER;
   formatterOptions?: IFormatterOptions;
+  /** Separate the decimal point and fractional digits as a distinct part for styling. @default false */
+  splitDecimal?: boolean;
 }
 
 export const numberFormatAsRaw = (
   value: string,
-  { formatter, formatterOptions }: INumberFormatProps,
+  { formatter, formatterOptions, splitDecimal }: INumberFormatProps,
 ) => {
   return formatter && value
     ? formatDisplayNumber(
         NUMBER_FORMATTER[formatter](String(value), formatterOptions),
+        { splitDecimal },
       )
     : '';
 };
@@ -738,8 +769,12 @@ export const numberFormat = memoizee(
 
 export const numberFormatAsRenderText = (
   value: string,
-  { formatter, formatterOptions }: INumberFormatProps,
+  { formatter, formatterOptions, splitDecimal }: INumberFormatProps,
 ) => {
-  const result = numberFormatAsRaw(value, { formatter, formatterOptions });
+  const result = numberFormatAsRaw(value, {
+    formatter,
+    formatterOptions,
+    splitDecimal,
+  });
   return result;
 };

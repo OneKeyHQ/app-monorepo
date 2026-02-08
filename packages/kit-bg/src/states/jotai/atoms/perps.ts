@@ -266,12 +266,13 @@ export const {
 });
 
 // Token Selector Dynamic Tabs (from server config)
+// null = not loaded yet, [] = loaded but server returned no tabs
 export const {
   target: perpTokenSelectorTabsAtom,
   use: usePerpTokenSelectorTabsAtom,
-} = globalAtom<IPerpDynamicTab[]>({
+} = globalAtom<IPerpDynamicTab[] | null>({
   name: EAtomNames.perpTokenSelectorTabsAtom,
-  initialValue: [],
+  initialValue: null,
 });
 
 export type IPerpFavoritesDisplayMode = 'price' | 'percent';

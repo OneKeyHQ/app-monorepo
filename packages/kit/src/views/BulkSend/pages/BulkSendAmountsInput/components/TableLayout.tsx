@@ -154,6 +154,12 @@ function AmountCard() {
               zeroAmount: intl.formatMessage({
                 id: ETranslations.wallet_bulk_send_error_amount_zero,
               }),
+              decimalPlaces: intl.formatMessage(
+                {
+                  id: ETranslations.wallet_bulk_send_error_max_decimal_places,
+                },
+                { decimals: tokenInfo.decimals },
+              ),
             },
           });
           if (!isValid && error) {
@@ -197,6 +203,12 @@ function AmountCard() {
           zeroAmount: intl.formatMessage({
             id: ETranslations.wallet_bulk_send_error_amount_zero,
           }),
+          decimalPlaces: intl.formatMessage(
+            {
+              id: ETranslations.wallet_bulk_send_error_max_decimal_places,
+            },
+            { decimals: tokenInfo.decimals },
+          ),
         },
       });
       setAmountInputErrors({ ...amountInputErrors, specifiedAmount: error });
