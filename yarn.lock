@@ -8642,6 +8642,7 @@ __metadata:
     p-retry: "npm:^6.2.1"
     p-timeout: "npm:^6.1.4"
     patch-package: "npm:8.0.0"
+    playwright-core: "npm:^1.50.0"
     prettier: "npm:3.8.1"
     prettier-oxc-parser: "npm:^0.2.0"
     progress-bar-webpack-plugin: "npm:^2.1.0"
@@ -35913,6 +35914,15 @@ __metadata:
   dependencies:
     find-up: "npm:^3.0.0"
   checksum: 10/5bac346b7c7c903613c057ae3ab722f320716199d753f4a7d053d38f2b5955460f3e6ab73b4762c62fd3e947f58e04f1343e92089e7bb6091c90877406fcd8c8
+  languageName: node
+  linkType: hard
+
+"playwright-core@npm:^1.50.0":
+  version: 1.58.1
+  resolution: "playwright-core@npm:1.58.1"
+  bin:
+    playwright-core: cli.js
+  checksum: 10/1b627b93798644e2802321866037e222b08ec5975e6bfc0b2a8ca40d7196366834dd3f1e16dc63856d3e7e0b673c3d0f71fd5f1ac5f3c8e6610bedef4fbc31cf
   languageName: node
   linkType: hard
 
