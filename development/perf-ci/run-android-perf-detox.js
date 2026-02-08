@@ -18,27 +18,21 @@ const os = require('os');
 const { spawn } = require('child_process');
 const { execCmd } = require('./lib/exec');
 const { ensureDir, readJson, writeJson, fileExists } = require('./lib/fs');
-const { median, countExceed } = require('./lib/metrics');
 const { postSlackWebhook } = require('./lib/slack');
 
-function readLocalConfig(repoRoot) {
-  const p = path.join(repoRoot, 'development', 'perf-ci', 'config.local.json');
-  try {
-    const raw = fs.readFileSync(p, 'utf8');
-    const json = JSON.parse(raw);
-    return json && typeof json === 'object' ? json : null;
-  } catch {
-    return null;
-  }
-}
-
-function nowId() {
-  const d = new Date();
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(
-    d.getHours(),
-  )}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
-}
+const { readPerfCiLocalConfig } = require('./lib/config');
+const { deriveSession, defaultDerivedOutPath } = require('./lib/derive');
+const { nowId } = require('./lib/id');
+const { ensurePerfServerRunning, checkPerfServer, stopChild } = require('./lib/perfServer');
+const {
+  ensureSessionsDirWritable,
+  readSessionMetrics,
+} = require('./lib/session');
+const {
+  aggregateRuns,
+  checkRegression,
+  extractDerivedDebugMetrics,
+} = require('./lib/regression');
 
 function hasFlag(name) {
   return process.argv.includes(name);
@@ -228,160 +222,6 @@ async function ensureAndroidEmulatorRunning({
   return { started: true, deviceId, ...started };
 }
 
-async function checkPerfServer(serverUrl) {
-  const controller = new AbortController();
-  const t = setTimeout(() => controller.abort(), 5000);
-  try {
-    const res = await fetch(`${serverUrl.replace(/\/$/, '')}/api/health`, {
-      signal: controller.signal,
-    });
-    if (!res.ok) {
-      throw new Error(`HTTP ${res.status} ${res.statusText}`);
-    }
-    const json = await res.json().catch(() => null);
-    if (!json || json.ok !== true) throw new Error('Invalid health response');
-    return json;
-  } finally {
-    clearTimeout(t);
-  }
-}
-
-function normalizePath(p) {
-  try {
-    return fs.realpathSync(p);
-  } catch {
-    return path.resolve(p);
-  }
-}
-
-function startPerfServer({
-  repoRoot,
-  sessionsDir,
-  serverUrl,
-  outputDir,
-  detached = true,
-}) {
-  const url = new URL(serverUrl);
-  const port = url.port || '9527';
-  const scriptPath = path.join(
-    repoRoot,
-    'development',
-    'performance-server',
-    'server.js',
-  );
-
-  const logOutPath = path.join(outputDir, 'perf-server.log');
-  const logErrPath = path.join(outputDir, 'perf-server.error.log');
-  ensureDir(outputDir);
-
-  const outFd = fs.openSync(logOutPath, 'a');
-  const errFd = fs.openSync(logErrPath, 'a');
-
-  const child = spawn(process.execPath, [scriptPath], {
-    cwd: repoRoot,
-    env: {
-      ...process.env,
-      PERF_OUTPUT_DIR: sessionsDir,
-      PERF_SERVER_PORT: String(port),
-    },
-    stdio: ['ignore', outFd, errFd],
-    detached: Boolean(detached),
-  });
-
-  // Parent should not keep log fds open.
-  fs.closeSync(outFd);
-  fs.closeSync(errFd);
-
-  if (detached) child.unref();
-
-  return { child, pid: child.pid, logOutPath, logErrPath };
-}
-
-async function ensurePerfServerRunning({
-  repoRoot,
-  sessionsDir,
-  serverUrl,
-  outputDir,
-  oneshot = false,
-}) {
-  const desiredDir = normalizePath(sessionsDir);
-
-  let health = null;
-  try {
-    health = await checkPerfServer(serverUrl);
-  } catch {
-    health = null;
-  }
-
-  if (health) {
-    const actualDir = health?.outputDir
-      ? normalizePath(health.outputDir)
-      : null;
-    if (actualDir && actualDir !== desiredDir) {
-      throw new Error(
-        `performance-server is running but outputDir differs.\n` +
-          `- server outputDir: ${health.outputDir}\n` +
-          `- job sessionsDir: ${sessionsDir}\n` +
-          `Fix by restarting performance-server with PERF_OUTPUT_DIR="${sessionsDir}" (or set PERF_SESSIONS_DIR to match).`,
-      );
-    }
-    return { started: false, health };
-  }
-
-  const started = startPerfServer({
-    repoRoot,
-    sessionsDir,
-    serverUrl,
-    outputDir,
-    detached: !oneshot,
-  });
-  const deadline =
-    Date.now() + (Number(process.env.PERF_SERVER_START_TIMEOUT_MS) || 20_000);
-  let lastErr = null;
-
-  while (Date.now() < deadline) {
-    try {
-      const health = await checkPerfServer(serverUrl);
-      const actualDir = health?.outputDir
-        ? normalizePath(health.outputDir)
-        : null;
-      if (actualDir && actualDir !== desiredDir) {
-        throw new Error(
-          `Started performance-server but outputDir differs.\n` +
-            `- server outputDir: ${health.outputDir}\n` +
-            `- job sessionsDir: ${sessionsDir}`,
-        );
-      }
-      return { started: true, health, ...started };
-    } catch (e) {
-      lastErr = e;
-    }
-    // eslint-disable-next-line no-await-in-loop
-    await new Promise((r) => setTimeout(r, 500));
-  }
-
-  const msg = lastErr?.message || String(lastErr);
-  throw new Error(
-    `Failed to start performance-server at ${serverUrl}.\n` +
-      `PID: ${started.pid}\n` +
-      `Logs:\n- ${started.logOutPath}\n- ${started.logErrPath}\n` +
-      `Last error: ${msg}`,
-  );
-}
-
-async function stopChild(child) {
-  if (!child) return;
-  if (child.exitCode !== null) return;
-
-  child.kill('SIGTERM');
-  const deadline = Date.now() + 5000;
-  while (Date.now() < deadline && child.exitCode === null) {
-    // eslint-disable-next-line no-await-in-loop
-    await new Promise((r) => setTimeout(r, 100));
-  }
-  if (child.exitCode === null) child.kill('SIGKILL');
-}
-
 async function clearMetroCaches(repoRoot) {
   // Keep it in shell so we can reuse $TMPDIR semantics.
   const script = [
@@ -426,116 +266,6 @@ async function requireCommand(cmd, hint) {
   }
 }
 
-function ensureSessionsDirWritable(sessionsDir) {
-  try {
-    fs.mkdirSync(sessionsDir, { recursive: true });
-    fs.accessSync(sessionsDir, fs.constants.R_OK);
-    fs.accessSync(sessionsDir, fs.constants.W_OK);
-  } catch (e) {
-    const err = e?.message || String(e);
-    throw new Error(
-      [
-        `PERF_SESSIONS_DIR is not writable: ${sessionsDir}`,
-        err,
-        '',
-        'Fix options:',
-        '- Point PERF_SESSIONS_DIR (and PERF_OUTPUT_DIR for performance-server) to a writable folder, e.g. ~/perf-sessions',
-        '- Or pre-create the directory with correct ownership/permissions on the test machine',
-      ].join('\n'),
-      { cause: e },
-    );
-  }
-}
-
-function extractMetrics(derivedJson) {
-  return {
-    // Keep some extra context for debugging/Slack, but do not use these for thresholds by default.
-    topSlowFunctions: Array.isArray(derivedJson?.slowFunctions)
-      ? derivedJson.slowFunctions.slice(0, 10)
-      : [],
-  };
-}
-
-function safeParseJsonLine(line) {
-  try {
-    return JSON.parse(line);
-  } catch {
-    return null;
-  }
-}
-
-function pickPayload(event) {
-  if (!event || typeof event !== 'object') return null;
-  if (event.data && typeof event.data === 'object') return event.data;
-  return event;
-}
-
-function pickMarkName(event) {
-  const payload = pickPayload(event);
-  const name = payload?.name ?? event?.name;
-  return typeof name === 'string' ? name : null;
-}
-
-function findFirstMarkTimestamp({ markLogPath, markName }) {
-  const raw = fs.readFileSync(markLogPath, 'utf8');
-  for (const rawLine of raw.split('\n')) {
-    const line = rawLine.trim();
-    if (line) {
-      const evt = safeParseJsonLine(line);
-      if (evt) {
-        const name = pickMarkName(evt);
-        if (name === markName) {
-          const ts = evt.timestamp ?? pickPayload(evt)?.timestamp ?? null;
-          return Number.isFinite(ts) ? ts : null;
-        }
-      }
-    }
-  }
-  return null;
-}
-
-function countJsonlLines(filePath) {
-  const buf = fs.readFileSync(filePath);
-  let n = 0;
-  for (let i = 0; i < buf.length; i += 1) {
-    if (buf[i] === 10) n += 1;
-  }
-  return n;
-}
-
-function readSessionMetrics({ sessionsDir, sessionId }) {
-  const sessionDir = path.join(sessionsDir, sessionId);
-
-  const markLogPath = path.join(sessionDir, 'mark.log');
-  const startMs = fileExists(markLogPath)
-    ? findFirstMarkTimestamp({
-        markLogPath,
-        markName: 'Home:refresh:start:tokens',
-      })
-    : null;
-  const doneMs = fileExists(markLogPath)
-    ? findFirstMarkTimestamp({
-        markLogPath,
-        markName: 'Home:refresh:done:tokens',
-      })
-    : null;
-  const spanMs =
-    Number.isFinite(startMs) && Number.isFinite(doneMs)
-      ? doneMs - startMs
-      : null;
-
-  const functionCallsPath = path.join(sessionDir, 'function_call.log');
-  const functionCallCount = fileExists(functionCallsPath)
-    ? countJsonlLines(functionCallsPath)
-    : null;
-
-  return {
-    tokensStartMs: startMs,
-    tokensSpanMs: spanMs,
-    functionCallCount,
-  };
-}
-
 function buildSlackText({ status, meta, runs, agg, thresholds, outputDir }) {
   const lines = [];
   const mode = meta?.mode || 'release';
@@ -574,7 +304,7 @@ function buildSlackText({ status, meta, runs, agg, thresholds, outputDir }) {
 async function main() {
   const repoRoot = path.join(__dirname, '..', '..');
 
-  const localConfig = readLocalConfig(repoRoot) || {};
+  const localConfig = readPerfCiLocalConfig(repoRoot) || {};
 
   const sessionsDir =
     process.env.PERF_SESSIONS_DIR ||
@@ -771,32 +501,14 @@ async function main() {
     const derived = [];
     for (const r of runs) {
       const sessionId = r.sessionId;
-      const outPath = path.join(derivedDir, `${sessionId}.json`);
       // eslint-disable-next-line no-await-in-loop
-      const deriveRes = await execCmd(
-        'node',
-        [
-          'development/performance-server/cli/derive-session.js',
-          sessionId,
-          '--output',
-          outPath,
-          '--pretty',
-        ],
-        {
-          cwd: repoRoot,
-          env: {
-            PERF_OUTPUT_DIR: sessionsDir,
-          },
-        },
-      );
-      if (deriveRes.code !== 0) {
-        throw new Error(
-          `derive-session failed for ${sessionId}: ${
-            deriveRes.stderr || deriveRes.stdout
-          }`,
-        );
-      }
-      const dj = readJson(outPath);
+      const outPath = defaultDerivedOutPath({ derivedDir, sessionId });
+      const dj = await deriveSession({
+        repoRoot,
+        sessionsDir,
+        sessionId,
+        outPath,
+      });
       derived.push({ sessionId, derivedPath: outPath, derived: dj });
     }
 
@@ -807,51 +519,14 @@ async function main() {
         ...r,
         metrics: {
           ...readSessionMetrics({ sessionsDir, sessionId: r.sessionId }),
-          ...extractMetrics(dj),
+          ...extractDerivedDebugMetrics(dj),
         },
       };
     });
 
-    const values = {
-      tokensStartMs: runResults.map((r) => r.metrics.tokensStartMs),
-      tokensSpanMs: runResults.map((r) => r.metrics.tokensSpanMs),
-      functionCallCount: runResults.map((r) => r.metrics.functionCallCount),
-    };
-
-    const agg = {
-      tokensStartMs: median(values.tokensStartMs),
-      tokensSpanMs: median(values.tokensSpanMs),
-      functionCallCount: median(values.functionCallCount),
-    };
-
     const thresholds = readJson(thresholdsPath);
-    const strategy = String(thresholds.strategy || 'median');
-
-    const exceed = (() => {
-      const checkOne = (key) => {
-        const t = thresholds[key];
-        if (!Number.isFinite(t)) return { triggered: false, reason: null };
-        const vals = values[key];
-        if (strategy === 'two_of_three') {
-          const c = countExceed(vals, t);
-          return c >= 2
-            ? { triggered: true, reason: `${key} exceeded in ${c}/3 runs` }
-            : { triggered: false, reason: null };
-        }
-        const m = agg[key];
-        return Number.isFinite(m) && m > t
-          ? { triggered: true, reason: `${key} median ${m} > ${t}` }
-          : { triggered: false, reason: null };
-      };
-      const start = checkOne('tokensStartMs');
-      const span = checkOne('tokensSpanMs');
-      const fc = checkOne('functionCallCount');
-      const reasons = [start.reason, span.reason, fc.reason].filter(Boolean);
-      return {
-        triggered: start.triggered || span.triggered || fc.triggered,
-        reasons,
-      };
-    })();
+    const { values, agg } = aggregateRuns(runResults);
+    const exceed = checkRegression({ thresholds, values, agg });
 
     const report = {
       meta,
