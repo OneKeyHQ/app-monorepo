@@ -17,7 +17,6 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import {
   usePerpsAllAssetsFilteredAtom,
@@ -632,7 +631,6 @@ const PerpTokenSelectorRow = memo(
   ({ mockedToken, onPress, isOnModal }: IPerpTokenSelectorRowProps) => {
     const [filteredAssets] = usePerpsAllAssetsFilteredAtom();
     const [tokenSearchAliases] = usePerpsTokenSearchAliasesAtom();
-    const locale = useLocaleVariant();
     const tokensByDex = filteredAssets.assetsByDex || [];
     const assets: IPerpsUniverse[] = tokensByDex[mockedToken.dexIndex] || [];
     const token: IPerpsUniverse | undefined = assets[mockedToken.index];
@@ -653,8 +651,8 @@ const PerpTokenSelectorRow = memo(
 
     const parsed = useMemo(() => parseDexCoin(tokenName), [tokenName]);
     const subtitle = useMemo(
-      () => getTokenSubtitle(tokenName, locale, tokenSearchAliases),
-      [tokenName, locale, tokenSearchAliases],
+      () => getTokenSubtitle(tokenName, tokenSearchAliases),
+      [tokenName, tokenSearchAliases],
     );
 
     const contextValue: ITokenSelectorRowContextValue = useMemo(
