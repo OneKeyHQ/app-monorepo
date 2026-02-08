@@ -16,6 +16,7 @@ import {
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 import type {
+  IMarketPerpsInfo,
   IMarketTokenDetail,
   IMarketTokenDetailResponse,
   IMarketTokenDetailWebsocket,
@@ -26,6 +27,7 @@ import {
   isNativeAtom,
   marketWatchListV2Atom,
   networkIdAtom,
+  perpsInfoAtom,
   showWatchlistOnlyAtom,
   tokenAddressAtom,
   tokenDetailAtom,
@@ -73,6 +75,12 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
     },
   );
 
+  setPerpsInfo = contextAtomMethod(
+    (_, set, payload: IMarketPerpsInfo | undefined) => {
+      set(perpsInfoAtom(), payload);
+    },
+  );
+
   clearTokenDetail = contextAtomMethod((_, set) => {
     set(tokenDetailAtom(), undefined);
     set(tokenDetailLoadingAtom(), false);
@@ -80,6 +88,7 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
     set(networkIdAtom(), '');
     set(isNativeAtom(), false);
     set(tokenDetailWebsocketAtom(), undefined);
+    set(perpsInfoAtom(), undefined);
   });
 
   // ShowWatchlistOnly Actions
@@ -105,6 +114,7 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
     async (get, set, tokenAddress: string, networkId: string) => {
       try {
         set(tokenDetailLoadingAtom(), true);
+        set(perpsInfoAtom(), undefined);
 
         const response =
           await backgroundApiProxy.serviceMarketV2.fetchMarketTokenDetailByTokenAddress(
@@ -123,9 +133,10 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
           return;
         }
 
-        // Extract token and websocket data from new response format
+        // Extract token, websocket and perpsInfo data from response format
         const tokenData = responseData.data.token;
         const websocketConfig = responseData.data.websocket;
+        const perpsInfo = responseData.data.perpsInfo;
 
         // Always preserve K-line updated price if it exists, fallback to API price
         // BUT only if we're updating the SAME token (check address and networkId)
@@ -154,12 +165,14 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
 
         set(tokenDetailAtom(), finalTokenData);
         set(tokenDetailWebsocketAtom(), websocketConfig);
+        set(perpsInfoAtom(), perpsInfo);
 
         return finalTokenData;
       } catch (error) {
         console.error('Failed to fetch token detail:', error);
         set(tokenDetailAtom(), undefined);
         set(tokenDetailWebsocketAtom(), undefined);
+        set(perpsInfoAtom(), undefined);
         throw error;
       } finally {
         set(tokenDetailLoadingAtom(), false);
@@ -362,6 +375,7 @@ export function useTokenDetailActions() {
   const setNetworkId = actions.setNetworkId.use();
   const setIsNative = actions.setIsNative.use();
   const setTokenDetailWebsocket = actions.setTokenDetailWebsocket.use();
+  const setPerpsInfo = actions.setPerpsInfo.use();
   const fetchTokenDetail = actions.fetchTokenDetail.use();
   const clearTokenDetail = actions.clearTokenDetail.use();
 
@@ -372,6 +386,7 @@ export function useTokenDetailActions() {
     setNetworkId,
     setIsNative,
     setTokenDetailWebsocket,
+    setPerpsInfo,
     fetchTokenDetail,
     clearTokenDetail,
   });

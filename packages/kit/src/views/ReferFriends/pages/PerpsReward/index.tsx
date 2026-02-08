@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  DatePicker,
   Page,
   RefreshControl,
   ScrollView,
@@ -11,6 +12,7 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import type { IDateRange } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
@@ -19,6 +21,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EExportSubject,
+  EExportTimeRange,
   type IPerpsCumulativeRewardsResponse,
   type IPerpsInvitesResponse,
   type IPerpsInvitesSortBy,
@@ -79,33 +82,74 @@ function PerpsRewardPageWrapper() {
     [sortBy],
   );
 
-  const { filterState, updateFilter } = useRewardFilter();
+  const {
+    filterState,
+    updateFilter,
+    setCustomDateRange,
+    clearCustomDateRange,
+    datePickerValue,
+  } = useRewardFilter();
 
-  const headerRight = useMemo(
-    () => (
-      <XStack gap="$2">
-        <FilterButton filterState={filterState} onFilterChange={updateFilter} />
-        <ExportButton
-          subject={EExportSubject.Perp}
-          timeRange={filterState.timeRange}
-          inviteCode={filterState.inviteCode}
-        />
-      </XStack>
-    ),
-    [filterState, updateFilter],
+  // Intermediate state for date range selection (before both dates are selected)
+  const [intermediateDateRange, setIntermediateDateRange] =
+    useState<IDateRange | null>(null);
+
+  // Handle date range change from DatePicker
+  const handleDateRangeChange = useCallback(
+    (range: IDateRange) => {
+      if (range.start && range.end) {
+        // Both dates selected - set custom date range and trigger API call
+        const startTime = new Date(range.start);
+        startTime.setHours(0, 0, 0, 0);
+        const endTime = new Date(range.end);
+        endTime.setHours(23, 59, 59, 999);
+        setCustomDateRange(startTime.getTime(), endTime.getTime());
+        // Clear intermediate state
+        setIntermediateDateRange(null);
+      } else if (range.start) {
+        // Only start date selected - update intermediate state
+        setIntermediateDateRange(range);
+      } else {
+        // No dates selected - clear both intermediate and filter state
+        setIntermediateDateRange(null);
+        clearCustomDateRange();
+      }
+    },
+    [setCustomDateRange, clearCustomDateRange],
   );
+
+  // Use intermediate state if available, otherwise use confirmed datePickerValue
+  const currentDatePickerValue = intermediateDateRange ?? datePickerValue;
+
+  // Clear intermediate state when switching to preset time range
+  useEffect(() => {
+    if (filterState.timeRange !== EExportTimeRange.Custom) {
+      setIntermediateDateRange(null);
+    }
+  }, [filterState.timeRange]);
+
+  // Get the effective timeRange for API calls
+  // When using custom date range (startTime/endTime), don't pass timeRange
+  const effectiveTimeRange =
+    filterState.startTime && filterState.endTime
+      ? undefined
+      : filterState.timeRange;
 
   // Fetch counts for both tabs
   const fetchCounts = useCallback(async () => {
     const [undistributedResult, totalResult] = await Promise.allSettled([
       backgroundApiProxy.serviceReferralCode.getPerpsInvites({
         tab: 'undistributed',
-        timeRange: filterState.timeRange || 'all',
+        timeRange: effectiveTimeRange,
+        startTime: filterState.startTime,
+        endTime: filterState.endTime,
         inviteCode: filterState.inviteCode,
       }),
       backgroundApiProxy.serviceReferralCode.getPerpsInvites({
         tab: 'total',
-        timeRange: filterState.timeRange || 'all',
+        timeRange: effectiveTimeRange,
+        startTime: filterState.startTime,
+        endTime: filterState.endTime,
         inviteCode: filterState.inviteCode,
       }),
     ]);
@@ -116,14 +160,21 @@ function PerpsRewardPageWrapper() {
     if (totalResult.status === 'fulfilled') {
       setTotalCount(totalResult.value.total);
     }
-  }, [filterState.timeRange, filterState.inviteCode]);
+  }, [
+    effectiveTimeRange,
+    filterState.startTime,
+    filterState.endTime,
+    filterState.inviteCode,
+  ]);
 
   // Fetch current tab data (resets pagination)
   const fetchCurrentTab = useCallback(async () => {
     const result = await backgroundApiProxy.serviceReferralCode.getPerpsInvites(
       {
         tab: activeTab,
-        timeRange: filterState.timeRange || 'all',
+        timeRange: effectiveTimeRange,
+        startTime: filterState.startTime,
+        endTime: filterState.endTime,
         inviteCode: filterState.inviteCode,
         hideZeroVolume: activeTab === 'total' ? hideZeroVolume : undefined,
         sortBy,
@@ -143,7 +194,9 @@ function PerpsRewardPageWrapper() {
     }
   }, [
     activeTab,
-    filterState.timeRange,
+    effectiveTimeRange,
+    filterState.startTime,
+    filterState.endTime,
     filterState.inviteCode,
     hideZeroVolume,
     sortBy,
@@ -160,7 +213,9 @@ function PerpsRewardPageWrapper() {
       const result =
         await backgroundApiProxy.serviceReferralCode.getPerpsInvites({
           tab: activeTab,
-          timeRange: filterState.timeRange || 'all',
+          timeRange: effectiveTimeRange,
+          startTime: filterState.startTime,
+          endTime: filterState.endTime,
           inviteCode: filterState.inviteCode,
           hideZeroVolume: activeTab === 'total' ? hideZeroVolume : undefined,
           sortBy,
@@ -185,7 +240,9 @@ function PerpsRewardPageWrapper() {
     cursor,
     isLoadingMore,
     activeTab,
-    filterState.timeRange,
+    effectiveTimeRange,
+    filterState.startTime,
+    filterState.endTime,
     filterState.inviteCode,
     hideZeroVolume,
     sortBy,
@@ -221,7 +278,9 @@ function PerpsRewardPageWrapper() {
       await Promise.all([
         backgroundApiProxy.serviceReferralCode
           .getPerpsCumulativeRewards({
-            timeRange: filterState.timeRange,
+            timeRange: effectiveTimeRange,
+            startTime: filterState.startTime,
+            endTime: filterState.endTime,
             inviteCode: filterState.inviteCode,
           })
           .then(setCumulativeRewards),
@@ -234,7 +293,9 @@ function PerpsRewardPageWrapper() {
       setIsLoading(false);
     }
   }, [
-    filterState.timeRange,
+    effectiveTimeRange,
+    filterState.startTime,
+    filterState.endTime,
     filterState.inviteCode,
     fetchCounts,
     fetchCurrentTab,
@@ -244,7 +305,12 @@ function PerpsRewardPageWrapper() {
   useEffect(() => {
     void onRefresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterState.timeRange, filterState.inviteCode]);
+  }, [
+    effectiveTimeRange,
+    filterState.startTime,
+    filterState.endTime,
+    filterState.inviteCode,
+  ]);
 
   // Fetch data when tab changes
   useEffect(() => {
@@ -254,12 +320,14 @@ function PerpsRewardPageWrapper() {
       .finally(() => setIsLoading(false));
   }, [fetchCurrentTab]);
 
+  // Max date for DatePicker (today)
+  const maxDate = useMemo(() => new Date(), []);
+
   return (
     <Page>
       {platformEnv.isNative || md ? (
         <Page.Header
           title={intl.formatMessage({ id: ETranslations.global_perp })}
-          headerRight={() => headerRight}
         />
       ) : (
         <TabPageHeader
@@ -295,15 +363,44 @@ function PerpsRewardPageWrapper() {
             >
               {/* Breadcrumb for desktop */}
               {!platformEnv.isNative && !md ? (
-                <XStack px="$5" py="$5" jc="space-between" ai="center">
+                <XStack px="$5" pt="$5">
                   <BreadcrumbSection
                     secondItemLabel={intl.formatMessage({
                       id: ETranslations.global_perp,
                     })}
                   />
-                  {headerRight}
                 </XStack>
               ) : null}
+
+              {/* DatePicker + Filter + Export Row */}
+              <XStack
+                px="$5"
+                pb="$4"
+                pt={platformEnv.isNative || md ? '$2' : '$4'}
+                jc="space-between"
+                ai="center"
+              >
+                <YStack width={240}>
+                  <DatePicker.Range
+                    value={currentDatePickerValue}
+                    onChange={handleDateRangeChange}
+                    maxDate={maxDate}
+                  />
+                </YStack>
+                <XStack gap="$3">
+                  <FilterButton
+                    filterState={filterState}
+                    onFilterChange={updateFilter}
+                  />
+                  <ExportButton
+                    subject={EExportSubject.Perp}
+                    timeRange={effectiveTimeRange}
+                    inviteCode={filterState.inviteCode}
+                    startTime={filterState.startTime}
+                    endTime={filterState.endTime}
+                  />
+                </XStack>
+              </XStack>
 
               {/* Perps Reward Header - Stats Cards */}
               <PerpsRewardHeader

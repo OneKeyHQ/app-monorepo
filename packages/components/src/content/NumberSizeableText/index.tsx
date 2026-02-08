@@ -14,19 +14,30 @@ import type { ISizableTextProps } from '../../primitives';
 
 export type INumberSizeableTextProps = Omit<ISizableTextProps, 'children'> &
   INumberFormatProps & {
+    /** Style overrides for leading-zero subscript text (e.g. 0.0₅41). */
     subTextStyle?: Omit<ISizableTextProps, 'children'>;
+    /** Style overrides applied to the entire content wrapper. */
     contentStyle?: Omit<ISizableTextProps, 'children'>;
+    /** Style overrides for the decimal portion when splitDecimal is enabled. @default { color: '$textDisabled' } */
+    decimalTextStyle?: Omit<ISizableTextProps, 'children'>;
     children: string | number | undefined;
     autoFormatter?: 'price-marketCap' | 'balance-marketCap' | 'value-marketCap';
+    /** Threshold for autoFormatter to switch between normal and marketCap format. @default 1_000_000 */
     autoFormatterThreshold?: number;
   };
+
+const DEFAULT_DECIMAL_TEXT_STYLE: Omit<ISizableTextProps, 'children'> = {
+  color: '$textDisabled',
+};
 
 export function NumberSizeableText({
   children,
   formatter,
   formatterOptions,
+  splitDecimal,
   subTextStyle,
   contentStyle,
+  decimalTextStyle,
   hideValue,
   autoFormatter,
   autoFormatterThreshold = 1_000_000,
@@ -51,6 +62,14 @@ export function NumberSizeableText({
     return formatter;
   }, [autoFormatter, autoFormatterThreshold, children, formatter]);
 
+  const mergedDecimalTextStyle = useMemo(
+    () =>
+      splitDecimal
+        ? { ...DEFAULT_DECIMAL_TEXT_STYLE, ...decimalTextStyle }
+        : undefined,
+    [splitDecimal, decimalTextStyle],
+  );
+
   const result = useMemo(() => {
     if (isString(children) && ['--', ' -- ', ' - ', '-'].includes(children)) {
       return children;
@@ -59,9 +78,10 @@ export function NumberSizeableText({
       ? numberFormatAsRenderText(String(children), {
           formatter: actualFormatter,
           formatterOptions,
+          splitDecimal,
         })
       : '';
-  }, [actualFormatter, formatterOptions, children]);
+  }, [actualFormatter, formatterOptions, children, splitDecimal]);
 
   const scriptFontSize = useMemo(
     () =>
@@ -96,6 +116,10 @@ export function NumberSizeableText({
         typeof r === 'string' ? (
           <SizableText key={index} {...props}>
             {r}
+          </SizableText>
+        ) : 'type' in r && r.type === 'decimal' ? (
+          <SizableText key={index} {...props} {...mergedDecimalTextStyle}>
+            {r.value}
           </SizableText>
         ) : (
           <SizableText

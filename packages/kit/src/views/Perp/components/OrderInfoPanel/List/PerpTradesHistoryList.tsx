@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -45,6 +45,15 @@ function PerpTradesHistoryList({
   const [activeAsset] = usePerpsActiveAssetAtom();
   const [lastUsedLeverage] = usePerpsLastUsedLeverageAtom();
   const { showPositionShare } = useShowPositionShare();
+  const [builderFeeRate, setBuilderFeeRate] = useState<number | undefined>();
+
+  useEffect(() => {
+    void backgroundApiProxy.simpleDb.perp
+      .getExpectMaxBuilderFee()
+      .then((fee) => {
+        setBuilderFeeRate(fee);
+      });
+  }, []);
 
   const getLeverage = useCallback(
     async (coin: string): Promise<number> => {
@@ -239,9 +248,10 @@ function PerpTradesHistoryList({
         renderMode={renderMode}
         isHovered={isHovered}
         onHoverChange={onHoverChange}
+        builderFeeRate={builderFeeRate}
       />
     ),
-    [isMobile, totalMinWidth, columnsConfig, handleShare],
+    [isMobile, totalMinWidth, columnsConfig, handleShare, builderFeeRate],
   );
   const [isLocked] = useAppIsLockedAtom();
 

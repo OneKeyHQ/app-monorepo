@@ -37,6 +37,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { isDualScreenDevice } from '@onekeyhq/shared/src/modules/DualScreenInfo';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   ETabDiscoveryRoutes,
   IDiscoveryModalParamList,
@@ -315,11 +316,10 @@ function MobileBrowser() {
       }
     }
 
-    try {
-      await takeScreenshot();
-    } catch (e) {
-      console.error('takeScreenshot error: ', e);
-    }
+    await Promise.race([
+      takeScreenshot(),
+      timerUtils.setTimeoutPromised(undefined, 2000),
+    ]);
     setTimeout(() => {
       setDisplayHomePage(true);
       showTabBar();

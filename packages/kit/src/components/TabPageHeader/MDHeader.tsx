@@ -7,11 +7,15 @@ import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { HomeTokenListProviderMirror } from '../../views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
+import { MoreActionButton } from '../MoreActionButton';
 
 import { HeaderLeft } from './HeaderLeft';
 import { HeaderMDSearch } from './HeaderMDSearch';
 import { HeaderRight, SelectorTrigger } from './HeaderRight';
 import { HeaderTitle } from './HeaderTitle';
+import { LegacyUniversalSearchInput } from './LegacyUniversalSearchInput';
+
+import { HeaderNotificationIconButton } from './components/HeaderNotificationIconButton';
 
 export function MDHeader({
   tabRoute,
@@ -69,35 +73,79 @@ export function MDHeader({
       tabRoute === ETabRoutes.DeviceManagement
     );
   }, [tabRoute]);
+  const isHomeTab =
+    tabRoute === ETabRoutes.Home &&
+    sceneName !== EAccountSelectorSceneName.homeUrlAccount;
+
   return (
     <>
       <Page.Header headerShown={false} />
       {showBaseHeader ? (
         <>
-          <XStack
-            alignItems="center"
-            justifyContent="space-between"
-            px={headerPx}
-            h={44}
-            {...(top || platformEnv.isNativeAndroid ? { mt: top || '$2' } : {})}
-          >
-            <View>
-              <HeaderLeft
-                selectedHeaderTab={selectedHeaderTab}
-                sceneName={sceneName}
-                tabRoute={tabRoute}
-                customHeaderLeftItems={customHeaderLeftItems}
-              />
-            </View>
-            <View>
-              <HeaderTitle sceneName={sceneName} />
-            </View>
-            {rightActions}
-          </XStack>
+          {isHomeTab ? (
+            <>
+              {/* Row 1: Search bar + notification + more */}
+              <XStack
+                alignItems="center"
+                px={headerPx}
+                h={56}
+                gap="$6"
+                {...(top || platformEnv.isNativeAndroid
+                  ? { mt: top || '$2' }
+                  : {})}
+              >
+                <XStack flex={1}>
+                  <LegacyUniversalSearchInput
+                    size="medium"
+                    containerProps={{
+                      width: '100%',
+                      $gtLg: undefined,
+                    }}
+                  />
+                </XStack>
+                <HeaderNotificationIconButton testID="header-right-notification" />
+                <MoreActionButton />
+              </XStack>
+              {/* Row 2: Wallet connection (account + network + address) */}
+              <XStack alignItems="center" px={headerPx} h={44}>
+                <HeaderLeft
+                  selectedHeaderTab={selectedHeaderTab}
+                  sceneName={sceneName}
+                  tabRoute={tabRoute}
+                  customHeaderLeftItems={customHeaderLeftItems}
+                />
+              </XStack>
+            </>
+          ) : (
+            <>
+              <XStack
+                alignItems="center"
+                justifyContent="space-between"
+                px={headerPx}
+                h={44}
+                {...(top || platformEnv.isNativeAndroid
+                  ? { mt: top || '$2' }
+                  : {})}
+              >
+                <View>
+                  <HeaderLeft
+                    selectedHeaderTab={selectedHeaderTab}
+                    sceneName={sceneName}
+                    tabRoute={tabRoute}
+                    customHeaderLeftItems={customHeaderLeftItems}
+                  />
+                </View>
+                <View>
+                  <HeaderTitle sceneName={sceneName} />
+                </View>
+                {rightActions}
+              </XStack>
 
-          {!hideSearch ? (
-            <HeaderMDSearch tabRoute={tabRoute} sceneName={sceneName} />
-          ) : null}
+              {!hideSearch ? (
+                <HeaderMDSearch tabRoute={tabRoute} sceneName={sceneName} />
+              ) : null}
+            </>
+          )}
         </>
       ) : (
         <XStack h={top || '$2'} bg="$bgApp" />

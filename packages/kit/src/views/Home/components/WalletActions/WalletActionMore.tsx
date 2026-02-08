@@ -16,6 +16,7 @@ import { HomeTokenListProviderMirrorWrapper } from '../HomeTokenListProvider';
 
 import { RawActions } from './RawActions';
 import { useWalletActionConfig } from './useWalletActionConfig';
+import { WalletActionBulkSend } from './WalletActionBulkSend';
 import { WalletActionBuy } from './WalletActionBuy';
 import { WalletActionCopy } from './WalletActionCopy';
 import { WalletActionExport } from './WalletActionExport';
@@ -27,7 +28,11 @@ import { WalletActionSwap } from './WalletActionSwap';
 import { WalletActionViewInExplorer } from './WalletActionViewInExplorer';
 import { WalletActionVote } from './WalletActionVote';
 
-export function WalletActionMore() {
+export function WalletActionMore({
+  showButtonStyle,
+}: {
+  showButtonStyle?: boolean;
+} = {}) {
   const [devSettings] = useDevSettingsPersistAtom();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { account, network } = activeAccount;
@@ -137,6 +142,13 @@ export function WalletActionMore() {
             case 'copy':
               return (
                 <WalletActionCopy key="copy" onClose={handleActionListClose} />
+              );
+            case 'bulkSend':
+              return (
+                <WalletActionBulkSend
+                  key="bulkSend"
+                  onClose={handleActionListClose}
+                />
               );
             case 'sign':
               return (
@@ -249,5 +261,10 @@ export function WalletActionMore() {
     ],
   );
 
-  return <RawActions.More renderItemsAsync={renderItemsAsync} />;
+  return (
+    <RawActions.More
+      renderItemsAsync={renderItemsAsync}
+      showButtonStyle={showButtonStyle}
+    />
+  );
 }

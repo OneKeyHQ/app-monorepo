@@ -10,6 +10,7 @@ export type IWalletActionType =
   | 'earn'
   | 'explorer'
   | 'copy'
+  | 'bulkSend'
   | 'sign'
   | 'reward'
   | 'export'

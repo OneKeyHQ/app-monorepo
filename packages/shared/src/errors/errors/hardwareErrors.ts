@@ -1049,7 +1049,7 @@ export class UnknownHardwareError extends OneKeyHardwareError {
         {
           defaultMessage: message || 'Unknown Hardware Error',
           defaultKey: ETranslations.wallet_action_failed,
-          alwaysAppendDefaultMessage: true,
+          alwaysAppendDefaultMessage: false,
           // defaultAutoToast: true,
         },
       ),
