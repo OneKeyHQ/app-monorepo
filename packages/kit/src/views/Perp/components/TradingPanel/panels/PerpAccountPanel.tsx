@@ -122,7 +122,7 @@ function PerpAccountPanel() {
   }, [accountSummary?.totalUnrealizedPnl]);
 
   const content = (
-    <YStack flex={1} gap="$4" pt="$4" px="$2.5">
+    <YStack flex={1} gap="$4" pt="$4" pl="$3" pr="$5">
       {/* Header */}
       <XStack justifyContent="space-between" alignItems="center">
         <SizableText size="$headingSm">
@@ -159,7 +159,7 @@ function PerpAccountPanel() {
           />
         </XStack>
         <XStack justifyContent="space-between">
-          <SizableText size="$bodySm" color="$textSubdued" cursor="default">
+          <SizableText size="$bodySm" color="$textSubdued">
             {intl.formatMessage({
               id: ETranslations.perp_account_unrealized_pnl,
             })}
@@ -169,7 +169,7 @@ function PerpAccountPanel() {
           </SizableText>
         </XStack>
         <XStack justifyContent="space-between">
-          <SizableText size="$bodySm" color="$textSubdued" cursor="default">
+          <SizableText size="$bodySm" color="$textSubdued">
             {intl.formatMessage({
               id: ETranslations.perp_account_panel_withrawable_value,
             })}
@@ -216,7 +216,6 @@ function PerpAccountPanel() {
             <XStack gap="$1" alignItems="center">
               <SizableText
                 size="$bodySmMedium"
-                cursor="pointer"
                 onPress={() => {
                   copyText(userAddress ?? '');
                 }}
@@ -233,7 +232,6 @@ function PerpAccountPanel() {
                 icon="OpenOutline"
                 color="$iconSubdued"
                 variant="tertiary"
-                cursor="pointer"
                 iconSize="$3.5"
                 onPress={() => {
                   if (userAddress) {

@@ -199,7 +199,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
       {/* Trade type selector */}
       <TradeTypeSelector value={tradeType} onChange={setTradeType} />
 
-      <YStack gap="$2" mt="$2">
+      <YStack gap="$3">
         {/* Token input section */}
         <SwapPanelTop
           enableAddressTypeSelector={enableAddressTypeSelector}

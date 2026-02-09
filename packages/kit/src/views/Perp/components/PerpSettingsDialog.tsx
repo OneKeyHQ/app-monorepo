@@ -93,10 +93,10 @@ function PerpSettingsPopoverContent({
         subtitle={intl.formatMessage({
           id: ETranslations.perp_setting_desc,
         })}
+        cursor="default"
       >
         <Switch
           size={ESwitchSize.small}
-          cursor="pointer"
           value={perpsCustomSettings.skipOrderConfirm}
           onChange={(value) => {
             setPerpsCustomSettings((prev) => ({
@@ -115,10 +115,10 @@ function PerpSettingsPopoverContent({
         title={intl.formatMessage({
           id: ETranslations.perps_settings_shows_buy_sell_title,
         })}
+        cursor="default"
       >
         <Switch
           size={ESwitchSize.small}
-          cursor="pointer"
           value={perpsCustomSettings.showTradeMarks ?? true}
           onChange={(value) => {
             setPerpsCustomSettings((prev) => ({
@@ -137,10 +137,10 @@ function PerpSettingsPopoverContent({
         title={intl.formatMessage({
           id: ETranslations.perps_settings_shows_positions_title,
         })}
+        cursor="default"
       >
         <Switch
           size={ESwitchSize.small}
-          cursor="pointer"
           value={perpsCustomSettings.showChartLines ?? true}
           onChange={(value) => {
             setPerpsCustomSettings((prev) => ({
@@ -154,7 +154,6 @@ function PerpSettingsPopoverContent({
       {/* Only show referral menu item if wallet type is supported */}
       {isWalletSupported ? (
         <ListItem
-          cursor="pointer"
           mx="$0"
           px="$2.5"
           titleProps={{ size: '$bodyMdMedium' }}
@@ -169,6 +168,7 @@ function PerpSettingsPopoverContent({
             closePopover();
             void showInviteeRewardModal();
           }}
+          cursor="default"
         >
           <XStack gap="$2" alignItems="center">
             {referralBadge}
@@ -178,7 +178,6 @@ function PerpSettingsPopoverContent({
       ) : null}
       {SHOW_RESET_LAYOUT ? (
         <ListItem
-          cursor="pointer"
           mx="$0"
           px="$2.5"
           title={intl.formatMessage({
@@ -192,6 +191,7 @@ function PerpSettingsPopoverContent({
             });
             closePopover();
           }}
+          cursor="default"
         />
       ) : null}
     </YStack>

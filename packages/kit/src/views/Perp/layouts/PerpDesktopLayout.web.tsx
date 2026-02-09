@@ -207,19 +207,13 @@ function PerpDesktopLayout() {
   }, []);
 
   return (
-    <YStack flex={1} bg="$bgApp">
+    <YStack flex={1}>
       <YStack>
         <PerpTips />
         <FavoritesBar />
       </YStack>
 
-      <Stack
-        ref={containerRef}
-        flex={1}
-        display="flex"
-        borderTopWidth="$px"
-        borderTopColor="$borderSubdued"
-      >
+      <Stack ref={containerRef} flex={1} display="flex">
         <Allotment
           ref={mainAllotmentRef}
           defaultSizes={mainSizes}
@@ -277,13 +271,13 @@ function PerpDesktopLayout() {
                               p="$0"
                               h={30}
                               w={16}
+                              cursor="default"
                               hoverStyle={{
                                 borderColor: '$border',
                               }}
                               pressStyle={{
                                 borderColor: '$border',
                               }}
-                              cursor="pointer"
                               onPress={toggleOrderBook}
                             />
                           </Stack>

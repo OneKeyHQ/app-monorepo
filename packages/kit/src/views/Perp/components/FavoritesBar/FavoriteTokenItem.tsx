@@ -146,7 +146,6 @@ function FavoriteTokenItem({
   return (
     <XStack
       onPress={onPress}
-      cursor="pointer"
       px="$1"
       py="$1"
       borderRadius="$2"
@@ -156,6 +155,7 @@ function FavoriteTokenItem({
       userSelect="none"
       alignItems="center"
       gap="$1.5"
+      cursor="default"
     >
       <Token
         size="xs"
