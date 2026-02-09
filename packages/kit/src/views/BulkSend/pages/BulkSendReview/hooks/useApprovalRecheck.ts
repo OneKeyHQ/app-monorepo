@@ -124,6 +124,7 @@ export function useApprovalRecheck({
         } catch {
           // If rebuilding fails, just clear approve state anyway
           // so the user can retry
+          setApprovesInfo([]);
         }
 
         clearTimers();
