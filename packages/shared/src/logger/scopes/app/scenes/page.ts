@@ -83,5 +83,4 @@ export class PageScene extends BaseScene {
   public removeUnlockJob() {
     return {};
   }
-
 }
