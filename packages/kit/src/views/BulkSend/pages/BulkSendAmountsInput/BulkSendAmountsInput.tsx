@@ -128,7 +128,11 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
 
   // Check if token needs approval (native tokens don't need approval)
   const needsApproval = useMemo(
-    () => tokenInfo && !tokenInfo.isNative && bulkSendMode === EBulkSendMode.OneToMany && transfersInfo.length > 1,
+    () =>
+      tokenInfo &&
+      !tokenInfo.isNative &&
+      bulkSendMode === EBulkSendMode.OneToMany &&
+      transfersInfo.length > 1,
     [tokenInfo, bulkSendMode, transfersInfo.length],
   );
 

@@ -18,14 +18,18 @@ function main() {
     args.push('--headed');
   }
 
-  const child = spawn(process.execPath, ['development/perf-ci/run-web-perf.js', ...args], {
-    cwd: repoRoot,
-    env: {
-      ...process.env,
-      PERF_SERVER_ONESHOT: process.env.PERF_SERVER_ONESHOT || '1',
+  const child = spawn(
+    process.execPath,
+    ['development/perf-ci/run-web-perf.js', ...args],
+    {
+      cwd: repoRoot,
+      env: {
+        ...process.env,
+        PERF_SERVER_ONESHOT: process.env.PERF_SERVER_ONESHOT || '1',
+      },
+      stdio: 'inherit',
     },
-    stdio: 'inherit',
-  });
+  );
 
   child.on('close', (code) => process.exit(code == null ? 2 : code));
 }

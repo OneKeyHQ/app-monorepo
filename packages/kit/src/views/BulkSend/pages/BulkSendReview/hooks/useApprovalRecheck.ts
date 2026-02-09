@@ -71,20 +71,27 @@ export function useApprovalRecheck({
     if (!sender) return false;
 
     try {
-      const result =
-        await backgroundApiProxy.serviceSwap.fetchApproveAllowance({
+      const result = await backgroundApiProxy.serviceSwap.fetchApproveAllowance(
+        {
           networkId,
           tokenAddress: tokenInfo.address,
           spenderAddress: bulkSendContractAddress,
           walletAddress: sender,
           accountId,
           amount: totalTokenAmount,
-        });
+        },
+      );
       return !!result?.isApproved;
     } catch {
       return false;
     }
-  }, [accountId, networkId, transfersInfo, tokenInfo.address, totalTokenAmount]);
+  }, [
+    accountId,
+    networkId,
+    transfersInfo,
+    tokenInfo.address,
+    totalTokenAmount,
+  ]);
 
   const startApprovalRecheck = useCallback(() => {
     // Skip if no approvals to recheck

@@ -1,17 +1,17 @@
-import { useCallback } from "react";
+import { useCallback } from 'react';
 
-import backgroundApiProxy from "@onekeyhq/kit/src/background/instance/backgroundApiProxy";
-import useAppNavigation from "@onekeyhq/kit/src/hooks/useAppNavigation";
-import platformEnv from "@onekeyhq/shared/src/platformEnv";
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalBulkSendRoutes,
   EModalRoutes,
   ERootRoutes,
   ETabHomeRoutes,
   ETabRoutes,
-} from "@onekeyhq/shared/src/routes";
-import type { IToken } from "@onekeyhq/shared/types/token";
-import { rootNavigationRef, useMedia } from "@onekeyhq/components";
+} from '@onekeyhq/shared/src/routes';
+import type { IToken } from '@onekeyhq/shared/types/token';
+import { rootNavigationRef, useMedia } from '@onekeyhq/components';
 
 export function useNavigateToBulkSend() {
   const navigation = useAppNavigation();
@@ -29,8 +29,11 @@ export function useNavigateToBulkSend() {
       indexedAccountId: string | undefined;
       tokenInfo?: IToken;
     }) => {
-      if (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel) {
-        const path = "/bulk-send-addresses";
+      if (
+        platformEnv.isExtensionUiPopup ||
+        platformEnv.isExtensionUiSidePanel
+      ) {
+        const path = '/bulk-send-addresses';
 
         await backgroundApiProxy.serviceApp.openExtensionExpandTab({
           path,

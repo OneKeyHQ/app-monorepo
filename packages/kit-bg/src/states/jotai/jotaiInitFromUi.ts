@@ -30,11 +30,7 @@ export async function jotaiUpdateFromUiByBgBroadcast(
     return;
   }
   // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-  const atomObj = atomInfo.atom() as IJotaiWritableAtomPro<
-    any,
-    any,
-    any
-  >;
+  const atomObj = atomInfo.atom() as IJotaiWritableAtomPro<any, any, any>;
   await jotaiDefaultStore.set(atomObj, params);
 }
 
@@ -53,11 +49,7 @@ export async function jotaiInitFromUi({
         return;
       }
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-      const atomObj = atomInfo.atom() as IJotaiWritableAtomPro<
-        any,
-        any,
-        any
-      >;
+      const atomObj = atomInfo.atom() as IJotaiWritableAtomPro<any, any, any>;
       const data: IJotaiAtomSetWithoutProxy = {
         $$isForceSetAtomWithoutProxy: true,
         name: key,
