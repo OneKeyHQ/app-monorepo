@@ -30,6 +30,7 @@ export function PerpsDetailsSectionDesktop({
   onSort,
   isLoadingMore,
   isTabLoading,
+  hasUserSorted,
 }: IPerpsDetailsSectionProps) {
   const intl = useIntl();
 
@@ -110,6 +111,7 @@ export function PerpsDetailsSectionDesktop({
               sortOrder={sortOrder}
               onSort={onSort}
               isLoadingMore={isLoadingMore}
+              hasUserSorted={hasUserSorted}
             />
           ) : (
             <YStack py="$8">
