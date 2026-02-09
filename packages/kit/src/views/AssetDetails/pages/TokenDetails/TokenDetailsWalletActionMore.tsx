@@ -207,6 +207,7 @@ export function TokenDetailsWalletActionMore({
               handleActionListClose();
             }}
             disabled={disableSwapAction}
+            onClose={handleActionListClose}
           />
           <ActionList.Item
             icon="BridgeOutline"
@@ -216,6 +217,7 @@ export function TokenDetailsWalletActionMore({
               handleActionListClose();
             }}
             disabled={disableSwapAction}
+            onClose={handleActionListClose}
           />
           <Divider mx="$2" my="$1" />
           {/* Tools group: Earn, Sell */}
@@ -224,6 +226,7 @@ export function TokenDetailsWalletActionMore({
             label={intl.formatMessage({ id: ETranslations.global_earn })}
             onPress={handleEarnPress}
             disabled={!earnResult}
+            onClose={handleActionListClose}
           />
           <ReviewControl>
             <ActionList.Item
@@ -231,7 +234,8 @@ export function TokenDetailsWalletActionMore({
               label={intl.formatMessage({ id: ETranslations.global_cash_out })}
               onPress={handleSellPress}
               disabled={isSellDisabled}
-              loading={sellLoading}
+              isLoading={sellLoading}
+              onClose={handleActionListClose}
             />
           </ReviewControl>
         </>

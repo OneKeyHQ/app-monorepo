@@ -1,7 +1,6 @@
 import { useCallback, useMemo } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useFiatCrypto } from '@onekeyhq/kit/src/views/FiatCrypto/hooks';
@@ -26,13 +25,6 @@ function WalletActionBuyMain({
     accountId: account?.id ?? '',
     fiatCryptoType: 'buy',
   });
-
-  const vaultSettings = usePromiseResult(async () => {
-    const settings = await backgroundApiProxy.serviceNetwork.getVaultSettings({
-      networkId: network?.id ?? '',
-    });
-    return settings;
-  }, [network?.id]).result;
 
   const isBuyDisabled = useMemo(() => {
     if (wallet?.type === WALLET_TYPE_WATCHING && !platformEnv.isDev) {
@@ -85,10 +77,7 @@ function WalletActionBuyMain({
       onPress={handleBuyToken}
       label={customization?.label}
       icon={customization?.icon}
-      disabled={
-        customization?.disabled ??
-        (isBuyDisabled || vaultSettings?.disabledBuyAction)
-      }
+      disabled={customization?.disabled ?? isBuyDisabled}
       trackID="wallet-buy"
     />
   );

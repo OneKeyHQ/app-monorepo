@@ -95,7 +95,7 @@ export function NumberSizeableText({
     [props.fontSize, props.size],
   );
 
-  const parentFontWeight = props.fontWeight ?? (parentFont as { fontWeight?: number })?.fontWeight;
+  const parentFontWeight = (props.fontWeight ?? (parentFont as { fontWeight?: number })?.fontWeight) as ISizableTextProps['fontWeight'];
 
   const scriptFontSize = useMemo(
     () =>
