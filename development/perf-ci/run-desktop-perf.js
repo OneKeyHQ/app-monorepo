@@ -24,9 +24,23 @@ const { readPerfCiLocalConfig } = require('./lib/config');
 const { defaultDerivedOutPath, deriveSession } = require('./lib/derive');
 const { nowId } = require('./lib/id');
 const { postSlackWebhook } = require('./lib/slack');
-const { ensurePerfServerRunning, checkPerfServer, stopChild } = require('./lib/perfServer');
-const { listSessionIds, waitForNewSessionId, waitForMark, readSessionMetrics, ensureSessionsDirWritable } = require('./lib/session');
-const { aggregateRuns, checkRegression, extractDerivedDebugMetrics } = require('./lib/regression');
+const {
+  ensurePerfServerRunning,
+  checkPerfServer,
+  stopChild,
+} = require('./lib/perfServer');
+const {
+  listSessionIds,
+  waitForNewSessionId,
+  waitForMark,
+  readSessionMetrics,
+  ensureSessionsDirWritable,
+} = require('./lib/session');
+const {
+  aggregateRuns,
+  checkRegression,
+  extractDerivedDebugMetrics,
+} = require('./lib/regression');
 
 function ensureDirExists(p) {
   fs.mkdirSync(p, { recursive: true });
@@ -79,8 +93,22 @@ function buildSlackText({ status, meta, runs, agg, thresholds, outputDir }) {
 }
 
 async function buildDesktop({ repoRoot }) {
-  const mainPath = path.join(repoRoot, 'apps', 'desktop', 'app', 'dist', 'app.js');
-  const rendererIndex = path.join(repoRoot, 'apps', 'desktop', 'app', 'build', 'index.html');
+  const mainPath = path.join(
+    repoRoot,
+    'apps',
+    'desktop',
+    'app',
+    'dist',
+    'app.js',
+  );
+  const rendererIndex = path.join(
+    repoRoot,
+    'apps',
+    'desktop',
+    'app',
+    'build',
+    'index.html',
+  );
 
   const hasOutputs = fileExists(mainPath) && fileExists(rendererIndex);
   const skipRequested = process.env.PERF_SKIP_DESKTOP_BUILD === '1';
@@ -112,14 +140,18 @@ async function buildDesktop({ repoRoot }) {
     throw new Error(`desktop build:renderer failed with exit code ${r1.code}`);
   }
 
-  const r2 = await execCmd('yarn', ['workspace', '@onekeyhq/desktop', 'build:main'], {
-    cwd: repoRoot,
-    env,
-    timeoutMs:
-      Number(process.env.PERF_DESKTOP_BUILD_TIMEOUT_MS) || 45 * 60 * 1000,
-    stdout: (d) => process.stdout.write(d),
-    stderr: (d) => process.stderr.write(d),
-  });
+  const r2 = await execCmd(
+    'yarn',
+    ['workspace', '@onekeyhq/desktop', 'build:main'],
+    {
+      cwd: repoRoot,
+      env,
+      timeoutMs:
+        Number(process.env.PERF_DESKTOP_BUILD_TIMEOUT_MS) || 45 * 60 * 1000,
+      stdout: (d) => process.stdout.write(d),
+      stderr: (d) => process.stderr.write(d),
+    },
+  );
   if (r2.code !== 0) {
     throw new Error(`desktop build:main failed with exit code ${r2.code}`);
   }
@@ -165,7 +197,9 @@ async function runOne({
   if (verbose) {
     log(`run ${runIndex}: launch Electron (stdio=inherit)`);
   } else {
-    log(`run ${runIndex}: launch Electron (stdio=quiet, log=${electronLogPath})`);
+    log(
+      `run ${runIndex}: launch Electron (stdio=quiet, log=${electronLogPath})`,
+    );
   }
 
   const child = spawn(electronExe, [mainPath], {
@@ -198,7 +232,9 @@ async function runOne({
       timeoutMs: markTimeoutMs,
     });
 
-    log(`run ${runIndex}: mark "${markName}" found; wait ${afterMarkDelayMs}ms`);
+    log(
+      `run ${runIndex}: mark "${markName}" found; wait ${afterMarkDelayMs}ms`,
+    );
     await new Promise((r) => setTimeout(r, afterMarkDelayMs));
 
     return {
@@ -244,7 +280,8 @@ async function main() {
 
   const runCount = Number(process.env.PERF_RUN_COUNT) || 3;
   const markName = process.env.PERF_MARK_NAME || 'Home:refresh:done:tokens';
-  const verbose = process.env.PERF_DESKTOP_VERBOSE === '1' || hasFlag('--verbose');
+  const verbose =
+    process.env.PERF_DESKTOP_VERBOSE === '1' || hasFlag('--verbose');
 
   const afterMarkDelayMs = Number(process.env.AFTER_MARK_DELAY_MS) || 4000;
   const markTimeoutMs = Number(process.env.PERF_MARK_TIMEOUT_MS) || 120_000;
@@ -260,15 +297,25 @@ async function main() {
 
   const thresholdsPath =
     process.env.PERF_THRESHOLDS_PATH ||
-    path.join(repoRoot, 'development', 'perf-ci', 'thresholds', 'desktop.release.json');
+    path.join(
+      repoRoot,
+      'development',
+      'perf-ci',
+      'thresholds',
+      'desktop.release.json',
+    );
 
   ensureDir(outputDir);
   ensureDir(derivedDir);
 
   log(`outputDir=${outputDir}`);
-  log(`runs=${runCount} mark=${markName} sessionsDir=${sessionsDir} serverUrl=${serverUrl}`);
+  log(
+    `runs=${runCount} mark=${markName} sessionsDir=${sessionsDir} serverUrl=${serverUrl}`,
+  );
   if (!verbose) {
-    log('desktop app logs are captured to outputDir/electron-run-*.log (set PERF_DESKTOP_VERBOSE=1 to see them live)');
+    log(
+      'desktop app logs are captured to outputDir/electron-run-*.log (set PERF_DESKTOP_VERBOSE=1 to see them live)',
+    );
   }
 
   const profileDir =
@@ -337,9 +384,7 @@ async function main() {
       const hint = process.env.PERF_DESKTOP_MAIN_PATH
         ? ` (PERF_DESKTOP_MAIN_PATH=${process.env.PERF_DESKTOP_MAIN_PATH})`
         : '';
-      throw new Error(
-        `Desktop main not found after build: ${mainPath}${hint}`,
-      );
+      throw new Error(`Desktop main not found after build: ${mainPath}${hint}`);
     }
 
     if (!fileExists(rendererIndex)) {
@@ -372,7 +417,11 @@ async function main() {
         log,
       });
       runs.push(r);
-      writeJson(path.join(outputDir, 'runs.json'), { startedAt, sessionsDir, runs });
+      writeJson(path.join(outputDir, 'runs.json'), {
+        startedAt,
+        sessionsDir,
+        runs,
+      });
     }
 
     const sessionIds = runs.map((r) => r.sessionId).filter(Boolean);
@@ -387,7 +436,12 @@ async function main() {
       const sessionId = r.sessionId;
       const outPath = defaultDerivedOutPath({ derivedDir, sessionId });
       // eslint-disable-next-line no-await-in-loop
-      const dj = await deriveSession({ repoRoot, sessionsDir, sessionId, outPath });
+      const dj = await deriveSession({
+        repoRoot,
+        sessionsDir,
+        sessionId,
+        outPath,
+      });
       derived.push({ sessionId, derivedPath: outPath, derived: dj });
     }
     log('derive: ok');
@@ -407,7 +461,9 @@ async function main() {
     const thresholds = readJson(thresholdsPath);
     const { values, agg } = aggregateRuns(runResults);
     const exceed = checkRegression({ thresholds, values, agg });
-    log(`result=${exceed.triggered ? 'REGRESSION' : 'OK'} reasons=${exceed.reasons.length}`);
+    log(
+      `result=${exceed.triggered ? 'REGRESSION' : 'OK'} reasons=${exceed.reasons.length}`,
+    );
 
     const report = {
       meta,
