@@ -229,8 +229,14 @@ function WebModalNavigator({
         }
       });
     });
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    return listener;
+    return () => {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+      listener?.();
+      contentVisibilityTimersRef.current.forEach((timer) =>
+        clearTimeout(timer),
+      );
+      contentVisibilityTimersRef.current = [];
+    };
   }, [navigation]);
 
   const stopPropagation = useCallback((e: GestureResponderEvent) => {
