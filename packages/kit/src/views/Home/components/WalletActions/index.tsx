@@ -36,8 +36,10 @@ import type { IActionCustomization } from './types';
 
 function WalletActionSend({
   customization,
+  showButtonStyle,
 }: {
   customization?: IActionCustomization;
+  showButtonStyle?: boolean;
 }) {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
@@ -229,6 +231,7 @@ function WalletActionSend({
       disabled={customization?.disabled ?? vaultSettings?.disabledSendAction}
       label={customization?.label}
       icon={customization?.icon}
+      showButtonStyle={showButtonStyle}
       trackID="wallet-send"
     />
   );
@@ -242,27 +245,52 @@ function WalletActions({ ...rest }: IXStackProps) {
 
     switch (actionType) {
       case 'send':
-        return <WalletActionSend key="send" customization={customization} />;
+        return (
+          <WalletActionSend
+            key="send"
+            customization={customization}
+            showButtonStyle
+          />
+        );
       case 'receive':
         return (
           <WalletActionReceive
             key="receive"
             customization={customization}
+            showButtonStyle
             useSelector
           />
         );
       case 'swap':
         return platformEnv.isExtensionUiPopup ||
           platformEnv.isExtensionUiSidePanel ? (
-          <WalletActionPerp key="perp" customization={customization} />
+          <WalletActionPerp
+            key="perp"
+            customization={customization}
+            showButtonStyle
+          />
         ) : (
-          <WalletActionSwap key="swap" customization={customization} />
+          <WalletActionSwap
+            key="swap"
+            customization={customization}
+            showButtonStyle
+          />
         );
       case 'perp':
-        return <WalletActionPerp key="perp" customization={customization} />;
+        return (
+          <WalletActionPerp
+            key="perp"
+            customization={customization}
+            showButtonStyle
+          />
+        );
       case 'staking':
         return (
-          <WalletActionStaking key="staking" customization={customization} />
+          <WalletActionStaking
+            key="staking"
+            customization={customization}
+            showButtonStyle
+          />
         );
       default:
         return null;
@@ -270,9 +298,18 @@ function WalletActions({ ...rest }: IXStackProps) {
   };
 
   return (
-    <RawActions {...rest}>
+    <RawActions
+      {...rest}
+      justifyContent="flex-start"
+      gap="$2.5"
+      $gtSm={{
+        flexDirection: 'row',
+        justifyContent: 'flex-start',
+        gap: '$2.5',
+      }}
+    >
       {config.mainActions.map(renderActionComponent).filter(Boolean)}
-      <WalletActionMore />
+      <WalletActionMore showButtonStyle />
     </RawActions>
   );
 }

@@ -16,10 +16,12 @@ function WalletActionPerp({
   customization,
   inList,
   onClose,
+  showButtonStyle,
 }: {
   customization?: IActionCustomization;
   inList?: boolean;
   onClose?: () => void;
+  showButtonStyle?: boolean;
 }) {
   const intl = useIntl();
 
@@ -52,6 +54,7 @@ function WalletActionPerp({
       onPress={handlePress}
       label={customization?.label}
       icon={customization?.icon}
+      showButtonStyle={showButtonStyle}
       disabled={customization?.disabled}
     />
   );

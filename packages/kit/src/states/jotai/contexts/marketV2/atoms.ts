@@ -13,6 +13,7 @@ import {
 } from '@onekeyhq/shared/src/logger/scopes/dex/types';
 import type { IMarketWatchListDataV2 } from '@onekeyhq/shared/types/market';
 import type {
+  IMarketPerpsInfo,
   IMarketTokenDetail,
   IMarketTokenDetailWebsocket,
 } from '@onekeyhq/shared/types/marketV2';
@@ -44,6 +45,10 @@ export const {
   atom: tokenDetailWebsocketAtom,
   use: useTokenDetailWebsocketAtom,
 } = contextAtom<IMarketTokenDetailWebsocket | undefined>(undefined);
+
+export const { atom: perpsInfoAtom, use: usePerpsInfoAtom } = contextAtom<
+  IMarketPerpsInfo | undefined
+>(undefined);
 
 export const { atom: tokenAddressAtom, use: useTokenAddressAtom } =
   contextAtom<string>('');

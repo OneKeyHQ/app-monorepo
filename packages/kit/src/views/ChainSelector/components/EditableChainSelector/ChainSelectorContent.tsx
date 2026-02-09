@@ -17,8 +17,11 @@ import {
   Page,
   SearchBar,
   SectionList,
+  SizableText,
   SortableSectionList,
   Stack,
+  Tooltip,
+  YStack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -32,7 +35,11 @@ import RecentNetworks from '../RecentNetworks';
 
 import { EditableChainSelectorContext } from './context';
 import { EditableListItem } from './EditableListItem';
-import { ALL_NETWORK_HEADER_HEIGHT, CELL_HEIGHT } from './type';
+import {
+  ALL_NETWORK_HEADER_HEIGHT,
+  CELL_HEIGHT,
+  ZERO_VALUE_TOOLTIP_HEIGHT,
+} from './type';
 
 import type {
   IEditableChainSelectorContext,
@@ -52,16 +59,47 @@ const ListEmptyComponent = () => {
 };
 
 const ListHeaderComponent = () => {
-  const { allNetworkItem, searchText } = useContext(
+  const intl = useIntl();
+  const { allNetworkItem, searchText, zeroValue } = useContext(
     EditableChainSelectorContext,
   );
 
+  if (searchText) {
+    return null;
+  }
+
+  if (zeroValue && !allNetworkItem) {
+    return null;
+  }
+
   return (
-    <Stack>
-      {!allNetworkItem || searchText?.trim() ? null : (
-        <EditableListItem item={allNetworkItem} isEditable={false} />
+    <YStack>
+      {zeroValue ? null : (
+        <Stack px="$5" py="$3">
+          <Tooltip
+            placement="bottom-start"
+            renderContent={intl.formatMessage({
+              id: ETranslations.network_auto_detection_tip,
+            })}
+            renderTrigger={
+              <SizableText
+                size="$bodyMdMedium"
+                textDecorationLine="underline"
+                textDecorationColor="$textSubdued"
+                textDecorationStyle="dotted"
+              >
+                {intl.formatMessage({
+                  id: ETranslations.network_found_assets_on_networks,
+                })}
+              </SizableText>
+            }
+          />
+        </Stack>
       )}
-    </Stack>
+      {allNetworkItem ? (
+        <EditableListItem item={allNetworkItem} isEditable={false} />
+      ) : null}
+    </YStack>
   );
 };
 
@@ -91,6 +129,7 @@ type IEditableChainSelectorContentProps = {
     }
   >;
   showAllNetworkInRecentNetworks?: boolean;
+  zeroValue?: boolean;
 };
 
 export const EditableChainSelectorContent = ({
@@ -112,6 +151,7 @@ export const EditableChainSelectorContent = ({
   onFrequentlyUsedItemsChange,
   accountDeFiOverview,
   showAllNetworkInRecentNetworks,
+  zeroValue,
 }: IEditableChainSelectorContentProps) => {
   const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
@@ -121,10 +161,14 @@ export const EditableChainSelectorContent = ({
   );
   const listRef = useRef<ISortableSectionListRef<any> | null>(null);
   const lastIsEditMode = usePrevious(isEditMode);
-  const searchTextTrim = searchText.trim();
   const showAllNetworkHeader = useMemo(
-    () => (allNetworkItem && !searchText?.trim?.()) ?? true,
+    () => allNetworkItem && !searchText,
     [allNetworkItem, searchText],
+  );
+
+  const showNonZeroValueTooltip = useMemo(
+    () => !zeroValue && !searchText,
+    [zeroValue, searchText],
   );
 
   const [recentNetworksHeight, setRecentNetworksHeight] = useState(0);
@@ -155,8 +199,8 @@ export const EditableChainSelectorContent = ({
   const networkFuseSearch = useFuseSearch(networksToSearch);
 
   const sections = useMemo<IEditableChainSelectorSection[]>(() => {
-    if (searchTextTrim) {
-      const data = networkFuseSearch(searchTextTrim);
+    if (searchText) {
+      const data = networkFuseSearch(searchText);
       return data.length === 0
         ? []
         : [
@@ -190,7 +234,10 @@ export const EditableChainSelectorContent = ({
       .toSorted((a, b) => a.title.charCodeAt(0) - b.title.charCodeAt(0));
 
     const _sections: IEditableChainSelectorSection[] = [
-      { data: tempFrequentlyUsedItems, draggable: true },
+      {
+        data: tempFrequentlyUsedItems,
+        draggable: true,
+      },
       ...mainnetSections,
     ];
 
@@ -217,7 +264,7 @@ export const EditableChainSelectorContent = ({
     testnetItems,
     tempFrequentlyUsedItems,
     unavailableItems,
-    searchTextTrim,
+    searchText,
     intl,
     networkFuseSearch,
   ]);
@@ -225,9 +272,10 @@ export const EditableChainSelectorContent = ({
   const listHeaderHeight = useMemo(() => {
     return (
       recentNetworksHeight +
-      (showAllNetworkHeader ? ALL_NETWORK_HEADER_HEIGHT : 0)
+      (showAllNetworkHeader ? ALL_NETWORK_HEADER_HEIGHT : 0) +
+      (showNonZeroValueTooltip ? ZERO_VALUE_TOOLTIP_HEIGHT : 0)
     );
-  }, [showAllNetworkHeader, recentNetworksHeight]);
+  }, [showAllNetworkHeader, recentNetworksHeight, showNonZeroValueTooltip]);
 
   const dragItemOverflowHitSlop = useMemo(() => {
     const dragCount = tempFrequentlyUsedItems.length;
@@ -353,12 +401,13 @@ export const EditableChainSelectorContent = ({
         onEditCustomNetwork?.(network);
       },
       isEditMode,
-      searchText: searchTextTrim,
+      searchText,
       allNetworkItem,
       setRecentNetworksHeight,
       accountNetworkValues,
       accountNetworkValueCurrency,
       accountDeFiOverview,
+      zeroValue,
     }),
     [
       walletId,
@@ -368,13 +417,14 @@ export const EditableChainSelectorContent = ({
       onPressItem,
       onAddCustomNetwork,
       isEditMode,
-      searchTextTrim,
+      searchText,
       allNetworkItem,
       accountNetworkValues,
       accountNetworkValueCurrency,
       onFrequentlyUsedItemsChange,
       onEditCustomNetwork,
       accountDeFiOverview,
+      zeroValue,
     ],
   );
   const renderItem = useCallback(
@@ -469,7 +519,7 @@ export const EditableChainSelectorContent = ({
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
                 listRef.current._listRef._hasDoneInitialScroll = false;
               }
-              setSearchText(text.trim());
+              setSearchText(text);
             }}
             {...(!platformEnv.isNative && {
               autoFocus: true,
@@ -512,7 +562,10 @@ export const EditableChainSelectorContent = ({
                 if (index === -1) {
                   return {
                     index,
-                    offset: showAllNetworkHeader ? listHeaderHeight : 0,
+                    offset:
+                      showAllNetworkHeader || showNonZeroValueTooltip
+                        ? listHeaderHeight
+                        : 0,
                     length: 0,
                   };
                 }

@@ -14,10 +14,12 @@ import {
   SizableText,
   Spinner,
   Tabs,
+  Tooltip,
   XStack,
   YStack,
   usePopoverContext,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
@@ -51,6 +53,7 @@ import {
 
 import {
   type IFavoriteItem,
+  usePerpActiveTabValidation,
   usePerpTokenSelector,
   usePerpsFavorites,
 } from '../../hooks';
@@ -166,7 +169,10 @@ function BasePerpTokenSelectorContent({
   const [selectorConfig, setSelectorConfig] =
     usePerpTokenSelectorConfigPersistAtom();
   const [dynamicTabsRaw] = usePerpTokenSelectorTabsAtom();
-  const dynamicTabs: IPerpDynamicTab[] = dynamicTabsRaw;
+  const dynamicTabs: IPerpDynamicTab[] = useMemo(
+    () => dynamicTabsRaw ?? [],
+    [dynamicTabsRaw],
+  );
 
   const tabNames = useMemo(
     () => ({
@@ -444,21 +450,18 @@ function BasePerpTokenSelectorContent({
       favoriteAssetIds.has(`${item.dexIndex}-${item.assetId}`),
     );
 
-    // Build data for dynamic tabs
+    // Build data for dynamic tabs (filter from sorted listAll to preserve sort order)
     const dynamicTabsData: Record<string, ITokenSelectorListItem[]> = {};
     for (const tab of dynamicTabs) {
       const tokenSet = new Set(tab.tokens);
-      const filtered = combinedEntries
-        .filter((entry) => tokenSet.has(entry.asset.name))
-        .map((entry) => ({
-          dexIndex: entry.dexIndex,
-          index: entry.index,
-          assetId: entry.assetId,
-        }));
-      // Only include tabs with matching tokens
-      if (filtered.length > 0) {
-        dynamicTabsData[tab.tabId] = filtered;
-      }
+      const matchingIds = new Set(
+        combinedEntries
+          .filter((entry) => tokenSet.has(entry.asset.name))
+          .map((entry) => `${entry.dexIndex}-${entry.assetId}`),
+      );
+      dynamicTabsData[tab.tabId] = listAll.filter((item) =>
+        matchingIds.has(`${item.dexIndex}-${item.assetId}`),
+      );
     }
 
     return {
@@ -478,24 +481,24 @@ function BasePerpTokenSelectorContent({
     selectorConfig?.field,
   ]);
 
-  // Filter to visible dynamic tabs (those with data)
-  const visibleDynamicTabs = useMemo<IPerpDynamicTab[]>(
-    () =>
-      dynamicTabs.filter(
-        (tab) => (listDataByTab.dynamic[tab.tabId]?.length ?? 0) > 0,
-      ),
-    [dynamicTabs, listDataByTab.dynamic],
-  );
+  // Filter to visible dynamic tabs (those with matching tokens)
+  const visibleDynamicTabs = useMemo<IPerpDynamicTab[]>(() => {
+    const assetsByDexTyped: IPerpsUniverse[][] = assetsByDex || [];
+    const allAssetNames = new Set(
+      assetsByDexTyped.flatMap((assets) => assets.map((a) => a.name)),
+    );
+    return (dynamicTabsRaw ?? []).filter((tab) =>
+      tab.tokens.some((token) => allAssetNames.has(token)),
+    );
+  }, [assetsByDex, dynamicTabsRaw]);
 
-  // Handle case where active tab no longer exists (e.g., dynamic tab removed by server)
-  useEffect(() => {
-    const fixedTabIds = ['favorites', 'all', 'hip3'];
-    const dynamicTabIds = visibleDynamicTabs.map((t) => t.tabId);
-    const allValidTabs = [...fixedTabIds, ...dynamicTabIds];
-    if (!allValidTabs.includes(activeTab)) {
-      setActiveTab('all');
-    }
-  }, [activeTab, visibleDynamicTabs, setActiveTab]);
+  usePerpActiveTabValidation({
+    activeTab,
+    setActiveTab,
+    assetsByDex,
+    dynamicTabs: dynamicTabsRaw,
+    visibleDynamicTabs,
+  });
 
   const keyExtractor = useCallback(
     (item: { dexIndex: number; index: number; assetId?: number }) => {
@@ -674,11 +677,21 @@ function PerpTokenSelectorContent({
 const PerpTokenSelectorContentMemo = memo(PerpTokenSelectorContent);
 
 function BasePerpTokenSelector() {
+  const intl = useIntl();
   const [isOpen, setIsOpen] = useState(false);
   const [currentToken] = usePerpsActiveAssetAtom();
   const { coin } = currentToken;
   const parsedActive = useMemo(() => parseDexCoin(coin), [coin]);
   const [isLoading, setIsLoading] = useState(false);
+  const [builderFeeRate, setBuilderFeeRate] = useState<number | undefined>();
+
+  useEffect(() => {
+    void backgroundApiProxy.simpleDb.perp
+      .getExpectMaxBuilderFee()
+      .then((fee) => {
+        setBuilderFeeRate(fee);
+      });
+  }, []);
   const content = useMemo(
     () => (
       <Popover
@@ -717,6 +730,25 @@ function BasePerpTokenSelector() {
             <SizableText size="$heading2xl">
               {parsedActive.displayName}USDC
             </SizableText>
+            {builderFeeRate === 0 ? (
+              <Tooltip
+                placement="bottom"
+                renderTrigger={
+                  <Badge badgeType="success" badgeSize="sm">
+                    {intl.formatMessage({
+                      id: ETranslations.perp_0_fee,
+                    })}
+                  </Badge>
+                }
+                renderContent={
+                  <SizableText size="$bodySm">
+                    {intl.formatMessage({
+                      id: ETranslations.perps_fee_desc,
+                    })}
+                  </SizableText>
+                }
+              />
+            ) : null}
             <Icon name="ChevronBottomOutline" size="$4" />
             {isLoading ? <Spinner size="small" /> : null}
           </Badge>
@@ -729,7 +761,7 @@ function BasePerpTokenSelector() {
         )}
       />
     ),
-    [isOpen, isLoading, parsedActive.displayName],
+    [isOpen, isLoading, parsedActive.displayName, builderFeeRate, intl],
   );
   return (
     <DebugRenderTracker name="PerpTokenSelector">{content}</DebugRenderTracker>
@@ -749,25 +781,64 @@ const BasePerpTokenSelectorMobileView = memo(
     const intl = useIntl();
     const parsedCoin = useMemo(() => parseDexCoin(coin), [coin]);
     const displayCoin = parsedCoin.displayName || coin;
+    const [builderFeeRate, setBuilderFeeRate] = useState<number | undefined>();
+
+    useEffect(() => {
+      void backgroundApiProxy.simpleDb.perp
+        .getExpectMaxBuilderFee()
+        .then((fee) => {
+          setBuilderFeeRate(fee);
+        });
+    }, []);
 
     return (
       <DebugRenderTracker name="BasePerpTokenSelectorMobileView">
         <XStack
           gap="$1"
           bg="$bgApp"
-          onPress={onPressTokenSelector}
           justifyContent="center"
           alignItems="center"
         >
-          <SizableText size="$headingXl">{displayCoin}USDC</SizableText>
-          <Badge radius="$1" bg="$bgSubdued" px="$1" py={0}>
-            <SizableText color="$textSubdued" fontSize={11}>
-              {intl.formatMessage({
-                id: ETranslations.perp_label_perp,
+          <XStack gap="$1" onPress={onPressTokenSelector} alignItems="center">
+            <SizableText size="$headingXl">{displayCoin}USDC</SizableText>
+            <Badge radius="$1" bg="$bgSubdued" px="$1" py={0}>
+              <SizableText color="$textSubdued" fontSize={11}>
+                {intl.formatMessage({
+                  id: ETranslations.perp_label_perp,
+                })}
+              </SizableText>
+            </Badge>
+          </XStack>
+          {builderFeeRate === 0 ? (
+            <Popover
+              title={intl.formatMessage({
+                id: ETranslations.referral_perps_onekey_fee,
               })}
-            </SizableText>
-          </Badge>
-          <Icon name="ChevronTriangleDownSmallOutline" size="$5" />
+              renderTrigger={
+                <Badge radius="$1" bg="$bgSuccessSubdued" px="$1" py={0}>
+                  <SizableText color="$green11" fontSize={11}>
+                    {intl.formatMessage({
+                      id: ETranslations.perp_0_fee,
+                    })}
+                  </SizableText>
+                </Badge>
+              }
+              renderContent={
+                <YStack px="$5" pb="$4">
+                  <SizableText size="$bodyMd" color="$text">
+                    {intl.formatMessage({
+                      id: ETranslations.perps_fee_desc,
+                    })}
+                  </SizableText>
+                </YStack>
+              }
+            />
+          ) : null}
+          <Icon
+            name="ChevronTriangleDownSmallOutline"
+            size="$5"
+            onPress={onPressTokenSelector}
+          />
         </XStack>
       </DebugRenderTracker>
     );

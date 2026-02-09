@@ -4,6 +4,7 @@ export { usePerpTokenSelector } from './usePerpTokenSelector';
 export { usePerpSession } from './usePerpSession';
 export { usePerpsFavorites, type IFavoriteItem } from './usePerpsFavorites';
 
+export { usePerpActiveTabValidation } from './usePerpActiveTabValidation';
 export { useFundingCountdown } from './useFundingCountdown';
 export { useOrderConfirm } from './useOrderConfirm';
 export { useTradingPrice } from './useTradingPrice';

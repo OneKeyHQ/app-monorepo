@@ -112,6 +112,31 @@ yarn perf:android:release
 yarn perf:android:release:daemon --interval-minutes 300
 ```
 
+Web:
+
+```bash
+# one-time: prepare a stable logged-in + wallet state (stored under ~/perf-profiles/web by default)
+yarn perf:web:prepare --headed
+
+# run release perf job (3 runs; median aggregation + thresholds)
+yarn perf:web:release --headed
+
+# optional: skip build when repeating
+PERF_SKIP_BUILD=1 yarn perf:web:release --headed
+```
+
+Desktop:
+
+```bash
+yarn perf:desktop:release
+```
+
+Extension (MV3):
+
+```bash
+yarn perf:ext:release
+```
+
 You can also run scripts directly:
 
 ```bash
@@ -241,6 +266,9 @@ Files:
 - iOS Release: `development/perf-ci/thresholds/ios.release.json`
 - Android Debug: `development/perf-ci/thresholds/android.debug.json`
 - Android Release: `development/perf-ci/thresholds/android.release.json`
+- Web Release: `development/perf-ci/thresholds/web.release.json`
+- Desktop Release: `development/perf-ci/thresholds/desktop.release.json`
+- Ext Release: `development/perf-ci/thresholds/ext.release.json`
 
 If a threshold value is `null`, that metric is not used for regression judgement (but still reported).
 

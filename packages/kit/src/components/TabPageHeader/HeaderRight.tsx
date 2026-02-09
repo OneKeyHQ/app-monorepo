@@ -19,17 +19,28 @@ import {
   HeaderNotificationIconButton,
   WalletConnectionForWeb,
 } from './components';
+import { AllNetworksManagerTrigger } from '../AccountSelector';
+import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
 
 export function MoreAction() {
   return <MoreActionButton key="more-action" />;
 }
 
 export function SelectorTrigger() {
+  const {
+    activeAccount: { network },
+  } = useActiveAccount({ num: 0 });
+
+  if (network?.isAllNetworks) {
+    return <AllNetworksManagerTrigger num={0} unifiedMode />;
+  }
+
   return (
     <NetworkSelectorTriggerHome
       num={0}
       size="small"
       recordNetworkHistoryEnabled
+      unifiedMode
     />
   );
 }

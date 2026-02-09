@@ -339,6 +339,12 @@ function TxConfirmActions(props: IProps) {
           swapInfo,
           stakingInfo,
         }),
+        txnParseType: isUndefined(result?.[0].decodedTx.txParseType)
+          ? undefined
+          : result?.[0].decodedTx.txParseType,
+        txnOrigin: isUndefined(sourceInfo?.origin)
+          ? undefined
+          : sourceInfo.origin,
         feeToken: isUndefined(sendSelectedFeeInfo?.feeInfos?.[0]?.totalNative)
           ? undefined
           : `${sendSelectedFeeInfo?.feeInfos?.[0]?.totalNative} ${nativeTokenInfo.info?.symbol}`,

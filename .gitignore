@@ -102,6 +102,7 @@ debug.log
 
 # Perf monitor local sessions
 /development/output/perf-sessions/
+/development/output/*.md
 
 # Detox / perf-ci artifacts
 /apps/mobile/e2e/artifacts/

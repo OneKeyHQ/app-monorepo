@@ -89,10 +89,13 @@ const PreSwapInfoGroup = ({
       new BigNumber(preSwapData?.fee?.percentageFee ?? '0').isNaN()
     ) {
       return (
-        <Badge badgeSize="sm" badgeType="info">
-          {intl.formatMessage({
-            id: ETranslations.swap_stablecoin_0_fee,
-          })}
+        <Badge badgeSize="sm" badgeType="success" gap="$1.5">
+          <Icon name="PartyCelebrateSolid" size="$3" color="$iconSuccess" />
+          <SizableText size="$bodySmMedium" color="$textSuccess">
+            {intl.formatMessage({
+              id: ETranslations.swap_stablecoin_0_fee,
+            })}
+          </SizableText>
         </Badge>
       );
     }
