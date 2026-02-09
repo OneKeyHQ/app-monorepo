@@ -1,11 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { SizableText, YStack } from '@onekeyhq/components';
 
-import {
-  generateMatrixPool,
-  type IMatrixBackgroundProps,
-} from './matrixBackgroundUtils';
+import { useMatrixPool, type IMatrixBackgroundProps } from './useMatrixPool';
 
 const LINE_POOL_SIZE = 120;
 
@@ -14,13 +11,10 @@ const MatrixBackground = ({
   charsPerLine = 60,
   updateInterval = 200,
 }: IMatrixBackgroundProps) => {
-  const poolRef = useRef<string[]>(
-    generateMatrixPool(LINE_POOL_SIZE, charsPerLine),
-  );
+  const pool = useMatrixPool(LINE_POOL_SIZE, charsPerLine);
   const [lines, setLines] = useState<string[]>([]);
 
   useEffect(() => {
-    const pool = poolRef.current;
     const pickLines = () => {
       const picked: string[] = [];
       for (let i = 0; i < lineCount; i += 1) {
@@ -32,7 +26,7 @@ const MatrixBackground = ({
     pickLines();
     const interval = setInterval(pickLines, updateInterval);
     return () => clearInterval(interval);
-  }, [lineCount, updateInterval]);
+  }, [pool, lineCount, updateInterval]);
 
   return (
     <YStack>
