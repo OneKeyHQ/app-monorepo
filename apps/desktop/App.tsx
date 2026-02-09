@@ -23,12 +23,5 @@ if (process.env.NODE_ENV !== 'production') {
   });
 }
 
-function DesktopApp(props: any) {
-  return (
-    <>
-      <KitProvider {...props} />
-    </>
-  );
-}
-
-export default withSentryHOC(DesktopApp, SentryErrorBoundaryFallback);
+export default withSentryHOC(KitProvider, SentryErrorBoundaryFallback);
+// export default KitProvider;
