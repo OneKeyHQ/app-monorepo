@@ -392,7 +392,7 @@ export function HomePageView({
         key={key}
         allowHeaderOverscroll
         useNativeHeaderAnimation={platformEnv.isNativeAndroid}
-        width={platformEnv.isNative ? tabContainerWidth as number : undefined}
+        width={platformEnv.isNative ? (tabContainerWidth as number) : undefined}
         renderHeader={renderHeader}
         renderTabBar={renderTabBar}
       >
