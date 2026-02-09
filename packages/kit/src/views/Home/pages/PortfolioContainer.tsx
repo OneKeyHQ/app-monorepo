@@ -63,7 +63,7 @@ function PortfolioContainer() {
   }
 
   return (
-    <YStack gap="$6" pt="$3" pb="$4">
+    <YStack gap="$6" $gtMd={{ gap: '$8' }} pt="$3" pb="$4">
       <TokenListBlock />
       <DeFiListBlock />
       <PopularTrading />

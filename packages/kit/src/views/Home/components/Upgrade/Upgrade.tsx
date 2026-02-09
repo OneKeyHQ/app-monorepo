@@ -121,6 +121,7 @@ function Upgrade() {
       headerContainerProps={{ px: '$pagePadding' }}
       content={renderContent()}
       contentContainerProps={{
+        mx: '$pagePadding',
         px: '$4',
         py: '$2',
         $gtMd: {
