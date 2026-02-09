@@ -9,7 +9,6 @@ import {
   Skeleton,
   XStack,
   YStack,
-  useMedia,
 } from '@onekeyhq/components';
 import type { IDialogInstance } from '@onekeyhq/components';
 import {
@@ -27,7 +26,6 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { perfMark } from '@onekeyhq/shared/src/performance/mark';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { numberFormatAsRenderText } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { calculateAccountTokensValue } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EHomeTab } from '@onekeyhq/shared/types';
@@ -44,8 +42,6 @@ import {
 } from '../../../states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { showBalanceDetailsDialog } from '../components/BalanceDetailsDialog';
-
-import type { FontSizeTokens } from 'tamagui';
 
 function HomeOverviewContainer() {
   const num = 0;
@@ -271,7 +267,6 @@ function HomeOverviewContainer() {
     wallet,
   ]);
 
-  const { md } = useMedia();
   const balanceDialogInstance = useRef<IDialogInstance | null>(null);
   const resourceDialogInstance = useRef<IDialogInstance | null>(null);
 
@@ -356,11 +351,6 @@ function HomeOverviewContainer() {
 
   const debouncedBalanceString = useDebounce(balanceString, 100);
 
-  const balanceSizeList: { length: number; size: FontSizeTokens }[] = [
-    { length: 17, size: '$headingXl' },
-    { length: 13, size: '$heading4xl' },
-  ];
-  const defaultBalanceSize = '$heading5xl';
   const numberFormatter: INumberFormatProps = {
     formatter: 'value',
     formatterOptions: { currency: settings.currencyInfo.symbol },
@@ -404,19 +394,10 @@ function HomeOverviewContainer() {
                 hideValue
                 flexShrink={1}
                 minWidth={0}
-                splitDecimal
+                fontSize={48}
+                lineHeight={48}
+                fontWeight={500}
                 {...numberFormatter}
-                size={
-                  md
-                    ? (balanceSizeList.find(
-                        (item) =>
-                          numberFormatAsRenderText(
-                            String(debouncedBalanceString),
-                            numberFormatter,
-                          ).length >= item.length,
-                      )?.size ?? defaultBalanceSize)
-                    : defaultBalanceSize
-                }
               >
                 {debouncedBalanceString}
               </NumberSizeableTextWrapper>
