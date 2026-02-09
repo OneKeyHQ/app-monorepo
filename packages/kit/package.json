@@ -6,6 +6,7 @@
   "dependencies": {
     "@onekeyhq/components": "*",
     "@types/url-parse": "^1.4.8",
+    "agentation": "^2.1.1",
     "date-fns": "2.30.0",
     "expo-camera": "16.1.10",
     "fuse.js": "^7.0.0",
@@ -29,7 +30,6 @@
     "@types/d3-shape": "^3.1.1",
     "@types/mime": "^3",
     "@types/socket.io-client": "^3.0.0",
-    "agentation": "^2.1.1",
     "folderslint": "1.2.0"
   }
 }

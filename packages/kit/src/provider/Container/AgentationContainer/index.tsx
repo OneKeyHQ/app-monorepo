@@ -1,12 +1,15 @@
 import { memo } from 'react';
+import type { ComponentType } from 'react';
 
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 
-const AgentationDevTool = LazyLoad(() =>
-  import('agentation').then((mod) => ({
-    default: mod.Agentation,
-  })),
+const AgentationDevTool = LazyLoad<{ endpoint?: string }>(
+  () =>
+    import('agentation').then((mod) => ({
+      default:
+        mod.Agentation as unknown as ComponentType<{ endpoint?: string }>,
+    })) as Promise<{ default: ComponentType<{ endpoint?: string }> }>,
 );
 
 function BasicAgentationContainer() {
