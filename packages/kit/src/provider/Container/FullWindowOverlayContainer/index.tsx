@@ -7,6 +7,7 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ScreenshotBranding } from '../../../components/ScreenshotBranding';
+import { AgentationContainer } from '../AgentationContainer';
 
 import { DevOverlayWindowContainer } from './DevOverlayWindowContainer';
 
@@ -18,6 +19,7 @@ export function FullWindowOverlayContainer() {
         <Portal.Container name={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL} />
         <ShowToastProvider />
         <DevOverlayWindowContainer />
+        <AgentationContainer />
         {/* E2E mode, enable tap in iOS */}
         {platformEnv.isE2E ? <></> : <Toaster />}
         <ScreenshotBranding />

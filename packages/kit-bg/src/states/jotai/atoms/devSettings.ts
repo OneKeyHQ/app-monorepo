@@ -80,6 +80,8 @@ export interface IDevSettings {
   enableMockMarketBanner?: boolean;
   // Test accounts for OneKey ID login testing
   testAccounts?: ITestAccount[];
+  // Enable Agentation dev tool for UI annotation and AI collaboration
+  showAgentation?: boolean;
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;

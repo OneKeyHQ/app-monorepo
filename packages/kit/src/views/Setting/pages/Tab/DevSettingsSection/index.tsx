@@ -527,6 +527,17 @@ const BaseDevSettingsSection = () => {
                 <Switch size={ESwitchSize.small} />
               </SectionFieldItem>
 
+              {platformEnv.isNative ? null : (
+                <SectionFieldItem
+                  icon="AiStarOutline"
+                  name="showAgentation"
+                  title="Agentation Dev Tool"
+                  subtitle="UI annotation and AI agent collaboration tool"
+                >
+                  <Switch size={ESwitchSize.small} />
+                </SectionFieldItem>
+              )}
+
               <SectionPressItem
                 icon="SwitchHorOutline"
                 title="force RTL"
