@@ -87,7 +87,7 @@ function TabItem({
       borderBottomWidth={isFocused ? '$0.5' : '$0'}
       borderBottomColor="$borderActive"
       onPress={() => onPress(name)}
-      cursor="pointer"
+      cursor="default"
     >
       <SizableText
         size="$headingXs"
@@ -708,10 +708,10 @@ function BasePerpTokenSelector() {
           <Badge
             gap="$3"
             bg="$bgApp"
-            cursor="pointer"
             px="$2"
             py="$1.5"
             borderRadius="$full"
+            cursor="default"
             hoverStyle={{
               bg: '$bgHover',
             }}

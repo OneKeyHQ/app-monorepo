@@ -29,6 +29,7 @@ export type ITokenListItemProps = {
   titleMatchStr?: IFuseResultMatch;
   moreComponent?: React.ReactNode;
   badgeText?: string;
+  tokenSize?: 'xxs' | 'xs' | 'sm' | 'md' | 'lg' | 'xl';
 } & IListItemProps &
   IStackProps;
 
@@ -46,6 +47,7 @@ export function TokenListItem({
   titleMatchStr,
   moreComponent,
   badgeText,
+  tokenSize,
   ...rest
 }: ITokenListItemProps) {
   return (
@@ -64,6 +66,7 @@ export function TokenListItem({
         })}
       >
         <Token
+          size={tokenSize}
           tokenImageUri={tokenImageSrc}
           networkImageUri={networkImageSrc}
         />

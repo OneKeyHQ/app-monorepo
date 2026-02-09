@@ -19,10 +19,12 @@ import { useTransactionsLayoutNormal } from './useTransactionsLayoutNormal';
 interface ITransactionItemNormalProps {
   item: IMarketTokenTransaction;
   networkId: string;
+  index: number;
 }
 
 function TransactionItemNormalBase({
   item,
+  index,
   networkId,
 }: ITransactionItemNormalProps) {
   const { styles, isSmallScreen } = useTransactionsLayoutNormal();
@@ -40,7 +42,15 @@ function TransactionItemNormalBase({
   const [settingsPersistAtom] = useSettingsPersistAtom();
 
   return (
-    <XStack py="$1" px="$4" alignItems="center">
+    <XStack
+      py="$1"
+      pl="$5"
+      pr="$3"
+      alignItems="center"
+      cursor="default"
+      {...(index % 2 === 1 && { backgroundColor: '$bgSubdued' })}
+      hoverStyle={{ backgroundColor: '$bgHover' }}
+    >
       <SizableText size="$bodyMd" color="$textSubdued" {...styles.time}>
         {formattedTime}
       </SizableText>
