@@ -854,6 +854,7 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
         title={intl.formatMessage({ id: ETranslations.global_earn })}
         subTitle={renderSubTitle()}
         headerContainerProps={{ px: '$pagePadding' }}
+        contentContainerProps={{ mx: '$5' }}
         plainContentContainer={!tableLayout || (!initialized && isRefreshing)}
         content={
           !initialized && isRefreshing ? (
