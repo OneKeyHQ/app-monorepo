@@ -1,6 +1,7 @@
 /* eslint-disable global-require */
 import {
   type PropsWithChildren,
+  useEffect,
   useLayoutEffect,
   useRef,
   useState,
@@ -82,5 +83,17 @@ export const useDisplaySplash =
 
 export function SplashProvider({ children }: PropsWithChildren<unknown>) {
   const displaySplash = useDisplaySplash();
+
+  // Web platform: skip splash screen entirely, render children directly
+  useEffect(() => {
+    if (platformEnv.isWeb) {
+      globalThis.$$onekeyUIVisibleAt = Date.now();
+    }
+  }, []);
+
+  if (platformEnv.isWeb) {
+    return <>{children}</>;
+  }
+
   return displaySplash ? <Splash>{children}</Splash> : null;
 }
