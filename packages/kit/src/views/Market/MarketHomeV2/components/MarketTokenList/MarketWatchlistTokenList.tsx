@@ -136,30 +136,40 @@ function MarketWatchlistTokenList({
           Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL,
           <InlineActionBar
             isFirstItem={index === 0}
-            onMoveToTop={() => {
-              void actions.current.moveToTopV2(tokenToWatchListItem(item));
-              Toast.success({
-                title: intl.formatMessage({
-                  id: ETranslations.market_move_to_top,
-                }),
-              });
+            onMoveToTop={async () => {
               setActiveActionItem(null);
               portalRef.current?.destroy();
               portalRef.current = null;
+              try {
+                await actions.current.moveToTopV2(
+                  tokenToWatchListItem(item),
+                );
+                Toast.success({
+                  title: intl.formatMessage({
+                    id: ETranslations.market_move_to_top,
+                  }),
+                });
+              } catch {
+                // error handled internally
+              }
             }}
-            onToggleWatchlist={() => {
-              void actions.current.removeFromWatchListV2(
-                item.networkId,
-                item.address,
-              );
-              Toast.success({
-                title: intl.formatMessage({
-                  id: ETranslations.market_remove_from_watchlist,
-                }),
-              });
+            onToggleWatchlist={async () => {
               setActiveActionItem(null);
               portalRef.current?.destroy();
               portalRef.current = null;
+              try {
+                await actions.current.removeFromWatchListV2(
+                  item.networkId,
+                  item.address,
+                );
+                Toast.success({
+                  title: intl.formatMessage({
+                    id: ETranslations.market_remove_from_watchlist,
+                  }),
+                });
+              } catch {
+                // error handled internally
+              }
             }}
             onDismiss={() => {
               setActiveActionItem(null);
