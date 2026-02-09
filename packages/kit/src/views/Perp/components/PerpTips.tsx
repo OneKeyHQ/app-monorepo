@@ -69,6 +69,7 @@ export function PerpTips() {
       flex={1}
       type={perpConfigCommon?.perpBannerConfig?.alertType ?? 'default'}
       fullBleed
+      borderBottomWidth={0}
       title={perpConfigCommon?.perpBannerConfig?.title}
       description={perpConfigCommon?.perpBannerConfig?.description}
       closable={!!perpConfigCommon?.perpBannerConfig?.canClose}

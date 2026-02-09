@@ -2755,6 +2755,7 @@
   "perps.token_selector_perps": "Perpetradores",
   "perps.token_selector_stocks": "Cepo",
   "perps.trade_reward": "Recompensa comercial",
+  "perps_footer.help_us_better": "Ayúdanos a mejorar",
   "pick_your_device": "Elige tu dispositivo",
   "pin_attempts_cooldown": "Inténtalo de nuevo en {seconds}.",
   "pin_attempts_exhausted": "Se ha superado el número máximo de intentos de PIN. Por favor, restablezca su PIN.",

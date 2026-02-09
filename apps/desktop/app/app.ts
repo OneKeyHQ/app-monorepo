@@ -1,8 +1,10 @@
 /* eslint-disable dot-notation */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { EventEmitter } from 'events';
+import fs from 'fs';
+import os from 'os';
 import path from 'path';
-import { format as formatUrl } from 'url';
+import { fileURLToPath, format as formatUrl } from 'url';
 
 import { initNobleBleSupport } from '@onekeyfe/hd-transport-electron';
 import {
@@ -59,6 +61,19 @@ logger.transports.file.maxSize = 1024 * 1024 * 10;
 
 initSentry();
 
+const isPerfCiMode = process.env.PERF_CI_MODE === '1';
+const isDevServer = isDev && !isPerfCiMode;
+const isLocalUnpacked = isDev || isPerfCiMode;
+
+if (isPerfCiMode) {
+  // Keep prepared state in a stable location on perf machines.
+  const userDataDir =
+    process.env.PERF_DESKTOP_USER_DATA_DIR ||
+    path.join(os.homedir(), 'perf-profiles', 'desktop');
+  app.setPath('userData', userDataDir);
+  logger.info('[perf-ci] userDataDir:', userDataDir);
+}
+
 // https://github.com/sindresorhus/electron-context-menu
 let disposeContextMenu: ReturnType<typeof contextMenu> | undefined;
 
@@ -100,7 +115,7 @@ const resourcesPath = getResourcesPath();
 // const preloadJsUrl = path.join(staticPath, 'preload.js');
 // const preloadJsUrl = path.join(staticPath, 'preload-webview-test.js');
 
-const sdkConnectSrc = isDev
+const sdkConnectSrc = isLocalUnpacked
   ? `file://${path.join(staticPath, 'js-sdk/')}`
   : path.join('/static', 'js-sdk/');
 
@@ -227,12 +242,12 @@ const initMenu = () => {
     {
       label: i18nText(ElectronTranslations.menu_view),
       submenu: [
-        ...(isDev || store.getDevTools()
+        ...(isDevServer || store.getDevTools()
           ? [
               { role: 'reload' },
               { role: 'forceReload' },
               { role: 'toggleDevTools' },
-              isDev
+              isDevServer
                 ? {
                     role: 'toggleDevTools',
                     label: `Toggle DevTools: ${store.getDevTools().toString()}`,
@@ -472,17 +487,17 @@ async function createMainWindow() {
     autoHideMenuBar: true,
     frame: true,
     resizable: true,
-    x: isDev ? 0 : undefined,
-    y: isDev ? 0 : undefined,
+    x: isDevServer ? 0 : undefined,
+    y: isDevServer ? 0 : undefined,
     width: Math.min(defaultSize, dimensions.width),
     height: Math.min(defaultSize / ratio, dimensions.height),
-    minWidth: isDev ? undefined : minWidth, // OK-8215
-    minHeight: isDev ? undefined : minHeight / ratio,
+    minWidth: isDevServer ? undefined : minWidth, // OK-8215
+    minHeight: isDevServer ? undefined : minHeight / ratio,
     backgroundColor: getBackgroundColor(theme),
     webPreferences: {
       spellcheck: false,
       webviewTag: true,
-      webSecurity: !isDev,
+      webSecurity: isPerfCiMode ? true : !isDev,
       // @ts-expect-error
       nativeWindowOpen: true,
       allowRunningInsecureContent: false,
@@ -529,17 +544,71 @@ async function createMainWindow() {
     });
   }
 
-  if (isDev) {
-    browserWindow.webContents.openDevTools();
+  const PROTOCOL = 'file';
+  const perfIndexHtmlPath =
+    process.env.PERF_DESKTOP_INDEX_HTML ||
+    path.join(__dirname, '..', 'build', 'index.html');
+
+  if (isLocalUnpacked) {
+    session.defaultSession.protocol.interceptFileProtocol(
+      PROTOCOL,
+      (request, callback) => {
+        const jsSdkPattern = '/static/js-sdk/';
+        const jsSdkIndex = request.url.indexOf(jsSdkPattern);
+
+        // resolve js-sdk files path in local unpacked mode
+        if (jsSdkIndex > -1) {
+          const fileName = request.url.substring(
+            jsSdkIndex + jsSdkPattern.length,
+          );
+          callback(path.join(staticPath, 'js-sdk', fileName));
+          return;
+        }
+
+        // In perf-ci mode we load renderer via file://. Some builds use absolute
+        // asset paths like "/main.xxx.js" which become "file:///main.xxx.js".
+        // Map those to the local build directory as a fallback.
+        try {
+          const requestedPath = fileURLToPath(request.url);
+          if (fs.existsSync(requestedPath)) {
+            callback(requestedPath);
+            return;
+          }
+          const buildDir = path.join(__dirname, '..', 'build');
+          const fallbackPath = path.join(
+            buildDir,
+            requestedPath.replace(/^\/+/, ''),
+          );
+          if (fs.existsSync(fallbackPath)) {
+            callback(fallbackPath);
+            return;
+          }
+          callback(requestedPath);
+        } catch (_e) {
+          // Best-effort: let Electron handle it.
+          callback(request.url);
+        }
+      },
+    );
   }
 
-  const src = isDev
-    ? 'http://localhost:3001/'
-    : formatUrl({
-        pathname: bundleIndexHtmlPath || 'index.html',
-        protocol: 'file',
+  const src = isPerfCiMode
+    ? formatUrl({
+        pathname: perfIndexHtmlPath,
+        protocol: PROTOCOL,
         slashes: true,
-      });
+      })
+    : isDev
+      ? 'http://localhost:3001/'
+      : formatUrl({
+          pathname: bundleIndexHtmlPath || 'index.html',
+          protocol: PROTOCOL,
+          slashes: true,
+        });
+
+  if (isDevServer) {
+    browserWindow.webContents.openDevTools();
+  }
 
   void browserWindow.loadURL(src);
 
@@ -615,7 +684,7 @@ async function createMainWindow() {
   });
 
   ipcMain.on(ipcMessageKeys.IS_DEV, (event) => {
-    event.returnValue = isDev;
+    event.returnValue = isDevServer;
   });
 
   ipcMain.on(ipcMessageKeys.APP_IS_FOCUSED, (event) => {
@@ -801,28 +870,7 @@ async function createMainWindow() {
     },
   );
 
-  const PROTOCOL = 'file';
-  if (isDev) {
-    session.defaultSession.protocol.interceptFileProtocol(
-      PROTOCOL,
-      (request, callback) => {
-        const jsSdkPattern = '/static/js-sdk/';
-        const jsSdkIndex = request.url.indexOf(jsSdkPattern);
-
-        // resolve js-sdk files path in dev mode
-        if (jsSdkIndex > -1) {
-          const fileName = request.url.substring(
-            jsSdkIndex + jsSdkPattern.length,
-          );
-          callback({
-            path: path.join(staticPath, 'js-sdk', fileName),
-          });
-          return;
-        }
-        callback(request.url);
-      },
-    );
-  } else {
+  if (!isLocalUnpacked) {
     // Get Windows drive letter for security validation
     const driveLetter = getDriveLetter();
     logger.info('driveLetter >>>> ', driveLetter);
@@ -1005,7 +1053,7 @@ app.on('window-all-closed', () => {
 // Closing the cause context: https://onekeyhq.atlassian.net/browse/OK-8096
 app.commandLine.appendSwitch('disable-features', 'CrossOriginOpenerPolicy');
 
-if (isDev) {
+if (isDevServer) {
   app.commandLine.appendSwitch('ignore-certificate-errors');
   app.commandLine.appendSwitch('allow-insecure-localhost', 'true');
   app.commandLine.appendSwitch('disable-site-isolation-trials');
