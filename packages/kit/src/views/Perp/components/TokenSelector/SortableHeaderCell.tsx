@@ -72,12 +72,12 @@ function BaseSortableHeaderCell({
       group="card"
       width={width}
       flex={flex}
-      cursor="pointer"
       onPress={handlePress}
       hoverStyle={{ opacity: 0.7 }}
       userSelect="none"
       alignItems="center"
       gap="$0.5"
+      cursor="default"
     >
       <SizableText
         size="$bodySm"

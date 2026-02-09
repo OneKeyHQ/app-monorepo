@@ -236,7 +236,7 @@ const TradesHistoryRow = memo(
                       icon="ShareOutline"
                       iconSize="$4"
                       onPress={() => onShare?.(fill)}
-                      cursor="pointer"
+                      cursor="default"
                       hoverStyle={null}
                       pressStyle={null}
                     />
@@ -356,10 +356,10 @@ const TradesHistoryRow = memo(
               {...getColumnStyle(columnConfigs[1])}
               justifyContent={calcCellAlign(columnConfigs[1].align)}
               alignItems="center"
-              cursor="pointer"
               onPress={() =>
                 actions.current.changeActiveAsset({ coin: rawCoin })
               }
+              cursor="default"
             >
               <SizableText
                 numberOfLines={1}
@@ -460,6 +460,7 @@ const TradesHistoryRow = memo(
             justifyContent={calcCellAlign(columnConfigs[7].align)}
             alignItems="center"
             gap="$1"
+            cursor="default"
           >
             <SizableText
               numberOfLines={1}
@@ -476,7 +477,6 @@ const TradesHistoryRow = memo(
                 icon="ShareOutline"
                 iconSize="$4"
                 onPress={() => onShare?.(fill)}
-                cursor="pointer"
                 hoverStyle={null}
                 pressStyle={null}
               />

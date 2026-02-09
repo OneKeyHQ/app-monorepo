@@ -22,12 +22,10 @@ import {
 import type { IBadgeType } from '@onekeyhq/components';
 import { useClipboard } from '@onekeyhq/components/src/hooks/useClipboard';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   ONEKEY_ORDERS_URL,
   ONEKEY_SHOP_URL,
-  ONEKEY_TRACK_ORDER_URL,
 } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
@@ -53,8 +51,6 @@ export default function PrimeMyOrders() {
   const { copyText } = useClipboard();
   const [showAlert, setShowAlert] = useState(true);
 
-  const { user } = useOneKeyAuth();
-
   const { result: orders, isLoading } = usePromiseResult(
     () => backgroundApiProxy.servicePrime.apiFetchShopifyOrders(),
     [],
@@ -77,15 +73,9 @@ export default function PrimeMyOrders() {
     [copyText],
   );
 
-  const handleOrderDetails = useCallback(
-    (order: IShopifyOrder) => {
-      const trackOrderUrl = `${ONEKEY_TRACK_ORDER_URL}?order=${encodeURIComponent(
-        order.orderNumber,
-      )}&token=${encodeURIComponent(user?.email ?? '')}`;
-      openUrlUtils.openUrlExternal(trackOrderUrl);
-    },
-    [user?.email],
-  );
+  const handleOrderDetails = useCallback(() => {
+    openUrlUtils.openUrlExternal(ONEKEY_ORDERS_URL);
+  }, []);
 
   const { gtMd } = useMedia();
 
@@ -104,7 +94,7 @@ export default function PrimeMyOrders() {
           alignItems="center"
           gap="$3"
           {...(!gtMd && {
-            onPress: () => handleOrderDetails(item),
+            onPress: () => handleOrderDetails(),
             hoverStyle: { bg: '$bgHover' },
             pressStyle: { bg: '$bgActive' },
             cursor: 'pointer',
@@ -168,7 +158,7 @@ export default function PrimeMyOrders() {
               variant="primary"
               size="small"
               iconAfter="OpenOutline"
-              onPress={() => handleOrderDetails(item)}
+              onPress={() => handleOrderDetails()}
             >
               {intl.formatMessage({ id: ETranslations.global_details })}
             </Button>
@@ -177,7 +167,7 @@ export default function PrimeMyOrders() {
               icon="OpenOutline"
               size="small"
               variant="tertiary"
-              onPress={() => handleOrderDetails(item)}
+              onPress={() => handleOrderDetails()}
             />
           )}
         </XStack>

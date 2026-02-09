@@ -118,18 +118,17 @@ export const TpSlFormInput = memo(
             width: 120,
           }}
           renderTrigger={({ label: triggerLabel }) => (
-            <XStack alignItems="center" gap="$2" cursor="pointer">
+            <XStack alignItems="center" gap="$2" cursor="default">
               {isMobile ? <Divider vertical h={24} /> : null}
               <SizableText
                 size="$bodyMdMedium"
                 color={disabled ? '$textDisabled' : '$textSubdued'}
-                cursor={disabled ? 'not-allowed' : 'pointer'}
                 userSelect="none"
               >
                 {triggerLabel}
               </SizableText>
               <Icon
-                name="ChevronTriangleDownSmallOutline"
+                name="ChevronDownSmallOutline"
                 ml="$-2"
                 size="$4"
                 color={disabled ? '$iconDisabled' : '$iconSubdued'}

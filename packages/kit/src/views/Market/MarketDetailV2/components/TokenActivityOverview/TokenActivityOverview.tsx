@@ -79,7 +79,7 @@ export function TokenActivityOverview() {
     buys !== undefined && sells !== undefined ? buys + sells : undefined;
 
   return (
-    <Stack gap="$5" px="$5" py="$4">
+    <Stack gap="$3" pl="$3" pr="$5" pt="$3" pb="$4">
       <TimeRangeSelector
         options={timeRangeOptions}
         value={selectedTimeRange}

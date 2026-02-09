@@ -3,26 +3,6 @@
 // @ts-ignore
 /* eslint-disable  */
   
-  // This file is automatically created by `yarn fetch:locale`.
-
-// @ts-ignore
-/* eslint-disable  */
-  
-  // This file is automatically created by `yarn fetch:locale`.
-
-// @ts-ignore
-/* eslint-disable  */
-  
-  // This file is automatically created by `yarn fetch:locale`.
-
-// @ts-ignore
-/* eslint-disable  */
-  
-  // This file is automatically created by `yarn fetch:locale`.
-
-// @ts-ignore
-/* eslint-disable  */
-  
   export enum ETranslations {
   Limit_expire_day = 'Limit.expire_day',
   Limit_expire_days = 'Limit.expire_days',

@@ -271,18 +271,18 @@ export const LeverageAdjustModal = memo(
     return (
       <Badge
         borderRadius="$2"
-        bg="$bgSubdued"
+        bg={isMobile ? '$bgSubdued' : '$bgStrong'}
         onPress={showLeverageDialog}
         px="$3.5"
         h={isMobile ? 32 : 30}
         alignItems="center"
+        cursor="default"
         hoverStyle={{
           bg: '$bgStrongHover',
         }}
         pressStyle={{
           bg: '$bgStrongActive',
         }}
-        cursor="pointer"
         gap="$1"
       >
         {isMobile ? null : (

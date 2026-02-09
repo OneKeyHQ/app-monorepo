@@ -119,7 +119,7 @@ function DepositButton() {
       px="$3"
       h={gtSm ? 30 : 28}
       bg={isEmptyAccount ? '$brand8' : '$bgStrong'}
-      cursor="pointer"
+      cursor="default"
     >
       {isEmptyAccount ? (
         <>
