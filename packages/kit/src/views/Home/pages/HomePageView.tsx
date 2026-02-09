@@ -13,6 +13,7 @@ import {
   XStack,
   YStack,
   useScrollContentTabBarOffset,
+  useTabContainerWidth,
 } from '@onekeyhq/components';
 import type { ITabBarItemProps } from '@onekeyhq/components/src/composite/Tabs/TabBar';
 import { TabBarItem } from '@onekeyhq/components/src/composite/Tabs/TabBar';
@@ -103,6 +104,7 @@ export function HomePageView({
   sceneName: EAccountSelectorSceneName;
 }) {
   const tabBarHeight = useScrollContentTabBarOffset();
+  const tabContainerWidth = useTabContainerWidth();
   const intl = useIntl();
   const {
     activeAccount: {
@@ -390,6 +392,7 @@ export function HomePageView({
         key={key}
         allowHeaderOverscroll
         useNativeHeaderAnimation={platformEnv.isNativeAndroid}
+        width={platformEnv.isNative ? (tabContainerWidth as number) : undefined}
         renderHeader={renderHeader}
         renderTabBar={renderTabBar}
       >
@@ -402,6 +405,7 @@ export function HomePageView({
     );
   }, [
     tabBarHeight,
+    tabContainerWidth,
     account?.id,
     account?.indexedAccountId,
     isBulkRevokeApprovalEnabled,
