@@ -545,19 +545,7 @@ function TokenListViewCmp(props: IProps) {
 
   if (plainMode) {
     if (showSkeleton) {
-      return (
-        <ListLoading
-          itemProps={
-            tableLayout
-              ? undefined
-              : {
-                  mx: '$0',
-                  px: '$0',
-                }
-          }
-          isTokenSelectorView={!tableLayout}
-        />
-      );
+      return <ListLoading isTokenSelectorView={!tableLayout} />;
     }
 
     if (!limitedTokens || limitedTokens.length === 0) {
@@ -597,12 +585,6 @@ function TokenListViewCmp(props: IProps) {
             withSwapAction={withSwapAction}
             showNetworkIcon={showNetworkIcon}
             withAggregateBadge={withAggregateBadge}
-            {...(tableLayout
-              ? undefined
-              : {
-                  mx: '$0',
-                  px: '$0',
-                })}
           />
         ))}
         {renderPlainModeFooter()}
