@@ -28,6 +28,11 @@ export enum ECheckAmountActionType {
   UNDELEGATE = 'undelegate',
 }
 
+export enum ECanSwapActionType {
+  STAKING = 'stake',
+  UNSTAKING = 'unstake',
+}
+
 export interface IEarnAlertButton {
   text: {
     text: string;
@@ -1639,6 +1644,7 @@ export type IEarnPortfolioAsset = IEarnInvestmentItemV2['assets'][number] & {
     network: IEarnInvestmentItemV2['network'];
     fiatValue?: string;
     fiatValueUsd?: string;
+    ptAddress?: string;
   };
 };
 
@@ -1753,7 +1759,8 @@ export interface IEarnRegisterSignMessageResponse {
   toast?: IEarnToast;
 }
 
-export interface IVerifyRegisterSignMessageParams extends IBuildRegisterSignMessageParams {
+export interface IVerifyRegisterSignMessageParams
+  extends IBuildRegisterSignMessageParams {
   signature: string;
   message: string;
 }

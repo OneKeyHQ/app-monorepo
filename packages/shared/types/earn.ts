@@ -87,6 +87,9 @@ export enum EAvailableAssetsTypeEnum {
   All = 'all',
   StableCoins = 'stableCoins',
   NativeTokens = 'nativeTokens',
+  SimpleEarn = 'simpleEarn',
+  FixedRate = 'fixedRate',
+  Staking = 'staking',
 }
 
 export interface IEarnAvailableAssetProtocol {
