@@ -44,6 +44,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import defiUtils from '@onekeyhq/shared/src/utils/defiUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { EHomeTab } from '@onekeyhq/shared/types';
 import type {
   IDeFiProtocol,
   IProtocolSummary,
@@ -193,6 +194,13 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
 
       await backgroundApiProxy.serviceDeFi.abortFetchAccountDeFiPositions();
 
+      appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
+        isRefreshing: true,
+        type: EHomeTab.DEFI,
+        accountId: account.id,
+        networkId: network.id,
+      });
+
       try {
         const resp =
           await backgroundApiProxy.serviceDeFi.fetchAccountDeFiPositions({
@@ -227,6 +235,12 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
         updateDeFiListState({
           isRefreshing: false,
           initialized: true,
+        });
+        appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
+          isRefreshing: false,
+          type: EHomeTab.DEFI,
+          accountId: account.id,
+          networkId: network.id,
         });
       }
     },
@@ -377,10 +391,26 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
     updateDeFiListProtocolMap,
   ]);
 
-  const handleAllNetworkRequestsStarted = useCallback(async () => {
-    deFiRawDataRef.current =
-      (await backgroundApiProxy.simpleDb.deFi.getRawData()) ?? undefined;
-  }, []);
+  const handleAllNetworkRequestsStarted = useCallback(
+    async ({
+      accountId,
+      networkId,
+    }: {
+      accountId?: string;
+      networkId?: string;
+    }) => {
+      deFiRawDataRef.current =
+        (await backgroundApiProxy.simpleDb.deFi.getRawData()) ?? undefined;
+
+      appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
+        isRefreshing: true,
+        type: EHomeTab.DEFI,
+        accountId: accountId ?? '',
+        networkId: networkId ?? '',
+      });
+    },
+    [],
+  );
 
   const handleAllNetworkCacheRequests = useCallback(
     async ({
@@ -488,9 +518,25 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
     [settings.currencyInfo.id, updateAccountDeFiOverview],
   );
 
-  const handleAllNetworkRequestsFinished = useCallback(async () => {
-    isForceRefreshRef.current = false;
-  }, []);
+  const handleAllNetworkRequestsFinished = useCallback(
+    async ({
+      accountId,
+      networkId,
+    }: {
+      accountId?: string;
+      networkId?: string;
+    }) => {
+      isForceRefreshRef.current = false;
+
+      appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
+        isRefreshing: false,
+        type: EHomeTab.DEFI,
+        accountId: accountId ?? '',
+        networkId: networkId ?? '',
+      });
+    },
+    [],
+  );
 
   const {
     run: runAllNetworkRequests,
