@@ -57,6 +57,9 @@ function AssetSelectorTrigger() {
     openChainSelector({
       networkIds: availableNetworkIds,
       defaultNetworkId: selectedNetworkId,
+      showNetworkValues: true,
+      indexedAccountId: selectedIndexedAccountId ?? undefined,
+      accountId: selectedAccountId ?? undefined,
       onSelect: async (_network) => {
         let accountId = '';
         if (

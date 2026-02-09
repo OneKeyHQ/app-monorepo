@@ -96,13 +96,13 @@ export function FavoritesEmptyState({ isMobile }: { isMobile?: boolean }) {
               justifyContent="space-between"
               alignItems="center"
               onPress={() => handleToggleToken(token.coinName)}
-              cursor="pointer"
               hoverStyle={{
                 bg: '$bgHover',
               }}
               pressStyle={{
                 bg: '$bgActive',
               }}
+              cursor="default"
             >
               <XStack gap="$3" alignItems="center">
                 <Token

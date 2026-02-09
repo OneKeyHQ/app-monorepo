@@ -9,6 +9,7 @@ import {
   type IListViewRef,
   Icon,
   ListView,
+  NumberSizeableText,
   Popover,
   SearchBar,
   SizableText,
@@ -32,6 +33,7 @@ import {
   usePerpTokenSelectorConfigPersistAtom,
   usePerpTokenSelectorTabsAtom,
   usePerpsActiveAssetAtom,
+  usePerpsActiveAssetCtxAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
@@ -85,7 +87,7 @@ function TabItem({
       borderBottomWidth={isFocused ? '$0.5' : '$0'}
       borderBottomColor="$borderActive"
       onPress={() => onPress(name)}
-      cursor="pointer"
+      cursor="default"
     >
       <SizableText
         size="$headingXs"
@@ -178,7 +180,6 @@ function BasePerpTokenSelectorContent({
     () => ({
       favorites: intl.formatMessage({ id: ETranslations.perp_tab_favs }),
       all: 'PERPS',
-      hip3: 'HIP3',
     }),
     [intl],
   );
@@ -221,7 +222,6 @@ function BasePerpTokenSelectorContent({
     null,
   );
   const listRefAll = useRef<IListViewRef<ITokenSelectorListItem> | null>(null);
-  const listRefHip3 = useRef<IListViewRef<ITokenSelectorListItem> | null>(null);
   const dynamicListRefsRef = useRef<
     Record<string, IListViewRef<ITokenSelectorListItem> | null>
   >({});
@@ -257,10 +257,11 @@ function BasePerpTokenSelectorContent({
     lastSortRef.current = { field, direction };
 
     let ref = listRefAll.current;
-    if (activeTabRef.current === 'hip3') {
-      ref = listRefHip3.current;
-    } else if (activeTabRef.current === 'favorites') {
+    if (activeTabRef.current === 'favorites') {
       ref = listRefFavorites.current;
+    } else {
+      const dynamicRef = dynamicListRefsRef.current[activeTabRef.current];
+      if (dynamicRef) ref = dynamicRef;
     }
     ref?.scrollToOffset?.({ offset: 0, animated: false });
   }, [selectorConfig?.direction, selectorConfig?.field]);
@@ -335,71 +336,9 @@ function BasePerpTokenSelectorContent({
     [selectorConfig?.direction, selectorConfig?.field],
   );
 
-  const buildListData = useCallback(
-    ({
-      assets,
-      assetCtxs,
-      dexIndex,
-    }: {
-      assets: IPerpsUniverse[];
-      assetCtxs: IPerpsAssetCtx[];
-      dexIndex: number;
-    }) => {
-      const sortField = selectorConfig?.field ?? '';
-      if (!assets?.length) {
-        return [];
-      }
-
-      if (!sortField) {
-        return assets.map((_, index) => ({
-          index,
-          dexIndex,
-          sortHelper: 0,
-        }));
-      }
-
-      const entries = assets.map((asset, index) => {
-        // Normalize assetId to array index: HIP3 assets have offset, Perps don't
-        const normalizedAssetId =
-          dexIndex === 1 ? asset.assetId - XYZ_ASSET_ID_OFFSET : asset.assetId;
-        const sortValues = computeSortValues(assetCtxs?.[normalizedAssetId]);
-        return {
-          index,
-          dexIndex,
-          asset,
-          sortValues,
-        };
-      });
-
-      entries.sort((a, b) =>
-        sortCompare(
-          { asset: a.asset, sortValues: a.sortValues },
-          { asset: b.asset, sortValues: b.sortValues },
-        ),
-      );
-
-      return entries.map((entry) => ({
-        index: entry.index,
-        dexIndex: entry.dexIndex,
-      }));
-    },
-    [computeSortValues, sortCompare, selectorConfig?.field],
-  );
-
   const listDataByTab = useMemo(() => {
     const assetsByDexTyped: IPerpsUniverse[][] = assetsByDex || [];
     const assetCtxsByDexTyped: IPerpsAssetCtx[][] = assetCtxsByDex || [];
-
-    // const perpsAssets: IPerpsUniverse[] = assetsByDexTyped[0] || [];
-    const hip3Assets: IPerpsUniverse[] = assetsByDexTyped[1] || [];
-    // const perpsCtxs: IPerpsAssetCtx[] = assetCtxsByDexTyped[0] || [];
-    const hip3Ctxs: IPerpsAssetCtx[] = assetCtxsByDexTyped[1] || [];
-
-    const listHip3 = buildListData({
-      assets: hip3Assets,
-      assetCtxs: hip3Ctxs,
-      dexIndex: 1,
-    });
 
     const combinedEntries = assetsByDexTyped.flatMap(
       (assets: IPerpsUniverse[], dexIndex: number) => {
@@ -467,13 +406,11 @@ function BasePerpTokenSelectorContent({
     return {
       favorites: listFavorites,
       all: listAll,
-      hip3: listHip3,
       dynamic: dynamicTabsData,
     };
   }, [
     assetCtxsByDex,
     assetsByDex,
-    buildListData,
     computeSortValues,
     dynamicTabs,
     favoriteItems,
@@ -481,16 +418,10 @@ function BasePerpTokenSelectorContent({
     selectorConfig?.field,
   ]);
 
-  // Filter to visible dynamic tabs (those with matching tokens)
-  const visibleDynamicTabs = useMemo<IPerpDynamicTab[]>(() => {
-    const assetsByDexTyped: IPerpsUniverse[][] = assetsByDex || [];
-    const allAssetNames = new Set(
-      assetsByDexTyped.flatMap((assets) => assets.map((a) => a.name)),
-    );
-    return (dynamicTabsRaw ?? []).filter((tab) =>
-      tab.tokens.some((token) => allAssetNames.has(token)),
-    );
-  }, [assetsByDex, dynamicTabsRaw]);
+  // Show all server-configured dynamic tabs regardless of search results.
+  // Filtering by search-filtered assetsByDex would hide tabs during search
+  // and break tab persistence (assetsByDex resets to [] on unmount).
+  const visibleDynamicTabs = dynamicTabs;
 
   usePerpActiveTabValidation({
     activeTab,
@@ -583,7 +514,6 @@ function BasePerpTokenSelectorContent({
         </XStack>
         <Tabs.Container
           initialTabName={(() => {
-            if (activeTab === 'hip3') return tabNames.hip3;
             if (activeTab === 'favorites') return tabNames.favorites;
             // Check if activeTab is a dynamic tab
             const dynamicTab = visibleDynamicTabs.find(
@@ -593,10 +523,6 @@ function BasePerpTokenSelectorContent({
             return tabNames.all;
           })()}
           onTabChange={({ tabName }) => {
-            if (tabName === tabNames.hip3) {
-              setActiveTab('hip3');
-              return;
-            }
             if (tabName === tabNames.favorites) {
               setActiveTab('favorites');
               return;
@@ -635,9 +561,6 @@ function BasePerpTokenSelectorContent({
           </Tabs.Tab>
           <Tabs.Tab name={tabNames.all}>
             {renderTokenList(listDataByTab.all, listRefAll, false)}
-          </Tabs.Tab>
-          <Tabs.Tab name={tabNames.hip3}>
-            {renderTokenList(listDataByTab.hip3, listRefHip3, false)}
           </Tabs.Tab>
           {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -706,10 +629,10 @@ function BasePerpTokenSelector() {
           <Badge
             gap="$3"
             bg="$bgApp"
-            cursor="pointer"
             px="$2"
             py="$1.5"
             borderRadius="$full"
+            cursor="default"
             hoverStyle={{
               bg: '$bgHover',
             }}
@@ -774,22 +697,14 @@ const BasePerpTokenSelectorMobileView = memo(
   ({
     onPressTokenSelector,
     coin,
+    change24hPercent,
   }: {
     onPressTokenSelector: () => void;
     coin: string;
+    change24hPercent: number;
   }) => {
-    const intl = useIntl();
     const parsedCoin = useMemo(() => parseDexCoin(coin), [coin]);
     const displayCoin = parsedCoin.displayName || coin;
-    const [builderFeeRate, setBuilderFeeRate] = useState<number | undefined>();
-
-    useEffect(() => {
-      void backgroundApiProxy.simpleDb.perp
-        .getExpectMaxBuilderFee()
-        .then((fee) => {
-          setBuilderFeeRate(fee);
-        });
-    }, []);
 
     return (
       <DebugRenderTracker name="BasePerpTokenSelectorMobileView">
@@ -798,47 +713,21 @@ const BasePerpTokenSelectorMobileView = memo(
           bg="$bgApp"
           justifyContent="center"
           alignItems="center"
+          onPress={onPressTokenSelector}
         >
-          <XStack gap="$1" onPress={onPressTokenSelector} alignItems="center">
-            <SizableText size="$headingXl">{displayCoin}USDC</SizableText>
-            <Badge radius="$1" bg="$bgSubdued" px="$1" py={0}>
-              <SizableText color="$textSubdued" fontSize={11}>
-                {intl.formatMessage({
-                  id: ETranslations.perp_label_perp,
-                })}
-              </SizableText>
-            </Badge>
-          </XStack>
-          {builderFeeRate === 0 ? (
-            <Popover
-              title={intl.formatMessage({
-                id: ETranslations.referral_perps_onekey_fee,
-              })}
-              renderTrigger={
-                <Badge radius="$1" bg="$bgSuccessSubdued" px="$1" py={0}>
-                  <SizableText color="$green11" fontSize={11}>
-                    {intl.formatMessage({
-                      id: ETranslations.perp_0_fee,
-                    })}
-                  </SizableText>
-                </Badge>
-              }
-              renderContent={
-                <YStack px="$5" pb="$4">
-                  <SizableText size="$bodyMd" color="$text">
-                    {intl.formatMessage({
-                      id: ETranslations.perps_fee_desc,
-                    })}
-                  </SizableText>
-                </YStack>
-              }
-            />
-          ) : null}
-          <Icon
-            name="ChevronTriangleDownSmallOutline"
-            size="$5"
-            onPress={onPressTokenSelector}
-          />
+          <SizableText size="$headingXl">{displayCoin}USDC</SizableText>
+          <NumberSizeableText
+            size="$bodySmMedium"
+            alignSelf="center"
+            color={change24hPercent >= 0 ? '$green11' : '$red11'}
+            formatter="priceChange"
+            formatterOptions={{
+              showPlusMinusSigns: true,
+            }}
+          >
+            {change24hPercent}
+          </NumberSizeableText>
+          <Icon name="ChevronTriangleDownSmallSolid" size="$5" />
         </XStack>
       </DebugRenderTracker>
     );
@@ -849,7 +738,9 @@ function BasePerpTokenSelectorMobile() {
   const navigation = useAppNavigation();
 
   const [asset] = usePerpsActiveAssetAtom();
+  const [assetCtx] = usePerpsActiveAssetCtxAtom();
   const coin = asset?.coin || '';
+  const change24hPercent = assetCtx?.ctx?.change24hPercent || 0;
   const onPressTokenSelector = useCallback(() => {
     navigation.pushModal(EModalRoutes.PerpModal, {
       screen: EModalPerpRoutes.MobileTokenSelector,
@@ -860,6 +751,7 @@ function BasePerpTokenSelectorMobile() {
     <BasePerpTokenSelectorMobileView
       onPressTokenSelector={onPressTokenSelector}
       coin={coin}
+      change24hPercent={change24hPercent}
     />
   );
 }

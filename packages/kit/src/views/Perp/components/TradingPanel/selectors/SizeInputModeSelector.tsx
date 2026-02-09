@@ -42,7 +42,7 @@ export function SizeInputModeSelector({
     <XStack
       alignItems="center"
       gap="$2"
-      cursor="pointer"
+      cursor="default"
       onPress={(e) => {
         e.stopPropagation();
         onPress();
@@ -69,15 +69,11 @@ export function SizeInputModeSelector({
   );
 
   const trigger = (
-    <XStack alignItems="center" gap="$1" cursor="pointer" userSelect="none">
+    <XStack alignItems="center" gap="$1" userSelect="none" cursor="default">
       <SizableText size="$bodyMdMedium" color="$textSubdued">
         {value === 'token' ? tokenSymbol || 'Token' : 'USD'}
       </SizableText>
-      <Icon
-        name="ChevronTriangleDownSmallOutline"
-        size="$4"
-        color="$iconSubdued"
-      />
+      <Icon name="ChevronDownSmallOutline" size="$4" color="$iconSubdued" />
     </XStack>
   );
 
@@ -103,8 +99,8 @@ export function SizeInputModeSelector({
             borderRadius="$3"
             borderWidth={1}
             borderColor={isTokenSelected ? '$borderActive' : '$borderSubdued'}
-            cursor="pointer"
             onPress={() => onChange('token')}
+            cursor="default"
             hoverStyle={{
               bg: '$bgHover',
             }}
@@ -130,8 +126,8 @@ export function SizeInputModeSelector({
             borderRadius="$3"
             borderWidth={1}
             borderColor={isUsdSelected ? '$borderActive' : '$borderSubdued'}
-            cursor="pointer"
             onPress={handleUsdCardPress}
+            cursor="default"
             hoverStyle={{
               bg: '$bgHover',
             }}

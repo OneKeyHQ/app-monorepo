@@ -14,7 +14,7 @@ function PortfolioItemSmallBase({ item }: IPortfolioItemSmallProps) {
 
   return (
     <XStack
-      px="$4"
+      px="$5"
       py="$3"
       borderBottomWidth={1}
       borderColor="$borderSubdued"

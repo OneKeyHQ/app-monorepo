@@ -75,9 +75,8 @@ function TabBarItem({
         borderBottomWidth={isFocused ? '$0.5' : '$0'}
         borderBottomColor="$borderActive"
         onPress={() => onPress(name)}
-        cursor="pointer"
       >
-        <SizableText size="$headingXs">{`${tabTitle} ${tabCount}`}</SizableText>
+        <SizableText size="$bodyMdMedium">{`${tabTitle} ${tabCount}`}</SizableText>
       </XStack>
     </DebugRenderTracker>
   );
