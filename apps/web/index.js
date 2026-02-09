@@ -22,3 +22,14 @@ initSentry();
 void initIntercom();
 
 registerRootComponent(withSentryHOC(App, SentryErrorBoundaryFallback));
+
+// Register service worker in production only
+if (
+  typeof window !== 'undefined' &&
+  'serviceWorker' in navigator &&
+  process.env.NODE_ENV === 'production'
+) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/service-worker.js');
+  });
+}
