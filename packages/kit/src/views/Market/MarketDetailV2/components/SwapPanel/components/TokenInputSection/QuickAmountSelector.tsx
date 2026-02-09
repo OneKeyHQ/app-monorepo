@@ -2,7 +2,7 @@ import { Fragment, useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 
-import { Button, Divider, SizableText, XStack } from '@onekeyhq/components';
+import { Button, SizableText, Stack, XStack } from '@onekeyhq/components';
 import type { ISwapNativeTokenReserveGas } from '@onekeyhq/shared/types/swap/types';
 
 import { ESwapDirection, type ITradeType } from '../../hooks/useTradeType';
@@ -111,9 +111,11 @@ export function QuickAmountSelector({
             size="medium"
             variant="secondary"
             h="$8"
-            borderTopRightRadius={index !== amountsLength - 1 ? 0 : '$2'}
+            borderWidth={0}
+            bg="$bgStrong"
+            borderTopRightRadius={0}
             borderBottomRightRadius={index !== amountsLength - 1 ? 0 : '$2'}
-            borderTopLeftRadius={index !== 0 ? 0 : '$2'}
+            borderTopLeftRadius={0}
             borderBottomLeftRadius={index !== 0 ? 0 : '$2'}
             onPress={() => handleAmountSelect(amount, index)}
           >
@@ -122,7 +124,7 @@ export function QuickAmountSelector({
             </SizableText>
           </Button>
           {index !== amountsLength - 1 ? (
-            <Divider key={`divider-${index}`} vertical />
+            <Stack key={`divider-${index}`} w={1.5} bg="$bgApp" />
           ) : null}
         </Fragment>
       ))}

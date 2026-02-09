@@ -15,4 +15,3 @@ function readPerfCiLocalConfig(repoRoot) {
 module.exports = {
   readPerfCiLocalConfig,
 };
-

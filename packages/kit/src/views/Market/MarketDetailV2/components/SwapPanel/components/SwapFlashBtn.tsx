@@ -11,16 +11,16 @@ const SwapFlashBtn = ({ onFlashTrade, buttonProps }: ISwapFlashBtnProps) => {
     <Button
       size="small"
       variant="primary"
-      w="$8"
-      h="$8"
+      w="$9"
+      h="$9"
       p="$0"
-      borderRadius="$4"
+      borderRadius="$full"
       onPress={onFlashTrade}
       justifyContent="center"
       alignItems="center"
       {...buttonProps}
     >
-      <Icon name="FlashSolid" size="$4.5" color="$iconInverse" />
+      <Icon name="FlashSolid" size="$5" color="$iconInverse" />
     </Button>
   );
 };

@@ -40,6 +40,7 @@ import {
   useBulkSendReviewContext,
 } from './components/Context';
 import { showStandaloneApproveEditor } from './components/StandaloneApproveEditor';
+import { useApprovalRecheck } from './hooks/useApprovalRecheck';
 import { useBulkSendFeeEstimation } from './hooks/useBulkSendFeeEstimation';
 
 function BaseBulkSendReview({
@@ -55,6 +56,7 @@ function BaseBulkSendReview({
     tokenInfo,
     transfersInfo,
     bulkSendMode,
+    totalTokenAmount,
     approvesInfo,
     unsignedTxs,
     setApprovesInfo,
@@ -80,6 +82,19 @@ function BaseBulkSendReview({
       feeState,
       setFeeState,
     });
+
+  // Approval recheck hook - polls allowance after partial batch failure
+  const { isRecheckingApproval, startApprovalRecheck } = useApprovalRecheck({
+    networkId,
+    accountId,
+    tokenInfo,
+    transfersInfo,
+    totalTokenAmount,
+    approvesInfo,
+    setApprovesInfo,
+    setUnsignedTxs,
+    forceRefreshFee,
+  });
 
   // Fee overflow check hook
   const { checkFeeInfoIsOverflow, showFeeInfoOverflowConfirm } =
@@ -367,7 +382,7 @@ function BaseBulkSendReview({
         setIsSubmitting(false);
         // Check if user cancelled
         if (e instanceof Error && e.message === 'User cancelled') {
-          // Stay on current page, do nothing
+          startApprovalRecheck();
           return;
         }
         onFail?.(e as Error);
@@ -412,6 +427,7 @@ function BaseBulkSendReview({
         navigation.popStack();
       }
       setIsSubmitting(false);
+      startApprovalRecheck();
       onFail?.(e as Error);
       throw e;
     }
@@ -429,6 +445,7 @@ function BaseBulkSendReview({
     navigation,
     handleTronTxsOneByOne,
     navigateAfterSuccess,
+    startApprovalRecheck,
     bulkSendMode,
     transfersInfo.length,
     tokenInfo?.symbol,
@@ -445,7 +462,8 @@ function BaseBulkSendReview({
     (feeState.feeStatus === ESendFeeStatus.Loading &&
       !feeState.isInitialized) ||
     feeState.feeStatus === ESendFeeStatus.Error ||
-    isSubmitting;
+    isSubmitting ||
+    isRecheckingApproval;
 
   return (
     <Page scrollEnabled>
@@ -493,7 +511,7 @@ function BaseBulkSendReview({
           confirmButtonProps={{
             onPress: handleConfirm,
             disabled: isConfirmDisabled,
-            loading: isSubmitting,
+            loading: isSubmitting || isRecheckingApproval,
           }}
         />
       </Page.Footer>
