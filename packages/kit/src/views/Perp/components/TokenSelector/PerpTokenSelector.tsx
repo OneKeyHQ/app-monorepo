@@ -483,16 +483,10 @@ function BasePerpTokenSelectorContent({
     selectorConfig?.field,
   ]);
 
-  // Filter to visible dynamic tabs (those with matching tokens)
-  const visibleDynamicTabs = useMemo<IPerpDynamicTab[]>(() => {
-    const assetsByDexTyped: IPerpsUniverse[][] = assetsByDex || [];
-    const allAssetNames = new Set(
-      assetsByDexTyped.flatMap((assets) => assets.map((a) => a.name)),
-    );
-    return (dynamicTabsRaw ?? []).filter((tab) =>
-      tab.tokens.some((token) => allAssetNames.has(token)),
-    );
-  }, [assetsByDex, dynamicTabsRaw]);
+  // Show all server-configured dynamic tabs regardless of search results.
+  // Filtering by search-filtered assetsByDex would hide tabs during search
+  // and break tab persistence (assetsByDex resets to [] on unmount).
+  const visibleDynamicTabs = dynamicTabs;
 
   usePerpActiveTabValidation({
     activeTab,
