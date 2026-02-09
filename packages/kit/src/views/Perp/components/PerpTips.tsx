@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Alert } from '@onekeyhq/components';
+import { Alert, YStack } from '@onekeyhq/components';
 import { usePerpsCommonConfigPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
@@ -65,28 +65,33 @@ export function PerpTips() {
     return null;
   }
   return (
-    <Alert
-      flex={1}
-      type={perpConfigCommon?.perpBannerConfig?.alertType ?? 'default'}
-      fullBleed
-      borderBottomWidth={0}
-      title={perpConfigCommon?.perpBannerConfig?.title}
-      description={perpConfigCommon?.perpBannerConfig?.description}
-      closable={!!perpConfigCommon?.perpBannerConfig?.canClose}
-      action={action}
-      onClose={() => {
-        if (perpConfigCommon?.perpBannerConfig?.id) {
-          void setPerpsCommonConfigPersistAtom((prev) => ({
-            ...prev,
-            perpConfigCommon: {
-              ...prev.perpConfigCommon,
-              perpBannerClosedIds: [
-                perpConfigCommon?.perpBannerConfig?.id ?? '',
-              ],
-            },
-          }));
-        }
-      }}
-    />
+    <YStack
+      borderBottomWidth="$px"
+      borderBottomColor="$borderSubdued"
+    >
+      <Alert
+        flex={1}
+        type={perpConfigCommon?.perpBannerConfig?.alertType ?? 'default'}
+        fullBleed
+        borderWidth={0}
+        title={perpConfigCommon?.perpBannerConfig?.title}
+        description={perpConfigCommon?.perpBannerConfig?.description}
+        closable={!!perpConfigCommon?.perpBannerConfig?.canClose}
+        action={action}
+        onClose={() => {
+          if (perpConfigCommon?.perpBannerConfig?.id) {
+            void setPerpsCommonConfigPersistAtom((prev) => ({
+              ...prev,
+              perpConfigCommon: {
+                ...prev.perpConfigCommon,
+                perpBannerClosedIds: [
+                  perpConfigCommon?.perpBannerConfig?.id ?? '',
+                ],
+              },
+            }));
+          }
+        }}
+      />
+    </YStack>
   );
 }
