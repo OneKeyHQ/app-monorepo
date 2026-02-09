@@ -842,7 +842,7 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
   const renderContent = useCallback(() => {
     return (
       <>
-        <YStack gap={tableLayout ? '$5' : '$0'} flex={1}>
+        <YStack gap={tableLayout ? '$8' : '$0'} flex={1}>
           {filteredProtocols.map((protocol) => (
             <Protocol
               key={`${protocol.networkId}-${protocol.protocol}`}
@@ -853,7 +853,7 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
           ))}
         </YStack>
         {overflowState.isOverflow ? (
-          <XStack alignItems="center" justifyContent="center" pt="$4">
+          <XStack alignItems="center" justifyContent="center" pt="$4" px="$pagePadding">
             <Button
               size="small"
               variant="secondary"
@@ -899,20 +899,12 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
         withTitleSeparator
         title={intl.formatMessage({ id: ETranslations.global_earn })}
         subTitle={renderSubTitle()}
-        plainContentContainer={!tableLayout}
+        headerContainerProps={{ px: '$pagePadding' }}
+        contentContainerProps={{ mx: '$5' }}
+        plainContentContainer={!initialized && isRefreshing}
         content={
           !initialized && isRefreshing ? (
-            <ListLoading
-              itemProps={
-                tableLayout
-                  ? undefined
-                  : {
-                      mx: '$0',
-                      px: '$0',
-                    }
-              }
-              isTokenSelectorView={false}
-            />
+            <ListLoading isTokenSelectorView={false} />
           ) : (
             <EmptyDeFi tableLayout={tableLayout} />
           )
@@ -926,6 +918,7 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
       withTitleSeparator
       title={intl.formatMessage({ id: ETranslations.global_earn })}
       subTitle={renderSubTitle()}
+      headerContainerProps={{ px: '$pagePadding' }}
       content={renderContent()}
       plainContentContainer
     />

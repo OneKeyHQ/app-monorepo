@@ -186,7 +186,9 @@ function SupportHub() {
   return (
     <RichBlock
       title={intl.formatMessage({ id: ETranslations.settings_support_hub })}
+      headerContainerProps={{ px: '$pagePadding' }}
       content={renderContent()}
+      contentContainerProps={{ px: '$pagePadding' }}
       plainContentContainer
     />
   );
