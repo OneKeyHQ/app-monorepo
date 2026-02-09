@@ -251,7 +251,7 @@ function TxActionCommonDescription({
         size="$bodyMd"
         color="$textSubdued"
         minWidth={0}
-        numberOfLines={addressLocalLabel ? 1 : undefined}
+        numberOfLines={1}
       >
         {addressLocalLabel || description?.children}
       </SizableText>
