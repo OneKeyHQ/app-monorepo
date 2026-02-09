@@ -2,8 +2,6 @@
 import '@onekeyhq/shared/src/polyfills';
 import '@onekeyhq/shared/src/web/index.css';
 
-import { lazy, Suspense } from 'react';
-
 import { KitProvider } from '@onekeyhq/kit';
 
 import {
@@ -25,22 +23,10 @@ if (process.env.NODE_ENV !== 'production') {
   });
 }
 
-const AgentationDev =
-  process.env.NODE_ENV !== 'production'
-    ? lazy(() =>
-        import('agentation').then((m) => ({ default: m.Agentation })),
-      )
-    : () => null;
-
 function DesktopApp(props: any) {
   return (
     <>
       <KitProvider {...props} />
-      {process.env.NODE_ENV !== 'production' && (
-        <Suspense>
-          <AgentationDev endpoint="http://localhost:4747" />
-        </Suspense>
-      )}
     </>
   );
 }
