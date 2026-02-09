@@ -286,6 +286,9 @@ function BasicActionList({
       setOpenStatus(openStatus);
       onOpenChange?.(openStatus);
       trackActionListToggle(openStatus);
+      if (!openStatus) {
+        setAsyncItems(null);
+      }
     },
     [onOpenChange, setOpenStatus, trackActionListToggle],
   );
