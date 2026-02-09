@@ -1528,7 +1528,7 @@ export function OrderBookMobile({
                     )
                   : '-'}
               </PerpBookText>
-              <Icon name="ChevronTriangleDownSmallOutline" size="$5" />
+              <Icon name="ChevronDownSmallOutline" size="$5" />
             </TouchableOpacity>
           )}
         />

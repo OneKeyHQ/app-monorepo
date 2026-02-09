@@ -47,7 +47,7 @@ function CustomCheckbox({
       gap="$3"
       alignItems="center"
       onPress={() => onChange(!value)}
-      cursor="pointer"
+      cursor="default"
       hoverStyle={{
         opacity: 0.8,
       }}
@@ -200,7 +200,6 @@ export function HyperliquidTermsContent({
                     <SizableText
                       size="$bodySm"
                       color="$textInteractive"
-                      cursor="pointer"
                       onPress={() => {
                         if (platformEnv.isDesktop || platformEnv.isNative) {
                           onClose?.();
@@ -226,7 +225,6 @@ export function HyperliquidTermsContent({
                       id: ETranslations.perp_term_content_4,
                     })}{' '}
                     <SizableText
-                      cursor="pointer"
                       hoverStyle={{
                         borderBottomWidth: 1,
                         borderBottomColor: '$textInteractive',
