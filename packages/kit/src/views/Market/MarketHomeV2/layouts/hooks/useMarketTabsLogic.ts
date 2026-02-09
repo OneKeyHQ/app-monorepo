@@ -92,7 +92,7 @@ export function useMarketTabsLogic(
       isInternalUpdateRef.current = true;
 
       // Reset after a short delay to handle cases where atom value doesn't change
-      // (e.g., clicking the already-active tab), so future external navigations work.
+      // (e.g., clicking the already-active tab), so future external navigation works.
       // Using setTimeout ensures this runs after React's useEffect (which uses MessageChannel).
       setTimeout(() => {
         isInternalUpdateRef.current = false;
