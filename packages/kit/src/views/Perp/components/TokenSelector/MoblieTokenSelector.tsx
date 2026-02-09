@@ -77,7 +77,7 @@ function TabItem({
       borderBottomWidth={isFocused ? '$0.5' : '$0'}
       borderBottomColor="$borderActive"
       onPress={onPress}
-      cursor="pointer"
+      cursor="default"
       onLayout={(event: LayoutChangeEvent) => handleItemLayout(id, event)}
     >
       <SizableText
@@ -420,8 +420,8 @@ function MobileTokenSelectorModal({
           gap="$1"
           alignItems="center"
           onPress={() => handleSortPress('volume24h')}
-          cursor="pointer"
           userSelect="none"
+          cursor="default"
         >
           <SizableText
             size="$bodySm"
@@ -443,8 +443,8 @@ function MobileTokenSelectorModal({
           gap="$1"
           alignItems="center"
           onPress={() => handleSortPress('change24hPercent')}
-          cursor="pointer"
           userSelect="none"
+          cursor="default"
         >
           <SizableText
             size="$bodySm"

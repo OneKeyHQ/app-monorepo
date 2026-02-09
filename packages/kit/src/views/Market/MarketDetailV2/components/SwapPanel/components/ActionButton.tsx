@@ -245,7 +245,7 @@ export function ActionButton({
   if (!hasAmount && !hasClickedWithoutAmount) {
     shouldUseColoredStyle = true;
     buttonText = `${actionText} ${truncatedTokenDetailSymbol}`.trim();
-    isButtonDisabled = false;
+    isButtonDisabled = true;
   }
 
   if (!supportSpeedSwap) {
@@ -271,12 +271,16 @@ export function ActionButton({
             : '$buttonCritical',
         shadowOpacity: 0,
         elevation: 0,
-        hoverStyle: {
-          opacity: 0.9,
-        },
-        pressStyle: {
-          opacity: 0.8,
-        },
+        ...(isButtonDisabled
+          ? { opacity: 0.4 }
+          : {
+              hoverStyle: {
+                opacity: 0.9,
+              },
+              pressStyle: {
+                opacity: 0.8,
+              },
+            }),
       }
     : {
         variant: 'primary' as const,

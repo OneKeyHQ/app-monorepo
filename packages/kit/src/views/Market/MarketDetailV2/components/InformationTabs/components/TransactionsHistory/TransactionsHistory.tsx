@@ -98,9 +98,13 @@ export function TransactionsHistory({
 
   const renderItem: FlatListProps<IMarketTokenTransaction>['renderItem'] =
     useCallback(
-      ({ item }: { item: IMarketTokenTransaction }) => {
+      ({ item, index }: { item: IMarketTokenTransaction; index: number }) => {
         return gtXl ? (
-          <TransactionItemNormal item={item} networkId={networkId} />
+          <TransactionItemNormal
+            item={item}
+            networkId={networkId}
+            index={index}
+          />
         ) : (
           <TransactionItemSmall item={item} />
         );

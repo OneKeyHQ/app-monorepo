@@ -77,7 +77,7 @@ export const TabBarItem = memo(
           onPress={() => onPress(name)}
           mb={-2}
         >
-          <SizableText size="$headingXs">
+          <SizableText size="$bodyMdMedium">
             {`${intl.formatMessage({
               id: tabNameToTranslationKey[name],
             })}${tabCount ? ` ${tabCount}` : ''}`}
