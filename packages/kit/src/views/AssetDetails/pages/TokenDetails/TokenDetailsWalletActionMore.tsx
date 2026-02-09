@@ -133,13 +133,7 @@ export function TokenDetailsWalletActionMore({
           isSoftwareWalletOnlyUser,
         });
 
-        const protocols = protocolList.map((protocol) => ({
-          provider: protocol.provider.name,
-          networkId: protocol.network.networkId,
-          vault: protocol.provider.vault,
-        }));
-
-        if (protocols.length === 1) {
+        if (protocolList.length === 1) {
           const protocol = protocolList[0];
           await EarnNavigation.pushToEarnProtocolDetails(navigation, {
             networkId,
@@ -188,14 +182,18 @@ export function TokenDetailsWalletActionMore({
               type: 'sell',
             });
           if (!url) {
-            Toast.error({ title: 'Failed to get widget url' });
+            Toast.error({
+              title: intl.formatMessage({
+                id: ETranslations.feedback_request_failed,
+              }),
+            });
             return;
           }
           openUrlExternal(url);
         } finally {
           setSellLoading(false);
+          handleActionListClose();
         }
-        handleActionListClose();
       };
 
       return (
