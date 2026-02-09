@@ -9,7 +9,7 @@ import {
 import { ExpirationPlugin } from 'workbox-expiration';
 
 // Precache app shell (manifest injected by InjectManifest at build time)
-precacheAndRoute(globalThis.__WB_MANIFEST);
+precacheAndRoute(self.__WB_MANIFEST);
 
 // Navigation requests -> NetworkFirst (SPA routing, offline fallback to cached index.html)
 registerRoute(
