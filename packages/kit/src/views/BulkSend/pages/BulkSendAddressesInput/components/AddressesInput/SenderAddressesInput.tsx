@@ -10,10 +10,10 @@ import {
   Skeleton,
   XStack,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   EInputAddressChangeType,
@@ -204,7 +204,11 @@ function SenderAddressesInput() {
     }
 
     if (tokenDetailsState.isRefreshing) {
-      return <Skeleton.BodyMd mt="$1.5" />;
+      return (
+        <XStack alignItems="center" gap="$1" mt="$1.5">
+          <Skeleton.BodyMd width="$40" />
+        </XStack>
+      );
     }
     return null;
   }, [

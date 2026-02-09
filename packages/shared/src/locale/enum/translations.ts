@@ -3,6 +3,26 @@
 // @ts-ignore
 /* eslint-disable  */
   
+  // This file is automatically created by `yarn fetch:locale`.
+
+// @ts-ignore
+/* eslint-disable  */
+  
+  // This file is automatically created by `yarn fetch:locale`.
+
+// @ts-ignore
+/* eslint-disable  */
+  
+  // This file is automatically created by `yarn fetch:locale`.
+
+// @ts-ignore
+/* eslint-disable  */
+  
+  // This file is automatically created by `yarn fetch:locale`.
+
+// @ts-ignore
+/* eslint-disable  */
+  
   export enum ETranslations {
   Limit_expire_day = 'Limit.expire_day',
   Limit_expire_days = 'Limit.expire_days',
@@ -957,6 +977,7 @@
   edit_fee_custom_set_as_default_description = 'edit_fee_custom_set_as_default_description',
   email_verification_rate_limit = 'email_verification_rate_limit',
   energy_consumed = 'energy_consumed',
+  enter_a_full_address_or_choose_below = 'enter_a_full_address_or_choose_below',
   enter_account_name_address_or_domain = 'enter_account_name_address_or_domain',
   enter_passcode = 'enter_passcode',
   enter_password = 'enter_password',
@@ -2296,6 +2317,7 @@
   network_recent_used_network = 'network.recent_used_network',
   network__network = 'network__network',
   network_also_enabled = 'network_also_enabled',
+  network_auto_detection_tip = 'network_auto_detection_tip',
   network_does_not_match_the_private_key = 'network_does_not_match_the_private_key',
   network_enable_count = 'network_enable_count',
   network_enable_more = 'network_enable_more',
@@ -2303,12 +2325,15 @@
   network_enabled_count = 'network_enabled_count',
   network_fee_suggested_by_dapp_description = 'network_fee_suggested_by_dapp_description',
   network_fee_suggested_by_dapp_label = 'network_fee_suggested_by_dapp_label',
+  network_found_assets_on_networks = 'network_found_assets_on_networks',
   network_invisible_in_all_network_tooltip_title = 'network_invisible_in_all_network_tooltip_title',
   network_none_selected = 'network_none_selected',
   network_not_enabled = 'network_not_enabled',
+  network_selection_performance_tip = 'network_selection_performance_tip',
   network_selection_prompt = 'network_selection_prompt',
   network_selector_unavailable_networks = 'network_selector.unavailable_networks',
   network_show_enabled_only = 'network_show_enabled_only',
+  network_view_assets_from_n_networks = 'network_view_assets_from_n_networks',
   network_visible_in_all_network_tooltip_title = 'network_visible_in_all_network_tooltip_title',
   new_pin_created = 'new_pin_created',
   new_pin_created_desc = 'new_pin_created_desc',
@@ -2457,6 +2482,7 @@
   passphrase_character_limit = 'passphrase_character_limit',
   passphrase_disabled_dialog_desc = 'passphrase_disabled_dialog_desc',
   passphrase_disabled_dialog_title = 'passphrase_disabled_dialog_title',
+  perp_0_fee = 'perp.0_fee',
   perp_account_action = 'perp.account_action',
   perp_account_action_rewards = 'perp.account_action_rewards',
   perp_account_action_sub_transfer = 'perp.account_action_sub_transfer',
@@ -2734,6 +2760,9 @@
   perps_builder_max_error = 'perps.builder_max_error',
   perps_buy_tip = 'perps.buy_tip',
   perps_connection_error = 'perps.connection_error',
+  perps_fee_desc = 'perps.fee_desc',
+  perps_fee_title = 'perps.fee_title',
+  perps_fee_total = 'perps.fee_total',
   perps_get_reward = 'perps.get_reward',
   perps_offline_moblie = 'perps.offline_moblie',
   perps_pre_launch = 'perps.pre_launch',
@@ -2751,6 +2780,7 @@
   perps_token_selector_perps = 'perps.token_selector_perps',
   perps_token_selector_stocks = 'perps.token_selector_stocks',
   perps_trade_reward = 'perps.trade_reward',
+  perps_footer_help_us_better = 'perps_footer.help_us_better',
   pick_your_device = 'pick_your_device',
   pin_attempts_cooldown = 'pin_attempts_cooldown',
   pin_attempts_exhausted = 'pin_attempts_exhausted',
@@ -3653,6 +3683,26 @@
   swap_btn_building = 'swap.btn_building',
   swap_ch_status_hold = 'swap.ch_status_hold',
   swap_current_token = 'swap.current_token',
+  swap_faq_a1 = 'swap.faq_a1',
+  swap_faq_a2 = 'swap.faq_a2',
+  swap_faq_a3 = 'swap.faq_a3',
+  swap_faq_a4 = 'swap.faq_a4',
+  swap_faq_a5 = 'swap.faq_a5',
+  swap_faq_a6 = 'swap.faq_a6',
+  swap_faq_a7 = 'swap.faq_a7',
+  swap_faq_a8 = 'swap.faq_a8',
+  swap_faq_help_center_for = 'swap.faq_help_center_for',
+  swap_faq_help_center_help = 'swap.faq_help_center_help',
+  swap_faq_q1 = 'swap.faq_q1',
+  swap_faq_q2 = 'swap.faq_q2',
+  swap_faq_q3 = 'swap.faq_q3',
+  swap_faq_q4 = 'swap.faq_q4',
+  swap_faq_q5 = 'swap.faq_q5',
+  swap_faq_q6 = 'swap.faq_q6',
+  swap_faq_q7 = 'swap.faq_q7',
+  swap_faq_q8 = 'swap.faq_q8',
+  swap_faq_title = 'swap.faq_title',
+  swap_fee_save = 'swap.fee_save',
   swap_limit_amount = 'swap.limit_amount',
   swap_loading_content = 'swap.loading_content',
   swap_native_token_max_tip = 'swap.native_token_max_tip',
@@ -3662,6 +3712,21 @@
   swap_network_cost_dialog_title = 'swap.network_cost_dialog_title',
   swap_order_type = 'swap.order_type',
   swap_provider_manage_unavailable = 'swap.provider_manage_unavailable',
+  swap_provider_panel_badge_availability = 'swap.provider_panel_badge_availability',
+  swap_provider_panel_badge_chains = 'swap.provider_panel_badge_chains',
+  swap_provider_panel_badge_dexs = 'swap.provider_panel_badge_dexs',
+  swap_provider_panel_desc = 'swap.provider_panel_desc',
+  swap_provider_panel_feature_liquidity = 'swap.provider_panel_feature_liquidity',
+  swap_provider_panel_feature_liquidity_desc = 'swap.provider_panel_feature_liquidity_desc',
+  swap_provider_panel_feature_mev = 'swap.provider_panel_feature_mev',
+  swap_provider_panel_feature_mev_desc = 'swap.provider_panel_feature_mev_desc',
+  swap_provider_panel_feature_routing = 'swap.provider_panel_feature_routing',
+  swap_provider_panel_feature_routing_desc = 'swap.provider_panel_feature_routing_desc',
+  swap_provider_panel_feature_zero_fee = 'swap.provider_panel_feature_zero_fee',
+  swap_provider_panel_feature_zero_fee_desc = 'swap.provider_panel_feature_zero_fee_desc',
+  swap_provider_panel_title = 'swap.provider_panel_title',
+  swap_provider_panel_title_line1 = 'swap.provider_panel_title_line1',
+  swap_provider_panel_title_line2 = 'swap.provider_panel_title_line2',
   swap_revoke_successful = 'swap.revoke_successful',
   swap_stablecoin_0_fee = 'swap.stablecoin_0_fee',
   swap_step_1 = 'swap.step_1',
@@ -4271,17 +4336,22 @@
   wallet_bulk_send_error_invalid_format = 'wallet.bulk_send_error_invalid_format',
   wallet_bulk_send_error_invalid_network_address = 'wallet.bulk_send_error_invalid_network_address',
   wallet_bulk_send_error_max_addresses = 'wallet.bulk_send_error_max_addresses',
+  wallet_bulk_send_error_max_decimal_places = 'wallet.bulk_send_error_max_decimal_places',
   wallet_bulk_send_error_max_less_than_min = 'wallet.bulk_send_error_max_less_than_min',
   wallet_bulk_send_error_max_required = 'wallet.bulk_send_error_max_required',
   wallet_bulk_send_error_max_zero = 'wallet.bulk_send_error_max_zero',
   wallet_bulk_send_error_min_required = 'wallet.bulk_send_error_min_required',
   wallet_bulk_send_error_more_errors = 'wallet.bulk_send_error_more_errors',
+  wallet_bulk_send_error_proper_range = 'wallet.bulk_send_error_proper_range',
   wallet_bulk_send_error_receiver_required = 'wallet.bulk_send_error_receiver_required',
   wallet_bulk_send_error_sender_required = 'wallet.bulk_send_error_sender_required',
   wallet_bulk_send_error_token_not_selected = 'wallet.bulk_send_error_token_not_selected',
   wallet_bulk_send_error_watching_account = 'wallet.bulk_send_error_watching_account',
   wallet_bulk_send_insufficient_balance_detail = 'wallet.bulk_send_insufficient_balance_detail',
   wallet_bulk_send_insufficient_balance_detail_desktop = 'wallet.bulk_send_insufficient_balance_detail_desktop',
+  wallet_bulk_send_interval_desc = 'wallet.bulk_send_interval_desc',
+  wallet_bulk_send_interval_none = 'wallet.bulk_send_interval_none',
+  wallet_bulk_send_interval_title = 'wallet.bulk_send_interval_title',
   wallet_bulk_send_label_asset = 'wallet.bulk_send_label_asset',
   wallet_bulk_send_label_receiving_addresses = 'wallet.bulk_send_label_receiving_addresses',
   wallet_bulk_send_label_receiving_desc = 'wallet.bulk_send_label_receiving_desc',
@@ -4290,6 +4360,7 @@
   wallet_bulk_send_mode_many_to_many = 'wallet.bulk_send_mode_many_to_many',
   wallet_bulk_send_mode_many_to_one = 'wallet.bulk_send_mode_many_to_one',
   wallet_bulk_send_mode_one_to_many = 'wallet.bulk_send_mode_one_to_many',
+  wallet_bulk_send_mode_one_to_many_desc = 'wallet.bulk_send_mode_one_to_many_desc',
   wallet_bulk_send_mode_unknown = 'wallet.bulk_send_mode_unknown',
   wallet_bulk_send_placeholder_address = 'wallet.bulk_send_placeholder_address',
   wallet_bulk_send_placeholder_addresses = 'wallet.bulk_send_placeholder_addresses',

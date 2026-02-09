@@ -2,9 +2,9 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { validateTokenAmount } from '@onekeyhq/shared/src/utils/tokenUtils';
-import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import type {
   ITransferInfoError,
   ITransferInfoErrors,
@@ -71,9 +71,24 @@ export function useTransferInfoActions({
         amount: value,
         allowZero: false,
         customErrorMessages: {
+          emptyAmount: intl.formatMessage({
+            id: ETranslations.wallet_bulk_send_error_invalid_amount,
+          }),
+          invalidAmount: intl.formatMessage({
+            id: ETranslations.wallet_bulk_send_error_invalid_amount,
+          }),
+          negativeAmount: intl.formatMessage({
+            id: ETranslations.wallet_bulk_send_error_amount_zero,
+          }),
           zeroAmount: intl.formatMessage({
             id: ETranslations.wallet_bulk_send_error_amount_zero,
           }),
+          decimalPlaces: intl.formatMessage(
+            {
+              id: ETranslations.wallet_bulk_send_error_max_decimal_places,
+            },
+            { decimals: tokenInfo.decimals },
+          ),
         },
       });
       const newErrors = { ...transferInfoErrors };

@@ -1,7 +1,8 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
+import { useDebouncedCallback } from 'use-debounce';
 
 import {
   Input,
@@ -12,18 +13,22 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { getSharedInputStyles } from '@onekeyhq/components/src/forms/Input/sharedStyles';
 import { AmountInput as BaseAmountInput } from '@onekeyhq/kit/src/components/AmountInput';
-import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { validateTokenAmount } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   EAmountInputMode,
   type IAmountInputError,
 } from '@onekeyhq/shared/types/bulkSend';
+
+import {
+  filterNumericInput,
+  generateRandomAmountsFromRange,
+  validateRangeInput,
+} from '../../../utils';
 
 import { useBulkSendAmountsInputContext } from './Context';
 
@@ -39,7 +44,11 @@ export function SpecifiedAmountInput() {
     setAmountInputValues,
     amountInputErrors,
     setAmountInputErrors,
+    previewState,
+    setPreviewState,
   } = useBulkSendAmountsInputContext();
+
+  const isInPreviewMode = previewState.specifiedPreviewed;
 
   const { network } = useAccountData({ networkId });
 
@@ -57,6 +66,9 @@ export function SpecifiedAmountInput() {
         specifiedAmount: value,
       });
 
+      // Reset preview state when input changes
+      setPreviewState((prev) => ({ ...prev, specifiedPreviewed: false }));
+
       const { error } = validateTokenAmount({
         token: tokenInfo,
         amount: new BigNumber(value || '0')
@@ -71,6 +83,12 @@ export function SpecifiedAmountInput() {
           zeroAmount: intl.formatMessage({
             id: ETranslations.wallet_bulk_send_error_amount_zero,
           }),
+          decimalPlaces: intl.formatMessage(
+            {
+              id: ETranslations.wallet_bulk_send_error_max_decimal_places,
+            },
+            { decimals: tokenInfo.decimals },
+          ),
         },
       });
       setAmountInputErrors({
@@ -87,6 +105,7 @@ export function SpecifiedAmountInput() {
       transfersInfo.length,
       amountInputErrors,
       setAmountInputErrors,
+      setPreviewState,
     ],
   );
 
@@ -106,6 +125,7 @@ export function SpecifiedAmountInput() {
         inputProps={{
           placeholder: '0',
           loading: isLoading,
+          autoFocus: !isInPreviewMode,
         }}
         valueProps={{
           value: fiatValue,
@@ -132,314 +152,292 @@ export function RangeAmountInput() {
   const intl = useIntl();
   const {
     tokenDetails,
+    tokenInfo,
+    transfersInfo,
     amountInputValues,
     setAmountInputValues,
     amountInputErrors,
     setAmountInputErrors,
-    tokenInfo,
+    setPreviewState,
   } = useBulkSendAmountsInputContext();
 
   const [settings] = useSettingsPersistAtom();
 
   const balance = tokenDetails?.balanceParsed ?? '0';
 
+  // Local display values for immediate UI feedback
+  const [localMin, setLocalMin] = useState(amountInputValues.rangeMin);
+  const [localMax, setLocalMax] = useState(amountInputValues.rangeMax);
+
+  // Keep local values in sync with external changes
+  const prevAmountInputValuesRef = useRef(amountInputValues);
+  useEffect(() => {
+    const prev = prevAmountInputValuesRef.current;
+    if (prev.rangeMin !== amountInputValues.rangeMin) {
+      setLocalMin(amountInputValues.rangeMin);
+    }
+    if (prev.rangeMax !== amountInputValues.rangeMax) {
+      setLocalMax(amountInputValues.rangeMax);
+    }
+    prevAmountInputValuesRef.current = amountInputValues;
+  }, [amountInputValues]);
+
   const validateRange = useCallback(
     (min: string, max: string): IAmountInputError => {
-      const errors: IAmountInputError = {};
-
-      // rangeMin can be 0 (it's just the lower bound of the range)
-      const { error: rangeMinError } = validateTokenAmount({
-        token: tokenInfo,
-        amount: min,
-        maxAmount: balance,
-        allowZero: true,
-        customErrorMessages: {
-          emptyAmount: intl.formatMessage({
-            id: ETranslations.wallet_bulk_send_error_min_required,
-          }),
-          maxAmount: intl.formatMessage({
-            id: ETranslations.swap_page_button_insufficient_balance,
-          }),
-        },
+      const error = validateRangeInput({
+        rangeMin: min,
+        rangeMax: max,
+        balance,
       });
-      errors.rangeMin = rangeMinError;
-      const { error: rangeMaxError } = validateTokenAmount({
-        token: tokenInfo,
-        amount: max,
-        maxAmount: balance,
-        allowZero: false,
-        customErrorMessages: {
-          emptyAmount: intl.formatMessage({
-            id: ETranslations.wallet_bulk_send_error_max_required,
-          }),
-          maxAmount: intl.formatMessage({
-            id: ETranslations.swap_page_button_insufficient_balance,
-          }),
-          zeroAmount: intl.formatMessage({
-            id: ETranslations.wallet_bulk_send_error_max_zero,
-          }),
-        },
-      });
-      errors.rangeMax = rangeMaxError;
-      // Check max > min
-      if (!errors.rangeMin && !errors.rangeMax) {
-        const minBN = new BigNumber(min);
-        const maxBN = new BigNumber(max);
-        if (maxBN.isLessThanOrEqualTo(minBN)) {
-          errors.rangeMax = intl.formatMessage({
-            id: ETranslations.wallet_bulk_send_error_max_less_than_min,
-          });
-        }
-      }
-
-      return errors;
+      return error ? { rangeError: error } : {};
     },
-    [intl, tokenInfo, balance],
+    [balance],
   );
+
+  const generatePreviewAmounts = useCallback(
+    (min: string, max: string): string[] => {
+      if (!tokenInfo || !min || !max || transfersInfo.length === 0) return [];
+      return generateRandomAmountsFromRange({
+        transfersInfo,
+        rangeMin: min,
+        rangeMax: max,
+        decimals: tokenInfo.decimals,
+        balance: [balance],
+      });
+    },
+    [transfersInfo, tokenInfo, balance],
+  );
+
+  // Use refs to avoid stale closures in useEffect
+  const validateRangeRef = useRef(validateRange);
+  validateRangeRef.current = validateRange;
+  const generatePreviewAmountsRef = useRef(generatePreviewAmounts);
+  generatePreviewAmountsRef.current = generatePreviewAmounts;
+  const amountInputValuesRef = useRef(amountInputValues);
+  amountInputValuesRef.current = amountInputValues;
+
+  // Generate initial preview amounts when component mounts with valid values
+  // or when transfersInfo length changes (e.g., user adds/removes addresses)
+  useEffect(() => {
+    const { rangeMin, rangeMax } = amountInputValuesRef.current;
+    if (!rangeMin || !rangeMax || transfersInfo.length === 0) return;
+
+    const errors = validateRangeRef.current(rangeMin, rangeMax);
+    if (!errors.rangeError) {
+      const previewAmounts = generatePreviewAmountsRef.current(
+        rangeMin,
+        rangeMax,
+      );
+      setPreviewState((prev) => ({
+        ...prev,
+        rangePreviewAmounts: previewAmounts,
+      }));
+    }
+  }, [transfersInfo.length, setPreviewState]);
+
+  const amountInputErrorsRef = useRef(amountInputErrors);
+  amountInputErrorsRef.current = amountInputErrors;
+
+  // Debounced handler for validation and preview generation
+  const debouncedUpdatePreview = useDebouncedCallback(
+    (newValues: { rangeMin: string; rangeMax: string }) => {
+      setAmountInputValues({
+        ...amountInputValuesRef.current,
+        rangeMin: newValues.rangeMin,
+        rangeMax: newValues.rangeMax,
+      });
+
+      const errors = validateRangeRef.current(
+        newValues.rangeMin,
+        newValues.rangeMax,
+      );
+      setAmountInputErrors({
+        ...amountInputErrorsRef.current,
+        rangeError: errors.rangeError,
+      });
+
+      const hasValidRange =
+        !errors.rangeError && newValues.rangeMin && newValues.rangeMax;
+      const previewAmounts = hasValidRange
+        ? generatePreviewAmountsRef.current(
+            newValues.rangeMin,
+            newValues.rangeMax,
+          )
+        : [];
+
+      setPreviewState((prev) => ({
+        ...prev,
+        rangePreviewed: false,
+        rangePreviewAmounts: previewAmounts,
+      }));
+    },
+    300,
+  );
+
+  const localMinRef = useRef(localMin);
+  localMinRef.current = localMin;
+  const localMaxRef = useRef(localMax);
+  localMaxRef.current = localMax;
 
   const handleMinChange = useCallback(
     (value: string) => {
-      const newValues = { ...amountInputValues, rangeMin: value };
-      setAmountInputValues(newValues);
-
-      const errors = validateRange(value, amountInputValues.rangeMax);
-      setAmountInputErrors({
-        ...amountInputErrors,
-        rangeMin: errors.rangeMin,
-        rangeMax: errors.rangeMax,
+      const filtered = filterNumericInput(value);
+      setLocalMin(filtered);
+      debouncedUpdatePreview({
+        rangeMin: filtered,
+        rangeMax: localMaxRef.current,
       });
     },
-    [
-      amountInputValues,
-      setAmountInputValues,
-      validateRange,
-      amountInputErrors,
-      setAmountInputErrors,
-    ],
+    [debouncedUpdatePreview],
   );
 
   const handleMaxChange = useCallback(
     (value: string) => {
-      const newValues = { ...amountInputValues, rangeMax: value };
-      setAmountInputValues(newValues);
-
-      const errors = validateRange(amountInputValues.rangeMin, value);
-      setAmountInputErrors({
-        ...amountInputErrors,
-        rangeMin: errors.rangeMin,
-        rangeMax: errors.rangeMax,
+      const filtered = filterNumericInput(value);
+      setLocalMax(filtered);
+      debouncedUpdatePreview({
+        rangeMin: localMinRef.current,
+        rangeMax: filtered,
       });
     },
-    [
-      amountInputValues,
-      setAmountInputValues,
-      validateRange,
-      amountInputErrors,
-      setAmountInputErrors,
-    ],
+    [debouncedUpdatePreview],
   );
 
-  // Calculate fiat values
+  // Calculate fiat values from local display values for immediate feedback
   const minFiatValue = useMemo(() => {
-    const amount = new BigNumber(amountInputValues.rangeMin || '0');
+    const amount = new BigNumber(localMin || '0');
     if (amount.isNaN() || !tokenDetails?.price) return '0';
     return amount.times(tokenDetails.price).toFixed();
-  }, [amountInputValues.rangeMin, tokenDetails?.price]);
+  }, [localMin, tokenDetails?.price]);
 
   const maxFiatValue = useMemo(() => {
-    const amount = new BigNumber(amountInputValues.rangeMax || '0');
+    const amount = new BigNumber(localMax || '0');
     if (amount.isNaN() || !tokenDetails?.price) return '0';
     return amount.times(tokenDetails.price).toFixed();
-  }, [amountInputValues.rangeMax, tokenDetails?.price]);
+  }, [localMax, tokenDetails?.price]);
 
-  const minSharedStyles = getSharedInputStyles({
-    error: !!amountInputErrors.rangeMin,
-  });
-  const maxSharedStyles = getSharedInputStyles({
-    error: !!amountInputErrors.rangeMax,
+  const hasError = !!amountInputErrors.rangeError;
+  const sharedStyles = getSharedInputStyles({
+    error: hasError,
   });
 
   return (
     <YStack gap="$1.5" w="100%">
-      <XStack gap="$2" alignItems="flex-start" w="100%">
-        <YStack flex={1} gap="$1">
-          <Stack
-            borderRadius="$3"
-            borderWidth={minSharedStyles.borderWidth}
-            borderColor={minSharedStyles.borderColor}
-            overflow="hidden"
+      <XStack gap="$2" alignItems="center" w="100%">
+        <Stack
+          flex={1}
+          borderRadius="$3"
+          borderWidth={sharedStyles.borderWidth}
+          borderColor={sharedStyles.borderColor}
+          overflow="hidden"
+        >
+          <XStack alignItems="center" px="$3.5" pt="$2.5" pb="$1">
+            <Input
+              flex={1}
+              value={localMin}
+              onChangeText={handleMinChange}
+              placeholder="0"
+              keyboardType="decimal-pad"
+              containerProps={{
+                width: '100%',
+                borderWidth: 0,
+              }}
+              fontSize={28}
+              fontWeight="600"
+              px="$0"
+            />
+          </XStack>
+          <XStack
+            alignItems="center"
+            justifyContent="space-between"
+            px="$3.5"
+            pb="$2"
           >
-            <XStack alignItems="center" px="$3.5" pt="$2.5" pb="$1">
-              <Input
-                flex={1}
-                value={amountInputValues.rangeMin}
-                onChangeText={handleMinChange}
-                placeholder="0"
-                keyboardType="decimal-pad"
-                containerProps={{
-                  width: '100%',
-                  borderWidth: 0,
-                }}
-                fontSize={28}
-                fontWeight="600"
-                px="$0"
-              />
-            </XStack>
-            <XStack
-              alignItems="center"
-              justifyContent="space-between"
-              px="$3.5"
-              pb="$2"
+            <NumberSizeableText
+              size="$bodyMd"
+              color="$textSubdued"
+              formatter="value"
+              formatterOptions={{ currency: settings.currencyInfo.symbol }}
             >
-              <NumberSizeableText
-                size="$bodyMd"
-                color="$textSubdued"
-                formatter="value"
-                formatterOptions={{ currency: settings.currencyInfo.symbol }}
-              >
-                {minFiatValue}
-              </NumberSizeableText>
-              <SizableText size="$bodyMdMedium" color="$text">
-                {tokenDetails?.info.symbol}
-              </SizableText>
-            </XStack>
-          </Stack>
-          {amountInputErrors.rangeMin ? (
-            <SizableText size="$bodySm" color="$textCritical" px="$1">
-              {amountInputErrors.rangeMin}
+              {minFiatValue}
+            </NumberSizeableText>
+            <SizableText size="$bodyMdMedium" color="$text">
+              {tokenDetails?.info.symbol}
             </SizableText>
-          ) : null}
-        </YStack>
+          </XStack>
+        </Stack>
 
-        <Stack w="$2" h={1} bg="$text" mt="$8" />
+        <Stack w="$2" h="$0.5" bg="$borderStrong" />
 
-        <YStack flex={1} gap="$1">
-          <Stack
-            borderRadius="$3"
-            borderWidth={maxSharedStyles.borderWidth}
-            borderColor={maxSharedStyles.borderColor}
-            overflow="hidden"
+        <Stack
+          flex={1}
+          borderRadius="$3"
+          borderWidth={sharedStyles.borderWidth}
+          borderColor={sharedStyles.borderColor}
+          overflow="hidden"
+        >
+          <XStack alignItems="center" px="$3.5" pt="$2.5" pb="$1">
+            <Input
+              flex={1}
+              value={localMax}
+              onChangeText={handleMaxChange}
+              placeholder={intl.formatMessage({
+                id: ETranslations.global_max,
+              })}
+              keyboardType="decimal-pad"
+              containerProps={{
+                width: '100%',
+                borderWidth: 0,
+              }}
+              fontSize={28}
+              fontWeight="600"
+              px="$0"
+            />
+          </XStack>
+          <XStack
+            alignItems="center"
+            justifyContent="space-between"
+            px="$3.5"
+            pb="$2"
           >
-            <XStack alignItems="center" px="$3.5" pt="$2.5" pb="$1">
-              <Input
-                flex={1}
-                value={amountInputValues.rangeMax}
-                onChangeText={handleMaxChange}
-                placeholder={intl.formatMessage({
-                  id: ETranslations.wallet_bulk_send_placeholder_max,
-                })}
-                keyboardType="decimal-pad"
-                containerProps={{
-                  width: '100%',
-                  borderWidth: 0,
-                }}
-                fontSize={28}
-                fontWeight="600"
-                px="$0"
-              />
-            </XStack>
-            <XStack
-              alignItems="center"
-              justifyContent="space-between"
-              px="$3.5"
-              pb="$2"
+            <NumberSizeableText
+              size="$bodyMd"
+              color="$textSubdued"
+              formatter="value"
+              formatterOptions={{ currency: settings.currencyInfo.symbol }}
             >
-              <NumberSizeableText
-                size="$bodyMd"
-                color="$textSubdued"
-                formatter="value"
-                formatterOptions={{ currency: settings.currencyInfo.symbol }}
-              >
-                {maxFiatValue}
-              </NumberSizeableText>
-              <SizableText size="$bodyMdMedium" color="$text">
-                {tokenDetails?.info.symbol}
-              </SizableText>
-            </XStack>
-          </Stack>
-          {amountInputErrors.rangeMax ? (
-            <SizableText size="$bodySm" color="$textCritical" px="$1">
-              {amountInputErrors.rangeMax}
+              {maxFiatValue}
+            </NumberSizeableText>
+            <SizableText size="$bodyMdMedium" color="$text">
+              {tokenDetails?.info.symbol}
             </SizableText>
-          ) : null}
-        </YStack>
+          </XStack>
+        </Stack>
       </XStack>
+      {amountInputErrors.rangeError ? (
+        <SizableText size="$bodyMd" color="$textCritical" px="$1">
+          {amountInputErrors.rangeError}
+        </SizableText>
+      ) : null}
     </YStack>
   );
 }
 
-function CustomAmountDisplay({ inDialog }: { inDialog?: boolean }) {
+function CustomAmountDisplay() {
   const intl = useIntl();
-  const {
-    networkId,
-    tokenDetails,
-    tokenInfo,
-    totalTokenAmount,
-    totalFiatAmount,
-  } = useBulkSendAmountsInputContext();
-
-  const { network } = useAccountData({ networkId });
-
-  const [settings] = useSettingsPersistAtom();
-
-  const tokenSymbol = tokenInfo.symbol;
-
-  if (inDialog) {
-    return (
-      <YStack alignItems="center" justifyContent="center" p="$5">
-        <SizableText
-          size="$bodyLg"
-          color="$textSubdued"
-          textAlign="center"
-          maxWidth={256}
-        >
-          {intl.formatMessage({
-            id: ETranslations.wallet_bulk_send_custom_mode_hint,
-          })}
-        </SizableText>
-      </YStack>
-    );
-  }
-
   return (
-    <ListItem
-      renderAvatar={() => (
-        <Token
-          tokenImageUri={tokenDetails?.info.logoURI}
-          size="lg"
-          showNetworkIcon
-          networkImageUri={network?.logoURI}
-          networkId={network?.id}
-        />
-      )}
-      mx="$0"
-      px="$0"
-    >
-      <XStack alignItems="center" gap="$2" flex={1}>
-        <YStack flex={1}>
-          <NumberSizeableText
-            size="$bodyLgMedium"
-            formatter="balance"
-            formatterOptions={{ tokenSymbol }}
-          >
-            {totalTokenAmount}
-          </NumberSizeableText>
-          <NumberSizeableText
-            size="$bodyMd"
-            color="$textSubdued"
-            formatter="value"
-            formatterOptions={{ currency: settings.currencyInfo.symbol }}
-          >
-            {totalFiatAmount}
-          </NumberSizeableText>
-        </YStack>
-        <SizableText size="$bodyMd" color="$textSubdued">
-          {intl.formatMessage({
-            id: ETranslations.wallet_bulk_send_sending_amount,
-          })}
-        </SizableText>
-      </XStack>
-    </ListItem>
+    <YStack alignItems="center" justifyContent="center" p="$5">
+      <SizableText
+        size="$bodyLg"
+        color="$textSubdued"
+        textAlign="center"
+        maxWidth={256}
+      >
+        {intl.formatMessage({
+          id: ETranslations.wallet_bulk_send_custom_mode_hint,
+        })}
+      </SizableText>
+    </YStack>
   );
 }
 
@@ -449,14 +447,17 @@ export function AmountInputSection({ inDialog }: { inDialog?: boolean }) {
     amountInputMode,
     setAmountInputMode,
     setAmountInputErrors,
+    setPreviewState,
     transfersInfo,
     tokenInfo,
     tokenDetails,
     amountInputValues,
+    hasCustomAmounts,
   } = useBulkSendAmountsInputContext();
 
-  const segmentOptions = useMemo(
-    () => [
+  // Only show Custom option if receivers have custom amounts from address input
+  const segmentOptions = useMemo(() => {
+    const options = [
       {
         label: intl.formatMessage({
           id: ETranslations.wallet_bulk_send_amount_mode_specified,
@@ -469,17 +470,19 @@ export function AmountInputSection({ inDialog }: { inDialog?: boolean }) {
         }),
         value: EAmountInputMode.Range,
       },
-      {
+    ];
+    if (hasCustomAmounts) {
+      options.push({
         label: intl.formatMessage({
           id: ETranslations.wallet_bulk_send_amount_mode_custom,
         }),
         value: EAmountInputMode.Custom,
-      },
-    ],
-    [intl],
-  );
+      });
+    }
+    return options;
+  }, [intl, hasCustomAmounts]);
 
-  const validateSpecifiedAmount = useCallback(() => {
+  const validateSpecifiedAmount = useCallback((): IAmountInputError => {
     const balance = tokenDetails?.balanceParsed ?? '0';
     const { error } = validateTokenAmount({
       token: tokenInfo,
@@ -495,6 +498,12 @@ export function AmountInputSection({ inDialog }: { inDialog?: boolean }) {
         zeroAmount: intl.formatMessage({
           id: ETranslations.wallet_bulk_send_error_amount_zero,
         }),
+        decimalPlaces: intl.formatMessage(
+          {
+            id: ETranslations.wallet_bulk_send_error_max_decimal_places,
+          },
+          { decimals: tokenInfo.decimals },
+        ),
       },
     });
     return { specifiedAmount: error };
@@ -506,61 +515,15 @@ export function AmountInputSection({ inDialog }: { inDialog?: boolean }) {
     transfersInfo.length,
   ]);
 
-  const validateRangeAmount = useCallback(() => {
+  const validateRangeAmount = useCallback((): IAmountInputError => {
     const balance = tokenDetails?.balanceParsed ?? '0';
-    const errors: IAmountInputError = {};
-
-    // rangeMin can be 0 (it's just the lower bound of the range)
-    const { error: rangeMinError } = validateTokenAmount({
-      token: tokenInfo,
-      amount: amountInputValues.rangeMin,
-      maxAmount: balance,
-      allowZero: true,
-      customErrorMessages: {
-        emptyAmount: intl.formatMessage({
-          id: ETranslations.wallet_bulk_send_error_min_required,
-        }),
-        maxAmount: intl.formatMessage({
-          id: ETranslations.swap_page_button_insufficient_balance,
-        }),
-      },
+    const error = validateRangeInput({
+      rangeMin: amountInputValues.rangeMin,
+      rangeMax: amountInputValues.rangeMax,
+      balance,
     });
-    errors.rangeMin = rangeMinError;
-
-    const { error: rangeMaxError } = validateTokenAmount({
-      token: tokenInfo,
-      amount: amountInputValues.rangeMax,
-      maxAmount: balance,
-      allowZero: false,
-      customErrorMessages: {
-        emptyAmount: intl.formatMessage({
-          id: ETranslations.wallet_bulk_send_error_max_required,
-        }),
-        maxAmount: intl.formatMessage({
-          id: ETranslations.swap_page_button_insufficient_balance,
-        }),
-        zeroAmount: intl.formatMessage({
-          id: ETranslations.wallet_bulk_send_error_max_zero,
-        }),
-      },
-    });
-    errors.rangeMax = rangeMaxError;
-
-    // Check max > min
-    if (!errors.rangeMin && !errors.rangeMax) {
-      const minBN = new BigNumber(amountInputValues.rangeMin);
-      const maxBN = new BigNumber(amountInputValues.rangeMax);
-      if (maxBN.isLessThanOrEqualTo(minBN)) {
-        errors.rangeMax = intl.formatMessage({
-          id: ETranslations.wallet_bulk_send_error_max_less_than_min,
-        });
-      }
-    }
-
-    return errors;
+    return error ? { rangeError: error } : {};
   }, [
-    intl,
-    tokenInfo,
     tokenDetails?.balanceParsed,
     amountInputValues.rangeMin,
     amountInputValues.rangeMax,
@@ -573,45 +536,50 @@ export function AmountInputSection({ inDialog }: { inDialog?: boolean }) {
 
       // Only re-validate in Dialog mode (Desktop)
       // MobileLayout has independent data for each mode, so no need to re-validate
-      if (!inDialog) {
+      if (inDialog) {
+        switch (newMode) {
+          case EAmountInputMode.Specified:
+            setAmountInputErrors(validateSpecifiedAmount());
+            break;
+          case EAmountInputMode.Range:
+            setAmountInputErrors(validateRangeAmount());
+            break;
+          default:
+            setAmountInputErrors({});
+        }
+      } else {
+        // Mobile mode: reset preview state when switching tabs
+        // User should click "Next" again to confirm the new mode
         setAmountInputErrors({});
-        return;
-      }
-
-      // Re-validate based on the new mode (Dialog only)
-      switch (newMode) {
-        case EAmountInputMode.Specified:
-          setAmountInputErrors(validateSpecifiedAmount());
-          break;
-        case EAmountInputMode.Range:
-          setAmountInputErrors(validateRangeAmount());
-          break;
-        case EAmountInputMode.Custom:
-        default:
-          setAmountInputErrors({});
+        setPreviewState((prev) => ({
+          ...prev,
+          specifiedPreviewed: false,
+          rangePreviewed: false,
+        }));
       }
     },
     [
       inDialog,
       setAmountInputMode,
       setAmountInputErrors,
+      setPreviewState,
       validateSpecifiedAmount,
       validateRangeAmount,
     ],
   );
 
-  const renderContent = useCallback(() => {
+  const renderContent = () => {
     switch (amountInputMode) {
       case EAmountInputMode.Specified:
         return <SpecifiedAmountInput />;
       case EAmountInputMode.Range:
         return <RangeAmountInput />;
       case EAmountInputMode.Custom:
-        return <CustomAmountDisplay inDialog={inDialog} />;
+        return <CustomAmountDisplay />;
       default:
         return null;
     }
-  }, [amountInputMode, inDialog]);
+  };
 
   return (
     <YStack gap="$4" w="100%">

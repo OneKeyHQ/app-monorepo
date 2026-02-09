@@ -5,10 +5,10 @@ import pLimit from 'p-limit';
 import { useIntl } from 'react-intl';
 
 import { Form } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import { useDebouncedValidation } from '@onekeyhq/kit/src/views/BulkSend/hooks/useDebouncedValidation';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { validateTokenAmount } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IAddressValidation } from '@onekeyhq/shared/types/address';
 import { EReceiverMode } from '@onekeyhq/shared/types/bulkSend';
@@ -69,9 +69,24 @@ function ReceiverAddressesInput({ maxLines }: IReceiverAddressesInputProps) {
         amount,
         allowZero: false,
         customErrorMessages: {
+          emptyAmount: intl.formatMessage({
+            id: ETranslations.wallet_bulk_send_error_invalid_amount,
+          }),
+          invalidAmount: intl.formatMessage({
+            id: ETranslations.wallet_bulk_send_error_invalid_amount,
+          }),
+          negativeAmount: intl.formatMessage({
+            id: ETranslations.wallet_bulk_send_error_amount_zero,
+          }),
           zeroAmount: intl.formatMessage({
             id: ETranslations.wallet_bulk_send_error_amount_zero,
           }),
+          decimalPlaces: intl.formatMessage(
+            {
+              id: ETranslations.wallet_bulk_send_error_max_decimal_places,
+            },
+            { decimals: selectedToken.decimals },
+          ),
         },
       });
 
@@ -297,7 +312,6 @@ function ReceiverAddressesInput({ maxLines }: IReceiverAddressesInputProps) {
         placeholder={intl.formatMessage({
           id: ETranslations.wallet_bulk_send_placeholder_addresses,
         })}
-        height={120}
         errors={errors}
         networkId={selectedNetworkId}
         accountId={selectedAccountId}

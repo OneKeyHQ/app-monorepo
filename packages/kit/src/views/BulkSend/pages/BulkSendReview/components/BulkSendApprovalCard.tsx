@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react';
+
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
@@ -13,6 +15,7 @@ import {
   YStack,
   useClipboard,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -35,12 +38,28 @@ function ApprovalItem({
   index,
   onEdit,
 }: IApprovalItemProps) {
+  const intl = useIntl();
+  const { networkId } = useBulkSendReviewContext();
   const tokenInfo = approveInfo.tokenInfo;
+
+  const [displaySpender, setDisplaySpender] = useState(approveInfo.spender);
+  useEffect(() => {
+    void backgroundApiProxy.serviceValidator
+      .localValidateAddress({
+        networkId,
+        address: approveInfo.spender,
+      })
+      .then((result) => {
+        if (result.isValid && result.displayAddress) {
+          setDisplaySpender(result.displayAddress);
+        }
+      });
+  }, [networkId, approveInfo.spender]);
+
   const shortenedSpender = accountUtils.shortenAddress({
-    address: approveInfo.spender,
+    address: displaySpender,
   });
 
-  const intl = useIntl();
   const isResetApproval = approveInfo.amount === '0';
   const displayAmount = isResetApproval
     ? intl.formatMessage({
@@ -68,7 +87,7 @@ function ApprovalItem({
                   id: ETranslations.wallet_bulk_send_approval_reset,
                 })
               : intl.formatMessage({
-                  id: ETranslations.wallet_bulk_send_approval_approve,
+                  id: ETranslations.global_approve,
                 })}
           </SizableText>
         </YStack>
@@ -107,11 +126,7 @@ function ApprovalItem({
         </YStack>
         <XStack gap="$3" alignItems="center">
           <YStack alignItems="flex-end">
-            <SizableText size="$bodyMdMedium">
-              {intl.formatMessage({
-                id: ETranslations.wallet_bulk_send_approval_spender_name,
-              })}
-            </SizableText>
+            <SizableText size="$bodyMdMedium">OneKey</SizableText>
             <SizableText size="$bodyMd" color="$textSubdued">
               {shortenedSpender}
             </SizableText>
@@ -123,7 +138,7 @@ function ApprovalItem({
             onPress={() => {
               void openExplorerAddressUrl({
                 networkId: tokenInfo?.networkId ?? '',
-                address: approveInfo.spender,
+                address: displaySpender,
                 openInExternal: true,
               });
             }}
@@ -133,7 +148,7 @@ function ApprovalItem({
             variant="tertiary"
             size="small"
             onPress={() => {
-              copyText(approveInfo.spender);
+              copyText(displaySpender);
             }}
           />
         </XStack>
@@ -169,7 +184,7 @@ function BulkSendApprovalCard({ onEditApproval }: Props) {
   const tokenSymbol = approvesInfo[0]?.tokenInfo?.symbol ?? 'Token';
 
   return (
-    <YStack px="$5" py="$3">
+    <YStack px="$5">
       <YStack bg="$bgSubdued" borderRadius="$3" py="$2" overflow="hidden">
         <Accordion type="single" collapsible defaultValue="" bg="transparent">
           <Accordion.Item value="approval" bg="transparent">

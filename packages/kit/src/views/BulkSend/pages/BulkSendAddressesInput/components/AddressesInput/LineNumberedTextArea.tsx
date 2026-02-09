@@ -70,6 +70,7 @@ const FONT_SIZE = 16;
 const LINE_HEIGHT = 24;
 const PADDING_VERTICAL = 12;
 const PADDING_HORIZONTAL = 12;
+const PADDING_HORIZONTAL_WITH_LINE_NUMBERS = 4;
 const LINE_NUMBER_WIDTH = 40;
 // Allow 2 lines of text in singleLine mode for wrapped long addresses
 const SINGLE_LINE_HEIGHT = LINE_HEIGHT * 2 + PADDING_VERTICAL * 2;
@@ -239,6 +240,10 @@ function LineNumberedTextArea({
     [handleChangeText, onInputTypeChange, singleLine, value],
   );
 
+  const contentPaddingLeft = showLineNumbers
+    ? PADDING_HORIZONTAL_WITH_LINE_NUMBERS
+    : PADDING_HORIZONTAL;
+
   const styles = useMemo(
     () =>
       StyleSheet.create({
@@ -248,7 +253,7 @@ function LineNumberedTextArea({
               flex: 1,
               paddingTop: PADDING_VERTICAL,
               paddingBottom: PADDING_VERTICAL,
-              paddingLeft: PADDING_HORIZONTAL,
+              paddingLeft: contentPaddingLeft,
               paddingRight: PADDING_HORIZONTAL,
               fontSize: FONT_SIZE,
               lineHeight: LINE_HEIGHT,
@@ -266,7 +271,7 @@ function LineNumberedTextArea({
               bottom: 0,
               paddingTop: PADDING_VERTICAL,
               paddingBottom: PADDING_VERTICAL,
-              paddingLeft: PADDING_HORIZONTAL,
+              paddingLeft: contentPaddingLeft,
               paddingRight: PADDING_HORIZONTAL,
               fontSize: FONT_SIZE,
               lineHeight: LINE_HEIGHT,
@@ -275,7 +280,7 @@ function LineNumberedTextArea({
               caretColor: textColor,
             },
       } as any),
-    [textColor],
+    [textColor, contentPaddingLeft],
   );
 
   return (
@@ -303,7 +308,7 @@ function LineNumberedTextArea({
               <YStack
                 width={LINE_NUMBER_WIDTH}
                 flexShrink={0}
-                pt={PADDING_VERTICAL}
+                pt={PADDING_VERTICAL + 2}
                 pb={PADDING_VERTICAL}
               >
                 {(hasContent ? lines : ['']).map((_, index) => {
@@ -313,13 +318,14 @@ function LineNumberedTextArea({
                     <Stack
                       key={index}
                       height={lineHeight}
-                      justifyContent="center"
-                      alignItems="center"
+                      alignItems="flex-start"
+                      pl="$3"
                     >
                       <SizableText
                         fontSize={FONT_SIZE}
                         lineHeight={LINE_HEIGHT}
-                        color="textSubdued"
+                        color="$textDisabled"
+                        userSelect="none"
                       >
                         {lineNumber}
                       </SizableText>
@@ -331,48 +337,55 @@ function LineNumberedTextArea({
 
             {/* Content area */}
             <Stack flex={1} position="relative">
-              {/* Display layer - styled text with word wrap (hidden on native where TextInput shows text directly) */}
-              {platformEnv.isNative ? null : (
-                <YStack
-                  pt={PADDING_VERTICAL}
-                  pb={PADDING_VERTICAL}
-                  pl={PADDING_HORIZONTAL}
-                  pr={PADDING_HORIZONTAL}
-                  pointerEvents="none"
-                >
-                  {hasContent ? (
-                    lines.map((line, index) => {
-                      const lineNumber = index + 1;
-                      const hasError = errorLineNumbers.has(lineNumber);
+              {/* Display layer - styled text with word wrap; on native used as invisible measurement layer for line heights */}
+              <YStack
+                pt={PADDING_VERTICAL}
+                pb={PADDING_VERTICAL}
+                pl={contentPaddingLeft}
+                pr={PADDING_HORIZONTAL}
+                pointerEvents="none"
+                {...(platformEnv.isNative
+                  ? {
+                      position: 'absolute' as const,
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      opacity: 0,
+                    }
+                  : {})}
+              >
+                {hasContent ? (
+                  lines.map((line, index) => {
+                    const lineNumber = index + 1;
+                    const hasError = errorLineNumbers.has(lineNumber);
 
-                      return (
-                        <Stack
-                          key={index}
-                          onLayout={(e: LayoutChangeEvent) =>
-                            handleLineLayout(index, e)
-                          }
+                    return (
+                      <Stack
+                        key={index}
+                        onLayout={(e: LayoutChangeEvent) =>
+                          handleLineLayout(index, e)
+                        }
+                      >
+                        <SizableText
+                          fontSize={FONT_SIZE}
+                          lineHeight={LINE_HEIGHT}
+                          color={hasError ? '$textCritical' : '$text'}
                         >
-                          <SizableText
-                            fontSize={FONT_SIZE}
-                            lineHeight={LINE_HEIGHT}
-                            color={hasError ? '$textCritical' : '$text'}
-                          >
-                            {line || ' '}
-                          </SizableText>
-                        </Stack>
-                      );
-                    })
-                  ) : (
-                    <SizableText
-                      fontSize={FONT_SIZE}
-                      lineHeight={LINE_HEIGHT}
-                      color="$textPlaceholder"
-                    >
-                      {placeholder}
-                    </SizableText>
-                  )}
-                </YStack>
-              )}
+                          {line || ' '}
+                        </SizableText>
+                      </Stack>
+                    );
+                  })
+                ) : (
+                  <SizableText
+                    fontSize={FONT_SIZE}
+                    lineHeight={LINE_HEIGHT}
+                    color="$textPlaceholder"
+                  >
+                    {placeholder}
+                  </SizableText>
+                )}
+              </YStack>
 
               {/* Input layer - visible on native, transparent overlay on web */}
               <RNTextInput
@@ -409,7 +422,8 @@ function LineNumberedTextArea({
             justifyContent="space-between"
             flexWrap="wrap"
             alignItems="center"
-            py="$3"
+            pt="$1"
+            pb="$3"
             px="$3"
             gap="$2"
           >

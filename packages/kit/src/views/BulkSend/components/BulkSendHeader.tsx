@@ -14,9 +14,7 @@ function BulkSendHeader({ bulkSendMode }: { bulkSendMode: EBulkSendMode }) {
   return (
     <YStack gap="$1" mb="$6">
       <SizableText size="$heading2xl">
-        {intl.formatMessage({
-          id: ETranslations.wallet_bulk_send_title_desktop,
-        })}
+        {intl.formatMessage({ id: ETranslations.wallet_bulk_send_title })}
       </SizableText>
       <XStack gap="$1" alignItems="center">
         <SizableText size="$bodyMd" color="$textSubdued">

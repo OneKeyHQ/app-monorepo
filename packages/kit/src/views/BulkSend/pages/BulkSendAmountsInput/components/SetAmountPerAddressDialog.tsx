@@ -1,6 +1,9 @@
 import { useCallback, useMemo, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { Dialog, Stack, YStack } from '@onekeyhq/components';
+import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import {
@@ -10,7 +13,6 @@ import {
   type IAmountInputValues,
 } from '@onekeyhq/shared/types/bulkSend';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
-import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 
 import { BulkSendAmountsInputContext, type IMobileModeData } from './Context';
 import { AmountInputSection } from './AmountInput';
@@ -62,6 +64,7 @@ function SetAmountPerAddressDialogContent({
   initialValues,
   onConfirm,
 }: ISetAmountPerAddressDialogProps) {
+  const intl = useIntl();
   // Local state for the dialog (changes only apply on confirm)
   const [amountInputMode, setAmountInputMode] =
     useState<EAmountInputMode>(initialMode);
@@ -123,9 +126,11 @@ function SetAmountPerAddressDialogContent({
       totalTokenAmount,
       totalFiatAmount,
       isInsufficientBalance: false,
+      hasCustomAmounts: false,
       previewState: {
         specifiedPreviewed: false,
         rangePreviewed: false,
+        rangePreviewAmounts: [],
       },
       setPreviewState: () => {},
       // Mobile-specific (not used in dialog, but required by context type)
@@ -189,10 +194,10 @@ function SetAmountPerAddressDialogContent({
         />
         <Dialog.Footer
           onConfirm={handleConfirm}
-          onConfirmText={appLocale.intl.formatMessage({
+          onConfirmText={intl.formatMessage({
             id: ETranslations.global_confirm,
           })}
-          onCancelText={appLocale.intl.formatMessage({
+          onCancelText={intl.formatMessage({
             id: ETranslations.global_cancel,
           })}
           confirmButtonProps={{

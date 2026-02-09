@@ -279,6 +279,7 @@ function MoreActionContentHeader({
         {items.map((item) => (
           <MoreActionContentHeaderItem
             key={item.title}
+            title={item.title}
             icon={item.icon as IKeyOfIcons}
             onPress={item.onPress}
             trackID={item.trackID}
@@ -1140,7 +1141,7 @@ const MoreActionWalletGrid = () => {
         ? undefined
         : {
             title: intl.formatMessage({
-              id: ETranslations.wallet_bulk_send_title_desktop,
+              id: ETranslations.wallet_bulk_send_title,
             }),
             icon: 'ChevronDoubleUpOutline' as const,
             onPress: () => {

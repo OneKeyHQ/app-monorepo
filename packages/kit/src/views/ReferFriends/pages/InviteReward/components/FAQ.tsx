@@ -13,7 +13,7 @@ import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
 export function FAQ({ faqs }: { faqs: IInviteSummary['faqs'] }) {
   const intl = useIntl();
   return (
-    <YStack gap="$6" px="$5" py="$8">
+    <YStack gap="$6" px="$pagePadding" py="$8">
       <SizableText size="$headingLg">
         {intl.formatMessage({ id: ETranslations.global_faqs })}
       </SizableText>

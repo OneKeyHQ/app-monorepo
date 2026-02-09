@@ -6,9 +6,8 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useBulkSendReviewContext } from './Context';
 
@@ -17,7 +16,7 @@ function BulkSendReviewGrandSummary() {
   const { tokenInfo, networkImageUri, totalTokenAmount, totalFiatAmount } =
     useBulkSendReviewContext();
   return (
-    <YStack gap="$1" alignItems="center" py="$3">
+    <YStack gap="$1" alignItems="center">
       <SizableText size="$bodyLgMedium" color="$textSubdued">
         {intl.formatMessage({
           id: ETranslations.wallet_bulk_send_sending_amount,

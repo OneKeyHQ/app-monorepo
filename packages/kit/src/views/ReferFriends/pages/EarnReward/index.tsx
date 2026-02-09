@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -29,7 +29,7 @@ import {
 } from '../../components';
 import { useRewardFilter } from '../../hooks/useRewardFilter';
 
-import { EarnRewardsTab, PerpsRecordsTab, RewardTypeTabs } from './components';
+import { EarnRewardsTab, RewardTypeTabs } from './components';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -54,31 +54,21 @@ function EarnRewardPageWrapper() {
 
   // Use the filter hook for state management only
   const { filterState, updateFilter } = useRewardFilter();
-  const [activeRewardTab, setActiveRewardTab] = useState<EExportTab>(
-    EExportTab.Earn,
-  );
 
-  const tools = useCallback(() => {
-    const exportSubject =
-      activeRewardTab === EExportTab.Earn
-        ? EExportSubject.Onchain
-        : EExportSubject.Perp;
-    return (
+  const tools = useCallback(
+    () => (
       <XStack gap="$2">
         <FilterButton filterState={filterState} onFilterChange={updateFilter} />
         <ExportButton
-          subject={exportSubject}
+          subject={EExportSubject.Onchain}
           timeRange={filterState.timeRange}
           inviteCode={filterState.inviteCode}
-          tab={activeRewardTab}
+          tab={EExportTab.Earn}
         />
       </XStack>
-    );
-  }, [activeRewardTab, filterState, updateFilter]);
-
-  const handleRewardTabChange = useCallback((tab: EExportTab) => {
-    setActiveRewardTab(tab);
-  }, []);
+    ),
+    [filterState, updateFilter],
+  );
 
   return (
     <Page>
@@ -129,12 +119,7 @@ function EarnRewardPageWrapper() {
           earnLabel={intl.formatMessage({
             id: ETranslations.referral_referred_type_2,
           })}
-          perpsLabel={intl.formatMessage({
-            id: ETranslations.global_perp,
-          })}
           earnContent={<EarnRewardsTab filterState={filterState} />}
-          perpsContent={<PerpsRecordsTab filterState={filterState} />}
-          onTabChange={handleRewardTabChange}
         />
       </Page.Body>
     </Page>

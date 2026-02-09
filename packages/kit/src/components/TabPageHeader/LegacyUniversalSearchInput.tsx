@@ -87,7 +87,7 @@ export function LegacyUniversalSearchInput({
 export function MDUniversalSearchInput() {
   const isHorizontal = useIsWebHorizontalLayout();
   return isHorizontal ? null : (
-    <XStack px="$5" pt="$0.5">
+    <XStack px="$pagePadding" pt="$0.5">
       <LegacyUniversalSearchInput
         size="medium"
         containerProps={{
