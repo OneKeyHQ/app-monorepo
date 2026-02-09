@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 
 import { SizableText, YStack } from '@onekeyhq/components';
 
-import { useMatrixPool, type IMatrixBackgroundProps } from './useMatrixPool';
+import { type IMatrixBackgroundProps, useMatrixPool } from './useMatrixPool';
 
 const LINE_POOL_SIZE = 120;
 

@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 
 import { SizableText } from '@onekeyhq/components';
 
-import { useMatrixPool, type IMatrixBackgroundProps } from './useMatrixPool';
+import { type IMatrixBackgroundProps, useMatrixPool } from './useMatrixPool';
 
 const TEXT_POOL_COUNT = 10;
 const TEXT_TOTAL_CHARS = 3000;
