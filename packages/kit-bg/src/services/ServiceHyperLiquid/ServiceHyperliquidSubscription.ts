@@ -347,12 +347,50 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   @backgroundMethod()
   async pauseSubscriptions(): Promise<void> {
+    // If Market's Perps tab still needs WS data, skip full cleanup
+    if (this._marketSubscriptionRefCount > 0) {
+      // Only disable Perps-specific handler, keep WS connection alive
+      await this.disableSubscriptionsHandler();
+      await perpsCandlesWebviewReloadHookAtom.set({
+        reloadHook: -1 * Date.now(),
+      });
+      return;
+    }
     await this.disableSubscriptionsHandler();
     await this._cleanupAllSubscriptions();
 
     await perpsCandlesWebviewReloadHookAtom.set({
       reloadHook: -1 * Date.now(),
     });
+  }
+
+  // Market Perps tab reference counting for WS lifecycle
+  private _marketSubscriptionRefCount = 0;
+
+  @backgroundMethod()
+  async requestMarketSubscriptions(): Promise<void> {
+    this._marketSubscriptionRefCount += 1;
+    if (this._marketSubscriptionRefCount === 1) {
+      // First market consumer — ensure WS connection is active
+      await this.connect();
+      console.log('updateSubscriptions__by__requestMarketSubscriptions');
+      await this.updateSubscriptions();
+    }
+  }
+
+  @backgroundMethod()
+  async releaseMarketSubscriptions(): Promise<void> {
+    this._marketSubscriptionRefCount = Math.max(
+      0,
+      this._marketSubscriptionRefCount - 1,
+    );
+    // Don't disconnect — let the normal Perps tab lifecycle handle that.
+    // We only prevent pauseSubscriptions from pausing when market ref > 0.
+  }
+
+  @backgroundMethod()
+  async getMarketSubscriptionRefCount(): Promise<number> {
+    return this._marketSubscriptionRefCount;
   }
 
   hasNewUserFills = false;
@@ -940,6 +978,16 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
           );
           if (userFills?.user && fillsLength > 0 && !isSnapshot) {
             this.hasNewUserFills = true;
+          }
+        }
+        // Always forward global market data for Market's Perps tab
+        if (
+          subscriptionType === ESubscriptionType.ALL_DEXS_ASSET_CTXS ||
+          subscriptionType === ESubscriptionType.ALL_MIDS
+        ) {
+          const data = event?.detail as unknown;
+          if (data != null) {
+            this._emitHyperliquidDataUpdate(subscriptionType, data);
           }
         }
         return;
