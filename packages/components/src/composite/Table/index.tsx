@@ -88,12 +88,14 @@ function TableRow<T>({
 
   const handleContextMenu = useCallback(
     (e: { preventDefault: () => void; clientX?: number; clientY?: number }) => {
-      e.preventDefault();
-      onRowEvents?.onContextMenu?.(
-        e.clientX != null && e.clientY != null
-          ? { x: e.clientX, y: e.clientY }
-          : undefined,
-      );
+      if (onRowEvents?.onContextMenu) {
+        e.preventDefault();
+        onRowEvents.onContextMenu(
+          e.clientX != null && e.clientY != null
+            ? { x: e.clientX, y: e.clientY }
+            : undefined,
+        );
+      }
     },
     [onRowEvents],
   );
