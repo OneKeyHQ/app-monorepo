@@ -855,7 +855,7 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
         subTitle={renderSubTitle()}
         headerContainerProps={{ px: '$pagePadding' }}
         contentContainerProps={{ mx: '$5' }}
-        plainContentContainer={!tableLayout || (!initialized && isRefreshing)}
+        plainContentContainer={!initialized && isRefreshing}
         content={
           !initialized && isRefreshing ? (
             <ListLoading isTokenSelectorView={false} />
