@@ -425,8 +425,8 @@ const ClosePositionForm = memo(
               onPress={() =>
                 handleTypeChange(formData.type === 'limit' ? 'market' : 'limit')
               }
-              cursor="pointer"
               gap="$1"
+              cursor="default"
             >
               <SizableText size="$bodyMdMedium">
                 {formData.type === 'limit'

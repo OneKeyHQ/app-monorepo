@@ -223,8 +223,15 @@ const SwapOldSwapBridgeLimitContainer = ({
       </YStack>
     );
     return (
-      <ScrollView>
-        <XStack gap="$1" px="$5">
+      <ScrollView flex={1} contentContainerStyle={{ flexGrow: 1 }}>
+        <XStack
+          gap="$1"
+          px="$5"
+          flex={1}
+          width="100%"
+          maxWidth={1140}
+          marginHorizontal="auto"
+        >
           <YStack p="$5" flexBasis="50%">
             <YStack gap="$12">
               {mainContentWithCard}

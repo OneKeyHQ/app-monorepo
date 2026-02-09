@@ -39,7 +39,7 @@ export function DesktopLayout() {
   return (
     <XStack flex={1}>
       {/* Left column */}
-      <YStack flex={1}>
+      <YStack flex={1} borderRightWidth="$px" borderRightColor="$borderSubdued">
         {/* Header */}
         <TokenDetailHeader />
 
@@ -57,7 +57,7 @@ export function DesktopLayout() {
         </Stack>
 
         {/* Info tabs */}
-        <Stack h="30vh">
+        <Stack h="30vh" borderTopWidth="$px" borderTopColor="$borderSubdued">
           <DesktopInformationTabs
             portfolioData={portfolioData}
             isRefreshing={isRefreshing}
@@ -67,13 +67,13 @@ export function DesktopLayout() {
       </YStack>
 
       {/* Right column */}
-      <Stack w={320}>
+      <Stack w={340}>
         <ScrollView>
-          <Stack w={320} pb={platformEnv.isWeb ? '$12' : undefined}>
-            <Stack px="$5">
+          <Stack w={340} pb={platformEnv.isWeb ? '$12' : undefined}>
+            <Stack pl="$3" pr="$5">
               <PerpetualTradingBanner />
             </Stack>
-            <Stack px="$5" py="$4">
+            <Stack pl="$3" pr="$5" pt="$4" pb="$3">
               <SwapPanel
                 swapToken={{
                   networkId,
@@ -86,11 +86,11 @@ export function DesktopLayout() {
               />
             </Stack>
 
-            <Divider mx="$5" my="$2" />
+            <Divider my="$1" />
 
             <TokenActivityOverview />
 
-            <Divider mx="$5" />
+            <Divider />
 
             <TokenSupplementaryInfo />
           </Stack>

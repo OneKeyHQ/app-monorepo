@@ -196,6 +196,7 @@ const SwapHeaderContainer = ({
           activeBackgroundColor="$bg"
           borderRadius="$full"
           p="$1"
+          h="auto"
           segmentControlItemStyleProps={{
             py: '$2',
             px: '$7',

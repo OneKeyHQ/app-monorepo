@@ -125,8 +125,8 @@ const PositionRowDesktopSymbolAndLeverage = memo(
           alignItems="center"
           justifyContent={calcCellAlign(columnConfig.align)}
           gap="$2"
-          cursor="pointer"
           onPress={onChangeAsset}
+          cursor="default"
         >
           <XStack alignItems="center" gap="$2">
             <Divider
@@ -315,7 +315,7 @@ const PositionRowDesktopPnL = memo(
             icon="ShareOutline"
             iconSize="$3.5"
             onPress={onShare}
-            cursor="pointer"
+            cursor="default"
           />
         </XStack>
       </DebugRenderTracker>
@@ -359,7 +359,7 @@ const PositionRowDesktopMargin = memo(
                 icon="PencilOutline"
                 iconSize="$3"
                 onPress={onAdjustMargin}
-                cursor="pointer"
+                cursor="default"
               />
             ) : null}
           </XStack>
@@ -397,7 +397,6 @@ const PositionRowDesktopFunding = memo(
                 numberOfLines={1}
                 ellipsizeMode="tail"
                 size="$bodySm"
-                cursor="help"
                 color={otherInfo.fundingSinceOpenColor}
               >{`${otherInfo.fundingSinceOpenPlusOrMinus}$${otherInfo.fundingSinceOpenFormatted}`}</SizableText>
             }
@@ -514,22 +513,21 @@ const PositionRowDesktopTPSL = memo(
           alignItems="center"
         >
           {tpslInfo.showOrder ? (
-            <XStack alignItems="center" gap="$1">
+            <XStack alignItems="center" gap="$1" cursor="default">
               <IconButton
                 variant="tertiary"
                 size="small"
                 icon="HighlightOutline"
                 iconSize="$3"
                 onPress={onSetTpsl}
-                cursor="pointer"
               />
 
               <SizableText
-                cursor="pointer"
                 hoverStyle={{ size: '$bodySmMedium' }}
                 color="$green11"
                 size="$bodySm"
                 onPress={onViewTpslOrders}
+                cursor="default"
               >
                 {intl.formatMessage({
                   id: ETranslations.perp_position_view_orders,
@@ -537,14 +535,13 @@ const PositionRowDesktopTPSL = memo(
               </SizableText>
             </XStack>
           ) : (
-            <XStack alignItems="center" gap="$1">
+            <XStack alignItems="center" gap="$1" cursor="default">
               <IconButton
                 variant="tertiary"
                 size="small"
                 icon="HighlightOutline"
                 iconSize="$3"
                 onPress={onSetTpsl}
-                cursor="pointer"
               />
               <SizableText
                 numberOfLines={1}
@@ -583,9 +580,8 @@ const PositionRowDesktopActions = memo(
           alignItems="center"
           gap="$2"
         >
-          <XStack cursor="pointer" onPress={() => onClosePosition('market')}>
+          <XStack onPress={() => onClosePosition('market')} cursor="default">
             <SizableText
-              cursor="pointer"
               hoverStyle={{ size: '$bodySmMedium', fontWeight: 600 }}
               color="$green11"
               size="$bodySm"
@@ -596,9 +592,8 @@ const PositionRowDesktopActions = memo(
               })}
             </SizableText>
           </XStack>
-          <XStack cursor="pointer" onPress={() => onClosePosition('limit')}>
+          <XStack onPress={() => onClosePosition('limit')} cursor="default">
             <SizableText
-              cursor="pointer"
               hoverStyle={{ size: '$bodySmMedium', fontWeight: 600 }}
               color="$green11"
               size="$bodySm"
@@ -763,8 +758,8 @@ const PositionRowMobileHeader = memo(
           flex={1}
           gap="$2"
           alignItems="center"
-          cursor="pointer"
           onPress={onChangeAsset}
+          cursor="default"
         >
           <XStack
             w="$4"
@@ -803,7 +798,6 @@ const PositionRowMobileHeader = memo(
           icon="ShareOutline"
           iconSize="$3.5"
           onPress={onShare}
-          cursor="pointer"
         />
       </XStack>
     );
@@ -862,7 +856,12 @@ const PositionRowMobilePositionSize = memo(
 
     return (
       <YStack gap="$1" width={120} position="relative">
-        <XStack alignItems="center" gap="$1" onPress={onSizeViewChange}>
+        <XStack
+          alignItems="center"
+          gap="$1"
+          onPress={onSizeViewChange}
+          cursor="default"
+        >
           <XStack alignItems="center" gap="$0.5">
             <SizableText size="$bodySm" color="$textSubdued">
               {intl.formatMessage({
@@ -875,7 +874,7 @@ const PositionRowMobilePositionSize = memo(
           </XStack>
           <Icon name="RepeatOutline" size="$3" color="$textSubdued" />
         </XStack>
-        <XStack alignItems="center" gap="$1" cursor="pointer">
+        <XStack alignItems="center" gap="$1">
           <SizableText size="$bodySmMedium">
             {isSizeViewChange
               ? `$${sizeInfo.sizeValue}`
@@ -918,7 +917,7 @@ const PositionRowMobileMargin = memo(
               icon="PencilOutline"
               iconSize="$3"
               onPress={onAdjustMargin}
-              cursor="pointer"
+              cursor="default"
             />
           ) : null}
         </XStack>

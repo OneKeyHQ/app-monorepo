@@ -12,7 +12,16 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
+import { FixedColumnShadowOverlay } from '@onekeyhq/kit/src/components/FixedColumnShadowOverlay';
+import {
+  SHADOW_CONSTANTS,
+  getWebClipPath,
+  getWebShadowStyle,
+  useFixedColumnShadow,
+} from '@onekeyhq/kit/src/hooks/useFixedColumnShadow';
+import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IPerpsInviteItem,
   IPerpsInvitesSortBy,
@@ -33,9 +42,16 @@ interface IPerpsRecordTableProps {
   isLoadingMore?: boolean;
 }
 
-interface ITableRowProps {
+interface ICellContentProps {
   item: IPerpsInviteItem;
   columnWidths: IColumnWidths;
+}
+
+interface IHeaderContentProps {
+  columnWidths: IColumnWidths;
+  sortBy: IPerpsInvitesSortBy;
+  sortOrder: IPerpsInvitesSortOrder;
+  onSort: (field: IPerpsInvitesSortBy) => void;
 }
 
 interface ISortableHeaderProps {
@@ -48,6 +64,15 @@ interface ISortableHeaderProps {
   jc?: 'flex-start' | 'flex-end';
   tooltipContent?: string;
 }
+
+// Module-level constants to avoid re-creating on every render
+const SCROLL_CONTENT_STYLE = { flexGrow: 1 };
+const REWARD_FORMATTER_OPTIONS = { showPlusMinusSigns: true };
+const HOVER_OPACITY_STYLE = { opacity: 0.7 };
+const HOVER_BG_STYLE = { bg: '$bgHover' };
+// Consistent row height for compact mode to prevent drift between
+// the fixed address column and the scrollable columns (Badge vs SizableText).
+const COMPACT_ROW_MIN_HEIGHT = '$10';
 
 function SortableHeader({
   label,
@@ -68,7 +93,7 @@ function SortableHeader({
         gap="$1"
         onPress={() => onSort(field)}
         cursor="pointer"
-        hoverStyle={{ opacity: 0.7 }}
+        hoverStyle={HOVER_OPACITY_STYLE}
       >
         <SizableText
           size="$headingXs"
@@ -90,7 +115,7 @@ function SortableHeader({
         ai="center"
         onPress={() => onSort(field)}
         cursor="pointer"
-        hoverStyle={{ opacity: 0.7 }}
+        hoverStyle={HOVER_OPACITY_STYLE}
       >
         <Icon
           name={
@@ -111,15 +136,21 @@ function formatDateTime(dateString: string | null | undefined): string {
   return formatDate(dateString, { hideSeconds: true });
 }
 
-function TableRow({ item, columnWidths }: ITableRowProps) {
-  return (
-    <XStack ai="center" px="$5" py="$2" hoverStyle={{ bg: '$bgHover' }}>
-      <XStack w={columnWidths.address} ai="center" py="$1">
-        <SizableText size="$bodyMd" color="$text">
-          {item.address}
-        </SizableText>
-      </XStack>
+/* --- Shared cell content components (no row wrapper) --- */
 
+function AddressCellContent({ item, columnWidths }: ICellContentProps) {
+  return (
+    <XStack w={columnWidths.address} ai="center" py="$1">
+      <SizableText size="$bodyMd" color="$text">
+        {item.address}
+      </SizableText>
+    </XStack>
+  );
+}
+
+function ScrollableCellsContent({ item, columnWidths }: ICellContentProps) {
+  return (
+    <>
       <XStack w={columnWidths.invitedAt} ai="center" py="$1">
         <SizableText size="$bodyMd" color="$text">
           {formatDateTime(item.invitationTime)}
@@ -155,42 +186,47 @@ function TableRow({ item, columnWidths }: ITableRowProps) {
           color="$textSuccess"
           formatter="value"
           size="$bodyMd"
-          formatterOptions={{
-            showPlusMinusSigns: true,
-          }}
+          formatterOptions={REWARD_FORMATTER_OPTIONS}
         >
           {item.rewardFiatValue}
         </Currency>
       </XStack>
-    </XStack>
+    </>
   );
 }
 
-function TableHeader({
+/* --- Shared header content components (no row wrapper) --- */
+
+function AddressHeaderContent({
   columnWidths,
-  sortBy,
-  sortOrder,
-  onSort,
 }: {
   columnWidths: IColumnWidths;
-  sortBy: IPerpsInvitesSortBy;
-  sortOrder: IPerpsInvitesSortOrder;
-  onSort: (field: IPerpsInvitesSortBy) => void;
 }) {
   const intl = useIntl();
 
   return (
-    <XStack ai="center" px="$5" py="$2">
-      <XStack w={columnWidths.address}>
-        <SizableText
-          size="$headingXs"
-          color="$textSubdued"
-          textTransform="uppercase"
-        >
-          {intl.formatMessage({ id: ETranslations.global_address })}
-        </SizableText>
-      </XStack>
+    <XStack w={columnWidths.address}>
+      <SizableText
+        size="$headingXs"
+        color="$textSubdued"
+        textTransform="uppercase"
+      >
+        {intl.formatMessage({ id: ETranslations.global_address })}
+      </SizableText>
+    </XStack>
+  );
+}
 
+function ScrollableHeaderContent({
+  columnWidths,
+  sortBy,
+  sortOrder,
+  onSort,
+}: IHeaderContentProps) {
+  const intl = useIntl();
+
+  return (
+    <>
       <SortableHeader
         label={intl.formatMessage({
           id: ETranslations.referral_perps_invited_at,
@@ -226,7 +262,9 @@ function TableHeader({
       />
 
       <SortableHeader
-        label={intl.formatMessage({ id: ETranslations.referral_perps_volume })}
+        label={intl.formatMessage({
+          id: ETranslations.referral_perps_volume,
+        })}
         field="volume"
         sortBy={sortBy}
         sortOrder={sortOrder}
@@ -257,7 +295,7 @@ function TableHeader({
         width={columnWidths.reward}
         jc="flex-end"
       />
-    </XStack>
+    </>
   );
 }
 
@@ -270,35 +308,126 @@ export function PerpsRecordTable({
 }: IPerpsRecordTableProps) {
   const media = useMedia();
   const isCompact = media.lg;
-  const { columnWidths, tableMinWidth } = usePerpsTableColumns(isCompact);
+  const { columnWidths } = usePerpsTableColumns(isCompact);
+  const themeVariant = useThemeVariant();
+  const isDark = themeVariant === 'dark';
+
+  // Fixed column shadow management
+  const {
+    showShadow: showFixedShadow,
+    scrollViewRef,
+    handleNativeScroll,
+    handleWebScroll,
+  } = useFixedColumnShadow({
+    position: 'left',
+    enabled: isCompact,
+  });
 
   if (!records || records.length === 0) {
     return null;
   }
 
-  const tableContent = (
-    <YStack minWidth={isCompact ? tableMinWidth : undefined}>
-      <TableHeader
-        columnWidths={columnWidths}
-        sortBy={sortBy}
-        sortOrder={sortOrder}
-        onSort={onSort}
-      />
-      {records.map((record) => (
-        <TableRow key={record._id} item={record} columnWidths={columnWidths} />
-      ))}
-    </YStack>
-  );
+  if (isCompact) {
+    // Fixed address column + horizontally scrollable rest columns
+    return (
+      <YStack py="$2">
+        <XStack flex={1} position="relative">
+          {/* Fixed address column */}
+          <YStack
+            bg="$bgApp"
+            zIndex={1}
+            $platform-web={{
+              boxShadow: showFixedShadow
+                ? getWebShadowStyle('left', isDark)
+                : 'none',
+              clipPath: getWebClipPath('left'),
+              transition: `box-shadow ${SHADOW_CONSTANTS.TRANSITION_DURATION} ease-in-out`,
+            }}
+          >
+            <XStack ai="center" px="$5" py="$2" minHeight={COMPACT_ROW_MIN_HEIGHT}>
+              <AddressHeaderContent columnWidths={columnWidths} />
+            </XStack>
+            {records.map((record) => (
+              <XStack key={record._id} ai="center" px="$5" py="$2" minHeight={COMPACT_ROW_MIN_HEIGHT}>
+                <AddressCellContent
+                  item={record}
+                  columnWidths={columnWidths}
+                />
+              </XStack>
+            ))}
+            <FixedColumnShadowOverlay
+              position="left"
+              visible={showFixedShadow}
+              isDark={isDark}
+            />
+          </YStack>
 
+          {/* Scrollable columns */}
+          <ScrollView
+            ref={scrollViewRef}
+            flex={1}
+            horizontal
+            showsHorizontalScrollIndicator
+            bounces={false}
+            onScroll={
+              platformEnv.isNative ? handleNativeScroll : handleWebScroll
+            }
+            scrollEventThrottle={16}
+            contentContainerStyle={SCROLL_CONTENT_STYLE}
+          >
+            <YStack>
+              <XStack ai="center" py="$2" pr="$5" minHeight={COMPACT_ROW_MIN_HEIGHT}>
+                <ScrollableHeaderContent
+                  columnWidths={columnWidths}
+                  sortBy={sortBy}
+                  sortOrder={sortOrder}
+                  onSort={onSort}
+                />
+              </XStack>
+              {records.map((record) => (
+                <XStack key={record._id} ai="center" py="$2" pr="$5" minHeight={COMPACT_ROW_MIN_HEIGHT}>
+                  <ScrollableCellsContent
+                    item={record}
+                    columnWidths={columnWidths}
+                  />
+                </XStack>
+              ))}
+            </YStack>
+          </ScrollView>
+        </XStack>
+        {isLoadingMore ? (
+          <YStack ai="center" py="$4">
+            <Spinner size="small" />
+          </YStack>
+        ) : null}
+      </YStack>
+    );
+  }
+
+  // Desktop: full-width layout, all columns in one row
   return (
     <YStack py="$2">
-      {isCompact ? (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          {tableContent}
-        </ScrollView>
-      ) : (
-        tableContent
-      )}
+      <XStack ai="center" px="$5" py="$2">
+        <AddressHeaderContent columnWidths={columnWidths} />
+        <ScrollableHeaderContent
+          columnWidths={columnWidths}
+          sortBy={sortBy}
+          sortOrder={sortOrder}
+          onSort={onSort}
+        />
+      </XStack>
+      {records.map((record) => (
+        <XStack
+          key={record._id}
+          ai="center"
+          px="$5"
+          py="$2"
+          hoverStyle={HOVER_BG_STYLE}
+        >
+          <AddressCellContent item={record} columnWidths={columnWidths} />
+          <ScrollableCellsContent item={record} columnWidths={columnWidths} />
+        </XStack>
+      ))}
       {isLoadingMore ? (
         <YStack ai="center" py="$4">
           <Spinner size="small" />
