@@ -30,22 +30,19 @@ async function buildWeb({ repoRoot, outputDir }) {
   const skip = process.env.PERF_SKIP_BUILD === '1';
   if (skip) return;
 
-  const res = await execCmd(
-    'yarn',
-    ['workspace', '@onekeyhq/web', 'build'],
-    {
-      cwd: repoRoot,
-      env: {
-        PERF_MONITOR_ENABLED: '1',
-      },
-      timeoutMs:
-        Number(process.env.PERF_WEB_BUILD_TIMEOUT_MS) || 30 * 60 * 1000,
-      stdout: (d) => process.stdout.write(d),
-      stderr: (d) => process.stderr.write(d),
+  const res = await execCmd('yarn', ['workspace', '@onekeyhq/web', 'build'], {
+    cwd: repoRoot,
+    env: {
+      PERF_MONITOR_ENABLED: '1',
     },
-  );
+    timeoutMs: Number(process.env.PERF_WEB_BUILD_TIMEOUT_MS) || 30 * 60 * 1000,
+    stdout: (d) => process.stdout.write(d),
+    stderr: (d) => process.stderr.write(d),
+  });
   if (res.code !== 0) {
-    throw new Error(`web build failed with exit code ${res.code} (output=${outputDir})`);
+    throw new Error(
+      `web build failed with exit code ${res.code} (output=${outputDir})`,
+    );
   }
 }
 
@@ -95,9 +92,7 @@ async function main() {
     // IMPORTANT: when using browser-extension wallets, permissions are bound to the site origin.
     // Use a stable port by default so the "connected site" state persists across runs.
     port:
-      Number(process.env.PERF_WEB_PORT) ||
-      Number(localConfig.webPort) ||
-      3123,
+      Number(process.env.PERF_WEB_PORT) || Number(localConfig.webPort) || 3123,
     spaFallback: true,
   });
 
