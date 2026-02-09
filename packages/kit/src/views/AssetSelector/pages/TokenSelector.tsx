@@ -16,6 +16,7 @@ import {
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import type { IVaultSettings } from '@onekeyhq/kit-bg/src/vaults/types';
 import { SEARCH_KEY_MIN_LENGTH } from '@onekeyhq/shared/src/consts/walletConsts';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IAssetSelectorParamList } from '@onekeyhq/shared/src/routes';
 import { EAssetSelectorRoutes } from '@onekeyhq/shared/src/routes';
@@ -114,6 +115,10 @@ function TokenSelector() {
         }
 
         if (aggregateTokenList.length > 1 || allAggregateTokenList.length > 1) {
+          // Delay navigation to let the current CA transaction finish rendering
+          // SVG icons, avoiding EXC_BAD_ACCESS in InstanceHandle::getTag when
+          // Reanimated intercepts layout events from unmounting SVG views.
+          await timerUtils.wait(0);
           navigation.push(
             aggregateTokenSelectorScreen ??
               EAssetSelectorRoutes.AggregateTokenSelector,
