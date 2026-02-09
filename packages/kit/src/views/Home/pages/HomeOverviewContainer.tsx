@@ -57,6 +57,7 @@ function HomeOverviewContainer() {
   const [isRefreshingWorth, setIsRefreshingWorth] = useState(false);
   const [isRefreshingTokenList, setIsRefreshingTokenList] = useState(false);
   const [isRefreshingNftList, setIsRefreshingNftList] = useState(false);
+  const [isRefreshingDeFiList, setIsRefreshingDeFiList] = useState(false);
   const [isRefreshingHistoryList, setIsRefreshingHistoryList] = useState(false);
   const [isRefreshingApprovalList, setIsRefreshingApprovalList] =
     useState(false);
@@ -150,6 +151,7 @@ function HomeOverviewContainer() {
         setIsRefreshingHistoryList(isRefreshing);
         setIsRefreshingApprovalList(isRefreshing);
         setIsRefreshingWorth(isRefreshing);
+        setIsRefreshingDeFiList(isRefreshing);
         return;
       }
 
@@ -161,6 +163,8 @@ function HomeOverviewContainer() {
         setIsRefreshingHistoryList(isRefreshing);
       } else if (type === EHomeTab.APPROVALS) {
         setIsRefreshingApprovalList(isRefreshing);
+      } else if (type === EHomeTab.DEFI) {
+        setIsRefreshingDeFiList(isRefreshing);
       }
       setIsRefreshingWorth(isRefreshing);
       if (isRefreshing) {
@@ -283,7 +287,8 @@ function HomeOverviewContainer() {
     isRefreshingTokenList ||
     isRefreshingNftList ||
     isRefreshingHistoryList ||
-    isRefreshingApprovalList;
+    isRefreshingApprovalList ||
+    isRefreshingDeFiList;
 
   const refreshButton = useMemo(() => {
     return platformEnv.isNative || isWalletNotBackedUp ? undefined : (

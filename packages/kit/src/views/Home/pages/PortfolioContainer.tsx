@@ -11,11 +11,9 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
-import { ProviderJotaiContextDeFiList } from '../../../states/jotai/contexts/deFiList';
 import { ProviderJotaiContextEarn } from '../../../states/jotai/contexts/earn';
 import { ProviderJotaiContextHistoryList } from '../../../states/jotai/contexts/historyList';
 import useActiveTabDAppInfo from '../../DAppConnection/hooks/useActiveTabDAppInfo';
-import { DeFiListBlock } from '../components/DeFiListBlock';
 import { EarnListView } from '../components/EarnListView';
 import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListProvider';
 import { PopularTrading } from '../components/PopularTrading';
@@ -43,7 +41,6 @@ function PortfolioContainer() {
       <XStack pt="$3" pb="$4" px="$pagePadding" gap="$6">
         <YStack flex={1} gap="$8">
           <TokenListBlock showRecentHistory={showRecentHistory} tableLayout />
-          <DeFiListBlock tableLayout />
           <PopularTrading tableLayout />
           <EarnListView />
           <Upgrade />
@@ -65,7 +62,6 @@ function PortfolioContainer() {
   return (
     <YStack gap="$6" px="$pagePadding" pt="$3" pb="$4">
       <TokenListBlock />
-      <DeFiListBlock />
       <PopularTrading />
       <EarnListView />
       <Upgrade />
@@ -82,24 +78,22 @@ function PortfolioContainerWithProvider() {
   const tabBarHeight = useScrollContentTabBarOffset();
   return (
     <HomeTokenListProviderMirrorWrapper accountId={account?.id ?? ''}>
-      <ProviderJotaiContextDeFiList>
-        <ProviderJotaiContextHistoryList>
-          <ProviderJotaiContextEarn>
-            <Tabs.ScrollView
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={{ paddingBottom: tabBarHeight }}
-              nestedScrollEnabled={platformEnv.isNativeAndroid}
-              refreshControl={
-                !platformEnv.isNativeAndroid ? (
-                  <PullToRefresh onRefresh={onHomePageRefresh} />
-                ) : undefined
-              }
-            >
-              <PortfolioContainer />
-            </Tabs.ScrollView>
-          </ProviderJotaiContextEarn>
-        </ProviderJotaiContextHistoryList>
-      </ProviderJotaiContextDeFiList>
+      <ProviderJotaiContextHistoryList>
+        <ProviderJotaiContextEarn>
+          <Tabs.ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingBottom: tabBarHeight }}
+            nestedScrollEnabled={platformEnv.isNativeAndroid}
+            refreshControl={
+              !platformEnv.isNativeAndroid ? (
+                <PullToRefresh onRefresh={onHomePageRefresh} />
+              ) : undefined
+            }
+          >
+            <PortfolioContainer />
+          </Tabs.ScrollView>
+        </ProviderJotaiContextEarn>
+      </ProviderJotaiContextHistoryList>
     </HomeTokenListProviderMirrorWrapper>
   );
 }
