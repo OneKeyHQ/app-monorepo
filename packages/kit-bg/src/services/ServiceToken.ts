@@ -38,7 +38,11 @@ import { getVaultSettings } from '../vaults/settings';
 import ServiceBase from './ServiceBase';
 
 import type { IDBAccount } from '../dbs/local/types';
-import type { IHomePageCacheItem } from '../dbs/simple/entity/SimpleDbEntityHomePageData';
+import type {
+  IHomeHeaderData,
+  IHomePageCacheItemV2,
+  IHomeTokenListData,
+} from '../dbs/simple/entity/SimpleDbEntityHomePageData';
 import type { ISimpleDBLocalTokens } from '../dbs/simple/entity/SimpleDbEntityLocalTokens';
 import type { IRiskTokenManagementDBStruct } from '../dbs/simple/entity/SimpleDbEntityRiskTokenManagement';
 
@@ -1101,33 +1105,33 @@ class ServiceToken extends ServiceBase {
   // ---- Home Page Data Cache ----
 
   @backgroundMethod()
-  public async getHomePageCache({
+  public async getHomePageCacheV2({
     accountId,
     networkId,
   }: {
     accountId: string;
     networkId: string;
   }) {
-    return this.backgroundApi.simpleDb.homePageData.getCache({
+    return this.backgroundApi.simpleDb.homePageData.getCacheV2({
       accountId,
       networkId,
     });
   }
 
   @backgroundMethod()
-  public async saveHomePageCache({
+  public async saveHomePageCacheV2({
     accountId,
     networkId,
     data,
   }: {
     accountId: string;
     networkId: string;
-    data: IHomePageCacheItem;
+    data: IHomePageCacheItemV2;
   }) {
-    await this._saveHomePageCacheDebounced({ accountId, networkId, data });
+    await this._saveHomePageCacheV2Debounced({ accountId, networkId, data });
   }
 
-  _saveHomePageCacheDebounced = debounce(
+  _saveHomePageCacheV2Debounced = debounce(
     async ({
       accountId,
       networkId,
@@ -1135,9 +1139,9 @@ class ServiceToken extends ServiceBase {
     }: {
       accountId: string;
       networkId: string;
-      data: IHomePageCacheItem;
+      data: IHomePageCacheItemV2;
     }) => {
-      await this.backgroundApi.simpleDb.homePageData.setCache({
+      await this.backgroundApi.simpleDb.homePageData.setCacheV2({
         accountId,
         networkId,
         data,
@@ -1149,6 +1153,34 @@ class ServiceToken extends ServiceBase {
       trailing: true,
     },
   );
+
+  @backgroundMethod()
+  public async buildHomePageData({
+    headerData,
+    tokenListData,
+    accountId,
+    networkId,
+  }: {
+    headerData: IHomeHeaderData;
+    tokenListData: IHomeTokenListData;
+    accountId: string;
+    networkId: string;
+  }): Promise<IHomePageCacheItemV2> {
+    const cacheItem: IHomePageCacheItemV2 = {
+      version: 2,
+      header: headerData,
+      tokenList: tokenListData,
+      updatedAt: Date.now(),
+    };
+
+    void this.saveHomePageCacheV2({
+      accountId,
+      networkId,
+      data: cacheItem,
+    });
+
+    return cacheItem;
+  }
 }
 
 export default ServiceToken;

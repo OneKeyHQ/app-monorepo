@@ -43,6 +43,7 @@ import {
   useAccountWorthAtom,
 } from '../../../states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import { useHomeHeaderDataAtom } from '../../../states/jotai/contexts/homeHeader';
 import { showBalanceDetailsDialog } from '../components/BalanceDetailsDialog';
 
 import type { FontSizeTokens } from 'tamagui';
@@ -66,11 +67,8 @@ function HomeOverviewContainer() {
   const [accountWorth] = useAccountWorthAtom();
   const [accountDeFiOverview] = useAccountDeFiOverviewAtom();
   const [overviewState] = useAccountOverviewStateAtom();
-  const {
-    updateAccountOverviewState,
-    updateAccountWorth,
-    updateAccountDeFiOverview,
-  } = useAccountOverviewActions().current;
+  const [homeHeaderData] = useHomeHeaderDataAtom();
+  const { updateAccountDeFiOverview } = useAccountOverviewActions().current;
 
   const [settings] = useSettingsPersistAtom();
 
@@ -94,27 +92,8 @@ function HomeOverviewContainer() {
         network.isAllNetworks ||
         (wallet.type === WALLET_TYPE_HD && !wallet.backuped)
       ) {
-        // Try loading cached accountWorth to avoid brief $0 flash
-        void (async () => {
-          const cache = await backgroundApiProxy.serviceToken.getHomePageCache({
-            accountId: account.id,
-            networkId: network.id,
-          });
-          if (cache) {
-            updateAccountWorth({
-              accountId: cache.accountWorth.accountId,
-              worth: cache.accountWorth.worth,
-              createAtNetworkWorth: cache.accountWorth.createAtNetworkWorth,
-              initialized: true,
-            });
-          } else {
-            updateAccountWorth({
-              accountId: account.id,
-              worth: {},
-              initialized: false,
-            });
-          }
-        })();
+        // Cache loading for accountWorth is handled by useHomePageDataController
+        // Only reset DeFi overview here
         updateAccountDeFiOverview({
           overview: {
             totalValue: 0,
@@ -130,8 +109,6 @@ function HomeOverviewContainer() {
     network?.id,
     network?.isAllNetworks,
     updateAccountDeFiOverview,
-    updateAccountOverviewState,
-    updateAccountWorth,
     wallet?.backuped,
     wallet?.id,
     wallet?.type,
@@ -347,6 +324,11 @@ function HomeOverviewContainer() {
   }, [account?.id, network?.id]);
 
   const balanceString = useMemo(() => {
+    // Use pre-computed totalBalance from homeHeader store when available
+    if (homeHeaderData.initialized) {
+      return homeHeaderData.totalBalance;
+    }
+    // Fallback to legacy computation for single-network or during transition
     return new BigNumber(
       calculateAccountTokensValue({
         accountId: account?.id ?? '',
@@ -358,6 +340,8 @@ function HomeOverviewContainer() {
       .plus(accountDeFiOverview.netWorth ?? 0)
       .toFixed();
   }, [
+    homeHeaderData.initialized,
+    homeHeaderData.totalBalance,
     account?.id,
     network?.id,
     accountWorth,
@@ -378,8 +362,16 @@ function HomeOverviewContainer() {
   };
 
   const showSkeleton = useMemo(() => {
+    // Show skeleton when neither new homeHeader nor legacy overview is initialized
+    if (!homeHeaderData.initialized && !overviewState.initialized) {
+      return true;
+    }
     return overviewState.isRefreshing && !overviewState.initialized;
-  }, [overviewState.isRefreshing, overviewState.initialized]);
+  }, [
+    homeHeaderData.initialized,
+    overviewState.isRefreshing,
+    overviewState.initialized,
+  ]);
 
   return (
     <YStack gap="$2.5" alignItems="flex-start">

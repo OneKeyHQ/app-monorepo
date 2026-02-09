@@ -87,6 +87,11 @@ import type {
   ITokenFiat,
 } from '@onekeyhq/shared/types/token';
 
+import { useHomeHeaderActions } from '@onekeyhq/kit/src/states/jotai/contexts/homeHeader';
+import {
+  buildHomeHeaderDataFromWorth,
+  buildHomeTokenListData,
+} from '../../hooks/useHomePageDataController';
 import { RichBlock } from '../RichBlock/RichBlock';
 
 const networkIdsMap = getNetworkIdsMap();
@@ -232,6 +237,7 @@ function TokenListBlock({
     refreshAggregateTokensMap,
     updateTokenListState,
     updateSearchKey,
+    setHomeTokenListData,
   } = useTokenListActions().current;
 
   const [aggregateTokenListMapAtom] = useAggregateTokensListMapAtom();
@@ -241,6 +247,8 @@ function TokenListBlock({
     updateAccountOverviewState,
     updateAllNetworksState,
   } = useAccountOverviewActions().current;
+
+  const { setHomeHeaderData } = useHomeHeaderActions().current;
 
   const { result: homeDefaultTokenMap } = usePromiseResult(async () => {
     const r = await backgroundApiProxy.serviceToken.getHomeDefaultTokenMap();
@@ -1206,49 +1214,42 @@ function TokenListBlock({
           )
           .toFixed();
 
-        void backgroundApiProxy.serviceToken.saveHomePageCache({
+        // Save V2 cache + update new flat atoms
+        const allFiatMap = {
+          ...tokenListMap,
+          ...flattenLocalAggregateTokenMap,
+        };
+        const headerData = buildHomeHeaderDataFromWorth({
           accountId: account?.id ?? '',
           networkId: network?.id ?? '',
-          data: {
-            accountWorth: {
-              worth: tokenListValue,
-              createAtNetworkWorth:
-                tokenListValue[
-                  accountUtils.buildAccountValueKey({
-                    accountId: account?.id ?? '',
-                    networkId: account?.createAtNetwork ?? '',
-                  })
-                ] ?? '0',
-              accountId: account?.id ?? '',
-            },
-            tokenList: {
-              tokens: highValueTokens,
-              keys: `${accountId}_${networkId}_local_all`,
-            },
-            tokenListMap,
-            smallBalanceTokens: {
-              smallBalanceTokens: lowValueTokens,
-              keys: `${accountId}_${networkId}_local_all`,
-            },
-            smallBalanceTokenListMap: tokenListMap,
-            smallBalanceTokensFiatValue: lowValueFiatValue,
-            riskyTokens: {
-              riskyTokens: riskyTokenList,
-              keys: `${accountId}_${networkId}_local_all`,
-            },
-            riskyTokenListMap: tokenListMap,
-            allTokenList: {
-              tokens: [...tokenList, ...riskyTokenList],
-              keys: `${accountId}_${networkId}_local_all`,
-            },
-            allTokenListMap: {
-              ...tokenListMap,
-              ...flattenLocalAggregateTokenMap,
-            },
-            aggregateTokensMap: localAggregateTokenMap,
-            aggregateTokensListMap: localAggregateTokenListMap,
-            updatedAt: Date.now(),
-          },
+          worthMap: tokenListValue,
+          createAtNetworkWorth:
+            tokenListValue[
+              accountUtils.buildAccountValueKey({
+                accountId: account?.id ?? '',
+                networkId: account?.createAtNetwork ?? '',
+              })
+            ] ?? '0',
+          defiNetWorth: '0',
+          mergeDeriveAssetsEnabled: !!vaultSettings?.mergeDeriveAssetsEnabled,
+        });
+        const tokenListDataV2 = buildHomeTokenListData({
+          tokens: highValueTokens,
+          smallBalanceTokens: lowValueTokens,
+          riskyTokens: riskyTokenList,
+          tokenFiatMap: allFiatMap,
+          smallBalanceFiatValue: lowValueFiatValue,
+          aggregateTokensMap: localAggregateTokenMap,
+          aggregateTokensListMap: localAggregateTokenListMap,
+          allTokens: [...tokenList, ...riskyTokenList],
+        });
+        setHomeHeaderData(headerData);
+        setHomeTokenListData(tokenListDataV2);
+        void backgroundApiProxy.serviceToken.buildHomePageData({
+          headerData,
+          tokenListData: tokenListDataV2,
+          accountId: account?.id ?? '',
+          networkId: network?.id ?? '',
         });
       }
     },
@@ -1256,6 +1257,7 @@ function TokenListBlock({
       account?.createAtNetwork,
       account?.id,
       network?.id,
+      vaultSettings?.mergeDeriveAssetsEnabled,
       refreshAggregateTokensListMap,
       refreshAggregateTokensMap,
       refreshAllTokenList,
@@ -1268,6 +1270,8 @@ function TokenListBlock({
       updateAccountOverviewState,
       updateAccountWorth,
       updateTokenListState,
+      setHomeHeaderData,
+      setHomeTokenListData,
     ],
   );
 
@@ -1586,31 +1590,32 @@ function TokenListBlock({
           ...riskyTokenListMap,
           ...flattenAggregateTokenMap,
         };
-        void backgroundApiProxy.serviceToken.saveHomePageCache({
+        // Save V2 cache + update new flat atoms
+        const headerData = buildHomeHeaderDataFromWorth({
           accountId: account?.id ?? '',
           networkId: network?.id ?? '',
-          data: {
-            accountWorth: {
-              worth: accountsWorth,
-              createAtNetworkWorth: createAtNetworkWorth.toFixed(),
-              accountId: account?.id ?? '',
-            },
-            tokenList,
-            tokenListMap: mergeTokenListMap,
-            smallBalanceTokens: smallBalanceTokenList,
-            smallBalanceTokenListMap: mergeTokenListMap,
-            smallBalanceTokensFiatValue: smallBalanceTokensFiatValue.toFixed(),
-            riskyTokens: riskyTokenList,
-            riskyTokenListMap,
-            allTokenList: {
-              tokens: [...mergedTokens, ...riskyTokenList.riskyTokens],
-              keys: `${tokenList.keys}_${smallBalanceTokenList.keys}_${riskyTokenList.keys}`,
-            },
-            allTokenListMap: allTokenListMapData,
-            aggregateTokensMap: aggregateTokenMap,
-            aggregateTokensListMap: aggregateTokenListMap,
-            updatedAt: Date.now(),
-          },
+          worthMap: accountsWorth,
+          createAtNetworkWorth: createAtNetworkWorth.toFixed(),
+          defiNetWorth: '0',
+          mergeDeriveAssetsEnabled: !!vaultSettings?.mergeDeriveAssetsEnabled,
+        });
+        const tokenListDataV2 = buildHomeTokenListData({
+          tokens: tokenList.tokens,
+          smallBalanceTokens: smallBalanceTokenList.smallBalanceTokens,
+          riskyTokens: riskyTokenList.riskyTokens,
+          tokenFiatMap: allTokenListMapData,
+          smallBalanceFiatValue: smallBalanceTokensFiatValue.toFixed(),
+          aggregateTokensMap: aggregateTokenMap,
+          aggregateTokensListMap: aggregateTokenListMap,
+          allTokens: [...mergedTokens, ...riskyTokenList.riskyTokens],
+        });
+        setHomeHeaderData(headerData);
+        setHomeTokenListData(tokenListDataV2);
+        void backgroundApiProxy.serviceToken.buildHomePageData({
+          headerData,
+          tokenListData: tokenListDataV2,
+          accountId: account?.id ?? '',
+          networkId: network?.id ?? '',
         });
       }
     }
@@ -1620,6 +1625,7 @@ function TokenListBlock({
     allNetworksResult,
     network?.id,
     network?.isAllNetworks,
+    vaultSettings?.mergeDeriveAssetsEnabled,
     refreshAllTokenList,
     refreshAllTokenListMap,
     refreshAggregateTokensListMap,
@@ -1632,6 +1638,8 @@ function TokenListBlock({
     refreshTokenList,
     refreshTokenListMap,
     updateAccountWorth,
+    setHomeHeaderData,
+    setHomeTokenListData,
   ]);
 
   useEffect(() => {
@@ -1653,66 +1661,65 @@ function TokenListBlock({
       });
 
       if (networkId === networkIdsMap.onekeyall) {
-        // Try loading home page cache first to avoid skeleton
-        const homePageCache =
-          await backgroundApiProxy.serviceToken.getHomePageCache({
+        // Try V2 cache first, then fall back to V1
+        let cacheLoaded = false;
+
+        const cacheV2 =
+          await backgroundApiProxy.serviceToken.getHomePageCacheV2({
             accountId: account?.id ?? '',
             networkId,
           });
 
-        if (homePageCache) {
-          // Populate atoms with cached data immediately
+        if (cacheV2) {
+          // V2: dispatch to new flat atoms + legacy atoms
+          setHomeHeaderData(cacheV2.header);
+          setHomeTokenListData(cacheV2.tokenList);
+
           updateAccountWorth({
-            accountId: homePageCache.accountWorth.accountId,
+            accountId: cacheV2.header.accountId,
             initialized: true,
-            worth: homePageCache.accountWorth.worth,
-            createAtNetworkWorth:
-              homePageCache.accountWorth.createAtNetworkWorth,
+            worth: cacheV2.header.tokenWorthMap,
+            createAtNetworkWorth: cacheV2.header.createAtNetworkWorth,
             updateAll: true,
           });
           refreshTokenList({
-            tokens: homePageCache.tokenList.tokens,
-            keys: homePageCache.tokenList.keys,
+            tokens: cacheV2.tokenList.tokens,
+            keys: 'homePageCacheV2',
           });
           refreshTokenListMap({
-            tokens: {
-              ...homePageCache.tokenListMap,
-              ...homePageCache.smallBalanceTokenListMap,
-              ...homePageCache.riskyTokenListMap,
-            },
+            tokens: cacheV2.tokenList.tokenFiatMap,
           });
           refreshSmallBalanceTokenList({
-            smallBalanceTokens:
-              homePageCache.smallBalanceTokens.smallBalanceTokens,
-            keys: homePageCache.smallBalanceTokens.keys,
+            smallBalanceTokens: cacheV2.tokenList.smallBalanceTokens,
+            keys: 'homePageCacheV2',
           });
           refreshSmallBalanceTokenListMap({
-            tokens: homePageCache.smallBalanceTokenListMap,
+            tokens: cacheV2.tokenList.tokenFiatMap,
           });
           refreshSmallBalanceTokensFiatValue({
-            value: homePageCache.smallBalanceTokensFiatValue,
+            value: cacheV2.tokenList.smallBalanceFiatValue,
           });
           refreshRiskyTokenList({
-            riskyTokens: homePageCache.riskyTokens.riskyTokens,
-            keys: homePageCache.riskyTokens.keys,
+            riskyTokens: cacheV2.tokenList.riskyTokens,
+            keys: 'homePageCacheV2',
           });
           refreshRiskyTokenListMap({
-            tokens: homePageCache.riskyTokenListMap,
+            tokens: cacheV2.tokenList.tokenFiatMap,
           });
           refreshAllTokenList({
-            tokens: homePageCache.allTokenList.tokens,
-            keys: homePageCache.allTokenList.keys,
+            tokens: cacheV2.tokenList.allTokens,
+            keys: 'homePageCacheV2_all',
             accountId: account?.id,
             networkId: network?.id,
           });
           refreshAllTokenListMap({
-            tokens: homePageCache.allTokenListMap,
+            tokens: cacheV2.tokenList.tokenFiatMap,
           });
           refreshAggregateTokensMap({
-            tokens: homePageCache.aggregateTokensMap,
+            tokens: cacheV2.tokenList.aggregateTokensMap,
           });
           refreshAggregateTokensListMap({
-            tokens: homePageCache.aggregateTokensListMap,
+            tokens: cacheV2.tokenList.aggregateTokensListMap,
           });
           updateAccountOverviewState({
             initialized: true,
@@ -1722,7 +1729,10 @@ function TokenListBlock({
             initialized: true,
             isRefreshing: false,
           });
-        } else {
+          cacheLoaded = true;
+        }
+
+        if (!cacheLoaded) {
           // No cache, show skeleton as before
           perfTokenListView.markStart('tokenListRefreshing_1');
           updateTokenListState({
@@ -1950,6 +1960,8 @@ function TokenListBlock({
     updateAccountWorth,
     updateSearchKey,
     updateTokenListState,
+    setHomeHeaderData,
+    setHomeTokenListData,
     wallet?.id,
   ]);
 

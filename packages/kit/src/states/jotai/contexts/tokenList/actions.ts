@@ -12,6 +12,7 @@ import {
   sortTokensByFiatValue,
   sortTokensByOrder,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
+import type { IHomeTokenListData } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityHomePageData';
 import type {
   ETokenListSortType,
   IAccountToken,
@@ -30,6 +31,7 @@ import {
   contextAtomMethod,
   createAccountStateAtom,
   flattenAggregateTokensMapAtom,
+  homeTokenListDataAtom,
   riskyTokenListAtom,
   riskyTokenListMapAtom,
   searchKeyAtom,
@@ -594,6 +596,12 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
     },
   );
 
+  setHomeTokenListData = contextAtomMethod(
+    (get, set, payload: IHomeTokenListData) => {
+      set(homeTokenListDataAtom(), payload);
+    },
+  );
+
   updateTokenListSort = contextAtomMethod(
     (
       get,
@@ -665,6 +673,8 @@ export function useTokenListActions() {
   const refreshAggregateTokensListMap =
     actions.refreshAggregateTokensListMap.use();
 
+  const setHomeTokenListData = actions.setHomeTokenListData.use();
+
   return useRef({
     refreshSearchTokenList,
     refreshAllTokenList,
@@ -685,5 +695,6 @@ export function useTokenListActions() {
     updateTokenListSort,
     refreshAggregateTokensMap,
     refreshAggregateTokensListMap,
+    setHomeTokenListData,
   });
 }

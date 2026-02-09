@@ -3,31 +3,41 @@ import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
-export interface IHomePageCacheItem {
-  accountWorth: {
-    worth: Record<string, string>;
-    createAtNetworkWorth: string;
-    accountId: string;
-  };
-  tokenList: { tokens: IAccountToken[]; keys: string };
-  tokenListMap: Record<string, ITokenFiat>;
-  smallBalanceTokens: {
-    smallBalanceTokens: IAccountToken[];
-    keys: string;
-  };
-  smallBalanceTokenListMap: Record<string, ITokenFiat>;
-  smallBalanceTokensFiatValue: string;
-  riskyTokens: { riskyTokens: IAccountToken[]; keys: string };
-  riskyTokenListMap: Record<string, ITokenFiat>;
-  allTokenList: { tokens: IAccountToken[]; keys: string };
-  allTokenListMap: Record<string, ITokenFiat>;
+// ---- V2: Flat data shapes matching Jotai store structures ----
+
+export interface IHomeHeaderData {
+  totalBalance: string;
+  tokenWorth: string;
+  defiNetWorth: string;
+  tokenWorthMap: Record<string, string>;
+  createAtNetworkWorth: string;
+  accountId: string;
+  initialized: boolean;
+  isRefreshing: boolean;
+}
+
+export interface IHomeTokenListData {
+  tokens: IAccountToken[];
+  smallBalanceTokens: IAccountToken[];
+  riskyTokens: IAccountToken[];
+  tokenFiatMap: Record<string, ITokenFiat>;
+  smallBalanceFiatValue: string;
   aggregateTokensMap: Record<string, Record<string, ITokenFiat>>;
   aggregateTokensListMap: Record<string, { tokens: IAccountToken[] }>;
+  allTokens: IAccountToken[];
+  initialized: boolean;
+  isRefreshing: boolean;
+}
+
+export interface IHomePageCacheItemV2 {
+  version: 2;
+  header: IHomeHeaderData;
+  tokenList: IHomeTokenListData;
   updatedAt: number;
 }
 
 export interface ISimpleDBHomePageData {
-  [key: string]: IHomePageCacheItem;
+  [key: string]: IHomePageCacheItemV2;
 }
 
 export class SimpleDbEntityHomePageData extends SimpleDbEntityBase<ISimpleDBHomePageData> {
@@ -36,27 +46,33 @@ export class SimpleDbEntityHomePageData extends SimpleDbEntityBase<ISimpleDBHome
   override enableCache = true;
 
   @backgroundMethod()
-  async getCache({
+  async getCacheV2({
     accountId,
     networkId,
   }: {
     accountId: string;
     networkId: string;
-  }): Promise<IHomePageCacheItem | undefined> {
+  }): Promise<IHomePageCacheItemV2 | undefined> {
     const key = `${accountId}_${networkId}`;
     const rawData = await this.getRawData();
-    return rawData?.[key];
+    const item = rawData?.[key];
+    if (!item) return undefined;
+    // Skip legacy entries that don't have version: 2
+    if (!('version' in item) || item.version !== 2) {
+      return undefined;
+    }
+    return item;
   }
 
   @backgroundMethod()
-  async setCache({
+  async setCacheV2({
     accountId,
     networkId,
     data,
   }: {
     accountId: string;
     networkId: string;
-    data: IHomePageCacheItem;
+    data: IHomePageCacheItemV2;
   }) {
     const key = `${accountId}_${networkId}`;
     await this.setRawData((rawData) => ({

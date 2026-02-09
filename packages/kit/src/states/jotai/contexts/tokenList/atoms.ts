@@ -1,3 +1,4 @@
+import type { IHomeTokenListData } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityHomePageData';
 import { flattenAggregateTokensMap } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 import { ETokenListSortType } from '@onekeyhq/shared/types/token';
@@ -176,4 +177,18 @@ export const { atom: tokenListSortAtom, use: useTokenListSortAtom } =
   }>({
     sortType: ETokenListSortType.Value,
     sortDirection: 'desc',
+  });
+
+export const { atom: homeTokenListDataAtom, use: useHomeTokenListDataAtom } =
+  contextAtom<IHomeTokenListData>({
+    tokens: [],
+    smallBalanceTokens: [],
+    riskyTokens: [],
+    tokenFiatMap: {},
+    smallBalanceFiatValue: '0',
+    aggregateTokensMap: {},
+    aggregateTokensListMap: {},
+    allTokens: [],
+    initialized: false,
+    isRefreshing: false,
   });

@@ -7,6 +7,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { TabletHomeContainer } from '../../../components/TabletHomeContainer';
 import { withAccountOverviewProvider } from '../../../states/jotai/contexts/accountOverview';
+import { ProviderJotaiContextHomeHeader } from '../../../states/jotai/contexts/homeHeader';
 import {
   useActiveAccount,
   useSelectedAccount,
@@ -63,35 +64,37 @@ function HomePageContainer() {
   }
   const sceneName = EAccountSelectorSceneName.home;
   return (
-    <TabletHomeContainer>
-      <AccountSelectorProviderMirror
-        config={{
-          sceneName,
-          sceneUrl: '',
-        }}
-        enabledNum={[0]}
-      >
-        <HomePageView
-          key={sceneName}
-          sceneName={sceneName}
-          onPressHide={() => setIsHide((v) => !v)}
-        />
-        <DAppConnectExtensionFloatingTrigger />
-        <OnboardingOnMount />
-        <NotificationRegisterDaily />
-        <BTCFreshAddressProvider />
-        {/* <UrlAccountAutoReplaceHistory num={0} /> */}
+    <ProviderJotaiContextHomeHeader>
+      <TabletHomeContainer>
+        <AccountSelectorProviderMirror
+          config={{
+            sceneName,
+            sceneUrl: '',
+          }}
+          enabledNum={[0]}
+        >
+          <HomePageView
+            key={sceneName}
+            sceneName={sceneName}
+            onPressHide={() => setIsHide((v) => !v)}
+          />
+          <DAppConnectExtensionFloatingTrigger />
+          <OnboardingOnMount />
+          <NotificationRegisterDaily />
+          <BTCFreshAddressProvider />
+          {/* <UrlAccountAutoReplaceHistory num={0} /> */}
 
-        {process.env.NODE_ENV !== 'production' ? (
-          <>
-            <SelectedAccountsMapTest />
-            <SelectedAccountTest />
-            <ActiveAccountTest />
-            <EmptyRenderTest />
-          </>
-        ) : null}
-      </AccountSelectorProviderMirror>
-    </TabletHomeContainer>
+          {process.env.NODE_ENV !== 'production' ? (
+            <>
+              <SelectedAccountsMapTest />
+              <SelectedAccountTest />
+              <ActiveAccountTest />
+              <EmptyRenderTest />
+            </>
+          ) : null}
+        </AccountSelectorProviderMirror>
+      </TabletHomeContainer>
+    </ProviderJotaiContextHomeHeader>
   );
 }
 
