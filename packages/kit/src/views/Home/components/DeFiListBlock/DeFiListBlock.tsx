@@ -853,6 +853,7 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
         withTitleSeparator
         title={intl.formatMessage({ id: ETranslations.global_earn })}
         subTitle={renderSubTitle()}
+        headerContainerProps={{ px: '$pagePadding' }}
         plainContentContainer={!tableLayout}
         content={
           !initialized && isRefreshing ? (
@@ -880,6 +881,7 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
       withTitleSeparator
       title={intl.formatMessage({ id: ETranslations.global_earn })}
       subTitle={renderSubTitle()}
+      headerContainerProps={{ px: '$pagePadding' }}
       content={renderContent()}
       plainContentContainer
     />

@@ -748,6 +748,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     <RichBlock
       title={intl.formatMessage({ id: ETranslations.global_favorites })}
       headerActions={headerActions}
+      headerContainerProps={{ px: '$pagePadding' }}
       content={renderContent()}
       contentContainerProps={{
         px: tableLayout && hasUserFavorites ? '$2' : '$0',

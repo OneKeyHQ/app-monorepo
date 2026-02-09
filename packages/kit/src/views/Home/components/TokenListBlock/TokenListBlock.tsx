@@ -1986,7 +1986,7 @@ function TokenListBlock({
           variant="tertiary"
           icon="SliderHorOutline"
           onPress={handleOnManageToken}
-          size="small"
+          size="medium"
         />
       );
     }
@@ -2073,6 +2073,7 @@ function TokenListBlock({
       })}
       subTitle={renderSubTitle()}
       headerActions={renderHeaderActions()}
+      headerContainerProps={{ px: '$pagePadding' }}
       content={renderContent()}
       plainContentContainer
     />
