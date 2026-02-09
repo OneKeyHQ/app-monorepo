@@ -108,7 +108,7 @@ export function HomePageView({
   const tabContainerWidth = useTabContainerWidth();
   defaultLogger.app.page.homePageViewTabContainerWidth({
     tabContainerWidth,
-    isNative: platformEnv.isNative,
+    isNative: !!platformEnv.isNative,
     widthPassedToTabs: platformEnv.isNative
       ? (tabContainerWidth as number)
       : undefined,
