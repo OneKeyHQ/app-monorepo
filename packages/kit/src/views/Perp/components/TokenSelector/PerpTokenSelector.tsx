@@ -9,6 +9,7 @@ import {
   type IListViewRef,
   Icon,
   ListView,
+  NumberSizeableText,
   Popover,
   SearchBar,
   SizableText,
@@ -32,6 +33,7 @@ import {
   usePerpTokenSelectorConfigPersistAtom,
   usePerpTokenSelectorTabsAtom,
   usePerpsActiveAssetAtom,
+  usePerpsActiveAssetCtxAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
@@ -774,22 +776,14 @@ const BasePerpTokenSelectorMobileView = memo(
   ({
     onPressTokenSelector,
     coin,
+    change24hPercent,
   }: {
     onPressTokenSelector: () => void;
     coin: string;
+    change24hPercent: number;
   }) => {
-    const intl = useIntl();
     const parsedCoin = useMemo(() => parseDexCoin(coin), [coin]);
     const displayCoin = parsedCoin.displayName || coin;
-    const [builderFeeRate, setBuilderFeeRate] = useState<number | undefined>();
-
-    useEffect(() => {
-      void backgroundApiProxy.simpleDb.perp
-        .getExpectMaxBuilderFee()
-        .then((fee) => {
-          setBuilderFeeRate(fee);
-        });
-    }, []);
 
     return (
       <DebugRenderTracker name="BasePerpTokenSelectorMobileView">
@@ -798,47 +792,21 @@ const BasePerpTokenSelectorMobileView = memo(
           bg="$bgApp"
           justifyContent="center"
           alignItems="center"
+          onPress={onPressTokenSelector}
         >
-          <XStack gap="$1" onPress={onPressTokenSelector} alignItems="center">
-            <SizableText size="$headingXl">{displayCoin}USDC</SizableText>
-            <Badge radius="$1" bg="$bgSubdued" px="$1" py={0}>
-              <SizableText color="$textSubdued" fontSize={11}>
-                {intl.formatMessage({
-                  id: ETranslations.perp_label_perp,
-                })}
-              </SizableText>
-            </Badge>
-          </XStack>
-          {builderFeeRate === 0 ? (
-            <Popover
-              title={intl.formatMessage({
-                id: ETranslations.referral_perps_onekey_fee,
-              })}
-              renderTrigger={
-                <Badge radius="$1" bg="$bgSuccessSubdued" px="$1" py={0}>
-                  <SizableText color="$green11" fontSize={11}>
-                    {intl.formatMessage({
-                      id: ETranslations.perp_0_fee,
-                    })}
-                  </SizableText>
-                </Badge>
-              }
-              renderContent={
-                <YStack px="$5" pb="$4">
-                  <SizableText size="$bodyMd" color="$text">
-                    {intl.formatMessage({
-                      id: ETranslations.perps_fee_desc,
-                    })}
-                  </SizableText>
-                </YStack>
-              }
-            />
-          ) : null}
-          <Icon
-            name="ChevronDownSmallOutline"
-            size="$5"
-            onPress={onPressTokenSelector}
-          />
+          <SizableText size="$headingXl">{displayCoin}USDC</SizableText>
+          <NumberSizeableText
+            size="$bodySmMedium"
+            alignSelf="center"
+            color={change24hPercent >= 0 ? '$green11' : '$red11'}
+            formatter="priceChange"
+            formatterOptions={{
+              showPlusMinusSigns: true,
+            }}
+          >
+            {change24hPercent}
+          </NumberSizeableText>
+          <Icon name="ChevronTriangleDownSmallSolid" size="$5" />
         </XStack>
       </DebugRenderTracker>
     );
@@ -849,7 +817,9 @@ function BasePerpTokenSelectorMobile() {
   const navigation = useAppNavigation();
 
   const [asset] = usePerpsActiveAssetAtom();
+  const [assetCtx] = usePerpsActiveAssetCtxAtom();
   const coin = asset?.coin || '';
+  const change24hPercent = assetCtx?.ctx?.change24hPercent || 0;
   const onPressTokenSelector = useCallback(() => {
     navigation.pushModal(EModalRoutes.PerpModal, {
       screen: EModalPerpRoutes.MobileTokenSelector,
@@ -860,6 +830,7 @@ function BasePerpTokenSelectorMobile() {
     <BasePerpTokenSelectorMobileView
       onPressTokenSelector={onPressTokenSelector}
       coin={coin}
+      change24hPercent={change24hPercent}
     />
   );
 }
