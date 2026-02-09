@@ -4,11 +4,11 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 import Animated, {
   Easing,
-  runOnJS,
   useAnimatedProps,
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 import Svg, { Defs, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { useThrottledCallback } from 'use-debounce';
 
@@ -61,58 +61,7 @@ import {
 
 import type { SearchDevice } from '@onekeyfe/hd-core';
 
-const MatrixBackground = ({
-  lineCount = 30,
-  charsPerLine = 60,
-  updateInterval = 200,
-  characterSet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789',
-}: {
-  lineCount?: number;
-  charsPerLine?: number;
-  updateInterval?: number;
-  characterSet?: string;
-}) => {
-  const [lines, setLines] = useState<string[]>([]);
-  useEffect(() => {
-    // generate lines of random characters
-    const generateLines = () => {
-      const newLines: string[] = [];
-
-      for (let i = 0; i < lineCount; i += 1) {
-        let line = '';
-        for (let j = 0; j < charsPerLine; j += 1) {
-          line += characterSet[Math.floor(Math.random() * characterSet.length)];
-        }
-        newLines.push(line);
-      }
-      setLines(() => newLines);
-    };
-
-    generateLines();
-
-    // update all characters at regular intervals
-    const interval = setInterval(generateLines, updateInterval);
-
-    return () => clearInterval(interval);
-  }, [lineCount, charsPerLine, updateInterval, characterSet]);
-
-  return (
-    <YStack>
-      {lines.map((line, idx) => (
-        <SizableText
-          textAlign="center"
-          fontFamily="$monoRegular"
-          letterSpacing={2}
-          key={idx}
-          numberOfLines={1}
-          ellipsizeMode="clip"
-        >
-          {line}
-        </SizableText>
-      ))}
-    </YStack>
-  );
-};
+import MatrixBackground from './MatrixBackground';
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 
@@ -271,9 +220,9 @@ function FinalizeWalletSetupPage({
         },
         (finished) => {
           if (finished) {
-            runOnJS(setCurrentStep)(nextStep);
-            runOnJS(changeIdProgress)(false);
-            runOnJS(processNextStep)();
+            scheduleOnRN(setCurrentStep, nextStep);
+            scheduleOnRN(changeIdProgress, false);
+            scheduleOnRN(processNextStep);
           }
         },
       );
@@ -508,9 +457,7 @@ function FinalizeWalletSetupPage({
                 y="-50%"
                 opacity={0.15}
               >
-                <MatrixBackground
-                  {...(platformEnv.isNative && { lineCount: 60 })}
-                />
+                <MatrixBackground />
                 {!platformEnv.isNativeAndroid ? svgMask : null}
               </YStack>
               {platformEnv.isNativeAndroid ? svgMask : null}
