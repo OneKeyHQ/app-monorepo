@@ -185,17 +185,48 @@ function WebModalNavigator({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  const contentVisibilityTimersRef = useRef<ReturnType<typeof setTimeout>[]>(
+    [],
+  );
   useEffect(() => {
     // @ts-expect-error
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     const listener = navigation.addListener('state', () => {
       const newIndex = navigation?.getState?.().index ?? 0;
+
+      // Clear pending contentVisibility timers to avoid stale updates
+      contentVisibilityTimersRef.current.forEach((timer) =>
+        clearTimeout(timer),
+      );
+      contentVisibilityTimersRef.current = [];
+
       stackChildrenRefList.current.forEach((element, routeIndex) => {
+        if (!element) return;
         const transform =
           routeIndex <= newIndex ? 'translateX(0px)' : 'translateX(640px)';
         // @ts-expect-error
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         element.style.transform = transform;
+
+        if (!platformEnv.isNative) {
+          if (routeIndex === newIndex) {
+            // Show current route immediately to avoid white flash
+            // @ts-expect-error
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            element.style.contentVisibility = '';
+          } else {
+            // Delay hiding non-current routes until slide animation completes
+            const timer = setTimeout(() => {
+              const currentIndex = navigation?.getState?.().index ?? 0;
+              if (routeIndex !== currentIndex) {
+                // @ts-expect-error
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                element.style.contentVisibility = 'hidden';
+              }
+            }, 500);
+            contentVisibilityTimersRef.current.push(timer);
+          }
+        }
       });
     });
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
@@ -227,7 +258,6 @@ function WebModalNavigator({
     const routeDescriptor = descriptors[route.key];
     // eslint-disable-next-line @typescript-eslint/unbound-method
     const { render } = routeDescriptor;
-    const isCurrentRoute = routeIndex === state.index;
     routeDescriptor.render = () => (
       <Stack
         ref={(ref) => {
@@ -245,8 +275,6 @@ function WebModalNavigator({
           shadowOpacity: 0.3,
           shadowRadius: 10,
           shadowOffset: { width: -5, height: 0 },
-          contentVisibility:
-            !platformEnv.isNative && !isCurrentRoute ? 'hidden' : undefined,
         }}
       >
         {render()}
