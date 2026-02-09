@@ -51,6 +51,7 @@ import type { SimpleDbEntityRecentRecipients } from '../entity/SimpleDbEntityRec
 import type { SimpleDbEntityReferralCode } from '../entity/SimpleDbEntityReferralCode';
 import type { SimpleDbEntityRiskTokenManagement } from '../entity/SimpleDbEntityRiskTokenManagement';
 import type { SimpleDbEntityRiskyTokens } from '../entity/SimpleDbEntityRiskyTokens';
+import type { SimpleDbEntityHomePageData } from '../entity/SimpleDbEntityHomePageData';
 import type { SimpleDbEntityRookieGuide } from '../entity/SimpleDbEntityRookieGuide';
 import type { SimpleDbEntityServerNetwork } from '../entity/SimpleDbEntityServerNetwork';
 import type { SimpleDbEntitySwapConfigs } from '../entity/SimpleDbEntitySwapConfigs';
@@ -291,4 +292,8 @@ export class SimpleDbProxy
   rookieGuide = this._createProxyService(
     'rookieGuide',
   ) as SimpleDbEntityRookieGuide;
+
+  homePageData = this._createProxyService(
+    'homePageData',
+  ) as SimpleDbEntityHomePageData;
 }

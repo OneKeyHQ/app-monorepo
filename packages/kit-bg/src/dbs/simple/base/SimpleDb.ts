@@ -530,4 +530,13 @@ export class SimpleDb {
     Object.defineProperty(this, 'rookieGuide', { value });
     return value;
   }
+
+  get homePageData() {
+    const SimpleDbEntityHomePageData = (
+      require('../entity/SimpleDbEntityHomePageData') as unknown as typeof import('../entity/SimpleDbEntityHomePageData')
+    ).SimpleDbEntityHomePageData;
+    const value = new SimpleDbEntityHomePageData();
+    Object.defineProperty(this, 'homePageData', { value });
+    return value;
+  }
 }

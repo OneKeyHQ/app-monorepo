@@ -38,6 +38,7 @@ import { getVaultSettings } from '../vaults/settings';
 import ServiceBase from './ServiceBase';
 
 import type { IDBAccount } from '../dbs/local/types';
+import type { IHomePageCacheItem } from '../dbs/simple/entity/SimpleDbEntityHomePageData';
 import type { ISimpleDBLocalTokens } from '../dbs/simple/entity/SimpleDbEntityLocalTokens';
 import type { IRiskTokenManagementDBStruct } from '../dbs/simple/entity/SimpleDbEntityRiskTokenManagement';
 
@@ -1096,6 +1097,58 @@ class ServiceToken extends ServiceBase {
   public async clearLastActiveTabNameData() {
     return this.backgroundApi.simpleDb.aggregateToken.clearLastActiveTabNameData();
   }
+
+  // ---- Home Page Data Cache ----
+
+  @backgroundMethod()
+  public async getHomePageCache({
+    accountId,
+    networkId,
+  }: {
+    accountId: string;
+    networkId: string;
+  }) {
+    return this.backgroundApi.simpleDb.homePageData.getCache({
+      accountId,
+      networkId,
+    });
+  }
+
+  @backgroundMethod()
+  public async saveHomePageCache({
+    accountId,
+    networkId,
+    data,
+  }: {
+    accountId: string;
+    networkId: string;
+    data: IHomePageCacheItem;
+  }) {
+    await this._saveHomePageCacheDebounced({ accountId, networkId, data });
+  }
+
+  _saveHomePageCacheDebounced = debounce(
+    async ({
+      accountId,
+      networkId,
+      data,
+    }: {
+      accountId: string;
+      networkId: string;
+      data: IHomePageCacheItem;
+    }) => {
+      await this.backgroundApi.simpleDb.homePageData.setCache({
+        accountId,
+        networkId,
+        data,
+      });
+    },
+    3000,
+    {
+      leading: false,
+      trailing: true,
+    },
+  );
 }
 
 export default ServiceToken;

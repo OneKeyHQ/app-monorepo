@@ -94,11 +94,27 @@ function HomeOverviewContainer() {
         network.isAllNetworks ||
         (wallet.type === WALLET_TYPE_HD && !wallet.backuped)
       ) {
-        updateAccountWorth({
-          accountId: account.id,
-          worth: {},
-          initialized: false,
-        });
+        // Try loading cached accountWorth to avoid brief $0 flash
+        void (async () => {
+          const cache = await backgroundApiProxy.serviceToken.getHomePageCache({
+            accountId: account.id,
+            networkId: network.id,
+          });
+          if (cache) {
+            updateAccountWorth({
+              accountId: cache.accountWorth.accountId,
+              worth: cache.accountWorth.worth,
+              createAtNetworkWorth: cache.accountWorth.createAtNetworkWorth,
+              initialized: true,
+            });
+          } else {
+            updateAccountWorth({
+              accountId: account.id,
+              worth: {},
+              initialized: false,
+            });
+          }
+        })();
         updateAccountDeFiOverview({
           overview: {
             totalValue: 0,

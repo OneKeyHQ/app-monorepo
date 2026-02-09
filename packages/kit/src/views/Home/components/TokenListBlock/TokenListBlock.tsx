@@ -1183,6 +1183,73 @@ function TokenListBlock({
         });
 
         perfTokenListView.markEnd('handleAllNetworkCacheData');
+
+        // Save home page cache for instant startup
+        const allCacheTokenListMap = {
+          ...tokenListMap,
+          ...flattenLocalAggregateTokenMap,
+        };
+        const sortedTokens = sortTokensByFiatValue({
+          tokens: tokenList,
+          map: allCacheTokenListMap,
+        });
+        const highValueTokens = sortedTokens.slice(
+          0,
+          TOKEN_LIST_HIGH_VALUE_MAX,
+        );
+        const lowValueTokens = sortedTokens.slice(TOKEN_LIST_HIGH_VALUE_MAX);
+        const lowValueFiatValue = lowValueTokens
+          .reduce(
+            (acc, t) =>
+              acc.plus(allCacheTokenListMap[t.$key]?.fiatValue ?? '0'),
+            new BigNumber(0),
+          )
+          .toFixed();
+
+        void backgroundApiProxy.serviceToken.saveHomePageCache({
+          accountId: account?.id ?? '',
+          networkId: network?.id ?? '',
+          data: {
+            accountWorth: {
+              worth: tokenListValue,
+              createAtNetworkWorth:
+                tokenListValue[
+                  accountUtils.buildAccountValueKey({
+                    accountId: account?.id ?? '',
+                    networkId: account?.createAtNetwork ?? '',
+                  })
+                ] ?? '0',
+              accountId: account?.id ?? '',
+            },
+            tokenList: {
+              tokens: highValueTokens,
+              keys: `${accountId}_${networkId}_local_all`,
+            },
+            tokenListMap,
+            smallBalanceTokens: {
+              smallBalanceTokens: lowValueTokens,
+              keys: `${accountId}_${networkId}_local_all`,
+            },
+            smallBalanceTokenListMap: tokenListMap,
+            smallBalanceTokensFiatValue: lowValueFiatValue,
+            riskyTokens: {
+              riskyTokens: riskyTokenList,
+              keys: `${accountId}_${networkId}_local_all`,
+            },
+            riskyTokenListMap: tokenListMap,
+            allTokenList: {
+              tokens: [...tokenList, ...riskyTokenList],
+              keys: `${accountId}_${networkId}_local_all`,
+            },
+            allTokenListMap: {
+              ...tokenListMap,
+              ...flattenLocalAggregateTokenMap,
+            },
+            aggregateTokensMap: localAggregateTokenMap,
+            aggregateTokensListMap: localAggregateTokenListMap,
+            updatedAt: Date.now(),
+          },
+        });
       }
     },
     [
@@ -1511,12 +1578,48 @@ function TokenListBlock({
           ...flattenAggregateTokenMap,
         },
       });
+
+      // Save home page cache for instant startup
+      if (network?.isAllNetworks) {
+        const allTokenListMapData = {
+          ...mergeTokenListMap,
+          ...riskyTokenListMap,
+          ...flattenAggregateTokenMap,
+        };
+        void backgroundApiProxy.serviceToken.saveHomePageCache({
+          accountId: account?.id ?? '',
+          networkId: network?.id ?? '',
+          data: {
+            accountWorth: {
+              worth: accountsWorth,
+              createAtNetworkWorth: createAtNetworkWorth.toFixed(),
+              accountId: account?.id ?? '',
+            },
+            tokenList,
+            tokenListMap: mergeTokenListMap,
+            smallBalanceTokens: smallBalanceTokenList,
+            smallBalanceTokenListMap: mergeTokenListMap,
+            smallBalanceTokensFiatValue: smallBalanceTokensFiatValue.toFixed(),
+            riskyTokens: riskyTokenList,
+            riskyTokenListMap,
+            allTokenList: {
+              tokens: [...mergedTokens, ...riskyTokenList.riskyTokens],
+              keys: `${tokenList.keys}_${smallBalanceTokenList.keys}_${riskyTokenList.keys}`,
+            },
+            allTokenListMap: allTokenListMapData,
+            aggregateTokensMap: aggregateTokenMap,
+            aggregateTokensListMap: aggregateTokenListMap,
+            updatedAt: Date.now(),
+          },
+        });
+      }
     }
   }, [
     account?.createAtNetwork,
     account?.id,
     allNetworksResult,
     network?.id,
+    network?.isAllNetworks,
     refreshAllTokenList,
     refreshAllTokenListMap,
     refreshAggregateTokensListMap,
@@ -1550,16 +1653,88 @@ function TokenListBlock({
       });
 
       if (networkId === networkIdsMap.onekeyall) {
-        perfTokenListView.markStart('tokenListRefreshing_1');
-        updateTokenListState({
-          initialized: false,
-          isRefreshing: true,
-        });
-        updateAccountOverviewState({
-          initialized: false,
-          isRefreshing: true,
-        });
-        handleClearAllNetworkData();
+        // Try loading home page cache first to avoid skeleton
+        const homePageCache =
+          await backgroundApiProxy.serviceToken.getHomePageCache({
+            accountId: account?.id ?? '',
+            networkId,
+          });
+
+        if (homePageCache) {
+          // Populate atoms with cached data immediately
+          updateAccountWorth({
+            accountId: homePageCache.accountWorth.accountId,
+            initialized: true,
+            worth: homePageCache.accountWorth.worth,
+            createAtNetworkWorth:
+              homePageCache.accountWorth.createAtNetworkWorth,
+            updateAll: true,
+          });
+          refreshTokenList({
+            tokens: homePageCache.tokenList.tokens,
+            keys: homePageCache.tokenList.keys,
+          });
+          refreshTokenListMap({
+            tokens: {
+              ...homePageCache.tokenListMap,
+              ...homePageCache.smallBalanceTokenListMap,
+              ...homePageCache.riskyTokenListMap,
+            },
+          });
+          refreshSmallBalanceTokenList({
+            smallBalanceTokens:
+              homePageCache.smallBalanceTokens.smallBalanceTokens,
+            keys: homePageCache.smallBalanceTokens.keys,
+          });
+          refreshSmallBalanceTokenListMap({
+            tokens: homePageCache.smallBalanceTokenListMap,
+          });
+          refreshSmallBalanceTokensFiatValue({
+            value: homePageCache.smallBalanceTokensFiatValue,
+          });
+          refreshRiskyTokenList({
+            riskyTokens: homePageCache.riskyTokens.riskyTokens,
+            keys: homePageCache.riskyTokens.keys,
+          });
+          refreshRiskyTokenListMap({
+            tokens: homePageCache.riskyTokenListMap,
+          });
+          refreshAllTokenList({
+            tokens: homePageCache.allTokenList.tokens,
+            keys: homePageCache.allTokenList.keys,
+            accountId: account?.id,
+            networkId: network?.id,
+          });
+          refreshAllTokenListMap({
+            tokens: homePageCache.allTokenListMap,
+          });
+          refreshAggregateTokensMap({
+            tokens: homePageCache.aggregateTokensMap,
+          });
+          refreshAggregateTokensListMap({
+            tokens: homePageCache.aggregateTokensListMap,
+          });
+          updateAccountOverviewState({
+            initialized: true,
+            isRefreshing: false,
+          });
+          updateTokenListState({
+            initialized: true,
+            isRefreshing: false,
+          });
+        } else {
+          // No cache, show skeleton as before
+          perfTokenListView.markStart('tokenListRefreshing_1');
+          updateTokenListState({
+            initialized: false,
+            isRefreshing: true,
+          });
+          updateAccountOverviewState({
+            initialized: false,
+            isRefreshing: true,
+          });
+          handleClearAllNetworkData();
+        }
         return;
       }
 
@@ -1766,8 +1941,11 @@ function TokenListBlock({
     refreshRiskyTokenListMap,
     refreshSmallBalanceTokenList,
     refreshSmallBalanceTokenListMap,
+    refreshSmallBalanceTokensFiatValue,
     refreshTokenList,
     refreshTokenListMap,
+    refreshAggregateTokensMap,
+    refreshAggregateTokensListMap,
     updateAccountOverviewState,
     updateAccountWorth,
     updateSearchKey,
