@@ -30,7 +30,7 @@ export function TimeRangeSelector({
           flex={1}
           borderWidth={0}
           borderRadius="$2"
-          py="$1.5"
+          py="$1"
           onPress={() => onChange(opt.value)}
           bg={value === opt.value ? '$bgApp' : '$transparent'}
           hoverStyle={{
@@ -40,7 +40,7 @@ export function TimeRangeSelector({
             bg: value === opt.value ? '$bgAppActive' : '$bgActive',
           }}
         >
-          <YStack alignItems="center" gap="$1">
+          <YStack alignItems="center">
             <SizableText
               size="$bodyMd"
               color={value === opt.value ? '$text' : '$textSubdued'}

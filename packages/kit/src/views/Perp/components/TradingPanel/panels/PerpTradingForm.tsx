@@ -73,7 +73,7 @@ function MobileDepositButton() {
       icon="PlusCircleSolid"
       onPress={() => void showDepositWithdrawModal('deposit')}
       color="$iconSubdued"
-      cursor="pointer"
+      cursor="default"
     />
   );
 }
@@ -377,36 +377,45 @@ function PerpTradingForm({
       ) : (
         <>
           <XStack
-            mx="$-2.5"
+            ml="$-3"
+            mr="$-5"
             h={54}
             alignItems="center"
             borderBottomWidth="$px"
             borderBottomColor="$borderSubdued"
           >
-            {orderTypeOptions.map((option) => (
-              <XStack
-                h={54}
-                key={option.value}
-                ml="$5"
-                alignItems="center"
-                borderBottomWidth={
-                  formData.type === option.value ? '$0.5' : '$0'
-                }
-                borderBottomColor="$borderActive"
-                onPress={() => handleOrderTypeChange(option.name)}
-                cursor="pointer"
-              >
-                <SizableText
-                  size="$headingXs"
-                  fontSize={14}
-                  color={
-                    formData.type === option.value ? '$text' : '$textSubdued'
-                  }
+            {orderTypeOptions.map((option) => {
+              const isFocused = formData.type === option.value;
+              return (
+                <XStack
+                  h={54}
+                  key={option.value}
+                  ml="$5"
+                  alignItems="center"
+                  position="relative"
+                  onPress={() => handleOrderTypeChange(option.name)}
+                  cursor="default"
                 >
-                  {option.name}
-                </SizableText>
-              </XStack>
-            ))}
+                  <SizableText
+                    size="$bodyMdMedium"
+                    color={isFocused ? '$text' : '$textSubdued'}
+                  >
+                    {option.name}
+                  </SizableText>
+                  {isFocused ? (
+                    <YStack
+                      position="absolute"
+                      bottom={0}
+                      left={0}
+                      right={0}
+                      h="$0.5"
+                      bg="$text"
+                      borderRadius={1}
+                    />
+                  ) : null}
+                </XStack>
+              );
+            })}
           </XStack>
 
           <XStack alignItems="center" flex={1} gap="$3">
@@ -425,7 +434,7 @@ function PerpTradingForm({
           p: '$2.5',
           borderWidth: '$px',
           borderColor: '$borderSubdued',
-          borderRadius: '$3',
+          borderRadius: '$2',
         })}
       >
         <XStack justifyContent="space-between">
@@ -512,6 +521,7 @@ function PerpTradingForm({
               px="$3"
               h={isMobile ? 38 : 40}
               alignItems="center"
+              cursor="default"
               hoverStyle={{
                 bg: '$bgHover',
               }}
@@ -519,7 +529,6 @@ function PerpTradingForm({
                 bg: '$bgHover',
               }}
               disabled={isSubmitting}
-              cursor="pointer"
             >
               {isMobile ? (
                 <DashText
@@ -570,7 +579,7 @@ function PerpTradingForm({
         leverage={formData.leverage ?? 1}
       />
 
-      <YStack {...(isMobile && { pt: '$2', pb: '$2' })}>
+      <YStack mt="$-1" {...(isMobile && { pt: '$2', pb: '$2', mt: '$0' })}>
         <PerpsSlider
           min={0}
           max={100}

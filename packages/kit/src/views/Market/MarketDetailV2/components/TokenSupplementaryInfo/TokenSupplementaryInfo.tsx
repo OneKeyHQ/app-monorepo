@@ -106,14 +106,14 @@ export function TokenSupplementaryInfo() {
   }
 
   return (
-    <YStack p="$5">
+    <YStack pl="$3" pr="$5" pt="$3" gap="$2.5">
       {rows.map((item) => (
-        <XStack key={item.key} py="$2" gap="$2" jc="space-between" ai="center">
+        <XStack key={item.key} gap="$2" jc="space-between" ai="center">
           <Tooltip
             placement="top"
             renderTrigger={
               <DashText
-                size="$bodyMd"
+                size="$bodySm"
                 color="$textSubdued"
                 dashColor="$textDisabled"
                 dashThickness={0.5}
@@ -126,7 +126,7 @@ export function TokenSupplementaryInfo() {
               <SizableText size="$bodySm">{item.tooltip}</SizableText>
             }
           />
-          <SizableText size="$bodyMdMedium" color="$text">
+          <SizableText size="$bodySmMedium" color="$text">
             {item.value}
           </SizableText>
         </XStack>

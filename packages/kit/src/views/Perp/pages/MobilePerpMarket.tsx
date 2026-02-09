@@ -74,9 +74,9 @@ function MobilePerpMarket() {
           alignItems="center"
           gap="$2"
           onPress={onPressTokenSelector}
-          cursor="pointer"
           hoverStyle={{ opacity: 0.8 }}
           pressStyle={{ opacity: 0.6 }}
+          cursor="default"
         >
           <Token
             size="sm"

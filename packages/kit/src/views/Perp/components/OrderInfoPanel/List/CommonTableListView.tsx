@@ -530,14 +530,14 @@ export function CommonTableListView<T>({
       {...getColumnStyle(column)}
       justifyContent={calcCellAlign(column.align) as any}
       onPress={column.onPress}
-      cursor={column.onPress ? 'pointer' : 'default'}
+      cursor="default"
     >
       {column.tooltip ? (
         <Tooltip
           placement="top"
           renderTrigger={
             <SizableText
-              size="$bodySm"
+              size="$bodySmMedium"
               borderBottomWidth="$px"
               borderTopWidth={0}
               borderLeftWidth={0}
@@ -546,7 +546,6 @@ export function CommonTableListView<T>({
               borderStyle="dashed"
               cursor="help"
               color={column.onPress ? '$textSuccess' : headerTextColor}
-              fontWeight="600"
               textAlign={column.align || 'left'}
             >
               {column.title}
@@ -556,11 +555,10 @@ export function CommonTableListView<T>({
         />
       ) : (
         <SizableText
-          size="$bodySm"
+          size="$bodySmMedium"
           borderBottomWidth="$px"
           borderBottomColor="transparent"
           color={column.onPress ? '$textSuccess' : headerTextColor}
-          fontWeight="600"
           textAlign={column.align || 'left'}
         >
           {column.title}
