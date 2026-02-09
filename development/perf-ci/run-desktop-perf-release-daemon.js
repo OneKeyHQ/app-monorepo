@@ -70,7 +70,9 @@ async function main() {
   process.on('SIGTERM', onStop);
 
   // eslint-disable-next-line no-console
-  console.log(`[perf] desktop release daemon started; intervalMs=${intervalMs}`);
+  console.log(
+    `[perf] desktop release daemon started; intervalMs=${intervalMs}`,
+  );
 
   while (!stopping) {
     const startedAt = new Date().toISOString();
@@ -91,4 +93,3 @@ main().catch((e) => {
   console.error(e?.stack || e?.message || String(e));
   process.exit(2);
 });
-

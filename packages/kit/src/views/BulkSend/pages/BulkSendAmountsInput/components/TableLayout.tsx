@@ -398,27 +398,29 @@ function AmountCard() {
             {/* Min Input */}
             <Stack
               flex={1}
+              flexBasis={0}
               borderRadius="$3"
               borderWidth={sharedStyles.borderWidth}
               borderColor={sharedStyles.borderColor}
               overflow="hidden"
             >
-              <XStack alignItems="center" px="$3.5" pt="$2.5" pb="$1">
-                <Input
-                  flex={1}
-                  value={localRangeMin}
-                  onChangeText={handleRangeMinChange}
-                  placeholder="0"
-                  keyboardType="decimal-pad"
-                  containerProps={{
-                    borderWidth: 0,
-                  }}
-                  bg="transparent"
-                  fontSize={24}
-                  fontWeight="600"
-                  px="$0"
-                />
-              </XStack>
+              <Input
+                value={localRangeMin}
+                onChangeText={handleRangeMinChange}
+                placeholder="0"
+                keyboardType="decimal-pad"
+                containerProps={{
+                  borderWidth: 0,
+                  mx: '$3.5',
+                  mt: '$2.5',
+                  mb: '$1',
+                  overflow: 'hidden',
+                }}
+                bg="transparent"
+                fontSize={24}
+                fontWeight="600"
+                px="$0"
+              />
               <XStack
                 alignItems="center"
                 justifyContent="space-between"
@@ -426,6 +428,9 @@ function AmountCard() {
                 pb="$2.5"
               >
                 <NumberSizeableText
+                  flex={1}
+                  minWidth={0}
+                  numberOfLines={1}
                   size="$bodySm"
                   color="$textSubdued"
                   formatter="value"
@@ -433,7 +438,12 @@ function AmountCard() {
                 >
                   {minFiatValue}
                 </NumberSizeableText>
-                <SizableText size="$bodyMdMedium" color="$textSubdued">
+                <SizableText
+                  size="$bodyMdMedium"
+                  color="$textSubdued"
+                  flexShrink={0}
+                  ml="$1"
+                >
                   {tokenInfo.symbol}
                 </SizableText>
               </XStack>
@@ -445,27 +455,29 @@ function AmountCard() {
             {/* Max Input */}
             <Stack
               flex={1}
+              flexBasis={0}
               borderRadius="$3"
               borderWidth={sharedStyles.borderWidth}
               borderColor={sharedStyles.borderColor}
               overflow="hidden"
             >
-              <XStack alignItems="center" px="$3.5" pt="$2.5" pb="$1">
-                <Input
-                  flex={1}
-                  value={localRangeMax}
-                  onChangeText={handleRangeMaxChange}
-                  placeholder="0"
-                  keyboardType="decimal-pad"
-                  containerProps={{
-                    borderWidth: 0,
-                  }}
-                  bg="transparent"
-                  fontSize={24}
-                  fontWeight="600"
-                  px="$0"
-                />
-              </XStack>
+              <Input
+                value={localRangeMax}
+                onChangeText={handleRangeMaxChange}
+                placeholder="0"
+                keyboardType="decimal-pad"
+                containerProps={{
+                  borderWidth: 0,
+                  mx: '$3.5',
+                  mt: '$2.5',
+                  mb: '$1',
+                  overflow: 'hidden',
+                }}
+                bg="transparent"
+                fontSize={24}
+                fontWeight="600"
+                px="$0"
+              />
               <XStack
                 alignItems="center"
                 justifyContent="space-between"
@@ -473,6 +485,9 @@ function AmountCard() {
                 pb="$2.5"
               >
                 <NumberSizeableText
+                  flex={1}
+                  minWidth={0}
+                  numberOfLines={1}
                   size="$bodySm"
                   color="$textSubdued"
                   formatter="value"
@@ -480,7 +495,12 @@ function AmountCard() {
                 >
                   {maxFiatValue}
                 </NumberSizeableText>
-                <SizableText size="$bodyMdMedium" color="$textSubdued">
+                <SizableText
+                  size="$bodyMdMedium"
+                  color="$textSubdued"
+                  flexShrink={0}
+                  ml="$1"
+                >
                   {tokenInfo.symbol}
                 </SizableText>
               </XStack>

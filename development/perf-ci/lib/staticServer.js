@@ -101,4 +101,3 @@ function startStaticServer({
 module.exports = {
   startStaticServer,
 };
-

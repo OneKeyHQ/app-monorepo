@@ -38,4 +38,3 @@ module.exports = {
   defaultDerivedOutPath,
   deriveSession,
 };
-
