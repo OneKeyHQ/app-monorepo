@@ -37,12 +37,16 @@ export function useApprovalRecheck({
   const pollingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const timeoutTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isMountedRef = useRef(true);
+  // Flag to stop polling after timeout fires, preventing race condition
+  // where in-flight async check reschedules timer after clearTimers() ran
+  const isStoppedRef = useRef(false);
 
   // Keep latest values in refs to avoid stale closures in polling
   const approvesInfoRef = useRef(approvesInfo);
   approvesInfoRef.current = approvesInfo;
 
   const clearTimers = useCallback(() => {
+    isStoppedRef.current = true;
     if (pollingTimerRef.current) {
       clearTimeout(pollingTimerRef.current);
       pollingTimerRef.current = null;
@@ -99,12 +103,13 @@ export function useApprovalRecheck({
     if (!accountId || !networkId) return;
 
     clearTimers();
+    isStoppedRef.current = false;
     setIsRecheckingApproval(true);
 
     const runCheck = async () => {
       const isApproved = await checkAllowance();
 
-      if (!isMountedRef.current) return;
+      if (!isMountedRef.current || isStoppedRef.current) return;
 
       if (isApproved) {
         try {
@@ -132,8 +137,8 @@ export function useApprovalRecheck({
         return;
       }
 
-      // Schedule next check if still mounted
-      if (isMountedRef.current) {
+      // Schedule next check if still mounted and not stopped
+      if (isMountedRef.current && !isStoppedRef.current) {
         pollingTimerRef.current = setTimeout(runCheck, POLLING_INTERVAL);
       }
     };
