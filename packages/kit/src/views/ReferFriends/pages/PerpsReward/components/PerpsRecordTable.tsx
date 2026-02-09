@@ -70,6 +70,9 @@ const SCROLL_CONTENT_STYLE = { flexGrow: 1 };
 const REWARD_FORMATTER_OPTIONS = { showPlusMinusSigns: true };
 const HOVER_OPACITY_STYLE = { opacity: 0.7 };
 const HOVER_BG_STYLE = { bg: '$bgHover' };
+// Consistent row height for compact mode to prevent drift between
+// the fixed address column and the scrollable columns (Badge vs SizableText).
+const COMPACT_ROW_MIN_HEIGHT = '$10';
 
 function SortableHeader({
   label,
@@ -341,11 +344,11 @@ export function PerpsRecordTable({
               transition: `box-shadow ${SHADOW_CONSTANTS.TRANSITION_DURATION} ease-in-out`,
             }}
           >
-            <XStack ai="center" px="$5" py="$2">
+            <XStack ai="center" px="$5" py="$2" minHeight={COMPACT_ROW_MIN_HEIGHT}>
               <AddressHeaderContent columnWidths={columnWidths} />
             </XStack>
             {records.map((record) => (
-              <XStack key={record._id} ai="center" px="$5" py="$2">
+              <XStack key={record._id} ai="center" px="$5" py="$2" minHeight={COMPACT_ROW_MIN_HEIGHT}>
                 <AddressCellContent
                   item={record}
                   columnWidths={columnWidths}
@@ -373,7 +376,7 @@ export function PerpsRecordTable({
             contentContainerStyle={SCROLL_CONTENT_STYLE}
           >
             <YStack>
-              <XStack ai="center" py="$2" pr="$5">
+              <XStack ai="center" py="$2" pr="$5" minHeight={COMPACT_ROW_MIN_HEIGHT}>
                 <ScrollableHeaderContent
                   columnWidths={columnWidths}
                   sortBy={sortBy}
@@ -382,7 +385,7 @@ export function PerpsRecordTable({
                 />
               </XStack>
               {records.map((record) => (
-                <XStack key={record._id} ai="center" py="$2" pr="$5">
+                <XStack key={record._id} ai="center" py="$2" pr="$5" minHeight={COMPACT_ROW_MIN_HEIGHT}>
                   <ScrollableCellsContent
                     item={record}
                     columnWidths={columnWidths}
