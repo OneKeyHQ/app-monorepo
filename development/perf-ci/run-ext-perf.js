@@ -26,9 +26,23 @@ const { defaultDerivedOutPath, deriveSession } = require('./lib/derive');
 const { nowId } = require('./lib/id');
 const { findChromiumExecutable } = require('./lib/chromium');
 const { postSlackWebhook } = require('./lib/slack');
-const { ensurePerfServerRunning, checkPerfServer, stopChild } = require('./lib/perfServer');
-const { listSessionIds, waitForNewSessionId, waitForMark, readSessionMetrics, ensureSessionsDirWritable } = require('./lib/session');
-const { aggregateRuns, checkRegression, extractDerivedDebugMetrics } = require('./lib/regression');
+const {
+  ensurePerfServerRunning,
+  checkPerfServer,
+  stopChild,
+} = require('./lib/perfServer');
+const {
+  listSessionIds,
+  waitForNewSessionId,
+  waitForMark,
+  readSessionMetrics,
+  ensureSessionsDirWritable,
+} = require('./lib/session');
+const {
+  aggregateRuns,
+  checkRegression,
+  extractDerivedDebugMetrics,
+} = require('./lib/regression');
 
 function ensureDirExists(p) {
   fs.mkdirSync(p, { recursive: true });
@@ -80,15 +94,20 @@ async function buildExt({ repoRoot }) {
   const skip = process.env.PERF_SKIP_EXT_BUILD === '1';
   if (skip) return;
 
-  const res = await execCmd('yarn', ['workspace', '@onekeyhq/ext', 'build:v3'], {
-    cwd: repoRoot,
-    env: {
-      PERF_MONITOR_ENABLED: '1',
+  const res = await execCmd(
+    'yarn',
+    ['workspace', '@onekeyhq/ext', 'build:v3'],
+    {
+      cwd: repoRoot,
+      env: {
+        PERF_MONITOR_ENABLED: '1',
+      },
+      timeoutMs:
+        Number(process.env.PERF_EXT_BUILD_TIMEOUT_MS) || 30 * 60 * 1000,
+      stdout: (d) => process.stdout.write(d),
+      stderr: (d) => process.stderr.write(d),
     },
-    timeoutMs: Number(process.env.PERF_EXT_BUILD_TIMEOUT_MS) || 30 * 60 * 1000,
-    stdout: (d) => process.stdout.write(d),
-    stderr: (d) => process.stderr.write(d),
-  });
+  );
   if (res.code !== 0) {
     throw new Error(`ext build failed with exit code ${res.code}`);
   }
@@ -150,7 +169,9 @@ async function runOne({
   try {
     const extId = await getExtensionId(context);
     if (!extId) {
-      throw new Error('Failed to detect extension id (no service worker / background page).');
+      throw new Error(
+        'Failed to detect extension id (no service worker / background page).',
+      );
     }
     log(`run ${runIndex}: extensionId=${extId}`);
 
@@ -167,13 +188,17 @@ async function runOne({
     });
     log(`run ${runIndex}: got sessionId=${sessionId}`);
 
-    log(`run ${runIndex}: wait mark "${markName}" (timeoutMs=${markTimeoutMs})`);
+    log(
+      `run ${runIndex}: wait mark "${markName}" (timeoutMs=${markTimeoutMs})`,
+    );
     await waitForMark({
       markLogPath: path.join(sessionsDir, sessionId, 'mark.log'),
       markName,
       timeoutMs: markTimeoutMs,
     });
-    log(`run ${runIndex}: mark "${markName}" found; wait ${afterMarkDelayMs}ms`);
+    log(
+      `run ${runIndex}: mark "${markName}" found; wait ${afterMarkDelayMs}ms`,
+    );
 
     await new Promise((r) => setTimeout(r, afterMarkDelayMs));
 
@@ -225,13 +250,21 @@ async function main() {
 
   const thresholdsPath =
     process.env.PERF_THRESHOLDS_PATH ||
-    path.join(repoRoot, 'development', 'perf-ci', 'thresholds', 'ext.release.json');
+    path.join(
+      repoRoot,
+      'development',
+      'perf-ci',
+      'thresholds',
+      'ext.release.json',
+    );
 
   ensureDir(outputDir);
   ensureDir(derivedDir);
 
   log(`outputDir=${outputDir}`);
-  log(`runs=${runCount} mark=${markName} sessionsDir=${sessionsDir} serverUrl=${serverUrl}`);
+  log(
+    `runs=${runCount} mark=${markName} sessionsDir=${sessionsDir} serverUrl=${serverUrl}`,
+  );
 
   const extBuildRoot =
     process.env.PERF_EXT_BUILD_ROOT ||
@@ -351,7 +384,11 @@ async function main() {
         log,
       });
       runs.push(r);
-      writeJson(path.join(outputDir, 'runs.json'), { startedAt, sessionsDir, runs });
+      writeJson(path.join(outputDir, 'runs.json'), {
+        startedAt,
+        sessionsDir,
+        runs,
+      });
     }
 
     const sessionIds = runs.map((r) => r.sessionId).filter(Boolean);
@@ -366,7 +403,12 @@ async function main() {
       const sessionId = r.sessionId;
       const outPath = defaultDerivedOutPath({ derivedDir, sessionId });
       // eslint-disable-next-line no-await-in-loop
-      const dj = await deriveSession({ repoRoot, sessionsDir, sessionId, outPath });
+      const dj = await deriveSession({
+        repoRoot,
+        sessionsDir,
+        sessionId,
+        outPath,
+      });
       derived.push({ sessionId, derivedPath: outPath, derived: dj });
     }
 
@@ -385,7 +427,9 @@ async function main() {
     const thresholds = readJson(thresholdsPath);
     const { values, agg } = aggregateRuns(runResults);
     const exceed = checkRegression({ thresholds, values, agg });
-    log(`result=${exceed.triggered ? 'REGRESSION' : 'OK'} reasons=${exceed.reasons.length}`);
+    log(
+      `result=${exceed.triggered ? 'REGRESSION' : 'OK'} reasons=${exceed.reasons.length}`,
+    );
 
     const report = {
       meta,

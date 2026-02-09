@@ -89,7 +89,9 @@ async function ensurePerfServerRunning({
   }
 
   if (health) {
-    const actualDir = health?.outputDir ? normalizePath(health.outputDir) : null;
+    const actualDir = health?.outputDir
+      ? normalizePath(health.outputDir)
+      : null;
     if (actualDir && actualDir !== desiredDir) {
       throw new Error(
         `performance-server is running but outputDir differs.\n` +
@@ -115,7 +117,9 @@ async function ensurePerfServerRunning({
   while (Date.now() < deadline) {
     try {
       const health = await checkPerfServer(serverUrl);
-      const actualDir = health?.outputDir ? normalizePath(health.outputDir) : null;
+      const actualDir = health?.outputDir
+        ? normalizePath(health.outputDir)
+        : null;
       if (actualDir && actualDir !== desiredDir) {
         throw new Error(
           `Started performance-server but outputDir differs.\n` +
@@ -160,4 +164,3 @@ module.exports = {
   startPerfServer,
   stopChild,
 };
-

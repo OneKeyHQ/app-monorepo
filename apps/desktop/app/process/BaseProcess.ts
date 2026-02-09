@@ -36,7 +36,13 @@ export default abstract class BaseProcess {
 
   launchThrottle: ReturnType<typeof setTimeout> | null;
 
-  supportedSystems = ['mac-arm64', 'mac-x64', 'win-x64', 'linux-arm64', 'linux-x64'];
+  supportedSystems = [
+    'mac-arm64',
+    'mac-x64',
+    'win-x64',
+    'linux-arm64',
+    'linux-x64',
+  ];
 
   stopped = false;
 
