@@ -344,15 +344,23 @@ export function PerpsRecordTable({
               transition: `box-shadow ${SHADOW_CONSTANTS.TRANSITION_DURATION} ease-in-out`,
             }}
           >
-            <XStack ai="center" px="$5" py="$2" minHeight={COMPACT_ROW_MIN_HEIGHT}>
+            <XStack
+              ai="center"
+              px="$5"
+              py="$2"
+              minHeight={COMPACT_ROW_MIN_HEIGHT}
+            >
               <AddressHeaderContent columnWidths={columnWidths} />
             </XStack>
             {records.map((record) => (
-              <XStack key={record._id} ai="center" px="$5" py="$2" minHeight={COMPACT_ROW_MIN_HEIGHT}>
-                <AddressCellContent
-                  item={record}
-                  columnWidths={columnWidths}
-                />
+              <XStack
+                key={record._id}
+                ai="center"
+                px="$5"
+                py="$2"
+                minHeight={COMPACT_ROW_MIN_HEIGHT}
+              >
+                <AddressCellContent item={record} columnWidths={columnWidths} />
               </XStack>
             ))}
             <FixedColumnShadowOverlay
@@ -376,7 +384,12 @@ export function PerpsRecordTable({
             contentContainerStyle={SCROLL_CONTENT_STYLE}
           >
             <YStack>
-              <XStack ai="center" py="$2" pr="$5" minHeight={COMPACT_ROW_MIN_HEIGHT}>
+              <XStack
+                ai="center"
+                py="$2"
+                pr="$5"
+                minHeight={COMPACT_ROW_MIN_HEIGHT}
+              >
                 <ScrollableHeaderContent
                   columnWidths={columnWidths}
                   sortBy={sortBy}
@@ -385,7 +398,13 @@ export function PerpsRecordTable({
                 />
               </XStack>
               {records.map((record) => (
-                <XStack key={record._id} ai="center" py="$2" pr="$5" minHeight={COMPACT_ROW_MIN_HEIGHT}>
+                <XStack
+                  key={record._id}
+                  ai="center"
+                  py="$2"
+                  pr="$5"
+                  minHeight={COMPACT_ROW_MIN_HEIGHT}
+                >
                   <ScrollableCellsContent
                     item={record}
                     columnWidths={columnWidths}
