@@ -44,8 +44,8 @@ function ActionItem({
   if (showButtonStyle) {
     return (
       <Button
+        icon={icon}
         {...(!label && {
-          icon,
           py: '$2',
           pl: '$2.5',
           pr: '$0.5',

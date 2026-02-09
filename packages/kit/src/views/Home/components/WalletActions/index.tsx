@@ -247,18 +247,13 @@ function WalletActions({ ...rest }: IXStackProps) {
     switch (actionType) {
       case 'send':
         return (
-          <WalletActionSend
-            key="send"
-            customization={customization}
-            showButtonStyle
-          />
+          <WalletActionSend key="send" customization={customization} />
         );
       case 'receive':
         return (
           <WalletActionReceive
             key="receive"
             customization={customization}
-            showButtonStyle
             useSelector
           />
         );
@@ -267,33 +262,17 @@ function WalletActions({ ...rest }: IXStackProps) {
       case 'swap':
         return platformEnv.isExtensionUiPopup ||
           platformEnv.isExtensionUiSidePanel ? (
-          <WalletActionPerp
-            key="perp"
-            customization={customization}
-            showButtonStyle
-          />
+          <WalletActionPerp key="perp" customization={customization} />
         ) : (
-          <WalletActionSwap
-            key="swap"
-            customization={customization}
-            showButtonStyle
-          />
+          <WalletActionSwap key="swap" customization={customization} />
         );
       case 'perp':
         return (
-          <WalletActionPerp
-            key="perp"
-            customization={customization}
-            showButtonStyle
-          />
+          <WalletActionPerp key="perp" customization={customization} />
         );
       case 'staking':
         return (
-          <WalletActionStaking
-            key="staking"
-            customization={customization}
-            showButtonStyle
-          />
+          <WalletActionStaking key="staking" customization={customization} />
         );
       default:
         return null;
@@ -312,7 +291,7 @@ function WalletActions({ ...rest }: IXStackProps) {
       }}
     >
       {config.mainActions.map(renderActionComponent).filter(Boolean)}
-      <WalletActionMore showButtonStyle />
+      <WalletActionMore />
     </RawActions>
   );
 }
