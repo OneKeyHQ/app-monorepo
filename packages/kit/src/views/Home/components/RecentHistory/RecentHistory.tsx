@@ -48,7 +48,7 @@ function RecentHistory() {
           hoverStyle={{ opacity: 0.8 }}
           pressStyle={{ opacity: 0.6 }}
         >
-          <SizableText size="$headingLg" color="$text">
+          <SizableText size="$headingXl" color="$text">
             {intl.formatMessage({
               id: ETranslations.wallet_recent_transaction_history_title,
             })}

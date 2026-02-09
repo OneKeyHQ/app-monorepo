@@ -1955,7 +1955,7 @@ function TokenListBlock({
       return (
         <NumberSizeableTextWrapper
           hideValue
-          size="$headingLg"
+          size="$headingXl"
           color="$textSubdued"
           formatter="value"
           formatterOptions={{
