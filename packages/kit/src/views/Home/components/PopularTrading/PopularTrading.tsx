@@ -734,7 +734,6 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     isLoading,
     renderEmptyStateCards,
     renderUserFavoritesList,
-    tableLayout,
   ]);
 
   if (initializedRef.current && isEmpty(favoriteTokens)) {

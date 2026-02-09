@@ -19,7 +19,6 @@ import {
   SizableText,
   Stack,
   XStack,
-  useMedia,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -39,8 +38,6 @@ function ActionItem({
   onPress,
   ...rest
 }: IActionItemsProps) {
-  const media = useMedia();
-
   if (showButtonStyle) {
     return (
       <Button
@@ -224,10 +221,8 @@ function ActionStaking(props: IActionItemsProps) {
 
 function ActionMore({
   renderItemsAsync,
-  showButtonStyle = false,
 }: {
   renderItemsAsync: IActionListProps['renderItemsAsync'];
-  showButtonStyle?: boolean;
 }) {
   const intl = useIntl();
   const label = intl.formatMessage({ id: ETranslations.global_more });

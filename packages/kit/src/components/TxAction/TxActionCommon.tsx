@@ -120,11 +120,11 @@ function TxActionCommonAvatar({
 
 function TxActionCommonTitle({
   title,
-  tableLayout,
+  tableLayout: _tableLayout,
   replaceType,
   status,
   riskyLevel,
-  compact,
+  compact: _compact,
 }: Pick<
   ITxActionCommonListViewProps,
   'title' | 'tableLayout' | 'replaceType' | 'status' | 'riskyLevel' | 'compact'
@@ -258,8 +258,8 @@ function TxActionCommonDescription({
 
 function TxActionCommonChange({
   change,
-  tableLayout,
-  compact,
+  tableLayout: _tableLayout,
+  compact: _compact,
 }: Pick<ITxActionCommonListViewProps, 'tableLayout' | 'compact'> & {
   change: string;
 }) {
