@@ -24,6 +24,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -105,6 +106,13 @@ export function HomePageView({
 }) {
   const tabBarHeight = useScrollContentTabBarOffset();
   const tabContainerWidth = useTabContainerWidth();
+  defaultLogger.app.page.homePageViewTabContainerWidth({
+    tabContainerWidth,
+    isNative: platformEnv.isNative,
+    widthPassedToTabs: platformEnv.isNative
+      ? (tabContainerWidth as number)
+      : undefined,
+  });
   const intl = useIntl();
   const {
     activeAccount: {

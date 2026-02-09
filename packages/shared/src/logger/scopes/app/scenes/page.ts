@@ -97,6 +97,15 @@ export class PageScene extends BaseScene {
   }
 
   @LogToLocal()
+  public homePageViewTabContainerWidth(params: {
+    tabContainerWidth: number | string | undefined;
+    isNative: boolean;
+    widthPassedToTabs: number | undefined;
+  }) {
+    return params;
+  }
+
+  @LogToLocal()
   public useTabContainerWidth(params: {
     isDualScreen: boolean;
     isTablet: boolean;
