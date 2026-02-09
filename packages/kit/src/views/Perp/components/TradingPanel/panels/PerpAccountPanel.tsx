@@ -122,7 +122,7 @@ function PerpAccountPanel() {
   }, [accountSummary?.totalUnrealizedPnl]);
 
   const content = (
-    <YStack flex={1} gap="$4" pt="$4" pl="$3" pr="$5">
+    <YStack flex={1} gap="$4" pt="$4" px="$2.5" pb="$4">
       {/* Header */}
       <XStack justifyContent="space-between" alignItems="center">
         <SizableText size="$headingSm">
