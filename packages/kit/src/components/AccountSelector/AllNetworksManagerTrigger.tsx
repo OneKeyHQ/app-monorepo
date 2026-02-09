@@ -159,6 +159,10 @@ function AllNetworksManagerTrigger({
     showUnifiedNetworkSelector,
   ]);
 
+  if (!wallet) {
+    return null;
+  }
+
   if (
     !networkUtils.isAllNetwork({ networkId: network?.id }) ||
     accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' })

@@ -129,7 +129,6 @@ function MobileTokenSelectorModal({
     () => ({
       favorites: intl.formatMessage({ id: ETranslations.perp_tab_favs }),
       all: 'PERPS',
-      hip3: 'HIP3',
     }),
     [intl],
   );
@@ -221,7 +220,6 @@ function MobileTokenSelectorModal({
 
     const combinedEntries = assetsByDexTyped.flatMap(
       (assets: IPerpsUniverse[], dexIndex: number) => {
-        if (activeTab === 'hip3' && dexIndex !== 1) return [];
         const ctxs = assetCtxsByDexTyped[dexIndex] || [];
         return assets.map((asset, index) => {
           const normalizedAssetId =
@@ -381,7 +379,7 @@ function MobileTokenSelectorModal({
           itemGap="$2"
           itemPr="$3"
         >
-          {(['favorites', 'all', 'hip3'] as const).map((tabKey) => (
+          {(['favorites', 'all'] as const).map((tabKey) => (
             <TabItem
               key={tabKey}
               id={tabKey}

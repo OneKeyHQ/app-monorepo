@@ -180,7 +180,6 @@ function BasePerpTokenSelectorContent({
     () => ({
       favorites: intl.formatMessage({ id: ETranslations.perp_tab_favs }),
       all: 'PERPS',
-      hip3: 'HIP3',
     }),
     [intl],
   );
@@ -223,7 +222,6 @@ function BasePerpTokenSelectorContent({
     null,
   );
   const listRefAll = useRef<IListViewRef<ITokenSelectorListItem> | null>(null);
-  const listRefHip3 = useRef<IListViewRef<ITokenSelectorListItem> | null>(null);
   const dynamicListRefsRef = useRef<
     Record<string, IListViewRef<ITokenSelectorListItem> | null>
   >({});
@@ -259,10 +257,11 @@ function BasePerpTokenSelectorContent({
     lastSortRef.current = { field, direction };
 
     let ref = listRefAll.current;
-    if (activeTabRef.current === 'hip3') {
-      ref = listRefHip3.current;
-    } else if (activeTabRef.current === 'favorites') {
+    if (activeTabRef.current === 'favorites') {
       ref = listRefFavorites.current;
+    } else {
+      const dynamicRef = dynamicListRefsRef.current[activeTabRef.current];
+      if (dynamicRef) ref = dynamicRef;
     }
     ref?.scrollToOffset?.({ offset: 0, animated: false });
   }, [selectorConfig?.direction, selectorConfig?.field]);
@@ -337,71 +336,9 @@ function BasePerpTokenSelectorContent({
     [selectorConfig?.direction, selectorConfig?.field],
   );
 
-  const buildListData = useCallback(
-    ({
-      assets,
-      assetCtxs,
-      dexIndex,
-    }: {
-      assets: IPerpsUniverse[];
-      assetCtxs: IPerpsAssetCtx[];
-      dexIndex: number;
-    }) => {
-      const sortField = selectorConfig?.field ?? '';
-      if (!assets?.length) {
-        return [];
-      }
-
-      if (!sortField) {
-        return assets.map((_, index) => ({
-          index,
-          dexIndex,
-          sortHelper: 0,
-        }));
-      }
-
-      const entries = assets.map((asset, index) => {
-        // Normalize assetId to array index: HIP3 assets have offset, Perps don't
-        const normalizedAssetId =
-          dexIndex === 1 ? asset.assetId - XYZ_ASSET_ID_OFFSET : asset.assetId;
-        const sortValues = computeSortValues(assetCtxs?.[normalizedAssetId]);
-        return {
-          index,
-          dexIndex,
-          asset,
-          sortValues,
-        };
-      });
-
-      entries.sort((a, b) =>
-        sortCompare(
-          { asset: a.asset, sortValues: a.sortValues },
-          { asset: b.asset, sortValues: b.sortValues },
-        ),
-      );
-
-      return entries.map((entry) => ({
-        index: entry.index,
-        dexIndex: entry.dexIndex,
-      }));
-    },
-    [computeSortValues, sortCompare, selectorConfig?.field],
-  );
-
   const listDataByTab = useMemo(() => {
     const assetsByDexTyped: IPerpsUniverse[][] = assetsByDex || [];
     const assetCtxsByDexTyped: IPerpsAssetCtx[][] = assetCtxsByDex || [];
-
-    // const perpsAssets: IPerpsUniverse[] = assetsByDexTyped[0] || [];
-    const hip3Assets: IPerpsUniverse[] = assetsByDexTyped[1] || [];
-    // const perpsCtxs: IPerpsAssetCtx[] = assetCtxsByDexTyped[0] || [];
-    const hip3Ctxs: IPerpsAssetCtx[] = assetCtxsByDexTyped[1] || [];
-
-    const listHip3 = buildListData({
-      assets: hip3Assets,
-      assetCtxs: hip3Ctxs,
-      dexIndex: 1,
-    });
 
     const combinedEntries = assetsByDexTyped.flatMap(
       (assets: IPerpsUniverse[], dexIndex: number) => {
@@ -469,13 +406,11 @@ function BasePerpTokenSelectorContent({
     return {
       favorites: listFavorites,
       all: listAll,
-      hip3: listHip3,
       dynamic: dynamicTabsData,
     };
   }, [
     assetCtxsByDex,
     assetsByDex,
-    buildListData,
     computeSortValues,
     dynamicTabs,
     favoriteItems,
@@ -579,7 +514,6 @@ function BasePerpTokenSelectorContent({
         </XStack>
         <Tabs.Container
           initialTabName={(() => {
-            if (activeTab === 'hip3') return tabNames.hip3;
             if (activeTab === 'favorites') return tabNames.favorites;
             // Check if activeTab is a dynamic tab
             const dynamicTab = visibleDynamicTabs.find(
@@ -589,10 +523,6 @@ function BasePerpTokenSelectorContent({
             return tabNames.all;
           })()}
           onTabChange={({ tabName }) => {
-            if (tabName === tabNames.hip3) {
-              setActiveTab('hip3');
-              return;
-            }
             if (tabName === tabNames.favorites) {
               setActiveTab('favorites');
               return;
@@ -631,9 +561,6 @@ function BasePerpTokenSelectorContent({
           </Tabs.Tab>
           <Tabs.Tab name={tabNames.all}>
             {renderTokenList(listDataByTab.all, listRefAll, false)}
-          </Tabs.Tab>
-          <Tabs.Tab name={tabNames.hip3}>
-            {renderTokenList(listDataByTab.hip3, listRefHip3, false)}
           </Tabs.Tab>
           {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any

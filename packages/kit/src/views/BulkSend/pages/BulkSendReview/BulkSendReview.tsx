@@ -380,9 +380,9 @@ function BaseBulkSendReview({
         await navigateAfterSuccess();
       } catch (e) {
         setIsSubmitting(false);
+        startApprovalRecheck();
         // Check if user cancelled
         if (e instanceof Error && e.message === 'User cancelled') {
-          startApprovalRecheck();
           return;
         }
         onFail?.(e as Error);
