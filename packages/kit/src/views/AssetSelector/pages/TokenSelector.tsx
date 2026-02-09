@@ -5,6 +5,8 @@ import { useIntl } from 'react-intl';
 import { useDebouncedCallback } from 'use-debounce';
 
 import { Page } from '@onekeyhq/components';
+import BigNumber from 'bignumber.js';
+
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { TokenListView } from '@onekeyhq/kit/src/components/TokenListView';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -360,6 +362,30 @@ function TokenSelector() {
         isRefreshing: false,
         initialized: true,
       });
+
+      // Update network value cache so ChainSelector shows fresh values on back
+      const totalFiatValue = new BigNumber(r.tokens.fiatValue ?? '0')
+        .plus(r.smallBalanceTokens.fiatValue ?? '0')
+        .toFixed();
+      let valueAccountId = indexedAccountId || '';
+      if (!valueAccountId && activeAccountId) {
+        if (accountUtils.isOthersAccount({ accountId: activeAccountId })) {
+          valueAccountId = activeAccountId;
+        }
+      }
+      if (valueAccountId && activeNetworkId) {
+        const valueKey = accountUtils.buildAccountValueKey({
+          accountId: activeAccountId,
+          networkId: activeNetworkId,
+        });
+        void backgroundApiProxy.serviceAccountProfile.updateAllNetworkAccountValue(
+          {
+            accountId: valueAccountId,
+            value: { [valueKey]: totalFiatValue },
+            currency: 'usd',
+          },
+        );
+      }
     }
   }, [
     activeAccountId,

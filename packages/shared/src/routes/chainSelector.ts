@@ -40,6 +40,10 @@ export type IChainSelectorParams = {
   grouped?: boolean;
   excludeAllNetworkItem?: boolean;
   closeAfterSelect?: boolean;
+  showNetworkValues?: boolean;
+  hideLowValueNetworkValue?: boolean;
+  indexedAccountId?: string;
+  accountId?: string;
 };
 
 export type IChainSelectorParamList = {
