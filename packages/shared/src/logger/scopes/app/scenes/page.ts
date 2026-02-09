@@ -84,38 +84,4 @@ export class PageScene extends BaseScene {
     return {};
   }
 
-  @LogToLocal()
-  public getDualScreenInfoWidth(params: {
-    windowWidth: number;
-    screenWidth: number;
-    isDualScreen: boolean;
-    isSpanning: boolean;
-    isRawSpanning: boolean;
-    result: number;
-  }) {
-    return params;
-  }
-
-  @LogToLocal()
-  public homePageViewTabContainerWidth(params: {
-    tabContainerWidth: number | string | undefined;
-    isNative: boolean;
-    widthPassedToTabs: number | undefined;
-  }) {
-    return params;
-  }
-
-  @LogToLocal()
-  public useTabContainerWidth(params: {
-    isDualScreen: boolean;
-    isTablet: boolean;
-    isLandscape: boolean;
-    windowWidth: number;
-    isIpadModalPage: boolean;
-    ipadModalPageWidth: number | undefined;
-    dualScreenWidth: number | undefined;
-    result: number;
-  }) {
-    return params;
-  }
 }

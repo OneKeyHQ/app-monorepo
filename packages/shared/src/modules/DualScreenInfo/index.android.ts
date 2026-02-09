@@ -4,8 +4,6 @@ import { ReactNativeDeviceUtils } from '@onekeyfe/react-native-device-utils';
 import * as ExpoDevice from 'expo-device';
 import { Dimensions } from 'react-native';
 
-import { defaultLogger } from '../../logger/logger';
-
 let isDualScreen: boolean | undefined;
 export const isDualScreenDevice = () => {
   if (isDualScreen === undefined) {
@@ -58,21 +56,10 @@ const getDualScreenInfoWidth = () => {
   const { width: windowWidth } = Dimensions.get('window');
   const { width: screenWidth } = Dimensions.get('screen');
   const spanning = isSpanning();
-  let result: number;
   if (spanning) {
-    result = Math.max(windowWidth, screenWidth) / 2;
-  } else {
-    result = Math.min(windowWidth, screenWidth);
+    return Math.max(windowWidth, screenWidth) / 2;
   }
-  defaultLogger.app.page.getDualScreenInfoWidth({
-    windowWidth,
-    screenWidth,
-    isDualScreen: isDualScreenDevice(),
-    isSpanning: spanning,
-    isRawSpanning: isRawSpanning(),
-    result,
-  });
-  return result;
+  return Math.min(windowWidth, screenWidth);
 };
 
 export const useDualScreenWidth = () => {

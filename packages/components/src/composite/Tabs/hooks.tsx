@@ -9,7 +9,6 @@ import {
 import { useWindowDimensions } from 'react-native';
 
 import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { isNativeTablet, useIsSplitView } from '../../hooks';
@@ -83,17 +82,6 @@ export * from './useCurrentTabScrollY';
 const useNativeTabContainerWidth = isDualScreenDevice()
   ? () => {
       const dualScreenWidth = useDualScreenWidth();
-      const { width } = useWindowDimensions();
-      defaultLogger.app.page.useTabContainerWidth({
-        isDualScreen: true,
-        isTablet: isNativeTablet(),
-        isLandscape: false,
-        windowWidth: width,
-        isIpadModalPage: false,
-        ipadModalPageWidth: undefined,
-        dualScreenWidth,
-        result: dualScreenWidth,
-      });
       return dualScreenWidth;
     }
   : () => {
@@ -102,27 +90,15 @@ const useNativeTabContainerWidth = isDualScreenDevice()
       const { width } = useWindowDimensions();
       const isIpadModalPage = useIsIpadModalPage();
       const ipadModalPageWidth = useIPadModalPageWidth();
-      let result: number;
       if (isIpadModalPage) {
-        result = ipadModalPageWidth || 640;
-      } else if (isTablet && isLandscape) {
-        // In landscape split view, use half of the screen width
-        result = width / 2;
-      } else {
-        // In portrait or non-tablet, use full screen width
-        result = width;
+        return ipadModalPageWidth || 640;
       }
-      defaultLogger.app.page.useTabContainerWidth({
-        isDualScreen: false,
-        isTablet,
-        isLandscape,
-        windowWidth: width,
-        isIpadModalPage,
-        ipadModalPageWidth,
-        dualScreenWidth: undefined,
-        result,
-      });
-      return result;
+      if (isTablet && isLandscape) {
+        // In landscape split view, use half of the screen width
+        return width / 2;
+      }
+      // In portrait or non-tablet, use full screen width
+      return width;
     };
 
 export const useTabContainerWidth = platformEnv.isNative
