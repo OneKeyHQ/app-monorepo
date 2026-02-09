@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { View } from 'react-native';
 
 import { RefreshControl, XStack, YStack, useMedia } from '@onekeyhq/components';
+import type { ITabContainerRef } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
@@ -63,10 +65,12 @@ function BasicEarnHome({
   showHeader,
   showContent,
   overrideDefaultTab,
+  tabsRef,
 }: {
   showHeader?: boolean;
   showContent?: boolean;
   overrideDefaultTab?: 'assets' | 'portfolio' | 'faqs';
+  tabsRef?: React.RefObject<ITabContainerRef | null>;
 }) {
   const route = useAppRoute<ITabEarnParamList, ETabEarnRoutes.EarnHome>();
   const { activeAccount } = useActiveAccount({ num: 0 });
@@ -338,7 +342,7 @@ function BasicEarnHome({
       renderHeader: () => (
         <YStack gap="$4" pt="$4" bg="$bgApp" pointerEvents="box-none">
           <YStack gap="$7.5">
-            <YStack px="$5">
+            <YStack px="$pagePadding">
               <Overview
                 onRefresh={refreshEarnData}
                 isLoading={isLoading}
@@ -346,7 +350,15 @@ function BasicEarnHome({
                 filteredEarnings24h={filteredEarnings24h}
               />
             </YStack>
-            {banners ? <YStack width="100%">{banners}</YStack> : null}
+            {banners ? (
+              <View
+                onTouchStart={(e) => e.stopPropagation()}
+                onTouchMove={(e) => e.stopPropagation()}
+                onTouchEnd={(e) => e.stopPropagation()}
+              >
+                <YStack width="100%">{banners}</YStack>
+              </View>
+            ) : null}
           </YStack>
         </YStack>
       ),
@@ -402,6 +414,7 @@ function BasicEarnHome({
             portfolioData={portfolioData}
             containerProps={mobileContainerProps}
             header={marketSelectorHeader}
+            tabsRef={tabsRef}
           />
 
           {showHeader && showContent && media.md ? (
@@ -444,7 +457,6 @@ function BasicEarnHome({
         showTabPageHeader={media.gtMd}
         sceneName={EAccountSelectorSceneName.home}
         tabRoute={ETabRoutes.Earn}
-        disableMaxWidth
         contentContainerStyle={{
           py: 0,
         }}
@@ -458,7 +470,7 @@ function BasicEarnHome({
           earn={
             <YStack flex={1}>
               <YStack>
-                <XStack px="$5">
+                <XStack px="$pagePadding">
                   <Overview
                     onRefresh={refreshEarnData}
                     isLoading={isLoading}
@@ -502,10 +514,12 @@ export function EarnHomeWithProvider({
   showHeader = true,
   showContent = true,
   defaultTab,
+  tabsRef,
 }: {
   showHeader?: boolean;
   showContent?: boolean;
   defaultTab?: 'assets' | 'portfolio' | 'faqs';
+  tabsRef?: React.RefObject<ITabContainerRef | null>;
 }) {
   return (
     <AccountSelectorProviderMirror
@@ -520,6 +534,7 @@ export function EarnHomeWithProvider({
           showHeader={showHeader}
           showContent={showContent}
           overrideDefaultTab={defaultTab}
+          tabsRef={tabsRef}
         />
       </EarnProviderMirror>
     </AccountSelectorProviderMirror>

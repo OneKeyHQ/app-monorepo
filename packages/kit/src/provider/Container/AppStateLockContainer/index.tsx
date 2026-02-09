@@ -11,19 +11,64 @@ import PasswordVerifyContainer from '../../../components/Password/container/Pass
 import AppStateLock from './components/AppStateLock';
 import { AppStateUpdater } from './components/AppStateUpdater';
 
+const isLockContainerTampered = (
+  el: HTMLElement,
+  lockedRef: React.MutableRefObject<boolean>,
+): boolean => {
+  // Skip tamper check when unlocking to avoid false positives
+  // during AnimatePresence exit animation (opacity transitions to 0)
+  if (!lockedRef.current) {
+    return false;
+  }
+  const style = globalThis.getComputedStyle(el);
+  if (
+    style.display === 'none' ||
+    style.visibility === 'hidden' ||
+    parseFloat(style.opacity) < 0.1 ||
+    style.pointerEvents === 'none' ||
+    el.offsetWidth === 0 ||
+    el.offsetHeight === 0
+  ) {
+    return true;
+  }
+  return false;
+};
+
+// Max retries before force reload when lock container ref is not assigned (~6s)
+const MAX_NULL_REF_RETRIES = 20;
+
 const useWebLockCheck = (isLocked: boolean) => {
   const lockContainerRef = useRef<HTMLElement | null>(null);
   const lockedRef = useRef(isLocked);
+  const nullRefRetryCountRef = useRef(0);
   if (lockedRef.current !== isLocked) {
     lockedRef.current = isLocked;
   }
   const checkIsLockContainerExist = useCallback(() => {
-    if (lockContainerRef?.current && lockedRef.current) {
-      if (!document.body.contains(lockContainerRef.current)) {
-        globalThis.location.reload();
-      }
-      setTimeout(checkIsLockContainerExist, 300);
+    if (!lockedRef.current) {
+      nullRefRetryCountRef.current = 0;
+      return;
     }
+    if (
+      !lockContainerRef.current ||
+      !document.body.contains(lockContainerRef.current) ||
+      isLockContainerTampered(lockContainerRef.current, lockedRef)
+    ) {
+      if (!lockContainerRef.current) {
+        nullRefRetryCountRef.current += 1;
+        if (nullRefRetryCountRef.current > MAX_NULL_REF_RETRIES) {
+          globalThis.location.reload();
+          return;
+        }
+        // ref not yet assigned, keep polling until mounted
+        setTimeout(checkIsLockContainerExist, 300);
+        return;
+      }
+      globalThis.location.reload();
+      return;
+    }
+    nullRefRetryCountRef.current = 0;
+    setTimeout(checkIsLockContainerExist, 300);
   }, []);
   useEffect(() => {
     if (!platformEnv.isNative && isLocked) {

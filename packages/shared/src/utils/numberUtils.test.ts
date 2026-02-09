@@ -10,6 +10,7 @@ import {
   formatValue,
   fromBigIntHex,
   numberFormat,
+  numberFormatAsRaw,
   toBigIntHex,
 } from './numberUtils';
 
@@ -1010,4 +1011,107 @@ test('formatPriceChangeCapped', () => {
       formatterOptions: { showPlusMinusSigns: true },
     }),
   ).toEqual('+15.67%');
+});
+
+test('formatDisplayNumber with splitDecimal', () => {
+  // balance with decimal
+  expect(
+    formatDisplayNumber(formatBalance('4512.1242'), { splitDecimal: true }),
+  ).toEqual(['4,512', { value: '.1242', type: 'decimal' }]);
+
+  // negative balance with decimal
+  expect(
+    formatDisplayNumber(formatBalance('-4512.1242'), { splitDecimal: true }),
+  ).toEqual(['-', '4,512', { value: '.1242', type: 'decimal' }]);
+
+  // balance without decimal (integer)
+  expect(
+    formatDisplayNumber(formatBalance('40000'), { splitDecimal: true }),
+  ).toEqual(['40,000']);
+
+  // balance zero
+  expect(
+    formatDisplayNumber(formatBalance('0'), { splitDecimal: true }),
+  ).toEqual(['0']);
+
+  // price with currency and decimal
+  expect(
+    formatDisplayNumber(formatPrice('558934.09', { currency: '$' }), {
+      splitDecimal: true,
+    }),
+  ).toEqual(['$', '558,934', { value: '.09', type: 'decimal' }]);
+
+  // price zero with currency
+  expect(
+    formatDisplayNumber(formatPrice('0', { currency: '$' }), {
+      splitDecimal: true,
+    }),
+  ).toEqual(['$', '0', { value: '.00', type: 'decimal' }]);
+
+  // priceChange with symbol
+  expect(
+    formatDisplayNumber(formatPriceChange('2.81'), { splitDecimal: true }),
+  ).toEqual(['2', { value: '.81', type: 'decimal' }, '%']);
+
+  // priceChange with plus/minus signs
+  expect(
+    formatDisplayNumber(
+      formatPriceChange('2.81', { showPlusMinusSigns: true }),
+      { splitDecimal: true },
+    ),
+  ).toEqual(['+', '2', { value: '.81', type: 'decimal' }, '%']);
+
+  expect(
+    formatDisplayNumber(
+      formatPriceChange('-2.81', { showPlusMinusSigns: true }),
+      { splitDecimal: true },
+    ),
+  ).toEqual(['-', '2', { value: '.81', type: 'decimal' }, '%']);
+
+  // marketCap with unit
+  expect(
+    formatDisplayNumber(formatMarketCap('235382184512.1242'), {
+      splitDecimal: true,
+    }),
+  ).toEqual(['235', { value: '.38', type: 'decimal' }, 'B']);
+
+  // value with currency
+  expect(
+    formatDisplayNumber(formatValue('1234.5678', { currency: '$' }), {
+      splitDecimal: true,
+    }),
+  ).toEqual(['$', '1,234', { value: '.57', type: 'decimal' }]);
+
+  // balance with tokenSymbol
+  expect(
+    formatDisplayNumber(formatBalance('4512.1242', { tokenSymbol: 'ETH' }), {
+      splitDecimal: true,
+    }),
+  ).toEqual(['4,512', { value: '.1242', type: 'decimal' }, ' ', 'ETH']);
+
+  // leading zeros > 4 (should keep existing array behavior, not split decimal)
+  expect(
+    formatDisplayNumber(formatBalance('0.0000041000'), {
+      splitDecimal: true,
+    }),
+  ).toEqual(['0.0', { value: 5, type: 'sub' }, '41']);
+});
+
+test('numberFormatAsRaw with splitDecimal', () => {
+  // splitDecimal returns array
+  expect(
+    numberFormatAsRaw('558934.09', {
+      formatter: 'price',
+      formatterOptions: { currency: '$' },
+      splitDecimal: true,
+    }),
+  ).toEqual(['$', '558,934', { value: '.09', type: 'decimal' }]);
+
+  // without splitDecimal returns string
+  expect(
+    numberFormatAsRaw('558934.09', {
+      formatter: 'price',
+      formatterOptions: { currency: '$' },
+    }),
+  ).toEqual('$558,934.09');
 });

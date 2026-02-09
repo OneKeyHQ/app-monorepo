@@ -2,12 +2,18 @@ import { memo, useCallback, useContext, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Alert, Checkbox, Divider, Stack, Toast } from '@onekeyhq/components';
+import {
+  Alert,
+  Button,
+  SizableText,
+  Stack,
+  Toast,
+  Tooltip,
+  XStack,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAccountSelectorCreateAddress } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorCreateAddress';
-import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useEnabledNetworksCompatibleWithWalletIdInAllNetworks } from '@onekeyhq/kit/src/hooks/useAllNetwork';
-import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   EAppEventBusNames,
@@ -62,20 +68,15 @@ function NetworkListHeader() {
   const handleCreateMissingAddresses = useCallback(async () => {
     setIsCreatingMissingAddresses(true);
 
-    const enabledNetworksWithoutAccountTemp: {
-      networkId: string;
-      deriveType: IAccountDeriveTypes;
-    }[] = [];
-
-    for (const network of enabledNetworksWithoutAccount) {
-      enabledNetworksWithoutAccountTemp.push({
+    const enabledNetworksWithoutAccountTemp = await Promise.all(
+      enabledNetworksWithoutAccount.map(async (network) => ({
         networkId: network.id,
         deriveType:
           await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
             networkId: network.id,
           }),
-      });
-    }
+      })),
+    );
 
     try {
       await createAddress({
@@ -111,8 +112,22 @@ function NetworkListHeader() {
     walletId,
   ]);
 
+  const handleToggleAll = useCallback(() => {
+    if (isAllNetworksEnabled) {
+      setNetworksState({
+        enabledNetworks: {},
+        disabledNetworks: toggleAllNetworks,
+      });
+    } else {
+      setNetworksState({
+        enabledNetworks: toggleAllNetworks,
+        disabledNetworks: {},
+      });
+    }
+  }, [isAllNetworksEnabled, setNetworksState, toggleAllNetworks]);
+
   return (
-    <Stack mt="$4">
+    <Stack mt="$4" pb="$3">
       {enabledNetworksWithoutAccount.length > 0 ? (
         <Stack px="$5" pb="$5">
           <Alert
@@ -140,46 +155,36 @@ function NetworkListHeader() {
         </Stack>
       ) : null}
       {searchKey?.trim() ? null : (
-        <>
-          <ListItem
-            h="$12"
-            py="$0"
-            title={intl.formatMessage({
-              id: ETranslations.global_select_all,
+        <XStack
+          px="$5"
+          py="$2"
+          justifyContent="space-between"
+          alignItems="center"
+        >
+          <Tooltip
+            placement="bottom-start"
+            renderContent={intl.formatMessage({
+              id: ETranslations.network_selection_performance_tip,
             })}
-            onPress={() => {
-              if (isAllNetworksEnabled) {
-                setNetworksState({
-                  enabledNetworks: {},
-                  disabledNetworks: toggleAllNetworks,
-                });
-              } else {
-                setNetworksState({
-                  enabledNetworks: toggleAllNetworks,
-                  disabledNetworks: {},
-                });
-              }
-            }}
-          >
-            <Checkbox
-              value={isAllNetworksEnabled}
-              onChange={() => {
-                if (isAllNetworksEnabled) {
-                  setNetworksState({
-                    enabledNetworks: {},
-                    disabledNetworks: toggleAllNetworks,
-                  });
-                } else {
-                  setNetworksState({
-                    enabledNetworks: toggleAllNetworks,
-                    disabledNetworks: {},
-                  });
-                }
-              }}
-            />
-          </ListItem>
-          <Divider m="$5" />
-        </>
+            renderTrigger={
+              <SizableText
+                size="$bodyLgMedium"
+                textDecorationLine="underline"
+                textDecorationStyle="dotted"
+              >
+                {intl.formatMessage(
+                  { id: ETranslations.network_view_assets_from_n_networks },
+                  { count: enabledNetworks.length },
+                )}
+              </SizableText>
+            }
+          />
+          <Button size="media" variant="tertiary" onPress={handleToggleAll}>
+            {isAllNetworksEnabled
+              ? intl.formatMessage({ id: ETranslations.global_deselect_all })
+              : intl.formatMessage({ id: ETranslations.global_select_all })}
+          </Button>
+        </XStack>
       )}
     </Stack>
   );

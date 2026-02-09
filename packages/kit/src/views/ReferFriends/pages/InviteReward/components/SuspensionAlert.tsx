@@ -31,7 +31,7 @@ function SuspensionAlert({
   }
 
   return (
-    <YStack px="$5" pt="$5">
+    <YStack px="$pagePadding" pt="$5">
       <Alert type="critical" title={suspensionNotice} action={alertAction} />
     </YStack>
   );

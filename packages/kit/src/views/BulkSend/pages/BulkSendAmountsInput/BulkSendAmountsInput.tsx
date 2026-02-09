@@ -128,8 +128,12 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
 
   // Check if token needs approval (native tokens don't need approval)
   const needsApproval = useMemo(
-    () => tokenInfo && !tokenInfo.isNative,
-    [tokenInfo],
+    () =>
+      tokenInfo &&
+      !tokenInfo.isNative &&
+      bulkSendMode === EBulkSendMode.OneToMany &&
+      transfersInfo.length > 1,
+    [tokenInfo, bulkSendMode, transfersInfo.length],
   );
 
   // Get BulkSend contract address for current network
@@ -358,7 +362,9 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
     // Desktop: always show "Review" (no preview mode, goes directly to review page)
     // Mobile: show "Review" only after preview, otherwise show "Next"
     if (media.gtMd) {
-      return intl.formatMessage({ id: ETranslations.wallet_bulk_send_btn_review });
+      return intl.formatMessage({
+        id: ETranslations.wallet_bulk_send_btn_review,
+      });
     }
     return isInPreviewMode
       ? intl.formatMessage({ id: ETranslations.wallet_bulk_send_btn_review })

@@ -1,3 +1,8 @@
+/**
+ * Bulk send contract addresses (non-upgradeable).
+ * Redeployment required for updates, which changes addresses.
+ * CAUTION: Modifications require approval before merging.
+ */
 import { getNetworkIdsMap } from '../config/networkIds';
 import { memoFn } from '../utils/cacheUtils';
 
@@ -13,6 +18,6 @@ export const getBulkSendContractAddress = memoFn((): Record<string, string> => {
     [networkIdsMap.linea]: '0xedfd1f91f564ac4dabe1cb71e759417d908296ea',
     [networkIdsMap.zksyncera]: '0xb4d0bf1fc82d8a94fd5c49c2dd9c37ce261bee70',
     [networkIdsMap.polygon]: '0x1253f1a208be6e0626d4f2c3eb087a220d9c3f26',
-    [networkIdsMap.trx]: 'TMV7ef6pv8vPknRN2s9hiikL8U3botSgPy',
+    [networkIdsMap.trx]: 'TYZv3mStPYrZePPDhopECDPBKkG8sUZtfJ',
   };
 });

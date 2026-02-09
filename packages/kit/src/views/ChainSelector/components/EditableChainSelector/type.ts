@@ -25,6 +25,7 @@ export type IEditableChainSelectorContext = {
       netWorth: number;
     }
   >;
+  zeroValue?: boolean;
 };
 
 export type IEditableChainSelectorSection = {
@@ -39,3 +40,5 @@ export type IEditableChainSelectorSection = {
 export const CELL_HEIGHT = 48;
 
 export const ALL_NETWORK_HEADER_HEIGHT = 32;
+
+export const ZERO_VALUE_TOOLTIP_HEIGHT = 44;

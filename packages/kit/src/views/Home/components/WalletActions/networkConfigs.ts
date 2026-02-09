@@ -17,7 +17,16 @@ const networkIds = getNetworkIdsMap();
 
 export const defaultWalletActionsConfig: INetworkWalletActionsConfig = {
   mainActions: ['send', 'receive', 'swap'],
-  moreActions: ['buy', 'sell', 'explorer', 'copy', 'sign', 'reward', 'export'],
+  moreActions: [
+    'buy',
+    'sell',
+    'explorer',
+    'copy',
+    'bulkSend',
+    'sign',
+    'reward',
+    'export',
+  ],
   moreActionGroups: [
     {
       type: 'trading',
@@ -26,7 +35,7 @@ export const defaultWalletActionsConfig: INetworkWalletActionsConfig = {
     },
     {
       type: 'tools',
-      actions: ['explorer', 'copy', 'sign', 'reward'],
+      actions: ['explorer', 'copy', 'bulkSend', 'sign', 'reward'],
       order: 2,
     },
     {
@@ -49,6 +58,7 @@ export const detailedNetworkConfigs: Record<
       'swap',
       'explorer',
       'copy',
+      'bulkSend',
       'sign',
       'vote',
       'reward',
@@ -62,7 +72,7 @@ export const detailedNetworkConfigs: Record<
       },
       {
         type: 'tools',
-        actions: ['explorer', 'copy', 'sign', 'vote', 'reward'],
+        actions: ['explorer', 'copy', 'bulkSend', 'sign', 'vote', 'reward'],
         order: 2,
       },
       {

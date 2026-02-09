@@ -137,7 +137,10 @@ export const useReferFriends = () => {
         } else {
           navigation.switchTab(ETabRoutes.ReferFriends);
           await timerUtils.wait(50);
-          navigation.push(ETabReferFriendsRoutes.TabInviteReward, params);
+          rootNavigationRef.current?.reset({
+            index: 0,
+            routes: [{ name: ETabReferFriendsRoutes.TabInviteReward, params }],
+          });
         }
       } else {
         void loginOneKeyId({ toOneKeyIdPageOnLoginSuccess: false });
@@ -158,7 +161,7 @@ export const useReferFriends = () => {
         } else {
           navigation.switchTab(ETabRoutes.ReferFriends);
           await timerUtils.wait(50);
-          navigation.push(
+          rootNavigationRef.current?.navigate(
             ETabReferFriendsRoutes.TabHardwareSalesReward,
             params,
           );
@@ -195,11 +198,16 @@ export const useReferFriends = () => {
       // Web: use Tab
       navigation.switchTab(ETabRoutes.ReferFriends);
       await timerUtils.wait(50);
-      navigation.push(
-        shouldShowInviteReward
-          ? ETabReferFriendsRoutes.TabInviteReward
-          : ETabReferFriendsRoutes.TabReferAFriend,
-      );
+      rootNavigationRef.current?.reset({
+        index: 0,
+        routes: [
+          {
+            name: shouldShowInviteReward
+              ? ETabReferFriendsRoutes.TabInviteReward
+              : ETabReferFriendsRoutes.TabReferAFriend,
+          },
+        ],
+      });
     }
   }, [navigation]);
 
@@ -213,9 +221,22 @@ export const useReferFriends = () => {
       copyAsUrl = false,
     ) => {
       const isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
-      const myReferralCode =
-        await backgroundApiProxy.serviceReferralCode.getMyReferralCode();
-
+      let myReferralCode = '';
+      if (isLogin) {
+        try {
+          // Fetch fresh primary code from API to avoid stale cache
+          const summary =
+            await backgroundApiProxy.serviceReferralCode.getSummaryInfo();
+          myReferralCode = summary.inviteCode || '';
+        } catch {
+          // Fall back to cached code on API failure
+          myReferralCode =
+            await backgroundApiProxy.serviceReferralCode.getMyReferralCode();
+        }
+      } else {
+        myReferralCode =
+          await backgroundApiProxy.serviceReferralCode.getMyReferralCode();
+      }
       const postConfig: IInvitePostConfig | undefined =
         await backgroundApiProxy.serviceReferralCode.getPostConfig();
 

@@ -16,7 +16,10 @@ import { buildFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import { promiseAllSettledEnhanced } from '@onekeyhq/shared/src/utils/promiseUtils';
+import {
+  PROMISE_CONCURRENCY_LIMIT,
+  promiseAllSettledEnhanced,
+} from '@onekeyhq/shared/src/utils/promiseUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   getFilteredTokenBySearchKey,
@@ -356,21 +359,23 @@ class ServiceUniversalSearch extends ServiceBase {
           },
         );
 
-      const resp = await Promise.all(
-        networkAccounts.map((networkAccount) =>
-          this.backgroundApi.serviceToken.fetchAccountTokens({
-            accountId: networkAccount.account?.id ?? '',
-            mergeTokens: true,
-            networkId,
-            flag: 'universal-search',
-            saveToLocal: true,
-            indexedAccountId,
-          }),
+      const resp = await promiseAllSettledEnhanced(
+        networkAccounts.map(
+          (networkAccount) => () =>
+            this.backgroundApi.serviceToken.fetchAccountTokens({
+              accountId: networkAccount.account?.id ?? '',
+              mergeTokens: true,
+              networkId,
+              flag: 'universal-search',
+              saveToLocal: true,
+              indexedAccountId,
+            }),
         ),
+        { continueOnError: true, concurrency: PROMISE_CONCURRENCY_LIMIT },
       );
 
       const { allTokenList, allTokenListMap } = getMergedDeriveTokenData({
-        data: resp,
+        data: resp.filter(Boolean),
         mergeDeriveAssetsEnabled: true,
       });
 
@@ -831,7 +836,7 @@ class ServiceUniversalSearch extends ServiceBase {
     const indexedAccountsSearchResult = indexedAccountsFuse.search(searchTerm);
     const indexedAccountsResults = indexedAccountsSearchResult
       .slice(0, maxResults)
-      .map(async (i) => {
+      .map((i) => async () => {
         try {
           const wallet = await serviceAccount.getWalletSafe({
             walletId: i.item.walletId,
@@ -908,7 +913,7 @@ class ServiceUniversalSearch extends ServiceBase {
     const otherAccountsSearchResult = otherAccountsFuse.search(searchTerm);
     const otherAccountsResults = otherAccountsSearchResult
       .slice(0, maxResults)
-      .map(async (i) => {
+      .map((i) => async () => {
         try {
           const walletId = accountUtils.getWalletIdFromAccountId({
             accountId: i.item.id,
@@ -957,8 +962,14 @@ class ServiceUniversalSearch extends ServiceBase {
       });
 
     const allResults = [
-      ...(await Promise.all(indexedAccountsResults)),
-      ...(await Promise.all(otherAccountsResults)),
+      ...(await promiseAllSettledEnhanced(indexedAccountsResults, {
+        continueOnError: true,
+        concurrency: PROMISE_CONCURRENCY_LIMIT,
+      })),
+      ...(await promiseAllSettledEnhanced(otherAccountsResults, {
+        continueOnError: true,
+        concurrency: PROMISE_CONCURRENCY_LIMIT,
+      })),
     ]
       .filter(Boolean)
       // First sort by account type (HD/HW/QR/Imported first, then others)

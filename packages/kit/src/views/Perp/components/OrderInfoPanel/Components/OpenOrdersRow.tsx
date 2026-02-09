@@ -217,12 +217,12 @@ const OpenOrdersRow = memo(
             alignItems="center"
           >
             <YStack
-              cursor="pointer"
               onPress={() =>
                 actions.current.changeActiveAsset({
                   coin: assetInfo.rawCoin,
                 })
               }
+              cursor="default"
             >
               <SizableText
                 numberOfLines={1}
@@ -367,12 +367,12 @@ const OpenOrdersRow = memo(
               {...getColumnStyle(columnConfigs[1])}
               justifyContent="center"
               alignItems={calcCellAlign(columnConfigs[1].align)}
-              cursor="pointer"
               onPress={() =>
                 actions.current.changeActiveAsset({
                   coin: assetInfo.rawCoin,
                 })
               }
+              cursor="default"
             >
               <SizableText
                 size="$bodySm"
@@ -508,11 +508,11 @@ const OpenOrdersRow = memo(
             {...getColumnStyle(columnConfigs[9])}
             justifyContent={calcCellAlign(columnConfigs[9].align)}
             alignItems="center"
+            cursor="default"
           >
             <SizableText
               color="$green11"
               hoverStyle={{ size: '$bodySmMedium', fontWeight: 600 }}
-              cursor="pointer"
               size="$bodySm"
               fontWeight={400}
               onPress={handleCancelOrder}

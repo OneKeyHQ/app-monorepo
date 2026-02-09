@@ -37,7 +37,7 @@ function RecommendedSkeletonItem({ ...rest }: IYStackProps) {
   return (
     <YStack
       gap="$4"
-      px="$5"
+      px="$pagePadding"
       py="$3.5"
       borderRadius="$3"
       bg="$bg"
@@ -184,7 +184,7 @@ function RecommendedContainer({
   return (
     <YStack
       gap="$3"
-      px="$5"
+      px="$pagePadding"
       $md={
         platformEnv.isNative
           ? {
