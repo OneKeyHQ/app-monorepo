@@ -26,7 +26,10 @@ import {
 import { usePerpsActiveAssetCtxAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { calculateSpreadPercentage } from '@onekeyhq/shared/src/utils/perpsUtils';
+import {
+  calculateSpreadPercentage,
+  parseDexCoin,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IBookLevel } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { DefaultLoadingNode } from './DefaultLoadingNode';
@@ -1299,6 +1302,7 @@ export function OrderBookMobile({
                 {intl.formatMessage({ id: ETranslations.perp_orderbook_size })}
               </PerpBookText>
               <PerpBookText
+                numberOfLines={1}
                 style={[
                   styles.headerText,
                   {
@@ -1308,7 +1312,7 @@ export function OrderBookMobile({
                   },
                 ]}
               >
-                ({_symbol ?? ''})
+                ({_symbol ? parseDexCoin(_symbol).displayName : ''})
               </PerpBookText>
             </View>
           </View>

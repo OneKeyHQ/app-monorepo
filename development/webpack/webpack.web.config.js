@@ -1,7 +1,9 @@
+const path = require('path');
 const { merge } = require('webpack-merge');
 const DuplicatePackageCheckerPlugin = require('duplicate-package-checker-webpack-plugin');
 
 const { SubresourceIntegrityPlugin } = require('webpack-subresource-integrity');
+const { InjectManifest } = require('workbox-webpack-plugin');
 const baseConfig = require('./webpack.base.config');
 const analyzerConfig = require('./webpack.analyzer.config');
 const developmentConfig = require('./webpack.development.config');
@@ -30,7 +32,14 @@ module.exports = ({
           output: {
             crossOriginLoading: 'anonymous',
           },
-          plugins: [new SubresourceIntegrityPlugin()],
+          plugins: [
+            new SubresourceIntegrityPlugin(),
+            new InjectManifest({
+              swSrc: path.join(basePath, 'src/service-worker.js'),
+              swDest: 'service-worker.js',
+              exclude: [/\.map$/, /asset-manifest\.json$/, /LICENSE/],
+            }),
+          ],
         },
       );
     case 'development':
