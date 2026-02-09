@@ -18,7 +18,7 @@ import {
   usePerpsAllAssetCtxsAtom,
   usePerpsAllAssetsFilteredAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
-import type { IPerpDynamicTab } from '@onekeyhq/kit-bg/src/services/ServiceWebviewPerp/ServiceWebviewPerp';
+
 import {
   usePerpTokenSelectorConfigPersistAtom,
   usePerpTokenSelectorTabsAtom,
@@ -77,7 +77,7 @@ function TabItem({
       borderBottomWidth={isFocused ? '$0.5' : '$0'}
       borderBottomColor="$borderActive"
       onPress={onPress}
-      cursor="pointer"
+      cursor="default"
       onLayout={(event: LayoutChangeEvent) => handleItemLayout(id, event)}
     >
       <SizableText
@@ -129,7 +129,6 @@ function MobileTokenSelectorModal({
     () => ({
       favorites: intl.formatMessage({ id: ETranslations.perp_tab_favs }),
       all: 'PERPS',
-      hip3: 'HIP3',
     }),
     [intl],
   );
@@ -221,7 +220,6 @@ function MobileTokenSelectorModal({
 
     const combinedEntries = assetsByDexTyped.flatMap(
       (assets: IPerpsUniverse[], dexIndex: number) => {
-        if (activeTab === 'hip3' && dexIndex !== 1) return [];
         const ctxs = assetCtxsByDexTyped[dexIndex] || [];
         return assets.map((asset, index) => {
           const normalizedAssetId =
@@ -297,16 +295,9 @@ function MobileTokenSelectorModal({
     selectorConfig?.field,
   ]);
 
-  // Compute visible dynamic tabs (those with matching tokens)
-  const visibleDynamicTabs = useMemo<IPerpDynamicTab[]>(() => {
-    const assetsByDexTyped: IPerpsUniverse[][] = assetsByDex || [];
-    const allAssetNames = new Set(
-      assetsByDexTyped.flatMap((assets) => assets.map((a) => a.name)),
-    );
-    return (dynamicTabsRaw ?? []).filter((tab) =>
-      tab.tokens.some((token) => allAssetNames.has(token)),
-    );
-  }, [assetsByDex, dynamicTabsRaw]);
+  // Show all server-configured dynamic tabs regardless of search results.
+  // Filtering by search-filtered assetsByDex would hide tabs during search.
+  const visibleDynamicTabs = dynamicTabs;
 
   usePerpActiveTabValidation({
     activeTab,
@@ -388,7 +379,7 @@ function MobileTokenSelectorModal({
           itemGap="$2"
           itemPr="$3"
         >
-          {(['favorites', 'all', 'hip3'] as const).map((tabKey) => (
+          {(['favorites', 'all'] as const).map((tabKey) => (
             <TabItem
               key={tabKey}
               id={tabKey}
@@ -420,8 +411,8 @@ function MobileTokenSelectorModal({
           gap="$1"
           alignItems="center"
           onPress={() => handleSortPress('volume24h')}
-          cursor="pointer"
           userSelect="none"
+          cursor="default"
         >
           <SizableText
             size="$bodySm"
@@ -443,8 +434,8 @@ function MobileTokenSelectorModal({
           gap="$1"
           alignItems="center"
           onPress={() => handleSortPress('change24hPercent')}
-          cursor="pointer"
           userSelect="none"
+          cursor="default"
         >
           <SizableText
             size="$bodySm"

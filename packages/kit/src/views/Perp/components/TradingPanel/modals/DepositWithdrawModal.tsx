@@ -292,7 +292,7 @@ function SelectTokenPopoverContent({
         borderTopWidth={1}
         borderTopColor="$borderSubdued"
         p="$2"
-        cursor="pointer"
+        cursor="default"
         onPress={() => {
           void closePopover?.();
           if (platformEnv.isNativeIOS) {
@@ -1187,7 +1187,7 @@ function DepositWithdrawContent({
         placement="bottom-end"
         offset={{ mainAxis: 10, crossAxis: 12 }}
         renderTrigger={
-          <XStack alignItems="center" gap="$1" cursor="pointer">
+          <XStack alignItems="center" gap="$1" cursor="default">
             <SizableText size="$bodyMd" color="$textSubdued">
               {currentPerpsDepositSelectedToken?.symbol ?? '-'}
             </SizableText>
@@ -1409,7 +1409,6 @@ function DepositWithdrawContent({
               onPress={handleBuyPress}
               color="$textSuccess"
               size="$bodySmMedium"
-              cursor="pointer"
               dashColor="$textSuccess"
             >
               {intl.formatMessage({ id: ETranslations.global_top_up })}
@@ -1440,7 +1439,6 @@ function DepositWithdrawContent({
                 <SizableText
                   size="$bodyMd"
                   color="$textSuccess"
-                  cursor="pointer"
                   onPress={() => {
                     handleMaxPress({
                       networkId:

@@ -1,8 +1,9 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import {
+  Badge,
   DebugRenderTracker,
   Divider,
   IconButton,
@@ -11,6 +12,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { GiftAction } from '@onekeyhq/kit/src/components/TabPageHeader/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
@@ -23,8 +25,6 @@ import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import { PerpSettingsButton } from '../PerpSettingsButton';
 import { PerpTokenSelectorMobile } from '../TokenSelector/PerpTokenSelector';
 import { PerpsAccountNumberValue } from '../TradingPanel/components/PerpsAccountNumberValue';
-
-import { TickerBarChange24hPercent } from './PerpTickerBarDesktop';
 
 const PerpTickerBarMMRInfoMobileView = memo(
   ({
@@ -158,6 +158,56 @@ function PerpCandleChartButtonMobile() {
   );
 }
 
+function PerpBadgesRow() {
+  const intl = useIntl();
+  const [builderFeeRate, setBuilderFeeRate] = useState<number | undefined>();
+
+  useEffect(() => {
+    void backgroundApiProxy.simpleDb.perp
+      .getExpectMaxBuilderFee()
+      .then((fee) => {
+        setBuilderFeeRate(fee);
+      });
+  }, []);
+
+  return (
+    <XStack alignItems="center" gap="$1.5">
+      <Badge radius="$1" bg="$bgSubdued" px="$1" py={0}>
+        <SizableText color="$textSubdued" fontSize={10}>
+          {intl.formatMessage({
+            id: ETranslations.perp_label_perp,
+          })}
+        </SizableText>
+      </Badge>
+      {builderFeeRate === 0 ? (
+        <Popover
+          title={intl.formatMessage({
+            id: ETranslations.referral_perps_onekey_fee,
+          })}
+          renderTrigger={
+            <Badge radius="$1" bg="$bgSuccess" px="$1" py={0}>
+              <SizableText color="$textSuccess" fontSize={10}>
+                {intl.formatMessage({
+                  id: ETranslations.perp_0_fee,
+                })}
+              </SizableText>
+            </Badge>
+          }
+          renderContent={
+            <YStack px="$5" pb="$4">
+              <SizableText size="$bodyMd" color="$text">
+                {intl.formatMessage({
+                  id: ETranslations.perps_fee_desc,
+                })}
+              </SizableText>
+            </YStack>
+          }
+        />
+      ) : null}
+    </XStack>
+  );
+}
+
 export function PerpTickerBarMobile() {
   const content = (
     <XStack
@@ -170,9 +220,9 @@ export function PerpTickerBarMobile() {
       alignItems="flex-start"
       justifyContent="space-between"
     >
-      <YStack gap="$1">
+      <YStack>
         <PerpTokenSelectorMobile />
-        <TickerBarChange24hPercent />
+        <PerpBadgesRow />
       </YStack>
 
       <XStack pt="$0.5" gap="$3" alignItems="center">

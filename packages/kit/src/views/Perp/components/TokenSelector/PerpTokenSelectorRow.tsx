@@ -378,7 +378,7 @@ const TokenSelectorRowDesktop = memo(() => {
           px="$4"
           py="$3"
           flex={1}
-          cursor="pointer"
+          cursor="default"
         >
           <TokenInfoCellDesktop />
           <TokenPriceCellDesktop />
@@ -599,11 +599,11 @@ const TokenSelectorRowMobile = memo(() => {
           justifyContent="space-between"
           alignItems="center"
           onPress={onPress}
-          cursor="pointer"
           pressStyle={{
             bg: '$bgHover',
           }}
           gap="$2.5"
+          cursor="default"
         >
           <TokenImageMobile />
           <XStack gap="$2" alignItems="center" justifyContent="center">

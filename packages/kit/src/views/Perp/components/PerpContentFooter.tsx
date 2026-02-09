@@ -52,7 +52,7 @@ export function PerpContentFooter() {
             onPress={() => openUrlExternal(PERP_TELEGRAM_URL)}
           >
             <Icon name="TelegramBrand" size="$4" color="$iconSubdued" />
-            <SizableText size="$bodySm" color="$textSubdued">
+            <SizableText size="$bodyMd" color="$textSubdued">
               {intl.formatMessage({
                 id: ETranslations.perps_footer_help_us_better,
               })}

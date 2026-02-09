@@ -17,6 +17,9 @@ type IPureChainSelectorProps = {
   unavailable?: IServerNetwork[];
   grouped?: boolean;
   recentNetworksEnabled?: boolean;
+  accountNetworkValues?: Record<string, string>;
+  accountNetworkValueCurrency?: string;
+  hideLowValueNetworkValue?: boolean;
 };
 
 export const PureChainSelector: FC<IPureChainSelectorProps> = ({
@@ -27,6 +30,9 @@ export const PureChainSelector: FC<IPureChainSelectorProps> = ({
   unavailable,
   grouped = true,
   recentNetworksEnabled = true,
+  accountNetworkValues,
+  accountNetworkValueCurrency,
+  hideLowValueNetworkValue,
 }) => {
   const intl = useIntl();
 
@@ -45,12 +51,18 @@ export const PureChainSelector: FC<IPureChainSelectorProps> = ({
             onPressItem={onPressItem}
             unavailable={unavailable}
             recentNetworksEnabled={recentNetworksEnabled}
+            accountNetworkValues={accountNetworkValues}
+            accountNetworkValueCurrency={accountNetworkValueCurrency}
+            hideLowValueNetworkValue={hideLowValueNetworkValue}
           />
         ) : (
           <ChainSelectorListView
             networkId={networkId}
             networks={networks}
             onPressItem={onPressItem}
+            accountNetworkValues={accountNetworkValues}
+            accountNetworkValueCurrency={accountNetworkValueCurrency}
+            hideLowValueNetworkValue={hideLowValueNetworkValue}
           />
         )}
       </Page.Body>

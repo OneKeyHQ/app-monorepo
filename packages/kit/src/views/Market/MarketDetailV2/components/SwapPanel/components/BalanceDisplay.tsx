@@ -61,39 +61,46 @@ export function BalanceDisplay({
       />
 
       {isLoading ? (
-        <Skeleton height="$6" width="$12" />
+        <Skeleton height="$3" width="$12" />
       ) : (
         <>
-          <NumberSizeableText
-            size="$bodyMdMedium"
+          <XStack
+            alignItems="center"
+            gap="$1"
             onPress={onBalanceClick}
             userSelect="none"
             hoverStyle={{ bg: '$bgHover' }}
             pressStyle={{ bg: '$bgActive' }}
-            borderRadius="$2"
-            formatter="balance"
-            formatterOptions={{
-              tokenSymbol: useIcon ? undefined : token?.symbol,
-            }}
-            numberOfLines={1}
-            maxWidth="$56"
-            contentStyle={{
-              px: '$1',
-              py: '$0.5',
-            }}
+            borderRadius="$1"
+            px="$1"
+            py="$0.5"
           >
-            {balance?.toFixed()}
-          </NumberSizeableText>
-          {useIcon ? (
-            <Image
-              size="$4"
-              source={token?.logoURI}
-              borderRadius="$full"
-              fallback={
-                <Icon name="CryptoCoinOutline" size="$4" color="$iconSubdued" />
-              }
-            />
-          ) : null}
+            <NumberSizeableText
+              size="$bodyMdMedium"
+              formatter="balance"
+              formatterOptions={{
+                tokenSymbol: useIcon ? undefined : token?.symbol,
+              }}
+              numberOfLines={1}
+              maxWidth="$56"
+            >
+              {balance?.toFixed()}
+            </NumberSizeableText>
+            {useIcon ? (
+              <Image
+                size="$4"
+                source={token?.logoURI}
+                borderRadius="$full"
+                fallback={
+                  <Icon
+                    name="CryptoCoinOutline"
+                    size="$4"
+                    color="$iconSubdued"
+                  />
+                }
+              />
+            ) : null}
+          </XStack>
           {!!token && enableAddressTypeSelector ? (
             <AddressTypeSelector
               refreshOnOpen
