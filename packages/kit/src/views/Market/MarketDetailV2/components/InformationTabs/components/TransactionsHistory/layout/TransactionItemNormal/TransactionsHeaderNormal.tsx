@@ -19,10 +19,9 @@ function TransactionsHeaderNormalBase() {
   return (
     <XStack
       width="100%"
-      height="$10"
-      px="$4"
-      pt="$2"
-      pb="$3"
+      py="$2"
+      pl="$5"
+      pr="$3"
       alignItems="center"
       backgroundColor="$bgApp"
     >

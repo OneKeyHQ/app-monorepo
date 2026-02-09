@@ -33,7 +33,7 @@ function MobileInformationTabsHeader(props: TabBarProps<string>) {
   }, [tabNames]);
   return (
     <YStack bg="$bgApp" pointerEvents="box-none">
-      <Tabs.TabBar {...props} />
+      <Tabs.TabBar {...props} textSize="$bodyMdMedium" />
       <StickyHeader firstTabName={firstTabName} />
     </YStack>
   );

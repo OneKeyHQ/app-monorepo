@@ -23,7 +23,11 @@ const { postSlackWebhook } = require('./lib/slack');
 const { readPerfCiLocalConfig } = require('./lib/config');
 const { deriveSession, defaultDerivedOutPath } = require('./lib/derive');
 const { nowId } = require('./lib/id');
-const { ensurePerfServerRunning, checkPerfServer, stopChild } = require('./lib/perfServer');
+const {
+  ensurePerfServerRunning,
+  checkPerfServer,
+  stopChild,
+} = require('./lib/perfServer');
 const {
   ensureSessionsDirWritable,
   readSessionMetrics,

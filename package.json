@@ -246,6 +246,7 @@
     "@typescript-eslint/eslint-plugin": "5.62.0",
     "@typescript-eslint/parser": "5.62.0",
     "@typescript/native-preview": "^7.0.0-dev.20260127.1",
+    "agentation": "^2.2.0",
     "axios": "^1.13.2",
     "babel-loader": "^9.1.3",
     "babel-plugin-catch-logger": "0.1.13",
@@ -315,6 +316,7 @@
     "webpack-manifest-plugin": "^5.0.0",
     "webpack-retry-chunk-load-plugin": "^3.1.1",
     "webpack-subresource-integrity": "^5.2.0-rc.1",
+    "workbox-webpack-plugin": "^7.4.0",
     "worker-loader": "^3.0.8",
     "worker-rspack-loader": "^3.1.2"
   },
