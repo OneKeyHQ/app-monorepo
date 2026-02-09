@@ -152,23 +152,30 @@ function WebModalNavigator({
             newIndex >= 1 ? 1 : 0;
         }
 
+        const bounceIn =
+          'opacity .25s cubic-bezier(0.175, 0.885, 0.32, 1.275), transform .25s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+        const easeOut =
+          'opacity .2s cubic-bezier(0, 0, 0.2, 1), transform .2s cubic-bezier(0, 0, 0.2, 1)';
+
         MODAL_ANIMATED_VIEW_REF_LIST.forEach((element, index) => {
-          const transform = media.gtMd
-            ? {
-                translateY: `${
-                  newIndex < index ? screenHeight : -30 * (newIndex - index)
-                }px`,
-                scale: `${1 - 0.05 * (newIndex - index)}`,
-              }
-            : {
-                translateY: `${newIndex < index ? screenHeight : 0}px`,
-                scale: '1',
-              };
-          // @ts-expect-error
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          element.style.transform = Object.entries(transform)
-            .map(([key, value]) => `${key}(${value})`)
-            .join(' ');
+          const isHidden = newIndex < index;
+          if (media.gtMd) {
+            // @ts-expect-error
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            element.style.transition = isHidden ? easeOut : bounceIn;
+            // @ts-expect-error
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            element.style.opacity = isHidden ? '0' : '1';
+            // @ts-expect-error
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            element.style.transform = isHidden
+              ? 'scale(0.95)'
+              : `translateY(${-30 * (newIndex - index)}px) scale(${1 - 0.05 * (newIndex - index)})`;
+          } else {
+            // @ts-expect-error
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            element.style.transform = `translateY(${isHidden ? screenHeight : 0}px)`;
+          }
         });
       },
     );
@@ -180,8 +187,13 @@ function WebModalNavigator({
   useLayoutEffect(() => {
     const element = MODAL_ANIMATED_VIEW_REF_LIST[currentRouteIndex];
     if (element) {
-      (element as HTMLElement).style.transform =
-        `translateY(${screenHeight}px)`;
+      const el = element as HTMLElement;
+      if (media.gtMd) {
+        el.style.opacity = '0';
+        el.style.transform = 'scale(0.95)';
+      } else {
+        el.style.transform = `translateY(${screenHeight}px)`;
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -378,10 +390,19 @@ function WebModalNavigator({
                   MODAL_ANIMATED_VIEW_REF_LIST[currentRouteIndex] = ref;
                 }
               }}
-              style={{
-                transition: 'transform .25s cubic-bezier(0.4, 0, 0.2, 1)',
-                willChange: 'transform',
-              }}
+              style={
+                media.gtMd
+                  ? {
+                      transition:
+                        'opacity .25s cubic-bezier(0.175, 0.885, 0.32, 1.275), transform .25s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                      willChange: 'opacity, transform',
+                    }
+                  : {
+                      transition:
+                        'transform .25s cubic-bezier(0.4, 0, 0.2, 1)',
+                      willChange: 'transform',
+                    }
+              }
             >
               <StackView
                 {...rest}
