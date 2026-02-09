@@ -2755,6 +2755,7 @@
   "perps.token_selector_perps": "범죄자들",
   "perps.token_selector_stocks": "주식",
   "perps.trade_reward": "거래 보상",
+  "perps_footer.help_us_better": "저희 서비스 개선에 도움을 주세요",
   "pick_your_device": "기기를 선택하세요",
   "pin_attempts_cooldown": "{seconds} 후에 다시 시도하세요.",
   "pin_attempts_exhausted": "최대 PIN 시도 횟수를 초과했습니다. PIN을 재설정하십시오.",

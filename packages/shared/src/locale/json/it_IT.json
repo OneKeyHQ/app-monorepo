@@ -2755,6 +2755,7 @@
   "perps.token_selector_perps": "Criminali",
   "perps.token_selector_stocks": "Azioni",
   "perps.trade_reward": "Ricompensa commerciale",
+  "perps_footer.help_us_better": "Aiutaci a migliorare",
   "pick_your_device": "Scegli il tuo dispositivo",
   "pin_attempts_cooldown": "Riprova tra {seconds}.",
   "pin_attempts_exhausted": "Tentativi massimi di PIN superati. Si prega di reimpostare il PIN.",

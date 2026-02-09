@@ -2755,6 +2755,7 @@
   "perps.token_selector_perps": "Tội phạm",
   "perps.token_selector_stocks": "Cổ phiếu",
   "perps.trade_reward": "Phần thưởng thương mại",
+  "perps_footer.help_us_better": "Hãy giúp chúng tôi cải thiện",
   "pick_your_device": "Chọn thiết bị của bạn",
   "pin_attempts_cooldown": "Thử lại sau {seconds}.",
   "pin_attempts_exhausted": "Số lần thử PIN tối đa đã vượt quá. Vui lòng đặt lại PIN của bạn.",

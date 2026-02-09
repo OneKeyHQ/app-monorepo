@@ -2755,6 +2755,7 @@
   "perps.token_selector_perps": "अपराधी",
   "perps.token_selector_stocks": "शेयरों",
   "perps.trade_reward": "व्यापार पुरस्कार",
+  "perps_footer.help_us_better": "हमें बेहतर बनाने में मदद करें",
   "pick_your_device": "अपना डिवाइस चुनें",
   "pin_attempts_cooldown": "{seconds} में पुनः प्रयास करें।",
   "pin_attempts_exhausted": "अधिकतम PIN प्रयासों की सीमा पार हो गई है। कृपया अपना PIN रीसेट करें।",

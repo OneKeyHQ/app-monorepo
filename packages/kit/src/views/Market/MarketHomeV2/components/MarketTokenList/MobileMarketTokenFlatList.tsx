@@ -156,9 +156,9 @@ function MobileMarketTokenFlatListBase({
       // Performance optimizations to improve page switching speed
       initialNumToRender={10}
       maxToRenderPerBatch={20}
-      windowSize={3}
-      removeClippedSubviews={platformEnv.isNative}
-      updateCellsBatchingPeriod={100}
+      windowSize={platformEnv.isNativeAndroid ? 7 : 3}
+      removeClippedSubviews={platformEnv.isNativeIOS}
+      updateCellsBatchingPeriod={platformEnv.isNativeAndroid ? 50 : 100}
       ListHeaderComponent={ListHeaderComponent}
       ListFooterComponent={ListFooterComponent}
       ListEmptyComponent={ListEmptyComponent}

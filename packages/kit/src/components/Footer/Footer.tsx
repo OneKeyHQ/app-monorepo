@@ -2,13 +2,20 @@ import { useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Image, XStack, useOnRouterChange } from '@onekeyhq/components';
+import {
+  Icon,
+  SizableText,
+  XStack,
+  useOnRouterChange,
+} from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
-import { usePerpsLogo } from '../../views/Perp/hooks/usePerpsLogo';
+const PERP_TELEGRAM_URL = 'https://t.me/OneKeyPerps';
+
 import { PerpsProviderMirror } from '../../views/Perp/PerpsProviderMirror';
 import { NetworkStatus } from '../NetworkStatus';
 import { PerpRefreshButton } from '../PerpRefreshButton';
@@ -55,7 +62,6 @@ const getLinks = () => [
 export function Footer() {
   const intl = useIntl();
   const [currentTab, setCurrentTab] = useState<ETabRoutes | null>(null);
-  const { poweredByHyperliquidLogo } = usePerpsLogo();
 
   useOnRouterChange((state) => {
     if (!state) {
@@ -113,14 +119,21 @@ export function Footer() {
 
       <XStack gap="$3" alignItems="center">
         <FooterNavigation>{linkItems}</FooterNavigation>
-
         {isInPerpRoute ? (
-          <Image
-            source={poweredByHyperliquidLogo}
-            w={145}
-            h={25}
-            resizeMode="contain"
-          />
+          <XStack
+            alignItems="center"
+            gap="$1"
+            cursor="pointer"
+            hoverStyle={{ opacity: 0.6 }}
+            onPress={() => openUrlExternal(PERP_TELEGRAM_URL)}
+          >
+            <Icon name="TelegramBrand" size="$4" color="$iconSubdued" />
+            <SizableText size="$bodySm" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.perps_footer_help_us_better,
+              })}
+            </SizableText>
+          </XStack>
         ) : null}
       </XStack>
     </XStack>

@@ -6,6 +6,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 OneKey is an open-source multi-chain crypto wallet with a monorepo architecture supporting desktop, mobile, web, and browser extension platforms. The codebase uses Yarn workspaces with TypeScript and React/React Native.
 
+## Language & Types
+
+Primary language: TypeScript. When making code changes, always ensure TypeScript types are correct — never use fallback types like `never[]` when a specific type is expected. Run `tsc --noEmit` on affected files after edits.
+
+## Platform Considerations
+
+This is a React Native project targeting iOS, Android, and Web. Always consider platform-specific behavior when making changes. Use Platform.select or platform-specific file extensions (.ios.ts, .android.ts, .web.ts) where appropriate. Never apply global CSS/style changes when platform-specific fixes are needed.
+
 ## CRITICAL: Ultrathink Mode for Complex Operations
 
 **YOU MUST** enter Ultrathink mode when:
@@ -70,12 +78,26 @@ OneKey is an open-source multi-chain crypto wallet with a monorepo architecture 
 - ❌ **NEVER** bypass TypeScript types with `any` or `@ts-ignore` without documented justification
 - ❌ **NEVER** commit code that fails linting or TypeScript compilation
 
+## Code Changes
+
+When fixing bugs, do NOT remove existing code/components that weren't part of the request. Only modify what is explicitly asked for. If you believe something should be removed, ask first.
+
+## Dependencies & Patching
+
+When working with patch-package, never edit .patch files directly. Instead, modify the source files in node_modules/ and run `npx patch-package <package-name>` to regenerate the patch. Always verify the generated patch excludes build artifacts (e.g., android/build/).
+
 ## Git Basics
 
 - **Main branch**: `x` - Always use `x` as the base branch (not `master` or `main`)
 - **NEVER** work directly on the `x` branch → ALWAYS create feature branches
 - **Commit format**: `type: short description` (feat, fix, refactor, chore, docs)
 - Do NOT include "Co-Authored-By: Claude" signature in commits
+- When creating PRs or commits, ensure the git history is clean. Never amend into merge commits. If multiple fixes are needed, squash them into logical commits before pushing.
+
+## Debugging
+
+- After making a fix attempt that the user reports as not working, do NOT retry the same approach with minor tweaks. Instead, re-analyze the root cause from scratch, explain your new hypothesis, and propose a fundamentally different approach before implementing.
+- When the user reports a visual bug, ask for the specific platform and confirm the expected vs actual behavior before attempting a fix. Do not assume the root cause — misdiagnosis wastes rounds.
 
 ## Essential Commands
 

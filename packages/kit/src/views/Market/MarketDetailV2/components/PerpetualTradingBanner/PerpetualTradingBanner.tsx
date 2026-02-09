@@ -14,10 +14,10 @@ import { useTokenDetail } from '../../hooks/useTokenDetail';
 export function PerpetualTradingBanner() {
   const intl = useIntl();
   const navigation = useAppNavigation();
-  const { tokenDetail } = useTokenDetail();
+  const { tokenDetail, perpsInfo } = useTokenDetail();
   const [dismissed, setDismissed] = useState(false);
 
-  const hlTicker = tokenDetail?.perpsInfo?.hlTicker;
+  const hlTicker = perpsInfo?.hlTicker;
 
   const handleDismiss = useCallback(() => {
     setDismissed(true);
