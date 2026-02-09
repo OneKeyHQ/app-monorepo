@@ -8,7 +8,7 @@ import { ListView, ScrollView } from '../../layouts';
 import { GradientMask, SizableText, XStack, YStack } from '../../primitives';
 
 import type { IListViewRef } from '../../layouts';
-import type { IYStackProps } from '../../primitives';
+import type { ISizableTextProps, IYStackProps } from '../../primitives';
 import type {
   LayoutChangeEvent,
   NativeScrollEvent,
@@ -26,6 +26,7 @@ export function TabBarItem({
   tabItemStyle,
   focusedTabStyle,
   variant = 'default',
+  textSize,
 }: {
   name: string;
   isFocused: boolean;
@@ -33,10 +34,13 @@ export function TabBarItem({
   tabItemStyle?: IYStackProps;
   focusedTabStyle?: IYStackProps;
   variant?: ITabBarVariant;
+  textSize?: ISizableTextProps['size'];
 }) {
   const handlePress = useCallback(() => {
     onPress(name);
   }, [name, onPress]);
+
+  const resolvedTextSize = textSize ?? '$bodyLgMedium';
 
   if (variant === 'pill') {
     return (
@@ -55,7 +59,7 @@ export function TabBarItem({
         {...(isFocused ? focusedTabStyle : undefined)}
       >
         <SizableText
-          size="$bodyLgMedium"
+          size={resolvedTextSize}
           color={isFocused ? '$textInverse' : '$text'}
           userSelect="none"
         >
@@ -79,7 +83,7 @@ export function TabBarItem({
       {...(isFocused ? focusedTabStyle : undefined)}
     >
       <SizableText
-        size="$bodyLgMedium"
+        size={resolvedTextSize}
         color={isFocused ? '$text' : '$textSubdued'}
       >
         {name}
@@ -111,6 +115,7 @@ export interface ITabBarItemProps {
   tabItemStyle?: IYStackProps;
   focusedTabStyle?: IYStackProps;
   variant?: ITabBarVariant;
+  textSize?: ISizableTextProps['size'];
 }
 
 const PILL_GRADIENT_THRESHOLD = 2;
@@ -207,6 +212,7 @@ export function TabBar({
   containerStyle,
   scrollable = false,
   variant = 'default',
+  textSize,
 }: Omit<Partial<ITabBarProps>, 'focusedTab' | 'tabNames'> & {
   focusedTab: SharedValue<string>;
   tabNames: string[];
@@ -217,6 +223,7 @@ export function TabBar({
   renderItem?: (props: ITabBarItemProps, index: number) => React.ReactNode;
   scrollable?: boolean;
   variant?: ITabBarVariant;
+  textSize?: ISizableTextProps['size'];
 }) {
   const listViewRef = useRef<IListViewRef<string>>(null);
   const listViewTimerId = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -274,6 +281,7 @@ export function TabBar({
             tabItemStyle,
             focusedTabStyle,
             variant,
+            textSize,
           },
           index,
         )
@@ -286,6 +294,7 @@ export function TabBar({
           tabItemStyle={tabItemStyle}
           focusedTabStyle={focusedTabStyle}
           variant={variant}
+          textSize={textSize}
         />
       ),
     );
@@ -296,6 +305,7 @@ export function TabBar({
     renderItem,
     tabItemStyle,
     tabNames,
+    textSize,
     variant,
   ]);
   const content = useMemo(() => {
@@ -333,6 +343,7 @@ export function TabBar({
             tabItemStyle,
             focusedTabStyle,
             variant,
+            textSize,
           },
           index,
         )
@@ -345,6 +356,7 @@ export function TabBar({
           tabItemStyle={tabItemStyle}
           focusedTabStyle={focusedTabStyle}
           variant={variant}
+          textSize={textSize}
         />
       );
     },
@@ -354,6 +366,7 @@ export function TabBar({
       onTabPress,
       renderItem,
       tabItemStyle,
+      textSize,
       variant,
     ],
   );

@@ -73,12 +73,7 @@ function RewardItem({ item, token }: IRewardItemProps) {
               })}
             </SizableText>
             {item.tx ? (
-              <XStack
-                ai="center"
-                gap="$1"
-                onPress={handleTxPress}
-                cursor="pointer"
-              >
+              <XStack ai="center" gap="$1" onPress={handleTxPress}>
                 <SizableText size="$bodySm" color="$textSubdued">
                   {`${item.tx.slice(0, 8)}...${item.tx.slice(-6)}`}
                 </SizableText>
@@ -158,9 +153,9 @@ export function RewardHistoryList({
           gap="$1"
           py="$2"
           onPress={handleShowMore}
-          cursor="pointer"
           hoverStyle={{ opacity: 0.8 }}
           pressStyle={{ opacity: 0.6 }}
+          cursor="default"
         >
           <SizableText size="$bodyMdMedium" color="$textSubdued">
             {intl.formatMessage({

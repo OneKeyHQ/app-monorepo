@@ -35,7 +35,7 @@ function DesktopInformationTabsHeader(props: TabBarProps<string>) {
       top={0}
       zIndex={10}
     >
-      <Tabs.TabBar {...props} />
+      <Tabs.TabBar {...props} textSize="$bodyMdMedium" />
       <StickyHeader firstTabName={firstTabName} />
     </YStack>
   );
