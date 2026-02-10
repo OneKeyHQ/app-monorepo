@@ -856,9 +856,7 @@ export default class Vault extends VaultBase {
       }),
     }));
 
-    const methodName = isFeeOnTransfer
-      ? 'sendToken'
-      : 'sendTokenViaContract';
+    const methodName = isFeeOnTransfer ? 'sendToken' : 'sendTokenViaContract';
 
     const data = bulkSendInterface.encodeFunctionData(methodName, [
       tokenInfo.address,
