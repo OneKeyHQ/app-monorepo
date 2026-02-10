@@ -1,8 +1,12 @@
 /* eslint-disable no-restricted-globals */
 /* eslint-disable unicorn/prefer-global-this */
 import { precacheAndRoute } from 'workbox-precaching';
-import { registerRoute } from 'workbox-routing';
-import { CacheFirst, StaleWhileRevalidate } from 'workbox-strategies';
+import { NavigationRoute, registerRoute } from 'workbox-routing';
+import {
+  CacheFirst,
+  NetworkFirst,
+  StaleWhileRevalidate,
+} from 'workbox-strategies';
 import { ExpirationPlugin } from 'workbox-expiration';
 
 // Skip waiting immediately on install so existing users with old SW get
@@ -14,9 +18,22 @@ self.addEventListener('install', () => {
 // Precache app shell (manifest injected by InjectManifest at build time)
 precacheAndRoute(self.__WB_MANIFEST);
 
-// Navigation requests (index.html) are NOT cached by the service worker.
-// They go directly to the network so the browser always gets the latest
-// version. GitHub Pages handles SPA routing via 404.html fallback.
+// Navigation requests -> NetworkFirst with /index.html rewrite.
+// GitHub Pages returns 404 status for SPA client-side routes like /market,
+// which Workbox rejects. Rewriting to /index.html ensures a 200 response.
+registerRoute(
+  new NavigationRoute(
+    new NetworkFirst({
+      cacheName: 'navigations',
+      plugins: [
+        {
+          requestWillFetch: async () => new Request('/index.html'),
+          cacheKeyWillBeUsed: async () => '/index.html',
+        },
+      ],
+    }),
+  ),
+);
 
 // Static assets (images, fonts) -> CacheFirst with expiration
 registerRoute(
