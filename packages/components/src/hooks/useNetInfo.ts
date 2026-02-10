@@ -46,6 +46,8 @@ class NetInfo {
 
   isFetching = false;
 
+  pendingRefresh = false;
+
   pollingTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
   constructor(configuration: IReachabilityConfiguration) {
@@ -117,26 +119,40 @@ class NetInfo {
       this.updateState({ isInternetReachable: false });
     } finally {
       this.isFetching = false;
-      const { reachabilityShortTimeout, reachabilityLongTimeout } =
-        this.configuration;
-      this.pollingTimeoutId = setTimeout(
-        () => {
-          void this.fetch();
-        },
-        this.prevIsInternetReachable
-          ? reachabilityLongTimeout
-          : reachabilityShortTimeout,
-      );
+      if (this.pendingRefresh) {
+        this.pendingRefresh = false;
+        void this.fetch();
+      } else {
+        const { reachabilityShortTimeout, reachabilityLongTimeout } =
+          this.configuration;
+        this.pollingTimeoutId = setTimeout(
+          () => {
+            void this.fetch();
+          },
+          this.prevIsInternetReachable
+            ? reachabilityLongTimeout
+            : reachabilityShortTimeout,
+        );
+      }
     }
   }
 
   async start() {
+    if (this.pollingTimeoutId) {
+      clearTimeout(this.pollingTimeoutId);
+      this.pollingTimeoutId = null;
+    }
     void this.fetch();
   }
 
   async refresh() {
     if (this.pollingTimeoutId) {
       clearTimeout(this.pollingTimeoutId);
+      this.pollingTimeoutId = null;
+    }
+    if (this.isFetching) {
+      this.pendingRefresh = true;
+      return;
     }
     void this.fetch();
   }
@@ -147,8 +163,13 @@ export const globalNetInfo = new NetInfo({
 });
 
 export const configureNetInfo = (configuration: IReachabilityConfiguration) => {
+  const urlChanged =
+    globalNetInfo.configuration.reachabilityUrl !==
+    configuration.reachabilityUrl;
   globalNetInfo.configure(configuration);
-  void globalNetInfo.start();
+  if (urlChanged || !globalNetInfo.pollingTimeoutId) {
+    void globalNetInfo.start();
+  }
 };
 
 export const refreshNetInfo = () => {
