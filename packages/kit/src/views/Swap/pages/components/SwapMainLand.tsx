@@ -1254,20 +1254,20 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   }, [pageType, swapTypeSwitch, showDesktopProviderPanel]);
 
   return (
-    <Page.Container flex={1} layout={containerLayout} padded={false}>
-      <YStack
-        testID="swap-content-container"
-        flex={1}
-        width="100%"
-        pt="$2.5"
-        gap="$2"
-        $gtMd={{
-          flex: 'unset',
-          pt: pageType === EPageType.modal ? '$2.5' : '$16',
-        }}
-      >
-        <SwapTipsContainer />
-        <SwapHeaderContainer
+    <>
+      <SwapTipsContainer />
+      <Page.Container flex={1} layout={containerLayout} padded={false}>
+        <YStack
+          testID="swap-content-container"
+          flex={1}
+          width="100%"
+          pt="$2.5"
+          gap="$2"
+          $gtMd={{
+            flex: 'unset',
+          }}
+        >
+          <SwapHeaderContainer
           pageType={pageType}
           defaultSwapType={swapInitParams?.swapTabSwitchType}
           showSwapPro={platformEnv.isNative}
@@ -1297,8 +1297,9 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
         ) : (
           renderSwapSwapBridgeContainer()
         )}
-      </YStack>
-    </Page.Container>
+        </YStack>
+      </Page.Container>
+    </>
   );
 };
 
