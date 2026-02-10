@@ -126,3 +126,66 @@ function BasicMarketStarV2({
 }
 
 export const MarketStarV2 = memo(BasicMarketStarV2);
+
+// Perps star hook — checks watchlist by perpsCoin
+export const usePerpsStarV2Checked = ({ perpsCoin }: { perpsCoin: string }) => {
+  const actions = useWatchListV2Action();
+  const [{ data: watchListData, isMounted }] = useMarketWatchListV2Atom();
+
+  const checked = useMemo(() => {
+    if (!isMounted || watchListData.length === 0) {
+      return false;
+    }
+    return !!watchListData.find((item) => item.perpsCoin === perpsCoin);
+  }, [watchListData, isMounted, perpsCoin]);
+
+  const handlePress = useCallback(() => {
+    if (checked) {
+      actions.removePerpsFromWatchListV2(perpsCoin);
+    } else {
+      actions.addPerpsIntoWatchListV2(perpsCoin);
+    }
+  }, [checked, actions, perpsCoin]);
+
+  return useMemo(
+    () => ({
+      checked,
+      onPress: handlePress,
+    }),
+    [checked, handlePress],
+  );
+};
+
+// Perps star button component
+function BasicMarketPerpsStarV2({
+  perpsCoin,
+  size,
+  ...props
+}: {
+  perpsCoin: string;
+  size?: IIconButtonProps['size'];
+} & IStackProps) {
+  const intl = useIntl();
+  const { onPress, checked } = usePerpsStarV2Checked({ perpsCoin });
+
+  return (
+    <IconButton
+      title={intl.formatMessage({
+        id: checked
+          ? ETranslations.market_remove_from_favorites
+          : ETranslations.market_add_to_favorites,
+      })}
+      icon={checked ? 'StarSolid' : 'StarOutline'}
+      variant="tertiary"
+      size={size}
+      iconSize={size ? undefined : '$5'}
+      iconProps={{
+        color: checked ? '$iconActive' : '$iconSubdued',
+      }}
+      onPress={onPress}
+      {...(props as IXStackProps)}
+    />
+  );
+}
+
+export const MarketPerpsStarV2 = memo(BasicMarketPerpsStarV2);
