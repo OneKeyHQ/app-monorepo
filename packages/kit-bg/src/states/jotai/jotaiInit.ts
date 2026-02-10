@@ -28,8 +28,21 @@ function checkAtomNameMatched(key: string, value: string) {
   }
 }
 
-// Preload all atom storage values from IndexedDB in parallel
+// Preload all atom storage values from IndexedDB
 async function preloadAtomStorageValues() {
+  // Batch read: single IndexedDB transaction instead of 104 individual ones
+  if ('getAllEntries' in onekeyJotaiStorage) {
+    const batchMap = await onekeyJotaiStorage.getAllEntries();
+    const storageMap = new Map<string, any>();
+    for (const name of Object.values(EAtomNames)) {
+      const key = buildJotaiStorageKey(name);
+      const value = batchMap.get(key);
+      storageMap.set(key, value === null ? undefined : value);
+    }
+    return storageMap;
+  }
+
+  // Fallback: individual reads (extension UI uses mock storage)
   const storageMap = new Map<string, any>();
   await Promise.all(
     Object.values(EAtomNames).map(async (name) => {

@@ -8,9 +8,7 @@ import {
 } from '../../../components/LazyLoadPage';
 
 const MarketHome = LazyLoadRootTabPage(() => {
-  return import(
-    /* webpackPrefetch: true */ '../../../views/Market/MarketHome'
-  );
+  return import(/* webpackPrefetch: true */ '../../../views/Market/MarketHome');
 });
 
 const MarketDetail = LazyLoadPage(

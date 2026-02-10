@@ -146,9 +146,12 @@ const useBuildLinking = (): LinkingOptions<any> => {
           const mainRoute = state?.routes?.[state?.index ?? 0];
           const tabState = mainRoute?.state;
           const tabIndex = tabState?.index ?? 0;
-          const tabRouteNames = tabState?.routeNames ?? tabState?.routes?.map((r: any) => r.name);
+          const tabRouteNames =
+            tabState?.routeNames ?? tabState?.routes?.map((r: any) => r.name);
           const activeTab = tabRouteNames?.[tabIndex];
-          const tabHistory = (tabState as any)?.history?.map((h: any) => h.key?.split('-')?.[0] || h.type);
+          const tabHistory = (tabState as any)?.history?.map(
+            (h: any) => h.key?.split('-')?.[0] || h.type,
+          );
           debugLandingLog(
             'getPathFromState',
             `defaultPath="${defaultPath}", matched=${!!rule?.showUrl}, activeTab=${activeTab}, tabIndex=${tabIndex}, tabRoutes=${JSON.stringify(tabRouteNames)}, tabHistory=${JSON.stringify(tabHistory)}`,
@@ -257,9 +260,13 @@ export const useRouterConfig = () => {
             const tabState = mainRoute?.state;
             if (tabState) {
               const tabIndex = tabState?.index ?? 0;
-              const activeTabName = (tabState?.routeNames ?? tabState?.routes?.map((r: any) => r.name))?.[tabIndex];
+              const activeTabName = (tabState?.routeNames ??
+                tabState?.routes?.map((r: any) => r.name))?.[tabIndex];
               if (activeTabName === ETabRoutes.Home) {
-                debugLandingLog('onStateChange', `activeTab=${activeTabName}, tabIndex=${tabIndex}`);
+                debugLandingLog(
+                  'onStateChange',
+                  `activeTab=${activeTabName}, tabIndex=${tabIndex}`,
+                );
                 console.log('[LANDING_DEBUG] state changed to Home tab');
               }
             }

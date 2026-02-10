@@ -194,10 +194,7 @@ export function DesktopTabItem(
         }
       >
         {icon ? (
-          <XStack
-            className="sidebar-tab-item-icon"
-            flexShrink={0}
-          >
+          <XStack className="sidebar-tab-item-icon" flexShrink={0}>
             <Icon
               flexShrink={0}
               name={icon}
