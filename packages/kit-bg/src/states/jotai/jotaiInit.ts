@@ -119,13 +119,11 @@ export async function jotaiInit() {
         ) {
           // Lazy import dbBackupTools — only needed on first launch
           // Ensure localDb is ready before reading backup metadata
-          const { default: localDbLazy } = await import(
-            '../../dbs/local/localDb'
-          );
+          const { default: localDbLazy } =
+            await import('../../dbs/local/localDb');
           await localDbLazy.readyDb;
-          const { default: dbBackupToolsLazy } = await import(
-            '../../services/ServiceDBBackup/dbBackupTools'
-          );
+          const { default: dbBackupToolsLazy } =
+            await import('../../services/ServiceDBBackup/dbBackupTools');
           const backupedInstanceMeta =
             await dbBackupToolsLazy.getBackupedInstanceMeta();
           if (backupedInstanceMeta) {
