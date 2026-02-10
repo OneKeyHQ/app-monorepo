@@ -23,6 +23,73 @@ void initIntercom();
 
 registerRootComponent(withSentryHOC(App, SentryErrorBoundaryFallback));
 
+function showUpdateBanner() {
+  const show = () => {
+    if (document.getElementById('sw-update-banner')) return;
+
+    const banner = document.createElement('div');
+    banner.id = 'sw-update-banner';
+    Object.assign(banner.style, {
+      position: 'fixed',
+      bottom: '24px',
+      left: '50%',
+      transform: 'translateX(-50%)',
+      zIndex: '2147483647',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '12px',
+      padding: '12px 20px',
+      borderRadius: '12px',
+      background: 'rgba(0, 0, 0, 0.85)',
+      color: '#fff',
+      fontSize: '14px',
+      fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
+      boxShadow: '0 4px 24px rgba(0, 0, 0, 0.3)',
+      backdropFilter: 'blur(8px)',
+    });
+
+    const text = document.createElement('span');
+    text.textContent = 'A new version is available';
+
+    const refreshBtn = document.createElement('button');
+    refreshBtn.textContent = 'Refresh';
+    Object.assign(refreshBtn.style, {
+      padding: '6px 16px',
+      borderRadius: '8px',
+      border: 'none',
+      background: '#44C578',
+      color: '#fff',
+      fontSize: '14px',
+      fontWeight: '600',
+      cursor: 'pointer',
+    });
+    refreshBtn.addEventListener('click', () => window.location.reload());
+
+    const dismissBtn = document.createElement('button');
+    dismissBtn.textContent = '\u00D7';
+    Object.assign(dismissBtn.style, {
+      padding: '0',
+      border: 'none',
+      background: 'transparent',
+      color: 'rgba(255,255,255,0.6)',
+      fontSize: '20px',
+      lineHeight: '1',
+      cursor: 'pointer',
+    });
+    dismissBtn.addEventListener('click', () => banner.remove());
+
+    banner.append(text, refreshBtn, dismissBtn);
+    document.body.appendChild(banner);
+  };
+
+  // Ensure document.body is available before appending
+  if (document.body) {
+    show();
+  } else {
+    window.addEventListener('DOMContentLoaded', show);
+  }
+}
+
 // Register service worker in production only
 if (
   typeof window !== 'undefined' &&
@@ -41,20 +108,13 @@ if (
               newWorker.state === 'installed' &&
               navigator.serviceWorker.controller
             ) {
-              // New version available, prompt user to reload
-              if (
-                window.confirm('A new version is available. Reload to update?')
-              ) {
-                newWorker.postMessage({ type: 'SKIP_WAITING' });
-              }
+              showUpdateBanner();
             }
           });
         });
+      })
+      .catch((error) => {
+        console.error('Service worker registration failed:', error);
       });
-
-    // Reload once the new service worker takes control
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
-      window.location.reload();
-    });
   });
 }
