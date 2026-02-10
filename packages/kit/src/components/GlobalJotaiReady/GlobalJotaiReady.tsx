@@ -16,16 +16,18 @@ export function GlobalJotaiReady({ children }: { children: any }) {
     );
   }
   useEffect(() => {
-    if (!globalJotaiStorageReadyHandler.isReady) {
-      void globalJotaiStorageReadyHandler.ready.then((ready) => {
-        startTransition(() => {
-          if (process.env.NODE_ENV !== 'production') {
-            debugLandingLog('GlobalJotaiReady resolved', `ready=${ready}`);
-          }
-          setIsReady(ready);
-        });
-      });
+    if (globalJotaiStorageReadyHandler.isReady) {
+      setIsReady(true);
+      return;
     }
+    void globalJotaiStorageReadyHandler.ready.then((ready) => {
+      startTransition(() => {
+        if (process.env.NODE_ENV !== 'production') {
+          debugLandingLog('GlobalJotaiReady resolved', `ready=${ready}`);
+        }
+        setIsReady(ready);
+      });
+    });
   }, []);
 
   if (!isReady) {
