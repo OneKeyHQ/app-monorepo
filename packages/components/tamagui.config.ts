@@ -1,4 +1,5 @@
 import { createAnimations } from '@tamagui/animations-moti';
+import { Easing } from 'react-native-reanimated';
 import { createMedia } from '@tamagui/react-native-media-driver';
 import { shorthands } from '@tamagui/shorthands';
 import { themes } from '@tamagui/themes';
@@ -199,6 +200,11 @@ const animations = createAnimations({
     type: 'spring',
     damping: 20,
     mass: 0.1,
+  },
+  popoverQuick: {
+    type: 'timing',
+    duration: 150,
+    easing: Easing.out(Easing.cubic),
   },
   fast: {
     type: 'spring',
