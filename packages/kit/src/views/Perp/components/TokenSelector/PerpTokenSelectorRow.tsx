@@ -17,6 +17,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import {
   usePerpsAllAssetsFilteredAtom,
@@ -97,12 +98,18 @@ const FavoriteButton = memo(
     const isFavorite = favorites.favorites.includes(coin);
 
     const handleToggle = useCallback(() => {
+      const action = isFavorite ? 'remove' : 'add';
       setFavorites((prev) => ({
         ...prev,
         favorites: isFavorite
           ? prev.favorites.filter((f) => f !== coin)
           : [...prev.favorites, coin],
       }));
+      // Sync to Market watchlist
+      void backgroundApiProxy.serviceMarketV2.syncToMarketWatchList({
+        coin,
+        action,
+      });
     }, [coin, isFavorite, setFavorites]);
 
     return (

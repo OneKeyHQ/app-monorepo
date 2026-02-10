@@ -5,6 +5,7 @@ import { useSharedValue } from 'react-native-reanimated';
 import { useDebouncedCallback } from 'use-debounce';
 
 import type { ICarouselInstance } from '@onekeyhq/components';
+import { usePerpTabConfig } from '@onekeyhq/kit/src/hooks/usePerpTabConfig';
 import { useMarketSelectedTabAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -15,7 +16,9 @@ export interface IMarketTabsLogicReturn {
   // Tab related data
   tabNames: string[];
   watchlistTabName: string;
-  trendingTabName: string;
+  spotTabName: string;
+  perpsTabName: string;
+  showPerpsTab: boolean;
 
   // Tab control
   focusedTab: SharedValue<string>;
@@ -28,17 +31,25 @@ export interface IMarketTabsLogicReturn {
   selectedTab: string;
 }
 
+const TAB_VALUES: IMarketHomeTabValue[] = ['watchlist', 'trending', 'perps'];
+const TAB_VALUES_NO_PERPS: IMarketHomeTabValue[] = ['watchlist', 'trending'];
+
 export function useMarketTabsLogic(
   onTabChange: (tabId: IMarketHomeTabValue) => void,
 ): IMarketTabsLogicReturn {
   const intl = useIntl();
   const [{ tab: selectedTab }, setSelectedTabAtom] = useMarketSelectedTabAtom();
+  const { perpDisabled } = usePerpTabConfig();
+  const showPerpsTab = !perpDisabled;
 
   const watchlistTabName = intl.formatMessage({
     id: ETranslations.global_favorites,
   });
-  const trendingTabName = intl.formatMessage({
-    id: ETranslations.market_trending,
+  const spotTabName = intl.formatMessage({
+    id: ETranslations.dexmarket_spot,
+  });
+  const perpsTabName = intl.formatMessage({
+    id: ETranslations.global_contract,
   });
 
   const carouselRef = useRef<ICarouselInstance>(null);
@@ -46,14 +57,21 @@ export function useMarketTabsLogic(
   const isInternalUpdateRef = useRef(false);
 
   const tabNames = useMemo(() => {
-    return [watchlistTabName, trendingTabName];
-  }, [watchlistTabName, trendingTabName]);
+    const names = [watchlistTabName, spotTabName];
+    if (showPerpsTab) {
+      names.push(perpsTabName);
+    }
+    return names;
+  }, [watchlistTabName, spotTabName, perpsTabName, showPerpsTab]);
+
+  const tabValues = showPerpsTab ? TAB_VALUES : TAB_VALUES_NO_PERPS;
 
   // Use the selected tab from global state, default to trending if not set
   const initialTabName = useMemo(() => {
     if (selectedTab === 'watchlist') return watchlistTabName;
-    return trendingTabName; // default to trending
-  }, [selectedTab, watchlistTabName, trendingTabName]);
+    if (selectedTab === 'perps' && showPerpsTab) return perpsTabName;
+    return spotTabName;
+  }, [selectedTab, watchlistTabName, spotTabName, perpsTabName, showPerpsTab]);
 
   // Create a SharedValue that always syncs with the atom state
   const focusedTab = useSharedValue(initialTabName);
@@ -62,8 +80,10 @@ export function useMarketTabsLogic(
   focusedTab.value = initialTabName;
 
   const defaultIndex = useMemo(() => {
-    return selectedTab === 'watchlist' ? 0 : 1;
-  }, [selectedTab]);
+    if (selectedTab === 'watchlist') return 0;
+    if (selectedTab === 'perps' && showPerpsTab) return 2;
+    return 1;
+  }, [selectedTab, showPerpsTab]);
 
   // Sync Carousel page when selectedTab changes from external navigation
   // (e.g., navigating from Wallet page to Market watchlist tab)
@@ -74,7 +94,8 @@ export function useMarketTabsLogic(
       return;
     }
 
-    const targetIndex = selectedTab === 'watchlist' ? 0 : 1;
+    const targetIndex =
+      selectedTab === 'watchlist' ? 0 : selectedTab === 'perps' ? 2 : 1;
     const currentIndex = carouselRef.current?.getCurrentIndex();
 
     // Only scroll if Carousel is mounted and index differs
@@ -85,8 +106,7 @@ export function useMarketTabsLogic(
 
   const handlePageChanged = useCallback(
     (index: number) => {
-      // Convert display name to enum value
-      const tabValue = index === 0 ? 'watchlist' : 'trending';
+      const tabValue = tabValues[index] ?? 'trending';
 
       // Mark as internal update to prevent useEffect from re-triggering scroll
       isInternalUpdateRef.current = true;
@@ -105,7 +125,7 @@ export function useMarketTabsLogic(
       // Secondary update - sync SharedValue for TabBar component
       focusedTab.value = tabNames[index];
     },
-    [focusedTab, onTabChange, setSelectedTabAtom, tabNames],
+    [focusedTab, onTabChange, setSelectedTabAtom, tabNames, tabValues],
   );
 
   const handleTabChange = useDebouncedCallback((tabName: string) => {
@@ -116,7 +136,9 @@ export function useMarketTabsLogic(
   return {
     tabNames,
     watchlistTabName,
-    trendingTabName,
+    spotTabName,
+    perpsTabName,
+    showPerpsTab,
     focusedTab,
     carouselRef,
     handlePageChanged,
