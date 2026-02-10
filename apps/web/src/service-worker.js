@@ -18,9 +18,21 @@ self.addEventListener('install', () => {
 // Precache app shell (manifest injected by InjectManifest at build time)
 precacheAndRoute(self.__WB_MANIFEST);
 
-// Navigation requests -> NetworkFirst (SPA routing, offline fallback to cached index.html)
+// Navigation requests -> NetworkFirst with /index.html rewrite.
+// GitHub Pages returns 404 status for SPA client-side routes like /market,
+// which Workbox rejects. Rewriting to /index.html ensures a 200 response.
 registerRoute(
-  new NavigationRoute(new NetworkFirst({ cacheName: 'navigations' })),
+  new NavigationRoute(
+    new NetworkFirst({
+      cacheName: 'navigations',
+      plugins: [
+        {
+          requestWillFetch: async () => new Request('/index.html'),
+          cacheKeyWillBeUsed: async () => '/index.html',
+        },
+      ],
+    }),
+  ),
 );
 
 // Static assets (images, fonts) -> CacheFirst with expiration
