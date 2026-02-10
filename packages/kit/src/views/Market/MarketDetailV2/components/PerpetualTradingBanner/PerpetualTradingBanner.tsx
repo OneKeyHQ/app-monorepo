@@ -1,27 +1,37 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { Icon, IconButton, SizableText, XStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useBannerClosePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 
 import { useTokenDetail } from '../../hooks/useTokenDetail';
 
+const PERPS_BANNER_ID = 'perps-trading-banner';
+
 export function PerpetualTradingBanner() {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const { tokenDetail, perpsInfo } = useTokenDetail();
-  const [dismissed, setDismissed] = useState(false);
+  const [bannerClose, setBannerClose] = useBannerClosePersistAtom();
 
   const hlTicker = perpsInfo?.hlTicker;
 
+  const dismissed = useMemo(
+    () => bannerClose.ids.includes(PERPS_BANNER_ID),
+    [bannerClose.ids],
+  );
+
   const handleDismiss = useCallback(() => {
-    setDismissed(true);
-  }, []);
+    setBannerClose({
+      ids: [...new Set([...bannerClose.ids, PERPS_BANNER_ID])],
+    });
+  }, [bannerClose.ids, setBannerClose]);
 
   const handlePress = useCallback(() => {
     if (!hlTicker) return;
