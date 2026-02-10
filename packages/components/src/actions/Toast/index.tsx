@@ -281,7 +281,7 @@ function ToastNotificationContent({
   onClose,
   onPress,
 }: IToastNotificationProps) {
-  const pageWidth = usePageWidth()
+  const pageWidth = usePageWidth();
   useEffect(
     () => () => {
       onClose?.();

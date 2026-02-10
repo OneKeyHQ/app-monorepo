@@ -1,4 +1,3 @@
-
 import {
   LottieView,
   Stack,
