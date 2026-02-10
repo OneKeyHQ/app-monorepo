@@ -1,5 +1,7 @@
 import type { ReactElement } from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+
+import { useIntl } from 'react-intl';
 
 import type { IActionListSection } from '@onekeyhq/components/src/actions';
 import { useSafeAreaInsets } from '@onekeyhq/components/src/hooks';
@@ -10,10 +12,12 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components/src/primitives';
+import { TMPopover } from '@onekeyhq/components/src/shared/tamagui';
 import { useTheme } from '@onekeyhq/components/src/shared/tamagui';
 import { MIN_SIDEBAR_WIDTH } from '@onekeyhq/components/src/utils/sidebar';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -32,7 +36,10 @@ import type {
   BottomTabNavigationOptions,
 } from '@react-navigation/bottom-tabs';
 import type { NavigationState } from '@react-navigation/routers';
-import type { GestureResponderEvent } from 'react-native';
+import type { GestureResponderEvent, LayoutChangeEvent } from 'react-native';
+
+// Estimated height per tab item (icon ~40px + gap + label ~16-30px + padding 12px)
+const ESTIMATED_TAB_ITEM_HEIGHT = 70;
 
 function TabItemView({
   isActive,
@@ -126,6 +133,252 @@ function TabItemView({
   return contentMemo;
 }
 
+const isRouteActive = (
+  route: NavigationState['routes'][0],
+  focusedRouteName: string | undefined,
+  extraConfigName: string | undefined,
+) =>
+  route.name === focusedRouteName ||
+  (route.name === ETabRoutes.Discovery && focusedRouteName === extraConfigName);
+
+function useTabAction(navigation: BottomTabBarProps['navigation']) {
+  return useCallback(
+    (
+      route: NavigationState['routes'][0],
+      isActive: boolean,
+      options?: {
+        tabbarOnPress?: () => void;
+        onPressWhenSelected?: () => void;
+        callback?: () => void;
+      },
+    ) => {
+      if (options?.tabbarOnPress) {
+        options.tabbarOnPress();
+        options?.callback?.();
+        return;
+      }
+
+      const event = navigation.emit({
+        type: 'tabPress',
+        target: route.key,
+        canPreventDefault: true,
+      });
+
+      if (route.name === 'Swap') {
+        defaultLogger.swap.enterSwap.enterSwap({
+          enterFrom: ESwapSource.TAB,
+        });
+      }
+
+      if (isActive) {
+        options?.onPressWhenSelected?.();
+      } else if (!event.defaultPrevented) {
+        switchTab(route.name as ETabRoutes);
+        if (route.name === ETabRoutes.Market) {
+          appEventBus.emit(EAppEventBusNames.MarketHomePageEnter, {
+            from: EEnterWay.HomeTab,
+          });
+        }
+      }
+      options?.callback?.();
+    },
+    [navigation],
+  );
+}
+
+function OverflowMenuItem({
+  route,
+  isActive,
+  options,
+  onPress,
+}: {
+  route: NavigationState['routes'][0];
+  isActive: boolean;
+  options: BottomTabNavigationOptions & {
+    collapseTabBarLabel?: string;
+  };
+  onPress: () => void;
+}) {
+  // @ts-expect-error tabBarIcon returns icon name string, not ReactNode
+  const iconName = options?.tabBarIcon?.(isActive) as IKeyOfIcons;
+  const label =
+    options.collapseTabBarLabel ??
+    (typeof options.tabBarLabel === 'string'
+      ? options.tabBarLabel
+      : undefined) ??
+    route.name;
+
+  return (
+    <XStack
+      px="$3"
+      py="$2"
+      gap="$2.5"
+      ai="center"
+      borderRadius="$2"
+      bg={isActive ? '$bgActive' : undefined}
+      cursor="default"
+      userSelect="none"
+      hoverStyle={{ bg: '$bgHover' }}
+      pressStyle={{ bg: '$bgActive' }}
+      onPress={onPress}
+    >
+      <Icon
+        name={iconName}
+        size="$5"
+        color={isActive ? '$iconActive' : '$iconSubdued'}
+      />
+      <SizableText size="$bodyMdMedium" color="$text" numberOfLines={1}>
+        {label}
+      </SizableText>
+    </XStack>
+  );
+}
+
+function OverflowMoreButton({
+  overflowRoutes,
+  isAnyOverflowActive,
+  state,
+  descriptors,
+  navigation,
+  extraConfig,
+}: {
+  overflowRoutes: NavigationState['routes'];
+  isAnyOverflowActive: boolean;
+  state: NavigationState;
+  descriptors: BottomTabBarProps['descriptors'];
+  navigation: BottomTabBarProps['navigation'];
+  extraConfig?: ITabNavigatorExtraConfig<string>;
+}) {
+  const intl = useIntl();
+  const [isHovered, setIsHovered] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleTabPress = useTabAction(navigation);
+
+  const clearTimer = useCallback(() => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
+
+  const handleHoverIn = useCallback(() => {
+    setIsHovered(true);
+    clearTimer();
+    timerRef.current = setTimeout(() => setIsOpen(true), 150);
+  }, [clearTimer]);
+
+  const handleHoverOut = useCallback(() => {
+    setIsHovered(false);
+    clearTimer();
+    timerRef.current = setTimeout(() => setIsOpen(false), 200);
+  }, [clearTimer]);
+
+  const handlePopoverOpenChange = useCallback((open: boolean) => {
+    if (!open) {
+      setIsOpen(false);
+      setIsHovered(false);
+    }
+  }, []);
+
+  useEffect(() => () => clearTimer(), [clearTimer]);
+
+  const moreLabel = intl.formatMessage({ id: ETranslations.global_more });
+
+  return (
+    <TMPopover
+      offset={8}
+      placement="right-start"
+      open={isOpen}
+      onOpenChange={handlePopoverOpenChange}
+    >
+      <TMPopover.Trigger asChild>
+        <YStack
+          w="100%"
+          ai="center"
+          gap="$0.5"
+          pt={6}
+          pb={6}
+          onHoverIn={handleHoverIn}
+          onHoverOut={handleHoverOut}
+        >
+          <DesktopTabItem
+            isContainerHovered={isHovered || isOpen}
+            selected={isAnyOverflowActive}
+            tabBarStyle={{ width: 40 }}
+            icon={isAnyOverflowActive ? 'DotHorSolid' : 'DotHorOutline'}
+            label=""
+            showTooltip={false}
+            testID="tab-more"
+          />
+          <SizableText
+            size="$bodyXsMedium"
+            cursor="default"
+            color="$text"
+            textAlign="center"
+            numberOfLines={1}
+          >
+            {moreLabel}
+          </SizableText>
+        </YStack>
+      </TMPopover.Trigger>
+      <TMPopover.Content
+        unstyled
+        w={200}
+        p={0}
+        bg="$bg"
+        borderRadius="$3"
+        enterStyle={{ scale: 0.95, opacity: 0 }}
+        exitStyle={{ scale: 0.95, opacity: 0 }}
+        animation={['quick', { opacity: { overshootClamping: true } }]}
+        onHoverIn={() => {
+          clearTimer();
+          setIsOpen(true);
+        }}
+        onHoverOut={handleHoverOut}
+        $platform-web={{
+          outlineColor: '$neutral3',
+          outlineStyle: 'solid',
+          outlineWidth: '$px',
+          boxShadow:
+            '0 4px 6px -4px rgba(0, 0, 0, 0.10), 0 10px 15px -3px rgba(0, 0, 0, 0.10)',
+        }}
+      >
+        <YStack p="$1">
+          {overflowRoutes.map((route) => {
+            const focusedRouteName = state.routes[state.index]?.name;
+            const isActive = isRouteActive(
+              route,
+              focusedRouteName,
+              extraConfig?.name,
+            );
+            const { options } = descriptors[route.key];
+
+            return (
+              <OverflowMenuItem
+                key={route.key}
+                route={route}
+                isActive={isActive}
+                options={options}
+                onPress={() =>
+                  handleTabPress(route, isActive, {
+                    tabbarOnPress: (options as { tabbarOnPress?: () => void })
+                      .tabbarOnPress,
+                    onPressWhenSelected: (
+                      options as { onPressWhenSelected?: () => void }
+                    ).onPressWhenSelected,
+                    callback: () => setIsOpen(false),
+                  })
+                }
+              />
+            );
+          })}
+        </YStack>
+      </TMPopover.Content>
+    </TMPopover>
+  );
+}
+
 export function DesktopLeftSideBar({
   navigation,
   state,
@@ -141,72 +394,62 @@ export function DesktopLeftSideBar({
   const { routes } = state;
   const { top } = useSafeAreaInsets(); // used for ipad
   const theme = useTheme();
+  const handleTabPress = useTabAction(navigation);
 
   const isShowWebTabBar = platformEnv.isDesktop || platformEnv.isNativeIOS;
 
   // Current focused route for browser submenu
   const focusedRouteName = state.routes[state.index]?.name;
 
-  const routesNotHidden = useMemo(() => {
-    return routes.filter((route) => {
+  const [maxVisibleCount, setMaxVisibleCount] = useState(0);
+  const handleTabsContainerLayout = useCallback((event: LayoutChangeEvent) => {
+    const height = event.nativeEvent.layout.height;
+    if (height <= 0) return;
+    const count = Math.floor(height / ESTIMATED_TAB_ITEM_HEIGHT);
+    setMaxVisibleCount((prev) => (prev === count ? prev : count));
+  }, []);
+
+  const { visibleRoutes, overflowRoutes } = useMemo(() => {
+    const validRoutes = routes.filter((route) => {
       const { options } = descriptors[route.key] as {
         options: {
           hiddenIcon?: boolean;
+          hideOnTabBar?: boolean;
         };
       };
-      if (options.hiddenIcon) {
+      if (options.hiddenIcon || options.hideOnTabBar) {
         return false;
       }
-      // Filter out browser tab when BrowserSubmenuColumn is shown
       if (isShowWebTabBar && route.name === extraConfig?.name) {
         return false;
       }
       return true;
     });
-  }, [routes, descriptors, isShowWebTabBar, extraConfig?.name]);
 
-  const tabs = useMemo(() => {
-    const newRoutes = routesNotHidden.map((route) => {
-      const focusRoute = state.routes[state.index];
-      const focus =
-        focusRoute.name === route.name ||
-        (route.name === ETabRoutes.Discovery &&
-          focusRoute.name === extraConfig?.name);
-      const { options } = descriptors[route.key];
-      const onPress = () => {
-        const event = navigation.emit({
-          type: 'tabPress',
-          target: route.key,
-          canPreventDefault: true,
-        });
-        if (route.name === 'Swap') {
-          defaultLogger.swap.enterSwap.enterSwap({
-            enterFrom: ESwapSource.TAB,
-          });
-        }
-        if (!focus && !event.defaultPrevented) {
-          switchTab(route.name as ETabRoutes);
-          if (route.name === ETabRoutes.Market) {
-            appEventBus.emit(EAppEventBusNames.MarketHomePageEnter, {
-              from: EEnterWay.HomeTab,
-            });
-          }
-        }
+    if (maxVisibleCount === 0 || validRoutes.length <= maxVisibleCount) {
+      return {
+        visibleRoutes: validRoutes,
+        overflowRoutes: [] as typeof validRoutes,
       };
+    }
+    const visibleCount = Math.max(0, maxVisibleCount - 1);
+    return {
+      visibleRoutes: validRoutes.slice(0, visibleCount),
+      overflowRoutes: validRoutes.slice(visibleCount),
+    };
+  }, [
+    routes,
+    descriptors,
+    isShowWebTabBar,
+    extraConfig?.name,
+    maxVisibleCount,
+  ]);
 
-      return (
-        <TabItemView
-          key={route.key}
-          route={route}
-          onPress={onPress}
-          isActive={focus}
-          options={options}
-        />
-      );
-    });
-
-    return newRoutes;
-  }, [routesNotHidden, descriptors, state, navigation, extraConfig?.name]);
+  const isAnyOverflowActive = useMemo(() => {
+    return overflowRoutes.some((route) =>
+      isRouteActive(route, focusedRouteName, extraConfig?.name),
+    );
+  }, [overflowRoutes, focusedRouteName, extraConfig?.name]);
 
   return (
     <XStack
@@ -243,8 +486,38 @@ export function DesktopLeftSideBar({
                 />
               </XStack>
             ) : null}
-            <YStack flex={1} px="$3" alignItems="center">
-              {tabs}
+            <YStack
+              flex={1}
+              px="$3"
+              alignItems="center"
+              onLayout={handleTabsContainerLayout}
+            >
+              {visibleRoutes.map((route) => {
+                const isActive = isRouteActive(
+                  route,
+                  focusedRouteName,
+                  extraConfig?.name,
+                );
+                return (
+                  <TabItemView
+                    key={route.key}
+                    route={route}
+                    onPress={() => handleTabPress(route, isActive)}
+                    isActive={isActive}
+                    options={descriptors[route.key].options}
+                  />
+                );
+              })}
+              {overflowRoutes.length > 0 ? (
+                <OverflowMoreButton
+                  overflowRoutes={overflowRoutes}
+                  isAnyOverflowActive={isAnyOverflowActive}
+                  state={state}
+                  descriptors={descriptors}
+                  navigation={navigation}
+                  extraConfig={extraConfig}
+                />
+              ) : null}
             </YStack>
             {bottomMenu}
           </YStack>

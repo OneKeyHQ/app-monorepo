@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { type ReactNode, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -28,8 +28,8 @@ import {
   EModalReceiveRoutes,
   EModalRoutes,
   EModalSettingRoutes,
+  ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
-import type { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -404,7 +404,13 @@ function DepositButton() {
   );
 }
 
-function RightActions({ tabRoute }: { tabRoute: ETabRoutes }) {
+function RightActions({
+  tabRoute,
+  customHeaderRightItems,
+}: {
+  tabRoute: ETabRoutes;
+  customHeaderRightItems?: ReactNode;
+}) {
   const { gtLg } = useMedia();
   const {
     activeAccount: { wallet, account },
@@ -413,19 +419,26 @@ function RightActions({ tabRoute }: { tabRoute: ETabRoutes }) {
   });
 
   const isWalletConnected = !!wallet && !!account;
+  const isPerpsTab = tabRoute === ETabRoutes.Perp;
 
   return (
     <XStack ai="center" gap="$2">
       {gtLg ? <DownloadAppButton /> : null}
-      <XStack
-        ai="center"
-        px={isWalletConnected ? '$1.5' : undefined}
-        borderRadius="$2"
-        bg={isWalletConnected ? '$bgStrong' : undefined}
-      >
-        <WalletConnectionForWeb tabRoute={tabRoute} />
-      </XStack>
-      <DepositButton />
+      {isPerpsTab && customHeaderRightItems ? (
+        customHeaderRightItems
+      ) : (
+        <>
+          <XStack
+            ai="center"
+            px={isWalletConnected ? '$1.5' : undefined}
+            borderRadius="$2"
+            bg={isWalletConnected ? '$bgStrong' : undefined}
+          >
+            <WalletConnectionForWeb tabRoute={tabRoute} />
+          </XStack>
+          <DepositButton />
+        </>
+      )}
       <XStack
         ai="center"
         gap="$2.5"
@@ -482,6 +495,7 @@ export function DappHeader({
   sceneName,
   tabRoute,
   hideSearch,
+  customHeaderRightItems,
 }: ITabPageHeaderProp) {
   const { gtMd } = useMedia();
   const { config } = useAccountSelectorContextData();
@@ -497,11 +511,14 @@ export function DappHeader({
       config ? (
         <HomeTokenListProviderMirror>
           <AccountSelectorProviderMirror enabledNum={[0]} config={config}>
-            <RightActions tabRoute={tabRoute} />
+            <RightActions
+              tabRoute={tabRoute}
+              customHeaderRightItems={customHeaderRightItems}
+            />
           </AccountSelectorProviderMirror>
         </HomeTokenListProviderMirror>
       ) : null,
-    [config, tabRoute],
+    [config, customHeaderRightItems, tabRoute],
   );
 
   const renderDesktopHeaderTitle = useCallback(
