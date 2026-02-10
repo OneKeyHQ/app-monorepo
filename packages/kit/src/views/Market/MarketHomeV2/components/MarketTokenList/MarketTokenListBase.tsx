@@ -10,6 +10,7 @@ import {
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
 import type { ITableColumn } from '@onekeyhq/components';
+import type { IDragEndParamsWithItem } from '@onekeyhq/components/src/layouts/SortableListView/types';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -67,6 +68,15 @@ type IMarketTokenListBaseProps = {
   hideTokenAge?: boolean;
   watchlistFrom?: EWatchlistFrom;
   copyFrom?: ECopyFrom;
+  draggable?: boolean;
+  onDragEnd?: (params: IDragEndParamsWithItem<IMarketToken>) => void;
+  onItemLongPress?: (item: IMarketToken, index: number) => void;
+  onItemContextMenu?: (
+    item: IMarketToken,
+    index: number,
+    position?: { x: number; y: number },
+  ) => void;
+  onScrollBegin?: () => void;
 };
 
 function MarketTokenListBase({
@@ -79,6 +89,11 @@ function MarketTokenListBase({
   hideTokenAge = false,
   watchlistFrom,
   copyFrom,
+  draggable = false,
+  onDragEnd,
+  onItemLongPress,
+  onItemContextMenu,
+  onScrollBegin,
 }: IMarketTokenListBaseProps) {
   const toMarketDetailPage = useToDetailPage();
   const navigation = useAppNavigation();
@@ -136,8 +151,6 @@ function MarketTokenListBase({
 
   const handleSortChange = useCallback(
     (sortBy: string, sortType: 'asc' | 'desc' | undefined) => {
-      console.log('handleSortChange', sortBy, sortType);
-
       // Log sort action
       const sortWay =
         sortType === undefined
@@ -232,7 +245,13 @@ function MarketTokenListBase({
           ...(md ? { marginLeft: 8, marginRight: 8 } : {}),
         }}
       >
-        <Stack flex={1} minHeight={platformEnv.isNative ? undefined : 400}>
+        <Stack
+          flex={1}
+          minHeight={platformEnv.isNative ? undefined : 400}
+          onTouchMove={
+            platformEnv.isNative && onScrollBegin ? onScrollBegin : undefined
+          }
+        >
           {showSkeleton ? (
             <Table.Skeleton
               columns={marketTokenColumns}
@@ -252,6 +271,8 @@ function MarketTokenListBase({
               }}
               stickyHeader
               scrollEnabled
+              draggable={draggable}
+              onDragEnd={onDragEnd}
               columns={marketTokenColumns}
               onEndReached={handleEndReached}
               dataSource={data}
@@ -260,35 +281,38 @@ function MarketTokenListBase({
               onHeaderRow={handleHeaderRow}
               TableFooterComponent={TableFooterComponent}
               estimatedItemSize="$14"
-              onRow={
-                onItemPress
-                  ? (item) => ({
-                      onPress: () => onItemPress(item),
-                    })
-                  : (item) => ({
-                      onPress: () => {
-                        if (item.perpsCoin) {
-                          setTimeout(async () => {
-                            navigation.switchTab(ETabRoutes.Perp);
-                            try {
-                              await backgroundApiProxy.serviceHyperliquid.changeActiveAsset(
-                                { coin: item.perpsCoin! },
-                              );
-                            } catch (error) {
-                              // ignore
-                            }
-                          }, 80);
-                          return;
-                        }
-                        void toMarketDetailPage({
-                          symbol: item.symbol,
-                          tokenAddress: item.address,
-                          networkId: item.networkId,
-                          isNative: item.isNative,
-                        });
-                      },
-                    })
-              }
+              onRow={(item, index) => ({
+                onPress: onItemPress
+                  ? () => onItemPress(item)
+                  : () => {
+                      if (item.perpsCoin) {
+                        setTimeout(async () => {
+                          navigation.switchTab(ETabRoutes.Perp);
+                          try {
+                            await backgroundApiProxy.serviceHyperliquid.changeActiveAsset(
+                              { coin: item.perpsCoin! },
+                            );
+                          } catch (error) {
+                            // ignore
+                          }
+                        }, 80);
+                        return;
+                      }
+                      void toMarketDetailPage({
+                        symbol: item.symbol,
+                        tokenAddress: item.address,
+                        networkId: item.networkId,
+                        isNative: item.isNative,
+                      });
+                    },
+                onLongPress: onItemLongPress
+                  ? () => onItemLongPress(item, index)
+                  : undefined,
+                onContextMenu: onItemContextMenu
+                  ? (position?: { x: number; y: number }) =>
+                      onItemContextMenu(item, index, position)
+                  : undefined,
+              })}
             />
           )}
         </Stack>

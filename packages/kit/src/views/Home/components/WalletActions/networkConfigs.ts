@@ -17,7 +17,16 @@ const networkIds = getNetworkIdsMap();
 
 export const defaultWalletActionsConfig: INetworkWalletActionsConfig = {
   mainActions: ['send', 'receive', 'buy'],
-  moreActions: ['swap', 'sell', 'explorer', 'copy', 'sign', 'reward', 'export'],
+  moreActions: [
+    'swap',
+    'sell',
+    'explorer',
+    'copy',
+    'bulkSend',
+    'sign',
+    'reward',
+    'export',
+  ],
   moreActionGroups: [
     {
       type: 'trading',

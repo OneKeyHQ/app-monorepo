@@ -257,9 +257,5 @@ export function WalletActionMore() {
     ],
   );
 
-  return (
-    <RawActions.More
-      renderItemsAsync={renderItemsAsync}
-    />
-  );
+  return <RawActions.More renderItemsAsync={renderItemsAsync} />;
 }

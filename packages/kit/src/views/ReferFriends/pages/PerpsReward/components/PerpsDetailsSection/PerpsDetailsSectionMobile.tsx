@@ -25,6 +25,7 @@ export function PerpsDetailsSectionMobile({
   hideZeroVolume,
   onHideZeroVolumeChange,
   isLoadingMore,
+  isTabLoading,
 }: IPerpsDetailsSectionProps) {
   const intl = useIntl();
 
@@ -85,7 +86,11 @@ export function PerpsDetailsSectionMobile({
       ) : null}
 
       {/* Card List */}
-      {hasData ? (
+      {isTabLoading ? (
+        <YStack ai="center" py="$8">
+          <Spinner size="small" />
+        </YStack>
+      ) : hasData ? (
         <YStack gap="$4">
           {records.map((record) => (
             <PerpsRecordCard key={record._id} item={record} />

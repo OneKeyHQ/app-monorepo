@@ -64,6 +64,7 @@ export interface ITableProps<T> {
     | {
         onPress?: () => void;
         onLongPress?: () => void;
+        onContextMenu?: (position?: { x: number; y: number }) => void;
       }
     | undefined;
   // Infinite scroll support

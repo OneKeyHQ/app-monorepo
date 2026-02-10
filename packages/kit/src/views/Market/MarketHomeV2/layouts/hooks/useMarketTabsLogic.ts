@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 import { useSharedValue } from 'react-native-reanimated';
@@ -52,6 +52,9 @@ export function useMarketTabsLogic(
   });
 
   const carouselRef = useRef<ICarouselInstance>(null);
+  // Track whether the current update is from internal tab/page change
+  const isInternalUpdateRef = useRef(false);
+
   const tabNames = useMemo(() => {
     const names = [watchlistTabName, spotTabName];
     if (showPerpsTab) {
@@ -81,9 +84,37 @@ export function useMarketTabsLogic(
     return 1;
   }, [selectedTab, showPerpsTab]);
 
+  // Sync Carousel page when selectedTab changes from external navigation
+  // (e.g., navigating from Wallet page to Market watchlist tab)
+  useEffect(() => {
+    // Skip if this is an internal update (from handlePageChanged or handleTabChange)
+    if (isInternalUpdateRef.current) {
+      isInternalUpdateRef.current = false;
+      return;
+    }
+
+    const targetIndex = selectedTab === 'watchlist' ? 0 : 1;
+    const currentIndex = carouselRef.current?.getCurrentIndex();
+
+    // Only scroll if Carousel is mounted and index differs
+    if (currentIndex !== undefined && currentIndex !== targetIndex) {
+      carouselRef.current?.scrollTo({ index: targetIndex });
+    }
+  }, [selectedTab]);
+
   const handlePageChanged = useCallback(
     (index: number) => {
       const tabValue = tabValues[index] ?? 'trending';
+
+      // Mark as internal update to prevent useEffect from re-triggering scroll
+      isInternalUpdateRef.current = true;
+
+      // Reset after a short delay to handle cases where atom value doesn't change
+      // (e.g., clicking the already-active tab), so future external navigation works.
+      // Using setTimeout ensures this runs after React's useEffect (which uses MessageChannel).
+      setTimeout(() => {
+        isInternalUpdateRef.current = false;
+      }, 100);
 
       // Primary state update - this is the source of truth
       setSelectedTabAtom({ tab: tabValue });

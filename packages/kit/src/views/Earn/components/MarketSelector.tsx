@@ -158,7 +158,7 @@ const MarketSelectorMobile = ({
             <SizableText
               size="$headingMd"
               textAlign="center"
-              color={isActive ? '$textText' : '$textSubdued'}
+              color={isActive ? '$textText' : '$text'}
             >
               {intl.formatMessage({ id: messageId })}
             </SizableText>
