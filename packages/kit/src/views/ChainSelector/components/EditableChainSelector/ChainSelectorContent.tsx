@@ -1,3 +1,4 @@
+import type { Dispatch, SetStateAction } from 'react';
 import {
   useCallback,
   useContext,
@@ -133,6 +134,8 @@ type IEditableChainSelectorContentProps = {
   >;
   showAllNetworkInRecentNetworks?: boolean;
   zeroValue?: boolean;
+  searchText?: string;
+  setSearchText?: Dispatch<SetStateAction<string>>;
 };
 
 export const EditableChainSelectorContent = ({
@@ -155,10 +158,14 @@ export const EditableChainSelectorContent = ({
   accountDeFiOverview,
   showAllNetworkInRecentNetworks,
   zeroValue,
+  searchText: searchTextProp,
+  setSearchText: setSearchTextProp,
 }: IEditableChainSelectorContentProps) => {
   const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
-  const [searchText, setSearchText] = useState('');
+  const [searchTextLocal, setSearchTextLocal] = useState('');
+  const searchText = searchTextProp ?? searchTextLocal;
+  const setSearchText = setSearchTextProp ?? setSearchTextLocal;
   const [tempFrequentlyUsedItems, setTempFrequentlyUsedItems] = useState(
     frequentlyUsedItems ?? [],
   );

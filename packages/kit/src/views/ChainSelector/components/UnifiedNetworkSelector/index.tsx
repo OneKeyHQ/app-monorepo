@@ -585,6 +585,8 @@ function UnifiedNetworkSelector() {
             onPressItem={handleNetworkPressItem}
             onAddCustomNetwork={handleAddCustomNetwork}
             onEditCustomNetwork={handleEditCustomNetwork}
+            searchText={searchKey}
+            setSearchText={setSearchKey}
           />
         </Stack>
       </Page.Body>
