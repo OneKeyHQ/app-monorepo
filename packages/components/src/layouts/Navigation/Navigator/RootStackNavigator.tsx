@@ -81,7 +81,6 @@ export function RootStackNavigator<
             ? makeFullScreenOptions()
             : makeModalScreenOptions({ isVerticalLayout, optionsInfo });
         case 'fullScreenPush':
-          return makeOnboardingScreenOptions({ isVerticalLayout, optionsInfo });
         case 'onboarding':
           return makeOnboardingScreenOptions({ isVerticalLayout, optionsInfo });
         default:

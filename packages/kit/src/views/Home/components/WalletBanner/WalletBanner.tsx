@@ -585,6 +585,7 @@ function WalletBanner() {
     [
       defaultHandleBannerOnPress,
       navigation,
+      toReferFriendsPage,
       network?.id,
       wallet?.id,
       account?.id,

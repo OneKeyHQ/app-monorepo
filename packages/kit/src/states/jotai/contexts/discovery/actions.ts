@@ -845,8 +845,9 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         needsSwitchTab =
           currentTabName !== ETabRoutes.Discovery &&
           currentTabName !== ETabRoutes.MultiTabBrowser;
-      } catch {
+      } catch (e) {
         // fallback to switch tab if navigation state is not available
+        console.warn('Failed to detect current tab:', e);
       }
 
       setTimeout(
