@@ -73,6 +73,10 @@ const onGetStateFromPath = (path: string, options?: any) => {
       }
     }
   }
+  // WebDappMode: rewrite "/" to "/market" so Market tab is the landing page
+  if (platformEnv.isWebDappMode && path === '/') {
+    return getStateFromPath('/market', options);
+  }
   return getStateFromPath(path, options);
 };
 
