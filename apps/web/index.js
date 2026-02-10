@@ -130,9 +130,12 @@ if (
         });
 
         // Check for updates every 30 minutes
-        setInterval(() => {
-          registration.update();
-        }, timerUtils.getTimeDurationMs({ minute: 30 }));
+        setInterval(
+          () => {
+            registration.update().catch(() => {});
+          },
+          timerUtils.getTimeDurationMs({ minute: 30 }),
+        );
       })
       .catch((error) => {
         console.error('Service worker registration failed:', error);
