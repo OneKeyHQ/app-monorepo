@@ -246,9 +246,7 @@ function WalletActions({ ...rest }: IXStackProps) {
 
     switch (actionType) {
       case 'send':
-        return (
-          <WalletActionSend key="send" customization={customization} />
-        );
+        return <WalletActionSend key="send" customization={customization} />;
       case 'receive':
         return (
           <WalletActionReceive
@@ -267,9 +265,7 @@ function WalletActions({ ...rest }: IXStackProps) {
           <WalletActionSwap key="swap" customization={customization} />
         );
       case 'perp':
-        return (
-          <WalletActionPerp key="perp" customization={customization} />
-        );
+        return <WalletActionPerp key="perp" customization={customization} />;
       case 'staking':
         return (
           <WalletActionStaking key="staking" customization={customization} />

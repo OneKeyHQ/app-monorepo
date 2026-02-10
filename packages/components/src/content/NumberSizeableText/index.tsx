@@ -90,12 +90,13 @@ export function NumberSizeableText({
 
   const parentFontSize = useMemo(
     () =>
-      (props.fontSize as number) ||
-      getFontSize(props.size as FontSizeTokens),
+      (props.fontSize as number) || getFontSize(props.size as FontSizeTokens),
     [props.fontSize, props.size],
   );
 
-  const parentFontWeight = (props.fontWeight ?? (parentFont as { fontWeight?: number })?.fontWeight) as ISizableTextProps['fontWeight'];
+  const parentFontWeight = (props.fontWeight ??
+    (parentFont as { fontWeight?: number })
+      ?.fontWeight) as ISizableTextProps['fontWeight'];
 
   const scriptFontSize = useMemo(
     () =>

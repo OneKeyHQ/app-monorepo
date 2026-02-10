@@ -65,10 +65,7 @@ export function PerpTips() {
     return null;
   }
   return (
-    <YStack
-      borderBottomWidth="$px"
-      borderBottomColor="$borderSubdued"
-    >
+    <YStack borderBottomWidth="$px" borderBottomColor="$borderSubdued">
       <Alert
         flex={1}
         type={perpConfigCommon?.perpBannerConfig?.alertType ?? 'default'}
