@@ -36,7 +36,6 @@ export function usePendingDiscoveryUrl() {
             sortIndex: undefined,
           },
           enterMethod: EEnterMethod.externalNavigation,
-          shouldPopNavigation: false,
         });
       }
     }
