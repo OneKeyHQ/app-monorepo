@@ -43,9 +43,7 @@ if (
             ) {
               // New version available, prompt user to reload
               if (
-                window.confirm(
-                  'A new version is available. Reload to update?',
-                )
+                window.confirm('A new version is available. Reload to update?')
               ) {
                 newWorker.postMessage({ type: 'SKIP_WAITING' });
               }

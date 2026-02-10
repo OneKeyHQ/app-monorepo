@@ -279,7 +279,12 @@ const SwapHistoryListModal = ({
 
         <Divider />
 
-        <XStack py="$2" px="$4" alignItems="center" justifyContent="space-between">
+        <XStack
+          py="$2"
+          px="$4"
+          alignItems="center"
+          justifyContent="space-between"
+        >
           <XStack px="$1" gap="$3" alignItems="center">
             <Icon name="PiggyMoneySolid" size="$5" color="$text" />
             <SizableText size="$headingXs" color="$text">
@@ -300,7 +305,9 @@ const SwapHistoryListModal = ({
       <XStack gap="$2" alignItems="center">
         {cumulativeSavings !== '$0' && gtMd ? (
           <Popover
-            title={intl.formatMessage({ id: ETranslations.perps_saving_breakdown })}
+            title={intl.formatMessage({
+              id: ETranslations.perps_saving_breakdown,
+            })}
             floatingPanelProps={{
               width: 320,
             }}
