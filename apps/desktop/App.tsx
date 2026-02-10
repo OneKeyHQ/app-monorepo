@@ -24,7 +24,10 @@ if (process.env.NODE_ENV !== 'production') {
   });
 }
 
-const SentryKitProvider = withSentryHOC(KitProvider, SentryErrorBoundaryFallback);
+const SentryKitProvider = withSentryHOC(
+  KitProvider,
+  SentryErrorBoundaryFallback,
+);
 
 export default function App(props: any) {
   if (process.env.NODE_ENV !== 'production') {

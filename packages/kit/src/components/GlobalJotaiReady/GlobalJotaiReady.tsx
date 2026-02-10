@@ -10,7 +10,10 @@ export function GlobalJotaiReady({ children }: { children: any }) {
     () => globalJotaiStorageReadyHandler.isReady,
   );
   if (process.env.NODE_ENV !== 'production') {
-    debugLandingLog('GlobalJotaiReady render', `isReady=${isReady}, syncReady=${globalJotaiStorageReadyHandler.isReady}`);
+    debugLandingLog(
+      'GlobalJotaiReady render',
+      `isReady=${isReady}, syncReady=${globalJotaiStorageReadyHandler.isReady}`,
+    );
   }
   useEffect(() => {
     if (!globalJotaiStorageReadyHandler.isReady) {
