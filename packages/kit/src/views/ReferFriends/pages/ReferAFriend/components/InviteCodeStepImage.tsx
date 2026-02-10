@@ -1,6 +1,12 @@
 import { useWindowDimensions } from 'react-native';
 
-import { LottieView, Stack, useMedia } from '@onekeyhq/components';
+import {
+  LottieView,
+  Stack,
+  useIsSplitView,
+  useMedia,
+  useTabContainerWidth,
+} from '@onekeyhq/components';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -22,16 +28,22 @@ interface IInviteCodeStepImageProps {
   step: 1 | 2;
 }
 
+const usePageWidth = () => {
+  const isSplitting = useIsSplitView();
+  const { width: screenWidth } = useWindowDimensions();
+  const width = useTabContainerWidth();
+  return isSplitting && typeof width === 'number' ? width : screenWidth;
+};
+
 export function InviteCodeStepImage({ step }: IInviteCodeStepImageProps) {
   const { gtSm } = useMedia();
   const themeVariant = useThemeVariant();
-  const { width: screenWidth } = useWindowDimensions();
-
+  const pageWidth = usePageWidth();
   const isDesktop = gtSm || platformEnv.isExtensionUiPopup;
   const lottieSource =
     LOTTIE_MAP[step][themeVariant === 'dark' ? 'dark' : 'light'];
-  const width = gtSm ? DESKTOP_WIDTH : screenWidth;
-  const height = isDesktop ? width * DESKTOP_ASPECT_RATIO : screenWidth;
+  const width = gtSm ? DESKTOP_WIDTH : pageWidth;
+  const height = isDesktop ? width * DESKTOP_ASPECT_RATIO : pageWidth;
   const shouldLoop = step === 2;
 
   return (
