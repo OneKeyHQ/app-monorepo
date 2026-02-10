@@ -15,6 +15,7 @@ import {
 } from '@onekeyhq/shared/src/modules3rdParty/sentry';
 import { SentryErrorBoundaryFallback } from '@onekeyhq/kit/src/components/ErrorBoundary';
 import { initIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import App from './App';
 
 if (process.env.NODE_ENV !== 'production') {
@@ -127,6 +128,14 @@ if (
             }
           });
         });
+
+        // Check for updates every 30 minutes
+        setInterval(
+          () => {
+            registration.update().catch(() => {});
+          },
+          timerUtils.getTimeDurationMs({ minute: 30 }),
+        );
       })
       .catch((error) => {
         console.error('Service worker registration failed:', error);
