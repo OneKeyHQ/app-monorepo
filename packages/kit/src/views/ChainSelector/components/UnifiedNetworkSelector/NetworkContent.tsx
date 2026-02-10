@@ -1,3 +1,4 @@
+import type { Dispatch, SetStateAction } from 'react';
 import { useCallback, useEffect } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -34,6 +35,8 @@ type INetworkContentProps = {
   onAddCustomNetwork?: () => void;
   onEditCustomNetwork?: (network: IServerNetwork) => void;
   onFrequentlyUsedItemsChange?: (networks: IServerNetwork[]) => void;
+  searchText?: string;
+  setSearchText?: Dispatch<SetStateAction<string>>;
 };
 
 export function NetworkContent({
@@ -46,6 +49,8 @@ export function NetworkContent({
   onAddCustomNetwork,
   onEditCustomNetwork,
   onFrequentlyUsedItemsChange,
+  searchText,
+  setSearchText,
 }: INetworkContentProps) {
   const {
     result: {
@@ -249,6 +254,8 @@ export function NetworkContent({
       onAddCustomNetwork={onAddCustomNetwork}
       onEditCustomNetwork={onEditCustomNetwork}
       onFrequentlyUsedItemsChange={handleFrequentlyUsedItemsChange}
+      searchText={searchText}
+      setSearchText={setSearchText}
     />
   );
 }

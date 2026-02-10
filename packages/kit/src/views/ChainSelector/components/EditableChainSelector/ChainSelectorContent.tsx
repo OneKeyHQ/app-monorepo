@@ -1,3 +1,4 @@
+import type { Dispatch, SetStateAction } from 'react';
 import {
   useCallback,
   useContext,
@@ -20,7 +21,7 @@ import {
   SizableText,
   SortableSectionList,
   Stack,
-  Tooltip,
+  XStack,
   YStack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
@@ -31,6 +32,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { useFuseSearch } from '../../hooks/useFuseSearch';
+import ChainSelectorTooltip from '../ChainSelectorTooltip';
+import DottedLine from '../DottedLine';
 import RecentNetworks from '../RecentNetworks';
 
 import { EditableChainSelectorContext } from './context';
@@ -75,26 +78,23 @@ const ListHeaderComponent = () => {
   return (
     <YStack>
       {zeroValue ? null : (
-        <Stack px="$5" py="$3">
-          <Tooltip
-            placement="bottom-start"
+        <XStack px="$5" py="$3">
+          <ChainSelectorTooltip
             renderContent={intl.formatMessage({
               id: ETranslations.network_auto_detection_tip,
             })}
             renderTrigger={
-              <SizableText
-                size="$bodyMdMedium"
-                textDecorationLine="underline"
-                textDecorationColor="$textSubdued"
-                textDecorationStyle="dotted"
-              >
-                {intl.formatMessage({
-                  id: ETranslations.network_found_assets_on_networks,
-                })}
-              </SizableText>
+              <Stack>
+                <SizableText size="$bodyMdMedium" color="$textSubdued">
+                  {intl.formatMessage({
+                    id: ETranslations.network_found_assets_on_networks,
+                  })}
+                </SizableText>
+                <DottedLine mt={1} />
+              </Stack>
             }
           />
-        </Stack>
+        </XStack>
       )}
       {allNetworkItem ? (
         <EditableListItem item={allNetworkItem} isEditable={false} />
@@ -130,6 +130,8 @@ type IEditableChainSelectorContentProps = {
   >;
   showAllNetworkInRecentNetworks?: boolean;
   zeroValue?: boolean;
+  searchText?: string;
+  setSearchText?: Dispatch<SetStateAction<string>>;
 };
 
 export const EditableChainSelectorContent = ({
@@ -152,10 +154,14 @@ export const EditableChainSelectorContent = ({
   accountDeFiOverview,
   showAllNetworkInRecentNetworks,
   zeroValue,
+  searchText: searchTextProp,
+  setSearchText: setSearchTextProp,
 }: IEditableChainSelectorContentProps) => {
   const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
-  const [searchText, setSearchText] = useState('');
+  const [searchTextLocal, setSearchTextLocal] = useState('');
+  const searchText = searchTextProp ?? searchTextLocal;
+  const setSearchText = setSearchTextProp ?? setSearchTextLocal;
   const [tempFrequentlyUsedItems, setTempFrequentlyUsedItems] = useState(
     frequentlyUsedItems ?? [],
   );

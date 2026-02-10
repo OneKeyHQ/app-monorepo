@@ -95,16 +95,19 @@ function BaseHomeHeaderContainer() {
 
   return (
     <HomeTokenListProviderMirror>
-      <YStack pb="$8" gap="$8" bg="$bgApp">
+      <YStack pb="$8" gap="$5" $gtMd={{ gap: '$8' }} bg="$bgApp">
         <Stack
           testID="Wallet-Tab-Header"
           gap="$5"
-          pt="$8"
+          pt="$5"
+          $gtMd={{
+            pt: '$8',
+          }}
           px="$pagePadding"
           bg="$bgApp"
           pointerEvents="box-none"
         >
-          <Stack gap="$2.5" flex={1}>
+          <Stack gap="$2.5">
             <HomeOverviewContainer />
           </Stack>
           {isWalletNotBackedUp ? null : <WalletActions />}

@@ -4,6 +4,7 @@ import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
+  Button,
   HeaderIconButton,
   Page,
   SizableText,
@@ -133,6 +134,8 @@ function UnifiedNetworkSelector() {
     [],
   );
 
+  const [missingAddressCount, setMissingAddressCount] = useState(0);
+
   const [isCreatingMissingAddresses, setIsCreatingMissingAddresses] =
     useState(false);
 
@@ -151,7 +154,7 @@ function UnifiedNetworkSelector() {
     Record<string, { netWorth: number }>
   >({});
 
-  const [enabledNetworksWithoutAccount, setEnabledNetworksWithoutAccount] =
+  const [_enabledNetworksWithoutAccount, setEnabledNetworksWithoutAccount] =
     useState<
       {
         networkId: string;
@@ -176,8 +179,12 @@ function UnifiedNetworkSelector() {
     }
   }, [networksState, networks.mainNetworks, networks.allNetworks]);
 
+  // Use ref to track activeTab for closures (e.g. onSuccess in navigation)
+  const activeTabRef = useRef(activeTab);
+  activeTabRef.current = activeTab;
+
   // Load networks data for portfolio tab
-  usePromiseResult(async () => {
+  const { run: refreshPortfolioData } = usePromiseResult(async () => {
     const [allNetworksState, { networks: allNetworks }] = await Promise.all([
       backgroundApiProxy.serviceAllNetwork.getAllNetworksState(),
       backgroundApiProxy.serviceNetwork.getAllNetworks(),
@@ -241,6 +248,21 @@ function UnifiedNetworkSelector() {
     }
   }, [accountId, walletId, indexedAccountId, networkId]);
 
+  // Refresh portfolio data when a custom network is added
+  useEffect(() => {
+    const fn = async () => {
+      try {
+        await refreshPortfolioData();
+      } catch {
+        // silently ignore refresh errors
+      }
+    };
+    appEventBus.on(EAppEventBusNames.AddedCustomNetwork, fn);
+    return () => {
+      appEventBus.off(EAppEventBusNames.AddedCustomNetwork, fn);
+    };
+  }, [refreshPortfolioData]);
+
   // Network tab callbacks
   const handleNetworkPressItem = useCallback(
     (item: IServerNetwork) => {
@@ -277,11 +299,37 @@ function UnifiedNetworkSelector() {
   const handleAddCustomNetwork = useCallback(() => {
     navigation.push(EChainSelectorPagesEnum.AddCustomNetwork, {
       state: 'add',
-      onSuccess: (network: IServerNetwork) => {
-        handleNetworkPressItem(network);
+      onSuccess: async (network: IServerNetwork) => {
+        if (activeTabRef.current === 'portfolio') {
+          // Portfolio tab: enable the new network and persist to backend.
+          // Persist first to avoid race condition: refreshPortfolioData
+          // (triggered by AddedCustomNetwork event) fetches backend state
+          // and overwrites local state. By persisting before the event,
+          // the backend already includes the enabled state.
+          const newEnabledNetworks = {
+            ...networksState.enabledNetworks,
+            [network.id]: true,
+          };
+          const newDisabledNetworks = {
+            ...networksState.disabledNetworks,
+            [network.id]: false,
+          };
+          setNetworksState({
+            enabledNetworks: newEnabledNetworks,
+            disabledNetworks: newDisabledNetworks,
+          });
+          await backgroundApiProxy.serviceAllNetwork.updateAllNetworksState({
+            enabledNetworks: newEnabledNetworks,
+            disabledNetworks: newDisabledNetworks,
+          });
+          appEventBus.emit(EAppEventBusNames.AddedCustomNetwork, undefined);
+        } else {
+          // Network tab: select network and close modal (original behavior)
+          handleNetworkPressItem(network);
+        }
       },
     });
-  }, [navigation, handleNetworkPressItem]);
+  }, [navigation, handleNetworkPressItem, networksState]);
 
   const handleEditCustomNetwork = useCallback(
     async (network: IServerNetwork) => {
@@ -319,69 +367,71 @@ function UnifiedNetworkSelector() {
 
   // Portfolio tab done handler
   const handlePortfolioDone = useCallback(async () => {
-    if (!isSameEnabledNetworks) {
-      setIsCreatingEnabledAddresses(true);
+    // 1. Always check for missing addresses
+    const { accountsInfo } =
+      await backgroundApiProxy.serviceAllNetwork.getAllNetworkAccounts({
+        accountId: accountId ?? '',
+        indexedAccountId,
+        networkId: getNetworkIdsMap().onekeyall,
+        deriveType: undefined,
+        excludeTestNetwork: true,
+      });
 
-      const { accountsInfo } =
-        await backgroundApiProxy.serviceAllNetwork.getAllNetworkAccounts({
-          accountId: accountId ?? '',
-          indexedAccountId,
-          networkId: getNetworkIdsMap().onekeyall,
-          deriveType: undefined,
-          excludeTestNetwork: true,
+    const networkAccountMap: Record<string, IAllNetworkAccountInfo> = {};
+    for (let i = 0; i < accountsInfo.length; i += 1) {
+      const item = accountsInfo[i];
+      const { networkId: itemNetworkId, deriveType, dbAccount } = item;
+      if (dbAccount) {
+        networkAccountMap[`${itemNetworkId}_${deriveType ?? ''}`] = item;
+      }
+    }
+
+    const enabledNetworksWithoutAccountTemp: {
+      networkId: string;
+      deriveType: IAccountDeriveTypes;
+    }[] = [];
+
+    for (let i = 0; i < enabledNetworks.length; i += 1) {
+      const network = enabledNetworks[i];
+
+      const deriveType =
+        await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+          networkId: network.id,
         });
 
-      const networkAccountMap: Record<string, IAllNetworkAccountInfo> = {};
-      for (let i = 0; i < accountsInfo.length; i += 1) {
-        const item = accountsInfo[i];
-        const { networkId: itemNetworkId, deriveType, dbAccount } = item;
-        if (dbAccount) {
-          networkAccountMap[`${itemNetworkId}_${deriveType ?? ''}`] = item;
-        }
+      const networkAccount = networkAccountMap[`${network.id}_${deriveType}`];
+      if (!networkAccount) {
+        enabledNetworksWithoutAccountTemp.push({
+          networkId: network.id,
+          deriveType,
+        });
       }
+    }
 
-      const enabledNetworksWithoutAccountTemp: {
-        networkId: string;
-        deriveType: IAccountDeriveTypes;
-      }[] = [];
+    setEnabledNetworksWithoutAccount(enabledNetworksWithoutAccountTemp);
 
-      for (let i = 0; i < enabledNetworks.length; i += 1) {
-        const network = enabledNetworks[i];
-
-        const deriveType =
-          await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
-            networkId: network.id,
-          });
-
-        const networkAccount = networkAccountMap[`${network.id}_${deriveType}`];
-        if (!networkAccount) {
-          enabledNetworksWithoutAccountTemp.push({
-            networkId: network.id,
-            deriveType,
-          });
-        }
+    // 2. Create missing addresses if any
+    if (enabledNetworksWithoutAccountTemp.length > 0) {
+      setIsCreatingEnabledAddresses(true);
+      try {
+        await createAddress({
+          num: 0,
+          account: {
+            walletId,
+            networkId: getNetworkIdsMap().onekeyall,
+            indexedAccountId,
+            deriveType: 'default',
+          },
+          customNetworks: enabledNetworksWithoutAccountTemp,
+        });
+      } catch (error) {
+        setIsCreatingEnabledAddresses(false);
+        throw error;
       }
+    }
 
-      setEnabledNetworksWithoutAccount(enabledNetworksWithoutAccountTemp);
-
-      if (enabledNetworksWithoutAccountTemp.length > 0) {
-        try {
-          await createAddress({
-            num: 0,
-            account: {
-              walletId,
-              networkId: getNetworkIdsMap().onekeyall,
-              indexedAccountId,
-              deriveType: 'default',
-            },
-            customNetworks: enabledNetworksWithoutAccountTemp,
-          });
-        } catch (error) {
-          setIsCreatingEnabledAddresses(false);
-          throw error;
-        }
-      }
-
+    // 3. Save network state only when selection changed
+    if (!isSameEnabledNetworks) {
       await backgroundApiProxy.serviceAllNetwork.updateAllNetworksState({
         enabledNetworks: networksState.enabledNetworks,
         disabledNetworks: networksState.disabledNetworks,
@@ -390,9 +440,8 @@ function UnifiedNetworkSelector() {
       appEventBus.emit(EAppEventBusNames.EnabledNetworksChanged, undefined);
     }
 
-    // Switch to All Networks if not already on it
+    // 4. Switch to All Networks if not already on it
     if (!networkUtils.isAllNetwork({ networkId })) {
-      // Record All Networks as the recent network
       void backgroundApiProxy.serviceNetwork.updateRecentNetwork({
         networkId: getNetworkIdsMap().onekeyall,
       });
@@ -461,30 +510,34 @@ function UnifiedNetworkSelector() {
 
   // Portfolio footer button text
   const confirmButtonText = useMemo(() => {
-    if (
-      isCreatingEnabledAddresses &&
-      enabledNetworksWithoutAccount.length > 0
-    ) {
+    if (isCreatingEnabledAddresses) {
       return intl.formatMessage({
         id: ETranslations.global_creating_address,
       });
     }
 
-    if (enabledNetworks.length > 0) {
+    if (enabledNetworks.length <= 0) {
+      return intl.formatMessage({
+        id: ETranslations.network_none_selected,
+      });
+    }
+
+    if (missingAddressCount > 0) {
       return `${intl.formatMessage({
-        id: ETranslations.global_done,
-      })} (${enabledNetworks.length}/${networks.mainNetworks.length})`;
+        id: ETranslations.global_create_address,
+      })} & ${intl.formatMessage({
+        id: ETranslations.global_apply,
+      })}`;
     }
 
     return intl.formatMessage({
-      id: ETranslations.network_none_selected,
+      id: ETranslations.global_done,
     });
   }, [
     isCreatingEnabledAddresses,
-    enabledNetworksWithoutAccount.length,
     enabledNetworks.length,
+    missingAddressCount,
     intl,
-    networks.mainNetworks.length,
   ]);
 
   // Check if done button should be disabled
@@ -529,6 +582,8 @@ function UnifiedNetworkSelector() {
               setIsCreatingEnabledAddresses={setIsCreatingEnabledAddresses}
               isCreatingMissingAddresses={isCreatingMissingAddresses}
               setIsCreatingMissingAddresses={setIsCreatingMissingAddresses}
+              missingAddressCount={missingAddressCount}
+              setMissingAddressCount={setMissingAddressCount}
               networks={networks}
               accountNetworkValues={accountNetworkValues}
               accountNetworkValueCurrency={accountNetworkValueCurrency}
@@ -546,19 +601,56 @@ function UnifiedNetworkSelector() {
             onPressItem={handleNetworkPressItem}
             onAddCustomNetwork={handleAddCustomNetwork}
             onEditCustomNetwork={handleEditCustomNetwork}
+            searchText={searchKey}
+            setSearchText={setSearchKey}
           />
         </Stack>
       </Page.Body>
       {activeTab === 'portfolio' && (
         <Page.Footer>
-          <Page.FooterActions
-            onConfirmText={confirmButtonText}
-            confirmButtonProps={{
-              loading: isCreatingEnabledAddresses,
-              disabled: isConfirmDisabled,
+          <Stack
+            p="$5"
+            gap="$2.5"
+            bg="$bgApp"
+            flexDirection="column-reverse"
+            $gtMd={{
+              flexDirection: 'row',
+              alignItems: 'center',
             }}
-            onConfirm={handlePortfolioDone}
-          />
+          >
+            {missingAddressCount > 0 ? (
+              <SizableText
+                size="$bodyMd"
+                color="$textCaution"
+                textAlign="center"
+                $gtMd={{ flex: 1, textAlign: 'left' }}
+              >
+                {intl.formatMessage(
+                  {
+                    id: ETranslations.current_account_missing_addresses,
+                  },
+                  { count: missingAddressCount },
+                )}
+              </SizableText>
+            ) : null}
+            <Button
+              size="large"
+              $gtMd={{ size: 'medium', ml: 'auto' }}
+              variant="primary"
+              loading={isCreatingEnabledAddresses}
+              disabled={isConfirmDisabled}
+              onPress={async () => {
+                try {
+                  await handlePortfolioDone();
+                } catch {
+                  // error already handled inside handlePortfolioDone
+                }
+              }}
+              testID="page-footer-confirm"
+            >
+              {confirmButtonText}
+            </Button>
+          </Stack>
         </Page.Footer>
       )}
     </Page>

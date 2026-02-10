@@ -8,7 +8,9 @@ import {
 } from 'react';
 
 import { isNil } from 'lodash';
+import { useIntl } from 'react-intl';
 
+import type { ColorTokens } from '@onekeyhq/components';
 import {
   CollapsibleTabContext,
   Icon,
@@ -19,10 +21,10 @@ import {
   Stack,
   XStack,
   YStack,
-  useMedia,
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useWalletBanner } from '@onekeyhq/kit/src/hooks/useWalletBanner';
 import {
@@ -31,10 +33,12 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { ENotificationPushMessageMode } from '@onekeyhq/shared/types/notification';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EModalRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalSignAndVerifyRoutes } from '@onekeyhq/shared/src/routes/signAndVerify';
 import type { IWalletBanner } from '@onekeyhq/shared/types/walletBanner';
 
-import type { GestureResponderEvent } from 'react-native';
+import { type GestureResponderEvent, StyleSheet } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   clamp,
@@ -50,62 +54,46 @@ const BANNER_PADDING_H = 20;
 
 const closedBanners: Record<string, boolean> = {};
 
-const staticBanners: IWalletBanner[] = [
-  {
-    _id: 'static-1',
-    id: 'static-1',
-    src: '',
-    title: 'Use USDT to cover fees',
-    description: '',
-    button: '',
-    rank: 0,
-    closeable: false,
-    closeForever: false,
-    useSystemBrowser: false,
-    theme: 'light',
-    icon: {
-      name: 'GasSolid',
+function getStaticBanners(intl: ReturnType<typeof useIntl>): IWalletBanner[] {
+  return [
+    {
+      _id: 'static-2',
+      id: 'static-2',
+      src: '',
+      title: intl.formatMessage({ id: ETranslations.id_refer_a_friend_desc }),
+      description: '',
+      button: '',
+      rank: 0,
+      closeable: false,
+      closeForever: false,
+      useSystemBrowser: false,
+      theme: 'light',
+      icon: {
+        name: 'GiftSolid',
+      },
+      width: 200,
     },
-    mode: ENotificationPushMessageMode.openInDapp,
-    payload: 'https://onekey.so',
-  },
-  {
-    _id: 'static-2',
-    id: 'static-2',
-    src: '',
-    title: 'Invite friends and get rewards',
-    description: '',
-    button: '',
-    rank: 0,
-    closeable: false,
-    closeForever: false,
-    useSystemBrowser: false,
-    theme: 'light',
-    icon: {
-      name: 'GiftSolid',
+    {
+      _id: 'static-3',
+      id: 'static-3',
+      src: '',
+      title: intl.formatMessage({
+        id: ETranslations.message_signing_main_title,
+      }),
+      description: '',
+      button: '',
+      rank: 0,
+      closeable: false,
+      closeForever: false,
+      useSystemBrowser: false,
+      theme: 'light',
+      icon: {
+        name: 'SignatureSolid',
+      },
+      width: 200,
     },
-    mode: ENotificationPushMessageMode.openInDapp,
-    payload: 'https://onekey.so',
-  },
-  {
-    _id: 'static-3',
-    id: 'static-3',
-    src: '',
-    title: 'Sign & verify message',
-    description: '',
-    button: '',
-    rank: 0,
-    closeable: false,
-    closeForever: false,
-    useSystemBrowser: false,
-    theme: 'light',
-    icon: {
-      name: 'PenSolid',
-    },
-    mode: ENotificationPushMessageMode.openInDapp,
-    payload: 'https://onekey.so',
-  },
-];
+  ];
+}
 
 function BannerItem({
   item,
@@ -121,9 +109,10 @@ function BannerItem({
   }, [onPress, item]);
   return (
     <XStack
-      w={BANNER_ITEM_WIDTH}
+      w={item.width || BANNER_ITEM_WIDTH}
       h={108}
-      p="$1"
+      p="$4"
+      my="$px"
       bg="$bgSubdued"
       borderRadius="$4"
       borderCurve="continuous"
@@ -140,41 +129,46 @@ function BannerItem({
         outlineStyle: 'solid',
         outlineOffset: -2,
       }}
+      outlineWidth={1}
+      outlineColor="$neutral3"
+      outlineStyle="solid"
+      $platform-native={{
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: '$neutral3',
+      }}
       onPress={handlePress}
+      userSelect="none"
     >
-      <XStack ai="center">
+      <XStack
+        {...(!item.icon && {
+          ai: 'center',
+        })}
+        flex={1}
+        gap="$3"
+      >
         {item.src ? (
-          <Image size={60} mx="$2.5" source={{ uri: item.src }} />
+          <YStack>
+            <Image size={60} source={{ uri: item.src }} />
+          </YStack>
         ) : null}
         {item.title && item.description ? (
-          <YStack flex={1} gap="$2" ml={!item.src ? '$4' : undefined}>
-            <SizableText size="$bodyXs" color="$text" numberOfLines={1} w={184}>
-              {item.title}
-            </SizableText>
+          <YStack flex={1} gap="$1">
             {item.description ? (
               <SizableText
-                w={184}
-                fontWeight={600}
-                fontSize={14}
-                numberOfLines={2}
+                size="$bodyXs"
+                color="$textSubdued"
+                numberOfLines={1}
               >
                 {item.description}
               </SizableText>
             ) : null}
+            <SizableText size="$headingSm" numberOfLines={3}>
+              {item.title}
+            </SizableText>
           </YStack>
         ) : null}
         {item.title && !item.description ? (
-          <SizableText
-            w={184}
-            left="$4"
-            top="$4"
-            position="absolute"
-            fontWeight={600}
-            fontSize={14}
-            numberOfLines={2}
-          >
-            {item.title}
-          </SizableText>
+          <SizableText size="$headingMd">{item.title}</SizableText>
         ) : null}
       </XStack>
 
@@ -197,7 +191,7 @@ function BannerItem({
           <Icon
             name={item.icon.name}
             size={item.icon.size || 24}
-            style={{ color: item.icon.color || '#32B826' }}
+            color={(item.icon.color as ColorTokens) || '$bgAccent'}
           />
         </Stack>
       ) : null}
@@ -249,13 +243,15 @@ function NativeBannerScroller({
   const [containerWidth, setContainerWidth] = useState(0);
 
   const actualMaxTranslateX = useMemo(() => {
+    const totalItemWidth = banners.reduce(
+      (sum, b) => sum + (b.width || BANNER_ITEM_WIDTH),
+      0,
+    );
     const totalWidth =
-      banners.length * BANNER_ITEM_WIDTH +
-      (banners.length - 1) * BANNER_GAP +
-      BANNER_PADDING_H * 2;
+      totalItemWidth + (banners.length - 1) * BANNER_GAP + BANNER_PADDING_H * 2;
     const width = containerWidth || 375;
     return Math.max(0, totalWidth - width);
-  }, [banners.length, containerWidth]);
+  }, [banners, containerWidth]);
 
   const panGesture = useMemo(
     () =>
@@ -331,7 +327,6 @@ function NativeBannerScroller({
 
   return (
     <YStack
-      py="$2.5"
       bg="$bgApp"
       overflow="hidden"
       onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
@@ -386,7 +381,6 @@ function WebBannerScroller({
   handleBannerOnPress: (item: IWalletBanner) => void;
   handleDismiss: (item: IWalletBanner) => void;
 }) {
-  const { gtMd } = useMedia();
   const scrollViewRef = useRef<any>(null);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(false);
@@ -433,7 +427,7 @@ function WebBannerScroller({
   }, [getScrollElement]);
 
   return (
-    <YStack py="$2.5" bg="$bgApp" position="relative">
+    <YStack bg="$bgApp" position="relative">
       <ScrollView
         ref={scrollViewRef}
         horizontal
@@ -452,7 +446,7 @@ function WebBannerScroller({
           />
         ))}
       </ScrollView>
-      {gtMd ? (
+      {!platformEnv.isNative ? (
         <Stack
           position="absolute"
           left={0}
@@ -476,15 +470,18 @@ function WebBannerScroller({
           <IconButton
             size="small"
             icon="ChevronLeftOutline"
+            bg="$gray3"
+            hoverStyle={{
+              bg: '$gray4',
+            }}
+            pressStyle={{
+              bg: '$gray5',
+            }}
             onPress={handleScrollLeft}
-            bg="$bg"
-            borderWidth={1}
-            borderColor="$borderSubdued"
-            elevation={2}
           />
         </Stack>
       ) : null}
-      {gtMd ? (
+      {!platformEnv.isNative ? (
         <Stack
           position="absolute"
           right={0}
@@ -509,10 +506,13 @@ function WebBannerScroller({
             size="small"
             icon="ChevronRightOutline"
             onPress={handleScrollRight}
-            bg="$bg"
-            borderWidth={1}
-            borderColor="$borderSubdued"
-            elevation={2}
+            bg="$gray3"
+            hoverStyle={{
+              bg: '$gray4',
+            }}
+            pressStyle={{
+              bg: '$gray5',
+            }}
           />
         </Stack>
       ) : null}
@@ -522,25 +522,76 @@ function WebBannerScroller({
 
 function WalletBanner() {
   const {
-    activeAccount: { account, network, wallet },
+    activeAccount: {
+      account,
+      network,
+      wallet,
+      indexedAccount,
+      deriveInfoItems,
+      deriveType,
+      isOthersWallet,
+    },
   } = useActiveAccount({ num: 0 });
+
+  const intl = useIntl();
 
   const closedBannerInitRef = useRef(false);
 
   const bannersInitRef = useRef(false);
 
+  const staticBanners = useMemo(() => getStaticBanners(intl), [intl]);
+
   const [{ banners: remoteBanners }] = useWalletTopBannersAtom();
   const banners = useMemo(
     () => [...remoteBanners, ...staticBanners],
-    [remoteBanners],
+    [remoteBanners, staticBanners],
   );
   const { updateWalletTopBanners } = useAccountOverviewActions().current;
 
-  const { handleBannerOnPress } = useWalletBanner({
+  const { handleBannerOnPress: defaultHandleBannerOnPress } = useWalletBanner({
     account,
     network,
     wallet,
   });
+
+  const navigation = useAppNavigation();
+
+  const handleBannerOnPress = useCallback(
+    (item: IWalletBanner) => {
+      if (item.id === 'static-2') {
+        navigation.switchTab(ETabRoutes.ReferFriends);
+        return;
+      }
+      if (item.id === 'static-3') {
+        if (!network?.id || !wallet?.id) return;
+        navigation.pushModal(EModalRoutes.SignAndVerifyModal, {
+          screen: EModalSignAndVerifyRoutes.SignAndVerifyMessage,
+          params: {
+            networkId: network.id,
+            accountId: account?.id,
+            walletId: wallet.id,
+            indexedAccountId: indexedAccount?.id,
+            deriveInfoItems,
+            deriveType,
+            isOthersWallet,
+          },
+        });
+        return;
+      }
+      void defaultHandleBannerOnPress(item);
+    },
+    [
+      defaultHandleBannerOnPress,
+      navigation,
+      network?.id,
+      wallet?.id,
+      account?.id,
+      indexedAccount?.id,
+      deriveInfoItems,
+      deriveType,
+      isOthersWallet,
+    ],
+  );
 
   const [closedForeverBanners, setClosedForeverBanners] = useState<
     Record<string, boolean>
