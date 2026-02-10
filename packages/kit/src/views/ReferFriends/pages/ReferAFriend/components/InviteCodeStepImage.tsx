@@ -1,11 +1,9 @@
-import { useWindowDimensions } from 'react-native';
 
 import {
   LottieView,
   Stack,
-  useIsSplitView,
   useMedia,
-  useTabContainerWidth,
+  usePageWidth,
 } from '@onekeyhq/components';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -27,13 +25,6 @@ const LOTTIE_MAP = {
 interface IInviteCodeStepImageProps {
   step: 1 | 2;
 }
-
-const usePageWidth = () => {
-  const isSplitting = useIsSplitView();
-  const { width: screenWidth } = useWindowDimensions();
-  const width = useTabContainerWidth();
-  return isSplitting && typeof width === 'number' ? width : screenWidth;
-};
 
 export function InviteCodeStepImage({ step }: IInviteCodeStepImageProps) {
   const { gtSm } = useMedia();
