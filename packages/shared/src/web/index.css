@@ -418,6 +418,14 @@ w3m-modal {
   --menu-hover: rgba(0, 0, 0, 0.06);
 }
 
+/* Sidebar tab icon hover scale */
+.sidebar-tab-item-icon {
+  transition: transform 150ms cubic-bezier(0.2, 0, 0, 1);
+}
+.sidebar-tab-item:hover .sidebar-tab-item-icon {
+  transform: scale(1.1);
+}
+
 /* Keep Intercom floating UI behind toast notifications (z-index 1e6) */
 #intercom-container *, .intercom-lightweight-app {
   z-index: 1 !important;
