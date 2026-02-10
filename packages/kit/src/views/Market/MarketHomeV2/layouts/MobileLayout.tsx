@@ -1,4 +1,5 @@
 import { memo, useCallback, useMemo } from 'react';
+import type { RefObject } from 'react';
 
 import { Tabs, YStack, useTabContainerWidth } from '@onekeyhq/components';
 import type { ITabContainerRef } from '@onekeyhq/components';
@@ -6,14 +7,14 @@ import { useTabBarHeight } from '@onekeyhq/components/src/layouts/Page/hooks';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { MarketBannerList } from '../components/MarketBanner';
-import { MobileMarketTokenFlatList } from '../components/MarketTokenList/MobileMarketTokenFlatList';
+import { MobileMarketPerpsFlatList } from '../components/MarketPerpsList';
 import { MarketWatchlistTokenList } from '../components/MarketTokenList/MarketWatchlistTokenList';
+import { MobileMarketTokenFlatList } from '../components/MarketTokenList/MobileMarketTokenFlatList';
 
 import { useMarketTabsLogic } from './hooks';
 
 import type { ITimeRangeSelectorValue } from '../components/TimeRangeSelector';
 import type { IMarketHomeTabValue } from '../types';
-import type { RefObject } from 'react';
 import type { TabBarProps } from 'react-native-collapsible-tab-view';
 
 interface IMobileLayoutProps {
@@ -34,16 +35,23 @@ function MobileLayoutComponent({
   onTabChange,
   tabsRef,
 }: IMobileLayoutProps) {
-  const { watchlistTabName, trendingTabName, handleTabChange, selectedTab } =
-    useMarketTabsLogic(onTabChange);
+  const {
+    watchlistTabName,
+    spotTabName,
+    perpsTabName,
+    showPerpsTab,
+    handleTabChange,
+    selectedTab,
+  } = useMarketTabsLogic(onTabChange);
 
   const tabBarHeight = useTabBarHeight();
   const tabContainerWidth = useTabContainerWidth() as number | undefined;
 
   const initialTabName = useMemo(() => {
     if (selectedTab === 'watchlist') return watchlistTabName;
-    return trendingTabName;
-  }, [selectedTab, watchlistTabName, trendingTabName]);
+    if (selectedTab === 'perps' && showPerpsTab) return perpsTabName;
+    return spotTabName;
+  }, [selectedTab, watchlistTabName, spotTabName, perpsTabName, showPerpsTab]);
 
   const containerProps = useMemo(
     () => ({
@@ -104,13 +112,18 @@ function MobileLayoutComponent({
           </YStack>
         </Tabs.ScrollView>
       </Tabs.Tab>
-      <Tabs.Tab name={trendingTabName}>
+      <Tabs.Tab name={spotTabName}>
         <MobileMarketTokenFlatList
           networkId={selectedNetworkId}
           filterBarProps={filterBarProps}
           listContainerProps={listContainerProps}
         />
       </Tabs.Tab>
+      {showPerpsTab ? (
+        <Tabs.Tab name={perpsTabName}>
+          <MobileMarketPerpsFlatList listContainerProps={listContainerProps} />
+        </Tabs.Tab>
+      ) : null}
     </Tabs.Container>
   );
 }

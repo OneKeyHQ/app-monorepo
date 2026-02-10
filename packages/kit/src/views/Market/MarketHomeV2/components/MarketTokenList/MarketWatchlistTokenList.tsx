@@ -7,6 +7,7 @@ import { ActionList, Toast } from '@onekeyhq/components';
 import { Portal } from '@onekeyhq/components/src/hocs';
 import type { IPortalManager } from '@onekeyhq/components/src/hocs/Portal';
 import type { IDragEndParamsWithItem } from '@onekeyhq/components/src/layouts/SortableListView/types';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   useMarketWatchListV2Atom,
   useWatchListV2Actions,
@@ -65,6 +66,11 @@ function MarketWatchlistTokenList({
     };
   }, [actions]);
 
+  // Reconcile Perps favorites on mount (bidirectional diff sync)
+  useEffect(() => {
+    void backgroundApiProxy.serviceMarketV2.reconcilePerpsFavorites();
+  }, []);
+
   const internalWatchlist = useMemo(
     () => watchlistState.data || [],
     [watchlistState.data],
@@ -94,6 +100,7 @@ function MarketWatchlistTokenList({
       contractAddress: token.address,
       sortIndex: token.sortIndex,
       isNative: token.isNative,
+      perpsCoin: token.perpsCoin,
     }),
     [],
   );
@@ -156,10 +163,16 @@ function MarketWatchlistTokenList({
               portalRef.current?.destroy();
               portalRef.current = null;
               try {
-                await actions.current.removeFromWatchListV2(
-                  item.networkId,
-                  item.address,
-                );
+                if (item.perpsCoin) {
+                  await actions.current.removePerpsFromWatchListV2(
+                    item.perpsCoin,
+                  );
+                } else {
+                  await actions.current.removeFromWatchListV2(
+                    item.networkId,
+                    item.address,
+                  );
+                }
                 Toast.success({
                   title: intl.formatMessage({
                     id: ETranslations.market_remove_from_watchlist,
@@ -204,10 +217,16 @@ function MarketWatchlistTokenList({
                   id: ETranslations.market_remove_from_watchlist,
                 }),
                 onPress: () => {
-                  void actions.current.removeFromWatchListV2(
-                    item.networkId,
-                    item.address,
-                  );
+                  if (item.perpsCoin) {
+                    void actions.current.removePerpsFromWatchListV2(
+                      item.perpsCoin,
+                    );
+                  } else {
+                    void actions.current.removeFromWatchListV2(
+                      item.networkId,
+                      item.address,
+                    );
+                  }
                 },
               },
             ],
