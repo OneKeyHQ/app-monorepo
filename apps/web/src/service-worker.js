@@ -9,12 +9,30 @@ import {
 } from 'workbox-strategies';
 import { ExpirationPlugin } from 'workbox-expiration';
 
+// Skip waiting immediately on install so existing users with old SW get
+// the fix without needing to confirm the update prompt or close all tabs.
+self.addEventListener('install', () => {
+  self.skipWaiting();
+});
+
 // Precache app shell (manifest injected by InjectManifest at build time)
 precacheAndRoute(self.__WB_MANIFEST);
 
-// Navigation requests -> NetworkFirst (SPA routing, offline fallback to cached index.html)
+// Navigation requests -> NetworkFirst with /index.html rewrite.
+// GitHub Pages returns 404 status for SPA client-side routes like /market,
+// which Workbox rejects. Rewriting to /index.html ensures a 200 response.
 registerRoute(
-  new NavigationRoute(new NetworkFirst({ cacheName: 'navigations' })),
+  new NavigationRoute(
+    new NetworkFirst({
+      cacheName: 'navigations',
+      plugins: [
+        {
+          requestWillFetch: async () => new Request('/index.html'),
+          cacheKeyWillBeUsed: async () => '/index.html',
+        },
+      ],
+    }),
+  ),
 );
 
 // Static assets (images, fonts) -> CacheFirst with expiration
@@ -25,7 +43,7 @@ registerRoute(
     cacheName: 'static-assets',
     plugins: [
       new ExpirationPlugin({
-        maxEntries: 100,
+        maxEntries: 500,
         maxAgeSeconds: 30 * 24 * 60 * 60,
       }),
     ],
@@ -36,12 +54,13 @@ registerRoute(
 registerRoute(
   ({ request }) =>
     request.destination === 'script' || request.destination === 'style',
-  new StaleWhileRevalidate({ cacheName: 'static-resources' }),
+  new StaleWhileRevalidate({
+    cacheName: 'static-resources',
+    plugins: [
+      new ExpirationPlugin({
+        maxEntries: 200,
+        maxAgeSeconds: 7 * 24 * 60 * 60,
+      }),
+    ],
+  }),
 );
-
-// Allow client to trigger skipWaiting so the new SW activates immediately
-self.addEventListener('message', (event) => {
-  if (event.data && event.data.type === 'SKIP_WAITING') {
-    self.skipWaiting();
-  }
-});
