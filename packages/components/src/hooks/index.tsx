@@ -11,6 +11,7 @@ export * from './useLayout';
 export * from './useModalNavigatorContext';
 export * from './useNetInfo';
 export * from './useOrientation';
+export * from './usePage';
 export * from './useIsDesktopModeUI';
 export * from './usePreventRemove';
 export * from './useShare';

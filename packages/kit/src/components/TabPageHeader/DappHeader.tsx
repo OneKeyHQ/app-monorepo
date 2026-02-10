@@ -279,13 +279,7 @@ function SearchButton() {
   }, [navigation]);
 
   return (
-    <XStack
-      ai="center"
-      px="$1.5"
-      py="$1.5"
-      borderRadius="$2"
-      bg="$bgStrong"
-    >
+    <XStack ai="center" px="$1.5" py="$1.5" borderRadius="$2" bg="$bgStrong">
       <HeaderIconButton
         size="small"
         icon="SearchOutline"
@@ -462,7 +456,9 @@ function RightActions({
 
   return (
     <XStack ai="center" gap="$2">
-      {gtLg ? <SearchButton /> : (
+      {gtLg ? (
+        <SearchButton />
+      ) : (
         <HeaderIconButton
           size="small"
           icon="SearchOutline"

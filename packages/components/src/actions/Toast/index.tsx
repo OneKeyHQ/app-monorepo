@@ -1,8 +1,6 @@
 import type { RefObject } from 'react';
 import { createRef, useEffect, useMemo } from 'react';
 
-import { useWindowDimensions } from 'react-native';
-
 import { ToastProvider } from '@onekeyhq/components/src/shared/tamagui';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
@@ -30,6 +28,9 @@ import type { IShowToasterInstance, IShowToasterProps } from './ShowCustom';
 import type { IToastMessageOptions } from './type';
 import type { IPortalManager } from '../../hocs';
 import type { IKeyOfIcons, ISizableTextProps } from '../../primitives';
+// oxlint-disable-next-line import/no-cycle
+import { usePageWidth } from '../../hooks/usePage';
+import { useWindowDimensions } from 'react-native';
 
 export interface IToastProps {
   toastId?: string;
@@ -127,7 +128,8 @@ export function ToastContent({
   actions?: IToastProps['actions'];
   actionsAlign?: 'left' | 'right';
 }) {
-  const { height, width } = useWindowDimensions();
+  const { height } = useWindowDimensions();
+  const pageWidth = usePageWidth();
   const media = useMedia();
   useEffect(
     () => () => {
@@ -142,7 +144,7 @@ export function ToastContent({
       maxHeight={height - 100}
       $platform-native={{
         maxHeight: height - 200,
-        width: Math.min(width, 640) - 64,
+        width: Math.min(pageWidth, 640) - 64,
       }}
       $platform-web={{
         overflow: 'hidden',
@@ -279,7 +281,7 @@ function ToastNotificationContent({
   onClose,
   onPress,
 }: IToastNotificationProps) {
-  const { width } = useWindowDimensions();
+  const pageWidth = usePageWidth();
   useEffect(
     () => () => {
       onClose?.();
@@ -304,7 +306,7 @@ function ToastNotificationContent({
       onPress={handlePress}
       flex={1}
       $platform-native={{
-        width: Math.min(width, 640) - 64,
+        width: Math.min(pageWidth, 640) - 64,
       }}
     >
       <XStack
