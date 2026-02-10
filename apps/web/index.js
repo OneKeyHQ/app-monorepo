@@ -33,15 +33,5 @@ if (
     navigator.serviceWorker.register('/service-worker.js').catch((error) => {
       console.error('Service worker registration failed:', error);
     });
-
-    // Reload once the new service worker takes control.
-    // The new SW calls skipWaiting() + clients.claim() on its own,
-    // so no message passing is needed from the client side.
-    let refreshing = false;
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (refreshing) return;
-      refreshing = true;
-      window.location.reload();
-    });
   });
 }

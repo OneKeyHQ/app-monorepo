@@ -45,8 +45,3 @@ registerRoute(
   new StaleWhileRevalidate({ cacheName: 'static-resources' }),
 );
 
-// When a new SW activates, claim all clients so it takes control immediately
-// without requiring a manual page reload
-self.addEventListener('activate', (event) => {
-  event.waitUntil(self.clients.claim());
-});
