@@ -286,6 +286,9 @@ function BasicActionList({
       setOpenStatus(openStatus);
       onOpenChange?.(openStatus);
       trackActionListToggle(openStatus);
+      if (!openStatus) {
+        setAsyncItems(null);
+      }
     },
     [onOpenChange, setOpenStatus, trackActionListToggle],
   );
@@ -337,9 +340,6 @@ function BasicActionList({
     );
   }, [disabled, renderTrigger, handleActionListOpen]);
 
-  if (renderItemsAsync && !asyncItems) {
-    return trigger;
-  }
   return (
     <Popover
       title={title || intl.formatMessage({ id: ETranslations.explore_options })}
@@ -374,8 +374,15 @@ function BasicActionList({
             handleActionListOpen,
           })}
 
-          {/* custom async render items */}
-          {asyncItems}
+          {/* custom async render items - show skeleton while loading */}
+          {renderItemsAsync && !asyncItems ? (
+            <>
+              <ActionListSkeletonItem />
+              <ActionListSkeletonItem />
+            </>
+          ) : (
+            asyncItems
+          )}
         </YStack>
       }
       floatingPanelProps={{

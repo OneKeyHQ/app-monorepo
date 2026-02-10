@@ -100,6 +100,7 @@ export enum EHomeTab {
   HISTORY = 'history',
   TOOLS = 'tools',
   APPROVALS = 'approvals',
+  DEFI = 'defi',
 }
 
 export enum EAssetType {
