@@ -23,35 +23,8 @@ void initIntercom();
 
 registerRootComponent(withSentryHOC(App, SentryErrorBoundaryFallback));
 
-// Register service worker in production only
-if (
-  typeof window !== 'undefined' &&
-  'serviceWorker' in navigator &&
-  process.env.NODE_ENV === 'production'
-) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker
-      .register('/service-worker.js')
-      .then((registration) => {
-        registration.addEventListener('updatefound', () => {
-          const newWorker = registration.installing;
-          if (!newWorker) return;
-          newWorker.addEventListener('statechange', () => {
-            if (
-              newWorker.state === 'installed' &&
-              navigator.serviceWorker.controller
-            ) {
-              showUpdateBanner();
-            }
-          });
-        });
-      })
-      .catch((error) => {
-        console.error('Service worker registration failed:', error);
-      });
-  });
-
-  function showUpdateBanner() {
+function showUpdateBanner() {
+  const show = () => {
     if (document.getElementById('sw-update-banner')) return;
 
     const banner = document.createElement('div');
@@ -107,5 +80,41 @@ if (
 
     banner.append(text, refreshBtn, dismissBtn);
     document.body.appendChild(banner);
+  };
+
+  // Ensure document.body is available before appending
+  if (document.body) {
+    show();
+  } else {
+    window.addEventListener('DOMContentLoaded', show);
   }
+}
+
+// Register service worker in production only
+if (
+  typeof window !== 'undefined' &&
+  'serviceWorker' in navigator &&
+  process.env.NODE_ENV === 'production'
+) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker
+      .register('/service-worker.js')
+      .then((registration) => {
+        registration.addEventListener('updatefound', () => {
+          const newWorker = registration.installing;
+          if (!newWorker) return;
+          newWorker.addEventListener('statechange', () => {
+            if (
+              newWorker.state === 'installed' &&
+              navigator.serviceWorker.controller
+            ) {
+              showUpdateBanner();
+            }
+          });
+        });
+      })
+      .catch((error) => {
+        console.error('Service worker registration failed:', error);
+      });
+  });
 }
