@@ -8,7 +8,6 @@ import {
   SizableText,
   Stack,
   Toast,
-  Tooltip,
   XStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -23,6 +22,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { AllNetworksManagerContext } from './AllNetworksManagerContext';
 
+import ChainSelectorTooltip from '../ChainSelectorTooltip';
 import DottedLine from '../DottedLine';
 
 function NetworkListHeader() {
@@ -164,8 +164,7 @@ function NetworkListHeader() {
           alignItems="center"
         >
           <Stack flex={1} mr="$2">
-            <Tooltip
-              placement="bottom-start"
+            <ChainSelectorTooltip
               renderContent={intl.formatMessage({
                 id: ETranslations.network_selection_performance_tip,
               })}

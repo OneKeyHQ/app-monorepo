@@ -21,7 +21,6 @@ import {
   SizableText,
   SortableSectionList,
   Stack,
-  Tooltip,
   XStack,
   YStack,
   useSafeAreaInsets,
@@ -33,6 +32,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { useFuseSearch } from '../../hooks/useFuseSearch';
+import ChainSelectorTooltip from '../ChainSelectorTooltip';
 import DottedLine from '../DottedLine';
 import RecentNetworks from '../RecentNetworks';
 
@@ -79,8 +79,7 @@ const ListHeaderComponent = () => {
     <YStack>
       {zeroValue ? null : (
         <XStack px="$5" py="$3">
-          <Tooltip
-            placement="bottom-start"
+          <ChainSelectorTooltip
             renderContent={intl.formatMessage({
               id: ETranslations.network_auto_detection_tip,
             })}

@@ -10,7 +10,6 @@ import {
   SectionList,
   SizableText,
   Stack,
-  Tooltip,
   XStack,
 } from '@onekeyhq/components';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
@@ -24,6 +23,7 @@ import { AllNetworksManagerContext } from './AllNetworksManagerContext';
 import NetworkListHeader from './NetworkListHeader';
 import NetworkListItem from './NetworkListItem';
 
+import ChainSelectorTooltip from '../ChainSelectorTooltip';
 import DottedLine from '../DottedLine';
 
 import type {
@@ -129,8 +129,7 @@ function NetworksSectionList() {
               alignItems="center"
             >
               <Stack flex={1} mr="$2">
-                <Tooltip
-                  placement="bottom-start"
+                <ChainSelectorTooltip
                   renderContent={intl.formatMessage({
                     id: ETranslations.network_auto_detection_tip,
                   })}
