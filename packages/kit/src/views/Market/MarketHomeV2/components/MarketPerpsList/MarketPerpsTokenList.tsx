@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -21,6 +21,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 
+import { useMarketBasicConfig } from '../../../hooks/useMarketBasicConfig';
 import { MarketPerpsStarV2 } from '../../../components/MarketStarV2';
 
 import { useMarketPerpsTokenList } from './hooks/useMarketPerpsTokenList';
@@ -168,9 +169,7 @@ function usePerpsColumnsDesktop(): ITableColumn<IMarketPerpsToken>[] {
             const absChange =
               Number(record.markPrice) - Number(record.prevDayPrice);
             const color =
-              record.change24hPercent >= 0
-                ? '$textSuccess'
-                : '$textCritical';
+              record.change24hPercent >= 0 ? '$textSuccess' : '$textCritical';
             return (
               <XStack gap="$1" alignItems="center">
                 <NumberSizeableText
@@ -387,15 +386,23 @@ function usePerpsColumns(): ITableColumn<IMarketPerpsToken>[] {
 }
 
 function MarketPerpsTokenListImpl() {
-  const [selectedCategoryId, setSelectedCategoryId] = useState('all');
+  const [selectedCategoryId, setSelectedCategoryId] = useState('');
   const navigation = useAppNavigation();
   const intl = useIntl();
   const { md } = useMedia();
 
-  const { tokens, categories, isLoading, hasRealTimeData } =
-    useMarketPerpsTokenList({
-      selectedCategoryId,
-    });
+  const { perpsCategories } = useMarketBasicConfig();
+
+  // Auto-select first category when categories load
+  useEffect(() => {
+    if (!selectedCategoryId && perpsCategories.length > 0) {
+      setSelectedCategoryId(perpsCategories[0].categoryId);
+    }
+  }, [perpsCategories, selectedCategoryId]);
+
+  const { tokens, isLoading, hasRealTimeData } = useMarketPerpsTokenList({
+    selectedCategoryId,
+  });
 
   const perpsColumns = usePerpsColumns();
 
@@ -415,30 +422,26 @@ function MarketPerpsTokenListImpl() {
     [navigation],
   );
 
-  // Prepend 'all' category
-  const allCategories = useMemo(
-    () => [
-      {
-        tabId: 'all',
-        name: intl.formatMessage({ id: ETranslations.global_all }),
-        tokens: [],
-      },
-      ...categories,
-    ],
-    [categories, intl],
+  const categoryTabs = useMemo(
+    () =>
+      perpsCategories.map((c) => ({
+        tabId: c.categoryId,
+        name: c.name,
+      })),
+    [perpsCategories],
   );
 
   const CategorySelector = useMemo(
     () => (
       <YStack py="$1" mb="$2">
         <MarketPerpsCategorySelector
-          categories={allCategories}
+          categories={categoryTabs}
           selectedCategoryId={selectedCategoryId}
           onSelectCategory={setSelectedCategoryId}
         />
       </YStack>
     ),
-    [allCategories, selectedCategoryId],
+    [categoryTabs, selectedCategoryId],
   );
 
   const showSkeleton = Boolean(isLoading) && tokens.length === 0;

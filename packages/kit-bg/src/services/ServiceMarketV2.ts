@@ -21,6 +21,8 @@ import type {
   IMarketBannerTokenListResponse,
   IMarketBasicConfigResponse,
   IMarketChainsResponse,
+  IMarketPerpsTokenListData,
+  IMarketPerpsTokenListResponse,
   IMarketTokenBatchListResponse,
   IMarketTokenDetailResponse,
   IMarketTokenHoldersResponse,
@@ -710,6 +712,19 @@ class ServiceMarketV2 extends ServiceBase {
     }>(`/utility/v2/market/banner/token-list/${tokenListId}`);
     const { data } = response.data;
     return data.list;
+  }
+  @backgroundMethod()
+  async fetchMarketPerpsTokenList(params?: {
+    category?: string;
+  }): Promise<IMarketPerpsTokenListData> {
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const response = await client.get<IMarketPerpsTokenListResponse>(
+      '/utility/v2/market/perps/token-list',
+      {
+        params: params?.category ? { category: params.category } : undefined,
+      },
+    );
+    return response.data.data;
   }
 }
 

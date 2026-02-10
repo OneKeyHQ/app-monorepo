@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -15,6 +15,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 
+import { useMarketBasicConfig } from '../../../hooks/useMarketBasicConfig';
 import { TokenListSkeleton } from '../MarketTokenList/components/TokenListSkeleton';
 
 import { useMarketPerpsTokenList } from './hooks/useMarketPerpsTokenList';
@@ -35,11 +36,20 @@ const EMPTY_DATA: IMarketPerpsToken[] = [];
 function MobileMarketPerpsFlatListImpl({
   listContainerProps,
 }: IMobileMarketPerpsFlatListProps) {
-  const [selectedCategoryId, setSelectedCategoryId] = useState('all');
+  const [selectedCategoryId, setSelectedCategoryId] = useState('');
   const navigation = useAppNavigation();
   const intl = useIntl();
 
-  const { tokens, categories, isLoading } = useMarketPerpsTokenList({
+  const { perpsCategories } = useMarketBasicConfig();
+
+  // Auto-select first category when categories load
+  useEffect(() => {
+    if (!selectedCategoryId && perpsCategories.length > 0) {
+      setSelectedCategoryId(perpsCategories[0].categoryId);
+    }
+  }, [perpsCategories, selectedCategoryId]);
+
+  const { tokens, isLoading } = useMarketPerpsTokenList({
     selectedCategoryId,
   });
 
@@ -59,16 +69,13 @@ function MobileMarketPerpsFlatListImpl({
     [navigation],
   );
 
-  const allCategories = useMemo(
-    () => [
-      {
-        tabId: 'all',
-        name: intl.formatMessage({ id: ETranslations.global_all }),
-        tokens: [],
-      },
-      ...categories,
-    ],
-    [categories, intl],
+  const categoryTabs = useMemo(
+    () =>
+      perpsCategories.map((c) => ({
+        tabId: c.categoryId,
+        name: c.name,
+      })),
+    [perpsCategories],
   );
 
   const renderItem: FlatListProps<IMarketPerpsToken>['renderItem'] =
@@ -97,13 +104,13 @@ function MobileMarketPerpsFlatListImpl({
     () => (
       <YStack py="$1">
         <MarketPerpsCategorySelector
-          categories={allCategories}
+          categories={categoryTabs}
           selectedCategoryId={selectedCategoryId}
           onSelectCategory={setSelectedCategoryId}
         />
       </YStack>
     ),
-    [allCategories, selectedCategoryId],
+    [categoryTabs, selectedCategoryId],
   );
 
   const ListEmptyComponent = useMemo(() => {

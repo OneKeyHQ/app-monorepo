@@ -8,8 +8,6 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import type { IXStackProps } from '@onekeyhq/components';
-import type { IPerpDynamicTab } from '@onekeyhq/kit-bg/src/services/ServiceWebviewPerp/ServiceWebviewPerp';
-
 import { useNetworkFilterScroll } from '../../hooks/useNetworkFilterScroll';
 
 function CategoryFilterItem({
@@ -58,8 +56,13 @@ function CategoryFilterItem({
   );
 }
 
+interface ICategoryTab {
+  tabId: string;
+  name: string;
+}
+
 interface IMarketPerpsCategorySelectorProps {
-  categories: IPerpDynamicTab[];
+  categories: ICategoryTab[];
   selectedCategoryId: string;
   onSelectCategory: (categoryId: string) => void;
 }

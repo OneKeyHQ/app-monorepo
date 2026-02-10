@@ -1,22 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useCarouselIndex } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
-import {
-  getHyperliquidTokenImageUrl,
-  parseDexCoin,
-} from '@onekeyhq/shared/src/utils/perpsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import type {
-  IPerpsAssetCtx,
-  IWsAllDexsAssetCtxs,
-} from '@onekeyhq/shared/types/hyperliquid';
-import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 
 import {
@@ -101,110 +88,52 @@ export function useMarketWatchlistTokenList({
     },
   );
 
-  // ── Perps data: universe metadata ──
-  const { result: perpsStaticData } = usePromiseResult(
+  // ── Perps data: backend API (category=all — watchlist needs all tokens) ──
+  const { result: perpsApiResult } = usePromiseResult(
     async () => {
       if (perpsItems.length === 0) return null;
-      const { universesByDex } =
-        await backgroundApiProxy.serviceHyperliquid.getTradingUniverse();
-      return universesByDex;
+      return backgroundApiProxy.serviceMarketV2.fetchMarketPerpsTokenList({
+        category: 'all',
+      });
     },
     [perpsItems.length],
-    { pollingInterval: 5 * 60 * 1000 },
+    {
+      pollingInterval: timerUtils.getTimeDurationMs({ seconds: 30 }),
+    },
   );
-
-  // ── Perps data: WS subscription + real-time prices ──
-  const latestCtxsRef = useRef<IPerpsAssetCtx[]>([]);
-  const [perpsAssetCtxs, setPerpsAssetCtxs] = useState<IPerpsAssetCtx[]>([]);
-
-  useEffect(() => {
-    if (perpsItems.length === 0) return undefined;
-
-    void backgroundApiProxy.serviceHyperliquidSubscription.requestMarketSubscriptions();
-
-    const handleDataUpdate = (payload: unknown) => {
-      const eventPayload = payload as {
-        subType: ESubscriptionType;
-        data: unknown;
-      };
-      if (eventPayload.subType === ESubscriptionType.ALL_DEXS_ASSET_CTXS) {
-        const wsData = eventPayload.data as IWsAllDexsAssetCtxs;
-        const incoming = wsData?.ctxs || [];
-        const ctxMap = new Map<string, IPerpsAssetCtx[]>();
-        incoming.forEach(([dexName, ctxList]) => {
-          ctxMap.set(dexName, ctxList || []);
-        });
-        latestCtxsRef.current =
-          ctxMap.get('') ?? ctxMap.get('perps') ?? [];
-      }
-    };
-
-    appEventBus.on(EAppEventBusNames.HyperliquidDataUpdate, handleDataUpdate);
-
-    // Flush ref → state every 3 seconds
-    const flushInterval = setInterval(() => {
-      if (latestCtxsRef.current.length > 0) {
-        setPerpsAssetCtxs(latestCtxsRef.current);
-      }
-    }, 3000);
-
-    return () => {
-      appEventBus.off(
-        EAppEventBusNames.HyperliquidDataUpdate,
-        handleDataUpdate,
-      );
-      clearInterval(flushInterval);
-      void backgroundApiProxy.serviceHyperliquidSubscription.releaseMarketSubscriptions();
-    };
-  }, [perpsItems.length]);
 
   // Combined loading state
   const isLoading = isInitialLoad || apiLoading;
 
-  // ── Build perps IMarketToken items ──
+  // ── Build perps IMarketToken items from backend ──
   const perpsTokenMap = useMemo(() => {
-    if (!perpsStaticData || perpsStaticData.length === 0) return new Map();
-    const universes = perpsStaticData[0] ?? [];
-    const ctxs = perpsAssetCtxs;
+    if (!perpsApiResult?.tokens) return new Map<string, IMarketToken>();
     const map = new Map<string, IMarketToken>();
-
-    for (let i = 0; i < universes.length; i += 1) {
-      const u = universes[i];
-      if (u.isDelisted) continue;
-      const ctx = ctxs[i];
-      const { displayName } = parseDexCoin(u.name);
-      const tokenImageUrl = getHyperliquidTokenImageUrl(displayName);
-      const markPrice = ctx ? Number(ctx.markPx) : 0;
-      const prevDayPrice = ctx ? Number(ctx.prevDayPx) : 0;
-      let change24h = 0;
-      if (prevDayPrice !== 0) {
-        change24h = ((markPrice - prevDayPrice) / prevDayPrice) * 100;
-      }
-
-      map.set(u.name, {
-        id: `perps_${u.name}`,
-        name: displayName,
-        symbol: displayName,
+    for (const t of perpsApiResult.tokens) {
+      map.set(t.name, {
+        id: `perps_${t.name}`,
+        name: t.displayName,
+        symbol: t.displayName,
         address: '',
         decimals: 0,
-        price: markPrice,
-        change24h,
+        price: Number(t.markPrice),
+        change24h: t.change24hPercent,
         marketCap: 0,
         liquidity: 0,
         transactions: 0,
         uniqueTraders: 0,
         holders: 0,
-        turnover: ctx ? Number(ctx.dayNtlVlm || 0) : 0,
-        tokenImageUri: tokenImageUrl,
+        turnover: Number(t.volume24h || 0),
+        tokenImageUri: t.tokenImageUrl,
         networkLogoUri: '',
         networkId: '',
         chainId: '',
-        perpsCoin: u.name,
-        maxLeverage: u.maxLeverage,
+        perpsCoin: t.name,
+        maxLeverage: t.maxLeverage,
       });
     }
     return map;
-  }, [perpsStaticData, perpsAssetCtxs]);
+  }, [perpsApiResult]);
 
   // ── Merge spot + perps into transformedData ──
   useEffect(() => {
@@ -281,7 +210,7 @@ export function useMarketWatchlistTokenList({
         });
         return found;
       })
-      .filter(Boolean) as IMarketToken[];
+      .filter(Boolean);
 
     setTransformedData(merged);
 
