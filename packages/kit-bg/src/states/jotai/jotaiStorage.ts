@@ -67,10 +67,10 @@ class JotaiStorage implements AsyncStorage<any> {
           try {
             parsedMap.set(key, JSON.parse(value));
           } catch {
-            parsedMap.set(key, null);
+            parsedMap.set(key, undefined);
           }
         } else {
-          parsedMap.set(key, value ?? null);
+          parsedMap.set(key, value ?? undefined);
         }
       }
       return parsedMap;

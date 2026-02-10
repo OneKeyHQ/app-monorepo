@@ -39,7 +39,7 @@ async function preloadAtomStorageValues() {
       for (const name of Object.values(EAtomNames)) {
         const key = buildJotaiStorageKey(name);
         const value = batchMap.get(key);
-        storageMap.set(key, value === null ? undefined : value);
+        storageMap.set(key, value);
       }
       return storageMap;
     }
