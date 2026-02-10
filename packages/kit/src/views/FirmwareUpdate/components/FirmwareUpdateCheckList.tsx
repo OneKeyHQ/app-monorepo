@@ -198,8 +198,6 @@ export function FirmwareUpdateCheckList({
                     toFirmwareType &&
                     fromFirmwareType !== toFirmwareType;
 
-                  if (!isMountedRef.current) return;
-
                   setStepInfo({
                     step: EFirmwareUpdateSteps.updateDone,
                     payload: {
@@ -207,8 +205,6 @@ export function FirmwareUpdateCheckList({
                     },
                   });
                 } catch (error) {
-                  if (!isMountedRef.current) return;
-
                   const err = toPlainErrorObject(error as any);
                   setStepInfo({
                     step: EFirmwareUpdateSteps.error,
@@ -228,9 +224,7 @@ export function FirmwareUpdateCheckList({
                     errorMessage: err?.message,
                   });
                 } finally {
-                  if (isMountedRef.current) {
-                    setWorkflowIsRunning(false);
-                  }
+                  setWorkflowIsRunning(false);
                 }
               }
             : undefined

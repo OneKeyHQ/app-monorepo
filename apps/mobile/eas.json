@@ -5,6 +5,9 @@
   "build": {
     "base": {
       "node": "24.13.0",
+      "env": {
+        "EAS_USE_CACHE": "1"
+      },
       "android": {
         "image": "ubuntu-24.04-jdk-17-ndk-r27b",
         "ndk": "27.1.12297006",

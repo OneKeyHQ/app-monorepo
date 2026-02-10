@@ -151,14 +151,14 @@ const LimitOrderCard = ({
       ? fromAmountNum
           .div(toAmountNum)
           .decimalPlaces(
-            toTokenInfo?.decimals ?? LIMIT_PRICE_DEFAULT_DECIMALS,
+            Number(toTokenInfo?.decimals ?? LIMIT_PRICE_DEFAULT_DECIMALS),
             BigNumber.ROUND_HALF_UP,
           )
           .toFixed()
       : toAmountNum
           .div(fromAmountNum)
           .decimalPlaces(
-            fromTokenInfo?.decimals ?? LIMIT_PRICE_DEFAULT_DECIMALS,
+            Number(fromTokenInfo?.decimals ?? LIMIT_PRICE_DEFAULT_DECIMALS),
             BigNumber.ROUND_HALF_UP,
           )
           .toFixed();
