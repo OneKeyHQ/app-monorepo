@@ -310,7 +310,7 @@ export function HomePageView({
       {
         id: EHomeWalletTab.Portfolio,
         name: intl.formatMessage({
-          id: ETranslations.global_portfolio,
+          id: ETranslations.global_crypto,
         }),
         component: <PortfolioContainerWithProvider />,
       },

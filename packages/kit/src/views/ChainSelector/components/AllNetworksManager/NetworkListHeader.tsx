@@ -1,23 +1,14 @@
-import { memo, useCallback, useContext, useMemo } from 'react';
+import { memo, useCallback, useContext, useEffect, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import {
-  Alert,
   Button,
   SizableText,
   Stack,
-  Toast,
   XStack,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useAccountSelectorCreateAddress } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorCreateAddress';
 import { useEnabledNetworksCompatibleWithWalletIdInAllNetworks } from '@onekeyhq/kit/src/hooks/useAllNetwork';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { AllNetworksManagerContext } from './AllNetworksManagerContext';
@@ -34,22 +25,15 @@ function NetworkListHeader() {
     enabledNetworks,
     setNetworksState,
     searchKey,
-    isCreatingEnabledAddresses,
-    isCreatingMissingAddresses,
-    setIsCreatingMissingAddresses,
+    setMissingAddressCount,
   } = useContext(AllNetworksManagerContext);
 
-  const {
-    enabledNetworksCompatibleWithWalletId,
-    enabledNetworksWithoutAccount,
-    run,
-  } = useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
+  const { enabledNetworksWithoutAccount } =
+    useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
     walletId: walletId ?? '',
     indexedAccountId,
     filterNetworksWithoutAccount: true,
   });
-
-  const { createAddress } = useAccountSelectorCreateAddress();
 
   const isAllNetworksEnabled = useMemo(() => {
     if (enabledNetworks.length > 0) {
@@ -67,52 +51,9 @@ function NetworkListHeader() {
     );
   }, [networks.mainNetworks]);
 
-  const handleCreateMissingAddresses = useCallback(async () => {
-    setIsCreatingMissingAddresses(true);
-
-    const enabledNetworksWithoutAccountTemp = await Promise.all(
-      enabledNetworksWithoutAccount.map(async (network) => ({
-        networkId: network.id,
-        deriveType:
-          await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
-            networkId: network.id,
-          }),
-      })),
-    );
-
-    try {
-      await createAddress({
-        num: 0,
-        account: {
-          walletId,
-          indexedAccountId,
-          networkId: getNetworkIdsMap().onekeyall,
-          deriveType: 'default',
-        },
-        customNetworks: enabledNetworksWithoutAccountTemp,
-      });
-    } catch (_error) {
-      setIsCreatingMissingAddresses(false);
-      return;
-    }
-
-    Toast.success({
-      title: intl.formatMessage({
-        id: ETranslations.swap_page_toast_address_generated,
-      }),
-    });
-    void run();
-    appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
-    setIsCreatingMissingAddresses(false);
-  }, [
-    createAddress,
-    enabledNetworksWithoutAccount,
-    indexedAccountId,
-    intl,
-    run,
-    setIsCreatingMissingAddresses,
-    walletId,
-  ]);
+  useEffect(() => {
+    setMissingAddressCount(enabledNetworksWithoutAccount.length);
+  }, [enabledNetworksWithoutAccount.length, setMissingAddressCount]);
 
   const handleToggleAll = useCallback(() => {
     if (isAllNetworksEnabled) {
@@ -130,32 +71,6 @@ function NetworkListHeader() {
 
   return (
     <Stack mt="$4" pb="$3">
-      {enabledNetworksWithoutAccount.length > 0 ? (
-        <Stack px="$5" pb="$5">
-          <Alert
-            type="warning"
-            title={intl.formatMessage(
-              {
-                id: ETranslations.network_enabled_but_no_address_notice,
-              },
-              {
-                count: enabledNetworksCompatibleWithWalletId.length,
-              },
-            )}
-            action={{
-              primary: intl.formatMessage({
-                id: isCreatingMissingAddresses
-                  ? ETranslations.global_creating_address
-                  : ETranslations.global_create,
-              }),
-              isPrimaryLoading: isCreatingMissingAddresses,
-              isPrimaryDisabled:
-                isCreatingMissingAddresses || isCreatingEnabledAddresses,
-              onPrimaryPress: handleCreateMissingAddresses,
-            }}
-          />
-        </Stack>
-      ) : null}
       {searchKey?.trim() ? null : (
         <XStack
           px="$5"
