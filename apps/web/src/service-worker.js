@@ -58,7 +58,7 @@ registerRoute(
     cacheName: 'static-resources',
     plugins: [
       new ExpirationPlugin({
-        maxEntries: 200,
+        maxEntries: 500,
         maxAgeSeconds: 7 * 24 * 60 * 60,
       }),
     ],
