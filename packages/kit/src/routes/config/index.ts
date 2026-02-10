@@ -79,9 +79,25 @@ const onGetStateFromPath = (path: string, options?: any) => {
   }
   // WebDappMode: rewrite "/" to "/market" so Market tab is the landing page
   if (platformEnv.isWebDappMode && (path === '/' || path === '')) {
-    return getStateFromPath('/market', options);
+    const result = getStateFromPath('/market', options);
+    if (process.env.NODE_ENV !== 'production') {
+      const mainState = result?.routes?.[0]?.state;
+      debugLandingLog(
+        'getStateFromPath result',
+        `rewrite "/" -> "/market", tabRoutes=${JSON.stringify(mainState?.routes?.map((r: any) => r.name))}, stateIndex=${mainState?.index}`,
+      );
+    }
+    return result;
   }
-  return getStateFromPath(path, options);
+  const result = getStateFromPath(path, options);
+  if (process.env.NODE_ENV !== 'production') {
+    const mainState = result?.routes?.[0]?.state;
+    debugLandingLog(
+      'getStateFromPath result',
+      `path="${path}", tabRoutes=${JSON.stringify(mainState?.routes?.map((r: any) => r.name))}, stateIndex=${mainState?.index}`,
+    );
+  }
+  return result;
 };
 
 const useBuildLinking = (): LinkingOptions<any> => {
@@ -127,9 +143,15 @@ const useBuildLinking = (): LinkingOptions<any> => {
         }
 
         if (process.env.NODE_ENV !== 'production') {
+          const mainRoute = state?.routes?.[state?.index ?? 0];
+          const tabState = mainRoute?.state;
+          const tabIndex = tabState?.index ?? 0;
+          const tabRouteNames = tabState?.routeNames ?? tabState?.routes?.map((r: any) => r.name);
+          const activeTab = tabRouteNames?.[tabIndex];
+          const tabHistory = (tabState as any)?.history?.map((h: any) => h.key?.split('-')?.[0] || h.type);
           debugLandingLog(
             'getPathFromState',
-            `defaultPath="${defaultPath}", matched=${!!rule?.showUrl}`,
+            `defaultPath="${defaultPath}", matched=${!!rule?.showUrl}, activeTab=${activeTab}, tabIndex=${tabIndex}, tabRoutes=${JSON.stringify(tabRouteNames)}, tabHistory=${JSON.stringify(tabHistory)}`,
           );
         }
 
@@ -230,6 +252,18 @@ export const useRouterConfig = () => {
           },
         },
         onStateChange: (state) => {
+          if (process.env.NODE_ENV !== 'production') {
+            const mainRoute = state?.routes?.[state?.index ?? 0];
+            const tabState = mainRoute?.state;
+            if (tabState) {
+              const tabIndex = tabState?.index ?? 0;
+              const activeTabName = (tabState?.routeNames ?? tabState?.routes?.map((r: any) => r.name))?.[tabIndex];
+              if (activeTabName === ETabRoutes.Home) {
+                debugLandingLog('onStateChange', `activeTab=${activeTabName}, tabIndex=${tabIndex}`);
+                console.log('[LANDING_DEBUG] state changed to Home tab');
+              }
+            }
+          }
           routerRef.current.forEach((cb) => cb?.(state));
         },
         linking,
