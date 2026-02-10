@@ -8,13 +8,11 @@ import {
   Tabs,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 
 import { useMarketBasicConfig } from '../../../hooks/useMarketBasicConfig';
+import { usePerpsNavigation } from '../../../hooks/usePerpsNavigation';
 import { TokenListSkeleton } from '../MarketTokenList/components/TokenListSkeleton';
 
 import { useMarketPerpsTokenList } from './hooks/useMarketPerpsTokenList';
@@ -36,7 +34,7 @@ function MobileMarketPerpsFlatListImpl({
   listContainerProps,
 }: IMobileMarketPerpsFlatListProps) {
   const [selectedCategoryId, setSelectedCategoryId] = useState('');
-  const navigation = useAppNavigation();
+  const { navigateToPerps } = usePerpsNavigation();
   const intl = useIntl();
 
   const { perpsCategories } = useMarketBasicConfig();
@@ -52,21 +50,7 @@ function MobileMarketPerpsFlatListImpl({
     selectedCategoryId,
   });
 
-  const handleTokenPress = useCallback(
-    (coin: string) => {
-      setTimeout(async () => {
-        navigation.switchTab(ETabRoutes.Perp);
-        try {
-          await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
-            coin,
-          });
-        } catch (error) {
-          console.error('Failed to change active asset:', error);
-        }
-      }, 80);
-    },
-    [navigation],
-  );
+  const handleTokenPress = navigateToPerps;
 
   const categoryTabs = useMemo(
     () =>

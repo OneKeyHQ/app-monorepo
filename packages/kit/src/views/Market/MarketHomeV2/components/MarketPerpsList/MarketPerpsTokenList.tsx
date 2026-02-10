@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -14,51 +14,22 @@ import {
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
 import type { ITableColumn } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Token } from '@onekeyhq/kit/src/components/Token';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 
-import { useMarketBasicConfig } from '../../../hooks/useMarketBasicConfig';
+import {
+  LeverageBadge,
+  SubtitleBadge,
+} from '../../../components/PerpsBadges';
 import { MarketPerpsStarV2 } from '../../../components/MarketStarV2';
+import { useMarketBasicConfig } from '../../../hooks/useMarketBasicConfig';
+import { usePerpsNavigation } from '../../../hooks/usePerpsNavigation';
 
 import { useMarketPerpsTokenList } from './hooks/useMarketPerpsTokenList';
 import { MarketPerpsCategorySelector } from './MarketPerpsCategorySelector';
 
 import type { IMarketPerpsToken } from './hooks/useMarketPerpsTokenList';
-
-// Leverage badge component
-const LeverageBadge = memo(({ leverage }: { leverage: number }) => (
-  <XStack
-    borderRadius="$1"
-    bg="$bgInfo"
-    justifyContent="center"
-    alignItems="center"
-    px="$1.5"
-  >
-    <SizableText fontSize={10} color="$textInfo" lineHeight={16}>
-      {leverage}x
-    </SizableText>
-  </XStack>
-));
-LeverageBadge.displayName = 'LeverageBadge';
-
-const SubtitleBadge = memo(({ subtitle }: { subtitle: string }) => (
-  <XStack
-    borderRadius="$1"
-    bg="$bgStrong"
-    justifyContent="center"
-    alignItems="center"
-    px="$1.5"
-  >
-    <SizableText fontSize={10} color="$textSubdued" lineHeight={16}>
-      {subtitle}
-    </SizableText>
-  </XStack>
-));
-SubtitleBadge.displayName = 'SubtitleBadge';
 
 function usePerpsColumnsDesktop(): ITableColumn<IMarketPerpsToken>[] {
   const intl = useIntl();
@@ -387,7 +358,7 @@ function usePerpsColumns(): ITableColumn<IMarketPerpsToken>[] {
 
 function MarketPerpsTokenListImpl() {
   const [selectedCategoryId, setSelectedCategoryId] = useState('');
-  const navigation = useAppNavigation();
+  const { navigateToPerps } = usePerpsNavigation();
   const intl = useIntl();
   const { md } = useMedia();
 
@@ -406,21 +377,7 @@ function MarketPerpsTokenListImpl() {
 
   const perpsColumns = usePerpsColumns();
 
-  const handleTokenPress = useCallback(
-    (coin: string) => {
-      setTimeout(async () => {
-        navigation.switchTab(ETabRoutes.Perp);
-        try {
-          await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
-            coin,
-          });
-        } catch (error) {
-          console.error('Failed to change active asset:', error);
-        }
-      }, 80);
-    },
-    [navigation],
-  );
+  const handleTokenPress = navigateToPerps;
 
   const categoryTabs = useMemo(
     () =>

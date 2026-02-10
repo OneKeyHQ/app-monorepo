@@ -23,9 +23,7 @@ import type {
 import { ESortWay } from '@onekeyhq/shared/src/logger/scopes/dex/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { usePerpsNavigation } from '@onekeyhq/kit/src/views/Market/hooks/usePerpsNavigation';
 
 import { useMarketTokenColumns } from './hooks/useMarketTokenColumns';
 import { useToDetailPage } from './hooks/useToMarketDetailPage';
@@ -96,7 +94,7 @@ function MarketTokenListBase({
   onScrollBegin,
 }: IMarketTokenListBaseProps) {
   const toMarketDetailPage = useToDetailPage();
-  const navigation = useAppNavigation();
+  const { navigateToPerps } = usePerpsNavigation();
   const { md } = useMedia();
 
   const marketTokenColumns = useMarketTokenColumns(
@@ -286,16 +284,7 @@ function MarketTokenListBase({
                   ? () => onItemPress(item)
                   : () => {
                       if (item.perpsCoin) {
-                        setTimeout(async () => {
-                          navigation.switchTab(ETabRoutes.Perp);
-                          try {
-                            await backgroundApiProxy.serviceHyperliquid.changeActiveAsset(
-                              { coin: item.perpsCoin! },
-                            );
-                          } catch (_error) {
-                            // ignore
-                          }
-                        }, 80);
+                        navigateToPerps(item.perpsCoin);
                         return;
                       }
                       void toMarketDetailPage({

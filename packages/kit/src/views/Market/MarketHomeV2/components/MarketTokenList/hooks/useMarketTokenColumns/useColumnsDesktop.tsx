@@ -13,6 +13,10 @@ import {
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import {
+  LeverageBadge,
+  SubtitleBadge,
+} from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
+import {
   MarketPerpsStarV2,
   MarketStarV2,
 } from '@onekeyhq/kit/src/views/Market/components/MarketStarV2';
@@ -100,38 +104,10 @@ export const useColumnsDesktop = (
                   {record.symbol}
                 </SizableText>
                 {record.maxLeverage ? (
-                  <XStack
-                    borderRadius="$1"
-                    bg="$bgInfo"
-                    justifyContent="center"
-                    alignItems="center"
-                    px="$1.5"
-                  >
-                    <SizableText
-                      fontSize={10}
-                      color="$textInfo"
-                      lineHeight={16}
-                    >
-                      {record.maxLeverage}x
-                    </SizableText>
-                  </XStack>
+                  <LeverageBadge leverage={record.maxLeverage} />
                 ) : null}
                 {record.perpsSubtitle ? (
-                  <XStack
-                    borderRadius="$1"
-                    bg="$bgStrong"
-                    justifyContent="center"
-                    alignItems="center"
-                    px="$1.5"
-                  >
-                    <SizableText
-                      fontSize={10}
-                      color="$textSubdued"
-                      lineHeight={16}
-                    >
-                      {record.perpsSubtitle}
-                    </SizableText>
-                  </XStack>
+                  <SubtitleBadge subtitle={record.perpsSubtitle} />
                 ) : null}
               </XStack>
             </Stack>

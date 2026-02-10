@@ -356,20 +356,23 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         return;
       }
       const firstItem = prev?.data?.[0];
-      if (
-        firstItem &&
-        equalTokenNoCaseSensitive({
-          token1: {
-            networkId: firstItem.chainId,
-            contractAddress: firstItem.contractAddress,
-          },
-          token2: {
-            networkId: payload.chainId,
-            contractAddress: payload.contractAddress,
-          },
-        })
-      ) {
-        return;
+      if (firstItem) {
+        if (payload.perpsCoin && firstItem.perpsCoin) {
+          if (payload.perpsCoin === firstItem.perpsCoin) return;
+        } else if (
+          equalTokenNoCaseSensitive({
+            token1: {
+              networkId: firstItem.chainId,
+              contractAddress: firstItem.contractAddress,
+            },
+            token2: {
+              networkId: payload.chainId,
+              contractAddress: payload.contractAddress,
+            },
+          })
+        ) {
+          return;
+        }
       }
       await this.sortWatchListV2Items.call(set, {
         target: payload,

@@ -100,6 +100,7 @@ function MarketWatchlistTokenList({
       contractAddress: token.address,
       sortIndex: token.sortIndex,
       isNative: token.isNative,
+      perpsCoin: token.perpsCoin,
     }),
     [],
   );
@@ -162,10 +163,16 @@ function MarketWatchlistTokenList({
               portalRef.current?.destroy();
               portalRef.current = null;
               try {
-                await actions.current.removeFromWatchListV2(
-                  item.networkId,
-                  item.address,
-                );
+                if (item.perpsCoin) {
+                  await actions.current.removePerpsFromWatchListV2(
+                    item.perpsCoin,
+                  );
+                } else {
+                  await actions.current.removeFromWatchListV2(
+                    item.networkId,
+                    item.address,
+                  );
+                }
                 Toast.success({
                   title: intl.formatMessage({
                     id: ETranslations.market_remove_from_watchlist,
@@ -210,10 +217,16 @@ function MarketWatchlistTokenList({
                   id: ETranslations.market_remove_from_watchlist,
                 }),
                 onPress: () => {
-                  void actions.current.removeFromWatchListV2(
-                    item.networkId,
-                    item.address,
-                  );
+                  if (item.perpsCoin) {
+                    void actions.current.removePerpsFromWatchListV2(
+                      item.perpsCoin,
+                    );
+                  } else {
+                    void actions.current.removeFromWatchListV2(
+                      item.networkId,
+                      item.address,
+                    );
+                  }
                 },
               },
             ],

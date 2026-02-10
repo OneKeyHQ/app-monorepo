@@ -94,7 +94,8 @@ export function useMarketTabsLogic(
       return;
     }
 
-    const targetIndex = selectedTab === 'watchlist' ? 0 : 1;
+    const targetIndex =
+      selectedTab === 'watchlist' ? 0 : selectedTab === 'perps' ? 2 : 1;
     const currentIndex = carouselRef.current?.getCurrentIndex();
 
     // Only scroll if Carousel is mounted and index differs

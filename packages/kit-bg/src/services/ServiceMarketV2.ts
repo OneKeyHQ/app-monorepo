@@ -824,10 +824,14 @@ class ServiceMarketV2 extends ServiceBase {
       // Sync missing items to Perps atom
       if (missingInPerps.length > 0) {
         const current = await perpTokenFavoritesPersistAtom.get();
-        await perpTokenFavoritesPersistAtom.set({
-          ...current,
-          favorites: [...current.favorites, ...missingInPerps],
-        });
+        const existingSet = new Set(current.favorites);
+        const toAdd = missingInPerps.filter((c) => !existingSet.has(c));
+        if (toAdd.length > 0) {
+          await perpTokenFavoritesPersistAtom.set({
+            ...current,
+            favorites: [...current.favorites, ...toAdd],
+          });
+        }
       }
 
       // Sync missing items to Market watchlist

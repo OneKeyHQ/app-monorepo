@@ -35,8 +35,8 @@ export function useMarketWatchlistTokenList({
   const [sortType, setSortType] = useState<'asc' | 'desc' | undefined>(
     initialSortType,
   );
-  const [isLoadingMore] = useState(false);
-  const [hasMore] = useState(false);
+  const isLoadingMore = false;
+  const hasMore = false;
   const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   const pageIndex = useCarouselIndex();
@@ -269,13 +269,11 @@ export function useMarketWatchlistTokenList({
     void refetchData();
   }, [refetchData]);
 
-  const isNetworkSwitching = false;
-
   return {
     data: paginatedData,
     isLoading,
     isLoadingMore,
-    isNetworkSwitching,
+    isNetworkSwitching: false,
     canLoadMore: hasMore,
     currentPage,
     totalPages,

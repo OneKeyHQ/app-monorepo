@@ -14,14 +14,8 @@ export class SimpleDbEntityMarketWatchListV2 extends SimpleDbEntityBase<IMarketW
   override enableCache = false;
 
   async getMarketWatchListV2() {
-    const result: IMarketWatchListDataV2 | undefined | null =
-      await this.getRawData();
-    if (result) {
-      return {
-        data: result.data,
-      };
-    }
-    return { data: [] };
+    const result = await this.getRawData();
+    return { data: result?.data ?? [] };
   }
 
   async getMarketWatchListItemV2({
@@ -80,10 +74,7 @@ export class SimpleDbEntityMarketWatchListV2 extends SimpleDbEntityBase<IMarketW
             : `${i.chainId}:${i.contractAddress}`,
       });
 
-      const newData: IMarketWatchListDataV2 | undefined | null = {
-        data: newList,
-      };
-      return newData;
+      return { data: newList };
     });
   }
 
@@ -126,21 +117,12 @@ export class SimpleDbEntityMarketWatchListV2 extends SimpleDbEntityBase<IMarketW
           }),
       );
 
-      const newData: IMarketWatchListDataV2 | undefined | null = {
-        data: filteredData,
-      };
-
-      return newData;
+      return { data: filteredData };
     });
   }
 
   async clearAllMarketWatchListV2() {
     defaultLogger.cloudSync.market.simpleDbClearAllWatchListItems();
-    await this.setRawData(() => {
-      const newData: IMarketWatchListDataV2 = {
-        data: [],
-      };
-      return newData;
-    });
+    await this.setRawData(() => ({ data: [] }));
   }
 }

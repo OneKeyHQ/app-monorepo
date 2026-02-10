@@ -10,6 +10,10 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import {
+  LeverageBadge,
+  SubtitleBadge,
+} from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -51,38 +55,10 @@ export const useColumnsMobile = (): ITableColumn<IMarketToken>[] => {
                     {record.symbol}
                   </SizableText>
                   {record.maxLeverage ? (
-                    <XStack
-                      borderRadius="$1"
-                      bg="$bgInfo"
-                      justifyContent="center"
-                      alignItems="center"
-                      px="$1.5"
-                    >
-                      <SizableText
-                        fontSize={10}
-                        color="$textInfo"
-                        lineHeight={16}
-                      >
-                        {record.maxLeverage}x
-                      </SizableText>
-                    </XStack>
+                    <LeverageBadge leverage={record.maxLeverage} />
                   ) : null}
                   {record.perpsSubtitle ? (
-                    <XStack
-                      borderRadius="$1"
-                      bg="$bgStrong"
-                      justifyContent="center"
-                      alignItems="center"
-                      px="$1.5"
-                    >
-                      <SizableText
-                        fontSize={10}
-                        color="$textSubdued"
-                        lineHeight={16}
-                      >
-                        {record.perpsSubtitle}
-                      </SizableText>
-                    </XStack>
+                    <SubtitleBadge subtitle={record.perpsSubtitle} />
                   ) : null}
                 </XStack>
                 <NumberSizeableText
