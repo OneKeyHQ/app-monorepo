@@ -21,6 +21,7 @@ import {
   SortableSectionList,
   Stack,
   Tooltip,
+  XStack,
   YStack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
@@ -76,14 +77,14 @@ const ListHeaderComponent = () => {
   return (
     <YStack>
       {zeroValue ? null : (
-        <Stack px="$5" py="$3">
+        <XStack px="$5" py="$3">
           <Tooltip
             placement="bottom-start"
             renderContent={intl.formatMessage({
               id: ETranslations.network_auto_detection_tip,
             })}
             renderTrigger={
-              <Stack alignSelf="flex-start">
+              <Stack>
                 <SizableText
                   size="$bodyMdMedium"
                   color="$textSubdued"
@@ -96,7 +97,7 @@ const ListHeaderComponent = () => {
               </Stack>
             }
           />
-        </Stack>
+        </XStack>
       )}
       {allNetworkItem ? (
         <EditableListItem item={allNetworkItem} isEditable={false} />
