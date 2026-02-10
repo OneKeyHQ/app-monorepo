@@ -179,6 +179,39 @@ function DesktopCustomTabBar({ isExpanded }: { isExpanded?: boolean }) {
 
   const ITEM_HEIGHT = 36;
 
+  const onPinnedDragEnd = useCallback(
+    (dragResult: {
+      data: IWebTab[];
+      dragItem: IWebTab;
+      prevItem: IWebTab | undefined;
+      nextItem: IWebTab | undefined;
+    }) => {
+      const {
+        data: reorderedPinned,
+        dragItem,
+        prevItem,
+        nextItem,
+      } = dragResult;
+      reorderedPinned.forEach((item) => (item.isPinned = true));
+
+      const beforeTimestamp = prevItem?.timestamp;
+      const afterTimestamp = nextItem?.timestamp;
+      if (!beforeTimestamp && afterTimestamp) {
+        dragItem.timestamp = afterTimestamp - TIMESTAMP_DIFF_MULTIPLIER;
+      } else if (!afterTimestamp && beforeTimestamp) {
+        dragItem.timestamp = beforeTimestamp + TIMESTAMP_DIFF_MULTIPLIER;
+      } else if (beforeTimestamp && afterTimestamp) {
+        dragItem.timestamp = Math.round((beforeTimestamp + afterTimestamp) / 2);
+      }
+
+      setTimeout(() => {
+        setTabsByIds({ pinnedTabs: reorderedPinned, unpinnedTabs });
+      }, 0);
+      defaultLogger.discovery.browser.tabDragSorting();
+    },
+    [setTabsByIds, unpinnedTabs],
+  );
+
   const onDragEnd = useCallback(
     (dragResult: {
       data: IWebTab[];
@@ -219,6 +252,25 @@ function DesktopCustomTabBar({ isExpanded }: { isExpanded?: boolean }) {
       <Stack flexShrink={0}>
         <DesktopTabItem
           size="small"
+          key="HomeButton"
+          selected={isDiscoveryFocused}
+          label={
+            isCollapsed
+              ? ''
+              : intl.formatMessage({
+                  id: ETranslations.global_home,
+                })
+          }
+          icon="HomeDoor2Outline"
+          testID="browser-bar-home"
+          tabBarStyle={isCollapsed ? { justifyContent: 'center' } : undefined}
+          onPress={(e) => {
+            e.stopPropagation();
+            navigation.switchTab(ETabRoutes.Discovery);
+          }}
+        />
+        <DesktopTabItem
+          size="small"
           key="AddTabButton"
           label={
             isCollapsed
@@ -243,38 +295,43 @@ function DesktopCustomTabBar({ isExpanded }: { isExpanded?: boolean }) {
             }
           }}
         />
-        <DesktopTabItem
-          size="small"
-          key="HomeButton"
-          selected={isDiscoveryFocused}
-          label={
-            isCollapsed
-              ? ''
-              : intl.formatMessage({
-                  id: ETranslations.global_home,
-                })
-          }
-          icon="HomeDoor2Outline"
-          testID="browser-bar-home"
-          tabBarStyle={isCollapsed ? { justifyContent: 'center' } : undefined}
-          onPress={(e) => {
-            e.stopPropagation();
-            navigation.switchTab(ETabRoutes.Discovery);
-          }}
-        />
-        {pinnedTabs.map((t) => (
-          <DesktopCustomTabBarItem
-            id={t.id}
-            key={t.id}
-            onPress={onTabPress}
-            isCollapse={isCollapsed}
-            onBookmarkPress={handleBookmarkPress}
-            onPinnedPress={handlePinnedPress}
-            onClose={handleCloseTab}
-            onDisconnect={handleDisconnect}
-            testID={`tab-list-stack-pinned-${t.id}`}
-          />
-        ))}
+        {pinnedTabs.length > 0 ? (
+          <Stack height={pinnedTabs.length * ITEM_HEIGHT} overflow="hidden">
+            <SortableListView
+              data={pinnedTabs}
+              scrollEnabled={false}
+              renderItem={({
+                item: t,
+                dragProps,
+              }: {
+                item: IWebTab;
+                dragProps?: Record<string, any>;
+                index: number;
+              }) => (
+                <Stack dataSet={dragProps}>
+                  <DesktopCustomTabBarItem
+                    id={t.id}
+                    key={t.id}
+                    onPress={onTabPress}
+                    isCollapse={isCollapsed}
+                    onBookmarkPress={handleBookmarkPress}
+                    onPinnedPress={handlePinnedPress}
+                    onClose={handleCloseTab}
+                    onDisconnect={handleDisconnect}
+                    testID={`tab-list-stack-pinned-${t.id}`}
+                  />
+                </Stack>
+              )}
+              keyExtractor={(item) => item.id}
+              getItemLayout={(__, index) => ({
+                length: ITEM_HEIGHT,
+                offset: ITEM_HEIGHT * index,
+                index,
+              })}
+              onDragEnd={onPinnedDragEnd}
+            />
+          </Stack>
+        ) : null}
         {unpinnedTabs.length > 0 ? (
           <XStack
             group="sidebarBrowserDivider"

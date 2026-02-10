@@ -95,7 +95,7 @@ function BaseHomeHeaderContainer() {
 
   return (
     <HomeTokenListProviderMirror>
-      <YStack pb="$8" gap="$8" bg="$bgApp">
+      <YStack pb="$8" gap="$5" $gtMd={{ gap: '$8' }} bg="$bgApp">
         <Stack
           testID="Wallet-Tab-Header"
           gap="$5"

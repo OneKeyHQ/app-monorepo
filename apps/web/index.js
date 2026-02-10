@@ -2,8 +2,8 @@
 /* eslint-disable import/first */
 import '@onekeyhq/shared/src/performance/init';
 
-if (typeof window !== 'undefined') {
-  window.$$onekeyJsReadyAt = Date.now();
+if (typeof globalThis !== 'undefined') {
+  globalThis.$$onekeyJsReadyAt = Date.now();
 }
 
 import '@onekeyhq/shared/src/polyfills';
@@ -17,11 +17,26 @@ import { SentryErrorBoundaryFallback } from '@onekeyhq/kit/src/components/ErrorB
 import { initIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import App from './App';
 
+if (process.env.NODE_ENV !== 'production') {
+  const { debugLandingLog } = require('@onekeyhq/shared/src/performance/init');
+  debugLandingLog('imports done');
+}
+
 initSentry();
 
 void initIntercom();
 
+if (process.env.NODE_ENV !== 'production') {
+  const { debugLandingLog } = require('@onekeyhq/shared/src/performance/init');
+  debugLandingLog('sentry+intercom init done');
+}
+
 registerRootComponent(withSentryHOC(App, SentryErrorBoundaryFallback));
+
+if (process.env.NODE_ENV !== 'production') {
+  const { debugLandingLog } = require('@onekeyhq/shared/src/performance/init');
+  debugLandingLog('registerRootComponent called');
+}
 
 function showUpdateBanner() {
   const show = () => {

@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+
 import {
   usePerpsCommonConfigPersistAtom,
   usePerpsUserConfigPersistAtom,
@@ -8,26 +10,21 @@ import { EPerpUserType } from '@onekeyhq/shared/types/hyperliquid';
 export function usePerpTabConfig() {
   const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
   const [{ perpUserConfig }] = usePerpsUserConfigPersistAtom();
-  if (perpConfigCommon?.disablePerp) {
-    return {
-      perpDisabled: true,
-    };
-  }
-  if (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel) {
-    return {
-      perpDisabled: true,
-    };
-  }
-  if (
-    perpConfigCommon?.usePerpWeb ||
-    perpUserConfig.currentUserType === EPerpUserType.PERP_WEB
-  ) {
-    return {
-      perpDisabled: false,
-      perpTabShowWeb: true,
-    };
-  }
-  return {
-    perpDisabled: false,
-  };
+
+  const disablePerp = perpConfigCommon?.disablePerp;
+  const usePerpWeb = perpConfigCommon?.usePerpWeb;
+  const currentUserType = perpUserConfig.currentUserType;
+
+  return useMemo(() => {
+    if (disablePerp) {
+      return { perpDisabled: true as const };
+    }
+    if (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel) {
+      return { perpDisabled: true as const };
+    }
+    if (usePerpWeb || currentUserType === EPerpUserType.PERP_WEB) {
+      return { perpDisabled: false as const, perpTabShowWeb: true as const };
+    }
+    return { perpDisabled: false as const };
+  }, [disablePerp, usePerpWeb, currentUserType]);
 }
