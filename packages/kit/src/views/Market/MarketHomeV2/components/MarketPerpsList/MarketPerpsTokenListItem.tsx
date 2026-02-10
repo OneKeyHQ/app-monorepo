@@ -10,10 +10,7 @@ import {
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 
-import {
-  LeverageBadge,
-  SubtitleBadge,
-} from '../../../components/PerpsBadges';
+import { LeverageBadge, SubtitleBadge } from '../../../components/PerpsBadges';
 
 import type { IMarketPerpsToken } from './hooks/useMarketPerpsTokenList';
 

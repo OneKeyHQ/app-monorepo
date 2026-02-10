@@ -1,6 +1,9 @@
 import type { IModalRootNavigatorConfig } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
 import { ModalSettingStack } from '@onekeyhq/kit/src/views/Setting/router';
-import { v4migrationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  isOnBoardingOpenAtom,
+  v4migrationAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EOnboardingV2Routes } from '@onekeyhq/shared/src/routes';
 
@@ -266,8 +269,10 @@ export const onboardingRouterV2Config: IModalRootNavigatorConfig<EOnboardingV2Ro
     {
       onMounted: () => {
         console.log('OnboardingModal onMounted');
+        void isOnBoardingOpenAtom.set(true);
       },
       onUnmounted: async () => {
+        void isOnBoardingOpenAtom.set(false);
         keylessOnboardingCache.clear();
         try {
           await backgroundApiProxy.serviceKeylessWallet.clearKeylessOnboardingCache();
