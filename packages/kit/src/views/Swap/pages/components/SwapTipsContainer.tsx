@@ -42,6 +42,7 @@ const SwapTipsContainer = () => {
   return (
     <Alert
       type="default"
+      bg="$bgInfo"
       fullBleed
       borderWidth={0}
       alignItems={gtMd ? 'center' : 'flex-start'}

@@ -78,6 +78,7 @@ export function PerpTips() {
     <YStack borderBottomWidth="$px" borderBottomColor="$borderSubdued">
       <Alert
         flex={1}
+        bg="$bgInfo"
         type="default"
         fullBleed
         borderWidth={0}
