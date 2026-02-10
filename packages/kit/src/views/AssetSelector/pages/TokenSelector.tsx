@@ -5,6 +5,8 @@ import { useIntl } from 'react-intl';
 import { useDebouncedCallback } from 'use-debounce';
 
 import { Page } from '@onekeyhq/components';
+import BigNumber from 'bignumber.js';
+
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { TokenListView } from '@onekeyhq/kit/src/components/TokenListView';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -16,6 +18,7 @@ import {
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import type { IVaultSettings } from '@onekeyhq/kit-bg/src/vaults/types';
 import { SEARCH_KEY_MIN_LENGTH } from '@onekeyhq/shared/src/consts/walletConsts';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IAssetSelectorParamList } from '@onekeyhq/shared/src/routes';
 import { EAssetSelectorRoutes } from '@onekeyhq/shared/src/routes';
@@ -114,6 +117,10 @@ function TokenSelector() {
         }
 
         if (aggregateTokenList.length > 1 || allAggregateTokenList.length > 1) {
+          // Delay navigation to let the current CA transaction finish rendering
+          // SVG icons, avoiding EXC_BAD_ACCESS in InstanceHandle::getTag when
+          // Reanimated intercepts layout events from unmounting SVG views.
+          await timerUtils.wait(0);
           navigation.push(
             aggregateTokenSelectorScreen ??
               EAssetSelectorRoutes.AggregateTokenSelector,
@@ -355,6 +362,30 @@ function TokenSelector() {
         isRefreshing: false,
         initialized: true,
       });
+
+      // Update network value cache so ChainSelector shows fresh values on back
+      const totalFiatValue = new BigNumber(r.tokens.fiatValue ?? '0')
+        .plus(r.smallBalanceTokens.fiatValue ?? '0')
+        .toFixed();
+      let valueAccountId = indexedAccountId || '';
+      if (!valueAccountId && activeAccountId) {
+        if (accountUtils.isOthersAccount({ accountId: activeAccountId })) {
+          valueAccountId = activeAccountId;
+        }
+      }
+      if (valueAccountId && activeNetworkId) {
+        const valueKey = accountUtils.buildAccountValueKey({
+          accountId: activeAccountId,
+          networkId: activeNetworkId,
+        });
+        void backgroundApiProxy.serviceAccountProfile.updateAllNetworkAccountValue(
+          {
+            accountId: valueAccountId,
+            value: { [valueKey]: totalFiatValue },
+            currency: 'usd',
+          },
+        );
+      }
     }
   }, [
     activeAccountId,

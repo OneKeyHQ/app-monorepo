@@ -42,7 +42,6 @@ const DisplayModeToggle = memo(
       borderCurve="continuous"
       p="$0.5"
       alignItems="center"
-      cursor="pointer"
       userSelect="none"
       hoverStyle={{
         bg: '$bgStrongHover',
@@ -50,6 +49,7 @@ const DisplayModeToggle = memo(
       pressStyle={{
         bg: '$bgStrongActive',
       }}
+      cursor="default"
     >
       <XStack
         height={20}
@@ -113,7 +113,7 @@ const ScrollButton = memo(
         alignItems="center"
         justifyContent={isLeft ? 'flex-start' : 'flex-end'}
         onPress={onPress}
-        cursor="pointer"
+        cursor="default"
         style={{
           background: isLeft
             ? 'linear-gradient(90deg, var(--bgApp) 40%, transparent 100%)'
@@ -205,6 +205,8 @@ function FavoritesBar() {
       gap="$3"
       flex={1}
       pl="$5"
+      borderBottomWidth="$px"
+      borderBottomColor="$borderSubdued"
     >
       <Icon name="StarSolid" size="$3" color="$icon" />
       <DisplayModeToggle
@@ -216,7 +218,6 @@ function FavoritesBar() {
           ref={scrollRef as any}
           horizontal
           showsHorizontalScrollIndicator={false}
-          bg="$bgApp"
           h={24}
           contentContainerStyle={{
             alignItems: 'center',

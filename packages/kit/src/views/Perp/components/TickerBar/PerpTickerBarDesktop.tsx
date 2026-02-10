@@ -312,7 +312,12 @@ function TickerBarFundingRateCountdown() {
       position="bottom-right"
       offsetX={10}
     >
-      <SizableText size="$headingXs" color="$text">
+      <SizableText
+        size="$headingXs"
+        color="$text"
+        fontFamily="$monoRegular"
+        fontVariant={['tabular-nums']}
+      >
         {countdown}
       </SizableText>
     </DebugRenderTracker>
@@ -473,7 +478,8 @@ function PerpTickerBarDesktop() {
       borderBottomWidth="$px"
       borderBottomColor="$borderSubdued"
       py="$4"
-      px="$2.5"
+      pl="$2.5"
+      pr="$3"
       alignItems="center"
       justifyContent="flex-start"
       gap="$6"

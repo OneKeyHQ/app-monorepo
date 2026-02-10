@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Button } from '@onekeyhq/components';
+import { Icon, SizableText, XStack } from '@onekeyhq/components';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -15,6 +15,13 @@ import { RichBlock } from '../RichBlock';
 
 function RecentHistory() {
   const intl = useIntl();
+
+  const handleNavigateToHistory = useCallback(() => {
+    appEventBus.emit(EAppEventBusNames.SwitchWalletHomeTab, {
+      id: EHomeWalletTab.History,
+    });
+  }, []);
+
   const renderContent = useCallback(() => {
     return (
       <TxHistoryListContainer
@@ -32,31 +39,26 @@ function RecentHistory() {
   }, [intl]);
   return (
     <RichBlock
-      title={intl.formatMessage({
-        id: ETranslations.wallet_recent_transaction_history_title,
-      })}
-      titleProps={{
-        color: '$text',
-      }}
-      headerActions={
-        <Button
-          size="small"
-          variant="tertiary"
-          iconAfter="ChevronRightSmallOutline"
-          color="$textSubdued"
-          iconProps={{ color: '$iconSubdued' }}
-          onPress={() => {
-            appEventBus.emit(EAppEventBusNames.SwitchWalletHomeTab, {
-              id: EHomeWalletTab.History,
-            });
-          }}
+      title={
+        <XStack
+          alignItems="center"
+          gap="$1"
+          onPress={handleNavigateToHistory}
+          cursor="pointer"
+          hoverStyle={{ opacity: 0.8 }}
+          pressStyle={{ opacity: 0.6 }}
         >
-          {intl.formatMessage({
-            id: ETranslations.global_all,
-          })}
-        </Button>
+          <SizableText size="$headingXl" color="$text">
+            {intl.formatMessage({
+              id: ETranslations.wallet_recent_transaction_history_title,
+            })}
+          </SizableText>
+          <Icon name="ChevronRightOutline" color="$iconSubdued" size="$5" />
+        </XStack>
       }
+      headerContainerProps={{ px: '$pagePadding' }}
       content={renderContent()}
+      plainContentContainer
     />
   );
 }

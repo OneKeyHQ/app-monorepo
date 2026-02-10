@@ -12,6 +12,7 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   DEFAULT_PERPS_LAYOUT_STATE,
   usePerpsLayoutStateAtom,
@@ -207,19 +208,18 @@ function PerpDesktopLayout() {
   }, []);
 
   return (
-    <YStack flex={1} bg="$bgApp">
-      <YStack>
+    <YStack flex={1}>
+      <YStack
+        {...(platformEnv.isWebDappMode && {
+          borderTopWidth: '$px',
+          borderTopColor: '$borderSubdued',
+        })}
+      >
         <PerpTips />
         <FavoritesBar />
       </YStack>
 
-      <Stack
-        ref={containerRef}
-        flex={1}
-        display="flex"
-        borderTopWidth="$px"
-        borderTopColor="$borderSubdued"
-      >
+      <Stack ref={containerRef} flex={1} display="flex">
         <Allotment
           ref={mainAllotmentRef}
           defaultSizes={mainSizes}
@@ -277,13 +277,13 @@ function PerpDesktopLayout() {
                               p="$0"
                               h={30}
                               w={16}
+                              cursor="default"
                               hoverStyle={{
                                 borderColor: '$border',
                               }}
                               pressStyle={{
                                 borderColor: '$border',
                               }}
-                              cursor="pointer"
                               onPress={toggleOrderBook}
                             />
                           </Stack>

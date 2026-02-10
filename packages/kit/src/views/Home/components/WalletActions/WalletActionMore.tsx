@@ -16,6 +16,7 @@ import { HomeTokenListProviderMirrorWrapper } from '../HomeTokenListProvider';
 
 import { RawActions } from './RawActions';
 import { useWalletActionConfig } from './useWalletActionConfig';
+import { WalletActionBulkSend } from './WalletActionBulkSend';
 import { WalletActionBuy } from './WalletActionBuy';
 import { WalletActionCopy } from './WalletActionCopy';
 import { WalletActionExport } from './WalletActionExport';
@@ -137,6 +138,13 @@ export function WalletActionMore() {
             case 'copy':
               return (
                 <WalletActionCopy key="copy" onClose={handleActionListClose} />
+              );
+            case 'bulkSend':
+              return (
+                <WalletActionBulkSend
+                  key="bulkSend"
+                  onClose={handleActionListClose}
+                />
               );
             case 'sign':
               return (

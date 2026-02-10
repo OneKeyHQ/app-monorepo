@@ -109,18 +109,18 @@ export const BBOSelector = memo<IBBOSelectorProps>(
             })}
             renderTrigger={({ onPress, label, disabled: disabledTrigger }) => (
               <XStack
-                cursor="pointer"
                 onPress={onPress}
                 disabled={disabledTrigger}
                 h={36}
                 alignItems="center"
                 justifyContent="space-between"
+                cursor="default"
               >
                 <SizableText size="$bodyMd" color="$text">
                   {label}
                 </SizableText>
                 <Icon
-                  name="ChevronTriangleDownSmallOutline"
+                  name="ChevronDownSmallOutline"
                   color="$iconSubdued"
                   size="$4"
                 />
@@ -152,9 +152,9 @@ export const BBOSelector = memo<IBBOSelectorProps>(
             pl="$1"
             borderWidth="$px"
             borderColor="$transparent"
-            cursor="pointer"
             onPress={onPress}
             disabled={disabledTrigger}
+            cursor="default"
             hoverStyle={{
               borderColor: '$border',
             }}
@@ -175,7 +175,7 @@ export const BBOSelector = memo<IBBOSelectorProps>(
                   {label}
                 </SizableText>
                 <Icon
-                  name="ChevronTriangleDownSmallOutline"
+                  name="ChevronDownSmallOutline"
                   color="$iconSubdued"
                   size="$4"
                 />

@@ -8,25 +8,36 @@ import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils'
 import { numberFormatAsRenderText } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { SizableText } from '../../primitives/SizeableText';
-import { getFontSize } from '../../utils/getFontSize';
+import { getFontSize, getFontToken } from '../../utils/getFontSize';
 
 import type { ISizableTextProps } from '../../primitives';
 
 export type INumberSizeableTextProps = Omit<ISizableTextProps, 'children'> &
   INumberFormatProps & {
+    /** Style overrides for leading-zero subscript text (e.g. 0.0₅41). */
     subTextStyle?: Omit<ISizableTextProps, 'children'>;
+    /** Style overrides applied to the entire content wrapper. */
     contentStyle?: Omit<ISizableTextProps, 'children'>;
+    /** Style overrides for the decimal portion when splitDecimal is enabled. @default { color: '$textDisabled' } */
+    decimalTextStyle?: Omit<ISizableTextProps, 'children'>;
     children: string | number | undefined;
     autoFormatter?: 'price-marketCap' | 'balance-marketCap' | 'value-marketCap';
+    /** Threshold for autoFormatter to switch between normal and marketCap format. @default 1_000_000 */
     autoFormatterThreshold?: number;
   };
+
+const DEFAULT_DECIMAL_TEXT_STYLE: Omit<ISizableTextProps, 'children'> = {
+  color: '$textDisabled',
+};
 
 export function NumberSizeableText({
   children,
   formatter,
   formatterOptions,
+  splitDecimal,
   subTextStyle,
   contentStyle,
+  decimalTextStyle,
   hideValue,
   autoFormatter,
   autoFormatterThreshold = 1_000_000,
@@ -51,6 +62,14 @@ export function NumberSizeableText({
     return formatter;
   }, [autoFormatter, autoFormatterThreshold, children, formatter]);
 
+  const mergedDecimalTextStyle = useMemo(
+    () =>
+      splitDecimal
+        ? { ...DEFAULT_DECIMAL_TEXT_STYLE, ...decimalTextStyle }
+        : undefined,
+    [splitDecimal, decimalTextStyle],
+  );
+
   const result = useMemo(() => {
     if (isString(children) && ['--', ' -- ', ' - ', '-'].includes(children)) {
       return children;
@@ -59,20 +78,33 @@ export function NumberSizeableText({
       ? numberFormatAsRenderText(String(children), {
           formatter: actualFormatter,
           formatterOptions,
+          splitDecimal,
         })
       : '';
-  }, [actualFormatter, formatterOptions, children]);
+  }, [actualFormatter, formatterOptions, children, splitDecimal]);
+
+  const parentFont = useMemo(
+    () => getFontToken(props.size as FontSizeTokens),
+    [props.size],
+  );
+
+  const parentFontSize = useMemo(
+    () =>
+      (props.fontSize as number) || getFontSize(props.size as FontSizeTokens),
+    [props.fontSize, props.size],
+  );
+
+  const parentFontWeight = (props.fontWeight ??
+    (parentFont as { fontWeight?: number })
+      ?.fontWeight) as ISizableTextProps['fontWeight'];
 
   const scriptFontSize = useMemo(
     () =>
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       props.fontSize !== 'unset'
-        ? Math.ceil(
-            (props.fontSize as number) ||
-              getFontSize(props.size as FontSizeTokens) * 0.6,
-          )
+        ? Math.ceil(parentFontSize * 0.6)
         : props.fontSize,
-    [props.fontSize, props.size],
+    [props.fontSize, parentFontSize],
   );
 
   if (hideValue) {
@@ -94,14 +126,25 @@ export function NumberSizeableText({
     <SizableText {...props} {...contentStyle}>
       {result.map((r, index) =>
         typeof r === 'string' ? (
-          <SizableText key={index} {...props}>
+          <SizableText
+            key={index}
+            color={props.color}
+            fontWeight={parentFontWeight}
+            fontSize={parentFontSize}
+          >
             {r}
+          </SizableText>
+        ) : 'type' in r && r.type === 'decimal' ? (
+          <SizableText key={index} {...props} {...mergedDecimalTextStyle}>
+            {r.value}
           </SizableText>
         ) : (
           <SizableText
             key={index}
-            {...props}
+            color={props.color}
+            fontWeight={parentFontWeight}
             fontSize={scriptFontSize}
+            lineHeight={parentFontSize}
             {...subTextStyle}
           >
             {r.value}

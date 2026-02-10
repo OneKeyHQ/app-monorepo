@@ -846,7 +846,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
             new BigNumber(swapLimitUseRate.rate),
           );
           toRealAmount = cToAmountBN.decimalPlaces(
-            toToken?.decimals ?? LIMIT_PRICE_DEFAULT_DECIMALS,
+            Number(toToken?.decimals ?? LIMIT_PRICE_DEFAULT_DECIMALS),
             BigNumber.ROUND_HALF_UP,
           );
         }
@@ -1246,8 +1246,12 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     if (swapTypeSwitch === ESwapTabSwitchType.LIMIT) {
       return 'compact' as const;
     }
+    // Use full layout when showing desktop provider panel to allow scrolling on the entire viewport
+    if (showDesktopProviderPanel) {
+      return 'full' as const;
+    }
     return 'regular' as const;
-  }, [pageType, swapTypeSwitch]);
+  }, [pageType, swapTypeSwitch, showDesktopProviderPanel]);
 
   return (
     <Page.Container flex={1} layout={containerLayout} padded={false}>

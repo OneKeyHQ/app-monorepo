@@ -202,6 +202,15 @@ module.exports = ({
           });
         }
 
+        // Perf builds enable PERF_MONITOR_ENABLED=1 which can make the MV3 background bundle
+        // extremely large; Terser may crash with "Set maximum size exceeded" when minifying it.
+        // Disable minimization for background in perf builds only (UI bundle stays minified).
+        if (process.env.PERF_MONITOR_ENABLED === '1') {
+          config.optimization = config.optimization || {};
+          config.optimization.minimize = false;
+          config.optimization.minimizer = [];
+        }
+
         config.plugins = [
           ...config.plugins,
           ...pluginsHtml.backgroundHtml,

@@ -492,7 +492,6 @@ const SetTpslForm = memo(
                     size="$bodyMd"
                     color="$green9"
                     ml="$2"
-                    cursor="pointer"
                     onPress={() => handleCancelOrder(tpOrder)}
                   >
                     {appLocale.intl.formatMessage({
@@ -561,7 +560,6 @@ const SetTpslForm = memo(
                     size="$bodyMd"
                     color="$green9"
                     ml="$2"
-                    cursor="pointer"
                     onPress={() => handleCancelOrder(slOrder)}
                   >
                     {appLocale.intl.formatMessage({

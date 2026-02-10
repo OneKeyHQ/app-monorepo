@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 import { useSharedValue } from 'react-native-reanimated';
@@ -42,6 +42,9 @@ export function useMarketTabsLogic(
   });
 
   const carouselRef = useRef<ICarouselInstance>(null);
+  // Track whether the current update is from internal tab/page change
+  const isInternalUpdateRef = useRef(false);
+
   const tabNames = useMemo(() => {
     return [watchlistTabName, trendingTabName];
   }, [watchlistTabName, trendingTabName]);
@@ -62,10 +65,38 @@ export function useMarketTabsLogic(
     return selectedTab === 'watchlist' ? 0 : 1;
   }, [selectedTab]);
 
+  // Sync Carousel page when selectedTab changes from external navigation
+  // (e.g., navigating from Wallet page to Market watchlist tab)
+  useEffect(() => {
+    // Skip if this is an internal update (from handlePageChanged or handleTabChange)
+    if (isInternalUpdateRef.current) {
+      isInternalUpdateRef.current = false;
+      return;
+    }
+
+    const targetIndex = selectedTab === 'watchlist' ? 0 : 1;
+    const currentIndex = carouselRef.current?.getCurrentIndex();
+
+    // Only scroll if Carousel is mounted and index differs
+    if (currentIndex !== undefined && currentIndex !== targetIndex) {
+      carouselRef.current?.scrollTo({ index: targetIndex });
+    }
+  }, [selectedTab]);
+
   const handlePageChanged = useCallback(
     (index: number) => {
       // Convert display name to enum value
       const tabValue = index === 0 ? 'watchlist' : 'trending';
+
+      // Mark as internal update to prevent useEffect from re-triggering scroll
+      isInternalUpdateRef.current = true;
+
+      // Reset after a short delay to handle cases where atom value doesn't change
+      // (e.g., clicking the already-active tab), so future external navigation works.
+      // Using setTimeout ensures this runs after React's useEffect (which uses MessageChannel).
+      setTimeout(() => {
+        isInternalUpdateRef.current = false;
+      }, 100);
 
       // Primary state update - this is the source of truth
       setSelectedTabAtom({ tab: tabValue });

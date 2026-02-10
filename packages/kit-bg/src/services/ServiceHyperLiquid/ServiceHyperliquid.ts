@@ -282,9 +282,9 @@ export default class ServiceHyperliquid extends ServiceBase {
     hyperLiquidErrorResolver.updateLocales(hyperLiquidErrorLocales);
 
     // Update token selector tabs atom
-    if (tokenSelectorTabs) {
-      await perpTokenSelectorTabsAtom.set(tokenSelectorTabs);
-    }
+    // Always set to transition from null (not loaded) to a valid state,
+    // even when server doesn't return tokenSelectorTabs (undefined → [])
+    await perpTokenSelectorTabsAtom.set(tokenSelectorTabs ?? []);
 
     if (shouldNotifyToDapp) {
       const config = await this.backgroundApi.simpleDb.perp.getPerpData();

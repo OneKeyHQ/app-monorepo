@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react';
+
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
@@ -13,6 +15,7 @@ import {
   YStack,
   useClipboard,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -36,9 +39,25 @@ function ApprovalItem({
   onEdit,
 }: IApprovalItemProps) {
   const intl = useIntl();
+  const { networkId } = useBulkSendReviewContext();
   const tokenInfo = approveInfo.tokenInfo;
+
+  const [displaySpender, setDisplaySpender] = useState(approveInfo.spender);
+  useEffect(() => {
+    void backgroundApiProxy.serviceValidator
+      .localValidateAddress({
+        networkId,
+        address: approveInfo.spender,
+      })
+      .then((result) => {
+        if (result.isValid && result.displayAddress) {
+          setDisplaySpender(result.displayAddress);
+        }
+      });
+  }, [networkId, approveInfo.spender]);
+
   const shortenedSpender = accountUtils.shortenAddress({
-    address: approveInfo.spender,
+    address: displaySpender,
   });
 
   const isResetApproval = approveInfo.amount === '0';
@@ -119,7 +138,7 @@ function ApprovalItem({
             onPress={() => {
               void openExplorerAddressUrl({
                 networkId: tokenInfo?.networkId ?? '',
-                address: approveInfo.spender,
+                address: displaySpender,
                 openInExternal: true,
               });
             }}
@@ -129,7 +148,7 @@ function ApprovalItem({
             variant="tertiary"
             size="small"
             onPress={() => {
-              copyText(approveInfo.spender);
+              copyText(displaySpender);
             }}
           />
         </XStack>

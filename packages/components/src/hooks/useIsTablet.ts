@@ -5,7 +5,7 @@ import { isDualScreenDevice } from '@onekeyhq/shared/src/modules/DualScreenInfo'
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export const isNativeTablet = cache(() => {
-  return (
+  return !!(
     platformEnv.isNative &&
     (isDualScreenDevice() ||
       ExpoDevice.deviceType === ExpoDevice.DeviceType.TABLET)

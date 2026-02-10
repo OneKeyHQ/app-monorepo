@@ -25,7 +25,7 @@ index 8ec286a..a46ba48 100644
          if (root == null) {
              return
 diff --git a/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/PagerViewViewManagerImpl.kt b/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/PagerViewViewManagerImpl.kt
-index d5b82ff..a4bed78 100644
+index d5b82ff..adfb9a2 100644
 --- a/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/PagerViewViewManagerImpl.kt
 +++ b/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/PagerViewViewManagerImpl.kt
 @@ -7,6 +7,7 @@ import com.facebook.react.uimanager.PixelUtil
@@ -53,8 +53,35 @@ index d5b82ff..a4bed78 100644
      fun addView(host: NestedScrollableHost, child: View?, index: Int) {
          if (child == null) {
              return
+@@ -161,10 +172,22 @@ object PagerViewViewManagerImpl {
+ 
+     private fun refreshViewChildrenLayout(view: View) {
+         view.post {
+-            view.measure(
+-                View.MeasureSpec.makeMeasureSpec(view.width, View.MeasureSpec.EXACTLY),
+-                View.MeasureSpec.makeMeasureSpec(view.height, View.MeasureSpec.EXACTLY))
+-            view.layout(view.left, view.top, view.right, view.bottom)
++            val adapter = (view as? ViewPager2)?.adapter as? ViewPagerAdapter
++            if (adapter == null || adapter.itemCount == 0) {
++                return@post
++            }
++            if (!view.isAttachedToWindow) {
++                return@post
++            }
++            try {
++                view.measure(
++                    View.MeasureSpec.makeMeasureSpec(view.width, View.MeasureSpec.EXACTLY),
++                    View.MeasureSpec.makeMeasureSpec(view.height, View.MeasureSpec.EXACTLY))
++                view.layout(view.left, view.top, view.right, view.bottom)
++            } catch (e: NullPointerException) {
++                // Race condition: ViewHolder detached between post and layout execution.
++                // Safe to ignore as RecyclerView will re-layout on next frame.
++            }
+         }
+     }
+ 
 diff --git a/node_modules/react-native-pager-view/ios/RNCPagerViewComponentView.mm b/node_modules/react-native-pager-view/ios/RNCPagerViewComponentView.mm
-index d52f532..c7f83af 100644
+index d52f532..e27b02e 100644
 --- a/node_modules/react-native-pager-view/ios/RNCPagerViewComponentView.mm
 +++ b/node_modules/react-native-pager-view/ios/RNCPagerViewComponentView.mm
 @@ -29,6 +29,7 @@ @implementation RNCPagerViewComponentView {
@@ -141,7 +168,7 @@ index d52f532..c7f83af 100644
 +    }
 +
      [self disableSwipe];
- 
+     
      _destinationIndex = index;
 @@ -223,25 +255,61 @@ - (void)goTo:(NSInteger)index animated:(BOOL)animated {
  - (void)setPagerViewControllers:(NSInteger)index
@@ -162,7 +189,7 @@ index d52f532..c7f83af 100644
          [self enableSwipe];
          return;
      }
- 
+   
 +    // Validate view controller and its view
 +    UIViewController *targetVC = [_nativeChildrenViewControllers objectAtIndex:index];
 +    if (targetVC == nil || targetVC.view == nil) {
