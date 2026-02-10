@@ -6,6 +6,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EOnboardingV2Routes } from '@onekeyhq/shared/src/routes';
+import { EFullScreenPushRoutes } from '@onekeyhq/shared/src/routes/fullScreenPush';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { keylessOnboardingCache } from '../../components/KeylessWallet/useKeylessWallet';
@@ -29,6 +30,7 @@ import { ManualBackupRouter } from '../../views/ManualBackup/router';
 import { ModalMarketStack } from '../../views/Market/router';
 import { NetworkDoctorModalRouter } from '../../views/NetworkDoctor/router';
 import { ModalNotificationsRouter } from '../../views/Notifications/router';
+import { ActionCenterRouter } from '../../views/ActionCenter/router';
 import { OnboardingRouter } from '../../views/Onboarding/router';
 import { OnboardingRouterV2 } from '../../views/Onboardingv2/router';
 import { ModalPerpStack } from '../../views/Perp/router';
@@ -263,6 +265,14 @@ export const fullModalRouter = [
     children: ModalSignatureConfirmStack,
   },
 ];
+
+export const fullScreenPushRouterConfig: IModalRootNavigatorConfig<EFullScreenPushRoutes>[] =
+  [
+    {
+      name: EFullScreenPushRoutes.ActionCenter,
+      children: ActionCenterRouter,
+    },
+  ];
 
 export const onboardingRouterV2Config: IModalRootNavigatorConfig<EOnboardingV2Routes>[] =
   [
