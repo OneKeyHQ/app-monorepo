@@ -128,9 +128,7 @@ const useBuildLinking = (): LinkingOptions<any> => {
        */
       getPathFromState(state, options) {
         const defaultPath = getPathFromStateDefault(state, options);
-        const defaultPathWithoutQuery = (
-          defaultPath.split('?')[0] || ''
-        )
+        const defaultPathWithoutQuery = (defaultPath.split('?')[0] || '')
           .replace(FULL_SCREEN_MODAL_PATH, MODAL_PATH)
           .replace(FULL_SCREEN_PUSH_PATH, MODAL_PATH);
 

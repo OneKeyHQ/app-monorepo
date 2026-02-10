@@ -18,10 +18,8 @@ export const {
   initialValue: 0,
 });
 
-export const {
-  target: isOnBoardingOpenAtom,
-  use: useIsOnBoardingOpenAtom,
-} = globalAtom<boolean>({
-  name: EAtomNames.isOnBoardingOpenAtom,
-  initialValue: false,
-});
+export const { target: isOnBoardingOpenAtom, use: useIsOnBoardingOpenAtom } =
+  globalAtom<boolean>({
+    name: EAtomNames.isOnBoardingOpenAtom,
+    initialValue: false,
+  });
