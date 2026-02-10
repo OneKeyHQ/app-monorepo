@@ -9,6 +9,12 @@ import {
 } from 'workbox-strategies';
 import { ExpirationPlugin } from 'workbox-expiration';
 
+// Skip waiting immediately on install so existing users with old SW get
+// the fix without needing to confirm the update prompt or close all tabs.
+self.addEventListener('install', () => {
+  self.skipWaiting();
+});
+
 // Precache app shell (manifest injected by InjectManifest at build time)
 precacheAndRoute(self.__WB_MANIFEST);
 
@@ -38,10 +44,3 @@ registerRoute(
     request.destination === 'script' || request.destination === 'style',
   new StaleWhileRevalidate({ cacheName: 'static-resources' }),
 );
-
-// Allow client to trigger skipWaiting so the new SW activates immediately
-self.addEventListener('message', (event) => {
-  if (event.data && event.data.type === 'SKIP_WAITING') {
-    self.skipWaiting();
-  }
-});
