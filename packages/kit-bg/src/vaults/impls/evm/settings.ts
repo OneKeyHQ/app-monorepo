@@ -1,20 +1,33 @@
 import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
+  ArbitrumSUSDai,
+  ArbitrumWeETH,
   BaseUSDC,
+  BaseUniBTC,
   BinanceSmartChainLISTA,
+  BinanceSmartChainSlisBNBx,
   BinanceSmartChainUSDT,
   EMPTY_NATIVE_TOKEN_ADDRESS,
+  EthereumCUSD,
+  EthereumCUSDO,
   EthereumCbBTC,
   EthereumDAI,
+  EthereumJrUSDe,
   EthereumMORPHO,
   EthereumPol,
+  EthereumSENA,
+  EthereumSUSDe,
+  EthereumSrUSDe,
+  EthereumStcUSD,
   EthereumUSDC,
   EthereumUSDF,
   EthereumUSDT,
   EthereumUSDe,
   EthereumWBTC,
   EthereumWETH,
+  EthereumWstETH,
+  HyperEVMKHYPE,
 } from '@onekeyhq/shared/src/consts/addresses';
 import {
   COINTYPE_ETH,
@@ -68,6 +81,15 @@ const lidoConfig: { ETH: IStakingFlowConfig } = {
     claimWithAmount: true,
   },
 };
+
+const createPendleConfig = (tokenAddress: string): IStakingFlowConfig => ({
+  enabled: true,
+  tokenAddress,
+  displayProfit: true,
+  stakingWithApprove: true,
+  withdrawWithTx: true,
+  claimWithTx: true,
+});
 
 const stakingConfig: IStakingConfig = {
   [getNetworkIdsMap().eth]: {
@@ -144,6 +166,30 @@ const stakingConfig: IStakingConfig = {
           },
         },
       },
+      [EEarnProviderEnum.Pendle]: {
+        supportedSymbols: [
+          'sUSDe',
+          'USDe',
+          'cUSD',
+          'srUSDe',
+          'jrUSDe',
+          'cUSDO',
+          'sENA',
+          'wstETH',
+          'stcUSD',
+        ],
+        configs: {
+          sUSDe: createPendleConfig(EthereumSUSDe),
+          USDe: createPendleConfig(EthereumUSDe),
+          cUSD: createPendleConfig(EthereumCUSD),
+          srUSDe: createPendleConfig(EthereumSrUSDe),
+          jrUSDe: createPendleConfig(EthereumJrUSDe),
+          cUSDO: createPendleConfig(EthereumCUSDO),
+          sENA: createPendleConfig(EthereumSENA),
+          wstETH: createPendleConfig(EthereumWstETH),
+          stcUSD: createPendleConfig(EthereumStcUSD),
+        },
+      },
       [EEarnProviderEnum.Falcon]: {
         supportedSymbols: ['USDf'],
         configs: {
@@ -187,6 +233,17 @@ const stakingConfig: IStakingConfig = {
       },
     },
   },
+  [getNetworkIdsMap().arbitrum]: {
+    providers: {
+      [EEarnProviderEnum.Pendle]: {
+        supportedSymbols: ['sUSDai', 'weETH'],
+        configs: {
+          sUSDai: createPendleConfig(ArbitrumSUSDai),
+          weETH: createPendleConfig(ArbitrumWeETH),
+        },
+      },
+    },
+  },
   [getNetworkIdsMap().base]: {
     providers: {
       [EEarnProviderEnum.Morpho]: {
@@ -198,6 +255,12 @@ const stakingConfig: IStakingConfig = {
             displayProfit: true,
             stakingWithApprove: true,
           },
+        },
+      },
+      [EEarnProviderEnum.Pendle]: {
+        supportedSymbols: ['uniBTC'],
+        configs: {
+          uniBTC: createPendleConfig(BaseUniBTC),
         },
       },
     },
@@ -229,6 +292,22 @@ const stakingConfig: IStakingConfig = {
             displayProfit: true,
             stakingWithApprove: true,
           },
+        },
+      },
+      [EEarnProviderEnum.Pendle]: {
+        supportedSymbols: ['slisBNBx'],
+        configs: {
+          slisBNBx: createPendleConfig(BinanceSmartChainSlisBNBx),
+        },
+      },
+    },
+  },
+  [getNetworkIdsMap().hyperevm]: {
+    providers: {
+      [EEarnProviderEnum.Pendle]: {
+        supportedSymbols: ['kHYPE'],
+        configs: {
+          kHYPE: createPendleConfig(HyperEVMKHYPE),
         },
       },
     },

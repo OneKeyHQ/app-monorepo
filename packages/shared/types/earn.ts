@@ -7,6 +7,7 @@ export enum EEarnProviderEnum {
   Everstake = 'Everstake',
   Babylon = 'Babylon',
   Morpho = 'Morpho',
+  Pendle = 'Pendle',
   Falcon = 'Falcon',
   Ethena = 'Ethena',
   Momentum = 'Momentum',
@@ -33,7 +34,23 @@ export type ISupportedSymbol =
   | 'USDf'
   | 'MORPHO'
   | 'LISTA'
-  | 'USDe';
+  | 'USDe'
+  | 'sUSDe'
+  | 'sUSDai'
+  | 'cUSD'
+  | 'srUSDe'
+  | 'jrUSDe'
+  | 'cUSDO'
+  | 'syrupUSDT'
+  | 'sENA'
+  | 'uniBTC'
+  | 'slisBNBx'
+  | 'PlasmaUSD'
+  | 'wstETH'
+  | 'weETH'
+  | 'aUSDT0'
+  | 'stcUSD'
+  | 'kHYPE';
 
 export interface IStakingFlowConfig {
   enabled: boolean;

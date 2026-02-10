@@ -90,6 +90,31 @@ const earnTradeDefaultSetBNB = {
   'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/bsc.png',
 };
 
+export const PENDLE_SUPPORTED_SYMBOLS: ISupportedSymbol[] = [
+  'sUSDe',
+  'USDe',
+  'sUSDai',
+  'cUSD',
+  'srUSDe',
+  'jrUSDe',
+  'cUSDO',
+  'syrupUSDT',
+  'sENA',
+  'uniBTC',
+  'slisBNBx',
+  'PlasmaUSD',
+  'wstETH',
+  'weETH',
+  'aUSDT0',
+  'stcUSD',
+  'kHYPE',
+];
+
+export const isPendleSupportedSymbol = (symbol: string): boolean =>
+  PENDLE_SUPPORTED_SYMBOLS.some(
+    (supportedSymbol) => supportedSymbol.toLowerCase() === symbol.toLowerCase(),
+  );
+
 export const isSupportStaking = (symbol: string) =>
   [
     'BTC',
@@ -154,6 +179,22 @@ export function normalizeToEarnSymbol(
     'wbtc': 'WBTC',
     'usdf': 'USDf',
     'usde': 'USDe',
+    'susde': 'sUSDe',
+    'susdai': 'sUSDai',
+    'cusd': 'cUSD',
+    'srusde': 'srUSDe',
+    'jrusde': 'jrUSDe',
+    'cusdo': 'cUSDO',
+    'syrupusdt': 'syrupUSDT',
+    'sena': 'sENA',
+    'unibtc': 'uniBTC',
+    'slisbnbx': 'slisBNBx',
+    'plasmausd': 'PlasmaUSD',
+    'wsteth': 'wstETH',
+    'weeth': 'weETH',
+    'ausdt0': 'aUSDT0',
+    'stcusd': 'stcUSD',
+    'khype': 'kHYPE',
     'lista': 'LISTA',
   };
   return symbolMap[symbol.toLowerCase()];
@@ -167,6 +208,7 @@ export function normalizeToEarnProvider(
     'everstake': EEarnProviderEnum.Everstake,
     'babylon': EEarnProviderEnum.Babylon,
     'morpho': EEarnProviderEnum.Morpho,
+    'pendle': EEarnProviderEnum.Pendle,
     'lista': EEarnProviderEnum.Lista,
     'stakefish': EEarnProviderEnum.Stakefish,
     'falcon': EEarnProviderEnum.Falcon,
@@ -277,6 +319,22 @@ export function getSymbolSupportedNetworks(): Record<
     'WBTC': [networkIdsMap.eth, networkIdsMap.sui],
     'USDf': [networkIdsMap.eth],
     'USDe': [networkIdsMap.eth],
+    'sUSDe': [networkIdsMap.eth],
+    'sUSDai': [networkIdsMap.arbitrum],
+    'cUSD': [networkIdsMap.eth],
+    'srUSDe': [networkIdsMap.eth],
+    'jrUSDe': [networkIdsMap.eth],
+    'cUSDO': [networkIdsMap.eth],
+    'syrupUSDT': [networkIdsMap.eth],
+    'sENA': [networkIdsMap.eth],
+    'uniBTC': [networkIdsMap.base],
+    'slisBNBx': [networkIdsMap.bsc],
+    'PlasmaUSD': [networkIdsMap.eth],
+    'wstETH': [networkIdsMap.eth],
+    'weETH': [networkIdsMap.arbitrum],
+    'aUSDT0': [networkIdsMap.eth],
+    'stcUSD': [networkIdsMap.eth],
+    'kHYPE': [networkIdsMap.hyperevm],
     'MORPHO': [networkIdsMap.eth],
     'LISTA': [networkIdsMap.bsc],
   };

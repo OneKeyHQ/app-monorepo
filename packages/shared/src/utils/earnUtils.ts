@@ -34,6 +34,8 @@ const isEverstakeProvider = createProviderCheck(EEarnProviderEnum.Everstake);
 
 const isMorphoProvider = createProviderCheck(EEarnProviderEnum.Morpho);
 
+const isPendleProvider = createProviderCheck(EEarnProviderEnum.Pendle);
+
 const isListaProvider = createProviderCheck(EEarnProviderEnum.Lista);
 
 const isStakefishProvider = createProviderCheck(EEarnProviderEnum.Stakefish);
@@ -47,6 +49,7 @@ const isMomentumProvider = createProviderCheck(EEarnProviderEnum.Momentum);
 const isVaultBasedProvider = ({ providerName }: { providerName: string }) => {
   return (
     isMorphoProvider({ providerName }) ||
+    isPendleProvider({ providerName }) ||
     isListaProvider({ providerName }) ||
     isMomentumProvider({ providerName })
   );
@@ -126,6 +129,7 @@ export default {
   buildEarnAccountKey,
   getEarnProviderEnumKey,
   isMorphoProvider,
+  isPendleProvider,
   isListaProvider,
   isLidoProvider,
   isBabylonProvider,

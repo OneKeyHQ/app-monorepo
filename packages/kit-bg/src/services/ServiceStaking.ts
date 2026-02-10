@@ -1343,8 +1343,27 @@ class ServiceStaking extends ServiceBase {
     }
 
     const tokenSymbol = symbol as ISupportedSymbol;
-    if (providerConfig.supportedSymbols.includes(tokenSymbol)) {
-      return providerConfig.configs[tokenSymbol];
+    const isProviderSupportedSymbol =
+      providerConfig.supportedSymbols.includes(tokenSymbol);
+    const configuredFlow = isProviderSupportedSymbol
+      ? providerConfig.configs[tokenSymbol]
+      : undefined;
+    if (configuredFlow) {
+      return configuredFlow;
+    }
+
+    // Pendle is vault (PT market) driven, symbol set is backend-driven and
+    // may not have one-by-one local tokenAddress configs.
+    if (earnUtils.isPendleProvider({ providerName: provider })) {
+      if (!isProviderSupportedSymbol) {
+        return null;
+      }
+      const fallbackConfig = Object.values(providerConfig.configs).find(
+        (config) => config?.enabled,
+      );
+      if (fallbackConfig) {
+        return fallbackConfig;
+      }
     }
 
     return null;

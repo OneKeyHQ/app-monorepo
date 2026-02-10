@@ -67,6 +67,7 @@ export type INetworkShortCode =
   | 'taiko'
   | 'metis'
   | 'hsk'
+  | 'hyperevm'
   | 'neon3'
   | 'linea'
   | 'zksyncera';
