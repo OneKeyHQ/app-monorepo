@@ -17,7 +17,6 @@ import {
   View,
   XStack,
   YStack,
-  // oxlint-disable-next-line import/no-cycle
 } from '../../primitives';
 import { Spinner } from '../../primitives/Spinner/Spinner';
 
@@ -28,7 +27,6 @@ import type { IShowToasterInstance, IShowToasterProps } from './ShowCustom';
 import type { IToastMessageOptions } from './type';
 import type { IPortalManager } from '../../hocs';
 import type { IKeyOfIcons, ISizableTextProps } from '../../primitives';
-// oxlint-disable-next-line import/no-cycle
 import { usePageWidth } from '../../hooks/usePage';
 import { useWindowDimensions } from 'react-native';
 

@@ -1,5 +1,4 @@
 export * from './useBackHandler';
-// oxlint-disable-next-line import/no-cycle
 export * from './useClipboard';
 export * from './useColor';
 export * from './useDeepCompareEffect';
