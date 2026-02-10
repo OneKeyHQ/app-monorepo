@@ -47,6 +47,7 @@ import Animated, {
   useSharedValue,
   withDecay,
 } from 'react-native-reanimated';
+import { useReferFriends } from '@onekeyhq/kit/src/hooks/useReferFriends';
 
 const BANNER_ITEM_WIDTH = 280;
 const BANNER_GAP = 8;
@@ -555,11 +556,12 @@ function WalletBanner() {
   });
 
   const navigation = useAppNavigation();
+  const { toReferFriendsPage } = useReferFriends();
 
   const handleBannerOnPress = useCallback(
     (item: IWalletBanner) => {
       if (item.id === 'static-2') {
-        navigation.switchTab(ETabRoutes.ReferFriends);
+        toReferFriendsPage();
         return;
       }
       if (item.id === 'static-3') {
