@@ -745,6 +745,9 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
       title={intl.formatMessage({ id: ETranslations.global_favorites })}
       headerActions={headerActions}
       headerContainerProps={{ px: '$pagePadding' }}
+      contentContainerProps={
+        !hasUserFavorites ? { px: '$pagePadding' } : undefined
+      }
       content={renderContent()}
       plainContentContainer
     />
