@@ -824,13 +824,10 @@ function FeeEditor(props: IProps) {
             ...item,
             label: (
               <YStack>
-                {/* <SizableText size="$bodyMdMedium" textAlign="center">
-                  {item.icon}
-                </SizableText> */}
                 <SizableText
                   color={
                     currentFeeIndex === index
-                      ? '$textInteractive'
+                      ? '$textInverse'
                       : '$textSubdued'
                   }
                   size="$bodyMdMedium"
@@ -838,18 +835,6 @@ function FeeEditor(props: IProps) {
                 >
                   {item.label}
                 </SizableText>
-                {/* <NumberSizeableText
-                  color={currentFeeIndex === index ? '$text' : '$textSubdued'}
-                  size="$bodySm"
-                  textAlign="center"
-                  formatter="value"
-                >
-                  {item.type === EFeeType.Custom
-                    ? intl.formatMessage({ id: ETranslations.content__custom })
-                    : getFeePriceNumber({
-                        feeInfo: item.feeInfo,
-                      })}
-                </NumberSizeableText> */}
               </YStack>
             ),
           }))}
