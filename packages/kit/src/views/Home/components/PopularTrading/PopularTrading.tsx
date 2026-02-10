@@ -217,7 +217,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
                   showNetworkIcon
                 />
                 <YStack>
-                  <SizableText size="$bodyMdMedium">
+                  <SizableText size="$bodyLgMedium">
                     {record.symbol}
                   </SizableText>
                   <SizableText size="$bodyMd" color="$textSubdued">
@@ -233,7 +233,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
           title: intl.formatMessage({ id: ETranslations.global_price }),
           render: (_: unknown, record: IFavoriteTokenDisplay) => (
             <NumberSizeableText
-              size="$bodyMdMedium"
+              size="$bodyLgMedium"
               formatter="price"
               formatterOptions={{ currency: currencyInfo?.symbol }}
             >
@@ -254,7 +254,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
                 formatter="priceChange"
                 formatterOptions={{ showPlusMinusSigns }}
                 color={changeColor}
-                size="$bodyMdMedium"
+                size="$bodyLgMedium"
               >
                 {record.priceChange24h ?? '-'}
               </NumberSizeableText>
@@ -266,7 +266,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
           title: intl.formatMessage({ id: ETranslations.global_market_cap }),
           render: (_: unknown, record: IFavoriteTokenDisplay) => (
             <NumberSizeableText
-              size="$bodyMdMedium"
+              size="$bodyLgMedium"
               formatter="marketCap"
               formatterOptions={{ currency: currencyInfo?.symbol }}
             >
@@ -642,30 +642,28 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
           columns={columns}
           keyExtractor={(item) => `${item.chainId}-${item.contractAddress}`}
           estimatedItemSize={56}
-          rowProps={
-            tableLayout
-              ? undefined
-              : {
-                  py: '$0',
-                  px: '$0',
-                }
-          }
+          rowProps={{
+            mx: '$2',
+            px: '$3',
+          }}
+          headerRowProps={{
+            px: '$3',
+            mx: '$2',
+          }}
           onRow={(record) => ({
             onPress: () => handleTokenPress(record),
           })}
         />
         {showViewMoreButton ? (
-          <XStack py="$3" jc="center" ai="center">
+          <XStack pt="$3" px="$pagePadding" jc="center" ai="center">
             <Button
-              size="small"
               variant="secondary"
               iconAfter="ChevronRightSmallOutline"
               onPress={handleViewMore}
+              flexGrow={1}
+              flexBasis={0}
               $md={
                 {
-                  flexGrow: 1,
-                  flexBasis: 0,
-                  size: 'medium',
                   borderRadius: '$full',
                   hoverStyle: { bg: 'transparent' },
                   pressStyle: { bg: 'transparent' },
@@ -719,7 +717,6 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
           listCount={displayCount}
           listContainerProps={{ py: '$0' }}
           listHeaderProps={{ px: '$3' }}
-          itemProps={{ px: tableLayout ? '$3' : '$0', mx: '$0' }}
         />
       );
     }
@@ -737,7 +734,6 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     isLoading,
     renderEmptyStateCards,
     renderUserFavoritesList,
-    tableLayout,
   ]);
 
   if (initializedRef.current && isEmpty(favoriteTokens)) {
@@ -748,11 +744,9 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     <RichBlock
       title={intl.formatMessage({ id: ETranslations.global_favorites })}
       headerActions={headerActions}
+      headerContainerProps={{ px: '$pagePadding' }}
       content={renderContent()}
-      contentContainerProps={{
-        px: tableLayout && hasUserFavorites ? '$2' : '$0',
-      }}
-      plainContentContainer={!tableLayout || !hasUserFavorites}
+      plainContentContainer
     />
   );
 }
