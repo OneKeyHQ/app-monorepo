@@ -465,7 +465,11 @@ class ServiceMarketV2 extends ServiceBase {
     skipEventEmit,
     callerName,
   }: {
-    items: Array<{ chainId: string; contractAddress: string }>;
+    items: Array<{
+      chainId: string;
+      contractAddress: string;
+      perpsCoin?: string;
+    }>;
     skipSaveLocalSyncItem?: boolean;
     skipEventEmit?: boolean;
     callerName: string;
@@ -498,14 +502,17 @@ class ServiceMarketV2 extends ServiceBase {
   async getMarketWatchListItemV2({
     chainId,
     contractAddress,
+    perpsCoin,
   }: {
     chainId: string;
     contractAddress: string;
+    perpsCoin?: string;
   }): Promise<IMarketWatchListItemV2 | undefined> {
     return this.backgroundApi.simpleDb.marketWatchListV2.getMarketWatchListItemV2(
       {
         chainId,
         contractAddress,
+        perpsCoin,
       },
     );
   }
@@ -543,7 +550,9 @@ class ServiceMarketV2 extends ServiceBase {
       return [];
     }
 
-    const tokenAddressList = watchlistData.data.map((item) => ({
+    // Filter out perps items — they don't have chainId/contractAddress for batch lookup
+    const spotItems = watchlistData.data.filter((item) => !item.perpsCoin);
+    const tokenAddressList = spotItems.map((item) => ({
       chainId: item.chainId,
       contractAddress: item.contractAddress,
       isNative: item.isNative ?? false,
@@ -562,8 +571,7 @@ class ServiceMarketV2 extends ServiceBase {
       );
     }
 
-    const watchlistItems: IMarketWatchListItemV2[] = watchlistData.data;
-    const tokens: INotificationWatchlistToken[] = watchlistItems.map(
+    const tokens: INotificationWatchlistToken[] = spotItems.map(
       (item, index) => {
         const detail = tokenDetails.list[index];
 

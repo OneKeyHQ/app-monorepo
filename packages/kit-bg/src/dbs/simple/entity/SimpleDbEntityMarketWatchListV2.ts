@@ -27,12 +27,17 @@ export class SimpleDbEntityMarketWatchListV2 extends SimpleDbEntityBase<IMarketW
   async getMarketWatchListItemV2({
     chainId,
     contractAddress,
+    perpsCoin,
   }: {
     chainId: string;
     contractAddress: string;
+    perpsCoin?: string;
   }): Promise<IMarketWatchListItemV2 | undefined> {
     try {
       const watchList = await this.getMarketWatchListV2();
+      if (perpsCoin) {
+        return watchList.data.find((item) => item.perpsCoin === perpsCoin);
+      }
       return watchList.data.find((item) =>
         equalTokenNoCaseSensitive({
           token1: {
@@ -69,7 +74,10 @@ export class SimpleDbEntityMarketWatchListV2 extends SimpleDbEntityBase<IMarketW
       const newList: IMarketWatchListItemV2[] = sortUtils.buildSortedList({
         oldList,
         saveItems: watchList,
-        uniqByFn: (i) => `${i.chainId}:${i.contractAddress}`,
+        uniqByFn: (i) =>
+          i.perpsCoin
+            ? `perps:${i.perpsCoin}`
+            : `${i.chainId}:${i.contractAddress}`,
       });
 
       const newData: IMarketWatchListDataV2 | undefined | null = {
@@ -83,7 +91,11 @@ export class SimpleDbEntityMarketWatchListV2 extends SimpleDbEntityBase<IMarketW
     items,
     callerName,
   }: {
-    items: Array<{ chainId: string; contractAddress: string }>;
+    items: Array<{
+      chainId: string;
+      contractAddress: string;
+      perpsCoin?: string;
+    }>;
     callerName: string;
   }) {
     defaultLogger.cloudSync.market.simpleDbRemoveWatchListItems({
@@ -93,11 +105,15 @@ export class SimpleDbEntityMarketWatchListV2 extends SimpleDbEntityBase<IMarketW
     await this.setRawData((data) => {
       const oldList = data?.data ?? [];
 
-      // Fixed: Use equalTokenNoCaseSensitive from shared utils for proper token matching
       const filteredData = oldList.filter(
         (i) =>
-          !items.some((item) =>
-            equalTokenNoCaseSensitive({
+          !items.some((item) => {
+            // Match perps items by perpsCoin
+            if (item.perpsCoin) {
+              return i.perpsCoin === item.perpsCoin;
+            }
+            // Match spot items by chainId + contractAddress
+            return equalTokenNoCaseSensitive({
               token1: {
                 networkId: item.chainId,
                 contractAddress: item.contractAddress,
@@ -106,8 +122,8 @@ export class SimpleDbEntityMarketWatchListV2 extends SimpleDbEntityBase<IMarketW
                 networkId: i.chainId,
                 contractAddress: i.contractAddress,
               },
-            }),
-          ),
+            });
+          }),
       );
 
       const newData: IMarketWatchListDataV2 | undefined | null = {

@@ -3,7 +3,6 @@ import { memo, useCallback, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
-  Icon,
   NumberSizeableText,
   SizableText,
   Skeleton,
@@ -21,6 +20,8 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+
+import { MarketPerpsStarV2 } from '../../../components/MarketStarV2';
 
 import { useMarketPerpsTokenList } from './hooks/useMarketPerpsTokenList';
 import { MarketPerpsCategorySelector } from './MarketPerpsCategorySelector';
@@ -65,7 +66,7 @@ function usePerpsColumnsDesktop(): ITableColumn<IMarketPerpsToken>[] {
   return useMemo(
     () =>
       [
-        // Column 1: Star (placeholder - perps watchlist TBD)
+        // Column 1: Star (perps watchlist)
         {
           title: (
             <SizableText pl="$3.5" size="$bodyMd" color="$textSubdued">
@@ -74,9 +75,9 @@ function usePerpsColumnsDesktop(): ITableColumn<IMarketPerpsToken>[] {
           ) as any,
           dataIndex: 'star',
           columnWidth: 50,
-          render: () => (
+          render: (_: unknown, record: IMarketPerpsToken) => (
             <Stack pl="$2">
-              <Icon name="StarOutline" size="$5" color="$iconSubdued" />
+              <MarketPerpsStarV2 perpsCoin={record.name} />
             </Stack>
           ),
           renderSkeleton: () => (
@@ -145,37 +146,59 @@ function usePerpsColumnsDesktop(): ITableColumn<IMarketPerpsToken>[] {
           renderSkeleton: () => <Skeleton width={70} height={16} />,
         },
 
-        // Column 3: 24h Change
+        // Column 3: 24h Change (absolute / percent)
         {
           title: `${intl.formatMessage({
             id: ETranslations.dexmarket_token_change,
           })}(%)`,
           dataIndex: 'change24h',
-          columnProps: { flex: 1 },
+          columnProps: { flex: 1.2 },
           render: (_: unknown, record: IMarketPerpsToken) => {
-            if (record.change24hPercent === undefined) {
+            if (
+              record.change24hPercent === undefined ||
+              !record.markPrice ||
+              !record.prevDayPrice
+            ) {
               return (
                 <SizableText size="$bodyMd" color="$textSubdued">
                   --
                 </SizableText>
               );
             }
+            const absChange =
+              Number(record.markPrice) - Number(record.prevDayPrice);
+            const color =
+              record.change24hPercent >= 0
+                ? '$textSuccess'
+                : '$textCritical';
             return (
-              <NumberSizeableText
-                size="$bodyMd"
-                color={
-                  record.change24hPercent >= 0
-                    ? '$textSuccess'
-                    : '$textCritical'
-                }
-                formatter="priceChange"
-                formatterOptions={{ showPlusMinusSigns: true }}
-              >
-                {record.change24hPercent}
-              </NumberSizeableText>
+              <XStack gap="$1" alignItems="center">
+                <NumberSizeableText
+                  size="$bodyMd"
+                  color={color}
+                  formatter="price"
+                  formatterOptions={{
+                    showPlusMinusSigns: true,
+                    currency: '',
+                  }}
+                >
+                  {absChange}
+                </NumberSizeableText>
+                <SizableText size="$bodyMd" color={color}>
+                  /
+                </SizableText>
+                <NumberSizeableText
+                  size="$bodyMd"
+                  color={color}
+                  formatter="priceChange"
+                  formatterOptions={{ showPlusMinusSigns: true }}
+                >
+                  {record.change24hPercent}
+                </NumberSizeableText>
+              </XStack>
             );
           },
-          renderSkeleton: () => <Skeleton width={60} height={16} />,
+          renderSkeleton: () => <Skeleton width={100} height={16} />,
         },
 
         // Column 4: 24h Volume
@@ -199,7 +222,9 @@ function usePerpsColumnsDesktop(): ITableColumn<IMarketPerpsToken>[] {
 
         // Column 5: Open Interest
         {
-          title: 'OI',
+          title: intl.formatMessage({
+            id: ETranslations.perp_token_bar_open_Interest,
+          }),
           dataIndex: 'openInterest',
           columnProps: { flex: 1 },
           render: (_: unknown, record: IMarketPerpsToken) => (

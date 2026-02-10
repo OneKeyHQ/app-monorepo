@@ -52,11 +52,15 @@ function mergeTokenData(
   const tokenImageUrl = getHyperliquidTokenImageUrl(displayName);
 
   let change24hPercent: number | undefined;
+  let openInterestUsd: string | undefined;
   if (assetCtx) {
     const markPx = Number(assetCtx.markPx);
     const prevDayPx = Number(assetCtx.prevDayPx);
     if (prevDayPx !== 0) {
       change24hPercent = ((markPx - prevDayPx) / prevDayPx) * 100;
+    }
+    if (assetCtx.openInterest) {
+      openInterestUsd = String(Number(assetCtx.openInterest) * markPx);
     }
   }
 
@@ -72,7 +76,7 @@ function mergeTokenData(
     prevDayPrice: assetCtx?.prevDayPx,
     change24hPercent,
     volume24h: assetCtx?.dayNtlVlm,
-    openInterest: assetCtx?.openInterest,
+    openInterest: openInterestUsd,
     fundingRate: assetCtx?.funding,
   };
 }

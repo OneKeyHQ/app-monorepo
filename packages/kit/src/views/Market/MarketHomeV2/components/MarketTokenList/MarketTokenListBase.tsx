@@ -22,6 +22,10 @@ import type {
 import { ESortWay } from '@onekeyhq/shared/src/logger/scopes/dex/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+
 import { useMarketTokenColumns } from './hooks/useMarketTokenColumns';
 import { useToDetailPage } from './hooks/useToMarketDetailPage';
 import { type IMarketToken } from './MarketTokenData';
@@ -77,6 +81,7 @@ function MarketTokenListBase({
   copyFrom,
 }: IMarketTokenListBaseProps) {
   const toMarketDetailPage = useToDetailPage();
+  const navigation = useAppNavigation();
   const { md } = useMedia();
 
   const marketTokenColumns = useMarketTokenColumns(
@@ -250,9 +255,7 @@ function MarketTokenListBase({
               columns={marketTokenColumns}
               onEndReached={handleEndReached}
               dataSource={data}
-              keyExtractor={(item) =>
-                item.address + item.symbol + item.networkId
-              }
+              keyExtractor={(item) => item.id}
               extraData={networkId}
               onHeaderRow={handleHeaderRow}
               TableFooterComponent={TableFooterComponent}
@@ -263,13 +266,27 @@ function MarketTokenListBase({
                       onPress: () => onItemPress(item),
                     })
                   : (item) => ({
-                      onPress: () =>
-                        toMarketDetailPage({
+                      onPress: () => {
+                        if (item.perpsCoin) {
+                          setTimeout(async () => {
+                            navigation.switchTab(ETabRoutes.Perp);
+                            try {
+                              await backgroundApiProxy.serviceHyperliquid.changeActiveAsset(
+                                { coin: item.perpsCoin! },
+                              );
+                            } catch (error) {
+                              // ignore
+                            }
+                          }, 80);
+                          return;
+                        }
+                        void toMarketDetailPage({
                           symbol: item.symbol,
                           tokenAddress: item.address,
                           networkId: item.networkId,
                           isNative: item.isNative,
-                        }),
+                        });
+                      },
                     })
               }
             />
