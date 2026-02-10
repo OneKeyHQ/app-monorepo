@@ -8,6 +8,14 @@
  *   import '@onekeyhq/shared/src/performance/init';
  */
 /* eslint-disable @typescript-eslint/no-var-requires */
+
+// Initialize debug timestamp as early as possible (dev only)
+// This must run before any other imports to avoid NaN in LANDING_DEBUG logs
+if (process.env.NODE_ENV !== 'production') {
+  (globalThis as any).$$debugT0 =
+    (globalThis as any).$$debugT0 ?? performance.now();
+}
+
 import { isPerfMonitorEnabled } from './enabled';
 
 if (isPerfMonitorEnabled()) {

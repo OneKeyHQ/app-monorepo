@@ -10,6 +10,11 @@ const AgentationDev =
     : () => null;
 
 export default function App(props: any) {
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(
+      `[LANDING_DEBUG] App render, +${(performance.now() - ((globalThis as any).$$debugT0 ?? 0)).toFixed(1)}ms`,
+    );
+  }
   return (
     <>
       <KitProvider {...props} />

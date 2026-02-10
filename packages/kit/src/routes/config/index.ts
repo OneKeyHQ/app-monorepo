@@ -58,6 +58,11 @@ const MODAL_PATH = `/${ERootRoutes.Modal}`;
 const FULL_SCREEN_MODAL_PATH = `/${ERootRoutes.iOSFullScreen}`;
 
 const onGetStateFromPath = (path: string, options?: any) => {
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(
+      `[LANDING_DEBUG] getStateFromPath path="${path}", +${(performance.now() - ((globalThis as any).$$debugT0 ?? 0)).toFixed(1)}ms`,
+    );
+  }
   // Web platform: rewrite ?r= referral parameter to /r/{code}/app/{page} format
   if (platformEnv.isWeb) {
     const [pathPart, queryPart] = path.split('?');

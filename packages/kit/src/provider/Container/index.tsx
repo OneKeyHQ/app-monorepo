@@ -88,6 +88,11 @@ const splitMainViewContext = { viewType: ESplitViewType.MAIN };
 const splitSubViewContext = { viewType: ESplitViewType.SUB };
 
 export function Container() {
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(
+      `[LANDING_DEBUG] Container render, +${(performance.now() - ((globalThis as any).$$debugT0 ?? 0)).toFixed(1)}ms`,
+    );
+  }
   const isTablet = isNativeTablet();
   if (isTablet) {
     return (

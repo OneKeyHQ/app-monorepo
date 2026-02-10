@@ -151,6 +151,11 @@ function BaseMarketHome() {
 }
 
 export function MarketHomeV2() {
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(
+      `[LANDING_DEBUG] MarketHomeV2 render, +${(performance.now() - ((globalThis as any).$$debugT0 ?? 0)).toFixed(1)}ms`,
+    );
+  }
   return (
     <AccountSelectorProviderMirror
       config={{

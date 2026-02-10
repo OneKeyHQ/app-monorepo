@@ -12,8 +12,18 @@ import { useRouterConfig } from '../../routes/config';
 import { TabFreezeOnBlurContainer } from './TabFreezeOnBlurContainer';
 
 function BasicNavigation({ children }: PropsWithChildren) {
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(
+      `[LANDING_DEBUG] BasicNavigation render, +${(performance.now() - ((globalThis as any).$$debugT0 ?? 0)).toFixed(1)}ms`,
+    );
+  }
   const { containerProps, routerConfig } = useRouterConfig();
   return useMemo(() => {
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(
+        `[LANDING_DEBUG] BasicNavigation useMemo, +${(performance.now() - ((globalThis as any).$$debugT0 ?? 0)).toFixed(1)}ms`,
+      );
+    }
     return (
       <NavigationContainerComponent {...containerProps}>
         <TabFreezeOnBlurContainer>

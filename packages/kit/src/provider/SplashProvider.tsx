@@ -84,6 +84,12 @@ export const useDisplaySplash =
 export function SplashProvider({ children }: PropsWithChildren<unknown>) {
   const displaySplash = useDisplaySplash();
 
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(
+      `[LANDING_DEBUG] SplashProvider render, displaySplash=${displaySplash}, +${(performance.now() - ((globalThis as any).$$debugT0 ?? 0)).toFixed(1)}ms`,
+    );
+  }
+
   // Web platform: skip splash screen entirely, render children directly
   useEffect(() => {
     if (platformEnv.isWeb) {

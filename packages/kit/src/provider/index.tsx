@@ -52,6 +52,12 @@ export function KitProvider(props: any = {}) {
 
   ColdStartByNotification.launchNotification = launchNotification;
 
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(
+      `[LANDING_DEBUG] KitProvider render, +${(performance.now() - ((globalThis as any).$$debugT0 ?? 0)).toFixed(1)}ms`,
+    );
+  }
+
   useDebugComponentRemountLog({ name: 'KitProvider' });
 
   useFonts({

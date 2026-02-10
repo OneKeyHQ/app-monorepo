@@ -42,7 +42,9 @@ async function preloadAtomStorageValues() {
 
 export async function jotaiInit() {
   if (process.env.NODE_ENV !== 'production') {
-    console.log(`[LANDING_DEBUG] jotaiInit start, +${(performance.now() - ((globalThis as any).$$debugT0 ?? 0)).toFixed(1)}ms`);
+    console.log(
+      `[LANDING_DEBUG] jotaiInit start, +${(performance.now() - ((globalThis as any).$$debugT0 ?? 0)).toFixed(1)}ms`,
+    );
   }
 
   // Parallelize: import atoms + preload all storage values at the same time
@@ -52,7 +54,9 @@ export async function jotaiInit() {
   ]);
 
   if (process.env.NODE_ENV !== 'production') {
-    console.log(`[LANDING_DEBUG] jotaiInit atoms imported & storage preloaded, +${(performance.now() - ((globalThis as any).$$debugT0 ?? 0)).toFixed(1)}ms`);
+    console.log(
+      `[LANDING_DEBUG] jotaiInit atoms imported & storage preloaded, +${(performance.now() - ((globalThis as any).$$debugT0 ?? 0)).toFixed(1)}ms`,
+    );
   }
 
   const atoms: { [key: string]: JotaiCrossAtom<any> } = {};
@@ -101,9 +105,8 @@ export async function jotaiInit() {
           isPlainObject(initValue)
         ) {
           // Lazy import dbBackupTools — only needed on first launch
-          const { default: dbBackupToolsLazy } = await import(
-            '../../services/ServiceDBBackup/dbBackupTools'
-          );
+          const { default: dbBackupToolsLazy } =
+            await import('../../services/ServiceDBBackup/dbBackupTools');
           const backupedInstanceMeta =
             await dbBackupToolsLazy.getBackupedInstanceMeta();
           if (backupedInstanceMeta) {
@@ -162,7 +165,9 @@ export async function jotaiInit() {
   );
 
   if (process.env.NODE_ENV !== 'production') {
-    console.log(`[LANDING_DEBUG] jotaiInit done, +${(performance.now() - ((globalThis as any).$$debugT0 ?? 0)).toFixed(1)}ms`);
+    console.log(
+      `[LANDING_DEBUG] jotaiInit done, +${(performance.now() - ((globalThis as any).$$debugT0 ?? 0)).toFixed(1)}ms`,
+    );
   }
 
   globalJotaiStorageReadyHandler.resolveReady(true);
