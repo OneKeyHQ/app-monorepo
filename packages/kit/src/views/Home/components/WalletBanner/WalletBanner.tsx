@@ -34,7 +34,7 @@ import {
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EModalRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalSignAndVerifyRoutes } from '@onekeyhq/shared/src/routes/signAndVerify';
 import type { IWalletBanner } from '@onekeyhq/shared/types/walletBanner';
 
@@ -561,7 +561,7 @@ function WalletBanner() {
   const handleBannerOnPress = useCallback(
     (item: IWalletBanner) => {
       if (item.id === 'static-2') {
-        toReferFriendsPage();
+        void toReferFriendsPage();
         return;
       }
       if (item.id === 'static-3') {
