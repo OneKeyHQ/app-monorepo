@@ -20,6 +20,7 @@ import {
   AppUpdate,
   BundleUpdate,
 } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
+import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
@@ -85,9 +86,7 @@ export function SplashProvider({ children }: PropsWithChildren<unknown>) {
   const displaySplash = useDisplaySplash();
 
   if (process.env.NODE_ENV !== 'production') {
-    console.log(
-      `[LANDING_DEBUG] SplashProvider render, displaySplash=${displaySplash}, +${(performance.now() - ((globalThis as any).$$debugT0 ?? 0)).toFixed(1)}ms`,
-    );
+    debugLandingLog('SplashProvider render', `displaySplash=${displaySplash}`);
   }
 
   // Web platform: skip splash screen entirely, render children directly

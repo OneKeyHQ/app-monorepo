@@ -242,11 +242,12 @@ class GlobalJotaiStorageReadyHandler {
   };
 
   ready = new Promise<boolean>((resolve) => {
-    this.resolveReady = (value) => {
+    const wrappedResolve = (value: boolean | PromiseLike<boolean>) => {
       this.isReady = true;
       resolve(value);
     };
-    if (typeof this.resolveReady !== 'function') {
+    this.resolveReady = wrappedResolve;
+    if (this.resolveReady !== wrappedResolve) {
       throw new OneKeyLocalError('update resolveReady callback failed');
     }
   });

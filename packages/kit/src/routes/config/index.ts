@@ -11,6 +11,7 @@ import {
   useRouterEventsRef,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { getExtensionIndexHtml } from '@onekeyhq/shared/src/utils/extUtils';
@@ -59,9 +60,7 @@ const FULL_SCREEN_MODAL_PATH = `/${ERootRoutes.iOSFullScreen}`;
 
 const onGetStateFromPath = (path: string, options?: any) => {
   if (process.env.NODE_ENV !== 'production') {
-    console.log(
-      `[LANDING_DEBUG] getStateFromPath path="${path}", +${(performance.now() - ((globalThis as any).$$debugT0 ?? 0)).toFixed(1)}ms`,
-    );
+    debugLandingLog('getStateFromPath', `path="${path}"`);
   }
   // Web platform: rewrite ?r= referral parameter to /r/{code}/app/{page} format
   if (platformEnv.isWeb) {
@@ -79,7 +78,7 @@ const onGetStateFromPath = (path: string, options?: any) => {
     }
   }
   // WebDappMode: rewrite "/" to "/market" so Market tab is the landing page
-  if (platformEnv.isWebDappMode && path === '/') {
+  if (platformEnv.isWebDappMode && (path === '/' || path === '')) {
     return getStateFromPath('/market', options);
   }
   return getStateFromPath(path, options);

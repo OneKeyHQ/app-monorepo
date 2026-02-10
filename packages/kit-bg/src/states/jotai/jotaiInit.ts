@@ -2,6 +2,7 @@ import { cloneDeep, isNil, isPlainObject } from 'lodash';
 
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
 
 // Side-effect import: starts localDb IndexedDB initialization in background
 // localDb is NOT needed for jotai atom reads (they use separate OneKeyGlobalStates IndexedDB)
@@ -42,9 +43,7 @@ async function preloadAtomStorageValues() {
 
 export async function jotaiInit() {
   if (process.env.NODE_ENV !== 'production') {
-    console.log(
-      `[LANDING_DEBUG] jotaiInit start, +${(performance.now() - ((globalThis as any).$$debugT0 ?? 0)).toFixed(1)}ms`,
-    );
+    debugLandingLog('jotaiInit start');
   }
 
   // Parallelize: import atoms + preload all storage values at the same time
@@ -54,9 +53,7 @@ export async function jotaiInit() {
   ]);
 
   if (process.env.NODE_ENV !== 'production') {
-    console.log(
-      `[LANDING_DEBUG] jotaiInit atoms imported & storage preloaded, +${(performance.now() - ((globalThis as any).$$debugT0 ?? 0)).toFixed(1)}ms`,
-    );
+    debugLandingLog('jotaiInit atoms imported & storage preloaded');
   }
 
   const atoms: { [key: string]: JotaiCrossAtom<any> } = {};
@@ -165,9 +162,7 @@ export async function jotaiInit() {
   );
 
   if (process.env.NODE_ENV !== 'production') {
-    console.log(
-      `[LANDING_DEBUG] jotaiInit done, +${(performance.now() - ((globalThis as any).$$debugT0 ?? 0)).toFixed(1)}ms`,
-    );
+    debugLandingLog('jotaiInit done');
   }
 
   globalJotaiStorageReadyHandler.resolveReady(true);

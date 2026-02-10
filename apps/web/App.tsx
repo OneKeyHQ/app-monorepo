@@ -1,6 +1,7 @@
 import { Suspense, lazy } from 'react';
 
 import { KitProvider } from '@onekeyhq/kit';
+import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
 import '@onekeyhq/shared/src/web/index.css';
 
 // cspell:ignore Agentation
@@ -11,9 +12,7 @@ const AgentationDev =
 
 export default function App(props: any) {
   if (process.env.NODE_ENV !== 'production') {
-    console.log(
-      `[LANDING_DEBUG] App render, +${(performance.now() - ((globalThis as any).$$debugT0 ?? 0)).toFixed(1)}ms`,
-    );
+    debugLandingLog('App render');
   }
   return (
     <>

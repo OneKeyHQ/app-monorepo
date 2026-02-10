@@ -629,8 +629,9 @@ function PerpsGlobalEffectsView() {
 }
 
 const PerpsGlobalEffectsMemo = memo(() => {
-  console.log('PerpsGlobalEffectsMemo___mouted');
-
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('PerpsGlobalEffectsMemo___mouted');
+  }
   return <PerpsGlobalEffectsView />;
 });
 PerpsGlobalEffectsMemo.displayName = 'PerpsGlobalEffectsMemo';

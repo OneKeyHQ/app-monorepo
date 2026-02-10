@@ -18,7 +18,8 @@ import { initIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import App from './App';
 
 if (process.env.NODE_ENV !== 'production') {
-  console.log(`[LANDING_DEBUG] imports done, +${(performance.now() - (globalThis.$$debugT0 ?? 0)).toFixed(1)}ms`);
+  const { debugLandingLog } = require('@onekeyhq/shared/src/performance/init');
+  debugLandingLog('imports done');
 }
 
 initSentry();
@@ -26,13 +27,15 @@ initSentry();
 void initIntercom();
 
 if (process.env.NODE_ENV !== 'production') {
-  console.log(`[LANDING_DEBUG] sentry+intercom init done, +${(performance.now() - (globalThis.$$debugT0 ?? 0)).toFixed(1)}ms`);
+  const { debugLandingLog } = require('@onekeyhq/shared/src/performance/init');
+  debugLandingLog('sentry+intercom init done');
 }
 
 registerRootComponent(withSentryHOC(App, SentryErrorBoundaryFallback));
 
 if (process.env.NODE_ENV !== 'production') {
-  console.log(`[LANDING_DEBUG] registerRootComponent called, +${(performance.now() - (globalThis.$$debugT0 ?? 0)).toFixed(1)}ms`);
+  const { debugLandingLog } = require('@onekeyhq/shared/src/performance/init');
+  debugLandingLog('registerRootComponent called');
 }
 
 function showUpdateBanner() {
