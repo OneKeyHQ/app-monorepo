@@ -84,6 +84,7 @@ const ListHeaderComponent = () => {
             renderTrigger={
               <SizableText
                 size="$bodyMdMedium"
+                color="$textSubdued"
                 textDecorationLine="underline"
                 textDecorationColor="$textSubdued"
                 textDecorationStyle="dotted"
@@ -204,10 +205,10 @@ export const EditableChainSelectorContent = ({
       return data.length === 0
         ? []
         : [
-            {
-              data,
-            },
-          ];
+          {
+            data,
+          },
+        ];
     }
 
     const tempFrequentlyUsedItemsSet = new Set(
@@ -374,8 +375,8 @@ export const EditableChainSelectorContent = ({
       sections
         .slice(0, _initialScrollIndex.sectionIndex)
         .reduce((prev, section) => prev + section.data.length, 0) +
-        (_initialScrollIndex?.itemIndex ?? 0) <=
-        7
+      (_initialScrollIndex?.itemIndex ?? 0) <=
+      7
     ) {
       return { sectionIndex: 0, itemIndex: undefined };
     }
