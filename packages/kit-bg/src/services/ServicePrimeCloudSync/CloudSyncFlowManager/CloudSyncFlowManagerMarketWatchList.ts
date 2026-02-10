@@ -92,7 +92,11 @@ export class CloudSyncFlowManagerMarketWatchList extends CloudSyncFlowManagerBas
         await this.backgroundApi.serviceMarketV2.removeMarketWatchListV2({
           items: [
             isPerps
-              ? { chainId: '', contractAddress: '', perpsCoin: payload.perpsCoin }
+              ? {
+                  chainId: '',
+                  contractAddress: '',
+                  perpsCoin: payload.perpsCoin,
+                }
               : watchListItem,
           ],
           skipSaveLocalSyncItem: true,

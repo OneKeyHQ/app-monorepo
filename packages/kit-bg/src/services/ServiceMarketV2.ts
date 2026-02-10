@@ -785,7 +785,11 @@ class ServiceMarketV2 extends ServiceBase {
         });
       }
     } catch (error) {
-      defaultLogger.cloudSync.market.syncToMarketWatchListFailed(coin, action, error);
+      defaultLogger.cloudSync.market.syncToMarketWatchListFailed(
+        coin,
+        action,
+        error,
+      );
     }
   }
 

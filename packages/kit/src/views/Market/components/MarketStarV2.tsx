@@ -128,11 +128,7 @@ function BasicMarketStarV2({
 export const MarketStarV2 = memo(BasicMarketStarV2);
 
 // Perps star hook — checks watchlist by perpsCoin
-export const usePerpsStarV2Checked = ({
-  perpsCoin,
-}: {
-  perpsCoin: string;
-}) => {
+export const usePerpsStarV2Checked = ({ perpsCoin }: { perpsCoin: string }) => {
   const actions = useWatchListV2Action();
   const [{ data: watchListData, isMounted }] = useMarketWatchListV2Atom();
 

@@ -60,10 +60,7 @@ export const useColumnsDesktop = (
       render: (_: unknown, record: IMarketToken) => (
         <Stack pl="$2">
           {record.perpsCoin ? (
-            <MarketPerpsStarV2
-              perpsCoin={record.perpsCoin}
-              size="small"
-            />
+            <MarketPerpsStarV2 perpsCoin={record.perpsCoin} size="small" />
           ) : (
             <MarketStarV2
               chainId={record.chainId || networkId || ''}

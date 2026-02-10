@@ -284,12 +284,10 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
   );
 
   // Perps watchlist: check if a perps coin is in the watchlist
-  isPerpsInWatchListV2 = contextAtomMethod(
-    (get, _set, perpsCoin: string) => {
-      const prev = get(marketWatchListV2Atom());
-      return !!prev.data?.find((i) => i.perpsCoin === perpsCoin);
-    },
-  );
+  isPerpsInWatchListV2 = contextAtomMethod((get, _set, perpsCoin: string) => {
+    const prev = get(marketWatchListV2Atom());
+    return !!prev.data?.find((i) => i.perpsCoin === perpsCoin);
+  });
 
   // Perps watchlist: add a perps coin to the watchlist
   addPerpsIntoWatchListV2 = contextAtomMethod(

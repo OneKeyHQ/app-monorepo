@@ -292,7 +292,7 @@ function MarketTokenListBase({
                             await backgroundApiProxy.serviceHyperliquid.changeActiveAsset(
                               { coin: item.perpsCoin! },
                             );
-                          } catch (error) {
+                          } catch (_error) {
                             // ignore
                           }
                         }, 80);
