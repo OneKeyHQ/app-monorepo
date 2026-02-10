@@ -19,7 +19,6 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { GlobalJotaiReady } from '../../../components/GlobalJotaiReady/GlobalJotaiReady';
 
 import { usePrimePaymentMethods } from './usePrimePaymentMethods';
 
@@ -241,9 +240,5 @@ function PrimeGlobalEffectView() {
 }
 
 export function PrimeGlobalEffect() {
-  return (
-    <GlobalJotaiReady>
-      <PrimeGlobalEffectView />
-    </GlobalJotaiReady>
-  );
+  return <PrimeGlobalEffectView />;
 }

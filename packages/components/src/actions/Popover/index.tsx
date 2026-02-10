@@ -153,7 +153,7 @@ const useContentDisplay = platformEnv.isNative
         } else {
           setTimeout(() => {
             setDisplay('none');
-          }, 250);
+          }, 200);
         }
       }, [isOpen, keepChildrenMounted]);
       return display;
@@ -450,14 +450,7 @@ function RawPopover({
           $platform-native={{
             elevation: 20,
           }}
-          animation={[
-            'quick',
-            {
-              opacity: {
-                overshootClamping: true,
-              },
-            },
-          ]}
+          animation="popoverQuick"
           {...floatingPanelProps}
         >
           <TMPopover.ScrollView

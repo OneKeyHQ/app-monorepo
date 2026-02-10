@@ -20,8 +20,7 @@ function loadRoobertFonts() {
   if (!loadPromise) {
     loadPromise = (async () => {
       const faces = roobertFontConfigs.map(
-        ({ src, weight }) =>
-          new FontFace('Roobert', `url(${src})`, { weight }),
+        ({ src, weight }) => new FontFace('Roobert', `url(${src})`, { weight }),
       );
       await Promise.all(faces.map((f) => f.load()));
       faces.forEach((f) => document.fonts.add(f));
