@@ -152,7 +152,13 @@ const basicFontVariants = {
 const tamaguiWebFontFamily = webFontFamily;
 
 const font = createFont({
-  family: isTamaguiNative ? 'System' : tamaguiWebFontFamily,
+  family: isTamaguiNative ? 'Roobert-Regular' : tamaguiWebFontFamily,
+  face: {
+    400: { normal: 'Roobert-Regular' },
+    500: { normal: 'Roobert-Medium' },
+    600: { normal: 'Roobert-SemiBold' },
+    700: { normal: 'Roobert-Bold' },
+  },
   ...basicFontVariants,
 });
 
