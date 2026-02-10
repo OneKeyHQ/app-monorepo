@@ -11,6 +11,7 @@ import {
   useRouterEventsRef,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { getExtensionIndexHtml } from '@onekeyhq/shared/src/utils/extUtils';
@@ -58,6 +59,9 @@ const MODAL_PATH = `/${ERootRoutes.Modal}`;
 const FULL_SCREEN_MODAL_PATH = `/${ERootRoutes.iOSFullScreen}`;
 
 const onGetStateFromPath = (path: string, options?: any) => {
+  if (process.env.NODE_ENV !== 'production') {
+    debugLandingLog('getStateFromPath', `path="${path}"`);
+  }
   // Web platform: rewrite ?r= referral parameter to /r/{code}/app/{page} format
   if (platformEnv.isWeb) {
     const [pathPart, queryPart] = path.split('?');
@@ -73,7 +77,27 @@ const onGetStateFromPath = (path: string, options?: any) => {
       }
     }
   }
-  return getStateFromPath(path, options);
+  // WebDappMode: rewrite "/" to "/market" so Market tab is the landing page
+  if (platformEnv.isWebDappMode && (path === '/' || path === '')) {
+    const result = getStateFromPath('/market', options);
+    if (process.env.NODE_ENV !== 'production') {
+      const mainState = result?.routes?.[0]?.state;
+      debugLandingLog(
+        'getStateFromPath result',
+        `rewrite "/" -> "/market", tabRoutes=${JSON.stringify(mainState?.routes?.map((r: any) => r.name))}, stateIndex=${mainState?.index}`,
+      );
+    }
+    return result;
+  }
+  const result = getStateFromPath(path, options);
+  if (process.env.NODE_ENV !== 'production') {
+    const mainState = result?.routes?.[0]?.state;
+    debugLandingLog(
+      'getStateFromPath result',
+      `path="${path}", tabRoutes=${JSON.stringify(mainState?.routes?.map((r: any) => r.name))}, stateIndex=${mainState?.index}`,
+    );
+  }
+  return result;
 };
 
 const useBuildLinking = (): LinkingOptions<any> => {
@@ -118,7 +142,27 @@ const useBuildLinking = (): LinkingOptions<any> => {
           }
         }
 
+        if (process.env.NODE_ENV !== 'production') {
+          const mainRoute = state?.routes?.[state?.index ?? 0];
+          const tabState = mainRoute?.state;
+          const tabIndex = tabState?.index ?? 0;
+          const tabRouteNames =
+            tabState?.routeNames ?? tabState?.routes?.map((r: any) => r.name);
+          const activeTab = tabRouteNames?.[tabIndex];
+          const tabHistory = (tabState as any)?.history?.map(
+            (h: any) => h.key?.split('-')?.[0] || h.type,
+          );
+          debugLandingLog(
+            'getPathFromState',
+            `defaultPath="${defaultPath}", matched=${!!rule?.showUrl}, activeTab=${activeTab}, tabIndex=${tabIndex}, tabRoutes=${JSON.stringify(tabRouteNames)}, tabHistory=${JSON.stringify(tabHistory)}`,
+          );
+        }
+
         if (!rule?.showUrl) {
+          // WebDappMode: fallback to /market instead of / to avoid URL bounce
+          if (platformEnv.isWebDappMode) {
+            return '/market';
+          }
           return ROOT_PATH;
         }
 
@@ -211,6 +255,21 @@ export const useRouterConfig = () => {
           },
         },
         onStateChange: (state) => {
+          if (process.env.NODE_ENV !== 'production') {
+            const mainRoute = state?.routes?.[state?.index ?? 0];
+            const tabState = mainRoute?.state;
+            if (tabState) {
+              const tabIndex = tabState?.index ?? 0;
+              const activeTabName = (tabState?.routeNames ??
+                tabState?.routes?.map((r: any) => r.name))?.[tabIndex];
+              if (activeTabName === ETabRoutes.Home) {
+                debugLandingLog(
+                  'onStateChange',
+                  `activeTab=${activeTabName}, tabIndex=${tabIndex}`,
+                );
+              }
+            }
+          }
           routerRef.current.forEach((cb) => cb?.(state));
         },
         linking,

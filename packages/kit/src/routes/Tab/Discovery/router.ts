@@ -12,16 +12,28 @@ import {
 } from '../../../components/LazyLoadPage';
 
 const Browser = LazyLoadRootTabPage(
-  () => import('../../../views/Discovery/pages/Browser/Browser'),
+  () =>
+    import(
+      /* webpackPrefetch: true */ '../../../views/Discovery/pages/Browser/Browser'
+    ),
 );
 const DiscoveryDashboard = LazyLoadRootTabPage(
-  () => import('../../../views/Discovery/pages/Dashboard/DashboardContainer'),
+  () =>
+    import(
+      /* webpackPrefetch: true */ '../../../views/Discovery/pages/Dashboard/DashboardContainer'
+    ),
 );
 const EarnProtocols = LazyLoadRootTabPage(
-  () => import('../../../views/Earn/pages/EarnProtocols'),
+  () =>
+    import(
+      /* webpackPrefetch: true */ '../../../views/Earn/pages/EarnProtocols'
+    ),
 );
 const EarnProtocolDetails = LazyLoadRootTabPage(
-  () => import('../../../views/Earn/pages/EarnProtocolDetails'),
+  () =>
+    import(
+      /* webpackPrefetch: true */ '../../../views/Earn/pages/EarnProtocolDetails'
+    ),
 );
 
 // Market pages for native platforms (Market is embedded in Discovery on mobile)
