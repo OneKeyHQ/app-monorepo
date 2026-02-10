@@ -433,13 +433,16 @@ function MarketPerpsTokenListImpl() {
 
   const CategorySelector = useMemo(
     () => (
-      <YStack py="$1" mb="$2">
-        <MarketPerpsCategorySelector
-          categories={categoryTabs}
-          selectedCategoryId={selectedCategoryId}
-          onSelectCategory={setSelectedCategoryId}
-        />
-      </YStack>
+      <MarketPerpsCategorySelector
+        categories={categoryTabs}
+        selectedCategoryId={selectedCategoryId}
+        onSelectCategory={setSelectedCategoryId}
+        containerStyle={{
+          px: '$4',
+          pt: '$3',
+          pb: '$2',
+        }}
+      />
     ),
     [categoryTabs, selectedCategoryId],
   );

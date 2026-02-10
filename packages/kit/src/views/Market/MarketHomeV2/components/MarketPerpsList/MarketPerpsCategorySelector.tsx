@@ -8,6 +8,11 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import type { IXStackProps } from '@onekeyhq/components';
+import {
+  ScrollableFilterBar,
+  useScrollableFilterBar,
+} from '@onekeyhq/kit/src/components/ScrollableFilterBar';
+
 import { useNetworkFilterScroll } from '../../hooks/useNetworkFilterScroll';
 
 function CategoryFilterItem({
@@ -56,6 +61,26 @@ function CategoryFilterItem({
   );
 }
 
+function CategoryFilterItemWithLayout({
+  category,
+  isSelected,
+  onPress,
+}: {
+  category: ICategoryTab;
+  isSelected: boolean;
+  onPress: () => void;
+}) {
+  const { handleItemLayout } = useScrollableFilterBar();
+  return (
+    <CategoryFilterItem
+      name={category.name}
+      isSelected={isSelected}
+      onPress={onPress}
+      onLayout={(event) => handleItemLayout(category.tabId, event)}
+    />
+  );
+}
+
 interface ICategoryTab {
   tabId: string;
   name: string;
@@ -65,9 +90,39 @@ interface IMarketPerpsCategorySelectorProps {
   categories: ICategoryTab[];
   selectedCategoryId: string;
   onSelectCategory: (categoryId: string) => void;
+  containerStyle?: Record<string, unknown>;
 }
 
-function MarketPerpsCategorySelectorImpl({
+function MarketPerpsCategorySelectorMobile({
+  categories,
+  selectedCategoryId,
+  onSelectCategory,
+  containerStyle,
+}: IMarketPerpsCategorySelectorProps) {
+  if (categories.length === 0) {
+    return null;
+  }
+
+  return (
+    <ScrollableFilterBar
+      selectedItemId={selectedCategoryId}
+      itemGap="$2"
+      itemPr="$3"
+      contentContainerStyle={containerStyle}
+    >
+      {categories.map((category) => (
+        <CategoryFilterItemWithLayout
+          key={category.tabId}
+          category={category}
+          isSelected={category.tabId === selectedCategoryId}
+          onPress={() => onSelectCategory(category.tabId)}
+        />
+      ))}
+    </ScrollableFilterBar>
+  );
+}
+
+function MarketPerpsCategorySelectorDesktop({
   categories,
   selectedCategoryId,
   onSelectCategory,
@@ -133,6 +188,18 @@ function MarketPerpsCategorySelectorImpl({
       </XStack>
     </XStack>
   );
+}
+
+function MarketPerpsCategorySelectorImpl(
+  props: IMarketPerpsCategorySelectorProps,
+) {
+  const { md } = useMedia();
+
+  if (md) {
+    return <MarketPerpsCategorySelectorMobile {...props} />;
+  }
+
+  return <MarketPerpsCategorySelectorDesktop {...props} />;
 }
 
 export const MarketPerpsCategorySelector = memo(

@@ -6,7 +6,6 @@ import {
   SizableText,
   Stack,
   Tabs,
-  YStack,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -102,13 +101,16 @@ function MobileMarketPerpsFlatListImpl({
 
   const ListHeaderComponent = useMemo(
     () => (
-      <YStack py="$1">
-        <MarketPerpsCategorySelector
-          categories={categoryTabs}
-          selectedCategoryId={selectedCategoryId}
-          onSelectCategory={setSelectedCategoryId}
-        />
-      </YStack>
+      <MarketPerpsCategorySelector
+        categories={categoryTabs}
+        selectedCategoryId={selectedCategoryId}
+        onSelectCategory={setSelectedCategoryId}
+        containerStyle={{
+          px: '$4',
+          pt: '$3',
+          pb: '$2',
+        }}
+      />
     ),
     [categoryTabs, selectedCategoryId],
   );
