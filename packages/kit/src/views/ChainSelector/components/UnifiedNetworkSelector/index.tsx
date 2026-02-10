@@ -154,7 +154,7 @@ function UnifiedNetworkSelector() {
     Record<string, { netWorth: number }>
   >({});
 
-  const [enabledNetworksWithoutAccount, setEnabledNetworksWithoutAccount] =
+  const [_enabledNetworksWithoutAccount, setEnabledNetworksWithoutAccount] =
     useState<
       {
         networkId: string;
