@@ -281,6 +281,36 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
     },
   );
 
+  moveToTopV2 = contextAtomMethod(
+    async (get, set, payload: IMarketWatchListItemV2) => {
+      const prev = get(marketWatchListV2Atom());
+      if (!prev.isMounted) {
+        return;
+      }
+      const firstItem = prev?.data?.[0];
+      if (
+        firstItem &&
+        equalTokenNoCaseSensitive({
+          token1: {
+            networkId: firstItem.chainId,
+            contractAddress: firstItem.contractAddress,
+          },
+          token2: {
+            networkId: payload.chainId,
+            contractAddress: payload.contractAddress,
+          },
+        })
+      ) {
+        return;
+      }
+      await this.sortWatchListV2Items.call(set, {
+        target: payload,
+        prev: undefined,
+        next: firstItem,
+      });
+    },
+  );
+
   sortWatchListV2Items = contextAtomMethod(
     async (
       get,
@@ -355,6 +385,7 @@ export function useWatchListV2Actions() {
   const saveWatchListV2 = actions.saveWatchListV2.use();
   const refreshWatchListV2 = actions.refreshWatchListV2.use();
   const sortWatchListV2Items = actions.sortWatchListV2Items.use();
+  const moveToTopV2 = actions.moveToTopV2.use();
   const clearAllWatchListV2 = actions.clearAllWatchListV2.use();
   return useRef({
     isInWatchListV2,
@@ -363,6 +394,7 @@ export function useWatchListV2Actions() {
     saveWatchListV2,
     refreshWatchListV2,
     sortWatchListV2Items,
+    moveToTopV2,
     clearAllWatchListV2,
   });
 }

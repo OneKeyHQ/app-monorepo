@@ -853,7 +853,12 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
           ))}
         </YStack>
         {overflowState.isOverflow ? (
-          <XStack alignItems="center" justifyContent="center" pt="$4" px="$pagePadding">
+          <XStack
+            alignItems="center"
+            justifyContent="center"
+            pt="$4"
+            px="$pagePadding"
+          >
             <Button
               size="small"
               variant="secondary"
