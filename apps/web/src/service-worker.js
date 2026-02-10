@@ -54,5 +54,13 @@ registerRoute(
 registerRoute(
   ({ request }) =>
     request.destination === 'script' || request.destination === 'style',
-  new StaleWhileRevalidate({ cacheName: 'static-resources' }),
+  new StaleWhileRevalidate({
+    cacheName: 'static-resources',
+    plugins: [
+      new ExpirationPlugin({
+        maxEntries: 200,
+        maxAgeSeconds: 7 * 24 * 60 * 60,
+      }),
+    ],
+  }),
 );
