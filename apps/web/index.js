@@ -30,30 +30,15 @@ if (
   process.env.NODE_ENV === 'production'
 ) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker
-      .register('/service-worker.js')
-      .then((registration) => {
-        registration.addEventListener('updatefound', () => {
-          const newWorker = registration.installing;
-          if (!newWorker) return;
-          newWorker.addEventListener('statechange', () => {
-            if (
-              newWorker.state === 'installed' &&
-              navigator.serviceWorker.controller
-            ) {
-              // New version available, prompt user to reload
-              if (
-                window.confirm('A new version is available. Reload to update?')
-              ) {
-                newWorker.postMessage({ type: 'SKIP_WAITING' });
-              }
-            }
-          });
-        });
-      });
+    navigator.serviceWorker.register('/service-worker.js');
 
-    // Reload once the new service worker takes control
+    // Reload once the new service worker takes control.
+    // The new SW calls skipWaiting() + clients.claim() on its own,
+    // so no message passing is needed from the client side.
+    let refreshing = false;
     navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (refreshing) return;
+      refreshing = true;
       window.location.reload();
     });
   });
