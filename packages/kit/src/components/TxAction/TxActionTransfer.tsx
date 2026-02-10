@@ -413,9 +413,6 @@ function TxActionTransferListView(props: ITxActionProps) {
       {...((change as string)?.includes('+') && {
         color: '$textSuccess',
       })}
-      {...((tableLayout || compact) && {
-        size: '$bodyMdMedium',
-      })}
     >
       {change as string}
     </NumberSizeableTextWrapper>

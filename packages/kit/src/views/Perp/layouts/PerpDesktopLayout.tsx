@@ -29,7 +29,11 @@ function PerpDesktopLayout() {
       <YStack>
         <PerpTips />
         <FavoritesBar />
-        <XStack flex={1}>
+        <XStack
+          flex={1}
+          borderBottomWidth="$px"
+          borderBottomColor="$borderSubdued"
+        >
           <YStack
             flex={1}
             borderRightWidth="$px"

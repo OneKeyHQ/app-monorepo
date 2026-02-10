@@ -24,4 +24,5 @@ export interface IWalletBanner {
     color?: string;
     size?: number;
   };
+  width?: number;
 }

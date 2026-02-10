@@ -13,6 +13,7 @@ import {
   XStack,
   YStack,
   useScrollContentTabBarOffset,
+  useTabContainerWidth,
 } from '@onekeyhq/components';
 import type { ITabBarItemProps } from '@onekeyhq/components/src/composite/Tabs/TabBar';
 import { TabBarItem } from '@onekeyhq/components/src/composite/Tabs/TabBar';
@@ -57,6 +58,7 @@ import { TxHistoryListContainerWithProvider } from './TxHistoryContainer';
 import WalletContentWithAuth from './WalletContentWithAuth';
 
 import type { LayoutChangeEvent } from 'react-native';
+import { DeFiContainerWithProvider } from './DeFiContainer';
 
 const networksSupportBulkRevokeApproval =
   getNetworksSupportBulkRevokeApproval();
@@ -103,6 +105,7 @@ export function HomePageView({
   sceneName: EAccountSelectorSceneName;
 }) {
   const tabBarHeight = useScrollContentTabBarOffset();
+  const tabContainerWidth = useTabContainerWidth();
   const intl = useIntl();
   const {
     activeAccount: {
@@ -164,6 +167,24 @@ export function HomePageView({
   const isNFTEnabled =
     vaultSettings?.NFTEnabled &&
     networkUtils.getEnabledNFTNetworkIds().includes(network?.id ?? '');
+
+  const [isDeFiEnabled, setIsDeFiEnabled] = useState(true);
+  useEffect(() => {
+    const checkDeFiEnabled = async () => {
+      if (!network?.id) {
+        setIsDeFiEnabled(false);
+        return;
+      }
+      if (networkUtils.isAllNetwork({ networkId: network.id })) {
+        setIsDeFiEnabled(true);
+        return;
+      }
+      const enabledNetworks =
+        await backgroundApiProxy.serviceDeFi.getDeFiEnabledNetworksMap();
+      setIsDeFiEnabled(!!enabledNetworks[network.id]);
+    };
+    void checkDeFiEnabled();
+  }, [network?.id]);
 
   const isWalletNotBackedUp = useMemo(() => {
     if (wallet && wallet.type === WALLET_TYPE_HD && !wallet.backuped) {
@@ -293,6 +314,15 @@ export function HomePageView({
         }),
         component: <PortfolioContainerWithProvider />,
       },
+      isDeFiEnabled
+        ? {
+            id: EHomeWalletTab.DeFi,
+            name: intl.formatMessage({
+              id: ETranslations.global_earn,
+            }),
+            component: <DeFiContainerWithProvider />,
+          }
+        : undefined,
       isNFTEnabled
         ? {
             id: EHomeWalletTab.NFT,
@@ -319,7 +349,7 @@ export function HomePageView({
           }
         : undefined,
     ].filter(Boolean);
-  }, [intl, isNFTEnabled, isBulkRevokeApprovalEnabled]);
+  }, [intl, isDeFiEnabled, isNFTEnabled, isBulkRevokeApprovalEnabled]);
 
   const tabConfigsRef = useRef(tabConfigs);
   tabConfigsRef.current = tabConfigs;
@@ -383,13 +413,14 @@ export function HomePageView({
     }
     const key = `${account?.id ?? ''}-${account?.indexedAccountId ?? ''}-${
       network?.id ?? ''
-    }-${isNFTEnabled ? '1' : '0'}-${isBulkRevokeApprovalEnabled ? '1' : '0'}`;
+    }-${isDeFiEnabled ? '1' : '0'}-${isNFTEnabled ? '1' : '0'}-${isBulkRevokeApprovalEnabled ? '1' : '0'}`;
     return (
       <Tabs.Container
         ref={tabsRef as any}
         key={key}
         allowHeaderOverscroll
         useNativeHeaderAnimation={platformEnv.isNativeAndroid}
+        width={platformEnv.isNative ? (tabContainerWidth as number) : undefined}
         renderHeader={renderHeader}
         renderTabBar={renderTabBar}
       >
@@ -402,9 +433,11 @@ export function HomePageView({
     );
   }, [
     tabBarHeight,
+    tabContainerWidth,
     account?.id,
     account?.indexedAccountId,
     isBulkRevokeApprovalEnabled,
+    isDeFiEnabled,
     isNFTEnabled,
     isWalletNotBackedUp,
     network?.id,
