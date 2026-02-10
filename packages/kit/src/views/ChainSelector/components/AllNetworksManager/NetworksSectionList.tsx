@@ -128,25 +128,26 @@ function NetworksSectionList() {
               justifyContent="space-between"
               alignItems="center"
             >
-              <Tooltip
-                placement="bottom-start"
-                renderContent={intl.formatMessage({
-                  id: ETranslations.network_auto_detection_tip,
-                })}
-                renderTrigger={
-                  <Stack alignSelf="flex-start">
-                    <SizableText
-                      numberOfLines={1}
-                      size="$headingSm"
-                      color="$textSubdued"
-                    >
-                      {item.section.title}
-                    </SizableText>
-                    <DottedLine mt={1} />
-                  </Stack>
-                }
-              />
-              <XStack gap="$3" alignItems="center">
+              <Stack flex={1} mr="$2">
+                <Tooltip
+                  placement="bottom-start"
+                  renderContent={intl.formatMessage({
+                    id: ETranslations.network_auto_detection_tip,
+                  })}
+                  renderTrigger={
+                    <Stack alignSelf="flex-start">
+                      <SizableText
+                        size="$headingSm"
+                        color="$textSubdued"
+                      >
+                        {item.section.title}
+                      </SizableText>
+                      <DottedLine mt={1} />
+                    </Stack>
+                  }
+                />
+              </Stack>
+              <XStack flexShrink={0} gap="$3" alignItems="center">
                 <Currency
                   hideValue
                   numberOfLines={1}

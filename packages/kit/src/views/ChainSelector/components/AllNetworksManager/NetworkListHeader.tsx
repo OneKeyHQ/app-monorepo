@@ -163,26 +163,35 @@ function NetworkListHeader() {
           justifyContent="space-between"
           alignItems="center"
         >
-          <Tooltip
-            placement="bottom-start"
-            renderContent={intl.formatMessage({
-              id: ETranslations.network_selection_performance_tip,
-            })}
-            renderTrigger={
-              <Stack alignSelf="flex-start">
-                <SizableText
-                  size="$bodyLgMedium"
-                >
-                  {intl.formatMessage(
-                    { id: ETranslations.network_view_assets_from_n_networks },
-                    { count: enabledNetworks.length },
-                  )}
-                </SizableText>
-                <DottedLine mt={1} />
-              </Stack>
-            }
-          />
-          <Button size="media" variant="tertiary" onPress={handleToggleAll}>
+          <Stack flex={1} mr="$2">
+            <Tooltip
+              placement="bottom-start"
+              renderContent={intl.formatMessage({
+                id: ETranslations.network_selection_performance_tip,
+              })}
+              renderTrigger={
+                <Stack alignSelf="flex-start">
+                  <SizableText
+                    size="$bodyLgMedium"
+                  >
+                    {intl.formatMessage(
+                      {
+                        id: ETranslations.network_view_assets_from_n_networks,
+                      },
+                      { count: enabledNetworks.length },
+                    )}
+                  </SizableText>
+                  <DottedLine mt={1} />
+                </Stack>
+              }
+            />
+          </Stack>
+          <Button
+            flexShrink={0}
+            size="media"
+            variant="tertiary"
+            onPress={handleToggleAll}
+          >
             {isAllNetworksEnabled
               ? intl.formatMessage({ id: ETranslations.global_deselect_all })
               : intl.formatMessage({ id: ETranslations.global_select_all })}
