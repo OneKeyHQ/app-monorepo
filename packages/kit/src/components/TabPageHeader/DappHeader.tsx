@@ -458,12 +458,17 @@ function RightActions({
     });
   }, [navigation]);
 
+  const intl = useIntl();
+
   return (
     <XStack ai="center" gap="$2">
       {gtLg ? <SearchButton /> : (
         <HeaderIconButton
           size="small"
           icon="SearchOutline"
+          title={intl.formatMessage({
+            id: ETranslations.global_search_everything,
+          })}
           onPress={handleSearchPress}
         />
       )}
