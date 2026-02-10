@@ -15,6 +15,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { perfMark } from '@onekeyhq/shared/src/performance/mark';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import perfUtils, {
   EPerformanceTimerLogNames,
@@ -35,7 +36,12 @@ import { perfTokenListView } from '../components/TokenListView/perfTokenListView
 
 import { usePromiseResult } from './usePromiseResult';
 
-const CONCURRENCY_LIMIT = PROMISE_CONCURRENCY_LIMIT;
+// Native keeps a strict cap to avoid Hermes memory spikes.
+// Web keeps full fan-out to preserve Home startup latency.
+const getAllNetworkTaskConcurrencyLimit = (taskCount: number) =>
+  platformEnv.isNative
+    ? PROMISE_CONCURRENCY_LIMIT
+    : Math.max(taskCount, PROMISE_CONCURRENCY_LIMIT);
 // useRef not working as expected, so use a global object
 const currentRequestsUUID = { current: '' };
 
@@ -548,7 +554,12 @@ function useAllNetworkRequests<T>(params: {
                     return cachedDataResult as unknown;
                   },
                 ),
-                { continueOnError: true, concurrency: CONCURRENCY_LIMIT },
+                {
+                  continueOnError: true,
+                  concurrency: getAllNetworkTaskConcurrencyLimit(
+                    accountsInfo.length,
+                  ),
+                },
               )
             ).filter(Boolean);
             perf.markEnd('allNetworkCacheRequests');
@@ -594,7 +605,8 @@ function useAllNetworkRequests<T>(params: {
             resp = (
               await promiseAllSettledEnhanced(requestFactories, {
                 continueOnError: true,
-                concurrency: CONCURRENCY_LIMIT,
+                concurrency:
+                  getAllNetworkTaskConcurrencyLimit(requestFactories.length),
               })
             ).filter(Boolean);
           } catch (e) {
@@ -620,7 +632,9 @@ function useAllNetworkRequests<T>(params: {
             const r = (
               await promiseAllSettledEnhanced(factories, {
                 continueOnError: true,
-                concurrency: CONCURRENCY_LIMIT,
+                concurrency: getAllNetworkTaskConcurrencyLimit(
+                  factories.length,
+                ),
               })
             ).filter(Boolean) as Array<T>;
             respTemp.push(...r);
@@ -645,7 +659,9 @@ function useAllNetworkRequests<T>(params: {
             const r = (
               await promiseAllSettledEnhanced(factories, {
                 continueOnError: true,
-                concurrency: CONCURRENCY_LIMIT,
+                concurrency: getAllNetworkTaskConcurrencyLimit(
+                  factories.length,
+                ),
               })
             ).filter(Boolean) as Array<T>;
             respTemp.push(...r);
