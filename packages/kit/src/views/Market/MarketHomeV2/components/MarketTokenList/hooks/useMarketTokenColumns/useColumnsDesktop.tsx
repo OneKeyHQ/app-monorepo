@@ -185,36 +185,40 @@ export const useColumnsDesktop = (
       },
       renderSkeleton: () => <Skeleton width={60} height={16} />,
     },
-    {
-      title: intl.formatMessage({ id: ETranslations.global_market_cap }),
-      dataIndex: 'marketCap',
-      columnProps: { flex: 1 },
-      render: (text: number) => (
-        <NumberSizeableText
-          size="$bodyMd"
-          formatter="marketCap"
-          formatterOptions={{ currency, capAtMaxT: true }}
-        >
-          {text === 0 ? '--' : text}
-        </NumberSizeableText>
-      ),
-      renderSkeleton: () => <Skeleton width={80} height={16} />,
-    },
-    {
-      title: intl.formatMessage({ id: ETranslations.global_liquidity }),
-      dataIndex: 'liquidity',
-      columnProps: { flex: 1.2 },
-      render: (text: number) => (
-        <NumberSizeableText
-          size="$bodyMd"
-          formatter="marketCap"
-          formatterOptions={{ currency }}
-        >
-          {text === 0 ? '--' : text}
-        </NumberSizeableText>
-      ),
-      renderSkeleton: () => <Skeleton width={100} height={16} />,
-    },
+    isWatchlistMode
+      ? undefined
+      : {
+          title: intl.formatMessage({ id: ETranslations.global_market_cap }),
+          dataIndex: 'marketCap',
+          columnProps: { flex: 1 },
+          render: (text: number) => (
+            <NumberSizeableText
+              size="$bodyMd"
+              formatter="marketCap"
+              formatterOptions={{ currency, capAtMaxT: true }}
+            >
+              {text === 0 ? '--' : text}
+            </NumberSizeableText>
+          ),
+          renderSkeleton: () => <Skeleton width={80} height={16} />,
+        },
+    isWatchlistMode
+      ? undefined
+      : {
+          title: intl.formatMessage({ id: ETranslations.global_liquidity }),
+          dataIndex: 'liquidity',
+          columnProps: { flex: 1.2 },
+          render: (text: number) => (
+            <NumberSizeableText
+              size="$bodyMd"
+              formatter="marketCap"
+              formatterOptions={{ currency }}
+            >
+              {text === 0 ? '--' : text}
+            </NumberSizeableText>
+          ),
+          renderSkeleton: () => <Skeleton width={100} height={16} />,
+        },
     {
       title: intl.formatMessage({ id: ETranslations.dexmarket_turnover }),
       dataIndex: 'turnover',
@@ -230,24 +234,26 @@ export const useColumnsDesktop = (
       ),
       renderSkeleton: () => <Skeleton width={100} height={16} />,
     },
-    {
-      title: intl.formatMessage({ id: ETranslations.dexmarket_txns }),
-      dataIndex: 'transactions',
-      columnProps: { flex: 1 },
-      render: (text: number, record: IMarketToken) => (
-        <Txns transactions={text} walletInfo={record.walletInfo} />
-      ),
-      renderSkeleton: () => (
-        <YStack gap="$1" alignItems="flex-start">
-          <Skeleton width={50} height={14} />
-          <XStack gap="$1">
-            <Skeleton width={20} height={12} />
-            <Skeleton width={20} height={12} />
-          </XStack>
-        </YStack>
-      ),
-    },
-    gtLg
+    isWatchlistMode
+      ? undefined
+      : {
+          title: intl.formatMessage({ id: ETranslations.dexmarket_txns }),
+          dataIndex: 'transactions',
+          columnProps: { flex: 1 },
+          render: (text: number, record: IMarketToken) => (
+            <Txns transactions={text} walletInfo={record.walletInfo} />
+          ),
+          renderSkeleton: () => (
+            <YStack gap="$1" alignItems="flex-start">
+              <Skeleton width={50} height={14} />
+              <XStack gap="$1">
+                <Skeleton width={20} height={12} />
+                <Skeleton width={20} height={12} />
+              </XStack>
+            </YStack>
+          ),
+        },
+    gtLg && !isWatchlistMode
       ? {
           title: intl.formatMessage({ id: ETranslations.dexmarket_traders }),
           dataIndex: 'uniqueTraders',
@@ -260,7 +266,7 @@ export const useColumnsDesktop = (
           renderSkeleton: () => <Skeleton width={60} height={16} />,
         }
       : undefined,
-    gtXl
+    gtXl && !isWatchlistMode
       ? {
           title: intl.formatMessage({ id: ETranslations.dexmarket_holders }),
           dataIndex: 'holders',
