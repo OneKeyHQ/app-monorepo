@@ -14,11 +14,11 @@ import type {
 import {
   ActionList,
   Button,
+  Icon,
   IconButton,
   SizableText,
   Stack,
   XStack,
-  useMedia,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -35,35 +35,84 @@ function ActionItem({
   label,
   verticalContainerProps,
   showButtonStyle = false,
+  onPress,
   ...rest
 }: IActionItemsProps) {
-  const media = useMedia();
-
   if (showButtonStyle) {
     return (
-      <Button size={media.gtMd ? 'large' : 'medium'} icon={icon} {...rest}>
+      <Button
+        icon={icon}
+        {...(!label && {
+          py: '$2',
+          pl: '$2.5',
+          pr: '$0.5',
+        })}
+        onPress={onPress}
+        {...rest}
+      >
         {label}
       </Button>
     );
   }
 
   return (
-    <Stack alignItems="center" maxWidth={50} {...verticalContainerProps}>
-      <IconButton size="large" icon={icon} {...rest} />
-      <SizableText
-        mt="$2"
-        textAlign="center"
-        size="$bodySm"
-        color="$textSubdued"
-        minWidth="$20"
-        numberOfLines={1}
-        {...(rest.disabled && {
-          color: '$textDisabled',
-        })}
+    <>
+      {/* Mobile: Card style */}
+      <Stack
+        flex={1}
+        flexBasis={0}
+        alignItems="center"
+        justifyContent="center"
+        bg="$bgStrong"
+        borderRadius="$4"
+        pt="$2.5"
+        pb="$1"
+        px="$4"
+        userSelect="none"
+        hoverStyle={{ bg: '$bgStrongHover' }}
+        pressStyle={{ bg: '$bgStrongActive' }}
+        focusable
+        focusVisibleStyle={{
+          outlineColor: '$focusRing',
+          outlineStyle: 'solid',
+          outlineWidth: 2,
+        }}
+        $gtSm={{ display: 'none' }}
+        {...(rest.disabled && { opacity: 0.4 })}
+        {...verticalContainerProps}
+        onPress={onPress}
+        {...rest}
+      >
+        <Stack>
+          <Icon
+            name={icon}
+            size="$6"
+            color={rest.disabled ? '$iconDisabled' : '$icon'}
+          />
+        </Stack>
+        <SizableText
+          my="$1"
+          textAlign="center"
+          size="$bodySm"
+          color={rest.disabled ? '$textDisabled' : '$text'}
+        >
+          {label}
+        </SizableText>
+      </Stack>
+
+      {/* Desktop: Pill button */}
+      <Button
+        variant="secondary"
+        size="large"
+        icon={icon}
+        display="none"
+        $gtSm={{ display: 'flex' }}
+        onPress={onPress}
+        {...rest}
       >
         {label}
-      </SizableText>
-    </Stack>
+      </Button>
+    </>
   );
 }
 
@@ -172,49 +221,76 @@ function ActionStaking(props: IActionItemsProps) {
 
 function ActionMore({
   renderItemsAsync,
-  showButtonStyle = false,
 }: {
   renderItemsAsync: IActionListProps['renderItemsAsync'];
-  showButtonStyle?: boolean;
 }) {
   const intl = useIntl();
-  const media = useMedia();
+  const label = intl.formatMessage({ id: ETranslations.global_more });
+
+  const handleMobilePress = () => {
+    ActionList.show({
+      title: label,
+      floatingPanelProps: { w: '$60' },
+      renderItemsAsync,
+    });
+  };
+
   return (
-    <ActionList
-      title={intl.formatMessage({
-        id: ETranslations.global_more,
-      })}
-      floatingPanelProps={{
-        w: '$60',
-      }}
-      renderTrigger={
-        showButtonStyle ? (
-          <IconButton
-            size={media.gtMd ? 'large' : 'medium'}
-            icon="DotHorOutline"
-          />
-        ) : (
-          <ActionItem
-            icon="DotHorOutline"
-            label={intl.formatMessage({
-              id: ETranslations.global_more,
-            })}
-          />
-        )
-      }
-      renderItemsAsync={renderItemsAsync}
-    />
+    <>
+      {/* Mobile: Card style - uses ActionList.show() so card can stretch properly */}
+      <Stack
+        flex={1}
+        flexBasis={0}
+        alignItems="center"
+        justifyContent="center"
+        bg="$bgStrong"
+        borderRadius="$4"
+        pt="$2.5"
+        pb="$1"
+        px="$4"
+        userSelect="none"
+        hoverStyle={{ bg: '$bgStrongHover' }}
+        pressStyle={{ bg: '$bgStrongActive' }}
+        focusable
+        focusVisibleStyle={{
+          outlineColor: '$focusRing',
+          outlineStyle: 'solid',
+          outlineWidth: 2,
+        }}
+        $gtSm={{ display: 'none' }}
+        onPress={handleMobilePress}
+      >
+        <Stack>
+          <Icon name="DotHorOutline" size="$6" color="$icon" />
+        </Stack>
+        <SizableText my="$1" textAlign="center" size="$bodySm" color="$text">
+          {label}
+        </SizableText>
+      </Stack>
+
+      {/* Desktop: Icon only button */}
+      <Stack display="none" $gtSm={{ display: 'flex' }}>
+        <ActionList
+          title={label}
+          floatingPanelProps={{ w: '$60' }}
+          renderTrigger={
+            <IconButton variant="secondary" size="large" icon="DotHorOutline" />
+          }
+          renderItemsAsync={renderItemsAsync}
+        />
+      </Stack>
+    </>
   );
 }
 
 function RawActions({ children, ...rest }: IXStackProps) {
   return (
     <XStack
-      justifyContent="space-between"
+      gap="$2"
       $gtSm={{
         flexDirection: 'row', // override the 'column' direction set in packages/kit/src/views/AssetDetails/pages/TokenDetails/TokenDetailsHeader.tsx 205L
         justifyContent: 'flex-start',
-        gap: '$6',
+        gap: '$3',
       }}
       {...rest}
     >

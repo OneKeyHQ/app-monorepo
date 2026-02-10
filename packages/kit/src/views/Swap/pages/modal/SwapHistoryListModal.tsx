@@ -1,14 +1,19 @@
 import { useCallback, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
+import BigNumber from 'bignumber.js';
+import { isNumber } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
   ActionList,
+  Badge,
   Button,
   Dialog,
+  Divider,
   Icon,
   Page,
+  Popover,
   Select,
   SizableText,
   XStack,
@@ -26,6 +31,7 @@ import type {
   EModalSwapRoutes,
   IModalSwapParamList,
 } from '@onekeyhq/shared/src/routes/swap';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   EProtocolOfExchange,
   ESwapCleanHistorySource,
@@ -45,6 +51,7 @@ const SwapHistoryListModal = ({
   storeName: EJotaiContextStoreNames;
 }) => {
   const intl = useIntl();
+  const { gtMd } = useMedia();
   const route =
     useRoute<
       RouteProp<IModalSwapParamList, EModalSwapRoutes.SwapHistoryList>
@@ -64,6 +71,43 @@ const SwapHistoryListModal = ({
     [swapHistoryPendingList],
     { watchLoading: true },
   );
+
+  // Default fee percentage for savings calculation (0.3%)
+  const DEFAULT_FEE_PERCENTAGE = 0.3;
+
+  // Calculate cumulative savings from all completed successful orders
+  const cumulativeSavings = useMemo(() => {
+    if (!swapTxHistoryList) return '$0';
+
+    let total = new BigNumber(0);
+
+    for (const history of swapTxHistoryList) {
+      // Only count completed successful orders
+      if (history.status !== ESwapTxHistoryStatus.SUCCESS) continue;
+
+      const historyOneKeyFeeUsd =
+        history.swapInfo?.oneKeyFeeExtraInfo?.oneKeyFeeUsd;
+      const historyOneKeyFee = history.swapInfo?.oneKeyFee;
+
+      // Check if this order qualifies for savings (oneKeyFee is 0 or oneKeyFeeUsd is 0)
+      const isSavingsOrder =
+        (isNumber(historyOneKeyFee) && historyOneKeyFee === 0) ||
+        (historyOneKeyFeeUsd && new BigNumber(historyOneKeyFeeUsd).eq(0));
+
+      if (isSavingsOrder) {
+        const fromAmount = history.baseInfo.fromAmount ?? '0';
+        const fromPrice = history.baseInfo.fromToken?.price ?? '0';
+        const fromValueUsd = new BigNumber(fromAmount).times(fromPrice);
+        const savedAmount = fromValueUsd.times(DEFAULT_FEE_PERCENTAGE).div(100);
+        total = total.plus(savedAmount);
+      }
+    }
+
+    return numberFormat(total.toFixed(), {
+      formatter: 'value',
+      formatterOptions: { currency: '$' },
+    });
+  }, [swapTxHistoryList]);
 
   const onDeleteHistory = useCallback(() => {
     // dialog
@@ -126,34 +170,195 @@ const SwapHistoryListModal = ({
     });
   }, [intl, swapTxHistoryList]);
 
+  const savingsPopoverContent = useMemo(
+    () => (
+      <YStack gap="$2" py="$2" w="100%">
+        <YStack gap="$5" px="$4" py="$2">
+          <XStack
+            px="$1"
+            alignItems="flex-start"
+            justifyContent="space-between"
+            gap="$2"
+          >
+            <XStack gap="$3" alignItems="flex-start" flex={1} minWidth={0}>
+              <Icon
+                name="DollarSolid"
+                size="$5"
+                color="$textSubdued"
+                flexShrink={0}
+              />
+              <YStack gap="$1" flex={1} minWidth={0}>
+                <SizableText size="$bodyMdMedium" color="$text">
+                  {intl.formatMessage({
+                    id: ETranslations.swap_provider_panel_feature_zero_fee,
+                  })}
+                </SizableText>
+                <SizableText size="$bodySm" color="$textSubdued">
+                  {intl.formatMessage({
+                    id: ETranslations.swap_provider_panel_feature_zero_fee_desc,
+                  })}
+                </SizableText>
+              </YStack>
+            </XStack>
+            <Icon
+              name="CheckRadioSolid"
+              size="$5"
+              color="$iconSuccess"
+              flexShrink={0}
+            />
+          </XStack>
+
+          <XStack
+            px="$1"
+            alignItems="flex-start"
+            justifyContent="space-between"
+            gap="$2"
+          >
+            <XStack gap="$3" alignItems="flex-start" flex={1} minWidth={0}>
+              <Icon
+                name="Shield2CheckSolid"
+                size="$5"
+                color="$textSubdued"
+                flexShrink={0}
+              />
+              <YStack gap="$1" flex={1} minWidth={0}>
+                <SizableText size="$bodyMdMedium" color="$text">
+                  {intl.formatMessage({
+                    id: ETranslations.swap_provider_panel_feature_mev,
+                  })}
+                </SizableText>
+                <SizableText size="$bodySm" color="$textSubdued">
+                  {intl.formatMessage({
+                    id: ETranslations.swap_provider_panel_feature_mev_desc,
+                  })}
+                </SizableText>
+              </YStack>
+            </XStack>
+            <Icon
+              name="CheckRadioSolid"
+              size="$5"
+              color="$iconSuccess"
+              flexShrink={0}
+            />
+          </XStack>
+
+          <XStack
+            px="$1"
+            alignItems="flex-start"
+            justifyContent="space-between"
+            gap="$2"
+          >
+            <XStack gap="$3" alignItems="flex-start" flex={1} minWidth={0}>
+              <Icon
+                name="SplitSolid"
+                size="$5"
+                color="$textSubdued"
+                flexShrink={0}
+              />
+              <YStack gap="$1" flex={1} minWidth={0}>
+                <SizableText size="$bodyMdMedium" color="$text">
+                  {intl.formatMessage({
+                    id: ETranslations.swap_provider_panel_feature_routing,
+                  })}
+                </SizableText>
+                <SizableText size="$bodySm" color="$textSubdued">
+                  {intl.formatMessage({
+                    id: ETranslations.swap_provider_panel_feature_routing_desc,
+                  })}
+                </SizableText>
+              </YStack>
+            </XStack>
+            <Icon
+              name="CheckRadioSolid"
+              size="$5"
+              color="$iconSuccess"
+              flexShrink={0}
+            />
+          </XStack>
+        </YStack>
+
+        <Divider />
+
+        <XStack py="$2" px="$4" alignItems="center" justifyContent="space-between">
+          <XStack px="$1" gap="$3" alignItems="center">
+            <Icon name="PiggyMoneySolid" size="$5" color="$text" />
+            <SizableText size="$headingXs" color="$text">
+              {intl.formatMessage({ id: ETranslations.swap_total_saved })}
+            </SizableText>
+          </XStack>
+          <SizableText size="$headingSm" color="$textSuccess">
+            +{cumulativeSavings}
+          </SizableText>
+        </XStack>
+      </YStack>
+    ),
+    [intl, cumulativeSavings],
+  );
+
   const deleteButton = useCallback(
     () => (
-      <ActionList
-        title={intl.formatMessage({
-          id: ETranslations.global_clear,
-        })}
-        items={[
-          {
-            label: intl.formatMessage({
-              id: ETranslations.swap_history_pending_history,
-            }),
-            onPress: onDeletePendingHistory,
-          },
-          {
-            label: intl.formatMessage({
-              id: ETranslations.swap_history_all_history,
-            }),
-            onPress: onDeleteHistory,
-          },
-        ]}
-        renderTrigger={
-          <Button variant="tertiary">
-            {intl.formatMessage({ id: ETranslations.global_clear })}
-          </Button>
-        }
-      />
+      <XStack gap="$2" alignItems="center">
+        {cumulativeSavings !== '$0' && gtMd ? (
+          <Popover
+            title={intl.formatMessage({ id: ETranslations.perps_saving_breakdown })}
+            floatingPanelProps={{
+              width: 320,
+            }}
+            renderTrigger={
+              <Badge
+                badgeSize="lg"
+                badgeType="success"
+                py="$1"
+                gap="$1.5"
+                borderRadius="$8"
+                cursor="pointer"
+                hoverStyle={{
+                  opacity: 0.8,
+                }}
+              >
+                <Icon name="PiggyMoneySolid" size="$3" color="$iconSuccess" />
+                <SizableText size="$bodySmMedium" color="$textSuccess">
+                  {cumulativeSavings}
+                </SizableText>
+              </Badge>
+            }
+            renderContent={savingsPopoverContent}
+          />
+        ) : null}
+        <ActionList
+          title={intl.formatMessage({
+            id: ETranslations.global_clear,
+          })}
+          items={[
+            {
+              label: intl.formatMessage({
+                id: ETranslations.swap_history_pending_history,
+              }),
+              onPress: onDeletePendingHistory,
+            },
+            {
+              label: intl.formatMessage({
+                id: ETranslations.swap_history_all_history,
+              }),
+              onPress: onDeleteHistory,
+            },
+          ]}
+          renderTrigger={
+            <Button variant="tertiary">
+              {intl.formatMessage({ id: ETranslations.global_clear })}
+            </Button>
+          }
+        />
+      </XStack>
     ),
-    [intl, onDeleteHistory, onDeletePendingHistory],
+    [
+      intl,
+      onDeleteHistory,
+      onDeletePendingHistory,
+      cumulativeSavings,
+      gtMd,
+      savingsPopoverContent,
+    ],
   );
 
   const headerSelectType = useMemo(() => {
@@ -198,7 +403,73 @@ const SwapHistoryListModal = ({
     );
     return renderHeaderTitle;
   }, [historyType, intl]);
-  const { gtMd } = useMedia();
+
+  const savingsBanner = useMemo(() => {
+    if (
+      cumulativeSavings === '$0' ||
+      gtMd ||
+      historyType === EProtocolOfExchange.LIMIT
+    ) {
+      return null;
+    }
+
+    return (
+      <Popover
+        title={intl.formatMessage({ id: ETranslations.perps_saving_breakdown })}
+        floatingPanelProps={{
+          width: 320,
+        }}
+        renderTrigger={
+          <XStack
+            mx="$5"
+            mt="$5"
+            px="$4"
+            py="$3"
+            backgroundColor="$bgStrong"
+            borderRadius="$3"
+            alignItems="center"
+            justifyContent="space-between"
+            cursor="pointer"
+            hoverStyle={{
+              opacity: 0.8,
+            }}
+            borderColor="$borderSubdued"
+            borderWidth={1}
+          >
+            <XStack gap="$2.5" alignItems="center" flex={1}>
+              <Icon name="PiggyMoneySolid" size="$5" color="$iconSuccess" />
+              <SizableText size="$bodyMd" color="$text">
+                {intl
+                  .formatMessage(
+                    { id: ETranslations.perps_onekey_has_saved_you },
+                    { fee: '__FEE__' },
+                  )
+                  .split('__FEE__')
+                  .reduce((acc, part, index) => {
+                    if (index === 0) return [part];
+                    return [
+                      ...acc,
+                      <SizableText
+                        key={index}
+                        size="$bodyMd"
+                        color="$textSuccess"
+                        fontWeight="600"
+                      >
+                        {cumulativeSavings}
+                      </SizableText>,
+                      part,
+                    ];
+                  }, [] as any[])}
+              </SizableText>
+            </XStack>
+            <Icon name="ChevronRightSmallOutline" size="$5" color="$icon" />
+          </XStack>
+        }
+        renderContent={savingsPopoverContent}
+      />
+    );
+  }, [cumulativeSavings, gtMd, historyType, intl, savingsPopoverContent]);
+
   return (
     <Page>
       <Page.Header
@@ -210,6 +481,7 @@ const SwapHistoryListModal = ({
       />
       {historyType !== EProtocolOfExchange.LIMIT ? (
         <YStack flex={1}>
+          {savingsBanner}
           <SwapMarketHistoryList />
         </YStack>
       ) : (

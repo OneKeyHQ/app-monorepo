@@ -205,6 +205,8 @@ function FavoritesBar() {
       gap="$3"
       flex={1}
       pl="$5"
+      borderBottomWidth="$px"
+      borderBottomColor="$borderSubdued"
     >
       <Icon name="StarSolid" size="$3" color="$icon" />
       <DisplayModeToggle
@@ -216,7 +218,6 @@ function FavoritesBar() {
           ref={scrollRef as any}
           horizontal
           showsHorizontalScrollIndicator={false}
-          bg="$bgApp"
           h={24}
           contentContainerStyle={{
             alignItems: 'center',

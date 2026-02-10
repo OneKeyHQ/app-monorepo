@@ -118,8 +118,10 @@ function Upgrade() {
   return (
     <RichBlock
       title={intl.formatMessage({ id: ETranslations.global_upgrade })}
+      headerContainerProps={{ px: '$pagePadding' }}
       content={renderContent()}
       contentContainerProps={{
+        mx: '$pagePadding',
         px: '$4',
         py: '$2',
         $gtMd: {
