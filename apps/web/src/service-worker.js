@@ -38,3 +38,10 @@ registerRoute(
     request.destination === 'script' || request.destination === 'style',
   new StaleWhileRevalidate({ cacheName: 'static-resources' }),
 );
+
+// Allow client to trigger skipWaiting so the new SW activates immediately
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
