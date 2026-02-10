@@ -350,7 +350,7 @@
   "create_qr_based_hidden_wallet_create_standard_wallet_title": "मानक वॉलेट बनाएं",
   "create_qr_based_hidden_wallet_dialog_title": "QR-आधारित छिपा हुआ वॉलेट बनाएं",
   "create_seed_phrase_wallet": "सीड फ़्रेज़ वॉलेट बनाएँ",
-  "current_account_missing_addresses": "वर्तमान खाता {Count} नेटवर्क पर पते गायब हैं",
+  "current_account_missing_addresses": "वर्तमान खाता {count} नेटवर्क पर पते गायब हैं",
   "custom_network.add_custom_network_failed_toast_text": "कस्टम नेटवर्क जोड़ने में विफल; कृपया पुनः प्रयास करें।",
   "custom_network.add_custom_network_successfully_toast_text": "कस्टम नेटवर्क सफलतापूर्वक जोड़ा गया",
   "custom_network.add_network_action_text": "कस्टम नेटवर्क जोड़ें",

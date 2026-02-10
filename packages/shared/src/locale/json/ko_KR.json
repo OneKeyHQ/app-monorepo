@@ -350,7 +350,7 @@
   "create_qr_based_hidden_wallet_create_standard_wallet_title": "표준 지갑 생성",
   "create_qr_based_hidden_wallet_dialog_title": "QR 기반 숨겨진 지갑 생성",
   "create_seed_phrase_wallet": "시드 문구 지갑",
-  "current_account_missing_addresses": "현재 계정은 {Count} 네트워크에서 주소가 누락되었습니다",
+  "current_account_missing_addresses": "현재 계정은 {count} 네트워크에서 주소가 누락되었습니다",
   "custom_network.add_custom_network_failed_toast_text": "사용자 정의 네트워크 추가에 실패했습니다. 다시 시도해 주세요.",
   "custom_network.add_custom_network_successfully_toast_text": "사용자 정의 네트워크 추가 성공",
   "custom_network.add_network_action_text": "사용자 정의 네트워크 추가",

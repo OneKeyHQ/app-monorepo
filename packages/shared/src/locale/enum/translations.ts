@@ -1,6 +1,5 @@
 // This file is automatically created by `yarn fetch:locale`.
 
-
 // @ts-ignore
 /* eslint-disable  */
   
