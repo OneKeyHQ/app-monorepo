@@ -605,8 +605,9 @@ function useAllNetworkRequests<T>(params: {
             resp = (
               await promiseAllSettledEnhanced(requestFactories, {
                 continueOnError: true,
-                concurrency:
-                  getAllNetworkTaskConcurrencyLimit(requestFactories.length),
+                concurrency: getAllNetworkTaskConcurrencyLimit(
+                  requestFactories.length,
+                ),
               })
             ).filter(Boolean);
           } catch (e) {

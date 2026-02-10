@@ -141,9 +141,7 @@ function MarketWatchlistTokenList({
               portalRef.current?.destroy();
               portalRef.current = null;
               try {
-                await actions.current.moveToTopV2(
-                  tokenToWatchListItem(item),
-                );
+                await actions.current.moveToTopV2(tokenToWatchListItem(item));
                 Toast.success({
                   title: intl.formatMessage({
                     id: ETranslations.market_move_to_top,
