@@ -265,29 +265,35 @@ const SwapSettingsDialogContent = () => {
     () => (
       <SegmentControl
         value={slippageItem.key}
-        options={swapSlippageItems.map((item) => ({
-          label: (
-            <XStack>
-              {item.key === ESwapSlippageSegmentKey.AUTO ? (
-                <Icon
-                  name="Ai3StarOutline"
-                  size="$4.5"
-                  color="$iconSuccess"
-                  mr="$0.5"
-                />
-              ) : null}
-              <SizableText size="$bodyMdMedium">
-                {intl.formatMessage({
-                  id:
-                    item.key === ESwapSlippageSegmentKey.AUTO
-                      ? ETranslations.slippage_tolerance_switch_auto
-                      : ETranslations.slippage_tolerance_switch_custom,
-                })}
-              </SizableText>
-            </XStack>
-          ),
-          value: item.key,
-        }))}
+        options={swapSlippageItems.map((item) => {
+          const isActive = slippageItem.key === item.key;
+          return {
+            label: (
+              <XStack>
+                {item.key === ESwapSlippageSegmentKey.AUTO ? (
+                  <Icon
+                    name="Ai3StarOutline"
+                    size="$4.5"
+                    color={isActive ? '$iconInverse' : '$iconSuccess'}
+                    mr="$0.5"
+                  />
+                ) : null}
+                <SizableText
+                  size="$bodyMdMedium"
+                  color={isActive ? '$textInverse' : '$text'}
+                >
+                  {intl.formatMessage({
+                    id:
+                      item.key === ESwapSlippageSegmentKey.AUTO
+                        ? ETranslations.slippage_tolerance_switch_auto
+                        : ETranslations.slippage_tolerance_switch_custom,
+                  })}
+                </SizableText>
+              </XStack>
+            ),
+            value: item.key,
+          };
+        })}
         onChange={(value) => {
           const keyValue = value as ESwapSlippageSegmentKey;
           setNoPersistSettings((s) => ({

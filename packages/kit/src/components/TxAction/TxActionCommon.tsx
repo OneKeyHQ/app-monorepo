@@ -133,11 +133,7 @@ function TxActionCommonTitle({
 
   return (
     <XStack alignItems="center">
-      <SizableText
-        numberOfLines={1}
-        flexShrink={1}
-        size="$bodyLgMedium"
-      >
+      <SizableText numberOfLines={1} flexShrink={1} size="$bodyLgMedium">
         {title}
       </SizableText>
       {replaceType && status === EDecodedTxStatus.Pending ? (
