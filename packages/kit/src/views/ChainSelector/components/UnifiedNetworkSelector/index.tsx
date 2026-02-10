@@ -310,10 +310,7 @@ function UnifiedNetworkSelector() {
               [network.id]: false,
             },
           }));
-          appEventBus.emit(
-            EAppEventBusNames.AddedCustomNetwork,
-            undefined,
-          );
+          appEventBus.emit(EAppEventBusNames.AddedCustomNetwork, undefined);
         } else {
           // Network tab: select network and close modal (original behavior)
           handleNetworkPressItem(network);

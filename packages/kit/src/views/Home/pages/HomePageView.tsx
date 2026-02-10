@@ -68,33 +68,33 @@ interface IAndroidScrollContainerProps {
 }
 const AndroidScrollContainer = platformEnv.isNativeAndroid
   ? ({ children }: IAndroidScrollContainerProps) => {
-    const [height, setHeight] = useState(0);
-    const heightRef = useRef(0);
-    const handleLayout = useCallback((event: LayoutChangeEvent) => {
-      const h = Math.round(event.nativeEvent.layout.height);
-      if (h !== heightRef.current) {
-        heightRef.current = h;
-        setHeight(h);
-      }
-    }, []);
-    const contentContainerStyle = useMemo(() => ({ height }), [height]);
-    return (
-      <YStack flex={1} onLayout={handleLayout}>
-        {height > 0 ? (
-          <ScrollView
-            nestedScrollEnabled
-            refreshControl={<PullToRefresh onRefresh={onHomePageRefresh} />}
-            contentContainerStyle={contentContainerStyle}
-          >
-            {children}
-          </ScrollView>
-        ) : null}
-      </YStack>
-    );
-  }
+      const [height, setHeight] = useState(0);
+      const heightRef = useRef(0);
+      const handleLayout = useCallback((event: LayoutChangeEvent) => {
+        const h = Math.round(event.nativeEvent.layout.height);
+        if (h !== heightRef.current) {
+          heightRef.current = h;
+          setHeight(h);
+        }
+      }, []);
+      const contentContainerStyle = useMemo(() => ({ height }), [height]);
+      return (
+        <YStack flex={1} onLayout={handleLayout}>
+          {height > 0 ? (
+            <ScrollView
+              nestedScrollEnabled
+              refreshControl={<PullToRefresh onRefresh={onHomePageRefresh} />}
+              contentContainerStyle={contentContainerStyle}
+            >
+              {children}
+            </ScrollView>
+          ) : null}
+        </YStack>
+      );
+    }
   : ({ children }: IAndroidScrollContainerProps) => {
-    return children;
-  };
+      return children;
+    };
 
 export function HomePageView({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -131,8 +131,8 @@ export function HomePageView({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const addressType = deriveInfo?.labelKey
     ? intl.formatMessage({
-      id: deriveInfo?.labelKey,
-    })
+        id: deriveInfo?.labelKey,
+      })
     : (deriveInfo?.label ?? '');
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -148,12 +148,12 @@ export function HomePageView({
       }),
       indexedAccount
         ? backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
-          {
-            networkId: network?.id ?? '',
-            indexedAccountId: indexedAccount?.id ?? '',
-            excludeEmptyAccount: true,
-          },
-        )
+            {
+              networkId: network?.id ?? '',
+              indexedAccountId: indexedAccount?.id ?? '',
+              excludeEmptyAccount: true,
+            },
+          )
         : undefined,
     ]);
     return {
@@ -292,8 +292,8 @@ export function HomePageView({
         type={
           (deriveInfo?.labelKey
             ? intl.formatMessage({
-              id: deriveInfo?.labelKey,
-            })
+                id: deriveInfo?.labelKey,
+              })
             : deriveInfo?.label) ?? ''
         }
       />
@@ -316,21 +316,21 @@ export function HomePageView({
       },
       isDeFiEnabled
         ? {
-          id: EHomeWalletTab.DeFi,
-          name: intl.formatMessage({
-            id: ETranslations.global_earn,
-          }),
-          component: <DeFiContainerWithProvider />,
-        }
+            id: EHomeWalletTab.DeFi,
+            name: intl.formatMessage({
+              id: ETranslations.global_earn,
+            }),
+            component: <DeFiContainerWithProvider />,
+          }
         : undefined,
       isNFTEnabled
         ? {
-          id: EHomeWalletTab.NFT,
-          name: intl.formatMessage({
-            id: ETranslations.global_nft,
-          }),
-          component: <NFTListContainerWithProvider />,
-        }
+            id: EHomeWalletTab.NFT,
+            name: intl.formatMessage({
+              id: ETranslations.global_nft,
+            }),
+            component: <NFTListContainerWithProvider />,
+          }
         : undefined,
       {
         id: EHomeWalletTab.History,
@@ -341,12 +341,12 @@ export function HomePageView({
       },
       isBulkRevokeApprovalEnabled
         ? {
-          id: EHomeWalletTab.Approvals,
-          name: intl.formatMessage({
-            id: ETranslations.global_approval,
-          }),
-          component: <ApprovalListContainerWithProvider />,
-        }
+            id: EHomeWalletTab.Approvals,
+            name: intl.formatMessage({
+              id: ETranslations.global_approval,
+            }),
+            component: <ApprovalListContainerWithProvider />,
+          }
         : undefined,
     ].filter(Boolean);
   }, [intl, isDeFiEnabled, isNFTEnabled, isBulkRevokeApprovalEnabled]);
@@ -411,8 +411,9 @@ export function HomePageView({
         </ScrollView>
       );
     }
-    const key = `${account?.id ?? ''}-${account?.indexedAccountId ?? ''}-${network?.id ?? ''
-      }-${isDeFiEnabled ? '1' : '0'}-${isNFTEnabled ? '1' : '0'}-${isBulkRevokeApprovalEnabled ? '1' : '0'}`;
+    const key = `${account?.id ?? ''}-${account?.indexedAccountId ?? ''}-${
+      network?.id ?? ''
+    }-${isDeFiEnabled ? '1' : '0'}-${isNFTEnabled ? '1' : '0'}-${isBulkRevokeApprovalEnabled ? '1' : '0'}`;
     return (
       <Tabs.Container
         ref={tabsRef as any}

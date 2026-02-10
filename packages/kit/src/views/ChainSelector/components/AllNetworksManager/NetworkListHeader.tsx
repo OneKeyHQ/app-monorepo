@@ -170,9 +170,7 @@ function NetworkListHeader() {
               })}
               renderTrigger={
                 <Stack alignSelf="flex-start">
-                  <SizableText
-                    size="$bodyLgMedium"
-                  >
+                  <SizableText size="$bodyLgMedium">
                     {intl.formatMessage(
                       {
                         id: ETranslations.network_view_assets_from_n_networks,

@@ -135,10 +135,7 @@ function NetworksSectionList() {
                   })}
                   renderTrigger={
                     <Stack alignSelf="flex-start">
-                      <SizableText
-                        size="$headingSm"
-                        color="$textSubdued"
-                      >
+                      <SizableText size="$headingSm" color="$textSubdued">
                         {item.section.title}
                       </SizableText>
                       <DottedLine mt={1} />
