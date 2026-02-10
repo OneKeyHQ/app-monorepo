@@ -86,6 +86,20 @@ function TableRow<T>({
     }
   }, [getTimeDiff, onRowEvents]);
 
+  const handleContextMenu = useCallback(
+    (e: { preventDefault: () => void; clientX?: number; clientY?: number }) => {
+      if (onRowEvents?.onContextMenu) {
+        e.preventDefault();
+        onRowEvents.onContextMenu(
+          e.clientX != null && e.clientY != null
+            ? { x: e.clientX, y: e.clientY }
+            : undefined,
+        );
+      }
+    },
+    [onRowEvents],
+  );
+
   const handleLongPress = useCallback(() => {
     if (platformEnv.isNative) {
       if (draggable) {
@@ -125,6 +139,13 @@ function TableRow<T>({
       onPressIn={!platformEnv.isNative ? handlePressIn : undefined}
       onPress={handlePress}
       onLongPress={md ? handleLongPress : undefined}
+      {...(!platformEnv.isNative && {
+        onContextMenu: handleContextMenu as any,
+      })}
+      {...(!platformEnv.isNative &&
+        draggable && {
+          cursor: isDragging ? 'grabbing' : 'grab',
+        })}
       {...nativeScaleAnimationProps}
       {...(itemPressStyle as IXStackProps)}
       {...(rowProps as IXStackProps)}

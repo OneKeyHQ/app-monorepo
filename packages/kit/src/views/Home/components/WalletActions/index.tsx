@@ -26,6 +26,7 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { RawActions } from './RawActions';
 import { useWalletActionConfig } from './useWalletActionConfig';
+import { WalletActionBuyMain } from './WalletActionBuyMain';
 import { WalletActionMore } from './WalletActionMore';
 import { WalletActionPerp } from './WalletActionPerp';
 import { WalletActionReceive } from './WalletActionReceive';
@@ -246,51 +247,32 @@ function WalletActions({ ...rest }: IXStackProps) {
     switch (actionType) {
       case 'send':
         return (
-          <WalletActionSend
-            key="send"
-            customization={customization}
-            showButtonStyle
-          />
+          <WalletActionSend key="send" customization={customization} />
         );
       case 'receive':
         return (
           <WalletActionReceive
             key="receive"
             customization={customization}
-            showButtonStyle
             useSelector
           />
         );
+      case 'buy':
+        return <WalletActionBuyMain key="buy" customization={customization} />;
       case 'swap':
         return platformEnv.isExtensionUiPopup ||
           platformEnv.isExtensionUiSidePanel ? (
-          <WalletActionPerp
-            key="perp"
-            customization={customization}
-            showButtonStyle
-          />
+          <WalletActionPerp key="perp" customization={customization} />
         ) : (
-          <WalletActionSwap
-            key="swap"
-            customization={customization}
-            showButtonStyle
-          />
+          <WalletActionSwap key="swap" customization={customization} />
         );
       case 'perp':
         return (
-          <WalletActionPerp
-            key="perp"
-            customization={customization}
-            showButtonStyle
-          />
+          <WalletActionPerp key="perp" customization={customization} />
         );
       case 'staking':
         return (
-          <WalletActionStaking
-            key="staking"
-            customization={customization}
-            showButtonStyle
-          />
+          <WalletActionStaking key="staking" customization={customization} />
         );
       default:
         return null;
@@ -309,7 +291,7 @@ function WalletActions({ ...rest }: IXStackProps) {
       }}
     >
       {config.mainActions.map(renderActionComponent).filter(Boolean)}
-      <WalletActionMore showButtonStyle />
+      <WalletActionMore />
     </RawActions>
   );
 }

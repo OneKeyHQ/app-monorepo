@@ -8,7 +8,7 @@ import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils'
 import { numberFormatAsRenderText } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { SizableText } from '../../primitives/SizeableText';
-import { getFontSize } from '../../utils/getFontSize';
+import { getFontSize, getFontToken } from '../../utils/getFontSize';
 
 import type { ISizableTextProps } from '../../primitives';
 
@@ -83,16 +83,27 @@ export function NumberSizeableText({
       : '';
   }, [actualFormatter, formatterOptions, children, splitDecimal]);
 
+  const parentFont = useMemo(
+    () => getFontToken(props.size as FontSizeTokens),
+    [props.size],
+  );
+
+  const parentFontSize = useMemo(
+    () =>
+      (props.fontSize as number) ||
+      getFontSize(props.size as FontSizeTokens),
+    [props.fontSize, props.size],
+  );
+
+  const parentFontWeight = (props.fontWeight ?? (parentFont as { fontWeight?: number })?.fontWeight) as ISizableTextProps['fontWeight'];
+
   const scriptFontSize = useMemo(
     () =>
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       props.fontSize !== 'unset'
-        ? Math.ceil(
-            (props.fontSize as number) ||
-              getFontSize(props.size as FontSizeTokens) * 0.6,
-          )
+        ? Math.ceil(parentFontSize * 0.6)
         : props.fontSize,
-    [props.fontSize, props.size],
+    [props.fontSize, parentFontSize],
   );
 
   if (hideValue) {
@@ -114,7 +125,12 @@ export function NumberSizeableText({
     <SizableText {...props} {...contentStyle}>
       {result.map((r, index) =>
         typeof r === 'string' ? (
-          <SizableText key={index} {...props}>
+          <SizableText
+            key={index}
+            color={props.color}
+            fontWeight={parentFontWeight}
+            fontSize={parentFontSize}
+          >
             {r}
           </SizableText>
         ) : 'type' in r && r.type === 'decimal' ? (
@@ -124,8 +140,10 @@ export function NumberSizeableText({
         ) : (
           <SizableText
             key={index}
-            {...props}
+            color={props.color}
+            fontWeight={parentFontWeight}
             fontSize={scriptFontSize}
+            lineHeight={parentFontSize}
             {...subTextStyle}
           >
             {r.value}

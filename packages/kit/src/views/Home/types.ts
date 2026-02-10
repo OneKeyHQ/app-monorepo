@@ -335,4 +335,4 @@ export type IOverviewTokenDetailListItem = {
   protocol?: IOverviewDefiRes;
 };
 
-export const PORTFOLIO_CONTAINER_RIGHT_SIDE_FIXED_WIDTH = 328;
+export const PORTFOLIO_CONTAINER_RIGHT_SIDE_FIXED_WIDTH = 400;
