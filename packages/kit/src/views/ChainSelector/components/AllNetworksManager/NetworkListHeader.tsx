@@ -23,6 +23,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { AllNetworksManagerContext } from './AllNetworksManagerContext';
 
+import DottedLine from '../DottedLine';
+
 function NetworkListHeader() {
   const intl = useIntl();
   const {
@@ -167,16 +169,17 @@ function NetworkListHeader() {
               id: ETranslations.network_selection_performance_tip,
             })}
             renderTrigger={
-              <SizableText
-                size="$bodyLgMedium"
-                textDecorationLine="underline"
-                textDecorationStyle="dotted"
-              >
-                {intl.formatMessage(
-                  { id: ETranslations.network_view_assets_from_n_networks },
-                  { count: enabledNetworks.length },
-                )}
-              </SizableText>
+              <Stack alignSelf="flex-start">
+                <SizableText
+                  size="$bodyLgMedium"
+                >
+                  {intl.formatMessage(
+                    { id: ETranslations.network_view_assets_from_n_networks },
+                    { count: enabledNetworks.length },
+                  )}
+                </SizableText>
+                <DottedLine mt={1} />
+              </Stack>
             }
           />
           <Button size="media" variant="tertiary" onPress={handleToggleAll}>

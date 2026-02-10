@@ -31,6 +31,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { useFuseSearch } from '../../hooks/useFuseSearch';
+import DottedLine from '../DottedLine';
 import RecentNetworks from '../RecentNetworks';
 
 import { EditableChainSelectorContext } from './context';
@@ -82,17 +83,17 @@ const ListHeaderComponent = () => {
               id: ETranslations.network_auto_detection_tip,
             })}
             renderTrigger={
-              <SizableText
-                size="$bodyMdMedium"
-                color="$textSubdued"
-                textDecorationLine="underline"
-                textDecorationColor="$textSubdued"
-                textDecorationStyle="dotted"
-              >
-                {intl.formatMessage({
-                  id: ETranslations.network_found_assets_on_networks,
-                })}
-              </SizableText>
+              <Stack alignSelf="flex-start">
+                <SizableText
+                  size="$bodyMdMedium"
+                  color="$textSubdued"
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.network_found_assets_on_networks,
+                  })}
+                </SizableText>
+                <DottedLine mt={1} />
+              </Stack>
             }
           />
         </Stack>

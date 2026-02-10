@@ -8,6 +8,7 @@ import {
   Empty,
   SearchBar,
   SectionList,
+  SizableText,
   Stack,
   Tooltip,
   XStack,
@@ -22,6 +23,8 @@ import { usePureChainSelectorSections } from '../../hooks/usePureChainSelectorSe
 import { AllNetworksManagerContext } from './AllNetworksManagerContext';
 import NetworkListHeader from './NetworkListHeader';
 import NetworkListItem from './NetworkListItem';
+
+import DottedLine from '../DottedLine';
 
 import type {
   IPureChainSelectorSectionListItem,
@@ -131,15 +134,16 @@ function NetworksSectionList() {
                   id: ETranslations.network_auto_detection_tip,
                 })}
                 renderTrigger={
-                  <SectionList.SectionHeader
-                    title={item.section.title}
-                    px="$0"
-                    style={{
-                      textDecorationLine: 'underline',
-                      textDecorationColor: '$textSubdued',
-                      textDecorationStyle: 'dotted',
-                    }}
-                  />
+                  <Stack alignSelf="flex-start">
+                    <SizableText
+                      numberOfLines={1}
+                      size="$headingSm"
+                      color="$textSubdued"
+                    >
+                      {item.section.title}
+                    </SizableText>
+                    <DottedLine mt={1} />
+                  </Stack>
                 }
               />
               <XStack gap="$3" alignItems="center">
