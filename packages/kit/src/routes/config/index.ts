@@ -267,7 +267,6 @@ export const useRouterConfig = () => {
                   'onStateChange',
                   `activeTab=${activeTabName}, tabIndex=${tabIndex}`,
                 );
-                console.log('[LANDING_DEBUG] state changed to Home tab');
               }
             }
           }

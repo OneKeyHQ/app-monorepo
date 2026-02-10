@@ -20,7 +20,9 @@ export function GlobalJotaiReady({ children }: { children: any }) {
       setIsReady(true);
       return;
     }
+    let isMounted = true;
     void globalJotaiStorageReadyHandler.ready.then((ready) => {
+      if (!isMounted) return;
       startTransition(() => {
         if (process.env.NODE_ENV !== 'production') {
           debugLandingLog('GlobalJotaiReady resolved', `ready=${ready}`);
@@ -28,6 +30,9 @@ export function GlobalJotaiReady({ children }: { children: any }) {
         setIsReady(ready);
       });
     });
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   if (!isReady) {

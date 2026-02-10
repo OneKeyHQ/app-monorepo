@@ -56,7 +56,7 @@ class JotaiStorage implements AsyncStorage<any> {
     await appStorage.removeItem(key);
   }
 
-  async getAllEntries(): Promise<Map<string, any>> {
+  async getAllEntries(): Promise<Map<string, any> | null> {
     if (typeof (appStorage as any).getAllEntries === 'function') {
       const rawMap: Map<string, any> = await (
         appStorage as any
@@ -75,8 +75,8 @@ class JotaiStorage implements AsyncStorage<any> {
       }
       return parsedMap;
     }
-    // Fallback for storage implementations without getAllEntries (e.g., mock storage)
-    return new Map();
+    // Return null to signal batch read is not supported (e.g., mobile native storage)
+    return null;
   }
 
   subscribe = undefined;

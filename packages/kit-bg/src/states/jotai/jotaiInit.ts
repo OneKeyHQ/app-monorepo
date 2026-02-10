@@ -33,16 +33,19 @@ async function preloadAtomStorageValues() {
   // Batch read: single IndexedDB transaction instead of 104 individual ones
   if ('getAllEntries' in onekeyJotaiStorage) {
     const batchMap = await onekeyJotaiStorage.getAllEntries();
-    const storageMap = new Map<string, any>();
-    for (const name of Object.values(EAtomNames)) {
-      const key = buildJotaiStorageKey(name);
-      const value = batchMap.get(key);
-      storageMap.set(key, value === null ? undefined : value);
+    // batchMap is null when underlying storage doesn't support batch read (e.g., mobile native)
+    if (batchMap) {
+      const storageMap = new Map<string, any>();
+      for (const name of Object.values(EAtomNames)) {
+        const key = buildJotaiStorageKey(name);
+        const value = batchMap.get(key);
+        storageMap.set(key, value === null ? undefined : value);
+      }
+      return storageMap;
     }
-    return storageMap;
   }
 
-  // Fallback: individual reads (extension UI uses mock storage)
+  // Fallback: individual reads (extension UI mock storage, mobile native storage)
   const storageMap = new Map<string, any>();
   await Promise.all(
     Object.values(EAtomNames).map(async (name) => {
@@ -115,8 +118,14 @@ export async function jotaiInit() {
           isPlainObject(initValue)
         ) {
           // Lazy import dbBackupTools — only needed on first launch
-          const { default: dbBackupToolsLazy } =
-            await import('../../services/ServiceDBBackup/dbBackupTools');
+          // Ensure localDb is ready before reading backup metadata
+          const { default: localDbLazy } = await import(
+            '../../dbs/local/localDb'
+          );
+          await localDbLazy.readyDb;
+          const { default: dbBackupToolsLazy } = await import(
+            '../../services/ServiceDBBackup/dbBackupTools'
+          );
           const backupedInstanceMeta =
             await dbBackupToolsLazy.getBackupedInstanceMeta();
           if (backupedInstanceMeta) {
