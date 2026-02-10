@@ -37,7 +37,12 @@ module.exports = ({
             new InjectManifest({
               swSrc: path.join(basePath, 'src/service-worker.js'),
               swDest: 'service-worker.js',
-              exclude: [/\.map$/, /asset-manifest\.json$/, /LICENSE/],
+              exclude: [
+                /\.map$/,
+                /asset-manifest\.json$/,
+                /LICENSE/,
+                /index\.html$/,
+              ],
             }),
           ],
         },

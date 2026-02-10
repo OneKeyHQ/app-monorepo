@@ -16,9 +16,9 @@ import type { INetworkWalletActionsConfig } from './types';
 const networkIds = getNetworkIdsMap();
 
 export const defaultWalletActionsConfig: INetworkWalletActionsConfig = {
-  mainActions: ['send', 'receive', 'swap'],
+  mainActions: ['send', 'receive', 'buy'],
   moreActions: [
-    'buy',
+    'swap',
     'sell',
     'explorer',
     'copy',
@@ -30,7 +30,7 @@ export const defaultWalletActionsConfig: INetworkWalletActionsConfig = {
   moreActionGroups: [
     {
       type: 'trading',
-      actions: ['buy', 'sell'],
+      actions: ['swap', 'sell'],
       order: 1,
     },
     {

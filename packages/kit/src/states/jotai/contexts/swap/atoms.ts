@@ -528,7 +528,7 @@ export const {
       const fromAmountBN = new BigNumber(toAmount).multipliedBy(reverseRate);
       const fromAmount = fromAmountBN
         .decimalPlaces(
-          fromToken?.decimals ?? LIMIT_PRICE_DEFAULT_DECIMALS,
+          Number(fromToken?.decimals ?? LIMIT_PRICE_DEFAULT_DECIMALS),
           BigNumber.ROUND_HALF_UP,
         )
         .toFixed();
@@ -556,7 +556,7 @@ export const {
       const toAmountBN = new BigNumber(fromAmount).multipliedBy(rate);
       const toAmount = toAmountBN
         .decimalPlaces(
-          toToken?.decimals ?? LIMIT_PRICE_DEFAULT_DECIMALS,
+          Number(toToken?.decimals ?? LIMIT_PRICE_DEFAULT_DECIMALS),
           BigNumber.ROUND_HALF_UP,
         )
         .toFixed();
@@ -798,14 +798,18 @@ export const {
     const rate = fromPriceBN
       .div(toPriceBN)
       .decimalPlaces(
-        toTokenPriceInfo.tokenInfo.decimals ?? LIMIT_PRICE_DEFAULT_DECIMALS,
+        Number(
+          toTokenPriceInfo.tokenInfo.decimals ?? LIMIT_PRICE_DEFAULT_DECIMALS,
+        ),
         BigNumber.ROUND_HALF_UP,
       )
       .toFixed();
     const reverseRate = toPriceBN
       .div(fromPriceBN)
       .decimalPlaces(
-        fromTokenPriceInfo.tokenInfo.decimals ?? LIMIT_PRICE_DEFAULT_DECIMALS,
+        Number(
+          fromTokenPriceInfo.tokenInfo.decimals ?? LIMIT_PRICE_DEFAULT_DECIMALS,
+        ),
         BigNumber.ROUND_HALF_UP,
       )
       .toFixed();

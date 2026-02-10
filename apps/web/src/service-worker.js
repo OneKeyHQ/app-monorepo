@@ -1,4 +1,5 @@
 /* eslint-disable no-restricted-globals */
+/* eslint-disable unicorn/prefer-global-this */
 import { precacheAndRoute } from 'workbox-precaching';
 import { NavigationRoute, registerRoute } from 'workbox-routing';
 import {
@@ -8,8 +9,14 @@ import {
 } from 'workbox-strategies';
 import { ExpirationPlugin } from 'workbox-expiration';
 
+// Skip waiting immediately on install so existing users with old SW get
+// the fix without needing to confirm the update prompt or close all tabs.
+self.addEventListener('install', () => {
+  self.skipWaiting();
+});
+
 // Precache app shell (manifest injected by InjectManifest at build time)
-precacheAndRoute(globalThis.__WB_MANIFEST);
+precacheAndRoute(self.__WB_MANIFEST);
 
 // Navigation requests -> NetworkFirst (SPA routing, offline fallback to cached index.html)
 registerRoute(

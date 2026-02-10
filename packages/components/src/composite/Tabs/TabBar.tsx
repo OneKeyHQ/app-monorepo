@@ -51,10 +51,11 @@ export function TabBarItem({
         py="$1.5"
         borderRadius="$full"
         bg={isFocused ? '$bgPrimary' : '$bgStrong'}
-        hoverStyle={{ bg: isFocused ? '$bgPrimary' : '$bgHover' }}
+        hoverStyle={isFocused ? undefined : { bg: '$bgHover' }}
+        pressStyle={isFocused ? undefined : { bg: '$bgActive' }}
         key={name}
         onPress={handlePress}
-        cursor="pointer"
+        cursor="default"
         {...tabItemStyle}
         {...(isFocused ? focusedTabStyle : undefined)}
       >

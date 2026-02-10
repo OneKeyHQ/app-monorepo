@@ -50,6 +50,7 @@ function PerpsRewardPageWrapper() {
   const { md } = useMedia();
 
   const [isLoading, setIsLoading] = useState(false);
+  const [isTabLoading, setIsTabLoading] = useState(false);
   const [cumulativeRewards, setCumulativeRewards] = useState<
     IPerpsCumulativeRewardsResponse | undefined
   >();
@@ -314,10 +315,10 @@ function PerpsRewardPageWrapper() {
 
   // Fetch data when tab changes
   useEffect(() => {
-    setIsLoading(true);
+    setIsTabLoading(true);
     fetchCurrentTab()
       .catch((error) => console.error('Failed to fetch tab data:', error))
-      .finally(() => setIsLoading(false));
+      .finally(() => setIsTabLoading(false));
   }, [fetchCurrentTab]);
 
   // Max date for DatePicker (today)
@@ -422,6 +423,7 @@ function PerpsRewardPageWrapper() {
                 sortOrder={sortOrder}
                 onSort={handleSort}
                 isLoadingMore={isLoadingMore}
+                isTabLoading={isTabLoading}
               />
             </ScrollView>
           )}
