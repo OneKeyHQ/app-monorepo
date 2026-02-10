@@ -8,7 +8,6 @@ import {
   SizableText,
   Stack,
   Toast,
-  Tooltip,
   XStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -22,6 +21,9 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { AllNetworksManagerContext } from './AllNetworksManagerContext';
+
+import ChainSelectorTooltip from '../ChainSelectorTooltip';
+import DottedLine from '../DottedLine';
 
 function NetworkListHeader() {
   const intl = useIntl();
@@ -161,25 +163,32 @@ function NetworkListHeader() {
           justifyContent="space-between"
           alignItems="center"
         >
-          <Tooltip
-            placement="bottom-start"
-            renderContent={intl.formatMessage({
-              id: ETranslations.network_selection_performance_tip,
-            })}
-            renderTrigger={
-              <SizableText
-                size="$bodyLgMedium"
-                textDecorationLine="underline"
-                textDecorationStyle="dotted"
-              >
-                {intl.formatMessage(
-                  { id: ETranslations.network_view_assets_from_n_networks },
-                  { count: enabledNetworks.length },
-                )}
-              </SizableText>
-            }
-          />
-          <Button size="media" variant="tertiary" onPress={handleToggleAll}>
+          <Stack flex={1} mr="$2">
+            <ChainSelectorTooltip
+              renderContent={intl.formatMessage({
+                id: ETranslations.network_selection_performance_tip,
+              })}
+              renderTrigger={
+                <Stack alignSelf="flex-start">
+                  <SizableText size="$bodyLgMedium">
+                    {intl.formatMessage(
+                      {
+                        id: ETranslations.network_view_assets_from_n_networks,
+                      },
+                      { count: enabledNetworks.length },
+                    )}
+                  </SizableText>
+                  <DottedLine mt={1} />
+                </Stack>
+              }
+            />
+          </Stack>
+          <Button
+            flexShrink={0}
+            size="media"
+            variant="tertiary"
+            onPress={handleToggleAll}
+          >
             {isAllNetworksEnabled
               ? intl.formatMessage({ id: ETranslations.global_deselect_all })
               : intl.formatMessage({ id: ETranslations.global_select_all })}
