@@ -1,6 +1,6 @@
-import { IconButton } from '../../../actions';
+import { IconButton } from '../../../actions/IconButton';
 
-import type { IIconButtonProps } from '../../../actions';
+import type { IIconButtonProps } from '../../../actions/IconButton';
 
 function HeaderIconButton(props: IIconButtonProps) {
   return (
