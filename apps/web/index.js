@@ -127,6 +127,11 @@ if (
             }
           });
         });
+
+        // Check for updates every 30 minutes
+        setInterval(() => {
+          registration.update();
+        }, 30 * 60 * 1000);
       })
       .catch((error) => {
         console.error('Service worker registration failed:', error);
