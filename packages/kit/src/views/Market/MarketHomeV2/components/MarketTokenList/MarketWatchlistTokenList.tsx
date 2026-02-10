@@ -1,6 +1,12 @@
 import type { ReactNode } from 'react';
-import { useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
+import { ActionList, Toast } from '@onekeyhq/components';
+import { Portal } from '@onekeyhq/components/src/hocs';
+import type { IPortalManager } from '@onekeyhq/components/src/hocs/Portal';
+import type { IDragEndParamsWithItem } from '@onekeyhq/components/src/layouts/SortableListView/types';
 import {
   useMarketWatchListV2Atom,
   useWatchListV2Actions,
@@ -10,10 +16,13 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 
 import { MarketRecommendList } from '../MarketRecommendList';
 
+import { InlineActionBar } from './components/InlineActionBar';
 import { useMarketWatchlistTokenList } from './hooks/useMarketWatchlistTokenList';
 import { type IMarketToken } from './MarketTokenData';
 import { MarketTokenListBase } from './MarketTokenListBase';
@@ -31,11 +40,20 @@ function MarketWatchlistTokenList({
   toolbar,
   hideNativeToken,
 }: IMarketWatchlistTokenListProps) {
+  const intl = useIntl();
+
   // Get watchlist from atom if not provided externally
   const [watchlistState] = useMarketWatchListV2Atom();
   const { recommendedTokens } = useMarketBasicConfig();
 
   const actions = useWatchListV2Actions();
+
+  // State for mobile inline action bar
+  const [activeActionItem, setActiveActionItem] = useState<{
+    item: IMarketToken;
+    index: number;
+  } | null>(null);
+  const portalRef = useRef<IPortalManager | null>(null);
 
   useEffect(() => {
     const fn = async () => {
@@ -68,10 +86,150 @@ function MarketWatchlistTokenList({
     };
   }, [watchlistResult]);
 
-  // console.log('MarketWatchlistTokenList___watchlistResult', {
-  //   watchlist,
-  //   watchlistResult,
-  // });
+  const isDraggable = !watchlistResult.sortBy && !watchlistResult.sortType;
+
+  const tokenToWatchListItem = useCallback(
+    (token: IMarketToken): IMarketWatchListItemV2 => ({
+      chainId: token.networkId,
+      contractAddress: token.address,
+      sortIndex: token.sortIndex,
+      isNative: token.isNative,
+    }),
+    [],
+  );
+
+  const handleDragEnd = useCallback(
+    (params: IDragEndParamsWithItem<IMarketToken>) => {
+      const { dragItem, prevItem, nextItem } = params;
+      void actions.current.sortWatchListV2Items({
+        target: tokenToWatchListItem(dragItem),
+        prev: prevItem ? tokenToWatchListItem(prevItem) : undefined,
+        next: nextItem ? tokenToWatchListItem(nextItem) : undefined,
+      });
+    },
+    [actions, tokenToWatchListItem],
+  );
+
+  const dismissInlineActionBar = useCallback(() => {
+    setActiveActionItem(null);
+    if (portalRef.current) {
+      portalRef.current.destroy();
+      portalRef.current = null;
+    }
+  }, []);
+
+  const handleShowContextMenu = useCallback(
+    (
+      item: IMarketToken,
+      index: number,
+      position?: { x: number; y: number },
+    ) => {
+      // Mobile native: show inline action bar
+      if (platformEnv.isNative) {
+        // Dismiss any existing action bar first
+        if (portalRef.current) {
+          portalRef.current.destroy();
+          portalRef.current = null;
+        }
+        setActiveActionItem({ item, index });
+        portalRef.current = Portal.Render(
+          Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL,
+          <InlineActionBar
+            isFirstItem={index === 0}
+            onMoveToTop={async () => {
+              setActiveActionItem(null);
+              portalRef.current?.destroy();
+              portalRef.current = null;
+              try {
+                await actions.current.moveToTopV2(
+                  tokenToWatchListItem(item),
+                );
+                Toast.success({
+                  title: intl.formatMessage({
+                    id: ETranslations.market_move_to_top,
+                  }),
+                });
+              } catch {
+                // error handled internally
+              }
+            }}
+            onToggleWatchlist={async () => {
+              setActiveActionItem(null);
+              portalRef.current?.destroy();
+              portalRef.current = null;
+              try {
+                await actions.current.removeFromWatchListV2(
+                  item.networkId,
+                  item.address,
+                );
+                Toast.success({
+                  title: intl.formatMessage({
+                    id: ETranslations.market_remove_from_watchlist,
+                  }),
+                });
+              } catch {
+                // error handled internally
+              }
+            }}
+            onDismiss={() => {
+              setActiveActionItem(null);
+              portalRef.current?.destroy();
+              portalRef.current = null;
+            }}
+          />,
+        );
+        return;
+      }
+
+      // Desktop/Web: show existing ActionList context menu
+      const title = item.symbol.toUpperCase();
+      ActionList.show({
+        title,
+        triggerPosition: position,
+        sections: [
+          {
+            items: [
+              {
+                icon: 'ArrowTopOutline' as const,
+                label: intl.formatMessage({
+                  id: ETranslations.market_move_to_top,
+                }),
+                disabled: index === 0,
+                onPress: () => {
+                  void actions.current.moveToTopV2(tokenToWatchListItem(item));
+                },
+              },
+              {
+                destructive: true,
+                icon: 'DeleteOutline' as const,
+                label: intl.formatMessage({
+                  id: ETranslations.market_remove_from_watchlist,
+                }),
+                onPress: () => {
+                  void actions.current.removeFromWatchListV2(
+                    item.networkId,
+                    item.address,
+                  );
+                },
+              },
+            ],
+          },
+        ],
+      });
+    },
+    [actions, intl, tokenToWatchListItem],
+  );
+
+  // Cleanup portal on unmount
+  useEffect(
+    () => () => {
+      if (portalRef.current) {
+        portalRef.current.destroy();
+        portalRef.current = null;
+      }
+    },
+    [],
+  );
 
   // Wait for data to be loaded before rendering anything
   // This prevents flashing the recommend list while data is still loading
@@ -91,6 +249,11 @@ function MarketWatchlistTokenList({
       result={hideNativeToken ? watchListResultNoNative : watchlistResult}
       isWatchlistMode
       showEndReachedIndicator
+      draggable={isDraggable}
+      onDragEnd={handleDragEnd}
+      onItemLongPress={handleShowContextMenu}
+      onItemContextMenu={handleShowContextMenu}
+      onScrollBegin={activeActionItem ? dismissInlineActionBar : undefined}
     />
   );
 }

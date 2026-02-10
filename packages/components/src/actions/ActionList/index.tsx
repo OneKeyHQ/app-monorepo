@@ -28,6 +28,7 @@ import {
   Icon,
   SizableText,
   Skeleton,
+  Stack,
   XStack,
   YStack,
 } from '../../primitives';
@@ -399,6 +400,7 @@ type IShowActionListParams = Omit<
   'renderTrigger' | 'defaultOpen'
 > & {
   onClose?: () => void;
+  triggerPosition?: { x: number; y: number };
 };
 const showActionList = (
   props: IShowActionListParams,
@@ -410,8 +412,69 @@ const showActionList = (
     | undefined,
 ) => {
   const { modalNavigatorContext, pageContextValue } = contexts || {};
+  const { triggerPosition, ...restProps } = props;
   dismissKeyboard();
-  const ref = Portal.Render(
+
+  const triggerElement =
+    triggerPosition && !platformEnv.isNative ? (
+      <Stack width={1} height={1} />
+    ) : null;
+
+  // Use let so the destroy callback can reference it after assignment
+  // eslint-disable-next-line prefer-const
+  let ref: { destroy: () => void };
+
+  const handleOpenChange = (isOpen: boolean) => {
+    restProps.onOpenChange?.(isOpen);
+    if (!isOpen) {
+      setTimeout(() => {
+        restProps.onClose?.();
+      });
+      // delay the destruction of the reference to allow for the completion of the animation transition.
+      setTimeout(() => {
+        ref.destroy();
+      }, 500);
+    }
+  };
+
+  // For context menu positioning: use 'bottom-start' so the menu extends
+  // to the bottom-right of the cursor, like native OS context menus.
+  // Disable allowFlip to prevent placement recalculation during close animation.
+  const contextMenuProps =
+    triggerPosition && !platformEnv.isNative
+      ? { placement: 'bottom-start' as const, allowFlip: false }
+      : {};
+
+  const actionList = (
+    <BasicActionList
+      {...restProps}
+      {...contextMenuProps}
+      defaultOpen
+      renderTrigger={triggerElement}
+      onOpenChange={handleOpenChange}
+    />
+  );
+
+  // Wrap in a fixed-position container at cursor coordinates for context menu positioning
+  const content =
+    triggerPosition && !platformEnv.isNative ? (
+      <Stack
+        // eslint-disable-next-line react-native/no-inline-styles
+        style={{
+          position: 'fixed' as const,
+          left: triggerPosition.x,
+          top: triggerPosition.y,
+          width: 0,
+          height: 0,
+        }}
+      >
+        {actionList}
+      </Stack>
+    ) : (
+      actionList
+    );
+
+  ref = Portal.Render(
     Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL,
     <ModalNavigatorContext.Provider
       value={modalNavigatorContext || { portalId: '' }}
@@ -419,23 +482,7 @@ const showActionList = (
       <PageContext.Provider
         value={pageContextValue || { footerRef: { current: null } as any }}
       >
-        <BasicActionList
-          {...props}
-          defaultOpen
-          renderTrigger={null}
-          onOpenChange={(isOpen) => {
-            props.onOpenChange?.(isOpen);
-            if (!isOpen) {
-              setTimeout(() => {
-                props.onClose?.();
-              });
-              // delay the destruction of the reference to allow for the completion of the animation transition.
-              setTimeout(() => {
-                ref.destroy();
-              }, 500);
-            }
-          }}
-        />
+        {content}
       </PageContext.Provider>
     </ModalNavigatorContext.Provider>,
   );
