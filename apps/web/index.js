@@ -30,7 +30,9 @@ if (
   process.env.NODE_ENV === 'production'
 ) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/service-worker.js');
+    navigator.serviceWorker.register('/service-worker.js').catch((error) => {
+      console.error('Service worker registration failed:', error);
+    });
 
     // Reload once the new service worker takes control.
     // The new SW calls skipWaiting() + clients.claim() on its own,
