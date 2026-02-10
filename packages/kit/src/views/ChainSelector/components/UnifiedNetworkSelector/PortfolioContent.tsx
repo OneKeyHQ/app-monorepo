@@ -28,6 +28,8 @@ type IPortfolioContentProps = {
   setIsCreatingEnabledAddresses: React.Dispatch<React.SetStateAction<boolean>>;
   isCreatingMissingAddresses: boolean;
   setIsCreatingMissingAddresses: React.Dispatch<React.SetStateAction<boolean>>;
+  missingAddressCount: number;
+  setMissingAddressCount: React.Dispatch<React.SetStateAction<number>>;
   networks: {
     mainNetworks: IServerNetworkMatch[];
     frequentlyUsedNetworks: IServerNetworkMatch[];
@@ -50,6 +52,8 @@ function PortfolioContent({
   setIsCreatingEnabledAddresses,
   isCreatingMissingAddresses,
   setIsCreatingMissingAddresses,
+  missingAddressCount,
+  setMissingAddressCount,
   networks,
   accountNetworkValues,
   accountNetworkValueCurrency,
@@ -70,6 +74,8 @@ function PortfolioContent({
       setIsCreatingEnabledAddresses,
       isCreatingMissingAddresses,
       setIsCreatingMissingAddresses,
+      missingAddressCount,
+      setMissingAddressCount,
       accountNetworkValues,
       accountNetworkValueCurrency,
       accountDeFiOverview,
@@ -88,6 +94,8 @@ function PortfolioContent({
       setIsCreatingEnabledAddresses,
       isCreatingMissingAddresses,
       setIsCreatingMissingAddresses,
+      missingAddressCount,
+      setMissingAddressCount,
       accountNetworkValues,
       accountNetworkValueCurrency,
       accountDeFiOverview,

@@ -169,10 +169,10 @@ module.exports = ({ platform, basePath, configName }) => {
         ? 'static/media/[name].[ext]'
         : 'static/media/[name].[hash][ext]',
       uniqueName: 'web',
-      filename: isDev ? '[name].bundle.js' : '[name].[chunkhash:10].bundle.js',
+      filename: isDev ? '[name].bundle.js' : '[name].[contenthash:10].bundle.js',
       chunkFilename: isDev
         ? 'static/js/[name].chunk.js'
-        : 'static/js/[name].[chunkhash:10].chunk.js',
+        : 'static/js/[name].[contenthash:10].chunk.js',
     },
     plugins: [
       new HtmlWebpackPlugin({

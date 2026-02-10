@@ -30,8 +30,8 @@ function DeFiContainer() {
 
   if (tableLayout) {
     return (
-      <XStack pt="$3" pb="$4" px="$pagePadding" gap="$6">
-        <YStack flex={1} gap="$8">
+      <XStack gap="$6">
+        <YStack flex={1} gap="$8" pt="$3" pb="$8">
           <DeFiListBlock tableLayout />
           <Upgrade />
           <SupportHub />
@@ -42,7 +42,7 @@ function DeFiContainer() {
   }
 
   return (
-    <YStack gap="$6" px="$pagePadding" pt="$3" pb="$4">
+    <YStack gap="$6" pb="$5">
       <DeFiListBlock />
       <SupportHub />
       {addPaddingOnListFooter ? <Stack h="$16" /> : null}
