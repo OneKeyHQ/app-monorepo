@@ -296,20 +296,29 @@ function UnifiedNetworkSelector() {
   const handleAddCustomNetwork = useCallback(() => {
     navigation.push(EChainSelectorPagesEnum.AddCustomNetwork, {
       state: 'add',
-      onSuccess: (network: IServerNetwork) => {
+      onSuccess: async (network: IServerNetwork) => {
         if (activeTabRef.current === 'portfolio') {
-          // Portfolio tab: enable the new network and refresh data.
-          // The list refresh is handled by AddedCustomNetwork event listener.
-          setNetworksState((prev) => ({
-            enabledNetworks: {
-              ...prev.enabledNetworks,
-              [network.id]: true,
-            },
-            disabledNetworks: {
-              ...prev.disabledNetworks,
-              [network.id]: false,
-            },
-          }));
+          // Portfolio tab: enable the new network and persist to backend.
+          // Persist first to avoid race condition: refreshPortfolioData
+          // (triggered by AddedCustomNetwork event) fetches backend state
+          // and overwrites local state. By persisting before the event,
+          // the backend already includes the enabled state.
+          const newEnabledNetworks = {
+            ...networksState.enabledNetworks,
+            [network.id]: true,
+          };
+          const newDisabledNetworks = {
+            ...networksState.disabledNetworks,
+            [network.id]: false,
+          };
+          setNetworksState({
+            enabledNetworks: newEnabledNetworks,
+            disabledNetworks: newDisabledNetworks,
+          });
+          await backgroundApiProxy.serviceAllNetwork.updateAllNetworksState({
+            enabledNetworks: newEnabledNetworks,
+            disabledNetworks: newDisabledNetworks,
+          });
           appEventBus.emit(EAppEventBusNames.AddedCustomNetwork, undefined);
         } else {
           // Network tab: select network and close modal (original behavior)
@@ -317,7 +326,7 @@ function UnifiedNetworkSelector() {
         }
       },
     });
-  }, [navigation, handleNetworkPressItem]);
+  }, [navigation, handleNetworkPressItem, networksState]);
 
   const handleEditCustomNetwork = useCallback(
     async (network: IServerNetwork) => {
