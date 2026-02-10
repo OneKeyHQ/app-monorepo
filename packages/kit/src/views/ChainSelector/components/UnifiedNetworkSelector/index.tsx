@@ -176,8 +176,12 @@ function UnifiedNetworkSelector() {
     }
   }, [networksState, networks.mainNetworks, networks.allNetworks]);
 
+  // Use ref to track activeTab for closures (e.g. onSuccess in navigation)
+  const activeTabRef = useRef(activeTab);
+  activeTabRef.current = activeTab;
+
   // Load networks data for portfolio tab
-  usePromiseResult(async () => {
+  const { run: refreshPortfolioData } = usePromiseResult(async () => {
     const [allNetworksState, { networks: allNetworks }] = await Promise.all([
       backgroundApiProxy.serviceAllNetwork.getAllNetworksState(),
       backgroundApiProxy.serviceNetwork.getAllNetworks(),
@@ -241,6 +245,21 @@ function UnifiedNetworkSelector() {
     }
   }, [accountId, walletId, indexedAccountId, networkId]);
 
+  // Refresh portfolio data when a custom network is added
+  useEffect(() => {
+    const fn = async () => {
+      try {
+        await refreshPortfolioData();
+      } catch {
+        // silently ignore refresh errors
+      }
+    };
+    appEventBus.on(EAppEventBusNames.AddedCustomNetwork, fn);
+    return () => {
+      appEventBus.off(EAppEventBusNames.AddedCustomNetwork, fn);
+    };
+  }, [refreshPortfolioData]);
+
   // Network tab callbacks
   const handleNetworkPressItem = useCallback(
     (item: IServerNetwork) => {
@@ -278,7 +297,27 @@ function UnifiedNetworkSelector() {
     navigation.push(EChainSelectorPagesEnum.AddCustomNetwork, {
       state: 'add',
       onSuccess: (network: IServerNetwork) => {
-        handleNetworkPressItem(network);
+        if (activeTabRef.current === 'portfolio') {
+          // Portfolio tab: enable the new network and refresh data.
+          // The list refresh is handled by AddedCustomNetwork event listener.
+          setNetworksState((prev) => ({
+            enabledNetworks: {
+              ...prev.enabledNetworks,
+              [network.id]: true,
+            },
+            disabledNetworks: {
+              ...prev.disabledNetworks,
+              [network.id]: false,
+            },
+          }));
+          appEventBus.emit(
+            EAppEventBusNames.AddedCustomNetwork,
+            undefined,
+          );
+        } else {
+          // Network tab: select network and close modal (original behavior)
+          handleNetworkPressItem(network);
+        }
       },
     });
   }, [navigation, handleNetworkPressItem]);
