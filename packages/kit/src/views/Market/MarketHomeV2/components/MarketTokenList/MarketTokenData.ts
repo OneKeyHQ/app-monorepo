@@ -25,4 +25,6 @@ export interface IMarketToken {
   perpsCoin?: string;
   // Perps: max leverage (e.g. 40)
   maxLeverage?: number;
+  // Perps: subtitle (e.g. "Tech", "Pre-IPO")
+  perpsSubtitle?: string;
 }

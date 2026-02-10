@@ -119,6 +119,23 @@ export const useColumnsDesktop = (
                     </SizableText>
                   </XStack>
                 ) : null}
+                {record.perpsSubtitle ? (
+                  <XStack
+                    borderRadius="$1"
+                    bg="$bgStrong"
+                    justifyContent="center"
+                    alignItems="center"
+                    px="$1.5"
+                  >
+                    <SizableText
+                      fontSize={10}
+                      color="$textSubdued"
+                      lineHeight={16}
+                    >
+                      {record.perpsSubtitle}
+                    </SizableText>
+                  </XStack>
+                ) : null}
               </XStack>
             </Stack>
           </XStack>

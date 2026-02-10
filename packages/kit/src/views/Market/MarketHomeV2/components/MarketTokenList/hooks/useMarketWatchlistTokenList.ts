@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useCarouselIndex } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { getTokenSubtitle } from '@onekeyhq/shared/src/utils/perpsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 
@@ -92,9 +93,13 @@ export function useMarketWatchlistTokenList({
   const { result: perpsApiResult } = usePromiseResult(
     async () => {
       if (perpsItems.length === 0) return null;
-      return backgroundApiProxy.serviceMarketV2.fetchMarketPerpsTokenList({
-        category: 'all',
-      });
+      const [tokenListData, tokenSearchAliases] = await Promise.all([
+        backgroundApiProxy.serviceMarketV2.fetchMarketPerpsTokenList({
+          category: 'all',
+        }),
+        backgroundApiProxy.serviceHyperliquid.getTokenSearchAliases(),
+      ]);
+      return { tokenListData, tokenSearchAliases };
     },
     [perpsItems.length],
     {
@@ -107,9 +112,11 @@ export function useMarketWatchlistTokenList({
 
   // ── Build perps IMarketToken items from backend ──
   const perpsTokenMap = useMemo(() => {
-    if (!perpsApiResult?.tokens) return new Map<string, IMarketToken>();
+    const tokens = perpsApiResult?.tokenListData?.tokens;
+    if (!tokens) return new Map<string, IMarketToken>();
+    const aliases = perpsApiResult?.tokenSearchAliases;
     const map = new Map<string, IMarketToken>();
-    for (const t of perpsApiResult.tokens) {
+    for (const t of tokens) {
       map.set(t.name, {
         id: `perps_${t.name}`,
         name: t.displayName,
@@ -130,6 +137,7 @@ export function useMarketWatchlistTokenList({
         chainId: '',
         perpsCoin: t.name,
         maxLeverage: t.maxLeverage,
+        perpsSubtitle: getTokenSubtitle(t.name, aliases),
       });
     }
     return map;
