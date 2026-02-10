@@ -8,6 +8,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import sortUtils from '@onekeyhq/shared/src/utils/sortUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -36,6 +37,7 @@ import type { INotificationWatchlistToken } from '@onekeyhq/shared/types/notific
 
 import { type IDBCloudSyncItem } from '../dbs/local/types';
 import { devSettingsPersistAtom } from '../states/jotai/atoms/devSettings';
+import { perpTokenFavoritesPersistAtom } from '../states/jotai/atoms/perps';
 
 import ServiceBase from './ServiceBase';
 import { MOCK_MARKET_BANNER_LIST } from './ServiceMarketV2.const';
@@ -725,6 +727,119 @@ class ServiceMarketV2 extends ServiceBase {
       },
     );
     return response.data.data;
+  }
+
+  // ── Perps Favorites Bidirectional Sync ──
+
+  @backgroundMethod()
+  async syncToPerpsAtom({
+    coin,
+    action,
+  }: {
+    coin: string;
+    action: 'add' | 'remove';
+  }) {
+    try {
+      const current = await perpTokenFavoritesPersistAtom.get();
+      const hasCoin = current.favorites.includes(coin);
+
+      if (action === 'add' && !hasCoin) {
+        await perpTokenFavoritesPersistAtom.set({
+          ...current,
+          favorites: [...current.favorites, coin],
+        });
+      } else if (action === 'remove' && hasCoin) {
+        await perpTokenFavoritesPersistAtom.set({
+          ...current,
+          favorites: current.favorites.filter((f) => f !== coin),
+        });
+      }
+    } catch (error) {
+      defaultLogger.cloudSync.market.syncToPerpsAtomFailed(coin, action, error);
+    }
+  }
+
+  @backgroundMethod()
+  async syncToMarketWatchList({
+    coin,
+    action,
+  }: {
+    coin: string;
+    action: 'add' | 'remove';
+  }) {
+    try {
+      const existing =
+        await this.backgroundApi.simpleDb.marketWatchListV2.getMarketWatchListItemV2(
+          { chainId: '', contractAddress: '', perpsCoin: coin },
+        );
+
+      if (action === 'add' && !existing) {
+        await this.addMarketWatchListV2({
+          watchList: [{ chainId: '', contractAddress: '', perpsCoin: coin }],
+          callerName: 'syncToMarketWatchList',
+        });
+      } else if (action === 'remove' && existing) {
+        await this.removeMarketWatchListV2({
+          items: [{ chainId: '', contractAddress: '', perpsCoin: coin }],
+          callerName: 'syncToMarketWatchList',
+        });
+      }
+    } catch (error) {
+      defaultLogger.cloudSync.market.syncToMarketWatchListFailed(coin, action, error);
+    }
+  }
+
+  @backgroundMethod()
+  async reconcilePerpsFavorites() {
+    try {
+      const [watchListData, perpsFavorites] = await Promise.all([
+        this.backgroundApi.simpleDb.marketWatchListV2.getMarketWatchListV2(),
+        perpTokenFavoritesPersistAtom.get(),
+      ]);
+
+      const marketPerpsCoins = new Set(
+        watchListData.data
+          .filter((item) => !!item.perpsCoin)
+          .map((item) => item.perpsCoin!),
+      );
+      const perpsCoins = new Set(perpsFavorites.favorites);
+
+      // Market has but Perps doesn't
+      const missingInPerps = [...marketPerpsCoins].filter(
+        (c) => !perpsCoins.has(c),
+      );
+      // Perps has but Market doesn't
+      const missingInMarket = [...perpsCoins].filter(
+        (c) => !marketPerpsCoins.has(c),
+      );
+
+      if (missingInPerps.length === 0 && missingInMarket.length === 0) {
+        return;
+      }
+
+      // Sync missing items to Perps atom
+      if (missingInPerps.length > 0) {
+        const current = await perpTokenFavoritesPersistAtom.get();
+        await perpTokenFavoritesPersistAtom.set({
+          ...current,
+          favorites: [...current.favorites, ...missingInPerps],
+        });
+      }
+
+      // Sync missing items to Market watchlist
+      if (missingInMarket.length > 0) {
+        await this.addMarketWatchListV2({
+          watchList: missingInMarket.map((coin) => ({
+            chainId: '',
+            contractAddress: '',
+            perpsCoin: coin,
+          })),
+          callerName: 'reconcilePerpsFavorites',
+        });
+      }
+    } catch (error) {
+      defaultLogger.cloudSync.market.reconcilePerpsFavoritesFailed(error);
+    }
   }
 }
 

@@ -72,4 +72,27 @@ export class MarketScene extends BaseScene {
   public simpleDbClearAllWatchListItems() {
     return 'true';
   }
+
+  @LogToLocal({ level: 'error' })
+  public syncToPerpsAtomFailed(
+    coin: string,
+    action: 'add' | 'remove',
+    error: unknown,
+  ) {
+    return { coin, action, error: String(error) };
+  }
+
+  @LogToLocal({ level: 'error' })
+  public syncToMarketWatchListFailed(
+    coin: string,
+    action: 'add' | 'remove',
+    error: unknown,
+  ) {
+    return { coin, action, error: String(error) };
+  }
+
+  @LogToLocal({ level: 'error' })
+  public reconcilePerpsFavoritesFailed(error: unknown) {
+    return { error: String(error) };
+  }
 }

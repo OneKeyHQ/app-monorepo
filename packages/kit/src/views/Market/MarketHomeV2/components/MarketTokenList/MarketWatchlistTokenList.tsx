@@ -7,6 +7,7 @@ import { ActionList, Toast } from '@onekeyhq/components';
 import { Portal } from '@onekeyhq/components/src/hocs';
 import type { IPortalManager } from '@onekeyhq/components/src/hocs/Portal';
 import type { IDragEndParamsWithItem } from '@onekeyhq/components/src/layouts/SortableListView/types';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   useMarketWatchListV2Atom,
   useWatchListV2Actions,
@@ -64,6 +65,11 @@ function MarketWatchlistTokenList({
       appEventBus.off(EAppEventBusNames.RefreshMarketWatchList, fn);
     };
   }, [actions]);
+
+  // Reconcile Perps favorites on mount (bidirectional diff sync)
+  useEffect(() => {
+    void backgroundApiProxy.serviceMarketV2.reconcilePerpsFavorites();
+  }, []);
 
   const internalWatchlist = useMemo(
     () => watchlistState.data || [],

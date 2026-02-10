@@ -317,6 +317,12 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         callerName: 'jotaiContextActions_addPerpsIntoWatchListV2',
       });
       await this.refreshWatchListV2.call(set);
+
+      // Sync to Perps TokenSelector favorites
+      void backgroundApiProxy.serviceMarketV2.syncToPerpsAtom({
+        coin: perpsCoin,
+        action: 'add',
+      });
     },
   );
 
@@ -336,6 +342,12 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         callerName: 'jotaiContextActions_removePerpsFromWatchListV2',
       });
       await this.refreshWatchListV2.call(set);
+
+      // Sync to Perps TokenSelector favorites
+      void backgroundApiProxy.serviceMarketV2.syncToPerpsAtom({
+        coin: perpsCoin,
+        action: 'remove',
+      });
     },
   );
 
