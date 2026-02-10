@@ -126,7 +126,18 @@ const useBuildLinking = (): LinkingOptions<any> => {
           }
         }
 
+        if (process.env.NODE_ENV !== 'production') {
+          debugLandingLog(
+            'getPathFromState',
+            `defaultPath="${defaultPath}", matched=${!!rule?.showUrl}`,
+          );
+        }
+
         if (!rule?.showUrl) {
+          // WebDappMode: fallback to /market instead of / to avoid URL bounce
+          if (platformEnv.isWebDappMode) {
+            return '/market';
+          }
           return ROOT_PATH;
         }
 
