@@ -14,17 +14,20 @@ const monoFonts = {
   'GeistMono-Regular': require('../fonts/GeistMono-Regular.ttf'),
 };
 
-let roobertLoaded = false;
+let loadPromise: Promise<void> | null = null;
 
-async function loadRoobertFonts() {
-  if (roobertLoaded) return;
-  const faces = roobertFontConfigs.map(
-    ({ src, weight }) =>
-      new FontFace('Roobert', `url(${src})`, { weight }),
-  );
-  await Promise.all(faces.map((f) => f.load()));
-  faces.forEach((f) => document.fonts.add(f));
-  roobertLoaded = true;
+function loadRoobertFonts() {
+  if (!loadPromise) {
+    loadPromise = (async () => {
+      const faces = roobertFontConfigs.map(
+        ({ src, weight }) =>
+          new FontFace('Roobert', `url(${src})`, { weight }),
+      );
+      await Promise.all(faces.map((f) => f.load()));
+      faces.forEach((f) => document.fonts.add(f));
+    })();
+  }
+  return loadPromise;
 }
 
 export default function useLoadCustomFonts(): [boolean, Error | null] {
