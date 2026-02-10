@@ -72,7 +72,7 @@ function EarnListView() {
           ? {
               mx: '$-pagePadding',
             }
-          : undefined
+          : { px: '$pagePadding' }
       }
       content={renderContent()}
       plainContentContainer
