@@ -460,39 +460,6 @@ const SwapHistoryDetailModal = () => {
   ]);
 
   // Calculate cumulative savings from all completed successful orders
-  const cumulativeSavings = useMemo(() => {
-    if (!txHistoryListState) return '0';
-
-    let total = new BigNumber(0);
-
-    for (const history of txHistoryListState) {
-      // Only count completed successful orders
-      if (history.status !== ESwapTxHistoryStatus.SUCCESS) continue;
-
-      const historyOneKeyFeeUsd =
-        history.swapInfo?.oneKeyFeeExtraInfo?.oneKeyFeeUsd;
-      const historyOneKeyFee = history.swapInfo?.oneKeyFee;
-
-      // Check if this order qualifies for savings (Case 3)
-      const isSavingsOrder =
-        (isNumber(historyOneKeyFee) && historyOneKeyFee === 0) ||
-        (historyOneKeyFeeUsd && new BigNumber(historyOneKeyFeeUsd).eq(0));
-
-      if (isSavingsOrder) {
-        const fromAmount = history.baseInfo.fromAmount ?? '0';
-        const fromPrice = history.baseInfo.fromToken?.price ?? '0';
-        const fromValueUsd = new BigNumber(fromAmount).times(fromPrice);
-        const savedAmount = fromValueUsd.times(DEFAULT_FEE_PERCENTAGE).div(100);
-        total = total.plus(savedAmount);
-      }
-    }
-
-    return numberFormat(total.toFixed(), {
-      formatter: 'value',
-      formatterOptions: { currency: '$' },
-    });
-  }, [txHistoryListState]);
-
   const renderOneKeyFee = useCallback(() => {
     if (!oneKeyFeeInfo) return null;
 
@@ -506,27 +473,23 @@ const SwapHistoryDetailModal = () => {
         })}
         renderContent={
           <Stack>
-            <XStack alignItems="center" gap="$1">
-              {isSaved ? (
-                <SizableText size="$bodyMd" color="$textSuccess">
-                  {`Saved ${oneKeyFeeInfo.value}`}
-                </SizableText>
-              ) : (
-                <SizableText size="$bodyMd" color="$textSubdued">
-                  {oneKeyFeeInfo.value}
-                </SizableText>
-              )}
-            </XStack>
-            {isSaved && cumulativeSavings !== '$0' ? (
-              <SizableText size="$bodySm" color="$textSubdued" mt="$1">
-                {`Total saved: ${cumulativeSavings}`}
+            {isSaved ? (
+              <SizableText size="$bodyMd" color="$textSuccess">
+                {intl.formatMessage(
+                  { id: ETranslations.swap_fee_save },
+                  { fee: oneKeyFeeInfo.value },
+                )}
               </SizableText>
-            ) : null}
+            ) : (
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {oneKeyFeeInfo.value}
+              </SizableText>
+            )}
           </Stack>
         }
       />
     );
-  }, [oneKeyFeeInfo, cumulativeSavings, intl]);
+  }, [oneKeyFeeInfo, intl]);
   const renderSwapHistoryDetails = useCallback(() => {
     if (!txHistory) {
       return null;

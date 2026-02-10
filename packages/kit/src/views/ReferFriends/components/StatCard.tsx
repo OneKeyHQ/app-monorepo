@@ -26,6 +26,7 @@ export interface IStatCardProps {
   onRefresh?: () => void;
   isWide: boolean;
   fullWidth?: boolean;
+  valueColor?: ColorTokens;
 }
 
 export function StatCard({
@@ -42,6 +43,7 @@ export function StatCard({
   onRefresh,
   isWide,
   fullWidth,
+  valueColor = '$text',
 }: IStatCardProps) {
   const getValueSize = () => {
     if (fullWidth) {
@@ -85,16 +87,20 @@ export function StatCard({
           </SizableText>
           <XStack ai="baseline">
             {prefix ? (
-              <SizableText size={getValueSize()} color="$text">
+              <SizableText size={getValueSize()} color={valueColor}>
                 {prefix}
               </SizableText>
             ) : null}
             {isCurrency ? (
-              <Currency size={getValueSize()} color="$text" formatter="value">
+              <Currency
+                size={getValueSize()}
+                color={valueColor}
+                formatter="value"
+              >
                 {value}
               </Currency>
             ) : (
-              <SizableText size={getValueSize()} color="$text">
+              <SizableText size={getValueSize()} color={valueColor}>
                 {value}
               </SizableText>
             )}

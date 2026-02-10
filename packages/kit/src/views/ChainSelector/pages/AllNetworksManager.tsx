@@ -70,6 +70,8 @@ function AllNetworksManager() {
     [],
   );
 
+  const [missingAddressCount, setMissingAddressCount] = useState(0);
+
   const [isCreatingMissingAddresses, setIsCreatingMissingAddresses] =
     useState(false);
 
@@ -104,6 +106,8 @@ function AllNetworksManager() {
       setIsCreatingEnabledAddresses,
       isCreatingMissingAddresses,
       setIsCreatingMissingAddresses,
+      missingAddressCount,
+      setMissingAddressCount,
       accountNetworkValues: {},
       accountNetworkValueCurrency: undefined,
       accountDeFiOverview: {},
@@ -122,6 +126,7 @@ function AllNetworksManager() {
       isCreatingMissingAddresses,
       setIsCreatingEnabledAddresses,
       setIsCreatingMissingAddresses,
+      missingAddressCount,
     ],
   );
 
