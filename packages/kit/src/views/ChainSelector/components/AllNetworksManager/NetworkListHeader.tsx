@@ -2,12 +2,7 @@ import { memo, useCallback, useContext, useEffect, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Button,
-  SizableText,
-  Stack,
-  XStack,
-} from '@onekeyhq/components';
+import { Button, SizableText, Stack, XStack } from '@onekeyhq/components';
 import { useEnabledNetworksCompatibleWithWalletIdInAllNetworks } from '@onekeyhq/kit/src/hooks/useAllNetwork';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -30,10 +25,10 @@ function NetworkListHeader() {
 
   const { enabledNetworksWithoutAccount } =
     useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
-    walletId: walletId ?? '',
-    indexedAccountId,
-    filterNetworksWithoutAccount: true,
-  });
+      walletId: walletId ?? '',
+      indexedAccountId,
+      filterNetworksWithoutAccount: true,
+    });
 
   const isAllNetworksEnabled = useMemo(() => {
     if (enabledNetworks.length > 0) {
