@@ -1,7 +1,5 @@
 import { memo, useCallback, useMemo } from 'react';
 
-import { useWindowDimensions } from 'react-native';
-
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
   Icon,
@@ -62,14 +60,7 @@ const ListRoute = () => (
 );
 
 function HomePage() {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const _screenWidth = useWindowDimensions().width;
   const actions = useAccountSelectorActions();
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const _onRefresh = useCallback(() => {
-    // tabsViewRef?.current?.setRefreshing(true);
-  }, []);
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const _data = useMemo(
