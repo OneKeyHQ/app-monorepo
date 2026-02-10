@@ -54,7 +54,6 @@ import {
 } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { GlobalJotaiReady } from '../../../components/GlobalJotaiReady';
 import { useHandleAppStateActive } from '../../../hooks/useHandleAppStateActive';
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
@@ -632,11 +631,7 @@ function PerpsGlobalEffectsView() {
 const PerpsGlobalEffectsMemo = memo(() => {
   console.log('PerpsGlobalEffectsMemo___mouted');
 
-  return (
-    <GlobalJotaiReady>
-      <PerpsGlobalEffectsView />
-    </GlobalJotaiReady>
-  );
+  return <PerpsGlobalEffectsView />;
 });
 PerpsGlobalEffectsMemo.displayName = 'PerpsGlobalEffectsMemo';
 

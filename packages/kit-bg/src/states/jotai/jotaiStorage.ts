@@ -234,14 +234,19 @@ export function atomWithStorage<Value>(
 }
 
 class GlobalJotaiStorageReadyHandler {
+  isReady = false;
+
   resolveReady: (value: boolean | PromiseLike<boolean>) => void = () => {
     // do nothing
     throw new OneKeyLocalError('this is not expected to be called');
   };
 
   ready = new Promise<boolean>((resolve) => {
-    this.resolveReady = resolve;
-    if (this.resolveReady !== resolve) {
+    this.resolveReady = (value) => {
+      this.isReady = true;
+      resolve(value);
+    };
+    if (typeof this.resolveReady !== 'function') {
       throw new OneKeyLocalError('update resolveReady callback failed');
     }
   });
