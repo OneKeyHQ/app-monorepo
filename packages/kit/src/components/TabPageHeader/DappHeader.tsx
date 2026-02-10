@@ -30,6 +30,7 @@ import {
   EModalSettingRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { EUniversalSearchPages } from '@onekeyhq/shared/src/routes/universalSearch';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -268,6 +269,35 @@ function DownloadAppButton() {
   );
 }
 
+function SearchButton() {
+  const intl = useIntl();
+  const navigation = useAppNavigation();
+  const handlePress = useCallback(() => {
+    navigation.pushModal(EModalRoutes.UniversalSearchModal, {
+      screen: EUniversalSearchPages.UniversalSearch,
+    });
+  }, [navigation]);
+
+  return (
+    <XStack
+      ai="center"
+      px="$1.5"
+      py="$1.5"
+      borderRadius="$2"
+      bg="$bgStrong"
+    >
+      <HeaderIconButton
+        size="small"
+        icon="SearchOutline"
+        title={intl.formatMessage({
+          id: ETranslations.global_search_everything,
+        })}
+        onPress={handlePress}
+      />
+    </XStack>
+  );
+}
+
 // function Web3GuideListItem() {
 //   const intl = useIntl();
 //   const handlePress = useCallback(() => {
@@ -412,6 +442,7 @@ function RightActions({
   customHeaderRightItems?: ReactNode;
 }) {
   const { gtLg } = useMedia();
+  const navigation = useAppNavigation();
   const {
     activeAccount: { wallet, account },
   } = useActiveAccount({
@@ -421,9 +452,26 @@ function RightActions({
   const isWalletConnected = !!wallet && !!account;
   const isPerpsTab = tabRoute === ETabRoutes.Perp;
 
+  const handleSearchPress = useCallback(() => {
+    navigation.pushModal(EModalRoutes.UniversalSearchModal, {
+      screen: EUniversalSearchPages.UniversalSearch,
+    });
+  }, [navigation]);
+
+  const intl = useIntl();
+
   return (
     <XStack ai="center" gap="$2">
-      {gtLg ? <DownloadAppButton /> : null}
+      {gtLg ? <SearchButton /> : (
+        <HeaderIconButton
+          size="small"
+          icon="SearchOutline"
+          title={intl.formatMessage({
+            id: ETranslations.global_search_everything,
+          })}
+          onPress={handleSearchPress}
+        />
+      )}
       {isPerpsTab && customHeaderRightItems ? (
         customHeaderRightItems
       ) : (
@@ -439,6 +487,7 @@ function RightActions({
           <DepositButton />
         </>
       )}
+      {gtLg ? <DownloadAppButton /> : null}
       <XStack
         ai="center"
         gap="$2.5"
@@ -447,7 +496,6 @@ function RightActions({
         borderRadius="$2"
         bg="$bgStrong"
       >
-        <UniversalSearchInput size="small" />
         <HeaderNotificationIconButton
           testID="header-right-notification"
           size="small"
