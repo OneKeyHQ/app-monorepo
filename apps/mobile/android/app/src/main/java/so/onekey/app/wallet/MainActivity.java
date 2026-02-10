@@ -1,9 +1,12 @@
 package so.onekey.app.wallet;
 
+import android.content.ComponentCallbacks2;
 import android.content.Context;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
+
+import androidx.annotation.NonNull;
 
 import com.betomorrow.rnfilelogger.FileLoggerModule;
 import com.facebook.react.ReactActivity;
@@ -34,6 +37,7 @@ import so.onekey.app.wallet.splashscreen.singletons.SplashScreen;
 public class MainActivity extends ReactActivity {
     private FileLoggerModule fileLogger;
     SimpleDateFormat sdf = new SimpleDateFormat("HH:mm:ss");
+    private volatile boolean isLowMemory = false;
 
     private SplashScreenImageResizeMode getResizeMode(Context context) {
     String resizeModeString = context.getString(R.string.expo_splash_screen_resize_mode).toLowerCase();
@@ -100,6 +104,23 @@ public class MainActivity extends ReactActivity {
     sharedI18nUtilInstance.allowRTL(getApplicationContext(), true);
     EventBus.getDefault().register(this);
     fileLogger = new FileLoggerModule((ReactApplicationContext) getReactHost().getCurrentReactContext());
+  }
+
+  @Override
+  public void onTrimMemory(int level) {
+    super.onTrimMemory(level);
+    isLowMemory = level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW;
+  }
+
+  @Override
+  protected void onSaveInstanceState(@NonNull Bundle outState) {
+    if (isLowMemory) {
+      // Skip expensive state serialization to prevent ANR on low-memory devices.
+      // This is safe because we pass null to super.onCreate(), so saved state
+      // is never restored. React Native manages its own state via JavaScript.
+      return;
+    }
+    super.onSaveInstanceState(outState);
   }
 
     @Subscribe(threadMode = ThreadMode.ASYNC)
