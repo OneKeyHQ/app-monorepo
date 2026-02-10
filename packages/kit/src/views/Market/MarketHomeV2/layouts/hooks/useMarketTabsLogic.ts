@@ -45,8 +45,9 @@ export function useMarketTabsLogic(
   const watchlistTabName = intl.formatMessage({
     id: ETranslations.global_favorites,
   });
-  // TODO: Add proper i18n key for "Spot" (现货) once available
-  const spotTabName = 'Spot';
+  const spotTabName = intl.formatMessage({
+    id: ETranslations.dexmarket_spot,
+  });
   const perpsTabName = intl.formatMessage({
     id: ETranslations.global_contract,
   });
