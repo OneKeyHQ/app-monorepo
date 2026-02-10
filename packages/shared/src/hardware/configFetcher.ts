@@ -68,21 +68,57 @@ async function tryFetchConfigViaIpTableFallback(params: {
   }
 
   const endpoints = ipTableConfig.config.domains?.[lookupDomain]?.endpoints;
-  const fallbackIp = endpoints?.[0]?.ip;
-  if (!fallbackIp) {
+  if (!endpoints || endpoints.length === 0) {
     return null;
   }
 
-  const sniResp = await sniRequest({
-    ip: fallbackIp,
-    hostname,
-    path: `${urlObj.pathname}${urlObj.search}`,
-    method: 'GET',
-    headers: {},
-    body: null,
-    timeout,
-    port: 443,
-  });
+  // 优先使用已经测速/选择过的 IP；否则使用配置里的候选 IP（避免依赖 runtime.selections）
+  const selectedIp = ipTableConfig.runtime?.selections?.[lookupDomain];
+  const rootDomain = extractRootDomain(hostname);
+  const preferCloudflare = rootDomain === 'onekey.so';
+
+  const candidateIps = [
+    ...(selectedIp ? [selectedIp] : []),
+    ...endpoints
+      .filter((ep) => (preferCloudflare ? ep.provider === 'cloudflare' : true))
+      .map((ep) => ep.ip),
+    ...endpoints.map((ep) => ep.ip),
+  ].filter((ip): ip is string => !!ip);
+
+  // 去重 + 限制尝试次数，避免阻塞过久；一般 1-2 个 IP 足够
+  const uniqIps: string[] = [];
+  for (const ip of candidateIps) {
+    if (!uniqIps.includes(ip)) {
+      uniqIps.push(ip);
+    }
+    if (uniqIps.length >= 2) {
+      break;
+    }
+  }
+
+  if (uniqIps.length === 0) {
+    return null;
+  }
+
+  let sniResp = null as Awaited<ReturnType<typeof sniRequest>>;
+  for (const ip of uniqIps) {
+    // 这里使用 SNI 直连：TLS SNI = hostname，目标地址 = IP
+    // 目的：在域名直连不稳定的网络环境下仍能拉到 config.json
+    // eslint-disable-next-line no-await-in-loop
+    sniResp = await sniRequest({
+      ip,
+      hostname,
+      path: `${urlObj.pathname}${urlObj.search}`,
+      method: 'GET',
+      headers: {},
+      body: null,
+      timeout,
+      port: 443,
+    });
+    if (sniResp) {
+      break;
+    }
+  }
 
   if (!sniResp) {
     return null;
@@ -144,6 +180,24 @@ export async function createConfigFetcher(): Promise<
   return async (url: string) => {
     console.log('[HardwareSDK] configFetcher url:', url);
     try {
+      // 对 onekey.so 域（例如 data.onekey.so/config.json）优先尝试 IP + SNI 直连，
+      // 这样可以最大化避免 SDK 侧 fallback axios 的二次域名直连重试。
+      try {
+        const ipFirstData = await tryFetchConfigViaIpTableFallback({
+          url,
+          timeout: 7000,
+        });
+        if (ipFirstData) {
+          console.log('[HardwareSDK] configFetcher ipTable ip-first success');
+          return ipFirstData;
+        }
+      } catch (ipFirstError) {
+        console.warn(
+          '[HardwareSDK] configFetcher ipTable ip-first error:',
+          ipFirstError,
+        );
+      }
+
       const axiosInstance = await getConfigFetcherAxios();
       const response = await axiosInstance.get<RemoteConfigResponse>(url, {
         timeout: 7000,
