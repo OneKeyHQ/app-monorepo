@@ -52,7 +52,7 @@ function NetworkListHeader() {
   }, [enabledNetworksWithoutAccount.length, setMissingAddressCount]);
 
   const enabledNetworkIds = useMemo(
-    () => enabledNetworks.map((n) => n.id).join(','),
+    () => enabledNetworks.map((network) => network.id).join(','),
     [enabledNetworks],
   );
 
