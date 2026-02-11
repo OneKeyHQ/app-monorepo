@@ -58,7 +58,6 @@ export enum EOnboardingPagesV2 {
   ResetPinGuide = 'ResetPinGuide',
   NewPinCreated = 'NewPinCreated',
   CreatePasscode = 'CreatePasscode',
-  MoreAction = 'MoreAction',
 }
 interface IVerifyRecoveryPhraseParams {
   mnemonic: string;
@@ -150,5 +149,4 @@ export type IOnboardingParamListV2 = {
   };
   [EOnboardingPagesV2.ResetPinGuide]: undefined;
   [EOnboardingPagesV2.NewPinCreated]: undefined;
-  [EOnboardingPagesV2.MoreAction]: undefined;
 };

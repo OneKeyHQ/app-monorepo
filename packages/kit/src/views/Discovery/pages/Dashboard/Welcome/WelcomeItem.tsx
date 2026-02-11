@@ -249,7 +249,6 @@ export function BaseWelcomeItem({
           logo: undefined,
           sortIndex: undefined,
         },
-        shouldPopNavigation: false,
         enterMethod: EEnterMethod.dashboard,
       });
     }
