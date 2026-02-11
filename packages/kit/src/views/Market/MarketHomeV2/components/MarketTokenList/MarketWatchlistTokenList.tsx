@@ -33,6 +33,10 @@ type IMarketWatchlistTokenListProps = {
   watchlist?: IMarketWatchListItemV2[];
   toolbar?: ReactNode;
   hideNativeToken?: boolean;
+  tabIntegrated?: boolean;
+  listContainerProps?: {
+    paddingBottom: number;
+  };
 };
 
 function MarketWatchlistTokenList({
@@ -40,6 +44,8 @@ function MarketWatchlistTokenList({
   watchlist: externalWatchlist,
   toolbar,
   hideNativeToken,
+  tabIntegrated,
+  listContainerProps,
 }: IMarketWatchlistTokenListProps) {
   const intl = useIntl();
 
@@ -267,6 +273,8 @@ function MarketWatchlistTokenList({
       isWatchlistMode
       showEndReachedIndicator
       draggable={isDraggable}
+      tabIntegrated={tabIntegrated}
+      listContainerProps={listContainerProps}
       onDragEnd={handleDragEnd}
       onItemLongPress={handleShowContextMenu}
       onItemContextMenu={handleShowContextMenu}

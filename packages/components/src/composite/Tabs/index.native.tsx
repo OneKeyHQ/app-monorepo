@@ -3,6 +3,7 @@ import type { PropsWithChildren } from 'react';
 import { Tabs as NativeTabs } from 'react-native-collapsible-tab-view';
 
 import { TabBar, TabBarItem } from './TabBar';
+import { TabsDraggableFlatList } from './TabsDraggableFlatList';
 
 import type { CollapsibleProps } from 'react-native-collapsible-tab-view';
 
@@ -38,6 +39,7 @@ export const Tabs = {
   Container,
   TabBar,
   TabBarItem,
+  DraggableFlatList: TabsDraggableFlatList,
 };
 
 export * from './hooks';
