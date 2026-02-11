@@ -5,34 +5,18 @@ const SvgDocumentGlobeCenter = (props: SvgProps) => (
     <Path
       fill="#000"
       d="M48 32h88v113H48z"
-      style={{
-        fill: '#000',
-        fillOpacity: 1,
-      }}
     />
     <Path
       fill="#fff"
       stroke="#000"
       strokeLinejoin="round"
       d="M46.5 34.5h87v112h-87z"
-      style={{
-        fill: '#fff',
-        fillOpacity: 1,
-        stroke: '#000',
-        strokeOpacity: 1,
-      }}
     />
     <Path
       fill="#fff"
       stroke="#000"
       strokeLinejoin="round"
       d="M128.5 52.5v90h-78v-90z"
-      style={{
-        fill: '#fff',
-        fillOpacity: 1,
-        stroke: '#000',
-        strokeOpacity: 1,
-      }}
     />
     <Circle
       cx={89.694}
@@ -40,10 +24,6 @@ const SvgDocumentGlobeCenter = (props: SvgProps) => (
       r={20.499}
       stroke="#000"
       strokeLinejoin="round"
-      style={{
-        stroke: '#000',
-        strokeOpacity: 1,
-      }}
     />
     <Ellipse
       cx={89.699}
@@ -52,27 +32,15 @@ const SvgDocumentGlobeCenter = (props: SvgProps) => (
       strokeLinejoin="round"
       rx={11.941}
       ry={20.499}
-      style={{
-        stroke: '#000',
-        strokeOpacity: 1,
-      }}
     />
     <Path
       stroke="#000"
       d="M89.5 79v40.998M69 99.5h40.998M72.977 87.756h33.435M72.977 111.241h33.435"
-      style={{
-        stroke: '#000',
-        strokeOpacity: 1,
-      }}
     />
     <Path
       stroke="#000"
       strokeLinejoin="round"
       d="M50 43h8M62 43h8M121 43h8"
-      style={{
-        stroke: '#000',
-        strokeOpacity: 1,
-      }}
     />
   </Svg>
 );

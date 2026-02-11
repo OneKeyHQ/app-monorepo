@@ -5,22 +5,11 @@ const SvgQuestionMark = (props: SvgProps) => (
     <Path
       fill="#000"
       d="M99.5 32c27.338 0 49.5 22.162 49.5 49.5 0 20.588-12.57 38.238-30.453 45.7A49.26 49.26 0 0 1 93.5 134C66.162 134 44 111.838 44 84.5c0-20.588 12.57-38.24 30.452-45.701A49.27 49.27 0 0 1 99.5 32"
-      style={{
-        fill: '#000',
-        fillOpacity: 1,
-      }}
     />
     <Path
       fill="#4FE737"
       stroke="#000"
       d="M146.165 70.098a49 49 0 0 1 1.294 9.38l.015.358-.337.128-26.787 10.218-.467.179-.178-.468-3.254-8.531-.179-.467.468-.178 28.761-10.97.532-.203zm-10.476-20.5a48.9 48.9 0 0 1 9.132 15.89l.158.458-.453.172-15.372 5.864-.466.179-.178-.468-6.385-16.74-.179-.466.468-.178 12.719-4.851.328-.127z"
-      style={{
-        fill: '#4fe737',
-        fill: 'color(display-p3 .3094 .9059 .2161)',
-        fillOpacity: 1,
-        stroke: '#000',
-        strokeOpacity: 1,
-      }}
     />
     <Circle
       cx={93.5}
@@ -28,12 +17,6 @@ const SvgQuestionMark = (props: SvgProps) => (
       r={49}
       fill="#fff"
       stroke="#000"
-      style={{
-        fill: '#fff',
-        fillOpacity: 1,
-        stroke: '#000',
-        strokeOpacity: 1,
-      }}
     />
     <Circle
       cx={93.5}
@@ -41,20 +24,10 @@ const SvgQuestionMark = (props: SvgProps) => (
       r={37}
       fill="#fff"
       stroke="#000"
-      style={{
-        fill: '#fff',
-        fillOpacity: 1,
-        stroke: '#000',
-        strokeOpacity: 1,
-      }}
     />
     <Path
       stroke="#000"
       d="M85.895 96.569v-4.183a6.736 6.736 0 0 1 6.899-6.734c7.187.174 13.107-5.605 13.107-12.795v-1.322a3.71 3.71 0 0 0-3.707-3.707H91.571a10 10 0 0 0-7.071 2.929l-3.137 3.136M82.742 101.883h6.908"
-      style={{
-        stroke: '#000',
-        strokeOpacity: 1,
-      }}
     />
   </Svg>
 );
