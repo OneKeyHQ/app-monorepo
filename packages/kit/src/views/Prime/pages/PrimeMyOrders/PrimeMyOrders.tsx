@@ -56,11 +56,15 @@ export default function PrimeMyOrders() {
 
   useFocusEffect(
     useCallback(() => {
+      let isActive = true;
       void backgroundApiProxy.servicePrime.isLoggedIn().then((isLogin) => {
-        if (!isLogin) {
+        if (isActive && !isLogin) {
           navigation.pop();
         }
       });
+      return () => {
+        isActive = false;
+      };
     }, [navigation]),
   );
 
