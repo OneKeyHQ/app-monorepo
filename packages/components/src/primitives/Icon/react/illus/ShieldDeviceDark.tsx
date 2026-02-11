@@ -52,14 +52,7 @@ const SvgShieldDeviceDark = (props: SvgProps) => (
           mask="url(#path-4-outside-1_902_27422)"
         />
       </G>
-      <Rect
-        width={39}
-        height={55}
-        x={110}
-        y={96}
-        fill="#fff"
-        rx={3}
-      />
+      <Rect width={39} height={55} x={110} y={96} fill="#fff" rx={3} />
     </G>
   </Svg>
 );

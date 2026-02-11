@@ -22,44 +22,14 @@ const SvgXCoinDark = (props: SvgProps) => (
       y={40}
       maskUnits="userSpaceOnUse"
     >
-      <Circle
-        cx={92.5}
-        cy={88.501}
-        r={48}
-        fill="#000"
-        stroke="#000"
-      />
+      <Circle cx={92.5} cy={88.501} r={48} fill="#000" stroke="#000" />
     </Mask>
     <G fill="#4FE737" stroke="#000" mask="url(#mask0_993_37943)">
-      <Path
-        d="M-.289.645h37.9v10.13h-37.9z"
-        transform="scale(1 -1)rotate(20.877 322.781 261.506)"
-      />
-      <Path
-        d="M-.289.645h27.086V19.56H-.289z"
-        transform="scale(1 -1)rotate(20.877 277.788 294.503)"
-      />
+      <Path d="m113.883 97.36 35.412-13.507-3.61-9.465-35.412 13.506zM122.688 79.16l25.308-9.653-6.74-17.674-25.309 9.653z" />
     </G>
-    <Circle
-      cx={89.5}
-      cy={90.5}
-      r={48.5}
-      fill="#000"
-    />
-    <Circle
-      cx={87.5}
-      cy={91.5}
-      r={49}
-      fill="#000"
-      stroke="#fff"
-    />
-    <Circle
-      cx={87.5}
-      cy={91.5}
-      r={37}
-      fill="#000"
-      stroke="#fff"
-    />
+    <Circle cx={89.5} cy={90.5} r={48.5} fill="#000" />
+    <Circle cx={87.5} cy={91.5} r={49} fill="#000" stroke="#fff" />
+    <Circle cx={87.5} cy={91.5} r={37} fill="#000" stroke="#fff" />
     <Path
       stroke="#fff"
       d="M74 107h24.5a7.5 7.5 0 1 0 0-15H74M99 77H74.5a7.5 7.5 0 0 0 0 15H99"
@@ -78,22 +48,8 @@ const SvgXCoinDark = (props: SvgProps) => (
       stroke="#000"
       rx={21.5}
     />
-    <Rect
-      width={43}
-      height={44}
-      x={107}
-      y={105}
-      fill="#C6D5E0"
-      rx={21.5}
-    />
-    <Rect
-      width={43}
-      height={44}
-      x={107}
-      y={105}
-      fill="#fff"
-      rx={21.5}
-    />
+    <Rect width={43} height={44} x={107} y={105} fill="#C6D5E0" rx={21.5} />
+    <Rect width={43} height={44} x={107} y={105} fill="#fff" rx={21.5} />
     <Rect
       width={43}
       height={44}
@@ -103,11 +59,7 @@ const SvgXCoinDark = (props: SvgProps) => (
       strokeWidth={2}
       rx={21.5}
     />
-    <Path
-      stroke="#000"
-      strokeWidth={6}
-      d="m118 138 21-21M139 138l-21-21"
-    />
+    <Path stroke="#000" strokeWidth={6} d="m118 138 21-21M139 138l-21-21" />
   </Svg>
 );
 export default SvgXCoinDark;

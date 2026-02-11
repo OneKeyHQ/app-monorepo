@@ -7,16 +7,8 @@ const SvgBlockCoins = (props: SvgProps) => (
       strokeLinejoin="round"
       d="M52 38h90l-14 14H38zM52 128h90l-14 14H38z"
     />
-    <Path
-      stroke="#000"
-      strokeLinejoin="round"
-      d="M52 38h90v90H52z"
-    />
-    <Path
-      stroke="#000"
-      strokeLinejoin="round"
-      d="M38 52h90v90H38z"
-    />
+    <Path stroke="#000" strokeLinejoin="round" d="M52 38h90v90H52z" />
+    <Path stroke="#000" strokeLinejoin="round" d="M38 52h90v90H38z" />
     <Path
       fill="#000"
       d="M128 142v-14h14zM91.037 61.473c14.981 0 27.124 12.144 27.124 27.125 0 8.273-3.705 15.679-9.545 20.654-4.97 5.622-12.233 9.169-20.327 9.169-14.98 0-27.125-12.144-27.125-27.124 0-8.272 3.704-15.678 9.542-20.653 4.97-5.624 12.236-9.171 20.331-9.171m-4.074 55.92q.324.017.651.026l.675.008q-.668 0-1.326-.034"

@@ -18,13 +18,7 @@ const SvgNotificationDark = (props: SvgProps) => (
       />
     </Mask>
     <G mask="url(#mask0_945_30929)">
-      <Circle
-        cx={90}
-        cy={129}
-        r={11.5}
-        fill="#000"
-        stroke="#fff"
-      />
+      <Circle cx={90} cy={129} r={11.5} fill="#000" stroke="#fff" />
     </G>
     <Path
       fill="#000"

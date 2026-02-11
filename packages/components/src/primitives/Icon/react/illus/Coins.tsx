@@ -14,38 +14,13 @@ const SvgCoins = (props: SvgProps) => (
       y={66}
       maskUnits="userSpaceOnUse"
     >
-      <Circle
-        cx={113.5}
-        cy={113.5}
-        r={47}
-        fill="#000"
-        stroke="#000"
-      />
+      <Circle cx={113.5} cy={113.5} r={47} fill="#000" stroke="#000" />
     </Mask>
     <G fill="#4FE737" stroke="#000" mask="url(#mask0_514_12625)">
-      <Path
-        d="M-.289.645h26.872V10.7H-.289z"
-        transform="scale(1 -1)rotate(20.877 413.454 326.825)"
-      />
-      <Path
-        d="M-.289.645h26.872v18.768H-.289z"
-        transform="scale(1 -1)rotate(20.877 372.48 336.369)"
-      />
+      <Path d="m143.113 125.383 25.108-9.576-3.583-9.395-25.108 9.576zM143.824 110.155l25.108-9.576-6.688-17.536-25.108 9.577z" />
     </G>
-    <Circle
-      cx={108.5}
-      cy={116.5}
-      r={48}
-      fill="#fff"
-      stroke="#000"
-    />
-    <Circle
-      cx={108.5}
-      cy={116.5}
-      r={37}
-      fill="#fff"
-      stroke="#000"
-    />
+    <Circle cx={108.5} cy={116.5} r={48} fill="#fff" stroke="#000" />
+    <Circle cx={108.5} cy={116.5} r={37} fill="#fff" stroke="#000" />
     <Path
       stroke="#000"
       d="M96 131h24.5a7.5 7.5 0 0 0 0-15H96M121 101H96.5a7.5 7.5 0 0 0 0 15H121"
@@ -67,13 +42,7 @@ const SvgCoins = (props: SvgProps) => (
       y={16}
       maskUnits="userSpaceOnUse"
     >
-      <Circle
-        cx={71.5}
-        cy={63.5}
-        r={47}
-        fill="#000"
-        stroke="#000"
-      />
+      <Circle cx={71.5} cy={63.5} r={47} fill="#000" stroke="#000" />
     </Mask>
     <G mask="url(#mask1_514_12625)">
       <Mask
@@ -98,20 +67,8 @@ const SvgCoins = (props: SvgProps) => (
         mask="url(#path-13-outside-1_514_12625)"
       />
     </G>
-    <Circle
-      cx={66.5}
-      cy={66.5}
-      r={48}
-      fill="#fff"
-      stroke="#000"
-    />
-    <Circle
-      cx={66.5}
-      cy={66.5}
-      r={37}
-      fill="#fff"
-      stroke="#000"
-    />
+    <Circle cx={66.5} cy={66.5} r={48} fill="#fff" stroke="#000" />
+    <Circle cx={66.5} cy={66.5} r={37} fill="#fff" stroke="#000" />
     <Path
       stroke="#000"
       d="M54 81h24.5a7.5 7.5 0 0 0 0-15H54M79 51H54.5a7.5 7.5 0 0 0 0 15H79"

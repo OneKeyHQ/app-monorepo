@@ -17,11 +17,7 @@ const SvgRecoveryPhraseDark = (props: SvgProps) => (
       rx={2.5}
       transform="matrix(1 0 -.39073 .9205 68.086 51.407)"
     />
-    <Path
-      stroke="#fff"
-      strokeMiterlimit={16}
-      d="M71.046 49.603 73 45h-2"
-    />
+    <Path stroke="#fff" strokeMiterlimit={16} d="M71.046 49.603 73 45h-2" />
     <Path
       fill="#fff"
       d="M84 68H57v-1h27zm39 0H96v-1h27zM84 80H57v-1h27zm39 0H96v-1h27zM84 92H57v-1h27zm39 0H96v-1h27zM84 104H57v-1h27zm39 0H96v-1h27zM84 116H57v-1h27zm39 0H96v-1h27zM79 128H52v-1h27zm39 0H91v-1h27z"
@@ -36,11 +32,7 @@ const SvgRecoveryPhraseDark = (props: SvgProps) => (
       strokeWidth={2}
       d="M134.701 110.342c1.033-1.789 3.614-1.789 4.647 0l19.336 33.49c1.032 1.789-.258 4.024-2.324 4.024h-38.672c-2.065 0-3.355-2.235-2.323-4.024z"
     />
-    <Path
-      stroke="#000"
-      strokeWidth={3}
-      d="M137 135v-13M139 139h-4"
-    />
+    <Path stroke="#000" strokeWidth={3} d="M137 135v-13M139 139h-4" />
   </Svg>
 );
 export default SvgRecoveryPhraseDark;

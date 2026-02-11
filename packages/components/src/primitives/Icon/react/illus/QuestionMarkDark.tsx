@@ -22,44 +22,14 @@ const SvgQuestionMarkDark = (props: SvgProps) => (
       y={33}
       maskUnits="userSpaceOnUse"
     >
-      <Circle
-        cx={98.5}
-        cy={81.5}
-        r={48}
-        fill="#000"
-        stroke="#000"
-      />
+      <Circle cx={98.5} cy={81.5} r={48} fill="#000" stroke="#000" />
     </Mask>
     <G fill="#4FE737" stroke="#000" mask="url(#mask0_970_34298)">
-      <Path
-        d="M-.289.645h37.9v10.13h-37.9z"
-        transform="scale(1 -1)rotate(20.877 306.782 281.29)"
-      />
-      <Path
-        d="M-.289.645h27.086V19.56H-.289z"
-        transform="scale(1 -1)rotate(20.877 261.79 314.288)"
-      />
+      <Path d="m119.883 90.359 35.412-13.506-3.61-9.465-35.412 13.506zM128.688 72.159l25.308-9.653-6.74-17.673-25.309 9.653z" />
     </G>
-    <Circle
-      cx={95.5}
-      cy={83.5}
-      r={48.5}
-      fill="#000"
-    />
-    <Circle
-      cx={93.5}
-      cy={84.5}
-      r={49}
-      fill="#000"
-      stroke="#fff"
-    />
-    <Circle
-      cx={93.5}
-      cy={84.5}
-      r={37}
-      fill="#000"
-      stroke="#fff"
-    />
+    <Circle cx={95.5} cy={83.5} r={48.5} fill="#000" />
+    <Circle cx={93.5} cy={84.5} r={49} fill="#000" stroke="#fff" />
+    <Circle cx={93.5} cy={84.5} r={37} fill="#000" stroke="#fff" />
     <Path
       stroke="#fff"
       d="M85.896 96.569v-4.183a6.736 6.736 0 0 1 6.899-6.734c7.187.174 13.107-5.605 13.107-12.794v-1.323a3.707 3.707 0 0 0-3.707-3.707H91.572a10 10 0 0 0-7.071 2.929l-3.137 3.136M82.742 101.883h6.908"

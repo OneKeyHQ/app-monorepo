@@ -14,17 +14,8 @@ const SvgDocumentGlobe = (props: SvgProps) => (
       strokeLinejoin="round"
       d="M46.5 34.5h87v112h-87z"
     />
-    <Path
-      stroke="#000"
-      d="M56 46h20M56 55h37M56 136h19"
-    />
-    <Circle
-      cx={113}
-      cy={122}
-      r={14}
-      stroke="#000"
-      strokeLinejoin="round"
-    />
+    <Path stroke="#000" d="M56 46h20M56 55h37M56 136h19" />
+    <Circle cx={113} cy={122} r={14} stroke="#000" strokeLinejoin="round" />
     <Ellipse
       cx={113}
       cy={122}
@@ -33,10 +24,7 @@ const SvgDocumentGlobe = (props: SvgProps) => (
       rx={8}
       ry={14}
     />
-    <Path
-      stroke="#000"
-      d="M113 108v28M99 122h28M102 113h22M102 131h22"
-    />
+    <Path stroke="#000" d="M113 108v28M99 122h28M102 113h22M102 131h22" />
   </Svg>
 );
 export default SvgDocumentGlobe;

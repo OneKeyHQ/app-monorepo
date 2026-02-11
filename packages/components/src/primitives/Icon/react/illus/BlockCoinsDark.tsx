@@ -7,21 +7,9 @@ const SvgBlockCoinsDark = (props: SvgProps) => (
       strokeLinejoin="round"
       d="M52 38h90l-14 14H38zM52 128h90l-14 14H38z"
     />
-    <Path
-      stroke="#fff"
-      strokeLinejoin="round"
-      d="M52 38h90v90H52z"
-    />
-    <Path
-      stroke="#fff"
-      strokeLinejoin="round"
-      d="M38 52h90v90H38z"
-    />
-    <Path
-      fill="#fff"
-      d="M128 142v-14h14z"
-      opacity={0.8}
-    />
+    <Path stroke="#fff" strokeLinejoin="round" d="M52 38h90v90H52z" />
+    <Path stroke="#fff" strokeLinejoin="round" d="M38 52h90v90H38z" />
+    <Path fill="#fff" d="M128 142v-14h14z" opacity={0.8} />
     <Mask id="path-6-inside-1_941_28398" fill="#fff">
       <Path
         fillRule="evenodd"
@@ -44,12 +32,7 @@ const SvgBlockCoinsDark = (props: SvgProps) => (
       fill="#4FE737"
       d="M117.168 81.769c.393 1.662.628 3.385.692 5.152l-8.693 3.316-1.804-4.728zm-5.76-11.242a26.5 26.5 0 0 1 5.027 8.71l-7.991 3.048-3.538-9.277z"
     />
-    <Circle
-      cx={89.544}
-      cy={89.544}
-      r={26.544}
-      fill="#000"
-    />
+    <Circle cx={89.544} cy={89.544} r={26.544} fill="#000" />
     <Circle
       cx={88.544}
       cy={90.544}
@@ -77,11 +60,7 @@ const SvgBlockCoinsDark = (props: SvgProps) => (
       strokeWidth={0.559}
       d="M88.57 78.53v3.156M88.563 98.434v3.156"
     />
-    <Path
-      fill="#4FE737"
-      stroke="#000"
-      d="M53.002 36.5V53H36.5z"
-    />
+    <Path fill="#4FE737" stroke="#000" d="M53.002 36.5V53H36.5z" />
   </Svg>
 );
 export default SvgBlockCoinsDark;

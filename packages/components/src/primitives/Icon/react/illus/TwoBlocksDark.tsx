@@ -7,51 +7,19 @@ const SvgTwoBlocksDark = (props: SvgProps) => (
       strokeLinejoin="round"
       d="M114.001 53H172l-16 16H98zM114 111h58l-16 16H98z"
     />
-    <Path
-      stroke="#fff"
-      strokeLinejoin="round"
-      d="M114 53h58v58h-58z"
-    />
-    <Path
-      stroke="#fff"
-      strokeLinejoin="round"
-      d="M98 69h58v58H98z"
-    />
-    <Path
-      fill="#fff"
-      d="M155.997 126.839V111h15.839z"
-      opacity={0.8}
-    />
-    <Path
-      fill="#4FE737"
-      stroke="#000"
-      d="M114 52.5V69H97.5z"
-    />
+    <Path stroke="#fff" strokeLinejoin="round" d="M114 53h58v58h-58z" />
+    <Path stroke="#fff" strokeLinejoin="round" d="M98 69h58v58H98z" />
+    <Path fill="#fff" d="M155.997 126.839V111h15.839z" opacity={0.8} />
+    <Path fill="#4FE737" stroke="#000" d="M114 52.5V69H97.5z" />
     <Path
       stroke="#fff"
       strokeLinejoin="round"
       d="M24.001 53H82L66 69H8zM24 111h58l-16 16H8z"
     />
-    <Path
-      stroke="#fff"
-      strokeLinejoin="round"
-      d="M24 53h58v58H24z"
-    />
-    <Path
-      stroke="#fff"
-      strokeLinejoin="round"
-      d="M8 69h58v58H8z"
-    />
-    <Path
-      fill="#fff"
-      d="M23.839 53v15.838H8z"
-      opacity={0.8}
-    />
-    <Path
-      fill="#4FE737"
-      stroke="#000"
-      d="m66 127.5.001-16.5H82.5z"
-    />
+    <Path stroke="#fff" strokeLinejoin="round" d="M24 53h58v58H24z" />
+    <Path stroke="#fff" strokeLinejoin="round" d="M8 69h58v58H8z" />
+    <Path fill="#fff" d="M23.839 53v15.838H8z" opacity={0.8} />
+    <Path fill="#4FE737" stroke="#000" d="m66 127.5.001-16.5H82.5z" />
     <Path
       stroke="#fff"
       strokeDasharray="2 2"

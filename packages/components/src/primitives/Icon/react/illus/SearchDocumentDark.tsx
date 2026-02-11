@@ -2,15 +2,8 @@ import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgSearchDocumentDark = (props: SvgProps) => (
   <Svg fill="none" viewBox="0 0 180 180" accessibilityRole="image" {...props}>
-    <Path
-      fill="#fff"
-      d="M50 32h86v111H50z"
-    />
-    <Path
-      fill="#000"
-      stroke="#fff"
-      d="M133.5 34.5v112h-87v-112z"
-    />
+    <Path fill="#fff" d="M50 32h86v111H50z" />
+    <Path fill="#000" stroke="#fff" d="M133.5 34.5v112h-87v-112z" />
     <Path
       stroke="#fff"
       strokeLinejoin="round"
@@ -20,8 +13,7 @@ const SvgSearchDocumentDark = (props: SvgProps) => (
     <Path
       fill="#fff"
       stroke="#000"
-      d="M127.371 130.545h7v30.695h-7z"
-      transform="rotate(-26.855 127.371 130.545)"
+      d="m127.371 130.545 6.245-3.162 13.866 27.385-6.245 3.162z"
     />
     <Path
       fill="#3EDC2F"

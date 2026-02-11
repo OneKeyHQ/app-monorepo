@@ -34,14 +34,7 @@ const SvgOrdersDark = (props: SvgProps) => (
       stroke="#fff"
       d="M78 51s3 1 13 1 13-1 13-1v6s-2 1-13 1-13-1-13-1z"
     />
-    <Ellipse
-      cx={91}
-      cy={51}
-      fill="#fff"
-      stroke="#000"
-      rx={15}
-      ry={1}
-    />
+    <Ellipse cx={91} cy={51} fill="#fff" stroke="#000" rx={15} ry={1} />
     <Path
       fill="#3EDC2F"
       stroke="#000"

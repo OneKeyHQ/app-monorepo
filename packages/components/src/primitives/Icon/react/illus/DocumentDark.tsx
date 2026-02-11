@@ -2,10 +2,7 @@ import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgDocumentDark = (props: SvgProps) => (
   <Svg fill="none" viewBox="0 0 180 180" accessibilityRole="image" {...props}>
-    <Path
-      fill="#fff"
-      d="M48 32h88v113H48z"
-    />
+    <Path fill="#fff" d="M48 32h88v113H48z" />
     <Path
       fill="#000"
       stroke="#fff"

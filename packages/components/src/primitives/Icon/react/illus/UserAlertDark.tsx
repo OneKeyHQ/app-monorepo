@@ -36,11 +36,7 @@ const SvgUserAlertDark = (props: SvgProps) => (
       strokeWidth={2}
       d="M125.701 105.342c1.033-1.789 3.614-1.789 4.647 0l19.336 33.49c1.032 1.789-.258 4.024-2.324 4.024h-38.672c-2.065 0-3.355-2.235-2.323-4.024z"
     />
-    <Path
-      stroke="#000"
-      strokeWidth={3}
-      d="M128 130v-13M130 134h-4"
-    />
+    <Path stroke="#000" strokeWidth={3} d="M128 130v-13M130 134h-4" />
   </Svg>
 );
 export default SvgUserAlertDark;

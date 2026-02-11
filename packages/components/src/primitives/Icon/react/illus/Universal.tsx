@@ -69,35 +69,10 @@ const SvgUniversal = (props: SvgProps) => (
       stroke="#000"
       rx={21.5}
     />
-    <Rect
-      width={44}
-      height={45}
-      x={106.5}
-      y={104.5}
-      fill="#C6D5E0"
-      rx={22}
-    />
-    <Rect
-      width={44}
-      height={45}
-      x={106.5}
-      y={104.5}
-      fill="#000"
-      rx={22}
-    />
-    <Rect
-      width={44}
-      height={45}
-      x={106.5}
-      y={104.5}
-      stroke="#000"
-      rx={22}
-    />
-    <Path
-      stroke="#fff"
-      strokeWidth={6}
-      d="m118 138 21-21M139 138l-21-21"
-    />
+    <Rect width={44} height={45} x={106.5} y={104.5} fill="#C6D5E0" rx={22} />
+    <Rect width={44} height={45} x={106.5} y={104.5} fill="#000" rx={22} />
+    <Rect width={44} height={45} x={106.5} y={104.5} stroke="#000" rx={22} />
+    <Path stroke="#fff" strokeWidth={6} d="m118 138 21-21M139 138l-21-21" />
   </Svg>
 );
 export default SvgUniversal;

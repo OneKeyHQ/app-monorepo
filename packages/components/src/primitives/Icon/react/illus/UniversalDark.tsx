@@ -66,22 +66,8 @@ const SvgUniversalDark = (props: SvgProps) => (
       stroke="#000"
       rx={21.5}
     />
-    <Rect
-      width={43}
-      height={44}
-      x={107}
-      y={105}
-      fill="#C6D5E0"
-      rx={21.5}
-    />
-    <Rect
-      width={43}
-      height={44}
-      x={107}
-      y={105}
-      fill="#fff"
-      rx={21.5}
-    />
+    <Rect width={43} height={44} x={107} y={105} fill="#C6D5E0" rx={21.5} />
+    <Rect width={43} height={44} x={107} y={105} fill="#fff" rx={21.5} />
     <Rect
       width={43}
       height={44}
@@ -91,11 +77,7 @@ const SvgUniversalDark = (props: SvgProps) => (
       strokeWidth={2}
       rx={21.5}
     />
-    <Path
-      stroke="#000"
-      strokeWidth={6}
-      d="m118 138 21-21M139 138l-21-21"
-    />
+    <Path stroke="#000" strokeWidth={6} d="m118 138 21-21M139 138l-21-21" />
   </Svg>
 );
 export default SvgUniversalDark;

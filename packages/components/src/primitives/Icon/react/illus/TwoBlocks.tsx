@@ -7,20 +7,9 @@ const SvgTwoBlocks = (props: SvgProps) => (
       strokeLinejoin="round"
       d="M114.001 53H172l-16 16H98zM114 111h58l-16 16H98z"
     />
-    <Path
-      stroke="#000"
-      strokeLinejoin="round"
-      d="M114 53h58v58h-58z"
-    />
-    <Path
-      stroke="#000"
-      strokeLinejoin="round"
-      d="M98 69h58v58H98z"
-    />
-    <Path
-      fill="#000"
-      d="M155.997 126.838V111h15.839z"
-    />
+    <Path stroke="#000" strokeLinejoin="round" d="M114 53h58v58h-58z" />
+    <Path stroke="#000" strokeLinejoin="round" d="M98 69h58v58H98z" />
+    <Path fill="#000" d="M155.997 126.838V111h15.839z" />
     <Path
       fill="#4FE737"
       stroke="#000"
@@ -32,20 +21,9 @@ const SvgTwoBlocks = (props: SvgProps) => (
       strokeLinejoin="round"
       d="M24.001 53H82L66 69H8zM24 111h58l-16 16H8z"
     />
-    <Path
-      stroke="#000"
-      strokeLinejoin="round"
-      d="M24 53h58v58H24z"
-    />
-    <Path
-      stroke="#000"
-      strokeLinejoin="round"
-      d="M8 69h58v58H8z"
-    />
-    <Path
-      fill="#000"
-      d="M23.839 53v15.838H8z"
-    />
+    <Path stroke="#000" strokeLinejoin="round" d="M24 53h58v58H24z" />
+    <Path stroke="#000" strokeLinejoin="round" d="M8 69h58v58H8z" />
+    <Path fill="#000" d="M23.839 53v15.838H8z" />
     <Path
       fill="#4FE737"
       stroke="#000"

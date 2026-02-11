@@ -50,10 +50,7 @@ const SvgConnection = (props: SvgProps) => (
       fill="#000"
       d="m73 59 3-3v10l-3 3zM69 90l3-3v10l-3 3zM76 83l3-3v10l-3 3z"
     />
-    <Path
-      stroke="#000"
-      d="M147.438 76H166v64H17V76h16.556"
-    />
+    <Path stroke="#000" d="M147.438 76H166v64H17V76h16.556" />
     <Path
       stroke="#000"
       strokeDasharray="2 2"
