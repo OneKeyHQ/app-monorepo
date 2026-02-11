@@ -120,7 +120,10 @@ export function WalletConnectionGroup({
         return null;
       }
 
-      if (network?.isAllNetworks && !accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' })) {
+      if (
+        network?.isAllNetworks &&
+        !accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' })
+      ) {
         return <AllNetworksManagerTrigger num={0} unifiedMode />;
       }
       return (
@@ -133,7 +136,12 @@ export function WalletConnectionGroup({
         />
       );
     },
-    [network?.isAllNetworks, shouldShowNetworkSelector, isNonBackedUpWallet, wallet?.id],
+    [
+      network?.isAllNetworks,
+      shouldShowNetworkSelector,
+      isNonBackedUpWallet,
+      wallet?.id,
+    ],
   );
 
   if (isMobileLayout) {

@@ -32,7 +32,10 @@ export function SelectorTrigger() {
     activeAccount: { network, wallet },
   } = useActiveAccount({ num: 0 });
 
-  if (network?.isAllNetworks && !accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' })) {
+  if (
+    network?.isAllNetworks &&
+    !accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' })
+  ) {
     return <AllNetworksManagerTrigger num={0} unifiedMode />;
   }
 

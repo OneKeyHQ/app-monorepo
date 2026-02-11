@@ -65,11 +65,7 @@ export default function BackupWalletReminder() {
       <OnboardingLayout>
         <OnboardingLayout.Header />
         <OnboardingLayout.Body>
-          <Illustration
-            name="RecoveryPhrase"
-            alignSelf="center"
-            size={144}
-          />
+          <Illustration name="RecoveryPhrase" alignSelf="center" size={144} />
           <SizableText size="$heading2xl">
             {intl.formatMessage({
               id: ETranslations.onboarding_save_phrase_securely_instruction,
