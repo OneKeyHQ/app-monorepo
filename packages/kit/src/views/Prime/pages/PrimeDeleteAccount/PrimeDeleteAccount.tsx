@@ -6,6 +6,7 @@ import {
   Alert,
   Checkbox,
   Dialog,
+  Illustration,
   Markdown,
   Page,
   SizableText,
@@ -194,12 +195,7 @@ export default function PrimeDeleteAccount() {
       />
       <Page.Body>
         <YStack p="$5" gap="$5" alignItems="center">
-          <Dialog.Icon
-            icon="ErrorOutline"
-            tone="destructive"
-            alignSelf="center"
-            mb={0}
-          />
+          <Illustration name="UserAlert" alignSelf="center" />
           <YStack gap="$2" alignItems="center">
             <SizableText size="$headingXl" textAlign="center">
               {intl.formatMessage({

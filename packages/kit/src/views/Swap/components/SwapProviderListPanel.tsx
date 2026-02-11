@@ -408,7 +408,7 @@ const SwapProviderListPanel = ({
     () => (
       <Stack alignItems="center" justifyContent="center" py="$8">
         <Empty
-          icon="SearchOutline"
+          illustration="QuestionMark"
           title={intl.formatMessage({
             id: ETranslations.global_no_results,
           })}

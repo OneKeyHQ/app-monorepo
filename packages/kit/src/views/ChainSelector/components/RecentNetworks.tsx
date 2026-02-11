@@ -120,35 +120,35 @@ function RecentNetworks({
     };
   }, [run]);
 
+  if (recentNetworks.length === 0) {
+    return null;
+  }
+
   return (
     <Stack onLayout={handleLayout} {...containerProps}>
-      {recentNetworks.length > 0 ? (
-        <>
-          <SectionList.SectionHeader
-            title={intl.formatMessage({
-              id: ETranslations.network_recent_used_network,
-            })}
-          >
-            <XStack justifyContent="flex-end" flex={1}>
-              <IconButton
-                size="small"
-                variant="tertiary"
-                icon="DeleteOutline"
-                onPress={handleClearRecentNetworks}
-              />
-            </XStack>
-          </SectionList.SectionHeader>
-          <XStack gap="$2.5" flexWrap="wrap" px="$5" pb="$5">
-            {recentNetworks.map((network) => (
-              <RecentNetworkItem
-                key={network.id}
-                network={network}
-                onPressItem={onPressItem}
-              />
-            ))}
-          </XStack>
-        </>
-      ) : null}
+      <SectionList.SectionHeader
+        title={intl.formatMessage({
+          id: ETranslations.network_recent_used_network,
+        })}
+      >
+        <XStack justifyContent="flex-end" flex={1}>
+          <IconButton
+            size="small"
+            variant="tertiary"
+            icon="DeleteOutline"
+            onPress={handleClearRecentNetworks}
+          />
+        </XStack>
+      </SectionList.SectionHeader>
+      <XStack gap="$2.5" flexWrap="wrap" px="$5" pb="$5">
+        {recentNetworks.map((network) => (
+          <RecentNetworkItem
+            key={network.id}
+            network={network}
+            onPressItem={onPressItem}
+          />
+        ))}
+      </XStack>
     </Stack>
   );
 }

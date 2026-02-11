@@ -572,8 +572,8 @@ export function NotificationListView({
             </Stack>
           ) : (
             <Empty
-              pt={170}
-              icon="BellOutline"
+              pt={112}
+              illustration="Notification"
               title={intl.formatMessage({
                 id: ETranslations.notifications_empty_title,
               })}

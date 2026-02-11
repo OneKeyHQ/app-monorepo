@@ -214,14 +214,17 @@ function ReceiverAddressesInput({ maxLines }: IReceiverAddressesInputProps) {
           addressesToValidate.map(({ index, address }) =>
             limit(async () => {
               const result = await validateAddress(address);
-              return { index, result };
+              return { index, address, result };
             }),
           ),
         );
 
+        // Collect valid addresses for contract address detection
+        const validAddresses: { index: number; address: string }[] = [];
+
         // Collect validation errors and check for duplicates using normalized addresses
         const seenNormalizedAddresses = new Map<string, number>();
-        for (const { index, result } of validationResults) {
+        for (const { index, address, result } of validationResults) {
           if (!result.isValid) {
             lineErrors.push({
               lineNumber: index + 1,
@@ -249,6 +252,52 @@ function ReceiverAddressesInput({ maxLines }: IReceiverAddressesInputProps) {
               });
             } else {
               seenNormalizedAddresses.set(normalizedAddress, index + 1);
+              validAddresses.push({ index, address });
+            }
+          }
+        }
+
+        // Phase 3: Address risk detection (contract / scam) for valid, non-duplicate addresses
+        if (validAddresses.length > 0 && selectedNetworkId) {
+          const badgeResults = await Promise.all(
+            validAddresses.map(({ index, address }) =>
+              limit(async () => {
+                try {
+                  const badge =
+                    await backgroundApiProxy.serviceAccountProfile.getAddressAccountBadge(
+                      {
+                        networkId: selectedNetworkId,
+                        toAddress: address.trim(),
+                      },
+                    );
+                  return {
+                    index,
+                    isContract: badge.isContract,
+                    isScam: badge.isScam,
+                  };
+                } catch {
+                  // If badge check fails, skip — don't block the user
+                  return { index, isContract: false, isScam: false };
+                }
+              }),
+            ),
+          );
+
+          for (const { index, isContract, isScam } of badgeResults) {
+            if (isScam) {
+              lineErrors.push({
+                lineNumber: index + 1,
+                message: intl.formatMessage({
+                  id: ETranslations.wallet_bulk_send_error_scam_address_detected,
+                }),
+              });
+            } else if (isContract) {
+              lineErrors.push({
+                lineNumber: index + 1,
+                message: intl.formatMessage({
+                  id: ETranslations.send_contract_address_detected_warning,
+                }),
+              });
             }
           }
         }
@@ -280,7 +329,14 @@ function ReceiverAddressesInput({ maxLines }: IReceiverAddressesInputProps) {
       }
       return true;
     },
-    [intl, maxLines, parseLineMode, validateAddress, validateAmount],
+    [
+      intl,
+      maxLines,
+      parseLineMode,
+      selectedNetworkId,
+      validateAddress,
+      validateAmount,
+    ],
   );
 
   const debouncedValidateAddresses = useDebouncedValidation(
