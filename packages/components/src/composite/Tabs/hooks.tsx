@@ -11,8 +11,10 @@ import { useWindowDimensions } from 'react-native';
 import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { isNativeTablet, useIsSplitView } from '../../hooks';
-import { useIPadModalPageWidth, useIsIpadModalPage } from '../../layouts';
+import { isNativeTablet } from '../../hooks/useIsTablet';
+import { useIsSplitView } from '../../hooks/useOrientation';
+import { useIPadModalPageWidth } from '../../layouts/Page/iPadModalPageContext';
+import { useIsIpadModalPage } from '../../layouts/Page/hooks';
 import {
   DESKTOP_MODE_UI_PAGE_BORDER_WIDTH,
   DESKTOP_MODE_UI_PAGE_MARGIN,

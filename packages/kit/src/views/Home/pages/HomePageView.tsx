@@ -310,7 +310,7 @@ export function HomePageView({
       {
         id: EHomeWalletTab.Portfolio,
         name: intl.formatMessage({
-          id: ETranslations.global_portfolio,
+          id: ETranslations.global_crypto,
         }),
         component: <PortfolioContainerWithProvider />,
       },
@@ -365,8 +365,8 @@ export function HomePageView({
           {tabId === EHomeWalletTab.Approvals && hasRiskApprovals ? (
             <Stack
               position="absolute"
-              right={-6}
-              top={12}
+              right={8}
+              top={8}
               w="$1.5"
               h="$1.5"
               bg="$iconCritical"

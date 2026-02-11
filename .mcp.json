@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "agentation": {
+      "command": "npx",
+      "args": ["agentation-mcp", "server"]
+    }
+  }
+}

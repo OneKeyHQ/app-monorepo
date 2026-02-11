@@ -47,6 +47,7 @@ export function PerpsRewardHeader({
             id: ETranslations.referral_undistributed,
           })}
           value={undistributed}
+          valueColor="$textSuccess"
           subtitle={`${intl.formatMessage({
             id: ETranslations.referral_perps_total,
           })}: $${new BigNumber(totalReward).toFixed(2)}`}

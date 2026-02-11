@@ -181,7 +181,6 @@ function BookmarkListModal() {
           sortIndex: undefined,
         },
         enterMethod: EEnterMethod.bookmark,
-        shouldPopNavigation: true,
       });
     },
     [handleWebSite],

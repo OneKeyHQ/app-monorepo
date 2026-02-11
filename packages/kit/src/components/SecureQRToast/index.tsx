@@ -1,7 +1,6 @@
 import { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { useWindowDimensions } from 'react-native';
 
 import type { IQRCodeProps, IShowToasterProps } from '@onekeyhq/components';
 import {
@@ -14,6 +13,7 @@ import {
   Toast,
   XStack,
   YStack,
+  usePageWidth,
 } from '@onekeyhq/components';
 import { airGapUrUtils } from '@onekeyhq/qr-wallet-sdk';
 import { OneKeyRequestDeviceQR } from '@onekeyhq/qr-wallet-sdk/src/OneKeyRequestDeviceQR';
@@ -57,13 +57,13 @@ const SecureQRToastBase = ({
     onConfirm?.();
   }, [onConfirm]);
 
-  const { width } = useWindowDimensions();
+  const pageWidth = usePageWidth();
   return (
     <YStack
       p="$5"
       tabIndex={-1}
       // Web platform needs specified width, but native can inherit parent width
-      w={platformEnv.isNative ? '100%' : width - 40}
+      w={platformEnv.isNative ? '100%' : pageWidth - 40}
       $gtMd={
         platformEnv.isNative
           ? undefined
