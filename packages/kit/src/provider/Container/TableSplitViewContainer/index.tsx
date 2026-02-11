@@ -1,4 +1,5 @@
 import { Divider, XStack, YStack, useIsSplitView } from '@onekeyhq/components';
+import { useIsOnBoardingOpenAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 export function TableSplitViewContainer({
   mainRouter,
@@ -8,7 +9,8 @@ export function TableSplitViewContainer({
   detailRouter: React.ReactNode;
 }) {
   const isLandscape = useIsSplitView();
-  const display = isLandscape ? 'flex' : 'none';
+  const [isOnBoardingOpen] = useIsOnBoardingOpenAtom();
+  const display = isLandscape && !isOnBoardingOpen ? 'flex' : 'none';
   return (
     <XStack flex={1}>
       <YStack flex={1} display={display}>

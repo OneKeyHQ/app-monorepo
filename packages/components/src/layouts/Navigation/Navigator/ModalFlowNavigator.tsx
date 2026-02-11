@@ -82,7 +82,8 @@ function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
   );
   const ModalStackComponent = useMemo(() => {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    return contextValue.pageType === EPageType.onboarding
+    return contextValue.pageType === EPageType.onboarding ||
+      contextValue.pageType === EPageType.fullScreenPush
       ? OnBoardingStack
       : ModalStack;
   }, [contextValue.pageType]);
