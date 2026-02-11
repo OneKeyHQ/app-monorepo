@@ -76,6 +76,46 @@ index 00e8ca9..f872d02 100644
      }
    }
  
+diff --git a/node_modules/expo-image/android/src/main/java/expo/modules/image/ExpoImageModule.kt b/node_modules/expo-image/android/src/main/java/expo/modules/image/ExpoImageModule.kt
+index f08807d..1123b3c 100644
+--- a/node_modules/expo-image/android/src/main/java/expo/modules/image/ExpoImageModule.kt
++++ b/node_modules/expo-image/android/src/main/java/expo/modules/image/ExpoImageModule.kt
+@@ -41,7 +41,7 @@ import expo.modules.kotlin.modules.Module
+ import expo.modules.kotlin.modules.ModuleDefinition
+ import expo.modules.kotlin.sharedobjects.SharedRef
+ import expo.modules.kotlin.types.Either
+-import expo.modules.kotlin.types.EitherOfThree
++import expo.modules.kotlin.types.EitherOfFour
+ import expo.modules.kotlin.types.toKClass
+ import kotlinx.coroutines.Dispatchers
+ import kotlinx.coroutines.withContext
+@@ -219,7 +219,7 @@ class ExpoImageModule : Module() {
+         "onDisplay"
+       )
+ 
+-      Prop("source") { view: ExpoImageViewWrapper, sources: EitherOfThree<List<SourceMap>, SharedRef<Drawable>, SharedRef<Bitmap>>? ->
++      Prop("source") { view: ExpoImageViewWrapper, sources: EitherOfFour<List<SourceMap>, SourceMap, SharedRef<Drawable>, SharedRef<Bitmap>>? ->
+         if (sources == null) {
+           view.sources = emptyList()
+           return@Prop
+@@ -230,6 +230,17 @@ class ExpoImageModule : Module() {
+           return@Prop
+         }
+ 
++        // PATCHED: Handle single SourceMap passed as a map object instead of a list.
++        // On the new architecture (Fabric), the bridge may serialize a single-element
++        // source array as a plain map object (DynamicFromMap) instead of an array.
++        // Without this handler, the EitherOfThree type converter throws TypeCastException,
++        // which leaves the underlying folly::dynamic in an inconsistent state, leading to
++        // SIGSEGV in folly::dynamic::destroy() when the app backgrounds under memory pressure.
++        if (sources.`is`(toKClass<SourceMap>())) {
++          view.sources = listOf(sources.get(toKClass<SourceMap>()))
++          return@Prop
++        }
++
+         if (sources.`is`(toKClass<SharedRef<Drawable>>())) {
+           val drawable = sources.get(toKClass<SharedRef<Drawable>>()).ref
+           view.sources = listOf(DecodedSource(drawable))
 diff --git a/node_modules/expo-image/build/index.d.ts b/node_modules/expo-image/build/index.d.ts
 index ce18dad..4043e77 100644
 --- a/node_modules/expo-image/build/index.d.ts
