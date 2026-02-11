@@ -408,8 +408,8 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         );
         const perpsTargets = targetItems.filter((item) => !!item.perpsCoin);
 
-        // Fetch spot and perps data in parallel (only call APIs that are needed)
-        const [spotResponse, perpsResponse] = await Promise.all([
+        // Fetch spot and perps data in parallel, isolated so one failure doesn't block the other
+        const [spotResult, perpsResult] = await Promise.allSettled([
           spotTargets.length > 0
             ? backgroundApiProxy.serviceMarketV2.fetchMarketTokenListBatch({
                 tokenAddressList: spotTargets.map((item) => ({
@@ -425,6 +425,12 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
               })
             : null,
         ]);
+        const spotResponse =
+          spotResult.status === 'fulfilled'
+            ? spotResult.value
+            : { list: [] as IMarketTokenListItem[] };
+        const perpsResponse =
+          perpsResult.status === 'fulfilled' ? perpsResult.value : null;
 
         // Build spot token lookup map
         const spotTokenMap = new Map<string, IMarketTokenListItem>();
@@ -450,8 +456,8 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         }
 
         // Merge in original watchlist order
-        const displayTokens: IFavoriteTokenDisplay[] = targetItems
-          .map((targetItem) => {
+        const displayTokens = targetItems
+          .map((targetItem): IFavoriteTokenDisplay | null => {
             if (targetItem.perpsCoin) {
               // Perps item
               const perpsToken = perpsTokenMap.get(targetItem.perpsCoin);
@@ -667,6 +673,14 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
           ],
           callerName: 'PopularTrading',
         });
+
+        // Sync perps favorites atom to keep bidirectional consistency
+        if (record.perpsCoin) {
+          void backgroundApiProxy.serviceMarketV2.syncToPerpsAtom({
+            coin: record.perpsCoin,
+            action: 'remove',
+          });
+        }
 
         // Notify Market page to refresh watchlist
         appEventBus.emit(EAppEventBusNames.RefreshMarketWatchList, undefined);
