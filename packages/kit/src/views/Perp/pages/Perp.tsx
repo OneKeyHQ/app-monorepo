@@ -10,16 +10,21 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import { TabletHomeContainer } from '@onekeyhq/kit/src/components/TabletHomeContainer';
+import { DOWNLOAD_MOBILE_APP_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { FLOAT_NAV_BAR_Z_INDEX } from '@onekeyhq/shared/src/consts/zIndexConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { LazyPageContainer } from '../../../components/LazyPageContainer';
 import { TabPageHeader } from '../../../components/TabPageHeader';
+import { GiftAction } from '../../../components/TabPageHeader/components';
 import { useNativePerpFeatureGuard } from '../../../hooks/usePerpFeatureGuard';
+import { PerpSettingsButton } from '../components/PerpSettingsButton';
 import { PerpContentFooter } from '../components/PerpContentFooter';
 import { PerpsGlobalEffects } from '../components/PerpsGlobalEffects';
 import { PerpsHeaderRight } from '../components/TradingPanel/components/PerpsHeaderRight';
@@ -59,6 +64,9 @@ function PerpContent() {
     setTabPageHeight(height);
   }, []);
   const intl = useIntl();
+  const handleDownloadApp = useCallback(() => {
+    openUrlExternal(DOWNLOAD_MOBILE_APP_URL);
+  }, []);
 
   const header = (
     <TabPageHeader
@@ -78,6 +86,20 @@ function PerpContent() {
             <PerpsHeaderRight />
           </PerpsProviderMirror>
         </PerpsAccountSelectorProviderMirror>
+      }
+      customToolbarItems={
+        <>
+          <GiftAction source="Perps" size="small" copyAsUrl />
+          <PerpSettingsButton testID="perp-header-settings-button" />
+          <HeaderIconButton
+            icon="DownloadOutline"
+            size="small"
+            title={intl.formatMessage({
+              id: ETranslations.global_download_app,
+            })}
+            onPress={handleDownloadApp}
+          />
+        </>
       }
     />
   );

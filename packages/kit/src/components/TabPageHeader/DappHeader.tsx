@@ -431,9 +431,11 @@ function DepositButton() {
 function RightActions({
   tabRoute,
   customHeaderRightItems,
+  customToolbarItems,
 }: {
   tabRoute: ETabRoutes;
   customHeaderRightItems?: ReactNode;
+  customToolbarItems?: ReactNode;
 }) {
   const { gtLg } = useMedia();
   const navigation = useAppNavigation();
@@ -483,7 +485,7 @@ function RightActions({
           <DepositButton />
         </>
       )}
-      {gtLg ? <DownloadAppButton /> : null}
+      {!isPerpsTab && gtLg ? <DownloadAppButton /> : null}
       <XStack
         ai="center"
         gap="$2.5"
@@ -492,6 +494,7 @@ function RightActions({
         borderRadius="$2"
         bg="$bgStrong"
       >
+        {customToolbarItems}
         <HeaderNotificationIconButton
           testID="header-right-notification"
           size="small"
@@ -540,6 +543,7 @@ export function DappHeader({
   tabRoute,
   hideSearch,
   customHeaderRightItems,
+  customToolbarItems,
 }: ITabPageHeaderProp) {
   const { gtMd } = useMedia();
   const { config } = useAccountSelectorContextData();
@@ -558,11 +562,12 @@ export function DappHeader({
             <RightActions
               tabRoute={tabRoute}
               customHeaderRightItems={customHeaderRightItems}
+              customToolbarItems={customToolbarItems}
             />
           </AccountSelectorProviderMirror>
         </HomeTokenListProviderMirror>
       ) : null,
-    [config, customHeaderRightItems, tabRoute],
+    [config, customHeaderRightItems, customToolbarItems, tabRoute],
   );
 
   const renderDesktopHeaderTitle = useCallback(
@@ -587,16 +592,19 @@ export function DappHeader({
 
   if (gtMd) {
     return (
-      <Page.Header
-        headerTitleAlign="center"
-        headerShadowVisible={false}
-        headerStyle={{
-          backgroundColor: 'transparent',
-        }}
-        headerTitle={renderDesktopHeaderTitle}
-        headerRight={renderDesktopHeaderRight}
-        headerLeft={renderDesktopHeaderLeft}
-      />
+      <>
+        <Page.Header
+          headerTitleAlign="center"
+          headerShadowVisible={false}
+          headerStyle={{
+            backgroundColor: 'transparent',
+          }}
+          headerTitle={renderDesktopHeaderTitle}
+          headerRight={renderDesktopHeaderRight}
+          headerLeft={renderDesktopHeaderLeft}
+        />
+        <XStack h="$px" bg="$borderSubdued" />
+      </>
     );
   }
 
@@ -616,6 +624,7 @@ export function DappHeader({
           <UniversalSearchInput />
         </XStack>
       ) : null}
+      <XStack h="$px" bg="$borderSubdued" />
     </>
   );
 }

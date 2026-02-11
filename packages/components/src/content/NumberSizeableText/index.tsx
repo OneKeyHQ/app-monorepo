@@ -41,8 +41,22 @@ export function NumberSizeableText({
   hideValue,
   autoFormatter,
   autoFormatterThreshold = 1_000_000,
+  flexShrink,
+  flexGrow,
+  flex,
+  minWidth,
+  maxWidth,
+  width,
   ...props
 }: INumberSizeableTextProps) {
+  const layoutProps = {
+    flexShrink,
+    flexGrow,
+    flex,
+    minWidth,
+    maxWidth,
+    width,
+  };
   const actualFormatter = useMemo(() => {
     if (autoFormatter && ['string', 'number'].includes(typeof children)) {
       const numericValue = new BigNumber(String(children));
@@ -110,20 +124,24 @@ export function NumberSizeableText({
   if (hideValue) {
     if (formatter === 'balance' && formatterOptions?.tokenSymbol) {
       return (
-        <SizableText {...props}>
+        <SizableText {...props} {...layoutProps}>
           **** {formatterOptions.tokenSymbol}
         </SizableText>
       );
     }
-    return <SizableText {...props}>****</SizableText>;
+    return (
+      <SizableText {...props} {...layoutProps}>
+        ****
+      </SizableText>
+    );
   }
 
   return typeof result === 'string' ? (
-    <SizableText {...props} {...contentStyle}>
+    <SizableText {...props} {...layoutProps} {...contentStyle}>
       {result}
     </SizableText>
   ) : (
-    <SizableText {...props} {...contentStyle}>
+    <SizableText {...props} {...layoutProps} {...contentStyle}>
       {result.map((r, index) =>
         typeof r === 'string' ? (
           <SizableText
@@ -131,6 +149,7 @@ export function NumberSizeableText({
             color={props.color}
             fontWeight={parentFontWeight}
             fontSize={parentFontSize}
+            lineHeight={props.lineHeight ?? parentFontSize}
           >
             {r}
           </SizableText>
