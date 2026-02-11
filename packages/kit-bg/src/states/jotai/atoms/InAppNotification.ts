@@ -22,6 +22,12 @@ export type IInAppNotificationAtom = {
   bridgeProviderManager: ISwapProviderManager[];
   swapApprovingLoading: boolean;
 };
+export function filterSwapHistoryPendingList(
+  list: ISwapTxHistory[],
+): ISwapTxHistory[] {
+  return list.filter((i) => !!i);
+}
+
 export const { target: inAppNotificationAtom, use: useInAppNotificationAtom } =
   globalAtom<IInAppNotificationAtom>({
     persist: false,
