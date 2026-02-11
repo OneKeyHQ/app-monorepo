@@ -2,8 +2,10 @@ import {
   KeyboardAvoidingView,
   KeyboardAwareScrollView,
   KeyboardControllerView,
+  KeyboardExtender,
   KeyboardStickyView,
   KeyboardToolbar,
+  OverKeyboardView,
 } from 'react-native-keyboard-controller';
 
 import {
@@ -17,6 +19,8 @@ export const Keyboard = {
   StickyView: KeyboardStickyView,
   Toolbar: KeyboardToolbar,
   ControllerView: KeyboardControllerView,
+  OverKeyboardView,
+  Extender: KeyboardExtender,
   dismiss: dismissKeyboard,
   dismissWithDelay: dismissKeyboardWithDelay,
 };
