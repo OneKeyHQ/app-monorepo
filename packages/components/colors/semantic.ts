@@ -126,6 +126,12 @@ export const blue = generateSemanticColorsWithDefaultCount(
   'light',
 );
 
+export const green = generateSemanticColorsWithDefaultCount(
+  'greenA',
+  'green',
+  'light',
+);
+
 export const cyan = generateSemanticColorsWithDefaultCount(
   'cyanA',
   'cyan',
@@ -222,6 +228,12 @@ export const tealDark = generateSemanticColorsWithDefaultCount(
 export const blueDark = generateSemanticColorsWithDefaultCount(
   'blueDarkA',
   'blue',
+  'dark',
+);
+
+export const greenDark = generateSemanticColorsWithDefaultCount(
+  'greenDarkA',
+  'green',
   'dark',
 );
 
