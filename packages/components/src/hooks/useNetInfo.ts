@@ -119,12 +119,15 @@ class NetInfo {
       this.updateState({ isInternetReachable: false });
     } finally {
       this.isFetching = false;
+      this.clearPolling();
+      const { reachabilityShortTimeout, reachabilityLongTimeout } =
+        this.configuration;
       if (this.pendingRefresh) {
         this.pendingRefresh = false;
-        void this.fetch();
+        this.pollingTimeoutId = setTimeout(() => {
+          void this.fetch();
+        }, reachabilityShortTimeout);
       } else {
-        const { reachabilityShortTimeout, reachabilityLongTimeout } =
-          this.configuration;
         this.pollingTimeoutId = setTimeout(
           () => {
             void this.fetch();
@@ -138,7 +141,7 @@ class NetInfo {
   }
 
   isIdle() {
-    return !this.pollingTimeoutId && !this.isFetching;
+    return !this.pollingTimeoutId && !this.isFetching && !this.pendingRefresh;
   }
 
   private clearPolling() {
@@ -148,23 +151,24 @@ class NetInfo {
     }
   }
 
-  start() {
+  private triggerFetch(clearPending: boolean) {
     this.clearPolling();
     if (this.isFetching) {
       this.pendingRefresh = true;
       return;
     }
-    this.pendingRefresh = false;
+    if (clearPending) {
+      this.pendingRefresh = false;
+    }
     void this.fetch();
   }
 
+  start() {
+    this.triggerFetch(true);
+  }
+
   refresh() {
-    this.clearPolling();
-    if (this.isFetching) {
-      this.pendingRefresh = true;
-      return;
-    }
-    void this.fetch();
+    this.triggerFetch(false);
   }
 }
 
