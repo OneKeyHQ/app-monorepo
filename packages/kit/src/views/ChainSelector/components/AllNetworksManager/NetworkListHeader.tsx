@@ -23,12 +23,14 @@ function NetworkListHeader() {
     setMissingAddressCount,
   } = useContext(AllNetworksManagerContext);
 
-  const { enabledNetworksWithoutAccount } =
+  const { enabledNetworksWithoutAccount, run } =
     useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
       walletId: walletId ?? '',
       indexedAccountId,
       filterNetworksWithoutAccount: true,
+      enabledNetworks,
     });
+
 
   const isAllNetworksEnabled = useMemo(() => {
     if (enabledNetworks.length > 0) {
@@ -49,6 +51,12 @@ function NetworkListHeader() {
   useEffect(() => {
     setMissingAddressCount(enabledNetworksWithoutAccount.length);
   }, [enabledNetworksWithoutAccount.length, setMissingAddressCount]);
+
+  useEffect(() => {
+    if (enabledNetworks.length >= 0) {
+      void run();
+    }
+  }, [enabledNetworks.length, run]);
 
   const handleToggleAll = useCallback(() => {
     if (isAllNetworksEnabled) {
