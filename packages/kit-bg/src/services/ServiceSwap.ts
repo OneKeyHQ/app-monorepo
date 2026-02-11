@@ -1458,9 +1458,7 @@ export default class ServiceSwap extends ServiceBase {
       await inAppNotificationAtom.set((pre) => {
         const newPendingList = filterSwapHistoryPendingList(
           pre.swapHistoryPendingList,
-        ).map((item) =>
-          item.txInfo.txId === oldTxId ? newHistoryItem : item,
-        );
+        ).map((item) => (item.txInfo.txId === oldTxId ? newHistoryItem : item));
         return {
           ...pre,
           swapHistoryPendingList: newPendingList,
@@ -1598,9 +1596,9 @@ export default class ServiceSwap extends ServiceBase {
       : (txInfo.txId ?? '');
     await inAppNotificationAtom.set((pre) => ({
       ...pre,
-      swapHistoryPendingList: pre.swapHistoryPendingList.filter(
-        (item) => !!item && item.txInfo.txId !== deleteHistoryId,
-      ),
+      swapHistoryPendingList: filterSwapHistoryPendingList(
+        pre.swapHistoryPendingList,
+      ).filter((item) => item.txInfo.txId !== deleteHistoryId),
     }));
     await this.cleanHistoryStateIntervals(deleteHistoryId);
   }
