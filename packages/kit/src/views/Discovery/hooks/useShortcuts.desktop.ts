@@ -58,46 +58,59 @@ export const useDiscoveryShortcuts = () => {
 
   const handleShortcuts = useCallback(
     (data: EShortcutEvents) => {
-      if (!isAtBrowserTab.current) {
-        return;
-      }
-      const webview = getActiveWebview(activeTabId);
-      try {
-        switch (data) {
-          case EShortcutEvents.CopyAddressOrUrl: {
-            const url = webview?.getURL();
-            if (url) {
-              copyText(url);
-            }
-            break;
+      switch (data) {
+        // webview-specific shortcuts — only when a browser tab is focused
+        case EShortcutEvents.CopyAddressOrUrl:
+        case EShortcutEvents.GoForwardHistory:
+        case EShortcutEvents.GoBackHistory:
+        case EShortcutEvents.Refresh:
+        case EShortcutEvents.CloseTab: {
+          if (!isAtBrowserTab.current) {
+            return;
           }
-          case EShortcutEvents.GoForwardHistory:
-            webview?.goForward();
-            break;
-          case EShortcutEvents.GoBackHistory:
-            webview?.goBack();
-            break;
-          case EShortcutEvents.Refresh:
-            webview?.reload();
-            break;
-          case EShortcutEvents.CloseTab:
-            handleCloseWebTab();
-            break;
-          case EShortcutEvents.ViewHistory:
-            navigation.pushModal(EModalRoutes.DiscoveryModal, {
-              screen: EDiscoveryModalRoutes.HistoryListModal,
-            });
-            break;
-          case EShortcutEvents.ViewBookmark:
-            navigation.pushModal(EModalRoutes.DiscoveryModal, {
-              screen: EDiscoveryModalRoutes.BookmarkListModal,
-            });
-            break;
-          default:
-            break;
+          const webview = getActiveWebview(activeTabId);
+          try {
+            switch (data) {
+              case EShortcutEvents.CopyAddressOrUrl: {
+                const url = webview?.getURL();
+                if (url) {
+                  copyText(url);
+                }
+                break;
+              }
+              case EShortcutEvents.GoForwardHistory:
+                webview?.goForward();
+                break;
+              case EShortcutEvents.GoBackHistory:
+                webview?.goBack();
+                break;
+              case EShortcutEvents.Refresh:
+                webview?.reload();
+                break;
+              case EShortcutEvents.CloseTab:
+                handleCloseWebTab();
+                break;
+              default:
+                break;
+            }
+          } catch {
+            // webview methods may throw if webContents is destroyed
+          }
+          break;
         }
-      } catch {
-        // webview methods may throw if webContents is destroyed
+        // navigation shortcuts — available whenever Discovery is mounted
+        case EShortcutEvents.ViewHistory:
+          navigation.pushModal(EModalRoutes.DiscoveryModal, {
+            screen: EDiscoveryModalRoutes.HistoryListModal,
+          });
+          break;
+        case EShortcutEvents.ViewBookmark:
+          navigation.pushModal(EModalRoutes.DiscoveryModal, {
+            screen: EDiscoveryModalRoutes.BookmarkListModal,
+          });
+          break;
+        default:
+          break;
       }
     },
     [activeTabId, copyText, handleCloseWebTab, isAtBrowserTab, navigation],
