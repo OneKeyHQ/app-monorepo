@@ -26,14 +26,21 @@ function formatDateTime(dateString: string | null | undefined): string {
   return formatDate(dateString, { hideSeconds: true });
 }
 
+function isZeroValue(value: string | null | undefined): boolean {
+  if (!value) return true;
+  return Number(value) === 0;
+}
+
 function DetailItem({
   label,
   value,
+  valueColor,
   showTooltip,
   tooltipContent,
 }: {
   label: string;
   value: string;
+  valueColor?: string;
   showTooltip?: boolean;
   tooltipContent?: string;
 }) {
@@ -52,7 +59,7 @@ function DetailItem({
           />
         ) : null}
       </XStack>
-      <SizableText size="$bodyMdMedium" color="$text">
+      <SizableText size="$bodyMdMedium" color={valueColor ?? '$text'}>
         {value}
       </SizableText>
     </YStack>
@@ -66,6 +73,11 @@ export function PerpsRecordCard({ item }: IPerpsRecordCardProps) {
   const handleToggle = useCallback(() => {
     setIsExpanded((prev) => !prev);
   }, []);
+
+  const isZeroData =
+    isZeroValue(item.volumeFiatValue) &&
+    isZeroValue(item.feeFiatValue) &&
+    isZeroValue(item.rewardFiatValue);
 
   return (
     <YStack
@@ -89,16 +101,22 @@ export function PerpsRecordCard({ item }: IPerpsRecordCardProps) {
           <SizableText size="$bodyLgMedium" color="$text">
             {item.address}
           </SizableText>
-          <Currency
-            color="$textSuccess"
-            formatter="value"
-            size="$bodyLgMedium"
-            formatterOptions={{
-              showPlusMinusSigns: true,
-            }}
-          >
-            {item.rewardFiatValue}
-          </Currency>
+          {isZeroData ? (
+            <SizableText size="$bodyLgMedium" color="$textSubdued">
+              --
+            </SizableText>
+          ) : (
+            <Currency
+              color="$textSuccess"
+              formatter="value"
+              size="$bodyLgMedium"
+              formatterOptions={{
+                showPlusMinusSigns: true,
+              }}
+            >
+              {item.rewardFiatValue}
+            </Currency>
+          )}
         </XStack>
 
         {/* Volume, Badge, and Expand Icon */}
@@ -109,9 +127,19 @@ export function PerpsRecordCard({ item }: IPerpsRecordCardProps) {
               <SizableText size="$bodyMd" color="$textSubdued">
                 Vol.
               </SizableText>
-              <Currency formatter="value" size="$bodyMdMedium" color="$text">
-                {item.volumeFiatValue}
-              </Currency>
+              {isZeroData ? (
+                <SizableText size="$bodyMdMedium" color="$textSubdued">
+                  --
+                </SizableText>
+              ) : (
+                <Currency
+                  formatter="value"
+                  size="$bodyMdMedium"
+                  color="$text"
+                >
+                  {item.volumeFiatValue}
+                </Currency>
+              )}
             </XStack>
 
             {/* Invite Code Badge */}
@@ -155,7 +183,16 @@ export function PerpsRecordCard({ item }: IPerpsRecordCardProps) {
                 label={intl.formatMessage({
                   id: ETranslations.referral_perps_first_trade,
                 })}
-                value={formatDateTime(item.firstTradeTime)}
+                value={
+                  isZeroData && !item.firstTradeTime
+                    ? '--'
+                    : formatDateTime(item.firstTradeTime)
+                }
+                valueColor={
+                  isZeroData && !item.firstTradeTime
+                    ? '$textSubdued'
+                    : undefined
+                }
               />
             </YStack>
 
@@ -165,7 +202,8 @@ export function PerpsRecordCard({ item }: IPerpsRecordCardProps) {
                 label={intl.formatMessage({
                   id: ETranslations.referral_perps_onekey_fee,
                 })}
-                value={`$${item.feeFiatValue}`}
+                value={isZeroData ? '--' : `$${item.feeFiatValue}`}
+                valueColor={isZeroData ? '$textSubdued' : undefined}
                 showTooltip
                 tooltipContent={intl.formatMessage({
                   id: ETranslations.referral_perps_onekey_fee_exclusion_notice,

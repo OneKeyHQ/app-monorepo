@@ -29,7 +29,7 @@ function EmptyData() {
   const intl = useIntl();
   return (
     <Empty
-      icon="PeopleOutline"
+      illustration="ShakeHands"
       title={intl.formatMessage({
         id: ETranslations.referral_referred_empty,
       })}

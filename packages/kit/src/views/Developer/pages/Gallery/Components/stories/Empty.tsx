@@ -11,7 +11,7 @@ const EmptyGallery = () => (
         title: 'Default',
         element: (
           <Empty
-            icon="SearchOutline"
+            illustration="QuestionMark"
             title="No Results"
             description="Ad cillum pariatur culpa incididunt esse sint fugiat esse veniam"
             buttonProps={{

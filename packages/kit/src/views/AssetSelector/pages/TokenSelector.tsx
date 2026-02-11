@@ -443,7 +443,7 @@ function TokenSelector() {
           keepDefaultZeroBalanceTokens={keepDefaultZeroBalanceTokens}
           showNetworkIcon={isAllNetworks ?? network?.isAllNetworks}
           emptyProps={{
-            mt: '24%',
+            mt: '18%',
           }}
         />
       </Page.Body>
