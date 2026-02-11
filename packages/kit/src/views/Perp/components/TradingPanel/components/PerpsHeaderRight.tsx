@@ -11,6 +11,7 @@ import {
   XStack,
   useMedia,
 } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { GiftAction } from '@onekeyhq/kit/src/components/TabPageHeader/components';
 import { WalletConnectionForWeb } from '@onekeyhq/kit/src/components/TabPageHeader/components/WalletConnectionGroup';
@@ -172,7 +173,7 @@ export function PerpsHeaderRight() {
       <WalletConnectionForWeb tabRoute={ETabRoutes.Perp} />
       {process.env.NODE_ENV !== 'production' ? <DebugButton /> : null}
       <DepositButton />
-      {gtMd ? (
+      {gtMd && !platformEnv.isWebDappMode ? (
         <>
           <GiftAction source="Perps" copyAsUrl />
           <PerpSettingsButton testID="perp-header-settings-button" />

@@ -111,9 +111,7 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
   const informationHeader = useMemo(() => {
     return (
       <YStack bg="$bgApp" pointerEvents="box-none">
-        <Stack px="$5">
-          <PerpetualTradingBanner />
-        </Stack>
+        <PerpetualTradingBanner px="$5" />
         <InformationPanel />
         <Stack h={tradingViewHeight} position="relative">
           <MarketTradingView
