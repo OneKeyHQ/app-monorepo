@@ -2,8 +2,8 @@ import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { IKeyOfIcons } from '@onekeyhq/components';
 import { Empty } from '@onekeyhq/components';
+import type { IIllustrationName } from '@onekeyhq/components/src/primitives/Illustration';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -33,7 +33,7 @@ function EmptyAccount(props: IProps) {
   const { activeAccount } = useActiveAccount({ num });
 
   const emptyMessage = useMemo(() => {
-    let icon: IKeyOfIcons | undefined;
+    let illustration: IIllustrationName | undefined;
     let title = intl.formatMessage({ id: ETranslations.wallet_no_address });
     let description: string | undefined;
     if (activeAccount?.canCreateAddress) {
@@ -49,7 +49,7 @@ function EmptyAccount(props: IProps) {
       walletId: activeAccount?.wallet?.id,
     });
     if (isQrWallet && activeAccount?.isNetworkNotMatched) {
-      icon = 'GlobusOutline';
+      illustration = 'XCoin';
       title = intl.formatMessage(
         {
           id: ETranslations.wallet_unsupported_network_title,
@@ -62,13 +62,13 @@ function EmptyAccount(props: IProps) {
         id: ETranslations.wallet_unsupported_network_desc,
       });
     }
-    return { title, description, icon };
+    return { title, description, illustration };
   }, [intl, activeAccount]);
 
   return (
     <Empty
       testID="Wallet-No-Address-Empty"
-      icon={emptyMessage.icon}
+      illustration={emptyMessage.illustration}
       title={emptyMessage.title}
       description={emptyMessage.description}
       button={

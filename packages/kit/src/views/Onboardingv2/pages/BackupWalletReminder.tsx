@@ -5,7 +5,7 @@ import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
   Button,
   Icon,
-  Image,
+  Illustration,
   Page,
   SizableText,
   XStack,
@@ -65,11 +65,10 @@ export default function BackupWalletReminder() {
       <OnboardingLayout>
         <OnboardingLayout.Header />
         <OnboardingLayout.Body>
-          <Image
+          <Illustration
+            name="RecoveryPhrase"
             alignSelf="center"
-            source={require('@onekeyhq/kit/assets/onboarding/recovery-phrase-illustration.png')}
-            w={108}
-            h={162}
+            size={144}
           />
           <SizableText size="$heading2xl">
             {intl.formatMessage({

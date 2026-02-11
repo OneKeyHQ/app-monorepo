@@ -313,7 +313,7 @@ function BtcAddresses() {
               ) : (
                 <XStack flex={1} justifyContent="center" alignItems="center">
                   <Empty
-                    icon="SearchOutline"
+                    illustration="QuestionMark"
                     title={intl.formatMessage({
                       id: ETranslations.global_no_results,
                     })}

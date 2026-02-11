@@ -1052,7 +1052,7 @@ const BasePortfolioTabContent = ({
   if (noAssets) {
     return (
       <Empty
-        icon="ClockTimeHistoryOutline"
+        illustration="BlockPercentage"
         title={intl.formatMessage({
           id: ETranslations.earn_no_assets_deposited,
         })}
