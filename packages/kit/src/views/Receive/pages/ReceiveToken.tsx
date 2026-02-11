@@ -43,6 +43,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { EConfirmOnDeviceType } from '@onekeyhq/shared/types/device';
 
@@ -94,12 +95,72 @@ function ReceiveToken() {
       walletId,
     });
 
+  // Detect external accounts in "All Networks" mode and resolve the actual connected chain
+  const isExternalAccountInAllNetwork = useMemo(
+    () =>
+      !!(network?.isAllNetworks && accountUtils.isOthersWallet({ walletId })),
+    [network?.isAllNetworks, walletId],
+  );
+
+  const [externalConnectedNetwork, setExternalConnectedNetwork] = useState<
+    IServerNetwork | undefined
+  >(undefined);
+
+  useEffect(() => {
+    if (!isExternalAccountInAllNetwork) {
+      setExternalConnectedNetwork(undefined);
+      return;
+    }
+
+    let cancelled = false;
+
+    const fetchExternalNetwork = async () => {
+      try {
+        const freshAccount = await backgroundApiProxy.serviceAccount.getAccount(
+          {
+            accountId,
+            networkId,
+          },
+        );
+        if (cancelled) return;
+        if (freshAccount?.createAtNetwork) {
+          const resolvedNetwork =
+            await backgroundApiProxy.serviceNetwork.getNetworkSafe({
+              networkId: freshAccount.createAtNetwork,
+            });
+          if (cancelled) return;
+          setExternalConnectedNetwork(resolvedNetwork ?? undefined);
+        } else {
+          setExternalConnectedNetwork(undefined);
+        }
+      } catch {
+        if (!cancelled) {
+          setExternalConnectedNetwork(undefined);
+        }
+      }
+    };
+
+    void fetchExternalNetwork();
+
+    // Listen for account updates (e.g., chain switch in external wallet)
+    const handler = () => void fetchExternalNetwork();
+    appEventBus.on(EAppEventBusNames.AccountUpdate, handler);
+    return () => {
+      cancelled = true;
+      appEventBus.off(EAppEventBusNames.AccountUpdate, handler);
+    };
+  }, [isExternalAccountInAllNetwork, accountId, networkId]);
+
+  // The effective display network: actual connected chain for external accounts, or original network
+  const displayNetwork = externalConnectedNetwork ?? network;
+  const displayNetworkId = displayNetwork?.id ?? networkId;
+
   const { result: nativeToken } = usePromiseResult(async () => {
     return backgroundApiProxy.serviceToken.getNativeToken({
       accountId,
-      networkId,
+      networkId: displayNetworkId,
     });
-  }, [accountId, networkId]);
+  }, [accountId, displayNetworkId]);
 
   const { handleBannerOnPress } = useWalletBanner({
     account,
@@ -197,7 +258,7 @@ function ReceiveToken() {
   }, [addressState, isHardwareWallet]);
 
   useEffect(() => {
-    const url = network?.logoURI;
+    const url = displayNetwork?.logoURI;
 
     if (!url) return;
 
@@ -215,7 +276,7 @@ function ReceiveToken() {
       .catch((error) => {
         console.error('Failed to get colors from network logo:', error);
       });
-  }, [network?.logoURI]);
+  }, [displayNetwork?.logoURI]);
 
   const throttledSyncBTCFreshAddress = useThrottledCallback(
     (params: { networkId: string; accountId: string }) => {
@@ -242,19 +303,19 @@ function ReceiveToken() {
       copyAddressWithDeriveType({
         address: displayAddress,
         deriveInfo: currentDeriveInfo,
-        networkName: network?.name,
+        networkName: displayNetwork?.name,
       });
     } else {
       copyAddressWithDeriveType({
         address: displayAddress,
-        networkName: network?.name,
+        networkName: displayNetwork?.name,
       });
     }
   }, [
     copyAddressWithDeriveType,
     currentDeriveInfo,
     displayAddress,
-    network?.name,
+    displayNetwork?.name,
     vaultSettings?.mergeDeriveAssetsEnabled,
   ]);
 
@@ -620,11 +681,15 @@ function ReceiveToken() {
         <YStack gap="$1.5">
           <XStack gap="$2" alignItems="center">
             <SizableText size="$bodyMd">
-              {token?.symbol ?? network.symbol}
+              {isExternalAccountInAllNetwork
+                ? (displayNetwork?.name ?? '')
+                : (token?.symbol ?? displayNetwork?.symbol ?? '')}
             </SizableText>
-            <Badge>
-              <Badge.Text>{network.name}</Badge.Text>
-            </Badge>
+            {isExternalAccountInAllNetwork ? null : (
+              <Badge>
+                <Badge.Text>{displayNetwork?.name ?? ''}</Badge.Text>
+              </Badge>
+            )}
             {vaultSettings?.mergeDeriveAssetsEnabled ? (
               <AddressTypeSelector
                 placement="top-start"
@@ -670,7 +735,7 @@ function ReceiveToken() {
                 id: ETranslations.receive_send_asset_warning_message,
               },
               {
-                network: network.name,
+                network: displayNetwork?.name ?? '',
               },
             )}
           </SizableText>
@@ -706,6 +771,8 @@ function ReceiveToken() {
     currentAccount,
     currentDeriveInfo,
     currentDeriveType,
+    displayNetwork,
+    isExternalAccountInAllNetwork,
     intl,
     network,
     networkId,
@@ -770,7 +837,7 @@ function ReceiveToken() {
           {shouldShowQRCode ? (
             <YStack>
               <QRCode value={displayAddress} size={224} />
-              {network.isCustomNetwork ? null : (
+              {displayNetwork?.isCustomNetwork ? null : (
                 <YStack
                   position="absolute"
                   left="50%"
@@ -783,9 +850,17 @@ function ReceiveToken() {
                 >
                   <Token
                     size="lg"
-                    tokenImageUri={token?.logoURI ?? nativeToken?.logoURI}
-                    networkImageUri={network.logoURI}
-                    networkId={networkId}
+                    tokenImageUri={
+                      isExternalAccountInAllNetwork
+                        ? displayNetwork?.logoURI
+                        : (token?.logoURI ?? nativeToken?.logoURI)
+                    }
+                    networkImageUri={
+                      isExternalAccountInAllNetwork
+                        ? undefined
+                        : displayNetwork?.logoURI
+                    }
+                    networkId={displayNetworkId}
                   />
                 </YStack>
               )}
@@ -815,12 +890,14 @@ function ReceiveToken() {
   }, [
     currentAccount,
     displayAddress,
+    displayNetwork,
+    isExternalAccountInAllNetwork,
     network,
     wallet,
     shouldShowQRCode,
     handleVerifyOnDevicePress,
     token?.logoURI,
-    networkId,
+    displayNetworkId,
     intl,
     nativeToken?.logoURI,
   ]);
@@ -875,7 +952,9 @@ function ReceiveToken() {
               <Image
                 size="$5"
                 source={{ uri: banner.src }}
-                fallback={<NetworkAvatar size="$5" networkId={networkId} />}
+                fallback={
+                  <NetworkAvatar size="$5" networkId={displayNetworkId} />
+                }
               />
               <FormatHyperlinkText size="$bodyMd" flex={1}>
                 {banner.title}
