@@ -194,12 +194,7 @@ export function DesktopTabItem(
         }
       >
         {icon ? (
-          <XStack
-            flexShrink={0}
-            animateOnly={['transform', 'color']}
-            animation="quick"
-            scale={isHovered || isContainerHovered ? 1.1 : 1}
-          >
+          <XStack className="sidebar-tab-item-icon" flexShrink={0}>
             <Icon
               flexShrink={0}
               name={icon}

@@ -50,6 +50,7 @@ function PerpsRewardPageWrapper() {
   const { md } = useMedia();
 
   const [isLoading, setIsLoading] = useState(false);
+  const [isTabLoading, setIsTabLoading] = useState(false);
   const [cumulativeRewards, setCumulativeRewards] = useState<
     IPerpsCumulativeRewardsResponse | undefined
   >();
@@ -88,7 +89,14 @@ function PerpsRewardPageWrapper() {
     setCustomDateRange,
     clearCustomDateRange,
     datePickerValue,
-  } = useRewardFilter();
+  } = useRewardFilter({
+    startTime: new Date('2024-01-01T00:00:00.000').getTime(),
+    endTime: (() => {
+      const d = new Date();
+      d.setHours(23, 59, 59, 999);
+      return d.getTime();
+    })(),
+  });
 
   // Intermediate state for date range selection (before both dates are selected)
   const [intermediateDateRange, setIntermediateDateRange] =
@@ -314,10 +322,10 @@ function PerpsRewardPageWrapper() {
 
   // Fetch data when tab changes
   useEffect(() => {
-    setIsLoading(true);
+    setIsTabLoading(true);
     fetchCurrentTab()
       .catch((error) => console.error('Failed to fetch tab data:', error))
-      .finally(() => setIsLoading(false));
+      .finally(() => setIsTabLoading(false));
   }, [fetchCurrentTab]);
 
   // Max date for DatePicker (today)
@@ -422,6 +430,7 @@ function PerpsRewardPageWrapper() {
                 sortOrder={sortOrder}
                 onSort={handleSort}
                 isLoadingMore={isLoadingMore}
+                isTabLoading={isTabLoading}
               />
             </ScrollView>
           )}

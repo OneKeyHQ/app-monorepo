@@ -70,9 +70,7 @@ export function DesktopLayout() {
       <Stack w={340}>
         <ScrollView>
           <Stack w={340} pb={platformEnv.isWeb ? '$12' : undefined}>
-            <Stack pl="$3" pr="$5">
-              <PerpetualTradingBanner />
-            </Stack>
+            <PerpetualTradingBanner pl="$3" pr="$5" />
             <Stack pl="$3" pr="$5" pt="$4" pb="$3">
               <SwapPanel
                 swapToken={{

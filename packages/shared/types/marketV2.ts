@@ -341,6 +341,38 @@ export interface IMarketBasicConfigData {
   feature?: IMarketBasicConfigFeature;
   lowLiquidKlineSourceTokens?: IMarketBasicConfigLowLiquidKlineSourceToken[];
   HyperLiquidKlineSourceTokens?: IMarketBasicConfigHyperLiquidKlineSourceToken[];
+  perpsCategories?: IMarketPerpsCategory[];
+}
+
+export interface IMarketPerpsCategory {
+  /** Unique category identifier, e.g. "crypto", "stock", "commodity" */
+  categoryId: string;
+  /** Localized display name, e.g. "Crypto", "Stocks" */
+  name: string;
+}
+
+export interface IMarketPerpsTokenFromServer {
+  name: string;
+  displayName: string;
+  maxLeverage: number;
+  tokenImageUrl: string;
+  markPrice: string;
+  prevDayPrice: string;
+  change24hPercent: number;
+  volume24h: string;
+  openInterest: string;
+  fundingRate: string;
+}
+
+export interface IMarketPerpsTokenListData {
+  tokens: IMarketPerpsTokenFromServer[];
+  updatedAt: number;
+}
+
+export interface IMarketPerpsTokenListResponse {
+  code: number;
+  message: string;
+  data: IMarketPerpsTokenListData;
 }
 
 export interface IMarketBasicConfigResponse {

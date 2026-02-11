@@ -667,7 +667,7 @@ function DepositWithdrawContent({
     }
     const minFromTokenAmountFormatted = minFromTokenAmount
       .decimalPlaces(
-        currentPerpsDepositSelectedToken?.decimals ?? 0,
+        Number(currentPerpsDepositSelectedToken?.decimals ?? 0),
         BigNumber.ROUND_UP,
       )
       .toFixed();

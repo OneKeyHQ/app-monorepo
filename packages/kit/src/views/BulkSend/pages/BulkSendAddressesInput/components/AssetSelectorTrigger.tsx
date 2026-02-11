@@ -138,14 +138,23 @@ function AssetSelectorTrigger() {
         subtitle={network?.name}
         bg="$bgSubdued"
         mx="$0"
-        $gtMd={{
-          px: '$0',
-          bg: '$bgApp',
+        hoverStyle={{
+          bg: '$bgHover',
         }}
-        onPress={media.gtMd ? undefined : handleSelectAsset}
+        pressStyle={{
+          bg: '$bgActive',
+        }}
+        userSelect="none"
+        borderRadius="$3"
+        $gtMd={{
+          bg: '$bgApp',
+          px: '$3',
+          mx: '$-3',
+        }}
+        onPress={handleSelectAsset}
       >
         {media.gtMd ? (
-          <Button size="small" variant="secondary" onPress={handleSelectAsset}>
+          <Button size="small" variant="secondary">
             {intl.formatMessage({
               id: ETranslations.send_to_contacts_selector_account_title,
             })}
