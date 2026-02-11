@@ -2,7 +2,7 @@ import type { MutableRefObject } from 'react';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { StyleSheet, useWindowDimensions } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 import type {
   IDragEndParamsWithItem,
@@ -26,6 +26,7 @@ import {
   YStack,
   useIsFocusedTab,
   useMedia,
+  usePageWidth,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
@@ -515,7 +516,7 @@ function BasicMarketHomeList({
     [navigation],
   );
 
-  const { width: screenWidth } = useWindowDimensions();
+  const pageWidth = usePageWidth();
   const onLongPressRefs = useRef<Record<string, () => void>>({});
 
   const [settings] = useSettingsPersistAtom();
@@ -969,10 +970,10 @@ function BasicMarketHomeList({
     }
     return platformEnv.isNativeAndroid
       ? {
-          width: screenWidth,
+          width: pageWidth,
         }
       : undefined;
-  }, [gtMd, screenWidth]);
+  }, [gtMd, pageWidth]);
 
   const handleDragEnd = useCallback(
     ({

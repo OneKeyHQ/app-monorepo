@@ -4,7 +4,7 @@ import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { LazyLoadRootTabPage } from '../../../components/LazyLoadPage';
 
 const PageWebviewPerpTrade = LazyLoadRootTabPage(
-  () => import('../pages/PageWebviewPerpTrade'),
+  () => import(/* webpackPrefetch: true */ '../pages/PageWebviewPerpTrade'),
 );
 
 export const perpTradeRouters: ITabSubNavigatorConfig<any, any>[] = [

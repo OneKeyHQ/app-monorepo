@@ -7,7 +7,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorage';
 
-import { Toast } from '../actions';
+import { Toast } from '../actions/Toast';
 
 const css1 = 'debug-render-tracker-animated-bg';
 const css2 = 'debug-render-tracker-animated-bg0';
