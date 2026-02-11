@@ -43,7 +43,6 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { EConfirmOnDeviceType } from '@onekeyhq/shared/types/device';
 
@@ -102,58 +101,19 @@ function ReceiveToken() {
     [network?.isAllNetworks, walletId],
   );
 
-
-  const [externalConnectedNetwork, setExternalConnectedNetwork] = useState<
-    IServerNetwork | undefined
-  >(undefined);
-
-  useEffect(() => {
-    if (!isExternalAccountInAllNetwork) {
-      setExternalConnectedNetwork(undefined);
-      return;
+  // Resolve the network object based on the account's current chain.
+  // We rely on 'account' reactivity from useAccountData instead of manual event listeners.
+  const { result: resolvedExternalNetwork } = usePromiseResult(async () => {
+    if (isExternalAccountInAllNetwork && account?.createAtNetwork) {
+      return backgroundApiProxy.serviceNetwork.getNetworkSafe({
+        networkId: account.createAtNetwork,
+      });
     }
-
-    let cancelled = false;
-
-    const fetchExternalNetwork = async () => {
-      try {
-        const freshAccount = await backgroundApiProxy.serviceAccount.getAccount(
-          {
-            accountId,
-            networkId,
-          },
-        );
-        if (cancelled) return;
-        if (freshAccount?.createAtNetwork) {
-          const resolvedNetwork =
-            await backgroundApiProxy.serviceNetwork.getNetworkSafe({
-              networkId: freshAccount.createAtNetwork,
-            });
-          if (cancelled) return;
-          setExternalConnectedNetwork(resolvedNetwork ?? undefined);
-        } else {
-          setExternalConnectedNetwork(undefined);
-        }
-      } catch {
-        if (!cancelled) {
-          setExternalConnectedNetwork(undefined);
-        }
-      }
-    };
-
-    void fetchExternalNetwork();
-
-    // Listen for account updates (e.g., chain switch in external wallet)
-    const handler = () => void fetchExternalNetwork();
-    appEventBus.on(EAppEventBusNames.AccountUpdate, handler);
-    return () => {
-      cancelled = true;
-      appEventBus.off(EAppEventBusNames.AccountUpdate, handler);
-    };
-  }, [isExternalAccountInAllNetwork, accountId, networkId]);
+    return undefined;
+  }, [isExternalAccountInAllNetwork, account?.createAtNetwork]);
 
   // The effective display network: actual connected chain for external accounts, or original network
-  const displayNetwork = externalConnectedNetwork ?? network;
+  const displayNetwork = resolvedExternalNetwork ?? network;
   const displayNetworkId = displayNetwork?.id ?? networkId;
 
   const { result: nativeToken } = usePromiseResult(async () => {
