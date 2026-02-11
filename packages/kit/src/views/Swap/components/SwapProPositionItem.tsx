@@ -1,16 +1,15 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
-import { useIntl } from 'react-intl';
-
-import type { IYStackProps } from '@onekeyhq/components';
+import type { IStackProps } from '@onekeyhq/components';
 import {
   Icon,
   NumberSizeableText,
   SizableText,
+  Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
@@ -21,7 +20,7 @@ interface ISwapProPositionItemProps {
   token: ISwapToken;
   onPress: (token: ISwapToken) => void;
   disabled?: boolean;
-  props?: IYStackProps;
+  props?: IStackProps;
 }
 
 const SwapProPositionItem = ({
@@ -30,7 +29,6 @@ const SwapProPositionItem = ({
   disabled,
   props,
 }: ISwapProPositionItemProps) => {
-  const intl = useIntl();
   const currencyInfo = useCurrency();
 
   const tokenNetworkImageUri = useMemo(() => {
@@ -44,15 +42,31 @@ const SwapProPositionItem = ({
     return '';
   }, [token.networkLogoURI, token.networkId]);
 
+  const handlePress = useCallback(() => {
+    if (!disabled) {
+      onPress(token);
+    }
+  }, [disabled, onPress, token]);
+
   return (
-    <YStack
-      py="$3"
-      gap="$4"
-      onPress={disabled ? undefined : () => onPress(token)}
-      opacity={disabled ? 0.5 : 1}
-      {...(props && { ...props })}
+    <Stack
+      flexDirection="row"
+      alignItems="center"
+      minHeight="$11"
+      gap="$3"
+      py="$2"
+      px="$2"
+      mx="$-2"
+      borderRadius="$3"
+      borderCurve="continuous"
+      userSelect="none"
+      onPress={handlePress}
+      {...(disabled && { opacity: 0.5 })}
+      {...(!disabled && listItemPressStyle)}
+      {...props}
     >
-      <XStack alignItems="center" gap="$2">
+      {/* First Column: Token Icon + Symbol + Arrow (original style) */}
+      <XStack alignItems="center" gap="$2" flexGrow={1} flexBasis={0}>
         <Token
           size="sm"
           tokenImageUri={token.logoURI}
@@ -61,26 +75,27 @@ const SwapProPositionItem = ({
         <SizableText size="$headingLg">{token.symbol}</SizableText>
         <Icon name="ChevronRightOutline" size="$4" />
       </XStack>
-      <XStack justifyContent="space-between">
-        <SizableText size="$bodyMd" color="$textSubdued">
-          {intl.formatMessage({ id: ETranslations.global_balance })}
-        </SizableText>
-        <XStack>
-          <NumberSizeableText size="$bodyMdMedium" formatter="balance">
-            {token.balanceParsed}
-          </NumberSizeableText>
-          <SizableText size="$bodyMdMedium">(</SizableText>
-          <NumberSizeableText
-            size="$bodyMdMedium"
-            formatter="value"
-            formatterOptions={{ currency: currencyInfo.symbol }}
-          >
-            {token.fiatValue}
-          </NumberSizeableText>
-          <SizableText size="$bodyMdMedium">)</SizableText>
-        </XStack>
-      </XStack>
-    </YStack>
+
+      {/* Second Column: Balance + Fiat Value */}
+      <YStack alignItems="flex-end" flexGrow={1} flexBasis={0}>
+        <NumberSizeableText
+          size="$bodyMdMedium"
+          formatter="balance"
+          numberOfLines={1}
+        >
+          {token.balanceParsed}
+        </NumberSizeableText>
+        <NumberSizeableText
+          size="$bodyMd"
+          color="$textSubdued"
+          formatter="value"
+          formatterOptions={{ currency: currencyInfo.symbol }}
+          numberOfLines={1}
+        >
+          {token.fiatValue}
+        </NumberSizeableText>
+      </YStack>
+    </Stack>
   );
 };
 

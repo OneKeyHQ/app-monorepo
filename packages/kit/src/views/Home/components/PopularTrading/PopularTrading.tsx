@@ -41,13 +41,21 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { getTokenPriceChangeStyle } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IMarketTokenListItem } from '@onekeyhq/shared/types/marketV2';
 
+import { LeverageBadge } from '../../../Market/components/PerpsBadges';
 import { useNavigateToMarketTab } from '../../../Market/hooks';
 import { getNativeTokenInfo } from '../../../Market/MarketHomeV2/components/MarketTokenList/utils/tokenListHelpers';
 import { EMarketHomeTab } from '../../../Market/MarketHomeV2/types';
 import { RichBlock } from '../RichBlock/RichBlock';
 import { RichTable } from '../RichTable';
 
-function getTokenKey(token: { chainId: string; contractAddress: string }) {
+function getTokenKey(token: {
+  chainId: string;
+  contractAddress: string;
+  perpsCoin?: string;
+}) {
+  if (token.perpsCoin) {
+    return `perps:${token.perpsCoin}`;
+  }
   return `${token.chainId}:${token.contractAddress}`;
 }
 
@@ -61,6 +69,10 @@ interface IFavoriteTokenDisplay {
   price: number;
   priceChange24h: number;
   marketCap: number;
+  // Perps fields — present when perpsCoin is set
+  perpsCoin?: string;
+  maxLeverage?: number;
+  volume24h?: number;
 }
 
 function RecommendCardItem({
@@ -213,13 +225,18 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
                 <Token
                   size="md"
                   tokenImageUri={record.logoUrl}
-                  networkId={record.chainId}
-                  showNetworkIcon
+                  networkId={record.perpsCoin ? undefined : record.chainId}
+                  showNetworkIcon={!record.perpsCoin}
                 />
                 <YStack>
-                  <SizableText size="$bodyLgMedium">
-                    {record.symbol}
-                  </SizableText>
+                  <XStack alignItems="center" gap="$1">
+                    <SizableText size="$bodyLgMedium">
+                      {record.symbol}
+                    </SizableText>
+                    {record.maxLeverage ? (
+                      <LeverageBadge leverage={record.maxLeverage} />
+                    ) : null}
+                  </XStack>
                   <SizableText size="$bodyMd" color="$textSubdued">
                     {record.name}
                   </SizableText>
@@ -270,7 +287,11 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
               formatter="marketCap"
               formatterOptions={{ currency: currencyInfo?.symbol }}
             >
-              {new BigNumber(record.marketCap).isNaN() ? '-' : record.marketCap}
+              {record.perpsCoin
+                ? (record.volume24h ?? '-')
+                : new BigNumber(record.marketCap).isNaN()
+                  ? '-'
+                  : record.marketCap}
             </NumberSizeableText>
           ),
         },
@@ -299,19 +320,28 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
               <Token
                 size="lg"
                 tokenImageUri={record.logoUrl}
-                networkId={record.chainId}
-                showNetworkIcon
+                networkId={record.perpsCoin ? undefined : record.chainId}
+                showNetworkIcon={!record.perpsCoin}
               />
               <YStack>
-                <SizableText size="$bodyLgMedium">{record.symbol}</SizableText>
+                <XStack alignItems="center" gap="$1">
+                  <SizableText size="$bodyLgMedium">
+                    {record.symbol}
+                  </SizableText>
+                  {record.maxLeverage ? (
+                    <LeverageBadge leverage={record.maxLeverage} />
+                  ) : null}
+                </XStack>
                 <NumberSizeableText
                   size="$bodyMd"
                   formatter="marketCap"
                   formatterOptions={{ currency: currencyInfo?.symbol }}
                 >
-                  {new BigNumber(record.marketCap).isNaN()
-                    ? '-'
-                    : record.marketCap}
+                  {record.perpsCoin
+                    ? (record.volume24h ?? '-')
+                    : new BigNumber(record.marketCap).isNaN()
+                      ? '-'
+                      : record.marketCap}
                 </NumberSizeableText>
               </YStack>
             </XStack>
@@ -367,20 +397,112 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
       setHasUserFavorites(userHasFavorites);
       setTotalFavoritesCount(watchList.data.length);
 
-      let targetList: {
-        chainId: string;
-        contractAddress: string;
-        isNative: boolean;
-      }[];
-
       if (userHasFavorites) {
         // Use user's favorites (up to 3 for display)
         const userDisplayCount = 3;
-        targetList = watchList.data.slice(0, userDisplayCount).map((item) => ({
-          chainId: item.chainId,
-          contractAddress: item.contractAddress,
-          isNative: item.isNative ?? false,
-        }));
+        const targetItems = watchList.data.slice(0, userDisplayCount);
+
+        // Split into spot and perps items
+        const spotTargets = targetItems.filter(
+          (item) => !item.perpsCoin && item.chainId,
+        );
+        const perpsTargets = targetItems.filter((item) => !!item.perpsCoin);
+
+        // Fetch spot and perps data in parallel, isolated so one failure doesn't block the other
+        const [spotResult, perpsResult] = await Promise.allSettled([
+          spotTargets.length > 0
+            ? backgroundApiProxy.serviceMarketV2.fetchMarketTokenListBatch({
+                tokenAddressList: spotTargets.map((item) => ({
+                  chainId: item.chainId,
+                  contractAddress: item.contractAddress,
+                  isNative: item.isNative ?? false,
+                })),
+              })
+            : { list: [] as IMarketTokenListItem[] },
+          perpsTargets.length > 0
+            ? backgroundApiProxy.serviceMarketV2.fetchMarketPerpsTokenList({
+                category: 'all',
+              })
+            : null,
+        ]);
+        const spotResponse =
+          spotResult.status === 'fulfilled'
+            ? spotResult.value
+            : { list: [] as IMarketTokenListItem[] };
+        const perpsResponse =
+          perpsResult.status === 'fulfilled' ? perpsResult.value : null;
+
+        // Build spot token lookup map
+        const spotTokenMap = new Map<string, IMarketTokenListItem>();
+        spotResponse.list.forEach((item: IMarketTokenListItem) => {
+          const networkId = item.networkId ?? item.chainId ?? '';
+          const { normalizedAddress } = getNativeTokenInfo(
+            item.isNative,
+            item.address,
+          );
+          const key = `${networkId}:${normalizedAddress}`;
+          spotTokenMap.set(key, item);
+        });
+
+        // Build perps token lookup map
+        const perpsTokenMap = new Map<
+          string,
+          NonNullable<typeof perpsResponse>['tokens'][number]
+        >();
+        if (perpsResponse?.tokens) {
+          for (const t of perpsResponse.tokens) {
+            perpsTokenMap.set(t.name, t);
+          }
+        }
+
+        // Merge in original watchlist order
+        const displayTokens = targetItems
+          .map((targetItem): IFavoriteTokenDisplay | null => {
+            if (targetItem.perpsCoin) {
+              // Perps item
+              const perpsToken = perpsTokenMap.get(targetItem.perpsCoin);
+              if (!perpsToken) return null;
+              return {
+                chainId: '',
+                contractAddress: '',
+                isNative: false,
+                symbol: perpsToken.displayName,
+                name: perpsToken.displayName,
+                logoUrl: perpsToken.tokenImageUrl ?? '',
+                price: parseFloat(perpsToken.markPrice ?? '0'),
+                priceChange24h: perpsToken.change24hPercent ?? 0,
+                marketCap: 0,
+                perpsCoin: targetItem.perpsCoin,
+                maxLeverage: perpsToken.maxLeverage,
+                volume24h: parseFloat(perpsToken.volume24h ?? '0'),
+              };
+            }
+
+            // Spot item
+            const { normalizedAddress } = getNativeTokenInfo(
+              targetItem.isNative,
+              targetItem.contractAddress,
+            );
+            const key = `${targetItem.chainId}:${normalizedAddress}`;
+            const item = spotTokenMap.get(key);
+            if (!item) return null;
+
+            return {
+              chainId: targetItem.chainId,
+              contractAddress: targetItem.contractAddress,
+              isNative: targetItem.isNative ?? false,
+              symbol: item.symbol,
+              name: item.name,
+              logoUrl: item.logoUrl ?? '',
+              price: parseFloat(item.price ?? '0'),
+              priceChange24h: parseFloat(item.priceChange24hPercent ?? '0'),
+              marketCap: parseFloat(item.marketCap ?? '0'),
+            };
+          })
+          .filter((item): item is IFavoriteTokenDisplay => item !== null);
+
+        setFavoriteTokens(displayTokens);
+        initializedRef.current = true;
       } else {
         // Use server-side recommended tokens (always 4 for card layout)
         const config =
@@ -401,62 +523,59 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
           return true;
         });
 
-        targetList = uniqueTokens.slice(0, displayCount).map((token) => ({
+        const targetList = uniqueTokens.slice(0, displayCount).map((token) => ({
           chainId: token.chainId,
           contractAddress: token.contractAddress,
           isNative: token.isNative ?? false,
         }));
-      }
 
-      const response =
-        await backgroundApiProxy.serviceMarketV2.fetchMarketTokenListBatch({
-          tokenAddressList: targetList,
+        const response =
+          await backgroundApiProxy.serviceMarketV2.fetchMarketTokenListBatch({
+            tokenAddressList: targetList,
+          });
+
+        if (response.list.length === 0) {
+          return;
+        }
+
+        const tokenMap = new Map<string, IMarketTokenListItem>();
+        response.list.forEach((item: IMarketTokenListItem) => {
+          const networkId = item.networkId ?? item.chainId ?? '';
+          const { normalizedAddress } = getNativeTokenInfo(
+            item.isNative,
+            item.address,
+          );
+          const key = `${networkId}:${normalizedAddress}`;
+          tokenMap.set(key, item);
         });
 
-      if (response.list.length === 0) {
-        return;
+        const displayTokens: IFavoriteTokenDisplay[] = targetList
+          .map((targetItem) => {
+            const { normalizedAddress } = getNativeTokenInfo(
+              targetItem.isNative,
+              targetItem.contractAddress,
+            );
+            const key = `${targetItem.chainId}:${normalizedAddress}`;
+            const item = tokenMap.get(key);
+            if (!item) return null;
+
+            return {
+              chainId: targetItem.chainId,
+              contractAddress: targetItem.contractAddress,
+              isNative: targetItem.isNative,
+              symbol: item.symbol,
+              name: item.name,
+              logoUrl: item.logoUrl ?? '',
+              price: parseFloat(item.price ?? '0'),
+              priceChange24h: parseFloat(item.priceChange24hPercent ?? '0'),
+              marketCap: parseFloat(item.marketCap ?? '0'),
+            };
+          })
+          .filter((item): item is IFavoriteTokenDisplay => item !== null);
+
+        setFavoriteTokens(displayTokens);
+        initializedRef.current = true;
       }
-
-      const tokenMap = new Map<string, IMarketTokenListItem>();
-      response.list.forEach((item: IMarketTokenListItem) => {
-        const networkId = item.networkId ?? item.chainId ?? '';
-        const { normalizedAddress } = getNativeTokenInfo(
-          item.isNative,
-          item.address,
-        );
-        const key = `${networkId}:${normalizedAddress}`;
-        tokenMap.set(key, item);
-      });
-
-      const displayTokens: IFavoriteTokenDisplay[] = targetList
-        .map((targetItem) => {
-          const { normalizedAddress } = getNativeTokenInfo(
-            targetItem.isNative,
-            targetItem.contractAddress,
-          );
-          const key = `${targetItem.chainId}:${normalizedAddress}`;
-          const item = tokenMap.get(key);
-
-          if (!item) {
-            return null;
-          }
-
-          return {
-            chainId: targetItem.chainId,
-            contractAddress: targetItem.contractAddress,
-            isNative: targetItem.isNative,
-            symbol: item.symbol,
-            name: item.name,
-            logoUrl: item.logoUrl ?? '',
-            price: parseFloat(item.price ?? '0'),
-            priceChange24h: parseFloat(item.priceChange24hPercent ?? '0'),
-            marketCap: parseFloat(item.marketCap ?? '0'),
-          };
-        })
-        .filter((item): item is IFavoriteTokenDisplay => item !== null);
-
-      setFavoriteTokens(displayTokens);
-      initializedRef.current = true;
     },
     [hasUserFavorites],
     {
@@ -541,13 +660,27 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
       try {
         await backgroundApiProxy.serviceMarketV2.removeMarketWatchListV2({
           items: [
-            {
-              chainId: record.chainId,
-              contractAddress: record.contractAddress,
-            },
+            record.perpsCoin
+              ? {
+                  chainId: '',
+                  contractAddress: '',
+                  perpsCoin: record.perpsCoin,
+                }
+              : {
+                  chainId: record.chainId,
+                  contractAddress: record.contractAddress,
+                },
           ],
           callerName: 'PopularTrading',
         });
+
+        // Sync perps favorites atom to keep bidirectional consistency
+        if (record.perpsCoin) {
+          void backgroundApiProxy.serviceMarketV2.syncToPerpsAtom({
+            coin: record.perpsCoin,
+            action: 'remove',
+          });
+        }
 
         // Notify Market page to refresh watchlist
         appEventBus.emit(EAppEventBusNames.RefreshMarketWatchList, undefined);
@@ -564,9 +697,17 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
   );
   handleRemoveFromWatchlistRef.current = handleRemoveFromWatchlist;
 
-  // Navigate to Market Detail page
+  // Navigate to Market Detail page or Perps trading page
   const handleTokenPress = useCallback(
     (record: IFavoriteTokenDisplay) => {
+      if (record.perpsCoin) {
+        navigation.switchTab(ETabRoutes.Perp);
+        void backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
+          coin: record.perpsCoin,
+        });
+        return;
+      }
+
       const shortCode = networkUtils.getNetworkShortCode({
         networkId: record.chainId,
       });
@@ -640,7 +781,11 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
           showHeader={!!tableLayout}
           dataSource={favoriteTokens}
           columns={columns}
-          keyExtractor={(item) => `${item.chainId}-${item.contractAddress}`}
+          keyExtractor={(item) =>
+            item.perpsCoin
+              ? `perps-${item.perpsCoin}`
+              : `${item.chainId}-${item.contractAddress}`
+          }
           estimatedItemSize={56}
           rowProps={{
             mx: '$2',
