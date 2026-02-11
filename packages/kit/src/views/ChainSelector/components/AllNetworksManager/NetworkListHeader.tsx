@@ -83,13 +83,13 @@ function NetworkListHeader() {
           justifyContent="space-between"
           alignItems="center"
         >
-          <Stack flex={1} mr="$2" alignItems="flex-start">
+          <Stack flex={1} mr="$2" alignItems="flex-start" overflow="hidden">
             <ChainSelectorTooltip
               renderContent={intl.formatMessage({
                 id: ETranslations.network_selection_performance_tip,
               })}
               renderTrigger={
-                <Stack>
+                <Stack maxWidth="100%">
                   <SizableText size="$bodyLgMedium">
                     {intl.formatMessage(
                       {
