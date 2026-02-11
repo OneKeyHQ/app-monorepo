@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { debounce } from 'lodash';
 import { useIntl } from 'react-intl';
-import { type GestureResponderEvent } from 'react-native';
+import { Dimensions, type GestureResponderEvent } from 'react-native';
 import { useDebouncedCallback } from 'use-debounce';
 
 import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
@@ -437,12 +437,34 @@ const showActionList = (
     }
   };
 
-  // For context menu positioning: use 'bottom-start' so the menu extends
-  // to the bottom-right of the cursor, like native OS context menus.
-  // Disable allowFlip to prevent placement recalculation during close animation.
+  // For context menu positioning: compute the optimal placement direction
+  // based on viewport boundaries, like native OS context menus that flip
+  // at screen edges. Keep allowFlip disabled to prevent Floating UI from
+  // recalculating placement during close animation.
+  let contextMenuPlacement:
+    | 'bottom-start'
+    | 'bottom-end'
+    | 'top-start'
+    | 'top-end' = 'bottom-start';
+  if (triggerPosition && !platformEnv.isNative) {
+    const { height: windowHeight, width: windowWidth } =
+      Dimensions.get('window');
+    const ESTIMATED_MENU_HEIGHT = 200;
+    const ESTIMATED_MENU_WIDTH = 224; // $56 = 56 * 4 = 224px
+    const EDGE_PADDING = 8;
+
+    const spaceBelow = windowHeight - triggerPosition.y - EDGE_PADDING;
+    const spaceRight = windowWidth - triggerPosition.x - EDGE_PADDING;
+
+    const vertical = spaceBelow >= ESTIMATED_MENU_HEIGHT ? 'bottom' : 'top';
+    const horizontal = spaceRight >= ESTIMATED_MENU_WIDTH ? 'start' : 'end';
+    contextMenuPlacement =
+      `${vertical}-${horizontal}` as typeof contextMenuPlacement;
+  }
+
   const contextMenuProps =
     triggerPosition && !platformEnv.isNative
-      ? { placement: 'bottom-start' as const, allowFlip: false }
+      ? { placement: contextMenuPlacement, allowFlip: false }
       : {};
 
   const actionList = (
