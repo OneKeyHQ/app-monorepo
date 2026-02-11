@@ -17,29 +17,37 @@ index 07f73fd..5a18160 100644
                  if (mAllowsProtectedMedia) {
                    grantedPermissions.add(requestedResource);
 diff --git a/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewManagerImpl.kt b/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewManagerImpl.kt
-index 438ab6a..15a02b7 100644
+index 438ab6a..d5e794d 100644
 --- a/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewManagerImpl.kt
 +++ b/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewManagerImpl.kt
-@@ -34,6 +34,9 @@ val invalidCharRegex = "[\\\\/%\"]".toRegex()
+@@ -34,6 +34,17 @@ val invalidCharRegex = "[\\\\/%\"]".toRegex()
  class RNCWebViewManagerImpl(private val newArch: Boolean = false) {
      companion object {
          const val NAME = "RNCWebView"
 +        private val defaultVideoPoster: Bitmap by lazy {
 +            Bitmap.createBitmap(50, 50, Bitmap.Config.ARGB_8888)
 +        }
++
++        fun safeDefaultVideoPoster(): Bitmap {
++            return if (defaultVideoPoster.isRecycled) {
++                Bitmap.createBitmap(50, 50, Bitmap.Config.ARGB_8888)
++            } else {
++                defaultVideoPoster
++            }
++        }
      }
  
      private val TAG = "RNCWebViewManagerImpl"
-@@ -148,7 +151,7 @@ class RNCWebViewManagerImpl(private val newArch: Boolean = false) {
+@@ -148,7 +159,7 @@ class RNCWebViewManagerImpl(private val newArch: Boolean = false) {
              val webChromeClient: RNCWebChromeClient =
                  object : RNCWebChromeClient(webView) {
                      override fun getDefaultVideoPoster(): Bitmap? {
 -                        return Bitmap.createBitmap(50, 50, Bitmap.Config.ARGB_8888)
-+                        return defaultVideoPoster
++                        return safeDefaultVideoPoster()
                      }
  
                      override fun onShowCustomView(view: View, callback: CustomViewCallback) {
-@@ -215,7 +218,7 @@ class RNCWebViewManagerImpl(private val newArch: Boolean = false) {
+@@ -215,7 +226,7 @@ class RNCWebViewManagerImpl(private val newArch: Boolean = false) {
              webChromeClient?.onHideCustomView()
              webChromeClient = object : RNCWebChromeClient(webView) {
                  override fun getDefaultVideoPoster(): Bitmap? {
