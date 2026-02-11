@@ -40,7 +40,7 @@ export default function SelectWalletPage() {
         onPick={onPick}
         ListEmptyComponent={
           <Empty
-            icon="SearchOutline"
+            illustration="QuestionMark"
             title={intl.formatMessage({
               id: ETranslations.backup_no_data,
             })}

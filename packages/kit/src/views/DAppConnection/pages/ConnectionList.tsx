@@ -19,7 +19,7 @@ function ConnectionListEmpty() {
   return (
     <Empty
       flex={1}
-      icon="LinkSolid"
+      illustration="Connection"
       title={intl.formatMessage({
         id: ETranslations.explore_no_dapps_connected,
       })}

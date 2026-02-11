@@ -91,14 +91,18 @@ function HeaderColumn<T>({
       disabledSorts={events?.disableSort}
       {...(columnProps as IXStackProps)}
     >
-      <SizableText
-        color="$textSubdued"
-        size="$bodySmMedium"
-        textAlign={textAlign}
-        {...titleProps}
-      >
-        {title}
-      </SizableText>
+      {typeof title === 'string' ? (
+        <SizableText
+          color="$textSubdued"
+          size="$bodySmMedium"
+          textAlign={textAlign}
+          {...titleProps}
+        >
+          {title}
+        </SizableText>
+      ) : (
+        title
+      )}
     </Column>
   );
 }
