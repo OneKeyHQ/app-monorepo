@@ -6,7 +6,7 @@ import type {
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
-export const historyCircularBufferMaxSize = 30;
+export const historyCircularBufferMaxSize = 300;
 
 export interface ISwapTxHistoryPersistList {
   histories: ISwapTxHistory[];
