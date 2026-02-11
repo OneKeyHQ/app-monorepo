@@ -32,7 +32,7 @@ const ErrorView: FC<IErrorViewProps> = ({ errorCode, onRefresh }) => {
   return (
     <Stack bg="$bgApp" flex={1} alignItems="center" justifyContent="center">
       <Empty
-        icon="CloudOffOutline"
+        illustration="GlobeX"
         title={intl.formatMessage({ id: messages.title })}
         description={intl.formatMessage({ id: messages.subTitle })}
         buttonProps={{

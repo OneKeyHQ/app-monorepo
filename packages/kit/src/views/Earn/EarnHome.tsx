@@ -393,7 +393,7 @@ function BasicEarnHome({
         showContent={showContent}
         refresh={refreshBlockResult}
         refreshing={!!isFetchingBlockResult}
-        icon={blockResult.blockData.icon.icon}
+        illustration="Universal"
         title={blockResult.blockData.title.text}
         description={blockResult.blockData.description.text}
       />

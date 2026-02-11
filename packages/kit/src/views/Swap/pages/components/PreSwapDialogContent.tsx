@@ -19,7 +19,10 @@ import {
   useSwapStepNetFeeLevelAtom,
   useSwapStepsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
-import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  filterSwapHistoryPendingList,
+  useInAppNotificationAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type {
@@ -199,11 +202,12 @@ const PreSwapDialogContent = ({
     if (lastStep?.txHash || lastStep?.orderId) {
       let findStepItem: ISwapTxHistory | IFetchLimitOrderRes | undefined;
       if (preSwapData?.swapType !== ESwapTabSwitchType.LIMIT) {
-        findStepItem = inAppNotificationAtom.swapHistoryPendingList.find(
-          (item) =>
-            item.txInfo.useOrderId
-              ? item.txInfo.orderId === lastStep?.orderId
-              : item.txInfo.txId === lastStep?.txHash,
+        findStepItem = filterSwapHistoryPendingList(
+          inAppNotificationAtom.swapHistoryPendingList,
+        ).find((item) =>
+          item.txInfo.useOrderId
+            ? item.txInfo.orderId === lastStep?.orderId
+            : item.txInfo.txId === lastStep?.txHash,
         );
       } else {
         findStepItem = inAppNotificationAtom.swapLimitOrders.find(

@@ -443,8 +443,7 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
             }}
           >
             {media.gtMd ? (
-              // Desktop: Show Total amount on the left
-              <YStack gap="$1">
+              <YStack gap="$1" h="$10" justifyContent="center">
                 <SizableText size="$bodySm" color="$textSubdued">
                   {intl.formatMessage({
                     id: ETranslations.wallet_bulk_send_total_amount,

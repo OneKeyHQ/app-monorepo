@@ -10,7 +10,7 @@ function EmptyWallet() {
   return (
     <Empty
       testID="Wallet-No-Wallet-Empty"
-      icon="WalletCryptoOutline"
+      illustration="WalletAdd"
       title={intl.formatMessage({ id: ETranslations.global_no_wallet })}
       description={intl.formatMessage({
         id: ETranslations.global_no_wallet_desc,

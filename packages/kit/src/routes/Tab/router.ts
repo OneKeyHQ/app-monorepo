@@ -139,7 +139,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
         nativeTabBarIcon: nativeTabIcons.wallet,
         translationId: ETranslations.global_wallet,
         freezeOnBlur: Boolean(params?.freezeOnBlur),
-        rewrite: '/',
+        rewrite: isWebDappMode ? '/wallet' : '/',
         exact: true,
         children: homeRouters,
         trackId: 'global-wallet',

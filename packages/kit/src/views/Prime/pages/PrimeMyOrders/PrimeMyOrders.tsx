@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 
+import { useFocusEffect } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -22,6 +23,7 @@ import {
 import type { IBadgeType } from '@onekeyhq/components';
 import { useClipboard } from '@onekeyhq/components/src/hooks/useClipboard';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   ONEKEY_ORDERS_URL,
@@ -48,8 +50,23 @@ const shopifyStatusToI18nKey: Record<string, ETranslations> = {
 
 export default function PrimeMyOrders() {
   const intl = useIntl();
+  const navigation = useAppNavigation();
   const { copyText } = useClipboard();
   const [showAlert, setShowAlert] = useState(true);
+
+  useFocusEffect(
+    useCallback(() => {
+      let isActive = true;
+      void backgroundApiProxy.servicePrime.isLoggedIn().then((isLogin) => {
+        if (isActive && !isLogin) {
+          navigation.pop();
+        }
+      });
+      return () => {
+        isActive = false;
+      };
+    }, [navigation]),
+  );
 
   const { result: orders, isLoading } = usePromiseResult(
     () => backgroundApiProxy.servicePrime.apiFetchShopifyOrders(),

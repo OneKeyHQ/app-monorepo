@@ -1,7 +1,6 @@
 import type { ComponentType } from 'react';
 
 import {
-  hermesProfilingIntegration,
   init,
   reactNativeTracingIntegration,
   nativeCrash as sentryNativeCrash,
@@ -37,9 +36,6 @@ export const initSentry = () => {
     integrations: [
       navigationIntegration,
       reactNativeTracingIntegration(),
-      hermesProfilingIntegration({
-        platformProfilers: true,
-      }),
     ],
     enableAutoPerformanceTracing: true,
   });

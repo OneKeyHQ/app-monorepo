@@ -23,6 +23,8 @@ import type {
 import { ESortWay } from '@onekeyhq/shared/src/logger/scopes/dex/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { usePerpsNavigation } from '@onekeyhq/kit/src/views/Market/hooks/usePerpsNavigation';
+
 import { useMarketTokenColumns } from './hooks/useMarketTokenColumns';
 import { useToDetailPage } from './hooks/useToMarketDetailPage';
 import { type IMarketToken } from './MarketTokenData';
@@ -92,6 +94,7 @@ function MarketTokenListBase({
   onScrollBegin,
 }: IMarketTokenListBaseProps) {
   const toMarketDetailPage = useToDetailPage();
+  const { navigateToPerps } = usePerpsNavigation();
   const { md } = useMedia();
 
   const marketTokenColumns = useMarketTokenColumns(
@@ -271,9 +274,7 @@ function MarketTokenListBase({
               columns={marketTokenColumns}
               onEndReached={handleEndReached}
               dataSource={data}
-              keyExtractor={(item) =>
-                item.address + item.symbol + item.networkId
-              }
+              keyExtractor={(item) => item.id}
               extraData={networkId}
               onHeaderRow={handleHeaderRow}
               TableFooterComponent={TableFooterComponent}
@@ -281,13 +282,18 @@ function MarketTokenListBase({
               onRow={(item, index) => ({
                 onPress: onItemPress
                   ? () => onItemPress(item)
-                  : () =>
-                      toMarketDetailPage({
+                  : () => {
+                      if (item.perpsCoin) {
+                        navigateToPerps(item.perpsCoin);
+                        return;
+                      }
+                      void toMarketDetailPage({
                         symbol: item.symbol,
                         tokenAddress: item.address,
                         networkId: item.networkId,
                         isNative: item.isNative,
-                      }),
+                      });
+                    },
                 onLongPress: onItemLongPress
                   ? () => onItemLongPress(item, index)
                   : undefined,

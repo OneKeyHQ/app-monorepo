@@ -2,7 +2,7 @@ import { useRef } from 'react';
 
 import { isEqual } from 'lodash';
 
-import { Toast } from '@onekeyhq/components';
+import { Toast, rootNavigationRef } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { handleDeepLinkUrl } from '@onekeyhq/kit/src/routes/config/deeplink';
@@ -34,7 +34,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { openUrlInApp } from '@onekeyhq/shared/src/utils/openUrlUtils';
@@ -820,60 +820,75 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         navigation,
         webSite,
         dApp,
-        shouldPopNavigation = true,
-        switchToMultiTabBrowser = false,
       }: {
         navigation: ReturnType<typeof useAppNavigation>;
         useCurrentWindow?: boolean;
         tabId?: string;
         webSite?: IMatchDAppItemType['webSite'];
         dApp?: IMatchDAppItemType['dApp'];
-        shouldPopNavigation?: boolean;
-        switchToMultiTabBrowser?: boolean;
       },
     ) => {
       if (webSite?.url) {
         webSite.url = processWebSiteUrl(webSite.url) ?? webSite.url;
       }
 
-      let delayTime = 0;
-      if (shouldPopNavigation) {
-        delayTime = 300;
+      // Auto-detect if already on Discovery/MultiTabBrowser tab
+      let needsSwitchTab = true;
+      try {
+        const rootState = rootNavigationRef.current?.getRootState();
+        const currentIndex = rootState?.index || 0;
+        const currentRoute = rootState?.routes?.[currentIndex];
+        const currentTabName =
+          currentRoute?.name === ERootRoutes.Main
+            ? currentRoute.state?.routes?.[currentRoute.state?.index || 0]?.name
+            : undefined;
+        needsSwitchTab =
+          currentTabName !== ETabRoutes.Discovery &&
+          currentTabName !== ETabRoutes.MultiTabBrowser;
+      } catch (e) {
+        // fallback to switch tab if navigation state is not available
+        console.warn('Failed to detect current tab:', e);
       }
-      setTimeout(() => {
-        const isNewWindow = !useCurrentWindow;
 
-        if (!useCurrentWindow) {
-          const disabledAddedNewTab = get(disabledAddedNewTabAtom());
-          if (disabledAddedNewTab) {
-            Toast.message({
-              title: appLocale.intl.formatMessage(
-                { id: ETranslations.explore_toast_tab_limit_reached },
-                { number: MaximumNumberOfTabs },
-              ),
-            });
-            return;
+      setTimeout(
+        () => {
+          const isNewWindow = !useCurrentWindow;
+
+          if (!useCurrentWindow) {
+            const disabledAddedNewTab = get(disabledAddedNewTabAtom());
+            if (disabledAddedNewTab) {
+              Toast.message({
+                title: appLocale.intl.formatMessage(
+                  { id: ETranslations.explore_toast_tab_limit_reached },
+                  { number: MaximumNumberOfTabs },
+                ),
+              });
+              return;
+            }
           }
-        }
-        this.setDisplayHomePage.call(set, false);
-        void this.openMatchDApp.call(set, {
-          webSite,
-          dApp,
-          isNewWindow,
-          tabId,
-        });
-      }, delayTime);
+          this.setDisplayHomePage.call(set, false);
+          void this.openMatchDApp.call(set, {
+            webSite,
+            dApp,
+            isNewWindow,
+            tabId,
+          });
+        },
+        needsSwitchTab ? 300 : 0,
+      );
 
-      if (switchToMultiTabBrowser || platformEnv.isDesktop) {
-        navigation.switchTab(ETabRoutes.MultiTabBrowser);
-      } else if (shouldPopNavigation) {
-        navigation.switchTab(ETabRoutes.Discovery);
+      if (needsSwitchTab) {
+        if (platformEnv.isDesktop) {
+          navigation.switchTab(ETabRoutes.MultiTabBrowser);
+        } else {
+          navigation.switchTab(ETabRoutes.Discovery);
+        }
       }
       if (platformEnv.isNative) {
         setTimeout(() => {
           appEventBus.emit(EAppEventBusNames.SwitchDiscoveryTabInNative, {
             tab: ETranslations.global_browser,
-            openUrl: shouldPopNavigation,
+            openUrl: true,
           });
         }, 150);
       }

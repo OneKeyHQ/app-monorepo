@@ -13,7 +13,10 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import { HYPERLIQUID_NETWORK_INACTIVE_TIMEOUT_MS } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+import {
+  HYPERLIQUID_NETWORK_INACTIVE_TIMEOUT_MS,
+  HYPERLIQUID_REFRESH_DATA_FLOW_THRESHOLD_MS,
+} from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type {
   IHex,
   IHyperliquidEventTarget,
@@ -271,17 +274,33 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   lastRefreshAllPerpsDataAt: number | null = null;
 
   @backgroundMethod()
-  async refreshAllPerpsData(): Promise<void> {
+  async refreshAllPerpsData(): Promise<boolean> {
     const client = await this.getWebSocketClient();
-    if (client?.transport?.socket?.readyState === WebSocket.CLOSED) {
+    const isSocketOpen =
+      client?.transport?.socket?.readyState === WebSocket.OPEN;
+    const isDataFlowing =
+      this._lastMessageAt != null &&
+      Date.now() - this._lastMessageAt <
+        HYPERLIQUID_REFRESH_DATA_FLOW_THRESHOLD_MS;
+
+    if (isSocketOpen && isDataFlowing) {
+      // connection is healthy, no-op — just show pull-to-refresh animation
+      await timerUtils.wait(3000);
+      return false;
+    }
+
+    if (!isSocketOpen) {
+      // socket is closed or not available, full reconnect needed
       await this.disconnect();
       await this.getWebSocketClient();
     } else {
+      // socket is open but no recent data (possible half-open), rebuild subscriptions
       await this._cleanupAllSubscriptions();
       await timerUtils.wait(50);
       console.log('updateSubscriptions__by__refreshAllPerpsData');
       await this.updateSubscriptions();
     }
+
     this.backgroundApi.serviceHyperliquid._getUserFillsByTimeMemo.clear();
     await perpsTradesHistoryRefreshHookAtom.set({
       refreshHook: Date.now(),
@@ -291,6 +310,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     });
     this.lastRefreshAllPerpsDataAt = Date.now();
     await timerUtils.wait(3000);
+    return true;
   }
 
   @backgroundMethod()
