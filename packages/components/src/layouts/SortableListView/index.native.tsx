@@ -82,7 +82,7 @@ function BaseSortableListView<T>(
       resolveValues: 'auto',
     },
   );
-  const activeDistance = platformEnv.isNative ? 0 : 1;
+  const activeDistance = platformEnv.isNative ? (tabIntegrated ? 0 : 10) : 1;
 
   const reloadOnDragBegin = useCallback(
     (index: number) => {
