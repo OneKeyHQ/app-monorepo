@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 
 import { useThemeName } from '../../hooks/useStyle';
 import { Icon } from '../Icon';
+import ICON_CONFIG from '../Icon/Icons';
 
 import type { IIconProps, IKeyOfIcons } from '../Icon';
 
@@ -31,7 +32,9 @@ export function Illustration({
       const darkName = `${name}DarkIllus` as IKeyOfIcons;
       // Only use dark variant if it exists in the icon registry,
       // otherwise fall back to the default variant.
-      return darkName;
+      if (ICON_CONFIG[darkName]) {
+        return darkName;
+      }
     }
     return `${name}Illus` as IKeyOfIcons;
   }, [name, themeName]);
