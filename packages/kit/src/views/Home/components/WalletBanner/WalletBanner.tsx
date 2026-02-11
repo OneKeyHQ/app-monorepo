@@ -34,7 +34,7 @@ import {
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EModalRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalSignAndVerifyRoutes } from '@onekeyhq/shared/src/routes/signAndVerify';
 import type { IWalletBanner } from '@onekeyhq/shared/types/walletBanner';
 
@@ -47,6 +47,7 @@ import Animated, {
   useSharedValue,
   withDecay,
 } from 'react-native-reanimated';
+import { useReferFriends } from '@onekeyhq/kit/src/hooks/useReferFriends';
 
 const BANNER_ITEM_WIDTH = 280;
 const BANNER_GAP = 8;
@@ -555,11 +556,12 @@ function WalletBanner() {
   });
 
   const navigation = useAppNavigation();
+  const { toReferFriendsPage } = useReferFriends();
 
   const handleBannerOnPress = useCallback(
     (item: IWalletBanner) => {
       if (item.id === 'static-2') {
-        navigation.switchTab(ETabRoutes.ReferFriends);
+        void toReferFriendsPage();
         return;
       }
       if (item.id === 'static-3') {
@@ -583,6 +585,7 @@ function WalletBanner() {
     [
       defaultHandleBannerOnPress,
       navigation,
+      toReferFriendsPage,
       network?.id,
       wallet?.id,
       account?.id,

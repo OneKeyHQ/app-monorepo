@@ -4,8 +4,13 @@ import type {
   EModalRoutes,
   EOnboardingV2Routes,
 } from '@onekeyhq/shared/src/routes';
+import type { EFullScreenPushRoutes } from '@onekeyhq/shared/src/routes/fullScreenPush';
 
-import { modalRouter, onboardingRouterV2Config } from './router';
+import {
+  fullScreenPushRouterConfig,
+  modalRouter,
+  onboardingRouterV2Config,
+} from './router';
 
 export function ModalNavigator({ pageType }: { pageType?: EPageType }) {
   return (
@@ -18,6 +23,15 @@ export function ModalNavigator({ pageType }: { pageType?: EPageType }) {
 
 export function IOSFullScreenNavigator() {
   return <ModalNavigator pageType={EPageType.fullScreen} />;
+}
+
+export function FullScreenPushNavigator() {
+  return (
+    <RootModalNavigator<EFullScreenPushRoutes>
+      config={fullScreenPushRouterConfig}
+      pageType={EPageType.fullScreenPush}
+    />
+  );
 }
 
 export function OnboardingNavigator() {
