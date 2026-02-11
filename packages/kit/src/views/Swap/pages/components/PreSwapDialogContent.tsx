@@ -199,12 +199,14 @@ const PreSwapDialogContent = ({
     if (lastStep?.txHash || lastStep?.orderId) {
       let findStepItem: ISwapTxHistory | IFetchLimitOrderRes | undefined;
       if (preSwapData?.swapType !== ESwapTabSwitchType.LIMIT) {
-        findStepItem = inAppNotificationAtom.swapHistoryPendingList.find(
-          (item) =>
-            item.txInfo.useOrderId
-              ? item.txInfo.orderId === lastStep?.orderId
-              : item.txInfo.txId === lastStep?.txHash,
-        );
+        findStepItem = inAppNotificationAtom.swapHistoryPendingList
+          .filter((i) => !!i)
+          .find(
+            (item) =>
+              item.txInfo.useOrderId
+                ? item.txInfo.orderId === lastStep?.orderId
+                : item.txInfo.txId === lastStep?.txHash,
+          );
       } else {
         findStepItem = inAppNotificationAtom.swapLimitOrders.find(
           (item) => item.orderId === lastStep?.orderId,

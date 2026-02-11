@@ -437,7 +437,7 @@ const SwapHeaderRightActionContainer = ({
   const [swapProTradeType] = useSwapProTradeTypeAtom();
   const swapPendingStatusList = useMemo(
     () =>
-      swapHistoryPendingList.filter(
+      swapHistoryPendingList.filter(i => !!i).filter(
         (i) =>
           i.status === ESwapTxHistoryStatus.PENDING ||
           i.status === ESwapTxHistoryStatus.CANCELING,
