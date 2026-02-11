@@ -1519,16 +1519,8 @@ export default class ServiceSwap extends ServiceBase {
             : i.txInfo.txId === updatedItem.txInfo.txId,
         );
         if (currentIndex === -1) return pre;
-        const currentOldItem = pre.swapHistoryPendingList[currentIndex];
-        let finalItem = updatedItem;
-        if (
-          currentOldItem.status === ESwapTxHistoryStatus.CANCELING &&
-          updatedItem.status !== ESwapTxHistoryStatus.CANCELED
-        ) {
-          finalItem = { ...updatedItem, status: ESwapTxHistoryStatus.CANCELED };
-        }
         const newPendingList = [...pre.swapHistoryPendingList];
-        newPendingList[currentIndex] = finalItem;
+        newPendingList[currentIndex] = updatedItem;
         return {
           ...pre,
           swapHistoryPendingList: newPendingList,
