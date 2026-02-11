@@ -295,11 +295,11 @@ function BaseBulkSendAddressesInput() {
     }
 
     const formValues = form.getValues();
-    const senders = formValues.senderAddresses.split('\n').map((line) => {
+    const senders = formValues.senderAddresses.split('\n').filter((line) => line.trim()).map((line) => {
       const [address] = line.trim().split(',');
       return { address: address.trim(), amount: undefined };
     });
-    const receivers = formValues.receiverAddresses.split('\n').map((line) => {
+    const receivers = formValues.receiverAddresses.split('\n').filter((line) => line.trim()).map((line) => {
       const [address, amount] = line.trim().split(',');
       return { address: address.trim(), amount: isUndefined(amount) ? amount : new BigNumber(amount).toFixed() };
     });
