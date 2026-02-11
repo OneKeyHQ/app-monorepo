@@ -3,12 +3,7 @@ import { useIntl } from 'react-intl';
 import {
   Button,
   Empty,
-  Icon,
-  Illustration,
   SizableText,
-  Stack,
-  XStack,
-  YStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';

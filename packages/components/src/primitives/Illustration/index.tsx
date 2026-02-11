@@ -8,7 +8,7 @@ import type { IIconProps, IKeyOfIcons } from '../Icon';
 
 // Illustration names are derived from IKeyOfIcons by stripping the "Illus" suffix,
 // excluding entries that end with "DarkIllus" (those are auto-selected in dark mode).
-type StripIllusSuffix<T extends string> = T extends `${infer Name}DarkIllus`
+type StripIllusSuffix<T extends string> = T extends `${infer _Name}DarkIllus`
   ? never
   : T extends `${infer Name}Illus`
     ? Name
