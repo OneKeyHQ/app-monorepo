@@ -330,7 +330,7 @@ function TokenListFooter(props: IProps) {
   }, [run]);
 
   return (
-    <Stack mx={tableLayout ? undefined : "$2"}>
+    <Stack mx={tableLayout ? undefined : '$2'}>
       {!isSearchMode && filteredSmallBalanceTokens.length > 0 ? (
         <ListItem
           onPress={handleOnPressLowValueTokens}
