@@ -70,10 +70,6 @@ class ServiceHardwareUI extends ServiceBase {
     super({ backgroundApi });
     // This service caches `connectId -> IDBDevice` for hardware interaction dialogs.
     // When device features (including label) change, invalidate cache to avoid showing stale names.
-    appEventBus.off(
-      EAppEventBusNames.HardwareFeaturesUpdate,
-      this.onHardwareFeaturesUpdate,
-    );
     appEventBus.on(
       EAppEventBusNames.HardwareFeaturesUpdate,
       this.onHardwareFeaturesUpdate,
