@@ -1404,8 +1404,9 @@ export default class ServiceSwap extends ServiceBase {
   async addSwapHistoryItem(item: ISwapTxHistory) {
     await this.backgroundApi.simpleDb.swapHistory.addSwapHistoryItem(item);
     await inAppNotificationAtom.set((pre) => {
+      const filteredList = pre.swapHistoryPendingList.filter((i) => !!i);
       if (
-        !pre.swapHistoryPendingList.filter((i) => !!i).find((i) =>
+        !filteredList.find((i) =>
           item.txInfo.useOrderId
             ? i.txInfo.orderId === item.txInfo.orderId
             : i.txInfo.txId === item.txInfo.txId,
@@ -1413,10 +1414,10 @@ export default class ServiceSwap extends ServiceBase {
       ) {
         return {
           ...pre,
-          swapHistoryPendingList: [...pre.swapHistoryPendingList, item],
+          swapHistoryPendingList: [...filteredList, item],
         };
       }
-      return pre;
+      return { ...pre, swapHistoryPendingList: filteredList };
     });
   }
 
@@ -1430,30 +1431,32 @@ export default class ServiceSwap extends ServiceBase {
     newTxId: string;
     status: ESwapTxHistoryStatus;
   }) {
-    const { swapHistoryPendingList: rawSwapHistoryPendingList } =
-      await inAppNotificationAtom.get();
-    const swapHistoryPendingList = rawSwapHistoryPendingList.filter(
-      (i) => !!i,
-    );
-    const oldHistoryItemIndex = swapHistoryPendingList.findIndex(
+    const { swapHistoryPendingList } = await inAppNotificationAtom.get();
+    const filteredList = swapHistoryPendingList.filter((i) => !!i);
+    const oldHistoryItem = filteredList.find(
       (item) => item.txInfo.txId === oldTxId,
     );
-    if (oldHistoryItemIndex !== -1) {
-      const newHistoryItem = swapHistoryPendingList[oldHistoryItemIndex];
+    if (oldHistoryItem) {
       const updated = Date.now();
-      newHistoryItem.date = { ...newHistoryItem.date, updated };
-      newHistoryItem.txInfo.txId = newTxId;
-      newHistoryItem.status = status;
+      const newHistoryItem = {
+        ...oldHistoryItem,
+        date: { ...oldHistoryItem.date, updated },
+        txInfo: { ...oldHistoryItem.txInfo, txId: newTxId },
+        status,
+      };
       await this.backgroundApi.simpleDb.swapHistory.updateSwapHistoryItem(
         newHistoryItem,
         oldTxId,
       );
       await inAppNotificationAtom.set((pre) => {
-        const newPendingList = [...pre.swapHistoryPendingList];
-        newPendingList[oldHistoryItemIndex] = newHistoryItem;
+        const newPendingList = pre.swapHistoryPendingList
+          .filter((i) => !!i)
+          .map((item) =>
+            item.txInfo.txId === oldTxId ? newHistoryItem : item,
+          );
         return {
           ...pre,
-          swapHistoryPendingList: [...newPendingList],
+          swapHistoryPendingList: newPendingList,
         };
       });
       return;
@@ -1471,20 +1474,16 @@ export default class ServiceSwap extends ServiceBase {
 
   @backgroundMethod()
   async updateSwapHistoryItem(item: ISwapTxHistory) {
-    const { swapHistoryPendingList: rawSwapHistoryPendingList } =
-      await inAppNotificationAtom.get();
-    const swapHistoryPendingList = rawSwapHistoryPendingList.filter(
-      (i) => !!i,
-    );
-    const index = swapHistoryPendingList.findIndex((i) =>
+    const { swapHistoryPendingList } = await inAppNotificationAtom.get();
+    const filteredList = swapHistoryPendingList.filter((i) => !!i);
+    const matchFn = (i: ISwapTxHistory) =>
       item.txInfo.useOrderId
         ? i.txInfo.orderId === item.txInfo.orderId
-        : i.txInfo.txId === item.txInfo.txId,
-    );
-    if (index !== -1) {
+        : i.txInfo.txId === item.txInfo.txId;
+    const oldItem = filteredList.find(matchFn);
+    if (oldItem) {
       const updated = Date.now();
       item.date = { ...item.date, updated };
-      const oldItem = swapHistoryPendingList[index];
       if (
         oldItem.status === ESwapTxHistoryStatus.CANCELING &&
         item.status === ESwapTxHistoryStatus.SUCCESS
@@ -1507,11 +1506,12 @@ export default class ServiceSwap extends ServiceBase {
       }
       await this.backgroundApi.simpleDb.swapHistory.updateSwapHistoryItem(item);
       await inAppNotificationAtom.set((pre) => {
-        const newPendingList = [...pre.swapHistoryPendingList];
-        newPendingList[index] = item;
+        const newPendingList = pre.swapHistoryPendingList
+          .filter((i) => !!i)
+          .map((i) => (matchFn(i) ? item : i));
         return {
           ...pre,
-          swapHistoryPendingList: [...newPendingList],
+          swapHistoryPendingList: newPendingList,
         };
       });
       if (item.status !== ESwapTxHistoryStatus.PENDING) {
@@ -1569,7 +1569,7 @@ export default class ServiceSwap extends ServiceBase {
       ...pre,
       swapHistoryPendingList: statuses
         ? pre.swapHistoryPendingList.filter(
-            (item) => !statuses?.includes(item.status),
+            (item) => !!item && !statuses?.includes(item.status),
           )
         : [],
     }));
@@ -1591,7 +1591,7 @@ export default class ServiceSwap extends ServiceBase {
     await inAppNotificationAtom.set((pre) => ({
       ...pre,
       swapHistoryPendingList: pre.swapHistoryPendingList.filter(
-        (item) => item.txInfo.txId !== deleteHistoryId,
+        (item) => !!item && item.txInfo.txId !== deleteHistoryId,
       ),
     }));
     await this.cleanHistoryStateIntervals(deleteHistoryId);
