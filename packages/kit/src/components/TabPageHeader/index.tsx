@@ -143,6 +143,7 @@ export function TabPageHeader({
   renderCustomHeaderRightItems,
   customHeaderRightItems,
   customHeaderLeftItems,
+  customToolbarItems,
   hideSearch = false,
   hideHeaderLeft = false,
   headerPx,
@@ -158,6 +159,7 @@ export function TabPageHeader({
         selectedHeaderTab={selectedHeaderTab}
         customHeaderRightItems={customHeaderRightItems}
         customHeaderLeftItems={customHeaderLeftItems}
+        customToolbarItems={customToolbarItems}
         hideHeaderLeft={hideHeaderLeft}
         renderCustomHeaderRightItems={renderCustomHeaderRightItems}
       />
