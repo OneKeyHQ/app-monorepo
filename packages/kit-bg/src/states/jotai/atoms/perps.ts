@@ -149,7 +149,7 @@ export const {
       details?.activatedOk &&
       details?.internalRebateBoundOk;
     const isReadOnlyAccount = account?.accountId
-      ? accountUtils.isOthersAccount({ accountId: account.accountId })
+      ? accountUtils.isWatchingAccount({ accountId: account.accountId })
       : false;
     const accountNotSupport =
       (!account?.accountAddress && !account?.indexedAccountId) ||
