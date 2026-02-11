@@ -10,6 +10,7 @@ import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import BigNumber from 'bignumber.js';
 import {
   POLLING_DEBOUNCE_INTERVAL,
   POLLING_INTERVAL_FOR_TOKEN,
@@ -39,6 +40,7 @@ import {
   BulkSendAddressesInputContext,
   useBulkSendAddressesInputContext,
 } from './components/Context';
+import { isUndefined } from 'lodash';
 
 function BaseBulkSendAddressesInput() {
   const intl = useIntl();
@@ -287,8 +289,9 @@ function BaseBulkSendAddressesInput() {
     });
     const receivers = formValues.receiverAddresses.split('\n').map((line) => {
       const [address, amount] = line.trim().split(',');
-      return { address: address.trim(), amount: amount?.trim() };
+      return { address: address.trim(), amount: isUndefined(amount) ? amount : new BigNumber(amount).toFixed() };
     });
+
 
     if (isInModal) {
       navigation.push(EModalBulkSendRoutes.BulkSendAmountsInput, {
