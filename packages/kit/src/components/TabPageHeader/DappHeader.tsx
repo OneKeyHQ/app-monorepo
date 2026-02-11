@@ -592,16 +592,19 @@ export function DappHeader({
 
   if (gtMd) {
     return (
-      <Page.Header
-        headerTitleAlign="center"
-        headerShadowVisible={false}
-        headerStyle={{
-          backgroundColor: 'transparent',
-        }}
-        headerTitle={renderDesktopHeaderTitle}
-        headerRight={renderDesktopHeaderRight}
-        headerLeft={renderDesktopHeaderLeft}
-      />
+      <>
+        <Page.Header
+          headerTitleAlign="center"
+          headerShadowVisible={false}
+          headerStyle={{
+            backgroundColor: 'transparent',
+          }}
+          headerTitle={renderDesktopHeaderTitle}
+          headerRight={renderDesktopHeaderRight}
+          headerLeft={renderDesktopHeaderLeft}
+        />
+        <XStack h="$px" bg="$borderSubdued" />
+      </>
     );
   }
 
@@ -621,6 +624,7 @@ export function DappHeader({
           <UniversalSearchInput />
         </XStack>
       ) : null}
+      <XStack h="$px" bg="$borderSubdued" />
     </>
   );
 }
