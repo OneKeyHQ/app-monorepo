@@ -160,29 +160,28 @@ function PerpPositionsList({
     [columnsConfig],
   );
 
-  // Filter positions by current token when mobile and filter is enabled
-  const filteredPositions = useMemo(() => {
+  // Generate mocked positions with correct original indices
+  const mockedPositions = useMemo<{ index: number }[]>(() => {
     if (!isMobile || !filterByCurrentToken || !activeAsset?.coin) {
-      return positions.activePositions;
+      // No filter: use sequential indices
+      return Array.from(
+        { length: positions.activePositions.length },
+        (_, index) => ({
+          index,
+        }),
+      );
     }
-    return positions.activePositions.filter(
-      (p) => p.position.coin === activeAsset.coin,
-    );
+    // Filter active: preserve original indices from unfiltered array
+    return positions.activePositions
+      .map((p, originalIndex) => ({ position: p, originalIndex }))
+      .filter((item) => item.position.position.coin === activeAsset.coin)
+      .map((item) => ({ index: item.originalIndex }));
   }, [
     positions.activePositions,
     isMobile,
     filterByCurrentToken,
     activeAsset?.coin,
   ]);
-
-  // Generate mocked position indices for rendering
-  const mockedPositions = useMemo<{ index: number }[]>(
-    () =>
-      Array.from({ length: filteredPositions.length }, (_, index) => ({
-        index,
-      })),
-    [filteredPositions.length],
-  );
 
   const renderPositionRow = (
     item: { index: number },
@@ -235,7 +234,7 @@ function PerpPositionsList({
         isMobile ? (
           <MobilePositionsListHeader
             totalPositionCount={positions.activePositions.length}
-            filteredPositionCount={filteredPositions.length}
+            filteredPositionCount={mockedPositions.length}
           />
         ) : null
       }

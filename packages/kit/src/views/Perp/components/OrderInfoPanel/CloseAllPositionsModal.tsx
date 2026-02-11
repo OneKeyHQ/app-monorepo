@@ -45,6 +45,7 @@ function CloseAllPositionsContent({
       }, 300);
     } catch (error) {
       console.error('Close all positions failed:', error);
+    } finally {
       setIsSubmitting(false);
     }
   }, [actions, closeType, filterByCoin, isSubmitting, onClose]);
