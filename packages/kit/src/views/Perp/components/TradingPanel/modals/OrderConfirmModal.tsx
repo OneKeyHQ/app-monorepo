@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -10,6 +10,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useTradingFormAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsActiveAssetAtom,
@@ -53,6 +54,15 @@ function OrderConfirmContent({
   const { computedSizeForSide } = useTradingCalculationsForSide(effectiveSide);
   const szDecimals = selectedSymbol?.universe?.szDecimals ?? 2;
   const actionColor = getTradingSideTextColor(effectiveSide);
+
+  const [onekeyFee, setOnekeyFee] = useState<number | undefined>(undefined);
+  useEffect(() => {
+    void backgroundApiProxy.simpleDb.perp
+      .getExpectMaxBuilderFee()
+      .then((fee) => {
+        setOnekeyFee(fee ?? 0);
+      });
+  }, []);
   const buttonStyleProps = GetTradingButtonStyleProps(effectiveSide, false);
   const intl = useIntl();
   const actionText =
@@ -179,6 +189,20 @@ function OrderConfirmContent({
             />
           </SizableText>
         </XStack>
+
+        {/* OneKey Fee */}
+        {onekeyFee === 0 ? (
+          <XStack justifyContent="space-between" alignItems="center">
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.referral_perps_onekey_fee,
+              })}
+            </SizableText>
+            <SizableText size="$bodyMdMedium" color="$green11">
+              {intl.formatMessage({ id: ETranslations.perp_0_fee })}
+            </SizableText>
+          </XStack>
+        ) : null}
 
         {/* skip order confirm checkbox */}
         <XStack justifyContent="space-between" alignItems="center" gap="$2">

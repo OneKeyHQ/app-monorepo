@@ -2,7 +2,13 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Icon, IconButton, SizableText, XStack } from '@onekeyhq/components';
+import {
+  Icon,
+  IconButton,
+  SizableText,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useBannerClosePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -14,7 +20,15 @@ import { useTokenDetail } from '../../hooks/useTokenDetail';
 
 const PERPS_BANNER_ID = 'perps-trading-banner';
 
-export function PerpetualTradingBanner() {
+export function PerpetualTradingBanner({
+  pl,
+  pr,
+  px,
+}: {
+  pl?: string;
+  pr?: string;
+  px?: string;
+}) {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const { tokenDetail, perpsInfo } = useTokenDetail();
@@ -61,28 +75,33 @@ export function PerpetualTradingBanner() {
   );
 
   return (
-    <XStack
-      py="$3"
-      alignItems="center"
-      justifyContent="space-between"
-      onPress={handlePress}
-      hoverStyle={{ opacity: 0.8 }}
-      pressStyle={{ opacity: 0.6 }}
-      userSelect="none"
-      cursor="pointer"
+    <YStack
+      $gtMd={{ borderBottomWidth: '$px', borderBottomColor: '$borderSubdued' }}
     >
-      <XStack alignItems="center" gap="$2" flex={1}>
-        <Icon name="SpeakerPromoteOutline" size="$5" color="$iconSubdued" />
-        <SizableText size="$bodyMd" flex={1} numberOfLines={1}>
-          {title} →
-        </SizableText>
+      <XStack
+        py="$3"
+        pl={pl ?? px}
+        pr={pr ?? px}
+        alignItems="center"
+        justifyContent="space-between"
+        onPress={handlePress}
+        hoverStyle={{ opacity: 0.8 }}
+        pressStyle={{ opacity: 0.6 }}
+        userSelect="none"
+      >
+        <XStack alignItems="center" gap="$2" flex={1}>
+          <Icon name="SpeakerPromoteOutline" size="$5" color="$iconSubdued" />
+          <SizableText size="$bodyMd" flex={1} numberOfLines={1}>
+            {title} →
+          </SizableText>
+        </XStack>
+        <IconButton
+          icon="CrossedSmallOutline"
+          size="small"
+          variant="tertiary"
+          onPress={handleDismiss}
+        />
       </XStack>
-      <IconButton
-        icon="CrossedSmallOutline"
-        size="small"
-        variant="tertiary"
-        onPress={handleDismiss}
-      />
-    </XStack>
+    </YStack>
   );
 }

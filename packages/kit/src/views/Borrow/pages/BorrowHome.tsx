@@ -89,20 +89,26 @@ const BorrowHomeContent = memo(
     const accountId = activeAccount.account?.id ?? '';
     const walletId = activeAccount.wallet?.id;
     const indexedAccountId = activeAccount.indexedAccount?.id;
-    const showNoAddressWarning = useMemo(() => {
-      if (!market?.networkId || !activeAccount.ready) {
-        return false;
-      }
-      return (
-        (!accountId && !indexedAccountId) || !earnAccount.data?.accountAddress
-      );
-    }, [
-      accountId,
-      indexedAccountId,
-      earnAccount.data?.accountAddress,
-      market?.networkId,
-      activeAccount.ready,
-    ]);
+    const hasConnectedWallet = useMemo(
+      () =>
+        activeAccount.ready &&
+        Boolean(walletId || accountId || indexedAccountId),
+      [activeAccount.ready, walletId, accountId, indexedAccountId],
+    );
+    const showNoAddressWarning = useMemo(
+      () =>
+        hasConnectedWallet &&
+        Boolean(accountId || indexedAccountId) &&
+        Boolean(market?.networkId) &&
+        !earnAccount.data?.accountAddress,
+      [
+        hasConnectedWallet,
+        accountId,
+        indexedAccountId,
+        market?.networkId,
+        earnAccount.data?.accountAddress,
+      ],
+    );
     const hasAlerts = Boolean(alerts?.length) || showNoAddressWarning;
 
     const refreshEarnAccount = earnAccount.refresh;
