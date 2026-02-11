@@ -17,7 +17,7 @@ index 07f73fd..5a18160 100644
                  if (mAllowsProtectedMedia) {
                    grantedPermissions.add(requestedResource);
 diff --git a/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewManagerImpl.kt b/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewManagerImpl.kt
-index 438ab6a..d5e794d 100644
+index 438ab6a..853bcc5 100644
 --- a/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewManagerImpl.kt
 +++ b/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewManagerImpl.kt
 @@ -34,6 +34,17 @@ val invalidCharRegex = "[\\\\/%\"]".toRegex()
@@ -52,7 +52,7 @@ index 438ab6a..d5e794d 100644
              webChromeClient = object : RNCWebChromeClient(webView) {
                  override fun getDefaultVideoPoster(): Bitmap? {
 -                    return Bitmap.createBitmap(50, 50, Bitmap.Config.ARGB_8888)
-+                    return defaultVideoPoster
++                    return safeDefaultVideoPoster()
                  }
              }
              webChromeClient.setAllowsProtectedMedia(mAllowsProtectedMedia);
