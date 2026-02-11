@@ -67,6 +67,10 @@ type IMarketTokenListBaseProps = {
   watchlistFrom?: EWatchlistFrom;
   copyFrom?: ECopyFrom;
   draggable?: boolean;
+  tabIntegrated?: boolean;
+  listContainerProps?: {
+    paddingBottom: number;
+  };
   onDragEnd?: (params: IDragEndParamsWithItem<IMarketToken>) => void;
   onItemLongPress?: (item: IMarketToken, index: number) => void;
   onItemContextMenu?: (
@@ -88,6 +92,8 @@ function MarketTokenListBase({
   watchlistFrom,
   copyFrom,
   draggable = false,
+  tabIntegrated,
+  listContainerProps,
   onDragEnd,
   onItemLongPress,
   onItemContextMenu,
@@ -260,16 +266,25 @@ function MarketTokenListBase({
             />
           ) : (
             <Table<IMarketToken>
-              // Add padding bottom to content container to provide space for loading spinner
-              // Fix Android loading spinner visibility issue by ensuring proper content height
-              contentContainerStyle={{
-                paddingBottom: platformEnv.isNativeAndroid
-                  ? SPINNER_HEIGHT * 2
-                  : tabBarHeight,
-              }}
+              contentContainerStyle={
+                tabIntegrated
+                  ? {
+                      paddingTop: 8 + (platformEnv.isNative ? 150 : 0),
+                      paddingBottom: platformEnv.isNativeAndroid
+                        ? (listContainerProps?.paddingBottom ??
+                          SPINNER_HEIGHT * 2)
+                        : tabBarHeight,
+                    }
+                  : {
+                      paddingBottom: platformEnv.isNativeAndroid
+                        ? SPINNER_HEIGHT * 2
+                        : tabBarHeight,
+                    }
+              }
               stickyHeader
               scrollEnabled
               draggable={draggable}
+              tabIntegrated={tabIntegrated}
               onDragEnd={onDragEnd}
               columns={marketTokenColumns}
               onEndReached={handleEndReached}
@@ -278,7 +293,7 @@ function MarketTokenListBase({
               extraData={networkId}
               onHeaderRow={handleHeaderRow}
               TableFooterComponent={TableFooterComponent}
-              estimatedItemSize="$14"
+              estimatedItemSize={60}
               onRow={(item, index) => ({
                 onPress: onItemPress
                   ? () => onItemPress(item)

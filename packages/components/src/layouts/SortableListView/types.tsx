@@ -56,4 +56,5 @@ export type ISortableListViewProps<T> = Omit<
     ListFooterComponentStyle?: StackStyle;
     onDragEnd?: (params: IDragEndParamsWithItem<T>) => void;
     getItemDragDisabled?: (item: T, index: number) => boolean;
+    tabIntegrated?: boolean;
   };
