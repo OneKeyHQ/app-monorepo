@@ -137,7 +137,7 @@ const RenderEmptyAddressBook: FC<IRenderEmptyAddressBookProps> = ({
   const navigation = useAppNavigation();
   return (
     <Empty
-      icon="SearchOutline"
+      illustration="SearchDocument"
       title={intl.formatMessage({
         id: ETranslations.address_book_no_results_title_migration,
       })}
@@ -165,7 +165,7 @@ const RenderNoSearchResult = () => {
   const intl = useIntl();
   return (
     <Empty
-      icon="SearchOutline"
+      illustration="SearchDocument"
       title={intl.formatMessage({
         id: ETranslations.address_book_no_results_title,
       })}

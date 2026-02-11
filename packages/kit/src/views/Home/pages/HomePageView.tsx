@@ -544,7 +544,7 @@ export function HomePageView({
       )
     ) {
       return (
-        <YStack height="100%">
+        <YStack flex={1}>
           <Stack flex={1} justifyContent="center">
             {emptyAccountView}
           </Stack>

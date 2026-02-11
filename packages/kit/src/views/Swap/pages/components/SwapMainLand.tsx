@@ -1158,6 +1158,14 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           onSelectRecentTokenPairs={onSelectRecentTokenPairs}
           fromTokenAmountValue={fromTokenAmount.value}
           swapRecentTokenPairs={swapRecentTokenPairs}
+          headerContent={
+            <SwapHeaderContainer
+              pageType={pageType}
+              defaultSwapType={swapInitParams?.swapTabSwitchType}
+              showSwapPro={platformEnv.isNative}
+              hideRightActions
+            />
+          }
         />
       );
     }
@@ -1232,6 +1240,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     swapBridgeSupportNetworksFilterAllNet,
     storeName,
     isWrapped,
+    swapInitParams?.swapTabSwitchType,
   ]);
 
   // Desktop: show provider panel on the right side, need wider layout
@@ -1267,12 +1276,14 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
             flex: 'unset',
           }}
         >
-          <SwapHeaderContainer
-            pageType={pageType}
-            defaultSwapType={swapInitParams?.swapTabSwitchType}
-            showSwapPro={platformEnv.isNative}
-            hideRightActions={showDesktopProviderPanel}
-          />
+          {showDesktopProviderPanel ? null : (
+            <SwapHeaderContainer
+              pageType={pageType}
+              defaultSwapType={swapInitParams?.swapTabSwitchType}
+              showSwapPro={platformEnv.isNative}
+              hideRightActions={showDesktopProviderPanel}
+            />
+          )}
           {focusSwapPro ? (
             <SwapProContainer
               onProSelectToken={onProSelectToken}

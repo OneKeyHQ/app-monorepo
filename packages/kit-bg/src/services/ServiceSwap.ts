@@ -1599,11 +1599,10 @@ export default class ServiceSwap extends ServiceBase {
       swapHistoryPendingList: filterSwapHistoryPendingList(
         pre.swapHistoryPendingList,
       ).filter(
-          (item) =>
-            (item.txInfo.useOrderId
-              ? item.txInfo.orderId
-              : item.txInfo.txId) !== deleteHistoryId,
-        ),
+        (item) =>
+          (item.txInfo.useOrderId ? item.txInfo.orderId : item.txInfo.txId) !==
+          deleteHistoryId,
+      ),
     }));
     await this.cleanHistoryStateIntervals(deleteHistoryId);
   }

@@ -209,7 +209,9 @@ function usePerpsColumnsDesktop(): ITableColumn<IMarketPerpsToken>[] {
         // Column 6: Funding Rate (only on larger screens)
         gtLg
           ? {
-              title: intl.formatMessage({ id: ETranslations.perp_position_funding }),
+              title: intl.formatMessage({
+                id: ETranslations.perp_position_funding,
+              }),
               dataIndex: 'fundingRate',
               columnProps: { flex: 0.8 },
               render: (_: unknown, record: IMarketPerpsToken) => {

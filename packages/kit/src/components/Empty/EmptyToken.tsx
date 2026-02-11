@@ -11,7 +11,7 @@ function EmptyToken(props: IYStackProps) {
     <Empty
       h={platformEnv.isNativeAndroid ? 300 : undefined}
       testID="Wallet-No-Token-Empty"
-      icon="CoinsOutline"
+      illustration="QuestionMark"
       title={intl.formatMessage({ id: ETranslations.send_no_token_message })}
       {...props}
     />
