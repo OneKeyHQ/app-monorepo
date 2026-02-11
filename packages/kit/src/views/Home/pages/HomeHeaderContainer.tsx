@@ -1,17 +1,13 @@
-import type { PropsWithChildren } from 'react';
-import { memo, useCallback, useContext, useMemo, useState } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 
 import {
-  CollapsibleTabContext,
+  HeaderScrollGestureWrapper,
   Stack,
   YStack,
   useMedia,
 } from '@onekeyhq/components';
 import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { scrollTo, useSharedValue } from 'react-native-reanimated';
 
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { HomeTokenListProviderMirror } from '../components/HomeTokenListProvider/HomeTokenListProviderMirror';
@@ -21,45 +17,6 @@ import { WalletActions } from '../components/WalletActions';
 import WalletBanner from '../components/WalletBanner';
 
 import { HomeOverviewContainer } from './HomeOverviewContainer';
-
-const HeaderScrollGestureWrapper = platformEnv.isNative
-  ? ({ children }: PropsWithChildren) => {
-      const tabsContext = useContext(CollapsibleTabContext);
-      const refMap = tabsContext?.refMap;
-      const focusedTab = tabsContext?.focusedTab;
-      const scrollYCurrent = tabsContext?.scrollYCurrent;
-      const contentInset = tabsContext?.contentInset ?? 0;
-
-      const startScrollY = useSharedValue(0);
-
-      const panGesture = useMemo(
-        () =>
-          Gesture.Pan()
-            .activeOffsetY([-10, 10])
-            .onStart(() => {
-              'worklet';
-              startScrollY.value = scrollYCurrent?.value ?? 0;
-            })
-            .onUpdate((e) => {
-              'worklet';
-              if (refMap && focusedTab) {
-                const ref = refMap[focusedTab.value];
-                if (ref) {
-                  const nextY = startScrollY.value - e.translationY;
-                  scrollTo(ref, 0, Math.max(0, nextY - contentInset), false);
-                }
-              }
-            }),
-        [startScrollY, scrollYCurrent, refMap, focusedTab, contentInset],
-      );
-
-      return (
-        <GestureDetector gesture={panGesture}>
-          <Animated.View>{children}</Animated.View>
-        </GestureDetector>
-      );
-    }
-  : ({ children }: PropsWithChildren) => <>{children}</>;
 
 function BaseHomeHeaderContainer() {
   const {
