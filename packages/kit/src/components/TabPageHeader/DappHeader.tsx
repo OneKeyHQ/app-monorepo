@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { type ReactNode, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -28,8 +28,9 @@ import {
   EModalReceiveRoutes,
   EModalRoutes,
   EModalSettingRoutes,
+  ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
-import type { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { EUniversalSearchPages } from '@onekeyhq/shared/src/routes/universalSearch';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -171,19 +172,40 @@ function ThemeListItem() {
   const tabOptions = useMemo(
     () => [
       {
-        label: <Icon name="LaptopOutline" size="$4" />,
+        label: (
+          <Icon
+            my="$0.5"
+            name="LaptopOutline"
+            size="$4"
+            color={theme === 'system' ? '$iconInverse' : '$icon'}
+          />
+        ),
         value: 'system' as const,
       },
       {
-        label: <Icon name="SunOutline" size="$4" />,
+        label: (
+          <Icon
+            my="$0.5"
+            name="SunOutline"
+            size="$4"
+            color={theme === 'light' ? '$iconInverse' : '$icon'}
+          />
+        ),
         value: 'light' as const,
       },
       {
-        label: <Icon name="MoonOutline" size="$4" />,
+        label: (
+          <Icon
+            my="$0.5"
+            name="MoonOutline"
+            size="$4"
+            color={theme === 'dark' ? '$iconInverse' : '$icon'}
+          />
+        ),
         value: 'dark' as const,
       },
     ],
-    [],
+    [theme],
   );
   const handleChange = useCallback(async (value: unknown) => {
     await backgroundApiProxy.serviceSetting.setTheme(
@@ -244,6 +266,29 @@ function DownloadAppButton() {
     >
       APP
     </Button>
+  );
+}
+
+function SearchButton() {
+  const intl = useIntl();
+  const navigation = useAppNavigation();
+  const handlePress = useCallback(() => {
+    navigation.pushModal(EModalRoutes.UniversalSearchModal, {
+      screen: EUniversalSearchPages.UniversalSearch,
+    });
+  }, [navigation]);
+
+  return (
+    <XStack ai="center" px="$1.5" py="$1.5" borderRadius="$2" bg="$bgStrong">
+      <HeaderIconButton
+        size="small"
+        icon="SearchOutline"
+        title={intl.formatMessage({
+          id: ETranslations.global_search_everything,
+        })}
+        onPress={handlePress}
+      />
+    </XStack>
   );
 }
 
@@ -383,8 +428,15 @@ function DepositButton() {
   );
 }
 
-function RightActions({ tabRoute }: { tabRoute: ETabRoutes }) {
+function RightActions({
+  tabRoute,
+  customHeaderRightItems,
+}: {
+  tabRoute: ETabRoutes;
+  customHeaderRightItems?: ReactNode;
+}) {
   const { gtLg } = useMedia();
+  const navigation = useAppNavigation();
   const {
     activeAccount: { wallet, account },
   } = useActiveAccount({
@@ -392,19 +444,46 @@ function RightActions({ tabRoute }: { tabRoute: ETabRoutes }) {
   });
 
   const isWalletConnected = !!wallet && !!account;
+  const isPerpsTab = tabRoute === ETabRoutes.Perp;
+
+  const handleSearchPress = useCallback(() => {
+    navigation.pushModal(EModalRoutes.UniversalSearchModal, {
+      screen: EUniversalSearchPages.UniversalSearch,
+    });
+  }, [navigation]);
+
+  const intl = useIntl();
 
   return (
     <XStack ai="center" gap="$2">
+      {gtLg ? (
+        <SearchButton />
+      ) : (
+        <HeaderIconButton
+          size="small"
+          icon="SearchOutline"
+          title={intl.formatMessage({
+            id: ETranslations.global_search_everything,
+          })}
+          onPress={handleSearchPress}
+        />
+      )}
+      {isPerpsTab && customHeaderRightItems ? (
+        customHeaderRightItems
+      ) : (
+        <>
+          <XStack
+            ai="center"
+            px={isWalletConnected ? '$1.5' : undefined}
+            borderRadius="$2"
+            bg={isWalletConnected ? '$bgStrong' : undefined}
+          >
+            <WalletConnectionForWeb tabRoute={tabRoute} />
+          </XStack>
+          <DepositButton />
+        </>
+      )}
       {gtLg ? <DownloadAppButton /> : null}
-      <XStack
-        ai="center"
-        px={isWalletConnected ? '$1.5' : undefined}
-        borderRadius="$2"
-        bg={isWalletConnected ? '$bgStrong' : undefined}
-      >
-        <WalletConnectionForWeb tabRoute={tabRoute} />
-      </XStack>
-      <DepositButton />
       <XStack
         ai="center"
         gap="$2.5"
@@ -413,7 +492,6 @@ function RightActions({ tabRoute }: { tabRoute: ETabRoutes }) {
         borderRadius="$2"
         bg="$bgStrong"
       >
-        <UniversalSearchInput size="small" />
         <HeaderNotificationIconButton
           testID="header-right-notification"
           size="small"
@@ -461,6 +539,7 @@ export function DappHeader({
   sceneName,
   tabRoute,
   hideSearch,
+  customHeaderRightItems,
 }: ITabPageHeaderProp) {
   const { gtMd } = useMedia();
   const { config } = useAccountSelectorContextData();
@@ -476,11 +555,14 @@ export function DappHeader({
       config ? (
         <HomeTokenListProviderMirror>
           <AccountSelectorProviderMirror enabledNum={[0]} config={config}>
-            <RightActions tabRoute={tabRoute} />
+            <RightActions
+              tabRoute={tabRoute}
+              customHeaderRightItems={customHeaderRightItems}
+            />
           </AccountSelectorProviderMirror>
         </HomeTokenListProviderMirror>
       ) : null,
-    [config, tabRoute],
+    [config, customHeaderRightItems, tabRoute],
   );
 
   const renderDesktopHeaderTitle = useCallback(

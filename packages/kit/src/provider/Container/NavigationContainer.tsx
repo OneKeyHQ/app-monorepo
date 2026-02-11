@@ -6,14 +6,21 @@ import {
   RouterEventProvider,
 } from '@onekeyhq/components';
 import { RootNavigator } from '@onekeyhq/kit/src/routes';
+import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
 
 import { useRouterConfig } from '../../routes/config';
 
 import { TabFreezeOnBlurContainer } from './TabFreezeOnBlurContainer';
 
 function BasicNavigation({ children }: PropsWithChildren) {
+  if (process.env.NODE_ENV !== 'production') {
+    debugLandingLog('BasicNavigation render');
+  }
   const { containerProps, routerConfig } = useRouterConfig();
   return useMemo(() => {
+    if (process.env.NODE_ENV !== 'production') {
+      debugLandingLog('BasicNavigation useMemo');
+    }
     return (
       <NavigationContainerComponent {...containerProps}>
         <TabFreezeOnBlurContainer>

@@ -161,6 +161,11 @@ class WebStorage implements AsyncStorageStatic {
     // return localforage.keys();
   }
 
+  async getAllEntries(): Promise<Map<string, any>> {
+    const indexed = await this.indexed;
+    return indexed.getAllEntries(this.tableName);
+  }
+
   async getItem(
     key: string,
     callback: CallbackWithResult<string> | undefined,

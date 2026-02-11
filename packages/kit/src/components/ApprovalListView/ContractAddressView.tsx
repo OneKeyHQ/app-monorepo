@@ -39,7 +39,11 @@ function ContractAddressView(props: IProps) {
 
   return (
     <XStack alignItems="center" gap="$1">
-      <SizableText size="$bodyMdMedium" fontFamily="$monoMedium" {...addressStyleProps}>
+      <SizableText
+        size="$bodyMdMedium"
+        fontFamily="$monoMedium"
+        {...addressStyleProps}
+      >
         {showShortAddress
           ? accountUtils.shortenAddress({
               address,

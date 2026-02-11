@@ -77,6 +77,12 @@ export function TabStackNavigator<RouteName extends string>({
   bottomMenu,
   webPageTabBar,
 }: ITabNavigatorProps<RouteName>) {
+  if (process.env.NODE_ENV !== 'production') {
+    // eslint-disable-next-line no-console
+    console.log(
+      `[LANDING_DEBUG] TabStackNavigator render, tabs=[${config.map((c) => c.name).join(',')}]`,
+    );
+  }
   const intl = useIntl();
   const tabBarCallback = useCallback(
     (props: BottomTabBarProps) => (

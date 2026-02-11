@@ -32,6 +32,8 @@ export function useMarketBasicConfig() {
       const formattedMinLiquidity = formatLiquidityValue(minLiquidity);
       const networkList = getNetworkList(configData);
 
+      const perpsCategories = configData.perpsCategories ?? [];
+
       return {
         // Raw config data
         basicConfig: configData,
@@ -42,6 +44,7 @@ export function useMarketBasicConfig() {
         refreshInterval,
         formattedMinLiquidity,
         networkList,
+        perpsCategories,
       };
     },
     [],
@@ -63,5 +66,6 @@ export function useMarketBasicConfig() {
     refreshInterval: result?.refreshInterval || 5,
     formattedMinLiquidity: result?.formattedMinLiquidity || '5K',
     networkList: result?.networkList || [],
+    perpsCategories: result?.perpsCategories || [],
   };
 }

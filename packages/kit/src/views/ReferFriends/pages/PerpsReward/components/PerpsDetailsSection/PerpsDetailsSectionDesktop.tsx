@@ -1,7 +1,13 @@
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
-import { SizableText, Spinner, Switch, XStack, YStack } from '@onekeyhq/components';
+import {
+  SizableText,
+  Spinner,
+  Switch,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { PerpsEmptyData } from '../PerpsEmptyData';
