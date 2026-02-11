@@ -140,12 +140,13 @@ export const useColumnsDesktop = (
       title: intl.formatMessage({ id: ETranslations.global_price }),
       dataIndex: 'price',
       columnProps: { flex: 1 },
-      render: (text: string) => {
+      render: (text: string, record: IMarketToken) => {
+        const currencySymbol = record.perpsCoin ? '$' : currency;
         return (
           <NumberSizeableText
             size="$bodyMd"
             formatter={BigNumber(text).gt(1_000_000) ? 'marketCap' : 'price'}
-            formatterOptions={{ currency, capAtMaxT: true }}
+            formatterOptions={{ currency: currencySymbol, capAtMaxT: true }}
           >
             {text}
           </NumberSizeableText>
@@ -213,11 +214,11 @@ export const useColumnsDesktop = (
       title: intl.formatMessage({ id: ETranslations.dexmarket_turnover }),
       dataIndex: 'turnover',
       columnProps: { flex: 1.1 },
-      render: (text: number) => (
+      render: (text: number, record: IMarketToken) => (
         <NumberSizeableText
           size="$bodyMd"
           formatter="marketCap"
-          formatterOptions={{ currency }}
+          formatterOptions={{ currency: record.perpsCoin ? '$' : currency }}
         >
           {text === 0 ? '--' : text}
         </NumberSizeableText>

@@ -148,7 +148,7 @@ function BannerItem({
         gap="$3"
       >
         {item.src ? (
-          <YStack>
+          <YStack w={60} h={60} flexShrink={0}>
             <Image size={60} source={{ uri: item.src }} />
           </YStack>
         ) : null}
@@ -169,7 +169,9 @@ function BannerItem({
           </YStack>
         ) : null}
         {item.title && !item.description ? (
-          <SizableText size="$headingMd">{item.title}</SizableText>
+          <SizableText size="$headingMd" flex={1} numberOfLines={2}>
+            {item.title}
+          </SizableText>
         ) : null}
       </XStack>
 

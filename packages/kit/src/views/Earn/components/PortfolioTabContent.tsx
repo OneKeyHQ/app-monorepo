@@ -203,7 +203,10 @@ const WrappedActionButtonCmp = ({
         cursor={reward?.button?.disabled ? 'not-allowed' : 'pointer'}
         onPress={onPress}
       >
-        <EarnText size="$bodyMdMedium" text={reward?.button?.text as IEarnText} />
+        <EarnText
+          size="$bodyMdMedium"
+          text={reward?.button?.text as IEarnText}
+        />
       </Button>
     );
   }
