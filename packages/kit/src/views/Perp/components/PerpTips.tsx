@@ -2,7 +2,16 @@ import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Alert, YStack } from '@onekeyhq/components';
+import {
+  Alert,
+  Button,
+  Icon,
+  SizableText,
+  Stack,
+  XStack,
+  YStack,
+  useMedia,
+} from '@onekeyhq/components';
 import { usePerpsCommonConfigPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
@@ -15,6 +24,7 @@ import useParseQRCode from '../../ScanQrCode/hooks/useParseQRCode';
 
 export function PerpTips() {
   const intl = useIntl();
+  const { gtMd } = useMedia();
   const [{ perpConfigCommon }, setPerpsCommonConfigPersistAtom] =
     usePerpsCommonConfigPersistAtom();
   const parseQRCode = useParseQRCode();
@@ -31,7 +41,7 @@ export function PerpTips() {
     }
 
     return {
-      primary: intl.formatMessage({ id: ETranslations.global_view }),
+      primary: intl.formatMessage({ id: ETranslations.global_learn_more }),
       onPrimaryPress: () => {
         if (href) {
           if (hrefType === 'external') {
@@ -68,13 +78,12 @@ export function PerpTips() {
     <YStack borderBottomWidth="$px" borderBottomColor="$borderSubdued">
       <Alert
         flex={1}
-        type={perpConfigCommon?.perpBannerConfig?.alertType ?? 'default'}
+        bg="$bgInfo"
+        type="default"
         fullBleed
         borderWidth={0}
-        title={perpConfigCommon?.perpBannerConfig?.title}
-        description={perpConfigCommon?.perpBannerConfig?.description}
+        alignItems={gtMd ? 'center' : 'flex-start'}
         closable={!!perpConfigCommon?.perpBannerConfig?.canClose}
-        action={action}
         onClose={() => {
           if (perpConfigCommon?.perpBannerConfig?.id) {
             void setPerpsCommonConfigPersistAtom((prev) => ({
@@ -88,7 +97,52 @@ export function PerpTips() {
             }));
           }
         }}
-      />
+      >
+        <XStack gap="$3" alignItems={gtMd ? 'center' : 'flex-start'} flex={1}>
+          <Stack p="$1" bg="$bgInfo" borderRadius="$full" flexShrink={0}>
+            <Icon name="InfoCircleSolid" size="$4" color="$iconInfo" />
+          </Stack>
+          <YStack gap="$1" flex={1}>
+            {perpConfigCommon?.perpBannerConfig?.title ? (
+              <SizableText size="$bodyMdMedium" color="$textSubdued">
+                {perpConfigCommon.perpBannerConfig.title}
+              </SizableText>
+            ) : null}
+            {perpConfigCommon?.perpBannerConfig?.description ? (
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {perpConfigCommon.perpBannerConfig.description}
+              </SizableText>
+            ) : null}
+            {!gtMd && action ? (
+              <Button
+                size="small"
+                variant="secondary"
+                onPress={action.onPrimaryPress}
+                flexShrink={0}
+                alignSelf="flex-start"
+                px="$3"
+                py="$0.5"
+                mt="$0.5"
+              >
+                <SizableText size="$bodySm">{action.primary}</SizableText>
+              </Button>
+            ) : null}
+          </YStack>
+          {gtMd && action ? (
+            <Button
+              size="small"
+              variant="secondary"
+              onPress={action.onPrimaryPress}
+              flexShrink={0}
+              alignSelf="center"
+              px="$3"
+              py="$0.5"
+            >
+              <SizableText size="$bodySm">{action.primary}</SizableText>
+            </Button>
+          ) : null}
+        </XStack>
+      </Alert>
     </YStack>
   );
 }
