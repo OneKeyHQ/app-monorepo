@@ -82,16 +82,12 @@ function UnifiedNetworkSelector() {
 
   // Determine if tab switcher should be shown
   const showTabSwitcher = useMemo(() => {
-    // Other Wallet doesn't support Portfolio tab
-    if (accountUtils.isOthersWallet({ walletId })) {
-      return false;
-    }
     // Single network mode - no tab switcher
     if (defaultTab === 'network' && !networkUtils.isAllNetwork({ networkId })) {
       return false;
     }
     return true;
-  }, [walletId, defaultTab, networkId]);
+  }, [defaultTab, networkId]);
 
   // Determine initial tab
   const initialTab = useMemo((): ITabType => {

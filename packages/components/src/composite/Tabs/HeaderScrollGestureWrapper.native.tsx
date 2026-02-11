@@ -1,0 +1,65 @@
+import type { PropsWithChildren } from 'react';
+import { useContext, useMemo } from 'react';
+
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, {
+  cancelAnimation,
+  scrollTo,
+  useAnimatedReaction,
+  useSharedValue,
+  withDecay,
+} from 'react-native-reanimated';
+
+import { CollapsibleTabContext } from './CollapsibleTabContext';
+
+export function HeaderScrollGestureWrapper({ children }: PropsWithChildren) {
+  const tabsContext = useContext(CollapsibleTabContext);
+  const refMap = tabsContext?.refMap;
+  const focusedTab = tabsContext?.focusedTab;
+  const scrollYCurrent = tabsContext?.scrollYCurrent;
+  const contentInset = tabsContext?.contentInset ?? 0;
+
+  const startScrollY = useSharedValue(0);
+  const targetScrollY = useSharedValue(0);
+
+  useAnimatedReaction(
+    () => targetScrollY.value,
+    (currentValue) => {
+      if (refMap && focusedTab) {
+        const ref = refMap[focusedTab.value];
+        if (ref) {
+          scrollTo(ref, 0, Math.max(0, currentValue - contentInset), false);
+        }
+      }
+    },
+  );
+
+  const panGesture = useMemo(
+    () =>
+      Gesture.Pan()
+        .activeOffsetY([-10, 10])
+        .failOffsetX([-10, 10])
+        .onStart(() => {
+          'worklet';
+          cancelAnimation(targetScrollY);
+          startScrollY.value = scrollYCurrent?.value ?? 0;
+        })
+        .onUpdate((e) => {
+          'worklet';
+          targetScrollY.value = startScrollY.value - e.translationY;
+        })
+        .onEnd((e) => {
+          'worklet';
+          targetScrollY.value = withDecay({
+            velocity: -e.velocityY,
+          });
+        }),
+    [startScrollY, scrollYCurrent, targetScrollY],
+  );
+
+  return (
+    <GestureDetector gesture={panGesture}>
+      <Animated.View>{children}</Animated.View>
+    </GestureDetector>
+  );
+}
