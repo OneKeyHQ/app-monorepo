@@ -24,6 +24,7 @@ import type {
   IOneKeyDeviceFeatures,
 } from '@onekeyhq/shared/types/device';
 
+import localDb from '../../dbs/local/localDb';
 import {
   EHardwareUiStateAction,
   hardwareUiStateAtom,
@@ -67,9 +68,41 @@ class ServiceHardwareUI extends ServiceBase {
 
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
+    // This service caches `connectId -> IDBDevice` for hardware interaction dialogs.
+    // When device features (including label) change, invalidate cache to avoid showing stale names.
+    appEventBus.on(
+      EAppEventBusNames.HardwareFeaturesUpdate,
+      this.onHardwareFeaturesUpdate,
+    );
   }
 
   hardwareProcessingManager = new HardwareProcessingManager();
+
+  private onHardwareFeaturesUpdate = async ({
+    deviceId,
+  }: {
+    deviceId: string;
+  }) => {
+    try {
+      // Delete from cache first to avoid a race where a new interaction immediately reads stale cache.
+      for (const [connectId, cached] of this.deviceCacheByConnectId.entries()) {
+        if (cached?.id === deviceId) {
+          this.deviceCacheByConnectId.delete(connectId);
+        }
+      }
+
+      const device = await localDb.getDevice(deviceId);
+      if (device?.connectId) {
+        this.deviceCacheByConnectId.delete(device.connectId);
+      } else {
+        // Conservative fallback: if connectId cannot be resolved, clear all cache to avoid stale UI.
+        this.deviceCacheByConnectId.clear();
+      }
+    } catch {
+      // Best-effort: this event is only for UI consistency. Clear cache on any error.
+      this.deviceCacheByConnectId.clear();
+    }
+  };
 
   @backgroundMethod()
   async sendUiResponse(response: UiResponseEvent) {
