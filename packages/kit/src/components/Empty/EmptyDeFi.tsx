@@ -1,10 +1,6 @@
 import { useIntl } from 'react-intl';
 
-import {
-  Button,
-  Empty,
-  SizableText,
-} from '@onekeyhq/components';
+import { Button, Empty, SizableText } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabEarnRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';

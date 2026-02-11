@@ -20,6 +20,7 @@ import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { AllNetworksManagerTrigger } from '../../AccountSelector/AllNetworksManagerTrigger';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 function AccountSelectorTriggerWithSpotlight({
   isFocus,
   linkNetworkId,
@@ -119,7 +120,10 @@ export function WalletConnectionGroup({
         return null;
       }
 
-      if (network?.isAllNetworks) {
+      if (
+        network?.isAllNetworks &&
+        !accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' })
+      ) {
         return <AllNetworksManagerTrigger num={0} unifiedMode />;
       }
       return (
@@ -132,7 +136,12 @@ export function WalletConnectionGroup({
         />
       );
     },
-    [network?.isAllNetworks, shouldShowNetworkSelector, isNonBackedUpWallet],
+    [
+      network?.isAllNetworks,
+      shouldShowNetworkSelector,
+      isNonBackedUpWallet,
+      wallet?.id,
+    ],
   );
 
   if (isMobileLayout) {
