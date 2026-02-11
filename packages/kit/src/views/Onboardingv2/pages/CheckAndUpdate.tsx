@@ -822,12 +822,7 @@ function CheckAndUpdatePage({
           })}
         />
         <OnboardingLayout.Body constrained={false}>
-          <OnboardingLayout.ConstrainedContent
-            gap="$10"
-            $platform-native={{
-              py: '$5',
-            }}
-          >
+          <OnboardingLayout.ConstrainedContent gap="$10">
             {steps.map((step, index) => {
               // Don't show setup-on-device until firmware-check is completed
               if (

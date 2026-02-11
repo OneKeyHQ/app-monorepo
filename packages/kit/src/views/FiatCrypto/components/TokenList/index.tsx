@@ -255,7 +255,7 @@ export function TokenList({ items, onPress }: ITokenListProps) {
               title={intl.formatMessage({
                 id: ETranslations.global_no_results,
               })}
-              icon="SearchOutline"
+              illustration="QuestionMark"
             />
           }
         />

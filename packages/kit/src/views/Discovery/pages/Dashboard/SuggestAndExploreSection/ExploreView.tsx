@@ -98,7 +98,7 @@ export function ExploreView({
     if (isEmpty) {
       return (
         <Empty
-          icon="SearchOutline"
+          illustration="QuestionMark"
           title={intl.formatMessage({ id: ETranslations.global_no_results })}
         />
       );

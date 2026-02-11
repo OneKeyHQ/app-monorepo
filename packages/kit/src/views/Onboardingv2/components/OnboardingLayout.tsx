@@ -134,14 +134,6 @@ const OnboardingLayoutHeader = memo(
       px="$5"
       $gtMd={{
         px: 56,
-        borderWidth: 0,
-        borderTopWidth: 1,
-        borderBottomWidth: 1,
-        borderStyle: 'solid',
-        borderColor: '$neutral4',
-        '$platform-web': {
-          borderStyle: 'dashed',
-        },
       }}
       alignItems="center"
       {...rest}
@@ -215,14 +207,6 @@ const OnboardingLayoutBody = memo(
         minHeight={0}
         overflow="hidden"
         $gtMd={{
-          borderWidth: 0,
-          borderTopWidth: 1,
-          borderBottomWidth: 1,
-          borderStyle: 'solid',
-          borderColor: '$neutral4',
-          '$platform-web': {
-            borderStyle: 'dashed',
-          },
           ...(!scrollable && {
             px: '$10',
           }),
@@ -253,14 +237,7 @@ const OnboardingLayoutFooter = memo(
         px="$5"
         $gtMd={{
           px: '$10',
-          borderWidth: 0,
-          borderTopWidth: 1,
-          borderBottomWidth: 1,
-          borderStyle: 'solid',
-          borderColor: '$neutral4',
-          '$platform-web': {
-            borderStyle: 'dashed',
-          },
+          pb: '$10',
         }}
         minHeight="$6"
         justifyContent="center"
@@ -331,18 +308,8 @@ const OnboardingLayoutRoot = memo(
           }}
         >
           <YStack
-            py="$10"
+            pt="$10"
             h="100%"
-            $gtMd={{
-              borderWidth: 0,
-              borderLeftWidth: 1,
-              borderRightWidth: 1,
-              borderStyle: 'solid',
-              borderColor: '$neutral4',
-              '$platform-web': {
-                borderStyle: 'dashed',
-              },
-            }}
             $platform-native={{
               pt: top + 10,
               pb: bottom + 10,

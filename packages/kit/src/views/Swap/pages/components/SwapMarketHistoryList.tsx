@@ -226,7 +226,7 @@ const SwapMarketHistoryList = ({
       }
       ListEmptyComponent={
         <Empty
-          icon="InboxOutline"
+          illustration="Orders"
           title={intl.formatMessage({
             id: ETranslations.global_no_results,
           })}
