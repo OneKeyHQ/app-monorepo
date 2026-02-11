@@ -1215,13 +1215,23 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   );
 
   closeAllPositions = contextAtomMethod(
-    async (get, set, type: 'market' | 'limit' = 'market') => {
+    async (
+      get,
+      set,
+      type: 'market' | 'limit' = 'market',
+      filterByCoin?: string,
+    ) => {
       return withToast({
         asyncFn: async () => {
           await this.ensureTradingEnabled.call(set);
           const { activePositions: positions } = get(perpsActivePositionAtom());
 
-          if (positions.length === 0) {
+          // Apply filter if specified
+          const filteredPositions = filterByCoin
+            ? positions.filter((p) => p.position.coin === filterByCoin)
+            : positions;
+
+          if (filteredPositions.length === 0) {
             console.warn('No positions to close');
             return;
           }
@@ -1229,12 +1239,12 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           // Get symbol metadata for all positions
           const symbolsMetaMap =
             await backgroundApiProxy.serviceHyperliquid.getSymbolsMetaMap({
-              coins: positions.map((p) => p.position.coin),
+              coins: filteredPositions.map((p) => p.position.coin),
             });
 
           // Get current mid prices for all positions
           const midPrices = await Promise.all(
-            positions.map(async (p) => {
+            filteredPositions.map(async (p) => {
               try {
                 const midPriceInfo = await this.getMidPrice.call(set, {
                   coin: p.position.coin,
@@ -1255,7 +1265,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           );
 
           // Prepare close orders for all positions
-          const positionsToClose = positions
+          const positionsToClose = filteredPositions
             .map((positionItem) => {
               const position = positionItem.position;
               const tokenInfo = symbolsMetaMap[position.coin];

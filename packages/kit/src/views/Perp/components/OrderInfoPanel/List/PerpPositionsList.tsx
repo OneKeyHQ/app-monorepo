@@ -5,11 +5,19 @@ import { useIntl } from 'react-intl';
 
 import type { IDebugRenderTrackerProps } from '@onekeyhq/components';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import { usePerpsActivePositionLengthAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
-import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  usePerpsActivePositionAtom,
+  usePerpsActivePositionLengthAtom,
+  usePositionFilterByCurrentTokenAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
+import {
+  usePerpsActiveAccountAtom,
+  usePerpsActiveAssetAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { showCloseAllPositionsDialog } from '../CloseAllPositionsModal';
+import { MobilePositionsListHeader } from '../Components/MobilePositionsListHeader';
 import { PositionRow } from '../Components/PositionsRow';
 
 import { CommonTableListView, type IColumnConfig } from './CommonTableListView';
@@ -31,6 +39,9 @@ function PerpPositionsList({
   const [currentUser] = usePerpsActiveAccountAtom();
   // eslint-disable-next-line @typescript-eslint/no-unsafe-call
   const [positionsLength] = usePerpsActivePositionLengthAtom();
+  const [filterByCurrentToken] = usePositionFilterByCurrentTokenAtom();
+  const [activeAsset] = usePerpsActiveAssetAtom();
+  const [positions] = usePerpsActivePositionAtom();
   const [currentListPage, setCurrentListPage] = useState(1);
   useEffect(() => {
     noop(currentUser?.accountAddress);
@@ -148,13 +159,30 @@ function PerpPositionsList({
       ),
     [columnsConfig],
   );
-  const mockedPositions = useMemo<{ index: number }[]>(() => {
-    return Array.from({ length: positionsLength }, (_, index) => {
-      return {
+
+  // Filter positions by current token when mobile and filter is enabled
+  const filteredPositions = useMemo(() => {
+    if (!isMobile || !filterByCurrentToken || !activeAsset?.coin) {
+      return positions.activePositions;
+    }
+    return positions.activePositions.filter(
+      (p) => p.position.coin === activeAsset.coin,
+    );
+  }, [
+    positions.activePositions,
+    isMobile,
+    filterByCurrentToken,
+    activeAsset?.coin,
+  ]);
+
+  // Generate mocked position indices for rendering
+  const mockedPositions = useMemo<{ index: number }[]>(
+    () =>
+      Array.from({ length: filteredPositions.length }, (_, index) => ({
         index,
-      };
-    });
-  }, [positionsLength]);
+      })),
+    [filteredPositions.length],
+  );
 
   const renderPositionRow = (
     item: { index: number },
@@ -203,6 +231,14 @@ function PerpPositionsList({
       emptySubMessage={intl.formatMessage({
         id: ETranslations.perp_position_empty_desc,
       })}
+      ListHeaderComponent={
+        isMobile ? (
+          <MobilePositionsListHeader
+            totalPositionCount={positions.activePositions.length}
+            filteredPositionCount={filteredPositions.length}
+          />
+        ) : null
+      }
     />
   );
 }

@@ -21,9 +21,13 @@ type ICloseType = 'market' | 'limit';
 
 interface ICloseAllPositionsContentProps {
   onClose?: () => void;
+  filterByCoin?: string;
 }
 
-function CloseAllPositionsContent({ onClose }: ICloseAllPositionsContentProps) {
+function CloseAllPositionsContent({
+  onClose,
+  filterByCoin,
+}: ICloseAllPositionsContentProps) {
   const actions = useHyperliquidActions();
   const intl = useIntl();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -34,14 +38,16 @@ function CloseAllPositionsContent({ onClose }: ICloseAllPositionsContentProps) {
 
     setIsSubmitting(true);
     try {
-      await actions.current.closeAllPositions(closeType);
-      onClose?.();
+      await actions.current.closeAllPositions(closeType, filterByCoin);
+      // Small delay to ensure all operations complete and toast is visible
+      setTimeout(() => {
+        onClose?.();
+      }, 300);
     } catch (error) {
       console.error('Close all positions failed:', error);
-    } finally {
       setIsSubmitting(false);
     }
-  }, [actions, closeType, isSubmitting, onClose]);
+  }, [actions, closeType, filterByCoin, isSubmitting, onClose]);
 
   const buttonText = useMemo(() => {
     if (isSubmitting) {
@@ -59,9 +65,11 @@ function CloseAllPositionsContent({ onClose }: ICloseAllPositionsContentProps) {
     <YStack gap="$4" p="$1">
       {/* Description */}
       <SizableText size="$bodyMd" color="$textSubdued">
-        {intl.formatMessage({
-          id: ETranslations.perp_close_all_msg,
-        })}
+        {filterByCoin
+          ? 'This will close all positions for the selected token. This action cannot be undone.'
+          : intl.formatMessage({
+              id: ETranslations.perp_close_all_msg,
+            })}
       </SizableText>
 
       {/* Close Type Options */}
@@ -118,7 +126,7 @@ function CloseAllPositionsContent({ onClose }: ICloseAllPositionsContentProps) {
   );
 }
 
-export function showCloseAllPositionsDialog() {
+export function showCloseAllPositionsDialog(filterByCoin?: string) {
   const dialogInstance = Dialog.show({
     title: appLocale.intl.formatMessage({
       id: ETranslations.perp_position_close,
@@ -129,6 +137,7 @@ export function showCloseAllPositionsDialog() {
           onClose={() => {
             void dialogInstance.close();
           }}
+          filterByCoin={filterByCoin}
         />
       </PerpsProviderMirror>
     ),
