@@ -40,12 +40,13 @@ function CloseAllPositionsContent({
     try {
       await actions.current.closeAllPositions(closeType, filterByCoin);
       // Small delay to ensure all operations complete and toast is visible
+      // Reset state when dialog closes to prevent race condition
       setTimeout(() => {
+        setIsSubmitting(false);
         onClose?.();
       }, 300);
     } catch (error) {
       console.error('Close all positions failed:', error);
-    } finally {
       setIsSubmitting(false);
     }
   }, [actions, closeType, filterByCoin, isSubmitting, onClose]);
@@ -67,7 +68,8 @@ function CloseAllPositionsContent({
       {/* Description */}
       <SizableText size="$bodyMd" color="$textSubdued">
         {filterByCoin
-          ? 'This will close all positions for the selected token. This action cannot be undone.'
+          ? // TODO: Add translation key perp_close_all_msg_filtered when i18n updates are available
+            'This will close all positions for the selected token. This action cannot be undone.'
           : intl.formatMessage({
               id: ETranslations.perp_close_all_msg,
             })}
