@@ -1088,9 +1088,8 @@ class ServiceDApp extends ServiceBase {
 
     const deriveType = params.deriveType;
 
-    const connectedAccountsInfo = await this.findInjectedAccountByOrigin(
-      origin,
-    );
+    const connectedAccountsInfo =
+      await this.findInjectedAccountByOrigin(origin);
     if (
       !connectedAccountsInfo ||
       !connectedAccountsInfo.length ||
@@ -1179,9 +1178,8 @@ class ServiceDApp extends ServiceBase {
       isOthersWallet,
       deriveType,
     } = params;
-    const connectedAccountsInfo = await this.findInjectedAccountByOrigin(
-      origin,
-    );
+    const connectedAccountsInfo =
+      await this.findInjectedAccountByOrigin(origin);
     if (
       !connectedAccountsInfo ||
       !connectedAccountsInfo.length ||
@@ -1391,7 +1389,8 @@ class ServiceDApp extends ServiceBase {
     const deriveType =
       (networkUtils.isBTCNetwork(connectedAccountInfo.networkId)
         ? connectedAccountInfo.deriveType
-        : globalDeriveType ?? homeAccountSelectorInfo?.deriveType) ?? 'default';
+        : (globalDeriveType ?? homeAccountSelectorInfo?.deriveType)) ??
+      'default';
     try {
       networkAccountWithHomeAccountSelectorInfo =
         await serviceAccount.getNetworkAccount({
@@ -1616,7 +1615,7 @@ class ServiceDApp extends ServiceBase {
         othersWalletAccountId: accountId,
         networkId: autoChangeToAccountMatchedNetwork
           ? networkId
-          : homeAccountSelectorInfo?.networkId ?? '',
+          : (homeAccountSelectorInfo?.networkId ?? ''),
         walletId,
         focusedWallet,
         deriveType,

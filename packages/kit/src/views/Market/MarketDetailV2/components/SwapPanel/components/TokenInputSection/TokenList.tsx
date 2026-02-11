@@ -139,14 +139,14 @@ export function TokenList({
 
   return (
     <YStack gap="$1">
-      <YStack gap="$1" px="$1" py="$1">
+      <YStack px="$1" py="$1">
         {displayTokens?.map((token: IEnhancedToken) => {
           const isDisabled = Boolean(
             currentSelectToken &&
-              equalTokenNoCaseSensitive({
-                token1: currentSelectToken,
-                token2: token,
-              }),
+            equalTokenNoCaseSensitive({
+              token1: currentSelectToken,
+              token2: token,
+            }),
           );
           const onPress = () => {
             if (isDisabled) return;
@@ -160,6 +160,7 @@ export function TokenList({
               networkImageSrc={token.networkImageSrc}
               tokenSymbol={token.symbol}
               tokenName={token.name}
+              tokenSize="md"
               balance={token.balance}
               valueProps={token.valueProps}
               onPress={onPress}

@@ -55,7 +55,7 @@ const SendTransactionItem = ({ data }: { data: ISendTransactionData }) => {
           formatter="balance"
           numberOfLines={1}
           formatterOptions={{
-            tokenSymbol: `${data.token.symbol.toUpperCase()}`,
+            tokenSymbol: data.token.symbol.toUpperCase(),
             showPlusMinusSigns: true,
           }}
         >
@@ -93,7 +93,7 @@ const ApproveTransactionItem = ({
           numberOfLines={1}
           flexShrink={1}
           formatterOptions={{
-            tokenSymbol: `${data.token.symbol.toUpperCase()}`,
+            tokenSymbol: data.token.symbol.toUpperCase(),
             showPlusMinusSigns: true,
           }}
         >

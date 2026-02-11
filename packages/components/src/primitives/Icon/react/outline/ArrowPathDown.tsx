@@ -1,14 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgArrowPathDown = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      stroke="currentColor"
-      strokeLinecap="square"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M13 3h-2a2 2 0 0 0-2 2v9H5.568a.5.5 0 0 0-.385.82l5.665 6.797a1.5 1.5 0 0 0 2.304 0l5.665-6.797a.5.5 0 0 0-.384-.82H15V5a2 2 0 0 0-2-2Z"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M9.99 4.041v10.051c0 .555-.45 1.005-1.006 1.005H6.69l5.31 6.02 5.312-6.02h-2.296c-.555 0-1.005-.45-1.005-1.005V4.041zm6.03 9.046h2.405c1.298 0 1.989 1.531 1.13 2.505l-6.048 6.854a2.01 2.01 0 0 1-3.014 0l-6.048-6.854c-.86-.974-.168-2.505 1.13-2.505H7.98V4.041c0-1.11.9-2.01 2.01-2.01h4.02c1.111 0 2.011.9 2.011 2.01v9.046Z" />
   </Svg>
 );
 export default SvgArrowPathDown;

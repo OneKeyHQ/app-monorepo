@@ -6,6 +6,7 @@ import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/h
 import { usePerpsAllAssetsFilteredAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import { usePerpTokenSelectorConfigPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type { ITokenSearchAliases } from '@onekeyhq/shared/src/utils/perpsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IPerpsUniverse } from '@onekeyhq/shared/types/hyperliquid';
 
@@ -53,16 +54,23 @@ export function usePerpTokenSelector() {
   const [selectorConfig] = usePerpTokenSelectorConfigPersistAtom();
 
   const allAssetsRef = useRef<IPerpsUniverse[][] | undefined>(undefined);
+  const tokenSearchAliasesRef = useRef<ITokenSearchAliases | undefined>(
+    undefined,
+  );
 
   const refreshAllAssets = useCallback(async () => {
-    const { universesByDex } =
-      await backgroundApiProxy.serviceHyperliquid.getTradingUniverse();
+    const [{ universesByDex }, tokenSearchAliases] = await Promise.all([
+      backgroundApiProxy.serviceHyperliquid.getTradingUniverse(),
+      backgroundApiProxy.serviceHyperliquid.getTokenSearchAliases(),
+    ]);
     allAssetsRef.current = universesByDex || [];
+    tokenSearchAliasesRef.current = tokenSearchAliases;
     actions.current.updateAllAssetsFiltered({
       allAssetsByDex: allAssetsRef.current,
-      query: searchQuery,
+      query: '',
+      tokenSearchAliases,
     });
-  }, [actions, searchQuery]);
+  }, [actions]);
 
   useEffect(() => {
     void refreshAllAssets();
@@ -78,6 +86,17 @@ export function usePerpTokenSelector() {
     }
     return () => {};
   }, [actions, refreshAllAssets]);
+
+  // Trigger filter update when searchQuery changes
+  useEffect(() => {
+    if (allAssetsRef.current) {
+      actions.current.updateAllAssetsFiltered({
+        allAssetsByDex: allAssetsRef.current,
+        query: searchQuery,
+        tokenSearchAliases: tokenSearchAliasesRef.current,
+      });
+    }
+  }, [actions, searchQuery]);
 
   useEffect(() => {
     return () => {
@@ -99,7 +118,7 @@ export function usePerpTokenSelector() {
 
   const lastLoggedRef = useRef<{
     query: string;
-    activeTab: 'all' | 'hip3';
+    activeTab: string;
     sortField: string;
     sortDirection: string;
   } | null>(null);
@@ -109,7 +128,7 @@ export function usePerpTokenSelector() {
       debounce(
         (params: {
           query: string;
-          activeTab: 'all' | 'hip3';
+          activeTab: string;
           sortField: string;
           sortDirection: string;
           resultCount: number;
@@ -140,7 +159,7 @@ export function usePerpTokenSelector() {
   );
 
   useEffect(() => {
-    const activeTab = (selectorConfig?.activeTab ?? 'all') as 'all' | 'hip3';
+    const activeTab = selectorConfig?.activeTab ?? 'all';
     const sortField = selectorConfig?.field ?? '';
     const sortDirection = selectorConfig?.direction ?? 'desc';
 
@@ -166,10 +185,7 @@ export function usePerpTokenSelector() {
     }
 
     const perDexCounts = (assetsByDex ?? []).map((items) => items?.length ?? 0);
-    const resultCount =
-      activeTab === 'hip3'
-        ? perDexCounts[1] ?? 0
-        : perDexCounts.reduce((sum, count) => sum + count, 0);
+    const resultCount = perDexCounts.reduce((sum, count) => sum + count, 0);
 
     logSearchEvent({
       query: current.query,

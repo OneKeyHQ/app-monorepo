@@ -9,13 +9,12 @@ import {
   SizableText,
   XStack,
   YStack,
+  useIsSplitView,
   useMedia,
-  useOrientation,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useNetworkLogoUri } from '@onekeyhq/kit/src/hooks/useNetworkLogoUri';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
@@ -41,7 +40,7 @@ export function TokenDetailHeaderLeft({
   showMediaAndSecurity = true,
   isNative = false,
 }: ITokenDetailHeaderLeftProps) {
-  const isLandscape = useOrientation();
+  const isLandscape = useIsSplitView();
   const { width: windowScreenWidth } = useWindowDimensions();
   const screenWidth = useMemo(() => {
     return isLandscape ? windowScreenWidth / 2 : windowScreenWidth;
@@ -106,9 +105,6 @@ export function TokenDetailHeaderLeft({
           }
         : {})}
     >
-      {!platformEnv.isNative && !md ? marketStar : null}
-      {isNative && !platformEnv.isNative && !md ? shareButton : null}
-
       <XStack gap="$3" ai="center">
         <Token
           size="md"
@@ -120,7 +116,10 @@ export function TokenDetailHeaderLeft({
         <YStack>
           <XStack ai="center" gap="$1">
             <SizableText
-              size="$bodyLgMedium"
+              size="$headingLg"
+              $gtMd={{
+                size: '$heading2xl',
+              }}
               color="$text"
               numberOfLines={1}
               maxWidth="$60"
@@ -197,7 +196,7 @@ export function TokenDetailHeaderLeft({
                         />
                       ) : null}
 
-                      {networkId && address !== SUI_TYPE_ARG ? (
+                      {networkId && address && address !== SUI_TYPE_ARG ? (
                         <ShareButton
                           networkId={networkId}
                           address={address}

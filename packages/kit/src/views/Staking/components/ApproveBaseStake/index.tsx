@@ -344,8 +344,8 @@ export function ApproveBaseStake({
       }
       const isOverflowDecimals = Boolean(
         decimals &&
-          Number(decimals) > 0 &&
-          countDecimalPlaces(value) > decimals,
+        Number(decimals) > 0 &&
+        countDecimalPlaces(value) > decimals,
       );
       if (isOverflowDecimals) {
         // setAmountValue((oldValue) => oldValue);
@@ -406,7 +406,9 @@ export function ApproveBaseStake({
         providerName,
       });
       const baseRateBN = new BigNumber(
-        isFalconProvider ? apys?.weeklyNetApyWithoutFee ?? 0 : apys?.rate ?? 0,
+        isFalconProvider
+          ? (apys?.weeklyNetApyWithoutFee ?? 0)
+          : (apys?.rate ?? 0),
       );
       if (baseRateBN.gt(0)) {
         let baseAmount = amountBN.multipliedBy(baseRateBN).dividedBy(100);

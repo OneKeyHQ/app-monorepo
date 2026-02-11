@@ -169,9 +169,8 @@ export function MarketDetailPools({
 
   const { result: pools } = usePromiseResult(
     async () => {
-      const response = await backgroundApiProxy.serviceMarket.fetchPools(
-        detailPlatforms,
-      );
+      const response =
+        await backgroundApiProxy.serviceMarket.fetchPools(detailPlatforms);
       return response;
     },
     [detailPlatforms],

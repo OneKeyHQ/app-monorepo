@@ -50,7 +50,7 @@ export function JotaiContextStoreMirrorTracker(data: IJotaiContextStoreData) {
 
       const mapCache = getJotaiContextTrackerMap();
 
-      const key = `${storeId}`;
+      const key = storeId;
       let value: IJotaiContextStoreMapValue | undefined = mapCache[key];
       if (!value) {
         value = {

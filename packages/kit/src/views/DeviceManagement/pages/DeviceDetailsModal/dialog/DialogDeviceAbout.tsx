@@ -30,7 +30,7 @@ function isValidVersion(version?: string) {
 
 function getDisplayVersion(version?: string) {
   return isValidVersion(version)
-    ? version ?? VERSION_PLACEHOLDER
+    ? (version ?? VERSION_PLACEHOLDER)
     : VERSION_PLACEHOLDER;
 }
 

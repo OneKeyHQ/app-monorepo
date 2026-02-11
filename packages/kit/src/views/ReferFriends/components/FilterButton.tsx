@@ -2,15 +2,23 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { ActionList, Icon, IconButton, useMedia } from '@onekeyhq/components';
+import {
+  ActionList,
+  Button,
+  Icon,
+  IconButton,
+  useMedia,
+} from '@onekeyhq/components';
 import type { IActionListItemProps } from '@onekeyhq/components';
 import { useInviteCodeList } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/InvitationDetailsSection/hooks/useInviteCodeList';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EExportTimeRange } from '@onekeyhq/shared/src/referralCode/type';
+import type { EExportTimeRange } from '@onekeyhq/shared/src/referralCode/type';
 
 export interface IFilterState {
   timeRange: EExportTimeRange;
   inviteCode?: string;
+  startTime?: number;
+  endTime?: number;
 }
 
 interface IFilterButtonProps {
@@ -25,26 +33,6 @@ export function FilterButton({
   const intl = useIntl();
   const { codeListData } = useInviteCodeList();
   const { gtMd } = useMedia();
-
-  const timeRangeOptions = useMemo(
-    () => [
-      {
-        label: intl.formatMessage({
-          id: ETranslations.referral_filter_alltime,
-        }),
-        value: EExportTimeRange.All,
-      },
-      {
-        label: intl.formatMessage({ id: ETranslations.referral_filter_30 }),
-        value: EExportTimeRange.OneMonth,
-      },
-      {
-        label: intl.formatMessage({ id: ETranslations.referral_filter_90 }),
-        value: EExportTimeRange.ThreeMonths,
-      },
-    ],
-    [intl],
-  );
 
   const inviteCodeOptions = useMemo(() => {
     const options: Array<{
@@ -74,13 +62,6 @@ export function FilterButton({
     return options;
   }, [intl, codeListData]);
 
-  const handleTimeRangeSelect = useCallback(
-    (value: EExportTimeRange) => {
-      onFilterChange({ timeRange: value });
-    },
-    [onFilterChange],
-  );
-
   const handleInviteCodeSelect = useCallback(
     (value?: string) => {
       onFilterChange({ inviteCode: value });
@@ -90,17 +71,6 @@ export function FilterButton({
 
   const sections = useMemo(() => {
     return [
-      {
-        title: intl.formatMessage({ id: ETranslations.referral_filter_time }),
-        items: timeRangeOptions.map((option) => ({
-          label: option.label,
-          extra:
-            filterState.timeRange === option.value ? (
-              <Icon name="CheckRadioSolid" size="$5" color="$icon" />
-            ) : undefined,
-          onPress: () => handleTimeRangeSelect(option.value),
-        })) as IActionListItemProps[],
-      },
       {
         title: intl.formatMessage({
           id: ETranslations.referral_code_list,
@@ -117,21 +87,11 @@ export function FilterButton({
         })) as IActionListItemProps[],
       },
     ];
-  }, [
-    intl,
-    timeRangeOptions,
-    inviteCodeOptions,
-    filterState,
-    handleTimeRangeSelect,
-    handleInviteCodeSelect,
-  ]);
+  }, [intl, inviteCodeOptions, filterState, handleInviteCodeSelect]);
 
   // Check if any filters are active (not default values)
   const hasActiveFilters = useMemo(() => {
-    return (
-      filterState.timeRange !== EExportTimeRange.All ||
-      filterState.inviteCode !== undefined
-    );
+    return filterState.inviteCode !== undefined;
   }, [filterState]);
 
   // Handle mobile click to show ActionList
@@ -146,24 +106,19 @@ export function FilterButton({
     });
   }, [intl, sections]);
 
-  // Render trigger (shared between desktop and mobile)
-  const renderTrigger = useMemo(
-    () => (
-      <IconButton
-        icon={hasActiveFilters ? 'Filter1Solid' : 'Filter1Outline'}
-        variant="tertiary"
-        title={intl.formatMessage({ id: ETranslations.referral_filter })}
-      />
-    ),
-    [hasActiveFilters, intl],
-  );
-
-  // Desktop: Use component-style ActionList (works correctly)
+  // Desktop: Use component-style ActionList with Button trigger
   if (gtMd) {
     return (
       <ActionList
         title={intl.formatMessage({ id: ETranslations.referral_filter })}
-        renderTrigger={renderTrigger}
+        renderTrigger={
+          <Button
+            size="small"
+            icon={hasActiveFilters ? 'Filter1Solid' : 'Filter1Outline'}
+          >
+            {intl.formatMessage({ id: ETranslations.referral_filter })}
+          </Button>
+        }
         sections={sections}
         floatingPanelProps={{
           width: '$56',

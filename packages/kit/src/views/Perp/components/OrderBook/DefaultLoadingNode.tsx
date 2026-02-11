@@ -9,6 +9,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import type { IOrderBookVariant } from './types';
 
@@ -109,7 +110,7 @@ export function DefaultLoadingNode({
               {intl.formatMessage({ id: ETranslations.perp_orderbook_size })}
             </SizableText>
             <SizableText fontSize={10} lineHeight={12} color="$textSubdued">
-              ({symbol ?? '—'})
+              ({symbol ? parseDexCoin(symbol).displayName : '—'})
             </SizableText>
           </YStack>
         </XStack>

@@ -8,9 +8,12 @@ on:
       - completed
   workflow_dispatch:
 
+env:
+  YARN_ENABLE_GLOBAL_CACHE: true
+
 jobs:
   test-web:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       TEST_ENDPOINT: app.onekeytest.com
 
@@ -21,7 +24,7 @@ jobs:
           echo "Executed at: $(date '+%Y-%m-%d %H:%M:%S')"
 
       - name: Checkout Source Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           lfs: true
 
@@ -41,12 +44,12 @@ jobs:
           sentry_dsn_ext: ${{ secrets.SENTRY_DSN_EXT }}
 
       - name: Setup Environment
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v6
         with:
           registry-url: 'https://npm.pkg.github.com'
-          always-auth: true
           scope: '@onekeyhq'
           node-version: '24.x'
+          cache: 'yarn'
 
       - name: Setup ENV
         run: |
@@ -61,32 +64,12 @@ jobs:
         id: yarn-cache-dir-path
         run: echo "dir=${{ github.workspace }}/.yarn" >> "$GITHUB_OUTPUT"
 
-      - name: Cache dependencies
-        uses: actions/cache@v4
-        id: yarn-cache
-        with:
-          path: |
-            ${{ steps.yarn-cache-dir-path.outputs.dir }}
-            **/node_modules
-          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock', '**/patches/**') }}
-          restore-keys: |
-            ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock', '**/patches/**') }}
-
       - name: Install Dependency
-        if: steps.yarn-cache.outputs.cache-hit != 'true'
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=4096'
         run: |
-          yarn
-
-      - name: Run postinstall only (cache hit)
-        if: steps.yarn-cache.outputs.cache-hit == 'true'
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NODE_OPTIONS: '--max_old_space_size=4096'
-        run: |
-          yarn postinstall
+          yarn install --immutable
 
       - name: Build Target
         env:
@@ -111,12 +94,12 @@ jobs:
           force_orphan: true
 
   build-production:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     if: ${{ !github.event.workflow_run || (github.event.workflow_run && github.event.workflow_run.conclusion == 'success') }}
     steps:
       - name: Checkout Source Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           lfs: true
 
@@ -136,12 +119,12 @@ jobs:
           sentry_dsn_ext: ${{ secrets.SENTRY_DSN_EXT }}
 
       - name: Setup Environment
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v6
         with:
           registry-url: 'https://npm.pkg.github.com'
-          always-auth: true
           scope: '@onekeyhq'
           node-version: '24.x'
+          cache: 'yarn'
 
       - name: Setup ENV
         run: |
@@ -156,32 +139,12 @@ jobs:
         id: yarn-cache-dir-path
         run: echo "dir=${{ github.workspace }}/.yarn" >> "$GITHUB_OUTPUT"
 
-      - name: Cache dependencies
-        uses: actions/cache@v4
-        id: yarn-cache
-        with:
-          path: |
-            ${{ steps.yarn-cache-dir-path.outputs.dir }}
-            **/node_modules
-          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock', '**/patches/**') }}
-          restore-keys: |
-            ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock', '**/patches/**') }}
-
       - name: Install Dependency
-        if: steps.yarn-cache.outputs.cache-hit != 'true'
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=4096'
         run: |
-          yarn
-
-      - name: Run postinstall only (cache hit)
-        if: steps.yarn-cache.outputs.cache-hit == 'true'
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NODE_OPTIONS: '--max_old_space_size=4096'
-        run: |
-          yarn postinstall
+          yarn install --immutable
 
       - name: Build Target
         env:
@@ -198,12 +161,12 @@ jobs:
             ./apps/web/web-build/
 
   notify:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [test-web, build-production]
     if: ${{ github.event.workflow_run && always() }}
     steps:
       - name: Checkout Source Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Run Shared Env Setup
         uses: ./.github/actions/shared-env

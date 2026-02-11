@@ -12,6 +12,7 @@ import {
   Tabs,
   XStack,
   YStack,
+  useScrollContentTabBarOffset,
   useTabContainerWidth,
 } from '@onekeyhq/components';
 import type { ITabBarItemProps } from '@onekeyhq/components/src/composite/Tabs/TabBar';
@@ -57,6 +58,7 @@ import { TxHistoryListContainerWithProvider } from './TxHistoryContainer';
 import WalletContentWithAuth from './WalletContentWithAuth';
 
 import type { LayoutChangeEvent } from 'react-native';
+import { DeFiContainerWithProvider } from './DeFiContainer';
 
 const networksSupportBulkRevokeApproval =
   getNetworksSupportBulkRevokeApproval();
@@ -67,16 +69,22 @@ interface IAndroidScrollContainerProps {
 const AndroidScrollContainer = platformEnv.isNativeAndroid
   ? ({ children }: IAndroidScrollContainerProps) => {
       const [height, setHeight] = useState(0);
-      const handleLayout = (event: LayoutChangeEvent) => {
-        setHeight(event.nativeEvent.layout.height);
-      };
+      const heightRef = useRef(0);
+      const handleLayout = useCallback((event: LayoutChangeEvent) => {
+        const h = Math.round(event.nativeEvent.layout.height);
+        if (h !== heightRef.current) {
+          heightRef.current = h;
+          setHeight(h);
+        }
+      }, []);
+      const contentContainerStyle = useMemo(() => ({ height }), [height]);
       return (
         <YStack flex={1} onLayout={handleLayout}>
           {height > 0 ? (
             <ScrollView
               nestedScrollEnabled
               refreshControl={<PullToRefresh onRefresh={onHomePageRefresh} />}
-              contentContainerStyle={{ height }}
+              contentContainerStyle={contentContainerStyle}
             >
               {children}
             </ScrollView>
@@ -96,6 +104,8 @@ export function HomePageView({
   onPressHide?: () => void;
   sceneName: EAccountSelectorSceneName;
 }) {
+  const tabBarHeight = useScrollContentTabBarOffset();
+  const tabContainerWidth = useTabContainerWidth();
   const intl = useIntl();
   const {
     activeAccount: {
@@ -123,7 +133,7 @@ export function HomePageView({
     ? intl.formatMessage({
         id: deriveInfo?.labelKey,
       })
-    : deriveInfo?.label ?? '';
+    : (deriveInfo?.label ?? '');
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [isHide, setIsHide] = useState(false);
@@ -157,6 +167,24 @@ export function HomePageView({
   const isNFTEnabled =
     vaultSettings?.NFTEnabled &&
     networkUtils.getEnabledNFTNetworkIds().includes(network?.id ?? '');
+
+  const [isDeFiEnabled, setIsDeFiEnabled] = useState(true);
+  useEffect(() => {
+    const checkDeFiEnabled = async () => {
+      if (!network?.id) {
+        setIsDeFiEnabled(false);
+        return;
+      }
+      if (networkUtils.isAllNetwork({ networkId: network.id })) {
+        setIsDeFiEnabled(true);
+        return;
+      }
+      const enabledNetworks =
+        await backgroundApiProxy.serviceDeFi.getDeFiEnabledNetworksMap();
+      setIsDeFiEnabled(!!enabledNetworks[network.id]);
+    };
+    void checkDeFiEnabled();
+  }, [network?.id]);
 
   const isWalletNotBackedUp = useMemo(() => {
     if (wallet && wallet.type === WALLET_TYPE_HD && !wallet.backuped) {
@@ -277,17 +305,24 @@ export function HomePageView({
     return <HomeHeaderContainer />;
   }, []);
 
-  const tabContainerWidth: any = useTabContainerWidth();
-
   const tabConfigs = useMemo(() => {
     return [
       {
         id: EHomeWalletTab.Portfolio,
         name: intl.formatMessage({
-          id: ETranslations.global_portfolio,
+          id: ETranslations.global_crypto,
         }),
         component: <PortfolioContainerWithProvider />,
       },
+      isDeFiEnabled
+        ? {
+            id: EHomeWalletTab.DeFi,
+            name: intl.formatMessage({
+              id: ETranslations.global_earn,
+            }),
+            component: <DeFiContainerWithProvider />,
+          }
+        : undefined,
       isNFTEnabled
         ? {
             id: EHomeWalletTab.NFT,
@@ -314,19 +349,24 @@ export function HomePageView({
           }
         : undefined,
     ].filter(Boolean);
-  }, [intl, isNFTEnabled, isBulkRevokeApprovalEnabled]);
+  }, [intl, isDeFiEnabled, isNFTEnabled, isBulkRevokeApprovalEnabled]);
+
+  const tabConfigsRef = useRef(tabConfigs);
+  tabConfigsRef.current = tabConfigs;
 
   const handleRenderItem = useCallback(
     (props: ITabBarItemProps) => {
-      const tabId = tabConfigs.find((i) => i.name === props.name)?.id;
+      const tabId = tabConfigsRef.current.find(
+        (i) => i.name === props.name,
+      )?.id;
       return (
         <XStack position="relative">
           <TabBarItem {...props} />
           {tabId === EHomeWalletTab.Approvals && hasRiskApprovals ? (
             <Stack
               position="absolute"
-              right={-6}
-              top={12}
+              right={8}
+              top={8}
               w="$1.5"
               h="$1.5"
               bg="$iconCritical"
@@ -336,13 +376,36 @@ export function HomePageView({
         </XStack>
       );
     },
-    [hasRiskApprovals, tabConfigs],
+    [hasRiskApprovals],
+  );
+
+  const renderToolbar = useCallback(
+    ({ focusedTab }: { focusedTab: string }) => (
+      <TabHeaderSettings focusedTab={focusedTab} />
+    ),
+    [],
+  );
+
+  const renderTabBar = useCallback(
+    (props: any) => (
+      <Tabs.TabBar
+        {...props}
+        variant="pill"
+        renderItem={handleRenderItem}
+        renderToolbar={renderToolbar}
+      />
+    ),
+    [handleRenderItem, renderToolbar],
   );
 
   const tabs = useMemo(() => {
     if (isWalletNotBackedUp) {
       return (
-        <ScrollView h="100%" nestedScrollEnabled={platformEnv.isNativeAndroid}>
+        <ScrollView
+          h="100%"
+          nestedScrollEnabled={platformEnv.isNativeAndroid}
+          contentContainerStyle={{ paddingBottom: tabBarHeight }}
+        >
           {renderHeader()}
           <NotBackedUpEmpty />
         </ScrollView>
@@ -350,23 +413,16 @@ export function HomePageView({
     }
     const key = `${account?.id ?? ''}-${account?.indexedAccountId ?? ''}-${
       network?.id ?? ''
-    }-${isNFTEnabled ? '1' : '0'}-${isBulkRevokeApprovalEnabled ? '1' : '0'}`;
+    }-${isDeFiEnabled ? '1' : '0'}-${isNFTEnabled ? '1' : '0'}-${isBulkRevokeApprovalEnabled ? '1' : '0'}`;
     return (
       <Tabs.Container
         ref={tabsRef as any}
         key={key}
         allowHeaderOverscroll
-        width={tabContainerWidth}
+        useNativeHeaderAnimation={platformEnv.isNativeAndroid}
+        width={platformEnv.isNative ? (tabContainerWidth as number) : undefined}
         renderHeader={renderHeader}
-        renderTabBar={(props: any) => (
-          <Tabs.TabBar
-            {...props}
-            renderItem={handleRenderItem}
-            renderToolbar={({ focusedTab }) => (
-              <TabHeaderSettings focusedTab={focusedTab} />
-            )}
-          />
-        )}
+        renderTabBar={renderTabBar}
       >
         {tabConfigs.map((tab) => (
           <Tabs.Tab key={tab.name} name={tab.name}>
@@ -376,16 +432,18 @@ export function HomePageView({
       </Tabs.Container>
     );
   }, [
+    tabBarHeight,
+    tabContainerWidth,
     account?.id,
     account?.indexedAccountId,
-    handleRenderItem,
     isBulkRevokeApprovalEnabled,
+    isDeFiEnabled,
     isNFTEnabled,
     isWalletNotBackedUp,
     network?.id,
     renderHeader,
+    renderTabBar,
     tabConfigs,
-    tabContainerWidth,
   ]);
 
   const handleSwitchWalletHomeTab = useCallback(
@@ -540,7 +598,11 @@ export function HomePageView({
     let content = (
       <ScrollView
         h="100%"
-        contentContainerStyle={{ justifyContent: 'center', flexGrow: 1 }}
+        contentContainerStyle={{
+          justifyContent: 'center',
+          flexGrow: 1,
+          pb: tabBarHeight,
+        }}
       >
         {platformEnv.isWebDappMode ? <WebDappEmptyView /> : <EmptyWallet />}
       </ScrollView>
@@ -557,26 +619,31 @@ export function HomePageView({
     return (
       <>
         <Page.Body>
-          {platformEnv.isNative ? (
-            <Stack h={tabPageHeight} />
-          ) : (
-            <TabPageHeader sceneName={sceneName} tabRoute={ETabRoutes.Home} />
-          )}
-          <NetworkAlert />
-          {content}
-          {platformEnv.isNative ? (
-            <YStack
-              position="absolute"
-              top={-20}
-              left={0}
-              bg="$bgApp"
-              pt="$5"
-              width="100%"
-              onLayout={handleTabPageLayout}
-            >
+          <Page.Container flex={1} padded={false}>
+            {platformEnv.isNative ? (
+              <Stack h={tabPageHeight} />
+            ) : (
               <TabPageHeader sceneName={sceneName} tabRoute={ETabRoutes.Home} />
-            </YStack>
-          ) : null}
+            )}
+            <NetworkAlert />
+            {content}
+            {platformEnv.isNative ? (
+              <YStack
+                position="absolute"
+                top={-20}
+                left={0}
+                bg="$bgApp"
+                pt="$5"
+                width="100%"
+                onLayout={handleTabPageLayout}
+              >
+                <TabPageHeader
+                  sceneName={sceneName}
+                  tabRoute={ETabRoutes.Home}
+                />
+              </YStack>
+            ) : null}
+          </Page.Container>
         </Page.Body>
       </>
     );
@@ -587,6 +654,7 @@ export function HomePageView({
     sceneName,
     handleTabPageLayout,
     homePageContent,
+    tabBarHeight,
   ]);
 
   return useMemo(() => {

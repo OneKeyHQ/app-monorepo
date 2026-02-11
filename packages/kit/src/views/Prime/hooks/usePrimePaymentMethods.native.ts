@@ -58,11 +58,16 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
       const { apiKey } = await getPrimePaymentApiKey({
         apiKeyType: 'native',
       });
-      PurchasesReactNative.configure({
-        apiKey,
-        // useAmazon: true
+      // Defer RevenueCat configure to avoid blocking main thread during startup.
+      // The native setupPurchases runs synchronously on main thread via TurboModule,
+      // and performs heavy JSON decoding of cached CustomerInfo causing 5s+ AppHang.
+      requestIdleCallback(() => {
+        PurchasesReactNative.configure({
+          apiKey,
+          // useAmazon: true
+        });
+        setIsPaymentReady(true);
       });
-      setIsPaymentReady(true);
     })();
   }, []);
 
@@ -242,9 +247,8 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
           throw new OneKeyLocalError('Offering not found');
         }
 
-        const makePurchaseResult = await PurchasesReactNative.purchasePackage(
-          offering,
-        );
+        const makePurchaseResult =
+          await PurchasesReactNative.purchasePackage(offering);
 
         if (
           makePurchaseResult?.customerInfo?.entitlements?.active?.Prime

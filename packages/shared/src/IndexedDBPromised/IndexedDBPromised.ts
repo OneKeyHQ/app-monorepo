@@ -51,9 +51,9 @@ export interface IDBInitOptions<DBTypes extends DBSchema | unknown = unknown> {
   }) => void;
 }
 
-export class IndexedDBPromised<DBTypes extends DBSchema | unknown = unknown>
-  implements IDBPDatabase<DBTypes>
-{
+export class IndexedDBPromised<
+  DBTypes extends DBSchema | unknown = unknown,
+> implements IDBPDatabase<DBTypes> {
   private bucketName: string;
 
   name: string;
@@ -288,6 +288,22 @@ export class IndexedDBPromised<DBTypes extends DBSchema | unknown = unknown>
     return store.getAllKeys(query, count);
   }
 
+  async getAllEntries<Name extends StoreNames<DBTypes>>(
+    storeName: Name,
+  ): Promise<Map<string, StoreValue<DBTypes, Name>>> {
+    const tx = await this.createBucketTransaction([storeName], 'readonly');
+    const store = tx.objectStore(storeName);
+    const [keys, values] = await Promise.all([
+      store.getAllKeys(),
+      store.getAll(),
+    ]);
+    const map = new Map<string, StoreValue<DBTypes, Name>>();
+    for (let i = 0; i < keys.length; i++) {
+      map.set(String(keys[i]), values[i]);
+    }
+    return map;
+  }
+
   async getAllKeysFromIndex<
     Name extends StoreNames<DBTypes>,
     IndexName extends IndexNames<DBTypes, Name>,
@@ -474,9 +490,8 @@ export class IndexedDBPromised<DBTypes extends DBSchema | unknown = unknown>
     bucketName: string;
     name: string;
   }): Promise<IDBDatabase> {
-    const dbFactory = await IndexedDBPromised.getBucketIndexedDBFactory(
-      bucketName,
-    );
+    const dbFactory =
+      await IndexedDBPromised.getBucketIndexedDBFactory(bucketName);
     const request: IDBOpenDBRequest = dbFactory.deleteDatabase(name);
     return indexedDBPromisedUtils.toPromiseResult({ request });
     // return new Promise((resolve, reject) => {

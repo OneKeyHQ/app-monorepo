@@ -135,10 +135,7 @@ function TxConfirmActions(props: IProps) {
   ).result;
 
   const { checkFeeInfoIsOverflow, showFeeInfoOverflowConfirm } =
-    usePreCheckFeeInfo({
-      accountId,
-      networkId,
-    });
+    usePreCheckFeeInfo();
 
   const submitTxs = useCallback(async () => {
     const { serviceSend, serviceAccount } = backgroundApiProxy;
@@ -260,6 +257,8 @@ function TxConfirmActions(props: IProps) {
     // fee info pre-check
     if (sendSelectedFeeInfo) {
       const isFeeInfoOverflow = await checkFeeInfoIsOverflow({
+        accountId,
+        networkId,
         feeAmount: sendSelectedFeeInfo.feeInfos?.[0]?.totalNative,
         feeSymbol:
           sendSelectedFeeInfo.feeInfos?.[0]?.feeInfo?.common?.nativeSymbol,
@@ -340,6 +339,12 @@ function TxConfirmActions(props: IProps) {
           swapInfo,
           stakingInfo,
         }),
+        txnParseType: isUndefined(result?.[0].decodedTx.txParseType)
+          ? undefined
+          : result?.[0].decodedTx.txParseType,
+        txnOrigin: isUndefined(sourceInfo?.origin)
+          ? undefined
+          : sourceInfo.origin,
         feeToken: isUndefined(sendSelectedFeeInfo?.feeInfos?.[0]?.totalNative)
           ? undefined
           : `${sendSelectedFeeInfo?.feeInfos?.[0]?.totalNative} ${nativeTokenInfo.info?.symbol}`,

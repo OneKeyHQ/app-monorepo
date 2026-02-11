@@ -19,6 +19,7 @@ type IRootStackType =
   | 'modal'
   | 'fullScreen'
   | 'iOSFullScreen'
+  | 'fullScreenPush'
   | 'onboarding';
 
 export interface IRootStackNavigatorConfig<
@@ -79,6 +80,7 @@ export function RootStackNavigator<
           return platformEnv.isNative
             ? makeFullScreenOptions()
             : makeModalScreenOptions({ isVerticalLayout, optionsInfo });
+        case 'fullScreenPush':
         case 'onboarding':
           return makeOnboardingScreenOptions({ isVerticalLayout, optionsInfo });
         default:
@@ -98,7 +100,9 @@ export function RootStackNavigator<
             name={name}
             component={component}
             options={(optionsInfo) => ({
-              ...options,
+              ...(typeof options === 'function'
+                ? options(optionsInfo as any)
+                : options),
               ...getOptionsWithType(type, optionsInfo),
             })}
           />

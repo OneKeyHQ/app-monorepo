@@ -487,9 +487,8 @@ export function PhaseInputArea({
     const mnemonicEncoded = await servicePassword.encodeSensitiveText({
       text: mnemonic,
     });
-    const { mnemonicType } = await serviceAccount.validateMnemonic(
-      mnemonicEncoded,
-    );
+    const { mnemonicType } =
+      await serviceAccount.validateMnemonic(mnemonicEncoded);
     onConfirm({ mnemonic: mnemonicEncoded, mnemonicType });
   }, [form, onConfirm, serviceAccount, servicePassword]);
 

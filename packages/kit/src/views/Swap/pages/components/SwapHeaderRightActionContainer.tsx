@@ -4,7 +4,7 @@ import BigNumber from 'bignumber.js';
 import { debounce } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import type { IPageNavigationProp } from '@onekeyhq/components';
+import type { ColorTokens, IPageNavigationProp } from '@onekeyhq/components';
 import {
   Badge,
   Button,
@@ -265,29 +265,35 @@ const SwapSettingsDialogContent = () => {
     () => (
       <SegmentControl
         value={slippageItem.key}
-        options={swapSlippageItems.map((item) => ({
-          label: (
-            <XStack>
-              {item.key === ESwapSlippageSegmentKey.AUTO ? (
-                <Icon
-                  name="Ai3StarOutline"
-                  size="$4.5"
-                  color="$iconSuccess"
-                  mr="$0.5"
-                />
-              ) : null}
-              <SizableText size="$bodyMdMedium">
-                {intl.formatMessage({
-                  id:
-                    item.key === ESwapSlippageSegmentKey.AUTO
-                      ? ETranslations.slippage_tolerance_switch_auto
-                      : ETranslations.slippage_tolerance_switch_custom,
-                })}
-              </SizableText>
-            </XStack>
-          ),
-          value: item.key,
-        }))}
+        options={swapSlippageItems.map((item) => {
+          const isActive = slippageItem.key === item.key;
+          return {
+            label: (
+              <XStack>
+                {item.key === ESwapSlippageSegmentKey.AUTO ? (
+                  <Icon
+                    name="Ai3StarOutline"
+                    size="$4.5"
+                    color={isActive ? '$iconInverse' : '$iconSuccess'}
+                    mr="$0.5"
+                  />
+                ) : null}
+                <SizableText
+                  size="$bodyMdMedium"
+                  color={isActive ? '$textInverse' : '$text'}
+                >
+                  {intl.formatMessage({
+                    id:
+                      item.key === ESwapSlippageSegmentKey.AUTO
+                        ? ETranslations.slippage_tolerance_switch_auto
+                        : ETranslations.slippage_tolerance_switch_custom,
+                  })}
+                </SizableText>
+              </XStack>
+            ),
+            value: item.key,
+          };
+        })}
         onChange={(value) => {
           const keyValue = value as ESwapSlippageSegmentKey;
           setNoPersistSettings((s) => ({
@@ -415,8 +421,12 @@ const SwapSettingsDialogContent = () => {
 
 const SwapHeaderRightActionContainer = ({
   pageType,
+  iconSize,
+  iconColor,
 }: {
   pageType?: EPageType;
+  iconSize?: number | `$${string}`;
+  iconColor?: ColorTokens;
 }) => {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
@@ -518,7 +528,7 @@ const SwapHeaderRightActionContainer = ({
         <HeaderIconButton
           icon="SliderHorOutline"
           onPress={onOpenSwapSettings}
-          iconProps={{ size: 24 }}
+          iconProps={{ size: iconSize ?? 20, color: iconColor }}
           size="medium"
         />
       )}
@@ -556,7 +566,7 @@ const SwapHeaderRightActionContainer = ({
         <HeaderIconButton
           icon="ClockTimeHistoryOutline"
           onPress={onOpenHistoryListModal}
-          iconProps={{ size: 24 }}
+          iconProps={{ size: iconSize ?? 20, color: iconColor ?? '$icon' }}
           size="medium"
         />
       )}

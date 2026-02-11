@@ -1,11 +1,15 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgChartTrending2 = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      fill="currentColor"
       fillRule="evenodd"
-      d="M4 3a1 1 0 0 1 1 1v10.586l2.543-2.543a2.77 2.77 0 0 1 3.914 0c.3.3.786.3 1.086 0l2.336-2.336a3 3 0 0 1 4.242 0l.586.586a1 1 0 0 1-1.414 1.414l-.586-.586a1 1 0 0 0-1.414 0l-2.336 2.336a2.77 2.77 0 0 1-3.914 0c-.3-.3-.786-.3-1.086 0L5 17.414V18a1 1 0 0 0 1 1h14a1 1 0 1 1 0 2H6a3 3 0 0 1-3-3V4a1 1 0 0 1 1-1"
+      d="M4 3a1 1 0 0 1 1 1v10.586L8.086 11.5a2 2 0 0 1 2.828 0L12 12.586 15.586 9a2 2 0 0 1 2.828 0l1.293 1.293a1 1 0 0 1-1.414 1.414L17 10.414 13.414 14a2 2 0 0 1-2.828 0L9.5 12.914l-4.5 4.5V19h15a1 1 0 1 1 0 2H5a2 2 0 0 1-2-2V4a1 1 0 0 1 1-1"
       clipRule="evenodd"
     />
   </Svg>

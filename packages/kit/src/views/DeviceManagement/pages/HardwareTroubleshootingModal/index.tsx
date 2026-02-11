@@ -34,7 +34,11 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  openUrlExternal,
+  openUrlInDiscovery,
+} from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -101,13 +105,6 @@ function HardwareTroubleshootingModal() {
     () => [
       {
         title: intl.formatMessage({
-          id: ETranslations.global_faqs_firmware_detection,
-        }),
-        icon: 'ErrorOutline',
-        link: 'https://help.onekey.so/articles/11461120',
-      },
-      {
-        title: intl.formatMessage({
           id: ETranslations.global_faqs_forgot_pin,
         }),
         icon: 'UnlockedOutline',
@@ -129,13 +126,6 @@ function HardwareTroubleshootingModal() {
       },
       {
         title: intl.formatMessage({
-          id: ETranslations.global_faqs_bridge_download,
-        }),
-        icon: 'DownloadOutline',
-        link: 'https://help.onekey.so/articles/11461117',
-      },
-      {
-        title: intl.formatMessage({
           id: ETranslations.global_faqs_bluetooth_status,
         }),
         icon: 'BluetoothOutline',
@@ -146,7 +136,11 @@ function HardwareTroubleshootingModal() {
   );
 
   const handleFaqItemPress = useCallback((link: string) => {
-    openUrlExternal(link);
+    if (platformEnv.isDesktop || platformEnv.isNative) {
+      openUrlInDiscovery({ url: link });
+    } else {
+      openUrlExternal(link);
+    }
   }, []);
 
   const renderHeader = useCallback(() => {
@@ -217,8 +211,13 @@ function HardwareTroubleshootingModal() {
             <Button
               variant="tertiary"
               size="small"
-              iconAfter="OpenOutline"
-              onPress={() => openUrlExternal(HELP_CENTER_HARDWARE_FAQ_URL)}
+              onPress={() => {
+                if (platformEnv.isDesktop || platformEnv.isNative) {
+                  openUrlInDiscovery({ url: HELP_CENTER_HARDWARE_FAQ_URL });
+                } else {
+                  openUrlExternal(HELP_CENTER_HARDWARE_FAQ_URL);
+                }
+              }}
             >
               {intl.formatMessage({
                 id: ETranslations.global_more,
@@ -234,13 +233,7 @@ function HardwareTroubleshootingModal() {
             mb="$3"
           >
             {hardwareTroubleshootingQuestions.map((_, i) => (
-              <Stack
-                key={i}
-                pl={10}
-                pt={10}
-                flexBasis={media.gtMd ? '33.333%' : '50%'}
-                height="auto"
-              >
+              <Stack key={i} pl={10} pt={10} flexBasis="50%" height="auto">
                 <YStack
                   flex={1}
                   role="button"
@@ -322,7 +315,13 @@ function HardwareTroubleshootingModal() {
         onConfirm={() => {
           void showIntercom();
         }}
-        onCancel={(_pop) => openUrlExternal(HELP_CENTER_URL)}
+        onCancel={(_pop) => {
+          if (platformEnv.isDesktop || platformEnv.isNative) {
+            openUrlInDiscovery({ url: HELP_CENTER_URL });
+          } else {
+            openUrlExternal(HELP_CENTER_URL);
+          }
+        }}
       />
     </Page>
   );

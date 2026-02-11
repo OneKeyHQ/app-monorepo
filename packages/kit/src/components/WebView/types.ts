@@ -29,8 +29,7 @@ export type IWebViewOnScrollEvent =
   IFirstParameterOrUndefined<IWebViewOnScroll>;
 
 export interface IInpageProviderWebViewProps
-  extends IElectronWebViewEvents,
-    InpageWebViewProps {
+  extends IElectronWebViewEvents, InpageWebViewProps {
   id?: string;
   onNavigationStateChange?: (event: any) => void;
   onShouldStartLoadWithRequest?: (event: any) => boolean;

@@ -159,7 +159,7 @@ const SwapInputContainer = ({
     );
     return tokenFiatValueBN.isNaN()
       ? '0.0'
-      : `${tokenFiatValueBN.decimalPlaces(6, BigNumber.ROUND_DOWN).toFixed()}`;
+      : tokenFiatValueBN.decimalPlaces(6, BigNumber.ROUND_DOWN).toFixed();
   }, [amountValue, token?.price]);
 
   const [fromToken] = useSwapSelectFromTokenAtom();

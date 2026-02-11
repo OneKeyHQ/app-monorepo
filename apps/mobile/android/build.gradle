@@ -72,6 +72,11 @@ allprojects {
             // All of React Native (JS, Obj-C sources, Android binaries) is installed from npm
             url(reactNativeAndroidDir)
         }
+        // Detox Android AAR is shipped as a local maven repo under node_modules.
+        // This keeps the Java/Kotlin dependency aligned with the JS detox version.
+        maven {
+            url "$rootDir/../../../node_modules/detox/Detox-android"
+        }
         maven {
             url "$rootDir/../../../node_modules/@notifee/react-native/android/libs"
         }

@@ -9,7 +9,6 @@ import {
   Skeleton,
   XStack,
   YStack,
-  useMedia,
 } from '@onekeyhq/components';
 import type { IDialogInstance } from '@onekeyhq/components';
 import {
@@ -27,13 +26,11 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { perfMark } from '@onekeyhq/shared/src/performance/mark';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { numberFormatAsRenderText } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { calculateAccountTokensValue } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EHomeTab } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { AllNetworksManagerTrigger } from '../../../components/AccountSelector/AllNetworksManagerTrigger';
 import NumberSizeableTextWrapper from '../../../components/NumberSizeableTextWrapper';
 import { showResourceDetailsDialog } from '../../../components/Resource';
 import { useDebounce } from '../../../hooks/useDebounce';
@@ -46,8 +43,6 @@ import {
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { showBalanceDetailsDialog } from '../components/BalanceDetailsDialog';
 
-import type { FontSizeTokens } from 'tamagui';
-
 function HomeOverviewContainer() {
   const num = 0;
   const {
@@ -58,6 +53,7 @@ function HomeOverviewContainer() {
   const [isRefreshingWorth, setIsRefreshingWorth] = useState(false);
   const [isRefreshingTokenList, setIsRefreshingTokenList] = useState(false);
   const [isRefreshingNftList, setIsRefreshingNftList] = useState(false);
+  const [isRefreshingDeFiList, setIsRefreshingDeFiList] = useState(false);
   const [isRefreshingHistoryList, setIsRefreshingHistoryList] = useState(false);
   const [isRefreshingApprovalList, setIsRefreshingApprovalList] =
     useState(false);
@@ -151,6 +147,7 @@ function HomeOverviewContainer() {
         setIsRefreshingHistoryList(isRefreshing);
         setIsRefreshingApprovalList(isRefreshing);
         setIsRefreshingWorth(isRefreshing);
+        setIsRefreshingDeFiList(isRefreshing);
         return;
       }
 
@@ -162,6 +159,8 @@ function HomeOverviewContainer() {
         setIsRefreshingHistoryList(isRefreshing);
       } else if (type === EHomeTab.APPROVALS) {
         setIsRefreshingApprovalList(isRefreshing);
+      } else if (type === EHomeTab.DEFI) {
+        setIsRefreshingDeFiList(isRefreshing);
       }
       setIsRefreshingWorth(isRefreshing);
       if (isRefreshing) {
@@ -268,7 +267,6 @@ function HomeOverviewContainer() {
     wallet,
   ]);
 
-  const { md } = useMedia();
   const balanceDialogInstance = useRef<IDialogInstance | null>(null);
   const resourceDialogInstance = useRef<IDialogInstance | null>(null);
 
@@ -284,7 +282,8 @@ function HomeOverviewContainer() {
     isRefreshingTokenList ||
     isRefreshingNftList ||
     isRefreshingHistoryList ||
-    isRefreshingApprovalList;
+    isRefreshingApprovalList ||
+    isRefreshingDeFiList;
 
   const refreshButton = useMemo(() => {
     return platformEnv.isNative || isWalletNotBackedUp ? undefined : (
@@ -352,11 +351,6 @@ function HomeOverviewContainer() {
 
   const debouncedBalanceString = useDebounce(balanceString, 100);
 
-  const balanceSizeList: { length: number; size: FontSizeTokens }[] = [
-    { length: 17, size: '$headingXl' },
-    { length: 13, size: '$heading4xl' },
-  ];
-  const defaultBalanceSize = '$heading5xl';
   const numberFormatter: INumberFormatProps = {
     formatter: 'value',
     formatterOptions: { currency: settings.currencyInfo.symbol },
@@ -369,13 +363,6 @@ function HomeOverviewContainer() {
   return (
     <YStack gap="$2.5" alignItems="flex-start">
       <YStack w="100%" gap="$2">
-        <AllNetworksManagerTrigger
-          num={0}
-          containerProps={{
-            ml: '$1',
-          }}
-          showSkeleton={showSkeleton}
-        />
         {showSkeleton ? (
           <Skeleton.Heading5Xl my="$-0.5" />
         ) : (
@@ -405,20 +392,13 @@ function HomeOverviewContainer() {
             >
               <NumberSizeableTextWrapper
                 hideValue
+                splitDecimal
                 flexShrink={1}
                 minWidth={0}
+                fontSize={48}
+                lineHeight={48}
+                fontWeight={500}
                 {...numberFormatter}
-                size={
-                  md
-                    ? balanceSizeList.find(
-                        (item) =>
-                          numberFormatAsRenderText(
-                            String(debouncedBalanceString),
-                            numberFormatter,
-                          ).length >= item.length,
-                      )?.size ?? defaultBalanceSize
-                    : defaultBalanceSize
-                }
               >
                 {debouncedBalanceString}
               </NumberSizeableTextWrapper>

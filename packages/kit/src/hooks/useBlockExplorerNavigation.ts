@@ -7,7 +7,6 @@ import {
   EModalRoutes,
   EModalWalletAddressRoutes,
 } from '@onekeyhq/shared/src/routes';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import { EWalletAddressActionType } from '@onekeyhq/shared/types/address';
 
@@ -23,10 +22,8 @@ export const useBlockExplorerNavigation = (
   const appNavigation = useAppNavigation();
 
   const requiresNetworkSelection = useMemo(
-    () =>
-      network?.isAllNetworks &&
-      !accountUtils.isOthersWallet({ walletId: walletId ?? '' }),
-    [network?.isAllNetworks, walletId],
+    () => network?.isAllNetworks,
+    [network?.isAllNetworks],
   );
 
   const openExplorer = useCallback(

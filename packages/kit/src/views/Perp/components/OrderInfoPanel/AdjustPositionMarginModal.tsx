@@ -221,7 +221,7 @@ const AdjustPositionMarginForm = memo(
           width: 120,
         }}
         renderTrigger={({ label: selectedLabel }) => (
-          <XStack alignItems="center" gap="$1" cursor="pointer">
+          <XStack alignItems="center" gap="$1" cursor="default">
             <SizableText size="$bodyMdMedium" color="$textSubdued">
               {selectedLabel}
             </SizableText>
@@ -316,7 +316,6 @@ const AdjustPositionMarginForm = memo(
                 <SizableText
                   size="$bodyMd"
                   color="$textInteractive"
-                  cursor="pointer"
                   onPress={handleMaxPress}
                 >
                   {appLocale.intl.formatMessage({

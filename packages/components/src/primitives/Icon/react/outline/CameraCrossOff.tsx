@@ -1,14 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgCameraCrossOff = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M9.998 11.5 14 15.502m.002-4.002L10 15.502M6.43 7H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-1.43a2 2 0 0 1-1.664-.89l-.812-1.22A2 2 0 0 0 13.43 4h-2.86a2 2 0 0 0-1.664.89l-.812 1.22A2 2 0 0 1 6.43 7"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M17.035 8a2 2 0 0 1-1.664-.89L13.965 5h-3.93L8.63 7.11A2 2 0 0 1 6.965 8H4v11h16V8zm-3.74 2.793a1 1 0 0 1 1.414 1.414l-1.295 1.295 1.293 1.293a1 1 0 0 1-1.414 1.414L12 14.916l-1.293 1.293a1 1 0 0 1-1.414-1.414l1.293-1.293-1.295-1.295a1 1 0 0 1 1.414-1.414L12 12.088zM22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h2.965L8.37 3.89A2 2 0 0 1 10.035 3h3.93a2 2 0 0 1 1.664.89L17.035 6H20a2 2 0 0 1 2 2z" />
   </Svg>
 );
 export default SvgCameraCrossOff;

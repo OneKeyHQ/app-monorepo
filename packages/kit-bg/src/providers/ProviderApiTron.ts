@@ -43,9 +43,8 @@ class ProviderApiTron extends ProviderApiBase {
   public providerName = IInjectedProviderNames.tron;
 
   async tron_chainId(request: IJsBridgeMessagePayload) {
-    const networks = await this.backgroundApi.serviceDApp.getConnectedNetworks(
-      request,
-    );
+    const networks =
+      await this.backgroundApi.serviceDApp.getConnectedNetworks(request);
     if (!isNil(networks?.[0]?.chainId)) {
       return hexUtils.hexlify(Number(networks?.[0]?.chainId));
     }
@@ -153,9 +152,8 @@ class ProviderApiTron extends ProviderApiBase {
   async tron_nodes(request: IJsBridgeMessagePayload) {
     let url = '';
 
-    const networks = await this.backgroundApi.serviceDApp.getConnectedNetworks(
-      request,
-    );
+    const networks =
+      await this.backgroundApi.serviceDApp.getConnectedNetworks(request);
 
     if (networks[0]) {
       url = networks[0].isTestnet

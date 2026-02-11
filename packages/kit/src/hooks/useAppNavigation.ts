@@ -8,7 +8,7 @@ import {
   popToTabRootScreen,
   rootNavigationRef,
   switchTab,
-  useIsTabletMainView,
+  useSplitMainView,
 } from '@onekeyhq/components';
 import type {
   IModalNavigationProp,
@@ -80,14 +80,13 @@ let lastPushAbleNavigation:
 const PUSH_MODAL_LOCK_DURATION_MS = 300;
 
 function useAppNavigation<
-  P extends
-    | IPageNavigationProp<any>
-    | IModalNavigationProp<any> = IPageNavigationProp<any>,
+  P extends IPageNavigationProp<any> | IModalNavigationProp<any> =
+    IPageNavigationProp<any>,
 >() {
   // rootNavigationRef
   const navigation = useNavigation<P>();
   const navigationRef = useRef(navigation);
-  const isTabletMainView = useIsTabletMainView();
+  const isTabletMainView = useSplitMainView();
   const pushModalLockRef = useRef(false);
 
   if (navigationRef.current !== navigation) {

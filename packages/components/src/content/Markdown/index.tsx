@@ -121,7 +121,7 @@ export function Markdown({ children }: { children: string }) {
           color: '$text',
           size: gtMd ? '$bodyMd' : '$bodyLg',
         } as ISizableTextProps,
-      } as MarkdownProps['style']),
+      }) as MarkdownProps['style'],
     [gtMd],
   );
   return (

@@ -203,7 +203,12 @@ export class SimpleDbEntityAggregateToken extends SimpleDbEntityBase<ISimpleDBAg
         ? { ...rawData?.allAggregateTokenMap, ...allAggregateTokenMap }
         : allAggregateTokenMap,
       allAggregateTokens: merge
-        ? { ...rawData?.allAggregateTokens, ...allAggregateTokens }
+        ? [
+            ...(Array.isArray(rawData?.allAggregateTokens)
+              ? rawData.allAggregateTokens
+              : []),
+            ...(Array.isArray(allAggregateTokens) ? allAggregateTokens : []),
+          ]
         : allAggregateTokens,
       aggregateTokenConfigMap: merge
         ? { ...rawData?.aggregateTokenConfigMap, ...aggregateTokenConfigMap }

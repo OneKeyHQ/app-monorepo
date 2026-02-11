@@ -3,7 +3,6 @@
 import path from 'path';
 
 import { EOneKeyBleMessageKeys } from '@onekeyfe/hd-shared';
-import { Titlebar, TitlebarColor } from 'custom-electron-titlebar';
 import { ipcRenderer, nativeImage } from 'electron';
 
 import type { DesktopApiProxy } from '@onekeyhq/kit-bg/src/desktopApis/instance/desktopApiProxy';
@@ -40,7 +39,6 @@ type IDesktopAPILegacy = {
   ready: () => void;
   onAppState: (cb: (state: IDesktopAppState) => void) => () => void;
   isFocused: () => boolean;
-  changeTheme: (theme: string) => void;
 
   addIpcEventListener: (
     event: string,
@@ -79,6 +77,15 @@ type IDesktopAPILegacy = {
   setSystemIdleTime: (idleTime: number, cb?: () => void) => void;
   testCrash: () => void;
   nobleBle: NobleBleAPI;
+  getCpuUsage: () => Promise<{ usage: number }>;
+  getMemoryUsage: () => Promise<{
+    private: number;
+    residentSet: number | undefined;
+    blink: {
+      allocated: string;
+      total: string;
+    };
+  }>;
 };
 declare global {
   // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -148,8 +155,6 @@ const getChannel = () => {
   return channel;
 };
 
-let globalTitleBar: Titlebar | null = null;
-
 const isDev = ipcRenderer.sendSync(ipcMessageKeys.IS_DEV);
 // packages/components/tamagui.config.ts
 // lightColors.bgApp
@@ -159,27 +164,6 @@ const lightColor = '#ffffff';
 const darkColor = '#0f0f0f';
 
 const isMac = process.platform === 'darwin';
-
-const updateGlobalTitleBarBackgroundColor = () => {
-  if (globalTitleBar) {
-    setTimeout(() => {
-      let color = lightColor;
-      const theme = localStorage.getItem('ONEKEY_THEME_PRELOAD');
-      if (theme === 'dark') {
-        color = darkColor;
-      } else if (theme === 'light') {
-        color = lightColor;
-      } else if (globalThis.matchMedia) {
-        color = globalThis.matchMedia('(prefers-color-scheme: dark)').matches
-          ? darkColor
-          : lightColor;
-      } else {
-        color = lightColor;
-      }
-      globalTitleBar?.updateBackground(TitlebarColor.fromHex(color));
-    }, 0);
-  }
-};
 
 const desktopApi: IDesktopAPILegacy = Object.freeze({
   on: (channel: string, func: (...args: any[]) => any) => {
@@ -214,10 +198,6 @@ const desktopApi: IDesktopAPILegacy = Object.freeze({
     return () => {
       ipcRenderer.removeListener(ipcMessageKeys.APP_STATE, handler);
     };
-  },
-  changeTheme: (theme: string) => {
-    ipcRenderer.send(ipcMessageKeys.THEME_UPDATE, theme);
-    updateGlobalTitleBarBackgroundColor();
   },
   isFocused: () => ipcRenderer.sendSync(ipcMessageKeys.APP_IS_FOCUSED),
   testCrash: () => ipcRenderer.send(ipcMessageKeys.APP_TEST_CRASH),
@@ -330,26 +310,11 @@ const desktopApi: IDesktopAPILegacy = Object.freeze({
     checkAvailability: () =>
       ipcRenderer.invoke(EOneKeyBleMessageKeys.BLE_AVAILABILITY_CHECK),
   },
+  getCpuUsage: () => ipcRenderer.invoke(ipcMessageKeys.SYSTEM_GET_CPU_USAGE),
+  getMemoryUsage: () =>
+    ipcRenderer.invoke(ipcMessageKeys.SYSTEM_GET_MEMORY_USAGE),
 });
 
 globalThis.desktopApi = desktopApi;
 // contextBridge.exposeInMainWorld('desktopApi', desktopApi);
 globalThis.desktopApiProxy = desktopApiProxy;
-
-if (!isMac) {
-  globalThis.addEventListener('DOMContentLoaded', () => {
-    // eslint-disable-next-line no-new
-    globalTitleBar = new Titlebar({
-      icon: nativeImage.createFromPath(
-        path.join(
-          __dirname,
-          isDev
-            ? '../public/static/images/icons/round_icon.png'
-            : '../build/static/images/icons/round_icon.png',
-        ),
-      ),
-    });
-    globalTitleBar.updateTitle('');
-    updateGlobalTitleBarBackgroundColor();
-  });
-}

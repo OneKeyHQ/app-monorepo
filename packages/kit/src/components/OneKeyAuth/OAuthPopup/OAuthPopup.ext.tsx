@@ -119,9 +119,8 @@ export class OAuthPopup extends OAuthPopupBase {
     try {
       const { authUrl: oauthUrl, signInParams } =
         await flowBuilder.getAuthUrl();
-      const callbackUrl = await OAuthPopup.launchWebAuthFlowWithTimeout(
-        oauthUrl,
-      );
+      const callbackUrl =
+        await OAuthPopup.launchWebAuthFlowWithTimeout(oauthUrl);
 
       if (!callbackUrl) {
         throw new OneKeyLocalError(

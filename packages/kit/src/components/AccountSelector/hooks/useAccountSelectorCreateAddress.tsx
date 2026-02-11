@@ -18,6 +18,7 @@ import type {
 import type { IWithHardwareProcessingControlParams } from '@onekeyhq/kit-bg/src/services/ServiceHardwareUI/ServiceHardwareUI';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { FIRMWARE_UPDATE_WEB_TOOLS_URL } from '@onekeyhq/shared/src/config/appConfig';
+import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import { OneKeyErrorAirGapAccountNotFound } from '@onekeyhq/shared/src/errors/errors/appErrors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
@@ -27,7 +28,6 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useHelpLink } from '../../../hooks/useHelpLink';
 import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector';
 import { TutorialsList } from '../../TutorialsList';
 
@@ -39,7 +39,6 @@ export function useAccountSelectorCreateAddress() {
   const intl = useIntl();
   const actions = useAccountSelectorActions();
   const { createQrWalletAccount } = useCreateQrWallet();
-  const requestsUrl = useHelpLink({ path: 'requests/new' });
 
   const createAddress = useCallback(
     async ({
@@ -249,10 +248,7 @@ export function useAccountSelectorCreateAddress() {
                           id: ETranslations.contact_us_instruction,
                         })}
                       </SizableText>
-                      <Button
-                        variant="tertiary"
-                        onPress={() => Linking.openURL(requestsUrl)}
-                      >
+                      <Button variant="tertiary" onPress={() => showIntercom()}>
                         {intl.formatMessage({
                           id: ETranslations.global_contact_us,
                         })}
@@ -274,7 +270,6 @@ export function useAccountSelectorCreateAddress() {
       actions,
       createQrWalletAccount,
       intl,
-      requestsUrl,
       serviceAccount,
       serviceBatchCreateAccount,
       serviceHardwareUI,

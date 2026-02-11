@@ -9,6 +9,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 
+import { FavoritesBar } from '../components/FavoritesBar/FavoritesBar.web';
 import { PerpOrderInfoPanel } from '../components/OrderInfoPanel/PerpOrderInfoPanel';
 import { PerpCandles } from '../components/PerpCandles';
 import { PerpOrderBook } from '../components/PerpOrderBook';
@@ -25,10 +26,14 @@ function PerpDesktopLayout() {
   const [isOrderBookVisible, setIsOrderBookVisible] = useState(true);
   return (
     <ScrollView flex={1}>
-      <YStack bg="$bgApp">
+      <YStack>
         <PerpTips />
-        <PerpTickerBar />
-        <XStack flex={1}>
+        <FavoritesBar />
+        <XStack
+          flex={1}
+          borderBottomWidth="$px"
+          borderBottomColor="$borderSubdued"
+        >
           <YStack
             flex={1}
             borderRightWidth="$px"
@@ -36,61 +41,64 @@ function PerpDesktopLayout() {
             width="75%"
           >
             {/* Charts Section */}
-            <XStack
+            <YStack
               flex={7}
               borderBottomWidth="$px"
               borderBottomColor="$borderSubdued"
             >
-              <YStack flex={1} minHeight={600} position="relative">
-                <YStack flex={1} pr={6}>
-                  <PerpCandles />
+              <PerpTickerBar />
+              <XStack flex={1} overflow="hidden">
+                <YStack flex={1} minHeight={600} position="relative">
+                  <YStack flex={1} pr={6}>
+                    <PerpCandles />
+                  </YStack>
+                  {gtXl ? (
+                    <Stack
+                      position="absolute"
+                      top="50%"
+                      right={isOrderBookVisible ? -4 : 3.5}
+                      zIndex={2}
+                      marginTop={-2}
+                    >
+                      <IconButton
+                        icon={
+                          isOrderBookVisible
+                            ? 'ChevronRightSmallSolid'
+                            : 'ChevronLeftSmallSolid'
+                        }
+                        size="small"
+                        variant="tertiary"
+                        bg="$bg"
+                        borderWidth="$px"
+                        borderColor="$borderSubdued"
+                        borderRadius="$1"
+                        p="$0"
+                        h={30}
+                        w={16}
+                        cursor="default"
+                        hoverStyle={{
+                          borderColor: '$border',
+                        }}
+                        pressStyle={{
+                          borderColor: '$border',
+                        }}
+                        onPress={() => setIsOrderBookVisible((prev) => !prev)}
+                      />
+                    </Stack>
+                  ) : null}
                 </YStack>
-                {gtXl ? (
-                  <Stack
-                    position="absolute"
-                    top="50%"
-                    right={isOrderBookVisible ? -4 : 3.5}
-                    zIndex={2}
-                    marginTop={-2}
-                  >
-                    <IconButton
-                      icon={
-                        isOrderBookVisible
-                          ? 'ChevronRightSmallSolid'
-                          : 'ChevronLeftSmallSolid'
-                      }
-                      size="small"
-                      variant="tertiary"
-                      bg="$bg"
-                      borderWidth="$px"
-                      borderColor="$borderSubdued"
-                      borderRadius="$1"
-                      p="$0"
-                      h={30}
-                      w={16}
-                      hoverStyle={{
-                        borderColor: '$border',
-                      }}
-                      pressStyle={{
-                        borderColor: '$border',
-                      }}
-                      cursor="pointer"
-                      onPress={() => setIsOrderBookVisible((prev) => !prev)}
-                    />
-                  </Stack>
-                ) : null}
-              </YStack>
 
-              {gtXl && isOrderBookVisible ? (
-                <YStack
-                  borderLeftWidth="$px"
-                  borderLeftColor="$borderSubdued"
-                  w={250}
-                >
-                  <PerpOrderBook />
-                </YStack>
-              ) : null}
-            </XStack>
+                {gtXl && isOrderBookVisible ? (
+                  <YStack
+                    borderLeftWidth="$px"
+                    borderLeftColor="$borderSubdued"
+                    w={250}
+                  >
+                    <PerpOrderBook />
+                  </YStack>
+                ) : null}
+              </XStack>
+            </YStack>
             {/* Positions Section */}
             <YStack flex={1} overflow="hidden">
               <PerpOrderInfoPanel />

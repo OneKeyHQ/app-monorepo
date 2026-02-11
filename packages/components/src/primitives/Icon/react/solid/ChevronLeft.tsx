@@ -1,13 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgChevronLeft = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      fill="currentColor"
-      fillRule="evenodd"
-      d="M15.707 3.293a1 1 0 0 1 0 1.414l-6.586 6.586a1 1 0 0 0 0 1.414l6.586 6.586a1 1 0 0 1-1.414 1.414l-6.586-6.586a3 3 0 0 1 0-4.242l6.586-6.586a1 1 0 0 1 1.414 0"
-      clipRule="evenodd"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M9.364 16.669a.992.992 0 0 0 1.403-1.403L7.5 12l3.267-3.266A.992.992 0 0 0 9.364 7.33l-3.441 3.442a1.735 1.735 0 0 0 0 2.454zm6.943 0a.992.992 0 1 0 1.402-1.403L14.443 12l3.266-3.266a.992.992 0 0 0-1.402-1.403l-3.441 3.442a1.736 1.736 0 0 0 0 2.454z" />
   </Svg>
 );
 export default SvgChevronLeft;

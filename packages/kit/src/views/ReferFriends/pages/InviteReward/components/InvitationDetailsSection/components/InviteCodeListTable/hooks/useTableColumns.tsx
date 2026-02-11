@@ -213,8 +213,21 @@ export function useTableColumns(
     [onSortChange],
   );
 
+  // Split columns into fixed and scrollable
+  const fixedColumns = useMemo(
+    () => columns.filter((col) => col.dataIndex === 'code'),
+    [columns],
+  );
+
+  const scrollableColumns = useMemo(
+    () => columns.filter((col) => col.dataIndex !== 'code'),
+    [columns],
+  );
+
   return {
     columns,
+    fixedColumns,
+    scrollableColumns,
     handleHeaderRow,
     shouldUseFlex,
   };

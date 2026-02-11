@@ -90,9 +90,6 @@ export interface IMarketTokenDetail {
   vSell24h?: string;
   lastUpdated?: number;
   communityRecognized?: boolean;
-  perpsInfo?: {
-    hlTicker: string;
-  };
   [key: string]: unknown;
 }
 
@@ -184,6 +181,7 @@ export interface IMarketTokenListItem {
   liquidity?: string;
   chainId?: string;
   communityRecognized?: boolean;
+  isNative?: boolean;
 }
 
 export interface IMarketTokenListResponse {
@@ -343,6 +341,38 @@ export interface IMarketBasicConfigData {
   feature?: IMarketBasicConfigFeature;
   lowLiquidKlineSourceTokens?: IMarketBasicConfigLowLiquidKlineSourceToken[];
   HyperLiquidKlineSourceTokens?: IMarketBasicConfigHyperLiquidKlineSourceToken[];
+  perpsCategories?: IMarketPerpsCategory[];
+}
+
+export interface IMarketPerpsCategory {
+  /** Unique category identifier, e.g. "crypto", "stock", "commodity" */
+  categoryId: string;
+  /** Localized display name, e.g. "Crypto", "Stocks" */
+  name: string;
+}
+
+export interface IMarketPerpsTokenFromServer {
+  name: string;
+  displayName: string;
+  maxLeverage: number;
+  tokenImageUrl: string;
+  markPrice: string;
+  prevDayPrice: string;
+  change24hPercent: number;
+  volume24h: string;
+  openInterest: string;
+  fundingRate: string;
+}
+
+export interface IMarketPerpsTokenListData {
+  tokens: IMarketPerpsTokenFromServer[];
+  updatedAt: number;
+}
+
+export interface IMarketPerpsTokenListResponse {
+  code: number;
+  message: string;
+  data: IMarketPerpsTokenListData;
 }
 
 export interface IMarketBasicConfigResponse {
@@ -356,9 +386,14 @@ export interface IMarketTokenDetailWebsocket {
   kline: boolean;
 }
 
+export interface IMarketPerpsInfo {
+  hlTicker: string;
+}
+
 export interface IMarketTokenDetailData {
   token: IMarketTokenDetail;
   websocket: IMarketTokenDetailWebsocket;
+  perpsInfo?: IMarketPerpsInfo;
 }
 
 export interface IMarketTokenDetailResponse {

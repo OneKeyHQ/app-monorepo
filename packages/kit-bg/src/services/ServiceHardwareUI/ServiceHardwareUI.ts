@@ -63,6 +63,8 @@ export type ICloseHardwareUiStateDialogParams = {
 
 @backgroundClass()
 class ServiceHardwareUI extends ServiceBase {
+  private deviceCacheByConnectId: Map<string, IDBDevice> = new Map();
+
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
   }
@@ -95,6 +97,62 @@ class ServiceHardwareUI extends ServiceBase {
     });
   }
 
+  private async getDeviceCached(
+    connectId: string,
+  ): Promise<IDBDevice | undefined> {
+    const cached = this.deviceCacheByConnectId.get(connectId);
+    if (cached) {
+      return cached;
+    }
+    const device =
+      await this.backgroundApi.serviceHardware.getDeviceByConnectId({
+        connectId,
+      });
+    if (device) {
+      this.deviceCacheByConnectId.set(connectId, device);
+    }
+    return device;
+  }
+
+  private async updateDialogWithDeviceInfo({
+    action,
+    connectId,
+  }: {
+    action: EHardwareUiStateAction;
+    connectId: string;
+  }) {
+    try {
+      const device = await this.getDeviceCached(connectId);
+      if (!device) {
+        return;
+      }
+      const currentState = await hardwareUiStateAtom.get();
+      if (
+        currentState?.action !== action ||
+        currentState?.connectId !== connectId
+      ) {
+        return;
+      }
+      await hardwareUiStateAtom.set({
+        action,
+        connectId,
+        payload: {
+          uiRequestType: action,
+          eventType: '',
+          deviceType: device.deviceType,
+          deviceId: device.deviceId ?? '',
+          connectId,
+          deviceMode: EOneKeyDeviceMode.normal,
+          rawPayload: {
+            features: device.featuresInfo,
+          },
+        },
+      });
+    } catch {
+      // ignore error, device info is optional for display
+    }
+  }
+
   @backgroundMethod()
   async showCheckingDeviceDialog({ connectId }: { connectId: string }) {
     await hardwareUiStateAtom.set({
@@ -102,6 +160,12 @@ class ServiceHardwareUI extends ServiceBase {
       connectId,
       payload: undefined,
     });
+    if (connectId) {
+      void this.updateDialogWithDeviceInfo({
+        action: EHardwareUiStateAction.DeviceChecking,
+        connectId,
+      });
+    }
   }
 
   @backgroundMethod()
@@ -111,6 +175,12 @@ class ServiceHardwareUI extends ServiceBase {
       connectId,
       payload: undefined,
     });
+    if (connectId) {
+      void this.updateDialogWithDeviceInfo({
+        action: EHardwareUiStateAction.ProcessLoading,
+        connectId,
+      });
+    }
     // wait animation done
     await timerUtils.wait(150);
   }

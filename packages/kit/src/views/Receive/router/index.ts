@@ -20,9 +20,7 @@ const TokenSelector = LazyLoadPage(
 
 const AggregateTokenSelector = LazyLoadPage(
   () =>
-    import(
-      '@onekeyhq/kit/src/views/AssetSelector/pages/AggregateTokenSelector'
-    ),
+    import('@onekeyhq/kit/src/views/AssetSelector/pages/AggregateTokenSelector'),
 );
 
 const DeriveTypesAddress = LazyLoadPage(

@@ -57,18 +57,18 @@ const ERC1155 = [
   'function safeTransferFrom(address from, address to, uint256 id, uint256 amount, bytes data)',
 ];
 
-const BATCH_TRANSFER = [
-  'function disperseEther(address[] recipients, uint256[] values)',
-  'function disperseToken(address token, address[] recipients, uint256[] values)',
-  'function disperseTokenSimple(address token, address[] recipients, uint256[] values)',
-  'function disperseNFT(address recipient, address[] tokens, uint256[] tokenIds, uint256[] amounts)',
+const BULK_SEND = [
+  'function sendNative((address recipient, uint256 amount)[] transfers) payable',
+  'function sendNativeSameAmount(address[] recipients, uint256 amount) payable',
+  'function sendToken(address token, (address recipient, uint256 amount)[] transfers)',
+  'function sendTokenSameAmount(address token, address[] recipients, uint256 amount)',
 ];
 
 const ABI = {
   ERC20,
   ERC721,
   ERC1155,
-  BATCH_TRANSFER,
+  BULK_SEND,
 };
 
 export { ABI };

@@ -114,6 +114,7 @@ export function HyperlinkText({
                 return (
                   <SizableText
                     {...basicTextProps}
+                    textDecorationLine="underline"
                     {...urlTextProps}
                     cursor="pointer"
                     hoverStyle={{ bg: '$bgHover' }}
@@ -138,6 +139,7 @@ export function HyperlinkText({
                     }}
                   >
                     {isLinkString ? chunks : link}
+                    {autoHandleResult ? ' ↗' : null}
                   </SizableText>
                 );
               },

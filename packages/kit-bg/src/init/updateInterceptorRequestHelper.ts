@@ -15,9 +15,8 @@ export function updateInterceptorRequestHelper() {
     getSettingsValuePersistAtom: async () => settingsValuePersistAtom.get(),
     getIpTableConfig: async () => {
       // Lazy load simpleDb to avoid ensureRunOnBackground check during module initialization
-      const { default: simpleDb } = await import(
-        '@onekeyhq/kit-bg/src/dbs/simple/simpleDb'
-      );
+      const { default: simpleDb } =
+        await import('@onekeyhq/kit-bg/src/dbs/simple/simpleDb');
       if (!simpleDb) {
         return null;
       }

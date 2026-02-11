@@ -259,8 +259,6 @@ const SwapProTradeInfoGroup = ({
           onTokenSelect={(token) => handleTokenSelect(token as IToken)}
           symbol={swapProSellToToken?.symbol ?? '-'}
           isLoading={swapProQuoteFetching}
-          itemTitleProps={ITEM_TITLE_PROPS}
-          itemValueProps={ITEM_VALUE_PROPS}
         />
       ) : null}
       {swapProTradeType === ESwapProTradeType.LIMIT ? (

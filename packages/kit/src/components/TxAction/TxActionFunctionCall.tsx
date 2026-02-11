@@ -36,8 +36,14 @@ function getTxActionFunctionCallInfo(props: ITxActionProps) {
 }
 
 function TxActionFunctionCallListView(props: ITxActionProps) {
-  const { tableLayout, decodedTx, componentProps, showIcon, replaceType } =
-    props;
+  const {
+    tableLayout,
+    decodedTx,
+    componentProps,
+    showIcon,
+    replaceType,
+    compact,
+  } = props;
   const { txFee, txFeeFiatValue, txFeeSymbol, hideFeeInfo } =
     useFeeInfoInDecodedTx({
       decodedTx,
@@ -73,6 +79,7 @@ function TxActionFunctionCallListView(props: ITxActionProps) {
       networkId={decodedTx.networkId}
       networkLogoURI={decodedTx.networkLogoURI}
       riskyLevel={decodedTx.riskyLevel}
+      compact={compact}
       {...componentProps}
     />
   );

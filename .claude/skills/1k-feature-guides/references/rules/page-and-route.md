@@ -1,0 +1,386 @@
+# Page and Route Guide
+
+This guide helps create and configure pages and routes in the OneKey app-monorepo.
+
+---
+
+## ⚠️ WARNING: Page Deletion Policy
+
+**DO NOT DELETE PAGES unless you have confirmed there are NO external links to the page.**
+
+External links include:
+- Deep links / Universal links
+- QR code handlers
+- Banner click handlers
+- Web URLs shared externally
+- Third-party integrations
+- Marketing materials / Documentation
+
+**If you need to remove a page's functionality:**
+
+Instead of deleting the route, keep the route registered and modify the page component:
+
+```typescript
+import { Page } from '@onekeyhq/components';
+
+/**
+ * @deprecated This page has been deprecated since v5.0.0
+ *
+ * New location: packages/kit/src/views/NewFeature/pages/NewPage.tsx
+ * New route: EModalRoutes.NewFeatureModal -> ENewFeatureRoutes.NewPage
+ *
+ * This page is kept for backward compatibility with external deep links.
+ * DO NOT DELETE - external links may still reference this route.
+ */
+function DeprecatedPage() {
+  return (
+    <Page
+      shouldRedirect={() => true}  // Always redirect
+      onRedirected={() => {
+        // Navigate to replacement page or home
+        navigation.switchTab(ETabRoutes.Home);
+        // Or show a toast explaining the change
+        Toast.info({ title: 'This feature has been moved' });
+      }}
+    >
+      {null}  // Render nothing
+    </Page>
+  );
+}
+
+export default DeprecatedPage;
+```
+
+---
+
+## Page Types
+
+The page types are defined in `packages/components/src/hocs/PageType/pageType.ts`:
+
+| Type | Description | Animation Behavior |
+|------|-------------|-------------------|
+| `modal` | Modal route pages | iOS: First page slides from bottom, subsequent pages slide from right. Android: No animation. Web/Desktop/Extension/iPad: Same as iOS but displays as floating popup |
+| `stack` | Tab route pages (will be renamed from "stack") | On small screens, first page shows in bottom tab bar; on large screens, tab shows in sidebar. Subsequent pages slide from right. Android: No animation |
+| `fullScreen` | Full screen overlay (deprecated) | Layer is lower than modal, avoid adding new pages |
+| `onboarding` | OnboardingV2 full screen pages | Full screen overlay on all platforms, layer is below modal |
+
+## Creating Routes
+
+### 1. Modal Route
+
+Modal routes are configured in `packages/kit/src/routes/Modal/router.tsx`.
+
+**Example: Creating a NotificationsModal route**
+
+#### Step 1: Define Route Enum and Param Types
+
+Create route file `packages/shared/src/routes/notifications.ts`:
+```typescript
+export enum EModalNotificationsRoutes {
+  NotificationList = 'NotificationList',
+  NotificationIntroduction = 'NotificationIntroduction',
+}
+
+export type IModalNotificationsParamList = {
+  [EModalNotificationsRoutes.NotificationList]: undefined;
+  [EModalNotificationsRoutes.NotificationIntroduction]: undefined;
+};
+```
+
+#### Step 2: Add to EModalRoutes Enum
+
+In `packages/shared/src/routes/modal.ts`:
+```typescript
+export enum EModalRoutes {
+  // ... existing routes
+  NotificationsModal = 'NotificationsModal',
+}
+
+export type IModalParamList = {
+  // ... existing types
+  [EModalRoutes.NotificationsModal]: IModalNotificationsParamList;
+};
+```
+
+#### Step 3: Create Router Configuration
+
+Create `packages/kit/src/views/Notifications/router/index.ts`:
+```typescript
+import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
+import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
+import type { IModalNotificationsParamList } from '@onekeyhq/shared/src/routes/notifications';
+import { EModalNotificationsRoutes } from '@onekeyhq/shared/src/routes/notifications';
+
+const NotificationList = LazyLoadPage(
+  () => import('@onekeyhq/kit/src/views/Notifications/pages/NotificationList'),
+);
+
+const NotificationIntroduction = LazyLoadPage(
+  () => import('@onekeyhq/kit/src/views/Notifications/pages/NotificationIntroduction'),
+);
+
+export const ModalNotificationsRouter: IModalFlowNavigatorConfig<
+  EModalNotificationsRoutes,
+  IModalNotificationsParamList
+>[] = [
+  {
+    name: EModalNotificationsRoutes.NotificationList,
+    component: NotificationList,
+  },
+  {
+    name: EModalNotificationsRoutes.NotificationIntroduction,
+    component: NotificationIntroduction,
+  },
+];
+```
+
+#### Step 4: Register in Modal Router
+
+In `packages/kit/src/routes/Modal/router.tsx`:
+```typescript
+import { ModalNotificationsRouter } from '../../views/Notifications/router';
+
+const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
+  // ... existing routes
+  {
+    name: EModalRoutes.NotificationsModal,
+    children: ModalNotificationsRouter,
+  },
+];
+```
+
+#### Step 5: Create Page Component
+
+Create `packages/kit/src/views/Notifications/pages/NotificationList.tsx`:
+```typescript
+import { Page } from '@onekeyhq/components';
+
+function NotificationList() {
+  return (
+    <Page safeAreaEnabled={false}>
+      <Page.Body>
+        {/* Page content */}
+      </Page.Body>
+    </Page>
+  );
+}
+
+export default NotificationList;
+```
+
+### 2. Onboarding Route
+
+Onboarding routes are configured in `packages/kit/src/views/Onboardingv2/router/index.tsx`.
+
+### 3. Tab Route
+
+Tab routes are configured in `packages/kit/src/routes/Tab/router.ts`.
+
+**Tab Configuration Options:**
+- `hiddenIcon`: Hide tab icon on certain platforms
+- `hideOnTabBar`: Hide from tab bar but keep route accessible
+- `inMoreAction`: Show in "More" menu instead of main tab bar
+- `freezeOnBlur`: Keep tab state when switching tabs
+
+---
+
+## Configuring Page Paths
+
+### ⚠️ WARNING: Route Paths Must Be Unique
+
+**Route paths MUST NOT be duplicated.** Each route path must be unique across the entire application.
+
+If duplicate paths are detected, the application will throw an error at startup:
+
+```
+Found conflicting screens with the same pattern. The pattern '/market/tokens/.'
+resolves to both 'Main > Market > MarketDetail' and 'Main > Market > MarketDetailV2'.
+Patterns must be unique and cannot resolve to more than one screen.
+```
+
+### URL Path Configuration
+
+Route paths are calculated in `packages/kit/src/routes/config/index.ts` via `resolveScreens`.
+
+#### Path Calculation Rules
+
+**Rule 1: Default path accumulation**
+Without any configuration, paths accumulate based on route hierarchy:
+```
+Route: Main -> Market -> MarketDetail
+Path:  /Main/Market/MarketDetail
+```
+
+**Rule 2: `rewrite` replaces current segment only**
+```typescript
+{
+  name: ETabRoutes.Market,
+  rewrite: '/market',     // Replaces 'Market' with 'market'
+  children: marketRouters,
+}
+// Result: /Main/market/...
+```
+
+**Rule 3: `exact: true` truncates all parent paths**
+```typescript
+{
+  name: EModalRoutes.SettingModal,
+  children: ModalSettingStack,
+  rewrite: '/settings',
+  exact: true,            // Ignores /Modal prefix
+}
+// Result: /settings/...
+```
+
+**Rule 4: Path params with `/:param` syntax**
+```typescript
+{
+  name: ETabMarketRoutes.MarketDetail,
+  component: MarketDetail,
+  rewrite: '/tokens/:token',  // :token is a path parameter
+}
+// Result: /market/tokens/:token
+```
+
+### URL Allow List (Browser Display)
+
+By default, routes don't display in the browser URL bar. To enable URL display, configure in `packages/shared/src/utils/routeUtils.ts`:
+
+```typescript
+export const buildAllowList = (screens, perpDisabled, perpTabShowWeb) => {
+  const rules = {
+    [pagePath`${ERootRoutes.Main}${ETabRoutes.Market}${ETabMarketRoutes.MarketDetailV2}`]: {
+      showUrl: true,      // Enable URL display
+      showParams: true,   // Show query parameters
+    },
+  };
+  return rules;
+};
+```
+
+---
+
+## Platform-Specific Routing: Web vs Extension
+
+### Web/Native: Standard Path Routing
+
+File: `packages/kit/src/routes/config/getStateFromPath.ts`
+
+**URL format:** `https://app.onekey.so/market/tokens/bitcoin`
+
+### Extension: Hash Routing
+
+File: `packages/kit/src/routes/config/getStateFromPath.ext.ts`
+
+**URL format:** `chrome-extension://xxx/ui-expand-tab.html#/market/tokens/bitcoin`
+
+The extension uses hash routing because:
+- Browser extensions load from local HTML files
+- Standard path routing doesn't work with extension URL scheme
+- Hash routing allows navigation without page reload
+
+---
+
+## Page Lifecycle
+
+The `Page` component supports lifecycle callbacks:
+
+```typescript
+interface IPageLifeCycle {
+  onMounted?: () => void;      // Called after page transition completes
+  onUnmounted?: () => void;    // Called after page unmount transition completes
+  onCancel?: () => void;       // Called when page closed without confirm
+  onConfirm?: () => void;      // Called when page closed with confirm
+  onClose?: (extra?: { flag?: string }) => void;  // Called on any close
+  onRedirected?: () => void;   // Called after redirect completes
+  shouldRedirect?: () => boolean;  // Return true to redirect immediately
+}
+```
+
+**Redirect Pattern:**
+```typescript
+<Page
+  shouldRedirect={() => !isUserAuthenticated}
+  onRedirected={() => {
+    navigation.pushModal(EModalRoutes.OnboardingModal, {
+      screen: EOnboardingPages.Login,
+    });
+  }}
+>
+```
+
+---
+
+## Deep Link / Universal Link Configuration
+
+Configure in `packages/kit/src/routes/config/deeplink/index.ts`:
+
+**Deep Link Format:**
+- `onekey-wallet://invite_share?utm_source=twitter&code=ABC123`
+- `https://app.onekey.so/wc/connect/wc?uri=...` (Universal Link)
+
+---
+
+## Navigation Methods
+
+```typescript
+// Push modal
+navigation.pushModal(EModalRoutes.NotificationsModal, {
+  screen: EModalNotificationsRoutes.NotificationList,
+  params: { /* page params */ },
+});
+
+// Switch tab
+navigation.switchTab(ETabRoutes.Market);
+
+// Navigate within tab - ALWAYS use pop: true
+navigation.navigate(ERootRoutes.Main, {
+  screen: ETabRoutes.Market,
+  params: {
+    screen: ETabMarketRoutes.MarketDetail,
+    params: { token: 'bitcoin' },
+  },
+}, {
+  pop: true,
+});
+
+// Go back
+navigation.goBack();
+```
+
+### ⚠️ IMPORTANT: Always Use `pop: true` with `navigation.navigate`
+
+```typescript
+// ✅ Correct - with pop: true
+navigation.navigate(ERootRoutes.Main, {
+  screen: ETabRoutes.Market,
+}, {
+  pop: true,
+});
+
+// ❌ Wrong - missing pop: true
+navigation.navigate(ERootRoutes.Main, {
+  screen: ETabRoutes.Market,
+});
+```
+
+**Why `pop: true` is required:**
+- Prevents navigation stack from growing indefinitely
+- Ensures proper back button behavior
+- Avoids memory leaks from accumulated screens
+
+---
+
+## Files Reference
+
+| Purpose | Location |
+|---------|----------|
+| Page type enum | `packages/components/src/hocs/PageType/pageType.ts` |
+| Modal routes | `packages/kit/src/routes/Modal/router.tsx` |
+| Tab routes | `packages/kit/src/routes/Tab/router.ts` |
+| Onboarding routes | `packages/kit/src/views/Onboardingv2/router/index.tsx` |
+| Route enums | `packages/shared/src/routes/` |
+| URL allow list | `packages/shared/src/utils/routeUtils.ts` |
+| Route config (linking) | `packages/kit/src/routes/config/index.ts` |
+| Deep link config | `packages/kit/src/routes/config/deeplink/index.ts` |
+| Page component | `packages/components/src/layouts/Page/index.tsx` |

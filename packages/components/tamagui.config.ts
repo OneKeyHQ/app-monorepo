@@ -1,4 +1,5 @@
 import { createAnimations } from '@tamagui/animations-moti';
+import { Easing } from 'react-native-reanimated';
 import { createMedia } from '@tamagui/react-native-media-driver';
 import { shorthands } from '@tamagui/shorthands';
 import { themes } from '@tamagui/themes';
@@ -152,7 +153,17 @@ const basicFontVariants = {
 const tamaguiWebFontFamily = webFontFamily;
 
 const font = createFont({
-  family: isTamaguiNative ? 'System' : tamaguiWebFontFamily,
+  family: isTamaguiNative ? 'Roobert-Regular' : tamaguiWebFontFamily,
+  ...(isTamaguiNative
+    ? {
+        face: {
+          400: { normal: 'Roobert-Regular' },
+          500: { normal: 'Roobert-Medium' },
+          600: { normal: 'Roobert-SemiBold' },
+          700: { normal: 'Roobert-Bold' },
+        },
+      }
+    : {}),
   ...basicFontVariants,
 });
 
@@ -189,6 +200,11 @@ const animations = createAnimations({
     type: 'spring',
     damping: 20,
     mass: 0.1,
+  },
+  popoverQuick: {
+    type: 'timing',
+    duration: 150,
+    easing: Easing.out(Easing.cubic),
   },
   fast: {
     type: 'spring',
@@ -266,6 +282,9 @@ const lightColors = {
   bgSuccess: success.success3,
   bgSuccessStrong: success.success9,
   bgSuccessSubdued: success.success2,
+  bgAccent: brand.brand9,
+  bgAccentHover: brand.brand10,
+  bgAccentActive: brand.brand11,
   buttonSuccess: success.success9,
   buttonCritical: critical.critical9,
   border: neutral.neutral6,
@@ -368,6 +387,9 @@ const darkColors: typeof lightColors = {
   bgSuccess: successDark.success3,
   bgSuccessStrong: successDark.success9,
   bgSuccessSubdued: successDark.success2,
+  bgAccent: brandDark.brand9,
+  bgAccentHover: brandDark.brand10,
+  bgAccentActive: brandDark.brand11,
   buttonSuccess: successDark.success9,
   buttonCritical: criticalDark.critical9,
   border: neutralDark.neutral6,
@@ -552,6 +574,7 @@ const mergedTokens = createTokens({
     '-24': -96,
     '-28': -112,
     '-32': -128,
+    'pagePadding': 20,
     'pageWidth': 1024,
   },
   color: {

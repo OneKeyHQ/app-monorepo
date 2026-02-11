@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call */
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -8,15 +9,18 @@ import {
   type IListViewRef,
   Icon,
   ListView,
+  NumberSizeableText,
   Popover,
   SearchBar,
   SizableText,
   Spinner,
   Tabs,
+  Tooltip,
   XStack,
   YStack,
   usePopoverContext,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
@@ -24,9 +28,12 @@ import {
   usePerpsAllAssetCtxsAtom,
   usePerpsAllAssetsFilteredAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
+import type { IPerpDynamicTab } from '@onekeyhq/kit-bg/src/services/ServiceWebviewPerp/ServiceWebviewPerp';
 import {
   usePerpTokenSelectorConfigPersistAtom,
+  usePerpTokenSelectorTabsAtom,
   usePerpsActiveAssetAtom,
+  usePerpsActiveAssetCtxAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
@@ -48,6 +55,7 @@ import {
 
 import {
   type IFavoriteItem,
+  usePerpActiveTabValidation,
   usePerpTokenSelector,
   usePerpsFavorites,
 } from '../../hooks';
@@ -79,7 +87,7 @@ function TabItem({
       borderBottomWidth={isFocused ? '$0.5' : '$0'}
       borderBottomColor="$borderActive"
       onPress={() => onPress(name)}
-      cursor="pointer"
+      cursor="default"
     >
       <SizableText
         size="$headingXs"
@@ -162,23 +170,31 @@ function BasePerpTokenSelectorContent({
   const [{ assetCtxsByDex }] = usePerpsAllAssetCtxsAtom();
   const [selectorConfig, setSelectorConfig] =
     usePerpTokenSelectorConfigPersistAtom();
+  const [dynamicTabsRaw] = usePerpTokenSelectorTabsAtom();
+  const dynamicTabs: IPerpDynamicTab[] = useMemo(
+    () => dynamicTabsRaw ?? [],
+    [dynamicTabsRaw],
+  );
 
   const tabNames = useMemo(
     () => ({
       favorites: intl.formatMessage({ id: ETranslations.perp_tab_favs }),
       all: 'PERPS',
-      hip3: 'HIP3',
     }),
     [intl],
   );
   const activeTab = selectorConfig?.activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB;
   const setActiveTab = useCallback(
-    (tab: 'all' | 'hip3' | 'favorites') => {
-      setSelectorConfig((prev) => ({
-        field: prev?.field ?? DEFAULT_PERP_TOKEN_SORT_FIELD,
-        direction: prev?.direction ?? DEFAULT_PERP_TOKEN_SORT_DIRECTION,
-        activeTab: tab,
-      }));
+    (tab: string) => {
+      setSelectorConfig(
+        (prev) =>
+          ({
+            field: prev?.field ?? DEFAULT_PERP_TOKEN_SORT_FIELD,
+            direction: prev?.direction ?? DEFAULT_PERP_TOKEN_SORT_DIRECTION,
+            activeTab: tab,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          }) as any,
+      );
     },
     [setSelectorConfig],
   );
@@ -206,11 +222,29 @@ function BasePerpTokenSelectorContent({
     null,
   );
   const listRefAll = useRef<IListViewRef<ITokenSelectorListItem> | null>(null);
-  const listRefHip3 = useRef<IListViewRef<ITokenSelectorListItem> | null>(null);
+  const dynamicListRefsRef = useRef<
+    Record<string, IListViewRef<ITokenSelectorListItem> | null>
+  >({});
   const activeTabRef = useRef(activeTab);
   activeTabRef.current = activeTab;
   const lastSortRef = useRef<{ field?: string; direction?: string } | null>(
     null,
+  );
+
+  // Get dynamic list ref by tabId
+  const getDynamicListRef = useCallback(
+    (tabId: string) => ({
+      current: dynamicListRefsRef.current[tabId] ?? null,
+    }),
+    [],
+  );
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _setDynamicListRef = useCallback(
+    (tabId: string, ref: IListViewRef<ITokenSelectorListItem> | null) => {
+      dynamicListRefsRef.current[tabId] = ref;
+    },
+    [],
   );
 
   useEffect(() => {
@@ -223,10 +257,11 @@ function BasePerpTokenSelectorContent({
     lastSortRef.current = { field, direction };
 
     let ref = listRefAll.current;
-    if (activeTabRef.current === 'hip3') {
-      ref = listRefHip3.current;
-    } else if (activeTabRef.current === 'favorites') {
+    if (activeTabRef.current === 'favorites') {
       ref = listRefFavorites.current;
+    } else {
+      const dynamicRef = dynamicListRefsRef.current[activeTabRef.current];
+      if (dynamicRef) ref = dynamicRef;
     }
     ref?.scrollToOffset?.({ offset: 0, animated: false });
   }, [selectorConfig?.direction, selectorConfig?.field]);
@@ -301,71 +336,9 @@ function BasePerpTokenSelectorContent({
     [selectorConfig?.direction, selectorConfig?.field],
   );
 
-  const buildListData = useCallback(
-    ({
-      assets,
-      assetCtxs,
-      dexIndex,
-    }: {
-      assets: IPerpsUniverse[];
-      assetCtxs: IPerpsAssetCtx[];
-      dexIndex: number;
-    }) => {
-      const sortField = selectorConfig?.field ?? '';
-      if (!assets?.length) {
-        return [];
-      }
-
-      if (!sortField) {
-        return assets.map((_, index) => ({
-          index,
-          dexIndex,
-          sortHelper: 0,
-        }));
-      }
-
-      const entries = assets.map((asset, index) => {
-        // Normalize assetId to array index: HIP3 assets have offset, Perps don't
-        const normalizedAssetId =
-          dexIndex === 1 ? asset.assetId - XYZ_ASSET_ID_OFFSET : asset.assetId;
-        const sortValues = computeSortValues(assetCtxs?.[normalizedAssetId]);
-        return {
-          index,
-          dexIndex,
-          asset,
-          sortValues,
-        };
-      });
-
-      entries.sort((a, b) =>
-        sortCompare(
-          { asset: a.asset, sortValues: a.sortValues },
-          { asset: b.asset, sortValues: b.sortValues },
-        ),
-      );
-
-      return entries.map((entry) => ({
-        index: entry.index,
-        dexIndex: entry.dexIndex,
-      }));
-    },
-    [computeSortValues, sortCompare, selectorConfig?.field],
-  );
-
   const listDataByTab = useMemo(() => {
     const assetsByDexTyped: IPerpsUniverse[][] = assetsByDex || [];
     const assetCtxsByDexTyped: IPerpsAssetCtx[][] = assetCtxsByDex || [];
-
-    // const perpsAssets: IPerpsUniverse[] = assetsByDexTyped[0] || [];
-    const hip3Assets: IPerpsUniverse[] = assetsByDexTyped[1] || [];
-    // const perpsCtxs: IPerpsAssetCtx[] = assetCtxsByDexTyped[0] || [];
-    const hip3Ctxs: IPerpsAssetCtx[] = assetCtxsByDexTyped[1] || [];
-
-    const listHip3 = buildListData({
-      assets: hip3Assets,
-      assetCtxs: hip3Ctxs,
-      dexIndex: 1,
-    });
 
     const combinedEntries = assetsByDexTyped.flatMap(
       (assets: IPerpsUniverse[], dexIndex: number) => {
@@ -396,7 +369,7 @@ function BasePerpTokenSelectorContent({
           assetId: entry.assetId,
         }));
       }
-      const sorted = [...combinedEntries].toSorted((a, b) =>
+      const sorted = combinedEntries.toSorted((a, b) =>
         sortCompare(
           { asset: a.asset, sortValues: a.sortValues },
           { asset: b.asset, sortValues: b.sortValues },
@@ -416,20 +389,47 @@ function BasePerpTokenSelectorContent({
       favoriteAssetIds.has(`${item.dexIndex}-${item.assetId}`),
     );
 
+    // Build data for dynamic tabs (filter from sorted listAll to preserve sort order)
+    const dynamicTabsData: Record<string, ITokenSelectorListItem[]> = {};
+    for (const tab of dynamicTabs) {
+      const tokenSet = new Set(tab.tokens);
+      const matchingIds = new Set(
+        combinedEntries
+          .filter((entry) => tokenSet.has(entry.asset.name))
+          .map((entry) => `${entry.dexIndex}-${entry.assetId}`),
+      );
+      dynamicTabsData[tab.tabId] = listAll.filter((item) =>
+        matchingIds.has(`${item.dexIndex}-${item.assetId}`),
+      );
+    }
+
     return {
       favorites: listFavorites,
       all: listAll,
-      hip3: listHip3,
+      dynamic: dynamicTabsData,
     };
   }, [
     assetCtxsByDex,
     assetsByDex,
-    buildListData,
     computeSortValues,
+    dynamicTabs,
     favoriteItems,
     sortCompare,
     selectorConfig?.field,
   ]);
+
+  // Show all server-configured dynamic tabs regardless of search results.
+  // Filtering by search-filtered assetsByDex would hide tabs during search
+  // and break tab persistence (assetsByDex resets to [] on unmount).
+  const visibleDynamicTabs = dynamicTabs;
+
+  usePerpActiveTabValidation({
+    activeTab,
+    setActiveTab,
+    assetsByDex,
+    dynamicTabs: dynamicTabsRaw,
+    visibleDynamicTabs,
+  });
 
   const keyExtractor = useCallback(
     (item: { dexIndex: number; index: number; assetId?: number }) => {
@@ -449,7 +449,7 @@ function BasePerpTokenSelectorContent({
         isFavoritesTab && data.length === 0 && !searchQuery;
 
       return (
-        <Tabs.ScrollView>
+        <Tabs.ScrollView showsVerticalScrollIndicator={false}>
           <YStack>
             {!isFavoritesTab || data.length > 0 ? <TokenListHeader /> : null}
             <YStack height={350}>
@@ -514,17 +514,29 @@ function BasePerpTokenSelectorContent({
         </XStack>
         <Tabs.Container
           initialTabName={(() => {
-            if (activeTab === 'hip3') return tabNames.hip3;
             if (activeTab === 'favorites') return tabNames.favorites;
+            // Check if activeTab is a dynamic tab
+            const dynamicTab = visibleDynamicTabs.find(
+              (t: IPerpDynamicTab) => t.tabId === activeTab,
+            );
+            if (dynamicTab) return dynamicTab.name;
             return tabNames.all;
           })()}
           onTabChange={({ tabName }) => {
-            if (tabName === tabNames.hip3) {
-              setActiveTab('hip3');
-              return;
-            }
             if (tabName === tabNames.favorites) {
               setActiveTab('favorites');
+              return;
+            }
+            if (tabName === tabNames.all) {
+              setActiveTab('all');
+              return;
+            }
+            // Check if it's a dynamic tab
+            const dynamicTab = visibleDynamicTabs.find(
+              (t: IPerpDynamicTab) => t.name === tabName,
+            );
+            if (dynamicTab) {
+              setActiveTab(dynamicTab.tabId);
               return;
             }
             setActiveTab('all');
@@ -545,20 +557,23 @@ function BasePerpTokenSelectorContent({
           )}
         >
           <Tabs.Tab name={tabNames.favorites}>
-            {activeTab === 'favorites'
-              ? renderTokenList(listDataByTab.favorites, listRefFavorites, true)
-              : null}
+            {renderTokenList(listDataByTab.favorites, listRefFavorites, true)}
           </Tabs.Tab>
           <Tabs.Tab name={tabNames.all}>
-            {activeTab === 'all'
-              ? renderTokenList(listDataByTab.all, listRefAll, false)
-              : null}
+            {renderTokenList(listDataByTab.all, listRefAll, false)}
           </Tabs.Tab>
-          <Tabs.Tab name={tabNames.hip3}>
-            {activeTab === 'hip3'
-              ? renderTokenList(listDataByTab.hip3, listRefHip3, false)
-              : null}
-          </Tabs.Tab>
+          {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            visibleDynamicTabs.map((tab: IPerpDynamicTab) => (
+              <Tabs.Tab key={tab.tabId} name={tab.name}>
+                {renderTokenList(
+                  listDataByTab.dynamic[tab.tabId] ?? [],
+                  getDynamicListRef(tab.tabId),
+                  false,
+                )}
+              </Tabs.Tab>
+            )) as any
+          }
         </Tabs.Container>
       </YStack>
     </YStack>
@@ -585,11 +600,21 @@ function PerpTokenSelectorContent({
 const PerpTokenSelectorContentMemo = memo(PerpTokenSelectorContent);
 
 function BasePerpTokenSelector() {
+  const intl = useIntl();
   const [isOpen, setIsOpen] = useState(false);
   const [currentToken] = usePerpsActiveAssetAtom();
   const { coin } = currentToken;
   const parsedActive = useMemo(() => parseDexCoin(coin), [coin]);
   const [isLoading, setIsLoading] = useState(false);
+  const [builderFeeRate, setBuilderFeeRate] = useState<number | undefined>();
+
+  useEffect(() => {
+    void backgroundApiProxy.simpleDb.perp
+      .getExpectMaxBuilderFee()
+      .then((fee) => {
+        setBuilderFeeRate(fee);
+      });
+  }, []);
   const content = useMemo(
     () => (
       <Popover
@@ -604,9 +629,10 @@ function BasePerpTokenSelector() {
           <Badge
             gap="$3"
             bg="$bgApp"
-            cursor="pointer"
-            p="$2"
+            px="$2"
+            py="$1.5"
             borderRadius="$full"
+            cursor="default"
             hoverStyle={{
               bg: '$bgHover',
             }}
@@ -627,6 +653,25 @@ function BasePerpTokenSelector() {
             <SizableText size="$heading2xl">
               {parsedActive.displayName}USDC
             </SizableText>
+            {builderFeeRate === 0 ? (
+              <Tooltip
+                placement="bottom"
+                renderTrigger={
+                  <Badge badgeType="success" badgeSize="sm">
+                    {intl.formatMessage({
+                      id: ETranslations.perp_0_fee,
+                    })}
+                  </Badge>
+                }
+                renderContent={
+                  <SizableText size="$bodySm">
+                    {intl.formatMessage({
+                      id: ETranslations.perps_fee_desc,
+                    })}
+                  </SizableText>
+                }
+              />
+            ) : null}
             <Icon name="ChevronBottomOutline" size="$4" />
             {isLoading ? <Spinner size="small" /> : null}
           </Badge>
@@ -639,7 +684,7 @@ function BasePerpTokenSelector() {
         )}
       />
     ),
-    [isOpen, isLoading, parsedActive.displayName],
+    [isOpen, isLoading, parsedActive.displayName, builderFeeRate, intl],
   );
   return (
     <DebugRenderTracker name="PerpTokenSelector">{content}</DebugRenderTracker>
@@ -652,11 +697,12 @@ const BasePerpTokenSelectorMobileView = memo(
   ({
     onPressTokenSelector,
     coin,
+    change24hPercent,
   }: {
     onPressTokenSelector: () => void;
     coin: string;
+    change24hPercent: number;
   }) => {
-    const intl = useIntl();
     const parsedCoin = useMemo(() => parseDexCoin(coin), [coin]);
     const displayCoin = parsedCoin.displayName || coin;
 
@@ -665,19 +711,25 @@ const BasePerpTokenSelectorMobileView = memo(
         <XStack
           gap="$1"
           bg="$bgApp"
-          onPress={onPressTokenSelector}
           justifyContent="center"
           alignItems="center"
+          onPress={onPressTokenSelector}
         >
-          <SizableText size="$headingXl">{displayCoin}USDC</SizableText>
-          <Badge radius="$1" bg="$bgSubdued" px="$1" py={0}>
-            <SizableText color="$textSubdued" fontSize={11}>
-              {intl.formatMessage({
-                id: ETranslations.perp_label_perp,
-              })}
-            </SizableText>
-          </Badge>
-          <Icon name="ChevronTriangleDownSmallOutline" size="$5" />
+          <SizableText size="$headingLg">{displayCoin}USDC</SizableText>
+          <NumberSizeableText
+            style={{ fontSize: 10 }}
+            fontFamily="$monoRegular"
+            fontVariant={['tabular-nums']}
+            alignSelf="center"
+            color={change24hPercent >= 0 ? '$green11' : '$red11'}
+            formatter="priceChange"
+            formatterOptions={{
+              showPlusMinusSigns: true,
+            }}
+          >
+            {change24hPercent}
+          </NumberSizeableText>
+          <Icon name="ChevronTriangleDownSmallSolid" size="$5" />
         </XStack>
       </DebugRenderTracker>
     );
@@ -688,7 +740,9 @@ function BasePerpTokenSelectorMobile() {
   const navigation = useAppNavigation();
 
   const [asset] = usePerpsActiveAssetAtom();
+  const [assetCtx] = usePerpsActiveAssetCtxAtom();
   const coin = asset?.coin || '';
+  const change24hPercent = assetCtx?.ctx?.change24hPercent || 0;
   const onPressTokenSelector = useCallback(() => {
     navigation.pushModal(EModalRoutes.PerpModal, {
       screen: EModalPerpRoutes.MobileTokenSelector,
@@ -699,6 +753,7 @@ function BasePerpTokenSelectorMobile() {
     <BasePerpTokenSelectorMobileView
       onPressTokenSelector={onPressTokenSelector}
       coin={coin}
+      change24hPercent={change24hPercent}
     />
   );
 }

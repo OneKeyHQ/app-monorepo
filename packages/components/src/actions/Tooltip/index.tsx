@@ -171,7 +171,7 @@ export function Tooltip({
     () =>
       ({
         transformOrigin,
-      } as PopoverContentProps['style']),
+      }) as PopoverContentProps['style'],
     [transformOrigin],
   );
 

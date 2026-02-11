@@ -1,6 +1,6 @@
 import { useCallback, useEffect } from 'react';
 
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 
@@ -18,12 +18,13 @@ export function usePerpFeatureGuard() {
 
   const navigation = useAppNavigation();
   const { perpDisabled } = usePerpTabConfig();
+  const isFocused = useIsFocused();
 
   useEffect(() => {
-    if (perpDisabled) {
+    if (perpDisabled && isFocused) {
       navigation.switchTab(ETabRoutes.Home);
     }
-  }, [navigation, perpDisabled]);
+  }, [navigation, perpDisabled, isFocused]);
 
   return !perpDisabled;
 }

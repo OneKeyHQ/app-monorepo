@@ -3,10 +3,17 @@ import { useIntl } from 'react-intl';
 import type { ITableColumn } from '@onekeyhq/components';
 import {
   NumberSizeableText,
+  SizableText,
   Skeleton,
+  Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { Token } from '@onekeyhq/kit/src/components/Token';
+import {
+  LeverageBadge,
+  SubtitleBadge,
+} from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -29,6 +36,44 @@ export const useColumnsMobile = (): ITableColumn<IMarketToken>[] => {
       dataIndex: 'tokenInfo',
       columnWidth: '50%',
       render: (_, record: IMarketToken) => {
+        if (record.perpsCoin) {
+          return (
+            <XStack alignItems="center" gap="$3" ml="$3" userSelect="none">
+              <Token
+                size="md"
+                borderRadius="$full"
+                tokenImageUri={record.tokenImageUri}
+                fallbackIcon="CryptoCoinOutline"
+              />
+              <Stack flex={1} minWidth={0}>
+                <XStack alignItems="center" gap="$1">
+                  <SizableText
+                    size="$bodyLgMedium"
+                    numberOfLines={1}
+                    maxWidth="$32"
+                  >
+                    {record.symbol}
+                  </SizableText>
+                  {record.maxLeverage ? (
+                    <LeverageBadge leverage={record.maxLeverage} />
+                  ) : null}
+                  {record.perpsSubtitle ? (
+                    <SubtitleBadge subtitle={record.perpsSubtitle} />
+                  ) : null}
+                </XStack>
+                <NumberSizeableText
+                  size="$bodyMd"
+                  color="$textSubdued"
+                  numberOfLines={1}
+                  formatter="marketCap"
+                  formatterOptions={{ currency }}
+                >
+                  {record.turnover}
+                </NumberSizeableText>
+              </Stack>
+            </XStack>
+          );
+        }
         return (
           <XStack alignItems="center" ml="$3">
             <TokenIdentityItem

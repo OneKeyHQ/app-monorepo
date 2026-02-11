@@ -9,7 +9,6 @@ import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
 
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
 import { EarnTooltip } from '../../Staking/components/ProtocolDetails/EarnTooltip';
-import { useEarnAccount } from '../../Staking/hooks/useEarnAccount';
 import { EManagePositionType } from '../../Staking/pages/ManagePosition/hooks/useManagePage';
 import { EBorrowDataStatus } from '../borrowDataStatus';
 import { useBorrowContext } from '../BorrowProvider';
@@ -70,14 +69,14 @@ const SuppliedHeader = ({
 };
 
 export const SuppliedCard = () => {
-  const { reserves, market, borrowDataStatus } = useBorrowContext();
+  const { reserves, market, borrowDataStatus, earnAccount } =
+    useBorrowContext();
   const intl = useIntl();
   const navigation = useAppNavigation();
-  const { earnAccount } = useEarnAccount({ networkId: market?.networkId });
   const { gtMd } = useMedia();
-  const accountId = earnAccount?.account?.id || '';
-  const walletId = earnAccount?.walletId || '';
-  const indexedAccountId = earnAccount?.account?.indexedAccountId;
+  const accountId = earnAccount.data?.account?.id || '';
+  const walletId = earnAccount.data?.walletId || '';
+  const indexedAccountId = earnAccount.data?.account?.indexedAccountId;
 
   const handleManageWithdraw = useCallback(
     (item: ISuppliedAsset) => {
@@ -93,10 +92,10 @@ export const SuppliedCard = () => {
         providerLogoURI: market.logoURI,
         logoURI: item.token.logoURI,
         type: EManagePositionType.Withdraw,
-        borrowReserves: reserves ?? undefined,
+        borrowReserves: reserves.data ?? undefined,
       });
     },
-    [navigation, market, accountId, reserves],
+    [navigation, market, accountId, reserves.data],
   );
 
   const handlePressRow = useCallback(
@@ -236,8 +235,8 @@ export const SuppliedCard = () => {
   );
 
   const hasData = useMemo(
-    () => (reserves?.supplied?.assets || []).length > 0,
-    [reserves?.supplied?.assets],
+    () => (reserves.data?.supplied?.assets || []).length > 0,
+    [reserves.data?.supplied?.assets],
   );
 
   return (
@@ -246,7 +245,7 @@ export const SuppliedCard = () => {
       renderHeader={
         !showLoading && hasData ? (
           <SuppliedHeader
-            data={reserves?.supplied}
+            data={reserves.data?.supplied}
             suppliedBalanceLabel={labels.suppliedBalance}
             apyLabel={labels.apy}
             isDesktop={gtMd}
@@ -255,7 +254,7 @@ export const SuppliedCard = () => {
       }
     >
       <BorrowTableList<ISuppliedAsset>
-        data={reserves?.supplied?.assets || []}
+        data={reserves.data?.supplied?.assets || []}
         isLoading={showLoading}
         columns={gtMd ? desktopColumns : mobileColumns}
         onPressRow={handlePressRow}

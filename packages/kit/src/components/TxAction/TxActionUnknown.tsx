@@ -37,8 +37,14 @@ function getTxActionUnknownInfo(props: ITxActionProps) {
 
 function TxActionUnknownListView(props: ITxActionProps) {
   const intl = useIntl();
-  const { tableLayout, decodedTx, componentProps, showIcon, replaceType } =
-    props;
+  const {
+    tableLayout,
+    decodedTx,
+    componentProps,
+    showIcon,
+    replaceType,
+    compact,
+  } = props;
   const { unknownTo, unknownIcon, unknownLabel } =
     getTxActionUnknownInfo(props);
   const { txFee, txFeeFiatValue, txFeeSymbol, hideFeeInfo } =
@@ -77,6 +83,7 @@ function TxActionUnknownListView(props: ITxActionProps) {
       networkId={decodedTx.networkId}
       networkLogoURI={decodedTx.networkLogoURI}
       riskyLevel={decodedTx.riskyLevel}
+      compact={compact}
       {...componentProps}
     />
   );

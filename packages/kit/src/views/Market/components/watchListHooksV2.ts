@@ -34,7 +34,7 @@ export const useWatchListV2Action = () => {
       // Calculate sortIndex to make new items appear at the top
       const firstSortIndex =
         isMounted && watchListData.length > 0
-          ? watchListData[0].sortIndex ?? 1000
+          ? (watchListData[0].sortIndex ?? 1000)
           : 1000;
 
       const watchListItems: IMarketWatchListItemV2[] = items.map(
@@ -65,12 +65,43 @@ export const useWatchListV2Action = () => {
     [actions],
   );
 
+  // Perps watchlist actions
+  const addPerpsIntoWatchListV2 = useCallback(
+    (perpsCoin: string) => {
+      try {
+        void actions.current.addPerpsIntoWatchListV2(perpsCoin);
+      } catch (_error) {
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.global_an_error_occurred,
+          }),
+        });
+      }
+    },
+    [actions, intl],
+  );
+
+  const removePerpsFromWatchListV2 = useCallback(
+    (perpsCoin: string) => {
+      void actions.current.removePerpsFromWatchListV2(perpsCoin);
+    },
+    [actions],
+  );
+
   return useMemo(
     () => ({
       removeFromWatchListV2,
       addIntoWatchListV2,
       isInWatchListV2,
+      addPerpsIntoWatchListV2,
+      removePerpsFromWatchListV2,
     }),
-    [addIntoWatchListV2, isInWatchListV2, removeFromWatchListV2],
+    [
+      addIntoWatchListV2,
+      isInWatchListV2,
+      removeFromWatchListV2,
+      addPerpsIntoWatchListV2,
+      removePerpsFromWatchListV2,
+    ],
   );
 };

@@ -1,14 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgLookGlasses = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M1 10h1.535M23 10h-1.535m-18.93 0a4 4 0 1 0 6.892-.063M2.536 10A4 4 0 0 1 6 8a4 4 0 0 1 3.428 1.937m0 0A3.98 3.98 0 0 1 12 9c.98 0 1.877.352 2.572.937m0 0a4 4 0 1 0 6.892.063m-6.891-.063A4 4 0 0 1 18 8c1.48 0 2.773.804 3.465 2"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M9 12a3 3 0 1 0-6 0 3 3 0 0 0 6 0m12 0a3 3 0 1 0-6 0 3 3 0 0 0 6 0m2 0a5 5 0 1 1-9.702-1.704A3 3 0 0 0 12 10c-.466 0-.906.106-1.299.295a5 5 0 1 1-9.6.705H1a1 1 0 1 1 0-2h1a5 5 0 0 1 4-2c1.442 0 2.74.61 3.652 1.587a4.98 4.98 0 0 1 4.695 0A4.99 4.99 0 0 1 18 7c1.636 0 3.088.786 4 2h1a1 1 0 1 1 0 2h-.1q.099.486.1 1" />
   </Svg>
 );
 export default SvgLookGlasses;

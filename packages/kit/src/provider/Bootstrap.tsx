@@ -13,8 +13,8 @@ import {
   getDialogInstances,
   getFormInstances,
   rootNavigationRef,
-  useIsTabletDetailView,
   useShortcuts,
+  useSplitSubView,
 } from '@onekeyhq/components';
 import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
 import {
@@ -62,6 +62,7 @@ import { useOnLock } from '../hooks/useOnLock';
 import { useRunAfterTokensDone } from '../hooks/useRunAfterTokensDone';
 
 import type { IntlShape } from 'react-intl';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 const useOnLockCallback = platformEnv.isDesktop
   ? useOnLock
@@ -69,7 +70,7 @@ const useOnLockCallback = platformEnv.isDesktop
 
 const useAppUpdateInfoCallback = platformEnv.isDesktop
   ? useAppUpdateInfo
-  : () => ({} as ReturnType<typeof useAppUpdateInfo>);
+  : () => ({}) as ReturnType<typeof useAppUpdateInfo>;
 
 const useDesktopEvents = platformEnv.isDesktop
   ? () => {
@@ -266,9 +267,7 @@ const useDesktopEvents = platformEnv.isDesktop
             break;
           case EShortcutEvents.TabEarn:
             ensureModalClosedAndNavigate(() => {
-              navigation.switchTab(ETabRoutes.Earn, {
-                screen: ETabEarnRoutes.EarnHome,
-              });
+              navigation.switchTab(ETabRoutes.Earn);
             });
             break;
           case EShortcutEvents.TabSwap:
@@ -301,13 +300,19 @@ const useDesktopEvents = platformEnv.isDesktop
               navigation.switchTab(ETabRoutes.Discovery);
             });
             break;
+          case EShortcutEvents.TabDeveloper:
+            ensureModalClosedAndNavigate(() => {
+              navigation.switchTab(ETabRoutes.Developer);
+            });
+            break;
           case EShortcutEvents.NewTab2:
             if (platformEnv.isDesktop) {
-              navigation.switchTab(ETabRoutes.MultiTabBrowser, {
-                screen: EMultiTabBrowserRoutes.MultiTabBrowser,
-                params: {
-                  action: 'create_new_tab',
-                },
+              navigation.switchTab(ETabRoutes.MultiTabBrowser);
+              void timerUtils.wait(50).then(() => {
+                appEventBus.emit(
+                  EAppEventBusNames.CreateNewBrowserTab,
+                  undefined,
+                );
               });
             } else {
               navigation.pushModal(EModalRoutes.DiscoveryModal, {
@@ -586,7 +591,7 @@ export const useRemindDevelopmentBuildExtension =
     : noop;
 
 export const useTabletDetailView = () => {
-  const isTabletDetailView = useIsTabletDetailView();
+  const isTabletDetailView = useSplitSubView();
   const appNavigation = useAppNavigation();
   useEffect(() => {
     if (isTabletDetailView) {

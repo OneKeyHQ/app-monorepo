@@ -70,8 +70,8 @@ export function useSwapTokenList(
           indexedAccountId: swapAddressInfo?.accountInfo?.indexedAccount?.id,
           otherWalletTypeAccountId: !swapAddressInfo?.accountInfo
             ?.indexedAccount?.id
-            ? swapAddressInfo?.accountInfo?.account?.id ??
-              swapAddressInfo?.accountInfo?.dbAccount?.id
+            ? (swapAddressInfo?.accountInfo?.account?.id ??
+              swapAddressInfo?.accountInfo?.dbAccount?.id)
             : undefined,
           swapSupportNetworks: swapNetworks,
         });
@@ -283,8 +283,8 @@ export function useSwapTokenList(
       void swapLoadAllNetworkTokenList(
         swapAddressInfo?.accountInfo?.indexedAccount?.id,
         !swapAddressInfo?.accountInfo?.indexedAccount?.id
-          ? swapAddressInfo?.accountInfo?.account?.id ??
-              swapAddressInfo?.accountInfo?.dbAccount?.id
+          ? (swapAddressInfo?.accountInfo?.account?.id ??
+              swapAddressInfo?.accountInfo?.dbAccount?.id)
           : undefined,
       );
     }
@@ -339,7 +339,7 @@ export function useSwapTokenList(
         networkId,
         networkName: currentSelectNetwork?.isAllNetworks
           ? 'All Networks'
-          : currentSelectNetwork?.name ?? '',
+          : (currentSelectNetwork?.name ?? ''),
         direction: selectTokenModalType,
         from,
       });

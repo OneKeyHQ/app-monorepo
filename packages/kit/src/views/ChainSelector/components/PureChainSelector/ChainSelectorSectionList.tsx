@@ -9,6 +9,8 @@ import {
 
 import { useIntl } from 'react-intl';
 
+import BigNumber from 'bignumber.js';
+
 import {
   Empty,
   SearchBar,
@@ -22,10 +24,10 @@ import type {
   ISectionListProps,
   ISortableSectionListRef,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { NETWORK_SHOW_VALUE_THRESHOLD_USD } from '@onekeyhq/shared/src/consts/networkConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -57,6 +59,9 @@ type IChainSelectorSectionListContentProps = {
   recentNetworksEnabled?: boolean;
   networks: IServerNetworkMatch[];
   listRef: React.RefObject<ISortableSectionListRef<any>>;
+  accountNetworkValues?: Record<string, string>;
+  accountNetworkValueCurrency?: string;
+  hideLowValueNetworkValue?: boolean;
 };
 
 const ChainSelectorSectionListContent = ({
@@ -65,6 +70,9 @@ const ChainSelectorSectionListContent = ({
   networkId,
   initialScrollIndex,
   listRef,
+  accountNetworkValues,
+  accountNetworkValueCurrency,
+  hideLowValueNetworkValue,
 }: IChainSelectorSectionListContentProps & {
   initialScrollIndex: ISectionListProps<any>['initialScrollIndex'];
 }) => {
@@ -104,38 +112,64 @@ const ChainSelectorSectionListContent = ({
       }: {
         item: IServerNetworkMatch;
         section: IPureChainSelectorSectionListItem;
-      }) => (
-        <ListItem
-          h={48}
-          renderAvatar={
-            <NetworkAvatarBase
-              logoURI={item.logoURI}
-              isCustomNetwork={item.isCustomNetwork}
-              isAllNetworks={item.isAllNetworks}
-              networkName={item.name}
-              size="$8"
-              allNetworksIconProps={{
-                color: '$iconActive',
-              }}
-            />
-          }
-          title={
-            item.isAllNetworks
-              ? intl.formatMessage({ id: ETranslations.global_all_networks })
-              : item.name
-          }
-          opacity={section.isUnavailable ? 0.7 : 1}
-          titleMatch={item.titleMatch}
-          onPress={
-            !section.isUnavailable ? () => onPressItem?.(item) : undefined
-          }
-          testID={`select-item-${item.id}`}
-        >
-          {networkId === item.id ? (
-            <ListItem.CheckMark key="checkmark" />
-          ) : null}
-        </ListItem>
-      )}
+      }) => {
+        const networkValue = accountNetworkValues?.[item.id] ?? '0';
+        const shouldShowValue =
+          accountNetworkValues !== undefined &&
+          (!hideLowValueNetworkValue ||
+            new BigNumber(networkValue || 0).gt(
+              NETWORK_SHOW_VALUE_THRESHOLD_USD,
+            ));
+        return (
+          <ListItem
+            h={48}
+            renderAvatar={
+              <NetworkAvatarBase
+                logoURI={item.logoURI}
+                isCustomNetwork={item.isCustomNetwork}
+                isAllNetworks={item.isAllNetworks}
+                networkName={item.name}
+                size="$8"
+                allNetworksIconProps={{
+                  color: '$iconActive',
+                }}
+              />
+            }
+            title={
+              item.isAllNetworks
+                ? intl.formatMessage({ id: ETranslations.global_all_networks })
+                : item.name
+            }
+            opacity={section.isUnavailable ? 0.7 : 1}
+            titleMatch={item.titleMatch}
+            onPress={
+              !section.isUnavailable ? () => onPressItem?.(item) : undefined
+            }
+            testID={`select-item-${item.id}`}
+          >
+            {accountNetworkValues !== undefined ? (
+              networkId === item.id ? (
+                <ListItem.CheckMark key="checkmark" />
+              ) : (
+                <Stack w="$5" />
+              )
+            ) : networkId === item.id ? (
+              <ListItem.CheckMark key="checkmark" />
+            ) : null}
+            {shouldShowValue ? (
+              <Currency
+                hideValue
+                numberOfLines={1}
+                flexShrink={1}
+                size="$bodyLgMedium"
+                sourceCurrency={accountNetworkValueCurrency}
+              >
+                {networkValue}
+              </Currency>
+            ) : null}
+          </ListItem>
+        );
+      }}
     />
   );
 };
@@ -146,6 +180,9 @@ type IChainSelectorSectionListProps = {
   onPressItem?: (network: IServerNetworkMatch) => void;
   unavailable?: IServerNetworkMatch[];
   recentNetworksEnabled?: boolean;
+  accountNetworkValues?: Record<string, string>;
+  accountNetworkValueCurrency?: string;
+  hideLowValueNetworkValue?: boolean;
 };
 
 const usePending = () => {
@@ -181,6 +218,9 @@ export const ChainSelectorSectionList: FC<IChainSelectorSectionListProps> = ({
   unavailable,
   onPressItem,
   recentNetworksEnabled,
+  accountNetworkValues,
+  accountNetworkValueCurrency,
+  hideLowValueNetworkValue,
 }) => {
   const [text, setText] = useState('');
   const intl = useIntl();
@@ -217,33 +257,10 @@ export const ChainSelectorSectionList: FC<IChainSelectorSectionListProps> = ({
     setText(value.trim());
   }, []);
 
-  const { result: frequentlyUsedNetworks, isLoading } = usePromiseResult(
-    async () => {
-      const _frequentlyUsed =
-        await backgroundApiProxy.serviceNetwork.getNetworkSelectorPinnedNetworks(
-          {
-            useDefaultPinnedNetworks: true,
-          },
-        );
-      const availableNetworksMapFromNetworks = new Map(
-        networks.map((network) => [network.id, network]),
-      );
-      return _frequentlyUsed.filter((network) =>
-        availableNetworksMapFromNetworks.has(network.id),
-      );
-    },
-    [networks],
-    {
-      initResult: [],
-      watchLoading: true,
-    },
-  );
-
   const { sections } = usePureChainSelectorSections({
     networks,
     searchKey: text,
     unavailableNetworks: unavailable,
-    frequentlyUsedNetworks,
   });
 
   const layoutList = useMemo(() => {
@@ -405,6 +422,9 @@ export const ChainSelectorSectionList: FC<IChainSelectorSectionListProps> = ({
           initialScrollIndex={initialScrollIndex?.initialScrollIndexNumber ?? 0}
           recentNetworksEnabled={recentNetworksEnabled}
           listRef={listRef as any}
+          accountNetworkValues={accountNetworkValues}
+          accountNetworkValueCurrency={accountNetworkValueCurrency}
+          hideLowValueNetworkValue={hideLowValueNetworkValue}
         />
       ) : (
         <ListEmptyComponent />
@@ -416,14 +436,15 @@ export const ChainSelectorSectionList: FC<IChainSelectorSectionListProps> = ({
       sections,
       recentNetworksEnabled,
       networks,
+      accountNetworkValues,
+      accountNetworkValueCurrency,
+      hideLowValueNetworkValue,
     ],
   );
 
   const loading = useMemo(() => {
-    return platformEnv.isNative
-      ? isPending || isLoading || isTyping
-      : isPending || isLoading;
-  }, [isLoading, isPending, isTyping]);
+    return platformEnv.isNative ? isPending || isTyping : isPending;
+  }, [isPending, isTyping]);
 
   const loadingElement = useMemo(
     () =>

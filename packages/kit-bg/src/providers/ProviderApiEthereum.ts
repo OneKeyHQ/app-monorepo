@@ -357,9 +357,8 @@ class ProviderApiEthereum extends ProviderApiBase {
 
   @providerApiMethod()
   async eth_chainId(request: IJsBridgeMessagePayload) {
-    const networks = await this.backgroundApi.serviceDApp.getConnectedNetworks(
-      request,
-    );
+    const networks =
+      await this.backgroundApi.serviceDApp.getConnectedNetworks(request);
     if (!isNil(networks?.[0]?.chainId)) {
       return hexUtils.hexlify(Number(networks?.[0]?.chainId), {
         removeZeros: true,
@@ -371,9 +370,8 @@ class ProviderApiEthereum extends ProviderApiBase {
 
   @providerApiMethod()
   async net_version(request: IJsBridgeMessagePayload) {
-    const networks = await this.backgroundApi.serviceDApp.getConnectedNetworks(
-      request,
-    );
+    const networks =
+      await this.backgroundApi.serviceDApp.getConnectedNetworks(request);
     if (!isNil(networks?.[0]?.chainId)) {
       return networks?.[0]?.chainId;
     }

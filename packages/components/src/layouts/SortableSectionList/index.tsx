@@ -195,6 +195,7 @@ function BaseSortableSectionList<T>(
         viewPosition,
       });
     },
+    // oxlint-disable-next-line no-misused-spread
     ...ref?.current,
   }));
   const renderSectionAndItem = useCallback(

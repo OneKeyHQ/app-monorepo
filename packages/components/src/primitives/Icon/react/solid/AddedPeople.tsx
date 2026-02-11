@@ -1,15 +1,14 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgAddedPeople = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      fill="currentColor"
-      d="M12 2a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9m.6 14.7a3 3 0 0 0-.6 1.788v.02a3 3 0 0 0 1.2 2.392l.134.1H5.598c-1.135 0-2.192-1.014-1.902-2.304a9 9 0 0 1 .349-1.18 8.6 8.6 0 0 1 2.174-3.298C7.689 12.842 9.677 12 12 12c2.053 0 3.843.657 5.246 1.759l-1.165 1.942a3 3 0 0 0-3.48.999Z"
-    />
-    <Path
-      fill="currentColor"
-      d="M20.858 15.514a1 1 0 0 0-1.715-1.028l-2.43 4.049L15.6 17.7a1 1 0 1 0-1.2 1.6l2 1.5a1 1 0 0 0 1.458-.285l3-5Z"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M7.614 6.542a4.462 4.462 0 1 1 8.924 0 4.462 4.462 0 0 1-8.924 0m8.509 9.123 1.155-1.925c-1.39-1.092-3.163-1.744-5.202-1.744-4.718 0-8.015 3.491-8.424 7.84a.99.99 0 0 0 .987 1.084h8.76l-.133-.1a2.975 2.975 0 0 1 2.857-5.155" />
+    <Path d="M20.859 15.48a.992.992 0 0 0-1.7-1.02l-2.41 4.015-1.103-.827a.992.992 0 1 0-1.19 1.586l1.983 1.488a.99.99 0 0 0 1.445-.284l2.975-4.957Z" />
   </Svg>
 );
 export default SvgAddedPeople;

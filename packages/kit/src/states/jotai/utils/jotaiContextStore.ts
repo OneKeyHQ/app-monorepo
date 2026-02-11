@@ -8,7 +8,7 @@ import type { IJotaiContextStore } from './createJotaiContext';
 
 export function buildJotaiContextStoreId(data: IJotaiContextStoreData) {
   const { storeName, accountSelectorInfo } = data;
-  let storeId = `${storeName}`;
+  let storeId: string = storeName;
   if (accountSelectorInfo) {
     const sceneId =
       accountSelectorUtils.buildAccountSelectorSceneId(accountSelectorInfo);

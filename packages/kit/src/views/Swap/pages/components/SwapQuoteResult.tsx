@@ -100,23 +100,6 @@ const SwapQuoteResult = ({
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const intl = useIntl();
   const { onSlippageHandleClick, slippageItem } = useSwapSlippageActions();
-  const isFreeOneKeyFee = useMemo(() => {
-    if (
-      (quoteResult?.toAmount && quoteResult.kind === ESwapQuoteKind.SELL) ||
-      (quoteResult?.fromAmount && quoteResult.kind === ESwapQuoteKind.BUY)
-    ) {
-      return (
-        new BigNumber(quoteResult?.fee?.percentageFee ?? '0').isZero() ||
-        new BigNumber(quoteResult?.fee?.percentageFee ?? '0').isNaN()
-      );
-    }
-    return false;
-  }, [
-    quoteResult?.fee?.percentageFee,
-    quoteResult?.fromAmount,
-    quoteResult?.toAmount,
-    quoteResult?.kind,
-  ]);
   const swapRecipientAddress = useSwapRecipientAddressInfo(
     swapEnableRecipientAddress,
   );
@@ -135,7 +118,7 @@ const SwapQuoteResult = ({
             {
               id: ETranslations.swap_page_buy_sell_tax,
             },
-            { token: `${tokenInfo?.symbol ?? ''}` },
+            { token: tokenInfo?.symbol ?? '' },
           )}
           isLoading={swapQuoteLoading}
           valueComponent={
@@ -217,8 +200,8 @@ const SwapQuoteResult = ({
     );
     const tokenPriceBN = new BigNumber(
       quoteResult?.kind === ESwapQuoteKind.SELL
-        ? toToken?.price ?? '0'
-        : fromToken?.price ?? '0',
+        ? (toToken?.price ?? '0')
+        : (fromToken?.price ?? '0'),
     );
     const oneKeyFeeFiatValue = oneKeyFeeAmountBN.multipliedBy(tokenPriceBN);
     const estimatedFeeFiatValue = new BigNumber(
@@ -229,7 +212,7 @@ const SwapQuoteResult = ({
       allFeeFiatValue.toFixed(),
       allFeeFiatValueFormatter,
     );
-    return `${allFeeFiatValueFormat}`;
+    return allFeeFiatValueFormat;
   }, [
     quoteResult?.oneKeyFeeExtraInfo?.oneKeyFeeAmount,
     quoteResult?.kind,
@@ -349,16 +332,18 @@ const SwapQuoteResult = ({
           <SwapProviderInfoItem
             providerIcon={quoteResult?.info.providerLogo ?? ''}
             providerName={quoteResult?.info.providerName ?? ''}
-            isFreeOneKeyFee={isFreeOneKeyFee ?? false}
+            isBest={quoteResult?.isBest}
             // isLoading={swapQuoteLoading}
             fromToken={fromToken}
             onekeyFee={quoteResult?.fee?.percentageFee}
             toToken={toToken}
             showLock={!!quoteResult?.allowanceResult}
             onPress={
-              quoteResult?.info.provider && swapQuoteList?.length > 1
+              quoteResult?.info.provider &&
+              swapQuoteList?.length > 1 &&
+              onOpenProviderList
                 ? () => {
-                    onOpenProviderList?.();
+                    onOpenProviderList();
                   }
                 : undefined
             }
@@ -411,7 +396,6 @@ const SwapQuoteResult = ({
                 rate={quoteResult?.instantRate}
                 quoting={quoting}
                 fromToken={fromToken}
-                isFreeOneKeyFee={isFreeOneKeyFee ?? false}
                 toToken={toToken}
                 isBest={quoteResult?.isBest}
                 providerIcon={quoteResult?.info.providerLogo ?? ''}
@@ -426,14 +410,8 @@ const SwapQuoteResult = ({
               />
             )}
           </Accordion.Trigger>
-          <Accordion.HeightAnimator animation="quick">
-            <Accordion.Content
-              gap="$4"
-              p="$0"
-              animation="quick"
-              enterStyle={{ opacity: 0 }}
-              exitStyle={{ opacity: 0 }}
-            >
+          <Accordion.HeightAnimator animation="quick" overflow="hidden">
+            <Accordion.Content gap="$4" p="$0">
               <Divider mt="$4" />
               {swapProviderSupportReceiveAddress &&
               swapEnableRecipientAddress ? (
@@ -481,17 +459,16 @@ const SwapQuoteResult = ({
                 <SwapProviderInfoItem
                   providerIcon={quoteResult?.info.providerLogo ?? ''} // TODO default logo
                   providerName={quoteResult?.info.providerName ?? ''}
+                  isBest={quoteResult?.isBest}
                   isLoading={swapQuoteLoading}
-                  isBest={quoteResult.isBest}
-                  isFreeOneKeyFee={isFreeOneKeyFee ?? false}
                   fromToken={fromToken}
                   onekeyFee={quoteResult?.fee?.percentageFee}
                   toToken={toToken}
                   showLock={!!quoteResult?.allowanceResult}
                   onPress={
-                    quoteResult?.info.provider
+                    quoteResult?.info.provider && onOpenProviderList
                       ? () => {
-                          onOpenProviderList?.();
+                          onOpenProviderList();
                         }
                       : undefined
                   }

@@ -1,14 +1,12 @@
 /* eslint-disable dot-notation */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { EventEmitter } from 'events';
+import fs from 'fs';
+import os from 'os';
 import path from 'path';
-import { format as formatUrl } from 'url';
+import { fileURLToPath, format as formatUrl } from 'url';
 
 import { initNobleBleSupport } from '@onekeyfe/hd-transport-electron';
-import {
-  attachTitlebarToWindow,
-  setupTitlebar,
-} from 'custom-electron-titlebar/main';
 import {
   BrowserWindow,
   Menu,
@@ -56,11 +54,25 @@ import {
 import { initSentry } from './sentry';
 import { startServices } from './service';
 import { setMainWindowForOAuthServer } from './service/oauthLocalServer/oauthLocalServer';
+import { getBackgroundColor } from './libs/utils';
 
 logger.initialize();
 logger.transports.file.maxSize = 1024 * 1024 * 10;
 
 initSentry();
+
+const isPerfCiMode = process.env.PERF_CI_MODE === '1';
+const isDevServer = isDev && !isPerfCiMode;
+const isLocalUnpacked = isDev || isPerfCiMode;
+
+if (isPerfCiMode) {
+  // Keep prepared state in a stable location on perf machines.
+  const userDataDir =
+    process.env.PERF_DESKTOP_USER_DATA_DIR ||
+    path.join(os.homedir(), 'perf-profiles', 'desktop');
+  app.setPath('userData', userDataDir);
+  logger.info('[perf-ci] userDataDir:', userDataDir);
+}
 
 // https://github.com/sindresorhus/electron-context-menu
 let disposeContextMenu: ReturnType<typeof contextMenu> | undefined;
@@ -103,16 +115,12 @@ const resourcesPath = getResourcesPath();
 // const preloadJsUrl = path.join(staticPath, 'preload.js');
 // const preloadJsUrl = path.join(staticPath, 'preload-webview-test.js');
 
-const sdkConnectSrc = isDev
+const sdkConnectSrc = isLocalUnpacked
   ? `file://${path.join(staticPath, 'js-sdk/')}`
   : path.join('/static', 'js-sdk/');
 
 const isMac = process.platform === 'darwin';
 const isWin = process.platform === 'win32';
-
-if (!isMac) {
-  setupTitlebar();
-}
 
 let systemIdleInterval: ReturnType<typeof setInterval>;
 
@@ -234,12 +242,12 @@ const initMenu = () => {
     {
       label: i18nText(ElectronTranslations.menu_view),
       submenu: [
-        ...(isDev || store.getDevTools()
+        ...(isDevServer || store.getDevTools()
           ? [
               { role: 'reload' },
               { role: 'forceReload' },
               { role: 'toggleDevTools' },
-              isDev
+              isDevServer
                 ? {
                     role: 'toggleDevTools',
                     label: `Toggle DevTools: ${store.getDevTools().toString()}`,
@@ -443,17 +451,7 @@ function systemIdleHandler(setIdleTime: number, event: Electron.IpcMainEvent) {
 
 const theme = store.getTheme();
 
-// colors from packages/components/tamagui.config.ts
-const themeColors = {
-  light: '#ffffff',
-  dark: '#0f0f0f',
-};
-
 logger.info('theme >>>> ', theme, nativeTheme.shouldUseDarkColors);
-
-const getBackgroundColor = (key: string) =>
-  themeColors[key as keyof typeof themeColors] ||
-  themeColors[nativeTheme.shouldUseDarkColors ? 'dark' : 'light'];
 
 const ratio = 16 / 9;
 const defaultSize = 1200;
@@ -484,22 +482,22 @@ async function createMainWindow() {
     show: false,
     title: APP_TITLE_NAME,
     titleBarStyle: 'hidden',
-    titleBarOverlay: !isMac,
+    // titleBarOverlay: !isMac,
     trafficLightPosition: { x: 20, y: 20 },
     autoHideMenuBar: true,
     frame: true,
     resizable: true,
-    x: isDev ? 0 : undefined,
-    y: isDev ? 0 : undefined,
+    x: isDevServer ? 0 : undefined,
+    y: isDevServer ? 0 : undefined,
     width: Math.min(defaultSize, dimensions.width),
     height: Math.min(defaultSize / ratio, dimensions.height),
-    minWidth: isDev ? undefined : minWidth, // OK-8215
-    minHeight: isDev ? undefined : minHeight / ratio,
+    minWidth: isDevServer ? undefined : minWidth, // OK-8215
+    minHeight: isDevServer ? undefined : minHeight / ratio,
     backgroundColor: getBackgroundColor(theme),
     webPreferences: {
       spellcheck: false,
       webviewTag: true,
-      webSecurity: !isDev,
+      webSecurity: isPerfCiMode ? true : !isDev,
       // @ts-expect-error
       nativeWindowOpen: true,
       allowRunningInsecureContent: false,
@@ -516,9 +514,6 @@ async function createMainWindow() {
     ...savedWinBounds,
   });
 
-  if (!isMac) {
-    attachTitlebarToWindow(browserWindow);
-  }
   const getSafelyBrowserWindow = () => {
     if (browserWindow && !browserWindow.isDestroyed()) {
       return browserWindow;
@@ -549,17 +544,71 @@ async function createMainWindow() {
     });
   }
 
-  if (isDev) {
-    browserWindow.webContents.openDevTools();
+  const PROTOCOL = 'file';
+  const perfIndexHtmlPath =
+    process.env.PERF_DESKTOP_INDEX_HTML ||
+    path.join(__dirname, '..', 'build', 'index.html');
+
+  if (isLocalUnpacked) {
+    session.defaultSession.protocol.interceptFileProtocol(
+      PROTOCOL,
+      (request, callback) => {
+        const jsSdkPattern = '/static/js-sdk/';
+        const jsSdkIndex = request.url.indexOf(jsSdkPattern);
+
+        // resolve js-sdk files path in local unpacked mode
+        if (jsSdkIndex > -1) {
+          const fileName = request.url.substring(
+            jsSdkIndex + jsSdkPattern.length,
+          );
+          callback(path.join(staticPath, 'js-sdk', fileName));
+          return;
+        }
+
+        // In perf-ci mode we load renderer via file://. Some builds use absolute
+        // asset paths like "/main.xxx.js" which become "file:///main.xxx.js".
+        // Map those to the local build directory as a fallback.
+        try {
+          const requestedPath = fileURLToPath(request.url);
+          if (fs.existsSync(requestedPath)) {
+            callback(requestedPath);
+            return;
+          }
+          const buildDir = path.join(__dirname, '..', 'build');
+          const fallbackPath = path.join(
+            buildDir,
+            requestedPath.replace(/^\/+/, ''),
+          );
+          if (fs.existsSync(fallbackPath)) {
+            callback(fallbackPath);
+            return;
+          }
+          callback(requestedPath);
+        } catch (_e) {
+          // Best-effort: let Electron handle it.
+          callback(request.url);
+        }
+      },
+    );
   }
 
-  const src = isDev
-    ? 'http://localhost:3001/'
-    : formatUrl({
-        pathname: bundleIndexHtmlPath || 'index.html',
-        protocol: 'file',
+  const src = isPerfCiMode
+    ? formatUrl({
+        pathname: perfIndexHtmlPath,
+        protocol: PROTOCOL,
         slashes: true,
-      });
+      })
+    : isDev
+      ? 'http://localhost:3001/'
+      : formatUrl({
+          pathname: bundleIndexHtmlPath || 'index.html',
+          protocol: PROTOCOL,
+          slashes: true,
+        });
+
+  if (isDevServer) {
+    browserWindow.webContents.openDevTools();
+  }
 
   void browserWindow.loadURL(src);
 
@@ -635,13 +684,7 @@ async function createMainWindow() {
   });
 
   ipcMain.on(ipcMessageKeys.IS_DEV, (event) => {
-    event.returnValue = isDev;
-  });
-
-  ipcMain.on(ipcMessageKeys.THEME_UPDATE, (event, themeKey: string) => {
-    const safelyBrowserWindow = getSafelyBrowserWindow();
-    store.setTheme(themeKey);
-    safelyBrowserWindow?.setBackgroundColor(getBackgroundColor(themeKey));
+    event.returnValue = isDevServer;
   });
 
   ipcMain.on(ipcMessageKeys.APP_IS_FOCUSED, (event) => {
@@ -655,6 +698,58 @@ async function createMainWindow() {
 
   ipcMain.on(ipcMessageKeys.APP_TEST_CRASH, () => {
     throw new OneKeyLocalError('Test Electron Native crash 996');
+  });
+
+  // System Resources
+  ipcMain.handle(ipcMessageKeys.SYSTEM_GET_CPU_USAGE, async () => {
+    try {
+      const cpuUsage = process.getCPUUsage();
+      // Calculate CPU usage percentage
+      const totalUsage = cpuUsage.percentCPUUsage;
+      return {
+        usage: totalUsage,
+      };
+    } catch (error) {
+      console.error('Failed to get CPU usage:', error);
+      return { usage: 0 };
+    }
+  });
+
+  ipcMain.handle(ipcMessageKeys.SYSTEM_GET_MEMORY_USAGE, async () => {
+    try {
+      const memoryUsage = await process.getProcessMemoryInfo();
+      const blinkMemory = process.getBlinkMemoryInfo();
+
+      // Format memory value: if < 1, keep 2 decimals; if >= 1, round to integer
+      const formatMemoryValue = (valueInKB: number): string => {
+        const valueInMB = valueInKB / 1024;
+        if (valueInMB < 1) {
+          return valueInMB.toFixed(2);
+        }
+        return Math.round(valueInMB).toString();
+      };
+
+      // private: available on all platforms (macOS, Windows, Linux)
+      // residentSet: only available on Linux and Windows
+      // blinkMemory: Blink (rendering engine) memory usage
+      return {
+        private: Math.round(memoryUsage.private / 1024), // Convert KB to MB
+        residentSet: memoryUsage.residentSet
+          ? Math.round(memoryUsage.residentSet / 1024)
+          : undefined, // Convert KB to MB, undefined on macOS
+        blink: {
+          allocated: formatMemoryValue(blinkMemory.allocated), // Formatted string
+          total: formatMemoryValue(blinkMemory.total), // Formatted string
+        },
+      };
+    } catch (error) {
+      console.error('Failed to get memory usage:', error);
+      return {
+        private: 0,
+        residentSet: undefined,
+        blink: { allocated: '0', total: '0' },
+      };
+    }
   });
 
   desktopApi.desktopApiSetup();
@@ -775,29 +870,7 @@ async function createMainWindow() {
     },
   );
 
-  const PROTOCOL = 'file';
-  if (isDev) {
-    session.defaultSession.protocol.interceptFileProtocol(
-      PROTOCOL,
-      (request, callback) => {
-        console.log('request url', request);
-        const jsSdkPattern = '/static/js-sdk/';
-        const jsSdkIndex = request.url.indexOf(jsSdkPattern);
-
-        // resolve js-sdk files path in dev mode
-        if (jsSdkIndex > -1) {
-          const fileName = request.url.substring(
-            jsSdkIndex + jsSdkPattern.length,
-          );
-          callback({
-            path: path.join(staticPath, 'js-sdk', fileName),
-          });
-          return;
-        }
-        callback(request.url);
-      },
-    );
-  } else {
+  if (!isLocalUnpacked) {
     // Get Windows drive letter for security validation
     const driveLetter = getDriveLetter();
     logger.info('driveLetter >>>> ', driveLetter);
@@ -980,7 +1053,7 @@ app.on('window-all-closed', () => {
 // Closing the cause context: https://onekeyhq.atlassian.net/browse/OK-8096
 app.commandLine.appendSwitch('disable-features', 'CrossOriginOpenerPolicy');
 
-if (isDev) {
+if (isDevServer) {
   app.commandLine.appendSwitch('ignore-certificate-errors');
   app.commandLine.appendSwitch('allow-insecure-localhost', 'true');
   app.commandLine.appendSwitch('disable-site-isolation-trials');

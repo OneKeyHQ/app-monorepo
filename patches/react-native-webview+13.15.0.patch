@@ -16,6 +16,46 @@ index 07f73fd..5a18160 100644
              } else if(requestedResource.equals(PermissionRequest.RESOURCE_PROTECTED_MEDIA_ID)) {
                  if (mAllowsProtectedMedia) {
                    grantedPermissions.add(requestedResource);
+diff --git a/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewManagerImpl.kt b/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewManagerImpl.kt
+index 438ab6a..853bcc5 100644
+--- a/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewManagerImpl.kt
++++ b/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewManagerImpl.kt
+@@ -34,6 +34,17 @@ val invalidCharRegex = "[\\\\/%\"]".toRegex()
+ class RNCWebViewManagerImpl(private val newArch: Boolean = false) {
+     companion object {
+         const val NAME = "RNCWebView"
++        private val defaultVideoPoster: Bitmap by lazy {
++            Bitmap.createBitmap(50, 50, Bitmap.Config.ARGB_8888)
++        }
++
++        fun safeDefaultVideoPoster(): Bitmap {
++            return if (defaultVideoPoster.isRecycled) {
++                Bitmap.createBitmap(50, 50, Bitmap.Config.ARGB_8888)
++            } else {
++                defaultVideoPoster
++            }
++        }
+     }
+ 
+     private val TAG = "RNCWebViewManagerImpl"
+@@ -148,7 +159,7 @@ class RNCWebViewManagerImpl(private val newArch: Boolean = false) {
+             val webChromeClient: RNCWebChromeClient =
+                 object : RNCWebChromeClient(webView) {
+                     override fun getDefaultVideoPoster(): Bitmap? {
+-                        return Bitmap.createBitmap(50, 50, Bitmap.Config.ARGB_8888)
++                        return safeDefaultVideoPoster()
+                     }
+ 
+                     override fun onShowCustomView(view: View, callback: CustomViewCallback) {
+@@ -215,7 +226,7 @@ class RNCWebViewManagerImpl(private val newArch: Boolean = false) {
+             webChromeClient?.onHideCustomView()
+             webChromeClient = object : RNCWebChromeClient(webView) {
+                 override fun getDefaultVideoPoster(): Bitmap? {
+-                    return Bitmap.createBitmap(50, 50, Bitmap.Config.ARGB_8888)
++                    return safeDefaultVideoPoster()
+                 }
+             }
+             webChromeClient.setAllowsProtectedMedia(mAllowsProtectedMedia);
 diff --git a/node_modules/react-native-webview/apple/RNCWebViewImpl.m b/node_modules/react-native-webview/apple/RNCWebViewImpl.m
 index 7f5c24d..5623f4a 100644
 --- a/node_modules/react-native-webview/apple/RNCWebViewImpl.m
@@ -70,26 +110,28 @@ index a85ac85..f0ca9a9 100644
       * Executes the JavaScript string.
       */
 diff --git a/node_modules/react-native-webview/src/WebView.android.tsx b/node_modules/react-native-webview/src/WebView.android.tsx
-index edf06fa..e6b08b0 100644
+index edf06fa..a4be43e 100644
 --- a/node_modules/react-native-webview/src/WebView.android.tsx
 +++ b/node_modules/react-native-webview/src/WebView.android.tsx
-@@ -165,6 +165,7 @@ const WebViewComponent = forwardRef<{}, AndroidWebViewProps>(
+@@ -165,6 +165,8 @@ const WebViewComponent = forwardRef<{}, AndroidWebViewProps>(
          },
          stopLoading: () =>
            webViewRef.current && Commands.stopLoading(webViewRef.current),
-+        loadUrl: (url: string) => Commands.loadUrl(webViewRef.current, url),
++        loadUrl: (url: string) =>
++          webViewRef.current && Commands.loadUrl(webViewRef.current, url),
          postMessage: (data: string) =>
            webViewRef.current && Commands.postMessage(webViewRef.current, data),
          injectJavaScript: (data: string) =>
 diff --git a/node_modules/react-native-webview/src/WebView.ios.tsx b/node_modules/react-native-webview/src/WebView.ios.tsx
-index deb179b..961fe20 100644
+index deb179b..40385db 100644
 --- a/node_modules/react-native-webview/src/WebView.ios.tsx
 +++ b/node_modules/react-native-webview/src/WebView.ios.tsx
-@@ -149,6 +149,7 @@ const WebViewComponent = forwardRef<{}, IOSWebViewProps>(
+@@ -149,6 +149,8 @@ const WebViewComponent = forwardRef<{}, IOSWebViewProps>(
          },
          stopLoading: () =>
            webViewRef.current && Commands.stopLoading(webViewRef.current),
-+        loadUrl: (url: string) => Commands.loadUrl(webViewRef.current, url),
++        loadUrl: (url: string) =>
++          webViewRef.current && Commands.loadUrl(webViewRef.current, url),
          postMessage: (data: string) =>
            webViewRef.current && Commands.postMessage(webViewRef.current, data),
          injectJavaScript: (data: string) =>

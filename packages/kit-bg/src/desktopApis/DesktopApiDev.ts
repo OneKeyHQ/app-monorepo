@@ -112,7 +112,7 @@ class DesktopApiDev {
     const totalBytes =
       typeof sizeBytes === 'number' && sizeBytes > 0
         ? sizeBytes
-        : (await fsPromises.stat(filePath)).size ?? 0;
+        : ((await fsPromises.stat(filePath)).size ?? 0);
     const sendProgress = ({
       stage,
       progressPercent,

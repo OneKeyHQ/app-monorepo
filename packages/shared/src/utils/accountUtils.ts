@@ -261,9 +261,9 @@ function isHwHiddenWallet({
 }): boolean {
   return Boolean(
     wallet &&
-      (isHwWallet({ walletId: wallet.id }) ||
-        isQrWallet({ walletId: wallet.id })) &&
-      wallet.passphraseState,
+    (isHwWallet({ walletId: wallet.id }) ||
+      isQrWallet({ walletId: wallet.id })) &&
+    wallet.passphraseState,
   );
 }
 
@@ -595,7 +595,7 @@ function buildAccountLocalAssetsKey({
     return `${networkId}_${(xpub || accountAddress) ?? ''}`.toLowerCase();
   }
 
-  return `${(xpub || accountAddress) ?? ''}`.toLowerCase();
+  return ((xpub || accountAddress) ?? '').toLowerCase();
 }
 
 function isAccountCompatibleWithNetwork({
