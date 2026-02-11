@@ -68,11 +68,16 @@ export function DesktopLayout({
   const { bannerList } = useMarketBannerList();
   const hasBanner = Boolean(bannerList && bannerList.length > 0);
 
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
   const { height, containerStyle } = useMemo(() => {
-    const bannerHeight = hasBanner ? 0 : 120;
+    // Always use the height that does NOT subtract banner space.
+    // When the banner is present, the outer scroll container overflows
+    // by exactly the banner height, allowing it to scroll away while
+    // the TabBar sticks via CSS position: sticky.
     const computedHeight = platformEnv.isNative
       ? undefined
-      : `calc(100vh - ${167 - bannerHeight}px)`;
+      : `calc(100vh - 47px)`;
     const style: Record<string, any> = { height: computedHeight };
 
     if (platformEnv.isWebDappMode) {
@@ -83,6 +88,51 @@ export function DesktopLayout({
       style.paddingBottom = 50;
     }
     return { height: computedHeight, containerStyle: style };
+  }, []);
+
+  // Wheel event handler: prioritize outer scroll (banner collapse)
+  // over inner Table scroll when the banner is still visible.
+  useEffect(() => {
+    if (!hasBanner || platformEnv.isNative) return;
+
+    const el = scrollContainerRef.current;
+    if (!el) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      const maxScroll = el.scrollHeight - el.clientHeight;
+      if (maxScroll <= 0) return;
+
+      // Scrolling down: collapse banner first
+      if (e.deltaY > 0 && el.scrollTop < maxScroll - 1) {
+        e.preventDefault();
+        el.scrollTop = Math.min(el.scrollTop + e.deltaY, maxScroll);
+        return;
+      }
+
+      // Scrolling up: expand banner when inner lists are at top
+      if (e.deltaY < 0 && el.scrollTop > 0) {
+        let target = e.target as HTMLElement | null;
+        let innerCanScrollUp = false;
+        while (target && target !== el) {
+          if (
+            target.scrollHeight > target.clientHeight + 1 &&
+            target.scrollTop > 1
+          ) {
+            innerCanScrollUp = true;
+            break;
+          }
+          target = target.parentElement;
+        }
+
+        if (!innerCanScrollUp) {
+          e.preventDefault();
+          el.scrollTop = Math.max(el.scrollTop + e.deltaY, 0);
+        }
+      }
+    };
+
+    el.addEventListener('wheel', handleWheel, { passive: false });
+    return () => el.removeEventListener('wheel', handleWheel);
   }, [hasBanner]);
 
   const pageWidth = useTabContainerWidth();
@@ -141,7 +191,15 @@ export function DesktopLayout({
     return null;
   }
   return (
-    <YStack>
+    <YStack
+      flex={1}
+      ref={scrollContainerRef as any}
+      style={
+        hasBanner && !platformEnv.isNative
+          ? { overflowY: 'auto', scrollbarWidth: 'none' }
+          : undefined
+      }
+    >
       <MarketBannerList />
       <Tabs.TabBar
         divider={false}
