@@ -11,10 +11,7 @@ import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, {
-  scrollTo,
-  useSharedValue,
-} from 'react-native-reanimated';
+import Animated, { scrollTo, useSharedValue } from 'react-native-reanimated';
 
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { HomeTokenListProviderMirror } from '../components/HomeTokenListProvider/HomeTokenListProviderMirror';
