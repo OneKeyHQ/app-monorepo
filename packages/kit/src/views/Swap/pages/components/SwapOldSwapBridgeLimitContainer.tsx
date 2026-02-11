@@ -228,7 +228,16 @@ const SwapOldSwapBridgeLimitContainer = ({
     return (
       <ScrollView flex={1} contentContainerStyle={{ flexGrow: 1 }}>
         {headerContent ? (
-          <YStack pt="$8" pb="$4">
+          <YStack
+            pt="$8"
+            pb="$4"
+            bg="$bgApp"
+            $platform-web={{
+              position: 'sticky',
+              top: 0,
+              zIndex: 1,
+            }}
+          >
             {headerContent}
           </YStack>
         ) : null}
