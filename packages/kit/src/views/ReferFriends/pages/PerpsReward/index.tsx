@@ -336,7 +336,7 @@ function PerpsRewardPageWrapper() {
     const items = currentInvites?.items ?? [];
     if (items.length === 0) return items;
 
-    return [...items].sort((a, b) => {
+    return items.toSorted((a, b) => {
       let valA: number;
       let valB: number;
 
