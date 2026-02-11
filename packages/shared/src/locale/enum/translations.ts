@@ -1460,6 +1460,7 @@
   global_done = 'global.done',
   global_download = 'global.download',
   global_download_and_install = 'global.download_and_install',
+  global_download_app = 'global.download_app',
   global_download_onekey_wallet = 'global.download_onekey_wallet',
   global_earn = 'global.earn',
   global_edit = 'global.edit',
