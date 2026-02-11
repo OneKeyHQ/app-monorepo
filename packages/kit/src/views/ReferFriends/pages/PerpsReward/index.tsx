@@ -64,6 +64,8 @@ function PerpsRewardPageWrapper() {
   const [hideZeroVolume, setHideZeroVolume] = useState(true);
   const [sortBy, setSortBy] = useState<IPerpsInvitesSortBy>('volume');
   const [sortOrder, setSortOrder] = useState<IPerpsInvitesSortOrder>('desc');
+  // Track whether user has explicitly clicked a sort header
+  const [hasUserSorted, setHasUserSorted] = useState(false);
 
   // Pagination state
   const [cursor, setCursor] = useState<string | undefined>();
@@ -71,6 +73,7 @@ function PerpsRewardPageWrapper() {
 
   const handleSort = useCallback(
     (field: IPerpsInvitesSortBy) => {
+      setHasUserSorted(true);
       if (sortBy === field) {
         // Toggle order if same field
         setSortOrder((prev) => (prev === 'desc' ? 'asc' : 'desc'));
@@ -328,6 +331,44 @@ function PerpsRewardPageWrapper() {
       .finally(() => setIsTabLoading(false));
   }, [fetchCurrentTab]);
 
+  // Client-side sorting as a fallback in case the API doesn't sort correctly
+  const sortedRecords = useMemo(() => {
+    const items = currentInvites?.items ?? [];
+    if (items.length === 0) return items;
+
+    return items.toSorted((a, b) => {
+      let valA: number;
+      let valB: number;
+
+      switch (sortBy) {
+        case 'volume':
+          valA = Number(a.volumeFiatValue) || 0;
+          valB = Number(b.volumeFiatValue) || 0;
+          break;
+        case 'fee':
+          valA = Number(a.feeFiatValue) || 0;
+          valB = Number(b.feeFiatValue) || 0;
+          break;
+        case 'reward':
+          valA = Number(a.rewardFiatValue) || 0;
+          valB = Number(b.rewardFiatValue) || 0;
+          break;
+        case 'invitationTime':
+          valA = a.invitationTime ? new Date(a.invitationTime).getTime() : 0;
+          valB = b.invitationTime ? new Date(b.invitationTime).getTime() : 0;
+          break;
+        case 'firstTradeTime':
+          valA = a.firstTradeTime ? new Date(a.firstTradeTime).getTime() : 0;
+          valB = b.firstTradeTime ? new Date(b.firstTradeTime).getTime() : 0;
+          break;
+        default:
+          return 0;
+      }
+
+      return sortOrder === 'desc' ? valB - valA : valA - valB;
+    });
+  }, [currentInvites?.items, sortBy, sortOrder]);
+
   // Max date for DatePicker (today)
   const maxDate = useMemo(() => new Date(), []);
 
@@ -419,7 +460,7 @@ function PerpsRewardPageWrapper() {
 
               {/* Details Section */}
               <PerpsDetailsSection
-                records={currentInvites?.items ?? []}
+                records={sortedRecords}
                 activeTab={activeTab}
                 onTabChange={setActiveTab}
                 undistributedCount={undistributedCount}
@@ -431,6 +472,7 @@ function PerpsRewardPageWrapper() {
                 onSort={handleSort}
                 isLoadingMore={isLoadingMore}
                 isTabLoading={isTabLoading}
+                hasUserSorted={hasUserSorted}
               />
             </ScrollView>
           )}

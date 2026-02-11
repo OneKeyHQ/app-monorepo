@@ -23,6 +23,7 @@ export interface IPerpsDetailsSectionProps {
   onSort: (field: IPerpsInvitesSortBy) => void;
   isLoadingMore?: boolean;
   isTabLoading?: boolean;
+  hasUserSorted?: boolean;
 }
 
 export function PerpsDetailsSection(props: IPerpsDetailsSectionProps) {
