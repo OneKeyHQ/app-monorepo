@@ -1598,7 +1598,12 @@ export default class ServiceSwap extends ServiceBase {
       ...pre,
       swapHistoryPendingList: filterSwapHistoryPendingList(
         pre.swapHistoryPendingList,
-      ).filter((item) => item.txInfo.txId !== deleteHistoryId),
+      ).filter(
+          (item) =>
+            (item.txInfo.useOrderId
+              ? item.txInfo.orderId
+              : item.txInfo.txId) !== deleteHistoryId,
+        ),
     }));
     await this.cleanHistoryStateIntervals(deleteHistoryId);
   }
