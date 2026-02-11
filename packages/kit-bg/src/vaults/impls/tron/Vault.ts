@@ -534,12 +534,19 @@ export default class Vault extends VaultBase {
 
     const recipients = transfersInfo.map((t) => t.to);
 
+    // Use ViaContract by default (fewer notifications for sender).
+    // Fall back to direct transferFrom for fee-on-transfer tokens.
+    const isFeeOnTransfer = transfersInfo[0].isFeeOnTransferToken ?? false;
+
     if (isSameAmount) {
-      // Use sendTRC20SameAmount for better energy efficiency
       const amountOnChain = chainValueUtils.convertTokenAmountToChainValue({
         token: tokenInfo,
         value: transfersInfo[0].amount,
       });
+
+      const methodSignature = isFeeOnTransfer
+        ? 'sendTRC20SameAmount(address,address[],uint256)'
+        : 'sendTRC20SameAmountViaContract(address,address[],uint256)';
 
       const [
         {
@@ -558,7 +565,7 @@ export default class Vault extends VaultBase {
               method: 'transactionBuilder.triggerSmartContract',
               params: [
                 contractAddress,
-                'sendTRC20SameAmount(address,address[],uint256)',
+                methodSignature,
                 {},
                 [
                   { type: 'address', value: tokenInfo.address },
@@ -584,7 +591,6 @@ export default class Vault extends VaultBase {
       });
     }
 
-    // Use sendTRC20 for different amounts
     const transfers = transfersInfo.map((t) => ({
       recipient: t.to,
       amount: chainValueUtils.convertTokenAmountToChainValue({
@@ -595,6 +601,10 @@ export default class Vault extends VaultBase {
 
     // Build tuple array for (address recipient, uint256 amount)[]
     const transferTuples = transfers.map((t) => [t.recipient, t.amount]);
+
+    const methodSignature = isFeeOnTransfer
+      ? 'sendTRC20(address,(address,uint256)[])'
+      : 'sendTRC20ViaContract(address,(address,uint256)[])';
 
     const [
       {
@@ -613,7 +623,7 @@ export default class Vault extends VaultBase {
             method: 'transactionBuilder.triggerSmartContract',
             params: [
               contractAddress,
-              'sendTRC20(address,(address,uint256)[])',
+              methodSignature,
               {},
               [
                 { type: 'address', value: tokenInfo.address },

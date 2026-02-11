@@ -33,10 +33,7 @@ export const initSentry = () => {
     maxCacheItems: 60,
     enableAppHangTracking: true,
     appHangTimeoutInterval: 5,
-    integrations: [
-      navigationIntegration,
-      reactNativeTracingIntegration(),
-    ],
+    integrations: [navigationIntegration, reactNativeTracingIntegration()],
     enableAutoPerformanceTracing: true,
   });
 };

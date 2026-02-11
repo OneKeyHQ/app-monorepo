@@ -738,7 +738,8 @@ function CreateOrImportWallet() {
                                 <Image
                                   key={key}
                                   source={
-                                    externalWalletLogoUtils.getLogoInfo(key).logo
+                                    externalWalletLogoUtils.getLogoInfo(key)
+                                      .logo
                                   }
                                   width={12}
                                   height={12}
