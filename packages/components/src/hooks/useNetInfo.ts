@@ -137,20 +137,29 @@ class NetInfo {
     }
   }
 
-  async start() {
-    this.pendingRefresh = false;
+  isIdle() {
+    return !this.pollingTimeoutId && !this.isFetching;
+  }
+
+  private clearPolling() {
     if (this.pollingTimeoutId) {
       clearTimeout(this.pollingTimeoutId);
       this.pollingTimeoutId = null;
     }
+  }
+
+  start() {
+    this.clearPolling();
+    if (this.isFetching) {
+      this.pendingRefresh = true;
+      return;
+    }
+    this.pendingRefresh = false;
     void this.fetch();
   }
 
-  async refresh() {
-    if (this.pollingTimeoutId) {
-      clearTimeout(this.pollingTimeoutId);
-      this.pollingTimeoutId = null;
-    }
+  refresh() {
+    this.clearPolling();
     if (this.isFetching) {
       this.pendingRefresh = true;
       return;
@@ -168,13 +177,13 @@ export const configureNetInfo = (configuration: IReachabilityConfiguration) => {
     globalNetInfo.configuration.reachabilityUrl !==
     configuration.reachabilityUrl;
   globalNetInfo.configure(configuration);
-  if (urlChanged || (!globalNetInfo.pollingTimeoutId && !globalNetInfo.isFetching)) {
-    void globalNetInfo.start();
+  if (urlChanged || globalNetInfo.isIdle()) {
+    globalNetInfo.start();
   }
 };
 
 export const refreshNetInfo = () => {
-  void globalNetInfo.refresh();
+  globalNetInfo.refresh();
 };
 
 export const useNetInfo = () => {
