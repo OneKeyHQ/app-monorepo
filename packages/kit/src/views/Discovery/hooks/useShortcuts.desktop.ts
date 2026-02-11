@@ -62,38 +62,42 @@ export const useDiscoveryShortcuts = () => {
         return;
       }
       const webview = getActiveWebview(activeTabId);
-      switch (data) {
-        case EShortcutEvents.CopyAddressOrUrl: {
-          const url = webview?.getURL();
-          if (url) {
-            copyText(url);
+      try {
+        switch (data) {
+          case EShortcutEvents.CopyAddressOrUrl: {
+            const url = webview?.getURL();
+            if (url) {
+              copyText(url);
+            }
+            break;
           }
-          break;
+          case EShortcutEvents.GoForwardHistory:
+            webview?.goForward();
+            break;
+          case EShortcutEvents.GoBackHistory:
+            webview?.goBack();
+            break;
+          case EShortcutEvents.Refresh:
+            webview?.reload();
+            break;
+          case EShortcutEvents.CloseTab:
+            handleCloseWebTab();
+            break;
+          case EShortcutEvents.ViewHistory:
+            navigation.pushModal(EModalRoutes.DiscoveryModal, {
+              screen: EDiscoveryModalRoutes.HistoryListModal,
+            });
+            break;
+          case EShortcutEvents.ViewBookmark:
+            navigation.pushModal(EModalRoutes.DiscoveryModal, {
+              screen: EDiscoveryModalRoutes.BookmarkListModal,
+            });
+            break;
+          default:
+            break;
         }
-        case EShortcutEvents.GoForwardHistory:
-          webview?.goForward();
-          break;
-        case EShortcutEvents.GoBackHistory:
-          webview?.goBack();
-          break;
-        case EShortcutEvents.Refresh:
-          webview?.reload();
-          break;
-        case EShortcutEvents.CloseTab:
-          handleCloseWebTab();
-          break;
-        case EShortcutEvents.ViewHistory:
-          navigation.pushModal(EModalRoutes.DiscoveryModal, {
-            screen: EDiscoveryModalRoutes.HistoryListModal,
-          });
-          break;
-        case EShortcutEvents.ViewBookmark:
-          navigation.pushModal(EModalRoutes.DiscoveryModal, {
-            screen: EDiscoveryModalRoutes.BookmarkListModal,
-          });
-          break;
-        default:
-          break;
+      } catch {
+        // webview methods may throw if webContents is destroyed
       }
     },
     [activeTabId, copyText, handleCloseWebTab, isAtBrowserTab, navigation],
