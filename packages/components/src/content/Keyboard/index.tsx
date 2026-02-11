@@ -6,6 +6,7 @@ import {
 import type {
   KeyboardAvoidingView,
   KeyboardAwareScrollView,
+  KeyboardController,
   KeyboardControllerView,
   KeyboardExtender,
   KeyboardStickyView,
@@ -29,5 +30,20 @@ export const Keyboard = {
   OverKeyboardView: PassThrough as typeof OverKeyboardView,
   Extender: PassThrough as typeof KeyboardExtender,
   dismiss: dismissKeyboard,
+  Controller: {
+    setInputMode: () => {},
+    setDefaultMode: () => {},
+    preload: () => {},
+    dismiss: () => Promise.resolve(),
+    isVisible: () => false,
+    state: () => ({
+      height: 0,
+      duration: 0,
+      timestamp: 0,
+      target: 0,
+      type: 'keyboardDidHide' as const,
+    }),
+    setFocusTo: () => {},
+  } as unknown as typeof KeyboardController,
   dismissWithDelay: dismissKeyboardWithDelay,
 };

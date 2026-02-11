@@ -1,6 +1,7 @@
 import {
   KeyboardAvoidingView,
   KeyboardAwareScrollView,
+  KeyboardController,
   KeyboardControllerView,
   KeyboardExtender,
   KeyboardStickyView,
@@ -18,6 +19,7 @@ export const Keyboard = {
   AwareScrollView: KeyboardAwareScrollView,
   StickyView: KeyboardStickyView,
   Toolbar: KeyboardToolbar,
+  Controller: KeyboardController,
   ControllerView: KeyboardControllerView,
   OverKeyboardView,
   Extender: KeyboardExtender,
