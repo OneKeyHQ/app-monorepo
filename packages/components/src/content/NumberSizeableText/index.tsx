@@ -129,7 +129,11 @@ export function NumberSizeableText({
         </SizableText>
       );
     }
-    return <SizableText {...props} {...layoutProps}>****</SizableText>;
+    return (
+      <SizableText {...props} {...layoutProps}>
+        ****
+      </SizableText>
+    );
   }
 
   return typeof result === 'string' ? (
