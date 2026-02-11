@@ -1268,35 +1268,35 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           }}
         >
           <SwapHeaderContainer
-          pageType={pageType}
-          defaultSwapType={swapInitParams?.swapTabSwitchType}
-          showSwapPro={platformEnv.isNative}
-          hideRightActions={showDesktopProviderPanel}
-        />
-        {focusSwapPro ? (
-          <SwapProContainer
-            onProSelectToken={onProSelectToken}
-            onOpenOrdersClick={onOpenOrdersClick}
-            onSwapProActionClick={onPreSwap}
-            onSelectPercentageStage={onSelectPercentageStage}
-            onBalanceMaxPress={onBalanceMaxPress}
-            handleSelectAccountClick={handleSelectAccountClick}
-            onProMarketDetail={onProMarketDetail}
-            onTokenPress={onTokenPress}
-            supportNetworksList={SwapProSupportNetworksList}
-            config={{
-              isLoading,
-              speedConfig,
-              balanceLoading,
-              isMEV,
-              hasEnoughBalance,
-              supportSpeedSwap,
-              onlySupportCrossChain,
-            }}
+            pageType={pageType}
+            defaultSwapType={swapInitParams?.swapTabSwitchType}
+            showSwapPro={platformEnv.isNative}
+            hideRightActions={showDesktopProviderPanel}
           />
-        ) : (
-          renderSwapSwapBridgeContainer()
-        )}
+          {focusSwapPro ? (
+            <SwapProContainer
+              onProSelectToken={onProSelectToken}
+              onOpenOrdersClick={onOpenOrdersClick}
+              onSwapProActionClick={onPreSwap}
+              onSelectPercentageStage={onSelectPercentageStage}
+              onBalanceMaxPress={onBalanceMaxPress}
+              handleSelectAccountClick={handleSelectAccountClick}
+              onProMarketDetail={onProMarketDetail}
+              onTokenPress={onTokenPress}
+              supportNetworksList={SwapProSupportNetworksList}
+              config={{
+                isLoading,
+                speedConfig,
+                balanceLoading,
+                isMEV,
+                hasEnoughBalance,
+                supportSpeedSwap,
+                onlySupportCrossChain,
+              }}
+            />
+          ) : (
+            renderSwapSwapBridgeContainer()
+          )}
         </YStack>
       </Page.Container>
     </>

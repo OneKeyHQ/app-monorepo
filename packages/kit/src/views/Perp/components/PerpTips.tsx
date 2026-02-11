@@ -8,9 +8,9 @@ import {
   Icon,
   SizableText,
   Stack,
-  useMedia,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import { usePerpsCommonConfigPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
