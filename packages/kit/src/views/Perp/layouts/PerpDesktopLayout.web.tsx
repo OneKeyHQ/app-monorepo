@@ -12,7 +12,6 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   DEFAULT_PERPS_LAYOUT_STATE,
   usePerpsLayoutStateAtom,
@@ -209,12 +208,7 @@ function PerpDesktopLayout() {
 
   return (
     <YStack flex={1}>
-      <YStack
-        {...(platformEnv.isWebDappMode && {
-          borderTopWidth: '$px',
-          borderTopColor: '$borderSubdued',
-        })}
-      >
+      <YStack>
         <PerpTips />
         <FavoritesBar />
       </YStack>

@@ -49,7 +49,7 @@ export function useMarketTabsLogic(
     id: ETranslations.dexmarket_spot,
   });
   const perpsTabName = intl.formatMessage({
-    id: ETranslations.global_contract,
+    id: ETranslations.global_perp,
   });
 
   const carouselRef = useRef<ICarouselInstance>(null);

@@ -145,6 +145,7 @@ export function DesktopTabItem(
   }, []);
   const reloadOnPress = useCallback(
     (e: GestureResponderEvent) => {
+      setIsHovered(false);
       if (selected) {
         // If there's a specific "when selected" callback, use it first
         if (onPressWhenSelected) {

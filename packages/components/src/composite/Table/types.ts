@@ -1,4 +1,4 @@
-import type { ReactElement } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
 import type { IListViewProps } from '../../layouts';
 import type { ISortableListViewProps } from '../../layouts/SortableListView';
@@ -10,7 +10,7 @@ export enum ETableSortType {
 }
 
 export interface ITableColumn<T> {
-  title: string;
+  title: ReactNode;
   dataIndex: string;
   titleProps?: ISizableTextProps;
   columnProps?: Omit<IStackProps, 'onPress' | 'onLongPress'>;

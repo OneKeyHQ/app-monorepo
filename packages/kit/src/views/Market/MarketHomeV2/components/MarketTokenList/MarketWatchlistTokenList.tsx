@@ -37,6 +37,7 @@ type IMarketWatchlistTokenListProps = {
   listContainerProps?: {
     paddingBottom: number;
   };
+  hidePerps?: boolean;
 };
 
 function MarketWatchlistTokenList({
@@ -46,6 +47,7 @@ function MarketWatchlistTokenList({
   hideNativeToken,
   tabIntegrated,
   listContainerProps,
+  hidePerps,
 }: IMarketWatchlistTokenListProps) {
   const intl = useIntl();
 
@@ -67,8 +69,10 @@ function MarketWatchlistTokenList({
       await actions.current.refreshWatchListV2();
     };
     appEventBus.on(EAppEventBusNames.RefreshMarketWatchList, fn);
+    appEventBus.on(EAppEventBusNames.MarketWatchListV2Changed, fn);
     return () => {
       appEventBus.off(EAppEventBusNames.RefreshMarketWatchList, fn);
+      appEventBus.off(EAppEventBusNames.MarketWatchListV2Changed, fn);
     };
   }, [actions]);
 
@@ -90,13 +94,13 @@ function MarketWatchlistTokenList({
     pageSize: 999,
   });
 
-  const watchListResultNoNative = useMemo(() => {
-    const resultDataNoNative = watchlistResult.data.filter((t) => !t.isNative);
-    return {
-      ...watchlistResult,
-      data: resultDataNoNative,
-    };
-  }, [watchlistResult]);
+  const filteredResult = useMemo(() => {
+    if (!hideNativeToken && !hidePerps) return watchlistResult;
+    const filtered = watchlistResult.data.filter(
+      (t) => (!hideNativeToken || !t.isNative) && (!hidePerps || !t.perpsCoin),
+    );
+    return { ...watchlistResult, data: filtered };
+  }, [watchlistResult, hideNativeToken, hidePerps]);
 
   const isDraggable = !watchlistResult.sortBy && !watchlistResult.sortType;
 
@@ -269,7 +273,7 @@ function MarketWatchlistTokenList({
     <MarketTokenListBase
       onItemPress={onItemPress}
       toolbar={toolbar}
-      result={hideNativeToken ? watchListResultNoNative : watchlistResult}
+      result={filteredResult}
       isWatchlistMode
       showEndReachedIndicator
       draggable={isDraggable}

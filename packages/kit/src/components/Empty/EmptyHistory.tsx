@@ -121,7 +121,7 @@ function EmptyHistory({
     <Empty
       h={platformEnv.isNativeAndroid ? 300 : undefined}
       testID="Wallet-No-History-Empty"
-      icon="ClockTimeHistoryOutline"
+      illustration="BookPencil"
       title={intl.formatMessage({
         id: ETranslations.wallet_transaction_history_empty_message,
       })}

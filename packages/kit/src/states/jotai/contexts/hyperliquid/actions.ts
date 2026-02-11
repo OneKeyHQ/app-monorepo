@@ -1375,8 +1375,11 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       });
       return;
     }
-    this.lastRefreshAllPerpsDataTime = now;
-    await backgroundApiProxy.serviceHyperliquidSubscription.refreshAllPerpsData();
+    const didRefresh =
+      await backgroundApiProxy.serviceHyperliquidSubscription.refreshAllPerpsData();
+    if (didRefresh) {
+      this.lastRefreshAllPerpsDataTime = now;
+    }
   });
 }
 

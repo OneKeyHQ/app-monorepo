@@ -1,7 +1,7 @@
 import React from 'react';
 
 import DraggableFlatList from 'react-native-draggable-flatlist';
-import { FlatList as RNFlatList } from 'react-native';
+import type { FlatList as RNFlatList } from 'react-native';
 
 import {
   useAfterMountEffect,
@@ -94,5 +94,5 @@ function TabsDraggableFlatListImpl<T>(
 export const TabsDraggableFlatList = React.forwardRef(
   TabsDraggableFlatListImpl,
 ) as <T>(
-  props: DraggableFlatListProps<T> & { ref?: React.Ref<RNFlatList<T>> }
+  props: DraggableFlatListProps<T> & { ref?: React.Ref<RNFlatList<T>> },
 ) => React.ReactElement;

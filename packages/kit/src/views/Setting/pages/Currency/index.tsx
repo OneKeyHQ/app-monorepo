@@ -129,7 +129,7 @@ export default function SettingCurrencyModal() {
           estimatedItemSize={60}
           ListEmptyComponent={
             <Empty
-              icon="SearchOutline"
+              illustration="QuestionMark"
               title={intl.formatMessage({
                 id: ETranslations.global_no_results,
               })}
