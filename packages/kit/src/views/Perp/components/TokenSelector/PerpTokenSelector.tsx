@@ -715,9 +715,11 @@ const BasePerpTokenSelectorMobileView = memo(
           alignItems="center"
           onPress={onPressTokenSelector}
         >
-          <SizableText size="$headingXl">{displayCoin}USDC</SizableText>
+          <SizableText size="$headingLg">{displayCoin}USDC</SizableText>
           <NumberSizeableText
-            size="$bodySmMedium"
+            style={{ fontSize: 10 }}
+            fontFamily="$monoRegular"
+            fontVariant={['tabular-nums']}
             alignSelf="center"
             color={change24hPercent >= 0 ? '$green11' : '$red11'}
             formatter="priceChange"

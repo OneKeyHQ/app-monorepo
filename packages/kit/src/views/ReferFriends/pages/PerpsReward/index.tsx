@@ -89,7 +89,14 @@ function PerpsRewardPageWrapper() {
     setCustomDateRange,
     clearCustomDateRange,
     datePickerValue,
-  } = useRewardFilter();
+  } = useRewardFilter({
+    startTime: new Date('2024-01-01T00:00:00.000').getTime(),
+    endTime: (() => {
+      const d = new Date();
+      d.setHours(23, 59, 59, 999);
+      return d.getTime();
+    })(),
+  });
 
   // Intermediate state for date range selection (before both dates are selected)
   const [intermediateDateRange, setIntermediateDateRange] =

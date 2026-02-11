@@ -19,6 +19,7 @@ import {
   EInputAddressChangeType,
   type IAddressBadge,
 } from '@onekeyhq/shared/types/address';
+import { EBulkSendMode } from '@onekeyhq/shared/types/bulkSend';
 
 import LineNumberedTextArea from './LineNumberedTextArea';
 import { useBulkSendAddressesInputContext } from '../Context';
@@ -34,6 +35,7 @@ function SenderAddressesInput() {
     setSelectedIndexedAccountId,
     selectedTokenDetail,
     tokenDetailsState,
+    bulkSendMode,
   } = useBulkSendAddressesInputContext();
   const { network } = useAccountData({ networkId: selectedNetworkId });
   const [addressBadges, setAddressBadges] = useState<IAddressBadge[]>([]);
@@ -252,7 +254,10 @@ function SenderAddressesInput() {
     <Form.Field
       name="senderAddresses"
       label={intl.formatMessage({
-        id: ETranslations.wallet_bulk_send_label_sending_addresses,
+        id:
+          bulkSendMode === EBulkSendMode.OneToMany
+            ? ETranslations.wallet_bulk_send_section_sending_address
+            : ETranslations.wallet_bulk_send_label_sending_addresses,
       })}
       description={renderSenderAddressesDescription()}
       rules={{

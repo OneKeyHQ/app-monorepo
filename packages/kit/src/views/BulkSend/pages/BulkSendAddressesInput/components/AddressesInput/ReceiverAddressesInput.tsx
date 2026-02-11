@@ -11,7 +11,7 @@ import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import { useDebouncedValidation } from '@onekeyhq/kit/src/views/BulkSend/hooks/useDebouncedValidation';
 import { validateTokenAmount } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IAddressValidation } from '@onekeyhq/shared/types/address';
-import { EReceiverMode } from '@onekeyhq/shared/types/bulkSend';
+import { EBulkSendMode, EReceiverMode } from '@onekeyhq/shared/types/bulkSend';
 
 import { useBulkSendAddressesInputContext } from '../Context';
 
@@ -25,7 +25,7 @@ type IReceiverAddressesInputProps = {
 
 function ReceiverAddressesInput({ maxLines }: IReceiverAddressesInputProps) {
   const intl = useIntl();
-  const { selectedAccountId, selectedNetworkId, selectedToken } =
+  const { selectedAccountId, selectedNetworkId, selectedToken, bulkSendMode } =
     useBulkSendAddressesInputContext();
   const { network } = useAccountData({ networkId: selectedNetworkId });
 
@@ -291,7 +291,10 @@ function ReceiverAddressesInput({ maxLines }: IReceiverAddressesInputProps) {
     <Form.Field
       name="receiverAddresses"
       label={intl.formatMessage({
-        id: ETranslations.wallet_bulk_send_label_receiving_addresses,
+        id:
+          bulkSendMode === EBulkSendMode.ManyToOne
+            ? ETranslations.wallet_bulk_send_section_receiving_address
+            : ETranslations.wallet_bulk_send_label_receiving_addresses,
       })}
       rules={{
         required: true,

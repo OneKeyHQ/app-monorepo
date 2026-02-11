@@ -57,11 +57,13 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalRoutes,
   EModalSettingRoutes,
-  EOnboardingPagesV2,
-  EOnboardingV2Routes,
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { EModalBulkCopyAddressesRoutes } from '@onekeyhq/shared/src/routes/bulkCopyAddresses';
+import {
+  EActionCenterPages,
+  EFullScreenPushRoutes,
+} from '@onekeyhq/shared/src/routes/fullScreenPush';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
@@ -1527,10 +1529,10 @@ function MoreButtonWithDot({
   }, [isShowUpgradeDot, isShowRedDot]);
 
   const handleMoreActionPage = useCallback(() => {
-    rootNavigationRef.current?.navigate(ERootRoutes.Onboarding, {
-      screen: EOnboardingV2Routes.OnboardingV2,
+    rootNavigationRef.current?.navigate(ERootRoutes.FullScreenPush, {
+      screen: EFullScreenPushRoutes.ActionCenter,
       params: {
-        screen: EOnboardingPagesV2.MoreAction,
+        screen: EActionCenterPages.ActionCenter,
       },
     });
   }, []);

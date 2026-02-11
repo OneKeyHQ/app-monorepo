@@ -7,7 +7,7 @@ import type { ITabContainerRef } from '@onekeyhq/components';
 import type { GestureResponderEvent } from 'react-native';
 import type { RefObject } from 'react';
 
-const SWIPE_THRESHOLD = 50;
+const SWIPE_THRESHOLD = 100;
 const DIRECTION_THRESHOLD = 15;
 
 /**

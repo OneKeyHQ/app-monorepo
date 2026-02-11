@@ -846,7 +846,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
             new BigNumber(swapLimitUseRate.rate),
           );
           toRealAmount = cToAmountBN.decimalPlaces(
-            toToken?.decimals ?? LIMIT_PRICE_DEFAULT_DECIMALS,
+            Number(toToken?.decimals ?? LIMIT_PRICE_DEFAULT_DECIMALS),
             BigNumber.ROUND_HALF_UP,
           );
         }
@@ -1254,51 +1254,52 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   }, [pageType, swapTypeSwitch, showDesktopProviderPanel]);
 
   return (
-    <Page.Container flex={1} layout={containerLayout} padded={false}>
-      <YStack
-        testID="swap-content-container"
-        flex={1}
-        width="100%"
-        pt="$2.5"
-        gap="$2"
-        $gtMd={{
-          flex: 'unset',
-          pt: pageType === EPageType.modal ? '$2.5' : '$16',
-        }}
-      >
-        <SwapTipsContainer />
-        <SwapHeaderContainer
-          pageType={pageType}
-          defaultSwapType={swapInitParams?.swapTabSwitchType}
-          showSwapPro={platformEnv.isNative}
-          hideRightActions={showDesktopProviderPanel}
-        />
-        {focusSwapPro ? (
-          <SwapProContainer
-            onProSelectToken={onProSelectToken}
-            onOpenOrdersClick={onOpenOrdersClick}
-            onSwapProActionClick={onPreSwap}
-            onSelectPercentageStage={onSelectPercentageStage}
-            onBalanceMaxPress={onBalanceMaxPress}
-            handleSelectAccountClick={handleSelectAccountClick}
-            onProMarketDetail={onProMarketDetail}
-            onTokenPress={onTokenPress}
-            supportNetworksList={SwapProSupportNetworksList}
-            config={{
-              isLoading,
-              speedConfig,
-              balanceLoading,
-              isMEV,
-              hasEnoughBalance,
-              supportSpeedSwap,
-              onlySupportCrossChain,
-            }}
+    <>
+      <SwapTipsContainer />
+      <Page.Container flex={1} layout={containerLayout} padded={false}>
+        <YStack
+          testID="swap-content-container"
+          flex={1}
+          width="100%"
+          pt="$2.5"
+          gap="$2"
+          $gtMd={{
+            flex: 'unset',
+          }}
+        >
+          <SwapHeaderContainer
+            pageType={pageType}
+            defaultSwapType={swapInitParams?.swapTabSwitchType}
+            showSwapPro={platformEnv.isNative}
+            hideRightActions={showDesktopProviderPanel}
           />
-        ) : (
-          renderSwapSwapBridgeContainer()
-        )}
-      </YStack>
-    </Page.Container>
+          {focusSwapPro ? (
+            <SwapProContainer
+              onProSelectToken={onProSelectToken}
+              onOpenOrdersClick={onOpenOrdersClick}
+              onSwapProActionClick={onPreSwap}
+              onSelectPercentageStage={onSelectPercentageStage}
+              onBalanceMaxPress={onBalanceMaxPress}
+              handleSelectAccountClick={handleSelectAccountClick}
+              onProMarketDetail={onProMarketDetail}
+              onTokenPress={onTokenPress}
+              supportNetworksList={SwapProSupportNetworksList}
+              config={{
+                isLoading,
+                speedConfig,
+                balanceLoading,
+                isMEV,
+                hasEnoughBalance,
+                supportSpeedSwap,
+                onlySupportCrossChain,
+              }}
+            />
+          ) : (
+            renderSwapSwapBridgeContainer()
+          )}
+        </YStack>
+      </Page.Container>
+    </>
   );
 };
 
