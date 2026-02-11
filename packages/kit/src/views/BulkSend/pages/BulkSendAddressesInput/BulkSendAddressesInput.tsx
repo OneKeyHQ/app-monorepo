@@ -109,14 +109,26 @@ function BaseBulkSendAddressesInput() {
       isAllNetwork = true;
     }
 
-    _selectedNetworkId = bulkSendUtils.fixBulkSendSupportedNetworkId({
+    const { fixedNetworkId, isSupported } = bulkSendUtils.fixBulkSendSupportedNetworkId({
       networkId: _selectedNetworkId ?? '',
     });
+
+    _selectedNetworkId = fixedNetworkId;
 
     if (indexedAccountId) {
       _selectedIndexedAccountId = indexedAccountId;
     } else if (activeAccount?.account?.indexedAccountId) {
       _selectedIndexedAccountId = activeAccount?.account?.indexedAccountId;
+    }
+
+    if (!isSupported && _selectedNetworkId && _selectedIndexedAccountId) {
+      const networkAccounts = await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountId({
+        networkIds: [_selectedNetworkId],
+        indexedAccountId: _selectedIndexedAccountId,
+      });
+      if (networkAccounts?.[0]?.account) {
+        _selectedAccountId = networkAccounts?.[0]?.account?.id;
+      }
     }
 
     if (isAllNetwork) {

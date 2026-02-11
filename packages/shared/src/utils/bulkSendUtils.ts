@@ -1,9 +1,9 @@
-import { EBulkSendMode } from '../../types/bulkSend';
-import { getNetworkIdsMap } from '../config/networkIds';
-import { appLocale } from '../locale/appLocale';
-import { ETranslations } from '../locale';
+import { EBulkSendMode } from "../../types/bulkSend";
+import { getNetworkIdsMap } from "../config/networkIds";
+import { appLocale } from "../locale/appLocale";
+import { ETranslations } from "../locale";
 
-import networkUtils from './networkUtils';
+import networkUtils from "./networkUtils";
 
 function getBulkSendSupportedEVMNetworkIds() {
   const networkIdsMap = getNetworkIdsMap();
@@ -27,16 +27,27 @@ function getBulkSendSupportedNetworkIds() {
 }
 
 function fixBulkSendSupportedNetworkId({ networkId }: { networkId: string }) {
+  let isSupported = false;
+  let fixedNetworkId = networkId;
   const supportedNetworkIds = getBulkSendSupportedNetworkIds();
   if (supportedNetworkIds.includes(networkId)) {
-    return networkId;
+    isSupported = true;
+    return {
+      fixedNetworkId,
+      isSupported,
+    };
   }
 
   if (networkUtils.isEvmNetwork({ networkId })) {
-    return getBulkSendSupportedEVMNetworkIds()[0];
+    fixedNetworkId = getBulkSendSupportedEVMNetworkIds()[0];
+  } else {
+    fixedNetworkId = supportedNetworkIds[0];
   }
 
-  return supportedNetworkIds[0];
+  return {
+    fixedNetworkId,
+    isSupported,
+  };
 }
 
 function getBulkSendModeLabel(bulkSendMode: EBulkSendMode) {
