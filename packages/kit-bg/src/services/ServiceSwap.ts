@@ -1445,11 +1445,15 @@ export default class ServiceSwap extends ServiceBase {
         oldTxId,
       );
       await inAppNotificationAtom.set((pre) => {
+        const currentIndex = pre.swapHistoryPendingList.findIndex(
+          (item) => item.txInfo.txId === newTxId || item.txInfo.txId === oldTxId,
+        );
+        if (currentIndex === -1) return pre;
         const newPendingList = [...pre.swapHistoryPendingList];
-        newPendingList[oldHistoryItemIndex] = newHistoryItem;
+        newPendingList[currentIndex] = newHistoryItem;
         return {
           ...pre,
-          swapHistoryPendingList: [...newPendingList],
+          swapHistoryPendingList: newPendingList,
         };
       });
       return;
@@ -1499,11 +1503,17 @@ export default class ServiceSwap extends ServiceBase {
       }
       await this.backgroundApi.simpleDb.swapHistory.updateSwapHistoryItem(item);
       await inAppNotificationAtom.set((pre) => {
+        const currentIndex = pre.swapHistoryPendingList.findIndex((i) =>
+          item.txInfo.useOrderId
+            ? i.txInfo.orderId === item.txInfo.orderId
+            : i.txInfo.txId === item.txInfo.txId,
+        );
+        if (currentIndex === -1) return pre;
         const newPendingList = [...pre.swapHistoryPendingList];
-        newPendingList[index] = item;
+        newPendingList[currentIndex] = item;
         return {
           ...pre,
-          swapHistoryPendingList: [...newPendingList],
+          swapHistoryPendingList: newPendingList,
         };
       });
       if (item.status !== ESwapTxHistoryStatus.PENDING) {
