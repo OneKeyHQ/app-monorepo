@@ -109,9 +109,10 @@ function BaseBulkSendAddressesInput() {
       isAllNetwork = true;
     }
 
-    const { fixedNetworkId, isSupported } = bulkSendUtils.fixBulkSendSupportedNetworkId({
-      networkId: _selectedNetworkId ?? '',
-    });
+    const { fixedNetworkId, isSupported } =
+      bulkSendUtils.fixBulkSendSupportedNetworkId({
+        networkId: _selectedNetworkId ?? '',
+      });
 
     _selectedNetworkId = fixedNetworkId;
 
@@ -122,10 +123,13 @@ function BaseBulkSendAddressesInput() {
     }
 
     if (!isSupported && _selectedNetworkId && _selectedIndexedAccountId) {
-      const networkAccounts = await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountId({
-        networkIds: [_selectedNetworkId],
-        indexedAccountId: _selectedIndexedAccountId,
-      });
+      const networkAccounts =
+        await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountId(
+          {
+            networkIds: [_selectedNetworkId],
+            indexedAccountId: _selectedIndexedAccountId,
+          },
+        );
       if (networkAccounts?.[0]?.account) {
         _selectedAccountId = networkAccounts?.[0]?.account?.id;
       }
@@ -295,15 +299,25 @@ function BaseBulkSendAddressesInput() {
     }
 
     const formValues = form.getValues();
-    const senders = formValues.senderAddresses.split('\n').filter((line) => line.trim()).map((line) => {
-      const [address] = line.trim().split(',');
-      return { address: address.trim(), amount: undefined };
-    });
-    const receivers = formValues.receiverAddresses.split('\n').filter((line) => line.trim()).map((line) => {
-      const [address, amount] = line.trim().split(',');
-      return { address: address.trim(), amount: isUndefined(amount) ? amount : new BigNumber(amount).toFixed() };
-    });
-
+    const senders = formValues.senderAddresses
+      .split('\n')
+      .filter((line) => line.trim())
+      .map((line) => {
+        const [address] = line.trim().split(',');
+        return { address: address.trim(), amount: undefined };
+      });
+    const receivers = formValues.receiverAddresses
+      .split('\n')
+      .filter((line) => line.trim())
+      .map((line) => {
+        const [address, amount] = line.trim().split(',');
+        return {
+          address: address.trim(),
+          amount: isUndefined(amount)
+            ? amount
+            : new BigNumber(amount).toFixed(),
+        };
+      });
 
     if (isInModal) {
       navigation.push(EModalBulkSendRoutes.BulkSendAmountsInput, {

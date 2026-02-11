@@ -16,11 +16,7 @@ function UnitSwitch(props: ISegmentControlProps) {
     [onChange, selectedValue],
   );
   return (
-    <SegmentControl
-      {...props}
-      value={selectedValue}
-      onChange={handleChange}
-    />
+    <SegmentControl {...props} value={selectedValue} onChange={handleChange} />
   );
 }
 

@@ -6,7 +6,6 @@ import { ELightningUnit } from '@onekeyhq/shared/types/lightning';
 import { UnitSwitch } from './UnitSwitch';
 
 function LightningUnitSwitch(props: Omit<ISegmentControlProps, 'options'>) {
-
   const options = useMemo(() => {
     return [
       {

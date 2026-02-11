@@ -124,10 +124,10 @@ function RecommendCardItem({
           flexShrink={1}
           {...(platformEnv.isNativeAndroid
             ? {
-              width: '$20',
-              height: '$9',
-              justifyContent: 'center',
-            }
+                width: '$20',
+                height: '$9',
+                justifyContent: 'center',
+              }
             : {})}
         >
           <XStack>
@@ -188,7 +188,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
   const initializedRef = useRef(false);
   const handleRemoveFromWatchlistRef = useRef<
     (record: IFavoriteTokenDisplay) => void
-  >(() => { });
+  >(() => {});
 
   // Always show 4 tokens in empty state
   const displayCount = 4;
@@ -412,17 +412,17 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         const [spotResult, perpsResult] = await Promise.allSettled([
           spotTargets.length > 0
             ? backgroundApiProxy.serviceMarketV2.fetchMarketTokenListBatch({
-              tokenAddressList: spotTargets.map((item) => ({
-                chainId: item.chainId,
-                contractAddress: item.contractAddress,
-                isNative: item.isNative ?? false,
-              })),
-            })
+                tokenAddressList: spotTargets.map((item) => ({
+                  chainId: item.chainId,
+                  contractAddress: item.contractAddress,
+                  isNative: item.isNative ?? false,
+                })),
+              })
             : { list: [] as IMarketTokenListItem[] },
           perpsTargets.length > 0
             ? backgroundApiProxy.serviceMarketV2.fetchMarketPerpsTokenList({
-              category: 'all',
-            })
+                category: 'all',
+              })
             : null,
         ]);
         const spotResponse =
@@ -662,14 +662,14 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
           items: [
             record.perpsCoin
               ? {
-                chainId: '',
-                contractAddress: '',
-                perpsCoin: record.perpsCoin,
-              }
+                  chainId: '',
+                  contractAddress: '',
+                  perpsCoin: record.perpsCoin,
+                }
               : {
-                chainId: record.chainId,
-                contractAddress: record.contractAddress,
-              },
+                  chainId: record.chainId,
+                  contractAddress: record.contractAddress,
+                },
           ],
           callerName: 'PopularTrading',
         });
@@ -701,9 +701,12 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
   const handleTokenPress = useCallback(
     (record: IFavoriteTokenDisplay) => {
       if (record.perpsCoin) {
-        if (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel) {
+        if (
+          platformEnv.isExtensionUiPopup ||
+          platformEnv.isExtensionUiSidePanel
+        ) {
           void backgroundApiProxy.serviceApp.openExtensionExpandTab({
-            path: "/perp",
+            path: '/perp',
             params: {
               coin: record.perpsCoin,
             },
@@ -721,7 +724,10 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         networkId: record.chainId,
       });
 
-      if (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel) {
+      if (
+        platformEnv.isExtensionUiPopup ||
+        platformEnv.isExtensionUiSidePanel
+      ) {
         void backgroundApiProxy.serviceApp.openExtensionExpandTab({
           path: `/market/token/${shortCode || record.chainId}/${record.contractAddress}`,
           params: {

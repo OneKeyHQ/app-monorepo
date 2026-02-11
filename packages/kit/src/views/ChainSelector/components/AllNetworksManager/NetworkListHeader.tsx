@@ -31,7 +31,6 @@ function NetworkListHeader() {
       enabledNetworks,
     });
 
-
   const isAllNetworksEnabled = useMemo(() => {
     if (enabledNetworks.length > 0) {
       if (enabledNetworks.length === networks.mainNetworks.length) {

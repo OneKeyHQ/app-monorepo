@@ -195,10 +195,7 @@ export default function PrimeDeleteAccount() {
       />
       <Page.Body>
         <YStack p="$5" gap="$5" alignItems="center">
-          <Illustration
-            name="UserAlert"
-            alignSelf="center"
-          />
+          <Illustration name="UserAlert" alignSelf="center" />
           <YStack gap="$2" alignItems="center">
             <SizableText size="$headingXl" textAlign="center">
               {intl.formatMessage({
