@@ -534,7 +534,7 @@ function BulkCopyAddresses({
     if (!networkAccountsByDeriveType || isEmpty(networkAccountsByDeriveType)) {
       return (
         <Empty
-          icon="SearchOutline"
+          illustration="WalletOpen"
           title={intl.formatMessage({ id: ETranslations.global_no_results })}
         />
       );

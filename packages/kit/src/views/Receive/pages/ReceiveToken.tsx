@@ -795,7 +795,7 @@ function ReceiveToken() {
           {!shouldShowQRCode ? (
             <Empty
               p="0"
-              icon="QrCodeOutline"
+              illustration="ShieldDevice"
               description={intl.formatMessage({
                 id: ETranslations.address_verify_address_instruction,
               })}

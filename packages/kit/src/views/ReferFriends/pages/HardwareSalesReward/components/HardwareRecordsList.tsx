@@ -35,7 +35,7 @@ export function HardwareRecordsList({
     return (
       <YStack px="$5" gap="$3" pb="$5">
         <Empty
-          icon="GiftOutline"
+          illustration="BlockCoins"
           title={intl.formatMessage({
             id: ETranslations.referral_referred_empty,
           })}
