@@ -138,6 +138,7 @@ class NetInfo {
   }
 
   async start() {
+    this.pendingRefresh = false;
     if (this.pollingTimeoutId) {
       clearTimeout(this.pollingTimeoutId);
       this.pollingTimeoutId = null;
@@ -167,7 +168,7 @@ export const configureNetInfo = (configuration: IReachabilityConfiguration) => {
     globalNetInfo.configuration.reachabilityUrl !==
     configuration.reachabilityUrl;
   globalNetInfo.configure(configuration);
-  if (urlChanged || !globalNetInfo.pollingTimeoutId) {
+  if (urlChanged || (!globalNetInfo.pollingTimeoutId && !globalNetInfo.isFetching)) {
     void globalNetInfo.start();
   }
 };
