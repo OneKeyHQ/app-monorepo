@@ -123,7 +123,14 @@ export function NetworkContent({
         zeroValue: true,
       };
     },
-    [accountId, networkIds, walletId, indexedAccountId, networkId, accountAddress],
+    [
+      accountId,
+      networkIds,
+      walletId,
+      indexedAccountId,
+      networkId,
+      accountAddress,
+    ],
     {
       initResult: {
         chainSelectorNetworks: defaultChainSelectorNetworks,
