@@ -1420,7 +1420,12 @@ export default class ServiceSwap extends ServiceBase {
           swapHistoryPendingList: [...filteredList, item],
         };
       }
-      return { ...pre, swapHistoryPendingList: filteredList };
+      // Item already exists — only update state if dirty entries were removed,
+      // otherwise return the original reference to avoid unnecessary re-renders.
+      if (filteredList.length !== pre.swapHistoryPendingList.length) {
+        return { ...pre, swapHistoryPendingList: filteredList };
+      }
+      return pre;
     });
   }
 
