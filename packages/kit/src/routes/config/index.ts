@@ -57,6 +57,7 @@ const ROOT_PATH = platformEnv.isExtension ? extHtmlFileUrl : '/';
 
 const MODAL_PATH = `/${ERootRoutes.Modal}`;
 const FULL_SCREEN_MODAL_PATH = `/${ERootRoutes.iOSFullScreen}`;
+const FULL_SCREEN_PUSH_PATH = `/${ERootRoutes.FullScreenPush}`;
 
 const onGetStateFromPath = (path: string, options?: any) => {
   if (process.env.NODE_ENV !== 'production') {
@@ -127,9 +128,9 @@ const useBuildLinking = (): LinkingOptions<any> => {
        */
       getPathFromState(state, options) {
         const defaultPath = getPathFromStateDefault(state, options);
-        const defaultPathWithoutQuery = (
-          defaultPath.split('?')[0] || ''
-        ).replace(FULL_SCREEN_MODAL_PATH, MODAL_PATH);
+        const defaultPathWithoutQuery = (defaultPath.split('?')[0] || '')
+          .replace(FULL_SCREEN_MODAL_PATH, MODAL_PATH)
+          .replace(FULL_SCREEN_PUSH_PATH, MODAL_PATH);
 
         let rule = allowList[defaultPathWithoutQuery];
 

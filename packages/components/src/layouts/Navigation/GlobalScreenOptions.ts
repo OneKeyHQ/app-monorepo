@@ -105,7 +105,9 @@ export function makeModalStackNavigatorOptions({
       titleColor,
       isModelScreen:
         pageType === EPageType.modal || pageType === EPageType.fullScreen,
-      isOnboardingScreen: pageType === EPageType.onboarding,
+      isOnboardingScreen:
+        pageType === EPageType.onboarding ||
+        pageType === EPageType.fullScreenPush,
     }),
   } as any;
 
