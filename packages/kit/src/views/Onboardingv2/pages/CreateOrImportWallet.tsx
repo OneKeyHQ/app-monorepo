@@ -144,6 +144,8 @@ function CreateOrImportWallet() {
   const { fullOptions } = route.params ?? {};
   const [expanded, setExpanded] = useState(false);
   const [keylessExpanded, setKeylessExpanded] = useState(false);
+  const [hardwareExpanded, setHardwareExpanded] = useState(false);
+  const [existingExpanded, setExistingExpanded] = useState(false);
   const isKeylessWalletEnabled = useKeylessWalletFeatureIsEnabled();
   const {
     enableKeylessWallet,
@@ -160,6 +162,14 @@ function CreateOrImportWallet() {
 
   const handleKeylessExpand = useCallback(() => {
     setKeylessExpanded((prev) => !prev);
+  }, []);
+
+  const handleHardwareExpand = useCallback(() => {
+    setHardwareExpanded((prev) => !prev);
+  }, []);
+
+  const handleExistingExpand = useCallback(() => {
+    setExistingExpanded((prev) => !prev);
   }, []);
 
   const handleCreateNewWallet = useCallback(async () => {
@@ -244,65 +254,113 @@ function CreateOrImportWallet() {
                     >
                       <AnimatedDeviceAvatar deviceSize={28} />
                     </XStack>
-                    <Card.Title flex={1}>
-                      {intl.formatMessage({
-                        id: ETranslations.global_connect_hardware_wallet,
-                      })}
-                    </Card.Title>
+                    <YStack gap="$0.5" flex={1} alignItems="flex-start">
+                      <Card.Title>
+                        {intl.formatMessage({
+                          id: ETranslations.global_connect_hardware_wallet,
+                        })}
+                      </Card.Title>
+                      <Button
+                        px="$1"
+                        py="$0.5"
+                        mx="$-1"
+                        my="$-0.5"
+                        borderWidth={0}
+                        size="small"
+                        variant="tertiary"
+                        onPress={handleHardwareExpand}
+                        hitSlop={10}
+                        childrenAsText={false}
+                      >
+                        <XStack alignItems="center">
+                          <SizableText size="$bodySm" color="$textSubdued">
+                            {intl.formatMessage({
+                              id: ETranslations.global_learn_more,
+                            })}
+                          </SizableText>
+                          <YStack
+                            animation="quick"
+                            animateOnly={['transform']}
+                            rotate={hardwareExpanded ? '0' : '90deg'}
+                          >
+                            <Icon
+                              name="ChevronRightSmallOutline"
+                              size="$4"
+                              color="$iconDisabled"
+                            />
+                          </YStack>
+                        </XStack>
+                      </Button>
+                    </YStack>
                     <Icon
                       name="ChevronRightSmallOutline"
                       color="$iconSubdued"
                     />
                   </Card.Header>
-                  <Card.Body>
-                    <XStack gap="$2" flexWrap="wrap">
-                      {[
-                        {
-                          title: intl.formatMessage({
-                            id: ETranslations.highest_security,
-                          }),
-                          badge: 'success' as const,
-                        },
-                        {
-                          title: intl.formatMessage({
-                            id: ETranslations.for_large_assets,
-                          }),
-                        },
-                        {
-                          title: intl.formatMessage({
-                            id: ETranslations.private_key_staty_on_device,
-                          }),
-                        },
-                        {
-                          title: intl.formatMessage({
-                            id: ETranslations.ideal_for_long_term_storage,
-                          }),
-                        },
-                        {
-                          title: intl.formatMessage({
-                            id: ETranslations.protects_against_malware,
-                          }),
-                        },
-                      ].map((item, index) => (
-                        <Badge
-                          key={index}
-                          {...(item.badge && { badgeType: item.badge })}
+                  <HeightTransition initialHeight={0}>
+                    <AnimatePresence>
+                      {hardwareExpanded ? (
+                        <YStack
+                          animation="quick"
+                          animateOnly={['opacity']}
+                          enterStyle={{ opacity: 0 }}
+                          exitStyle={{ opacity: 0 }}
                         >
-                          <Badge.Text size="$bodySm">{item.title}</Badge.Text>
-                        </Badge>
-                      ))}
-                      <Badge>
-                        <Badge.Text size="$bodySm">
-                          {intl.formatMessage({
-                            id: ETranslations.global_supports,
-                          })}
-                        </Badge.Text>
-                        <XStack gap="$1" ml="$1">
-                          <Icon name="OnekeyLogoIllus" size="$3" />
-                        </XStack>
-                      </Badge>
-                    </XStack>
-                  </Card.Body>
+                          <Card.Body>
+                            <XStack gap="$2" flexWrap="wrap">
+                              {[
+                                {
+                                  title: intl.formatMessage({
+                                    id: ETranslations.highest_security,
+                                  }),
+                                  badge: 'success' as const,
+                                },
+                                {
+                                  title: intl.formatMessage({
+                                    id: ETranslations.for_large_assets,
+                                  }),
+                                },
+                                {
+                                  title: intl.formatMessage({
+                                    id: ETranslations.private_key_staty_on_device,
+                                  }),
+                                },
+                                {
+                                  title: intl.formatMessage({
+                                    id: ETranslations.ideal_for_long_term_storage,
+                                  }),
+                                },
+                                {
+                                  title: intl.formatMessage({
+                                    id: ETranslations.protects_against_malware,
+                                  }),
+                                },
+                              ].map((item, index) => (
+                                <Badge
+                                  key={index}
+                                  {...(item.badge && { badgeType: item.badge })}
+                                >
+                                  <Badge.Text size="$bodySm">
+                                    {item.title}
+                                  </Badge.Text>
+                                </Badge>
+                              ))}
+                              <Badge>
+                                <Badge.Text size="$bodySm">
+                                  {intl.formatMessage({
+                                    id: ETranslations.global_supports,
+                                  })}
+                                </Badge.Text>
+                                <XStack gap="$1" ml="$1">
+                                  <Icon name="OnekeyLogoIllus" size="$3" />
+                                </XStack>
+                              </Badge>
+                            </XStack>
+                          </Card.Body>
+                        </YStack>
+                      ) : null}
+                    </AnimatePresence>
+                  </HeightTransition>
                 </Card>
               </>
             ) : null}
@@ -399,84 +457,83 @@ function CreateOrImportWallet() {
                     )}
                   </AnimatePresence>
                 </Card.Header>
-                <Card.Body>
-                  <XStack gap="$2" flexWrap="wrap">
-                    {[
-                      {
-                        title: intl.formatMessage({
-                          id: ETranslations.recovery_phrase_free,
-                        }),
-                        badge: 'success' as const,
-                      },
-                      {
-                        title: intl.formatMessage({
-                          id: ETranslations.beginner_friendly,
-                        }),
-                      },
-                      {
-                        title: intl.formatMessage({
-                          id: ETranslations.create_new_wallet_badge_supports,
-                        }),
-                      },
-                      {
-                        title: intl.formatMessage({
-                          id: ETranslations.open_source_secure_sharding,
-                        }),
-                      },
-                      {
-                        title: intl.formatMessage({
-                          id: ETranslations.ultra_fast_setup,
-                        }),
-                      },
-                    ].map((item, index) => (
-                      <Badge
-                        key={index}
-                        {...(item.badge && { badgeType: item.badge })}
+                <HeightTransition initialHeight={0}>
+                  <AnimatePresence>
+                    {keylessExpanded ? (
+                      <YStack
+                        animation="quick"
+                        animateOnly={['opacity']}
+                        enterStyle={{ opacity: 0 }}
+                        exitStyle={{ opacity: 0 }}
                       >
-                        <Badge.Text size="$bodySm">{item.title}</Badge.Text>
-                      </Badge>
-                    ))}
-                    <Badge>
-                      <Badge.Text size="$bodySm">
-                        {intl.formatMessage({
-                          id: ETranslations.global_supports,
-                        })}
-                      </Badge.Text>
-                      <XStack gap="$1" ml="$1">
-                        <Icon name="GoogleIllus" size="$3" />
-                        <Icon
-                          name="AppleBrand"
-                          color="$iconActive"
-                          size="$3"
-                          y={-1}
-                        />
-                      </XStack>
-                    </Badge>
-                  </XStack>
-                  <HeightTransition initialHeight={0}>
-                    <AnimatePresence>
-                      {keylessExpanded ? (
-                        <YStack
-                          pt="$5"
-                          animation="quick"
-                          animateOnly={['opacity']}
-                          enterStyle={{
-                            opacity: 0,
-                          }}
-                          exitStyle={{
-                            opacity: 0,
-                          }}
-                        >
-                          <SizableText size="$bodySm" color="$textSubdued">
-                            {intl.formatMessage({
-                              id: ETranslations.keyless_wallet_desc,
-                            })}
-                          </SizableText>
-                        </YStack>
-                      ) : null}
-                    </AnimatePresence>
-                  </HeightTransition>
-                </Card.Body>
+                        <Card.Body>
+                          <XStack gap="$2" flexWrap="wrap">
+                            {[
+                              {
+                                title: intl.formatMessage({
+                                  id: ETranslations.recovery_phrase_free,
+                                }),
+                                badge: 'success' as const,
+                              },
+                              {
+                                title: intl.formatMessage({
+                                  id: ETranslations.beginner_friendly,
+                                }),
+                              },
+                              {
+                                title: intl.formatMessage({
+                                  id: ETranslations.create_new_wallet_badge_supports,
+                                }),
+                              },
+                              {
+                                title: intl.formatMessage({
+                                  id: ETranslations.open_source_secure_sharding,
+                                }),
+                              },
+                              {
+                                title: intl.formatMessage({
+                                  id: ETranslations.ultra_fast_setup,
+                                }),
+                              },
+                            ].map((item, index) => (
+                              <Badge
+                                key={index}
+                                {...(item.badge && { badgeType: item.badge })}
+                              >
+                                <Badge.Text size="$bodySm">
+                                  {item.title}
+                                </Badge.Text>
+                              </Badge>
+                            ))}
+                            <Badge>
+                              <Badge.Text size="$bodySm">
+                                {intl.formatMessage({
+                                  id: ETranslations.global_supports,
+                                })}
+                              </Badge.Text>
+                              <XStack gap="$1" ml="$1">
+                                <Icon name="GoogleIllus" size="$3" />
+                                <Icon
+                                  name="AppleBrand"
+                                  color="$iconActive"
+                                  size="$3"
+                                  y={-1}
+                                />
+                              </XStack>
+                            </Badge>
+                          </XStack>
+                          <YStack pt="$5">
+                            <SizableText size="$bodySm" color="$textSubdued">
+                              {intl.formatMessage({
+                                id: ETranslations.keyless_wallet_desc,
+                              })}
+                            </SizableText>
+                          </YStack>
+                        </Card.Body>
+                      </YStack>
+                    ) : null}
+                  </AnimatePresence>
+                </HeightTransition>
               </Card>
             ) : null}
 
@@ -540,53 +597,58 @@ function CreateOrImportWallet() {
                 </YStack>
                 <Icon name="ChevronRightSmallOutline" color="$iconSubdued" />
               </Card.Header>
-              <Card.Body>
-                <XStack gap="$2" flexWrap="wrap">
-                  {[
-                    {
-                      id: ETranslations.create_new_wallet_badge_most_used,
-                      badge: 'success' as const,
-                    },
-                    { id: ETranslations.create_new_wallet_badge_consists },
-                    { id: ETranslations.create_new_wallet_badge_metaphor },
-                    { id: ETranslations.create_new_wallet_badge_keep },
-                    { id: ETranslations.create_new_wallet_badge_handwritten },
-                    { id: ETranslations.create_new_wallet_badge_supports },
-                  ].map((item, index) => (
-                    <Badge
-                      key={index}
-                      {...(item.badge && { badgeType: item.badge })}
+              <HeightTransition initialHeight={0}>
+                <AnimatePresence>
+                  {expanded ? (
+                    <YStack
+                      animation="quick"
+                      animateOnly={['opacity']}
+                      enterStyle={{ opacity: 0 }}
+                      exitStyle={{ opacity: 0 }}
                     >
-                      <Badge.Text size="$bodySm">
-                        {intl.formatMessage({ id: item.id })}
-                      </Badge.Text>
-                    </Badge>
-                  ))}
-                </XStack>
-                <HeightTransition initialHeight={0}>
-                  <AnimatePresence>
-                    {expanded ? (
-                      <YStack
-                        pt="$5"
-                        animation="quick"
-                        animateOnly={['opacity']}
-                        enterStyle={{
-                          opacity: 0,
-                        }}
-                        exitStyle={{
-                          opacity: 0,
-                        }}
-                      >
-                        <SizableText size="$bodySm" color="$textSubdued">
-                          {intl.formatMessage({
-                            id: ETranslations.create_new_wallet_learn_more,
-                          })}
-                        </SizableText>
-                      </YStack>
-                    ) : null}
-                  </AnimatePresence>
-                </HeightTransition>
-              </Card.Body>
+                      <Card.Body>
+                        <XStack gap="$2" flexWrap="wrap">
+                          {[
+                            {
+                              id: ETranslations.create_new_wallet_badge_most_used,
+                              badge: 'success' as const,
+                            },
+                            {
+                              id: ETranslations.create_new_wallet_badge_consists,
+                            },
+                            {
+                              id: ETranslations.create_new_wallet_badge_metaphor,
+                            },
+                            { id: ETranslations.create_new_wallet_badge_keep },
+                            {
+                              id: ETranslations.create_new_wallet_badge_handwritten,
+                            },
+                            {
+                              id: ETranslations.create_new_wallet_badge_supports,
+                            },
+                          ].map((item, index) => (
+                            <Badge
+                              key={index}
+                              {...(item.badge && { badgeType: item.badge })}
+                            >
+                              <Badge.Text size="$bodySm">
+                                {intl.formatMessage({ id: item.id })}
+                              </Badge.Text>
+                            </Badge>
+                          ))}
+                        </XStack>
+                        <YStack pt="$5">
+                          <SizableText size="$bodySm" color="$textSubdued">
+                            {intl.formatMessage({
+                              id: ETranslations.create_new_wallet_learn_more,
+                            })}
+                          </SizableText>
+                        </YStack>
+                      </Card.Body>
+                    </YStack>
+                  ) : null}
+                </AnimatePresence>
+              </HeightTransition>
             </Card>
             {/* add existing wallet */}
             <Card onPress={handleAddExistingWallet}>
@@ -610,46 +672,94 @@ function CreateOrImportWallet() {
                       id: ETranslations.add_existing_wallet_title,
                     })}
                   </Card.Title>
-                  <SizableText size="$bodySm" color="$textSubdued">
-                    {intl.formatMessage({
-                      id: ETranslations.add_existing_wallet_desc,
-                    })}
-                  </SizableText>
+                  <Button
+                    px="$1"
+                    py="$0.5"
+                    mx="$-1"
+                    my="$-0.5"
+                    borderWidth={0}
+                    size="small"
+                    variant="tertiary"
+                    onPress={handleExistingExpand}
+                    hitSlop={10}
+                    childrenAsText={false}
+                  >
+                    <XStack alignItems="center">
+                      <SizableText size="$bodySm" color="$textSubdued">
+                        {intl.formatMessage({
+                          id: ETranslations.global_learn_more,
+                        })}
+                      </SizableText>
+                      <YStack
+                        animation="quick"
+                        animateOnly={['transform']}
+                        rotate={existingExpanded ? '0' : '90deg'}
+                      >
+                        <Icon
+                          name="ChevronRightSmallOutline"
+                          size="$4"
+                          color="$iconDisabled"
+                        />
+                      </YStack>
+                    </XStack>
+                  </Button>
                 </YStack>
                 <Icon name="ChevronRightSmallOutline" color="$iconSubdued" />
               </Card.Header>
-              <Card.Body>
-                <XStack gap="$2" flexWrap="wrap">
-                  {[
-                    ETranslations.add_existing_wallet_badge_phrases_length,
-                    ETranslations.create_new_wallet_badge_supports,
-                  ].map((id, index) => (
-                    <Badge key={index}>
-                      <Badge.Text size="$bodySm">
-                        {intl.formatMessage({ id })}
-                      </Badge.Text>
-                    </Badge>
-                  ))}
-                  <Badge>
-                    <Badge.Text size="$bodySm">
-                      {intl.formatMessage({
-                        id: ETranslations.global_supports,
-                      })}
-                    </Badge.Text>
-                    <XStack gap="$1" ml="$1">
-                      {walletKeys.map((key) => (
-                        <Image
-                          key={key}
-                          source={externalWalletLogoUtils.getLogoInfo(key).logo}
-                          width={12}
-                          height={12}
-                          borderRadius={3}
-                        />
-                      ))}
-                    </XStack>
-                  </Badge>
-                </XStack>
-              </Card.Body>
+              <HeightTransition initialHeight={0}>
+                <AnimatePresence>
+                  {existingExpanded ? (
+                    <YStack
+                      animation="quick"
+                      animateOnly={['opacity']}
+                      enterStyle={{ opacity: 0 }}
+                      exitStyle={{ opacity: 0 }}
+                    >
+                      <Card.Body>
+                        <XStack gap="$2" flexWrap="wrap">
+                          {[
+                            ETranslations.add_existing_wallet_badge_phrases_length,
+                            ETranslations.create_new_wallet_badge_supports,
+                          ].map((id, index) => (
+                            <Badge key={index}>
+                              <Badge.Text size="$bodySm">
+                                {intl.formatMessage({ id })}
+                              </Badge.Text>
+                            </Badge>
+                          ))}
+                          <Badge>
+                            <Badge.Text size="$bodySm">
+                              {intl.formatMessage({
+                                id: ETranslations.global_supports,
+                              })}
+                            </Badge.Text>
+                            <XStack gap="$1" ml="$1">
+                              {walletKeys.map((key) => (
+                                <Image
+                                  key={key}
+                                  source={
+                                    externalWalletLogoUtils.getLogoInfo(key).logo
+                                  }
+                                  width={12}
+                                  height={12}
+                                  borderRadius={3}
+                                />
+                              ))}
+                            </XStack>
+                          </Badge>
+                        </XStack>
+                        <YStack pt="$5">
+                          <SizableText size="$bodySm" color="$textSubdued">
+                            {intl.formatMessage({
+                              id: ETranslations.add_existing_wallet_desc,
+                            })}
+                          </SizableText>
+                        </YStack>
+                      </Card.Body>
+                    </YStack>
+                  ) : null}
+                </AnimatePresence>
+              </HeightTransition>
             </Card>
             <Card onPress={handleConnectExternalWallet}>
               <Card.Header>
