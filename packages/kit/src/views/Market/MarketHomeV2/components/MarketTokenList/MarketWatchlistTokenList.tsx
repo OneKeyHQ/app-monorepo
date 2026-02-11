@@ -61,8 +61,10 @@ function MarketWatchlistTokenList({
       await actions.current.refreshWatchListV2();
     };
     appEventBus.on(EAppEventBusNames.RefreshMarketWatchList, fn);
+    appEventBus.on(EAppEventBusNames.MarketWatchListV2Changed, fn);
     return () => {
       appEventBus.off(EAppEventBusNames.RefreshMarketWatchList, fn);
+      appEventBus.off(EAppEventBusNames.MarketWatchListV2Changed, fn);
     };
   }, [actions]);
 
