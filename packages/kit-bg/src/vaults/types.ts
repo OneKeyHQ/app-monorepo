@@ -522,6 +522,9 @@ export type ITransferInfo = {
   // BTC Coin Control
   selectedUtxoKeys?: string[]; // Format: "txid:vout" for manually selected UTXOs
   utxoSelectionStrategy?: EUtxoSelectionStrategy; // Strategy for UTXO selection
+
+  // Bulk send: fee-on-transfer tokens require direct transferFrom per recipient
+  isFeeOnTransferToken?: boolean;
 };
 
 export type IApproveInfo = {

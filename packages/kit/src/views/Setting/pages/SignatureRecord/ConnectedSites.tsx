@@ -93,7 +93,7 @@ const ListEmptyComponent = () => {
       description={intl.formatMessage({
         id: ETranslations.settings_no_connected_sites_desc,
       })}
-      icon="ClockAlertOutline"
+      illustration="DocumentGlobeCenter"
     />
   );
 };

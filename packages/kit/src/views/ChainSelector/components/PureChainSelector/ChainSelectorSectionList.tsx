@@ -44,7 +44,7 @@ const ListEmptyComponent = () => {
   const intl = useIntl();
   return (
     <Empty
-      icon="SearchOutline"
+      illustration="BlockQuestionMark"
       title={intl.formatMessage({
         id: ETranslations.global_no_results,
       })}
