@@ -145,7 +145,7 @@ export function NumberSizeableText({
             color={props.color}
             fontWeight={parentFontWeight}
             fontSize={parentFontSize}
-            lineHeight={props.lineHeight}
+            lineHeight={props.lineHeight ?? parentFontSize}
           >
             {r}
           </SizableText>
