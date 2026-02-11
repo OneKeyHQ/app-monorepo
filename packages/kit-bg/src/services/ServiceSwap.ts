@@ -1435,23 +1435,21 @@ export default class ServiceSwap extends ServiceBase {
       (item) => item.txInfo.txId === oldTxId,
     );
     if (oldHistoryItemIndex !== -1) {
-      const oldHistoryItem = swapHistoryPendingList[oldHistoryItemIndex];
       const updated = Date.now();
-      const newHistoryItem = {
-        ...oldHistoryItem,
-        date: { ...oldHistoryItem.date, updated },
-        txInfo: { ...oldHistoryItem.txInfo, txId: newTxId },
-        status,
-      };
-      await this.backgroundApi.simpleDb.swapHistory.updateSwapHistoryItem(
-        newHistoryItem,
-        oldTxId,
-      );
+      let newHistoryItem: ISwapTxHistory | undefined;
       await inAppNotificationAtom.set((pre) => {
         const currentIndex = pre.swapHistoryPendingList.findIndex(
-          (item) => item.txInfo.txId === newTxId || item.txInfo.txId === oldTxId,
+          (item) =>
+            item.txInfo.txId === newTxId || item.txInfo.txId === oldTxId,
         );
         if (currentIndex === -1) return pre;
+        const currentItem = pre.swapHistoryPendingList[currentIndex];
+        newHistoryItem = {
+          ...currentItem,
+          date: { ...currentItem.date, updated },
+          txInfo: { ...currentItem.txInfo, txId: newTxId },
+          status,
+        };
         const newPendingList = [...pre.swapHistoryPendingList];
         newPendingList[currentIndex] = newHistoryItem;
         return {
@@ -1459,6 +1457,12 @@ export default class ServiceSwap extends ServiceBase {
           swapHistoryPendingList: newPendingList,
         };
       });
+      if (newHistoryItem) {
+        await this.backgroundApi.simpleDb.swapHistory.updateSwapHistoryItem(
+          newHistoryItem,
+          oldTxId,
+        );
+      }
       return;
     }
     const approvingTransaction = await this.getApprovingTransaction();
@@ -1482,18 +1486,9 @@ export default class ServiceSwap extends ServiceBase {
     );
     if (index !== -1) {
       const updated = Date.now();
-      const oldItem = swapHistoryPendingList[index];
-      let updatedStatus = item.status;
-      if (
-        oldItem.status === ESwapTxHistoryStatus.CANCELING &&
-        item.status === ESwapTxHistoryStatus.SUCCESS
-      ) {
-        updatedStatus = ESwapTxHistoryStatus.CANCELED;
-      }
       const updatedItem: ISwapTxHistory = {
         ...item,
         date: { ...item.date, updated },
-        status: updatedStatus,
       };
       if (
         updatedItem.txInfo.receiverTransactionId &&
@@ -1509,9 +1504,7 @@ export default class ServiceSwap extends ServiceBase {
           updatedItem.txInfo.receiverTransactionId
         ] = true;
       }
-      await this.backgroundApi.simpleDb.swapHistory.updateSwapHistoryItem(
-        updatedItem,
-      );
+      let finalItem: ISwapTxHistory = updatedItem;
       await inAppNotificationAtom.set((pre) => {
         const currentIndex = pre.swapHistoryPendingList.findIndex((i) =>
           updatedItem.txInfo.useOrderId
@@ -1519,21 +1512,34 @@ export default class ServiceSwap extends ServiceBase {
             : i.txInfo.txId === updatedItem.txInfo.txId,
         );
         if (currentIndex === -1) return pre;
+        const currentOldItem = pre.swapHistoryPendingList[currentIndex];
+        if (
+          currentOldItem.status === ESwapTxHistoryStatus.CANCELING &&
+          updatedItem.status === ESwapTxHistoryStatus.SUCCESS
+        ) {
+          finalItem = {
+            ...updatedItem,
+            status: ESwapTxHistoryStatus.CANCELED,
+          };
+        }
         const newPendingList = [...pre.swapHistoryPendingList];
-        newPendingList[currentIndex] = updatedItem;
+        newPendingList[currentIndex] = finalItem;
         return {
           ...pre,
           swapHistoryPendingList: newPendingList,
         };
       });
-      if (updatedItem.status !== ESwapTxHistoryStatus.PENDING) {
-        let fromAmountFinal = updatedItem.baseInfo.fromAmount;
-        if (updatedItem.swapInfo.otherFeeInfos?.length) {
-          updatedItem.swapInfo.otherFeeInfos.forEach((extraFeeInfo) => {
+      await this.backgroundApi.simpleDb.swapHistory.updateSwapHistoryItem(
+        finalItem,
+      );
+      if (finalItem.status !== ESwapTxHistoryStatus.PENDING) {
+        let fromAmountFinal = finalItem.baseInfo.fromAmount;
+        if (finalItem.swapInfo.otherFeeInfos?.length) {
+          finalItem.swapInfo.otherFeeInfos.forEach((extraFeeInfo) => {
             if (
               equalTokenNoCaseSensitive({
                 token1: extraFeeInfo.token,
-                token2: updatedItem.baseInfo.fromToken,
+                token2: finalItem.baseInfo.fromToken,
               })
             ) {
               fromAmountFinal = new BigNumber(fromAmountFinal)
@@ -1544,21 +1550,21 @@ export default class ServiceSwap extends ServiceBase {
         }
         void this.backgroundApi.serviceApp.showToast({
           method:
-            updatedItem.status === ESwapTxHistoryStatus.SUCCESS ||
-            updatedItem.status === ESwapTxHistoryStatus.PARTIALLY_FILLED
+            finalItem.status === ESwapTxHistoryStatus.SUCCESS ||
+            finalItem.status === ESwapTxHistoryStatus.PARTIALLY_FILLED
               ? 'success'
               : 'error',
           title: appLocale.intl.formatMessage({
             id:
-              updatedItem.status === ESwapTxHistoryStatus.SUCCESS ||
-              updatedItem.status === ESwapTxHistoryStatus.PARTIALLY_FILLED
+              finalItem.status === ESwapTxHistoryStatus.SUCCESS ||
+              finalItem.status === ESwapTxHistoryStatus.PARTIALLY_FILLED
                 ? ETranslations.swap_page_toast_swap_successful
                 : ETranslations.swap_page_toast_swap_failed,
           }),
-          message: `${numberFormat(updatedItem.baseInfo.fromAmount, formatter)} ${
-            updatedItem.baseInfo.fromToken.symbol
-          } → ${numberFormat(updatedItem.baseInfo.toAmount, formatter)} ${
-            updatedItem.baseInfo.toToken.symbol
+          message: `${numberFormat(finalItem.baseInfo.fromAmount, formatter)} ${
+            finalItem.baseInfo.fromToken.symbol
+          } → ${numberFormat(finalItem.baseInfo.toAmount, formatter)} ${
+            finalItem.baseInfo.toToken.symbol
           }`,
         });
       }
@@ -1572,7 +1578,7 @@ export default class ServiceSwap extends ServiceBase {
     );
     const inAppNotification = await inAppNotificationAtom.get();
     const deleteHistoryIds = inAppNotification.swapHistoryPendingList
-      .filter((item) => statuses?.includes(item.status))
+      .filter((item) => item && statuses?.includes(item.status))
       .map((item) =>
         item.txInfo.useOrderId ? item.txInfo.orderId : item.txInfo.txId,
       );
@@ -1580,7 +1586,7 @@ export default class ServiceSwap extends ServiceBase {
       ...pre,
       swapHistoryPendingList: statuses
         ? pre.swapHistoryPendingList.filter(
-            (item) => !statuses?.includes(item.status),
+            (item) => item && !statuses?.includes(item.status),
           )
         : [],
     }));
@@ -1602,7 +1608,7 @@ export default class ServiceSwap extends ServiceBase {
     await inAppNotificationAtom.set((pre) => ({
       ...pre,
       swapHistoryPendingList: pre.swapHistoryPendingList.filter(
-        (item) => item.txInfo.txId !== deleteHistoryId,
+        (item) => item && item.txInfo.txId !== deleteHistoryId,
       ),
     }));
     await this.cleanHistoryStateIntervals(deleteHistoryId);
@@ -1748,8 +1754,9 @@ export default class ServiceSwap extends ServiceBase {
     const { swapHistoryPendingList } = await inAppNotificationAtom.get();
     const statusPendingList = swapHistoryPendingList.filter(
       (item) =>
-        item.status === ESwapTxHistoryStatus.PENDING ||
-        item.status === ESwapTxHistoryStatus.CANCELING,
+        item &&
+        (item.status === ESwapTxHistoryStatus.PENDING ||
+          item.status === ESwapTxHistoryStatus.CANCELING),
     );
     const newHistoryStatePendingList = statusPendingList.filter(
       (item) =>

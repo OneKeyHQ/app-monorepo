@@ -201,9 +201,10 @@ const PreSwapDialogContent = ({
       if (preSwapData?.swapType !== ESwapTabSwitchType.LIMIT) {
         findStepItem = inAppNotificationAtom.swapHistoryPendingList.find(
           (item) =>
-            item.txInfo.useOrderId
+            item &&
+            (item.txInfo.useOrderId
               ? item.txInfo.orderId === lastStep?.orderId
-              : item.txInfo.txId === lastStep?.txHash,
+              : item.txInfo.txId === lastStep?.txHash),
         );
       } else {
         findStepItem = inAppNotificationAtom.swapLimitOrders.find(
