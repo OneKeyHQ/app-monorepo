@@ -12,10 +12,9 @@ import {
   useTabNameContext,
   useTabsContext,
   useUpdateScrollViewContentSize,
-} from 'react-native-collapsible-tab-view/src/hooks';
+} from 'react-native-collapsible-tab-view/lib/commonjs/hooks';
 
 import type { DraggableFlatListProps } from 'react-native-draggable-flatlist';
-import type { FlatList } from 'react-native-gesture-handler';
 
 function TabsDraggableFlatListImpl<T>(
   {
@@ -24,11 +23,11 @@ function TabsDraggableFlatListImpl<T>(
     onContentSizeChange,
     ...rest
   }: DraggableFlatListProps<T>,
-  passRef: React.Ref<FlatList<T>>,
+  passRef: React.Ref<RNFlatList<T>>,
 ): React.ReactElement {
   const name = useTabNameContext();
   const { setRef, contentInset } = useTabsContext();
-  const ref = useSharedAnimatedRef<RNFlatList<unknown>>(passRef);
+  const ref = useSharedAnimatedRef<RNFlatList<T>>(passRef as any);
 
   const { scrollHandler, enable } = useScrollHandlerY(name);
   const onLayout = useAfterMountEffect(rest.onLayout, () => {
@@ -95,5 +94,5 @@ function TabsDraggableFlatListImpl<T>(
 export const TabsDraggableFlatList = React.forwardRef(
   TabsDraggableFlatListImpl,
 ) as <T>(
-  props: DraggableFlatListProps<T> & { ref?: React.Ref<FlatList<T>> }
+  props: DraggableFlatListProps<T> & { ref?: React.Ref<RNFlatList<T>> }
 ) => React.ReactElement;
