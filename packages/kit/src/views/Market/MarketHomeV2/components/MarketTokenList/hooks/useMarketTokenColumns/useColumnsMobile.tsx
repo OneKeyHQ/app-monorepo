@@ -66,7 +66,7 @@ export const useColumnsMobile = (): ITableColumn<IMarketToken>[] => {
                   color="$textSubdued"
                   numberOfLines={1}
                   formatter="marketCap"
-                  formatterOptions={{ currency }}
+                  formatterOptions={{ currency: '$' }}
                 >
                   {record.turnover}
                 </NumberSizeableText>
@@ -121,7 +121,9 @@ export const useColumnsMobile = (): ITableColumn<IMarketToken>[] => {
                 numberOfLines={1}
                 size="$bodyLgMedium"
                 formatter="price"
-                formatterOptions={{ currency }}
+                formatterOptions={{
+                  currency: record.perpsCoin ? '$' : currency,
+                }}
               >
                 {record.price}
               </NumberSizeableText>
