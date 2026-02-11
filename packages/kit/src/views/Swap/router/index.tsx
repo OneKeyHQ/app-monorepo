@@ -6,12 +6,10 @@ import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
 
 import { LazyLoadPage } from '../../../components/LazyLoadPage';
 import LimitOrderDetailModal from '../pages/modal/LimitOrderDetailModal';
+import SwapHistoryListModal from '../pages/modal/SwapHistoryListModal';
 
 const SwapHistoryDetailModal = LazyLoadPage(
   () => import('../pages/modal/SwapHistoryDetailModal'),
-);
-const SwapHistoryListModal = LazyLoadPage(
-  () => import('../pages/modal/SwapHistoryListModal'),
 );
 const SwapProviderSelectModal = LazyLoadPage(
   () => import('../pages/modal/SwapProviderSelectModal'),
