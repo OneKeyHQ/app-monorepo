@@ -1435,11 +1435,14 @@ export default class ServiceSwap extends ServiceBase {
       (item) => item.txInfo.txId === oldTxId,
     );
     if (oldHistoryItemIndex !== -1) {
-      const newHistoryItem = swapHistoryPendingList[oldHistoryItemIndex];
+      const oldHistoryItem = swapHistoryPendingList[oldHistoryItemIndex];
       const updated = Date.now();
-      newHistoryItem.date = { ...newHistoryItem.date, updated };
-      newHistoryItem.txInfo.txId = newTxId;
-      newHistoryItem.status = status;
+      const newHistoryItem = {
+        ...oldHistoryItem,
+        date: { ...oldHistoryItem.date, updated },
+        txInfo: { ...oldHistoryItem.txInfo, txId: newTxId },
+        status,
+      };
       await this.backgroundApi.simpleDb.swapHistory.updateSwapHistoryItem(
         newHistoryItem,
         oldTxId,
@@ -1479,51 +1482,66 @@ export default class ServiceSwap extends ServiceBase {
     );
     if (index !== -1) {
       const updated = Date.now();
-      item.date = { ...item.date, updated };
       const oldItem = swapHistoryPendingList[index];
+      let updatedStatus = item.status;
       if (
         oldItem.status === ESwapTxHistoryStatus.CANCELING &&
         item.status === ESwapTxHistoryStatus.SUCCESS
       ) {
-        item.status = ESwapTxHistoryStatus.CANCELED;
+        updatedStatus = ESwapTxHistoryStatus.CANCELED;
       }
+      const updatedItem: ISwapTxHistory = {
+        ...item,
+        date: { ...item.date, updated },
+        status: updatedStatus,
+      };
       if (
-        item.txInfo.receiverTransactionId &&
+        updatedItem.txInfo.receiverTransactionId &&
         !this._crossChainReceiveTxBlockNotificationMap[
-          item.txInfo.receiverTransactionId
+          updatedItem.txInfo.receiverTransactionId
         ]
       ) {
         void this.backgroundApi.serviceNotification.blockNotificationForTxId({
-          networkId: item.baseInfo.toToken.networkId,
-          tx: item.txInfo.receiverTransactionId,
+          networkId: updatedItem.baseInfo.toToken.networkId,
+          tx: updatedItem.txInfo.receiverTransactionId,
         });
         this._crossChainReceiveTxBlockNotificationMap[
-          item.txInfo.receiverTransactionId
+          updatedItem.txInfo.receiverTransactionId
         ] = true;
       }
-      await this.backgroundApi.simpleDb.swapHistory.updateSwapHistoryItem(item);
+      await this.backgroundApi.simpleDb.swapHistory.updateSwapHistoryItem(
+        updatedItem,
+      );
       await inAppNotificationAtom.set((pre) => {
         const currentIndex = pre.swapHistoryPendingList.findIndex((i) =>
-          item.txInfo.useOrderId
-            ? i.txInfo.orderId === item.txInfo.orderId
-            : i.txInfo.txId === item.txInfo.txId,
+          updatedItem.txInfo.useOrderId
+            ? i.txInfo.orderId === updatedItem.txInfo.orderId
+            : i.txInfo.txId === updatedItem.txInfo.txId,
         );
         if (currentIndex === -1) return pre;
+        const currentOldItem = pre.swapHistoryPendingList[currentIndex];
+        let finalItem = updatedItem;
+        if (
+          currentOldItem.status === ESwapTxHistoryStatus.CANCELING &&
+          updatedItem.status !== ESwapTxHistoryStatus.CANCELED
+        ) {
+          finalItem = { ...updatedItem, status: ESwapTxHistoryStatus.CANCELED };
+        }
         const newPendingList = [...pre.swapHistoryPendingList];
-        newPendingList[currentIndex] = item;
+        newPendingList[currentIndex] = finalItem;
         return {
           ...pre,
           swapHistoryPendingList: newPendingList,
         };
       });
-      if (item.status !== ESwapTxHistoryStatus.PENDING) {
-        let fromAmountFinal = item.baseInfo.fromAmount;
-        if (item.swapInfo.otherFeeInfos?.length) {
-          item.swapInfo.otherFeeInfos.forEach((extraFeeInfo) => {
+      if (updatedItem.status !== ESwapTxHistoryStatus.PENDING) {
+        let fromAmountFinal = updatedItem.baseInfo.fromAmount;
+        if (updatedItem.swapInfo.otherFeeInfos?.length) {
+          updatedItem.swapInfo.otherFeeInfos.forEach((extraFeeInfo) => {
             if (
               equalTokenNoCaseSensitive({
                 token1: extraFeeInfo.token,
-                token2: item.baseInfo.fromToken,
+                token2: updatedItem.baseInfo.fromToken,
               })
             ) {
               fromAmountFinal = new BigNumber(fromAmountFinal)
@@ -1534,21 +1552,21 @@ export default class ServiceSwap extends ServiceBase {
         }
         void this.backgroundApi.serviceApp.showToast({
           method:
-            item.status === ESwapTxHistoryStatus.SUCCESS ||
-            item.status === ESwapTxHistoryStatus.PARTIALLY_FILLED
+            updatedItem.status === ESwapTxHistoryStatus.SUCCESS ||
+            updatedItem.status === ESwapTxHistoryStatus.PARTIALLY_FILLED
               ? 'success'
               : 'error',
           title: appLocale.intl.formatMessage({
             id:
-              item.status === ESwapTxHistoryStatus.SUCCESS ||
-              item.status === ESwapTxHistoryStatus.PARTIALLY_FILLED
+              updatedItem.status === ESwapTxHistoryStatus.SUCCESS ||
+              updatedItem.status === ESwapTxHistoryStatus.PARTIALLY_FILLED
                 ? ETranslations.swap_page_toast_swap_successful
                 : ETranslations.swap_page_toast_swap_failed,
           }),
-          message: `${numberFormat(item.baseInfo.fromAmount, formatter)} ${
-            item.baseInfo.fromToken.symbol
-          } → ${numberFormat(item.baseInfo.toAmount, formatter)} ${
-            item.baseInfo.toToken.symbol
+          message: `${numberFormat(updatedItem.baseInfo.fromAmount, formatter)} ${
+            updatedItem.baseInfo.fromToken.symbol
+          } → ${numberFormat(updatedItem.baseInfo.toAmount, formatter)} ${
+            updatedItem.baseInfo.toToken.symbol
           }`,
         });
       }
