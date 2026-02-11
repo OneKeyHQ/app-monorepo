@@ -10,7 +10,7 @@ import type {
   KeyboardExtender,
   KeyboardStickyView,
   KeyboardToolbar,
-  OverKeyboardView
+  OverKeyboardView,
 } from 'react-native-keyboard-controller';
 
 const PassThrough = ({
