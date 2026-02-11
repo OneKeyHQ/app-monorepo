@@ -328,81 +328,208 @@ const TickerBarFundingRateView = memo(
   ({
     fundingRate,
     fundingRatePercent,
+    hourlyFundingRate,
+    dailyFundingRate,
+    weeklyFundingRate,
+    monthlyFundingRate,
     annualizedFundingRate,
+    countdown,
     isLoading,
   }: {
     fundingRate: number;
     fundingRatePercent: string;
+    hourlyFundingRate: string;
+    dailyFundingRate: string;
+    weeklyFundingRate: string;
+    monthlyFundingRate: string;
     annualizedFundingRate: string;
+    countdown: string;
     isLoading: boolean;
   }) => {
     const intl = useIntl();
     return (
       <DebugRenderTracker name="TickerBarFundingRate">
         <YStack>
-          <Tooltip
-            renderTrigger={
-              <DashText
-                size="$bodySm"
-                dashColor="$textDisabled"
-                dashThickness={0.5}
-                color="$textSubdued"
-                cursor="help"
-              >
-                {intl.formatMessage({
-                  id: ETranslations.perp_token_bar_Funding,
-                })}
-              </DashText>
-            }
-            renderContent={
-              <YStack gap="$2">
-                <SizableText size="$bodySm">
-                  {intl.formatMessage({
-                    id: ETranslations.perp_funding_rate_tip1,
-                  })}
-                </SizableText>
-                <SizableText size="$bodySm">
-                  {intl.formatMessage({
-                    id: ETranslations.perp_funding_rate_tip2,
-                  })}
-                </SizableText>
-              </YStack>
-            }
-            placement="top"
-          />
+          <SizableText size="$bodySm" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.perp_token_bar_Funding,
+            })}
+          </SizableText>
           <SkeletonContainer isLoading={isLoading} width={120} height={16}>
             <XStack alignItems="center" gap="$2">
               <Tooltip
                 renderTrigger={
                   <XStack alignItems="center" gap="$2">
-                    <SizableText
+                    <DashText
                       size="$headingXs"
                       color={fundingRate >= 0 ? '$green11' : '$red11'}
+                      dashColor="$textDisabled"
+                      dashThickness={0.5}
                       cursor="help"
                     >
-                      {fundingRatePercent}%
-                    </SizableText>
+                      {`${fundingRatePercent}%`}
+                    </DashText>
                     <TickerBarFundingRateCountdown />
                   </XStack>
                 }
                 renderContent={
-                  <YStack gap="$1">
-                    <YStack py="$1" gap="$0.5" justifyContent="space-between">
-                      <SizableText size="$bodySm" color="$textSubdued">
-                        {intl.formatMessage({
-                          id: ETranslations.perp_ticker_annualized_funding_tooltip,
-                        })}
-                      </SizableText>
-                      <SizableText
-                        size="$bodySmMedium"
-                        color={fundingRate >= 0 ? '$green11' : '$red11'}
+                  <YStack gap="$3" py="$2" minWidth={200}>
+                    <YStack gap="$2">
+                      <XStack
+                        justifyContent="space-between"
+                        alignItems="center"
                       >
-                        {annualizedFundingRate}%
-                      </SizableText>
+                        <SizableText
+                          size="$headingXs"
+                          fontFamily="$monoRegular"
+                          fontVariant={['tabular-nums']}
+                          color="$textSubdued"
+                        >
+                          {intl.formatMessage({
+                            id: ETranslations.perps_fee_rate_projection,
+                          })}
+                        </SizableText>
+                        <SizableText
+                          size="$headingXs"
+                          fontFamily="$monoRegular"
+                          fontVariant={['tabular-nums']}
+                          color="$textSubdued"
+                        >
+                          {intl.formatMessage({
+                            id: ETranslations.perp_position_funding,
+                          })}
+                        </SizableText>
+                      </XStack>
+                      <YStack gap="$3">
+                        <XStack
+                          justifyContent="space-between"
+                          alignItems="center"
+                        >
+                          <XStack gap="$1" alignItems="center">
+                            <SizableText
+                              size="$headingXs"
+                              fontFamily="$monoRegular"
+                              fontVariant={['tabular-nums']}
+                            >
+                              {intl.formatMessage({
+                                id: ETranslations.perps_hourly,
+                              })}
+                            </SizableText>
+                            <SizableText
+                              size="$headingXs"
+                              fontFamily="$monoRegular"
+                              fontVariant={['tabular-nums']}
+                              color="$textSubdued"
+                            >
+                              ({countdown})
+                            </SizableText>
+                          </XStack>
+                          <SizableText
+                            size="$headingXs"
+                            fontFamily="$monoRegular"
+                            fontVariant={['tabular-nums']}
+                            color={fundingRate >= 0 ? '$green11' : '$red11'}
+                          >
+                            {hourlyFundingRate}%
+                          </SizableText>
+                        </XStack>
+                        <XStack
+                          justifyContent="space-between"
+                          alignItems="center"
+                        >
+                          <SizableText
+                            size="$headingXs"
+                            fontFamily="$monoRegular"
+                            fontVariant={['tabular-nums']}
+                          >
+                            {intl.formatMessage({
+                              id: ETranslations.earn_daily,
+                            })}
+                          </SizableText>
+                          <SizableText
+                            size="$headingXs"
+                            fontFamily="$monoRegular"
+                            fontVariant={['tabular-nums']}
+                            color={fundingRate >= 0 ? '$green11' : '$red11'}
+                          >
+                            {dailyFundingRate}%
+                          </SizableText>
+                        </XStack>
+                        <XStack
+                          justifyContent="space-between"
+                          alignItems="center"
+                        >
+                          <SizableText
+                            size="$headingXs"
+                            fontFamily="$monoRegular"
+                            fontVariant={['tabular-nums']}
+                          >
+                            {intl.formatMessage({
+                              id: ETranslations.earn_weekly,
+                            })}
+                          </SizableText>
+                          <SizableText
+                            size="$headingXs"
+                            fontFamily="$monoRegular"
+                            fontVariant={['tabular-nums']}
+                            color={fundingRate >= 0 ? '$green11' : '$red11'}
+                          >
+                            {weeklyFundingRate}%
+                          </SizableText>
+                        </XStack>
+                        <XStack
+                          justifyContent="space-between"
+                          alignItems="center"
+                        >
+                          <SizableText
+                            size="$headingXs"
+                            fontFamily="$monoRegular"
+                            fontVariant={['tabular-nums']}
+                          >
+                            {intl.formatMessage({
+                              id: ETranslations.earn_monthly,
+                            })}
+                          </SizableText>
+                          <SizableText
+                            size="$headingXs"
+                            fontFamily="$monoRegular"
+                            fontVariant={['tabular-nums']}
+                            color={fundingRate >= 0 ? '$green11' : '$red11'}
+                          >
+                            {monthlyFundingRate}%
+                          </SizableText>
+                        </XStack>
+                        <XStack
+                          justifyContent="space-between"
+                          alignItems="center"
+                        >
+                          <SizableText
+                            size="$headingXs"
+                            fontFamily="$monoRegular"
+                            fontVariant={['tabular-nums']}
+                          >
+                            {intl.formatMessage({
+                              id: ETranslations.earn_annually,
+                            })}
+                          </SizableText>
+                          <SizableText
+                            size="$headingXs"
+                            fontFamily="$monoRegular"
+                            fontVariant={['tabular-nums']}
+                            color={fundingRate >= 0 ? '$green11' : '$red11'}
+                          >
+                            {annualizedFundingRate}%
+                          </SizableText>
+                        </XStack>
+                      </YStack>
                     </YStack>
                     <Divider />
-                    <YStack py="$1" gap="$0.5" justifyContent="space-between">
-                      <SizableText size="$bodySm" color="$textSubdued">
+                    <YStack gap="$2" justifyContent="space-between">
+                      <SizableText
+                        size="$headingXs"
+                        fontVariant={['tabular-nums']}
+                        color="$textSubdued"
+                      >
                         {intl.formatMessage({
                           id: ETranslations.perp_trades_history_direction,
                         })}
@@ -441,6 +568,24 @@ const TickerBarFundingRateView = memo(
                         </SizableText>
                       )}
                     </YStack>
+                    <Divider />
+                    <YStack gap="$2">
+                      <SizableText size="$headingXs" color="$textSubdued">
+                        {intl.formatMessage({
+                          id: ETranslations.perp_funding_rate_tip0,
+                        })}
+                      </SizableText>
+                      <SizableText size="$bodySmMedium">
+                        {intl.formatMessage({
+                          id: ETranslations.perp_funding_rate_tip1,
+                        })}
+                      </SizableText>
+                      <SizableText size="$bodySmMedium">
+                        {intl.formatMessage({
+                          id: ETranslations.perp_funding_rate_tip2,
+                        })}
+                      </SizableText>
+                    </YStack>
                   </YStack>
                 }
               />
@@ -458,14 +603,24 @@ function TickerBarFundingRate() {
   const fundingRateStr = assetCtx?.ctx?.fundingRate || '0';
   const fundingRate = parseFloat(fundingRateStr);
   const fundingRatePercent = (fundingRate * 100).toFixed(4);
+  const hourlyFundingRate = (fundingRate * 100).toFixed(4);
+  const dailyFundingRate = (fundingRate * 100 * 24).toFixed(2);
+  const weeklyFundingRate = (fundingRate * 100 * 24 * 7).toFixed(2);
+  const monthlyFundingRate = (fundingRate * 100 * 24 * 30).toFixed(2);
   const annualizedFundingRate = (fundingRate * 100 * 24 * 365).toFixed(2);
+  const countdown = useFundingCountdown();
   const isLoading = useTickerBarIsLoading();
 
   return (
     <TickerBarFundingRateView
       fundingRate={fundingRate}
       fundingRatePercent={fundingRatePercent}
+      hourlyFundingRate={hourlyFundingRate}
+      dailyFundingRate={dailyFundingRate}
+      weeklyFundingRate={weeklyFundingRate}
+      monthlyFundingRate={monthlyFundingRate}
       annualizedFundingRate={annualizedFundingRate}
+      countdown={countdown}
       isLoading={isLoading}
     />
   );
