@@ -1,17 +1,14 @@
 import { useCallback } from 'react';
 
-import type { IPageNavigationProp } from '@onekeyhq/components';
 import { useClipboard, useShortcuts } from '@onekeyhq/components';
 import type { IElectronWebView } from '@onekeyhq/kit/src/components/WebView/types';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useBrowserTabActions } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
-import type { IDiscoveryModalParamList } from '@onekeyhq/shared/src/routes';
 import {
   EDiscoveryModalRoutes,
   EModalRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
-import { EUniversalSearchPages } from '@onekeyhq/shared/src/routes/universalSearch';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
 import { useShortcutsRouteStatus } from '../../../hooks/useListenTabFocusState';
@@ -19,12 +16,22 @@ import { webviewRefs } from '../utils/explorerUtils';
 
 import { useActiveTabId, useWebTabs } from './useWebTabs';
 
+function getActiveWebview(
+  tabId: string | null | undefined,
+): IElectronWebView | undefined {
+  if (!tabId) return undefined;
+  try {
+    return webviewRefs[tabId]?.innerRef as IElectronWebView | undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export const useDiscoveryShortcuts = () => {
   const { copyText } = useClipboard();
-  const navigation =
-    useAppNavigation<IPageNavigationProp<IDiscoveryModalParamList>>();
+  const navigation = useAppNavigation();
 
-  const { isAtBrowserTab, shouldReloadAppByCmdR } = useShortcutsRouteStatus();
+  const { isAtBrowserTab } = useShortcutsRouteStatus();
 
   const { activeTabId } = useActiveTabId();
   const { closeWebTab } = useBrowserTabActions().current;
@@ -51,64 +58,30 @@ export const useDiscoveryShortcuts = () => {
 
   const handleShortcuts = useCallback(
     (data: EShortcutEvents) => {
-      // only handle shortcuts when at browser tab
+      if (!isAtBrowserTab.current) {
+        return;
+      }
+      const webview = getActiveWebview(activeTabId);
       switch (data) {
-        case EShortcutEvents.CopyAddressOrUrl:
-          if (isAtBrowserTab.current) {
-            try {
-              const url = (
-                webviewRefs[activeTabId ?? '']?.innerRef as IElectronWebView
-              )?.getURL();
-              if (url) {
-                copyText(url);
-              }
-            } catch {
-              // empty
-            }
+        case EShortcutEvents.CopyAddressOrUrl: {
+          const url = webview?.getURL();
+          if (url) {
+            copyText(url);
           }
           break;
+        }
         case EShortcutEvents.GoForwardHistory:
-          if (isAtBrowserTab.current) {
-            try {
-              (
-                webviewRefs[activeTabId ?? '']?.innerRef as IElectronWebView
-              )?.goForward();
-            } catch {
-              // empty
-            }
-          }
+          webview?.goForward();
           break;
         case EShortcutEvents.GoBackHistory:
-          if (isAtBrowserTab.current) {
-            try {
-              (
-                webviewRefs[activeTabId ?? '']?.innerRef as IElectronWebView
-              )?.goBack();
-            } catch {
-              // empty
-            }
-          }
+          webview?.goBack();
           break;
         case EShortcutEvents.Refresh:
-          if (isAtBrowserTab.current) {
-            try {
-              (
-                webviewRefs[activeTabId ?? '']?.innerRef as IElectronWebView
-              )?.reload();
-            } catch {
-              // empty
-            }
-          } else if (shouldReloadAppByCmdR.current) {
-            void globalThis.desktopApiProxy?.system?.reload?.();
-          }
+          webview?.reload();
           break;
         case EShortcutEvents.CloseTab:
-          if (isAtBrowserTab.current) {
-            handleCloseWebTab();
-          } else {
-            void globalThis.desktopApiProxy?.system?.quitApp?.();
-          }
-          return;
+          handleCloseWebTab();
+          break;
         case EShortcutEvents.ViewHistory:
           navigation.pushModal(EModalRoutes.DiscoveryModal, {
             screen: EDiscoveryModalRoutes.HistoryListModal,
@@ -119,23 +92,11 @@ export const useDiscoveryShortcuts = () => {
             screen: EDiscoveryModalRoutes.BookmarkListModal,
           });
           break;
-        case EShortcutEvents.UniversalSearch:
-          navigation.pushModal(EModalRoutes.UniversalSearchModal, {
-            screen: EUniversalSearchPages.UniversalSearch,
-          });
-          break;
         default:
           break;
       }
     },
-    [
-      activeTabId,
-      copyText,
-      handleCloseWebTab,
-      isAtBrowserTab,
-      navigation,
-      shouldReloadAppByCmdR,
-    ],
+    [activeTabId, copyText, handleCloseWebTab, isAtBrowserTab, navigation],
   );
 
   useShortcuts(undefined, handleShortcuts);
