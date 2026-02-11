@@ -164,8 +164,6 @@ function BaseNotificationHandlerContainer() {
             sortIndex: undefined,
           },
           navigation,
-          shouldPopNavigation: true,
-          switchToMultiTabBrowser: platformEnv.isDesktop,
           useCurrentWindow: false,
           tabId: '',
         });

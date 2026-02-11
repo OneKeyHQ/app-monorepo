@@ -213,7 +213,6 @@ function HistoryListModal() {
                       logo: item.logo,
                       sortIndex: undefined,
                     },
-                    shouldPopNavigation: true,
                     enterMethod: EEnterMethod.history,
                   });
                 },

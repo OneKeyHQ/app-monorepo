@@ -23,12 +23,15 @@ export default function useListenTabFocusState(
     const fullModalRoutes = state?.routes.find(
       ({ name }) => name === ERootRoutes.iOSFullScreen,
     )?.key;
+    const fullScreenPushRoutes = state?.routes.find(
+      ({ name }) => name === ERootRoutes.FullScreenPush,
+    )?.key;
     const currentTabName = rootState?.routeNames
       ? (rootState?.routeNames?.[rootState?.index || 0] as ETabRoutes)
       : (rootState?.routes[0].name as ETabRoutes);
     callback(
       tabNames.includes(currentTabName),
-      !!(modalRoutes || fullModalRoutes),
+      !!(modalRoutes || fullModalRoutes || fullScreenPushRoutes),
     );
   });
 }
