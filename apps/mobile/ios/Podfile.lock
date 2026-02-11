@@ -113,9 +113,9 @@ PODS:
   - EXImageLoader (5.1.0):
     - ExpoModulesCore
     - React-Core
-  - EXNotifications (0.31.3):
+  - EXNotifications (0.32.0):
     - ExpoModulesCore
-  - Expo (54.0.25):
+  - Expo (54.0.26):
     - boost
     - DoubleConversion
     - ExpoModulesCore
@@ -187,7 +187,7 @@ PODS:
     - ExpoModulesCore
   - ExpoLinearGradient (15.0.8):
     - ExpoModulesCore
-  - ExpoLinking (7.1.5):
+  - ExpoLinking (8.0.0):
     - ExpoModulesCore
   - ExpoLocalAuthentication (17.0.8):
     - ExpoModulesCore
@@ -2294,7 +2294,7 @@ PODS:
     - Yoga
   - react-native-cloud-fs (2.6.5):
     - React
-  - react-native-compat (2.21.7):
+  - react-native-compat (2.21.9):
     - boost
     - DoubleConversion
     - fast_float
@@ -4677,8 +4677,8 @@ SPEC CHECKSUMS:
   EXApplication: 296622817d459f46b6c5fe8691f4aac44d2b79e7
   EXConstants: fd688cef4e401dcf798a021cfb5d87c890c30ba3
   EXImageLoader: 4d3d3284141f1a45006cc4d0844061c182daf7ee
-  EXNotifications: 1afe5275cf399920480fc5a9008676749a767d19
-  Expo: 22c06b7185706d92688f6e943576198540836bc1
+  EXNotifications: 5a6349af41f0e5caf214385d47d19eb795c2d5a4
+  Expo: 2f6e0da95b3fbb1e76b746b57bfa580b737b0a03
   ExpoAdapterGoogleSignIn: d37ffdf6129a723126c1ead19f8ba52a9ab49dc6
   ExpoAppleAuthentication: 4d2e0c88a4463229760f1fbb9a937a810efb6863
   ExpoAsset: d839c8eae8124470332408427327e8f88beb2dfd
@@ -4695,7 +4695,7 @@ SPEC CHECKSUMS:
   ExpoImagePicker: 0963da31800c906e01c03e25d7c849f16ebf02a2
   ExpoKeepAwake: bf0811570c8da182bfb879169437d4de298376e7
   ExpoLinearGradient: 809102bdb979f590083af49f7fa4805cd931bd58
-  ExpoLinking: b85ff4eafeae6fc638c6cace60007ae521af0ef4
+  ExpoLinking: f05777d86626dfa57862ccdc96aa76cfa0b9e6d2
   ExpoLocalAuthentication: 8a31808565da7af926dd9b595e98594d8b1553b6
   ExpoLocalization: f6c6aaa3bfff77b666bb958bdfeb5c55df21d990
   ExpoMediaLibrary: a3093b04365b245bb23b25b6eba84eb6ab55fecb
@@ -4768,7 +4768,7 @@ SPEC CHECKSUMS:
   react-native-bottom-tabs: e33312fc663d163f0be73d3474dfb448ba38dad8
   react-native-capture-protection: a8abb2b0880aa1808e3724aa3fc7e56e72225a24
   react-native-cloud-fs: 03ad849da6cecc3cb58ed970ce4078a2e0814848
-  react-native-compat: 1ba0ce8c1f2826dba8e78121a7be28229bbb54d9
+  react-native-compat: eef236df1b5c7a7efb4eebbb185c7ae4e305c9e6
   react-native-document-picker: dc2d83366e47e89e7c51e8a41eab99c1d54e941c
   react-native-fast-pbkdf2: 329e89b9929a51ed4d9ba88bf355a266f13d9d93
   react-native-keyboard-controller: 68ef492814f125fb67dbebbe8aadc9b3e459e821
@@ -4855,6 +4855,6 @@ SPEC CHECKSUMS:
   Yoga: 728df40394d49f3f471688747cf558158b3a3bd1
   ZXingObjC: 8898711ab495761b2dbbdec76d90164a6d7e14c5
 
-PODFILE CHECKSUM: f7b815894a74357a751287eb41cbf629f4744106
+PODFILE CHECKSUM: 934eea991a1e41eb3209e396ef476fc188205c23
 
 COCOAPODS: 1.16.2

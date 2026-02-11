@@ -7,6 +7,7 @@ import {
 } from '@onekeyhq/components';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
+import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
 
 import { WalletBackupPreCheckContainer } from '../../components/WalletBackup';
 import useAppNavigation from '../../hooks/useAppNavigation';
@@ -88,6 +89,9 @@ const splitMainViewContext = { viewType: ESplitViewType.MAIN };
 const splitSubViewContext = { viewType: ESplitViewType.SUB };
 
 export function Container() {
+  if (process.env.NODE_ENV !== 'production') {
+    debugLandingLog('Container render');
+  }
   const isTablet = isNativeTablet();
   if (isTablet) {
     return (

@@ -350,6 +350,7 @@
   "create_qr_based_hidden_wallet_create_standard_wallet_title": "標準ウォレットを作成する",
   "create_qr_based_hidden_wallet_dialog_title": "QRベースの隠しウォレットを作成する",
   "create_seed_phrase_wallet": "シードフレーズウォレットを作成",
+  "current_account_missing_addresses": "現在のアカウントは{count}ネットワークのアドレスが欠落しています",
   "custom_network.add_custom_network_failed_toast_text": "カスタムネットワークの追加に失敗しました。もう一度お試しください。",
   "custom_network.add_custom_network_successfully_toast_text": "カスタムネットワークの追加に成功しました",
   "custom_network.add_network_action_text": "カスタムネットワークを追加",

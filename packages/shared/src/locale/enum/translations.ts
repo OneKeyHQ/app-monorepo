@@ -355,6 +355,7 @@
   create_qr_based_hidden_wallet_create_standard_wallet_title = 'create_qr_based_hidden_wallet_create_standard_wallet_title',
   create_qr_based_hidden_wallet_dialog_title = 'create_qr_based_hidden_wallet_dialog_title',
   create_seed_phrase_wallet = 'create_seed_phrase_wallet',
+  current_account_missing_addresses = 'current_account_missing_addresses',
   custom_network_add_custom_network_failed_toast_text = 'custom_network.add_custom_network_failed_toast_text',
   custom_network_add_custom_network_successfully_toast_text = 'custom_network.add_custom_network_successfully_toast_text',
   custom_network_add_network_action_text = 'custom_network.add_network_action_text',
