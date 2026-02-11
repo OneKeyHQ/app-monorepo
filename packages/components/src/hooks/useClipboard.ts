@@ -8,7 +8,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ensureHttpsPrefix } from '@onekeyhq/shared/src/utils/uriUtils';
 
-// oxlint-disable-next-line import/no-cycle
 import { Toast } from '../actions/Toast';
 
 import type { IPasteEventParams } from '../forms';

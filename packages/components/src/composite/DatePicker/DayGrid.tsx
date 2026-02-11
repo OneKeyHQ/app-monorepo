@@ -49,7 +49,7 @@ export function DayGrid({
               hideOutOfMonth={hideOutOfMonth}
               fullWidth={fullWidth}
               day={{
-                day: day.day,
+                day: day.$date.getDate().toString(),
                 date: dateStr,
                 active: day.now,
                 inCurrentMonth: day.inCurrentMonth,

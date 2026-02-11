@@ -46,6 +46,8 @@ class NetInfo {
 
   isFetching = false;
 
+  pendingRefresh = false;
+
   pollingTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
   constructor(configuration: IReachabilityConfiguration) {
@@ -117,28 +119,56 @@ class NetInfo {
       this.updateState({ isInternetReachable: false });
     } finally {
       this.isFetching = false;
+      this.clearPolling();
       const { reachabilityShortTimeout, reachabilityLongTimeout } =
         this.configuration;
-      this.pollingTimeoutId = setTimeout(
-        () => {
+      if (this.pendingRefresh) {
+        this.pendingRefresh = false;
+        this.pollingTimeoutId = setTimeout(() => {
           void this.fetch();
-        },
-        this.prevIsInternetReachable
-          ? reachabilityLongTimeout
-          : reachabilityShortTimeout,
-      );
+        }, reachabilityShortTimeout);
+      } else {
+        this.pollingTimeoutId = setTimeout(
+          () => {
+            void this.fetch();
+          },
+          this.prevIsInternetReachable
+            ? reachabilityLongTimeout
+            : reachabilityShortTimeout,
+        );
+      }
     }
   }
 
-  async start() {
-    void this.fetch();
+  isIdle() {
+    return !this.pollingTimeoutId && !this.isFetching && !this.pendingRefresh;
   }
 
-  async refresh() {
+  private clearPolling() {
     if (this.pollingTimeoutId) {
       clearTimeout(this.pollingTimeoutId);
+      this.pollingTimeoutId = null;
+    }
+  }
+
+  private triggerFetch(clearPending: boolean) {
+    this.clearPolling();
+    if (this.isFetching) {
+      this.pendingRefresh = true;
+      return;
+    }
+    if (clearPending) {
+      this.pendingRefresh = false;
     }
     void this.fetch();
+  }
+
+  start() {
+    this.triggerFetch(true);
+  }
+
+  refresh() {
+    this.triggerFetch(false);
   }
 }
 
@@ -147,12 +177,17 @@ export const globalNetInfo = new NetInfo({
 });
 
 export const configureNetInfo = (configuration: IReachabilityConfiguration) => {
+  const urlChanged =
+    globalNetInfo.configuration.reachabilityUrl !==
+    configuration.reachabilityUrl;
   globalNetInfo.configure(configuration);
-  void globalNetInfo.start();
+  if (urlChanged || globalNetInfo.isIdle()) {
+    globalNetInfo.start();
+  }
 };
 
 export const refreshNetInfo = () => {
-  void globalNetInfo.refresh();
+  globalNetInfo.refresh();
 };
 
 export const useNetInfo = () => {

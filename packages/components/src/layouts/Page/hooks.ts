@@ -12,9 +12,9 @@ import {
   updateHeightWhenKeyboardHide,
   updateHeightWhenKeyboardShown,
   useKeyboardEvent,
-  useSafeAreaInsets,
-} from '../../hooks';
-import { rootNavigationRef } from '../Navigation';
+} from '../../hooks/useKeyboard';
+import { useSafeAreaInsets } from '../../hooks/useLayout';
+import { rootNavigationRef } from '../Navigation/Navigator/NavigationContainer';
 
 import { PageContext } from './PageContext';
 

@@ -22,7 +22,6 @@ import {
   Stack,
   XStack,
   YStack,
-  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
@@ -150,7 +149,6 @@ export function UniversalStake({
 }: PropsWithChildren<IUniversalStakeProps>) {
   const intl = useIntl();
   const navigation = useAppNavigation();
-  const { gtMd } = useMedia();
   const { handleOpenWebSite } = useBrowserAction().current;
   const showEstimateGasAlert = useShowStakeEstimateGasAlert();
   const [amountValue, setAmountValue] = useState('');
@@ -1235,7 +1233,6 @@ export function UniversalStake({
                       onPrimaryPress: () => {
                         if (alert.button?.data?.link) {
                           handleOpenWebSite({
-                            switchToMultiTabBrowser: gtMd,
                             navigation,
                             useCurrentWindow: false,
                             webSite: {

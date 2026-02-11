@@ -118,6 +118,24 @@ export function useImage(
     }
   }, [loadImage, resolvedSource]);
 
+  // Track the current ImageRef for proper lifecycle management.
+  // Using a ref avoids the closure capture bug where the effect cleanup
+  // would release a stale image value instead of the current one.
+  const currentImageRef = useRef<ImageRef | null>(null);
+
+  // Release the previous ImageRef when the image state changes.
+  // This ensures each ImageRef is released exactly once, only after
+  // it has been replaced by a new one (preventing use-after-free).
+  useEffect(() => {
+    currentImageRef.current = image;
+    return () => {
+      if (currentImageRef.current) {
+        currentImageRef.current.release();
+        currentImageRef.current = null;
+      }
+    };
+  }, [image]);
+
   useEffect(() => {
     isEffectValid.current = true;
     if (cachedImage) {
@@ -125,9 +143,7 @@ export function useImage(
     }
     loadImage();
     return () => {
-      // Invalidate the effect and release the shared object to free up memory.
       isEffectValid.current = false;
-      image?.release();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resolvedSource?.uri, cachedImage, loadImage, ...dependencies]);

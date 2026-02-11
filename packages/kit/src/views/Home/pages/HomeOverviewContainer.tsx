@@ -392,6 +392,7 @@ function HomeOverviewContainer() {
             >
               <NumberSizeableTextWrapper
                 hideValue
+                splitDecimal
                 flexShrink={1}
                 minWidth={0}
                 fontSize={48}

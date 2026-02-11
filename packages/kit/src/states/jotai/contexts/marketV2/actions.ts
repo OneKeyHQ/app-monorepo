@@ -38,12 +38,14 @@ import {
 export const homeResettingFlags: Record<string, number> = {};
 
 const uniqByFn = (i: IMarketWatchListItemV2) =>
-  `${i.chainId}:${
-    normalizeTokenContractAddress({
-      networkId: i.chainId,
-      contractAddress: i.contractAddress,
-    }) || ''
-  }`;
+  i.perpsCoin
+    ? `perps:${i.perpsCoin}`
+    : `${i.chainId}:${
+        normalizeTokenContractAddress({
+          networkId: i.chainId,
+          contractAddress: i.contractAddress,
+        }) || ''
+      }`;
 
 class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
   // Token Detail Actions
@@ -281,6 +283,72 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
     },
   );
 
+  // Perps watchlist: check if a perps coin is in the watchlist
+  isPerpsInWatchListV2 = contextAtomMethod((get, _set, perpsCoin: string) => {
+    const prev = get(marketWatchListV2Atom());
+    return !!prev.data?.find((i) => i.perpsCoin === perpsCoin);
+  });
+
+  // Perps watchlist: add a perps coin to the watchlist
+  addPerpsIntoWatchListV2 = contextAtomMethod(
+    async (get, set, perpsCoin: string) => {
+      const prev = get(marketWatchListV2Atom());
+      if (!prev.isMounted) {
+        return;
+      }
+
+      const item: IMarketWatchListItemV2 = {
+        chainId: '',
+        contractAddress: '',
+        perpsCoin,
+      };
+
+      const sortedNewData = sortUtils.buildSortedList({
+        oldList: prev.data,
+        saveItems: [item],
+        uniqByFn,
+      });
+      set(marketWatchListV2Atom(), { ...prev, data: sortedNewData });
+
+      await backgroundApiProxy.serviceMarketV2.addMarketWatchListV2({
+        watchList: [item],
+        callerName: 'jotaiContextActions_addPerpsIntoWatchListV2',
+      });
+      await this.refreshWatchListV2.call(set);
+
+      // Sync to Perps TokenSelector favorites
+      void backgroundApiProxy.serviceMarketV2.syncToPerpsAtom({
+        coin: perpsCoin,
+        action: 'add',
+      });
+    },
+  );
+
+  // Perps watchlist: remove a perps coin from the watchlist
+  removePerpsFromWatchListV2 = contextAtomMethod(
+    async (get, set, perpsCoin: string) => {
+      const prev = get(marketWatchListV2Atom());
+      if (!prev.isMounted) {
+        return;
+      }
+
+      const newData = prev.data.filter((item) => item.perpsCoin !== perpsCoin);
+      set(marketWatchListV2Atom(), { ...prev, data: newData });
+
+      await backgroundApiProxy.serviceMarketV2.removeMarketWatchListV2({
+        items: [{ chainId: '', contractAddress: '', perpsCoin }],
+        callerName: 'jotaiContextActions_removePerpsFromWatchListV2',
+      });
+      await this.refreshWatchListV2.call(set);
+
+      // Sync to Perps TokenSelector favorites
+      void backgroundApiProxy.serviceMarketV2.syncToPerpsAtom({
+        coin: perpsCoin,
+        action: 'remove',
+      });
+    },
+  );
+
   moveToTopV2 = contextAtomMethod(
     async (get, set, payload: IMarketWatchListItemV2) => {
       const prev = get(marketWatchListV2Atom());
@@ -288,20 +356,23 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         return;
       }
       const firstItem = prev?.data?.[0];
-      if (
-        firstItem &&
-        equalTokenNoCaseSensitive({
-          token1: {
-            networkId: firstItem.chainId,
-            contractAddress: firstItem.contractAddress,
-          },
-          token2: {
-            networkId: payload.chainId,
-            contractAddress: payload.contractAddress,
-          },
-        })
-      ) {
-        return;
+      if (firstItem) {
+        if (payload.perpsCoin && firstItem.perpsCoin) {
+          if (payload.perpsCoin === firstItem.perpsCoin) return;
+        } else if (
+          equalTokenNoCaseSensitive({
+            token1: {
+              networkId: firstItem.chainId,
+              contractAddress: firstItem.contractAddress,
+            },
+            token2: {
+              networkId: payload.chainId,
+              contractAddress: payload.contractAddress,
+            },
+          })
+        ) {
+          return;
+        }
       }
       await this.sortWatchListV2Items.call(set, {
         target: payload,
@@ -387,6 +458,9 @@ export function useWatchListV2Actions() {
   const sortWatchListV2Items = actions.sortWatchListV2Items.use();
   const moveToTopV2 = actions.moveToTopV2.use();
   const clearAllWatchListV2 = actions.clearAllWatchListV2.use();
+  const isPerpsInWatchListV2 = actions.isPerpsInWatchListV2.use();
+  const addPerpsIntoWatchListV2 = actions.addPerpsIntoWatchListV2.use();
+  const removePerpsFromWatchListV2 = actions.removePerpsFromWatchListV2.use();
   return useRef({
     isInWatchListV2,
     addIntoWatchListV2,
@@ -396,6 +470,9 @@ export function useWatchListV2Actions() {
     sortWatchListV2Items,
     moveToTopV2,
     clearAllWatchListV2,
+    isPerpsInWatchListV2,
+    addPerpsIntoWatchListV2,
+    removePerpsFromWatchListV2,
   });
 }
 
