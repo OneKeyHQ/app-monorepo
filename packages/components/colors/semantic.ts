@@ -126,7 +126,31 @@ export const blue = generateSemanticColorsWithDefaultCount(
   'light',
 );
 
-/* 
+export const cyan = generateSemanticColorsWithDefaultCount(
+  'cyanA',
+  'cyan',
+  'light',
+);
+
+export const amber = generateSemanticColorsWithDefaultCount(
+  'amberA',
+  'amber',
+  'light',
+);
+
+export const lime = generateSemanticColorsWithDefaultCount(
+  'limeA',
+  'lime',
+  'light',
+);
+
+export const jade = generateSemanticColorsWithDefaultCount(
+  'jadeA',
+  'jade',
+  'light',
+);
+
+/*
   Dark color theme
 */
 export const brandDark = generateSemanticColorsWithDefaultCount(
@@ -198,5 +222,29 @@ export const tealDark = generateSemanticColorsWithDefaultCount(
 export const blueDark = generateSemanticColorsWithDefaultCount(
   'blueDarkA',
   'blue',
+  'dark',
+);
+
+export const cyanDark = generateSemanticColorsWithDefaultCount(
+  'cyanDarkA',
+  'cyan',
+  'dark',
+);
+
+export const amberDark = generateSemanticColorsWithDefaultCount(
+  'amberDarkA',
+  'amber',
+  'dark',
+);
+
+export const limeDark = generateSemanticColorsWithDefaultCount(
+  'limeDarkA',
+  'lime',
+  'dark',
+);
+
+export const jadeDark = generateSemanticColorsWithDefaultCount(
+  'jadeDarkA',
+  'jade',
   'dark',
 );
