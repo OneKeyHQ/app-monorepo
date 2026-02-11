@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { useRef } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -63,6 +64,7 @@ interface ISwapOldSwapBridgeLimitContainerProps {
   }) => void;
   fromTokenAmountValue: string;
   swapRecentTokenPairs: { fromToken: ISwapToken; toToken: ISwapToken }[];
+  headerContent?: ReactNode;
 }
 
 const SwapOldSwapBridgeLimitContainer = ({
@@ -85,6 +87,7 @@ const SwapOldSwapBridgeLimitContainer = ({
   onSelectRecentTokenPairs,
   fromTokenAmountValue,
   swapRecentTokenPairs,
+  headerContent,
 }: ISwapOldSwapBridgeLimitContainerProps) => {
   const scrollViewRef = useRef<ScrollViewNative>(null);
   const { gtLg } = useMedia();
@@ -224,6 +227,7 @@ const SwapOldSwapBridgeLimitContainer = ({
     );
     return (
       <ScrollView flex={1} contentContainerStyle={{ flexGrow: 1 }}>
+        {headerContent ? <YStack pt="$8" pb="$4">{headerContent}</YStack> : null}
         <XStack
           gap="$1"
           px="$5"
@@ -252,6 +256,7 @@ const SwapOldSwapBridgeLimitContainer = ({
       keyboardDismissMode="on-drag"
       ref={scrollViewRef}
     >
+      {headerContent ? <YStack pt="$8" pb="$4">{headerContent}</YStack> : null}
       {mainContent}
     </ScrollView>
   );
