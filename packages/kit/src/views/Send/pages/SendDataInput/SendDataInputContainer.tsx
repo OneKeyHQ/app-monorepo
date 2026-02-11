@@ -1120,13 +1120,18 @@ function SendDataInputContainer() {
     ],
   );
 
+  // Use ref to avoid recreating amountRules when effectiveBalance/price/fiatValue refresh in the background.
+  const handleValidateTokenAmountRef = useRef(handleValidateTokenAmount);
+  handleValidateTokenAmountRef.current = handleValidateTokenAmount;
+
   const amountRules = useMemo(
     () => ({
       required: true,
-      validate: handleValidateTokenAmount,
+      validate: (value: string) =>
+        handleValidateTokenAmountRef.current(value),
       onChange: handleAmountOnChange,
     }),
-    [handleValidateTokenAmount, handleAmountOnChange],
+    [handleAmountOnChange],
   );
 
   const selectedTokenSymbol = useMemo(() => {
@@ -1277,7 +1282,7 @@ function SendDataInputContainer() {
             valueProps={{
               currency: isUseFiat ? undefined : currencySymbol,
               tokenSymbol: isUseFiat ? tokenSymbol : undefined,
-              value: linkedAmount.originalAmount,
+              value: linkedAmountRef.current.originalAmount,
               onPress: handleOnChangeAmountMode,
             }}
             inputProps={{
@@ -1342,7 +1347,6 @@ function SendDataInputContainer() {
       isNFT,
       isSelectTokenDisabled,
       isUseFiat,
-      linkedAmount.originalAmount,
       maxBalance,
       maxBalanceFiat,
       network?.isCustomNetwork,
