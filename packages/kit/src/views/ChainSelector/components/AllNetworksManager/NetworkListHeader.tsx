@@ -51,11 +51,14 @@ function NetworkListHeader() {
     setMissingAddressCount(enabledNetworksWithoutAccount.length);
   }, [enabledNetworksWithoutAccount.length, setMissingAddressCount]);
 
+  const enabledNetworkIds = useMemo(
+    () => enabledNetworks.map((n) => n.id).join(','),
+    [enabledNetworks],
+  );
+
   useEffect(() => {
-    if (enabledNetworks.length >= 0) {
-      void run();
-    }
-  }, [enabledNetworks.length, run]);
+    void run();
+  }, [enabledNetworkIds, run]);
 
   const handleToggleAll = useCallback(() => {
     if (isAllNetworksEnabled) {
