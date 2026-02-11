@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Alert, Stack, YStack, useMedia } from '@onekeyhq/components';
+import { Alert, Stack, YStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
@@ -24,7 +24,6 @@ export function AmountInputSection({ title }: IAmountInputSectionProps) {
   const { state, actions, actionResult } = useManagePositionContext();
   const intl = useIntl();
   const navigation = useAppNavigation();
-  const { gtMd } = useMedia();
   const { handleOpenWebSite } = useBrowserAction().current;
 
   const {
@@ -167,7 +166,6 @@ export function AmountInputSection({ title }: IAmountInputSectionProps) {
                       onPrimaryPress: () => {
                         if (alert.button?.data?.link) {
                           handleOpenWebSite({
-                            switchToMultiTabBrowser: gtMd,
                             navigation,
                             useCurrentWindow: false,
                             webSite: {

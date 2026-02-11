@@ -14,6 +14,7 @@ import {
   useMarketBannerList,
 } from '../components/MarketBanner';
 import { MarketFilterBar } from '../components/MarketFilterBar';
+import { MarketPerpsTokenList } from '../components/MarketPerpsList';
 import { MarketNormalTokenList } from '../components/MarketTokenList/MarketNormalTokenList';
 import { MarketWatchlistTokenList } from '../components/MarketTokenList/MarketWatchlistTokenList';
 
@@ -56,6 +57,7 @@ export function DesktopLayout({
   const {
     tabNames,
     watchlistTabName,
+    perpsTabName,
     focusedTab,
     carouselRef,
     handleTabChange,
@@ -100,6 +102,18 @@ export function DesktopLayout({
           </YStack>
         );
       }
+      if (item === perpsTabName) {
+        return (
+          <YStack
+            px="$4"
+            height={height}
+            flex={1}
+            style={isNotFocused ? { contentVisibility: 'hidden' } : undefined}
+          >
+            <MarketPerpsTokenList />
+          </YStack>
+        );
+      }
       return (
         <YStack
           px="$4"
@@ -112,7 +126,14 @@ export function DesktopLayout({
         </YStack>
       );
     },
-    [filterBarProps, height, selectedNetworkId, watchlistTabName, carouselRef],
+    [
+      filterBarProps,
+      height,
+      selectedNetworkId,
+      watchlistTabName,
+      perpsTabName,
+      carouselRef,
+    ],
   );
 
   const isFocused = useIsFirstFocus();

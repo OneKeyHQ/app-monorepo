@@ -244,6 +244,8 @@ export interface IMarketWatchListItemV2 {
   contractAddress: string;
   sortIndex?: number;
   isNative?: boolean;
+  // Perps watchlist: coin name (e.g. "BTC", "ETH"). When set, chainId/contractAddress are empty.
+  perpsCoin?: string;
 }
 
 export interface IMarketWatchListDataV2 {
