@@ -98,9 +98,10 @@ function ReceiveToken() {
   // Detect external accounts in "All Networks" mode and resolve the actual connected chain
   const isExternalAccountInAllNetwork = useMemo(
     () =>
-      !!(network?.isAllNetworks && accountUtils.isOthersWallet({ walletId })),
+      !!(network?.isAllNetworks && accountUtils.isExternalWallet({ walletId })),
     [network?.isAllNetworks, walletId],
   );
+
 
   const [externalConnectedNetwork, setExternalConnectedNetwork] = useState<
     IServerNetwork | undefined
