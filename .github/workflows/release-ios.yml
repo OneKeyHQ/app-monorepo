@@ -134,3 +134,8 @@ jobs:
         run: |
           cd apps/mobile
           eas build --profile=production --platform ios --non-interactive --no-wait
+
+      - name: Build Simulator on EAS
+        run: |
+          cd apps/mobile
+          eas build --profile=simulator --platform ios --non-interactive --no-wait
