@@ -1,14 +1,9 @@
 import type { ReactNode } from 'react';
 
-import {
-  Popover,
-  SizableText,
-  Tooltip,
-  YStack,
-  useMedia,
-} from '@onekeyhq/components';
+import { Popover, SizableText, Tooltip, YStack } from '@onekeyhq/components';
 
 import type { IPopoverProps } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 type IChainSelectorTooltipProps = {
   renderTrigger: ReactNode;
@@ -21,9 +16,7 @@ function ChainSelectorTooltip({
   renderContent,
   placement = 'bottom-start',
 }: IChainSelectorTooltipProps) {
-  const { gtMd } = useMedia();
-
-  if (!gtMd) {
+  if (platformEnv.isNative) {
     return (
       <Popover
         title=""
