@@ -330,7 +330,7 @@ function TokenListFooter(props: IProps) {
   }, [run]);
 
   return (
-    <Stack>
+    <Stack mx={tableLayout ? undefined : '$2'}>
       {!isSearchMode && filteredSmallBalanceTokens.length > 0 ? (
         <ListItem
           onPress={handleOnPressLowValueTokens}
@@ -338,8 +338,8 @@ function TokenListFooter(props: IProps) {
           {...(tableLayout && plainMode
             ? undefined
             : {
-                px: '$0',
-                mx: '$0',
+                px: '$3',
+                mx: 0,
               })}
         >
           <XStack flexGrow={1} flexBasis={0} alignItems="center" gap="$3">
@@ -412,8 +412,8 @@ function TokenListFooter(props: IProps) {
           {...(tableLayout && plainMode
             ? undefined
             : {
-                px: '$0',
-                mx: '$0',
+                px: '$3',
+                mx: 0,
               })}
         >
           <XStack alignItems="center" gap="$3" flex={1}>

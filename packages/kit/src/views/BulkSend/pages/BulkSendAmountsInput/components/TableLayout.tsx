@@ -40,10 +40,9 @@ function IntervalCard() {
       flex={1}
       flexBasis={0}
       gap="$3"
-      p="$4"
-      borderWidth={1}
-      borderColor="$borderSubdued"
+      bg="$bgSubdued"
       borderRadius="$3"
+      p="$5"
     >
       {/* Header: Title + Disabled Select */}
       <XStack alignItems="center" justifyContent="space-between">
@@ -374,6 +373,7 @@ function AmountCard() {
       case EAmountInputMode.Specified:
         return (
           <BaseAmountInput
+            bg="$bgApp"
             value={amountInputValues.specifiedAmount}
             onChange={handleSpecifiedAmountChange}
             hasError={!!amountInputErrors.specifiedAmount}
@@ -398,9 +398,11 @@ function AmountCard() {
             {/* Min Input */}
             <Stack
               flex={1}
+              flexBasis={0}
               borderRadius="$3"
               borderWidth={sharedStyles.borderWidth}
               borderColor={sharedStyles.borderColor}
+              bg="$bgApp"
               overflow="hidden"
             >
               <XStack alignItems="center" px="$3.5" pt="$2.5" pb="$1">
@@ -426,6 +428,9 @@ function AmountCard() {
                 pb="$2.5"
               >
                 <NumberSizeableText
+                  flex={1}
+                  minWidth={0}
+                  numberOfLines={1}
                   size="$bodySm"
                   color="$textSubdued"
                   formatter="value"
@@ -433,7 +438,12 @@ function AmountCard() {
                 >
                   {minFiatValue}
                 </NumberSizeableText>
-                <SizableText size="$bodyMdMedium" color="$textSubdued">
+                <SizableText
+                  size="$bodyMdMedium"
+                  color="$textSubdued"
+                  flexShrink={0}
+                  ml="$1"
+                >
                   {tokenInfo.symbol}
                 </SizableText>
               </XStack>
@@ -445,9 +455,11 @@ function AmountCard() {
             {/* Max Input */}
             <Stack
               flex={1}
+              flexBasis={0}
               borderRadius="$3"
               borderWidth={sharedStyles.borderWidth}
               borderColor={sharedStyles.borderColor}
+              bg="$bgApp"
               overflow="hidden"
             >
               <XStack alignItems="center" px="$3.5" pt="$2.5" pb="$1">
@@ -473,6 +485,9 @@ function AmountCard() {
                 pb="$2.5"
               >
                 <NumberSizeableText
+                  flex={1}
+                  minWidth={0}
+                  numberOfLines={1}
                   size="$bodySm"
                   color="$textSubdued"
                   formatter="value"
@@ -480,7 +495,12 @@ function AmountCard() {
                 >
                   {maxFiatValue}
                 </NumberSizeableText>
-                <SizableText size="$bodyMdMedium" color="$textSubdued">
+                <SizableText
+                  size="$bodyMdMedium"
+                  color="$textSubdued"
+                  flexShrink={0}
+                  ml="$1"
+                >
                   {tokenInfo.symbol}
                 </SizableText>
               </XStack>
@@ -509,10 +529,9 @@ function AmountCard() {
       flex={1}
       flexBasis={0}
       gap="$3"
-      p="$4"
-      borderWidth={1}
-      borderColor="$borderSubdued"
+      bg="$bgSubdued"
       borderRadius="$3"
+      p="$5"
     >
       {/* Header: Title + Mode Select */}
       <XStack alignItems="center" justifyContent="space-between">
@@ -579,8 +598,11 @@ function AmountCard() {
             size="$bodySmMedium"
             color="$textInteractive"
             cursor="default"
+            userSelect="none"
             onPress={handleMaxPress}
             hitSlop={8}
+            hoverStyle={{ opacity: 0.75 }}
+            pressStyle={{ opacity: 0.5 }}
           >
             {intl.formatMessage({ id: ETranslations.global_max })}
           </SizableText>
@@ -798,7 +820,7 @@ function TransferInfoListSection() {
 
 function TableLayout() {
   return (
-    <YStack gap="$4">
+    <YStack gap="$8">
       <XStack gap="$4">
         <AmountCard />
         <IntervalCard />

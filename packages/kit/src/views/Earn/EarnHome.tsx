@@ -180,9 +180,14 @@ function BasicEarnHome({
     void borrowRefreshHandlerRef.current?.();
   }, []);
 
+  const borrowPendingTagMatcher = useCallback(
+    (tag: string) => isBorrowTag(tag) || tag === EEarnLabels.Borrow,
+    [],
+  );
+
   const { filteredTxs: borrowPendingTxs = [] } = useStakingPendingTxsByInfo({
     networkIds: borrowNetworkIds,
-    tagMatcher: isBorrowTag,
+    tagMatcher: borrowPendingTagMatcher,
     onRefresh: handleBorrowPendingRefresh,
     onRefreshDelayMs: BORROW_PENDING_REFRESH_DELAY,
   });
@@ -388,7 +393,7 @@ function BasicEarnHome({
         showContent={showContent}
         refresh={refreshBlockResult}
         refreshing={!!isFetchingBlockResult}
-        icon={blockResult.blockData.icon.icon}
+        illustration="Universal"
         title={blockResult.blockData.title.text}
         description={blockResult.blockData.description.text}
       />

@@ -8,7 +8,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { useHoldersLayoutNormal } from './useHoldersLayoutNormal';
 
 const commonTextProps = {
-  size: '$bodySm',
+  size: '$bodySmMedium',
   color: '$textSubdued',
 } as const;
 
@@ -18,11 +18,10 @@ function HoldersHeaderNormalBase() {
 
   return (
     <XStack
-      px="$4"
-      py="$3"
+      py="$2"
+      pl="$5"
+      pr="$3"
       alignItems="center"
-      borderBottomWidth="$px"
-      borderBottomColor="$transparent"
       backgroundColor="$bgApp"
     >
       <SizableText {...commonTextProps} {...styles.rank}>

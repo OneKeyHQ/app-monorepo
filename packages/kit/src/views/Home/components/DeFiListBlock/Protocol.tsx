@@ -1,9 +1,7 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
-
 import {
   Accordion,
   Badge,
@@ -27,6 +25,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetails';
+import type { ColorTokens } from '@onekeyhq/components';
 import defiUtils from '@onekeyhq/shared/src/utils/defiUtils';
 import {
   openUrlExternal,
@@ -38,6 +37,31 @@ import { EDeFiAssetType } from '@onekeyhq/shared/types/defi';
 import { RichTable } from '../RichTable';
 
 import type { GestureResponderEvent } from 'react-native';
+
+const CATEGORY_CONFIG: Record<
+  string,
+  { bg: ColorTokens; text: ColorTokens; emoji: string }
+> = {
+  yield: { bg: '$blue4', text: '$blue12', emoji: '📈' },
+  liquidity: { bg: '$cyan4', text: '$cyan12', emoji: '💧' },
+  lending: { bg: '$green4', text: '$green12', emoji: '🏦' },
+  supplied: { bg: '$lime4', text: '$lime12', emoji: '📥' },
+  deposit: { bg: '$jade4', text: '$jade12', emoji: '🏧' },
+  borrowed: { bg: '$orange4', text: '$orange12', emoji: '📤' },
+  locked: { bg: '$amber4', text: '$amber12', emoji: '🔒' },
+  rewards: { bg: '$teal4', text: '$teal12', emoji: '🎁' },
+  staking: { bg: '$purple4', text: '$purple12', emoji: '⛏️' },
+  farming: { bg: '$pink4', text: '$pink12', emoji: '🌾' },
+};
+const DEFAULT_CATEGORY_CONFIG = {
+  bg: '$neutral4',
+  text: '$neutral12',
+  emoji: '📊',
+} as const;
+
+function getCategoryConfig(category: string) {
+  return CATEGORY_CONFIG[category.toLowerCase()] ?? DEFAULT_CATEGORY_CONFIG;
+}
 
 function Protocol({
   protocol,
@@ -60,14 +84,55 @@ function Protocol({
       })
     ];
 
-  const columns = useMemo(() => {
-    return [
+  const getColumns = useCallback(
+    (position: {
+      category: string;
+      poolName: string;
+      poolFullName: string;
+    }) => [
       {
-        title: intl.formatMessage({ id: ETranslations.global_asset }),
+        title: (
+          <XStack gap="$2" alignItems="center">
+            <Badge bg={getCategoryConfig(position.category).bg} badgeSize="sm">
+              <Badge.Text
+                textTransform="capitalize"
+                color={getCategoryConfig(position.category).text}
+              >
+                {`${getCategoryConfig(position.category).emoji} ${position.category}`}
+              </Badge.Text>
+            </Badge>
+            <Popover
+              hoverable
+              placement="top"
+              title={intl.formatMessage({
+                id: ETranslations.wallet_defi_position_name_popover_title,
+              })}
+              renderTrigger={
+                <SizableText
+                  size="$bodySm"
+                  color="$textSubdued"
+                  numberOfLines={1}
+                  textDecorationLine="underline"
+                  textDecorationColor="$textSubdued"
+                  textDecorationStyle="dotted"
+                >
+                  {position.poolName}
+                </SizableText>
+              }
+              renderContent={
+                <Stack px="$4" py="$2">
+                  <SizableText size="$bodyLgMedium">
+                    {position.poolFullName}
+                  </SizableText>
+                </Stack>
+              }
+            />
+          </XStack>
+        ),
         dataIndex: 'symbol',
         render: (symbol: string, record: IDeFiAsset) => (
           <XStack gap="$3" alignItems="center">
-            <Token size="md" tokenImageUri={record.meta?.logoUrl} />
+            <Token size="sm" tokenImageUri={record.meta?.logoUrl} />
             <SizableText size="$bodyMdMedium">{symbol}</SizableText>
           </XStack>
         ),
@@ -104,7 +169,7 @@ function Protocol({
                 borderRadius="$full"
                 backgroundColor={typeColor}
               />
-              <SizableText size="$bodyMdMedium" textTransform="capitalize">
+              <SizableText size="$bodyMd" textTransform="capitalize">
                 {type}
               </SizableText>
             </XStack>
@@ -119,7 +184,7 @@ function Protocol({
         render: (amount: string) => (
           <NumberSizeableTextWrapper
             hideValue
-            size="$bodyMdMedium"
+            size="$bodyMd"
             formatter="balance"
           >
             {amount}
@@ -152,7 +217,7 @@ function Protocol({
               ) : null}
               <NumberSizeableTextWrapper
                 hideValue
-                size="$bodyMdMedium"
+                size="$bodyMd"
                 formatter="value"
                 formatterOptions={{ currency: settings.currencyInfo.symbol }}
               >
@@ -162,85 +227,45 @@ function Protocol({
           );
         },
       },
-    ];
-  }, [settings.currencyInfo.symbol, intl]);
+    ],
+    [settings.currencyInfo.symbol, intl],
+  );
 
   const renderProtocolPositions = useCallback(() => {
     return protocol.positions.map((position, index) => {
       return (
         <>
           <Stack key={position.groupId}>
-            <XStack
-              alignItems="center"
-              justifyContent="space-between"
-              pl="$1"
-              pr="$3"
-              py="$3"
-              gap="$3"
-            >
-              <XStack gap="$3" alignItems="center" flex={1}>
-                <Badge badgeType="success" badgeSize="lg">
-                  <Badge.Text textTransform="capitalize">
-                    {position.category}
-                  </Badge.Text>
-                </Badge>
-                <Popover
-                  hoverable
-                  placement="top"
-                  title={intl.formatMessage({
-                    id: ETranslations.wallet_defi_position_name_popover_title,
-                  })}
-                  renderTrigger={
-                    <SizableText
-                      size="$bodyMd"
-                      color="$textSubdued"
-                      numberOfLines={1}
-                      textDecorationLine="underline"
-                      textDecorationColor="$textSubdued"
-                      textDecorationStyle="dotted"
-                    >
-                      {position.poolName}
-                    </SizableText>
-                  }
-                  renderContent={
-                    <Stack px="$4" py="$2">
-                      <SizableText size="$bodyLgMedium">
-                        {position.poolFullName}
-                      </SizableText>
-                    </Stack>
-                  }
-                />
-              </XStack>
-              <NumberSizeableTextWrapper
-                hideValue
-                size="$headingSm"
-                formatter="value"
-                formatterOptions={{ currency: settings.currencyInfo.symbol }}
-              >
-                {position.value}
-              </NumberSizeableTextWrapper>
-            </XStack>
             <RichTable<IDeFiAsset & { type: EDeFiAssetType }>
               dataSource={[
                 ...position.assets,
                 ...position.debts,
                 ...position.rewards,
               ]}
-              columns={columns}
+              columns={getColumns(position)}
               keyExtractor={(item) => item.address}
-              estimatedItemSize={48}
+              estimatedItemSize={44}
               onRow={() => ({
                 onPress: undefined,
               })}
+              rowProps={{
+                mx: '$2',
+                minHeight: 44,
+              }}
+              headerRowProps={{
+                py: '$2',
+                px: '$3',
+                mx: '$2',
+              }}
             />
           </Stack>
           {index !== protocol.positions.length - 1 ? (
-            <Divider borderColor="$neutral3" mx="$2" key={index} my="$2" />
+            <Divider mx="$pagePadding" key={index} my="$2" />
           ) : null}
         </>
       );
     });
-  }, [protocol.positions, intl, settings.currencyInfo.symbol, columns]);
+  }, [protocol.positions, getColumns]);
 
   const handlePressProtocol = useCallback(() => {
     navigation.pushModal(EModalRoutes.MainModal, {
@@ -260,8 +285,6 @@ function Protocol({
         alignItems="center"
         justifyContent="space-between"
         onPress={handlePressProtocol}
-        mx="$-2"
-        px="$2"
       >
         <XStack alignItems="center" gap="$3" flex={1}>
           <Token
@@ -315,40 +338,26 @@ function Protocol({
       width="100%"
       type="single"
       defaultValue="protocol"
-      borderRadius="$3"
-      borderCurve="continuous"
-      $platform-web={{
-        boxShadow:
-          '0 0 0 1px rgba(0, 0, 0, 0.04), 0 0 2px 0 rgba(0, 0, 0, 0.08), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
-      }}
-      $platform-native={{
-        borderWidth: StyleSheet.hairlineWidth,
-        borderColor: '$borderSubdued',
-      }}
-      $theme-dark={{
-        borderWidth: StyleSheet.hairlineWidth,
-        borderColor: '$borderSubdued',
-      }}
-      $platform-ios={{
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 0.5 },
-        shadowOpacity: 0.2,
-        shadowRadius: 0.5,
-      }}
     >
       <Accordion.Item value="protocol">
         <Accordion.Trigger
           flexDirection="row"
           justifyContent="space-between"
           alignItems="center"
-          px="$pagePadding"
-          py="$3"
-          bg="$bgSubdued"
+          px="$3"
+          mx="$2"
+          py="$2"
+          bg="transparent"
           borderWidth={0}
+          borderRadius="$3"
+          hoverStyle={{ bg: '$bgHover' }}
+          pressStyle={{ bg: '$bgActive' }}
+          focusStyle={{ bg: 'transparent' }}
+          cursor="default"
         >
           {({ open }: { open: boolean }) => (
             <>
-              <XStack gap="$3" alignItems="center">
+              <XStack gap="$3" alignItems="center" flex={1}>
                 <Token
                   size="md"
                   tokenImageUri={protocolInfo?.protocolLogo}
@@ -356,60 +365,74 @@ function Protocol({
                   showNetworkIcon={isAllNetworks}
                   networkId={protocol.networkId}
                 />
-                <SizableText size="$headingMd">
-                  {protocolInfo?.protocolName ?? protocol.protocol}
-                </SizableText>
-                {protocolInfo?.protocolUrl ? (
-                  <XStack
-                    onPress={(event: GestureResponderEvent) => {
-                      event.stopPropagation();
-                      if (platformEnv.isDesktop || platformEnv.isNative) {
-                        openUrlInDiscovery({
-                          url: protocolInfo?.protocolUrl,
-                        });
-                      } else {
-                        openUrlExternal(protocolInfo?.protocolUrl);
-                      }
-                    }}
-                    cursor="pointer"
-                    borderRadius="$full"
-                    p="$1"
-                    hoverStyle={{
-                      bg: '$bgHover',
-                    }}
-                    pressStyle={{
-                      bg: '$bgActive',
+                <XStack alignItems="center" gap="$1">
+                  <SizableText size="$headingMd">
+                    {protocolInfo?.protocolName ?? protocol.protocol}
+                  </SizableText>
+                  <SizableText size="$headingMd" color="$textSubdued">
+                    ·
+                  </SizableText>
+                  <NumberSizeableTextWrapper
+                    hideValue
+                    size="$headingMd"
+                    color="$textSubdued"
+                    formatter="value"
+                    formatterOptions={{
+                      currency: settings.currencyInfo.symbol,
                     }}
                   >
-                    <Icon name="OpenOutline" size="$5" color="$iconSubdued" />
-                  </XStack>
-                ) : null}
+                    {protocolInfo?.netWorth ?? '0'}
+                  </NumberSizeableTextWrapper>
+                </XStack>
               </XStack>
-              <XStack alignItems="center" gap="$3">
-                <NumberSizeableTextWrapper
-                  hideValue
-                  size="$headingMd"
-                  formatter="value"
-                  formatterOptions={{ currency: settings.currencyInfo.symbol }}
-                >
-                  {protocolInfo?.netWorth ?? '0'}
-                </NumberSizeableTextWrapper>
-                <View
-                  animation="quick"
-                  rotate={open ? '180deg' : '0deg'}
-                  transformOrigin="center"
+              {protocolInfo?.protocolUrl ? (
+                <XStack
+                  onPress={(event: GestureResponderEvent) => {
+                    event.stopPropagation();
+                    if (platformEnv.isDesktop || platformEnv.isNative) {
+                      openUrlInDiscovery({
+                        url: protocolInfo?.protocolUrl,
+                      });
+                    } else {
+                      openUrlExternal(protocolInfo?.protocolUrl);
+                    }
+                  }}
+                  cursor="pointer"
+                  borderRadius="$full"
+                  p="$1"
+                  hoverStyle={{
+                    bg: '$bgHover',
+                  }}
+                  pressStyle={{
+                    bg: '$bgActive',
+                  }}
                 >
                   <Icon
-                    name="ChevronDownSmallOutline"
+                    name="ArrowTopRightOutline"
+                    size="$5"
                     color="$iconSubdued"
-                    size="$6"
                   />
-                </View>
-              </XStack>
+                </XStack>
+              ) : null}
+              <View
+                ml="$2"
+                animation="quick"
+                rotate={open ? '180deg' : '0deg'}
+                transformOrigin="center"
+              >
+                <Icon
+                  name="ChevronDownSmallOutline"
+                  color="$iconSubdued"
+                  size="$6"
+                />
+              </View>
             </>
           )}
         </Accordion.Trigger>
-        <Accordion.Content exitStyle={{ opacity: 0 }} py="$2">
+        <Accordion.Content exitStyle={{ opacity: 0 }} py="$2" pl="$11">
+          <YStack px="$pagePadding">
+            <Divider borderColor="$borderSubdued" borderBottomWidth={2} />
+          </YStack>
           {renderProtocolPositions()}
         </Accordion.Content>
       </Accordion.Item>

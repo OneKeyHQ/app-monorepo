@@ -159,6 +159,10 @@ function AllNetworksManagerTrigger({
     showUnifiedNetworkSelector,
   ]);
 
+  if (!wallet) {
+    return null;
+  }
+
   if (
     !networkUtils.isAllNetwork({ networkId: network?.id }) ||
     accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' })
@@ -216,7 +220,12 @@ function AllNetworksManagerTrigger({
                 ml: '$-2',
               })}
             >
-              <NetworkAvatarBase logoURI={item?.logoURI} size="$6" />
+              <NetworkAvatarBase
+                logoURI={item?.logoURI}
+                size="$6"
+                networkName={item?.name}
+                isCustomNetwork={item?.isCustomNetwork}
+              />
             </Stack>
           ))}
         {enabledNetworksCompatibleWithWalletId.length > MAX_DISPLAY_NETWORKS ? (

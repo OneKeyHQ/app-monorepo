@@ -120,11 +120,11 @@ function TxActionCommonAvatar({
 
 function TxActionCommonTitle({
   title,
-  tableLayout,
+  tableLayout: _tableLayout,
   replaceType,
   status,
   riskyLevel,
-  compact,
+  compact: _compact,
 }: Pick<
   ITxActionCommonListViewProps,
   'title' | 'tableLayout' | 'replaceType' | 'status' | 'riskyLevel' | 'compact'
@@ -133,14 +133,7 @@ function TxActionCommonTitle({
 
   return (
     <XStack alignItems="center">
-      <SizableText
-        numberOfLines={1}
-        flexShrink={1}
-        size="$bodyLgMedium"
-        {...((tableLayout || compact) && {
-          size: '$bodyMdMedium',
-        })}
-      >
+      <SizableText numberOfLines={1} flexShrink={1} size="$bodyLgMedium">
         {title}
       </SizableText>
       {replaceType && status === EDecodedTxStatus.Pending ? (
@@ -251,7 +244,7 @@ function TxActionCommonDescription({
         size="$bodyMd"
         color="$textSubdued"
         minWidth={0}
-        numberOfLines={addressLocalLabel ? 1 : undefined}
+        numberOfLines={1}
       >
         {addressLocalLabel || description?.children}
       </SizableText>
@@ -261,8 +254,8 @@ function TxActionCommonDescription({
 
 function TxActionCommonChange({
   change,
-  tableLayout,
-  compact,
+  tableLayout: _tableLayout,
+  compact: _compact,
 }: Pick<ITxActionCommonListViewProps, 'tableLayout' | 'compact'> & {
   change: string;
 }) {
@@ -272,9 +265,6 @@ function TxActionCommonChange({
       size="$bodyLgMedium"
       {...(change?.includes('+') && {
         color: '$textSuccess',
-      })}
-      {...((tableLayout || compact) && {
-        size: '$bodyMdMedium',
       })}
     >
       {change}
@@ -315,7 +305,7 @@ function TxActionCommonFee({
 
   return (
     <Stack flexGrow={1} flexBasis={0} opacity={hideFeeInfo ? 0 : 1}>
-      <SizableText size="$bodyMd" color="$textSubdued">
+      <SizableText size="$bodyLg" color="$textSubdued">
         {intl.formatMessage({
           id: ETranslations.swap_history_detail_network_fee,
         })}
@@ -391,8 +381,8 @@ function TxActionCommonListView(
           flex={1}
           gap="$3"
           {...(tableLayout && {
-            flexGrow: 1,
-            flexBasis: 1,
+            flexGrow: 2,
+            flexBasis: 0,
           })}
           alignItems="center"
         >

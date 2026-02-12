@@ -658,7 +658,7 @@ const SwapTokenSelectPage = ({
                 </>
               ) : (
                 <Empty
-                  icon="SearchOutline"
+                  illustration="TwoBlocks"
                   title={intl.formatMessage({
                     id: ETranslations.global_no_results,
                   })}

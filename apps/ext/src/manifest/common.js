@@ -18,9 +18,7 @@ module.exports = {
     ${
       // Perf monitor uses WebSocket to localhost performance-server.
       // Chrome extension pages enforce CSP for connect-src; add it only for perf builds.
-      isPerfMonitorEnabled
-        ? "connect-src 'self' https: http: ws: wss:;"
-        : ''
+      isPerfMonitorEnabled ? "connect-src 'self' https: http: ws: wss:;" : ''
     }
     `
     .split('\n')

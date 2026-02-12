@@ -18,7 +18,8 @@ export function PerpsEmptyData() {
   return (
     <YStack ai="center">
       <Empty
-        icon="GiftOutline"
+        mt="$-10"
+        illustration="ShakeHands"
         title={intl.formatMessage({
           id: ETranslations.referral_referred_empty,
         })}

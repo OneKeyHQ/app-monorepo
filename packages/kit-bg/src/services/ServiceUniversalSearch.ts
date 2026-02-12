@@ -1031,6 +1031,7 @@ class ServiceUniversalSearch extends ServiceBase {
             maxLeverage: number;
             midPx: string;
             dayNtlVlm: string;
+            subtitle?: string;
           }>;
         }>('/wallet/v1/proxy/hyperliquid/perpsAsset', {
           params: { query: input },
@@ -1046,6 +1047,7 @@ class ServiceUniversalSearch extends ServiceBase {
               maxLeverage: asset.maxLeverage,
               midPx: asset.midPx,
               dayNtlVlm: asset.dayNtlVlm,
+              subtitle: asset.subtitle,
             },
           })) ?? [];
 

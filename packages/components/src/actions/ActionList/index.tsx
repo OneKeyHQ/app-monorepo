@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { debounce } from 'lodash';
 import { useIntl } from 'react-intl';
-import { type GestureResponderEvent } from 'react-native';
+import { Dimensions, type GestureResponderEvent } from 'react-native';
 import { useDebouncedCallback } from 'use-debounce';
 
 import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
@@ -28,6 +28,7 @@ import {
   Icon,
   SizableText,
   Skeleton,
+  Stack,
   XStack,
   YStack,
 } from '../../primitives';
@@ -286,6 +287,9 @@ function BasicActionList({
       setOpenStatus(openStatus);
       onOpenChange?.(openStatus);
       trackActionListToggle(openStatus);
+      if (!openStatus) {
+        setAsyncItems(null);
+      }
     },
     [onOpenChange, setOpenStatus, trackActionListToggle],
   );
@@ -337,9 +341,6 @@ function BasicActionList({
     );
   }, [disabled, renderTrigger, handleActionListOpen]);
 
-  if (renderItemsAsync && !asyncItems) {
-    return trigger;
-  }
   return (
     <Popover
       title={title || intl.formatMessage({ id: ETranslations.explore_options })}
@@ -374,8 +375,15 @@ function BasicActionList({
             handleActionListOpen,
           })}
 
-          {/* custom async render items */}
-          {asyncItems}
+          {/* custom async render items - show skeleton while loading */}
+          {renderItemsAsync && !asyncItems ? (
+            <>
+              <ActionListSkeletonItem />
+              <ActionListSkeletonItem />
+            </>
+          ) : (
+            asyncItems
+          )}
         </YStack>
       }
       floatingPanelProps={{
@@ -392,6 +400,7 @@ type IShowActionListParams = Omit<
   'renderTrigger' | 'defaultOpen'
 > & {
   onClose?: () => void;
+  triggerPosition?: { x: number; y: number };
 };
 const showActionList = (
   props: IShowActionListParams,
@@ -403,8 +412,91 @@ const showActionList = (
     | undefined,
 ) => {
   const { modalNavigatorContext, pageContextValue } = contexts || {};
+  const { triggerPosition, ...restProps } = props;
   dismissKeyboard();
-  const ref = Portal.Render(
+
+  const triggerElement =
+    triggerPosition && !platformEnv.isNative ? (
+      <Stack width={1} height={1} />
+    ) : null;
+
+  // Use let so the destroy callback can reference it after assignment
+  // eslint-disable-next-line prefer-const
+  let ref: { destroy: () => void };
+
+  const handleOpenChange = (isOpen: boolean) => {
+    restProps.onOpenChange?.(isOpen);
+    if (!isOpen) {
+      setTimeout(() => {
+        restProps.onClose?.();
+      });
+      // delay the destruction of the reference to allow for the completion of the animation transition.
+      setTimeout(() => {
+        ref.destroy();
+      }, 500);
+    }
+  };
+
+  // For context menu positioning: compute the optimal placement direction
+  // based on viewport boundaries, like native OS context menus that flip
+  // at screen edges. Keep allowFlip disabled to prevent Floating UI from
+  // recalculating placement during close animation.
+  let contextMenuPlacement:
+    | 'bottom-start'
+    | 'bottom-end'
+    | 'top-start'
+    | 'top-end' = 'bottom-start';
+  if (triggerPosition && !platformEnv.isNative) {
+    const { height: windowHeight, width: windowWidth } =
+      Dimensions.get('window');
+    const ESTIMATED_MENU_HEIGHT = 200;
+    const ESTIMATED_MENU_WIDTH = 224; // $56 = 56 * 4 = 224px
+    const EDGE_PADDING = 8;
+
+    const spaceBelow = windowHeight - triggerPosition.y - EDGE_PADDING;
+    const spaceRight = windowWidth - triggerPosition.x - EDGE_PADDING;
+
+    const vertical = spaceBelow >= ESTIMATED_MENU_HEIGHT ? 'bottom' : 'top';
+    const horizontal = spaceRight >= ESTIMATED_MENU_WIDTH ? 'start' : 'end';
+    contextMenuPlacement =
+      `${vertical}-${horizontal}` as typeof contextMenuPlacement;
+  }
+
+  const contextMenuProps =
+    triggerPosition && !platformEnv.isNative
+      ? { placement: contextMenuPlacement, allowFlip: false }
+      : {};
+
+  const actionList = (
+    <BasicActionList
+      {...restProps}
+      {...contextMenuProps}
+      defaultOpen
+      renderTrigger={triggerElement}
+      onOpenChange={handleOpenChange}
+    />
+  );
+
+  // Wrap in a fixed-position container at cursor coordinates for context menu positioning
+  const content =
+    triggerPosition && !platformEnv.isNative ? (
+      <Stack
+        // eslint-disable-next-line react-native/no-inline-styles
+        style={{
+          position: 'fixed' as const,
+          left: triggerPosition.x,
+          top: triggerPosition.y,
+          width: 0,
+          height: 0,
+        }}
+      >
+        {actionList}
+      </Stack>
+    ) : (
+      actionList
+    );
+
+  ref = Portal.Render(
     Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL,
     <ModalNavigatorContext.Provider
       value={modalNavigatorContext || { portalId: '' }}
@@ -412,23 +504,7 @@ const showActionList = (
       <PageContext.Provider
         value={pageContextValue || { footerRef: { current: null } as any }}
       >
-        <BasicActionList
-          {...props}
-          defaultOpen
-          renderTrigger={null}
-          onOpenChange={(isOpen) => {
-            props.onOpenChange?.(isOpen);
-            if (!isOpen) {
-              setTimeout(() => {
-                props.onClose?.();
-              });
-              // delay the destruction of the reference to allow for the completion of the animation transition.
-              setTimeout(() => {
-                ref.destroy();
-              }, 500);
-            }
-          }}
-        />
+        {content}
       </PageContext.Provider>
     </ModalNavigatorContext.Provider>,
   );

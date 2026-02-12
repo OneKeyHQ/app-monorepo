@@ -1,6 +1,7 @@
 /* eslint-disable global-require */
 import {
   type PropsWithChildren,
+  useEffect,
   useLayoutEffect,
   useRef,
   useState,
@@ -19,6 +20,7 @@ import {
   AppUpdate,
   BundleUpdate,
 } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
+import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
@@ -82,5 +84,21 @@ export const useDisplaySplash =
 
 export function SplashProvider({ children }: PropsWithChildren<unknown>) {
   const displaySplash = useDisplaySplash();
+
+  if (process.env.NODE_ENV !== 'production') {
+    debugLandingLog('SplashProvider render', `displaySplash=${displaySplash}`);
+  }
+
+  // Web platform: skip splash screen entirely, render children directly
+  useEffect(() => {
+    if (platformEnv.isWeb) {
+      globalThis.$$onekeyUIVisibleAt = Date.now();
+    }
+  }, []);
+
+  if (platformEnv.isWeb) {
+    return <>{children}</>;
+  }
+
   return displaySplash ? <Splash>{children}</Splash> : null;
 }

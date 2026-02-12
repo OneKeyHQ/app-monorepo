@@ -41,9 +41,11 @@ function normalizeCtxIndex(
 export function usePerpsAssetCtx({
   assetId,
   dexIndex,
+  skipMarkRequired,
 }: {
   assetId: number;
   dexIndex?: number;
+  skipMarkRequired?: boolean;
 }): {
   assetCtx: IPerpsFormattedAssetCtx;
   isLoading: boolean;
@@ -69,11 +71,12 @@ export function usePerpsAssetCtx({
   );
   const isLoading = useMemo(() => allAssetCtxs.length <= 0, [allAssetCtxs]);
   useEffect(() => {
+    if (skipMarkRequired) return;
     actions.current.markAllAssetCtxsRequired();
     return () => {
       // eslint-disable-next-line react-hooks/exhaustive-deps
       actions.current.markAllAssetCtxsNotRequired();
     };
-  }, [actions]);
+  }, [actions, skipMarkRequired]);
   return { assetCtx, isLoading };
 }

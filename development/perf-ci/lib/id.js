@@ -9,4 +9,3 @@ function nowId() {
 module.exports = {
   nowId,
 };
-

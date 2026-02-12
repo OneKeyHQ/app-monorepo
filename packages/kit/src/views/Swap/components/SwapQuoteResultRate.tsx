@@ -148,14 +148,25 @@ const SwapQuoteResultRate = ({
                 })}
               </Badge>
             ) : null}
-            {/* <XStack> */}
-            <Image
-              source={{ uri: providerIcon }}
-              w="$5"
-              h="$5"
-              borderRadius="$1"
-            />
-            {/* </XStack> */}
+            <Stack position="relative" w="$5" h="$5">
+              <Image
+                source={{ uri: providerIcon }}
+                w="$5"
+                h="$5"
+                borderRadius="$1"
+              />
+              <Stack
+                position="absolute"
+                top={0}
+                left={0}
+                right={0}
+                bottom={0}
+                borderRadius="$1"
+                borderWidth="$px"
+                borderColor="$borderSubdued"
+                pointerEvents="none"
+              />
+            </Stack>
           </XStack>
         )}
         {!quoting && onOpenResult ? (

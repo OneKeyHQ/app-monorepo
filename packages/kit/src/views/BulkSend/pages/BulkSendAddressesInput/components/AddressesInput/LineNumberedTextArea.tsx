@@ -18,6 +18,7 @@ import {
   useClipboard,
   useTheme,
 } from '@onekeyhq/components';
+import { webFontFamily } from '@onekeyhq/components/src/utils/webFontFamily';
 import { AddressBadge } from '@onekeyhq/kit/src/components/AddressBadge';
 import { SelectorPlugin } from '@onekeyhq/kit/src/components/AddressInput/plugins/selector';
 import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -275,6 +276,7 @@ function LineNumberedTextArea({
               paddingRight: PADDING_HORIZONTAL,
               fontSize: FONT_SIZE,
               lineHeight: LINE_HEIGHT,
+              fontFamily: webFontFamily,
               textAlignVertical: 'top',
               color: 'transparent',
               caretColor: textColor,

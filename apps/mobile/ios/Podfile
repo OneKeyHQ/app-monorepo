@@ -232,20 +232,32 @@ target 'OneKeyWallet' do
       end
     end
 
-    # bitcode_strip_path = `xcrun --find bitcode_strip`.chop!
-
-    # def strip_bitcode_from_framework(bitcode_strip_path, framework_path)
-    #   command = "#{bitcode_strip_path} #{framework_path} -r -o #{framework_path}"
-    #   puts "Stripping bitcode: #{command}"
-    #   system(command)
-    # end
-    
-    # framework_paths = [
-    # ]
-
-    # framework_paths.each do |framework_relative_path|
-    #   strip_bitcode_from_framework(bitcode_strip_path, framework_relative_path)
-    # end
+    # Fix: ServiceExtension build fails with "unable to spawn process ccache-clang.sh"
+    #
+    # react_native_post_install sets CC at the PROJECT level:
+    #   REACT_NATIVE_PATH = ${PODS_ROOT}/../../../../node_modules/react-native
+    #   CC = $(REACT_NATIVE_PATH)/scripts/xcode/ccache-clang.sh
+    #
+    # OneKeyWallet target has Pods xcconfig, so PODS_ROOT is defined and CC resolves correctly.
+    # ServiceExtension target has NO Pods xcconfig, so PODS_ROOT is empty, causing:
+    #   REACT_NATIVE_PATH = ../../../../node_modules/react-native
+    #   CC = /node_modules/react-native/scripts/xcode/ccache-clang.sh  (not found!)
+    #
+    # Fix: set CC at the TARGET level for ServiceExtension to override the project-level
+    # ccache setting. ServiceExtension only compiles NotificationService.m and doesn't
+    # need ccache acceleration.
+    installer.aggregate_targets.each do |aggregate_target|
+      aggregate_target.user_project.native_targets.each do |target|
+        next unless target.name == 'ServiceExtension'
+        target.build_configurations.each do |build_config|
+          build_config.build_settings["CC"] = "clang"
+          build_config.build_settings["CXX"] = "clang++"
+          build_config.build_settings["LD"] = "clang"
+          build_config.build_settings["LDPLUSPLUS"] = "clang++"
+        end
+      end
+      aggregate_target.user_project.save()
+    end
   end
 
   post_integrate do |installer|

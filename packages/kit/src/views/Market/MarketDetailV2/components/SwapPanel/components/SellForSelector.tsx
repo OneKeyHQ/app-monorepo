@@ -2,9 +2,7 @@ import { useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { ISizableTextProps } from '@onekeyhq/components';
 import { Icon, SizableText, XStack } from '@onekeyhq/components';
-import SwapCommonInfoItem from '@onekeyhq/kit/src/views/Swap/components/SwapCommonInfoItem';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { ISwapTokenBase } from '@onekeyhq/shared/types/swap/types';
 
@@ -18,8 +16,6 @@ interface ISellForSelectorProps {
   onTokenSelect: (token: ISwapTokenBase) => void;
   symbol: string;
   isLoading: boolean;
-  itemTitleProps?: ISizableTextProps;
-  itemValueProps?: ISizableTextProps;
 }
 
 const SellForSelector = ({
@@ -27,49 +23,48 @@ const SellForSelector = ({
   currentSelectToken,
   onTokenSelect,
   symbol,
-  isLoading,
-  itemTitleProps,
-  itemValueProps,
+  isLoading: _isLoading,
 }: ISellForSelectorProps) => {
   const intl = useIntl();
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
+  const hasMultipleTokens = defaultTokens.length > 1;
   return (
     <>
-      <SwapCommonInfoItem
-        title={intl.formatMessage({
-          id: ETranslations.promode_limit_sell_for,
-        })}
-        valueComponent={
-          <XStack
-            alignItems="center"
-            gap="$1"
-            {...(defaultTokens.length > 1
-              ? {
-                  cursor: 'pointer',
-                  onPress: () => setIsPopoverOpen(true),
-                  hoverStyle: { opacity: 0.7 },
-                  pressStyle: { opacity: 0.5 },
-                }
-              : {})}
-          >
-            <SizableText size={itemValueProps?.size ?? '$bodySmMedium'}>
-              {symbol ?? '-'}
-            </SizableText>
-            {defaultTokens.length > 1 ? (
-              <Icon
-                name="ChevronDownSmallOutline"
-                size="$4"
-                color="$iconSubdued"
-              />
-            ) : null}
-          </XStack>
-        }
-        titleProps={itemTitleProps}
-        isLoading={isLoading}
-        containerProps={{
-          py: '$1',
-        }}
-      />
+      <XStack
+        justifyContent="space-between"
+        alignItems="center"
+        userSelect="none"
+        cursor="default"
+      >
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {intl.formatMessage({
+            id: ETranslations.promode_limit_sell_for,
+          })}
+        </SizableText>
+        <XStack
+          alignItems="center"
+          gap="$1"
+          borderRadius="$2"
+          px="$1"
+          py="$0.5"
+          cursor="default"
+          {...(hasMultipleTokens && {
+            onPress: () => setIsPopoverOpen(true),
+            hoverStyle: { bg: '$bgHover' },
+            pressStyle: { bg: '$bgActive' },
+          })}
+        >
+          <SizableText size="$bodyMdMedium">{symbol ?? '-'}</SizableText>
+          {hasMultipleTokens ? (
+            <Icon
+              name="ChevronDownSmallOutline"
+              size="$4"
+              color="$iconSubdued"
+              cursor="default"
+            />
+          ) : null}
+        </XStack>
+      </XStack>
       <TokenSelectorPopover
         currentSelectToken={currentSelectToken}
         isOpen={isPopoverOpen}

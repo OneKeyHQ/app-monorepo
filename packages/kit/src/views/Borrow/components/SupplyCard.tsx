@@ -3,9 +3,21 @@ import { useCallback, useMemo, useState } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { SizableText, Switch, XStack, useMedia } from '@onekeyhq/components';
+import {
+  SizableText,
+  Switch,
+  XStack,
+  rootNavigationRef,
+  useMedia,
+} from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  EOnboardingPagesV2,
+  EOnboardingV2Routes,
+  ERootRoutes,
+} from '@onekeyhq/shared/src/routes';
 import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
 
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
@@ -31,14 +43,41 @@ export const SupplyCard = () => {
     useBorrowContext();
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const { activeAccount } = useActiveAccount({ num: 0 });
   const { gtMd, gtLg } = useMedia();
   const [showZeroBalance, setShowZeroBalance] = useState(true);
   const accountId = earnAccount.data?.account?.id || '';
   const walletId = earnAccount.data?.walletId || '';
   const indexedAccountId = earnAccount.data?.account?.indexedAccountId;
+  const noConnectedWallet = useMemo(
+    () =>
+      activeAccount.ready &&
+      !activeAccount.wallet?.id &&
+      !activeAccount.account?.id &&
+      !activeAccount.indexedAccount?.id,
+    [
+      activeAccount.ready,
+      activeAccount.wallet?.id,
+      activeAccount.account?.id,
+      activeAccount.indexedAccount?.id,
+    ],
+  );
+
+  const openCreateWalletPage = useCallback(() => {
+    rootNavigationRef.current?.navigate(ERootRoutes.Onboarding, {
+      screen: EOnboardingV2Routes.OnboardingV2,
+      params: {
+        screen: EOnboardingPagesV2.CreateOrImportWallet,
+      },
+    });
+  }, []);
 
   const handleManageSupply = useCallback(
     (item: ISupplyAsset) => {
+      if (noConnectedWallet) {
+        openCreateWalletPage();
+        return;
+      }
       if (!market) return;
 
       BorrowNavigation.pushToBorrowManagePosition(navigation, {
@@ -54,7 +93,14 @@ export const SupplyCard = () => {
         borrowReserves: reserves.data ?? undefined,
       });
     },
-    [navigation, market, accountId, reserves.data],
+    [
+      noConnectedWallet,
+      openCreateWalletPage,
+      navigation,
+      market,
+      accountId,
+      reserves.data,
+    ],
   );
 
   const handlePressRow = useCallback(
@@ -212,17 +258,25 @@ export const SupplyCard = () => {
             buttonText={<EarnText text={{ text: labels.supply }} />}
             item={item}
             onPress={() => handleManageSupply(item)}
-            needAdditionButton={gtLg}
+            needAdditionButton={gtLg && !noConnectedWallet}
             accountId={accountId}
             walletId={walletId}
             indexedAccountId={indexedAccountId}
-            disabled={item.supplyButton?.disabled}
+            disabled={noConnectedWallet ? false : item.supplyButton?.disabled}
           />
         ),
         flex: 1,
       },
     ],
-    [handleManageSupply, gtLg, accountId, walletId, indexedAccountId, labels],
+    [
+      handleManageSupply,
+      gtLg,
+      noConnectedWallet,
+      accountId,
+      walletId,
+      indexedAccountId,
+      labels,
+    ],
   );
 
   return (

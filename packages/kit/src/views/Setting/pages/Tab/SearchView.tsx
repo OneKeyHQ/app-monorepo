@@ -111,7 +111,7 @@ export function SearchView({
   ) : (
     <YStack flex={1} ai="center" jc="center">
       <Empty
-        icon="SearchOutline"
+        illustration="SearchDocument"
         title={intl.formatMessage({
           id: ETranslations.global_no_results,
         })}

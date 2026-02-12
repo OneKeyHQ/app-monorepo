@@ -1,7 +1,13 @@
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
-import { SizableText, Switch, XStack, YStack } from '@onekeyhq/components';
+import {
+  SizableText,
+  Spinner,
+  Switch,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { PerpsEmptyData } from '../PerpsEmptyData';
@@ -23,6 +29,8 @@ export function PerpsDetailsSectionDesktop({
   sortOrder,
   onSort,
   isLoadingMore,
+  isTabLoading,
+  hasUserSorted,
 }: IPerpsDetailsSectionProps) {
   const intl = useIntl();
 
@@ -92,13 +100,18 @@ export function PerpsDetailsSectionDesktop({
 
         {/* Table Content */}
         <YStack bg="$bgApp">
-          {hasData ? (
+          {isTabLoading ? (
+            <YStack ai="center" py="$8">
+              <Spinner size="small" />
+            </YStack>
+          ) : hasData ? (
             <PerpsRecordTable
               records={records}
               sortBy={sortBy}
               sortOrder={sortOrder}
               onSort={onSort}
               isLoadingMore={isLoadingMore}
+              hasUserSorted={hasUserSorted}
             />
           ) : (
             <YStack py="$8">
