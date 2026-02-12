@@ -219,7 +219,7 @@ function LineNumberedTextArea({
   );
 
   useEffect(() => {
-    if (!platformEnv.isNativeIOS) return;
+    if (!platformEnv.isNativeIOS || singleLine) return;
 
     const showSub = Keyboard.addListener('keyboardDidShow', (e) => {
       lastKeyboardScreenYRef.current = e.endCoordinates.screenY;
@@ -235,7 +235,7 @@ function LineNumberedTextArea({
       showSub.remove();
       hideSub.remove();
     };
-  }, [scrollOuterToShowComponent]);
+  }, [scrollOuterToShowComponent, singleLine]);
 
   const handleContainerPress = useCallback(() => {
     inputRef.current?.focus();
