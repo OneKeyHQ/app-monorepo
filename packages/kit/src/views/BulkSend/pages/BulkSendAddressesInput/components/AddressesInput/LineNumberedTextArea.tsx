@@ -74,9 +74,10 @@ const PADDING_VERTICAL = 12;
 const PADDING_HORIZONTAL = 12;
 const PADDING_HORIZONTAL_WITH_LINE_NUMBERS = 4;
 const LINE_NUMBER_WIDTH = 50;
-// On native, RNTextInput (UITextView) has extra internal text inset compared to
+// On iOS, RNTextInput (UITextView) has extra internal text inset compared to
 // SizableText (UILabel). This offset compensates so line numbers align with the text.
-const NATIVE_LINE_NUMBER_TOP_OFFSET = 4;
+// On Android, EditText with includeFontPadding=false has no such extra inset.
+const NATIVE_LINE_NUMBER_TOP_OFFSET = platformEnv.isNativeIOS ? 4 : 0;
 // Allow 2 lines of text in singleLine mode for wrapped long addresses
 const SINGLE_LINE_HEIGHT = LINE_HEIGHT * 2 + PADDING_VERTICAL * 2;
 
@@ -312,6 +313,7 @@ function LineNumberedTextArea({
           maxHeight={height ?? maxHeight}
           minHeight={height ?? minHeight}
           showsVerticalScrollIndicator={false}
+          nestedScrollEnabled
         >
           <XStack minHeight={(height ?? minHeight) - 2}>
             {/* Line numbers column - show when focused or has content */}
