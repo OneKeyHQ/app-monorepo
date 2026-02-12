@@ -69,28 +69,26 @@ export function FilterButton({
     [onFilterChange],
   );
 
-  const sections = useMemo(() => [
-    {
-      title: intl.formatMessage({
-        id: ETranslations.referral_code_list,
-      }),
-      items: inviteCodeOptions.map((option) => ({
-        label: option.label,
-        description: option.description,
-        descriptionNumberOfLines: 1,
-        extra:
-          filterState.inviteCode === option.value ? (
-            <Icon name="CheckRadioSolid" size="$5" color="$icon" />
-          ) : undefined,
-        onPress: () => handleInviteCodeSelect(option.value),
-      })) as IActionListItemProps[],
-    },
-  ], [
-    intl,
-    inviteCodeOptions,
-    filterState,
-    handleInviteCodeSelect,
-  ]);
+  const sections = useMemo(
+    () => [
+      {
+        title: intl.formatMessage({
+          id: ETranslations.referral_code_list,
+        }),
+        items: inviteCodeOptions.map((option) => ({
+          label: option.label,
+          description: option.description,
+          descriptionNumberOfLines: 1,
+          extra:
+            filterState.inviteCode === option.value ? (
+              <Icon name="CheckRadioSolid" size="$5" color="$icon" />
+            ) : undefined,
+          onPress: () => handleInviteCodeSelect(option.value),
+        })) as IActionListItemProps[],
+      },
+    ],
+    [intl, inviteCodeOptions, filterState, handleInviteCodeSelect],
+  );
 
   // Check if any filters are active (not default values)
   const hasActiveFilters = useMemo(

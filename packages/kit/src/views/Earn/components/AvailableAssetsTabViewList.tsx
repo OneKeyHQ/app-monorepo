@@ -323,7 +323,7 @@ export function AvailableAssetsTabViewList() {
         data={assets ?? []}
         columns={columns}
         keyExtractor={(asset) => asset.symbol}
-        withHeader={platformEnv.isNative ? false : media.gtSm}
+        withHeader={platformEnv.isNative ? false : media.gtMd}
         defaultSortKey="yield"
         defaultSortDirection="desc"
         onPressRow={(asset) => void handleRowPress(asset)}
