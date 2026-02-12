@@ -72,7 +72,7 @@ const LINE_HEIGHT = 24;
 const PADDING_VERTICAL = 12;
 const PADDING_HORIZONTAL = 12;
 const PADDING_HORIZONTAL_WITH_LINE_NUMBERS = 4;
-const LINE_NUMBER_WIDTH = 40;
+const LINE_NUMBER_WIDTH = 50;
 // Allow 2 lines of text in singleLine mode for wrapped long addresses
 const SINGLE_LINE_HEIGHT = LINE_HEIGHT * 2 + PADDING_VERTICAL * 2;
 
@@ -310,7 +310,7 @@ function LineNumberedTextArea({
               <YStack
                 width={LINE_NUMBER_WIDTH}
                 flexShrink={0}
-                pt={PADDING_VERTICAL + 2}
+                pt={PADDING_VERTICAL}
                 pb={PADDING_VERTICAL}
               >
                 {(hasContent ? lines : ['']).map((_, index) => {
@@ -328,6 +328,8 @@ function LineNumberedTextArea({
                         lineHeight={LINE_HEIGHT}
                         color="$textDisabled"
                         userSelect="none"
+                        numberOfLines={1}
+                        ellipsizeMode="tail"
                       >
                         {lineNumber}
                       </SizableText>

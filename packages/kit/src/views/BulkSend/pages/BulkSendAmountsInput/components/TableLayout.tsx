@@ -733,6 +733,7 @@ function TransferInfoListSection() {
             <YStack flex={1} flexBasis={0} minWidth={0} gap="$1">
               <SizableText
                 size="$bodyMdMedium"
+                style={{ wordBreak: 'break-all' }}
                 color={hasFromError ? '$textCritical' : undefined}
               >
                 {transfer.from}
@@ -755,6 +756,7 @@ function TransferInfoListSection() {
             <YStack flex={1} flexBasis={0} minWidth={0} gap="$1">
               <SizableText
                 size="$bodyMdMedium"
+                style={{ wordBreak: 'break-all' }}
                 color={hasToError ? '$textCritical' : undefined}
               >
                 {transfer.to}
