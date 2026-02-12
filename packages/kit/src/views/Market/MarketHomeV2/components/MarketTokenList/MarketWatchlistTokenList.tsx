@@ -270,7 +270,7 @@ function MarketWatchlistTokenList({
       result={filteredResult}
       isWatchlistMode
       showEndReachedIndicator
-      draggable={isDraggable}
+      draggable={isDraggable && !platformEnv.isNative}
       onDragEnd={handleDragEnd}
       onItemLongPress={handleShowContextMenu}
       onItemContextMenu={handleShowContextMenu}

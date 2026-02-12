@@ -23,11 +23,12 @@ function NetworkListHeader() {
     setMissingAddressCount,
   } = useContext(AllNetworksManagerContext);
 
-  const { enabledNetworksWithoutAccount } =
+  const { enabledNetworksWithoutAccount, run } =
     useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
       walletId: walletId ?? '',
       indexedAccountId,
       filterNetworksWithoutAccount: true,
+      enabledNetworks,
     });
 
   const isAllNetworksEnabled = useMemo(() => {
@@ -49,6 +50,15 @@ function NetworkListHeader() {
   useEffect(() => {
     setMissingAddressCount(enabledNetworksWithoutAccount.length);
   }, [enabledNetworksWithoutAccount.length, setMissingAddressCount]);
+
+  const enabledNetworkIds = useMemo(
+    () => enabledNetworks.map((network) => network.id).join(','),
+    [enabledNetworks],
+  );
+
+  useEffect(() => {
+    void run();
+  }, [enabledNetworkIds, run]);
 
   const handleToggleAll = useCallback(() => {
     if (isAllNetworksEnabled) {
@@ -73,13 +83,13 @@ function NetworkListHeader() {
           justifyContent="space-between"
           alignItems="center"
         >
-          <Stack flex={1} mr="$2">
+          <Stack flex={1} mr="$2" alignItems="flex-start" overflow="hidden">
             <ChainSelectorTooltip
               renderContent={intl.formatMessage({
                 id: ETranslations.network_selection_performance_tip,
               })}
               renderTrigger={
-                <Stack alignSelf="flex-start">
+                <Stack maxWidth="100%">
                   <SizableText size="$bodyLgMedium">
                     {intl.formatMessage(
                       {
