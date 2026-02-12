@@ -82,16 +82,12 @@ function UnifiedNetworkSelector() {
 
   // Determine if tab switcher should be shown
   const showTabSwitcher = useMemo(() => {
-    // Other Wallet doesn't support Portfolio tab
-    if (accountUtils.isOthersWallet({ walletId })) {
-      return false;
-    }
     // Single network mode - no tab switcher
     if (defaultTab === 'network' && !networkUtils.isAllNetwork({ networkId })) {
       return false;
     }
     return true;
-  }, [walletId, defaultTab, networkId]);
+  }, [defaultTab, networkId]);
 
   // Determine initial tab
   const initialTab = useMemo((): ITabType => {
@@ -218,7 +214,7 @@ function UnifiedNetworkSelector() {
         accounts: [
           {
             accountId: indexedAccountId ?? accountId ?? '',
-            accountAddress: undefined,
+            accountAddress: account?.address,
             networkId: networkId ?? '',
             indexedAccountId,
           },
@@ -246,7 +242,7 @@ function UnifiedNetworkSelector() {
       setAccountNetworkValueCurrency(_accountsValue[0]?.currency);
       setAccountDeFiOverview(_accountDeFiOverview ?? {});
     }
-  }, [accountId, walletId, indexedAccountId, networkId]);
+  }, [accountId, walletId, indexedAccountId, networkId, account?.address]);
 
   // Refresh portfolio data when a custom network is added
   useEffect(() => {
@@ -593,6 +589,7 @@ function UnifiedNetworkSelector() {
         ) : null}
         <Stack flex={1} display={activeTab === 'network' ? 'flex' : 'none'}>
           <NetworkContent
+            accountAddress={account?.address}
             walletId={walletId}
             accountId={accountId}
             indexedAccountId={indexedAccountId}

@@ -203,7 +203,10 @@ const WrappedActionButtonCmp = ({
         cursor={reward?.button?.disabled ? 'not-allowed' : 'pointer'}
         onPress={onPress}
       >
-        <EarnText size="$bodyMdMedium" text={reward?.button?.text as IEarnText} />
+        <EarnText
+          size="$bodyMdMedium"
+          text={reward?.button?.text as IEarnText}
+        />
       </Button>
     );
   }
@@ -1052,7 +1055,7 @@ const BasePortfolioTabContent = ({
   if (noAssets) {
     return (
       <Empty
-        icon="ClockTimeHistoryOutline"
+        illustration="BlockPercentage"
         title={intl.formatMessage({
           id: ETranslations.earn_no_assets_deposited,
         })}

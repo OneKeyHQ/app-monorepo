@@ -1,8 +1,8 @@
 diff --git a/node_modules/@tamagui/web/dist/cjs/hooks/useMedia.native.js b/node_modules/@tamagui/web/dist/cjs/hooks/useMedia.native.js
-index 47addac..49589a9 100644
+index 47addac..110de63 100644
 --- a/node_modules/@tamagui/web/dist/cjs/hooks/useMedia.native.js
 +++ b/node_modules/@tamagui/web/dist/cjs/hooks/useMedia.native.js
-@@ -160,11 +160,89 @@ function unlisten() {
+@@ -160,11 +160,98 @@ function unlisten() {
    }), dispose.clear();
  }
  var setupVersion = -1;
@@ -34,10 +34,19 @@ index 47addac..49589a9 100644
 +  });
 +}
 +
++const MAX_OVERRIDE_WIDTH = 767;
++
++function clampWidth(width) {
++  return Math.min(width, MAX_OVERRIDE_WIDTH);
++}
++
++function getScreenWidth() {
++  return clampWidth(Dimensions.get('window').width);
++}
++
 +// Get half screen width for spanning layout
 +function getHalfScreenWidth() {
-+  const { width } = Dimensions.get('window');
-+  return width / 2;
++  return clampWidth(Dimensions.get('window').width / 2);
 +}
 +
 +// Get media query override info
@@ -54,12 +63,12 @@ index 47addac..49589a9 100644
 +        callback({ shouldOverride: true, overrideWidth: getHalfScreenWidth() });
 +      } else {
 +        // Tablet portrait: simulate md-level width (md=true, gtMd=false)
-+        callback({ shouldOverride: true, overrideWidth: 767 });
++        callback({ shouldOverride: true, overrideWidth: getScreenWidth() });
 +      }
 +    });
 +  } else if (import_constants.isAndroid) {
 +    // Non-spanning layout + Android: simulate md-level width
-+    callback({ shouldOverride: true, overrideWidth: 767 });
++    callback({ shouldOverride: true, overrideWidth: getScreenWidth() });
 +  } else {
 +    // Other cases: no override, use default matchMedia result
 +    callback({ shouldOverride: false, overrideWidth: null });

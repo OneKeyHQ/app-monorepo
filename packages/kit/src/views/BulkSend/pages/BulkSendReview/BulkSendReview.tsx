@@ -220,10 +220,14 @@ function BaseBulkSendReview({
     [forceRefreshFee],
   );
 
+  // Track how many txs were successfully sent (used by Tron one-by-one flow)
+  const sentTxCountRef = useRef(0);
+
   // Handle Tron transactions one by one
   const handleTronTxsOneByOne = useCallback(
     async (txs: IUnsignedTxPro[], txFeeInfos: ISendSelectedFeeInfo[]) => {
       const allResults: ISendTxOnSuccessData[] = [];
+      sentTxCountRef.current = 0;
 
       for (let i = 0, len = txs.length; i < len; i += 1) {
         const unsignedTx = txs[i];
@@ -265,6 +269,8 @@ function BaseBulkSendReview({
             });
           },
         );
+
+        sentTxCountRef.current = i + 1;
 
         // Collect results
         if (result && result.length > 0) {
@@ -380,8 +386,15 @@ function BaseBulkSendReview({
         await navigateAfterSuccess();
       } catch (e) {
         setIsSubmitting(false);
-        startApprovalRecheck();
-        // Check if user cancelled
+        // Only recheck approval if all approve txs were already broadcast.
+        // If the error happened during the approve phase, nothing was sent
+        // to chain, so polling the allowance is pointless.
+        if (
+          approvesInfo.length > 0 &&
+          sentTxCountRef.current >= approvesInfo.length
+        ) {
+          startApprovalRecheck();
+        }
         if (e instanceof Error && e.message === 'User cancelled') {
           return;
         }
@@ -392,12 +405,40 @@ function BaseBulkSendReview({
     }
 
     // Step 5: Sign and send transactions (for non-Tron networks)
+    const approveCount = approvesInfo.length;
+    let approveTxsSent = false;
+
+    // Step 5a: Send approve txs first (if any), so we can track whether
+    // they were broadcast before the transfer phase
+    if (approveCount > 0) {
+      try {
+        await serviceSend.batchSignAndSendTransaction({
+          accountId,
+          networkId,
+          unsignedTxs: newUnsignedTxs.slice(0, approveCount),
+          feeInfos: feeState.feeInfos.slice(0, approveCount),
+          signOnly: false,
+          transferPayload: undefined,
+        });
+        approveTxsSent = true;
+      } catch (e: any) {
+        // Approve txs failed — nothing was broadcast, no need to recheck
+        if (accountUtils.isQrAccount({ accountId })) {
+          navigation.popStack();
+        }
+        setIsSubmitting(false);
+        onFail?.(e as Error);
+        throw e;
+      }
+    }
+
+    // Step 5b: Send transfer tx(s)
     try {
       const result = await serviceSend.batchSignAndSendTransaction({
         accountId,
         networkId,
-        unsignedTxs: newUnsignedTxs,
-        feeInfos: feeState.feeInfos,
+        unsignedTxs: newUnsignedTxs.slice(approveCount),
+        feeInfos: feeState.feeInfos.slice(approveCount),
         signOnly: false,
         transferPayload: undefined,
       });
@@ -427,7 +468,10 @@ function BaseBulkSendReview({
         navigation.popStack();
       }
       setIsSubmitting(false);
-      startApprovalRecheck();
+      // Only recheck approval if approve txs were already broadcast
+      if (approveTxsSent) {
+        startApprovalRecheck();
+      }
       onFail?.(e as Error);
       throw e;
     }
@@ -446,6 +490,7 @@ function BaseBulkSendReview({
     handleTronTxsOneByOne,
     navigateAfterSuccess,
     startApprovalRecheck,
+    approvesInfo.length,
     bulkSendMode,
     transfersInfo.length,
     tokenInfo?.symbol,

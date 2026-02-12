@@ -500,7 +500,7 @@ function WalletAddressContent({
         renderItem={renderItem}
         ListEmptyComponent={
           <Empty
-            icon="SearchOutline"
+            illustration="SearchDocument"
             title={intl.formatMessage({ id: ETranslations.global_no_results })}
           />
         }

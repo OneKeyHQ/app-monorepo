@@ -212,7 +212,7 @@ const LimitOrderList = ({
       )}
       ListEmptyComponent={
         <Empty
-          icon="SearchMenuOutline"
+          illustration="Orders"
           title={intl.formatMessage({
             id: ETranslations.Limit_order_history_empty,
           })}

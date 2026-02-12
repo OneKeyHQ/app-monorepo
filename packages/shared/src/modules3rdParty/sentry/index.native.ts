@@ -1,7 +1,6 @@
 import type { ComponentType } from 'react';
 
 import {
-  hermesProfilingIntegration,
   init,
   reactNativeTracingIntegration,
   nativeCrash as sentryNativeCrash,
@@ -34,13 +33,7 @@ export const initSentry = () => {
     maxCacheItems: 60,
     enableAppHangTracking: true,
     appHangTimeoutInterval: 5,
-    integrations: [
-      navigationIntegration,
-      reactNativeTracingIntegration(),
-      hermesProfilingIntegration({
-        platformProfilers: true,
-      }),
-    ],
+    integrations: [navigationIntegration, reactNativeTracingIntegration()],
     enableAutoPerformanceTracing: true,
   });
 };

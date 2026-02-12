@@ -71,8 +71,15 @@ function TabItemView({
   }, [options]);
 
   const [isContainerHovered, setIsContainerHovered] = useState(false);
+  const handleHoverIn = useCallback(() => {
+    setIsContainerHovered(true);
+  }, []);
+  const handleHoverOut = useCallback(() => {
+    setIsContainerHovered(false);
+  }, []);
   const handlePress = useCallback(
     (event: GestureResponderEvent) => {
+      setIsContainerHovered(false);
       const press = (options.tabbarOnPress ?? onPress) as (
         event: GestureResponderEvent,
       ) => void | undefined;
@@ -93,12 +100,8 @@ function TabItemView({
           pt={6}
           pb={6}
           onPress={handlePress}
-          onHoverIn={() => {
-            setIsContainerHovered(true);
-          }}
-          onHoverOut={() => {
-            setIsContainerHovered(false);
-          }}
+          onHoverIn={handleHoverIn}
+          onHoverOut={handleHoverOut}
         >
           <DesktopTabItem
             isContainerHovered={isContainerHovered}
@@ -127,7 +130,15 @@ function TabItemView({
           </SizableText>
         </YStack>
       ),
-    [handlePress, isActive, isContainerHovered, options, route.name],
+    [
+      handlePress,
+      handleHoverIn,
+      handleHoverOut,
+      isActive,
+      isContainerHovered,
+      options,
+      route.name,
+    ],
   );
 
   return contentMemo;
