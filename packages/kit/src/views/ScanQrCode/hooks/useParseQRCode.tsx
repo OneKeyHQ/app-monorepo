@@ -8,6 +8,8 @@ import {
   Stack,
   Toast,
   ToastContent,
+  popActionCenterPages,
+  popScanModalPages,
   useClipboard,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -158,14 +160,9 @@ const useParseQRCode = () => {
 
       const closeScanPage = async () => {
         if (popNavigation) {
-          popNavigation();
-          if (platformEnv.isNative) {
-            await new Promise<void>((resolve) => {
-              requestIdleCallback(() => resolve());
-            });
-          } else {
-            await timerUtils.wait(250);
-          }
+          await popScanModalPages();
+          await popActionCenterPages();
+          await timerUtils.wait(350);
         }
       };
 
