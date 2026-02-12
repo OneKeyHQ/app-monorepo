@@ -485,13 +485,14 @@ async function createMainWindow() {
     show: false,
     title: APP_TITLE_NAME,
     titleBarStyle: 'hidden',
-    titleBarOverlay: isWin || isLinux
-      ? {
-          height: 52,
-          color: '#00000000',
-          symbolColor: isDarkTheme ? '#ffffff' : '#000000',
-        }
-      : false,
+    titleBarOverlay:
+      isWin || isLinux
+        ? {
+            height: 52,
+            color: '#00000000',
+            symbolColor: isDarkTheme ? '#ffffff' : '#000000',
+          }
+        : false,
     trafficLightPosition: { x: 20, y: 20 },
     autoHideMenuBar: true,
     frame: true,

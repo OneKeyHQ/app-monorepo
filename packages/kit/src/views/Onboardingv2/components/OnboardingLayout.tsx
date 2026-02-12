@@ -7,7 +7,6 @@ import {
   Button,
   IconButton,
   Keyboard,
-  ScrollView,
   Select,
   SizableText,
   XStack,

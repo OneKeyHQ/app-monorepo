@@ -151,7 +151,7 @@ function BaseNotificationHandlerContainer() {
         getEarnAccount: (props) =>
           backgroundApiProxy.serviceStaking.getEarnAccount(props),
       }).catch((error) => {
-        console.error(error)
+        console.error(error);
         showFallbackUpdateDialog(null);
       });
     };
