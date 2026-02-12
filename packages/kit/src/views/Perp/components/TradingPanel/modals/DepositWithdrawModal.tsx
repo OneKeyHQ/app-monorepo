@@ -246,22 +246,6 @@ function SelectTokenPopoverContent({
                 {networkName}
               </SizableText>
             </YStack>
-            {isArbUSDC ? (
-              <Badge
-                badgeSize="sm"
-                height={24}
-                borderRadius="$full"
-                borderColor="$borderInfo"
-                bg="$bgInfo"
-                px="$2.5"
-              >
-                <SizableText size="$bodySm" color="$textInfo">
-                  {intl.formatMessage({
-                    id: ETranslations.perp_deposit_direct,
-                  })}
-                </SizableText>
-              </Badge>
-            ) : null}
           </XStack>
           <YStack alignItems="flex-end">
             <SizableText size="$bodySmMedium">{balanceFormatted}</SizableText>
