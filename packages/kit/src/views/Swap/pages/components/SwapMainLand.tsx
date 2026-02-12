@@ -1286,7 +1286,9 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
             pt: '$0',
           }}
         >
-          {(gtLg && pageType !== EPageType.modal && !platformEnv.isNative) ? null : (
+          {gtLg &&
+          pageType !== EPageType.modal &&
+          !platformEnv.isNative ? null : (
             <SwapHeaderContainer
               pageType={pageType}
               defaultSwapType={swapInitParams?.swapTabSwitchType}
