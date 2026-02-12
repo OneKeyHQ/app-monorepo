@@ -18,7 +18,7 @@ export function PerpSettingsButton({
           size={size}
           variant={variant}
           iconColor="$iconSubdued"
-          cursor="pointer"
+          cursor="default"
           {...rest}
         />
       }

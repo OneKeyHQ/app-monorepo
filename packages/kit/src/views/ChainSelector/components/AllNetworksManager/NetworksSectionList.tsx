@@ -8,8 +8,8 @@ import {
   Empty,
   SearchBar,
   SectionList,
+  SizableText,
   Stack,
-  Tooltip,
   XStack,
 } from '@onekeyhq/components';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
@@ -23,6 +23,9 @@ import { AllNetworksManagerContext } from './AllNetworksManagerContext';
 import NetworkListHeader from './NetworkListHeader';
 import NetworkListItem from './NetworkListItem';
 
+import ChainSelectorTooltip from '../ChainSelectorTooltip';
+import DottedLine from '../DottedLine';
+
 import type {
   IPureChainSelectorSectionListItem,
   IServerNetworkMatch,
@@ -32,7 +35,7 @@ const ListEmptyComponent = () => {
   const intl = useIntl();
   return (
     <Empty
-      icon="SearchOutline"
+      illustration="BlockQuestionMark"
       title={intl.formatMessage({
         id: ETranslations.global_no_results,
       })}
@@ -125,24 +128,22 @@ function NetworksSectionList() {
               justifyContent="space-between"
               alignItems="center"
             >
-              <Tooltip
-                placement="bottom-start"
-                renderContent={intl.formatMessage({
-                  id: ETranslations.network_auto_detection_tip,
-                })}
-                renderTrigger={
-                  <SectionList.SectionHeader
-                    title={item.section.title}
-                    px="$0"
-                    style={{
-                      textDecorationLine: 'underline',
-                      textDecorationColor: '$textSubdued',
-                      textDecorationStyle: 'dotted',
-                    }}
-                  />
-                }
-              />
-              <XStack gap="$3" alignItems="center">
+              <Stack flex={1} mr="$2" alignItems="flex-start">
+                <ChainSelectorTooltip
+                  renderContent={intl.formatMessage({
+                    id: ETranslations.network_auto_detection_tip,
+                  })}
+                  renderTrigger={
+                    <Stack>
+                      <SizableText size="$headingSm" color="$textSubdued">
+                        {item.section.title}
+                      </SizableText>
+                      <DottedLine mt={1} />
+                    </Stack>
+                  }
+                />
+              </Stack>
+              <XStack flexShrink={0} gap="$3" alignItems="center">
                 <Currency
                   hideValue
                   numberOfLines={1}

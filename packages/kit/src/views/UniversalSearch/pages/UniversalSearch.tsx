@@ -650,7 +650,7 @@ export function UniversalSearch({
               renderSectionFooter={renderSectionFooter}
               ListEmptyComponent={
                 <Empty
-                  icon="SearchOutline"
+                  illustration="QuestionMark"
                   title={intl.formatMessage({
                     id: ETranslations.global_no_results,
                   })}

@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 
 import {
+  CommonActions,
   useNavigation as useReactNavigation,
   useRoute,
 } from '@react-navigation/native';
@@ -33,6 +34,17 @@ export function useMarketDetailBackNavigation() {
 
     // Check if the previous route is Market home
     const state = reactNavigation.getState();
+
+    // If no previous route exists (e.g., direct URL access), reset to Market home
+    if (state && state.routes && state.routes.length <= 1) {
+      reactNavigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [{ name: ETabMarketRoutes.TabMarket }],
+        }),
+      );
+      return;
+    }
 
     if (state && state.routes && state.index > 0) {
       const routes = state.routes;

@@ -48,10 +48,6 @@ function BaseStickyHeader({ firstTabName }: { firstTabName: string }) {
     currentHeader = holdersHeader;
   }
 
-  return (
-    <Stack pointerEvents="none" h={40}>
-      {currentHeader}
-    </Stack>
-  );
+  return <Stack pointerEvents="none">{currentHeader}</Stack>;
 }
 export const StickyHeader = memo(BaseStickyHeader);

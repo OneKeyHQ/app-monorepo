@@ -14,7 +14,7 @@ function HoldersHeaderSmallBase() {
   const { styles } = useHoldersLayoutSmall();
 
   return (
-    <XStack px="$4" py="$3" alignItems="center" gap="$3">
+    <XStack px="$5" py="$3" alignItems="center" gap="$3">
       <SizableText {...commonTextProps} {...styles.address}>
         {intl.formatMessage({
           id: ETranslations.global_address,

@@ -128,8 +128,12 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
 
   // Check if token needs approval (native tokens don't need approval)
   const needsApproval = useMemo(
-    () => tokenInfo && !tokenInfo.isNative,
-    [tokenInfo],
+    () =>
+      tokenInfo &&
+      !tokenInfo.isNative &&
+      bulkSendMode === EBulkSendMode.OneToMany &&
+      transfersInfo.length > 1,
+    [tokenInfo, bulkSendMode, transfersInfo.length],
   );
 
   // Get BulkSend contract address for current network
@@ -439,8 +443,7 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
             }}
           >
             {media.gtMd ? (
-              // Desktop: Show Total amount on the left
-              <YStack gap="$1">
+              <YStack gap="$1" h="$10" justifyContent="center">
                 <SizableText size="$bodySm" color="$textSubdued">
                   {intl.formatMessage({
                     id: ETranslations.wallet_bulk_send_total_amount,

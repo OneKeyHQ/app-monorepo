@@ -4,6 +4,7 @@ import { useFocusEffect, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
+  DatePicker,
   Page,
   RefreshControl,
   ScrollView,
@@ -12,13 +13,12 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import type { IDateRange } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
-import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useRedirectWhenNotLoggedIn } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useRedirectWhenNotLoggedIn';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IHardwareCumulativeRewards,
   IHardwareRecordItem,
@@ -26,14 +26,13 @@ import type {
 import {
   EModalReferFriendsRoutes,
   EModalRoutes,
-  ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import {
-  BreadcrumbSection,
   ExportButton,
   FilterButton,
+  ReferFriendsDetailHeader,
   ReferFriendsPageContainer,
 } from '../../components';
 import { useRewardFilter } from '../../hooks/useRewardFilter';
@@ -100,19 +99,84 @@ function HardwareSalesRewardPageWrapper() {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
 
   // Filter state
-  const { filterState, updateFilter } = useRewardFilter();
+  const {
+    filterState,
+    updateFilter,
+    setCustomDateRange,
+    clearCustomDateRange,
+    datePickerValue,
+  } = useRewardFilter({
+    startTime: new Date('2024-01-01T00:00:00.000').getTime(),
+    endTime: (() => {
+      const d = new Date();
+      d.setHours(23, 59, 59, 999);
+      return d.getTime();
+    })(),
+  });
 
-  const headerRight = useMemo(
+  // DatePicker intermediate state
+  const [intermediateDateRange, setIntermediateDateRange] =
+    useState<IDateRange | null>(null);
+
+  const handleDateRangeChange = useCallback(
+    (range: IDateRange) => {
+      if (range.start && range.end) {
+        const start = new Date(range.start);
+        start.setHours(0, 0, 0, 0);
+        const end = new Date(range.end);
+        end.setHours(23, 59, 59, 999);
+        setCustomDateRange(start.getTime(), end.getTime());
+        setIntermediateDateRange(null);
+      } else if (range.start) {
+        setIntermediateDateRange(range);
+      } else {
+        setIntermediateDateRange(null);
+        clearCustomDateRange();
+      }
+    },
+    [setCustomDateRange, clearCustomDateRange],
+  );
+
+  const currentDatePickerValue = intermediateDateRange ?? datePickerValue;
+  const maxDate = useMemo(() => new Date(), []);
+
+  const effectiveTimeRange =
+    filterState.startTime && filterState.endTime
+      ? undefined
+      : filterState.timeRange;
+
+  const toolbar = useMemo(
     () => (
-      <XStack gap="$2">
-        <FilterButton filterState={filterState} onFilterChange={updateFilter} />
-        <ExportButton
-          timeRange={filterState.timeRange}
-          inviteCode={filterState.inviteCode}
-        />
-      </XStack>
+      <>
+        <YStack width={240}>
+          <DatePicker.Range
+            value={currentDatePickerValue}
+            onChange={handleDateRangeChange}
+            maxDate={maxDate}
+          />
+        </YStack>
+        <XStack gap="$3">
+          <FilterButton
+            filterState={filterState}
+            onFilterChange={updateFilter}
+          />
+          <ExportButton
+            timeRange={effectiveTimeRange}
+            inviteCode={filterState.inviteCode}
+            startTime={filterState.startTime}
+            endTime={filterState.endTime}
+          />
+        </XStack>
+      </>
     ),
-    [filterState, updateFilter],
+    [
+      currentDatePickerValue,
+      handleDateRangeChange,
+      maxDate,
+      filterState,
+      updateFilter,
+      effectiveTimeRange,
+    ],
   );
 
   const onRefresh = useCallback(async () => {
@@ -122,12 +186,16 @@ function HardwareSalesRewardPageWrapper() {
         [
           backgroundApiProxy.serviceReferralCode.getHardwareCumulativeRewards(
             filterState.inviteCode,
-            filterState.timeRange,
+            effectiveTimeRange,
+            filterState.startTime,
+            filterState.endTime,
           ),
           backgroundApiProxy.serviceReferralCode.getHardwareRecords(
             undefined,
-            filterState.timeRange,
+            effectiveTimeRange,
             filterState.inviteCode,
+            filterState.startTime,
+            filterState.endTime,
           ),
         ],
       );
@@ -139,7 +207,6 @@ function HardwareSalesRewardPageWrapper() {
       if (recordsResult.status === 'fulfilled') {
         const items = recordsResult.value.items || [];
         setHardwareRecords(items);
-        // Use last item's _id as cursor, undefined if no more data (items < limit)
         const hasMore = items.length >= 10;
         setCursor(hasMore ? items[items.length - 1]?._id : undefined);
       }
@@ -148,7 +215,12 @@ function HardwareSalesRewardPageWrapper() {
     } finally {
       setIsLoading(false);
     }
-  }, [filterState.inviteCode, filterState.timeRange]);
+  }, [
+    filterState.inviteCode,
+    effectiveTimeRange,
+    filterState.startTime,
+    filterState.endTime,
+  ]);
 
   const onLoadMore = useCallback(async () => {
     if (!cursor || isLoadingMore) {
@@ -159,8 +231,10 @@ function HardwareSalesRewardPageWrapper() {
       const result =
         await backgroundApiProxy.serviceReferralCode.getHardwareRecords(
           cursor,
-          filterState.timeRange,
+          effectiveTimeRange,
           filterState.inviteCode,
+          filterState.startTime,
+          filterState.endTime,
         );
       const items = result.items || [];
       setHardwareRecords((prev) => [...prev, ...items]);
@@ -172,7 +246,14 @@ function HardwareSalesRewardPageWrapper() {
     } finally {
       setIsLoadingMore(false);
     }
-  }, [cursor, isLoadingMore, filterState.timeRange, filterState.inviteCode]);
+  }, [
+    cursor,
+    isLoadingMore,
+    effectiveTimeRange,
+    filterState.inviteCode,
+    filterState.startTime,
+    filterState.endTime,
+  ]);
 
   const handleScroll = useCallback(
     (event: {
@@ -202,20 +283,12 @@ function HardwareSalesRewardPageWrapper() {
 
   return (
     <Page>
-      {platformEnv.isNative || md ? (
-        <Page.Header
-          title={intl.formatMessage({
-            id: ETranslations.referral_referred_type_3,
-          })}
-          headerRight={() => headerRight}
-        />
-      ) : (
-        <TabPageHeader
-          sceneName={EAccountSelectorSceneName.home}
-          tabRoute={ETabRoutes.ReferFriends}
-          hideHeaderLeft={platformEnv.isDesktop}
-        />
-      )}
+      <ReferFriendsDetailHeader
+        title={intl.formatMessage({
+          id: ETranslations.referral_referred_type_3,
+        })}
+        toolbar={toolbar}
+      />
       <Page.Body>
         <ReferFriendsPageContainer flex={1} position="relative">
           {cumulativeRewards === undefined ? (
@@ -241,18 +314,6 @@ function HardwareSalesRewardPageWrapper() {
               onScroll={handleScroll}
               scrollEventThrottle={16}
             >
-              {/* Breadcrumb for desktop */}
-              {!platformEnv.isNative && !md ? (
-                <XStack px="$5" py="$5" jc="space-between" ai="center">
-                  <BreadcrumbSection
-                    secondItemLabel={intl.formatMessage({
-                      id: ETranslations.referral_referred_type_3,
-                    })}
-                  />
-                  {headerRight}
-                </XStack>
-              ) : null}
-
               {/* Hardware Sales Reward Header */}
               <HardwareSalesRewardHeader
                 cumulativeRewards={cumulativeRewards}

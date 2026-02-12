@@ -145,6 +145,7 @@ export function DesktopTabItem(
   }, []);
   const reloadOnPress = useCallback(
     (e: GestureResponderEvent) => {
+      setIsHovered(false);
       if (selected) {
         // If there's a specific "when selected" callback, use it first
         if (onPressWhenSelected) {
@@ -194,12 +195,7 @@ export function DesktopTabItem(
         }
       >
         {icon ? (
-          <XStack
-            flexShrink={0}
-            animateOnly={['transform', 'color']}
-            animation="quick"
-            scale={isHovered || isContainerHovered ? 1.1 : 1}
-          >
+          <XStack className="sidebar-tab-item-icon" flexShrink={0}>
             <Icon
               flexShrink={0}
               name={icon}

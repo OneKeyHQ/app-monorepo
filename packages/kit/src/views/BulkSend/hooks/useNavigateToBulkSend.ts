@@ -33,7 +33,7 @@ export function useNavigateToBulkSend() {
         platformEnv.isExtensionUiPopup ||
         platformEnv.isExtensionUiSidePanel
       ) {
-        const path = '/bulk-send';
+        const path = '/bulk-send-addresses';
 
         await backgroundApiProxy.serviceApp.openExtensionExpandTab({
           path,

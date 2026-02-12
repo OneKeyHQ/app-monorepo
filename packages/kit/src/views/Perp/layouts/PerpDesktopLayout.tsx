@@ -26,10 +26,14 @@ function PerpDesktopLayout() {
   const [isOrderBookVisible, setIsOrderBookVisible] = useState(true);
   return (
     <ScrollView flex={1}>
-      <YStack bg="$bgApp">
+      <YStack>
         <PerpTips />
         <FavoritesBar />
-        <XStack flex={1}>
+        <XStack
+          flex={1}
+          borderBottomWidth="$px"
+          borderBottomColor="$borderSubdued"
+        >
           <YStack
             flex={1}
             borderRightWidth="$px"
@@ -71,13 +75,13 @@ function PerpDesktopLayout() {
                         p="$0"
                         h={30}
                         w={16}
+                        cursor="default"
                         hoverStyle={{
                           borderColor: '$border',
                         }}
                         pressStyle={{
                           borderColor: '$border',
                         }}
-                        cursor="pointer"
                         onPress={() => setIsOrderBookVisible((prev) => !prev)}
                       />
                     </Stack>

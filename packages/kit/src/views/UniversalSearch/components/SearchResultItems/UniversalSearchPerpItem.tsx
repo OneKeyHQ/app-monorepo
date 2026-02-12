@@ -19,7 +19,8 @@ export function UniversalSearchPerpItem({
 }: IUniversalSearchPerpItemProps) {
   const navigation = useAppNavigation();
   const universalSearchActions = useUniversalSearchActions();
-  const { assetType, logoUrl, name, maxLeverage, midPx } = item.payload;
+  const { assetType, logoUrl, name, maxLeverage, midPx, subtitle } =
+    item.payload;
 
   const isPerpsType = assetType === 'perps';
   // For perps type, coin is just name; for xyz type, coin needs prefix
@@ -76,21 +77,41 @@ export function UniversalSearchPerpItem({
             >
               {name}
             </SizableText>
-            <XStack
-              borderRadius="$1"
-              bg="$bgInfo"
-              justifyContent="center"
-              alignItems="center"
-              px="$1.5"
-            >
-              <SizableText
-                fontSize={10}
-                alignSelf="center"
-                color="$textInfo"
-                lineHeight={16}
+            <XStack gap="$1">
+              <XStack
+                borderRadius="$1"
+                bg="$bgStrong"
+                justifyContent="center"
+                alignItems="center"
+                px="$1.5"
               >
-                {tag}
-              </SizableText>
+                <SizableText
+                  fontSize={10}
+                  alignSelf="center"
+                  color="$textSubdued"
+                  lineHeight={16}
+                >
+                  {tag}
+                </SizableText>
+              </XStack>
+              {subtitle ? (
+                <XStack
+                  borderRadius="$1"
+                  bg="$bgInfo"
+                  justifyContent="center"
+                  alignItems="center"
+                  px="$1.5"
+                >
+                  <SizableText
+                    fontSize={10}
+                    alignSelf="center"
+                    color="$textInfo"
+                    lineHeight={16}
+                  >
+                    {subtitle}
+                  </SizableText>
+                </XStack>
+              ) : null}
             </XStack>
           </XStack>
         }

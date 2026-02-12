@@ -18,7 +18,7 @@ import {
   usePerpsAllAssetCtxsAtom,
   usePerpsAllAssetsFilteredAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
-import type { IPerpDynamicTab } from '@onekeyhq/kit-bg/src/services/ServiceWebviewPerp/ServiceWebviewPerp';
+
 import {
   usePerpTokenSelectorConfigPersistAtom,
   usePerpTokenSelectorTabsAtom,
@@ -71,17 +71,20 @@ function TabItem({
   const { handleItemLayout } = useScrollableFilterBar();
   return (
     <XStack
-      pb="$3"
-      pl="$3"
-      pr="$3"
-      borderBottomWidth={isFocused ? '$0.5' : '$0'}
-      borderBottomColor="$borderActive"
+      alignItems="center"
+      justifyContent="center"
+      px="$2.5"
+      py="$1.5"
+      borderRadius="$full"
+      userSelect="none"
+      cursor="default"
+      backgroundColor={isFocused ? '$bgActive' : '$transparent'}
       onPress={onPress}
-      cursor="pointer"
       onLayout={(event: LayoutChangeEvent) => handleItemLayout(id, event)}
     >
       <SizableText
-        size="$headingXs"
+        numberOfLines={1}
+        size="$bodyMdMedium"
         color={isFocused ? '$text' : '$textSubdued'}
       >
         {name}
@@ -128,8 +131,7 @@ function MobileTokenSelectorModal({
   const tabLabels = useMemo(
     () => ({
       favorites: intl.formatMessage({ id: ETranslations.perp_tab_favs }),
-      all: 'PERPS',
-      hip3: 'HIP3',
+      all: intl.formatMessage({ id: ETranslations.perps_token_selector_perps }),
     }),
     [intl],
   );
@@ -221,7 +223,6 @@ function MobileTokenSelectorModal({
 
     const combinedEntries = assetsByDexTyped.flatMap(
       (assets: IPerpsUniverse[], dexIndex: number) => {
-        if (activeTab === 'hip3' && dexIndex !== 1) return [];
         const ctxs = assetCtxsByDexTyped[dexIndex] || [];
         return assets.map((asset, index) => {
           const normalizedAssetId =
@@ -297,16 +298,9 @@ function MobileTokenSelectorModal({
     selectorConfig?.field,
   ]);
 
-  // Compute visible dynamic tabs (those with matching tokens)
-  const visibleDynamicTabs = useMemo<IPerpDynamicTab[]>(() => {
-    const assetsByDexTyped: IPerpsUniverse[][] = assetsByDex || [];
-    const allAssetNames = new Set(
-      assetsByDexTyped.flatMap((assets) => assets.map((a) => a.name)),
-    );
-    return (dynamicTabsRaw ?? []).filter((tab) =>
-      tab.tokens.some((token) => allAssetNames.has(token)),
-    );
-  }, [assetsByDex, dynamicTabsRaw]);
+  // Show all server-configured dynamic tabs regardless of search results.
+  // Filtering by search-filtered assetsByDex would hide tabs during search.
+  const visibleDynamicTabs = dynamicTabs;
 
   usePerpActiveTabValidation({
     activeTab,
@@ -378,7 +372,6 @@ function MobileTokenSelectorModal({
         }}
       />
       <Stack
-        mb="$2"
         borderBottomWidth="$px"
         borderBottomColor="$borderSubdued"
         flexShrink={0}
@@ -387,8 +380,9 @@ function MobileTokenSelectorModal({
           selectedItemId={activeTab}
           itemGap="$2"
           itemPr="$3"
+          contentContainerStyle={{ px: '$4', pb: '$2.5' }}
         >
-          {(['favorites', 'all', 'hip3'] as const).map((tabKey) => (
+          {(['favorites', 'all'] as const).map((tabKey) => (
             <TabItem
               key={tabKey}
               id={tabKey}
@@ -411,7 +405,7 @@ function MobileTokenSelectorModal({
       <XStack
         px="$5"
         pb="$3"
-        pt="$1"
+        pt="$3"
         justifyContent="space-between"
         borderBottomWidth="$px"
         borderBottomColor="$borderSubdued"
@@ -420,8 +414,8 @@ function MobileTokenSelectorModal({
           gap="$1"
           alignItems="center"
           onPress={() => handleSortPress('volume24h')}
-          cursor="pointer"
           userSelect="none"
+          cursor="default"
         >
           <SizableText
             size="$bodySm"
@@ -443,8 +437,8 @@ function MobileTokenSelectorModal({
           gap="$1"
           alignItems="center"
           onPress={() => handleSortPress('change24hPercent')}
-          cursor="pointer"
           userSelect="none"
+          cursor="default"
         >
           <SizableText
             size="$bodySm"

@@ -45,7 +45,6 @@ export const OrderTypeSelector = memo<IOrderTypeSelectorProps>(
         })}
         renderTrigger={({ onPress, label, disabled: disabledTrigger }) => (
           <XStack
-            cursor="pointer"
             onPress={onPress}
             disabled={disabledTrigger}
             height={isMobile ? 32 : 30}
@@ -55,10 +54,11 @@ export const OrderTypeSelector = memo<IOrderTypeSelectorProps>(
             justifyContent="space-between"
             px="$3"
             flex={1}
+            cursor="default"
           >
             <SizableText size="$bodyMdMedium">{label}</SizableText>
             <Icon
-              name="ChevronTriangleDownSmallOutline"
+              name="ChevronDownSmallOutline"
               color="$iconSubdued"
               size="$4"
             />

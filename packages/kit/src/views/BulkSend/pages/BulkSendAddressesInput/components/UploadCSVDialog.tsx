@@ -278,16 +278,7 @@ function UploadCSVContent({ onUploaded }: IUploadCSVContentProps) {
       </Stack>
 
       {/* Template Info Row */}
-      <XStack
-        bg="$bgSubdued"
-        borderWidth="$px"
-        borderColor="$borderSubdued"
-        borderRadius="$3"
-        px="$4"
-        py="$3.5"
-        alignItems="center"
-        gap="$2"
-      >
+      <XStack py="$3.5" alignItems="center" gap="$2">
         <Icon name="InfoCircleOutline" size="$5" color="$iconSubdued" />
         <SizableText size="$bodyMdMedium" flex={1}>
           {intl.formatMessage({

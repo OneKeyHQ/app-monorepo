@@ -820,14 +820,21 @@ export default class Vault extends VaultBase {
 
     const recipients = transfersInfo.map((t) => t.to);
 
+    // Use ViaContract by default (fewer notifications for sender).
+    // Fall back to direct transferFrom for fee-on-transfer tokens.
+    const isFeeOnTransfer = transfersInfo[0].isFeeOnTransferToken ?? false;
+
     if (isSameAmount) {
-      // Use sendTokenSameAmount for better gas efficiency
       const amountOnChain = chainValueUtils.convertTokenAmountToChainValue({
         token: tokenInfo,
         value: transfersInfo[0].amount,
       });
 
-      const data = bulkSendInterface.encodeFunctionData('sendTokenSameAmount', [
+      const methodName = isFeeOnTransfer
+        ? 'sendTokenSameAmount'
+        : 'sendTokenSameAmountViaContract';
+
+      const data = bulkSendInterface.encodeFunctionData(methodName, [
         tokenInfo.address,
         recipients,
         amountOnChain,
@@ -841,7 +848,6 @@ export default class Vault extends VaultBase {
       };
     }
 
-    // Use sendToken for different amounts
     const transfers = transfersInfo.map((t) => ({
       recipient: t.to,
       amount: chainValueUtils.convertTokenAmountToChainValue({
@@ -850,7 +856,9 @@ export default class Vault extends VaultBase {
       }),
     }));
 
-    const data = bulkSendInterface.encodeFunctionData('sendToken', [
+    const methodName = isFeeOnTransfer ? 'sendToken' : 'sendTokenViaContract';
+
+    const data = bulkSendInterface.encodeFunctionData(methodName, [
       tokenInfo.address,
       transfers,
     ]);

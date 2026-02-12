@@ -33,6 +33,7 @@ const createPickerConfig = (
   maxDate?: Date,
   mode: 'single' | 'range' | 'multiple' = 'single',
   calendarMode?: 'static',
+  locale?: string,
 ) => {
   const config: React.ComponentProps<typeof DatePickerProvider>['config'] = {
     selectedDates,
@@ -48,6 +49,7 @@ const createPickerConfig = (
       mode: calendarMode,
       offsets: mode === 'range' ? [1] : undefined,
     },
+    locale: locale ? { locale } : undefined,
   };
 
   return config;
@@ -86,6 +88,7 @@ function usePickerI18n(
   return {
     placeholder: placeholderProp ?? fallback,
     title: titleProp ?? fallback,
+    locale: intl.locale,
   };
 }
 
@@ -164,7 +167,7 @@ function BasicDatePicker({
   floatingPanelProps,
   sheetProps,
 }: IDatePickerProps) {
-  const { placeholder, title } = usePickerI18n(
+  const { placeholder, title, locale } = usePickerI18n(
     placeholderProp,
     titleProp,
     ETranslations.global_select_date,
@@ -186,8 +189,16 @@ function BasicDatePicker({
 
   const config = useMemo(
     () =>
-      createPickerConfig(selectedDates, handleDatesChange, minDate, maxDate),
-    [selectedDates, handleDatesChange, minDate, maxDate],
+      createPickerConfig(
+        selectedDates,
+        handleDatesChange,
+        minDate,
+        maxDate,
+        'single',
+        undefined,
+        locale,
+      ),
+    [selectedDates, handleDatesChange, minDate, maxDate, locale],
   );
 
   return (
@@ -229,7 +240,7 @@ function RangePicker({
   floatingPanelProps,
   sheetProps,
 }: IRangePickerProps) {
-  const { placeholder, title } = usePickerI18n(
+  const { placeholder, title, locale } = usePickerI18n(
     placeholderProp,
     titleProp,
     ETranslations.global_select_date_range,
@@ -267,8 +278,10 @@ function RangePicker({
         minDate,
         maxDate,
         'range',
+        undefined,
+        locale,
       ),
-    [selectedDates, handleDatesChange, minDate, maxDate],
+    [selectedDates, handleDatesChange, minDate, maxDate, locale],
   );
 
   return (
@@ -314,7 +327,7 @@ function YearPicker({
   floatingPanelProps,
   sheetProps,
 }: IYearPickerProps) {
-  const { placeholder, title } = usePickerI18n(
+  const { placeholder, title, locale } = usePickerI18n(
     placeholderProp,
     titleProp,
     ETranslations.global_select_year,
@@ -343,8 +356,9 @@ function YearPicker({
         maxDate,
         'single',
         'static',
+        locale,
       ),
-    [selectedDates, handleDatesChange, minDate, maxDate],
+    [selectedDates, handleDatesChange, minDate, maxDate, locale],
   );
 
   const handleYearSelect = useCallback(
@@ -394,7 +408,7 @@ function MonthPicker({
   floatingPanelProps,
   sheetProps,
 }: IMonthPickerProps) {
-  const { placeholder, title } = usePickerI18n(
+  const { placeholder, title, locale } = usePickerI18n(
     placeholderProp,
     titleProp,
     ETranslations.global_select_month,
@@ -423,8 +437,9 @@ function MonthPicker({
         maxDate,
         'single',
         'static',
+        locale,
       ),
-    [selectedDates, handleDatesChange, minDate, maxDate],
+    [selectedDates, handleDatesChange, minDate, maxDate, locale],
   );
 
   const handleMonthSelect = useCallback(
@@ -474,7 +489,7 @@ function MultiSelectPicker({
   floatingPanelProps,
   sheetProps,
 }: IMultiSelectPickerProps) {
-  const { placeholder, title } = usePickerI18n(
+  const { placeholder, title, locale } = usePickerI18n(
     placeholderProp,
     titleProp,
     ETranslations.global_select_dates,
@@ -497,8 +512,10 @@ function MultiSelectPicker({
         minDate,
         maxDate,
         'multiple',
+        undefined,
+        locale,
       ),
-    [value, handleDatesChange, minDate, maxDate],
+    [value, handleDatesChange, minDate, maxDate, locale],
   );
 
   return (

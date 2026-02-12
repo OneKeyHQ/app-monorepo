@@ -288,6 +288,22 @@ export class IndexedDBPromised<
     return store.getAllKeys(query, count);
   }
 
+  async getAllEntries<Name extends StoreNames<DBTypes>>(
+    storeName: Name,
+  ): Promise<Map<string, StoreValue<DBTypes, Name>>> {
+    const tx = await this.createBucketTransaction([storeName], 'readonly');
+    const store = tx.objectStore(storeName);
+    const [keys, values] = await Promise.all([
+      store.getAllKeys(),
+      store.getAll(),
+    ]);
+    const map = new Map<string, StoreValue<DBTypes, Name>>();
+    for (let i = 0; i < keys.length; i++) {
+      map.set(String(keys[i]), values[i]);
+    }
+    return map;
+  }
+
   async getAllKeysFromIndex<
     Name extends StoreNames<DBTypes>,
     IndexName extends IndexNames<DBTypes, Name>,

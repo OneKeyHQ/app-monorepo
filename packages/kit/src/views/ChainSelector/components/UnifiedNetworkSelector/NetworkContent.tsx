@@ -1,3 +1,4 @@
+import type { Dispatch, SetStateAction } from 'react';
 import { useCallback, useEffect } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -34,6 +35,9 @@ type INetworkContentProps = {
   onAddCustomNetwork?: () => void;
   onEditCustomNetwork?: (network: IServerNetwork) => void;
   onFrequentlyUsedItemsChange?: (networks: IServerNetwork[]) => void;
+  searchText?: string;
+  setSearchText?: Dispatch<SetStateAction<string>>;
+  accountAddress?: string;
 };
 
 export function NetworkContent({
@@ -46,6 +50,9 @@ export function NetworkContent({
   onAddCustomNetwork,
   onEditCustomNetwork,
   onFrequentlyUsedItemsChange,
+  searchText,
+  setSearchText,
+  accountAddress,
 }: INetworkContentProps) {
   const {
     result: {
@@ -75,7 +82,7 @@ export function NetworkContent({
             accounts: [
               {
                 accountId: indexedAccountId ?? accountId ?? '',
-                accountAddress: undefined,
+                accountAddress,
                 networkId: networkId ?? '',
                 indexedAccountId,
               },
@@ -116,7 +123,14 @@ export function NetworkContent({
         zeroValue: true,
       };
     },
-    [accountId, networkIds, walletId, indexedAccountId, networkId],
+    [
+      accountId,
+      networkIds,
+      walletId,
+      indexedAccountId,
+      networkId,
+      accountAddress,
+    ],
     {
       initResult: {
         chainSelectorNetworks: defaultChainSelectorNetworks,
@@ -249,6 +263,8 @@ export function NetworkContent({
       onAddCustomNetwork={onAddCustomNetwork}
       onEditCustomNetwork={onEditCustomNetwork}
       onFrequentlyUsedItemsChange={handleFrequentlyUsedItemsChange}
+      searchText={searchText}
+      setSearchText={setSearchText}
     />
   );
 }

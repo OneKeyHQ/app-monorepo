@@ -28,7 +28,11 @@ const { nowId } = require('./lib/id');
 const { findChromiumExecutable } = require('./lib/chromium');
 const { startStaticServer } = require('./lib/staticServer');
 const { postSlackWebhook } = require('./lib/slack');
-const { ensurePerfServerRunning, checkPerfServer, stopChild } = require('./lib/perfServer');
+const {
+  ensurePerfServerRunning,
+  checkPerfServer,
+  stopChild,
+} = require('./lib/perfServer');
 const {
   ensureSessionsDirWritable,
   listSessionIds,
@@ -36,7 +40,11 @@ const {
   waitForMark,
   readSessionMetrics,
 } = require('./lib/session');
-const { aggregateRuns, checkRegression, extractDerivedDebugMetrics } = require('./lib/regression');
+const {
+  aggregateRuns,
+  checkRegression,
+  extractDerivedDebugMetrics,
+} = require('./lib/regression');
 
 function hasFlag(name) {
   return process.argv.includes(name);
@@ -98,21 +106,19 @@ async function buildWeb({ repoRoot, outputDir }) {
   const skip = process.env.PERF_SKIP_BUILD === '1';
   if (skip) return;
 
-  const res = await execCmd(
-    'yarn',
-    ['workspace', '@onekeyhq/web', 'build'],
-    {
-      cwd: repoRoot,
-      env: {
-        PERF_MONITOR_ENABLED: '1',
-      },
-      timeoutMs: Number(process.env.PERF_WEB_BUILD_TIMEOUT_MS) || 30 * 60 * 1000,
-      stdout: (d) => process.stdout.write(d),
-      stderr: (d) => process.stderr.write(d),
+  const res = await execCmd('yarn', ['workspace', '@onekeyhq/web', 'build'], {
+    cwd: repoRoot,
+    env: {
+      PERF_MONITOR_ENABLED: '1',
     },
-  );
+    timeoutMs: Number(process.env.PERF_WEB_BUILD_TIMEOUT_MS) || 30 * 60 * 1000,
+    stdout: (d) => process.stdout.write(d),
+    stderr: (d) => process.stderr.write(d),
+  });
   if (res.code !== 0) {
-    throw new Error(`web build failed with exit code ${res.code} (output=${outputDir})`);
+    throw new Error(
+      `web build failed with exit code ${res.code} (output=${outputDir})`,
+    );
   }
 }
 
@@ -249,7 +255,13 @@ async function main() {
 
   const thresholdsPath =
     process.env.PERF_THRESHOLDS_PATH ||
-    path.join(repoRoot, 'development', 'perf-ci', 'thresholds', 'web.release.json');
+    path.join(
+      repoRoot,
+      'development',
+      'perf-ci',
+      'thresholds',
+      'web.release.json',
+    );
 
   ensureDir(outputDir);
   ensureDir(derivedDir);
@@ -341,9 +353,14 @@ async function main() {
         outputDir,
         oneshot: serverOneshot,
       });
-      log(perfServer.started ? 'perf-server started' : 'perf-server already running', {
-        outputDir: perfServer.health?.outputDir,
-      });
+      log(
+        perfServer.started
+          ? 'perf-server started'
+          : 'perf-server already running',
+        {
+          outputDir: perfServer.health?.outputDir,
+        },
+      );
     } else {
       log('checking perf-server (autostart disabled)...');
       await checkPerfServer(serverUrl);
@@ -396,7 +413,11 @@ async function main() {
         log,
       });
       runs.push(r);
-      writeJson(path.join(outputDir, 'runs.json'), { startedAt, sessionsDir, runs });
+      writeJson(path.join(outputDir, 'runs.json'), {
+        startedAt,
+        sessionsDir,
+        runs,
+      });
     }
 
     const sessionIds = runs.map((r) => r.sessionId).filter(Boolean);
@@ -413,7 +434,12 @@ async function main() {
       // eslint-disable-next-line no-await-in-loop
       log('derive-session', { sessionId });
       // eslint-disable-next-line no-await-in-loop
-      const dj = await deriveSession({ repoRoot, sessionsDir, sessionId, outPath });
+      const dj = await deriveSession({
+        repoRoot,
+        sessionsDir,
+        sessionId,
+        outPath,
+      });
       derived.push({ sessionId, derivedPath: outPath, derived: dj });
     }
 
