@@ -194,7 +194,7 @@ const OnboardingLayoutBody = memo(
       [scrollable],
     );
 
-    const gtMd = useMedia();
+    const { gtMd } = useMedia();
     return (
       <YStack
         flex={1}
