@@ -16,3 +16,7 @@ shimArrayFlatMap();
 const { shim: shimArrayToSorted } = require('array.prototype.tosorted');
 
 shimArrayToSorted();
+
+const { shim: shimArrayToReversed } = require('array.prototype.toreversed');
+
+shimArrayToReversed();
