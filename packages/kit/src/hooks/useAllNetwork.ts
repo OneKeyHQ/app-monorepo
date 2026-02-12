@@ -948,6 +948,7 @@ function useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
     ],
     {
       initResult,
+      revalidateOnFocus: true,
     },
   );
 
