@@ -73,6 +73,9 @@ const PADDING_VERTICAL = 12;
 const PADDING_HORIZONTAL = 12;
 const PADDING_HORIZONTAL_WITH_LINE_NUMBERS = 4;
 const LINE_NUMBER_WIDTH = 50;
+// On native, RNTextInput (UITextView) has extra internal text inset compared to
+// SizableText (UILabel). This offset compensates so line numbers align with the text.
+const NATIVE_LINE_NUMBER_TOP_OFFSET = 4;
 // Allow 2 lines of text in singleLine mode for wrapped long addresses
 const SINGLE_LINE_HEIGHT = LINE_HEIGHT * 2 + PADDING_VERTICAL * 2;
 
@@ -310,7 +313,10 @@ function LineNumberedTextArea({
               <YStack
                 width={LINE_NUMBER_WIDTH}
                 flexShrink={0}
-                pt={PADDING_VERTICAL}
+                pt={
+                  PADDING_VERTICAL +
+                  (platformEnv.isNative ? NATIVE_LINE_NUMBER_TOP_OFFSET : 0)
+                }
                 pb={PADDING_VERTICAL}
               >
                 {(hasContent ? lines : ['']).map((_, index) => {
@@ -397,6 +403,7 @@ function LineNumberedTextArea({
                 value={value}
                 placeholder={platformEnv.isNative ? placeholder : undefined}
                 placeholderTextColor={placeholderColor}
+                allowFontScaling={false}
                 onChange={() => {
                   onInputTypeChange?.(EInputAddressChangeType.Manual);
                 }}
