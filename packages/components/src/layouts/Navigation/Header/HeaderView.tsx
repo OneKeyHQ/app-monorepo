@@ -40,31 +40,28 @@ function getHeaderTitle(
       : fallback;
 }
 
-const DesktopDragZoneBoxView =
-  platformEnv.isDesktopMac ||
-  platformEnv.isDesktopWin ||
-  platformEnv.isDesktopLinux
-    ? ({ disabled, children }: IDesktopDragZoneBoxProps) => {
-        const isModalPage = useIsOverlayPage();
+const DesktopDragZoneBoxView = platformEnv.isDesktopWithCustomTitleBar
+  ? ({ disabled, children }: IDesktopDragZoneBoxProps) => {
+      const isModalPage = useIsOverlayPage();
 
-        const [isFocus, setIsFocus] = useState(false);
+      const [isFocus, setIsFocus] = useState(false);
 
-        const handlePageEffect = useCallback(() => {
-          setIsFocus(true);
-          return () => {
-            setIsFocus(false);
-          };
-        }, []);
+      const handlePageEffect = useCallback(() => {
+        setIsFocus(true);
+        return () => {
+          setIsFocus(false);
+        };
+      }, []);
 
-        useFocusEffect(handlePageEffect);
+      useFocusEffect(handlePageEffect);
 
-        return (
-          <DesktopDragZoneBox disabled={disabled || !isFocus || isModalPage}>
-            {children}
-          </DesktopDragZoneBox>
-        );
-      }
-    : DesktopDragZoneBox;
+      return (
+        <DesktopDragZoneBox disabled={disabled || !isFocus || isModalPage}>
+          {children}
+        </DesktopDragZoneBox>
+      );
+    }
+  : DesktopDragZoneBox;
 
 const useHeaderHeight = platformEnv.isNativeIOS
   ? () => 52
