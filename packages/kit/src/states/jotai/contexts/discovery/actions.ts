@@ -764,7 +764,9 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
             isBookmark,
             type: 'normal',
           });
-          this.setCurrentWebTab.call(set, tabId ?? '');
+          if (!isInPlace) {
+            this.setCurrentWebTab.call(set, tabId ?? '');
+          }
         }
 
         if (!isNewTab && !isInPlace) {
