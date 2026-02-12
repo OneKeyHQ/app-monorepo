@@ -161,7 +161,7 @@ function BannerItem({
           </YStack>
         ) : null}
         {item.title && !item.description ? (
-          <SizableText size="$headingMd" flex={1} numberOfLines={2}>
+          <SizableText size="$headingMd" flex={1} numberOfLines={3}>
             {item.title}
           </SizableText>
         ) : null}
