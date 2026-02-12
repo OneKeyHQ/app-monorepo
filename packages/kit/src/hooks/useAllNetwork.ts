@@ -784,6 +784,7 @@ function useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
   indexedAccountId,
   withNetworksInfo = false,
   deferMs = 0,
+  enabledNetworks: enabledNetworksParam,
 }: {
   walletId: string;
   networkId?: string;
@@ -791,6 +792,7 @@ function useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
   indexedAccountId?: string;
   withNetworksInfo?: boolean;
   deferMs?: number;
+  enabledNetworks?: IServerNetwork[];
 }) {
   const initResult = useMemo(() => getEmptyEnabledNetworksResult(), []);
 
@@ -821,12 +823,20 @@ function useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
         await timerUtils.wait(deferMs);
       }
 
+      let enabledNetworksTemp = enabledNetworks;
+
+      if (enabledNetworksParam) {
+        enabledNetworksTemp = Object.fromEntries(
+          enabledNetworksParam.map((network) => [network.id, true]),
+        );
+      }
+
       const enabledNetworkIds = networks
         .filter((n) =>
           isEnabledNetworksInAllNetworks({
             networkId: n.id,
             disabledNetworks,
-            enabledNetworks,
+            enabledNetworks: enabledNetworksTemp,
             isTestnet: n.isTestnet,
           }),
         )
@@ -934,6 +944,7 @@ function useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
       indexedAccountId,
       withNetworksInfo,
       deferMs,
+      enabledNetworksParam,
     ],
     {
       initResult,

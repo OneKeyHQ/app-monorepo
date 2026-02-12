@@ -1,18 +1,11 @@
-import {
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type { ColorTokens } from '@onekeyhq/components';
 import {
-  CollapsibleTabContext,
+  HeaderScrollGestureWrapper,
   Icon,
   IconButton,
   Image,
@@ -42,7 +35,6 @@ import { type GestureResponderEvent, StyleSheet } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   clamp,
-  scrollTo,
   useAnimatedStyle,
   useSharedValue,
   withDecay,
@@ -211,13 +203,6 @@ function NativeBannerScroller({
   handleBannerOnPress: (item: IWalletBanner) => void;
   handleDismiss: (item: IWalletBanner) => void;
 }) {
-  // Access collapsible-tab-view context to programmatically drive vertical scroll
-  const tabsContext = useContext(CollapsibleTabContext);
-  const refMap = tabsContext?.refMap;
-  const focusedTab = tabsContext?.focusedTab;
-  const scrollYCurrent = tabsContext?.scrollYCurrent;
-  const contentInset = tabsContext?.contentInset ?? 0;
-
   // Track touch distance on JS thread to suppress onPress during drags.
   // Using JS-thread onTouchStart/onTouchMove instead of runOnJS from worklet
   // avoids async timing issues where onPress fires before runOnJS callback.
@@ -240,8 +225,6 @@ function NativeBannerScroller({
 
   const translateX = useSharedValue(0);
   const startTranslateX = useSharedValue(0);
-  const startScrollY = useSharedValue(0);
-  const isHorizontal = useSharedValue<boolean | undefined>(undefined);
 
   const [containerWidth, setContainerWidth] = useState(0);
 
@@ -259,59 +242,28 @@ function NativeBannerScroller({
   const panGesture = useMemo(
     () =>
       Gesture.Pan()
+        .activeOffsetX([-10, 10])
+        .failOffsetY([-10, 10])
         .onStart(() => {
           'worklet';
           startTranslateX.value = translateX.value;
-          startScrollY.value = scrollYCurrent?.value ?? 0;
-          isHorizontal.value = undefined;
         })
         .onUpdate((e) => {
           'worklet';
-          // Determine direction on first significant movement
-          if (isHorizontal.value === undefined) {
-            if (Math.abs(e.translationX) > 5 || Math.abs(e.translationY) > 5) {
-              isHorizontal.value =
-                Math.abs(e.translationX) > Math.abs(e.translationY);
-            }
-            return;
-          }
-
-          if (isHorizontal.value) {
-            // Horizontal: drive banner translateX
-            translateX.value = clamp(
-              startTranslateX.value + e.translationX,
-              -actualMaxTranslateX,
-              0,
-            );
-          } else if (refMap && focusedTab) {
-            // Vertical: programmatically scroll the underlying tab ScrollView
-            const ref = refMap[focusedTab.value];
-            if (ref) {
-              const nextY = startScrollY.value - e.translationY;
-              scrollTo(ref, 0, Math.max(0, nextY - contentInset), false);
-            }
-          }
+          translateX.value = clamp(
+            startTranslateX.value + e.translationX,
+            -actualMaxTranslateX,
+            0,
+          );
         })
         .onEnd((e) => {
           'worklet';
-          if (isHorizontal.value) {
-            translateX.value = withDecay({
-              velocity: e.velocityX,
-              clamp: [-actualMaxTranslateX, 0],
-            });
-          }
+          translateX.value = withDecay({
+            velocity: e.velocityX,
+            clamp: [-actualMaxTranslateX, 0],
+          });
         }),
-    [
-      translateX,
-      startTranslateX,
-      startScrollY,
-      isHorizontal,
-      actualMaxTranslateX,
-      refMap,
-      focusedTab,
-      scrollYCurrent,
-      contentInset,
-    ],
+    [translateX, startTranslateX, actualMaxTranslateX],
   );
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -329,35 +281,37 @@ function NativeBannerScroller({
   );
 
   return (
-    <YStack
-      bg="$bgApp"
-      overflow="hidden"
-      onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-    >
-      <GestureDetector gesture={panGesture}>
-        <Animated.View
-          style={[
-            {
-              flexDirection: 'row',
-              paddingHorizontal: BANNER_PADDING_H,
-              gap: BANNER_GAP,
-            },
-            animatedStyle,
-          ]}
-        >
-          {banners.map((item) => (
-            <BannerItem
-              key={item.id}
-              item={item}
-              onPress={wrappedHandleBannerOnPress}
-              onDismiss={handleDismiss}
-            />
-          ))}
-        </Animated.View>
-      </GestureDetector>
-    </YStack>
+    <HeaderScrollGestureWrapper>
+      <YStack
+        bg="$bgApp"
+        overflow="hidden"
+        onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+      >
+        <GestureDetector gesture={panGesture}>
+          <Animated.View
+            style={[
+              {
+                flexDirection: 'row',
+                paddingHorizontal: BANNER_PADDING_H,
+                gap: BANNER_GAP,
+              },
+              animatedStyle,
+            ]}
+          >
+            {banners.map((item) => (
+              <BannerItem
+                key={item.id}
+                item={item}
+                onPress={wrappedHandleBannerOnPress}
+                onDismiss={handleDismiss}
+              />
+            ))}
+          </Animated.View>
+        </GestureDetector>
+      </YStack>
+    </HeaderScrollGestureWrapper>
   );
 }
 

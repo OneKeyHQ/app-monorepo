@@ -701,6 +701,18 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
   const handleTokenPress = useCallback(
     (record: IFavoriteTokenDisplay) => {
       if (record.perpsCoin) {
+        if (
+          platformEnv.isExtensionUiPopup ||
+          platformEnv.isExtensionUiSidePanel
+        ) {
+          void backgroundApiProxy.serviceApp.openExtensionExpandTab({
+            path: '/perp',
+            params: {
+              coin: record.perpsCoin,
+            },
+          });
+          return;
+        }
         navigation.switchTab(ETabRoutes.Perp);
         void backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
           coin: record.perpsCoin,
@@ -711,6 +723,19 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
       const shortCode = networkUtils.getNetworkShortCode({
         networkId: record.chainId,
       });
+
+      if (
+        platformEnv.isExtensionUiPopup ||
+        platformEnv.isExtensionUiSidePanel
+      ) {
+        void backgroundApiProxy.serviceApp.openExtensionExpandTab({
+          path: `/market/token/${shortCode || record.chainId}/${record.contractAddress}`,
+          params: {
+            isNative: record.isNative,
+          },
+        });
+        return;
+      }
 
       navigation.switchTab(marketTab);
 

@@ -227,7 +227,11 @@ const SwapOldSwapBridgeLimitContainer = ({
     );
     return (
       <ScrollView flex={1} contentContainerStyle={{ flexGrow: 1 }}>
-        {headerContent ? <YStack pt="$8" pb="$4">{headerContent}</YStack> : null}
+        {headerContent ? (
+          <YStack pt="$8" pb="$4">
+            {headerContent}
+          </YStack>
+        ) : null}
         <XStack
           gap="$1"
           px="$5"
@@ -256,7 +260,11 @@ const SwapOldSwapBridgeLimitContainer = ({
       keyboardDismissMode="on-drag"
       ref={scrollViewRef}
     >
-      {headerContent ? <YStack pt="$8" pb="$4">{headerContent}</YStack> : null}
+      {headerContent ? (
+        <YStack pt="$8" pb="$4">
+          {headerContent}
+        </YStack>
+      ) : null}
       {mainContent}
     </ScrollView>
   );
