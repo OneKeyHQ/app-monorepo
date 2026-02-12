@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { Tabs, YStack } from '@onekeyhq/components';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
@@ -43,74 +43,6 @@ const useIsFirstFocus = () => {
   return isFirstFocus;
 };
 
-/**
- * Wheel event handler: when the Tabs.Container outer scroll hasn't fully
- * collapsed the header, intercept wheel-down events so the banner scrolls
- * away before the inner token-list Table begins scrolling. For scroll-up,
- * re-expand the header when inner lists are at their top.
- */
-function useHeaderScrollCoordination(
-  wrapperRef: React.RefObject<HTMLDivElement | null>,
-  enabled: boolean,
-) {
-  useEffect(() => {
-    if (platformEnv.isNative) return;
-    if (!enabled) return;
-
-    const wrapper = wrapperRef.current;
-    if (!wrapper) return;
-
-    const handleWheel = (e: WheelEvent) => {
-      const scrollEl = wrapper.querySelector(
-        '.onekey-tabs-container',
-      ) as HTMLElement | null;
-      if (!scrollEl) return;
-
-      const maxScroll = scrollEl.scrollHeight - scrollEl.clientHeight;
-      if (maxScroll <= 0) return;
-
-      // Scrolling down: collapse header first
-      if (e.deltaY > 0 && scrollEl.scrollTop < maxScroll - 1) {
-        e.preventDefault();
-        e.stopPropagation();
-        scrollEl.scrollTop = Math.min(
-          scrollEl.scrollTop + e.deltaY,
-          maxScroll,
-        );
-        return;
-      }
-
-      // Scrolling up: expand header when inner lists are at top
-      if (e.deltaY < 0 && scrollEl.scrollTop > 0) {
-        let target = e.target as HTMLElement | null;
-        let innerCanScrollUp = false;
-        while (target && target !== scrollEl) {
-          if (
-            target.scrollHeight > target.clientHeight + 1 &&
-            target.scrollTop > 1
-          ) {
-            innerCanScrollUp = true;
-            break;
-          }
-          target = target.parentElement;
-        }
-
-        if (!innerCanScrollUp) {
-          e.preventDefault();
-          e.stopPropagation();
-          scrollEl.scrollTop = Math.max(scrollEl.scrollTop + e.deltaY, 0);
-        }
-      }
-    };
-
-    wrapper.addEventListener('wheel', handleWheel, {
-      capture: true,
-      passive: false,
-    });
-    return () => wrapper.removeEventListener('wheel', handleWheel);
-  }, [wrapperRef, enabled]);
-}
-
 export function DesktopLayout({
   filterBarProps,
   selectedNetworkId,
@@ -126,9 +58,6 @@ export function DesktopLayout({
   } = useMarketTabsLogic(onTabChange);
 
   const isFocused = useIsFirstFocus();
-
-  const wrapperRef = useRef<HTMLDivElement>(null);
-  useHeaderScrollCoordination(wrapperRef, isFocused);
 
   const initialTabName = useMemo(() => {
     if (selectedTab === 'watchlist') return watchlistTabName;

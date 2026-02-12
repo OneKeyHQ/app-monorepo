@@ -847,8 +847,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           // On desktop, Discovery tab renders Dashboard (not browser with webviews).
           // Only MultiTabBrowser has actual webview content, so always switch
           // unless already on MultiTabBrowser.
-          needsSwitchTab =
-            currentTabName !== ETabRoutes.MultiTabBrowser;
+          needsSwitchTab = currentTabName !== ETabRoutes.MultiTabBrowser;
         } else {
           needsSwitchTab =
             currentTabName !== ETabRoutes.Discovery &&
