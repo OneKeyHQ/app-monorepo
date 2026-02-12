@@ -1,6 +1,6 @@
 import Svg, { Circle, Ellipse, Path, Rect } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
-const SvgGlobeXDark = (props: SvgProps) => (
+const SvgGlobeErrorDark = (props: SvgProps) => (
   <Svg fill="none" viewBox="0 0 180 180" accessibilityRole="image" {...props}>
     <Circle cx={93} cy={88} r={55} fill="#fff" />
     <Circle
@@ -43,4 +43,4 @@ const SvgGlobeXDark = (props: SvgProps) => (
     <Path stroke="#000" strokeWidth={6} d="m118 138 21-21M139 138l-21-21" />
   </Svg>
 );
-export default SvgGlobeXDark;
+export default SvgGlobeErrorDark;
