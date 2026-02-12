@@ -11,7 +11,8 @@ import {
   Stack,
   XStack,
   YStack,
-  popToMainRoute,
+  popModalPages,
+  rootNavigationRef,
   useUpdateEffect,
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -23,7 +24,7 @@ import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalRoutes, ERootRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -40,35 +41,42 @@ function OneKeyIdPage() {
   const logoutRef = useRef<() => Promise<void>>(logout);
   const isFocused = useRouteIsFocused();
 
-  const toPrimePage = useCallback(async () => {
-    if (isPrimeAvailable) {
-      if (platformEnv.isNative) {
-        await popToMainRoute();
-        await timerUtils.wait(350);
-        navigation.pushFullModal(EModalRoutes.PrimeModal, {
-          screen: EPrimePages.PrimeDashboard,
-        });
-      } else {
-        navigation.pushFullModal(EModalRoutes.PrimeModal, {
-          screen: EPrimePages.PrimeDashboard,
+  const popCurrentModal = useCallback(async () => {
+    await popModalPages();
+    await timerUtils.wait(350);
+  }, []);
+
+  const toPrimePage = useCallback(() => {
+    requestIdleCallback(async () => {
+      if (isPrimeAvailable) {
+        if (platformEnv.isNative) {
+          await popCurrentModal();
+        }
+        rootNavigationRef.current?.navigate(ERootRoutes.iOSFullScreen, {
+          screen: EModalRoutes.PrimeModal,
+          params: {
+            screen: EPrimePages.PrimeDashboard,
+          },
         });
       }
+    });
+  }, [isPrimeAvailable, popCurrentModal]);
+
+  const handleLoggedOutWhileFocused = useCallback(async () => {
+    if (!isLoggedIn && isFocused) {
+      await timerUtils.wait(300);
+      await popCurrentModal();
+      defaultLogger.prime.subscription.onekeyIdLogout({
+        reason:
+          'OneKeyIdPage: is focused and primePersistAtom is not logged in',
+      });
+      void logoutRef.current();
     }
-  }, [navigation, isPrimeAvailable]);
+  }, [isLoggedIn, isFocused, popCurrentModal]);
 
   useUpdateEffect(() => {
-    void (async () => {
-      if (!isLoggedIn && isFocused) {
-        await timerUtils.wait(300);
-        navigation.popStack();
-        defaultLogger.prime.subscription.onekeyIdLogout({
-          reason:
-            'OneKeyIdPage: is focused and primePersistAtom is not logged in',
-        });
-        void logoutRef.current();
-      }
-    })();
-  }, [isLoggedIn, navigation, isFocused]);
+    void handleLoggedOutWhileFocused();
+  }, [handleLoggedOutWhileFocused]);
 
   return (
     <Page scrollEnabled>
