@@ -412,6 +412,7 @@ function LineNumberedTextArea({
                 placeholder={platformEnv.isNative ? placeholder : undefined}
                 placeholderTextColor={placeholderColor}
                 allowFontScaling={false}
+                maxFontSizeMultiplier={1}
                 onFocus={handleFocus}
                 onChange={() => {
                   onInputTypeChange?.(EInputAddressChangeType.Manual);
