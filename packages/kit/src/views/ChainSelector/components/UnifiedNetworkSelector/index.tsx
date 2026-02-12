@@ -588,7 +588,6 @@ function UnifiedNetworkSelector() {
         ) : null}
         <Stack flex={1} display={activeTab === 'network' ? 'flex' : 'none'}>
           <NetworkContent
-            accountAddress={account?.address}
             walletId={walletId}
             accountId={accountId}
             indexedAccountId={indexedAccountId}

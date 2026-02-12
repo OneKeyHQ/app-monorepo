@@ -53,7 +53,6 @@ export function NetworkContent({
   onFrequentlyUsedItemsChange,
   searchText,
   setSearchText,
-  accountAddress,
 }: INetworkContentProps) {
   const {
     result: {
@@ -123,14 +122,7 @@ export function NetworkContent({
         zeroValue: true,
       };
     },
-    [
-      accountId,
-      networkIds,
-      walletId,
-      indexedAccountId,
-      networkId,
-      accountAddress,
-    ],
+    [accountId, networkIds, walletId, indexedAccountId],
     {
       initResult: {
         chainSelectorNetworks: defaultChainSelectorNetworks,
