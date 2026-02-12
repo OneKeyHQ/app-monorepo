@@ -26,20 +26,31 @@ export function useEarnRewards(filterState: IFilterState) {
     [],
   );
 
+  // Get the effective timeRange for API calls
+  // When using custom date range (startTime/endTime), don't pass timeRange
+  const effectiveTimeRange =
+    filterState.startTime && filterState.endTime
+      ? undefined
+      : filterState.timeRange;
+
   const onRefresh = useCallback(async () => {
     setIsLoading(true);
     const [salesResult, totalResult] = await Promise.allSettled([
       backgroundApiProxy.serviceReferralCode.getEarnReward(
         undefined,
         true,
-        filterState.timeRange,
+        effectiveTimeRange,
         filterState.inviteCode,
+        filterState.startTime,
+        filterState.endTime,
       ),
       backgroundApiProxy.serviceReferralCode.getEarnReward(
         undefined,
         undefined,
-        filterState.timeRange,
+        effectiveTimeRange,
         filterState.inviteCode,
+        filterState.startTime,
+        filterState.endTime,
       ),
     ]);
     const listBundles: (ISectionData[] | undefined)[] = [];
@@ -111,7 +122,7 @@ export function useEarnRewards(filterState: IFilterState) {
         setIsLoading(false);
       }
     }, 80);
-  }, [buildAccountNetworkKey, filterState.inviteCode, filterState.timeRange]);
+  }, [buildAccountNetworkKey, effectiveTimeRange, filterState.inviteCode, filterState.startTime, filterState.endTime]);
 
   useEffect(() => {
     isMountedRef.current = true;

@@ -764,6 +764,9 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
             isBookmark,
             type: 'normal',
           });
+          if (!isInPlace) {
+            this.setCurrentWebTab.call(set, tabId ?? '');
+          }
         }
 
         if (!isNewTab && !isInPlace) {
@@ -842,9 +845,16 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           currentRoute?.name === ERootRoutes.Main
             ? currentRoute.state?.routes?.[currentRoute.state?.index || 0]?.name
             : undefined;
-        needsSwitchTab =
-          currentTabName !== ETabRoutes.Discovery &&
-          currentTabName !== ETabRoutes.MultiTabBrowser;
+        if (platformEnv.isDesktop) {
+          // On desktop, Discovery tab renders Dashboard (not browser with webviews).
+          // Only MultiTabBrowser has actual webview content, so always switch
+          // unless already on MultiTabBrowser.
+          needsSwitchTab = currentTabName !== ETabRoutes.MultiTabBrowser;
+        } else {
+          needsSwitchTab =
+            currentTabName !== ETabRoutes.Discovery &&
+            currentTabName !== ETabRoutes.MultiTabBrowser;
+        }
       } catch (e) {
         // fallback to switch tab if navigation state is not available
         console.warn('Failed to detect current tab:', e);
