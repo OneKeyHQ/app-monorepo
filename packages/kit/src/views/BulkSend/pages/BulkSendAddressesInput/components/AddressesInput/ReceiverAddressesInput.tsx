@@ -5,10 +5,12 @@ import pLimit from 'p-limit';
 import { useIntl } from 'react-intl';
 
 import { Form } from '@onekeyhq/components';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useIsEnableTransferAllowList } from '@onekeyhq/kit/src/components/AddressInput/hooks';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import { useDebouncedValidation } from '@onekeyhq/kit/src/views/BulkSend/hooks/useDebouncedValidation';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { validateTokenAmount } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IAddressValidation } from '@onekeyhq/shared/types/address';
 import { EBulkSendMode, EReceiverMode } from '@onekeyhq/shared/types/bulkSend';
@@ -28,6 +30,7 @@ function ReceiverAddressesInput({ maxLines }: IReceiverAddressesInputProps) {
   const { selectedAccountId, selectedNetworkId, selectedToken, bulkSendMode } =
     useBulkSendAddressesInputContext();
   const { network } = useAccountData({ networkId: selectedNetworkId });
+  const isEnableTransferAllowList = useIsEnableTransferAllowList();
 
   const [errors, setErrors] = useState<ILineError[]>([]);
 
@@ -257,7 +260,7 @@ function ReceiverAddressesInput({ maxLines }: IReceiverAddressesInputProps) {
           }
         }
 
-        // Phase 3: Address risk detection (contract / scam) for valid, non-duplicate addresses
+        // Phase 3: Address risk detection + allowlist validation for valid, non-duplicate addresses
         if (validAddresses.length > 0 && selectedNetworkId) {
           const badgeResults = await Promise.all(
             validAddresses.map(({ index, address }) =>
@@ -276,7 +279,6 @@ function ReceiverAddressesInput({ maxLines }: IReceiverAddressesInputProps) {
                     isScam: badge.isScam,
                   };
                 } catch {
-                  // If badge check fails, skip — don't block the user
                   return { index, isContract: false, isScam: false };
                 }
               }),
@@ -298,6 +300,47 @@ function ReceiverAddressesInput({ maxLines }: IReceiverAddressesInputProps) {
                   id: ETranslations.send_contract_address_detected_warning,
                 }),
               });
+            }
+          }
+
+          // Allowlist validation — reject addresses not in address book
+          if (isEnableTransferAllowList) {
+            const isEvmNetwork = networkUtils.isEvmNetwork({
+              networkId: selectedNetworkId,
+            });
+            const allowListResults = await Promise.all(
+              validAddresses.map(({ index, address }) =>
+                limit(async () => {
+                  try {
+                    const addressBookItem =
+                      await backgroundApiProxy.serviceAddressBook.dangerouslyFindItemWithoutSafeCheck(
+                        {
+                          networkId: isEvmNetwork
+                            ? undefined
+                            : selectedNetworkId,
+                          address: address.trim(),
+                        },
+                      );
+                    return {
+                      index,
+                      isInAddressBook: !!addressBookItem,
+                    };
+                  } catch {
+                    return { index, isInAddressBook: true };
+                  }
+                }),
+              ),
+            );
+
+            for (const { index, isInAddressBook } of allowListResults) {
+              if (!isInAddressBook) {
+                lineErrors.push({
+                  lineNumber: index + 1,
+                  message: intl.formatMessage({
+                    id: ETranslations.wallet_bulk_send_error_address_not_in_allowlist,
+                  }),
+                });
+              }
             }
           }
         }
@@ -323,7 +366,15 @@ function ReceiverAddressesInput({ maxLines }: IReceiverAddressesInputProps) {
           .map((error) =>
             error.lineNumber === -1
               ? error.message
-              : `Line ${error.lineNumber}: ${error.message}`,
+              : intl.formatMessage(
+                  {
+                    id: ETranslations.wallet_bulk_send_error_line_with_message,
+                  },
+                  {
+                    lineNumber: error.lineNumber,
+                    message: error.message,
+                  },
+                ),
           )
           .join('\n');
       }
@@ -331,6 +382,7 @@ function ReceiverAddressesInput({ maxLines }: IReceiverAddressesInputProps) {
     },
     [
       intl,
+      isEnableTransferAllowList,
       maxLines,
       parseLineMode,
       selectedNetworkId,
