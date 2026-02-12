@@ -195,13 +195,14 @@ function LineNumberedTextArea({
     (keyboardScreenY: number) => {
       if (!containerRef.current || !pageScrollViewRef.current) return;
 
-      containerRef.current.measureInWindow((_x, y, _w, h) => {
-        const componentBottom = y + h;
-        const buffer = 80;
+      containerRef.current.measureInWindow((_x, y, _w, _h) => {
+        // Scroll the component's top to near the top of the visible area
+        // (~120px accounts for status bar + navigation header)
+        const targetTopY = 120;
+        const scrollBy = y - targetTopY;
 
-        if (componentBottom > keyboardScreenY - buffer) {
+        if (scrollBy > 0) {
           const currentY = pageOffsetRef.current.y;
-          const scrollBy = componentBottom - keyboardScreenY + buffer;
           pageScrollViewRef.current?.scrollTo({
             y: currentY + scrollBy,
             animated: true,
