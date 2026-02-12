@@ -189,18 +189,20 @@ function LineNumberedTextArea({
   const { scrollViewRef: pageScrollViewRef, pageOffsetRef } = useScrollView();
   const containerRef = useRef<RNView>(null);
   const isFocusedRef = useRef(false);
-  const lastKeyboardScreenYRef = useRef<number | null>(null);
+  const lastKeyboardScreenYRef = useRef<boolean | null>(null);
 
-  const scrollOuterToShowComponent = useCallback(
-    (keyboardScreenY: number) => {
-      if (!containerRef.current || !pageScrollViewRef.current) return;
+  const scrollOuterToShowComponent = useCallback(() => {
+    if (!containerRef.current || !pageScrollViewRef.current) return;
 
-      containerRef.current.measureInWindow((_x, y, _w, _h) => {
-        // Scroll the component's top to near the top of the visible area
-        // (~120px accounts for status bar + navigation header)
-        const targetTopY = 120;
-        const scrollBy = y - targetTopY;
-
+    const scrollView = pageScrollViewRef.current as any;
+    // Measure both the component and the scroll view in window coordinates
+    // to compute the exact delta — no hardcoded header heights needed.
+    containerRef.current.measureInWindow((_cx, cy) => {
+      const doMeasure = scrollView.measureInWindow ?? scrollView.measure;
+      if (!doMeasure) return;
+      scrollView.measureInWindow((_sx: number, sy: number) => {
+        const gap = 8;
+        const scrollBy = cy - sy - gap;
         if (scrollBy > 0) {
           const currentY = pageOffsetRef.current.y;
           pageScrollViewRef.current?.scrollTo({
@@ -209,17 +211,16 @@ function LineNumberedTextArea({
           });
         }
       });
-    },
-    [pageScrollViewRef, pageOffsetRef],
-  );
+    });
+  }, [pageScrollViewRef, pageOffsetRef]);
 
   useEffect(() => {
     if (!platformEnv.isNativeIOS) return;
 
-    const showSub = Keyboard.addListener('keyboardDidShow', (e) => {
-      lastKeyboardScreenYRef.current = e.endCoordinates.screenY;
+    const showSub = Keyboard.addListener('keyboardDidShow', () => {
+      lastKeyboardScreenYRef.current = true;
       if (isFocusedRef.current) {
-        scrollOuterToShowComponent(e.endCoordinates.screenY);
+        scrollOuterToShowComponent();
       }
     });
     const hideSub = Keyboard.addListener('keyboardDidHide', () => {
@@ -249,11 +250,8 @@ function LineNumberedTextArea({
     // If keyboard is already shown (switching between inputs), trigger outer scroll
     if (platformEnv.isNativeIOS && lastKeyboardScreenYRef.current != null) {
       setTimeout(() => {
-        if (
-          isFocusedRef.current &&
-          lastKeyboardScreenYRef.current != null
-        ) {
-          scrollOuterToShowComponent(lastKeyboardScreenYRef.current);
+        if (isFocusedRef.current && lastKeyboardScreenYRef.current != null) {
+          scrollOuterToShowComponent();
         }
       }, 100);
     }
