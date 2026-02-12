@@ -242,6 +242,7 @@ function BasicTable<T>({
   stickyHeaderHiddenOnScroll = false,
   showBackToTopButton = false,
   draggable = false,
+  tabIntegrated,
   onEndReached,
   onEndReachedThreshold,
   scrollEnabled = true,
@@ -361,6 +362,7 @@ function BasicTable<T>({
       draggable ? (
         <SortableListView
           enabled
+          tabIntegrated={tabIntegrated}
           useFlashList={useFlashList}
           scrollEnabled={scrollEnabled}
           ref={listViewRef as any}
@@ -425,6 +427,7 @@ function BasicTable<T>({
       ),
     [
       draggable,
+      tabIntegrated,
       scrollEnabled,
       contentContainerStyle,
       stickyHeaderHiddenOnScroll,

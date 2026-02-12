@@ -7,6 +7,7 @@ import DraggableFlatList, {
   ShadowDecorator,
 } from 'react-native-draggable-flatlist';
 
+import { TabsDraggableFlatList } from '@onekeyhq/components/src/composite/Tabs/TabsDraggableFlatList';
 import {
   usePropsAndStyle,
   useStyle,
@@ -40,6 +41,7 @@ function BaseSortableListView<T>(
     ListFooterComponentStyle = {},
     onDragBegin,
     onDragEnd,
+    tabIntegrated,
     ...props
   }: ISortableListViewProps<T>,
   ref: ForwardedRef<ISortableListViewRef<T>> | undefined,
@@ -80,7 +82,7 @@ function BaseSortableListView<T>(
       resolveValues: 'auto',
     },
   );
-  const activeDistance = platformEnv.isNative ? 10 : 1;
+  const activeDistance = platformEnv.isNative ? (tabIntegrated ? 0 : 10) : 1;
 
   const reloadOnDragBegin = useCallback(
     (index: number) => {
@@ -98,8 +100,12 @@ function BaseSortableListView<T>(
     [onDragEnd],
   );
 
+  const ListComponent = tabIntegrated
+    ? (TabsDraggableFlatList as typeof DraggableFlatList)
+    : DraggableFlatList;
+
   return (
-    <DraggableFlatList<T>
+    <ListComponent<T>
       ref={ref}
       style={style as StyleProp<ViewStyle>}
       onDragBegin={reloadOnDragBegin}
