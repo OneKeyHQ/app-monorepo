@@ -195,14 +195,19 @@ function LineNumberedTextArea({
 
   const scrollOuterToShowComponent = useCallback(
     (keyboardScreenY: number) => {
-      if (!containerRef.current || !pageScrollViewRef.current) return;
+      if (
+        !containerRef.current ||
+        !pageScrollViewRef.current ||
+        typeof pageScrollViewRef.current.scrollTo !== 'function'
+      )
+        return;
 
       containerRef.current.measureInWindow((_x, y, _w, h) => {
         const componentBottom = y + h;
-        // Only scroll when the component is actually obscured by the keyboard
+        // 80px buffer so we don't scroll when only barely near the keyboard
         if (componentBottom <= keyboardScreenY - 80) return;
 
-        // Scroll component's top to just below the navigation header (52px)
+        // 52px = navigation header height
         const headerBottom = safeAreaInsets.top + 52;
         const scrollBy = y - headerBottom;
 

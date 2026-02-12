@@ -58,8 +58,10 @@ function OneKeyIdPage() {
             },
           });
         }
-      } catch {
-        // silently handle navigation errors
+      } catch (e) {
+        defaultLogger.prime.subscription.onekeyIdLogout({
+          reason: `OneKeyIdPage: toPrimePage navigation error: ${String(e)}`,
+        });
       }
     });
   }, [isPrimeAvailable, popCurrentModal]);

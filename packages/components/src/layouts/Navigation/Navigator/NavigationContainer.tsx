@@ -160,7 +160,7 @@ export const switchTab = <T extends ETabRoutes>(
   );
 };
 
-export const popModalPages = async (maxRetryTimes = 99) => {
+export const popModalPages = async (maxRetryTimes = 10) => {
   if (maxRetryTimes <= 0) {
     return;
   }
