@@ -6,6 +6,7 @@ import type { IXStackProps, IYStackProps } from '@onekeyhq/components';
 import {
   Button,
   IconButton,
+  KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET,
   Keyboard,
   Select,
   SizableText,
@@ -194,7 +195,13 @@ const OnboardingLayoutBody = memo(
       [scrollable],
     );
 
-    const gtMd = useMedia();
+    const { gtMd } = useMedia();
+
+    const contentContainerStyle = useMemo(
+      () => ({ paddingHorizontal: gtMd ? 40 : 20 }),
+      [gtMd],
+    );
+
     return (
       <YStack
         flex={1}
@@ -211,10 +218,8 @@ const OnboardingLayoutBody = memo(
         {scrollable ? (
           <Keyboard.AwareScrollView
             showsVerticalScrollIndicator={false}
-            bottomOffset={80}
-            contentContainerStyle={{
-              paddingHorizontal: gtMd ? 40 : 20,
-            }}
+            bottomOffset={KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET}
+            contentContainerStyle={contentContainerStyle}
           >
             {content}
           </Keyboard.AwareScrollView>

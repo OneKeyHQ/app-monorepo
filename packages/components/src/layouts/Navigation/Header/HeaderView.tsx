@@ -41,9 +41,7 @@ function getHeaderTitle(
 }
 
 const DesktopDragZoneBoxView =
-  platformEnv.isDesktopMac ||
-  platformEnv.isDesktopWin ||
-  platformEnv.isDesktopLinux
+  platformEnv.isDesktopWithCustomTitleBar
     ? ({ disabled, children }: IDesktopDragZoneBoxProps) => {
         const isModalPage = useIsOverlayPage();
 
@@ -206,8 +204,8 @@ function HeaderView({
           px={isOnboardingScreen ? '$16' : '$5'}
           pr={
             (platformEnv.isDesktopWin || platformEnv.isDesktopLinux) &&
-            !isOnboardingScreen &&
-            !isModelScreen
+              !isOnboardingScreen &&
+              !isModelScreen
               ? WINDOWS_OVERLAY_BUTTONS_WIDTH
               : undefined
           }

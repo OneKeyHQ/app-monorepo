@@ -46,8 +46,6 @@ function DesktopDragZoneBoxMac({
 }
 
 export const DesktopDragZoneBox =
-  platformEnv.isDesktopMac ||
-  platformEnv.isDesktopWin ||
-  platformEnv.isDesktopLinux
+  platformEnv.isDesktopWithCustomTitleBar
     ? DesktopDragZoneBoxMac
     : BaseDesktopDragZoneBox;
