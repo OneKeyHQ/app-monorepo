@@ -1,4 +1,4 @@
-import { useContext, useMemo } from 'react';
+import { useCallback, useContext, useMemo, useRef } from 'react';
 
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 
@@ -7,12 +7,20 @@ import {
   useStyle,
 } from '@onekeyhq/components/src/shared/tamagui';
 
+import { ScrollViewRefProvider } from '../ScrollView';
+
 import { BasicPage } from './BasicPage';
 import { PageContext } from './PageContext';
 import { BasicPageFooter } from './PageFooter';
 
+import type { IScrollViewRef } from '../ScrollView';
 import type { IPageProps } from './type';
-import type { StyleProp, ViewStyle } from 'react-native';
+import type {
+  NativeScrollEvent,
+  NativeSyntheticEvent,
+  StyleProp,
+  ViewStyle,
+} from 'react-native';
 
 export function PageContainer({ children, lazyLoad, fullPage }: IPageProps) {
   const { scrollEnabled, scrollProps } = useContext(PageContext);
@@ -32,18 +40,37 @@ export function PageContainer({ children, lazyLoad, fullPage }: IPageProps) {
     { resolveValues: 'auto' },
   );
 
+  // Maintain ScrollView ref context so useScrollView() consumers still work
+  const scrollViewRef = useRef<IScrollViewRef>(null);
+  const pageOffsetRef = useRef({ x: 0, y: 0 });
+  const handleScroll = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      pageOffsetRef.current = event.nativeEvent.contentOffset;
+      (nativeProps as { onScroll?: typeof handleScroll }).onScroll?.(event);
+    },
+    [nativeProps],
+  );
+  const contextValue = useMemo(
+    () => ({ scrollViewRef, pageOffsetRef }),
+    [scrollViewRef],
+  );
+
   return useMemo(
     () => (
       <BasicPage lazyLoad={lazyLoad} fullPage={fullPage}>
         {scrollEnabled ? (
           <KeyboardAwareScrollView
+            ref={scrollViewRef as any}
             scrollEventThrottle={30}
             {...(nativeProps as Record<string, unknown>)}
+            onScroll={handleScroll}
             style={[{ flex: 1 }, style] as StyleProp<ViewStyle>}
             contentContainerStyle={contentContainerStyle}
             bottomOffset={16}
           >
-            {children}
+            <ScrollViewRefProvider value={contextValue}>
+              {children}
+            </ScrollViewRefProvider>
           </KeyboardAwareScrollView>
         ) : (
           children
@@ -56,8 +83,10 @@ export function PageContainer({ children, lazyLoad, fullPage }: IPageProps) {
       fullPage,
       scrollEnabled,
       nativeProps,
+      handleScroll,
       style,
       contentContainerStyle,
+      contextValue,
       children,
     ],
   );

@@ -143,21 +143,6 @@ export const useKeyboardEventWithoutNavigation = (
   }, deps);
 };
 
-// Module-level keyboard height tracker for use in non-hook contexts (e.g. callbacks).
-// Avoids re-renders — consumers read the value imperatively.
-let _currentKeyboardHeight = 0;
-
-if (platformEnv.isNative) {
-  Keyboard.addListener(KEYBOARD_SHOW_EVENT_NAME, (e) => {
-    _currentKeyboardHeight = e.endCoordinates.height;
-  });
-  Keyboard.addListener(KEYBOARD_HIDE_EVENT_NAME, () => {
-    _currentKeyboardHeight = 0;
-  });
-}
-
-export const getCurrentKeyboardHeight = () => _currentKeyboardHeight;
-
 export const updateHeightWhenKeyboardShown = (height: number) =>
   withTiming(height, {
     duration: platformEnv.isNativeIOS ? 200 : 30,
