@@ -7,18 +7,14 @@ import {
   SizableText,
   Switch,
   XStack,
-  rootNavigationRef,
   useMedia,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import {
-  EOnboardingPagesV2,
-  EOnboardingV2Routes,
-  ERootRoutes,
-} from '@onekeyhq/shared/src/routes';
 import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
+
+import { useToOnBoardingPage } from '../../Onboarding/hooks/useToOnBoardingPage';
 
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
 import { EManagePositionType } from '../../Staking/pages/ManagePosition/hooks/useManagePage';
@@ -63,19 +59,12 @@ export const SupplyCard = () => {
     ],
   );
 
-  const openCreateWalletPage = useCallback(() => {
-    rootNavigationRef.current?.navigate(ERootRoutes.Onboarding, {
-      screen: EOnboardingV2Routes.OnboardingV2,
-      params: {
-        screen: EOnboardingPagesV2.CreateOrImportWallet,
-      },
-    });
-  }, []);
+  const toOnBoardingPage = useToOnBoardingPage();
 
   const handleManageSupply = useCallback(
     (item: ISupplyAsset) => {
       if (noConnectedWallet) {
-        openCreateWalletPage();
+        void toOnBoardingPage();
         return;
       }
       if (!market) return;
@@ -95,7 +84,7 @@ export const SupplyCard = () => {
     },
     [
       noConnectedWallet,
-      openCreateWalletPage,
+      toOnBoardingPage,
       navigation,
       market,
       accountId,
