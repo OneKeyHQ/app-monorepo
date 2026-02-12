@@ -10,6 +10,7 @@ import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import type {
   IBorrowReserveItem,
   IEarnHistoryActionIcon,
+  IEarnManagePageActionData,
   IEarnManagePageResponse,
   IEarnSelectField,
   IEarnTokenInfo,
@@ -25,6 +26,7 @@ import { StakeSection } from './StakeSection';
 import { WithdrawSection } from './WithdrawSection';
 
 type IBorrowAction = 'supply' | 'withdraw' | 'borrow' | 'repay';
+type IManageActionData = IEarnManagePageActionData | undefined;
 
 interface INormalManageContentProps {
   networkId: string;
@@ -59,6 +61,7 @@ interface INormalManageContentProps {
   managePageData?: IEarnManagePageResponse;
   type?: EManagePositionType;
   borrowReserves?: IBorrowReserveItem;
+  preferManagePageActionText?: boolean;
 }
 
 export function NormalManageContent({
@@ -92,6 +95,7 @@ export function NormalManageContent({
   managePageData,
   borrowReserves,
   type = EManagePositionType.Staking,
+  preferManagePageActionText = false,
 }: INormalManageContentProps) {
   const intl = useIntl();
   const useBorrowApi = useMemo(
@@ -166,6 +170,162 @@ export function NormalManageContent({
     return undefined;
   }, [type, useBorrowApi, managePageData]);
 
+  const resolveManageActionTitle = useCallback(
+    ({
+      actionData,
+      fallbackId,
+      fallbackType,
+    }: {
+      actionData?: IManageActionData;
+      fallbackId: ETranslations;
+      fallbackType?: string;
+    }) => {
+      if (actionData?.text?.text) {
+        return actionData.text.text;
+      }
+
+      const actionType = (actionData?.type || fallbackType || '').toLowerCase();
+
+      if (actionType.includes('buy')) {
+        return intl.formatMessage({ id: ETranslations.global_buy });
+      }
+      if (
+        actionType.includes('sell') ||
+        actionType.includes('redeem') ||
+        actionType.includes('withdraw')
+      ) {
+        return intl.formatMessage({ id: ETranslations.global_redeem });
+      }
+      if (actionType.includes('borrow')) {
+        return intl.formatMessage({ id: ETranslations.global_borrow });
+      }
+      if (actionType.includes('repay')) {
+        return intl.formatMessage({ id: ETranslations.defi_repay });
+      }
+      if (actionType.includes('supply')) {
+        return intl.formatMessage({ id: ETranslations.defi_supply });
+      }
+
+      return intl.formatMessage({ id: fallbackId });
+    },
+    [intl],
+  );
+
+  const stakeActionData = useMemo<IManageActionData>(() => {
+    if (!managePageData) {
+      return undefined;
+    }
+    if (
+      [EManagePositionType.Supply, EManagePositionType.Withdraw].includes(type)
+    ) {
+      return managePageData.supply ?? managePageData.deposit;
+    }
+    if (
+      [EManagePositionType.Borrow, EManagePositionType.Repay].includes(type)
+    ) {
+      return managePageData.borrow ?? managePageData.deposit;
+    }
+    return managePageData.deposit ?? managePageData.buy?.payButton;
+  }, [managePageData, type]);
+
+  const withdrawActionData = useMemo<IManageActionData>(() => {
+    if (!managePageData) {
+      return undefined;
+    }
+    if (
+      [EManagePositionType.Supply, EManagePositionType.Withdraw].includes(type)
+    ) {
+      return managePageData.withdraw;
+    }
+    if (
+      [EManagePositionType.Borrow, EManagePositionType.Repay].includes(type)
+    ) {
+      return managePageData.repay ?? managePageData.withdraw;
+    }
+    return managePageData.withdraw ?? managePageData.sell?.payButton;
+  }, [managePageData, type]);
+
+  const stakeReceiveActionData = useMemo<IManageActionData>(
+    () => managePageData?.buy?.receiveButton ?? withdrawActionData,
+    [managePageData?.buy?.receiveButton, withdrawActionData],
+  );
+
+  const withdrawReceiveActionData = useMemo<IManageActionData>(
+    () => managePageData?.sell?.receiveButton ?? stakeActionData,
+    [managePageData?.sell?.receiveButton, stakeActionData],
+  );
+
+  const buildTokenInfoFromActionData = useCallback(
+    (actionData?: IManageActionData): IEarnTokenInfo | undefined => {
+      if (!actionData?.data?.token) {
+        return undefined;
+      }
+
+      return {
+        networkId,
+        provider,
+        vault: _vault,
+        accountId: tokenInfo?.accountId ?? earnAccount?.accountId ?? '',
+        indexedAccountId: tokenInfo?.indexedAccountId,
+        nativeToken: tokenInfo?.nativeToken,
+        balanceParsed:
+          actionData.data.balance ?? tokenInfo?.balanceParsed ?? '0',
+        token: actionData.data.token.info,
+        price: actionData.data.token.price,
+      };
+    },
+    [
+      networkId,
+      provider,
+      _vault,
+      tokenInfo?.accountId,
+      tokenInfo?.indexedAccountId,
+      tokenInfo?.nativeToken,
+      tokenInfo?.balanceParsed,
+      earnAccount?.accountId,
+    ],
+  );
+
+  const stakeTokenInfo = useMemo(
+    () => buildTokenInfoFromActionData(stakeActionData) ?? tokenInfo,
+    [buildTokenInfoFromActionData, stakeActionData, tokenInfo],
+  );
+
+  const withdrawTokenInfo = useMemo(
+    () => buildTokenInfoFromActionData(withdrawActionData) ?? tokenInfo,
+    [buildTokenInfoFromActionData, withdrawActionData, tokenInfo],
+  );
+
+  const stakeReceiveInputConfig = useMemo(
+    () =>
+      preferManagePageActionText
+        ? {
+            enabled: !!stakeReceiveActionData?.data?.token,
+            tokenImageUri: stakeReceiveActionData?.data?.token?.info.logoURI,
+            tokenSymbol: stakeReceiveActionData?.data?.token?.info.symbol,
+            tokenAddress: stakeReceiveActionData?.data?.token?.info.address,
+            balance: stakeReceiveActionData?.data?.balance,
+            price: stakeReceiveActionData?.data?.token?.price,
+          }
+        : undefined,
+    [preferManagePageActionText, stakeReceiveActionData],
+  );
+
+  const withdrawReceiveInputConfig = useMemo(
+    () =>
+      preferManagePageActionText
+        ? {
+            enabled: !!withdrawReceiveActionData?.data?.token,
+            tokenImageUri: withdrawReceiveActionData?.data?.token?.info.logoURI,
+            tokenSymbol: withdrawReceiveActionData?.data?.token?.info.symbol,
+            tokenAddress: withdrawReceiveActionData?.data?.token?.info.address,
+            balance: withdrawReceiveActionData?.data?.balance,
+            price: withdrawReceiveActionData?.data?.token?.price,
+          }
+        : undefined,
+    [preferManagePageActionText, withdrawReceiveActionData],
+  );
+
   const [selectedTabIndex, setSelectedTabIndex] = useState(() => {
     if (defaultTab === 'withdraw') return 1;
     return 0;
@@ -188,11 +348,19 @@ export function NormalManageContent({
       ) {
         return [
           {
-            title: managePageData.supply?.text?.text ?? '',
+            title: resolveManageActionTitle({
+              actionData: managePageData.supply,
+              fallbackId: ETranslations.defi_supply,
+              fallbackType: 'supply',
+            }),
             type: EStakingActionType.Supply,
           },
           {
-            title: managePageData.withdraw?.text?.text ?? '',
+            title: resolveManageActionTitle({
+              actionData: managePageData.withdraw,
+              fallbackId: ETranslations.global_withdraw,
+              fallbackType: 'withdraw',
+            }),
             type: EStakingActionType.Withdraw,
           },
         ];
@@ -202,12 +370,41 @@ export function NormalManageContent({
       ) {
         return [
           {
-            title: managePageData.borrow?.text?.text ?? '',
+            title: resolveManageActionTitle({
+              actionData: managePageData.borrow,
+              fallbackId: ETranslations.global_borrow,
+              fallbackType: 'borrow',
+            }),
             type: EStakingActionType.Borrow,
           },
           {
-            title: managePageData.repay?.text?.text ?? '',
+            title: resolveManageActionTitle({
+              actionData: managePageData.repay,
+              fallbackId: ETranslations.defi_repay,
+              fallbackType: 'repay',
+            }),
             type: EStakingActionType.Repay,
+          },
+        ];
+      }
+
+      if (preferManagePageActionText) {
+        return [
+          {
+            title: resolveManageActionTitle({
+              actionData: stakeActionData,
+              fallbackId: ETranslations.earn_deposit,
+              fallbackType: 'deposit',
+            }),
+            type: EStakingActionType.Deposit,
+          },
+          {
+            title: resolveManageActionTitle({
+              actionData: withdrawActionData,
+              fallbackId: ETranslations.global_withdraw,
+              fallbackType: 'withdraw',
+            }),
+            type: EStakingActionType.Withdraw,
           },
         ];
       }
@@ -223,7 +420,15 @@ export function NormalManageContent({
         type: EStakingActionType.Withdraw,
       },
     ];
-  }, [intl, managePageData, type]);
+  }, [
+    intl,
+    managePageData,
+    type,
+    preferManagePageActionText,
+    resolveManageActionTitle,
+    stakeActionData,
+    withdrawActionData,
+  ]);
 
   const tabNames = useMemo(() => tabData.map((item) => item.title), [tabData]);
 
@@ -249,7 +454,7 @@ export function NormalManageContent({
             accountId: earnAccount?.accountId || '',
             networkId,
             protocolInfo,
-            tokenInfo,
+            tokenInfo: withdrawTokenInfo,
             symbol,
             provider,
             onSuccess,
@@ -285,7 +490,7 @@ export function NormalManageContent({
       protocolInfo,
       appNavigation,
       networkId,
-      tokenInfo,
+      withdrawTokenInfo,
       symbol,
       provider,
       onTabChange,
@@ -347,7 +552,7 @@ export function NormalManageContent({
         <StakeSection
           accountId={earnAccount?.accountId || ''}
           networkId={networkId}
-          tokenInfo={tokenInfo}
+          tokenInfo={stakeTokenInfo}
           protocolInfo={protocolInfo}
           isDisabled={depositDisabled}
           onSuccess={onSuccess}
@@ -362,13 +567,14 @@ export function NormalManageContent({
           borrowAction={borrowActionPrimary}
           borrowReserves={borrowReserves}
           borrowActionLabel={borrowActionLabelPrimary}
+          receiveInputConfig={stakeReceiveInputConfig}
         />
       ) : null}
       {selectedTabIndex === 1 ? (
         <WithdrawSection
           accountId={earnAccount?.accountId || ''}
           networkId={networkId}
-          tokenInfo={tokenInfo}
+          tokenInfo={withdrawTokenInfo}
           protocolInfo={protocolInfo}
           isDisabled={withdrawDisabled}
           onSuccess={onSuccess}
@@ -381,6 +587,7 @@ export function NormalManageContent({
           borrowReserveAddress={reserveAddress}
           borrowAction={borrowActionSecondary}
           borrowActionLabel={borrowActionLabelSecondary}
+          receiveInputConfig={withdrawReceiveInputConfig}
         />
       ) : null}
     </>

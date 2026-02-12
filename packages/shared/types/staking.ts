@@ -152,6 +152,8 @@ export type IStakeBaseParams = {
   amount: string;
   symbol: string;
   provider: string;
+  inputTokenAddress?: string;
+  outputTokenAddress?: string;
 
   term?: number; // Babylon
   feeRate?: number;
@@ -180,6 +182,8 @@ export type IWithdrawBaseParams = {
   amount: string;
   symbol: string;
   provider: string;
+  inputTokenAddress?: string;
+  outputTokenAddress?: string;
 
   identity?: string; // sol pubkey
   signature?: string; // lido unstake, stakefish withdraw all
@@ -364,6 +368,10 @@ export type IEarnTokenItem = {
   price24h: string;
   info: IToken;
 };
+
+export interface IEarnAssetsList {
+  assets: IEarnTokenItem[];
+}
 
 export interface IBorrowApyDetailItem {
   icon?: IEarnIcon;
@@ -959,6 +967,24 @@ export interface IEarnRepayActionData {
   };
 }
 
+export interface IEarnManagePageActionData {
+  type: string;
+  disabled: boolean;
+  text?: IEarnText;
+  data?: {
+    balance?: string;
+    token?: {
+      info: IEarnToken;
+      price: string;
+    };
+  };
+}
+
+export interface IEarnManagePageSwapActions {
+  payButton?: IEarnManagePageActionData;
+  receiveButton?: IEarnManagePageActionData;
+}
+
 export interface IEarnDepositActionData {
   type: 'deposit';
   disabled: boolean;
@@ -1037,6 +1063,8 @@ export interface IEarnSelectField {
 }
 
 export interface IEarnManagePageResponse {
+  buy?: IEarnManagePageSwapActions;
+  sell?: IEarnManagePageSwapActions;
   supply?: IEarnSupplyActionData;
   borrow?: IEarnBorrowActionData;
   repay?: IEarnRepayActionData;
@@ -1253,12 +1281,56 @@ export interface IStakeTransactionConfirmation {
   receive: {
     title: IEarnText;
     description: IEarnText;
-    tooltip: {
+    tooltip?: {
       type: 'text';
       data: {
         title: IEarnText;
       };
     };
+  };
+  transactionDetails?: {
+    type: string;
+    text: IEarnText;
+    data?: {
+      transactionDetails?: Array<{
+        title: IEarnText;
+        description?: IEarnText;
+        current?: {
+          title: IEarnText;
+        };
+        latest?: {
+          title: IEarnText;
+        };
+        tooltip?: IEarnTooltip;
+      }>;
+      swapRoute?: Array<{
+        token: {
+          decimals: number;
+          address: string;
+          symbol: string;
+          logoURI: string;
+        };
+        connector?: {
+          text: IEarnText;
+          priceImpact?: string;
+        };
+      }>;
+    };
+  };
+  withdrawPath?: {
+    type: string;
+    data?: {
+      confirmBoxes?: Array<{
+        title: IEarnText;
+        description: IEarnText;
+        subtitle?: IEarnText;
+        subtitleDescription?: IEarnText;
+      }>;
+    };
+  };
+  tip?: {
+    type: string;
+    text: IEarnText;
   };
 }
 
@@ -1644,7 +1716,6 @@ export type IEarnPortfolioAsset = IEarnInvestmentItemV2['assets'][number] & {
     network: IEarnInvestmentItemV2['network'];
     fiatValue?: string;
     fiatValueUsd?: string;
-    ptAddress?: string;
   };
 };
 
@@ -1759,8 +1830,7 @@ export interface IEarnRegisterSignMessageResponse {
   toast?: IEarnToast;
 }
 
-export interface IVerifyRegisterSignMessageParams
-  extends IBuildRegisterSignMessageParams {
+export interface IVerifyRegisterSignMessageParams extends IBuildRegisterSignMessageParams {
   signature: string;
   message: string;
 }

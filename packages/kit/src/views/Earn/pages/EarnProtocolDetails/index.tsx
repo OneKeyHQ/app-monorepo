@@ -261,23 +261,37 @@ function GridSection({
         <YStack gap="$6">
           <EarnText text={data.title} size="$headingLg" />
           <XStack flexWrap="wrap" m="$-5" p="$2">
-            {data.items.map((cell) => (
+            {data.items.map((cell, cellIndex) => (
               <GridItem
-                key={cell.title.text}
+                key={
+                  cell.title?.text ||
+                  cell.description?.text ||
+                  `grid-cell-${cellIndex}`
+                }
                 title={cell.title}
                 description={cell.description}
                 descriptionComponent={
                   cell?.items ? (
                     <YStack gap="$2">
-                      {(cell?.items ?? []).map((item) => (
-                        <XStack key={item.title.text} ai="center" gap="$1.5">
+                      {(cell?.items ?? []).map((item, itemIndex) => (
+                        <XStack
+                          key={
+                            item.title?.text ||
+                            item.logoURI ||
+                            `grid-item-${cellIndex}-${itemIndex}`
+                          }
+                          ai="center"
+                          gap="$1.5"
+                        >
                           <Token
                             size="xs"
                             borderRadius="$2"
                             mr="$0.5"
                             tokenImageUri={item.logoURI}
                           />
-                          <EarnText text={item.title} size="$bodyLgMedium" />
+                          {item.title?.text ? (
+                            <EarnText text={item.title} size="$bodyLgMedium" />
+                          ) : null}
                         </XStack>
                       ))}
                     </YStack>

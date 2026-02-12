@@ -21,6 +21,7 @@ import {
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { UniversalWithdraw } from '../../../components/UniversalWithdraw';
+import type { IManagePageV2ReceiveInputConfig } from '../../../components/ManagePageV2ReceiveInput';
 import { useBorrowApiParams } from '../../../hooks/useBorrowApiParams';
 import { useUniversalWithdraw } from '../../../hooks/useUniversalHooks';
 import { buildBorrowTag } from '../../../utils/utils';
@@ -41,6 +42,7 @@ export const WithdrawSection = ({
   borrowReserveAddress,
   borrowAction,
   borrowActionLabel,
+  receiveInputConfig,
 }: {
   accountId: string;
   networkId: string;
@@ -57,6 +59,7 @@ export const WithdrawSection = ({
   borrowReserveAddress?: string;
   borrowAction?: 'supply' | 'withdraw' | 'borrow' | 'repay';
   borrowActionLabel?: string;
+  receiveInputConfig?: IManagePageV2ReceiveInputConfig;
 }) => {
   // Early return if no tokenInfo or protocolInfo
   // This happens when there's no account or no address
@@ -205,6 +208,10 @@ export const WithdrawSection = ({
           : undefined,
         symbol,
         provider: providerName,
+        inputTokenAddress: tokenInfo?.token?.isNative
+          ? ''
+          : (tokenInfo?.token?.address ?? ''),
+        outputTokenAddress: receiveInputConfig?.tokenAddress ?? '',
         stakingInfo: {
           label: EEarnLabels.Withdraw,
           protocol: earnUtils.getEarnProviderName({
@@ -234,6 +241,9 @@ export const WithdrawSection = ({
       token,
       protocolInfo?.stakeTag,
       symbol,
+      tokenInfo?.token?.address,
+      tokenInfo?.token?.isNative,
+      receiveInputConfig?.tokenAddress,
       borrowApiCtx.isBorrow,
     ],
   );
@@ -436,6 +446,11 @@ export const WithdrawSection = ({
           beforeFooter={beforeFooter}
           showApyDetail={showApyDetail}
           isInModalContext={isInModalContext}
+          receiveInputConfig={receiveInputConfig}
+          transactionInputTokenAddress={
+            tokenInfo?.token?.isNative ? '' : (tokenInfo?.token?.address ?? '')
+          }
+          transactionOutputTokenAddress={receiveInputConfig?.tokenAddress ?? ''}
         />
       )}
     </>

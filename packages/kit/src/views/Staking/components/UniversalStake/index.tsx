@@ -24,6 +24,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import type { IAmountInputFormItemProps } from '@onekeyhq/kit/src/components/AmountInput';
 import {
   PercentageStageOnKeyboard,
   calcPercentBalance,
@@ -69,6 +70,10 @@ import {
   EstimateNetworkFee,
   useShowStakeEstimateGasAlert,
 } from '../EstimateNetworkFee';
+import {
+  type IManagePageV2ReceiveInputConfig,
+  ManagePageV2ReceiveInput,
+} from '../ManagePageV2ReceiveInput';
 import { EarnActionIcon } from '../ProtocolDetails/EarnActionIcon';
 import { EarnText } from '../ProtocolDetails/EarnText';
 import { EarnValidatorSelect } from '../ProtocolDetails/EarnValidatorSelect';
@@ -121,6 +126,13 @@ type IUniversalStakeProps = {
   showApyDetail?: boolean;
   isInModalContext?: boolean;
   ongoingValidator?: IEarnSelectField;
+  receiveInputConfig?: IManagePageV2ReceiveInputConfig;
+  transactionInputTokenAddress?: string;
+  transactionOutputTokenAddress?: string;
+  requestSymbol?: string;
+  tokenSelectorTriggerProps?: Partial<
+    NonNullable<IAmountInputFormItemProps['tokenSelectorTriggerProps']>
+  >;
 };
 
 export function UniversalStake({
@@ -146,6 +158,11 @@ export function UniversalStake({
   showApyDetail = false,
   isInModalContext = false,
   ongoingValidator,
+  receiveInputConfig,
+  transactionInputTokenAddress,
+  transactionOutputTokenAddress,
+  requestSymbol,
+  tokenSelectorTriggerProps,
 }: PropsWithChildren<IUniversalStakeProps>) {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -192,6 +209,10 @@ export function UniversalStake({
   const isStakefishProvider = useMemo(
     () => earnUtils.isStakefishProvider({ providerName }),
     [providerName],
+  );
+  const actionSymbol = useMemo(
+    () => requestSymbol || tokenInfo?.token.symbol || tokenSymbol || '',
+    [requestSymbol, tokenInfo?.token.symbol, tokenSymbol],
   );
   // Only Stakefish ETH needs signature for create new validator
   const isStakefishEthStake = useMemo(
@@ -292,12 +313,14 @@ export function UniversalStake({
         await backgroundApiProxy.serviceStaking.getTransactionConfirmation({
           networkId,
           provider: providerName,
-          symbol: tokenInfo?.token.symbol || '',
+          symbol: actionSymbol,
           vault: useVaultProvider ? protocolInfo?.vault || '' : '',
           accountAddress: protocolInfo?.earnAccount?.accountAddress || '',
           action: ECheckAmountActionType.STAKING,
           amount,
           identity: stakefishIdentity,
+          inputTokenAddress: transactionInputTokenAddress,
+          outputTokenAddress: transactionOutputTokenAddress,
         });
       return resp;
     },
@@ -305,11 +328,13 @@ export function UniversalStake({
       isDisabled,
       networkId,
       providerName,
-      tokenInfo?.token.symbol,
+      actionSymbol,
       useVaultProvider,
       protocolInfo?.vault,
       protocolInfo?.earnAccount?.accountAddress,
       stakefishIdentity,
+      transactionInputTokenAddress,
+      transactionOutputTokenAddress,
     ],
   );
 
@@ -361,11 +386,13 @@ export function UniversalStake({
       const resp = await backgroundApiProxy.serviceStaking.estimateFee({
         networkId,
         provider: providerName,
-        symbol: tokenInfo?.token.symbol || '',
+        symbol: actionSymbol,
         action: shouldApprove ? 'approve' : 'stake',
         amount: amountNumber.toFixed(),
         protocolVault,
         accountAddress: account?.address,
+        inputTokenAddress: transactionInputTokenAddress,
+        outputTokenAddress: transactionOutputTokenAddress,
         ...permitParams,
       });
       return resp;
@@ -377,7 +404,9 @@ export function UniversalStake({
       protocolVault,
       providerName,
       shouldApprove,
-      tokenInfo?.token.symbol,
+      actionSymbol,
+      transactionInputTokenAddress,
+      transactionOutputTokenAddress,
       usePermit2Approve,
     ],
   );
@@ -480,7 +509,7 @@ export function UniversalStake({
         const response = await backgroundApiProxy.serviceStaking.checkAmount({
           accountId,
           networkId,
-          symbol: tokenSymbol,
+          symbol: actionSymbol,
           provider: providerName,
           action: identity
             ? ECheckAmountActionType.RESTAKE
@@ -489,6 +518,8 @@ export function UniversalStake({
           protocolVault,
           withdrawAll: false,
           identity,
+          inputTokenAddress: transactionInputTokenAddress,
+          outputTokenAddress: transactionOutputTokenAddress,
         });
 
         if (Number(response.code) === 0) {
@@ -540,7 +571,12 @@ export function UniversalStake({
         void checkAmount({ amount: value, identity: stakefishIdentity });
       }
     },
-    [decimals, debouncedFetchEstimateFeeResp, checkAmount, stakefishIdentity],
+    [
+      decimals,
+      debouncedFetchEstimateFeeResp,
+      checkAmount,
+      stakefishIdentity,
+    ],
   );
 
   const onBlurAmountValue = useOnBlurAmountValue(amountValue, setAmountValue);
@@ -1016,6 +1052,9 @@ export function UniversalStake({
         setTimeout(() => {
           void debouncedFetchEstimateFeeResp(amountValue);
         }, 200);
+        // Continue to stake flow right after approve tx is submitted.
+        // This matches the common EVM "approve -> action" sequential flow.
+        void onSubmit();
       },
       onFail() {
         setApproving(false);
@@ -1059,8 +1098,8 @@ export function UniversalStake({
             size={transactionConfirmation.receive.title.size || '$bodyMd'}
             color={transactionConfirmation.receive.title.color}
             tooltip={
-              transactionConfirmation.receive.tooltip.type === 'text'
-                ? transactionConfirmation.receive.tooltip?.data?.title?.text
+              transactionConfirmation.receive.tooltip?.type === 'text'
+                ? transactionConfirmation.receive.tooltip.data?.title?.text
                 : undefined
             }
           >
@@ -1190,6 +1229,7 @@ export function UniversalStake({
             selectedTokenImageUri: tokenImageUri,
             selectedTokenSymbol: tokenSymbol?.toUpperCase(),
             selectedNetworkImageUri: network?.logoURI,
+            ...tokenSelectorTriggerProps,
           }}
           balanceProps={{
             value: balance,
@@ -1210,6 +1250,11 @@ export function UniversalStake({
           <Stack position="absolute" w="100%" h="100%" zIndex={1} />
         ) : null}
       </Stack>
+      <ManagePageV2ReceiveInput
+        receive={transactionConfirmation?.receive}
+        config={receiveInputConfig}
+        fiatSymbol={symbol}
+      />
       {isCheckAmountMessageError ? (
         <Alert
           icon="InfoCircleOutline"

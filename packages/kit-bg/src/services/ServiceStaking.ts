@@ -66,6 +66,7 @@ import type {
   IEarnAccountToken,
   IEarnAccountTokenResponse,
   IEarnAirdropInvestmentItemV2,
+  IEarnAssetsList,
   IEarnBabylonTrackingItem,
   IEarnEstimateAction,
   IEarnEstimateFeeResp,
@@ -760,6 +761,52 @@ class ServiceStaking extends ServiceBase {
     return resp.data.data;
   }
 
+  _getEarnAssetsList = memoizee(
+    async (params: {
+      networkId: string;
+      provider: string;
+      symbol: string;
+      vault?: string;
+      accountId: string;
+      action: 'stake' | 'unstake';
+    }) => {
+      const { accountId, provider, ...rest } = params;
+      const accountAddress =
+        await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+          networkId: params.networkId,
+          accountId,
+        });
+
+      const client = await this.getClient(EServiceEndpointEnum.Earn);
+      const response = await client.get<{
+        data: IEarnAssetsList;
+      }>('/earn/v1/asset-list', {
+        params: {
+          ...rest,
+          provider: provider.toLowerCase(),
+          accountAddress,
+        },
+      });
+      return response.data.data;
+    },
+    {
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 10 }),
+    },
+  );
+
+  @backgroundMethod()
+  async getEarnAssetsList(params: {
+    networkId: string;
+    provider: string;
+    symbol: string;
+    vault?: string;
+    accountId: string;
+    action: 'stake' | 'unstake';
+  }) {
+    return this._getEarnAssetsList(params);
+  }
+
   @backgroundMethod()
   async getTransactionConfirmation(params: {
     networkId: string;
@@ -770,6 +817,8 @@ class ServiceStaking extends ServiceBase {
     action: ECheckAmountActionType;
     amount: string;
     identity?: string;
+    inputTokenAddress?: string;
+    outputTokenAddress?: string;
   }) {
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const amountNumber = BigNumber(params.amount);
@@ -1268,6 +1317,8 @@ class ServiceStaking extends ServiceBase {
     amount,
     protocolVault,
     identity,
+    inputTokenAddress,
+    outputTokenAddress,
   }: {
     accountId?: string;
     networkId?: string;
@@ -1278,6 +1329,8 @@ class ServiceStaking extends ServiceBase {
     amount?: string;
     protocolVault?: string;
     identity?: string;
+    inputTokenAddress?: string;
+    outputTokenAddress?: string;
   }) {
     if (!networkId || !accountId || !provider) {
       throw new OneKeyLocalError(
@@ -1305,6 +1358,8 @@ class ServiceStaking extends ServiceBase {
         vault: isVaultBased ? protocolVault : '',
         withdrawAll,
         identity,
+        inputTokenAddress,
+        outputTokenAddress,
       },
     });
     return result.data;
@@ -1668,6 +1723,8 @@ class ServiceStaking extends ServiceBase {
     approveType?: 'permit';
     permitSignature?: string;
     withdrawAll?: boolean;
+    inputTokenAddress?: string;
+    outputTokenAddress?: string;
   }) {
     const { symbol, protocolVault, withdrawAll, ...rest } = params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);

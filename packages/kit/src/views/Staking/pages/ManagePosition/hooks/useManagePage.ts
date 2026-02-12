@@ -148,7 +148,7 @@ export const useManagePage = ({
           managePageData.deposit
         );
       }
-      return managePageData.deposit;
+      return managePageData.deposit ?? managePageData.buy?.payButton;
     })();
 
     if (!actionData?.data?.token) {
@@ -195,6 +195,7 @@ export const useManagePage = ({
       earnAccount,
       activeBalance:
         managePageData.withdraw?.data?.balance ??
+        managePageData.sell?.payButton?.data?.balance ??
         managePageData.repay?.data?.balance,
       stakeTag: buildLocalTxStatusSyncId({
         providerName: provider,
@@ -262,7 +263,11 @@ export const useManagePage = ({
         false
       );
     }
-    return managePageData.deposit?.disabled ?? false;
+    return (
+      managePageData.deposit?.disabled ??
+      managePageData.buy?.payButton?.disabled ??
+      false
+    );
   }, [managePageData, type]);
 
   const withdrawDisabled = useMemo(() => {
@@ -283,7 +288,11 @@ export const useManagePage = ({
         false
       );
     }
-    return managePageData.withdraw?.disabled ?? false;
+    return (
+      managePageData.withdraw?.disabled ??
+      managePageData.sell?.payButton?.disabled ??
+      false
+    );
   }, [managePageData, type]);
 
   const alerts = useMemo(

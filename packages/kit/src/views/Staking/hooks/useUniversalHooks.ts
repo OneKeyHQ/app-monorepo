@@ -86,6 +86,8 @@ export function useUniversalStake({
       unsignedMessage,
       message,
       provider,
+      inputTokenAddress,
+      outputTokenAddress,
       stakingInfo,
       onSuccess,
       onFail,
@@ -104,6 +106,8 @@ export function useUniversalStake({
       // Stakefish: original message for permit signature
       message?: string;
       provider: string;
+      inputTokenAddress?: string;
+      outputTokenAddress?: string;
       stakingInfo?: IStakingInfo;
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
       onFail?: IModalSendParamList['SendConfirm']['onFail'];
@@ -124,6 +128,8 @@ export function useUniversalStake({
           permitSignature,
           unsignedMessage,
           message,
+          inputTokenAddress,
+          outputTokenAddress,
           // Stakefish specific param
           validatorPublicKey,
         });
@@ -190,6 +196,8 @@ export function useUniversalWithdraw({
       symbol,
       provider,
       identity,
+      inputTokenAddress,
+      outputTokenAddress,
       protocolVault,
       withdrawAll,
       stakingInfo,
@@ -203,6 +211,8 @@ export function useUniversalWithdraw({
       symbol: string;
       provider: string;
       identity?: string;
+      inputTokenAddress?: string;
+      outputTokenAddress?: string;
       protocolVault?: string;
       withdrawAll: boolean;
       stakingInfo?: IStakingInfo;
@@ -257,6 +267,8 @@ export function useUniversalWithdraw({
             accountId,
             symbol,
             provider,
+            inputTokenAddress,
+            outputTokenAddress,
             signature: signHash,
             deadline,
           });
@@ -269,6 +281,8 @@ export function useUniversalWithdraw({
             accountId,
             symbol,
             provider,
+            inputTokenAddress,
+            outputTokenAddress,
             protocolVault,
             withdrawAll,
             // Pass signature and message for withdraw all

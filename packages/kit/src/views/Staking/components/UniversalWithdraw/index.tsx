@@ -44,6 +44,10 @@ import { useEarnSignMessageWithoutVerify } from '../../hooks/useEarnSignMessageW
 import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
 import { CalculationListItem } from '../CalculationList';
 import { EstimateNetworkFee } from '../EstimateNetworkFee';
+import {
+  type IManagePageV2ReceiveInputConfig,
+  ManagePageV2ReceiveInput,
+} from '../ManagePageV2ReceiveInput';
 import { EarnActionIcon } from '../ProtocolDetails/EarnActionIcon';
 import { EarnText } from '../ProtocolDetails/EarnText';
 import {
@@ -96,6 +100,9 @@ type IUniversalWithdrawProps = {
   beforeFooter?: ReactElement | null;
   showApyDetail?: boolean;
   isInModalContext?: boolean;
+  receiveInputConfig?: IManagePageV2ReceiveInputConfig;
+  transactionInputTokenAddress?: string;
+  transactionOutputTokenAddress?: string;
 };
 
 const isNaN = (num: string) =>
@@ -124,6 +131,9 @@ export function UniversalWithdraw({
   beforeFooter,
   showApyDetail = false,
   isInModalContext = false,
+  receiveInputConfig,
+  transactionInputTokenAddress,
+  transactionOutputTokenAddress,
 }: PropsWithChildren<IUniversalWithdrawProps>) {
   const navigation = useAppNavigation();
   const { handleOpenWebSite } = useBrowserAction().current;
@@ -185,6 +195,8 @@ export function UniversalWithdraw({
       identity,
       accountAddress: account.address,
       withdrawAll: withdrawAllRef.current,
+      inputTokenAddress: transactionInputTokenAddress,
+      outputTokenAddress: transactionOutputTokenAddress,
     });
     return resp;
   }, [
@@ -196,6 +208,8 @@ export function UniversalWithdraw({
     identity,
     protocolVault,
     balance,
+    transactionInputTokenAddress,
+    transactionOutputTokenAddress,
   ]);
 
   const [
@@ -293,6 +307,8 @@ export function UniversalWithdraw({
         protocolVault,
         withdrawAll: withdrawAllRef.current,
         identity,
+        inputTokenAddress: transactionInputTokenAddress,
+        outputTokenAddress: transactionOutputTokenAddress,
       });
 
       if (Number(response.code) === 0) {
@@ -329,6 +345,8 @@ export function UniversalWithdraw({
           action: ECheckAmountActionType.UNSTAKING,
           amount,
           identity,
+          inputTokenAddress: transactionInputTokenAddress,
+          outputTokenAddress: transactionOutputTokenAddress,
         });
       return resp;
     },
@@ -340,6 +358,8 @@ export function UniversalWithdraw({
       providerName,
       tokenSymbol,
       identity,
+      transactionInputTokenAddress,
+      transactionOutputTokenAddress,
     ],
   );
 
@@ -463,8 +483,8 @@ export function UniversalWithdraw({
             size={transactionConfirmation.receive.title.size || '$bodyMd'}
             color={transactionConfirmation.receive.title.color}
             tooltip={
-              transactionConfirmation.receive.tooltip.type === 'text'
-                ? transactionConfirmation.receive.tooltip?.data?.title?.text
+              transactionConfirmation.receive.tooltip?.type === 'text'
+                ? transactionConfirmation.receive.tooltip.data?.title?.text
                 : undefined
             }
           >
@@ -524,6 +544,11 @@ export function UniversalWithdraw({
           <Stack position="absolute" w="100%" h="100%" zIndex={1} />
         ) : null}
       </Stack>
+      <ManagePageV2ReceiveInput
+        receive={transactionConfirmation?.receive}
+        config={receiveInputConfig}
+        fiatSymbol={symbol}
+      />
 
       {remainingLessThanMinAmountWarning ? (
         <Alert

@@ -1399,3 +1399,11 @@ svgx
 zerion
 Schedulable
 Roobert
+CUSD
+CUSDO
+SENA
+Slis
+EVMKHYPE
+AUSDT
+USDO
+hyperevm

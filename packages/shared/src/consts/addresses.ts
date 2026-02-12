@@ -37,6 +37,8 @@ export const PlasmaAUSDT0 = '0x5D72a9d9A9510Cd8cBdBA12aC62593A58930a948';
 
 export const MorphoBundlerContract =
   '0x4095f064b8d3c3548a3bebfd0bbfd04750e30077';
+export const PendleRouterContract =
+  '0x888888888889758f76e7103c6cbf23abbf58f946';
 export const MorphoUSDCVaultAddress =
   '0x974c8FBf4fd795F66B85B73ebC988A51F1A040a9';
 
