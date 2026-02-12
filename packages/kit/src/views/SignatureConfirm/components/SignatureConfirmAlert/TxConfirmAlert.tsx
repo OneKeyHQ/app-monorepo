@@ -215,7 +215,6 @@ function TxConfirmAlert(props: IProps) {
     payWithTokenInfo.enabled,
     payWithTokenInfo.symbol,
     payWithTokenInfo.address,
-    payWithTokenInfo.logoURI,
     transferPayload?.tokenInfo,
     intl,
     network?.symbol,
