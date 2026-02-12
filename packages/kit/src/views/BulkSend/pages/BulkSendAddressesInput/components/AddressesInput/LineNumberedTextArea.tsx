@@ -8,6 +8,7 @@ import {
   StyleSheet,
   type View as RNView,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
   IconButton,
@@ -108,6 +109,7 @@ function LineNumberedTextArea({
   onInputTypeChange,
 }: ILineNumberedTextAreaProps) {
   const intl = useIntl();
+  const safeAreaInsets = useSafeAreaInsets();
   const inputRef = useRef<RNTextInput>(null);
   const scrollViewRef = useRef<RNScrollView>(null);
   const [lineHeights, setLineHeights] = useState<Record<number, number>>({});
@@ -194,25 +196,20 @@ function LineNumberedTextArea({
   const scrollOuterToShowComponent = useCallback(() => {
     if (!containerRef.current || !pageScrollViewRef.current) return;
 
-    const scrollView = pageScrollViewRef.current as any;
-    // Measure both the component and the scroll view in window coordinates
-    // to compute the exact delta — no hardcoded header heights needed.
-    containerRef.current.measureInWindow((_cx, cy) => {
-      const doMeasure = scrollView.measureInWindow ?? scrollView.measure;
-      if (!doMeasure) return;
-      scrollView.measureInWindow((_sx: number, sy: number) => {
-        const gap = 8;
-        const scrollBy = cy - sy - gap;
-        if (scrollBy > 0) {
-          const currentY = pageOffsetRef.current.y;
-          pageScrollViewRef.current?.scrollTo({
-            y: currentY + scrollBy,
-            animated: true,
-          });
-        }
-      });
+    containerRef.current.measureInWindow((_x, y) => {
+      // Navigation header is 52px; scroll component's top to just below header
+      const headerBottom = safeAreaInsets.top + 52;
+      const scrollBy = y - headerBottom;
+
+      if (scrollBy > 0) {
+        const currentY = pageOffsetRef.current.y;
+        pageScrollViewRef.current?.scrollTo({
+          y: currentY + scrollBy,
+          animated: true,
+        });
+      }
     });
-  }, [pageScrollViewRef, pageOffsetRef]);
+  }, [pageScrollViewRef, pageOffsetRef, safeAreaInsets.top]);
 
   useEffect(() => {
     if (!platformEnv.isNativeIOS) return;
