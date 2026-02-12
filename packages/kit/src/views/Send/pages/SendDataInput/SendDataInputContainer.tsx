@@ -487,11 +487,17 @@ function SendDataInputContainer() {
     };
   }, [networkId, toResolved, form]);
 
+  // Use ref to break the dependency chain: amount → linkedAmount → handleOnChangeAmountMode → renderTokenDataInputForm → rules.
+  // Without this, linkedAmount (a new object on every keystroke) causes rules to be recreated,
+  // which triggers Controller re-registration and async re-validation, leading to intermittent input focus loss on web.
+  const linkedAmountRef = useRef(linkedAmount);
+  linkedAmountRef.current = linkedAmount;
+
   const handleOnChangeAmountMode = useCallback(() => {
     setIsUseFiat((prev) => !prev);
 
-    form.setValue('amount', linkedAmount.originalAmount);
-  }, [form, linkedAmount]);
+    form.setValue('amount', linkedAmountRef.current.originalAmount);
+  }, [form]);
   const handleOnSelectToken = useCallback(() => {
     if (isSelectTokenDisabled) return;
     navigation.pushModal(EModalRoutes.AssetSelectorModal, {
@@ -1066,6 +1072,68 @@ function SendDataInputContainer() {
     [isLightningNetwork, isUseFiat, lnUnit],
   );
 
+  const handleAmountOnChange = useCallback(
+    (e: { target: { name: string; value: string } }) => {
+      setIsMaxSend(false);
+      const value = e.target?.value;
+      const valueBN = new BigNumber(value ?? 0);
+
+      if (valueBN.isNaN()) {
+        const formattedValue = isIntegerAmount
+          ? Number.parseInt(value, 10)
+          : Number.parseFloat(value);
+        form.setValue(
+          'amount',
+          isNaN(formattedValue) ? '' : String(formattedValue),
+        );
+        return;
+      }
+
+      if (isIntegerAmount) {
+        form.setValue('amount', valueBN.toFixed(0));
+        return;
+      }
+
+      let decimals = tokenDetails?.info.decimals ?? 0;
+      if (isLightningNetwork && lnUnit === ELightningUnit.BTC) {
+        decimals = chainValueUtils.getLightningAmountDecimals({
+          lnUnit,
+          decimals,
+        });
+      }
+
+      const dp = valueBN.decimalPlaces();
+      if (!isUseFiat && dp && dp > decimals) {
+        form.setValue(
+          'amount',
+          valueBN.toFixed(decimals, BigNumber.ROUND_FLOOR),
+        );
+      }
+    },
+    [
+      form,
+      isIntegerAmount,
+      isUseFiat,
+      tokenDetails?.info.decimals,
+      isLightningNetwork,
+      lnUnit,
+    ],
+  );
+
+  // Use ref to avoid recreating amountRules when effectiveBalance/price/fiatValue refresh in the background.
+  const handleValidateTokenAmountRef = useRef(handleValidateTokenAmount);
+  handleValidateTokenAmountRef.current = handleValidateTokenAmount;
+
+  const amountRules = useMemo(
+    () => ({
+      required: true,
+      validate: (value: string) =>
+        handleValidateTokenAmountRef.current(value),
+      onChange: handleAmountOnChange,
+    }),
+    [handleAmountOnChange],
+  );
+
   const selectedTokenSymbol = useMemo(() => {
     if (isNFT) {
       return nft?.metadata?.name;
@@ -1193,47 +1261,7 @@ function SendDataInputContainer() {
         <Form.Field
           name="amount"
           label={intl.formatMessage({ id: ETranslations.send_amount })}
-          rules={{
-            required: true,
-            validate: handleValidateTokenAmount,
-            onChange: (e: { target: { name: string; value: string } }) => {
-              setIsMaxSend(false);
-              const value = e.target?.value;
-              const valueBN = new BigNumber(value ?? 0);
-
-              if (valueBN.isNaN()) {
-                const formattedValue = isIntegerAmount
-                  ? Number.parseInt(value, 10)
-                  : Number.parseFloat(value);
-                form.setValue(
-                  'amount',
-                  isNaN(formattedValue) ? '' : String(formattedValue),
-                );
-                return;
-              }
-
-              if (isIntegerAmount) {
-                form.setValue('amount', valueBN.toFixed(0));
-                return;
-              }
-
-              let decimals = tokenDetails?.info.decimals ?? 0;
-              if (isLightningNetwork && lnUnit === ELightningUnit.BTC) {
-                decimals = chainValueUtils.getLightningAmountDecimals({
-                  lnUnit,
-                  decimals,
-                });
-              }
-
-              const dp = valueBN.decimalPlaces();
-              if (!isUseFiat && dp && dp > decimals) {
-                form.setValue(
-                  'amount',
-                  valueBN.toFixed(decimals, BigNumber.ROUND_FLOOR),
-                );
-              }
-            },
-          }}
+          rules={amountRules}
           labelAddon={renderAmountInputAddOn()}
         >
           <AmountInput
@@ -1254,7 +1282,7 @@ function SendDataInputContainer() {
             valueProps={{
               currency: isUseFiat ? undefined : currencySymbol,
               tokenSymbol: isUseFiat ? tokenSymbol : undefined,
-              value: linkedAmount.originalAmount,
+              value: linkedAmountRef.current.originalAmount,
               onPress: handleOnChangeAmountMode,
             }}
             inputProps={{
@@ -1304,24 +1332,21 @@ function SendDataInputContainer() {
       </>
     ),
     [
+      amountRules,
       currencySymbol,
       currentAccount.accountId,
       currentAccount.networkId,
       form,
       handleOnChangeAmountMode,
       handleOnSelectToken,
-      handleValidateTokenAmount,
       hasFrozenBalance,
       hidePercentToolbar,
       intl,
       isIntegerAmount,
-      isLightningNetwork,
       isLoadingAssets,
       isNFT,
       isSelectTokenDisabled,
       isUseFiat,
-      linkedAmount.originalAmount,
-      lnUnit,
       maxBalance,
       maxBalanceFiat,
       network?.isCustomNetwork,
@@ -1331,7 +1356,6 @@ function SendDataInputContainer() {
       renderAmountInputAddOn,
       selectedTokenSymbol,
       showPercentToolbar,
-      tokenDetails?.info.decimals,
       tokenInfo?.logoURI,
       tokenSymbol,
     ],
