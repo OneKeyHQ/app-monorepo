@@ -1,4 +1,4 @@
-import type { ForwardedRef, MutableRefObject, RefObject } from 'react';
+import type { ForwardedRef, MutableRefObject } from 'react';
 import {
   createContext,
   forwardRef,
@@ -10,9 +10,7 @@ import {
   useRef,
 } from 'react';
 
-import { Dimensions, ScrollView as ScrollViewNative } from 'react-native';
-
-import { getCurrentKeyboardHeight } from '../../hooks/useKeyboard';
+import { ScrollView as ScrollViewNative } from 'react-native';
 
 import {
   usePropsAndStyle,
@@ -27,7 +25,6 @@ import type {
   NativeSyntheticEvent,
   ScrollViewProps as ScrollViewNativeProps,
   StyleProp,
-  TextInput,
   ViewStyle,
 } from 'react-native';
 
@@ -55,41 +52,8 @@ const scrollViewRefContext = createContext<{
     },
   },
 });
-const ScrollViewRefProvider = memo(scrollViewRefContext.Provider);
+export const ScrollViewRefProvider = memo(scrollViewRefContext.Provider);
 export const useScrollView = () => useContext(scrollViewRefContext);
-
-export const useScrollToLocation = (inputRef: RefObject<TextInput | null>) => {
-  const actions = useScrollView();
-  const scrollToView = useCallback(() => {
-    if (platformEnv.isNative) {
-      // Delay to allow the keyboard to appear and layout to settle
-      setTimeout(() => {
-        const keyboardHeight = getCurrentKeyboardHeight();
-        if (!keyboardHeight) return;
-
-        inputRef.current?.measureInWindow(
-          (_x: number, y: number, _width: number, height: number) => {
-            const { pageOffsetRef, scrollViewRef } = actions;
-            const windowHeight = Dimensions.get('window').height;
-            // Visible area = window height - keyboard height - buffer for footer
-            const visibleBottom = windowHeight - keyboardHeight - 60;
-            const inputBottom = y + height;
-            const gap = 16;
-
-            if (inputBottom > visibleBottom - gap) {
-              const scrollAmount = inputBottom - (visibleBottom - gap);
-              scrollViewRef?.current?.scrollTo?.({
-                y: pageOffsetRef.current.y + scrollAmount,
-                animated: true,
-              });
-            }
-          },
-        );
-      }, 300);
-    }
-  }, [actions, inputRef]);
-  return useMemo(() => ({ scrollToView }), [scrollToView]);
-};
 
 function BaseScrollView(
   {

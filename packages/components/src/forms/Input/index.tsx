@@ -29,7 +29,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { useClipboard, useSelectionColor } from '../../hooks';
-import { useScrollToLocation } from '../../layouts/ScrollView';
 import { Icon } from '../../primitives';
 
 import { Input as TMInput } from './Input';
@@ -422,7 +421,6 @@ function BaseInput(
   }
 
   const shownValue = useFixAndroidInputValueDisplay(value);
-  const { scrollToView } = useScrollToLocation(inputRef);
   // workaround for selectTextOnFocus={true} not working on Native App
   const handleFocus = useCallback(
     (e: NativeSyntheticEvent<TextInputFocusEventData>) => {
@@ -435,9 +433,8 @@ function BaseInput(
           });
         });
       }
-      scrollToView();
     },
-    [onFocus, scrollToView, selectTextOnFocus],
+    [onFocus, selectTextOnFocus],
   );
 
   const onNumberPadChangeText = useCallback(
