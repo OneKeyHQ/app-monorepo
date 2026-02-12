@@ -2,6 +2,7 @@ import {
   dismissKeyboard,
   dismissKeyboardWithDelay,
 } from '@onekeyhq/shared/src/keyboard';
+import { ScrollView } from 'react-native';
 
 import type {
   KeyboardAvoidingView,
@@ -23,7 +24,7 @@ const PassThrough = ({
 
 export const Keyboard = {
   AvoidingView: PassThrough as typeof KeyboardAvoidingView,
-  AwareScrollView: PassThrough as typeof KeyboardAwareScrollView,
+  AwareScrollView: ScrollView as unknown as typeof KeyboardAwareScrollView,
   StickyView: PassThrough as typeof KeyboardStickyView,
   Toolbar: PassThrough as typeof KeyboardToolbar,
   ControllerView: PassThrough as typeof KeyboardControllerView,

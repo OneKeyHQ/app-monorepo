@@ -493,7 +493,7 @@ export function DesktopLeftSideBar({
             jc="flex-end"
             px="$4"
           />
-        ) : platformEnv.isDesktopWin ? (
+        ) : platformEnv.isDesktopWin || platformEnv.isDesktopLinux ? (
           <DesktopWinSidebarTop />
         ) : (
           <MenuHamburger />
@@ -502,6 +502,7 @@ export function DesktopLeftSideBar({
           <YStack flex={1}>
             {!platformEnv.isDesktopMac &&
             !platformEnv.isDesktopWin &&
+            !platformEnv.isDesktopLinux &&
             !platformEnv.isNativeIOSPad ? (
               <XStack ai="center" jc="center" px="$4" py="$3">
                 <Icon
