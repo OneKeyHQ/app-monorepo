@@ -41,6 +41,16 @@ import type { GestureResponderEvent, LayoutChangeEvent } from 'react-native';
 // Estimated height per tab item (icon ~40px + gap + label ~16-30px + padding 12px)
 const ESTIMATED_TAB_ITEM_HEIGHT = 70;
 
+function DesktopWinSidebarTop() {
+  return (
+    <XStack h={52} ai="center" jc="center" px="$4" className="app-region-drag">
+      <XStack className="app-region-no-drag">
+        <MenuHamburger />
+      </XStack>
+    </XStack>
+  );
+}
+
 function TabItemView({
   isActive,
   route,
@@ -472,7 +482,6 @@ export function DesktopLeftSideBar({
       }}
     >
       <YStack w={MIN_SIDEBAR_WIDTH}>
-        {!platformEnv.isDesktopMac ? <MenuHamburger /> : null}
         {platformEnv.isDesktopMac ? (
           // @ts-expect-error https://www.electronjs.org/docs/latest/tutorial/custom-window-interactions
           <XStack
@@ -484,10 +493,16 @@ export function DesktopLeftSideBar({
             jc="flex-end"
             px="$4"
           />
-        ) : null}
+        ) : platformEnv.isDesktopWin ? (
+          <DesktopWinSidebarTop />
+        ) : (
+          <MenuHamburger />
+        )}
         <YStack flex={1} testID="Desktop-AppSideBar-Content-Container">
           <YStack flex={1}>
-            {!platformEnv.isDesktopMac && !platformEnv.isNativeIOSPad ? (
+            {!platformEnv.isDesktopMac &&
+            !platformEnv.isDesktopWin &&
+            !platformEnv.isNativeIOSPad ? (
               <XStack ai="center" jc="center" px="$4" py="$3">
                 <Icon
                   name="OnekeyLogoIllus"

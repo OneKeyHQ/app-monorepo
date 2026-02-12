@@ -1127,8 +1127,7 @@ function SendDataInputContainer() {
   const amountRules = useMemo(
     () => ({
       required: true,
-      validate: (value: string) =>
-        handleValidateTokenAmountRef.current(value),
+      validate: (value: string) => handleValidateTokenAmountRef.current(value),
       onChange: handleAmountOnChange,
     }),
     [handleAmountOnChange],
@@ -1793,11 +1792,11 @@ function SendDataInputContainer() {
         calcPercentBalance({
           balance: isUseFiat ? maxBalanceFiat : maxBalance,
           percent,
-          decimals: token?.decimals,
+          decimals: 6,
         }),
       );
     },
-    [form, isUseFiat, maxBalance, maxBalanceFiat, token?.decimals],
+    [form, isUseFiat, maxBalance, maxBalanceFiat],
   );
 
   const inputAddressFieldState = form.getFieldState('to');

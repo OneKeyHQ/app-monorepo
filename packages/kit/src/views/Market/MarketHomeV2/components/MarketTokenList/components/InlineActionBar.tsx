@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { StyleSheet } from 'react-native';
 
 import { Icon, Stack, XStack } from '@onekeyhq/components';
 
 const DISMISS_GUARD_DELAY = 350;
+const SHOW_DELAY = 500;
 
 type IInlineActionBarProps = {
   isFirstItem: boolean;
@@ -19,6 +20,16 @@ function InlineActionBar({
   onToggleWatchlist,
   onDismiss,
 }: IInlineActionBarProps) {
+  // Delay showing the action bar so it doesn't appear while the finger
+  // is still on screen after a long-press / drag gesture
+  const [isVisible, setIsVisible] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsVisible(true);
+    }, SHOW_DELAY);
+    return () => clearTimeout(timer);
+  }, []);
+
   // Guard against immediate dismiss from the long-press touch-up event
   // bubbling into the backdrop onPress
   const isReadyRef = useRef(false);
@@ -63,6 +74,7 @@ function InlineActionBar({
         borderRadius="$2"
         alignItems="center"
         justifyContent="center"
+        opacity={isVisible ? 1 : 0}
         // eslint-disable-next-line react-native/no-inline-styles
         style={{ backgroundColor: 'rgba(0,0,0,0.27)' }}
       >

@@ -25,7 +25,6 @@ import {
 } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
-  EModalReceiveRoutes,
   EModalRoutes,
   EModalSettingRoutes,
   ETabRoutes,
@@ -392,42 +391,6 @@ function MoreDappAction({ size }: { size?: 'small' | 'medium' }) {
   );
 }
 
-function DepositButton() {
-  const intl = useIntl();
-  const navigation = useAppNavigation();
-  const {
-    activeAccount: { wallet, account, network, indexedAccount },
-  } = useActiveAccount({
-    num: 0,
-  });
-
-  const shouldShow = useMemo(() => {
-    return !!account && !!wallet;
-  }, [account, wallet]);
-
-  const handlePress = useCallback(() => {
-    navigation.pushModal(EModalRoutes.ReceiveModal, {
-      screen: EModalReceiveRoutes.ReceiveToken,
-      params: {
-        networkId: network?.id ?? '',
-        accountId: account?.id ?? '',
-        walletId: wallet?.id ?? '',
-        indexedAccountId: indexedAccount?.id,
-      },
-    });
-  }, [navigation, network?.id, account?.id, wallet?.id, indexedAccount?.id]);
-
-  if (!shouldShow) {
-    return null;
-  }
-
-  return (
-    <Button size="small" variant="primary" onPress={handlePress}>
-      {intl.formatMessage({ id: ETranslations.perp_trade_deposit })}
-    </Button>
-  );
-}
-
 function RightActions({
   tabRoute,
   customHeaderRightItems,
@@ -482,7 +445,6 @@ function RightActions({
           >
             <WalletConnectionForWeb tabRoute={tabRoute} />
           </XStack>
-          <DepositButton />
         </>
       )}
       {!isPerpsTab && gtLg ? <DownloadAppButton /> : null}

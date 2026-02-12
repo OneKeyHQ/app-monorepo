@@ -128,13 +128,13 @@ function NetworksSectionList() {
               justifyContent="space-between"
               alignItems="center"
             >
-              <Stack flex={1} mr="$2">
+              <Stack flex={1} mr="$2" alignItems="flex-start">
                 <ChainSelectorTooltip
                   renderContent={intl.formatMessage({
                     id: ETranslations.network_auto_detection_tip,
                   })}
                   renderTrigger={
-                    <Stack alignSelf="flex-start">
+                    <Stack>
                       <SizableText size="$headingSm" color="$textSubdued">
                         {item.section.title}
                       </SizableText>

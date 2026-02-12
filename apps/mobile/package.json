@@ -131,7 +131,7 @@
     "react-native-get-random-values": "npm:@onekeyfe/react-native-get-random-values@1.1.18",
     "react-native-image-colors": "^2.5.0",
     "react-native-image-crop-picker": "0.50.0",
-    "react-native-keyboard-controller": "1.19.6",
+    "react-native-keyboard-controller": "1.20.7",
     "react-native-level-fs": "3.0.1",
     "react-native-mmkv": "4.1.0",
     "react-native-modal": "^13.0.1",

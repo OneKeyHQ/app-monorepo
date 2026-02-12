@@ -8856,6 +8856,7 @@ __metadata:
     "@walletconnect/universal-provider": "npm:2.21.9"
     agentation: "npm:^2.2.0"
     allotment: "npm:^1.20.5"
+    array.prototype.toreversed: "npm:^1.1.2"
     axios: "npm:^1.13.2"
     babel-loader: "npm:^9.1.3"
     babel-plugin-catch-logger: "npm:0.1.13"
@@ -9268,7 +9269,7 @@ __metadata:
     react-native-get-random-values: "npm:@onekeyfe/react-native-get-random-values@1.1.18"
     react-native-image-colors: "npm:^2.5.0"
     react-native-image-crop-picker: "npm:0.50.0"
-    react-native-keyboard-controller: "npm:1.19.6"
+    react-native-keyboard-controller: "npm:1.20.7"
     react-native-level-fs: "npm:3.0.1"
     react-native-mmkv: "npm:4.1.0"
     react-native-modal: "npm:^13.0.1"
@@ -19852,6 +19853,18 @@ __metadata:
     es-abstract: "npm:^1.22.1"
     es-shim-unscopables: "npm:^1.0.0"
   checksum: 10/33f20006686e0cbe844fde7fd290971e8366c6c5e3380681c2df15738b1df766dd02c7784034aeeb3b037f65c496ee54de665388288edb323a2008bb550f77ea
+  languageName: node
+  linkType: hard
+
+"array.prototype.toreversed@npm:^1.1.2":
+  version: 1.1.2
+  resolution: "array.prototype.toreversed@npm:1.1.2"
+  dependencies:
+    call-bind: "npm:^1.0.2"
+    define-properties: "npm:^1.2.0"
+    es-abstract: "npm:^1.22.1"
+    es-shim-unscopables: "npm:^1.0.0"
+  checksum: 10/b4076d687ddc22c191863ce105d320cc4b0e1435bfda9ffeeff681682fe88fa6fe30e0d2ae94fa4b2d7fad901e1954ea4f75c1cab217db4848da84a2b5889192
   languageName: node
   linkType: hard
 
@@ -38672,16 +38685,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-keyboard-controller@npm:1.19.6":
-  version: 1.19.6
-  resolution: "react-native-keyboard-controller@npm:1.19.6"
+"react-native-keyboard-controller@npm:1.20.7":
+  version: 1.20.7
+  resolution: "react-native-keyboard-controller@npm:1.20.7"
   dependencies:
     react-native-is-edge-to-edge: "npm:^1.2.1"
   peerDependencies:
     react: "*"
     react-native: "*"
     react-native-reanimated: ">=3.0.0"
-  checksum: 10/cbd8202d1c5e70a2c7984c47d8e639f56e05f89a340264e0391a793f783e72644dbf2633007474977f9a00b92ddd6a39d6f76ca4decea5e30afc0e457eb2e4b3
+  checksum: 10/675cc1b9ce4eb2f8f6c8bc8f4d4673dd1563bff8f393d6ff8d6e656a9779c931dc778d07eb6501973a04c3757b13da1166962af4bd4b2b60669cb63e855e48ec
   languageName: node
   linkType: hard
 

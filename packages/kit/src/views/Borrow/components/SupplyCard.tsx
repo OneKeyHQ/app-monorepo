@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -7,18 +7,14 @@ import {
   SizableText,
   Switch,
   XStack,
-  rootNavigationRef,
   useMedia,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import {
-  EOnboardingPagesV2,
-  EOnboardingV2Routes,
-  ERootRoutes,
-} from '@onekeyhq/shared/src/routes';
 import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
+
+import { useToOnBoardingPage } from '../../Onboarding/hooks/useToOnBoardingPage';
 
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
 import { EManagePositionType } from '../../Staking/pages/ManagePosition/hooks/useManagePage';
@@ -63,19 +59,20 @@ export const SupplyCard = () => {
     ],
   );
 
-  const openCreateWalletPage = useCallback(() => {
-    rootNavigationRef.current?.navigate(ERootRoutes.Onboarding, {
-      screen: EOnboardingV2Routes.OnboardingV2,
-      params: {
-        screen: EOnboardingPagesV2.CreateOrImportWallet,
-      },
-    });
-  }, []);
+  const toOnBoardingPage = useToOnBoardingPage();
+
+  // Use ref to hold the latest value of noConnectedWallet.
+  // This avoids stale closure issues caused by TableList's custom memo
+  // comparator (compareTableListProps) which uses stringify for columns
+  // (losing function references) and skips onPressRow comparison.
+  const noConnectedWalletRef = useRef(noConnectedWallet);
+  noConnectedWalletRef.current = noConnectedWallet;
 
   const handleManageSupply = useCallback(
     (item: ISupplyAsset) => {
-      if (noConnectedWallet) {
-        openCreateWalletPage();
+      // Read from ref to avoid stale closure from TableList memo caching
+      if (noConnectedWalletRef.current) {
+        void toOnBoardingPage();
         return;
       }
       if (!market) return;
@@ -94,8 +91,8 @@ export const SupplyCard = () => {
       });
     },
     [
-      noConnectedWallet,
-      openCreateWalletPage,
+      noConnectedWalletRef,
+      toOnBoardingPage,
       navigation,
       market,
       accountId,

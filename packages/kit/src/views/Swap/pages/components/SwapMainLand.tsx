@@ -1159,12 +1159,14 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           fromTokenAmountValue={fromTokenAmount.value}
           swapRecentTokenPairs={swapRecentTokenPairs}
           headerContent={
-            <SwapHeaderContainer
-              pageType={pageType}
-              defaultSwapType={swapInitParams?.swapTabSwitchType}
-              showSwapPro={platformEnv.isNative}
-              hideRightActions
-            />
+            gtLg && pageType !== EPageType.modal ? (
+              <SwapHeaderContainer
+                pageType={pageType}
+                defaultSwapType={swapInitParams?.swapTabSwitchType}
+                showSwapPro={platformEnv.isNative}
+                hideRightActions
+              />
+            ) : undefined
           }
         />
       );
@@ -1241,6 +1243,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     storeName,
     isWrapped,
     swapInitParams?.swapTabSwitchType,
+    gtLg,
   ]);
 
   // Desktop: show provider panel on the right side, need wider layout
