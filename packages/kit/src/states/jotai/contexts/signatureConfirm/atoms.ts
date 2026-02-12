@@ -202,7 +202,6 @@ export const { atom: payWithTokenInfoAtom, use: usePayWithTokenInfoAtom } =
     logoURI: string;
     isLoading: boolean;
     symbol: string;
-    decimals?: number;
   }>({
     enabled: false,
     address: '',
@@ -210,7 +209,6 @@ export const { atom: payWithTokenInfoAtom, use: usePayWithTokenInfoAtom } =
     logoURI: '',
     isLoading: false,
     symbol: '',
-    decimals: undefined,
   });
 
 export const {

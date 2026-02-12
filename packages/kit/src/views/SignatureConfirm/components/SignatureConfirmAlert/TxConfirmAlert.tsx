@@ -109,16 +109,7 @@ function TxConfirmAlert(props: IProps) {
       const payToken: IToken | undefined =
         transferPayload?.tokenInfo?.address === payWithTokenInfo.address
           ? transferPayload.tokenInfo
-          : payWithTokenInfo.decimals !== undefined
-            ? {
-                decimals: payWithTokenInfo.decimals,
-                name: payWithTokenInfo.symbol,
-                symbol: payWithTokenInfo.symbol,
-                address: payWithTokenInfo.address,
-                logoURI: payWithTokenInfo.logoURI,
-                isNative: false,
-              }
-            : undefined;
+          : undefined;
 
       return (
         <Alert
@@ -225,7 +216,6 @@ function TxConfirmAlert(props: IProps) {
     payWithTokenInfo.symbol,
     payWithTokenInfo.address,
     payWithTokenInfo.logoURI,
-    payWithTokenInfo.decimals,
     transferPayload?.tokenInfo,
     intl,
     network?.symbol,

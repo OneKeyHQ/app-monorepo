@@ -381,24 +381,6 @@ function TxFeeInfo(props: IProps) {
                 balance: balances[tokenAddress] ?? '0',
                 symbol: info.payCoinCode,
               });
-              void backgroundApiProxy.serviceToken
-                .fetchTokensDetails({
-                  networkId,
-                  accountId,
-                  contractList: [tokenAddress],
-                })
-                .then((details) => {
-                  const tokenInfo = details?.[0]?.info;
-                  if (tokenInfo?.decimals !== undefined) {
-                    updatePayWithTokenInfo({
-                      decimals: tokenInfo.decimals,
-                      logoURI: tokenInfo.logoURI ?? '',
-                    });
-                  }
-                })
-                .catch(() => {
-                  // Pay token decimals remain unset; Top up button may not show until next fee fetch
-                });
             }
           } else {
             updateTronResourceRentalInfo({
@@ -411,7 +393,6 @@ function TxFeeInfo(props: IProps) {
               address: '',
               balance: '0',
               logoURI: '',
-              decimals: undefined,
             });
           }
         }
