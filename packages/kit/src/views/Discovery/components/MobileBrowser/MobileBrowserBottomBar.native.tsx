@@ -4,7 +4,13 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import type { IStackProps } from '@onekeyhq/components';
-import { IconButton, Stack, Toast, useClipboard } from '@onekeyhq/components';
+import {
+  IconButton,
+  Stack,
+  Toast,
+  useClipboard,
+  useSafeAreaInsets,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
@@ -46,6 +52,7 @@ function MobileBrowserBottomBar({
   ...rest
 }: IMobileBrowserBottomBarProps) {
   const intl = useIntl();
+  const { bottom } = useSafeAreaInsets();
 
   const { tab } = useWebTabDataById(id);
 
@@ -185,10 +192,11 @@ function MobileBrowserBottomBar({
     <Stack
       flexDirection="row"
       bg="$bgApp"
-      h={BROWSER_BOTTOM_BAR_HEIGHT}
+      h={BROWSER_BOTTOM_BAR_HEIGHT + bottom}
       zIndex={1}
       borderTopWidth={StyleSheet.hairlineWidth}
       borderTopColor="$borderSubdued"
+      pb={bottom}
       {...rest}
     >
       <Stack flex={1} alignItems="center" justifyContent="center">
