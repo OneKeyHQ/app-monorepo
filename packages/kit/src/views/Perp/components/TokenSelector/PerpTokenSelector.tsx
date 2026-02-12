@@ -1,5 +1,13 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call */
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  memo,
+  startTransition,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -14,7 +22,6 @@ import {
   SearchBar,
   SizableText,
   Spinner,
-  Tabs,
   Tooltip,
   XStack,
   YStack,
@@ -184,17 +191,22 @@ function BasePerpTokenSelectorContent({
     [intl],
   );
   const activeTab = selectorConfig?.activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB;
+  const listRef = useRef<IListViewRef<ITokenSelectorListItem> | null>(null);
+
   const setActiveTab = useCallback(
     (tab: string) => {
-      setSelectorConfig(
-        (prev) =>
-          ({
-            field: prev?.field ?? DEFAULT_PERP_TOKEN_SORT_FIELD,
-            direction: prev?.direction ?? DEFAULT_PERP_TOKEN_SORT_DIRECTION,
-            activeTab: tab,
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          }) as any,
-      );
+      startTransition(() => {
+        setSelectorConfig(
+          (prev) =>
+            ({
+              field: prev?.field ?? DEFAULT_PERP_TOKEN_SORT_FIELD,
+              direction: prev?.direction ?? DEFAULT_PERP_TOKEN_SORT_DIRECTION,
+              activeTab: tab,
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            }) as any,
+        );
+      });
+      listRef.current?.scrollToOffset?.({ offset: 0, animated: false });
     },
     [setSelectorConfig],
   );
@@ -218,53 +230,39 @@ function BasePerpTokenSelectorContent({
 
   const { favoriteItems } = usePerpsFavorites();
 
-  const listRefFavorites = useRef<IListViewRef<ITokenSelectorListItem> | null>(
-    null,
-  );
-  const listRefAll = useRef<IListViewRef<ITokenSelectorListItem> | null>(null);
-  const dynamicListRefsRef = useRef<
-    Record<string, IListViewRef<ITokenSelectorListItem> | null>
-  >({});
-  const activeTabRef = useRef(activeTab);
-  activeTabRef.current = activeTab;
+  // Freeze sort order while popover is open; refreshed on sort change or first data arrival.
+  const ctxSnapshotRef = useRef(assetCtxsByDex);
   const lastSortRef = useRef<{ field?: string; direction?: string } | null>(
     null,
   );
-
-  // Get dynamic list ref by tabId
-  const getDynamicListRef = useCallback(
-    (tabId: string) => ({
-      current: dynamicListRefsRef.current[tabId] ?? null,
-    }),
-    [],
-  );
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const _setDynamicListRef = useCallback(
-    (tabId: string, ref: IListViewRef<ITokenSelectorListItem> | null) => {
-      dynamicListRefsRef.current[tabId] = ref;
-    },
-    [],
-  );
-
   useEffect(() => {
     const field = selectorConfig?.field;
     const direction = selectorConfig?.direction;
     const last = lastSortRef.current;
-    if (last?.field === field && last?.direction === direction) {
+    const sortChanged =
+      last?.field !== field || last?.direction !== direction;
+    // Also refresh when snapshot is empty (first WS data arrival after mount)
+    const snapshotEmpty = !ctxSnapshotRef.current?.some(
+      (arr) => arr?.length > 0,
+    );
+    if (!sortChanged && !snapshotEmpty) {
       return;
     }
     lastSortRef.current = { field, direction };
-
-    let ref = listRefAll.current;
-    if (activeTabRef.current === 'favorites') {
-      ref = listRefFavorites.current;
-    } else {
-      const dynamicRef = dynamicListRefsRef.current[activeTabRef.current];
-      if (dynamicRef) ref = dynamicRef;
+    ctxSnapshotRef.current = assetCtxsByDex;
+    if (sortChanged) {
+      listRef.current?.scrollToOffset?.({ offset: 0, animated: false });
     }
-    ref?.scrollToOffset?.({ offset: 0, animated: false });
-  }, [selectorConfig?.direction, selectorConfig?.field]);
+  }, [selectorConfig?.direction, selectorConfig?.field, assetCtxsByDex]);
+
+  // Container-level mark instead of per-row
+  useEffect(() => {
+    actions.current.markAllAssetCtxsRequired();
+    return () => {
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      actions.current.markAllAssetCtxsNotRequired();
+    };
+  }, [actions]);
 
   const computeSortValues = useCallback(
     (assetCtx: IPerpsAssetCtx | undefined) => {
@@ -336,9 +334,10 @@ function BasePerpTokenSelectorContent({
     [selectorConfig?.direction, selectorConfig?.field],
   );
 
-  const listDataByTab = useMemo(() => {
+  const activeTabData = useMemo(() => {
     const assetsByDexTyped: IPerpsUniverse[][] = assetsByDex || [];
-    const assetCtxsByDexTyped: IPerpsAssetCtx[][] = assetCtxsByDex || [];
+    const assetCtxsByDexTyped: IPerpsAssetCtx[][] =
+      ctxSnapshotRef.current || [];
 
     const combinedEntries = assetsByDexTyped.flatMap(
       (assets: IPerpsUniverse[], dexIndex: number) => {
@@ -361,66 +360,61 @@ function BasePerpTokenSelectorContent({
     );
 
     const sortField = selectorConfig?.field ?? '';
-    const listAll = (() => {
-      if (!sortField) {
-        return combinedEntries.map((entry) => ({
-          dexIndex: entry.dexIndex,
-          index: entry.index,
-          assetId: entry.assetId,
-        }));
-      }
+    let result: ITokenSelectorListItem[];
+    if (!sortField) {
+      result = combinedEntries.map((entry) => ({
+        dexIndex: entry.dexIndex,
+        index: entry.index,
+        assetId: entry.assetId,
+      }));
+    } else {
       const sorted = combinedEntries.toSorted((a, b) =>
         sortCompare(
           { asset: a.asset, sortValues: a.sortValues },
           { asset: b.asset, sortValues: b.sortValues },
         ),
       );
-      return sorted.map((entry) => ({
+      result = sorted.map((entry) => ({
         dexIndex: entry.dexIndex,
         index: entry.index,
         assetId: entry.assetId,
       }));
-    })();
+    }
 
-    const favoriteAssetIds = new Set(
-      favoriteItems.map((f: IFavoriteItem) => `${f.dexIndex}-${f.assetId}`),
-    );
-    const listFavorites = listAll.filter((item) =>
-      favoriteAssetIds.has(`${item.dexIndex}-${item.assetId}`),
-    );
+    if (activeTab === 'favorites') {
+      const favoriteAssetIds = new Set(
+        favoriteItems.map((f: IFavoriteItem) => `${f.dexIndex}-${f.assetId}`),
+      );
+      return result.filter((item) =>
+        favoriteAssetIds.has(`${item.dexIndex}-${item.assetId}`),
+      );
+    }
 
-    // Build data for dynamic tabs (filter from sorted listAll to preserve sort order)
-    const dynamicTabsData: Record<string, ITokenSelectorListItem[]> = {};
-    for (const tab of dynamicTabs) {
-      const tokenSet = new Set(tab.tokens);
+    const dynamicTab = dynamicTabs.find((t) => t.tabId === activeTab);
+    if (dynamicTab) {
+      const tokenSet = new Set(dynamicTab.tokens);
       const matchingIds = new Set(
         combinedEntries
           .filter((entry) => tokenSet.has(entry.asset.name))
           .map((entry) => `${entry.dexIndex}-${entry.assetId}`),
       );
-      dynamicTabsData[tab.tabId] = listAll.filter((item) =>
+      return result.filter((item) =>
         matchingIds.has(`${item.dexIndex}-${item.assetId}`),
       );
     }
 
-    return {
-      favorites: listFavorites,
-      all: listAll,
-      dynamic: dynamicTabsData,
-    };
+    return result;
   }, [
-    assetCtxsByDex,
     assetsByDex,
     computeSortValues,
     dynamicTabs,
     favoriteItems,
     sortCompare,
     selectorConfig?.field,
+    activeTab,
   ]);
 
-  // Show all server-configured dynamic tabs regardless of search results.
-  // Filtering by search-filtered assetsByDex would hide tabs during search
-  // and break tab persistence (assetsByDex resets to [] on unmount).
+  // Always show all dynamic tabs — filtering them by search would hide tabs mid-search.
   const visibleDynamicTabs = dynamicTabs;
 
   usePerpActiveTabValidation({
@@ -439,58 +433,38 @@ function BasePerpTokenSelectorContent({
     [],
   );
 
-  const renderTokenList = useCallback(
-    (
-      data: ITokenSelectorListItem[],
-      listRef: React.MutableRefObject<IListViewRef<ITokenSelectorListItem> | null>,
-      isFavoritesTab = false,
-    ) => {
-      const showFavoritesEmpty =
-        isFavoritesTab && data.length === 0 && !searchQuery;
+  const renderItem = useCallback(
+    ({ item: mockedToken }: { item: ITokenSelectorListItem }) => (
+      <PerpTokenSelectorRow
+        mockedToken={mockedToken}
+        onPress={(name) => handleSelectToken(name)}
+        skipMarkRequired
+      />
+    ),
+    [handleSelectToken],
+  );
 
-      return (
-        <Tabs.ScrollView showsVerticalScrollIndicator={false}>
-          <YStack>
-            {!isFavoritesTab || data.length > 0 ? <TokenListHeader /> : null}
-            <YStack height={350}>
-              {showFavoritesEmpty ? (
-                <FavoritesEmptyState />
-              ) : (
-                <ListView
-                  useFlashList
-                  ref={listRef}
-                  keyExtractor={keyExtractor}
-                  data={data}
-                  renderItem={({ item: mockedToken }) => (
-                    <PerpTokenSelectorRow
-                      mockedToken={mockedToken}
-                      onPress={(name) => handleSelectToken(name)}
-                    />
-                  )}
-                  ListEmptyComponent={
-                    <XStack p="$4" justifyContent="center">
-                      <SizableText size="$bodySm" color="$textSubdued">
-                        {searchQuery
-                          ? intl.formatMessage({
-                              id: ETranslations.perp_token_selector_empty,
-                            })
-                          : intl.formatMessage({
-                              id: ETranslations.perp_token_selector_loading,
-                            })}
-                      </SizableText>
-                    </XStack>
-                  }
-                  contentContainerStyle={{
-                    paddingBottom: 10,
-                  }}
-                />
-              )}
-            </YStack>
-          </YStack>
-        </Tabs.ScrollView>
-      );
-    },
-    [handleSelectToken, intl, keyExtractor, searchQuery],
+  const showFavoritesEmpty =
+    activeTab === 'favorites' && activeTabData.length === 0 && !searchQuery;
+
+  const listEmptyComponent = useMemo(
+    () =>
+      showFavoritesEmpty ? (
+        <FavoritesEmptyState />
+      ) : (
+        <XStack p="$4" justifyContent="center">
+          <SizableText size="$bodySm" color="$textSubdued">
+            {searchQuery
+              ? intl.formatMessage({
+                  id: ETranslations.perp_token_selector_empty,
+                })
+              : intl.formatMessage({
+                  id: ETranslations.perp_token_selector_loading,
+                })}
+          </SizableText>
+        </XStack>
+      ),
+    [showFavoritesEmpty, searchQuery, intl],
   );
 
   const content = (
@@ -512,69 +486,53 @@ function BasePerpTokenSelectorContent({
             // value={searchQuery} // keep value undefined to make debounce works
           />
         </XStack>
-        <Tabs.Container
-          initialTabName={(() => {
-            if (activeTab === 'favorites') return tabNames.favorites;
-            // Check if activeTab is a dynamic tab
-            const dynamicTab = visibleDynamicTabs.find(
-              (t: IPerpDynamicTab) => t.tabId === activeTab,
-            );
-            if (dynamicTab) return dynamicTab.name;
-            return tabNames.all;
-          })()}
-          onTabChange={({ tabName }) => {
-            if (tabName === tabNames.favorites) {
-              setActiveTab('favorites');
-              return;
-            }
-            if (tabName === tabNames.all) {
-              setActiveTab('all');
-              return;
-            }
-            // Check if it's a dynamic tab
-            const dynamicTab = visibleDynamicTabs.find(
-              (t: IPerpDynamicTab) => t.name === tabName,
-            );
-            if (dynamicTab) {
-              setActiveTab(dynamicTab.tabId);
-              return;
-            }
-            setActiveTab('all');
-          }}
-          renderTabBar={(tabBarProps) => (
-            <Tabs.TabBar
-              {...tabBarProps}
-              renderItem={({ name, isFocused, onPress }) => (
-                <TabItem name={name} isFocused={isFocused} onPress={onPress} />
-              )}
-              containerStyle={{
-                borderRadius: 0,
-                backgroundColor: '$bg',
-                paddingHorizontal: 0,
-                cursor: 'default',
-              }}
-            />
-          )}
+        <XStack
+          borderBottomWidth="$px"
+          borderBottomColor="$borderSubdued"
+          bg="$bg"
+          px="$0"
         >
-          <Tabs.Tab name={tabNames.favorites}>
-            {renderTokenList(listDataByTab.favorites, listRefFavorites, true)}
-          </Tabs.Tab>
-          <Tabs.Tab name={tabNames.all}>
-            {renderTokenList(listDataByTab.all, listRefAll, false)}
-          </Tabs.Tab>
-          {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            visibleDynamicTabs.map((tab: IPerpDynamicTab) => (
-              <Tabs.Tab key={tab.tabId} name={tab.name}>
-                {renderTokenList(
-                  listDataByTab.dynamic[tab.tabId] ?? [],
-                  getDynamicListRef(tab.tabId),
-                  false,
-                )}
-              </Tabs.Tab>
-            )) as any
-          }
-        </Tabs.Container>
+          <TabItem
+            name={tabNames.favorites}
+            isFocused={activeTab === 'favorites'}
+            onPress={() => setActiveTab('favorites')}
+          />
+          <TabItem
+            name={tabNames.all}
+            isFocused={activeTab === 'all'}
+            onPress={() => setActiveTab('all')}
+          />
+          {visibleDynamicTabs.map((tab: IPerpDynamicTab) => (
+            <TabItem
+              key={tab.tabId}
+              name={tab.name}
+              isFocused={activeTab === tab.tabId}
+              onPress={() => setActiveTab(tab.tabId)}
+            />
+          ))}
+        </XStack>
+        <YStack>
+          {!showFavoritesEmpty ? <TokenListHeader /> : null}
+          <YStack height={350}>
+            {showFavoritesEmpty ? (
+              <FavoritesEmptyState />
+            ) : (
+              <ListView
+                useFlashList
+                ref={listRef}
+                keyExtractor={keyExtractor}
+                estimatedItemSize={40}
+                initialNumToRender={10}
+                data={activeTabData}
+                renderItem={renderItem}
+                ListEmptyComponent={listEmptyComponent}
+                contentContainerStyle={{
+                  paddingBottom: 10,
+                }}
+              />
+            )}
+          </YStack>
+        </YStack>
       </YStack>
     </YStack>
   );
