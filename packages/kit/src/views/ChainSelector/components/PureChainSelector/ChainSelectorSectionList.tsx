@@ -97,8 +97,8 @@ const ChainSelectorSectionListContent = ({
         platformEnv.isNative
           ? undefined
           : {
-              minHeight: '100vh',
-            }
+            minHeight: '100vh',
+          }
       }
       ListFooterComponent={<Stack h={bottom || '$2'} />}
       estimatedItemSize={48}
@@ -120,6 +120,9 @@ const ChainSelectorSectionListContent = ({
             new BigNumber(networkValue || 0).gt(
               NETWORK_SHOW_VALUE_THRESHOLD_USD,
             ));
+
+        console.log('accountNetworkValues', accountNetworkValues);
+        console.log('item.id', item.id);
         return (
           <ListItem
             h={48}
@@ -360,8 +363,8 @@ export const ChainSelectorSectionList: FC<IChainSelectorSectionListProps> = ({
       sections
         .slice(0, _initialScrollIndex.sectionIndex)
         .reduce((prev, section) => prev + section.data.length, 0) +
-        (_initialScrollIndex?.itemIndex ?? 0) <=
-        7
+      (_initialScrollIndex?.itemIndex ?? 0) <=
+      7
     ) {
       return {
         sectionIndex: 0,

@@ -123,7 +123,6 @@ function BaseBulkSendAddressesInput() {
       _selectedIndexedAccountId = activeAccount?.account?.indexedAccountId;
     }
 
-
     if (!isSupported && _selectedNetworkId && _selectedIndexedAccountId) {
       const networkAccounts =
         await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountId(
@@ -137,7 +136,10 @@ function BaseBulkSendAddressesInput() {
       }
     }
 
-    if (isAllNetwork && !accountUtils.isOthersAccount({ accountId: _selectedAccountId })) {
+    if (
+      isAllNetwork &&
+      !accountUtils.isOthersAccount({ accountId: _selectedAccountId })
+    ) {
       const networkAccounts =
         await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountId(
           {

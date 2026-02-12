@@ -18,7 +18,7 @@ import useConfigurableChainSelector from '@onekeyhq/kit/src/views/ChainSelector/
 import { useBulkSendAddressesInputContext } from './Context';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import { usePromiseResult } from '../../../../../hooks/usePromiseResult';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 
 function AssetSelectorTrigger() {
   const intl = useIntl();
@@ -50,36 +50,41 @@ function AssetSelectorTrigger() {
       : intl.formatMessage({ id: ETranslations.token_selector_title });
   }, [selectedToken, media.gtMd, intl]);
 
-  console.log('selectedAccountId', selectedAccountId);
+  const {
+    result: { availableNetworkIds, unavailableNetworkIds },
+  } = usePromiseResult(
+    async () => {
+      const _availableNetworkIds =
+        bulkSendUtils.getBulkSendSupportedNetworkIds();
 
+      if (!selectedAccountId) {
+        return {
+          availableNetworkIds: _availableNetworkIds,
+          unavailableNetworkIds: [],
+        };
+      }
 
-
-  const { result: { availableNetworkIds, unavailableNetworkIds } } = usePromiseResult(async () => {
-    const _availableNetworkIds = bulkSendUtils.getBulkSendSupportedNetworkIds();
-
-    if (!selectedAccountId) {
+      const { unavailableItems } =
+        await backgroundApiProxy.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId(
+          {
+            accountId: selectedAccountId,
+            networkIds: _availableNetworkIds,
+          },
+        );
       return {
         availableNetworkIds: _availableNetworkIds,
-        unavailableNetworkIds: [],
+        unavailableNetworkIds: unavailableItems.map((o) => o.id),
       };
-    }
-
-    const { unavailableItems } = await backgroundApiProxy.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId({
-      accountId: selectedAccountId,
-      networkIds: _availableNetworkIds,
-    });
-    return {
-      availableNetworkIds: _availableNetworkIds,
-      unavailableNetworkIds: unavailableItems.map((o) => o.id),
-    };
-  }, [selectedAccountId], {
-    initResult: {
-      availableNetworkIds: [],
-      unavailableNetworkIds: [],
     },
-    watchLoading: true,
-  });
-
+    [selectedAccountId],
+    {
+      initResult: {
+        availableNetworkIds: [],
+        unavailableNetworkIds: [],
+      },
+      watchLoading: true,
+    },
+  );
 
   const handleSelectAsset = useCallback(() => {
     openChainSelector({

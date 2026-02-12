@@ -165,11 +165,11 @@ function ReceiverAddressesInput({ maxLines }: IReceiverAddressesInputProps) {
             message:
               receiverMode === EReceiverMode.AddressOnly
                 ? intl.formatMessage({
-                  id: ETranslations.wallet_bulk_send_error_expected_address_only,
-                })
+                    id: ETranslations.wallet_bulk_send_error_expected_address_only,
+                  })
                 : intl.formatMessage({
-                  id: ETranslations.wallet_bulk_send_error_expected_address_amount,
-                }),
+                    id: ETranslations.wallet_bulk_send_error_expected_address_amount,
+                  }),
           });
           continue;
         }
@@ -204,8 +204,8 @@ function ReceiverAddressesInput({ maxLines }: IReceiverAddressesInputProps) {
                 typeof amountValidationResult === 'string'
                   ? amountValidationResult
                   : intl.formatMessage({
-                    id: ETranslations.wallet_bulk_send_error_invalid_amount,
-                  }),
+                      id: ETranslations.wallet_bulk_send_error_invalid_amount,
+                    }),
             });
           }
         }
@@ -236,8 +236,8 @@ function ReceiverAddressesInput({ maxLines }: IReceiverAddressesInputProps) {
                 'error' in result
                   ? result.error
                   : intl.formatMessage({
-                    id: ETranslations.wallet_bulk_send_error_invalid_address,
-                  }),
+                      id: ETranslations.wallet_bulk_send_error_invalid_address,
+                    }),
             });
           } else {
             // Use normalizedAddress from validation result for duplicate detection
@@ -368,14 +368,14 @@ function ReceiverAddressesInput({ maxLines }: IReceiverAddressesInputProps) {
             error.lineNumber === -1
               ? error.message
               : intl.formatMessage(
-                {
-                  id: ETranslations.wallet_bulk_send_error_line_with_message,
-                },
-                {
-                  lineNumber: error.lineNumber,
-                  message: error.message,
-                },
-              ),
+                  {
+                    id: ETranslations.wallet_bulk_send_error_line_with_message,
+                  },
+                  {
+                    lineNumber: error.lineNumber,
+                    message: error.message,
+                  },
+                ),
           )
           .join('\n');
       }
@@ -407,7 +407,9 @@ function ReceiverAddressesInput({ maxLines }: IReceiverAddressesInputProps) {
       })}
       rules={{
         required: true,
-        validate: platformEnv.isNativeAndroid ? handleValidateAddresses : debouncedValidateAddresses,
+        validate: platformEnv.isNativeAndroid
+          ? handleValidateAddresses
+          : debouncedValidateAddresses,
       }}
       description={intl.formatMessage({
         id: ETranslations.wallet_bulk_send_label_receiving_desc,
