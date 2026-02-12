@@ -220,7 +220,12 @@ function AllNetworksManagerTrigger({
                 ml: '$-2',
               })}
             >
-              <NetworkAvatarBase logoURI={item?.logoURI} size="$6" />
+              <NetworkAvatarBase
+                logoURI={item?.logoURI}
+                size="$6"
+                networkName={item?.name}
+                isCustomNetwork={item?.isCustomNetwork}
+              />
             </Stack>
           ))}
         {enabledNetworksCompatibleWithWalletId.length > MAX_DISPLAY_NETWORKS ? (

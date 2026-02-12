@@ -17,6 +17,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ETabRoutes } from '@onekeyhq/shared/src/routes';
 
 import { Footer } from '../../components/Footer';
+import { useGlobalShortcuts } from '../../hooks/useGlobalShortcuts';
 import { useRouteIsFocused } from '../../hooks/useRouteIsFocused';
 import { BottomMenu } from '../../provider/Container/PortalBodyContainer/BottomMenu';
 import { WebPageTabBar } from '../../provider/Container/PortalBodyContainer/WebPageTabBar';
@@ -80,6 +81,7 @@ export function TabNavigator() {
   const { gtMd } = useMedia();
   const isTabletDetailView = useSplitSubView();
 
+  useGlobalShortcuts();
   useCheckTabsChangedInDev(config);
 
   return (

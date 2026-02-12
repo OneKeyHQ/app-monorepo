@@ -38,7 +38,7 @@ export const useColumnsMobile = (): ITableColumn<IMarketToken>[] => {
       render: (_, record: IMarketToken) => {
         if (record.perpsCoin) {
           return (
-            <XStack alignItems="center" gap="$3" ml="$3" userSelect="none">
+            <XStack alignItems="center" gap="$3" ml="$1" userSelect="none">
               <Token
                 size="md"
                 borderRadius="$full"
@@ -113,7 +113,7 @@ export const useColumnsMobile = (): ITableColumn<IMarketToken>[] => {
       align: 'right',
       render: (_, record: IMarketToken) => {
         return (
-          <XStack justifyContent="flex-end" alignItems="center" mr="$3">
+          <XStack justifyContent="flex-end" alignItems="center" mr="$6">
             <XStack flexDirection="column" alignItems="flex-end">
               <NumberSizeableText
                 userSelect="none"

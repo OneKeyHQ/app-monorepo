@@ -10,6 +10,7 @@ import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import BigNumber from 'bignumber.js';
 import {
   POLLING_DEBOUNCE_INTERVAL,
   POLLING_INTERVAL_FOR_TOKEN,
@@ -39,6 +40,7 @@ import {
   BulkSendAddressesInputContext,
   useBulkSendAddressesInputContext,
 } from './components/Context';
+import { isUndefined } from 'lodash';
 
 function BaseBulkSendAddressesInput() {
   const intl = useIntl();
@@ -107,14 +109,30 @@ function BaseBulkSendAddressesInput() {
       isAllNetwork = true;
     }
 
-    _selectedNetworkId = bulkSendUtils.fixBulkSendSupportedNetworkId({
-      networkId: _selectedNetworkId ?? '',
-    });
+    const { fixedNetworkId, isSupported } =
+      bulkSendUtils.fixBulkSendSupportedNetworkId({
+        networkId: _selectedNetworkId ?? '',
+      });
+
+    _selectedNetworkId = fixedNetworkId;
 
     if (indexedAccountId) {
       _selectedIndexedAccountId = indexedAccountId;
     } else if (activeAccount?.account?.indexedAccountId) {
       _selectedIndexedAccountId = activeAccount?.account?.indexedAccountId;
+    }
+
+    if (!isSupported && _selectedNetworkId && _selectedIndexedAccountId) {
+      const networkAccounts =
+        await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountId(
+          {
+            networkIds: [_selectedNetworkId],
+            indexedAccountId: _selectedIndexedAccountId,
+          },
+        );
+      if (networkAccounts?.[0]?.account) {
+        _selectedAccountId = networkAccounts?.[0]?.account?.id;
+      }
     }
 
     if (isAllNetwork) {
@@ -281,14 +299,25 @@ function BaseBulkSendAddressesInput() {
     }
 
     const formValues = form.getValues();
-    const senders = formValues.senderAddresses.split('\n').map((line) => {
-      const [address] = line.trim().split(',');
-      return { address: address.trim(), amount: undefined };
-    });
-    const receivers = formValues.receiverAddresses.split('\n').map((line) => {
-      const [address, amount] = line.trim().split(',');
-      return { address: address.trim(), amount: amount?.trim() };
-    });
+    const senders = formValues.senderAddresses
+      .split('\n')
+      .filter((line) => line.trim())
+      .map((line) => {
+        const [address] = line.trim().split(',');
+        return { address: address.trim(), amount: undefined };
+      });
+    const receivers = formValues.receiverAddresses
+      .split('\n')
+      .filter((line) => line.trim())
+      .map((line) => {
+        const [address, amount] = line.trim().split(',');
+        return {
+          address: address.trim(),
+          amount: isUndefined(amount)
+            ? amount
+            : new BigNumber(amount).toFixed(),
+        };
+      });
 
     if (isInModal) {
       navigation.push(EModalBulkSendRoutes.BulkSendAmountsInput, {
