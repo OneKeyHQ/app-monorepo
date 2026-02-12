@@ -303,8 +303,8 @@ w3m-modal {
 
 .desktop-menu-dropdown {
   position: absolute;
-  top: 60px;
-  left: 0;
+  top: 0;
+  left: 100%;
   min-width: 200px;
   background-color: var(--menu-bg, #2c2c2c);
   border: 1px solid var(--menu-border, #404040);
@@ -313,14 +313,16 @@ w3m-modal {
   padding: 4px 0;
   z-index: 10000;
   opacity: 0;
-  transform: translateY(-8px);
+  transform: translateX(-8px);
   pointer-events: none;
-  transition: opacity 0.15s ease, transform 0.15s ease;
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease;
 }
 
 .desktop-menu-dropdown.open {
   opacity: 1;
-  transform: translateY(0);
+  transform: translateX(0);
   pointer-events: auto;
 }
 
@@ -404,7 +406,9 @@ w3m-modal {
   opacity: 0;
   transform: translateX(-8px);
   pointer-events: none;
-  transition: opacity 0.15s ease, transform 0.15s ease;
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease;
 }
 
 .desktop-menu-item:hover > .desktop-menu-submenu {
@@ -432,7 +436,8 @@ w3m-modal {
 }
 
 /* Keep Intercom floating UI behind toast notifications (z-index 1e6) */
-#intercom-container *, .intercom-lightweight-app {
+#intercom-container *,
+.intercom-lightweight-app {
   z-index: 1 !important;
 }
 
@@ -457,10 +462,10 @@ w3m-modal {
 
 @keyframes ok-skeleton-light-loading {
   0% {
-      background-color: #fafafa;
+    background-color: #fafafa;
   }
   100% {
-      background-color: #cdcdcd;
+    background-color: #cdcdcd;
   }
 }
 
@@ -471,9 +476,9 @@ w3m-modal {
 
 @keyframes ok-skeleton-dark-loading {
   0% {
-      background-color: #111111;
+    background-color: #111111;
   }
   100% {
-      background-color: #333333;
+    background-color: #333333;
   }
 }

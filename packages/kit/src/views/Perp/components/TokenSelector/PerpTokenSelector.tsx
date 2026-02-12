@@ -186,7 +186,7 @@ function BasePerpTokenSelectorContent({
   const tabNames = useMemo(
     () => ({
       favorites: intl.formatMessage({ id: ETranslations.perp_tab_favs }),
-      all: 'PERPS',
+      all: intl.formatMessage({ id: ETranslations.perps_token_selector_perps }),
     }),
     [intl],
   );

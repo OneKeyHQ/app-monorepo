@@ -158,12 +158,14 @@ function RecommendCardItem({
         </YStack>
       </XStack>
       {checked ? (
-        <Icon
-          name="CheckRadioSolid"
-          size="$6"
-          color="$iconActive"
-          $sm={{ size: '$5' }}
-        />
+        <Stack flexShrink={0}>
+          <Icon
+            name="CheckRadioSolid"
+            size="$6"
+            color="$iconActive"
+            $sm={{ size: '$5' }}
+          />
+        </Stack>
       ) : (
         <Stack w="$6" h="$6" $sm={{ w: '$5', h: '$5' }} />
       )}

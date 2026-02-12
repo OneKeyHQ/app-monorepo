@@ -66,17 +66,24 @@
   // packages/components/tamagui.config.ts
   // darkColors.bgApp
   const darkColor = '#0f0f0f';
+  function applyThemeColor(color) {
+    document.documentElement.style.backgroundColor = color;
+    var meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) {
+      meta.setAttribute('content', color);
+    }
+  }
   if (theme === 'dark') {
-    document.documentElement.style.backgroundColor = darkColor;
+    applyThemeColor(darkColor);
   } else if (theme === 'light') {
-    document.documentElement.style.backgroundColor = lightColor;
+    applyThemeColor(lightColor);
   } else if (window.matchMedia) {
-    const color = window.matchMedia('(prefers-color-scheme: dark)').matches
+    var color = window.matchMedia('(prefers-color-scheme: dark)').matches
       ? darkColor
       : lightColor;
-    document.documentElement.style.backgroundColor = color;
+    applyThemeColor(color);
   } else {
-    document.documentElement.style.backgroundColor = lightColor;
+    applyThemeColor(lightColor);
   }
   // themePreload end ----------------------------------------------
 
