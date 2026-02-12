@@ -1,49 +1,42 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { isEmpty } from 'lodash';
+import { isEmpty } from "lodash";
 
-import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type { IDBAccount } from "@onekeyhq/kit-bg/src/dbs/local/types";
 import type {
   IAllNetworkAccountInfo,
   IAllNetworkAccountsInfoResult,
-} from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
-import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
-import { POLLING_DEBOUNCE_INTERVAL } from '@onekeyhq/shared/src/consts/walletConsts';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { perfMark } from '@onekeyhq/shared/src/performance/mark';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import perfUtils, {
-  EPerformanceTimerLogNames,
-} from '@onekeyhq/shared/src/utils/debug/perfUtils';
-import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+} from "@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork";
+import { useAppIsLockedAtom } from "@onekeyhq/kit-bg/src/states/jotai/atoms";
+import type { IAccountDeriveTypes } from "@onekeyhq/kit-bg/src/vaults/types";
+import { POLLING_DEBOUNCE_INTERVAL } from "@onekeyhq/shared/src/consts/walletConsts";
+import { EAppEventBusNames, appEventBus } from "@onekeyhq/shared/src/eventBus/appEventBus";
+import { perfMark } from "@onekeyhq/shared/src/performance/mark";
+import platformEnv from "@onekeyhq/shared/src/platformEnv";
+import accountUtils from "@onekeyhq/shared/src/utils/accountUtils";
+import perfUtils, { EPerformanceTimerLogNames } from "@onekeyhq/shared/src/utils/debug/perfUtils";
+import { generateUUID } from "@onekeyhq/shared/src/utils/miscUtils";
 import networkUtils, {
   isEnabledNetworksInAllNetworks,
-} from '@onekeyhq/shared/src/utils/networkUtils';
+} from "@onekeyhq/shared/src/utils/networkUtils";
 import {
   PROMISE_CONCURRENCY_LIMIT,
   promiseAllSettledEnhanced,
-} from '@onekeyhq/shared/src/utils/promiseUtils';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import type { IServerNetwork } from '@onekeyhq/shared/types';
+} from "@onekeyhq/shared/src/utils/promiseUtils";
+import timerUtils from "@onekeyhq/shared/src/utils/timerUtils";
+import type { IServerNetwork } from "@onekeyhq/shared/types";
 
-import backgroundApiProxy from '../background/instance/backgroundApiProxy';
-import { perfTokenListView } from '../components/TokenListView/perfTokenListView';
+import backgroundApiProxy from "../background/instance/backgroundApiProxy";
+import { perfTokenListView } from "../components/TokenListView/perfTokenListView";
 
-import { usePromiseResult } from './usePromiseResult';
+import { usePromiseResult } from "./usePromiseResult";
 
 // Native keeps a strict cap to avoid Hermes memory spikes.
 // Web keeps full fan-out to preserve Home startup latency.
 const getAllNetworkTaskConcurrencyLimit = (taskCount: number) =>
-  platformEnv.isNative
-    ? PROMISE_CONCURRENCY_LIMIT
-    : Math.max(taskCount, PROMISE_CONCURRENCY_LIMIT);
+  platformEnv.isNative ? PROMISE_CONCURRENCY_LIMIT : Math.max(taskCount, PROMISE_CONCURRENCY_LIMIT);
 // useRef not working as expected, so use a global object
-const currentRequestsUUID = { current: '' };
+const currentRequestsUUID = { current: "" };
 
 type IAllNetworkAccountsBaseCacheKey = string;
 type IAllNetworkAccountsBaseCacheEntry = {
@@ -59,17 +52,12 @@ const allNetworkAccountsBaseCache = new Map<
 >();
 
 function sweepAllNetworkAccountsBaseCache(now = Date.now()) {
-  for (const [key, entry] of Array.from(
-    allNetworkAccountsBaseCache.entries(),
-  )) {
+  for (const [key, entry] of Array.from(allNetworkAccountsBaseCache.entries())) {
     if (now - entry.createdAt >= ALL_NETWORK_ACCOUNTS_BASE_CACHE_TTL_MS) {
       allNetworkAccountsBaseCache.delete(key);
     }
   }
-  while (
-    allNetworkAccountsBaseCache.size >
-    ALL_NETWORK_ACCOUNTS_BASE_CACHE_MAX_ENTRIES
-  ) {
+  while (allNetworkAccountsBaseCache.size > ALL_NETWORK_ACCOUNTS_BASE_CACHE_MAX_ENTRIES) {
     const oldestKey = allNetworkAccountsBaseCache.keys().next().value;
     if (!oldestKey) {
       break;
@@ -95,9 +83,9 @@ function buildAllNetworkAccountsBaseCacheKey({
     walletId,
     accountId,
     networkId,
-    networksEnabledOnly ? '1' : '0',
-    excludeTestNetwork ? '1' : '0',
-  ].join('::');
+    networksEnabledOnly ? "1" : "0",
+    excludeTestNetwork ? "1" : "0",
+  ].join("::");
 }
 
 function getAllNetworkAccountsBaseCached({
@@ -128,10 +116,7 @@ function getAllNetworkAccountsBaseCached({
   const now = Date.now();
   sweepAllNetworkAccountsBaseCache(now);
   const cached = allNetworkAccountsBaseCache.get(cacheKey);
-  if (
-    cached &&
-    now - cached.createdAt < ALL_NETWORK_ACCOUNTS_BASE_CACHE_TTL_MS
-  ) {
+  if (cached && now - cached.createdAt < ALL_NETWORK_ACCOUNTS_BASE_CACHE_TTL_MS) {
     return { cacheKey, reused: true, promise: cached.promise };
   }
   if (cached) {
@@ -182,10 +167,8 @@ function filterAllNetworkAccountsInfoResult({
 }): IAllNetworkAccountsInfoResult {
   return {
     accountsInfo: result.accountsInfo.filter(filterFn),
-    accountsInfoBackendIndexed:
-      result.accountsInfoBackendIndexed.filter(filterFn),
-    accountsInfoBackendNotIndexed:
-      result.accountsInfoBackendNotIndexed.filter(filterFn),
+    accountsInfoBackendIndexed: result.accountsInfoBackendIndexed.filter(filterFn),
+    accountsInfoBackendNotIndexed: result.accountsInfoBackendNotIndexed.filter(filterFn),
     allAccountsInfo: result.allAccountsInfo.filter(filterFn),
   };
 }
@@ -332,12 +315,9 @@ function useAllNetworkRequests<T>(params: {
   const runCountRef = useRef(0);
   const [isEmptyAccount, setIsEmptyAccount] = useState(false);
   const [isLocked] = useAppIsLockedAtom();
-  const [enabledNetworksChangedNonce, setEnabledNetworksChangedNonce] =
-    useState(0);
+  const [enabledNetworksChangedNonce, setEnabledNetworksChangedNonce] = useState(0);
   const rerunAfterCurrentRef = useRef(false);
-  const rerunConfigRef = useRef<IAllNetworkRequestsRunConfig | undefined>(
-    undefined,
-  );
+  const rerunConfigRef = useRef<IAllNetworkRequestsRunConfig | undefined>(undefined);
   const runWithQueueRef = useRef<
     ((config?: IAllNetworkRequestsRunConfig) => Promise<void>) | undefined
   >(undefined);
@@ -353,15 +333,9 @@ function useAllNetworkRequests<T>(params: {
       setEnabledNetworksChangedNonce((v) => v + 1);
       void runWithQueueRef.current?.({ triggerByDeps: true });
     };
-    appEventBus.on(
-      EAppEventBusNames.EnabledNetworksChanged,
-      onEnabledNetworksChanged,
-    );
+    appEventBus.on(EAppEventBusNames.EnabledNetworksChanged, onEnabledNetworksChanged);
     return () => {
-      appEventBus.off(
-        EAppEventBusNames.EnabledNetworksChanged,
-        onEnabledNetworksChanged,
-      );
+      appEventBus.off(EAppEventBusNames.EnabledNetworksChanged, onEnabledNetworksChanged);
     };
   }, [isAllNetworks]);
 
@@ -369,7 +343,7 @@ function useAllNetworkRequests<T>(params: {
     if (currentAccountId && currentNetworkId && currentWalletId) {
       allNetworkDataInit.current = false;
       runCountRef.current = 0;
-      perfTokenListView.markStart('useAllNetworkRequestsRun_debounceDelay');
+      perfTokenListView.markStart("useAllNetworkRequestsRun_debounceDelay");
     }
   }, [
     currentAccountId,
@@ -395,15 +369,15 @@ function useAllNetworkRequests<T>(params: {
         await timerUtils.wait(POLLING_DEBOUNCE_INTERVAL);
       }
       perfTokenListView.markEnd(
-        'useAllNetworkRequestsRun_debounceDelay',
-        '执行 useAllNetworkRequests 的 usePromiseResult debounced 延迟: POLLING_DEBOUNCE_INTERVAL',
+        "useAllNetworkRequestsRun_debounceDelay",
+        "执行 useAllNetworkRequests 的 usePromiseResult debounced 延迟: POLLING_DEBOUNCE_INTERVAL",
       );
 
       const perf = perfUtils.createPerf({
         name: EPerformanceTimerLogNames.allNetwork__useAllNetworkRequests,
       });
 
-      perfTokenListView.markStart('useAllNetworkRequestsRun');
+      perfTokenListView.markStart("useAllNetworkRequestsRun");
 
       const requestsUUID = generateUUID();
 
@@ -424,7 +398,7 @@ function useAllNetworkRequests<T>(params: {
 
         abortAllNetworkRequests?.();
 
-        perfMark('AllNet:useAllNetworkRequests:start', {
+        perfMark("AllNet:useAllNetworkRequests:start", {
           isNFTRequests: !!isNFTRequests,
           isDeFiRequests: !!isDeFiRequests,
           allNetworkDataInit: !!allNetworkDataInit.current,
@@ -442,9 +416,9 @@ function useAllNetworkRequests<T>(params: {
           });
         }
 
-        perf.markStart('getAllNetworkAccountsWithEnabledNetworks');
+        perf.markStart("getAllNetworkAccountsWithEnabledNetworks");
         const allNetAccountsStart = Date.now();
-        perfMark('AllNet:getAllNetworkAccounts:start', {
+        perfMark("AllNet:getAllNetworkAccounts:start", {
           isNFTRequests: !!isNFTRequests,
           isDeFiRequests: !!isDeFiRequests,
         });
@@ -489,14 +463,13 @@ function useAllNetworkRequests<T>(params: {
           accountsInfoBackendNotIndexed,
           allAccountsInfo,
         } = accountsInfoResult;
-        perf.markEnd('getAllNetworkAccountsWithEnabledNetworks');
-        perfMark('AllNet:getAllNetworkAccounts:done', {
+        perf.markEnd("getAllNetworkAccountsWithEnabledNetworks");
+        perfMark("AllNet:getAllNetworkAccounts:done", {
           duration: Date.now() - allNetAccountsStart,
           counts: {
             accountsInfo: accountsInfo?.length ?? 0,
             accountsInfoBackendIndexed: accountsInfoBackendIndexed?.length ?? 0,
-            accountsInfoBackendNotIndexed:
-              accountsInfoBackendNotIndexed?.length ?? 0,
+            accountsInfoBackendNotIndexed: accountsInfoBackendNotIndexed?.length ?? 0,
             allAccountsInfo: allAccountsInfo?.length ?? 0,
           },
         });
@@ -525,25 +498,20 @@ function useAllNetworkRequests<T>(params: {
             if (onStartedError instanceof Error) {
               throw onStartedError;
             }
-            const err = new Error('onStarted failed');
+            const err = new Error("onStarted failed");
             throw err;
           }
         }
 
         if (!allNetworkDataInit.current) {
           try {
-            perf.markStart('allNetworkCacheRequests');
+            perf.markStart("allNetworkCacheRequests");
             const cachedData = (
               await promiseAllSettledEnhanced(
                 Array.from(accountsInfo).map(
                   (networkDataString: IAllNetworkAccountInfo) => async () => {
-                    const {
-                      accountId,
-                      networkId,
-                      accountXpub,
-                      apiAddress,
-                      dbAccount,
-                    } = networkDataString;
+                    const { accountId, networkId, accountXpub, apiAddress, dbAccount } =
+                      networkDataString;
                     const cachedDataResult = await allNetworkCacheRequests?.({
                       dbAccount,
                       accountId,
@@ -556,20 +524,18 @@ function useAllNetworkRequests<T>(params: {
                 ),
                 {
                   continueOnError: true,
-                  concurrency: getAllNetworkTaskConcurrencyLimit(
-                    accountsInfo.length,
-                  ),
+                  concurrency: getAllNetworkTaskConcurrencyLimit(accountsInfo.length),
                 },
               )
             ).filter(Boolean);
-            perf.markEnd('allNetworkCacheRequests');
+            perf.markEnd("allNetworkCacheRequests");
 
             if (cachedData && !isEmpty(cachedData)) {
               allNetworkDataInit.current = true;
               perf.done();
               perfTokenListView.markEnd(
-                'useAllNetworkRequestsRun',
-                '执行时间明细请查看 EPerformanceTimerLogNames.allNetwork__useAllNetworkRequests',
+                "useAllNetworkRequestsRun",
+                "执行时间明细请查看 EPerformanceTimerLogNames.allNetwork__useAllNetworkRequests",
               );
               await allNetworkCacheData?.({
                 data: cachedData,
@@ -605,9 +571,7 @@ function useAllNetworkRequests<T>(params: {
             resp = (
               await promiseAllSettledEnhanced(requestFactories, {
                 continueOnError: true,
-                concurrency: getAllNetworkTaskConcurrencyLimit(
-                  requestFactories.length,
-                ),
+                concurrency: getAllNetworkTaskConcurrencyLimit(requestFactories.length),
               })
             ).filter(Boolean);
           } catch (e) {
@@ -618,24 +582,20 @@ function useAllNetworkRequests<T>(params: {
         } else {
           const respTemp: Array<T> = [];
           try {
-            const factories = Array.from(accountsInfoBackendIndexed).map(
-              (networkDataString) => {
-                // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                const { accountId, networkId, apiAddress } = networkDataString;
-                return () =>
-                  allNetworkRequests({
-                    accountId,
-                    networkId,
-                    allNetworkDataInit: allNetworkDataInit.current,
-                  });
-              },
-            );
+            const factories = Array.from(accountsInfoBackendIndexed).map((networkDataString) => {
+              // eslint-disable-next-line @typescript-eslint/no-unused-vars
+              const { accountId, networkId, apiAddress } = networkDataString;
+              return () =>
+                allNetworkRequests({
+                  accountId,
+                  networkId,
+                  allNetworkDataInit: allNetworkDataInit.current,
+                });
+            });
             const r = (
               await promiseAllSettledEnhanced(factories, {
                 continueOnError: true,
-                concurrency: getAllNetworkTaskConcurrencyLimit(
-                  factories.length,
-                ),
+                concurrency: getAllNetworkTaskConcurrencyLimit(factories.length),
               })
             ).filter(Boolean) as Array<T>;
             respTemp.push(...r);
@@ -645,24 +605,20 @@ function useAllNetworkRequests<T>(params: {
           }
 
           try {
-            const factories = Array.from(accountsInfoBackendNotIndexed).map(
-              (networkDataString) => {
-                // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                const { accountId, networkId, apiAddress } = networkDataString;
-                return () =>
-                  allNetworkRequests({
-                    accountId,
-                    networkId,
-                    allNetworkDataInit: allNetworkDataInit.current,
-                  });
-              },
-            );
+            const factories = Array.from(accountsInfoBackendNotIndexed).map((networkDataString) => {
+              // eslint-disable-next-line @typescript-eslint/no-unused-vars
+              const { accountId, networkId, apiAddress } = networkDataString;
+              return () =>
+                allNetworkRequests({
+                  accountId,
+                  networkId,
+                  allNetworkDataInit: allNetworkDataInit.current,
+                });
+            });
             const r = (
               await promiseAllSettledEnhanced(factories, {
                 continueOnError: true,
-                concurrency: getAllNetworkTaskConcurrencyLimit(
-                  factories.length,
-                ),
+                concurrency: getAllNetworkTaskConcurrencyLimit(factories.length),
               })
             ).filter(Boolean) as Array<T>;
             respTemp.push(...r);
@@ -744,8 +700,7 @@ function useAllNetworkRequests<T>(params: {
     {
       revalidateOnFocus,
       debounced: 0,
-      overrideIsFocused: (isPageFocused) =>
-        (isPageFocused || !!shouldAlwaysFetch) && !isLocked,
+      overrideIsFocused: (isPageFocused) => (isPageFocused || !!shouldAlwaysFetch) && !isLocked,
     },
   );
 
@@ -756,9 +711,7 @@ function useAllNetworkRequests<T>(params: {
         rerunConfigRef.current = {
           ...rerunConfigRef.current,
           ...config,
-          alwaysSetState:
-            !!rerunConfigRef.current?.alwaysSetState ||
-            !!config?.alwaysSetState,
+          alwaysSetState: !!rerunConfigRef.current?.alwaysSetState || !!config?.alwaysSetState,
         };
         return;
       }
@@ -809,14 +762,13 @@ function useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
         return getEmptyEnabledNetworksResult();
       }
 
-      const [{ enabledNetworks, disabledNetworks }, networksResp] =
-        await Promise.all([
-          backgroundApiProxy.serviceAllNetwork.getAllNetworksState(),
-          backgroundApiProxy.serviceNetwork.getAllNetworks({
-            excludeTestNetwork: true,
-            excludeAllNetworkItem: true,
-          }),
-        ]);
+      const [{ enabledNetworks, disabledNetworks }, networksResp] = await Promise.all([
+        backgroundApiProxy.serviceAllNetwork.getAllNetworksState(),
+        backgroundApiProxy.serviceNetwork.getAllNetworks({
+          excludeTestNetwork: true,
+          excludeAllNetworkItem: true,
+        }),
+      ]);
       const { networks } = networksResp;
 
       if (deferMs > 0) {
@@ -843,12 +795,10 @@ function useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
         .map((n) => n.id);
 
       const compatibleNetworks =
-        await backgroundApiProxy.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId(
-          {
-            walletId,
-            networkIds: enabledNetworkIds,
-          },
-        );
+        await backgroundApiProxy.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId({
+          walletId,
+          networkIds: enabledNetworkIds,
+        });
 
       const compatibleNetworksWithoutAccount: IServerNetwork[] = [];
 
@@ -911,18 +861,14 @@ function useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
             }
           } else {
             const currentDeriveType =
-              await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
-                {
-                  networkId: firstNetwork.id,
-                },
-              );
+              await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+                networkId: firstNetwork.id,
+              });
 
             if (!networkAccounts || networkAccounts.length === 0) {
               compatibleNetworksWithoutAccount.push(...networksInGroup);
             } else if (
-              !networkAccounts.some(
-                (account) => account.deriveType === currentDeriveType,
-              )
+              !networkAccounts.some((account) => account.deriveType === currentDeriveType)
             ) {
               compatibleNetworksWithoutAccount.push(...networksInGroup);
             }
@@ -948,13 +894,12 @@ function useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
     ],
     {
       initResult,
+      revalidateOnFocus: true,
     },
   );
 
-  const enabledNetworksCompatibleWithWalletId =
-    result?.compatibleNetworks ?? [];
-  const enabledNetworksWithoutAccount =
-    result?.compatibleNetworksWithoutAccount ?? [];
+  const enabledNetworksCompatibleWithWalletId = result?.compatibleNetworks ?? [];
+  const enabledNetworksWithoutAccount = result?.compatibleNetworksWithoutAccount ?? [];
 
   return {
     networkInfoMap: result?.networkInfoMap ?? {},
@@ -964,7 +909,4 @@ function useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
   };
 }
 
-export {
-  useAllNetworkRequests,
-  useEnabledNetworksCompatibleWithWalletIdInAllNetworks,
-};
+export { useAllNetworkRequests, useEnabledNetworksCompatibleWithWalletIdInAllNetworks };
