@@ -20,6 +20,7 @@ import { useBulkSendAddressesInputContext } from '../Context';
 import LineNumberedTextArea from './LineNumberedTextArea';
 
 import type { ILineError } from './LineNumberedTextArea';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 type IReceiverAddressesInputProps = {
   maxLines?: number;
@@ -406,7 +407,9 @@ function ReceiverAddressesInput({ maxLines }: IReceiverAddressesInputProps) {
       })}
       rules={{
         required: true,
-        validate: debouncedValidateAddresses,
+        validate: platformEnv.isNativeAndroid
+          ? handleValidateAddresses
+          : debouncedValidateAddresses,
       }}
       description={intl.formatMessage({
         id: ETranslations.wallet_bulk_send_label_receiving_desc,

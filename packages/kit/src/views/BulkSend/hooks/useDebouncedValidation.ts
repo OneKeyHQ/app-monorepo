@@ -9,6 +9,8 @@ export function useDebouncedValidation<T extends string>(
   const pendingResolveRef = useRef<((value: string | boolean) => void) | null>(
     null,
   );
+  // Track the last validation result so cancelled promises preserve error state
+  const lastResultRef = useRef<string | boolean>(true);
 
   // Cleanup timer on unmount to avoid memory leaks
   useEffect(
@@ -31,9 +33,11 @@ export function useDebouncedValidation<T extends string>(
       new Promise((resolve) => {
         currentValueRef.current = value;
 
-        // Resolve previous pending promise to prevent hanging
+        // Resolve previous pending promise with last known result to preserve
+        // error state. Using `true` here would momentarily clear form errors
+        // on Android where controlled TextInput can re-fire onChangeText.
         if (pendingResolveRef.current) {
-          pendingResolveRef.current(true);
+          pendingResolveRef.current(lastResultRef.current);
         }
         pendingResolveRef.current = resolve;
 
@@ -49,6 +53,7 @@ export function useDebouncedValidation<T extends string>(
               currentValueRef.current === value &&
               pendingResolveRef.current === resolve
             ) {
+              lastResultRef.current = result;
               resolve(result);
               pendingResolveRef.current = null;
             }
@@ -58,6 +63,7 @@ export function useDebouncedValidation<T extends string>(
               currentValueRef.current === value &&
               pendingResolveRef.current === resolve
             ) {
+              lastResultRef.current = false;
               resolve(false);
               pendingResolveRef.current = null;
             }
