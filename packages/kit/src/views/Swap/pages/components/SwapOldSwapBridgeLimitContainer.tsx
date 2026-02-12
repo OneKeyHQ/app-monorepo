@@ -109,6 +109,11 @@ const SwapOldSwapBridgeLimitContainer = ({
     pageType !== EPageType.modal &&
     swapTypeSwitch !== ESwapTabSwitchType.LIMIT;
 
+  const showLimitDesktopCard =
+    gtLg &&
+    pageType !== EPageType.modal &&
+    swapTypeSwitch === ESwapTabSwitchType.LIMIT;
+
   const mainContent = (
     <YStack
       pt="$2.5"
@@ -228,16 +233,7 @@ const SwapOldSwapBridgeLimitContainer = ({
     return (
       <ScrollView flex={1} contentContainerStyle={{ flexGrow: 1 }}>
         {headerContent ? (
-          <YStack
-            pt="$8"
-            pb="$4"
-            bg="$bgApp"
-            $platform-web={{
-              position: 'sticky',
-              top: 0,
-              zIndex: 1,
-            }}
-          >
+          <YStack pt="$8" pb="$4">
             {headerContent}
           </YStack>
         ) : null}
@@ -259,6 +255,84 @@ const SwapOldSwapBridgeLimitContainer = ({
             <SwapProviderListPanel refreshAction={refreshAction} />
           </YStack>
         </XStack>
+      </ScrollView>
+    );
+  }
+
+  if (showLimitDesktopCard) {
+    return (
+      <ScrollView flex={1} contentContainerStyle={{ flexGrow: 1 }}>
+        {headerContent ? (
+          <YStack pt="$8" pb="$4">
+            {headerContent}
+          </YStack>
+        ) : null}
+        <YStack
+          px="$5"
+          pt="$6"
+          pb="$5"
+          width="100%"
+          maxWidth={600}
+          marginHorizontal="auto"
+        >
+          <YStack
+            p="$6"
+            gap="$5"
+            borderRadius="$6"
+            borderWidth={1}
+            borderColor="$borderSubdued"
+            elevationAndroid="$1"
+            $platform-web={{
+              boxShadow: '0px 0px 24px 0px rgba(0, 0, 0, 0.06)',
+            }}
+            style={{
+              shadowColor: 'rgba(0, 0, 0, 0.08)',
+              shadowOffset: { width: 0, height: 0 },
+              shadowOpacity: 1,
+              shadowRadius: 24,
+            }}
+          >
+            <XStack alignItems="center" justifyContent="space-between">
+              <SizableText size="$headingLg">{swapTitle}</SizableText>
+              <SwapHeaderRightActionContainer
+                pageType={pageType}
+                iconSize="$5"
+                iconColor="$iconStrong"
+              />
+            </XStack>
+            <LimitOrderOpenItem storeName={storeName} />
+            <SwapQuoteInput
+              onSelectToken={onSelectToken}
+              selectLoading={fetchLoading}
+              onSelectPercentageStage={onSelectPercentageStage}
+              onBalanceMaxPress={onBalanceMaxPress}
+            />
+            {!isWrapped ? <LimitInfoContainer /> : null}
+            <SwapActionsState
+              onPreSwap={onPreSwap}
+              onOpenRecipientAddress={onToAnotherAddressModal}
+              onSelectPercentageStage={onSelectPercentageStage}
+            />
+            <SwapQuoteResult
+              refreshAction={refreshAction}
+              onOpenProviderList={undefined}
+              quoteResult={quoteResult}
+              onOpenRecipient={onToAnotherAddressModal}
+            />
+            {alerts.states.length > 0 &&
+            !quoteLoading &&
+            !quoteEventFetching &&
+            alerts?.quoteId === (quoteResult?.quoteId ?? '') ? (
+              <SwapAlertContainer alerts={alerts.states} />
+            ) : null}
+            <SwapRecentTokenPairsGroup
+              onSelectTokenPairs={onSelectRecentTokenPairs}
+              tokenPairs={swapRecentTokenPairs}
+              fromTokenAmount={fromTokenAmountValue}
+            />
+            <SwapPendingHistoryListComponent pageType={pageType} />
+          </YStack>
+        </YStack>
       </ScrollView>
     );
   }
