@@ -1127,8 +1127,7 @@ function SendDataInputContainer() {
   const amountRules = useMemo(
     () => ({
       required: true,
-      validate: (value: string) =>
-        handleValidateTokenAmountRef.current(value),
+      validate: (value: string) => handleValidateTokenAmountRef.current(value),
       onChange: handleAmountOnChange,
     }),
     [handleAmountOnChange],
