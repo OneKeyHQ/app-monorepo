@@ -47,6 +47,9 @@ const resolveScreens = (routes: IScreenRouterConfig[]) =>
           : undefined;
         if (config) {
           prev[route.name].screens = resolveScreens(config);
+          if (config.length > 0) {
+            prev[route.name].initialRouteName = config[0].name;
+          }
         }
 
         return prev;

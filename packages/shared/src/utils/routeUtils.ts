@@ -30,6 +30,7 @@ export type IScreenPathConfig = Record<
   {
     path: string;
     exact: boolean;
+    initialRouteName?: string;
     screens?: IScreenPathConfig;
   }
 >;
