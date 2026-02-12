@@ -5,8 +5,8 @@ import {
   Keyboard,
   type ScrollView as RNScrollView,
   TextInput as RNTextInput,
-  StyleSheet,
   type View as RNView,
+  StyleSheet,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
