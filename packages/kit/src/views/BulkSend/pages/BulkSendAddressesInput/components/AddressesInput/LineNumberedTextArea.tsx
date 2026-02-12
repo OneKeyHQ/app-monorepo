@@ -73,7 +73,11 @@ const LINE_HEIGHT = 24;
 const PADDING_VERTICAL = 12;
 const PADDING_HORIZONTAL = 12;
 const PADDING_HORIZONTAL_WITH_LINE_NUMBERS = 4;
-const LINE_NUMBER_WIDTH = 40;
+const LINE_NUMBER_WIDTH = 50;
+// On iOS, RNTextInput (UITextView) has extra internal text inset compared to
+// SizableText (UILabel). This offset compensates so line numbers align with the text.
+// On Android, EditText with includeFontPadding=false has no such extra inset.
+const NATIVE_LINE_NUMBER_TOP_OFFSET = platformEnv.isNativeIOS ? 4 : 0;
 // Allow 2 lines of text in singleLine mode for wrapped long addresses
 const SINGLE_LINE_HEIGHT = LINE_HEIGHT * 2 + PADDING_VERTICAL * 2;
 
@@ -180,6 +184,10 @@ function LineNumberedTextArea({
 
   const handleContainerPress = useCallback(() => {
     inputRef.current?.focus();
+  }, []);
+
+  const handleFocus = useCallback(() => {
+    // Keyboard avoidance is handled by parent KeyboardAvoidingView
   }, []);
 
   const handleLineLayout = useCallback(
@@ -305,6 +313,7 @@ function LineNumberedTextArea({
           maxHeight={height ?? maxHeight}
           minHeight={height ?? minHeight}
           showsVerticalScrollIndicator={false}
+          nestedScrollEnabled
         >
           <XStack minHeight={(height ?? minHeight) - 2}>
             {/* Line numbers column - show when focused or has content */}
@@ -312,7 +321,10 @@ function LineNumberedTextArea({
               <YStack
                 width={LINE_NUMBER_WIDTH}
                 flexShrink={0}
-                pt={PADDING_VERTICAL + 2}
+                pt={
+                  PADDING_VERTICAL +
+                  (platformEnv.isNative ? NATIVE_LINE_NUMBER_TOP_OFFSET : 0)
+                }
                 pb={PADDING_VERTICAL}
               >
                 {(hasContent ? lines : ['']).map((_, index) => {
@@ -330,6 +342,8 @@ function LineNumberedTextArea({
                         lineHeight={LINE_HEIGHT}
                         color="$textDisabled"
                         userSelect="none"
+                        numberOfLines={1}
+                        ellipsizeMode="tail"
                       >
                         {lineNumber}
                       </SizableText>
@@ -397,6 +411,8 @@ function LineNumberedTextArea({
                 value={value}
                 placeholder={platformEnv.isNative ? placeholder : undefined}
                 placeholderTextColor={placeholderColor}
+                allowFontScaling={false}
+                onFocus={handleFocus}
                 onChange={() => {
                   onInputTypeChange?.(EInputAddressChangeType.Manual);
                 }}

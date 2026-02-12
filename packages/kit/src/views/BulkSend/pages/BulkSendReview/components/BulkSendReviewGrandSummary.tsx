@@ -10,11 +10,13 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useBulkSendReviewContext } from './Context';
+import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 
 function BulkSendReviewGrandSummary() {
   const intl = useIntl();
   const { tokenInfo, networkImageUri, totalTokenAmount, totalFiatAmount } =
     useBulkSendReviewContext();
+  const currencyInfo = useCurrency();
   return (
     <YStack gap="$1" alignItems="center">
       <SizableText size="$bodyLgMedium" color="$textSubdued">
@@ -43,7 +45,7 @@ function BulkSendReviewGrandSummary() {
         size="$bodyLg"
         color="$textSubdued"
         formatter="value"
-        formatterOptions={{ currency: '$' }}
+        formatterOptions={{ currency: currencyInfo.symbol }}
       >
         {totalFiatAmount}
       </NumberSizeableText>

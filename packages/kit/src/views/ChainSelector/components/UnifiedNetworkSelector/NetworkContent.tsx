@@ -11,6 +11,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { EditableChainSelectorContent } from '../EditableChainSelector/ChainSelectorContent';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 
 const defaultChainSelectorNetworks: {
   mainnetItems: IServerNetwork[];
@@ -52,7 +53,6 @@ export function NetworkContent({
   onFrequentlyUsedItemsChange,
   searchText,
   setSearchText,
-  accountAddress,
 }: INetworkContentProps) {
   const {
     result: {
@@ -82,8 +82,7 @@ export function NetworkContent({
             accounts: [
               {
                 accountId: indexedAccountId ?? accountId ?? '',
-                accountAddress,
-                networkId: networkId ?? '',
+                networkId: getNetworkIdsMap().onekeyall,
                 indexedAccountId,
               },
             ],
@@ -123,14 +122,7 @@ export function NetworkContent({
         zeroValue: true,
       };
     },
-    [
-      accountId,
-      networkIds,
-      walletId,
-      indexedAccountId,
-      networkId,
-      accountAddress,
-    ],
+    [accountId, networkIds, walletId, indexedAccountId],
     {
       initResult: {
         chainSelectorNetworks: defaultChainSelectorNetworks,
