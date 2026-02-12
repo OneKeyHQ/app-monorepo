@@ -7,7 +7,6 @@ import { InputAccessoryView } from 'react-native';
 
 import type { IPageNavigationProp, useInTabDialog } from '@onekeyhq/components';
 import {
-  Badge,
   Button,
   DashText,
   Divider,
@@ -205,13 +204,6 @@ function SelectTokenPopoverContent({
         formatter: 'value',
         formatterOptions: { currency: symbol },
       });
-      const isArbUSDC = equalTokenNoCaseSensitive({
-        token1: item,
-        token2: {
-          networkId: PERPS_NETWORK_ID,
-          contractAddress: USDC_TOKEN_INFO.address,
-        },
-      });
       const networkInfo = networkUtils.getLocalNetworkInfo(item.networkId);
       const networkName = networkInfo?.name;
       return (
@@ -246,22 +238,6 @@ function SelectTokenPopoverContent({
                 {networkName}
               </SizableText>
             </YStack>
-            {isArbUSDC ? (
-              <Badge
-                badgeSize="sm"
-                height={24}
-                borderRadius="$full"
-                borderColor="$borderInfo"
-                bg="$bgInfo"
-                px="$2.5"
-              >
-                <SizableText size="$bodySm" color="$textInfo">
-                  {intl.formatMessage({
-                    id: ETranslations.perp_deposit_direct,
-                  })}
-                </SizableText>
-              </Badge>
-            ) : null}
           </XStack>
           <YStack alignItems="flex-end">
             <SizableText size="$bodySmMedium">{balanceFormatted}</SizableText>
@@ -272,7 +248,7 @@ function SelectTokenPopoverContent({
         </ListItem>
       );
     },
-    [symbol, setPerpsDepositTokensAtom, closePopover, handleMaxPress, intl],
+    [symbol, setPerpsDepositTokensAtom, closePopover, handleMaxPress],
   );
   return (
     <YStack>

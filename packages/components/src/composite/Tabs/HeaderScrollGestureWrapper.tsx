@@ -1,5 +1,11 @@
 import type { PropsWithChildren } from 'react';
 
-export function HeaderScrollGestureWrapper({ children }: PropsWithChildren) {
+export interface IHeaderScrollGestureWrapperProps {
+  onRefresh?: () => void;
+}
+
+export function HeaderScrollGestureWrapper({
+  children,
+}: PropsWithChildren<IHeaderScrollGestureWrapperProps>) {
   return children;
 }
