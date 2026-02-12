@@ -2,9 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import {
+  Keyboard,
   type ScrollView as RNScrollView,
   TextInput as RNTextInput,
   StyleSheet,
+  type View as RNView,
 } from 'react-native';
 
 import {
@@ -16,6 +18,7 @@ import {
   XStack,
   YStack,
   useClipboard,
+  useScrollView,
   useSelectionColor,
   useTheme,
 } from '@onekeyhq/components';
@@ -182,12 +185,81 @@ function LineNumberedTextArea({
     return errorSet;
   }, [errors]);
 
+  // #1 iOS: scroll outer page ScrollView to keep this component visible above keyboard
+  const { scrollViewRef: pageScrollViewRef, pageOffsetRef } = useScrollView();
+  const containerRef = useRef<RNView>(null);
+  const isFocusedRef = useRef(false);
+  const lastKeyboardScreenYRef = useRef<number | null>(null);
+
+  const scrollOuterToShowComponent = useCallback(
+    (keyboardScreenY: number) => {
+      if (!containerRef.current || !pageScrollViewRef.current) return;
+
+      containerRef.current.measureInWindow((_x, y, _w, h) => {
+        const componentBottom = y + h;
+        const buffer = 80;
+
+        if (componentBottom > keyboardScreenY - buffer) {
+          const currentY = pageOffsetRef.current.y;
+          const scrollBy = componentBottom - keyboardScreenY + buffer;
+          pageScrollViewRef.current?.scrollTo({
+            y: currentY + scrollBy,
+            animated: true,
+          });
+        }
+      });
+    },
+    [pageScrollViewRef, pageOffsetRef],
+  );
+
+  useEffect(() => {
+    if (!platformEnv.isNativeIOS) return;
+
+    const showSub = Keyboard.addListener('keyboardDidShow', (e) => {
+      lastKeyboardScreenYRef.current = e.endCoordinates.screenY;
+      if (isFocusedRef.current) {
+        scrollOuterToShowComponent(e.endCoordinates.screenY);
+      }
+    });
+    const hideSub = Keyboard.addListener('keyboardDidHide', () => {
+      lastKeyboardScreenYRef.current = null;
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, [scrollOuterToShowComponent]);
+
   const handleContainerPress = useCallback(() => {
     inputRef.current?.focus();
   }, []);
 
   const handleFocus = useCallback(() => {
-    // Keyboard avoidance is handled by parent KeyboardAvoidingView
+    isFocusedRef.current = true;
+
+    // #2 Scroll internal ScrollView to show content bottom
+    if (scrollViewRef.current && contentHeight > (height ?? maxHeight)) {
+      setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+    }
+
+    // If keyboard is already shown (switching between inputs), trigger outer scroll
+    if (platformEnv.isNativeIOS && lastKeyboardScreenYRef.current != null) {
+      setTimeout(() => {
+        if (
+          isFocusedRef.current &&
+          lastKeyboardScreenYRef.current != null
+        ) {
+          scrollOuterToShowComponent(lastKeyboardScreenYRef.current);
+        }
+      }, 100);
+    }
+  }, [scrollOuterToShowComponent, contentHeight, height, maxHeight]);
+
+  const handleBlur = useCallback(() => {
+    isFocusedRef.current = false;
   }, []);
 
   const handleLineLayout = useCallback(
@@ -296,7 +368,7 @@ function LineNumberedTextArea({
   );
 
   return (
-    <YStack>
+    <YStack ref={containerRef}>
       <Stack
         borderWidth="$px"
         borderColor="$borderStrong"
@@ -414,6 +486,7 @@ function LineNumberedTextArea({
                 allowFontScaling={false}
                 maxFontSizeMultiplier={1}
                 onFocus={handleFocus}
+                onBlur={handleBlur}
                 onChange={() => {
                   onInputTypeChange?.(EInputAddressChangeType.Manual);
                 }}
