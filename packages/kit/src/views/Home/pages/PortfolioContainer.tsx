@@ -23,6 +23,8 @@ import { SupportHub } from '../components/SupportHub';
 import { TokenListBlock } from '../components/TokenListBlock';
 import { Upgrade } from '../components/Upgrade';
 import { PORTFOLIO_CONTAINER_RIGHT_SIDE_FIXED_WIDTH } from '../types';
+import { ProviderJotaiContextDeFiList } from '../../../states/jotai/contexts/deFiList';
+import { DeFiListBlock } from '../components/DeFiListBlock';
 
 function PortfolioContainer() {
   const media = useMedia();
@@ -41,6 +43,7 @@ function PortfolioContainer() {
       <XStack pt="$3" gap="$6">
         <YStack flex={1} gap="$10" pb="$8">
           <TokenListBlock showRecentHistory={showRecentHistory} tableLayout />
+          <DeFiListBlock refreshCacheOnly />
           <PopularTrading tableLayout />
           <EarnListView />
           <Upgrade />
@@ -62,6 +65,7 @@ function PortfolioContainer() {
   return (
     <YStack gap="$6" $gtMd={{ gap: '$8' }} pt="$3" pb="$4">
       <TokenListBlock />
+      <DeFiListBlock refreshCacheOnly />
       <PopularTrading />
       <EarnListView />
       <Upgrade />
@@ -80,18 +84,20 @@ function PortfolioContainerWithProvider() {
     <HomeTokenListProviderMirrorWrapper accountId={account?.id ?? ''}>
       <ProviderJotaiContextHistoryList>
         <ProviderJotaiContextEarn>
-          <Tabs.ScrollView
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingBottom: tabBarHeight }}
-            nestedScrollEnabled={platformEnv.isNativeAndroid}
-            refreshControl={
-              !platformEnv.isNativeAndroid ? (
-                <PullToRefresh onRefresh={onHomePageRefresh} />
-              ) : undefined
-            }
-          >
-            <PortfolioContainer />
-          </Tabs.ScrollView>
+          <ProviderJotaiContextDeFiList>
+            <Tabs.ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingBottom: tabBarHeight }}
+              nestedScrollEnabled={platformEnv.isNativeAndroid}
+              refreshControl={
+                !platformEnv.isNativeAndroid ? (
+                  <PullToRefresh onRefresh={onHomePageRefresh} />
+                ) : undefined
+              }
+            >
+              <PortfolioContainer />
+            </Tabs.ScrollView>
+          </ProviderJotaiContextDeFiList>
         </ProviderJotaiContextEarn>
       </ProviderJotaiContextHistoryList>
     </HomeTokenListProviderMirrorWrapper>
