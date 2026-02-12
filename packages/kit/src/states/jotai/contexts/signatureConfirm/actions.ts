@@ -261,6 +261,7 @@ class ContextJotaiActionsSignatureConfirm extends ContextJotaiActionsBase {
         symbol?: string;
         logoURI?: string;
         isLoading?: boolean;
+        decimals?: number;
       },
     ) => {
       set(payWithTokenInfoAtom(), {

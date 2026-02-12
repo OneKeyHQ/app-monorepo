@@ -22,6 +22,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
 import { showCustomRpcFallbackDialog } from '@onekeyhq/kit/src/views/Send/components/CustomRpcFallbackDialog';
 import type { ITransferPayload } from '@onekeyhq/kit-bg/src/vaults/types';
+import type { IToken } from '@onekeyhq/shared/types/token';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   EAppEventBusNames,
@@ -105,6 +106,20 @@ function TxConfirmAlert(props: IProps) {
     }
 
     if (payWithTokenInfo.enabled && sendTxStatus.isInsufficientTokenBalance) {
+      const payToken: IToken | undefined =
+        transferPayload?.tokenInfo?.address === payWithTokenInfo.address
+          ? transferPayload.tokenInfo
+          : payWithTokenInfo.decimals !== undefined
+            ? {
+                decimals: payWithTokenInfo.decimals,
+                name: payWithTokenInfo.symbol,
+                symbol: payWithTokenInfo.symbol,
+                address: payWithTokenInfo.address,
+                logoURI: payWithTokenInfo.logoURI,
+                isNative: false,
+              }
+            : undefined;
+
       return (
         <Alert
           icon="ErrorOutline"
@@ -118,37 +133,34 @@ function TxConfirmAlert(props: IProps) {
               amount: sendTxStatus.fillUpTokenBalance ?? '0',
             },
           )}
-          action={{
-            primary: intl.formatMessage({
-              id: ETranslations.global_top_up,
-            }),
-            onPrimaryPress() {
-              navigation.pushModal(EModalRoutes.ReceiveModal, {
-                screen: EModalReceiveRoutes.ReceiveSelector,
-                params: {
-                  networkId,
-                  accountId,
-                  walletId: accountUtils.getWalletIdFromAccountId({
-                    accountId,
+          action={
+            payToken
+              ? {
+                  primary: intl.formatMessage({
+                    id: ETranslations.global_top_up,
                   }),
-                  token: {
-                    decimals: 6,
-                    name: payWithTokenInfo.symbol,
-                    symbol: payWithTokenInfo.symbol,
-                    address: payWithTokenInfo.address,
-                    logoURI: payWithTokenInfo.logoURI,
-                    isNative: false,
+                  onPrimaryPress() {
+                    navigation.pushModal(EModalRoutes.ReceiveModal, {
+                      screen: EModalReceiveRoutes.ReceiveSelector,
+                      params: {
+                        networkId,
+                        accountId,
+                        walletId: accountUtils.getWalletIdFromAccountId({
+                          accountId,
+                        }),
+                        token: payToken,
+                        onClose: () => {
+                          appEventBus.emit(
+                            EAppEventBusNames.RefreshNativeTokenInfo,
+                            undefined,
+                          );
+                        },
+                      },
+                    });
                   },
-                  onClose: () => {
-                    appEventBus.emit(
-                      EAppEventBusNames.RefreshNativeTokenInfo,
-                      undefined,
-                    );
-                  },
-                },
-              });
-            },
-          }}
+                }
+              : undefined
+          }
         />
       );
     }
@@ -213,6 +225,8 @@ function TxConfirmAlert(props: IProps) {
     payWithTokenInfo.symbol,
     payWithTokenInfo.address,
     payWithTokenInfo.logoURI,
+    payWithTokenInfo.decimals,
+    transferPayload?.tokenInfo,
     intl,
     network?.symbol,
     navigation,
