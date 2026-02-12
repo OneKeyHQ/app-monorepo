@@ -486,6 +486,10 @@ function DeFiListBlock({
         }
       }
 
+      if (!convertedOverview) {
+        return undefined;
+      }
+
       return {
         overview: convertedOverview,
       };

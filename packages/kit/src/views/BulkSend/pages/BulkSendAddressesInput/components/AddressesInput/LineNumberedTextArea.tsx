@@ -19,7 +19,6 @@ import {
   useSelectionColor,
   useTheme,
 } from '@onekeyhq/components';
-import { useScrollToLocation } from '@onekeyhq/components/src/layouts/ScrollView';
 import { webFontFamily } from '@onekeyhq/components/src/utils/webFontFamily';
 import { AddressBadge } from '@onekeyhq/kit/src/components/AddressBadge';
 import { SelectorPlugin } from '@onekeyhq/kit/src/components/AddressInput/plugins/selector';
@@ -187,10 +186,9 @@ function LineNumberedTextArea({
     inputRef.current?.focus();
   }, []);
 
-  const { scrollToView } = useScrollToLocation(inputRef);
   const handleFocus = useCallback(() => {
-    scrollToView();
-  }, [scrollToView]);
+    // Keyboard avoidance is handled by parent KeyboardAvoidingView
+  }, []);
 
   const handleLineLayout = useCallback(
     (index: number, event: LayoutChangeEvent) => {

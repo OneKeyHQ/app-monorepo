@@ -141,13 +141,6 @@ export function NetworkContent({
     },
   );
 
-  console.log('--------------------------------');
-  console.log('accountId', accountId);
-  console.log('networkId', networkId);
-  console.log('accountNetworkValues', accountNetworkValues);
-  console.log('accountDeFiOverview', accountDeFiOverview);
-  console.log('--------------------------------');
-
   useEffect(() => {
     const fn = async () => {
       try {

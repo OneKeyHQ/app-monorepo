@@ -330,11 +330,6 @@ function HomeOverviewContainer() {
     });
   }, [account?.id, network?.id]);
 
-  console.log('--------------------------------');
-  console.log('accountDeFiOverview', accountDeFiOverview);
-  console.log('accountWorth', accountWorth);
-  console.log('--------------------------------');
-
   const balanceString = useMemo(() => {
     return new BigNumber(
       calculateAccountTokensValue({
