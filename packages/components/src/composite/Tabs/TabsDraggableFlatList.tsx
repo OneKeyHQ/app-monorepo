@@ -12,7 +12,7 @@ import {
   useTabNameContext,
   useTabsContext,
   useUpdateScrollViewContentSize,
-} from 'react-native-collapsible-tab-view/lib/commonjs/hooks';
+} from 'react-native-collapsible-tab-view';
 
 import type { DraggableFlatListProps } from 'react-native-draggable-flatlist';
 
