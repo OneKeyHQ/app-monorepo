@@ -51,9 +51,11 @@ const useIsFirstFocus = () => {
  */
 function useHeaderScrollCoordination(
   wrapperRef: React.RefObject<HTMLDivElement | null>,
+  enabled: boolean,
 ) {
   useEffect(() => {
     if (platformEnv.isNative) return;
+    if (!enabled) return;
 
     const wrapper = wrapperRef.current;
     if (!wrapper) return;
@@ -106,7 +108,7 @@ function useHeaderScrollCoordination(
       passive: false,
     });
     return () => wrapper.removeEventListener('wheel', handleWheel);
-  }, [wrapperRef]);
+  }, [wrapperRef, enabled]);
 }
 
 export function DesktopLayout({
@@ -123,8 +125,10 @@ export function DesktopLayout({
     selectedTab,
   } = useMarketTabsLogic(onTabChange);
 
+  const isFocused = useIsFirstFocus();
+
   const wrapperRef = useRef<HTMLDivElement>(null);
-  useHeaderScrollCoordination(wrapperRef);
+  useHeaderScrollCoordination(wrapperRef, isFocused);
 
   const initialTabName = useMemo(() => {
     if (selectedTab === 'watchlist') return watchlistTabName;
@@ -175,7 +179,6 @@ export function DesktopLayout({
     return { height: h };
   }, []);
 
-  const isFocused = useIsFirstFocus();
   if (!isFocused) {
     return null;
   }
