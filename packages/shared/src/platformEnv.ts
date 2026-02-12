@@ -91,6 +91,8 @@ export type IPlatformEnv = {
   isDesktopMac?: boolean;
   /** macos arm64 only */
   isDesktopMacArm64?: boolean;
+  /** desktop platforms with custom title bar (Mac, Win, Linux) */
+  isDesktopWithCustomTitleBar?: boolean;
   /** macos for appStore */
   isMas?: boolean;
 
@@ -185,6 +187,8 @@ const isDesktopLinuxSnap = isDesktopLinux && desktopChannel === 'snap';
 const isDesktopLinuxFlatpak = isDesktopLinux && desktopChannel === 'flatpak';
 const isDesktopStore =
   isMas || isDesktopWinMsStore || isDesktopLinuxSnap || isDesktopLinuxFlatpak;
+const isDesktopWithCustomTitleBar =
+  isDesktopMac || isDesktopWin || isDesktopLinux;
 
 const isNativeIOS = isNative && Platform.OS === 'ios';
 const isNativeIOSStore = isNativeIOS && isProduction;
@@ -503,6 +507,7 @@ const platformEnv: IPlatformEnv = {
   isDesktopLinux,
   isDesktopLinuxSnap,
   isDesktopLinuxFlatpak,
+  isDesktopWithCustomTitleBar,
   isDesktopStore,
   isMas,
 

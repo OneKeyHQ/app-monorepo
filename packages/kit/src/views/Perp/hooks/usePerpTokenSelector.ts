@@ -98,11 +98,13 @@ export function usePerpTokenSelector() {
     }
   }, [actions, searchQuery]);
 
+  // Keep cached data on unmount so re-open is instant; skip if fetch never completed.
   useEffect(() => {
     return () => {
+      if (!allAssetsRef.current) return;
       // eslint-disable-next-line react-hooks/exhaustive-deps
       actions.current.updateAllAssetsFiltered({
-        allAssetsByDex: [],
+        allAssetsByDex: allAssetsRef.current,
         query: '',
       });
     };

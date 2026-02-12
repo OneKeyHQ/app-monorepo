@@ -158,12 +158,14 @@ function RecommendCardItem({
         </YStack>
       </XStack>
       {checked ? (
-        <Icon
-          name="CheckRadioSolid"
-          size="$6"
-          color="$iconActive"
-          $sm={{ size: '$5' }}
-        />
+        <Stack flexShrink={0}>
+          <Icon
+            name="CheckRadioSolid"
+            size="$6"
+            color="$iconActive"
+            $sm={{ size: '$5' }}
+          />
+        </Stack>
       ) : (
         <Stack w="$6" h="$6" $sm={{ w: '$5', h: '$5' }} />
       )}
@@ -252,7 +254,9 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
             <NumberSizeableText
               size="$bodyLgMedium"
               formatter="price"
-              formatterOptions={{ currency: currencyInfo?.symbol }}
+              formatterOptions={{
+                currency: record.perpsCoin ? '$' : currencyInfo?.symbol,
+              }}
             >
               {record.price ?? '-'}
             </NumberSizeableText>
@@ -285,7 +289,9 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
             <NumberSizeableText
               size="$bodyLgMedium"
               formatter="marketCap"
-              formatterOptions={{ currency: currencyInfo?.symbol }}
+              formatterOptions={{
+                currency: record.perpsCoin ? '$' : currencyInfo?.symbol,
+              }}
             >
               {record.perpsCoin
                 ? (record.volume24h ?? '-')
@@ -335,7 +341,9 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
                 <NumberSizeableText
                   size="$bodyMd"
                   formatter="marketCap"
-                  formatterOptions={{ currency: currencyInfo?.symbol }}
+                  formatterOptions={{
+                    currency: record.perpsCoin ? '$' : currencyInfo?.symbol,
+                  }}
                 >
                   {record.perpsCoin
                     ? (record.volume24h ?? '-')
@@ -360,7 +368,9 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
               <NumberSizeableText
                 size="$bodyLgMedium"
                 formatter="price"
-                formatterOptions={{ currency: currencyInfo?.symbol }}
+                formatterOptions={{
+                  currency: record.perpsCoin ? '$' : currencyInfo?.symbol,
+                }}
               >
                 {record.price ?? '-'}
               </NumberSizeableText>

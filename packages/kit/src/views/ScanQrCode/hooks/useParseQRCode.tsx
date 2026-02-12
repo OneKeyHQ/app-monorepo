@@ -159,7 +159,13 @@ const useParseQRCode = () => {
       const closeScanPage = async () => {
         if (popNavigation) {
           popNavigation();
-          await timerUtils.wait(platformEnv.isNative ? 1200 : 250);
+          if (platformEnv.isNative) {
+            await new Promise<void>((resolve) => {
+              requestIdleCallback(() => resolve());
+            });
+          } else {
+            await timerUtils.wait(250);
+          }
         }
       };
 
@@ -227,7 +233,13 @@ const useParseQRCode = () => {
           {
             const primeTransferData = result.data as IPrimeTransferValue;
             await closeScanPage();
-            await timerUtils.wait(600);
+            if (platformEnv.isNative) {
+              await new Promise<void>((resolve) => {
+                requestIdleCallback(() => resolve());
+              });
+            } else {
+              await timerUtils.wait(600);
+            }
             navigation.pushModal(EModalRoutes.PrimeModal, {
               screen: EPrimePages.PrimeTransfer,
               params: {

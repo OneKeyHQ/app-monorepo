@@ -936,8 +936,7 @@ function DeFiListBlock({
         title={intl.formatMessage({ id: ETranslations.global_earn })}
         subTitle={renderSubTitle()}
         headerContainerProps={{ px: '$pagePadding' }}
-        contentContainerProps={{ mx: '$5' }}
-        plainContentContainer={!initialized && isRefreshing}
+        plainContentContainer
         content={
           !initialized && isRefreshing ? (
             <ListLoading isTokenSelectorView={false} />

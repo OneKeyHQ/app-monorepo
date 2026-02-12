@@ -62,6 +62,7 @@ import { useWalletBanner } from '../../../hooks/useWalletBanner';
 import { EAddressState } from '../types';
 
 import type { RouteProp } from '@react-navigation/core';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 function ReceiveToken() {
   useDebugComponentRemountLog({
@@ -559,7 +560,8 @@ function ReceiveToken() {
 
     return (
       <XStack
-        maxWidth={304}
+        flex={platformEnv.isNative ? 1 : undefined}
+        maxWidth={platformEnv.isNative ? undefined : 304}
         flexWrap="wrap"
         {...(shouldShowAddress && {
           onPress: handleCopyAddress,
@@ -657,7 +659,11 @@ function ReceiveToken() {
               </Badge>
             ) : null}
           </XStack>
-          <XStack gap="$2" alignItems="center" justifyContent="space-between">
+          <XStack
+            gap="$2"
+            alignItems="center"
+            justifyContent={platformEnv.isNative ? undefined : 'space-between'}
+          >
             {renderAddress()}
             {renderCopyAddressButton()}
           </XStack>

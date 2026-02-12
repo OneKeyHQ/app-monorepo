@@ -16,6 +16,7 @@ import {
   XStack,
   YStack,
   useClipboard,
+  useSelectionColor,
   useTheme,
 } from '@onekeyhq/components';
 import { useScrollToLocation } from '@onekeyhq/components/src/layouts/ScrollView';
@@ -111,6 +112,7 @@ function LineNumberedTextArea({
   const { getClipboard } = useClipboard();
   const theme = useTheme();
   const textColor = theme.text?.val;
+  const selectionColor = useSelectionColor();
   const placeholderColor = theme.textPlaceholder?.val;
   const [inputText, setInputText] = useState<string>(value);
   const [contentHeight, setContentHeight] = useState(0);
@@ -426,7 +428,7 @@ function LineNumberedTextArea({
                 editable={!disabled}
                 multiline
                 style={styles.textInput}
-                selectionColor={textColor}
+                selectionColor={selectionColor}
                 cursorColor={textColor}
                 spellCheck={false}
                 autoCorrect={false}

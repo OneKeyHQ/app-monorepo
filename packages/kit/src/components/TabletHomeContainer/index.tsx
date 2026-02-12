@@ -10,8 +10,7 @@ import {
 
 import {
   ESplitViewType,
-  Image,
-  SizableText,
+  Icon,
   YStack,
   isNativeTablet,
   useIsSplitView,
@@ -30,9 +29,18 @@ export function TabletHomeContainer({ children }: PropsWithChildren) {
 
   if (splitViewType === ESplitViewType.SUB && isLandscape) {
     return (
-      <YStack flex={1} justifyContent="center" alignItems="center" gap="$4">
-        <Image source={require('@onekeyhq/kit/assets/logo.png')} size={124} />
-        <SizableText size="$heading5xl">OneKey</SizableText>
+      <YStack
+        flex={1}
+        justifyContent="center"
+        alignItems="center"
+        bg="$bgSubdued"
+      >
+        <Icon
+          name="OnekeyLogoMonoIllus"
+          width={108}
+          height={108}
+          color="$neutral4"
+        />
       </YStack>
     );
   }

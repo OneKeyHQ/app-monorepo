@@ -10,15 +10,12 @@ import {
   Spinner,
   XStack,
   YStack,
-  useMedia,
 } from '@onekeyhq/components';
 import type { IDateRange } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
-import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
 import { useRedirectWhenNotLoggedIn } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useRedirectWhenNotLoggedIn';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EExportSubject,
   EExportTimeRange,
@@ -27,13 +24,12 @@ import {
   type IPerpsInvitesSortBy,
   type IPerpsInvitesSortOrder,
 } from '@onekeyhq/shared/src/referralCode/type';
-import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import {
-  BreadcrumbSection,
   ExportButton,
   FilterButton,
+  ReferFriendsDetailHeader,
   ReferFriendsPageContainer,
 } from '../../components';
 import { useRewardFilter } from '../../hooks/useRewardFilter';
@@ -47,7 +43,6 @@ function PerpsRewardPageWrapper() {
   useRedirectWhenNotLoggedIn();
 
   const intl = useIntl();
-  const { md } = useMedia();
 
   const [isLoading, setIsLoading] = useState(false);
   const [isTabLoading, setIsTabLoading] = useState(false);
@@ -372,19 +367,47 @@ function PerpsRewardPageWrapper() {
   // Max date for DatePicker (today)
   const maxDate = useMemo(() => new Date(), []);
 
+  const toolbar = useMemo(
+    () => (
+      <>
+        <YStack width={240}>
+          <DatePicker.Range
+            value={currentDatePickerValue}
+            onChange={handleDateRangeChange}
+            maxDate={maxDate}
+          />
+        </YStack>
+        <XStack gap="$3">
+          <FilterButton
+            filterState={filterState}
+            onFilterChange={updateFilter}
+          />
+          <ExportButton
+            subject={EExportSubject.Perp}
+            timeRange={effectiveTimeRange}
+            inviteCode={filterState.inviteCode}
+            startTime={filterState.startTime}
+            endTime={filterState.endTime}
+          />
+        </XStack>
+      </>
+    ),
+    [
+      currentDatePickerValue,
+      handleDateRangeChange,
+      maxDate,
+      filterState,
+      updateFilter,
+      effectiveTimeRange,
+    ],
+  );
+
   return (
     <Page>
-      {platformEnv.isNative || md ? (
-        <Page.Header
-          title={intl.formatMessage({ id: ETranslations.global_perp })}
-        />
-      ) : (
-        <TabPageHeader
-          sceneName={EAccountSelectorSceneName.home}
-          tabRoute={ETabRoutes.ReferFriends}
-          hideHeaderLeft={platformEnv.isDesktop}
-        />
-      )}
+      <ReferFriendsDetailHeader
+        title={intl.formatMessage({ id: ETranslations.global_perp })}
+        toolbar={toolbar}
+      />
       <Page.Body>
         <ReferFriendsPageContainer flex={1} position="relative">
           {cumulativeRewards === undefined && isLoading ? (
@@ -410,47 +433,6 @@ function PerpsRewardPageWrapper() {
               onScroll={handleScroll}
               scrollEventThrottle={16}
             >
-              {/* Breadcrumb for desktop */}
-              {!platformEnv.isNative && !md ? (
-                <XStack px="$5" pt="$5">
-                  <BreadcrumbSection
-                    secondItemLabel={intl.formatMessage({
-                      id: ETranslations.global_perp,
-                    })}
-                  />
-                </XStack>
-              ) : null}
-
-              {/* DatePicker + Filter + Export Row */}
-              <XStack
-                px="$5"
-                pb="$4"
-                pt={platformEnv.isNative || md ? '$2' : '$4'}
-                jc="space-between"
-                ai="center"
-              >
-                <YStack width={240}>
-                  <DatePicker.Range
-                    value={currentDatePickerValue}
-                    onChange={handleDateRangeChange}
-                    maxDate={maxDate}
-                  />
-                </YStack>
-                <XStack gap="$3">
-                  <FilterButton
-                    filterState={filterState}
-                    onFilterChange={updateFilter}
-                  />
-                  <ExportButton
-                    subject={EExportSubject.Perp}
-                    timeRange={effectiveTimeRange}
-                    inviteCode={filterState.inviteCode}
-                    startTime={filterState.startTime}
-                    endTime={filterState.endTime}
-                  />
-                </XStack>
-              </XStack>
-
               {/* Perps Reward Header - Stats Cards */}
               <PerpsRewardHeader
                 data={cumulativeRewards}
