@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import type { ReactNode } from 'react';
 
 import {
@@ -230,6 +230,29 @@ function MarketTokenListBase({
   }, [isLoadingMore, showEndReachedIndicator, canLoadMore, data.length]);
   const tabBarHeight = useScrollContentTabBarOffset();
 
+  // On web with tabIntegrated, disable FlatList's own scroll so the outer
+  // Tabs.Container handles scrolling (allows header to scroll away naturally).
+  // Use IntersectionObserver as a replacement for onEndReached.
+  const webTabIntegrated = tabIntegrated && !platformEnv.isNative;
+  const endSentinelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!webTabIntegrated) return;
+    const sentinel = endSentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          handleEndReached();
+        }
+      },
+      { threshold: 0 },
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [webTabIntegrated, handleEndReached]);
+
   return (
     <Stack flex={1} width="100%">
       {/* render custom toolbar if provided */}
@@ -282,7 +305,7 @@ function MarketTokenListBase({
                     }
               }
               stickyHeader
-              scrollEnabled
+              scrollEnabled={!webTabIntegrated}
               draggable={draggable}
               tabIntegrated={tabIntegrated}
               onDragEnd={onDragEnd}
@@ -319,6 +342,9 @@ function MarketTokenListBase({
               })}
             />
           )}
+          {webTabIntegrated ? (
+            <div ref={endSentinelRef} style={{ height: 1 }} />
+          ) : null}
         </Stack>
       </Stack>
     </Stack>

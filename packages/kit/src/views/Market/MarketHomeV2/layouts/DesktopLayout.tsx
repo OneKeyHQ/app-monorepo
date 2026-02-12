@@ -97,15 +97,14 @@ export function DesktopLayout({
     [handleTabChange],
   );
 
-  const contentHeight = useMemo(() => {
-    const h = `calc(100vh - 47px)` as unknown as number;
+  const listContainerProps = useMemo(() => {
     if (platformEnv.isWebDappMode) {
-      return { height: h, paddingBottom: 100 };
+      return { paddingBottom: 100 };
     }
     if (platformEnv.isDesktop) {
-      return { height: h, paddingBottom: 50 };
+      return { paddingBottom: 50 };
     }
-    return { height: h };
+    return { paddingBottom: 0 };
   }, []);
 
   if (!isFocused) {
@@ -121,27 +120,31 @@ export function DesktopLayout({
         {...containerProps}
       >
         <Tabs.Tab name={watchlistTabName}>
-          <Tabs.ScrollView style={contentHeight}>
-            <YStack px="$4" flex={1}>
-              <MarketWatchlistTokenList />
-            </YStack>
-          </Tabs.ScrollView>
+          <YStack px="$4" flex={1}>
+            <MarketWatchlistTokenList
+              tabIntegrated
+              listContainerProps={listContainerProps}
+            />
+          </YStack>
         </Tabs.Tab>
         <Tabs.Tab name={spotTabName}>
-          <Tabs.ScrollView style={contentHeight}>
-            <YStack px="$4" flex={1}>
-              <MarketFilterBar {...filterBarProps} />
-              <MarketNormalTokenList networkId={selectedNetworkId} />
-            </YStack>
-          </Tabs.ScrollView>
+          <YStack px="$4" flex={1}>
+            <MarketFilterBar {...filterBarProps} />
+            <MarketNormalTokenList
+              networkId={selectedNetworkId}
+              tabIntegrated
+              listContainerProps={listContainerProps}
+            />
+          </YStack>
         </Tabs.Tab>
         {showPerpsTab ? (
           <Tabs.Tab name={perpsTabName}>
-            <Tabs.ScrollView style={contentHeight}>
-              <YStack px="$4" flex={1}>
-                <MarketPerpsTokenList />
-              </YStack>
-            </Tabs.ScrollView>
+            <YStack px="$4" flex={1}>
+              <MarketPerpsTokenList
+                tabIntegrated
+                listContainerProps={listContainerProps}
+              />
+            </YStack>
           </Tabs.Tab>
         ) : null}
       </Tabs.Container>
