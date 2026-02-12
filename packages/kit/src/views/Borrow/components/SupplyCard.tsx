@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -61,9 +61,17 @@ export const SupplyCard = () => {
 
   const toOnBoardingPage = useToOnBoardingPage();
 
+  // Use ref to hold the latest value of noConnectedWallet.
+  // This avoids stale closure issues caused by TableList's custom memo
+  // comparator (compareTableListProps) which uses stringify for columns
+  // (losing function references) and skips onPressRow comparison.
+  const noConnectedWalletRef = useRef(noConnectedWallet);
+  noConnectedWalletRef.current = noConnectedWallet;
+
   const handleManageSupply = useCallback(
     (item: ISupplyAsset) => {
-      if (noConnectedWallet) {
+      // Read from ref to avoid stale closure from TableList memo caching
+      if (noConnectedWalletRef.current) {
         void toOnBoardingPage();
         return;
       }
@@ -83,7 +91,7 @@ export const SupplyCard = () => {
       });
     },
     [
-      noConnectedWallet,
+      noConnectedWalletRef,
       toOnBoardingPage,
       navigation,
       market,
