@@ -11,6 +11,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { EditableChainSelectorContent } from '../EditableChainSelector/ChainSelectorContent';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 
 const defaultChainSelectorNetworks: {
   mainnetItems: IServerNetwork[];
@@ -82,8 +83,7 @@ export function NetworkContent({
             accounts: [
               {
                 accountId: indexedAccountId ?? accountId ?? '',
-                accountAddress,
-                networkId: networkId ?? '',
+                networkId: getNetworkIdsMap().onekeyall,
                 indexedAccountId,
               },
             ],
@@ -140,6 +140,13 @@ export function NetworkContent({
       },
     },
   );
+
+  console.log('--------------------------------');
+  console.log('accountId', accountId);
+  console.log('networkId', networkId);
+  console.log('accountNetworkValues', accountNetworkValues);
+  console.log('accountDeFiOverview', accountDeFiOverview);
+  console.log('--------------------------------');
 
   useEffect(() => {
     const fn = async () => {

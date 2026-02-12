@@ -234,10 +234,10 @@ function HomeOverviewContainer() {
               accountId: accountValueId,
               value:
                 accountWorth.worth[
-                  accountUtils.buildAccountValueKey({
-                    accountId: account.id,
-                    networkId: network.id,
-                  })
+                accountUtils.buildAccountValueKey({
+                  accountId: account.id,
+                  networkId: network.id,
+                })
                 ],
               currency: settings.currencyInfo.id,
             },
@@ -329,6 +329,11 @@ function HomeOverviewContainer() {
       },
     });
   }, [account?.id, network?.id]);
+
+  console.log('--------------------------------');
+  console.log('accountDeFiOverview', accountDeFiOverview);
+  console.log('accountWorth', accountWorth);
+  console.log('--------------------------------');
 
   const balanceString = useMemo(() => {
     return new BigNumber(
