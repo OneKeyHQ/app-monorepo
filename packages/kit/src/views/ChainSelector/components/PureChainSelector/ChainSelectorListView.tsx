@@ -132,7 +132,7 @@ export const ChainSelectorListView: FC<IChainSelectorListViewProps> = ({
   const [text, setText] = useState('');
   const intl = useIntl();
   const onChangeText = useCallback((value: string) => {
-    setText(value.trim());
+    setText(value);
   }, []);
 
   const networkFuseSearch = useFuseSearch(networks);
