@@ -1,11 +1,14 @@
 import { useCallback } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { Button, Checkbox, SizableText, XStack } from '@onekeyhq/components';
 import { usePositionFilterByCurrentTokenAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import {
   usePerpsActiveAccountIsAgentReadyAtom,
   usePerpsActiveAssetAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { showCloseAllPositionsDialog } from '../CloseAllPositionsModal';
 
@@ -18,6 +21,7 @@ export function MobilePositionsListHeader({
   totalPositionCount,
   filteredPositionCount,
 }: IMobilePositionsListHeaderProps) {
+  const intl = useIntl();
   const [filterByCurrentToken, setFilterByCurrentToken] =
     usePositionFilterByCurrentTokenAtom();
   const [activeAsset] = usePerpsActiveAssetAtom();
@@ -44,29 +48,32 @@ export function MobilePositionsListHeader({
   return (
     <XStack
       px="$5"
-      py="$2.5"
+      pt="$2.5"
       justifyContent="space-between"
       alignItems="center"
       bg="$bgApp"
     >
-      {/* Left: Filter checkbox */}
+      {/* Left: Filter checkbox - same style as TP/SL checkbox in trading form */}
       <Checkbox
-        label={`Only show ${activeAsset?.coin || ''}`}
-        labelProps={{
-          fontSize: '$bodySm',
-        }}
+        label={intl.formatMessage({ id: ETranslations.perps_hide_other_symbols })}
+        labelProps={{ fontSize: '$bodyXs' }}
+        containerProps={{ p: '$0', alignItems: 'center' }}
+        width="$3.5"
+        height="$3.5"
         value={filterByCurrentToken}
         onChange={handleFilterChange}
       />
 
       {/* Right: Close all button - disabled when trading is not enabled or no positions */}
       <Button
-        size="medium"
+        size="small"
         variant="secondary"
         disabled={!isAgentReady || filteredPositionCount === 0}
         onPress={handleCloseAll}
       >
-        <SizableText size="$bodySm">Close All</SizableText>
+        <SizableText size="$bodyXs">
+          {intl.formatMessage({ id: ETranslations.perp_position_close })}
+        </SizableText>
       </Button>
     </XStack>
   );

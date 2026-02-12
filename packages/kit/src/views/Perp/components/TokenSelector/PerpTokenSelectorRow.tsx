@@ -45,6 +45,7 @@ interface IPerpTokenSelectorRowProps {
   };
   onPress: (name: string) => void;
   isOnModal?: boolean;
+  skipMarkRequired?: boolean;
 }
 
 interface ITokenSelectorRowContextValue {
@@ -635,7 +636,12 @@ const TokenSelectorRowMobile = memo(() => {
 TokenSelectorRowMobile.displayName = 'TokenSelectorRowMobile';
 
 const PerpTokenSelectorRow = memo(
-  ({ mockedToken, onPress, isOnModal }: IPerpTokenSelectorRowProps) => {
+  ({
+    mockedToken,
+    onPress,
+    isOnModal,
+    skipMarkRequired,
+  }: IPerpTokenSelectorRowProps) => {
     const [filteredAssets] = usePerpsAllAssetsFilteredAtom();
     const [tokenSearchAliases] = usePerpsTokenSearchAliasesAtom();
     const tokensByDex = filteredAssets.assetsByDex || [];
@@ -647,6 +653,7 @@ const PerpTokenSelectorRow = memo(
 
     const { assetCtx, isLoading } = usePerpsAssetCtx({
       assetId: tokenAssetId,
+      skipMarkRequired,
     });
 
     const handlePress = useMemo(

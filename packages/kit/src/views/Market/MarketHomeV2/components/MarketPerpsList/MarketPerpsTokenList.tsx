@@ -355,7 +355,17 @@ function usePerpsColumns(): ITableColumn<IMarketPerpsToken>[] {
   );
 }
 
-function MarketPerpsTokenListImpl() {
+type IMarketPerpsTokenListProps = {
+  tabIntegrated?: boolean;
+  listContainerProps?: {
+    paddingBottom: number;
+  };
+};
+
+function MarketPerpsTokenListImpl({
+  tabIntegrated,
+  listContainerProps,
+}: IMarketPerpsTokenListProps) {
   const [selectedCategoryId, setSelectedCategoryId] = useState('');
   const { navigateToPerps } = usePerpsNavigation();
   const intl = useIntl();
@@ -439,11 +449,22 @@ function MarketPerpsTokenListImpl() {
             />
           ) : (
             <Table<IMarketPerpsToken>
-              contentContainerStyle={{
-                paddingBottom: platformEnv.isNativeAndroid ? 104 : tabBarHeight,
-              }}
+              contentContainerStyle={
+                tabIntegrated
+                  ? {
+                      paddingTop: 8 + (platformEnv.isNative ? 150 : 0),
+                      paddingBottom: platformEnv.isNativeAndroid
+                        ? (listContainerProps?.paddingBottom ?? 104)
+                        : tabBarHeight,
+                    }
+                  : {
+                      paddingBottom: platformEnv.isNativeAndroid
+                        ? 104
+                        : tabBarHeight,
+                    }
+              }
               stickyHeader
-              scrollEnabled
+              scrollEnabled={!tabIntegrated || platformEnv.isNative}
               columns={perpsColumns}
               dataSource={tokens}
               keyExtractor={(item) => item.name}
@@ -462,3 +483,4 @@ function MarketPerpsTokenListImpl() {
 }
 
 export const MarketPerpsTokenList = memo(MarketPerpsTokenListImpl);
+export type { IMarketPerpsTokenListProps };

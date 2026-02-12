@@ -262,17 +262,27 @@ class ServiceReferralCode extends ServiceBase {
   async getHardwareCumulativeRewards(
     inviteCode?: string,
     timeRange?: EExportTimeRange,
+    startTime?: number,
+    endTime?: number,
   ): Promise<IHardwareCumulativeRewards> {
     const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
     const params: {
       inviteCode?: string;
       timeRange?: string;
+      startTime?: number;
+      endTime?: number;
     } = {};
     if (inviteCode) {
       params.inviteCode = inviteCode;
     }
     if (timeRange) {
       params.timeRange = timeRange;
+    }
+    if (startTime) {
+      params.startTime = startTime;
+    }
+    if (endTime) {
+      params.endTime = endTime;
     }
     const response = await client.get<{
       data: IHardwareCumulativeRewards;
@@ -327,6 +337,8 @@ class ServiceReferralCode extends ServiceBase {
     available?: boolean,
     timeRange?: EExportTimeRange,
     inviteCode?: string,
+    startTime?: number,
+    endTime?: number,
   ) {
     const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
     const params: {
@@ -334,6 +346,8 @@ class ServiceReferralCode extends ServiceBase {
       status?: string;
       timeRange?: string;
       inviteCode?: string;
+      startTime?: number;
+      endTime?: number;
     } = {};
     if (cursor) {
       params.cursor = cursor;
@@ -346,6 +360,12 @@ class ServiceReferralCode extends ServiceBase {
     }
     if (inviteCode) {
       params.inviteCode = inviteCode;
+    }
+    if (startTime) {
+      params.startTime = startTime;
+    }
+    if (endTime) {
+      params.endTime = endTime;
     }
     const response = await client.get<{
       data: IEarnRewardResponse;
@@ -660,6 +680,8 @@ class ServiceReferralCode extends ServiceBase {
     cursor?: string,
     timeRange?: EExportTimeRange,
     inviteCode?: string,
+    startTime?: number,
+    endTime?: number,
   ): Promise<IHardwareRecordsResponse> {
     const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
     const params: {
@@ -667,6 +689,8 @@ class ServiceReferralCode extends ServiceBase {
       cursor?: string;
       timeRange?: string;
       inviteCode?: string;
+      startTime?: number;
+      endTime?: number;
     } = {
       limit: 10,
     };
@@ -678,6 +702,12 @@ class ServiceReferralCode extends ServiceBase {
     }
     if (inviteCode) {
       params.inviteCode = inviteCode;
+    }
+    if (startTime) {
+      params.startTime = startTime;
+    }
+    if (endTime) {
+      params.endTime = endTime;
     }
     const response = await client.get<{
       data: IHardwareRecordsResponse;

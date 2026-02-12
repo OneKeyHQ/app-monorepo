@@ -254,7 +254,9 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
             <NumberSizeableText
               size="$bodyLgMedium"
               formatter="price"
-              formatterOptions={{ currency: currencyInfo?.symbol }}
+              formatterOptions={{
+                currency: record.perpsCoin ? '$' : currencyInfo?.symbol,
+              }}
             >
               {record.price ?? '-'}
             </NumberSizeableText>
@@ -287,7 +289,9 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
             <NumberSizeableText
               size="$bodyLgMedium"
               formatter="marketCap"
-              formatterOptions={{ currency: currencyInfo?.symbol }}
+              formatterOptions={{
+                currency: record.perpsCoin ? '$' : currencyInfo?.symbol,
+              }}
             >
               {record.perpsCoin
                 ? (record.volume24h ?? '-')
@@ -337,7 +341,9 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
                 <NumberSizeableText
                   size="$bodyMd"
                   formatter="marketCap"
-                  formatterOptions={{ currency: currencyInfo?.symbol }}
+                  formatterOptions={{
+                    currency: record.perpsCoin ? '$' : currencyInfo?.symbol,
+                  }}
                 >
                   {record.perpsCoin
                     ? (record.volume24h ?? '-')
@@ -362,7 +368,9 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
               <NumberSizeableText
                 size="$bodyLgMedium"
                 formatter="price"
-                formatterOptions={{ currency: currencyInfo?.symbol }}
+                formatterOptions={{
+                  currency: record.perpsCoin ? '$' : currencyInfo?.symbol,
+                }}
               >
                 {record.price ?? '-'}
               </NumberSizeableText>

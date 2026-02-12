@@ -13,6 +13,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { useIsOverlayPage } from '../../../hocs';
 import { useIsDesktopModeUIInTabPages } from '../../../hooks';
 import { Stack, XStack } from '../../../primitives';
+import { WINDOWS_OVERLAY_BUTTONS_WIDTH } from '../../../utils/sidebar';
 import { DesktopDragZoneBox } from '../../DesktopDragZoneBox';
 
 import HeaderBackButton from './HeaderBackButton';
@@ -39,28 +40,29 @@ function getHeaderTitle(
       : fallback;
 }
 
-const DesktopDragZoneBoxView = platformEnv.isDesktopMac
-  ? ({ disabled, children }: IDesktopDragZoneBoxProps) => {
-      const isModalPage = useIsOverlayPage();
+const DesktopDragZoneBoxView =
+  platformEnv.isDesktopMac || platformEnv.isDesktopWin
+    ? ({ disabled, children }: IDesktopDragZoneBoxProps) => {
+        const isModalPage = useIsOverlayPage();
 
-      const [isFocus, setIsFocus] = useState(false);
+        const [isFocus, setIsFocus] = useState(false);
 
-      const handlePageEffect = useCallback(() => {
-        setIsFocus(true);
-        return () => {
-          setIsFocus(false);
-        };
-      }, []);
+        const handlePageEffect = useCallback(() => {
+          setIsFocus(true);
+          return () => {
+            setIsFocus(false);
+          };
+        }, []);
 
-      useFocusEffect(handlePageEffect);
+        useFocusEffect(handlePageEffect);
 
-      return (
-        <DesktopDragZoneBox disabled={disabled || !isFocus || isModalPage}>
-          {children}
-        </DesktopDragZoneBox>
-      );
-    }
-  : DesktopDragZoneBox;
+        return (
+          <DesktopDragZoneBox disabled={disabled || !isFocus || isModalPage}>
+            {children}
+          </DesktopDragZoneBox>
+        );
+      }
+    : DesktopDragZoneBox;
 
 const useHeaderHeight = platformEnv.isNativeIOS
   ? () => 52
@@ -200,6 +202,11 @@ function HeaderView({
         <Stack
           alignSelf="stretch"
           px={isOnboardingScreen ? '$16' : '$5'}
+          pr={
+            platformEnv.isDesktopWin && !isOnboardingScreen
+              ? WINDOWS_OVERLAY_BUTTONS_WIDTH
+              : undefined
+          }
           $gtMd={
             platformEnv.isNativeAndroid
               ? undefined

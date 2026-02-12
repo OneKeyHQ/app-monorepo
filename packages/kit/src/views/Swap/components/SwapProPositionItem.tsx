@@ -68,7 +68,7 @@ const SwapProPositionItem = ({
       {/* First Column: Token Icon + Symbol + Arrow (original style) */}
       <XStack alignItems="center" gap="$2" flexGrow={1} flexBasis={0}>
         <Token
-          size="sm"
+          size="md"
           tokenImageUri={token.logoURI}
           networkImageUri={tokenNetworkImageUri}
         />
