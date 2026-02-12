@@ -48,12 +48,10 @@ export const SupplyCard = () => {
   const noConnectedWallet = useMemo(
     () =>
       activeAccount.ready &&
-      !activeAccount.wallet?.id &&
       !activeAccount.account?.id &&
       !activeAccount.indexedAccount?.id,
     [
       activeAccount.ready,
-      activeAccount.wallet?.id,
       activeAccount.account?.id,
       activeAccount.indexedAccount?.id,
     ],
