@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Tabs, YStack } from '@onekeyhq/components';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
@@ -113,7 +113,7 @@ export function DesktopLayout({
   }
 
   return (
-    <YStack flex={1} ref={wrapperRef as any}>
+    <YStack flex={1}>
       <Tabs.Container
         renderTabBar={renderTabBar}
         initialTabName={initialTabName}
