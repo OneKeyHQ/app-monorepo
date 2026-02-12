@@ -12,6 +12,8 @@ import {
 
 import { Dimensions, ScrollView as ScrollViewNative } from 'react-native';
 
+import { getCurrentKeyboardHeight } from '../../hooks/useKeyboard';
+
 import {
   usePropsAndStyle,
   useStyle,
@@ -60,20 +62,30 @@ export const useScrollToLocation = (inputRef: RefObject<TextInput | null>) => {
   const actions = useScrollView();
   const scrollToView = useCallback(() => {
     if (platformEnv.isNative) {
+      // Delay to allow the keyboard to appear and layout to settle
       setTimeout(() => {
-        inputRef.current?.measureInWindow((x, y) => {
-          const { pageOffsetRef, scrollViewRef } = actions;
-          const windowHeight = Dimensions.get('window').height;
-          const minY = windowHeight / 4;
-          const scrollY = y - minY;
-          if (scrollY > 0) {
-            scrollViewRef?.current?.scrollTo?.({
-              y: pageOffsetRef.current.y + scrollY,
-              animated: true,
-            });
-          }
-        });
-      }, 250);
+        const keyboardHeight = getCurrentKeyboardHeight();
+        if (!keyboardHeight) return;
+
+        inputRef.current?.measureInWindow(
+          (_x: number, y: number, _width: number, height: number) => {
+            const { pageOffsetRef, scrollViewRef } = actions;
+            const windowHeight = Dimensions.get('window').height;
+            // Visible area = window height - keyboard height - buffer for footer
+            const visibleBottom = windowHeight - keyboardHeight - 60;
+            const inputBottom = y + height;
+            const gap = 16;
+
+            if (inputBottom > visibleBottom - gap) {
+              const scrollAmount = inputBottom - (visibleBottom - gap);
+              scrollViewRef?.current?.scrollTo?.({
+                y: pageOffsetRef.current.y + scrollAmount,
+                animated: true,
+              });
+            }
+          },
+        );
+      }, 300);
     }
   }, [actions, inputRef]);
   return useMemo(() => ({ scrollToView }), [scrollToView]);
