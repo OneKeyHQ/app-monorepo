@@ -350,6 +350,16 @@ class DesktopApiSystem {
     const safelyBrowserWindow =
       globalThis.$desktopMainAppFunctions?.getSafelyBrowserWindow?.();
     safelyBrowserWindow?.setBackgroundColor(getBackgroundColor(theme));
+    if (process.platform === 'win32') {
+      try {
+        safelyBrowserWindow?.setTitleBarOverlay({
+          symbolColor: theme === 'dark' ? '#ffffff' : '#000000',
+          color: '#00000000',
+        });
+      } catch {
+        // noop
+      }
+    }
   }
 }
 

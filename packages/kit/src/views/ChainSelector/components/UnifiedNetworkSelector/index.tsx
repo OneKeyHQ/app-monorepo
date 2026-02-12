@@ -214,7 +214,7 @@ function UnifiedNetworkSelector() {
         accounts: [
           {
             accountId: indexedAccountId ?? accountId ?? '',
-            accountAddress: undefined,
+            accountAddress: account?.address,
             networkId: networkId ?? '',
             indexedAccountId,
           },
@@ -242,7 +242,7 @@ function UnifiedNetworkSelector() {
       setAccountNetworkValueCurrency(_accountsValue[0]?.currency);
       setAccountDeFiOverview(_accountDeFiOverview ?? {});
     }
-  }, [accountId, walletId, indexedAccountId, networkId]);
+  }, [accountId, walletId, indexedAccountId, networkId, account?.address]);
 
   // Refresh portfolio data when a custom network is added
   useEffect(() => {
@@ -589,6 +589,7 @@ function UnifiedNetworkSelector() {
         ) : null}
         <Stack flex={1} display={activeTab === 'network' ? 'flex' : 'none'}>
           <NetworkContent
+            accountAddress={account?.address}
             walletId={walletId}
             accountId={accountId}
             indexedAccountId={indexedAccountId}
