@@ -110,6 +110,39 @@ export const useKeyboardEvent = (
   }, deps);
 };
 
+// Version without useIsFocused — for components rendered outside NavigationContainer
+export const useKeyboardEventWithoutNavigation = (
+  {
+    keyboardWillShow = noop,
+    keyboardWillHide = noop,
+  }: {
+    keyboardWillShow?: KeyboardEventListener;
+    keyboardWillHide?: KeyboardEventListener;
+  },
+  deps: DependencyList = [],
+) => {
+  useEffect(() => {
+    const showSubscription = Keyboard.addListener(
+      KEYBOARD_SHOW_EVENT_NAME,
+      (e) => {
+        keyboardWillShow(e);
+      },
+    );
+
+    const hideSubscription = Keyboard.addListener(
+      KEYBOARD_HIDE_EVENT_NAME,
+      (e) => {
+        keyboardWillHide(e);
+      },
+    );
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, deps);
+};
+
 export const updateHeightWhenKeyboardShown = (height: number) =>
   withTiming(height, {
     duration: platformEnv.isNativeIOS ? 200 : 30,

@@ -41,16 +41,12 @@ import type { GestureResponderEvent, LayoutChangeEvent } from 'react-native';
 // Estimated height per tab item (icon ~40px + gap + label ~16-30px + padding 12px)
 const ESTIMATED_TAB_ITEM_HEIGHT = 70;
 
-function DesktopWinSidebarTop({ isHovered }: { isHovered: boolean }) {
+function DesktopWinSidebarTop() {
   return (
     <XStack h={52} ai="center" jc="center" px="$4" className="app-region-drag">
-      {isHovered ? (
-        <XStack className="app-region-no-drag">
-          <MenuHamburger />
-        </XStack>
-      ) : (
-        <Icon name="OnekeyLogoIllus" width={28} height={28} color="$text" />
-      )}
+      <XStack className="app-region-no-drag">
+        <MenuHamburger />
+      </XStack>
     </XStack>
   );
 }
@@ -420,28 +416,6 @@ export function DesktopLeftSideBar({
   const { top } = useSafeAreaInsets(); // used for ipad
   const theme = useTheme();
   const handleTabPress = useTabAction(navigation);
-  const [sidebarHovered, setSidebarHovered] = useState(false);
-  const sidebarHoverTimerRef = useRef<
-    ReturnType<typeof setTimeout> | undefined
-  >(undefined);
-  const handleSidebarHoverIn = useCallback(() => {
-    clearTimeout(sidebarHoverTimerRef.current);
-    sidebarHoverTimerRef.current = setTimeout(
-      () => setSidebarHovered(true),
-      150,
-    );
-  }, []);
-  const handleSidebarHoverOut = useCallback(() => {
-    clearTimeout(sidebarHoverTimerRef.current);
-    setSidebarHovered(false);
-  }, []);
-
-  useEffect(
-    () => () => {
-      clearTimeout(sidebarHoverTimerRef.current);
-    },
-    [],
-  );
 
   const isShowWebTabBar = platformEnv.isDesktop || platformEnv.isNativeIOS;
 
@@ -507,13 +481,7 @@ export function DesktopLeftSideBar({
         zIndex: 2,
       }}
     >
-      <YStack
-        w={MIN_SIDEBAR_WIDTH}
-        {...(platformEnv.isDesktopWin && {
-          onHoverIn: handleSidebarHoverIn,
-          onHoverOut: handleSidebarHoverOut,
-        })}
-      >
+      <YStack w={MIN_SIDEBAR_WIDTH}>
         {platformEnv.isDesktopMac ? (
           // @ts-expect-error https://www.electronjs.org/docs/latest/tutorial/custom-window-interactions
           <XStack
@@ -526,7 +494,7 @@ export function DesktopLeftSideBar({
             px="$4"
           />
         ) : platformEnv.isDesktopWin ? (
-          <DesktopWinSidebarTop isHovered={sidebarHovered} />
+          <DesktopWinSidebarTop />
         ) : (
           <MenuHamburger />
         )}
