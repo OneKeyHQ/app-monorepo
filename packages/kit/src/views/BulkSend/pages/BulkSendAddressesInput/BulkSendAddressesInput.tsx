@@ -123,6 +123,7 @@ function BaseBulkSendAddressesInput() {
       _selectedIndexedAccountId = activeAccount?.account?.indexedAccountId;
     }
 
+
     if (!isSupported && _selectedNetworkId && _selectedIndexedAccountId) {
       const networkAccounts =
         await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountId(
