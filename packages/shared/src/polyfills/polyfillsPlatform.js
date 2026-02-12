@@ -23,9 +23,6 @@ const { shim: shimArrayToSorted } = require('array.prototype.tosorted');
 
 shimArrayToSorted();
 
-const { shim: shimArrayToReversed } = require('array.prototype.toreversed');
-
-shimArrayToReversed();
 require('react-native-url-polyfill/auto');
 const platformEnv = require('@onekeyhq/shared/src/platformEnv');
 
