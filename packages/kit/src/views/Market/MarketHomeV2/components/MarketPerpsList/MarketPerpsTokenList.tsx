@@ -465,7 +465,6 @@ function MarketPerpsTokenListImpl({
               }
               stickyHeader
               scrollEnabled={!tabIntegrated || platformEnv.isNative}
-              tabIntegrated={tabIntegrated}
               columns={perpsColumns}
               dataSource={tokens}
               keyExtractor={(item) => item.name}
