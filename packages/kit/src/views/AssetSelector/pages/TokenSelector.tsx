@@ -83,7 +83,6 @@ function TokenSelector() {
 
   const { network, account } = useAccountData({ networkId, accountId });
 
-
   const [searchKey, setSearchKey] = useState('');
   const [allTokenListMap] = useAllTokenListMapAtom();
   const [searchTokenState, setSearchTokenState] = useState({
@@ -127,7 +126,7 @@ function TokenSelector() {
           await timerUtils.wait(0);
           navigation.push(
             aggregateTokenSelectorScreen ??
-            EAssetSelectorRoutes.AggregateTokenSelector,
+              EAssetSelectorRoutes.AggregateTokenSelector,
             {
               accountId,
               indexedAccountId,
@@ -160,13 +159,13 @@ function TokenSelector() {
           ) {
             const params = token.accountId
               ? {
-                accountId: token.accountId ?? '',
-                networkId: token.networkId ?? '',
-              }
+                  accountId: token.accountId ?? '',
+                  networkId: token.networkId ?? '',
+                }
               : {
-                accountId: account?.id ?? '',
-                networkId: network?.id ?? '',
-              };
+                  accountId: account?.id ?? '',
+                  networkId: network?.id ?? '',
+                };
 
             let deriveType;
 

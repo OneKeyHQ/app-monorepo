@@ -97,8 +97,8 @@ const ChainSelectorSectionListContent = ({
         platformEnv.isNative
           ? undefined
           : {
-            minHeight: '100vh',
-          }
+              minHeight: '100vh',
+            }
       }
       ListFooterComponent={<Stack h={bottom || '$2'} />}
       estimatedItemSize={48}
@@ -363,8 +363,8 @@ export const ChainSelectorSectionList: FC<IChainSelectorSectionListProps> = ({
       sections
         .slice(0, _initialScrollIndex.sectionIndex)
         .reduce((prev, section) => prev + section.data.length, 0) +
-      (_initialScrollIndex?.itemIndex ?? 0) <=
-      7
+        (_initialScrollIndex?.itemIndex ?? 0) <=
+        7
     ) {
       return {
         sectionIndex: 0,
