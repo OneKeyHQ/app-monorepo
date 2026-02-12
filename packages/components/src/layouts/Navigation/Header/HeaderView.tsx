@@ -203,7 +203,9 @@ function HeaderView({
           alignSelf="stretch"
           px={isOnboardingScreen ? '$16' : '$5'}
           pr={
-            platformEnv.isDesktopWin && !isOnboardingScreen
+            platformEnv.isDesktopWin &&
+            !isOnboardingScreen &&
+            !isModelScreen
               ? WINDOWS_OVERLAY_BUTTONS_WIDTH
               : undefined
           }
