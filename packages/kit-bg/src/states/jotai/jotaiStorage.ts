@@ -56,6 +56,29 @@ class JotaiStorage implements AsyncStorage<any> {
     await appStorage.removeItem(key);
   }
 
+  async getAllEntries(): Promise<Map<string, any> | null> {
+    if (typeof (appStorage as any).getAllEntries === 'function') {
+      const rawMap: Map<string, any> = await (
+        appStorage as any
+      ).getAllEntries();
+      const parsedMap = new Map<string, any>();
+      for (const [key, value] of rawMap) {
+        if (isString(value)) {
+          try {
+            parsedMap.set(key, JSON.parse(value));
+          } catch {
+            parsedMap.set(key, undefined);
+          }
+        } else {
+          parsedMap.set(key, value ?? undefined);
+        }
+      }
+      return parsedMap;
+    }
+    // Return null to signal batch read is not supported (e.g., mobile native storage)
+    return null;
+  }
+
   subscribe = undefined;
 }
 
@@ -234,14 +257,20 @@ export function atomWithStorage<Value>(
 }
 
 class GlobalJotaiStorageReadyHandler {
+  isReady = false;
+
   resolveReady: (value: boolean | PromiseLike<boolean>) => void = () => {
     // do nothing
     throw new OneKeyLocalError('this is not expected to be called');
   };
 
   ready = new Promise<boolean>((resolve) => {
-    this.resolveReady = resolve;
-    if (this.resolveReady !== resolve) {
+    const wrappedResolve = (value: boolean | PromiseLike<boolean>) => {
+      this.isReady = true;
+      resolve(value);
+    };
+    this.resolveReady = wrappedResolve;
+    if (this.resolveReady !== wrappedResolve) {
       throw new OneKeyLocalError('update resolveReady callback failed');
     }
   });

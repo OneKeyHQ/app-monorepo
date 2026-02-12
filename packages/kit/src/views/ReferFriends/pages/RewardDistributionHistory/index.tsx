@@ -218,7 +218,7 @@ function RewardDistributionHistoryPageWrapper() {
               ListEmptyComponent={
                 <Empty
                   mt={34}
-                  icon="SearchOutline"
+                  illustration="QuestionMark"
                   title={intl.formatMessage({
                     id: ETranslations.global_no_data,
                   })}

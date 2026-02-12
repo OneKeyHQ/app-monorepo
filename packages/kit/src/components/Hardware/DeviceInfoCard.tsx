@@ -34,9 +34,9 @@ export function DeviceInfoCard({
       {...rest}
     >
       <DeviceAvatar deviceType={deviceType} size="$7" />
-      <YStack>
+      <YStack maxWidth="$28">
         {walletName ? (
-          <SizableText size="$bodySmMedium" color="$text">
+          <SizableText size="$bodySmMedium" color="$text" numberOfLines={1}>
             {walletName}
           </SizableText>
         ) : null}

@@ -10,15 +10,12 @@ import {
   Spinner,
   XStack,
   YStack,
-  useMedia,
 } from '@onekeyhq/components';
 import type { IDateRange } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
-import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
 import { useRedirectWhenNotLoggedIn } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useRedirectWhenNotLoggedIn';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EExportSubject,
   EExportTimeRange,
@@ -27,13 +24,12 @@ import {
   type IPerpsInvitesSortBy,
   type IPerpsInvitesSortOrder,
 } from '@onekeyhq/shared/src/referralCode/type';
-import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import {
-  BreadcrumbSection,
   ExportButton,
   FilterButton,
+  ReferFriendsDetailHeader,
   ReferFriendsPageContainer,
 } from '../../components';
 import { useRewardFilter } from '../../hooks/useRewardFilter';
@@ -47,9 +43,9 @@ function PerpsRewardPageWrapper() {
   useRedirectWhenNotLoggedIn();
 
   const intl = useIntl();
-  const { md } = useMedia();
 
   const [isLoading, setIsLoading] = useState(false);
+  const [isTabLoading, setIsTabLoading] = useState(false);
   const [cumulativeRewards, setCumulativeRewards] = useState<
     IPerpsCumulativeRewardsResponse | undefined
   >();
@@ -63,6 +59,8 @@ function PerpsRewardPageWrapper() {
   const [hideZeroVolume, setHideZeroVolume] = useState(true);
   const [sortBy, setSortBy] = useState<IPerpsInvitesSortBy>('volume');
   const [sortOrder, setSortOrder] = useState<IPerpsInvitesSortOrder>('desc');
+  // Track whether user has explicitly clicked a sort header
+  const [hasUserSorted, setHasUserSorted] = useState(false);
 
   // Pagination state
   const [cursor, setCursor] = useState<string | undefined>();
@@ -70,6 +68,7 @@ function PerpsRewardPageWrapper() {
 
   const handleSort = useCallback(
     (field: IPerpsInvitesSortBy) => {
+      setHasUserSorted(true);
       if (sortBy === field) {
         // Toggle order if same field
         setSortOrder((prev) => (prev === 'desc' ? 'asc' : 'desc'));
@@ -88,7 +87,14 @@ function PerpsRewardPageWrapper() {
     setCustomDateRange,
     clearCustomDateRange,
     datePickerValue,
-  } = useRewardFilter();
+  } = useRewardFilter({
+    startTime: new Date('2024-01-01T00:00:00.000').getTime(),
+    endTime: (() => {
+      const d = new Date();
+      d.setHours(23, 59, 59, 999);
+      return d.getTime();
+    })(),
+  });
 
   // Intermediate state for date range selection (before both dates are selected)
   const [intermediateDateRange, setIntermediateDateRange] =
@@ -314,28 +320,94 @@ function PerpsRewardPageWrapper() {
 
   // Fetch data when tab changes
   useEffect(() => {
-    setIsLoading(true);
+    setIsTabLoading(true);
     fetchCurrentTab()
       .catch((error) => console.error('Failed to fetch tab data:', error))
-      .finally(() => setIsLoading(false));
+      .finally(() => setIsTabLoading(false));
   }, [fetchCurrentTab]);
+
+  // Client-side sorting as a fallback in case the API doesn't sort correctly
+  const sortedRecords = useMemo(() => {
+    const items = currentInvites?.items ?? [];
+    if (items.length === 0) return items;
+
+    return items.toSorted((a, b) => {
+      let valA: number;
+      let valB: number;
+
+      switch (sortBy) {
+        case 'volume':
+          valA = Number(a.volumeFiatValue) || 0;
+          valB = Number(b.volumeFiatValue) || 0;
+          break;
+        case 'fee':
+          valA = Number(a.feeFiatValue) || 0;
+          valB = Number(b.feeFiatValue) || 0;
+          break;
+        case 'reward':
+          valA = Number(a.rewardFiatValue) || 0;
+          valB = Number(b.rewardFiatValue) || 0;
+          break;
+        case 'invitationTime':
+          valA = a.invitationTime ? new Date(a.invitationTime).getTime() : 0;
+          valB = b.invitationTime ? new Date(b.invitationTime).getTime() : 0;
+          break;
+        case 'firstTradeTime':
+          valA = a.firstTradeTime ? new Date(a.firstTradeTime).getTime() : 0;
+          valB = b.firstTradeTime ? new Date(b.firstTradeTime).getTime() : 0;
+          break;
+        default:
+          return 0;
+      }
+
+      return sortOrder === 'desc' ? valB - valA : valA - valB;
+    });
+  }, [currentInvites?.items, sortBy, sortOrder]);
 
   // Max date for DatePicker (today)
   const maxDate = useMemo(() => new Date(), []);
 
+  const toolbar = useMemo(
+    () => (
+      <>
+        <YStack width={240}>
+          <DatePicker.Range
+            value={currentDatePickerValue}
+            onChange={handleDateRangeChange}
+            maxDate={maxDate}
+          />
+        </YStack>
+        <XStack gap="$3">
+          <FilterButton
+            filterState={filterState}
+            onFilterChange={updateFilter}
+          />
+          <ExportButton
+            subject={EExportSubject.Perp}
+            timeRange={effectiveTimeRange}
+            inviteCode={filterState.inviteCode}
+            startTime={filterState.startTime}
+            endTime={filterState.endTime}
+          />
+        </XStack>
+      </>
+    ),
+    [
+      currentDatePickerValue,
+      handleDateRangeChange,
+      maxDate,
+      filterState,
+      updateFilter,
+      effectiveTimeRange,
+    ],
+  );
+
   return (
     <Page>
-      {platformEnv.isNative || md ? (
-        <Page.Header
-          title={intl.formatMessage({ id: ETranslations.global_perp })}
-        />
-      ) : (
-        <TabPageHeader
-          sceneName={EAccountSelectorSceneName.home}
-          tabRoute={ETabRoutes.ReferFriends}
-          hideHeaderLeft={platformEnv.isDesktop}
-        />
-      )}
+      <ReferFriendsDetailHeader
+        title={intl.formatMessage({ id: ETranslations.global_perp })}
+        toolbar={toolbar}
+      />
       <Page.Body>
         <ReferFriendsPageContainer flex={1} position="relative">
           {cumulativeRewards === undefined && isLoading ? (
@@ -361,47 +433,6 @@ function PerpsRewardPageWrapper() {
               onScroll={handleScroll}
               scrollEventThrottle={16}
             >
-              {/* Breadcrumb for desktop */}
-              {!platformEnv.isNative && !md ? (
-                <XStack px="$5" pt="$5">
-                  <BreadcrumbSection
-                    secondItemLabel={intl.formatMessage({
-                      id: ETranslations.global_perp,
-                    })}
-                  />
-                </XStack>
-              ) : null}
-
-              {/* DatePicker + Filter + Export Row */}
-              <XStack
-                px="$5"
-                pb="$4"
-                pt={platformEnv.isNative || md ? '$2' : '$4'}
-                jc="space-between"
-                ai="center"
-              >
-                <YStack width={240}>
-                  <DatePicker.Range
-                    value={currentDatePickerValue}
-                    onChange={handleDateRangeChange}
-                    maxDate={maxDate}
-                  />
-                </YStack>
-                <XStack gap="$3">
-                  <FilterButton
-                    filterState={filterState}
-                    onFilterChange={updateFilter}
-                  />
-                  <ExportButton
-                    subject={EExportSubject.Perp}
-                    timeRange={effectiveTimeRange}
-                    inviteCode={filterState.inviteCode}
-                    startTime={filterState.startTime}
-                    endTime={filterState.endTime}
-                  />
-                </XStack>
-              </XStack>
-
               {/* Perps Reward Header - Stats Cards */}
               <PerpsRewardHeader
                 data={cumulativeRewards}
@@ -411,7 +442,7 @@ function PerpsRewardPageWrapper() {
 
               {/* Details Section */}
               <PerpsDetailsSection
-                records={currentInvites?.items ?? []}
+                records={sortedRecords}
                 activeTab={activeTab}
                 onTabChange={setActiveTab}
                 undistributedCount={undistributedCount}
@@ -422,6 +453,8 @@ function PerpsRewardPageWrapper() {
                 sortOrder={sortOrder}
                 onSort={handleSort}
                 isLoadingMore={isLoadingMore}
+                isTabLoading={isTabLoading}
+                hasUserSorted={hasUserSorted}
               />
             </ScrollView>
           )}

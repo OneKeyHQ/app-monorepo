@@ -9,15 +9,15 @@ import { memoFn } from '../utils/cacheUtils';
 export const getBulkSendContractAddress = memoFn((): Record<string, string> => {
   const networkIdsMap = getNetworkIdsMap();
   return {
-    [networkIdsMap.eth]: '0xa973f926c71615bae7648c172016e92ebb35d128',
-    [networkIdsMap.avalanche]: '0x8bc221e5ebdc356837dc7b435f04dea9e0829f28',
-    [networkIdsMap.bsc]: '0x2857b554dfa0030847d62f0d383e958deca6ce0e',
-    [networkIdsMap.arbitrum]: '0xb7da2cb2e7eda63579a14d7d11753085f554e1c4',
-    [networkIdsMap.base]: '0x88cb0c6d9f7371df92646657b84d01ba62094f85',
-    [networkIdsMap.optimism]: '0x5152e3587f74a922240213575a54cd7e41a6ecab',
-    [networkIdsMap.linea]: '0xedfd1f91f564ac4dabe1cb71e759417d908296ea',
-    [networkIdsMap.zksyncera]: '0xb4d0bf1fc82d8a94fd5c49c2dd9c37ce261bee70',
-    [networkIdsMap.polygon]: '0x1253f1a208be6e0626d4f2c3eb087a220d9c3f26',
-    [networkIdsMap.trx]: 'TYZv3mStPYrZePPDhopECDPBKkG8sUZtfJ',
+    [networkIdsMap.eth]: '0x0BD5E65B518a9E8227356AB2c9BF2d43A130755e',
+    [networkIdsMap.avalanche]: '0x965ed50B833fe7A7eA0F4f4Ad5264e5bCB1758e5',
+    [networkIdsMap.bsc]: '0xEc144b480ffa3D400E0FF12bf6d72c7cE9b64c43',
+    [networkIdsMap.arbitrum]: '0xC3143A2593dC4f0d625Ea641e2e8eFB23D12803a',
+    [networkIdsMap.base]: '0x8C263284c2ed73Fdd931aCd9f19aa9e328D09d81',
+    [networkIdsMap.optimism]: '0x9E99A92ccf2D2a1A479285a626aFA36e9314e76a',
+    [networkIdsMap.linea]: '0xab9cd487d1eC452fc7911511CF014A129Dc50CEC',
+    [networkIdsMap.zksyncera]: '0xedfd1f91f564Ac4dABe1cB71E759417D908296Ea',
+    [networkIdsMap.polygon]: '0x85D0a436A0dA732530E40428a6Eea8ABB9874fDF',
+    [networkIdsMap.trx]: 'TESTqS24yjoT4XeWcCyM3WwXCLUMXpsd1Y',
   };
 });

@@ -40,6 +40,7 @@ interface IPerpsRecordTableProps {
   sortOrder: IPerpsInvitesSortOrder;
   onSort: (field: IPerpsInvitesSortBy) => void;
   isLoadingMore?: boolean;
+  hasUserSorted?: boolean;
 }
 
 interface ICellContentProps {
@@ -52,6 +53,7 @@ interface IHeaderContentProps {
   sortBy: IPerpsInvitesSortBy;
   sortOrder: IPerpsInvitesSortOrder;
   onSort: (field: IPerpsInvitesSortBy) => void;
+  hasUserSorted?: boolean;
 }
 
 interface ISortableHeaderProps {
@@ -63,6 +65,7 @@ interface ISortableHeaderProps {
   width: string | number;
   jc?: 'flex-start' | 'flex-end';
   tooltipContent?: string;
+  hasUserSorted?: boolean;
 }
 
 // Module-level constants to avoid re-creating on every render
@@ -83,8 +86,10 @@ function SortableHeader({
   width,
   jc = 'flex-start',
   tooltipContent,
+  hasUserSorted,
 }: ISortableHeaderProps) {
-  const isActive = sortBy === field;
+  // Only show active styling when user has explicitly clicked a sort header
+  const isActive = hasUserSorted && sortBy === field;
 
   return (
     <XStack w={width} ai="center" jc={jc} gap="$1">
@@ -106,9 +111,13 @@ function SortableHeader({
       {tooltipContent ? (
         <Popover.Tooltip
           title={label}
-          tooltip={tooltipContent}
           placement="bottom"
           iconSize="$3.5"
+          renderContent={
+            <YStack p="$5">
+              <SizableText size="$bodySm">{tooltipContent}</SizableText>
+            </YStack>
+          }
         />
       ) : null}
       <XStack
@@ -136,6 +145,11 @@ function formatDateTime(dateString: string | null | undefined): string {
   return formatDate(dateString, { hideSeconds: true });
 }
 
+function isZeroValue(value: string | null | undefined): boolean {
+  if (!value) return true;
+  return Number(value) === 0;
+}
+
 /* --- Shared cell content components (no row wrapper) --- */
 
 function AddressCellContent({ item, columnWidths }: ICellContentProps) {
@@ -149,6 +163,11 @@ function AddressCellContent({ item, columnWidths }: ICellContentProps) {
 }
 
 function ScrollableCellsContent({ item, columnWidths }: ICellContentProps) {
+  const isZeroData =
+    isZeroValue(item.volumeFiatValue) &&
+    isZeroValue(item.feeFiatValue) &&
+    isZeroValue(item.rewardFiatValue);
+
   return (
     <>
       <XStack w={columnWidths.invitedAt} ai="center" py="$1">
@@ -164,32 +183,55 @@ function ScrollableCellsContent({ item, columnWidths }: ICellContentProps) {
       </XStack>
 
       <XStack w={columnWidths.firstTrade} ai="center" py="$1">
-        <SizableText size="$bodyMd" color="$text">
-          {formatDateTime(item.firstTradeTime)}
+        <SizableText
+          size="$bodyMd"
+          color={isZeroData && !item.firstTradeTime ? '$textSubdued' : '$text'}
+        >
+          {isZeroData && !item.firstTradeTime
+            ? '--'
+            : formatDateTime(item.firstTradeTime)}
         </SizableText>
       </XStack>
 
       <XStack w={columnWidths.volume} ai="center" py="$1">
-        <Currency formatter="value" size="$bodyMd" color="$text">
-          {item.volumeFiatValue}
-        </Currency>
+        {isZeroData ? (
+          <SizableText size="$bodyMd" color="$textSubdued">
+            --
+          </SizableText>
+        ) : (
+          <Currency formatter="value" size="$bodyMd" color="$text">
+            {item.volumeFiatValue}
+          </Currency>
+        )}
       </XStack>
 
       <XStack w={columnWidths.fee} ai="center" py="$1">
-        <Currency formatter="value" size="$bodyMd" color="$text">
-          {item.feeFiatValue}
-        </Currency>
+        {isZeroData ? (
+          <SizableText size="$bodyMd" color="$textSubdued">
+            --
+          </SizableText>
+        ) : (
+          <Currency formatter="value" size="$bodyMd" color="$text">
+            {item.feeFiatValue}
+          </Currency>
+        )}
       </XStack>
 
       <XStack w={columnWidths.reward} ai="center" jc="flex-end" py="$1">
-        <Currency
-          color="$textSuccess"
-          formatter="value"
-          size="$bodyMd"
-          formatterOptions={REWARD_FORMATTER_OPTIONS}
-        >
-          {item.rewardFiatValue}
-        </Currency>
+        {isZeroData ? (
+          <SizableText size="$bodyMd" color="$textSubdued">
+            --
+          </SizableText>
+        ) : (
+          <Currency
+            color="$textSuccess"
+            formatter="value"
+            size="$bodyMd"
+            formatterOptions={REWARD_FORMATTER_OPTIONS}
+          >
+            {item.rewardFiatValue}
+          </Currency>
+        )}
       </XStack>
     </>
   );
@@ -222,6 +264,7 @@ function ScrollableHeaderContent({
   sortBy,
   sortOrder,
   onSort,
+  hasUserSorted,
 }: IHeaderContentProps) {
   const intl = useIntl();
 
@@ -236,6 +279,7 @@ function ScrollableHeaderContent({
         sortOrder={sortOrder}
         onSort={onSort}
         width={columnWidths.invitedAt}
+        hasUserSorted={hasUserSorted}
       />
 
       <XStack w={columnWidths.referralCode}>
@@ -259,6 +303,7 @@ function ScrollableHeaderContent({
         sortOrder={sortOrder}
         onSort={onSort}
         width={columnWidths.firstTrade}
+        hasUserSorted={hasUserSorted}
       />
 
       <SortableHeader
@@ -270,6 +315,7 @@ function ScrollableHeaderContent({
         sortOrder={sortOrder}
         onSort={onSort}
         width={columnWidths.volume}
+        hasUserSorted={hasUserSorted}
       />
 
       <SortableHeader
@@ -284,6 +330,7 @@ function ScrollableHeaderContent({
         tooltipContent={intl.formatMessage({
           id: ETranslations.referral_perps_onekey_fee_exclusion_notice,
         })}
+        hasUserSorted={hasUserSorted}
       />
 
       <SortableHeader
@@ -294,6 +341,7 @@ function ScrollableHeaderContent({
         onSort={onSort}
         width={columnWidths.reward}
         jc="flex-end"
+        hasUserSorted={hasUserSorted}
       />
     </>
   );
@@ -305,6 +353,7 @@ export function PerpsRecordTable({
   sortOrder,
   onSort,
   isLoadingMore,
+  hasUserSorted,
 }: IPerpsRecordTableProps) {
   const media = useMedia();
   const isCompact = media.lg;
@@ -395,6 +444,7 @@ export function PerpsRecordTable({
                   sortBy={sortBy}
                   sortOrder={sortOrder}
                   onSort={onSort}
+                  hasUserSorted={hasUserSorted}
                 />
               </XStack>
               {records.map((record) => (
@@ -433,6 +483,7 @@ export function PerpsRecordTable({
           sortBy={sortBy}
           sortOrder={sortOrder}
           onSort={onSort}
+          hasUserSorted={hasUserSorted}
         />
       </XStack>
       {records.map((record) => (

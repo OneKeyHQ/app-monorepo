@@ -122,6 +122,9 @@ export function SearchBar({
       ref={inputRef}
       autoFocus={resolvedAutoFocus}
       selectTextOnFocus={selectTextOnFocus}
+      // Disable autofill to prevent iOS UIKeyboardTaskQueue deadlock when focusing programmatically
+      textContentType="none"
+      autoComplete="off"
       value={value}
       onChangeText={handleChange}
       leftIconName="SearchOutline"

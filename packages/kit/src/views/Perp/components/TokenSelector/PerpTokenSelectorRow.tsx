@@ -17,6 +17,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import {
   usePerpsAllAssetsFilteredAtom,
@@ -44,6 +45,7 @@ interface IPerpTokenSelectorRowProps {
   };
   onPress: (name: string) => void;
   isOnModal?: boolean;
+  skipMarkRequired?: boolean;
 }
 
 interface ITokenSelectorRowContextValue {
@@ -97,12 +99,18 @@ const FavoriteButton = memo(
     const isFavorite = favorites.favorites.includes(coin);
 
     const handleToggle = useCallback(() => {
+      const action = isFavorite ? 'remove' : 'add';
       setFavorites((prev) => ({
         ...prev,
         favorites: isFavorite
           ? prev.favorites.filter((f) => f !== coin)
           : [...prev.favorites, coin],
       }));
+      // Sync to Market watchlist
+      void backgroundApiProxy.serviceMarketV2.syncToMarketWatchList({
+        coin,
+        action,
+      });
     }, [coin, isFavorite, setFavorites]);
 
     return (
@@ -151,7 +159,7 @@ const TokenInfoCellDesktop = memo(() => {
           <XStack gap="$1">
             <XStack
               borderRadius="$1"
-              bg="$bgInfo"
+              bg="$bgStrong"
               justifyContent="center"
               alignItems="center"
               px="$1.5"
@@ -159,7 +167,7 @@ const TokenInfoCellDesktop = memo(() => {
               <SizableText
                 fontSize={10}
                 alignSelf="center"
-                color="$textInfo"
+                color="$textSubdued"
                 lineHeight={16}
               >
                 {token.maxLeverage}x
@@ -168,7 +176,7 @@ const TokenInfoCellDesktop = memo(() => {
             {token.subtitle ? (
               <XStack
                 borderRadius="$1"
-                bg="$bgStrong"
+                bg="$bgInfo"
                 justifyContent="center"
                 alignItems="center"
                 px="$1.5"
@@ -176,7 +184,7 @@ const TokenInfoCellDesktop = memo(() => {
                 <SizableText
                   fontSize={10}
                   alignSelf="center"
-                  color="$textSubdued"
+                  color="$textInfo"
                   lineHeight={16}
                 >
                   {token.subtitle}
@@ -442,7 +450,7 @@ const TokenNameMobile = memo(() => {
             <XStack gap="$1">
               <XStack
                 borderRadius="$1"
-                bg="$bgInfo"
+                bg="$bgStrong"
                 justifyContent="center"
                 alignItems="center"
                 px="$1.5"
@@ -450,7 +458,7 @@ const TokenNameMobile = memo(() => {
                 <SizableText
                   fontSize={10}
                   alignSelf="center"
-                  color="$textInfo"
+                  color="$textSubdued"
                   lineHeight={16}
                 >
                   {token.maxLeverage}x
@@ -459,7 +467,7 @@ const TokenNameMobile = memo(() => {
               {token.subtitle ? (
                 <XStack
                   borderRadius="$1"
-                  bg="$bgStrong"
+                  bg="$bgInfo"
                   justifyContent="center"
                   alignItems="center"
                   px="$1.5"
@@ -467,7 +475,7 @@ const TokenNameMobile = memo(() => {
                   <SizableText
                     fontSize={10}
                     alignSelf="center"
-                    color="$textSubdued"
+                    color="$textInfo"
                     lineHeight={16}
                   >
                     {token.subtitle}
@@ -628,7 +636,12 @@ const TokenSelectorRowMobile = memo(() => {
 TokenSelectorRowMobile.displayName = 'TokenSelectorRowMobile';
 
 const PerpTokenSelectorRow = memo(
-  ({ mockedToken, onPress, isOnModal }: IPerpTokenSelectorRowProps) => {
+  ({
+    mockedToken,
+    onPress,
+    isOnModal,
+    skipMarkRequired,
+  }: IPerpTokenSelectorRowProps) => {
     const [filteredAssets] = usePerpsAllAssetsFilteredAtom();
     const [tokenSearchAliases] = usePerpsTokenSearchAliasesAtom();
     const tokensByDex = filteredAssets.assetsByDex || [];
@@ -640,6 +653,7 @@ const PerpTokenSelectorRow = memo(
 
     const { assetCtx, isLoading } = usePerpsAssetCtx({
       assetId: tokenAssetId,
+      skipMarkRequired,
     });
 
     const handlePress = useMemo(

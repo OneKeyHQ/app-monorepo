@@ -343,7 +343,7 @@ const ListEmptyComponent = () => {
       description={intl.formatMessage({
         id: ETranslations.settings_no_signed_transactions_desc,
       })}
-      icon="ClockAlertOutline"
+      illustration="Document"
     />
   );
 };

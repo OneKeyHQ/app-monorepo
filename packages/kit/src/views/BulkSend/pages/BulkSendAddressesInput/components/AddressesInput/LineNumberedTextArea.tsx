@@ -16,8 +16,10 @@ import {
   XStack,
   YStack,
   useClipboard,
+  useSelectionColor,
   useTheme,
 } from '@onekeyhq/components';
+import { webFontFamily } from '@onekeyhq/components/src/utils/webFontFamily';
 import { AddressBadge } from '@onekeyhq/kit/src/components/AddressBadge';
 import { SelectorPlugin } from '@onekeyhq/kit/src/components/AddressInput/plugins/selector';
 import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -105,6 +107,7 @@ function LineNumberedTextArea({
   const { getClipboard } = useClipboard();
   const theme = useTheme();
   const textColor = theme.text?.val;
+  const selectionColor = useSelectionColor();
   const placeholderColor = theme.textPlaceholder?.val;
   const [inputText, setInputText] = useState<string>(value);
   const [contentHeight, setContentHeight] = useState(0);
@@ -275,6 +278,7 @@ function LineNumberedTextArea({
               paddingRight: PADDING_HORIZONTAL,
               fontSize: FONT_SIZE,
               lineHeight: LINE_HEIGHT,
+              fontFamily: webFontFamily,
               textAlignVertical: 'top',
               color: 'transparent',
               caretColor: textColor,
@@ -406,7 +410,7 @@ function LineNumberedTextArea({
                 editable={!disabled}
                 multiline
                 style={styles.textInput}
-                selectionColor={textColor}
+                selectionColor={selectionColor}
                 cursorColor={textColor}
                 spellCheck={false}
                 autoCorrect={false}

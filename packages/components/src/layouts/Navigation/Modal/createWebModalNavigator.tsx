@@ -152,23 +152,30 @@ function WebModalNavigator({
             newIndex >= 1 ? 1 : 0;
         }
 
+        const bounceIn =
+          'opacity .25s cubic-bezier(0.175, 0.885, 0.32, 1.275), transform .25s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+        const easeOut =
+          'opacity .2s cubic-bezier(0, 0, 0.2, 1), transform .2s cubic-bezier(0, 0, 0.2, 1)';
+
         MODAL_ANIMATED_VIEW_REF_LIST.forEach((element, index) => {
-          const transform = media.gtMd
-            ? {
-                translateY: `${
-                  newIndex < index ? screenHeight : -30 * (newIndex - index)
-                }px`,
-                scale: `${1 - 0.05 * (newIndex - index)}`,
-              }
-            : {
-                translateY: `${newIndex < index ? screenHeight : 0}px`,
-                scale: '1',
-              };
-          // @ts-expect-error
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          element.style.transform = Object.entries(transform)
-            .map(([key, value]) => `${key}(${value})`)
-            .join(' ');
+          const isHidden = newIndex < index;
+          if (media.gtMd) {
+            // @ts-expect-error
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            element.style.transition = isHidden ? easeOut : bounceIn;
+            // @ts-expect-error
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            element.style.opacity = isHidden ? '0' : '1';
+            // @ts-expect-error
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            element.style.transform = isHidden
+              ? 'scale(0.95)'
+              : `translateY(${-30 * (newIndex - index)}px) scale(${1 - 0.05 * (newIndex - index)})`;
+          } else {
+            // @ts-expect-error
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            element.style.transform = `translateY(${isHidden ? screenHeight : 0}px)`;
+          }
         });
       },
     );
@@ -180,26 +187,68 @@ function WebModalNavigator({
   useLayoutEffect(() => {
     const element = MODAL_ANIMATED_VIEW_REF_LIST[currentRouteIndex];
     if (element) {
-      (element as HTMLElement).style.transform =
-        `translateY(${screenHeight}px)`;
+      const el = element as HTMLElement;
+      if (media.gtMd) {
+        el.style.opacity = '0';
+        el.style.transform = 'scale(0.95)';
+      } else {
+        el.style.transform = `translateY(${screenHeight}px)`;
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  const contentVisibilityTimersRef = useRef<ReturnType<typeof setTimeout>[]>(
+    [],
+  );
   useEffect(() => {
     // @ts-expect-error
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     const listener = navigation.addListener('state', () => {
       const newIndex = navigation?.getState?.().index ?? 0;
+
+      // Clear pending contentVisibility timers to avoid stale updates
+      contentVisibilityTimersRef.current.forEach((timer) =>
+        clearTimeout(timer),
+      );
+      contentVisibilityTimersRef.current = [];
+
       stackChildrenRefList.current.forEach((element, routeIndex) => {
+        if (!element) return;
         const transform =
           routeIndex <= newIndex ? 'translateX(0px)' : 'translateX(640px)';
         // @ts-expect-error
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         element.style.transform = transform;
+
+        if (!platformEnv.isNative) {
+          if (routeIndex === newIndex) {
+            // Show current route immediately to avoid white flash
+            // @ts-expect-error
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            element.style.contentVisibility = '';
+          } else {
+            // Delay hiding non-current routes until slide animation completes
+            const timer = setTimeout(() => {
+              const currentIndex = navigation?.getState?.().index ?? 0;
+              if (routeIndex !== currentIndex) {
+                // @ts-expect-error
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                element.style.contentVisibility = 'hidden';
+              }
+            }, 500);
+            contentVisibilityTimersRef.current.push(timer);
+          }
+        }
       });
     });
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    return listener;
+    return () => {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+      listener?.();
+      contentVisibilityTimersRef.current.forEach((timer) =>
+        clearTimeout(timer),
+      );
+      contentVisibilityTimersRef.current = [];
+    };
   }, [navigation]);
 
   const stopPropagation = useCallback((e: GestureResponderEvent) => {
@@ -227,7 +276,6 @@ function WebModalNavigator({
     const routeDescriptor = descriptors[route.key];
     // eslint-disable-next-line @typescript-eslint/unbound-method
     const { render } = routeDescriptor;
-    const isCurrentRoute = routeIndex === state.index;
     routeDescriptor.render = () => (
       <Stack
         ref={(ref) => {
@@ -245,8 +293,6 @@ function WebModalNavigator({
           shadowOpacity: 0.3,
           shadowRadius: 10,
           shadowOffset: { width: -5, height: 0 },
-          contentVisibility:
-            !platformEnv.isNative && !isCurrentRoute ? 'hidden' : undefined,
         }}
       >
         {render()}
@@ -344,10 +390,18 @@ function WebModalNavigator({
                   MODAL_ANIMATED_VIEW_REF_LIST[currentRouteIndex] = ref;
                 }
               }}
-              style={{
-                transition: 'transform .25s cubic-bezier(0.4, 0, 0.2, 1)',
-                willChange: 'transform',
-              }}
+              style={
+                media.gtMd
+                  ? {
+                      transition:
+                        'opacity .25s cubic-bezier(0.175, 0.885, 0.32, 1.275), transform .25s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                      willChange: 'opacity, transform',
+                    }
+                  : {
+                      transition: 'transform .25s cubic-bezier(0.4, 0, 0.2, 1)',
+                      willChange: 'transform',
+                    }
+              }
             >
               <StackView
                 {...rest}

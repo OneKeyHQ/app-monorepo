@@ -22,7 +22,8 @@ export function HardwareRecordsList({
 }: IHardwareRecordsListProps) {
   const intl = useIntl();
 
-  if (isLoading && records.length === 0) {
+  // Show list Spinner only on desktop (mobile uses RefreshControl for loading feedback)
+  if (isLoading && records.length === 0 && !isMobile) {
     return (
       <YStack ai="center" jc="center" py="$10" px="$5">
         <Spinner size="large" />
@@ -34,7 +35,7 @@ export function HardwareRecordsList({
     return (
       <YStack px="$5" gap="$3" pb="$5">
         <Empty
-          icon="GiftOutline"
+          illustration="BlockCoins"
           title={intl.formatMessage({
             id: ETranslations.referral_referred_empty,
           })}

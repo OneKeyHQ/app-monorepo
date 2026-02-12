@@ -5,13 +5,15 @@ import pLimit from 'p-limit';
 import { useIntl } from 'react-intl';
 
 import { Form } from '@onekeyhq/components';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useIsEnableTransferAllowList } from '@onekeyhq/kit/src/components/AddressInput/hooks';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import { useDebouncedValidation } from '@onekeyhq/kit/src/views/BulkSend/hooks/useDebouncedValidation';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { validateTokenAmount } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IAddressValidation } from '@onekeyhq/shared/types/address';
-import { EReceiverMode } from '@onekeyhq/shared/types/bulkSend';
+import { EBulkSendMode, EReceiverMode } from '@onekeyhq/shared/types/bulkSend';
 
 import { useBulkSendAddressesInputContext } from '../Context';
 
@@ -25,9 +27,10 @@ type IReceiverAddressesInputProps = {
 
 function ReceiverAddressesInput({ maxLines }: IReceiverAddressesInputProps) {
   const intl = useIntl();
-  const { selectedAccountId, selectedNetworkId, selectedToken } =
+  const { selectedAccountId, selectedNetworkId, selectedToken, bulkSendMode } =
     useBulkSendAddressesInputContext();
   const { network } = useAccountData({ networkId: selectedNetworkId });
+  const isEnableTransferAllowList = useIsEnableTransferAllowList();
 
   const [errors, setErrors] = useState<ILineError[]>([]);
 
@@ -214,14 +217,17 @@ function ReceiverAddressesInput({ maxLines }: IReceiverAddressesInputProps) {
           addressesToValidate.map(({ index, address }) =>
             limit(async () => {
               const result = await validateAddress(address);
-              return { index, result };
+              return { index, address, result };
             }),
           ),
         );
 
+        // Collect valid addresses for contract address detection
+        const validAddresses: { index: number; address: string }[] = [];
+
         // Collect validation errors and check for duplicates using normalized addresses
         const seenNormalizedAddresses = new Map<string, number>();
-        for (const { index, result } of validationResults) {
+        for (const { index, address, result } of validationResults) {
           if (!result.isValid) {
             lineErrors.push({
               lineNumber: index + 1,
@@ -249,6 +255,92 @@ function ReceiverAddressesInput({ maxLines }: IReceiverAddressesInputProps) {
               });
             } else {
               seenNormalizedAddresses.set(normalizedAddress, index + 1);
+              validAddresses.push({ index, address });
+            }
+          }
+        }
+
+        // Phase 3: Address risk detection + allowlist validation for valid, non-duplicate addresses
+        if (validAddresses.length > 0 && selectedNetworkId) {
+          const badgeResults = await Promise.all(
+            validAddresses.map(({ index, address }) =>
+              limit(async () => {
+                try {
+                  const badge =
+                    await backgroundApiProxy.serviceAccountProfile.getAddressAccountBadge(
+                      {
+                        networkId: selectedNetworkId,
+                        toAddress: address.trim(),
+                      },
+                    );
+                  return {
+                    index,
+                    isContract: badge.isContract,
+                    isScam: badge.isScam,
+                  };
+                } catch {
+                  return { index, isContract: false, isScam: false };
+                }
+              }),
+            ),
+          );
+
+          for (const { index, isContract, isScam } of badgeResults) {
+            if (isScam) {
+              lineErrors.push({
+                lineNumber: index + 1,
+                message: intl.formatMessage({
+                  id: ETranslations.wallet_bulk_send_error_scam_address_detected,
+                }),
+              });
+            } else if (isContract) {
+              lineErrors.push({
+                lineNumber: index + 1,
+                message: intl.formatMessage({
+                  id: ETranslations.send_contract_address_detected_warning,
+                }),
+              });
+            }
+          }
+
+          // Allowlist validation — reject addresses not in address book
+          if (isEnableTransferAllowList) {
+            const isEvmNetwork = networkUtils.isEvmNetwork({
+              networkId: selectedNetworkId,
+            });
+            const allowListResults = await Promise.all(
+              validAddresses.map(({ index, address }) =>
+                limit(async () => {
+                  try {
+                    const addressBookItem =
+                      await backgroundApiProxy.serviceAddressBook.dangerouslyFindItemWithoutSafeCheck(
+                        {
+                          networkId: isEvmNetwork
+                            ? undefined
+                            : selectedNetworkId,
+                          address: address.trim(),
+                        },
+                      );
+                    return {
+                      index,
+                      isInAddressBook: !!addressBookItem,
+                    };
+                  } catch {
+                    return { index, isInAddressBook: true };
+                  }
+                }),
+              ),
+            );
+
+            for (const { index, isInAddressBook } of allowListResults) {
+              if (!isInAddressBook) {
+                lineErrors.push({
+                  lineNumber: index + 1,
+                  message: intl.formatMessage({
+                    id: ETranslations.wallet_bulk_send_error_address_not_in_allowlist,
+                  }),
+                });
+              }
             }
           }
         }
@@ -274,13 +366,29 @@ function ReceiverAddressesInput({ maxLines }: IReceiverAddressesInputProps) {
           .map((error) =>
             error.lineNumber === -1
               ? error.message
-              : `Line ${error.lineNumber}: ${error.message}`,
+              : intl.formatMessage(
+                  {
+                    id: ETranslations.wallet_bulk_send_error_line_with_message,
+                  },
+                  {
+                    lineNumber: error.lineNumber,
+                    message: error.message,
+                  },
+                ),
           )
           .join('\n');
       }
       return true;
     },
-    [intl, maxLines, parseLineMode, validateAddress, validateAmount],
+    [
+      intl,
+      isEnableTransferAllowList,
+      maxLines,
+      parseLineMode,
+      selectedNetworkId,
+      validateAddress,
+      validateAmount,
+    ],
   );
 
   const debouncedValidateAddresses = useDebouncedValidation(
@@ -291,7 +399,10 @@ function ReceiverAddressesInput({ maxLines }: IReceiverAddressesInputProps) {
     <Form.Field
       name="receiverAddresses"
       label={intl.formatMessage({
-        id: ETranslations.wallet_bulk_send_label_receiving_addresses,
+        id:
+          bulkSendMode === EBulkSendMode.ManyToOne
+            ? ETranslations.wallet_bulk_send_section_receiving_address
+            : ETranslations.wallet_bulk_send_label_receiving_addresses,
       })}
       rules={{
         required: true,

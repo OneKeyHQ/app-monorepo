@@ -1,12 +1,18 @@
 import { memo, useCallback, useMemo, useState } from 'react';
 
-import { Stack, YStack, useMedia } from '@onekeyhq/components';
+import {
+  HeaderScrollGestureWrapper,
+  Stack,
+  YStack,
+  useMedia,
+} from '@onekeyhq/components';
 import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { HomeTokenListProviderMirror } from '../components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import ReferralCodeBlock from '../components/NotBakcedUp/ReferralCodeBlock';
+import { onHomePageRefresh } from '../components/PullToRefresh';
 import { ReceiveInfo } from '../components/ReceiveInfo';
 import { WalletActions } from '../components/WalletActions';
 import WalletBanner from '../components/WalletBanner';
@@ -50,10 +56,14 @@ function BaseHomeHeaderContainer() {
           bg="$bgApp"
           pointerEvents="box-none"
         >
-          <ReceiveInfo setShowReceiveInfo={setShowReceiveInfo} />
-          <ReferralCodeBlock
-            setShowReferralCodeBlock={setShowReferralCodeBlock}
-          />
+          <HeaderScrollGestureWrapper onRefresh={onHomePageRefresh}>
+            <ReceiveInfo setShowReceiveInfo={setShowReceiveInfo} />
+          </HeaderScrollGestureWrapper>
+          <HeaderScrollGestureWrapper onRefresh={onHomePageRefresh}>
+            <ReferralCodeBlock
+              setShowReferralCodeBlock={setShowReferralCodeBlock}
+            />
+          </HeaderScrollGestureWrapper>
         </YStack>
       );
     }
@@ -95,7 +105,13 @@ function BaseHomeHeaderContainer() {
 
   return (
     <HomeTokenListProviderMirror>
-      <YStack pb="$8" gap="$8" bg="$bgApp">
+      <YStack
+        pb="$8"
+        gap="$5"
+        $gtMd={{ gap: '$8' }}
+        bg="$bgApp"
+        pointerEvents="box-none"
+      >
         <Stack
           testID="Wallet-Tab-Header"
           gap="$5"
@@ -107,10 +123,16 @@ function BaseHomeHeaderContainer() {
           bg="$bgApp"
           pointerEvents="box-none"
         >
-          <Stack gap="$2.5">
-            <HomeOverviewContainer />
-          </Stack>
-          {isWalletNotBackedUp ? null : <WalletActions />}
+          <HeaderScrollGestureWrapper onRefresh={onHomePageRefresh}>
+            <Stack gap="$2.5">
+              <HomeOverviewContainer />
+            </Stack>
+          </HeaderScrollGestureWrapper>
+          {isWalletNotBackedUp ? null : (
+            <HeaderScrollGestureWrapper onRefresh={onHomePageRefresh}>
+              <WalletActions />
+            </HeaderScrollGestureWrapper>
+          )}
         </Stack>
         {isWalletNotBackedUp ? null : <WalletBanner />}
         {renderWalletInitBlock()}

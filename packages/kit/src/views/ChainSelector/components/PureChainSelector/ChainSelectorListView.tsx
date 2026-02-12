@@ -26,7 +26,7 @@ const ListEmptyComponent = () => {
   const intl = useIntl();
   return (
     <Empty
-      icon="SearchOutline"
+      illustration="BlockQuestionMark"
       title={intl.formatMessage({
         id: ETranslations.global_no_results,
       })}
@@ -132,7 +132,7 @@ export const ChainSelectorListView: FC<IChainSelectorListViewProps> = ({
   const [text, setText] = useState('');
   const intl = useIntl();
   const onChangeText = useCallback((value: string) => {
-    setText(value.trim());
+    setText(value);
   }, []);
 
   const networkFuseSearch = useFuseSearch(networks);
