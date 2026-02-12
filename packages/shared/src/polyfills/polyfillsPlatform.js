@@ -22,6 +22,7 @@ shimArrayFlatMap();
 const { shim: shimArrayToSorted } = require('array.prototype.tosorted');
 
 shimArrayToSorted();
+
 require('react-native-url-polyfill/auto');
 const platformEnv = require('@onekeyhq/shared/src/platformEnv');
 

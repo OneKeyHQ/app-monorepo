@@ -1076,7 +1076,7 @@ function BasicMarketHomeList({
         </YStack>
       )}
       <Table
-        draggable={draggable && !platformEnv.isNative}
+        draggable={false}
         headerRowProps={HEADER_ROW_PROPS}
         showBackToTopButton
         stickyHeaderHiddenOnScroll
