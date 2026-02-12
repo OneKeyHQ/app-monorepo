@@ -620,7 +620,11 @@ function ReceiveToken() {
         }}
       >
         <YStack gap="$1.5">
-          <XStack gap="$2" alignItems="center" justifyContent={platformEnv.isNative ? undefined : "space-between"}>
+          <XStack
+            gap="$2"
+            alignItems="center"
+            justifyContent={platformEnv.isNative ? undefined : 'space-between'}
+          >
             <SizableText size="$bodyMd">
               {token?.symbol ?? network.symbol}
             </SizableText>
