@@ -219,7 +219,7 @@ function LineNumberedTextArea({
   );
 
   useEffect(() => {
-    if (!platformEnv.isNativeIOS || singleLine) return;
+    if (!platformEnv.isNativeIOS || singleLine) return () => {};
 
     const showSub = Keyboard.addListener('keyboardDidShow', (e) => {
       lastKeyboardScreenYRef.current = e.endCoordinates.screenY;

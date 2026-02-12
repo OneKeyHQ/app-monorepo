@@ -27,4 +27,4 @@ export const Keyboard = {
   dismissWithDelay: dismissKeyboardWithDelay,
 };
 
-export * from './constant'
+export * from './constant';

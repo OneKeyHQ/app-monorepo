@@ -18,7 +18,6 @@ import {
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useReferFriends } from '@onekeyhq/kit/src/hooks/useReferFriends';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -34,7 +33,6 @@ import { PrimeUserInfo } from '../PrimeDashboard/PrimeUserInfo';
 
 function OneKeyIdPage() {
   const intl = useIntl();
-  const navigation = useAppNavigation();
   const { toInviteRewardPage } = useReferFriends();
   const { isPrimeAvailable } = usePrimeAvailable();
   const { isLoggedIn, logout } = useOneKeyAuth();
@@ -48,16 +46,20 @@ function OneKeyIdPage() {
 
   const toPrimePage = useCallback(() => {
     requestIdleCallback(async () => {
-      if (isPrimeAvailable) {
-        if (platformEnv.isNative) {
-          await popCurrentModal();
+      try {
+        if (isPrimeAvailable) {
+          if (platformEnv.isNative) {
+            await popCurrentModal();
+          }
+          rootNavigationRef.current?.navigate(ERootRoutes.iOSFullScreen, {
+            screen: EModalRoutes.PrimeModal,
+            params: {
+              screen: EPrimePages.PrimeDashboard,
+            },
+          });
         }
-        rootNavigationRef.current?.navigate(ERootRoutes.iOSFullScreen, {
-          screen: EModalRoutes.PrimeModal,
-          params: {
-            screen: EPrimePages.PrimeDashboard,
-          },
-        });
+      } catch {
+        // silently handle navigation errors
       }
     });
   }, [isPrimeAvailable, popCurrentModal]);
@@ -106,7 +108,7 @@ function OneKeyIdPage() {
             <PrimeUserInfo
               onLogoutSuccess={async () => {
                 defaultLogger.referral.page.logoutOneKeyIDResult();
-                navigation.popStack();
+                await popCurrentModal();
               }}
             />
           </Stack>
