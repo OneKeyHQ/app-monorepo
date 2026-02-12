@@ -39,15 +39,20 @@ function OneKeyIdPage() {
   const logoutRef = useRef<() => Promise<void>>(logout);
   const isFocused = useRouteIsFocused();
 
-  const toPrimePage = useCallback(async () => {
+  const toPrimePage = useCallback(() => {
     if (isPrimeAvailable) {
       if (platformEnv.isNative) {
         navigation.popStack();
-        await timerUtils.wait(600);
+        requestIdleCallback(() => {
+          navigation.pushFullModal(EModalRoutes.PrimeModal, {
+            screen: EPrimePages.PrimeDashboard,
+          });
+        });
+      } else {
+        navigation.pushFullModal(EModalRoutes.PrimeModal, {
+          screen: EPrimePages.PrimeDashboard,
+        });
       }
-      navigation.pushFullModal(EModalRoutes.PrimeModal, {
-        screen: EPrimePages.PrimeDashboard,
-      });
     }
   }, [navigation, isPrimeAvailable]);
 
