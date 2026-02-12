@@ -102,8 +102,6 @@ function MarketWatchlistTokenList({
     return { ...watchlistResult, data: filtered };
   }, [watchlistResult, hideNativeToken, hidePerps]);
 
-  const isDraggable = !watchlistResult.sortBy && !watchlistResult.sortType;
-
   const tokenToWatchListItem = useCallback(
     (token: IMarketToken): IMarketWatchListItemV2 => ({
       chainId: token.networkId,
