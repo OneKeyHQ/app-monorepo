@@ -18,6 +18,7 @@ import {
   useClipboard,
   useTheme,
 } from '@onekeyhq/components';
+import { useScrollToLocation } from '@onekeyhq/components/src/layouts/ScrollView';
 import { webFontFamily } from '@onekeyhq/components/src/utils/webFontFamily';
 import { AddressBadge } from '@onekeyhq/kit/src/components/AddressBadge';
 import { SelectorPlugin } from '@onekeyhq/kit/src/components/AddressInput/plugins/selector';
@@ -182,6 +183,11 @@ function LineNumberedTextArea({
   const handleContainerPress = useCallback(() => {
     inputRef.current?.focus();
   }, []);
+
+  const { scrollToView } = useScrollToLocation(inputRef);
+  const handleFocus = useCallback(() => {
+    scrollToView();
+  }, [scrollToView]);
 
   const handleLineLayout = useCallback(
     (index: number, event: LayoutChangeEvent) => {
@@ -404,6 +410,7 @@ function LineNumberedTextArea({
                 placeholder={platformEnv.isNative ? placeholder : undefined}
                 placeholderTextColor={placeholderColor}
                 allowFontScaling={false}
+                onFocus={handleFocus}
                 onChange={() => {
                   onInputTypeChange?.(EInputAddressChangeType.Manual);
                 }}
