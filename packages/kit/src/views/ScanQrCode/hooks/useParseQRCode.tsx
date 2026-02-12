@@ -8,7 +8,8 @@ import {
   Stack,
   Toast,
   ToastContent,
-  rootNavigationRef,
+  popActionCenterPages,
+  popScanModalPages,
   useClipboard,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -33,7 +34,6 @@ import {
   EModalSettingRoutes,
   EModalSignatureConfirmRoutes,
   EOnboardingPages,
-  ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -158,36 +158,10 @@ const useParseQRCode = () => {
       }
       const { defaultHandler, popNavigation, ...options } = params;
 
-      const closeScanPage = async (maxRetryTimes = 99) => {
-        if (maxRetryTimes <= 0) {
-          return;
-        }
-        const rootState = rootNavigationRef.current?.getRootState();
-        const currentRoute = rootState?.routes?.[rootState.index];
-
-        const isScanModal = (() => {
-          if (currentRoute?.name !== ERootRoutes.Modal) return false;
-          const screenName =
-            (currentRoute?.params as { screen?: string })?.screen ||
-            currentRoute?.state?.routes?.[
-              currentRoute?.state?.index || 0
-            ]?.name;
-          return screenName === EModalRoutes.ScanQrCodeModal;
-        })();
-
-        const isFullScreenPush =
-          currentRoute?.name === ERootRoutes.FullScreenPush;
-
-        // Only close ScanQrCode modal and ActionCenter (FullScreenPush), leave other routes untouched.
-        // Recursive goBack() is needed because on native-stack a single goBack() gets consumed
-        // by nested navigators without actually popping the root-level route.
-        if (isScanModal || isFullScreenPush) {
-          if (rootNavigationRef.current?.canGoBack?.()) {
-            rootNavigationRef.current?.goBack();
-          }
-          await timerUtils.wait(150);
-          await closeScanPage(maxRetryTimes - 1);
-        } else {
+      const closeScanPage = async () => {
+        if (popNavigation) {
+          await popScanModalPages();
+          await popActionCenterPages();
           await timerUtils.wait(350);
         }
       };
