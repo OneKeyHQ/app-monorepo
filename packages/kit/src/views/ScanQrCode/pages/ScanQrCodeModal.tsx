@@ -31,6 +31,7 @@ import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorage';
 
 import { MultipleClickStack } from '../../../components/MultipleClickStack';
+import useAppNavigation from '../../../hooks/useAppNavigation';
 import { ScanQrCode } from '../components';
 import { scanFromURLAsync } from '../utils/scanFromURLAsync';
 
