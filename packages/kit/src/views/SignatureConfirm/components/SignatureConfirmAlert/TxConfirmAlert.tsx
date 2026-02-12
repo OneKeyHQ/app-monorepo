@@ -118,6 +118,37 @@ function TxConfirmAlert(props: IProps) {
               amount: sendTxStatus.fillUpTokenBalance ?? '0',
             },
           )}
+          action={{
+            primary: intl.formatMessage({
+              id: ETranslations.global_top_up,
+            }),
+            onPrimaryPress() {
+              navigation.pushModal(EModalRoutes.ReceiveModal, {
+                screen: EModalReceiveRoutes.ReceiveSelector,
+                params: {
+                  networkId,
+                  accountId,
+                  walletId: accountUtils.getWalletIdFromAccountId({
+                    accountId,
+                  }),
+                  token: {
+                    decimals: 6,
+                    name: payWithTokenInfo.symbol,
+                    symbol: payWithTokenInfo.symbol,
+                    address: payWithTokenInfo.address,
+                    logoURI: payWithTokenInfo.logoURI,
+                    isNative: false,
+                  },
+                  onClose: () => {
+                    appEventBus.emit(
+                      EAppEventBusNames.RefreshNativeTokenInfo,
+                      undefined,
+                    );
+                  },
+                },
+              });
+            },
+          }}
         />
       );
     }
@@ -180,6 +211,8 @@ function TxConfirmAlert(props: IProps) {
     sendTxStatus.fillUpTokenBalance,
     payWithTokenInfo.enabled,
     payWithTokenInfo.symbol,
+    payWithTokenInfo.address,
+    payWithTokenInfo.logoURI,
     intl,
     network?.symbol,
     navigation,
