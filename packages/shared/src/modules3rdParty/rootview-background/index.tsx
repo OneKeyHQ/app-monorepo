@@ -10,6 +10,10 @@ export const updateRootViewBackgroundColor: IUpdateRootViewBackgroundColor = (
 ) => {
   setTimeout(() => {
     localStorage.setItem(THEME_PRELOAD_STORAGE_KEY, theme);
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) {
+      meta.setAttribute('content', color);
+    }
     if (platformEnv.isExtension) {
       // Keep a copy in extension storage so background/service-worker can read it.
       void (async () => {
