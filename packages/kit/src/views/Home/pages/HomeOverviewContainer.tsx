@@ -234,10 +234,10 @@ function HomeOverviewContainer() {
               accountId: accountValueId,
               value:
                 accountWorth.worth[
-                accountUtils.buildAccountValueKey({
-                  accountId: account.id,
-                  networkId: network.id,
-                })
+                  accountUtils.buildAccountValueKey({
+                    accountId: account.id,
+                    networkId: network.id,
+                  })
                 ],
               currency: settings.currencyInfo.id,
             },

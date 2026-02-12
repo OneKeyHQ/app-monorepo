@@ -56,7 +56,13 @@ import { Protocol } from './Protocol';
 
 const MAX_PROTOCOLS_ON_SMALL_SCREEN = 6;
 
-function DeFiListBlock({ refreshCacheOnly = false, tableLayout }: { refreshCacheOnly?: boolean, tableLayout?: boolean }) {
+function DeFiListBlock({
+  refreshCacheOnly = false,
+  tableLayout,
+}: {
+  refreshCacheOnly?: boolean;
+  tableLayout?: boolean;
+}) {
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();
@@ -162,7 +168,6 @@ function DeFiListBlock({ refreshCacheOnly = false, tableLayout }: { refreshCache
 
   const { run } = usePromiseResult(
     async () => {
-
       if (refreshCacheOnly) {
         return;
       }
@@ -304,7 +309,6 @@ function DeFiListBlock({ refreshCacheOnly = false, tableLayout }: { refreshCache
       networkId: string;
       allNetworkDataInit?: boolean;
     }) => {
-
       if (refreshCacheOnly) {
         return;
       }
@@ -411,7 +415,6 @@ function DeFiListBlock({ refreshCacheOnly = false, tableLayout }: { refreshCache
       accountId?: string;
       networkId?: string;
     }) => {
-
       if (refreshCacheOnly) {
         return;
       }
