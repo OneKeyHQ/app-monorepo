@@ -122,7 +122,13 @@ export function useEarnRewards(filterState: IFilterState) {
         setIsLoading(false);
       }
     }, 80);
-  }, [buildAccountNetworkKey, effectiveTimeRange, filterState.inviteCode, filterState.startTime, filterState.endTime]);
+  }, [
+    buildAccountNetworkKey,
+    effectiveTimeRange,
+    filterState.inviteCode,
+    filterState.startTime,
+    filterState.endTime,
+  ]);
 
   useEffect(() => {
     isMountedRef.current = true;
