@@ -169,7 +169,7 @@ export function DesktopLayout({
   );
 
   const contentHeight = useMemo(() => {
-    const h = `calc(100vh - 47px)`;
+    const h = `calc(100vh - 47px)` as unknown as number;
     if (platformEnv.isWebDappMode) {
       return { height: h, paddingBottom: 100 };
     }
