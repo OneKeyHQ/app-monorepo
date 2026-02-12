@@ -35,6 +35,7 @@ import { HomeTokenListProviderMirrorWrapper } from '../../Home/components/HomeTo
 
 import type { RouteProp } from '@react-navigation/core';
 import type { TextInputFocusEventData } from 'react-native';
+import { useCurrency } from '../../../components/Currency';
 
 const num = 0;
 
@@ -58,6 +59,8 @@ function TokenSelector() {
 
   const [aggregateTokensListMap] = useAggregateTokensListMapAtom();
 
+  const currencyInfo = useCurrency();
+
   const {
     title,
     networkId,
@@ -79,6 +82,7 @@ function TokenSelector() {
   } = route.params;
 
   const { network, account } = useAccountData({ networkId, accountId });
+
 
   const [searchKey, setSearchKey] = useState('');
   const [allTokenListMap] = useAllTokenListMapAtom();
@@ -123,7 +127,7 @@ function TokenSelector() {
           await timerUtils.wait(0);
           navigation.push(
             aggregateTokenSelectorScreen ??
-              EAssetSelectorRoutes.AggregateTokenSelector,
+            EAssetSelectorRoutes.AggregateTokenSelector,
             {
               accountId,
               indexedAccountId,
@@ -156,13 +160,13 @@ function TokenSelector() {
           ) {
             const params = token.accountId
               ? {
-                  accountId: token.accountId ?? '',
-                  networkId: token.networkId ?? '',
-                }
+                accountId: token.accountId ?? '',
+                networkId: token.networkId ?? '',
+              }
               : {
-                  accountId: account?.id ?? '',
-                  networkId: network?.id ?? '',
-                };
+                accountId: account?.id ?? '',
+                networkId: network?.id ?? '',
+              };
 
             let deriveType;
 
@@ -382,7 +386,7 @@ function TokenSelector() {
           {
             accountId: valueAccountId,
             value: { [valueKey]: totalFiatValue },
-            currency: 'usd',
+            currency: currencyInfo.id,
           },
         );
       }
@@ -395,6 +399,7 @@ function TokenSelector() {
     refreshTokenListMap,
     showActiveAccountTokenList,
     updateActiveAccountTokenListState,
+    currencyInfo.id,
   ]);
 
   useEffect(() => {
