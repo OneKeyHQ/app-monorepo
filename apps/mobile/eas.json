@@ -75,6 +75,18 @@
           "ANDROID_CHANNEL": "huawei"
         }
       }
+    },
+    "simulator": {
+      "extends": "base",
+      "distribution": "internal",
+      "env": {
+        "ENVIRONMENT": "production",
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
+      },
+      "ios": {
+        "simulator": true,
+        "buildConfiguration": "Release"
+      }
     }
   },
   "submit": {
