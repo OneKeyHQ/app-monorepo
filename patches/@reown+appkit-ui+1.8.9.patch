@@ -11,10 +11,10 @@ index d24f360..ef7c90b 100644
  
    a {
 diff --git a/node_modules/@reown/appkit-ui/dist/esm/src/utils/ThemeConstantsUtil.js b/node_modules/@reown/appkit-ui/dist/esm/src/utils/ThemeConstantsUtil.js
-index 96d6d8b..069ca19 100644
+index e8e0e99..f55f845 100644
 --- a/node_modules/@reown/appkit-ui/dist/esm/src/utils/ThemeConstantsUtil.js
 +++ b/node_modules/@reown/appkit-ui/dist/esm/src/utils/ThemeConstantsUtil.js
-@@ -180,7 +180,8 @@ export const spacing = {
+@@ -181,7 +181,8 @@ export const spacing = {
  };
  const fontFamily = {
      regular: 'KHTeka',
