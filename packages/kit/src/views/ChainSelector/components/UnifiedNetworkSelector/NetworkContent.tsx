@@ -37,6 +37,7 @@ type INetworkContentProps = {
   onFrequentlyUsedItemsChange?: (networks: IServerNetwork[]) => void;
   searchText?: string;
   setSearchText?: Dispatch<SetStateAction<string>>;
+  accountAddress?: string;
 };
 
 export function NetworkContent({
@@ -51,6 +52,7 @@ export function NetworkContent({
   onFrequentlyUsedItemsChange,
   searchText,
   setSearchText,
+  accountAddress,
 }: INetworkContentProps) {
   const {
     result: {
@@ -80,7 +82,7 @@ export function NetworkContent({
             accounts: [
               {
                 accountId: indexedAccountId ?? accountId ?? '',
-                accountAddress: undefined,
+                accountAddress,
                 networkId: networkId ?? '',
                 indexedAccountId,
               },
@@ -121,7 +123,14 @@ export function NetworkContent({
         zeroValue: true,
       };
     },
-    [accountId, networkIds, walletId, indexedAccountId, networkId],
+    [
+      accountId,
+      networkIds,
+      walletId,
+      indexedAccountId,
+      networkId,
+      accountAddress,
+    ],
     {
       initResult: {
         chainSelectorNetworks: defaultChainSelectorNetworks,
