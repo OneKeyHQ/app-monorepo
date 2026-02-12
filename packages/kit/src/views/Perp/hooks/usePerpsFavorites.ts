@@ -16,7 +16,8 @@ export type IFavoriteItem = {
 export function usePerpsFavorites(): { favoriteItems: IFavoriteItem[] } {
   const [favorites] = usePerpTokenFavoritesPersistAtom();
 
-  // Use usePromiseResult for cached data fetching
+  // Fetch the full universe independently — must not read from the
+  // search-filtered atom, otherwise favorites disappear during search.
   const { result: universe } = usePromiseResult(
     async () => {
       let { universesByDex } =
