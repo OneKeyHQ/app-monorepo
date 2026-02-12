@@ -6,7 +6,8 @@ import type { IXStackProps, IYStackProps } from '@onekeyhq/components';
 import {
   Button,
   IconButton,
-  ScrollView,
+  KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET,
+  Keyboard,
   Select,
   SizableText,
   XStack,
@@ -24,13 +25,6 @@ import { useLanguageSelectorWithoutAuto } from '../../Setting/hooks/useLanguageS
 const DESKTOP_DRAGGABLE_STYLE = {
   WebkitAppRegion: 'drag',
 } as any;
-
-const SCROLL_VIEW_CONTENT_STYLE = {
-  px: '$5',
-  $gtMd: {
-    px: '$10',
-  },
-};
 
 const OnboardingLayoutBack = memo(({ exit }: { exit?: boolean }) => {
   const navigation = useAppNavigation();
@@ -201,6 +195,13 @@ const OnboardingLayoutBody = memo(
       [scrollable],
     );
 
+    const { gtMd } = useMedia();
+
+    const contentContainerStyle = useMemo(
+      () => ({ paddingHorizontal: gtMd ? 40 : 20 }),
+      [gtMd],
+    );
+
     return (
       <YStack
         flex={1}
@@ -215,12 +216,13 @@ const OnboardingLayoutBody = memo(
         {...rest}
       >
         {scrollable ? (
-          <ScrollView
+          <Keyboard.AwareScrollView
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={SCROLL_VIEW_CONTENT_STYLE}
+            bottomOffset={KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET}
+            contentContainerStyle={contentContainerStyle}
           >
             {content}
-          </ScrollView>
+          </Keyboard.AwareScrollView>
         ) : (
           content
         )}

@@ -21,7 +21,7 @@ export function SubmenuColumn({
   return (
     <Stack width={COLLAPSED_SUBMENU_WIDTH} flex={1}>
       {/* Desktop drag area - always bgSidebar, not affected by expand */}
-      {platformEnv.isDesktopMac || platformEnv.isDesktopWin ? (
+      {platformEnv.isDesktopWithCustomTitleBar ? (
         <XStack
           position="absolute"
           top={0}

@@ -121,6 +121,7 @@ const sdkConnectSrc = isLocalUnpacked
 
 const isMac = process.platform === 'darwin';
 const isWin = process.platform === 'win32';
+const isLinux = process.platform === 'linux';
 
 let systemIdleInterval: ReturnType<typeof setInterval>;
 
@@ -484,13 +485,14 @@ async function createMainWindow() {
     show: false,
     title: APP_TITLE_NAME,
     titleBarStyle: 'hidden',
-    titleBarOverlay: isWin
-      ? {
-          height: 52,
-          color: '#00000000',
-          symbolColor: isDarkTheme ? '#ffffff' : '#000000',
-        }
-      : false,
+    titleBarOverlay:
+      isWin || isLinux
+        ? {
+            height: 52,
+            color: '#00000000',
+            symbolColor: isDarkTheme ? '#ffffff' : '#000000',
+          }
+        : false,
     trafficLightPosition: { x: 20, y: 20 },
     autoHideMenuBar: true,
     frame: true,

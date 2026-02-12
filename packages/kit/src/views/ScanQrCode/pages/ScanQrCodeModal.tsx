@@ -208,16 +208,8 @@ export default function ScanQrCodeModal() {
     showProTutorial,
   } = route.params;
 
-  const navigation = useAppNavigation();
-
   const callback = useCallback(
-    async ({
-      value,
-      popNavigation,
-    }: {
-      value: string;
-      popNavigation: () => void;
-    }) => {
+    async (value: string) => {
       if (process.env.NODE_ENV !== 'production') {
         if (value) {
           appStorage.syncStorage.set(
@@ -227,14 +219,10 @@ export default function ScanQrCodeModal() {
         }
       }
 
-      return routeCallback({ value, popNavigation });
+      return routeCallback({ value, popNavigation: true });
     },
     [routeCallback],
   );
-
-  const popNavigation = useCallback(() => {
-    navigation.pop();
-  }, [navigation]);
 
   const isPickedImage = useRef(false);
 
@@ -254,7 +242,7 @@ export default function ScanQrCodeModal() {
       }
       if (data && data.length > 0) {
         isPickedImage.current = true;
-        await callback({ value: data, popNavigation });
+        await callback(data);
       } else {
         Toast.error({
           title: intl.formatMessage({
@@ -267,7 +255,7 @@ export default function ScanQrCodeModal() {
         data,
       );
     }
-  }, [callback, intl, popNavigation]);
+  }, [callback, intl]);
 
   const onCameraScanned = useCallback(
     async (value: string) => {
@@ -275,10 +263,10 @@ export default function ScanQrCodeModal() {
         return {};
       }
       defaultLogger.scanQrCode.readQrCode.readFromCamera(value);
-      const result = await callback({ value, popNavigation });
+      const result = await callback(value);
       return result;
     },
-    [callback, popNavigation],
+    [callback],
   );
 
   const headerRightCall = useCallback(
@@ -340,7 +328,7 @@ export default function ScanQrCodeModal() {
         />
       </Page.Body>
       <Page.Footer>
-        <DebugInput onText={(value) => callback({ value, popNavigation })} />
+        <DebugInput onText={(value) => callback(value)} />
       </Page.Footer>
     </Page>
   );

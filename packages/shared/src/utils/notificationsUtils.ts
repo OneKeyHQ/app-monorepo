@@ -103,17 +103,22 @@ export async function navigateToNotificationDetailByLocalParams({
         indexedAccountId: localParams.indexedAccountId || '',
       });
       if (accountInfos) {
-        localParams.accountId = accountInfos?.accountId || localParams.accountId;
+        localParams.accountId =
+          accountInfos?.accountId || localParams.accountId;
         localParams.indexedAccountId =
-          accountInfos?.account.indexedAccountId || localParams.indexedAccountId;
+          accountInfos?.account.indexedAccountId ||
+          localParams.indexedAccountId;
       }
     }
     // Replace template variables in targetParams values with localParams values
     for (const [key, value] of Object.entries(targetParams)) {
       if (typeof value === 'string' && value.includes('{')) {
-        targetParams[key] = value.replace(/\{local_(\w+)\}/g, (match, param) => {
-          return localParams[param as keyof typeof localParams] || match;
-        });
+        targetParams[key] = value.replace(
+          /\{local_(\w+)\}/g,
+          (match, param) => {
+            return localParams[param as keyof typeof localParams] || match;
+          },
+        );
       }
     }
   }
