@@ -43,8 +43,8 @@ function OneKeyIdPage() {
   const toPrimePage = useCallback(async () => {
     if (isPrimeAvailable) {
       if (platformEnv.isNative) {
-        await popToMainRoute()
-        await timerUtils.wait(350)
+        await popToMainRoute();
+        await timerUtils.wait(350);
         navigation.pushFullModal(EModalRoutes.PrimeModal, {
           screen: EPrimePages.PrimeDashboard,
         });
