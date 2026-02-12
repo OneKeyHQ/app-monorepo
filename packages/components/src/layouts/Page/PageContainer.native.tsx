@@ -66,7 +66,7 @@ export function PageContainer({ children, lazyLoad, fullPage }: IPageProps) {
             onScroll={handleScroll}
             style={[{ flex: 1 }, style] as StyleProp<ViewStyle>}
             contentContainerStyle={contentContainerStyle}
-            bottomOffset={16}
+            bottomOffset={80}
           >
             <ScrollViewRefProvider value={contextValue}>
               {children}
