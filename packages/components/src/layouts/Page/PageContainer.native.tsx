@@ -7,6 +7,8 @@ import {
   useStyle,
 } from '@onekeyhq/components/src/shared/tamagui';
 
+import { KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET } from '../../content/Keyboard';
+
 import { ScrollViewRefProvider } from '../ScrollView';
 
 import { BasicPage } from './BasicPage';
@@ -66,7 +68,7 @@ export function PageContainer({ children, lazyLoad, fullPage }: IPageProps) {
             onScroll={handleScroll}
             style={[{ flex: 1 }, style] as StyleProp<ViewStyle>}
             contentContainerStyle={contentContainerStyle}
-            bottomOffset={80}
+            bottomOffset={KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET}
           >
             <ScrollViewRefProvider value={contextValue}>
               {children}

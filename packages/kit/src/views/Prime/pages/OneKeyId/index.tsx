@@ -11,6 +11,7 @@ import {
   Stack,
   XStack,
   YStack,
+  popToMainRoute,
   useUpdateEffect,
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -39,14 +40,13 @@ function OneKeyIdPage() {
   const logoutRef = useRef<() => Promise<void>>(logout);
   const isFocused = useRouteIsFocused();
 
-  const toPrimePage = useCallback(() => {
+  const toPrimePage = useCallback(async () => {
     if (isPrimeAvailable) {
       if (platformEnv.isNative) {
-        navigation.popStack();
-        requestIdleCallback(() => {
-          navigation.pushFullModal(EModalRoutes.PrimeModal, {
-            screen: EPrimePages.PrimeDashboard,
-          });
+        await popToMainRoute();
+        await timerUtils.wait(350);
+        navigation.pushFullModal(EModalRoutes.PrimeModal, {
+          screen: EPrimePages.PrimeDashboard,
         });
       } else {
         navigation.pushFullModal(EModalRoutes.PrimeModal, {

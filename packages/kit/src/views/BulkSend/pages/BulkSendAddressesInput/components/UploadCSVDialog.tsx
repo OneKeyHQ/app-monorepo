@@ -219,12 +219,13 @@ function UploadCSVContent({ onUploaded }: IUploadCSVContentProps) {
     URL.revokeObjectURL(url);
   }, []);
 
-  const supportsDropZone = platformEnv.isWeb || platformEnv.isDesktop;
+  const supportsDropZone =
+    platformEnv.isWeb || platformEnv.isDesktop || platformEnv.isExtension;
 
   return (
     <Stack gap="$3">
       {/* Hidden file input */}
-      {platformEnv.isWeb || platformEnv.isDesktop ? (
+      {platformEnv.isWeb || platformEnv.isDesktop || platformEnv.isExtension ? (
         <input
           ref={fileInputRef as any}
           type="file"

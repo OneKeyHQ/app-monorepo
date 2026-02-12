@@ -500,9 +500,7 @@ export function DesktopLeftSideBar({
         )}
         <YStack flex={1} testID="Desktop-AppSideBar-Content-Container">
           <YStack flex={1}>
-            {!platformEnv.isDesktopMac &&
-            !platformEnv.isDesktopWin &&
-            !platformEnv.isDesktopLinux &&
+            {!platformEnv.isDesktopWithCustomTitleBar &&
             !platformEnv.isNativeIOSPad ? (
               <XStack ai="center" jc="center" px="$4" py="$3">
                 <Icon
