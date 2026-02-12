@@ -69,7 +69,7 @@ function SupportHubItem({
         </Stack>
         <SizableText size="$bodyMdMedium">{title}</SizableText>
       </XStack>
-      {link && platformEnv.isWeb ? (
+      {link && (platformEnv.isWeb || platformEnv.isExtension) ? (
         <Stack width="$4" height="$4">
           <Icon name="ArrowTopRightOutline" size="$4" color="$iconSubdued" />
         </Stack>
