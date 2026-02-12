@@ -620,10 +620,7 @@ function ReceiveToken() {
         }}
       >
         <YStack gap="$1.5">
-          <XStack
-            gap="$2"
-            alignItems="center"
-          >
+          <XStack gap="$2" alignItems="center">
             <SizableText size="$bodyMd">
               {token?.symbol ?? network.symbol}
             </SizableText>
@@ -662,7 +659,11 @@ function ReceiveToken() {
               </Badge>
             ) : null}
           </XStack>
-          <XStack gap="$2" alignItems="center" justifyContent={platformEnv.isNative ? undefined : 'space-between'}>
+          <XStack
+            gap="$2"
+            alignItems="center"
+            justifyContent={platformEnv.isNative ? undefined : 'space-between'}
+          >
             {renderAddress()}
             {renderCopyAddressButton()}
           </XStack>
