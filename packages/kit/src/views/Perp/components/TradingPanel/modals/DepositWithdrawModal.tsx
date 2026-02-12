@@ -7,7 +7,6 @@ import { InputAccessoryView } from 'react-native';
 
 import type { IPageNavigationProp, useInTabDialog } from '@onekeyhq/components';
 import {
-  Badge,
   Button,
   DashText,
   Divider,
@@ -205,13 +204,6 @@ function SelectTokenPopoverContent({
         formatter: 'value',
         formatterOptions: { currency: symbol },
       });
-      const isArbUSDC = equalTokenNoCaseSensitive({
-        token1: item,
-        token2: {
-          networkId: PERPS_NETWORK_ID,
-          contractAddress: USDC_TOKEN_INFO.address,
-        },
-      });
       const networkInfo = networkUtils.getLocalNetworkInfo(item.networkId);
       const networkName = networkInfo?.name;
       return (
@@ -256,7 +248,7 @@ function SelectTokenPopoverContent({
         </ListItem>
       );
     },
-    [symbol, setPerpsDepositTokensAtom, closePopover, handleMaxPress, intl],
+    [symbol, setPerpsDepositTokensAtom, closePopover, handleMaxPress],
   );
   return (
     <YStack>
