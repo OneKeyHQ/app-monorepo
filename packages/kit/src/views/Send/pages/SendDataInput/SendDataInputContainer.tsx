@@ -14,7 +14,7 @@ import BigNumber from 'bignumber.js';
 import { utils } from 'ethers';
 import { isEmpty, isNaN, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
-import { InputAccessoryView } from 'react-native';
+import { InputAccessoryView, Keyboard } from 'react-native';
 
 import type {
   IFormMode,
@@ -1792,11 +1792,16 @@ function SendDataInputContainer() {
         calcPercentBalance({
           balance: isUseFiat ? maxBalanceFiat : maxBalance,
           percent,
-          decimals: 6,
+          decimals: isUseFiat
+            ? 6
+            : percent === 100
+              ? tokenInfo?.decimals
+              : Math.min(tokenInfo?.decimals ?? 6, 6),
         }),
       );
+      Keyboard.dismiss();
     },
-    [form, isUseFiat, maxBalance, maxBalanceFiat],
+    [form, isUseFiat, maxBalance, maxBalanceFiat, tokenInfo?.decimals],
   );
 
   const inputAddressFieldState = form.getFieldState('to');
