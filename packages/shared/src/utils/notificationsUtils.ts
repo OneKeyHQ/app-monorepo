@@ -123,11 +123,34 @@ export async function navigateToNotificationDetailByLocalParams({
     }
   }
   if (screen === ERootRoutes.Main) {
-    await popToMainRoute();
-    await timerUtils.wait(350);
-    appGlobals.$navigationRef.current?.navigate(screen, navigationParams, {
-      pop: true,
-    });
+     if (
+      appGlobals.$tabletMainViewNavigationRef?.current &&
+      navigationParams?.screen &&
+      !navigationParams?.params?.screen
+    ) {
+      appGlobals.$tabletMainViewNavigationRef.current.navigate(
+        screen,
+        navigationParams, 
+        {
+          pop: true,
+        }
+      );
+      requestIdleCallback(() => {
+        appGlobals.$navigationRef.current?.navigate(
+        screen,
+        navigationParams, 
+        {
+          pop: true,
+        }
+      );
+      });
+    } else {
+      await popToMainRoute();
+      await timerUtils.wait(350);
+      appGlobals.$navigationRef.current?.navigate(screen, navigationParams, {
+        pop: true,
+      });
+    }
   } else if (screen === ERootRoutes.Modal) {
     let rootNavigator = appGlobals.$navigationRef.current;
     const rootState = appGlobals.$navigationRef.current?.getRootState();
