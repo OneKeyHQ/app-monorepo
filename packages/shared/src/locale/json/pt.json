@@ -49,7 +49,7 @@
   "action_save": "Salvar",
   "add_existing_wallet_badge_phrases_length": "Suporta frases de recuperação de 12 a 24 palavras",
   "add_existing_wallet_desc": "Transferir, restaurar ou importar",
-  "add_existing_wallet_title": "Adicionar carteira existente",
+  "add_existing_wallet_title": "Importar carteira já existente",
   "add_hidden_wallet_dialog_add_button_display": "Mostrar \\\"Adicionar Carteira Oculta\\\" na lista de carteiras",
   "add_hidden_wallet_dialog_add_button_display_toast": "Você pode tocar no botão \\\"•••\\\" ao lado do nome da carteira para adicionar uma carteira oculta",
   "add_hidden_wallet_dialog_desc": "Uma carteira oculta adiciona uma Passphrase à sua frase de recuperação para criar uma carteira separada e segura.",

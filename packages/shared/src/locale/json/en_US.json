@@ -49,7 +49,7 @@
   "action_save": "Save",
   "add_existing_wallet_badge_phrases_length": "Supports 12–24 word recovery phrases",
   "add_existing_wallet_desc": "Transfer, restore or import",
-  "add_existing_wallet_title": "Add existing wallet",
+  "add_existing_wallet_title": "Import existing wallet",
   "add_hidden_wallet_dialog_add_button_display": "Show \"Add Hidden Wallet\" on wallet list",
   "add_hidden_wallet_dialog_add_button_display_toast": "You can tap the \"•••\" button next to the wallet name to add a hidden wallet",
   "add_hidden_wallet_dialog_desc": "A hidden wallet adds a passphrase to your recovery phrase to create a separate, secure wallet.",

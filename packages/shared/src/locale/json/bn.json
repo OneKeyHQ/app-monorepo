@@ -49,7 +49,7 @@
   "action_save": "সংরক্ষণ করুন",
   "add_existing_wallet_badge_phrases_length": "12–24 শব্দের পুনরুদ্ধার বাক্যাংশ সমর্থন করে",
   "add_existing_wallet_desc": "স্থানান্তর, পুনরুদ্ধার বা আমদানি",
-  "add_existing_wallet_title": "বিদ্যমান ওয়ালেট যোগ করুন",
+  "add_existing_wallet_title": "বিদ্যমান ওয়ালেট আমদানি করুন",
   "add_hidden_wallet_dialog_add_button_display": "ওয়ালেট তালিকায় \"Add Hidden Wallet\" দেখান",
   "add_hidden_wallet_dialog_add_button_display_toast": "আপনি ওয়ালেটের নামের পাশে থাকা \"•••\" বোতামে ট্যাপ করে একটি লুকানো ওয়ালেট যোগ করতে পারেন",
   "add_hidden_wallet_dialog_desc": "একটি হিডেন ওয়ালেট আপনার রিকভারি ফ্রেজে একটি Passphrase যোগ করে একটি আলাদা, সুরক্ষিত ওয়ালেট তৈরি করে।",

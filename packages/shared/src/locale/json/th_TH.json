@@ -49,7 +49,7 @@
   "action_save": "บันทึก",
   "add_existing_wallet_badge_phrases_length": "รองรับวลีการกู้คืน 12–24 คำ",
   "add_existing_wallet_desc": "ถ่ายโอน กู้คืน หรือ นำเข้า",
-  "add_existing_wallet_title": "เพิ่มกระเป๋าสตางค์ที่มีอยู่",
+  "add_existing_wallet_title": "นำเข้ากระเป๋าสตางค์เดิม",
   "add_hidden_wallet_dialog_add_button_display": "แสดง \"เพิ่มกระเป๋าเงินที่ซ่อนอยู่\" ในรายการกระเป๋าเงิน",
   "add_hidden_wallet_dialog_add_button_display_toast": "คุณสามารถแตะปุ่ม \"•••\" ถัดจากชื่อกระเป๋าเงินเพื่อเพิ่มกระเป๋าเงินที่ซ่อนไว้",
   "add_hidden_wallet_dialog_desc": "กระเป๋าเงินที่ซ่อนอยู่จะเพิ่ม Passphrase เข้าไปในวลีการกู้คืนของคุณ เพื่อสร้างกระเป๋าเงินแยกต่างหากที่ปลอดภัย",

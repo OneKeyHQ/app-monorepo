@@ -49,7 +49,7 @@
   "action_save": "Lưu",
   "add_existing_wallet_badge_phrases_length": "Hỗ trợ cụm từ khôi phục 12–24 từ",
   "add_existing_wallet_desc": "Chuyển, khôi phục hoặc nhập",
-  "add_existing_wallet_title": "Thêm ví hiện có",
+  "add_existing_wallet_title": "Nhập ví đã có",
   "add_hidden_wallet_dialog_add_button_display": "Hiển thị \"Thêm Ví Ẩn\" trên danh sách ví",
   "add_hidden_wallet_dialog_add_button_display_toast": "Bạn có thể nhấn vào nút \"•••\" bên cạnh tên ví để thêm một ví ẩn",
   "add_hidden_wallet_dialog_desc": "Ví ẩn thêm một Passphrase vào cụm từ khôi phục của bạn để tạo ra một ví riêng biệt và an toàn.",

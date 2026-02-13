@@ -49,7 +49,7 @@
   "action_save": "Salva",
   "add_existing_wallet_badge_phrases_length": "Supporta frasi di recupero da 12 a 24 parole",
   "add_existing_wallet_desc": "Trasferisci, ripristina o importa",
-  "add_existing_wallet_title": "Aggiungi portafoglio esistente",
+  "add_existing_wallet_title": "Importa un portafoglio esistente",
   "add_hidden_wallet_dialog_add_button_display": "Mostra \"Aggiungi portafoglio nascosto\" nell'elenco dei portafogli",
   "add_hidden_wallet_dialog_add_button_display_toast": "Puoi toccare il pulsante \"•••\" accanto al nome del portafoglio per aggiungere un portafoglio nascosto",
   "add_hidden_wallet_dialog_desc": "Un wallet nascosto aggiunge una Passphrase alla tua frase di recupero per creare un portafoglio separato e sicuro.",
