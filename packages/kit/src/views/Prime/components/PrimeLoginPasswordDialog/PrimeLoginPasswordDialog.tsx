@@ -16,7 +16,7 @@ import {
   XStack,
   YStack,
   useForm,
-  useKeyboardEvent,
+  useKeyboardEventWithoutNavigation,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IPrimeLoginDialogAtomPasswordData } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -215,7 +215,7 @@ export function PrimeLoginPasswordDialog({
 
   // OK-42373
   // Hide status bar when keyboard is shown
-  useKeyboardEvent({
+  useKeyboardEventWithoutNavigation({
     keyboardWillShow: () => {
       StatusBar.setHidden(true);
     },
