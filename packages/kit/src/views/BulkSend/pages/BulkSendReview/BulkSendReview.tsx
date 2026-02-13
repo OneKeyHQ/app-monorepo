@@ -298,29 +298,15 @@ function BaseBulkSendReview({
       navigation.popStack();
     }
 
+    // ext popup/sidebar && native
     if (isInModal) {
       // Mobile: close the entire bulk send modal stack
       navigation.popStack();
     } else {
-      if (platformEnv.isNative) {
-        // Native: use original navigation logic
-        navigation.popStack();
-        await waitAsync(50);
-        rootNavigationRef.current?.navigate(
-          ETabRoutes.Home,
-          {
-            screen: ETabHomeRoutes.TabHome,
-          },
-          {
-            pop: true,
-          },
-        );
-      } else {
-        // Web/Desktop: switch tab and pop to root screen
-        switchTab(ETabRoutes.Home);
-        await timerUtils.wait(50);
-        await popToTabRootScreen();
-      }
+      // Web/Desktop: switch tab and pop to root screen
+      switchTab(ETabRoutes.Home);
+      await timerUtils.wait(50);
+      await popToTabRootScreen();
     }
 
   }, [isInModal, navigation, accountId]);
