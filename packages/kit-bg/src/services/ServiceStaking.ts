@@ -790,8 +790,9 @@ class ServiceStaking extends ServiceBase {
       return response.data.data;
     },
     {
-      // NOTE: shared memoizee wrapper applies a stable JSON normalizer by default,
-      // so object params here are cached by value instead of reference identity.
+      // NOTE: this file imports `memoizee` from shared cacheUtils wrapper,
+      // which applies a stable JSON normalizer by default. So object params
+      // here are cached by value instead of reference identity.
       promise: true,
       maxAge: timerUtils.getTimeDurationMs({ seconds: 10 }),
     },
