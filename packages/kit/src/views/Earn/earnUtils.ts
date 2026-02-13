@@ -70,21 +70,6 @@ export async function safePushToEarnRoute(
     ? ETabRoutes.Discovery
     : ETabRoutes.Earn;
 
-  navigation.switchTab(targetTab);
-  if (platformEnv.isNative) {
-    void timerUtils.wait(150).then(() => {
-      appEventBus.emit(EAppEventBusNames.SwitchDiscoveryTabInNative, {
-        tab: ETranslations.global_earn,
-      });
-    });
-    // On native with native bottom tabs, switchTab() updates the JS
-    // navigation state synchronously, so we can query it immediately.
-    // Skipping the await keeps the dispatch within the touch event context,
-    // preventing iOS production from deferring it until the next interaction.
-  } else {
-    await timerUtils.wait(0);
-  }
-
   const rootNavigation = rootNavigationRef.current;
   const findTargetStack = (state?: NavigationState) => {
     if (!state) return undefined;
@@ -105,6 +90,54 @@ export async function safePushToEarnRoute(
     const targetKey = tabState?.key ?? tabRoute.key;
     return { targetKey, tabState };
   };
+
+  // On native, query state BEFORE switchTab. All tab states are already
+  // available since lazy: false, so we don't depend on switchTab's state
+  // synchronization timing with native bottom tabs.
+  const preQueryState = platformEnv.isNative && rootNavigation
+    ? findTargetStack(rootNavigation.getRootState?.())
+    : undefined;
+
+  navigation.switchTab(targetTab);
+  if (platformEnv.isNative) {
+    void timerUtils.wait(150).then(() => {
+      appEventBus.emit(EAppEventBusNames.SwitchDiscoveryTabInNative, {
+        tab: ETranslations.global_earn,
+      });
+    });
+
+    // Use pre-queried state to dispatch push synchronously within
+    // the touch event context. This avoids the timerUtils.wait(0) that
+    // would defer the dispatch to a macrotask, which iOS production
+    // won't flush until the next user interaction.
+    const targetKey = preQueryState?.targetKey;
+    if (rootNavigation && targetKey) {
+      const { tabState } = preQueryState;
+      const topRoute = tabState?.routes?.[tabState.index || 0];
+      if (topRoute?.name === route) {
+        const action = StackActions.replace(route, params);
+        // @ts-expect-error target is added at runtime for navigator selection
+        action.target = targetKey;
+        rootNavigation.dispatch(action);
+      } else {
+        const action = StackActions.push(route, params);
+        // @ts-expect-error target is added at runtime for navigator selection
+        action.target = targetKey;
+        rootNavigation.dispatch(action);
+      }
+    } else {
+      (rootNavigation ?? navigation).navigate(ERootRoutes.Main, {
+        screen: targetTab,
+        params: {
+          screen: route,
+          params,
+        },
+      });
+    }
+    return;
+  }
+
+  await timerUtils.wait(0);
 
   if (!rootNavigation) {
     navigation.navigate(ERootRoutes.Main, {
