@@ -46,16 +46,10 @@ export const DEFAULT_PERP_TOKEN_ACTIVE_TAB = 'all';
 
 // Perp Layout Configuration
 export const PERP_LAYOUT_CONFIG = {
-  enableAutoCollapse: false,
-  // Desktop layout uses fixed-height modules + vertical scrolling, so we don't
-  // expose draggable/resizable panes anymore.
-  enableResizablePanels: false,
   main: {
     marketMinWidth: 400,
     tradingMinWidth: 280,
     tradingMaxWidth: 800,
-    tradingDefaultWidth: 300,
-    tradingDefaultWidthXl: 340,
   },
   // Fixed desktop layout (Binance Futures-like): when window height is smaller
   // than total content height, page scrolls vertically; individual modules can
@@ -71,21 +65,6 @@ export const PERP_LAYOUT_CONFIG = {
     widths: {
       orderBook: 280,
       trading: 320,
-      tradingXl: 320,
     },
-  },
-  leftPanel: {
-    charts: {
-      minHeight: 0,
-      collapseThreshold: 350,
-      defaultRatio: 65,
-    },
-    infoPanel: {
-      minHeight: 42,
-      collapseThreshold: 180,
-    },
-  },
-  orderBook: {
-    width: 280,
   },
 } as const;

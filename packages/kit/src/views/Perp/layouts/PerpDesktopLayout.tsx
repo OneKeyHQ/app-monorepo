@@ -35,7 +35,7 @@ function PerpDesktopLayout() {
 
   const layout = PERP_LAYOUT_CONFIG.desktop;
   const showOrderBook = gtXl && (layoutState.orderBook?.visible ?? true);
-  const tradingWidth = gtXl ? layout.widths.tradingXl : layout.widths.trading;
+  const tradingWidth = layout.widths.trading;
   const orderBookMaxLevelsPerSide = useMemo(
     () =>
       calculateMaxLevelsPerSide(
@@ -47,7 +47,7 @@ function PerpDesktopLayout() {
   const toggleOrderBook = useCallback(() => {
     setLayoutState((prev) => ({
       ...prev,
-      orderBook: { visible: !prev.orderBook.visible },
+      orderBook: { visible: !(prev.orderBook?.visible ?? true) },
     }));
   }, [setLayoutState]);
 
@@ -171,8 +171,6 @@ function PerpDesktopLayout() {
                       borderBottomColor="$borderSubdued"
                       px="$2"
                     >
-                      <SizableText size="$bodyMdMedium">
-                        {intl.formatMessage({
                       <SizableText size="$bodyMdMedium">
                         {intl.formatMessage({
                           id: ETranslations.perps_order_book,
