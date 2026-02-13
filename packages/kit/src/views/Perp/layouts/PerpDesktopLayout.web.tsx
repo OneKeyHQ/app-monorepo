@@ -111,7 +111,7 @@ function PerpDesktopLayout() {
         borderLeftColor="$borderSubdued"
       >
         <XStack alignItems="center">
-          <XStack pt="$3" px="$2.5">
+          <XStack py="$3" px="$2.5">
             <SizableText size="$bodyMdMedium">
               {intl.formatMessage({
                 id: ETranslations.perp_trade_account_overview,
