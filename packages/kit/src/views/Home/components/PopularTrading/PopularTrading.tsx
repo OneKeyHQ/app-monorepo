@@ -69,10 +69,10 @@ interface IFavoriteTokenDisplay {
   price: number;
   priceChange24h: number;
   marketCap: number;
+  volume24h: number;
   // Perps fields — present when perpsCoin is set
   perpsCoin?: string;
   maxLeverage?: number;
-  volume24h?: number;
 }
 
 function RecommendCardItem({
@@ -283,8 +283,8 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
           },
         },
         {
-          dataIndex: 'marketCap',
-          title: intl.formatMessage({ id: ETranslations.global_market_cap }),
+          dataIndex: 'volume24h',
+          title: intl.formatMessage({ id: ETranslations.market_24h_turnover }),
           render: (_: unknown, record: IFavoriteTokenDisplay) => (
             <NumberSizeableText
               size="$bodyLgMedium"
@@ -293,11 +293,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
                 currency: record.perpsCoin ? '$' : currencyInfo?.symbol,
               }}
             >
-              {record.perpsCoin
-                ? (record.volume24h ?? '-')
-                : new BigNumber(record.marketCap).isNaN()
-                  ? '-'
-                  : record.marketCap}
+              {new BigNumber(record.volume24h).isNaN() ? '-' : record.volume24h}
             </NumberSizeableText>
           ),
         },
@@ -345,11 +341,9 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
                     currency: record.perpsCoin ? '$' : currencyInfo?.symbol,
                   }}
                 >
-                  {record.perpsCoin
-                    ? (record.volume24h ?? '-')
-                    : new BigNumber(record.marketCap).isNaN()
-                      ? '-'
-                      : record.marketCap}
+                  {new BigNumber(record.volume24h).isNaN()
+                    ? '-'
+                    : record.volume24h}
                 </NumberSizeableText>
               </YStack>
             </XStack>
@@ -507,6 +501,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
               price: parseFloat(item.price ?? '0'),
               priceChange24h: parseFloat(item.priceChange24hPercent ?? '0'),
               marketCap: parseFloat(item.marketCap ?? '0'),
+              volume24h: parseFloat(item.volume24h ?? '0'),
             };
           })
           .filter((item): item is IFavoriteTokenDisplay => item !== null);
@@ -579,6 +574,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
               price: parseFloat(item.price ?? '0'),
               priceChange24h: parseFloat(item.priceChange24hPercent ?? '0'),
               marketCap: parseFloat(item.marketCap ?? '0'),
+              volume24h: parseFloat(item.volume24h ?? '0'),
             };
           })
           .filter((item): item is IFavoriteTokenDisplay => item !== null);

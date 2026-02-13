@@ -1,3 +1,5 @@
+import { useCallback } from 'react';
+
 import { YStack } from '@onekeyhq/components';
 import { EAmountInputMode } from '@onekeyhq/shared/types/bulkSend';
 
@@ -16,29 +18,30 @@ function MobileLayout() {
     bulkSendMode,
     previewState,
     setPreviewState,
-    // Shared transfersInfo (base addresses) for generating preview
     transfersInfo: baseTransfersInfo,
-    // Mobile uses currentModeData for mode-specific data
     currentModeData,
     updateCurrentModeData,
   } = useBulkSendAmountsInputContext();
 
-  // Use mode-specific data for mobile display
   const { transfersInfo: modeTransfersInfo, transferInfoErrors } =
     currentModeData;
 
-  // For display: use mode-specific data if available, otherwise use base
   const displayTransfersInfo =
     modeTransfersInfo.length > 0 ? modeTransfersInfo : baseTransfersInfo;
 
-  // Create setters that update current mode's data
-  const setModeTransfersInfo = (newTransfersInfo: typeof modeTransfersInfo) => {
-    updateCurrentModeData({ transfersInfo: newTransfersInfo });
-  };
+  const setModeTransfersInfo = useCallback(
+    (newTransfersInfo: typeof modeTransfersInfo) => {
+      updateCurrentModeData({ transfersInfo: newTransfersInfo });
+    },
+    [updateCurrentModeData],
+  );
 
-  const setTransferInfoErrors = (newErrors: typeof transferInfoErrors) => {
-    updateCurrentModeData({ transferInfoErrors: newErrors });
-  };
+  const setTransferInfoErrors = useCallback(
+    (newErrors: typeof transferInfoErrors) => {
+      updateCurrentModeData({ transferInfoErrors: newErrors });
+    },
+    [updateCurrentModeData],
+  );
 
   const { handleDeleteTransfer, handleAmountChange } = useTransferInfoActions({
     tokenInfo,
@@ -48,8 +51,7 @@ function MobileLayout() {
     setTransferInfoErrors,
   });
 
-  // Use base transfersInfo for generating preview (has addresses)
-  // but setTransfersInfo updates mode-specific data
+  // Use base transfersInfo for generating preview, mode-specific for display
   const { shouldShowTxDetails } = useAmountPreview({
     tokenInfo,
     transfersInfo: baseTransfersInfo,

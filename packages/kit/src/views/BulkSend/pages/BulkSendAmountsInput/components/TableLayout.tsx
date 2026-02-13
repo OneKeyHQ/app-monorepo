@@ -650,7 +650,7 @@ function TransferInfoListSection() {
           size="$headingXs"
           color="$textSubdued"
           textTransform="uppercase"
-          width={20}
+          width={36}
           flexShrink={0}
         >
           #
@@ -723,8 +723,9 @@ function TransferInfoListSection() {
             <SizableText
               size="$bodyMdMedium"
               color="$textDisabled"
-              width={20}
+              width={36}
               flexShrink={0}
+              style={{ whiteSpace: 'nowrap' } as any}
             >
               {index + 1}.
             </SizableText>

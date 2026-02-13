@@ -194,6 +194,10 @@ export function generateRandomAmountsFromRange({
   if (balance !== undefined && balance.length === 1) {
     totalBalanceBN = new BigNumber(balance[0]);
     if (!totalBalanceBN.isNaN()) {
+      // When balance is zero, all amounts must be zero
+      if (totalBalanceBN.isZero()) {
+        return transfersInfo.map(() => '0');
+      }
       const avgBalancePerTransfer = totalBalanceBN.dividedBy(count);
       // Use the smaller of: user's max or average balance per transfer
       if (max.isGreaterThan(avgBalancePerTransfer)) {
@@ -344,6 +348,13 @@ export function validateRangeInput({
   const minBN = new BigNumber(rangeMin || '0');
   const maxBN = new BigNumber(rangeMax || '0');
   const balanceBN = new BigNumber(balance);
+
+  // When balance is zero, no valid non-zero range can be generated
+  if (balanceBN.isZero()) {
+    return appLocale.intl.formatMessage({
+      id: ETranslations.swap_page_button_insufficient_balance,
+    });
+  }
 
   // Only check if min exceeds balance (min must be achievable)
   // max > balance is allowed - generation logic will use balance/count as effective max

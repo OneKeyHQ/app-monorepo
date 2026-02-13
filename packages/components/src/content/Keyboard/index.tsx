@@ -33,8 +33,6 @@ const AwareScrollViewFallback = forwardRef<
   <ScrollView ref={ref} {...rest} />
 ));
 
-export const KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET = 80;
-
 export const Keyboard = {
   AvoidingView: PassThrough as typeof KeyboardAvoidingView,
   AwareScrollView:
@@ -62,3 +60,5 @@ export const Keyboard = {
   } as unknown as typeof KeyboardController,
   dismissWithDelay: dismissKeyboardWithDelay,
 };
+
+export * from './constant';

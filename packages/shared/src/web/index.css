@@ -315,6 +315,7 @@ w3m-modal {
   opacity: 0;
   transform: translateX(-8px);
   pointer-events: none;
+  -webkit-app-region: no-drag;
   transition:
     opacity 0.15s ease,
     transform 0.15s ease;
@@ -406,6 +407,7 @@ w3m-modal {
   opacity: 0;
   transform: translateX(-8px);
   pointer-events: none;
+  -webkit-app-region: no-drag;
   transition:
     opacity 0.15s ease,
     transform 0.15s ease;
