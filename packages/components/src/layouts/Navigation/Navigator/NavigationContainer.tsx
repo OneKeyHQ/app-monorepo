@@ -47,9 +47,7 @@ appGlobals.$navigationRef = rootNavigationRef as MutableRefObject<
   NavigationContainerRef<any>
 >;
 appGlobals.$tabletMainViewNavigationRef =
-  tabletMainViewNavigationRef as MutableRefObject<
-    NavigationContainerRef<any>
-  >;
+  tabletMainViewNavigationRef as MutableRefObject<NavigationContainerRef<any>>;
 
 export type IRouterChangeEvent = INavigationContainerProps['onStateChange'];
 const RouterEventContext = createContext<
