@@ -183,6 +183,28 @@ export const popModalPages = async (maxRetryTimes = 10) => {
   await popModalPages(maxRetryTimes - 1);
 };
 
+/**
+ * Synchronously pop modal pages without delay for native platforms.
+ * On native platforms with native bottom tabs, avoid deferring navigation
+ * dispatch to a macrotask via timerUtils.wait(). Use goBack() directly
+ * so the navigation stays within the touch event context, preventing iOS
+ * from requiring an additional touch to flush the bridge call.
+ */
+export const popModalPagesOnNative = (maxRetryTimes = 10) => {
+  if (maxRetryTimes <= 0) {
+    return;
+  }
+  const rootState = rootNavigationRef.current?.getRootState();
+  const currentRoute = rootState?.routes?.[rootState.index];
+  if (currentRoute?.name !== ERootRoutes.Modal) {
+    return;
+  }
+  if (rootNavigationRef.current?.canGoBack?.()) {
+    rootNavigationRef.current?.goBack();
+    popModalPagesOnNative(maxRetryTimes - 1);
+  }
+};
+
 export const popToMainRoute = async (maxRetryTimes = 99) => {
   if (maxRetryTimes <= 0) {
     return;

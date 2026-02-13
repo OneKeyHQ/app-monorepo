@@ -11,7 +11,7 @@ import {
   Stack,
   XStack,
   YStack,
-  popModalPages,
+  popModalPagesOnNative,
   rootNavigationRef,
   useUpdateEffect,
 } from '@onekeyhq/components';
@@ -39,17 +39,12 @@ function OneKeyIdPage() {
   const logoutRef = useRef<() => Promise<void>>(logout);
   const isFocused = useRouteIsFocused();
 
-  const popCurrentModal = useCallback(async () => {
-    await popModalPages();
-    await timerUtils.wait(350);
-  }, []);
-
   const toPrimePage = useCallback(() => {
     requestIdleCallback(async () => {
       try {
         if (isPrimeAvailable) {
           if (platformEnv.isNative) {
-            await popCurrentModal();
+            popModalPagesOnNative();
           }
           rootNavigationRef.current?.navigate(ERootRoutes.iOSFullScreen, {
             screen: EModalRoutes.PrimeModal,
@@ -64,19 +59,19 @@ function OneKeyIdPage() {
         });
       }
     });
-  }, [isPrimeAvailable, popCurrentModal]);
+  }, [isPrimeAvailable]);
 
   const handleLoggedOutWhileFocused = useCallback(async () => {
     if (!isLoggedIn && isFocused) {
       await timerUtils.wait(300);
-      await popCurrentModal();
+      popModalPagesOnNative();
       defaultLogger.prime.subscription.onekeyIdLogout({
         reason:
           'OneKeyIdPage: is focused and primePersistAtom is not logged in',
       });
       void logoutRef.current();
     }
-  }, [isLoggedIn, isFocused, popCurrentModal]);
+  }, [isLoggedIn, isFocused]);
 
   useUpdateEffect(() => {
     void handleLoggedOutWhileFocused();
@@ -110,7 +105,7 @@ function OneKeyIdPage() {
             <PrimeUserInfo
               onLogoutSuccess={async () => {
                 defaultLogger.referral.page.logoutOneKeyIDResult();
-                await popCurrentModal();
+                popModalPagesOnNative();
               }}
             />
           </Stack>
