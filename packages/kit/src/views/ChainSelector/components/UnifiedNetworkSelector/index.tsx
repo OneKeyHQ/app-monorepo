@@ -218,6 +218,7 @@ function UnifiedNetworkSelector() {
             indexedAccountId,
           },
         ],
+        networksEnabledOnly: false,
       }),
     ]);
 
