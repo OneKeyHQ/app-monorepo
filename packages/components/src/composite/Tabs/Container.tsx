@@ -95,6 +95,7 @@ export interface ITabContainerRef {
   setIndex: (index: number) => void;
   getFocusedTab: () => string;
   getCurrentIndex: () => number;
+  syncCurrentPage: () => void;
 }
 
 export interface ITabContainerProps {
@@ -356,6 +357,9 @@ export function Container({
     },
     getCurrentIndex: () => {
       return tabNames.findIndex((name) => name === focusedTab.value);
+    },
+    syncCurrentPage: () => {
+      // no-op on web, only needed for native PagerView
     },
   }));
 
