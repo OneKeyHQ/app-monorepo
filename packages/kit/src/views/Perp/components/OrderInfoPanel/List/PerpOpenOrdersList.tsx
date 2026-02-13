@@ -237,9 +237,7 @@ function PerpOpenOrdersList({
       })}
       ListHeaderComponent={
         isMobile ? (
-          <MobileOpenOrdersListHeader
-            totalOrderCount={openOrders.length}
-          />
+          <MobileOpenOrdersListHeader totalOrderCount={openOrders.length} />
         ) : null
       }
     />

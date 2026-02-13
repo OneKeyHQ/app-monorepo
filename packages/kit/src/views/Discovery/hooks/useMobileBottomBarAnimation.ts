@@ -1,4 +1,4 @@
-import { createRef, useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import {
   useAnimatedStyle,
@@ -6,6 +6,7 @@ import {
   withTiming,
 } from 'react-native-reanimated';
 
+import { useSafeAreaInsets } from '@onekeyhq/components';
 import type { IWebViewOnScrollEvent } from '@onekeyhq/kit/src/components/WebView/types';
 
 import {
@@ -16,8 +17,9 @@ import {
 } from '../config/Animation.constants';
 
 function useMobileBottomBarAnimation(activeTabId: string | null) {
-  const toolbarRef = useMemo(() => createRef<any>(), []);
-  const toolbarHeight = useSharedValue(BROWSER_BOTTOM_BAR_HEIGHT);
+  const { bottom: bottomInset } = useSafeAreaInsets();
+  const fullBarHeight = BROWSER_BOTTOM_BAR_HEIGHT + bottomInset;
+  const toolbarHeight = useSharedValue(fullBarHeight);
   const toolbarOpacity = useSharedValue(MAX_OPACITY_BOTTOM_BAR);
   const lastScrollY = useRef<number | undefined>(undefined);
   const lastTurnScrollY = useRef<number | undefined>(undefined);
@@ -47,15 +49,10 @@ function useMobileBottomBarAnimation(activeTabId: string | null) {
           layoutMeasurement.height + contentInset.top + contentInset.bottom,
         ) +
           MIN_TOGGLE_BROWSER_VISIBLE_DISTANCE +
-          BROWSER_BOTTOM_BAR_HEIGHT;
+          fullBarHeight;
 
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-      toolbarRef?.current?.setNativeProps?.({
-        // position: webViewCanScroll ? 'absolute' : 'relative',
-        position: 'relative',
-      });
       if (!webViewCanScroll) {
-        toolbarHeight.value = withTiming(BROWSER_BOTTOM_BAR_HEIGHT);
+        toolbarHeight.value = withTiming(fullBarHeight);
         toolbarOpacity.value = withTiming(MAX_OPACITY_BOTTOM_BAR);
         return;
       }
@@ -77,16 +74,16 @@ function useMobileBottomBarAnimation(activeTabId: string | null) {
       if (Math.abs(distanceOffsetY) <= MIN_TOGGLE_BROWSER_VISIBLE_DISTANCE) {
         return;
       }
-      const height = distanceOffsetY < 0 ? BROWSER_BOTTOM_BAR_HEIGHT : 0;
+      const height = distanceOffsetY < 0 ? fullBarHeight : 0;
 
       toolbarHeight.value = withTiming(height, {
         duration: DISPLAY_BOTTOM_BAR_DURATION,
       }); // No gradual animation
-      toolbarOpacity.value = withTiming(height / BROWSER_BOTTOM_BAR_HEIGHT, {
+      toolbarOpacity.value = withTiming(height / fullBarHeight, {
         duration: DISPLAY_BOTTOM_BAR_DURATION,
       }); // No gradual animation
     },
-    [toolbarHeight, toolbarOpacity, toolbarRef],
+    [toolbarHeight, toolbarOpacity, fullBarHeight],
   );
   const toolbarAnimatedStyle = useAnimatedStyle(() => ({
     height: toolbarHeight.value,
@@ -95,21 +92,16 @@ function useMobileBottomBarAnimation(activeTabId: string | null) {
 
   // Reset toolbar animation state when activeTabId changes.
   useEffect(() => {
-    toolbarHeight.value = withTiming(BROWSER_BOTTOM_BAR_HEIGHT);
+    toolbarHeight.value = withTiming(fullBarHeight);
     toolbarOpacity.value = withTiming(MAX_OPACITY_BOTTOM_BAR);
     lastScrollY.current = undefined;
     lastTurnScrollY.current = undefined;
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-    toolbarRef?.current?.setNativeProps?.({
-      position: 'relative',
-    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTabId]);
+  }, [activeTabId, fullBarHeight]);
 
   return {
     handleScroll,
-    toolbarRef,
     toolbarAnimatedStyle,
   };
 }
