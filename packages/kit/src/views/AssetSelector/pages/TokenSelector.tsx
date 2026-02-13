@@ -35,6 +35,7 @@ import { HomeTokenListProviderMirrorWrapper } from '../../Home/components/HomeTo
 
 import type { RouteProp } from '@react-navigation/core';
 import type { TextInputFocusEventData } from 'react-native';
+import { useCurrency } from '../../../components/Currency';
 
 const num = 0;
 
@@ -57,6 +58,8 @@ function TokenSelector() {
   const { createAddress } = useAccountSelectorCreateAddress();
 
   const [aggregateTokensListMap] = useAggregateTokensListMapAtom();
+
+  const currencyInfo = useCurrency();
 
   const {
     title,
@@ -382,7 +385,7 @@ function TokenSelector() {
           {
             accountId: valueAccountId,
             value: { [valueKey]: totalFiatValue },
-            currency: 'usd',
+            currency: currencyInfo.id,
           },
         );
       }
@@ -395,6 +398,7 @@ function TokenSelector() {
     refreshTokenListMap,
     showActiveAccountTokenList,
     updateActiveAccountTokenListState,
+    currencyInfo.id,
   ]);
 
   useEffect(() => {

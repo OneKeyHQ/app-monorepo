@@ -41,6 +41,7 @@ import {
   useBulkSendAddressesInputContext,
 } from './components/Context';
 import { isUndefined } from 'lodash';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 function BaseBulkSendAddressesInput() {
   const intl = useIntl();
@@ -135,7 +136,10 @@ function BaseBulkSendAddressesInput() {
       }
     }
 
-    if (isAllNetwork) {
+    if (
+      isAllNetwork &&
+      !accountUtils.isOthersAccount({ accountId: _selectedAccountId })
+    ) {
       const networkAccounts =
         await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountId(
           {

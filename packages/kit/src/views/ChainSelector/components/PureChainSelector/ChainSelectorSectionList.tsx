@@ -120,6 +120,9 @@ const ChainSelectorSectionListContent = ({
             new BigNumber(networkValue || 0).gt(
               NETWORK_SHOW_VALUE_THRESHOLD_USD,
             ));
+
+        console.log('accountNetworkValues', accountNetworkValues);
+        console.log('item.id', item.id);
         return (
           <ListItem
             h={48}

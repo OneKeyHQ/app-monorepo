@@ -4,30 +4,24 @@ import { useIntl } from 'react-intl';
 
 import { Button, Checkbox, SizableText, XStack } from '@onekeyhq/components';
 import { usePositionFilterByCurrentTokenAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
-import { usePerpsActiveAssetAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { showCloseAllPositionsDialog } from '../CloseAllPositionsModal';
 
 interface IMobilePositionsListHeaderProps {
   totalPositionCount: number;
-  filteredPositionCount: number;
 }
 
 export function MobilePositionsListHeader({
   totalPositionCount,
-  filteredPositionCount,
 }: IMobilePositionsListHeaderProps) {
   const intl = useIntl();
   const [filterByCurrentToken, setFilterByCurrentToken] =
     usePositionFilterByCurrentTokenAtom();
-  const [activeAsset] = usePerpsActiveAssetAtom();
 
   const handleCloseAll = useCallback(() => {
-    void showCloseAllPositionsDialog(
-      filterByCurrentToken ? activeAsset?.coin : undefined,
-    );
-  }, [filterByCurrentToken, activeAsset?.coin]);
+    void showCloseAllPositionsDialog();
+  }, []);
 
   const handleFilterChange = useCallback(
     (value: boolean | 'indeterminate') => {
@@ -66,7 +60,7 @@ export function MobilePositionsListHeader({
       <Button
         size="small"
         variant="secondary"
-        disabled={filteredPositionCount === 0}
+        disabled={totalPositionCount === 0}
         onPress={handleCloseAll}
       >
         <SizableText size="$bodyXs">

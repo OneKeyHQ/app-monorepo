@@ -234,7 +234,6 @@ function PerpPositionsList({
         isMobile ? (
           <MobilePositionsListHeader
             totalPositionCount={positions.activePositions.length}
-            filteredPositionCount={mockedPositions.length}
           />
         ) : null
       }
