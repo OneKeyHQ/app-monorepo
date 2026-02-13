@@ -270,7 +270,7 @@ function MobileBrowser() {
 
   useNotifyTabBarDisplay(
     !!activeTabId &&
-      !displayHomePage &&
+      !displayHomePage && !isTabletMainView &&
       selectedHeaderTab === ETranslations.global_browser,
   );
 
