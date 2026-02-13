@@ -49,7 +49,7 @@
   "action_save": "保存",
   "add_existing_wallet_badge_phrases_length": "支持 12-24 个单词的助记词",
   "add_existing_wallet_desc": "传输、恢复或导入",
-  "add_existing_wallet_title": "添加现有钱包",
+  "add_existing_wallet_title": "导入现有钱包",
   "add_hidden_wallet_dialog_add_button_display": "在钱包列表上显示「添加隐藏钱包」",
   "add_hidden_wallet_dialog_add_button_display_toast": "您可以点击钱包名称右侧的「•••」按钮来添加隐藏钱包",
   "add_hidden_wallet_dialog_desc": "隐藏钱包通过在您的助记词上添加 Passphrase 来创建一个独立的、安全的钱包。",

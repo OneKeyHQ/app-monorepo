@@ -49,7 +49,7 @@
   "action_save": "Guardar",
   "add_existing_wallet_badge_phrases_length": "Admite frases de recuperación de 12 a 24 palabras",
   "add_existing_wallet_desc": "Transferir, restaurar o importar",
-  "add_existing_wallet_title": "Agregar billetera existente",
+  "add_existing_wallet_title": "Importar una billetera existente",
   "add_hidden_wallet_dialog_add_button_display": "Mostrar \"Agregar billetera oculta\" en la lista de billeteras",
   "add_hidden_wallet_dialog_add_button_display_toast": "Puedes tocar el botón \"•••\" junto al nombre de la billetera para agregar una billetera oculta",
   "add_hidden_wallet_dialog_desc": "Una billetera oculta añade una Passphrase a tu frase de recuperación para crear una billetera separada y segura.",

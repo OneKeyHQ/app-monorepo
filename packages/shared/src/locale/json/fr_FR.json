@@ -49,7 +49,7 @@
   "action_save": "Enregistrer",
   "add_existing_wallet_badge_phrases_length": "Prend en charge les phrases de récupération de 12 à 24 mots",
   "add_existing_wallet_desc": "Transférer, restaurer ou importer",
-  "add_existing_wallet_title": "Ajouter un portefeuille existant",
+  "add_existing_wallet_title": "Importer un portefeuille existant",
   "add_hidden_wallet_dialog_add_button_display": "Afficher « Ajouter un portefeuille caché » dans la liste des portefeuilles",
   "add_hidden_wallet_dialog_add_button_display_toast": "Vous pouvez appuyer sur le bouton \\\"•••\\\" à côté du nom du portefeuille pour ajouter un portefeuille caché",
   "add_hidden_wallet_dialog_desc": "Un portefeuille caché ajoute une Passphrase à votre phrase de récupération pour créer un portefeuille séparé et sécurisé.",

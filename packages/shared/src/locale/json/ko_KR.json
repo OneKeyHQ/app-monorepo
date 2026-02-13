@@ -49,7 +49,7 @@
   "action_save": "저장",
   "add_existing_wallet_badge_phrases_length": "12~24개 단어로 된 복구 구문 지원",
   "add_existing_wallet_desc": "전송, 복원 또는 가져오기",
-  "add_existing_wallet_title": "기존 지갑 추가",
+  "add_existing_wallet_title": "기존 지갑 가져오기",
   "add_hidden_wallet_dialog_add_button_display": "지갑 목록에 \"숨겨진 지갑 추가\" 표시",
   "add_hidden_wallet_dialog_add_button_display_toast": "지갑 이름 옆에 있는 \"•••\" 버튼을 탭하면 숨겨진 지갑을 추가할 수 있습니다.",
   "add_hidden_wallet_dialog_desc": "숨겨진 지갑은 복구 구문에 패스프레이즈를 추가하여 별도의 안전한 지갑을 만듭니다.",

@@ -49,7 +49,7 @@
   "action_save": "Speichern",
   "add_existing_wallet_badge_phrases_length": "Unterstützt Wiederherstellungsphrasen mit 12–24 Wörtern",
   "add_existing_wallet_desc": "Übertragen, wiederherstellen oder importieren",
-  "add_existing_wallet_title": "Vorhandenes Wallet hinzufügen",
+  "add_existing_wallet_title": "Bestehendes Wallet importieren",
   "add_hidden_wallet_dialog_add_button_display": "\"Verstecktes Wallet hinzufügen\" in der Wallet-Liste anzeigen",
   "add_hidden_wallet_dialog_add_button_display_toast": "Du kannst auf die Schaltfläche \"•••\" neben dem Wallet-Namen tippen, um ein verstecktes Wallet hinzuzufügen.",
   "add_hidden_wallet_dialog_desc": "Eine versteckte Wallet fügt deiner Wiederherstellungsphrase eine Passphrase hinzu, um eine separate, sichere Wallet zu erstellen.",

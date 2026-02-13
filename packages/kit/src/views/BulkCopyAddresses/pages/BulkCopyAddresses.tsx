@@ -797,6 +797,9 @@ function BulkCopyAddresses({
 
   useEffect(() => {
     const getDefaultDeriveType = async () => {
+      if (!selectedNetworkId) {
+        return;
+      }
       const deriveType =
         await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
           networkId: selectedNetworkId,

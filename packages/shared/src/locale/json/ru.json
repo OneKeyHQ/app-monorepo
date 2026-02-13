@@ -49,7 +49,7 @@
   "action_save": "Сохранить",
   "add_existing_wallet_badge_phrases_length": "Поддерживает мнемонические фразы восстановления из 12–24 слов",
   "add_existing_wallet_desc": "Перенести, восстановить или импортировать",
-  "add_existing_wallet_title": "Добавить существующий кошелёк",
+  "add_existing_wallet_title": "Импортировать уже созданный кошелёк",
   "add_hidden_wallet_dialog_add_button_display": "Показать «Добавить скрытый кошелёк» в списке кошельков",
   "add_hidden_wallet_dialog_add_button_display_toast": "Вы можете нажать кнопку «•••» рядом с названием кошелька, чтобы добавить скрытый кошелёк",
   "add_hidden_wallet_dialog_desc": "Скрытый кошелек добавляет Passphrase к вашей фразе восстановления, чтобы создать отдельный, защищённый кошелек.",

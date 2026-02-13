@@ -49,7 +49,7 @@
   "action_save": "Simpan",
   "add_existing_wallet_badge_phrases_length": "Mendukung frasa pemulihan 12–24 kata",
   "add_existing_wallet_desc": "Transfer, memulihkan, atau mengimpor",
-  "add_existing_wallet_title": "Tambahkan dompet yang sudah ada",
+  "add_existing_wallet_title": "Impor dompet yang sudah ada",
   "add_hidden_wallet_dialog_add_button_display": "Tampilkan \"Tambah Dompet Tersembunyi\" di daftar dompet",
   "add_hidden_wallet_dialog_add_button_display_toast": "Anda dapat mengetuk tombol \"•••\" di sebelah nama dompet untuk menambahkan dompet tersembunyi",
   "add_hidden_wallet_dialog_desc": "Dompet tersembunyi menambahkan Passphrase ke frasa pemulihan Anda untuk membuat dompet terpisah yang aman.",

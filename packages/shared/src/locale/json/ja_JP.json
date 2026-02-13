@@ -49,7 +49,7 @@
   "action_save": "保存",
   "add_existing_wallet_badge_phrases_length": "12～24語のリカバリーフレーズに対応",
   "add_existing_wallet_desc": "転送、復元、またはインポート",
-  "add_existing_wallet_title": "既存のウォレットを追加",
+  "add_existing_wallet_title": "既存ウォレットをインポート",
   "add_hidden_wallet_dialog_add_button_display": "ウォレットリストに「隠しウォレットを追加」を表示",
   "add_hidden_wallet_dialog_add_button_display_toast": "ウォレット名の横にある「•••」ボタンをタップすると、非表示ウォレットを追加できます。",
   "add_hidden_wallet_dialog_desc": "隠しウォレットは、リカバリーフレーズにPassphraseを追加することで、別の安全なウォレットを作成します。",
