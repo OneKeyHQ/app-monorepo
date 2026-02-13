@@ -129,16 +129,20 @@ export function HomePageView({
   const wasBlurredRef = useRef(false);
   useFocusEffect(
     useCallback(() => {
+      let rafId: number | undefined;
       if (wasBlurredRef.current && tabsRef.current) {
         // Force PagerView to display the correct page after freeze/unfreeze.
         // jumpToTab won't work here because onTabPress skips setPage when
         // the tab is already focused. We need to call setPageWithoutAnimation
         // directly to force the native PagerView to re-render its current page.
-        requestAnimationFrame(() => {
+        rafId = requestAnimationFrame(() => {
           tabsRef.current?.syncCurrentPage();
         });
       }
       return () => {
+        if (rafId !== undefined) {
+          cancelAnimationFrame(rafId);
+        }
         wasBlurredRef.current = true;
       };
     }, []),
