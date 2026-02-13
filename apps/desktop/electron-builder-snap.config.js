@@ -15,7 +15,7 @@ module.exports = {
     'artifactName': 'OneKey-Wallet-${version}-linux-${arch}.${ext}',
     'executableName': 'onekey-wallet',
     'category': 'Utility',
-    'target': ['snap'],
+    'target': [{ target: 'snap', arch: ['x64', 'arm64'] }],
   },
   // Refer: https://canonical-snap.readthedocs-hosted.com/reference/development/interfaces/raw-usb-interface/
   'snap': {
