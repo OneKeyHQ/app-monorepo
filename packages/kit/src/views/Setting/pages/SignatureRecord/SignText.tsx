@@ -89,7 +89,6 @@ const SignTextItem = ({ item }: { item: ISignedMessage }) => {
             maxHeight="$24"
             editable={false}
             scrollEnabled
-            nestedScrollEnabled
             userSelect="none"
             value={
               item.contentType === 'json'
