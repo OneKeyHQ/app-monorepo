@@ -730,6 +730,7 @@ export enum EInPageDialogType {
   inTabPages = 'inTabPages',
   inModalPage = 'inModalPage',
   inOnboardingPage = 'inOnboardingPage',
+  inFullScreenPushPage = 'inFullScreenPushPage',
 }
 export const useInPageDialog = (dialogType?: EInPageDialogType) => {
   const navigatorPortalId = useModalNavigatorContextPortalId();
@@ -739,12 +740,11 @@ export const useInPageDialog = (dialogType?: EInPageDialogType) => {
     if (dialogType) {
       return dialogType;
     }
-    if (
-      pageType === EPageType.modal ||
-      pageType === EPageType.fullScreen ||
-      pageType === EPageType.fullScreenPush
-    ) {
+    if (pageType === EPageType.modal || pageType === EPageType.fullScreen) {
       return EInPageDialogType.inModalPage;
+    }
+    if (pageType === EPageType.fullScreenPush) {
+      return EInPageDialogType.inFullScreenPushPage;
     }
     if (pageType === EPageType.onboarding) {
       return EInPageDialogType.inOnboardingPage;
