@@ -418,6 +418,15 @@ function isImportedAccount({ accountId }: { accountId: string }): boolean {
   return isImportedWallet({ walletId });
 }
 
+function isOwnAccount({ accountId }: { accountId: string }): boolean {
+  return (
+    isHdAccount({ accountId }) ||
+    isHwAccount({ accountId }) ||
+    isQrAccount({ accountId }) ||
+    isImportedAccount({ accountId })
+  );
+}
+
 function buildHDAccountId({
   networkImpl,
   walletId,
@@ -1169,6 +1178,7 @@ export default {
   isExternalAccount,
   isWatchingAccount,
   isImportedAccount,
+  isOwnAccount,
   isAllNetworkMockAccount,
   isAllNetworkMockAddress,
   isAccountCompatibleWithNetwork,

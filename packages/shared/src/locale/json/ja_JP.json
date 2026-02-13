@@ -2217,6 +2217,7 @@
   "market.1y": "1年",
   "market.24h": "24時間",
   "market.24h_price_range": "24時間の価格範囲",
+  "market.24h_turnover": "24h 取引高",
   "market.24h_txns": "24時間取引",
   "market.24h_vol_usd": "24時間ボリューム (USD)",
   "market.30d": "30日",
