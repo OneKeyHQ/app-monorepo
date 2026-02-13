@@ -49,7 +49,7 @@
   "action_save": "सहेजें",
   "add_existing_wallet_badge_phrases_length": "12–24 शब्दों वाले रिकवरी फ़्रेज़ का समर्थन करता है",
   "add_existing_wallet_desc": "ट्रांसफर, पुनर्स्थापना या आयात",
-  "add_existing_wallet_title": "मौजूदा वॉलेट जोड़ें",
+  "add_existing_wallet_title": "मौजूदा वॉलेट इम्पोर्ट करें",
   "add_hidden_wallet_dialog_add_button_display": "वॉलेट सूची में \"Add Hidden Wallet\" दिखाएँ",
   "add_hidden_wallet_dialog_add_button_display_toast": "आप वॉलेट के नाम के बगल में \"•••\" बटन पर टैप करके एक छुपा हुआ वॉलेट जोड़ सकते हैं।",
   "add_hidden_wallet_dialog_desc": "एक छिपा हुआ वॉलेट आपकी रिकवरी फ्रेज़ में एक Passphrase जोड़ता है, जिससे एक अलग और सुरक्षित वॉलेट बनता है।",
