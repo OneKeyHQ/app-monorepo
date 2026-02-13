@@ -1,27 +1,23 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useMemo } from 'react';
 
-import { Allotment } from 'allotment';
-import 'allotment/dist/style.css';
-import './PerpAllotment.css';
-import { debounce } from 'lodash';
+import { useIntl } from 'react-intl';
 
 import {
   IconButton,
+  SizableText,
   Stack,
   XStack,
   YStack,
   useMedia,
 } from '@onekeyhq/components';
-import {
-  DEFAULT_PERPS_LAYOUT_STATE,
-  usePerpsLayoutStateAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { usePerpsLayoutStateAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { PERP_LAYOUT_CONFIG } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
 import { FavoritesBar } from '../components/FavoritesBar/FavoritesBar.web';
 import { PerpOrderInfoPanel } from '../components/OrderInfoPanel/PerpOrderInfoPanel';
 import { PerpCandles } from '../components/PerpCandles';
-import { PerpOrderBookResizable } from '../components/PerpOrderBookResizable.web';
+import { PerpOrderBook } from '../components/PerpOrderBook';
 import { PerpTips } from '../components/PerpTips';
 import { PerpTickerBar } from '../components/TickerBar/PerpTickerBar';
 import {
@@ -30,106 +26,52 @@ import {
 } from '../components/TradingPanel/panels/PerpAccountPanel';
 import { PerpTradingPanel } from '../components/TradingPanel/PerpTradingPanel';
 
-import type { AllotmentHandle } from 'allotment';
+function calculateMaxLevelsPerSide(containerHeight: number): number {
+  // We want to minimize visible "blank" space at the bottom of the order book.
+  // The vertical web order book renders:
+  // - Root padding: 1px top + 1px bottom (2px)
+  // - Table header (Price/Size/Total): 24px
+  // - Spread row: 24px + 1px marginTop (25px)
+  // - Each level row: 24px + 1px marginTop (25px)
+  //
+  // Total height: baseHeight(51px) + 2 * levelsPerSide * 25px
+  const baseHeight = 2 + 24 + 25;
+  const levelRowStep = 25;
+
+  if (containerHeight <= 0) return 11;
+  if (containerHeight <= baseHeight) return 3;
+
+  let levelsPerSide = Math.floor(
+    (containerHeight - baseHeight) / (2 * levelRowStep),
+  );
+  levelsPerSide = Math.max(3, Math.min(levelsPerSide, 50));
+
+  // If we have a noticeable gap, prefer one extra level and accept a tiny clip
+  // instead of showing empty space.
+  const usedHeight = baseHeight + 2 * levelsPerSide * levelRowStep;
+  const blank = containerHeight - usedHeight;
+  if (blank > levelRowStep / 2 && levelsPerSide < 50) {
+    levelsPerSide += 1;
+  }
+
+  return levelsPerSide;
+}
 
 function PerpDesktopLayout() {
+  const intl = useIntl();
   const { gtXl } = useMedia();
-  const mainAllotmentRef = useRef<AllotmentHandle>(null);
-  const leftPanelAllotmentRef = useRef<AllotmentHandle>(null);
-  const isInitializedRef = useRef(false);
-  const lastResetAtRef = useRef<number | undefined>(undefined);
-  const containerRef = useRef<HTMLDivElement>(null);
-
   const [layoutState, setLayoutState] = usePerpsLayoutStateAtom();
-  const setLayoutStateRef = useRef(setLayoutState);
-  setLayoutStateRef.current = setLayoutState;
 
-  const mainSizes = useMemo(
-    () => [layoutState.main.marketRatio, 100 - layoutState.main.marketRatio],
-    [layoutState.main.marketRatio],
-  );
+  const layout = PERP_LAYOUT_CONFIG.desktop;
 
-  const leftPanelSizes = useMemo(
-    () => [
-      layoutState.leftPanel.chartsRatio,
-      100 - layoutState.leftPanel.chartsRatio,
-    ],
-    [layoutState.leftPanel.chartsRatio],
-  );
-
-  const handleMainChangeDebounced = useMemo(
+  const showOrderBook = gtXl && layoutState.orderBook.visible;
+  const tradingWidth = gtXl ? layout.widths.tradingXl : layout.widths.trading;
+  const orderBookMaxLevelsPerSide = useMemo(
     () =>
-      debounce((sizes: number[]) => {
-        if (!isInitializedRef.current) return;
-
-        const totalSize = sizes[0] + sizes[1];
-        const marketRatioPercent = (sizes[0] / totalSize) * 100;
-
-        setLayoutStateRef.current((prev) => ({
-          ...prev,
-          main: { marketRatio: marketRatioPercent },
-        }));
-      }, 500),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [],
-  );
-
-  const handleLeftPanelChangeDebounced = useMemo(
-    () =>
-      debounce((sizes: number[]) => {
-        if (!isInitializedRef.current) return;
-
-        const totalSize = sizes[0] + sizes[1];
-        const chartsRatioPercent = (sizes[0] / totalSize) * 100;
-
-        setLayoutStateRef.current((prev) => ({
-          ...prev,
-          leftPanel: { chartsRatio: chartsRatioPercent },
-        }));
-      }, 500),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [],
-  );
-
-  const handleLeftPanelChange = useCallback(
-    (sizes: number[]) => {
-      handleLeftPanelChangeDebounced(sizes);
-
-      if (!PERP_LAYOUT_CONFIG.enableAutoCollapse) return;
-
-      const chartsSize = sizes[0];
-      const infoPanelSize = sizes[1];
-
-      let needsUpdate = false;
-      let newChartsSize = chartsSize;
-      let newInfoPanelSize = infoPanelSize;
-
-      if (
-        chartsSize > 0 &&
-        chartsSize < PERP_LAYOUT_CONFIG.leftPanel.charts.collapseThreshold
-      ) {
-        newChartsSize = 0;
-        newInfoPanelSize = chartsSize + infoPanelSize;
-        needsUpdate = true;
-      }
-
-      if (
-        infoPanelSize > 0 &&
-        infoPanelSize < PERP_LAYOUT_CONFIG.leftPanel.infoPanel.collapseThreshold
-      ) {
-        newChartsSize = chartsSize + infoPanelSize;
-        newInfoPanelSize = 0;
-        needsUpdate = true;
-      }
-
-      if (needsUpdate) {
-        leftPanelAllotmentRef.current?.resize([
-          newChartsSize,
-          newInfoPanelSize,
-        ]);
-      }
-    },
-    [handleLeftPanelChangeDebounced],
+      calculateMaxLevelsPerSide(
+        layout.marketContentHeight - layout.panelHeaderHeight,
+      ),
+    [layout.marketContentHeight, layout.panelHeaderHeight],
   );
 
   const toggleOrderBook = useCallback(() => {
@@ -139,202 +81,154 @@ function PerpDesktopLayout() {
     }));
   }, [setLayoutState]);
 
-  const applyDefaultLayout = useCallback(() => {
-    if (!mainAllotmentRef.current || !containerRef.current) return;
+  const tradingPanel = useMemo(() => {
+    return (
+      <YStack
+        h={layout.marketContentHeight}
+        minWidth={PERP_LAYOUT_CONFIG.main.tradingMinWidth}
+        maxWidth={PERP_LAYOUT_CONFIG.main.tradingMaxWidth}
+        w={tradingWidth}
+        borderLeftWidth="$px"
+        borderLeftColor="$borderSubdued"
+      >
+        <Stack flex={1} style={{ overflowY: 'auto' }}>
+          <YStack pb="$4">
+            <PerpTradingPanel />
+          </YStack>
+        </Stack>
+      </YStack>
+    );
+  }, [layout.marketContentHeight, tradingWidth]);
 
-    requestAnimationFrame(() => {
-      if (!mainAllotmentRef.current || !containerRef.current) return;
-
-      const containerWidth = containerRef.current.offsetWidth;
-      if (containerWidth === 0) return;
-
-      const tradingWidth = gtXl
-        ? PERP_LAYOUT_CONFIG.main.tradingDefaultWidthXl
-        : PERP_LAYOUT_CONFIG.main.tradingDefaultWidth;
-      const marketWidth = containerWidth - tradingWidth;
-
-      mainAllotmentRef.current.resize([marketWidth, tradingWidth]);
-
-      if (leftPanelAllotmentRef.current) {
-        leftPanelAllotmentRef.current.reset();
-      }
-
-      setLayoutStateRef.current((prev) => {
-        const { resetAt, ...rest } = prev;
-        return rest;
-      });
-    });
-  }, [gtXl]);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      isInitializedRef.current = true;
-    }, 500);
-
-    return () => {
-      clearTimeout(timer);
-      handleMainChangeDebounced.cancel();
-      handleLeftPanelChangeDebounced.cancel();
-    };
-  }, [handleMainChangeDebounced, handleLeftPanelChangeDebounced]);
-
-  useEffect(() => {
-    if (!isInitializedRef.current) return;
-
-    if (
-      layoutState.resetAt !== undefined &&
-      layoutState.resetAt !== lastResetAtRef.current
-    ) {
-      lastResetAtRef.current = layoutState.resetAt;
-      applyDefaultLayout();
-    }
-  }, [layoutState.resetAt, applyDefaultLayout]);
-
-  useEffect(() => {
-    // Check if this is first load and if layout is still at default values
-    // This initializes resetAt to allow future reset detection
-    const state = layoutState; // Capture initial state
-    if (
-      state.resetAt === undefined &&
-      state.main.marketRatio === DEFAULT_PERPS_LAYOUT_STATE.main.marketRatio &&
-      state.leftPanel.chartsRatio ===
-        DEFAULT_PERPS_LAYOUT_STATE.leftPanel.chartsRatio
-    ) {
-      setLayoutStateRef.current((prev) => ({ ...prev, resetAt: 0 }));
-    }
-    // Only run on mount - layoutState is captured, not tracked
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const accountPanel = useMemo(() => {
+    return (
+      <YStack
+        h={layout.bottomPanelHeight}
+        minWidth={PERP_LAYOUT_CONFIG.main.tradingMinWidth}
+        maxWidth={PERP_LAYOUT_CONFIG.main.tradingMaxWidth}
+        w={tradingWidth}
+        borderLeftWidth="$px"
+        borderLeftColor="$borderSubdued"
+      >
+        <XStack alignItems="center">
+          <XStack pt="$3" px="$2.5">
+            <SizableText size="$bodyMdMedium">
+              {intl.formatMessage({
+                id: ETranslations.perp_trade_account_overview,
+              })}
+            </SizableText>
+          </XStack>
+        </XStack>
+        <Stack flex={1} style={{ overflowY: 'auto' }}>
+          <YStack pb="$4">
+            <PerpAccountPanel />
+            <PerpAccountDebugInfo />
+          </YStack>
+        </Stack>
+      </YStack>
+    );
+  }, [
+    intl,
+    layout.bottomPanelHeaderHeight,
+    layout.bottomPanelHeight,
+    tradingWidth,
+  ]);
 
   return (
-    <YStack flex={1}>
+    <Stack flex={1} style={{ overflowY: 'auto' }}>
       <YStack>
         <PerpTips />
         <FavoritesBar />
-      </YStack>
 
-      <Stack ref={containerRef} flex={1} display="flex">
-        <Allotment
-          ref={mainAllotmentRef}
-          defaultSizes={mainSizes}
-          onChange={handleMainChangeDebounced}
-        >
-          <Allotment.Pane minSize={PERP_LAYOUT_CONFIG.main.marketMinWidth}>
-            <YStack height="100%">
-              <Allotment
-                ref={leftPanelAllotmentRef}
-                vertical
-                defaultSizes={leftPanelSizes}
-                onChange={handleLeftPanelChange}
-              >
-                <Allotment.Pane
-                  minSize={
-                    PERP_LAYOUT_CONFIG.enableAutoCollapse
-                      ? 0
-                      : PERP_LAYOUT_CONFIG.leftPanel.charts.minHeight
-                  }
-                  snap={PERP_LAYOUT_CONFIG.enableAutoCollapse}
-                  preferredSize={`${PERP_LAYOUT_CONFIG.leftPanel.charts.defaultRatio}%`}
-                >
+        <YStack borderBottomWidth="$px" borderBottomColor="$borderSubdued">
+          <PerpTickerBar />
+
+          <XStack h={layout.marketContentHeight} overflow="hidden">
+            <YStack flex={1} minWidth={PERP_LAYOUT_CONFIG.main.marketMinWidth}>
+              <XStack flex={1} overflow="hidden">
+                <YStack flex={1} position="relative">
+                  <PerpCandles />
+
+                  {gtXl ? (
+                    <Stack
+                      position="absolute"
+                      top="50%"
+                      right={showOrderBook ? -4 : 3.5}
+                      zIndex={2}
+                      marginTop={-2}
+                    >
+                      <IconButton
+                        icon={
+                          showOrderBook
+                            ? 'ChevronRightSmallSolid'
+                            : 'ChevronLeftSmallSolid'
+                        }
+                        size="small"
+                        variant="tertiary"
+                        bg="$bg"
+                        borderWidth="$px"
+                        borderColor="$borderSubdued"
+                        borderRadius="$1"
+                        p="$0"
+                        h={30}
+                        w={16}
+                        cursor="default"
+                        hoverStyle={{
+                          borderColor: '$border',
+                        }}
+                        pressStyle={{
+                          borderColor: '$border',
+                        }}
+                        onPress={toggleOrderBook}
+                      />
+                    </Stack>
+                  ) : null}
+                </YStack>
+
+                {showOrderBook ? (
                   <YStack
-                    height="100%"
-                    borderBottomWidth="$px"
-                    borderBottomColor="$borderSubdued"
+                    borderLeftWidth="$px"
+                    borderLeftColor="$borderSubdued"
+                    w={layout.widths.orderBook}
+                    h="100%"
+                    overflow="hidden"
                   >
-                    <PerpTickerBar />
-                    <XStack flex={1} overflow="hidden">
-                      <YStack flex={1} position="relative">
-                        <YStack flex={1}>
-                          <PerpCandles />
-                        </YStack>
-
-                        {gtXl ? (
-                          <Stack
-                            position="absolute"
-                            top="50%"
-                            right={layoutState.orderBook.visible ? -4 : 3.5}
-                            zIndex={2}
-                            marginTop={-2}
-                          >
-                            <IconButton
-                              icon={
-                                layoutState.orderBook.visible
-                                  ? 'ChevronRightSmallSolid'
-                                  : 'ChevronLeftSmallSolid'
-                              }
-                              size="small"
-                              variant="tertiary"
-                              bg="$bg"
-                              borderWidth="$px"
-                              borderColor="$borderSubdued"
-                              borderRadius="$1"
-                              p="$0"
-                              h={30}
-                              w={16}
-                              cursor="default"
-                              hoverStyle={{
-                                borderColor: '$border',
-                              }}
-                              pressStyle={{
-                                borderColor: '$border',
-                              }}
-                              onPress={toggleOrderBook}
-                            />
-                          </Stack>
-                        ) : null}
-                      </YStack>
-
-                      {gtXl && layoutState.orderBook.visible ? (
-                        <YStack
-                          borderLeftWidth="$px"
-                          borderLeftColor="$borderSubdued"
-                          w={PERP_LAYOUT_CONFIG.orderBook.width}
-                          height="100%"
-                          overflow="hidden"
-                        >
-                          <PerpOrderBookResizable />
-                        </YStack>
-                      ) : null}
+                    <XStack
+                      h={layout.panelHeaderHeight}
+                      alignItems="center"
+                      borderBottomWidth="$px"
+                      borderBottomColor="$borderSubdued"
+                      px="$2"
+                    >
+                      <SizableText size="$bodyMdMedium">Order Book</SizableText>
                     </XStack>
+                    <YStack flex={1} overflow="hidden">
+                      <PerpOrderBook
+                        maxLevelsPerSide={orderBookMaxLevelsPerSide}
+                      />
+                    </YStack>
                   </YStack>
-                </Allotment.Pane>
-
-                <Allotment.Pane
-                  minSize={
-                    PERP_LAYOUT_CONFIG.enableAutoCollapse
-                      ? 0
-                      : PERP_LAYOUT_CONFIG.leftPanel.infoPanel.minHeight
-                  }
-                  snap={PERP_LAYOUT_CONFIG.enableAutoCollapse}
-                >
-                  <YStack height="100%">
-                    <PerpOrderInfoPanel />
-                  </YStack>
-                </Allotment.Pane>
-              </Allotment>
+                ) : null}
+              </XStack>
             </YStack>
-          </Allotment.Pane>
 
-          <Allotment.Pane
-            minSize={PERP_LAYOUT_CONFIG.main.tradingMinWidth}
-            maxSize={PERP_LAYOUT_CONFIG.main.tradingMaxWidth}
+            {tradingPanel}
+          </XStack>
+
+          <XStack
+            h={layout.bottomPanelHeight}
+            borderTopWidth="$px"
+            borderTopColor="$borderSubdued"
+            overflow="hidden"
           >
-            <YStack
-              height="100%"
-              minWidth={PERP_LAYOUT_CONFIG.main.tradingMinWidth}
-              gap="$4"
-              style={{ overflow: 'auto' }}
-            >
-              <PerpTradingPanel />
-              <YStack borderTopWidth="$px" borderTopColor="$borderSubdued">
-                <PerpAccountPanel />
-                <PerpAccountDebugInfo />
-              </YStack>
+            <YStack flex={1} h="100%">
+              <PerpOrderInfoPanel />
             </YStack>
-          </Allotment.Pane>
-        </Allotment>
-      </Stack>
-    </YStack>
+            {accountPanel}
+          </XStack>
+        </YStack>
+      </YStack>
+    </Stack>
   );
 }
 

@@ -16,7 +16,6 @@ import {
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useCheckWalletReferralCodeBound } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useCheckWalletReferralCodeBound';
 import {
-  DEFAULT_PERPS_LAYOUT_STATE,
   usePerpsActiveAccountAtom,
   usePerpsCustomSettingsAtom,
   usePerpsLayoutStateAtom,
@@ -24,6 +23,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { PERP_LAYOUT_CONFIG } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
 import { PerpsProviderMirror } from '../PerpsProviderMirror';
 
@@ -176,7 +176,7 @@ function PerpSettingsPopoverContent({
           </XStack>
         </ListItem>
       ) : null}
-      {SHOW_RESET_LAYOUT ? (
+      {SHOW_RESET_LAYOUT && PERP_LAYOUT_CONFIG.enableResizablePanels ? (
         <ListItem
           mx="$0"
           px="$2.5"
@@ -185,10 +185,12 @@ function PerpSettingsPopoverContent({
           })}
           titleProps={{ size: '$bodyMdMedium' }}
           onPress={() => {
-            setPerpsLayoutState({
-              ...DEFAULT_PERPS_LAYOUT_STATE,
+            // Keep only the parts we still support (e.g. orderbook visibility).
+            setPerpsLayoutState((prev) => ({
+              ...prev,
+              orderBook: { visible: true },
               resetAt: Date.now(),
-            });
+            }));
             closePopover();
           }}
           cursor="default"
