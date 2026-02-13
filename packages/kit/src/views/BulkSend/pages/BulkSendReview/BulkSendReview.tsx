@@ -2,7 +2,14 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Page, Toast, YStack, rootNavigationRef } from '@onekeyhq/components';
+import {
+  Page,
+  Toast,
+  YStack,
+  popToTabRootScreen,
+  rootNavigationRef,
+  switchTab,
+} from '@onekeyhq/components';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -21,6 +28,8 @@ import {
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { waitAsync } from '@onekeyhq/shared/src/utils/promiseUtils';
 import type { ISendSelectedFeeInfo } from '@onekeyhq/shared/types/fee';
 import { EFeeType, ESendFeeStatus } from '@onekeyhq/shared/types/fee';
@@ -293,18 +302,27 @@ function BaseBulkSendReview({
       // Mobile: close the entire bulk send modal stack
       navigation.popStack();
     } else {
-      navigation.popStack();
-      await waitAsync(50);
-      rootNavigationRef.current?.navigate(
-        ETabRoutes.Home,
-        {
-          screen: ETabHomeRoutes.TabHome,
-        },
-        {
-          pop: true,
-        },
-      );
+      if (platformEnv.isNative) {
+        // Native: use original navigation logic
+        navigation.popStack();
+        await waitAsync(50);
+        rootNavigationRef.current?.navigate(
+          ETabRoutes.Home,
+          {
+            screen: ETabHomeRoutes.TabHome,
+          },
+          {
+            pop: true,
+          },
+        );
+      } else {
+        // Web/Desktop: switch tab and pop to root screen
+        switchTab(ETabRoutes.Home);
+        await timerUtils.wait(50);
+        await popToTabRootScreen();
+      }
     }
+
   }, [isInModal, navigation, accountId]);
 
   const handleConfirm = useCallback(async () => {
