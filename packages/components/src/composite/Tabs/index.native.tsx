@@ -31,6 +31,7 @@ const Container = React.forwardRef<any, PropsWithChildren<CollapsibleProps>>(
     );
   },
 );
+Container.displayName = 'NativeTabsContainer';
 
 export const Tabs = {
   ...NativeTabs,
