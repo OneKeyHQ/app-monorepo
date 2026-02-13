@@ -35,7 +35,7 @@ type IUseBulkSendFeeEstimationParams = {
 };
 
 // Scale gasLimit for bulk transfer txs when batch estimation is not available.
-// For transfer txs (non-approve), multiply gasLimit by (transfersInfo.length + 2)
+// For transfer txs (non-approve), multiply gasLimit by (transfersInfo.length)
 // to account for the higher gas consumption of multi-call contracts.
 function scaleGasLimitForBulkTransfer(
   feeInfo: IFeeInfoUnit,
