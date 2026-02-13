@@ -173,7 +173,9 @@ function PerpDesktopLayout() {
                     >
                       <SizableText size="$bodyMdMedium">
                         {intl.formatMessage({
-                          id: ETranslations.perp_order_book_depth,
+                      <SizableText size="$bodyMdMedium">
+                        {intl.formatMessage({
+                          id: ETranslations.perps_order_book,
                         })}
                       </SizableText>
                     </XStack>
