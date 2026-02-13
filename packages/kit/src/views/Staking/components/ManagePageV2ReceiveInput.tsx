@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
+import type { IAmountInputFormItemProps } from '@onekeyhq/kit/src/components/AmountInput';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { IStakeTransactionConfirmation } from '@onekeyhq/shared/types/staking';
@@ -18,6 +19,9 @@ export type IManagePageV2ReceiveInputConfig = {
   networkImageUri?: string;
   balance?: string;
   price?: string;
+  tokenSelectorTriggerProps?: Partial<
+    NonNullable<IAmountInputFormItemProps['tokenSelectorTriggerProps']>
+  >;
 };
 
 export function ManagePageV2ReceiveInput({
@@ -51,6 +55,22 @@ export function ManagePageV2ReceiveInput({
     return amountBN.multipliedBy(priceBN).toFixed();
   }, [receiveAmount, config?.price]);
 
+  const receiveTokenSelectorTriggerProps = useMemo(
+    () => ({
+      selectedTokenImageUri: config?.tokenImageUri,
+      selectedTokenSymbol: config?.tokenSymbol,
+      selectedNetworkImageUri: config?.networkImageUri,
+      disabled: true,
+      ...config?.tokenSelectorTriggerProps,
+    }),
+    [
+      config?.networkImageUri,
+      config?.tokenImageUri,
+      config?.tokenSelectorTriggerProps,
+      config?.tokenSymbol,
+    ],
+  );
+
   if (!enabled) {
     return null;
   }
@@ -68,12 +88,7 @@ export function ManagePageV2ReceiveInput({
       value={receiveAmount}
       onChange={() => {}}
       onBlur={() => {}}
-      tokenSelectorTriggerProps={{
-        selectedTokenImageUri: config?.tokenImageUri,
-        selectedTokenSymbol: config?.tokenSymbol,
-        selectedNetworkImageUri: config?.networkImageUri,
-        disabled: true,
-      }}
+      tokenSelectorTriggerProps={receiveTokenSelectorTriggerProps}
       inputProps={{
         placeholder: '0',
       }}

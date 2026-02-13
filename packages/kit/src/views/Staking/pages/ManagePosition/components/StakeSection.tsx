@@ -1,7 +1,6 @@
 import type { ReactElement } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -163,45 +162,56 @@ export const StakeSection = ({
       },
     );
 
+  const { result: nativeTokenDetail, isLoading: nativeTokenLoading } =
+    usePromiseResult(
+      async () => {
+        if (
+          !hasRequiredData ||
+          !isPendleProvider ||
+          useBorrowApi ||
+          !accountId ||
+          !networkId
+        ) {
+          return undefined;
+        }
+        return backgroundApiProxy.serviceToken.getNativeToken({
+          accountId,
+          networkId,
+        });
+      },
+      [
+        hasRequiredData,
+        isPendleProvider,
+        useBorrowApi,
+        accountId,
+        networkId,
+      ],
+      {
+        watchLoading: true,
+      },
+    );
+
+  const nativeFallbackStakeAsset = useMemo<IEarnTokenItem | undefined>(() => {
+    if (!nativeTokenDetail) {
+      return undefined;
+    }
+    return {
+      balance: '0',
+      balanceParsed: '0',
+      fiatValue: '0',
+      price: '0',
+      price24h: '0',
+      info: nativeTokenDetail,
+    };
+  }, [nativeTokenDetail]);
+
   const selectableStakeAssets = useMemo(() => {
     const assets = stakeAssetsList?.assets ?? [];
-    if (!assets.length) {
-      return [];
+    if (assets.length > 0) {
+      return assets;
     }
-
-    const map = new Map<string, IEarnTokenItem>();
-    assets.forEach((asset) => {
-      const key = normalizeTokenAddress({
-        address: asset.info.address,
-        isNative: asset.info.isNative,
-      });
-      const mapKey = key || `native-${asset.info.symbol.toLowerCase()}`;
-      const current = map.get(mapKey);
-      if (!current) {
-        map.set(mapKey, asset);
-        return;
-      }
-      const currentFiat = new BigNumber(current.fiatValue || '0');
-      const nextFiat = new BigNumber(asset.fiatValue || '0');
-      if (nextFiat.gt(currentFiat)) {
-        map.set(mapKey, asset);
-      }
-    });
-
-    return Array.from(map.values()).toSorted((a, b) => {
-      const aFiat = new BigNumber(a.fiatValue || '0');
-      const bFiat = new BigNumber(b.fiatValue || '0');
-      if (aFiat.eq(bFiat)) {
-        const aUniqueKey = a.info.uniqueKey || '';
-        const bUniqueKey = b.info.uniqueKey || '';
-        return (
-          a.info.symbol.localeCompare(b.info.symbol) ||
-          aUniqueKey.localeCompare(bUniqueKey)
-        );
-      }
-      return bFiat.gt(aFiat) ? 1 : -1;
-    });
-  }, [stakeAssetsList?.assets]);
+    return nativeFallbackStakeAsset ? [nativeFallbackStakeAsset] : [];
+  }, [stakeAssetsList?.assets, nativeFallbackStakeAsset]);
 
   useEffect(() => {
     if (!selectableStakeAssets.length) {
@@ -230,41 +240,9 @@ export const StakeSection = ({
         }
       }
 
-      const defaultAddress = normalizeTokenAddress({
-        address: tokenInfo?.token.address,
-        isNative: tokenInfo?.token.isNative,
-      });
-      const defaultSymbol = tokenInfo?.token.symbol?.toLowerCase() || '';
-
-      const matchedByAddress = selectableStakeAssets.find((asset) => {
-        const assetAddress = normalizeTokenAddress({
-          address: asset.info.address,
-          isNative: asset.info.isNative,
-        });
-        return (
-          assetAddress === defaultAddress &&
-          asset.info.symbol.toLowerCase() === defaultSymbol
-        );
-      });
-      if (matchedByAddress) {
-        return matchedByAddress;
-      }
-
-      const matchedBySymbol = selectableStakeAssets.find(
-        (asset) => asset.info.symbol.toLowerCase() === defaultSymbol,
-      );
-      if (matchedBySymbol) {
-        return matchedBySymbol;
-      }
-
       return selectableStakeAssets[0];
     });
-  }, [
-    selectableStakeAssets,
-    tokenInfo?.token.address,
-    tokenInfo?.token.isNative,
-    tokenInfo?.token.symbol,
-  ]);
+  }, [selectableStakeAssets]);
 
   const effectiveStakeTokenInfo = useMemo(() => {
     if (!tokenInfo || !selectedStakeAsset) {
@@ -345,7 +323,10 @@ export const StakeSection = ({
       );
     }
     return '';
-  }, [selectedStakeAsset?.info, effectiveStakeTokenInfo?.token]);
+  }, [
+    selectedStakeAsset?.info,
+    effectiveStakeTokenInfo?.token,
+  ]);
 
   const stakeTokenSelectorTriggerProps = useMemo(() => {
     if (!isPendleProvider || !selectableStakeAssets.length) {
@@ -353,7 +334,10 @@ export const StakeSection = ({
     }
 
     return {
-      disabled: stakeAssetsLoading || selectableStakeAssets.length <= 1,
+      disabled:
+        stakeAssetsLoading ||
+        nativeTokenLoading ||
+        selectableStakeAssets.length <= 1,
       popover:
         selectableStakeAssets.length > 1
           ? {
@@ -362,7 +346,7 @@ export const StakeSection = ({
               }),
               content: createStakeAssetSelectPopoverContent({
                 assets: selectableStakeAssets,
-                isLoading: stakeAssetsLoading,
+                isLoading: stakeAssetsLoading || nativeTokenLoading,
                 selectedUniqueKey: selectedStakeTokenUniqueKey,
                 onSelect: (item) => {
                   setSelectedStakeAsset(item);
@@ -377,6 +361,7 @@ export const StakeSection = ({
     selectableStakeAssets,
     selectedStakeTokenUniqueKey,
     stakeAssetsLoading,
+    nativeTokenLoading,
   ]);
 
   const { result: estimateFeeUTXO } = usePromiseResult(async () => {

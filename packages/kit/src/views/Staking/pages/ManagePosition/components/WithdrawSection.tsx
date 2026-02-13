@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -8,6 +8,7 @@ import {
   useUniversalBorrowRepay,
   useUniversalBorrowWithdraw,
 } from '@onekeyhq/kit/src/views/Borrow/hooks/useUniversalBorrowHooks';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import {
@@ -15,16 +16,52 @@ import {
   EEarnLabels,
   type IBorrowAsset,
   type IBorrowAssetsList,
+  type IEarnAssetsList,
   type IEarnTokenInfo,
+  type IEarnTokenItem,
   type IProtocolInfo,
 } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
+import { useIntl } from 'react-intl';
 
+import { createStakeAssetSelectPopoverContent } from '../../../components/StakeAssetSelectPopover';
 import { UniversalWithdraw } from '../../../components/UniversalWithdraw';
 import type { IManagePageV2ReceiveInputConfig } from '../../../components/ManagePageV2ReceiveInput';
 import { useBorrowApiParams } from '../../../hooks/useBorrowApiParams';
 import { useUniversalWithdraw } from '../../../hooks/useUniversalHooks';
 import { buildBorrowTag } from '../../../utils/utils';
+
+function normalizeTokenAddress(params?: { address?: string; isNative?: boolean }) {
+  if (!params) {
+    return '';
+  }
+  if (params.isNative) {
+    return '';
+  }
+  return (params.address || '').toLowerCase();
+}
+
+function resolveTokenAddress(params?: { address?: string; isNative?: boolean }) {
+  if (!params || params.isNative) {
+    return '';
+  }
+  return params.address || '';
+}
+
+function buildTokenUniqueKey(params?: {
+  uniqueKey?: string;
+  address?: string;
+  symbol?: string;
+  isNative?: boolean;
+}) {
+  if (!params) {
+    return '';
+  }
+  if (params.uniqueKey) {
+    return params.uniqueKey;
+  }
+  return `${params.isNative ? 'native' : params.address}-${params.symbol || ''}`;
+}
 
 export const WithdrawSection = ({
   accountId,
@@ -61,6 +98,7 @@ export const WithdrawSection = ({
   borrowActionLabel?: string;
   receiveInputConfig?: IManagePageV2ReceiveInputConfig;
 }) => {
+  const intl = useIntl();
   // Early return if no tokenInfo or protocolInfo
   // This happens when there's no account or no address
   const hasRequiredData = tokenInfo && protocolInfo;
@@ -68,9 +106,16 @@ export const WithdrawSection = ({
     () => protocolInfo?.provider ?? '',
     [protocolInfo?.provider],
   );
+  const isPendleProvider = useMemo(
+    () => earnUtils.isPendleProvider({ providerName }),
+    [providerName],
+  );
 
   // State for selected asset from popover (override the default)
   const [selectedAsset, setSelectedAsset] = useState<IBorrowAsset | null>(null);
+  const [selectedReceiveAsset, setSelectedReceiveAsset] = useState<
+    IEarnTokenItem | undefined
+  >(undefined);
 
   // Fetch selectable assets for Withdraw/Repay popover
   const { result: assetsList, isLoading: assetsListLoading } =
@@ -107,6 +152,216 @@ export const WithdrawSection = ({
         watchLoading: true,
       },
     );
+
+  const { result: unstakeAssetsList, isLoading: unstakeAssetsLoading } =
+    usePromiseResult<IEarnAssetsList | undefined>(
+      async () => {
+        if (
+          !hasRequiredData ||
+          !isPendleProvider ||
+          useBorrowApi ||
+          !accountId ||
+          !protocolInfo?.symbol
+        ) {
+          return undefined;
+        }
+        return backgroundApiProxy.serviceStaking.getEarnAssetsList({
+          accountId,
+          networkId,
+          provider: providerName,
+          symbol: protocolInfo.symbol,
+          vault: protocolInfo.vault || undefined,
+          action: 'unstake',
+        });
+      },
+      [
+        hasRequiredData,
+        isPendleProvider,
+        useBorrowApi,
+        accountId,
+        networkId,
+        providerName,
+        protocolInfo?.symbol,
+        protocolInfo?.vault,
+      ],
+      {
+        watchLoading: true,
+      },
+    );
+
+  const { result: nativeTokenDetail, isLoading: nativeTokenLoading } =
+    usePromiseResult(
+      async () => {
+        if (
+          !hasRequiredData ||
+          !isPendleProvider ||
+          useBorrowApi ||
+          !accountId ||
+          !networkId
+        ) {
+          return undefined;
+        }
+        return backgroundApiProxy.serviceToken.getNativeToken({
+          accountId,
+          networkId,
+        });
+      },
+      [hasRequiredData, isPendleProvider, useBorrowApi, accountId, networkId],
+      {
+        watchLoading: true,
+      },
+    );
+
+  const nativeFallbackReceiveAsset = useMemo<IEarnTokenItem | undefined>(() => {
+    if (!nativeTokenDetail) {
+      return undefined;
+    }
+    return {
+      balance: '0',
+      balanceParsed: '0',
+      fiatValue: '0',
+      price: '0',
+      price24h: '0',
+      info: nativeTokenDetail,
+    };
+  }, [nativeTokenDetail]);
+
+  const selectableReceiveAssets = useMemo(() => {
+    const assets = unstakeAssetsList?.assets ?? [];
+    if (assets.length > 0) {
+      return assets;
+    }
+    return nativeFallbackReceiveAsset ? [nativeFallbackReceiveAsset] : [];
+  }, [unstakeAssetsList?.assets, nativeFallbackReceiveAsset]);
+
+  useEffect(() => {
+    if (!isPendleProvider || useBorrowApi) {
+      setSelectedReceiveAsset(undefined);
+      return;
+    }
+
+    if (!selectableReceiveAssets.length) {
+      setSelectedReceiveAsset(undefined);
+      return;
+    }
+
+    setSelectedReceiveAsset((prev) => {
+      if (prev) {
+        const prevAddress = normalizeTokenAddress({
+          address: prev.info.address,
+          isNative: prev.info.isNative,
+        });
+        const prevSymbol = prev.info.symbol.toLowerCase();
+        const matchedPrev = selectableReceiveAssets.find((asset) => {
+          const assetAddress = normalizeTokenAddress({
+            address: asset.info.address,
+            isNative: asset.info.isNative,
+          });
+          return (
+            assetAddress === prevAddress &&
+            asset.info.symbol.toLowerCase() === prevSymbol
+          );
+        });
+        if (matchedPrev) {
+          return matchedPrev;
+        }
+      }
+
+      return selectableReceiveAssets[0];
+    });
+  }, [isPendleProvider, selectableReceiveAssets, useBorrowApi]);
+
+  const selectedReceiveTokenUniqueKey = useMemo(
+    () =>
+      buildTokenUniqueKey({
+        uniqueKey: selectedReceiveAsset?.info.uniqueKey,
+        address: selectedReceiveAsset?.info.address,
+        symbol: selectedReceiveAsset?.info.symbol,
+        isNative: selectedReceiveAsset?.info.isNative,
+      }),
+    [
+      selectedReceiveAsset?.info.address,
+      selectedReceiveAsset?.info.isNative,
+      selectedReceiveAsset?.info.symbol,
+      selectedReceiveAsset?.info.uniqueKey,
+    ],
+  );
+
+  const receiveTokenSelectorTriggerProps = useMemo(() => {
+    if (!isPendleProvider || useBorrowApi || !selectableReceiveAssets.length) {
+      return undefined;
+    }
+
+    const isLoading = unstakeAssetsLoading || nativeTokenLoading;
+
+    return {
+      disabled: isLoading || selectableReceiveAssets.length <= 1,
+      popover:
+        selectableReceiveAssets.length > 1
+          ? {
+              title: intl.formatMessage({
+                id: ETranslations.token_selector_title,
+              }),
+              content: createStakeAssetSelectPopoverContent({
+                assets: selectableReceiveAssets,
+                isLoading,
+                selectedUniqueKey: selectedReceiveTokenUniqueKey,
+                onSelect: (item) => {
+                  setSelectedReceiveAsset(item);
+                },
+              }),
+            }
+          : undefined,
+    };
+  }, [
+    intl,
+    isPendleProvider,
+    useBorrowApi,
+    selectableReceiveAssets,
+    unstakeAssetsLoading,
+    nativeTokenLoading,
+    selectedReceiveTokenUniqueKey,
+  ]);
+
+  const effectiveReceiveInputConfig = useMemo<
+    IManagePageV2ReceiveInputConfig | undefined
+  >(() => {
+    if (!isPendleProvider || useBorrowApi) {
+      return receiveInputConfig;
+    }
+
+    const selectedToken = selectedReceiveAsset?.info;
+    const selectedTokenAddress = resolveTokenAddress({
+      address: selectedToken?.address,
+      isNative: selectedToken?.isNative,
+    });
+    const hasSelectedToken = !!selectedToken;
+
+    return {
+      ...receiveInputConfig,
+      enabled: (receiveInputConfig?.enabled ?? false) || hasSelectedToken,
+      tokenImageUri: selectedToken?.logoURI ?? receiveInputConfig?.tokenImageUri,
+      tokenSymbol: selectedToken?.symbol ?? receiveInputConfig?.tokenSymbol,
+      tokenAddress: hasSelectedToken
+        ? selectedTokenAddress
+        : (receiveInputConfig?.tokenAddress ?? ''),
+      balance: selectedReceiveAsset?.balanceParsed ?? receiveInputConfig?.balance,
+      price: selectedReceiveAsset?.price ?? receiveInputConfig?.price,
+      tokenSelectorTriggerProps: receiveTokenSelectorTriggerProps,
+    };
+  }, [
+    isPendleProvider,
+    useBorrowApi,
+    receiveInputConfig,
+    selectedReceiveAsset?.balanceParsed,
+    selectedReceiveAsset?.price,
+    selectedReceiveAsset?.info,
+    receiveTokenSelectorTriggerProps,
+  ]);
+
+  const selectedReceiveTokenAddress = useMemo(() => {
+    return effectiveReceiveInputConfig?.tokenAddress ?? '';
+  }, [effectiveReceiveInputConfig?.tokenAddress]);
 
   // Determine the effective reserve address (selected or default)
   const effectiveReserveAddress = useMemo(
@@ -211,7 +466,7 @@ export const WithdrawSection = ({
         inputTokenAddress: tokenInfo?.token?.isNative
           ? ''
           : (tokenInfo?.token?.address ?? ''),
-        outputTokenAddress: receiveInputConfig?.tokenAddress ?? '',
+        outputTokenAddress: selectedReceiveTokenAddress,
         stakingInfo: {
           label: EEarnLabels.Withdraw,
           protocol: earnUtils.getEarnProviderName({
@@ -243,7 +498,7 @@ export const WithdrawSection = ({
       symbol,
       tokenInfo?.token?.address,
       tokenInfo?.token?.isNative,
-      receiveInputConfig?.tokenAddress,
+      selectedReceiveTokenAddress,
       borrowApiCtx.isBorrow,
     ],
   );
@@ -446,11 +701,11 @@ export const WithdrawSection = ({
           beforeFooter={beforeFooter}
           showApyDetail={showApyDetail}
           isInModalContext={isInModalContext}
-          receiveInputConfig={receiveInputConfig}
+          receiveInputConfig={effectiveReceiveInputConfig}
           transactionInputTokenAddress={
             tokenInfo?.token?.isNative ? '' : (tokenInfo?.token?.address ?? '')
           }
-          transactionOutputTokenAddress={receiveInputConfig?.tokenAddress ?? ''}
+          transactionOutputTokenAddress={selectedReceiveTokenAddress}
         />
       )}
     </>
