@@ -14,7 +14,7 @@ import BigNumber from 'bignumber.js';
 import { utils } from 'ethers';
 import { isEmpty, isNaN, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
-import { InputAccessoryView } from 'react-native';
+import { InputAccessoryView, Keyboard } from 'react-native';
 
 import type {
   IFormMode,
@@ -1798,6 +1798,7 @@ function SendDataInputContainer() {
               : Math.min(token?.decimals ?? 6, 6),
         }),
       );
+      Keyboard.dismiss();
     },
     [form, isUseFiat, maxBalance, maxBalanceFiat, token?.decimals],
   );
