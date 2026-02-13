@@ -86,7 +86,8 @@ export function WalletActionMore() {
                 <WalletActionSell key="sell" onClose={handleActionListClose} />
               );
             case 'swap':
-              return platformEnv.isExtensionUiPopup ? (
+              return platformEnv.isExtensionUiPopup ||
+                platformEnv.isExtensionUiSidePanel ? (
                 <WalletActionPerp
                   key="perp"
                   inList
