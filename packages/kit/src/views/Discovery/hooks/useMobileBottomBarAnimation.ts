@@ -99,7 +99,7 @@ function useMobileBottomBarAnimation(activeTabId: string | null) {
     lastTurnScrollY.current = undefined;
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTabId]);
+  }, [activeTabId, fullBarHeight]);
 
   return {
     handleScroll,
