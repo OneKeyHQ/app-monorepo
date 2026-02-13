@@ -3592,7 +3592,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
-  - RNImageCropPicker (0.50.0):
+  - RNImageCropPicker (0.51.1):
     - boost
     - DoubleConversion
     - fast_float
@@ -3619,11 +3619,11 @@ PODS:
     - ReactCodegen
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
-    - RNImageCropPicker/QBImagePickerController (= 0.50.0)
+    - RNImageCropPicker/QBImagePickerController (= 0.51.1)
     - SocketRocket
-    - TOCropViewController (~> 2.7.4)
+    - TOCropViewController (~> 2.8.0)
     - Yoga
-  - RNImageCropPicker/QBImagePickerController (0.50.0):
+  - RNImageCropPicker/QBImagePickerController (0.51.1):
     - boost
     - DoubleConversion
     - fast_float
@@ -3651,7 +3651,7 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - SocketRocket
-    - TOCropViewController (~> 2.7.4)
+    - TOCropViewController (~> 2.8.0)
     - Yoga
   - RNJuiceboxSdk (0.3.17):
     - boost
@@ -4127,7 +4127,7 @@ PODS:
   - SPIndicator (1.6.4)
   - SSZipArchive (2.5.5)
   - SwiftUIIntrospect (1.3.0)
-  - TOCropViewController (2.7.4)
+  - TOCropViewController (2.8.0)
   - Yoga (0.0.0)
   - ZXingObjC/Core (3.6.9)
   - ZXingObjC/OneD (3.6.9):
@@ -4829,7 +4829,7 @@ SPEC CHECKSUMS:
   RNFileLogger: 53ac6041f77d6b82f4d9b8e12c116c8876771367
   RNGestureHandler: e37bdb684df1ac17c7e1d8f71a3311b2793c186b
   RNGoogleSignin: 628d629e8dca39fc4ab70e30cf55bb3fc284f518
-  RNImageCropPicker: 882ced4c8ec0ce16b59456d935af91d9126cfd49
+  RNImageCropPicker: 5fd4ceaead64d8c53c787e4e559004f97bc76df7
   RNJuiceboxSdk: a2e85ef9d73eac5547cc89d0a4b7b0f6e798d253
   RNNotifee: 5e3b271e8ea7456a36eec994085543c9adca9168
   RNPermissions: d0f185d461a25bb0f75fdd58c855ba0988fe18ab
@@ -4851,7 +4851,7 @@ SPEC CHECKSUMS:
   SPIndicator: 93e0a4fb23de51294ac48e874c0f081a5e293e4f
   SSZipArchive: c69881e8ac5521f0e622291387add5f60f30f3c4
   SwiftUIIntrospect: fee9aa07293ee280373a591e1824e8ddc869ba5d
-  TOCropViewController: 80b8985ad794298fb69d3341de183f33d1853654
+  TOCropViewController: 797deaf39c90e6e9ddd848d88817f6b9a8a09888
   Yoga: 728df40394d49f3f471688747cf558158b3a3bd1
   ZXingObjC: 8898711ab495761b2dbbdec76d90164a6d7e14c5
 
