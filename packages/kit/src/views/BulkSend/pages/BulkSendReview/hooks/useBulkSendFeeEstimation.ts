@@ -34,6 +34,39 @@ type IUseBulkSendFeeEstimationParams = {
   setFeeState: React.Dispatch<React.SetStateAction<IBulkSendFeeState>>;
 };
 
+// Scale gasLimit for bulk transfer txs when batch estimation is not available.
+// For transfer txs (non-approve), multiply gasLimit by (transferCount + 2)
+// to account for the higher gas consumption of multi-call contracts.
+function scaleGasLimitForBulkTransfer(
+  feeInfo: IFeeInfoUnit,
+  multiplier: number,
+): IFeeInfoUnit {
+  if (multiplier <= 1) return feeInfo;
+
+  const scaled = { ...feeInfo };
+  if (scaled.gas) {
+    const newGasLimit = new BigNumber(scaled.gas.gasLimit)
+      .times(multiplier)
+      .toFixed(0);
+    scaled.gas = {
+      ...scaled.gas,
+      gasLimit: newGasLimit,
+      gasLimitForDisplay: newGasLimit,
+    };
+  }
+  if (scaled.gasEIP1559) {
+    const newGasLimit = new BigNumber(scaled.gasEIP1559.gasLimit)
+      .times(multiplier)
+      .toFixed(0);
+    scaled.gasEIP1559 = {
+      ...scaled.gasEIP1559,
+      gasLimit: newGasLimit,
+      gasLimitForDisplay: newGasLimit,
+    };
+  }
+  return scaled;
+}
+
 export function useBulkSendFeeEstimation({
   networkId,
   accountId,
@@ -225,6 +258,11 @@ export function useBulkSendFeeEstimation({
         let totalNative = new BigNumber(0);
         let totalFiat = new BigNumber(0);
 
+        // Count transfer txs (non-approve) for gasLimit scaling in fallback mode
+        const transferTxCount = unsignedTxs.filter(
+          (tx) => !tx.approveInfo,
+        ).length;
+
         for (let i = 0; i < unsignedTxs.length; i += 1) {
           const unsignedTx = unsignedTxs[i];
           // Use per-tx fee info if available (from batch estimation)
@@ -237,6 +275,14 @@ export function useBulkSendFeeEstimation({
               gas: perTxFee.gas?.[selectedPresetIndex],
               gasEIP1559: perTxFee.gasEIP1559?.[selectedPresetIndex],
             };
+          } else if (isMultiTxs && !unsignedTx.approveInfo) {
+            // Fallback mode: scale gasLimit for transfer txs
+            // Transfer txs use multi-call contracts, so gasLimit needs
+            // to be multiplied by (transferCount + 2) for safety margin
+            txFeeInfo = scaleGasLimitForBulkTransfer(
+              txFeeInfo,
+              transferTxCount + 2,
+            );
           }
           const feeResult = calculateFeeForSend({
             feeInfo: txFeeInfo,
@@ -356,6 +402,11 @@ export function useBulkSendFeeEstimation({
       let totalFiat = new BigNumber(0);
       const feeInfos: ISendSelectedFeeInfo[] = [];
 
+      const isMultiTxs = unsignedTxs.length > 1;
+      const transferTxCount = unsignedTxs.filter(
+        (tx) => !tx.approveInfo,
+      ).length;
+
       for (let i = 0; i < unsignedTxs.length; i += 1) {
         const unsignedTx = unsignedTxs[i];
         // Use per-tx fee info if available (from batch estimation)
@@ -367,6 +418,12 @@ export function useBulkSendFeeEstimation({
             gas: perTxFee.gas?.[presetIndex],
             gasEIP1559: perTxFee.gasEIP1559?.[presetIndex],
           };
+        } else if (isMultiTxs && !unsignedTx.approveInfo) {
+          // Fallback mode: scale gasLimit for transfer txs
+          txFeeInfo = scaleGasLimitForBulkTransfer(
+            txFeeInfo,
+            transferTxCount + 2,
+          );
         }
         const feeResult = calculateFeeForSend({
           feeInfo: txFeeInfo,
