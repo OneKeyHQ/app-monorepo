@@ -12,7 +12,11 @@ import appGlobals from '../appGlobals';
 import { EAppEventBusNames, appEventBus } from '../eventBus/appEventBus';
 import { defaultLogger } from '../logger/logger';
 import platformEnv from '../platformEnv';
-import { EModalAssetDetailRoutes, EModalRoutes } from '../routes';
+import {
+  EModalAssetDetailRoutes,
+  EModalRoutes,
+  ETabRoutes,
+} from '../routes';
 import { EModalNotificationsRoutes } from '../routes/notifications';
 import { ERootRoutes } from '../routes/root';
 
@@ -26,6 +30,7 @@ import type {
   ENotificationPushTopicTypes,
   INotificationPushMessageInfo,
 } from '../../types/notification';
+import { ETranslations } from '../locale';
 
 function convertWebPermissionToEnum(
   permission: NotificationPermission,
@@ -143,6 +148,19 @@ export async function navigateToNotificationDetailByLocalParams({
     } else {
       await popToMainRoute();
       await timerUtils.wait(350);
+      if (platformEnv.isNative) {
+        if (navigationParams?.screen === ETabRoutes.Market) {
+          navigationParams.screen = ETabRoutes.Discovery;
+          appEventBus.emit(EAppEventBusNames.SwitchDiscoveryTabInNative, {
+            tab: ETranslations.global_market,
+          });
+        } else if (navigationParams?.screen === ETabRoutes.Earn) {
+          navigationParams.screen = ETabRoutes.Discovery;
+          appEventBus.emit(EAppEventBusNames.SwitchDiscoveryTabInNative, {
+            tab: ETranslations.global_earn,
+          });
+        }
+      }
       appGlobals.$navigationRef.current?.navigate(screen, navigationParams, {
         pop: true,
       });
