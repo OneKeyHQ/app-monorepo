@@ -45,7 +45,7 @@ function NetworkListItem({ network }: { network: IServerNetworkMatch }) {
 
   const networkTotalValue = useMemo(() => {
     if (isUndefined(accountNetworkValues[network.id])) {
-      return '0'
+      return '0';
     }
     return new BigNumber(accountDeFiOverview[network.id]?.netWorth ?? 0)
       .plus(accountNetworkValues[network.id] ?? '0')

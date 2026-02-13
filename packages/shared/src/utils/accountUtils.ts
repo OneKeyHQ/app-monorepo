@@ -1092,9 +1092,7 @@ function normalizeDeriveType(
 ): IAccountDeriveTypes | undefined {
   if (!deriveType) return undefined;
   const lowerDeriveType = deriveType.toLowerCase();
-  return validDeriveTypesList.find(
-    (t) => t.toLowerCase() === lowerDeriveType,
-  );
+  return validDeriveTypesList.find((t) => t.toLowerCase() === lowerDeriveType);
 }
 
 function isValidDeriveType(deriveType: string): boolean {

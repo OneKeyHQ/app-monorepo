@@ -26,13 +26,13 @@ type IEditableListItemProps = {
   drag?: () => void;
   dragProps?: Record<string, any>;
   actions?:
-  | {
-    leadingIcon?: IKeyOfIcons;
-    trailingIcon?: IKeyOfIcons;
-    title?: string;
-    onPress?: () => void;
-  }[]
-  | React.ReactNode;
+    | {
+        leadingIcon?: IKeyOfIcons;
+        trailingIcon?: IKeyOfIcons;
+        title?: string;
+        onPress?: () => void;
+      }[]
+    | React.ReactNode;
 };
 
 const EditableListItemPinOrNot = ({ item }: { item: IServerNetworkMatch }) => {
@@ -64,8 +64,8 @@ const EditableListItemPinOrNot = ({ item }: { item: IServerNetworkMatch }) => {
       title={
         frequentlyUsedItemsIds.has(item.id)
           ? intl.formatMessage({
-            id: ETranslations.global_unpin_from_top,
-          })
+              id: ETranslations.global_unpin_from_top,
+            })
           : intl.formatMessage({ id: ETranslations.global_pin_to_top })
       }
       key="moveToTop"
@@ -125,7 +125,7 @@ export const EditableListItem = ({
     }
 
     if (isUndefined(accountNetworkValues[item.id])) {
-      return '0'
+      return '0';
     }
 
     return new BigNumber(accountDeFiOverview[item.id]?.netWorth ?? 0)
@@ -164,23 +164,23 @@ export const EditableListItem = ({
               <SizableText size="$bodyLgMedium">
                 {item.isAllNetworks
                   ? intl.formatMessage({
-                    id: ETranslations.global_all_networks,
-                  })
+                      id: ETranslations.global_all_networks,
+                    })
                   : item.name}
               </SizableText>
               {Array.isArray(actions)
                 ? actions?.map((action) => (
-                  <Button
-                    key={action.title}
-                    size="small"
-                    variant="secondary"
-                    icon={action.leadingIcon}
-                    iconAfter={action.trailingIcon}
-                    onPress={action.onPress}
-                  >
-                    {action.title}
-                  </Button>
-                ))
+                    <Button
+                      key={action.title}
+                      size="small"
+                      variant="secondary"
+                      icon={action.leadingIcon}
+                      iconAfter={action.trailingIcon}
+                      onPress={action.onPress}
+                    >
+                      {action.title}
+                    </Button>
+                  ))
                 : actions}
             </XStack>
           }
