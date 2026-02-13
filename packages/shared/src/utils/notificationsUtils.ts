@@ -144,32 +144,26 @@ export async function navigateToNotificationDetailByLocalParams({
     } else {
       await popToMainRoute();
       await timerUtils.wait(350);
-      const originalScreen = navigationParams?.screen;
+      let tab: ETranslations | undefined;
       if (platformEnv.isNative) {
-        if (originalScreen === ETabRoutes.Market) {
+        if (navigationParams?.screen === ETabRoutes.Market) {
           navigationParams.screen = ETabRoutes.Discovery;
-        } else if (originalScreen === ETabRoutes.Earn) {
+          tab = ETranslations.global_market;
+        } else if (navigationParams?.screen === ETabRoutes.Earn) {
           navigationParams.screen = ETabRoutes.Discovery;
+          tab = ETranslations.global_earn;
         }
       }
       appGlobals.$navigationRef.current?.navigate(screen, navigationParams, {
         pop: true,
       });
       // Delay emitting the event to ensure Discovery component is mounted
-      if (platformEnv.isNative && originalScreen) {
-        const tab =
-          originalScreen === ETabRoutes.Market
-            ? ETranslations.global_market
-            : originalScreen === ETabRoutes.Earn
-              ? ETranslations.global_earn
-              : undefined;
-        if (tab) {
-          setTimeout(() => {
-            appEventBus.emit(EAppEventBusNames.SwitchDiscoveryTabInNative, {
-              tab,
-            });
-          }, 150);
-        }
+      if (tab) {
+        setTimeout(() => {
+          appEventBus.emit(EAppEventBusNames.SwitchDiscoveryTabInNative, {
+            tab,
+          });
+        }, 150);
       }
     }
   } else if (screen === ERootRoutes.Modal) {
