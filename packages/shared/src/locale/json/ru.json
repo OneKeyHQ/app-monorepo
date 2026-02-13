@@ -2777,6 +2777,7 @@
   "perps.hourly": "Почасовая оплата",
   "perps.offline_moblie": "Соединение потеряно. Проверьте подключение к сети и попробуйте обновить, потянув вниз.",
   "perps.onekey_has_saved_you": "OneKey спас вас {fee}.",
+  "perps.order_book": "Книга заказов",
   "perps.pre_launch": "Предварительный запуск",
   "perps.saving_breakdown": "Разбор процесса экономии",
   "perps.settings_return_to_default_layout": "Вернуться к макету по умолчанию",

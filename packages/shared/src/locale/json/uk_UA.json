@@ -2777,6 +2777,7 @@
   "perps.hourly": "Щогодини",
   "perps.offline_moblie": "З'єднання втрачено. Будь ласка, перевірте мережу та спробуйте оновити потягнувши вниз.",
   "perps.onekey_has_saved_you": "OneKey врятував вас {fee}.",
+  "perps.order_book": "Книга замовлень",
   "perps.pre_launch": "Перед запуском",
   "perps.saving_breakdown": "Збереження розподілу",
   "perps.settings_return_to_default_layout": "Повернутися до макета за замовчуванням",

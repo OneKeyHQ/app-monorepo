@@ -2777,6 +2777,7 @@
   "perps.hourly": "Stündlich",
   "perps.offline_moblie": "Verbindung verloren. Bitte überprüfe dein Netzwerk und ziehe zum Aktualisieren nach unten.",
   "perps.onekey_has_saved_you": "OneKey hat Ihnen geholfen {fee}Die",
+  "perps.order_book": "Auftragsbuch",
   "perps.pre_launch": "Pre-launch",
   "perps.saving_breakdown": "Sparaufschlüsselung",
   "perps.settings_return_to_default_layout": "Zurück zum Standardlayout",

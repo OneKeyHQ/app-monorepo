@@ -73,7 +73,6 @@ function PerpDesktopLayout() {
   const accountPanel = useMemo(() => {
     return (
       <YStack
-        h={layout.bottomPanelHeight}
         minWidth={PERP_LAYOUT_CONFIG.main.tradingMinWidth}
         maxWidth={PERP_LAYOUT_CONFIG.main.tradingMaxWidth}
         w={tradingWidth}
@@ -89,20 +88,13 @@ function PerpDesktopLayout() {
             </SizableText>
           </XStack>
         </XStack>
-        <Stack flex={1} style={{ overflowY: 'auto' }}>
-          <YStack pb="$4">
-            <PerpAccountPanel />
-            <PerpAccountDebugInfo />
-          </YStack>
-        </Stack>
+        <YStack pb="$4">
+          <PerpAccountPanel />
+          <PerpAccountDebugInfo />
+        </YStack>
       </YStack>
     );
-  }, [
-    intl,
-    layout.bottomPanelHeaderHeight,
-    layout.bottomPanelHeight,
-    tradingWidth,
-  ]);
+  }, [intl, tradingWidth]);
 
   return (
     <Stack flex={1} style={{ overflowY: 'auto' }}>
@@ -170,7 +162,11 @@ function PerpDesktopLayout() {
                       borderBottomColor="$borderSubdued"
                       px="$2"
                     >
-                      <SizableText size="$bodyMdMedium">Order Book</SizableText>
+                      <SizableText size="$bodyMdMedium">
+                        {intl.formatMessage({
+                          id: ETranslations.perps_order_book,
+                        })}
+                      </SizableText>
                     </XStack>
                     <YStack flex={1} overflow="hidden">
                       <PerpOrderBook
@@ -186,12 +182,10 @@ function PerpDesktopLayout() {
           </XStack>
 
           <XStack
-            h={layout.bottomPanelHeight}
             borderTopWidth="$px"
             borderTopColor="$borderSubdued"
-            overflow="hidden"
           >
-            <YStack flex={1} h="100%">
+            <YStack flex={1}>
               <PerpOrderInfoPanel />
             </YStack>
             {accountPanel}

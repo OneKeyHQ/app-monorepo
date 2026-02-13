@@ -67,7 +67,7 @@ export const PERP_LAYOUT_CONFIG = {
     // Use a height that aligns cleanly with order book row steps to avoid a
     // visible blank gap at the bottom edge.
     marketContentHeight: 588,
-    bottomPanelHeight: 360,
+    bottomPanelHeight: 480,
     widths: {
       orderBook: 280,
       trading: 320,

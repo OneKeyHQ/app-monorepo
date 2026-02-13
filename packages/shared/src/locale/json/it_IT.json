@@ -2777,6 +2777,7 @@
   "perps.hourly": "Ogni ora",
   "perps.offline_moblie": "Connessione persa. Controlla la tua rete e prova a trascinare per aggiornare.",
   "perps.onekey_has_saved_you": "OneKey ti ha salvato {fee}.",
+  "perps.order_book": "Libro degli ordini",
   "perps.pre_launch": "Pre-lancio",
   "perps.saving_breakdown": "Ripartizione del risparmio",
   "perps.settings_return_to_default_layout": "Torna al layout predefinito",

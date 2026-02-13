@@ -2777,6 +2777,7 @@
   "perps.hourly": "每小時",
   "perps.offline_moblie": "連線中斷。請檢查您的網絡並嘗試下拉刷新",
   "perps.onekey_has_saved_you": "OneKey 已幫您節省 {fee}",
+  "perps.order_book": "訂單簿",
   "perps.pre_launch": "預啟動",
   "perps.saving_breakdown": "費用節省",
   "perps.settings_return_to_default_layout": "返回預設佈局",

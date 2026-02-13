@@ -2777,6 +2777,7 @@
   "perps.hourly": "প্রতি ঘণ্টায়",
   "perps.offline_moblie": "সংযোগ বিচ্ছিন্ন হয়েছে। অনুগ্রহ করে আপনার নেটওয়ার্ক পরীক্ষা করে পুল-টু-রিফ্রেশ করে আবার চেষ্টা করুন।",
   "perps.onekey_has_saved_you": "OneKey তোমাকে বাঁচিয়েছে। {fee}.",
+  "perps.order_book": "অর্ডার বই",
   "perps.pre_launch": "প্রাক-লঞ্চ",
   "perps.saving_breakdown": "ব্রেকডাউন সেভ করা হচ্ছে",
   "perps.settings_return_to_default_layout": "ডিফল্ট বিন্যাসে ফিরে যান",

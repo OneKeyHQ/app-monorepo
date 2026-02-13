@@ -2782,6 +2782,7 @@
   perps_hourly = 'perps.hourly',
   perps_offline_moblie = 'perps.offline_moblie',
   perps_onekey_has_saved_you = 'perps.onekey_has_saved_you',
+  perps_order_book = 'perps.order_book',
   perps_pre_launch = 'perps.pre_launch',
   perps_saving_breakdown = 'perps.saving_breakdown',
   perps_settings_return_to_default_layout = 'perps.settings_return_to_default_layout',

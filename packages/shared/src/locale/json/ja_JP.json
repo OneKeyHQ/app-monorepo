@@ -2777,6 +2777,7 @@
   "perps.hourly": "時間単位",
   "perps.offline_moblie": "接続が切断されました。ネットワークを確認して、プルして更新してください。",
   "perps.onekey_has_saved_you": "OneKeyがあなたを救った {fee}。",
+  "perps.order_book": "注文書",
   "perps.pre_launch": "プレローンチ",
   "perps.saving_breakdown": "貯蓄の内訳",
   "perps.settings_return_to_default_layout": "デフォルトのレイアウトに戻る",
