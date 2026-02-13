@@ -184,6 +184,7 @@ function PerpDesktopLayout() {
           <XStack
             borderTopWidth="$px"
             borderTopColor="$borderSubdued"
+            minHeight={layout.bottomPanelHeight}
           >
             <YStack flex={1}>
               <PerpOrderInfoPanel />
