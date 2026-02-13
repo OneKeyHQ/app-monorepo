@@ -61,7 +61,7 @@ export function Radio({
       onValueChange={handleValueChange}
       disabled={disabled}
     >
-      <Container gap={gap} alignItems="flex-start" flexWrap="wrap">
+      <Container gap={gap} alignItems="flex-start" flexWrap={orientation === 'horizontal' ? 'wrap' : undefined}>
         {options.map(
           (
             {
