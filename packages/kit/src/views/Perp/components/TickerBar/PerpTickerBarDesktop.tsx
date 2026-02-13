@@ -22,6 +22,7 @@ import {
   NUMBER_FORMATTER,
   formatDisplayNumber,
 } from '@onekeyhq/shared/src/utils/numberUtils';
+import { PERP_LAYOUT_CONFIG } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
 import { useFundingCountdown, usePerpSession } from '../../hooks';
 import { PerpTokenSelector } from '../TokenSelector/PerpTokenSelector';
@@ -638,7 +639,7 @@ function PerpTickerBarDesktop() {
       alignItems="center"
       justifyContent="flex-start"
       gap="$6"
-      h={54}
+      h={PERP_LAYOUT_CONFIG.desktop.tickerBarHeight}
     >
       <XStack gap="$4" alignItems="center">
         <PerpTokenSelector />

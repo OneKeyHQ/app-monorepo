@@ -377,9 +377,7 @@ function PerpTradingForm({
       ) : (
         <>
           <XStack
-            ml="$-3"
-            mr="$-5"
-            h={54}
+            h={38}
             alignItems="center"
             borderBottomWidth="$px"
             borderBottomColor="$borderSubdued"
@@ -388,9 +386,9 @@ function PerpTradingForm({
               const isFocused = formData.type === option.value;
               return (
                 <XStack
-                  h={54}
+                  h={38}
                   key={option.value}
-                  ml="$5"
+                  mr="$4"
                   alignItems="center"
                   position="relative"
                   onPress={() => handleOrderTypeChange(option.name)}
@@ -579,7 +577,7 @@ function PerpTradingForm({
         leverage={formData.leverage ?? 1}
       />
 
-      <YStack mt="$-1" {...(isMobile && { pt: '$2', pb: '$2', mt: '$0' })}>
+      <YStack px="$1" {...(isMobile && { pt: '$2', pb: '$2', mt: '$0' })}>
         <PerpsSlider
           min={0}
           max={100}

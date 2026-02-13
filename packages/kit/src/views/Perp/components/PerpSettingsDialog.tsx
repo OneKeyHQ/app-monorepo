@@ -16,13 +16,10 @@ import {
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useCheckWalletReferralCodeBound } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useCheckWalletReferralCodeBound';
 import {
-  DEFAULT_PERPS_LAYOUT_STATE,
   usePerpsActiveAccountAtom,
   usePerpsCustomSettingsAtom,
-  usePerpsLayoutStateAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { PerpsProviderMirror } from '../PerpsProviderMirror';
@@ -33,17 +30,12 @@ interface IPerpSettingsPopoverContentProps {
   closePopover: () => void;
 }
 
-const SHOW_RESET_LAYOUT =
-  platformEnv.isWeb ||
-  platformEnv.isDesktop ||
-  platformEnv.isExtensionUiExpandTab;
 
 function PerpSettingsPopoverContent({
   closePopover,
 }: IPerpSettingsPopoverContentProps) {
   const [perpsCustomSettings, setPerpsCustomSettings] =
     usePerpsCustomSettingsAtom();
-  const [, setPerpsLayoutState] = usePerpsLayoutStateAtom();
   const intl = useIntl();
   const { showInviteeRewardModal } = useShowInviteeRewardModal();
   const [selectedAccount] = usePerpsActiveAccountAtom();
@@ -175,24 +167,6 @@ function PerpSettingsPopoverContent({
             <Icon name="ChevronRightOutline" size="$4" color="$iconSubdued" />
           </XStack>
         </ListItem>
-      ) : null}
-      {SHOW_RESET_LAYOUT ? (
-        <ListItem
-          mx="$0"
-          px="$2.5"
-          title={intl.formatMessage({
-            id: ETranslations.perps_settings_return_to_default_layout,
-          })}
-          titleProps={{ size: '$bodyMdMedium' }}
-          onPress={() => {
-            setPerpsLayoutState({
-              ...DEFAULT_PERPS_LAYOUT_STATE,
-              resetAt: Date.now(),
-            });
-            closePopover();
-          }}
-          cursor="default"
-        />
       ) : null}
     </YStack>
   );
