@@ -176,11 +176,13 @@ const OnboardingLayoutBody = memo(
     children,
     scrollable = true,
     constrained = true,
+    bottomOffset,
     ...rest
   }: {
     children?: React.ReactNode;
     scrollable?: boolean;
     constrained?: boolean;
+    bottomOffset?: number;
   } & IYStackProps) => {
     const content = constrained ? (
       <OnboardingLayoutConstrainedContent>
@@ -218,7 +220,7 @@ const OnboardingLayoutBody = memo(
         {scrollable ? (
           <Keyboard.AwareScrollView
             showsVerticalScrollIndicator={false}
-            bottomOffset={KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET}
+            bottomOffset={bottomOffset ?? KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET}
             contentContainerStyle={contentContainerStyle}
           >
             {content}

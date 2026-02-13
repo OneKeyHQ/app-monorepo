@@ -2222,6 +2222,7 @@
   market_1y = 'market.1y',
   market_24h = 'market.24h',
   market_24h_price_range = 'market.24h_price_range',
+  market_24h_turnover = 'market.24h_turnover',
   market_24h_txns = 'market.24h_txns',
   market_24h_vol_usd = 'market.24h_vol_usd',
   market_30d = 'market.30d',
