@@ -6,6 +6,7 @@ import {
   Page,
   Toast,
   YStack,
+  popModalPages,
   popToTabRootScreen,
   switchTab,
 } from '@onekeyhq/components';
@@ -301,11 +302,11 @@ function BaseBulkSendReview({
       navigation.popStack();
     } else {
       // Web/Desktop: switch tab and pop to root screen
+      await popModalPages();
       switchTab(ETabRoutes.Home);
       await timerUtils.wait(50);
       await popToTabRootScreen();
     }
-
   }, [isInModal, navigation, accountId]);
 
   const handleConfirm = useCallback(async () => {
