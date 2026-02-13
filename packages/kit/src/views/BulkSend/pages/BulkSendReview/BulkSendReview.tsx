@@ -7,7 +7,6 @@ import {
   Toast,
   YStack,
   popToTabRootScreen,
-  rootNavigationRef,
   switchTab,
 } from '@onekeyhq/components';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
@@ -21,14 +20,12 @@ import {
   type EModalBulkSendRoutes,
   EModalRoutes,
   EModalSignatureConfirmRoutes,
-  ETabHomeRoutes,
   ETabRoutes,
   type IModalBulkSendParamList,
 } from '@onekeyhq/shared/src/routes';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { waitAsync } from '@onekeyhq/shared/src/utils/promiseUtils';
 import type { ISendSelectedFeeInfo } from '@onekeyhq/shared/types/fee';
