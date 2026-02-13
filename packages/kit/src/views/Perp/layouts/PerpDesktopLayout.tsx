@@ -26,28 +26,7 @@ import {
   PerpAccountPanel,
 } from '../components/TradingPanel/panels/PerpAccountPanel';
 import { PerpTradingPanel } from '../components/TradingPanel/PerpTradingPanel';
-
-function calculateMaxLevelsPerSide(containerHeight: number): number {
-  // Keep in sync with `PerpDesktopLayout.web.tsx`.
-  const baseHeight = 2 + 24 + 25;
-  const levelRowStep = 25;
-
-  if (containerHeight <= 0) return 11;
-  if (containerHeight <= baseHeight) return 3;
-
-  let levelsPerSide = Math.floor(
-    (containerHeight - baseHeight) / (2 * levelRowStep),
-  );
-  levelsPerSide = Math.max(3, Math.min(levelsPerSide, 50));
-
-  const usedHeight = baseHeight + 2 * levelsPerSide * levelRowStep;
-  const blank = containerHeight - usedHeight;
-  if (blank > levelRowStep / 2 && levelsPerSide < 50) {
-    levelsPerSide += 1;
-  }
-
-  return levelsPerSide;
-}
+import { calculateMaxLevelsPerSide } from './perpLayoutUtils';
 
 function PerpDesktopLayout() {
   const intl = useIntl();
@@ -55,7 +34,7 @@ function PerpDesktopLayout() {
   const [layoutState, setLayoutState] = usePerpsLayoutStateAtom();
 
   const layout = PERP_LAYOUT_CONFIG.desktop;
-  const showOrderBook = gtXl && layoutState.orderBook.visible;
+  const showOrderBook = gtXl && (layoutState.orderBook?.visible ?? true);
   const tradingWidth = gtXl ? layout.widths.tradingXl : layout.widths.trading;
   const orderBookMaxLevelsPerSide = useMemo(
     () =>

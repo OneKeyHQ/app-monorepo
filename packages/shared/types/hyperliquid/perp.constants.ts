@@ -69,9 +69,9 @@ export const PERP_LAYOUT_CONFIG = {
     marketContentHeight: 588,
     bottomPanelHeight: 360,
     widths: {
-      orderBook: 300,
-      trading: 360,
-      tradingXl: 380,
+      orderBook: 280,
+      trading: 320,
+      tradingXl: 320,
     },
   },
   leftPanel: {
