@@ -184,8 +184,13 @@ export function List<Item>({
     sections,
   ]);
 
+  // Use ref to access current listData in keyMapper without recreating cache
+  const listDataRef = useRef(listData);
+  listDataRef.current = listData;
+
   // Cell measurement cache for react-virtualized list optimization
-  // Can be optimized with keyExtractor for better height caching performance
+  // Uses ref for listData so the cache is NOT recreated when data changes,
+  // preserving measured row heights across pagination/data updates.
   const cache = useMemo(
     () =>
       new CellMeasurerCache({
@@ -193,12 +198,12 @@ export function List<Item>({
         defaultHeight: 60,
         keyMapper: (rowIndex, columnIndex) => {
           if (keyExtractor) {
-            const item = listData[rowIndex];
+            const item = listDataRef.current[rowIndex];
             if (
-              item.type === 'header' ||
-              item.type === 'footer' ||
-              item.type === 'section-header' ||
-              item.type === 'section-footer'
+              item?.type === 'header' ||
+              item?.type === 'footer' ||
+              item?.type === 'section-header' ||
+              item?.type === 'section-footer'
             ) {
               return `${rowIndex}-${columnIndex}-${item.type}`;
             }
@@ -209,7 +214,7 @@ export function List<Item>({
           return `${rowIndex}-${columnIndex}`;
         },
       }),
-    [keyExtractor, listData],
+    [keyExtractor],
   );
 
   const isVisible = useMemo(() => {
@@ -369,6 +374,17 @@ export function List<Item>({
 
   useEffect(() => {
     if (keyExtractor) {
+      // With keyExtractor, the cache is stable (not recreated on data changes).
+      // Only recompute row positions for new rows without clearing measured heights.
+      if (data?.length || sections?.length) {
+        if (numColumns > 1 && width) {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+          (listRef.current as any)?.recomputeCellSizesAndPositions();
+        } else {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+          (listRef.current as any)?.recomputeRowHeights();
+        }
+      }
       return;
     }
     if (data?.length || sections?.length || numColumns || width || extraData) {
