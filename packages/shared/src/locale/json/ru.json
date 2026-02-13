@@ -2752,7 +2752,7 @@
   "perp.trades_history_title": "ИСТОРИЯ СДЕЛОК",
   "perp.trades_history_trade_value": "Стоимость сделки",
   "perp.trading_adjust_leverage": "Изменить кредитное плечо",
-  "perp.trading_button_no_enough_margin": "Недостаточно маржи",
+  "perp.trading_button_no_enough_margin": "Add Margin",
   "perp.trading_button_placing": "Размещение...",
   "perp.unit_preferrence": "Предпочтения единиц измерения",
   "perp.withdraw_chain": "Сеть вывода",

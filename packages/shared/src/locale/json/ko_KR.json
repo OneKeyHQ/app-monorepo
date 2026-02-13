@@ -2752,7 +2752,7 @@
   "perp.trades_history_title": "거래 내역",
   "perp.trades_history_trade_value": "거래 가치",
   "perp.trading_adjust_leverage": "레버리지 조정",
-  "perp.trading_button_no_enough_margin": "마진이 충분하지 않습니다",
+  "perp.trading_button_no_enough_margin": "Add Margin",
   "perp.trading_button_placing": "배치 중...",
   "perp.unit_preferrence": "단위 기본 설정",
   "perp.withdraw_chain": "출금 체인",

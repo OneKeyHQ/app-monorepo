@@ -2752,7 +2752,7 @@
   "perp.trades_history_title": "Trades history",
   "perp.trades_history_trade_value": "Trade Value",
   "perp.trading_adjust_leverage": "Adjust Leverage",
-  "perp.trading_button_no_enough_margin": "No Enough Margin",
+  "perp.trading_button_no_enough_margin": "Add Margin",
   "perp.trading_button_placing": "Placing...",
   "perp.unit_preferrence": "Unit Preference",
   "perp.withdraw_chain": "Withdraw Chain",

@@ -2752,7 +2752,7 @@
   "perp.trades_history_title": "TRADES HISTORY",
   "perp.trades_history_trade_value": "Val. transazione",
   "perp.trading_adjust_leverage": "Regola la leva",
-  "perp.trading_button_no_enough_margin": "Margine insufficiente",
+  "perp.trading_button_no_enough_margin": "Add Margin",
   "perp.trading_button_placing": "Posizionamento...",
   "perp.unit_preferrence": "Preferenze unità",
   "perp.withdraw_chain": "Catena di prelievo",

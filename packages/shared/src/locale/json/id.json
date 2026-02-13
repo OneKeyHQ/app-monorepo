@@ -2752,7 +2752,7 @@
   "perp.trades_history_title": "TRADES HISTORY",
   "perp.trades_history_trade_value": "Nilai Perdagangan",
   "perp.trading_adjust_leverage": "Sesuaikan Leverage",
-  "perp.trading_button_no_enough_margin": "Margin Tidak Cukup",
+  "perp.trading_button_no_enough_margin": "Add Margin",
   "perp.trading_button_placing": "Menempatkan...",
   "perp.unit_preferrence": "Preferensi Unit",
   "perp.withdraw_chain": "Tarik Rantai",

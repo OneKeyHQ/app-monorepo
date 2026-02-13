@@ -2752,7 +2752,7 @@
   "perp.trades_history_title": "LỊCH SỬ GIAO DỊCH",
   "perp.trades_history_trade_value": "Giá trị giao dịch",
   "perp.trading_adjust_leverage": "Điều chỉnh đòn bẩy",
-  "perp.trading_button_no_enough_margin": "Không đủ ký quỹ",
+  "perp.trading_button_no_enough_margin": "Add Margin",
   "perp.trading_button_placing": "Đang đặt...",
   "perp.unit_preferrence": "Tùy chọn đơn vị",
   "perp.withdraw_chain": "Rút chuỗi",

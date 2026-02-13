@@ -2752,7 +2752,7 @@
   "perp.trades_history_title": "ІСТОРІЯ УГОД",
   "perp.trades_history_trade_value": "Вартість угоди",
   "perp.trading_adjust_leverage": "Налаштувати кредитне плече",
-  "perp.trading_button_no_enough_margin": "Недостатньо маржі",
+  "perp.trading_button_no_enough_margin": "Add Margin",
   "perp.trading_button_placing": "Розміщення...",
   "perp.unit_preferrence": "Налаштування одиниць",
   "perp.withdraw_chain": "Мережа виведення",

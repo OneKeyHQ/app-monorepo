@@ -2752,7 +2752,7 @@
   "perp.trades_history_title": "HANDELSVERLAUF",
   "perp.trades_history_trade_value": "Handelswert",
   "perp.trading_adjust_leverage": "Hebel anpassen",
-  "perp.trading_button_no_enough_margin": "Nicht genügend Margin",
+  "perp.trading_button_no_enough_margin": "Add Margin",
   "perp.trading_button_placing": "Wird platziert...",
   "perp.unit_preferrence": "Einheitseinstellung",
   "perp.withdraw_chain": "Abhebungskette",

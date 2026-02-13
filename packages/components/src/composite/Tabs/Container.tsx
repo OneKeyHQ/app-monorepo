@@ -127,7 +127,9 @@ export function Container({
   ref: containerRef,
   initialTabName,
   disableScroll,
-}: PropsWithChildren<CollapsibleProps> & ITabContainerRefProps) {
+}: PropsWithChildren<CollapsibleProps> &
+  ITabContainerRefProps &
+  Pick<ITabContainerProps, 'disableScroll'>) {
   // Get tab names from children props
   const scrollTopRef = useRef<{ [key: string]: number }>({});
   const tabNames = useMemo(() => {

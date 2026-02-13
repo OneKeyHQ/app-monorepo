@@ -2752,7 +2752,7 @@
   "perp.trades_history_title": "ประวัติการซื้อขาย",
   "perp.trades_history_trade_value": "มูลค่าการซื้อขาย",
   "perp.trading_adjust_leverage": "ปรับเลเวอเรจ",
-  "perp.trading_button_no_enough_margin": "มาร์จิ้นไม่เพียงพอ",
+  "perp.trading_button_no_enough_margin": "Add Margin",
   "perp.trading_button_placing": "กำลังวาง...",
   "perp.unit_preferrence": "การตั้งค่าหน่วย",
   "perp.withdraw_chain": "ถอนเชน",
