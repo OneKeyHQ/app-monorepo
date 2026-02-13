@@ -70,8 +70,12 @@ export function useAccountSelectorCreateAddress() {
         !account.deriveType
       ) {
         Toast.error({
-          title: 'Create address failed',
-          message: 'Please select a valid account',
+          title: intl.formatMessage({
+            id: ETranslations.toast_create_address_failed_title,
+          }),
+          message: intl.formatMessage({
+            id: ETranslations.toast_create_address_failed_message,
+          }),
         });
         return;
       }
