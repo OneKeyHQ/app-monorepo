@@ -60,10 +60,11 @@ const isVaultBasedProvider = ({ providerName }: { providerName: string }) => {
   );
 };
 
-const providerApproveSpenderOverrides: Partial<Record<EEarnProviderEnum, string>> =
-  {
-    [EEarnProviderEnum.Pendle]: PendleRouterContract,
-  };
+const providerApproveSpenderOverrides: Partial<
+  Record<EEarnProviderEnum, string>
+> = {
+  [EEarnProviderEnum.Pendle]: PendleRouterContract,
+};
 
 const providerApproveTypeOverrides: Partial<
   Record<EEarnProviderEnum, EApproveType>

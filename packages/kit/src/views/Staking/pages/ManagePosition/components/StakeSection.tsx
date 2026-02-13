@@ -161,13 +161,7 @@ export const StakeSection = ({
           networkId,
         });
       },
-      [
-        hasRequiredData,
-        isPendleProvider,
-        useBorrowApi,
-        accountId,
-        networkId,
-      ],
+      [hasRequiredData, isPendleProvider, useBorrowApi, accountId, networkId],
       {
         watchLoading: true,
       },
@@ -306,10 +300,7 @@ export const StakeSection = ({
       symbol: effectiveStakeTokenInfo?.token.symbol,
       isNative: effectiveStakeTokenInfo?.token.isNative,
     });
-  }, [
-    selectedStakeAsset?.info,
-    effectiveStakeTokenInfo?.token,
-  ]);
+  }, [selectedStakeAsset?.info, effectiveStakeTokenInfo?.token]);
 
   const stakePopoverContentPropsRef = useRef<{
     assets: IEarnTokenItem[];

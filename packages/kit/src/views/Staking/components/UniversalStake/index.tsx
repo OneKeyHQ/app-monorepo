@@ -571,12 +571,7 @@ export function UniversalStake({
         void checkAmount({ amount: value, identity: stakefishIdentity });
       }
     },
-    [
-      decimals,
-      debouncedFetchEstimateFeeResp,
-      checkAmount,
-      stakefishIdentity,
-    ],
+    [decimals, debouncedFetchEstimateFeeResp, checkAmount, stakefishIdentity],
   );
 
   const onBlurAmountValue = useOnBlurAmountValue(amountValue, setAmountValue);
@@ -975,7 +970,9 @@ export function UniversalStake({
       for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
         try {
           const allowanceInfo = await fetchAllowanceResponse();
-          const allowanceBN = new BigNumber(allowanceInfo.allowanceParsed || '0');
+          const allowanceBN = new BigNumber(
+            allowanceInfo.allowanceParsed || '0',
+          );
           if (!allowanceBN.isNaN() && allowanceBN.gte(requiredAmountBN)) {
             return true;
           }

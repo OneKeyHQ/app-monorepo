@@ -39,9 +39,9 @@ import {
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
-  ISupportedSymbol,
   IStakingConfig,
   IStakingFlowConfig,
+  ISupportedSymbol,
 } from '@onekeyhq/shared/types/earn';
 import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 

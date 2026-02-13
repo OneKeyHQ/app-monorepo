@@ -350,12 +350,14 @@ export const WithdrawSection = ({
     return {
       ...receiveInputConfig,
       enabled: (receiveInputConfig?.enabled ?? false) || hasSelectedToken,
-      tokenImageUri: selectedToken?.logoURI ?? receiveInputConfig?.tokenImageUri,
+      tokenImageUri:
+        selectedToken?.logoURI ?? receiveInputConfig?.tokenImageUri,
       tokenSymbol: selectedToken?.symbol ?? receiveInputConfig?.tokenSymbol,
       tokenAddress: hasSelectedToken
         ? selectedTokenAddress
         : (receiveInputConfig?.tokenAddress ?? ''),
-      balance: selectedReceiveAsset?.balanceParsed ?? receiveInputConfig?.balance,
+      balance:
+        selectedReceiveAsset?.balanceParsed ?? receiveInputConfig?.balance,
       price: selectedReceiveAsset?.price ?? receiveInputConfig?.price,
       tokenSelectorTriggerProps: receiveTokenSelectorTriggerProps,
     };
