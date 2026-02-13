@@ -1,9 +1,6 @@
 import { useMemo } from 'react';
 
-import {
-  popModalPagesOnNative,
-  rootNavigationRef,
-} from '@onekeyhq/components';
+import { popModalPagesOnNative, rootNavigationRef } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
