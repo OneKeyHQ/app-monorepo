@@ -10,6 +10,7 @@ import {
   YStack,
   useClipboard,
   useMedia,
+  usePopoverContext,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -90,6 +91,7 @@ export function ReferralLinkPopoverContent({
 }: IReferralLinkPopoverContentProps) {
   const intl = useIntl();
   const { copyUrl } = useClipboard();
+  const { closePopover } = usePopoverContext();
 
   const walletInviteUrl = useMemo(() => `${inviteUrl}/app`, [inviteUrl]);
   const shopInviteUrl = useMemo(() => `${inviteUrl}/shop`, [inviteUrl]);
@@ -97,12 +99,14 @@ export function ReferralLinkPopoverContent({
   const handleCopyWalletLink = useCallback(() => {
     copyUrl(walletInviteUrl);
     defaultLogger.referral.page.shareReferralLink('copy');
-  }, [copyUrl, walletInviteUrl]);
+    void closePopover?.();
+  }, [closePopover, copyUrl, walletInviteUrl]);
 
   const handleCopyShopLink = useCallback(() => {
     copyUrl(shopInviteUrl);
     defaultLogger.referral.page.shareReferralLink('copy');
-  }, [copyUrl, shopInviteUrl]);
+    void closePopover?.();
+  }, [closePopover, copyUrl, shopInviteUrl]);
 
   return (
     <YStack p="$1" $md={{ pb: '$3' }}>
