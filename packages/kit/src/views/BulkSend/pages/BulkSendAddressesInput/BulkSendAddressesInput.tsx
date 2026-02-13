@@ -42,6 +42,7 @@ import {
 } from './components/Context';
 import { isUndefined } from 'lodash';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 function BaseBulkSendAddressesInput() {
   const intl = useIntl();
@@ -386,7 +387,7 @@ function BaseBulkSendAddressesInput() {
             >
               <Form form={form}>
                 <SenderAddressesInput />
-                <ReceiverAddressesInput maxLines={500} />
+                <ReceiverAddressesInput maxLines={platformEnv.isNativeAndroid ? 100 : 500} />
               </Form>
             </AccountSelectorProviderMirror>
           </YStack>
