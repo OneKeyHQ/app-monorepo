@@ -104,8 +104,8 @@ function BaseBulkSendReview({
   const confirmButtonText =
     approvesInfo.length > 0
       ? intl.formatMessage({
-          id: ETranslations.wallet_bulk_send_btn_approve_and_confirm,
-        })
+        id: ETranslations.wallet_bulk_send_btn_approve_and_confirm,
+      })
       : intl.formatMessage({ id: ETranslations.wallet_bulk_send_btn_confirm });
 
   // Handle editing approval amount
@@ -285,6 +285,11 @@ function BaseBulkSendReview({
 
   // Navigate back to wallet home after successful transaction
   const navigateAfterSuccess = useCallback(async () => {
+
+    if (accountUtils.isQrAccount({ accountId: accountId ?? '' })) {
+      navigation.popStack();
+    }
+
     if (isInModal) {
       // Mobile: close the entire bulk send modal stack
       navigation.popStack();
@@ -301,7 +306,7 @@ function BaseBulkSendReview({
         },
       );
     }
-  }, [isInModal, navigation]);
+  }, [isInModal, navigation, accountId]);
 
   const handleConfirm = useCallback(async () => {
     if (!accountId) return;

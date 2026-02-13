@@ -165,11 +165,11 @@ function ReceiverAddressesInput({ maxLines }: IReceiverAddressesInputProps) {
             message:
               receiverMode === EReceiverMode.AddressOnly
                 ? intl.formatMessage({
-                    id: ETranslations.wallet_bulk_send_error_expected_address_only,
-                  })
+                  id: ETranslations.wallet_bulk_send_error_expected_address_only,
+                })
                 : intl.formatMessage({
-                    id: ETranslations.wallet_bulk_send_error_expected_address_amount,
-                  }),
+                  id: ETranslations.wallet_bulk_send_error_expected_address_amount,
+                }),
           });
           continue;
         }
@@ -204,8 +204,8 @@ function ReceiverAddressesInput({ maxLines }: IReceiverAddressesInputProps) {
                 typeof amountValidationResult === 'string'
                   ? amountValidationResult
                   : intl.formatMessage({
-                      id: ETranslations.wallet_bulk_send_error_invalid_amount,
-                    }),
+                    id: ETranslations.wallet_bulk_send_error_invalid_amount,
+                  }),
             });
           }
         }
@@ -236,8 +236,8 @@ function ReceiverAddressesInput({ maxLines }: IReceiverAddressesInputProps) {
                 'error' in result
                   ? result.error
                   : intl.formatMessage({
-                      id: ETranslations.wallet_bulk_send_error_invalid_address,
-                    }),
+                    id: ETranslations.wallet_bulk_send_error_invalid_address,
+                  }),
             });
           } else {
             // Use normalizedAddress from validation result for duplicate detection
@@ -262,47 +262,7 @@ function ReceiverAddressesInput({ maxLines }: IReceiverAddressesInputProps) {
         }
 
         // Phase 3: Address risk detection + allowlist validation for valid, non-duplicate addresses
-        if (validAddresses.length > 0 && selectedNetworkId) {
-          const badgeResults = await Promise.all(
-            validAddresses.map(({ index, address }) =>
-              limit(async () => {
-                try {
-                  const badge =
-                    await backgroundApiProxy.serviceAccountProfile.getAddressAccountBadge(
-                      {
-                        networkId: selectedNetworkId,
-                        toAddress: address.trim(),
-                      },
-                    );
-                  return {
-                    index,
-                    isContract: badge.isContract,
-                    isScam: badge.isScam,
-                  };
-                } catch {
-                  return { index, isContract: false, isScam: false };
-                }
-              }),
-            ),
-          );
-
-          for (const { index, isContract, isScam } of badgeResults) {
-            if (isScam) {
-              lineErrors.push({
-                lineNumber: index + 1,
-                message: intl.formatMessage({
-                  id: ETranslations.wallet_bulk_send_error_scam_address_detected,
-                }),
-              });
-            } else if (isContract) {
-              lineErrors.push({
-                lineNumber: index + 1,
-                message: intl.formatMessage({
-                  id: ETranslations.send_contract_address_detected_warning,
-                }),
-              });
-            }
-          }
+        if (validAddresses.length > 0 && selectedNetworkId) { 
 
           // Allowlist validation — reject addresses not in address book
           if (isEnableTransferAllowList) {
@@ -368,14 +328,14 @@ function ReceiverAddressesInput({ maxLines }: IReceiverAddressesInputProps) {
             error.lineNumber === -1
               ? error.message
               : intl.formatMessage(
-                  {
-                    id: ETranslations.wallet_bulk_send_error_line_with_message,
-                  },
-                  {
-                    lineNumber: error.lineNumber,
-                    message: error.message,
-                  },
-                ),
+                {
+                  id: ETranslations.wallet_bulk_send_error_line_with_message,
+                },
+                {
+                  lineNumber: error.lineNumber,
+                  message: error.message,
+                },
+              ),
           )
           .join('\n');
       }

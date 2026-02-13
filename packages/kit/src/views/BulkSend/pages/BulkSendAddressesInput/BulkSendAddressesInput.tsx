@@ -332,6 +332,7 @@ function BaseBulkSendAddressesInput() {
         tokenInfo: selectedToken,
         tokenDetails: selectedTokenDetail,
         bulkSendMode,
+        isInModal,
       });
     } else {
       navigation.switchTab(ETabRoutes.Home);
