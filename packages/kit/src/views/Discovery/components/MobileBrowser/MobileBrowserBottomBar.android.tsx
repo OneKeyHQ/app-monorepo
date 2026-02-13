@@ -61,6 +61,7 @@ function MobileBrowserBottomBar({
     handleRequestSiteMode,
     handleGoBack,
     handleGoForward,
+    handleBrowserOpen,
     disabledGoBack,
     disabledGoForward,
   } = useMobileBrowserBottomBarData({ id, onGoBackHomePage });
@@ -149,14 +150,7 @@ function MobileBrowserBottomBar({
                 id: ETranslations.explore_open_in_browser,
               }),
               icon: 'CompassCircleOutline',
-              onPress: () => {
-                const urlToOpen = tab?.displayUrl ?? tab?.url;
-                if (urlToOpen) {
-                  const { openUrlExternal } =
-                    require('@onekeyhq/shared/src/utils/openUrlUtils') as typeof import('@onekeyhq/shared/src/utils/openUrlUtils');
-                  openUrlExternal(urlToOpen);
-                }
-              },
+              onPress: handleBrowserOpen,
               testID: 'action-list-item-open-in-browser',
             },
           ],
@@ -228,8 +222,7 @@ function MobileBrowserBottomBar({
     tab?.isBookmark,
     tab?.isPinned,
     tab?.siteMode,
-    tab?.displayUrl,
-    tab?.url,
+    handleBrowserOpen,
     handleBookmarkPress,
     handlePinTab,
     handleRequestSiteMode,

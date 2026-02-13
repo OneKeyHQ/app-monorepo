@@ -1,4 +1,4 @@
-import { createRef, useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import {
   useAnimatedStyle,
@@ -19,7 +19,6 @@ import {
 function useMobileBottomBarAnimation(activeTabId: string | null) {
   const { bottom: bottomInset } = useSafeAreaInsets();
   const fullBarHeight = BROWSER_BOTTOM_BAR_HEIGHT + bottomInset;
-  const toolbarRef = useMemo(() => createRef<any>(), []);
   const toolbarHeight = useSharedValue(fullBarHeight);
   const toolbarOpacity = useSharedValue(MAX_OPACITY_BOTTOM_BAR);
   const lastScrollY = useRef<number | undefined>(undefined);
@@ -103,7 +102,6 @@ function useMobileBottomBarAnimation(activeTabId: string | null) {
 
   return {
     handleScroll,
-    toolbarRef,
     toolbarAnimatedStyle,
   };
 }

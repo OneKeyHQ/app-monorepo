@@ -46,12 +46,6 @@ export function useMobileBrowserBottomBarData({
 
   const { tab } = useWebTabDataById(id);
 
-  useEffect(() => {
-    if (tab?.url) {
-      console.log('tab.url: ===>: ', tab.url);
-    }
-  }, [tab?.url]);
-
   const origin = tab?.url ? new URL(tab.url).origin : null;
   const { result: hasConnectedAccount, run: refreshConnectState } =
     usePromiseResult(async () => {
