@@ -67,7 +67,7 @@ function ActionItem({
         borderRadius="$4"
         pt="$2.5"
         pb="$1"
-        px="$4"
+        px="$1"
         userSelect="none"
         hoverStyle={{ bg: '$bgStrongHover' }}
         pressStyle={{ bg: '$bgStrongActive' }}
@@ -247,7 +247,7 @@ function ActionMore({
         borderRadius="$4"
         pt="$2.5"
         pb="$1"
-        px="$4"
+        px="$1"
         userSelect="none"
         hoverStyle={{ bg: '$bgStrongHover' }}
         pressStyle={{ bg: '$bgStrongActive' }}
