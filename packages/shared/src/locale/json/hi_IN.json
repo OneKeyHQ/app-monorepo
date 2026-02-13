@@ -2777,6 +2777,7 @@
   "perps.hourly": "प्रति घंटा",
   "perps.offline_moblie": "कनेक्शन खो गया। कृपया अपना नेटवर्क जांचें और पुल-टू-रिफ्रेश करने का प्रयास करें।",
   "perps.onekey_has_saved_you": "वनकी ने आपको बचा लिया है {fee}.",
+  "perps.order_book": "अॉर्डर - बुक",
   "perps.pre_launch": "प्री-लॉन्च",
   "perps.saving_breakdown": "बचत का विवरण",
   "perps.settings_return_to_default_layout": "डिफ़ॉल्ट लेआउट पर लौटें",
