@@ -358,6 +358,9 @@ export function Container({
     getCurrentIndex: () => {
       return tabNames.findIndex((name) => name === focusedTab.value);
     },
+    syncCurrentPage: () => {
+      // no-op on web, only needed for native PagerView
+    },
   }));
 
   return (
