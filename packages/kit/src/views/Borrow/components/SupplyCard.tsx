@@ -3,12 +3,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import {
-  SizableText,
-  Switch,
-  XStack,
-  useMedia,
-} from '@onekeyhq/components';
+import { SizableText, Switch, XStack, useMedia } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';

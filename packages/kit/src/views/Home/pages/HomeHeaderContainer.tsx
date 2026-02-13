@@ -12,6 +12,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { HomeTokenListProviderMirror } from '../components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import ReferralCodeBlock from '../components/NotBakcedUp/ReferralCodeBlock';
+import { onHomePageRefresh } from '../components/PullToRefresh';
 import { ReceiveInfo } from '../components/ReceiveInfo';
 import { WalletActions } from '../components/WalletActions';
 import WalletBanner from '../components/WalletBanner';
@@ -55,10 +56,10 @@ function BaseHomeHeaderContainer() {
           bg="$bgApp"
           pointerEvents="box-none"
         >
-          <HeaderScrollGestureWrapper>
+          <HeaderScrollGestureWrapper onRefresh={onHomePageRefresh}>
             <ReceiveInfo setShowReceiveInfo={setShowReceiveInfo} />
           </HeaderScrollGestureWrapper>
-          <HeaderScrollGestureWrapper>
+          <HeaderScrollGestureWrapper onRefresh={onHomePageRefresh}>
             <ReferralCodeBlock
               setShowReferralCodeBlock={setShowReferralCodeBlock}
             />
@@ -122,13 +123,13 @@ function BaseHomeHeaderContainer() {
           bg="$bgApp"
           pointerEvents="box-none"
         >
-          <HeaderScrollGestureWrapper>
+          <HeaderScrollGestureWrapper onRefresh={onHomePageRefresh}>
             <Stack gap="$2.5">
               <HomeOverviewContainer />
             </Stack>
           </HeaderScrollGestureWrapper>
           {isWalletNotBackedUp ? null : (
-            <HeaderScrollGestureWrapper>
+            <HeaderScrollGestureWrapper onRefresh={onHomePageRefresh}>
               <WalletActions />
             </HeaderScrollGestureWrapper>
           )}

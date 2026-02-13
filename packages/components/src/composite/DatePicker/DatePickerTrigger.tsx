@@ -5,7 +5,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 
 import { Input } from '../../forms/Input';
-import { Stack } from '../../primitives';
 
 import type { IDatePickerTriggerProps, IDateRange } from './type';
 import type { IntlShape } from 'react-intl';
@@ -106,25 +105,23 @@ export const DatePickerTrigger = memo(
     );
 
     return (
-      <Stack position="relative" flex={1}>
-        <Input
-          value={hasValue ? displayValue : ''}
-          disabled={disabled}
-          placeholder={placeholder || displayValue}
-          readonly
-          size="small"
-          addOns={[
-            hasValue && onClear
-              ? {
-                  iconName: 'XCircleOutline' as const,
-                  onPress: handleClearPress,
-                }
-              : {
-                  iconName: 'CalendarOutline' as const,
-                },
-          ]}
-        />
-      </Stack>
+      <Input
+        value={hasValue ? displayValue : ''}
+        disabled={disabled}
+        placeholder={placeholder || displayValue}
+        readonly
+        size="small"
+        addOns={[
+          hasValue && onClear
+            ? {
+                iconName: 'XCircleOutline' as const,
+                onPress: handleClearPress,
+              }
+            : {
+                iconName: 'CalendarOutline' as const,
+              },
+        ]}
+      />
     );
   },
 );

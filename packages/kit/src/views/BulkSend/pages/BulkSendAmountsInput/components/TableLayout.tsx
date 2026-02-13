@@ -646,7 +646,16 @@ function TransferInfoListSection() {
     >
       {/* Header */}
       <XStack px="$5" py="$2" gap="$3">
-        <XStack flex={1} minWidth={0}>
+        <SizableText
+          size="$headingXs"
+          color="$textSubdued"
+          textTransform="uppercase"
+          width={20}
+          flexShrink={0}
+        >
+          #
+        </SizableText>
+        <XStack flex={1} flexBasis={0} minWidth={0}>
           <SizableText
             size="$headingXs"
             color="$textSubdued"
@@ -657,7 +666,7 @@ function TransferInfoListSection() {
             })}
           </SizableText>
         </XStack>
-        <Stack flex={1} minWidth={0}>
+        <Stack flex={1} flexBasis={0} minWidth={0}>
           <SizableText
             size="$headingXs"
             color="$textSubdued"
@@ -710,21 +719,25 @@ function TransferInfoListSection() {
             alignItems="flex-start"
             minHeight={48}
           >
+            {/* INDEX */}
+            <SizableText
+              size="$bodyMdMedium"
+              color="$textDisabled"
+              width={20}
+              flexShrink={0}
+            >
+              {index + 1}.
+            </SizableText>
+
             {/* FROM */}
-            <YStack flex={1} minWidth={0} gap="$1">
-              <XStack gap="$1">
-                <SizableText size="$bodyMdMedium" color="$textDisabled">
-                  {index + 1}.
-                </SizableText>
-                <SizableText
-                  size="$bodyMdMedium"
-                  flex={1}
-                  minWidth={0}
-                  color={hasFromError ? '$textCritical' : undefined}
-                >
-                  {transfer.from}
-                </SizableText>
-              </XStack>
+            <YStack flex={1} flexBasis={0} minWidth={0} gap="$1">
+              <SizableText
+                size="$bodyMdMedium"
+                style={{ wordBreak: 'break-all' }}
+                color={hasFromError ? '$textCritical' : undefined}
+              >
+                {transfer.from}
+              </SizableText>
               {hasFromError ? (
                 <XStack gap="$1" alignItems="center">
                   <Icon
@@ -740,9 +753,10 @@ function TransferInfoListSection() {
             </YStack>
 
             {/* TO */}
-            <YStack flex={1} minWidth={0} gap="$1">
+            <YStack flex={1} flexBasis={0} minWidth={0} gap="$1">
               <SizableText
                 size="$bodyMdMedium"
+                style={{ wordBreak: 'break-all' }}
                 color={hasToError ? '$textCritical' : undefined}
               >
                 {transfer.to}

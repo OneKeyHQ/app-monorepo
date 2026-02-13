@@ -1,4 +1,4 @@
-import type { ForwardedRef, MutableRefObject, RefObject } from 'react';
+import type { ForwardedRef, MutableRefObject } from 'react';
 import {
   createContext,
   forwardRef,
@@ -10,7 +10,7 @@ import {
   useRef,
 } from 'react';
 
-import { Dimensions, ScrollView as ScrollViewNative } from 'react-native';
+import { ScrollView as ScrollViewNative } from 'react-native';
 
 import {
   usePropsAndStyle,
@@ -25,7 +25,6 @@ import type {
   NativeSyntheticEvent,
   ScrollViewProps as ScrollViewNativeProps,
   StyleProp,
-  TextInput,
   ViewStyle,
 } from 'react-native';
 
@@ -53,31 +52,8 @@ const scrollViewRefContext = createContext<{
     },
   },
 });
-const ScrollViewRefProvider = memo(scrollViewRefContext.Provider);
+export const ScrollViewRefProvider = memo(scrollViewRefContext.Provider);
 export const useScrollView = () => useContext(scrollViewRefContext);
-
-export const useScrollToLocation = (inputRef: RefObject<TextInput | null>) => {
-  const actions = useScrollView();
-  const scrollToView = useCallback(() => {
-    if (platformEnv.isNative) {
-      setTimeout(() => {
-        inputRef.current?.measureInWindow((x, y) => {
-          const { pageOffsetRef, scrollViewRef } = actions;
-          const windowHeight = Dimensions.get('window').height;
-          const minY = windowHeight / 4;
-          const scrollY = y - minY;
-          if (scrollY > 0) {
-            scrollViewRef?.current?.scrollTo?.({
-              y: pageOffsetRef.current.y + scrollY,
-              animated: true,
-            });
-          }
-        });
-      }, 250);
-    }
-  }, [actions, inputRef]);
-  return useMemo(() => ({ scrollToView }), [scrollToView]);
-};
 
 function BaseScrollView(
   {

@@ -14,6 +14,8 @@ import {
   dismissKeyboardWithDelay,
 } from '@onekeyhq/shared/src/keyboard';
 
+export const KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET = 80;
+
 export const Keyboard = {
   AvoidingView: KeyboardAvoidingView,
   AwareScrollView: KeyboardAwareScrollView,

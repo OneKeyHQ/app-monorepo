@@ -1,7 +1,10 @@
+import { forwardRef } from 'react';
+
 import {
   dismissKeyboard,
   dismissKeyboardWithDelay,
 } from '@onekeyhq/shared/src/keyboard';
+import { ScrollView } from 'react-native';
 
 import type {
   KeyboardAvoidingView,
@@ -13,6 +16,7 @@ import type {
   KeyboardToolbar,
   OverKeyboardView,
 } from 'react-native-keyboard-controller';
+import type { ScrollViewProps } from 'react-native';
 
 const PassThrough = ({
   children,
@@ -21,9 +25,20 @@ const PassThrough = ({
   [key: string]: unknown;
 }) => children;
 
+// On non-native platforms, strip keyboard-specific props and render a plain ScrollView
+const AwareScrollViewFallback = forwardRef<
+  ScrollView,
+  ScrollViewProps & Record<string, unknown>
+>(({ bottomOffset: _bottomOffset, ...rest }, ref) => (
+  <ScrollView ref={ref} {...rest} />
+));
+
+export const KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET = 80;
+
 export const Keyboard = {
   AvoidingView: PassThrough as typeof KeyboardAvoidingView,
-  AwareScrollView: PassThrough as typeof KeyboardAwareScrollView,
+  AwareScrollView:
+    AwareScrollViewFallback as unknown as typeof KeyboardAwareScrollView,
   StickyView: PassThrough as typeof KeyboardStickyView,
   Toolbar: PassThrough as typeof KeyboardToolbar,
   ControllerView: PassThrough as typeof KeyboardControllerView,

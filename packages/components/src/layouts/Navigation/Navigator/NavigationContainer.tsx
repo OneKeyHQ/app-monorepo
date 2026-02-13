@@ -28,7 +28,7 @@ import type {
   ETabRoutes,
   ITabStackParamList,
 } from '@onekeyhq/shared/src/routes';
-import { ERootRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalRoutes, ERootRoutes } from '@onekeyhq/shared/src/routes';
 import mmkvStorageInstance from '@onekeyhq/shared/src/storage/instance/mmkvStorageInstance';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
@@ -173,6 +173,44 @@ export const popToMainRoute = async (maxRetryTimes = 99) => {
   }
   await timerUtils.wait(150);
   await popToMainRoute(maxRetryTimes - 1);
+};
+
+export const popScanModalPages = async (maxRetryTimes = 99) => {
+  if (maxRetryTimes <= 0) {
+    return;
+  }
+  const rootState = rootNavigationRef.current?.getRootState();
+  const currentRoute = rootState?.routes?.[rootState.index];
+  if (currentRoute?.name !== ERootRoutes.Modal) {
+    return;
+  }
+  const screenName =
+    (currentRoute?.params as { screen?: string })?.screen ||
+    currentRoute?.state?.routes?.[currentRoute?.state?.index || 0]?.name;
+  if (screenName !== EModalRoutes.ScanQrCodeModal) {
+    return;
+  }
+  if (rootNavigationRef.current?.canGoBack?.()) {
+    rootNavigationRef.current?.goBack();
+  }
+  await timerUtils.wait(350);
+  await popScanModalPages(maxRetryTimes - 1);
+};
+
+export const popActionCenterPages = async (maxRetryTimes = 99) => {
+  if (maxRetryTimes <= 0) {
+    return;
+  }
+  const rootState = rootNavigationRef.current?.getRootState();
+  const currentRoute = rootState?.routes?.[rootState.index];
+  if (currentRoute?.name !== ERootRoutes.FullScreenPush) {
+    return;
+  }
+  if (rootNavigationRef.current?.canGoBack?.()) {
+    rootNavigationRef.current?.goBack();
+  }
+  await timerUtils.wait(350);
+  await popActionCenterPages(maxRetryTimes - 1);
 };
 
 export const popToTabRootScreen = async () => {

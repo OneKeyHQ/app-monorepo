@@ -3,24 +3,24 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Button, Checkbox, SizableText, XStack } from '@onekeyhq/components';
-import { usePositionFilterByCurrentTokenAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
+import { useOrderFilterByCurrentTokenAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { showCloseAllPositionsDialog } from '../CloseAllPositionsModal';
+import { showCancelAllOrdersDialog } from '../CancelAllOrdersModal';
 
-interface IMobilePositionsListHeaderProps {
-  totalPositionCount: number;
+interface IMobileOpenOrdersListHeaderProps {
+  totalOrderCount: number;
 }
 
-export function MobilePositionsListHeader({
-  totalPositionCount,
-}: IMobilePositionsListHeaderProps) {
+export function MobileOpenOrdersListHeader({
+  totalOrderCount,
+}: IMobileOpenOrdersListHeaderProps) {
   const intl = useIntl();
   const [filterByCurrentToken, setFilterByCurrentToken] =
-    usePositionFilterByCurrentTokenAtom();
+    useOrderFilterByCurrentTokenAtom();
 
-  const handleCloseAll = useCallback(() => {
-    void showCloseAllPositionsDialog();
+  const handleCancelAll = useCallback(() => {
+    void showCancelAllOrdersDialog();
   }, []);
 
   const handleFilterChange = useCallback(
@@ -30,8 +30,8 @@ export function MobilePositionsListHeader({
     [setFilterByCurrentToken],
   );
 
-  // Early return when no positions exist
-  if (totalPositionCount === 0) {
+  // Early return when no orders exist
+  if (totalOrderCount === 0) {
     return null;
   }
 
@@ -56,15 +56,17 @@ export function MobilePositionsListHeader({
         onChange={handleFilterChange}
       />
 
-      {/* Right: Close all button - disabled only when no positions to close */}
+      {/* Right: Cancel all button - disabled only when no orders to cancel */}
       <Button
         size="small"
         variant="secondary"
-        disabled={totalPositionCount === 0}
-        onPress={handleCloseAll}
+        disabled={totalOrderCount === 0}
+        onPress={handleCancelAll}
       >
         <SizableText size="$bodyXs">
-          {intl.formatMessage({ id: ETranslations.perp_position_close })}
+          {intl.formatMessage({
+            id: ETranslations.perp_open_orders_cancel_all,
+          })}
         </SizableText>
       </Button>
     </XStack>
