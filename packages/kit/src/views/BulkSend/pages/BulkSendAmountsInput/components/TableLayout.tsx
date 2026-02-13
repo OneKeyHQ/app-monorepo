@@ -413,6 +413,7 @@ function AmountCard() {
                   placeholder="0"
                   keyboardType="decimal-pad"
                   containerProps={{
+                    flex: 1,
                     borderWidth: 0,
                   }}
                   bg="transparent"
@@ -470,6 +471,7 @@ function AmountCard() {
                   placeholder="0"
                   keyboardType="decimal-pad"
                   containerProps={{
+                    flex: 1,
                     borderWidth: 0,
                   }}
                   bg="transparent"
