@@ -3965,6 +3965,8 @@
   "title__invoice_description": "請求書の説明",
   "title__lnurl_pay": "LNURL Pay",
   "toast.web_auth": "設定に失敗しました",
+  "toast_create_address_failed_message": "最初にアカウントを選択してください",
+  "toast_create_address_failed_title": "アドレスを作成できません",
   "token_hidden_message": "このトークンは現在非表示になっており、リストには表示されません",
   "token_manage.custom_token_address_failed": "契約アドレスが見つかりませんでした。再試行してください。",
   "token_manage.hidden_token": "{num}隠しトークン",

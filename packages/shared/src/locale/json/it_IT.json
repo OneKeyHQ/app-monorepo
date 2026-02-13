@@ -3965,6 +3965,8 @@
   "title__invoice_description": "Descrizione della fattura",
   "title__lnurl_pay": "LNURL Pay",
   "toast.web_auth": "Impostazione fallita",
+  "toast_create_address_failed_message": "Per favore seleziona prima un account",
+  "toast_create_address_failed_title": "Impossibile creare indirizzo",
   "token_hidden_message": "Questo token è attualmente nascosto e non apparirà nell'elenco",
   "token_manage.custom_token_address_failed": "Impossibile trovare l'indirizzo del contratto. Prova di nuovo. ",
   "token_manage.hidden_token": "{num} token nascosto",

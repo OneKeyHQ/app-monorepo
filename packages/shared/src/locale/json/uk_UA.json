@@ -3965,6 +3965,8 @@
   "title__invoice_description": "Опис рахунку",
   "title__lnurl_pay": "LNURL Pay",
   "toast.web_auth": "Налаштування не вдалося",
+  "toast_create_address_failed_message": "Будь ласка, спочатку виберіть обліковий запис",
+  "toast_create_address_failed_title": "Неможливо створити адресу",
   "token_hidden_message": "Цей токен зараз прихований і не з'явиться у списку",
   "token_manage.custom_token_address_failed": "Не вдалося знайти адресу контракту. Спробуйте ще раз. ",
   "token_manage.hidden_token": "{num} прихований маркер",

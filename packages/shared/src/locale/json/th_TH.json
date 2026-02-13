@@ -3965,6 +3965,8 @@
   "title__invoice_description": "คำอธิบายใบแจ้งหนี้",
   "title__lnurl_pay": "LNURL ชำระเงิน",
   "toast.web_auth": "การตั้งค่าล้มเหลว",
+  "toast_create_address_failed_message": "กรุณาเลือกบัญชีก่อน",
+  "toast_create_address_failed_title": "ไม่สามารถสร้างที่อยู่ได้",
   "token_hidden_message": "โทเค็นนี้ถูกซ่อนอยู่ในปัจจุบันและจะไม่ปรากฏในรายการ",
   "token_manage.custom_token_address_failed": "ไม่สามารถหาที่อยู่ของสัญญา ลองอีกครั้ง",
   "token_manage.hidden_token": "{num} โทเค็นที่ซ่อนอยู่",

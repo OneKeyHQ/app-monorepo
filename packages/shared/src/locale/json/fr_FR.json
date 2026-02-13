@@ -3965,6 +3965,8 @@
   "title__invoice_description": "Description de la facture",
   "title__lnurl_pay": "LNURL Pay",
   "toast.web_auth": "Échec de l'installation",
+  "toast_create_address_failed_message": "Veuillez d'abord sélectionner un compte",
+  "toast_create_address_failed_title": "Impossible de créer une adresse",
   "token_hidden_message": "Ce jeton est actuellement caché et n'apparaîtra pas dans la liste",
   "token_manage.custom_token_address_failed": "Échec de la recherche de l'adresse du contrat. Essayez à nouveau. ",
   "token_manage.hidden_token": "{num} Jeton caché",

@@ -3965,6 +3965,8 @@
   "title__invoice_description": "Mô tả hóa đơn",
   "title__lnurl_pay": "Thanh toán LNURL",
   "toast.web_auth": "Thiết lập thất bại",
+  "toast_create_address_failed_message": "Vui lòng chọn một tài khoản trước tiên",
+  "toast_create_address_failed_title": "Không thể tạo địa chỉ",
   "token_hidden_message": "Token này hiện đang bị ẩn và sẽ không xuất hiện trong danh sách",
   "token_manage.custom_token_address_failed": "Không tìm thấy địa chỉ hợp đồng. Hãy thử lại. ",
   "token_manage.hidden_token": "{num} Mã thông báo ẩn",
