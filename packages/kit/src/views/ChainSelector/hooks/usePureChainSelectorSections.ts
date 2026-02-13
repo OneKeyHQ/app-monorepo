@@ -1,18 +1,16 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo } from "react";
 
-import BigNumber from 'bignumber.js';
-import { useIntl } from 'react-intl';
+import BigNumber from "bignumber.js";
+import { isUndefined } from "lodash";
+import { useIntl } from "react-intl";
 
-import { NETWORK_SHOW_VALUE_THRESHOLD_USD } from '@onekeyhq/shared/src/consts/networkConsts';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IServerNetwork } from '@onekeyhq/shared/types';
+import { NETWORK_SHOW_VALUE_THRESHOLD_USD } from "@onekeyhq/shared/src/consts/networkConsts";
+import { ETranslations } from "@onekeyhq/shared/src/locale";
+import type { IServerNetwork } from "@onekeyhq/shared/types";
 
-import { useFuseSearch } from './useFuseSearch';
+import { useFuseSearch } from "./useFuseSearch";
 
-import type {
-  IPureChainSelectorSectionListItem,
-  IServerNetworkMatch,
-} from '../types';
+import type { IPureChainSelectorSectionListItem, IServerNetworkMatch } from "../types";
 
 export function usePureChainSelectorSections({
   networks,
@@ -32,7 +30,11 @@ export function usePureChainSelectorSections({
 
   const getNetworkValue = useCallback(
     (networkId: string) => {
-      const tokenValue = accountNetworkValues?.[networkId] ?? '0';
+      if (isUndefined(accountNetworkValues?.[networkId])) {
+        return "0";
+      }
+
+      const tokenValue = accountNetworkValues?.[networkId] ?? "0";
       const defiValue = accountDeFiOverview?.[networkId]?.netWorth ?? 0;
       return new BigNumber(tokenValue).plus(defiValue).toFixed();
     },
@@ -134,14 +136,7 @@ export function usePureChainSelectorSections({
     }
 
     return _sections;
-  }, [
-    searchKey,
-    networks,
-    unavailableNetworks,
-    networkFuseSearch,
-    intl,
-    getNetworkValue,
-  ]);
+  }, [searchKey, networks, unavailableNetworks, networkFuseSearch, intl, getNetworkValue]);
 
   return {
     sections,
