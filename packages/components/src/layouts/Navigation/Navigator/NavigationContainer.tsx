@@ -242,7 +242,7 @@ export const popToTabRootScreen = async () => {
   if (!tabRoute?.state) {
     return;
   }
-  if ((tabRoute?.state?.index || 0) > 0) {
+  if (tabRoute?.state?.index !== undefined) {
     if (rootNavigationRef.current?.canGoBack()) {
       rootNavigationRef.current?.goBack();
       await timerUtils.wait(150);
