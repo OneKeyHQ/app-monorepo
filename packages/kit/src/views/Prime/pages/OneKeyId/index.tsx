@@ -44,26 +44,24 @@ function OneKeyIdPage() {
     await timerUtils.wait(350);
   }, []);
 
-  const toPrimePage = useCallback(() => {
-    requestIdleCallback(async () => {
-      try {
-        if (isPrimeAvailable) {
-          if (platformEnv.isNative) {
-            await popCurrentModal();
-          }
-          rootNavigationRef.current?.navigate(ERootRoutes.iOSFullScreen, {
-            screen: EModalRoutes.PrimeModal,
-            params: {
-              screen: EPrimePages.PrimeDashboard,
-            },
-          });
+  const toPrimePage = useCallback(async () => {
+    try {
+      if (isPrimeAvailable) {
+        if (platformEnv.isNative) {
+          await popCurrentModal();
         }
-      } catch (e) {
-        defaultLogger.prime.subscription.onekeyIdLogout({
-          reason: `OneKeyIdPage: toPrimePage navigation error: ${String(e)}`,
+        rootNavigationRef.current?.navigate(ERootRoutes.iOSFullScreen, {
+          screen: EModalRoutes.PrimeModal,
+          params: {
+            screen: EPrimePages.PrimeDashboard,
+          },
         });
       }
-    });
+    } catch (e) {
+      defaultLogger.prime.subscription.onekeyIdLogout({
+        reason: `OneKeyIdPage: toPrimePage navigation error: ${String(e)}`,
+      });
+    }
   }, [isPrimeAvailable, popCurrentModal]);
 
   const handleLoggedOutWhileFocused = useCallback(async () => {
