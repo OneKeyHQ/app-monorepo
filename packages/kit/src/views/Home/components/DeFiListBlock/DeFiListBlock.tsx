@@ -415,12 +415,12 @@ function DeFiListBlock({
       accountId?: string;
       networkId?: string;
     }) => {
+      deFiRawDataRef.current =
+        (await backgroundApiProxy.simpleDb.deFi.getRawData()) ?? undefined;
+
       if (refreshCacheOnly) {
         return;
       }
-
-      deFiRawDataRef.current =
-        (await backgroundApiProxy.simpleDb.deFi.getRawData()) ?? undefined;
 
       appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
         isRefreshing: true,
@@ -544,10 +544,11 @@ function DeFiListBlock({
       accountId?: string;
       networkId?: string;
     }) => {
+      isForceRefreshRef.current = false;
+
       if (refreshCacheOnly) {
         return;
       }
-      isForceRefreshRef.current = false;
 
       appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
         isRefreshing: false,
@@ -762,6 +763,10 @@ function DeFiListBlock({
 
   useEffect(() => {
     if (allNetworksResult) {
+      if (refreshCacheOnly) {
+        return;
+      }
+
       const tempOverview = {
         totalValue: 0,
         totalDebt: 0,
@@ -817,6 +822,7 @@ function DeFiListBlock({
     updateDeFiListProtocolMap,
     updateDeFiListState,
     settings.currencyInfo.id,
+    refreshCacheOnly,
   ]);
 
   useEffect(() => {

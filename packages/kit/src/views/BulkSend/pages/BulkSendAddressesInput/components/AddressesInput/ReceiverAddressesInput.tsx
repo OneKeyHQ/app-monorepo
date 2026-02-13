@@ -264,47 +264,6 @@ function ReceiverAddressesInput({ maxLines }: IReceiverAddressesInputProps) {
 
         // Phase 3: Address risk detection + allowlist validation for valid, non-duplicate addresses
         if (validAddresses.length > 0 && selectedNetworkId) {
-          const badgeResults = await Promise.all(
-            validAddresses.map(({ index, address }) =>
-              limit(async () => {
-                try {
-                  const badge =
-                    await backgroundApiProxy.serviceAccountProfile.getAddressAccountBadge(
-                      {
-                        networkId: selectedNetworkId,
-                        toAddress: address.trim(),
-                      },
-                    );
-                  return {
-                    index,
-                    isContract: badge.isContract,
-                    isScam: badge.isScam,
-                  };
-                } catch {
-                  return { index, isContract: false, isScam: false };
-                }
-              }),
-            ),
-          );
-
-          for (const { index, isContract, isScam } of badgeResults) {
-            if (isScam) {
-              lineErrors.push({
-                lineNumber: index + 1,
-                message: intl.formatMessage({
-                  id: ETranslations.wallet_bulk_send_error_scam_address_detected,
-                }),
-              });
-            } else if (isContract) {
-              lineErrors.push({
-                lineNumber: index + 1,
-                message: intl.formatMessage({
-                  id: ETranslations.send_contract_address_detected_warning,
-                }),
-              });
-            }
-          }
-
           // Allowlist validation — reject addresses not in address book or local wallets
           if (isEnableTransferAllowList) {
             const isEvmNetwork = networkUtils.isEvmNetwork({
