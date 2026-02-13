@@ -2217,6 +2217,7 @@
   "market.1y": "1 ปี",
   "market.24h": "24 ชั่วโมง",
   "market.24h_price_range": "ช่วงราคาตลอด 24 ชั่วโมง",
+  "market.24h_turnover": "ปริมาณ 24h",
   "market.24h_txns": "ธุรกรรม 24 ชั่วโมง",
   "market.24h_vol_usd": "ปริมาณการซื้อขาย 24 ชั่วโมง (USD)",
   "market.30d": "30 วัน",

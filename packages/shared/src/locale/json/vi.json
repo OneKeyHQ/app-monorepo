@@ -2217,6 +2217,7 @@
   "market.1y": "1n",
   "market.24h": "24 giờ",
   "market.24h_price_range": "Phạm vi Giá 24 giờ",
+  "market.24h_turnover": "Khối lượng 24h",
   "market.24h_txns": "Giao dịch 24 giờ",
   "market.24h_vol_usd": "Khối Lượng 24 giờ (USD)",
   "market.30d": "30ng",
