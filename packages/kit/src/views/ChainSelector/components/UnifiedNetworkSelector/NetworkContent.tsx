@@ -86,6 +86,7 @@ export function NetworkContent({
                 indexedAccountId,
               },
             ],
+            networksEnabledOnly: false,
           }),
         ]);
 
