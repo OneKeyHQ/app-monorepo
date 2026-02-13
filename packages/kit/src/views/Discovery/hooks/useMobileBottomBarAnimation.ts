@@ -84,7 +84,7 @@ function useMobileBottomBarAnimation(activeTabId: string | null) {
         duration: DISPLAY_BOTTOM_BAR_DURATION,
       }); // No gradual animation
     },
-    [toolbarHeight, toolbarOpacity, toolbarRef, fullBarHeight],
+    [toolbarHeight, toolbarOpacity, fullBarHeight],
   );
   const toolbarAnimatedStyle = useAnimatedStyle(() => ({
     height: toolbarHeight.value,

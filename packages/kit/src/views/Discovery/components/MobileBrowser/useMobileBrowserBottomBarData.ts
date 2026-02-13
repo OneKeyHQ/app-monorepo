@@ -18,7 +18,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
-import { BROWSER_BOTTOM_BAR_HEIGHT } from '../../config/Animation.constants';
 import useBrowserOptionsAction from '../../hooks/useBrowserOptionsAction';
 import {
   useDisplayHomePageFlag,
