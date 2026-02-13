@@ -12,6 +12,7 @@ import { isEnabledNetworksInAllNetworks } from '@onekeyhq/shared/src/utils/netwo
 import { AllNetworksManagerContext } from './AllNetworksManagerContext';
 
 import type { IServerNetworkMatch } from '../../types';
+import { isUndefined } from 'lodash';
 
 function NetworkListItem({ network }: { network: IServerNetworkMatch }) {
   const {
@@ -43,6 +44,9 @@ function NetworkListItem({ network }: { network: IServerNetworkMatch }) {
   };
 
   const networkTotalValue = useMemo(() => {
+    if (isUndefined(accountNetworkValues[network.id])) {
+      return '0';
+    }
     return new BigNumber(accountDeFiOverview[network.id]?.netWorth ?? 0)
       .plus(accountNetworkValues[network.id] ?? '0')
       .toFixed();
