@@ -19,7 +19,10 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
-import { useKeyboardEventWithoutNavigation, useSafeAreaInsets } from '../../hooks';
+import {
+  useKeyboardEventWithoutNavigation,
+  useSafeAreaInsets,
+} from '../../hooks';
 import { Button, XStack } from '../../primitives';
 
 import { DialogContext } from './context';
