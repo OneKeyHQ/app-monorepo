@@ -64,6 +64,8 @@ function AccountValue(accountValue: {
     return accountValue;
   }, [accountValue, activeAccountValue, isActiveAccount]);
 
+  console.log('value', value);
+
   const accountValueString = useMemo(() => {
     if (typeof value === 'string') {
       return new BigNumber(value ?? '0')

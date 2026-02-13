@@ -465,7 +465,6 @@ class ServiceSignature extends ServiceBase {
     await localDb.removeAllSignedMessage();
     await localDb.removeAllConnectedSite();
   }
-
 }
 
 export default ServiceSignature;
