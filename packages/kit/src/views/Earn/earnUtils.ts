@@ -77,7 +77,21 @@ export async function safePushToEarnRoute(
         tab: ETranslations.global_earn,
       });
     });
+    // On native platforms with native bottom tabs, navigate directly without
+    // deferring to a delayed task. The await timerUtils.wait(0) + dispatch
+    // pattern causes navigation to be detached from the touch event context,
+    // and iOS production won't flush the bridge call until the next user
+    // interaction.
+    (rootNavigationRef.current ?? navigation).navigate(ERootRoutes.Main, {
+      screen: targetTab,
+      params: {
+        screen: route,
+        params,
+      },
+    });
+    return;
   }
+
   await timerUtils.wait(0);
 
   const rootNavigation = rootNavigationRef.current;
