@@ -1,13 +1,17 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
-import BigNumber from "bignumber.js";
-import { useIntl } from "react-intl";
+import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
-import type { IUnsignedTxPro } from "@onekeyhq/core/src/types";
-import backgroundApiProxy from "@onekeyhq/kit/src/background/instance/backgroundApiProxy";
-import { usePromiseResult } from "@onekeyhq/kit/src/hooks/usePromiseResult";
-import { calculateFeeForSend, getFeeIcon, getFeeLabel } from "@onekeyhq/shared/src/utils/feeUtils";
-import timerUtils from "@onekeyhq/shared/src/utils/timerUtils";
+import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import {
+  calculateFeeForSend,
+  getFeeIcon,
+  getFeeLabel,
+} from '@onekeyhq/shared/src/utils/feeUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   EFeeType,
   ESendFeeStatus,
@@ -18,9 +22,9 @@ import {
   type IGasEIP1559,
   type IGasLegacy,
   type ISendSelectedFeeInfo,
-} from "@onekeyhq/shared/types/fee";
+} from '@onekeyhq/shared/types/fee';
 
-import type { IBulkSendFeeState } from "../components/Context";
+import type { IBulkSendFeeState } from '../components/Context';
 
 type IUseBulkSendFeeEstimationParams = {
   networkId: string;
@@ -33,12 +37,17 @@ type IUseBulkSendFeeEstimationParams = {
 // Scale gasLimit for bulk transfer txs when batch estimation is not available.
 // For transfer txs (non-approve), multiply gasLimit by (transfersInfo.length + 2)
 // to account for the higher gas consumption of multi-call contracts.
-function scaleGasLimitForBulkTransfer(feeInfo: IFeeInfoUnit, multiplier: number): IFeeInfoUnit {
+function scaleGasLimitForBulkTransfer(
+  feeInfo: IFeeInfoUnit,
+  multiplier: number,
+): IFeeInfoUnit {
   if (multiplier <= 1) return feeInfo;
 
   const scaled = { ...feeInfo };
   if (scaled.gas) {
-    const newGasLimit = new BigNumber(scaled.gas.gasLimit).times(multiplier).toFixed(0);
+    const newGasLimit = new BigNumber(scaled.gas.gasLimit)
+      .times(multiplier)
+      .toFixed(0);
     scaled.gas = {
       ...scaled.gas,
       gasLimit: newGasLimit,
@@ -46,7 +55,9 @@ function scaleGasLimitForBulkTransfer(feeInfo: IFeeInfoUnit, multiplier: number)
     };
   }
   if (scaled.gasEIP1559) {
-    const newGasLimit = new BigNumber(scaled.gasEIP1559.gasLimit).times(multiplier).toFixed(0);
+    const newGasLimit = new BigNumber(scaled.gasEIP1559.gasLimit)
+      .times(multiplier)
+      .toFixed(0);
     scaled.gasEIP1559 = {
       ...scaled.gasEIP1559,
       gasLimit: newGasLimit,
@@ -69,7 +80,8 @@ export function useBulkSendFeeEstimation({
 
   // Get vault settings for polling interval
   const { result: vaultSettings } = usePromiseResult(
-    async () => backgroundApiProxy.serviceNetwork.getVaultSettings({ networkId }),
+    async () =>
+      backgroundApiProxy.serviceNetwork.getVaultSettings({ networkId }),
     [networkId],
   );
 
@@ -97,7 +109,7 @@ export function useBulkSendFeeEstimation({
           setFeeState((prev) => ({
             ...prev,
             feeStatus: ESendFeeStatus.Loading,
-            errMessage: "",
+            errMessage: '',
           }));
         }
 
@@ -106,7 +118,9 @@ export function useBulkSendFeeEstimation({
         let txFee: IFeesInfoUnit | undefined;
         let estimateFeeParams: IEstimateFeeParams | undefined;
         // Store per-tx fee info for batch estimation
-        let perTxFeeInfos: { gas?: IGasLegacy[]; gasEIP1559?: IGasEIP1559[] }[] | undefined;
+        let perTxFeeInfos:
+          | { gas?: IGasLegacy[]; gasEIP1559?: IGasEIP1559[] }[]
+          | undefined;
 
         // Try batch estimate for multi-txs
         if (isMultiTxs) {
@@ -116,11 +130,12 @@ export function useBulkSendFeeEstimation({
           if (vs?.supportBatchEstimateFee?.[networkId]) {
             try {
               const encodedTxList = unsignedTxs.map((tx) => tx.encodedTx);
-              const multiTxsFeeResult = await backgroundApiProxy.serviceGas.batchEstimateFee({
-                accountId,
-                networkId,
-                encodedTxs: encodedTxList,
-              });
+              const multiTxsFeeResult =
+                await backgroundApiProxy.serviceGas.batchEstimateFee({
+                  accountId,
+                  networkId,
+                  encodedTxs: encodedTxList,
+                });
               // Use first tx's fee for fee selector display (all txs share same gas price)
               txFee = {
                 common: multiTxsFeeResult.common,
@@ -133,17 +148,18 @@ export function useBulkSendFeeEstimation({
                 gasEIP1559: tf.gasEIP1559,
               }));
             } catch (e) {
-              console.error("Batch estimate fee failed, fallback to single", e);
+              console.error('Batch estimate fee failed, fallback to single', e);
             }
           }
         }
 
         // Fallback to single tx estimate
         if (!txFee) {
-          const accountAddress = await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
-            networkId,
-            accountId,
-          });
+          const accountAddress =
+            await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
+              networkId,
+              accountId,
+            });
 
           const { encodedTx, estimateFeeParams: e } =
             await backgroundApiProxy.serviceGas.buildEstimateFeeParams({
@@ -173,7 +189,7 @@ export function useBulkSendFeeEstimation({
         }
 
         if (!txFee) {
-          throw new Error("Failed to estimate fee");
+          throw new Error('Failed to estimate fee');
         }
 
         // Build fee selector items (only standard presets, no custom)
@@ -235,7 +251,7 @@ export function useBulkSendFeeEstimation({
         const selectedFeeInfo = feeSelectorItems[selectedPresetIndex]?.feeInfo;
 
         if (!selectedFeeInfo) {
-          throw new Error("No fee info available");
+          throw new Error('No fee info available');
         }
 
         // Calculate fees for each transaction
@@ -259,7 +275,10 @@ export function useBulkSendFeeEstimation({
             // Fallback mode: scale gasLimit for transfer txs
             // Gas scales with the number of transfers in this tx, not the number of txs
             const transferCount = unsignedTx.transfersInfo?.length ?? 1;
-            txFeeInfo = scaleGasLimitForBulkTransfer(txFeeInfo, transferCount + 1);
+            txFeeInfo = scaleGasLimitForBulkTransfer(
+              txFeeInfo,
+              transferCount + 1,
+            );
           }
           const feeResult = calculateFeeForSend({
             feeInfo: txFeeInfo,
@@ -283,7 +302,7 @@ export function useBulkSendFeeEstimation({
         setFeeState((prev) => ({
           ...prev,
           feeStatus: ESendFeeStatus.Success,
-          errMessage: "",
+          errMessage: '',
           isInitialized: true,
           feeSelectorItems,
           selectedFee: {
@@ -292,7 +311,7 @@ export function useBulkSendFeeEstimation({
           },
           totalFeeNative: totalNative.toFixed(),
           totalFeeFiat: totalFiat.toFixed(),
-          nativeSymbol: txFee.common?.nativeSymbol ?? "",
+          nativeSymbol: txFee.common?.nativeSymbol ?? '',
           feeInfos,
           perTxFeeInfos,
         }));
@@ -309,8 +328,8 @@ export function useBulkSendFeeEstimation({
             }
           )?.data?.data?.res?.error?.message ??
           (e as Error).message ??
-          "Failed to estimate fee";
-        console.error("Fee estimation error:", e);
+          'Failed to estimate fee';
+        console.error('Fee estimation error:', e);
 
         // For polling errors when already initialized, don't show error state
         // Just keep the current fee data
@@ -396,7 +415,10 @@ export function useBulkSendFeeEstimation({
           // Fallback mode: scale gasLimit for transfer txs
           // Gas scales with the number of transfers in this tx, not the number of txs
           const transferCount = unsignedTx.transfersInfo?.length ?? 1;
-          txFeeInfo = scaleGasLimitForBulkTransfer(txFeeInfo, transferCount + 1);
+          txFeeInfo = scaleGasLimitForBulkTransfer(
+            txFeeInfo,
+            transferCount + 1,
+          );
         }
         const feeResult = calculateFeeForSend({
           feeInfo: txFeeInfo,
@@ -427,7 +449,12 @@ export function useBulkSendFeeEstimation({
         feeInfos,
       }));
     },
-    [feeState.feeSelectorItems, feeState.perTxFeeInfos, setFeeState, unsignedTxs],
+    [
+      feeState.feeSelectorItems,
+      feeState.perTxFeeInfos,
+      setFeeState,
+      unsignedTxs,
+    ],
   );
 
   // Force refresh fee (for tx updates)
@@ -438,7 +465,7 @@ export function useBulkSendFeeEstimation({
   // Get fee label for display
   const feeLabel = useMemo(() => {
     const item = feeState.feeSelectorItems[feeState.selectedFee.presetIndex];
-    return item?.label ?? "";
+    return item?.label ?? '';
   }, [feeState.feeSelectorItems, feeState.selectedFee.presetIndex]);
 
   return {
