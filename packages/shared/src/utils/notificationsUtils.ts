@@ -12,11 +12,7 @@ import appGlobals from '../appGlobals';
 import { EAppEventBusNames, appEventBus } from '../eventBus/appEventBus';
 import { defaultLogger } from '../logger/logger';
 import platformEnv from '../platformEnv';
-import {
-  EModalAssetDetailRoutes,
-  EModalRoutes,
-  ETabRoutes,
-} from '../routes';
+import { EModalAssetDetailRoutes, EModalRoutes, ETabRoutes } from '../routes';
 import { EModalNotificationsRoutes } from '../routes/notifications';
 import { ERootRoutes } from '../routes/root';
 
