@@ -70,30 +70,6 @@ export async function safePushToEarnRoute(
     ? ETabRoutes.Discovery
     : ETabRoutes.Earn;
 
-  navigation.switchTab(targetTab);
-  if (platformEnv.isNative) {
-    void timerUtils.wait(150).then(() => {
-      appEventBus.emit(EAppEventBusNames.SwitchDiscoveryTabInNative, {
-        tab: ETranslations.global_earn,
-      });
-    });
-    // On native platforms with native bottom tabs, navigate directly without
-    // deferring to a delayed task. The await timerUtils.wait(0) + dispatch
-    // pattern causes navigation to be detached from the touch event context,
-    // and iOS production won't flush the bridge call until the next user
-    // interaction.
-    (rootNavigationRef.current ?? navigation).navigate(ERootRoutes.Main, {
-      screen: targetTab,
-      params: {
-        screen: route,
-        params,
-      },
-    });
-    return;
-  }
-
-  await timerUtils.wait(0);
-
   const rootNavigation = rootNavigationRef.current;
   const findTargetStack = (state?: NavigationState) => {
     if (!state) return undefined;
@@ -114,6 +90,53 @@ export async function safePushToEarnRoute(
     const targetKey = tabState?.key ?? tabRoute.key;
     return { targetKey, tabState };
   };
+
+  // On native, query state BEFORE switchTab. All tab states are already
+  // available since lazy: false, so we don't depend on switchTab's state
+  // synchronization timing with native bottom tabs.
+  const preQueryState = platformEnv.isNative && rootNavigation
+    ? findTargetStack(rootNavigation.getRootState?.())
+    : undefined;
+
+  navigation.switchTab(targetTab);
+  if (platformEnv.isNative) {
+    void timerUtils.wait(150).then(() => {
+      appEventBus.emit(EAppEventBusNames.SwitchDiscoveryTabInNative, {
+        tab: ETranslations.global_earn,
+      });
+    });
+
+    // Use pre-queried state to dispatch push synchronously within the touch
+    // event context. This avoids timerUtils.wait(0) which defers the dispatch
+    // to a task that iOS production won't flush until the next interaction.
+    const targetKey = preQueryState?.targetKey;
+    if (rootNavigation && targetKey) {
+      const { tabState } = preQueryState;
+      const topRoute = tabState?.routes?.[tabState.index || 0];
+      if (topRoute?.name === route) {
+        const action = StackActions.replace(route, params);
+        // @ts-expect-error target is added at runtime for navigator selection
+        action.target = targetKey;
+        rootNavigation.dispatch(action);
+      } else {
+        const action = StackActions.push(route, params);
+        // @ts-expect-error target is added at runtime for navigator selection
+        action.target = targetKey;
+        rootNavigation.dispatch(action);
+      }
+    } else {
+      (rootNavigation ?? navigation).navigate(ERootRoutes.Main, {
+        screen: targetTab,
+        params: {
+          screen: route,
+          params,
+        },
+      });
+    }
+    return;
+  }
+
+  await timerUtils.wait(0);
 
   if (!rootNavigation) {
     navigation.navigate(ERootRoutes.Main, {
@@ -263,15 +286,22 @@ export const EarnNavigation = {
   ) {
     if (platformEnv.isNative) {
       await navigation.popToMainRoute();
-      await timerUtils.wait(50);
+      // On native with native bottom tabs, execute synchronously to keep
+      // within the touch event context. Timer waits push operations to
+      // delayed tasks that iOS production won't flush until the next touch.
       switchTab(ETabRoutes.Discovery);
-      await timerUtils.wait(50);
       appEventBus.emit(EAppEventBusNames.SwitchDiscoveryTabInNative, {
         tab: ETranslations.global_earn,
       });
-    } else {
-      switchTab(ETabRoutes.Earn);
+      navigation.popToTop();
+      appEventBus.emit(EAppEventBusNames.SwitchEarnMode, { mode: 'earn' });
+      appEventBus.emit(EAppEventBusNames.SwitchEarnTab, {
+        tab: params?.tab ?? 'assets',
+      });
+      return;
     }
+
+    switchTab(ETabRoutes.Earn);
     await timerUtils.wait(50);
     navigation.popToTop();
     await timerUtils.wait(80);
