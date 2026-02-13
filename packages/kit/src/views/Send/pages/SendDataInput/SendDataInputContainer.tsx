@@ -1792,7 +1792,10 @@ function SendDataInputContainer() {
         calcPercentBalance({
           balance: isUseFiat ? maxBalanceFiat : maxBalance,
           percent,
-          decimals: Math.min(token?.decimals ?? 6, 6),
+          decimals:
+            percent === 100
+              ? token?.decimals
+              : Math.min(token?.decimals ?? 6, 6),
         }),
       );
     },
