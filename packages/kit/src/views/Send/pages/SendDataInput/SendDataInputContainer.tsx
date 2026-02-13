@@ -1792,11 +1792,11 @@ function SendDataInputContainer() {
         calcPercentBalance({
           balance: isUseFiat ? maxBalanceFiat : maxBalance,
           percent,
-          decimals: 6,
+          decimals: Math.min(token?.decimals ?? 6, 6),
         }),
       );
     },
-    [form, isUseFiat, maxBalance, maxBalanceFiat],
+    [form, isUseFiat, maxBalance, maxBalanceFiat, token?.decimals],
   );
 
   const inputAddressFieldState = form.getFieldState('to');
