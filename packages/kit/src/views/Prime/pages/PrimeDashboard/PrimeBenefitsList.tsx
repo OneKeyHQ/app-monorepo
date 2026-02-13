@@ -175,6 +175,9 @@ export function PrimeBenefitsList({
               networkId,
               allNetworkFallbackToBtc: true,
             });
+            if (!fallbackNetworkId) {
+              return;
+            }
             navigation.navigate(EModalRoutes.BulkCopyAddressesModal, {
               screen: EModalBulkCopyAddressesRoutes.BulkCopyAddressesModal,
               params: {

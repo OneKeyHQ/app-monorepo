@@ -553,21 +553,13 @@ export const {
 });
 
 export interface IPerpsLayoutState {
-  main: {
-    marketRatio: number;
-  };
-  leftPanel: {
-    chartsRatio: number;
-  };
-  orderBook: {
+  orderBook?: {
     visible: boolean;
   };
   resetAt?: number;
 }
 
-export const DEFAULT_PERPS_LAYOUT_STATE: Omit<IPerpsLayoutState, 'resetAt'> = {
-  main: { marketRatio: 90 },
-  leftPanel: { chartsRatio: 60 },
+export const DEFAULT_PERPS_LAYOUT_STATE: IPerpsLayoutState = {
   orderBook: { visible: true },
 };
 
