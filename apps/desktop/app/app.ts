@@ -981,9 +981,17 @@ async function createMainWindow() {
       event.preventDefault();
       const safelyBrowserWindow = getSafelyBrowserWindow();
       if (safelyBrowserWindow) {
-        safelyBrowserWindow.blur();
-        safelyBrowserWindow.hide(); // hide window only
-        // browserWindow.minimize(); // hide window and minimize to Docker
+        if (safelyBrowserWindow.isFullScreen()) {
+          // Exit fullscreen first, then hide after the animation completes
+          safelyBrowserWindow.once('leave-full-screen', () => {
+            safelyBrowserWindow.blur();
+            safelyBrowserWindow.hide();
+          });
+          safelyBrowserWindow.setFullScreen(false);
+        } else {
+          safelyBrowserWindow.blur();
+          safelyBrowserWindow.hide();
+        }
       }
     }
   });
