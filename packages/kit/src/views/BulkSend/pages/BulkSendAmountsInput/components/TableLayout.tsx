@@ -564,13 +564,13 @@ function AmountCard() {
 
       {/* Error message */}
       {amountInputMode === EAmountInputMode.Specified &&
-      amountInputErrors.specifiedAmount ? (
+        amountInputErrors.specifiedAmount ? (
         <SizableText size="$bodySm" color="$textCritical">
           {amountInputErrors.specifiedAmount}
         </SizableText>
       ) : null}
       {amountInputMode === EAmountInputMode.Range &&
-      amountInputErrors.rangeError ? (
+        amountInputErrors.rangeError ? (
         <SizableText size="$bodySm" color="$textCritical">
           {amountInputErrors.rangeError}
         </SizableText>
@@ -650,7 +650,7 @@ function TransferInfoListSection() {
           size="$headingXs"
           color="$textSubdued"
           textTransform="uppercase"
-          width={20}
+          width={36}
           flexShrink={0}
         >
           #
@@ -723,8 +723,9 @@ function TransferInfoListSection() {
             <SizableText
               size="$bodyMdMedium"
               color="$textDisabled"
-              width={20}
+              width={36}
               flexShrink={0}
+              style={{ whiteSpace: 'nowrap' } as any}
             >
               {index + 1}.
             </SizableText>
@@ -789,13 +790,13 @@ function TransferInfoListSection() {
                   leftAddOnProps={
                     hasAmountError
                       ? {
-                          iconName: 'ErrorOutline',
-                          iconColor: '$iconCritical',
-                          tooltipProps: {
-                            placement: 'top',
-                            renderContent: errors?.amount,
-                          },
-                        }
+                        iconName: 'ErrorOutline',
+                        iconColor: '$iconCritical',
+                        tooltipProps: {
+                          placement: 'top',
+                          renderContent: errors?.amount,
+                        },
+                      }
                       : undefined
                   }
                   containerProps={{
