@@ -59,7 +59,6 @@ import { HandleRebuildBrowserData } from '../../components/HandleData/HandleRebu
 import HeaderRightToolBar from '../../components/HeaderRightToolBar';
 import MobileBrowserBottomBar from '../../components/MobileBrowser/MobileBrowserBottomBar';
 import { useDAppNotifyChanges } from '../../hooks/useDAppNotifyChanges';
-import { useEdgeSwipeDetection } from '../../hooks/useEdgeSwipeDetection';
 import useMobileBottomBarAnimation from '../../hooks/useMobileBottomBarAnimation';
 import {
   useActiveTabId,
@@ -339,48 +338,8 @@ function MobileBrowser() {
     handleGoBackHome,
   });
 
-  // Edge swipe detection for switching between Market / Browser / Earn
   const marketTabsRef = useRef<ITabContainerRef>(null);
   const earnTabsRef = useRef<ITabContainerRef>(null);
-
-  const MARKET_TAB_COUNT = 2;
-  const EARN_TAB_COUNT = 3;
-
-  const switchToMarket = useCallback(() => {
-    void backgroundApiProxy.serviceSetting.setSelectedBrowserTab(
-      ETranslations.global_market,
-    );
-  }, []);
-  const switchToBrowser = useCallback(() => {
-    void backgroundApiProxy.serviceSetting.setSelectedBrowserTab(
-      ETranslations.global_browser,
-    );
-  }, []);
-  const switchToEarn = useCallback(() => {
-    void backgroundApiProxy.serviceSetting.setSelectedBrowserTab(
-      ETranslations.global_earn,
-    );
-  }, []);
-
-  // Tab order (left → right): Market → Earn → Browser
-  const marketSwipeHandlers = useEdgeSwipeDetection({
-    tabsRef: marketTabsRef,
-    tabCount: MARKET_TAB_COUNT,
-    onSwipeLeft: switchToEarn, // Market → Earn
-  });
-
-  const earnSwipeHandlers = useEdgeSwipeDetection({
-    tabsRef: earnTabsRef,
-    tabCount: EARN_TAB_COUNT,
-    onSwipeLeft: switchToBrowser, // Earn → Browser
-    onSwipeRight: switchToMarket, // Earn → Market
-  });
-
-  const browserSwipeHandlers = useEdgeSwipeDetection({
-    tabCount: 1,
-    onSwipeRight: switchToEarn, // Browser → Earn
-    screenEdgeWidth: 30,
-  });
 
   const INITIAL_TAB_PAGE_HEIGHT_IOS = 153;
   const INITIAL_TAB_PAGE_HEIGHT_ANDROID = 100;
@@ -449,7 +408,6 @@ function MobileBrowser() {
         {/* Market Tab */}
         {isShowContent ? (
           <View
-            {...marketSwipeHandlers}
             style={{
               flex: 1,
               display:
@@ -477,7 +435,6 @@ function MobileBrowser() {
           <HandleRebuildBrowserData />
           <Stack flex={1}>
             <View
-              {...browserSwipeHandlers}
               style={{
                 display: showDiscoveryPage ? 'flex' : 'none',
                 flex: showDiscoveryPage ? 1 : undefined,
@@ -509,7 +466,6 @@ function MobileBrowser() {
         </Stack>
         {isShowContent ? (
           <View
-            {...earnSwipeHandlers}
             style={{
               flex: 1,
               display:
