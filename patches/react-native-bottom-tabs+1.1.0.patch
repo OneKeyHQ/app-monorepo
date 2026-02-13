@@ -34,39 +34,19 @@ index 23cd875..3fe0e1d 100644
  
    fun updateItems(items: MutableList<TabInfo>) {
 diff --git a/node_modules/react-native-bottom-tabs/ios/TabViewImpl.swift b/node_modules/react-native-bottom-tabs/ios/TabViewImpl.swift
-index 72938be..32db031 100644
+index 72938be..a7a3c15 100644
 --- a/node_modules/react-native-bottom-tabs/ios/TabViewImpl.swift
 +++ b/node_modules/react-native-bottom-tabs/ios/TabViewImpl.swift
-@@ -80,20 +80,19 @@ struct TabViewImpl: View {
+@@ -80,7 +80,7 @@ struct TabViewImpl: View {
          .configureAppearance(props: props, tabBar: tabBar)
        #endif
        .tintColor(props.selectedActiveTintColor)
 -      .getSidebarAdaptable(enabled: props.sidebarAdaptable ?? false)
 +      .applyTabViewStyle(sidebarAdaptable: props.sidebarAdaptable ?? false)
        .onChange(of: props.selectedPage ?? "") { newValue in
--        #if !os(macOS)
--          if props.disablePageAnimations {
--            UIView.setAnimationsEnabled(false)
--            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
--              UIView.setAnimationsEnabled(true)
--            }
--          }
--        #endif
-         #if os(tvOS) || os(macOS) || os(visionOS)
-           onSelect(newValue)
-         #endif
-       }
-+      #if !os(macOS)
-+      .transaction { transaction in
-+        if props.disablePageAnimations {
-+          transaction.disablesAnimations = true
-+        }
-+      }
-+      #endif
-   }
- 
-   func emitHapticFeedback(longPress: Bool = false) {
-@@ -214,6 +213,40 @@ extension View {
+         #if !os(macOS)
+           if props.disablePageAnimations {
+@@ -214,6 +214,40 @@ extension View {
      }
    }
  
@@ -107,24 +87,6 @@ index 72938be..32db031 100644
    @ViewBuilder
    func tabBadge(_ data: String?) -> some View {
      if #available(iOS 15.0, macOS 15.0, visionOS 2.0, tvOS 15.0, *) {
-diff --git a/node_modules/react-native-bottom-tabs/ios/TabViewProvider.swift b/node_modules/react-native-bottom-tabs/ios/TabViewProvider.swift
-index 013032f..3a4697a 100644
---- a/node_modules/react-native-bottom-tabs/ios/TabViewProvider.swift
-+++ b/node_modules/react-native-bottom-tabs/ios/TabViewProvider.swift
-@@ -85,7 +85,12 @@ public final class TabInfo: NSObject {
- 
-   @objc public var selectedPage: NSString? {
-     didSet {
--      props.selectedPage = selectedPage as? String
-+      let newValue = selectedPage as? String
-+      // Deduplicate: only update @Published when the value actually changes.
-+      // This prevents a redundant SwiftUI re-render when the JS round-trip
-+      // sets the same selectedPage that SwiftUI's binding already set.
-+      guard props.selectedPage != newValue else { return }
-+      props.selectedPage = newValue
-     }
-   }
- 
 diff --git a/node_modules/react-native-bottom-tabs/lib/module/TabView.js b/node_modules/react-native-bottom-tabs/lib/module/TabView.js
 index 3ab92c7..81ca149 100644
 --- a/node_modules/react-native-bottom-tabs/lib/module/TabView.js
