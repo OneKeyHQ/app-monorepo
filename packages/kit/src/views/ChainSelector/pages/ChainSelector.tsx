@@ -102,11 +102,9 @@ export default function ChainSelectorPage({
             const keyArray = key.split('_');
             const networkId = keyArray.pop() as string;
             const accountId = keyArray.join('_');
-            const [_walletId, _path, _deriveType] = accountId.split(SEPERATOR) as [
-              string,
-              string,
-              string,
-            ];
+            const [_walletId, _path, _deriveType] = accountId.split(
+              SEPERATOR,
+            ) as [string, string, string];
             if (walletId === _walletId && networkId) {
               formattedValues[networkId] = val;
             }
