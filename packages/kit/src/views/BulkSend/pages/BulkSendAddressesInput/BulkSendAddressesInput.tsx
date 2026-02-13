@@ -196,7 +196,7 @@ function BaseBulkSendAddressesInput() {
     selectedNetworkId,
     selectedToken,
     setTokenDetailsState,
-    form,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   ]);
 
   usePromiseResult(
