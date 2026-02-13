@@ -1078,19 +1078,25 @@ async function hashKeylessSocialUserId({
   );
 }
 
+const validDeriveTypesList: IAccountDeriveTypes[] = [
+  'default',
+  'ledgerLive',
+  'BIP86',
+  'BIP84',
+  'BIP44',
+  'kaspaOfficial',
+] as const satisfies IAccountDeriveTypes[];
+
+function normalizeDeriveType(
+  deriveType: string,
+): IAccountDeriveTypes | undefined {
+  if (!deriveType) return undefined;
+  const lowerDeriveType = deriveType.toLowerCase();
+  return validDeriveTypesList.find((t) => t.toLowerCase() === lowerDeriveType);
+}
+
 function isValidDeriveType(deriveType: string): boolean {
-  if (!deriveType) return false;
-  const validDeriveTypes: Record<IAccountDeriveTypes, true> = {
-    default: true,
-    ledgerLive: true,
-    BIP86: true,
-    BIP84: true,
-    BIP44: true,
-    kaspaOfficial: true,
-  } as const satisfies Record<IAccountDeriveTypes, true>;
-  return (
-    (validDeriveTypes[deriveType as IAccountDeriveTypes] ?? false) === true
-  );
+  return normalizeDeriveType(deriveType) !== undefined;
 }
 
 function countMatchingPrefix(str1: string, str2: string): number {
@@ -1189,6 +1195,7 @@ export default {
   isValidWalletXfp,
   isEnabledBtcFreshAddress,
   isValidDeriveType,
+  normalizeDeriveType,
   isSimilarAddress,
 
   parseAccountId,

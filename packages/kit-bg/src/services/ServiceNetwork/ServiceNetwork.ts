@@ -1609,11 +1609,8 @@ class ServiceNetwork extends ServiceBase {
         string,
       ];
 
-      const deriveType: IAccountDeriveTypes = accountUtils.isValidDeriveType(
-        _deriveType,
-      )
-        ? (_deriveType as IAccountDeriveTypes)
-        : 'default';
+      const deriveType: IAccountDeriveTypes =
+        accountUtils.normalizeDeriveType(_deriveType) ?? 'default';
 
       if (!networkInfoMap[networkId]) {
         const [globalDeriveType, vaultSettings] = await Promise.all([
