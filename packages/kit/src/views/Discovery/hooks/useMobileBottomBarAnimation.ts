@@ -52,11 +52,6 @@ function useMobileBottomBarAnimation(activeTabId: string | null) {
           MIN_TOGGLE_BROWSER_VISIBLE_DISTANCE +
           fullBarHeight;
 
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-      toolbarRef?.current?.setNativeProps?.({
-        // position: webViewCanScroll ? 'absolute' : 'relative',
-        position: 'relative',
-      });
       if (!webViewCanScroll) {
         toolbarHeight.value = withTiming(fullBarHeight);
         toolbarOpacity.value = withTiming(MAX_OPACITY_BOTTOM_BAR);
@@ -103,10 +98,6 @@ function useMobileBottomBarAnimation(activeTabId: string | null) {
     lastScrollY.current = undefined;
     lastTurnScrollY.current = undefined;
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-    toolbarRef?.current?.setNativeProps?.({
-      position: 'relative',
-    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTabId]);
 
