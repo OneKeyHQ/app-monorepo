@@ -144,7 +144,7 @@ export async function navigateToNotificationDetailByLocalParams({
     } else {
       await popToMainRoute();
       await timerUtils.wait(350);
-      let tab: ETranslations | undefined;
+      let tab: ETranslations.global_browser | ETranslations.global_earn | ETranslations.global_market;
       if (platformEnv.isNative) {
         if (navigationParams?.screen === ETabRoutes.Market) {
           navigationParams.screen = ETabRoutes.Discovery;
