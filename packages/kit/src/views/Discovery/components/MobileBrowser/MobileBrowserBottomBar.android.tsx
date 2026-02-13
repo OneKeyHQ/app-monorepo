@@ -120,9 +120,7 @@ function MobileBrowserBottomBar({
               }),
               icon: tab?.isPinned ? 'ThumbtackSolid' : 'ThumbtackOutline',
               onPress: () => handlePinTab(!tab?.isPinned),
-              testID: `action-list-item-${
-                !tab?.isPinned ? 'pin' : 'un-pin'
-              }`,
+              testID: `action-list-item-${!tab?.isPinned ? 'pin' : 'un-pin'}`,
             },
             {
               label: intl.formatMessage({

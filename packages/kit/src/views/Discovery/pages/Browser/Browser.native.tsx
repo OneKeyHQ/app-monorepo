@@ -69,7 +69,7 @@ import {
 } from '../../hooks/useWebTabs';
 import { webviewRefs } from '../../utils/explorerUtils';
 import { checkAndCreateFolder } from '../../utils/screenshot';
-import { showTabBar } from '../../utils/tabBarUtils';
+import { showTabBar, useNotifyTabBarDisplay } from '../../utils/tabBarUtils';
 import DashboardContent from '../Dashboard/DashboardContent';
 
 import MobileBrowserContent from './MobileBrowserContent';
@@ -267,6 +267,12 @@ function MobileBrowser() {
         <MobileBrowserContent id={t.id} key={t.id} onScroll={handleScroll} />
       )),
     [tabs, handleScroll],
+  );
+
+  useNotifyTabBarDisplay(
+    !!activeTabId &&
+      !displayHomePage &&
+      selectedHeaderTab === ETranslations.global_browser,
   );
 
   const handleSearchBarPress = useCallback(
