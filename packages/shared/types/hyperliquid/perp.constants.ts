@@ -61,7 +61,7 @@ export const PERP_LAYOUT_CONFIG = {
   // than total content height, page scrolls vertically; individual modules can
   // still scroll internally.
   desktop: {
-    tickerBarHeight: 46,
+    tickerBarHeight: 54,
     panelHeaderHeight: 38,
     bottomPanelHeaderHeight: 46,
     // Use a height that aligns cleanly with order book row steps to avoid a
