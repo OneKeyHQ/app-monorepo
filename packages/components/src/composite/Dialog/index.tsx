@@ -739,7 +739,11 @@ export const useInPageDialog = (dialogType?: EInPageDialogType) => {
     if (dialogType) {
       return dialogType;
     }
-    if (pageType === EPageType.modal) {
+    if (
+      pageType === EPageType.modal ||
+      pageType === EPageType.fullScreen ||
+      pageType === EPageType.fullScreenPush
+    ) {
       return EInPageDialogType.inModalPage;
     }
     if (pageType === EPageType.onboarding) {
