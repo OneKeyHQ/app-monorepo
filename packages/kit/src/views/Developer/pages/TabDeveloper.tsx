@@ -11,6 +11,7 @@ import {
   Stack,
   TextArea,
   YStack,
+  rootNavigationRef,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
@@ -21,6 +22,7 @@ import {
   EDAppConnectionModal,
   EModalRoutes,
   EModalSettingRoutes,
+  ERootRoutes,
   ETabDeveloperRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
@@ -204,7 +206,14 @@ const TabDeveloper = () => {
             <PartContainer title="Components">
               <Button
                 onPress={() => {
-                  navigation.push(ETabDeveloperRoutes.ComponentsGallery);
+                  rootNavigationRef.current?.navigate(ERootRoutes.Main, {
+                    screen: ETabRoutes.Developer,
+                    params: {
+                      screen: ETabDeveloperRoutes.ComponentsGallery
+                    }
+                  }, {
+                    pop: true,
+                  })
                 }}
               >
                 Gallery

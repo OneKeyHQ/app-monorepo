@@ -40,7 +40,7 @@ index 7a739fc..10c5d9a 100644
  export type ScrollViewProps = ComponentProps<typeof Animated.ScrollView>;
  export type CollapsibleStyle = {
 diff --git a/node_modules/react-native-collapsible-tab-view/src/Container.tsx b/node_modules/react-native-collapsible-tab-view/src/Container.tsx
-index e782b90..3293fca 100644
+index e782b90..86cb9b6 100644
 --- a/node_modules/react-native-collapsible-tab-view/src/Container.tsx
 +++ b/node_modules/react-native-collapsible-tab-view/src/Container.tsx
 @@ -1,9 +1,10 @@
@@ -103,7 +103,7 @@ index e782b90..3293fca 100644
        )
  
        // derived from scrollX
-@@ -258,37 +265,142 @@ export const Container = React.memo(
+@@ -258,37 +265,144 @@ export const Container = React.memo(
                scrollYCurrent.value =
                  scrollY.value[tabNames.value[index.value]] || 0
              }
@@ -165,8 +165,7 @@ index e782b90..3293fca 100644
 -            },
 -          ],
 +          transform: [{ translateY: headerTranslateY.value }],
-         }
--      }, [revealHeaderOnScroll])
++        }
 +      }, [])
 +
 +      // Native animated header: uses RN's Animated driver for same-frame updates
@@ -184,7 +183,7 @@ index e782b90..3293fca 100644
 +        if (useNativeHeaderAnimation) {
 +          nativeScrollY.setValue(targetY)
 +
-+          // Retry scrollTo multiple times to ensure ScrollView is ready
++          // Retry scrollTo only if the ref is not yet available
 +          const scrollToPosition = (attempt: number) => {
 +            // Use refMapRef.current to get the latest refMap
 +            const ref = refMapRef.current[tabName]
@@ -193,8 +192,10 @@ index e782b90..3293fca 100644
 +                'worklet'
 +                scrollToImpl(ref, 0, targetY - contentInset, false)
 +              })()
++              // Stop retrying once we successfully found the ref and issued scrollTo
++              return
 +            }
-+            // Retry a few times to ensure scroll is applied
++            // Only retry if ref was not available yet
 +            if (attempt < 3) {
 +              setTimeout(() => scrollToPosition(attempt + 1), 50)
 +            }
@@ -256,12 +257,21 @@ index e782b90..3293fca 100644
 +              extrapolate: 'clamp',
 +            })
 +          }]
-+        }
+         }
+-      }, [revealHeaderOnScroll])
 +      }, [useNativeHeaderAnimation, nativeScrollY, headerScrollDist, contentInset])
  
        const onTabPress = React.useCallback(
          (name: TabName) => {
-@@ -349,50 +461,86 @@ export const Container = React.memo(
+@@ -344,55 +458,94 @@ export const Container = React.memo(
+           getCurrentIndex: () => {
+             return index.value
+           },
++          syncCurrentPage: () => {
++            containerRef.current?.setPageWithoutAnimation(index.value)
++          },
+         }),
+         // eslint-disable-next-line react-hooks/exhaustive-deps
          [onTabPress]
        )
  
@@ -385,7 +395,7 @@ index e782b90..3293fca 100644
                  style={[styles.container, styles.headerContainer]}
                  onLayout={getHeaderHeight}
                  pointerEvents="box-none"
-@@ -407,8 +555,9 @@ export const Container = React.memo(
+@@ -407,8 +560,9 @@ export const Container = React.memo(
                      onTabPress,
                      tabProps,
                    })}
@@ -396,7 +406,7 @@ index e782b90..3293fca 100644
                  style={[styles.container, styles.tabBarContainer]}
                  onLayout={getTabBarHeight}
                  pointerEvents="box-none"
-@@ -425,7 +574,7 @@ export const Container = React.memo(
+@@ -425,7 +579,7 @@ export const Container = React.memo(
                      tabProps,
                    })}
                </View>
@@ -406,7 +416,7 @@ index e782b90..3293fca 100644
              <AnimatedPagerView
                ref={containerRef}
 diff --git a/node_modules/react-native-collapsible-tab-view/src/FlashList.tsx b/node_modules/react-native-collapsible-tab-view/src/FlashList.tsx
-index 9ce60da..d9282a3 100644
+index 9ce60da..d8f162e 100644
 --- a/node_modules/react-native-collapsible-tab-view/src/FlashList.tsx
 +++ b/node_modules/react-native-collapsible-tab-view/src/FlashList.tsx
 @@ -3,6 +3,7 @@ import type {
@@ -486,12 +496,12 @@ index 9ce60da..d9282a3 100644
        bouncesZoom={false}
        onScroll={scrollHandler}
 -      scrollEventThrottle={16}
-+      scrollEventThrottle={1}
++      scrollEventThrottle={useNativeHeaderAnimation ? 1 : 16}
        contentInset={memoContentInset}
        contentOffset={memoContentOffset}
        refreshControl={memoRefreshControl}
 diff --git a/node_modules/react-native-collapsible-tab-view/src/FlatList.tsx b/node_modules/react-native-collapsible-tab-view/src/FlatList.tsx
-index e7a6981..e58a15f 100644
+index e7a6981..8e9ad9e 100644
 --- a/node_modules/react-native-collapsible-tab-view/src/FlatList.tsx
 +++ b/node_modules/react-native-collapsible-tab-view/src/FlatList.tsx
 @@ -1,5 +1,5 @@
@@ -544,12 +554,12 @@ index e7a6981..e58a15f 100644
        onScroll={scrollHandler}
        onContentSizeChange={scrollContentSizeChangeHandlers}
 -      scrollEventThrottle={16}
-+      scrollEventThrottle={1}
++      scrollEventThrottle={useNativeHeaderAnimation ? 1 : 16}
        contentInset={memoContentInset}
        contentOffset={memoContentOffset}
        automaticallyAdjustContentInsets={false}
 diff --git a/node_modules/react-native-collapsible-tab-view/src/MasonryFlashList.tsx b/node_modules/react-native-collapsible-tab-view/src/MasonryFlashList.tsx
-index 93756ae..6d0b2f5 100644
+index 93756ae..6f39353 100644
 --- a/node_modules/react-native-collapsible-tab-view/src/MasonryFlashList.tsx
 +++ b/node_modules/react-native-collapsible-tab-view/src/MasonryFlashList.tsx
 @@ -1,5 +1,6 @@
@@ -631,12 +641,12 @@ index 93756ae..6d0b2f5 100644
        bouncesZoom={false}
        onScroll={scrollHandler}
 -      scrollEventThrottle={16}
-+      scrollEventThrottle={1}
++      scrollEventThrottle={useNativeHeaderAnimation ? 1 : 16}
        contentInset={memoContentInset}
        contentOffset={memoContentOffset}
        refreshControl={memoRefreshControl}
 diff --git a/node_modules/react-native-collapsible-tab-view/src/ScrollView.tsx b/node_modules/react-native-collapsible-tab-view/src/ScrollView.tsx
-index 712a65b..fc9752b 100644
+index 712a65b..1236dfb 100644
 --- a/node_modules/react-native-collapsible-tab-view/src/ScrollView.tsx
 +++ b/node_modules/react-native-collapsible-tab-view/src/ScrollView.tsx
 @@ -1,5 +1,5 @@
@@ -689,12 +699,12 @@ index 712a65b..fc9752b 100644
          onScroll={scrollHandler}
          onContentSizeChange={scrollContentSizeChangeHandlers}
 -        scrollEventThrottle={16}
-+        scrollEventThrottle={1}
++        scrollEventThrottle={useNativeHeaderAnimation ? 1 : 16}
          contentInset={memoContentInset}
          contentOffset={memoContentOffset}
          automaticallyAdjustContentInsets={false}
 diff --git a/node_modules/react-native-collapsible-tab-view/src/SectionList.tsx b/node_modules/react-native-collapsible-tab-view/src/SectionList.tsx
-index 2bd6b9c..ac74e88 100644
+index 2bd6b9c..80c7377 100644
 --- a/node_modules/react-native-collapsible-tab-view/src/SectionList.tsx
 +++ b/node_modules/react-native-collapsible-tab-view/src/SectionList.tsx
 @@ -1,5 +1,5 @@
@@ -749,12 +759,12 @@ index 2bd6b9c..ac74e88 100644
        onScroll={scrollHandler}
        onContentSizeChange={scrollContentSizeChangeHandlers}
 -      scrollEventThrottle={16}
-+      scrollEventThrottle={1}
++      scrollEventThrottle={useNativeHeaderAnimation ? 1 : 16}
        contentInset={memoContentInset}
        contentOffset={memoContentOffset}
        automaticallyAdjustContentInsets={false}
 diff --git a/node_modules/react-native-collapsible-tab-view/src/hooks.tsx b/node_modules/react-native-collapsible-tab-view/src/hooks.tsx
-index ba7dffa..41e3a28 100644
+index ba7dffa..7e961e9 100644
 --- a/node_modules/react-native-collapsible-tab-view/src/hooks.tsx
 +++ b/node_modules/react-native-collapsible-tab-view/src/hooks.tsx
 @@ -8,7 +8,7 @@ import {
@@ -766,26 +776,30 @@ index ba7dffa..41e3a28 100644
  import { ContainerRef, RefComponent } from 'react-native-collapsible-tab-view'
  import { PagerViewOnPageScrollEvent } from 'react-native-pager-view'
  import Animated, {
-@@ -101,7 +101,11 @@ export function useTabProps<T extends TabName>(
+@@ -101,7 +101,13 @@ export function useTabProps<T extends TabName>(
   */
  export function useTabsContext(): ContextType<TabName> {
    const c = useContext(Context)
 -  if (!c) throw new Error('useTabsContext must be inside a Tabs.Container')
-+  // if (!c) throw new Error('useTabsContext must be inside a Tabs.Container')
 +  if (!c) {
++    if (__DEV__) {
++      throw new Error('useTabsContext must be inside a Tabs.Container')
++    }
 +    console.error('useTabsContext must be inside a Tabs.Container')
 +    return {} as ContextType<TabName>
 +  }
    return c
  }
  
-@@ -114,23 +118,31 @@ export function useTabsContext(): ContextType<TabName> {
+@@ -114,23 +120,38 @@ export function useTabsContext(): ContextType<TabName> {
   */
  export function useTabNameContext(): TabName {
    const c = useContext(TabNameContext)
 -  if (!c) throw new Error('useTabNameContext must be inside a TabNameContext')
-+  // if (!c) throw new Error('useTabNameContext must be inside a TabNameContext')
 +  if (!c) {
++    if (__DEV__) {
++      throw new Error('useTabNameContext must be inside a TabNameContext')
++    }
 +    console.error('useTabNameContext must be inside a TabNameContext')
 +    return '' as TabName
 +  }
@@ -802,6 +816,11 @@ index ba7dffa..41e3a28 100644
 -      const latestHeight = event.nativeEvent.layout.height
 -      if (latestHeight !== height) {
 +      const latestHeight = Math.round(event.nativeEvent.layout.height)
++      // Guard: once height has been measured, ignore transient 0-height events
++      // that can occur during screen freeze/unfreeze or memory pressure
++      if (latestHeight <= 0 && heightRef.current > 0) {
++        return
++      }
 +      if (latestHeight !== heightRef.current) {
 +        heightRef.current = latestHeight
 +        animatedHeight.value = latestHeight
@@ -816,7 +835,7 @@ index ba7dffa..41e3a28 100644
  }
  /**
   * Hook to access some key styles that make the whole thing work.
-@@ -265,10 +277,13 @@ export const useScrollHandlerY = (name: TabName) => {
+@@ -265,10 +286,13 @@ export const useScrollHandlerY = (name: TabName) => {
      accScrollY,
      offset,
      headerScrollDistance,
@@ -830,7 +849,7 @@ index ba7dffa..41e3a28 100644
    } = useTabsContext()
  
    const enabled = useSharedValue(false)
-@@ -296,10 +311,13 @@ export const useScrollHandlerY = (name: TabName) => {
+@@ -296,10 +320,13 @@ export const useScrollHandlerY = (name: TabName) => {
    useAnimatedReaction(
      () => scrollAnimation.value,
      (val) => {
@@ -845,7 +864,7 @@ index ba7dffa..41e3a28 100644
    )
  
    const onMomentumEnd = () => {
-@@ -403,6 +421,14 @@ export const useScrollHandlerY = (name: TabName) => {
+@@ -403,6 +430,14 @@ export const useScrollHandlerY = (name: TabName) => {
                accDiffClamp.value = Math.max(0, nextValue)
              }
            }
@@ -860,7 +879,7 @@ index ba7dffa..41e3a28 100644
          }
        },
        onBeginDrag: () => {
-@@ -465,6 +491,9 @@ export const useScrollHandlerY = (name: TabName) => {
+@@ -465,6 +500,9 @@ export const useScrollHandlerY = (name: TabName) => {
        return isChangingPane
      },
      (isSyncNeeded, wasSyncNeeded) => {
@@ -870,15 +889,14 @@ index ba7dffa..41e3a28 100644
        if (
          isSyncNeeded &&
          isSyncNeeded !== wasSyncNeeded &&
-@@ -505,10 +534,67 @@ export const useScrollHandlerY = (name: TabName) => {
+@@ -505,10 +543,68 @@ export const useScrollHandlerY = (name: TabName) => {
          }
        }
      },
 -    [revealHeaderOnScroll, refMap, snapThreshold, enabled, scrollTo]
 +    [revealHeaderOnScroll, refMap, snapThreshold, enabled, scrollTo, useNativeHeaderAnimation]
-   )
- 
--  return { scrollHandler, enable }
++  )
++
 +  // Native animated scroll handler: uses RN Animated.event with useNativeDriver
 +  // for same-frame header animation on Android
 +  const enabledRef = useRef(false)
@@ -897,10 +915,11 @@ index ba7dffa..41e3a28 100644
 +          // Directly write to shared values from JS thread (allowed)
 +          // Header animation is driven by native interpolation, so no lag
 +          scrollYCurrent.value = adjustedY
-+          // Use spread operator to trigger SharedValue synchronization
-+          // Direct property assignment (scrollY.value[name] = x) doesn't
-+          // trigger change detection between JS and UI threads
-+          scrollY.value = { ...scrollY.value, [name]: adjustedY }
++          // Direct property mutation avoids creating a new object on every
++          // scroll event (~1000/sec), reducing GC pressure. This is safe
++          // because no useAnimatedReaction watches scrollY directly — it's
++          // only read when focusedTab changes, which triggers independently.
++          scrollY.value[name] = adjustedY
 +          oldAccScrollY.value = accScrollY.value
 +          accScrollY.value = adjustedY + offset.value
 +        }
@@ -931,8 +950,9 @@ index ba7dffa..41e3a28 100644
 +      runOnJS(setEnabledRefFn)(toggle)
 +    },
 +    [origEnable, setEnabledRefFn]
-+  )
-+
+   )
+ 
+-  return { scrollHandler, enable }
 +  return {
 +    scrollHandler: nativeScrollHandler || scrollHandler,
 +    enable: nativeScrollHandler ? enableWithRef : enable,
@@ -940,7 +960,7 @@ index ba7dffa..41e3a28 100644
  }
  
  type ForwardRefType<T> =
-@@ -579,11 +665,11 @@ export function useAfterMountEffect(
+@@ -579,11 +675,11 @@ export function useAfterMountEffect(
  export function useConvertAnimatedToValue<T>(
    animatedValue: Animated.SharedValue<T>
  ) {
