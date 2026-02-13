@@ -707,11 +707,7 @@ function BulkSendAmountsInput() {
         totalTokenAmountBN.gt(tokenDetails.balanceParsed),
       );
     }
-  }, [
-    tokenDetails,
-    totalTokenAmount,
-    bulkSendMode,
-  ]);
+  }, [tokenDetails, totalTokenAmount, bulkSendMode]);
 
   usePromiseResult(
     async () => {

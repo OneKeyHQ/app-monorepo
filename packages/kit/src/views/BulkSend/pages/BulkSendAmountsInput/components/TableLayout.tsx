@@ -564,13 +564,13 @@ function AmountCard() {
 
       {/* Error message */}
       {amountInputMode === EAmountInputMode.Specified &&
-        amountInputErrors.specifiedAmount ? (
+      amountInputErrors.specifiedAmount ? (
         <SizableText size="$bodySm" color="$textCritical">
           {amountInputErrors.specifiedAmount}
         </SizableText>
       ) : null}
       {amountInputMode === EAmountInputMode.Range &&
-        amountInputErrors.rangeError ? (
+      amountInputErrors.rangeError ? (
         <SizableText size="$bodySm" color="$textCritical">
           {amountInputErrors.rangeError}
         </SizableText>
@@ -790,13 +790,13 @@ function TransferInfoListSection() {
                   leftAddOnProps={
                     hasAmountError
                       ? {
-                        iconName: 'ErrorOutline',
-                        iconColor: '$iconCritical',
-                        tooltipProps: {
-                          placement: 'top',
-                          renderContent: errors?.amount,
-                        },
-                      }
+                          iconName: 'ErrorOutline',
+                          iconColor: '$iconCritical',
+                          tooltipProps: {
+                            placement: 'top',
+                            renderContent: errors?.amount,
+                          },
+                        }
                       : undefined
                   }
                   containerProps={{

@@ -387,7 +387,9 @@ function BaseBulkSendAddressesInput() {
             >
               <Form form={form}>
                 <SenderAddressesInput />
-                <ReceiverAddressesInput maxLines={platformEnv.isNativeAndroid ? 100 : 500} />
+                <ReceiverAddressesInput
+                  maxLines={platformEnv.isNativeAndroid ? 100 : 500}
+                />
               </Form>
             </AccountSelectorProviderMirror>
           </YStack>

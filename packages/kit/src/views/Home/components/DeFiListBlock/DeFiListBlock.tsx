@@ -415,8 +415,6 @@ function DeFiListBlock({
       accountId?: string;
       networkId?: string;
     }) => {
-
-
       deFiRawDataRef.current =
         (await backgroundApiProxy.simpleDb.deFi.getRawData()) ?? undefined;
 
@@ -546,7 +544,6 @@ function DeFiListBlock({
       accountId?: string;
       networkId?: string;
     }) => {
-
       isForceRefreshRef.current = false;
 
       if (refreshCacheOnly) {

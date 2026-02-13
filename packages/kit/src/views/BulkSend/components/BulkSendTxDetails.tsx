@@ -90,7 +90,6 @@ type ITransferListItemProps = {
   deleteDisabled?: boolean;
   indices?: number[];
   canDelete?: boolean;
-  canEditAmount?: boolean;
   onDeleteTransfers?: (indices: number[]) => void;
   onAmountChangeByIndex?: (index: number, amount: string) => void;
 };
@@ -106,7 +105,6 @@ function TransferListItemBase({
   deleteDisabled,
   indices,
   canDelete,
-  canEditAmount,
   onDeleteTransfers,
   onAmountChangeByIndex,
 }: ITransferListItemProps) {
@@ -288,7 +286,6 @@ const TransferListItem = memo(
     prev.editMode === next.editMode &&
     prev.deleteDisabled === next.deleteDisabled &&
     prev.canDelete === next.canDelete &&
-    prev.canEditAmount === next.canEditAmount &&
     prev.onDeleteTransfers === next.onDeleteTransfers &&
     prev.onAmountChangeByIndex === next.onAmountChangeByIndex &&
     arraysEqual(prev.indices, next.indices),
@@ -447,7 +444,6 @@ function BulkSendTxDetails(props: IProps) {
             deleteDisabled={isDeleteDisabled}
             indices={sender.indices}
             canDelete={!!onDeleteTransfer && canEditSender && !isDeleteDisabled}
-            canEditAmount={editMode && canEditSender}
             onDeleteTransfers={handleDeleteTransfers}
             onAmountChangeByIndex={handleAmountChange}
           />
@@ -480,7 +476,6 @@ function BulkSendTxDetails(props: IProps) {
             canDelete={
               !!onDeleteTransfer && canEditReceiver && !isDeleteDisabled
             }
-            canEditAmount={editMode && canEditReceiver}
             onDeleteTransfers={handleDeleteTransfers}
             onAmountChangeByIndex={handleAmountChange}
           />
