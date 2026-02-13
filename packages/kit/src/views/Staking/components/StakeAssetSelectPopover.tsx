@@ -169,17 +169,3 @@ export function StakeAssetSelectPopoverContent({
   );
 }
 
-export function createStakeAssetSelectPopoverContent(
-  props: IStakeAssetSelectPopoverContentProps,
-) {
-  return function PopoverContentWrapper({
-    closePopover,
-  }: {
-    isOpen?: boolean;
-    closePopover: () => void;
-  }) {
-    return (
-      <StakeAssetSelectPopoverContent {...props} closePopover={closePopover} />
-    );
-  };
-}

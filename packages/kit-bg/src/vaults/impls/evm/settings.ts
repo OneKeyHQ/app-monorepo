@@ -30,6 +30,7 @@ import {
   HyperEVMKHYPE,
   PlasmaAUSDT0,
   PlasmaSyrupUSDT,
+  PlasmaNetworkId,
   PlasmaUSD,
 } from '@onekeyhq/shared/src/consts/addresses';
 import {
@@ -133,9 +134,6 @@ const pendlePlasmaConfigs: Record<string, IStakingFlowConfig> = {
   PlasmaUSD: createPendleConfig(PlasmaUSD),
   aUSDT0: createPendleConfig(PlasmaAUSDT0),
 };
-
-const plasmaNetworkId =
-  (networkIdMap as Record<string, string>).plasma ?? 'evm--9745';
 
 const stakingConfig: IStakingConfig = {
   [getNetworkIdsMap().eth]: {
@@ -329,7 +327,7 @@ const stakingConfig: IStakingConfig = {
       },
     },
   },
-  [plasmaNetworkId]: {
+  [PlasmaNetworkId]: {
     providers: {
       [EEarnProviderEnum.Pendle]: {
         supportedSymbols: getSupportedSymbolsFromConfigs(pendlePlasmaConfigs),

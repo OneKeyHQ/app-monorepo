@@ -241,6 +241,7 @@ export function UniversalStake({
   const permit2DataRef = useRef<IEarnPermit2ApproveSignData | undefined>(
     undefined,
   );
+  const allowanceAbortRef = useRef<AbortController | undefined>(undefined);
   const isFocus = useIsFocused();
 
   const {
@@ -481,6 +482,13 @@ export function UniversalStake({
     debouncedFetchTransactionConfirmation,
     stakefishIdentity,
   ]);
+
+  useEffect(
+    () => () => {
+      allowanceAbortRef.current?.abort();
+    },
+    [],
+  );
 
   // const { showFalconEventEndedDialog } = useFalconEventEndedDialog({
   //   providerName,
@@ -948,10 +956,12 @@ export function UniversalStake({
       requiredAmount,
       maxAttempts = 15,
       intervalMs = 2000,
+      signal,
     }: {
       requiredAmount: string;
       maxAttempts?: number;
       intervalMs?: number;
+      signal?: AbortSignal;
     }) => {
       if (
         !useApprove ||
@@ -968,6 +978,9 @@ export function UniversalStake({
       }
 
       for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+        if (signal?.aborted) {
+          return false;
+        }
         try {
           const allowanceInfo = await fetchAllowanceResponse();
           const allowanceBN = new BigNumber(
@@ -977,7 +990,12 @@ export function UniversalStake({
             return true;
           }
         } catch (error) {
-          console.error('Error waiting for allowance update:', error);
+          defaultLogger.staking.page.permitSignError({
+            error:
+              error instanceof Error
+                ? error.message
+                : String(error),
+          });
         }
 
         if (attempt < maxAttempts - 1) {
@@ -1097,10 +1115,14 @@ export function UniversalStake({
       ],
       onSuccess(data) {
         trackAllowance(data[0].decodedTx.txid);
+        allowanceAbortRef.current?.abort();
+        const abortController = new AbortController();
+        allowanceAbortRef.current = abortController;
         void (async () => {
           try {
             const allowanceReady = await waitForAllowanceAfterApprove({
               requiredAmount: amountValue,
+              signal: abortController.signal,
             });
             if (!allowanceReady) {
               return;

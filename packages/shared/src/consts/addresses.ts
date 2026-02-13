@@ -31,6 +31,7 @@ export const SuiUSDC =
 export const SuiWBTC =
   '0xaafb102dd0902f5055cadecd687fb5b71ca82ef0e0285d90afde828ec58ca96b::btc::BTC';
 export const HyperEVMKHYPE = '0xfD739d4e423301CE9385c1fb8850539D657C296D';
+export const PlasmaNetworkId = 'evm--9745';
 export const PlasmaSyrupUSDT = '0xC4374775489CB9C56003BF2C9b12495fC64F0771';
 export const PlasmaUSD = '0xd1074E0AE85610dDBA0147e29eBe0D8E5873a000';
 export const PlasmaAUSDT0 = '0x5D72a9d9A9510Cd8cBdBA12aC62593A58930a948';

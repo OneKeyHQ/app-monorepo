@@ -11,6 +11,7 @@ import {
   EthereumUSDT,
   EthereumWBTC,
   EthereumWETH,
+  PlasmaNetworkId,
 } from '../../src/consts/addresses';
 import { EEarnProviderEnum } from '../earn';
 import { ESwapTabSwitchType } from '../swap/types';
@@ -303,8 +304,6 @@ export function getSymbolSupportedNetworks(): Record<
   string[]
 > {
   const networkIdsMap = getNetworkIdsMap();
-  const plasmaNetworkId =
-    (networkIdsMap as Record<string, string>).plasma ?? 'evm--9745';
 
   return {
     'BTC': [networkIdsMap.btc],
@@ -329,14 +328,14 @@ export function getSymbolSupportedNetworks(): Record<
     'srUSDe': [networkIdsMap.eth],
     'jrUSDe': [networkIdsMap.eth],
     'cUSDO': [networkIdsMap.eth],
-    'syrupUSDT': [plasmaNetworkId],
+    'syrupUSDT': [PlasmaNetworkId],
     'sENA': [networkIdsMap.eth],
     'uniBTC': [networkIdsMap.base],
     'slisBNBx': [networkIdsMap.bsc],
-    'PlasmaUSD': [plasmaNetworkId],
+    'PlasmaUSD': [PlasmaNetworkId],
     'wstETH': [networkIdsMap.eth],
     'weETH': [networkIdsMap.arbitrum],
-    'aUSDT0': [plasmaNetworkId],
+    'aUSDT0': [PlasmaNetworkId],
     'stcUSD': [networkIdsMap.eth],
     'kHYPE': [networkIdsMap.hyperevm],
     'MORPHO': [networkIdsMap.eth],

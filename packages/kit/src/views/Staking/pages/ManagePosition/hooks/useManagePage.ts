@@ -84,8 +84,8 @@ export const useManagePage = ({
         return { managePageData, protocolList: undefined, earnAccount };
       }
 
-      const managePageData =
-        await backgroundApiProxy.serviceStaking.getManagePage({
+      const [managePageData, protocolList] = await Promise.all([
+        backgroundApiProxy.serviceStaking.getManagePage({
           accountId,
           networkId,
           symbol,
@@ -95,13 +95,12 @@ export const useManagePage = ({
           publicKey: networkUtils.isBTCNetwork(networkId)
             ? earnAccount.account.pub
             : undefined,
-        });
-
-      const protocolList =
-        await backgroundApiProxy.serviceStaking.getProtocolList({
+        }),
+        backgroundApiProxy.serviceStaking.getProtocolList({
           symbol,
           filterNetworkId: networkId,
-        });
+        }),
+      ]);
 
       return { managePageData, protocolList, earnAccount };
     },
