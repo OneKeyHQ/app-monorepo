@@ -25,11 +25,11 @@ const BiologyAuthSwitchContainer = ({
   const [{ isSupport }] = usePasswordBiologyAuthInfoAtom();
   const [settings] = useSettingsPersistAtom();
   const onChange = useCallback(
-    async (checked: boolean) => {
-      try {
-        // https://github.com/facebook/react/issues/31819
-        // Page flicker caused by Suspense throttling behavior.
-        startViewTransition(async () => {
+    (checked: boolean) => {
+      // https://github.com/facebook/react/issues/31819
+      // Page flicker caused by Suspense throttling behavior.
+      startViewTransition(async () => {
+        try {
           const isPasswordSet =
             await backgroundApiProxy.servicePassword.checkPasswordSet();
           // When password is not set, skip promptPasswordVerify to avoid deadlock:
@@ -42,28 +42,28 @@ const BiologyAuthSwitchContainer = ({
             checked,
             skipAuth,
           );
-        });
-      } catch (e) {
-        const error = e as { message?: string; name?: string };
-        if (error?.name === BIOLOGY_AUTH_CANCEL_ERROR) {
+        } catch (e) {
+          const error = e as { message?: string; name?: string };
+          if (error?.name === BIOLOGY_AUTH_CANCEL_ERROR) {
+            Toast.error({
+              title: intl.formatMessage(
+                {
+                  id: ETranslations.auth_biometric_cancel,
+                },
+                { biometric: title },
+              ),
+            });
+            return;
+          }
           Toast.error({
-            title: intl.formatMessage(
-              {
-                id: ETranslations.auth_biometric_cancel,
-              },
-              { biometric: title },
-            ),
+            title: intl.formatMessage({
+              id: platformEnv.isDesktopWin
+                ? ETranslations.global_windows_hello_set_error
+                : ETranslations.global_touch_id_set_error,
+            }),
           });
-          return;
         }
-        Toast.error({
-          title: intl.formatMessage({
-            id: platformEnv.isDesktopWin
-              ? ETranslations.global_windows_hello_set_error
-              : ETranslations.global_touch_id_set_error,
-          }),
-        });
-      }
+      });
     },
     [intl, skipAuth, title],
   );
