@@ -53,13 +53,7 @@ class ServiceUniversalSearch extends ServiceBase {
 
   private getAccountPriority(accountId?: string): number {
     if (!accountId) return 1;
-    const accountParams = { accountId };
-    if (
-      accountUtils.isHdAccount(accountParams) ||
-      accountUtils.isHwAccount(accountParams) ||
-      accountUtils.isQrAccount(accountParams) ||
-      accountUtils.isImportedAccount(accountParams)
-    ) {
+    if (accountUtils.isOwnAccount({ accountId })) {
       return 0; // Internal accounts first (HD/HW/QR/Imported)
     }
     return 1; // Others accounts (Watching/External)
