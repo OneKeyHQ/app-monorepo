@@ -1792,8 +1792,9 @@ function SendDataInputContainer() {
         calcPercentBalance({
           balance: isUseFiat ? maxBalanceFiat : maxBalance,
           percent,
-          decimals:
-            percent === 100
+          decimals: isUseFiat
+            ? 6
+            : percent === 100
               ? token?.decimals
               : Math.min(token?.decimals ?? 6, 6),
         }),

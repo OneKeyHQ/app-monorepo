@@ -20,12 +20,12 @@ export const calcPercentBalance = ({
     return '';
   }
   if (percent === 100) {
-    return decimals
+    return decimals != null
       ? valueNumber.decimalPlaces(decimals, BigNumber.ROUND_DOWN).toFixed()
       : balance;
   }
   const value = valueNumber.multipliedBy(percent).dividedBy(100);
-  return decimals
+  return decimals != null
     ? value.decimalPlaces(decimals, BigNumber.ROUND_DOWN).toFixed()
     : value.toFixed();
 };
