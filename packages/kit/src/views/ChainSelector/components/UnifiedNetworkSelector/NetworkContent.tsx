@@ -90,8 +90,6 @@ export function NetworkContent({
           }),
         ]);
 
-      console.log('_accountsValue', _accountsValue);
-
       if (_accountsValue[0] || _localDeFiOverview[0]) {
         const {
           chainSelectorNetworks: sortedChainSelectorNetworks,
@@ -107,11 +105,6 @@ export function NetworkContent({
             accountNetworkValues: _accountsValue[0]?.value ?? {},
             localDeFiOverview: _localDeFiOverview[0]?.overview ?? {},
           },
-        );
-
-        console.log(
-          'formattedAccountNetworkValues',
-          formattedAccountNetworkValues,
         );
 
         return {
