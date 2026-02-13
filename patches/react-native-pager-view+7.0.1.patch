@@ -81,7 +81,7 @@ index d5b82ff..adfb9a2 100644
      }
  
 diff --git a/node_modules/react-native-pager-view/ios/RNCPagerViewComponentView.mm b/node_modules/react-native-pager-view/ios/RNCPagerViewComponentView.mm
-index d52f532..e27b02e 100644
+index d52f532..b72d2ab 100644
 --- a/node_modules/react-native-pager-view/ios/RNCPagerViewComponentView.mm
 +++ b/node_modules/react-native-pager-view/ios/RNCPagerViewComponentView.mm
 @@ -29,6 +29,7 @@ @implementation RNCPagerViewComponentView {
@@ -170,7 +170,7 @@ index d52f532..e27b02e 100644
      [self disableSwipe];
      
      _destinationIndex = index;
-@@ -223,25 +255,61 @@ - (void)goTo:(NSInteger)index animated:(BOOL)animated {
+@@ -223,25 +255,71 @@ - (void)goTo:(NSInteger)index animated:(BOOL)animated {
  - (void)setPagerViewControllers:(NSInteger)index
                        direction:(UIPageViewControllerNavigationDirection)direction
                         animated:(BOOL)animated{
@@ -186,10 +186,10 @@ index d52f532..e27b02e 100644
 +    if (index < 0 || index >= _nativeChildrenViewControllers.count) {
 +        NSLog(@"[PagerView] setPagerViewControllers blocked: index %ld out of bounds (count=%lu)",
 +              (long)index, (unsigned long)_nativeChildrenViewControllers.count);
-         [self enableSwipe];
-         return;
-     }
-   
++        [self enableSwipe];
++        return;
++    }
++  
 +    // Validate view controller and its view
 +    UIViewController *targetVC = [_nativeChildrenViewControllers objectAtIndex:index];
 +    if (targetVC == nil || targetVC.view == nil) {
@@ -203,6 +203,16 @@ index d52f532..e27b02e 100644
 +    // Target page views are expected to have nil superview/window before being added to pageViewController
 +    // Checking for nil superview/window would block all legitimate page transitions
 +
++    // Prevent calling setViewControllers during an ongoing animated transition.
++    // UIPageViewController's internal _UIQueuingScrollView does not support
++    // concurrent enqueued transitions and will crash with
++    // "Duplicate states in queue" (NSInternalInconsistencyException).
++    if (transitioning && animated) {
++        NSLog(@"[PagerView] setPagerViewControllers blocked: already transitioning (index=%ld)", (long)index);
+         [self enableSwipe];
+         return;
+     }
+ 
 +    NSLog(@"[PagerView] setPagerViewControllers SUCCESS: index=%ld animated=%d", (long)index, animated);
 +
      transitioning = YES;
@@ -237,7 +247,7 @@ index d52f532..e27b02e 100644
              strongSelf->_currentIndex = index;
          }
          [strongSelf updateLayoutMetrics:strongSelf->_layoutMetrics oldLayoutMetrics:strongSelf->_oldLayoutMetrics];
-@@ -252,6 +320,11 @@ - (void)setPagerViewControllers:(NSInteger)index
+@@ -252,6 +330,11 @@ - (void)setPagerViewControllers:(NSInteger)index
  - (UIViewController *)nextControllerForController:(UIViewController *)controller
                                        inDirection:(UIPageViewControllerNavigationDirection)direction {
      NSUInteger numberOfPages = _nativeChildrenViewControllers.count;
@@ -249,7 +259,7 @@ index d52f532..e27b02e 100644
      NSInteger index = [_nativeChildrenViewControllers indexOfObject:controller];
      
      if (index == NSNotFound) {
-@@ -274,13 +347,22 @@ - (UIViewController *)currentlyDisplayed {
+@@ -274,13 +357,22 @@ - (UIViewController *)currentlyDisplayed {
  #pragma mark - UIScrollViewDelegate
  
  - (void)scrollViewWillBeginDragging:(UIScrollView *)scrollView {
@@ -272,7 +282,7 @@ index d52f532..e27b02e 100644
      eventEmitter->onPageScrollStateChanged(RNCViewPagerEventEmitter::OnPageScrollStateChanged{.pageScrollState =  RNCViewPagerEventEmitter::OnPageScrollStateChangedPageScrollState::Settling });
      
      if (!_overdrag) {
-@@ -300,12 +382,21 @@ - (void)scrollViewWillEndDragging:(UIScrollView *)scrollView withVelocity:(CGPoi
+@@ -300,12 +392,21 @@ - (void)scrollViewWillEndDragging:(UIScrollView *)scrollView withVelocity:(CGPoi
  }
  
  - (void)scrollViewDidEndDecelerating:(UIScrollView *)scrollView {
@@ -294,7 +304,7 @@ index d52f532..e27b02e 100644
      BOOL isHorizontal = [self isHorizontal];
      CGFloat contentOffset = isHorizontal ? scrollView.contentOffset.x : scrollView.contentOffset.y;
      CGFloat frameSize = isHorizontal ? scrollView.frame.size.width : scrollView.frame.size.height;
-@@ -357,13 +448,18 @@ - (void)pageViewController:(UIPageViewController *)pageViewController
+@@ -357,13 +458,18 @@ - (void)pageViewController:(UIPageViewController *)pageViewController
          didFinishAnimating:(BOOL)finished
     previousViewControllers:(nonnull NSArray<UIViewController *> *)previousViewControllers
         transitionCompleted:(BOOL)completed {
@@ -314,7 +324,7 @@ index d52f532..e27b02e 100644
      }
  }
  
-@@ -427,10 +523,12 @@ - (BOOL)isLtrLayout {
+@@ -427,10 +533,12 @@ - (BOOL)isLtrLayout {
  
  - (void)sendScrollEventsForPosition:(NSInteger)position offset:(CGFloat)offset {
      const auto eventEmitter = [self pagerEventEmitter];
