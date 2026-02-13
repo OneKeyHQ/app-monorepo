@@ -312,6 +312,12 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
           currentModeData.transfersInfo.length === 0
         );
       }
+
+      // Specified/Range non-preview: only check input validity.
+      // Don't use shared isInsufficientBalance here — it reflects original
+      // receiver amounts which haven't been regenerated yet. The actual
+      // insufficient balance check happens after preview generates new amounts.
+      return !isAmountValid;
     }
 
     return !isAmountValid || isInsufficientBalance;
@@ -319,6 +325,7 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
     tokenDetailsState.initialized,
     tokenDetailsState.isRefreshing,
     tokenDetails,
+    currentModeData,
     isAmountValid,
     isInsufficientBalance,
     isBuilding,
@@ -326,9 +333,6 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
     media.gtMd,
     isInPreviewMode,
     amountInputMode,
-    currentModeData.isInsufficientBalance,
-    currentModeData.transferInfoErrors,
-    currentModeData.transfersInfo.length,
   ]);
 
   const confirmButtonText = useMemo(() => {
@@ -704,8 +708,8 @@ function BulkSendAmountsInput() {
       );
     }
   }, [
+    tokenDetails,
     totalTokenAmount,
-    tokenDetails?.balanceParsed,
     bulkSendMode,
   ]);
 
