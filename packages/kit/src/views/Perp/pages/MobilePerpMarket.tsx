@@ -31,23 +31,19 @@ import {
 import { Token } from '../../../components/Token';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
-import { useHyperliquidActions } from '../../../states/jotai/contexts/hyperliquid';
 import { PerpCandles } from '../components/PerpCandles';
+import PerpMarketFooter from '../components/PerpMarketFooter';
 import { PerpOrderBook } from '../components/PerpOrderBook';
 import { MobilePerpMarketHeader } from '../components/TickerBar/MobilePerpMarketHeader';
 import { PerpsAccountSelectorProviderMirror } from '../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../PerpsProviderMirror';
-import { GetTradingButtonStyleProps } from '../utils/styleUtils';
 
 function MobilePerpMarket() {
   const intl = useIntl();
-  const actionsRef = useHyperliquidActions();
   const [currentToken] = usePerpsActiveAssetAtom();
   const { coin } = currentToken;
   const themeVariant = useThemeVariant();
   const navigation = useAppNavigation();
-  const longButtonStyle = GetTradingButtonStyleProps('long');
-  const shortButtonStyle = GetTradingButtonStyleProps('short');
 
   const onPressTokenSelector = useCallback(() => {
     navigation.pushModal(EModalRoutes.PerpModal, {
@@ -141,50 +137,7 @@ function MobilePerpMarket() {
     [],
   );
 
-  const pageFooter = useMemo(() => {
-    return (
-      <Page.Footer
-        onCancelText={intl.formatMessage({
-          id: ETranslations.perp_trade_long,
-        })}
-        onConfirmText={intl.formatMessage({
-          id: ETranslations.perp_trade_short,
-        })}
-        cancelButtonProps={{
-          flex: 1,
-          padding: 0,
-          height: 38,
-          borderRadius: '$2',
-          bg: longButtonStyle.bg,
-          hoverStyle: longButtonStyle.hoverStyle,
-          pressStyle: longButtonStyle.pressStyle,
-          color: longButtonStyle.textColor,
-          justifyContent: 'center',
-          alignItems: 'center',
-        }}
-        confirmButtonProps={{
-          flex: 1,
-          padding: 0,
-          height: 38,
-          borderRadius: '$2',
-          bg: shortButtonStyle.bg,
-          hoverStyle: shortButtonStyle.hoverStyle,
-          pressStyle: shortButtonStyle.pressStyle,
-          color: shortButtonStyle.textColor,
-          justifyContent: 'center',
-          alignItems: 'center',
-        }}
-        onCancel={(close) => {
-          actionsRef.current.updateTradingForm({ side: 'long' });
-          close();
-        }}
-        onConfirm={(close) => {
-          actionsRef.current.updateTradingForm({ side: 'short' });
-          close();
-        }}
-      />
-    );
-  }, [intl, actionsRef, longButtonStyle, shortButtonStyle]);
+  const pageFooter = useMemo(() => <PerpMarketFooter />, []);
 
   if (platformEnv.isNativeAndroid) {
     return (
