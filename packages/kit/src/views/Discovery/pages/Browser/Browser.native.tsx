@@ -69,7 +69,7 @@ import {
 } from '../../hooks/useWebTabs';
 import { webviewRefs } from '../../utils/explorerUtils';
 import { checkAndCreateFolder } from '../../utils/screenshot';
-import { showTabBar } from '../../utils/tabBarUtils';
+import { showTabBar, useNotifyTabBarDisplay } from '../../utils/tabBarUtils';
 import DashboardContent from '../Dashboard/DashboardContent';
 
 import MobileBrowserContent from './MobileBrowserContent';
@@ -99,11 +99,6 @@ const useAndroidHardwareBack = platformEnv.isNativeAndroid
       );
 
       useEffect(() => {
-        // Only add back handler on Android
-        if (!platformEnv.isNativeAndroid) {
-          return;
-        }
-
         const onBackPress = () => {
           if (!isDiscoveryTabFocused.current || displayHomePage) {
             return false;
@@ -139,7 +134,11 @@ const useAndroidHardwareBack = platformEnv.isNativeAndroid
     }
   : () => {};
 
-const popToDiscoveryHomePage = () => {
+const MAX_POP_DEPTH = 10;
+const popToDiscoveryHomePage = (depth = 0) => {
+  if (depth >= MAX_POP_DEPTH) {
+    return;
+  }
   const rootState = rootNavigationRef.current?.getRootState();
   const currentIndex = rootState?.index || 0;
   const routes = rootState?.routes || [];
@@ -156,7 +155,7 @@ const popToDiscoveryHomePage = () => {
         ) {
           rootNavigationRef.current?.goBack();
           setTimeout(() => {
-            popToDiscoveryHomePage();
+            popToDiscoveryHomePage(depth + 1);
           });
         }
       }
@@ -194,7 +193,7 @@ function MobileBrowser() {
   const { tab: activeTabData } = useWebTabDataById(activeTabId ?? '');
   const navigation =
     useAppNavigation<IPageNavigationProp<IDiscoveryModalParamList>>();
-  const { handleScroll, toolbarRef, toolbarAnimatedStyle } =
+  const { handleScroll, toolbarAnimatedStyle } =
     useMobileBottomBarAnimation(activeTabId);
   useDAppNotifyChanges({ tabId: activeTabId });
 
@@ -208,7 +207,7 @@ function MobileBrowser() {
     if (!tabs?.length) {
       showTabBar();
     }
-  }, [tabs]);
+  }, [tabs?.length]);
 
   const { setDisplayHomePage } = useBrowserTabActions().current;
   const firstRender = useRef(true);
@@ -219,7 +218,7 @@ function MobileBrowser() {
     if (firstRender.current) {
       firstRender.current = false;
     }
-  }, [tabs, navigation, setDisplayHomePage]);
+  }, [tabs.length, setDisplayHomePage]);
 
   useEffect(() => {
     void checkAndCreateFolder();
@@ -267,6 +266,12 @@ function MobileBrowser() {
         <MobileBrowserContent id={t.id} key={t.id} onScroll={handleScroll} />
       )),
     [tabs, handleScroll],
+  );
+
+  useNotifyTabBarDisplay(
+    !!activeTabId &&
+      !displayHomePage && !isTabletMainView &&
+      selectedHeaderTab === ETranslations.global_browser,
   );
 
   const handleSearchBarPress = useCallback(
@@ -376,8 +381,12 @@ function MobileBrowser() {
     screenEdgeWidth: 30,
   });
 
+  const INITIAL_TAB_PAGE_HEIGHT_IOS = 153;
+  const INITIAL_TAB_PAGE_HEIGHT_ANDROID = 100;
   const [tabPageHeight, setTabPageHeight] = useState(
-    platformEnv.isNativeIOS ? 153 : 100,
+    platformEnv.isNativeIOS
+      ? INITIAL_TAB_PAGE_HEIGHT_IOS
+      : INITIAL_TAB_PAGE_HEIGHT_ANDROID,
   );
   const handleTabPageLayout = useCallback((e: LayoutChangeEvent) => {
     // Use the actual measured height without arbitrary adjustments
@@ -458,7 +467,6 @@ function MobileBrowser() {
         <Stack
           flex={1}
           zIndex={3}
-          pb={0}
           display={
             selectedHeaderTab === ETranslations.global_browser
               ? undefined
@@ -482,7 +490,6 @@ function MobileBrowser() {
           </Stack>
           <Freeze freeze={!displayBottomBar}>
             <Animated.View
-              ref={toolbarRef}
               style={[
                 toolbarAnimatedStyle,
                 {

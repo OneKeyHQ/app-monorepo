@@ -622,7 +622,7 @@ function BatchCreateAccountPreviewPage({
         align: 'left',
         dataIndex: 'address',
         columnProps: {
-          flexGrow: 6,
+          flexGrow: 4,
           flexBasis: 0,
         },
         render: (_: any, account: IBatchCreateAccount) => (
@@ -650,9 +650,9 @@ function BatchCreateAccountPreviewPage({
         ),
       },
       {
-        title: intl.formatMessage({
+        title: `${intl.formatMessage({
           id: ETranslations.global_generate_amount_balance,
-        }),
+        })}${network?.symbol ? ` (${network.symbol})` : ''}`,
         titleProps: {
           size: '$bodyMd',
           color: '$textDisabled',
@@ -660,7 +660,7 @@ function BatchCreateAccountPreviewPage({
         align: 'right',
         dataIndex: 'balance',
         columnProps: {
-          flexGrow: 2,
+          flexGrow: 4,
           flexBasis: 0,
         },
         render: (_: any, account: IBatchCreateAccount) => (
@@ -671,7 +671,7 @@ function BatchCreateAccountPreviewPage({
               textAlign: 'right',
               wordBreak: 'break-all',
             }}
-            formatterOptions={{ tokenSymbol: network?.symbol }}
+            formatterOptions={{ tokenSymbol: undefined }}
           >
             {balanceMap[buildBalanceMapKey({ account })] ?? '-'}
           </NumberSizeableText>
