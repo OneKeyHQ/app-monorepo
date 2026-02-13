@@ -30,7 +30,14 @@ const BiologyAuthSwitchContainer = ({
         // https://github.com/facebook/react/issues/31819
         // Page flicker caused by Suspense throttling behavior.
         startViewTransition(async () => {
-          await backgroundApiProxy.servicePassword.promptPasswordVerify();
+          const isPasswordSet =
+            await backgroundApiProxy.servicePassword.checkPasswordSet();
+          // When password is not set, skip promptPasswordVerify to avoid deadlock:
+          // promptPasswordVerify would show PASSWORD_SETUP dialog, but this switch
+          // is already inside that dialog, causing the mutex to never release.
+          if (isPasswordSet) {
+            await backgroundApiProxy.servicePassword.promptPasswordVerify();
+          }
           await backgroundApiProxy.servicePassword.setBiologyAuthEnable(
             checked,
             skipAuth,
