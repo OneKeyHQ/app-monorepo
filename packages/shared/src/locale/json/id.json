@@ -3965,6 +3965,8 @@
   "title__invoice_description": "Deskripsi faktur",
   "title__lnurl_pay": "LNURL Pay",
   "toast.web_auth": "Pengaturan gagal",
+  "toast_create_address_failed_message": "Silakan pilih akun terlebih dahulu",
+  "toast_create_address_failed_title": "Tidak dapat membuat alamat",
   "token_hidden_message": "Token ini saat ini disembunyikan dan tidak akan muncul dalam daftar",
   "token_manage.custom_token_address_failed": "Gagal menemukan alamat kontrak. Coba lagi. ",
   "token_manage.hidden_token": "{num} Token tersembunyi",

@@ -3965,6 +3965,8 @@
   "title__invoice_description": "চালানের বিবরণ",
   "title__lnurl_pay": "LNURL পে",
   "toast.web_auth": "সেট ব্যর্থ হয়েছে",
+  "toast_create_address_failed_message": "দয়া করে প্রথমে একটি অ্যাকাউন্ট নির্বাচন করুন",
+  "toast_create_address_failed_title": "ঠিকানা তৈরি করতে অক্ষম",
   "token_hidden_message": "এই টোকেনটি বর্তমানে লুকানো আছে এবং তালিকায় দেখা যাবে না",
   "token_manage.custom_token_address_failed": "চুক্তির ঠিকানা খুঁজে পাওয়া যায়নি। আবার চেষ্টা করুন। ",
   "token_manage.hidden_token": "{num} লুকানো টোকেন",

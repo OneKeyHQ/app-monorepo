@@ -3965,6 +3965,8 @@
   "title__invoice_description": "Invoice description",
   "title__lnurl_pay": "LNURL Pay",
   "toast.web_auth": "Set failed",
+  "toast_create_address_failed_message": "Please select an account first",
+  "toast_create_address_failed_title": "Unable to create address",
   "token_hidden_message": "This token is currently hidden and won't appear in the list",
   "token_manage.custom_token_address_failed": "Failed to find the contract address. Try again.",
   "token_manage.hidden_token": "{num} Hidden token",

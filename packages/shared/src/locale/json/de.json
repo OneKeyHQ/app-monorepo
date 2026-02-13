@@ -3965,6 +3965,8 @@
   "title__invoice_description": "Rechnungsbeschreibung",
   "title__lnurl_pay": "LNURL Pay",
   "toast.web_auth": "Einstellung fehlgeschlagen",
+  "toast_create_address_failed_message": "Bitte wählen Sie zuerst ein Konto aus",
+  "toast_create_address_failed_title": "Adresse kann nicht erstellt werden",
   "token_hidden_message": "Dieses Token ist derzeit ausgeblendet und wird nicht in der Liste angezeigt",
   "token_manage.custom_token_address_failed": "Die Vertragsadresse konnte nicht gefunden werden. Versuchen Sie es erneut. ",
   "token_manage.hidden_token": "{num} Verstecktes Token",

@@ -3965,6 +3965,8 @@
   "title__invoice_description": "发票描述",
   "title__lnurl_pay": "LNURL 支付",
   "toast.web_auth": "设置失败",
+  "toast_create_address_failed_message": "请先选择一个账户",
+  "toast_create_address_failed_title": "无法创建地址",
   "token_hidden_message": "此代币目前已隐藏，不会在列表中显示",
   "token_manage.custom_token_address_failed": "未能找到合约地址。请再试一次。",
   "token_manage.hidden_token": "{num} 隐藏代币",

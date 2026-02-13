@@ -3970,6 +3970,8 @@
   title__invoice_description = 'title__invoice_description',
   title__lnurl_pay = 'title__lnurl_pay',
   toast_web_auth = 'toast.web_auth',
+  toast_create_address_failed_message = 'toast_create_address_failed_message',
+  toast_create_address_failed_title = 'toast_create_address_failed_title',
   token_hidden_message = 'token_hidden_message',
   token_manage_custom_token_address_failed = 'token_manage.custom_token_address_failed',
   token_manage_hidden_token = 'token_manage.hidden_token',

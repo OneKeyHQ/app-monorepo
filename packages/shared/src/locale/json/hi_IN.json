@@ -3965,6 +3965,8 @@
   "title__invoice_description": "इनवॉइस विवरण",
   "title__lnurl_pay": "LNURL भुगतान",
   "toast.web_auth": "सेट करना विफल रहा",
+  "toast_create_address_failed_message": "कृपया पहले एक खाता चुनें",
+  "toast_create_address_failed_title": "पता बनाने में असमर्थ",
   "token_hidden_message": "यह टोकन वर्तमान में छिपा हुआ है और सूची में प्रकट नहीं होगा",
   "token_manage.custom_token_address_failed": "अनुबंध का पता लगाने में विफल रहे। पुनः प्रयास करें। ",
   "token_manage.hidden_token": "{num} छिपा हुआ टोकन",
