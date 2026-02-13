@@ -2217,6 +2217,7 @@
   "market.1y": "1 年",
   "market.24h": "24 小時",
   "market.24h_price_range": "24 小時價格範圍",
+  "market.24h_turnover": "24h 交易額",
   "market.24h_txns": "24 小時交易",
   "market.24h_vol_usd": "24 小時成交量 (USD)",
   "market.30d": "30 天",

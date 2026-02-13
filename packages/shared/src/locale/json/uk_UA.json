@@ -2217,6 +2217,7 @@
   "market.1y": "1р",
   "market.24h": "24 год",
   "market.24h_price_range": "Діапазон цін 24г",
+  "market.24h_turnover": "24h Обсяг",
   "market.24h_txns": "24г транзакції",
   "market.24h_vol_usd": "Обсяг 24г (USD)",
   "market.30d": "30д",
