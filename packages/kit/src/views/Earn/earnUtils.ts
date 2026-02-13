@@ -15,6 +15,7 @@ import {
   ETabEarnRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import type { IAppNavigation } from '../../hooks/useAppNavigation';
@@ -57,6 +58,12 @@ export async function safePushToEarnRoute(
   route: ETabEarnRoutes,
   params?: any,
 ) {
+  const startTime = Date.now();
+  defaultLogger.app.perf.logTime({
+    message: 'safePushToEarnRoute started',
+    data: { route, startTime },
+  });
+
   const shouldSwitchToEarnMode =
     route === ETabEarnRoutes.EarnHome ||
     route === ETabEarnRoutes.EarnProtocols ||
@@ -70,7 +77,17 @@ export async function safePushToEarnRoute(
     ? ETabRoutes.Discovery
     : ETabRoutes.Earn;
 
+  const switchTabStartTime = Date.now();
   navigation.switchTab(targetTab);
+  defaultLogger.app.perf.logTime({
+    message: 'safePushToEarnRoute switchTab executed',
+    data: {
+      route,
+      targetTab,
+      elapsedMs: Date.now() - startTime,
+      switchTabMs: Date.now() - switchTabStartTime,
+    },
+  });
   if (platformEnv.isNative) {
     void timerUtils.wait(150).then(() => {
       appEventBus.emit(EAppEventBusNames.SwitchDiscoveryTabInNative, {
@@ -79,6 +96,10 @@ export async function safePushToEarnRoute(
     });
   }
   await timerUtils.wait(0);
+  defaultLogger.app.perf.logTime({
+    message: 'safePushToEarnRoute after initial wait',
+    data: { route, elapsedMs: Date.now() - startTime },
+  });
 
   const rootNavigation = rootNavigationRef.current;
   const findTargetStack = (state?: NavigationState) => {
@@ -102,12 +123,20 @@ export async function safePushToEarnRoute(
   };
 
   if (!rootNavigation) {
+    defaultLogger.app.perf.logTime({
+      message: 'safePushToEarnRoute fallback navigation',
+      data: { route, elapsedMs: Date.now() - startTime },
+    });
     navigation.navigate(ERootRoutes.Main, {
       screen: targetTab,
       params: {
         screen: route,
         params,
       },
+    });
+    defaultLogger.app.perf.logTime({
+      message: 'safePushToEarnRoute early return (no rootNavigation)',
+      data: { route, totalElapsedMs: Date.now() - startTime },
     });
     return;
   }
@@ -123,6 +152,14 @@ export async function safePushToEarnRoute(
       // @ts-expect-error target is added at runtime for navigator selection
       action.target = targetKey;
       rootNavigation.dispatch(action);
+      defaultLogger.app.perf.logTime({
+        message: 'safePushToEarnRoute replace dispatched',
+        data: { route, elapsedMs: Date.now() - startTime },
+      });
+      defaultLogger.app.perf.logTime({
+        message: 'safePushToEarnRoute early return (replace)',
+        data: { route, totalElapsedMs: Date.now() - startTime },
+      });
       return;
     }
 
@@ -130,6 +167,10 @@ export async function safePushToEarnRoute(
     // @ts-expect-error target is added at runtime for navigator selection
     action.target = targetKey;
     rootNavigation.dispatch(action);
+    defaultLogger.app.perf.logTime({
+      message: 'safePushToEarnRoute push dispatched',
+      data: { route, elapsedMs: Date.now() - startTime },
+    });
   } else {
     // Fallback: navigate as before (may reuse route)
     rootNavigation.navigate(ERootRoutes.Main, {
@@ -139,7 +180,15 @@ export async function safePushToEarnRoute(
         params,
       },
     });
+    defaultLogger.app.perf.logTime({
+      message: 'safePushToEarnRoute fallback navigate executed',
+      data: { route, elapsedMs: Date.now() - startTime },
+    });
   }
+  defaultLogger.app.perf.logTime({
+    message: 'safePushToEarnRoute completed',
+    data: { route, totalElapsedMs: Date.now() - startTime },
+  });
 }
 
 export const EarnNavigation = {

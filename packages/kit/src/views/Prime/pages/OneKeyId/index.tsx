@@ -40,22 +40,65 @@ function OneKeyIdPage() {
   const isFocused = useRouteIsFocused();
 
   const popCurrentModal = useCallback(async () => {
+    const startTime = Date.now();
+    defaultLogger.app.perf.logTime({
+      message: 'popCurrentModal started',
+      data: { startTime },
+    });
     await popModalPages();
+    defaultLogger.app.perf.logTime({
+      message: 'popCurrentModal after popModalPages',
+      data: { elapsedMs: Date.now() - startTime },
+    });
     await timerUtils.wait(350);
+    defaultLogger.app.perf.logTime({
+      message: 'popCurrentModal completed',
+      data: { elapsedMs: Date.now() - startTime },
+    });
   }, []);
 
   const toPrimePage = useCallback(() => {
+    const startTime = Date.now();
+    defaultLogger.app.perf.logTime({
+      message: 'toPrimePage started',
+      data: { startTime },
+    });
     requestIdleCallback(async () => {
       try {
+        defaultLogger.app.perf.logTime({
+          message: 'toPrimePage requestIdleCallback executed',
+          data: { elapsedMs: Date.now() - startTime },
+        });
         if (isPrimeAvailable) {
           if (platformEnv.isNative) {
+            defaultLogger.app.perf.logTime({
+              message: 'toPrimePage popCurrentModal started',
+              data: { elapsedMs: Date.now() - startTime },
+            });
             await popCurrentModal();
+            defaultLogger.app.perf.logTime({
+              message: 'toPrimePage popCurrentModal completed',
+              data: { elapsedMs: Date.now() - startTime },
+            });
           }
+          defaultLogger.app.perf.logTime({
+            message: 'toPrimePage navigation started',
+            data: { elapsedMs: Date.now() - startTime },
+          });
           rootNavigationRef.current?.navigate(ERootRoutes.iOSFullScreen, {
             screen: EModalRoutes.PrimeModal,
             params: {
               screen: EPrimePages.PrimeDashboard,
             },
+          });
+          defaultLogger.app.perf.logTime({
+            message: 'toPrimePage navigation dispatched',
+            data: { elapsedMs: Date.now() - startTime },
+          });
+        } else {
+          defaultLogger.app.perf.logTime({
+            message: 'toPrimePage skipped (isPrimeAvailable false)',
+            data: { elapsedMs: Date.now() - startTime },
           });
         }
       } catch (e) {
@@ -67,14 +110,44 @@ function OneKeyIdPage() {
   }, [isPrimeAvailable, popCurrentModal]);
 
   const handleLoggedOutWhileFocused = useCallback(async () => {
+    const startTime = Date.now();
+    defaultLogger.app.perf.logTime({
+      message: 'handleLoggedOutWhileFocused started',
+      data: { isLoggedIn, isFocused, startTime },
+    });
     if (!isLoggedIn && isFocused) {
+      defaultLogger.app.perf.logTime({
+        message: 'handleLoggedOutWhileFocused waiting 300ms',
+        data: { elapsedMs: Date.now() - startTime },
+      });
       await timerUtils.wait(300);
+      defaultLogger.app.perf.logTime({
+        message: 'handleLoggedOutWhileFocused popCurrentModal started',
+        data: { elapsedMs: Date.now() - startTime },
+      });
       await popCurrentModal();
+      defaultLogger.app.perf.logTime({
+        message: 'handleLoggedOutWhileFocused popCurrentModal completed',
+        data: { elapsedMs: Date.now() - startTime },
+      });
       defaultLogger.prime.subscription.onekeyIdLogout({
         reason:
           'OneKeyIdPage: is focused and primePersistAtom is not logged in',
       });
+      defaultLogger.app.perf.logTime({
+        message: 'handleLoggedOutWhileFocused logout started',
+        data: { elapsedMs: Date.now() - startTime },
+      });
       void logoutRef.current();
+      defaultLogger.app.perf.logTime({
+        message: 'handleLoggedOutWhileFocused completed',
+        data: { elapsedMs: Date.now() - startTime },
+      });
+    } else {
+      defaultLogger.app.perf.logTime({
+        message: 'handleLoggedOutWhileFocused skipped (condition not met)',
+        data: { isLoggedIn, isFocused, elapsedMs: Date.now() - startTime },
+      });
     }
   }, [isLoggedIn, isFocused, popCurrentModal]);
 
@@ -109,8 +182,21 @@ function OneKeyIdPage() {
           <Stack p="$5">
             <PrimeUserInfo
               onLogoutSuccess={async () => {
+                const startTime = Date.now();
+                defaultLogger.app.perf.logTime({
+                  message: 'PrimeUserInfo onLogoutSuccess started',
+                  data: { startTime },
+                });
                 defaultLogger.referral.page.logoutOneKeyIDResult();
+                defaultLogger.app.perf.logTime({
+                  message: 'PrimeUserInfo onLogoutSuccess after log',
+                  data: { elapsedMs: Date.now() - startTime },
+                });
                 await popCurrentModal();
+                defaultLogger.app.perf.logTime({
+                  message: 'PrimeUserInfo onLogoutSuccess completed',
+                  data: { elapsedMs: Date.now() - startTime },
+                });
               }}
             />
           </Stack>
