@@ -277,7 +277,7 @@ export function useBulkSendFeeEstimation({
             const transferCount = unsignedTx.transfersInfo?.length ?? 1;
             txFeeInfo = scaleGasLimitForBulkTransfer(
               txFeeInfo,
-              transferCount + 1,
+              transferCount,
             );
           }
           const feeResult = calculateFeeForSend({
@@ -417,7 +417,7 @@ export function useBulkSendFeeEstimation({
           const transferCount = unsignedTx.transfersInfo?.length ?? 1;
           txFeeInfo = scaleGasLimitForBulkTransfer(
             txFeeInfo,
-            transferCount + 1,
+            transferCount,
           );
         }
         const feeResult = calculateFeeForSend({
