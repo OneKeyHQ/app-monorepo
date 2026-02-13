@@ -1255,15 +1255,19 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     if (pageType === EPageType.modal) {
       return 'full' as const;
     }
-    if (swapTypeSwitch === ESwapTabSwitchType.LIMIT) {
-      return 'compact' as const;
-    }
     // Use full layout when showing desktop provider panel to allow scrolling on the entire viewport
     if (showDesktopProviderPanel) {
       return 'full' as const;
     }
+    if (swapTypeSwitch === ESwapTabSwitchType.LIMIT) {
+      // On native, keep compact; on non-native align with Swap/Bridge width
+      if (platformEnv.isNative) {
+        return 'compact' as const;
+      }
+      return gtLg ? ('full' as const) : ('regular' as const);
+    }
     return 'regular' as const;
-  }, [pageType, swapTypeSwitch, showDesktopProviderPanel]);
+  }, [pageType, swapTypeSwitch, showDesktopProviderPanel, gtLg]);
 
   return (
     <>
@@ -1273,13 +1277,18 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           testID="swap-content-container"
           flex={1}
           width="100%"
-          pt="$2.5"
+          pt={pageType !== EPageType.modal ? '$5' : '$2.5'}
           gap="$2"
           $gtMd={{
             flex: 'unset',
           }}
+          $gtLg={{
+            pt: '$0',
+          }}
         >
-          {showDesktopProviderPanel ? null : (
+          {gtLg &&
+          pageType !== EPageType.modal &&
+          !platformEnv.isNative ? null : (
             <SwapHeaderContainer
               pageType={pageType}
               defaultSwapType={swapInitParams?.swapTabSwitchType}

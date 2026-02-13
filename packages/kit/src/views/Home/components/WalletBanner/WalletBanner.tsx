@@ -42,7 +42,7 @@ import Animated, {
 import { useReferFriends } from '@onekeyhq/kit/src/hooks/useReferFriends';
 
 const BANNER_ITEM_WIDTH = 280;
-const BANNER_GAP = 8;
+const BANNER_GAP = 12;
 const BANNER_PADDING_H = 20;
 
 const closedBanners: Record<string, boolean> = {};
@@ -144,27 +144,19 @@ function BannerItem({
             <Image size={60} source={{ uri: item.src }} />
           </YStack>
         ) : null}
-        {item.title && item.description ? (
-          <YStack flex={1} gap="$1">
-            {item.description ? (
-              <SizableText
-                size="$bodyXs"
-                color="$textSubdued"
-                numberOfLines={1}
-              >
-                {item.description}
-              </SizableText>
-            ) : null}
-            <SizableText size="$headingSm" numberOfLines={3}>
-              {item.title}
+        <YStack flex={1} gap="$1">
+          {item.description ? (
+            <SizableText size="$bodyXs" color="$textSubdued" numberOfLines={1}>
+              {item.description}
             </SizableText>
-          </YStack>
-        ) : null}
-        {item.title && !item.description ? (
-          <SizableText size="$headingMd" flex={1} numberOfLines={3}>
+          ) : null}
+          <SizableText
+            size={item.icon ? '$headingMd' : '$headingSm'}
+            numberOfLines={3}
+          >
             {item.title}
           </SizableText>
-        ) : null}
+        </YStack>
       </XStack>
 
       {item.closeable ? (
@@ -391,7 +383,7 @@ function WebBannerScroller({
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{
           px: '$pagePadding',
-          gap: 8,
+          gap: BANNER_GAP,
         }}
       >
         {banners.map((item) => (

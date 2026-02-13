@@ -146,6 +146,7 @@ const icons = {
   OnekeyBrandingPillDarkIllus: () =>
     import("./react/illus/OnekeyBrandingPillDark"),
   OnekeyLogoIllus: () => import("./react/illus/OnekeyLogo"),
+  OnekeyLogoMonoIllus: () => import("./react/illus/OnekeyLogoMono"),
   OnekeyTextIllus: () => import("./react/illus/OnekeyText"),
   OnekeyTextOnlyIllus: () => import("./react/illus/OnekeyTextOnly"),
   OpCircleIllus: () => import("./react/illus/OpCircle"),

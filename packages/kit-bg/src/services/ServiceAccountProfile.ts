@@ -488,15 +488,9 @@ class ServiceAccountProfile extends ServiceBase {
               accountUtils.isWatchingAccount({ accountId: item.accountId }) ||
               accountUtils.isOthersAccount({ accountId: item.accountId })
             ) {
-              const ownAccountItem = walletAccountItems.find((a) => {
-                const accountParams = { accountId: a.accountId };
-                return (
-                  accountUtils.isHdAccount(accountParams) ||
-                  accountUtils.isHwAccount(accountParams) ||
-                  accountUtils.isQrAccount(accountParams) ||
-                  accountUtils.isImportedAccount(accountParams)
-                );
-              });
+              const ownAccountItem = walletAccountItems.find((a) =>
+                accountUtils.isOwnAccount({ accountId: a.accountId }),
+              );
               if (ownAccountItem) {
                 item = ownAccountItem;
               }
@@ -577,13 +571,7 @@ class ServiceAccountProfile extends ServiceBase {
     if (enableAllowListValidation) {
       // Skip allowlist check if it's user's own account
       if (result.walletAccountId) {
-        const accountParams = { accountId: result.walletAccountId };
-        const isOwnAccount =
-          accountUtils.isHdAccount(accountParams) ||
-          accountUtils.isHwAccount(accountParams) ||
-          accountUtils.isQrAccount(accountParams) ||
-          accountUtils.isImportedAccount(accountParams);
-        if (isOwnAccount) {
+        if (accountUtils.isOwnAccount({ accountId: result.walletAccountId })) {
           return result;
         }
       }

@@ -1,11 +1,8 @@
 import { useContext, useMemo } from 'react';
 
-import Animated from 'react-native-reanimated';
-
 import { ScrollView } from '../ScrollView';
 
 import { BasicPage } from './BasicPage';
-import { useSafeKeyboardAnimationStyle } from './hooks';
 import { PageContext } from './PageContext';
 import { BasicPageFooter } from './PageFooter';
 
@@ -14,30 +11,17 @@ import type { IPageProps } from './type';
 export function PageContainer({ children, lazyLoad, fullPage }: IPageProps) {
   const { scrollEnabled, scrollProps } = useContext(PageContext);
 
-  const safeKeyboardAnimationStyle = useSafeKeyboardAnimationStyle();
-
   return useMemo(
     () => (
       <BasicPage lazyLoad={lazyLoad} fullPage={fullPage}>
         {scrollEnabled ? (
-          <ScrollView {...scrollProps}>
-            <Animated.View style={[{ flex: 1 }, safeKeyboardAnimationStyle]}>
-              {children}
-            </Animated.View>
-          </ScrollView>
+          <ScrollView {...scrollProps}>{children}</ScrollView>
         ) : (
           children
         )}
         <BasicPageFooter />
       </BasicPage>
     ),
-    [
-      lazyLoad,
-      fullPage,
-      scrollEnabled,
-      scrollProps,
-      safeKeyboardAnimationStyle,
-      children,
-    ],
+    [lazyLoad, fullPage, scrollEnabled, scrollProps, children],
   );
 }

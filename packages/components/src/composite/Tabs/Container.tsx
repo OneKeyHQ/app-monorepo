@@ -207,9 +207,12 @@ export function Container({
           setTimeout(() => {
             resizeObserverRef.current = new ResizeObserver((entries) => {
               const entry = entries[0];
-              if (entry && entry.contentRect.height) {
+              const borderBoxHeight =
+                entry?.borderBoxSize?.[0]?.blockSize ??
+                (entry?.target as HTMLElement)?.clientHeight;
+              if (borderBoxHeight) {
                 (listContainerRef.current as HTMLElement).style.maxHeight =
-                  `${entry.contentRect.height}px`;
+                  `${borderBoxHeight}px`;
               } else {
                 // When quickly removing and adding observer nodes, ResizeObserver API has a delay
                 // and there's a chance it won't get the current node height, so we need delayed retries

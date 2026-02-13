@@ -4,6 +4,7 @@ import { useContext, useMemo } from 'react';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   cancelAnimation,
+  runOnJS,
   scrollTo,
   useAnimatedReaction,
   useSharedValue,
@@ -12,7 +13,14 @@ import Animated, {
 
 import { CollapsibleTabContext } from './CollapsibleTabContext';
 
-export function HeaderScrollGestureWrapper({ children }: PropsWithChildren) {
+import type { IHeaderScrollGestureWrapperProps } from './HeaderScrollGestureWrapper';
+
+const REFRESH_THRESHOLD = 80;
+
+export function HeaderScrollGestureWrapper({
+  children,
+  onRefresh,
+}: PropsWithChildren<IHeaderScrollGestureWrapperProps>) {
   const tabsContext = useContext(CollapsibleTabContext);
   const refMap = tabsContext?.refMap;
   const focusedTab = tabsContext?.focusedTab;
@@ -50,11 +58,17 @@ export function HeaderScrollGestureWrapper({ children }: PropsWithChildren) {
         })
         .onEnd((e) => {
           'worklet';
-          targetScrollY.value = withDecay({
-            velocity: -e.velocityY,
-          });
+          const wasAtTop = startScrollY.value <= contentInset;
+          const pulledDown = e.translationY > REFRESH_THRESHOLD;
+          if (wasAtTop && pulledDown && onRefresh) {
+            runOnJS(onRefresh)();
+          } else {
+            targetScrollY.value = withDecay({
+              velocity: -e.velocityY,
+            });
+          }
         }),
-    [startScrollY, scrollYCurrent, targetScrollY],
+    [startScrollY, scrollYCurrent, targetScrollY, contentInset, onRefresh],
   );
 
   return (

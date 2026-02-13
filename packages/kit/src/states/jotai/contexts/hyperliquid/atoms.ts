@@ -160,6 +160,11 @@ export const {
   use: usePositionFilterByCurrentTokenAtom,
 } = contextAtom<boolean>(false);
 
+export const {
+  atom: orderFilterByCurrentTokenAtom,
+  use: useOrderFilterByCurrentTokenAtom,
+} = contextAtom<boolean>(false);
+
 export type IPerpsActiveOpenOrdersAtom = {
   accountAddress: string | undefined;
   openOrders: HL.IPerpsFrontendOrder[];

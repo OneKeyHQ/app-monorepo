@@ -6,7 +6,8 @@ import type { IXStackProps, IYStackProps } from '@onekeyhq/components';
 import {
   Button,
   IconButton,
-  ScrollView,
+  KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET,
+  Keyboard,
   Select,
   SizableText,
   XStack,
@@ -24,13 +25,6 @@ import { useLanguageSelectorWithoutAuto } from '../../Setting/hooks/useLanguageS
 const DESKTOP_DRAGGABLE_STYLE = {
   WebkitAppRegion: 'drag',
 } as any;
-
-const SCROLL_VIEW_CONTENT_STYLE = {
-  px: '$5',
-  $gtMd: {
-    px: '$10',
-  },
-};
 
 const OnboardingLayoutBack = memo(({ exit }: { exit?: boolean }) => {
   const navigation = useAppNavigation();
@@ -182,11 +176,13 @@ const OnboardingLayoutBody = memo(
     children,
     scrollable = true,
     constrained = true,
+    bottomOffset,
     ...rest
   }: {
     children?: React.ReactNode;
     scrollable?: boolean;
     constrained?: boolean;
+    bottomOffset?: number;
   } & IYStackProps) => {
     const content = constrained ? (
       <OnboardingLayoutConstrainedContent>
@@ -199,6 +195,13 @@ const OnboardingLayoutBody = memo(
     const pxProps = useMemo(
       () => (!scrollable ? { px: '$5' } : {}),
       [scrollable],
+    );
+
+    const { gtMd } = useMedia();
+
+    const contentContainerStyle = useMemo(
+      () => ({ paddingHorizontal: gtMd ? 40 : 20 }),
+      [gtMd],
     );
 
     return (
@@ -215,12 +218,13 @@ const OnboardingLayoutBody = memo(
         {...rest}
       >
         {scrollable ? (
-          <ScrollView
+          <Keyboard.AwareScrollView
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={SCROLL_VIEW_CONTENT_STYLE}
+            bottomOffset={bottomOffset ?? KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET}
+            contentContainerStyle={contentContainerStyle}
           >
             {content}
-          </ScrollView>
+          </Keyboard.AwareScrollView>
         ) : (
           content
         )}
