@@ -160,6 +160,27 @@ export const switchTab = <T extends ETabRoutes>(
   );
 };
 
+export const popModalPages = async (maxRetryTimes = 10) => {
+  if (maxRetryTimes <= 0) {
+    return;
+  }
+  const rootState = rootNavigationRef.current?.getRootState();
+  const currentRoute = rootState?.routes?.[rootState.index];
+  if (currentRoute?.name !== ERootRoutes.Modal) {
+    return;
+  }
+  const routeCountBefore = rootState?.routes?.length ?? 0;
+  if (rootNavigationRef.current?.canGoBack?.()) {
+    rootNavigationRef.current?.goBack();
+  }
+  await timerUtils.wait(350);
+  const newState = rootNavigationRef.current?.getRootState();
+  if ((newState?.routes?.length ?? 0) >= routeCountBefore) {
+    return;
+  }
+  await popModalPages(maxRetryTimes - 1);
+};
+
 export const popToMainRoute = async (maxRetryTimes = 99) => {
   if (maxRetryTimes <= 0) {
     return;

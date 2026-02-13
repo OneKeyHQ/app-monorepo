@@ -2217,6 +2217,7 @@
   "market.1y": "1년",
   "market.24h": "24시간",
   "market.24h_price_range": "24시간 가격 범위",
+  "market.24h_turnover": "24h 거래액",
   "market.24h_txns": "24시간 거래",
   "market.24h_vol_usd": "24시간 거래량 (USD)",
   "market.30d": "30일",

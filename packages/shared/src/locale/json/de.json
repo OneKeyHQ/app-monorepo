@@ -2217,6 +2217,7 @@
   "market.1y": "1J",
   "market.24h": "24H",
   "market.24h_price_range": "24H Preisspanne",
+  "market.24h_turnover": "24h Umsatz",
   "market.24h_txns": "24H txns",
   "market.24h_vol_usd": "24H VOL(USD)",
   "market.30d": "30T",
