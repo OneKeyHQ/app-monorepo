@@ -70,7 +70,7 @@ function AccountValue(accountValue: {
       return new BigNumber(value ?? '0')
         .plus(
           accountDeFiOverview?.overview?.[linkedNetworkId ?? '']?.netWorth ??
-          '0',
+            '0',
         )
         .toFixed();
     }
@@ -109,10 +109,10 @@ function AccountValue(accountValue: {
     ) {
       const tokensValue =
         value[
-        accountUtils.buildAccountValueKey({
-          accountId: linkedAccountId,
-          networkId: linkedNetworkId,
-        })
+          accountUtils.buildAccountValueKey({
+            accountId: linkedAccountId,
+            networkId: linkedNetworkId,
+          })
         ];
       const accountDeFiValue =
         accountDeFiOverview?.overview?.[linkedNetworkId]?.netWorth;
@@ -142,7 +142,7 @@ function AccountValue(accountValue: {
         networkInfoMap[networkId] &&
         (networkInfoMap[networkId].mergeDeriveAssetsEnabled ||
           networkInfoMap[networkId].deriveType.toLowerCase() ===
-          deriveType.toLowerCase())
+            deriveType.toLowerCase())
       ) {
         return new BigNumber(acc ?? '0').plus(v ?? '0').toFixed();
       }
@@ -209,12 +209,12 @@ function AccountValueWithSpotlight({
   accountDeFiOverview,
 }: {
   accountValue:
-  | {
-    accountId: string;
-    currency: string | undefined;
-    value: Record<string, string> | string | undefined;
-  }
-  | undefined;
+    | {
+        accountId: string;
+        currency: string | undefined;
+        value: Record<string, string> | string | undefined;
+      }
+    | undefined;
   isOthersUniversal: boolean;
   index: number;
   linkedAccountId?: string;
