@@ -421,7 +421,9 @@ w3m-modal {
 
 /* Light theme support */
 .light-theme .desktop-menu-dropdown,
-.light-theme .desktop-menu-submenu {
+.desktop-menu-dropdown.light-theme,
+.light-theme .desktop-menu-submenu,
+.desktop-menu-dropdown.light-theme .desktop-menu-submenu {
   --menu-bg: #ffffff;
   --menu-border: #e5e5e5;
   --menu-text: #1a1a1a;

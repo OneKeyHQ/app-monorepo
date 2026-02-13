@@ -15,22 +15,38 @@ import type { INetworkWalletActionsConfig } from './types';
 
 const networkIds = getNetworkIdsMap();
 
+const isExtPopupOrSidePanel =
+  platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel;
+
 export const defaultWalletActionsConfig: INetworkWalletActionsConfig = {
-  mainActions: ['send', 'receive', 'buy'],
-  moreActions: [
-    'swap',
-    'sell',
-    'explorer',
-    'copy',
-    'bulkSend',
-    'sign',
-    'reward',
-    'export',
-  ],
+  mainActions: isExtPopupOrSidePanel
+    ? ['send', 'receive', 'swap']
+    : ['send', 'receive', 'buy'],
+  moreActions: isExtPopupOrSidePanel
+    ? [
+        'buy',
+        'sell',
+        'explorer',
+        'copy',
+        'bulkSend',
+        'sign',
+        'reward',
+        'export',
+      ]
+    : [
+        'swap',
+        'sell',
+        'explorer',
+        'copy',
+        'bulkSend',
+        'sign',
+        'reward',
+        'export',
+      ],
   moreActionGroups: [
     {
       type: 'trading',
-      actions: ['swap', 'sell'],
+      actions: isExtPopupOrSidePanel ? ['buy', 'sell'] : ['swap', 'sell'],
       order: 1,
     },
     {

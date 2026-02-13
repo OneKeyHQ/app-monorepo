@@ -30,7 +30,6 @@ interface IPerpSettingsPopoverContentProps {
   closePopover: () => void;
 }
 
-
 function PerpSettingsPopoverContent({
   closePopover,
 }: IPerpSettingsPopoverContentProps) {

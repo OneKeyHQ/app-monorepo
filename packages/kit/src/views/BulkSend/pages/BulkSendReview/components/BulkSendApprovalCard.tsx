@@ -126,7 +126,7 @@ function ApprovalItem({
         </YStack>
         <XStack gap="$3" alignItems="center">
           <YStack alignItems="flex-end">
-            <SizableText size="$bodyMdMedium">OneKey</SizableText>
+            <SizableText size="$bodyMdMedium">OneKey Bulk Send</SizableText>
             <SizableText size="$bodyMd" color="$textSubdued">
               {shortenedSpender}
             </SizableText>

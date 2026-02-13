@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 import type {
   IMenu,
@@ -250,7 +251,8 @@ export function Menu() {
 export function MenuHamburger() {
   const [menu, setMenu] = useState<IMenu | null>(null);
   const [isOpen, setIsOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const themeName = useThemeName();
 
   useEffect(() => {
@@ -264,9 +266,10 @@ export function MenuHamburger() {
   // Close menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
       if (
-        containerRef.current &&
-        !containerRef.current.contains(event.target as Node)
+        (!triggerRef.current || !triggerRef.current.contains(target)) &&
+        (!dropdownRef.current || !dropdownRef.current.contains(target))
       ) {
         setIsOpen(false);
       }
@@ -304,6 +307,15 @@ export function MenuHamburger() {
     return itemArray;
   }, [menu]);
 
+  // Compute dropdown position from trigger element
+  const dropdownPosition = useMemo(() => {
+    if (isOpen && triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      return { top: rect.top, left: rect.right };
+    }
+    return { top: 0, left: 0 };
+  }, [isOpen]);
+
   if (
     allItems.length === 0 ||
     !menu ||
@@ -314,20 +326,45 @@ export function MenuHamburger() {
   }
 
   return (
-    <div
-      ref={containerRef}
-      className={`desktop-menu-container ${
-        themeName === 'light' ? 'light-theme' : ''
-      }`}
-    >
-      <div className="desktop-menu-trigger" onClick={toggleMenu}>
-        <Icon
-          name="MenuOutline"
-          size="$5"
-          color={themeName === 'light' ? '$iconSubdued' : '$icon'}
-        />
+    <>
+      <div
+        ref={triggerRef}
+        className={`desktop-menu-container ${
+          themeName === 'light' ? 'light-theme' : ''
+        }`}
+      >
+        <div className="desktop-menu-trigger" onClick={toggleMenu}>
+          <Icon
+            name="MenuOutline"
+            size="$5"
+            color={themeName === 'light' ? '$iconSubdued' : '$icon'}
+          />
+        </div>
       </div>
-      <MenuDropdown items={allItems} isOpen={isOpen} onClose={handleClose} />
-    </div>
+      {isOpen
+        ? createPortal(
+            <div
+              ref={dropdownRef}
+              className={`desktop-menu-dropdown open ${
+                themeName === 'light' ? 'light-theme' : ''
+              }`}
+              style={{
+                position: 'fixed',
+                top: dropdownPosition.top,
+                left: dropdownPosition.left,
+              }}
+            >
+              {allItems.map((item, index) => (
+                <MenuItemComponent
+                  key={`${item.commandId}-${index}`}
+                  item={item}
+                  onClose={handleClose}
+                />
+              ))}
+            </div>,
+            document.body,
+          )
+        : null}
+    </>
   );
 }
