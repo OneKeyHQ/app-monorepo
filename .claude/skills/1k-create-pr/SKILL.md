@@ -1,7 +1,7 @@
 ---
 name: 1k-create-pr
 description: Creates a Pull Request from current changes for OneKey app-monorepo. Use when user wants to create PR, submit changes, or merge feature branch. Handles branch creation, commit, push, and PR creation workflow.
-enabled: false
+disable-model-invocation: true
 ---
 
 # Create OneKey App PR
