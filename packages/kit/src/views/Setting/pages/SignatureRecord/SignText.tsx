@@ -87,8 +87,9 @@ const SignTextItem = ({ item }: { item: ISignedMessage }) => {
         <XStack justifyContent="space-between" p="$3">
           <TextArea
             maxHeight="$24"
-            disabled
             editable={false}
+            scrollEnabled
+            nestedScrollEnabled
             userSelect="none"
             value={
               item.contentType === 'json'
@@ -106,8 +107,6 @@ const SignTextItem = ({ item }: { item: ISignedMessage }) => {
               <NetworkAvatar size={16} networkId={item.networkId} />
             </Stack>
             <SizableText color="$textSubdued" size="$bodySmMedium">
-              {item.network.name}
-              {' • '}
               {utils.shortenAddress({ address: item.address })}
             </SizableText>
           </XStack>
