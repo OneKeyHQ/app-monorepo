@@ -4,7 +4,7 @@ index 23cd875..3fe0e1d 100644
 +++ b/node_modules/react-native-bottom-tabs/android/src/main/java/com/rcttabview/RCTTabView.kt
 @@ -38,6 +38,12 @@ import com.google.android.material.navigation.NavigationBarView.LABEL_VISIBILITY
  import com.google.android.material.transition.platform.MaterialFadeThrough
-
+ 
  class ExtendedBottomNavigationView(context: Context) : BottomNavigationView(context) {
 +  init {
 +    // Disable automatic window insets handling to prevent extra padding
@@ -31,18 +31,19 @@ index 23cd875..3fe0e1d 100644
 +      onTabBarMeasuredListener?.invoke(tabBarHeight)
 +    }
    }
-
+ 
    fun updateItems(items: MutableList<TabInfo>) {
 diff --git a/node_modules/react-native-bottom-tabs/ios/TabViewImpl.swift b/node_modules/react-native-bottom-tabs/ios/TabViewImpl.swift
-index 72938be..a7a3c15 100644
+index 72938be..32db031 100644
 --- a/node_modules/react-native-bottom-tabs/ios/TabViewImpl.swift
 +++ b/node_modules/react-native-bottom-tabs/ios/TabViewImpl.swift
-@@ -80,18 +80,22 @@ struct TabViewImpl: View {
+@@ -80,20 +80,19 @@ struct TabViewImpl: View {
          .configureAppearance(props: props, tabBar: tabBar)
        #endif
        .tintColor(props.selectedActiveTintColor)
 -      .getSidebarAdaptable(enabled: props.sidebarAdaptable ?? false)
--      .onChange(of: props.selectedPage ?? "") { newValue in
++      .applyTabViewStyle(sidebarAdaptable: props.sidebarAdaptable ?? false)
+       .onChange(of: props.selectedPage ?? "") { newValue in
 -        #if !os(macOS)
 -          if props.disablePageAnimations {
 -            UIView.setAnimationsEnabled(false)
@@ -51,35 +52,24 @@ index 72938be..a7a3c15 100644
 -            }
 -          }
 -        #endif
--        #if os(tvOS) || os(macOS) || os(visionOS)
--          onSelect(newValue)
--        #endif
--      }
-+      .applyTabViewStyle(sidebarAdaptable: props.sidebarAdaptable ?? false)
-+      .onChange(of: props.selectedPage ?? "") { newValue in
-+        #if os(tvOS) || os(macOS) || os(visionOS)
-+          onSelect(newValue)
-+        #endif
-+      }
-+      // Use SwiftUI transaction to disable tab switching animations instead of
-+      // the fragile UIView.setAnimationsEnabled(false) global hack.
-+      // The global approach could leave UITabBarController in an inconsistent
-+      // internal transition state when the disable/re-enable timing races with
-+      // the SwiftUI TabView transition, causing a probabilistic UI freeze.
+         #if os(tvOS) || os(macOS) || os(visionOS)
+           onSelect(newValue)
+         #endif
+       }
 +      #if !os(macOS)
 +      .transaction { transaction in
 +        if props.disablePageAnimations {
-+          transaction.disableAnimations = true
++          transaction.disablesAnimations = true
 +        }
 +      }
 +      #endif
    }
-
+ 
    func emitHapticFeedback(longPress: Bool = false) {
-@@ -214,6 +218,40 @@ extension View {
+@@ -214,6 +213,40 @@ extension View {
      }
    }
-
+ 
 +  @ViewBuilder
 +  func applyTabViewStyle(sidebarAdaptable: Bool) -> some View {
 +    if #available(iOS 18.0, macOS 15.0, tvOS 18.0, visionOS 2.0, *) {
@@ -118,10 +108,11 @@ index 72938be..a7a3c15 100644
    func tabBadge(_ data: String?) -> some View {
      if #available(iOS 15.0, macOS 15.0, visionOS 2.0, tvOS 15.0, *) {
 diff --git a/node_modules/react-native-bottom-tabs/ios/TabViewProvider.swift b/node_modules/react-native-bottom-tabs/ios/TabViewProvider.swift
+index 013032f..3a4697a 100644
 --- a/node_modules/react-native-bottom-tabs/ios/TabViewProvider.swift
 +++ b/node_modules/react-native-bottom-tabs/ios/TabViewProvider.swift
-@@ -86,7 +86,12 @@
-
+@@ -85,7 +85,12 @@ public final class TabInfo: NSObject {
+ 
    @objc public var selectedPage: NSString? {
      didSet {
 -      props.selectedPage = selectedPage as? String
@@ -133,7 +124,7 @@ diff --git a/node_modules/react-native-bottom-tabs/ios/TabViewProvider.swift b/n
 +      props.selectedPage = newValue
      }
    }
-
+ 
 diff --git a/node_modules/react-native-bottom-tabs/lib/module/TabView.js b/node_modules/react-native-bottom-tabs/lib/module/TabView.js
 index 3ab92c7..81ca149 100644
 --- a/node_modules/react-native-bottom-tabs/lib/module/TabView.js
@@ -175,7 +166,7 @@ index 41b9cb3..af65f18 100644
 +   */
 +  tabBarHidden?: boolean;
  }
-
+ 
  const ANDROID_MAX_TABS = 100;
 @@ -392,7 +396,7 @@ const TabView = <Route extends BaseRoute>({
          // When rendering a custom tab bar, icons can be React elements, which will not be properly resolved.
