@@ -189,12 +189,14 @@ function BaseBulkSendAddressesInput() {
         initialized: false,
         isRefreshing: true,
       });
+      void form.trigger();
     }
   }, [
     selectedAccountId,
     selectedNetworkId,
     selectedToken,
     setTokenDetailsState,
+    form,
   ]);
 
   usePromiseResult(
