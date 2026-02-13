@@ -8,6 +8,8 @@ import {
   TRON_SOURCE_FLAG_MAINNET,
   TRON_SOURCE_FLAG_TESTNET,
   TRON_TX_EXPIRATION_TIME,
+  tronTokenAddressMainnet,
+  tronTokenAddressTestnet,
 } from '@onekeyhq/core/src/chains/tron/constants';
 import type {
   IDecodedTxExtraTron,
@@ -469,7 +471,12 @@ export default class Vault extends VaultBase {
       .toFixed();
 
     // Build tuple array for (address recipient, uint256 amount)[]
-    const transferTuples = transfers.map((t) => [t.recipient, t.amount]);
+    // Addresses inside tuples must be hex (0x-prefixed) because TronWeb
+    // only auto-converts standalone address / address[] params, not nested ones.
+    const transferTuples = transfers.map((t) => [
+      TronWeb.utils.address.toHex(t.recipient).replace(/^41/, '0x'),
+      t.amount,
+    ]);
 
     const [
       {
@@ -532,6 +539,12 @@ export default class Vault extends VaultBase {
       );
     }
 
+    const USDTAddress = (await this.getNetwork()).isTestnet
+      ? tronTokenAddressTestnet.USDT
+      : tronTokenAddressMainnet.USDT;
+
+    const isUSDT = tokenInfo.address === USDTAddress;
+
     const recipients = transfersInfo.map((t) => t.to);
 
     // Use ViaContract by default (fewer notifications for sender).
@@ -544,9 +557,10 @@ export default class Vault extends VaultBase {
         value: transfersInfo[0].amount,
       });
 
-      const methodSignature = isFeeOnTransfer
-        ? 'sendTRC20SameAmount(address,address[],uint256)'
-        : 'sendTRC20SameAmountViaContract(address,address[],uint256)';
+      const methodSignature =
+        isFeeOnTransfer || isUSDT
+          ? 'sendTRC20SameAmount(address,address[],uint256)'
+          : 'sendTRC20SameAmountViaContract(address,address[],uint256)';
 
       const [
         {
@@ -600,11 +614,17 @@ export default class Vault extends VaultBase {
     }));
 
     // Build tuple array for (address recipient, uint256 amount)[]
-    const transferTuples = transfers.map((t) => [t.recipient, t.amount]);
+    // Addresses inside tuples must be hex (0x-prefixed) because TronWeb
+    // only auto-converts standalone address / address[] params, not nested ones.
+    const transferTuples = transfers.map((t) => [
+      TronWeb.utils.address.toHex(t.recipient).replace(/^41/, '0x'),
+      t.amount,
+    ]);
 
-    const methodSignature = isFeeOnTransfer
-      ? 'sendTRC20(address,(address,uint256)[])'
-      : 'sendTRC20ViaContract(address,(address,uint256)[])';
+    const methodSignature =
+      isFeeOnTransfer || isUSDT
+        ? 'sendTRC20(address,(address,uint256)[])'
+        : 'sendTRC20ViaContract(address,(address,uint256)[])';
 
     const [
       {
