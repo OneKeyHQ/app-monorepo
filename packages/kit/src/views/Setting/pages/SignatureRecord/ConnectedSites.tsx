@@ -67,8 +67,6 @@ const ConnectedSiteItem = ({ item }: { item: IConnectedSite }) => (
               <NetworkAvatar size={16} networkId={networkId} />
             </Stack>
             <SizableText color="$textSubdued" size="$bodySmMedium">
-              {item.networks[i].name}
-              {' • '}
               {utils.shortenAddress({ address: item.addresses[i] })}
             </SizableText>
           </XStack>

@@ -42,7 +42,7 @@ import Animated, {
 import { useReferFriends } from '@onekeyhq/kit/src/hooks/useReferFriends';
 
 const BANNER_ITEM_WIDTH = 280;
-const BANNER_GAP = 8;
+const BANNER_GAP = 12;
 const BANNER_PADDING_H = 20;
 
 const closedBanners: Record<string, boolean> = {};
@@ -383,7 +383,7 @@ function WebBannerScroller({
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{
           px: '$pagePadding',
-          gap: 8,
+          gap: BANNER_GAP,
         }}
       >
         {banners.map((item) => (
