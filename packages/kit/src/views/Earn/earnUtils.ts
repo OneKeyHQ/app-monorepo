@@ -263,15 +263,22 @@ export const EarnNavigation = {
   ) {
     if (platformEnv.isNative) {
       await navigation.popToMainRoute();
-      await timerUtils.wait(50);
+      // On native with native bottom tabs, execute synchronously to keep
+      // within the touch event context. Timer waits push operations to
+      // delayed tasks that iOS production won't flush until the next touch.
       switchTab(ETabRoutes.Discovery);
-      await timerUtils.wait(50);
       appEventBus.emit(EAppEventBusNames.SwitchDiscoveryTabInNative, {
         tab: ETranslations.global_earn,
       });
-    } else {
-      switchTab(ETabRoutes.Earn);
+      navigation.popToTop();
+      appEventBus.emit(EAppEventBusNames.SwitchEarnMode, { mode: 'earn' });
+      appEventBus.emit(EAppEventBusNames.SwitchEarnTab, {
+        tab: params?.tab ?? 'assets',
+      });
+      return;
     }
+
+    switchTab(ETabRoutes.Earn);
     await timerUtils.wait(50);
     navigation.popToTop();
     await timerUtils.wait(80);
