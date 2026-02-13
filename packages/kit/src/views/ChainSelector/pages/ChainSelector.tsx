@@ -14,6 +14,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { PureChainSelector } from '../components/PureChainSelector';
+import { SEPERATOR } from '@onekeyhq/shared/src/engine/engineConsts';
 
 export default function ChainSelectorPage({
   route,
@@ -94,10 +95,17 @@ export default function ChainSelectorPage({
           // Extract plain networkId keys for display lookup.
           const rawValues = accountsValue[0]?.value ?? {};
           const formattedValues: Record<string, string> = {};
+          const walletId = accountUtils.getWalletIdFromAccountId({
+            accountId: valueAccountId,
+          });
           for (const [key, val] of Object.entries(rawValues)) {
             const keyArray = key.split('_');
             const networkId = keyArray.pop() as string;
-            if (networkId) {
+            const accountId = keyArray.join('_');
+            const [_walletId, _path, _deriveType] = accountId.split(
+              SEPERATOR,
+            ) as [string, string, string];
+            if (walletId === _walletId && networkId) {
               formattedValues[networkId] = val;
             }
           }
