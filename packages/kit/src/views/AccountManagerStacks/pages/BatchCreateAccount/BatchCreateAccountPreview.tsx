@@ -622,7 +622,7 @@ function BatchCreateAccountPreviewPage({
         align: 'left',
         dataIndex: 'address',
         columnProps: {
-          flexGrow: 4,
+          flexGrow: 5,
           flexBasis: 0,
         },
         render: (_: any, account: IBatchCreateAccount) => (
@@ -660,7 +660,7 @@ function BatchCreateAccountPreviewPage({
         align: 'right',
         dataIndex: 'balance',
         columnProps: {
-          flexGrow: 4,
+          flexGrow: 3,
           flexBasis: 0,
         },
         render: (_: any, account: IBatchCreateAccount) => (
