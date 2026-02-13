@@ -4,6 +4,7 @@ import BigNumber from 'bignumber.js';
 import { isEmpty } from 'lodash';
 import { useIntl } from 'react-intl';
 
+import { Keyboard } from 'react-native';
 import {
   NumberSizeableText,
   Page,
@@ -148,6 +149,7 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
       amountInputMode !== EAmountInputMode.Custom &&
       !shouldShowTxDetails(amountInputMode)
     ) {
+      Keyboard.dismiss();
       handlePreview(
         amountInputMode,
         amountInputValues,
