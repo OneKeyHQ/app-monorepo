@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { useFocusEffect } from '@react-navigation/core';
 import { CanceledError } from 'axios';
 import { useIntl } from 'react-intl';
 
@@ -123,6 +124,30 @@ export function HomePageView({
   const [{ hasRiskApprovals }] = useApprovalsInfoAtom();
   const { updateApprovalsInfo } = useAccountOverviewActions().current;
   const tabsRef = useRef<ITabContainerRef | null>(null);
+
+  // Force PagerView to re-sync after bottom tab switch (freeze/unfreeze)
+  const wasBlurredRef = useRef(false);
+  useFocusEffect(
+    useCallback(() => {
+      let rafId: number | undefined;
+      if (wasBlurredRef.current && tabsRef.current) {
+        // Force PagerView to display the correct page after freeze/unfreeze.
+        // jumpToTab won't work here because onTabPress skips setPage when
+        // the tab is already focused. We need to call setPageWithoutAnimation
+        // directly to force the native PagerView to re-render its current page.
+        rafId = requestAnimationFrame(() => {
+          tabsRef.current?.syncCurrentPage();
+        });
+      }
+      return () => {
+        if (rafId !== undefined) {
+          cancelAnimationFrame(rafId);
+        }
+        wasBlurredRef.current = true;
+      };
+    }, []),
+  );
+
   const hasRiskApprovalsRef = useRef(hasRiskApprovals);
   useEffect(() => {
     hasRiskApprovalsRef.current = hasRiskApprovals;
