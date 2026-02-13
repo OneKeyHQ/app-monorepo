@@ -95,6 +95,7 @@ export interface ITabContainerRef {
   setIndex: (index: number) => void;
   getFocusedTab: () => string;
   getCurrentIndex: () => number;
+  syncCurrentPage: () => void;
 }
 
 export interface ITabContainerProps {
