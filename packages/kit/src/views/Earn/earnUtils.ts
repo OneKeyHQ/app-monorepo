@@ -94,9 +94,10 @@ export async function safePushToEarnRoute(
   // On native, query state BEFORE switchTab. All tab states are already
   // available since lazy: false, so we don't depend on switchTab's state
   // synchronization timing with native bottom tabs.
-  const preQueryState = platformEnv.isNative && rootNavigation
-    ? findTargetStack(rootNavigation.getRootState?.())
-    : undefined;
+  const preQueryState =
+    platformEnv.isNative && rootNavigation
+      ? findTargetStack(rootNavigation.getRootState?.())
+      : undefined;
 
   navigation.switchTab(targetTab);
   if (platformEnv.isNative) {
