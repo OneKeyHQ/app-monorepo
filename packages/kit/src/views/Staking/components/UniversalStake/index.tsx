@@ -948,6 +948,58 @@ export function UniversalStake({
     });
   }, [intl, resetUSDTApproveValue]);
 
+  const waitForAllowanceAfterApprove = useCallback(
+    async ({
+      requiredAmount,
+      maxAttempts = 15,
+      intervalMs = 2000,
+    }: {
+      requiredAmount: string;
+      maxAttempts?: number;
+      intervalMs?: number;
+    }) => {
+      if (
+        !useApprove ||
+        usePermit2Approve ||
+        tokenInfo?.token?.isNative ||
+        !requiredAmount
+      ) {
+        return true;
+      }
+
+      const requiredAmountBN = new BigNumber(requiredAmount);
+      if (requiredAmountBN.isNaN() || requiredAmountBN.lte(0)) {
+        return true;
+      }
+
+      for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+        try {
+          const allowanceInfo = await fetchAllowanceResponse();
+          const allowanceBN = new BigNumber(allowanceInfo.allowanceParsed || '0');
+          if (!allowanceBN.isNaN() && allowanceBN.gte(requiredAmountBN)) {
+            return true;
+          }
+        } catch (error) {
+          console.error('Error waiting for allowance update:', error);
+        }
+
+        if (attempt < maxAttempts - 1) {
+          await new Promise<void>((resolve) => {
+            setTimeout(resolve, intervalMs);
+          });
+        }
+      }
+
+      return false;
+    },
+    [
+      useApprove,
+      usePermit2Approve,
+      tokenInfo?.token?.isNative,
+      fetchAllowanceResponse,
+    ],
+  );
+
   const onApprove = useCallback(async () => {
     Keyboard.dismiss();
     setApproving(true);
@@ -1048,13 +1100,20 @@ export function UniversalStake({
       ],
       onSuccess(data) {
         trackAllowance(data[0].decodedTx.txid);
-        setApproving(false);
-        setTimeout(() => {
-          void debouncedFetchEstimateFeeResp(amountValue);
-        }, 200);
-        // Continue to stake flow right after approve tx is submitted.
-        // This matches the common EVM "approve -> action" sequential flow.
-        void onSubmit();
+        void (async () => {
+          try {
+            const allowanceReady = await waitForAllowanceAfterApprove({
+              requiredAmount: amountValue,
+            });
+            if (!allowanceReady) {
+              return;
+            }
+            void debouncedFetchEstimateFeeResp(amountValue);
+            await onSubmit();
+          } finally {
+            setApproving(false);
+          }
+        })();
       },
       onFail() {
         setApproving(false);
@@ -1081,6 +1140,7 @@ export function UniversalStake({
     providerName,
     updatePermitCache,
     onSubmit,
+    waitForAllowanceAfterApprove,
     debouncedFetchEstimateFeeResp,
     trackAllowance,
   ]);

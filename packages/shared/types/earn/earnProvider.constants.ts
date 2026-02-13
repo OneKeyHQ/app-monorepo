@@ -109,6 +109,8 @@ export const PENDLE_SUPPORTED_SYMBOLS: ISupportedSymbol[] = [
   'stcUSD',
   'kHYPE',
 ];
+// Keep this list in sync with Pendle symbol coverage in
+// packages/kit-bg/src/vaults/impls/evm/settings.ts.
 
 export const isPendleSupportedSymbol = (symbol: string): boolean =>
   PENDLE_SUPPORTED_SYMBOLS.some(
@@ -301,6 +303,8 @@ export function getSymbolSupportedNetworks(): Record<
   string[]
 > {
   const networkIdsMap = getNetworkIdsMap();
+  const plasmaNetworkId =
+    (networkIdsMap as Record<string, string>).plasma ?? 'evm--9745';
 
   return {
     'BTC': [networkIdsMap.btc],
@@ -325,14 +329,14 @@ export function getSymbolSupportedNetworks(): Record<
     'srUSDe': [networkIdsMap.eth],
     'jrUSDe': [networkIdsMap.eth],
     'cUSDO': [networkIdsMap.eth],
-    'syrupUSDT': [networkIdsMap.eth],
+    'syrupUSDT': [plasmaNetworkId],
     'sENA': [networkIdsMap.eth],
     'uniBTC': [networkIdsMap.base],
     'slisBNBx': [networkIdsMap.bsc],
-    'PlasmaUSD': [networkIdsMap.eth],
+    'PlasmaUSD': [plasmaNetworkId],
     'wstETH': [networkIdsMap.eth],
     'weETH': [networkIdsMap.arbitrum],
-    'aUSDT0': [networkIdsMap.eth],
+    'aUSDT0': [plasmaNetworkId],
     'stcUSD': [networkIdsMap.eth],
     'kHYPE': [networkIdsMap.hyperevm],
     'MORPHO': [networkIdsMap.eth],

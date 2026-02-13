@@ -66,6 +66,41 @@ export function capitalizeString(str: string): string {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
+export function normalizeStakeTokenAddress(params?: {
+  address?: string;
+  isNative?: boolean;
+}) {
+  if (!params || params.isNative) {
+    return '';
+  }
+  return (params.address || '').toLowerCase();
+}
+
+export function resolveStakeTokenAddress(params?: {
+  address?: string;
+  isNative?: boolean;
+}) {
+  if (!params || params.isNative) {
+    return '';
+  }
+  return params.address || '';
+}
+
+export function buildStakeTokenUniqueKey(params?: {
+  uniqueKey?: string;
+  address?: string;
+  symbol?: string;
+  isNative?: boolean;
+}) {
+  if (!params) {
+    return '';
+  }
+  if (params.uniqueKey) {
+    return params.uniqueKey;
+  }
+  return `${params.isNative ? 'native' : params.address}-${params.symbol || ''}`;
+}
+
 export function countDecimalPlaces(input: string | number): number {
   // Convert the input to a string if it's a number
   const inputNum = typeof input === 'string' ? Number(input) : input;

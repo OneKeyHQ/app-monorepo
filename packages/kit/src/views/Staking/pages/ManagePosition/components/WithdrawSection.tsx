@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -24,44 +24,17 @@ import {
 import type { IToken } from '@onekeyhq/shared/types/token';
 import { useIntl } from 'react-intl';
 
-import { createStakeAssetSelectPopoverContent } from '../../../components/StakeAssetSelectPopover';
+import { StakeAssetSelectPopoverContent } from '../../../components/StakeAssetSelectPopover';
 import { UniversalWithdraw } from '../../../components/UniversalWithdraw';
 import type { IManagePageV2ReceiveInputConfig } from '../../../components/ManagePageV2ReceiveInput';
 import { useBorrowApiParams } from '../../../hooks/useBorrowApiParams';
 import { useUniversalWithdraw } from '../../../hooks/useUniversalHooks';
-import { buildBorrowTag } from '../../../utils/utils';
-
-function normalizeTokenAddress(params?: { address?: string; isNative?: boolean }) {
-  if (!params) {
-    return '';
-  }
-  if (params.isNative) {
-    return '';
-  }
-  return (params.address || '').toLowerCase();
-}
-
-function resolveTokenAddress(params?: { address?: string; isNative?: boolean }) {
-  if (!params || params.isNative) {
-    return '';
-  }
-  return params.address || '';
-}
-
-function buildTokenUniqueKey(params?: {
-  uniqueKey?: string;
-  address?: string;
-  symbol?: string;
-  isNative?: boolean;
-}) {
-  if (!params) {
-    return '';
-  }
-  if (params.uniqueKey) {
-    return params.uniqueKey;
-  }
-  return `${params.isNative ? 'native' : params.address}-${params.symbol || ''}`;
-}
+import {
+  buildBorrowTag,
+  buildStakeTokenUniqueKey,
+  normalizeStakeTokenAddress,
+  resolveStakeTokenAddress,
+} from '../../../utils/utils';
 
 export const WithdrawSection = ({
   accountId,
@@ -247,13 +220,13 @@ export const WithdrawSection = ({
 
     setSelectedReceiveAsset((prev) => {
       if (prev) {
-        const prevAddress = normalizeTokenAddress({
+        const prevAddress = normalizeStakeTokenAddress({
           address: prev.info.address,
           isNative: prev.info.isNative,
         });
         const prevSymbol = prev.info.symbol.toLowerCase();
         const matchedPrev = selectableReceiveAssets.find((asset) => {
-          const assetAddress = normalizeTokenAddress({
+          const assetAddress = normalizeStakeTokenAddress({
             address: asset.info.address,
             isNative: asset.info.isNative,
           });
@@ -273,7 +246,7 @@ export const WithdrawSection = ({
 
   const selectedReceiveTokenUniqueKey = useMemo(
     () =>
-      buildTokenUniqueKey({
+      buildStakeTokenUniqueKey({
         uniqueKey: selectedReceiveAsset?.info.uniqueKey,
         address: selectedReceiveAsset?.info.address,
         symbol: selectedReceiveAsset?.info.symbol,
@@ -285,6 +258,50 @@ export const WithdrawSection = ({
       selectedReceiveAsset?.info.symbol,
       selectedReceiveAsset?.info.uniqueKey,
     ],
+  );
+
+  const receivePopoverContentPropsRef = useRef<{
+    assets: IEarnTokenItem[];
+    isLoading?: boolean;
+    selectedUniqueKey?: string;
+    onSelect?: (item: IEarnTokenItem) => void;
+  }>({
+    assets: [],
+    isLoading: true,
+    selectedUniqueKey: undefined,
+    onSelect: undefined,
+  });
+
+  receivePopoverContentPropsRef.current = {
+    assets: selectableReceiveAssets,
+    isLoading: unstakeAssetsLoading || nativeTokenLoading,
+    selectedUniqueKey: selectedReceiveTokenUniqueKey,
+    onSelect: (item: IEarnTokenItem) => {
+      setSelectedReceiveAsset(item);
+    },
+  };
+
+  const receiveTokenPopoverContent = useMemo(
+    () =>
+      function ReceiveTokenPopoverContent({
+        closePopover,
+      }: {
+        isOpen?: boolean;
+        closePopover: () => void;
+      }) {
+        const { assets, isLoading, selectedUniqueKey, onSelect } =
+          receivePopoverContentPropsRef.current;
+        return (
+          <StakeAssetSelectPopoverContent
+            assets={assets}
+            isLoading={isLoading}
+            selectedUniqueKey={selectedUniqueKey}
+            onSelect={onSelect}
+            closePopover={closePopover}
+          />
+        );
+      },
+    [],
   );
 
   const receiveTokenSelectorTriggerProps = useMemo(() => {
@@ -302,14 +319,7 @@ export const WithdrawSection = ({
               title: intl.formatMessage({
                 id: ETranslations.token_selector_title,
               }),
-              content: createStakeAssetSelectPopoverContent({
-                assets: selectableReceiveAssets,
-                isLoading,
-                selectedUniqueKey: selectedReceiveTokenUniqueKey,
-                onSelect: (item) => {
-                  setSelectedReceiveAsset(item);
-                },
-              }),
+              content: receiveTokenPopoverContent,
             }
           : undefined,
     };
@@ -317,10 +327,10 @@ export const WithdrawSection = ({
     intl,
     isPendleProvider,
     useBorrowApi,
-    selectableReceiveAssets,
+    selectableReceiveAssets.length,
     unstakeAssetsLoading,
     nativeTokenLoading,
-    selectedReceiveTokenUniqueKey,
+    receiveTokenPopoverContent,
   ]);
 
   const effectiveReceiveInputConfig = useMemo<
@@ -331,7 +341,7 @@ export const WithdrawSection = ({
     }
 
     const selectedToken = selectedReceiveAsset?.info;
-    const selectedTokenAddress = resolveTokenAddress({
+    const selectedTokenAddress = resolveStakeTokenAddress({
       address: selectedToken?.address,
       isNative: selectedToken?.isNative,
     });

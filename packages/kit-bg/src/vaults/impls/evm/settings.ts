@@ -28,6 +28,9 @@ import {
   EthereumWETH,
   EthereumWstETH,
   HyperEVMKHYPE,
+  PlasmaAUSDT0,
+  PlasmaSyrupUSDT,
+  PlasmaUSD,
 } from '@onekeyhq/shared/src/consts/addresses';
 import {
   COINTYPE_ETH,
@@ -36,6 +39,7 @@ import {
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
+  ISupportedSymbol,
   IStakingConfig,
   IStakingFlowConfig,
 } from '@onekeyhq/shared/types/earn';
@@ -90,6 +94,48 @@ const createPendleConfig = (tokenAddress: string): IStakingFlowConfig => ({
   withdrawWithTx: true,
   claimWithTx: true,
 });
+
+const getSupportedSymbolsFromConfigs = (
+  configs: Record<string, IStakingFlowConfig>,
+) => Object.keys(configs) as ISupportedSymbol[];
+
+const pendleEthereumConfigs: Record<string, IStakingFlowConfig> = {
+  sUSDe: createPendleConfig(EthereumSUSDe),
+  USDe: createPendleConfig(EthereumUSDe),
+  cUSD: createPendleConfig(EthereumCUSD),
+  srUSDe: createPendleConfig(EthereumSrUSDe),
+  jrUSDe: createPendleConfig(EthereumJrUSDe),
+  cUSDO: createPendleConfig(EthereumCUSDO),
+  sENA: createPendleConfig(EthereumSENA),
+  wstETH: createPendleConfig(EthereumWstETH),
+  stcUSD: createPendleConfig(EthereumStcUSD),
+};
+
+const pendleArbitrumConfigs: Record<string, IStakingFlowConfig> = {
+  sUSDai: createPendleConfig(ArbitrumSUSDai),
+  weETH: createPendleConfig(ArbitrumWeETH),
+};
+
+const pendleBaseConfigs: Record<string, IStakingFlowConfig> = {
+  uniBTC: createPendleConfig(BaseUniBTC),
+};
+
+const pendleBscConfigs: Record<string, IStakingFlowConfig> = {
+  slisBNBx: createPendleConfig(BinanceSmartChainSlisBNBx),
+};
+
+const pendleHyperEvmConfigs: Record<string, IStakingFlowConfig> = {
+  kHYPE: createPendleConfig(HyperEVMKHYPE),
+};
+
+const pendlePlasmaConfigs: Record<string, IStakingFlowConfig> = {
+  syrupUSDT: createPendleConfig(PlasmaSyrupUSDT),
+  PlasmaUSD: createPendleConfig(PlasmaUSD),
+  aUSDT0: createPendleConfig(PlasmaAUSDT0),
+};
+
+const plasmaNetworkId =
+  (networkIdMap as Record<string, string>).plasma ?? 'evm--9745';
 
 const stakingConfig: IStakingConfig = {
   [getNetworkIdsMap().eth]: {
@@ -167,28 +213,8 @@ const stakingConfig: IStakingConfig = {
         },
       },
       [EEarnProviderEnum.Pendle]: {
-        supportedSymbols: [
-          'sUSDe',
-          'USDe',
-          'cUSD',
-          'srUSDe',
-          'jrUSDe',
-          'cUSDO',
-          'sENA',
-          'wstETH',
-          'stcUSD',
-        ],
-        configs: {
-          sUSDe: createPendleConfig(EthereumSUSDe),
-          USDe: createPendleConfig(EthereumUSDe),
-          cUSD: createPendleConfig(EthereumCUSD),
-          srUSDe: createPendleConfig(EthereumSrUSDe),
-          jrUSDe: createPendleConfig(EthereumJrUSDe),
-          cUSDO: createPendleConfig(EthereumCUSDO),
-          sENA: createPendleConfig(EthereumSENA),
-          wstETH: createPendleConfig(EthereumWstETH),
-          stcUSD: createPendleConfig(EthereumStcUSD),
-        },
+        supportedSymbols: getSupportedSymbolsFromConfigs(pendleEthereumConfigs),
+        configs: pendleEthereumConfigs,
       },
       [EEarnProviderEnum.Falcon]: {
         supportedSymbols: ['USDf'],
@@ -236,11 +262,8 @@ const stakingConfig: IStakingConfig = {
   [getNetworkIdsMap().arbitrum]: {
     providers: {
       [EEarnProviderEnum.Pendle]: {
-        supportedSymbols: ['sUSDai', 'weETH'],
-        configs: {
-          sUSDai: createPendleConfig(ArbitrumSUSDai),
-          weETH: createPendleConfig(ArbitrumWeETH),
-        },
+        supportedSymbols: getSupportedSymbolsFromConfigs(pendleArbitrumConfigs),
+        configs: pendleArbitrumConfigs,
       },
     },
   },
@@ -258,10 +281,8 @@ const stakingConfig: IStakingConfig = {
         },
       },
       [EEarnProviderEnum.Pendle]: {
-        supportedSymbols: ['uniBTC'],
-        configs: {
-          uniBTC: createPendleConfig(BaseUniBTC),
-        },
+        supportedSymbols: getSupportedSymbolsFromConfigs(pendleBaseConfigs),
+        configs: pendleBaseConfigs,
       },
     },
   },
@@ -295,20 +316,24 @@ const stakingConfig: IStakingConfig = {
         },
       },
       [EEarnProviderEnum.Pendle]: {
-        supportedSymbols: ['slisBNBx'],
-        configs: {
-          slisBNBx: createPendleConfig(BinanceSmartChainSlisBNBx),
-        },
+        supportedSymbols: getSupportedSymbolsFromConfigs(pendleBscConfigs),
+        configs: pendleBscConfigs,
       },
     },
   },
   [getNetworkIdsMap().hyperevm]: {
     providers: {
       [EEarnProviderEnum.Pendle]: {
-        supportedSymbols: ['kHYPE'],
-        configs: {
-          kHYPE: createPendleConfig(HyperEVMKHYPE),
-        },
+        supportedSymbols: getSupportedSymbolsFromConfigs(pendleHyperEvmConfigs),
+        configs: pendleHyperEvmConfigs,
+      },
+    },
+  },
+  [plasmaNetworkId]: {
+    providers: {
+      [EEarnProviderEnum.Pendle]: {
+        supportedSymbols: getSupportedSymbolsFromConfigs(pendlePlasmaConfigs),
+        configs: pendlePlasmaConfigs,
       },
     },
   },

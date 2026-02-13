@@ -33,33 +33,15 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { UniversalStake } from '../../../components/UniversalStake';
 import type { IManagePageV2ReceiveInputConfig } from '../../../components/ManagePageV2ReceiveInput';
-import { createStakeAssetSelectPopoverContent } from '../../../components/StakeAssetSelectPopover';
+import { StakeAssetSelectPopoverContent } from '../../../components/StakeAssetSelectPopover';
 import { useBorrowApiParams } from '../../../hooks/useBorrowApiParams';
 import { useUniversalStake } from '../../../hooks/useUniversalHooks';
-import { buildBorrowTag } from '../../../utils/utils';
-
-function normalizeTokenAddress(params?: {
-  address?: string;
-  isNative?: boolean;
-}) {
-  if (!params) {
-    return '';
-  }
-  if (params.isNative) {
-    return '';
-  }
-  return (params.address || '').toLowerCase();
-}
-
-function resolveTokenAddress(params?: {
-  address?: string;
-  isNative?: boolean;
-}) {
-  if (!params || params.isNative) {
-    return '';
-  }
-  return params.address || '';
-}
+import {
+  buildBorrowTag,
+  buildStakeTokenUniqueKey,
+  normalizeStakeTokenAddress,
+  resolveStakeTokenAddress,
+} from '../../../utils/utils';
 
 export const StakeSection = ({
   accountId,
@@ -221,12 +203,12 @@ export const StakeSection = ({
 
     setSelectedStakeAsset((prev) => {
       if (prev) {
-        const prevAddress = normalizeTokenAddress({
+        const prevAddress = normalizeStakeTokenAddress({
           address: prev.info.address,
           isNative: prev.info.isNative,
         });
         const matchedPrev = selectableStakeAssets.find((asset) => {
-          const assetAddress = normalizeTokenAddress({
+          const assetAddress = normalizeStakeTokenAddress({
             address: asset.info.address,
             isNative: asset.info.isNative,
           });
@@ -261,7 +243,7 @@ export const StakeSection = ({
 
   const selectedStakeTokenAddress = useMemo(
     () =>
-      resolveTokenAddress({
+      resolveStakeTokenAddress({
         address: effectiveStakeTokenInfo?.token.address,
         isNative: effectiveStakeTokenInfo?.token.isNative,
       }),
@@ -311,22 +293,67 @@ export const StakeSection = ({
 
   const selectedStakeTokenUniqueKey = useMemo(() => {
     if (selectedStakeAsset?.info) {
-      return (
-        selectedStakeAsset.info.uniqueKey ||
-        `${selectedStakeAsset.info.isNative ? 'native' : selectedStakeAsset.info.address}-${selectedStakeAsset.info.symbol}`
-      );
+      return buildStakeTokenUniqueKey({
+        uniqueKey: selectedStakeAsset.info.uniqueKey,
+        address: selectedStakeAsset.info.address,
+        symbol: selectedStakeAsset.info.symbol,
+        isNative: selectedStakeAsset.info.isNative,
+      });
     }
-    if (effectiveStakeTokenInfo?.token) {
-      return (
-        effectiveStakeTokenInfo.token.uniqueKey ||
-        `${effectiveStakeTokenInfo.token.isNative ? 'native' : effectiveStakeTokenInfo.token.address}-${effectiveStakeTokenInfo.token.symbol}`
-      );
-    }
-    return '';
+    return buildStakeTokenUniqueKey({
+      uniqueKey: effectiveStakeTokenInfo?.token.uniqueKey,
+      address: effectiveStakeTokenInfo?.token.address,
+      symbol: effectiveStakeTokenInfo?.token.symbol,
+      isNative: effectiveStakeTokenInfo?.token.isNative,
+    });
   }, [
     selectedStakeAsset?.info,
     effectiveStakeTokenInfo?.token,
   ]);
+
+  const stakePopoverContentPropsRef = useRef<{
+    assets: IEarnTokenItem[];
+    isLoading?: boolean;
+    selectedUniqueKey?: string;
+    onSelect?: (item: IEarnTokenItem) => void;
+  }>({
+    assets: [],
+    isLoading: true,
+    selectedUniqueKey: undefined,
+    onSelect: undefined,
+  });
+
+  stakePopoverContentPropsRef.current = {
+    assets: selectableStakeAssets,
+    isLoading: stakeAssetsLoading || nativeTokenLoading,
+    selectedUniqueKey: selectedStakeTokenUniqueKey,
+    onSelect: (item: IEarnTokenItem) => {
+      setSelectedStakeAsset(item);
+    },
+  };
+
+  const stakeTokenPopoverContent = useMemo(
+    () =>
+      function StakeTokenPopoverContent({
+        closePopover,
+      }: {
+        isOpen?: boolean;
+        closePopover: () => void;
+      }) {
+        const { assets, isLoading, selectedUniqueKey, onSelect } =
+          stakePopoverContentPropsRef.current;
+        return (
+          <StakeAssetSelectPopoverContent
+            assets={assets}
+            isLoading={isLoading}
+            selectedUniqueKey={selectedUniqueKey}
+            onSelect={onSelect}
+            closePopover={closePopover}
+          />
+        );
+      },
+    [],
+  );
 
   const stakeTokenSelectorTriggerProps = useMemo(() => {
     if (!isPendleProvider || !selectableStakeAssets.length) {
@@ -344,24 +371,17 @@ export const StakeSection = ({
               title: intl.formatMessage({
                 id: ETranslations.token_selector_title,
               }),
-              content: createStakeAssetSelectPopoverContent({
-                assets: selectableStakeAssets,
-                isLoading: stakeAssetsLoading || nativeTokenLoading,
-                selectedUniqueKey: selectedStakeTokenUniqueKey,
-                onSelect: (item) => {
-                  setSelectedStakeAsset(item);
-                },
-              }),
+              content: stakeTokenPopoverContent,
             }
           : undefined,
     };
   }, [
     intl,
     isPendleProvider,
-    selectableStakeAssets,
-    selectedStakeTokenUniqueKey,
+    selectableStakeAssets.length,
     stakeAssetsLoading,
     nativeTokenLoading,
+    stakeTokenPopoverContent,
   ]);
 
   const { result: estimateFeeUTXO } = usePromiseResult(async () => {
