@@ -285,6 +285,10 @@ function BaseBulkSendReview({
 
   // Navigate back to wallet home after successful transaction
   const navigateAfterSuccess = useCallback(async () => {
+    if (accountUtils.isQrAccount({ accountId: accountId ?? '' })) {
+      navigation.popStack();
+    }
+
     if (isInModal) {
       // Mobile: close the entire bulk send modal stack
       navigation.popStack();
@@ -301,7 +305,7 @@ function BaseBulkSendReview({
         },
       );
     }
-  }, [isInModal, navigation]);
+  }, [isInModal, navigation, accountId]);
 
   const handleConfirm = useCallback(async () => {
     if (!accountId) return;
