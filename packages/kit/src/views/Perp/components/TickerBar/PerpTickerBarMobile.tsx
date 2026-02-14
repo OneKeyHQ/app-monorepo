@@ -9,6 +9,7 @@ import {
   IconButton,
   Popover,
   SizableText,
+  switchTab,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -25,6 +26,9 @@ import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import { PerpSettingsButton } from '../PerpSettingsButton';
 import { PerpTokenSelectorMobile } from '../TokenSelector/PerpTokenSelector';
 import { PerpsAccountNumberValue } from '../TradingPanel/components/PerpsAccountNumberValue';
+import { isDualScreenDevice } from '@onekeyhq/shared/src/modules/DualScreenInfo';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 const PerpTickerBarMMRInfoMobileView = memo(
   ({
@@ -142,6 +146,10 @@ function PerpCandleChartButtonMobile() {
   const navigation = useAppNavigation();
 
   const onPressCandleChart = useCallback(() => {
+    if (isDualScreenDevice()) {
+      switchTab(ETabRoutes.Perp)
+      timerUtils.wait(150)
+    }
     navigation.push(EModalPerpRoutes.MobilePerpMarket);
   }, [navigation]);
 
