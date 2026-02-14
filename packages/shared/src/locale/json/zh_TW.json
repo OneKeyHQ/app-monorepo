@@ -2633,7 +2633,7 @@
   "perp.position_tp_sl": "止盈/止損",
   "perp.position_view_orders": "查看訂單",
   "perp.setting_desc": "啟用後，下單時將跳過確認環節，直接提交訂單",
-  "perp.setting_interface": "永續合約介面",
+  "perp.setting_interface": "永續合約界面",
   "perp.setting_interface_native_desc": "使用應用原生組件，響應更快，體驗更流暢",
   "perp.setting_interface_native_title": "原生界面",
   "perp.setting_interface_web_desc": "載入 Hyperliuqid 網頁版本，更多功能",

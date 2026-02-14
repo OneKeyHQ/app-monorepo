@@ -118,6 +118,9 @@ import type {
   IWrappedInfo,
 } from '../../types';
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
+import type { FailedAttemptError } from 'p-retry';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { ON_CHAIN_SERVICE_BUSY_ERROR_CODE } from '@onekeyhq/core/src/chains/sol/constants';
 
 const enabledNFTNetworkIds = networkUtils.getEnabledNFTNetworkIds();
 
@@ -1547,5 +1550,18 @@ export default class Vault extends VaultBase {
   override async proxyJsonRPCCall<T>(request: IJsonRpcRequest): Promise<T> {
     const provider = await this.getRpcClient();
     return provider.client.call(request.method, request.params as any);
+  }
+
+  override async checkShouldRetryBroadcastTx(
+    error: FailedAttemptError,
+  ): Promise<boolean> {
+    if (
+      (error as unknown as OneKeyError)?.code ===
+      ON_CHAIN_SERVICE_BUSY_ERROR_CODE
+    ) {
+      await timerUtils.wait((error?.attemptNumber || 1) * 1000);
+      return true;
+    }
+    return false;
   }
 }
