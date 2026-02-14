@@ -5,6 +5,7 @@ import {
   usePerpsActiveAssetAtom,
   usePerpsCandlesWebviewReloadHookAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export function PerpCandles() {
   const [currentToken] = usePerpsActiveAssetAtom();
@@ -19,7 +20,7 @@ export function PerpCandles() {
           webviewKey={reloadHook.toString()}
           userAddress={currentAccount?.accountAddress}
           symbol={currentToken.coin}
-          w={width}
+          w={platformEnv.isNative ? width : undefined}
         />
       ) : null}
     </Stack>
