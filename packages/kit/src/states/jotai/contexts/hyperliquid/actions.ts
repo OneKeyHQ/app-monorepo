@@ -72,6 +72,8 @@ type IChPositionLite = HL.IPerpsAssetPosition;
 class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   private orderBookTickOptionsLoaded = false;
 
+  private canceledOrderIds = new Set<number>();
+
   private buildOpenOrdersByCoinMap(
     openOrders: HL.IPerpsFrontendOrder[],
     prevMap?: Record<string, HL.IPerpsFrontendOrder[]>,
@@ -234,7 +236,8 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       const prevOpenOrdersState = get(perpsActiveOpenOrdersAtom());
       const allOrders = data?.openOrders || [];
       const openOrders = allOrders.filter(
-        (order) => !order.coin.startsWith('@'),
+        (order) =>
+          !order.coin.startsWith('@') && !this.canceledOrderIds.has(order.oid),
       );
       const openOrdersByCoin = this.buildOpenOrdersByCoinMap(
         openOrders,
@@ -357,7 +360,8 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       const prevOpenOrdersState = get(perpsActiveOpenOrdersAtom());
       const allOrders = data?.orders || [];
       const openOrders = allOrders.filter(
-        (order) => !order.coin.startsWith('@'),
+        (order) =>
+          !order.coin.startsWith('@') && !this.canceledOrderIds.has(order.oid),
       );
       const openOrdersByCoin = this.buildOpenOrdersByCoinMap(
         openOrders,
@@ -787,6 +791,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       openOrdersByCoin: {},
     });
     perpsOpenOrdersByCoinAtomCache.clear();
+    this.canceledOrderIds.clear();
     const current = get(perpsLedgerUpdatesAtom());
     set(perpsLedgerUpdatesAtom(), {
       accountAddress: undefined,
@@ -816,6 +821,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       updates: [],
       isSubscribed: false,
     });
+    this.canceledOrderIds.clear();
     await this.changeActiveAsset.call(set, { coin: 'ETH', force: true });
   });
 
@@ -1080,6 +1086,27 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
                 oid: order.oid,
               })),
             );
+
+          // Track canceled order ids so UI can remove them immediately
+          for (const o of params.orders) {
+            this.canceledOrderIds.add(o.oid);
+          }
+
+          // Optimistically remove canceled orders from atom
+          const prev = get(perpsActiveOpenOrdersAtom());
+          const openOrders = prev.openOrders.filter(
+            (o) => !this.canceledOrderIds.has(o.oid),
+          );
+          const openOrdersByCoin = this.buildOpenOrdersByCoinMap(
+            openOrders,
+            prev.openOrdersByCoin,
+          );
+          set(perpsActiveOpenOrdersAtom(), {
+            ...prev,
+            openOrders,
+            openOrdersByCoin,
+          });
+
           return result;
         },
         actionType: EActionType.CANCEL_ORDER,
