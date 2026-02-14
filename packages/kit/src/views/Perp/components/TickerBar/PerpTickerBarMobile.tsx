@@ -11,7 +11,6 @@ import {
   SizableText,
   XStack,
   YStack,
-  switchTab,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { GiftAction } from '@onekeyhq/kit/src/components/TabPageHeader/components';
