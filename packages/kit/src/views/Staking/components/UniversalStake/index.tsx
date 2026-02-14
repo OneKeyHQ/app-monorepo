@@ -991,10 +991,7 @@ export function UniversalStake({
           }
         } catch (error) {
           defaultLogger.staking.page.permitSignError({
-            error:
-              error instanceof Error
-                ? error.message
-                : String(error),
+            error: error instanceof Error ? error.message : String(error),
           });
         }
 

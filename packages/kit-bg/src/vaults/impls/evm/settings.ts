@@ -29,8 +29,8 @@ import {
   EthereumWstETH,
   HyperEVMKHYPE,
   PlasmaAUSDT0,
-  PlasmaSyrupUSDT,
   PlasmaNetworkId,
+  PlasmaSyrupUSDT,
   PlasmaUSD,
 } from '@onekeyhq/shared/src/consts/addresses';
 import {

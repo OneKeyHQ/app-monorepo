@@ -130,7 +130,7 @@ const ApyChartBaseComponent = ({
         time: Math.floor(item.timestamp / 1000) as UTCTimestamp,
         value: Number(item.apy),
       }))
-      .sort((a, b) => a.time - b.time);
+      .toSorted((a, b) => a.time - b.time);
 
     const marketChartData = formattedData.map(
       (item) => [item.time, item.value] as [UTCTimestamp, number],
