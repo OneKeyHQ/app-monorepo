@@ -14,8 +14,8 @@ import {
   YStack,
   useInPageDialog,
   useIsOverlayPage,
-  useSafeAreaInsets,
   usePageWidth,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -131,6 +131,7 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
     tokenDetail?.symbol,
     tradingViewHeight,
     websocketConfig,
+    width,
   ]);
 
   const renderInformationHeader = useCallback(

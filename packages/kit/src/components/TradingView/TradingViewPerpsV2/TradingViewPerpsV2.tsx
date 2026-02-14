@@ -102,7 +102,14 @@ WebViewMemoized.displayName = 'WebViewMemoized';
 export function TradingViewPerpsV2(
   props: ITradingViewPerpsV2Props & WebViewProps,
 ) {
-  const { symbol, userAddress, onLoadEnd, onTradeUpdate, webviewKey, ...stackStyle } = props;
+  const {
+    symbol,
+    userAddress,
+    onLoadEnd,
+    onTradeUpdate,
+    webviewKey,
+    ...stackStyle
+  } = props;
   const [, setMounted] = usePerpsCandlesWebviewMountedAtom();
   const webRef = useRef<IWebViewRef | null>(null);
   const theme = useThemeVariant();
