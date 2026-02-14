@@ -197,6 +197,19 @@ export async function convertHyperLiquidResponse<T>(
   try {
     return await fn();
   } catch (error) {
+    // Unwrap AbstractWalletError from @nktkas/hyperliquid SDK.
+    // The SDK wraps all signing errors in AbstractWalletError with the
+    // original error preserved in `cause`. Rethrowing `cause` restores
+    // OneKey's own error types (hardware errors, user cancel, etc.)
+    // so that existing i18n and toast handling works correctly.
+    const walletError = error as { name?: string; cause?: Error };
+    if (
+      walletError.name === 'AbstractWalletError' &&
+      walletError.cause instanceof Error
+    ) {
+      throw walletError.cause;
+    }
+
     const apiError = error as IHyperLiquidApiRequestError;
     const { response } = apiError;
 
