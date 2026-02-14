@@ -207,8 +207,12 @@ function TxFeeEditor(props: IProps) {
   );
   const customFee = (originalCustomFee ?? selectedFee?.feeInfo) as IFeeInfoUnit;
 
-  const { feeSymbol, feeDecimals = 0, nativeSymbol, nativeTokenPrice } =
-    customFee?.common ?? {};
+  const {
+    feeSymbol,
+    feeDecimals = 0,
+    nativeSymbol,
+    nativeTokenPrice,
+  } = customFee?.common ?? {};
 
   const {
     vaultSettings,
@@ -383,6 +387,7 @@ function TxFeeEditor(props: IProps) {
       watchAllFields.neoN3NetworkFee,
       watchAllFields.neoN3PriorityFee,
       algoMinFee,
+      feeDecimals,
     ],
   );
 
