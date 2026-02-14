@@ -70,30 +70,6 @@ export async function safePushToEarnRoute(
     ? ETabRoutes.Discovery
     : ETabRoutes.Earn;
 
-  navigation.switchTab(targetTab);
-  if (platformEnv.isNative) {
-    void timerUtils.wait(150).then(() => {
-      appEventBus.emit(EAppEventBusNames.SwitchDiscoveryTabInNative, {
-        tab: ETranslations.global_earn,
-      });
-    });
-    // On native platforms with native bottom tabs, navigate directly without
-    // deferring to a delayed task. The await timerUtils.wait(0) + dispatch
-    // pattern causes navigation to be detached from the touch event context,
-    // and iOS production won't flush the bridge call until the next user
-    // interaction.
-    (rootNavigationRef.current ?? navigation).navigate(ERootRoutes.Main, {
-      screen: targetTab,
-      params: {
-        screen: route,
-        params,
-      },
-    });
-    return;
-  }
-
-  await timerUtils.wait(0);
-
   const rootNavigation = rootNavigationRef.current;
   const findTargetStack = (state?: NavigationState) => {
     if (!state) return undefined;
@@ -114,6 +90,68 @@ export async function safePushToEarnRoute(
     const targetKey = tabState?.key ?? tabRoute.key;
     return { targetKey, tabState };
   };
+
+  if (platformEnv.isNative) {
+    void timerUtils.wait(150).then(() => {
+      appEventBus.emit(EAppEventBusNames.SwitchDiscoveryTabInNative, {
+        tab: ETranslations.global_earn,
+      });
+    });
+
+    // EarnHome is not registered in the Discovery tab's stack navigator on
+    // native, so navigating to it would fail. Switching to the Earn sub-tab
+    // via the event above is sufficient to show the Earn home view.
+    if (route === ETabEarnRoutes.EarnHome) {
+      navigation.switchTab(targetTab);
+      return;
+    }
+
+    // Pre-query the Discovery tab's stack state. All tab states are available
+    // since lazy: false, so this works before any tab switch.
+    const preQueryState = rootNavigation
+      ? findTargetStack(rootNavigation.getRootState?.())
+      : undefined;
+    const targetKey = preQueryState?.targetKey;
+
+    if (rootNavigation && targetKey) {
+      // Push the route onto the Discovery stack BEFORE switching tabs.
+      // StackActions.push with target dispatches directly to the child stack
+      // navigator without updating the tab navigator's selectedPage. By
+      // pushing first and switching tab after, the two state changes are
+      // separated: the push updates only the Discovery stack, then switchTab
+      // updates only the tab selection. This avoids the iOS Release issue
+      // where simultaneous selectedPage + children changes caused the native
+      // tab bar to drop the selectedPage update.
+      const { tabState } = preQueryState;
+      const topRoute = tabState?.routes?.[tabState.index || 0];
+      if (topRoute?.name === route) {
+        const action = StackActions.replace(route, params);
+        // @ts-expect-error target is added at runtime for navigator selection
+        action.target = targetKey;
+        rootNavigation.dispatch(action);
+      } else {
+        const action = StackActions.push(route, params);
+        // @ts-expect-error target is added at runtime for navigator selection
+        action.target = targetKey;
+        rootNavigation.dispatch(action);
+      }
+      navigation.switchTab(targetTab);
+    } else {
+      navigation.switchTab(targetTab);
+      (rootNavigation ?? navigation).navigate(ERootRoutes.Main, {
+        screen: targetTab,
+        params: {
+          screen: route,
+          params,
+        },
+      });
+    }
+    return;
+  }
+
+  navigation.switchTab(targetTab);
+
+  await timerUtils.wait(0);
 
   if (!rootNavigation) {
     navigation.navigate(ERootRoutes.Main, {
@@ -263,15 +301,24 @@ export const EarnNavigation = {
   ) {
     if (platformEnv.isNative) {
       await navigation.popToMainRoute();
-      await timerUtils.wait(50);
       switchTab(ETabRoutes.Discovery);
-      await timerUtils.wait(50);
       appEventBus.emit(EAppEventBusNames.SwitchDiscoveryTabInNative, {
         tab: ETranslations.global_earn,
       });
-    } else {
-      switchTab(ETabRoutes.Earn);
+      navigation.popToTop();
+      appEventBus.emit(EAppEventBusNames.SwitchEarnMode, { mode: 'earn' });
+      // Delay SwitchEarnTab to allow EarnMainTabs to mount and register
+      // its listener after popToMainRoute triggers a re-render. Since we
+      // already awaited popToMainRoute above, we are no longer in the
+      // synchronous touch event context, so timers will flush normally.
+      await timerUtils.wait(150);
+      appEventBus.emit(EAppEventBusNames.SwitchEarnTab, {
+        tab: params?.tab ?? 'assets',
+      });
+      return;
     }
+
+    switchTab(ETabRoutes.Earn);
     await timerUtils.wait(50);
     navigation.popToTop();
     await timerUtils.wait(80);

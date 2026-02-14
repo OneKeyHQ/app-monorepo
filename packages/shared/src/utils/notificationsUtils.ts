@@ -12,7 +12,7 @@ import appGlobals from '../appGlobals';
 import { EAppEventBusNames, appEventBus } from '../eventBus/appEventBus';
 import { defaultLogger } from '../logger/logger';
 import platformEnv from '../platformEnv';
-import { EModalAssetDetailRoutes, EModalRoutes } from '../routes';
+import { EModalAssetDetailRoutes, EModalRoutes, ETabRoutes } from '../routes';
 import { EModalNotificationsRoutes } from '../routes/notifications';
 import { ERootRoutes } from '../routes/root';
 
@@ -26,6 +26,7 @@ import type {
   ENotificationPushTopicTypes,
   INotificationPushMessageInfo,
 } from '../../types/notification';
+import { ETranslations } from '../locale';
 
 function convertWebPermissionToEnum(
   permission: NotificationPermission,
@@ -122,12 +123,43 @@ export async function navigateToNotificationDetailByLocalParams({
       }
     }
   }
+  // Handle Market/Earn tab redirection for native platforms
+  // On native, Market and Earn are sub-tabs within Discovery, not separate tabs
+  // Returns a function that performs the redirection when called
+  const createNativeTabRedirection = () => {
+    let tab:
+      | ETranslations.global_browser
+      | ETranslations.global_earn
+      | ETranslations.global_market
+      | undefined;
+    if (platformEnv.isNative) {
+      if (navigationParams?.screen === ETabRoutes.Market) {
+        navigationParams.screen = ETabRoutes.Discovery;
+        tab = ETranslations.global_market;
+      } else if (navigationParams?.screen === ETabRoutes.Earn) {
+        navigationParams.screen = ETabRoutes.Discovery;
+        tab = ETranslations.global_earn;
+      }
+    }
+    // Return a function that emits the event after navigation completes
+    return () => {
+      if (tab) {
+        setTimeout(() => {
+          appEventBus.emit(EAppEventBusNames.SwitchDiscoveryTabInNative, {
+            tab,
+          });
+        }, 150);
+      }
+    };
+  };
+
   if (screen === ERootRoutes.Main) {
     if (
       appGlobals.$tabletMainViewNavigationRef?.current &&
       navigationParams?.screen &&
       !navigationParams?.params?.screen
     ) {
+      const redirectTab = createNativeTabRedirection();
       appGlobals.$tabletMainViewNavigationRef.current.navigate(
         screen,
         navigationParams,
@@ -140,12 +172,17 @@ export async function navigateToNotificationDetailByLocalParams({
           pop: true,
         });
       });
+      // Execute tab redirection after navigation
+      redirectTab();
     } else {
       await popToMainRoute();
       await timerUtils.wait(350);
+      const redirectTab = createNativeTabRedirection();
       appGlobals.$navigationRef.current?.navigate(screen, navigationParams, {
         pop: true,
       });
+      // Execute tab redirection after navigation
+      redirectTab();
     }
   } else if (screen === ERootRoutes.Modal) {
     let rootNavigator = appGlobals.$navigationRef.current;

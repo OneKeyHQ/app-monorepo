@@ -8,6 +8,7 @@ import {
   popToTabRootScreen,
   rootNavigationRef,
   switchTab,
+  tabletMainViewNavigationRef,
   useSplitMainView,
 } from '@onekeyhq/components';
 import type {
@@ -17,8 +18,9 @@ import type {
 } from '@onekeyhq/components/src/layouts/Navigation';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
-import type { IModalParamList } from '@onekeyhq/shared/src/routes';
+import type { ETabRoutes, IModalParamList } from '@onekeyhq/shared/src/routes';
 import { EModalRoutes, ERootRoutes } from '@onekeyhq/shared/src/routes';
+import { isSpanning } from '@onekeyhq/shared/src/modules/DualScreenInfo';
 
 const getModalRoute = () => {
   const state = rootNavigationRef.current?.getState();
@@ -234,6 +236,34 @@ function useAppNavigation<
 
   const push: typeof navigationRef.current.push = useCallback(
     (...args) => {
+      if (isSpanning()) {
+        // Get current tab route index from tabletMainViewNavigationRef
+        const tabletState = tabletMainViewNavigationRef.current?.getState();
+        const tabletMainRoute = tabletState?.routes?.find(
+          (route) => route.name === ERootRoutes.Main,
+        );
+        const tabletTabRoutes = tabletMainRoute?.state?.routes;
+        const tabletTabIndex = tabletMainRoute?.state?.index ?? 0;
+        const tabletTabRoute = tabletTabRoutes?.[tabletTabIndex]?.name as
+          | ETabRoutes
+          | undefined;
+
+        // Get current tab route index from rootNavigationRef
+        const rootState = rootNavigationRef.current?.getState();
+        const rootMainRoute = rootState?.routes?.find(
+          (route) => route.name === ERootRoutes.Main,
+        );
+        const rootTabRoutes = rootMainRoute?.state?.routes;
+        const rootTabIndex = rootMainRoute?.state?.index ?? 0;
+        const rootTabRoute = rootTabRoutes?.[rootTabIndex]?.name as
+          | ETabRoutes
+          | undefined;
+
+        // Sync rootNavigationRef to the same tab if they are different
+        if (tabletTabRoute && tabletTabRoute !== rootTabRoute) {
+          switchTab(tabletTabRoute);
+        }
+      }
       if (isTabletMainView) {
         appEventBus.emit(EAppEventBusNames.PushPageInTabletDetailView, args);
         return;

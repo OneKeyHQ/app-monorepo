@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -34,6 +34,7 @@ import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import { MarketWatchListProviderMirrorV2 } from '../../../MarketWatchListProviderMirrorV2';
 
+import SwapPanelFooterButtons from './SwapPanelFooterButtons';
 import { SwapPanelWrap } from './SwapPanelWrap';
 
 function LgTradeButton({
@@ -111,6 +112,25 @@ export function SwapPanel({
   }, [portfolioData, swapToken.contractAddress]);
 
   const [, setSwapProJumpTokenAtom] = useSwapProJumpTokenAtom();
+
+  const handleBuy = useCallback(() => {
+    setSwapProJumpTokenAtom({
+      token: swapToken,
+      direction: ESwapProJumpTokenDirection.BUY,
+    });
+    navigation.pop();
+    navigation.switchTab(ETabRoutes.Swap);
+  }, [setSwapProJumpTokenAtom, swapToken, navigation]);
+
+  const handleSell = useCallback(() => {
+    setSwapProJumpTokenAtom({
+      token: swapToken,
+      direction: ESwapProJumpTokenDirection.SELL,
+    });
+    navigation.pop();
+    navigation.switchTab(ETabRoutes.Swap);
+  }, [setSwapProJumpTokenAtom, swapToken, navigation]);
+
   if (!swapToken) {
     return (
       <Stack
@@ -155,46 +175,7 @@ export function SwapPanel({
               </>
             ) : null}
           </YStack>
-          <XStack gap="$2" alignItems="center">
-            <Button
-              size="small"
-              variant="primary"
-              w="$28"
-              h="$12"
-              bg="$buttonSuccess"
-              onPress={() => {
-                setSwapProJumpTokenAtom({
-                  token: swapToken,
-                  direction: ESwapProJumpTokenDirection.BUY,
-                });
-                navigation.pop();
-                navigation.switchTab(ETabRoutes.Swap);
-              }}
-            >
-              {intl.formatMessage({
-                id: ETranslations.global_buy,
-              })}
-            </Button>
-            <Button
-              w="$28"
-              h="$12"
-              size="small"
-              bg="$buttonCritical"
-              variant="primary"
-              onPress={() => {
-                setSwapProJumpTokenAtom({
-                  token: swapToken,
-                  direction: ESwapProJumpTokenDirection.SELL,
-                });
-                navigation.pop();
-                navigation.switchTab(ETabRoutes.Swap);
-              }}
-            >
-              {intl.formatMessage({
-                id: ETranslations.global_sell,
-              })}
-            </Button>
-          </XStack>
+          <SwapPanelFooterButtons onBuy={handleBuy} onSell={handleSell} />
         </XStack>
       </YStack>
     );
