@@ -2,7 +2,14 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Page, Toast, YStack, rootNavigationRef } from '@onekeyhq/components';
+import {
+  Page,
+  Toast,
+  YStack,
+  popModalPages,
+  popToTabRootScreen,
+  switchTab,
+} from '@onekeyhq/components';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -14,13 +21,13 @@ import {
   type EModalBulkSendRoutes,
   EModalRoutes,
   EModalSignatureConfirmRoutes,
-  ETabHomeRoutes,
   ETabRoutes,
   type IModalBulkSendParamList,
 } from '@onekeyhq/shared/src/routes';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { waitAsync } from '@onekeyhq/shared/src/utils/promiseUtils';
 import type { ISendSelectedFeeInfo } from '@onekeyhq/shared/types/fee';
 import { EFeeType, ESendFeeStatus } from '@onekeyhq/shared/types/fee';
@@ -289,21 +296,16 @@ function BaseBulkSendReview({
       navigation.popStack();
     }
 
+    // ext popup/sidebar && native
     if (isInModal) {
       // Mobile: close the entire bulk send modal stack
       navigation.popStack();
     } else {
-      navigation.popStack();
-      await waitAsync(50);
-      rootNavigationRef.current?.navigate(
-        ETabRoutes.Home,
-        {
-          screen: ETabHomeRoutes.TabHome,
-        },
-        {
-          pop: true,
-        },
-      );
+      // Web/Desktop: switch tab and pop to root screen
+      await popModalPages();
+      switchTab(ETabRoutes.Home);
+      await timerUtils.wait(50);
+      await popToTabRootScreen();
     }
   }, [isInModal, navigation, accountId]);
 
