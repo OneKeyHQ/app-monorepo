@@ -18,7 +18,7 @@ import type {
 } from '@onekeyhq/components/src/layouts/Navigation';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
-import type { IModalParamList , ETabRoutes } from '@onekeyhq/shared/src/routes';
+import type { ETabRoutes , IModalParamList } from '@onekeyhq/shared/src/routes';
 import { EModalRoutes, ERootRoutes } from '@onekeyhq/shared/src/routes';
 import { isSpanning } from '@onekeyhq/shared/src/modules/DualScreenInfo';
 
