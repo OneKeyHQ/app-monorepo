@@ -206,14 +206,18 @@ const TabDeveloper = () => {
             <PartContainer title="Components">
               <Button
                 onPress={() => {
-                  rootNavigationRef.current?.navigate(ERootRoutes.Main, {
-                    screen: ETabRoutes.Developer,
-                    params: {
-                      screen: ETabDeveloperRoutes.ComponentsGallery
-                    }
-                  }, {
-                    pop: true,
-                  })
+                  rootNavigationRef.current?.navigate(
+                    ERootRoutes.Main,
+                    {
+                      screen: ETabRoutes.Developer,
+                      params: {
+                        screen: ETabDeveloperRoutes.ComponentsGallery,
+                      },
+                    },
+                    {
+                      pop: true,
+                    },
+                  );
                 }}
               >
                 Gallery

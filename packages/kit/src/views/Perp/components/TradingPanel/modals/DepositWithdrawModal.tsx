@@ -965,6 +965,7 @@ function DepositWithdrawContent({
                   toAmount: amount,
                   fromAmount: amount,
                   isArbUSDCOrder: true,
+                  skipToast: true,
                 });
               }
               void backgroundApiProxy.serviceHyperliquidSubscription.enableLedgerUpdatesSubscription();
@@ -1287,7 +1288,6 @@ function DepositWithdrawContent({
           height: '100%',
           justifyContent: 'center',
           alignItems: 'center',
-          width: 80,
         }}
         value={selectedAction}
         onChange={onChangeSegmentControl}
