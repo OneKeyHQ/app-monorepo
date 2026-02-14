@@ -23,6 +23,7 @@ import type {
 
 export type IAccountDeriveInfoMapBtc = IAccountDeriveInfoMapBase & {
   default: IAccountDeriveInfo;
+  BIP360: IAccountDeriveInfo;
   BIP86: IAccountDeriveInfo;
   BIP84: IAccountDeriveInfo;
   BIP44: IAccountDeriveInfo;
@@ -30,6 +31,19 @@ export type IAccountDeriveInfoMapBtc = IAccountDeriveInfoMapBase & {
 export type IAccountDeriveTypesBtc = keyof IAccountDeriveInfoMapBtc;
 
 const accountDeriveInfo: IAccountDeriveInfoMapBtc = {
+  BIP360: {
+    namePrefix: 'BTC P2MR',
+    label: 'P2MR',
+    template: `m/360'/${COINTYPE_BTC}'/${INDEX_PLACEHOLDER}'/0/0`,
+    coinType: COINTYPE_BTC,
+    coinName: COINNAME_BTC,
+    addressEncoding: EAddressEncodings.P2MR,
+    descI18n: {
+      id: ETranslations.p2mr_desc,
+      data: {},
+    },
+  },
+
   BIP86: {
     namePrefix: 'BTC Taproot',
     label: 'Taproot',

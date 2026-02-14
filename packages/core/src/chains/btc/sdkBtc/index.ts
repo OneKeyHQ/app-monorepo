@@ -152,6 +152,12 @@ export const isTaprootAddress = (address: string): boolean =>
 export const isNativeSegwitAddress = (address: string): boolean =>
   address.startsWith('bc1q') || address.startsWith('tb1q');
 
+export const isP2mrPath = (pathPrefix: string) =>
+  pathPrefix.startsWith(`m/360'/`);
+
+export const isP2mrAddress = (address: string): boolean =>
+  address.startsWith('bc1z') || address.startsWith('tb1z');
+
 export function scriptPkToAddress(
   scriptPk: string | Buffer,
   psbtNetwork: networks.Network,
@@ -214,6 +220,27 @@ export function getInputsToSignFromPsbt({
           v.tapInternalKey = toXOnly(
             Buffer.from(checkIsDefined(account.pub), 'hex'),
           );
+        }
+        // P2MR: set tapLeafScript (no tapInternalKey)
+        if (
+          (isP2mrAddress(account.address) || isP2mrPath(account.path)) &&
+          !v.tapLeafScript
+        ) {
+          const xOnlyPubkey = toXOnly(
+            Buffer.from(checkIsDefined(account.pub), 'hex'),
+          );
+          const leafScript = Buffer.concat([
+            Buffer.from([0x20]),
+            xOnlyPubkey,
+            Buffer.from([0xac]),
+          ]);
+          v.tapLeafScript = [
+            {
+              controlBlock: Buffer.from([0xc1]),
+              script: leafScript,
+              leafVersion: 0xc0,
+            },
+          ];
         }
       } else if (isBtcWalletProvider) {
         // handle babylon
@@ -346,6 +373,12 @@ export function validateBtcAddress({
         decoded.data.length === 32
       ) {
         encoding = EAddressEncodings.P2TR;
+      } else if (
+        decoded.version === 0x02 &&
+        decoded.prefix === network.bech32 &&
+        decoded.data.length === 32
+      ) {
+        encoding = EAddressEncodings.P2MR;
       }
     } catch (_) {
       errorUtils.autoPrintErrorIgnore(_);
@@ -405,7 +438,7 @@ export function getBtcXpubFromXprvt({
   }
   const versionByteOptions = [
     // ...Object.values(network.segwitVersionBytes || {}),
-    ...Object.values(omit(network.segwitVersionBytes, EAddressEncodings.P2TR)),
+    ...Object.values(omit(network.segwitVersionBytes, EAddressEncodings.P2TR, EAddressEncodings.P2MR)),
     network.bip32,
   ];
 
@@ -539,6 +572,25 @@ export async function buildBtcXpubSegwitAsync({
       xpubSegwit = `tr([${descriptorPath}]${xpub}/<0;1>/*)`;
     }
   }
+  if (encoding === EAddressEncodings.P2MR) {
+    xpubSegwit = `mr(${xpub})`;
+
+    if (hdAccountPayload) {
+      const { curveName, hdCredential, password, path } = hdAccountPayload;
+      const rootFingerprint = await generateRootFingerprintHexAsync({
+        curveName,
+        hdCredential,
+        password,
+      });
+      const fingerprint = Number(
+        Buffer.from(rootFingerprint, 'hex').readUInt32BE(0) || 0,
+      )
+        .toString(16)
+        .padStart(8, '0');
+      const descriptorPath = `${fingerprint}${path.substring(1)}`;
+      xpubSegwit = `mr([${descriptorPath}]${xpub}/<0;1>/*)`;
+    }
+  }
   return xpubSegwit;
 }
 
@@ -620,6 +672,42 @@ export function pubkeyToPayment({
         network,
       });
       break;
+
+    case EAddressEncodings.P2MR: {
+      // BIP-360 P2MR: address is derived from script tree Merkle root (no internal key)
+      const xOnlyPubkey = pubkey ? toXOnly(pubkey) : undefined;
+      if (xOnlyPubkey) {
+        // Leaf script: OP_PUSHBYTES_32 <xonly_pubkey> OP_CHECKSIG
+        const leafScript = Buffer.concat([
+          Buffer.from([0x20]),
+          xOnlyPubkey,
+          Buffer.from([0xac]),
+        ]);
+        // TapLeaf hash: tagged_hash("TapLeaf", leaf_version || compact_size(len) || script)
+        const leafSerialized = Buffer.concat([
+          Buffer.from([0xc0]), // leaf_version
+          Buffer.from([leafScript.length]), // compact_size (34 < 253, fits in 1 byte)
+          leafScript,
+        ]);
+        const merkleRoot = crypto.taggedHash('TapLeaf', leafSerialized);
+
+        // scriptPubKey: OP_2 (0x52) + OP_PUSHBYTES_32 (0x20) + merkle_root
+        const output = Buffer.concat([
+          Buffer.from([0x52, 0x20]),
+          merkleRoot,
+        ]);
+
+        // Encode address using bech32m with SegWit version 2
+        const address = BitcoinJsAddress.toBech32(
+          Buffer.from(merkleRoot),
+          2,
+          network.bech32,
+        );
+
+        payment = { address, output, pubkey, network };
+      }
+      break;
+    }
 
     default:
       throw new OneKeyLocalError(`Invalid encoding: ${encoding as string}`);

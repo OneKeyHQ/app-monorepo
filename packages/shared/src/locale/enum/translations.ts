@@ -2489,6 +2489,7 @@
   p2pkh_desc = 'p2pkh_desc',
   p2sh_p2wpkh_desc = 'p2sh_p2wpkh_desc',
   p2tr_desc = 'p2tr_desc',
+  p2mr_desc = 'p2mr_desc',
   p2wpkh_desc = 'p2wpkh_desc',
   passphrase_allowed_characters_desc = 'passphrase_allowed_characters_desc',
   passphrase_allowed_characters_title = 'passphrase_allowed_characters_title',

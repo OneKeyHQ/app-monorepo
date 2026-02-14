@@ -269,6 +269,25 @@ export async function buildPsbt({
           fixTaprootMixin({ mixin, bip32Derivation });
           break;
         }
+        case EAddressEncodings.P2MR: {
+          // BIP-360 P2MR: no tapInternalKey (script-path-only spending)
+          const payment = checkIsDefined(
+            pubkeyToPayment({
+              pubkey,
+              encoding,
+              network,
+            }),
+          );
+          if (isInputMixin) {
+            mixin.witnessUtxo = {
+              script: payment.output as Buffer,
+              value: BigInt(value),
+            };
+          }
+
+          fixTaprootMixin({ mixin, bip32Derivation });
+          break;
+        }
         default:
           break;
       }

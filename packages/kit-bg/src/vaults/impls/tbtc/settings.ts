@@ -19,12 +19,22 @@ import type {
 
 type IAccountDeriveInfoMapBtc = IAccountDeriveInfoMapBase & {
   default: IAccountDeriveInfo;
+  BIP360: IAccountDeriveInfo;
   BIP86: IAccountDeriveInfo;
   BIP84: IAccountDeriveInfo;
   BIP44: IAccountDeriveInfo;
 };
 // TODO make build method
 const accountDeriveInfo: IAccountDeriveInfoMapBtc = {
+  BIP360: {
+    namePrefix: 'TBTC P2MR',
+    label: 'P2MR',
+    template: `m/360'/${COINTYPE_TBTC}'/${INDEX_PLACEHOLDER}'/0/0`,
+    coinType: COINTYPE_TBTC,
+    coinName: COINNAME_TBTC,
+    addressEncoding: EAddressEncodings.P2MR,
+  },
+
   BIP86: {
     namePrefix: 'TBTC Taproot',
     label: 'Taproot',

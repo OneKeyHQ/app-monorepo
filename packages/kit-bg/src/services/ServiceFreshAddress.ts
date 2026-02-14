@@ -149,7 +149,7 @@ class ServiceFreshAddress extends ServiceBase {
       throw new OneKeyLocalError('Account xpub not found');
     }
     const xpubForMeta =
-      deriveType === 'BIP86' ? account.xpubSegwit : account.xpub;
+      deriveType === 'BIP86' || deriveType === 'BIP360' ? account.xpubSegwit : account.xpub;
     const btcFreshAddressMetaRecord =
       (await this.backgroundApi.simpleDb.btcFreshAddressMeta.getRecord({
         networkId,
@@ -276,7 +276,7 @@ class ServiceFreshAddress extends ServiceBase {
         {
           networkId,
           xpubSegwit:
-            encoding === EAddressEncodings.P2TR
+            encoding === EAddressEncodings.P2TR || encoding === EAddressEncodings.P2MR
               ? account.xpubSegwit
               : account.xpub,
           value: derivedInfos,

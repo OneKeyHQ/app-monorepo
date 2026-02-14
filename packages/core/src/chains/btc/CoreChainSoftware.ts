@@ -63,7 +63,7 @@ import {
   validateBtcXprvt,
   validateBtcXpub,
 } from './sdkBtc';
-import { isTaprootInput } from './sdkBtc/bip371';
+import { isP2MRInput, isTaprootInput } from './sdkBtc/bip371';
 import { buildPsbt } from './sdkBtc/providerUtils';
 
 import type { IGetAddressFromXpubResult } from './sdkBtc';
@@ -428,6 +428,16 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
   }): Promise<Signer> {
     const publicKey = await signer.getPubkey(true);
 
+    // P2MR: always script-path spend with untweaked Schnorr signature
+    if (isP2MRInput(input)) {
+      const privateKey = await signer.getPrvkey();
+      const tweakedSigner = tweakSigner(privateKey, publicKey, {
+        network,
+        needTweak: false,
+      });
+      return tweakedSigner;
+    }
+
     // P2TR taproot
     if (isTaprootInput(input)) {
       let needTweak =
@@ -585,6 +595,14 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
           const fixedPath = privateKeyPath.replace(`m/86'/1'/`, `m/86'/0'/`);
           privateKey = privateKeys[fixedPath];
         }
+        if (!privateKey) {
+          const fixedPath = privateKeyPath.replace(`m/360'/0'/`, `m/360'/1'/`);
+          privateKey = privateKeys[fixedPath];
+        }
+        if (!privateKey) {
+          const fixedPath = privateKeyPath.replace(`m/360'/1'/`, `m/360'/0'/`);
+          privateKey = privateKeys[fixedPath];
+        }
       }
 
       // TODO generate address from privateKey, and check if matched with utxo address
@@ -631,7 +649,7 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
       throw new OneKeyLocalError('Invalid address');
     }
 
-    const supportedTypes = [EAddressEncodings.P2WPKH, EAddressEncodings.P2TR];
+    const supportedTypes = [EAddressEncodings.P2WPKH, EAddressEncodings.P2TR, EAddressEncodings.P2MR];
     if (
       !addressInfo.encoding ||
       (addressInfo.encoding && !supportedTypes.includes(addressInfo.encoding))

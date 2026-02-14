@@ -163,6 +163,9 @@ export const getCoinSelectTxType = (
       return 'p2wpkh';
     case EAddressEncodings.P2TR:
       return 'p2tr';
+    case EAddressEncodings.P2MR:
+      // P2MR single-leaf witness size is similar to P2TR script path
+      return 'p2tr';
     case EAddressEncodings.P2WSH:
       return 'p2wsh';
     default:

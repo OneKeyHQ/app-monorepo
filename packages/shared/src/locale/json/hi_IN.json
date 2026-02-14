@@ -2484,6 +2484,7 @@
   "p2pkh_desc": "\"1\" के साथ शुरू होता है। P2PKH (m/44'/0'/0')",
   "p2sh_p2wpkh_desc": "\"bc1q\" से शुरू होता है। P2SH-P2WPKH (m/84'/0'/0')",
   "p2tr_desc": "\"bc1p\" से शुरू होता है। P2TR (m/86'/0'/0')",
+  "p2mr_desc": "Starts with \"bc1z\". P2MR (m/360'/0'/0')",
   "p2wpkh_desc": "\"3\" के साथ शुरू होता है। P2WPKH (m/49'/0'/0')",
   "passphrase_allowed_characters_desc": "अक्षर, संख्या और प्रतीक (ASCII 32-126)",
   "passphrase_allowed_characters_title": "अनुमत वर्ण",
