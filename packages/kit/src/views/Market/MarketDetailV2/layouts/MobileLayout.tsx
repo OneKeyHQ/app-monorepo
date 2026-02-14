@@ -15,6 +15,7 @@ import {
   useInPageDialog,
   useIsOverlayPage,
   useSafeAreaInsets,
+  usePageWidth,
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -83,9 +84,7 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
     return 'calc(100vh - 96px - 74px)';
   }, [bottom, top, isIOSModalPage]);
 
-  const width = useMemo(() => {
-    return Dimensions.get('window').width;
-  }, []);
+  const width = usePageWidth();
 
   const scrollViewRef = useRef<IScrollViewRef>(null);
   const focusedTab = useSharedValue(tabNames[0]);
@@ -120,6 +119,7 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
             tokenSymbol={tokenDetail?.symbol}
             isNative={isNative}
             dataSource={websocketConfig?.kline ? 'websocket' : 'polling'}
+            pageWidth={width}
           />
         </Stack>
       </YStack>
