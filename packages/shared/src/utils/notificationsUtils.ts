@@ -123,26 +123,22 @@ export async function navigateToNotificationDetailByLocalParams({
     }
   }
   if (screen === ERootRoutes.Main) {
-     if (
+    if (
       appGlobals.$tabletMainViewNavigationRef?.current &&
       navigationParams?.screen &&
       !navigationParams?.params?.screen
     ) {
       appGlobals.$tabletMainViewNavigationRef.current.navigate(
         screen,
-        navigationParams, 
+        navigationParams,
         {
           pop: true,
-        }
+        },
       );
       requestIdleCallback(() => {
-        appGlobals.$navigationRef.current?.navigate(
-        screen,
-        navigationParams, 
-        {
+        appGlobals.$navigationRef.current?.navigate(screen, navigationParams, {
           pop: true,
-        }
-      );
+        });
       });
     } else {
       await popToMainRoute();

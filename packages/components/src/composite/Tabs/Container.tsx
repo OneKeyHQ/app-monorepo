@@ -111,10 +111,13 @@ export interface ITabContainerProps {
   width?: number | string;
   initialTabName?: string;
   allowHeaderOverscroll?: boolean;
+  disableScroll?: boolean;
+  /** Only used on native Android, ignored on web */
+  useNativeHeaderAnimation?: boolean;
 }
 
 interface ITabContainerRefProps {
-  ref: React.RefObject<ITabContainerRef>;
+  ref?: React.RefObject<ITabContainerRef>;
 }
 
 export function Container({
@@ -126,7 +129,10 @@ export function Container({
   width: containerWidth,
   ref: containerRef,
   initialTabName,
-}: PropsWithChildren<CollapsibleProps> & ITabContainerRefProps) {
+  disableScroll,
+}: PropsWithChildren<CollapsibleProps> &
+  ITabContainerRefProps &
+  Pick<ITabContainerProps, 'disableScroll' | 'useNativeHeaderAnimation'>) {
   // Get tab names from children props
   const scrollTopRef = useRef<{ [key: string]: number }>({});
   const tabNames = useMemo(() => {
@@ -368,9 +374,7 @@ export function Container({
       flex={1}
       className="onekey-tabs-container"
       position="relative"
-      style={{
-        overflowY: 'scroll',
-      }}
+      style={disableScroll ? undefined : { overflowY: 'scroll' }}
       ref={ref as React.RefObject<HTMLDivElement>}
     >
       {scrollElement ? (

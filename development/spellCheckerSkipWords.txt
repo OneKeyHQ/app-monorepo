@@ -1408,3 +1408,4 @@ AUSDT
 USDO
 hyperevm
 RNGH
+macrotask
