@@ -25,26 +25,27 @@ index 8ec286a..a46ba48 100644
          if (root == null) {
              return
 diff --git a/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/PagerViewViewManagerImpl.kt b/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/PagerViewViewManagerImpl.kt
-index d5b82ff..45d08a5 100644
+index d5b82ff..5f1a084 100644
 --- a/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/PagerViewViewManagerImpl.kt
 +++ b/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/PagerViewViewManagerImpl.kt
-@@ -7,8 +7,11 @@ import com.facebook.react.uimanager.PixelUtil
+@@ -7,8 +7,12 @@ import com.facebook.react.uimanager.PixelUtil
  import android.os.Handler
  import android.os.Looper
  import android.view.Choreographer
 +import android.util.Log
 +import androidx.recyclerview.widget.RecyclerView
++import java.util.WeakHashMap
  
  object PagerViewViewManagerImpl {
 +    private const val TAG = "PagerView"
      const val NAME = "RNCViewPager"
  
      private var refreshFrameCallback: Choreographer.FrameCallback? = null
-@@ -26,6 +29,25 @@ object PagerViewViewManagerImpl {
+@@ -26,6 +30,25 @@ object PagerViewViewManagerImpl {
          view.setCurrentItem(selectedTab, scrollSmooth)
      }
  
-+    private var originalTouchSlop: Int? = null
++    private val originalTouchSlopMap = WeakHashMap<ViewPager2, Int>()
 +
 +    fun ViewPager2.reduceDragSensitivity(value: Int) {
 +        try {
@@ -53,9 +54,9 @@ index d5b82ff..45d08a5 100644
 +            val recyclerView = recyclerViewField.get(this) as? RecyclerView ?: return
 +            val touchSlopField = RecyclerView::class.java.getDeclaredField("mTouchSlop")
 +            touchSlopField.isAccessible = true
-+            // Store original value on first call to prevent accumulation on re-renders
-+            val baseSlop = originalTouchSlop ?: (touchSlopField.get(recyclerView) as Int).also {
-+                originalTouchSlop = it
++            // Store original value per instance to prevent accumulation on re-renders
++            val baseSlop = originalTouchSlopMap[this] ?: (touchSlopField.get(recyclerView) as Int).also {
++                originalTouchSlopMap[this] = it
 +            }
 +            touchSlopField.set(recyclerView, baseSlop * value)
 +        } catch (e: Exception) {
@@ -66,7 +67,7 @@ index d5b82ff..45d08a5 100644
      fun addView(host: NestedScrollableHost, child: View?, index: Int) {
          if (child == null) {
              return
-@@ -161,10 +183,22 @@ object PagerViewViewManagerImpl {
+@@ -161,10 +184,22 @@ object PagerViewViewManagerImpl {
  
      private fun refreshViewChildrenLayout(view: View) {
          view.post {
@@ -94,10 +95,10 @@ index d5b82ff..45d08a5 100644
      }
  
 diff --git a/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/ViewPagerAdapter.kt b/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/ViewPagerAdapter.kt
-index fd3530e..0d6b5b1 100644
+index fd3530e..5b9d739 100644
 --- a/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/ViewPagerAdapter.kt
 +++ b/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/ViewPagerAdapter.kt
-@@ -1,14 +1,30 @@
+@@ -1,14 +1,34 @@
  package com.reactnativepagerview
  
 +import android.os.Handler
@@ -107,10 +108,14 @@ index fd3530e..0d6b5b1 100644
  import android.widget.FrameLayout
 +import androidx.recyclerview.widget.RecyclerView
  import androidx.recyclerview.widget.RecyclerView.Adapter
++import android.util.Log
  import java.util.*
  
  
  class ViewPagerAdapter() : Adapter<ViewPagerViewHolder>() {
++  private companion object {
++    private const val TAG = "PagerView"
++  }
    private val childrenViews: ArrayList<View> = ArrayList()
 +  private var recyclerView: RecyclerView? = null
 +  private val handler = Handler(Looper.getMainLooper())
@@ -128,7 +133,7 @@ index fd3530e..0d6b5b1 100644
  
    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewPagerViewHolder {
      return ViewPagerViewHolder.create(parent)
-@@ -34,9 +50,19 @@ class ViewPagerAdapter() : Adapter<ViewPagerViewHolder>() {
+@@ -34,9 +54,22 @@ class ViewPagerAdapter() : Adapter<ViewPagerViewHolder>() {
      return childrenViews.size
    }
  
@@ -145,22 +150,26 @@ index fd3530e..0d6b5b1 100644
 +      return
 +    }
 +    val safeIndex = index.coerceIn(0, childrenViews.size)
++    if (safeIndex != index) {
++      Log.w(TAG, "addChild index $index out of bounds (size=${childrenViews.size}), clamped to $safeIndex")
++    }
 +    childrenViews.add(safeIndex, child)
 +    notifyItemInserted(safeIndex)
    }
  
    fun getChildAt(index: Int): View {
-@@ -58,12 +84,20 @@ class ViewPagerAdapter() : Adapter<ViewPagerViewHolder>() {
-         (child.parent.parent as ViewGroup).removeView(child.parent as View)
-       }
-     }
+@@ -52,6 +85,10 @@ class ViewPagerAdapter() : Adapter<ViewPagerViewHolder>() {
+   }
+ 
+   fun removeAll() {
 +    if (isComputingLayout()) {
 +      handler.post { removeAll() }
 +      return
 +    }
-     val removedChildrenCount = childrenViews.size
-     childrenViews.clear()
-     notifyItemRangeRemoved(0, removedChildrenCount)
+     for (index in 1..childrenViews.size) {
+       val child = childrenViews[index-1]
+       if (child.parent?.parent != null) {
+@@ -64,6 +101,10 @@ class ViewPagerAdapter() : Adapter<ViewPagerViewHolder>() {
    }
  
    fun removeChildAt(index: Int) {
