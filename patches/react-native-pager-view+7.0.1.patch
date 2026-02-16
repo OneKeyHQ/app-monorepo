@@ -81,10 +81,10 @@ index d5b82ff..adfb9a2 100644
      }
  
 diff --git a/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/ViewPagerAdapter.kt b/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/ViewPagerAdapter.kt
-index fd3530e..560ee03 100644
+index fd3530e..4db4e04 100644
 --- a/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/ViewPagerAdapter.kt
 +++ b/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/ViewPagerAdapter.kt
-@@ -1,14 +1,29 @@
+@@ -1,14 +1,30 @@
  package com.reactnativepagerview
  
 +import android.os.Handler
@@ -109,12 +109,13 @@ index fd3530e..560ee03 100644
 +
 +  override fun onDetachedFromRecyclerView(rv: RecyclerView) {
 +    super.onDetachedFromRecyclerView(rv)
++    handler.removeCallbacksAndMessages(null)
 +    recyclerView = null
 +  }
  
    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewPagerViewHolder {
      return ViewPagerViewHolder.create(parent)
-@@ -34,7 +49,16 @@ class ViewPagerAdapter() : Adapter<ViewPagerViewHolder>() {
+@@ -34,7 +50,16 @@ class ViewPagerAdapter() : Adapter<ViewPagerViewHolder>() {
      return childrenViews.size
    }
  
@@ -131,7 +132,7 @@ index fd3530e..560ee03 100644
      childrenViews.add(index, child)
      notifyItemInserted(index)
    }
-@@ -58,12 +82,20 @@ class ViewPagerAdapter() : Adapter<ViewPagerViewHolder>() {
+@@ -58,12 +83,20 @@ class ViewPagerAdapter() : Adapter<ViewPagerViewHolder>() {
          (child.parent.parent as ViewGroup).removeView(child.parent as View)
        }
      }
@@ -153,7 +154,7 @@ index fd3530e..560ee03 100644
        childrenViews.removeAt(index)
        notifyItemRemoved(index)
 diff --git a/node_modules/react-native-pager-view/ios/RNCPagerViewComponentView.mm b/node_modules/react-native-pager-view/ios/RNCPagerViewComponentView.mm
-index d52f532..3febffd 100644
+index d52f532..753dd8c 100644
 --- a/node_modules/react-native-pager-view/ios/RNCPagerViewComponentView.mm
 +++ b/node_modules/react-native-pager-view/ios/RNCPagerViewComponentView.mm
 @@ -29,6 +29,12 @@ @implementation RNCPagerViewComponentView {
@@ -302,7 +303,7 @@ index d52f532..3febffd 100644
          [self enableSwipe];
          return;
      }
-@@ -231,17 +314,37 @@ - (void)setPagerViewControllers:(NSInteger)index
+@@ -231,18 +314,41 @@ - (void)setPagerViewControllers:(NSInteger)index
      transitioning = YES;
  
      __weak RNCPagerViewComponentView *weakSelf = self;
@@ -320,31 +321,36 @@ index d52f532..3febffd 100644
 +            return;
 +        }
 +
-+        strongSelf->transitioning = NO;
-+
 +        // View was recycled and possibly reused since this animation started
 +        if (strongSelf->_isBeingRecycled || strongSelf->_generation != capturedGeneration) {
++            // Do NOT reset transitioning here — a new lifecycle owns that state
 +            return;
 +        }
 +
 +        // A newer transition was started, this completion is stale
 +        if (strongSelf->_transitionId != capturedTransitionId) {
++            // Do NOT reset transitioning — the newer transition owns that state
 +            return;
 +        }
 +
++        // Only reset transitioning when this completion corresponds to the current transition
++        strongSelf->transitioning = NO;
++
          [strongSelf enableSwipe];
++        strongSelf->_currentIndex = index;
          if (strongSelf->_eventEmitter != nullptr ) {
              const auto eventEmitter = [strongSelf pagerEventEmitter];
 -            int position = (int) index;
 -            eventEmitter->onPageSelected(RNCViewPagerEventEmitter::OnPageSelected{.position =  static_cast<double>(position)});
+-            strongSelf->_currentIndex = index;
 +            if (eventEmitter) {
 +                int position = (int) index;
 +                eventEmitter->onPageSelected(RNCViewPagerEventEmitter::OnPageSelected{.position =  static_cast<double>(position)});
 +            }
-             strongSelf->_currentIndex = index;
          }
          [strongSelf updateLayoutMetrics:strongSelf->_layoutMetrics oldLayoutMetrics:strongSelf->_oldLayoutMetrics];
-@@ -252,6 +355,11 @@ - (void)setPagerViewControllers:(NSInteger)index
+     }];
+@@ -252,6 +358,11 @@ - (void)setPagerViewControllers:(NSInteger)index
  - (UIViewController *)nextControllerForController:(UIViewController *)controller
                                        inDirection:(UIPageViewControllerNavigationDirection)direction {
      NSUInteger numberOfPages = _nativeChildrenViewControllers.count;
@@ -356,7 +362,7 @@ index d52f532..3febffd 100644
      NSInteger index = [_nativeChildrenViewControllers indexOfObject:controller];
      
      if (index == NSNotFound) {
-@@ -274,13 +382,22 @@ - (UIViewController *)currentlyDisplayed {
+@@ -274,13 +385,22 @@ - (UIViewController *)currentlyDisplayed {
  #pragma mark - UIScrollViewDelegate
  
  - (void)scrollViewWillBeginDragging:(UIScrollView *)scrollView {
@@ -379,7 +385,7 @@ index d52f532..3febffd 100644
      eventEmitter->onPageScrollStateChanged(RNCViewPagerEventEmitter::OnPageScrollStateChanged{.pageScrollState =  RNCViewPagerEventEmitter::OnPageScrollStateChangedPageScrollState::Settling });
      
      if (!_overdrag) {
-@@ -300,12 +417,21 @@ - (void)scrollViewWillEndDragging:(UIScrollView *)scrollView withVelocity:(CGPoi
+@@ -300,12 +420,21 @@ - (void)scrollViewWillEndDragging:(UIScrollView *)scrollView withVelocity:(CGPoi
  }
  
  - (void)scrollViewDidEndDecelerating:(UIScrollView *)scrollView {
@@ -401,7 +407,7 @@ index d52f532..3febffd 100644
      BOOL isHorizontal = [self isHorizontal];
      CGFloat contentOffset = isHorizontal ? scrollView.contentOffset.x : scrollView.contentOffset.y;
      CGFloat frameSize = isHorizontal ? scrollView.frame.size.width : scrollView.frame.size.height;
-@@ -357,13 +483,18 @@ - (void)pageViewController:(UIPageViewController *)pageViewController
+@@ -357,13 +486,18 @@ - (void)pageViewController:(UIPageViewController *)pageViewController
          didFinishAnimating:(BOOL)finished
     previousViewControllers:(nonnull NSArray<UIViewController *> *)previousViewControllers
         transitionCompleted:(BOOL)completed {
@@ -421,7 +427,7 @@ index d52f532..3febffd 100644
      }
  }
  
-@@ -427,10 +558,12 @@ - (BOOL)isLtrLayout {
+@@ -427,10 +561,12 @@ - (BOOL)isLtrLayout {
  
  - (void)sendScrollEventsForPosition:(NSInteger)position offset:(CGFloat)offset {
      const auto eventEmitter = [self pagerEventEmitter];
