@@ -80,19 +80,90 @@ index d5b82ff..adfb9a2 100644
          }
      }
  
+diff --git a/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/ViewPagerAdapter.kt b/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/ViewPagerAdapter.kt
+index fd3530e..91c2166 100644
+--- a/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/ViewPagerAdapter.kt
++++ b/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/ViewPagerAdapter.kt
+@@ -1,14 +1,29 @@
+ package com.reactnativepagerview
+ 
++import android.os.Handler
++import android.os.Looper
+ import android.view.View
+ import android.view.ViewGroup
+ import android.widget.FrameLayout
++import androidx.recyclerview.widget.RecyclerView
+ import androidx.recyclerview.widget.RecyclerView.Adapter
+ import java.util.*
+ 
+ 
+ class ViewPagerAdapter() : Adapter<ViewPagerViewHolder>() {
+   private val childrenViews: ArrayList<View> = ArrayList()
++  private var recyclerView: RecyclerView? = null
++  private val handler = Handler(Looper.getMainLooper())
++
++  override fun onAttachedToRecyclerView(rv: RecyclerView) {
++    super.onAttachedToRecyclerView(rv)
++    recyclerView = rv
++  }
++
++  override fun onDetachedFromRecyclerView(rv: RecyclerView) {
++    super.onDetachedFromRecyclerView(rv)
++    recyclerView = null
++  }
+ 
+   override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewPagerViewHolder {
+     return ViewPagerViewHolder.create(parent)
+@@ -34,9 +49,18 @@ class ViewPagerAdapter() : Adapter<ViewPagerViewHolder>() {
+     return childrenViews.size
+   }
+ 
++  private fun safeNotify(action: () -> Unit) {
++    val rv = recyclerView
++    if (rv != null && rv.isComputingLayout) {
++      handler.post(action)
++    } else {
++      action()
++    }
++  }
++
+   fun addChild(child: View, index: Int) {
+     childrenViews.add(index, child)
+-    notifyItemInserted(index)
++    safeNotify { notifyItemInserted(index) }
+   }
+ 
+   fun getChildAt(index: Int): View {
+@@ -60,13 +84,13 @@ class ViewPagerAdapter() : Adapter<ViewPagerViewHolder>() {
+     }
+     val removedChildrenCount = childrenViews.size
+     childrenViews.clear()
+-    notifyItemRangeRemoved(0, removedChildrenCount)
++    safeNotify { notifyItemRangeRemoved(0, removedChildrenCount) }
+   }
+ 
+   fun removeChildAt(index: Int) {
+     if (index >= 0 && index < childrenViews.size) {
+       childrenViews.removeAt(index)
+-      notifyItemRemoved(index)
++      safeNotify { notifyItemRemoved(index) }
+     }
+   }
+ }
 diff --git a/node_modules/react-native-pager-view/ios/RNCPagerViewComponentView.mm b/node_modules/react-native-pager-view/ios/RNCPagerViewComponentView.mm
-index d52f532..e27b02e 100644
+index d52f532..5184f4d 100644
 --- a/node_modules/react-native-pager-view/ios/RNCPagerViewComponentView.mm
 +++ b/node_modules/react-native-pager-view/ios/RNCPagerViewComponentView.mm
-@@ -29,6 +29,7 @@ @implementation RNCPagerViewComponentView {
+@@ -29,6 +29,8 @@ @implementation RNCPagerViewComponentView {
      BOOL _overdrag;
      NSString *_layoutDirection;
      BOOL _scrollEnabled;
 +    BOOL _isBeingRecycled;
++    NSUInteger _generation;
  }
  
  // Needed because of this: https://github.com/facebook/react-native/pull/37274
-@@ -80,6 +81,7 @@ - (instancetype)initWithFrame:(CGRect)frame
+@@ -80,6 +82,7 @@ - (instancetype)initWithFrame:(CGRect)frame
          _layoutDirection = @"ltr";
          _overdrag = NO;
          _scrollEnabled = YES;
@@ -100,7 +171,7 @@ index d52f532..e27b02e 100644
      }
      
      return self;
-@@ -96,6 +98,9 @@ - (void)willMoveToSuperview:(UIView *)newSuperview {
+@@ -96,6 +99,9 @@ - (void)willMoveToSuperview:(UIView *)newSuperview {
  #pragma mark - React API
  
  - (void)mountChildComponentView:(UIView<RCTComponentViewProtocol> *)childComponentView index:(NSInteger)index {
@@ -110,7 +181,7 @@ index d52f532..e27b02e 100644
      UIViewController *vc = [UIViewController new];
      [vc.view addSubview:childComponentView];
      [_nativeChildrenViewControllers insertObject:vc atIndex:index];
-@@ -103,13 +108,23 @@ - (void)mountChildComponentView:(UIView<RCTComponentViewProtocol> *)childCompone
+@@ -103,13 +109,23 @@ - (void)mountChildComponentView:(UIView<RCTComponentViewProtocol> *)childCompone
  }
  
  - (void)unmountChildComponentView:(UIView<RCTComponentViewProtocol> *)childComponentView index:(NSInteger)index {
@@ -135,11 +206,12 @@ index d52f532..e27b02e 100644
      }
  }
  
-@@ -127,10 +142,21 @@ -(void)updateLayoutMetrics:(const facebook::react::LayoutMetrics &)layoutMetrics
+@@ -127,10 +143,22 @@ -(void)updateLayoutMetrics:(const facebook::react::LayoutMetrics &)layoutMetrics
  
  
  -(void)prepareForRecycle {
 +    _isBeingRecycled = YES;
++    _generation++;
 +
 +    // Cancel any ongoing transitions
 +    if (_nativePageViewController != nil && transitioning) {
@@ -157,44 +229,52 @@ index d52f532..e27b02e 100644
  }
  
  - (void)shouldDismissKeyboard:(RNCViewPagerKeyboardDismissMode)dismissKeyboard {
-@@ -200,6 +226,12 @@ - (void)enableSwipe {
+@@ -200,6 +228,14 @@ - (void)enableSwipe {
  - (void)goTo:(NSInteger)index animated:(BOOL)animated {
      NSInteger numberOfPages = _nativeChildrenViewControllers.count;
      
 +    // Check recycling state BEFORE disableSwipe to avoid state inconsistency
 +    if (_isBeingRecycled) {
++#ifdef DEBUG
 +        NSLog(@"[PagerView] goTo blocked: view is being recycled (index=%ld)", (long)index);
++#endif
 +        return;
 +    }
 +
      [self disableSwipe];
      
      _destinationIndex = index;
-@@ -223,25 +255,61 @@ - (void)goTo:(NSInteger)index animated:(BOOL)animated {
+@@ -223,7 +259,50 @@ - (void)goTo:(NSInteger)index animated:(BOOL)animated {
  - (void)setPagerViewControllers:(NSInteger)index
                        direction:(UIPageViewControllerNavigationDirection)direction
                         animated:(BOOL)animated{
 -    if (_nativePageViewController == nil) {
 +    if (_nativePageViewController == nil || _isBeingRecycled) {
++#ifdef DEBUG
 +        NSLog(@"[PagerView] setPagerViewControllers blocked: pageVC=%@ recycled=%d index=%ld",
 +              _nativePageViewController ? @"EXISTS" : @"NIL", _isBeingRecycled, (long)index);
++#endif
 +        [self enableSwipe];
 +        return;
 +    }
 +
 +    // Validate index bounds
 +    if (index < 0 || index >= _nativeChildrenViewControllers.count) {
++#ifdef DEBUG
 +        NSLog(@"[PagerView] setPagerViewControllers blocked: index %ld out of bounds (count=%lu)",
 +              (long)index, (unsigned long)_nativeChildrenViewControllers.count);
-         [self enableSwipe];
-         return;
-     }
-   
++#endif
++        [self enableSwipe];
++        return;
++    }
++
 +    // Validate view controller and its view
 +    UIViewController *targetVC = [_nativeChildrenViewControllers objectAtIndex:index];
 +    if (targetVC == nil || targetVC.view == nil) {
++#ifdef DEBUG
 +        NSLog(@"[PagerView] setPagerViewControllers blocked: targetVC=%@ view=%@ index=%ld",
 +              targetVC ? @"EXISTS" : @"NIL", targetVC.view ? @"EXISTS" : @"NIL", (long)index);
++#endif
 +        [self enableSwipe];
 +        return;
 +    }
@@ -203,12 +283,25 @@ index d52f532..e27b02e 100644
 +    // Target page views are expected to have nil superview/window before being added to pageViewController
 +    // Checking for nil superview/window would block all legitimate page transitions
 +
-+    NSLog(@"[PagerView] setPagerViewControllers SUCCESS: index=%ld animated=%d", (long)index, animated);
-+
++    // Prevent calling setViewControllers during an ongoing animated transition.
++    // UIPageViewController's internal _UIQueuingScrollView does not support
++    // concurrent enqueued transitions and will crash with
++    // "Duplicate states in queue" (NSInternalInconsistencyException).
++    // Note: Non-animated transitions (animated=NO) are synchronous and bypass
++    // the internal _UIQueuingScrollView queue, so they are safe during an ongoing transition.
++    if (transitioning && animated) {
++#ifdef DEBUG
++        NSLog(@"[PagerView] setPagerViewControllers blocked: already transitioning (index=%ld)", (long)index);
++#endif
+         [self enableSwipe];
+         return;
+     }
+@@ -231,17 +310,30 @@ - (void)setPagerViewControllers:(NSInteger)index
      transitioning = YES;
  
      __weak RNCPagerViewComponentView *weakSelf = self;
 -    [_nativePageViewController setViewControllers:@[[_nativeChildrenViewControllers objectAtIndex:index]]
++    NSUInteger capturedGeneration = _generation;
 +    [_nativePageViewController setViewControllers:@[targetVC]
                                          direction:direction
                                           animated:animated
@@ -221,7 +314,8 @@ index d52f532..e27b02e 100644
 +
 +        strongSelf->transitioning = NO;
 +
-+        if (strongSelf->_isBeingRecycled) {
++        // View was recycled and possibly reused since this animation started
++        if (strongSelf->_isBeingRecycled || strongSelf->_generation != capturedGeneration) {
 +            return;
 +        }
 +
@@ -237,7 +331,7 @@ index d52f532..e27b02e 100644
              strongSelf->_currentIndex = index;
          }
          [strongSelf updateLayoutMetrics:strongSelf->_layoutMetrics oldLayoutMetrics:strongSelf->_oldLayoutMetrics];
-@@ -252,6 +320,11 @@ - (void)setPagerViewControllers:(NSInteger)index
+@@ -252,6 +344,11 @@ - (void)setPagerViewControllers:(NSInteger)index
  - (UIViewController *)nextControllerForController:(UIViewController *)controller
                                        inDirection:(UIPageViewControllerNavigationDirection)direction {
      NSUInteger numberOfPages = _nativeChildrenViewControllers.count;
@@ -249,7 +343,7 @@ index d52f532..e27b02e 100644
      NSInteger index = [_nativeChildrenViewControllers indexOfObject:controller];
      
      if (index == NSNotFound) {
-@@ -274,13 +347,22 @@ - (UIViewController *)currentlyDisplayed {
+@@ -274,13 +371,22 @@ - (UIViewController *)currentlyDisplayed {
  #pragma mark - UIScrollViewDelegate
  
  - (void)scrollViewWillBeginDragging:(UIScrollView *)scrollView {
@@ -272,7 +366,7 @@ index d52f532..e27b02e 100644
      eventEmitter->onPageScrollStateChanged(RNCViewPagerEventEmitter::OnPageScrollStateChanged{.pageScrollState =  RNCViewPagerEventEmitter::OnPageScrollStateChangedPageScrollState::Settling });
      
      if (!_overdrag) {
-@@ -300,12 +382,21 @@ - (void)scrollViewWillEndDragging:(UIScrollView *)scrollView withVelocity:(CGPoi
+@@ -300,12 +406,21 @@ - (void)scrollViewWillEndDragging:(UIScrollView *)scrollView withVelocity:(CGPoi
  }
  
  - (void)scrollViewDidEndDecelerating:(UIScrollView *)scrollView {
@@ -294,7 +388,7 @@ index d52f532..e27b02e 100644
      BOOL isHorizontal = [self isHorizontal];
      CGFloat contentOffset = isHorizontal ? scrollView.contentOffset.x : scrollView.contentOffset.y;
      CGFloat frameSize = isHorizontal ? scrollView.frame.size.width : scrollView.frame.size.height;
-@@ -357,13 +448,18 @@ - (void)pageViewController:(UIPageViewController *)pageViewController
+@@ -357,13 +472,18 @@ - (void)pageViewController:(UIPageViewController *)pageViewController
          didFinishAnimating:(BOOL)finished
     previousViewControllers:(nonnull NSArray<UIViewController *> *)previousViewControllers
         transitionCompleted:(BOOL)completed {
@@ -314,7 +408,7 @@ index d52f532..e27b02e 100644
      }
  }
  
-@@ -427,10 +523,12 @@ - (BOOL)isLtrLayout {
+@@ -427,10 +547,12 @@ - (BOOL)isLtrLayout {
  
  - (void)sendScrollEventsForPosition:(NSInteger)position offset:(CGFloat)offset {
      const auto eventEmitter = [self pagerEventEmitter];
@@ -322,12 +416,12 @@ index d52f532..e27b02e 100644
 -        .position = static_cast<double>(position),
 -        .offset = offset
 -    });
-+     if (eventEmitter && eventEmitter != nullptr) {
++    if (eventEmitter) {
 +        eventEmitter->onPageScroll(RNCViewPagerEventEmitter::OnPageScroll{
 +            .position = static_cast<double>(position),
 +            .offset = offset
 +        });
-+     }
++    }
    
      // This is temporary workaround to allow animations based on onPageScroll event
      // until Fabric implements proper NativeAnimationDriver,
