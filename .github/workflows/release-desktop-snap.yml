@@ -99,7 +99,7 @@ jobs:
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
           CSC_LINK: './sign.p12'
           SNAP: true
-        run: cd apps/desktop && cross-env NODE_ENV=production yarn clean:build && yarn build:renderer && yarn build:main && yarn install-app-deps && npx electron-builder build -l --config electron-builder-snap.config.js ${{ matrix.build-flag }} --publish never
+        run: cd apps/desktop && npx cross-env NODE_ENV=production yarn clean:build && yarn build:renderer && yarn build:main && yarn install-app-deps && npx electron-builder build -l --config electron-builder-snap.config.js ${{ matrix.build-flag }} --publish never
 
       - name: Upload Artifacts Release
         uses: actions/upload-artifact@v4
