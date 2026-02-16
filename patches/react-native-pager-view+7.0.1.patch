@@ -81,7 +81,7 @@ index d5b82ff..adfb9a2 100644
      }
  
 diff --git a/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/ViewPagerAdapter.kt b/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/ViewPagerAdapter.kt
-index fd3530e..91c2166 100644
+index fd3530e..560ee03 100644
 --- a/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/ViewPagerAdapter.kt
 +++ b/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/ViewPagerAdapter.kt
 @@ -1,14 +1,29 @@
@@ -114,56 +114,62 @@ index fd3530e..91c2166 100644
  
    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewPagerViewHolder {
      return ViewPagerViewHolder.create(parent)
-@@ -34,9 +49,18 @@ class ViewPagerAdapter() : Adapter<ViewPagerViewHolder>() {
+@@ -34,7 +49,16 @@ class ViewPagerAdapter() : Adapter<ViewPagerViewHolder>() {
      return childrenViews.size
    }
  
-+  private fun safeNotify(action: () -> Unit) {
++  private fun isComputingLayout(): Boolean {
 +    val rv = recyclerView
-+    if (rv != null && rv.isComputingLayout) {
-+      handler.post(action)
-+    } else {
-+      action()
-+    }
++    return rv != null && rv.isComputingLayout
 +  }
 +
    fun addChild(child: View, index: Int) {
++    if (isComputingLayout()) {
++      handler.post { addChild(child, index) }
++      return
++    }
      childrenViews.add(index, child)
--    notifyItemInserted(index)
-+    safeNotify { notifyItemInserted(index) }
+     notifyItemInserted(index)
    }
- 
-   fun getChildAt(index: Int): View {
-@@ -60,13 +84,13 @@ class ViewPagerAdapter() : Adapter<ViewPagerViewHolder>() {
+@@ -58,12 +82,20 @@ class ViewPagerAdapter() : Adapter<ViewPagerViewHolder>() {
+         (child.parent.parent as ViewGroup).removeView(child.parent as View)
+       }
      }
++    if (isComputingLayout()) {
++      handler.post { removeAll() }
++      return
++    }
      val removedChildrenCount = childrenViews.size
      childrenViews.clear()
--    notifyItemRangeRemoved(0, removedChildrenCount)
-+    safeNotify { notifyItemRangeRemoved(0, removedChildrenCount) }
+     notifyItemRangeRemoved(0, removedChildrenCount)
    }
  
    fun removeChildAt(index: Int) {
++    if (isComputingLayout()) {
++      handler.post { removeChildAt(index) }
++      return
++    }
      if (index >= 0 && index < childrenViews.size) {
        childrenViews.removeAt(index)
--      notifyItemRemoved(index)
-+      safeNotify { notifyItemRemoved(index) }
-     }
-   }
- }
+       notifyItemRemoved(index)
 diff --git a/node_modules/react-native-pager-view/ios/RNCPagerViewComponentView.mm b/node_modules/react-native-pager-view/ios/RNCPagerViewComponentView.mm
-index d52f532..5184f4d 100644
+index d52f532..3febffd 100644
 --- a/node_modules/react-native-pager-view/ios/RNCPagerViewComponentView.mm
 +++ b/node_modules/react-native-pager-view/ios/RNCPagerViewComponentView.mm
-@@ -29,6 +29,8 @@ @implementation RNCPagerViewComponentView {
+@@ -29,6 +29,12 @@ @implementation RNCPagerViewComponentView {
      BOOL _overdrag;
      NSString *_layoutDirection;
      BOOL _scrollEnabled;
++    // _isBeingRecycled: synchronous guard, only true during prepareForRecycle execution
 +    BOOL _isBeingRecycled;
++    // _generation: async guard for recycle-and-reuse, incremented in prepareForRecycle
 +    NSUInteger _generation;
++    // _transitionId: async guard for superseded transitions, incremented each setPagerViewControllers call
++    NSUInteger _transitionId;
  }
  
  // Needed because of this: https://github.com/facebook/react-native/pull/37274
-@@ -80,6 +82,7 @@ - (instancetype)initWithFrame:(CGRect)frame
+@@ -80,6 +86,7 @@ - (instancetype)initWithFrame:(CGRect)frame
          _layoutDirection = @"ltr";
          _overdrag = NO;
          _scrollEnabled = YES;
@@ -171,7 +177,7 @@ index d52f532..5184f4d 100644
      }
      
      return self;
-@@ -96,6 +99,9 @@ - (void)willMoveToSuperview:(UIView *)newSuperview {
+@@ -96,6 +103,9 @@ - (void)willMoveToSuperview:(UIView *)newSuperview {
  #pragma mark - React API
  
  - (void)mountChildComponentView:(UIView<RCTComponentViewProtocol> *)childComponentView index:(NSInteger)index {
@@ -181,7 +187,7 @@ index d52f532..5184f4d 100644
      UIViewController *vc = [UIViewController new];
      [vc.view addSubview:childComponentView];
      [_nativeChildrenViewControllers insertObject:vc atIndex:index];
-@@ -103,13 +109,23 @@ - (void)mountChildComponentView:(UIView<RCTComponentViewProtocol> *)childCompone
+@@ -103,13 +113,23 @@ - (void)mountChildComponentView:(UIView<RCTComponentViewProtocol> *)childCompone
  }
  
  - (void)unmountChildComponentView:(UIView<RCTComponentViewProtocol> *)childComponentView index:(NSInteger)index {
@@ -206,7 +212,7 @@ index d52f532..5184f4d 100644
      }
  }
  
-@@ -127,10 +143,22 @@ -(void)updateLayoutMetrics:(const facebook::react::LayoutMetrics &)layoutMetrics
+@@ -127,10 +147,22 @@ -(void)updateLayoutMetrics:(const facebook::react::LayoutMetrics &)layoutMetrics
  
  
  -(void)prepareForRecycle {
@@ -229,7 +235,7 @@ index d52f532..5184f4d 100644
  }
  
  - (void)shouldDismissKeyboard:(RNCViewPagerKeyboardDismissMode)dismissKeyboard {
-@@ -200,6 +228,14 @@ - (void)enableSwipe {
+@@ -200,6 +232,14 @@ - (void)enableSwipe {
  - (void)goTo:(NSInteger)index animated:(BOOL)animated {
      NSInteger numberOfPages = _nativeChildrenViewControllers.count;
      
@@ -244,7 +250,7 @@ index d52f532..5184f4d 100644
      [self disableSwipe];
      
      _destinationIndex = index;
-@@ -223,7 +259,50 @@ - (void)goTo:(NSInteger)index animated:(BOOL)animated {
+@@ -223,7 +263,50 @@ - (void)goTo:(NSInteger)index animated:(BOOL)animated {
  - (void)setPagerViewControllers:(NSInteger)index
                        direction:(UIPageViewControllerNavigationDirection)direction
                         animated:(BOOL)animated{
@@ -296,12 +302,14 @@ index d52f532..5184f4d 100644
          [self enableSwipe];
          return;
      }
-@@ -231,17 +310,30 @@ - (void)setPagerViewControllers:(NSInteger)index
+@@ -231,17 +314,37 @@ - (void)setPagerViewControllers:(NSInteger)index
      transitioning = YES;
  
      __weak RNCPagerViewComponentView *weakSelf = self;
 -    [_nativePageViewController setViewControllers:@[[_nativeChildrenViewControllers objectAtIndex:index]]
 +    NSUInteger capturedGeneration = _generation;
++    _transitionId++;
++    NSUInteger capturedTransitionId = _transitionId;
 +    [_nativePageViewController setViewControllers:@[targetVC]
                                          direction:direction
                                           animated:animated
@@ -319,6 +327,11 @@ index d52f532..5184f4d 100644
 +            return;
 +        }
 +
++        // A newer transition was started, this completion is stale
++        if (strongSelf->_transitionId != capturedTransitionId) {
++            return;
++        }
++
          [strongSelf enableSwipe];
          if (strongSelf->_eventEmitter != nullptr ) {
              const auto eventEmitter = [strongSelf pagerEventEmitter];
@@ -331,7 +344,7 @@ index d52f532..5184f4d 100644
              strongSelf->_currentIndex = index;
          }
          [strongSelf updateLayoutMetrics:strongSelf->_layoutMetrics oldLayoutMetrics:strongSelf->_oldLayoutMetrics];
-@@ -252,6 +344,11 @@ - (void)setPagerViewControllers:(NSInteger)index
+@@ -252,6 +355,11 @@ - (void)setPagerViewControllers:(NSInteger)index
  - (UIViewController *)nextControllerForController:(UIViewController *)controller
                                        inDirection:(UIPageViewControllerNavigationDirection)direction {
      NSUInteger numberOfPages = _nativeChildrenViewControllers.count;
@@ -343,7 +356,7 @@ index d52f532..5184f4d 100644
      NSInteger index = [_nativeChildrenViewControllers indexOfObject:controller];
      
      if (index == NSNotFound) {
-@@ -274,13 +371,22 @@ - (UIViewController *)currentlyDisplayed {
+@@ -274,13 +382,22 @@ - (UIViewController *)currentlyDisplayed {
  #pragma mark - UIScrollViewDelegate
  
  - (void)scrollViewWillBeginDragging:(UIScrollView *)scrollView {
@@ -366,7 +379,7 @@ index d52f532..5184f4d 100644
      eventEmitter->onPageScrollStateChanged(RNCViewPagerEventEmitter::OnPageScrollStateChanged{.pageScrollState =  RNCViewPagerEventEmitter::OnPageScrollStateChangedPageScrollState::Settling });
      
      if (!_overdrag) {
-@@ -300,12 +406,21 @@ - (void)scrollViewWillEndDragging:(UIScrollView *)scrollView withVelocity:(CGPoi
+@@ -300,12 +417,21 @@ - (void)scrollViewWillEndDragging:(UIScrollView *)scrollView withVelocity:(CGPoi
  }
  
  - (void)scrollViewDidEndDecelerating:(UIScrollView *)scrollView {
@@ -388,7 +401,7 @@ index d52f532..5184f4d 100644
      BOOL isHorizontal = [self isHorizontal];
      CGFloat contentOffset = isHorizontal ? scrollView.contentOffset.x : scrollView.contentOffset.y;
      CGFloat frameSize = isHorizontal ? scrollView.frame.size.width : scrollView.frame.size.height;
-@@ -357,13 +472,18 @@ - (void)pageViewController:(UIPageViewController *)pageViewController
+@@ -357,13 +483,18 @@ - (void)pageViewController:(UIPageViewController *)pageViewController
          didFinishAnimating:(BOOL)finished
     previousViewControllers:(nonnull NSArray<UIViewController *> *)previousViewControllers
         transitionCompleted:(BOOL)completed {
@@ -408,7 +421,7 @@ index d52f532..5184f4d 100644
      }
  }
  
-@@ -427,10 +547,12 @@ - (BOOL)isLtrLayout {
+@@ -427,10 +558,12 @@ - (BOOL)isLtrLayout {
  
  - (void)sendScrollEventsForPosition:(NSInteger)position offset:(CGFloat)offset {
      const auto eventEmitter = [self pagerEventEmitter];
