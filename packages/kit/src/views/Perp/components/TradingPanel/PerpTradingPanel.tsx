@@ -17,6 +17,7 @@ import {
 
 import { useOrderConfirm, useTradingPrice } from '../../hooks';
 
+import { PerpFeeTierPopover } from './components/PerpFeeTierPopover';
 import { showOrderConfirmDialog } from './modals/OrderConfirmModal';
 import { PerpTradingForm } from './panels/PerpTradingForm';
 import { PerpTradingButton } from './PerpTradingButton';
@@ -136,6 +137,7 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
           isNoEnoughMargin={isNoEnoughMargin}
         />
       )}
+      <PerpFeeTierPopover />
     </YStack>
   );
   return (
