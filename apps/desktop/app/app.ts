@@ -1008,22 +1008,32 @@ function initChildProcess() {
 const singleInstance = app.requestSingleInstanceLock();
 
 if (!singleInstance && !process.mas) {
-  quitOrMinimizeApp();
+  // Second instance detected - quit immediately to prevent any initialization
+  logger.info('Second instance detected, quitting immediately');
+  app.quit();
 } else {
   app.on('second-instance', (e, argv) => {
+    logger.info('Second instance launched, focusing existing window', {
+      argv,
+      platform: process.platform,
+    });
+
     const safelyMainWindow = getSafelyMainWindow();
     if (safelyMainWindow) {
+      // Restore window if minimized
       if (safelyMainWindow.isMinimized()) {
         safelyMainWindow.restore();
       }
-      showMainWindow();
 
-      // Protocol handler for win32
-      // argv: An array of the second instance’s (command line / deep linked) arguments
-      if (isWin || isMac) {
-        // Keep only command line / deep linked arguments
-        const deeplinkingUrl = argv[1];
-        handleDeepLinkUrl(null, deeplinkingUrl, argv, true);
+      // Handle deep link arguments for all platforms
+      // argv: An array of the second instance's (command line / deep linked) arguments
+      const deeplinkingUrl = argv[1];
+      if (deeplinkingUrl) {
+        // handleDeepLinkUrl internally calls showMainWindow(), so we don't need to call it separately
+        handleDeepLinkUrl(null, deeplinkingUrl, argv, false); // isColdStartup=false for second instance
+      } else {
+        // No deep link, just show and focus the window
+        showMainWindow();
       }
     }
   });
