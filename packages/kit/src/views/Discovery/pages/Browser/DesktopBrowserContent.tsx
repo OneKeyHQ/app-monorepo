@@ -233,35 +233,71 @@ function BasicDesktopBrowserContent({
   const { tab } = useWebTabDataById(id);
   const isActive = activeTabId === id;
 
-  // GPU Resource Cleanup - Release resources when tab is closed
+  // Memory Cleanup - Aggressively release all resources when tab is closed
   useEffect(() => {
     return () => {
       if (platformEnv.isDesktop) {
         const webview = webviewRefs[id]?.innerRef as any;
         if (webview) {
           try {
-            // Close DevTools to release GPU memory
-            if (typeof webview.closeDevTools === 'function') {
-              webview.closeDevTools();
+            // Step 1: Clear all JavaScript timers and intervals to prevent memory leaks
+            // This addresses the major cause of OOM crashes in long-running DApp sessions
+            if (typeof webview.executeJavaScript === 'function') {
+              void webview.executeJavaScript(`
+                try {
+                  // Clear all intervals and timeouts
+                  const maxId = setTimeout(() => {}, 0);
+                  for (let i = 0; i < maxId; i++) {
+                    clearInterval(i);
+                    clearTimeout(i);
+                  }
+
+                  // Cancel all animation frames
+                  let rafId = requestAnimationFrame(() => {});
+                  while (rafId--) {
+                    cancelAnimationFrame(rafId);
+                  }
+
+                  console.log('[Memory Cleanup] Cleared all timers and intervals for tab');
+                } catch (e) {
+                  console.error('[Memory Cleanup] Failed to clear timers:', e);
+                }
+              `);
             }
 
-            // Stop all media playback (audio/video) to release resources
+            // Step 2: Stop all media playback (audio/video) to release resources
             if (typeof webview.stop === 'function') {
               webview.stop();
             }
 
-            // Clear history to free memory
+            // Step 3: Close DevTools to release GPU memory
+            if (typeof webview.closeDevTools === 'function') {
+              webview.closeDevTools();
+            }
+
+            // Step 4: Clear browsing data and caches
             if (typeof webview.clearHistory === 'function') {
               webview.clearHistory();
             }
 
-            console.log(`[GPU Cleanup] Released resources for tab: ${id}`);
+            // Step 5: Clear session storage and cache
+            if (webview.getWebContents && typeof webview.getWebContents === 'function') {
+              const webContents = webview.getWebContents();
+              if (webContents && webContents.session) {
+                void webContents.session.clearCache();
+                void webContents.session.clearStorageData({
+                  storages: ['cache', 'cachestorage'],
+                });
+              }
+            }
+
+            console.log(`[Memory Cleanup] Released all resources for tab: ${id}`);
           } catch (error) {
-            console.error(`[GPU Cleanup] Failed to cleanup tab ${id}:`, error);
+            console.error(`[Memory Cleanup] Failed to cleanup tab ${id}:`, error);
           }
         }
 
-        // Remove webview reference to allow garbage collection
+        // Step 6: Remove webview reference to allow garbage collection
         delete webviewRefs[id];
       }
     };

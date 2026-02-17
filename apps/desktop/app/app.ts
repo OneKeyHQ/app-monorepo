@@ -1166,6 +1166,124 @@ logger.info('GPU Protection System initialized', {
 
 // ==================== End GPU Protection ====================
 
+// ==================== Memory Protection System ====================
+// Prevent OOM crashes by monitoring and limiting renderer process memory
+// Related: Sentry issue - OOM crash after 3 hours with DApp browser open
+
+const MEMORY_LIMIT_WARNING_MB = 1024; // 1GB warning threshold
+const MEMORY_LIMIT_CRITICAL_MB = 2048; // 2GB critical threshold
+const MEMORY_CHECK_INTERVAL_MS = 60000; // Check every 60 seconds
+
+let memoryMonitorInterval: ReturnType<typeof setInterval> | null = null;
+
+function startMemoryMonitoring() {
+  if (memoryMonitorInterval) {
+    clearInterval(memoryMonitorInterval);
+  }
+
+  memoryMonitorInterval = setInterval(async () => {
+    try {
+      const memoryInfo = await process.getProcessMemoryInfo();
+      const memoryUsageMB = Math.round(memoryInfo.private / 1024); // Convert KB to MB
+
+      // Log memory usage periodically for monitoring
+      if (memoryUsageMB > 512) {
+        // Only log if > 512MB
+        logger.info(
+          `[Memory Monitor] Current memory usage: ${memoryUsageMB}MB`,
+        );
+      }
+
+      // Warning threshold: 1GB
+      if (memoryUsageMB > MEMORY_LIMIT_WARNING_MB) {
+        logger.warn(
+          `⚠️ [Memory Monitor] Memory usage high: ${memoryUsageMB}MB (threshold: ${MEMORY_LIMIT_WARNING_MB}MB)`,
+        );
+
+        // Suggest clearing cache
+        const safelyMainWindow = getSafelyMainWindow();
+        if (safelyMainWindow && !safelyMainWindow.isDestroyed()) {
+          safelyMainWindow.webContents.send('memory-pressure-warning', {
+            currentMemoryMB: memoryUsageMB,
+            thresholdMB: MEMORY_LIMIT_WARNING_MB,
+            level: 'warning',
+          });
+        }
+      }
+
+      // Critical threshold: 2GB
+      if (memoryUsageMB > MEMORY_LIMIT_CRITICAL_MB) {
+        logger.error(
+          `🔴 [Memory Monitor] CRITICAL memory usage: ${memoryUsageMB}MB (threshold: ${MEMORY_LIMIT_CRITICAL_MB}MB)`,
+        );
+
+        // Trigger aggressive cleanup
+        const safelyMainWindow = getSafelyMainWindow();
+        if (safelyMainWindow && !safelyMainWindow.isDestroyed()) {
+          // Clear all caches aggressively
+          const webContents = safelyMainWindow.webContents;
+          if (webContents && webContents.session) {
+            void webContents.session.clearCache();
+            void webContents.session.clearStorageData({
+              storages: ['cachestorage'],
+            });
+            logger.info('[Memory Monitor] Cleared caches to reduce memory');
+          }
+
+          // Notify renderer to reload inactive tabs
+          safelyMainWindow.webContents.send('memory-pressure-critical', {
+            currentMemoryMB: memoryUsageMB,
+            thresholdMB: MEMORY_LIMIT_CRITICAL_MB,
+            level: 'critical',
+            action: 'reload-inactive-tabs',
+          });
+        }
+
+        // Track critical memory events in Sentry
+        try {
+          const { captureException } = require('@sentry/electron/main');
+          captureException(new Error('Critical Memory Usage Detected'), {
+            level: 'warning',
+            tags: {
+              memory_usage_mb: memoryUsageMB,
+              threshold_mb: MEMORY_LIMIT_CRITICAL_MB,
+            },
+            extra: {
+              memory_info: memoryInfo,
+            },
+          });
+        } catch (e) {
+          logger.error('[Memory Monitor] Failed to report to Sentry:', e);
+        }
+      }
+    } catch (error) {
+      logger.error('[Memory Monitor] Failed to check memory:', error);
+    }
+  }, MEMORY_CHECK_INTERVAL_MS);
+
+  logger.info('[Memory Monitor] Started monitoring', {
+    warningThresholdMB: MEMORY_LIMIT_WARNING_MB,
+    criticalThresholdMB: MEMORY_LIMIT_CRITICAL_MB,
+    checkIntervalMs: MEMORY_CHECK_INTERVAL_MS,
+  });
+}
+
+// Start monitoring when app is ready
+app.on('ready', () => {
+  startMemoryMonitoring();
+});
+
+// Stop monitoring when app quits
+app.on('before-quit', () => {
+  if (memoryMonitorInterval) {
+    clearInterval(memoryMonitorInterval);
+    memoryMonitorInterval = null;
+    logger.info('[Memory Monitor] Stopped monitoring');
+  }
+});
+
+// ==================== End Memory Protection ====================
+
 // Closing the cause context: https://onekeyhq.atlassian.net/browse/OK-8096
 app.commandLine.appendSwitch('disable-features', 'CrossOriginOpenerPolicy');
 
