@@ -23,7 +23,7 @@ export function useMemoryPressureHandler() {
 
     // Handler for warning level (1GB+)
     const handleMemoryWarning = (event: any) => {
-      const { currentMemoryMB, level } = event as {
+      const { currentMemoryMB } = event as {
         currentMemoryMB: number;
         thresholdMB: number;
         level: 'warning';
@@ -42,7 +42,7 @@ export function useMemoryPressureHandler() {
 
     // Handler for critical level (2GB+)
     const handleMemoryCritical = (event: any) => {
-      const { currentMemoryMB, level, action } = event as {
+      const { currentMemoryMB, action } = event as {
         currentMemoryMB: number;
         thresholdMB: number;
         level: 'critical';
