@@ -233,6 +233,40 @@ function BasicDesktopBrowserContent({
   const { tab } = useWebTabDataById(id);
   const isActive = activeTabId === id;
 
+  // GPU Resource Cleanup - Release resources when tab is closed
+  useEffect(() => {
+    return () => {
+      if (platformEnv.isDesktop) {
+        const webview = webviewRefs[id]?.innerRef as any;
+        if (webview) {
+          try {
+            // Close DevTools to release GPU memory
+            if (typeof webview.closeDevTools === 'function') {
+              webview.closeDevTools();
+            }
+
+            // Stop all media playback (audio/video) to release resources
+            if (typeof webview.stop === 'function') {
+              webview.stop();
+            }
+
+            // Clear history to free memory
+            if (typeof webview.clearHistory === 'function') {
+              webview.clearHistory();
+            }
+
+            console.log(`[GPU Cleanup] Released resources for tab: ${id}`);
+          } catch (error) {
+            console.error(`[GPU Cleanup] Failed to cleanup tab ${id}:`, error);
+          }
+        }
+
+        // Remove webview reference to allow garbage collection
+        delete webviewRefs[id];
+      }
+    };
+  }, [id]);
+
   return (
     <Freeze key={id} freeze={!isActive}>
       {platformEnv.isDesktop ? <Find id={id} /> : null}

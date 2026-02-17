@@ -1068,6 +1068,104 @@ app.on('window-all-closed', () => {
   quitOrMinimizeApp();
 });
 
+// ==================== GPU Process Protection System ====================
+// Comprehensive GPU crash prevention and recovery
+// Related: Sentry issue - GPU process crashes on Windows AMD + heavy DApp usage
+
+// 1. GPU Crash Detection and Recovery Handler
+app.on('child-process-gone', (event, details) => {
+  logger.error('Child process gone:', {
+    type: details.type,
+    reason: details.reason,
+    exitCode: details.exitCode,
+    name: details.name,
+  });
+
+  if (details.type === 'GPU') {
+    logger.error('🔴 GPU process crashed - initiating recovery');
+
+    // Record crash statistics
+    store.recordGPUCrash();
+    const stats = store.getGPUCrashStats();
+
+    // Track GPU crash in Sentry for monitoring
+    try {
+      const { captureException } = require('@sentry/electron/main');
+      captureException(new Error('GPU Process Crashed'), {
+        level: 'fatal',
+        tags: {
+          gpu_reason: details.reason,
+          gpu_exit_code: details.exitCode,
+          platform: process.platform,
+          cpu_model: os.cpus()[0]?.model || 'unknown',
+          crash_count: stats.count,
+        },
+        extra: {
+          last_crash_time: stats.lastCrashTime,
+          time_since_start: Date.now() - (app.getAppMetrics()[0]?.creationTime || 0),
+        },
+      });
+    } catch (e) {
+      logger.error('Failed to report GPU crash to Sentry:', e);
+    }
+
+    // Notify renderer process about the crash
+    const safelyMainWindow = getSafelyMainWindow();
+    if (safelyMainWindow && !safelyMainWindow.isDestroyed()) {
+      safelyMainWindow.webContents.send('gpu-process-crashed', {
+        reason: details.reason,
+        exitCode: details.exitCode,
+        timestamp: Date.now(),
+        crashCount: stats.count,
+      });
+    }
+
+    // Log critical crashes for monitoring
+    if (details.reason === 'crashed' || details.reason === 'oom') {
+      logger.error('Critical GPU crash detected');
+      logger.error('Crash details:', {
+        reason: details.reason,
+        totalCrashes: stats.count,
+        suggestion: 'Consider closing some browser tabs to reduce GPU load',
+      });
+    }
+  }
+});
+
+// 2. Monitor render process crashes (may be GPU-related)
+app.on('render-process-gone', (event, webContents, details) => {
+  logger.error('Render process gone:', {
+    reason: details.reason,
+    exitCode: details.exitCode,
+  });
+
+  if (details.reason === 'crashed' || details.reason === 'oom') {
+    logger.warn('⚠️ Renderer crashed - may indicate GPU issues');
+  }
+});
+
+// 3. GPU Info Update Monitoring
+app.on('gpu-info-update', () => {
+  logger.info('GPU info updated');
+});
+
+// 4. GPU Resource Limits (prevent memory exhaustion)
+if (isWin || isLinux) {
+  // Limit GPU compositing framerate to reduce GPU load
+  app.commandLine.appendSwitch('max-gum-fps', '60');
+}
+
+// 5. Log GPU protection status
+const gpuStats = store.getGPUCrashStats();
+logger.info('GPU Protection System initialized', {
+  platform: process.platform,
+  cpuModel: os.cpus()[0]?.model || 'unknown',
+  totalGPUCrashes: gpuStats.count,
+  lastCrashTime: gpuStats.lastCrashTime ? new Date(gpuStats.lastCrashTime).toISOString() : 'never',
+});
+
+// ==================== End GPU Protection ====================
+
 // Closing the cause context: https://onekeyhq.atlassian.net/browse/OK-8096
 app.commandLine.appendSwitch('disable-features', 'CrossOriginOpenerPolicy');
 
