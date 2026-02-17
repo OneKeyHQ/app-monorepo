@@ -1102,7 +1102,8 @@ app.on('child-process-gone', (event, details) => {
         },
         extra: {
           last_crash_time: stats.lastCrashTime,
-          time_since_start: Date.now() - (app.getAppMetrics()[0]?.creationTime || 0),
+          time_since_start:
+            Date.now() - (app.getAppMetrics()[0]?.creationTime || 0),
         },
       });
     } catch (e) {
@@ -1161,7 +1162,9 @@ logger.info('GPU Protection System initialized', {
   platform: process.platform,
   cpuModel: os.cpus()[0]?.model || 'unknown',
   totalGPUCrashes: gpuStats.count,
-  lastCrashTime: gpuStats.lastCrashTime ? new Date(gpuStats.lastCrashTime).toISOString() : 'never',
+  lastCrashTime: gpuStats.lastCrashTime
+    ? new Date(gpuStats.lastCrashTime).toISOString()
+    : 'never',
 });
 
 // ==================== End GPU Protection ====================
@@ -1172,7 +1175,7 @@ logger.info('GPU Protection System initialized', {
 
 const MEMORY_LIMIT_WARNING_MB = 1024; // 1GB warning threshold
 const MEMORY_LIMIT_CRITICAL_MB = 2048; // 2GB critical threshold
-const MEMORY_CHECK_INTERVAL_MS = 60000; // Check every 60 seconds
+const MEMORY_CHECK_INTERVAL_MS = 60_000; // Check every 60 seconds
 
 let memoryMonitorInterval: ReturnType<typeof setInterval> | null = null;
 

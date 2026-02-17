@@ -281,7 +281,10 @@ function BasicDesktopBrowserContent({
             }
 
             // Step 5: Clear session storage and cache
-            if (webview.getWebContents && typeof webview.getWebContents === 'function') {
+            if (
+              webview.getWebContents &&
+              typeof webview.getWebContents === 'function'
+            ) {
               const webContents = webview.getWebContents();
               if (webContents && webContents.session) {
                 void webContents.session.clearCache();
@@ -291,9 +294,14 @@ function BasicDesktopBrowserContent({
               }
             }
 
-            console.log(`[Memory Cleanup] Released all resources for tab: ${id}`);
+            console.log(
+              `[Memory Cleanup] Released all resources for tab: ${id}`,
+            );
           } catch (error) {
-            console.error(`[Memory Cleanup] Failed to cleanup tab ${id}:`, error);
+            console.error(
+              `[Memory Cleanup] Failed to cleanup tab ${id}:`,
+              error,
+            );
           }
         }
 
