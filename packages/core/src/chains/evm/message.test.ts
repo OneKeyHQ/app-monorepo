@@ -203,7 +203,7 @@ describe('hashMessage', () => {
       const inputs = signTypedDataV1Examples[type] || [];
       for (const input of inputs) {
         const inputType = input instanceof Buffer ? 'Buffer' : typeof input;
-        test(`should hash "${String(input)}" (type "${inputType}")`, () => {
+        test(`should hash "${String(input)}" (type "${inputType}", eip712 "${type}")`, () => {
           const typedData = [{ type, name: 'message', value: input }];
 
           expect(
@@ -219,7 +219,7 @@ describe('hashMessage', () => {
         const inputType = input instanceof Buffer ? 'Buffer' : typeof input;
         test(`should fail to hash "${String(
           input,
-        )}" (type "${inputType}")`, () => {
+        )}" (type "${inputType}", eip712 "${type}")`, () => {
           const typedData = [{ type, name: 'message', value: input }];
 
           expect(() =>
