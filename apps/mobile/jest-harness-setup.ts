@@ -8,6 +8,36 @@ import { Buffer } from 'buffer';
 (globalThis as any).Buffer = Buffer;
 (globalThis as any).process = (globalThis as any).process || { env: {} };
 
+// Polyfill ES2023 Array methods not yet available in Hermes
+if (!Array.prototype.toSorted) {
+  // eslint-disable-next-line no-extend-native
+  Array.prototype.toSorted = function <T>(
+    this: T[],
+    compareFn?: (a: T, b: T) => number,
+  ): T[] {
+    return [...this].sort(compareFn);
+  };
+}
+if (!Array.prototype.toReversed) {
+  // eslint-disable-next-line no-extend-native
+  Array.prototype.toReversed = function <T>(this: T[]): T[] {
+    return [...this].reverse();
+  };
+}
+if (!Array.prototype.toSpliced) {
+  // eslint-disable-next-line no-extend-native
+  Array.prototype.toSpliced = function <T>(
+    this: T[],
+    start: number,
+    deleteCount?: number,
+    ...items: T[]
+  ): T[] {
+    const copy = [...this];
+    copy.splice(start, deleteCount ?? 0, ...items);
+    return copy;
+  };
+}
+
 import {
   describe,
   test,
