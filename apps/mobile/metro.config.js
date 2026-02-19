@@ -36,11 +36,24 @@ if (process.env.RN_HARNESS === 'true') {
   config.server.unstable_serverRoot = monorepoRoot;
   const expoRewrite = config.server.rewriteRequestUrl || ((url) => url);
   config.server.rewriteRequestUrl = (url) => {
-    if (url.includes('/.expo/.virtual-metro-entry.bundle?')) {
+    // Handle Expo virtual entry first (before the general rewrite)
+    if (url.includes('/.expo/.virtual-metro-entry.bundle')) {
       url = url.replace(
         '/.expo/.virtual-metro-entry',
         '/apps/mobile/harness-entry',
       );
+      return expoRewrite(url);
+    }
+    // The harness constructs bundle URLs relative to projectRoot (apps/mobile/),
+    // but Metro resolves from unstable_serverRoot (monorepo root).
+    // Prefix all .bundle requests with /apps/mobile and normalize to translate:
+    //   /index.bundle              -> /apps/mobile/index.bundle
+    //   /jest-harness-setup.bundle -> /apps/mobile/jest-harness-setup.bundle
+    //   /../../packages/core/x.bundle -> /packages/core/x.bundle
+    const bundleMatch = url.match(/^(\/[^?]*\.bundle)(.*)/);
+    if (bundleMatch) {
+      const normalized = path.posix.normalize('/apps/mobile' + bundleMatch[1]);
+      url = normalized + bundleMatch[2];
     }
     return expoRewrite(url);
   };

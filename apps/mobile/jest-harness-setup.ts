@@ -2,6 +2,12 @@
 // This runs on the Hermes device (via setupFilesAfterEnv) before each test file,
 // allowing existing *.test.ts files to work unchanged in the harness environment.
 
+// Polyfill Node.js globals that don't exist in Hermes
+import { Buffer } from 'buffer';
+
+(globalThis as any).Buffer = Buffer;
+(globalThis as any).process = (globalThis as any).process || { env: {} };
+
 import {
   describe,
   test,
@@ -26,16 +32,17 @@ import {
 (globalThis as any).beforeEach = beforeEach;
 (globalThis as any).afterEach = afterEach;
 
-// Runtime module mock implementation.
-// Unlike Jest's babel-jest hoisting, Metro bundles don't support hoisting.
-// Instead, we mutate the module's exports object in-place after it has been
-// loaded. Since all importers hold a reference to the same exports object,
-// property-access patterns (e.g. `uuid.v4()`) will see the mocked values.
-// Note: destructured imports captured at import-time won't be affected,
-// but most module patterns in this codebase use namespace/default imports.
-function runtimeMockModule(moduleName: string, factory: () => unknown): void {
+// Runtime module mock via in-place mutation.
+// The babel plugin transforms jest.mock('mod', factory) into:
+//   globalThis.__harness_mock_module__(require('mod'), factory)
+// so the module object is already resolved (static require).
+// We mutate its exports in-place so property-access patterns
+// (e.g. `uuid.v4()`) see the mocked values.
+(globalThis as any).__harness_mock_module__ = (
+  mod: Record<string, unknown>,
+  factory: () => unknown,
+): void => {
   try {
-    const mod = require(moduleName) as Record<string, unknown>;
     const mockExports = factory() as Record<string, unknown>;
 
     if (
@@ -52,8 +59,6 @@ function runtimeMockModule(moduleName: string, factory: () => unknown): void {
         typeof mod.default === 'object'
       ) {
         const defaultObj = mod.default as Record<string, unknown>;
-        // If the mock factory returns an object without __esModule,
-        // treat it as a replacement for the default export
         if (!(mockExports as any).__esModule && !mockExports.default) {
           const keys = Object.keys(defaultObj);
           for (const key of keys) {
@@ -72,42 +77,46 @@ function runtimeMockModule(moduleName: string, factory: () => unknown): void {
       Object.assign(mod, mockExports);
     }
   } catch (e) {
-    console.warn(
-      `[harness-compat] jest.mock('${moduleName}') runtime mutation failed:`,
-      e,
-    );
+    console.warn('[harness-compat] __harness_mock_module__ failed:', e);
   }
-}
+};
 
 // Override the harness jest-mock Proxy with a compat shim.
 // The patch to @react-native-harness/runtime makes the property configurable,
 // allowing this override.
+//
+// NOTE: jest.mock() and jest.requireActual/requireMock are transformed by
+// babel-plugin-jest-compat at compile time. The functions below are fallbacks
+// that should rarely be called at runtime. They intentionally do NOT use
+// dynamic require() since Metro forbids it.
 Object.defineProperty(globalThis, 'jest', {
   value: {
     fn,
     spyOn,
-    mock: (moduleName: string, factory?: () => unknown) => {
-      if (factory) {
-        runtimeMockModule(moduleName, factory);
-      }
-      // jest.mock('module') without factory is a no-op (auto-mock not supported)
+    mock: (_moduleName: string, _factory?: () => unknown) => {
+      // Handled by babel plugin -> __harness_mock_module__
+      // This fallback is a no-op for edge cases the plugin doesn't catch
     },
     unmock: (_moduleName: string) => {
       // no-op
     },
-    requireActual: (moduleName: string) => {
-      // In Metro, require() already returns the real module
-      return require(moduleName);
+    requireActual: (_moduleName: string) => {
+      // Handled by babel plugin -> require('module')
+      // This fallback should not be reached
+      throw new Error(
+        '[harness-compat] jest.requireActual() was not transformed by babel plugin',
+      );
     },
-    requireMock: (moduleName: string) => {
-      // In harness mode, requireMock returns the (possibly mutated) module
-      return require(moduleName);
+    requireMock: (_moduleName: string) => {
+      // Handled by babel plugin -> require('module')
+      throw new Error(
+        '[harness-compat] jest.requireMock() was not transformed by babel plugin',
+      );
     },
     clearAllMocks: harness.clearAllMocks,
     resetAllMocks: harness.resetAllMocks,
     restoreAllMocks: harness.restoreAllMocks,
     resetModules: harness.resetModules,
-    // Provide mockImplementation/mockReturnValue support via fn()
     isMockFunction: (f: unknown): boolean => {
       return typeof f === 'function' && '_isMockFunction' in (f as any);
     },
