@@ -1,0 +1,12 @@
+diff --git a/node_modules/@react-native-harness/runtime/dist/jest-mock.js b/node_modules/@react-native-harness/runtime/dist/jest-mock.js
+index a30ddd2..d2442da 100644
+--- a/node_modules/@react-native-harness/runtime/dist/jest-mock.js
++++ b/node_modules/@react-native-harness/runtime/dist/jest-mock.js
+@@ -20,6 +20,6 @@ export const setupJestMock = () => {
+     Object.defineProperty(globalThis, 'jest', {
+         value: jestMock,
+         writable: false,
+-        configurable: false,
++        configurable: true,
+     });
+ };
