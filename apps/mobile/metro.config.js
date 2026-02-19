@@ -25,6 +25,23 @@ const config = mergeConfig(defaultConfig, sentryConfig);
 
 config.projectRoot = projectRoot;
 
+// When running under React Native Harness, reset unstable_serverRoot to projectRoot
+// so Metro resolves the entry point from apps/mobile/ instead of the monorepo root.
+// Rewrite the Expo virtual metro entry to harness-entry.js (a thin wrapper that
+// require('./index.ts')). The harness resolver intercepts that require and replaces
+// it with the harness runtime entry point.
+if (process.env.RN_HARNESS === 'true') {
+  config.server = config.server || {};
+  config.server.unstable_serverRoot = projectRoot;
+  const expoRewrite = config.server.rewriteRequestUrl || ((url) => url);
+  config.server.rewriteRequestUrl = (url) => {
+    if (url.includes('/.expo/.virtual-metro-entry.bundle?')) {
+      url = url.replace('/.expo/.virtual-metro-entry', '/harness-entry');
+    }
+    return expoRewrite(url);
+  };
+}
+
 // Allow custom hot-reload and third-party extensions
 config.resolver = config.resolver || {};
 config.resolver.sourceExts = [
@@ -73,6 +90,25 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
   }
   return resolve(context, moduleName, platform);
 };
+
+// When running under React Native Harness, manually resolve subpath exports
+// for harness and vitest packages that Metro can't handle with unstable_enablePackageExports=false.
+if (process.env.RN_HARNESS === 'true') {
+  const subpathPrefixes = ['@react-native-harness/', '@vitest/'];
+  const prevResolveRequest = config.resolver.resolveRequest;
+  config.resolver.resolveRequest = (context, moduleName, platform) => {
+    if (
+      subpathPrefixes.some((prefix) => moduleName.startsWith(prefix)) &&
+      moduleName.split('/').length > 2
+    ) {
+      try {
+        const filePath = require.resolve(moduleName);
+        return { type: 'sourceFile', filePath };
+      } catch {}
+    }
+    return prevResolveRequest(context, moduleName, platform);
+  };
+}
 
 // ---- Optional monorepo setup for Yarn workspaces (commented) ----
 // const workspaceRoot = path.resolve(projectRoot, '../..');
