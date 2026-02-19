@@ -1,19 +1,22 @@
 /** @type {import('jest').Config} */
 export default {
   preset: 'react-native-harness',
-  // Set rootDir to monorepo root so testMatch can discover tests across packages.
-  // Metro's unstable_serverRoot is also set to monorepo root (see metro.config.js)
-  // to ensure consistent path resolution between Jest runner and Metro bundler.
-  rootDir: '../..',
-  setupFilesAfterEnv: ['<rootDir>/apps/mobile/jest-harness-setup.ts'],
+  // rootDir defaults to apps/mobile/ (config file location).
+  // rn-harness.config.mjs must be findable from rootDir, so we keep the default.
+  // Use roots to include monorepo packages for cross-package test discovery.
+  roots: [
+    '<rootDir>',
+    '<rootDir>/../../packages/shared/src',
+    '<rootDir>/../../packages/core/src',
+    '<rootDir>/../../packages/kit/src',
+    '<rootDir>/../../packages/kit-bg/src',
+  ],
+  setupFilesAfterEnv: ['<rootDir>/jest-harness-setup.ts'],
   testMatch: [
     // Harness-specific smoke tests
-    '<rootDir>/apps/mobile/**/*.harness.{ts,tsx,js,jsx}',
+    '**/*.harness.{ts,tsx,js,jsx}',
     // Existing unit tests from packages
-    '<rootDir>/packages/shared/src/**/*.test.{ts,tsx}',
-    '<rootDir>/packages/core/src/**/*.test.{ts,tsx}',
-    '<rootDir>/packages/kit/src/**/*.test.{ts,tsx}',
-    '<rootDir>/packages/kit-bg/src/**/*.test.{ts,tsx}',
+    '**/*.test.{ts,tsx}',
   ],
   testPathIgnorePatterns: [
     // Same chain ignores as root jest.config.js
