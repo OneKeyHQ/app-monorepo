@@ -19,7 +19,7 @@ import type { BlurEvent, StyleProp, TextStyle } from 'react-native';
 export const stakingInputAccessoryViewID =
   'staking-amount-input-accessory-view';
 
-export const StakingPercentageInputStage = [25, 50, 100];
+export const StakingPercentageInputStage = [25, 50, 75, 100];
 
 export const useOnBlurAmountValue = (
   amountValue: string,
