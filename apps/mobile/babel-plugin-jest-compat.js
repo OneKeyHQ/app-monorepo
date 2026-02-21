@@ -59,16 +59,62 @@ module.exports = function ({ types: t }) {
       CallExpression(path) {
         const callee = path.node.callee;
 
-        // jest.requireActual('module') -> require('module')
-        // jest.requireMock('module') -> require('module')
         if (
-          t.isMemberExpression(callee) &&
-          t.isIdentifier(callee.object, { name: 'jest' }) &&
-          (t.isIdentifier(callee.property, { name: 'requireActual' }) ||
-            t.isIdentifier(callee.property, { name: 'requireMock' }))
+          !t.isMemberExpression(callee) ||
+          !t.isIdentifier(callee.object, { name: 'jest' })
         ) {
+          return;
+        }
+
+        // jest.requireActual('module') -> require('module')
+        if (t.isIdentifier(callee.property, { name: 'requireActual' })) {
           path.replaceWith(
             t.callExpression(t.identifier('require'), path.node.arguments),
+          );
+          return;
+        }
+
+        // jest.requireMock('module') -> extract default export for ES modules
+        // so that mutation via `const m = jest.requireMock('mod'); m.prop = x`
+        // affects the same object that `import m from 'mod'` resolves to.
+        // Transform: (function(_m){return _m&&_m.__esModule?_m.default||_m:_m})(require('module'))
+        if (t.isIdentifier(callee.property, { name: 'requireMock' })) {
+          path.replaceWith(
+            t.callExpression(
+              t.functionExpression(
+                null,
+                [t.identifier('_m')],
+                t.blockStatement([
+                  t.returnStatement(
+                    t.conditionalExpression(
+                      t.logicalExpression(
+                        '&&',
+                        t.identifier('_m'),
+                        t.memberExpression(
+                          t.identifier('_m'),
+                          t.identifier('__esModule'),
+                        ),
+                      ),
+                      t.logicalExpression(
+                        '||',
+                        t.memberExpression(
+                          t.identifier('_m'),
+                          t.identifier('default'),
+                        ),
+                        t.identifier('_m'),
+                      ),
+                      t.identifier('_m'),
+                    ),
+                  ),
+                ]),
+              ),
+              [
+                t.callExpression(
+                  t.identifier('require'),
+                  path.node.arguments,
+                ),
+              ],
+            ),
           );
         }
       },

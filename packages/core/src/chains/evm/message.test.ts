@@ -141,9 +141,9 @@ const signTypedDataV1ErrorExamples: { [key: string]: any } = {
   string: [
     {
       // V1: Does not accept numbers as strings (arguably correctly).
+      // Error message differs between V8 and Hermes, so use a common substring.
       input: 10,
-      errorMessage:
-        'The first argument must be of type string or an instance of Buffer, ArrayBuffer, or Array or an Array-like Object. Received type number (10)',
+      errorMessage: 'argument',
     },
   ],
   address: [
@@ -245,7 +245,8 @@ describe('hashMessage', () => {
       },
       {
         input: null,
-        errorMessage: "Cannot use 'in' operator to search for 'length' in null",
+        // Hermes: "right operand of 'in' is not an object", V8: "Cannot use 'in' operator..."
+        errorMessage: "'in'",
         label: 'null',
       },
       {

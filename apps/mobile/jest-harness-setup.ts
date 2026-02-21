@@ -8,6 +8,85 @@ import { Buffer } from 'buffer';
 (globalThis as any).Buffer = Buffer;
 (globalThis as any).process = (globalThis as any).process || { env: {} };
 
+// Load WHATWG-compliant URL polyfill. The normal app loads this via
+// polyfillsPlatform.js, but the harness entry point skips app polyfills.
+// Without this, RN's built-in regex-based URL class is used, which only
+// parses HTTP/HTTPS URLs and breaks all custom scheme parsing (onekey-wallet://,
+// solana:, wc:, bitcoin:, etc.).
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+require('react-native-url-polyfill/auto');
+
+// Trigger cross-crypto initialization which properly sets up
+// globalThis.crypto.getRandomValues via react-native-get-random-values.
+// IMPORTANT: Do NOT import react-native-get-random-values directly here.
+// cross-crypto deletes getRandomValues then re-requires the polyfill;
+// if we pre-load it, the require becomes a cached no-op and getRandomValues
+// stays deleted, causing "Cannot read property 'apply' of undefined".
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+require('crypto');
+
+// Mark harness as Jest-like so platformEnv.isJest checks pass.
+// This prevents "Passing raw password is not allowed" errors in tests
+// and disables intl formatting fallbacks that change error messages.
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const platformEnv = require('@onekeyhq/shared/src/platformEnv');
+const platformEnvObj = platformEnv?.default ?? platformEnv;
+if (platformEnvObj && typeof platformEnvObj === 'object') {
+  platformEnvObj.isJest = true;
+}
+
+// Polyfill TextDecoder/TextEncoder for Hermes.
+// Hermes may have a native TextDecoder that doesn't support the `fatal` option,
+// which causes "Failed to construct 'TextDecoder': the 'fatal' option is unsupported"
+// errors in @solana/web3.js and other libraries. Wrap it to accept `fatal`.
+{
+  const NativeTD = (globalThis as any).TextDecoder;
+  let needsWrap = !NativeTD;
+  if (NativeTD && !needsWrap) {
+    try {
+      new NativeTD('utf-8', { fatal: true });
+    } catch {
+      needsWrap = true;
+    }
+  }
+  if (needsWrap && NativeTD) {
+    // Wrap native TextDecoder using a class so `new TextDecoder()` works
+    // correctly in Hermes (function-based constructors that return a different
+    // object can cause "Cannot read property 'prototype' of undefined" in Hermes).
+    // NOTE: Do NOT require('fast-text-encoding') here even as a fallback.
+    // Including it in the bundle causes Metro to resolve all TextDecoder
+    // references to fast-text-encoding's non-fatal-supporting polyfill,
+    // breaking @solana/web3.js and other libraries that use { fatal: true }.
+    const WrappedTD = class TextDecoder {
+      _inner: any;
+      constructor(label?: string, options?: { fatal?: boolean; ignoreBOM?: boolean }) {
+        const safeOptions = options ? { ignoreBOM: options.ignoreBOM } : undefined;
+        this._inner = new NativeTD(label, safeOptions);
+      }
+      decode(input?: ArrayBufferView | ArrayBuffer, options?: { stream?: boolean }): string {
+        return this._inner.decode(input, options);
+      }
+      get encoding(): string {
+        return this._inner.encoding;
+      }
+      get fatal(): boolean {
+        return false;
+      }
+      get ignoreBOM(): boolean {
+        return this._inner.ignoreBOM ?? false;
+      }
+    };
+    (globalThis as any).TextDecoder = WrappedTD;
+    // Also set on `global` — in Metro's module wrapper, bare `TextDecoder`
+    // may resolve through `global` rather than `globalThis`. Without this,
+    // Hermes throws "Property 'TextDecoder' doesn't exist" for code that
+    // uses `new TextDecoder()` without an explicit `globalThis.` prefix.
+    if (typeof global !== 'undefined') {
+      (global as any).TextDecoder = WrappedTD;
+    }
+  }
+}
+
 // Polyfill ES2023 Array methods not yet available in Hermes
 if (!Array.prototype.toSorted) {
   // eslint-disable-next-line no-extend-native
@@ -97,6 +176,22 @@ import {
           Object.assign(defaultObj, mockExports);
           return;
         }
+        // Handle spread pattern: { ...require('esModule'), extraProp: true }
+        // The spread includes __esModule and default from the original module.
+        // Extra properties should be merged into the default export object
+        // so that `import X from 'mod'` (which resolves to mod.default) sees them.
+        if (
+          (mockExports as any).__esModule &&
+          mockExports.default === defaultObj
+        ) {
+          const extraKeys = Object.keys(mockExports).filter(
+            (k) => k !== '__esModule' && k !== 'default',
+          );
+          for (const key of extraKeys) {
+            defaultObj[key] = mockExports[key];
+          }
+          return;
+        }
       }
 
       // Mutate the module exports directly
@@ -165,6 +260,14 @@ expect.extend({
       pass: received !== undefined && received !== null,
       message: () =>
         'toMatchSnapshot() is not supported in harness mode. ' +
+        `Received value: ${String(received).slice(0, 100)}`,
+    };
+  },
+  toMatchInlineSnapshot(received: unknown, _inlineSnapshot?: string) {
+    return {
+      pass: received !== undefined && received !== null,
+      message: () =>
+        'toMatchInlineSnapshot() is not supported in harness mode. ' +
         `Received value: ${String(received).slice(0, 100)}`,
     };
   },
