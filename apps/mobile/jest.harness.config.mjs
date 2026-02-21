@@ -19,6 +19,8 @@ export default {
     '**/*.test.{ts,tsx}',
   ],
   testPathIgnorePatterns: [
+    // Detox E2E tests have their own Jest config under apps/mobile/e2e
+    'apps/mobile/e2e',
     // Same chain ignores as root jest.config.js
     'packages/core/src/chains/ada',
     'packages/core/src/chains/algo',
@@ -36,16 +38,5 @@ export default {
     'packages/core/src/chains/tron',
     'packages/core/src/chains/xmr',
     'packages/core/src/chains/xrp',
-
-    // Hermes-incompatible: module init calls mnemonicToRevealableSeed which throws
-    // without jest.mock crypto shim (InvalidMnemonic at require time)
-    'packages/core/src/secret/__tests__/secret\\.test\\.ts',
-    // Hermes-incompatible: require.importAll not available in Metro,
-    // raw password security checks fail without jest.mock
-    'packages/core/src/secret/index\\.test\\.ts',
-    // Hermes-incompatible: floating-point precision differs between V8 and Hermes
-    // (large numbers produce different string representations)
-    'packages/shared/src/utils/numberUtils\\.test\\.ts',
-    'packages/shared/src/utils/numberUtils\\.italy\\.test\\.ts',
   ],
 };

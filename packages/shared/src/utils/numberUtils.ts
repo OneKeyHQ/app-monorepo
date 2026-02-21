@@ -83,9 +83,15 @@ export interface IDisplayNumber {
   } & IFormatterOptions;
 }
 
-const countLeadingZeroDecimals = (x: BigNumber) => {
-  const counts = -Math.floor(Math.log10(x.abs().toNumber()) + 1);
-  return counts > 0 ? counts : 0;
+const countLeadingZeroDecimals = (x: BigNumber): number => {
+  const fixed = x.abs().toFixed();
+  const dotIndex = fixed.indexOf('.');
+  if (dotIndex === -1) return 0;
+  const intPart = fixed.slice(0, dotIndex);
+  if (intPart !== '0') return 0;
+  const decimals = fixed.slice(dotIndex + 1);
+  const trimmed = decimals.replace(/^0+/, '');
+  return decimals.length - trimmed.length;
 };
 
 const stripTrailingZero = (x: string, decimalSymbol: string) =>
