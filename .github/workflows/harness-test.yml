@@ -83,11 +83,17 @@ jobs:
         run: |
           $ANDROID_HOME/emulator/emulator -avd Pixel_7_API_35 -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot-save &
           adb wait-for-device
+          SECONDS=0
+          TIMEOUT=300
           boot_completed=""
           while [ "$boot_completed" != "1" ]; do
+            if [ "$SECONDS" -ge "$TIMEOUT" ]; then
+              echo "ERROR: Emulator boot timed out after ${TIMEOUT}s"
+              exit 1
+            fi
             sleep 5
             boot_completed=$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')
-            echo "Waiting for emulator to boot... (sys.boot_completed=$boot_completed)"
+            echo "Waiting for emulator to boot... (${SECONDS}s elapsed, sys.boot_completed=$boot_completed)"
           done
           echo "Emulator is ready"
           adb devices

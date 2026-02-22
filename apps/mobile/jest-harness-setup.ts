@@ -168,6 +168,13 @@ import {
 // so the module object is already resolved (static require).
 // We mutate its exports in-place so property-access patterns
 // (e.g. `uuid.v4()`) see the mocked values.
+//
+// WARNING: Unlike Jest, Metro shares a single module registry across all test
+// files. Mocks applied here mutate the module in-place and persist for the
+// lifetime of the harness session. This means test file execution order can
+// affect results — if file A mocks `crypto`, file B will see the mutated
+// version. The canonical test verification runs in the standard Node.js Jest
+// environment where each file has its own isolated module cache.
 (globalThis as any).__harness_mock_module__ = (
   mod: Record<string, unknown>,
   factory: () => unknown,
@@ -284,11 +291,21 @@ expect.extend({
         `Received value: ${String(received).slice(0, 100)}`,
     };
   },
-  toMatchInlineSnapshot(received: unknown, _inlineSnapshot?: string) {
+  toMatchInlineSnapshot(received: unknown, inlineSnapshot?: string) {
+    if (inlineSnapshot !== undefined) {
+      const receivedStr = JSON.stringify(received);
+      const pass = receivedStr === inlineSnapshot.trim();
+      return {
+        pass,
+        message: () =>
+          `Expected inline snapshot to match.\n` +
+          `Received: ${receivedStr}\nExpected: ${inlineSnapshot.trim()}`,
+      };
+    }
     return {
       pass: received !== undefined && received !== null,
       message: () =>
-        'toMatchInlineSnapshot() is not supported in harness mode. ' +
+        'toMatchInlineSnapshot() is not supported in harness mode (no inline snapshot provided). ' +
         `Received value: ${String(received).slice(0, 100)}`,
     };
   },

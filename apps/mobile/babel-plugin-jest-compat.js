@@ -12,7 +12,7 @@
 // - jest.requireMock('x')     -> require('x')
 
 module.exports = function ({ types: t }) {
-  if (!process.env.RN_HARNESS) {
+  if (process.env.RN_HARNESS !== 'true') {
     return { visitor: {} };
   }
 

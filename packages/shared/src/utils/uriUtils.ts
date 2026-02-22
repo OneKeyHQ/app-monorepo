@@ -222,8 +222,10 @@ export const validateUrl = (url: string): string => {
   if (url.includes('://')) {
     try {
       const parsedUrl = new URL(url);
-      // Normalize pathname: strip root-only "/" and trailing slashes
-      // (Hermes URL parser may add trailing slashes that V8 does not)
+      // Normalize pathname: strip root-only "/" so the reconstructed URL
+      // doesn't contain a bare slash after host. Also strip trailing slashes
+      // added by Hermes URL parser (Hermes may append "/" that V8 does not).
+      // This normalization runs on all platforms for consistent behavior.
       let pathname = parsedUrl.pathname === '/' ? '' : parsedUrl.pathname;
       if (pathname.length > 1 && pathname.endsWith('/')) {
         pathname = pathname.slice(0, -1);
