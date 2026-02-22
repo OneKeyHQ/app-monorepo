@@ -120,6 +120,41 @@ const lazyDecimalSymbol = (digits: number) => {
   return symbolMap[locale];
 };
 
+// Detect the locale-specific grouping separator by formatting a known value.
+const lazyGroupingSeparator = (): string => {
+  const locale = appLocale.intl.locale;
+  const key = `${locale}_group`;
+  if (!symbolMap[key]) {
+    // Format 1000 to get the grouping separator (e.g. "," for en, "." for it)
+    const formatted = formatNumber(1000, {
+      useGrouping: true,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    });
+    // The separator is the character between '1' and '000'
+    symbolMap[key] = formatted.length === 5 ? formatted[1] : ',';
+  }
+  return symbolMap[key];
+};
+
+// Insert grouping separator into a plain integer string.
+// This avoids passing large numbers through Intl.NumberFormat which
+// may overflow to Infinity or lose precision on Hermes.
+const insertGroupingSeparator = (intStr: string): string => {
+  const isNegative = intStr.startsWith('-');
+  const abs = isNegative ? intStr.slice(1) : intStr;
+  const sep = lazyGroupingSeparator();
+  // Insert separator every 3 digits from the right
+  let result = '';
+  for (let i = 0; i < abs.length; i += 1) {
+    if (i > 0 && (abs.length - i) % 3 === 0) {
+      result += sep;
+    }
+    result += abs[i];
+  }
+  return isNegative ? `-${result}` : result;
+};
+
 const formatLocalNumber = (
   value: BigNumber | string,
   {
@@ -135,16 +170,42 @@ const formatLocalNumber = (
   const num = new BigNumber(value).toFixed(digits, BigNumber.ROUND_HALF_UP);
 
   const [integerPart, decimalPart] = num.split('.');
-  const integer = `${integerPart === '-0' ? '-' : ''}${
-    disableThousandSeparator
-      ? integerPart
-      : formatNumber(new BigNumber(integerPart).toFixed() as any, {
-          useGrouping: true,
-        })
-  }`;
+
+  let formattedInteger: string;
+  const isNegativeInt = integerPart.startsWith('-');
+  if (disableThousandSeparator) {
+    formattedInteger = integerPart;
+  } else {
+    const absInt = isNegativeInt ? integerPart.slice(1) : integerPart;
+    const numericValue = Number(absInt);
+    if (!Number.isFinite(numericValue)) {
+      // Number overflows to Infinity — fall through to the ∞ check below.
+      // This matches the original behavior where Intl.NumberFormat returns ∞
+      // and the raw BigNumber string is used as the formatted value.
+      formattedInteger = formatNumber(numericValue, { useGrouping: true });
+    } else if (numericValue > Number.MAX_SAFE_INTEGER) {
+      // Use manual grouping for numbers that lose precision when converted
+      // to JS number (Hermes Intl.NumberFormat limitation).
+      formattedInteger = insertGroupingSeparator(integerPart);
+    } else {
+      // formatNumber expects a number; pass the signed value so the
+      // formatted output preserves the negative sign.
+      // Skip sign for "-0" — the prefix logic below handles that case.
+      formattedInteger = formatNumber(
+        isNegativeInt && absInt !== '0' ? -numericValue : numericValue,
+        { useGrouping: true },
+      );
+    }
+  }
+
+  // Restore leading "-" when the integer part is "-0" (formatNumber
+  // normalizes -0 to "0", so the sign must be re-added manually).
+  const integer = `${integerPart === '-0' ? '-' : ''}${formattedInteger}`;
+
   const decimalSymbol = lazyDecimalSymbol(digits);
   const formatDecimal = `${decimalSymbol}${decimalPart}`;
-  if (integer === '∞') {
+  // Hermes may produce '+∞' instead of '∞' for Infinity.
+  if (integer.includes('∞')) {
     return {
       value: num,
       decimalSymbol,
