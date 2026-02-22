@@ -87,6 +87,27 @@ if (platformEnvObj && typeof platformEnvObj === 'object') {
   }
 }
 
+// Polyfill structuredClone for Hermes (needed by fake-indexeddb and other libs).
+// Mirrors the polyfill in jest-setup.js for the Node.js Jest environment.
+if (typeof (globalThis as any).structuredClone === 'undefined') {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    (globalThis as any).structuredClone = require('@ungap/structured-clone').default;
+  } catch {
+    // @ungap/structured-clone not available in bundle
+  }
+}
+
+// Polyfill IndexedDB for Hermes (needed by LocalDbIndexed tests).
+// fake-indexeddb is a pure-JS in-memory implementation that works once
+// structuredClone is available. Without this, LocalDbIndexed tests are skipped.
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  require('fake-indexeddb/auto');
+} catch {
+  // fake-indexeddb may not resolve in all Metro configurations
+}
+
 // Polyfill ES2023 Array methods not yet available in Hermes
 if (!Array.prototype.toSorted) {
   // eslint-disable-next-line no-extend-native
