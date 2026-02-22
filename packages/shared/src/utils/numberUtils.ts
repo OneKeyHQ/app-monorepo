@@ -108,31 +108,73 @@ const formatNumber = (value: number, options?: FormatNumberOptions) => {
   return appLocale.intl.formatNumber(value, options);
 };
 
+// Static decimal and grouping separators for all supported locales
+// (sourced from Unicode CLDR via Node.js full-ICU Intl.NumberFormat).
+// Hermes has incomplete ICU data for non-English locales, so we use this
+// table instead of runtime detection. Keep in sync with localeJsonMap.ts.
+const LOCALE_SEPARATORS: Record<string, { decimal: string; grouping: string }> =
+  {
+    'bn': { decimal: '.', grouping: ',' },
+    'de': { decimal: ',', grouping: '.' },
+    'en': { decimal: '.', grouping: ',' },
+    'en-US': { decimal: '.', grouping: ',' },
+    'es': { decimal: ',', grouping: '.' },
+    'fr-FR': { decimal: ',', grouping: '\u202F' },
+    'hi-IN': { decimal: '.', grouping: ',' },
+    'id': { decimal: ',', grouping: '.' },
+    'it-IT': { decimal: ',', grouping: '.' },
+    'ja-JP': { decimal: '.', grouping: ',' },
+    'ko-KR': { decimal: '.', grouping: ',' },
+    'pt': { decimal: ',', grouping: '.' },
+    'pt-BR': { decimal: ',', grouping: '.' },
+    'ru': { decimal: ',', grouping: '\u00A0' },
+    'th-TH': { decimal: '.', grouping: ',' },
+    'uk-UA': { decimal: ',', grouping: '\u00A0' },
+    'vi': { decimal: ',', grouping: '.' },
+    'zh-CN': { decimal: '.', grouping: ',' },
+    'zh-HK': { decimal: '.', grouping: ',' },
+    'zh-TW': { decimal: '.', grouping: ',' },
+  };
+
 const symbolMap: Record<string, string> = {};
 const lazyDecimalSymbol = (digits: number) => {
   const locale = appLocale.intl.locale;
   if (!symbolMap[locale]) {
-    symbolMap[locale] = formatNumber(0.1, {
-      maximumFractionDigits: digits,
-      minimumFractionDigits: digits,
-    })[1];
+    // On Hermes (isNative), use the static table because Intl.NumberFormat
+    // has incomplete ICU data for non-English locales.
+    const known = platformEnv.isNative
+      ? LOCALE_SEPARATORS[locale]
+      : undefined;
+    if (known) {
+      symbolMap[locale] = known.decimal;
+    } else {
+      symbolMap[locale] = formatNumber(0.1, {
+        maximumFractionDigits: digits,
+        minimumFractionDigits: digits,
+      })[1];
+    }
   }
   return symbolMap[locale];
 };
 
-// Detect the locale-specific grouping separator by formatting a known value.
+// Detect the locale-specific grouping separator.
 const lazyGroupingSeparator = (): string => {
   const locale = appLocale.intl.locale;
   const key = `${locale}_group`;
   if (!symbolMap[key]) {
-    // Format 1000 to get the grouping separator (e.g. "," for en, "." for it)
-    const formatted = formatNumber(1000, {
-      useGrouping: true,
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    });
-    // The separator is the character between '1' and '000'
-    symbolMap[key] = formatted.length === 5 ? formatted[1] : ',';
+    const known = platformEnv.isNative
+      ? LOCALE_SEPARATORS[locale]
+      : undefined;
+    if (known) {
+      symbolMap[key] = known.grouping;
+    } else {
+      const formatted = formatNumber(1000, {
+        useGrouping: true,
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      });
+      symbolMap[key] = formatted.length === 5 ? formatted[1] : ',';
+    }
   }
   return symbolMap[key];
 };
@@ -180,17 +222,18 @@ const formatLocalNumber = (
     const numericValue = Number(absInt);
     if (!Number.isFinite(numericValue)) {
       // Number overflows to Infinity — fall through to the ∞ check below.
-      // This matches the original behavior where Intl.NumberFormat returns ∞
-      // and the raw BigNumber string is used as the formatted value.
       formattedInteger = formatNumber(numericValue, { useGrouping: true });
-    } else if (numericValue > Number.MAX_SAFE_INTEGER) {
-      // Use manual grouping for numbers that lose precision when converted
-      // to JS number (Hermes Intl.NumberFormat limitation).
+    } else if (
+      platformEnv.isNative ||
+      numericValue > Number.MAX_SAFE_INTEGER
+    ) {
+      // On Hermes (isNative), always use manual grouping because
+      // Intl.NumberFormat has incomplete ICU data for non-English locales.
+      // For > MAX_SAFE_INTEGER, also use manual grouping to avoid
+      // precision loss when converting to JS number.
       formattedInteger = insertGroupingSeparator(integerPart);
     } else {
-      // formatNumber expects a number; pass the signed value so the
-      // formatted output preserves the negative sign.
-      // Skip sign for "-0" — the prefix logic below handles that case.
+      // On Node.js / browsers with full ICU, use Intl.NumberFormat.
       formattedInteger = formatNumber(
         isNegativeInt && absInt !== '0' ? -numericValue : numericValue,
         { useGrouping: true },
@@ -200,7 +243,11 @@ const formatLocalNumber = (
 
   // Restore leading "-" when the integer part is "-0" (formatNumber
   // normalizes -0 to "0", so the sign must be re-added manually).
-  const integer = `${integerPart === '-0' ? '-' : ''}${formattedInteger}`;
+  // insertGroupingSeparator preserves the sign, so this only applies
+  // to the formatNumber path.
+  const needsNegZeroRestore =
+    integerPart === '-0' && !formattedInteger.startsWith('-');
+  const integer = `${needsNegZeroRestore ? '-' : ''}${formattedInteger}`;
 
   const decimalSymbol = lazyDecimalSymbol(digits);
   const formatDecimal = `${decimalSymbol}${decimalPart}`;

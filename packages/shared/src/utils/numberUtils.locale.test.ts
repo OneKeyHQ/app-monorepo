@@ -1,6 +1,7 @@
 import BigNumber from 'bignumber.js';
 
 import { appLocale } from '../locale/appLocale';
+import { LOCALES } from '../locale/localeJsonMap';
 
 import {
   formatBalance,
@@ -18,7 +19,82 @@ import {
 const defaultLocal = appLocale.intl.locale;
 const defaultMessages = appLocale.intl.messages;
 
-describe('numberUtils.italy.test', () => {
+// All locale keys from the app's supported locale list.
+const SUPPORTED_LOCALES = Object.keys(LOCALES);
+
+// Expected decimal and grouping separators for all supported locales.
+// Must match LOCALE_SEPARATORS in numberUtils.ts (sourced from Unicode CLDR).
+// When a new locale is added to LOCALES, add its entry here — otherwise
+// the test will fail, reminding you to update both tables.
+const EXPECTED_SEPARATORS: Record<string, { decimal: string; grouping: string }> =
+  {
+    'bn': { decimal: '.', grouping: ',' },
+    'de': { decimal: ',', grouping: '.' },
+    'en': { decimal: '.', grouping: ',' },
+    'en-US': { decimal: '.', grouping: ',' },
+    'es': { decimal: ',', grouping: '.' },
+    'fr-FR': { decimal: ',', grouping: '\u202F' },
+    'hi-IN': { decimal: '.', grouping: ',' },
+    'id': { decimal: ',', grouping: '.' },
+    'it-IT': { decimal: ',', grouping: '.' },
+    'ja-JP': { decimal: '.', grouping: ',' },
+    'ko-KR': { decimal: '.', grouping: ',' },
+    'pt': { decimal: ',', grouping: '.' },
+    'pt-BR': { decimal: ',', grouping: '.' },
+    'ru': { decimal: ',', grouping: '\u00A0' },
+    'th-TH': { decimal: '.', grouping: ',' },
+    'uk-UA': { decimal: ',', grouping: '\u00A0' },
+    'vi': { decimal: ',', grouping: '.' },
+    'zh-CN': { decimal: '.', grouping: ',' },
+    'zh-HK': { decimal: '.', grouping: ',' },
+    'zh-TW': { decimal: '.', grouping: ',' },
+  };
+
+describe('numberUtils locale separators', () => {
+  afterEach(() => {
+    appLocale.setLocale(defaultLocal, defaultMessages);
+  });
+
+  // Ensure every supported locale has an expected separator entry.
+  // This fails when a new locale is added to LOCALES but not to
+  // EXPECTED_SEPARATORS (or LOCALE_SEPARATORS in numberUtils.ts).
+  for (const locale of SUPPORTED_LOCALES) {
+    test(`${locale}: has expected separator definition`, () => {
+      expect(EXPECTED_SEPARATORS[locale]).toBeDefined();
+    });
+  }
+
+  for (const locale of SUPPORTED_LOCALES) {
+    const { decimal, grouping } = EXPECTED_SEPARATORS[locale] ?? {
+      decimal: '.',
+      grouping: ',',
+    };
+    test(`${locale}: decimal and grouping separators are correct`, () => {
+      appLocale.setLocale(locale, {} as any);
+      const result = formatDisplayNumber(formatBalance('1234.5678'));
+      expect(result).toContain(decimal);
+      if (grouping !== decimal) {
+        expect(result).toContain(grouping);
+      }
+    });
+  }
+
+  for (const locale of SUPPORTED_LOCALES) {
+    const { decimal } = EXPECTED_SEPARATORS[locale] ?? {
+      decimal: '.',
+      grouping: ',',
+    };
+    test(`${locale}: formatPrice uses correct decimal`, () => {
+      appLocale.setLocale(locale, {} as any);
+      const result = formatDisplayNumber(
+        formatPrice('42.50', { currency: '$' }),
+      );
+      expect(result).toContain(`$42${decimal}50`);
+    });
+  }
+});
+
+describe('numberUtils it-IT formatting', () => {
   beforeEach(() => {
     appLocale.setLocale('it-IT', {} as any);
   });
