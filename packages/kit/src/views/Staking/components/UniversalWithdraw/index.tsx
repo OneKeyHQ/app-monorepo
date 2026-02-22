@@ -31,6 +31,7 @@ import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discov
 import { validateAmountInputForStaking } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { ECheckAmountActionType } from '@onekeyhq/shared/types/staking';
 import type {
@@ -508,47 +509,97 @@ export function UniversalWithdraw({
     return items;
   }, [amountValue, estimateFeeResp, transactionConfirmation?.receive]);
   const isAccordionTriggerDisabled = !amountValue;
+  const showReceiveInput = !!receiveInputConfig?.enabled;
+  const effectiveReceiveInputConfig = useMemo(
+    () =>
+      receiveInputConfig
+        ? {
+            ...receiveInputConfig,
+            networkImageUri:
+              receiveInputConfig.networkImageUri ?? network?.logoURI,
+          }
+        : undefined,
+    [receiveInputConfig, network?.logoURI],
+  );
+  const receiveArrowOverlayStyle = useMemo(() => {
+    if (!platformEnv.isNative) {
+      return { transform: 'translate(-50%, -50%)' as const };
+    }
+    return {
+      transform: [{ translateX: -13 }, { translateY: -13 }] as const,
+    };
+  }, []);
 
   return (
     <StakingFormWrapper>
-      <Stack position="relative" opacity={amountInputDisabled ? 0.7 : 1}>
-        <StakingAmountInput
-          title={intl.formatMessage({ id: ETranslations.global_withdraw })}
-          disabled={amountInputDisabled}
-          hasError={isCheckAmountMessageError}
-          value={amountValue}
-          onChange={onChangeAmountValue}
-          onBlur={onBlurAmountValue}
-          tokenSelectorTriggerProps={{
-            selectedTokenImageUri: tokenImageUri,
-            selectedTokenSymbol: tokenSymbol,
-            selectedNetworkImageUri: network?.logoURI,
-          }}
-          inputProps={{
-            placeholder: '0',
-            autoFocus: !amountInputDisabled,
-          }}
-          balanceProps={{
-            value: balance,
-            iconText: intl.formatMessage({ id: ETranslations.global_withdraw }),
-            onPress: onMax,
-          }}
-          valueProps={{
-            value: currentValue,
-            currency: currentValue ? symbol : undefined,
-          }}
-          enableMaxAmount
-          onSelectPercentageStage={onSelectPercentageStage}
-        />
-        {amountInputDisabled ? (
-          <Stack position="absolute" w="100%" h="100%" zIndex={1} />
+      <Stack position="relative">
+        <YStack gap="$2">
+          <Stack position="relative" opacity={amountInputDisabled ? 0.7 : 1}>
+            <StakingAmountInput
+              title={intl.formatMessage({ id: ETranslations.global_withdraw })}
+              disabled={amountInputDisabled}
+              hasError={isCheckAmountMessageError}
+              value={amountValue}
+              onChange={onChangeAmountValue}
+              onBlur={onBlurAmountValue}
+              tokenSelectorTriggerProps={{
+                selectedTokenImageUri: tokenImageUri,
+                selectedTokenSymbol: tokenSymbol,
+                selectedNetworkImageUri: network?.logoURI,
+              }}
+              inputProps={{
+                placeholder: '0',
+                autoFocus: !amountInputDisabled,
+              }}
+              balanceProps={{
+                value: balance,
+                iconText: intl.formatMessage({
+                  id: ETranslations.global_withdraw,
+                }),
+                onPress: onMax,
+              }}
+              valueProps={{
+                value: currentValue,
+                currency: currentValue ? symbol : undefined,
+              }}
+              enableMaxAmount
+              onSelectPercentageStage={onSelectPercentageStage}
+            />
+            {amountInputDisabled ? (
+              <Stack position="absolute" w="100%" h="100%" zIndex={1} />
+            ) : null}
+          </Stack>
+          <ManagePageV2ReceiveInput
+            receive={transactionConfirmation?.receive}
+            config={effectiveReceiveInputConfig}
+            fiatSymbol={symbol}
+          />
+        </YStack>
+        {showReceiveInput ? (
+          <Stack
+            ai="center"
+            position="absolute"
+            top="50%"
+            left="50%"
+            zIndex={2}
+            pointerEvents="none"
+            style={receiveArrowOverlayStyle}
+          >
+            <IconButton
+              alignSelf="center"
+              bg="$bgApp"
+              variant="tertiary"
+              icon="ArrowBottomOutline"
+              iconProps={{
+                color: '$icon',
+              }}
+              size="small"
+              disabled
+              opacity={1}
+            />
+          </Stack>
         ) : null}
       </Stack>
-      <ManagePageV2ReceiveInput
-        receive={transactionConfirmation?.receive}
-        config={receiveInputConfig}
-        fiatSymbol={symbol}
-      />
 
       {remainingLessThanMinAmountWarning ? (
         <Alert

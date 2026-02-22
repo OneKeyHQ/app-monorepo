@@ -40,6 +40,7 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 import type { IFeeUTXO } from '@onekeyhq/shared/types/fee';
@@ -1256,6 +1257,26 @@ export function UniversalStake({
     amountValue,
     tokenInfo?.token.symbol,
   ]);
+  const showReceiveInput = !!receiveInputConfig?.enabled;
+  const effectiveReceiveInputConfig = useMemo(
+    () =>
+      receiveInputConfig
+        ? {
+            ...receiveInputConfig,
+            networkImageUri:
+              receiveInputConfig.networkImageUri ?? network?.logoURI,
+          }
+        : undefined,
+    [receiveInputConfig, network?.logoURI],
+  );
+  const receiveArrowOverlayStyle = useMemo(() => {
+    if (!platformEnv.isNative) {
+      return { transform: 'translate(-50%, -50%)' as const };
+    }
+    return {
+      transform: [{ translateX: -13 }, { translateY: -13 }] as const,
+    };
+  }, []);
 
   const footerContent = (
     <YStack bg="$bgApp" gap="$5">
@@ -1293,44 +1314,72 @@ export function UniversalStake({
 
   return (
     <StakingFormWrapper>
-      <Stack position="relative" opacity={amountInputDisabled ? 0.7 : 1}>
-        <StakingAmountInput
-          title={intl.formatMessage({ id: ETranslations.earn_deposit })}
-          disabled={amountInputDisabled}
-          hasError={isInsufficientBalance || isCheckAmountMessageError}
-          value={amountValue}
-          onChange={onChangeAmountValue}
-          onBlur={onBlurAmountValue}
-          tokenSelectorTriggerProps={{
-            selectedTokenImageUri: tokenImageUri,
-            selectedTokenSymbol: tokenSymbol?.toUpperCase(),
-            selectedNetworkImageUri: network?.logoURI,
-            ...tokenSelectorTriggerProps,
-          }}
-          balanceProps={{
-            value: balance,
-            onPress: onMax,
-          }}
-          inputProps={{
-            placeholder: '0',
-            autoFocus: !amountInputDisabled,
-          }}
-          valueProps={{
-            value: currentValue,
-            currency: currentValue ? symbol : undefined,
-          }}
-          enableMaxAmount
-          onSelectPercentageStage={onSelectPercentageStage}
-        />
-        {amountInputDisabled ? (
-          <Stack position="absolute" w="100%" h="100%" zIndex={1} />
+      <Stack position="relative">
+        <YStack gap="$2">
+          <Stack position="relative" opacity={amountInputDisabled ? 0.7 : 1}>
+            <StakingAmountInput
+              title={intl.formatMessage({ id: ETranslations.earn_deposit })}
+              disabled={amountInputDisabled}
+              hasError={isInsufficientBalance || isCheckAmountMessageError}
+              value={amountValue}
+              onChange={onChangeAmountValue}
+              onBlur={onBlurAmountValue}
+              tokenSelectorTriggerProps={{
+                selectedTokenImageUri: tokenImageUri,
+                selectedTokenSymbol: tokenSymbol?.toUpperCase(),
+                selectedNetworkImageUri: network?.logoURI,
+                ...tokenSelectorTriggerProps,
+              }}
+              balanceProps={{
+                value: balance,
+                onPress: onMax,
+              }}
+              inputProps={{
+                placeholder: '0',
+                autoFocus: !amountInputDisabled,
+              }}
+              valueProps={{
+                value: currentValue,
+                currency: currentValue ? symbol : undefined,
+              }}
+              enableMaxAmount
+              onSelectPercentageStage={onSelectPercentageStage}
+            />
+            {amountInputDisabled ? (
+              <Stack position="absolute" w="100%" h="100%" zIndex={1} />
+            ) : null}
+          </Stack>
+          <ManagePageV2ReceiveInput
+            receive={transactionConfirmation?.receive}
+            config={effectiveReceiveInputConfig}
+            fiatSymbol={symbol}
+          />
+        </YStack>
+        {showReceiveInput ? (
+          <Stack
+            ai="center"
+            position="absolute"
+            top="50%"
+            left="50%"
+            zIndex={2}
+            pointerEvents="none"
+            style={receiveArrowOverlayStyle}
+          >
+            <IconButton
+              alignSelf="center"
+              bg="$bgApp"
+              variant="tertiary"
+              icon="ArrowBottomOutline"
+              iconProps={{
+                color: '$icon',
+              }}
+              size="small"
+              disabled
+              opacity={1}
+            />
+          </Stack>
         ) : null}
       </Stack>
-      <ManagePageV2ReceiveInput
-        receive={transactionConfirmation?.receive}
-        config={receiveInputConfig}
-        fiatSymbol={symbol}
-      />
       {isCheckAmountMessageError ? (
         <Alert
           icon="InfoCircleOutline"

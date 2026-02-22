@@ -211,6 +211,11 @@ export function NormalManageContent({
     [intl],
   );
 
+  const isSwapManagePage = useMemo(
+    () => !!(managePageData?.buy || managePageData?.sell),
+    [managePageData?.buy, managePageData?.sell],
+  );
+
   const stakeActionData = useMemo<IManageActionData>(() => {
     if (!managePageData) {
       return undefined;
@@ -225,8 +230,11 @@ export function NormalManageContent({
     ) {
       return managePageData.borrow ?? managePageData.deposit;
     }
+    if (preferManagePageActionText && isSwapManagePage) {
+      return managePageData.buy?.payButton ?? managePageData.deposit;
+    }
     return managePageData.deposit ?? managePageData.buy?.payButton;
-  }, [managePageData, type]);
+  }, [isSwapManagePage, managePageData, preferManagePageActionText, type]);
 
   const withdrawActionData = useMemo<IManageActionData>(() => {
     if (!managePageData) {
@@ -242,17 +250,36 @@ export function NormalManageContent({
     ) {
       return managePageData.repay ?? managePageData.withdraw;
     }
+    if (preferManagePageActionText && isSwapManagePage) {
+      return managePageData.sell?.payButton ?? managePageData.withdraw;
+    }
     return managePageData.withdraw ?? managePageData.sell?.payButton;
-  }, [managePageData, type]);
+  }, [isSwapManagePage, managePageData, preferManagePageActionText, type]);
 
   const stakeReceiveActionData = useMemo<IManageActionData>(
-    () => managePageData?.buy?.receiveButton ?? withdrawActionData,
-    [managePageData?.buy?.receiveButton, withdrawActionData],
+    () =>
+      preferManagePageActionText && isSwapManagePage
+        ? managePageData?.buy?.receiveButton
+        : (managePageData?.buy?.receiveButton ?? withdrawActionData),
+    [
+      isSwapManagePage,
+      managePageData?.buy?.receiveButton,
+      preferManagePageActionText,
+      withdrawActionData,
+    ],
   );
 
   const withdrawReceiveActionData = useMemo<IManageActionData>(
-    () => managePageData?.sell?.receiveButton ?? stakeActionData,
-    [managePageData?.sell?.receiveButton, stakeActionData],
+    () =>
+      preferManagePageActionText && isSwapManagePage
+        ? managePageData?.sell?.receiveButton
+        : (managePageData?.sell?.receiveButton ?? stakeActionData),
+    [
+      isSwapManagePage,
+      managePageData?.sell?.receiveButton,
+      preferManagePageActionText,
+      stakeActionData,
+    ],
   );
 
   const buildTokenInfoFromActionData = useCallback(
@@ -301,14 +328,18 @@ export function NormalManageContent({
       preferManagePageActionText
         ? {
             enabled: !!stakeReceiveActionData?.data?.token,
-            tokenImageUri: stakeReceiveActionData?.data?.token?.info.logoURI,
+            tokenImageUri:
+              stakeReceiveActionData?.data?.token?.info.logoURI,
             tokenSymbol: stakeReceiveActionData?.data?.token?.info.symbol,
             tokenAddress: stakeReceiveActionData?.data?.token?.info.address,
             balance: stakeReceiveActionData?.data?.balance,
             price: stakeReceiveActionData?.data?.token?.price,
           }
         : undefined,
-    [preferManagePageActionText, stakeReceiveActionData],
+    [
+      preferManagePageActionText,
+      stakeReceiveActionData,
+    ],
   );
 
   const withdrawReceiveInputConfig = useMemo(
@@ -316,14 +347,18 @@ export function NormalManageContent({
       preferManagePageActionText
         ? {
             enabled: !!withdrawReceiveActionData?.data?.token,
-            tokenImageUri: withdrawReceiveActionData?.data?.token?.info.logoURI,
+            tokenImageUri:
+              withdrawReceiveActionData?.data?.token?.info.logoURI,
             tokenSymbol: withdrawReceiveActionData?.data?.token?.info.symbol,
             tokenAddress: withdrawReceiveActionData?.data?.token?.info.address,
             balance: withdrawReceiveActionData?.data?.balance,
             price: withdrawReceiveActionData?.data?.token?.price,
           }
         : undefined,
-    [preferManagePageActionText, withdrawReceiveActionData],
+    [
+      preferManagePageActionText,
+      withdrawReceiveActionData,
+    ],
   );
 
   const [selectedTabIndex, setSelectedTabIndex] = useState(() => {

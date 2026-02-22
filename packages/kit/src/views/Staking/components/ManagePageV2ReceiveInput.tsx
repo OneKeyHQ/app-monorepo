@@ -85,6 +85,7 @@ export function ManagePageV2ReceiveInput({
         })
       }
       disabled
+      forceSubduedBackground
       value={receiveAmount}
       onChange={() => {}}
       onBlur={() => {}}

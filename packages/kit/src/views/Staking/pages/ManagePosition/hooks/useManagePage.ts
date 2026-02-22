@@ -125,6 +125,8 @@ export const useManagePage = ({
       return undefined;
     }
 
+    const isSwapManagePage = !!(managePageData.buy || managePageData.sell);
+
     const actionData = (() => {
       // Borrow manage-page uses supply/borrow actions for the first tab.
       if (
@@ -146,6 +148,9 @@ export const useManagePage = ({
           managePageData.repay ??
           managePageData.deposit
         );
+      }
+      if (isSwapManagePage) {
+        return managePageData.buy?.payButton ?? managePageData.deposit;
       }
       return managePageData.deposit ?? managePageData.buy?.payButton;
     })();
@@ -172,6 +177,7 @@ export const useManagePage = ({
     if (!managePageData) {
       return undefined;
     }
+    const isSwapManagePage = !!(managePageData.buy || managePageData.sell);
 
     // Find the matching protocol from protocol list
     const matchingProtocol = protocolList?.find(
@@ -193,6 +199,9 @@ export const useManagePage = ({
       networkId,
       earnAccount,
       activeBalance:
+        (isSwapManagePage
+          ? managePageData.sell?.payButton?.data?.balance
+          : undefined) ??
         managePageData.withdraw?.data?.balance ??
         managePageData.sell?.payButton?.data?.balance ??
         managePageData.repay?.data?.balance,
@@ -244,6 +253,7 @@ export const useManagePage = ({
     if (!managePageData) {
       return false;
     }
+    const isSwapManagePage = !!(managePageData.buy || managePageData.sell);
     if (
       [EManagePositionType.Supply, EManagePositionType.Withdraw].includes(type)
     ) {
@@ -262,6 +272,13 @@ export const useManagePage = ({
         false
       );
     }
+    if (isSwapManagePage) {
+      return (
+        managePageData.buy?.payButton?.disabled ??
+        managePageData.deposit?.disabled ??
+        false
+      );
+    }
     return (
       managePageData.deposit?.disabled ??
       managePageData.buy?.payButton?.disabled ??
@@ -273,6 +290,7 @@ export const useManagePage = ({
     if (!managePageData) {
       return false;
     }
+    const isSwapManagePage = !!(managePageData.buy || managePageData.sell);
     if (
       [EManagePositionType.Supply, EManagePositionType.Withdraw].includes(type)
     ) {
@@ -283,6 +301,13 @@ export const useManagePage = ({
     ) {
       return (
         managePageData.repay?.disabled ??
+        managePageData.withdraw?.disabled ??
+        false
+      );
+    }
+    if (isSwapManagePage) {
+      return (
+        managePageData.sell?.payButton?.disabled ??
         managePageData.withdraw?.disabled ??
         false
       );
