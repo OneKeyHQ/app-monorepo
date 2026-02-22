@@ -21,10 +21,10 @@ export default {
   testPathIgnorePatterns: [
     // Detox E2E tests have their own Jest config under apps/mobile/e2e
     'apps/mobile/e2e',
-    // Hermes ships incomplete ICU data for non-English locales (it-IT uses
-    // English-style grouping separators instead of Italian ones), so locale-
-    // specific tests cannot produce correct results on-device. These tests
-    // are verified in the Node.js Jest environment which has full ICU.
+    // @formatjs/intl-numberformat polyfill-force doesn't work reliably on
+    // Hermes/Metro (ESM/CJS mismatch causes locale data to not load, breaking
+    // grouping separators for all locales). The Italy locale test is verified
+    // in the Node.js Jest environment which has full ICU support.
     'numberUtils\\.italy\\.test',
     // Same chain ignores as root jest.config.js
     'packages/core/src/chains/ada',
