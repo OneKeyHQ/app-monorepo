@@ -273,6 +273,9 @@ Object.defineProperty(globalThis, 'jest', {
     isMockFunction: (f: unknown): boolean => {
       return typeof f === 'function' && '_isMockFunction' in (f as any);
     },
+    setTimeout: (_ms: number) => {
+      // no-op: timeout configuration is not applicable in harness mode.
+    },
   },
   writable: true,
   configurable: true,
