@@ -66,9 +66,9 @@ function HighlightAddress({
 
   return (
     <SizableText fontFamily="$monoMedium" color="$text">
-      <SizableText color="$textInteractive">{leading}</SizableText>
+      <SizableText fontFamily="$monoMedium" color="$textInteractive">{leading}</SizableText>
       {middle}
-      <SizableText color="$textInteractive">{trailing}</SizableText>
+      <SizableText fontFamily="$monoMedium" color="$textInteractive">{trailing}</SizableText>
     </SizableText>
   );
 }
