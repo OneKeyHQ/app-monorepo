@@ -137,6 +137,14 @@ const LOCALE_SEPARATORS: Record<string, { decimal: string; grouping: string }> =
   };
 
 const symbolMap: Record<string, string> = {};
+
+// Clear cached separators when the app locale changes to prevent
+// stale separators after a runtime language switch.
+appLocale.onLocaleChange(() => {
+  for (const key of Object.keys(symbolMap)) {
+    delete symbolMap[key];
+  }
+});
 const lazyDecimalSymbol = (digits: number) => {
   const locale = appLocale.intl.locale;
   if (!symbolMap[locale]) {

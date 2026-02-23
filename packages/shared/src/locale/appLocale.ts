@@ -20,9 +20,15 @@ class AppLocale {
 
   private isReadyResolve!: (value: boolean) => void;
 
+  private onLocaleChangeCallbacks: Array<() => void> = [];
+
   isReady = new Promise<boolean>((resolve) => {
     this.isReadyResolve = resolve;
   });
+
+  onLocaleChange(callback: () => void) {
+    this.onLocaleChangeCallbacks.push(callback);
+  }
 
   setLocale(
     locale: ResolvedIntlConfig['locale'],
@@ -35,6 +41,10 @@ class AppLocale {
       },
       this.cache,
     );
+
+    for (const cb of this.onLocaleChangeCallbacks) {
+      cb();
+    }
 
     if (!isEmpty(messages)) {
       this.isReadyResolve(true);
