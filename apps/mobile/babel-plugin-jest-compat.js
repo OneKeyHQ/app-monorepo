@@ -68,7 +68,17 @@ module.exports = function ({ types: t }) {
             ),
           );
         } else {
-          // jest.mock('module') without factory -> remove (auto-mock not supported)
+          // jest.mock('module') without factory -> remove (auto-mock not supported).
+          // Warn at build time so developers know this mock is silently dropped.
+          const moduleName = args.length > 0 && t.isStringLiteral(args[0])
+            ? args[0].value
+            : '<unknown>';
+          const filename = this.filename || this.file?.opts?.filename || '';
+          console.warn(
+            `[babel-plugin-jest-compat] Removing jest.mock('${moduleName}') without factory ` +
+            `(auto-mock not supported in harness). Test may behave differently. ` +
+            `File: ${filename}`
+          );
           path.remove();
         }
       },

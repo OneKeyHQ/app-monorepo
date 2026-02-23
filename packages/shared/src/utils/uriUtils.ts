@@ -253,12 +253,12 @@ export const containsPunycode = (url: string) => {
   const validatedUrl = validateUrl(url);
   if (!validatedUrl) return false;
   const { hostname } = new URL(validatedUrl);
-  const unicodeHostname = punycode.toUnicode(hostname);
-  // Check both directions: V8 normalizes to punycode (xn--), Hermes may keep unicode.
-  // Either mismatch means the hostname contains non-ASCII / punycode characters.
-  if (hostname !== unicodeHostname) return true;
-  const asciiHostname = punycode.toASCII(hostname);
-  return hostname !== asciiHostname;
+  // V8 normalizes IDN to punycode (xn--), Hermes may keep unicode.
+  // Compare both directions to detect non-ASCII hostnames on either engine.
+  return (
+    hostname !== punycode.toUnicode(hostname) ||
+    hostname !== punycode.toASCII(hostname)
+  );
 };
 
 function buildUrl({

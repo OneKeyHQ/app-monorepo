@@ -1,9 +1,11 @@
-// Smoke test to verify Hermes engine compatibility via React Native Harness
-// Runs on real device/simulator with real Hermes engine
+// Harness infrastructure validation: verifies the react-native-harness
+// pipeline works end-to-end (bundle → deploy → execute → report).
+// These tests exercise basic JS primitives on real Hermes to confirm
+// the harness itself is functioning, NOT to test Hermes capabilities.
 
 import { describe, test, expect } from 'react-native-harness';
 
-describe('Hermes Engine Smoke Tests', () => {
+describe('Harness Infrastructure Validation', () => {
   test('basic arithmetic works in Hermes', () => {
     expect(1 + 1).toBe(2);
     expect(10 * 5).toBe(50);

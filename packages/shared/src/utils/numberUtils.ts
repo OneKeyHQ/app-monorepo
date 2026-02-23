@@ -84,11 +84,13 @@ export interface IDisplayNumber {
 }
 
 const countLeadingZeroDecimals = (x: BigNumber): number => {
+  // Fast path: values >= 1 never have leading zero decimals.
+  // This avoids calling toFixed() on very large numbers which would
+  // generate unnecessarily long strings.
+  if (x.abs().gte(1)) return 0;
   const fixed = x.abs().toFixed();
   const dotIndex = fixed.indexOf('.');
   if (dotIndex === -1) return 0;
-  const intPart = fixed.slice(0, dotIndex);
-  if (intPart !== '0') return 0;
   const decimals = fixed.slice(dotIndex + 1);
   const trimmed = decimals.replace(/^0+/, '');
   return decimals.length - trimmed.length;
@@ -112,29 +114,31 @@ const formatNumber = (value: number, options?: FormatNumberOptions) => {
 // (sourced from Unicode CLDR via Node.js full-ICU Intl.NumberFormat).
 // Hermes has incomplete ICU data for non-English locales, so we use this
 // table instead of runtime detection. Keep in sync with localeJsonMap.ts.
-export const LOCALE_SEPARATORS: Record<string, { decimal: string; grouping: string }> =
-  {
-    'bn': { decimal: '.', grouping: ',' },
-    'de': { decimal: ',', grouping: '.' },
-    'en': { decimal: '.', grouping: ',' },
-    'en-US': { decimal: '.', grouping: ',' },
-    'es': { decimal: ',', grouping: '.' },
-    'fr-FR': { decimal: ',', grouping: '\u202F' },
-    'hi-IN': { decimal: '.', grouping: ',' },
-    'id': { decimal: ',', grouping: '.' },
-    'it-IT': { decimal: ',', grouping: '.' },
-    'ja-JP': { decimal: '.', grouping: ',' },
-    'ko-KR': { decimal: '.', grouping: ',' },
-    'pt': { decimal: ',', grouping: '.' },
-    'pt-BR': { decimal: ',', grouping: '.' },
-    'ru': { decimal: ',', grouping: '\u00A0' },
-    'th-TH': { decimal: '.', grouping: ',' },
-    'uk-UA': { decimal: ',', grouping: '\u00A0' },
-    'vi': { decimal: ',', grouping: '.' },
-    'zh-CN': { decimal: '.', grouping: ',' },
-    'zh-HK': { decimal: '.', grouping: ',' },
-    'zh-TW': { decimal: '.', grouping: ',' },
-  };
+export const LOCALE_SEPARATORS: Record<
+  string,
+  { decimal: string; grouping: string; indianGrouping?: boolean }
+> = {
+  'bn': { decimal: '.', grouping: ',', indianGrouping: true },
+  'de': { decimal: ',', grouping: '.' },
+  'en': { decimal: '.', grouping: ',' },
+  'en-US': { decimal: '.', grouping: ',' },
+  'es': { decimal: ',', grouping: '.' },
+  'fr-FR': { decimal: ',', grouping: '\u202F' },
+  'hi-IN': { decimal: '.', grouping: ',', indianGrouping: true },
+  'id': { decimal: ',', grouping: '.' },
+  'it-IT': { decimal: ',', grouping: '.' },
+  'ja-JP': { decimal: '.', grouping: ',' },
+  'ko-KR': { decimal: '.', grouping: ',' },
+  'pt': { decimal: ',', grouping: '.' },
+  'pt-BR': { decimal: ',', grouping: '.' },
+  'ru': { decimal: ',', grouping: '\u00A0' },
+  'th-TH': { decimal: '.', grouping: ',' },
+  'uk-UA': { decimal: ',', grouping: '\u00A0' },
+  'vi': { decimal: ',', grouping: '.' },
+  'zh-CN': { decimal: '.', grouping: ',' },
+  'zh-HK': { decimal: '.', grouping: ',' },
+  'zh-TW': { decimal: '.', grouping: ',' },
+};
 
 const symbolMap: Record<string, string> = {};
 
@@ -204,11 +208,32 @@ const lazyGroupingSeparator = (): string => {
 // Insert grouping separator into a plain integer string.
 // This avoids passing large numbers through Intl.NumberFormat which
 // may overflow to Infinity or lose precision on Hermes.
+// Supports Indian numbering (hi-IN, bn): first group is 3 digits,
+// then every 2 digits (e.g. 1,00,00,000).
 const insertGroupingSeparator = (intStr: string): string => {
   const isNegative = intStr.startsWith('-');
   const abs = isNegative ? intStr.slice(1) : intStr;
   const sep = lazyGroupingSeparator();
-  // Insert separator every 3 digits from the right
+  const locale = appLocale.intl.locale;
+  const useIndian =
+    platformEnv.isNative && LOCALE_SEPARATORS[locale]?.indianGrouping;
+
+  if (useIndian && abs.length > 3) {
+    // Indian grouping: last 3 digits, then groups of 2 from the right
+    const lastThree = abs.slice(-3);
+    const rest = abs.slice(0, -3);
+    let result = '';
+    for (let i = 0; i < rest.length; i += 1) {
+      if (i > 0 && (rest.length - i) % 2 === 0) {
+        result += sep;
+      }
+      result += rest[i];
+    }
+    result += sep + lastThree;
+    return isNegative ? `-${result}` : result;
+  }
+
+  // Standard 3-digit grouping
   let result = '';
   for (let i = 0; i < abs.length; i += 1) {
     if (i > 0 && (abs.length - i) % 3 === 0) {
