@@ -35,10 +35,10 @@ index 192a2a6..1bdba47 100644
        source: this
      });
 diff --git a/node_modules/fake-indexeddb/build/cjs/FDBTransaction.js b/node_modules/fake-indexeddb/build/cjs/FDBTransaction.js
-index 62a5ecc..1f31be2 100644
+index 62a5ecc..21ae094 100644
 --- a/node_modules/fake-indexeddb/build/cjs/FDBTransaction.js
 +++ b/node_modules/fake-indexeddb/build/cjs/FDBTransaction.js
-@@ -193,18 +193,63 @@ class FDBTransaction extends _FakeEventTarget.default {
+@@ -193,18 +193,68 @@ class FDBTransaction extends _FakeEventTarget.default {
          }
        }
  
@@ -86,6 +86,11 @@ index 62a5ecc..1f31be2 100644
 +          } else {
 +            // Final fallback: yield to the macrotask queue once so any
 +            // straggling promise chains still have a chance to enqueue.
++            if (typeof console !== "undefined" && console.warn) {
++              console.warn("[fake-indexeddb] Hermes microtask rounds exhausted (" + maxRounds + "). " +
++                "Transaction may auto-commit before all async operations complete. " +
++                "Consider breaking deep await chains into separate transactions.");
++            }
 +            setTimeout(function () {
 +              if (self._requests.length > 0) {
 +                Promise.resolve().then(self._start.bind(self));
@@ -202,10 +207,10 @@ index 959952c..425e990 100644
        source: this
      });
 diff --git a/node_modules/fake-indexeddb/build/esm/FDBTransaction.js b/node_modules/fake-indexeddb/build/esm/FDBTransaction.js
-index e8ff177..796ef39 100644
+index e8ff177..0de7966 100644
 --- a/node_modules/fake-indexeddb/build/esm/FDBTransaction.js
 +++ b/node_modules/fake-indexeddb/build/esm/FDBTransaction.js
-@@ -186,18 +186,63 @@ class FDBTransaction extends FakeEventTarget {
+@@ -186,18 +186,68 @@ class FDBTransaction extends FakeEventTarget {
          }
        }
  
@@ -253,6 +258,11 @@ index e8ff177..796ef39 100644
 +          } else {
 +            // Final fallback: yield to the macrotask queue once so any
 +            // straggling promise chains still have a chance to enqueue.
++            if (typeof console !== "undefined" && console.warn) {
++              console.warn("[fake-indexeddb] Hermes microtask rounds exhausted (" + maxRounds + "). " +
++                "Transaction may auto-commit before all async operations complete. " +
++                "Consider breaking deep await chains into separate transactions.");
++            }
 +            setTimeout(function () {
 +              if (self._requests.length > 0) {
 +                Promise.resolve().then(self._start.bind(self));

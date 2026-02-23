@@ -5,6 +5,7 @@ import validator from 'validator';
 import type { IUrlValue } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
 
 import { ONEKEY_APP_DEEP_LINK_NAME } from '../consts/deeplinkConsts';
+import platformEnv from '../platformEnv';
 import {
   PROTOCOLS_SUPPORTED_TO_OPEN,
   VALID_DEEP_LINK,
@@ -223,11 +224,12 @@ export const validateUrl = (url: string): string => {
     try {
       const parsedUrl = new URL(url);
       // Normalize pathname: strip root-only "/" so the reconstructed URL
-      // doesn't contain a bare slash after host. Also strip trailing slashes
-      // added by Hermes URL parser (Hermes may append "/" that V8 does not).
-      // This normalization runs on all platforms for consistent behavior.
+      // doesn't contain a bare slash after host.
       let pathname = parsedUrl.pathname === '/' ? '' : parsedUrl.pathname;
-      if (pathname.length > 1 && pathname.endsWith('/')) {
+      // Hermes URL parser may append a trailing "/" that V8 does not.
+      // Only strip on native to avoid changing semantics on web/desktop
+      // where trailing slashes can be meaningful (e.g. directory URLs).
+      if (platformEnv.isNative && pathname.length > 1 && pathname.endsWith('/')) {
         pathname = pathname.slice(0, -1);
       }
       urlWithoutProtocol =

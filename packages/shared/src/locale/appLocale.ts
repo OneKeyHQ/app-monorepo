@@ -26,8 +26,14 @@ class AppLocale {
     this.isReadyResolve = resolve;
   });
 
-  onLocaleChange(callback: () => void) {
+  onLocaleChange(callback: () => void): () => void {
     this.onLocaleChangeCallbacks.push(callback);
+    return () => {
+      const idx = this.onLocaleChangeCallbacks.indexOf(callback);
+      if (idx >= 0) {
+        this.onLocaleChangeCallbacks.splice(idx, 1);
+      }
+    };
   }
 
   setLocale(

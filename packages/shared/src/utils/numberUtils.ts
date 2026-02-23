@@ -156,6 +156,13 @@ const lazyDecimalSymbol = (digits: number) => {
     if (known) {
       symbolMap[locale] = known.decimal;
     } else {
+      if (platformEnv.isNative && platformEnv.isDev) {
+        console.warn(
+          `[numberUtils] LOCALE_SEPARATORS missing for "${locale}". ` +
+            `Falling back to Intl.NumberFormat which may be inaccurate on Hermes. ` +
+            `Please add this locale to LOCALE_SEPARATORS in numberUtils.ts.`,
+        );
+      }
       symbolMap[locale] = formatNumber(0.1, {
         maximumFractionDigits: digits,
         minimumFractionDigits: digits,
@@ -176,6 +183,13 @@ const lazyGroupingSeparator = (): string => {
     if (known) {
       symbolMap[key] = known.grouping;
     } else {
+      if (platformEnv.isNative && platformEnv.isDev) {
+        console.warn(
+          `[numberUtils] LOCALE_SEPARATORS missing for "${locale}". ` +
+            `Falling back to Intl.NumberFormat which may be inaccurate on Hermes. ` +
+            `Please add this locale to LOCALE_SEPARATORS in numberUtils.ts.`,
+        );
+      }
       const formatted = formatNumber(1000, {
         useGrouping: true,
         minimumFractionDigits: 0,

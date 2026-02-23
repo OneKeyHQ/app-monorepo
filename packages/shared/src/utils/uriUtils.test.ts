@@ -240,14 +240,16 @@ describe('parseUrl', () => {
 });
 
 describe('validateUrl', () => {
-  test('strips trailing slash from paths for consistent behavior', () => {
+  test('strips root-only trailing slash', () => {
     // Root-only path: https://google.com/ -> https://google.com
     expect(validateUrl('https://google.com/')).toBe('https://google.com');
   });
 
-  test('strips trailing slash from deeper paths', () => {
+  test('preserves trailing slash on deeper paths (non-native)', () => {
+    // Trailing slash stripping only applies on native (Hermes quirk).
+    // On Node/web, trailing slashes are semantically meaningful.
     expect(validateUrl('https://example.com/path/')).toBe(
-      'https://example.com/path',
+      'https://example.com/path/',
     );
   });
 
@@ -259,7 +261,7 @@ describe('validateUrl', () => {
 
   test('preserves query params and hash after normalization', () => {
     expect(validateUrl('https://example.com/path/?q=1#hash')).toBe(
-      'https://example.com/path?q=1#hash',
+      'https://example.com/path/?q=1#hash',
     );
   });
 });
