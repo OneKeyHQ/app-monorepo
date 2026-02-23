@@ -20,6 +20,9 @@ function HighlightAddress({
   groupSize = 4,
 }: IHighlightAddressProps) {
   const segments = useMemo(() => {
+    if (!address) {
+      return [];
+    }
     const minLength = leadingHighlightCount + trailingHighlightCount;
     if (address.length <= minLength) {
       // Address too short to split — render all as highlighted
@@ -37,6 +40,10 @@ function HighlightAddress({
       { text: groupChars(trailing, groupSize), highlight: true },
     ];
   }, [address, leadingHighlightCount, trailingHighlightCount, groupSize]);
+
+  if (segments.length === 0) {
+    return null;
+  }
 
   return (
     <>

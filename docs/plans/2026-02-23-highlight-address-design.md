@@ -73,7 +73,7 @@ The masked state (`****`) remains unchanged; highlighting only applies when the 
 
 | Scenario | Behavior |
 |----------|----------|
-| Address length <= 12 | No highlight; render all text in normal style |
+| Address length <= 12 | All highlighted; every character matters in short addresses |
 | Address hidden (masked) | Do not use this component; keep `****` mask |
 | 4-char group spans highlight boundary | Each segment groups independently |
 
