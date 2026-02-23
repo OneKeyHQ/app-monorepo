@@ -59,6 +59,7 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useCopyAddressWithDeriveType } from '../../../hooks/useCopyAccountAddress';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useWalletBanner } from '../../../hooks/useWalletBanner';
+import { HighlightAddress } from '../../../components/HighlightAddress';
 import { EAddressState } from '../types';
 
 import type { RouteProp } from '@react-navigation/core';
@@ -547,15 +548,17 @@ function ReceiveToken() {
     if (!currentAccount || !network || !wallet) return null;
     if (!displayAddress) return null;
 
-    let addressContent = '';
+    let addressContent: React.ReactNode;
 
     if (shouldShowAddress) {
-      addressContent =
-        displayAddress.match(/.{1,4}/g)?.join(' ') || displayAddress;
+      addressContent = <HighlightAddress address={displayAddress} />;
     } else {
-      addressContent = Array.from({ length: 11 })
+      const maskedText = Array.from({ length: 11 })
         .map(() => '****')
         .join(' ');
+      addressContent = (
+        <SizableText fontFamily="$monoMedium">{maskedText}</SizableText>
+      );
     }
 
     return (
@@ -586,7 +589,7 @@ function ReceiveToken() {
           },
         })}
       >
-        <SizableText fontFamily="$monoMedium">{addressContent}</SizableText>
+        {addressContent}
       </XStack>
     );
   }, [
