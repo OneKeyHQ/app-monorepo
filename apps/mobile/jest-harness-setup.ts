@@ -104,8 +104,14 @@ if (typeof (globalThis as any).structuredClone === 'undefined') {
 try {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   require('fake-indexeddb/auto');
-} catch {
-  // fake-indexeddb may not resolve in all Metro configurations
+  // fake-indexeddb/auto sets indexedDB on a globalVar it detects (window/global).
+  // In Hermes, this doesn't propagate to globalThis, so indexedDB appears
+  // unavailable and LocalDbIndexed tests are skipped. Even if we manually set
+  // globalThis.indexedDB, fake-indexeddb's transaction handling hits
+  // InvalidStateError due to Hermes microtask timing differences.
+  // TODO: patch fake-indexeddb or LocalDbIndexed for Hermes compatibility.
+} catch (e) {
+  console.warn('[harness-compat] fake-indexeddb/auto failed:', e);
 }
 
 // Polyfill ES2023 Array methods not yet available in Hermes
