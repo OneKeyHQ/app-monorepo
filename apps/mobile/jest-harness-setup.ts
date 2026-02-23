@@ -162,6 +162,78 @@ import {
 (globalThis as any).beforeEach = beforeEach;
 (globalThis as any).afterEach = afterEach;
 
+// ---- Module mock auto-restore mechanism ----
+// Metro shares a single module registry across all test files (unlike Jest
+// which isolates each file). When jest.mock() mutates a module in-place,
+// the mutation persists for the lifetime of the harness session.
+//
+// To prevent mock leakage between test files, we save a shallow snapshot
+// of each module before the first mutation, and restore all snapshots after
+// each test file finishes (triggered by the runtime patch).
+
+type ModSnapshot = {
+  top: Record<string, unknown>;
+  defaultObj?: Record<string, unknown>;
+};
+
+const mockSnapshots = new Map<Record<string, unknown>, ModSnapshot>();
+
+const saveSnapshot = (mod: Record<string, unknown>) => {
+  if (mockSnapshots.has(mod)) return;
+  const snapshot: ModSnapshot = { top: {} };
+  for (const key of Object.keys(mod)) {
+    snapshot.top[key] = mod[key];
+  }
+  if (
+    (mod as any).__esModule &&
+    mod.default &&
+    typeof mod.default === 'object'
+  ) {
+    const defaultObj = mod.default as Record<string, unknown>;
+    snapshot.defaultObj = {};
+    for (const key of Object.keys(defaultObj)) {
+      snapshot.defaultObj[key] = defaultObj[key];
+    }
+  }
+  mockSnapshots.set(mod, snapshot);
+};
+
+const restoreAllMocks = () => {
+  for (const [mod, snapshot] of mockSnapshots) {
+    // Restore default export object
+    if (
+      snapshot.defaultObj &&
+      (mod as any).__esModule &&
+      mod.default &&
+      typeof mod.default === 'object'
+    ) {
+      const defaultObj = mod.default as Record<string, unknown>;
+      for (const key of Object.keys(defaultObj)) {
+        if (!(key in snapshot.defaultObj)) {
+          delete defaultObj[key];
+        }
+      }
+      Object.assign(defaultObj, snapshot.defaultObj);
+    }
+
+    // Restore top-level exports
+    for (const key of Object.keys(mod)) {
+      if (key !== '__esModule' && !(key in snapshot.top)) {
+        delete mod[key];
+      }
+    }
+    for (const key of Object.keys(snapshot.top)) {
+      if (key !== '__esModule') {
+        mod[key] = snapshot.top[key];
+      }
+    }
+  }
+  mockSnapshots.clear();
+};
+
+// Exposed for the harness runtime to call between test files.
+(globalThis as any).__harness_restore_mocks__ = restoreAllMocks;
+
 // Runtime module mock via in-place mutation.
 // The babel plugin transforms jest.mock('mod', factory) into:
 //   globalThis.__harness_mock_module__(require('mod'), factory)
@@ -169,17 +241,16 @@ import {
 // We mutate its exports in-place so property-access patterns
 // (e.g. `uuid.v4()`) see the mocked values.
 //
-// WARNING: Unlike Jest, Metro shares a single module registry across all test
-// files. Mocks applied here mutate the module in-place and persist for the
-// lifetime of the harness session. This means test file execution order can
-// affect results — if file A mocks `crypto`, file B will see the mutated
-// version. The canonical test verification runs in the standard Node.js Jest
-// environment where each file has its own isolated module cache.
+// After each test file, __harness_restore_mocks__() restores all mutated
+// modules to their pre-mock state, preventing cross-file mock leakage.
 (globalThis as any).__harness_mock_module__ = (
   mod: Record<string, unknown>,
   factory: () => unknown,
 ): void => {
   try {
+    // Save original state before first mutation
+    saveSnapshot(mod);
+
     const mockExports = factory() as Record<string, unknown>;
 
     if (
