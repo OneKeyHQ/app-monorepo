@@ -104,12 +104,26 @@ if (typeof (globalThis as any).structuredClone === 'undefined') {
 try {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   require('fake-indexeddb/auto');
-  // fake-indexeddb/auto sets indexedDB on a globalVar it detects (window/global).
-  // In Hermes, this doesn't propagate to globalThis, so indexedDB appears
-  // unavailable and LocalDbIndexed tests are skipped. Even if we manually set
-  // globalThis.indexedDB, fake-indexeddb's transaction handling hits
-  // InvalidStateError due to Hermes microtask timing differences.
-  // TODO: patch fake-indexeddb or LocalDbIndexed for Hermes compatibility.
+  // Two issues prevent LocalDbIndexed tests from running on Hermes:
+  //
+  // 1. globalThis mismatch: fake-indexeddb/auto sets indexedDB on `window`,
+  //    but in Hermes `window !== globalThis`, so `typeof indexedDB` returns
+  //    "undefined". Fixable by manually setting globalThis.indexedDB.
+  //
+  // 2. Transaction auto-commit timing (blocking): FDBTransaction._start()
+  //    uses queueTask (setImmediate/setTimeout) to process requests. After
+  //    the last request completes, the next _start() call finds an empty
+  //    queue and marks the transaction "finished". But _initDBRecords uses
+  //    `await store.get()` → `await store.add()` chains within Promise.all,
+  //    and the promise continuations that queue new requests run as microtasks
+  //    AFTER _start() has already auto-committed the transaction, causing
+  //    InvalidStateError. This happens even with RN's setImmediate polyfill
+  //    because Hermes flushes microtasks differently than V8/Node.js.
+  //
+  // Fixing #2 requires patching FDBTransaction._start() to defer the
+  // "finished" transition until after microtasks drain, or restructuring
+  // LocalDbIndexed._initDBRecords to avoid async gaps within a transaction.
+  // These 2 tests (getContext, getBackupUUID) pass in Jest/Node.js.
 } catch (e) {
   console.warn('[harness-compat] fake-indexeddb/auto failed:', e);
 }
