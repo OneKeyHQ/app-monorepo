@@ -1,3 +1,5 @@
+import platformEnv from '../platformEnv';
+
 import {
   containsPunycode,
   ensureHttpsPrefix,
@@ -245,12 +247,13 @@ describe('validateUrl', () => {
     expect(validateUrl('https://google.com/')).toBe('https://google.com');
   });
 
-  test('preserves trailing slash on deeper paths (non-native)', () => {
-    // Trailing slash stripping only applies on native (Hermes quirk).
-    // On Node/web, trailing slashes are semantically meaningful.
-    expect(validateUrl('https://example.com/path/')).toBe(
-      'https://example.com/path/',
-    );
+  test('trailing slash on deeper paths depends on platform', () => {
+    // On native (Hermes), trailing slashes are stripped (Hermes URL parser quirk).
+    // On Node/web, trailing slashes are preserved (semantically meaningful).
+    const expected = platformEnv.isNative
+      ? 'https://example.com/path'
+      : 'https://example.com/path/';
+    expect(validateUrl('https://example.com/path/')).toBe(expected);
   });
 
   test('preserves paths without trailing slash', () => {
@@ -259,10 +262,11 @@ describe('validateUrl', () => {
     );
   });
 
-  test('preserves query params and hash after normalization', () => {
-    expect(validateUrl('https://example.com/path/?q=1#hash')).toBe(
-      'https://example.com/path/?q=1#hash',
-    );
+  test('query params and hash after normalization', () => {
+    const expected = platformEnv.isNative
+      ? 'https://example.com/path?q=1#hash'
+      : 'https://example.com/path/?q=1#hash';
+    expect(validateUrl('https://example.com/path/?q=1#hash')).toBe(expected);
   });
 });
 
