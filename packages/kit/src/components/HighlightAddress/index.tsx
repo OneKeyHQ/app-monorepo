@@ -58,23 +58,17 @@ function HighlightAddress({
 
   if (!middle && !trailing) {
     return (
-      <SizableText fontFamily="$monoMedium" color="$text">
+      <SizableText fontFamily="$monoMedium" color="$textInteractive">
         {leading}
       </SizableText>
     );
   }
 
-  // Nested Text components flow inline in React Native,
-  // preserving natural text wrapping behavior.
   return (
-    <SizableText fontFamily="$monoRegular" color="$textSubdued">
-      <SizableText fontFamily="$monoMedium" color="$text">
-        {leading}
-      </SizableText>
+    <SizableText fontFamily="$monoMedium" color="$text">
+      <SizableText color="$textInteractive">{leading}</SizableText>
       {middle}
-      <SizableText fontFamily="$monoMedium" color="$text">
-        {trailing}
-      </SizableText>
+      <SizableText color="$textInteractive">{trailing}</SizableText>
     </SizableText>
   );
 }
