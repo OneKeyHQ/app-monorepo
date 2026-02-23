@@ -11,10 +11,10 @@ index a30ddd2..d2442da 100644
      });
  };
 diff --git a/node_modules/@react-native-harness/runtime/dist/runner/factory.js b/node_modules/@react-native-harness/runtime/dist/runner/factory.js
-index 477d4e2..4f7d4bd 100644
+index 477d4e2..9bfc163 100644
 --- a/node_modules/@react-native-harness/runtime/dist/runner/factory.js
 +++ b/node_modules/@react-native-harness/runtime/dist/runner/factory.js
-@@ -14,6 +14,11 @@ export const getTestRunner = () => {
+@@ -14,6 +14,23 @@ export const getTestRunner = () => {
                  events,
                  testFilePath,
              });
@@ -22,6 +22,18 @@ index 477d4e2..4f7d4bd 100644
 +            // to prevent mock leakage into subsequent test files.
 +            if (typeof globalThis.__harness_restore_mocks__ === 'function') {
 +                globalThis.__harness_restore_mocks__();
++            }
++            // Collect snapshot assertions for host-side comparison against .snap files.
++            if (typeof globalThis.__harness_collected_snapshots__ === 'object' &&
++                Array.isArray(globalThis.__harness_collected_snapshots__) &&
++                globalThis.__harness_collected_snapshots__.length > 0) {
++                result.__snapshots__ = globalThis.__harness_collected_snapshots__.map(
++                    function(s) { return { key: s.key, received: s.received }; }
++                );
++            }
++            // Reset snapshot state for next test file.
++            if (typeof globalThis.__harness_reset_snapshots__ === 'function') {
++                globalThis.__harness_reset_snapshots__();
 +            }
              // If coverage is enabled, there will be a global variable called __coverage__
              if ('__coverage__' in global && !!global.__coverage__) {
