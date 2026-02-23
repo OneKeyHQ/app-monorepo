@@ -4,6 +4,7 @@
 
 // Polyfill Node.js globals that don't exist in Hermes
 import { Buffer } from 'buffer';
+import { format as prettyFormat } from 'pretty-format';
 
 (globalThis as any).Buffer = Buffer;
 (globalThis as any).process = (globalThis as any).process || { env: {} };
@@ -492,7 +493,7 @@ expect.extend({
   },
   toMatchInlineSnapshot(received: unknown, inlineSnapshot?: string) {
     if (inlineSnapshot !== undefined) {
-      const receivedStr = JSON.stringify(received);
+      const receivedStr = prettyFormat(received);
       const pass = receivedStr === inlineSnapshot.trim();
       if (pass) {
         // Count inline matches so host snapshot stats stay in sync with Jest

@@ -35,10 +35,10 @@ index 192a2a6..1bdba47 100644
        source: this
      });
 diff --git a/node_modules/fake-indexeddb/build/cjs/FDBTransaction.js b/node_modules/fake-indexeddb/build/cjs/FDBTransaction.js
-index 62a5ecc..195fbcf 100644
+index 62a5ecc..1f31be2 100644
 --- a/node_modules/fake-indexeddb/build/cjs/FDBTransaction.js
 +++ b/node_modules/fake-indexeddb/build/cjs/FDBTransaction.js
-@@ -193,18 +193,53 @@ class FDBTransaction extends _FakeEventTarget.default {
+@@ -193,18 +193,63 @@ class FDBTransaction extends _FakeEventTarget.default {
          }
        }
  
@@ -70,9 +70,11 @@ index 62a5ecc..195fbcf 100644
 +        // On Hermes, defer via multiple microtask rounds so that pending
 +        // promise continuations (from multi-level await chains) get enough
 +        // ticks to queue new requests before we auto-commit.
++        // 20 rounds covers deep await chains (e.g. multi-step IndexedDB ops
++        // wrapped in async helpers). Microtask overhead is negligible.
 +        const self = this;
 +        let rounds = 0;
-+        const maxRounds = 6;
++        const maxRounds = 20;
 +        function checkComplete() {
 +          if (self._requests.length > 0) {
 +            Promise.resolve().then(self._start.bind(self));
@@ -82,11 +84,19 @@ index 62a5ecc..195fbcf 100644
 +            rounds++;
 +            Promise.resolve().then(checkComplete);
 +          } else {
-+            self._state = "finished";
-+            if (!self.error) {
-+              const event = new _FakeEvent.default("complete");
-+              self.dispatchEvent(event);
-+            }
++            // Final fallback: yield to the macrotask queue once so any
++            // straggling promise chains still have a chance to enqueue.
++            setTimeout(function () {
++              if (self._requests.length > 0) {
++                Promise.resolve().then(self._start.bind(self));
++              } else if (self._state !== "finished") {
++                self._state = "finished";
++                if (!self.error) {
++                  const event = new _FakeEvent.default("complete");
++                  self.dispatchEvent(event);
++                }
++              }
++            }, 0);
 +          }
 +        }
 +        Promise.resolve().then(checkComplete);
@@ -192,10 +202,10 @@ index 959952c..425e990 100644
        source: this
      });
 diff --git a/node_modules/fake-indexeddb/build/esm/FDBTransaction.js b/node_modules/fake-indexeddb/build/esm/FDBTransaction.js
-index e8ff177..08ee92e 100644
+index e8ff177..796ef39 100644
 --- a/node_modules/fake-indexeddb/build/esm/FDBTransaction.js
 +++ b/node_modules/fake-indexeddb/build/esm/FDBTransaction.js
-@@ -186,18 +186,53 @@ class FDBTransaction extends FakeEventTarget {
+@@ -186,18 +186,63 @@ class FDBTransaction extends FakeEventTarget {
          }
        }
  
@@ -227,9 +237,11 @@ index e8ff177..08ee92e 100644
 +        // On Hermes, defer via multiple microtask rounds so that pending
 +        // promise continuations (from multi-level await chains) get enough
 +        // ticks to queue new requests before we auto-commit.
++        // 20 rounds covers deep await chains (e.g. multi-step IndexedDB ops
++        // wrapped in async helpers). Microtask overhead is negligible.
 +        const self = this;
 +        let rounds = 0;
-+        const maxRounds = 6;
++        const maxRounds = 20;
 +        function checkComplete() {
 +          if (self._requests.length > 0) {
 +            Promise.resolve().then(self._start.bind(self));
@@ -239,11 +251,19 @@ index e8ff177..08ee92e 100644
 +            rounds++;
 +            Promise.resolve().then(checkComplete);
 +          } else {
-+            self._state = "finished";
-+            if (!self.error) {
-+              const event = new FakeEvent("complete");
-+              self.dispatchEvent(event);
-+            }
++            // Final fallback: yield to the macrotask queue once so any
++            // straggling promise chains still have a chance to enqueue.
++            setTimeout(function () {
++              if (self._requests.length > 0) {
++                Promise.resolve().then(self._start.bind(self));
++              } else if (self._state !== "finished") {
++                self._state = "finished";
++                if (!self.error) {
++                  const event = new FakeEvent("complete");
++                  self.dispatchEvent(event);
++                }
++              }
++            }, 0);
 +          }
 +        }
 +        Promise.resolve().then(checkComplete);

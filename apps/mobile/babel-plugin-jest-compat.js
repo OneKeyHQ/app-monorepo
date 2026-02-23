@@ -34,6 +34,23 @@ module.exports = function ({ types: t }) {
 
         const args = expr.arguments;
         if (args.length >= 2 && t.isStringLiteral(args[0])) {
+          // Detect jest.mock('mod', factory, { virtual: true }) — the module
+          // doesn't exist on disk so require() would crash Metro bundling.
+          const isVirtual =
+            args.length >= 3 &&
+            t.isObjectExpression(args[2]) &&
+            args[2].properties.some(
+              (p) =>
+                t.isObjectProperty(p) &&
+                t.isIdentifier(p.key, { name: 'virtual' }) &&
+                t.isBooleanLiteral(p.value, { value: true }),
+            );
+          if (isVirtual) {
+            // Virtual mocks can't be emulated in Metro — remove the statement
+            path.remove();
+            return;
+          }
+
           // jest.mock('module', factory) ->
           // globalThis.__harness_mock_module__(require('module'), factory)
           path.replaceWith(
