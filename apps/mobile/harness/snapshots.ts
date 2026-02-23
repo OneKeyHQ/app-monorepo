@@ -5,14 +5,14 @@
 import { format as prettyFormat } from 'pretty-format';
 import { expect } from 'react-native-harness';
 
-import { describeStack } from './jest-compat';
+import { resetDescribeStack } from './jest-compat';
 
 const snapshotCounts = new Map<string, number>();
 const collectedSnapshots: Array<{ key: string; received: unknown }> = [];
 
 (globalThis as any).__harness_collected_snapshots__ = collectedSnapshots;
 (globalThis as any).__harness_reset_snapshots__ = () => {
-  describeStack.length = 0;
+  resetDescribeStack();
   snapshotCounts.clear();
   collectedSnapshots.length = 0;
 };

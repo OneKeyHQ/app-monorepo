@@ -21,7 +21,11 @@ import {
 // so we track the full hierarchical test name ourselves by wrapping
 // describe/test/it. This is needed to build correct snapshot keys.
 
-export const describeStack: string[] = [];
+const describeStack: string[] = [];
+
+export const resetDescribeStack = () => {
+  describeStack.length = 0;
+};
 
 // Wrap describe to track the describe stack (fn runs synchronously during collection)
 type DescribeFn = (name: string, fn: () => void) => void;
