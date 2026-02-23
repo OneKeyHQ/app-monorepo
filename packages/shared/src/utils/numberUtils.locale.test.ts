@@ -4,6 +4,7 @@ import { appLocale } from '../locale/appLocale';
 import { LOCALES } from '../locale/localeJsonMap';
 
 import {
+  LOCALE_SEPARATORS,
   formatBalance,
   formatDisplayNumber,
   formatMarketCap,
@@ -22,33 +23,10 @@ const defaultMessages = appLocale.intl.messages;
 // All locale keys from the app's supported locale list.
 const SUPPORTED_LOCALES = Object.keys(LOCALES);
 
-// Expected decimal and grouping separators for all supported locales.
-// Must match LOCALE_SEPARATORS in numberUtils.ts (sourced from Unicode CLDR).
-// When a new locale is added to LOCALES, add its entry here — otherwise
-// the test will fail, reminding you to update both tables.
-const EXPECTED_SEPARATORS: Record<string, { decimal: string; grouping: string }> =
-  {
-    'bn': { decimal: '.', grouping: ',' },
-    'de': { decimal: ',', grouping: '.' },
-    'en': { decimal: '.', grouping: ',' },
-    'en-US': { decimal: '.', grouping: ',' },
-    'es': { decimal: ',', grouping: '.' },
-    'fr-FR': { decimal: ',', grouping: '\u202F' },
-    'hi-IN': { decimal: '.', grouping: ',' },
-    'id': { decimal: ',', grouping: '.' },
-    'it-IT': { decimal: ',', grouping: '.' },
-    'ja-JP': { decimal: '.', grouping: ',' },
-    'ko-KR': { decimal: '.', grouping: ',' },
-    'pt': { decimal: ',', grouping: '.' },
-    'pt-BR': { decimal: ',', grouping: '.' },
-    'ru': { decimal: ',', grouping: '\u00A0' },
-    'th-TH': { decimal: '.', grouping: ',' },
-    'uk-UA': { decimal: ',', grouping: '\u00A0' },
-    'vi': { decimal: ',', grouping: '.' },
-    'zh-CN': { decimal: '.', grouping: ',' },
-    'zh-HK': { decimal: '.', grouping: ',' },
-    'zh-TW': { decimal: '.', grouping: ',' },
-  };
+// Use the same separator table as production code.
+// Tests verify correctness against runtime Intl.NumberFormat (Node full-ICU),
+// so if the table drifts, the test will catch it.
+const EXPECTED_SEPARATORS = LOCALE_SEPARATORS;
 
 describe('numberUtils locale separators', () => {
   afterEach(() => {

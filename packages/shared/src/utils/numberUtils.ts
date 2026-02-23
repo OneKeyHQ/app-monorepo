@@ -112,7 +112,7 @@ const formatNumber = (value: number, options?: FormatNumberOptions) => {
 // (sourced from Unicode CLDR via Node.js full-ICU Intl.NumberFormat).
 // Hermes has incomplete ICU data for non-English locales, so we use this
 // table instead of runtime detection. Keep in sync with localeJsonMap.ts.
-const LOCALE_SEPARATORS: Record<string, { decimal: string; grouping: string }> =
+export const LOCALE_SEPARATORS: Record<string, { decimal: string; grouping: string }> =
   {
     'bn': { decimal: '.', grouping: ',' },
     'de': { decimal: ',', grouping: '.' },
