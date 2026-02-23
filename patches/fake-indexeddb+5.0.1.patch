@@ -1,0 +1,298 @@
+diff --git a/node_modules/fake-indexeddb/build/cjs/FDBIndex.js b/node_modules/fake-indexeddb/build/cjs/FDBIndex.js
+index a847167..fb1dcc3 100644
+--- a/node_modules/fake-indexeddb/build/cjs/FDBIndex.js
++++ b/node_modules/fake-indexeddb/build/cjs/FDBIndex.js
+@@ -178,7 +178,12 @@ class FDBIndex {
+     }
+     return this.objectStore.transaction._execRequestAsync({
+       operation: () => {
+-        return this._rawIndex.count(key);
++        let count = 0;
++        const cursor = new _FDBCursor.default(this, key);
++        while (cursor._iterate() !== null) {
++          count += 1;
++        }
++        return count;
+       },
+       source: this
+     });
+diff --git a/node_modules/fake-indexeddb/build/cjs/FDBObjectStore.js b/node_modules/fake-indexeddb/build/cjs/FDBObjectStore.js
+index 192a2a6..1bdba47 100644
+--- a/node_modules/fake-indexeddb/build/cjs/FDBObjectStore.js
++++ b/node_modules/fake-indexeddb/build/cjs/FDBObjectStore.js
+@@ -370,7 +370,12 @@ class FDBObjectStore {
+     }
+     return this.transaction._execRequestAsync({
+       operation: () => {
+-        return this._rawObjectStore.count(key);
++        let count = 0;
++        const cursor = new _FDBCursor.default(this, key);
++        while (cursor._iterate() !== null) {
++          count += 1;
++        }
++        return count;
+       },
+       source: this
+     });
+diff --git a/node_modules/fake-indexeddb/build/cjs/FDBTransaction.js b/node_modules/fake-indexeddb/build/cjs/FDBTransaction.js
+index 62a5ecc..422246d 100644
+--- a/node_modules/fake-indexeddb/build/cjs/FDBTransaction.js
++++ b/node_modules/fake-indexeddb/build/cjs/FDBTransaction.js
+@@ -193,19 +193,46 @@ class FDBTransaction extends _FakeEventTarget.default {
+         }
+       }
+ 
+-      // Give it another chance for new handlers to be set before finishing
+-      (0, _scheduling.queueTask)(this._start.bind(this));
++      // Give it another chance for new handlers to be set before finishing.
++      // Use microtask scheduling so that promise continuations from
++      // `await store.get()` / `await store.add()` chains run before
++      // the next _start() check. In Hermes, macrotask (setImmediate)
++      // fires before microtasks, causing _start() to see an empty queue
++      // and auto-commit the transaction prematurely.
++      Promise.resolve().then(this._start.bind(this));
+       return;
+     }
+ 
+-    // Check if transaction complete event needs to be fired
++    // Check if transaction complete event needs to be fired.
++    // Defer via multiple microtask rounds so that pending promise
++    // continuations (from `await store.get()` → `await store.add()`
++    // chains) get enough ticks to queue new requests before we
++    // auto-commit. In Hermes, a single Promise.resolve().then() is
++    // not enough because the await continuation and _start() callback
++    // compete at the same microtask depth.
+     if (this._state !== "finished") {
+-      // Either aborted or committed already
+-      this._state = "finished";
+-      if (!this.error) {
+-        const event = new _FakeEvent.default("complete");
+-        this.dispatchEvent(event);
++      const self = this;
++      let rounds = 0;
++      const maxRounds = 6;
++      function checkComplete() {
++        if (self._requests.length > 0) {
++          // New requests arrived — keep processing
++          Promise.resolve().then(self._start.bind(self));
++        } else if (self._state === "finished") {
++          // Already finished (e.g. aborted)
++          return;
++        } else if (rounds < maxRounds) {
++          rounds++;
++          Promise.resolve().then(checkComplete);
++        } else {
++          self._state = "finished";
++          if (!self.error) {
++            const event = new _FakeEvent.default("complete");
++            self.dispatchEvent(event);
++          }
++        }
+       }
++      Promise.resolve().then(checkComplete);
+     }
+   }
+   commit() {
+diff --git a/node_modules/fake-indexeddb/build/cjs/lib/Index.js b/node_modules/fake-indexeddb/build/cjs/lib/Index.js
+index a489796..232814c 100644
+--- a/node_modules/fake-indexeddb/build/cjs/lib/Index.js
++++ b/node_modules/fake-indexeddb/build/cjs/lib/Index.js
+@@ -150,15 +150,6 @@ class Index {
+       source: null
+     });
+   }
+-  count(range) {
+-    let count = 0;
+-
+-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+-    for (const record of this.records.values(range)) {
+-      count += 1;
+-    }
+-    return count;
+-  }
+ }
+ var _default = exports.default = Index;
+ module.exports = exports.default;
+\ No newline at end of file
+diff --git a/node_modules/fake-indexeddb/build/cjs/lib/ObjectStore.js b/node_modules/fake-indexeddb/build/cjs/lib/ObjectStore.js
+index f259df2..656b2f6 100644
+--- a/node_modules/fake-indexeddb/build/cjs/lib/ObjectStore.js
++++ b/node_modules/fake-indexeddb/build/cjs/lib/ObjectStore.js
+@@ -166,15 +166,6 @@ class ObjectStore {
+       rawIndex.records.clear();
+     }
+   }
+-  count(range) {
+-    let count = 0;
+-
+-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+-    for (const record of this.records.values(range)) {
+-      count += 1;
+-    }
+-    return count;
+-  }
+ }
+ var _default = exports.default = ObjectStore;
+ module.exports = exports.default;
+\ No newline at end of file
+diff --git a/node_modules/fake-indexeddb/build/cjs/lib/scheduling.js b/node_modules/fake-indexeddb/build/cjs/lib/scheduling.js
+index 2814f51..4a07b99 100644
+--- a/node_modules/fake-indexeddb/build/cjs/lib/scheduling.js
++++ b/node_modules/fake-indexeddb/build/cjs/lib/scheduling.js
+@@ -29,4 +29,6 @@ function getSetImmediateFromJsdom() {
+ // transactions are marked as not active when the event loop runs. The next
+ // tick queue and microtask queue run within the current event loop macrotask,
+ // so they'd process database operations too quickly.
+-const queueTask = exports.queueTask = globalThis.setImmediate || getSetImmediateFromJsdom() || (fn => setTimeout(fn, 0));
+\ No newline at end of file
++// Also check `global` for React Native / Hermes where setImmediate may
++// not be on globalThis but is provided by RN's timer polyfills on `global`.
++const queueTask = exports.queueTask = globalThis.setImmediate || (typeof global !== "undefined" && global.setImmediate) || getSetImmediateFromJsdom() || (fn => setTimeout(fn, 0));
+diff --git a/node_modules/fake-indexeddb/build/esm/FDBIndex.js b/node_modules/fake-indexeddb/build/esm/FDBIndex.js
+index 6dd203e..d49aa98 100644
+--- a/node_modules/fake-indexeddb/build/esm/FDBIndex.js
++++ b/node_modules/fake-indexeddb/build/esm/FDBIndex.js
+@@ -171,7 +171,12 @@ class FDBIndex {
+     }
+     return this.objectStore.transaction._execRequestAsync({
+       operation: () => {
+-        return this._rawIndex.count(key);
++        let count = 0;
++        const cursor = new FDBCursor(this, key);
++        while (cursor._iterate() !== null) {
++          count += 1;
++        }
++        return count;
+       },
+       source: this
+     });
+diff --git a/node_modules/fake-indexeddb/build/esm/FDBObjectStore.js b/node_modules/fake-indexeddb/build/esm/FDBObjectStore.js
+index 959952c..425e990 100644
+--- a/node_modules/fake-indexeddb/build/esm/FDBObjectStore.js
++++ b/node_modules/fake-indexeddb/build/esm/FDBObjectStore.js
+@@ -363,7 +363,12 @@ class FDBObjectStore {
+     }
+     return this.transaction._execRequestAsync({
+       operation: () => {
+-        return this._rawObjectStore.count(key);
++        let count = 0;
++        const cursor = new FDBCursor(this, key);
++        while (cursor._iterate() !== null) {
++          count += 1;
++        }
++        return count;
+       },
+       source: this
+     });
+diff --git a/node_modules/fake-indexeddb/build/esm/FDBTransaction.js b/node_modules/fake-indexeddb/build/esm/FDBTransaction.js
+index e8ff177..8f13cbc 100644
+--- a/node_modules/fake-indexeddb/build/esm/FDBTransaction.js
++++ b/node_modules/fake-indexeddb/build/esm/FDBTransaction.js
+@@ -186,19 +186,46 @@ class FDBTransaction extends FakeEventTarget {
+         }
+       }
+ 
+-      // Give it another chance for new handlers to be set before finishing
+-      queueTask(this._start.bind(this));
++      // Give it another chance for new handlers to be set before finishing.
++      // Use microtask scheduling so that promise continuations from
++      // `await store.get()` / `await store.add()` chains run before
++      // the next _start() check. In Hermes, macrotask (setImmediate)
++      // fires before microtasks, causing _start() to see an empty queue
++      // and auto-commit the transaction prematurely.
++      Promise.resolve().then(this._start.bind(this));
+       return;
+     }
+ 
+-    // Check if transaction complete event needs to be fired
++    // Check if transaction complete event needs to be fired.
++    // Defer via multiple microtask rounds so that pending promise
++    // continuations (from `await store.get()` → `await store.add()`
++    // chains) get enough ticks to queue new requests before we
++    // auto-commit. In Hermes, a single Promise.resolve().then() is
++    // not enough because the await continuation and _start() callback
++    // compete at the same microtask depth.
+     if (this._state !== "finished") {
+-      // Either aborted or committed already
+-      this._state = "finished";
+-      if (!this.error) {
+-        const event = new FakeEvent("complete");
+-        this.dispatchEvent(event);
++      const self = this;
++      let rounds = 0;
++      const maxRounds = 6;
++      function checkComplete() {
++        if (self._requests.length > 0) {
++          // New requests arrived — keep processing
++          Promise.resolve().then(self._start.bind(self));
++        } else if (self._state === "finished") {
++          // Already finished (e.g. aborted)
++          return;
++        } else if (rounds < maxRounds) {
++          rounds++;
++          Promise.resolve().then(checkComplete);
++        } else {
++          self._state = "finished";
++          if (!self.error) {
++            const event = new FakeEvent("complete");
++            self.dispatchEvent(event);
++          }
++        }
+       }
++      Promise.resolve().then(checkComplete);
+     }
+   }
+   commit() {
+diff --git a/node_modules/fake-indexeddb/build/esm/lib/Index.js b/node_modules/fake-indexeddb/build/esm/lib/Index.js
+index cfe736c..0618f57 100644
+--- a/node_modules/fake-indexeddb/build/esm/lib/Index.js
++++ b/node_modules/fake-indexeddb/build/esm/lib/Index.js
+@@ -144,14 +144,5 @@ class Index {
+       source: null
+     });
+   }
+-  count(range) {
+-    let count = 0;
+-
+-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+-    for (const record of this.records.values(range)) {
+-      count += 1;
+-    }
+-    return count;
+-  }
+ }
+ export default Index;
+\ No newline at end of file
+diff --git a/node_modules/fake-indexeddb/build/esm/lib/ObjectStore.js b/node_modules/fake-indexeddb/build/esm/lib/ObjectStore.js
+index f43f387..50cec7d 100644
+--- a/node_modules/fake-indexeddb/build/esm/lib/ObjectStore.js
++++ b/node_modules/fake-indexeddb/build/esm/lib/ObjectStore.js
+@@ -159,14 +159,5 @@ class ObjectStore {
+       rawIndex.records.clear();
+     }
+   }
+-  count(range) {
+-    let count = 0;
+-
+-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+-    for (const record of this.records.values(range)) {
+-      count += 1;
+-    }
+-    return count;
+-  }
+ }
+ export default ObjectStore;
+\ No newline at end of file
+diff --git a/node_modules/fake-indexeddb/build/esm/lib/scheduling.js b/node_modules/fake-indexeddb/build/esm/lib/scheduling.js
+index c85f294..da6e3c7 100644
+--- a/node_modules/fake-indexeddb/build/esm/lib/scheduling.js
++++ b/node_modules/fake-indexeddb/build/esm/lib/scheduling.js
+@@ -23,4 +23,6 @@ function getSetImmediateFromJsdom() {
+ // transactions are marked as not active when the event loop runs. The next
+ // tick queue and microtask queue run within the current event loop macrotask,
+ // so they'd process database operations too quickly.
+-export const queueTask = globalThis.setImmediate || getSetImmediateFromJsdom() || (fn => setTimeout(fn, 0));
+\ No newline at end of file
++// Also check `global` for React Native / Hermes where setImmediate may
++// not be on globalThis but is provided by RN's timer polyfills on `global`.
++export const queueTask = globalThis.setImmediate || (typeof global !== "undefined" && global.setImmediate) || getSetImmediateFromJsdom() || (fn => setTimeout(fn, 0));

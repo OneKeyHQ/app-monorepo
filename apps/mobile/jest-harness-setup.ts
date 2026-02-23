@@ -101,31 +101,61 @@ if (typeof (globalThis as any).structuredClone === 'undefined') {
 // Polyfill IndexedDB for Hermes (needed by LocalDbIndexed tests).
 // fake-indexeddb is a pure-JS in-memory implementation that works once
 // structuredClone is available. Without this, LocalDbIndexed tests are skipped.
+//
+// Two issues were fixed via patch-package (fake-indexeddb+5.0.1.patch):
+//
+// 1. scheduling.js: added `global.setImmediate` fallback for React Native
+//    where RN's timer polyfills attach setImmediate to `global` not `globalThis`.
+//
+// 2. FDBTransaction._start(): changed inter-request scheduling from macrotask
+//    (queueTask/setImmediate) to microtask (Promise.resolve().then()) so that
+//    promise continuations from `await store.get()` → `await store.add()`
+//    chains run before _start() checks for an empty queue. In Hermes, macrotasks
+//    fire before microtasks, causing premature transaction auto-commit.
 try {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
-  require('fake-indexeddb/auto');
-  // Two issues prevent LocalDbIndexed tests from running on Hermes:
-  //
-  // 1. globalThis mismatch: fake-indexeddb/auto sets indexedDB on `window`,
-  //    but in Hermes `window !== globalThis`, so `typeof indexedDB` returns
-  //    "undefined". Fixable by manually setting globalThis.indexedDB.
-  //
-  // 2. Transaction auto-commit timing (blocking): FDBTransaction._start()
-  //    uses queueTask (setImmediate/setTimeout) to process requests. After
-  //    the last request completes, the next _start() call finds an empty
-  //    queue and marks the transaction "finished". But _initDBRecords uses
-  //    `await store.get()` → `await store.add()` chains within Promise.all,
-  //    and the promise continuations that queue new requests run as microtasks
-  //    AFTER _start() has already auto-committed the transaction, causing
-  //    InvalidStateError. This happens even with RN's setImmediate polyfill
-  //    because Hermes flushes microtasks differently than V8/Node.js.
-  //
-  // Fixing #2 requires patching FDBTransaction._start() to defer the
-  // "finished" transition until after microtasks drain, or restructuring
-  // LocalDbIndexed._initDBRecords to avoid async gaps within a transaction.
-  // These 2 tests (getContext, getBackupUUID) pass in Jest/Node.js.
+  const FDBFactory = require('fake-indexeddb/build/cjs/FDBFactory.js');
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const FDBCursor = require('fake-indexeddb/build/cjs/FDBCursor.js');
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const FDBCursorWithValue = require('fake-indexeddb/build/cjs/FDBCursorWithValue.js');
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const FDBDatabase = require('fake-indexeddb/build/cjs/FDBDatabase.js');
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const FDBIndex = require('fake-indexeddb/build/cjs/FDBIndex.js');
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const FDBKeyRange = require('fake-indexeddb/build/cjs/FDBKeyRange.js');
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const FDBObjectStore = require('fake-indexeddb/build/cjs/FDBObjectStore.js');
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const FDBOpenDBRequest = require('fake-indexeddb/build/cjs/FDBOpenDBRequest.js');
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const FDBRequest = require('fake-indexeddb/build/cjs/FDBRequest.js');
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const FDBTransaction = require('fake-indexeddb/build/cjs/FDBTransaction.js');
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const FDBVersionChangeEvent = require('fake-indexeddb/build/cjs/FDBVersionChangeEvent.js');
+
+  // Resolve the actual constructor — Metro's CJS interop may wrap exports
+  // in { default: ... } for modules that use `module.exports = exports.default`.
+  const resolveDefault = (mod: any) => (mod && mod.default ? mod.default : mod);
+  const Factory = resolveDefault(FDBFactory);
+  const fakeIndexedDB = new Factory();
+
+  (globalThis as any).indexedDB = fakeIndexedDB;
+  (globalThis as any).IDBCursor = resolveDefault(FDBCursor);
+  (globalThis as any).IDBCursorWithValue = resolveDefault(FDBCursorWithValue);
+  (globalThis as any).IDBDatabase = resolveDefault(FDBDatabase);
+  (globalThis as any).IDBFactory = Factory;
+  (globalThis as any).IDBIndex = resolveDefault(FDBIndex);
+  (globalThis as any).IDBKeyRange = resolveDefault(FDBKeyRange);
+  (globalThis as any).IDBObjectStore = resolveDefault(FDBObjectStore);
+  (globalThis as any).IDBOpenDBRequest = resolveDefault(FDBOpenDBRequest);
+  (globalThis as any).IDBRequest = resolveDefault(FDBRequest);
+  (globalThis as any).IDBTransaction = resolveDefault(FDBTransaction);
+  (globalThis as any).IDBVersionChangeEvent = resolveDefault(FDBVersionChangeEvent);
 } catch (e) {
-  console.warn('[harness-compat] fake-indexeddb/auto failed:', e);
+  console.warn('[harness-compat] fake-indexeddb init failed:', e);
 }
 
 // Polyfill ES2023 Array methods not yet available in Hermes
