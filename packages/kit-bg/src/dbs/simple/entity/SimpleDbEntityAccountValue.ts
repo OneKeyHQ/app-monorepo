@@ -27,8 +27,8 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
 
     return accounts.map(({ accountId }) => ({
       accountId,
-      value: rawData?.data[accountId]?.value,
-      currency: rawData?.data[accountId]?.currency,
+      value: rawData?.data?.[accountId]?.value,
+      currency: rawData?.data?.[accountId]?.currency,
     }));
   }
 
@@ -94,8 +94,8 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
 
     return accounts.map(({ accountId }) => ({
       accountId,
-      value: rawData?.all[accountId]?.value,
-      currency: rawData?.all[accountId]?.currency,
+      value: rawData?.all?.[accountId]?.value,
+      currency: rawData?.all?.[accountId]?.currency,
     }));
   }
 }
