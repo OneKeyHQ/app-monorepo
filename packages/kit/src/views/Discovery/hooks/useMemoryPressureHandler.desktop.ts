@@ -87,13 +87,9 @@ export function useMemoryPressureHandler() {
                 electronWebview.stop();
               }
 
-              // Clear the webview's cache
-              if (electronWebview.getWebContents) {
-                const webContents = electronWebview.getWebContents();
-                if (webContents && webContents.session) {
-                  void webContents.session.clearCache();
-                }
-              }
+              // Note: Do NOT call session.clearCache() here — all webviews
+              // share the same session, so clearing cache would affect all
+              // tabs and cause reloaded tabs to re-fetch everything.
 
               // Reload the webview
               if (typeof electronWebview.reload === 'function') {

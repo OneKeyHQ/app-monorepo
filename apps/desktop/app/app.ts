@@ -1183,6 +1183,10 @@ const MEMORY_CHECK_INTERVAL_MS = 60_000; // Check every 60 seconds
 
 let memoryMonitorInterval: ReturnType<typeof setInterval> | null = null;
 
+// Track previous memory state to only fire on threshold transitions
+let wasAboveWarning = false;
+let wasAboveCritical = false;
+
 function startMemoryMonitoring() {
   if (memoryMonitorInterval) {
     clearInterval(memoryMonitorInterval);
@@ -1201,13 +1205,15 @@ function startMemoryMonitoring() {
         );
       }
 
-      // Warning threshold: 1GB
-      if (memoryUsageMB > MEMORY_LIMIT_WARNING_MB) {
+      const isAboveWarning = memoryUsageMB > MEMORY_LIMIT_WARNING_MB;
+      const isAboveCritical = memoryUsageMB > MEMORY_LIMIT_CRITICAL_MB;
+
+      // Warning threshold: 1GB — only fire on transition (below → above)
+      if (isAboveWarning && !wasAboveWarning) {
         logger.warn(
           `⚠️ [Memory Monitor] Memory usage high: ${memoryUsageMB}MB (threshold: ${MEMORY_LIMIT_WARNING_MB}MB)`,
         );
 
-        // Suggest clearing cache
         const safelyMainWindow = getSafelyMainWindow();
         if (safelyMainWindow && !safelyMainWindow.isDestroyed()) {
           safelyMainWindow.webContents.send('memory-pressure-warning', {
@@ -1218,26 +1224,18 @@ function startMemoryMonitoring() {
         }
       }
 
-      // Critical threshold: 2GB
-      if (memoryUsageMB > MEMORY_LIMIT_CRITICAL_MB) {
+      // Critical threshold: 2GB — only fire on transition (below → above)
+      if (isAboveCritical && !wasAboveCritical) {
         logger.error(
           `🔴 [Memory Monitor] CRITICAL memory usage: ${memoryUsageMB}MB (threshold: ${MEMORY_LIMIT_CRITICAL_MB}MB)`,
         );
 
-        // Trigger aggressive cleanup
         const safelyMainWindow = getSafelyMainWindow();
         if (safelyMainWindow && !safelyMainWindow.isDestroyed()) {
-          // Clear all caches aggressively
-          const webContents = safelyMainWindow.webContents;
-          if (webContents && webContents.session) {
-            void webContents.session.clearCache();
-            void webContents.session.clearStorageData({
-              storages: ['cachestorage'],
-            });
-            logger.info('[Memory Monitor] Cleared caches to reduce memory');
-          }
-
           // Notify renderer to reload inactive tabs
+          // Note: Do NOT clear the shared session cache here — it would
+          // destroy cache for ALL webviews (including the active tab) and
+          // cause reloaded tabs to re-fetch everything without cache.
           safelyMainWindow.webContents.send('memory-pressure-critical', {
             currentMemoryMB: memoryUsageMB,
             thresholdMB: MEMORY_LIMIT_CRITICAL_MB,
@@ -1263,6 +1261,10 @@ function startMemoryMonitoring() {
           logger.error('[Memory Monitor] Failed to report to Sentry:', e);
         }
       }
+
+      // Update state for next check
+      wasAboveWarning = isAboveWarning;
+      wasAboveCritical = isAboveCritical;
     } catch (error) {
       logger.error('[Memory Monitor] Failed to check memory:', error);
     }
