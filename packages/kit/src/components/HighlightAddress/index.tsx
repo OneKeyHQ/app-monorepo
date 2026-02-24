@@ -22,8 +22,7 @@ function HighlightAddress({
 
     // Group the ENTIRE address first to preserve visual rhythm
     const grouped =
-      address.match(new RegExp(`.{1,${groupSize}}`, 'g'))?.join(' ') ||
-      address;
+      address.match(new RegExp(`.{1,${groupSize}}`, 'g'))?.join(' ') || address;
 
     const totalLen = address.length;
     const minLength = leadingHighlightCount + trailingHighlightCount;
@@ -66,9 +65,13 @@ function HighlightAddress({
 
   return (
     <SizableText fontFamily="$monoMedium" color="$text">
-      <SizableText fontFamily="$monoMedium" color="$textInteractive">{leading}</SizableText>
+      <SizableText fontFamily="$monoMedium" color="$textInteractive">
+        {leading}
+      </SizableText>
       {middle}
-      <SizableText fontFamily="$monoMedium" color="$textInteractive">{trailing}</SizableText>
+      <SizableText fontFamily="$monoMedium" color="$textInteractive">
+        {trailing}
+      </SizableText>
     </SizableText>
   );
 }

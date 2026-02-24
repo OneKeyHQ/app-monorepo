@@ -715,6 +715,20 @@ class ServiceMarketV2 extends ServiceBase {
     const { data } = response.data;
     return data.list;
   }
+
+  @backgroundMethod()
+  async fetchMarketBannerPerpsTokenList({
+    tokenListId,
+  }: {
+    tokenListId: string;
+  }): Promise<IMarketPerpsTokenListData> {
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const response = await client.get<IMarketPerpsTokenListResponse>(
+      `/utility/v2/market/banner/perps-token-list/${tokenListId}`,
+    );
+    return response.data.data;
+  }
+
   @backgroundMethod()
   async fetchMarketPerpsTokenList(params?: {
     category?: string;
@@ -804,7 +818,7 @@ class ServiceMarketV2 extends ServiceBase {
       const marketPerpsCoins = new Set(
         watchListData.data
           .filter((item) => !!item.perpsCoin)
-          .map((item) => item.perpsCoin!),
+          .map((item) => item.perpsCoin ?? ''),
       );
       const perpsCoins = new Set(perpsFavorites.favorites);
 
