@@ -711,6 +711,8 @@ async function createMainWindow() {
   });
 
   // System Resources
+  ipcMain.removeHandler(ipcMessageKeys.SYSTEM_GET_CPU_USAGE);
+  ipcMain.removeHandler(ipcMessageKeys.SYSTEM_GET_MEMORY_USAGE);
   ipcMain.handle(ipcMessageKeys.SYSTEM_GET_CPU_USAGE, async () => {
     try {
       const cpuUsage = process.getCPUUsage();
@@ -996,6 +998,19 @@ async function createMainWindow() {
     }
   });
 
+  const nobleBleChannels = [
+    '$onekey-noble-ble-enumerate',
+    '$onekey-noble-ble-stop-scan',
+    '$onekey-noble-ble-get-device',
+    '$onekey-noble-ble-connect',
+    '$onekey-noble-ble-disconnect',
+    '$onekey-noble-ble-write',
+    '$onekey-noble-ble-subscribe',
+    '$onekey-noble-ble-unsubscribe',
+    '$onekey-noble-ble-cancel-pairing',
+    '$onekey-ble-availability-check',
+  ];
+  nobleBleChannels.forEach((channel) => ipcMain.removeHandler(channel));
   void initNobleBleSupport(browserWindow.webContents);
 
   return browserWindow;
