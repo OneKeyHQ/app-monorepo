@@ -141,6 +141,7 @@ export const BorrowDataGate = ({
       undefinedResultIfError: true,
       pollingInterval: isViewActive ? BORROW_POLLING_INTERVAL : undefined,
       revalidateOnFocus: true,
+      alwaysSetState: true,
     },
   );
 
