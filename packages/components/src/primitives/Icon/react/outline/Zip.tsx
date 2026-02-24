@@ -7,7 +7,13 @@ const SvgZip = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M3 19V5a2 2 0 0 1 2-2h1a1 1 0 0 1 0 2H5v14h14V5h-1a1 1 0 1 1 0-2h1a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2m10-6h-2v1a1 1 0 1 0 2 0zm1-6a1 1 0 1 1 0 2h-4a1 1 0 0 1 0-2zm0-4a1 1 0 1 1 0 2h-4a1 1 0 0 1 0-2zm1 11a3 3 0 1 1-6 0v-2a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1z" />
+    <Path d="M7 5H5v14h14V5h-2V3h4v18H3V3h4z" />
+    <Path
+      fillRule="evenodd"
+      d="M15 14a3 3 0 1 1-6 0v-3h6zm-4 0a1 1 0 1 0 2 0v-1h-2z"
+      clipRule="evenodd"
+    />
+    <Path d="M15 9H9V7h6zm0-4H9V3h6z" />
   </Svg>
 );
 export default SvgZip;

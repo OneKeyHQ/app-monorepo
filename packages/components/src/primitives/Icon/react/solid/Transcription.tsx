@@ -9,7 +9,7 @@ const SvgTranscription = (props: SvgProps) => (
   >
     <Path
       fillRule="evenodd"
-      d="M2 6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2zm4 9a1 1 0 0 1 1-1h5a1 1 0 1 1 0 2H7a1 1 0 0 1-1-1m9 0a1 1 0 0 1 1-1h1a1 1 0 1 1 0 2h-1a1 1 0 0 1-1-1m-8-5a1 1 0 1 0 0 2h1a1 1 0 1 0 0-2zm5 0a1 1 0 1 0 0 2h5a1 1 0 1 0 0-2z"
+      d="M22 20H2V4h20zM6 14v2h7v-2zm9 0v2h3v-2zm-9-2h3v-2H6zm5 0h7v-2h-7z"
       clipRule="evenodd"
     />
   </Svg>

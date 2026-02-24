@@ -1,7 +1,10 @@
+import platformEnv from '../platformEnv';
+
 import {
   containsPunycode,
   ensureHttpsPrefix,
   isUrlWithoutProtocol,
+  parseUrl,
   validateUrl,
 } from './uriUtils';
 
@@ -182,5 +185,102 @@ describe('ensureHttpsPrefix', () => {
 
   test('returns empty string for empty input', () => {
     expect(ensureHttpsPrefix('')).toBe('');
+  });
+});
+
+describe('parseUrl', () => {
+  test('parses standard https URLs correctly', () => {
+    const result = parseUrl('https://example.com/path?q=1');
+    expect(result).toMatchObject({
+      hostname: 'example.com',
+      pathname: '/path',
+      urlSchema: 'https',
+    });
+  });
+
+  test('normalizes custom scheme URLs where hostname is empty', () => {
+    // Hermes URL parser returns hostname='' and pathname='//host/path'
+    // for custom schemes; this tests the normalization logic
+    const result = parseUrl('onekey-wallet://account/list');
+    expect(result).toMatchObject({
+      hostname: 'account',
+      pathname: '/list',
+      urlSchema: 'onekey-wallet',
+    });
+  });
+
+  test('normalizes custom scheme URLs with no path', () => {
+    const result = parseUrl('onekey-wallet://account');
+    expect(result).toMatchObject({
+      hostname: 'account',
+      urlSchema: 'onekey-wallet',
+    });
+    // V8 returns pathname='' for custom schemes without a path,
+    // Hermes normalization produces pathname='/' via the fallback branch.
+    // Accept either to keep the test cross-engine compatible.
+    expect(['', '/']).toContain(result?.pathname);
+  });
+
+  test('normalizes origin to null for non-http schemes', () => {
+    const result = parseUrl('onekey-wallet://account/list');
+    expect(result?.origin).toBe('null');
+  });
+
+  test('preserves origin for http/https schemes', () => {
+    const result = parseUrl('https://example.com/path');
+    expect(result?.origin).toBe('https://example.com');
+  });
+
+  test('builds urlPathList correctly for custom schemes', () => {
+    const result = parseUrl('onekey-wallet://account/list');
+    expect(result?.urlPathList).toEqual(['account', 'list']);
+  });
+
+  test('returns null for invalid URLs', () => {
+    expect(parseUrl('not a url')).toBeNull();
+  });
+});
+
+describe('validateUrl', () => {
+  test('strips root-only trailing slash', () => {
+    // Root-only path: https://google.com/ -> https://google.com
+    expect(validateUrl('https://google.com/')).toBe('https://google.com');
+  });
+
+  test('trailing slash on deeper paths depends on platform', () => {
+    // On native (Hermes), trailing slashes are stripped (Hermes URL parser quirk).
+    // On Node/web, trailing slashes are preserved (semantically meaningful).
+    const expected = platformEnv.isNative
+      ? 'https://example.com/path'
+      : 'https://example.com/path/';
+    expect(validateUrl('https://example.com/path/')).toBe(expected);
+  });
+
+  test('preserves paths without trailing slash', () => {
+    expect(validateUrl('https://example.com/path')).toBe(
+      'https://example.com/path',
+    );
+  });
+
+  test('query params and hash after normalization', () => {
+    const expected = platformEnv.isNative
+      ? 'https://example.com/path?q=1#hash'
+      : 'https://example.com/path/?q=1#hash';
+    expect(validateUrl('https://example.com/path/?q=1#hash')).toBe(expected);
+  });
+});
+
+describe('containsPunycode', () => {
+  test('detects unicode hostnames (Hermes keeps unicode, V8 normalizes to xn--)', () => {
+    // xn-- prefixed domains
+    expect(containsPunycode('http://xn--fiq228c.com')).toBe(true);
+    // Unicode domains
+    expect(containsPunycode('https://аррӏе.com')).toBe(true);
+    expect(containsPunycode('https://新华网.cn')).toBe(true);
+  });
+
+  test('returns false for plain ASCII domains', () => {
+    expect(containsPunycode('https://google.com')).toBe(false);
+    expect(containsPunycode('https://example.co.uk')).toBe(false);
   });
 });

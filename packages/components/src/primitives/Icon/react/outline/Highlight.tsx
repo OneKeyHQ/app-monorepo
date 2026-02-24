@@ -9,10 +9,10 @@ const SvgHighlight = (props: SvgProps) => (
   >
     <Path
       fillRule="evenodd"
-      d="M15.629 2.457a2 2 0 0 1 2.828 0l3.086 3.086a2 2 0 0 1 .137 2.676l-.137.152-13 13a2 2 0 0 1-1.414.586H3.043a1 1 0 0 1-1-1v-4.086a2 2 0 0 1 .586-1.414zM4.043 16.871v3.086h3.086l13-13-3.086-3.086z"
+      d="M22.414 7.5 7.914 22H2v-5.914l14.5-14.5zM4 16.914V20h3.086l12.5-12.5L16.5 4.414z"
       clipRule="evenodd"
     />
-    <Path d="M21.043 19.957a1 1 0 1 1 0 2h-7a1 1 0 0 1 0-2z" />
+    <Path d="M22 22h-9v-2h9z" />
   </Svg>
 );
 export default SvgHighlight;

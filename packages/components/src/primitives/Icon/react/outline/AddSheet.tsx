@@ -7,10 +7,10 @@ const SvgAddSheet = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M12 8a1 1 0 0 1 1 1v2h2a1 1 0 1 1 0 2h-2v2a1 1 0 1 1-2 0v-2H9a1 1 0 1 1 0-2h2V9a1 1 0 0 1 1-1" />
+    <Path d="M13 11h3v2h-3v3h-2v-3H8v-2h3V8h2z" />
     <Path
       fillRule="evenodd"
-      d="M18 2a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zM6 20h12V4H6z"
+      d="M20 22H4V2h16zM6 20h12V4H6z"
       clipRule="evenodd"
     />
   </Svg>

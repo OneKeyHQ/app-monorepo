@@ -7,7 +7,7 @@ const SvgTextIndentLeft = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M21 17a1 1 0 1 1 0 2H10a1 1 0 1 1 0-2zM2.59 8.428a1 1 0 0 1 1.073.164l3 2.66a1 1 0 0 1 0 1.497l-3 2.65A1 1 0 0 1 2 14.65V9.34a1 1 0 0 1 .59-.912M21 11a1 1 0 1 1 0 2H10a1 1 0 1 1 0-2zm0-6a1 1 0 1 1 0 2H10a1 1 0 0 1 0-2z" />
+    <Path d="M22 19H9v-2h13zM7.312 12.002 2 15.508V8.476zM22 13H9v-2h13zm0-6H9V5h13z" />
   </Svg>
 );
 export default SvgTextIndentLeft;
