@@ -9,7 +9,7 @@ const SvgCup1 = (props: SvgProps) => (
   >
     <Path
       fillRule="evenodd"
-      d="M3 4a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v2h2a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zm14 8h2V8h-2z"
+      d="M17 6h4v8h-4v7H3V3h14zm0 6h2V8h-2z"
       clipRule="evenodd"
     />
   </Svg>

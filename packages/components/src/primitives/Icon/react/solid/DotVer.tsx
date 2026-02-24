@@ -7,11 +7,7 @@ const SvgDotVer = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path
-      fillRule="evenodd"
-      d="M10 4a2 2 0 1 1 4 0 2 2 0 0 1-4 0m0 8a2 2 0 1 1 4 0 2 2 0 0 1-4 0m0 8a2 2 0 1 1 4 0 2 2 0 0 1-4 0"
-      clipRule="evenodd"
-    />
+    <Path d="M14 18v4h-4v-4zm0-4h-4v-4h4zm0-8h-4V2h4z" />
   </Svg>
 );
 export default SvgDotVer;

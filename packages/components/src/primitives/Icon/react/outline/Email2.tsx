@@ -7,7 +7,11 @@ const SvgEmail2 = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="m20 10.118-7.105 3.553a2 2 0 0 1-1.79 0L4 10.118V18h16zM4 6v1.882l8 4 8-4V6zm18 12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z" />
+    <Path
+      fillRule="evenodd"
+      d="M22 4v16H2V4zM12 14.118l-8-4V18h16v-7.883zM4 7.882l8 4 8-4V6H4z"
+      clipRule="evenodd"
+    />
   </Svg>
 );
 export default SvgEmail2;

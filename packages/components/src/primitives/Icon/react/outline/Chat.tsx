@@ -7,7 +7,11 @@ const SvgChat = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M4.002 5v12h3a1 1 0 0 1 1 1v1.233l3.486-2.09.12-.062a1 1 0 0 1 .394-.081h8V5zm18 12a2 2 0 0 1-2 2H12.28l-4.763 2.858A1.001 1.001 0 0 1 6.002 21v-2h-2a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z" />
+    <Path
+      fillRule="evenodd"
+      d="M22.002 19h-9.723l-6.277 3.767V19h-4V3h20zm-18-2h4v2.233L11.725 17h8.277V5h-16z"
+      clipRule="evenodd"
+    />
   </Svg>
 );
 export default SvgChat;

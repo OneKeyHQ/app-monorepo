@@ -7,12 +7,12 @@ const SvgAirpods = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M7.5 3A4.5 4.5 0 0 0 3 7.5V9h18V7.5A4.5 4.5 0 0 0 16.5 3z" />
     <Path
       fillRule="evenodd"
-      d="M3 16.5V11h18v5.5a4.5 4.5 0 0 1-4.5 4.5h-9A4.5 4.5 0 0 1 3 16.5m9-1a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5"
+      d="M21 16.5a4.5 4.5 0 0 1-4.5 4.5h-9A4.5 4.5 0 0 1 3 16.5V11h18zM12.001 13a1.25 1.25 0 1 0 0 2.5 1.25 1.25 0 0 0 0-2.5"
       clipRule="evenodd"
     />
+    <Path d="M16.5 3A4.5 4.5 0 0 1 21 7.5V9H3V7.5A4.5 4.5 0 0 1 7.5 3z" />
   </Svg>
 );
 export default SvgAirpods;

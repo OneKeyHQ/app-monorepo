@@ -7,7 +7,8 @@ const SvgUpload = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M3 19v-6.25a1 1 0 1 1 2 0V19h14v-6.25a1 1 0 1 1 2 0V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2m8-3.75V6.414L8.207 9.207a1 1 0 1 1-1.414-1.414l4.5-4.5.073-.066a1 1 0 0 1 1.341.066l4.5 4.5a1 1 0 1 1-1.414 1.414L13 6.414v8.836a1 1 0 1 1-2 0" />
+    <Path d="M5 19h14v-5.25h2V21H3v-7.25h2z" />
+    <Path d="M17.914 8.5 16.5 9.914l-3.5-3.5v9.836h-2V6.414l-3.5 3.5L6.086 8.5 12 2.586z" />
   </Svg>
 );
 export default SvgUpload;
