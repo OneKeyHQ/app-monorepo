@@ -3,6 +3,10 @@
     "agentation": {
       "command": "npx",
       "args": ["agentation-mcp", "server"]
+    },
+    "sentry": {
+      "command": "npx",
+      "args": ["-y", "@sentry/mcp-server"]
     }
   }
 }

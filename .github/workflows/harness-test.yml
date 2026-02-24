@@ -48,18 +48,13 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Cache Android SDK components
-        id: cache-android-sdk
-        uses: actions/cache@v4
-        with:
-          path: |
-            ${{ env.ANDROID_HOME }}/system-images
-            ${{ env.ANDROID_HOME }}/platforms
-            ${{ env.ANDROID_HOME }}/emulator
-          key: android-sdk-35-x86_64
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
 
       - name: Install Android SDK components
-        if: steps.cache-android-sdk.outputs.cache-hit != 'true'
         run: |
           sdkmanager --install "platform-tools" "platforms;android-35" "system-images;android-35;google_apis;x86_64" "emulator"
 
@@ -73,19 +68,31 @@ jobs:
           restore-keys: |
             gradle-
 
-      - name: Create AVD
+      - name: Create AVD and detect path
         run: |
-          echo "no" | avdmanager create avd -n Pixel_7_API_35 -k "system-images;android-35;google_apis;x86_64" -d "pixel_7" --force
-
-      - name: Enable KVM
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
+          echo "no" | avdmanager create avd -n test_avd -k "system-images;android-35;google_apis;x86_64" --force
+          AVD_INI=$(find /home/runner -name "test_avd.ini" 2>/dev/null | head -1)
+          if [ -z "$AVD_INI" ]; then
+            echo "ERROR: test_avd.ini not found anywhere under /home/runner"
+            exit 1
+          fi
+          AVD_DIR=$(dirname "$AVD_INI")
+          echo "Found AVD ini at: $AVD_INI"
+          echo "Setting ANDROID_AVD_HOME=$AVD_DIR"
+          echo "ANDROID_AVD_HOME=$AVD_DIR" >> $GITHUB_ENV
+          echo "=== Verify emulator can see AVD ==="
+          ANDROID_AVD_HOME=$AVD_DIR $ANDROID_HOME/emulator/emulator -list-avds
 
       - name: Start Android Emulator
         run: |
-          $ANDROID_HOME/emulator/emulator -avd Pixel_7_API_35 -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot-save &
+          $ANDROID_HOME/emulator/emulator -avd test_avd -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot-save -verbose 2>&1 | tee /tmp/emulator.log &
+          EMU_PID=$!
+          sleep 3
+          if ! kill -0 $EMU_PID 2>/dev/null; then
+            echo "ERROR: Emulator process died immediately"
+            cat /tmp/emulator.log
+            exit 1
+          fi
           adb wait-for-device
           SECONDS=0
           TIMEOUT=300
@@ -93,6 +100,8 @@ jobs:
           while [ "$boot_completed" != "1" ]; do
             if [ "$SECONDS" -ge "$TIMEOUT" ]; then
               echo "ERROR: Emulator boot timed out after ${TIMEOUT}s"
+              echo "=== Last 50 lines of emulator log ==="
+              tail -50 /tmp/emulator.log
               exit 1
             fi
             sleep 5
