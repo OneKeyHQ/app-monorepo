@@ -24,8 +24,7 @@ jest.mock('react-native-uuid', () => ({
 
 // Skip tests when IndexedDB is not available (e.g. Hermes/harness environment)
 const hasIndexedDB =
-  typeof indexedDB !== 'undefined' &&
-  typeof indexedDB.open === 'function';
+  typeof indexedDB !== 'undefined' && typeof indexedDB.open === 'function';
 const describeIfIndexedDB = hasIndexedDB ? describe : describe.skip;
 
 // Placeholder test so the suite is never empty (harness requires at least one test)

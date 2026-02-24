@@ -9,7 +9,7 @@ import { Buffer } from 'buffer';
 (globalThis as any).Buffer = Buffer;
 (globalThis as any).process = (globalThis as any).process || { env: {} };
 
-// Load WHATWG-compliant URL polyfill. The normal app loads this via
+// Load WHATWG-compliant URL polyfill. The normal app loads this via  // cspell:ignore WHATWG
 // polyfillsPlatform.js, but the harness entry point skips app polyfills.
 // Without this, RN's built-in regex-based URL class is used, which only
 // parses HTTP/HTTPS URLs and breaks all custom scheme parsing (onekey-wallet://,
@@ -42,7 +42,8 @@ if (platformEnvObj && typeof platformEnvObj === 'object') {
   let needsWrap = !NativeTD;
   if (NativeTD && !needsWrap) {
     try {
-      new NativeTD('utf-8', { fatal: true });
+      const _probe = new NativeTD('utf-8', { fatal: true }); // eslint-disable-line no-new, @typescript-eslint/no-unused-vars
+      void _probe;
     } catch {
       needsWrap = true;
     }
@@ -57,11 +58,19 @@ if (platformEnvObj && typeof platformEnvObj === 'object') {
     // breaking @solana/web3.js and other libraries that use { fatal: true }.
     const WrappedTD = class TextDecoder {
       _inner: any;
-      constructor(label?: string, options?: { fatal?: boolean; ignoreBOM?: boolean }) {
-        const safeOptions = options ? { ignoreBOM: options.ignoreBOM } : undefined;
+      constructor(
+        label?: string,
+        options?: { fatal?: boolean; ignoreBOM?: boolean },
+      ) {
+        const safeOptions = options
+          ? { ignoreBOM: options.ignoreBOM }
+          : undefined;
         this._inner = new NativeTD(label, safeOptions);
       }
-      decode(input?: ArrayBufferView | ArrayBuffer, options?: { stream?: boolean }): string {
+      decode(
+        input?: ArrayBufferView | ArrayBuffer,
+        options?: { stream?: boolean },
+      ): string {
         return this._inner.decode(input, options);
       }
       get encoding(): string {
@@ -79,7 +88,9 @@ if (platformEnvObj && typeof platformEnvObj === 'object') {
     // may resolve through `global` rather than `globalThis`. Without this,
     // Hermes throws "Property 'TextDecoder' doesn't exist" for code that
     // uses `new TextDecoder()` without an explicit `globalThis.` prefix.
+    // eslint-disable-next-line unicorn/prefer-global-this -- Metro resolves bare TextDecoder via `global`, not `globalThis`
     if (typeof global !== 'undefined') {
+      // eslint-disable-next-line unicorn/prefer-global-this
       (global as any).TextDecoder = WrappedTD;
     }
   }
@@ -89,9 +100,10 @@ if (platformEnvObj && typeof platformEnvObj === 'object') {
 // Mirrors the polyfill in jest-setup.js for the Node.js Jest environment.
 if (typeof (globalThis as any).structuredClone === 'undefined') {
   try {
-    (globalThis as any).structuredClone = require('@ungap/structured-clone').default;
+    (globalThis as any).structuredClone =
+      require('@ungap/structured-clone').default;
   } catch {
-    // @ungap/structured-clone not available in bundle
+    // @ungap/structured-clone not available in bundle  // cspell:ignore ungap
   }
 }
 
@@ -107,7 +119,7 @@ if (typeof (globalThis as any).structuredClone === 'undefined') {
 // 2. FDBTransaction._start(): changed inter-request scheduling from macrotask
 //    (queueTask/setImmediate) to microtask (Promise.resolve().then()) so that
 //    promise continuations from `await store.get()` → `await store.add()`
-//    chains run before _start() checks for an empty queue. In Hermes, macrotasks
+//    chains run before _start() checks for an empty queue. In Hermes, macro-tasks
 //    fire before microtasks, causing premature transaction auto-commit.
 try {
   const FDBFactory = require('fake-indexeddb/build/cjs/FDBFactory.js');
@@ -139,7 +151,9 @@ try {
   (globalThis as any).IDBOpenDBRequest = resolveDefault(FDBOpenDBRequest);
   (globalThis as any).IDBRequest = resolveDefault(FDBRequest);
   (globalThis as any).IDBTransaction = resolveDefault(FDBTransaction);
-  (globalThis as any).IDBVersionChangeEvent = resolveDefault(FDBVersionChangeEvent);
+  (globalThis as any).IDBVersionChangeEvent = resolveDefault(
+    FDBVersionChangeEvent,
+  );
 } catch (e) {
   console.warn('[harness-compat] fake-indexeddb init failed:', e);
 }
@@ -151,13 +165,13 @@ if (!Array.prototype.toSorted) {
     this: T[],
     compareFn?: (a: T, b: T) => number,
   ): T[] {
-    return [...this].sort(compareFn);
+    return [...this].toSorted(compareFn);
   };
 }
 if (!Array.prototype.toReversed) {
   // eslint-disable-next-line no-extend-native
   Array.prototype.toReversed = function <T>(this: T[]): T[] {
-    return [...this].reverse();
+    return [...this].toReversed();
   };
 }
 if (!Array.prototype.toSpliced) {

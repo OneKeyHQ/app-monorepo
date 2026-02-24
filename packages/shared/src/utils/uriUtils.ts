@@ -229,7 +229,11 @@ export const validateUrl = (url: string): string => {
       // Hermes URL parser may append a trailing "/" that V8 does not.
       // Only strip on native to avoid changing semantics on web/desktop
       // where trailing slashes can be meaningful (e.g. directory URLs).
-      if (platformEnv.isNative && pathname.length > 1 && pathname.endsWith('/')) {
+      if (
+        platformEnv.isNative &&
+        pathname.length > 1 &&
+        pathname.endsWith('/')
+      ) {
         pathname = pathname.slice(0, -1);
       }
       urlWithoutProtocol =

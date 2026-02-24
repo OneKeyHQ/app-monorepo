@@ -3,8 +3,8 @@ import {
   appleSimulator,
 } from '@react-native-harness/platform-apple';
 import {
-  androidPlatform,
   androidEmulator,
+  androidPlatform,
 } from '@react-native-harness/platform-android';
 
 // Override defaults via environment variables:

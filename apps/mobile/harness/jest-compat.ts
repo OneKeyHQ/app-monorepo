@@ -3,17 +3,16 @@
 // and the jest global object shim.
 
 import {
-  describe,
-  test,
-  it,
-  expect,
-  beforeAll,
   afterAll,
-  beforeEach,
   afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
   fn,
-  spyOn,
   harness,
+  spyOn,
+  test,
 } from 'react-native-harness';
 
 // ---- Test name tracking ----
@@ -46,7 +45,11 @@ const wrappedDescribe = Object.assign(wrapDescribe(describe), {
 }) as typeof describe;
 
 // Wrap test/it to capture the full test name at registration time
-type TestFn = (name: string, fn: () => void | Promise<void>, timeout?: number) => void;
+type TestFn = (
+  name: string,
+  fn: () => void | Promise<void>,
+  timeout?: number,
+) => void;
 const wrapTest = (original: TestFn): TestFn => {
   return (name: string, fn: () => void | Promise<void>, timeout?: number) => {
     const capturedAncestors = [...describeStack];

@@ -1118,7 +1118,7 @@ test('numberFormatAsRaw with splitDecimal', () => {
 
 test('countLeadingZeroDecimals edge cases via formatBalance', () => {
   // Extremely small numbers that would cause Math.log10(0) = -Infinity
-  // in the old implementation (BigNumber.toNumber() underflows to 0)
+  // in the old implementation (BigNumber.toNumber() under-flows to 0)
   expect(formatBalance('0.000000000000000000000000000001')).toMatchObject({
     meta: { leadingZeros: 29 },
   });

@@ -3,7 +3,7 @@
 // These tests exercise basic JS primitives on real Hermes to confirm
 // the harness itself is functioning, NOT to test Hermes capabilities.
 
-import { describe, test, expect } from 'react-native-harness';
+import { describe, expect, test } from 'react-native-harness';
 
 describe('Harness Infrastructure Validation', () => {
   test('basic arithmetic works in Hermes', () => {
@@ -37,7 +37,7 @@ describe('Harness Infrastructure Validation', () => {
   });
 
   test('BigInt is supported in Hermes', () => {
-    const big = BigInt(9007199254740991);
+    const big = BigInt(9_007_199_254_740_991);
     expect(big.toString()).toBe('9007199254740991');
     expect((big + BigInt(1)).toString()).toBe('9007199254740992');
   });

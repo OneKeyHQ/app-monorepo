@@ -111,7 +111,7 @@ const formatNumber = (value: number, options?: FormatNumberOptions) => {
 };
 
 // Static decimal and grouping separators for all supported locales
-// (sourced from Unicode CLDR via Node.js full-ICU Intl.NumberFormat).
+// (sourced from Unicode CLDR via Node.js full-ICU Intl.NumberFormat). // cspell:ignore CLDR
 // Hermes has incomplete ICU data for non-English locales, so we use this
 // table instead of runtime detection. Keep in sync with localeJsonMap.ts.
 export const LOCALE_SEPARATORS: Record<
@@ -154,9 +154,7 @@ const lazyDecimalSymbol = (digits: number) => {
   if (!symbolMap[locale]) {
     // On Hermes (isNative), use the static table because Intl.NumberFormat
     // has incomplete ICU data for non-English locales.
-    const known = platformEnv.isNative
-      ? LOCALE_SEPARATORS[locale]
-      : undefined;
+    const known = platformEnv.isNative ? LOCALE_SEPARATORS[locale] : undefined;
     if (known) {
       symbolMap[locale] = known.decimal;
     } else {
@@ -181,9 +179,7 @@ const lazyGroupingSeparator = (): string => {
   const locale = appLocale.intl.locale;
   const key = `${locale}_group`;
   if (!symbolMap[key]) {
-    const known = platformEnv.isNative
-      ? LOCALE_SEPARATORS[locale]
-      : undefined;
+    const known = platformEnv.isNative ? LOCALE_SEPARATORS[locale] : undefined;
     if (known) {
       symbolMap[key] = known.grouping;
     } else {
@@ -270,10 +266,7 @@ const formatLocalNumber = (
     if (!Number.isFinite(numericValue)) {
       // Number overflows to Infinity — fall through to the ∞ check below.
       formattedInteger = formatNumber(numericValue, { useGrouping: true });
-    } else if (
-      platformEnv.isNative ||
-      numericValue > Number.MAX_SAFE_INTEGER
-    ) {
+    } else if (platformEnv.isNative || numericValue > Number.MAX_SAFE_INTEGER) {
       // On Hermes (isNative), always use manual grouping because
       // Intl.NumberFormat has incomplete ICU data for non-English locales.
       // For > MAX_SAFE_INTEGER, also use manual grouping to avoid

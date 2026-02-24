@@ -75,7 +75,7 @@ describe('OffchainMessage.createOffChainMessage', () => {
       if (detected.header && 'applicationDomain' in detected.header) {
         const domainBytes = detected.header.applicationDomain;
         // Use Buffer.toString instead of TextDecoder for cross-engine compat
-        // (Hermes may not expose TextDecoder as a bare global after polyfilling)
+        // (Hermes may not expose TextDecoder as a bare global after poly-filling)
         const decodedDomain = Buffer.from(
           domainBytes.slice(0, customDomain.length),
         ).toString('utf-8');
