@@ -7,7 +7,12 @@ const SvgTargetCircle = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M20 12a8 8 0 1 0-16 0 8 8 0 0 0 16 0m-9 5v-2.5a1 1 0 1 1 2 0V17a1 1 0 1 1-2 0m-1.5-6a1 1 0 1 1 0 2H7a1 1 0 1 1 0-2zm7.5 0a1 1 0 1 1 0 2h-2.5a1 1 0 1 1 0-2zm-6-1.5V7a1 1 0 1 1 2 0v2.5a1 1 0 1 1-2 0M22 12c0 5.523-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2s10 4.477 10 10" />
+    <Path d="M13 18h-2v-4.5h2zm-2.5-5H6v-2h4.5zm7.5 0h-4.5v-2H18zm-5-2.5h-2V6h2z" />
+    <Path
+      fillRule="evenodd"
+      d="M12 2c5.523 0 10 4.477 10 10s-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2m0 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16"
+      clipRule="evenodd"
+    />
   </Svg>
 );
 export default SvgTargetCircle;

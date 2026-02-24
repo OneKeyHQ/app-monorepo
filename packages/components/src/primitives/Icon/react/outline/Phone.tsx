@@ -7,7 +7,12 @@ const SvgPhone = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M7 3v18h10V3zm7 15a1 1 0 1 1 0 2h-4a1 1 0 1 1 0-2zm5 3a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+    <Path d="M15 20H9v-2h6z" />
+    <Path
+      fillRule="evenodd"
+      d="M19 23H5V1h14zM7 21h10V3H7z"
+      clipRule="evenodd"
+    />
   </Svg>
 );
 export default SvgPhone;

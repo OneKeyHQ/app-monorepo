@@ -9,7 +9,7 @@ const SvgCalendar3CheckDone = (props: SvgProps) => (
   >
     <Path
       fillRule="evenodd"
-      d="M8 2.5a1 1 0 0 1 1 1v1h6v-1a1 1 0 1 1 2 0v1h2a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-13a2 2 0 0 1 2-2h2v-1a1 1 0 0 1 1-1m7.207 8.043a1 1 0 0 1 0 1.414l-3.5 3.5a1 1 0 0 1-1.414 0l-1.5-1.5a1 1 0 1 1 1.414-1.414l.793.793 2.793-2.793a1 1 0 0 1 1.414 0"
+      d="M9 2v2h6V2h2v2h4v17H3V4h4V2zm2 10.836-1.5-1.5-1.414 1.414L11 15.664l4.914-4.914L14.5 9.336z"
       clipRule="evenodd"
     />
   </Svg>

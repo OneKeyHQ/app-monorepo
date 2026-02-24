@@ -7,7 +7,8 @@ const SvgDocumentAdd2 = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M17 21v-2h-2a1 1 0 1 1 0-2h2v-2a1 1 0 1 1 2 0v2h2a1 1 0 1 1 0 2h-2v2a1 1 0 1 1-2 0m-6-11a1 1 0 1 1 0 2H9a1 1 0 1 1 0-2zm7 1V4H6v16h5a1 1 0 1 1 0 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v7a1 1 0 1 1-2 0m-3-5a1 1 0 1 1 0 2H9a1 1 0 0 1 0-2z" />
+    <Path d="M20 12h-2V4H6v16h6v2H4V2h16z" />
+    <Path d="M19 17h3v2h-3v3h-2v-3h-3v-2h3v-3h2zm-7-5H8v-2h4zm4-4H8V6h8z" />
   </Svg>
 );
 export default SvgDocumentAdd2;

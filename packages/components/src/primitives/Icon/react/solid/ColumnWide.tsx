@@ -7,7 +7,7 @@ const SvgColumnWide = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M11 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h7zm2 16h7a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-7z" />
+    <Path d="M11 20H2V4h9zm11 0h-9V4h9z" />
   </Svg>
 );
 export default SvgColumnWide;

@@ -7,7 +7,12 @@ const SvgFileGraph = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M7.5 17.5V16a1 1 0 1 1 2 0v1.5a1 1 0 1 1-2 0m3.5 0V13a1 1 0 1 1 2 0v4.5a1 1 0 1 1-2 0m3.5 0V15a1 1 0 1 1 2 0v2.5a1 1 0 1 1-2 0M20 20a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h7l.099.005a1 1 0 0 1 .608.288l6 6A1 1 0 0 1 20 9zM16.586 8 14 5.414V8zM6 20h12V10h-4a2 2 0 0 1-2-2V4H6z" />
+    <Path d="M9.5 18.5h-2V15h2zm3.5 0h-2V12h2zm3.5 0h-2V14h2z" />
+    <Path
+      fillRule="evenodd"
+      d="M20 8.586V22H4V2h9.414zM6 20h12V10h-6V4H6zm8-12h2.586L14 5.414z"
+      clipRule="evenodd"
+    />
   </Svg>
 );
 export default SvgFileGraph;

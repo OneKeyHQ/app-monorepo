@@ -7,7 +7,13 @@ const SvgStopwatch = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M19 13a7 7 0 1 0-14 0 7 7 0 0 0 14 0M8.293 9.293a1 1 0 0 1 1.414 0l3 3a1 1 0 1 1-1.414 1.414l-3-3a1 1 0 0 1 0-1.414M14 1a1 1 0 1 1 0 2h-4a1 1 0 0 1 0-2zm7 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0" />
+    <Path d="M13.414 13 12 14.414 7.586 10 9 8.586z" />
+    <Path
+      fillRule="evenodd"
+      d="M12 4a9 9 0 1 1 0 18 9 9 0 0 1 0-18m0 2a7 7 0 1 0 0 14 7 7 0 0 0 0-14"
+      clipRule="evenodd"
+    />
+    <Path d="M15 3H9V1h6z" />
   </Svg>
 );
 export default SvgStopwatch;

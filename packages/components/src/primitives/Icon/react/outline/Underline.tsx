@@ -7,7 +7,7 @@ const SvgUnderline = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M18 20a1 1 0 1 1 0 2H6a1 1 0 1 1 0-2zM5 12V4a1 1 0 0 1 2 0v8a5 5 0 0 0 10 0V4a1 1 0 1 1 2 0v8a7 7 0 1 1-14 0" />
+    <Path d="M19 22H5v-2h14zM7 12a5 5 0 0 0 10 0V3h2v9a7 7 0 1 1-14 0V3h2z" />
   </Svg>
 );
 export default SvgUnderline;

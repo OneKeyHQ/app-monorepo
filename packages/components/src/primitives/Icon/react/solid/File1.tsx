@@ -7,7 +7,7 @@ const SvgFile1 = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M12 2v6a2 2 0 0 0 2 2h6v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" />
+    <Path d="M12 2v8h8v12H4V2z" />
     <Path d="M19.414 8H14V2.586z" />
   </Svg>
 );

@@ -7,7 +7,12 @@ const SvgPictureInPicture = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M14 19h6v-3h-6zm4-8V6H4v10h5a1 1 0 1 1 0 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v5a1 1 0 1 1-2 0m4 8.5a1.5 1.5 0 0 1-1.5 1.5h-7a1.5 1.5 0 0 1-1.5-1.5v-4a1.5 1.5 0 0 1 1.5-1.5h7a1.5 1.5 0 0 1 1.5 1.5z" />
+    <Path
+      fillRule="evenodd"
+      d="M22 21H12v-7h10zm-8-2h6v-3h-6z"
+      clipRule="evenodd"
+    />
+    <Path d="M20 12h-2V6H4v10h6v2H2V4h18z" />
   </Svg>
 );
 export default SvgPictureInPicture;

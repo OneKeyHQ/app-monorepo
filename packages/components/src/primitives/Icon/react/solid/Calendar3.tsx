@@ -7,7 +7,7 @@ const SvgCalendar3 = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M8 2.5a1 1 0 0 1 1 1v1h6v-1a1 1 0 1 1 2 0v1h2a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-13a2 2 0 0 1 2-2h2v-1a1 1 0 0 1 1-1" />
+    <Path d="M9 2v2h6V2h2v2h4v17H3V4h4V2z" />
   </Svg>
 );
 export default SvgCalendar3;

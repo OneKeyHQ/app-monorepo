@@ -7,7 +7,7 @@ const SvgDotGrid = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M3 19a2 2 0 1 1 4 0 2 2 0 0 1-4 0m7 0a2 2 0 1 1 4 0 2 2 0 0 1-4 0m7 0a2 2 0 1 1 4 0 2 2 0 0 1-4 0M3 12a2 2 0 1 1 4 0 2 2 0 0 1-4 0m7 0a2 2 0 1 1 4 0 2 2 0 0 1-4 0m7 0a2 2 0 1 1 4 0 2 2 0 0 1-4 0M3 5a2 2 0 1 1 4 0 2 2 0 0 1-4 0m7 0a2 2 0 1 1 4 0 2 2 0 0 1-4 0m7 0a2 2 0 1 1 4 0 2 2 0 0 1-4 0" />
+    <Path d="M7 21H3v-4h4zm7 0h-4v-4h4zm7 0h-4v-4h4zM7 14H3v-4h4zm7 0h-4v-4h4zm7 0h-4v-4h4zM7 7H3V3h4zm7 0h-4V3h4zm7 0h-4V3h4z" />
   </Svg>
 );
 export default SvgDotGrid;

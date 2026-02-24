@@ -9,7 +9,7 @@ const SvgZoomIn = (props: SvgProps) => (
   >
     <Path
       fillRule="evenodd"
-      d="M3 11a8 8 0 1 1 14.32 4.906l3.387 3.387a1 1 0 0 1-1.414 1.414l-3.387-3.387A8 8 0 0 1 3 11m9-3a1 1 0 1 0-2 0v2H8a1 1 0 1 0 0 2h2v2a1 1 0 1 0 2 0v-2h2a1 1 0 1 0 0-2h-2z"
+      d="M11 3a8 8 0 0 1 6.32 12.905L21.414 20 20 21.414l-4.095-4.094A8 8 0 1 1 11 3m-1 4v3H7v2h3v3h2v-3h3v-2h-3V7z"
       clipRule="evenodd"
     />
   </Svg>

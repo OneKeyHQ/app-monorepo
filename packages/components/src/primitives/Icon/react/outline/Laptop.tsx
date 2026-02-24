@@ -7,7 +7,11 @@ const SvgLaptop = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M21 17H3v2h18zM5 5v10h14V5zm16 10h1a1 1 0 0 1 1 1v3a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2v-3a1 1 0 0 1 1-1h1V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    <Path
+      fillRule="evenodd"
+      d="M21 15h2v6H1v-6h2V3h18zM3 19h18v-2H3zm2-4h14V5H5z"
+      clipRule="evenodd"
+    />
   </Svg>
 );
 export default SvgLaptop;
