@@ -7,7 +7,8 @@ const SvgShare = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M2 18V8a1 1 0 0 1 2 0v10h15a1 1 0 1 1 0 2H4a2 2 0 0 1-2-2m5-4v-1a6 6 0 0 1 6-6h4.586l-1.793-1.793a1 1 0 1 1 1.414-1.414l3.5 3.5a1 1 0 0 1 0 1.414l-3.5 3.5a1 1 0 1 1-1.414-1.414L17.586 9H13a4 4 0 0 0-4 4v1a1 1 0 1 1-2 0" />
+    <Path d="M4 18h16v2H2V7h2z" />
+    <Path d="M21.414 8 16.5 12.914 15.086 11.5l2.5-2.5H13a4 4 0 0 0-4 4v2H7v-2a6 6 0 0 1 6-6h4.586l-2.5-2.5L16.5 3.086z" />
   </Svg>
 );
 export default SvgShare;

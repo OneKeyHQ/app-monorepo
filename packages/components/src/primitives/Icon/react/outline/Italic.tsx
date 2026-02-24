@@ -7,7 +7,7 @@ const SvgItalic = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M19 3a1 1 0 1 1 0 2h-3.766L10.86 19H14a1 1 0 1 1 0 2H5a1 1 0 1 1 0-2h3.766L13.14 5H10a1 1 0 0 1 0-2z" />
+    <Path d="M20 5h-4.765L10.86 19H15v2H4v-2h4.765L13.14 5H9V3h11z" />
   </Svg>
 );
 export default SvgItalic;

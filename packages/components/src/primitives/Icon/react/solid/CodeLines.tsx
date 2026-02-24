@@ -7,11 +7,7 @@ const SvgCodeLines = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path
-      fillRule="evenodd"
-      d="M2 5a1 1 0 0 1 1-1h10a1 1 0 1 1 0 2H3a1 1 0 0 1-1-1m15 0a1 1 0 0 1 1-1h3a1 1 0 1 1 0 2h-3a1 1 0 0 1-1-1M2 12a1 1 0 0 1 1-1h5a1 1 0 1 1 0 2H3a1 1 0 0 1-1-1m10 0a1 1 0 0 1 1-1h8a1 1 0 1 1 0 2h-8a1 1 0 0 1-1-1M2 19a1 1 0 0 1 1-1h7a1 1 0 1 1 0 2H3a1 1 0 0 1-1-1m12 0a1 1 0 0 1 1-1h6a1 1 0 1 1 0 2h-6a1 1 0 0 1-1-1"
-      clipRule="evenodd"
-    />
+    <Path d="M11 20H2v-2h9zm11 0h-8v-2h8zM9 13H2v-2h7zm13 0H12v-2h10zm-8-7H2V4h12zm8 0h-5V4h5z" />
   </Svg>
 );
 export default SvgCodeLines;

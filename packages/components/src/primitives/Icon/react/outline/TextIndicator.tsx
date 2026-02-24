@@ -7,7 +7,7 @@ const SvgTextIndicator = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M21 2a1 1 0 1 1 0 2h-1v16h1a1 1 0 1 1 0 2h-4a1 1 0 1 1 0-2h1V4h-1a1 1 0 1 1 0-2zM7 18V7H3a1 1 0 0 1 0-2h10a1 1 0 1 1 0 2H9v11a1 1 0 1 1-2 0" />
+    <Path d="M22 4h-2v16h2v2h-6v-2h2V4h-2V2h6zm-8 3H9v12H7V7H2V5h12z" />
   </Svg>
 );
 export default SvgTextIndicator;

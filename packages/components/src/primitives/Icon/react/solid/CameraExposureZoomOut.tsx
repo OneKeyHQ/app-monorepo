@@ -7,7 +7,7 @@ const SvgCameraExposureZoomOut = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M5 3a2 2 0 0 0-2 2v3a1 1 0 0 0 2 0V5h3a1 1 0 0 0 0-2zm11 0a1 1 0 1 0 0 2h3v3a1 1 0 1 0 2 0V5a2 2 0 0 0-2-2zM5 16a1 1 0 1 0-2 0v3a2 2 0 0 0 2 2h3a1 1 0 1 0 0-2H5zm16 0a1 1 0 1 0-2 0v3h-3a1 1 0 1 0 0 2h3a2 2 0 0 0 2-2zM9 11a1 1 0 1 0 0 2h6a1 1 0 1 0 0-2z" />
+    <Path d="M5 19h4v2H3v-6h2zm16 2h-6v-2h4v-4h2zm-5-10v2H8v-2zM9 5H5v4H3V3h6zm12 4h-2V5h-4V3h6z" />
   </Svg>
 );
 export default SvgCameraExposureZoomOut;

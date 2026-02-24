@@ -7,7 +7,7 @@ const SvgSuqarePlaceholder = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2" />
+    <Path d="M21 3v18H3V3z" />
   </Svg>
 );
 export default SvgSuqarePlaceholder;

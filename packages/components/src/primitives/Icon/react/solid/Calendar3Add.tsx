@@ -9,7 +9,7 @@ const SvgCalendar3Add = (props: SvgProps) => (
   >
     <Path
       fillRule="evenodd"
-      d="M8 2a1 1 0 0 1 1 1v1h6V3a1 1 0 1 1 2 0v1h2a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2V3a1 1 0 0 1 1-1m5 8a1 1 0 1 0-2 0v1.5H9.5a1 1 0 1 0 0 2H11V15a1 1 0 0 0 2 0v-1.5h1.5a1 1 0 1 0 0-2H13z"
+      d="M9 2v2h6V2h2v2h4v17H3V4h4V2zm1.999 9.5H8.5v2h2.499V16h2v-2.5H15.5v-2h-2.501V9h-2z"
       clipRule="evenodd"
     />
   </Svg>

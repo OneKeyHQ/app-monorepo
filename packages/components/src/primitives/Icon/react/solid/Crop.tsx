@@ -7,10 +7,10 @@ const SvgCrop = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M15 9H9v6h6z" />
+    <Path d="M15 15H9V9h6z" />
     <Path
       fillRule="evenodd"
-      d="M6 2a1 1 0 0 1 1 1v2h10a2 2 0 0 1 2 2v10h2a1 1 0 1 1 0 2h-2v2a1 1 0 1 1-2 0v-2H7a2 2 0 0 1-2-2V7H3a1 1 0 0 1 0-2h2V3a1 1 0 0 1 1-1m1 15V7h10v10z"
+      d="M7 5h12v12h3v2h-3v3h-2v-3H5V7H2V5h3V2h2zm0 2v10h10V7z"
       clipRule="evenodd"
     />
   </Svg>

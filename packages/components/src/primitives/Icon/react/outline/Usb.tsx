@@ -7,7 +7,12 @@ const SvgUsb = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M19 11H5v9h14zM7 9h10V4H7zm2-2V6a1 1 0 0 1 2 0v1a1 1 0 1 1-2 0m4 0V6a1 1 0 1 1 2 0v1a1 1 0 1 1-2 0m8 13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V10a1 1 0 0 1 1-1h1V3l.005-.103A1 1 0 0 1 6 2h12a1 1 0 0 1 1 1v6h1a1 1 0 0 1 1 1z" />
+    <Path d="M11 8H9V5h2zm4 0h-2V5h2z" />
+    <Path
+      fillRule="evenodd"
+      d="M19 9h2v13H3V9h2V2h14zM5 20h14v-9H5zM7 9h10V4H7z"
+      clipRule="evenodd"
+    />
   </Svg>
 );
 export default SvgUsb;

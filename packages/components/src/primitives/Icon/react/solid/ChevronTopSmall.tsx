@@ -7,11 +7,7 @@ const SvgChevronTopSmall = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path
-      fillRule="evenodd"
-      d="m12 11.48 3.233 3.232a.982.982 0 1 0 1.388-1.388l-3.406-3.407a1.72 1.72 0 0 0-2.43 0L7.38 13.324a.982.982 0 0 0 1.388 1.388z"
-      clipRule="evenodd"
-    />
+    <Path d="M17.414 14 16 15.414l-4-4-4 4L6.586 14 12 8.586z" />
   </Svg>
 );
 export default SvgChevronTopSmall;
