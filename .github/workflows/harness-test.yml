@@ -88,7 +88,7 @@ jobs:
         run: yarn install --immutable
 
       - name: Build Android Debug APK
-        timeout-minutes: 30
+        timeout-minutes: 80
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=4096'
