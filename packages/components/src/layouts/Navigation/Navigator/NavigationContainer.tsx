@@ -28,7 +28,7 @@ import type {
   ETabRoutes,
   ITabStackParamList,
 } from '@onekeyhq/shared/src/routes';
-import { ERootRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalRoutes, ERootRoutes } from '@onekeyhq/shared/src/routes';
 import mmkvStorageInstance from '@onekeyhq/shared/src/storage/instance/mmkvStorageInstance';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
@@ -46,6 +46,8 @@ export const rootNavigationRef = createRef<NavigationContainerRef<any>>();
 appGlobals.$navigationRef = rootNavigationRef as MutableRefObject<
   NavigationContainerRef<any>
 >;
+appGlobals.$tabletMainViewNavigationRef =
+  tabletMainViewNavigationRef as MutableRefObject<NavigationContainerRef<any>>;
 
 export type IRouterChangeEvent = INavigationContainerProps['onStateChange'];
 const RouterEventContext = createContext<
@@ -160,6 +162,49 @@ export const switchTab = <T extends ETabRoutes>(
   );
 };
 
+export const popModalPages = async (maxRetryTimes = 10) => {
+  if (maxRetryTimes <= 0) {
+    return;
+  }
+  const rootState = rootNavigationRef.current?.getRootState();
+  const currentRoute = rootState?.routes?.[rootState.index];
+  if (currentRoute?.name !== ERootRoutes.Modal) {
+    return;
+  }
+  const routeCountBefore = rootState?.routes?.length ?? 0;
+  if (rootNavigationRef.current?.canGoBack?.()) {
+    rootNavigationRef.current?.goBack();
+  }
+  await timerUtils.wait(350);
+  const newState = rootNavigationRef.current?.getRootState();
+  if ((newState?.routes?.length ?? 0) >= routeCountBefore) {
+    return;
+  }
+  await popModalPages(maxRetryTimes - 1);
+};
+
+/**
+ * Synchronously pop modal pages without delay for native platforms.
+ * On native platforms with native bottom tabs, avoid deferring navigation
+ * dispatch to a macrotask via timerUtils.wait(). Use goBack() directly
+ * so the navigation stays within the touch event context, preventing iOS
+ * from requiring an additional touch to flush the bridge call.
+ */
+export const popModalPagesOnNative = (maxRetryTimes = 10) => {
+  if (maxRetryTimes <= 0) {
+    return;
+  }
+  const rootState = rootNavigationRef.current?.getRootState();
+  const currentRoute = rootState?.routes?.[rootState.index];
+  if (currentRoute?.name !== ERootRoutes.Modal) {
+    return;
+  }
+  if (rootNavigationRef.current?.canGoBack?.()) {
+    rootNavigationRef.current?.goBack();
+    popModalPagesOnNative(maxRetryTimes - 1);
+  }
+};
+
 export const popToMainRoute = async (maxRetryTimes = 99) => {
   if (maxRetryTimes <= 0) {
     return;
@@ -175,13 +220,51 @@ export const popToMainRoute = async (maxRetryTimes = 99) => {
   await popToMainRoute(maxRetryTimes - 1);
 };
 
+export const popScanModalPages = async (maxRetryTimes = 99) => {
+  if (maxRetryTimes <= 0) {
+    return;
+  }
+  const rootState = rootNavigationRef.current?.getRootState();
+  const currentRoute = rootState?.routes?.[rootState.index];
+  if (currentRoute?.name !== ERootRoutes.Modal) {
+    return;
+  }
+  const screenName =
+    (currentRoute?.params as { screen?: string })?.screen ||
+    currentRoute?.state?.routes?.[currentRoute?.state?.index || 0]?.name;
+  if (screenName !== EModalRoutes.ScanQrCodeModal) {
+    return;
+  }
+  if (rootNavigationRef.current?.canGoBack?.()) {
+    rootNavigationRef.current?.goBack();
+  }
+  await timerUtils.wait(350);
+  await popScanModalPages(maxRetryTimes - 1);
+};
+
+export const popActionCenterPages = async (maxRetryTimes = 99) => {
+  if (maxRetryTimes <= 0) {
+    return;
+  }
+  const rootState = rootNavigationRef.current?.getRootState();
+  const currentRoute = rootState?.routes?.[rootState.index];
+  if (currentRoute?.name !== ERootRoutes.FullScreenPush) {
+    return;
+  }
+  if (rootNavigationRef.current?.canGoBack?.()) {
+    rootNavigationRef.current?.goBack();
+  }
+  await timerUtils.wait(350);
+  await popActionCenterPages(maxRetryTimes - 1);
+};
+
 export const popToTabRootScreen = async () => {
   const rootState = rootNavigationRef.current?.getRootState();
   const tabRoute = rootState?.routes?.[rootState.index];
   if (!tabRoute?.state) {
     return;
   }
-  if ((tabRoute?.state?.index || 0) > 0) {
+  if (tabRoute?.state?.index !== undefined) {
     if (rootNavigationRef.current?.canGoBack()) {
       rootNavigationRef.current?.goBack();
       await timerUtils.wait(150);

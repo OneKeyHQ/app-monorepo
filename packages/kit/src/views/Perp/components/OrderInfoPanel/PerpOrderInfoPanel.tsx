@@ -10,6 +10,7 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   usePerpsActiveOpenOrdersLengthAtom,
   usePerpsActivePositionLengthAtom,
@@ -94,6 +95,7 @@ function PerpOrderInfoPanel() {
       ref={tabsRef as any}
       headerHeight={80}
       initialTabName="Positions"
+      disableScroll={!platformEnv.isNative}
       onTabChange={async (tab) => {
         if (tab.tabName === 'Account') {
           void backgroundApiProxy.serviceHyperliquidSubscription.enableLedgerUpdatesSubscription();

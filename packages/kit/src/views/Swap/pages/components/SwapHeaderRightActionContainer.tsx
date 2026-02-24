@@ -467,7 +467,8 @@ const SwapHeaderRightActionContainer = ({
       params: {
         type:
           swapTypeSwitch !== ESwapTabSwitchType.LIMIT ||
-          swapProTradeType === ESwapProTradeType.MARKET
+          (platformEnv.isNative &&
+            swapProTradeType === ESwapProTradeType.MARKET)
             ? EProtocolOfExchange.SWAP
             : EProtocolOfExchange.LIMIT,
         storeName:

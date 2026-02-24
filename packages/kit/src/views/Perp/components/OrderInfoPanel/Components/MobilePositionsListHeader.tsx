@@ -4,34 +4,24 @@ import { useIntl } from 'react-intl';
 
 import { Button, Checkbox, SizableText, XStack } from '@onekeyhq/components';
 import { usePositionFilterByCurrentTokenAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
-import {
-  usePerpsActiveAccountIsAgentReadyAtom,
-  usePerpsActiveAssetAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { showCloseAllPositionsDialog } from '../CloseAllPositionsModal';
 
 interface IMobilePositionsListHeaderProps {
   totalPositionCount: number;
-  filteredPositionCount: number;
 }
 
 export function MobilePositionsListHeader({
   totalPositionCount,
-  filteredPositionCount,
 }: IMobilePositionsListHeaderProps) {
   const intl = useIntl();
   const [filterByCurrentToken, setFilterByCurrentToken] =
     usePositionFilterByCurrentTokenAtom();
-  const [activeAsset] = usePerpsActiveAssetAtom();
-  const [{ isAgentReady }] = usePerpsActiveAccountIsAgentReadyAtom();
 
   const handleCloseAll = useCallback(() => {
-    void showCloseAllPositionsDialog(
-      filterByCurrentToken ? activeAsset?.coin : undefined,
-    );
-  }, [filterByCurrentToken, activeAsset?.coin]);
+    void showCloseAllPositionsDialog();
+  }, []);
 
   const handleFilterChange = useCallback(
     (value: boolean | 'indeterminate') => {
@@ -55,7 +45,9 @@ export function MobilePositionsListHeader({
     >
       {/* Left: Filter checkbox - same style as TP/SL checkbox in trading form */}
       <Checkbox
-        label={intl.formatMessage({ id: ETranslations.perps_hide_other_symbols })}
+        label={intl.formatMessage({
+          id: ETranslations.perps_hide_other_symbols,
+        })}
         labelProps={{ fontSize: '$bodyXs' }}
         containerProps={{ p: '$0', alignItems: 'center' }}
         width="$3.5"
@@ -64,11 +56,11 @@ export function MobilePositionsListHeader({
         onChange={handleFilterChange}
       />
 
-      {/* Right: Close all button - disabled when trading is not enabled or no positions */}
+      {/* Right: Close all button - disabled only when no positions to close */}
       <Button
         size="small"
         variant="secondary"
-        disabled={!isAgentReady || filteredPositionCount === 0}
+        disabled={totalPositionCount === 0}
         onPress={handleCloseAll}
       >
         <SizableText size="$bodyXs">

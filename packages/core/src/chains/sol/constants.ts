@@ -1,4 +1,5 @@
 export const BLOCK_HASH_NOT_FOUND_ERROR_CODE = 40_028;
+export const ON_CHAIN_SERVICE_BUSY_ERROR_CODE = 40_001;
 
 export const SYSTEM_PROGRAM_IDS = new Set<string>([
   // Loaders

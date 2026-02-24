@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -29,10 +29,44 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { filterNumericInput } from '../utils';
 
-// Fixed width for input field to ensure consistent layout
 const INPUT_WIDTH = 130;
-// Fixed width for address to prevent wrapping
 const ADDRESS_WIDTH = 120;
+
+const INITIAL_BATCH = 20;
+const BATCH_SIZE = 50;
+const BATCH_INTERVAL = 100;
+
+// Renders items in batches on native to avoid blocking the UI thread
+function useProgressiveList<T>(items: T[]): T[] {
+  const [visibleCount, setVisibleCount] = useState(
+    platformEnv.isNative ? Math.min(INITIAL_BATCH, items.length) : items.length,
+  );
+  const prevLengthRef = useRef(items.length);
+
+  useEffect(() => {
+    if (!platformEnv.isNative) {
+      setVisibleCount(items.length);
+      return;
+    }
+
+    if (items.length !== prevLengthRef.current) {
+      prevLengthRef.current = items.length;
+      setVisibleCount(Math.min(INITIAL_BATCH, items.length));
+    }
+  }, [items.length]);
+
+  useEffect(() => {
+    if (!platformEnv.isNative || visibleCount >= items.length) return;
+
+    const timer = setTimeout(() => {
+      setVisibleCount((prev) => Math.min(prev + BATCH_SIZE, items.length));
+    }, BATCH_INTERVAL);
+
+    return () => clearTimeout(timer);
+  }, [visibleCount, items.length]);
+
+  return useMemo(() => items.slice(0, visibleCount), [items, visibleCount]);
+}
 
 type IProps = {
   tokenInfo: IToken;
@@ -54,11 +88,13 @@ type ITransferListItemProps = {
   amountError?: string;
   editMode: boolean;
   deleteDisabled?: boolean;
-  onDelete?: () => void;
-  onAmountChange?: (amount: string) => void;
+  indices?: number[];
+  canDelete?: boolean;
+  onDeleteTransfers?: (indices: number[]) => void;
+  onAmountChangeByIndex?: (index: number, amount: string) => void;
 };
 
-function TransferListItem({
+function TransferListItemBase({
   address,
   amount,
   tokenSymbol,
@@ -67,11 +103,12 @@ function TransferListItem({
   amountError,
   editMode,
   deleteDisabled,
-  onDelete,
-  onAmountChange,
+  indices,
+  canDelete,
+  onDeleteTransfers,
+  onAmountChangeByIndex,
 }: ITransferListItemProps) {
   const media = useMedia();
-  // On small screens, use shorter address format (6 leading + 4 trailing)
   const shortenedAddress = accountUtils.shortenAddress({
     address,
     leadingLength: media.gtMd ? 8 : 6,
@@ -83,14 +120,22 @@ function TransferListItem({
 
   const handleAmountChange = useCallback(
     (text: string) => {
-      // Filter to only allow numeric input
       const filteredText = filterNumericInput(text);
-      onAmountChange?.(filteredText);
+      if (onAmountChangeByIndex && indices?.length === 1) {
+        onAmountChangeByIndex(indices[0], filteredText);
+      }
     },
-    [onAmountChange],
+    [onAmountChangeByIndex, indices],
   );
 
-  // Show error toast on mobile when tapping error icon
+  const handleDelete = useCallback(() => {
+    if (onDeleteTransfers && canDelete && indices) {
+      onDeleteTransfers(indices);
+    }
+  }, [onDeleteTransfers, canDelete, indices]);
+
+  const showDeleteButton = canDelete && onDeleteTransfers && indices;
+
   const handleErrorIconPress = useCallback(() => {
     if (platformEnv.isNative && amountError) {
       Toast.error({ title: amountError });
@@ -151,9 +196,7 @@ function TransferListItem({
     );
   };
 
-  // Render address - full on desktop, shortened with tooltip on mobile
   const renderAddress = () => {
-    // Desktop: show full address without tooltip
     if (media.gtMd) {
       return (
         <SizableText
@@ -165,7 +208,6 @@ function TransferListItem({
       );
     }
 
-    // Mobile: show shortened address with tooltip
     const addressText = (
       <SizableText
         size="$bodyMdMedium"
@@ -210,18 +252,44 @@ function TransferListItem({
         {renderAmount()}
       </Stack>
 
-      {onDelete ? (
+      {showDeleteButton ? (
         <IconButton
           icon="DeleteOutline"
           variant="tertiary"
           size="small"
           disabled={deleteDisabled}
-          onPress={onDelete}
+          onPress={handleDelete}
         />
       ) : null}
     </XStack>
   );
 }
+
+function arraysEqual(a?: number[], b?: number[]): boolean {
+  if (a === b) return true;
+  if (!a || !b || a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i += 1) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
+}
+
+const TransferListItem = memo(
+  TransferListItemBase,
+  (prev, next) =>
+    prev.address === next.address &&
+    prev.amount === next.amount &&
+    prev.tokenSymbol === next.tokenSymbol &&
+    prev.type === next.type &&
+    prev.addressError === next.addressError &&
+    prev.amountError === next.amountError &&
+    prev.editMode === next.editMode &&
+    prev.deleteDisabled === next.deleteDisabled &&
+    prev.canDelete === next.canDelete &&
+    prev.onDeleteTransfers === next.onDeleteTransfers &&
+    prev.onAmountChangeByIndex === next.onAmountChangeByIndex &&
+    arraysEqual(prev.indices, next.indices),
+);
 
 type ITransferSectionProps = {
   title: string;
@@ -256,10 +324,8 @@ function BulkSendTxDetails(props: IProps) {
 
   const intl = useIntl();
 
-  // Disable delete when only one transfer exists
   const isDeleteDisabled = transfersInfo.length <= 1;
 
-  // Permission rules based on bulk send mode
   const canEditSender =
     bulkSendMode === EBulkSendMode.ManyToOne ||
     bulkSendMode === EBulkSendMode.ManyToMany;
@@ -269,7 +335,7 @@ function BulkSendTxDetails(props: IProps) {
 
   const tokenSymbol = tokenInfo.symbol;
 
-  // Group transfers by unique from addresses (senders) and to addresses (receivers)
+  // Group transfers by unique from/to addresses, summing amounts
   const { senders, receivers } = useMemo(() => {
     const senderMap = new Map<
       string,
@@ -281,7 +347,6 @@ function BulkSendTxDetails(props: IProps) {
     >();
 
     transfersInfo.forEach((transfer, index) => {
-      // Aggregate senders - sum amounts for the same sender
       const existingSender = senderMap.get(transfer.from);
       if (existingSender) {
         existingSender.amount = new BigNumber(existingSender.amount || '0')
@@ -296,7 +361,6 @@ function BulkSendTxDetails(props: IProps) {
         });
       }
 
-      // Aggregate receivers - sum amounts for the same receiver
       const existingReceiver = receiverMap.get(transfer.to);
       if (existingReceiver) {
         existingReceiver.amount = new BigNumber(existingReceiver.amount || '0')
@@ -318,9 +382,12 @@ function BulkSendTxDetails(props: IProps) {
     };
   }, [transfersInfo]);
 
+  const visibleSenders = useProgressiveList(senders);
+  const visibleReceivers = useProgressiveList(receivers);
+
   const handleDeleteTransfers = useCallback(
     (indices: number[]) => {
-      // Delete in descending order to avoid index shifting issues
+      // Delete in descending order to avoid index shifting
       [...indices]
         .toSorted((a, b) => b - a)
         .forEach((index) => {
@@ -335,7 +402,6 @@ function BulkSendTxDetails(props: IProps) {
     [onAmountChange],
   );
 
-  // Get error for a specific transfer index
   const getTransferError = useCallback(
     (indices: number[], field: 'from' | 'to' | 'amount') => {
       for (const index of indices) {
@@ -365,7 +431,7 @@ function BulkSendTxDetails(props: IProps) {
         })}
         count={senders.length}
       >
-        {senders.map((sender) => (
+        {visibleSenders.map((sender) => (
           <TransferListItem
             key={sender.address}
             address={sender.address}
@@ -376,18 +442,17 @@ function BulkSendTxDetails(props: IProps) {
             amountError={getTransferError(sender.indices, 'amount')}
             editMode={Boolean(editMode && canEditSender)}
             deleteDisabled={isDeleteDisabled}
-            onDelete={
-              onDeleteTransfer && canEditSender && !isDeleteDisabled
-                ? () => handleDeleteTransfers(sender.indices)
-                : undefined
-            }
-            onAmountChange={
-              editMode && canEditSender && sender.indices.length === 1
-                ? (amount) => handleAmountChange(sender.indices[0], amount)
-                : undefined
-            }
+            indices={sender.indices}
+            canDelete={!!onDeleteTransfer && canEditSender && !isDeleteDisabled}
+            onDeleteTransfers={handleDeleteTransfers}
+            onAmountChangeByIndex={handleAmountChange}
           />
         ))}
+        {visibleSenders.length < senders.length ? (
+          <SizableText size="$bodyMd" color="$textSubdued" py="$2">
+            ...
+          </SizableText>
+        ) : null}
       </TransferSection>
 
       <TransferSection
@@ -396,7 +461,7 @@ function BulkSendTxDetails(props: IProps) {
         })}
         count={receivers.length}
       >
-        {receivers.map((receiver) => (
+        {visibleReceivers.map((receiver) => (
           <TransferListItem
             key={receiver.address}
             address={receiver.address}
@@ -407,18 +472,19 @@ function BulkSendTxDetails(props: IProps) {
             amountError={getTransferError(receiver.indices, 'amount')}
             editMode={Boolean(editMode && canEditReceiver)}
             deleteDisabled={isDeleteDisabled}
-            onDelete={
-              onDeleteTransfer && canEditReceiver && !isDeleteDisabled
-                ? () => handleDeleteTransfers(receiver.indices)
-                : undefined
+            indices={receiver.indices}
+            canDelete={
+              !!onDeleteTransfer && canEditReceiver && !isDeleteDisabled
             }
-            onAmountChange={
-              editMode && canEditReceiver && receiver.indices.length === 1
-                ? (amount) => handleAmountChange(receiver.indices[0], amount)
-                : undefined
-            }
+            onDeleteTransfers={handleDeleteTransfers}
+            onAmountChangeByIndex={handleAmountChange}
           />
         ))}
+        {visibleReceivers.length < receivers.length ? (
+          <SizableText size="$bodyMd" color="$textSubdued" py="$2">
+            ...
+          </SizableText>
+        ) : null}
       </TransferSection>
     </YStack>
   );

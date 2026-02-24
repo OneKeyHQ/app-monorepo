@@ -14,6 +14,7 @@ import {
   YStack,
   useInPageDialog,
   useIsOverlayPage,
+  usePageWidth,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -83,9 +84,7 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
     return 'calc(100vh - 96px - 74px)';
   }, [bottom, top, isIOSModalPage]);
 
-  const width = useMemo(() => {
-    return Dimensions.get('window').width;
-  }, []);
+  const width = usePageWidth();
 
   const scrollViewRef = useRef<IScrollViewRef>(null);
   const focusedTab = useSharedValue(tabNames[0]);
@@ -120,6 +119,7 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
             tokenSymbol={tokenDetail?.symbol}
             isNative={isNative}
             dataSource={websocketConfig?.kline ? 'websocket' : 'polling'}
+            pageWidth={width}
           />
         </Stack>
       </YStack>
@@ -131,6 +131,7 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
     tokenDetail?.symbol,
     tradingViewHeight,
     websocketConfig,
+    width,
   ]);
 
   const renderInformationHeader = useCallback(

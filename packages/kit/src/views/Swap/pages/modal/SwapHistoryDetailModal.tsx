@@ -428,7 +428,10 @@ const SwapHistoryDetailModal = () => {
     if (oneKeyFeeUsd && new BigNumber(oneKeyFeeUsd).gt(0)) {
       return {
         type: 'fee' as const,
-        value: oneKeyFeeUsd,
+        value: numberFormat(oneKeyFeeUsd, {
+          formatter: 'value',
+          formatterOptions: { currency: '$' },
+        }),
       };
     }
 

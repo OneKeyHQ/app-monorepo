@@ -25,8 +25,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetails';
-import type { ColorTokens } from '@onekeyhq/components';
 import defiUtils from '@onekeyhq/shared/src/utils/defiUtils';
+import { getCategoryConfig } from '@onekeyhq/kit/src/utils/defiCategoryConfig';
 import {
   openUrlExternal,
   openUrlInDiscovery,
@@ -37,31 +37,6 @@ import { EDeFiAssetType } from '@onekeyhq/shared/types/defi';
 import { RichTable } from '../RichTable';
 
 import type { GestureResponderEvent } from 'react-native';
-
-const CATEGORY_CONFIG: Record<
-  string,
-  { bg: ColorTokens; text: ColorTokens; emoji: string }
-> = {
-  yield: { bg: '$blue4', text: '$blue12', emoji: '📈' },
-  liquidity: { bg: '$cyan4', text: '$cyan12', emoji: '💧' },
-  lending: { bg: '$green4', text: '$green12', emoji: '🏦' },
-  supplied: { bg: '$lime4', text: '$lime12', emoji: '📥' },
-  deposit: { bg: '$jade4', text: '$jade12', emoji: '🏧' },
-  borrowed: { bg: '$orange4', text: '$orange12', emoji: '📤' },
-  locked: { bg: '$amber4', text: '$amber12', emoji: '🔒' },
-  rewards: { bg: '$teal4', text: '$teal12', emoji: '🎁' },
-  staking: { bg: '$purple4', text: '$purple12', emoji: '⛏️' },
-  farming: { bg: '$pink4', text: '$pink12', emoji: '🌾' },
-};
-const DEFAULT_CATEGORY_CONFIG = {
-  bg: '$neutral4',
-  text: '$neutral12',
-  emoji: '📊',
-} as const;
-
-function getCategoryConfig(category: string) {
-  return CATEGORY_CONFIG[category.toLowerCase()] ?? DEFAULT_CATEGORY_CONFIG;
-}
 
 function Protocol({
   protocol,
@@ -299,12 +274,21 @@ function Protocol({
             </SizableText>
             <XStack alignItems="center" gap="$1" flexWrap="wrap" flex={1}>
               {protocol.categories.slice(0, 2).map((category) => (
-                <Badge key={category} badgeType="success" badgeSize="sm">
-                  <Badge.Text textTransform="capitalize">{category}</Badge.Text>
+                <Badge
+                  key={category}
+                  bg={getCategoryConfig(category).bg}
+                  badgeSize="sm"
+                >
+                  <Badge.Text
+                    textTransform="capitalize"
+                    color={getCategoryConfig(category).text}
+                  >
+                    {`${getCategoryConfig(category).emoji} ${category}`}
+                  </Badge.Text>
                 </Badge>
               ))}
               {protocol.categories.length > 2 ? (
-                <Badge badgeType="success" badgeSize="sm">
+                <Badge badgeType="default" badgeSize="sm">
                   <Badge.Text textTransform="capitalize">
                     {`+${protocol.categories.length - 2}`}
                   </Badge.Text>

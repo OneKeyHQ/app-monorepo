@@ -94,6 +94,7 @@ export { default as Notification } from './Notification';
 export { default as OkxChain } from './OkxChain';
 export { default as OnekeyBrandingPillDark } from './OnekeyBrandingPillDark';
 export { default as OnekeyBrandingPill } from './OnekeyBrandingPill';
+export { default as OnekeyLogoMono } from './OnekeyLogoMono';
 export { default as OnekeyLogo } from './OnekeyLogo';
 export { default as OnekeyTextOnly } from './OnekeyTextOnly';
 export { default as OnekeyText } from './OnekeyText';

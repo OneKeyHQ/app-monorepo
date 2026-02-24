@@ -32,11 +32,13 @@ export const useGetSignatureSections = <T extends { createdAt: number }>(
 ) => {
   const ref = useRef<T[]>([]);
   const methodRef = useRef(method);
+  const hasLoadedFirstPageRef = useRef(false);
   const [query, setQuery] = useState<{ offset: number; limit: number }>({
     offset: 0,
     limit: 10,
   });
   const { networkId, searchContent: address } = useContext(SignatureContext);
+
   const {
     result: { sections, ending },
   } = usePromiseResult(
@@ -51,6 +53,7 @@ export const useGetSignatureSections = <T extends { createdAt: number }>(
       if (!isSearch) {
         ref.current.splice(query.offset, query.limit, ...resp);
       }
+      hasLoadedFirstPageRef.current = true;
       return {
         sections: groupBy(isSearch ? resp : ref.current),
         ending: resp.length < query.limit,
@@ -61,7 +64,7 @@ export const useGetSignatureSections = <T extends { createdAt: number }>(
   );
 
   const onEndReached = useCallback(() => {
-    if (ending) {
+    if (ending || !hasLoadedFirstPageRef.current) {
       return;
     }
     setQuery((prev) => ({ ...prev, offset: prev.offset + prev.limit }));
