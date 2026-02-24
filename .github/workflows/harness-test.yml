@@ -102,7 +102,7 @@ jobs:
 
       - name: Start Android Emulator
         run: |
-          $ANDROID_HOME/emulator/emulator -avd test_avd -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot-save -memory 2048 &
+          $ANDROID_HOME/emulator/emulator -avd test_avd -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot-save -memory 4096 &
           adb wait-for-device
           SECONDS=0
           TIMEOUT=300
@@ -122,6 +122,9 @@ jobs:
       - name: Install APK on Emulator
         run: adb install apps/mobile/android/app/build/outputs/apk/prod/debug/app-prod-debug.apk
 
+      - name: Start logcat capture
+        run: adb logcat -v time > /tmp/logcat.txt 2>&1 &
+
       - name: Run Harness Tests (Android)
         timeout-minutes: 30
         env:
@@ -129,6 +132,15 @@ jobs:
           HARNESS_ANDROID_AVD: test_avd
         working-directory: apps/mobile
         run: yarn harness:test:android
+
+      - name: Dump logcat on failure
+        if: failure()
+        run: |
+          echo "=== Last 200 lines of logcat ==="
+          tail -200 /tmp/logcat.txt || true
+          echo ""
+          echo "=== App-specific logs ==="
+          grep -i -E "(onekey|ReactNative|ReactNativeJS|AndroidRuntime|FATAL|crash|WebSocket)" /tmp/logcat.txt | tail -100 || true
 
   notify-failure:
     name: Notify on Failure

@@ -39,6 +39,8 @@ const config = {
   defaultRunner: 'ios',
   forwardClientLogs: true,
   bridgeTimeout: 1_200_000,
+  bundleStartTimeout: 120_000,
+  maxAppRestarts: 3,
 };
 
 export default config;
