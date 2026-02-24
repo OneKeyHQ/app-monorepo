@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
@@ -52,6 +53,7 @@ import {
   FormatHyperlinkText,
   HyperlinkText,
 } from '../../../components/HyperlinkText';
+import { HighlightAddress } from '../../../components/HighlightAddress';
 import { NetworkAvatar } from '../../../components/NetworkAvatar';
 import { Token } from '../../../components/Token';
 import { useAccountData } from '../../../hooks/useAccountData';
@@ -547,15 +549,17 @@ function ReceiveToken() {
     if (!currentAccount || !network || !wallet) return null;
     if (!displayAddress) return null;
 
-    let addressContent = '';
+    let addressContent: ReactNode;
 
     if (shouldShowAddress) {
-      addressContent =
-        displayAddress.match(/.{1,4}/g)?.join(' ') || displayAddress;
+      addressContent = <HighlightAddress address={displayAddress} />;
     } else {
-      addressContent = Array.from({ length: 11 })
+      const maskedText = Array.from({ length: 11 })
         .map(() => '****')
         .join(' ');
+      addressContent = (
+        <SizableText fontFamily="$monoMedium">{maskedText}</SizableText>
+      );
     }
 
     return (
@@ -586,7 +590,7 @@ function ReceiveToken() {
           },
         })}
       >
-        <SizableText fontFamily="$monoMedium">{addressContent}</SizableText>
+        {addressContent}
       </XStack>
     );
   }, [
