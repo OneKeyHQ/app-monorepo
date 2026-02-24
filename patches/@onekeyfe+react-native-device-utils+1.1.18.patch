@@ -1,0 +1,47 @@
+diff --git a/node_modules/@onekeyfe/react-native-device-utils/android/src/main/java/com/margelo/nitro/reactnativedeviceutils/ReactNativeDeviceUtils.kt b/node_modules/@onekeyfe/react-native-device-utils/android/src/main/java/com/margelo/nitro/reactnativedeviceutils/ReactNativeDeviceUtils.kt
+index f99af72..8ae8314 100644
+--- a/node_modules/@onekeyfe/react-native-device-utils/android/src/main/java/com/margelo/nitro/reactnativedeviceutils/ReactNativeDeviceUtils.kt
++++ b/node_modules/@onekeyfe/react-native-device-utils/android/src/main/java/com/margelo/nitro/reactnativedeviceutils/ReactNativeDeviceUtils.kt
+@@ -220,7 +220,7 @@ class ReactNativeDeviceUtils : HybridReactNativeDeviceUtilsSpec(), LifecycleEven
+   private var layoutInfoConsumer: Consumer<WindowLayoutInfo>? = null
+   private var windowInfoTracker: WindowInfoTracker? = null
+   private var callbackAdapter: WindowInfoTrackerCallbackAdapter? = null
+-  private var spanningChangedListeners: MutableList<Listener> = CopyOnWriteArrayList()
++  private val spanningChangedListeners: CopyOnWriteArrayList<Listener> = CopyOnWriteArrayList()
+   private var isObservingLayoutChanges = false
+   private var nextListenerId = 0.0
+   private var isDualScreenDeviceDetected: Boolean? = null
+@@ -697,9 +697,19 @@ class ReactNativeDeviceUtils : HybridReactNativeDeviceUtilsSpec(), LifecycleEven
+   }
+ 
+   fun callSpanningChangedListeners(isSpanning: Boolean) {
+-    // Create a snapshot to avoid ConcurrentModificationException when listeners modify the list during callbacks
+-    for (listener in spanningChangedListeners.toList()) {
+-      listener.callback(isSpanning)
++    // CopyOnWriteArrayList provides snapshot-based iteration that never throws
++    // ConcurrentModificationException, even if listeners are added/removed during iteration.
++    // Do NOT call .toList() here as it creates a regular ArrayList that is not thread-safe.
++    try {
++      for (listener in spanningChangedListeners) {
++        try {
++          listener.callback(isSpanning)
++        } catch (e: Exception) {
++          // Ignore individual listener errors to avoid breaking the iteration
++        }
++      }
++    } catch (e: Exception) {
++      // Safety net: catch any unexpected iteration errors
+     }
+   }
+ 
+@@ -712,7 +722,9 @@ class ReactNativeDeviceUtils : HybridReactNativeDeviceUtilsSpec(), LifecycleEven
+   }
+ 
+     override fun removeSpanningChangedListener(id: Double) {
+-        spanningChangedListeners.removeIf { it.id == id }
++        synchronized(this) {
++            spanningChangedListeners.removeIf { it.id == id }
++        }
+     }
+ 
+   private fun startObservingLayoutChanges() {
