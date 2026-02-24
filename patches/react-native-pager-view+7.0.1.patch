@@ -25,7 +25,7 @@ index 8ec286a..a46ba48 100644
          if (root == null) {
              return
 diff --git a/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/PagerViewViewManagerImpl.kt b/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/PagerViewViewManagerImpl.kt
-index d5b82ff..e16d99a 100644
+index d5b82ff..98283db 100644
 --- a/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/PagerViewViewManagerImpl.kt
 +++ b/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/PagerViewViewManagerImpl.kt
 @@ -7,8 +7,12 @@ import com.facebook.react.uimanager.PixelUtil
@@ -67,15 +67,23 @@ index d5b82ff..e16d99a 100644
      fun addView(host: NestedScrollableHost, child: View?, index: Int) {
          if (child == null) {
              return
-@@ -76,6 +99,15 @@ object PagerViewViewManagerImpl {
+@@ -76,6 +99,23 @@ object PagerViewViewManagerImpl {
          val pager = getViewPager(parent)
          val adapter = pager.adapter as ViewPagerAdapter?
  
 +        if (adapter != null && adapter.isComputingLayout()) {
-+            // Defer the entire removal when RecyclerView is computing layout
-+            // to avoid IllegalStateException from modifying views during layout pass
-+            adapter.postOnRecyclerView {
-+                removeViewAt(parent, index)
++            // Capture child by identity NOW while the index is still valid,
++            // then defer the removal using the child reference instead of the
++            // (potentially stale) index.
++            val child = if (index < adapter.itemCount) adapter.getChildAt(index) else null
++            if (child != null) {
++                adapter.postOnRecyclerView {
++                    val currentAdapter = pager.adapter as? ViewPagerAdapter
++                    if (child.parent != null) {
++                        (child.parent as ViewGroup).removeView(child)
++                    }
++                    currentAdapter?.removeChild(child)
++                }
 +            }
 +            return
 +        }
@@ -83,7 +91,7 @@ index d5b82ff..e16d99a 100644
          val child = adapter?.getChildAt(index)
  
          if (child != null && child.parent != null) {
-@@ -161,10 +193,22 @@ object PagerViewViewManagerImpl {
+@@ -161,10 +201,22 @@ object PagerViewViewManagerImpl {
  
      private fun refreshViewChildrenLayout(view: View) {
          view.post {
