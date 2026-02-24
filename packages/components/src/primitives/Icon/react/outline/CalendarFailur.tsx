@@ -7,12 +7,12 @@ const SvgCalendarFailur = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
+    <Path d="m21.414 16-2 2 2 2L20 21.414l-2-2-2 2L14.586 20l2-2-2-2L16 14.586l2 2 2-2z" />
     <Path
       fillRule="evenodd"
-      d="M16 2.5a1 1 0 0 1 1 1v1h2a2 2 0 0 1 2 2v5a1 1 0 1 1-2 0v-1H5v9h6a1 1 0 1 1 0 2H5a2 2 0 0 1-2-2v-13a2 2 0 0 1 2-2h2v-1a1 1 0 0 1 2 0v1h6v-1a1 1 0 0 1 1-1m-11 6h14v-2H5z"
+      d="M9 4h6V2h2v2h4v8h-2v-2H5v9h7v2H3V4h4V2h2zM5 8h14V6H5z"
       clipRule="evenodd"
     />
-    <Path d="M19.293 15.793a1 1 0 1 1 1.414 1.414L19.414 18.5l1.293 1.293a1 1 0 0 1-1.414 1.414L18 19.914l-1.293 1.293a1 1 0 0 1-1.414-1.414l1.293-1.293-1.293-1.293a1 1 0 1 1 1.414-1.414L18 17.086z" />
   </Svg>
 );
 export default SvgCalendarFailur;

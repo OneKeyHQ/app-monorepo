@@ -7,7 +7,7 @@ const SvgFilterSort = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M6.002 4a1 1 0 0 1 1 1v11.585l1.29-1.292a1 1 0 0 1 1.415 1.414l-2.998 3a1 1 0 0 1-1.414 0l-3.002-3a1 1 0 1 1 1.414-1.414l1.295 1.294V5a1 1 0 0 1 1-1M12 6a1 1 0 1 0 0 2h8a1 1 0 1 0 0-2zm4 10a1 1 0 1 0 0 2h4a1 1 0 1 0 0-2zm-3-4a1 1 0 0 1 1-1h6a1 1 0 1 1 0 2h-6a1 1 0 0 1-1-1" />
+    <Path d="m7.002 16.585 1.998-2L10.414 16l-4.412 4.414L1.586 16 3 14.586l2.002 2V4h2zM21 18h-6v-2h6zm0-5h-8v-2h8zm0-5H11V6h10z" />
   </Svg>
 );
 export default SvgFilterSort;

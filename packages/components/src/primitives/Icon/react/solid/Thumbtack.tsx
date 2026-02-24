@@ -7,7 +7,7 @@ const SvgThumbtack = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M8.5 2a2 2 0 0 0-2 2v2.997a6.25 6.25 0 0 1-1.83 4.42l-.377.376A1 1 0 0 0 4 12.5V14a2 2 0 0 0 2 2h5v5a1 1 0 1 0 2 0v-5h5a2 2 0 0 0 2-2v-1.5a1 1 0 0 0-.293-.707l-.376-.377a6.25 6.25 0 0 1-1.831-4.42V4a2 2 0 0 0-2-2z" />
+    <Path d="M17.5 2v4.997a6.25 6.25 0 0 0 1.831 4.419l.669.67V16h-7v6h-2v-6H4v-3.914l.669-.67A6.25 6.25 0 0 0 6.5 6.997V2z" />
   </Svg>
 );
 export default SvgThumbtack;

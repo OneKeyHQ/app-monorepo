@@ -7,6 +7,7 @@ import path from 'path';
 import { fileURLToPath, format as formatUrl } from 'url';
 
 import { initNobleBleSupport } from '@onekeyfe/hd-transport-electron';
+import { EOneKeyBleMessageKeys } from '@onekeyfe/hd-shared';
 import {
   BrowserWindow,
   Menu,
@@ -23,6 +24,7 @@ import contextMenu from 'electron-context-menu';
 import isDev from 'electron-is-dev';
 import logger from 'electron-log/main';
 
+import { CALL_DESKTOP_API_EVENT_NAME } from '@onekeyhq/kit-bg/src/desktopApis/base/consts';
 import { getTemplatePhishingUrls } from '@onekeyhq/kit-bg/src/desktopApis/DesktopApiWebview';
 import desktopApi from '@onekeyhq/kit-bg/src/desktopApis/instance/desktopApi';
 import {
@@ -680,6 +682,7 @@ async function createMainWindow() {
     return { action: 'deny' };
   });
 
+  ipcMain.removeAllListeners(ipcMessageKeys.APP_READY);
   ipcMain.on(ipcMessageKeys.APP_READY, () => {
     isAppReady = true;
     logger.info('set isAppReady on ipcMain app/ready', isAppReady);
@@ -693,24 +696,30 @@ async function createMainWindow() {
     disposeContextMenu?.();
   });
 
+  ipcMain.removeAllListeners(ipcMessageKeys.IS_DEV);
   ipcMain.on(ipcMessageKeys.IS_DEV, (event) => {
     event.returnValue = isDevServer;
   });
 
+  ipcMain.removeAllListeners(ipcMessageKeys.APP_IS_FOCUSED);
   ipcMain.on(ipcMessageKeys.APP_IS_FOCUSED, (event) => {
     const safelyBrowserWindow = getSafelyBrowserWindow();
     event.returnValue = safelyBrowserWindow?.isFocused();
   });
 
+  ipcMain.removeAllListeners(ipcMessageKeys.APP_SET_IDLE_TIME);
   ipcMain.on(ipcMessageKeys.APP_SET_IDLE_TIME, (event, setIdleTime: number) => {
     systemIdleHandler(setIdleTime, event);
   });
 
+  ipcMain.removeAllListeners(ipcMessageKeys.APP_TEST_CRASH);
   ipcMain.on(ipcMessageKeys.APP_TEST_CRASH, () => {
     throw new OneKeyLocalError('Test Electron Native crash 996');
   });
 
   // System Resources
+  ipcMain.removeHandler(ipcMessageKeys.SYSTEM_GET_CPU_USAGE);
+  ipcMain.removeHandler(ipcMessageKeys.SYSTEM_GET_MEMORY_USAGE);
   ipcMain.handle(ipcMessageKeys.SYSTEM_GET_CPU_USAGE, async () => {
     try {
       const cpuUsage = process.getCPUUsage();
@@ -762,6 +771,7 @@ async function createMainWindow() {
     }
   });
 
+  ipcMain.removeAllListeners(CALL_DESKTOP_API_EVENT_NAME);
   desktopApi.desktopApiSetup();
 
   // reset appState to undefined  to avoid screen lock.
@@ -803,12 +813,14 @@ async function createMainWindow() {
     safelyBrowserWindow?.webContents.send(ipcMessageKeys.APP_STATE, state);
   });
 
+  app.removeAllListeners('login');
   app.on('login', (event, webContents, request, authInfo, callback) => {
     event.preventDefault();
     callback('onekey', 'juDUIpz3lVnubZ2aHOkwBB6SJotYynyb');
   });
 
   // Prevents clicking on links to open new Windows
+  app.removeAllListeners('web-contents-created');
   app.on('web-contents-created', (event, contents) => {
     if (contents.getType() === 'webview') {
       contents.setWindowOpenHandler((handleDetails) => {
@@ -996,6 +1008,21 @@ async function createMainWindow() {
     }
   });
 
+  // Use enum from @onekeyfe/hd-shared to stay in sync with the channels
+  // registered by initNobleBleSupport() from @onekeyfe/hd-transport-electron
+  const nobleBleChannels = [
+    EOneKeyBleMessageKeys.NOBLE_BLE_ENUMERATE,
+    EOneKeyBleMessageKeys.NOBLE_BLE_STOP_SCAN,
+    EOneKeyBleMessageKeys.NOBLE_BLE_GET_DEVICE,
+    EOneKeyBleMessageKeys.NOBLE_BLE_CONNECT,
+    EOneKeyBleMessageKeys.NOBLE_BLE_DISCONNECT,
+    EOneKeyBleMessageKeys.NOBLE_BLE_WRITE,
+    EOneKeyBleMessageKeys.NOBLE_BLE_SUBSCRIBE,
+    EOneKeyBleMessageKeys.NOBLE_BLE_UNSUBSCRIBE,
+    EOneKeyBleMessageKeys.NOBLE_BLE_CANCEL_PAIRING,
+    EOneKeyBleMessageKeys.BLE_AVAILABILITY_CHECK,
+  ];
+  nobleBleChannels.forEach((channel) => ipcMain.removeHandler(channel));
   void initNobleBleSupport(browserWindow.webContents);
 
   return browserWindow;

@@ -9,10 +9,10 @@ const SvgSearchMenu = (props: SvgProps) => (
   >
     <Path
       fillRule="evenodd"
-      d="M15.004 5a7 7 0 1 0 4.19 12.608l2.099 2.1a1 1 0 0 0 1.414-1.415l-2.098-2.099A7 7 0 0 0 15.004 5M15 9a3 3 0 0 0-3 3 1 1 0 1 1-2 0 5 5 0 0 1 5-5 1 1 0 1 1 0 2"
+      d="M15.004 5a7 7 0 0 1 5.604 11.194L23.414 19 22 20.414l-2.807-2.806A7 7 0 1 1 15.003 5ZM15 7a5 5 0 0 0-5 5h2a3 3 0 0 1 3-3z"
       clipRule="evenodd"
     />
-    <Path d="M2.004 7a1 1 0 0 1 1-1h3a1 1 0 0 1 0 2h-3a1 1 0 0 1-1-1m0 5a1 1 0 0 1 1-1h2a1 1 0 1 1 0 2h-2a1 1 0 0 1-1-1m1 4a1 1 0 1 0 0 2h3a1 1 0 1 0 0-2z" />
+    <Path d="M7.004 16v2h-5v-2zm-1-3h-4v-2h4zm1-5h-5V6h5z" />
   </Svg>
 );
 export default SvgSearchMenu;

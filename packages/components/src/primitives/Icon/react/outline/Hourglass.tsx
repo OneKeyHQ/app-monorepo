@@ -7,7 +7,11 @@ const SvgHourglass = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="m12 13.201-5 3.334V20h10v-3.465zM17 4H7v3.465l5 3.333 5-3.333zm2 3.465a2 2 0 0 1-.89 1.664L13.802 12l4.306 2.871A2 2 0 0 1 19 16.535V20h1a1 1 0 1 1 0 2H4a1 1 0 1 1 0-2h1v-3.465a2 2 0 0 1 .89-1.664L10.198 12 5.891 9.129A2 2 0 0 1 5 7.465V4H4a1 1 0 0 1 0-2h16a1 1 0 1 1 0 2h-1z" />
+    <Path
+      fillRule="evenodd"
+      d="M21 4h-2v4.535L13.803 12 19 15.465V20h2v2H3v-2h2v-4.535L10.197 12 5 8.535V4H3V2h18zM7 16.535V20h10v-3.465l-5-3.334zm0-9.07 5 3.333 5-3.333V4H7z"
+      clipRule="evenodd"
+    />
   </Svg>
 );
 export default SvgHourglass;
