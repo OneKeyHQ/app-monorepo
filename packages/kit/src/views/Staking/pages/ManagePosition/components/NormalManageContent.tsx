@@ -7,6 +7,10 @@ import { SizableText, Tabs, XStack } from '@onekeyhq/components';
 import type { IAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EManagePageActionType,
+  EStakingActionType,
+} from '@onekeyhq/shared/types/staking';
 import type {
   IBorrowReserveItem,
   IEarnHistoryActionIcon,
@@ -17,7 +21,6 @@ import type {
   IProtocolInfo,
   IStakeTag,
 } from '@onekeyhq/shared/types/staking';
-import { EStakingActionType } from '@onekeyhq/shared/types/staking';
 
 import { EManagePositionType } from '../hooks/useManagePage';
 
@@ -184,29 +187,30 @@ export function NormalManageContent({
         return actionData.text.text;
       }
 
-      const actionType = (actionData?.type || fallbackType || '').toLowerCase();
+      const normalizedActionType = (actionData?.type || fallbackType || '')
+        .trim()
+        .toLowerCase();
 
-      if (actionType.includes('buy')) {
-        return intl.formatMessage({ id: ETranslations.global_buy });
+      switch (normalizedActionType) {
+        case EManagePageActionType.Buy:
+          return intl.formatMessage({ id: ETranslations.global_buy });
+        case EManagePageActionType.SellEarly:
+          return intl.formatMessage({ id: ETranslations.defi_sell_early });
+        case EManagePageActionType.Redeem:
+          return intl.formatMessage({ id: ETranslations.global_redeem });
+        case EManagePageActionType.Sell:
+          return intl.formatMessage({ id: ETranslations.global_sell });
+        case EStakingActionType.Withdraw:
+          return intl.formatMessage({ id: ETranslations.global_withdraw });
+        case EStakingActionType.Borrow:
+          return intl.formatMessage({ id: ETranslations.global_borrow });
+        case EStakingActionType.Repay:
+          return intl.formatMessage({ id: ETranslations.defi_repay });
+        case EStakingActionType.Supply:
+          return intl.formatMessage({ id: ETranslations.defi_supply });
+        default:
+          return intl.formatMessage({ id: fallbackId });
       }
-      if (
-        actionType.includes('sell') ||
-        actionType.includes('redeem') ||
-        actionType.includes('withdraw')
-      ) {
-        return intl.formatMessage({ id: ETranslations.global_redeem });
-      }
-      if (actionType.includes('borrow')) {
-        return intl.formatMessage({ id: ETranslations.global_borrow });
-      }
-      if (actionType.includes('repay')) {
-        return intl.formatMessage({ id: ETranslations.defi_repay });
-      }
-      if (actionType.includes('supply')) {
-        return intl.formatMessage({ id: ETranslations.defi_supply });
-      }
-
-      return intl.formatMessage({ id: fallbackId });
     },
     [intl],
   );
@@ -328,18 +332,14 @@ export function NormalManageContent({
       preferManagePageActionText
         ? {
             enabled: !!stakeReceiveActionData?.data?.token,
-            tokenImageUri:
-              stakeReceiveActionData?.data?.token?.info.logoURI,
+            tokenImageUri: stakeReceiveActionData?.data?.token?.info.logoURI,
             tokenSymbol: stakeReceiveActionData?.data?.token?.info.symbol,
             tokenAddress: stakeReceiveActionData?.data?.token?.info.address,
             balance: stakeReceiveActionData?.data?.balance,
             price: stakeReceiveActionData?.data?.token?.price,
           }
         : undefined,
-    [
-      preferManagePageActionText,
-      stakeReceiveActionData,
-    ],
+    [preferManagePageActionText, stakeReceiveActionData],
   );
 
   const withdrawReceiveInputConfig = useMemo(
@@ -347,18 +347,14 @@ export function NormalManageContent({
       preferManagePageActionText
         ? {
             enabled: !!withdrawReceiveActionData?.data?.token,
-            tokenImageUri:
-              withdrawReceiveActionData?.data?.token?.info.logoURI,
+            tokenImageUri: withdrawReceiveActionData?.data?.token?.info.logoURI,
             tokenSymbol: withdrawReceiveActionData?.data?.token?.info.symbol,
             tokenAddress: withdrawReceiveActionData?.data?.token?.info.address,
             balance: withdrawReceiveActionData?.data?.balance,
             price: withdrawReceiveActionData?.data?.token?.price,
           }
         : undefined,
-    [
-      preferManagePageActionText,
-      withdrawReceiveActionData,
-    ],
+    [preferManagePageActionText, withdrawReceiveActionData],
   );
 
   const [selectedTabIndex, setSelectedTabIndex] = useState(() => {

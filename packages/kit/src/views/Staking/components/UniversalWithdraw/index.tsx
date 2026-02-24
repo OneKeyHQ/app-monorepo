@@ -52,6 +52,11 @@ import {
 import { EarnActionIcon } from '../ProtocolDetails/EarnActionIcon';
 import { EarnText } from '../ProtocolDetails/EarnText';
 import {
+  PendleAccordionTriggerContent,
+  PendleSummarySection,
+  usePendleTransactionDetails,
+} from '../ProtocolDetails/PendleSharedComponents';
+import {
   StakingAmountInput,
   useOnBlurAmountValue,
 } from '../StakingAmountInput';
@@ -153,6 +158,10 @@ export function UniversalWithdraw({
       earnUtils.isStakefishProvider({ providerName: providerName ?? '' }) &&
       tokenSymbol?.toUpperCase() === 'ETH',
     [providerName, tokenSymbol],
+  );
+  const isPendleProvider = useMemo(
+    () => earnUtils.isPendleProvider({ providerName: providerName ?? '' }),
+    [providerName],
   );
   const [checkAmountMessage, setCheckoutAmountMessage] = useState('');
   const [checkAmountAlerts, setCheckAmountAlerts] = useState<
@@ -472,14 +481,42 @@ export function UniversalWithdraw({
     return isDisabled || initialAmount !== undefined;
   }, [isDisabled, initialAmount]);
 
+  const normalizedPendleTipText = useMemo(() => {
+    if (!isPendleProvider) {
+      return undefined;
+    }
+    const tipText = transactionConfirmation?.tip?.text;
+    const normalizedText = tipText?.text?.trim();
+    if (!normalizedText) {
+      return undefined;
+    }
+    return {
+      ...tipText,
+      text: normalizedText,
+    };
+  }, [isPendleProvider, transactionConfirmation?.tip?.text]);
+
+  const isPendleLikeLayout = isPendleProvider;
+
+  const pendleAccordionItems = usePendleTransactionDetails({
+    transactionConfirmation,
+    amountValue,
+    isPendleLikeLayout,
+  });
+
   const accordionContent = useMemo(() => {
     const items: ReactElement[] = [];
     if (Number(amountValue) <= 0) {
       return items;
     }
+
+    if (isPendleLikeLayout) {
+      return pendleAccordionItems;
+    }
+
     if (transactionConfirmation?.receive) {
       items.push(
-        <CalculationListItem>
+        <CalculationListItem key="receive">
           <CalculationListItem.Label
             size={transactionConfirmation.receive.title.size || '$bodyMd'}
             color={transactionConfirmation.receive.title.color}
@@ -501,14 +538,60 @@ export function UniversalWithdraw({
     if (estimateFeeResp) {
       items.push(
         <EstimateNetworkFee
+          key="network-fee"
           estimateFeeResp={estimateFeeResp}
           isVisible={Number(amountValue) > 0}
         />,
       );
     }
     return items;
-  }, [amountValue, estimateFeeResp, transactionConfirmation?.receive]);
+  }, [
+    amountValue,
+    estimateFeeResp,
+    isPendleLikeLayout,
+    pendleAccordionItems,
+    transactionConfirmation?.receive,
+  ]);
   const isAccordionTriggerDisabled = !amountValue;
+  const pendleRewardRows = useMemo(
+    () =>
+      isPendleLikeLayout
+        ? (transactionConfirmation?.rewards ?? []).filter(
+            (reward) =>
+              !!reward?.title?.text?.trim() &&
+              !!reward?.description?.text?.trim(),
+          )
+        : [],
+    [isPendleLikeLayout, transactionConfirmation?.rewards],
+  );
+  const usePendleSummaryLayout = pendleRewardRows.length > 0;
+  const transactionDetailsTriggerText =
+    transactionConfirmation?.transactionDetails?.text;
+  const apyDetail = transactionConfirmation?.apyDetail;
+  const showApyHeader = showApyDetail && !!apyDetail && !isPendleLikeLayout;
+  const hasLegacySummaryContent =
+    !!transactionConfirmation?.title ||
+    !!transactionConfirmation?.tooltip ||
+    (transactionConfirmation?.rewards?.length ?? 0) > 0;
+  const hasSummarySection =
+    showApyHeader ||
+    (usePendleSummaryLayout
+      ? pendleRewardRows.length > 0
+      : hasLegacySummaryContent);
+  const pendleTipText =
+    isPendleLikeLayout && normalizedPendleTipText
+      ? normalizedPendleTipText
+      : undefined;
+  const showPendleTransactionSection = useMemo(() => {
+    if (!isPendleLikeLayout) {
+      return true;
+    }
+    return !!transactionDetailsTriggerText?.text && accordionContent.length > 0;
+  }, [
+    accordionContent.length,
+    isPendleLikeLayout,
+    transactionDetailsTriggerText?.text,
+  ]);
   const showReceiveInput = !!receiveInputConfig?.enabled;
   const effectiveReceiveInputConfig = useMemo(
     () =>
@@ -655,180 +738,202 @@ export function UniversalWithdraw({
       {!isDisabled ? (
         <YStack
           p="$3.5"
-          pt="$5"
+          pt={hasSummarySection ? '$5' : '$3.5'}
           borderRadius="$3"
           borderWidth={StyleSheet.hairlineWidth}
           borderColor="$borderSubdued"
         >
-          {showApyDetail && transactionConfirmation?.apyDetail ? (
+          {showApyHeader && apyDetail ? (
             <XStack gap="$1" ai="center" mb="$3.5">
               <EarnText
-                text={transactionConfirmation.apyDetail.description}
+                text={apyDetail.description}
                 size="$headingLg"
                 color="$textSuccess"
               />
               <EarnActionIcon
-                title={transactionConfirmation.apyDetail.title.text}
-                actionIcon={transactionConfirmation.apyDetail.button}
+                title={apyDetail.title.text}
+                actionIcon={apyDetail.button}
               />
             </XStack>
           ) : null}
-          <YStack gap="$2">
-            <XStack ai="center" gap="$1">
-              <EarnText
-                text={transactionConfirmation?.title}
-                color="$textSubdued"
-                size="$bodyMd"
+          {hasSummarySection ? (
+            usePendleSummaryLayout ? (
+              <PendleSummarySection
+                rewardRows={pendleRewardRows}
+                tipText={pendleTipText}
               />
-              {transactionConfirmation?.tooltip ? (
-                <Popover
-                  placement="top"
-                  title={transactionConfirmation?.title?.text}
-                  renderTrigger={
-                    <IconButton
-                      iconColor="$iconSubdued"
-                      size="small"
-                      icon="InfoCircleOutline"
-                      variant="tertiary"
-                    />
-                  }
-                  renderContent={
-                    <Stack p="$5">
-                      <EarnText
-                        text={
-                          transactionConfirmation?.tooltip?.type === 'text'
-                            ? transactionConfirmation.tooltip?.data?.description
-                            : undefined
-                        }
-                        size="$bodyMd"
-                      />
-                    </Stack>
-                  }
-                />
-              ) : null}
-            </XStack>
-            {transactionConfirmation?.rewards.map((reward) => {
-              const hasTooltip = reward.tooltip?.type === 'text';
-              let descriptionTextSize = (
-                hasTooltip ? '$bodyMd' : '$bodyLgMedium'
-              ) as FontSizeTokens;
-              if (reward.description.size) {
-                descriptionTextSize = reward.description.size;
-              }
-              return (
-                <XStack
-                  key={reward.title.text}
-                  gap="$1"
-                  ai="flex-start"
-                  mt="$1.5"
-                  flexWrap="wrap"
-                >
-                  <XStack gap="$1" flex={1} flexWrap="wrap" ai="center">
-                    <EarnText
-                      text={reward.title}
-                      color={reward.title.color}
-                      size={reward.title.size}
-                    />
-                    <XStack gap="$1" flex={1} flexWrap="wrap" ai="center">
-                      <EarnText
-                        text={reward.description}
-                        size={descriptionTextSize}
-                        color={reward.description.color ?? '$textSubdued'}
-                        flexShrink={1}
-                      />
-                      {hasTooltip ? (
-                        <Popover.Tooltip
-                          iconSize="$5"
-                          title={reward.title.text}
-                          tooltip={
-                            (reward.tooltip as IEarnTextTooltip)?.data
-                              ?.description?.text
-                          }
-                          placement="top"
+            ) : (
+              <YStack gap="$2">
+                <XStack ai="center" gap="$1">
+                  <EarnText
+                    text={transactionConfirmation?.title}
+                    color="$textSubdued"
+                    size="$bodyMd"
+                  />
+                  {transactionConfirmation?.tooltip ? (
+                    <Popover
+                      placement="top"
+                      title={transactionConfirmation?.title?.text}
+                      renderTrigger={
+                        <IconButton
+                          iconColor="$iconSubdued"
+                          size="small"
+                          icon="InfoCircleOutline"
+                          variant="tertiary"
                         />
-                      ) : null}
-                    </XStack>
-                  </XStack>
+                      }
+                      renderContent={
+                        <Stack p="$5">
+                          <EarnText
+                            text={
+                              transactionConfirmation?.tooltip?.type === 'text'
+                                ? transactionConfirmation.tooltip?.data
+                                    ?.description
+                                : undefined
+                            }
+                            size="$bodyMd"
+                          />
+                        </Stack>
+                      }
+                    />
+                  ) : null}
                 </XStack>
-              );
-            })}
-          </YStack>
-          <Divider my="$5" />
-          <Accordion
-            overflow="hidden"
-            width="100%"
-            type="single"
-            collapsible
-            defaultValue={WITHDRAW_ACCORDION_KEY}
-          >
-            <Accordion.Item value={WITHDRAW_ACCORDION_KEY}>
-              <Accordion.Trigger
-                unstyled
-                flexDirection="row"
-                alignItems="center"
-                alignSelf="flex-start"
-                px="$1"
-                mx="$-1"
-                width="100%"
-                justifyContent="space-between"
-                borderWidth={0}
-                bg="$transparent"
-                userSelect="none"
-                borderRadius="$1"
-                cursor={isAccordionTriggerDisabled ? 'not-allowed' : 'pointer'}
-                disabled={isAccordionTriggerDisabled}
-              >
-                {({ open }: { open: boolean }) => (
-                  <>
-                    <XStack gap="$1.5" alignItems="center">
-                      <Image
-                        width="$5"
-                        height="$5"
-                        src={providerLogo}
-                        borderRadius="$2"
-                      />
-                      <SizableText size="$bodyMd">
-                        {capitalizeString(providerName || '')}
-                      </SizableText>
-                    </XStack>
-                    <XStack>
-                      <YStack
-                        animation="quick"
-                        rotate={
-                          open && !isAccordionTriggerDisabled
-                            ? '180deg'
-                            : '0deg'
-                        }
-                        left="$2"
-                      >
-                        <Icon
-                          name="ChevronDownSmallOutline"
-                          color={
-                            isAccordionTriggerDisabled
-                              ? '$iconDisabled'
-                              : '$iconSubdued'
-                          }
-                          size="$5"
+                {transactionConfirmation?.rewards.map((reward) => {
+                  const hasTooltip = reward.tooltip?.type === 'text';
+                  let descriptionTextSize = (
+                    hasTooltip ? '$bodyMd' : '$bodyLgMedium'
+                  ) as FontSizeTokens;
+                  if (reward.description.size) {
+                    descriptionTextSize = reward.description.size;
+                  }
+                  return (
+                    <XStack
+                      key={reward.title.text}
+                      gap="$1"
+                      ai="flex-start"
+                      mt="$1.5"
+                      flexWrap="wrap"
+                    >
+                      <XStack gap="$1" flex={1} flexWrap="wrap" ai="center">
+                        <EarnText
+                          text={reward.title}
+                          color={reward.title.color}
+                          size={reward.title.size}
                         />
-                      </YStack>
+                        <XStack gap="$1" flex={1} flexWrap="wrap" ai="center">
+                          <EarnText
+                            text={reward.description}
+                            size={descriptionTextSize}
+                            color={reward.description.color ?? '$textSubdued'}
+                            flexShrink={1}
+                          />
+                          {hasTooltip ? (
+                            <Popover.Tooltip
+                              iconSize="$5"
+                              title={reward.title.text}
+                              tooltip={
+                                (reward.tooltip as IEarnTextTooltip)?.data
+                                  ?.description?.text
+                              }
+                              placement="top"
+                            />
+                          ) : null}
+                        </XStack>
+                      </XStack>
                     </XStack>
-                  </>
-                )}
-              </Accordion.Trigger>
-              <Accordion.HeightAnimator animation="quick">
-                <Accordion.Content
-                  animation="quick"
-                  exitStyle={{ opacity: 0 }}
-                  px={0}
-                  pb={0}
-                  pt="$3.5"
-                  gap="$2.5"
+                  );
+                })}
+              </YStack>
+            )
+          ) : null}
+          {hasSummarySection ? <Divider my="$5" /> : null}
+          {showPendleTransactionSection ? (
+            <Accordion
+              overflow="hidden"
+              width="100%"
+              type="single"
+              collapsible
+              defaultValue={isPendleLikeLayout ? '' : WITHDRAW_ACCORDION_KEY}
+            >
+              <Accordion.Item value={WITHDRAW_ACCORDION_KEY}>
+                <Accordion.Trigger
+                  unstyled
+                  flexDirection="row"
+                  alignItems="center"
+                  alignSelf="flex-start"
+                  px="$1"
+                  mx="$-1"
+                  width="100%"
+                  justifyContent="space-between"
+                  borderWidth={0}
+                  bg="$transparent"
+                  userSelect="none"
+                  borderRadius="$1"
+                  cursor={
+                    isAccordionTriggerDisabled ? 'not-allowed' : 'pointer'
+                  }
+                  disabled={isAccordionTriggerDisabled}
                 >
-                  {accordionContent}
-                </Accordion.Content>
-              </Accordion.HeightAnimator>
-            </Accordion.Item>
-          </Accordion>
+                  {({ open }: { open: boolean }) => (
+                    <>
+                      {isPendleLikeLayout ? (
+                        <PendleAccordionTriggerContent
+                          open={open}
+                          triggerText={transactionDetailsTriggerText?.text}
+                          isDisabled={isAccordionTriggerDisabled}
+                        />
+                      ) : (
+                        <>
+                          <XStack gap="$1.5" alignItems="center">
+                            <Image
+                              width="$5"
+                              height="$5"
+                              src={providerLogo}
+                              borderRadius="$2"
+                            />
+                            <SizableText size="$bodyMd">
+                              {capitalizeString(providerName || '')}
+                            </SizableText>
+                          </XStack>
+                          <YStack
+                            animation="quick"
+                            rotate={
+                              open && !isAccordionTriggerDisabled
+                                ? '180deg'
+                                : '0deg'
+                            }
+                            left="$2"
+                          >
+                            <Icon
+                              name="ChevronDownSmallOutline"
+                              color={
+                                isAccordionTriggerDisabled
+                                  ? '$iconDisabled'
+                                  : '$iconSubdued'
+                              }
+                              size="$5"
+                            />
+                          </YStack>
+                        </>
+                      )}
+                    </>
+                  )}
+                </Accordion.Trigger>
+                <Accordion.HeightAnimator animation="quick">
+                  <Accordion.Content
+                    animation="quick"
+                    exitStyle={{ opacity: 0 }}
+                    px={0}
+                    pb={0}
+                    pt="$3.5"
+                    gap="$2.5"
+                  >
+                    {accordionContent}
+                  </Accordion.Content>
+                </Accordion.HeightAnimator>
+              </Accordion.Item>
+            </Accordion>
+          ) : null}
         </YStack>
       ) : null}
       {beforeFooter}

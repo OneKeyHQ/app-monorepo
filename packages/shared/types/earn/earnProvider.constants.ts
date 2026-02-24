@@ -138,6 +138,7 @@ export const isSupportStaking = (symbol: string) =>
 
 export const earnMainnetNetworkIds: string[] = [
   getNetworkIdsMap().eth,
+  getNetworkIdsMap().arbitrum,
   getNetworkIdsMap().base,
   getNetworkIdsMap().cosmoshub,
   getNetworkIdsMap().apt,
@@ -146,6 +147,8 @@ export const earnMainnetNetworkIds: string[] = [
   getNetworkIdsMap().sui,
   getNetworkIdsMap().bsc,
   getNetworkIdsMap().ada,
+  getNetworkIdsMap().hyperevm,
+  PlasmaNetworkId,
 ];
 
 export const earnTestnetNetworkIds: string[] = [getNetworkIdsMap().hoodi];

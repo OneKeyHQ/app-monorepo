@@ -967,8 +967,20 @@ export interface IEarnRepayActionData {
   };
 }
 
+export enum EManagePageActionType {
+  Buy = 'buy',
+  Sell = 'sell',
+  SellEarly = 'sell_early',
+  Redeem = 'redeem',
+}
+
+export type IEarnManagePageActionType =
+  | EManagePageActionType
+  | EStakingActionType
+  | (string & {});
+
 export interface IEarnManagePageActionData {
-  type: string;
+  type: IEarnManagePageActionType;
   disabled: boolean;
   text?: IEarnText;
   data?: {

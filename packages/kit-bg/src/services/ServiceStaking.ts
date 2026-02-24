@@ -1413,9 +1413,6 @@ class ServiceStaking extends ServiceBase {
     // Pendle is vault (PT market) driven, symbol set is backend-driven and
     // may not have one-by-one local tokenAddress configs.
     if (earnUtils.isPendleProvider({ providerName: provider })) {
-      if (!isProviderSupportedSymbol) {
-        return null;
-      }
       const fallbackConfig = Object.values(providerConfig.configs).find(
         (config) => config?.enabled,
       );

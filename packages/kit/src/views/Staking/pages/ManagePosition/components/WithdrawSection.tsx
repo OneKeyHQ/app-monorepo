@@ -444,7 +444,10 @@ export const WithdrawSection = ({
     return protocolInfo?.maxRepayBalance;
   }, [borrowAction, selectedAsset, protocolInfo?.maxRepayBalance]);
 
-  const symbol = useMemo(() => token?.symbol || '', [token]);
+  const withdrawRequestSymbol = useMemo(
+    () => protocolInfo?.symbol || token?.symbol || '',
+    [protocolInfo?.symbol, token?.symbol],
+  );
   const vault = useMemo(() => protocolInfo?.vault || '', [protocolInfo?.vault]);
   const handleWithdraw = useUniversalWithdraw({ accountId, networkId });
   const handleBorrowWithdraw = useUniversalBorrowWithdraw({
@@ -473,7 +476,7 @@ export const WithdrawSection = ({
         })
           ? vault
           : undefined,
-        symbol,
+        symbol: withdrawRequestSymbol,
         provider: providerName,
         inputTokenAddress: tokenInfo?.token?.isNative
           ? ''
@@ -507,7 +510,7 @@ export const WithdrawSection = ({
       onSuccess,
       token,
       protocolInfo?.stakeTag,
-      symbol,
+      withdrawRequestSymbol,
       tokenInfo?.token?.address,
       tokenInfo?.token?.isNative,
       selectedReceiveTokenAddress,
@@ -698,7 +701,7 @@ export const WithdrawSection = ({
           balance={protocolInfo?.activeBalance || '0'}
           accountId={accountId}
           networkId={networkId}
-          tokenSymbol={symbol || ''}
+          tokenSymbol={withdrawRequestSymbol}
           tokenImageUri={token?.logoURI || fallbackTokenImageUri}
           providerLogo={protocolInfo?.providerDetail.logoURI}
           providerName={providerName}
