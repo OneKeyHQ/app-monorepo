@@ -1008,22 +1008,32 @@ function initChildProcess() {
 const singleInstance = app.requestSingleInstanceLock();
 
 if (!singleInstance && !process.mas) {
-  quitOrMinimizeApp();
+  // Second instance detected - quit immediately to prevent any initialization
+  logger.info('Second instance detected, quitting immediately');
+  app.quit();
 } else {
   app.on('second-instance', (e, argv) => {
+    logger.info('Second instance launched, focusing existing window', {
+      argv,
+      platform: process.platform,
+    });
+
     const safelyMainWindow = getSafelyMainWindow();
     if (safelyMainWindow) {
+      // Restore window if minimized
       if (safelyMainWindow.isMinimized()) {
         safelyMainWindow.restore();
       }
-      showMainWindow();
 
-      // Protocol handler for win32
-      // argv: An array of the second instance’s (command line / deep linked) arguments
-      if (isWin || isMac) {
-        // Keep only command line / deep linked arguments
-        const deeplinkingUrl = argv[1];
-        handleDeepLinkUrl(null, deeplinkingUrl, argv, true);
+      // Handle deep link arguments for all platforms
+      // argv: An array of the second instance's (command line / deep linked) arguments
+      const deeplinkingUrl = argv[1];
+      if (deeplinkingUrl) {
+        // handleDeepLinkUrl internally calls showMainWindow(), so we don't need to call it separately
+        handleDeepLinkUrl(null, deeplinkingUrl, argv, false); // isColdStartup=false for second instance
+      } else {
+        // No deep link, just show and focus the window
+        showMainWindow();
       }
     }
   });
@@ -1067,6 +1077,221 @@ app.on('before-quit', () => {
 app.on('window-all-closed', () => {
   quitOrMinimizeApp();
 });
+
+// ==================== GPU Process Protection System ====================
+// Comprehensive GPU crash prevention and recovery
+// Related: Sentry issue - GPU process crashes on Windows AMD + heavy DApp usage
+
+// 1. GPU Crash Detection and Recovery Handler
+app.on('child-process-gone', (event, details) => {
+  logger.error('Child process gone:', {
+    type: details.type,
+    reason: details.reason,
+    exitCode: details.exitCode,
+    name: details.name,
+  });
+
+  if (details.type === 'GPU') {
+    logger.error('🔴 GPU process crashed - initiating recovery');
+
+    // Record crash statistics
+    store.recordGPUCrash();
+    const stats = store.getGPUCrashStats();
+
+    // Track GPU crash in Sentry for monitoring
+    try {
+      const { captureException } = require('@sentry/electron/main');
+      captureException(new Error('GPU Process Crashed'), {
+        level: 'fatal',
+        tags: {
+          gpu_reason: details.reason,
+          gpu_exit_code: details.exitCode,
+          platform: process.platform,
+          cpu_model: os.cpus()[0]?.model || 'unknown',
+          crash_count: stats.count,
+        },
+        extra: {
+          last_crash_time: stats.lastCrashTime,
+          time_since_start:
+            Date.now() - (app.getAppMetrics()[0]?.creationTime || 0),
+        },
+      });
+    } catch (e) {
+      logger.error('Failed to report GPU crash to Sentry:', e);
+    }
+
+    // Notify renderer process about the crash
+    const safelyMainWindow = getSafelyMainWindow();
+    if (safelyMainWindow && !safelyMainWindow.isDestroyed()) {
+      safelyMainWindow.webContents.send('gpu-process-crashed', {
+        reason: details.reason,
+        exitCode: details.exitCode,
+        timestamp: Date.now(),
+        crashCount: stats.count,
+      });
+    }
+
+    // Log critical crashes for monitoring
+    if (details.reason === 'crashed' || details.reason === 'oom') {
+      logger.error('Critical GPU crash detected');
+      logger.error('Crash details:', {
+        reason: details.reason,
+        totalCrashes: stats.count,
+        suggestion: 'Consider closing some browser tabs to reduce GPU load',
+      });
+    }
+  }
+});
+
+// 2. Monitor render process crashes (may be GPU-related)
+app.on('render-process-gone', (event, webContents, details) => {
+  logger.error('Render process gone:', {
+    reason: details.reason,
+    exitCode: details.exitCode,
+  });
+
+  if (details.reason === 'crashed' || details.reason === 'oom') {
+    logger.warn('⚠️ Renderer crashed - may indicate GPU issues');
+  }
+});
+
+// 3. GPU Info Update Monitoring
+app.on('gpu-info-update', () => {
+  logger.info('GPU info updated');
+});
+
+// 4. Log GPU protection status
+const gpuStats = store.getGPUCrashStats();
+logger.info('GPU Protection System initialized', {
+  platform: process.platform,
+  cpuModel: os.cpus()[0]?.model || 'unknown',
+  totalGPUCrashes: gpuStats.count,
+  lastCrashTime: gpuStats.lastCrashTime
+    ? new Date(gpuStats.lastCrashTime).toISOString()
+    : 'never',
+});
+
+// ==================== End GPU Protection ====================
+
+// ==================== Memory Protection System ====================
+// Prevent OOM crashes by monitoring and limiting renderer process memory
+// Related: Sentry issue - OOM crash after 3 hours with DApp browser open
+
+const MEMORY_LIMIT_WARNING_MB = 1024; // 1GB warning threshold
+const MEMORY_LIMIT_CRITICAL_MB = 2048; // 2GB critical threshold
+const MEMORY_CHECK_INTERVAL_MS = 60_000; // Check every 60 seconds
+
+let memoryMonitorInterval: ReturnType<typeof setInterval> | null = null;
+
+// Track previous memory state to only fire on threshold transitions
+let wasAboveWarning = false;
+let wasAboveCritical = false;
+
+function startMemoryMonitoring() {
+  if (memoryMonitorInterval) {
+    clearInterval(memoryMonitorInterval);
+  }
+
+  memoryMonitorInterval = setInterval(async () => {
+    try {
+      const memoryInfo = await process.getProcessMemoryInfo();
+      const memoryUsageMB = Math.round(memoryInfo.private / 1024); // Convert KB to MB
+
+      // Log memory usage periodically for monitoring
+      if (memoryUsageMB > 512) {
+        // Only log if > 512MB
+        logger.info(
+          `[Memory Monitor] Current memory usage: ${memoryUsageMB}MB`,
+        );
+      }
+
+      const isAboveWarning = memoryUsageMB > MEMORY_LIMIT_WARNING_MB;
+      const isAboveCritical = memoryUsageMB > MEMORY_LIMIT_CRITICAL_MB;
+
+      // Warning threshold: 1GB — only fire on transition (below → above)
+      if (isAboveWarning && !wasAboveWarning) {
+        logger.warn(
+          `⚠️ [Memory Monitor] Memory usage high: ${memoryUsageMB}MB (threshold: ${MEMORY_LIMIT_WARNING_MB}MB)`,
+        );
+
+        const safelyMainWindow = getSafelyMainWindow();
+        if (safelyMainWindow && !safelyMainWindow.isDestroyed()) {
+          safelyMainWindow.webContents.send('memory-pressure-warning', {
+            currentMemoryMB: memoryUsageMB,
+            thresholdMB: MEMORY_LIMIT_WARNING_MB,
+            level: 'warning',
+          });
+        }
+      }
+
+      // Critical threshold: 2GB — only fire on transition (below → above)
+      if (isAboveCritical && !wasAboveCritical) {
+        logger.error(
+          `🔴 [Memory Monitor] CRITICAL memory usage: ${memoryUsageMB}MB (threshold: ${MEMORY_LIMIT_CRITICAL_MB}MB)`,
+        );
+
+        const safelyMainWindow = getSafelyMainWindow();
+        if (safelyMainWindow && !safelyMainWindow.isDestroyed()) {
+          // Notify renderer to reload inactive tabs
+          // Note: Do NOT clear the shared session cache here — it would
+          // destroy cache for ALL webviews (including the active tab) and
+          // cause reloaded tabs to re-fetch everything without cache.
+          safelyMainWindow.webContents.send('memory-pressure-critical', {
+            currentMemoryMB: memoryUsageMB,
+            thresholdMB: MEMORY_LIMIT_CRITICAL_MB,
+            level: 'critical',
+            action: 'reload-inactive-tabs',
+          });
+        }
+
+        // Track critical memory events in Sentry
+        try {
+          const { captureException } = require('@sentry/electron/main');
+          captureException(new Error('Critical Memory Usage Detected'), {
+            level: 'warning',
+            tags: {
+              memory_usage_mb: memoryUsageMB,
+              threshold_mb: MEMORY_LIMIT_CRITICAL_MB,
+            },
+            extra: {
+              memory_info: memoryInfo,
+            },
+          });
+        } catch (e) {
+          logger.error('[Memory Monitor] Failed to report to Sentry:', e);
+        }
+      }
+
+      // Update state for next check
+      wasAboveWarning = isAboveWarning;
+      wasAboveCritical = isAboveCritical;
+    } catch (error) {
+      logger.error('[Memory Monitor] Failed to check memory:', error);
+    }
+  }, MEMORY_CHECK_INTERVAL_MS);
+
+  logger.info('[Memory Monitor] Started monitoring', {
+    warningThresholdMB: MEMORY_LIMIT_WARNING_MB,
+    criticalThresholdMB: MEMORY_LIMIT_CRITICAL_MB,
+    checkIntervalMs: MEMORY_CHECK_INTERVAL_MS,
+  });
+}
+
+// Start monitoring when app is ready
+app.on('ready', () => {
+  startMemoryMonitoring();
+});
+
+// Stop monitoring when app quits
+app.on('before-quit', () => {
+  if (memoryMonitorInterval) {
+    clearInterval(memoryMonitorInterval);
+    memoryMonitorInterval = null;
+    logger.info('[Memory Monitor] Stopped monitoring');
+  }
+});
+
+// ==================== End Memory Protection ====================
 
 // Closing the cause context: https://onekeyhq.atlassian.net/browse/OK-8096
 app.commandLine.appendSwitch('disable-features', 'CrossOriginOpenerPolicy');
