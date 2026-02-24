@@ -1,8 +1,10 @@
 diff --git a/node_modules/@onekeyfe/hd-core/dist/index.js b/node_modules/@onekeyfe/hd-core/dist/index.js
-index 50d671d..a1b2c3d 100644
+index 50d671d..ad255ef 100644
 --- a/node_modules/@onekeyfe/hd-core/dist/index.js
 +++ b/node_modules/@onekeyfe/hd-core/dist/index.js
-@@ -40640,12 +40640,31 @@ const closePopup = () => {
+@@ -40638,14 +40638,38 @@ const removeDeviceListener = (device) => {
+ const closePopup = () => {
+     postMessage(createUiMessage(UI_REQUEST.CLOSE_UI_WINDOW));
  };
 +const deviceToSafeObject = (device) => {
 +    var _a, _b, _c, _d;
@@ -21,26 +23,33 @@ index 50d671d..a1b2c3d 100644
 +        firmwareVersion: null,
 +        bleFirmwareVersion: null,
 +        unavailableCapabilities: {},
++        instanceId: device.instanceId,
++        sdkInstanceId: device.sdkInstanceId,
++        createdAt: device.createdAt,
 +    };
 +};
  const onDeviceConnectHandler = (device) => {
++    var _a;
      const env = DataManager.getSettings('env');
 -    const deviceObject = DataManager.isBleConnect(env) ? device : device.toMessageObject();
-+    const deviceObject = DataManager.isBleConnect(env) ? device : typeof device.toMessageObject === 'function' ? device.toMessageObject() : deviceToSafeObject(device);
++    const deviceObject = DataManager.isBleConnect(env) ? device : (_a = (typeof device.toMessageObject === 'function' ? device.toMessageObject() : null)) !== null && _a !== void 0 ? _a : deviceToSafeObject(device);
      postMessage(createDeviceMessage(DEVICE.CONNECT, { device: deviceObject }));
  };
  const onDeviceDisconnectHandler = (device) => {
++    var _a;
      const env = DataManager.getSettings('env');
 -    const deviceObject = DataManager.isBleConnect(env) ? device : device.toMessageObject();
-+    const deviceObject = DataManager.isBleConnect(env) ? device : typeof device.toMessageObject === 'function' ? device.toMessageObject() : deviceToSafeObject(device);
++    const deviceObject = DataManager.isBleConnect(env) ? device : (_a = (typeof device.toMessageObject === 'function' ? device.toMessageObject() : null)) !== null && _a !== void 0 ? _a : deviceToSafeObject(device);
      postMessage(createDeviceMessage(DEVICE.DISCONNECT, { device: deviceObject }));
  };
  const onDevicePinHandler = (...[device, type, callback]) => __awaiter(void 0, void 0, void 0, function* () {
 diff --git a/node_modules/@onekeyfe/hd-core/src/core/index.ts b/node_modules/@onekeyfe/hd-core/src/core/index.ts
-index d625c30..b4c5d6e 100644
+index d625c30..f90b6e8 100644
 --- a/node_modules/@onekeyfe/hd-core/src/core/index.ts
 +++ b/node_modules/@onekeyfe/hd-core/src/core/index.ts
-@@ -1008,13 +1008,38 @@ const closePopup = () => {
+@@ -1006,15 +1006,43 @@ const closePopup = () => {
+   postMessage(createUiMessage(UI_REQUEST.CLOSE_UI_WINDOW));
+ };
  
 +const deviceToSafeObject = (device: Device): KnownDevice => ({
 +  connectId: device.mainId || null,
@@ -57,6 +66,9 @@ index d625c30..b4c5d6e 100644
 +  firmwareVersion: null,
 +  bleFirmwareVersion: null,
 +  unavailableCapabilities: {},
++  instanceId: device.instanceId,
++  sdkInstanceId: device.sdkInstanceId,
++  createdAt: device.createdAt,
 +});
 +
  const onDeviceConnectHandler = (device: Device) => {
@@ -64,9 +76,9 @@ index d625c30..b4c5d6e 100644
 -  const deviceObject = DataManager.isBleConnect(env) ? device : device.toMessageObject();
 +  const deviceObject = DataManager.isBleConnect(env)
 +    ? device
-+    : typeof device.toMessageObject === 'function'
-+      ? device.toMessageObject()
-+      : deviceToSafeObject(device);
++    : (typeof device.toMessageObject === 'function'
++        ? device.toMessageObject()
++        : null) ?? deviceToSafeObject(device);
    postMessage(createDeviceMessage(DEVICE.CONNECT, { device: deviceObject as KnownDevice }));
  };
  
@@ -75,9 +87,8 @@ index d625c30..b4c5d6e 100644
 -  const deviceObject = DataManager.isBleConnect(env) ? device : device.toMessageObject();
 +  const deviceObject = DataManager.isBleConnect(env)
 +    ? device
-+    : typeof device.toMessageObject === 'function'
-+      ? device.toMessageObject()
-+      : deviceToSafeObject(device);
++    : (typeof device.toMessageObject === 'function'
++        ? device.toMessageObject()
++        : null) ?? deviceToSafeObject(device);
    postMessage(createDeviceMessage(DEVICE.DISCONNECT, { device: deviceObject as KnownDevice }));
  };
- 
