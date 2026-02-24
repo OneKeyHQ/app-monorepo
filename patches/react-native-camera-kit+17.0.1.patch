@@ -48,11 +48,11 @@ diff --git a/node_modules/react-native-camera-kit/ios/ReactNativeCameraKit/RealC
 +                self.session.startRunning()
              }
 +
-+            // Set preview layer session AFTER startRunning to avoid race condition where
-+            // setting previewLayer.session triggers an internal beginConfiguration/commitConfiguration
-+            // on the main thread that overlaps with startRunning on the session queue.
-+            // (Fixes REACT-NATIVE-1EZ: NSGenericException startRunning called between
-+            // beginConfiguration and commitConfiguration)
++            // Ensure commitConfiguration() completes before startRunning() to prevent
++            // AVCaptureSession race condition. Setting previewLayer.session internally
++            // triggers beginConfiguration/commitConfiguration. By deferring preview layer
++            // assignment to main queue after startRunning() completes, the implicit
++            // commitConfiguration() never overlaps with startRunning(). (Fixes REACT-NATIVE-1EZ)
 +            DispatchQueue.main.async {
 +                self.cameraPreview.session = self.session
 +                self.cameraPreview.previewLayer.videoGravity = .resizeAspect
