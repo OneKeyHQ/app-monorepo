@@ -96,9 +96,13 @@ jobs:
         working-directory: apps/mobile/android
         run: ./gradlew assembleProdDebug
 
+      - name: Stop Gradle daemon to free memory
+        working-directory: apps/mobile/android
+        run: ./gradlew --stop
+
       - name: Start Android Emulator
         run: |
-          $ANDROID_HOME/emulator/emulator -avd test_avd -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot-save &
+          $ANDROID_HOME/emulator/emulator -avd test_avd -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot-save -memory 2048 &
           adb wait-for-device
           SECONDS=0
           TIMEOUT=300
@@ -119,9 +123,9 @@ jobs:
         run: adb install apps/mobile/android/app/build/outputs/apk/prod/debug/app-prod-debug.apk
 
       - name: Run Harness Tests (Android)
+        timeout-minutes: 30
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NODE_OPTIONS: '--max_old_space_size=4096'
           HARNESS_ANDROID_AVD: test_avd
         working-directory: apps/mobile
         run: yarn harness:test:android
