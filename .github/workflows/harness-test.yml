@@ -80,36 +80,6 @@ jobs:
           echo "Found AVD ini at: $AVD_INI"
           echo "Setting ANDROID_AVD_HOME=$AVD_DIR"
           echo "ANDROID_AVD_HOME=$AVD_DIR" >> $GITHUB_ENV
-          echo "=== Verify emulator can see AVD ==="
-          ANDROID_AVD_HOME=$AVD_DIR $ANDROID_HOME/emulator/emulator -list-avds
-
-      - name: Start Android Emulator
-        run: |
-          $ANDROID_HOME/emulator/emulator -avd test_avd -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot-save -verbose 2>&1 | tee /tmp/emulator.log &
-          EMU_PID=$!
-          sleep 3
-          if ! kill -0 $EMU_PID 2>/dev/null; then
-            echo "ERROR: Emulator process died immediately"
-            cat /tmp/emulator.log
-            exit 1
-          fi
-          adb wait-for-device
-          SECONDS=0
-          TIMEOUT=300
-          boot_completed=""
-          while [ "$boot_completed" != "1" ]; do
-            if [ "$SECONDS" -ge "$TIMEOUT" ]; then
-              echo "ERROR: Emulator boot timed out after ${TIMEOUT}s"
-              echo "=== Last 50 lines of emulator log ==="
-              tail -50 /tmp/emulator.log
-              exit 1
-            fi
-            sleep 5
-            boot_completed=$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')
-            echo "Waiting for emulator to boot... (${SECONDS}s elapsed, sys.boot_completed=$boot_completed)"
-          done
-          echo "Emulator is ready"
-          adb devices
 
       - name: Install Dependencies
         env:
@@ -118,12 +88,32 @@ jobs:
         run: yarn install --immutable
 
       - name: Build Android Debug APK
+        timeout-minutes: 30
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=4096'
           SENTRY_DISABLE_AUTO_UPLOAD: 'true'
         working-directory: apps/mobile/android
         run: ./gradlew assembleProdDebug
+
+      - name: Start Android Emulator
+        run: |
+          $ANDROID_HOME/emulator/emulator -avd test_avd -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot-save &
+          adb wait-for-device
+          SECONDS=0
+          TIMEOUT=300
+          boot_completed=""
+          while [ "$boot_completed" != "1" ]; do
+            if [ "$SECONDS" -ge "$TIMEOUT" ]; then
+              echo "ERROR: Emulator boot timed out after ${TIMEOUT}s"
+              exit 1
+            fi
+            sleep 5
+            boot_completed=$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')
+            echo "Waiting for emulator to boot... (${SECONDS}s elapsed, sys.boot_completed=$boot_completed)"
+          done
+          echo "Emulator is ready"
+          adb devices
 
       - name: Install APK on Emulator
         run: adb install apps/mobile/android/app/build/outputs/apk/prod/debug/app-prod-debug.apk
