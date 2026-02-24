@@ -14,7 +14,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export function DiskFullWarningDialogContainer() {
-  if (platformEnv.isWeb) {
+  if (platformEnv.isWebDappMode) {
     return null;
   }
   const dialogRef = useRef<IDialogInstance | null>(null);

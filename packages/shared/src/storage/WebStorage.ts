@@ -135,7 +135,7 @@ class WebStorage implements AsyncStorageStatic {
   // localforage = localforage;
 
   checkDiskFull(payload?: any) {
-    if (platformEnv.isWeb) {
+    if (platformEnv.isWebDappMode) {
       return;
     }
     if (globalThis.$onekeySystemDiskIsFull) {
