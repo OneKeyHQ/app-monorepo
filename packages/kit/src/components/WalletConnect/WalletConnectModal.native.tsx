@@ -229,17 +229,7 @@ class AppKitErrorBoundary extends Component<
     this.scheduleRetryIfNeeded();
   }
 
-  override componentDidUpdate(
-    prevProps: IAppKitErrorBoundaryProps,
-    prevState: IAppKitErrorBoundaryState,
-  ) {
-    // Reset error state when children prop changes (modal re-opens)
-    if (prevProps.children !== this.props.children && prevState.hasError) {
-      this.clearRetryTimer();
-      this.setState({ hasError: false, retryCount: 0 });
-      return;
-    }
-
+  override componentDidUpdate() {
     // Auto-retry by remounting after a short delay
     this.scheduleRetryIfNeeded();
   }
