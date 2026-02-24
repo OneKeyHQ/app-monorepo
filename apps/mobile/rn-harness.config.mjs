@@ -10,11 +10,11 @@ import {
 // Override defaults via environment variables:
 //   HARNESS_IOS_DEVICE   - iOS simulator name (default: 'iPhone 17 Pro')
 //   HARNESS_IOS_VERSION  - iOS version (default: '26.2')
-//   HARNESS_ANDROID_AVD  - Android AVD name (default: 'test_avd')
+//   HARNESS_ANDROID_AVD  - Android AVD name (default: 'Pixel_7_API_35')
 //   HARNESS_ANDROID_API  - Android API level (default: 35)
 const iosDevice = process.env.HARNESS_IOS_DEVICE || 'iPhone 17 Pro';
 const iosVersion = process.env.HARNESS_IOS_VERSION || '26.2';
-const androidAvd = process.env.HARNESS_ANDROID_AVD || 'test_avd';
+const androidAvd = process.env.HARNESS_ANDROID_AVD || 'Pixel_7_API_35';
 const androidApi = Number(process.env.HARNESS_ANDROID_API) || 35;
 
 /** @type {import('react-native-harness').Config} */
