@@ -170,14 +170,20 @@ function ReferralLandingPage() {
         globalThis.location.href = url;
       };
 
-      const fallbackTimer = globalThis.setTimeout(() => {
-        const isVisible = globalThis.document?.visibilityState !== 'hidden';
-        if (isVisible && !didHide) {
-          redirectToStore();
-        }
-      }, fallbackDelayMs);
+      let fallbackTimer: ReturnType<typeof globalThis.setTimeout> | undefined;
+      const armFallbackTimer = () => {
+        fallbackTimer = globalThis.setTimeout(() => {
+          const isVisible = globalThis.document?.visibilityState !== 'hidden';
+          if (isVisible && !didHide) {
+            redirectToStore();
+          }
+        }, fallbackDelayMs);
+      };
 
       if (deepLinkUrl) {
+        // Only arm fallback when we actually attempt to open the app.
+        armFallbackTimer();
+
         if (platformEnv.isWebMobileIOS) {
           openDeepLinkSilently(deepLinkUrl);
         } else {
@@ -188,7 +194,9 @@ function ReferralLandingPage() {
       }
 
       return () => {
-        globalThis.clearTimeout(fallbackTimer);
+        if (fallbackTimer) {
+          globalThis.clearTimeout(fallbackTimer);
+        }
         globalThis.document?.removeEventListener(
           'visibilitychange',
           onVisibilityChange,
