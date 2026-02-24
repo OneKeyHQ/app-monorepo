@@ -805,7 +805,11 @@ class ServiceHardware extends ServiceBase {
     };
 
     clearTimeout(this.cancelTimer);
-    this.cancelTimer = setTimeout(fn, 100);
+    this.cancelTimer = setTimeout(() => {
+      fn().catch((e) => {
+        console.log('sdk.cancel async error: ', e?.message);
+      });
+    }, 100);
   }
 
   // TODO run firmwareAuthenticate() check bootloader mode by features

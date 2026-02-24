@@ -1,0 +1,66 @@
+diff --git a/node_modules/@onekeyfe/hd-core/dist/index.js b/node_modules/@onekeyfe/hd-core/dist/index.js
+index 50d671d..8b0c51f 100644
+--- a/node_modules/@onekeyfe/hd-core/dist/index.js
++++ b/node_modules/@onekeyfe/hd-core/dist/index.js
+@@ -26831,7 +26831,8 @@ const cancelDeviceInPrompt = (device, expectResponse = true) => {
+     }
+     const transport = (_a = device.commands) === null || _a === void 0 ? void 0 : _a.transport;
+     if (expectResponse) {
+-        return transport === null || transport === void 0 ? void 0 : transport.call(session, 'Cancel', {}).then(() => ({
++        if (transport === null || transport === void 0 || typeof transport.call !== 'function') { return Promise.resolve({ success: false, error: hdShared.HardwareErrorCode.RuntimeError, payload: { message: 'Transport or transport.call is not available' } }); }
++        return transport.call(session, 'Cancel', {}).then(() => ({
+             success: true,
+             error: null,
+             payload: {
+@@ -26845,12 +26846,19 @@ const cancelDeviceInPrompt = (device, expectResponse = true) => {
+             },
+         }));
+     }
+-    return transport === null || transport === void 0 ? void 0 : transport.post(session, 'Cancel', {}).then(() => ({
++    if (transport === null || transport === void 0 || typeof transport.post !== 'function') { return Promise.resolve({ success: false, error: hdShared.HardwareErrorCode.RuntimeError, payload: { message: 'Transport or transport.post is not available' } }); }
++    return transport.post(session, 'Cancel', {}).then(() => ({
+         success: true,
+         error: hdShared.HardwareErrorCode.RuntimeError,
+         payload: {
+             message: 'Cancel request sent',
+         },
++    })).catch((error) => ({
++        success: false,
++        error: error.errorCode || hdShared.HardwareErrorCode.RuntimeError,
++        payload: {
++            message: error.message || 'Cancel post failed',
++        },
+     }));
+ };
+ const cancelDeviceWithInitialize = (device) => {
+@@ -40566,7 +40574,9 @@ const cancel = (context, connectId) => {
+                 if (task && ((_a = task.method) === null || _a === void 0 ? void 0 : _a.device)) {
+                     if (!canceledDevices.includes(task.method.device)) {
+                         const { device } = task.method;
+-                        setPrePendingCallPromise(device === null || device === void 0 ? void 0 : device.interruptionFromUser());
++                        const interruptionPromise = device === null || device === void 0 ? void 0 : device.interruptionFromUser();
++                        const safePromise = interruptionPromise && typeof interruptionPromise.catch === 'function' ? interruptionPromise.catch((err) => { Log.error('interruptionFromUser error: ', err); }) : interruptionPromise;
++                        setPrePendingCallPromise(safePromise);
+                         canceledDevices.push(device);
+                     }
+                     requestQueue.rejectRequest(requestId, hdShared.ERRORS.TypedError(hdShared.HardwareErrorCode.CallQueueActionCancelled));
+@@ -40589,7 +40599,8 @@ const cancel = (context, connectId) => {
+                 if (task && ((_b = task.method) === null || _b === void 0 ? void 0 : _b.device)) {
+                     if (!canceledDevices.includes(task.method.device)) {
+                         const { device } = task.method;
+-                        device === null || device === void 0 ? void 0 : device.interruptionFromUser();
++                        const p1 = device === null || device === void 0 ? void 0 : device.interruptionFromUser();
++                        if (p1 && typeof p1.catch === 'function') { p1.catch((err) => { Log.error('interruptionFromUser error: ', err); }); }
+                         canceledDevices.push(device);
+                     }
+                     requestQueue.rejectRequest(requestId, hdShared.ERRORS.TypedError(hdShared.HardwareErrorCode.CallQueueActionCancelled));
+@@ -40600,7 +40611,8 @@ const cancel = (context, connectId) => {
+             _deviceList === null || _deviceList === void 0 ? void 0 : _deviceList.allDevices().forEach(device => {
+                 Log.debug('device: ', device, ' device.hasDeviceAcquire: ', device.hasDeviceAcquire());
+                 if (device.hasDeviceAcquire()) {
+-                    device === null || device === void 0 ? void 0 : device.interruptionFromUser();
++                    const p2 = device === null || device === void 0 ? void 0 : device.interruptionFromUser();
++                    if (p2 && typeof p2.catch === 'function') { p2.catch((err) => { Log.error('interruptionFromUser error: ', err); }); }
+                 }
+             });
+             requestQueue.getRequestTasksId().forEach(requestId => {
