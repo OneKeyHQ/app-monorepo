@@ -680,6 +680,7 @@ async function createMainWindow() {
     return { action: 'deny' };
   });
 
+  ipcMain.removeAllListeners(ipcMessageKeys.APP_READY);
   ipcMain.on(ipcMessageKeys.APP_READY, () => {
     isAppReady = true;
     logger.info('set isAppReady on ipcMain app/ready', isAppReady);
@@ -693,19 +694,23 @@ async function createMainWindow() {
     disposeContextMenu?.();
   });
 
+  ipcMain.removeAllListeners(ipcMessageKeys.IS_DEV);
   ipcMain.on(ipcMessageKeys.IS_DEV, (event) => {
     event.returnValue = isDevServer;
   });
 
+  ipcMain.removeAllListeners(ipcMessageKeys.APP_IS_FOCUSED);
   ipcMain.on(ipcMessageKeys.APP_IS_FOCUSED, (event) => {
     const safelyBrowserWindow = getSafelyBrowserWindow();
     event.returnValue = safelyBrowserWindow?.isFocused();
   });
 
+  ipcMain.removeAllListeners(ipcMessageKeys.APP_SET_IDLE_TIME);
   ipcMain.on(ipcMessageKeys.APP_SET_IDLE_TIME, (event, setIdleTime: number) => {
     systemIdleHandler(setIdleTime, event);
   });
 
+  ipcMain.removeAllListeners(ipcMessageKeys.APP_TEST_CRASH);
   ipcMain.on(ipcMessageKeys.APP_TEST_CRASH, () => {
     throw new OneKeyLocalError('Test Electron Native crash 996');
   });
