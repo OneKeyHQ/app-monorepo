@@ -19,11 +19,11 @@ export enum ENumberUnit {
 }
 
 export enum ENumberUnitValue {
-  Q = 10e14,
-  T = 10e11,
-  B = 10e8,
-  M = 10e5,
-  K = 10e2,
+  Q = 1e15,
+  T = 1e12,
+  B = 1e9,
+  M = 1e6,
+  K = 1e3,
 }
 
 const toBigIntHex = (value: BigNumber): string => {
@@ -315,6 +315,143 @@ export type IFormatNumberFunc = (
   options?: IFormatterOptions,
 ) => IDisplayNumber;
 
+// Shared preamble: returns IDisplayNumber for NaN/zero, or null to continue.
+const handleNaNOrZero = (
+  val: BigNumber,
+  value: string,
+  zeroOpts: {
+    digits: number;
+    removeTrailingZeros: boolean;
+    disableThousandSeparator?: boolean;
+  },
+  options?: IFormatterOptions,
+  metaExtras?: Partial<IDisplayNumber['meta']>,
+): IDisplayNumber | null => {
+  if (val.isNaN()) {
+    return { formattedValue: value, meta: { value, invalid: true } };
+  }
+  if (val.eq(0)) {
+    const { value: formattedValue, decimalSymbol } = formatLocalNumber('0', {
+      digits: zeroOpts.digits,
+      removeTrailingZeros: zeroOpts.removeTrailingZeros,
+      disableThousandSeparator: zeroOpts.disableThousandSeparator,
+    });
+    return {
+      formattedValue,
+      meta: {
+        value,
+        isZero: true,
+        decimalSymbol,
+        ...metaExtras,
+        ...options,
+      },
+    };
+  }
+  return null;
+};
+
+// Shared unit-based formatting for formatBalance and formatMarketCap.
+const BALANCE_UNITS: Array<{
+  threshold: BigNumber;
+  divisor: BigNumber;
+  unit: ENumberUnit;
+}> = [
+  {
+    threshold: new BigNumber(ENumberUnitValue.Q),
+    divisor: new BigNumber(ENumberUnitValue.Q),
+    unit: ENumberUnit.Q,
+  },
+  {
+    threshold: new BigNumber(ENumberUnitValue.T),
+    divisor: new BigNumber(ENumberUnitValue.T),
+    unit: ENumberUnit.T,
+  },
+  {
+    threshold: new BigNumber(ENumberUnitValue.B),
+    divisor: new BigNumber(ENumberUnitValue.B),
+    unit: ENumberUnit.B,
+  },
+];
+
+const MARKET_CAP_UNITS: Array<{
+  threshold: BigNumber;
+  divisor: BigNumber;
+  unit: ENumberUnit;
+}> = [
+  {
+    threshold: new BigNumber(ENumberUnitValue.T),
+    divisor: new BigNumber(ENumberUnitValue.T),
+    unit: ENumberUnit.T,
+  },
+  {
+    threshold: new BigNumber(ENumberUnitValue.B),
+    divisor: new BigNumber(ENumberUnitValue.B),
+    unit: ENumberUnit.B,
+  },
+  {
+    threshold: new BigNumber(ENumberUnitValue.M),
+    divisor: new BigNumber(ENumberUnitValue.M),
+    unit: ENumberUnit.M,
+  },
+  {
+    threshold: new BigNumber(ENumberUnitValue.K),
+    divisor: new BigNumber(ENumberUnitValue.K),
+    unit: ENumberUnit.K,
+  },
+];
+
+const formatWithUnits = (
+  val: BigNumber,
+  value: string,
+  units: Array<{
+    threshold: BigNumber;
+    divisor: BigNumber;
+    unit: ENumberUnit;
+  }>,
+  opts: {
+    digits: number;
+    removeTrailingZeros: boolean;
+    disableThousandSeparator?: boolean;
+  },
+  options?: IFormatterOptions,
+  unitHook?: (
+    dividedValue: BigNumber,
+    unit: ENumberUnit,
+  ) => { value: BigNumber; extraMeta?: Partial<IDisplayNumber['meta']> } | null,
+): IDisplayNumber | null => {
+  const absValue = val.abs();
+  for (const { threshold, divisor, unit } of units) {
+    if (absValue.gte(threshold)) {
+      let dividedValue = val.div(divisor);
+      let extraMeta: Partial<IDisplayNumber['meta']> | undefined;
+      if (unitHook) {
+        const hookResult = unitHook(dividedValue, unit);
+        if (hookResult) {
+          dividedValue = hookResult.value;
+          extraMeta = hookResult.extraMeta;
+        }
+      }
+      const {
+        value: formattedValue,
+        decimalSymbol,
+        roundValue,
+      } = formatLocalNumber(dividedValue, opts);
+      return {
+        formattedValue,
+        meta: {
+          value,
+          unit,
+          roundValue,
+          decimalSymbol,
+          ...extraMeta,
+          ...options,
+        },
+      };
+    }
+  }
+  return null;
+};
+
 /** Balance/Amount */
 export const formatBalance: IFormatNumberFunc = (value, options) => {
   const val = new BigNumber(value);
@@ -326,89 +463,30 @@ export const formatBalance: IFormatNumberFunc = (value, options) => {
     return { formattedValue: '0', meta: { value, isZero: true, ...options } };
   }
 
+  const fmtOpts = {
+    digits: 4,
+    removeTrailingZeros: true,
+    disableThousandSeparator: options?.disableThousandSeparator,
+  };
+
   if (absValue.gte(1)) {
-    if (absValue.gte(ENumberUnitValue.Q)) {
-      const {
-        value: formattedValue,
-        decimalSymbol,
-        roundValue,
-      } = formatLocalNumber(val.div(ENumberUnitValue.Q), {
-        digits: 4,
-        removeTrailingZeros: true,
-        disableThousandSeparator: options?.disableThousandSeparator,
-      });
-      return {
-        formattedValue,
-        meta: {
-          value,
-          unit: ENumberUnit.Q,
-          roundValue,
-          decimalSymbol,
-          ...options,
-        },
-      };
-    }
+    const unitResult = formatWithUnits(
+      val,
+      value,
+      BALANCE_UNITS,
+      fmtOpts,
+      options,
+    );
+    if (unitResult) return unitResult;
 
-    if (absValue.gte(ENumberUnitValue.T)) {
-      const {
-        value: formattedValue,
-        decimalSymbol,
-        roundValue,
-      } = formatLocalNumber(val.div(ENumberUnitValue.T), {
-        digits: 4,
-        removeTrailingZeros: true,
-        disableThousandSeparator: options?.disableThousandSeparator,
-      });
-      return {
-        formattedValue,
-        meta: {
-          value,
-          unit: ENumberUnit.T,
-          roundValue,
-          decimalSymbol,
-          ...options,
-        },
-      };
-    }
-
-    if (absValue.gte(ENumberUnitValue.B)) {
-      const {
-        value: formattedValue,
-        decimalSymbol,
-        roundValue,
-      } = formatLocalNumber(val.div(ENumberUnitValue.B), {
-        digits: 4,
-        removeTrailingZeros: true,
-        disableThousandSeparator: options?.disableThousandSeparator,
-      });
-      return {
-        formattedValue,
-        meta: {
-          value,
-          unit: ENumberUnit.B,
-          roundValue,
-          decimalSymbol,
-          ...options,
-        },
-      };
-    }
     const {
       value: formattedValue,
       decimalSymbol,
       roundValue,
-    } = formatLocalNumber(val, {
-      digits: 4,
-      removeTrailingZeros: true,
-      disableThousandSeparator: options?.disableThousandSeparator,
-    });
+    } = formatLocalNumber(val, fmtOpts);
     return {
       formattedValue,
-      meta: {
-        value,
-        roundValue,
-        decimalSymbol,
-        ...options,
-      },
+      meta: { value, roundValue, decimalSymbol, ...options },
     };
   }
 
@@ -417,20 +495,10 @@ export const formatBalance: IFormatNumberFunc = (value, options) => {
     value: formattedValue,
     decimalSymbol,
     roundValue,
-  } = formatLocalNumber(val, {
-    digits: 4 + zeros,
-    removeTrailingZeros: true,
-    disableThousandSeparator: options?.disableThousandSeparator,
-  });
+  } = formatLocalNumber(val, { ...fmtOpts, digits: 4 + zeros });
   return {
     formattedValue,
-    meta: {
-      value,
-      leadingZeros: zeros,
-      roundValue,
-      decimalSymbol,
-      ...options,
-    },
+    meta: { value, leadingZeros: zeros, roundValue, decimalSymbol, ...options },
   };
 };
 
@@ -438,20 +506,19 @@ export const formatBalance: IFormatNumberFunc = (value, options) => {
 export const formatPrice: IFormatNumberFunc = (value, options) => {
   const { currency } = options || {};
   const val = new BigNumber(value);
-  if (val.isNaN()) {
-    return { formattedValue: value, meta: { value, invalid: true } };
-  }
-  if (val.eq(0)) {
-    const { value: formattedValue, decimalSymbol } = formatLocalNumber('0', {
+  const nanOrZero = handleNaNOrZero(
+    val,
+    value,
+    {
       digits: 2,
       removeTrailingZeros: false,
       disableThousandSeparator: options?.disableThousandSeparator,
-    });
-    return {
-      formattedValue,
-      meta: { value, currency, isZero: true, decimalSymbol, ...options },
-    };
-  }
+    },
+    options,
+    { currency },
+  );
+  if (nanOrZero) return nanOrZero;
+
   if (val.gte(1)) {
     const { value: formattedValue, decimalSymbol } = formatLocalNumber(val, {
       digits: 2,
@@ -491,20 +558,19 @@ export const clampPercentage = (value: string | number): number => {
 /** PriceChange */
 export const formatPriceChange: IFormatNumberFunc = (value, options) => {
   const val = new BigNumber(value);
-  if (val.isNaN()) {
-    return { formattedValue: value, meta: { value, invalid: true } };
-  }
-  if (val.eq(0)) {
-    const { value: formattedValue, decimalSymbol } = formatLocalNumber('0', {
+  const nanOrZero = handleNaNOrZero(
+    val,
+    value,
+    {
       digits: 2,
       removeTrailingZeros: false,
       disableThousandSeparator: options?.disableThousandSeparator,
-    });
-    return {
-      formattedValue,
-      meta: { value, isZero: true, symbol: '%', decimalSymbol, ...options },
-    };
-  }
+    },
+    options,
+    { symbol: '%' },
+  );
+  if (nanOrZero) return nanOrZero;
+
   const { value: formattedValue, decimalSymbol } = formatLocalNumber(
     val.toFixed(2),
     {
@@ -527,9 +593,7 @@ export const formatPriceChangeCapped: IFormatNumberFunc = (value, options) => {
   }
 
   // Check if value exceeds the clamp range
-  const isOverMax = val.gt(999.99);
-  const isUnderMin = val.lt(-999.99);
-  const isCapped = isOverMax || isUnderMin;
+  const isCapped = val.gt(999.99) || val.lt(-999.99);
 
   // Apply clamping (same logic as clampPercentage)
   const min = new BigNumber(-999.99);
@@ -537,24 +601,18 @@ export const formatPriceChangeCapped: IFormatNumberFunc = (value, options) => {
   const clampedValue = BigNumber.max(min, BigNumber.min(max, val));
   const finalValue = clampedValue.decimalPlaces(2, BigNumber.ROUND_HALF_UP);
 
-  if (finalValue.eq(0)) {
-    const { value: formattedValue, decimalSymbol } = formatLocalNumber('0', {
+  const nanOrZero = handleNaNOrZero(
+    finalValue,
+    value,
+    {
       digits: 2,
       removeTrailingZeros: false,
       disableThousandSeparator: options?.disableThousandSeparator,
-    });
-    return {
-      formattedValue,
-      meta: {
-        value,
-        isZero: true,
-        symbol: '%',
-        decimalSymbol,
-        isCapped,
-        ...options,
-      },
-    };
-  }
+    },
+    options,
+    { symbol: '%', isCapped },
+  );
+  if (nanOrZero) return nanOrZero;
 
   const { value: formattedValue, decimalSymbol } = formatLocalNumber(
     finalValue.toFixed(2),
@@ -567,13 +625,7 @@ export const formatPriceChangeCapped: IFormatNumberFunc = (value, options) => {
 
   return {
     formattedValue,
-    meta: {
-      value,
-      symbol: '%',
-      decimalSymbol,
-      isCapped,
-      ...options,
-    },
+    meta: { value, symbol: '%', decimalSymbol, isCapped, ...options },
   };
 };
 
@@ -581,20 +633,19 @@ export const formatPriceChangeCapped: IFormatNumberFunc = (value, options) => {
 export const formatValue: IFormatNumberFunc = (value, options) => {
   const { currency } = options || {};
   const val = new BigNumber(value);
-  if (val.isNaN()) {
-    return { formattedValue: value, meta: { value, invalid: true } };
-  }
-  if (val.eq(0)) {
-    const { value: formattedValue, decimalSymbol } = formatLocalNumber('0', {
+  const nanOrZero = handleNaNOrZero(
+    val,
+    value,
+    {
       digits: 2,
       removeTrailingZeros: false,
       disableThousandSeparator: options?.disableThousandSeparator,
-    });
-    return {
-      formattedValue,
-      meta: { value, currency, isZero: true, decimalSymbol, ...options },
-    };
-  }
+    },
+    options,
+    { currency },
+  );
+  if (nanOrZero) return nanOrZero;
+
   if (val.lt(0.01)) {
     const { value: formattedValue, decimalSymbol } = formatLocalNumber('0.01', {
       digits: 2,
@@ -623,98 +674,39 @@ export const formatValue: IFormatNumberFunc = (value, options) => {
 /** FDV / MarketCap / Volume / Liquidty / TVL / TokenSupply */
 export const formatMarketCap: IFormatNumberFunc = (value, options) => {
   const val = new BigNumber(value);
-  if (val.isNaN()) {
-    return { formattedValue: value, meta: { value, invalid: true } };
-  }
-  if (val.eq(0)) {
-    const { value: formattedValue, decimalSymbol } = formatLocalNumber('0', {
-      digits: 2,
-      removeTrailingZeros: true,
-      disableThousandSeparator: options?.disableThousandSeparator,
-    });
-    return {
-      formattedValue,
-      meta: { value, isZero: true, decimalSymbol, ...options },
-    };
-  }
-
-  if (val.gte(ENumberUnitValue.T)) {
-    const dividedValue = val.div(ENumberUnitValue.T);
-
-    // Cap at 999T max only if capAtMaxT option is enabled
-    const isOverMax = options?.capAtMaxT && dividedValue.gt(999);
-    const cappedValue = isOverMax ? new BigNumber(999) : dividedValue;
-
-    const { value: formattedValue, decimalSymbol } = formatLocalNumber(
-      cappedValue,
-      {
-        digits: 2,
-        removeTrailingZeros: true,
-        disableThousandSeparator: options?.disableThousandSeparator,
-      },
-    );
-
-    // Use formatted value directly (999 when capped)
-    const finalFormattedValue = formattedValue;
-
-    return {
-      formattedValue: finalFormattedValue,
-      meta: {
-        value,
-        unit: ENumberUnit.T,
-        decimalSymbol,
-        isCapped: isOverMax,
-        ...options,
-      },
-    };
-  }
-  if (val.gte(ENumberUnitValue.B)) {
-    const { value: formattedValue, decimalSymbol } = formatLocalNumber(
-      val.div(ENumberUnitValue.B),
-      {
-        digits: 2,
-        removeTrailingZeros: true,
-        disableThousandSeparator: options?.disableThousandSeparator,
-      },
-    );
-    return {
-      formattedValue,
-      meta: { value, unit: ENumberUnit.B, decimalSymbol, ...options },
-    };
-  }
-  if (val.gte(ENumberUnitValue.M)) {
-    const { value: formattedValue, decimalSymbol } = formatLocalNumber(
-      val.div(ENumberUnitValue.M),
-      {
-        digits: 2,
-        removeTrailingZeros: true,
-        disableThousandSeparator: options?.disableThousandSeparator,
-      },
-    );
-    return {
-      formattedValue,
-      meta: { value, unit: ENumberUnit.M, decimalSymbol, ...options },
-    };
-  }
-  if (val.gte(ENumberUnitValue.K)) {
-    const { value: formattedValue, decimalSymbol } = formatLocalNumber(
-      val.div(ENumberUnitValue.K),
-      {
-        digits: 2,
-        removeTrailingZeros: true,
-        disableThousandSeparator: options?.disableThousandSeparator,
-      },
-    );
-    return {
-      formattedValue,
-      meta: { value, unit: ENumberUnit.K, decimalSymbol, ...options },
-    };
-  }
-  const { value: formattedValue, decimalSymbol } = formatLocalNumber(val, {
+  const fmtOpts = {
     digits: 2,
     removeTrailingZeros: true,
     disableThousandSeparator: options?.disableThousandSeparator,
-  });
+  };
+
+  const nanOrZero = handleNaNOrZero(val, value, fmtOpts, options);
+  if (nanOrZero) return nanOrZero;
+
+  const unitResult = formatWithUnits(
+    val,
+    value,
+    MARKET_CAP_UNITS,
+    fmtOpts,
+    options,
+    (dividedValue, unit) => {
+      if (unit === ENumberUnit.T && options?.capAtMaxT) {
+        // Cap at 999T max only if capAtMaxT option is enabled
+        const isOverMax = dividedValue.gt(999);
+        return {
+          value: isOverMax ? new BigNumber(999) : dividedValue,
+          extraMeta: { isCapped: isOverMax },
+        };
+      }
+      return null;
+    },
+  );
+  if (unitResult) return unitResult;
+
+  const { value: formattedValue, decimalSymbol } = formatLocalNumber(
+    val,
+    fmtOpts,
+  );
   return {
     formattedValue,
     meta: { value, decimalSymbol, ...options },
@@ -724,24 +716,20 @@ export const formatMarketCap: IFormatNumberFunc = (value, options) => {
 /** Antonym/Opposite Value */
 export const formatAntonym: IFormatNumberFunc = (value, options) => {
   const val = new BigNumber(value);
-  if (val.isNaN()) {
-    return { formattedValue: value, meta: { value, invalid: true } };
-  }
-  // Negate the value
-  const oppositeVal = val.negated();
-
-  if (oppositeVal.eq(0)) {
-    const { value: formattedValue, decimalSymbol } = formatLocalNumber('0', {
+  const nanOrZero = handleNaNOrZero(
+    val,
+    value,
+    {
       digits: 4,
       removeTrailingZeros: true,
       disableThousandSeparator: options?.disableThousandSeparator,
-    });
-    return {
-      formattedValue,
-      meta: { value, isZero: true, decimalSymbol, ...options },
-    };
-  }
+    },
+    options,
+  );
+  if (nanOrZero) return nanOrZero;
 
+  // Negate the value
+  const oppositeVal = val.negated();
   const { value: formattedValue, decimalSymbol } = formatLocalNumber(
     oppositeVal,
     {
@@ -786,8 +774,6 @@ export const formatDisplayNumber = (
     formattedValue[0] === '-' || (isZero && rawValue[0] === '-');
   const valueWithoutSign =
     isNegativeNumber && !isZero ? formattedValue.slice(1) : formattedValue;
-  const startsNumberIndex = 0;
-
   if (invalid) {
     if (platformEnv.isDev && !platformEnv.isJest) {
       console.error(
@@ -825,7 +811,7 @@ export const formatDisplayNumber = (
     });
     strings.push(formattedZero);
     strings.push({ value: leadingZeros, type: 'sub' });
-    strings.push(valueWithoutSign.slice(leadingZeros + 2 + startsNumberIndex));
+    strings.push(valueWithoutSign.slice(leadingZeros + 2));
   } else if (options?.splitDecimal) {
     const decSym = decimalSymbol || lazyDecimalSymbol(2);
     const decIndex = valueWithoutSign.lastIndexOf(decSym);
