@@ -11,8 +11,12 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export function DiskFullWarningDialogContainer() {
+  if (platformEnv.isWeb) {
+    return null;
+  }
   const dialogRef = useRef<IDialogInstance | null>(null);
   useEffect(() => {
     const hideFn = async () => {
