@@ -9,7 +9,7 @@ const SvgDice2 = (props: SvgProps) => (
   >
     <Path
       fillRule="evenodd"
-      d="M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zm5 4.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3m8 8a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3"
+      d="M21 21H3V3h18zm-5-6.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3m-8-8a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3"
       clipRule="evenodd"
     />
   </Svg>

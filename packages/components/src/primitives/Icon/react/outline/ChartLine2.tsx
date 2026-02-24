@@ -7,8 +7,8 @@ const SvgChartLine2 = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M3.5 3a1 1 0 0 1 1 1v15h16a1 1 0 1 1 0 2h-16a2 2 0 0 1-2-2V4a1 1 0 0 1 1-1" />
-    <Path d="M8.5 10a1 1 0 0 1 1 1v5a1 1 0 1 1-2 0v-5a1 1 0 0 1 1-1m5-6a1 1 0 0 1 1 1v11a1 1 0 1 1-2 0V5a1 1 0 0 1 1-1m5 8a1 1 0 0 1 1 1v3a1 1 0 1 1-2 0v-3a1 1 0 0 1 1-1" />
+    <Path d="M5 19h17v2H3V3h2z" />
+    <Path d="M10 17H8v-7h2zm5 0h-2V4h2zm5 0h-2v-5h2z" />
   </Svg>
 );
 export default SvgChartLine2;

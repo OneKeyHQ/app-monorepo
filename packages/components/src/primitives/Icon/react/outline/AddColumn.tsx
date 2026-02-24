@@ -7,8 +7,12 @@ const SvgAddColumn = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M20 10V6h-7v13a1 1 0 0 1-1 1H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v4a1 1 0 1 1-2 0M4 18h7V6H4z" />
-    <Path d="M18 20v-2h-2a1 1 0 1 1 0-2h2v-2a1 1 0 1 1 2 0v2h2a1 1 0 1 1 0 2h-2v2a1 1 0 1 1-2 0" />
+    <Path d="M18 18h-3v-2h3v-3h2v3h3v2h-3v3h-2z" />
+    <Path
+      fillRule="evenodd"
+      d="M20 6h-7v14H2V4h20v7h-2zM4 18h7V6H4z"
+      clipRule="evenodd"
+    />
   </Svg>
 );
 export default SvgAddColumn;

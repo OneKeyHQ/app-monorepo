@@ -7,13 +7,13 @@ const SvgFileLock = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M6 2h6v6a2 2 0 0 0 2 2h6v10a2 2 0 0 1-2 2h-5.17c.11-.313.17-.65.17-1v-4c0-.98-.47-1.852-1.198-2.399A5.002 5.002 0 0 0 4 12V4a2 2 0 0 1 2-2" />
-    <Path d="M14 2.586 19.414 8H14z" />
     <Path
       fillRule="evenodd"
-      d="M3 17a1 1 0 0 1 1-1 3 3 0 1 1 6 0 1 1 0 0 1 1 1v4a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1zm6 1H5v2h4zm-1-2a1 1 0 1 0-2 0z"
+      d="M7 13a3 3 0 0 1 3 3h1v6H3v-6h1a3 3 0 0 1 3-3m0 2a1 1 0 0 0-1 1h2a1 1 0 0 0-1-1"
       clipRule="evenodd"
     />
+    <Path d="M12 10h8v12h-7v-8h-1.416A5 5 0 0 0 4 12V2h8z" />
+    <Path d="M19.414 8H14V2.586z" />
   </Svg>
 );
 export default SvgFileLock;

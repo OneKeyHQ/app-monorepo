@@ -7,7 +7,7 @@ const SvgArrowLeft = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M9.305 5.361a.995.995 0 1 1 1.408 1.408l-4.275 4.275h13.527a.996.996 0 1 1 0 1.99H6.438l4.275 4.275a.995.995 0 1 1-1.408 1.408L3.33 12.743a.996.996 0 0 1 0-1.408z" />
+    <Path d="m13.122 6.5-4 4h12.879v3H9.122l4 4-2.121 2.12L3.38 12 11 4.379l2.121 2.12Z" />
   </Svg>
 );
 export default SvgArrowLeft;

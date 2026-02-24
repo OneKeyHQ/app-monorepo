@@ -7,10 +7,10 @@ const SvgRemoveRow = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M20.293 15.293a1 1 0 1 1 1.414 1.414L20.414 18l1.293 1.293a1 1 0 1 1-1.414 1.414L19 19.414l-1.293 1.293a1 1 0 1 1-1.414-1.414L17.586 18l-1.293-1.293a1 1 0 1 1 1.414-1.414L19 16.586z" />
+    <Path d="m22.414 17-2 2 2 2L21 22.414l-2-2-2 2L15.586 21l2-2-2-2L17 15.586l2 2 2-2z" />
     <Path
       fillRule="evenodd"
-      d="M20 3a2 2 0 0 1 2 2v6a1 1 0 0 1-1 1H4v5h7a1 1 0 1 1 0 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zM4 10h16V5H4z"
+      d="M22 4v9H4v5h8v2H2V4zM4 11h16V6H4z"
       clipRule="evenodd"
     />
   </Svg>

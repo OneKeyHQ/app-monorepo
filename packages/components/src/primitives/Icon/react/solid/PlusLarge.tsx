@@ -7,11 +7,7 @@ const SvgPlusLarge = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path
-      fillRule="evenodd"
-      d="M12 3a1 1 0 0 1 1 1v7h7a1 1 0 1 1 0 2h-7v7a1 1 0 1 1-2 0v-7H4a1 1 0 1 1 0-2h7V4a1 1 0 0 1 1-1"
-      clipRule="evenodd"
-    />
+    <Path d="M13 11h8v2h-8v8h-2v-8H3v-2h8V3h2z" />
   </Svg>
 );
 export default SvgPlusLarge;

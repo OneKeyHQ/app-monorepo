@@ -7,11 +7,7 @@ const SvgBarcode = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path
-      fillRule="evenodd"
-      d="M2 6a2 2 0 0 1 2-2h3a1 1 0 0 1 0 2H4v3a1 1 0 0 1-2 0zm14-1a1 1 0 0 1 1-1h3a2 2 0 0 1 2 2v3a1 1 0 1 1-2 0V6h-3a1 1 0 0 1-1-1M8 9a1 1 0 0 1 1 1v4a1 1 0 1 1-2 0v-4a1 1 0 0 1 1-1m4 0a1 1 0 0 1 1 1v2a1 1 0 1 1-2 0v-2a1 1 0 0 1 1-1m4 0a1 1 0 0 1 1 1v4a1 1 0 1 1-2 0v-4a1 1 0 0 1 1-1M3 14a1 1 0 0 1 1 1v3h3a1 1 0 1 1 0 2H4a2 2 0 0 1-2-2v-3a1 1 0 0 1 1-1m18 0a1 1 0 0 1 1 1v3a2 2 0 0 1-2 2h-3a1 1 0 1 1 0-2h3v-3a1 1 0 0 1 1-1"
-      clipRule="evenodd"
-    />
+    <Path d="M4 18h4v2H2v-6h2zm18 2h-6v-2h4v-4h2zM9 15H7V9h2zm8 0h-2V9h2zm-4-2h-2V9h2zM8 6H4v4H2V4h6zm14 4h-2V6h-4V4h6z" />
   </Svg>
 );
 export default SvgBarcode;

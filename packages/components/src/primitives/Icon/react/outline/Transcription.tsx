@@ -7,7 +7,12 @@ const SvgTranscription = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M4 6v12h16V6zm7 8a1 1 0 1 1 0 2H7a1 1 0 1 1 0-2zm6 0a1 1 0 1 1 0 2h-2a1 1 0 1 1 0-2zm-9-4a1 1 0 1 1 0 2H7a1 1 0 1 1 0-2zm9 0a1 1 0 1 1 0 2h-5a1 1 0 1 1 0-2zm5 8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z" />
+    <Path d="M12 16H6v-2h6zm6 0h-4v-2h4zm-9-4H6v-2h3zm9 0h-7v-2h7z" />
+    <Path
+      fillRule="evenodd"
+      d="M22 20H2V4h20zM4 18h16V6H4z"
+      clipRule="evenodd"
+    />
   </Svg>
 );
 export default SvgTranscription;
