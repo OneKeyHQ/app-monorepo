@@ -412,14 +412,17 @@ function handleDeepLinkUrl(
 
       // Cold startup: cache the deep link for later processing
       if (!isAppReady) {
-        safelyMainWindow?.webContents.send(
+        safelyMainWindow.webContents.send(
           ipcMessageKeys.OPEN_DEEP_LINK_URL,
           eventData,
         );
       }
 
       // Hot startup: send directly to registered listener
-      mainWindow?.webContents.send(ipcMessageKeys.EVENT_OPEN_URL, eventData);
+      safelyMainWindow.webContents.send(
+        ipcMessageKeys.EVENT_OPEN_URL,
+        eventData,
+      );
     }
 
     isAppReady = true;
@@ -443,6 +446,11 @@ function systemIdleHandler(setIdleTime: number, event: Electron.IpcMainEvent) {
     return;
   }
   systemIdleInterval = setInterval(() => {
+    const sender = event.sender;
+    if (!sender || sender.isDestroyed()) {
+      clearInterval(systemIdleInterval);
+      return;
+    }
     const idleTime = powerMonitor.getSystemIdleTime();
     const systemState = powerMonitor.getSystemIdleState(setIdleTime);
     if (idleTime > setIdleTime || systemState === 'locked') {
@@ -653,7 +661,10 @@ async function createMainWindow() {
   });
 
   browserWindow.on('resize', () => {
-    store.setWinBounds(browserWindow.getBounds());
+    const safelyWindow = getSafelyBrowserWindow();
+    if (safelyWindow) {
+      store.setWinBounds(safelyWindow.getBounds());
+    }
   });
   browserWindow.on('closed', () => {
     mainWindow = null;
@@ -662,9 +673,11 @@ async function createMainWindow() {
   });
 
   browserWindow.webContents.on('devtools-opened', () => {
-    browserWindow.focus();
+    const safelyWindow = getSafelyBrowserWindow();
+    safelyWindow?.focus();
     setImmediate(() => {
-      browserWindow.focus();
+      const w = getSafelyBrowserWindow();
+      w?.focus();
     });
   });
 
@@ -1091,6 +1104,9 @@ app.on('activate', async () => {
 });
 
 app.on('before-quit', () => {
+  if (systemIdleInterval) {
+    clearInterval(systemIdleInterval);
+  }
   const safelyMainWindow = getSafelyMainWindow();
   if (safelyMainWindow) {
     safelyMainWindow.removeAllListeners();
