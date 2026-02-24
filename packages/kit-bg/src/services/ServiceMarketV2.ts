@@ -352,6 +352,10 @@ class ServiceMarketV2 extends ServiceBase {
     const { data } = response.data;
 
     if (!data?.list) {
+      console.error(
+        '[ServiceMarketV2] fetchMarketTokenListBatch: unexpected empty response',
+        { requestIds: missingTokens.map((t) => `${t.chainId}:${t.contractAddress}`) },
+      );
       return { list: cachedResults };
     }
 
