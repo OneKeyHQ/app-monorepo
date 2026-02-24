@@ -11,6 +11,8 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { EValidateUrlEnum } from '@onekeyhq/shared/types/dappConnection';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { webviewRefs } from '../../utils/explorerUtils';
 import { showTabBar } from '../../utils/tabBarUtils';
 import BlockAccessView from '../BlockAccessView';
@@ -145,6 +147,7 @@ function WebContent({
         key={url}
         siteMode={siteMode}
         androidLayerType={androidLayerType}
+        pullToRefreshEnabled={!platformEnv.isNativeAndroid}
         src={url}
         onWebViewRef={(ref) => {
           if (ref && ref.innerRef) {

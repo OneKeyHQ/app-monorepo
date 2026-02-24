@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import type { ReactNode } from 'react';
 
 import {
@@ -7,8 +7,10 @@ import {
   Stack,
   Table,
   useMedia,
+  useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
 import type { ITableColumn } from '@onekeyhq/components';
+import type { IDragEndParamsWithItem } from '@onekeyhq/components/src/layouts/SortableListView/types';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -20,6 +22,8 @@ import type {
 } from '@onekeyhq/shared/src/logger/scopes/dex';
 import { ESortWay } from '@onekeyhq/shared/src/logger/scopes/dex/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import { usePerpsNavigation } from '@onekeyhq/kit/src/views/Market/hooks/usePerpsNavigation';
 
 import { useMarketTokenColumns } from './hooks/useMarketTokenColumns';
 import { useToDetailPage } from './hooks/useToMarketDetailPage';
@@ -62,6 +66,19 @@ type IMarketTokenListBaseProps = {
   hideTokenAge?: boolean;
   watchlistFrom?: EWatchlistFrom;
   copyFrom?: ECopyFrom;
+  draggable?: boolean;
+  tabIntegrated?: boolean;
+  listContainerProps?: {
+    paddingBottom: number;
+  };
+  onDragEnd?: (params: IDragEndParamsWithItem<IMarketToken>) => void;
+  onItemLongPress?: (item: IMarketToken, index: number) => void;
+  onItemContextMenu?: (
+    item: IMarketToken,
+    index: number,
+    position?: { x: number; y: number },
+  ) => void;
+  onScrollBegin?: () => void;
 };
 
 function MarketTokenListBase({
@@ -74,8 +91,16 @@ function MarketTokenListBase({
   hideTokenAge = false,
   watchlistFrom,
   copyFrom,
+  draggable = false,
+  tabIntegrated,
+  listContainerProps,
+  onDragEnd,
+  onItemLongPress,
+  onItemContextMenu,
+  onScrollBegin,
 }: IMarketTokenListBaseProps) {
   const toMarketDetailPage = useToDetailPage();
+  const { navigateToPerps } = usePerpsNavigation();
   const { md } = useMedia();
 
   const marketTokenColumns = useMarketTokenColumns(
@@ -130,8 +155,6 @@ function MarketTokenListBase({
 
   const handleSortChange = useCallback(
     (sortBy: string, sortType: 'asc' | 'desc' | undefined) => {
-      console.log('handleSortChange', sortBy, sortType);
-
       // Log sort action
       const sortWay =
         sortType === undefined
@@ -205,6 +228,30 @@ function MarketTokenListBase({
 
     return null;
   }, [isLoadingMore, showEndReachedIndicator, canLoadMore, data.length]);
+  const tabBarHeight = useScrollContentTabBarOffset();
+
+  // On web with tabIntegrated, disable FlatList's own scroll so the outer
+  // Tabs.Container handles scrolling (allows header to scroll away naturally).
+  // Use IntersectionObserver as a replacement for onEndReached.
+  const webTabIntegrated = tabIntegrated && !platformEnv.isNative;
+  const endSentinelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!webTabIntegrated) return;
+    const sentinel = endSentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          handleEndReached();
+        }
+      },
+      { threshold: 0 },
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [webTabIntegrated, handleEndReached]);
 
   return (
     <Stack flex={1} width="100%">
@@ -225,7 +272,13 @@ function MarketTokenListBase({
           ...(md ? { marginLeft: 8, marginRight: 8 } : {}),
         }}
       >
-        <Stack flex={1} minHeight={platformEnv.isNative ? undefined : 400}>
+        <Stack
+          flex={1}
+          minHeight={platformEnv.isNative ? undefined : 400}
+          onTouchMove={
+            platformEnv.isNative && onScrollBegin ? onScrollBegin : undefined
+          }
+        >
           {showSkeleton ? (
             <Table.Skeleton
               columns={marketTokenColumns}
@@ -236,44 +289,61 @@ function MarketTokenListBase({
             />
           ) : (
             <Table<IMarketToken>
-              // Add padding bottom to content container to provide space for loading spinner
-              // Fix Android loading spinner visibility issue by ensuring proper content height
               contentContainerStyle={
-                platformEnv.isNativeAndroid
+                tabIntegrated
                   ? {
-                      paddingBottom: SPINNER_HEIGHT * 2,
+                      paddingTop: 8 + (platformEnv.isNative ? 150 : 0),
+                      paddingBottom: platformEnv.isNativeAndroid
+                        ? (listContainerProps?.paddingBottom ??
+                          SPINNER_HEIGHT * 2)
+                        : tabBarHeight,
                     }
-                  : undefined
+                  : {
+                      paddingBottom: platformEnv.isNativeAndroid
+                        ? SPINNER_HEIGHT * 2
+                        : tabBarHeight,
+                    }
               }
               stickyHeader
-              scrollEnabled
+              scrollEnabled={!webTabIntegrated}
+              draggable={draggable}
+              onDragEnd={onDragEnd}
               columns={marketTokenColumns}
               onEndReached={handleEndReached}
               dataSource={data}
-              keyExtractor={(item) =>
-                item.address + item.symbol + item.networkId
-              }
+              keyExtractor={(item) => item.id}
               extraData={networkId}
               onHeaderRow={handleHeaderRow}
               TableFooterComponent={TableFooterComponent}
-              estimatedItemSize="$14"
-              onRow={
-                onItemPress
-                  ? (item) => ({
-                      onPress: () => onItemPress(item),
-                    })
-                  : (item) => ({
-                      onPress: () =>
-                        toMarketDetailPage({
-                          symbol: item.symbol,
-                          tokenAddress: item.address,
-                          networkId: item.networkId,
-                          isNative: item.isNative,
-                        }),
-                    })
-              }
+              estimatedItemSize={60}
+              onRow={(item, index) => ({
+                onPress: onItemPress
+                  ? () => onItemPress(item)
+                  : () => {
+                      if (item.perpsCoin) {
+                        navigateToPerps(item.perpsCoin);
+                        return;
+                      }
+                      void toMarketDetailPage({
+                        symbol: item.symbol,
+                        tokenAddress: item.address,
+                        networkId: item.networkId,
+                        isNative: item.isNative,
+                      });
+                    },
+                onLongPress: onItemLongPress
+                  ? () => onItemLongPress(item, index)
+                  : undefined,
+                onContextMenu: onItemContextMenu
+                  ? (position?: { x: number; y: number }) =>
+                      onItemContextMenu(item, index, position)
+                  : undefined,
+              })}
             />
           )}
+          {webTabIntegrated ? (
+            <div ref={endSentinelRef} style={{ height: 1 }} />
+          ) : null}
         </Stack>
       </Stack>
     </Stack>

@@ -18,6 +18,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
+import { getCategoryConfig } from '@onekeyhq/kit/src/utils/defiCategoryConfig';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -145,9 +146,15 @@ function DeFiProtocolDetails() {
           <Stack key={position.category} px="$5">
             <XStack alignItems="center" py="$3" ml="$-2" gap="$1">
               <XStack alignItems="center" gap="$3" flexShrink={1} minWidth={0}>
-                <Badge badgeType="success" badgeSize="lg">
-                  <Badge.Text textTransform="capitalize">
-                    {position.category}
+                <Badge
+                  bg={getCategoryConfig(position.category).bg}
+                  badgeSize="lg"
+                >
+                  <Badge.Text
+                    textTransform="capitalize"
+                    color={getCategoryConfig(position.category).text}
+                  >
+                    {`${getCategoryConfig(position.category).emoji} ${position.category}`}
                   </Badge.Text>
                 </Badge>
                 <Stack flexShrink={1} minWidth={0}>

@@ -1,12 +1,16 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgFrozen = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeWidth={2}
-      d="M11.998 3v18M4.204 7.5l15.588 9m-15.589 0 15.589-9"
+      fillRule="evenodd"
+      d="M11.998 2a1 1 0 0 1 1 1v7.268l6.294-3.634a1 1 0 0 1 1 1.732L13.998 12l6.294 3.634a1 1 0 1 1-1 1.732l-6.294-3.634V21a1 1 0 1 1-2 0v-7.268l-6.295 3.634a1 1 0 1 1-1-1.732L9.998 12 3.704 8.366a1 1 0 0 1 1-1.732l6.294 3.634V3a1 1 0 0 1 1-1"
+      clipRule="evenodd"
     />
   </Svg>
 );

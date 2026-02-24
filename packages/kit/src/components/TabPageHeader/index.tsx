@@ -47,7 +47,7 @@ function InPageHeader({
   }
 
   return (
-    <XStack px="$5" pt="$5" pb="$2.5" bg="$bgApp" borderRadius="$4">
+    <XStack px="$pagePadding" pt="$5" pb="$2.5" bg="$bgApp" borderRadius="$4">
       {item}
     </XStack>
   );
@@ -143,6 +143,7 @@ export function TabPageHeader({
   renderCustomHeaderRightItems,
   customHeaderRightItems,
   customHeaderLeftItems,
+  customToolbarItems,
   hideSearch = false,
   hideHeaderLeft = false,
   headerPx,
@@ -158,6 +159,7 @@ export function TabPageHeader({
         selectedHeaderTab={selectedHeaderTab}
         customHeaderRightItems={customHeaderRightItems}
         customHeaderLeftItems={customHeaderLeftItems}
+        customToolbarItems={customToolbarItems}
         hideHeaderLeft={hideHeaderLeft}
         renderCustomHeaderRightItems={renderCustomHeaderRightItems}
       />

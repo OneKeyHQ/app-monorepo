@@ -1,11 +1,15 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgDrink = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      fill="currentColor"
       fillRule="evenodd"
-      d="M17.476 1.783a1 1 0 0 1-.759 1.193L13 3.802V6h3.931a2 2 0 0 1 1.996 2.133L18.122 20.2A3 3 0 0 1 15.13 23H8.87a3 3 0 0 1-2.993-2.8l-.542-8.133v-.005l-.263-3.929A2 2 0 0 1 7.07 6H11V3a1 1 0 0 1 .783-.976l4.5-1a1 1 0 0 1 1.193.76ZM7.27 11h9.462l.2-3H7.07z"
+      d="m17.693 2.759-4.692 1.043V6h6.068l-1.133 17H6.066L4.931 6H11V2.198L17.26.807zM7.07 8l.2 3h9.462l.2-3z"
       clipRule="evenodd"
     />
   </Svg>

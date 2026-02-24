@@ -7,7 +7,6 @@ import {
   Empty,
   Icon,
   IconButton,
-  Image,
   NumberSizeableText,
   SectionList,
   SizableText,
@@ -216,21 +215,17 @@ const ContractInteractionTransactionItem = () => {
   return (
     <XStack justifyContent="space-between" w="100%" alignItems="center">
       <XStack alignItems="center" pr="$2">
-        <Image
+        <Stack
           borderRadius="$full"
-          overflow="hidden"
           width={40}
           height={40}
           mr="$3"
+          bg="$gray5"
+          alignItems="center"
+          justifyContent="center"
         >
-          <Image.Fallback
-            alignItems="center"
-            justifyContent="center"
-            bg="$gray5"
-          >
-            <Icon size={40} name="GlobusOutline" color="$iconSubdued" />
-          </Image.Fallback>
-        </Image>
+          <Icon size="$6" name="GlobusOutline" color="$iconSubdued" />
+        </Stack>
         <SizableText size="$bodyLgMedium">
           {intl.formatMessage({
             id: ETranslations.transaction__contract_interaction,
@@ -319,7 +314,6 @@ const TransactionItem = ({ item }: { item: ISignedTransaction }) => {
             <NetworkAvatar size={16} networkId={item.networkId} />
           </Stack>
           <SizableText color="$textSubdued" size="$bodySmMedium">
-            {item.network.name} •{' '}
             {utils.shortenAddress({ address: item.address })}
           </SizableText>
         </XStack>
@@ -343,7 +337,7 @@ const ListEmptyComponent = () => {
       description={intl.formatMessage({
         id: ETranslations.settings_no_signed_transactions_desc,
       })}
-      icon="ClockAlertOutline"
+      illustration="Document"
     />
   );
 };

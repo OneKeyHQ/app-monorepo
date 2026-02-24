@@ -1393,4 +1393,11 @@ Subresource
 keystonehq
 htmls
 Unclaimable
+linea
+zksyncera
 svgx
+zerion
+Schedulable
+Roobert
+RNGH
+macrotask

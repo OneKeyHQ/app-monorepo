@@ -35,8 +35,6 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { useNavigateToRewardHistory } from '../RewardDistributionHistory/hooks/useNavigateToRewardHistory';
 
-import { ReferFriendsPageContainer } from '../../components';
-
 import { ReferralListButton } from './components/ReferralListButton';
 
 function InviteRewardContent({
@@ -65,7 +63,7 @@ function InviteRewardContent({
         suspensionContactLabel={suspensionContactLabel}
       />
 
-      <XStack px="$5" pt="$5" pb="$4" jc="space-between" ai="center">
+      <XStack px="$pagePadding" pt="$5" pb="$4" jc="space-between" ai="center">
         <SectionHeader translationId={ETranslations.global_overview} />
 
         <XStack $md={{ display: 'none' }}>
@@ -202,12 +200,12 @@ function InviteRewardPage() {
           if (summaryInfo) {
             return (
               <ScrollView>
-                <ReferFriendsPageContainer>
+                <Page.Container padded={false}>
                   <InviteRewardContent
                     summaryInfo={summaryInfo}
                     fetchSummaryInfo={fetchSummaryInfo}
                   />
-                </ReferFriendsPageContainer>
+                </Page.Container>
               </ScrollView>
             );
           }

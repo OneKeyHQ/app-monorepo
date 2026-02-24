@@ -142,7 +142,7 @@ export function PagerView({
             animated: false,
           });
         },
-      } as PagerViewType),
+      }) as PagerViewType,
     [lockScrollEvent, getPageWidth, getSafePageIndex, disableAnimation],
   );
   return (

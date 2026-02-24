@@ -1,0 +1,8 @@
+{
+  "_comment": "Thresholds for Web (Playwright/Chromium) Release perf guard. Metrics: tokensStartMs (Home:refresh:start:tokens timestamp), tokensSpanMs (done-start), functionCallCount (#lines in function_call.log). Values are absolute; trigger when median > threshold (strategy=median).",
+  "_baseline_note": "Computed from sample sessions perf-mleusx6a-tq2ulh / perf-mleutc9k-f468pq / perf-mleutnzp-3a72sl / perf-mleuw43r-fkm4if / perf-mleuwej0-yadjfs / perf-mleuwo6m-krkq7u with +10% tolerance (median strategy tolerates 1 outlier run).",
+  "tokensStartMs": 3207,
+  "tokensSpanMs": 3860,
+  "functionCallCount": 1392,
+  "strategy": "median"
+}

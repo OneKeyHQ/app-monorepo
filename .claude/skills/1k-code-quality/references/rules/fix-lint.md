@@ -6,27 +6,22 @@ Helps fix oxlint warnings in the OneKey app-monorepo codebase.
 
 ## Lint Commands
 
-### Lint All Files
+### Recommended: Lint Staged Files (Faster)
 ```bash
-yarn lint:only
-```
-
-### Lint Staged Files (Pre-commit)
-```bash
-# Only lint files staged for commit - fast for pre-commit checks
+# Only lint files staged for commit - FAST for pre-commit checks
 yarn lint:staged
-```
 
-### Type Check
-```bash
-# Full project type check
-yarn tsc:only
-
-# Same as above, for pre-commit use
+# Type check staged files only
 yarn tsc:staged
 ```
 
-**Note:** TypeScript requires full project context and cannot check individual files.
+**✅ Recommended**: For daily development, use `yarn lint:staged` and `yarn tsc:staged` to run checks only on your staged files. This is much faster than full project checks.
+
+### Full Project Validation (For CI or Pre-PR)
+```bash
+# Comprehensive lint (~1 minute)
+yarn lint
+```
 
 ## Usage
 
@@ -40,7 +35,11 @@ Use this when:
 ### Step 1: Run Lint and Analyze Warnings
 
 ```bash
-yarn lint:only 2>&1 | tail -100
+# For staged files (recommended)
+yarn lint:staged
+
+# Or for full project check
+yarn lint 2>&1 | tail -100
 ```
 
 ### Step 2: Categorize Warnings
@@ -144,7 +143,11 @@ function Parent() {
 ### Step 4: Verify Fixes
 
 ```bash
-yarn lint:only 2>&1 | tail -50
+# For staged files (recommended)
+yarn lint:staged
+
+# Or for full project check
+yarn lint 2>&1 | tail -50
 ```
 
 ## Pre-commit Workflow
@@ -199,7 +202,8 @@ const { used, unused: _unused } = usePromiseResult(...);
 
 2. **Verify no regressions** after fixes:
    ```bash
-   yarn tsc:only
+   # For staged files (recommended - faster)
+   yarn tsc:staged
    ```
 
 ## Key Files

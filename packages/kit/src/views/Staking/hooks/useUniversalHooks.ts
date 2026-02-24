@@ -387,6 +387,10 @@ export function useUniversalClaim({
       portfolioSymbol?: string;
       portfolioRewardSymbol?: string;
     }) => {
+      const amountNumber = BigNumber(amount || 0);
+      const normalizedAmount = amountNumber.isNaN()
+        ? '0'
+        : amountNumber.toFixed();
       const continueClaim = async () => {
         const stakeTx =
           await backgroundApiProxy.serviceStaking.buildClaimTransaction({
@@ -394,7 +398,7 @@ export function useUniversalClaim({
             accountId,
             symbol,
             provider,
-            amount,
+            amount: normalizedAmount,
             identity,
             claimTokenAddress,
             vault,
@@ -438,7 +442,7 @@ export function useUniversalClaim({
           feeInfoEditable,
         });
       };
-      if (Number(amount) > 0) {
+      if (amountNumber.gt(0)) {
         const account = await backgroundApiProxy.serviceAccount.getAccount({
           accountId,
           networkId,
@@ -449,7 +453,7 @@ export function useUniversalClaim({
             provider,
             symbol,
             action: 'claim',
-            amount,
+            amount: normalizedAmount,
             protocolVault,
             identity,
             accountAddress: account.address,
@@ -458,7 +462,7 @@ export function useUniversalClaim({
         if (estimateFeeResp.token?.price) {
           const tokenFiatValueBN = BigNumber(
             estimateFeeResp.token.price,
-          ).multipliedBy(amount);
+          ).multipliedBy(normalizedAmount);
           if (tokenFiatValueBN.lt(estimateFeeResp.feeFiatValue)) {
             showClaimEstimateGasAlert({
               claimTokenFiatValue: tokenFiatValueBN.toFixed(),

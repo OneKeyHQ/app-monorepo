@@ -3,9 +3,8 @@ import { memo, useCallback, useMemo, useState } from 'react';
 import * as React from 'react';
 
 import { Header } from '@react-navigation/elements';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useDebouncedCallback } from 'use-debounce';
 
 import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
 import { useTheme } from '@onekeyhq/components/src/shared/tamagui';
@@ -14,8 +13,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { useIsOverlayPage } from '../../../hocs';
 import { useIsDesktopModeUIInTabPages } from '../../../hooks';
 import { Stack, XStack } from '../../../primitives';
+import { WINDOWS_OVERLAY_BUTTONS_WIDTH } from '../../../utils/sidebar';
 import { DesktopDragZoneBox } from '../../DesktopDragZoneBox';
-import { rootNavigationRef } from '../Navigator/NavigationContainer';
 
 import HeaderBackButton from './HeaderBackButton';
 import HeaderSearchBar from './HeaderSearchBar';
@@ -37,41 +36,22 @@ function getHeaderTitle(
   return typeof options?.headerTitle === 'string'
     ? options?.headerTitle
     : options?.title !== undefined
-    ? options?.title
-    : fallback;
+      ? options?.title
+      : fallback;
 }
 
-const DesktopDragZoneBoxView = platformEnv.isDesktopMac
+const DesktopDragZoneBoxView = platformEnv.isDesktopWithCustomTitleBar
   ? ({ disabled, children }: IDesktopDragZoneBoxProps) => {
       const isModalPage = useIsOverlayPage();
 
       const [isFocus, setIsFocus] = useState(false);
 
-      // eslint-disable-next-line @typescript-eslint/unbound-method
-      const { getState } = useNavigation();
-
-      const currentRouteName = useMemo(() => {
-        const state = getState?.();
-        return state?.routes?.at(-1)?.name;
-      }, [getState]);
-
-      const handlePageFocus = useDebouncedCallback(() => {
-        setIsFocus(
-          currentRouteName ===
-            rootNavigationRef.current?.getCurrentRoute()?.name,
-        );
-      }, 100);
-
-      const handlePageBlur = useDebouncedCallback(() => {
-        setIsFocus(false);
-      }, 100);
-
       const handlePageEffect = useCallback(() => {
-        handlePageFocus();
+        setIsFocus(true);
         return () => {
-          handlePageBlur();
+          setIsFocus(false);
         };
-      }, [handlePageBlur, handlePageFocus]);
+      }, []);
 
       useFocusEffect(handlePageEffect);
 
@@ -221,6 +201,13 @@ function HeaderView({
         <Stack
           alignSelf="stretch"
           px={isOnboardingScreen ? '$16' : '$5'}
+          pr={
+            (platformEnv.isDesktopWin || platformEnv.isDesktopLinux) &&
+            !isOnboardingScreen &&
+            !isModelScreen
+              ? WINDOWS_OVERLAY_BUTTONS_WIDTH
+              : undefined
+          }
           $gtMd={
             platformEnv.isNativeAndroid
               ? undefined

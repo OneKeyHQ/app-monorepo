@@ -304,7 +304,7 @@ const HistoryContent = ({
         ListEmptyComponent={
           <Empty
             pt={40}
-            icon="ClockTimeHistoryOutline"
+            illustration="BookPencil"
             title={intl.formatMessage({
               id: ETranslations.global_no_transactions_yet,
             })}

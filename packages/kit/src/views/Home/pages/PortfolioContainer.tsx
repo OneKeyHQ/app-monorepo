@@ -1,14 +1,19 @@
 import { useMemo } from 'react';
 
-import { Stack, Tabs, XStack, YStack, useMedia } from '@onekeyhq/components';
+import {
+  Stack,
+  Tabs,
+  XStack,
+  YStack,
+  useMedia,
+  useScrollContentTabBarOffset,
+} from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
-import { ProviderJotaiContextDeFiList } from '../../../states/jotai/contexts/deFiList';
 import { ProviderJotaiContextEarn } from '../../../states/jotai/contexts/earn';
 import { ProviderJotaiContextHistoryList } from '../../../states/jotai/contexts/historyList';
 import useActiveTabDAppInfo from '../../DAppConnection/hooks/useActiveTabDAppInfo';
-import { DeFiListBlock } from '../components/DeFiListBlock';
 import { EarnListView } from '../components/EarnListView';
 import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListProvider';
 import { PopularTrading } from '../components/PopularTrading';
@@ -18,6 +23,8 @@ import { SupportHub } from '../components/SupportHub';
 import { TokenListBlock } from '../components/TokenListBlock';
 import { Upgrade } from '../components/Upgrade';
 import { PORTFOLIO_CONTAINER_RIGHT_SIDE_FIXED_WIDTH } from '../types';
+import { ProviderJotaiContextDeFiList } from '../../../states/jotai/contexts/deFiList';
+import { DeFiListBlock } from '../components/DeFiListBlock';
 
 function PortfolioContainer() {
   const media = useMedia();
@@ -33,10 +40,10 @@ function PortfolioContainer() {
 
   if (tableLayout) {
     return (
-      <XStack pt="$3" pb="$4" px="$5" gap="$6">
-        <YStack flex={1} gap="$8">
+      <XStack pt="$3" gap="$6">
+        <YStack flex={1} gap="$10" pb="$8">
           <TokenListBlock showRecentHistory={showRecentHistory} tableLayout />
-          <DeFiListBlock tableLayout />
+          <DeFiListBlock refreshCacheOnly />
           <PopularTrading tableLayout />
           <EarnListView />
           <Upgrade />
@@ -56,9 +63,9 @@ function PortfolioContainer() {
   }
 
   return (
-    <YStack gap="$6" px="$5" pt="$3" pb="$4">
+    <YStack gap="$6" $gtMd={{ gap: '$8' }} pt="$3" pb="$4">
       <TokenListBlock />
-      <DeFiListBlock />
+      <DeFiListBlock refreshCacheOnly />
       <PopularTrading />
       <EarnListView />
       <Upgrade />
@@ -72,13 +79,15 @@ function PortfolioContainerWithProvider() {
   const {
     activeAccount: { account },
   } = useActiveAccount({ num: 0 });
-
+  const tabBarHeight = useScrollContentTabBarOffset();
   return (
     <HomeTokenListProviderMirrorWrapper accountId={account?.id ?? ''}>
-      <ProviderJotaiContextDeFiList>
-        <ProviderJotaiContextHistoryList>
-          <ProviderJotaiContextEarn>
+      <ProviderJotaiContextHistoryList>
+        <ProviderJotaiContextEarn>
+          <ProviderJotaiContextDeFiList>
             <Tabs.ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingBottom: tabBarHeight }}
               nestedScrollEnabled={platformEnv.isNativeAndroid}
               refreshControl={
                 !platformEnv.isNativeAndroid ? (
@@ -88,9 +97,9 @@ function PortfolioContainerWithProvider() {
             >
               <PortfolioContainer />
             </Tabs.ScrollView>
-          </ProviderJotaiContextEarn>
-        </ProviderJotaiContextHistoryList>
-      </ProviderJotaiContextDeFiList>
+          </ProviderJotaiContextDeFiList>
+        </ProviderJotaiContextEarn>
+      </ProviderJotaiContextHistoryList>
     </HomeTokenListProviderMirrorWrapper>
   );
 }

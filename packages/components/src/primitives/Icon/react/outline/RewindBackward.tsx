@@ -1,13 +1,16 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgRewindBackward = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      stroke="currentColor"
-      strokeLinecap="square"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="m11.861 12.753 5.481 4.796c.647.566 1.659.107 1.659-.752V7.204c0-.86-1.012-1.318-1.659-.752l-5.481 4.796a1 1 0 0 0 0 1.505Zm-8 0 5.481 4.796c.647.566 1.659.107 1.659-.752V7.204c0-.86-1.012-1.318-1.659-.752l-5.481 4.796a1 1 0 0 0 0 1.505Z"
+      fillRule="evenodd"
+      d="m20 20-8-6.001V20L1.333 12 12 4v6l8-6zM4.666 12 10 16V7.999zm8 0L18 16V7.999z"
+      clipRule="evenodd"
     />
   </Svg>
 );

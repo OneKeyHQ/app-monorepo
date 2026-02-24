@@ -288,7 +288,7 @@ export function AvailableAssetsTabViewList() {
 
   return (
     <YStack gap="$3">
-      <SizableText px="$5" size="$headingLg">
+      <SizableText px="$pagePadding" size="$headingLg">
         {intl.formatMessage({ id: ETranslations.earn_available_assets })}
       </SizableText>
       <Tabs.TabBar
@@ -323,7 +323,7 @@ export function AvailableAssetsTabViewList() {
         data={assets ?? []}
         columns={columns}
         keyExtractor={(asset) => asset.symbol}
-        withHeader={platformEnv.isNative ? false : media.gtSm}
+        withHeader={platformEnv.isNative ? false : media.gtMd}
         defaultSortKey="yield"
         defaultSortDirection="desc"
         onPressRow={(asset) => void handleRowPress(asset)}

@@ -596,10 +596,12 @@ class ServiceToken extends ServiceBase {
     accountId,
     networkId,
     tokenIdOnNetwork,
+    tokenInfoOnly,
   }: {
     networkId: string;
     accountId: string;
     tokenIdOnNetwork?: string;
+    tokenInfoOnly?: boolean;
   }) {
     let tokenAddress = tokenIdOnNetwork;
 
@@ -615,6 +617,7 @@ class ServiceToken extends ServiceBase {
       accountId,
       networkId,
       tokenIdOnNetwork: tokenAddress ?? '',
+      tokenInfoOnly,
     });
   }
 
@@ -623,8 +626,9 @@ class ServiceToken extends ServiceBase {
     accountId: string;
     networkId: string;
     tokenIdOnNetwork: string;
+    tokenInfoOnly?: boolean;
   }) {
-    const { accountId, networkId, tokenIdOnNetwork } = params;
+    const { accountId, networkId, tokenIdOnNetwork, tokenInfoOnly } = params;
     const localToken = await this.backgroundApi.simpleDb.localTokens.getToken({
       networkId,
       tokenIdOnNetwork,
@@ -651,7 +655,7 @@ class ServiceToken extends ServiceBase {
     try {
       let tokensDetails: IFetchTokenDetailItem[] = [];
 
-      if (accountId === '') {
+      if (accountId === '' || tokenInfoOnly) {
         tokensDetails = [
           await this.fetchTokenInfoOnly({
             networkId,

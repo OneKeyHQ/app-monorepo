@@ -13,6 +13,7 @@ import {
   XStack,
   YStack,
   useMedia,
+  useScrollContentTabBarOffset,
   useShare,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -85,7 +86,7 @@ function ManagersSection({
   noPadding?: boolean;
 }) {
   return managers?.items?.length ? (
-    <XStack gap="$1" alignItems="center" px={noPadding ? '$0' : '$5'}>
+    <XStack gap="$1" alignItems="center" px={noPadding ? '$0' : '$pagePadding'}>
       {managers.items.map((item, index) => (
         <Fragment key={index}>
           <XStack gap="$1" alignItems="center">
@@ -387,7 +388,7 @@ const DetailsPartComponent = ({
   const now = useMemo(() => Date.now(), []);
 
   return (
-    <YStack flex={6} gap="$5" px="$5">
+    <YStack flex={6} gap="$5" px="$pagePadding">
       <PageFrame
         LoadingSkeleton={OverviewSkeleton}
         loading={
@@ -665,6 +666,8 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     return false;
   }, [symbol]);
 
+  const tabBarHeight = useScrollContentTabBarOffset();
+
   const pageFooter = useMemo(() => {
     if (gtMd) {
       return null;
@@ -684,10 +687,11 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
         confirmButtonProps={{
           variant: 'primary',
           onPress,
+          mb: tabBarHeight,
         }}
       />
     );
-  }, [gtMd, intl, handleOpenManageModal, isCustomProtocol]);
+  }, [gtMd, intl, handleOpenManageModal, tabBarHeight, isCustomProtocol]);
 
   return (
     <EarnPageContainer

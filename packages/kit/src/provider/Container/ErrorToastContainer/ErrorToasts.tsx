@@ -53,9 +53,8 @@ function ContactSupportButton({ requestId }: { requestId: string }) {
     void (async () => {
       try {
         // Dynamically import to avoid circular dependencies and reduce initial bundle size
-        const { collectLogDigest, uploadLogBundle } = await import(
-          '@onekeyhq/kit/src/views/Setting/pages/Tab/exportLogs'
-        );
+        const { collectLogDigest, uploadLogBundle } =
+          await import('@onekeyhq/kit/src/views/Setting/pages/Tab/exportLogs');
 
         // Generate timestamp-based filename
         const timestamp = new Date().toISOString().replace(/[-:.]/g, '');

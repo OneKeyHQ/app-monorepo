@@ -8,16 +8,20 @@ const { default: traverse } = require('@babel/traverse');
 const { default: generate } = require('@babel/generator');
 const { fileToIdMap } = require('./map');
 
-const baseJSBundle = require(path.resolve(
-  __dirname,
-  '../../../node_modules',
-  'metro/src/DeltaBundler/Serializers/baseJSBundle',
-));
-const bundleToString = require(path.resolve(
-  __dirname,
-  '../../../node_modules',
-  'metro/src/lib/bundleToString',
-));
+const baseJSBundle = require(
+  path.resolve(
+    __dirname,
+    '../../../node_modules',
+    'metro/src/DeltaBundler/Serializers/baseJSBundle',
+  ),
+);
+const bundleToString = require(
+  path.resolve(
+    __dirname,
+    '../../../node_modules',
+    'metro/src/lib/bundleToString',
+  ),
+);
 
 const getContentHash = (content) => {
   const md5 = crypto.createHash('md5');

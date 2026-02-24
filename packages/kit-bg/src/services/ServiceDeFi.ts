@@ -1,5 +1,5 @@
 import BigNumber from 'bignumber.js';
-import { debounce, isEmpty } from 'lodash';
+import { debounce, isEmpty, isUndefined } from 'lodash';
 
 import type { ICurrencyItem } from '@onekeyhq/kit/src/views/Setting/pages/Currency';
 import {
@@ -274,10 +274,13 @@ class ServiceDeFi extends ServiceBase {
     }
 
     await this.backgroundApi.simpleDb.deFi.updateEnabledNetworksMap({
-      enabledNetworksMap: networkIds.reduce((acc, networkId) => {
-        acc[networkId] = true;
-        return acc;
-      }, {} as Record<string, boolean>),
+      enabledNetworksMap: networkIds.reduce(
+        (acc, networkId) => {
+          acc[networkId] = true;
+          return acc;
+        },
+        {} as Record<string, boolean>,
+      ),
     });
   }
 
@@ -335,6 +338,7 @@ class ServiceDeFi extends ServiceBase {
   public async getAccountsLocalDeFiOverview({
     accounts,
     deFiRawData,
+    networksEnabledOnly,
   }: {
     accounts: {
       accountId: string;
@@ -344,6 +348,7 @@ class ServiceDeFi extends ServiceBase {
       xpub?: string;
     }[];
     deFiRawData?: IDeFiDBStruct;
+    networksEnabledOnly?: boolean;
   }) {
     if (
       accounts[0] &&
@@ -375,9 +380,11 @@ class ServiceDeFi extends ServiceBase {
             nftEnabledOnly: false,
             DeFiEnabledOnly: true,
             excludeTestNetwork: true,
-            networksEnabledOnly: !accountUtils.isOthersAccount({
-              accountId: account.accountId,
-            }),
+            networksEnabledOnly: isUndefined(networksEnabledOnly)
+              ? !accountUtils.isOthersAccount({
+                  accountId: account.accountId,
+                })
+              : networksEnabledOnly,
           });
         for (const accountInfo of accountsInfo) {
           const key = accountUtils.buildAccountLocalAssetsKey({

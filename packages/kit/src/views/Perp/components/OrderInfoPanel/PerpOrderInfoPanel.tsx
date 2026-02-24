@@ -10,6 +10,7 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   usePerpsActiveOpenOrdersLengthAtom,
   usePerpsActivePositionLengthAtom,
@@ -75,9 +76,8 @@ function TabBarItem({
         borderBottomWidth={isFocused ? '$0.5' : '$0'}
         borderBottomColor="$borderActive"
         onPress={() => onPress(name)}
-        cursor="pointer"
       >
-        <SizableText size="$headingXs">{`${tabTitle} ${tabCount}`}</SizableText>
+        <SizableText size="$bodyMdMedium">{`${tabTitle} ${tabCount}`}</SizableText>
       </XStack>
     </DebugRenderTracker>
   );
@@ -95,6 +95,7 @@ function PerpOrderInfoPanel() {
       ref={tabsRef as any}
       headerHeight={80}
       initialTabName="Positions"
+      disableScroll={!platformEnv.isNative}
       onTabChange={async (tab) => {
         if (tab.tabName === 'Account') {
           void backgroundApiProxy.serviceHyperliquidSubscription.enableLedgerUpdatesSubscription();

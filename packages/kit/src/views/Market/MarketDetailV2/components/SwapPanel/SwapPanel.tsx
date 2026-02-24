@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -16,6 +16,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { useAccountSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorTrigger';
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -33,7 +34,46 @@ import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import { MarketWatchListProviderMirrorV2 } from '../../../MarketWatchListProviderMirrorV2';
 
+import SwapPanelFooterButtons from './SwapPanelFooterButtons';
 import { SwapPanelWrap } from './SwapPanelWrap';
+
+function LgTradeButton({
+  swapToken,
+  onShowSwapDialog,
+}: {
+  swapToken: ISwapToken;
+  onShowSwapDialog?: (swapToken?: ISwapToken) => void;
+}) {
+  const intl = useIntl();
+  const { activeAccount, showAccountSelector } = useAccountSelectorTrigger({
+    num: 0,
+    showConnectWalletModalInDappMode: true,
+  });
+  const noAccount =
+    !activeAccount?.indexedAccount?.id && !activeAccount?.account?.id;
+
+  if (platformEnv.isWeb && noAccount) {
+    return (
+      <View p="$3">
+        <Button size="large" variant="primary" onPress={showAccountSelector}>
+          {intl.formatMessage({ id: ETranslations.global_connect })}
+        </Button>
+      </View>
+    );
+  }
+
+  return (
+    <View p="$3">
+      <Button
+        size="large"
+        variant="primary"
+        onPress={() => onShowSwapDialog?.(swapToken)}
+      >
+        {intl.formatMessage({ id: ETranslations.dexmarket_details_trade })}
+      </Button>
+    </View>
+  );
+}
 
 export function SwapPanel({
   swapToken,
@@ -72,6 +112,25 @@ export function SwapPanel({
   }, [portfolioData, swapToken.contractAddress]);
 
   const [, setSwapProJumpTokenAtom] = useSwapProJumpTokenAtom();
+
+  const handleBuy = useCallback(() => {
+    setSwapProJumpTokenAtom({
+      token: swapToken,
+      direction: ESwapProJumpTokenDirection.BUY,
+    });
+    navigation.pop();
+    navigation.switchTab(ETabRoutes.Swap);
+  }, [setSwapProJumpTokenAtom, swapToken, navigation]);
+
+  const handleSell = useCallback(() => {
+    setSwapProJumpTokenAtom({
+      token: swapToken,
+      direction: ESwapProJumpTokenDirection.SELL,
+    });
+    navigation.pop();
+    navigation.switchTab(ETabRoutes.Swap);
+  }, [setSwapProJumpTokenAtom, swapToken, navigation]);
+
   if (!swapToken) {
     return (
       <Stack
@@ -85,10 +144,11 @@ export function SwapPanel({
     );
   }
 
+  if (disableTrade) {
+    return null;
+  }
+
   if (platformEnv.isNative) {
-    if (disableTrade) {
-      return null;
-    }
     return (
       <YStack>
         <Divider />
@@ -115,62 +175,9 @@ export function SwapPanel({
               </>
             ) : null}
           </YStack>
-          <XStack gap="$2" alignItems="center">
-            <Button
-              size="small"
-              variant="primary"
-              w="$28"
-              h="$12"
-              bg="$buttonSuccess"
-              onPress={() => {
-                setSwapProJumpTokenAtom({
-                  token: swapToken,
-                  direction: ESwapProJumpTokenDirection.BUY,
-                });
-                navigation.pop();
-                navigation.switchTab(ETabRoutes.Swap);
-              }}
-            >
-              {intl.formatMessage({
-                id: ETranslations.global_buy,
-              })}
-            </Button>
-            <Button
-              w="$28"
-              h="$12"
-              size="small"
-              bg="$buttonCritical"
-              variant="primary"
-              onPress={() => {
-                setSwapProJumpTokenAtom({
-                  token: swapToken,
-                  direction: ESwapProJumpTokenDirection.SELL,
-                });
-                navigation.pop();
-                navigation.switchTab(ETabRoutes.Swap);
-              }}
-            >
-              {intl.formatMessage({
-                id: ETranslations.global_sell,
-              })}
-            </Button>
-          </XStack>
+          <SwapPanelFooterButtons onBuy={handleBuy} onSell={handleSell} />
         </XStack>
       </YStack>
-    );
-  }
-
-  if (media.lg) {
-    return (
-      <View p="$3">
-        <Button
-          size="large"
-          variant="primary"
-          onPress={() => onShowSwapDialog?.(swapToken)}
-        >
-          {intl.formatMessage({ id: ETranslations.dexmarket_details_trade })}
-        </Button>
-      </View>
     );
   }
 
@@ -183,11 +190,18 @@ export function SwapPanel({
         }}
         enabledNum={[0]}
       >
-        <MarketWatchListProviderMirrorV2
-          storeName={EJotaiContextStoreNames.marketWatchListV2}
-        >
-          <SwapPanelWrap />
-        </MarketWatchListProviderMirrorV2>
+        {media.lg ? (
+          <LgTradeButton
+            swapToken={swapToken}
+            onShowSwapDialog={onShowSwapDialog}
+          />
+        ) : (
+          <MarketWatchListProviderMirrorV2
+            storeName={EJotaiContextStoreNames.marketWatchListV2}
+          >
+            <SwapPanelWrap />
+          </MarketWatchListProviderMirrorV2>
+        )}
       </AccountSelectorProviderMirror>
     </View>
   );

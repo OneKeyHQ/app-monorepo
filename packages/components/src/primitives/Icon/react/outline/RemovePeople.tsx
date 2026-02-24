@@ -1,13 +1,17 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgRemovePeople = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="m21.414 16-2 2 2 2L20 21.414l-2-2-2 2L14.586 20l2-2-2-2L16 14.586l2 2 2-2zM12 12c.787 0 1.54.097 2.252.282l-.504 1.936A7 7 0 0 0 12 14c-3.23 0-5.611 2.091-6.32 5H13v2H3.401l.103-1.094C3.916 15.521 7.242 12 12 12" />
     <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M12 20H6.697c-1.179 0-2.123-1.032-1.714-2.137C6.036 15.014 8.609 13 12 13q.514 0 1 .06M20 16l-2 2m0 0-2 2m2-2-2-2m2 2 2 2M15.5 6.5a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0"
+      fillRule="evenodd"
+      d="M12 2a4.5 4.5 0 1 1 0 9 4.5 4.5 0 0 1 0-9m0 2a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5"
+      clipRule="evenodd"
     />
   </Svg>
 );

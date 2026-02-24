@@ -17,7 +17,7 @@ import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/ato
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
-import { DevOTPAutoFill } from '../OneKeyIDLoginDialog/DevOTPAutoFill';
+import { DevOTPAutoFill } from '../PrimeDevUtils/DevOTPAutoFill';
 
 const COUNTDOWN_TIME = 60;
 

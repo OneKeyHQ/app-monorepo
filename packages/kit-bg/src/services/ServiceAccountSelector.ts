@@ -283,15 +283,15 @@ class ServiceAccountSelector extends ServiceBase {
       }) || Boolean(account && !indexedAccountId);
     const isQrWallet = Boolean(
       wallet?.id &&
-        accountUtils.isQrWallet({
-          walletId: wallet?.id || '',
-        }),
+      accountUtils.isQrWallet({
+        walletId: wallet?.id || '',
+      }),
     );
     const isHwWallet = Boolean(
       wallet?.id &&
-        accountUtils.isHwWallet({
-          walletId: wallet?.id || '',
-        }),
+      accountUtils.isHwWallet({
+        walletId: wallet?.id || '',
+      }),
     );
     const universalAccountName = (() => {
       // hd account or others account
@@ -905,23 +905,12 @@ class ServiceAccountSelector extends ServiceBase {
         await this.backgroundApi.serviceDeFi.getAccountsLocalDeFiOverview({
           accounts: accountsForValuesQuery,
         });
-      if (
-        accountUtils.isOthersWallet({
-          walletId: focusedWallet ?? '',
-        })
-      ) {
-        accountsValue =
-          await this.backgroundApi.serviceAccountProfile.getAccountsValue({
+      accountsValue =
+        await this.backgroundApi.serviceAccountProfile.getAllNetworkAccountsValue(
+          {
             accounts: accountsForValuesQuery,
-          });
-      } else {
-        accountsValue =
-          await this.backgroundApi.serviceAccountProfile.getAllNetworkAccountsValue(
-            {
-              accounts: accountsForValuesQuery,
-            },
-          );
-      }
+          },
+        );
     } catch (error) {
       //
     }

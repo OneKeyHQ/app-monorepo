@@ -11,6 +11,8 @@ import {
   Stack,
   TextArea,
   YStack,
+  rootNavigationRef,
+  useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import { TabletHomeContainer } from '@onekeyhq/kit/src/components/TabletHomeContainer';
@@ -20,6 +22,7 @@ import {
   EDAppConnectionModal,
   EModalRoutes,
   EModalSettingRoutes,
+  ERootRoutes,
   ETabDeveloperRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
@@ -177,6 +180,7 @@ function TestRefreshCmp() {
 const TestRefresh = memo(TestRefreshCmp);
 
 const TabDeveloper = () => {
+  const tabBarHeight = useScrollContentTabBarOffset();
   const navigation =
     useAppNavigation<IPageNavigationProp<ITabDeveloperParamList>>();
 
@@ -196,13 +200,24 @@ const TabDeveloper = () => {
             flex={1}
             width="100%"
             paddingHorizontal="$5"
-            contentContainerStyle={{ paddingBottom: '$5' }}
+            contentContainerStyle={{ paddingBottom: tabBarHeight ?? '$5' }}
             gap="$5"
           >
             <PartContainer title="Components">
               <Button
                 onPress={() => {
-                  navigation.push(ETabDeveloperRoutes.ComponentsGallery);
+                  rootNavigationRef.current?.navigate(
+                    ERootRoutes.Main,
+                    {
+                      screen: ETabRoutes.Developer,
+                      params: {
+                        screen: ETabDeveloperRoutes.ComponentsGallery,
+                      },
+                    },
+                    {
+                      pop: true,
+                    },
+                  );
                 }}
               >
                 Gallery

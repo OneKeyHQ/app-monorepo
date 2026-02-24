@@ -1,11 +1,15 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgUnlocked = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      fill="currentColor"
       fillRule="evenodd"
-      d="M12 2a5 5 0 0 0-5 5v2a3 3 0 0 0-3 3v7a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-7a3 3 0 0 0-3-3H9V7a3 3 0 0 1 5.905-.75 1 1 0 0 0 1.937-.5A5 5 0 0 0 12 2m0 11a1 1 0 0 1 1 1v3a1 1 0 1 1-2 0v-3a1 1 0 0 1 1-1"
+      d="M12 2a5 5 0 0 1 5 5h-2a3 3 0 1 0-6 0v2h11v13H4V9h3V7a5 5 0 0 1 5-5m-1 11v5h2v-5z"
       clipRule="evenodd"
     />
   </Svg>

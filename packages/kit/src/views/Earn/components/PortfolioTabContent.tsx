@@ -199,11 +199,14 @@ const WrappedActionButtonCmp = ({
         variant="secondary"
         size="small"
         loading={loading || isPending}
-        disabled={loading || reward.button.disabled}
-        cursor={reward.button.disabled ? 'not-allowed' : 'pointer'}
+        disabled={loading || reward?.button?.disabled}
+        cursor={reward?.button?.disabled ? 'not-allowed' : 'pointer'}
         onPress={onPress}
       >
-        <EarnText size="$bodyMdMedium" text={reward.button.text as IEarnText} />
+        <EarnText
+          size="$bodyMdMedium"
+          text={reward?.button?.text as IEarnText}
+        />
       </Button>
     );
   }
@@ -215,14 +218,14 @@ const WrappedActionButtonCmp = ({
       variant="link"
       size="small"
       loading={loading || isPending}
-      disabled={loading || reward.button.disabled}
-      cursor={reward.button.disabled ? 'not-allowed' : 'pointer'}
+      disabled={loading || reward?.button?.disabled}
+      cursor={reward?.button?.disabled ? 'not-allowed' : 'pointer'}
       onPress={onPress}
     >
       <EarnText
         size="$bodyMdMedium"
         color="$textInfo"
-        text={reward.button.text as IEarnText}
+        text={reward?.button?.text as IEarnText}
       />
     </Button>
   );
@@ -408,7 +411,7 @@ const ProtocolHeader = ({
   const currencyInfo = useCurrency();
 
   return (
-    <YStack px="$5" py="$3">
+    <YStack px="$pagePadding" py="$3">
       <XStack ai="center">
         <Token
           size="xs"
@@ -489,7 +492,7 @@ const ProtocolAirdrop = ({
   const secondaryTextSize = isDesktopLayout ? '$bodyMd' : '$bodyMdMedium';
 
   return (
-    <YStack px="$5" mt="$8" gap="$4">
+    <YStack px="$pagePadding" mt="$8" gap="$4">
       <SizableText size="$bodySmMedium" color="$textSubdued">
         {title}
       </SizableText>
@@ -890,7 +893,7 @@ const PortfolioItem = memo(PortfolioItemComponent);
 const PortfolioSkeletonItem = () => {
   const isDesktopLayout = useIsDesktopLayout();
   return (
-    <YStack gap="$2" px="$5">
+    <YStack gap="$2" px="$pagePadding">
       {/* Protocol Header */}
       <XStack ai="center" gap="$1.5" mb="$1">
         <Skeleton w="$5" h="$5" borderRadius="$2" />
@@ -995,26 +998,29 @@ const BasePortfolioTabContent = ({
       return withAssets;
     }
 
-    return withAssets.reduce((acc, item) => {
-      const filteredAssets = item.assets.filter((asset) => {
-        const assetValueUsd = Number(asset.metadata?.fiatValueUsd ?? 0);
-        return assetValueUsd >= 0.01;
-      });
-
-      // If we filtered out all assets and there are no airdrop assets, drop the protocol
-      // (Or if the original protocol only had assets that are now all hidden)
-      if (
-        filteredAssets.length > 0 ||
-        item.airdropAssets.some((airdrop) => !isEmpty(airdrop.airdropAssets))
-      ) {
-        acc.push({
-          ...item,
-          assets: filteredAssets,
+    return withAssets.reduce(
+      (acc, item) => {
+        const filteredAssets = item.assets.filter((asset) => {
+          const assetValueUsd = Number(asset.metadata?.fiatValueUsd ?? 0);
+          return assetValueUsd >= 0.01;
         });
-      }
 
-      return acc;
-    }, [] as typeof withAssets);
+        // If we filtered out all assets and there are no airdrop assets, drop the protocol
+        // (Or if the original protocol only had assets that are now all hidden)
+        if (
+          filteredAssets.length > 0 ||
+          item.airdropAssets.some((airdrop) => !isEmpty(airdrop.airdropAssets))
+        ) {
+          acc.push({
+            ...item,
+            assets: filteredAssets,
+          });
+        }
+
+        return acc;
+      },
+      [] as typeof withAssets,
+    );
   }, [hideSmallAssets, investments]);
   const noAssets = useMemo(
     () => isEmpty(filteredInvestments),
@@ -1049,7 +1055,7 @@ const BasePortfolioTabContent = ({
   if (noAssets) {
     return (
       <Empty
-        icon="ClockTimeHistoryOutline"
+        illustration="BlockPercentage"
         title={intl.formatMessage({
           id: ETranslations.earn_no_assets_deposited,
         })}

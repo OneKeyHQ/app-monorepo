@@ -139,9 +139,8 @@ export class KeyringHardware extends KeyringHardwareBase {
           },
         });
 
-        const client = await this.backgroundApi.serviceLightning.getLnClient(
-          isTestnet,
-        );
+        const client =
+          await this.backgroundApi.serviceLightning.getLnClient(isTestnet);
         const ret: ICoreApiGetAddressItem[] = [];
         const network = getBtcForkNetwork(btcImpl);
         for (let i = 0; i < publicKeys.length; i += 1) {

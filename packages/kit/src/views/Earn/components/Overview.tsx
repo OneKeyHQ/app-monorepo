@@ -179,7 +179,7 @@ const Rebate = ({
             <Stack
               bg="$bgSubdued"
               mt="$2.5"
-              px="$5"
+              px="$pagePadding"
               py="$3.5"
               borderTopWidth={1}
               borderTopColor="$borderSubdued"
@@ -317,6 +317,7 @@ const OverviewComponent = ({
         <XStack gap="$3" ai="center">
           <NumberSizeableText
             size="$heading5xl"
+            fontWeight={400}
             formatter="value"
             color={getNumberColor(totalFiatValue, '$text')}
             formatterOptions={{ currency: settings.currencyInfo.symbol }}
@@ -349,10 +350,12 @@ const OverviewComponent = ({
             showPlusMinusSigns: Number(earnings24h) !== 0,
           }}
           size="$bodyLgMedium"
+          fontWeight={400}
           color={getNumberColor(earnings24h)}
           numberOfLines={1}
           $gtLg={{
             size: '$heading5xl',
+            fontWeight: 400,
           }}
           pointerEvents="box-none"
         >
@@ -384,7 +387,7 @@ const OverviewComponent = ({
               id: ETranslations.earn_24h_earnings,
             })}
             renderContent={
-              <SizableText px="$5" py="$4">
+              <SizableText px="$pagePadding" py="$4">
                 {intl.formatMessage({
                   id: ETranslations.earn_24h_earnings_tooltip,
                 })}

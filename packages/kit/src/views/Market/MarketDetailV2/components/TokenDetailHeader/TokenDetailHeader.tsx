@@ -4,14 +4,18 @@ import { useCallback, useMemo, useState } from 'react';
 import {
   GradientMask,
   ScrollView,
+  Stack,
   XStack,
   useMedia,
 } from '@onekeyhq/components';
+import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
+import { MarketStarV2 } from '../../../components/MarketStarV2';
 import { useTokenDetail } from '../../hooks/useTokenDetail';
 
+import { ShareButton } from './ShareButton';
 import { TokenDetailHeaderLeft } from './TokenDetailHeaderLeft';
 import { TokenDetailHeaderRight } from './TokenDetailHeaderRight';
 
@@ -88,10 +92,11 @@ export function TokenDetailHeader({
       position="relative"
       width={lg ? '90%' : '100%'}
       px="$5"
-      pt="$4"
-      pb="$2"
-      jc="space-between"
+      py="$4"
+      h={54}
+      jc="flex-start"
       ai="center"
+      gap="$6"
       minWidth={SCROLL_BREAKPOINT}
       {...containerProps}
     >
@@ -111,11 +116,41 @@ export function TokenDetailHeader({
           showStats={showStats}
         />
       )}
+
+      {/* Spacer to push buttons to the right */}
+      {!platformEnv.isNative && !md && networkId ? (
+        <>
+          <Stack flex={1} />
+          <XStack gap="$3" ai="center">
+            <MarketStarV2
+              chainId={networkId}
+              contractAddress={tokenDetail?.address ?? ''}
+              size="medium"
+              from={EWatchlistFrom.Detail}
+              tokenSymbol={tokenDetail?.symbol ?? ''}
+              isNative={isNative}
+            />
+            {isNative ? (
+              <ShareButton
+                networkId={networkId}
+                address={tokenDetail?.address ?? ''}
+                isNative={isNative}
+                useIconButton
+              />
+            ) : null}
+          </XStack>
+        </>
+      ) : null}
     </XStack>
   );
 
   return (
-    <XStack position="relative" onLayout={handleContainerLayout}>
+    <XStack
+      position="relative"
+      onLayout={handleContainerLayout}
+      borderBottomWidth="$px"
+      borderBottomColor="$borderSubdued"
+    >
       {shouldScroll && !platformEnv.isNative && !md ? (
         <>
           <ScrollView

@@ -258,7 +258,7 @@ export const buildBasicOptions = ({
       }
       return event;
     },
-  } as BrowserOptions);
+  }) as BrowserOptions;
 
 export const buildSentryOptions = (Sentry: typeof import('@sentry/react')) => ({
   transport: Sentry.makeBrowserOfflineTransport(Sentry.makeFetchTransport),

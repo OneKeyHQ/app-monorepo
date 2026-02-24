@@ -1,6 +1,6 @@
 ---
 name: 1k-defi-module-integration
-description: Interactive guide for integrating new DeFi modules or protocols into OneKey. Use when adding new DeFi features like staking protocols, lending markets, or entirely new DeFi modules. Triggers on DeFi, protocol, integration, Earn, Borrow, staking, lending, supply, borrow, withdraw, repay, claim, new module, Pendle, Aave, Compound.
+description: Guide for integrating new DeFi modules or protocols (staking, lending, Earn, Borrow) into OneKey.
 ---
 
 # DeFi Module Integration Guide

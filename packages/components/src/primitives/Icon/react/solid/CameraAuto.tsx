@@ -1,12 +1,16 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgCameraAuto = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path fill="currentColor" d="m12 12.917.265.583h-.53z" />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M12.697 14h-1.394L12 12.444z" />
     <Path
-      fill="currentColor"
       fillRule="evenodd"
-      d="M8.074 4.336A3 3 0 0 1 10.57 3h2.86a3 3 0 0 1 2.496 1.336l.812 1.219A1 1 0 0 0 17.57 6H19a3 3 0 0 1 3 3v9a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3V9a3 3 0 0 1 3-3h1.43a1 1 0 0 0 .832-.445l.812-1.22Zm4.836 5.75a1 1 0 0 0-1.82 0l-2.5 5.5a1 1 0 0 0 1.82.828l.416-.914h2.348l.416.914a1 1 0 0 0 1.82-.828z"
+      d="M17.035 6H22v15H2V6h4.965l2-3h6.07zM7.838 16.84a1 1 0 0 0-.057.16h2.177l.448-1h3.188l.448 1h2.177a1 1 0 0 0-.057-.16L13.096 10h-2.192z"
       clipRule="evenodd"
     />
   </Svg>

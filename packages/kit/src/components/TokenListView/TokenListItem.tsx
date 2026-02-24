@@ -79,7 +79,7 @@ function BasicTokenListItem(props: ITokenListItemProps) {
               $key={token.$key}
               name={
                 token.isAggregateToken
-                  ? token.commonSymbol ?? token.symbol
+                  ? (token.commonSymbol ?? token.symbol)
                   : token.symbol
               }
               isAggregateToken={token.isAggregateToken}
@@ -126,7 +126,7 @@ function BasicTokenListItem(props: ITokenListItemProps) {
             withAggregateBadge={withAggregateBadge ?? isTokenSelector}
             name={
               token.isAggregateToken
-                ? token.commonSymbol ?? token.symbol
+                ? (token.commonSymbol ?? token.symbol)
                 : token.symbol
             }
             isAggregateToken={token.isAggregateToken}
@@ -135,7 +135,7 @@ function BasicTokenListItem(props: ITokenListItemProps) {
             networkId={token.networkId}
             withNetwork={withNetwork}
             textProps={{
-              size: tableLayout ? '$bodyMdMedium' : '$bodyLgMedium',
+              size: '$bodyLgMedium',
               flexShrink: 0,
             }}
           />
@@ -208,7 +208,7 @@ function BasicTokenListItem(props: ITokenListItemProps) {
         <TokenBalanceView
           hideValue={hideValue}
           numberOfLines={1}
-          size={tableLayout ? '$bodyMdMedium' : '$bodyLgMedium'}
+          size="$bodyLgMedium"
           $key={token.$key ?? ''}
           symbol=""
         />
@@ -232,7 +232,7 @@ function BasicTokenListItem(props: ITokenListItemProps) {
       <YStack alignItems="flex-end" flexGrow={1} flexBasis={0}>
         <TokenPriceView
           $key={token.$key ?? ''}
-          size="$bodyMdMedium"
+          size="$bodyLgMedium"
           numberOfLines={1}
         />
         <TokenPriceChangeView

@@ -1,16 +1,17 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgKeyboardDown = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M15.414 19 12 22.414 8.586 19 10 17.586l2 2 2-2z" />
     <Path
-      fill="currentColor"
       fillRule="evenodd"
-      d="M1 5a3 3 0 0 1 3-3h16a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H4a3 3 0 0 1-3-3zm9 5a1 1 0 1 0 0 2h4a1 1 0 1 0 0-2zM4.75 7a1.25 1.25 0 1 0 2.5 0 1.25 1.25 0 0 0-2.5 0m12 0a1.25 1.25 0 1 0 2.5 0 1.25 1.25 0 0 0-2.5 0M14 8.25a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5M8.75 7a1.25 1.25 0 1 0 2.5 0 1.25 1.25 0 0 0-2.5 0M6 12.25a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5M16.75 11a1.25 1.25 0 1 0 2.5 0 1.25 1.25 0 0 0-2.5 0"
+      d="M23 16H1V2h22zM5 12h2v-2H5zm4 0h6v-2H9zm8 0h2v-2h-2zM5 8h2V6H5zm4 0h2V6H9zm4 0h2V6h-2zm4 0h2V6h-2z"
       clipRule="evenodd"
-    />
-    <Path
-      fill="currentColor"
-      d="m12 19.586-1.293-1.293a1 1 0 0 0-1.414 1.414l2 2a1 1 0 0 0 1.414 0l2-2a1 1 0 0 0-1.414-1.414z"
     />
   </Svg>
 );

@@ -120,6 +120,10 @@ export function AmountInput({
 
     return (
       <Input
+        autoCorrect={false}
+        spellCheck={false}
+        autoComplete="off"
+        textContentType="none"
         keyboardType="decimal-pad"
         height="$11"
         fontSize={getFontSize('$heading3xl')}

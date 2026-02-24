@@ -19,17 +19,32 @@ import {
   HeaderNotificationIconButton,
   WalletConnectionForWeb,
 } from './components';
+import { AllNetworksManagerTrigger } from '../AccountSelector';
+import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 export function MoreAction() {
   return <MoreActionButton key="more-action" />;
 }
 
 export function SelectorTrigger() {
+  const {
+    activeAccount: { network, wallet },
+  } = useActiveAccount({ num: 0 });
+
+  if (
+    network?.isAllNetworks &&
+    !accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' })
+  ) {
+    return <AllNetworksManagerTrigger num={0} unifiedMode />;
+  }
+
   return (
     <NetworkSelectorTriggerHome
       num={0}
       size="small"
       recordNetworkHistoryEnabled
+      unifiedMode
     />
   );
 }

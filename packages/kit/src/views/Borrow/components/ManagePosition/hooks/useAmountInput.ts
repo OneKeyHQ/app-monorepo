@@ -42,8 +42,8 @@ export function useAmountInput({
 
       const isOverflowDecimals = Boolean(
         decimals &&
-          Number(decimals) > 0 &&
-          countDecimalPlaces(value) > decimals,
+        Number(decimals) > 0 &&
+        countDecimalPlaces(value) > decimals,
       );
       if (isOverflowDecimals) {
         return;
@@ -70,7 +70,7 @@ export function useAmountInput({
       // Repay uses wallet balance for percentage calculation
       // Other actions use maxBalance (debt balance) if provided
       const balanceForPercent =
-        action === 'repay' ? balance : maxBalance ?? balance;
+        action === 'repay' ? balance : (maxBalance ?? balance);
       onChangeAmountValue(
         calcPercentBalance({
           balance: balanceForPercent,

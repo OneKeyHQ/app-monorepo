@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
@@ -54,6 +55,7 @@ import {
   FormatHyperlinkText,
   HyperlinkText,
 } from '../../../components/HyperlinkText';
+import { HighlightAddress } from '../../../components/HighlightAddress';
 import { NetworkAvatar } from '../../../components/NetworkAvatar';
 import { Token } from '../../../components/Token';
 import { useAccountData } from '../../../hooks/useAccountData';
@@ -139,7 +141,7 @@ function ReceiveToken() {
 
   const displayAddress = isBtcUsedAddressVerifyMode
     ? btcUsedAddress
-    : currentAccount?.address ?? '';
+    : (currentAccount?.address ?? '');
   const verificationPath = isBtcUsedAddressVerifyMode
     ? btcUsedAddressPath
     : currentAccount?.addressDetail?.receiveAddressPath;
@@ -618,20 +620,23 @@ function ReceiveToken() {
     if (!currentAccount || !network || !wallet) return null;
     if (!displayAddress) return null;
 
-    let addressContent = '';
+    let addressContent: ReactNode;
 
     if (shouldShowAddress) {
-      addressContent =
-        displayAddress.match(/.{1,4}/g)?.join(' ') || displayAddress;
+      addressContent = <HighlightAddress address={displayAddress} />;
     } else {
-      addressContent = Array.from({ length: 11 })
+      const maskedText = Array.from({ length: 11 })
         .map(() => '****')
         .join(' ');
+      addressContent = (
+        <SizableText fontFamily="$monoMedium">{maskedText}</SizableText>
+      );
     }
 
     return (
       <XStack
-        maxWidth={304}
+        flex={platformEnv.isNative ? 1 : undefined}
+        maxWidth={platformEnv.isNative ? undefined : 304}
         flexWrap="wrap"
         {...(shouldShowAddress && {
           onPress: handleCopyAddress,
@@ -656,7 +661,7 @@ function ReceiveToken() {
           },
         })}
       >
-        <SizableText fontFamily="$monoMedium">{addressContent}</SizableText>
+        {addressContent}
       </XStack>
     );
   }, [
@@ -735,7 +740,11 @@ function ReceiveToken() {
               </Badge>
             ) : null}
           </XStack>
-          <XStack gap="$2" alignItems="center" justifyContent="space-between">
+          <XStack
+            gap="$2"
+            alignItems="center"
+            justifyContent={platformEnv.isNative ? undefined : 'space-between'}
+          >
             {renderAddress()}
             {renderCopyAddressButton()}
           </XStack>
@@ -888,7 +897,7 @@ function ReceiveToken() {
           {!shouldShowQRCode ? (
             <Empty
               p="0"
-              icon="QrCodeOutline"
+              illustration="ShieldDevice"
               description={intl.formatMessage({
                 id: ETranslations.address_verify_address_instruction,
               })}

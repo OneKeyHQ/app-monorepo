@@ -521,8 +521,9 @@ For adding a new lending protocol (e.g., AAVE, Compound):
 
 ### Code Quality
 
-- [ ] Run `yarn lint` - no errors
-- [ ] Run `yarn tsc:only` - no TypeScript errors
+- [ ] Run `yarn lint:staged` on staged files - no errors
+- [ ] Run `yarn tsc:staged` on staged files - no TypeScript errors
+- [ ] Run `yarn lint` for comprehensive check (~1 minute) - no errors
 - [ ] No `any` types without justification
 - [ ] No `@ts-ignore` without justification
 

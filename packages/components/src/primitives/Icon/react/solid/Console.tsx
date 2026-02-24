@@ -1,11 +1,15 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgConsole = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      fill="currentColor"
       fillRule="evenodd"
-      d="M3 6a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3zm3.793 1.293a1 1 0 0 1 1.414 0l1.147 1.146a1.5 1.5 0 0 1 0 2.122l-1.147 1.146a1 1 0 0 1-1.414-1.414l.793-.793-.793-.793a1 1 0 0 1 0-1.414M11.5 10a1 1 0 1 0 0 2H13a1 1 0 1 0 0-2z"
+      d="M21 21H3V3h18zM6.086 8l1.75 1.75-1.75 1.75L7.5 12.914l3.164-3.164L7.5 6.586zM11 10.5v2h4v-2z"
       clipRule="evenodd"
     />
   </Svg>

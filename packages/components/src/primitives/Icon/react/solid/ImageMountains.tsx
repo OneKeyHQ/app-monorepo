@@ -1,17 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgImageMountains = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      fill="currentColor"
-      fillRule="evenodd"
-      d="M9 3a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7M7.5 6.5a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0"
-      clipRule="evenodd"
-    />
-    <Path
-      fill="currentColor"
-      d="M13.308 9.389a2 2 0 0 1 3.33.127l4.539 7.443C21.99 18.292 21.03 20 19.469 20H4.6c-1.59 0-2.544-1.764-1.674-3.094l2.668-4.08a2 2 0 0 1 2.837-.534l1.841 1.315z"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M16.42 9.012c1.51-.125 2.727 1.04 3.679 2.565.998 1.601 1.956 3.99 2.865 7.147L23.33 20H.72l.314-1.245.97.245-.97-.245v-.003l.002-.004.004-.017.015-.056.056-.205c.05-.175.121-.421.215-.716a21 21 0 0 1 .83-2.182c.357-.79.82-1.64 1.39-2.308.554-.649 1.356-1.293 2.395-1.293 1.244 0 2.266.671 2.974 1.14l.129.085c.33.22.597.395.857.53.285.146.47.192.601.193l.001-.001c.019-.005.174-.05.512-.413.271-.292.541-.652.864-1.082l.357-.474c.88-1.151 2.197-2.774 4.185-2.938ZM9.502 3.5a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7" />
   </Svg>
 );
 export default SvgImageMountains;

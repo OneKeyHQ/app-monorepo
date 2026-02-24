@@ -1,5 +1,5 @@
 import BigNumber from 'bignumber.js';
-import { forEach, isNil, uniqBy } from 'lodash';
+import { forEach, isEmpty, isNil, isUndefined, uniqBy } from 'lodash';
 
 import { wrappedTokens } from '../../types/swap/SwapProvider.constants';
 import { getNetworkIdsMap } from '../config/networkIds';
@@ -13,9 +13,11 @@ import type {
   IAccountToken,
   IAggregateToken,
   IFetchAccountTokensResp,
+  IToken,
   ITokenData,
   ITokenFiat,
 } from '../../types/token';
+import { OneKeyInternalError } from '../errors';
 
 export const caseSensitiveNetworkImpl = [
   'sol',
@@ -1138,4 +1140,102 @@ export function calculateAccountTokensValue({
     Object.values(tokensWorth.worth)[0] ??
     '0'
   );
+}
+
+export function validateTokenAmount({
+  token,
+  amount,
+  allowEmpty = false,
+  allowNegative = false,
+  allowZero = true,
+  minAmount,
+  maxAmount,
+  customErrorMessages,
+}: {
+  token: IToken;
+  amount: string;
+  allowEmpty?: boolean;
+  allowNegative?: boolean;
+  allowZero?: boolean;
+  minAmount?: string;
+  maxAmount?: string;
+  customErrorMessages?: {
+    emptyAmount?: string;
+    invalidAmount?: string;
+    negativeAmount?: string;
+    zeroAmount?: string;
+    minAmount?: string;
+    maxAmount?: string;
+    decimalPlaces?: string;
+  };
+}) {
+  if (isUndefined(token.decimals)) {
+    throw new OneKeyInternalError('Token decimals is required');
+  }
+
+  if (allowEmpty && isEmpty(amount)) {
+    return {
+      isValid: true,
+      error: undefined,
+    };
+  }
+
+  if (isEmpty(amount)) {
+    return {
+      isValid: false,
+      error: customErrorMessages?.emptyAmount ?? 'Required',
+    };
+  }
+
+  const amountBN = new BigNumber(amount);
+  if (amountBN.isNaN()) {
+    return {
+      isValid: false,
+      error: customErrorMessages?.invalidAmount ?? 'Invalid amount',
+    };
+  }
+
+  if (!allowNegative && amountBN.isNegative()) {
+    return {
+      isValid: false,
+      error: customErrorMessages?.negativeAmount ?? 'Cannot be negative',
+    };
+  }
+
+  if (!allowZero && amountBN.isZero()) {
+    return {
+      isValid: false,
+      error: customErrorMessages?.zeroAmount ?? 'Amount must be greater than 0',
+    };
+  }
+
+  if (minAmount && amountBN.isLessThan(minAmount)) {
+    return {
+      isValid: false,
+      error:
+        customErrorMessages?.minAmount ?? `Must be greater than ${minAmount}`,
+    };
+  }
+
+  if (maxAmount && amountBN.isGreaterThan(maxAmount)) {
+    return {
+      isValid: false,
+      error: customErrorMessages?.maxAmount ?? `Must be less than ${maxAmount}`,
+    };
+  }
+
+  const decimalPlaces = amountBN.decimalPlaces() ?? 0;
+  if (decimalPlaces > token.decimals) {
+    return {
+      isValid: false,
+      error:
+        customErrorMessages?.decimalPlaces ??
+        `Maximum ${token.decimals} decimal places`,
+    };
+  }
+
+  return {
+    isValid: true,
+    error: undefined,
+  };
 }

@@ -46,6 +46,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IAccountChainSelectorRouteParams,
   IAccountSelectorRouteParamsExtraConfig,
+  IUnifiedNetworkSelectorRouteParams,
 } from '@onekeyhq/shared/src/routes';
 import {
   EAccountManagerStacksRoutes,
@@ -673,6 +674,24 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     },
   );
 
+  showUnifiedNetworkSelector = contextAtomMethod(
+    (
+      _,
+      set,
+      {
+        navigation,
+        ...routeParams
+      }: {
+        navigation: ReturnType<typeof useAppNavigation>;
+      } & IUnifiedNetworkSelectorRouteParams,
+    ) => {
+      navigation.pushModal(EModalRoutes.ChainSelectorModal, {
+        screen: EChainSelectorPages.UnifiedNetworkSelector,
+        params: routeParams,
+      });
+    },
+  );
+
   withFinalizeWalletSetupStep = contextAtomMethod(
     async (
       get,
@@ -1230,12 +1249,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       },
     ) => {
       const { servicePassword } = backgroundApiProxy;
-      const { mnemonic: realMnemonic } = await serviceAccount.validateMnemonic(
-        mnemonic,
-      );
-      const { tonMnemonicToKeyPair } = await import(
-        '@onekeyhq/core/src/secret/ton-mnemonic'
-      );
+      const { mnemonic: realMnemonic } =
+        await serviceAccount.validateMnemonic(mnemonic);
+      const { tonMnemonicToKeyPair } =
+        await import('@onekeyhq/core/src/secret/ton-mnemonic');
       const keyPair = await tonMnemonicToKeyPair(realMnemonic.split(' '));
       const secretKeyUint8Array = platformEnv.isNative
         ? new Uint8Array(Object.values(keyPair.secretKey))
@@ -2328,6 +2345,7 @@ export function useAccountSelectorActions() {
   const refresh = actions.refresh.use();
   const showAccountSelector = actions.showAccountSelector.use();
   const showChainSelector = actions.showChainSelector.use();
+  const showUnifiedNetworkSelector = actions.showUnifiedNetworkSelector.use();
   const removeWallet = actions.removeWallet.use();
   const removeAccount = actions.removeAccount.use();
   const createHDWallet = actions.createHDWallet.use();
@@ -2368,6 +2386,7 @@ export function useAccountSelectorActions() {
     updateSelectedAccountForSingletonAccount,
     showAccountSelector,
     showChainSelector,
+    showUnifiedNetworkSelector,
     removeWallet,
     removeAccount,
     createHDWallet,

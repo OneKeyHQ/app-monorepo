@@ -48,10 +48,8 @@ import {
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
-import { WalletActionEarn } from '../../../Home/components/WalletActions/WalletActionEarn';
-
 import ActionBuy from './ActionBuy';
-import ActionSell from './ActionSell';
+import { TokenDetailsWalletActionMore } from './TokenDetailsWalletActionMore';
 import { useTokenDetailsContext } from './TokenDetailsContext';
 
 function TokenDetailsHeader(props: IProps) {
@@ -102,13 +100,14 @@ function TokenDetailsHeader(props: IProps) {
             networkId,
             contractList: [tokenInfo.address],
           });
-        updateTokenMetadata({
-          price: tokensDetails[0]?.price ?? 0,
-          priceChange24h: tokensDetails[0]?.price24h ?? 0,
-          coingeckoId: tokensDetails[0]?.info?.coingeckoId ?? '',
-        });
 
-        const data = tokensDetails[0];
+        const data = tokensDetails?.[0];
+
+        updateTokenMetadata({
+          price: data?.price ?? 0,
+          priceChange24h: data?.price24h ?? 0,
+          coingeckoId: data?.info?.coingeckoId ?? '',
+        });
 
         if (!data) {
           return undefined;
@@ -243,11 +242,6 @@ function TokenDetailsHeader(props: IProps) {
     [wallet?.type],
   );
 
-  const disableSwapAction = useMemo(
-    () => accountUtils.isUrlAccountFn({ accountId }),
-    [accountId],
-  );
-
   const { hideAccountAddress } = useDisplayAccountAddress({ networkId });
   const shouldShowAddressBlock = useMemo(() => {
     if (networkUtils.isLightningNetworkByNetworkId(networkId)) return false;
@@ -298,7 +292,7 @@ function TokenDetailsHeader(props: IProps) {
             </Stack>
           </XStack>
           {/* Actions */}
-          <RawActions gap="$8" flexWrap="wrap" flexDirection="row">
+          <RawActions>
             <RawActions.Send
               onPress={handleSendPress}
               trackID="wallet-token-details-send"
@@ -327,24 +321,6 @@ function TokenDetailsHeader(props: IProps) {
               }}
               trackID="wallet-token-details-receive"
             />
-            <RawActions.Swap
-              onPress={handleOnSwap}
-              disabled={disableSwapAction}
-              trackID="wallet-token-details-swap"
-            />
-            <RawActions.Bridge
-              onPress={handleOnBridge}
-              disabled={disableSwapAction}
-              trackID="wallet-token-details-bridge"
-            />
-            <WalletActionEarn
-              tokenAddress={tokenInfo.address}
-              networkId={networkId}
-              walletType={wallet?.type}
-              source="tokenDetails"
-              trackID="wallet-token-details-stake"
-              logoURI={tokenInfo.logoURI}
-            />
             <ReviewControl>
               <ActionBuy
                 isTabView={isTabView}
@@ -358,22 +334,16 @@ function TokenDetailsHeader(props: IProps) {
                 trackID="wallet-token-details-buy"
               />
             </ReviewControl>
-
-            <ReviewControl>
-              <ActionSell
-                isTabView={isTabView}
-                walletId={wallet?.id ?? ''}
-                networkId={networkId}
-                accountId={accountId}
-                walletType={wallet?.type}
-                tokenAddress={tokenInfo.address}
-                tokenSymbol={tokenInfo.symbol}
-                source="tokenDetails"
-                trackID="wallet-token-details-sell"
-              />
-            </ReviewControl>
-
-            <Stack w={50} />
+            <TokenDetailsWalletActionMore
+              accountId={accountId}
+              networkId={networkId}
+              walletId={wallet?.id ?? ''}
+              walletType={wallet?.type}
+              tokenInfo={tokenInfo}
+              isTabView={isTabView}
+              onSwap={handleOnSwap}
+              onBridge={handleOnBridge}
+            />
           </RawActions>
         </Stack>
         {shouldShowAddressBlock ? (

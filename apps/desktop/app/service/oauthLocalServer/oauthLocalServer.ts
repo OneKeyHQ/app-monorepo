@@ -232,12 +232,15 @@ export async function startOAuthServer(): Promise<{ port: number }> {
     });
 
     // Auto-close server after 5 minutes timeout
-    setTimeout(() => {
-      if (oauthServer) {
-        oauthServer.close();
-        oauthServer = null;
-      }
-    }, 5 * 60 * 1000);
+    setTimeout(
+      () => {
+        if (oauthServer) {
+          oauthServer.close();
+          oauthServer = null;
+        }
+      },
+      5 * 60 * 1000,
+    );
   });
 }
 

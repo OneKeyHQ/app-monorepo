@@ -251,7 +251,7 @@ function TxFeeEditor(props: IProps) {
       ).toFixed(),
       maxBaseFee: originalMaxBaseFee.isGreaterThan(0)
         ? originalMaxBaseFee.toFixed()
-        : customFee?.gasEIP1559?.baseFeePerGas ?? '0',
+        : (customFee?.gasEIP1559?.baseFeePerGas ?? '0'),
       // fee utxo
       feeRate: new BigNumber(customFee?.feeUTXO?.feeRate ?? '0').toFixed(),
       // fee sol
@@ -940,9 +940,7 @@ function TxFeeEditor(props: IProps) {
                 </SizableText> */}
                 <SizableText
                   color={
-                    currentFeeIndex === index
-                      ? '$textInteractive'
-                      : '$textSubdued'
+                    currentFeeIndex === index ? '$textInverse' : '$textSubdued'
                   }
                   size="$bodyMdMedium"
                   textAlign="center"

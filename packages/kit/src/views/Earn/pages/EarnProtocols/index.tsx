@@ -11,6 +11,7 @@ import {
   XStack,
   YStack,
   useMedia,
+  useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -231,7 +232,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
         <YStack>
           {/* Table Header - Desktop only */}
           {isDesktopLayout ? (
-            <ListItem mx="$0" px="$5">
+            <ListItem mx="$0" px="$pagePadding">
               <XStack flex={2.5}>
                 <Skeleton h="$3" w={80} />
               </XStack>
@@ -252,7 +253,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
             <ListItem
               key={index}
               mx="$0"
-              px="$5"
+              px="$pagePadding"
               ai={isDesktopLayout ? 'center' : 'flex-start'}
             >
               {/* Protocol column */}
@@ -294,7 +295,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
       return (
         <YStack alignItems="center" flex={1}>
           <Empty
-            px="$5"
+            px="$pagePadding"
             py="$0"
             width="100%"
             icon="ErrorOutline"
@@ -336,12 +337,17 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
     fetchProtocolData,
   ]);
 
+  const tabBarHeight = useScrollContentTabBarOffset();
+
   return (
     <EarnPageContainer
       sceneName={EAccountSelectorSceneName.home}
       tabRoute={ETabRoutes.Earn}
       pageTitle={customHeaderLeft}
       customHeaderRightItems={platformEnv.isNative ? <></> : undefined}
+      contentContainerStyle={{
+        pb: tabBarHeight,
+      }}
       breadcrumbProps={{
         items: [
           {

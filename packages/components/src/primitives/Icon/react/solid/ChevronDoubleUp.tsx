@@ -1,13 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgChevronDoubleUp = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      fill="currentColor"
-      fillRule="evenodd"
-      d="M7.293 18.207a1 1 0 0 0 1.414 0L12 14.914l3.293 3.293a1 1 0 0 0 1.414-1.414L13.414 13.5a2 2 0 0 0-2.828 0l-3.293 3.293a1 1 0 0 0 0 1.414m0-7a1 1 0 0 0 1.414 0L12 7.914l3.293 3.293a1 1 0 0 0 1.414-1.414L13.414 6.5a2 2 0 0 0-2.828 0L7.293 9.793a1 1 0 0 0 0 1.414"
-      clipRule="evenodd"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M10.772 10.635a1.736 1.736 0 0 0 2.455 0l3.442-3.442a.992.992 0 1 0-1.403-1.402L12 9.057 8.734 5.79a.993.993 0 0 0-1.403 1.402zm0 6.942a1.736 1.736 0 0 0 2.455 0l3.442-3.441a.992.992 0 0 0-1.403-1.403L12 16l-3.266-3.267a.993.993 0 0 0-1.403 1.403z" />
   </Svg>
 );
 export default SvgChevronDoubleUp;

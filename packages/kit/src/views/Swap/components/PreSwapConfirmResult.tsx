@@ -5,7 +5,7 @@ import { useIntl } from 'react-intl';
 import {
   AnimatePresence,
   Button,
-  Image,
+  Illustration,
   LottieView,
   SizableText,
   XStack,
@@ -85,30 +85,21 @@ const PreSwapConfirmResult = ({
       <YStack justifyContent="center" alignItems="center" gap="$4" flex={1}>
         <AnimatePresence>
           {lastStep.status === ESwapStepStatus.SUCCESS ? (
-            <YStack
+            <LottieView
               key={lastStep.status}
-              animation="medium"
-              enterStyle={{ scale: 0.5, opacity: 0.5 }}
-            >
-              <Image
-                key={lastStep.status}
-                width={110}
-                height={110}
-                source={require('@onekeyhq/kit/assets/preSwapStepSuccess.png')}
-              />
-            </YStack>
+              source={require('@onekeyhq/kit/assets/animations/lottie-swap-done.json')}
+              width={110}
+              height={110}
+              autoPlay
+              loop={false}
+            />
           ) : null}
         </AnimatePresence>
         {lastStep.status !== ESwapStepStatus.SUCCESS ? (
           <>
             {lastStep.status === ESwapStepStatus.FAILED ? (
               <YStack key={lastStep.status}>
-                <Image
-                  key={lastStep.status}
-                  width={110}
-                  height={110}
-                  source={require('@onekeyhq/kit/assets/preSwapStepFailed.png')}
-                />
+                <Illustration key={lastStep.status} size={110} name="XMark" />
               </YStack>
             ) : (
               <YStack key={lastStep.status}>

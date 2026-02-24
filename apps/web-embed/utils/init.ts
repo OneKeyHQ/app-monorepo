@@ -59,7 +59,7 @@ export const initAnalytics = () => {
     baseURL: buildServiceEndpoint({
       serviceName: EServiceEndpointEnum.Utility,
       env:
-        globalThis?.WEB_EMBED_ONEKEY_APP_SETTINGS?.enableTestEndpoint ?? false
+        (globalThis?.WEB_EMBED_ONEKEY_APP_SETTINGS?.enableTestEndpoint ?? false)
           ? 'test'
           : 'prod',
     }),

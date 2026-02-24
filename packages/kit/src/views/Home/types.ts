@@ -10,8 +10,7 @@ export interface IBaseOverviewErrorInfo {
 }
 
 export interface IOverviewScanTaskInfo
-  extends IBaseOverviewQuery,
-    IBaseOverviewErrorInfo {
+  extends IBaseOverviewQuery, IBaseOverviewErrorInfo {
   scanTypes?: EOverviewScanTaskType[]; // defaults to ['token']
   id?: string;
   status?: 'pending' | 'processing' | 'done';
@@ -152,8 +151,7 @@ export enum EOverviewDeFiPoolType {
 }
 
 export interface IOverviewDeFiPortfolioItem
-  extends IBaseOverviewQuery,
-    IOverviewDeFiProtocolInfo {
+  extends IBaseOverviewQuery, IOverviewDeFiProtocolInfo {
   // TODO rename serviceCode
   buildByService: IOverviewServiceNames;
 
@@ -192,8 +190,7 @@ export interface IOverviewDeFiPortfolioItem
   poolValue?: string;
 }
 export interface IOverviewDeFiPortfolio
-  extends IBaseOverviewQuery,
-    IBaseOverviewErrorInfo {
+  extends IBaseOverviewQuery, IBaseOverviewErrorInfo {
   pools: IOverviewDeFiPortfolioItem[];
   $rawServiceResult?: any;
   $scanStartTime?: string;
@@ -338,4 +335,4 @@ export type IOverviewTokenDetailListItem = {
   protocol?: IOverviewDefiRes;
 };
 
-export const PORTFOLIO_CONTAINER_RIGHT_SIDE_FIXED_WIDTH = 328;
+export const PORTFOLIO_CONTAINER_RIGHT_SIDE_FIXED_WIDTH = 400;

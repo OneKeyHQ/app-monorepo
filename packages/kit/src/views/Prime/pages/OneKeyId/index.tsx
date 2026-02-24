@@ -11,20 +11,19 @@ import {
   Stack,
   XStack,
   YStack,
+  popModalPagesOnNative,
+  rootNavigationRef,
   useUpdateEffect,
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
-import { useKeylessWalletFeatureIsEnabled } from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useReferFriends } from '@onekeyhq/kit/src/hooks/useReferFriends';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EModalRoutes } from '@onekeyhq/shared/src/routes';
-import { EOnboardingV2KeylessWalletCreationMode } from '@onekeyhq/shared/src/routes/onboardingv2';
+import { EModalRoutes, ERootRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -34,48 +33,49 @@ import { PrimeUserInfo } from '../PrimeDashboard/PrimeUserInfo';
 
 function OneKeyIdPage() {
   const intl = useIntl();
-  const navigation = useAppNavigation();
   const { toInviteRewardPage } = useReferFriends();
   const { isPrimeAvailable } = usePrimeAvailable();
   const { isLoggedIn, logout } = useOneKeyAuth();
   const logoutRef = useRef<() => Promise<void>>(logout);
   const isFocused = useRouteIsFocused();
-  const isKeylessWalletEnabled = useKeylessWalletFeatureIsEnabled();
 
-  const toPrimePage = useCallback(async () => {
-    if (isPrimeAvailable) {
-      if (platformEnv.isNative) {
-        navigation.popStack();
-        await timerUtils.wait(600);
+  const toPrimePage = useCallback(() => {
+    requestIdleCallback(async () => {
+      try {
+        if (isPrimeAvailable) {
+          if (platformEnv.isNative) {
+            popModalPagesOnNative();
+          }
+          rootNavigationRef.current?.navigate(ERootRoutes.iOSFullScreen, {
+            screen: EModalRoutes.PrimeModal,
+            params: {
+              screen: EPrimePages.PrimeDashboard,
+            },
+          });
+        }
+      } catch (e) {
+        defaultLogger.prime.subscription.onekeyIdLogout({
+          reason: `OneKeyIdPage: toPrimePage navigation error: ${String(e)}`,
+        });
       }
-      navigation.pushFullModal(EModalRoutes.PrimeModal, {
-        screen: EPrimePages.PrimeDashboard,
-      });
-    }
-  }, [navigation, isPrimeAvailable]);
-
-  const toKeylessWalletPage = useCallback(() => {
-    navigation.push(EModalRoutes.PrimeModal, {
-      screen: EPrimePages.KeylessWallet,
-      params: {
-        mode: EOnboardingV2KeylessWalletCreationMode.View,
-      },
     });
-  }, [navigation]);
+  }, [isPrimeAvailable]);
+
+  const handleLoggedOutWhileFocused = useCallback(async () => {
+    if (!isLoggedIn && isFocused) {
+      await timerUtils.wait(300);
+      popModalPagesOnNative();
+      defaultLogger.prime.subscription.onekeyIdLogout({
+        reason:
+          'OneKeyIdPage: is focused and primePersistAtom is not logged in',
+      });
+      void logoutRef.current();
+    }
+  }, [isLoggedIn, isFocused]);
 
   useUpdateEffect(() => {
-    void (async () => {
-      if (!isLoggedIn && isFocused) {
-        await timerUtils.wait(300);
-        navigation.popStack();
-        defaultLogger.prime.subscription.onekeyIdLogout({
-          reason:
-            'OneKeyIdPage: is focused and primePersistAtom is not logged in',
-        });
-        void logoutRef.current();
-      }
-    })();
-  }, [isLoggedIn, navigation, isFocused]);
+    void handleLoggedOutWhileFocused();
+  }, [handleLoggedOutWhileFocused]);
 
   return (
     <Page scrollEnabled>
@@ -105,7 +105,7 @@ function OneKeyIdPage() {
             <PrimeUserInfo
               onLogoutSuccess={async () => {
                 defaultLogger.referral.page.logoutOneKeyIDResult();
-                navigation.popStack();
+                popModalPagesOnNative();
               }}
             />
           </Stack>
@@ -167,28 +167,6 @@ function OneKeyIdPage() {
               })}
               onPress={toInviteRewardPage}
             />
-
-            {platformEnv.isWebDappMode || !isKeylessWalletEnabled ? null : (
-              <ListItem
-                drillIn
-                userSelect="none"
-                renderAvatar={
-                  <XStack
-                    borderRadius="$3"
-                    bg="$blue8"
-                    w="$12"
-                    h="$12"
-                    ai="center"
-                    jc="center"
-                  >
-                    <Icon name="WalletCryptoSolid" color="$blue12" size="$6" />
-                  </XStack>
-                }
-                title="Keyless Wallet"
-                subtitle="View your keyless wallet shares"
-                onPress={toKeylessWalletPage}
-              />
-            )}
           </YStack>
         </YStack>
       </Page.Body>

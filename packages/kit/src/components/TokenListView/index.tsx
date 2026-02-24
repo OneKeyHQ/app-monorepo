@@ -511,21 +511,14 @@ function TokenListViewCmp(props: IProps) {
   const renderPlainModeFooter = useCallback(() => {
     if (overFlowState.isOverflow && overFlowState.isSliced) {
       return (
-        <XStack py="$3" jc="center" ai="center">
+        <XStack pt="$3" px="$5" jc="center" ai="center">
           <Button
-            size="small"
+            size="medium"
             variant="secondary"
             onPress={() =>
               setOverFlowState((prev) => ({ ...prev, isSliced: false }))
             }
-            $md={
-              {
-                flexGrow: 1,
-                flexBasis: 0,
-                size: 'medium',
-                borderRadius: '$full',
-              } as any
-            }
+            flex={1}
           >
             {intl.formatMessage({ id: ETranslations.global_show_more })}
           </Button>
@@ -552,21 +545,14 @@ function TokenListViewCmp(props: IProps) {
           </Stack>
         ) : null}
         {overFlowState.isOverflow && !overFlowState.isSliced ? (
-          <XStack jc="center" ai="center" pt="$3">
+          <XStack jc="center" ai="center" pt="$3" px="$5">
             <Button
-              size="small"
+              size="medium"
               variant="secondary"
               onPress={() =>
                 setOverFlowState((prev) => ({ ...prev, isSliced: true }))
               }
-              $md={
-                {
-                  flexGrow: 1,
-                  flexBasis: 0,
-                  size: 'medium',
-                  borderRadius: '$full',
-                } as any
-              }
+              flex={1}
             >
               {intl.formatMessage({ id: ETranslations.global_show_less })}
             </Button>
@@ -591,19 +577,7 @@ function TokenListViewCmp(props: IProps) {
 
   if (plainMode) {
     if (showSkeleton) {
-      return (
-        <ListLoading
-          itemProps={
-            tableLayout
-              ? undefined
-              : {
-                  mx: '$0',
-                  px: '$0',
-                }
-          }
-          isTokenSelectorView={!tableLayout}
-        />
-      );
+      return <ListLoading isTokenSelectorView={!tableLayout} />;
     }
 
     if (!limitedTokens || limitedTokens.length === 0) {
@@ -661,6 +635,7 @@ function TokenListViewCmp(props: IProps) {
     <ListComponent
       // @ts-ignore
       estimatedItemSize={tableLayout ? undefined : 60}
+      showsVerticalScrollIndicator={false}
       refreshControl={
         onRefresh ? <PullToRefresh onRefresh={onRefresh} /> : undefined
       }

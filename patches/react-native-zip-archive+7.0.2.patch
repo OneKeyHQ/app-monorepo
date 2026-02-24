@@ -1,0 +1,124 @@
+diff --git a/node_modules/react-native-zip-archive/android/src/main/java/com/rnziparchive/RNZipArchiveModule.java b/node_modules/react-native-zip-archive/android/src/main/java/com/rnziparchive/RNZipArchiveModule.java
+index 54f1955..592993c 100644
+--- a/node_modules/react-native-zip-archive/android/src/main/java/com/rnziparchive/RNZipArchiveModule.java
++++ b/node_modules/react-native-zip-archive/android/src/main/java/com/rnziparchive/RNZipArchiveModule.java
+@@ -1,3 +1,14 @@
++/**
++ * PATCH: Fix NullPointerException when promise.reject is called with null error code
++ *
++ * React Native 0.81.x uses Kotlin for PromiseImpl which requires non-null error code parameter.
++ * This patch replaces all promise.reject(null, ...) calls with proper error codes.
++ *
++ * Sentry Issue: NullPointerException at com.facebook.react.bridge.PromiseImpl.reject
++ * Error: "Parameter specified as non-null is null: method com.facebook.react.bridge.PromiseImpl.reject, parameter code"
++ *
++ * See: https://github.com/mockingbot/react-native-zip-archive/issues/280
++ */
+ package com.rnziparchive;
+ 
+ import android.content.res.AssetFileDescriptor;
+@@ -64,7 +75,7 @@ public class RNZipArchiveModule extends ReactContextBaseJavaModule {
+       net.lingala.zip4j.ZipFile zipFile = new net.lingala.zip4j.ZipFile(zipFilePath);
+       promise.resolve(zipFile.isEncrypted());
+     } catch (ZipException ex) {
+-      promise.reject(null, String.format("Unable to check for encryption due to: %s", getStackTrace(ex)));
++      promise.reject("ERR_ZIP_CHECK_ENCRYPTION", String.format("Unable to check for encryption due to: %s", getStackTrace(ex)));
+     }
+   }
+ 
+@@ -79,7 +90,7 @@ public class RNZipArchiveModule extends ReactContextBaseJavaModule {
+           if (zipFile.isEncrypted()) {
+             zipFile.setPassword(password.toCharArray());
+           } else {
+-            promise.reject(null, String.format("Zip file: %s is not password protected", zipFilePath));
++            promise.reject("ERR_ZIP_NOT_ENCRYPTED", String.format("Zip file: %s is not password protected", zipFilePath));
+           }
+ 
+           List fileHeaderList = zipFile.getFileHeaders();
+@@ -107,7 +118,7 @@ public class RNZipArchiveModule extends ReactContextBaseJavaModule {
+           promise.resolve(Arguments.fromList(extractedFileNames));
+         } catch (Exception ex) {
+           updateProgress(0, 1, zipFilePath); // force 0%
+-          promise.reject(null, String.format("Failed to unzip file, due to: %s", getStackTrace(ex)));
++          promise.reject("ERR_ZIP_UNZIP_FAILED", String.format("Failed to unzip file, due to: %s", getStackTrace(ex)));
+         }
+       }
+     }).start();
+@@ -122,7 +133,7 @@ public class RNZipArchiveModule extends ReactContextBaseJavaModule {
+         try {
+           new File(zipFilePath);
+         } catch (NullPointerException e) {
+-          promise.reject(null, "Couldn't open file " + zipFilePath + ". ");
++          promise.reject("ERR_ZIP_FILE_NOT_FOUND", "Couldn't open file " + zipFilePath + ". ");
+           return;
+         }
+ 
+@@ -174,7 +185,7 @@ public class RNZipArchiveModule extends ReactContextBaseJavaModule {
+           }
+         } catch (Exception ex) {
+           updateProgress(0, 1, zipFilePath); // force 0%
+-          promise.reject(null, "Failed to extract file " + ex.getLocalizedMessage());
++          promise.reject("ERR_ZIP_EXTRACT_FAILED", "Failed to extract file " + ex.getLocalizedMessage());
+         }
+       }
+     }).start();
+@@ -212,7 +223,7 @@ public class RNZipArchiveModule extends ReactContextBaseJavaModule {
+             compressedSize = fileDescriptor.getLength();
+           }
+         } catch (IOException e) {
+-          promise.reject(null, String.format("Asset file `%s` could not be opened", assetsPath));
++          promise.reject("ERR_ZIP_ASSET_NOT_FOUND", String.format("Asset file `%s` could not be opened", assetsPath));
+           return;
+         }
+ 
+@@ -274,7 +285,7 @@ public class RNZipArchiveModule extends ReactContextBaseJavaModule {
+             throw new Exception(String.format("Couldn't extract %s", assetsPath));
+           }
+         } catch (Exception ex) {
+-          promise.reject(null, ex.getMessage());
++          promise.reject("ERR_ZIP_EXTRACT_ASSETS_FAILED", ex.getMessage());
+           return;
+         }
+         promise.resolve(destDirectory);
+@@ -338,13 +349,13 @@ public class RNZipArchiveModule extends ReactContextBaseJavaModule {
+           Log.d(TAG, "Encryption type not supported default to Standard Encryption");
+         }
+       } else {
+-        promise.reject(null, "Password is empty");
++        promise.reject("ERR_ZIP_PASSWORD_EMPTY", "Password is empty");
+       }
+ 
+       processZip(filesOrDirectory, destFile, parameters, promise, password.toCharArray());
+ 
+     } catch (Exception ex) {
+-      promise.reject(null, ex.getMessage());
++      promise.reject("ERR_ZIP_WITH_PASSWORD_FAILED", ex.getMessage());
+       return;
+     }
+ 
+@@ -360,7 +371,7 @@ public class RNZipArchiveModule extends ReactContextBaseJavaModule {
+       processZip(filesOrDirectory, destFile, parameters, promise, null);
+ 
+     } catch (Exception ex) {
+-      promise.reject(null, ex.getMessage());
++      promise.reject("ERR_ZIP_FAILED", ex.getMessage());
+       return;
+     }
+   }
+@@ -410,14 +421,14 @@ public class RNZipArchiveModule extends ReactContextBaseJavaModule {
+               }
+             }
+             else {
+-              promise.reject(null, "File or folder does not exist");
++              promise.reject("ERR_ZIP_FILE_NOT_EXIST", "File or folder does not exist");
+             }
+ 
+             updateProgress(1, 1, destFile); // force 100%
+           }
+           promise.resolve(destFile);
+         } catch (Exception ex) {
+-          promise.reject(null, ex.getMessage());
++          promise.reject("ERR_ZIP_PROCESS_FAILED", ex.getMessage());
+           return;
+         }
+       }

@@ -1,14 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgUndo = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M6.5 5 3.207 8.293a1 1 0 0 0 0 1.414L6.5 13M4 9h13a4 4 0 0 1 4 4v1a4 4 0 0 1-4 4h-5"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="m8.414 5-3 3H22v11H11v-2h9v-7H5.414l3 3L7 14.414 1.586 9 7 3.586z" />
   </Svg>
 );
 export default SvgUndo;
