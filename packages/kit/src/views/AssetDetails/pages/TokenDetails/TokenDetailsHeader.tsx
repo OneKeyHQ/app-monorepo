@@ -100,13 +100,14 @@ function TokenDetailsHeader(props: IProps) {
             networkId,
             contractList: [tokenInfo.address],
           });
-        updateTokenMetadata({
-          price: tokensDetails[0]?.price ?? 0,
-          priceChange24h: tokensDetails[0]?.price24h ?? 0,
-          coingeckoId: tokensDetails[0]?.info?.coingeckoId ?? '',
-        });
 
-        const data = tokensDetails[0];
+        const data = tokensDetails?.[0];
+
+        updateTokenMetadata({
+          price: data?.price ?? 0,
+          priceChange24h: data?.price24h ?? 0,
+          coingeckoId: data?.info?.coingeckoId ?? '',
+        });
 
         if (!data) {
           return undefined;
