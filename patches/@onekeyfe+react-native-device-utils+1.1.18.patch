@@ -1,8 +1,15 @@
 diff --git a/node_modules/@onekeyfe/react-native-device-utils/android/src/main/java/com/margelo/nitro/reactnativedeviceutils/ReactNativeDeviceUtils.kt b/node_modules/@onekeyfe/react-native-device-utils/android/src/main/java/com/margelo/nitro/reactnativedeviceutils/ReactNativeDeviceUtils.kt
-index f99af72..8ae8314 100644
+index f99af72..a1b2c3d 100644
 --- a/node_modules/@onekeyfe/react-native-device-utils/android/src/main/java/com/margelo/nitro/reactnativedeviceutils/ReactNativeDeviceUtils.kt
 +++ b/node_modules/@onekeyfe/react-native-device-utils/android/src/main/java/com/margelo/nitro/reactnativedeviceutils/ReactNativeDeviceUtils.kt
-@@ -220,7 +220,7 @@ class ReactNativeDeviceUtils : HybridReactNativeDeviceUtilsSpec(), LifecycleEven
+@@ -6,6 +6,7 @@ import android.graphics.Color
+ import android.graphics.Rect
+ import android.os.Build
++import android.util.Log
+ import androidx.preference.PreferenceManager
+ import androidx.core.content.ContextCompat
+ import androidx.core.util.Consumer
+@@ -220,7 +221,7 @@ class ReactNativeDeviceUtils : HybridReactNativeDeviceUtilsSpec(), LifecycleEven
    private var layoutInfoConsumer: Consumer<WindowLayoutInfo>? = null
    private var windowInfoTracker: WindowInfoTracker? = null
    private var callbackAdapter: WindowInfoTrackerCallbackAdapter? = null
@@ -11,7 +18,7 @@ index f99af72..8ae8314 100644
    private var isObservingLayoutChanges = false
    private var nextListenerId = 0.0
    private var isDualScreenDeviceDetected: Boolean? = null
-@@ -697,9 +697,19 @@ class ReactNativeDeviceUtils : HybridReactNativeDeviceUtilsSpec(), LifecycleEven
+@@ -697,9 +698,16 @@ class ReactNativeDeviceUtils : HybridReactNativeDeviceUtilsSpec(), LifecycleEven
    }
  
    fun callSpanningChangedListeners(isSpanning: Boolean) {
@@ -21,27 +28,12 @@ index f99af72..8ae8314 100644
 +    // CopyOnWriteArrayList provides snapshot-based iteration that never throws
 +    // ConcurrentModificationException, even if listeners are added/removed during iteration.
 +    // Do NOT call .toList() here as it creates a regular ArrayList that is not thread-safe.
-+    try {
-+      for (listener in spanningChangedListeners) {
-+        try {
-+          listener.callback(isSpanning)
-+        } catch (e: Exception) {
-+          // Ignore individual listener errors to avoid breaking the iteration
-+        }
++    for (listener in spanningChangedListeners) {
++      try {
++        listener.callback(isSpanning)
++      } catch (e: Exception) {
++        Log.e("OneKey", "Error in spanning listener callback", e)
 +      }
-+    } catch (e: Exception) {
-+      // Safety net: catch any unexpected iteration errors
      }
    }
  
-@@ -712,7 +722,9 @@ class ReactNativeDeviceUtils : HybridReactNativeDeviceUtilsSpec(), LifecycleEven
-   }
- 
-     override fun removeSpanningChangedListener(id: Double) {
--        spanningChangedListeners.removeIf { it.id == id }
-+        synchronized(this) {
-+            spanningChangedListeners.removeIf { it.id == id }
-+        }
-     }
- 
-   private fun startObservingLayoutChanges() {
