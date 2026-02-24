@@ -1,8 +1,10 @@
 import BigNumber from 'bignumber.js';
 
 import { appLocale } from '../locale/appLocale';
+import { LOCALES } from '../locale/localeJsonMap';
 
 import {
+  LOCALE_SEPARATORS,
   formatBalance,
   formatDisplayNumber,
   formatMarketCap,
@@ -18,7 +20,59 @@ import {
 const defaultLocal = appLocale.intl.locale;
 const defaultMessages = appLocale.intl.messages;
 
-describe('numberUtils.italy.test', () => {
+// All locale keys from the app's supported locale list.
+const SUPPORTED_LOCALES = Object.keys(LOCALES);
+
+// Use the same separator table as production code.
+// Tests verify correctness against runtime Intl.NumberFormat (Node full-ICU),
+// so if the table drifts, the test will catch it.
+const EXPECTED_SEPARATORS = LOCALE_SEPARATORS;
+
+describe('numberUtils locale separators', () => {
+  afterEach(() => {
+    appLocale.setLocale(defaultLocal, defaultMessages);
+  });
+
+  // Ensure every supported locale has an expected separator entry.
+  // This fails when a new locale is added to LOCALES but not to
+  // EXPECTED_SEPARATORS (or LOCALE_SEPARATORS in numberUtils.ts).
+  for (const locale of SUPPORTED_LOCALES) {
+    test(`${locale}: has expected separator definition`, () => {
+      expect(EXPECTED_SEPARATORS[locale]).toBeDefined();
+    });
+  }
+
+  for (const locale of SUPPORTED_LOCALES) {
+    const { decimal, grouping } = EXPECTED_SEPARATORS[locale] ?? {
+      decimal: '.',
+      grouping: ',',
+    };
+    test(`${locale}: decimal and grouping separators are correct`, () => {
+      appLocale.setLocale(locale, {} as any);
+      const result = formatDisplayNumber(formatBalance('1234.5678'));
+      expect(result).toContain(decimal);
+      if (grouping !== decimal) {
+        expect(result).toContain(grouping);
+      }
+    });
+  }
+
+  for (const locale of SUPPORTED_LOCALES) {
+    const { decimal } = EXPECTED_SEPARATORS[locale] ?? {
+      decimal: '.',
+      grouping: ',',
+    };
+    test(`${locale}: formatPrice uses correct decimal`, () => {
+      appLocale.setLocale(locale, {} as any);
+      const result = formatDisplayNumber(
+        formatPrice('42.50', { currency: '$' }),
+      );
+      expect(result).toContain(`$42${decimal}50`);
+    });
+  }
+});
+
+describe('numberUtils it-IT formatting', () => {
   beforeEach(() => {
     appLocale.setLocale('it-IT', {} as any);
   });

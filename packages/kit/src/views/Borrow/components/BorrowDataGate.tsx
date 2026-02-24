@@ -5,6 +5,7 @@ import { useIsFocused } from '@react-navigation/core';
 import { isEmpty } from 'lodash';
 
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
 
@@ -84,6 +85,17 @@ export const BorrowDataGate = ({
         : null,
     [market, marketProvider, marketAddress, accountId],
   );
+
+  // Reset staleness on modal dismiss so revalidateOnFocus triggers a fresh fetch.
+  // Must be declared BEFORE usePromiseResult so the effect fires first.
+  const isRouteFocused = useRouteIsFocused();
+  const prevRouteFocusedRef = useRef(isRouteFocused);
+  useEffect(() => {
+    if (isRouteFocused && !prevRouteFocusedRef.current) {
+      lastReservesUpdatedAtRef.current = null;
+    }
+    prevRouteFocusedRef.current = isRouteFocused;
+  }, [isRouteFocused]);
 
   const {
     result: reservesResult,

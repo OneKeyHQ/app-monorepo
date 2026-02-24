@@ -100,7 +100,9 @@ function normalizeConfig({ platform, config }) {
         ],
       },
     ],
-    [
+    // Skip transform-define in harness mode so platformEnv properties remain
+    // as runtime accesses (allowing tests to mock platform values).
+    process.env.RN_HARNESS !== 'true' && [
       'transform-define',
       {
         // override runtime env with buildtime env
