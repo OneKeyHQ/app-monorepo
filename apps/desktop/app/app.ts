@@ -1160,13 +1160,7 @@ app.on('gpu-info-update', () => {
   logger.info('GPU info updated');
 });
 
-// 4. GPU Resource Limits (prevent memory exhaustion)
-if (isWin || isLinux) {
-  // Limit GPU compositing framerate to reduce GPU load
-  app.commandLine.appendSwitch('max-gum-fps', '60');
-}
-
-// 5. Log GPU protection status
+// 4. Log GPU protection status
 const gpuStats = store.getGPUCrashStats();
 logger.info('GPU Protection System initialized', {
   platform: process.platform,

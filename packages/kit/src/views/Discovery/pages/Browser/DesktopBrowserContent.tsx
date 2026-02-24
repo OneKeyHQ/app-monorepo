@@ -280,19 +280,9 @@ function BasicDesktopBrowserContent({
               webview.clearHistory();
             }
 
-            // Step 5: Clear session storage and cache
-            if (
-              webview.getWebContents &&
-              typeof webview.getWebContents === 'function'
-            ) {
-              const webContents = webview.getWebContents();
-              if (webContents && webContents.session) {
-                void webContents.session.clearCache();
-                void webContents.session.clearStorageData({
-                  storages: ['cache', 'cachestorage'],
-                });
-              }
-            }
+            // Note: Do NOT call session.clearCache() or session.clearStorageData() here.
+            // All webviews share the same session (partition="persist:onekey"),
+            // so clearing session cache would destroy cache for all other open tabs.
 
             console.log(
               `[Memory Cleanup] Released all resources for tab: ${id}`,

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 import { Toast } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -15,6 +15,12 @@ import { useActiveTabId, useWebTabs } from './useWebTabs';
 export function useMemoryPressureHandler() {
   const { tabs } = useWebTabs();
   const { activeTabId: currentTabId } = useActiveTabId();
+
+  // Use refs to avoid stale closures in IPC handlers
+  const tabsRef = useRef(tabs);
+  const currentTabIdRef = useRef(currentTabId);
+  tabsRef.current = tabs;
+  currentTabIdRef.current = currentTabId;
 
   useEffect(() => {
     if (!platformEnv.isDesktop) {
@@ -54,9 +60,13 @@ export function useMemoryPressureHandler() {
       );
 
       if (action === 'reload-inactive-tabs') {
+        // Read latest values from refs to avoid stale closure
+        const currentTabs = tabsRef.current;
+        const activeTabId = currentTabIdRef.current;
+
         // Get all inactive tabs (not current tab)
-        const inactiveTabs = tabs.filter(
-          (tab: IWebTab) => tab.id !== currentTabId,
+        const inactiveTabs = currentTabs.filter(
+          (tab: IWebTab) => tab.id !== activeTabId,
         );
 
         console.log(
@@ -117,7 +127,19 @@ export function useMemoryPressureHandler() {
         handleMemoryCritical,
       );
     }
-    // Note: No cleanup needed as this component persists throughout app lifecycle
+
+    return () => {
+      if (globalThis.desktopApi) {
+        globalThis.desktopApi.removeListener(
+          'memory-pressure-warning',
+          handleMemoryWarning,
+        );
+        globalThis.desktopApi.removeListener(
+          'memory-pressure-critical',
+          handleMemoryCritical,
+        );
+      }
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 }
