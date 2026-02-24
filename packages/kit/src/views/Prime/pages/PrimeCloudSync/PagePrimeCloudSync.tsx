@@ -20,7 +20,10 @@ import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKey
 import { Section } from '@onekeyhq/kit/src/components/Section';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
-import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useDevSettingsPersistAtom,
+  usePasswordPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   usePrimeCloudSyncPersistAtom,
   usePrimeServerMasterPasswordStatusAtom,
@@ -95,6 +98,7 @@ function AutoLockUpdateDialogContent({
 
 function EnableOneKeyCloudSwitchListItem() {
   const [config] = usePrimeCloudSyncPersistAtom();
+  const [devSettings] = useDevSettingsPersistAtom();
   const { isPrimeSubscriptionActive } = useOneKeyAuth();
   const navigation = useAppNavigation();
   const route = useAppRoute<IPrimeParamList, EPrimePages.PrimeCloudSync>();
@@ -122,6 +126,9 @@ function EnableOneKeyCloudSwitchListItem() {
 
   const { user } = useOneKeyAuth();
   const isPrimeUser = user?.primeSubscription?.isActive && user?.onekeyUserId;
+  const showKeylessCloudSync =
+    devSettings.enabled &&
+    !!devSettings.settings?.enableKeylessCloudSyncFeature;
 
   const onekeyIdSwitchItem = (
     <ListItem
@@ -255,7 +262,7 @@ function EnableOneKeyCloudSwitchListItem() {
   );
   return (
     <>
-      {keylessSwitchItem}
+      {showKeylessCloudSync ? keylessSwitchItem : null}
       {onekeyIdSwitchItem}
     </>
   );
