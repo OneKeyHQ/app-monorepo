@@ -1,5 +1,5 @@
 diff --git a/node_modules/@onekeyfe/react-native-device-utils/android/src/main/java/com/margelo/nitro/reactnativedeviceutils/ReactNativeDeviceUtils.kt b/node_modules/@onekeyfe/react-native-device-utils/android/src/main/java/com/margelo/nitro/reactnativedeviceutils/ReactNativeDeviceUtils.kt
-index f99af72..c3a5d12 100644
+index f99af72..519995e 100644
 --- a/node_modules/@onekeyfe/react-native-device-utils/android/src/main/java/com/margelo/nitro/reactnativedeviceutils/ReactNativeDeviceUtils.kt
 +++ b/node_modules/@onekeyfe/react-native-device-utils/android/src/main/java/com/margelo/nitro/reactnativedeviceutils/ReactNativeDeviceUtils.kt
 @@ -6,6 +6,7 @@ import android.content.Context
@@ -33,7 +33,7 @@ index f99af72..c3a5d12 100644
 +      try {
 +        listener.callback(isSpanning)
 +      } catch (e: Exception) {
-+        Log.e("OneKey", "Error in listener callback", e)
++        Log.e("OneKey", "Error in spanning listener callback", e)
 +      }
      }
    }
