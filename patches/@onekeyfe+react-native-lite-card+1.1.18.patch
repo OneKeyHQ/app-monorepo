@@ -1,0 +1,37 @@
+diff --git a/node_modules/@onekeyfe/react-native-lite-card/android/src/main/java/com/onekeyfe/reactnativelitecard/utils/Utils.java b/node_modules/@onekeyfe/react-native-lite-card/android/src/main/java/com/onekeyfe/reactnativelitecard/utils/Utils.java
+index 6de5732..9fafb1d 100755
+--- a/node_modules/@onekeyfe/react-native-lite-card/android/src/main/java/com/onekeyfe/reactnativelitecard/utils/Utils.java
++++ b/node_modules/@onekeyfe/react-native-lite-card/android/src/main/java/com/onekeyfe/reactnativelitecard/utils/Utils.java
+@@ -324,7 +324,9 @@ public final class Utils {
+ 
+         @Override
+         public void onActivityDestroyed(Activity activity) {
+-            mActivityList.remove(activity);
++            synchronized (mActivityList) {
++                mActivityList.remove(activity);
++            }
+         }
+ 
+         private void postStatus(final boolean isForeground) {
+@@ -348,14 +350,15 @@ public final class Utils {
+             if (activity == null || mActivityList == null) {
+                 return;
+             }
+-            if (mActivityList.contains(activity)) {
+-                Activity lastActivity = mActivityList.getLast();
+-                if (lastActivity != null && !lastActivity.equals(activity)) {
+-                    mActivityList.remove(activity);
++            synchronized (mActivityList) {
++                if (mActivityList.contains(activity)) {
++                    if (!mActivityList.isEmpty() && !activity.equals(mActivityList.getLast())) {
++                        mActivityList.remove(activity);
++                        mActivityList.addLast(activity);
++                    }
++                } else {
+                     mActivityList.addLast(activity);
+                 }
+-            } else {
+-                mActivityList.addLast(activity);
+             }
+         }
+ 
