@@ -1,0 +1,47 @@
+diff --git a/node_modules/@onekeyfe/hd-core/dist/index.js b/node_modules/@onekeyfe/hd-core/dist/index.js
+index 50d671d..1d04f84 100644
+--- a/node_modules/@onekeyfe/hd-core/dist/index.js
++++ b/node_modules/@onekeyfe/hd-core/dist/index.js
+@@ -40640,12 +40640,12 @@ const closePopup = () => {
+ };
+ const onDeviceConnectHandler = (device) => {
+     const env = DataManager.getSettings('env');
+-    const deviceObject = DataManager.isBleConnect(env) ? device : device.toMessageObject();
++    const deviceObject = DataManager.isBleConnect(env) ? device : typeof device.toMessageObject === 'function' ? device.toMessageObject() : device;
+     postMessage(createDeviceMessage(DEVICE.CONNECT, { device: deviceObject }));
+ };
+ const onDeviceDisconnectHandler = (device) => {
+     const env = DataManager.getSettings('env');
+-    const deviceObject = DataManager.isBleConnect(env) ? device : device.toMessageObject();
++    const deviceObject = DataManager.isBleConnect(env) ? device : typeof device.toMessageObject === 'function' ? device.toMessageObject() : device;
+     postMessage(createDeviceMessage(DEVICE.DISCONNECT, { device: deviceObject }));
+ };
+ const onDevicePinHandler = (...[device, type, callback]) => __awaiter(void 0, void 0, void 0, function* () {
+diff --git a/node_modules/@onekeyfe/hd-core/src/core/index.ts b/node_modules/@onekeyfe/hd-core/src/core/index.ts
+index d625c30..2adf89e 100644
+--- a/node_modules/@onekeyfe/hd-core/src/core/index.ts
++++ b/node_modules/@onekeyfe/hd-core/src/core/index.ts
+@@ -1008,13 +1008,21 @@ const closePopup = () => {
+ 
+ const onDeviceConnectHandler = (device: Device) => {
+   const env = DataManager.getSettings('env');
+-  const deviceObject = DataManager.isBleConnect(env) ? device : device.toMessageObject();
++  const deviceObject = DataManager.isBleConnect(env)
++    ? device
++    : typeof device.toMessageObject === 'function'
++      ? device.toMessageObject()
++      : device;
+   postMessage(createDeviceMessage(DEVICE.CONNECT, { device: deviceObject as KnownDevice }));
+ };
+ 
+ const onDeviceDisconnectHandler = (device: Device) => {
+   const env = DataManager.getSettings('env');
+-  const deviceObject = DataManager.isBleConnect(env) ? device : device.toMessageObject();
++  const deviceObject = DataManager.isBleConnect(env)
++    ? device
++    : typeof device.toMessageObject === 'function'
++      ? device.toMessageObject()
++      : device;
+   postMessage(createDeviceMessage(DEVICE.DISCONNECT, { device: deviceObject as KnownDevice }));
+ };
+ 
