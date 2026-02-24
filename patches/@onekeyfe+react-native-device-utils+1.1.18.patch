@@ -1,8 +1,9 @@
 diff --git a/node_modules/@onekeyfe/react-native-device-utils/android/src/main/java/com/margelo/nitro/reactnativedeviceutils/ReactNativeDeviceUtils.kt b/node_modules/@onekeyfe/react-native-device-utils/android/src/main/java/com/margelo/nitro/reactnativedeviceutils/ReactNativeDeviceUtils.kt
-index f99af72..a1b2c3d 100644
+index f99af72..c3a5d12 100644
 --- a/node_modules/@onekeyfe/react-native-device-utils/android/src/main/java/com/margelo/nitro/reactnativedeviceutils/ReactNativeDeviceUtils.kt
 +++ b/node_modules/@onekeyfe/react-native-device-utils/android/src/main/java/com/margelo/nitro/reactnativedeviceutils/ReactNativeDeviceUtils.kt
-@@ -6,6 +6,7 @@ import android.graphics.Color
+@@ -6,6 +6,7 @@ import android.content.Context
+ import android.graphics.Color
  import android.graphics.Rect
  import android.os.Build
 +import android.util.Log
@@ -18,7 +19,7 @@ index f99af72..a1b2c3d 100644
    private var isObservingLayoutChanges = false
    private var nextListenerId = 0.0
    private var isDualScreenDeviceDetected: Boolean? = null
-@@ -697,9 +698,16 @@ class ReactNativeDeviceUtils : HybridReactNativeDeviceUtilsSpec(), LifecycleEven
+@@ -697,9 +698,15 @@ class ReactNativeDeviceUtils : HybridReactNativeDeviceUtilsSpec(), LifecycleEven
    }
  
    fun callSpanningChangedListeners(isSpanning: Boolean) {
@@ -32,7 +33,7 @@ index f99af72..a1b2c3d 100644
 +      try {
 +        listener.callback(isSpanning)
 +      } catch (e: Exception) {
-+        Log.e("OneKey", "Error in spanning listener callback", e)
++        Log.e("OneKey", "Error in listener callback", e)
 +      }
      }
    }
