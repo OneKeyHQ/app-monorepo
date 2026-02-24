@@ -1011,7 +1011,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     const swapSendToken = swapInfo.sender.token;
     const swapReceiveToken = swapInfo.receiver.token;
     const providerInfo = swapInfo.swapBuildResData.result?.info;
-    const otherFeeInfos = swapInfo.swapBuildResData.result.fee?.otherFeeInfos;
+    const otherFeeInfos = swapInfo.swapBuildResData.result?.fee?.otherFeeInfos;
     const otherFeeInfoTransfers: IDecodedTxTransferInfo[] = [];
 
     let transfers: IDecodedTxTransferInfo[] = [
