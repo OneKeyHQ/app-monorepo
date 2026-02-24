@@ -165,13 +165,13 @@ if (!Array.prototype.toSorted) {
     this: T[],
     compareFn?: (a: T, b: T) => number,
   ): T[] {
-    return [...this].toSorted(compareFn);
+    return [...this].sort(compareFn);
   };
 }
 if (!Array.prototype.toReversed) {
   // eslint-disable-next-line no-extend-native
   Array.prototype.toReversed = function <T>(this: T[]): T[] {
-    return [...this].toReversed();
+    return [...this].reverse();
   };
 }
 if (!Array.prototype.toSpliced) {
@@ -183,7 +183,11 @@ if (!Array.prototype.toSpliced) {
     ...items: T[]
   ): T[] {
     const copy = [...this];
-    copy.splice(start, deleteCount ?? 0, ...items);
+    if (deleteCount === undefined) {
+      copy.splice(start);
+    } else {
+      copy.splice(start, deleteCount, ...items);
+    }
     return copy;
   };
 }
