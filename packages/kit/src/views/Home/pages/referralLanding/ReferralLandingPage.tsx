@@ -15,6 +15,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   APP_STORE_DOWNLOAD_LINK,
+  APP_STORE_DOWNLOAD_WEB_LINK,
   DOWNLOAD_MOBILE_APP_URL,
   PLAY_STORE_LINK,
 } from '@onekeyhq/shared/src/config/appConfig';
@@ -88,8 +89,8 @@ function ReferralLandingPage() {
     if (platformEnv.isWeb && platformEnv.isWebMobile) {
       hasProcessedRef.current = true;
 
-      const storeUrl = platformEnv.isWebMobileIOS
-        ? APP_STORE_DOWNLOAD_LINK
+      const storeUrlAuto = platformEnv.isWebMobileIOS
+        ? APP_STORE_DOWNLOAD_WEB_LINK
         : platformEnv.isWebMobileAndroid
           ? PLAY_STORE_LINK
           : DOWNLOAD_MOBILE_APP_URL;
@@ -104,40 +105,80 @@ function ReferralLandingPage() {
           })
         : '';
 
-      defaultLogger.referral.page.enterReferralGuide(code, 'web_mobile_redirect');
+      defaultLogger.referral.page.enterReferralGuide(
+        code,
+        'web_mobile_redirect',
+      );
 
-      let didLeave = false;
-      const markLeave = () => {
-        didLeave = true;
-      };
-      const onVisibilityChange = () => {
-        if (globalThis.document?.visibilityState === 'hidden') {
-          markLeave();
+      const startTime = Date.now();
+      const fallbackDelayMs = 1200;
+      // If we don't redirect around the expected time window, it's likely the app opened
+      // (timers get throttled/paused in background) and the user returned later.
+      const maxElapsedForFallbackMs = fallbackDelayMs + 2500;
+
+      const redirectToStore = () => {
+        if (platformEnv.isWebMobileIOS) {
+          // Try to open the App Store app first; fall back to the web page if blocked.
+          const storeStartTime = Date.now();
+          globalThis.location.href = APP_STORE_DOWNLOAD_LINK;
+          globalThis.setTimeout(() => {
+            const elapsed = Date.now() - storeStartTime;
+            const isVisible = globalThis.document?.visibilityState !== 'hidden';
+            if (isVisible && elapsed <= 1500) {
+              globalThis.location.href = APP_STORE_DOWNLOAD_WEB_LINK;
+            }
+          }, 300);
+          return;
         }
+        globalThis.location.href = storeUrlAuto;
       };
 
-      globalThis.document?.addEventListener('visibilitychange', onVisibilityChange);
-      globalThis.addEventListener?.('pagehide', markLeave);
+      const openDeepLinkSilently = (url: string) => {
+        try {
+          const doc = globalThis.document;
+          if (doc?.body) {
+            // Use an iframe to avoid breaking the current page on iOS when the app isn't installed.
+            const iframe = doc.createElement('iframe');
+            iframe.style.display = 'none';
+            iframe.style.width = '0';
+            iframe.style.height = '0';
+            iframe.src = url;
+            doc.body.appendChild(iframe);
+            globalThis.setTimeout(() => {
+              try {
+                iframe.remove();
+              } catch {
+                // ignore
+              }
+            }, 800);
+            return;
+          }
+        } catch {
+          // ignore
+        }
+        globalThis.location.href = url;
+      };
 
       const fallbackTimer = globalThis.setTimeout(() => {
-        if (!didLeave) {
-          globalThis.location.href = storeUrl;
+        const elapsed = Date.now() - startTime;
+        const isVisible = globalThis.document?.visibilityState !== 'hidden';
+        if (isVisible && elapsed <= maxElapsedForFallbackMs) {
+          redirectToStore();
         }
-      }, 1200);
+      }, fallbackDelayMs);
 
       if (deepLinkUrl) {
-        globalThis.location.href = deepLinkUrl;
+        if (platformEnv.isWebMobileIOS) {
+          openDeepLinkSilently(deepLinkUrl);
+        } else {
+          globalThis.location.href = deepLinkUrl;
+        }
       } else {
-        globalThis.location.href = storeUrl;
+        redirectToStore();
       }
 
       return () => {
         globalThis.clearTimeout(fallbackTimer);
-        globalThis.document?.removeEventListener(
-          'visibilitychange',
-          onVisibilityChange,
-        );
-        globalThis.removeEventListener?.('pagehide', markLeave);
       };
     }
 

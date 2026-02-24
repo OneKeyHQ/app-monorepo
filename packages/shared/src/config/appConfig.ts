@@ -92,7 +92,11 @@ export const EXT_RATE_URL = {
 
 export const APP_STORE_LINK = `itms-apps://apps.apple.com/app/id1609559473?action=write-review`;
 // App Store product page (download). Use the itms-apps scheme to open the App Store app.
-export const APP_STORE_DOWNLOAD_LINK = 'itms-apps://apps.apple.com/app/id1609559473';
+export const APP_STORE_DOWNLOAD_LINK =
+  'itms-apps://apps.apple.com/app/id1609559473';
+// App Store web fallback (works when auto-redirects to itms-apps are blocked).
+export const APP_STORE_DOWNLOAD_WEB_LINK =
+  'https://apps.apple.com/app/id1609559473';
 export const PLAY_STORE_LINK = `https://play.google.com/store/apps/details?id=so.onekey.app.wallet`;
 
 export const ONEKEY_KEY_TAG_PURCHASE_URL =
