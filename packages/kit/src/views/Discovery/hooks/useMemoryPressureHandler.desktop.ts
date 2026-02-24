@@ -120,24 +120,27 @@ export function useMemoryPressureHandler() {
     };
 
     // Listen to IPC events from main process
+    // desktopApi.on() returns a cleanup function (or undefined if channel not in validChannels)
+    let removeWarningListener: (() => void) | undefined;
+    let removeCriticalListener: (() => void) | undefined;
+
     if (globalThis.desktopApi) {
-      globalThis.desktopApi.on('memory-pressure-warning', handleMemoryWarning);
-      globalThis.desktopApi.on(
+      removeWarningListener = globalThis.desktopApi.on(
+        'memory-pressure-warning',
+        handleMemoryWarning,
+      );
+      removeCriticalListener = globalThis.desktopApi.on(
         'memory-pressure-critical',
         handleMemoryCritical,
       );
     }
 
     return () => {
-      if (globalThis.desktopApi) {
-        globalThis.desktopApi.removeListener(
-          'memory-pressure-warning',
-          handleMemoryWarning,
-        );
-        globalThis.desktopApi.removeListener(
-          'memory-pressure-critical',
-          handleMemoryCritical,
-        );
+      if (removeWarningListener) {
+        removeWarningListener();
+      }
+      if (removeCriticalListener) {
+        removeCriticalListener();
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
