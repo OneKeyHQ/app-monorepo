@@ -110,11 +110,22 @@ function ReferralLandingPage() {
         'web_mobile_redirect',
       );
 
-      const startTime = Date.now();
       const fallbackDelayMs = 1200;
-      // If we don't redirect around the expected time window, it's likely the app opened
-      // (timers get throttled/paused in background) and the user returned later.
-      const maxElapsedForFallbackMs = fallbackDelayMs + 2500;
+
+      // Track whether the page ever went to background. If the app opened, the page is typically
+      // hidden/pagehide, and timers may fire later when the user comes back.
+      let didHide = false;
+      const markHide = () => {
+        didHide = true;
+      };
+      const onVisibilityChange = () => {
+        if (globalThis.document?.visibilityState === 'hidden') {
+          markHide();
+        }
+      };
+
+      globalThis.document?.addEventListener('visibilitychange', onVisibilityChange);
+      globalThis.addEventListener?.('pagehide', markHide);
 
       const redirectToStore = () => {
         if (platformEnv.isWebMobileIOS) {
@@ -160,9 +171,8 @@ function ReferralLandingPage() {
       };
 
       const fallbackTimer = globalThis.setTimeout(() => {
-        const elapsed = Date.now() - startTime;
         const isVisible = globalThis.document?.visibilityState !== 'hidden';
-        if (isVisible && elapsed <= maxElapsedForFallbackMs) {
+        if (isVisible && !didHide) {
           redirectToStore();
         }
       }, fallbackDelayMs);
@@ -179,6 +189,11 @@ function ReferralLandingPage() {
 
       return () => {
         globalThis.clearTimeout(fallbackTimer);
+        globalThis.document?.removeEventListener(
+          'visibilitychange',
+          onVisibilityChange,
+        );
+        globalThis.removeEventListener?.('pagehide', markHide);
       };
     }
 
