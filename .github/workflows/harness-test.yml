@@ -94,7 +94,7 @@ jobs:
           NODE_OPTIONS: '--max_old_space_size=4096'
           SENTRY_DISABLE_AUTO_UPLOAD: 'true'
         working-directory: apps/mobile/android
-        run: ./gradlew assembleProdDebug
+        run: ./gradlew assembleProdDebug -PreactNativeArchitectures=x86_64
 
       - name: Stop Gradle daemon to free memory
         working-directory: apps/mobile/android
