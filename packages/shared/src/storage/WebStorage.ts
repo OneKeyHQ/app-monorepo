@@ -5,6 +5,7 @@ import { SystemDiskFullError } from '../errors';
 import errorUtils from '../errors/utils/errorUtils';
 import { EAppEventBusNames, appEventBus } from '../eventBus/appEventBus';
 import { IndexedDBPromised } from '../IndexedDBPromised';
+import platformEnv from '../platformEnv';
 
 import WebStorageLegacy from './WebStorageLegacy';
 
@@ -134,6 +135,9 @@ class WebStorage implements AsyncStorageStatic {
   // localforage = localforage;
 
   checkDiskFull(payload?: any) {
+    if (platformEnv.isWebDappMode) {
+      return;
+    }
     if (globalThis.$onekeySystemDiskIsFull) {
       appEventBus.emit(EAppEventBusNames.ShowSystemDiskFullWarning, undefined);
       console.error('WebStorage==>checkDiskFull ', payload);
