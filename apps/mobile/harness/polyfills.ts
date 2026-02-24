@@ -165,12 +165,14 @@ if (!Array.prototype.toSorted) {
     this: T[],
     compareFn?: (a: T, b: T) => number,
   ): T[] {
+    // eslint-disable-next-line unicorn/no-array-sort -- polyfill intentionally uses mutating sort on a copy
     return [...this].sort(compareFn);
   };
 }
 if (!Array.prototype.toReversed) {
   // eslint-disable-next-line no-extend-native
   Array.prototype.toReversed = function <T>(this: T[]): T[] {
+    // eslint-disable-next-line unicorn/no-array-reverse -- polyfill intentionally uses mutating reverse on a copy
     return [...this].reverse();
   };
 }
