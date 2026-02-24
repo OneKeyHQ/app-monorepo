@@ -859,7 +859,10 @@ const PortfolioItemComponent = ({
                             disabled={button?.disabled}
                             variant="secondary"
                             onPress={async () => {
-                              if (button?.type === 'manage') {
+                              if (
+                                button?.type === 'manage' ||
+                                button?.type === 'redeem'
+                              ) {
                                 await handleManagePress(asset);
                               }
                             }}

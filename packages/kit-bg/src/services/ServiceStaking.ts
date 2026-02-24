@@ -25,6 +25,7 @@ import type { IDiscoveryBanner } from '@onekeyhq/shared/types/discovery';
 import type {
   EAvailableAssetsTypeEnum,
   EEarnProviderEnum,
+  IEarnAvailableAssetV2,
   ISupportedSymbol,
 } from '@onekeyhq/shared/types/earn';
 import { getEarnNetworkIds } from '@onekeyhq/shared/types/earn/earnProvider.constants';
@@ -142,13 +143,7 @@ interface IAvailableAssetsResponseV2 {
   code: string;
   message?: string;
   data: {
-    assets: {
-      type: 'normal' | 'airdrop';
-      networkId: string;
-      provider: string;
-      symbol: string;
-      vault?: string;
-    }[];
+    assets: IEarnAvailableAssetV2[];
   };
 }
 
@@ -815,13 +810,14 @@ class ServiceStaking extends ServiceBase {
     networkId: string;
     provider: string;
     symbol: string;
-    vault: string;
+    vault?: string;
     accountAddress: string;
     action: ECheckAmountActionType;
     amount: string;
     identity?: string;
     inputTokenAddress?: string;
     outputTokenAddress?: string;
+    slippage?: number;
   }) {
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const amountNumber = BigNumber(params.amount);
@@ -835,8 +831,8 @@ class ServiceStaking extends ServiceBase {
   }
 
   _getProtocolList = memoizee(
-    async (params: { symbol: string }) => {
-      const { symbol } = params;
+    async (params: { symbol: string; type?: EAvailableAssetsTypeEnum }) => {
+      const { symbol, type } = params;
       const client = await this.getClient(EServiceEndpointEnum.Earn);
 
       // Use v2 API that supports multiple networks
@@ -844,6 +840,7 @@ class ServiceStaking extends ServiceBase {
         data: { protocols: IStakeProtocolListItem[] };
       }>('/earn/v2/stake-protocol/list', {
         symbol,
+        type,
       });
       const protocols = protocolListResp.data.data.protocols;
       return protocols;
@@ -857,6 +854,7 @@ class ServiceStaking extends ServiceBase {
   @backgroundMethod()
   async getProtocolList(params: {
     symbol: string;
+    type?: EAvailableAssetsTypeEnum;
     accountId?: string;
     indexedAccountId?: string;
     filterNetworkId?: string;
@@ -866,6 +864,7 @@ class ServiceStaking extends ServiceBase {
     try {
       allItems = await this._getProtocolList({
         symbol: params.symbol,
+        type: params.type,
       });
     } catch (error) {
       console.warn(
@@ -1180,6 +1179,7 @@ class ServiceStaking extends ServiceBase {
   async fetchInvestmentDetailV2(params: {
     publicKey?: string | undefined;
     vault?: string | undefined;
+    ptAddress?: string | undefined;
     accountAddress: string;
     networkId: string;
     provider: string;
@@ -1220,6 +1220,7 @@ class ServiceStaking extends ServiceBase {
   async fetchAirdropInvestmentDetail(params: {
     publicKey?: string | undefined;
     vault?: string | undefined;
+    ptAddress?: string | undefined;
     accountAddress: string;
     networkId: string;
     provider: string;
@@ -1322,6 +1323,7 @@ class ServiceStaking extends ServiceBase {
     identity,
     inputTokenAddress,
     outputTokenAddress,
+    slippage,
   }: {
     accountId?: string;
     networkId?: string;
@@ -1334,6 +1336,7 @@ class ServiceStaking extends ServiceBase {
     identity?: string;
     inputTokenAddress?: string;
     outputTokenAddress?: string;
+    slippage?: number;
   }) {
     if (!networkId || !accountId || !provider) {
       throw new OneKeyLocalError(
@@ -1363,6 +1366,7 @@ class ServiceStaking extends ServiceBase {
         identity,
         inputTokenAddress,
         outputTokenAddress,
+        slippage,
       },
     });
     return result.data;
@@ -1720,11 +1724,13 @@ class ServiceStaking extends ServiceBase {
     protocolVault?: string;
     identity?: string;
     accountAddress?: string;
+    publicKey?: string;
     approveType?: 'permit';
     permitSignature?: string;
     withdrawAll?: boolean;
     inputTokenAddress?: string;
     outputTokenAddress?: string;
+    message?: string;
   }) {
     const { symbol, protocolVault, withdrawAll, ...rest } = params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
@@ -1743,7 +1749,10 @@ class ServiceStaking extends ServiceBase {
     }>(`/earn/v1/estimate-fee`, {
       params: sendParams,
     });
-    return resp.data.data;
+    return {
+      ...resp.data.data,
+      feeFiatValue: resp.data.data.feeFiatValue ?? '0',
+    };
   }
 
   @backgroundMethod()

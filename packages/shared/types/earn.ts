@@ -151,4 +151,18 @@ export interface IEarnAvailableAsset {
   badges?: IEarnAvailableAssetBadge[];
   aprInfo?: IEarnAvailableAssetAprInfo;
   bgColor?: string;
+  icon?: {
+    icon: IKeyOfIcons | string;
+    color?: ColorTokens;
+    bgColor?: string;
+  };
+}
+
+export interface IEarnAvailableAssetV2 {
+  type: 'normal' | 'airdrop';
+  networkId: string;
+  provider: string;
+  symbol: string;
+  vault?: string;
+  ptAddress?: string;
 }

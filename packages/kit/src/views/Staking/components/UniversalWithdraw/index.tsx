@@ -80,6 +80,7 @@ type IUniversalWithdrawProps = {
   initialAmount?: string;
   tokenImageUri?: string;
   tokenSymbol?: string;
+  requestSymbol?: string;
 
   minAmount?: string;
 
@@ -124,6 +125,7 @@ export function UniversalWithdraw({
   networkId,
   tokenImageUri,
   tokenSymbol,
+  requestSymbol,
   providerLogo,
   providerName,
   initialAmount,
@@ -163,6 +165,10 @@ export function UniversalWithdraw({
     () => earnUtils.isPendleProvider({ providerName: providerName ?? '' }),
     [providerName],
   );
+  const actionSymbol = useMemo(
+    () => requestSymbol || tokenSymbol || '',
+    [requestSymbol, tokenSymbol],
+  );
   const [checkAmountMessage, setCheckoutAmountMessage] = useState('');
   const [checkAmountAlerts, setCheckAmountAlerts] = useState<
     ICheckAmountAlert[]
@@ -173,7 +179,7 @@ export function UniversalWithdraw({
       !accountId ||
       !networkId ||
       !providerName ||
-      !tokenSymbol ||
+      !actionSymbol ||
       !BigNumber(amountValue).isGreaterThan(0)
     ) {
       return undefined;
@@ -191,7 +197,7 @@ export function UniversalWithdraw({
     const resp = await backgroundApiProxy.serviceStaking.estimateFee({
       networkId,
       provider: providerName,
-      symbol: tokenSymbol,
+      symbol: actionSymbol,
       action: 'unstake',
       amount: amountValue || balance || '1',
       txId: earnUtils.isBabylonProvider({ providerName })
@@ -214,7 +220,7 @@ export function UniversalWithdraw({
     accountId,
     networkId,
     providerName,
-    tokenSymbol,
+    actionSymbol,
     identity,
     protocolVault,
     balance,
@@ -264,7 +270,7 @@ export function UniversalWithdraw({
             networkId: networkId || '',
             accountId: accountId || '',
             provider: providerName || '',
-            symbol: tokenSymbol || '',
+            symbol: actionSymbol || '',
             action: 'unstake',
             identity,
           });
@@ -296,7 +302,7 @@ export function UniversalWithdraw({
     networkId,
     accountId,
     providerName,
-    tokenSymbol,
+    actionSymbol,
     identity,
   ]);
 
@@ -310,7 +316,7 @@ export function UniversalWithdraw({
       const response = await backgroundApiProxy.serviceStaking.checkAmount({
         accountId,
         networkId,
-        symbol: tokenSymbol,
+        symbol: actionSymbol,
         provider: providerName,
         action: ECheckAmountActionType.UNSTAKING,
         amount,
@@ -345,7 +351,7 @@ export function UniversalWithdraw({
         await backgroundApiProxy.serviceStaking.getTransactionConfirmation({
           networkId: networkId || '',
           provider: providerName || '',
-          symbol: tokenSymbol || '',
+          symbol: actionSymbol || '',
           vault: earnUtils.isVaultBasedProvider({
             providerName: providerName ?? '',
           })
@@ -366,7 +372,7 @@ export function UniversalWithdraw({
       protocolVault,
       networkId,
       providerName,
-      tokenSymbol,
+      actionSymbol,
       identity,
       transactionInputTokenAddress,
       transactionOutputTokenAddress,
