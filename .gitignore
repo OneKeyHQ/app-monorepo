@@ -4,6 +4,7 @@ __generated__
 .expo-shared
 .expo
 .DS_Store
+.mcp.json
 .idea/
 .vscode/
 .cursor/debug.log
