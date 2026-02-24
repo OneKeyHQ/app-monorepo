@@ -7,7 +7,16 @@ const SvgPackageDelivery = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M6 5H4a1 1 0 0 1 0-2h2a2 2 0 0 1 2 2v8.126A4.01 4.01 0 0 1 10.874 16H20a1 1 0 1 1 0 2h-9.126A4.002 4.002 0 0 1 3 17a4 4 0 0 1 3-3.874zm10.5 1v2a1 1 0 1 1-2 0V6H12v6h7V6zM5 17a2 2 0 1 0 4 0 2 2 0 0 0-4 0m16-5a2 2 0 0 1-2 2h-7a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2z" />
+    <Path
+      fillRule="evenodd"
+      d="M8 13.126A4.01 4.01 0 0 1 10.874 16H21v2H10.874A4.002 4.002 0 0 1 3 17a4 4 0 0 1 3-3.874V5H3V3h5zM7 15a2 2 0 1 0 0 4 2 2 0 0 0 0-4"
+      clipRule="evenodd"
+    />
+    <Path
+      fillRule="evenodd"
+      d="M21 14H10V4h11zm-9-2h7V6h-2.5v3h-2V6H12z"
+      clipRule="evenodd"
+    />
   </Svg>
 );
 export default SvgPackageDelivery;

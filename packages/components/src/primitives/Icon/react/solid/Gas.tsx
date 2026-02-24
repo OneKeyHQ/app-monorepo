@@ -9,7 +9,7 @@ const SvgGas = (props: SvgProps) => (
   >
     <Path
       fillRule="evenodd"
-      d="M3 5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v4h2a2 2 0 0 1 2 2v5h1V8.414l-1.707-1.707a1 1 0 0 1 1.414-1.414L21.414 7A2 2 0 0 1 22 8.414V16a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-5h-2v8a1 1 0 1 1 0 2H3a1 1 0 1 1 0-2zm3 5a1 1 0 0 1 1-1h4a1 1 0 1 1 0 2H7a1 1 0 0 1-1-1"
+      d="M15 9h4v7h1V8.414L17.586 6 19 4.586l3 3V18h-5v-7h-2v8h1v2H2v-2h1V3h12zM6 9v2h6V9z"
       clipRule="evenodd"
     />
   </Svg>

@@ -7,7 +7,11 @@ const SvgBold = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M17 16a3 3 0 0 0-3-3H7v6h7a3 3 0 0 0 3-3m2 0a5 5 0 0 1-5 5H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h6a5 5 0 0 1 3.434 8.632A5 5 0 0 1 19 16M7 11h6a3 3 0 1 0 0-6H7z" />
+    <Path
+      fillRule="evenodd"
+      d="M13 3a5 5 0 0 1 3.434 8.632A5 5 0 0 1 14 21H5V3zM7 13v6h7a3 3 0 0 0 0-6zm0-2h6a3 3 0 0 0 0-6H7z"
+      clipRule="evenodd"
+    />
   </Svg>
 );
 export default SvgBold;

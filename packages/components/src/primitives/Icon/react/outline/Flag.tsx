@@ -7,7 +7,11 @@ const SvgFlag = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M4 21V4a2 2 0 0 1 2-2h13.132c1.597 0 2.55 1.78 1.664 3.11L18.202 9l2.594 3.89c.886 1.33-.067 3.11-1.664 3.11H6v5a1 1 0 1 1-2 0m2-7h13.132l-2.594-3.89a2 2 0 0 1 0-2.22L19.132 4H6z" />
+    <Path
+      fillRule="evenodd"
+      d="m17.201 9 4.667 7H6v6H4V2h17.868zM6 14h12.132l-3.334-5 3.334-5H6z"
+      clipRule="evenodd"
+    />
   </Svg>
 );
 export default SvgFlag;

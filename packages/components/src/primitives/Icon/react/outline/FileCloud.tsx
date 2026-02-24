@@ -7,7 +7,16 @@ const SvgFileCloud = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M2 17.75a4.25 4.25 0 0 1 7.521-2.712A3.501 3.501 0 0 1 9 22H6.25A4.25 4.25 0 0 1 2 17.75m2-7.25V4a2 2 0 0 1 2-2h7l.099.005a1 1 0 0 1 .608.288l6 6A1 1 0 0 1 20 9v11a2 2 0 0 1-2 2h-3a1 1 0 1 1 0-2h3V10h-4a2 2 0 0 1-2-2V4H6v6.5a1 1 0 1 1-2 0m0 7.25A2.25 2.25 0 0 0 6.25 20H9a1.5 1.5 0 0 0 0-3h-.009a1 1 0 0 1-.845-.46A2.25 2.25 0 0 0 4 17.75M16.586 8 14 5.414V8z" />
+    <Path
+      fillRule="evenodd"
+      d="M6.25 13.5c1.319 0 2.492.602 3.269 1.538A3.5 3.5 0 0 1 9 22H6.25a4.25 4.25 0 0 1 0-8.5m0 2a2.25 2.25 0 0 0 0 4.5H9a1.5 1.5 0 0 0 0-3h-.562l-.294-.46A2.24 2.24 0 0 0 6.25 15.5"
+      clipRule="evenodd"
+    />
+    <Path
+      fillRule="evenodd"
+      d="M20 8.586V22h-6v-2h4V10h-6V4H6v7.5H4V2h9.414zM14 8h2.586L14 5.414z"
+      clipRule="evenodd"
+    />
   </Svg>
 );
 export default SvgFileCloud;

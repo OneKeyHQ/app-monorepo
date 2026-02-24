@@ -9003,7 +9003,7 @@ __metadata:
     react-native-get-random-values: "npm:@onekeyfe/react-native-get-random-values@1.1.18"
     react-native-harness: "npm:1.0.0-alpha.25"
     react-native-reanimated: "npm:4.2.1"
-    react-native-screens: "npm:4.20.0"
+    react-native-screens: "npm:4.23.0"
     react-native-web: "npm:0.21.2"
     react-native-worklets: "npm:0.7.1"
     react-refresh: "npm:^0.14.0"
@@ -9337,7 +9337,7 @@ __metadata:
     react-native-reanimated: "npm:4.2.1"
     react-native-restart: "npm:react-native-restart-newarch@1.0.82"
     react-native-safe-area-context: "npm:5.6.2"
-    react-native-screens: "npm:4.20.0"
+    react-native-screens: "npm:4.23.0"
     react-native-svg: "npm:15.15.1"
     react-native-svg-transformer: "npm:^1.5.3"
     react-native-tcp-socket: "npm:6.3.0"
@@ -39371,16 +39371,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-screens@npm:4.20.0":
-  version: 4.20.0
-  resolution: "react-native-screens@npm:4.20.0"
+"react-native-screens@npm:4.23.0":
+  version: 4.23.0
+  resolution: "react-native-screens@npm:4.23.0"
   dependencies:
     react-freeze: "npm:^1.0.0"
     warn-once: "npm:^0.1.0"
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 10/949b92bbd27403608df78216421d55ab2c0af352baed4e31a2fe3b7f00b5b16117ff491c0e14ae51c8048e43e345438df37e42397ebbb5047cc3289f10b5d72d
+  checksum: 10/cb8cc1c18c8d340f53a34a15e84ad6a3bd0ee43384d712a9e4c2a8257428c129c9bae0900ab86f64a4ebdc27684e6b12be9064a410e8f54c7a649534f12a9d76
   languageName: node
   linkType: hard
 

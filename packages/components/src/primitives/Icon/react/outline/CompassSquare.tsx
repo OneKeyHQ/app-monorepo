@@ -7,7 +7,16 @@ const SvgCompassSquare = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M5 5v14h14V5zm9.602 2.724a1.5 1.5 0 0 1 1.632 1.883l-1.119 4.105a2 2 0 0 1-1.403 1.403l-4.105 1.12a1.5 1.5 0 0 1-1.841-1.842l1.119-4.105a2 2 0 0 1 1.403-1.403l4.105-1.12zm-3.787 3.09-.89 3.26 3.26-.889.89-3.26-3.26.89ZM21 19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    <Path
+      fillRule="evenodd"
+      d="m14.866 14.866-6.919 1.188 1.187-6.92 6.92-1.187zm-4-4-.47 2.738 2.738-.47.47-2.738z"
+      clipRule="evenodd"
+    />
+    <Path
+      fillRule="evenodd"
+      d="M21 21H3V3h18zM5 19h14V5H5z"
+      clipRule="evenodd"
+    />
   </Svg>
 );
 export default SvgCompassSquare;

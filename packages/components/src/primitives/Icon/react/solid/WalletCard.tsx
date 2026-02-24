@@ -9,7 +9,7 @@ const SvgWalletCard = (props: SvgProps) => (
   >
     <Path
       fillRule="evenodd"
-      d="M2 6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2zm18 0H4v1h16zm0 3H4v1h5a1 1 0 0 1 1 1v1h4v-1a1 1 0 0 1 1-1h5z"
+      d="M22 20H2V4h20zM4 10h6v2h4v-2h6V9H4zm0-3h16V6H4z"
       clipRule="evenodd"
     />
   </Svg>

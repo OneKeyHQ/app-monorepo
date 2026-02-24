@@ -7,11 +7,7 @@ const SvgSunset = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path
-      fillRule="evenodd"
-      d="M4 13a1 1 0 0 1-1-1 9 9 0 0 1 18 0 1 1 0 0 1-1 1zm-3 3a1 1 0 0 1 1-1h20a1 1 0 1 1 0 2H2a1 1 0 0 1-1-1m5 4a1 1 0 0 1 1-1h10a1 1 0 1 1 0 2H7a1 1 0 0 1-1-1"
-      clipRule="evenodd"
-    />
+    <Path d="M18 21H6v-2h12zm5-4H1v-2h22zM12 3a9 9 0 0 1 9 9v1H3v-1a9 9 0 0 1 9-9" />
   </Svg>
 );
 export default SvgSunset;

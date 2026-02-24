@@ -7,10 +7,10 @@ const SvgWebcam = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M12 8a2 2 0 1 0 0 4 2 2 0 0 0 0-4" />
+    <Path d="M12 8a2 2 0 1 1 0 4 2 2 0 0 1 0-4" />
     <Path
       fillRule="evenodd"
-      d="M12 2a8 8 0 0 0-1 15.938V20H7a1 1 0 1 0 0 2h10a1 1 0 1 0 0-2h-4v-2.062A8.001 8.001 0 0 0 12 2m-4 8a4 4 0 1 1 8 0 4 4 0 0 1-8 0"
+      d="M12 2a8 8 0 0 1 1 15.939V20h5v2H6v-2h5v-2.061A8.002 8.002 0 0 1 12 2m0 4a4 4 0 1 0 0 8 4 4 0 0 0 0-8"
       clipRule="evenodd"
     />
   </Svg>

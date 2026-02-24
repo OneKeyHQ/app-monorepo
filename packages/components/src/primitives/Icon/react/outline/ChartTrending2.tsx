@@ -7,11 +7,7 @@ const SvgChartTrending2 = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path
-      fillRule="evenodd"
-      d="M4 3a1 1 0 0 1 1 1v10.586L8.086 11.5a2 2 0 0 1 2.828 0L12 12.586 15.586 9a2 2 0 0 1 2.828 0l1.293 1.293a1 1 0 0 1-1.414 1.414L17 10.414 13.414 14a2 2 0 0 1-2.828 0L9.5 12.914l-4.5 4.5V19h15a1 1 0 1 1 0 2H5a2 2 0 0 1-2-2V4a1 1 0 0 1 1-1"
-      clipRule="evenodd"
-    />
+    <Path d="m5 14.586 4.5-4.5 2.5 2.5 5-5L20.414 11 19 12.414l-2-2-5 5-2.5-2.5-4.5 4.5V19h16v2H3V3h2z" />
   </Svg>
 );
 export default SvgChartTrending2;

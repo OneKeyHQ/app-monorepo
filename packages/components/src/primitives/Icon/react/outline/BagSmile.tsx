@@ -7,7 +7,12 @@ const SvgBagSmile = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M18.06 3a2 2 0 0 1 1.997 1.875l.875 14A2 2 0 0 1 18.936 21H5.065a2 2 0 0 1-1.997-2.125l.875-14A2 2 0 0 1 5.94 3zM5.066 19h13.87l-.874-14H5.94zM8 8a1 1 0 0 1 2 0 2 2 0 0 0 4 0 1 1 0 0 1 2 0 4 4 0 0 1-8 0" />
+    <Path d="M10 8a2 2 0 1 0 4 0V7h2v1a4 4 0 1 1-8 0V7h2z" />
+    <Path
+      fillRule="evenodd"
+      d="M21.064 21H2.936L4.06 3h15.878l1.125 18Zm-16-2h13.872L18.06 5H5.939z"
+      clipRule="evenodd"
+    />
   </Svg>
 );
 export default SvgBagSmile;

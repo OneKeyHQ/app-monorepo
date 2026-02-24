@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 
 import { getStringAsync, setStringAsync } from 'expo-clipboard';
 import { useIntl } from 'react-intl';
@@ -17,8 +17,12 @@ const getClipboard = async () => {
   return str.trim();
 };
 
+const ANDROID_COPY_TAP_THRESHOLD = 3;
+const ANDROID_COPY_TAP_WINDOW_MS = 15_000;
+
 export function useClipboard() {
   const intl = useIntl();
+  const androidCopyTimestamps = useRef<number[]>([]);
   const supportPaste = useMemo(() => {
     if (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel) {
       return false;
@@ -26,19 +30,46 @@ export function useClipboard() {
     return true;
   }, []);
 
+  const checkAndroidRepeatedCopy = useCallback(() => {
+    if (!platformEnv.isNativeAndroid) {
+      return false;
+    }
+    const now = Date.now();
+    androidCopyTimestamps.current.push(now);
+    // Keep only timestamps within the window
+    androidCopyTimestamps.current = androidCopyTimestamps.current.filter(
+      (t) => now - t < ANDROID_COPY_TAP_WINDOW_MS,
+    );
+    if (androidCopyTimestamps.current.length >= ANDROID_COPY_TAP_THRESHOLD) {
+      // Reset after showing warning
+      androidCopyTimestamps.current = [];
+      return true;
+    }
+    return false;
+  }, []);
+
   const copyText = useCallback(
     (text: string, successMessageId?: ETranslations, showToast = true) => {
       if (!text) return;
       setTimeout(() => setStringAsync(text), 200);
       if (showToast) {
-        Toast.success({
-          title: intl.formatMessage({
-            id: successMessageId || ETranslations.global_copied,
-          }),
-        });
+        const shouldWarn = checkAndroidRepeatedCopy();
+        if (shouldWarn) {
+          Toast.warning({
+            title: 'Copy may not be working',
+            message:
+              'Your device may restrict clipboard access. Please check clipboard permissions in your device settings.',
+          });
+        } else {
+          Toast.success({
+            title: intl.formatMessage({
+              id: successMessageId || ETranslations.global_copied,
+            }),
+          });
+        }
       }
     },
-    [intl],
+    [intl, checkAndroidRepeatedCopy],
   );
 
   const copyUrl = useCallback(

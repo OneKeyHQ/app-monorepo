@@ -7,7 +7,12 @@ const SvgVolumeDown = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M11.445 3.168A1 1 0 0 1 13 4v16a1 1 0 0 1-1.555.832L5.697 17H3a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h2.697zM22 11a1 1 0 1 1 0 2h-6a1 1 0 1 1 0-2zM3 15h2.697a2 2 0 0 1 1.11.336L11 18.13V5.868L6.807 8.664A2 2 0 0 1 5.697 9H3z" />
+    <Path
+      fillRule="evenodd"
+      d="M13 20.929 5.747 17H1V7h4.747L13 3.071V20.93ZM6.477 8.879 6.254 9H3v6h3.254l.223.121L11 17.571V6.43L6.477 8.88Z"
+      clipRule="evenodd"
+    />
+    <Path d="M23 13h-8v-2h8z" />
   </Svg>
 );
 export default SvgVolumeDown;

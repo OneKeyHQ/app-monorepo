@@ -7,7 +7,12 @@ const SvgInvite = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M12.633 14.844c-.41.137-.855.137-1.266 0L4 12.388V19h16v-6.612zM14 7a1 1 0 1 1 0 2h-4a1 1 0 0 1 0-2zM6 4v6.945l6 2.001 6-2V4zm14 6.389a2 2 0 0 1 2 1.999V19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-6.612a2 2 0 0 1 2-2V4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2z" />
+    <Path d="M15 9H9V7h6z" />
+    <Path
+      fillRule="evenodd"
+      d="m20 10.28 2-.668V21H2V9.612l2 .667V2h16zm-8 4.774-8-2.667V19h16v-6.613zm-6-4.108 6 2 6-2V4H6z"
+      clipRule="evenodd"
+    />
   </Svg>
 );
 export default SvgInvite;

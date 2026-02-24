@@ -11,10 +11,14 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export function DiskFullWarningDialogContainer() {
   const dialogRef = useRef<IDialogInstance | null>(null);
   useEffect(() => {
+    if (platformEnv.isWebDappMode) {
+      return;
+    }
     const hideFn = async () => {
       await dialogRef.current?.close();
     };
