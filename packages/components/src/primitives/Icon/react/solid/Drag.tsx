@@ -7,7 +7,7 @@ const SvgDrag = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M9 3a2 2 0 1 0 0 4 2 2 0 0 0 0-4m6 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4m-6 7a2 2 0 1 0 0 4 2 2 0 0 0 0-4m6 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4m-6 7a2 2 0 1 0 0 4 2 2 0 0 0 0-4m6 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4" />
+    <Path d="M11 21H7v-4h4zm6-4v4h-4v-4zm-6-3H7v-4h4zm6 0h-4v-4h4zm-6-7H7V3h4zm6 0h-4V3h4z" />
   </Svg>
 );
 export default SvgDrag;

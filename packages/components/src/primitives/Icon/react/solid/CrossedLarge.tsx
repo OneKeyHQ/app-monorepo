@@ -7,11 +7,7 @@ const SvgCrossedLarge = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path
-      fillRule="evenodd"
-      d="M4.19 4.19a1.5 1.5 0 0 1 2.12 0L12 9.878l5.69-5.69a1.5 1.5 0 0 1 2.12 2.122L14.122 12l5.69 5.69a1.5 1.5 0 0 1-2.122 2.12L12 14.122l-5.69 5.69a1.5 1.5 0 0 1-2.12-2.122L9.878 12l-5.69-5.69a1.5 1.5 0 0 1 0-2.12Z"
-      clipRule="evenodd"
-    />
+    <Path d="M20.87 5.25 14.12 12l6.75 6.75-2.12 2.121-6.75-6.75-6.75 6.75-2.121-2.121L9.879 12l-6.75-6.75 2.12-2.121L12 9.879l6.75-6.75 2.122 2.121Z" />
   </Svg>
 );
 export default SvgCrossedLarge;

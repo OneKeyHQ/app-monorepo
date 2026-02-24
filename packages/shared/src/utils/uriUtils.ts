@@ -5,6 +5,7 @@ import validator from 'validator';
 import type { IUrlValue } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
 
 import { ONEKEY_APP_DEEP_LINK_NAME } from '../consts/deeplinkConsts';
+import platformEnv from '../platformEnv';
 import {
   PROTOCOLS_SUPPORTED_TO_OPEN,
   VALID_DEEP_LINK,
@@ -150,13 +151,35 @@ export function parseUrl(url: string): IUrlValue | null {
       }
     }
     const urlObject = new URL(formatUrl);
+    let { hostname, pathname } = urlObject;
+    let { origin } = urlObject;
+    // Normalize for non-standard protocols where hostname may be empty.
+    // Hermes URL parser returns hostname='' and pathname='//host/path'
+    // for custom schemes like onekey-wallet://host/path, whereas V8
+    // correctly parses hostname='host' and pathname='/path'.
+    if (!hostname && pathname.startsWith('//')) {
+      const pathWithoutPrefix = pathname.slice(2);
+      const slashIndex = pathWithoutPrefix.indexOf('/');
+      if (slashIndex >= 0) {
+        hostname = pathWithoutPrefix.slice(0, slashIndex);
+        pathname = pathWithoutPrefix.slice(slashIndex);
+      } else {
+        hostname = pathWithoutPrefix;
+        pathname = '/';
+      }
+    }
+    // Normalize origin for non-http schemes. V8 returns the string 'null'
+    // for opaque origins, Hermes may return the scheme + authority.
+    if (origin && !origin.startsWith('http') && origin !== 'null') {
+      origin = 'null';
+    }
     return {
       url,
-      hostname: urlObject.hostname,
-      origin: urlObject.origin,
-      pathname: urlObject.pathname,
+      hostname,
+      origin,
+      pathname,
       urlSchema: urlObject.protocol.replace(/(:)$/, ''),
-      urlPathList: `${urlObject.hostname}${urlObject.pathname}`
+      urlPathList: `${hostname}${pathname}`
         .replace(/^\/\//, '')
         .split('/')
         .filter((x) => x?.length > 0),
@@ -200,7 +223,19 @@ export const validateUrl = (url: string): string => {
   if (url.includes('://')) {
     try {
       const parsedUrl = new URL(url);
-      const pathname = parsedUrl.pathname === '/' ? '' : parsedUrl.pathname;
+      // Normalize pathname: strip root-only "/" so the reconstructed URL
+      // doesn't contain a bare slash after host.
+      let pathname = parsedUrl.pathname === '/' ? '' : parsedUrl.pathname;
+      // Hermes URL parser may append a trailing "/" that V8 does not.
+      // Only strip on native to avoid changing semantics on web/desktop
+      // where trailing slashes can be meaningful (e.g. directory URLs).
+      if (
+        platformEnv.isNative &&
+        pathname.length > 1 &&
+        pathname.endsWith('/')
+      ) {
+        pathname = pathname.slice(0, -1);
+      }
       urlWithoutProtocol =
         parsedUrl.host + pathname + parsedUrl.search + parsedUrl.hash;
     } catch {
@@ -222,8 +257,12 @@ export const containsPunycode = (url: string) => {
   const validatedUrl = validateUrl(url);
   if (!validatedUrl) return false;
   const { hostname } = new URL(validatedUrl);
-  const unicodeHostname = punycode.toUnicode(hostname);
-  return hostname !== unicodeHostname;
+  // V8 normalizes IDN to punycode (xn--), Hermes may keep unicode.
+  // Compare both directions to detect non-ASCII hostnames on either engine.
+  return (
+    hostname !== punycode.toUnicode(hostname) ||
+    hostname !== punycode.toASCII(hostname)
+  );
 };
 
 function buildUrl({

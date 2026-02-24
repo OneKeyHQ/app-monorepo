@@ -7,7 +7,12 @@ const SvgConsole = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M5 5v14h14V5zm1.793 2.293a1 1 0 0 1 1.414 0l1.75 1.75a1 1 0 0 1 0 1.414l-1.75 1.75a1 1 0 1 1-1.414-1.414L7.836 9.75 6.793 8.707a1 1 0 0 1 0-1.414M14 10.5a1 1 0 1 1 0 2h-2a1 1 0 1 1 0-2zm7 8.5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    <Path d="M10.664 9.75 7.5 12.914 6.086 11.5l1.75-1.75L6.086 8 7.5 6.586zM15 12.5h-4v-2h4z" />
+    <Path
+      fillRule="evenodd"
+      d="M21 21H3V3h18zM5 19h14V5H5z"
+      clipRule="evenodd"
+    />
   </Svg>
 );
 export default SvgConsole;

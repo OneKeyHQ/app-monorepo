@@ -9,7 +9,7 @@ const SvgPages = (props: SvgProps) => (
   >
     <Path
       fillRule="evenodd"
-      d="M14 2a2 2 0 0 1 2 2v2h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-8a2 2 0 0 1-2-2v-2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm-4 18h8V8h-8zm-4-4h2V8a2 2 0 0 1 2-2h4V4H6z"
+      d="M16 6h4v16H8v-4H4V2h12zm-6 14h8V8h-8zm-4-4h2V6h6V4H6z"
       clipRule="evenodd"
     />
   </Svg>

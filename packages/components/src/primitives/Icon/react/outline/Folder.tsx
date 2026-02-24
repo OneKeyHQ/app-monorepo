@@ -7,7 +7,11 @@ const SvgFolder = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M2 18V5a2 2 0 0 1 2-2h5.465a2 2 0 0 1 1.664.89L12.535 6H20a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2m2 0h16V8h-7.465a2 2 0 0 1-1.664-.89L9.465 5H4z" />
+    <Path
+      fillRule="evenodd"
+      d="M12.535 6H22v14H2V3h8.535zM4 18h16V8h-8.535l-2-3H4z"
+      clipRule="evenodd"
+    />
   </Svg>
 );
 export default SvgFolder;

@@ -7,7 +7,7 @@ const SvgScan = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M3 8V5a2 2 0 0 1 2-2h3a1 1 0 0 1 0 2H5v3a1 1 0 0 1-2 0m16 0V5h-3a1 1 0 1 1 0-2h3a2 2 0 0 1 2 2v3a1 1 0 1 1-2 0m0 11v-3a1 1 0 1 1 2 0v3a2 2 0 0 1-2 2h-3a1 1 0 1 1 0-2zM3 19v-3a1 1 0 1 1 2 0v3h3a1 1 0 1 1 0 2H5a2 2 0 0 1-2-2M15 9a1 1 0 1 1 0 2H9a1 1 0 1 1 0-2zm-2 4a1 1 0 1 1 0 2H9a1 1 0 1 1 0-2z" />
+    <Path d="M5 19h4v2H3v-6h2zm16 2h-6v-2h4v-4h2zm-7-6H8v-2h6zm2-4H8V9h8zM9 5H5v4H3V3h6zm12 4h-2V5h-4V3h6z" />
   </Svg>
 );
 export default SvgScan;

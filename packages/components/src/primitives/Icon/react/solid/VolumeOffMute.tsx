@@ -7,7 +7,7 @@ const SvgVolumeOffMute = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M19.293 3.293a1 1 0 1 1 1.414 1.414l-16 16a1 1 0 1 1-1.414-1.414l2.616-2.616A2 2 0 0 1 5 15V9a2 2 0 0 1 2-2h2.698l5.748-3.832A1 1 0 0 1 17 4v1.586zM17 20a1 1 0 0 1-1.555.832l-4.82-3.214L17 11.243z" />
+    <Path d="M21.414 4 4 21.414 2.586 20l3-3H5V7h4.746L17 3.071v2.515l3-3zM17 20.93l-6.282-3.404L17 11.243z" />
   </Svg>
 );
 export default SvgVolumeOffMute;

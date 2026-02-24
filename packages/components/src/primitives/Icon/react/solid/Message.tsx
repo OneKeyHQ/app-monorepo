@@ -7,7 +7,7 @@ const SvgMessage = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M20.002 3h-16a2 2 0 0 0-2 2v12.036a2 2 0 0 0 2 2h4.65l2.704 2.266a1 1 0 0 0 1.28.004l2.74-2.27h4.626a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2" />
+    <Path d="M22.002 3v16.036h-6.626l-3.382 2.802-3.343-2.802H2.002V3z" />
   </Svg>
 );
 export default SvgMessage;

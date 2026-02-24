@@ -7,7 +7,11 @@ const SvgCup1 = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M15 5H5v14h10zm2 3v4h2V8zm4 4a2 2 0 0 1-2 2h-2v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v2h2a2 2 0 0 1 2 2z" />
+    <Path
+      fillRule="evenodd"
+      d="M17 6h4v8h-4v7H3V3h14zM5 19h10V5H5zm12-7h2V8h-2z"
+      clipRule="evenodd"
+    />
   </Svg>
 );
 export default SvgCup1;
