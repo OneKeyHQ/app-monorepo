@@ -209,7 +209,7 @@ function TxFeeEditor(props: IProps) {
 
   const {
     feeSymbol,
-    feeDecimals = 0,
+    feeDecimals,
     nativeSymbol,
     nativeTokenPrice,
   } = customFee?.common ?? {};
