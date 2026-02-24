@@ -457,6 +457,7 @@ function BasicTable<T>({
       estimatedItemSize,
       handleRenderItem,
       itemSize,
+      tabIntegrated,
     ],
   );
 
