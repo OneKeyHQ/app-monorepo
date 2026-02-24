@@ -274,7 +274,7 @@ function MarketWatchlistTokenList({
       result={filteredResult}
       isWatchlistMode
       showEndReachedIndicator
-      draggable={false}
+      draggable
       tabIntegrated={tabIntegrated}
       listContainerProps={listContainerProps}
       onDragEnd={handleDragEnd}

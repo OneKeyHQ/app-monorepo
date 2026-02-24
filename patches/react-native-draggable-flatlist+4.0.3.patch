@@ -18,6 +18,34 @@ index 7e32214..05edf51 100644
        const cellOffset = horizontal ? x : y;
        const cellSize = horizontal ? w : h;
        cellDataRef.current.set(key, {
+diff --git a/node_modules/react-native-draggable-flatlist/lib/module/components/DraggableFlatList.js b/node_modules/react-native-draggable-flatlist/lib/module/components/DraggableFlatList.js
+index 80185d0..89a3be4 100644
+--- a/node_modules/react-native-draggable-flatlist/lib/module/components/DraggableFlatList.js
++++ b/node_modules/react-native-draggable-flatlist/lib/module/components/DraggableFlatList.js
+@@ -3,7 +3,7 @@ function _extends() { _extends = Object.assign || function (target) { for (var i
+ import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+ import { InteractionManager } from "react-native";
+ import { FlatList, Gesture, GestureDetector } from "react-native-gesture-handler";
+-import Animated, { runOnJS, useAnimatedReaction, useAnimatedScrollHandler, useSharedValue, withSpring } from "react-native-reanimated";
++import Animated, { runOnJS, useAnimatedReaction, useAnimatedScrollHandler, useComposedEventHandler, useSharedValue, withSpring } from "react-native-reanimated";
+ import CellRendererComponent from "./CellRendererComponent";
+ import { DEFAULT_PROPS } from "../constants";
+ import PlaceholderItem from "./PlaceholderItem";
+@@ -290,12 +290,13 @@ function DraggableFlatListInner(props) {
+ 
+     (_props$onScrollOffset = props.onScrollOffsetChange) === null || _props$onScrollOffset === void 0 ? void 0 : _props$onScrollOffset.call(props, scrollOffset);
+   });
+-  const scrollHandler = useAnimatedScrollHandler({
++  const internalScrollHandler = useAnimatedScrollHandler({
+     onScroll: evt => {
+       scrollOffset.value = horizontalAnim.value ? evt.contentOffset.x : evt.contentOffset.y;
+       runOnJS(onScroll)(scrollOffset.value);
+     }
+   }, [horizontalAnim]);
++  const scrollHandler = useComposedEventHandler([internalScrollHandler, props.onScroll ?? null]);
+   useAutoScroll();
+   const onViewableItemsChanged = useStableCallback(info => {
+     var _props$onViewableItem;
 diff --git a/node_modules/react-native-draggable-flatlist/lib/module/context/animatedValueContext.js b/node_modules/react-native-draggable-flatlist/lib/module/context/animatedValueContext.js
 index 06747c6..7fee357 100644
 --- a/node_modules/react-native-draggable-flatlist/lib/module/context/animatedValueContext.js
@@ -71,10 +99,18 @@ index 2abb4a2..0b0ad47 100644
      keyExtractor: (item: T, index: number) => string;
      onDragBegin?: (index: number) => void;
 diff --git a/node_modules/react-native-draggable-flatlist/src/components/DraggableFlatList.tsx b/node_modules/react-native-draggable-flatlist/src/components/DraggableFlatList.tsx
-index 7c88afc..576c536 100644
+index 7c88afc..1eaef98 100644
 --- a/node_modules/react-native-draggable-flatlist/src/components/DraggableFlatList.tsx
 +++ b/node_modules/react-native-draggable-flatlist/src/components/DraggableFlatList.tsx
-@@ -39,6 +39,7 @@ import { useAutoScroll } from "../hooks/useAutoScroll";
+@@ -21,6 +21,7 @@ import Animated, {
+   runOnJS,
+   useAnimatedReaction,
+   useAnimatedScrollHandler,
++  useComposedEventHandler,
+   useSharedValue,
+   withSpring,
+ } from "react-native-reanimated";
+@@ -39,6 +40,7 @@ import { useAutoScroll } from "../hooks/useAutoScroll";
  import { useStableCallback } from "../hooks/useStableCallback";
  import ScrollOffsetListener from "./ScrollOffsetListener";
  import { typedMemo } from "../utils";
@@ -82,7 +118,7 @@ index 7c88afc..576c536 100644
  
  type RNGHFlatListProps<T> = Animated.AnimateProps<
    FlatListProps<T> & {
-@@ -216,6 +217,7 @@ function DraggableFlatListInner<T>(props: DraggableFlatListProps<T>) {
+@@ -216,6 +218,7 @@ function DraggableFlatListInner<T>(props: DraggableFlatListProps<T>) {
  
    const onRelease = useStableCallback((index: number) => {
      props.onRelease?.(index);
@@ -90,7 +126,7 @@ index 7c88afc..576c536 100644
    });
  
    const onDragEnd = useStableCallback(
-@@ -272,6 +274,11 @@ function DraggableFlatListInner<T>(props: DraggableFlatListProps<T>) {
+@@ -272,6 +275,11 @@ function DraggableFlatListInner<T>(props: DraggableFlatListProps<T>) {
  
    const gestureDisabled = useSharedValue(false);
  
@@ -102,7 +138,7 @@ index 7c88afc..576c536 100644
    const panGesture = Gesture.Pan()
      .onBegin((evt) => {
        gestureDisabled.value = disabled.value;
-@@ -285,6 +292,7 @@ function DraggableFlatListInner<T>(props: DraggableFlatListProps<T>) {
+@@ -285,6 +293,7 @@ function DraggableFlatListInner<T>(props: DraggableFlatListProps<T>) {
          ? evt.translationX
          : evt.translationY;
        touchTranslate.value = translation;
@@ -110,6 +146,27 @@ index 7c88afc..576c536 100644
      })
      .onEnd((evt) => {
        if (gestureDisabled.value) return;
+@@ -337,7 +346,7 @@ function DraggableFlatListInner<T>(props: DraggableFlatListProps<T>) {
+     props.onScrollOffsetChange?.(scrollOffset);
+   });
+ 
+-  const scrollHandler = useAnimatedScrollHandler(
++  const internalScrollHandler = useAnimatedScrollHandler(
+     {
+       onScroll: (evt) => {
+         scrollOffset.value = horizontalAnim.value
+@@ -349,6 +358,11 @@ function DraggableFlatListInner<T>(props: DraggableFlatListProps<T>) {
+     [horizontalAnim]
+   );
+ 
++  const scrollHandler = useComposedEventHandler([
++    internalScrollHandler,
++    props.onScroll ?? null,
++  ]);
++
+   useAutoScroll();
+ 
+   const onViewableItemsChanged = useStableCallback<
 diff --git a/node_modules/react-native-draggable-flatlist/src/context/animatedValueContext.tsx b/node_modules/react-native-draggable-flatlist/src/context/animatedValueContext.tsx
 index c62360d..5e6ac79 100644
 --- a/node_modules/react-native-draggable-flatlist/src/context/animatedValueContext.tsx
