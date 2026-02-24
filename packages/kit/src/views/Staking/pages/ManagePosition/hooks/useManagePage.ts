@@ -116,7 +116,7 @@ export const useManagePage = ({
       reserveAddress,
       marketAddress,
     ],
-    { watchLoading: true },
+    { watchLoading: true, revalidateOnFocus: true },
   );
 
   const { managePageData, protocolList, earnAccount } = result || {};
