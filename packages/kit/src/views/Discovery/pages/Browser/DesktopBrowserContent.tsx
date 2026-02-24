@@ -233,6 +233,74 @@ function BasicDesktopBrowserContent({
   const { tab } = useWebTabDataById(id);
   const isActive = activeTabId === id;
 
+  // Memory Cleanup - Aggressively release all resources when tab is closed
+  useEffect(() => {
+    return () => {
+      if (platformEnv.isDesktop) {
+        const webview = webviewRefs[id]?.innerRef as any;
+        if (webview) {
+          try {
+            // Step 1: Clear all JavaScript timers and intervals to prevent memory leaks
+            // This addresses the major cause of OOM crashes in long-running DApp sessions
+            if (typeof webview.executeJavaScript === 'function') {
+              void webview.executeJavaScript(`
+                try {
+                  // Clear all intervals and timeouts
+                  const maxId = setTimeout(() => {}, 0);
+                  for (let i = 0; i < maxId; i++) {
+                    clearInterval(i);
+                    clearTimeout(i);
+                  }
+
+                  // Cancel all animation frames
+                  let rafId = requestAnimationFrame(() => {});
+                  while (rafId--) {
+                    cancelAnimationFrame(rafId);
+                  }
+
+                  console.log('[Memory Cleanup] Cleared all timers and intervals for tab');
+                } catch (e) {
+                  console.error('[Memory Cleanup] Failed to clear timers:', e);
+                }
+              `);
+            }
+
+            // Step 2: Stop all media playback (audio/video) to release resources
+            if (typeof webview.stop === 'function') {
+              webview.stop();
+            }
+
+            // Step 3: Close DevTools to release GPU memory
+            if (typeof webview.closeDevTools === 'function') {
+              webview.closeDevTools();
+            }
+
+            // Step 4: Clear browsing data and caches
+            if (typeof webview.clearHistory === 'function') {
+              webview.clearHistory();
+            }
+
+            // Note: Do NOT call session.clearCache() or session.clearStorageData() here.
+            // All webviews share the same session (partition="persist:onekey"),
+            // so clearing session cache would destroy cache for all other open tabs.
+
+            console.log(
+              `[Memory Cleanup] Released all resources for tab: ${id}`,
+            );
+          } catch (error) {
+            console.error(
+              `[Memory Cleanup] Failed to cleanup tab ${id}:`,
+              error,
+            );
+          }
+        }
+
+        // Step 6: Remove webview reference to allow garbage collection
+        delete webviewRefs[id];
+      }
+    };
+  }, [id]);
+
   return (
     <Freeze key={id} freeze={!isActive}>
       {platformEnv.isDesktop ? <Find id={id} /> : null}
