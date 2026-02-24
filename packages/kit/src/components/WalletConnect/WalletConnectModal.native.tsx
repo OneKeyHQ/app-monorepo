@@ -217,7 +217,7 @@ class AppKitErrorBoundary extends Component<
     return { hasError: true };
   }
 
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+  override componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.warn(
       'AppKitErrorBoundary caught error in WalletConnect modal:',
       error?.message,
@@ -225,7 +225,7 @@ class AppKitErrorBoundary extends Component<
     );
   }
 
-  componentDidUpdate(
+  override componentDidUpdate(
     prevProps: IAppKitErrorBoundaryProps,
     prevState: IAppKitErrorBoundaryState,
   ) {
@@ -250,7 +250,7 @@ class AppKitErrorBoundary extends Component<
     }
   }
 
-  componentWillUnmount() {
+  override componentWillUnmount() {
     this.clearRetryTimer();
   }
 
@@ -261,7 +261,7 @@ class AppKitErrorBoundary extends Component<
     }
   }
 
-  render() {
+  override render() {
     if (this.state.hasError) {
       return null;
     }
