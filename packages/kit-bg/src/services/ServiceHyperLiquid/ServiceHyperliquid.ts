@@ -20,6 +20,7 @@ import {
   PERPS_NETWORK_ID,
 } from '@onekeyhq/shared/src/consts/perp';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -214,6 +215,13 @@ export default class ServiceHyperliquid extends ServiceBase {
         newConfigVersion,
         ', removing all agent credentials',
       );
+      defaultLogger.perp.agentLifeCycle.trackReason({
+        reason: 'config_version_changed_reset',
+        statusDetails: {
+          configVersionOld: prevConfigVersion,
+          configVersionNew: newConfigVersion,
+        },
+      });
       try {
         await this.removeAllAgentCredentialsAndResetStatus();
       } catch (error) {
@@ -951,6 +959,13 @@ export default class ServiceHyperliquid extends ServiceBase {
         password ||
         (await this.backgroundApi.servicePassword.getCachedPassword());
       if (!password && isEnableTradingTrigger) {
+        defaultLogger.perp.agentLifeCycle.trackReason({
+          reason: 'status_check_no_password',
+          accountAddress,
+          accountId: selectedAccount.accountId,
+          isEnableTradingTrigger,
+          statusDetails: { ...statusDetails },
+        });
         // eslint-disable-next-line no-param-reassign
         ({ password } =
           await this.backgroundApi.servicePassword.promptPasswordVerify());
@@ -969,6 +984,13 @@ export default class ServiceHyperliquid extends ServiceBase {
         }
         if (!isActivated) {
           statusDetails.activatedOk = false;
+          defaultLogger.perp.agentLifeCycle.trackReason({
+            reason: 'account_not_activated',
+            accountAddress,
+            accountId: selectedAccount.accountId,
+            isEnableTradingTrigger,
+            statusDetails: { ...statusDetails },
+          });
           // await this.checkBuilderFeeStatus({
           //   accountAddress,
           //   isEnableTradingTrigger,
@@ -981,6 +1003,7 @@ export default class ServiceHyperliquid extends ServiceBase {
           // Builder fee must be approved before agent setup
           await this.checkBuilderFeeStatus({
             accountAddress,
+            accountId: selectedAccount.accountId,
             isEnableTradingTrigger,
             statusDetails,
           });
@@ -998,12 +1021,20 @@ export default class ServiceHyperliquid extends ServiceBase {
             });
             // Binding triggered via reportAgentApprovalToBackend after agent creation
             statusDetails.internalRebateBoundOk = false;
+            defaultLogger.perp.agentLifeCycle.trackReason({
+              reason: 'internal_rebate_not_bound',
+              accountAddress,
+              accountId: selectedAccount.accountId,
+              isEnableTradingTrigger,
+              statusDetails: { ...statusDetails },
+            });
           } else {
             statusDetails.internalRebateBoundOk = true;
           }
 
           agentCredential = await this.checkAgentStatus({
             accountAddress,
+            accountId: selectedAccount.accountId,
             isEnableTradingTrigger,
             statusDetails,
             password,
@@ -1096,11 +1127,13 @@ export default class ServiceHyperliquid extends ServiceBase {
 
   private async checkAgentStatus({
     accountAddress,
+    accountId,
     isEnableTradingTrigger,
     statusDetails,
     password,
   }: {
     accountAddress: IHex;
+    accountId: string | null;
     isEnableTradingTrigger: boolean;
     statusDetails: IPerpsActiveAccountStatusDetails;
     password: string;
@@ -1109,8 +1142,25 @@ export default class ServiceHyperliquid extends ServiceBase {
     const extraAgents = await this.fetchExtraAgentsWithCache({
       user: accountAddress,
     });
+    const now = Date.now();
+    const validThreshold =
+      now +
+      timerUtils.getTimeDurationMs({
+        day: 1,
+      });
+    if (!extraAgents?.length) {
+      defaultLogger.perp.agentLifeCycle.trackReason({
+        reason: 'agent_not_found',
+        accountAddress,
+        accountId,
+        isEnableTradingTrigger,
+        statusDetails: {
+          ...statusDetails,
+          stage: 'extra_agents_empty',
+        },
+      });
+    }
     if (extraAgents?.length) {
-      const now = Date.now();
       const validAgents = (
         await Promise.all(
           extraAgents.map(async (agent) => {
@@ -1119,198 +1169,324 @@ export default class ServiceHyperliquid extends ServiceBase {
               agentName: agent.name as EHyperLiquidAgentName,
               password,
             });
-            if (
-              agent.address &&
-              agent.validUntil >
-                now +
-                  timerUtils.getTimeDurationMs({
-                    day: 1,
-                  }) &&
-              credential?.agentAddress?.toLowerCase() ===
-                agent.address.toLowerCase()
-            ) {
-              credential.validUntil = agent.validUntil;
-              return credential;
+            if (!agent.address) {
+              defaultLogger.perp.agentLifeCycle.trackReason({
+                reason: 'agent_not_found',
+                accountAddress,
+                accountId,
+                isEnableTradingTrigger,
+                statusDetails: {
+                  ...statusDetails,
+                  agentName: agent.name,
+                  stage: 'agent_address_missing',
+                },
+              });
+              return null;
             }
-            return null;
+            if (agent.validUntil <= validThreshold) {
+              defaultLogger.perp.agentLifeCycle.trackReason({
+                reason: 'agent_near_expiry',
+                accountAddress,
+                accountId,
+                isEnableTradingTrigger,
+                statusDetails: {
+                  ...statusDetails,
+                  agentName: agent.name,
+                  agentAddress: agent.address,
+                  validUntil: agent.validUntil,
+                },
+              });
+              return null;
+            }
+            if (!credential) {
+              defaultLogger.perp.agentLifeCycle.trackReason({
+                reason: 'agent_credential_missing',
+                accountAddress,
+                accountId,
+                isEnableTradingTrigger,
+                statusDetails: {
+                  ...statusDetails,
+                  agentName: agent.name,
+                  agentAddress: agent.address,
+                  validUntil: agent.validUntil,
+                },
+              });
+              return null;
+            }
+            if (credential.agentAddress?.toLowerCase() !== agent.address.toLowerCase()) {
+              defaultLogger.perp.agentLifeCycle.trackReason({
+                reason: 'agent_address_mismatch',
+                accountAddress,
+                accountId,
+                isEnableTradingTrigger,
+                statusDetails: {
+                  ...statusDetails,
+                  agentName: agent.name,
+                  chainAgentAddress: agent.address,
+                  localAgentAddress: credential.agentAddress,
+                  validUntil: agent.validUntil,
+                },
+              });
+              return null;
+            }
+            credential.validUntil = agent.validUntil;
+            return credential;
           }),
         )
       )
         .filter(Boolean)
         .toSorted((a, b) => b.validUntil - a.validUntil);
       agentCredential = validAgents?.[0];
+      if (!agentCredential) {
+        defaultLogger.perp.agentLifeCycle.trackReason({
+          reason: 'agent_not_found',
+          accountAddress,
+          accountId,
+          isEnableTradingTrigger,
+          statusDetails: {
+            ...statusDetails,
+            extraAgentsCount: extraAgents.length,
+            stage: 'no_valid_agent_credential',
+          },
+        });
+      }
     }
     if (!agentCredential && isEnableTradingTrigger) {
       this.fetchExtraAgentsWithCache.clear();
-      const privateKeyBytes = crypto.getRandomValues(new Uint8Array(32));
-      const privateKeyHex = bufferUtils.bytesToHex(privateKeyBytes);
-      const agentAddress = new ethers.Wallet(privateKeyHex).address as IHex;
+      try {
+        const privateKeyBytes = crypto.getRandomValues(new Uint8Array(32));
+        const privateKeyHex = bufferUtils.bytesToHex(privateKeyBytes);
+        const agentAddress = new ethers.Wallet(privateKeyHex).address as IHex;
 
-      const onekeyAgentNames = [
-        EHyperLiquidAgentName.OneKeyAgent1,
-        EHyperLiquidAgentName.OneKeyAgent2,
-        EHyperLiquidAgentName.OneKeyAgent3,
-      ];
-      let agentNameToApprove: EHyperLiquidAgentName | undefined;
-      if (extraAgents.length === 3) {
-        const nonOneKeyAgents = extraAgents.filter(
-          (agent) =>
-            !onekeyAgentNames.includes(agent.name as EHyperLiquidAgentName),
-        );
-        const agentToRemove = (
-          nonOneKeyAgents.length ? nonOneKeyAgents : extraAgents
-        ).toSorted((a, b) => a.validUntil - b.validUntil)?.[0];
-        const agentNameToRemove = agentToRemove?.name as
-          | EHyperLiquidAgentName
-          | undefined;
-        if (agentToRemove) {
-          if (
-            agentNameToRemove &&
-            onekeyAgentNames.includes(agentNameToRemove)
-          ) {
-            agentNameToApprove = agentNameToRemove;
-          } else {
-            const approveAgentResult = await this.exchangeService.removeAgent({
-              agentName: agentNameToRemove,
-            });
-            console.log('approveAgentResult::', approveAgentResult);
-            await timerUtils.wait(4000);
+        const onekeyAgentNames = [
+          EHyperLiquidAgentName.OneKeyAgent1,
+          EHyperLiquidAgentName.OneKeyAgent2,
+          EHyperLiquidAgentName.OneKeyAgent3,
+        ];
+        let agentNameToApprove: EHyperLiquidAgentName | undefined;
+        if (extraAgents.length === 3) {
+          const nonOneKeyAgents = extraAgents.filter(
+            (agent) =>
+              !onekeyAgentNames.includes(agent.name as EHyperLiquidAgentName),
+          );
+          const agentToRemove = (
+            nonOneKeyAgents.length ? nonOneKeyAgents : extraAgents
+          ).toSorted((a, b) => a.validUntil - b.validUntil)?.[0];
+          const agentNameToRemove = agentToRemove?.name as
+            | EHyperLiquidAgentName
+            | undefined;
+          if (agentToRemove) {
+            if (
+              agentNameToRemove &&
+              onekeyAgentNames.includes(agentNameToRemove)
+            ) {
+              agentNameToApprove = agentNameToRemove;
+            } else {
+              const approveAgentResult = await this.exchangeService.removeAgent({
+                agentName: agentNameToRemove,
+              });
+              console.log('approveAgentResult::', approveAgentResult);
+              defaultLogger.perp.agentLifeCycle.trackReason({
+                reason: 'agent_removed_for_slot_recovery',
+                accountAddress,
+                accountId,
+                isEnableTradingTrigger,
+                statusDetails: {
+                  ...statusDetails,
+                  agentName: agentNameToRemove,
+                  removeResultStatus: approveAgentResult?.status,
+                },
+              });
+              await timerUtils.wait(4000);
 
-            // Poll to verify agent removal instead of fixed delay
-            const pollStartTime = Date.now();
-            const pollTimeoutMs = 10_000; // 10 seconds total polling timeout
-            const requestTimeoutMs = 3000; // 3 seconds per request timeout
-            const { infoClient } = hyperLiquidApiClients;
+              // Poll to verify agent removal instead of fixed delay
+              const pollStartTime = Date.now();
+              const pollTimeoutMs = 10_000; // 10 seconds total polling timeout
+              const requestTimeoutMs = 3000; // 3 seconds per request timeout
+              const { infoClient } = hyperLiquidApiClients;
 
-            while (Date.now() - pollStartTime < pollTimeoutMs) {
-              try {
-                const currentExtraAgents = await pTimeout(
-                  infoClient.extraAgents({
-                    user: accountAddress,
-                  }),
-                  {
-                    milliseconds: requestTimeoutMs,
-                  },
-                );
+              while (Date.now() - pollStartTime < pollTimeoutMs) {
+                try {
+                  const currentExtraAgents = await pTimeout(
+                    infoClient.extraAgents({
+                      user: accountAddress,
+                    }),
+                    {
+                      milliseconds: requestTimeoutMs,
+                    },
+                  );
 
-                // Check if the agent was successfully removed
-                if (
-                  !currentExtraAgents.some(
-                    (agent) => agent.name === agentNameToRemove,
-                  )
-                ) {
-                  console.log('Agent removal confirmed:', agentNameToRemove);
-                  break;
+                  // Check if the agent was successfully removed
+                  if (
+                    !currentExtraAgents.some(
+                      (agent) => agent.name === agentNameToRemove,
+                    )
+                  ) {
+                    console.log('Agent removal confirmed:', agentNameToRemove);
+                    break;
+                  }
+                } catch (error) {
+                  console.log('Polling request failed:', error);
                 }
-              } catch (error) {
-                console.log('Polling request failed:', error);
+
+                // Wait 500ms before next poll attempt
+                await timerUtils.wait(500);
               }
-
-              // Wait 500ms before next poll attempt
-              await timerUtils.wait(500);
             }
           }
         }
-      }
-      if (!agentNameToApprove) {
-        for (const agentName of onekeyAgentNames) {
-          if (!extraAgents.some((agent) => agent.name === agentName)) {
-            agentNameToApprove = agentName;
-            break;
+        if (!agentNameToApprove) {
+          for (const agentName of onekeyAgentNames) {
+            if (!extraAgents.some((agent) => agent.name === agentName)) {
+              agentNameToApprove = agentName;
+              break;
+            }
           }
         }
-      }
-      if (!agentNameToApprove) {
-        agentNameToApprove = EHyperLiquidAgentName.OneKeyAgent1;
-      }
+        if (!agentNameToApprove) {
+          agentNameToApprove = EHyperLiquidAgentName.OneKeyAgent1;
+        }
 
-      const { agentTTL = HYPERLIQUID_AGENT_TTL_DEFAULT } =
-        await this.backgroundApi.simpleDb.perp.getPerpData();
+        const { agentTTL = HYPERLIQUID_AGENT_TTL_DEFAULT } =
+          await this.backgroundApi.simpleDb.perp.getPerpData();
 
-      const validUntil = Date.now() + agentTTL;
-      // {name} valid_until 1765710491688
-      const agentNameToApproveWithValidUntil = `${agentNameToApprove} valid_until ${validUntil}`;
-      const approveAgentFn = () =>
-        this.exchangeService.approveAgent({
-          agent: agentAddress,
-          agentName: agentNameToApproveWithValidUntil as EHyperLiquidAgentName,
-          // agentName: EHyperLiquidAgentName.Official,
-          authorize: true,
-        });
-      let retryTimes = 5;
-      let approveAgentResult: IApiRequestResult | undefined;
-      while (retryTimes >= 0) {
-        try {
-          retryTimes -= 1;
-          approveAgentResult = await approveAgentFn();
-          const approveOk =
-            approveAgentResult &&
-            typeof approveAgentResult === 'object' &&
-            'status' in approveAgentResult &&
-            (approveAgentResult as { status?: string }).status === 'ok';
-          const approveDefaultResponse =
-            approveAgentResult &&
-            typeof approveAgentResult === 'object' &&
-            'response' in approveAgentResult &&
-            (approveAgentResult as { response?: { type?: string } }).response
-              ?.type === 'default';
-          if (approveOk && approveDefaultResponse) {
-            break;
-          }
-        } catch (error) {
-          const requestError = error as IApiRequestError | undefined;
-          console.log('approveAgentError::', requestError);
-          const errorResponse = (
-            requestError as {
-              response?: { status?: string; response?: string };
+        const validUntil = Date.now() + agentTTL;
+        // {name} valid_until 1765710491688
+        const agentNameToApproveWithValidUntil = `${agentNameToApprove} valid_until ${validUntil}`;
+        const approveAgentFn = () =>
+          this.exchangeService.approveAgent({
+            agent: agentAddress,
+            agentName: agentNameToApproveWithValidUntil as EHyperLiquidAgentName,
+            // agentName: EHyperLiquidAgentName.Official,
+            authorize: true,
+          });
+        let retryTimes = 5;
+        let approveAgentResult: IApiRequestResult | undefined;
+        while (retryTimes >= 0) {
+          try {
+            retryTimes -= 1;
+            approveAgentResult = await approveAgentFn();
+            const approveOk =
+              approveAgentResult &&
+              typeof approveAgentResult === 'object' &&
+              'status' in approveAgentResult &&
+              (approveAgentResult as { status?: string }).status === 'ok';
+            const approveDefaultResponse =
+              approveAgentResult &&
+              typeof approveAgentResult === 'object' &&
+              'response' in approveAgentResult &&
+              (approveAgentResult as { response?: { type?: string } }).response
+                ?.type === 'default';
+            if (approveOk && approveDefaultResponse) {
+              break;
             }
-          )?.response;
-          if (
-            errorResponse?.status === 'err' &&
-            errorResponse?.response === 'User has pending agent removal'
-          ) {
-            if (retryTimes <= 0) {
+          } catch (error) {
+            const requestError = error as IApiRequestError | undefined;
+            console.log('approveAgentError::', requestError);
+            const errorResponse = (
+              requestError as {
+                response?: { status?: string; response?: string };
+              }
+            )?.response;
+            if (
+              errorResponse?.status === 'err' &&
+              errorResponse?.response === 'User has pending agent removal'
+            ) {
+              if (retryTimes <= 0) {
+                throw error;
+              }
+            } else {
               throw error;
             }
-          } else {
-            throw error;
           }
+          await timerUtils.wait(500);
         }
-        await timerUtils.wait(500);
-      }
 
-      console.log('approveAgentResult::', approveAgentResult);
-      if (
-        approveAgentResult &&
-        approveAgentResult.status === 'ok' &&
-        approveAgentResult.response.type === 'default'
-      ) {
-        const encodedPrivateKey =
-          await this.backgroundApi.servicePassword.encodeSensitiveText({
-            text: privateKeyHex,
-          });
+        console.log('approveAgentResult::', approveAgentResult);
+        if (
+          approveAgentResult &&
+          approveAgentResult.status === 'ok' &&
+          approveAgentResult.response.type === 'default'
+        ) {
+          const encodedPrivateKey =
+            await this.backgroundApi.servicePassword.encodeSensitiveText({
+              text: privateKeyHex,
+            });
 
-        const { credentialId } =
-          await this.backgroundApi.serviceAccount.addOrUpdateHyperLiquidAgentCredential(
-            {
+          const { credentialId } =
+            await this.backgroundApi.serviceAccount.addOrUpdateHyperLiquidAgentCredential(
+              {
+                userAddress: accountAddress,
+                agentAddress,
+                agentName: agentNameToApprove as EHyperLiquidAgentName,
+                privateKey: encodedPrivateKey,
+                validUntil,
+              },
+            );
+
+          if (credentialId) {
+            const credential = await localDb.getHyperLiquidAgentCredential({
               userAddress: accountAddress,
-              agentAddress,
               agentName: agentNameToApprove as EHyperLiquidAgentName,
-              privateKey: encodedPrivateKey,
-              validUntil,
-            },
-          );
-
-        if (credentialId) {
-          const credential = await localDb.getHyperLiquidAgentCredential({
-            userAddress: accountAddress,
-            agentName: agentNameToApprove as EHyperLiquidAgentName,
-            password,
-          });
-          if (credential) {
-            agentCredential = credential;
+              password,
+            });
+            if (credential) {
+              agentCredential = credential;
+            }
           }
+          if (agentCredential) {
+            defaultLogger.perp.agentLifeCycle.trackReason({
+              reason: 'agent_create_success',
+              accountAddress,
+              accountId,
+              isEnableTradingTrigger,
+              statusDetails: {
+                ...statusDetails,
+                agentName: agentNameToApprove,
+                agentAddress,
+                validUntil,
+              },
+            });
+          } else {
+            defaultLogger.perp.agentLifeCycle.trackReason({
+              reason: 'agent_credential_missing',
+              accountAddress,
+              accountId,
+              isEnableTradingTrigger,
+              statusDetails: {
+                ...statusDetails,
+                agentName: agentNameToApprove,
+                agentAddress,
+                validUntil,
+                stage: 'created_but_local_credential_missing',
+              },
+            });
+          }
+        } else {
+          defaultLogger.perp.agentLifeCycle.trackReason({
+            reason: 'agent_create_failed',
+            accountAddress,
+            accountId,
+            isEnableTradingTrigger,
+            statusDetails: {
+              ...statusDetails,
+              errorMessage: 'approve_agent_not_ok',
+              approveResultStatus: approveAgentResult?.status,
+            },
+          });
         }
+      } catch (error) {
+        defaultLogger.perp.agentLifeCycle.trackReason({
+          reason: 'agent_create_failed',
+          accountAddress,
+          accountId,
+          isEnableTradingTrigger,
+          statusDetails: {
+            ...statusDetails,
+            errorMessage: error instanceof Error ? error.message : String(error),
+          },
+        });
+        throw error;
       }
     }
     if (agentCredential) {
@@ -1443,10 +1619,12 @@ export default class ServiceHyperliquid extends ServiceBase {
 
   private async checkBuilderFeeStatus({
     accountAddress,
+    accountId,
     isEnableTradingTrigger,
     statusDetails,
   }: {
     accountAddress: IHex;
+    accountId: string | null;
     isEnableTradingTrigger: boolean;
     statusDetails: IPerpsActiveAccountStatusDetails;
   }) {
@@ -1460,7 +1638,21 @@ export default class ServiceHyperliquid extends ServiceBase {
       });
       if (maxBuilderFee === expectMaxBuilderFee) {
         statusDetails.builderFeeOk = true;
-      } else if (isEnableTradingTrigger) {
+      } else {
+        defaultLogger.perp.agentLifeCycle.trackReason({
+          reason: 'builder_fee_not_approved',
+          accountAddress,
+          accountId,
+          isEnableTradingTrigger,
+          statusDetails: {
+            ...statusDetails,
+            expectBuilderAddress,
+            expectMaxBuilderFee,
+            currentMaxBuilderFee: maxBuilderFee,
+          },
+        });
+      }
+      if (maxBuilderFee !== expectMaxBuilderFee && isEnableTradingTrigger) {
         this.getUserApprovedMaxBuilderFeeWithCache.clear();
         const approveBuilderFeeResult =
           await this.exchangeService.approveBuilderFee({
