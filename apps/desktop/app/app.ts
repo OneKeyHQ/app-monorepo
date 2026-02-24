@@ -7,6 +7,7 @@ import path from 'path';
 import { fileURLToPath, format as formatUrl } from 'url';
 
 import { initNobleBleSupport } from '@onekeyfe/hd-transport-electron';
+import { EOneKeyBleMessageKeys } from '@onekeyfe/hd-shared';
 import {
   BrowserWindow,
   Menu,
@@ -1003,17 +1004,19 @@ async function createMainWindow() {
     }
   });
 
+  // Use enum from @onekeyfe/hd-shared to stay in sync with the channels
+  // registered by initNobleBleSupport() from @onekeyfe/hd-transport-electron
   const nobleBleChannels = [
-    '$onekey-noble-ble-enumerate',
-    '$onekey-noble-ble-stop-scan',
-    '$onekey-noble-ble-get-device',
-    '$onekey-noble-ble-connect',
-    '$onekey-noble-ble-disconnect',
-    '$onekey-noble-ble-write',
-    '$onekey-noble-ble-subscribe',
-    '$onekey-noble-ble-unsubscribe',
-    '$onekey-noble-ble-cancel-pairing',
-    '$onekey-ble-availability-check',
+    EOneKeyBleMessageKeys.NOBLE_BLE_ENUMERATE,
+    EOneKeyBleMessageKeys.NOBLE_BLE_STOP_SCAN,
+    EOneKeyBleMessageKeys.NOBLE_BLE_GET_DEVICE,
+    EOneKeyBleMessageKeys.NOBLE_BLE_CONNECT,
+    EOneKeyBleMessageKeys.NOBLE_BLE_DISCONNECT,
+    EOneKeyBleMessageKeys.NOBLE_BLE_WRITE,
+    EOneKeyBleMessageKeys.NOBLE_BLE_SUBSCRIBE,
+    EOneKeyBleMessageKeys.NOBLE_BLE_UNSUBSCRIBE,
+    EOneKeyBleMessageKeys.NOBLE_BLE_CANCEL_PAIRING,
+    EOneKeyBleMessageKeys.BLE_AVAILABILITY_CHECK,
   ];
   nobleBleChannels.forEach((channel) => ipcMain.removeHandler(channel));
   void initNobleBleSupport(browserWindow.webContents);
