@@ -1115,6 +1115,8 @@
   "feedback.address_not_matched": "Address not matched",
   "feedback.address_pasted_text": "Address pasted",
   "feedback.address_type_does_not_support_sign_method": "Only {type} addresses support this signature method",
+  "feedback.android_copy_permission_warning_message": "Your device may restrict clipboard access. Please check clipboard permissions in your device settings.",
+  "feedback.android_copy_permission_warning_title": "Copy may not be working",
   "feedback.bluetooth_issue": "Bluetooth issue",
   "feedback.bluetooth_pairing_failed": "Bluetooth pairing failed",
   "feedback.bluetooth_unpaired": "Bluetooth unpaired",

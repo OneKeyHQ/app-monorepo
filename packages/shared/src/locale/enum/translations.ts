@@ -1120,6 +1120,8 @@
   feedback_address_not_matched = 'feedback.address_not_matched',
   feedback_address_pasted_text = 'feedback.address_pasted_text',
   feedback_address_type_does_not_support_sign_method = 'feedback.address_type_does_not_support_sign_method',
+  feedback_android_copy_permission_warning_message = 'feedback.android_copy_permission_warning_message',
+  feedback_android_copy_permission_warning_title = 'feedback.android_copy_permission_warning_title',
   feedback_bluetooth_issue = 'feedback.bluetooth_issue',
   feedback_bluetooth_pairing_failed = 'feedback.bluetooth_pairing_failed',
   feedback_bluetooth_unpaired = 'feedback.bluetooth_unpaired',
