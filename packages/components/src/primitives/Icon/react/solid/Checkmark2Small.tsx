@@ -7,11 +7,7 @@ const SvgCheckmark2Small = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path
-      fillRule="evenodd"
-      d="M17.659 7.247a1 1 0 0 1 .094 1.412l-7 8a1 1 0 0 1-1.46.048l-3-3a1 1 0 1 1 1.414-1.414l2.244 2.244 6.296-7.195a1 1 0 0 1 1.412-.095"
-      clipRule="evenodd"
-    />
+    <Path d="m18.411 7.906-8.362 9.557L5.586 13 7 11.586l2.951 2.951 6.955-7.948z" />
   </Svg>
 );
 export default SvgCheckmark2Small;

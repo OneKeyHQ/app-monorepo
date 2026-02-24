@@ -7,7 +7,11 @@ const SvgChartColumnar4 = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M5 15.66v3.33h14v-3.33zm0-5.33v3.33h8.5v-3.33zM5 5v3.33h3V5zm5 3.33h3.5a2 2 0 0 1 2 2v3.33H19a2 2 0 0 1 2 2v3.33a2 2 0 0 1-2 2H5V22a1 1 0 1 1-2 0V2a1 1 0 0 1 2 0v1h3a2 2 0 0 1 2 2z" />
+    <Path
+      fillRule="evenodd"
+      d="M5 3h5v5.33h5.5v5.33H21v7.33H5V23H3V1h2zm0 15.99h14v-3.33H5zm0-5.33h8.5v-3.33H5zm0-5.33h3V5H5z"
+      clipRule="evenodd"
+    />
   </Svg>
 );
 export default SvgChartColumnar4;

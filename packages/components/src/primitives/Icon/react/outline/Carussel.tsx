@@ -7,9 +7,11 @@ const SvgCarussel = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M2 17V7a2 2 0 0 1 2-2h3a1 1 0 0 1 0 2H4v10h3a1 1 0 1 1 0 2H4a2 2 0 0 1-2-2" />
-    <Path d="M8 5v14h8V5zm10 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2z" />
-    <Path d="M20 17V7h-3a1 1 0 1 1 0-2h3a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-3a1 1 0 1 1 0-2z" />
+    <Path
+      fillRule="evenodd"
+      d="M18 5h4v14h-4v2H6v-2H2V5h4V3h12zM8 19h8V5H8zM4 7v10h2V7zm14 10h2V7h-2z"
+      clipRule="evenodd"
+    />
   </Svg>
 );
 export default SvgCarussel;

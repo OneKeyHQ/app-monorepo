@@ -7,8 +7,8 @@ const SvgDossier = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M2 6a2 2 0 0 1 2-2h4v6h14v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2z" />
-    <Path d="M10 4h5v4h-5zm7 0h3a2 2 0 0 1 2 2v2h-5z" />
+    <Path d="M8 10h14v10H2V4h6z" />
+    <Path d="M15 8h-5V4h5zm7 0h-5V4h5z" />
   </Svg>
 );
 export default SvgDossier;

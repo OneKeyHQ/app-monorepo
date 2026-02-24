@@ -7,13 +7,13 @@ const SvgCameraExposureAutofocus = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M4 15a1 1 0 0 1 1 1v3h3a1 1 0 1 1 0 2H5a2 2 0 0 1-2-2v-3a1 1 0 0 1 1-1m16 0a1 1 0 0 1 1 1v3a2 2 0 0 1-2 2h-3a1 1 0 1 1 0-2h3v-3a1 1 0 0 1 1-1" />
+    <Path d="M5 19h4v2H3v-6h2zm16 2h-6v-2h4v-4h2z" />
     <Path
       fillRule="evenodd"
-      d="M12 8.25a1 1 0 0 1 .91.586l2.5 5.5a1 1 0 0 1-1.82.828l-.415-.914h-2.349l-.416.914a1 1 0 1 1-1.82-.828l2.5-5.5A1 1 0 0 1 12 8.25m-.265 4h.53L12 11.667z"
+      d="m13.04 8 2.907 7.818q.033.09.053.182h-2.063l-.425-1.143h-3.024L10.063 16H8q.019-.092.053-.182L10.96 8h2.078Zm-1.701 4.571h1.322L12 10.794z"
       clipRule="evenodd"
     />
-    <Path d="M8 3a1 1 0 0 1 0 2H5v3a1 1 0 0 1-2 0V5a2 2 0 0 1 2-2zm11 0a2 2 0 0 1 2 2v3a1 1 0 1 1-2 0V5h-3a1 1 0 1 1 0-2z" />
+    <Path d="M9 5H5v4H3V3h6zm12 4h-2V5h-4V3h6z" />
   </Svg>
 );
 export default SvgCameraExposureAutofocus;

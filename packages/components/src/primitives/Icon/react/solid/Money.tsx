@@ -9,7 +9,7 @@ const SvgMoney = (props: SvgProps) => (
   >
     <Path
       fillRule="evenodd"
-      d="M1 6a2 2 0 0 1 2-2h18a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2zm8.5 6a2.5 2.5 0 1 1 5 0 2.5 2.5 0 0 1-5 0M3 7a1 1 0 0 1 1-1h1a1 1 0 0 1 0 2H4a1 1 0 0 1-1-1m16 9a1 1 0 1 0 0 2h1a1 1 0 1 0 0-2z"
+      d="M23 20H1V4h22zm-5-2h3v-2h-3zm-6-8.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5M3 8h3V6H3z"
       clipRule="evenodd"
     />
   </Svg>

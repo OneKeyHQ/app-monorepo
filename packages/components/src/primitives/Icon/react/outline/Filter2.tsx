@@ -7,7 +7,7 @@ const SvgFilter2 = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M15 18a1 1 0 1 1 0 2H9a1 1 0 1 1 0-2zm3-7a1 1 0 1 1 0 2H6a1 1 0 1 1 0-2zm3-7a1 1 0 1 1 0 2H3a1 1 0 0 1 0-2z" />
+    <Path d="M16 20H8v-2h8zm3-7H5v-2h14zm3-7H2V4h20z" />
   </Svg>
 );
 export default SvgFilter2;

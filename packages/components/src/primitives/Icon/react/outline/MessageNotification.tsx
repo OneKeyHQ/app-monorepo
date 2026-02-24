@@ -7,7 +7,12 @@ const SvgMessageNotification = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M2.002 17.187V5.151a2 2 0 0 1 2-2h8a1 1 0 1 1 0 2h-8v12.036h4.65a2 2 0 0 1 1.285.467L12 19.384l2.099-1.737c.359-.297.81-.46 1.276-.46h4.626V13.17a1 1 0 0 1 2 0v4.018a2 2 0 0 1-2 2h-4.626l-2.74 2.27a1 1 0 0 1-1.28-.004l-2.704-2.266h-4.65a2 2 0 0 1-2-2ZM21 6.151a2 2 0 1 0-4 0 2 2 0 0 0 4 0m2 0a4 4 0 1 1-8 0 4 4 0 0 1 8 0" />
+    <Path d="M13.002 5h-9v12.036h5.377L12 19.233l2.377-1.967.278-.23h5.347v-5.018h2v7.018h-6.627l-3.38 2.802-3.343-2.802h-6.65V3h11z" />
+    <Path
+      fillRule="evenodd"
+      d="M19 2a4 4 0 1 1 0 8 4 4 0 0 1 0-8m0 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4"
+      clipRule="evenodd"
+    />
   </Svg>
 );
 export default SvgMessageNotification;

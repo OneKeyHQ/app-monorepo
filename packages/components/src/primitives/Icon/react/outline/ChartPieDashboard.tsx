@@ -7,7 +7,11 @@ const SvgChartPieDashboard = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M20 12a8 8 0 0 0-7-7.937v7.23l6.818 2.41A8 8 0 0 0 20 12M4 12a8 8 0 0 0 15.15 3.587l-7.483-2.645A1 1 0 0 1 11 12V4.063A8 8 0 0 0 4 12m18 0a10 10 0 0 1-10 10C6.477 22 2 17.523 2 12S6.477 2 12 2s10 4.477 10 10" />
+    <Path
+      fillRule="evenodd"
+      d="M12 2c5.523 0 10 4.477 10 10s-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2m-1 2.063A8 8 0 0 0 12 20a8 8 0 0 0 7.15-4.413L11 12.707zm2 7.23 6.816 2.41A8 8 0 0 0 13 4.063z"
+      clipRule="evenodd"
+    />
   </Svg>
 );
 export default SvgChartPieDashboard;

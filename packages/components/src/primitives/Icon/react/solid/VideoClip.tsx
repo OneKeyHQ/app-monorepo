@@ -9,7 +9,7 @@ const SvgVideoClip = (props: SvgProps) => (
   >
     <Path
       fillRule="evenodd"
-      d="M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zm4 0H5v2h2zm10 0v2h2V5zm2 4h-2v2h2zm0 4h-2v2.444h2zm0 4.444h-2V19h2zM15 13v-2H9v2zm-8 6v-2H5v2zm-2-4h2v-2H5zm0-4h2V9H5z"
+      d="M21 21H3V3h18zM5 19h2v-2H5zm12 0h2v-1.556h-2zm0-3.556h2V13h-2zM5 15h2v-2H5zm4-2h6v-2H9zm-4-2h2V9H5zm12 0h2V9h-2zM5 7h2V5H5zm12 0h2V5h-2z"
       clipRule="evenodd"
     />
   </Svg>

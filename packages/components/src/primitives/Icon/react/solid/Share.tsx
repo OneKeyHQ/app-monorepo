@@ -7,11 +7,8 @@ const SvgShare = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path
-      fillRule="evenodd"
-      d="M15.793 3.793a1 1 0 0 1 1.414 0l3.5 3.5a1 1 0 0 1 0 1.414l-3.5 3.5a1 1 0 0 1-1.414-1.414L17.586 9H13a4 4 0 0 0-4 4v1a1 1 0 1 1-2 0v-1a6 6 0 0 1 6-6h4.586l-1.793-1.793a1 1 0 0 1 0-1.414M3 7a1 1 0 0 1 1 1v10h15a1 1 0 1 1 0 2H4a2 2 0 0 1-2-2V8a1 1 0 0 1 1-1"
-      clipRule="evenodd"
-    />
+    <Path d="M4 18h16v2H2V7h2z" />
+    <Path d="M21.414 8 16.5 12.914 15.086 11.5l2.5-2.5H13a4 4 0 0 0-4 4v2H7v-2a6 6 0 0 1 6-6h4.586l-2.5-2.5L16.5 3.086z" />
   </Svg>
 );
 export default SvgShare;

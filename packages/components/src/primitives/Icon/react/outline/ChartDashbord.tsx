@@ -7,10 +7,10 @@ const SvgChartDashbord = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M8 11.25a1 1 0 0 1 1 1v1a1 1 0 0 1-2 0v-1a1 1 0 0 1 1-1m4-5a1 1 0 0 1 1 1v6a1 1 0 0 1-2 0v-6a1 1 0 0 1 1-1m4 3a1 1 0 0 1 1 1v3a1 1 0 0 1-2 0v-3a1 1 0 0 1 1-1" />
+    <Path d="M9 15H7v-3h2zm4 0h-2V7h2zm4 0h-2v-5h2z" />
     <Path
       fillRule="evenodd"
-      d="M20 2.25a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3.672l.636 2.226a1.001 1.001 0 0 1-1.923.549l-.793-2.776H9.755l-.792 2.776a1.001 1.001 0 0 1-1.924-.549l.637-2.227H4a2 2 0 0 1-2-2v-12a2 2 0 0 1 2-2h16Zm-16 14h16v-12H4z"
+      d="M22 19h-5.673l.911 3.186-1.923.55L14.247 19H9.754l-1.067 3.736-1.923-.55.91-3.186H2V3h20zM4 17h16V5H4z"
       clipRule="evenodd"
     />
   </Svg>

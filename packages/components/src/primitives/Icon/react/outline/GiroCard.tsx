@@ -7,7 +7,12 @@ const SvgGiroCard = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M4 6v12h16V6zm4 3a1 1 0 0 1 0 2H7a1 1 0 1 1 0-2zm14 9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z" />
+    <Path d="M9 11H6V9h3z" />
+    <Path
+      fillRule="evenodd"
+      d="M22 20H2V4h20zM4 18h16V6H4z"
+      clipRule="evenodd"
+    />
   </Svg>
 );
 export default SvgGiroCard;
