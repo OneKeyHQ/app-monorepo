@@ -351,6 +351,10 @@ class ServiceMarketV2 extends ServiceBase {
 
     const { data } = response.data;
 
+    if (!data?.list) {
+      return { list: cachedResults };
+    }
+
     // Update cache and merge results
     data.list.forEach((item, apiIndex) => {
       const token = missingTokens[apiIndex];
