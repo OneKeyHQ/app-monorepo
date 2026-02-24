@@ -225,12 +225,14 @@ class AppKitErrorBoundary extends Component<
     );
   }
 
+  override componentDidMount() {
+    this.scheduleRetryIfNeeded();
+  }
+
   override componentDidUpdate(
     prevProps: IAppKitErrorBoundaryProps,
     prevState: IAppKitErrorBoundaryState,
   ) {
-    const { hasError, retryCount } = this.state;
-
     // Reset error state when children prop changes (modal re-opens)
     if (prevProps.children !== this.props.children && prevState.hasError) {
       this.clearRetryTimer();
@@ -239,6 +241,15 @@ class AppKitErrorBoundary extends Component<
     }
 
     // Auto-retry by remounting after a short delay
+    this.scheduleRetryIfNeeded();
+  }
+
+  override componentWillUnmount() {
+    this.clearRetryTimer();
+  }
+
+  private scheduleRetryIfNeeded() {
+    const { hasError, retryCount } = this.state;
     if (hasError && retryCount < MAX_RETRIES) {
       this.clearRetryTimer();
       this.retryTimer = setTimeout(() => {
@@ -248,10 +259,6 @@ class AppKitErrorBoundary extends Component<
         }));
       }, RETRY_DELAY_MS);
     }
-  }
-
-  override componentWillUnmount() {
-    this.clearRetryTimer();
   }
 
   clearRetryTimer() {
