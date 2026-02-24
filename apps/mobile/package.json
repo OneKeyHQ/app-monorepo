@@ -22,6 +22,8 @@
     "detox:test:android:emu:debug": "detox test -c android.emu.debug",
     "detox:build:android:emu:release": "detox build -c android.emu.release",
     "detox:test:android:emu:release": "detox test -c android.emu.release --no-start",
+    "harness:test": "RN_HARNESS=true NODE_OPTIONS='--max-old-space-size=16384' npx react-native-harness --config jest.harness.config.mjs --verbose",
+    "harness:test:android": "RN_HARNESS=true NODE_OPTIONS='--max-old-space-size=8192' npx react-native-harness --config jest.harness.config.mjs --harnessRunner android --verbose",
     "build-bundle": "node build-bundle.js",
     "clean": "yarn clean:build",
     "clean:build": "rimraf ./dist && rimraf ./expo && rimraf .tamagui && rimraf ./node_modules/.cache && yarn android:clean",
