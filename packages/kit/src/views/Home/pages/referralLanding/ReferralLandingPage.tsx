@@ -79,133 +79,146 @@ function ReferralLandingPage() {
     }
   }
 
+  // Mobile web: try deep link then fall back to app store.
+  // Isolated from appIsLocked so atom hydration cannot cancel the fallback timer.
   useEffect(() => {
     if (hasProcessedRef.current) {
       return;
     }
-
-    // Mobile browsers should open the app (if installed) or fall back to the store.
-    // Universal Links may not trigger when the URL is pasted into the address bar.
-    if (platformEnv.isWeb && platformEnv.isWebMobile) {
-      hasProcessedRef.current = true;
-
-      const storeUrlAuto = platformEnv.isWebMobileIOS
-        ? APP_STORE_DOWNLOAD_WEB_LINK
-        : platformEnv.isWebMobileAndroid
-          ? PLAY_STORE_LINK
-          : DOWNLOAD_MOBILE_APP_URL;
-
-      const deepLinkUrl = code
-        ? uriUtils.buildDeepLinkUrl({
-            path: EOneKeyDeepLinkPath.invited_by_friend,
-            query: {
-              code,
-              page,
-            },
-          })
-        : '';
-
-      defaultLogger.referral.page.enterReferralGuide(
-        code,
-        'web_mobile_redirect',
-      );
-
-      const fallbackDelayMs = 1200;
-
-      // Track whether the page ever went to background. If the app opened, the page is typically
-      // hidden/pagehide, and timers may fire later when the user comes back.
-      let didHide = false;
-      const markHide = () => {
-        didHide = true;
-      };
-      const onVisibilityChange = () => {
-        if (globalThis.document?.visibilityState === 'hidden') {
-          markHide();
-        }
-      };
-
-      globalThis.document?.addEventListener('visibilitychange', onVisibilityChange);
-      globalThis.addEventListener?.('pagehide', markHide);
-
-      const redirectToStore = () => {
-        if (platformEnv.isWebMobileIOS) {
-          // Try to open the App Store app first; fall back to the web page if blocked.
-          const storeStartTime = Date.now();
-          globalThis.location.href = APP_STORE_DOWNLOAD_LINK;
-          globalThis.setTimeout(() => {
-            const elapsed = Date.now() - storeStartTime;
-            const isVisible = globalThis.document?.visibilityState !== 'hidden';
-            if (isVisible && elapsed <= 1500) {
-              globalThis.location.href = APP_STORE_DOWNLOAD_WEB_LINK;
-            }
-          }, 300);
-          return;
-        }
-        globalThis.location.href = storeUrlAuto;
-      };
-
-      const openDeepLinkSilently = (url: string) => {
-        try {
-          const doc = globalThis.document;
-          if (doc?.body) {
-            // Use an iframe to avoid breaking the current page on iOS when the app isn't installed.
-            const iframe = doc.createElement('iframe');
-            iframe.style.display = 'none';
-            iframe.style.width = '0';
-            iframe.style.height = '0';
-            iframe.src = url;
-            doc.body.appendChild(iframe);
-            globalThis.setTimeout(() => {
-              try {
-                iframe.remove();
-              } catch {
-                // ignore
-              }
-            }, 800);
-            return;
-          }
-        } catch {
-          // ignore
-        }
-        globalThis.location.href = url;
-      };
-
-      let fallbackTimer: ReturnType<typeof globalThis.setTimeout> | undefined;
-      const armFallbackTimer = () => {
-        fallbackTimer = globalThis.setTimeout(() => {
-          const isVisible = globalThis.document?.visibilityState !== 'hidden';
-          if (isVisible && !didHide) {
-            redirectToStore();
-          }
-        }, fallbackDelayMs);
-      };
-
-      if (deepLinkUrl) {
-        // Only arm fallback when we actually attempt to open the app.
-        armFallbackTimer();
-
-        if (platformEnv.isWebMobileIOS) {
-          openDeepLinkSilently(deepLinkUrl);
-        } else {
-          globalThis.location.href = deepLinkUrl;
-        }
-      } else {
-        redirectToStore();
-      }
-
-      return () => {
-        if (fallbackTimer) {
-          globalThis.clearTimeout(fallbackTimer);
-        }
-        globalThis.document?.removeEventListener(
-          'visibilitychange',
-          onVisibilityChange,
-        );
-        globalThis.removeEventListener?.('pagehide', markHide);
-      };
+    if (!(platformEnv.isWeb && platformEnv.isWebMobile)) {
+      return;
     }
 
-    // Process referral landing after app is unlocked
+    hasProcessedRef.current = true;
+
+    const storeUrlAuto = platformEnv.isWebMobileIOS
+      ? APP_STORE_DOWNLOAD_WEB_LINK
+      : platformEnv.isWebMobileAndroid
+        ? PLAY_STORE_LINK
+        : DOWNLOAD_MOBILE_APP_URL;
+
+    const deepLinkUrl = code
+      ? uriUtils.buildDeepLinkUrl({
+          path: EOneKeyDeepLinkPath.invited_by_friend,
+          query: {
+            code,
+            page,
+          },
+        })
+      : '';
+
+    defaultLogger.referral.page.enterReferralGuide(
+      code,
+      'web_mobile_redirect',
+    );
+
+    const fallbackDelayMs = 1200;
+
+    // Track whether the page ever went to background. If the app opened, the page is typically
+    // hidden/pagehide, and timers may fire later when the user comes back.
+    let didHide = false;
+    const markHide = () => {
+      didHide = true;
+    };
+    const onVisibilityChange = () => {
+      if (globalThis.document?.visibilityState === 'hidden') {
+        markHide();
+      }
+    };
+
+    globalThis.document?.addEventListener(
+      'visibilitychange',
+      onVisibilityChange,
+    );
+    globalThis.addEventListener?.('pagehide', markHide);
+
+    const redirectToStore = () => {
+      if (platformEnv.isWebMobileIOS) {
+        const storeStartTime = Date.now();
+        globalThis.location.href = APP_STORE_DOWNLOAD_LINK;
+        globalThis.setTimeout(() => {
+          const elapsed = Date.now() - storeStartTime;
+          const isVisible =
+            globalThis.document?.visibilityState !== 'hidden';
+          if (isVisible && elapsed <= 1500) {
+            globalThis.location.href = APP_STORE_DOWNLOAD_WEB_LINK;
+          }
+        }, 300);
+        return;
+      }
+      globalThis.location.href = storeUrlAuto;
+    };
+
+    const openDeepLinkSilently = (url: string) => {
+      try {
+        const doc = globalThis.document;
+        if (doc?.body) {
+          const iframe = doc.createElement('iframe');
+          iframe.style.display = 'none';
+          iframe.style.width = '0';
+          iframe.style.height = '0';
+          iframe.src = url;
+          doc.body.appendChild(iframe);
+          globalThis.setTimeout(() => {
+            try {
+              iframe.remove();
+            } catch {
+              // ignore
+            }
+          }, 800);
+          return;
+        }
+      } catch {
+        // ignore
+      }
+      globalThis.location.href = url;
+    };
+
+    let fallbackTimer: ReturnType<typeof globalThis.setTimeout> | undefined;
+    const armFallbackTimer = () => {
+      fallbackTimer = globalThis.setTimeout(() => {
+        const isVisible =
+          globalThis.document?.visibilityState !== 'hidden';
+        if (isVisible && !didHide) {
+          redirectToStore();
+        }
+      }, fallbackDelayMs);
+    };
+
+    if (deepLinkUrl) {
+      armFallbackTimer();
+
+      if (platformEnv.isWebMobileIOS) {
+        openDeepLinkSilently(deepLinkUrl);
+      } else {
+        globalThis.location.href = deepLinkUrl;
+      }
+    } else {
+      redirectToStore();
+    }
+
+    return () => {
+      if (fallbackTimer) {
+        globalThis.clearTimeout(fallbackTimer);
+      }
+      globalThis.document?.removeEventListener(
+        'visibilitychange',
+        onVisibilityChange,
+      );
+      globalThis.removeEventListener?.('pagehide', markHide);
+    };
+    // code and page are derived from route params and stable across renders.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [code, page]);
+
+  // Native / desktop web: process referral after app is unlocked.
+  useEffect(() => {
+    if (hasProcessedRef.current) {
+      return;
+    }
+    if (platformEnv.isWeb && platformEnv.isWebMobile) {
+      return;
+    }
     if (appIsLocked) {
       return;
     }
@@ -213,20 +226,16 @@ function ReferralLandingPage() {
     hasProcessedRef.current = true;
 
     const processReferralLanding = async () => {
-      // Wait for navigation system to be ready
       const isNavigationReady = await waitForNavigationReady();
       if (!isNavigationReady) {
-        // Navigation system not ready, fallback to web redirect
         if (platformEnv.isWeb) {
           globalThis.location.href = '/';
         }
         return;
       }
 
-      // Log the referral landing
       defaultLogger.referral.page.enterReferralGuide(code, 'app_landing');
 
-      // Save referral code to perp DB if page is perp-related
       if (code && (page === 'perp' || page === 'perps')) {
         try {
           await backgroundApiProxy.simpleDb.perp.setPerpData((prev) => ({
@@ -238,14 +247,11 @@ function ReferralLandingPage() {
         }
       }
 
-      // Determine target tab route (default to Market)
       const pageLower = page?.toLowerCase() ?? '';
       const targetTabRoute = PAGE_TO_TAB_ROUTE[pageLower] ?? ETabRoutes.Market;
 
-      // Navigate to target page
       navigation.switchTab(targetTabRoute);
 
-      // Open InvitedByFriend modal after navigation
       setTimeout(() => {
         navigation.pushModal(EModalRoutes.ReferFriendsModal, {
           screen: EModalReferFriendsRoutes.InvitedByFriend,
