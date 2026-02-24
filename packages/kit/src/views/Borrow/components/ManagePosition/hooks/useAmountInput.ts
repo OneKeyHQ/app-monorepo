@@ -19,7 +19,7 @@ export interface IUseAmountInputParams {
 }
 
 export function useAmountInput({
-  action,
+  action: _action,
   decimals,
   balance,
   maxBalance,
