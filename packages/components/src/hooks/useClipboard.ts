@@ -56,12 +56,9 @@ export function useClipboard() {
         const shouldWarn = checkAndroidRepeatedCopy();
         if (shouldWarn) {
           Toast.warning({
-            title: intl.formatMessage({
-              id: ETranslations.feedback_android_copy_permission_warning_title,
-            }),
-            message: intl.formatMessage({
-              id: ETranslations.feedback_android_copy_permission_warning_message,
-            }),
+            title: 'Copy may not be working',
+            message:
+              'Your device may restrict clipboard access. Please check clipboard permissions in your device settings.',
           });
         } else {
           Toast.success({
