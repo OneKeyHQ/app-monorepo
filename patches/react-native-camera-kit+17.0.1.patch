@@ -1,7 +1,7 @@
 diff --git a/node_modules/react-native-camera-kit/ios/ReactNativeCameraKit/RealCamera.swift b/node_modules/react-native-camera-kit/ios/ReactNativeCameraKit/RealCamera.swift
 --- a/node_modules/react-native-camera-kit/ios/ReactNativeCameraKit/RealCamera.swift
 +++ b/node_modules/react-native-camera-kit/ios/ReactNativeCameraKit/RealCamera.swift
-@@ -112,35 +112,35 @@
+@@ -112,35 +112,36 @@
      // MARK: - Public
 
      func setup(cameraType: CameraType, supportedBarcodeType: [CodeFormat]) {
@@ -48,11 +48,12 @@ diff --git a/node_modules/react-native-camera-kit/ios/ReactNativeCameraKit/RealC
 +                self.session.startRunning()
              }
 +
-+            // Ensure commitConfiguration() completes before startRunning() to prevent
-+            // AVCaptureSession race condition. Setting previewLayer.session internally
-+            // triggers beginConfiguration/commitConfiguration. By deferring preview layer
-+            // assignment to main queue after startRunning() completes, the implicit
-+            // commitConfiguration() never overlaps with startRunning(). (Fixes REACT-NATIVE-1EZ)
++            // Defer preview layer session assignment until after startRunning() completes.
++            // Setting previewLayer.session internally triggers beginConfiguration/commitConfiguration
++            // on the AVCaptureSession. If this overlaps with startRunning(), AVFoundation throws
++            // NSGenericException (startRunning called between beginConfiguration and
++            // commitConfiguration). Dispatching to main after startRunning() ensures proper
++            // sequencing of the AVCaptureSession configuration lifecycle. (Fixes REACT-NATIVE-1EZ)
 +            DispatchQueue.main.async {
 +                self.cameraPreview.session = self.session
 +                self.cameraPreview.previewLayer.videoGravity = .resizeAspect
