@@ -122,7 +122,17 @@ if (process.env.RN_HARNESS === 'true') {
     if (moduleName.startsWith('/packages/')) {
       const absolutePath = path.join(monorepoRoot, moduleName);
       // Try to resolve with platform extensions
-      const extensions = ['', `.${platform}.ts`, `.${platform}.tsx`, '.ts', '.tsx', `.${platform}.js`, `.${platform}.jsx`, '.js', '.jsx'];
+      const extensions = [
+        '',
+        `.${platform}.ts`,
+        `.${platform}.tsx`,
+        '.ts',
+        '.tsx',
+        `.${platform}.js`,
+        `.${platform}.jsx`,
+        '.js',
+        '.jsx',
+      ];
       for (const ext of extensions) {
         const fullPath = absolutePath + ext;
         if (fs.existsSync(fullPath)) {
@@ -135,7 +145,17 @@ if (process.env.RN_HARNESS === 'true') {
     if (moduleName.startsWith('./apps/mobile/packages/')) {
       const correctedPath = moduleName.replace(/^\.\/apps\/mobile\//, '');
       const absolutePath = path.join(monorepoRoot, correctedPath);
-      const extensions = ['', `.${platform}.ts`, `.${platform}.tsx`, '.ts', '.tsx', `.${platform}.js`, `.${platform}.jsx`, '.js', '.jsx'];
+      const extensions = [
+        '',
+        `.${platform}.ts`,
+        `.${platform}.tsx`,
+        '.ts',
+        '.tsx',
+        `.${platform}.js`,
+        `.${platform}.jsx`,
+        '.js',
+        '.jsx',
+      ];
       for (const ext of extensions) {
         const fullPath = absolutePath + ext;
         if (fs.existsSync(fullPath)) {
