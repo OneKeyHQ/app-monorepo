@@ -7,7 +7,7 @@ import { IconButton } from '../../actions/IconButton';
 import type { ICalendarHeaderProps } from './type';
 
 function NavSpacer() {
-  return <Stack width="$10" height="$4" />;
+  return <Stack width="$10" height="$6" />;
 }
 
 export const CalendarHeader = memo(
