@@ -1,0 +1,51 @@
+diff --git a/node_modules/react-native-screens/ios/RNSScreenStack.mm b/node_modules/react-native-screens/ios/RNSScreenStack.mm
+index 498b81d..f5a2c3e 100644
+--- a/node_modules/react-native-screens/ios/RNSScreenStack.mm
++++ b/node_modules/react-native-screens/ios/RNSScreenStack.mm
+@@ -407,7 +407,16 @@
+     UIView *parentView = (UIView *)self.reactSuperview;
+     while (parentView) {
+       if (parentView.reactViewController) {
+-        [parentView.reactViewController addChildViewController:controller];
++        UIViewController *candidateParent = parentView.reactViewController;
++        // Skip UIHostingController to avoid hierarchy inconsistency when used
++        // inside SwiftUI containers (e.g. react-native-bottom-tabs TabView).
++        // UIHostingController gets re-parented by SwiftUI during layout updates,
++        // which causes UIViewControllerHierarchyInconsistency crashes.
++        if ([NSStringFromClass([candidateParent class]) containsString:@"UIHostingController"]) {
++          parentView = (UIView *)parentView.reactSuperview;
++          continue;
++        }
++        [candidateParent addChildViewController:controller];
+         [self addSubview:controller.view];
+ #if !TARGET_OS_TV
+         _controller.interactivePopGestureRecognizer.delegate = self;
+@@ -417,7 +426,7 @@
+         }
+ #endif // Check for iOS >= 26.0
+ #endif
+-        [controller didMoveToParentViewController:parentView.reactViewController];
++        [controller didMoveToParentViewController:candidateParent];
+         // On iOS pre 12 we observed that `willShowViewController` delegate method does not always
+         // get triggered when the navigation controller is instantiated. As the only thing we do in
+         // that delegate method is ask nav header to update to the current state it does not hurt to
+@@ -868,13 +877,17 @@
+ {
+   // When transitioning between screens, disable interactions on stack subview which wraps the screens
+   // and sink all gesture events. This should work for nested stacks and stack inside bottom tabs, inside stack.
+-  self.subviews[0].userInteractionEnabled = NO;
++  if (self.subviews.count > 0) {
++    self.subviews[0].userInteractionEnabled = NO;
++  }
+   [self addGestureRecognizer:_sinkEventsPanGestureRecognizer];
+ }
+
+ - (void)rnscreens_enableInteractions
+ {
+-  self.subviews[0].userInteractionEnabled = YES;
++  if (self.subviews.count > 0) {
++    self.subviews[0].userInteractionEnabled = YES;
++  }
+   [self removeGestureRecognizer:_sinkEventsPanGestureRecognizer];
+ }
+
