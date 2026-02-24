@@ -14,7 +14,7 @@ const enJsonPath = path.join(localeJsonPath, enJSONFile);
 
 fs.writeFileSync(
   path.join(__dirname, '../src/locale/localeJsonMap.ts'),
-  `// This file is automatically created by \`yarn fetch:locale\`.
+  `// This file is automatically created by \`yarn i18n:pull\`.
 // @ts-ignore
 /* eslint-disable  */
 
@@ -42,7 +42,7 @@ const typeFile = path.join(__dirname, '../src/locale/enum/translations.ts');
 const text = fs.readFileSync(typeFile, 'utf8');
 fs.writeFileSync(
   typeFile,
-  `// This file is automatically created by \`yarn fetch:locale\`.\n
+  `// This file is automatically created by \`yarn i18n:pull\`.\n
 // @ts-ignore
 /* eslint-disable  */
   
