@@ -24,6 +24,7 @@ import contextMenu from 'electron-context-menu';
 import isDev from 'electron-is-dev';
 import logger from 'electron-log/main';
 
+import { CALL_DESKTOP_API_EVENT_NAME } from '@onekeyhq/kit-bg/src/desktopApis/base/consts';
 import { getTemplatePhishingUrls } from '@onekeyhq/kit-bg/src/desktopApis/DesktopApiWebview';
 import desktopApi from '@onekeyhq/kit-bg/src/desktopApis/instance/desktopApi';
 import {
@@ -770,6 +771,7 @@ async function createMainWindow() {
     }
   });
 
+  ipcMain.removeAllListeners(CALL_DESKTOP_API_EVENT_NAME);
   desktopApi.desktopApiSetup();
 
   // reset appState to undefined  to avoid screen lock.
@@ -811,12 +813,14 @@ async function createMainWindow() {
     safelyBrowserWindow?.webContents.send(ipcMessageKeys.APP_STATE, state);
   });
 
+  app.removeAllListeners('login');
   app.on('login', (event, webContents, request, authInfo, callback) => {
     event.preventDefault();
     callback('onekey', 'juDUIpz3lVnubZ2aHOkwBB6SJotYynyb');
   });
 
   // Prevents clicking on links to open new Windows
+  app.removeAllListeners('web-contents-created');
   app.on('web-contents-created', (event, contents) => {
     if (contents.getType() === 'webview') {
       contents.setWindowOpenHandler((handleDetails) => {
