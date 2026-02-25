@@ -89,7 +89,7 @@ function WalletActionExchange() {
                 networkId: tokenNetworkId,
                 address: accountAddress,
                 cryptoCurrency: (selectedToken.symbol ?? '').toUpperCase(),
-                requestedAmount: '1', // Default amount for MVP
+                // requestedAmount: '1', // Default amount for MVP
               });
 
             // 5. Redirect to Binance

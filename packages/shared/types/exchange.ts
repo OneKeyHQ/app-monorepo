@@ -29,7 +29,7 @@ export interface IBinancePreOrderParams {
   networkId: string;
   address: string;
   cryptoCurrency: string;
-  requestedAmount: string;
+  requestedAmount?: string;
 }
 
 /**
