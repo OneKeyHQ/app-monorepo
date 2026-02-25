@@ -13,7 +13,7 @@ index 05bddcb..5211253 100644
        registrationName: 'onChangeSync',
      },
 diff --git a/node_modules/react-native/Libraries/Text/TextInput/Multiline/RCTUITextView.mm b/node_modules/react-native/Libraries/Text/TextInput/Multiline/RCTUITextView.mm
-index 6e9c384..07ae4dc 100644
+index 6e9c384..5f5220c 100644
 --- a/node_modules/react-native/Libraries/Text/TextInput/Multiline/RCTUITextView.mm
 +++ b/node_modules/react-native/Libraries/Text/TextInput/Multiline/RCTUITextView.mm
 @@ -13,6 +13,10 @@
@@ -35,7 +35,7 @@ index 6e9c384..07ae4dc 100644
  }
  
  static UIFont *defaultPlaceholderFont(void)
-@@ -208,10 +213,88 @@ - (void)scrollRangeToVisible:(NSRange)range
+@@ -208,10 +213,94 @@ - (void)scrollRangeToVisible:(NSRange)range
  
  - (void)paste:(id)sender
  {
@@ -98,7 +98,13 @@ index 6e9c384..07ae4dc 100644
 +          }
 +
 +          NSString *MIMEType = (__bridge_transfer NSString *)UTTypeCopyPreferredTagWithClass((__bridge CFStringRef)identifier, kUTTagClassMIMEType);
++          if (!MIMEType) {
++            MIMEType = @"application/octet-stream";
++          }
 +          NSString *fileExtension = (__bridge_transfer NSString *)UTTypeCopyPreferredTagWithClass((__bridge CFStringRef)identifier, kUTTagClassFilenameExtension);
++          if (!fileExtension) {
++            fileExtension = @"bin";
++          }
 +          NSString *fileName = [NSString stringWithFormat:@"%@.%@", [[NSUUID UUID] UUIDString], fileExtension];
 +          NSString *filePath = [NSTemporaryDirectory() stringByAppendingPathComponent:fileName];
 +
@@ -124,7 +130,7 @@ index 6e9c384..07ae4dc 100644
  // Turn off scroll animation to fix flaky scrolling.
  // This is only necessary for iOS < 14.
  #if defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED < 140000
-@@ -301,6 +384,10 @@ - (BOOL)canPerformAction:(SEL)action withSender:(id)sender
+@@ -301,6 +390,10 @@ - (BOOL)canPerformAction:(SEL)action withSender:(id)sender
      return NO;
    }
  
@@ -279,7 +285,7 @@ index 47adc53..1865e0a 100644
  RCT_EXPORT_SHADOW_PROPERTY(text, NSString)
  RCT_EXPORT_SHADOW_PROPERTY(placeholder, NSString)
 diff --git a/node_modules/react-native/Libraries/Text/TextInput/Singleline/RCTUITextField.mm b/node_modules/react-native/Libraries/Text/TextInput/Singleline/RCTUITextField.mm
-index 377f41e..be536bb 100644
+index 377f41e..456cf5e 100644
 --- a/node_modules/react-native/Libraries/Text/TextInput/Singleline/RCTUITextField.mm
 +++ b/node_modules/react-native/Libraries/Text/TextInput/Singleline/RCTUITextField.mm
 @@ -12,12 +12,17 @@
@@ -311,7 +317,7 @@ index 377f41e..be536bb 100644
    return [super canPerformAction:action withSender:sender];
  }
  
-@@ -260,12 +269,90 @@ - (void)scrollRangeToVisible:(NSRange)range
+@@ -260,12 +269,96 @@ - (void)scrollRangeToVisible:(NSRange)range
    // Singleline TextInput does not require scrolling after calling setSelectedTextRange (PR 38679).
  }
  
@@ -376,7 +382,13 @@ index 377f41e..be536bb 100644
 +          }
 +
 +          NSString *MIMEType = (__bridge_transfer NSString *)UTTypeCopyPreferredTagWithClass((__bridge CFStringRef)identifier, kUTTagClassMIMEType);
++          if (!MIMEType) {
++            MIMEType = @"application/octet-stream";
++          }
 +          NSString *fileExtension = (__bridge_transfer NSString *)UTTypeCopyPreferredTagWithClass((__bridge CFStringRef)identifier, kUTTagClassFilenameExtension);
++          if (!fileExtension) {
++            fileExtension = @"bin";
++          }
 +          NSString *fileName = [NSString stringWithFormat:@"%@.%@", [[NSUUID UUID] UUIDString], fileExtension];
 +          NSString *filePath = [NSTemporaryDirectory() stringByAppendingPathComponent:fileName];
 +
