@@ -113,6 +113,13 @@ export function useAppExitPrevent({
               await onConfirm?.();
               isNavExitConfirmShow = true;
               navigation.popStack();
+              // Safety reset: if useModalExitPrevent is not active
+              // (e.g., CloudBackupExitPrevent), the flag won't be
+              // consumed by navPreventRemoveCallback. Reset it to
+              // prevent stale state from skipping future dialogs.
+              setTimeout(() => {
+                isNavExitConfirmShow = false;
+              }, 300);
             },
           },
         ],
