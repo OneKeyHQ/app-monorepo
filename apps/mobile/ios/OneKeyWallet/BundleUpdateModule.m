@@ -953,6 +953,44 @@ RCT_EXPORT_METHOD(isBundleExists:(NSString *)appVersion
     resolve(@(exists));
 }
 
+RCT_EXPORT_METHOD(verifyExtractedBundle:(NSString *)appVersion
+                  bundleVersion:(NSString *)bundleVersion
+                  resolver:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject) {
+    NSString *folderName = [NSString stringWithFormat:@"%@-%@", appVersion, bundleVersion];
+    NSString *bundleDir = [BundleUpdateModule bundleDir];
+    NSString *bundlePath = [bundleDir stringByAppendingPathComponent:folderName];
+
+    if (![[NSFileManager defaultManager] fileExistsAtPath:bundlePath]) {
+        reject(@"VERIFY_FAILED", @"Bundle directory not found", nil);
+        return;
+    }
+
+    NSString *metadataJsonPath = [bundlePath stringByAppendingPathComponent:@"metadata.json"];
+    if (![[NSFileManager defaultManager] fileExistsAtPath:metadataJsonPath]) {
+        reject(@"VERIFY_FAILED", @"metadata.json not found", nil);
+        return;
+    }
+
+    @try {
+        NSData *jsonData = [NSData dataWithContentsOfFile:metadataJsonPath];
+        NSError *error;
+        NSDictionary *metadata = [NSJSONSerialization JSONObjectWithData:jsonData options:0 error:&error];
+        if (error || !metadata) {
+            reject(@"VERIFY_FAILED", @"Failed to parse metadata.json", nil);
+            return;
+        }
+        BOOL valid = [BundleUpdateModule validateAllFilesInDir:bundlePath metadata:metadata appVersion:appVersion bundleVersion:bundleVersion];
+        if (valid) {
+            resolve(nil);
+        } else {
+            reject(@"VERIFY_FAILED", @"File integrity check failed", nil);
+        }
+    } @catch (NSException *exception) {
+        reject(@"VERIFY_FAILED", exception.reason, nil);
+    }
+}
+
 RCT_EXPORT_METHOD(testDeleteJsRuntimeDir:(NSString *)appVersion
                   bundleVersion:(NSString *)bundleVersion
                   resolver:(RCTPromiseResolveBlock)resolve

@@ -192,6 +192,11 @@ export const BundleUpdate: IBundleUpdate = {
       appVersion,
       bundleVersion,
     ),
+  verifyExtractedBundle: (appVersion, bundleVersion) =>
+    globalThis.desktopApiProxy.bundleUpdate.verifyExtractedBundle(
+      appVersion,
+      bundleVersion,
+    ),
   clearBundle: () => globalThis.desktopApiProxy.bundleUpdate.clearBundle(),
   clearAllJSBundleData: () =>
     globalThis.desktopApiProxy.bundleUpdate.clearAllJSBundleData(),

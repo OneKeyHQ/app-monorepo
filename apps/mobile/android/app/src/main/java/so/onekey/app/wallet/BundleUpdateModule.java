@@ -1066,6 +1066,34 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
     }
 
     @ReactMethod
+    public void verifyExtractedBundle(String appVersion, String bundleVersion, Promise promise) {
+        String folderName = appVersion + "-" + bundleVersion;
+        String bundleDir = getBundleDir(reactContext);
+        File bundlePath = new File(bundleDir, folderName);
+        if (!bundlePath.exists()) {
+            promise.reject("VERIFY_FAILED", "Bundle directory not found");
+            return;
+        }
+        File metadataFile = new File(bundlePath, "metadata.json");
+        if (!metadataFile.exists()) {
+            promise.reject("VERIFY_FAILED", "metadata.json not found");
+            return;
+        }
+        try {
+            String metadataContent = readFileContent(metadataFile);
+            Map<String, String> metadata = parseMetadataJson(metadataContent);
+            boolean valid = validateAllFilesInDir(reactContext, bundlePath.getAbsolutePath(), metadata, appVersion, bundleVersion);
+            if (valid) {
+                promise.resolve(null);
+            } else {
+                promise.reject("VERIFY_FAILED", "File integrity check failed");
+            }
+        } catch (Exception e) {
+            promise.reject("VERIFY_FAILED", e.getMessage());
+        }
+    }
+
+    @ReactMethod
     public void testDeleteJsRuntimeDir(String appVersion, String bundleVersion, Promise promise) {
         String folderName = appVersion + "-" + bundleVersion;
         String bundleDir = getBundleDir(reactContext);

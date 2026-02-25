@@ -272,6 +272,8 @@ export const BundleUpdate: IBundleUpdate = {
   getFallbackBundles: () => BundleUpdateModule.getFallbackUpdateBundleData(),
   isBundleExists: (appVersion, bundleVersion) =>
     BundleUpdateModule.isBundleExists(appVersion, bundleVersion),
+  verifyExtractedBundle: (appVersion, bundleVersion) =>
+    BundleUpdateModule.verifyExtractedBundle(appVersion, bundleVersion),
   switchBundle: async (params) => {
     await BundleUpdateModule.setCurrentUpdateBundleData(params);
     setTimeout(() => {

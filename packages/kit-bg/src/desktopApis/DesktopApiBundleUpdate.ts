@@ -537,6 +537,23 @@ class DesktopApiAppBundleUpdate {
     return fs.existsSync(extractDir);
   }
 
+  async verifyExtractedBundle(
+    appVersion: string,
+    bundleVersion: string,
+  ): Promise<void> {
+    const extractDir = getBundleExtractDir({ appVersion, bundleVersion });
+    if (!fs.existsSync(extractDir)) {
+      throw new OneKeyLocalError('Bundle directory not found');
+    }
+    const metadataFilePath = path.join(extractDir, 'metadata.json');
+    if (!fs.existsSync(metadataFilePath)) {
+      throw new OneKeyLocalError('metadata.json not found');
+    }
+    const metadataContent = fs.readFileSync(metadataFilePath, 'utf8');
+    const metadata = JSON.parse(metadataContent) as Record<string, string>;
+    this.verifyAllExtractedFiles(extractDir, metadata, extractDir);
+  }
+
   async installBundle(params: IUpdateDownloadedEvent) {
     const {
       latestVersion: appVersion,

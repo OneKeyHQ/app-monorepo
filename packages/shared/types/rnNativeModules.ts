@@ -34,6 +34,10 @@ type INativeBundleUpdateModule = {
     appVersion: string,
     bundleVersion: string,
   ) => Promise<boolean>;
+  verifyExtractedBundle: (
+    appVersion: string,
+    bundleVersion: string,
+  ) => Promise<void>;
   testDeleteJsRuntimeDir: (
     appVersion: string,
     bundleVersion: string,

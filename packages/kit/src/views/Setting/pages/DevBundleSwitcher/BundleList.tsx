@@ -97,6 +97,11 @@ function BundleItem({
     setStatus('installing');
     try {
       if (alreadyDownloaded && !downloadedEventRef.current) {
+        // Verify file integrity before switching
+        await BundleUpdate.verifyExtractedBundle(
+          version,
+          bundle.bundleVersion,
+        );
         await BundleUpdate.installBundle({
           latestVersion: version,
           bundleVersion: bundle.bundleVersion,
