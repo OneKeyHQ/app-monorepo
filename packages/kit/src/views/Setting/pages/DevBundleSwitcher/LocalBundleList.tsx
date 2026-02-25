@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import {
-  Badge,
   Button,
   Divider,
+  Icon,
   Page,
   SizableText,
   Spinner,
@@ -32,23 +32,11 @@ function LocalBundleItem({
       borderRadius="$3"
       bg="$bgSubdued"
       gap="$2"
+      position="relative"
     >
-      <Stack
-        flexDirection="row"
-        alignItems="center"
-        justifyContent="space-between"
-      >
-        <Stack flexDirection="row" alignItems="center" gap="$2" flex={1}>
-          <SizableText size="$bodyLgMedium">
-            {`${bundle.appVersion} - bundle ${bundle.bundleVersion}`}
-          </SizableText>
-          {isCurrent ? (
-            <Badge badgeType="success" badgeSize="sm">
-              <Badge.Text>Current</Badge.Text>
-            </Badge>
-          ) : null}
-        </Stack>
-      </Stack>
+      <SizableText size="$bodyLgMedium">
+        {`${bundle.appVersion} - bundle ${bundle.bundleVersion}`}
+      </SizableText>
       {!isCurrent ? (
         <Button
           variant="primary"
@@ -58,6 +46,16 @@ function LocalBundleItem({
         >
           {isSwitching ? 'Switching...' : 'Switch'}
         </Button>
+      ) : null}
+      {isCurrent ? (
+        <Stack position="absolute" bottom="$2" right="$2">
+          <Icon name="CheckRadioSolid" size="$8" color="$iconSuccess" />
+        </Stack>
+      ) : null}
+      {isSwitching ? (
+        <Stack position="absolute" bottom="$2" right="$2">
+          <Icon name="RefreshCwSolid" size="$8" color="$iconSubdued" />
+        </Stack>
       ) : null}
     </YStack>
   );
