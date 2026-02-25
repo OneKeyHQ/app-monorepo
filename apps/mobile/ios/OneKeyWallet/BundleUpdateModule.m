@@ -226,17 +226,16 @@ RCT_EXPORT_MODULE();
 }
 
 + (NSDictionary *)currentMetadataJson {
-    NSString *folderName = [self currentBundleDir];
-    if (!folderName) {
+    NSString *currentBundleDirPath = [self currentBundleDir];
+    if (!currentBundleDirPath) {
         return nil;
     }
-    NSString *bundleDir = [BundleUpdateModule bundleDir];
-    NSString *metadataJson = [[bundleDir stringByAppendingPathComponent:folderName] stringByAppendingPathComponent:@"metadata.json"];
+    NSString *metadataJson = [currentBundleDirPath stringByAppendingPathComponent:@"metadata.json"];
     NSData *jsonData = [NSData dataWithContentsOfFile:metadataJson];
     if (!jsonData) {
         return nil;
     }
-    
+
     NSError *error;
     NSDictionary *metadata = [NSJSONSerialization JSONObjectWithData:jsonData options:0 error:&error];
     if (error) {
@@ -246,64 +245,55 @@ RCT_EXPORT_MODULE();
     return metadata;
 }
 
-+ (BOOL)valiateAllFilesInDir:(NSString *)DirPath metadata:(NSDictionary *)metadata appVersion:(NSString *)appVersion bundleVersion:(NSString *)bundleVersion {
++ (BOOL)validateAllFilesInDir:(NSString *)DirPath metadata:(NSDictionary *)metadata appVersion:(NSString *)appVersion bundleVersion:(NSString *)bundleVersion {
     NSString *parentBundleDir = [BundleUpdateModule bundleDir];
     NSString *folderName = [NSString stringWithFormat:@"%@-%@", appVersion, bundleVersion];
     NSString *jsBundleDir = [[parentBundleDir stringByAppendingPathComponent:folderName] stringByAppendingString:@"/"];
     NSFileManager *fileManager = [NSFileManager defaultManager];
-    
-    // Get all files recursively, excluding metadata.json
+
+    // NSDirectoryEnumerator already recurses into subdirectories
     NSDirectoryEnumerator *enumerator = [fileManager enumeratorAtPath:DirPath];
     NSString *file;
-    
+
     while ((file = [enumerator nextObject])) {
-        // Skip metadata.json
+        // Skip metadata.json and .DS_Store
         if ([file containsString:@"metadata.json"] || [file containsString:@".DS_Store"]) {
             continue;
         }
-        
+
         // Get full path
         NSString *fullPath = [DirPath stringByAppendingPathComponent:file];
-        
-        // Skip directories
+
+        // Skip directories - enumerator already recurses into them
         BOOL isDirectory;
         if ([fileManager fileExistsAtPath:fullPath isDirectory:&isDirectory] && isDirectory) {
-            BOOL result = [self valiateAllFilesInDir:fullPath metadata:metadata appVersion:appVersion bundleVersion:bundleVersion];
-            if (result) {
-                continue;
-            } else {
-                return NO;
-            }
+            continue;
         }
-        
+
         NSString *relativePath = [fullPath stringByReplacingOccurrencesOfString:jsBundleDir withString:@""];
-        NSLog(@"relativePath: %@", relativePath);
         DDLogDebug(@"relativePath: %@", relativePath);
 
         // Get expected SHA256 from metadata
         NSString *expectedSHA256 = metadata[relativePath];
         if (!expectedSHA256) {
-            NSLog(@"File %@ not found in metadata", relativePath);
             DDLogDebug(@"File %@ not found in metadata", relativePath);
             return NO;
         }
-        
+
         // Calculate actual SHA256
         NSString *actualSHA256 = [BundleUpdateModule calculateSHA256:fullPath];
         if (!actualSHA256) {
-            NSLog(@"Failed to calculate SHA256 for file %@", relativePath);
             DDLogDebug(@"Failed to calculate SHA256 for file %@", relativePath);
             return NO;
         }
-        
+
         // Compare SHA256 values
         if (![expectedSHA256 isEqualToString:actualSHA256]) {
-            NSLog(@"SHA256 mismatch for file %@. Expected: %@, Actual: %@", relativePath, expectedSHA256, actualSHA256);
             DDLogDebug(@"SHA256 mismatch for file %@. Expected: %@, Actual: %@", relativePath, expectedSHA256, actualSHA256);
             return NO;
         }
     }
-    
+
     return YES;
 }
 
@@ -699,7 +689,7 @@ RCT_EXPORT_METHOD(verifyBundle:(NSDictionary *)params
     }
     
     // Validate all files in the directory
-    if (![BundleUpdateModule valiateAllFilesInDir:destination metadata:metadata appVersion:appVersion bundleVersion:bundleVersion]) {
+    if (![BundleUpdateModule validateAllFilesInDir:destination metadata:metadata appVersion:appVersion bundleVersion:bundleVersion]) {
         reject(@"INVALID_PARAMS", @"Bundle signature verification failed", nil);
         return;
     }
@@ -743,7 +733,7 @@ RCT_EXPORT_METHOD(downloadBundle:(NSDictionary *)params
     DDLogDebug(@"downloadBundle: filePath: %@", filePath);
     if ([[NSFileManager defaultManager] fileExistsAtPath:filePath]) {
         if ([self verifyBundleSHA256:filePath sha256:sha256]) {
-            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(10.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
                 resolve(result);
                 [self clearDownloadTask];
                 [self sendEventWithName:@"update/complete" body:nil];
@@ -753,19 +743,8 @@ RCT_EXPORT_METHOD(downloadBundle:(NSDictionary *)params
             [[NSFileManager defaultManager] removeItemAtPath:filePath error:nil];
         }
     }
-    
-    
-    // Check if partial file exists and get its size
-    NSFileManager *fileManager = [NSFileManager defaultManager];
-    NSString *partialFilePath = [filePath stringByAppendingString:@".partial"];
-    long long downloadedBytes = 0;
-    
-    if ([fileManager fileExistsAtPath:partialFilePath]) {
-        NSDictionary *fileAttributes = [fileManager attributesOfItemAtPath:partialFilePath error:nil];
-        downloadedBytes = [fileAttributes fileSize];
-    }
-    
-    // Create request with Range header if resuming
+
+
     NSURL *url = [NSURL URLWithString:downloadUrl];
     NSURLRequest *request = [NSURLRequest requestWithURL:url];
     self.downloadTask = [self.urlSession downloadTaskWithRequest:request];
@@ -801,15 +780,19 @@ RCT_EXPORT_METHOD(installBundle:(NSDictionary *)params
     }
 
     if (currentFolderName) {
-        NSArray *currentFolderData = [currentFolderName componentsSeparatedByString:@"-"];
-        NSString *currentAppVersion = currentFolderData[0];
-        NSString *currentBundleVersion = currentFolderData[1];
-        NSString *currentSignature = [userDefaults objectForKey:currentFolderName];
-        [fallbackUpdateBundleData addObject:@{
-            @"appVersion": currentAppVersion,
-            @"bundleVersion": currentBundleVersion,
-            @"signature": currentSignature,
-        }];
+        NSRange lastDashRange = [currentFolderName rangeOfString:@"-" options:NSBackwardsSearch];
+        if (lastDashRange.location != NSNotFound) {
+            NSString *currentAppVersion = [currentFolderName substringToIndex:lastDashRange.location];
+            NSString *currentBundleVersion = [currentFolderName substringFromIndex:lastDashRange.location + 1];
+            NSString *currentSignature = [userDefaults objectForKey:currentFolderName];
+            if (currentSignature) {
+                [fallbackUpdateBundleData addObject:@{
+                    @"appVersion": currentAppVersion,
+                    @"bundleVersion": currentBundleVersion,
+                    @"signature": currentSignature,
+                }];
+            }
+        }
     }
 
     // If fallbackUpdateBundleData has more than 3 items, remove the first one and delete corresponding folder

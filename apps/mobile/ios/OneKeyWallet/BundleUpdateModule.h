@@ -13,7 +13,7 @@
 - (BOOL)verifyBundleSHA256:(NSString *)bundlePath sha256:(NSString *)sha256;
 + (NSString *)downloadBundleDir;
 + (NSString *)bundleDir;
-+ (BOOL)valiateAllFilesInDir:(NSString *)DirPath metadata:(NSDictionary *)metadata appVersion:(NSString *)appVersion bundleVersion:(NSString *)bundleVersion;
++ (BOOL)validateAllFilesInDir:(NSString *)DirPath metadata:(NSDictionary *)metadata appVersion:(NSString *)appVersion bundleVersion:(NSString *)bundleVersion;
 + (NSString *)calculateSHA256:(NSString *)filePath;
 + (NSString *)currentBundleMainJSBundle;
 + (NSString *)currentBundleVersion;

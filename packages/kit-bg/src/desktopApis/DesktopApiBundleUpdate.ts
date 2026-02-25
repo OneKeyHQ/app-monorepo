@@ -60,6 +60,7 @@ class DesktopApiAppBundleUpdate {
         const verified = verifySha256(filePath, sha256);
         if (!verified) {
           reject(new OneKeyLocalError('Downloaded file is not valid'));
+          return;
         }
         resolve(true);
       }, 1000);
@@ -139,141 +140,177 @@ class DesktopApiAppBundleUpdate {
 
         let downloadRequest: http.ClientRequest | null = null;
 
-        const protocol = bundleUrl.startsWith('https://') ? https : http;
-        downloadRequest = protocol.get(bundleUrl, options, async (response) => {
-          if (response.statusCode === 416) {
-            // Range not satisfiable, file might be complete
-            if (fs.existsSync(partialFilePath)) {
-              fs.renameSync(partialFilePath, filePath);
-              await this.verifyAndResolve(filePath, sha256);
-              this.isDownloading = false;
-              return {
-                downloadedFile: filePath,
-                downloadUrl: bundleUrl,
-                latestVersion: appVersion,
-                bundleVersion,
-              };
+        const makeDownloadRequest = (url: string, reqOptions: typeof options, redirectCount = 0) => {
+          const reqProtocol = url.startsWith('https://') ? https : http;
+          downloadRequest = reqProtocol.get(url, reqOptions, async (response) => {
+            // Handle redirects (301, 302, 307, 308)
+            if (
+              response.statusCode &&
+              [301, 302, 307, 308].includes(response.statusCode) &&
+              response.headers.location
+            ) {
+              response.resume();
+              if (redirectCount >= 5) {
+                this.isDownloading = false;
+                reject(new Error('Too many redirects'));
+                return;
+              }
+              makeDownloadRequest(response.headers.location, reqOptions, redirectCount + 1);
+              return;
             }
-          }
 
-          if (response.statusCode !== 200 && response.statusCode !== 206) {
-            this.isDownloading = false;
-            reject(
-              new Error(
-                `Download failed with status: ${response.statusCode || 0}`,
-              ),
-            );
-            return;
-          }
+            if (response.statusCode === 416) {
+              // Range not satisfiable, file might be complete
+              if (fs.existsSync(partialFilePath)) {
+                try {
+                  fs.renameSync(partialFilePath, filePath);
+                  await this.verifyAndResolve(filePath, sha256);
+                  this.isDownloading = false;
+                  resolve({
+                    downloadedFile: filePath,
+                    downloadUrl: bundleUrl,
+                    latestVersion: appVersion,
+                    bundleVersion,
+                  });
+                } catch (error) {
+                  this.isDownloading = false;
+                  reject(error);
+                }
+                return;
+              }
+              this.isDownloading = false;
+              reject(new Error('Download failed with status: 416'));
+              return;
+            }
 
-          if (response.statusCode === 200) {
-            // Full download
-            totalBytes = parseInt(
-              response.headers['content-length'] || '0',
-              10,
-            );
-            downloadedBytes = 0;
-          } else if (response.statusCode === 206) {
-            // Partial download
-            const contentRange = response.headers['content-range'];
-            if (contentRange) {
-              const match = contentRange.match(/bytes \d+-\d+\/(\d+)/);
-              if (match) {
-                totalBytes = parseInt(match[1], 10);
+            if (response.statusCode !== 200 && response.statusCode !== 206) {
+              this.isDownloading = false;
+              reject(
+                new Error(
+                  `Download failed with status: ${response.statusCode || 0}`,
+                ),
+              );
+              return;
+            }
+
+            if (response.statusCode === 200) {
+              // Full download
+              totalBytes = parseInt(
+                response.headers['content-length'] || '0',
+                10,
+              );
+              downloadedBytes = 0;
+            } else if (response.statusCode === 206) {
+              // Partial download
+              const contentRange = response.headers['content-range'];
+              if (contentRange) {
+                const match = contentRange.match(/bytes \d+-\d+\/(\d+)/);
+                if (match) {
+                  totalBytes = parseInt(match[1], 10);
+                }
               }
             }
-          }
 
-          const writeStream = fs.createWriteStream(partialFilePath, {
-            flags: downloadedBytes > 0 ? 'a' : 'w',
+            const writeStream = fs.createWriteStream(partialFilePath, {
+              flags: downloadedBytes > 0 ? 'a' : 'w',
+            });
+
+            // Handle download cancellation
+            const cancelDownload = () => {
+              if (downloadRequest) {
+                this.isDownloading = false;
+                downloadRequest.destroy();
+                downloadRequest = null;
+              }
+              writeStream.destroy();
+              reject(new Error('Download cancelled'));
+            };
+
+            // Store cancel function for external access
+            this.cancelCurrentDownload = cancelDownload;
+
+            response.on('data', (chunk) => {
+              downloadedBytes += (chunk as Buffer).length;
+              writeStream.write(chunk);
+
+              // Emit progress
+              const percent =
+                totalBytes > 0 ? (downloadedBytes / totalBytes) * 100 : 0;
+              this.getMainWindow()?.webContents.send(
+                ipcMessageKeys.UPDATE_DOWNLOADING,
+                {
+                  percent,
+                  transferred: downloadedBytes,
+                  total: totalBytes,
+                  bytesPerSecond: 0,
+                  delta: (chunk as Buffer).length,
+                },
+              );
+              updateWindowProgressBar(this.getMainWindow(), percent);
+            });
+
+            response.on('end', () => {
+              writeStream.end();
+            });
+
+            writeStream.on('finish', async () => {
+              this.isDownloading = false;
+              logger.info(
+                'bundle-download-end',
+                downloadedBytes,
+                totalBytes,
+                partialFilePath,
+                filePath,
+              );
+              if (downloadedBytes >= totalBytes) {
+                try {
+                  // Download complete, rename and verify
+                  fs.renameSync(partialFilePath, filePath);
+                  await this.verifyAndResolve(filePath, sha256);
+                  resolve({
+                    downloadedFile: filePath,
+                    downloadUrl: bundleUrl,
+                    latestVersion: appVersion,
+                    bundleVersion,
+                  });
+                } catch (error) {
+                  reject(error);
+                }
+              } else {
+                reject(new Error('Download incomplete'));
+              }
+              clearWindowProgressBar(this.getMainWindow());
+            });
+
+            response.on('error', (error) => {
+              writeStream.destroy();
+              downloadRequest = null;
+              this.isDownloading = false;
+              this.cancelCurrentDownload = () => {};
+              reject(error);
+              clearWindowProgressBar(this.getMainWindow());
+            });
           });
 
-          // Handle download cancellation
-          const cancelDownload = () => {
+          downloadRequest.on('error', (error) => {
+            downloadRequest = null;
+            this.cancelCurrentDownload = null;
+            this.isDownloading = false;
+            reject(error);
+          });
+
+          downloadRequest.setTimeout(1000 * 60 * 30, () => {
             if (downloadRequest) {
-              this.isDownloading = false;
               downloadRequest.destroy();
               downloadRequest = null;
             }
-            writeStream.destroy();
-            reject(new Error('Download cancelled'));
-          };
-
-          // Store cancel function for external access
-          this.cancelCurrentDownload = cancelDownload;
-
-          response.on('data', (chunk) => {
-            downloadedBytes += (chunk as Buffer).length;
-            writeStream.write(chunk);
-
-            // Emit progress
-            const percent =
-              totalBytes > 0 ? (downloadedBytes / totalBytes) * 100 : 0;
-            this.getMainWindow()?.webContents.send(
-              ipcMessageKeys.UPDATE_DOWNLOADING,
-              {
-                percent,
-                transferred: downloadedBytes,
-                total: totalBytes,
-                bytesPerSecond: 0, // Could calculate this if needed
-                delta: (chunk as Buffer).length,
-              },
-            );
-            updateWindowProgressBar(this.getMainWindow(), percent);
-          });
-
-          response.on('end', async () => {
-            writeStream.end();
             this.isDownloading = false;
-            logger.info(
-              'bundle-download-end',
-              downloadedBytes,
-              totalBytes,
-              partialFilePath,
-              filePath,
-            );
-            if (downloadedBytes >= totalBytes) {
-              // Download complete, rename and verify
-              fs.renameSync(partialFilePath, filePath);
-              await this.verifyAndResolve(filePath, sha256);
-              resolve({
-                downloadedFile: filePath,
-                downloadUrl: bundleUrl,
-                latestVersion: appVersion,
-                bundleVersion,
-              });
-            } else {
-              reject(new Error('Download incomplete'));
-            }
-            clearWindowProgressBar(this.getMainWindow());
+            this.cancelCurrentDownload = null;
+            reject(new Error('Download timeout'));
           });
+        };
 
-          response.on('error', (error) => {
-            writeStream.destroy();
-            downloadRequest = null;
-            this.isDownloading = false;
-            this.cancelCurrentDownload = () => {};
-            reject(error);
-            clearWindowProgressBar(this.getMainWindow());
-          });
-        });
-
-        downloadRequest.on('error', (error) => {
-          downloadRequest = null;
-          this.cancelCurrentDownload = null;
-          this.isDownloading = false;
-          reject(error);
-        });
-
-        downloadRequest.setTimeout(1000 * 60 * 30, () => {
-          if (downloadRequest) {
-            downloadRequest.destroy();
-            downloadRequest = null;
-          }
-          this.isDownloading = false;
-          this.cancelCurrentDownload = null;
-          reject(new Error('Download timeout'));
-        });
+        makeDownloadRequest(bundleUrl, options);
       }, 0);
     });
   }

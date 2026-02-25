@@ -142,7 +142,6 @@ export const useDownloadProgress: IUseDownloadProgress = () => {
 
   const updatePercent = useThrottledCallback(
     ({ progress }: { progress: number }) => {
-      console.log('update/downloading', progress);
       defaultLogger.update.app.log('downloading', progress);
       setPercent(parseInt(progress.toString(), 10));
     },
@@ -203,11 +202,11 @@ export const BundleUpdate: IBundleUpdate = {
       BundleUpdateModule.downloadBundle(params)
         .then((result) => {
           // eslint-disable-next-line prefer-const
-          let onSuccessSubscription: NativeEventSubscription | undefined;
+          let onCompleteSubscription: NativeEventSubscription | undefined;
           // eslint-disable-next-line prefer-const
           let onErrorSubscription: NativeEventSubscription | undefined;
           const removeSubscriptions = () => {
-            onSuccessSubscription?.remove();
+            onCompleteSubscription?.remove();
             onErrorSubscription?.remove();
           };
           const onSuccess = () => {
@@ -218,11 +217,11 @@ export const BundleUpdate: IBundleUpdate = {
             reject(error);
             removeSubscriptions();
           };
-          onSuccessSubscription = BundleUpdateEventEmitter?.addListener(
+          onErrorSubscription = BundleUpdateEventEmitter?.addListener(
             DOWNLOAD_EVENT_TYPE.error,
             onError,
           );
-          onErrorSubscription = BundleUpdateEventEmitter?.addListener(
+          onCompleteSubscription = BundleUpdateEventEmitter?.addListener(
             DOWNLOAD_EVENT_TYPE.complete,
             onSuccess,
           );

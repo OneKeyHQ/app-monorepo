@@ -140,10 +140,12 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
     public static void setCurrentBundleVersionAndSignature(Context context, String version, String signature) {
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         String currentVersion = prefs.getString(CURRENT_BUNDLE_VERSION_KEY, "");
-        prefs.edit().putString(CURRENT_BUNDLE_VERSION_KEY, version).putString(version, signature).apply();
+        SharedPreferences.Editor editor = prefs.edit();
+        editor.putString(CURRENT_BUNDLE_VERSION_KEY, version).putString(version, signature);
         if (currentVersion != null && !currentVersion.isEmpty()) {
-            prefs.edit().remove(currentVersion).apply();
+            editor.remove(currentVersion);
         }
+        editor.apply();
     }
 
     public static void clearUpdateBundleData(Context context) {
@@ -567,6 +569,10 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         }
 
         String storageKey = appVersion + "-" + bundleVersion;
+        SharedPreferences prefs = reactContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        prefs.edit().putString(storageKey, signature).apply();
+        log("downloadBundleASC", "Stored signature for key: " + storageKey);
+
         promise.resolve(null);
     }
 
@@ -695,12 +701,11 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         File downloadedFile = new File(filePath);
         if (downloadedFile.exists()) {
             if (verifyBundleSHA256(filePath, sha256)) {
-                // Simulate delay like iOS
                 new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
                     promise.resolve(result);
                     clearDownloadTask();
                     sendEvent("update/complete", null);
-                }, 5000);
+                }, 1000);
                 return;
             } else {
                 downloadedFile.delete();
@@ -798,10 +803,10 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
             List<Map<String, String>> fallbackUpdateBundleData = readFallbackUpdateBundleDataFile(reactContext);
             log("installBundle", "fallbackUpdateBundleData: " + fallbackUpdateBundleData);
             if (currentFolderName != null && !currentFolderName.isEmpty()) {
-                String[] parts = currentFolderName.split("-");
-                if (parts.length >= 2) {
-                    String currentAppVersion = parts[0];
-                    String currentBundleVersion = parts[1];
+                int lastDashIndex = currentFolderName.lastIndexOf("-");
+                if (lastDashIndex > 0) {
+                    String currentAppVersion = currentFolderName.substring(0, lastDashIndex);
+                    String currentBundleVersion = currentFolderName.substring(lastDashIndex + 1);
                     log("installBundle", "fallbackUpdateBundleData signature: " + currentSignature);
                     Map<String, String> bundleData = new HashMap<>();
                     bundleData.put("appVersion", currentAppVersion);
@@ -1146,7 +1151,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
             byte[] buffer = new byte[1024];
             int bytesRead;
             while ((bytesRead = bis.read(buffer)) != -1) {
-                content.append(new String(buffer, 0, bytesRead));
+                content.append(new String(buffer, 0, bytesRead, "UTF-8"));
             }
         }
         return content.toString();
