@@ -25,7 +25,6 @@ export function useShowAddressBook({
 
   const showAddressBook = useCallback(
     async (nav?: ReturnType<typeof useAppNavigation>) => {
-      await backgroundApiProxy.servicePassword.promptPasswordVerify();
       const appNavigation = nav || navigation;
       if (useNewModal) {
         appNavigation.pushModal(EModalRoutes.AddressBookModal, {
