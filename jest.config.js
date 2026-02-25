@@ -24,10 +24,9 @@ module.exports = async () => {
     coverageReporters: ['text', 'lcov', 'json-summary'],
     coverageThreshold: {
       global: {
-        lines: 5,
-        branches: 3,
-        functions: 5,
-        statements: 5,
+        statements: 55,
+        branches: 63,
+        functions: 23,
       },
     },
     cacheDirectory: `${cacheDirectory}/.app-mono-jest-cache`,
