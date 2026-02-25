@@ -85,11 +85,13 @@ class ServiceAddressBook extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
-  async getSafeItems(params: {
-    networkId?: string;
-    exact?: boolean;
-    password?: string;
-  } = {}): Promise<{ isSafe: boolean; items: IAddressNetworkItem[] }> {
+  async getSafeItems(
+    params: {
+      networkId?: string;
+      exact?: boolean;
+      password?: string;
+    } = {},
+  ): Promise<{ isSafe: boolean; items: IAddressNetworkItem[] }> {
     const { networkId, exact } = params;
     let { items: rawItems } = await this.getSafeRawItems({});
     if (networkId) {
@@ -445,13 +447,15 @@ class ServiceAddressBook extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async findItem(params: {
-    password?: string;
-    networkImpl?: string;
-    networkId?: string;
-    address?: string;
-    name?: string;
-  } = {}): Promise<IAddressItem | undefined> {
+  public async findItem(
+    params: {
+      password?: string;
+      networkImpl?: string;
+      networkId?: string;
+      address?: string;
+      name?: string;
+    } = {},
+  ): Promise<IAddressItem | undefined> {
     const { address, name, networkId, networkImpl } = params;
     const { items } = await this.getSafeRawItems({});
     return this._findItemByConditions({
