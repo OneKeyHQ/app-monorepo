@@ -208,6 +208,7 @@ export function useUniversalWithdraw({
       withdrawMessage,
       useEthenaCooldown,
       onStepChange,
+      signal,
     }: {
       amount: string;
       symbol: string;
@@ -225,6 +226,7 @@ export function useUniversalWithdraw({
       withdrawMessage?: string;
       useEthenaCooldown?: boolean;
       onStepChange?: (step: number) => void;
+      signal?: AbortSignal;
     }) => {
       let stakeTx: IStakeTxResponse | undefined;
       const stakingConfig =
@@ -313,6 +315,9 @@ export function useUniversalWithdraw({
               stakeInfo: swapStakeInfo,
               networkId,
             });
+            if (signal?.aborted) {
+              return;
+            }
             onStepChange?.(2);
             const unstakeTx =
               await backgroundApiProxy.serviceStaking.buildUnstakeTransaction({

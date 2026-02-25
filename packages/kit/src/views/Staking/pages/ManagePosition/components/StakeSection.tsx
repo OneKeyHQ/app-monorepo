@@ -141,6 +141,7 @@ export const StakeSection = ({
       ],
       {
         watchLoading: true,
+        revalidateOnFocus: true,
       },
     );
 

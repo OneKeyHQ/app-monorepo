@@ -1089,11 +1089,10 @@ export function UniversalStake({
             expiredAt: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
           });
 
-          setTimeout(() => {
-            void debouncedFetchEstimateFeeResp(amountValue);
-          }, 200);
+          const freshFee = await fetchEstimateFeeResp(amountValue);
+          setEstimateFeeResp(freshFee);
 
-          void onSubmit();
+          await onSubmit();
           setApproving(false);
         } catch (error: unknown) {
           console.error('Permit sign error:', error);
@@ -1136,7 +1135,8 @@ export function UniversalStake({
             if (!allowanceReady) {
               return;
             }
-            void debouncedFetchEstimateFeeResp(amountValue);
+            const freshFee = await fetchEstimateFeeResp(amountValue);
+            setEstimateFeeResp(freshFee);
             await onSubmit();
           } finally {
             setApproving(false);
@@ -1169,7 +1169,7 @@ export function UniversalStake({
     updatePermitCache,
     onSubmit,
     waitForAllowanceAfterApprove,
-    debouncedFetchEstimateFeeResp,
+    fetchEstimateFeeResp,
     trackAllowance,
   ]);
 

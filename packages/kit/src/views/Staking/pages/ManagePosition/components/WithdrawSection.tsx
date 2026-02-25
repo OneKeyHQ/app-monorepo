@@ -159,6 +159,7 @@ export const WithdrawSection = ({
       ],
       {
         watchLoading: true,
+        revalidateOnFocus: true,
       },
     );
 
@@ -453,6 +454,13 @@ export const WithdrawSection = ({
   );
   const vault = useMemo(() => protocolInfo?.vault || '', [protocolInfo?.vault]);
   const handleWithdraw = useUniversalWithdraw({ accountId, networkId });
+  const withdrawAbortRef = useRef<AbortController | null>(null);
+  useEffect(
+    () => () => {
+      withdrawAbortRef.current?.abort();
+    },
+    [],
+  );
   const handleBorrowWithdraw = useUniversalBorrowWithdraw({
     accountId,
     networkId,
@@ -475,6 +483,10 @@ export const WithdrawSection = ({
 
       if (borrowApiCtx.isBorrow) return;
 
+      withdrawAbortRef.current?.abort();
+      const abortController = new AbortController();
+      withdrawAbortRef.current = abortController;
+
       await handleWithdraw({
         amount,
         // identity,
@@ -491,6 +503,7 @@ export const WithdrawSection = ({
         outputTokenAddress: selectedReceiveTokenAddress,
         useEthenaCooldown,
         onStepChange,
+        signal: abortController.signal,
         stakingInfo: {
           label: EEarnLabels.Withdraw,
           protocol: earnUtils.getEarnProviderName({

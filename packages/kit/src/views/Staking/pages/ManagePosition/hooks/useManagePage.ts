@@ -232,10 +232,10 @@ export const useManagePage = ({
       // approve
       approve: managePageData.approve
         ? {
-            allowance: managePageData.approve.allowance,
-            approveType: managePageData.approve
-              .approveType as unknown as EApproveType,
-            approveTarget: managePageData.approve.approveTarget,
+            allowance: managePageData.approve.allowance ?? '0',
+            approveType: (managePageData.approve
+              .approveType as unknown as EApproveType) ?? undefined,
+            approveTarget: managePageData.approve.approveTarget ?? undefined,
           }
         : undefined,
     } as IProtocolInfo;
