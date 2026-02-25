@@ -458,9 +458,7 @@ describe('DesktopApiBundleUpdate HTTP status handling', () => {
   test('non-success non-redirect codes are errors', () => {
     const errorCodes = [400, 403, 404, 500, 502, 503];
     for (const code of errorCodes) {
-      expect(
-        !REDIRECT_CODES.has(code) && !SUCCESS_CODES.has(code),
-      ).toBe(true);
+      expect(!REDIRECT_CODES.has(code) && !SUCCESS_CODES.has(code)).toBe(true);
     }
   });
 });

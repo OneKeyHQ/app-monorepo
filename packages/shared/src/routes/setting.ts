@@ -28,7 +28,8 @@ export enum EModalSettingRoutes {
   SettingManageAccountActivity = 'SettingManageAccountActivity',
   SettingAlignPrimaryAccount = 'SettingAlignPrimaryAccount',
   SettingFloatingIconModal = 'SettingFloatingIconModal',
-  // Dev JS Bundle Switcher
+  // Dev JS Bundle Manager
+  SettingDevBundleManagerModal = 'SettingDevBundleManagerModal',
   SettingDevBundleVersionList = 'SettingDevBundleVersionList',
   SettingDevBundleList = 'SettingDevBundleList',
   SettingDevLocalBundleList = 'SettingDevLocalBundleList',
@@ -72,7 +73,8 @@ export type IModalSettingParamList = {
   [EModalSettingRoutes.SettingAlignPrimaryAccount]: undefined;
   [EModalSettingRoutes.SettingFloatingIconModal]: undefined;
   [EModalSettingRoutes.SettingPerpUserConfig]: undefined;
-  // Dev JS Bundle Switcher
+  // Dev JS Bundle Manager
+  [EModalSettingRoutes.SettingDevBundleManagerModal]: undefined;
   [EModalSettingRoutes.SettingDevBundleVersionList]: undefined;
   [EModalSettingRoutes.SettingDevBundleList]: { version: string };
   [EModalSettingRoutes.SettingDevLocalBundleList]: undefined;

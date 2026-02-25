@@ -17,7 +17,7 @@ const BundleUpdateModule = NativeModules.BundleUpdateModule;
 // ---- Helpers ----
 
 const RNFS = // eslint-disable-next-line @typescript-eslint/no-var-requires
-require('@onekeyhq/shared/src/modules3rdParty/react-native-fs')?.default;
+  require('@onekeyhq/shared/src/modules3rdParty/react-native-fs')?.default;
 
 async function writeTestFile(filePath: string, content: string): Promise<void> {
   if (!RNFS) throw new Error('RNFS unavailable');

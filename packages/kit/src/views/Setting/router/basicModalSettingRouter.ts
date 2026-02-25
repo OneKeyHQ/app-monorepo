@@ -141,6 +141,10 @@ const DevAppUpdateModalSettingModal = LazyLoadPage(
     import('@onekeyhq/kit/src/views/Setting/pages/DevAppUpdateModalSettingModal'),
 );
 
+const DevBundleManagerModal = LazyLoadPage(
+  () => import('@onekeyhq/kit/src/views/Setting/pages/DevBundleManagerModal'),
+);
+
 const DevBundleVersionList = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Setting/pages/DevBundleSwitcher/VersionList'),
@@ -281,6 +285,10 @@ export const BasicModalSettingStack: IModalFlowNavigatorConfig<
   {
     name: EModalSettingRoutes.SettingOneKeyIdKeylessWallet,
     component: OneKeyIdKeylessWalletPage,
+  },
+  {
+    name: EModalSettingRoutes.SettingDevBundleManagerModal,
+    component: DevBundleManagerModal,
   },
   {
     name: EModalSettingRoutes.SettingDevBundleVersionList,

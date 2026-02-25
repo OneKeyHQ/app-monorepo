@@ -603,9 +603,18 @@ const BaseDevSettingsSection = () => {
 
               <SectionPressItem
                 icon="ArrowTopCircleOutline"
-                title="Dev App Update Settings"
+                title="Dev App Update Test"
                 onPress={() => {
                   navigation.push(EModalSettingRoutes.SettingDevAppUpdateModal);
+                }}
+              />
+              <SectionPressItem
+                icon="CodeOutline"
+                title="Dev JS Bundle Manager"
+                onPress={() => {
+                  navigation.push(
+                    EModalSettingRoutes.SettingDevBundleManagerModal,
+                  );
                 }}
               />
 
