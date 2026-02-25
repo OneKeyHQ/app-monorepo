@@ -20,6 +20,9 @@ module.exports = async () => {
       '!**/*.d.ts',
       '!**/index.ts',
       '!**/__mocks__/**',
+      '!**/*.test.ts',
+      '!**/*.test.tsx',
+      '!**/__tests__/**',
     ],
     coverageReporters: ['text', 'lcov', 'json-summary'],
     coverageThreshold: {
