@@ -187,6 +187,11 @@ export const BundleUpdate: IBundleUpdate = {
     globalThis.desktopApiProxy.bundleUpdate.getFallbackUpdateBundleData(),
   switchBundle: (params) =>
     globalThis.desktopApiProxy.bundleUpdate.setCurrentUpdateBundleData(params),
+  isBundleExists: (appVersion, bundleVersion) =>
+    globalThis.desktopApiProxy.bundleUpdate.isBundleExists(
+      appVersion,
+      bundleVersion,
+    ),
   clearBundle: () => globalThis.desktopApiProxy.bundleUpdate.clearBundle(),
   clearAllJSBundleData: () =>
     globalThis.desktopApiProxy.bundleUpdate.clearAllJSBundleData(),

@@ -30,6 +30,10 @@ type INativeBundleUpdateModule = {
     appVersion: string,
     bundleVersion: string,
   ) => Promise<{ success: boolean; message: string }>;
+  isBundleExists: (
+    appVersion: string,
+    bundleVersion: string,
+  ) => Promise<boolean>;
   testDeleteJsRuntimeDir: (
     appVersion: string,
     bundleVersion: string,

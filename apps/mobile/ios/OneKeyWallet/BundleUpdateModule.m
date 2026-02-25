@@ -941,6 +941,17 @@ RCT_EXPORT_METHOD(testDeleteJsBundle:(NSString *)appVersion
     }
 }
 
+RCT_EXPORT_METHOD(isBundleExists:(NSString *)appVersion
+                  bundleVersion:(NSString *)bundleVersion
+                  resolver:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject) {
+    NSString *folderName = [NSString stringWithFormat:@"%@-%@", appVersion, bundleVersion];
+    NSString *bundleDir = [BundleUpdateModule bundleDir];
+    NSString *bundlePath = [bundleDir stringByAppendingPathComponent:folderName];
+    BOOL exists = [[NSFileManager defaultManager] fileExistsAtPath:bundlePath];
+    resolve(@(exists));
+}
+
 RCT_EXPORT_METHOD(testDeleteJsRuntimeDir:(NSString *)appVersion
                   bundleVersion:(NSString *)bundleVersion
                   resolver:(RCTPromiseResolveBlock)resolve

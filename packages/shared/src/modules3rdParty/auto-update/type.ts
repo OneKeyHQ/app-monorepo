@@ -122,6 +122,10 @@ export interface IBundleUpdate {
   clearAllJSBundleData: () => Promise<{ success: boolean; message: string }>;
   getFallbackBundles: () => Promise<IJSBundle[]>;
   switchBundle: (params: IJSBundle) => Promise<void>;
+  isBundleExists: (
+    appVersion: string,
+    bundleVersion: string,
+  ) => Promise<boolean>;
   testVerification: () => Promise<boolean>;
   testDeleteJsBundle: ITestDeleteJsBundle;
   testDeleteJsRuntimeDir: ITestDeleteJsRuntimeDir;

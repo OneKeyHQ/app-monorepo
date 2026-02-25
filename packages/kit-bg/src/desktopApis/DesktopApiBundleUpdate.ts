@@ -529,6 +529,14 @@ class DesktopApiAppBundleUpdate {
     }
   }
 
+  async isBundleExists(
+    appVersion: string,
+    bundleVersion: string,
+  ): Promise<boolean> {
+    const extractDir = getBundleExtractDir({ appVersion, bundleVersion });
+    return fs.existsSync(extractDir);
+  }
+
   async installBundle(params: IUpdateDownloadedEvent) {
     const {
       latestVersion: appVersion,

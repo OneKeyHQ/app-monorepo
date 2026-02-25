@@ -3,7 +3,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Badge,
   Button,
-  Dialog,
   Divider,
   Page,
   Progress,
@@ -42,15 +41,17 @@ function BundleItem({
   bundle,
   version,
   isCurrentBundle,
+  alreadyDownloaded,
 }: {
   bundle: IBundleInfo;
   version: string;
   isCurrentBundle: boolean;
+  alreadyDownloaded: boolean;
 }) {
   const downloadPercent = useDownloadProgress();
   const [status, setStatus] = useState<
     'idle' | 'downloading' | 'downloaded' | 'installing' | 'error'
-  >('idle');
+  >(alreadyDownloaded ? 'downloaded' : 'idle');
   const [errorMessage, setErrorMessage] = useState('');
   const downloadedEventRef = useRef<Record<string, unknown> | null>(null);
 
@@ -83,39 +84,47 @@ function BundleItem({
   }, [bundle, version]);
 
   const handleInstall = useCallback(async () => {
-    if (!downloadedEventRef.current) return;
     setStatus('installing');
     try {
-      // Skip GPG: call verifyBundleASC with skipGPGVerification flag
-      await BundleUpdate.verifyBundleASC({
-        ...downloadedEventRef.current,
-        latestVersion: version,
-        bundleVersion: bundle.bundleVersion,
-        sha256: bundle.sha256,
-        signature: bundle.signature || '',
-        skipGPGVerification: true,
-      } as any);
+      if (alreadyDownloaded && !downloadedEventRef.current) {
+        // Bundle was already downloaded+extracted in a previous session,
+        // skip download/verify and go straight to installBundle
+        await BundleUpdate.installBundle({
+          latestVersion: version,
+          bundleVersion: bundle.bundleVersion,
+          signature: bundle.signature || 'dev-no-signature',
+        } as any);
+      } else {
+        if (!downloadedEventRef.current) return;
+        // Fresh download: run full verify → install flow
+        await BundleUpdate.verifyBundleASC({
+          ...downloadedEventRef.current,
+          latestVersion: version,
+          bundleVersion: bundle.bundleVersion,
+          sha256: bundle.sha256,
+          signature: bundle.signature || '',
+          skipGPGVerification: true,
+        } as any);
 
-      // Verify extracted files
-      await BundleUpdate.verifyBundle({
-        ...downloadedEventRef.current,
-        latestVersion: version,
-        bundleVersion: bundle.bundleVersion,
-        sha256: bundle.sha256,
-      } as any);
+        await BundleUpdate.verifyBundle({
+          ...downloadedEventRef.current,
+          latestVersion: version,
+          bundleVersion: bundle.bundleVersion,
+          sha256: bundle.sha256,
+        } as any);
 
-      // Install and restart
-      await BundleUpdate.installBundle({
-        ...downloadedEventRef.current,
-        latestVersion: version,
-        bundleVersion: bundle.bundleVersion,
-        signature: bundle.signature || 'dev-no-signature',
-      } as any);
+        await BundleUpdate.installBundle({
+          ...downloadedEventRef.current,
+          latestVersion: version,
+          bundleVersion: bundle.bundleVersion,
+          signature: bundle.signature || 'dev-no-signature',
+        } as any);
+      }
     } catch (e) {
       setStatus('error');
       setErrorMessage((e as Error)?.message || 'Install failed');
     }
-  }, [bundle, version]);
+  }, [alreadyDownloaded, bundle, version]);
 
   return (
     <YStack
@@ -132,6 +141,11 @@ function BundleItem({
           {isCurrentBundle ? (
             <Badge badgeType="success" badgeSize="sm">
               <Badge.Text>Current</Badge.Text>
+            </Badge>
+          ) : null}
+          {alreadyDownloaded && !isCurrentBundle ? (
+            <Badge badgeType="info" badgeSize="sm">
+              <Badge.Text>Downloaded</Badge.Text>
             </Badge>
           ) : null}
         </Stack>
@@ -207,19 +221,38 @@ export default function SettingDevBundleList() {
   const { version } = route.params;
   const [loading, setLoading] = useState(true);
   const [bundles, setBundles] = useState<IBundleInfo[]>([]);
+  const [downloadedSet, setDownloadedSet] = useState<Set<string>>(new Set());
 
   const currentBundleVersion = String(platformEnv.bundleVersion);
   const currentAppVersion = String(platformEnv.version);
 
   useEffect(() => {
-    void backgroundApiProxy.serviceAppUpdate
-      .devFetchBundlesForVersion(version)
-      .then((data) => {
+    void (async () => {
+      try {
+        const data =
+          await backgroundApiProxy.serviceAppUpdate.devFetchBundlesForVersion(
+            version,
+          );
         setBundles(data);
-      })
-      .finally(() => {
+
+        // Check which bundles are already downloaded
+        const existsChecks = await Promise.all(
+          data.map(async (b) => ({
+            bundleVersion: b.bundleVersion,
+            exists: await BundleUpdate.isBundleExists(version, b.bundleVersion),
+          })),
+        );
+        const downloaded = new Set<string>();
+        for (const check of existsChecks) {
+          if (check.exists) {
+            downloaded.add(check.bundleVersion);
+          }
+        }
+        setDownloadedSet(downloaded);
+      } finally {
         setLoading(false);
-      });
+      }
+    })();
   }, [version]);
 
   return (
@@ -248,6 +281,7 @@ export default function SettingDevBundleList() {
                   version === currentAppVersion &&
                   bundle.bundleVersion === currentBundleVersion
                 }
+                alreadyDownloaded={downloadedSet.has(bundle.bundleVersion)}
               />
             ))}
             {bundles.length === 0 ? (

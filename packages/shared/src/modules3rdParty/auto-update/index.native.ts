@@ -270,6 +270,8 @@ export const BundleUpdate: IBundleUpdate = {
       ? BundleUpdateModule.getWebEmbedPathAsync()
       : Promise.resolve(''),
   getFallbackBundles: () => BundleUpdateModule.getFallbackUpdateBundleData(),
+  isBundleExists: (appVersion, bundleVersion) =>
+    BundleUpdateModule.isBundleExists(appVersion, bundleVersion),
   switchBundle: async (params) => {
     await BundleUpdateModule.setCurrentUpdateBundleData(params);
     setTimeout(() => {

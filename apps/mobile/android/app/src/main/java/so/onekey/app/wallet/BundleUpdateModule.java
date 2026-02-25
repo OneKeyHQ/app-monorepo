@@ -1057,6 +1057,14 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
     }
 
     @ReactMethod
+    public void isBundleExists(String appVersion, String bundleVersion, Promise promise) {
+        String folderName = appVersion + "-" + bundleVersion;
+        String bundleDir = getBundleDir(reactContext);
+        File bundlePath = new File(bundleDir, folderName);
+        promise.resolve(bundlePath.exists());
+    }
+
+    @ReactMethod
     public void testDeleteJsRuntimeDir(String appVersion, String bundleVersion, Promise promise) {
         String folderName = appVersion + "-" + bundleVersion;
         String bundleDir = getBundleDir(reactContext);

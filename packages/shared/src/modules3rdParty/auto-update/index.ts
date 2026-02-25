@@ -59,6 +59,7 @@ export const BundleUpdate: IBundleUpdate = {
     Promise.resolve({ success: false, message: 'Not supported on web' }),
   getFallbackBundles: () => Promise.resolve([]),
   switchBundle: () => Promise.resolve(),
+  isBundleExists: () => Promise.resolve(false),
   getNativeAppVersion: () => Promise.resolve(''),
   getSha256FromFilePath: () => Promise.resolve(''),
   getNativeBuildNumber: () => Promise.resolve(''),
