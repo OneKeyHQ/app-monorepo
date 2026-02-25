@@ -603,6 +603,14 @@ class DesktopApiAppBundleUpdate {
       }
     }
 
+    // Security: Verify bundle directory exists before updating store
+    const extractDir = getBundleExtractDir({ appVersion, bundleVersion });
+    if (!fs.existsSync(extractDir)) {
+      throw new OneKeyLocalError(
+        `Bundle directory not found: ${appVersion}-${bundleVersion}`,
+      );
+    }
+
     store.setUpdateBundleData({
       appVersion,
       bundleVersion,

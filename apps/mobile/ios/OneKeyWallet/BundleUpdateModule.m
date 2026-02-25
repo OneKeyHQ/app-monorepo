@@ -854,6 +854,15 @@ RCT_EXPORT_METHOD(installBundle:(NSDictionary *)params
     }
 
     NSString *folderName = [NSString stringWithFormat:@"%@-%@", appVersion, bundleVersion];
+
+    // Security: Verify bundle directory exists before updating UserDefaults
+    NSString *bundleDir = [BundleUpdateModule bundleDir];
+    NSString *bundleDirPath = [bundleDir stringByAppendingPathComponent:folderName];
+    if (![[NSFileManager defaultManager] fileExistsAtPath:bundleDirPath]) {
+        reject(@"INVALID_PARAMS", [NSString stringWithFormat:@"Bundle directory not found: %@", folderName], nil);
+        return;
+    }
+
      NSUserDefaults *userDefaults = [NSUserDefaults standardUserDefaults];
     [userDefaults setObject:folderName forKey:@"currentBundleVersion"];
     NSString *currentNativeVersion = [BundleUpdateModule getCurrentNativeVersion];

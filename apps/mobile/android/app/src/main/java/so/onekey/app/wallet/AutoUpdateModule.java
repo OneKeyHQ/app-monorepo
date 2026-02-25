@@ -224,7 +224,6 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
             log("verifyASC", "Error verifying ASC file: " + e.getMessage());
             promise.reject(new Exception("UPDATE_SIGNATURE_VERIFICATION_FAILED_ALERT_TEXT"));
         }
-        promise.resolve(null);
     }
 
     @ReactMethod
@@ -282,12 +281,11 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
         File downloadedFile = buildFile(filePath);
         if (!downloadedFile.exists()) {
             promise.reject(new Exception("NOT_FOUND_PACKAGE"));
+            return;
         }
         boolean isValidAPK = this.checkFilePackage(downloadedFile, promise);
         if (isValidAPK) {
             promise.resolve(null);
-        } else {
-            promise.reject(new Exception("UPDATE_INSTALLATION_NOT_SAFE_ALERT_TEXT"));
         }
     }
 
