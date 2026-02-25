@@ -349,6 +349,7 @@ describe('BTC Address Derivation Tests', () => {
 
   describe('Security edge cases', () => {
     it('should not leak sensitive data in error messages', async () => {
+      expect.assertions(2);
       try {
         await coreApi.getAddressesFromHd({
           networkInfo,
