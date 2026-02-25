@@ -495,9 +495,7 @@ describe('messageUtils', () => {
 
     const invalidObjects = [undefined, null, 0, 1, [], '', 'test'];
     for (const invalidObject of invalidObjects) {
-      test(`should disallow a typed message with value'${String(
-        invalidObject,
-      )}'`, () => {
+      test(`should disallow a typed message with value ${JSON.stringify(invalidObject) ?? 'undefined'}`, () => {
         expect(() =>
           messageUtils.validateTypedSignMessageDataV3V4(
             {
@@ -513,9 +511,7 @@ describe('messageUtils', () => {
         ).toThrow();
       });
 
-      test(`should disallow a domain with value '${String(
-        invalidObject,
-      )}'`, () => {
+      test(`should disallow a domain with value ${JSON.stringify(invalidObject) ?? 'undefined'}`, () => {
         const typedMessage = {
           domain: invalidObject,
           message: {},
@@ -539,9 +535,7 @@ describe('messageUtils', () => {
           ),
         ).toThrow('Message Data must conform to EIP-712 schema.');
       });
-      test(`should disallow a message with value '${String(
-        invalidObject,
-      )}'`, () => {
+      test(`should disallow a message with value ${JSON.stringify(invalidObject) ?? 'undefined'}`, () => {
         const typedMessage = {
           domain: {},
           message: invalidObject,
@@ -566,9 +560,7 @@ describe('messageUtils', () => {
         ).toThrow('Message Data must conform to EIP-712 schema.');
       });
 
-      test(`should disallow types with value '${String(
-        invalidObject,
-      )}'`, () => {
+      test(`should disallow types with value ${JSON.stringify(invalidObject) ?? 'undefined'}`, () => {
         const typedMessage = {
           domain: {},
           message: {},

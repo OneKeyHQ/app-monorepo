@@ -7,7 +7,11 @@ const SvgClipboard = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M16 6v1a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V6H6v14h12V6zm-6-2v2h4V4zm8 0a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2z" />
+    <Path
+      fillRule="evenodd"
+      d="M16 4h4v18H4V4h4V2h8zM6 20h12V6h-2v2H8V6H6zm4-14h4V4h-4z"
+      clipRule="evenodd"
+    />
   </Svg>
 );
 export default SvgClipboard;

@@ -1,0 +1,179 @@
+name: 03-harness-test
+
+on:
+  schedule:
+    - cron: '0 22 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  YARN_ENABLE_GLOBAL_CACHE: true
+
+jobs:
+  harness-android:
+    name: Harness Tests (Android)
+    runs-on: ubuntu-24.04
+
+    strategy:
+      matrix:
+        node-version: [24.x]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'yarn'
+          registry-url: 'https://npm.pkg.github.com'
+          check-latest: true
+          scope: '@onekeyhq'
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Install Android SDK components
+        run: |
+          sdkmanager --install "platform-tools" "platforms;android-35" "system-images;android-35;google_apis;x86_64" "emulator"
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ hashFiles('apps/mobile/android/**/*.gradle*', 'apps/mobile/android/gradle-wrapper.properties') }}
+          restore-keys: |
+            gradle-
+
+      - name: Create AVD and detect path
+        run: |
+          echo "no" | avdmanager create avd -n test_avd -k "system-images;android-35;google_apis;x86_64" --force
+          AVD_INI=$(find /home/runner -name "test_avd.ini" 2>/dev/null | head -1)
+          if [ -z "$AVD_INI" ]; then
+            echo "ERROR: test_avd.ini not found anywhere under /home/runner"
+            exit 1
+          fi
+          AVD_DIR=$(dirname "$AVD_INI")
+          echo "Found AVD ini at: $AVD_INI"
+          echo "Setting ANDROID_AVD_HOME=$AVD_DIR"
+          echo "ANDROID_AVD_HOME=$AVD_DIR" >> $GITHUB_ENV
+
+      - name: Install Dependencies
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: '--max_old_space_size=4096'
+        run: yarn install --immutable
+
+      - name: Build Android Debug APK
+        timeout-minutes: 80
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: '--max_old_space_size=4096'
+          SENTRY_DISABLE_AUTO_UPLOAD: 'true'
+        working-directory: apps/mobile/android
+        run: ./gradlew assembleProdDebug -PreactNativeArchitectures=x86_64
+
+      - name: Stop Gradle daemon to free memory
+        working-directory: apps/mobile/android
+        run: ./gradlew --stop
+
+      - name: Start Android Emulator
+        run: |
+          $ANDROID_HOME/emulator/emulator -avd test_avd -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot-save -memory 2048 &
+          adb wait-for-device
+          SECONDS=0
+          TIMEOUT=300
+          boot_completed=""
+          while [ "$boot_completed" != "1" ]; do
+            if [ "$SECONDS" -ge "$TIMEOUT" ]; then
+              echo "ERROR: Emulator boot timed out after ${TIMEOUT}s"
+              exit 1
+            fi
+            sleep 5
+            boot_completed=$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')
+            echo "Waiting for emulator to boot... (${SECONDS}s elapsed, sys.boot_completed=$boot_completed)"
+          done
+          echo "Emulator is ready"
+          adb devices
+
+      - name: Install APK on Emulator
+        run: adb install apps/mobile/android/app/build/outputs/apk/prod/debug/app-prod-debug.apk
+
+      - name: Start logcat capture
+        run: adb logcat -v time > /tmp/logcat.txt 2>&1 &
+
+      - name: Run Harness Tests (Android)
+        timeout-minutes: 30
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HARNESS_ANDROID_AVD: test_avd
+        working-directory: apps/mobile
+        run: yarn harness:test:android
+
+      - name: Dump logcat on failure
+        if: failure()
+        run: |
+          echo "=== Last 200 lines of logcat ==="
+          tail -200 /tmp/logcat.txt || true
+          echo ""
+          echo "=== App-specific logs ==="
+          grep -i -E "(onekey|ReactNative|ReactNativeJS|AndroidRuntime|FATAL|crash|WebSocket)" /tmp/logcat.txt | tail -100 || true
+
+  notify-failure:
+    name: Notify on Failure
+    runs-on: ubuntu-24.04
+    needs: harness-android
+    if: failure() && github.event_name == 'schedule'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create failure issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = `Nightly harness tests failed on ${new Date().toISOString().split('T')[0]}`;
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'harness-test-failure',
+              state: 'open',
+            });
+            if (issues.length > 0) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issues[0].number,
+                body: `Still failing: [Run #${context.runNumber}](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body: `The nightly harness test run failed.\n\n[View workflow run](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`,
+                labels: ['harness-test-failure'],
+              });
+            }

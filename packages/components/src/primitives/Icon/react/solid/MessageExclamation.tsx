@@ -9,7 +9,7 @@ const SvgMessageExclamation = (props: SvgProps) => (
   >
     <Path
       fillRule="evenodd"
-      d="M19.002 3h-14a2 2 0 0 0-2 2v12.036a2 2 0 0 0 2 2h3.65l2.704 2.266a1 1 0 0 0 1.28.004l2.74-2.27h3.626a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2M12 7.5a1 1 0 0 1 1 1v2a1 1 0 1 1-2 0v-2a1 1 0 0 1 1-1m0 4.75a1.25 1.25 0 1 0 0 2.5 1.25 1.25 0 0 0 0-2.5"
+      d="M21.002 3v16.036h-5.626l-3.382 2.802-3.343-2.802H3.002V3zM11 15h2v-2h-2zm0-8v5h2V7z"
       clipRule="evenodd"
     />
   </Svg>

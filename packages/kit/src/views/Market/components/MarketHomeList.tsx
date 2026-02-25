@@ -436,7 +436,9 @@ function BasicMarketHomeList({
       true,
     );
     void timerUtils.setTimeoutPromised(() => {
-      setListData(response);
+      if (response) {
+        setListData(response);
+      }
     });
   }, [FETCH_COOLDOWN_DURATION, category.categoryId, category.coingeckoIds]);
 

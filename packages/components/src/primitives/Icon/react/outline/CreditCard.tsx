@@ -7,7 +7,11 @@ const SvgCreditCard = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M20 11H4v7h16zm2 7a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 1.999zM4 9h16V6H4z" />
+    <Path
+      fillRule="evenodd"
+      d="M22 20H2V4h20zM4 18h16v-7H4zm0-9h16V6H4z"
+      clipRule="evenodd"
+    />
   </Svg>
 );
 export default SvgCreditCard;

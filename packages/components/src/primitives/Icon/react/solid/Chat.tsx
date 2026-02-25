@@ -7,7 +7,7 @@ const SvgChat = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M20.002 3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H12.28l-4.762 2.858A1 1 0 0 1 6.002 21v-2h-2a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" />
+    <Path d="M22.002 19h-9.723l-6.277 3.767V19h-4V3h20z" />
   </Svg>
 );
 export default SvgChat;

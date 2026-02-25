@@ -344,6 +344,8 @@ const usePerpDeposit = (
           swapBuildResData: {
             result: {
               ...buildSwapRes.result,
+              // Fallback to outer info when inner result.info is missing
+              info: buildSwapRes.result.info ?? buildSwapRes.info,
             },
           },
         };

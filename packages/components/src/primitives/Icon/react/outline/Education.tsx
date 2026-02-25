@@ -1,4 +1,4 @@
-import Svg, { Path } from 'react-native-svg';
+import Svg, { G, Path, Defs, ClipPath } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgEducation = (props: SvgProps) => (
   <Svg
@@ -7,7 +7,18 @@ const SvgEducation = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="m17.5 12.294-5.12 2.328a.92.92 0 0 1-.76 0L6.5 12.294v3.236l5.5 2.946 5.5-2.946zM4.131 9.204 12 12.78l7.868-3.576L12 5.627zM23 15.62a.917.917 0 0 1-1.833 0v-4.994l-1.834.834v4.07c0 .675-.372 1.296-.967 1.615l-5.5 2.947c-.541.29-1.191.29-1.732 0l-5.5-2.947a1.83 1.83 0 0 1-.967-1.616v-4.07l-3.13-1.422a.917.917 0 0 1 0-1.668L11.62 3.786a.92.92 0 0 1 .76 0L22.463 8.37a.92.92 0 0 1 .537.834z" />
+    <G clipPath="url(#a)">
+      <Path
+        fillRule="evenodd"
+        d="m24 9-.001 8h-2v-6.98L20 11.04v6.078l-8.001 4-7.999-4v-6.077L-.001 9l11.546-5.89.454-.233zm-12.001 6.123-.454-.232L6 12.06v3.82l5.999 3 6.001-3v-3.82zM4.399 9l7.6 3.877L19.599 9l-7.6-3.878z"
+        clipRule="evenodd"
+      />
+    </G>
+    <Defs>
+      <ClipPath id="a">
+        <Path d="M0 0h24v24H0z" />
+      </ClipPath>
+    </Defs>
   </Svg>
 );
 export default SvgEducation;

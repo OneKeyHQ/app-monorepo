@@ -9,7 +9,7 @@ const SvgFolders = (props: SvgProps) => (
   >
     <Path
       fillRule="evenodd"
-      d="M7 3a2 2 0 0 0-2 2v2H3a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-2h2a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-6.586L13 3.586A2 2 0 0 0 11.586 3zm12 12h2V7h-6.586A2 2 0 0 1 13 6.414L11.586 5H7v2h.586A2 2 0 0 1 9 7.586L10.414 9H17a2 2 0 0 1 2 2z"
+      d="m12.414 3 2 2H23v12h-4v4H1V7h4V3zM7 7h1.414l2 2H19v6h2V7h-7.414l-2-2H7z"
       clipRule="evenodd"
     />
   </Svg>

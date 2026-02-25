@@ -9,7 +9,7 @@ const SvgSecretPhrase = (props: SvgProps) => (
   >
     <Path
       fillRule="evenodd"
-      d="M2 6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2zm4 3a1 1 0 0 1 1-1h3a1 1 0 1 1 0 2H7a1 1 0 0 1-1-1m8-1a1 1 0 1 0 0 2h3a1 1 0 1 0 0-2zm-8 4a1 1 0 0 1 1-1h3a1 1 0 1 1 0 2H7a1 1 0 0 1-1-1m8-1a1 1 0 1 0 0 2h3a1 1 0 1 0 0-2zm-8 4a1 1 0 0 1 1-1h3a1 1 0 1 1 0 2H7a1 1 0 0 1-1-1m8-1a1 1 0 1 0 0 2h3a1 1 0 1 0 0-2z"
+      d="M22 20H2V4h20zM6 14v2h5v-2zm7 2h5v-2h-5zm-7-5v2h5v-2zm7 2h5v-2h-5zM6 8v2h5V8zm7 2h5V8h-5z"
       clipRule="evenodd"
     />
   </Svg>

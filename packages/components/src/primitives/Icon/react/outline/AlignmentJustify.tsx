@@ -7,7 +7,7 @@ const SvgAlignmentJustify = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M20 18a1 1 0 1 1 0 2H4a1 1 0 1 1 0-2zm0-7a1 1 0 1 1 0 2H4a1 1 0 1 1 0-2zm0-7a1 1 0 1 1 0 2H4a1 1 0 0 1 0-2z" />
+    <Path d="M21 20H3v-2h18zm0-7H3v-2h18zm0-7H3V4h18z" />
   </Svg>
 );
 export default SvgAlignmentJustify;

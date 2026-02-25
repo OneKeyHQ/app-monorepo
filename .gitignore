@@ -4,6 +4,7 @@ __generated__
 .expo-shared
 .expo
 .DS_Store
+.mcp.json
 .idea/
 .vscode/
 .cursor/debug.log
@@ -115,3 +116,6 @@ debug.log
 /local/
 *.local.md
 .playwright-cli/
+# Local documentation files
+.local_docs/
+/.claude/worktrees
