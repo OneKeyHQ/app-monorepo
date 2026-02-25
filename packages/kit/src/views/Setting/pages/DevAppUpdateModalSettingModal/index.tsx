@@ -341,6 +341,16 @@ export default function DevAppUpdateModalSettingModal() {
               >
                 JS Bundle Switcher
               </Button>
+              <Button
+                variant="secondary"
+                onPress={() => {
+                  navigation.push(
+                    EModalSettingRoutes.SettingDevLocalBundleList,
+                  );
+                }}
+              >
+                Local Bundles
+              </Button>
             </>
           ) : null}
 

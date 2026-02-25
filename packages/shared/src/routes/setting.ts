@@ -31,6 +31,7 @@ export enum EModalSettingRoutes {
   // Dev JS Bundle Switcher
   SettingDevBundleVersionList = 'SettingDevBundleVersionList',
   SettingDevBundleList = 'SettingDevBundleList',
+  SettingDevLocalBundleList = 'SettingDevLocalBundleList',
   // OneKey ID sub-pages
   SettingOneKeyIdPersonalInfo = 'SettingOneKeyIdPersonalInfo',
   SettingOneKeyIdSignInSecurity = 'SettingOneKeyIdSignInSecurity',
@@ -74,6 +75,7 @@ export type IModalSettingParamList = {
   // Dev JS Bundle Switcher
   [EModalSettingRoutes.SettingDevBundleVersionList]: undefined;
   [EModalSettingRoutes.SettingDevBundleList]: { version: string };
+  [EModalSettingRoutes.SettingDevLocalBundleList]: undefined;
   // OneKey ID sub-pages
   [EModalSettingRoutes.SettingOneKeyIdPersonalInfo]: undefined;
   [EModalSettingRoutes.SettingOneKeyIdSignInSecurity]: undefined;
