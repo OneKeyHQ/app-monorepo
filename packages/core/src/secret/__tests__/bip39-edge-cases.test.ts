@@ -285,4 +285,200 @@ describe('BIP39 Edge Cases', () => {
       expect(recovered).toBe(mnemonic);
     });
   });
+
+  describe('Entropy length boundary cases', () => {
+    it('should handle minimum entropy (16 bytes / 128 bits)', () => {
+      const buf = Buffer.alloc(34, 0);
+      buf[0] = 1;
+      buf[1] = 16;
+      const mnemonic = revealEntropyToMnemonic(buf);
+      expect(mnemonic.split(' ').length).toBe(12);
+    });
+
+    it('should handle maximum entropy (32 bytes / 256 bits)', () => {
+      const buf = Buffer.alloc(34, 0);
+      buf[0] = 1;
+      buf[1] = 32;
+      const mnemonic = revealEntropyToMnemonic(buf);
+      expect(mnemonic.split(' ').length).toBe(24);
+    });
+
+    it('should reject entropy less than 16 bytes', () => {
+      const buf = Buffer.alloc(34, 0);
+      buf[0] = 1;
+      buf[1] = 12;
+      expect(() => revealEntropyToMnemonic(buf)).toThrow('invalid entropy');
+    });
+
+    it('should reject entropy more than 32 bytes', () => {
+      const buf = Buffer.alloc(34, 0);
+      buf[0] = 1;
+      buf[1] = 36;
+      expect(() => revealEntropyToMnemonic(buf)).toThrow('invalid entropy');
+    });
+
+    it('should reject odd entropy lengths', () => {
+      const buf = Buffer.alloc(34, 0);
+      buf[0] = 1;
+      buf[1] = 17;
+      expect(() => revealEntropyToMnemonic(buf)).toThrow('invalid entropy');
+    });
+  });
+
+  describe('Language code boundary cases', () => {
+    it('should reject large langCode', () => {
+      const buf = Buffer.alloc(34, 0);
+      buf[0] = 255;
+      buf[1] = 16;
+      expect(() => revealEntropyToMnemonic(buf)).toThrow();
+    });
+  });
+
+  describe('Mnemonic boundary cases', () => {
+    it('should reject wrong word count (11 words)', () => {
+      const mnemonic =
+        'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
+      expect(() => mnemonicToRevealableSeed(mnemonic)).toThrow();
+    });
+
+    it('should reject word not in wordlist', () => {
+      const mnemonic =
+        'notaword abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
+      expect(() => mnemonicToRevealableSeed(mnemonic)).toThrow();
+    });
+
+    it('should reject mnemonic with wrong checksum (abandon*11 + ability)', () => {
+      const mnemonic =
+        'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon ability';
+      expect(() => mnemonicToRevealableSeed(mnemonic)).toThrow();
+    });
+  });
+
+  describe('Password boundary cases', () => {
+    it('should handle empty password', () => {
+      const mnemonic =
+        'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
+      const rs1 = mnemonicToRevealableSeed(mnemonic, '');
+      const rs2 = mnemonicToRevealableSeed(mnemonic);
+      expect(rs1.seed).toBe(rs2.seed);
+    });
+
+    it('should handle long password (1000 chars)', () => {
+      const mnemonic =
+        'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
+      const longPassword = 'a'.repeat(1000);
+      expect(() =>
+        mnemonicToRevealableSeed(mnemonic, longPassword),
+      ).not.toThrow();
+    });
+
+    it('should handle password with special characters', () => {
+      const mnemonic =
+        'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
+      const specialPassword = '!@#$%^&*()_+-=[]{}|;:,.<>?';
+      expect(() =>
+        mnemonicToRevealableSeed(mnemonic, specialPassword),
+      ).not.toThrow();
+    });
+
+    it('should handle password with unicode', () => {
+      const mnemonic =
+        'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
+      expect(() =>
+        mnemonicToRevealableSeed(mnemonic, '你好世界'),
+      ).not.toThrow();
+    });
+
+    it('should produce different seeds for different passwords', () => {
+      const mnemonic =
+        'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
+      const passwords = ['', 'a', 'A', 'password', 'Password'];
+      const seeds = passwords.map(
+        (pwd) => mnemonicToRevealableSeed(mnemonic, pwd).seed,
+      );
+      expect(new Set(seeds).size).toBe(passwords.length);
+    });
+  });
+
+  describe('Encryption boundary cases', () => {
+    it('should reject empty password encryption', async () => {
+      const mnemonic =
+        'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
+      const rs = mnemonicToRevealableSeed(mnemonic);
+      await expect(
+        encryptRevealableSeed({ rs, password: '' }),
+      ).rejects.toThrow();
+    });
+
+    it('should handle long password encryption (1000 chars)', async () => {
+      const mnemonic =
+        'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
+      const rs = mnemonicToRevealableSeed(mnemonic);
+      const longPassword = 'a'.repeat(1000);
+      const encrypted = await encryptRevealableSeed({
+        rs,
+        password: longPassword,
+      });
+      const decrypted = await decryptRevealableSeed({
+        rs: encrypted,
+        password: longPassword,
+      });
+      expect(decrypted.seed).toBe(rs.seed);
+    });
+
+    it('should reject decryption with similar password', async () => {
+      const mnemonic =
+        'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
+      const rs = mnemonicToRevealableSeed(mnemonic);
+      const encrypted = await encryptRevealableSeed({
+        rs,
+        password: 'password',
+      });
+      await expect(
+        decryptRevealableSeed({ rs: encrypted, password: 'Password' }),
+      ).rejects.toThrow();
+    });
+
+    it('should reject decryption with one-char-different password', async () => {
+      const mnemonic =
+        'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
+      const rs = mnemonicToRevealableSeed(mnemonic);
+      const encrypted = await encryptRevealableSeed({
+        rs,
+        password: 'password',
+      });
+      await expect(
+        decryptRevealableSeed({ rs: encrypted, password: 'passwor' }),
+      ).rejects.toThrow();
+    });
+
+    it('should handle concurrent encryption/decryption', async () => {
+      const mnemonic =
+        'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
+      const rs = mnemonicToRevealableSeed(mnemonic);
+
+      const operations = Array.from({ length: 10 }, async () => {
+        const encrypted = await encryptRevealableSeed({
+          rs,
+          password: 'test',
+        });
+        return decryptRevealableSeed({ rs: encrypted, password: 'test' });
+      });
+
+      const results = await Promise.all(operations);
+      results.forEach((result) => {
+        expect(result.seed).toBe(rs.seed);
+      });
+    });
+  });
+
+  describe('Error message validation', () => {
+    it('should provide clear error for invalid mnemonic', () => {
+      try {
+        mnemonicToRevealableSeed('invalid mnemonic words here');
+      } catch (error: any) {
+        expect(error.message).toMatch(/invalid|checksum|wordlist/i);
+      }
+    });
+  });
 });

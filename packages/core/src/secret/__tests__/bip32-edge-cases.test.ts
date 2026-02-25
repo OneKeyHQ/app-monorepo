@@ -268,4 +268,290 @@ describe('BIP32 Edge Cases', () => {
       expect(key.chainCode.length).toBe(32);
     });
   });
+
+  describe('Index boundary cases', () => {
+    const deriver = new BaseBip32KeyDeriver(
+      Buffer.from('Bitcoin seed'),
+      secp256k1,
+    );
+
+    it('should throw on index = 2^32', () => {
+      const seed = Buffer.from('000102030405060708090a0b0c0d0e0f', 'hex');
+      const master = deriver.generateMasterKeyFromSeed(seed);
+      expect(() => deriver.CKDPriv(master, 0x100000000)).toThrow(
+        'Overflowed',
+      );
+    });
+
+    it('should throw on index = Number.MAX_SAFE_INTEGER', () => {
+      const seed = Buffer.from('000102030405060708090a0b0c0d0e0f', 'hex');
+      const master = deriver.generateMasterKeyFromSeed(seed);
+      expect(() =>
+        deriver.CKDPriv(master, Number.MAX_SAFE_INTEGER),
+      ).toThrow('Overflowed');
+    });
+
+    it('should accept index = 2^31 - 1 (max non-hardened)', () => {
+      const seed = Buffer.from('000102030405060708090a0b0c0d0e0f', 'hex');
+      const master = deriver.generateMasterKeyFromSeed(seed);
+      const child = deriver.CKDPriv(master, 0x7fffffff);
+      expect(child.key.length).toBe(32);
+    });
+
+    it('should accept index = 2^31 (min hardened)', () => {
+      const seed = Buffer.from('000102030405060708090a0b0c0d0e0f', 'hex');
+      const master = deriver.generateMasterKeyFromSeed(seed);
+      const child = deriver.CKDPriv(master, 0x80000000);
+      expect(child.key.length).toBe(32);
+    });
+
+    it('should accept index = 2^32 - 1 (max hardened)', () => {
+      const seed = Buffer.from('000102030405060708090a0b0c0d0e0f', 'hex');
+      const master = deriver.generateMasterKeyFromSeed(seed);
+      const child = deriver.CKDPriv(master, 0xffffffff);
+      expect(child.key.length).toBe(32);
+    });
+
+    it('should throw on NaN index', () => {
+      const seed = Buffer.from('000102030405060708090a0b0c0d0e0f', 'hex');
+      const master = deriver.generateMasterKeyFromSeed(seed);
+      expect(() => deriver.CKDPriv(master, NaN)).toThrow('Invalid index');
+    });
+
+    it('should throw on Infinity index', () => {
+      const seed = Buffer.from('000102030405060708090a0b0c0d0e0f', 'hex');
+      const master = deriver.generateMasterKeyFromSeed(seed);
+      expect(() => deriver.CKDPriv(master, Infinity)).toThrow('Invalid index');
+    });
+
+    it('should throw on -Infinity index', () => {
+      const seed = Buffer.from('000102030405060708090a0b0c0d0e0f', 'hex');
+      const master = deriver.generateMasterKeyFromSeed(seed);
+      expect(() => deriver.CKDPriv(master, -Infinity)).toThrow(
+        'Invalid index',
+      );
+    });
+  });
+
+  describe('Seed boundary cases', () => {
+    const deriver = new BaseBip32KeyDeriver(
+      Buffer.from('Bitcoin seed'),
+      secp256k1,
+    );
+
+    it('should accept minimum seed length (16 bytes)', () => {
+      const seed = Buffer.alloc(16, 0xab);
+      const master = deriver.generateMasterKeyFromSeed(seed);
+      expect(master.key.length).toBe(32);
+      expect(master.chainCode.length).toBe(32);
+    });
+
+    it('should accept seed length of 32 bytes', () => {
+      const seed = Buffer.alloc(32, 0xab);
+      const master = deriver.generateMasterKeyFromSeed(seed);
+      expect(master.key.length).toBe(32);
+      expect(master.chainCode.length).toBe(32);
+    });
+
+    it('should accept seed length of 64 bytes', () => {
+      const seed = Buffer.alloc(64, 0xab);
+      const master = deriver.generateMasterKeyFromSeed(seed);
+      expect(master.key.length).toBe(32);
+      expect(master.chainCode.length).toBe(32);
+    });
+
+    it('should accept all-zeros seed', () => {
+      const seed = Buffer.alloc(32, 0);
+      const master = deriver.generateMasterKeyFromSeed(seed);
+      expect(master.key.length).toBe(32);
+      expect(master.chainCode.length).toBe(32);
+    });
+
+    it('should accept all-ones seed', () => {
+      const seed = Buffer.alloc(32, 0xff);
+      const master = deriver.generateMasterKeyFromSeed(seed);
+      expect(master.key.length).toBe(32);
+      expect(master.chainCode.length).toBe(32);
+    });
+  });
+
+  describe('Key boundary cases', () => {
+    const deriver = new BaseBip32KeyDeriver(
+      Buffer.from('Bitcoin seed'),
+      secp256k1,
+    );
+
+    it('should produce master key < secp256k1 order', () => {
+      const seed = Buffer.from('000102030405060708090a0b0c0d0e0f', 'hex');
+      const master = deriver.generateMasterKeyFromSeed(seed);
+      const keyBN = BigInt('0x' + master.key.toString('hex'));
+      const order = BigInt(
+        '0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141',
+      );
+      expect(keyBN).toBeLessThan(order);
+    });
+
+    it('should produce valid compressed public key from N()', () => {
+      const seed = Buffer.from('000102030405060708090a0b0c0d0e0f', 'hex');
+      const master = deriver.generateMasterKeyFromSeed(seed);
+      const pub = deriver.N(master);
+      expect(pub.key[0] === 0x02 || pub.key[0] === 0x03).toBe(true);
+    });
+
+    it('should produce non-zero chain code', () => {
+      const seed = Buffer.from('000102030405060708090a0b0c0d0e0f', 'hex');
+      const master = deriver.generateMasterKeyFromSeed(seed);
+      expect(master.chainCode.equals(Buffer.alloc(32, 0))).toBe(false);
+    });
+
+    it('should maintain 32-byte key length even with leading zeros', () => {
+      const seed = Buffer.from('000102030405060708090a0b0c0d0e0f', 'hex');
+      const master = deriver.generateMasterKeyFromSeed(seed);
+      expect(master.key.length).toBe(32);
+    });
+  });
+
+  describe('Derivation depth edge cases', () => {
+    const deriver = new BaseBip32KeyDeriver(
+      Buffer.from('Bitcoin seed'),
+      secp256k1,
+    );
+
+    it('should handle alternating hardened/non-hardened path', () => {
+      const seed = Buffer.from('000102030405060708090a0b0c0d0e0f', 'hex');
+      let key = deriver.generateMasterKeyFromSeed(seed);
+
+      for (let i = 0; i < 10; i++) {
+        key = deriver.CKDPriv(key, 0x80000000 + i);
+        key = deriver.CKDPriv(key, i);
+      }
+
+      expect(key.key.length).toBe(32);
+      expect(key.chainCode.length).toBe(32);
+    });
+
+    it('should produce deterministic results for same path', () => {
+      const seed = Buffer.from('000102030405060708090a0b0c0d0e0f', 'hex');
+
+      let key1 = deriver.generateMasterKeyFromSeed(seed);
+      let key2 = deriver.generateMasterKeyFromSeed(seed);
+
+      for (let i = 0; i < 20; i++) {
+        key1 = deriver.CKDPriv(key1, i);
+        key2 = deriver.CKDPriv(key2, i);
+      }
+
+      expect(key1.key).toEqual(key2.key);
+      expect(key1.chainCode).toEqual(key2.chainCode);
+    });
+  });
+
+  describe('Curve-specific edge cases', () => {
+    it('should produce different keys for different curves with same seed', () => {
+      const seed = Buffer.from('000102030405060708090a0b0c0d0e0f', 'hex');
+
+      const secp256k1Deriver = new BaseBip32KeyDeriver(
+        Buffer.from('Bitcoin seed'),
+        secp256k1,
+      );
+      const nistp256Deriver = new BaseBip32KeyDeriver(
+        Buffer.from('Nist256p1 seed'),
+        nistp256,
+      );
+
+      const masterSecp = secp256k1Deriver.generateMasterKeyFromSeed(seed);
+      const masterNist = nistp256Deriver.generateMasterKeyFromSeed(seed);
+
+      expect(masterSecp.key).not.toEqual(masterNist.key);
+      expect(masterSecp.chainCode).not.toEqual(masterNist.chainCode);
+    });
+
+    it('should handle ed25519 hardened only derivation', () => {
+      const edDeriver = new ED25519Bip32KeyDeriver(
+        Buffer.from('ed25519 seed'),
+        ed25519,
+      );
+      const seed = Buffer.from('000102030405060708090a0b0c0d0e0f', 'hex');
+      const master = edDeriver.generateMasterKeyFromSeed(seed);
+
+      expect(() => edDeriver.CKDPriv(master, 0x80000000)).not.toThrow();
+      expect(() => edDeriver.CKDPriv(master, 0)).toThrow(
+        'Only hardened CKDPriv is supported for ed25519',
+      );
+    });
+
+    it('should reject CKDPub for ed25519', () => {
+      const edDeriver = new ED25519Bip32KeyDeriver(
+        Buffer.from('ed25519 seed'),
+        ed25519,
+      );
+      const seed = Buffer.from('000102030405060708090a0b0c0d0e0f', 'hex');
+      const master = edDeriver.generateMasterKeyFromSeed(seed);
+      const pub = edDeriver.N(master);
+
+      expect(() => edDeriver.CKDPub(pub, 0)).toThrow(
+        'CKDPub is not supported for ed25519',
+      );
+    });
+
+    it('should handle nistp256 public key derivation', () => {
+      const nistDeriver = new BaseBip32KeyDeriver(
+        Buffer.from('Nist256p1 seed'),
+        nistp256,
+      );
+      const seed = Buffer.from('000102030405060708090a0b0c0d0e0f', 'hex');
+      const master = nistDeriver.generateMasterKeyFromSeed(seed);
+      const pub = nistDeriver.N(master);
+      expect(pub.key.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('Serialization edge cases', () => {
+    const deriver = new BaseBip32KeyDeriver(
+      Buffer.from('Bitcoin seed'),
+      secp256k1,
+    );
+
+    it('should handle round-trip serialization of keys', () => {
+      const seed = Buffer.from('000102030405060708090a0b0c0d0e0f', 'hex');
+      const master = deriver.generateMasterKeyFromSeed(seed);
+
+      const serialized = {
+        key: master.key.toString('hex'),
+        chainCode: master.chainCode.toString('hex'),
+      };
+
+      const deserialized = {
+        key: Buffer.from(serialized.key, 'hex'),
+        chainCode: Buffer.from(serialized.chainCode, 'hex'),
+      };
+
+      expect(deserialized.key).toEqual(master.key);
+      expect(deserialized.chainCode).toEqual(master.chainCode);
+    });
+  });
+
+  describe('Performance edge cases', () => {
+    const deriver = new BaseBip32KeyDeriver(
+      Buffer.from('Bitcoin seed'),
+      secp256k1,
+    );
+
+    it('should handle deep derivation tree efficiently', () => {
+      const seed = Buffer.from('000102030405060708090a0b0c0d0e0f', 'hex');
+      let key = deriver.generateMasterKeyFromSeed(seed);
+      const startTime = Date.now();
+
+      for (let i = 0; i < 1000; i++) {
+        key = deriver.CKDPriv(
+          key,
+          i % 2 === 0 ? 0x80000000 : 0,
+        );
+      }
+
+      const duration = Date.now() - startTime;
+      expect(duration).toBeLessThan(30000);
+      expect(key.key.length).toBe(32);
+    });
+  });
 });

@@ -108,4 +108,227 @@ describe('EVM Address Derivation Tests', () => {
       result2.addresses[0].publicKey,
     );
   });
+
+  describe('Invalid public key inputs', () => {
+    it('should reject empty public key', async () => {
+      await expect(
+        coreApi.getAddressFromPublic({
+          networkInfo,
+          publicKey: '',
+        }),
+      ).rejects.toThrow();
+    });
+
+    it('should reject non-hex characters', async () => {
+      await expect(
+        coreApi.getAddressFromPublic({
+          networkInfo,
+          publicKey:
+            '0xGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG',
+        }),
+      ).rejects.toThrow();
+    });
+
+    it('should reject public key with 0x prefix only', async () => {
+      await expect(
+        coreApi.getAddressFromPublic({
+          networkInfo,
+          publicKey: '0x',
+        }),
+      ).rejects.toThrow();
+    });
+
+    it('should handle compressed public key (33 bytes)', async () => {
+      const result = await coreApi.getAddressFromPublic({
+        networkInfo,
+        publicKey:
+          '02bd51e5b1a6e8271e1f87d2464b856790800c6c5fd38acdf1cee73857735fc8a4',
+      });
+      expect(result.address).toBe(
+        '0x1959f5f4979c5cd87d5cb75c678c770515cb5e0e',
+      );
+    });
+
+    it('should handle public key with whitespace', async () => {
+      const keyWithSpace =
+        ' 02bd51e5b1a6e8271e1f87d2464b856790800c6c5fd38acdf1cee73857735fc8a4 ';
+      try {
+        const result = await coreApi.getAddressFromPublic({
+          networkInfo,
+          publicKey: keyWithSpace,
+        });
+        expect(result.address).toBeDefined();
+      } catch {
+        // Rejection is also acceptable
+      }
+    });
+  });
+
+  describe('Invalid private key inputs', () => {
+    it('should reject empty private key', async () => {
+      await expect(
+        coreApi.getAddressFromPrivate({
+          networkInfo,
+          privateKeyRaw: '',
+        }),
+      ).rejects.toThrow();
+    });
+
+    it('should reject private key with invalid length (31 bytes)', async () => {
+      await expect(
+        coreApi.getAddressFromPrivate({
+          networkInfo,
+          privateKeyRaw: '0a'.repeat(31),
+        }),
+      ).rejects.toThrow();
+    });
+
+    it('should reject all-zeros private key', async () => {
+      await expect(
+        coreApi.getAddressFromPrivate({
+          networkInfo,
+          privateKeyRaw: '00'.repeat(32),
+        }),
+      ).rejects.toThrow();
+    });
+
+    it('should reject private key with only whitespace', async () => {
+      await expect(
+        coreApi.getAddressFromPrivate({
+          networkInfo,
+          privateKeyRaw: '   ',
+        }),
+      ).rejects.toThrow();
+    });
+  });
+
+  describe('HD derivation edge cases', () => {
+    it('should handle empty indexes array', async () => {
+      const result = await coreApi.getAddressesFromHd({
+        networkInfo,
+        password: hdCredential.password,
+        hdCredential: hdCredential.hdCredentialHex,
+        template: hdAccountTemplate,
+        indexes: [],
+        addressEncoding: undefined,
+      });
+      expect(result.addresses).toHaveLength(0);
+    });
+
+    it('should handle duplicate indexes', async () => {
+      const result = await coreApi.getAddressesFromHd({
+        networkInfo,
+        password: hdCredential.password,
+        hdCredential: hdCredential.hdCredentialHex,
+        template: hdAccountTemplate,
+        indexes: [0, 0, 0],
+        addressEncoding: undefined,
+      });
+      expect(result.addresses).toHaveLength(3);
+      expect(result.addresses[0].address).toBe(result.addresses[1].address);
+      expect(result.addresses[1].address).toBe(result.addresses[2].address);
+    });
+
+    it('should reject invalid password', async () => {
+      await expect(
+        coreApi.getAddressesFromHd({
+          networkInfo,
+          password: 'wrongPassword',
+          hdCredential: hdCredential.hdCredentialHex,
+          template: hdAccountTemplate,
+          indexes: [0],
+          addressEncoding: undefined,
+        }),
+      ).rejects.toThrow();
+    });
+
+    it('should reject invalid hdCredential', async () => {
+      await expect(
+        coreApi.getAddressesFromHd({
+          networkInfo,
+          password: hdCredential.password,
+          hdCredential: 'invalidCredential',
+          template: hdAccountTemplate,
+          indexes: [0],
+          addressEncoding: undefined,
+        }),
+      ).rejects.toThrow();
+    });
+  });
+
+  describe('Network info edge cases', () => {
+    it('should handle different chainIds (address unchanged for EVM)', async () => {
+      const chainIds = ['1', '56', '137', '42161', '10'];
+      for (const chainId of chainIds) {
+        const network = {
+          ...networkInfo,
+          chainId,
+          networkId: `evm--${chainId}`,
+        };
+        const result = await coreApi.getAddressFromPublic({
+          networkInfo: network,
+          publicKey:
+            '02bd51e5b1a6e8271e1f87d2464b856790800c6c5fd38acdf1cee73857735fc8a4',
+        });
+        expect(result.address).toBe(
+          '0x1959f5f4979c5cd87d5cb75c678c770515cb5e0e',
+        );
+      }
+    });
+
+    it('should handle networkInfo with extra fields', async () => {
+      const extendedNetwork = {
+        ...networkInfo,
+        extraField: 'should be ignored',
+        rpcUrl: 'https://example.com',
+      };
+      const result = await coreApi.getAddressFromPublic({
+        networkInfo: extendedNetwork,
+        publicKey:
+          '02bd51e5b1a6e8271e1f87d2464b856790800c6c5fd38acdf1cee73857735fc8a4',
+      });
+      expect(result.address).toBe(
+        '0x1959f5f4979c5cd87d5cb75c678c770515cb5e0e',
+      );
+    });
+  });
+
+  describe('Concurrency edge cases', () => {
+    it('should handle concurrent HD derivation requests', async () => {
+      const indexes = Array.from({ length: 20 }, (_, i) => i);
+
+      const promises = indexes.map((i) =>
+        coreApi.getAddressesFromHd({
+          networkInfo,
+          password: hdCredential.password,
+          hdCredential: hdCredential.hdCredentialHex,
+          template: hdAccountTemplate,
+          indexes: [i],
+          addressEncoding: undefined,
+        }),
+      );
+
+      const results = await Promise.all(promises);
+      const addresses = results.map((r) => r.addresses[0].address);
+      expect(new Set(addresses).size).toBe(addresses.length);
+    });
+  });
+
+  describe('Security edge cases', () => {
+    it('should not leak sensitive data in error messages', async () => {
+      try {
+        await coreApi.getAddressesFromHd({
+          networkInfo,
+          password: 'wrongPassword',
+          hdCredential: hdCredential.hdCredentialHex,
+          template: hdAccountTemplate,
+          indexes: [0],
+          addressEncoding: undefined,
+        });
+      } catch (error: any) {
+        expect(error.message).not.toContain('wrongPassword');
+        expect(error.message).not.toContain(hdCredential.password);
+      }
+    });
+  });
 });

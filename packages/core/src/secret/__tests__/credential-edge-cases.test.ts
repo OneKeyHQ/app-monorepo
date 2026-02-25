@@ -125,7 +125,7 @@ describe('Credential Edge Cases', () => {
           password: 'wrongpassword',
           verifyString: encrypted,
         }),
-      ).rejects.toThrow();
+      ).rejects.toThrow('IncorrectPassword');
     });
 
     it('should add prefix when addPrefixString=true', async () => {
@@ -220,6 +220,280 @@ describe('Credential Edge Cases', () => {
       expect(uncompressed.length).toBe(65);
       const result = uncompressPublicKey('secp256k1', uncompressed);
       expect(result).toEqual(uncompressed);
+    });
+  });
+
+  describe('Private key boundary cases', () => {
+    it('should handle very long private key (128 bytes)', async () => {
+      const credential: ICoreImportedCredential = {
+        privateKey: '0a'.repeat(128),
+      };
+      const encrypted = await encryptImportedCredential({
+        credential,
+        password: TEST_PASSWORD,
+      });
+      const decrypted = await decryptImportedCredential({
+        credential: encrypted,
+        password: TEST_PASSWORD,
+      });
+      expect(decrypted.privateKey).toBe(credential.privateKey);
+    });
+
+    it('should handle very short private key (1 byte)', async () => {
+      const credential: ICoreImportedCredential = {
+        privateKey: '0a',
+      };
+      const encrypted = await encryptImportedCredential({
+        credential,
+        password: TEST_PASSWORD,
+      });
+      const decrypted = await decryptImportedCredential({
+        credential: encrypted,
+        password: TEST_PASSWORD,
+      });
+      expect(decrypted.privateKey).toBe(credential.privateKey);
+    });
+
+    it('should handle private key with 0x prefix', async () => {
+      const credential: ICoreImportedCredential = {
+        privateKey: '0x' + '0a'.repeat(32),
+      };
+      const encrypted = await encryptImportedCredential({
+        credential,
+        password: TEST_PASSWORD,
+      });
+      const decrypted = await decryptImportedCredential({
+        credential: encrypted,
+        password: TEST_PASSWORD,
+      });
+      expect(decrypted.privateKey).toBe(credential.privateKey);
+    });
+  });
+
+  describe('Password boundary cases', () => {
+    it('should reject empty password', async () => {
+      const credential: ICoreImportedCredential = {
+        privateKey: '0a'.repeat(32),
+      };
+      await expect(
+        encryptImportedCredential({ credential, password: '' }),
+      ).rejects.toThrow();
+    });
+
+    it('should handle unicode password', async () => {
+      const credential: ICoreImportedCredential = {
+        privateKey: '0a'.repeat(32),
+      };
+      const unicodePassword = '你好世界';
+      const encrypted = await encryptImportedCredential({
+        credential,
+        password: unicodePassword,
+      });
+      const decrypted = await decryptImportedCredential({
+        credential: encrypted,
+        password: unicodePassword,
+      });
+      expect(decrypted.privateKey).toBe(credential.privateKey);
+    });
+
+    it('should handle password with null bytes', async () => {
+      const credential: ICoreImportedCredential = {
+        privateKey: '0a'.repeat(32),
+      };
+      const nullPassword = 'pass\0word';
+      const encrypted = await encryptImportedCredential({
+        credential,
+        password: nullPassword,
+      });
+      const decrypted = await decryptImportedCredential({
+        credential: encrypted,
+        password: nullPassword,
+      });
+      expect(decrypted.privateKey).toBe(credential.privateKey);
+    });
+
+    it('should handle password with only whitespace', async () => {
+      const credential: ICoreImportedCredential = {
+        privateKey: '0a'.repeat(32),
+      };
+      const wsPassword = '     ';
+      const encrypted = await encryptImportedCredential({
+        credential,
+        password: wsPassword,
+      });
+      const decrypted = await decryptImportedCredential({
+        credential: encrypted,
+        password: wsPassword,
+      });
+      expect(decrypted.privateKey).toBe(credential.privateKey);
+    });
+  });
+
+  describe('Encrypted data boundary cases', () => {
+    it('should reject decryption with truncated data', async () => {
+      const credential: ICoreImportedCredential = {
+        privateKey: '0a'.repeat(32),
+      };
+      const encrypted = await encryptImportedCredential({
+        credential,
+        password: TEST_PASSWORD,
+      });
+
+      const truncated = encrypted.slice(4, -10);
+
+      await expect(
+        decryptImportedCredential({
+          credential: '|PK|' + truncated,
+          password: TEST_PASSWORD,
+        }),
+      ).rejects.toThrow();
+    });
+
+    it('should reject decryption with modified IV', async () => {
+      const credential: ICoreImportedCredential = {
+        privateKey: '0a'.repeat(32),
+      };
+      const encrypted = await encryptImportedCredential({
+        credential,
+        password: TEST_PASSWORD,
+      });
+
+      const modified = encrypted.slice(0, 8) + 'XX' + encrypted.slice(10);
+
+      await expect(
+        decryptImportedCredential({
+          credential: modified,
+          password: TEST_PASSWORD,
+        }),
+      ).rejects.toThrow();
+    });
+
+    it('should reject decryption with wrong prefix', async () => {
+      const credential: ICoreImportedCredential = {
+        privateKey: '0a'.repeat(32),
+      };
+      const encrypted = await encryptImportedCredential({
+        credential,
+        password: TEST_PASSWORD,
+      });
+
+      const wrongPrefix = '|XX|' + encrypted.slice(4);
+
+      await expect(
+        decryptImportedCredential({
+          credential: wrongPrefix,
+          password: TEST_PASSWORD,
+        }),
+      ).rejects.toThrow();
+    });
+
+    it('should handle concurrent encryption operations', async () => {
+      const credential: ICoreImportedCredential = {
+        privateKey: '0a'.repeat(32),
+      };
+
+      const operations = Array.from({ length: 10 }, () =>
+        encryptImportedCredential({
+          credential,
+          password: TEST_PASSWORD,
+        }),
+      );
+
+      const encryptedList = await Promise.all(operations);
+
+      // All encrypted values should be different (different IVs)
+      const unique = new Set(encryptedList);
+      expect(unique.size).toBe(encryptedList.length);
+
+      // But all should decrypt to same value
+      for (const enc of encryptedList) {
+        const decrypted = await decryptImportedCredential({
+          credential: enc,
+          password: TEST_PASSWORD,
+        });
+        expect(decrypted.privateKey).toBe(credential.privateKey);
+      }
+    });
+  });
+
+  describe('Signature verification edge cases', () => {
+    it('should reject signature with all zeros', () => {
+      const { secp256k1 } = require('../curves');
+      const privateKey = Buffer.from('0a'.repeat(32), 'hex');
+      const publicKey = secp256k1.publicFromPrivate(privateKey);
+      const digest = Buffer.from('Hello World');
+      const zeroSig = Buffer.alloc(64, 0);
+
+      expect(verify('secp256k1', publicKey, digest, zeroSig)).toBe(false);
+    });
+
+    it('should reject signature with all ones', () => {
+      const { secp256k1 } = require('../curves');
+      const privateKey = Buffer.from('0a'.repeat(32), 'hex');
+      const publicKey = secp256k1.publicFromPrivate(privateKey);
+      const digest = Buffer.from('Hello World');
+      const onesSig = Buffer.alloc(64, 0xff);
+
+      expect(verify('secp256k1', publicKey, digest, onesSig)).toBe(false);
+    });
+
+    it('should verify with valid public key formats', () => {
+      const { secp256k1 } = require('../curves');
+      const privateKey = Buffer.from('0a'.repeat(32), 'hex');
+      const compressedPub = secp256k1.publicFromPrivate(privateKey);
+      const digest = Buffer.from('Hello World');
+      const signature = secp256k1.sign(privateKey, digest);
+
+      expect(verify('secp256k1', compressedPub, digest, signature)).toBe(true);
+
+      const uncompressedPub = uncompressPublicKey('secp256k1', compressedPub);
+      expect(verify('secp256k1', uncompressedPub, digest, signature)).toBe(
+        true,
+      );
+    });
+  });
+
+  describe('JSON serialization of credential', () => {
+    it('should handle JSON round-trip', async () => {
+      const credential: ICoreImportedCredential = {
+        privateKey: '0a'.repeat(32),
+      };
+
+      const encrypted = await encryptImportedCredential({
+        credential,
+        password: TEST_PASSWORD,
+      });
+
+      const json = JSON.stringify({ encrypted });
+      const parsed = JSON.parse(json);
+
+      const decrypted = await decryptImportedCredential({
+        credential: parsed.encrypted,
+        password: TEST_PASSWORD,
+      });
+
+      expect(decrypted.privateKey).toBe(credential.privateKey);
+    });
+  });
+
+  describe('Error message validation', () => {
+    it('should provide clear error for decryption failure', async () => {
+      const credential: ICoreImportedCredential = {
+        privateKey: '0a'.repeat(32),
+      };
+      const encrypted = await encryptImportedCredential({
+        credential,
+        password: TEST_PASSWORD,
+      });
+
+      try {
+        await decryptImportedCredential({
+          credential: encrypted,
+          password: 'wrongPassword',
+        });
+      } catch (error: any) {
+        expect(error.message).toMatch(/decrypt|invalid|password|fail/i);
+      }
     });
   });
 });

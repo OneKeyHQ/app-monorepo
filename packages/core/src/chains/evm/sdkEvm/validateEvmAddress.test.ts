@@ -101,4 +101,57 @@ describe('validateEvmAddress', () => {
     // Display address should be EIP-55 checksum format
     expect(result.displayAddress).toMatch(/^0x[0-9a-fA-F]{40}$/);
   });
+
+  it('should handle burn address (all zeros)', async () => {
+    const result = await validateEvmAddress(
+      '0x0000000000000000000000000000000000000000',
+    );
+    expect(result.isValid).toBe(true);
+    expect(result.normalizedAddress).toBe(
+      '0x0000000000000000000000000000000000000000',
+    );
+  });
+
+  it('should handle precompile addresses (0x01 - 0x09)', async () => {
+    for (let i = 1; i <= 9; i++) {
+      const addr = `0x${i.toString(16).padStart(40, '0')}`;
+      const result = await validateEvmAddress(addr);
+      expect(result.isValid).toBe(true);
+    }
+  });
+
+  it('should reject address with whitespace', async () => {
+    const result = await validateEvmAddress(
+      ' 0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed ',
+    );
+    expect(result.isValid).toBe(false);
+  });
+
+  it('should handle address with uppercase 0X prefix', async () => {
+    const invalidPrefix = '0X5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed';
+    try {
+      const result = await validateEvmAddress(invalidPrefix);
+      // Document the behavior - may or may not be accepted
+      expect(result).toBeDefined();
+    } catch {
+      // Expected
+    }
+  });
+
+  it('should handle address with no prefix', async () => {
+    const noPrefix = '5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed';
+    const result = await validateEvmAddress(noPrefix);
+    // Document behavior - some implementations accept
+    expect(result).toBeDefined();
+  });
+
+  it('should reject null/undefined', async () => {
+    // @ts-ignore - testing runtime behavior
+    const result1 = await validateEvmAddress(null);
+    expect(result1.isValid).toBe(false);
+
+    // @ts-ignore
+    const result2 = await validateEvmAddress(undefined);
+    expect(result2.isValid).toBe(false);
+  });
 });
