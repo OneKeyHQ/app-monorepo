@@ -2267,6 +2267,7 @@
   "market.twenty_four_hour_percentage": "24時間%",
   "market.twenty_four_hour_volume": "24時間の取引量",
   "market.volume_percentage": "取引量 %",
+  "marketdex.instant_mode": "インスタントモード",
   "marketdex.pro_select_wallet": "ウォレットを選択",
   "marketdex.switch_to_mc": "時価総額ビューに切り替える",
   "marketdex.switch_to_pirce": "価格表示に切り替える",

@@ -2272,6 +2272,7 @@
   market_twenty_four_hour_percentage = 'market.twenty_four_hour_percentage',
   market_twenty_four_hour_volume = 'market.twenty_four_hour_volume',
   market_volume_percentage = 'market.volume_percentage',
+  marketdex_instant_mode = 'marketdex.instant_mode',
   marketdex_pro_select_wallet = 'marketdex.pro_select_wallet',
   marketdex_switch_to_mc = 'marketdex.switch_to_mc',
   marketdex_switch_to_pirce = 'marketdex.switch_to_pirce',
