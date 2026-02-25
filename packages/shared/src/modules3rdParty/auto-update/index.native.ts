@@ -274,6 +274,7 @@ export const BundleUpdate: IBundleUpdate = {
     BundleUpdateModule.isBundleExists(appVersion, bundleVersion),
   verifyExtractedBundle: (appVersion, bundleVersion) =>
     BundleUpdateModule.verifyExtractedBundle(appVersion, bundleVersion),
+  listLocalBundles: () => BundleUpdateModule.listLocalBundles(),
   switchBundle: async (params) => {
     await BundleUpdateModule.setCurrentUpdateBundleData(params);
     setTimeout(() => {

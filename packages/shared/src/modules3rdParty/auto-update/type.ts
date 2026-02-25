@@ -130,6 +130,9 @@ export interface IBundleUpdate {
     appVersion: string,
     bundleVersion: string,
   ) => Promise<void>;
+  listLocalBundles: () => Promise<
+    { appVersion: string; bundleVersion: string }[]
+  >;
   testVerification: () => Promise<boolean>;
   testDeleteJsBundle: ITestDeleteJsBundle;
   testDeleteJsRuntimeDir: ITestDeleteJsRuntimeDir;

@@ -11,8 +11,9 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { BundleUpdate } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
-import type { IJSBundle } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+type ILocalBundle = { appVersion: string; bundleVersion: string };
 
 function LocalBundleItem({
   bundle,
@@ -20,9 +21,9 @@ function LocalBundleItem({
   onSwitch,
   isSwitching,
 }: {
-  bundle: IJSBundle;
+  bundle: ILocalBundle;
   isCurrent: boolean;
-  onSwitch: (bundle: IJSBundle) => void;
+  onSwitch: (bundle: ILocalBundle) => void;
   isSwitching: boolean;
 }) {
   return (
@@ -64,8 +65,7 @@ function LocalBundleItem({
 
 export default function SettingDevLocalBundleList() {
   const [loading, setLoading] = useState(true);
-  const [bundles, setBundles] = useState<IJSBundle[]>([]);
-  const [currentBundle, setCurrentBundle] = useState<IJSBundle | null>(null);
+  const [bundles, setBundles] = useState<ILocalBundle[]>([]);
   const [switchingTo, setSwitchingTo] = useState<string | null>(null);
   const [error, setError] = useState('');
 
@@ -75,45 +75,28 @@ export default function SettingDevLocalBundleList() {
   useEffect(() => {
     void (async () => {
       try {
-        const fallbacks = await BundleUpdate.getFallbackBundles();
-
-        // Build current bundle info
-        const current: IJSBundle = {
-          appVersion: currentAppVersion,
-          bundleVersion: currentBundleVersion,
-          signature: '',
-        };
-        setCurrentBundle(current);
-
-        // Combine: current + fallbacks, deduplicate
-        const allBundles: IJSBundle[] = [current];
-        for (const fb of fallbacks) {
-          const key = `${fb.appVersion}-${fb.bundleVersion}`;
-          const currentKey = `${current.appVersion}-${current.bundleVersion}`;
-          if (key !== currentKey) {
-            allBundles.push(fb);
-          }
-        }
-        setBundles(allBundles);
+        const localBundles = await BundleUpdate.listLocalBundles();
+        setBundles(localBundles);
       } finally {
         setLoading(false);
       }
     })();
-  }, [currentAppVersion, currentBundleVersion]);
+  }, []);
 
   const handleSwitch = useCallback(
-    async (bundle: IJSBundle) => {
+    async (bundle: ILocalBundle) => {
       const key = `${bundle.appVersion}-${bundle.bundleVersion}`;
       setSwitchingTo(key);
       setError('');
       try {
-        // Verify file integrity first
         await BundleUpdate.verifyExtractedBundle(
           bundle.appVersion,
           bundle.bundleVersion,
         );
-        // Switch and restart
-        await BundleUpdate.switchBundle(bundle);
+        await BundleUpdate.switchBundle({
+          ...bundle,
+          signature: 'dev-local-switch',
+        });
       } catch (e) {
         setError((e as Error)?.message || 'Switch failed');
         setSwitchingTo(null);
@@ -144,10 +127,8 @@ export default function SettingDevLocalBundleList() {
             {bundles.map((bundle) => {
               const key = `${bundle.appVersion}-${bundle.bundleVersion}`;
               const isCurrent =
-                currentBundle
-                  ? bundle.appVersion === currentBundle.appVersion &&
-                    bundle.bundleVersion === currentBundle.bundleVersion
-                  : false;
+                bundle.appVersion === currentAppVersion &&
+                bundle.bundleVersion === currentBundleVersion;
               return (
                 <LocalBundleItem
                   key={key}

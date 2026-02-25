@@ -38,6 +38,9 @@ type INativeBundleUpdateModule = {
     appVersion: string,
     bundleVersion: string,
   ) => Promise<void>;
+  listLocalBundles: () => Promise<
+    { appVersion: string; bundleVersion: string }[]
+  >;
   testDeleteJsRuntimeDir: (
     appVersion: string,
     bundleVersion: string,

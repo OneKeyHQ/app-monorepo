@@ -537,6 +537,28 @@ class DesktopApiAppBundleUpdate {
     return fs.existsSync(extractDir);
   }
 
+  async listLocalBundles(): Promise<
+    { appVersion: string; bundleVersion: string }[]
+  > {
+    const bundleDir = getBundleDirName();
+    if (!fs.existsSync(bundleDir)) {
+      return [];
+    }
+    const entries = fs.readdirSync(bundleDir, { withFileTypes: true });
+    const results: { appVersion: string; bundleVersion: string }[] = [];
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      const lastDash = entry.name.lastIndexOf('-');
+      if (lastDash <= 0) continue;
+      const appVersion = entry.name.substring(0, lastDash);
+      const bundleVersion = entry.name.substring(lastDash + 1);
+      if (appVersion && bundleVersion) {
+        results.push({ appVersion, bundleVersion });
+      }
+    }
+    return results;
+  }
+
   async verifyExtractedBundle(
     appVersion: string,
     bundleVersion: string,

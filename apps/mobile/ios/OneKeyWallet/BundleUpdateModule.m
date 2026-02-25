@@ -953,6 +953,28 @@ RCT_EXPORT_METHOD(isBundleExists:(NSString *)appVersion
     resolve(@(exists));
 }
 
+RCT_EXPORT_METHOD(listLocalBundles:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject) {
+    NSString *bundleDir = [BundleUpdateModule bundleDir];
+    NSFileManager *fileManager = [NSFileManager defaultManager];
+    NSArray *contents = [fileManager contentsOfDirectoryAtPath:bundleDir error:nil];
+    NSMutableArray *results = [NSMutableArray array];
+    for (NSString *name in contents) {
+        NSString *fullPath = [bundleDir stringByAppendingPathComponent:name];
+        BOOL isDir = NO;
+        [fileManager fileExistsAtPath:fullPath isDirectory:&isDir];
+        if (!isDir) continue;
+        NSRange lastDash = [name rangeOfString:@"-" options:NSBackwardsSearch];
+        if (lastDash.location == NSNotFound || lastDash.location == 0) continue;
+        NSString *appVersion = [name substringToIndex:lastDash.location];
+        NSString *bundleVersion = [name substringFromIndex:lastDash.location + 1];
+        if (appVersion.length > 0 && bundleVersion.length > 0) {
+            [results addObject:@{@"appVersion": appVersion, @"bundleVersion": bundleVersion}];
+        }
+    }
+    resolve(results);
+}
+
 RCT_EXPORT_METHOD(verifyExtractedBundle:(NSString *)appVersion
                   bundleVersion:(NSString *)bundleVersion
                   resolver:(RCTPromiseResolveBlock)resolve

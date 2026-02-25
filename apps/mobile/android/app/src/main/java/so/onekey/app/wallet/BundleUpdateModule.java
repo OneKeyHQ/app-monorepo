@@ -1066,6 +1066,33 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
     }
 
     @ReactMethod
+    public void listLocalBundles(Promise promise) {
+        String bundleDir = getBundleDir(reactContext);
+        File dir = new File(bundleDir);
+        WritableArray results = Arguments.createArray();
+        if (dir.exists() && dir.isDirectory()) {
+            File[] children = dir.listFiles();
+            if (children != null) {
+                for (File child : children) {
+                    if (!child.isDirectory()) continue;
+                    String name = child.getName();
+                    int lastDash = name.lastIndexOf('-');
+                    if (lastDash <= 0) continue;
+                    String appVer = name.substring(0, lastDash);
+                    String bundleVer = name.substring(lastDash + 1);
+                    if (!appVer.isEmpty() && !bundleVer.isEmpty()) {
+                        WritableMap item = Arguments.createMap();
+                        item.putString("appVersion", appVer);
+                        item.putString("bundleVersion", bundleVer);
+                        results.pushMap(item);
+                    }
+                }
+            }
+        }
+        promise.resolve(results);
+    }
+
+    @ReactMethod
     public void verifyExtractedBundle(String appVersion, String bundleVersion, Promise promise) {
         String folderName = appVersion + "-" + bundleVersion;
         String bundleDir = getBundleDir(reactContext);
