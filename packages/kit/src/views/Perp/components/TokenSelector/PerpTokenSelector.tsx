@@ -623,7 +623,7 @@ function BasePerpTokenSelector() {
                 renderContent={
                   <SizableText size="$bodySm">
                     {intl.formatMessage({
-                      id: ETranslations.perps_fee_desc,
+                      id: ETranslations.perps_0_fee_desc,
                     })}
                   </SizableText>
                 }
