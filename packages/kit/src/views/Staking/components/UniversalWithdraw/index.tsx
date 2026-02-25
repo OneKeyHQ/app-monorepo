@@ -1177,8 +1177,8 @@ export function UniversalWithdraw({
         <StakeProgress
           approveType={EApproveType.Legacy}
           currentStep={withdrawProgressStep}
-          step2LabelId={ETranslations.global_redeem}
-          step3LabelId={ETranslations.global_swap}
+          step2LabelId={ETranslations.global_swap}
+          step3LabelId={ETranslations.defi_unstake}
         />
       ) : null}
       {isInModalContext ? (
