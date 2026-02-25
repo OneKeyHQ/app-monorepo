@@ -368,13 +368,12 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
     public static String readMetadataFileSha256(Context context, String signature) {
         String ascFileContentString = signature;
         String extractedSha256 = "";
-        String cacheFilePath = context.getCacheDir().getAbsolutePath() + "/bundle-gpg-verification-temp";
-        File cacheFile = new File(cacheFilePath);
+        File cacheFile = new File(context.getCacheDir(), "bundle-gpg-verification-temp");
         if (cacheFile.exists()) {
             cacheFile.delete();
         }
         try {
-            String content = Verification.extractedTextContentFromVerifyAscFile(ascFileContentString, cacheFilePath);
+            String content = Verification.extractedTextContentFromVerifyAscFile(ascFileContentString, cacheFile.getAbsolutePath());
             if (content == null || content.isEmpty()) {
                 return null;
             }
@@ -383,6 +382,11 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
             staticLog("extractedSha256", extractedSha256);
         } catch (Exception e) {
             staticLog("readMetadataFileSha256", "Error extracting SHA256: " + e.getMessage());
+        } finally {
+            // Security: Always clean up GPG verification temp file
+            if (cacheFile.exists()) {
+                cacheFile.delete();
+            }
         }
         return extractedSha256;
     }
@@ -609,6 +613,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         String folderName = appVersion + "-" + bundleVersion;
         String destination = new File(getBundleDir(reactContext), folderName).getAbsolutePath();
 
+        File destinationDir = new File(destination);
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 unzipFile(filePath, destination);
@@ -620,12 +625,14 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
             String metadataJsonPath = new File(destination, "metadata.json").getAbsolutePath();
             File metadataFile = new File(metadataJsonPath);
             if (!metadataFile.exists()) {
+                deleteDirectory(destinationDir);
                 promise.reject("INVALID_PARAMS", "Failed to read metadata.json");
                 return;
             }
 
             String currentBundleVersion = appVersion + "-" + bundleVersion;
             if (!validateMetadataFileSha256(reactContext, currentBundleVersion, signature)) {
+                deleteDirectory(destinationDir);
                 promise.reject("INVALID_PARAMS", "Bundle signature verification failed");
                 return;
             }
@@ -634,12 +641,17 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
             String metadataContent = readFileContent(metadataFile);
             Map<String, String> metadata = parseMetadataJson(metadataContent);
             if (!validateAllFilesInDir(reactContext, destination, metadata, appVersion, String.valueOf(bundleVersion))) {
+                deleteDirectory(destinationDir);
                 promise.reject("INVALID_PARAMS", "Extracted files verification against metadata failed");
                 return;
             }
 
             promise.resolve(null);
         } catch (Exception e) {
+            // Cleanup extracted directory on any error
+            if (destinationDir.exists()) {
+                deleteDirectory(destinationDir);
+            }
             log("verifyBundle", "Error: " + e.getMessage());
             promise.reject("INVALID_PARAMS", "Error processing bundle: " + e.getMessage());
         }

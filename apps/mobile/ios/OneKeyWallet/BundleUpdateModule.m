@@ -635,19 +635,27 @@ RCT_EXPORT_METHOD(verifyBundleASC:(NSDictionary *)params
     
     NSString *folderName = [NSString stringWithFormat:@"%@-%@", appVersion, bundleVersion];
     NSString *destination = [BundleUpdateModule.bundleDir stringByAppendingPathComponent:folderName];
-    
-    // Unzip the bundle
-    [SSZipArchive unzipFileAtPath:filePath toDestination:destination];
-    
+
+    // Unzip the bundle with error checking
+    NSError *unzipError = nil;
+    BOOL unzipSuccess = [SSZipArchive unzipFileAtPath:filePath toDestination:destination overwrite:YES password:nil error:&unzipError];
+    if (!unzipSuccess || unzipError) {
+        [[NSFileManager defaultManager] removeItemAtPath:destination error:nil];
+        reject(@"UNZIP_ERROR", [NSString stringWithFormat:@"Failed to unzip bundle: %@", unzipError.localizedDescription], unzipError);
+        return;
+    }
+
     NSString *metadataJsonPath = [destination stringByAppendingPathComponent:@"metadata.json"];
     if (![[NSFileManager defaultManager] fileExistsAtPath:metadataJsonPath]) {
+        [[NSFileManager defaultManager] removeItemAtPath:destination error:nil];
         reject(@"INVALID_PARAMS", @"Failed to read metadata.json", nil);
         return;
     }
-    
+
     // Validate metadata file SHA256
     NSString *currentBundleVersion = [NSString stringWithFormat:@"%@-%@", appVersion, bundleVersion];
     if (![BundleUpdateModule validateMetadataFileSha256:currentBundleVersion signature:signature]) {
+        [[NSFileManager defaultManager] removeItemAtPath:destination error:nil];
         reject(@"INVALID_PARAMS", @"Bundle signature verification failed", nil);
         return;
     }
@@ -655,10 +663,12 @@ RCT_EXPORT_METHOD(verifyBundleASC:(NSDictionary *)params
     // Security: Verify all extracted files against metadata
     NSDictionary *metadata = [BundleUpdateModule getMetadataFileContent:currentBundleVersion];
     if (!metadata) {
+        [[NSFileManager defaultManager] removeItemAtPath:destination error:nil];
         reject(@"INVALID_PARAMS", @"Failed to read metadata.json after extraction", nil);
         return;
     }
     if (![BundleUpdateModule validateAllFilesInDir:destination metadata:metadata appVersion:appVersion bundleVersion:bundleVersion]) {
+        [[NSFileManager defaultManager] removeItemAtPath:destination error:nil];
         reject(@"INVALID_PARAMS", @"Extracted files verification against metadata failed", nil);
         return;
     }

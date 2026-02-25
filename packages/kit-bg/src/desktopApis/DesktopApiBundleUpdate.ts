@@ -298,6 +298,18 @@ class DesktopApiAppBundleUpdate {
               clearWindowProgressBar(this.getMainWindow());
             });
 
+            writeStream.on('error', (error) => {
+              logger.error('bundle-download writeStream error:', error);
+              if (downloadRequest) {
+                downloadRequest.destroy();
+                downloadRequest = null;
+              }
+              this.isDownloading = false;
+              this.cancelCurrentDownload = () => {};
+              reject(error);
+              clearWindowProgressBar(this.getMainWindow());
+            });
+
             response.on('error', (error) => {
               writeStream.destroy();
               downloadRequest = null;
@@ -442,21 +454,33 @@ class DesktopApiAppBundleUpdate {
       zip.extractAllTo(extractDir, true);
     } catch (error) {
       logger.error('Failed to extract bundle zip file:', error);
+      // Cleanup partially extracted directory
+      if (fs.existsSync(extractDir)) {
+        fs.rmSync(extractDir, { recursive: true, force: true });
+      }
       throw error;
     }
 
-    const metadataFilePath = this.getMetadataFilePath({
-      appVersion,
-      bundleVersion,
-    });
-    logger.info('bundle-verifyBundleASC', metadataFilePath);
-    await verifyMetadataFileSha256({ appVersion, bundleVersion, signature });
+    try {
+      const metadataFilePath = this.getMetadataFilePath({
+        appVersion,
+        bundleVersion,
+      });
+      logger.info('bundle-verifyBundleASC', metadataFilePath);
+      await verifyMetadataFileSha256({ appVersion, bundleVersion, signature });
 
-    // Verify all extracted files against metadata SHA256 hashes
-    if (fs.existsSync(metadataFilePath)) {
-      const metadataContent = fs.readFileSync(metadataFilePath, 'utf8');
-      const metadata = JSON.parse(metadataContent) as Record<string, string>;
-      this.verifyAllExtractedFiles(extractDir, metadata, extractDir);
+      // Verify all extracted files against metadata SHA256 hashes
+      if (fs.existsSync(metadataFilePath)) {
+        const metadataContent = fs.readFileSync(metadataFilePath, 'utf8');
+        const metadata = JSON.parse(metadataContent) as Record<string, string>;
+        this.verifyAllExtractedFiles(extractDir, metadata, extractDir);
+      }
+    } catch (error) {
+      // Cleanup extracted directory on verification failure
+      if (fs.existsSync(extractDir)) {
+        fs.rmSync(extractDir, { recursive: true, force: true });
+      }
+      throw error;
     }
   }
 
@@ -468,6 +492,12 @@ class DesktopApiAppBundleUpdate {
     const entries = fs.readdirSync(dirPath, { withFileTypes: true });
     for (const entry of entries) {
       const fullPath = path.join(dirPath, entry.name);
+      // Security: Reject symbolic links to prevent symlink attacks
+      if (entry.isSymbolicLink()) {
+        throw new OneKeyLocalError(
+          `Symbolic link detected: ${entry.name}`,
+        );
+      }
       if (entry.isDirectory()) {
         this.verifyAllExtractedFiles(fullPath, metadata, baseDir);
       } else {

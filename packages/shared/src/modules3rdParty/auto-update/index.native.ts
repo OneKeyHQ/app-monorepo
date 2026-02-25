@@ -198,6 +198,7 @@ const { BundleUpdateModule } = NativeModules;
 
 export const BundleUpdate: IBundleUpdate = {
   downloadBundle: (params) => {
+    const DOWNLOAD_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
     return new Promise((resolve, reject) => {
       BundleUpdateModule.downloadBundle(params)
         .then((result) => {
@@ -205,15 +206,28 @@ export const BundleUpdate: IBundleUpdate = {
           let onCompleteSubscription: NativeEventSubscription | undefined;
           // eslint-disable-next-line prefer-const
           let onErrorSubscription: NativeEventSubscription | undefined;
+          let settled = false;
+          const timeoutId = setTimeout(() => {
+            if (!settled) {
+              settled = true;
+              removeSubscriptions();
+              reject(new Error('Bundle download timed out'));
+            }
+          }, DOWNLOAD_TIMEOUT_MS);
           const removeSubscriptions = () => {
+            clearTimeout(timeoutId);
             onCompleteSubscription?.remove();
             onErrorSubscription?.remove();
           };
           const onSuccess = () => {
+            if (settled) return;
+            settled = true;
             resolve(result);
             removeSubscriptions();
           };
           const onError = (error: string) => {
+            if (settled) return;
+            settled = true;
             reject(error);
             removeSubscriptions();
           };

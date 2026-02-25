@@ -230,6 +230,14 @@ class ServiceAppUpdate extends ServiceBase {
 
   @backgroundMethod()
   public async updateDownloadUrl(downloadUrl: string) {
+    // Security: Validate HTTPS before storing download URL
+    if (downloadUrl && !downloadUrl.startsWith('https://')) {
+      defaultLogger.app.appUpdate.endInstallPackage(
+        false,
+        new Error('Download URL must use HTTPS'),
+      );
+      return;
+    }
     await appUpdatePersistAtom.set((prev) => ({
       ...prev,
       downloadedEvent: {
