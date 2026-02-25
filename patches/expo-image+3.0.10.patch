@@ -244,6 +244,26 @@ index b44f431..9a51548 100644
      SDImageCodersManager.shared.addCoder(SDImageHEICCoder.shared)
    }
  
+diff --git a/node_modules/expo-image/ios/ImageUtils.swift b/node_modules/expo-image/ios/ImageUtils.swift
+index be40a77..85d4249 100644
+--- a/node_modules/expo-image/ios/ImageUtils.swift
++++ b/node_modules/expo-image/ios/ImageUtils.swift
+@@ -174,8 +174,14 @@ func createSDWebImageContext(forSource source: ImageSource, cachePolicy: ImageCa
+   context[.animatedImageClass] = AnimatedImage.self
+ 
+   // Passing useAppleWebpCodec into WebPCoder
++  // PATCHED: Enable lazy decoding for animated images (GIFs) to prevent EXC_BAD_ACCESS crash.
++  // SDWebImage's animated image coder defaults to lazyDecode=NO, which triggers
++  // CGImageCreateDecoded during disk cache reads. Under memory pressure, ImageIO's
++  // GIF buffer allocation can fail and cause a null pointer dereference in _platform_memmove.
++  // Setting SDImageCoderDecodeUseLazyDecoding=true skips the eager decode step.
+   context[.imageDecodeOptions] = [
+-    imageCoderOptionUseAppleWebpCodec: useAppleWebpCodec
++    imageCoderOptionUseAppleWebpCodec: useAppleWebpCodec,
++    SDImageCoderOption.decodeUseLazyDecoding: true
+   ]
+ 
+   // Assets from the bundler have `scale` prop which needs to be passed to the context,
 diff --git a/node_modules/expo-image/ios/ImageView.swift b/node_modules/expo-image/ios/ImageView.swift
 index c33ec33..fbc50ae 100644
 --- a/node_modules/expo-image/ios/ImageView.swift
