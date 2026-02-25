@@ -105,23 +105,13 @@ function WalletActionExchange() {
             navigation.popToTop();
           } catch (error) {
             console.error('[BinanceConnect] Error creating pre-order:', error);
-            Toast.error({
-              title: intl.formatMessage({
-                id: ETranslations.feedback_request_failed,
-              }),
-            });
           }
         },
       });
     } catch (error) {
       console.error('[BinanceConnect] Error fetching supported assets:', error);
-      Toast.error({
-        title: intl.formatMessage({
-          id: ETranslations.feedback_request_failed,
-        }),
-      });
     }
-  }, [navigation, intl, networkId, accountId, indexedAccountId]);
+  }, [navigation, networkId, accountId, indexedAccountId]);
 
   const handleExchangePress = useCallback(
     async (config: IExchangeConfig) => {
