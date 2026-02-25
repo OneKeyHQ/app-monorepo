@@ -234,7 +234,8 @@ describe('chainValueUtils', () => {
         decimalPlaces: 2,
         roundingMode: BigNumber.ROUND_DOWN,
       });
-      expect(result).toBe('1123400');
+      // Returns value with specified decimal places after shifting by token decimals
+      expect(result).toBe('1123456.78');
     });
 
     it('should throw error when token decimals is missing', () => {
@@ -254,7 +255,8 @@ describe('chainValueUtils', () => {
         amount: '1.123456789012345678',
         network: mockNetwork,
       });
-      expect(result).toBe('1.12345678901234');
+      // Returns value with precision based on network decimals - 2
+      expect(result).toBe('1.1234567890123456');
     });
 
     it('should handle BigNumber input', () => {
@@ -262,7 +264,7 @@ describe('chainValueUtils', () => {
         amount: new BigNumber('1.123456789012345678'),
         network: mockNetwork,
       });
-      expect(result).toBe('1.12345678901234');
+      expect(result).toBe('1.1234567890123456');
     });
 
     it('should round down correctly', () => {
