@@ -894,12 +894,15 @@ export function useKeylessWallet() {
           keylessDetailsInfo = result.keylessDetailsInfo;
         }
       } finally {
+        // Wait for current page animations (e.g. HeightTransition in
+        // VerifyPin) to settle before navigating. The delay runs while
+        // the loading dialog is still visible so the user sees no gap.
+        // React Navigation's default Android transition is ~300ms;
+        // matching it prevents worklet serialization collisions that
+        // cause SIGSEGV on Android with Fabric/New Architecture.
+        await timerUtils.wait(300);
         await loadingDialog?.close?.();
       }
-      // Allow current page animations (e.g. HeightTransition in VerifyPin)
-      // to settle before navigating, preventing worklet serialization
-      // collisions that cause SIGSEGV on Android.
-      await timerUtils.wait(300);
       navigation.navigate(ERootRoutes.Onboarding, {
         screen: EOnboardingV2Routes.OnboardingV2,
         params: {

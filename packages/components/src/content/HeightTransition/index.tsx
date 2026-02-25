@@ -47,11 +47,16 @@ function HeightTransition({
 }: IHeightTransitionProps) {
   const measuredHeight = useSharedValue(initialHeight);
 
-  // Cancel pending animations on unmount to prevent stale worklet references
-  // that can cause SIGSEGV in Value::~Value during navigation transitions.
+  // On Android with Fabric/New Architecture, cancel pending animations on
+  // unmount to prevent stale worklet references that can cause SIGSEGV in
+  // Value::~Value during navigation transitions.
+  // NOTE: this suppresses the onHeightDidAnimate callback if unmount happens
+  // mid-animation, which is acceptable since the component is being removed.
   useEffect(
     () => () => {
-      cancelAnimation(measuredHeight);
+      if (platformEnv.isNativeAndroid) {
+        cancelAnimation(measuredHeight);
+      }
     },
     [measuredHeight],
   );
