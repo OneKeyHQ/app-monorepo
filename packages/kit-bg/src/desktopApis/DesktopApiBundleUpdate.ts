@@ -534,21 +534,7 @@ class DesktopApiAppBundleUpdate {
     bundleVersion: string,
   ): Promise<boolean> {
     const extractDir = getBundleExtractDir({ appVersion, bundleVersion });
-    if (!fs.existsSync(extractDir)) {
-      return false;
-    }
-    try {
-      const metadataFilePath = path.join(extractDir, 'metadata.json');
-      if (!fs.existsSync(metadataFilePath)) {
-        return false;
-      }
-      const metadataContent = fs.readFileSync(metadataFilePath, 'utf8');
-      const metadata = JSON.parse(metadataContent) as Record<string, string>;
-      this.verifyAllExtractedFiles(extractDir, metadata, extractDir);
-      return true;
-    } catch {
-      return false;
-    }
+    return fs.existsSync(extractDir);
   }
 
   async installBundle(params: IUpdateDownloadedEvent) {

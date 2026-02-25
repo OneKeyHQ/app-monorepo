@@ -4,6 +4,7 @@ import {
   Badge,
   Button,
   Divider,
+  IconButton,
   Page,
   Progress,
   SizableText,
@@ -42,11 +43,17 @@ function BundleItem({
   version,
   isCurrentBundle,
   alreadyDownloaded,
+  isDownloading,
+  onDownloadStart,
+  onDownloadEnd,
 }: {
   bundle: IBundleInfo;
   version: string;
   isCurrentBundle: boolean;
   alreadyDownloaded: boolean;
+  isDownloading: boolean;
+  onDownloadStart: () => void;
+  onDownloadEnd: () => void;
 }) {
   const downloadPercent = useDownloadProgress();
   const [status, setStatus] = useState<
@@ -56,6 +63,7 @@ function BundleItem({
   const downloadedEventRef = useRef<Record<string, unknown> | null>(null);
 
   const handleDownload = useCallback(async () => {
+    onDownloadStart();
     setStatus('downloading');
     setErrorMessage('');
     try {
@@ -80,15 +88,15 @@ function BundleItem({
     } catch (e) {
       setStatus('error');
       setErrorMessage((e as Error)?.message || 'Download failed');
+    } finally {
+      onDownloadEnd();
     }
-  }, [bundle, version]);
+  }, [bundle, version, onDownloadStart, onDownloadEnd]);
 
   const handleInstall = useCallback(async () => {
     setStatus('installing');
     try {
       if (alreadyDownloaded && !downloadedEventRef.current) {
-        // Bundle was already downloaded+extracted in a previous session,
-        // skip download/verify and go straight to installBundle
         await BundleUpdate.installBundle({
           latestVersion: version,
           bundleVersion: bundle.bundleVersion,
@@ -97,7 +105,6 @@ function BundleItem({
         } as any);
       } else {
         if (!downloadedEventRef.current) return;
-        // Fresh download: run full verify → install flow
         await BundleUpdate.verifyBundleASC({
           ...downloadedEventRef.current,
           latestVersion: version,
@@ -128,6 +135,10 @@ function BundleItem({
     }
   }, [alreadyDownloaded, bundle, version]);
 
+  // Whether this item's download button should be disabled
+  // (another bundle is currently downloading)
+  const downloadDisabled = isDownloading && status !== 'downloading';
+
   return (
     <YStack
       p="$3"
@@ -135,8 +146,12 @@ function BundleItem({
       bg="$bgSubdued"
       gap="$2"
     >
-      <Stack flexDirection="row" alignItems="center" justifyContent="space-between">
-        <Stack flexDirection="row" alignItems="center" gap="$2">
+      <Stack
+        flexDirection="row"
+        alignItems="center"
+        justifyContent="space-between"
+      >
+        <Stack flexDirection="row" alignItems="center" gap="$2" flex={1}>
           <SizableText size="$bodyLgMedium">
             {`Bundle ${bundle.bundleVersion}`}
           </SizableText>
@@ -145,15 +160,21 @@ function BundleItem({
               <Badge.Text>Current</Badge.Text>
             </Badge>
           ) : null}
-          {alreadyDownloaded && !isCurrentBundle ? (
-            <Badge badgeType="info" badgeSize="sm">
-              <Badge.Text>Downloaded</Badge.Text>
-            </Badge>
+        </Stack>
+        <Stack flexDirection="row" alignItems="center" gap="$2">
+          <SizableText size="$bodySm" color="$textSubdued">
+            {formatFileSize(bundle.fileSize)}
+          </SizableText>
+          {!isCurrentBundle && (status === 'idle' || status === 'error') ? (
+            <IconButton
+              icon="DownloadOutline"
+              size="small"
+              variant="tertiary"
+              disabled={downloadDisabled}
+              onPress={handleDownload}
+            />
           ) : null}
         </Stack>
-        <SizableText size="$bodySm" color="$textSubdued">
-          {formatFileSize(bundle.fileSize)}
-        </SizableText>
       </Stack>
 
       {bundle.changeLog ? (
@@ -184,29 +205,14 @@ function BundleItem({
         </Stack>
       ) : null}
 
-      {!isCurrentBundle ? (
-        <Stack flexDirection="row" gap="$2">
-          {status === 'idle' || status === 'error' ? (
-            <Button
-              variant="secondary"
-              size="small"
-              onPress={handleDownload}
-              flex={1}
-            >
-              Download
-            </Button>
-          ) : null}
-          {status === 'downloaded' ? (
-            <Button
-              variant="primary"
-              size="small"
-              onPress={handleInstall}
-              flex={1}
-            >
-              Switch to this bundle
-            </Button>
-          ) : null}
-        </Stack>
+      {!isCurrentBundle && status === 'downloaded' ? (
+        <Button
+          variant="primary"
+          size="small"
+          onPress={handleInstall}
+        >
+          Switch to this bundle
+        </Button>
       ) : null}
     </YStack>
   );
@@ -224,6 +230,7 @@ export default function SettingDevBundleList() {
   const [loading, setLoading] = useState(true);
   const [bundles, setBundles] = useState<IBundleInfo[]>([]);
   const [downloadedSet, setDownloadedSet] = useState<Set<string>>(new Set());
+  const [isDownloading, setIsDownloading] = useState(false);
 
   const currentBundleVersion = String(platformEnv.bundleVersion);
   const currentAppVersion = String(platformEnv.version);
@@ -237,7 +244,6 @@ export default function SettingDevBundleList() {
           );
         setBundles(data);
 
-        // Check which bundles are already downloaded
         const existsChecks = await Promise.all(
           data.map(async (b) => ({
             bundleVersion: b.bundleVersion,
@@ -256,6 +262,14 @@ export default function SettingDevBundleList() {
       }
     })();
   }, [version]);
+
+  const handleDownloadStart = useCallback(() => {
+    setIsDownloading(true);
+  }, []);
+
+  const handleDownloadEnd = useCallback(() => {
+    setIsDownloading(false);
+  }, []);
 
   return (
     <Page scrollEnabled>
@@ -284,6 +298,9 @@ export default function SettingDevBundleList() {
                   bundle.bundleVersion === currentBundleVersion
                 }
                 alreadyDownloaded={downloadedSet.has(bundle.bundleVersion)}
+                isDownloading={isDownloading}
+                onDownloadStart={handleDownloadStart}
+                onDownloadEnd={handleDownloadEnd}
               />
             ))}
             {bundles.length === 0 ? (

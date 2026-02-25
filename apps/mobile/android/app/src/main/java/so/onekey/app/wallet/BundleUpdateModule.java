@@ -1062,23 +1062,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         String folderName = appVersion + "-" + bundleVersion;
         String bundleDir = getBundleDir(reactContext);
         File bundlePath = new File(bundleDir, folderName);
-        if (!bundlePath.exists()) {
-            promise.resolve(false);
-            return;
-        }
-        File metadataFile = new File(bundlePath, "metadata.json");
-        if (!metadataFile.exists()) {
-            promise.resolve(false);
-            return;
-        }
-        try {
-            String metadataContent = readFileContent(metadataFile);
-            Map<String, String> metadata = parseMetadataJson(metadataContent);
-            boolean valid = validateAllFilesInDir(reactContext, bundlePath.getAbsolutePath(), metadata, appVersion, bundleVersion);
-            promise.resolve(valid);
-        } catch (Exception e) {
-            promise.resolve(false);
-        }
+        promise.resolve(bundlePath.exists());
     }
 
     @ReactMethod

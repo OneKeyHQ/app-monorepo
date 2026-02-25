@@ -949,31 +949,8 @@ RCT_EXPORT_METHOD(isBundleExists:(NSString *)appVersion
     NSString *folderName = [NSString stringWithFormat:@"%@-%@", appVersion, bundleVersion];
     NSString *bundleDir = [BundleUpdateModule bundleDir];
     NSString *bundlePath = [bundleDir stringByAppendingPathComponent:folderName];
-
-    if (![[NSFileManager defaultManager] fileExistsAtPath:bundlePath]) {
-        resolve(@(NO));
-        return;
-    }
-
-    NSString *metadataJsonPath = [bundlePath stringByAppendingPathComponent:@"metadata.json"];
-    if (![[NSFileManager defaultManager] fileExistsAtPath:metadataJsonPath]) {
-        resolve(@(NO));
-        return;
-    }
-
-    @try {
-        NSData *jsonData = [NSData dataWithContentsOfFile:metadataJsonPath];
-        NSError *error;
-        NSDictionary *metadata = [NSJSONSerialization JSONObjectWithData:jsonData options:0 error:&error];
-        if (error || !metadata) {
-            resolve(@(NO));
-            return;
-        }
-        BOOL valid = [BundleUpdateModule validateAllFilesInDir:bundlePath metadata:metadata appVersion:appVersion bundleVersion:bundleVersion];
-        resolve(@(valid));
-    } @catch (NSException *exception) {
-        resolve(@(NO));
-    }
+    BOOL exists = [[NSFileManager defaultManager] fileExistsAtPath:bundlePath];
+    resolve(@(exists));
 }
 
 RCT_EXPORT_METHOD(testDeleteJsRuntimeDir:(NSString *)appVersion
