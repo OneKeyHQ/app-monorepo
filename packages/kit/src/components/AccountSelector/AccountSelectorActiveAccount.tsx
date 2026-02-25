@@ -357,7 +357,7 @@ export function AccountSelectorActiveAccountHome({
   }
 
   // show nothing if account exists, but has not an address
-  if (account) {
+  if (account || !activeAccount?.ready) {
     return null;
   }
 
@@ -373,7 +373,11 @@ export function AccountSelectorActiveAccountHome({
     );
   }
 
-  if (activeAccount.ready && activeAccount.isNetworkNotMatched) {
+  if (
+    !account &&
+    selectedAccount.othersWalletAccountId &&
+    !selectedAccount.indexedAccountId
+  ) {
     return (
       <XStack onPress={() => logActiveAccount()}>
         <SizableText size="$bodyMd" color="$textCaution">
