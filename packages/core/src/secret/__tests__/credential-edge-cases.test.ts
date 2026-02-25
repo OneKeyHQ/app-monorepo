@@ -1,7 +1,5 @@
 import { Buffer } from 'buffer';
 
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-
 import {
   compressPublicKey,
   decryptImportedCredential,
@@ -9,7 +7,6 @@ import {
   encryptImportedCredential,
   encryptVerifyString,
   fixV4VerifyStringToV5,
-  sign,
   uncompressPublicKey,
   verify,
 } from '..';

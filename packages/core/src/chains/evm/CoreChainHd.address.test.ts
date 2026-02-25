@@ -6,23 +6,20 @@ import CoreChainHd from './CoreChainHd';
 yarn jest packages/core/src/chains/evm/CoreChainHd.address.test.ts
 */
 
-const {
-  hdCredential,
-  networkInfo,
-  hdAccountTemplate,
-} = coreTestsFixtures.prepareCoreChainTestsFixtures({
-  networkInfo: {
-    networkChainCode: 'evm',
-    chainId: '1',
-    networkId: 'evm--1',
-    networkImpl: 'evm',
-    isTestnet: false,
-  },
-  hdAccountTemplate: "m/44'/60'/0'/0/$$INDEX$$",
-  hdAccounts: [],
-  txSamples: [],
-  msgSamples: [],
-});
+const { hdCredential, networkInfo, hdAccountTemplate } =
+  coreTestsFixtures.prepareCoreChainTestsFixtures({
+    networkInfo: {
+      networkChainCode: 'evm',
+      chainId: '1',
+      networkId: 'evm--1',
+      networkImpl: 'evm',
+      isTestnet: false,
+    },
+    hdAccountTemplate: "m/44'/60'/0'/0/$$INDEX$$",
+    hdAccounts: [],
+    txSamples: [],
+    msgSamples: [],
+  });
 
 describe('EVM Address Derivation Tests', () => {
   const coreApi = new CoreChainHd();
@@ -33,9 +30,7 @@ describe('EVM Address Derivation Tests', () => {
       publicKey:
         '02bd51e5b1a6e8271e1f87d2464b856790800c6c5fd38acdf1cee73857735fc8a4',
     });
-    expect(result.address).toBe(
-      '0x1959f5f4979c5cd87d5cb75c678c770515cb5e0e',
-    );
+    expect(result.address).toBe('0x1959f5f4979c5cd87d5cb75c678c770515cb5e0e');
   });
 
   it('should derive correct address from known private key', async () => {
@@ -44,9 +39,7 @@ describe('EVM Address Derivation Tests', () => {
       privateKeyRaw:
         '105434ca932be16664cb5e44e5b006728577dd757440d068e6d15ef52c15a82f',
     });
-    expect(result.address).toBe(
-      '0x1959f5f4979c5cd87d5cb75c678c770515cb5e0e',
-    );
+    expect(result.address).toBe('0x1959f5f4979c5cd87d5cb75c678c770515cb5e0e');
   });
 
   it('should derive correct addresses from HD wallet for multiple indexes', async () => {
@@ -104,9 +97,7 @@ describe('EVM Address Derivation Tests', () => {
       addressEncoding: undefined,
     });
     expect(result1.addresses[0].address).toBe(result2.addresses[0].address);
-    expect(result1.addresses[0].publicKey).toBe(
-      result2.addresses[0].publicKey,
-    );
+    expect(result1.addresses[0].publicKey).toBe(result2.addresses[0].publicKey);
   });
 
   describe('Invalid public key inputs', () => {
@@ -144,9 +135,7 @@ describe('EVM Address Derivation Tests', () => {
         publicKey:
           '02bd51e5b1a6e8271e1f87d2464b856790800c6c5fd38acdf1cee73857735fc8a4',
       });
-      expect(result.address).toBe(
-        '0x1959f5f4979c5cd87d5cb75c678c770515cb5e0e',
-      );
+      expect(result.address).toBe('0x1959f5f4979c5cd87d5cb75c678c770515cb5e0e');
     });
 
     it('should handle public key with whitespace', async () => {
@@ -287,9 +276,7 @@ describe('EVM Address Derivation Tests', () => {
         publicKey:
           '02bd51e5b1a6e8271e1f87d2464b856790800c6c5fd38acdf1cee73857735fc8a4',
       });
-      expect(result.address).toBe(
-        '0x1959f5f4979c5cd87d5cb75c678c770515cb5e0e',
-      );
+      expect(result.address).toBe('0x1959f5f4979c5cd87d5cb75c678c770515cb5e0e');
     });
   });
 

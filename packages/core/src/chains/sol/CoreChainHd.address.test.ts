@@ -10,23 +10,20 @@ import CoreChainHd from './CoreChainHd';
 yarn jest packages/core/src/chains/sol/CoreChainHd.address.test.ts
 */
 
-const {
-  hdCredential,
-  networkInfo,
-  hdAccountTemplate,
-} = coreTestsFixtures.prepareCoreChainTestsFixtures({
-  networkInfo: {
-    networkChainCode: 'sol',
-    chainId: '101',
-    networkId: 'sol--101',
-    networkImpl: 'sol',
-    isTestnet: false,
-  },
-  hdAccountTemplate: "m/44'/501'/$$INDEX$$'/0'",
-  hdAccounts: [],
-  txSamples: [],
-  msgSamples: [],
-});
+const { hdCredential, networkInfo, hdAccountTemplate } =
+  coreTestsFixtures.prepareCoreChainTestsFixtures({
+    networkInfo: {
+      networkChainCode: 'sol',
+      chainId: '101',
+      networkId: 'sol--101',
+      networkImpl: 'sol',
+      isTestnet: false,
+    },
+    hdAccountTemplate: "m/44'/501'/$$INDEX$$'/0'",
+    hdAccounts: [],
+    txSamples: [],
+    msgSamples: [],
+  });
 
 describe('SOL Address Derivation Tests', () => {
   const coreApi = new CoreChainHd();
@@ -37,16 +34,12 @@ describe('SOL Address Derivation Tests', () => {
       privateKeyRaw:
         'feafaa95d64a1a37f4e4dce7fd2ee764bbc1e8eef627d5aedaceee19f89f76ff',
     });
-    expect(result.address).toBe(
-      '4wX8yu9YmSe4mv9ZPtTeoF9pe6Ji4ScjuJEffS3sCKZ4',
-    );
+    expect(result.address).toBe('4wX8yu9YmSe4mv9ZPtTeoF9pe6Ji4ScjuJEffS3sCKZ4');
   });
 
   it('should derive correct address from known public key', async () => {
     const publicKeyBase58 = '4wX8yu9YmSe4mv9ZPtTeoF9pe6Ji4ScjuJEffS3sCKZ4';
-    const publicKeyHex = bufferUtils.bytesToHex(
-      base58.decode(publicKeyBase58),
-    );
+    const publicKeyHex = bufferUtils.bytesToHex(base58.decode(publicKeyBase58));
     const result = await coreApi.getAddressFromPublic({
       networkInfo,
       publicKey: publicKeyHex,

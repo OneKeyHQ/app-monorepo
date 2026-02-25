@@ -2,7 +2,6 @@ import { Buffer } from 'buffer';
 
 import { BaseBip32KeyDeriver, ED25519Bip32KeyDeriver } from '../bip32';
 import { ed25519, nistp256, secp256k1 } from '../curves';
-import { hmacSHA512Sync } from '../hash';
 
 /*
 yarn jest packages/core/src/secret/__tests__/bip32-edge-cases.test.ts
@@ -17,10 +16,7 @@ describe('BIP32 Edge Cases', () => {
 
     it('should generate deterministic master key from seed', () => {
       // BIP32 Test Vector 1 seed
-      const seed = Buffer.from(
-        '000102030405060708090a0b0c0d0e0f',
-        'hex',
-      );
+      const seed = Buffer.from('000102030405060708090a0b0c0d0e0f', 'hex');
       const key1 = deriver.generateMasterKeyFromSeed(seed);
       const key2 = deriver.generateMasterKeyFromSeed(seed);
       expect(key1.key).toEqual(key2.key);
@@ -28,10 +24,7 @@ describe('BIP32 Edge Cases', () => {
     });
 
     it('should produce correct BIP32 test vector 1 master key', () => {
-      const seed = Buffer.from(
-        '000102030405060708090a0b0c0d0e0f',
-        'hex',
-      );
+      const seed = Buffer.from('000102030405060708090a0b0c0d0e0f', 'hex');
       const master = deriver.generateMasterKeyFromSeed(seed);
       expect(master.key.toString('hex')).toBe(
         'e8f32e723decf4051aefac8e2c93c9c5b214313817cdb01a1494b917c8436b35',
@@ -56,80 +49,59 @@ describe('BIP32 Edge Cases', () => {
     });
 
     it('should derive hardened child key (index >= 2^31)', () => {
-      const seed = Buffer.from(
-        '000102030405060708090a0b0c0d0e0f',
-        'hex',
-      );
+      const seed = Buffer.from('000102030405060708090a0b0c0d0e0f', 'hex');
       const master = deriver.generateMasterKeyFromSeed(seed);
       // BIP32 TV1: m/0'
-      const child = deriver.CKDPriv(master, 0x80000000);
+      const child = deriver.CKDPriv(master, 0x80_00_00_00);
       expect(child.key.length).toBe(32);
       expect(child.chainCode.length).toBe(32);
     });
 
     it('should derive normal (non-hardened) child key', () => {
-      const seed = Buffer.from(
-        '000102030405060708090a0b0c0d0e0f',
-        'hex',
-      );
+      const seed = Buffer.from('000102030405060708090a0b0c0d0e0f', 'hex');
       const master = deriver.generateMasterKeyFromSeed(seed);
-      const hardenedChild = deriver.CKDPriv(master, 0x80000000);
+      const hardenedChild = deriver.CKDPriv(master, 0x80_00_00_00);
       // m/0'/1 (non-hardened)
       const normalChild = deriver.CKDPriv(hardenedChild, 1);
       expect(normalChild.key.length).toBe(32);
       expect(normalChild.chainCode.length).toBe(32);
     });
 
-    it('should derive deep paths correctly (m/0h/1/2h/2/1000000000)', () => {
-      const seed = Buffer.from(
-        '000102030405060708090a0b0c0d0e0f',
-        'hex',
-      );
+    it('should derive deep paths correctly (m/0h/1/2h/2/1_000_000_000)', () => {
+      const seed = Buffer.from('000102030405060708090a0b0c0d0e0f', 'hex');
       let key = deriver.generateMasterKeyFromSeed(seed);
-      key = deriver.CKDPriv(key, 0x80000000); // 0'
+      key = deriver.CKDPriv(key, 0x80_00_00_00); // 0'
       key = deriver.CKDPriv(key, 1);
-      key = deriver.CKDPriv(key, 0x80000002); // 2'
+      key = deriver.CKDPriv(key, 0x80_00_00_02); // 2'
       key = deriver.CKDPriv(key, 2);
-      key = deriver.CKDPriv(key, 1000000000);
+      key = deriver.CKDPriv(key, 1_000_000_000);
       expect(key.key.length).toBe(32);
       expect(key.chainCode.length).toBe(32);
     });
 
     it('should throw on negative index for CKDPriv', () => {
-      const seed = Buffer.from(
-        '000102030405060708090a0b0c0d0e0f',
-        'hex',
-      );
+      const seed = Buffer.from('000102030405060708090a0b0c0d0e0f', 'hex');
       const master = deriver.generateMasterKeyFromSeed(seed);
       expect(() => deriver.CKDPriv(master, -1)).toThrow('Invalid index');
     });
 
     it('should throw on non-integer index for CKDPriv', () => {
-      const seed = Buffer.from(
-        '000102030405060708090a0b0c0d0e0f',
-        'hex',
-      );
+      const seed = Buffer.from('000102030405060708090a0b0c0d0e0f', 'hex');
       const master = deriver.generateMasterKeyFromSeed(seed);
       expect(() => deriver.CKDPriv(master, 1.5)).toThrow('Invalid index');
     });
 
     it('should throw on CKDPub with hardened index', () => {
-      const seed = Buffer.from(
-        '000102030405060708090a0b0c0d0e0f',
-        'hex',
-      );
+      const seed = Buffer.from('000102030405060708090a0b0c0d0e0f', 'hex');
       const master = deriver.generateMasterKeyFromSeed(seed);
       const pub = deriver.N(master);
-      expect(() => deriver.CKDPub(pub, 0x80000000)).toThrow(
+      expect(() => deriver.CKDPub(pub, 0x80_00_00_00)).toThrow(
         "Can't derive public key",
       );
     });
 
     it('should derive public key from private key via N()', () => {
-      const seed = Buffer.from(
-        '000102030405060708090a0b0c0d0e0f',
-        'hex',
-      );
+      const seed = Buffer.from('000102030405060708090a0b0c0d0e0f', 'hex');
       const master = deriver.generateMasterKeyFromSeed(seed);
       const pub = deriver.N(master);
       // Public key should be 33 bytes (compressed)
@@ -138,12 +110,9 @@ describe('BIP32 Edge Cases', () => {
     });
 
     it('should derive same public key via CKDPub and N(CKDPriv) for non-hardened', () => {
-      const seed = Buffer.from(
-        '000102030405060708090a0b0c0d0e0f',
-        'hex',
-      );
+      const seed = Buffer.from('000102030405060708090a0b0c0d0e0f', 'hex');
       const master = deriver.generateMasterKeyFromSeed(seed);
-      const hardenedChild = deriver.CKDPriv(master, 0x80000000);
+      const hardenedChild = deriver.CKDPriv(master, 0x80_00_00_00);
 
       // Method 1: derive private child then get public
       const privChild = deriver.CKDPriv(hardenedChild, 1);
@@ -157,10 +126,7 @@ describe('BIP32 Edge Cases', () => {
     });
 
     it('should handle async master key generation', async () => {
-      const seed = Buffer.from(
-        '000102030405060708090a0b0c0d0e0f',
-        'hex',
-      );
+      const seed = Buffer.from('000102030405060708090a0b0c0d0e0f', 'hex');
       const syncKey = deriver.generateMasterKeyFromSeed(seed);
       const asyncKey = await deriver.generateMasterKeyFromSeedAsync(seed);
       expect(syncKey.key).toEqual(asyncKey.key);
@@ -175,10 +141,7 @@ describe('BIP32 Edge Cases', () => {
     );
 
     it('should generate master key from SLIP-0010 test vector', () => {
-      const seed = Buffer.from(
-        '000102030405060708090a0b0c0d0e0f',
-        'hex',
-      );
+      const seed = Buffer.from('000102030405060708090a0b0c0d0e0f', 'hex');
       const master = deriver.generateMasterKeyFromSeed(seed);
       expect(master.key.length).toBe(32);
       expect(master.chainCode.length).toBe(32);
@@ -187,10 +150,7 @@ describe('BIP32 Edge Cases', () => {
     it('should throw on invalid master key (seed producing key >= order)', () => {
       // This is hard to test deterministically; we verify the validation path
       // by testing that a valid seed works
-      const seed = Buffer.from(
-        '000102030405060708090a0b0c0d0e0f',
-        'hex',
-      );
+      const seed = Buffer.from('000102030405060708090a0b0c0d0e0f', 'hex');
       expect(() => deriver.generateMasterKeyFromSeed(seed)).not.toThrow();
     });
   });
@@ -202,36 +162,25 @@ describe('BIP32 Edge Cases', () => {
     );
 
     it('should generate master key without retry (ed25519 accepts all keys)', () => {
-      const seed = Buffer.from(
-        '000102030405060708090a0b0c0d0e0f',
-        'hex',
-      );
+      const seed = Buffer.from('000102030405060708090a0b0c0d0e0f', 'hex');
       const master = deriver.generateMasterKeyFromSeed(seed);
       expect(master.key.length).toBe(32);
       expect(master.chainCode.length).toBe(32);
     });
 
     it('should only support hardened derivation', () => {
-      const seed = Buffer.from(
-        '000102030405060708090a0b0c0d0e0f',
-        'hex',
-      );
+      const seed = Buffer.from('000102030405060708090a0b0c0d0e0f', 'hex');
       const master = deriver.generateMasterKeyFromSeed(seed);
       // Non-hardened should throw
       expect(() => deriver.CKDPriv(master, 0)).toThrow(
         'Only hardened CKDPriv is supported for ed25519',
       );
       // Hardened should work
-      expect(() =>
-        deriver.CKDPriv(master, 0x80000000),
-      ).not.toThrow();
+      expect(() => deriver.CKDPriv(master, 0x80_00_00_00)).not.toThrow();
     });
 
     it('should throw on CKDPub', () => {
-      const seed = Buffer.from(
-        '000102030405060708090a0b0c0d0e0f',
-        'hex',
-      );
+      const seed = Buffer.from('000102030405060708090a0b0c0d0e0f', 'hex');
       const master = deriver.generateMasterKeyFromSeed(seed);
       const pub = deriver.N(master);
       expect(() => deriver.CKDPub(pub, 0)).toThrow(
@@ -241,10 +190,7 @@ describe('BIP32 Edge Cases', () => {
 
     it('should derive SLIP-0010 ed25519 test vector', () => {
       // SLIP-0010 Test Vector 1 for ed25519
-      const seed = Buffer.from(
-        '000102030405060708090a0b0c0d0e0f',
-        'hex',
-      );
+      const seed = Buffer.from('000102030405060708090a0b0c0d0e0f', 'hex');
       const master = deriver.generateMasterKeyFromSeed(seed);
       expect(master.key.toString('hex')).toBe(
         '2b4be7f19ee27bbf30c667b642d5f4aa69fd169872f8fc3059c08ebae2eb19e7',
@@ -255,14 +201,11 @@ describe('BIP32 Edge Cases', () => {
     });
 
     it('should derive deep hardened path', () => {
-      const seed = Buffer.from(
-        '000102030405060708090a0b0c0d0e0f',
-        'hex',
-      );
+      const seed = Buffer.from('000102030405060708090a0b0c0d0e0f', 'hex');
       let key = deriver.generateMasterKeyFromSeed(seed);
       // m/0'/1'/2'/3'/4'
       for (let i = 0; i < 5; i++) {
-        key = deriver.CKDPriv(key, 0x80000000 + i);
+        key = deriver.CKDPriv(key, 0x80_00_00_00 + i);
       }
       expect(key.key.length).toBe(32);
       expect(key.chainCode.length).toBe(32);
@@ -278,7 +221,7 @@ describe('BIP32 Edge Cases', () => {
     it('should throw on index = 2^32', () => {
       const seed = Buffer.from('000102030405060708090a0b0c0d0e0f', 'hex');
       const master = deriver.generateMasterKeyFromSeed(seed);
-      expect(() => deriver.CKDPriv(master, 0x100000000)).toThrow(
+      expect(() => deriver.CKDPriv(master, 0x01_00_00_00_00)).toThrow(
         'Overflowed',
       );
     });
@@ -286,29 +229,29 @@ describe('BIP32 Edge Cases', () => {
     it('should throw on index = Number.MAX_SAFE_INTEGER', () => {
       const seed = Buffer.from('000102030405060708090a0b0c0d0e0f', 'hex');
       const master = deriver.generateMasterKeyFromSeed(seed);
-      expect(() =>
-        deriver.CKDPriv(master, Number.MAX_SAFE_INTEGER),
-      ).toThrow('Overflowed');
+      expect(() => deriver.CKDPriv(master, Number.MAX_SAFE_INTEGER)).toThrow(
+        'Overflowed',
+      );
     });
 
     it('should accept index = 2^31 - 1 (max non-hardened)', () => {
       const seed = Buffer.from('000102030405060708090a0b0c0d0e0f', 'hex');
       const master = deriver.generateMasterKeyFromSeed(seed);
-      const child = deriver.CKDPriv(master, 0x7fffffff);
+      const child = deriver.CKDPriv(master, 0x7f_ff_ff_ff);
       expect(child.key.length).toBe(32);
     });
 
     it('should accept index = 2^31 (min hardened)', () => {
       const seed = Buffer.from('000102030405060708090a0b0c0d0e0f', 'hex');
       const master = deriver.generateMasterKeyFromSeed(seed);
-      const child = deriver.CKDPriv(master, 0x80000000);
+      const child = deriver.CKDPriv(master, 0x80_00_00_00);
       expect(child.key.length).toBe(32);
     });
 
     it('should accept index = 2^32 - 1 (max hardened)', () => {
       const seed = Buffer.from('000102030405060708090a0b0c0d0e0f', 'hex');
       const master = deriver.generateMasterKeyFromSeed(seed);
-      const child = deriver.CKDPriv(master, 0xffffffff);
+      const child = deriver.CKDPriv(master, 0xff_ff_ff_ff);
       expect(child.key.length).toBe(32);
     });
 
@@ -327,9 +270,7 @@ describe('BIP32 Edge Cases', () => {
     it('should throw on -Infinity index', () => {
       const seed = Buffer.from('000102030405060708090a0b0c0d0e0f', 'hex');
       const master = deriver.generateMasterKeyFromSeed(seed);
-      expect(() => deriver.CKDPriv(master, -Infinity)).toThrow(
-        'Invalid index',
-      );
+      expect(() => deriver.CKDPriv(master, -Infinity)).toThrow('Invalid index');
     });
   });
 
@@ -422,7 +363,7 @@ describe('BIP32 Edge Cases', () => {
       let key = deriver.generateMasterKeyFromSeed(seed);
 
       for (let i = 0; i < 10; i++) {
-        key = deriver.CKDPriv(key, 0x80000000 + i);
+        key = deriver.CKDPriv(key, 0x80_00_00_00 + i);
         key = deriver.CKDPriv(key, i);
       }
 
@@ -474,7 +415,7 @@ describe('BIP32 Edge Cases', () => {
       const seed = Buffer.from('000102030405060708090a0b0c0d0e0f', 'hex');
       const master = edDeriver.generateMasterKeyFromSeed(seed);
 
-      expect(() => edDeriver.CKDPriv(master, 0x80000000)).not.toThrow();
+      expect(() => edDeriver.CKDPriv(master, 0x80_00_00_00)).not.toThrow();
       expect(() => edDeriver.CKDPriv(master, 0)).toThrow(
         'Only hardened CKDPriv is supported for ed25519',
       );
@@ -543,14 +484,11 @@ describe('BIP32 Edge Cases', () => {
       const startTime = Date.now();
 
       for (let i = 0; i < 1000; i++) {
-        key = deriver.CKDPriv(
-          key,
-          i % 2 === 0 ? 0x80000000 : 0,
-        );
+        key = deriver.CKDPriv(key, i % 2 === 0 ? 0x80_00_00_00 : 0);
       }
 
       const duration = Date.now() - startTime;
-      expect(duration).toBeLessThan(30000);
+      expect(duration).toBeLessThan(30_000);
       expect(key.key.length).toBe(32);
     });
   });

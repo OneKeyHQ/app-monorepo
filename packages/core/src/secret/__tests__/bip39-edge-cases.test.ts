@@ -135,8 +135,7 @@ describe('BIP39 Edge Cases', () => {
     });
 
     it('should produce valid entropy format (langCode=1)', () => {
-      const mnemonic =
-        'zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo wrong';
+      const mnemonic = 'zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo wrong';
       const rs = mnemonicToRevealableSeed(mnemonic);
       const entropyBuf = Buffer.from(rs.entropyWithLangPrefixed, 'hex');
       expect(entropyBuf[0]).toBe(1); // langCode
@@ -203,9 +202,7 @@ describe('BIP39 Edge Cases', () => {
       expect(origBuf[0]).toBe(decBuf[0]);
       expect(origBuf[1]).toBe(decBuf[1]);
       const len = origBuf[1];
-      expect(origBuf.subarray(2, 2 + len)).toEqual(
-        decBuf.subarray(2, 2 + len),
-      );
+      expect(origBuf.subarray(2, 2 + len)).toEqual(decBuf.subarray(2, 2 + len));
     });
 
     it('should fail decryption with wrong password', async () => {
