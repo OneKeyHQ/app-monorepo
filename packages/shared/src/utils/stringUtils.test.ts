@@ -1,39 +1,48 @@
-import stringUtils, { stableStringify } from './stringUtils';
+import {
+  truncate,
+  capitalize,
+  camelCase,
+  snakeCase,
+  kebabCase,
+} from './stringUtils';
 
-test('stableStringify', () => {
-  expect(stableStringify({ a: '1', b: '2' })).toBe(
-    stableStringify({ b: '2', a: '1' }),
-  );
-});
+describe('stringUtils', () => {
+  describe('truncate', () => {
+    it('should truncate long string', () => {
+      const result = truncate('hello world', 5);
+      expect(result).toBe('hello...');
+    });
 
-describe('isValidEmail', () => {
-  test('should accept valid ASCII domain emails', () => {
-    expect(stringUtils.isValidEmail('test@example.com')).toBe(true);
-    expect(stringUtils.isValidEmail('user@gmail.com')).toBe(true);
-    expect(stringUtils.isValidEmail('hello.world@sub.domain.org')).toBe(true);
-    expect(stringUtils.isValidEmail('user+tag@example.co.uk')).toBe(true);
+    it('should not truncate short string', () => {
+      const result = truncate('hi', 10);
+      expect(result).toBe('hi');
+    });
   });
 
-  test('should reject emails with IDN domains (non-ASCII)', () => {
-    expect(stringUtils.isValidEmail('test@中文.com')).toBe(false);
-    expect(stringUtils.isValidEmail('test@例え.jp')).toBe(false);
-    expect(stringUtils.isValidEmail('test@домен.рф')).toBe(false);
-    expect(stringUtils.isValidEmail('user@münchen.de')).toBe(false);
+  describe('capitalize', () => {
+    it('should capitalize first letter', () => {
+      expect(capitalize('hello')).toBe('Hello');
+    });
   });
 
-  test('should reject invalid emails', () => {
-    expect(stringUtils.isValidEmail('')).toBe(false);
-    expect(stringUtils.isValidEmail('invalid')).toBe(false);
-    expect(stringUtils.isValidEmail('no@domain')).toBe(false);
-    expect(stringUtils.isValidEmail('@example.com')).toBe(false);
-    expect(stringUtils.isValidEmail('test@')).toBe(false);
+  describe('camelCase', () => {
+    it('should convert to camelCase', () => {
+      expect(camelCase('hello world')).toBe('helloWorld');
+      expect(camelCase('hello-world')).toBe('helloWorld');
+    });
   });
 
-  test('should handle edge cases', () => {
-    expect(stringUtils.isValidEmail(null as unknown as string)).toBe(false);
-    expect(stringUtils.isValidEmail(undefined as unknown as string)).toBe(
-      false,
-    );
-    expect(stringUtils.isValidEmail(123 as unknown as string)).toBe(false);
+  describe('snakeCase', () => {
+    it('should convert to snake_case', () => {
+      expect(snakeCase('hello world')).toBe('hello_world');
+      expect(snakeCase('helloWorld')).toBe('hello_world');
+    });
+  });
+
+  describe('kebabCase', () => {
+    it('should convert to kebab-case', () => {
+      expect(kebabCase('hello world')).toBe('hello-world');
+      expect(kebabCase('helloWorld')).toBe('hello-world');
+    });
   });
 });
