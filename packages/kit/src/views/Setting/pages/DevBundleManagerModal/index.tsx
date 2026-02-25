@@ -336,7 +336,7 @@ export default function DevBundleManagerModal() {
           {/* Fallback Bundles */}
           {fallbackBundles.length > 0 ? (
             <YStack gap="$1">
-              <SectionTitle icon="LayersOutline" title="FALLBACK BUNDLES" />
+              <SectionTitle icon="Layers2Outline" title="FALLBACK BUNDLES" />
               <SectionCard>
                 {fallbackBundles.map((bundle, index) => {
                   const isCurrent =
@@ -396,7 +396,7 @@ export default function DevBundleManagerModal() {
 
           {/* Diagnostics */}
           <YStack gap="$1">
-            <SectionTitle icon="TestTubeOutline" title="DIAGNOSTICS" />
+            <SectionTitle icon="CubeOutline" title="DIAGNOSTICS" />
             <SectionCard>
               <ActionRow
                 icon="ToolboxOutline"
