@@ -711,7 +711,9 @@ class ServiceMarketV2 extends ServiceBase {
       code: number;
       message: string;
       data: IMarketBannerTokenListResponse;
-    }>(`/utility/v2/market/banner/token-list/${encodeURIComponent(tokenListId)}`);
+    }>(
+      `/utility/v2/market/banner/token-list/${encodeURIComponent(tokenListId)}`,
+    );
     const { data } = response.data;
     return data.list;
   }
