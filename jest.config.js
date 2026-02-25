@@ -13,6 +13,23 @@ module.exports = async () => {
     // @swc/jest, react-native, jest-expo, jest-expo/web,
     preset: 'jest-expo/web', // require *.web.ts, do not require *.native.ts
     coverageProvider: 'v8',
+    collectCoverageFrom: [
+      'packages/core/src/**/*.ts',
+      'packages/shared/src/**/*.ts',
+      'packages/kit-bg/src/**/*.ts',
+      '!**/*.d.ts',
+      '!**/index.ts',
+      '!**/__mocks__/**',
+    ],
+    coverageReporters: ['text', 'lcov', 'json-summary'],
+    coverageThreshold: {
+      global: {
+        lines: 5,
+        branches: 3,
+        functions: 5,
+        statements: 5,
+      },
+    },
     cacheDirectory: `${cacheDirectory}/.app-mono-jest-cache`,
     setupFilesAfterEnv: [
       './jest-setup.js',
