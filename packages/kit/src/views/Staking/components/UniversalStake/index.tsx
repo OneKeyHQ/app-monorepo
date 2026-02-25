@@ -136,6 +136,7 @@ type IUniversalStakeProps = {
   transactionInputTokenAddress?: string;
   transactionOutputTokenAddress?: string;
   requestSymbol?: string;
+  inputTitle?: string;
   tokenSelectorTriggerProps?: Partial<
     NonNullable<IAmountInputFormItemProps['tokenSelectorTriggerProps']>
   >;
@@ -168,6 +169,7 @@ export function UniversalStake({
   transactionInputTokenAddress,
   transactionOutputTokenAddress,
   requestSymbol,
+  inputTitle,
   tokenSelectorTriggerProps,
 }: PropsWithChildren<IUniversalStakeProps>) {
   const intl = useIntl();
@@ -1313,7 +1315,11 @@ export function UniversalStake({
 
   const onConfirmText = useMemo(() => {
     if (!useApprove) {
-      return intl.formatMessage({ id: ETranslations.global_continue });
+      return intl.formatMessage({
+        id: isPendleProvider
+          ? ETranslations.global_swap
+          : ETranslations.global_continue,
+      });
     }
     if (shouldApprove) {
       return intl.formatMessage(
@@ -1325,7 +1331,11 @@ export function UniversalStake({
         { amount: amountValue, symbol: tokenInfo?.token.symbol || '' },
       );
     }
-    return intl.formatMessage({ id: ETranslations.earn_deposit });
+    return intl.formatMessage({
+      id: isPendleProvider
+        ? ETranslations.global_swap
+        : ETranslations.earn_deposit,
+    });
   }, [
     useApprove,
     shouldApprove,
@@ -1333,6 +1343,7 @@ export function UniversalStake({
     usePermit2Approve,
     amountValue,
     tokenInfo?.token.symbol,
+    isPendleProvider,
   ]);
   const showReceiveInput = !!receiveInputConfig?.enabled;
   const effectiveReceiveInputConfig = useMemo(
@@ -1366,6 +1377,7 @@ export function UniversalStake({
                 ? EStakeProgressStep.approve
                 : EStakeProgressStep.deposit
             }
+            step2LabelId={isPendleProvider ? ETranslations.global_swap : undefined}
           />
         </Stack>
       ) : null}
@@ -1395,7 +1407,7 @@ export function UniversalStake({
         <YStack gap="$2">
           <Stack position="relative" opacity={amountInputDisabled ? 0.7 : 1}>
             <StakingAmountInput
-              title={intl.formatMessage({ id: ETranslations.earn_deposit })}
+              title={inputTitle || intl.formatMessage({ id: ETranslations.earn_deposit })}
               disabled={amountInputDisabled}
               hasError={isInsufficientBalance || isCheckAmountMessageError}
               value={amountValue}
@@ -1430,6 +1442,7 @@ export function UniversalStake({
             receive={transactionConfirmation?.receive}
             config={effectiveReceiveInputConfig}
             fiatSymbol={symbol}
+            payFiatValue={currentValue}
           />
         </YStack>
         {showReceiveInput ? (
@@ -1743,6 +1756,7 @@ export function UniversalStake({
                       ? EStakeProgressStep.approve
                       : EStakeProgressStep.deposit
                   }
+                  step2LabelId={isPendleProvider ? ETranslations.global_swap : undefined}
                 />
               ) : null}
             </Stack>

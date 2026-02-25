@@ -332,9 +332,9 @@ export function NormalManageContent({
       preferManagePageActionText
         ? {
             enabled: !!stakeReceiveActionData?.data?.token,
-            tokenImageUri: stakeReceiveActionData?.data?.token?.info.logoURI,
-            tokenSymbol: stakeReceiveActionData?.data?.token?.info.symbol,
-            tokenAddress: stakeReceiveActionData?.data?.token?.info.address,
+            tokenImageUri: stakeReceiveActionData?.data?.token?.info?.logoURI,
+            tokenSymbol: stakeReceiveActionData?.data?.token?.info?.symbol,
+            tokenAddress: stakeReceiveActionData?.data?.token?.info?.address,
             balance: stakeReceiveActionData?.data?.balance,
             price: stakeReceiveActionData?.data?.token?.price,
           }
@@ -347,9 +347,10 @@ export function NormalManageContent({
       preferManagePageActionText
         ? {
             enabled: !!withdrawReceiveActionData?.data?.token,
-            tokenImageUri: withdrawReceiveActionData?.data?.token?.info.logoURI,
-            tokenSymbol: withdrawReceiveActionData?.data?.token?.info.symbol,
-            tokenAddress: withdrawReceiveActionData?.data?.token?.info.address,
+            tokenImageUri:
+              withdrawReceiveActionData?.data?.token?.info?.logoURI,
+            tokenSymbol: withdrawReceiveActionData?.data?.token?.info?.symbol,
+            tokenAddress: withdrawReceiveActionData?.data?.token?.info?.address,
             balance: withdrawReceiveActionData?.data?.balance,
             price: withdrawReceiveActionData?.data?.token?.price,
           }

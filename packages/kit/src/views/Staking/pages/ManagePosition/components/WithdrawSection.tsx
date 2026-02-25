@@ -219,12 +219,12 @@ export const WithdrawSection = ({
     }
 
     setSelectedReceiveAsset((prev) => {
-      if (prev) {
+      if (prev?.info) {
         const prevAddress = normalizeStakeTokenAddress({
           address: prev.info.address,
           isNative: prev.info.isNative,
         });
-        const prevSymbol = prev.info.symbol.toLowerCase();
+        const prevSymbol = prev.info.symbol?.toLowerCase() ?? '';
         const matchedPrev = selectableReceiveAssets.find((asset) => {
           const assetAddress = normalizeStakeTokenAddress({
             address: asset.info.address,
@@ -399,7 +399,10 @@ export const WithdrawSection = ({
     borrowApiCtx.isBorrow &&
     (borrowApiCtx.borrowApiParams.action === 'withdraw' ||
       borrowApiCtx.borrowApiParams.action === 'repay');
-  const token = useMemo(() => tokenInfo?.token as IToken, [tokenInfo]);
+  const token = useMemo(
+    () => (tokenInfo?.token ? (tokenInfo.token as IToken) : undefined),
+    [tokenInfo],
+  );
 
   // Determine the effective token info (from selected asset or default)
   const effectiveTokenSymbol = useMemo(
@@ -460,9 +463,11 @@ export const WithdrawSection = ({
     async ({
       amount,
       withdrawAll,
+      useEthenaCooldown,
     }: {
       amount: string;
       withdrawAll: boolean;
+      useEthenaCooldown?: boolean;
     }) => {
       if (!hasRequiredData) return;
 
@@ -482,6 +487,7 @@ export const WithdrawSection = ({
           ? ''
           : (tokenInfo?.token?.address ?? ''),
         outputTokenAddress: selectedReceiveTokenAddress,
+        useEthenaCooldown,
         stakingInfo: {
           label: EEarnLabels.Withdraw,
           protocol: earnUtils.getEarnProviderName({
@@ -707,6 +713,7 @@ export const WithdrawSection = ({
           providerLogo={protocolInfo?.providerDetail.logoURI}
           providerName={providerName}
           onConfirm={onConfirm}
+          inputTitle={isPendleProvider ? intl.formatMessage({ id: ETranslations.content__amount }) : undefined}
           minAmount={
             Number(protocolInfo?.minUnstakeAmount) > 0
               ? String(protocolInfo?.minUnstakeAmount)

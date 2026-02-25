@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
+import { SizableText } from '@onekeyhq/components';
 import type { IAmountInputFormItemProps } from '@onekeyhq/kit/src/components/AmountInput';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
@@ -28,10 +29,12 @@ export function ManagePageV2ReceiveInput({
   receive,
   config,
   fiatSymbol,
+  payFiatValue,
 }: {
   receive?: IStakeTransactionConfirmation['receive'];
   config?: IManagePageV2ReceiveInputConfig;
   fiatSymbol?: string;
+  payFiatValue?: string;
 }) {
   const intl = useIntl();
 
@@ -54,6 +57,33 @@ export function ManagePageV2ReceiveInput({
     }
     return amountBN.multipliedBy(priceBN).toFixed();
   }, [receiveAmount, config?.price]);
+
+  const priceImpactComponent = useMemo(() => {
+    if (!payFiatValue || !receiveFiatValue) {
+      return undefined;
+    }
+    const payBN = new BigNumber(payFiatValue);
+    const receiveBN = new BigNumber(receiveFiatValue);
+    if (
+      payBN.isNaN() ||
+      receiveBN.isNaN() ||
+      payBN.lte(0) ||
+      receiveBN.lte(0)
+    ) {
+      return undefined;
+    }
+    const diff = receiveBN.minus(payBN).dividedBy(payBN).multipliedBy(100);
+    if (diff.isNaN() || diff.isZero()) {
+      return undefined;
+    }
+    const sign = diff.gt(0) ? '+' : '';
+    const formatted = `(${sign}${diff.toFixed(2)}%)`;
+    return (
+      <SizableText size="$bodySm" color="$textSubdued">
+        {formatted}
+      </SizableText>
+    );
+  }, [payFiatValue, receiveFiatValue]);
 
   const receiveTokenSelectorTriggerProps = useMemo(
     () => ({
@@ -103,6 +133,7 @@ export function ManagePageV2ReceiveInput({
       valueProps={{
         value: receiveFiatValue,
         currency: receiveFiatValue !== '0' ? fiatSymbol : undefined,
+        moreComponent: priceImpactComponent,
       }}
       onSelectPercentageStage={() => {}}
     />

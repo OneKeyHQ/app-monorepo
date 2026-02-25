@@ -92,17 +92,22 @@ type IUniversalWithdrawProps = {
 
   isDisabled?: boolean;
 
+  inputTitle?: string;
+
   onConfirm?: ({
     amount,
     withdrawAll,
     signature,
     message,
+    useEthenaCooldown,
   }: {
     amount: string;
     withdrawAll: boolean;
     // Stakefish: signature and message for withdraw all
     signature?: string;
     message?: string;
+    // Pendle: Ethena cooldown path vs instant swap
+    useEthenaCooldown?: boolean;
   }) => Promise<void>;
   beforeFooter?: ReactElement | null;
   showApyDetail?: boolean;
@@ -134,6 +139,7 @@ export function UniversalWithdraw({
   protocolVault,
   identity,
   isDisabled,
+  inputTitle,
 
   onConfirm,
   beforeFooter,
@@ -149,6 +155,7 @@ export function UniversalWithdraw({
   const [loading, setLoading] = useState<boolean>(false);
   const withdrawAllRef = useRef(false);
   const [amountValue, setAmountValue] = useState(initialAmount ?? '');
+  const [selectedWithdrawPathIndex, setSelectedWithdrawPathIndex] = useState(0);
 
   // Sign message hook and refs for withdraw all signature
   const signPersonalMessage = useEarnSignMessageWithoutVerify();
@@ -288,6 +295,10 @@ export function UniversalWithdraw({
         withdrawAll: withdrawAllRef.current,
         signature: withdrawSignatureRef.current,
         message: withdrawMessageRef.current,
+        useEthenaCooldown:
+          isPendleProvider
+            ? selectedWithdrawPathIndex === 0
+            : undefined,
       });
       resetAmount();
     } finally {
@@ -304,6 +315,8 @@ export function UniversalWithdraw({
     providerName,
     actionSymbol,
     identity,
+    isPendleProvider,
+    selectedWithdrawPathIndex,
   ]);
 
   const [checkAmountLoading, setCheckAmountLoading] = useState(false);
@@ -389,7 +402,7 @@ export function UniversalWithdraw({
 
   useEffect(() => {
     void debouncedFetchTransactionConfirmation(amountValue);
-  }, [amountValue, debouncedFetchTransactionConfirmation]);
+  }, [amountValue, debouncedFetchTransactionConfirmation, transactionOutputTokenAddress]);
 
   const onChangeAmountValue = useCallback(
     (value: string, isMax = false) => {
@@ -420,6 +433,13 @@ export function UniversalWithdraw({
     },
     [checkAmount, decimals],
   );
+
+  // Re-trigger checkAmount when output token changes
+  useEffect(() => {
+    if (amountValue && !isNaN(amountValue)) {
+      void checkAmount(amountValue);
+    }
+  }, [transactionOutputTokenAddress, checkAmount, amountValue]);
 
   const currentValue = useMemo<string | undefined>(() => {
     if (Number(amountValue) > 0 && Number(price) > 0) {
@@ -492,14 +512,10 @@ export function UniversalWithdraw({
       return undefined;
     }
     const tipText = transactionConfirmation?.tip?.text;
-    const normalizedText = tipText?.text?.trim();
-    if (!normalizedText) {
+    if (!tipText?.text) {
       return undefined;
     }
-    return {
-      ...tipText,
-      text: normalizedText,
-    };
+    return tipText;
   }, [isPendleProvider, transactionConfirmation?.tip?.text]);
 
   const isPendleLikeLayout = isPendleProvider;
@@ -619,13 +635,145 @@ export function UniversalWithdraw({
     };
   }, []);
 
+  const withdrawPathConfirmBoxes = useMemo(
+    () => {
+      if (!isPendleProvider) return [];
+      return (
+        transactionConfirmation?.withdrawPath?.data?.confirmBoxes ?? []
+      );
+    },
+    [isPendleProvider, transactionConfirmation?.withdrawPath?.data?.confirmBoxes],
+  );
+
+  const selectedWithdrawPath = useMemo(() => {
+    if (withdrawPathConfirmBoxes.length <= 1) return undefined;
+    return (
+      withdrawPathConfirmBoxes[selectedWithdrawPathIndex] ??
+      withdrawPathConfirmBoxes[0]
+    );
+  }, [withdrawPathConfirmBoxes, selectedWithdrawPathIndex]);
+
+  const showWithdrawPathSelector =
+    withdrawPathConfirmBoxes.length > 1 && !!selectedWithdrawPath;
+
+  const withdrawPathPopoverRef = useRef<{
+    boxes: typeof withdrawPathConfirmBoxes;
+    selectedIndex: number;
+    onSelect: (index: number) => void;
+  }>({
+    boxes: [],
+    selectedIndex: 0,
+    onSelect: () => {},
+  });
+
+  withdrawPathPopoverRef.current = {
+    boxes: withdrawPathConfirmBoxes,
+    selectedIndex: selectedWithdrawPathIndex,
+    onSelect: (index: number) => setSelectedWithdrawPathIndex(index),
+  };
+
+  const WithdrawPathPopoverContent = useMemo(
+    () =>
+      function Content({
+        closePopover,
+      }: {
+        isOpen?: boolean;
+        closePopover: () => void;
+      }) {
+        const { boxes, selectedIndex, onSelect } =
+          withdrawPathPopoverRef.current;
+        return (
+          <YStack px="$5" pb="$5">
+            {boxes.map((box, index) => {
+              const isSelected = index === selectedIndex;
+              return (
+                <XStack
+                  key={index}
+                  py="$2.5"
+                  gap="$3"
+                  ai="center"
+                  userSelect="none"
+                  cursor="pointer"
+                  onPress={() => {
+                    onSelect(index);
+                    closePopover();
+                  }}
+                >
+                  <Stack
+                    w="$5"
+                    h="$5"
+                    my="$0.5"
+                    borderWidth="$0.5"
+                    borderColor={
+                      isSelected ? '$transparent' : '$borderStrong'
+                    }
+                    bg={isSelected ? '$bgPrimary' : '$transparent'}
+                    borderRadius="$full"
+                    ai="center"
+                    jc="center"
+                  >
+                    {isSelected ? (
+                      <Stack
+                        w="$2.5"
+                        h="$2.5"
+                        bg="$iconInverse"
+                        borderRadius="$full"
+                      />
+                    ) : null}
+                  </Stack>
+                  <YStack flex={1} gap="$1">
+                    <SizableText size="$bodyLgMedium" color="$text">
+                      {box.title.text}
+                    </SizableText>
+                    {box.subtitle?.text ? (
+                      <SizableText
+                        size="$bodyMd"
+                        color={box.subtitle?.color || '$textSubdued'}
+                      >
+                        {box.subtitle.text}
+                      </SizableText>
+                    ) : null}
+                  </YStack>
+                  <YStack flex={1} gap="$1" ai="flex-end">
+                    <SizableText size="$headingMd" color="$text">
+                      {box.description.text}
+                    </SizableText>
+                    {box.subtitleDescription?.text ? (
+                      <SizableText
+                        size="$bodyMd"
+                        color={
+                          box.subtitleDescription?.color || '$textSubdued'
+                        }
+                      >
+                        {box.subtitleDescription.text}
+                        {box.subtitleDescription?.color ===
+                        '$textCritical' ? (
+                          <SizableText
+                            size="$bodyMd"
+                            color="$textSubdued"
+                          >
+                            {' vs Best'}
+                          </SizableText>
+                        ) : null}
+                      </SizableText>
+                    ) : null}
+                  </YStack>
+                </XStack>
+              );
+            })}
+          </YStack>
+        );
+      },
+    [],
+  );
+
   return (
     <StakingFormWrapper>
       <Stack position="relative">
         <YStack gap="$2">
           <Stack position="relative" opacity={amountInputDisabled ? 0.7 : 1}>
             <StakingAmountInput
-              title={intl.formatMessage({ id: ETranslations.global_withdraw })}
+              title={inputTitle || intl.formatMessage({ id: ETranslations.global_withdraw })}
               disabled={amountInputDisabled}
               hasError={isCheckAmountMessageError}
               value={amountValue}
@@ -662,6 +810,7 @@ export function UniversalWithdraw({
             receive={transactionConfirmation?.receive}
             config={effectiveReceiveInputConfig}
             fiatSymbol={symbol}
+            payFiatValue={currentValue}
           />
         </YStack>
         {showReceiveInput ? (
@@ -689,6 +838,76 @@ export function UniversalWithdraw({
           </Stack>
         ) : null}
       </Stack>
+
+      {showWithdrawPathSelector && selectedWithdrawPath ? (
+        <Popover
+          title=""
+          showHeader={false}
+          placement="bottom"
+          renderTrigger={
+            <XStack
+              borderWidth={StyleSheet.hairlineWidth}
+              borderColor="$borderSubdued"
+              borderRadius="$3"
+              p="$3.5"
+              gap="$2.5"
+              ai="center"
+              userSelect="none"
+              cursor="pointer"
+              hoverStyle={{ bg: '$bgHover' }}
+            >
+              <YStack flex={1} gap="$1">
+                <SizableText size="$bodyMdMedium" color="$text">
+                  {selectedWithdrawPath.title.text}
+                </SizableText>
+                {selectedWithdrawPath.subtitle?.text ? (
+                  <SizableText
+                    size="$bodySm"
+                    color={
+                      selectedWithdrawPath.subtitle?.color || '$textSubdued'
+                    }
+                  >
+                    {selectedWithdrawPath.subtitle.text}
+                  </SizableText>
+                ) : null}
+              </YStack>
+              <YStack gap="$1" ai="flex-end">
+                <SizableText size="$bodyMdMedium" color="$text">
+                  {selectedWithdrawPath.description.text}
+                </SizableText>
+                {selectedWithdrawPath.subtitleDescription?.text ? (
+                  <XStack ai="center">
+                    <SizableText
+                      size="$bodySmMedium"
+                      color={
+                        selectedWithdrawPath.subtitleDescription?.color ||
+                        '$textSubdued'
+                      }
+                    >
+                      {selectedWithdrawPath.subtitleDescription.text}
+                    </SizableText>
+                    {selectedWithdrawPath.subtitleDescription?.color ===
+                    '$textCritical' ? (
+                      <SizableText
+                        size="$bodySmMedium"
+                        color="$textSubdued"
+                      >
+                        {' vs Best'}
+                      </SizableText>
+                    ) : null}
+                  </XStack>
+                ) : null}
+              </YStack>
+              <Icon
+                name="ChevronRightSmallOutline"
+                size="$5"
+                color="$iconSubdued"
+              />
+            </XStack>
+          }
+          renderContent={WithdrawPathPopoverContent}
+        />
+      ) : null}
 
       {remainingLessThanMinAmountWarning ? (
         <Alert
@@ -745,6 +964,7 @@ export function UniversalWithdraw({
         <YStack
           p="$3.5"
           pt={hasSummarySection ? '$5' : '$3.5'}
+          pb={hasSummarySection ? '$5' : '$3.5'}
           borderRadius="$3"
           borderWidth={StyleSheet.hairlineWidth}
           borderColor="$borderSubdued"
@@ -804,7 +1024,7 @@ export function UniversalWithdraw({
                     />
                   ) : null}
                 </XStack>
-                {transactionConfirmation?.rewards.map((reward) => {
+                {transactionConfirmation?.rewards?.map((reward) => {
                   const hasTooltip = reward.tooltip?.type === 'text';
                   let descriptionTextSize = (
                     hasTooltip ? '$bodyMd' : '$bodyLgMedium'
@@ -932,7 +1152,7 @@ export function UniversalWithdraw({
                     px={0}
                     pb={0}
                     pt="$3.5"
-                    gap="$2.5"
+                    gap={isPendleLikeLayout ? '$3.5' : '$2.5'}
                   >
                     {accordionContent}
                   </Accordion.Content>

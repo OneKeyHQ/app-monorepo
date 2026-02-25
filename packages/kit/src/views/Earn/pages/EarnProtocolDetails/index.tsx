@@ -62,6 +62,7 @@ import { EarnIcon } from '../../../Staking/components/ProtocolDetails/EarnIcon';
 import { EarnText } from '../../../Staking/components/ProtocolDetails/EarnText';
 import { GridItem } from '../../../Staking/components/ProtocolDetails/GridItemV2';
 import { PeriodSection } from '../../../Staking/components/ProtocolDetails/PeriodSectionV2';
+import { PendleRulesSection } from '../../../Staking/components/ProtocolDetails/PendleRulesSection';
 import { ProtectionSection } from '../../../Staking/components/ProtocolDetails/ProtectionSectionV2';
 import { OverviewSkeleton } from '../../../Staking/components/StakingSkeleton';
 import { useCheckEthenaKycStatus } from '../../../Staking/hooks/useCheckEthenaKycStatus';
@@ -71,6 +72,7 @@ import { FAQSection } from '../../../Staking/pages/ProtocolDetailsV2/FAQSection'
 import { EarnPageContainer } from '../../components/EarnPageContainer';
 import { EarnProviderMirror } from '../../EarnProviderMirror';
 import { EarnNavigation, EarnNetworkUtils } from '../../earnUtils';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 
 import { ApyChart } from './components/ApyChart';
 import { useProtocolDetailBreadcrumb } from './hooks/useProtocolDetailBreadcrumb';
@@ -429,7 +431,13 @@ const DetailsPartComponent = ({
               />
             </YStack>
             <GridSection data={detailInfo.intro} />
-            <GridSection data={detailInfo.rules} />
+            {earnUtils.isPendleProvider({
+              providerName: provider,
+            }) ? (
+              <PendleRulesSection data={detailInfo.rules} />
+            ) : (
+              <GridSection data={detailInfo.rules} />
+            )}
             {detailInfo?.countDownAlert?.startTime &&
             detailInfo?.countDownAlert?.endTime &&
             now > detailInfo.countDownAlert.startTime &&

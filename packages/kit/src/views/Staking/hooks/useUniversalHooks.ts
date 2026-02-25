@@ -206,6 +206,7 @@ export function useUniversalWithdraw({
       // Signature and message for withdraw all
       withdrawSignature,
       withdrawMessage,
+      useEthenaCooldown,
     }: {
       amount: string;
       symbol: string;
@@ -221,6 +222,7 @@ export function useUniversalWithdraw({
       // Signature and message for withdraw all
       withdrawSignature?: string;
       withdrawMessage?: string;
+      useEthenaCooldown?: boolean;
     }) => {
       let stakeTx: IStakeTxResponse | undefined;
       const stakingConfig =
@@ -288,6 +290,7 @@ export function useUniversalWithdraw({
             // Pass signature and message for withdraw all
             signature: withdrawSignature,
             message: withdrawMessage,
+            useEthenaCooldown,
           });
       }
 

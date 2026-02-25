@@ -732,6 +732,7 @@ export const StakeSection = ({
           isInModalContext={isInModalContext}
           ongoingValidator={ongoingValidator}
           receiveInputConfig={receiveInputConfig}
+          inputTitle={isPendleProvider ? intl.formatMessage({ id: ETranslations.content__amount }) : undefined}
           tokenSelectorTriggerProps={stakeTokenSelectorTriggerProps}
           requestSymbol={stakeRequestSymbol}
           transactionInputTokenAddress={selectedStakeTokenAddress}

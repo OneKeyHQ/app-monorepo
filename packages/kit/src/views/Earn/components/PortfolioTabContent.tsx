@@ -278,7 +278,7 @@ const DepositField = ({
         <XStack gap="$1" maxWidth={200} flexWrap="wrap">
           <EarnText size="$bodyMdMedium" text={asset.deposit?.title} />
           <EarnText
-            size="$bodyMdMedium"
+            size="$bodySm"
             color="$textSubdued"
             text={asset.deposit?.description}
           />
@@ -398,6 +398,19 @@ const ActionField = ({
         </Stack>
       ))}
     </FieldWrapper>
+  );
+};
+
+const PositionValueField = ({ totalFiatValue }: { totalFiatValue: string }) => {
+  const currencyInfo = useCurrency();
+  return (
+    <NumberSizeableText
+      size="$bodyMdMedium"
+      formatter="value"
+      formatterOptions={{ currency: currencyInfo.symbol }}
+    >
+      {totalFiatValue}
+    </NumberSizeableText>
   );
 };
 
@@ -630,6 +643,14 @@ const PortfolioItemComponent = ({
     return intl.formatMessage({ id: ETranslations.earn_deposited });
   }, [firstAsset, intl]);
 
+  const isPendle = useMemo(
+    () =>
+      earnUtils.isPendleProvider({
+        providerName: portfolioItem.protocol?.providerDetail?.code ?? '',
+      }),
+    [portfolioItem.protocol?.providerDetail?.code],
+  );
+
   const columns: ITableColumn<IEarnPortfolioInvestment['assets'][number]>[] =
     useMemo(() => {
       return [
@@ -654,15 +675,29 @@ const PortfolioItemComponent = ({
           priority: 3,
           render: (asset) => <AssetStatusField asset={asset} />,
         },
-        {
-          key: 'Claimable',
-          label: intl.formatMessage({ id: ETranslations.earn_claimable }),
-          flex: 1,
-          priority: 3,
-          render: (asset) => <ActionField asset={asset} />,
-        },
+        isPendle
+          ? {
+              key: 'Position value',
+              label: intl.formatMessage({
+                id: ETranslations.defi_position_value,
+              }),
+              flex: 1,
+              priority: 3,
+              render: () => (
+                <PositionValueField
+                  totalFiatValue={portfolioItem.totalFiatValue}
+                />
+              ),
+            }
+          : {
+              key: 'Claimable',
+              label: intl.formatMessage({ id: ETranslations.earn_claimable }),
+              flex: 1,
+              priority: 3,
+              render: (asset) => <ActionField asset={asset} />,
+            },
       ];
-    }, [depositColumnLabel, intl]);
+    }, [depositColumnLabel, intl, isPendle, portfolioItem.totalFiatValue]);
 
   const appNavigation = useAppNavigation();
 

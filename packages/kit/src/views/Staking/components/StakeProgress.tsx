@@ -8,6 +8,8 @@ interface IStakeProgressProps {
   /** Current step in the staking process (1 or 2) */
   currentStep: number;
   approveType?: EApproveType;
+  /** Override the step 2 label (e.g. "Swap" for Pendle) */
+  step2LabelId?: ETranslations;
 }
 
 export enum EStakeProgressStep {
@@ -18,6 +20,7 @@ export enum EStakeProgressStep {
 export function StakeProgress({
   currentStep,
   approveType,
+  step2LabelId,
 }: IStakeProgressProps) {
   const intl = useIntl();
   const isDepositStep = currentStep === EStakeProgressStep.deposit;
@@ -52,7 +55,7 @@ export function StakeProgress({
         size="$bodyMdMedium"
         color={isDepositStep ? undefined : '$textDisabled'}
       >
-        2. {intl.formatMessage({ id: ETranslations.earn_deposit })}
+        2. {intl.formatMessage({ id: step2LabelId ?? ETranslations.earn_deposit })}
       </SizableText>
     </XStack>
   );
