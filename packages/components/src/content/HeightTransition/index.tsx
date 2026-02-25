@@ -1,7 +1,9 @@
 import type { ComponentProps } from 'react';
+import { useEffect } from 'react';
 
 import { StyleSheet } from 'react-native';
 import Animated, {
+  cancelAnimation,
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
@@ -44,6 +46,16 @@ function HeightTransition({
   initialHeight = 0,
 }: IHeightTransitionProps) {
   const measuredHeight = useSharedValue(initialHeight);
+
+  // Cancel pending animations on unmount to prevent stale worklet references
+  // that can cause SIGSEGV in Value::~Value during navigation transitions.
+  useEffect(
+    () => () => {
+      cancelAnimation(measuredHeight);
+    },
+    [measuredHeight],
+  );
+
   const childStyle = useAnimatedStyle(
     () => ({
       opacity: withTiming(!measuredHeight.value || hide ? 0 : 1, transition),

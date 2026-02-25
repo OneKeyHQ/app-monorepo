@@ -896,6 +896,10 @@ export function useKeylessWallet() {
       } finally {
         await loadingDialog?.close?.();
       }
+      // Allow current page animations (e.g. HeightTransition in VerifyPin)
+      // to settle before navigating, preventing worklet serialization
+      // collisions that cause SIGSEGV on Android.
+      await timerUtils.wait(300);
       navigation.navigate(ERootRoutes.Onboarding, {
         screen: EOnboardingV2Routes.OnboardingV2,
         params: {

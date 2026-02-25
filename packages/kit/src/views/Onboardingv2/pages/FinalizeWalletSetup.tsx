@@ -325,8 +325,21 @@ function FinalizeWalletSetupPage({
   ]);
 
   useEffect(() => {
-    processNextStep();
+    // Defer animation start until after navigation transition completes.
+    // This prevents a triple-worklet collision (HeightTransition cleanup +
+    // screen transition + AnimatedPath mount) that can cause SIGSEGV in
+    // worklets::SerializableObject::toJSValue → facebook::jsi::Value::~Value
+    // on Android with Fabric/New Architecture.
+    let cancelled = false;
+    void timerUtils.setTimeoutPromised(() => {
+      if (!cancelled) {
+        processNextStep();
+      }
+    }, 300);
     void createWallet();
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
