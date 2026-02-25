@@ -248,6 +248,33 @@ RCT_EXPORT_MODULE();
     return metadata;
 }
 
+// Security: Validate extracted files for path traversal and symlink attacks
++ (BOOL)validateExtractedPathSafety:(NSString *)destination {
+    NSFileManager *fileManager = [NSFileManager defaultManager];
+    NSString *resolvedDestination = [destination stringByResolvingSymlinksInPath];
+
+    NSDirectoryEnumerator *enumerator = [fileManager enumeratorAtPath:destination];
+    NSString *file;
+    while ((file = [enumerator nextObject])) {
+        NSString *fullPath = [destination stringByAppendingPathComponent:file];
+
+        // Reject symbolic links to prevent symlink attacks
+        NSDictionary *attrs = [enumerator fileAttributes];
+        if ([attrs[NSFileType] isEqualToString:NSFileTypeSymbolicLink]) {
+            DDLogError(@"Symlink detected in extracted bundle: %@", file);
+            return NO;
+        }
+
+        // Resolve the real path and verify it's within the destination
+        NSString *resolvedPath = [fullPath stringByResolvingSymlinksInPath];
+        if (![resolvedPath hasPrefix:resolvedDestination]) {
+            DDLogError(@"Path traversal detected in extracted bundle: %@", file);
+            return NO;
+        }
+    }
+    return YES;
+}
+
 + (BOOL)validateAllFilesInDir:(NSString *)DirPath metadata:(NSDictionary *)metadata appVersion:(NSString *)appVersion bundleVersion:(NSString *)bundleVersion {
     NSString *parentBundleDir = [BundleUpdateModule bundleDir];
     NSString *folderName = [NSString stringWithFormat:@"%@-%@", appVersion, bundleVersion];
@@ -646,6 +673,13 @@ RCT_EXPORT_METHOD(verifyBundleASC:(NSDictionary *)params
     if (!unzipSuccess || unzipError) {
         [[NSFileManager defaultManager] removeItemAtPath:destination error:nil];
         reject(@"UNZIP_ERROR", [NSString stringWithFormat:@"Failed to unzip bundle: %@", unzipError.localizedDescription], unzipError);
+        return;
+    }
+
+    // Security: Validate extracted files for path traversal and symlink attacks
+    if (![BundleUpdateModule validateExtractedPathSafety:destination]) {
+        [[NSFileManager defaultManager] removeItemAtPath:destination error:nil];
+        reject(@"SECURITY_ERROR", @"Path traversal or symlink attack detected in zip", nil);
         return;
     }
 
