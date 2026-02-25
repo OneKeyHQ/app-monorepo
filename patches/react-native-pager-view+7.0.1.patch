@@ -67,7 +67,7 @@ index d5b82ff..98283db 100644
      fun addView(host: NestedScrollableHost, child: View?, index: Int) {
          if (child == null) {
              return
-@@ -76,6 +99,23 @@ object PagerViewViewManagerImpl {
+@@ -76,6 +99,24 @@ object PagerViewViewManagerImpl {
          val pager = getViewPager(parent)
          val adapter = pager.adapter as ViewPagerAdapter?
  
@@ -80,9 +80,10 @@ index d5b82ff..98283db 100644
 +                adapter.postOnRecyclerView {
 +                    val currentAdapter = pager.adapter as? ViewPagerAdapter
 +                    if (child.parent != null) {
-+                        (child.parent as ViewGroup).removeView(child)
++                        (child.parent as? ViewGroup)?.removeView(child)
 +                    }
 +                    currentAdapter?.removeChild(child)
++                    debouncedRefreshViewChildrenLayout(pager)
 +                }
 +            }
 +            return
@@ -91,7 +92,7 @@ index d5b82ff..98283db 100644
          val child = adapter?.getChildAt(index)
  
          if (child != null && child.parent != null) {
-@@ -161,10 +201,22 @@ object PagerViewViewManagerImpl {
+@@ -161,10 +202,22 @@ object PagerViewViewManagerImpl {
  
      private fun refreshViewChildrenLayout(view: View) {
          view.post {
