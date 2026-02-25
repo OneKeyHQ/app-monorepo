@@ -296,6 +296,7 @@
   browser_search_dapp_or_enter_url = 'browser.search_dapp_or_enter_url',
   browser_start_tab = 'browser.start_tab',
   browser_switch_to_account = 'browser.switch_to_account',
+  buy_and_sell = 'buy_and_sell',
   cant_find_network_question = 'cant_find_network_question',
   check_and_update = 'check_and_update',
   check_my_deviceLabel = 'check_my_deviceLabel',

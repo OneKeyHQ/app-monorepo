@@ -291,6 +291,7 @@
   "browser.search_dapp_or_enter_url": "Поиск dApps или URL",
   "browser.start_tab": "Вкладка «Начать»",
   "browser.switch_to_account": "Переключиться на {account} ?",
+  "buy_and_sell": "Купи/продай",
   "cant_find_network_question": "Не удаётся найти вашу сеть?",
   "check_and_update": "Проверка и обновление",
   "check_my_deviceLabel": "Проверить мой {deviceLabel}",

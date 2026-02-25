@@ -291,6 +291,7 @@
   "browser.search_dapp_or_enter_url": "搜索 dApps 或輸入網址",
   "browser.start_tab": "開始標籤頁",
   "browser.switch_to_account": "切換到 {account} ？",
+  "buy_and_sell": "出入金",
   "cant_find_network_question": "找不到你的網絡？",
   "check_and_update": "檢查並更新",
   "check_my_deviceLabel": "檢查我的 {deviceLabel}",

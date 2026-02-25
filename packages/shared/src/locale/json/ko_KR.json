@@ -291,6 +291,7 @@
   "browser.search_dapp_or_enter_url": "dApps 검색 또는 URL 입력",
   "browser.start_tab": "시작 탭",
   "browser.switch_to_account": "{account} 으로 전환하시겠습니까?",
+  "buy_and_sell": "구매·판매",
   "cant_find_network_question": "네트워크를 찾을 수 없나요?",
   "check_and_update": "확인 및 업데이트",
   "check_my_deviceLabel": "내 {deviceLabel} 확인",

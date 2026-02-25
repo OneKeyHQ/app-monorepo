@@ -291,6 +291,7 @@
   "browser.search_dapp_or_enter_url": "ค้นหา dApps หรือป้อน URL",
   "browser.start_tab": "แท็บเริ่มต้น",
   "browser.switch_to_account": "สลับไปที่ {account} ?",
+  "buy_and_sell": "ซื้อ & ขาย",
   "cant_find_network_question": "หาเครือข่ายของคุณไม่เจอใช่ไหม?",
   "check_and_update": "ตรวจสอบและอัปเดต",
   "check_my_deviceLabel": "ตรวจสอบ {deviceLabel} ของฉัน",

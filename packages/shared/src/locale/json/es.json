@@ -291,6 +291,7 @@
   "browser.search_dapp_or_enter_url": "Busca dApps o ingresa URL",
   "browser.start_tab": "Pestaña de inicio",
   "browser.switch_to_account": "¿Cambiar a {account} ?",
+  "buy_and_sell": "Compra/venta",
   "cant_find_network_question": "¿No encuentras tu red?",
   "check_and_update": "Revisar y actualizar",
   "check_my_deviceLabel": "Revisar mi {deviceLabel}",
