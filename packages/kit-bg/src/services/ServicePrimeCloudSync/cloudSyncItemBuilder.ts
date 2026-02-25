@@ -265,7 +265,14 @@ class CloudSyncItemBuilder {
           console.error('decryptSyncItem keyless decrypt error', error, item);
           throw new IncorrectMasterPassword();
         }
-      } else if (!keylessCloudSyncUtils.isKeylessPwdHash(item.pwdHash)) {
+      } else if (keylessCloudSyncUtils.isKeylessPwdHash(item.pwdHash)) {
+        // Item has keyless pwdHash but no keyless credential available — cannot decrypt
+        console.error(
+          'decryptSyncItem: item has keyless pwdHash but keylessCredential is missing',
+          item.id,
+        );
+        throw new IncorrectMasterPassword();
+      } else {
         // OneKey ID decryption
         let credentialToUse = syncCredential;
         if (item.dataType === EPrimeCloudSyncDataType.Lock) {
