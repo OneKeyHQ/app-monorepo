@@ -68,7 +68,16 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         this.reactContext = reactContext;
         this.fileLogger = new FileLoggerModule(reactContext);
         staticFileLogger = this.fileLogger;
-        this.httpClient = new OkHttpClient();
+        // Security: Prevent HTTPS-to-HTTP redirect downgrade
+        this.httpClient = new OkHttpClient.Builder()
+            .addNetworkInterceptor(chain -> {
+                okhttp3.Request req = chain.request();
+                if (!req.url().isHttps()) {
+                    throw new IOException("Redirect to non-HTTPS URL is not allowed: " + req.url());
+                }
+                return chain.proceed(req);
+            })
+            .build();
     }
 
     @Override
