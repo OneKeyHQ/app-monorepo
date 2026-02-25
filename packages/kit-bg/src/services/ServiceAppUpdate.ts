@@ -469,6 +469,101 @@ class ServiceAppUpdate extends ServiceBase {
     }
     return appUpdatePersistAtom.get();
   }
+
+  // ---- Dev Bundle Switcher (mock API) ----
+
+  @backgroundMethod()
+  async devFetchBundleVersions(): Promise<
+    { version: string; bundleCount: number }[]
+  > {
+    // TODO: Replace with real API: GET /utility/v1/app-update/bundle-versions
+    return [
+      { version: '7.6.0', bundleCount: 3 },
+      { version: '7.5.0', bundleCount: 2 },
+      { version: '7.4.0', bundleCount: 1 },
+    ];
+  }
+
+  @backgroundMethod()
+  async devFetchBundlesForVersion(version: string): Promise<
+    {
+      bundleVersion: string;
+      downloadUrl: string;
+      sha256: string;
+      signature?: string;
+      fileSize: number;
+      changeLog?: string;
+    }[]
+  > {
+    // TODO: Replace with real API: GET /utility/v1/app-update/bundles?version=x.x.x
+    const mockData: Record<
+      string,
+      {
+        bundleVersion: string;
+        downloadUrl: string;
+        sha256: string;
+        signature?: string;
+        fileSize: number;
+        changeLog?: string;
+      }[]
+    > = {
+      '7.6.0': [
+        {
+          bundleVersion: '3',
+          downloadUrl:
+            'https://github.com/nicepkg/gpt-runner/archive/refs/tags/v1.0.0.zip',
+          sha256: 'mock_sha256_760_3',
+          fileSize: 2048000,
+          changeLog: 'Fix critical bug in swap module',
+        },
+        {
+          bundleVersion: '2',
+          downloadUrl:
+            'https://github.com/nicepkg/gpt-runner/archive/refs/tags/v1.0.0.zip',
+          sha256: 'mock_sha256_760_2',
+          fileSize: 2000000,
+          changeLog: 'Add new token support',
+        },
+        {
+          bundleVersion: '1',
+          downloadUrl:
+            'https://github.com/nicepkg/gpt-runner/archive/refs/tags/v1.0.0.zip',
+          sha256: 'mock_sha256_760_1',
+          fileSize: 1950000,
+          changeLog: 'Initial release',
+        },
+      ],
+      '7.5.0': [
+        {
+          bundleVersion: '2',
+          downloadUrl:
+            'https://github.com/nicepkg/gpt-runner/archive/refs/tags/v1.0.0.zip',
+          sha256: 'mock_sha256_750_2',
+          fileSize: 1900000,
+          changeLog: 'Performance improvements',
+        },
+        {
+          bundleVersion: '1',
+          downloadUrl:
+            'https://github.com/nicepkg/gpt-runner/archive/refs/tags/v1.0.0.zip',
+          sha256: 'mock_sha256_750_1',
+          fileSize: 1850000,
+          changeLog: 'Initial release',
+        },
+      ],
+      '7.4.0': [
+        {
+          bundleVersion: '1',
+          downloadUrl:
+            'https://github.com/nicepkg/gpt-runner/archive/refs/tags/v1.0.0.zip',
+          sha256: 'mock_sha256_740_1',
+          fileSize: 1800000,
+          changeLog: 'Initial release',
+        },
+      ],
+    };
+    return mockData[version] ?? [];
+  }
 }
 
 export default ServiceAppUpdate;

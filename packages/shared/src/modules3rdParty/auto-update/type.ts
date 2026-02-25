@@ -13,6 +13,8 @@ export interface IDownloadPackageParams {
   downloadedFile?: string;
   headers?: Record<string, string>;
   targetVersion?: string;
+  /** Dev mode only: skip GPG signature verification */
+  skipGPGVerification?: boolean;
 }
 
 export type IUpdateDownloadedEvent =

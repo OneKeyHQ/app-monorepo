@@ -622,17 +622,21 @@ RCT_EXPORT_METHOD(verifyBundleASC:(NSDictionary *)params
     NSString *appVersion = params[@"latestVersion"];
     NSString *bundleVersion = params[@"bundleVersion"];
     NSString *signature = params[@"signature"];
-    
+    BOOL skipGPG = [params[@"skipGPGVerification"] boolValue];
+
     if (!filePath || !sha256) {
         reject(@"INVALID_PARAMS", @"filePath and sha256 are required", nil);
         return;
     }
-    
-    if (![self verifyBundleSHA256:filePath sha256:sha256]) {
-        reject(@"INVALID_PARAMS", @"Bundle signature verification failed", nil);
-        return;
+
+    // Skip SHA256 verification in dev mode (mock data has fake sha256)
+    if (!skipGPG) {
+        if (![self verifyBundleSHA256:filePath sha256:sha256]) {
+            reject(@"INVALID_PARAMS", @"Bundle signature verification failed", nil);
+            return;
+        }
     }
-    
+
     NSString *folderName = [NSString stringWithFormat:@"%@-%@", appVersion, bundleVersion];
     NSString *destination = [BundleUpdateModule.bundleDir stringByAppendingPathComponent:folderName];
 
@@ -652,12 +656,14 @@ RCT_EXPORT_METHOD(verifyBundleASC:(NSDictionary *)params
         return;
     }
 
-    // Validate metadata file SHA256
+    // Validate metadata file SHA256 (skip GPG in dev mode)
     NSString *currentBundleVersion = [NSString stringWithFormat:@"%@-%@", appVersion, bundleVersion];
-    if (![BundleUpdateModule validateMetadataFileSha256:currentBundleVersion signature:signature]) {
-        [[NSFileManager defaultManager] removeItemAtPath:destination error:nil];
-        reject(@"INVALID_PARAMS", @"Bundle signature verification failed", nil);
-        return;
+    if (!skipGPG) {
+        if (![BundleUpdateModule validateMetadataFileSha256:currentBundleVersion signature:signature]) {
+            [[NSFileManager defaultManager] removeItemAtPath:destination error:nil];
+            reject(@"INVALID_PARAMS", @"Bundle signature verification failed", nil);
+            return;
+        }
     }
 
     // Security: Verify all extracted files against metadata

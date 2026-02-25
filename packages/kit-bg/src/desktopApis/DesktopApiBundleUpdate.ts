@@ -420,19 +420,22 @@ class DesktopApiAppBundleUpdate {
       latestVersion: appVersion,
       bundleVersion,
       signature,
+      skipGPGVerification,
     } = params || {};
     if (
       !downloadedFile ||
       !sha256 ||
       !appVersion ||
       !bundleVersion ||
-      !signature
+      (!signature && !skipGPGVerification)
     ) {
       throw new OneKeyLocalError('Invalid parameters');
     }
-    const isBundleVerified = verifySha256(downloadedFile, sha256);
-    if (!isBundleVerified) {
-      throw new OneKeyLocalError('Invalid bundle file');
+    if (!skipGPGVerification) {
+      const isBundleVerified = verifySha256(downloadedFile, sha256);
+      if (!isBundleVerified) {
+        throw new OneKeyLocalError('Invalid bundle file');
+      }
     }
     const extractDir = getBundleExtractDir({
       appVersion,
@@ -467,7 +470,9 @@ class DesktopApiAppBundleUpdate {
         bundleVersion,
       });
       logger.info('bundle-verifyBundleASC', metadataFilePath);
-      await verifyMetadataFileSha256({ appVersion, bundleVersion, signature });
+      if (!skipGPGVerification) {
+        await verifyMetadataFileSha256({ appVersion, bundleVersion, signature: signature! });
+      }
 
       // Verify all extracted files against metadata SHA256 hashes
       if (fs.existsSync(metadataFilePath)) {

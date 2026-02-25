@@ -141,6 +141,16 @@ const DevAppUpdateModalSettingModal = LazyLoadPage(
     import('@onekeyhq/kit/src/views/Setting/pages/DevAppUpdateModalSettingModal'),
 );
 
+const DevBundleVersionList = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Setting/pages/DevBundleSwitcher/VersionList'),
+);
+
+const DevBundleList = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Setting/pages/DevBundleSwitcher/BundleList'),
+);
+
 export const BasicModalSettingStack: IModalFlowNavigatorConfig<
   EModalSettingRoutes | EModalAddressBookRoutes,
   IModalSettingParamList & IModalAddressBookParamList
@@ -266,6 +276,14 @@ export const BasicModalSettingStack: IModalFlowNavigatorConfig<
   {
     name: EModalSettingRoutes.SettingOneKeyIdKeylessWallet,
     component: OneKeyIdKeylessWalletPage,
+  },
+  {
+    name: EModalSettingRoutes.SettingDevBundleVersionList,
+    component: DevBundleVersionList,
+  },
+  {
+    name: EModalSettingRoutes.SettingDevBundleList,
+    component: DevBundleList,
   },
   ...(ModalAddressBookRouter as IModalFlowNavigatorConfig<
     EModalSettingRoutes | EModalAddressBookRoutes,

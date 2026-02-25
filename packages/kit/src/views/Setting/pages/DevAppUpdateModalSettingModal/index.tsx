@@ -10,11 +10,13 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IJSBundle } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import { BundleUpdate } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import { getJsBundlePathAsync } from '@onekeyhq/shared/src/modules3rdParty/auto-update/useJsBundle';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 
 function BundleTestsContent({
   showTestResult,
@@ -112,6 +114,7 @@ function BundleTestsContent({
 }
 
 export default function DevAppUpdateModalSettingModal() {
+  const navigation = useAppNavigation();
   const showTestResult = (
     result: boolean | { success: boolean; message: string },
   ) => {
@@ -323,6 +326,22 @@ export default function DevAppUpdateModalSettingModal() {
             <SizableText size="$headingSm">
               {`js bundle path: ${jsBundlePath}`}
             </SizableText>
+          ) : null}
+
+          {platformEnv.isNative || platformEnv.isDesktop ? (
+            <>
+              <Divider />
+              <Button
+                variant="primary"
+                onPress={() => {
+                  navigation.push(
+                    EModalSettingRoutes.SettingDevBundleVersionList,
+                  );
+                }}
+              >
+                JS Bundle Switcher
+              </Button>
+            </>
           ) : null}
 
           {fallbackBundles.length > 0 ? (

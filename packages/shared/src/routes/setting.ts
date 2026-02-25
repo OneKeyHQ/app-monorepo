@@ -28,6 +28,9 @@ export enum EModalSettingRoutes {
   SettingManageAccountActivity = 'SettingManageAccountActivity',
   SettingAlignPrimaryAccount = 'SettingAlignPrimaryAccount',
   SettingFloatingIconModal = 'SettingFloatingIconModal',
+  // Dev JS Bundle Switcher
+  SettingDevBundleVersionList = 'SettingDevBundleVersionList',
+  SettingDevBundleList = 'SettingDevBundleList',
   // OneKey ID sub-pages
   SettingOneKeyIdPersonalInfo = 'SettingOneKeyIdPersonalInfo',
   SettingOneKeyIdSignInSecurity = 'SettingOneKeyIdSignInSecurity',
@@ -68,6 +71,9 @@ export type IModalSettingParamList = {
   [EModalSettingRoutes.SettingAlignPrimaryAccount]: undefined;
   [EModalSettingRoutes.SettingFloatingIconModal]: undefined;
   [EModalSettingRoutes.SettingPerpUserConfig]: undefined;
+  // Dev JS Bundle Switcher
+  [EModalSettingRoutes.SettingDevBundleVersionList]: undefined;
+  [EModalSettingRoutes.SettingDevBundleList]: { version: string };
   // OneKey ID sub-pages
   [EModalSettingRoutes.SettingOneKeyIdPersonalInfo]: undefined;
   [EModalSettingRoutes.SettingOneKeyIdSignInSecurity]: undefined;
