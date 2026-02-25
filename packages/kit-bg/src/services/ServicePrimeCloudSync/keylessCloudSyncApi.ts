@@ -14,8 +14,8 @@ import type {
 
 import type { AxiosInstance, AxiosResponse } from 'axios';
 
-class KeylessCloudSyncMockApi {
-  private async postToMockServer<T>({
+class KeylessCloudSyncApi {
+  private async postToServer<T>({
     client,
     url,
     signatureHeader,
@@ -35,10 +35,13 @@ class KeylessCloudSyncMockApi {
       });
       return response;
     } catch (error) {
-      console.warn('[MockAPI] Mock server unavailable, fallback to memory.', {
-        url,
-        error,
-      });
+      console.warn(
+        '[CloudSyncAPI] Cloud sync server unavailable, fallback to memory.',
+        {
+          url,
+          error,
+        },
+      );
       throw error;
     }
   }
@@ -49,7 +52,7 @@ class KeylessCloudSyncMockApi {
     signatureHeader: string;
     postData: ICloudSyncUploadPostData;
   }): Promise<AxiosResponse<IApiClientResponse<ICloudSyncUploadResult>, any>> {
-    return this.postToMockServer<ICloudSyncUploadResult>({
+    return this.postToServer<ICloudSyncUploadResult>({
       client: params.client,
       url: params.urlPath,
       signatureHeader: params.signatureHeader,
@@ -64,7 +67,7 @@ class KeylessCloudSyncMockApi {
   }): Promise<
     AxiosResponse<IApiClientResponse<ICloudSyncCheckServerStatusResult>, any>
   > {
-    return this.postToMockServer<ICloudSyncCheckServerStatusResult>({
+    return this.postToServer<ICloudSyncCheckServerStatusResult>({
       client: params.client,
       url: '/prime/v1/sync/check',
       signatureHeader: params.signatureHeader,
@@ -80,7 +83,7 @@ class KeylessCloudSyncMockApi {
     AxiosResponse<IApiClientResponse<ICloudSyncDownloadResult>, any>
   > {
     if (params.signatureHeader) {
-      return this.postToMockServer<ICloudSyncDownloadResult>({
+      return this.postToServer<ICloudSyncDownloadResult>({
         client: params.client,
         url: '/prime/v1/sync/download',
         signatureHeader: params.signatureHeader,
@@ -95,7 +98,7 @@ class KeylessCloudSyncMockApi {
     client: AxiosInstance;
     signatureHeader: string;
   }): Promise<void> {
-    await this.postToMockServer<{ cleared: boolean }>({
+    await this.postToServer<{ cleared: boolean }>({
       client: params.client,
       url: '/prime/v1/sync/clear',
       signatureHeader: params.signatureHeader,
@@ -104,4 +107,4 @@ class KeylessCloudSyncMockApi {
   }
 }
 
-export const keylessMockApi = new KeylessCloudSyncMockApi();
+export const keylessCloudSyncApi = new KeylessCloudSyncApi();

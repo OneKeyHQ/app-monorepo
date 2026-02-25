@@ -1431,8 +1431,7 @@ class ServicePrimeCloudSync extends ServiceBase {
 
   @backgroundMethod()
   async getKeylessCloudSyncCredentialCache() {
-    return this.backgroundApi.serviceKeylessCloudSync.getKeylessCloudSyncCredentialCache(
-    );
+    return this.backgroundApi.serviceKeylessCloudSync.getKeylessCloudSyncCredentialCache();
   }
 
   buildSyncCredentialWithKeylessCredential(

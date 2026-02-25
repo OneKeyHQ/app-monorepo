@@ -1,7 +1,5 @@
 /* eslint-disable no-continue */
-import {
-  backgroundClass,
-} from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { backgroundClass } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -23,18 +21,16 @@ import type {
 } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
 
 import localDb from '../../dbs/local/localDb';
-import type {
-  IDBCloudSyncItem,
-  IDBWallet,
-} from '../../dbs/local/types';
 import {
   devSettingsPersistAtom,
   primeCloudSyncPersistAtom,
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
 import cloudSyncItemBuilder from '../ServicePrimeCloudSync/cloudSyncItemBuilder';
-import { keylessMockApi } from '../ServicePrimeCloudSync/keylessCloudSyncMockApi';
+import { keylessCloudSyncApi } from '../ServicePrimeCloudSync/keylessCloudSyncApi';
 import keylessCloudSyncUtils from '../ServicePrimeCloudSync/keylessCloudSyncUtils';
+
+import type { IDBCloudSyncItem, IDBWallet } from '../../dbs/local/types';
 
 @backgroundClass()
 class ServiceKeylessCloudSync extends ServiceBase {
@@ -128,7 +124,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
 
     const client = await this.backgroundApi.servicePrime.getPrimeClient();
 
-    const response = await keylessMockApi.checkStatus({
+    const response = await keylessCloudSyncApi.checkStatus({
       client,
       signatureHeader: auth.signatureHeader,
       postData: auth.fullPostData,
@@ -153,7 +149,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
 
     const client = await this.backgroundApi.servicePrime.getPrimeClient();
 
-    const response = await keylessMockApi.download({
+    const response = await keylessCloudSyncApi.download({
       client,
       signatureHeader: auth.signatureHeader,
       postData: auth.fullPostData,
@@ -177,7 +173,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
 
     const client = await this.backgroundApi.servicePrime.getPrimeClient();
 
-    const response = await keylessMockApi.upload({
+    const response = await keylessCloudSyncApi.upload({
       client,
       signatureHeader: auth.signatureHeader,
       postData: auth.fullPostData,
@@ -425,7 +421,9 @@ class ServiceKeylessCloudSync extends ServiceBase {
 
       const { isCloudSyncEnabled } = await primeCloudSyncPersistAtom.get();
       if (isCloudSyncEnabled) {
-        await this.backgroundApi.servicePrimeCloudSync.setCloudSyncEnabled(false);
+        await this.backgroundApi.servicePrimeCloudSync.setCloudSyncEnabled(
+          false,
+        );
       }
     }
 
@@ -467,10 +465,12 @@ class ServiceKeylessCloudSync extends ServiceBase {
               }),
             });
             try {
-              await this.backgroundApi.servicePrimeCloudSync.startServerSyncFlow({
-                setUndefinedTimeToNow: true,
-                callerName: 'Enable Keyless Cloud Sync',
-              });
+              await this.backgroundApi.servicePrimeCloudSync.startServerSyncFlow(
+                {
+                  setUndefinedTimeToNow: true,
+                  callerName: 'Enable Keyless Cloud Sync',
+                },
+              );
             } finally {
               await timerUtils.wait(1000);
               await this.hideDialogLoading();

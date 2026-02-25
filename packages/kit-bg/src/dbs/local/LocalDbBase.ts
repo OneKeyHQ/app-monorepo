@@ -237,9 +237,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     throw new NotImplemented();
   }
 
-  async getContext(
-    options?: IDBApiGetContextOptions | undefined,
-  ): Promise<IDBContext> {
+  async getContext(options?: IDBApiGetContextOptions): Promise<IDBContext> {
     const ctx = await this.getRecordById({
       name: ELocalDBStoreNames.Context,
       id: DB_MAIN_CONTEXT_ID,
@@ -967,13 +965,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     }
   }
 
-  async getWalletsByXfp({
-    xfp,
-    includingKeylessWallets = false,
-  }: {
-    xfp: string;
-    includingKeylessWallets?: boolean;
-  }): Promise<IDBWallet[]> {
+  async getWalletsByXfp({ xfp }: { xfp: string }): Promise<IDBWallet[]> {
     try {
       if (!xfp) {
         return [];

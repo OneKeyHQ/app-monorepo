@@ -227,7 +227,7 @@ const ButtonComponent = ButtonFrame.styleable<IButtonProps, any, any>(
       variant = 'secondary',
       childrenAsText = true,
       textEllipsis,
-      onPress,
+      onPress: onPressProp,
       ...rest
     } = useProps(props, {});
 
@@ -246,9 +246,9 @@ const ButtonComponent = ButtonFrame.styleable<IButtonProps, any, any>(
       color: ColorTokens;
     };
 
-    const { onLongPress } = useSharedPress({
+    const { onLongPress, onPress } = useSharedPress({
       ...rest,
-      onPress,
+      onPress: onPressProp,
     });
 
     const handlePressWithLoading = useMemo(() => {
@@ -261,8 +261,10 @@ const ButtonComponent = ButtonFrame.styleable<IButtonProps, any, any>(
           setInternalLoading(true);
           // eslint-disable-next-line @typescript-eslint/await-thenable
           await onPress(event);
-        } finally {
           setInternalLoading(false);
+        } catch (error) {
+          setInternalLoading(false);
+          throw error;
         }
       };
     }, [onPressLoadingEnabled, onPress]);

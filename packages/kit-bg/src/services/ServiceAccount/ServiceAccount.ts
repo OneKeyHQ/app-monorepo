@@ -2745,7 +2745,6 @@ class ServiceAccount extends ServiceBase {
     if (walletXfp) {
       wallets = await localDb.getWalletsByXfp({
         xfp: walletXfp,
-        includingKeylessWallets: true,
       });
     } else if (params.indexedAccountId) {
       const { walletId } = accountUtils.parseIndexedAccountId({
