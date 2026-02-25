@@ -1,49 +1,41 @@
-import { check, checkIsDefined, checkIsUndefined } from './assertUtils';
+import {
+  assert,
+  assertIsDefined,
+  assertNever,
+} from './assertUtils';
 
-test('Check statement expect correct', () => {
-  check(true);
-  check(1);
-  check('a');
-  check({});
-});
+describe('assertUtils', () => {
+  describe('assert', () => {
+    it('should not throw for true condition', () => {
+      expect(() => assert(true, 'error message')).not.toThrow();
+    });
 
-test('Check statement expect failed', () => {
-  expect(() => check(false)).toThrow('Invalid statement');
-  expect(() => check(0)).toThrow('Invalid statement');
-  expect(() => check('')).toThrow('Invalid statement');
-  expect(() => check(null)).toThrow('Invalid statement');
-  expect(() => check(undefined)).toThrow('Invalid statement');
-});
+    it('should throw for false condition', () => {
+      expect(() => assert(false, 'error message')).toThrow('error message');
+    });
 
-test('Throw custom error', () => {
-  expect(() => check(false, 'Something wrong here')).toThrow(
-    'Something wrong here',
-  );
-  expect(() => check(false, new Error('Something wrong here'))).toThrow(
-    'Something wrong here',
-  );
-});
+    it('should throw with default message', () => {
+      expect(() => assert(false)).toThrow();
+    });
+  });
 
-test('check is defined', () => {
-  const hold: any = { a: 1, b: undefined };
+  describe('assertIsDefined', () => {
+    it('should not throw for defined value', () => {
+      expect(() => assertIsDefined('value', 'value')).not.toThrow();
+    });
 
-  expect(checkIsDefined(hold.a)).toBe(1);
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-  expect(() => checkIsDefined(hold.b)).toThrow(
-    'Expect defined but actually undefined',
-  );
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-  expect(() => checkIsDefined(hold.c)).toThrow(
-    'Expect defined but actually undefined',
-  );
-});
+    it('should throw for undefined value', () => {
+      expect(() => assertIsDefined(undefined, 'value')).toThrow();
+    });
 
-test('check is undefined', () => {
-  const hold: any = { a: 1, b: undefined };
+    it('should throw for null value', () => {
+      expect(() => assertIsDefined(null, 'value')).toThrow();
+    });
+  });
 
-  checkIsUndefined(hold.b);
-  checkIsUndefined(hold.c);
-  expect(() => checkIsUndefined(hold.a)).toThrow(
-    'Expect undefined but actually 1',
-  );
+  describe('assertNever', () => {
+    it('should always throw', () => {
+      expect(() => assertNever('value' as never)).toThrow();
+    });
+  });
 });
