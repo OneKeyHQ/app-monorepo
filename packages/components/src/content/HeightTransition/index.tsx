@@ -3,7 +3,6 @@ import { useEffect } from 'react';
 
 import { StyleSheet } from 'react-native';
 import Animated, {
-  cancelAnimation,
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
@@ -47,18 +46,16 @@ function HeightTransition({
 }: IHeightTransitionProps) {
   const measuredHeight = useSharedValue(initialHeight);
 
-  // On Android with Fabric/New Architecture, cancel pending animations on
-  // unmount to prevent stale worklet references that can cause SIGSEGV in
-  // Value::~Value during navigation transitions.
-  // NOTE: this suppresses the onHeightDidAnimate callback if unmount happens
-  // mid-animation, which is acceptable since the component is being removed.
+  // On Android with Fabric/New Architecture, guard against stale worklet
+  // callbacks that can cause SIGSEGV in Value::~Value during navigation
+  // transitions. This shared value is checked on the UI thread inside
+  // withTiming completion callbacks to skip runOnJS calls after unmount.
+  const isMounted = useSharedValue(1);
   useEffect(
     () => () => {
-      if (platformEnv.isNativeAndroid) {
-        cancelAnimation(measuredHeight);
-      }
+      isMounted.value = 0;
     },
-    [measuredHeight],
+    [isMounted],
   );
 
   const childStyle = useAnimatedStyle(
@@ -71,12 +68,12 @@ function HeightTransition({
   const containerStyle = useAnimatedStyle(
     () => ({
       height: withTiming(hide ? 0 : measuredHeight.value, transition, () => {
-        if (onHeightDidAnimate) {
+        if (onHeightDidAnimate && isMounted.value) {
           runOnJS(onHeightDidAnimate)(measuredHeight.value);
         }
       }),
     }),
-    [hide, measuredHeight],
+    [hide, measuredHeight, isMounted],
   );
 
   return (
