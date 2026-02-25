@@ -711,7 +711,7 @@ class ServiceMarketV2 extends ServiceBase {
       code: number;
       message: string;
       data: IMarketBannerTokenListResponse;
-    }>(`/utility/v2/market/banner/token-list/${tokenListId}`);
+    }>(`/utility/v2/market/banner/token-list/${encodeURIComponent(tokenListId)}`);
     const { data } = response.data;
     return data.list;
   }
@@ -724,7 +724,7 @@ class ServiceMarketV2 extends ServiceBase {
   }): Promise<IMarketPerpsTokenListData> {
     const client = await this.getClient(EServiceEndpointEnum.Utility);
     const response = await client.get<IMarketPerpsTokenListResponse>(
-      `/utility/v2/market/banner/perps-token-list/${tokenListId}`,
+      `/utility/v2/market/banner/perps-token-list/${encodeURIComponent(tokenListId)}`,
     );
     return response.data.data;
   }

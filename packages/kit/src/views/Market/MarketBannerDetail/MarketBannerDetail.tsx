@@ -26,6 +26,7 @@ import {
   EWatchlistFrom,
 } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   type ETabMarketRoutes,
   ETabRoutes,
@@ -109,6 +110,7 @@ function PerpsTokenListSection({
               dataSource={tokens}
               keyExtractor={(item) => item.name}
               estimatedItemSize="$14"
+              extraData={tokens.length}
               TableEmptyComponent={TableEmptyComponent}
               onRow={(item) => ({
                 onPress: () => navigateToPerps(item.name),
@@ -186,6 +188,7 @@ function MarketBannerDetailContent({ title }: { title: string }) {
     },
     [tokenListId, isPerps],
     {
+      pollingInterval: timerUtils.getTimeDurationMs({ seconds: 30 }),
       watchLoading: true,
     },
   );

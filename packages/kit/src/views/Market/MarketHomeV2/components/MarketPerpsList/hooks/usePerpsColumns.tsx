@@ -235,11 +235,12 @@ export function usePerpsColumnsDesktop(): ITableColumn<IMarketPerpsToken>[] {
 }
 
 export function usePerpsColumnsMobile(): ITableColumn<IMarketPerpsToken>[] {
+  const intl = useIntl();
   return useMemo(
     () => [
       // Column 1: Token info
       {
-        title: 'Token',
+        title: intl.formatMessage({ id: ETranslations.global_name }),
         titleProps: { paddingBottom: '$2', paddingLeft: '$3' },
         dataIndex: 'tokenInfo',
         columnWidth: '50%',
@@ -287,7 +288,7 @@ export function usePerpsColumnsMobile(): ITableColumn<IMarketPerpsToken>[] {
       },
       // Column 2: Price + Change
       {
-        title: 'Price / Change',
+        title: `${intl.formatMessage({ id: ETranslations.global_price })} / ${intl.formatMessage({ id: ETranslations.dexmarket_token_change })}`,
         titleProps: { paddingBottom: '$2', paddingRight: '$3' },
         dataIndex: 'price',
         columnWidth: '50%',
@@ -334,7 +335,7 @@ export function usePerpsColumnsMobile(): ITableColumn<IMarketPerpsToken>[] {
         ),
       },
     ],
-    [],
+    [intl],
   );
 }
 
