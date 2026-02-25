@@ -500,11 +500,12 @@ class DesktopApiAppBundleUpdate {
       }
 
       // Verify all extracted files against metadata SHA256 hashes
-      if (fs.existsSync(metadataFilePath)) {
-        const metadataContent = fs.readFileSync(metadataFilePath, 'utf8');
-        const metadata = JSON.parse(metadataContent) as Record<string, string>;
-        this.verifyAllExtractedFiles(extractDir, metadata, extractDir);
+      if (!fs.existsSync(metadataFilePath)) {
+        throw new Error('metadata.json not found after extraction');
       }
+      const metadataContent = fs.readFileSync(metadataFilePath, 'utf8');
+      const metadata = JSON.parse(metadataContent) as Record<string, string>;
+      this.verifyAllExtractedFiles(extractDir, metadata, extractDir);
     } catch (error) {
       // Cleanup extracted directory on verification failure
       if (fs.existsSync(extractDir)) {
