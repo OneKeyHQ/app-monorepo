@@ -1,10 +1,10 @@
 import type { PropsWithChildren } from 'react';
-import { useCallback, useMemo } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
-import { Page, Spinner, Stack } from '@onekeyhq/components';
+import { Page } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -27,6 +27,110 @@ import type {
 import { NetworkContainer } from '../NetworkContainer';
 import { useTokenDataContext } from '../TokenDataContainer';
 
+type ISellOrBuyContentProps = {
+  type: IFiatCryptoType;
+  networkId: string;
+  accountId?: string;
+};
+
+export const SellOrBuyContent = memo(
+  ({ type, networkId, accountId }: ISellOrBuyContentProps) => {
+    const appNavigation =
+      useAppNavigation<
+        IPageNavigationProp<
+          IModalFiatCryptoParamList,
+          EModalFiatCryptoRoutes.BuyModal
+        >
+      >();
+    const { result: tokens, isLoading } = useGetTokensList({
+      networkId,
+      accountId,
+      type,
+    });
+    const { getTokenFiatValue } = useTokenDataContext();
+    const { account } = useAccountData({ networkId, accountId });
+
+    const fiatValueTokens = useMemo(() => {
+      if (!networkUtils.isAllNetwork({ networkId })) {
+        return tokens;
+      }
+      let result = tokens.map((token) => ({
+        ...token,
+        fiatValue: getTokenFiatValue({
+          networkId: token.networkId,
+          tokenAddress: token.address.toLowerCase(),
+        })?.fiatValue,
+        balanceParsed: getTokenFiatValue({
+          networkId: token.networkId,
+          tokenAddress: token.address.toLowerCase(),
+        })?.balanceParsed,
+      }));
+      if (type === 'sell') {
+        result = result.filter(
+          (o) => o.balanceParsed && Number(o.balanceParsed) !== 0,
+        );
+      }
+      if (account && accountUtils.isOthersAccount({ accountId: account.id })) {
+        result = result.filter((o) =>
+          accountUtils.isAccountCompatibleWithNetwork({
+            account,
+            networkId: o.networkId,
+          }),
+        );
+      }
+      return result.toSorted((a, b) => {
+        const num1 = a.fiatValue ?? '0';
+        const num2 = b.fiatValue ?? '0';
+        return BigNumber(num1).comparedTo(num2) * -1;
+      });
+    }, [tokens, getTokenFiatValue, networkId, type, account]);
+
+    const onPress = useCallback(
+      async ({
+        token,
+        realAccountId,
+      }: {
+        token: IFiatCryptoToken;
+        realAccountId?: string;
+      }) => {
+        if (type === 'buy') {
+          defaultLogger.wallet.walletActions.buyStarted({
+            tokenAddress: token.address,
+            tokenSymbol: token.symbol,
+            networkID: token.networkId,
+          });
+        }
+        const { url } =
+          await backgroundApiProxy.serviceFiatCrypto.generateWidgetUrl({
+            networkId: token.networkId,
+            tokenAddress: token.address,
+            accountId: realAccountId,
+            type,
+          });
+        openUrlExternal(url);
+        appNavigation.popStack();
+      },
+      [appNavigation, type],
+    );
+
+    const networkIds = useMemo(
+      () => Array.from(new Set(fiatValueTokens.map((o) => o.networkId))),
+      [fiatValueTokens],
+    );
+
+    return (
+      <NetworkContainer networkIds={networkIds}>
+        <TokenList
+          items={fiatValueTokens}
+          isLoading={isLoading}
+          onPress={onPress}
+        />
+      </NetworkContainer>
+    );
+  },
+);
+SellOrBuyContent.displayName = 'SellOrBuyContent';
+
 type ISellOrBuyProps = {
   title: string;
   type: IFiatCryptoType;
@@ -34,107 +138,18 @@ type ISellOrBuyProps = {
   accountId?: string;
 };
 
-const SellOrBuy = ({ title, type, networkId, accountId }: ISellOrBuyProps) => {
-  const appNavigation =
-    useAppNavigation<
-      IPageNavigationProp<
-        IModalFiatCryptoParamList,
-        EModalFiatCryptoRoutes.BuyModal
-      >
-    >();
-  const { result: tokens, isLoading } = useGetTokensList({
-    networkId,
-    accountId,
-    type,
-  });
-  const { getTokenFiatValue } = useTokenDataContext();
-  const { account } = useAccountData({ networkId, accountId });
-
-  const fiatValueTokens = useMemo(() => {
-    if (!networkUtils.isAllNetwork({ networkId })) {
-      return tokens;
-    }
-    let result = tokens.map((token) => ({
-      ...token,
-      fiatValue: getTokenFiatValue({
-        networkId: token.networkId,
-        tokenAddress: token.address.toLowerCase(),
-      })?.fiatValue,
-      balanceParsed: getTokenFiatValue({
-        networkId: token.networkId,
-        tokenAddress: token.address.toLowerCase(),
-      })?.balanceParsed,
-    }));
-    if (type === 'sell') {
-      result = result.filter(
-        (o) => o.balanceParsed && Number(o.balanceParsed) !== 0,
-      );
-    }
-    if (account && accountUtils.isOthersAccount({ accountId: account.id })) {
-      result = result.filter((o) =>
-        accountUtils.isAccountCompatibleWithNetwork({
-          account,
-          networkId: o.networkId,
-        }),
-      );
-    }
-    return result.toSorted((a, b) => {
-      const num1 = a.fiatValue ?? '0';
-      const num2 = b.fiatValue ?? '0';
-      return BigNumber(num1).comparedTo(num2) * -1;
-    });
-  }, [tokens, getTokenFiatValue, networkId, type, account]);
-
-  const onPress = useCallback(
-    async ({
-      token,
-      realAccountId,
-    }: {
-      token: IFiatCryptoToken;
-      realAccountId?: string;
-    }) => {
-      if (type === 'buy') {
-        defaultLogger.wallet.walletActions.buyStarted({
-          tokenAddress: token.address,
-          tokenSymbol: token.symbol,
-          networkID: token.networkId,
-        });
-      }
-      const { url } =
-        await backgroundApiProxy.serviceFiatCrypto.generateWidgetUrl({
-          networkId: token.networkId,
-          tokenAddress: token.address,
-          accountId: realAccountId,
-          type,
-        });
-      openUrlExternal(url);
-      appNavigation.popStack();
-    },
-    [appNavigation, type],
-  );
-
-  const networkIds = useMemo(
-    () => Array.from(new Set(fiatValueTokens.map((o) => o.networkId))),
-    [fiatValueTokens],
-  );
-
-  return (
-    <Page safeAreaEnabled={false}>
-      <Page.Header title={title} />
-      <Page.Body>
-        <NetworkContainer networkIds={networkIds}>
-          {isLoading ? (
-            <Stack minHeight={300} justifyContent="center" alignItems="center">
-              <Spinner size="large" />
-            </Stack>
-          ) : (
-            <TokenList items={fiatValueTokens} onPress={onPress} />
-          )}
-        </NetworkContainer>
-      </Page.Body>
-    </Page>
-  );
-};
+const SellOrBuy = ({ title, type, networkId, accountId }: ISellOrBuyProps) => (
+  <Page safeAreaEnabled={false}>
+    <Page.Header title={title} />
+    <Page.Body>
+      <SellOrBuyContent
+        type={type}
+        networkId={networkId}
+        accountId={accountId}
+      />
+    </Page.Body>
+  </Page>
+);
 
 export default withBrowserProvider<PropsWithChildren<ISellOrBuyProps>>(
   SellOrBuy,
