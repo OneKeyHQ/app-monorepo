@@ -46,7 +46,38 @@ class ServiceAppUpdate extends ServiceBase {
       data: IResponseAppUpdateInfo;
     }>('/utility/v1/app-update');
     const { code, data } = response.data;
-    if (code === 0) {
+    if (code === 0 && data) {
+      // Security: Validate updateStrategy is a known enum value
+      if (
+        data.updateStrategy !== undefined &&
+        ![
+          EUpdateStrategy.silent,
+          EUpdateStrategy.force,
+          EUpdateStrategy.manual,
+          EUpdateStrategy.seamless,
+        ].includes(data.updateStrategy)
+      ) {
+        defaultLogger.app.appUpdate.endInstallPackage(
+          false,
+          new Error(
+            `Invalid updateStrategy value: ${String(data.updateStrategy)}`,
+          ),
+        );
+        return this.cachedUpdateInfo;
+      }
+      // Security: Validate jsBundle fields if present
+      if (data.jsBundle) {
+        if (
+          data.jsBundle.downloadUrl &&
+          !data.jsBundle.downloadUrl.startsWith('https://')
+        ) {
+          defaultLogger.app.appUpdate.endInstallPackage(
+            false,
+            new Error('jsBundle downloadUrl must use HTTPS'),
+          );
+          return this.cachedUpdateInfo;
+        }
+      }
       this.updateAt = Date.now();
       this.cachedUpdateInfo = data;
     }

@@ -741,7 +741,19 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
         fileType === EUpdateFileType.jsBundle &&
         appUpdateInfo.updateStrategy === EUpdateStrategy.seamless
       ) {
-        void BundleUpdate.installBundle(appUpdateInfo.downloadedEvent);
+        // Only install if signature verification data is present
+        if (
+          appUpdateInfo.downloadedEvent?.signature &&
+          appUpdateInfo.downloadedEvent?.sha256
+        ) {
+          void BundleUpdate.installBundle(appUpdateInfo.downloadedEvent);
+        } else {
+          defaultLogger.app.appUpdate.endInstallPackage(
+            false,
+            new Error('Missing signature or sha256 for seamless install'),
+          );
+          void backgroundApiProxy.serviceAppUpdate.reset();
+        }
       } else if (appUpdateInfo.updateStrategy === EUpdateStrategy.silent) {
         showSilentUpdateDialog();
       } else {

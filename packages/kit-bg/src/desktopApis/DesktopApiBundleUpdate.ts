@@ -94,6 +94,12 @@ class DesktopApiAppBundleUpdate {
       this.isDownloading = false;
       return Promise.reject(new Error('Invalid parameters'));
     }
+    if (!bundleUrl.startsWith('https://')) {
+      this.isDownloading = false;
+      return Promise.reject(
+        new Error('Bundle download URL must use HTTPS'),
+      );
+    }
     this.isDownloading = true;
     return new Promise<IUpdateDownloadedEvent>((resolve, reject) => {
       setTimeout(async () => {
@@ -413,6 +419,16 @@ class DesktopApiAppBundleUpdate {
 
     try {
       const zip = new AdmZip(downloadedFile);
+      const resolvedExtractDir = path.resolve(extractDir);
+      // Validate all zip entries for path traversal before extraction
+      for (const entry of zip.getEntries()) {
+        const entryPath = path.resolve(resolvedExtractDir, entry.entryName);
+        if (!entryPath.startsWith(resolvedExtractDir + path.sep) && entryPath !== resolvedExtractDir) {
+          throw new OneKeyLocalError(
+            `Path traversal detected in zip entry: ${entry.entryName}`,
+          );
+        }
+      }
       zip.extractAllTo(extractDir, true);
     } catch (error) {
       logger.error('Failed to extract bundle zip file:', error);
@@ -425,6 +441,47 @@ class DesktopApiAppBundleUpdate {
     });
     logger.info('bundle-verifyBundleASC', metadataFilePath);
     await verifyMetadataFileSha256({ appVersion, bundleVersion, signature });
+
+    // Verify all extracted files against metadata SHA256 hashes
+    if (fs.existsSync(metadataFilePath)) {
+      const metadataContent = fs.readFileSync(metadataFilePath, 'utf8');
+      const metadata = JSON.parse(metadataContent) as Record<string, string>;
+      this.verifyAllExtractedFiles(extractDir, metadata, extractDir);
+    }
+  }
+
+  private verifyAllExtractedFiles(
+    dirPath: string,
+    metadata: Record<string, string>,
+    baseDir: string,
+  ) {
+    const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+    for (const entry of entries) {
+      const fullPath = path.join(dirPath, entry.name);
+      if (entry.isDirectory()) {
+        this.verifyAllExtractedFiles(fullPath, metadata, baseDir);
+      } else {
+        if (entry.name === 'metadata.json' || entry.name === '.DS_Store') {
+          continue;
+        }
+        const relativePath = path
+          .relative(baseDir, fullPath)
+          .split(path.sep)
+          .join('/');
+        const expectedSha256 = metadata[relativePath];
+        if (!expectedSha256) {
+          throw new OneKeyLocalError(
+            `File ${relativePath} not found in metadata`,
+          );
+        }
+        const actualSha256 = calculateSHA256(fullPath);
+        if (actualSha256 !== expectedSha256) {
+          throw new OneKeyLocalError(
+            `SHA256 mismatch for file ${relativePath}`,
+          );
+        }
+      }
+    }
   }
 
   async installBundle(params: IUpdateDownloadedEvent) {
@@ -437,6 +494,21 @@ class DesktopApiAppBundleUpdate {
       throw new OneKeyLocalError('Invalid parameters');
     }
     const currentUpdateBundleData = store.getUpdateBundleData();
+
+    // Security: Prevent version downgrade attacks
+    if (currentUpdateBundleData?.bundleVersion) {
+      const currentVersion = Number(currentUpdateBundleData.bundleVersion);
+      const newVersion = Number(bundleVersion);
+      if (
+        !Number.isNaN(currentVersion) &&
+        !Number.isNaN(newVersion) &&
+        newVersion < currentVersion
+      ) {
+        throw new OneKeyLocalError(
+          `Bundle version downgrade rejected: ${bundleVersion} < ${currentUpdateBundleData.bundleVersion}`,
+        );
+      }
+    }
 
     store.setUpdateBundleData({
       appVersion,

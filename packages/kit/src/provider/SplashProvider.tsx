@@ -48,6 +48,22 @@ export const useDisplaySplash =
               }
               if (appInfo.status === EAppUpdateStatus.ready) {
                 const fileType = getUpdateFileType(appInfo);
+                // Verify signature and downloadedEvent exist before installing
+                if (
+                  fileType === EUpdateFileType.jsBundle &&
+                  (!appInfo.downloadedEvent?.signature ||
+                    !appInfo.downloadedEvent?.sha256)
+                ) {
+                  defaultLogger.app.appUpdate.endInstallPackage(
+                    false,
+                    new Error(
+                      'Missing signature or sha256 for seamless install',
+                    ),
+                  );
+                  await backgroundApiProxy.serviceAppUpdate.reset();
+                  setDisplaySplash(true);
+                  return;
+                }
                 try {
                   defaultLogger.app.appUpdate.startInstallPackage({
                     fileType,

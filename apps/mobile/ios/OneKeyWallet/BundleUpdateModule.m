@@ -200,11 +200,23 @@ RCT_EXPORT_MODULE();
         return nil;
     }
     
-    // Get metadata content and validate main bundle
+    // Get metadata content and validate all files in bundle
     NSDictionary *metadata = [self getMetadataFileContent:currentBundleVersion];
     if (!metadata) {
         return nil;
     }
+
+    // Security: Validate ALL files against metadata, not just main.jsbundle.hbc
+    NSRange dashRange = [currentBundleVersion rangeOfString:@"-" options:NSBackwardsSearch];
+    if (dashRange.location != NSNotFound) {
+        NSString *appVer = [currentBundleVersion substringToIndex:dashRange.location];
+        NSString *bundleVer = [currentBundleVersion substringFromIndex:dashRange.location + 1];
+        if (![self validateAllFilesInDir:folderName metadata:metadata appVersion:appVer bundleVersion:bundleVer]) {
+            DDLogDebug(@"validateAllFilesInDir failed on startup");
+            return nil;
+        }
+    }
+
     NSString *manJsBundleName = @"main.jsbundle.hbc";
     NSString *mainJSBundle = [folderName stringByAppendingPathComponent:manJsBundleName];
     DDLogDebug(@"mainJSBundle path: %@", mainJSBundle);
@@ -212,16 +224,7 @@ RCT_EXPORT_MODULE();
         DDLogDebug(@"mainJSBundleFile does not exist");
         return nil;
     }
-    
-    // Validate main bundle SHA256
-    NSString *expectedSha256 = metadata[manJsBundleName];
-    NSString *calculatedSha256 = [self calculateSHA256:mainJSBundle];
-    DDLogDebug(@"calculatedSha256: %@, sha256: %@", calculatedSha256, expectedSha256);
-    
-    if (!calculatedSha256 || !expectedSha256 || ![calculatedSha256 isEqualToString:expectedSha256]) {
-        return nil;
-    }
-    
+
     return mainJSBundle;
 }
 
@@ -648,7 +651,18 @@ RCT_EXPORT_METHOD(verifyBundleASC:(NSDictionary *)params
         reject(@"INVALID_PARAMS", @"Bundle signature verification failed", nil);
         return;
     }
-    
+
+    // Security: Verify all extracted files against metadata
+    NSDictionary *metadata = [BundleUpdateModule getMetadataFileContent:currentBundleVersion];
+    if (!metadata) {
+        reject(@"INVALID_PARAMS", @"Failed to read metadata.json after extraction", nil);
+        return;
+    }
+    if (![BundleUpdateModule validateAllFilesInDir:destination metadata:metadata appVersion:appVersion bundleVersion:bundleVersion]) {
+        reject(@"INVALID_PARAMS", @"Extracted files verification against metadata failed", nil);
+        return;
+    }
+
     resolve(nil);
 }
 
@@ -719,6 +733,13 @@ RCT_EXPORT_METHOD(downloadBundle:(NSDictionary *)params
         reject(@"INVALID_PARAMS", @"downloadUrl and fileSize and sha256 and appVersion and bundleVersion are required", nil);
         return;
     }
+
+    // Security: Enforce HTTPS for bundle download URLs
+    if (![downloadUrl hasPrefix:@"https://"]) {
+        self.isDownloading = NO;
+        reject(@"INVALID_PARAMS", @"Bundle download URL must use HTTPS", nil);
+        return;
+    }
     
     NSString *fileName = [NSString stringWithFormat:@"%@-%@.zip", appVersion, bundleVersion];
     NSString *filePath = [BundleUpdateModule.downloadBundleDir stringByAppendingPathComponent:fileName];
@@ -766,7 +787,21 @@ RCT_EXPORT_METHOD(installBundle:(NSDictionary *)params
     }
 
     NSString *currentFolderName = [BundleUpdateModule currentBundleVersion];
-    
+
+    // Security: Prevent version downgrade attacks
+    if (currentFolderName) {
+        NSRange currentDashRange = [currentFolderName rangeOfString:@"-" options:NSBackwardsSearch];
+        if (currentDashRange.location != NSNotFound) {
+            NSString *currentBundleVer = [currentFolderName substringFromIndex:currentDashRange.location + 1];
+            NSInteger currentVerNum = [currentBundleVer integerValue];
+            NSInteger newVerNum = [bundleVersion integerValue];
+            if (newVerNum < currentVerNum) {
+                reject(@"INVALID_PARAMS", [NSString stringWithFormat:@"Bundle version downgrade rejected: %@ < %@", bundleVersion, currentBundleVer], nil);
+                return;
+            }
+        }
+    }
+
     NSString *folderName = [NSString stringWithFormat:@"%@-%@", appVersion, bundleVersion];
      NSUserDefaults *userDefaults = [NSUserDefaults standardUserDefaults];
     [userDefaults setObject:folderName forKey:@"currentBundleVersion"];

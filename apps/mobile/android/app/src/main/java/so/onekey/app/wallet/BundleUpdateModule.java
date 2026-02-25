@@ -290,6 +290,18 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
                 return null;
             }
             Map<String, String> metadata = parseMetadataJson(getMetadataFileContent(context, currentBundleVersion));
+
+            // Security: Validate ALL files against metadata on startup, not just main.jsbundle.hbc
+            int lastDashIndex = currentBundleVersion.lastIndexOf("-");
+            if (lastDashIndex > 0) {
+                String appVer = currentBundleVersion.substring(0, lastDashIndex);
+                String bundleVer = currentBundleVersion.substring(lastDashIndex + 1);
+                if (!validateAllFilesInDir(context, bundleDir, metadata, appVer, bundleVer)) {
+                    staticLog(TAG, "validateAllFilesInDir failed on startup");
+                    return null;
+                }
+            }
+
             String bundleName = "main.jsbundle.hbc";
             File mainJSBundleFile = new File(bundleDir, bundleName);
             String mainJSBundlePath = mainJSBundleFile.getAbsolutePath();
@@ -299,15 +311,6 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
                 return null;
             }
 
-            String sha256 = metadata.get("main.jsbundle.hbc");
-            String calculatedSha256 = calculateSHA256(mainJSBundlePath);
-            staticLog(TAG, "calculatedSha256: " + calculatedSha256 + ", sha256: " + sha256);
-            if (calculatedSha256 == null || sha256 == null) {
-                return null;
-            }
-            if (!calculatedSha256.equals(sha256)) {
-                return null;
-            }
             return mainJSBundlePath;
         } catch (IOException e) {
             staticLog(TAG, "Error getting package info: " + e.getMessage());
@@ -617,6 +620,15 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
                 promise.reject("INVALID_PARAMS", "Bundle signature verification failed");
                 return;
             }
+
+            // Security: Verify all extracted files against metadata
+            String metadataContent = readFileContent(metadataFile);
+            Map<String, String> metadata = parseMetadataJson(metadataContent);
+            if (!validateAllFilesInDir(reactContext, destination, metadata, appVersion, String.valueOf(bundleVersion))) {
+                promise.reject("INVALID_PARAMS", "Extracted files verification against metadata failed");
+                return;
+            }
+
             promise.resolve(null);
         } catch (Exception e) {
             log("verifyBundle", "Error: " + e.getMessage());
@@ -683,6 +695,13 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         if (downloadUrl == null || sha256 == null || appVersion == null || bundleVersion == null) {
             isDownloading = false;
             promise.reject("INVALID_PARAMS", "downloadUrl, fileSize, sha256, appVersion and bundleVersion are required");
+            return;
+        }
+
+        // Security: Enforce HTTPS for bundle download URLs
+        if (!downloadUrl.startsWith("https://")) {
+            isDownloading = false;
+            promise.reject("INVALID_PARAMS", "Bundle download URL must use HTTPS");
             return;
         }
 
@@ -790,6 +809,25 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         }
         String folderName = appVersion + "-" + bundleVersion;
         String currentFolderName = getCurrentBundleVersion(reactContext);
+
+        // Security: Prevent version downgrade attacks
+        if (currentFolderName != null && !currentFolderName.isEmpty()) {
+            int dashIndex = currentFolderName.lastIndexOf("-");
+            if (dashIndex > 0) {
+                try {
+                    String currentBundleVer = currentFolderName.substring(dashIndex + 1);
+                    long currentVerNum = Long.parseLong(currentBundleVer);
+                    long newVerNum = Long.parseLong(bundleVersion);
+                    if (newVerNum < currentVerNum) {
+                        promise.reject("INVALID_PARAMS", "Bundle version downgrade rejected: " + bundleVersion + " < " + currentBundleVer);
+                        return;
+                    }
+                } catch (NumberFormatException e) {
+                    log("installBundle", "Could not parse bundle versions for downgrade check");
+                }
+            }
+        }
+
         SharedPreferences readPrefs = reactContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         log("installBundle", "currentFolderName: " + currentFolderName);
         String currentSignature = currentFolderName != null 
