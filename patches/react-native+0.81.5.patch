@@ -13,7 +13,7 @@ index 05bddcb..5211253 100644
        registrationName: 'onChangeSync',
      },
 diff --git a/node_modules/react-native/Libraries/Text/TextInput/Multiline/RCTUITextView.mm b/node_modules/react-native/Libraries/Text/TextInput/Multiline/RCTUITextView.mm
-index 6e9c384..64e706f 100644
+index 6e9c384..a578600 100644
 --- a/node_modules/react-native/Libraries/Text/TextInput/Multiline/RCTUITextView.mm
 +++ b/node_modules/react-native/Libraries/Text/TextInput/Multiline/RCTUITextView.mm
 @@ -13,6 +13,10 @@
@@ -35,10 +35,10 @@ index 6e9c384..64e706f 100644
  }
  
  static UIFont *defaultPlaceholderFont(void)
-@@ -209,9 +214,80 @@ - (void)scrollRangeToVisible:(NSRange)range
+@@ -208,10 +213,81 @@ - (void)scrollRangeToVisible:(NSRange)range
+ 
  - (void)paste:(id)sender
  {
-   _textWasPasted = YES;
 +  UIPasteboard *clipboard = [UIPasteboard generalPasteboard];
 +
 +  // Handle image paste
@@ -47,6 +47,7 @@ index 6e9c384..64e706f 100644
 +  }
 +
 +  // Handle text paste
+   _textWasPasted = YES;
 +  if (clipboard.hasStrings) {
 +    [_textInputDelegateAdapter didPaste:@"text/plain" withData:clipboard.string];
 +  }
@@ -271,7 +272,7 @@ index 47adc53..1865e0a 100644
  RCT_EXPORT_SHADOW_PROPERTY(text, NSString)
  RCT_EXPORT_SHADOW_PROPERTY(placeholder, NSString)
 diff --git a/node_modules/react-native/Libraries/Text/TextInput/Singleline/RCTUITextField.mm b/node_modules/react-native/Libraries/Text/TextInput/Singleline/RCTUITextField.mm
-index 377f41e..129e6a9 100644
+index 377f41e..d8dac65 100644
 --- a/node_modules/react-native/Libraries/Text/TextInput/Singleline/RCTUITextField.mm
 +++ b/node_modules/react-native/Libraries/Text/TextInput/Singleline/RCTUITextField.mm
 @@ -12,12 +12,17 @@
@@ -303,7 +304,7 @@ index 377f41e..129e6a9 100644
    return [super canPerformAction:action withSender:sender];
  }
  
-@@ -260,10 +269,68 @@ - (void)scrollRangeToVisible:(NSRange)range
+@@ -260,12 +269,83 @@ - (void)scrollRangeToVisible:(NSRange)range
    // Singleline TextInput does not require scrolling after calling setSelectedTextRange (PR 38679).
  }
  
@@ -314,65 +315,79 @@ index 377f41e..129e6a9 100644
 +
  - (void)paste:(id)sender
  {
-   _textWasPasted = YES;
--  [super paste:sender];
 +  UIPasteboard *clipboard = [UIPasteboard generalPasteboard];
-+  if (clipboard.hasImages) {
-+    // Prevent concurrent image paste operations from rapid taps
-+    if (_isProcessingImagePaste) {
-+      return;
-+    }
-+    for (NSItemProvider *itemProvider in clipboard.itemProviders) {
-+      if ([itemProvider hasItemConformingToTypeIdentifier:(NSString *)kUTTypeImage]) {
-+        for (NSString *identifier in itemProvider.registeredTypeIdentifiers) {
-+          if (UTTypeConformsTo((__bridge CFStringRef)identifier, kUTTypeImage)) {
-+            _isProcessingImagePaste = YES;
-+            __weak typeof(self) weakSelf = self;
-+            // Load data asynchronously to avoid blocking the main thread (IPC to pasteboard daemon)
-+            [itemProvider loadDataRepresentationForTypeIdentifier:identifier completionHandler:^(NSData *data, NSError *error) {
-+              dispatch_async(dispatch_get_main_queue(), ^{
-+                __strong typeof(weakSelf) strongSelf = weakSelf;
-+                if (!strongSelf) {
-+                  return;
-+                }
-+                strongSelf->_isProcessingImagePaste = NO;
 +
-+                if (error || !data) {
-+                  // Fallback to text paste on failure
-+                  if (clipboard.hasStrings) {
-+                    [strongSelf->_textInputDelegateAdapter didPaste:@"text/plain" withData:clipboard.string];
-+                  }
-+                  [strongSelf _superPaste:nil];
-+                  return;
-+                }
-+
-+                NSString *MIMEType = (__bridge_transfer NSString *)UTTypeCopyPreferredTagWithClass((__bridge CFStringRef)identifier, kUTTagClassMIMEType);
-+                NSString *fileExtension = (__bridge_transfer NSString *)UTTypeCopyPreferredTagWithClass((__bridge CFStringRef)identifier, kUTTagClassFilenameExtension);
-+                NSString *fileName = [NSString stringWithFormat:@"%@.%@", [[NSUUID UUID] UUIDString], fileExtension];
-+                NSString *filePath = [NSTemporaryDirectory() stringByAppendingPathComponent:fileName];
-+
-+                if ([data writeToFile:filePath atomically:YES]) {
-+                  NSURL *fileURL = [NSURL fileURLWithPath:filePath];
-+                  strongSelf->_textWasPasted = YES;
-+                  [strongSelf->_textInputDelegateAdapter didPaste:MIMEType withData:[fileURL absoluteString]];
-+                }
-+              });
-+            }];
-+            break;
-+          }
-+        }
-+        break;
-+      }
-+    }
-+  } else {
-+    if (clipboard.hasStrings) {
-+      [_textInputDelegateAdapter didPaste:@"text/plain" withData:clipboard.string];
-+    }
-+    [super paste:sender];
++  // Handle image paste
++  if (clipboard.hasImages && [self processImagePaste:clipboard]) {
++    return;
 +  }
++
++  // Handle text paste
+   _textWasPasted = YES;
++  if (clipboard.hasStrings) {
++    [_textInputDelegateAdapter didPaste:@"text/plain" withData:clipboard.string];
++  }
+   [super paste:sender];
  }
  
++- (BOOL)processImagePaste:(UIPasteboard *)clipboard
++{
++  // Prevent concurrent image paste operations from rapid taps
++  if (_isProcessingImagePaste) {
++    return YES;
++  }
++
++  for (NSItemProvider *itemProvider in clipboard.itemProviders) {
++    if (![itemProvider hasItemConformingToTypeIdentifier:(NSString *)kUTTypeImage]) {
++      continue;
++    }
++
++    for (NSString *identifier in itemProvider.registeredTypeIdentifiers) {
++      if (!UTTypeConformsTo((__bridge CFStringRef)identifier, kUTTypeImage)) {
++        continue;
++      }
++
++      _isProcessingImagePaste = YES;
++      __weak typeof(self) weakSelf = self;
++      // Load data asynchronously to avoid blocking the main thread (IPC to pasteboard daemon)
++      [itemProvider loadDataRepresentationForTypeIdentifier:identifier completionHandler:^(NSData *data, NSError *error) {
++        dispatch_async(dispatch_get_main_queue(), ^{
++          __strong typeof(weakSelf) strongSelf = weakSelf;
++          if (!strongSelf) {
++            return;
++          }
++          strongSelf->_isProcessingImagePaste = NO;
++
++          if (error || !data) {
++            // Fallback to text paste on failure
++            if (clipboard.hasStrings) {
++              [strongSelf->_textInputDelegateAdapter didPaste:@"text/plain" withData:clipboard.string];
++            }
++            [strongSelf _superPaste:nil];
++            return;
++          }
++
++          NSString *MIMEType = (__bridge_transfer NSString *)UTTypeCopyPreferredTagWithClass((__bridge CFStringRef)identifier, kUTTagClassMIMEType);
++          NSString *fileExtension = (__bridge_transfer NSString *)UTTypeCopyPreferredTagWithClass((__bridge CFStringRef)identifier, kUTTagClassFilenameExtension);
++          NSString *fileName = [NSString stringWithFormat:@"%@.%@", [[NSUUID UUID] UUIDString], fileExtension];
++          NSString *filePath = [NSTemporaryDirectory() stringByAppendingPathComponent:fileName];
++
++          if ([data writeToFile:filePath atomically:YES]) {
++            NSURL *fileURL = [NSURL fileURLWithPath:filePath];
++            strongSelf->_textWasPasted = YES;
++            [strongSelf->_textInputDelegateAdapter didPaste:MIMEType withData:[fileURL absoluteString]];
++          }
++        });
++      }];
++      return YES;
++    }
++  }
++  return NO;
++}
++
  #pragma mark - Layout
+ 
+ - (CGSize)contentSize
 diff --git a/node_modules/react-native/React/Fabric/Mounting/ComponentViews/TextInput/RCTTextInputComponentView.mm b/node_modules/react-native/React/Fabric/Mounting/ComponentViews/TextInput/RCTTextInputComponentView.mm
 index 577bebe..ad0f253 100644
 --- a/node_modules/react-native/React/Fabric/Mounting/ComponentViews/TextInput/RCTTextInputComponentView.mm
