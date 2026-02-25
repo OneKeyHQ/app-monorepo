@@ -797,6 +797,7 @@ RCT_EXPORT_METHOD(installBundle:(NSDictionary *)params
     NSString *appVersion = params[@"latestVersion"];
     NSString *bundleVersion = params[@"bundleVersion"];
     NSString *filePath = params[@"downloadedFile"];
+    BOOL skipGPG = [params[@"skipGPGVerification"] boolValue];
     if (!filePath || !appVersion || !bundleVersion) {
         reject(@"INVALID_PARAMS", @"filePath and appVersion and bundleVersion are required", nil);
         return;
@@ -804,8 +805,8 @@ RCT_EXPORT_METHOD(installBundle:(NSDictionary *)params
 
     NSString *currentFolderName = [BundleUpdateModule currentBundleVersion];
 
-    // Security: Prevent version downgrade attacks
-    if (currentFolderName) {
+    // Security: Prevent version downgrade attacks (skip in dev mode)
+    if (!skipGPG && currentFolderName) {
         NSRange currentDashRange = [currentFolderName rangeOfString:@"-" options:NSBackwardsSearch];
         if (currentDashRange.location != NSNotFound) {
             NSString *currentBundleVer = [currentFolderName substringFromIndex:currentDashRange.location + 1];
@@ -948,8 +949,31 @@ RCT_EXPORT_METHOD(isBundleExists:(NSString *)appVersion
     NSString *folderName = [NSString stringWithFormat:@"%@-%@", appVersion, bundleVersion];
     NSString *bundleDir = [BundleUpdateModule bundleDir];
     NSString *bundlePath = [bundleDir stringByAppendingPathComponent:folderName];
-    BOOL exists = [[NSFileManager defaultManager] fileExistsAtPath:bundlePath];
-    resolve(@(exists));
+
+    if (![[NSFileManager defaultManager] fileExistsAtPath:bundlePath]) {
+        resolve(@(NO));
+        return;
+    }
+
+    NSString *metadataJsonPath = [bundlePath stringByAppendingPathComponent:@"metadata.json"];
+    if (![[NSFileManager defaultManager] fileExistsAtPath:metadataJsonPath]) {
+        resolve(@(NO));
+        return;
+    }
+
+    @try {
+        NSData *jsonData = [NSData dataWithContentsOfFile:metadataJsonPath];
+        NSError *error;
+        NSDictionary *metadata = [NSJSONSerialization JSONObjectWithData:jsonData options:0 error:&error];
+        if (error || !metadata) {
+            resolve(@(NO));
+            return;
+        }
+        BOOL valid = [BundleUpdateModule validateAllFilesInDir:bundlePath metadata:metadata appVersion:appVersion bundleVersion:bundleVersion];
+        resolve(@(valid));
+    } @catch (NSException *exception) {
+        resolve(@(NO));
+    }
 }
 
 RCT_EXPORT_METHOD(testDeleteJsRuntimeDir:(NSString *)appVersion

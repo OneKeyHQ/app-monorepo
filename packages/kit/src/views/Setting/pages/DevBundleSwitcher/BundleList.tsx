@@ -93,6 +93,7 @@ function BundleItem({
           latestVersion: version,
           bundleVersion: bundle.bundleVersion,
           signature: bundle.signature || 'dev-no-signature',
+          skipGPGVerification: true,
         } as any);
       } else {
         if (!downloadedEventRef.current) return;
@@ -118,6 +119,7 @@ function BundleItem({
           latestVersion: version,
           bundleVersion: bundle.bundleVersion,
           signature: bundle.signature || 'dev-no-signature',
+          skipGPGVerification: true,
         } as any);
       }
     } catch (e) {

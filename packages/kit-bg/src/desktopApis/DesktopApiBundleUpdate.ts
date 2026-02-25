@@ -534,7 +534,21 @@ class DesktopApiAppBundleUpdate {
     bundleVersion: string,
   ): Promise<boolean> {
     const extractDir = getBundleExtractDir({ appVersion, bundleVersion });
-    return fs.existsSync(extractDir);
+    if (!fs.existsSync(extractDir)) {
+      return false;
+    }
+    try {
+      const metadataFilePath = path.join(extractDir, 'metadata.json');
+      if (!fs.existsSync(metadataFilePath)) {
+        return false;
+      }
+      const metadataContent = fs.readFileSync(metadataFilePath, 'utf8');
+      const metadata = JSON.parse(metadataContent) as Record<string, string>;
+      this.verifyAllExtractedFiles(extractDir, metadata, extractDir);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   async installBundle(params: IUpdateDownloadedEvent) {
@@ -542,14 +556,15 @@ class DesktopApiAppBundleUpdate {
       latestVersion: appVersion,
       bundleVersion,
       signature,
+      skipGPGVerification,
     } = params || {};
     if (!appVersion || !bundleVersion || !signature) {
       throw new OneKeyLocalError('Invalid parameters');
     }
     const currentUpdateBundleData = store.getUpdateBundleData();
 
-    // Security: Prevent version downgrade attacks
-    if (currentUpdateBundleData?.bundleVersion) {
+    // Security: Prevent version downgrade attacks (skip in dev mode)
+    if (!skipGPGVerification && currentUpdateBundleData?.bundleVersion) {
       const currentVersion = Number(currentUpdateBundleData.bundleVersion);
       const newVersion = Number(bundleVersion);
       if (

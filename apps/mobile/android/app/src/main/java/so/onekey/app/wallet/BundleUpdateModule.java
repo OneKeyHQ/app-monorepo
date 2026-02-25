@@ -830,7 +830,8 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         String bundleVersion = getBundleVersion(params);
         String filePath = params.getString("downloadedFile");
         String signature = params.getString("signature");
-        
+        boolean skipGPG = params.hasKey("skipGPGVerification") && params.getBoolean("skipGPGVerification");
+
         if (filePath == null || appVersion == null || bundleVersion == null) {
             promise.reject("INVALID_PARAMS", "filePath, appVersion and bundleVersion are required");
             return;
@@ -838,8 +839,8 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         String folderName = appVersion + "-" + bundleVersion;
         String currentFolderName = getCurrentBundleVersion(reactContext);
 
-        // Security: Prevent version downgrade attacks
-        if (currentFolderName != null && !currentFolderName.isEmpty()) {
+        // Security: Prevent version downgrade attacks (skip in dev mode)
+        if (!skipGPG && currentFolderName != null && !currentFolderName.isEmpty()) {
             int dashIndex = currentFolderName.lastIndexOf("-");
             if (dashIndex > 0) {
                 try {
@@ -1061,7 +1062,23 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         String folderName = appVersion + "-" + bundleVersion;
         String bundleDir = getBundleDir(reactContext);
         File bundlePath = new File(bundleDir, folderName);
-        promise.resolve(bundlePath.exists());
+        if (!bundlePath.exists()) {
+            promise.resolve(false);
+            return;
+        }
+        File metadataFile = new File(bundlePath, "metadata.json");
+        if (!metadataFile.exists()) {
+            promise.resolve(false);
+            return;
+        }
+        try {
+            String metadataContent = readFileContent(metadataFile);
+            Map<String, String> metadata = parseMetadataJson(metadataContent);
+            boolean valid = validateAllFilesInDir(reactContext, bundlePath.getAbsolutePath(), metadata, appVersion, bundleVersion);
+            promise.resolve(valid);
+        } catch (Exception e) {
+            promise.resolve(false);
+        }
     }
 
     @ReactMethod
