@@ -145,7 +145,7 @@ index 818e050..271ae26 100644
    # Swift/Objective-C compatibility
    s.pod_target_xcconfig = {
 diff --git a/node_modules/expo-image/ios/ImageLoader.swift b/node_modules/expo-image/ios/ImageLoader.swift
-index a0dacf9..7bf0806 100644
+index a0dacf9..58c2d01 100644
 --- a/node_modules/expo-image/ios/ImageLoader.swift
 +++ b/node_modules/expo-image/ios/ImageLoader.swift
 @@ -6,12 +6,18 @@ import ExpoModulesCore
@@ -168,7 +168,7 @@ index a0dacf9..7bf0806 100644
      // This loader uses only the disk cache. We may want to give more control on this, but the memory cache
      // doesn't make much sense for shared refs as they're kept in memory as long as their JS objects.
      var context = createSDWebImageContext(forSource: source, cachePolicy: .disk)
-@@ -20,14 +26,80 @@ internal final class ImageLoader {
+@@ -20,14 +26,81 @@ internal final class ImageLoader {
        context[.imageThumbnailPixelSize] = maxSize
      }
  
