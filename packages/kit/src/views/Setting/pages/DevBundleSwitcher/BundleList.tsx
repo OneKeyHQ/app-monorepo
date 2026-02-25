@@ -1,15 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { StyleSheet } from 'react-native';
+
 import {
   Badge,
   Button,
   Divider,
+  Icon,
   IconButton,
   Page,
   Progress,
   SizableText,
   Spinner,
   Stack,
+  XStack,
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -97,7 +101,6 @@ function BundleItem({
     setStatus('installing');
     try {
       if (alreadyDownloaded && !downloadedEventRef.current) {
-        // Verify file integrity before switching
         await BundleUpdate.verifyExtractedBundle(version, bundle.bundleVersion);
         await BundleUpdate.installBundle({
           latestVersion: version,
@@ -137,75 +140,95 @@ function BundleItem({
     }
   }, [alreadyDownloaded, bundle, version]);
 
-  // Whether this item's download button should be disabled
-  // (another bundle is currently downloading)
   const downloadDisabled = isDownloading && status !== 'downloading';
 
   return (
-    <YStack p="$3" borderRadius="$3" bg="$bgSubdued" gap="$2">
-      <Stack
-        flexDirection="row"
-        alignItems="center"
-        justifyContent="space-between"
-      >
-        <Stack flexDirection="row" alignItems="center" gap="$2" flex={1}>
-          <SizableText size="$bodyLgMedium">
-            {`Bundle ${bundle.bundleVersion}`}
-          </SizableText>
-          {isCurrentBundle ? (
-            <Badge badgeType="success" badgeSize="sm">
-              <Badge.Text>Current</Badge.Text>
-            </Badge>
-          ) : null}
-        </Stack>
-        <Stack flexDirection="row" alignItems="center" gap="$2">
-          <SizableText size="$bodySm" color="$textSubdued">
-            {formatFileSize(bundle.fileSize)}
-          </SizableText>
-          {!isCurrentBundle && (status === 'idle' || status === 'error') ? (
-            <IconButton
-              icon="DownloadOutline"
-              size="small"
-              variant="tertiary"
-              disabled={downloadDisabled}
-              onPress={handleDownload}
-            />
-          ) : null}
-        </Stack>
-      </Stack>
+    <YStack px="$4" py="$3" gap="$2.5">
+      <XStack alignItems="center" justifyContent="space-between">
+        <XStack alignItems="center" gap="$2" flex={1}>
+          <Stack
+            w="$8"
+            h="$8"
+            borderRadius="$2"
+            bg={isCurrentBundle ? '$bgSuccessStrong' : '$bgStrong'}
+            alignItems="center"
+            justifyContent="center"
+          >
+            {isCurrentBundle ? (
+              <Icon name="CheckRadioSolid" size="$4.5" color="$iconInverse" />
+            ) : (
+              <SizableText size="$bodySmMedium" color="$text">
+                {`#${bundle.bundleVersion}`}
+              </SizableText>
+            )}
+          </Stack>
+          <YStack flex={1}>
+            <XStack alignItems="center" gap="$1.5">
+              <SizableText size="$bodyMdMedium">
+                {`Bundle ${bundle.bundleVersion}`}
+              </SizableText>
+              {isCurrentBundle ? (
+                <Badge badgeType="success" badgeSize="sm">
+                  <Badge.Text>Active</Badge.Text>
+                </Badge>
+              ) : null}
+              {status === 'downloaded' && !isCurrentBundle ? (
+                <Badge badgeType="info" badgeSize="sm">
+                  <Badge.Text>Ready</Badge.Text>
+                </Badge>
+              ) : null}
+            </XStack>
+            <SizableText size="$bodyXs" color="$textSubdued">
+              {formatFileSize(bundle.fileSize)}
+              {bundle.changeLog ? ` · ${bundle.changeLog}` : ''}
+            </SizableText>
+          </YStack>
+        </XStack>
 
-      {bundle.changeLog ? (
-        <SizableText size="$bodySm" color="$textSubdued">
-          {bundle.changeLog}
-        </SizableText>
-      ) : null}
+        {!isCurrentBundle && (status === 'idle' || status === 'error') ? (
+          <IconButton
+            icon="DownloadOutline"
+            size="small"
+            variant="tertiary"
+            disabled={downloadDisabled}
+            onPress={handleDownload}
+          />
+        ) : null}
+      </XStack>
 
       {status === 'downloading' ? (
-        <YStack gap="$1">
+        <YStack gap="$1" pl="$10">
           <Progress value={downloadPercent} />
-          <SizableText size="$bodySm" color="$textSubdued">
+          <SizableText size="$bodyXs" color="$textSubdued">
             {`Downloading... ${downloadPercent}%`}
           </SizableText>
         </YStack>
       ) : null}
 
       {status === 'error' ? (
-        <SizableText size="$bodySm" color="$textCritical">
-          {`Error: ${errorMessage}`}
-        </SizableText>
+        <XStack pl="$10" alignItems="center" gap="$1.5">
+          <Icon name="XCircleOutline" size="$3.5" color="$iconCritical" />
+          <SizableText size="$bodyXs" color="$textCritical">
+            {errorMessage}
+          </SizableText>
+        </XStack>
       ) : null}
 
       {status === 'installing' ? (
-        <Stack flexDirection="row" alignItems="center" gap="$2">
+        <XStack pl="$10" alignItems="center" gap="$2">
           <Spinner size="small" />
-          <SizableText size="$bodySm">Installing & restarting...</SizableText>
-        </Stack>
+          <SizableText size="$bodyXs" color="$textSubdued">
+            Installing & restarting...
+          </SizableText>
+        </XStack>
       ) : null}
 
       {!isCurrentBundle && status === 'downloaded' ? (
-        <Button variant="primary" size="small" onPress={handleInstall}>
-          Switch to this bundle
-        </Button>
+        <Stack pl="$10">
+          <Button variant="primary" size="small" onPress={handleInstall}>
+            Switch to This Bundle
+          </Button>
+        </Stack>
       ) : null}
     </YStack>
   );
@@ -266,40 +289,64 @@ export default function SettingDevBundleList() {
 
   return (
     <Page scrollEnabled>
-      <Page.Header title={`Bundles for ${version}`} />
+      <Page.Header title={`v${version} Bundles`} />
       <Page.Body>
         {loading ? (
           <Stack pt={240} justifyContent="center" alignItems="center">
             <Spinner size="large" />
           </Stack>
         ) : (
-          <YStack p="$4" gap="$3">
-            <SizableText size="$bodySm" color="$textSubdued">
-              {`Current: ${currentAppVersion} / bundle ${currentBundleVersion}`}
-            </SizableText>
-            <SizableText size="$bodySm" color="$textCaution">
-              GPG verification is disabled in this mode
-            </SizableText>
-            <Divider />
-            {bundles.map((bundle) => (
-              <BundleItem
-                key={bundle.bundleVersion}
-                bundle={bundle}
-                version={version}
-                isCurrentBundle={
-                  version === currentAppVersion &&
-                  bundle.bundleVersion === currentBundleVersion
-                }
-                alreadyDownloaded={downloadedSet.has(bundle.bundleVersion)}
-                isDownloading={isDownloading}
-                onDownloadStart={handleDownloadStart}
-                onDownloadEnd={handleDownloadEnd}
-              />
-            ))}
-            {bundles.length === 0 ? (
-              <SizableText color="$textSubdued" textAlign="center">
-                No bundles available for this version
+          <YStack px="$5" py="$4" gap="$3">
+            <XStack alignItems="center" justifyContent="space-between">
+              <SizableText size="$bodySm" color="$textSubdued">
+                {`Current: v${currentAppVersion} #${currentBundleVersion}`}
               </SizableText>
+              <Badge badgeType="warning" badgeSize="sm">
+                <Badge.Text>GPG Skipped</Badge.Text>
+              </Badge>
+            </XStack>
+
+            <YStack
+              bg="$bgSubdued"
+              borderRadius="$3"
+              borderWidth={StyleSheet.hairlineWidth}
+              borderColor="$neutral3"
+              overflow="hidden"
+            >
+              {bundles.map((bundle, index) => (
+                <YStack key={bundle.bundleVersion}>
+                  {index > 0 ? (
+                    <XStack mx="$4">
+                      <Divider />
+                    </XStack>
+                  ) : null}
+                  <BundleItem
+                    bundle={bundle}
+                    version={version}
+                    isCurrentBundle={
+                      version === currentAppVersion &&
+                      bundle.bundleVersion === currentBundleVersion
+                    }
+                    alreadyDownloaded={downloadedSet.has(bundle.bundleVersion)}
+                    isDownloading={isDownloading}
+                    onDownloadStart={handleDownloadStart}
+                    onDownloadEnd={handleDownloadEnd}
+                  />
+                </YStack>
+              ))}
+            </YStack>
+
+            {bundles.length === 0 ? (
+              <YStack py="$10" alignItems="center" gap="$2">
+                <Icon
+                  name="InboxOutline"
+                  size="$10"
+                  color="$iconDisabled"
+                />
+                <SizableText color="$textDisabled">
+                  No bundles for this version
+                </SizableText>
+              </YStack>
             ) : null}
           </YStack>
         )}

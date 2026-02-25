@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 
+import { StyleSheet } from 'react-native';
+
 import {
+  Badge,
   Button,
   Divider,
   Icon,
@@ -8,6 +11,7 @@ import {
   SizableText,
   Spinner,
   Stack,
+  XStack,
   YStack,
 } from '@onekeyhq/components';
 import { BundleUpdate } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
@@ -23,41 +27,60 @@ function LocalBundleItem({
 }: {
   bundle: ILocalBundle;
   isCurrent: boolean;
-  onSwitch: (bundle: ILocalBundle) => void;
+  onSwitch: (b: ILocalBundle) => void;
   isSwitching: boolean;
 }) {
   return (
-    <YStack
-      p="$3"
-      borderRadius="$3"
-      bg="$bgSubdued"
-      gap="$2"
-      position="relative"
-    >
-      <SizableText size="$bodyLgMedium">
-        {`${bundle.appVersion} - bundle ${bundle.bundleVersion}`}
-      </SizableText>
+    <XStack py="$3" px="$4" alignItems="center" gap="$3">
+      <Stack
+        w="$8"
+        h="$8"
+        borderRadius="$2"
+        bg={isCurrent ? '$bgSuccessStrong' : '$bgStrong'}
+        alignItems="center"
+        justifyContent="center"
+      >
+        {isCurrent ? (
+          <Icon name="CheckRadioSolid" size="$4.5" color="$iconInverse" />
+        ) : (
+          <SizableText size="$bodySmMedium" color="$text">
+            {`#${bundle.bundleVersion}`}
+          </SizableText>
+        )}
+      </Stack>
+      <YStack flex={1}>
+        <XStack alignItems="center" gap="$1.5">
+          <SizableText size="$bodyMdMedium">
+            {`v${bundle.appVersion}`}
+          </SizableText>
+          <SizableText size="$bodySm" color="$textSubdued">
+            {`#${bundle.bundleVersion}`}
+          </SizableText>
+          {isCurrent ? (
+            <Badge badgeType="success" badgeSize="sm">
+              <Badge.Text>Active</Badge.Text>
+            </Badge>
+          ) : null}
+        </XStack>
+      </YStack>
       {!isCurrent ? (
         <Button
-          variant="primary"
+          variant="secondary"
           size="small"
           disabled={isSwitching}
           onPress={() => onSwitch(bundle)}
         >
-          {isSwitching ? 'Switching...' : 'Switch'}
+          {isSwitching ? (
+            <XStack alignItems="center" gap="$1.5">
+              <Spinner size="small" />
+              <SizableText size="$bodySm">Switching</SizableText>
+            </XStack>
+          ) : (
+            'Switch'
+          )}
         </Button>
       ) : null}
-      {isCurrent ? (
-        <Stack position="absolute" bottom="$2" right="$2">
-          <Icon name="CheckRadioSolid" size="$8" color="$iconSuccess" />
-        </Stack>
-      ) : null}
-      {isSwitching ? (
-        <Stack position="absolute" bottom="$2" right="$2">
-          <Icon name="RefreshCwSolid" size="$8" color="$iconSubdued" />
-        </Stack>
-      ) : null}
-    </YStack>
+    </XStack>
   );
 }
 
@@ -109,35 +132,72 @@ export default function SettingDevLocalBundleList() {
             <Spinner size="large" />
           </Stack>
         ) : (
-          <YStack p="$4" gap="$3">
+          <YStack px="$5" py="$4" gap="$3">
             <SizableText size="$bodySm" color="$textSubdued">
-              {`${bundles.length} bundle(s) on device`}
+              {`${bundles.length} bundle${bundles.length !== 1 ? 's' : ''} on device`}
             </SizableText>
+
             {error ? (
-              <SizableText size="$bodySm" color="$textCritical">
-                {`Error: ${error}`}
-              </SizableText>
-            ) : null}
-            <Divider />
-            {bundles.map((bundle) => {
-              const key = `${bundle.appVersion}-${bundle.bundleVersion}`;
-              const isCurrent =
-                bundle.appVersion === currentAppVersion &&
-                bundle.bundleVersion === currentBundleVersion;
-              return (
-                <LocalBundleItem
-                  key={key}
-                  bundle={bundle}
-                  isCurrent={isCurrent}
-                  onSwitch={handleSwitch}
-                  isSwitching={switchingTo === key}
+              <XStack
+                bg="$bgCritical"
+                borderRadius="$2"
+                py="$2"
+                px="$3"
+                alignItems="center"
+                gap="$2"
+              >
+                <Icon
+                  name="XCircleOutline"
+                  size="$4"
+                  color="$iconCritical"
                 />
-              );
-            })}
+                <SizableText size="$bodySm" color="$textCritical" flex={1}>
+                  {error}
+                </SizableText>
+              </XStack>
+            ) : null}
+
+            <YStack
+              bg="$bgSubdued"
+              borderRadius="$3"
+              borderWidth={StyleSheet.hairlineWidth}
+              borderColor="$neutral3"
+              overflow="hidden"
+            >
+              {bundles.map((bundle, index) => {
+                const key = `${bundle.appVersion}-${bundle.bundleVersion}`;
+                const isCurrent =
+                  bundle.appVersion === currentAppVersion &&
+                  bundle.bundleVersion === currentBundleVersion;
+                return (
+                  <YStack key={key}>
+                    {index > 0 ? (
+                      <XStack mx="$4">
+                        <Divider />
+                      </XStack>
+                    ) : null}
+                    <LocalBundleItem
+                      bundle={bundle}
+                      isCurrent={isCurrent}
+                      onSwitch={handleSwitch}
+                      isSwitching={switchingTo === key}
+                    />
+                  </YStack>
+                );
+              })}
+            </YStack>
+
             {bundles.length === 0 ? (
-              <SizableText color="$textSubdued" textAlign="center">
-                No bundles found on device
-              </SizableText>
+              <YStack py="$10" alignItems="center" gap="$2">
+                <Icon
+                  name="InboxOutline"
+                  size="$10"
+                  color="$iconDisabled"
+                />
+                <SizableText color="$textDisabled">
+                  No bundles found on device
+                </SizableText>
+              </YStack>
             ) : null}
           </YStack>
         )}

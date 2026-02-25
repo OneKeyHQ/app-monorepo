@@ -1,12 +1,18 @@
 import { useEffect, useState } from 'react';
 
+import { StyleSheet } from 'react-native';
+
 import {
+  Badge,
   Button,
   Dialog,
   Divider,
+  Icon,
   Input,
   Page,
   SizableText,
+  Stack,
+  XStack,
   YStack,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -15,6 +21,114 @@ import { BundleUpdate } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import { getJsBundlePathAsync } from '@onekeyhq/shared/src/modules3rdParty/auto-update/useJsBundle';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
+
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <XStack justifyContent="space-between" alignItems="center" py="$1.5">
+      <SizableText size="$bodySm" color="$textSubdued">
+        {label}
+      </SizableText>
+      <SizableText
+        size="$bodySmMedium"
+        color="$text"
+        flexShrink={1}
+        ml="$4"
+        textAlign="right"
+      >
+        {value}
+      </SizableText>
+    </XStack>
+  );
+}
+
+function SectionCard({ children }: { children: React.ReactNode }) {
+  return (
+    <YStack
+      bg="$bgSubdued"
+      borderRadius="$3"
+      borderWidth={StyleSheet.hairlineWidth}
+      borderColor="$neutral3"
+      overflow="hidden"
+    >
+      {children}
+    </YStack>
+  );
+}
+
+function SectionTitle({
+  icon,
+  title,
+}: {
+  icon: React.ComponentProps<typeof Icon>['name'];
+  title: string;
+}) {
+  return (
+    <XStack alignItems="center" gap="$2" mb="$2">
+      <Icon name={icon} size="$4.5" color="$iconSubdued" />
+      <SizableText size="$headingXs" color="$textSubdued">
+        {title}
+      </SizableText>
+    </XStack>
+  );
+}
+
+function ActionRow({
+  icon,
+  title,
+  subtitle,
+  onPress,
+  drillIn,
+  destructive,
+}: {
+  icon: React.ComponentProps<typeof Icon>['name'];
+  title: string;
+  subtitle?: string;
+  onPress: () => void;
+  drillIn?: boolean;
+  destructive?: boolean;
+}) {
+  return (
+    <XStack
+      py="$3"
+      px="$4"
+      alignItems="center"
+      gap="$3"
+      pressStyle={{ bg: '$bgHover' }}
+      onPress={onPress}
+    >
+      <Stack
+        w="$8"
+        h="$8"
+        borderRadius="$2"
+        bg={destructive ? '$bgCritical' : '$bgStrong'}
+        alignItems="center"
+        justifyContent="center"
+      >
+        <Icon
+          name={icon}
+          size="$4.5"
+          color={destructive ? '$iconCritical' : '$icon'}
+        />
+      </Stack>
+      <YStack flex={1}>
+        <SizableText
+          size="$bodyMd"
+          color={destructive ? '$textCritical' : '$text'}
+        >
+          {title}
+        </SizableText>
+        {subtitle ? (
+          <SizableText size="$bodyXs" color="$textSubdued">
+            {subtitle}
+          </SizableText>
+        ) : null}
+      </YStack>
+      {drillIn ? (
+        <Icon name="ChevronRightSmallOutline" size="$5" color="$iconSubdued" />
+      ) : null}
+    </XStack>
+  );
+}
 
 function BundleTestsContent({
   showTestResult,
@@ -27,97 +141,97 @@ function BundleTestsContent({
 }) {
   const [appVersion, setAppVersion] = useState('1.0.0');
   const [bundleVersion, setBundleVersion] = useState('1');
+
+  const runTest = async (
+    fn: (a: string, b: string) => Promise<unknown>,
+  ) => {
+    try {
+      const result = await fn(appVersion, bundleVersion);
+      showTestResult(result as boolean | { success: boolean; message: string });
+    } catch (error) {
+      showTestError(error);
+    }
+  };
+
   return (
-    <YStack p="$4" gap="$2">
-      <YStack gap="$2" mb="$3">
-        <SizableText size="$bodyMd">Version Configuration</SizableText>
-        <Input
-          placeholder="App Version (e.g., 1.0.0)"
-          value={appVersion}
-          onChangeText={setAppVersion}
-        />
-        <Input
-          placeholder="Bundle Version (e.g., 1)"
-          value={bundleVersion}
-          onChangeText={setBundleVersion}
-        />
+    <YStack p="$4" gap="$3">
+      <YStack gap="$2">
+        <SizableText size="$bodySmMedium" color="$textSubdued">
+          Target Bundle
+        </SizableText>
+        <XStack gap="$2">
+          <Input
+            flex={1}
+            placeholder="App Version"
+            value={appVersion}
+            onChangeText={setAppVersion}
+          />
+          <Input
+            flex={1}
+            placeholder="Bundle Version"
+            value={bundleVersion}
+            onChangeText={setBundleVersion}
+          />
+        </XStack>
       </YStack>
       <Divider />
-      <Button
-        variant="secondary"
-        onPress={async () => {
-          try {
-            const result = await BundleUpdate.testDeleteJsBundle(
-              appVersion,
-              bundleVersion,
-            );
-            showTestResult(result);
-          } catch (error) {
-            showTestError(error);
-          }
-        }}
-      >
-        Test Delete JsBundle
-      </Button>
-      <Button
-        variant="secondary"
-        onPress={async () => {
-          try {
-            const result = await BundleUpdate.testDeleteJsRuntimeDir(
-              appVersion,
-              bundleVersion,
-            );
-            showTestResult(result);
-          } catch (error) {
-            showTestError(error);
-          }
-        }}
-      >
-        Test Delete Js Runtime Directory
-      </Button>
-      <Button
-        variant="secondary"
-        onPress={async () => {
-          try {
-            const result = await BundleUpdate.testDeleteMetadataJson(
-              appVersion,
-              bundleVersion,
-            );
-            showTestResult(result);
-          } catch (error) {
-            showTestError(error);
-          }
-        }}
-      >
-        Test Delete Metadata.json
-      </Button>
-      <Button
-        variant="secondary"
-        onPress={async () => {
-          try {
-            const result = await BundleUpdate.testWriteEmptyMetadataJson(
-              appVersion,
-              bundleVersion,
-            );
-            showTestResult(result);
-          } catch (error) {
-            showTestError(error);
-          }
-        }}
-      >
-        Test Write Empty Metadata.json
-      </Button>
+      <YStack gap="$2">
+        <Button
+          variant="secondary"
+          size="small"
+          onPress={() => runTest(BundleUpdate.testDeleteJsBundle)}
+        >
+          Delete JsBundle
+        </Button>
+        <Button
+          variant="secondary"
+          size="small"
+          onPress={() => runTest(BundleUpdate.testDeleteJsRuntimeDir)}
+        >
+          Delete Runtime Directory
+        </Button>
+        <Button
+          variant="secondary"
+          size="small"
+          onPress={() => runTest(BundleUpdate.testDeleteMetadataJson)}
+        >
+          Delete Metadata.json
+        </Button>
+        <Button
+          variant="secondary"
+          size="small"
+          onPress={() => runTest(BundleUpdate.testWriteEmptyMetadataJson)}
+        >
+          Write Empty Metadata.json
+        </Button>
+      </YStack>
     </YStack>
   );
 }
 
 export default function DevBundleManagerModal() {
   const navigation = useAppNavigation();
+
+  const currentAppVersion = String(platformEnv.version);
+  const currentBuildNumber = String(platformEnv.buildNumber);
+  const currentBundleVersion = String(platformEnv.bundleVersion);
+  const [jsBundlePath, setJsBundlePath] = useState('');
+  const [fallbackBundles, setFallbackBundles] = useState<IJSBundle[]>([]);
+  const [nativeAppVersion, setNativeAppVersion] = useState('');
+  const [nativeBuildNumber, setNativeBuildNumber] = useState('');
+
+  useEffect(() => {
+    void getJsBundlePathAsync().then(setJsBundlePath);
+    void BundleUpdate.getFallbackBundles().then(setFallbackBundles);
+    void BundleUpdate.getNativeAppVersion().then(setNativeAppVersion);
+    void BundleUpdate.getNativeBuildNumber().then(setNativeBuildNumber);
+  }, []);
+
   const showTestResult = (
     result: boolean | { success: boolean; message: string },
   ) => {
     Dialog.show({
-      title: 'Test Result',
+      title: 'Result',
       renderContent: (
         <YStack p="$4">
           <SizableText>
@@ -134,176 +248,228 @@ export default function DevBundleManagerModal() {
 
   const showTestError = (error: unknown) => {
     Dialog.show({
-      title: 'Test Error',
+      title: 'Error',
       renderContent: (
         <YStack p="$4">
-          <SizableText>
-            Error: {(error as Error)?.message || 'Unknown error'}
+          <SizableText color="$textCritical">
+            {(error as Error)?.message || 'Unknown error'}
           </SizableText>
         </YStack>
       ),
     });
   };
-
-  const showVerificationTestsDialog = () => {
-    Dialog.show({
-      title: 'Verification Tests',
-      renderContent: (
-        <YStack p="$4" gap="$3">
-          <Button
-            variant="primary"
-            onPress={async () => {
-              try {
-                const result = await BundleUpdate.testVerification();
-                showTestResult(result);
-              } catch (error) {
-                showTestError(error);
-              }
-            }}
-          >
-            Test Verification
-          </Button>
-        </YStack>
-      ),
-    });
-  };
-
-  const showBundleTestsDialog = () => {
-    Dialog.show({
-      title: 'Bundle Tests',
-      floatingPanelProps: {
-        w: '$96',
-      },
-      renderContent: (
-        <BundleTestsContent
-          showTestResult={showTestResult}
-          showTestError={showTestError}
-        />
-      ),
-    });
-  };
-
-  const currentAppVersion = String(platformEnv.version);
-  const currentBuildNumber = String(platformEnv.buildNumber);
-  const currentBundleVersion = String(platformEnv.bundleVersion);
-  const [jsBundlePath, setJsBundlePath] = useState('');
-  const [fallbackBundles, setFallbackBundles] = useState<IJSBundle[]>([]);
-  const [nativeAppVersion, setNativeAppVersion] = useState('');
-  const [nativeBuildNumber, setNativeBuildNumber] = useState('');
-
-  useEffect(() => {
-    void getJsBundlePathAsync().then((path) => {
-      setJsBundlePath(path);
-    });
-    void BundleUpdate.getFallbackBundles().then((bundles) => {
-      setFallbackBundles(bundles);
-    });
-    void BundleUpdate.getNativeAppVersion().then((version) => {
-      setNativeAppVersion(version);
-    });
-    void BundleUpdate.getNativeBuildNumber().then((buildNumber) => {
-      setNativeBuildNumber(buildNumber);
-    });
-  }, []);
 
   return (
     <Page scrollEnabled>
-      <Page.Header title="Dev JS Bundle Manager" />
+      <Page.Header title="JS Bundle Manager" />
       <Page.Body>
-        <YStack p="$4" gap="$4">
-          <SizableText size="$headingSm">
-            {`Current Version: ${currentAppVersion}-${currentBuildNumber}-${currentBundleVersion}`}
-          </SizableText>
-          <SizableText size="$headingSm">
-            {`Native App Version: ${nativeAppVersion}${
-              nativeBuildNumber ? `-${nativeBuildNumber}` : ''
-            }`}
-          </SizableText>
-          {jsBundlePath ? (
-            <SizableText size="$headingSm">
-              {`JS Bundle Path: ${jsBundlePath}`}
-            </SizableText>
-          ) : null}
-
-          {platformEnv.isNative || platformEnv.isDesktop ? (
-            <>
-              <Divider />
-              <Button
-                variant="primary"
-                onPress={() => {
-                  navigation.push(
-                    EModalSettingRoutes.SettingDevBundleVersionList,
-                  );
-                }}
-              >
-                JS Bundle Switcher
-              </Button>
-              <Button
-                variant="secondary"
-                onPress={() => {
-                  navigation.push(
-                    EModalSettingRoutes.SettingDevLocalBundleList,
-                  );
-                }}
-              >
-                Local Bundles
-              </Button>
-            </>
-          ) : null}
-
-          {fallbackBundles.length > 0 ? (
-            <YStack gap="$2">
-              <Divider />
-              <SizableText size="$bodyMd">Available Bundles</SizableText>
-              <YStack gap="$2">
-                {fallbackBundles.map((bundle) => (
-                  <Button
-                    key={`${bundle.appVersion}-${bundle.bundleVersion}`}
-                    variant="secondary"
-                    onPress={() => {
-                      void BundleUpdate.switchBundle(bundle);
-                    }}
-                  >
-                    {`${bundle.appVersion}-${bundle.bundleVersion}`}
-                  </Button>
-                ))}
+        <YStack px="$5" py="$4" gap="$5">
+          {/* Runtime Info */}
+          <YStack gap="$1">
+            <SectionTitle icon="InfoCircleOutline" title="RUNTIME INFO" />
+            <SectionCard>
+              <YStack px="$4" py="$3" gap="$0.5">
+                <InfoRow label="App Version" value={currentAppVersion} />
+                <InfoRow label="Build Number" value={currentBuildNumber} />
+                <InfoRow label="Bundle Version" value={currentBundleVersion} />
+                {nativeAppVersion ? (
+                  <InfoRow
+                    label="Native Version"
+                    value={`${nativeAppVersion}${nativeBuildNumber ? ` (${nativeBuildNumber})` : ''}`}
+                  />
+                ) : null}
+                {jsBundlePath ? (
+                  <>
+                    <Divider my="$1.5" />
+                    <YStack gap="$1">
+                      <SizableText size="$bodyXs" color="$textSubdued">
+                        Bundle Path
+                      </SizableText>
+                      <SizableText
+                        size="$bodyXs"
+                        color="$textSubdued"
+                        numberOfLines={2}
+                      >
+                        {jsBundlePath}
+                      </SizableText>
+                    </YStack>
+                  </>
+                ) : null}
               </YStack>
+            </SectionCard>
+          </YStack>
+
+          {/* Bundle Operations */}
+          {platformEnv.isNative || platformEnv.isDesktop ? (
+            <YStack gap="$1">
+              <SectionTitle icon="SwitchHorOutline" title="BUNDLE OPERATIONS" />
+              <SectionCard>
+                <ActionRow
+                  icon="DownloadOutline"
+                  title="Remote Bundle Switcher"
+                  subtitle="Download and install bundles from server"
+                  drillIn
+                  onPress={() => {
+                    navigation.push(
+                      EModalSettingRoutes.SettingDevBundleVersionList,
+                    );
+                  }}
+                />
+                <XStack mx="$4">
+                  <Divider />
+                </XStack>
+                <ActionRow
+                  icon="FolderOutline"
+                  title="Local Bundles"
+                  subtitle="Switch between bundles on device"
+                  drillIn
+                  onPress={() => {
+                    navigation.push(
+                      EModalSettingRoutes.SettingDevLocalBundleList,
+                    );
+                  }}
+                />
+              </SectionCard>
             </YStack>
           ) : null}
 
-          <Divider />
+          {/* Fallback Bundles */}
+          {fallbackBundles.length > 0 ? (
+            <YStack gap="$1">
+              <SectionTitle icon="LayersOutline" title="FALLBACK BUNDLES" />
+              <SectionCard>
+                {fallbackBundles.map((bundle, index) => {
+                  const isCurrent =
+                    bundle.appVersion === currentAppVersion &&
+                    bundle.bundleVersion === currentBundleVersion;
+                  return (
+                    <YStack key={`${bundle.appVersion}-${bundle.bundleVersion}`}>
+                      {index > 0 ? (
+                        <XStack mx="$4">
+                          <Divider />
+                        </XStack>
+                      ) : null}
+                      <XStack
+                        py="$3"
+                        px="$4"
+                        alignItems="center"
+                        justifyContent="space-between"
+                        pressStyle={isCurrent ? undefined : { bg: '$bgHover' }}
+                        onPress={
+                          isCurrent
+                            ? undefined
+                            : () => {
+                                void BundleUpdate.switchBundle(bundle);
+                              }
+                        }
+                      >
+                        <XStack alignItems="center" gap="$2">
+                          <SizableText size="$bodyMd">
+                            {`v${bundle.appVersion}`}
+                          </SizableText>
+                          <SizableText
+                            size="$bodySm"
+                            color="$textSubdued"
+                          >
+                            {`#${bundle.bundleVersion}`}
+                          </SizableText>
+                          {isCurrent ? (
+                            <Badge badgeType="success" badgeSize="sm">
+                              <Badge.Text>Active</Badge.Text>
+                            </Badge>
+                          ) : null}
+                        </XStack>
+                        {!isCurrent ? (
+                          <Icon
+                            name="SwitchHorOutline"
+                            size="$4.5"
+                            color="$iconSubdued"
+                          />
+                        ) : null}
+                      </XStack>
+                    </YStack>
+                  );
+                })}
+              </SectionCard>
+            </YStack>
+          ) : null}
 
-          <Button variant="secondary" onPress={showVerificationTestsDialog}>
-            Verification Tests
-          </Button>
-
-          <Button variant="secondary" onPress={showBundleTestsDialog}>
-            Bundle Tests
-          </Button>
-
-          <Divider />
-
-          <Button
-            variant="secondary"
-            onPress={async () => {
-              try {
-                const result = await BundleUpdate.clearAllJSBundleData();
-                Dialog.confirm({
-                  title: 'Clear JSBundle Data',
-                  description: JSON.stringify(result),
-                });
-              } catch (error) {
-                Dialog.confirm({
-                  title: 'Clear JSBundle Data',
-                  description: `Error: ${
-                    error instanceof Error ? error.message : String(error)
-                  }`,
-                });
-              }
-            }}
-          >
-            Clear All JSBundle Data
-          </Button>
+          {/* Diagnostics */}
+          <YStack gap="$1">
+            <SectionTitle icon="TestTubeOutline" title="DIAGNOSTICS" />
+            <SectionCard>
+              <ActionRow
+                icon="ShieldCheckDoneOutline"
+                title="Verification Test"
+                subtitle="Run GPG signature verification"
+                onPress={async () => {
+                  try {
+                    const result = await BundleUpdate.testVerification();
+                    showTestResult(result);
+                  } catch (error) {
+                    showTestError(error);
+                  }
+                }}
+              />
+              <XStack mx="$4">
+                <Divider />
+              </XStack>
+              <ActionRow
+                icon="ToolboxOutline"
+                title="Bundle Manipulation"
+                subtitle="Delete or corrupt bundle files for testing"
+                onPress={() => {
+                  Dialog.show({
+                    title: 'Bundle Manipulation',
+                    floatingPanelProps: { w: '$96' },
+                    renderContent: (
+                      <BundleTestsContent
+                        showTestResult={showTestResult}
+                        showTestError={showTestError}
+                      />
+                    ),
+                  });
+                }}
+              />
+              <XStack mx="$4">
+                <Divider />
+              </XStack>
+              <ActionRow
+                icon="DeleteOutline"
+                title="Clear All Bundle Data"
+                subtitle="Remove all downloaded bundles and reset state"
+                destructive
+                onPress={() => {
+                  Dialog.show({
+                    title: 'Clear All Bundle Data',
+                    description:
+                      'This will remove all downloaded JS bundles and reset the bundle state. The app will restart.',
+                    confirmButtonProps: {
+                      variant: 'destructive',
+                    },
+                    onConfirm: async () => {
+                      try {
+                        const result =
+                          await BundleUpdate.clearAllJSBundleData();
+                        Dialog.show({
+                          title: 'Cleared',
+                          renderContent: (
+                            <YStack p="$4">
+                              <SizableText>
+                                {JSON.stringify(result)}
+                              </SizableText>
+                            </YStack>
+                          ),
+                        });
+                      } catch (error) {
+                        showTestError(error);
+                      }
+                    },
+                  });
+                }}
+              />
+            </SectionCard>
+          </YStack>
         </YStack>
       </Page.Body>
     </Page>

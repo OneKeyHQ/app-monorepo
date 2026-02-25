@@ -478,6 +478,7 @@ class ServiceAppUpdate extends ServiceBase {
   > {
     // TODO: Replace with real API: GET /utility/v1/app-update/bundle-versions
     return [
+      { version: '6.1.0', bundleCount: 2 },
       { version: '7.6.0', bundleCount: 3 },
       { version: '7.5.0', bundleCount: 2 },
       { version: '7.4.0', bundleCount: 1 },
@@ -507,6 +508,24 @@ class ServiceAppUpdate extends ServiceBase {
         changeLog?: string;
       }[]
     > = {
+      '6.1.0': [
+        {
+          bundleVersion: '2',
+          downloadUrl:
+            'https://github.com/nicepkg/gpt-runner/archive/refs/tags/v1.0.0.zip',
+          sha256: 'mock_sha256_610_2',
+          fileSize: 1_850_000,
+          changeLog: 'Fix home screen crash',
+        },
+        {
+          bundleVersion: '1',
+          downloadUrl:
+            'https://github.com/nicepkg/gpt-runner/archive/refs/tags/v1.0.0.zip',
+          sha256: 'mock_sha256_610_1',
+          fileSize: 1_800_000,
+          changeLog: 'Initial release',
+        },
+      ],
       '7.6.0': [
         {
           bundleVersion: '3',
