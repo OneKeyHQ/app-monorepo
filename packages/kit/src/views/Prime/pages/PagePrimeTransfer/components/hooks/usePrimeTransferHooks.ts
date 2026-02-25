@@ -63,12 +63,15 @@ export function useAppExitPrevent({
   message,
   title,
   shouldPreventExitOnAndroid = true,
+  onConfirm,
 }: {
   message: string;
   title: string;
   shouldPreventExitOnAndroid?: boolean;
+  onConfirm?: () => void;
 }) {
   const intl = useIntl();
+  const navigation = useAppNavigation();
 
   // Prevents web page refresh/exit
   useEffect(() => {
@@ -104,7 +107,14 @@ export function useAppExitPrevent({
           },
           {
             text: intl.formatMessage({ id: ETranslations.global_quit }),
-            onPress: () => BackHandler.exitApp(),
+            onPress: () => {
+              onConfirm?.();
+              if (navigation.canGoBack()) {
+                navigation.goBack();
+              } else {
+                BackHandler.exitApp();
+              }
+            },
           },
         ],
         { cancelable: false },
@@ -119,5 +129,5 @@ export function useAppExitPrevent({
     );
 
     return () => backHandler.remove();
-  }, [message, title, intl, shouldPreventExitOnAndroid]);
+  }, [message, title, intl, shouldPreventExitOnAndroid, navigation, onConfirm]);
 }
