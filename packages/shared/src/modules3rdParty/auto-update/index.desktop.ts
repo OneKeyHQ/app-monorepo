@@ -105,6 +105,9 @@ const verifyPackage: IVerifyPackage = async (params) => {
 };
 
 const installPackage: IInstallPackage = async ({ downloadedEvent }) => {
+  if (!downloadedEvent?.downloadedFile || !downloadedEvent?.downloadUrl) {
+    throw new Error('NOT_FOUND_PACKAGE');
+  }
   await globalThis.desktopApiProxy.appUpdate.installPackage({
     ...downloadedEvent,
     buildNumber: String(platformEnv.buildNumber || 1),

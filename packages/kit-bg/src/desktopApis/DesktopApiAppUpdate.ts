@@ -558,7 +558,9 @@ class DesktopApiAppUpdate {
   async installPackage(verifyParams: IInstallUpdateParams): Promise<void> {
     const verified = await this.verifyFile(verifyParams);
     if (!verified) {
-      return;
+      throw new OneKeyLocalError(
+        ElectronTranslations.update_installation_not_safe_alert_text,
+      );
     }
     const buildNumber = verifyParams.buildNumber;
     logger.info('auto-updater', 'Installation request', buildNumber);

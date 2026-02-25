@@ -257,9 +257,8 @@ export const useDownloadPackage = () => {
         onSuccess();
       } catch (e: unknown) {
         defaultLogger.app.appUpdate.endInstallPackage(false, e as Error);
-        if ((e as { message?: string })?.message === 'NOT_FOUND_PACKAGE') {
-          onFail();
-        } else if (showToastError) {
+        onFail();
+        if (showToastError) {
           Toast.error({ title: (e as Error).message });
         }
       }

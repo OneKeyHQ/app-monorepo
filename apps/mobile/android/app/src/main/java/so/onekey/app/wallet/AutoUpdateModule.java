@@ -104,17 +104,24 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
         PackageManager pm = getReactApplicationContext().getPackageManager();
         PackageInfo info = pm.getPackageArchiveInfo(file.getAbsolutePath(), 0);
         String appPackageName = getReactApplicationContext().getPackageName();
-        if (info != null && info.packageName != null) {
-            log("checkFilePackage", info.packageName + " " + appPackageName + " " + String.valueOf(info.packageName.equals(appPackageName)));
-            if (!info.packageName.equals(appPackageName)) {
-                promise.reject(new Exception("PACKAGE_NAME_MISMATCH"));
-                return false;
-            }
+        if (info == null || info.packageName == null) {
+            log("checkFilePackage", "Invalid APK: unable to parse package info");
+            promise.reject(new Exception("INVALID_PACKAGE"));
+            return false;
+        }
+        log("checkFilePackage", info.packageName + " " + appPackageName + " " + String.valueOf(info.packageName.equals(appPackageName)));
+        if (!info.packageName.equals(appPackageName)) {
+            promise.reject(new Exception("PACKAGE_NAME_MISMATCH"));
+            return false;
         }
 
         // Verify SHA256
         try {
             String extractedSha256 = getSha256(file.getAbsolutePath());
+            if (extractedSha256.isEmpty()) {
+                promise.reject(new Exception("UPDATE_SIGNATURE_VERIFICATION_FAILED_ALERT_TEXT"));
+                return false;
+            }
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             try (BufferedInputStream bis = new BufferedInputStream(new FileInputStream(file))) {
                 byte[] buffer = new byte[8192];
@@ -130,7 +137,7 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
                 promise.reject(new Exception("UPDATE_INSTALLATION_NOT_SAFE_ALERT_TEXT"));
                 return false;
             }
-            
+
             return true;
         } catch (Exception e) {
             promise.reject(e);
@@ -462,22 +469,32 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
     public void installAPK(final ReadableMap map, final Promise promise) {
         String filePath = map.getString("filePath");
         File file = buildFile(filePath);
+        // #2: Check file existence before proceeding
+        if (!file.exists()) {
+            promise.reject(new Exception("NOT_FOUND_PACKAGE"));
+            return;
+        }
+        // #1: checkFilePackage already calls promise.reject on failure, don't reject again
         if (!this.checkFilePackage(file, promise)) {
-            promise.reject("NOT_FOUND_PACKAGE");
             return;
         }
         try {
             Intent intent = new Intent(Intent.ACTION_VIEW);
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                 Uri apkUri = OnekeyFileProvider.getUriForFile(rContext, file);
                 intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
                 intent.setDataAndType(apkUri, "application/vnd.android.package-archive");
             } else {
-                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 intent.setDataAndType(Uri.fromFile(file), "application/vnd.android.package-archive");
             }
-            promise.resolve(null);
+            // #3: Start activity first, resolve only on success
+            if (rContext.getCurrentActivity() == null) {
+                promise.reject(new Exception("NO_ACTIVITY"));
+                return;
+            }
             rContext.getCurrentActivity().startActivity(intent);
+            promise.resolve(null);
         } catch (Exception e) {
             promise.reject(e);
         }
