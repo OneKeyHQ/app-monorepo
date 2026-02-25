@@ -205,6 +205,7 @@ export type IWithdrawBaseParams = {
   protocolVault?: string; // protocol vault
   withdrawAll?: boolean;
   useEthenaCooldown?: boolean;
+  ethenaPath?: boolean;
   // Stakefish: original message for withdraw all signature
   message?: string;
 };

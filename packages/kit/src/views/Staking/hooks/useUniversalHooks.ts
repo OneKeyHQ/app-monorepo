@@ -290,6 +290,7 @@ export function useUniversalWithdraw({
             outputTokenAddress,
             protocolVault,
             withdrawAll,
+            ethenaPath: true,
           });
         const swapEncodedTx =
           await backgroundApiProxy.serviceStaking.buildInternalDappTx({
