@@ -81,27 +81,24 @@ export default function SettingDevLocalBundleList() {
     })();
   }, []);
 
-  const handleSwitch = useCallback(
-    async (bundle: ILocalBundle) => {
-      const key = `${bundle.appVersion}-${bundle.bundleVersion}`;
-      setSwitchingTo(key);
-      setError('');
-      try {
-        await BundleUpdate.verifyExtractedBundle(
-          bundle.appVersion,
-          bundle.bundleVersion,
-        );
-        await BundleUpdate.switchBundle({
-          ...bundle,
-          signature: 'dev-local-switch',
-        });
-      } catch (e) {
-        setError((e as Error)?.message || 'Switch failed');
-        setSwitchingTo(null);
-      }
-    },
-    [],
-  );
+  const handleSwitch = useCallback(async (bundle: ILocalBundle) => {
+    const key = `${bundle.appVersion}-${bundle.bundleVersion}`;
+    setSwitchingTo(key);
+    setError('');
+    try {
+      await BundleUpdate.verifyExtractedBundle(
+        bundle.appVersion,
+        bundle.bundleVersion,
+      );
+      await BundleUpdate.switchBundle({
+        ...bundle,
+        signature: 'dev-local-switch',
+      });
+    } catch (e) {
+      setError((e as Error)?.message || 'Switch failed');
+      setSwitchingTo(null);
+    }
+  }, []);
 
   return (
     <Page scrollEnabled>

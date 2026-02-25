@@ -148,9 +148,9 @@ describe('isNeedUpdate', () => {
 describe('getUpdateFileType', () => {
   test('returns appShell when no jsBundleVersion', () => {
     const { getUpdateFileType } = loadAppUpdate('1.0.0', '1');
-    expect(
-      getUpdateFileType({ latestVersion: '2.0.0' }),
-    ).toBe(EUpdateFileType.appShell);
+    expect(getUpdateFileType({ latestVersion: '2.0.0' })).toBe(
+      EUpdateFileType.appShell,
+    );
   });
 
   test('returns jsBundle when same app version and different bundle', () => {
@@ -354,15 +354,11 @@ describe('path traversal detection', () => {
     return (isAbsolute ? '/' : '') + segments.join('/');
   }
 
-  function hasPathTraversal(
-    entryName: string,
-    extractDir: string,
-  ): boolean {
+  function hasPathTraversal(entryName: string, extractDir: string): boolean {
     const resolved = resolvePosix(extractDir, entryName);
     const normalizedBase = resolvePosix(extractDir);
     return (
-      !resolved.startsWith(normalizedBase + '/') &&
-      resolved !== normalizedBase
+      !resolved.startsWith(normalizedBase + '/') && resolved !== normalizedBase
     );
   }
 
@@ -379,7 +375,9 @@ describe('path traversal detection', () => {
   });
 
   test('detects embedded traversal', () => {
-    expect(hasPathTraversal('build/../../etc/passwd', '/tmp/bundle')).toBe(true);
+    expect(hasPathTraversal('build/../../etc/passwd', '/tmp/bundle')).toBe(
+      true,
+    );
   });
 
   test('root-level file is safe', () => {
@@ -424,9 +422,9 @@ describe('download error message mapping', () => {
   });
 
   test('maps connection abort to instability', () => {
-    expect(
-      classifyDownloadError('Software caused connection abort'),
-    ).toBe('update_network_instability_check_connection');
+    expect(classifyDownloadError('Software caused connection abort')).toBe(
+      'update_network_instability_check_connection',
+    );
   });
 
   test('maps status 500 to server error', () => {
@@ -517,9 +515,9 @@ describe('getVersion', () => {
   });
 
   test('prefers miniVersion over version', () => {
-    expect(
-      getVersion({ version: [1, 0, 0], miniVersion: [2, 0, 0] }),
-    ).toEqual({ latestVersion: '2.0.0' });
+    expect(getVersion({ version: [1, 0, 0], miniVersion: [2, 0, 0] })).toEqual({
+      latestVersion: '2.0.0',
+    });
   });
 
   test('prefers miniVersion over minVersion', () => {
@@ -620,11 +618,7 @@ describe('fallback bundle management', () => {
     existing: IBundleEntry[],
   ): { kept: IBundleEntry[]; removed: IBundleEntry | undefined } {
     const fallbacks = [...existing];
-    if (
-      current?.appVersion &&
-      current?.bundleVersion &&
-      current?.signature
-    ) {
+    if (current?.appVersion && current?.bundleVersion && current?.signature) {
       fallbacks.push(current);
     }
     let removed: IBundleEntry | undefined;

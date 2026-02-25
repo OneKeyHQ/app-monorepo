@@ -60,9 +60,7 @@ export default function SettingDevBundleVersionList() {
                 onPress={() => handlePress(item.version)}
               >
                 <YStack>
-                  <SizableText size="$bodyLgMedium">
-                    {item.version}
-                  </SizableText>
+                  <SizableText size="$bodyLgMedium">{item.version}</SizableText>
                   <SizableText size="$bodySm" color="$textSubdued">
                     {`${item.bundleCount} bundle(s)`}
                   </SizableText>

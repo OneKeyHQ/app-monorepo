@@ -153,9 +153,7 @@ const DevBundleList = LazyLoadPage(
 
 const DevLocalBundleList = LazyLoadPage(
   () =>
-    import(
-      '@onekeyhq/kit/src/views/Setting/pages/DevBundleSwitcher/LocalBundleList'
-    ),
+    import('@onekeyhq/kit/src/views/Setting/pages/DevBundleSwitcher/LocalBundleList'),
 );
 
 export const BasicModalSettingStack: IModalFlowNavigatorConfig<
