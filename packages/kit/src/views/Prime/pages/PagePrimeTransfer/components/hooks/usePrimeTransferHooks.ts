@@ -9,6 +9,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 let isNavExitConfirmShow = false;
+let isAppExitConfirmed = false;
 
 export function useModalExitPrevent({
   title,
@@ -36,9 +37,12 @@ export function useModalExitPrevent({
         }>;
       };
     }) => {
-      if (isNavExitConfirmShow) {
-        isNavExitConfirmShow = false;
+      if (isAppExitConfirmed) {
+        isAppExitConfirmed = false;
         navigation.dispatch(data.action);
+        return;
+      }
+      if (isNavExitConfirmShow) {
         return;
       }
       isNavExitConfirmShow = true;
@@ -111,14 +115,10 @@ export function useAppExitPrevent({
             text: intl.formatMessage({ id: ETranslations.global_quit }),
             onPress: async () => {
               await onConfirm?.();
-              isNavExitConfirmShow = true;
+              isAppExitConfirmed = true;
               navigation.popStack();
-              // Safety reset: if useModalExitPrevent is not active
-              // (e.g., CloudBackupExitPrevent), the flag won't be
-              // consumed by navPreventRemoveCallback. Reset it to
-              // prevent stale state from skipping future dialogs.
               setTimeout(() => {
-                isNavExitConfirmShow = false;
+                isAppExitConfirmed = false;
               }, 300);
             },
           },
