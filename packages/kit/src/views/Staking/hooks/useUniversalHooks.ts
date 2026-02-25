@@ -207,6 +207,7 @@ export function useUniversalWithdraw({
       withdrawSignature,
       withdrawMessage,
       useEthenaCooldown,
+      onStepChange,
     }: {
       amount: string;
       symbol: string;
@@ -223,6 +224,7 @@ export function useUniversalWithdraw({
       withdrawSignature?: string;
       withdrawMessage?: string;
       useEthenaCooldown?: boolean;
+      onStepChange?: (step: number) => void;
     }) => {
       let stakeTx: IStakeTxResponse | undefined;
       const stakingConfig =
@@ -274,6 +276,87 @@ export function useUniversalWithdraw({
             signature: signHash,
             deadline,
           });
+      } else if (useEthenaCooldown) {
+        // Ethena two-step: 1) swap PT-sUSDe → sUSDe, 2) unstake sUSDe → USDe
+        const swapTx =
+          await backgroundApiProxy.serviceStaking.buildUnstakeTransaction({
+            amount,
+            identity,
+            networkId,
+            accountId,
+            symbol,
+            provider,
+            inputTokenAddress,
+            outputTokenAddress,
+            protocolVault,
+            withdrawAll,
+          });
+        const swapEncodedTx =
+          await backgroundApiProxy.serviceStaking.buildInternalDappTx({
+            networkId,
+            accountId,
+            tx: swapTx.tx,
+            internalDappType: EInternalDappEnum.Staking,
+            stakingAction: EInternalStakingAction.Withdraw,
+          });
+        const swapStakeInfo = createStakeInfoWithOrderId({
+          stakingInfo,
+          orderId: swapTx.orderId,
+        });
+        await navigationToTxConfirm({
+          encodedTx: swapEncodedTx,
+          stakingInfo: swapStakeInfo,
+          onSuccess: async (swapData) => {
+            await handleStakeSuccess({
+              data: swapData,
+              stakeInfo: swapStakeInfo,
+              networkId,
+            });
+            onStepChange?.(2);
+            const unstakeTx =
+              await backgroundApiProxy.serviceStaking.buildUnstakeTransaction({
+                amount,
+                identity,
+                networkId,
+                accountId,
+                symbol,
+                provider,
+                inputTokenAddress,
+                outputTokenAddress,
+                protocolVault,
+                withdrawAll,
+                useEthenaCooldown: true,
+              });
+            const unstakeEncodedTx =
+              await backgroundApiProxy.serviceStaking.buildInternalDappTx({
+                networkId,
+                accountId,
+                tx: unstakeTx.tx,
+                internalDappType: EInternalDappEnum.Staking,
+                stakingAction: EInternalStakingAction.Withdraw,
+              });
+            const unstakeStakeInfo = createStakeInfoWithOrderId({
+              stakingInfo,
+              orderId: unstakeTx.orderId,
+            });
+            await navigationToTxConfirm({
+              encodedTx: unstakeEncodedTx,
+              stakingInfo: unstakeStakeInfo,
+              onSuccess: async (data) => {
+                onStepChange?.(3);
+                await handleStakeSuccess({
+                  data,
+                  stakeInfo: unstakeStakeInfo,
+                  networkId,
+                  onSuccess,
+                });
+              },
+              onFail,
+            });
+          },
+          onFail,
+        });
+        return;
       } else {
         stakeTx =
           await backgroundApiProxy.serviceStaking.buildUnstakeTransaction({
@@ -287,10 +370,8 @@ export function useUniversalWithdraw({
             outputTokenAddress,
             protocolVault,
             withdrawAll,
-            // Pass signature and message for withdraw all
             signature: withdrawSignature,
             message: withdrawMessage,
-            useEthenaCooldown,
           });
       }
 

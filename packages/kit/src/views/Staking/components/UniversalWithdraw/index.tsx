@@ -33,7 +33,10 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
-import { ECheckAmountActionType } from '@onekeyhq/shared/types/staking';
+import {
+  EApproveType,
+  ECheckAmountActionType,
+} from '@onekeyhq/shared/types/staking';
 import type {
   ICheckAmountAlert,
   IEarnEstimateFeeResp,
@@ -60,6 +63,7 @@ import {
   StakingAmountInput,
   useOnBlurAmountValue,
 } from '../StakingAmountInput';
+import { EStakeProgressStep, StakeProgress } from '../StakeProgress';
 import StakingFormWrapper from '../StakingFormWrapper';
 
 import type { FontSizeTokens } from 'tamagui';
@@ -100,6 +104,7 @@ type IUniversalWithdrawProps = {
     signature,
     message,
     useEthenaCooldown,
+    onStepChange,
   }: {
     amount: string;
     withdrawAll: boolean;
@@ -108,6 +113,8 @@ type IUniversalWithdrawProps = {
     message?: string;
     // Pendle: Ethena cooldown path vs instant swap
     useEthenaCooldown?: boolean;
+    // Pendle Ethena: step change callback for multi-step progress
+    onStepChange?: (step: number) => void;
   }) => Promise<void>;
   beforeFooter?: ReactElement | null;
   showApyDetail?: boolean;
@@ -156,6 +163,9 @@ export function UniversalWithdraw({
   const withdrawAllRef = useRef(false);
   const [amountValue, setAmountValue] = useState(initialAmount ?? '');
   const [selectedWithdrawPathIndex, setSelectedWithdrawPathIndex] = useState(0);
+  const [withdrawProgressStep, setWithdrawProgressStep] = useState(
+    EStakeProgressStep.approve,
+  );
 
   // Sign message hook and refs for withdraw all signature
   const signPersonalMessage = useEarnSignMessageWithoutVerify();
@@ -295,12 +305,15 @@ export function UniversalWithdraw({
         withdrawAll: withdrawAllRef.current,
         signature: withdrawSignatureRef.current,
         message: withdrawMessageRef.current,
-        useEthenaCooldown:
-          isPendleProvider
-            ? selectedWithdrawPathIndex === 0
-            : undefined,
+        useEthenaCooldown: isPendleProvider
+          ? selectedWithdrawPathIndex === 0
+          : undefined,
+        onStepChange: (step: number) => {
+          setWithdrawProgressStep(step);
+        },
       });
       resetAmount();
+      setWithdrawProgressStep(EStakeProgressStep.approve);
     } finally {
       setLoading(false);
     }
@@ -402,7 +415,11 @@ export function UniversalWithdraw({
 
   useEffect(() => {
     void debouncedFetchTransactionConfirmation(amountValue);
-  }, [amountValue, debouncedFetchTransactionConfirmation, transactionOutputTokenAddress]);
+  }, [
+    amountValue,
+    debouncedFetchTransactionConfirmation,
+    transactionOutputTokenAddress,
+  ]);
 
   const onChangeAmountValue = useCallback(
     (value: string, isMax = false) => {
@@ -635,15 +652,13 @@ export function UniversalWithdraw({
     };
   }, []);
 
-  const withdrawPathConfirmBoxes = useMemo(
-    () => {
-      if (!isPendleProvider) return [];
-      return (
-        transactionConfirmation?.withdrawPath?.data?.confirmBoxes ?? []
-      );
-    },
-    [isPendleProvider, transactionConfirmation?.withdrawPath?.data?.confirmBoxes],
-  );
+  const withdrawPathConfirmBoxes = useMemo(() => {
+    if (!isPendleProvider) return [];
+    return transactionConfirmation?.withdrawPath?.data?.confirmBoxes ?? [];
+  }, [
+    isPendleProvider,
+    transactionConfirmation?.withdrawPath?.data?.confirmBoxes,
+  ]);
 
   const selectedWithdrawPath = useMemo(() => {
     if (withdrawPathConfirmBoxes.length <= 1) return undefined;
@@ -704,9 +719,7 @@ export function UniversalWithdraw({
                     h="$5"
                     my="$0.5"
                     borderWidth="$0.5"
-                    borderColor={
-                      isSelected ? '$transparent' : '$borderStrong'
-                    }
+                    borderColor={isSelected ? '$transparent' : '$borderStrong'}
                     bg={isSelected ? '$bgPrimary' : '$transparent'}
                     borderRadius="$full"
                     ai="center"
@@ -741,17 +754,11 @@ export function UniversalWithdraw({
                     {box.subtitleDescription?.text ? (
                       <SizableText
                         size="$bodyMd"
-                        color={
-                          box.subtitleDescription?.color || '$textSubdued'
-                        }
+                        color={box.subtitleDescription?.color || '$textSubdued'}
                       >
                         {box.subtitleDescription.text}
-                        {box.subtitleDescription?.color ===
-                        '$textCritical' ? (
-                          <SizableText
-                            size="$bodyMd"
-                            color="$textSubdued"
-                          >
+                        {box.subtitleDescription?.color === '$textCritical' ? (
+                          <SizableText size="$bodyMd" color="$textSubdued">
                             {' vs Best'}
                           </SizableText>
                         ) : null}
@@ -773,7 +780,10 @@ export function UniversalWithdraw({
         <YStack gap="$2">
           <Stack position="relative" opacity={amountInputDisabled ? 0.7 : 1}>
             <StakingAmountInput
-              title={inputTitle || intl.formatMessage({ id: ETranslations.global_withdraw })}
+              title={
+                inputTitle ||
+                intl.formatMessage({ id: ETranslations.global_withdraw })
+              }
               disabled={amountInputDisabled}
               hasError={isCheckAmountMessageError}
               value={amountValue}
@@ -888,10 +898,7 @@ export function UniversalWithdraw({
                     </SizableText>
                     {selectedWithdrawPath.subtitleDescription?.color ===
                     '$textCritical' ? (
-                      <SizableText
-                        size="$bodySmMedium"
-                        color="$textSubdued"
-                      >
+                      <SizableText size="$bodySmMedium" color="$textSubdued">
                         {' vs Best'}
                       </SizableText>
                     ) : null}
@@ -1163,6 +1170,17 @@ export function UniversalWithdraw({
         </YStack>
       ) : null}
       {beforeFooter}
+      {isPendleProvider &&
+      selectedWithdrawPathIndex === 0 &&
+      amountValue &&
+      !isNaN(amountValue) ? (
+        <StakeProgress
+          approveType={EApproveType.Legacy}
+          currentStep={withdrawProgressStep}
+          step2LabelId={ETranslations.global_redeem}
+          step3LabelId={ETranslations.global_swap}
+        />
+      ) : null}
       {isInModalContext ? (
         <Page.Footer>
           <Page.FooterActions

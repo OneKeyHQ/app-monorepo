@@ -464,10 +464,12 @@ export const WithdrawSection = ({
       amount,
       withdrawAll,
       useEthenaCooldown,
+      onStepChange,
     }: {
       amount: string;
       withdrawAll: boolean;
       useEthenaCooldown?: boolean;
+      onStepChange?: (step: number) => void;
     }) => {
       if (!hasRequiredData) return;
 
@@ -488,6 +490,7 @@ export const WithdrawSection = ({
           : (tokenInfo?.token?.address ?? ''),
         outputTokenAddress: selectedReceiveTokenAddress,
         useEthenaCooldown,
+        onStepChange,
         stakingInfo: {
           label: EEarnLabels.Withdraw,
           protocol: earnUtils.getEarnProviderName({
@@ -713,7 +716,11 @@ export const WithdrawSection = ({
           providerLogo={protocolInfo?.providerDetail.logoURI}
           providerName={providerName}
           onConfirm={onConfirm}
-          inputTitle={isPendleProvider ? intl.formatMessage({ id: ETranslations.content__amount }) : undefined}
+          inputTitle={
+            isPendleProvider
+              ? intl.formatMessage({ id: ETranslations.content__amount })
+              : undefined
+          }
           minAmount={
             Number(protocolInfo?.minUnstakeAmount) > 0
               ? String(protocolInfo?.minUnstakeAmount)
