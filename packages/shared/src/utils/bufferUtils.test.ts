@@ -2,6 +2,10 @@ import { Buffer } from 'buffer';
 
 import bufferUtils from './bufferUtils';
 
+/*
+yarn test packages/shared/src/utils/bufferUtils.test.ts
+*/
+
 describe('bufferUtils', () => {
   describe('toBuffer', () => {
     it('should convert hex string to Buffer', () => {
