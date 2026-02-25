@@ -115,16 +115,20 @@ class DesktopApiAppBundleUpdate {
         let totalBytes = fileSize;
 
         if (fs.existsSync(filePath)) {
-          const result = await this.verifyAndResolve(filePath, sha256);
-          if (result) {
-            this.isDownloading = false;
-            resolve({
-              downloadedFile: filePath,
-              downloadUrl: bundleUrl,
-              latestVersion: appVersion,
-              bundleVersion,
-            });
-            return;
+          try {
+            const result = await this.verifyAndResolve(filePath, sha256);
+            if (result) {
+              this.isDownloading = false;
+              resolve({
+                downloadedFile: filePath,
+                downloadUrl: bundleUrl,
+                latestVersion: appVersion,
+                bundleVersion,
+              });
+              return;
+            }
+          } catch (e) {
+            logger.error('bundle-download', 'Cached file verification failed, re-downloading', e);
           }
           await this.clearDownload();
           fs.mkdirSync(tempDir, { recursive: true });
@@ -161,7 +165,13 @@ class DesktopApiAppBundleUpdate {
                 reject(new Error('Too many redirects'));
                 return;
               }
-              makeDownloadRequest(response.headers.location, reqOptions, redirectCount + 1);
+              const redirectUrl = response.headers.location;
+              if (!redirectUrl.startsWith('https://')) {
+                this.isDownloading = false;
+                reject(new Error('Redirect to non-HTTPS URL is not allowed'));
+                return;
+              }
+              makeDownloadRequest(redirectUrl, reqOptions, redirectCount + 1);
               return;
             }
 
