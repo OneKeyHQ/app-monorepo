@@ -240,7 +240,6 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
          // Fetch the signature file
          String ascFileUrl = url + ".SHA256SUMS.asc";
          String ascFilePath = filePath + ".SHA256SUMS.asc";
-         promise.resolve(null);
          try {
             OkHttpClient client = new OkHttpClient();
             Request request = new Request.Builder()

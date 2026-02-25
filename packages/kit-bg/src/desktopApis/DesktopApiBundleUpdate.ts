@@ -165,13 +165,21 @@ class DesktopApiAppBundleUpdate {
                 reject(new Error('Too many redirects'));
                 return;
               }
-              const redirectUrl = response.headers.location;
-              if (!redirectUrl.startsWith('https://')) {
+              const rawRedirectUrl = response.headers.location;
+              const resolvedRedirectUrl = new URL(
+                rawRedirectUrl,
+                url,
+              ).toString();
+              if (!resolvedRedirectUrl.startsWith('https://')) {
                 this.isDownloading = false;
                 reject(new Error('Redirect to non-HTTPS URL is not allowed'));
                 return;
               }
-              makeDownloadRequest(redirectUrl, reqOptions, redirectCount + 1);
+              makeDownloadRequest(
+                resolvedRedirectUrl,
+                reqOptions,
+                redirectCount + 1,
+              );
               return;
             }
 

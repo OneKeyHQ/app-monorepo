@@ -84,7 +84,9 @@ describe('getSha256FromFilePath', () => {
   });
 
   test('returns empty string for null file path', async () => {
-    const sha256 = await BundleUpdateModule.getSha256FromFilePath(null);
+    const sha256 = await BundleUpdateModule.getSha256FromFilePath(
+      null as unknown as string,
+    );
     expect(sha256).toBe('');
   });
 
@@ -458,7 +460,7 @@ describe('SHA256 cross-verification', () => {
 // ---------------------------------------------------------------------------
 describe('jsBundlePath (sync)', () => {
   test('returns a string synchronously', () => {
-    const path = BundleUpdateModule.jsBundlePath();
+    const path = BundleUpdateModule.jsBundlePath!();
     expect(typeof path).toBe('string');
   });
 });

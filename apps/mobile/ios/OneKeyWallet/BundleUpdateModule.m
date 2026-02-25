@@ -865,6 +865,10 @@ RCT_EXPORT_METHOD(installBundle:(NSDictionary *)params
 
      NSUserDefaults *userDefaults = [NSUserDefaults standardUserDefaults];
     [userDefaults setObject:folderName forKey:@"currentBundleVersion"];
+    NSString *signature = params[@"signature"];
+    if (signature) {
+        [userDefaults setObject:signature forKey:folderName];
+    }
     NSString *currentNativeVersion = [BundleUpdateModule getCurrentNativeVersion];
     [userDefaults setObject:currentNativeVersion forKey:@"nativeVersion"];
     [userDefaults synchronize];
