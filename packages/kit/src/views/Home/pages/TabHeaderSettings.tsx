@@ -238,7 +238,7 @@ function BasicTabHeaderSettings({ focusedTab }: { focusedTab: string }) {
   const portfolioName = useMemo(
     () =>
       intl.formatMessage({
-        id: ETranslations.global_crypto,
+        id: ETranslations.dexmarket_spot,
       }),
     [intl],
   );
