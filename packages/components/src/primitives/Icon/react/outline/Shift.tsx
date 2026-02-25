@@ -7,7 +7,11 @@ const SvgShift = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M16 13a1 1 0 0 1 1-1h3.922L12 3.855 3.078 12H7a1 1 0 0 1 1 1v6h8zm2 6a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-5H3.078c-1.825 0-2.696-2.245-1.348-3.476l8.922-8.147a2 2 0 0 1 2.697 0l8.922 8.147c1.348 1.23.477 3.476-1.349 3.476H18z" />
+    <Path
+      fillRule="evenodd"
+      d="M23.83 14H18v7H6v-7H.17L12 1.548zm-19-2H8v7h8v-7h3.17L12 4.451z"
+      clipRule="evenodd"
+    />
   </Svg>
 );
 export default SvgShift;

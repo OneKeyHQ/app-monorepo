@@ -9,7 +9,7 @@ const SvgSlides = (props: SvgProps) => (
   >
     <Path
       fillRule="evenodd"
-      d="M16 4a2 2 0 0 1 2 2v2h2a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM8 18h12v-8H8zm-4-4h2v-4a2 2 0 0 1 2-2h8V6H4z"
+      d="M18 8h4v12H6v-4H2V4h16zM8 18h12v-8H8zm-4-4h2V8h10V6H4z"
       clipRule="evenodd"
     />
   </Svg>

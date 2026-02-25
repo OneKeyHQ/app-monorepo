@@ -7,7 +7,17 @@ const SvgPassport = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M5.5 4.5v15h13v-15zm9 10.5a1 1 0 1 1 0 2h-5a1 1 0 1 1 0-2zm-1-4.5a1.5 1.5 0 1 0-3 0 1.5 1.5 0 0 0 3 0m2 0a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0m5 9a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2v-15a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2z" />
+    <Path d="M15.5 17h-7v-2h7z" />
+    <Path
+      fillRule="evenodd"
+      d="M12 7a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7m0 2a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3"
+      clipRule="evenodd"
+    />
+    <Path
+      fillRule="evenodd"
+      d="M20.5 21.5h-17v-19h17zm-15-2h13v-15h-13z"
+      clipRule="evenodd"
+    />
   </Svg>
 );
 export default SvgPassport;

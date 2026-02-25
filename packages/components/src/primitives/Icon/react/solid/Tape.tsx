@@ -7,10 +7,10 @@ const SvgTape = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M7 12a1 1 0 1 1 2 0 1 1 0 0 1-2 0m10 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0" />
+    <Path d="M8 11a1 1 0 1 1 0 2 1 1 0 0 1 0-2m8 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2" />
     <Path
       fillRule="evenodd"
-      d="M1 6a2 2 0 0 1 2-2h18a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2zm10 6c0 .35-.06.687-.17 1h2.34A3 3 0 1 1 16 15H8a3 3 0 1 1 3-3"
+      d="M23 20H1V4h22zM16 9a3 3 0 0 0-2.83 4h-2.34A3 3 0 1 0 8 15h8a3 3 0 1 0 0-6"
       clipRule="evenodd"
     />
   </Svg>

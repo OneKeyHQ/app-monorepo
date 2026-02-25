@@ -6,7 +6,6 @@ import { useIntl } from 'react-intl';
 import {
   DatePicker,
   Page,
-  RefreshControl,
   ScrollView,
   Spinner,
   XStack,
@@ -307,9 +306,6 @@ function HardwareSalesRewardPageWrapper() {
           ) : (
             <ScrollView
               flex={1}
-              refreshControl={
-                <RefreshControl refreshing={isLoading} onRefresh={onRefresh} />
-              }
               contentContainerStyle={{ pb: '$5' }}
               onScroll={handleScroll}
               scrollEventThrottle={16}

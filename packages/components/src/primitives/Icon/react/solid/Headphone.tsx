@@ -7,7 +7,7 @@ const SvgHeadphone = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M5 12a7 7 0 0 1 14 0v1h-2a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2v-7a9 9 0 0 0-8-8.945V3h-1a9 9 0 0 0-9 9v7a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2v-4a2 2 0 0 0-2-2H5z" />
+    <Path d="M13 3v.055A9 9 0 0 1 21 12v9h-6v-8h4v-1a7 7 0 1 0-14 0v1h4v8H3v-9a9 9 0 0 1 9-9z" />
   </Svg>
 );
 export default SvgHeadphone;

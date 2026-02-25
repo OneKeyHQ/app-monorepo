@@ -9,7 +9,7 @@ const SvgArchive = (props: SvgProps) => (
   >
     <Path
       fillRule="evenodd"
-      d="M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2M5 5h14v7h-3.126a1 1 0 0 0-.969.75 3.002 3.002 0 0 1-5.81 0 1 1 0 0 0-.969-.75H5z"
+      d="M21 3v18H3V3zM5 5v7h4a3 3 0 0 0 6 .012V12h4V5z"
       clipRule="evenodd"
     />
   </Svg>

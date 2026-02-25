@@ -7,7 +7,7 @@ const SvgBucket = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="m3.614 9 1.284 10.249A2 2 0 0 0 6.883 21h10.234a2 2 0 0 0 1.985-1.751L20.386 9zM3 3a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h18a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1z" />
+    <Path d="m20.386 9-1.503 12H5.117L3.614 9zM22 3v4H2V3z" />
   </Svg>
 );
 export default SvgBucket;

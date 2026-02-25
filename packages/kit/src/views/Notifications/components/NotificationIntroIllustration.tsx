@@ -77,7 +77,7 @@ function Item({
           alignItems="center"
           justifyContent="center"
         >
-          <Icon name={icon} size={18} color="$icon" />
+          <Icon name={icon} size={14} color="$icon" />
         </Stack>
         <Stack flex={1}>
           <XStack gap="$2.5" alignItems="baseline">

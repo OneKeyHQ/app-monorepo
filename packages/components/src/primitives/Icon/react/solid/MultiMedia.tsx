@@ -7,9 +7,10 @@ const SvgMultiMedia = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
+    <Path d="M6.25 5a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5" />
     <Path
       fillRule="evenodd"
-      d="M2 4a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v4h4a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H10a2 2 0 0 1-2-2v-4H4a2 2 0 0 1-2-2zm12 4V4H4v6.132l1.445-.964a1 1 0 0 1 1.11 0L8 10.132V10a2 2 0 0 1 2-2zM5 6.25a1.25 1.25 0 1 1 2.5 0 1.25 1.25 0 0 1-2.5 0m8.541 6.261a1 1 0 0 1 1.038.074l2.25 1.6a1 1 0 0 1 0 1.63l-2.25 1.6A1 1 0 0 1 13 16.6v-3.2a1 1 0 0 1 .541-.889"
+      d="M16 2v6h6v14H8v-6H2V2zm-3 16 5-3-5-3zm-9-7.87 2-1.332 2 1.333V8h6V4H4z"
       clipRule="evenodd"
     />
   </Svg>

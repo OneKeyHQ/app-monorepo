@@ -7,7 +7,7 @@ const SvgCloudy = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M9 4a8 8 0 1 0 0 16h8a6 6 0 1 0-.802-11.947c-.146.02-.27-.055-.315-.132A8 8 0 0 0 9 4" />
+    <Path d="M9 4a8 8 0 0 1 6.979 4.087A6 6 0 1 1 17 20H9A8 8 0 1 1 9 4" />
   </Svg>
 );
 export default SvgCloudy;
