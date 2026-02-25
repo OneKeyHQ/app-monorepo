@@ -373,11 +373,7 @@ export function AccountSelectorActiveAccountHome({
     );
   }
 
-  if (
-    !account &&
-    selectedAccount.othersWalletAccountId &&
-    !selectedAccount.indexedAccountId
-  ) {
+  if (activeAccount.ready && activeAccount.isNetworkNotMatched) {
     return (
       <XStack onPress={() => logActiveAccount()}>
         <SizableText size="$bodyMd" color="$textCaution">
