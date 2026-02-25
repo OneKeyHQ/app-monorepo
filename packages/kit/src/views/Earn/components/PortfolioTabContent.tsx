@@ -34,6 +34,7 @@ import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import {
   EEarnLabels,
+  type IEarnClaimActionIcon,
   type IEarnPortfolioAirdropAsset,
   type IEarnPortfolioInvestment,
   type IEarnText,
@@ -347,6 +348,16 @@ const AssetStatusField = ({
             />
             <EarnTooltip tooltip={status.tooltip} />
           </XStack>
+          {status.button ? (
+            <WrappedActionButton
+              asset={asset}
+              reward={{
+                title: status.title,
+                description: status.description,
+                button: status.button as IEarnClaimActionIcon,
+              }}
+            />
+          ) : null}
         </XStack>
       ))}
     </FieldWrapper>
@@ -784,20 +795,28 @@ const PortfolioItemComponent = ({
 
                         {/* Asset status list */}
                         {asset.assetsStatus?.map((status, index) => (
-                          <XStack key={index} ai="center">
-                            <EarnText
-                              size="$bodyMdMedium"
-                              text={status.title}
-                            />
-                            <XStack gap="$1.5">
+                          <XStack key={index} ai="center" jc="space-between">
+                            <XStack ai="center">
                               <EarnText
-                                ml="$2"
-                                size="$bodyMd"
-                                color="$textSubdued"
-                                text={status.description}
+                                size="$bodyMdMedium"
+                                text={status.title}
                               />
-                              <EarnTooltip tooltip={status.tooltip} />
+                              <XStack gap="$1.5">
+                                <EarnText
+                                  ml="$2"
+                                  size="$bodyMd"
+                                  color="$textSubdued"
+                                  text={status.description}
+                                />
+                                <EarnTooltip tooltip={status.tooltip} />
+                              </XStack>
                             </XStack>
+                            {status.button ? (
+                              <WrappedActionButton
+                                asset={asset}
+                                reward={status as any}
+                              />
+                            ) : null}
                           </XStack>
                         ))}
 

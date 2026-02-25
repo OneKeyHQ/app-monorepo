@@ -32,6 +32,7 @@ import { validateAmountInputForStaking } from '@onekeyhq/kit/src/utils/validateA
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import {
   EApproveType,
@@ -305,9 +306,12 @@ export function UniversalWithdraw({
         withdrawAll: withdrawAllRef.current,
         signature: withdrawSignatureRef.current,
         message: withdrawMessageRef.current,
-        useEthenaCooldown: isPendleProvider
-          ? selectedWithdrawPathIndex === 0
-          : undefined,
+        useEthenaCooldown:
+          isPendleProvider &&
+          networkId === getNetworkIdsMap().eth &&
+          selectedWithdrawPathIndex === 0
+            ? true
+            : undefined,
         onStepChange: (step: number) => {
           setWithdrawProgressStep(step);
         },

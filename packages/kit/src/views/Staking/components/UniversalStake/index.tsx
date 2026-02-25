@@ -1377,7 +1377,9 @@ export function UniversalStake({
                 ? EStakeProgressStep.approve
                 : EStakeProgressStep.deposit
             }
-            step2LabelId={isPendleProvider ? ETranslations.global_swap : undefined}
+            step2LabelId={
+              isPendleProvider ? ETranslations.global_swap : undefined
+            }
           />
         </Stack>
       ) : null}
@@ -1407,7 +1409,10 @@ export function UniversalStake({
         <YStack gap="$2">
           <Stack position="relative" opacity={amountInputDisabled ? 0.7 : 1}>
             <StakingAmountInput
-              title={inputTitle || intl.formatMessage({ id: ETranslations.earn_deposit })}
+              title={
+                inputTitle ||
+                intl.formatMessage({ id: ETranslations.earn_deposit })
+              }
               disabled={amountInputDisabled}
               hasError={isInsufficientBalance || isCheckAmountMessageError}
               value={amountValue}
@@ -1756,7 +1761,9 @@ export function UniversalStake({
                       ? EStakeProgressStep.approve
                       : EStakeProgressStep.deposit
                   }
-                  step2LabelId={isPendleProvider ? ETranslations.global_swap : undefined}
+                  step2LabelId={
+                    isPendleProvider ? ETranslations.global_swap : undefined
+                  }
                 />
               ) : null}
             </Stack>

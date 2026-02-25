@@ -212,7 +212,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
       return filtered;
     }
 
-    return [...filtered].sort((a, b) => {
+    return [...filtered].toSorted((a, b) => {
       const daysA = getProviderDaysRemaining(a);
       const daysB = getProviderDaysRemaining(b);
       const orderA = daysA ?? Number.POSITIVE_INFINITY;
