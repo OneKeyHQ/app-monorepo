@@ -399,22 +399,6 @@ export default function DevBundleManagerModal() {
             <SectionTitle icon="TestTubeOutline" title="DIAGNOSTICS" />
             <SectionCard>
               <ActionRow
-                icon="ShieldCheckDoneOutline"
-                title="Verification Test"
-                subtitle="Run GPG signature verification"
-                onPress={async () => {
-                  try {
-                    const result = await BundleUpdate.testVerification();
-                    showTestResult(result);
-                  } catch (error) {
-                    showTestError(error);
-                  }
-                }}
-              />
-              <XStack mx="$4">
-                <Divider />
-              </XStack>
-              <ActionRow
                 icon="ToolboxOutline"
                 title="Bundle Manipulation"
                 subtitle="Delete or corrupt bundle files for testing"
