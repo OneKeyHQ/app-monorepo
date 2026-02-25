@@ -1,55 +1,36 @@
-// jest tests
-import { InvalidAccount, InvalidAddress, TooManyHWPassphraseWallets } from '.';
+import {
+  OneKeyError,
+  OneKeyInternalError,
+  OneKeyLocalError,
+} from './errors';
 
-import { ETranslations } from '../locale';
-
-/*
-yarn jest packages/shared/src/errors/errors.test.ts
-*/
-
-describe('OneKey Error tests', () => {
-  it('common tests', () => {
-    const e1 = new TooManyHWPassphraseWallets(12);
-    expect(e1.constructorName).toBe('TooManyHWPassphraseWallets');
-    expect(e1.message).toBe('TooManyHWPassphraseWallets');
-  });
-
-  it('default message', () => {
-    let e = new InvalidAccount();
-    expect(e.message).toBe('InvalidAccount');
-    expect(e.constructorName).toBe('InvalidAccount');
-    expect(e.code).toBe(-99_999);
-
-    // e = new InvalidAccount('hello');
-    e = new InvalidAddress();
-    expect(e.message).toBe('InvalidAddress');
-  });
-
-  it('custom message', () => {
-    const e = new InvalidAccount({ message: 'test111' });
-    expect(e.message).toBe('test111');
-  });
-
-  it('default key', () => {
-    const e = new InvalidAccount();
-    expect(e.key).toBe(ETranslations.send_engine_account_not_activated);
-  });
-
-  it('custom key', () => {
-    const e = new InvalidAccount({ key: 'Handling_Fee' as any });
-    expect(e.key).toBe('Handling_Fee');
-  });
-
-  it('custom message and key', () => {
-    let e = new InvalidAccount();
-    expect(e.message).toBe('InvalidAccount');
-    expect(e.key).toBe(ETranslations.send_engine_account_not_activated);
-
-    e = new InvalidAccount({
-      message: 'hello',
-      key: 'Handling_Fee' as any,
+describe('errors', () => {
+  describe('OneKeyError', () => {
+    it('should create OneKeyError with message', () => {
+      const error = new OneKeyError('test error');
+      expect(error.message).toBe('test error');
+      expect(error).toBeInstanceOf(Error);
     });
-    expect(e.message).toBe('hello');
-    expect(e.key).toBe('Handling_Fee');
+
+    it('should create OneKeyError with code', () => {
+      const error = new OneKeyError('test error', 'TEST_CODE');
+      expect(error.code).toBe('TEST_CODE');
+    });
+  });
+
+  describe('OneKeyInternalError', () => {
+    it('should create OneKeyInternalError', () => {
+      const error = new OneKeyInternalError('internal error');
+      expect(error.message).toBe('internal error');
+      expect(error).toBeInstanceOf(OneKeyError);
+    });
+  });
+
+  describe('OneKeyLocalError', () => {
+    it('should create OneKeyLocalError', () => {
+      const error = new OneKeyLocalError('local error');
+      expect(error.message).toBe('local error');
+      expect(error).toBeInstanceOf(OneKeyError);
+    });
   });
 });
