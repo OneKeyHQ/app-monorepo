@@ -2210,13 +2210,14 @@ class ServicePrimeCloudSync extends ServiceBase {
     shouldDecrypt?: boolean; // decrypt the data to rawDataJson
     syncCredential: ICloudSyncCredential | undefined;
     serverPwdHash: string;
-  }): Promise<IDBCloudSyncItem> {
+  }): Promise<IDBCloudSyncItem | null> {
     // Skip Lock items with keyless pwdHash
     if (
       serverItem.dataType === EPrimeCloudSyncDataType.Lock &&
       keylessCloudSyncUtils.isKeylessPwdHash(serverItem.pwdHash)
     ) {
-      throw new OneKeyError('Lock item not support for keyless mode');
+      console.error('Lock item not support for keyless mode');
+      return null;
     }
     const localItem: IDBCloudSyncItem = {
       id: serverItem.key,
