@@ -9,7 +9,7 @@ const SvgChartColumnarSignal = (props: SvgProps) => (
   >
     <Path
       fillRule="evenodd"
-      d="M12.66 8.334a2 2 0 0 1 2 2V19a2 2 0 0 1-2 2h-1.33a2 2 0 0 1-2-2v-8.666a2 2 0 0 1 2-2zM11.33 19h1.33v-8.666h-1.33zm-5-6.223a2 2 0 0 1 2 2V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4.223a2 2 0 0 1 2-2zM5 19h1.33v-4.223H5zM19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-1.33a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zm-1.33 16H19V5h-1.33z"
+      d="M14.66 21.001H9.33V8.334h5.33zm-3.33-2h1.33v-8.667h-1.33zM8.33 21H3v-8.223h5.33zM5 19h1.33v-4.223H5zm16 2h-5.33V3H21zm-3.33-2H19V5h-1.33z"
       clipRule="evenodd"
     />
   </Svg>

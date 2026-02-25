@@ -7,7 +7,17 @@ const SvgMacinthosh = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M17 19H7v1h10zm-1-5a1 1 0 1 1 0 2h-2a1 1 0 1 1 0-2zm0-9 .102.005A1 1 0 0 1 17 6v6a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V6l.005-.103A1 1 0 0 1 8 5zm-7 6h6V7H9zM6 4v13h12V4zm14 13c0 .74-.403 1.384-1 1.73V20a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-1.27c-.597-.346-1-.99-1-1.73V4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2z" />
+    <Path d="M17 16h-4v-2h4z" />
+    <Path
+      fillRule="evenodd"
+      d="M17 13H7V5h10zm-8-2h6V7H9z"
+      clipRule="evenodd"
+    />
+    <Path
+      fillRule="evenodd"
+      d="M20 19h-1v3H5v-3H4V2h16zM7 20h10v-1H7zm-1-3h12V4H6z"
+      clipRule="evenodd"
+    />
   </Svg>
 );
 export default SvgMacinthosh;

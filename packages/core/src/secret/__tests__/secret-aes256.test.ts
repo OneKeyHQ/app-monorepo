@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 import { Buffer } from 'buffer';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import {
@@ -42,13 +43,6 @@ jest.mock('crypto', () => ({
     return Buffer.alloc(size, 0xde);
   }),
 }));
-
-jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
-  ...jest.requireActual('@onekeyhq/shared/src/platformEnv'),
-  isJest: true,
-}));
-
-const platformEnv = jest.requireMock('@onekeyhq/shared/src/platformEnv');
 
 beforeEach(() => {
   platformEnv.isExtensionUi = false;

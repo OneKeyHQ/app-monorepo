@@ -7,11 +7,7 @@ const SvgBrackets = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path
-      fillRule="evenodd"
-      d="M4 6a3 3 0 0 1 3-3h1a1 1 0 0 1 0 2H7a1 1 0 0 0-1 1v4c0 .768-.289 1.47-.764 2 .475.53.764 1.232.764 2v4a1 1 0 0 0 1 1h1a1 1 0 1 1 0 2H7a3 3 0 0 1-3-3v-4a1 1 0 0 0-1-1 1 1 0 1 1 0-2 1 1 0 0 0 1-1zm11-2a1 1 0 0 1 1-1h1a3 3 0 0 1 3 3v4a1 1 0 0 0 1 1 1 1 0 1 1 0 2 1 1 0 0 0-1 1v4a3 3 0 0 1-3 3h-1a1 1 0 1 1 0-2h1a1 1 0 0 0 1-1v-4c0-.768.289-1.47.764-2A3 3 0 0 1 18 10V6a1 1 0 0 0-1-1h-1a1 1 0 0 1-1-1"
-      clipRule="evenodd"
-    />
+    <Path d="M9 5H6v14h3v2H4v-8H2v-2h2V3h5zm11 6h2v2h-2v8h-5v-2h3V5h-3V3h5z" />
   </Svg>
 );
 export default SvgBrackets;

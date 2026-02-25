@@ -1010,8 +1010,8 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     const { swapData, swapInfo, swapToAddress } = params;
     const swapSendToken = swapInfo.sender.token;
     const swapReceiveToken = swapInfo.receiver.token;
-    const providerInfo = swapInfo.swapBuildResData.result.info;
-    const otherFeeInfos = swapInfo.swapBuildResData.result.fee?.otherFeeInfos;
+    const providerInfo = swapInfo.swapBuildResData.result?.info;
+    const otherFeeInfos = swapInfo.swapBuildResData.result?.fee?.otherFeeInfos;
     const otherFeeInfoTransfers: IDecodedTxTransferInfo[] = [];
 
     let transfers: IDecodedTxTransferInfo[] = [
@@ -1070,10 +1070,12 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       from: swapInfo.accountAddress,
       to: swapToAddress ?? '',
       data: swapData,
-      application: {
-        name: providerInfo.providerName,
-        icon: providerInfo.providerLogo ?? '',
-      },
+      application: providerInfo
+        ? {
+            name: providerInfo.providerName,
+            icon: providerInfo.providerLogo ?? '',
+          }
+        : undefined,
       isInternalSwap: true,
       swapReceivedAddress: swapInfo.receivingAddress,
       swapReceivedNetworkId: swapInfo.receiver.token.networkId,

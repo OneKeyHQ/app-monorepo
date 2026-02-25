@@ -7,11 +7,7 @@ const SvgText = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path
-      fillRule="evenodd"
-      d="M3 4a1 1 0 0 1 1-1h16a1 1 0 1 1 0 2h-7v15a1 1 0 1 1-2 0V5H4a1 1 0 0 1-1-1"
-      clipRule="evenodd"
-    />
+    <Path d="M21 5h-8v16h-2V5H3V3h18z" />
   </Svg>
 );
 export default SvgText;

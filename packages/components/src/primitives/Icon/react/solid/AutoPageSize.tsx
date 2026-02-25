@@ -9,7 +9,7 @@ const SvgAutoPageSize = (props: SvgProps) => (
   >
     <Path
       fillRule="evenodd"
-      d="M6 2a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2zm0 2h12v16h-5v-7a2 2 0 0 0-2-2H6z"
+      d="M20 2v20H4V2zM6 4v7h7v9h5V4z"
       clipRule="evenodd"
     />
   </Svg>

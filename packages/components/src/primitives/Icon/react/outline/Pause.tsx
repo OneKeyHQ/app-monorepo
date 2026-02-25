@@ -7,7 +7,11 @@ const SvgPause = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M6 5v14h2V5zm10 0v14h2V5zm-6 14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2zm10 0a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2z" />
+    <Path
+      fillRule="evenodd"
+      d="M10 21H4V3h6zm-4-2h2V5H6zm14 2h-6V3h6zm-4-2h2V5h-2z"
+      clipRule="evenodd"
+    />
   </Svg>
 );
 export default SvgPause;

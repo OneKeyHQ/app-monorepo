@@ -1115,3 +1115,36 @@ test('numberFormatAsRaw with splitDecimal', () => {
     }),
   ).toEqual('$558,934.09');
 });
+
+test('countLeadingZeroDecimals edge cases via formatBalance', () => {
+  // Extremely small numbers that would cause Math.log10(0) = -Infinity
+  // in the old implementation (BigNumber.toNumber() under-flows to 0)
+  expect(formatBalance('0.000000000000000000000000000001')).toMatchObject({
+    meta: { leadingZeros: 29 },
+  });
+
+  // Very small number with many leading zeros
+  expect(formatBalance('0.00000000000000001')).toMatchObject({
+    meta: { leadingZeros: 16 },
+  });
+
+  // Exactly one leading zero
+  expect(formatBalance('0.01234')).toMatchObject({
+    meta: { leadingZeros: 1 },
+  });
+
+  // No leading zeros (value >= 0.1)
+  expect(formatBalance('0.1234')).toMatchObject({
+    meta: { leadingZeros: 0 },
+  });
+
+  // Integer part > 0 (no leading zeros expected)
+  expect(formatBalance('1.00001')).not.toMatchObject({
+    meta: { leadingZeros: expect.any(Number) },
+  });
+
+  // Negative extremely small number
+  expect(formatBalance('-0.000000000000000000000000000001')).toMatchObject({
+    meta: { leadingZeros: 29 },
+  });
+});

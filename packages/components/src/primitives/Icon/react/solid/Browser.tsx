@@ -7,10 +7,10 @@ const SvgBrowser = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M6 7a1 1 0 1 0 0 2 1 1 0 0 0 0-2m2 1a1 1 0 1 1 2 0 1 1 0 0 1-2 0m4-1a1 1 0 1 0 0 2 1 1 0 0 0 0-2" />
+    <Path d="M6 7a1 1 0 1 1 0 2 1 1 0 0 1 0-2m3 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2m3 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2" />
     <Path
       fillRule="evenodd"
-      d="M2 6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2zm2 0h16v4H4z"
+      d="M22 4v16H2V4zM4 10h16V6H4z"
       clipRule="evenodd"
     />
   </Svg>

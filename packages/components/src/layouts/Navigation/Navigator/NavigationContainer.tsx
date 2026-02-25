@@ -75,11 +75,12 @@ export const useOnRouterChange = (callback: IRouterChangeEvent) => {
 
 const useUpdateRootViewBackgroundColor = (
   color: string,
-  theme: 'light' | 'dark',
+  themeVariant: 'light' | 'dark',
+  themeSetting?: 'light' | 'dark' | 'system',
 ) => {
   useEffect(() => {
-    updateRootViewBackgroundColor(color, theme);
-  }, [color, theme]);
+    updateRootViewBackgroundColor(color, themeVariant, themeSetting);
+  }, [color, themeVariant, themeSetting]);
 };
 
 const useNativeDevTools =
@@ -100,10 +101,10 @@ export function NavigationContainer(props: IBasicNavigationContainerProps) {
       isTabletMainView ? tabletMainViewNavigationRef : rootNavigationRef,
     );
   }, [isTabletMainView]);
-  const { theme: themeName } = useSettingConfig();
+  const { theme: themeName, themeSetting } = useSettingConfig();
   const theme = useTheme();
 
-  useUpdateRootViewBackgroundColor(theme.bgApp.val, themeName);
+  useUpdateRootViewBackgroundColor(theme.bgApp.val, themeName, themeSetting);
 
   const themeOptions = useMemo(() => {
     return {

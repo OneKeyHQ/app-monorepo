@@ -62,7 +62,7 @@ export function ResponsiveThreeColumnLayout({
       px={px}
       flexDirection="row"
       alignItems="stretch"
-      $md={{
+      $lg={{
         flexDirection: 'column',
       }}
     >
@@ -70,7 +70,7 @@ export function ResponsiveThreeColumnLayout({
         flexGrow={1}
         flexShrink={1}
         flexBasis={0}
-        $md={{
+        $lg={{
           flexGrow: 0,
           flexShrink: 1,
           flexBasis: 'auto',
@@ -83,7 +83,7 @@ export function ResponsiveThreeColumnLayout({
         flexGrow={1}
         flexShrink={1}
         flexBasis={0}
-        $md={{
+        $lg={{
           flexGrow: 0,
           flexShrink: 1,
           flexBasis: 'auto',
@@ -96,7 +96,7 @@ export function ResponsiveThreeColumnLayout({
         flexGrow={1}
         flexShrink={1}
         flexBasis={0}
-        $md={{
+        $lg={{
           flexGrow: 0,
           flexShrink: 1,
           flexBasis: 'auto',

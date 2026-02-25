@@ -7,11 +7,7 @@ const SvgSplit = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path
-      fillRule="evenodd"
-      d="M3 4a1 1 0 0 1 1-1h5a1 1 0 0 1 0 2H6.414L12 10.586 17.586 5H15a1 1 0 1 1 0-2h5a1 1 0 0 1 1 1v5a1 1 0 1 1-2 0V6.414l-6 6V20a1 1 0 1 1-2 0v-7.586l-6-6V9a1 1 0 0 1-2 0z"
-      clipRule="evenodd"
-    />
+    <Path d="M10 5H6.414L12 10.586 17.586 5H14V3h7v7h-2V6.414l-6 6V21h-2v-8.586l-6-6V10H3V3h7z" />
   </Svg>
 );
 export default SvgSplit;
