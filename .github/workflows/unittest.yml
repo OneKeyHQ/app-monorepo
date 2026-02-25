@@ -58,7 +58,7 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=8192'
         run: |
-          yarn test
+          yarn test --coverage
 
       - name: Upload Test Report
         uses: actions/upload-artifact@v4
@@ -66,4 +66,11 @@ jobs:
         with:
           name: test-report-${{ env.BUILD_NUMBER }}-${{ github.sha }}
           path: test-report.html
+
+      - name: Upload Coverage Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report-${{ github.sha }}
+          path: coverage/
 

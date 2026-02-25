@@ -1,10 +1,5 @@
 import { Semaphore } from 'async-mutex';
 
-import {
-  decodeSensitiveTextAsync,
-  encodeSensitiveTextAsync,
-} from '@onekeyhq/core/src/secret';
-import { hash160 } from '@onekeyhq/core/src/secret/hash';
 import type {
   IAddressItem,
   IAddressNetworkItem,
@@ -21,12 +16,9 @@ import {
   EChangeHistoryContentType,
   EChangeHistoryEntityType,
 } from '@onekeyhq/shared/src/types/changeHistory';
-import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { type IDBCloudSyncItem } from '../dbs/local/types';
 import { addressBookPersistAtom } from '../states/jotai/atoms/addressBooks';
@@ -36,7 +28,7 @@ import ServiceBase from './ServiceBase';
 
 @backgroundClass()
 class ServiceAddressBook extends ServiceBase {
-  // if verifyHash successfully, update verifyHashTimestamp for cache result
+  // Kept for compatibility with ServicePassword cache reset hooks.
   verifyHashTimestamp?: number;
 
   mutex = new Semaphore(1);
@@ -45,29 +37,15 @@ class ServiceAddressBook extends ServiceBase {
     super({ backgroundApi });
   }
 
-  private async computeItemsHash(
-    items: IAddressItem[],
-    password: string,
-  ): Promise<string> {
-    const salt = await decodeSensitiveTextAsync({ encodedText: password });
-    const itemString = stableStringify(items);
-    return bufferUtils.bytesToHex(
-      await hash160(bufferUtils.toBuffer(`${itemString}${salt}`, 'utf-8')),
-    );
-  }
-
   private async setItems({
     items,
-    password,
     skipEventEmit,
   }: {
     items: IAddressItem[];
-    password: string;
     skipEventEmit?: boolean;
   }): Promise<void> {
     const { simpleDb } = this.backgroundApi;
-    const hash = await this.computeItemsHash(items, password);
-    await simpleDb.addressBook.updateItemsAndHash({ items, hash });
+    await simpleDb.addressBook.updateItemsAndHash({ items, hash: '' });
     this.verifyHashTimestamp = undefined;
 
     if (!skipEventEmit) {
@@ -86,86 +64,23 @@ class ServiceAddressBook extends ServiceBase {
     return items;
   }
 
-  private async _verifyHash({
-    itemsToVerify,
-    password,
-  }: {
-    itemsToVerify: IAddressItem[];
-    password: string;
+  public verifyHash(_params?: {
+    returnValue?: boolean;
+    password?: string;
   }): Promise<boolean> {
-    const { simpleDb } = this.backgroundApi;
-    const { hash } = await simpleDb.addressBook.getItemsAndHash();
-    if (itemsToVerify.length === 0) {
-      return true;
-    }
-    const itemsHash = await this.computeItemsHash(itemsToVerify, password);
-    if (itemsHash === hash) {
-      return true;
-    }
-    const backupHash = await simpleDb.addressBook.getBackupHash();
-    if (itemsHash === backupHash) {
-      return true;
-    }
-    return false;
-  }
-
-  verifyHashMutex = new Semaphore(1);
-
-  // verify hash with cache
-  public async verifyHash({
-    returnValue,
-    password,
-  }: {
-    returnValue?: boolean; // return value if true, throw error if false
-    password: string;
-  }): Promise<boolean> {
-    return this.verifyHashMutex.runExclusive(async () => {
-      const now = Date.now();
-      const timestamp = this.verifyHashTimestamp;
-      if (
-        timestamp &&
-        now - timestamp < timerUtils.getTimeDurationMs({ minute: 30 })
-      ) {
-        return true;
-      }
-      if (!password) {
-        throw new OneKeyLocalError(
-          'addressBook verifyHash ERROR: password is required',
-        );
-      }
-
-      const { items } =
-        await this.backgroundApi.simpleDb.addressBook.getItemsAndHash();
-
-      const result = await this._verifyHash({
-        itemsToVerify: items,
-        password,
-      });
-      if (result) {
-        this.verifyHashTimestamp = now;
-        return true;
-      }
-      if (returnValue) {
-        return false;
-      }
-      throw new OneKeyLocalError('address book failed to verify hash');
-    });
+    return Promise.resolve(true);
   }
 
   @backgroundMethod()
   async getSafeRawItems({
     throwErrorIfNotSafe,
-    password,
   }: {
     throwErrorIfNotSafe?: boolean;
-    password: string;
-  }): Promise<{ isSafe: boolean; items: IAddressItem[] }> {
-    const isSafe = await this.verifyHash({ returnValue: true, password });
-    if (throwErrorIfNotSafe && !isSafe) {
-      throw new OneKeyLocalError('address book failed to verify hash');
-    }
+    password?: string;
+  } = {}): Promise<{ isSafe: boolean; items: IAddressItem[] }> {
+    void throwErrorIfNotSafe;
     const items = await this.getItems();
-    return { isSafe, items: isSafe ? items : [] };
+    return { isSafe: true, items };
   }
 
   @backgroundMethod()
@@ -173,18 +88,10 @@ class ServiceAddressBook extends ServiceBase {
   async getSafeItems(params: {
     networkId?: string;
     exact?: boolean;
-    password: string;
-  }): Promise<{ isSafe: boolean; items: IAddressNetworkItem[] }> {
-    const { networkId, exact, password } = params;
-    // throw new OneKeyLocalError('address book failed to verify hash');
-    const isSafe: boolean = await this.verifyHash({
-      returnValue: true,
-      password,
-    });
-    if (!isSafe) {
-      return { isSafe, items: [] };
-    }
-    let { items: rawItems } = await this.getSafeRawItems({ password });
+    password?: string;
+  } = {}): Promise<{ isSafe: boolean; items: IAddressNetworkItem[] }> {
+    const { networkId, exact } = params;
+    let { items: rawItems } = await this.getSafeRawItems({});
     if (networkId) {
       if (exact) {
         rawItems = rawItems.filter((item) => item.networkId === networkId);
@@ -208,57 +115,41 @@ class ServiceAddressBook extends ServiceBase {
       };
     });
     const items = (await Promise.all(promises)).filter(Boolean);
-    return { isSafe, items };
+    return { isSafe: true, items };
   }
 
   @backgroundMethod()
   async __dangerTamperVerifyHashForTest() {
     const { enabled } = await devSettingsPersistAtom.get();
-    if (platformEnv.isDev || enabled) {
-      const items = await this.getItems();
-      await this.setItems({
-        items,
-        password: await encodeSensitiveTextAsync({ text: String(Date.now()) }),
-      });
+    if (!(platformEnv.isDev || enabled)) {
+      return;
     }
+    const items = await this.getItems();
+    await this.backgroundApi.simpleDb.addressBook.updateItemsAndHash({
+      items,
+      hash: String(Date.now()),
+    });
   }
 
   @backgroundMethod()
   async resetItems() {
     await this.mutex.runExclusive(async () => {
-      const { servicePassword } = this.backgroundApi;
-      const { password } = await servicePassword.promptPasswordVerify({
-        reason: EReasonForNeedPassword.Security,
-      });
-      const verifyResult = await this.verifyHash({
-        returnValue: true,
-        password,
-      });
-      if (verifyResult) {
-        throw new OneKeyLocalError(
-          'failed to reset items when verify result is ok',
-        );
-      }
       await this.setItems({
         items: [],
-        password,
       });
     });
   }
 
-  private async validateItem(
-    item: IAddressItem,
-    { password }: { password: string },
-  ) {
+  private async validateItem(item: IAddressItem) {
     const { serviceValidator } = this.backgroundApi;
     if (item.name.length > 24) {
       throw new OneKeyLocalError('Name is too long');
     }
-    let result = await this.findItem({ address: item.address, password });
+    let result = await this.findItem({ address: item.address });
     if (result && (!item.id || result.id !== item.id)) {
       throw new OneKeyLocalError('Address already exist');
     }
-    result = await this.findItem({ name: item.name, password });
+    result = await this.findItem({ name: item.name });
     if (result && (!item.id || result.id !== item.id)) {
       throw new OneKeyLocalError('Name already exist');
     }
@@ -326,7 +217,6 @@ class ServiceAddressBook extends ServiceBase {
   async addItemFn(
     newObj: IAddressItem,
     options: {
-      password: string;
       skipSaveLocalSyncItem: boolean | undefined;
       skipEventEmit: boolean | undefined;
     },
@@ -334,7 +224,6 @@ class ServiceAddressBook extends ServiceBase {
     await this.mutex.runExclusive(async () => {
       const { items } = await this.getSafeRawItems({
         throwErrorIfNotSafe: true,
-        password: options.password,
       });
       newObj.id = newObj.id || generateUUID();
       newObj.createdAt = newObj.createdAt || Date.now();
@@ -345,7 +234,6 @@ class ServiceAddressBook extends ServiceBase {
         fn: async () => {
           await this.setItems({
             items,
-            password: options.password,
             skipEventEmit: options.skipEventEmit,
           });
           defaultLogger.setting.page.addAddressBook({
@@ -368,17 +256,10 @@ class ServiceAddressBook extends ServiceBase {
       skipEventEmit?: boolean;
     } = {},
   ) {
-    const { servicePassword } = this.backgroundApi;
-    const { password } = await servicePassword.promptPasswordVerify({
-      reason: EReasonForNeedPassword.Security,
-    });
-
-    await this.validateItem(newObj, { password });
-    await this.verifyHash({ password });
+    await this.validateItem(newObj);
 
     await this.addItemFn(newObj, {
       ...options,
-      password,
       skipSaveLocalSyncItem: options.skipSaveLocalSyncItem,
       skipEventEmit: options.skipEventEmit,
     });
@@ -387,7 +268,6 @@ class ServiceAddressBook extends ServiceBase {
   async updateItemFn(
     obj: IAddressItem,
     options: {
-      password: string;
       skipSaveLocalSyncItem: boolean | undefined;
       skipEventEmit: boolean | undefined;
     },
@@ -395,7 +275,6 @@ class ServiceAddressBook extends ServiceBase {
     await this.mutex.runExclusive(async () => {
       const { items } = await this.getSafeRawItems({
         throwErrorIfNotSafe: true,
-        password: options.password,
       });
       const dataIndex = items.findIndex((i) => i.id === obj.id);
       if (dataIndex >= 0) {
@@ -409,7 +288,6 @@ class ServiceAddressBook extends ServiceBase {
           fn: async () => {
             await this.setItems({
               items,
-              password: options.password,
               skipEventEmit: options.skipEventEmit,
             });
             // Check if name is changing and record history if it is
@@ -451,17 +329,10 @@ class ServiceAddressBook extends ServiceBase {
     if (!obj.id) {
       throw new OneKeyLocalError('Missing id');
     }
-    const { servicePassword } = this.backgroundApi;
-    const { password } = await servicePassword.promptPasswordVerify({
-      reason: EReasonForNeedPassword.Security,
-    });
-
-    await this.validateItem(obj, { password });
-    await this.verifyHash({ password });
+    await this.validateItem(obj);
 
     await this.updateItemFn(obj, {
       ...options,
-      password,
       skipSaveLocalSyncItem: options.skipSaveLocalSyncItem,
       skipEventEmit: options.skipEventEmit,
     });
@@ -470,7 +341,6 @@ class ServiceAddressBook extends ServiceBase {
   async removeItemFn(
     removedItem: IAddressItem,
     options: {
-      password: string;
       skipSaveLocalSyncItem: boolean | undefined;
       skipEventEmit: boolean | undefined;
     },
@@ -478,14 +348,12 @@ class ServiceAddressBook extends ServiceBase {
     await this.mutex.runExclusive(async () => {
       const { items } = await this.getSafeRawItems({
         throwErrorIfNotSafe: true,
-        password: options.password,
       });
       await this.withAddressBookCloudSync({
         fn: async () => {
           const data = items.filter((i) => i.id !== removedItem.id);
           await this.setItems({
             items: data,
-            password: options.password,
             skipEventEmit: options.skipEventEmit,
           });
           const remove = items.filter((i) => i.id === removedItem.id);
@@ -513,14 +381,7 @@ class ServiceAddressBook extends ServiceBase {
       skipEventEmit?: boolean;
     } = {},
   ) {
-    const { servicePassword } = this.backgroundApi;
-    const { password } = await servicePassword.promptPasswordVerify({
-      reason: EReasonForNeedPassword.Security,
-    });
-
-    await this.verifyHash({ password });
-
-    const { items } = await this.getSafeRawItems({ password });
+    const { items } = await this.getSafeRawItems({});
     const removedItem = items.find((i) => i.id === id);
     if (!removedItem) {
       throw new OneKeyLocalError(`Failed to find item with id = ${id}`);
@@ -528,7 +389,6 @@ class ServiceAddressBook extends ServiceBase {
 
     return this.removeItemFn(removedItem, {
       ...options,
-      password,
       skipSaveLocalSyncItem: options.skipSaveLocalSyncItem,
       skipEventEmit: options.skipEventEmit,
     });
@@ -586,15 +446,14 @@ class ServiceAddressBook extends ServiceBase {
 
   @backgroundMethod()
   public async findItem(params: {
-    password: string;
+    password?: string;
     networkImpl?: string;
     networkId?: string;
     address?: string;
     name?: string;
-  }): Promise<IAddressItem | undefined> {
-    const { address, name, networkId, networkImpl, password } = params;
-
-    const { items } = await this.getSafeRawItems({ password });
+  } = {}): Promise<IAddressItem | undefined> {
+    const { address, name, networkId, networkImpl } = params;
+    const { items } = await this.getSafeRawItems({});
     return this._findItemByConditions({
       items,
       networkId,
@@ -607,12 +466,11 @@ class ServiceAddressBook extends ServiceBase {
   @backgroundMethod()
   public async findItemById({
     id,
-    password,
   }: {
     id: string;
-    password: string;
+    password?: string;
   }): Promise<IAddressItem | undefined> {
-    const { items } = await this.getSafeRawItems({ password });
+    const { items } = await this.getSafeRawItems({});
     const item = items.find((i) => i.id === id);
     return item;
   }
@@ -636,38 +494,16 @@ class ServiceAddressBook extends ServiceBase {
     return result.join('\n');
   }
 
-  public async updateHash(newPassword: string) {
-    await this.mutex.runExclusive(async () => {
-      const { simpleDb } = this.backgroundApi;
-      const { items, hash } = await simpleDb.addressBook.getItemsAndHash();
-      // save backup hash
-      await simpleDb.addressBook.setBackupHash(hash);
-      // save items with new password
-      await this.setItems({
-        items,
-        password: newPassword,
-      });
-    });
+  public updateHash(_newPassword: string) {
+    return Promise.resolve();
   }
 
-  public async finishUpdateHash() {
-    const { simpleDb } = this.backgroundApi;
-    await simpleDb.addressBook.clearBackupHash();
+  public finishUpdateHash() {
+    return Promise.resolve();
   }
 
-  public async rollback(oldPassword: string) {
-    await this.mutex.runExclusive(async () => {
-      const { simpleDb } = this.backgroundApi;
-      const { items } = await this.getSafeRawItems({
-        password: oldPassword,
-        throwErrorIfNotSafe: true,
-      });
-      await this.setItems({
-        items,
-        password: oldPassword,
-      });
-      await simpleDb.addressBook.clearBackupHash();
-    });
+  public rollback(_oldPassword: string) {
+    return Promise.resolve();
   }
 
   @backgroundMethod()
@@ -685,7 +521,7 @@ class ServiceAddressBook extends ServiceBase {
 
   // for Migration
   @backgroundMethod()
-  async bulkSetItemsWithUniq(items: IAddressItem[], password: string) {
+  async bulkSetItemsWithUniq(items: IAddressItem[], _password?: string) {
     await this.mutex.runExclusive(async () => {
       const currentItems = await this.getItems(); // v4 items is not hashed, so we can only get raw items without safe check
       const currentAddressSet = new Set(
@@ -712,7 +548,6 @@ class ServiceAddressBook extends ServiceBase {
       const itemsToAdd = currentItems.concat(itemsUniq);
       await this.setItems({
         items: itemsToAdd,
-        password,
       });
     });
   }

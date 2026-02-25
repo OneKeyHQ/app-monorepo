@@ -1,3 +1,4 @@
+import type { RefObject } from 'react';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
@@ -11,6 +12,7 @@ import {
   Stack,
   YStack,
 } from '@onekeyhq/components';
+import { PagerView } from '@onekeyhq/components/src/composite/Carousel/pager';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useAccountSelectorCreateAddress } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorCreateAddress';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
@@ -47,6 +49,10 @@ import { TabSwitcher } from './TabSwitcher';
 import type { IServerNetworkMatch } from '../../types';
 import type { ITabType } from './TabSwitcher';
 import type { RouteProp } from '@react-navigation/core';
+import type NativePagerView from 'react-native-pager-view';
+
+const TAB_TO_INDEX: Record<ITabType, number> = { portfolio: 0, network: 1 };
+const INDEX_TO_TAB: ITabType[] = ['portfolio', 'network'];
 
 function UnifiedNetworkSelector() {
   const intl = useIntl();
@@ -178,6 +184,25 @@ function UnifiedNetworkSelector() {
   // Use ref to track activeTab for closures (e.g. onSuccess in navigation)
   const activeTabRef = useRef(activeTab);
   activeTabRef.current = activeTab;
+
+  const pagerRef = useRef<NativePagerView>(null);
+
+  const handleTabChange = useCallback((tab: ITabType) => {
+    setActiveTab(tab);
+    if (platformEnv.isNative) {
+      pagerRef.current?.setPage(TAB_TO_INDEX[tab]);
+    }
+  }, []);
+
+  const handlePageSelected = useCallback(
+    (e: { nativeEvent: { position: number } }) => {
+      const newTab = INDEX_TO_TAB[e.nativeEvent.position];
+      if (newTab && newTab !== activeTabRef.current) {
+        setActiveTab(newTab);
+      }
+    },
+    [],
+  );
 
   // Load networks data for portfolio tab
   const { run: refreshPortfolioData } = usePromiseResult(async () => {
@@ -472,7 +497,7 @@ function UnifiedNetworkSelector() {
   // Header title renderer
   const renderHeaderTitle = useCallback(() => {
     if (showTabSwitcher) {
-      return <TabSwitcher activeTab={activeTab} onTabChange={setActiveTab} />;
+      return <TabSwitcher activeTab={activeTab} onTabChange={handleTabChange} />;
     }
 
     // Show simple title for network-only mode
@@ -488,7 +513,7 @@ function UnifiedNetworkSelector() {
         </SizableText>
       </YStack>
     );
-  }, [showTabSwitcher, activeTab, intl]);
+  }, [showTabSwitcher, activeTab, handleTabChange, intl]);
 
   // Header right button
   const renderHeaderRight = useCallback(
@@ -564,43 +589,114 @@ function UnifiedNetworkSelector() {
       />
       <Page.Body>
         {showTabSwitcher ? (
-          <Stack flex={1} display={activeTab === 'portfolio' ? 'flex' : 'none'}>
-            <PortfolioContent
+          platformEnv.isNative ? (
+            <PagerView
+              ref={pagerRef as RefObject<NativePagerView>}
+              style={{ flex: 1 }}
+              initialPage={TAB_TO_INDEX[initialTab]}
+              onPageSelected={handlePageSelected}
+              keyboardDismissMode="on-drag"
+              pageWidth="100%"
+            >
+              <Stack flex={1}>
+                <PortfolioContent
+                  walletId={walletId}
+                  accountId={accountId}
+                  indexedAccountId={indexedAccountId}
+                  networksState={networksState}
+                  setNetworksState={setNetworksState}
+                  enabledNetworks={enabledNetworks}
+                  searchKey={searchKey}
+                  setSearchKey={setSearchKey}
+                  isCreatingEnabledAddresses={isCreatingEnabledAddresses}
+                  setIsCreatingEnabledAddresses={setIsCreatingEnabledAddresses}
+                  isCreatingMissingAddresses={isCreatingMissingAddresses}
+                  setIsCreatingMissingAddresses={setIsCreatingMissingAddresses}
+                  missingAddressCount={missingAddressCount}
+                  setMissingAddressCount={setMissingAddressCount}
+                  networks={networks}
+                  accountNetworkValues={accountNetworkValues}
+                  accountNetworkValueCurrency={accountNetworkValueCurrency}
+                  accountDeFiOverview={accountDeFiOverview}
+                />
+              </Stack>
+              <Stack flex={1}>
+                <NetworkContent
+                  walletId={walletId}
+                  accountId={accountId}
+                  indexedAccountId={indexedAccountId}
+                  networkId={networkId}
+                  networkIds={networkIds}
+                  onPressItem={handleNetworkPressItem}
+                  onAddCustomNetwork={handleAddCustomNetwork}
+                  onEditCustomNetwork={handleEditCustomNetwork}
+                  searchText={searchKey}
+                  setSearchText={setSearchKey}
+                />
+              </Stack>
+            </PagerView>
+          ) : (
+            <>
+              <Stack
+                flex={1}
+                display={activeTab === 'portfolio' ? 'flex' : 'none'}
+              >
+                <PortfolioContent
+                  walletId={walletId}
+                  accountId={accountId}
+                  indexedAccountId={indexedAccountId}
+                  networksState={networksState}
+                  setNetworksState={setNetworksState}
+                  enabledNetworks={enabledNetworks}
+                  searchKey={searchKey}
+                  setSearchKey={setSearchKey}
+                  isCreatingEnabledAddresses={isCreatingEnabledAddresses}
+                  setIsCreatingEnabledAddresses={setIsCreatingEnabledAddresses}
+                  isCreatingMissingAddresses={isCreatingMissingAddresses}
+                  setIsCreatingMissingAddresses={setIsCreatingMissingAddresses}
+                  missingAddressCount={missingAddressCount}
+                  setMissingAddressCount={setMissingAddressCount}
+                  networks={networks}
+                  accountNetworkValues={accountNetworkValues}
+                  accountNetworkValueCurrency={accountNetworkValueCurrency}
+                  accountDeFiOverview={accountDeFiOverview}
+                />
+              </Stack>
+              <Stack
+                flex={1}
+                display={activeTab === 'network' ? 'flex' : 'none'}
+              >
+                <NetworkContent
+                  walletId={walletId}
+                  accountId={accountId}
+                  indexedAccountId={indexedAccountId}
+                  networkId={networkId}
+                  networkIds={networkIds}
+                  onPressItem={handleNetworkPressItem}
+                  onAddCustomNetwork={handleAddCustomNetwork}
+                  onEditCustomNetwork={handleEditCustomNetwork}
+                  searchText={searchKey}
+                  setSearchText={setSearchKey}
+                />
+              </Stack>
+            </>
+          )
+        ) : (
+          <Stack flex={1}>
+            <NetworkContent
               walletId={walletId}
               accountId={accountId}
               indexedAccountId={indexedAccountId}
-              networksState={networksState}
-              setNetworksState={setNetworksState}
-              enabledNetworks={enabledNetworks}
-              searchKey={searchKey}
-              setSearchKey={setSearchKey}
-              isCreatingEnabledAddresses={isCreatingEnabledAddresses}
-              setIsCreatingEnabledAddresses={setIsCreatingEnabledAddresses}
-              isCreatingMissingAddresses={isCreatingMissingAddresses}
-              setIsCreatingMissingAddresses={setIsCreatingMissingAddresses}
-              missingAddressCount={missingAddressCount}
-              setMissingAddressCount={setMissingAddressCount}
-              networks={networks}
-              accountNetworkValues={accountNetworkValues}
-              accountNetworkValueCurrency={accountNetworkValueCurrency}
-              accountDeFiOverview={accountDeFiOverview}
+              networkId={networkId}
+              networkIds={networkIds}
+              onPressItem={handleNetworkPressItem}
+              onAddCustomNetwork={handleAddCustomNetwork}
+              onEditCustomNetwork={handleEditCustomNetwork}
+              searchText={searchKey}
+              setSearchText={setSearchKey}
             />
           </Stack>
-        ) : null}
-        <Stack flex={1} display={activeTab === 'network' ? 'flex' : 'none'}>
-          <NetworkContent
-            walletId={walletId}
-            accountId={accountId}
-            indexedAccountId={indexedAccountId}
-            networkId={networkId}
-            networkIds={networkIds}
-            onPressItem={handleNetworkPressItem}
-            onAddCustomNetwork={handleAddCustomNetwork}
-            onEditCustomNetwork={handleEditCustomNetwork}
-            searchText={searchKey}
-            setSearchText={setSearchKey}
-          />
-        </Stack>
+        )}
       </Page.Body>
       {activeTab === 'portfolio' && (
         <Page.Footer>

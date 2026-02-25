@@ -16,6 +16,9 @@ const { getSentryExpoConfig } = require('@sentry/react-native/metro');
 
 const projectRoot = __dirname;
 
+// Pre-calculate monorepo root for use in multiple places
+const monorepoRoot = path.resolve(projectRoot, '../..');
+
 // Get Metro's default config for the project
 const defaultConfig = getDefaultConfig(projectRoot);
 
@@ -31,7 +34,6 @@ config.projectRoot = projectRoot;
 // that require('./index.ts')). The harness resolver intercepts that require and replaces
 // it with the harness runtime entry point.
 if (process.env.RN_HARNESS === 'true') {
-  const monorepoRoot = path.resolve(projectRoot, '../..');
   config.server = config.server || {};
   config.server.unstable_serverRoot = monorepoRoot;
   const expoRewrite = config.server.rewriteRequestUrl || ((url) => url);
@@ -115,6 +117,52 @@ if (process.env.RN_HARNESS === 'true') {
   const subpathPrefixes = ['@react-native-harness/', '@vitest/'];
   const prevResolveRequest = config.resolver.resolveRequest;
   config.resolver.resolveRequest = (context, moduleName, platform) => {
+    // Handle absolute paths from monorepo root (e.g., /packages/core/src/...)
+    // These come from Harness test bundle requests after URL rewriting
+    if (moduleName.startsWith('/packages/')) {
+      const absolutePath = path.join(monorepoRoot, moduleName);
+      // Try to resolve with platform extensions
+      const extensions = [
+        '',
+        `.${platform}.ts`,
+        `.${platform}.tsx`,
+        '.ts',
+        '.tsx',
+        `.${platform}.js`,
+        `.${platform}.jsx`,
+        '.js',
+        '.jsx',
+      ];
+      for (const ext of extensions) {
+        const fullPath = absolutePath + ext;
+        if (fs.existsSync(fullPath)) {
+          return { type: 'sourceFile', filePath: fullPath };
+        }
+      }
+    }
+    // Handle paths that were incorrectly resolved by TsConfigResolver
+    // e.g., ./apps/mobile/packages/core/src/... -> /packages/core/src/...
+    if (moduleName.startsWith('./apps/mobile/packages/')) {
+      const correctedPath = moduleName.replace(/^\.\/apps\/mobile\//, '');
+      const absolutePath = path.join(monorepoRoot, correctedPath);
+      const extensions = [
+        '',
+        `.${platform}.ts`,
+        `.${platform}.tsx`,
+        '.ts',
+        '.tsx',
+        `.${platform}.js`,
+        `.${platform}.jsx`,
+        '.js',
+        '.jsx',
+      ];
+      for (const ext of extensions) {
+        const fullPath = absolutePath + ext;
+        if (fs.existsSync(fullPath)) {
+          return { type: 'sourceFile', filePath: fullPath };
+        }
+      }
+    }
     // Map lodash-es to lodash (same as Jest moduleNameMapper: '^lodash-es$': 'lodash')
     if (moduleName === 'lodash-es') {
       return prevResolveRequest(context, 'lodash', platform);
