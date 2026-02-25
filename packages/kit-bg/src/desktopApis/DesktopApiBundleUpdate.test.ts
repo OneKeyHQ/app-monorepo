@@ -14,7 +14,8 @@ import path from 'path';
 describe('DesktopApiBundleUpdate HTTPS enforcement', () => {
   function validateDownloadUrl(url: string | undefined): string | null {
     if (!url) return 'Invalid parameters';
-    if (!url.startsWith('https://')) return 'Bundle download URL must use HTTPS';
+    if (!url.startsWith('https://'))
+      return 'Bundle download URL must use HTTPS';
     return null;
   }
 
@@ -60,9 +61,7 @@ describe('DesktopApiBundleUpdate redirect validation', () => {
   }
 
   test('accepts HTTPS redirect within limit', () => {
-    expect(
-      validateRedirect('https://cdn2.onekey.so/bundle.zip', 0),
-    ).toBeNull();
+    expect(validateRedirect('https://cdn2.onekey.so/bundle.zip', 0)).toBeNull();
   });
 
   test('rejects redirect to HTTP (downgrade attack)', () => {
@@ -72,21 +71,19 @@ describe('DesktopApiBundleUpdate redirect validation', () => {
   });
 
   test('rejects redirect at max count', () => {
-    expect(
-      validateRedirect('https://cdn.onekey.so/bundle.zip', 5),
-    ).toBe('Too many redirects');
+    expect(validateRedirect('https://cdn.onekey.so/bundle.zip', 5)).toBe(
+      'Too many redirects',
+    );
   });
 
   test('accepts redirect at count 4 (just under limit)', () => {
-    expect(
-      validateRedirect('https://cdn.onekey.so/bundle.zip', 4),
-    ).toBeNull();
+    expect(validateRedirect('https://cdn.onekey.so/bundle.zip', 4)).toBeNull();
   });
 
   test('rejects redirect beyond max count', () => {
-    expect(
-      validateRedirect('https://cdn.onekey.so/bundle.zip', 10),
-    ).toBe('Too many redirects');
+    expect(validateRedirect('https://cdn.onekey.so/bundle.zip', 10)).toBe(
+      'Too many redirects',
+    );
   });
 });
 
@@ -223,10 +220,7 @@ describe('DesktopApiBundleUpdate version downgrade prevention', () => {
 // Path traversal detection - mirrors verifyBundleASC (lines 444-452)
 // ---------------------------------------------------------------------------
 describe('DesktopApiBundleUpdate path traversal detection', () => {
-  function checkPathTraversal(
-    entryName: string,
-    extractDir: string,
-  ): boolean {
+  function checkPathTraversal(entryName: string, extractDir: string): boolean {
     const resolvedExtractDir = path.resolve(extractDir);
     const entryPath = path.resolve(resolvedExtractDir, entryName);
     return (
@@ -240,9 +234,9 @@ describe('DesktopApiBundleUpdate path traversal detection', () => {
   });
 
   test('nested file is safe', () => {
-    expect(
-      checkPathTraversal('build/assets/main.js', '/tmp/bundle'),
-    ).toBe(false);
+    expect(checkPathTraversal('build/assets/main.js', '/tmp/bundle')).toBe(
+      false,
+    );
   });
 
   test('root file is safe', () => {
@@ -250,31 +244,26 @@ describe('DesktopApiBundleUpdate path traversal detection', () => {
   });
 
   test('detects parent directory traversal', () => {
-    expect(
-      checkPathTraversal('../../../etc/passwd', '/tmp/bundle'),
-    ).toBe(true);
+    expect(checkPathTraversal('../../../etc/passwd', '/tmp/bundle')).toBe(true);
   });
 
   test('detects embedded traversal', () => {
-    expect(
-      checkPathTraversal('build/../../etc/passwd', '/tmp/bundle'),
-    ).toBe(true);
+    expect(checkPathTraversal('build/../../etc/passwd', '/tmp/bundle')).toBe(
+      true,
+    );
   });
 
   test('detects deep embedded traversal', () => {
     expect(
-      checkPathTraversal(
-        'build/assets/../../../etc/shadow',
-        '/tmp/bundle',
-      ),
+      checkPathTraversal('build/assets/../../../etc/shadow', '/tmp/bundle'),
     ).toBe(true);
   });
 
   test('safe path with .. that stays inside', () => {
     // build/../build/index.html resolves to build/index.html, still inside
-    expect(
-      checkPathTraversal('build/../build/index.html', '/tmp/bundle'),
-    ).toBe(false);
+    expect(checkPathTraversal('build/../build/index.html', '/tmp/bundle')).toBe(
+      false,
+    );
   });
 });
 
@@ -444,21 +433,21 @@ describe('DesktopApiBundleUpdate file naming', () => {
 // HTTP status code handling - mirrors downloadBundle response handling
 // ---------------------------------------------------------------------------
 describe('DesktopApiBundleUpdate HTTP status handling', () => {
-  const REDIRECT_CODES = [301, 302, 307, 308];
-  const SUCCESS_CODES = [200, 206];
+  const REDIRECT_CODES = new Set([301, 302, 307, 308]);
+  const SUCCESS_CODES = new Set([200, 206]);
 
   test('redirect codes are identified correctly', () => {
     for (const code of REDIRECT_CODES) {
-      expect(REDIRECT_CODES.includes(code)).toBe(true);
+      expect(REDIRECT_CODES.has(code)).toBe(true);
     }
-    expect(REDIRECT_CODES.includes(200)).toBe(false);
-    expect(REDIRECT_CODES.includes(404)).toBe(false);
+    expect(REDIRECT_CODES.has(200)).toBe(false);
+    expect(REDIRECT_CODES.has(404)).toBe(false);
   });
 
   test('success codes are 200 and 206', () => {
-    expect(SUCCESS_CODES.includes(200)).toBe(true);
-    expect(SUCCESS_CODES.includes(206)).toBe(true);
-    expect(SUCCESS_CODES.includes(201)).toBe(false);
+    expect(SUCCESS_CODES.has(200)).toBe(true);
+    expect(SUCCESS_CODES.has(206)).toBe(true);
+    expect(SUCCESS_CODES.has(201)).toBe(false);
   });
 
   test('416 means range not satisfiable', () => {
@@ -470,7 +459,7 @@ describe('DesktopApiBundleUpdate HTTP status handling', () => {
     const errorCodes = [400, 403, 404, 500, 502, 503];
     for (const code of errorCodes) {
       expect(
-        !REDIRECT_CODES.includes(code) && !SUCCESS_CODES.includes(code),
+        !REDIRECT_CODES.has(code) && !SUCCESS_CODES.has(code),
       ).toBe(true);
     }
   });
@@ -483,8 +472,16 @@ describe('DesktopApiBundleUpdate symlink detection', () => {
   test('rejects symbolic links conceptually', () => {
     // This tests the logic: if entry.isSymbolicLink() → throw
     const mockEntries = [
-      { name: 'build/index.html', isSymbolicLink: () => false, isDirectory: () => false },
-      { name: 'build/link.html', isSymbolicLink: () => true, isDirectory: () => false },
+      {
+        name: 'build/index.html',
+        isSymbolicLink: () => false,
+        isDirectory: () => false,
+      },
+      {
+        name: 'build/link.html',
+        isSymbolicLink: () => true,
+        isDirectory: () => false,
+      },
     ];
 
     const errors: string[] = [];
@@ -503,10 +500,10 @@ describe('DesktopApiBundleUpdate symlink detection', () => {
 // Metadata file skip rules - mirrors verifyAllExtractedFiles (line 504)
 // ---------------------------------------------------------------------------
 describe('DesktopApiBundleUpdate file skip rules', () => {
-  const SKIP_FILES = ['metadata.json', '.DS_Store'];
+  const SKIP_FILES = new Set(['metadata.json', '.DS_Store']);
 
   function shouldSkip(fileName: string): boolean {
-    return SKIP_FILES.includes(fileName);
+    return SKIP_FILES.has(fileName);
   }
 
   test('skips metadata.json', () => {

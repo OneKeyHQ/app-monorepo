@@ -16,7 +16,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useDownloadProgress } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import { BundleUpdate } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
+import type { EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 
 import type { IModalSettingParamList } from '@onekeyhq/shared/src/routes';
 import type { RouteProp } from '@react-navigation/core';
@@ -98,10 +98,7 @@ function BundleItem({
     try {
       if (alreadyDownloaded && !downloadedEventRef.current) {
         // Verify file integrity before switching
-        await BundleUpdate.verifyExtractedBundle(
-          version,
-          bundle.bundleVersion,
-        );
+        await BundleUpdate.verifyExtractedBundle(version, bundle.bundleVersion);
         await BundleUpdate.installBundle({
           latestVersion: version,
           bundleVersion: bundle.bundleVersion,
@@ -145,12 +142,7 @@ function BundleItem({
   const downloadDisabled = isDownloading && status !== 'downloading';
 
   return (
-    <YStack
-      p="$3"
-      borderRadius="$3"
-      bg="$bgSubdued"
-      gap="$2"
-    >
+    <YStack p="$3" borderRadius="$3" bg="$bgSubdued" gap="$2">
       <Stack
         flexDirection="row"
         alignItems="center"
@@ -211,11 +203,7 @@ function BundleItem({
       ) : null}
 
       {!isCurrentBundle && status === 'downloaded' ? (
-        <Button
-          variant="primary"
-          size="small"
-          onPress={handleInstall}
-        >
+        <Button variant="primary" size="small" onPress={handleInstall}>
           Switch to this bundle
         </Button>
       ) : null}

@@ -513,7 +513,7 @@ class ServiceAppUpdate extends ServiceBase {
           downloadUrl:
             'https://github.com/nicepkg/gpt-runner/archive/refs/tags/v1.0.0.zip',
           sha256: 'mock_sha256_760_3',
-          fileSize: 2048000,
+          fileSize: 2_048_000,
           changeLog: 'Fix critical bug in swap module',
         },
         {
@@ -521,7 +521,7 @@ class ServiceAppUpdate extends ServiceBase {
           downloadUrl:
             'https://github.com/nicepkg/gpt-runner/archive/refs/tags/v1.0.0.zip',
           sha256: 'mock_sha256_760_2',
-          fileSize: 2000000,
+          fileSize: 2_000_000,
           changeLog: 'Add new token support',
         },
         {
@@ -529,7 +529,7 @@ class ServiceAppUpdate extends ServiceBase {
           downloadUrl:
             'https://github.com/nicepkg/gpt-runner/archive/refs/tags/v1.0.0.zip',
           sha256: 'mock_sha256_760_1',
-          fileSize: 1950000,
+          fileSize: 1_950_000,
           changeLog: 'Initial release',
         },
       ],
@@ -539,7 +539,7 @@ class ServiceAppUpdate extends ServiceBase {
           downloadUrl:
             'https://github.com/nicepkg/gpt-runner/archive/refs/tags/v1.0.0.zip',
           sha256: 'mock_sha256_750_2',
-          fileSize: 1900000,
+          fileSize: 1_900_000,
           changeLog: 'Performance improvements',
         },
         {
@@ -547,7 +547,7 @@ class ServiceAppUpdate extends ServiceBase {
           downloadUrl:
             'https://github.com/nicepkg/gpt-runner/archive/refs/tags/v1.0.0.zip',
           sha256: 'mock_sha256_750_1',
-          fileSize: 1850000,
+          fileSize: 1_850_000,
           changeLog: 'Initial release',
         },
       ],
@@ -557,7 +557,7 @@ class ServiceAppUpdate extends ServiceBase {
           downloadUrl:
             'https://github.com/nicepkg/gpt-runner/archive/refs/tags/v1.0.0.zip',
           sha256: 'mock_sha256_740_1',
-          fileSize: 1800000,
+          fileSize: 1_800_000,
           changeLog: 'Initial release',
         },
       ],

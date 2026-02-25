@@ -16,21 +16,12 @@ const BundleUpdateModule = NativeModules.BundleUpdateModule;
 
 // ---- Helpers ----
 
-const RNFS =
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  require('@onekeyhq/shared/src/modules3rdParty/react-native-fs')?.default;
+const RNFS = // eslint-disable-next-line @typescript-eslint/no-var-requires
+require('@onekeyhq/shared/src/modules3rdParty/react-native-fs')?.default;
 
-async function writeTestFile(
-  filePath: string,
-  content: string,
-): Promise<void> {
+async function writeTestFile(filePath: string, content: string): Promise<void> {
   if (!RNFS) throw new Error('RNFS unavailable');
   await RNFS.writeFile(filePath, content, 'utf8');
-}
-
-async function fileExists(filePath: string): Promise<boolean> {
-  if (!RNFS) return false;
-  return RNFS.exists(filePath);
 }
 
 async function deleteIfExists(filePath: string): Promise<void> {
@@ -392,7 +383,8 @@ describe('getFallbackUpdateBundleData', () => {
   test('returns an array (possibly empty)', async () => {
     const data = await BundleUpdateModule.getFallbackUpdateBundleData();
     // May be null/undefined on fresh install, or an array
-    const isArrayLike = Array.isArray(data) || data === null || data === undefined;
+    const isArrayLike =
+      Array.isArray(data) || data === null || data === undefined;
     expect(isArrayLike).toBe(true);
   });
 });
