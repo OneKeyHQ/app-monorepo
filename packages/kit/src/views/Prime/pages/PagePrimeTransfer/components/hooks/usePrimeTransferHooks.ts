@@ -37,6 +37,8 @@ export function useModalExitPrevent({
       };
     }) => {
       if (isNavExitConfirmShow) {
+        isNavExitConfirmShow = false;
+        navigation.dispatch(data.action);
         return;
       }
       isNavExitConfirmShow = true;
@@ -68,7 +70,7 @@ export function useAppExitPrevent({
   message: string;
   title: string;
   shouldPreventExitOnAndroid?: boolean;
-  onConfirm?: () => void;
+  onConfirm?: () => Promise<void> | void;
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -107,13 +109,10 @@ export function useAppExitPrevent({
           },
           {
             text: intl.formatMessage({ id: ETranslations.global_quit }),
-            onPress: () => {
-              onConfirm?.();
-              if (navigation.canGoBack()) {
-                navigation.goBack();
-              } else {
-                BackHandler.exitApp();
-              }
+            onPress: async () => {
+              await onConfirm?.();
+              isNavExitConfirmShow = true;
+              navigation.popStack();
             },
           },
         ],
