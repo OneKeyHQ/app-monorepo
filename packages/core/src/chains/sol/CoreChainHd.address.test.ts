@@ -61,6 +61,7 @@ describe('SOL Address Derivation Tests', () => {
       hdCredential: hdCredential.hdCredentialHex,
       template: hdAccountTemplate,
       indexes: [0],
+      addressEncoding: undefined,
     });
     expect(result.addresses.length).toBe(1);
     expect(result.addresses[0].address).toBe(
@@ -75,6 +76,7 @@ describe('SOL Address Derivation Tests', () => {
       hdCredential: hdCredential.hdCredentialHex,
       template: hdAccountTemplate,
       indexes: [0, 1, 2],
+      addressEncoding: undefined,
     });
     const addresses = result.addresses.map((a) => a.address);
     const unique = new Set(addresses);
@@ -88,6 +90,7 @@ describe('SOL Address Derivation Tests', () => {
       hdCredential: hdCredential.hdCredentialHex,
       template: hdAccountTemplate,
       indexes: [0, 1],
+      addressEncoding: undefined,
     });
     for (const addr of result.addresses) {
       // Valid base58 should decode to 32 bytes
@@ -103,6 +106,7 @@ describe('SOL Address Derivation Tests', () => {
       hdCredential: hdCredential.hdCredentialHex,
       template: hdAccountTemplate,
       indexes: [0],
+      addressEncoding: undefined,
     });
     const result2 = await coreApi.getAddressesFromHd({
       networkInfo,
@@ -110,6 +114,7 @@ describe('SOL Address Derivation Tests', () => {
       hdCredential: hdCredential.hdCredentialHex,
       template: hdAccountTemplate,
       indexes: [0],
+      addressEncoding: undefined,
     });
     expect(result1.addresses[0].address).toBe(result2.addresses[0].address);
   });
