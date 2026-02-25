@@ -670,21 +670,27 @@ const PortfolioItemComponent = ({
           label: depositColumnLabel,
           flex: 1.5,
           priority: 5,
-          render: (asset) => <DepositField asset={asset} />,
+          render: (asset: IEarnPortfolioInvestment['assets'][number]) => (
+            <DepositField asset={asset} />
+          ),
         },
         {
           key: 'Est. 24h earnings',
           label: intl.formatMessage({ id: ETranslations.earn_24h_earnings }),
           flex: 1,
           priority: 1,
-          render: (asset) => <EarningsField asset={asset} />,
+          render: (asset: IEarnPortfolioInvestment['assets'][number]) => (
+            <EarningsField asset={asset} />
+          ),
         },
         {
           key: 'Asset status',
           label: intl.formatMessage({ id: ETranslations.earn_asset_status }),
           flex: 1,
           priority: 3,
-          render: (asset) => <AssetStatusField asset={asset} />,
+          render: (asset: IEarnPortfolioInvestment['assets'][number]) => (
+            <AssetStatusField asset={asset} />
+          ),
         },
         isPendle
           ? {
@@ -705,7 +711,9 @@ const PortfolioItemComponent = ({
               label: intl.formatMessage({ id: ETranslations.earn_claimable }),
               flex: 1,
               priority: 3,
-              render: (asset) => <ActionField asset={asset} />,
+              render: (asset: IEarnPortfolioInvestment['assets'][number]) => (
+                <ActionField asset={asset} />
+              ),
             },
       ];
     }, [depositColumnLabel, intl, isPendle, portfolioItem.totalFiatValue]);
