@@ -337,10 +337,8 @@ function TokenDetailsHeader(props: IProps) {
             <TokenDetailsWalletActionMore
               accountId={accountId}
               networkId={networkId}
-              walletId={wallet?.id ?? ''}
               walletType={wallet?.type}
               tokenInfo={tokenInfo}
-              isTabView={isTabView}
               onSwap={handleOnSwap}
               onBridge={handleOnBridge}
             />
