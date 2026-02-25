@@ -13,7 +13,7 @@ index 05bddcb..5211253 100644
        registrationName: 'onChangeSync',
      },
 diff --git a/node_modules/react-native/Libraries/Text/TextInput/Multiline/RCTUITextView.mm b/node_modules/react-native/Libraries/Text/TextInput/Multiline/RCTUITextView.mm
-index 6e9c384..5beb8b7 100644
+index 6e9c384..64e706f 100644
 --- a/node_modules/react-native/Libraries/Text/TextInput/Multiline/RCTUITextView.mm
 +++ b/node_modules/react-native/Libraries/Text/TextInput/Multiline/RCTUITextView.mm
 @@ -13,6 +13,10 @@
@@ -35,7 +35,7 @@ index 6e9c384..5beb8b7 100644
  }
  
  static UIFont *defaultPlaceholderFont(void)
-@@ -209,9 +214,75 @@ - (void)scrollRangeToVisible:(NSRange)range
+@@ -209,9 +214,80 @@ - (void)scrollRangeToVisible:(NSRange)range
  - (void)paste:(id)sender
  {
    _textWasPasted = YES;
@@ -53,6 +53,11 @@ index 6e9c384..5beb8b7 100644
    [super paste:sender];
  }
  
++- (void)_superPaste:(id)sender
++{
++  [super paste:sender];
++}
++
 +- (BOOL)processImagePaste:(UIPasteboard *)clipboard
 +{
 +  // Prevent concurrent image paste operations from rapid taps
@@ -86,7 +91,7 @@ index 6e9c384..5beb8b7 100644
 +            if (clipboard.hasStrings) {
 +              [strongSelf->_textInputDelegateAdapter didPaste:@"text/plain" withData:clipboard.string];
 +            }
-+            [super paste:nil];
++            [strongSelf _superPaste:nil];
 +            return;
 +          }
 +
@@ -111,17 +116,17 @@ index 6e9c384..5beb8b7 100644
  // Turn off scroll animation to fix flaky scrolling.
  // This is only necessary for iOS < 14.
  #if defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED < 140000
-@@ -297,6 +368,10 @@ - (CGSize)sizeThatFits:(CGSize)size
+@@ -301,6 +377,10 @@ - (BOOL)canPerformAction:(SEL)action withSender:(id)sender
+     return NO;
+   }
  
- - (BOOL)canPerformAction:(SEL)action withSender:(id)sender
- {
 +  if (action == @selector(paste:) && [UIPasteboard generalPasteboard].hasImages) {
 +    return YES;
 +  }
 +
-   if (_contextMenuHidden) {
-     return NO;
-   }
+   return [super canPerformAction:action withSender:sender];
+ }
+ 
 diff --git a/node_modules/react-native/Libraries/Text/TextInput/RCTBackedTextInputDelegate.h b/node_modules/react-native/Libraries/Text/TextInput/RCTBackedTextInputDelegate.h
 index 7187177..da00893 100644
 --- a/node_modules/react-native/Libraries/Text/TextInput/RCTBackedTextInputDelegate.h
@@ -266,7 +271,7 @@ index 47adc53..1865e0a 100644
  RCT_EXPORT_SHADOW_PROPERTY(text, NSString)
  RCT_EXPORT_SHADOW_PROPERTY(placeholder, NSString)
 diff --git a/node_modules/react-native/Libraries/Text/TextInput/Singleline/RCTUITextField.mm b/node_modules/react-native/Libraries/Text/TextInput/Singleline/RCTUITextField.mm
-index 377f41e..46be1a4 100644
+index 377f41e..129e6a9 100644
 --- a/node_modules/react-native/Libraries/Text/TextInput/Singleline/RCTUITextField.mm
 +++ b/node_modules/react-native/Libraries/Text/TextInput/Singleline/RCTUITextField.mm
 @@ -12,12 +12,17 @@
@@ -287,18 +292,26 @@ index 377f41e..46be1a4 100644
  }
  
  // This should not be needed but internal build were failing without it.
-@@ -176,6 +181,10 @@ - (void)setDisableKeyboardShortcuts:(BOOL)disableKeyboardShortcuts
+@@ -180,6 +185,10 @@ - (BOOL)canPerformAction:(SEL)action withSender:(id)sender
+     return NO;
+   }
  
- - (BOOL)canPerformAction:(SEL)action withSender:(id)sender
- {
 +  if (action == @selector(paste:) && [UIPasteboard generalPasteboard].hasImages) {
 +    return YES;
 +  }
 +
-   if (_contextMenuHidden) {
-     return NO;
-   }
-@@ -263,7 +272,60 @@ - (void)scrollRangeToVisible:(NSRange)range
+   return [super canPerformAction:action withSender:sender];
+ }
+ 
+@@ -260,10 +269,68 @@ - (void)scrollRangeToVisible:(NSRange)range
+   // Singleline TextInput does not require scrolling after calling setSelectedTextRange (PR 38679).
+ }
+ 
++- (void)_superPaste:(id)sender
++{
++  [super paste:sender];
++}
++
  - (void)paste:(id)sender
  {
    _textWasPasted = YES;
@@ -329,7 +342,7 @@ index 377f41e..46be1a4 100644
 +                  if (clipboard.hasStrings) {
 +                    [strongSelf->_textInputDelegateAdapter didPaste:@"text/plain" withData:clipboard.string];
 +                  }
-+                  [super paste:nil];
++                  [strongSelf _superPaste:nil];
 +                  return;
 +                }
 +
