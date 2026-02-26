@@ -81,7 +81,7 @@ const SellOrBuy = ({ title, type, networkId, accountId }: ISellOrBuyProps) => {
     return result.toSorted((a, b) => {
       const num1 = a.fiatValue ?? '0';
       const num2 = b.fiatValue ?? '0';
-      return BigNumber(num1).gt(num2) ? -1 : 1;
+      return BigNumber(num1).comparedTo(num2) * -1;
     });
   }, [tokens, getTokenFiatValue, networkId, type, account]);
 
