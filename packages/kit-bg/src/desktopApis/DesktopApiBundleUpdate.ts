@@ -672,12 +672,13 @@ class DesktopApiAppBundleUpdate {
     }
     logger.info('fallbackUpdateBundleData', fallbackUpdateBundleData);
     store.setFallbackUpdateBundleData(fallbackUpdateBundleData);
-    setTimeout(() => {
-      if (!process.mas) {
-        app.relaunch();
-      }
-      app.exit(0);
-    }, 1200);
+    // Destroy window first to ensure renderer process is fully terminated
+    // before relaunch, preventing webview custom element double registration
+    this.getMainWindow()?.destroy();
+    if (!process.mas) {
+      app.relaunch();
+    }
+    app.exit(0);
   }
 
   async clearDownload() {
@@ -699,12 +700,13 @@ class DesktopApiAppBundleUpdate {
     updateBundleData: IDesktopStoreUpdateBundleData,
   ) {
     store.setUpdateBundleData(updateBundleData);
-    setTimeout(() => {
-      if (!process.mas) {
-        app.relaunch();
-      }
-      app.exit(0);
-    }, 1200);
+    // Destroy window first to ensure renderer process is fully terminated
+    // before relaunch, preventing webview custom element double registration
+    this.getMainWindow()?.destroy();
+    if (!process.mas) {
+      app.relaunch();
+    }
+    app.exit(0);
   }
 
   async clearBundleExtract() {
