@@ -1412,18 +1412,6 @@ const BaseDevSettingsSection = () => {
               >
                 <Switch size={ESwitchSize.small} />
               </SectionFieldItem>
-              <SectionFieldItem
-                icon="BankOutline"
-                name="enableBinanceConnect"
-                title="启用 Binance Connect (全平台)"
-                subtitle={
-                  devSettings.settings?.enableBinanceConnect
-                    ? '所有平台都使用 Binance Connect 流程'
-                    : '仅移动端已安装 Binance 时使用'
-                }
-              >
-                <Switch size={ESwitchSize.small} />
-              </SectionFieldItem>
             </Accordion.Content>
           </Accordion.HeightAnimator>
         </Accordion.Item>
