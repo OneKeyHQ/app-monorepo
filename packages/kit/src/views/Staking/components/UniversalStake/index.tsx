@@ -2,7 +2,6 @@ import type { PropsWithChildren, ReactElement } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { isNaN } from 'lodash';
 import { useIntl } from 'react-intl';
 import { Keyboard, StyleSheet } from 'react-native';
 import { useDebouncedCallback } from 'use-debounce';
@@ -40,7 +39,6 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 import type { IFeeUTXO } from '@onekeyhq/shared/types/fee';
@@ -63,8 +61,13 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { useEarnPermitApprove } from '../../hooks/useEarnPermitApprove';
 import { useEarnSignMessageWithoutVerify } from '../../hooks/useEarnSignMessageWithoutVerify';
+import { usePendleLayoutState } from '../../hooks/usePendleLayoutState';
 import { useTrackTokenAllowance } from '../../hooks/useUtilsHooks';
-import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
+import {
+  capitalizeString,
+  countDecimalPlaces,
+  isInvalidAmount,
+} from '../../utils/utils';
 import { BtcFeeRateInput } from '../BtcFeeRateInput';
 import { CalculationListItem } from '../CalculationList';
 import {
@@ -81,7 +84,6 @@ import { EarnValidatorSelect } from '../ProtocolDetails/EarnValidatorSelect';
 import {
   PendleAccordionTriggerContent,
   PendleSummarySection,
-  usePendleTransactionDetails,
 } from '../ProtocolDetails/PendleSharedComponents';
 import { EStakeProgressStep, StakeProgress } from '../StakeProgress';
 import {
@@ -359,10 +361,14 @@ export function UniversalStake({
 
   const debouncedFetchTransactionConfirmation = useDebouncedCallback(
     async (amount?: string) => {
-      const resp = await fetchTransactionConfirmation(amount || '0');
-      setTransactionConfirmation(resp);
-      if (resp && amount && Number(amount) > 0) {
-        onQuoteReset?.();
+      try {
+        const resp = await fetchTransactionConfirmation(amount || '0');
+        setTransactionConfirmation(resp);
+        if (resp && amount && Number(amount) > 0) {
+          onQuoteReset?.();
+        }
+      } catch {
+        // keep stale state
       }
     },
     350,
@@ -511,12 +517,6 @@ export function UniversalStake({
     [],
   );
 
-  // const { showFalconEventEndedDialog } = useFalconEventEndedDialog({
-  //   providerName,
-  //   eventEndTime: protocolInfo?.eventEndTime,
-  //   // weeklyNetApyWithoutFee: protocolInfo?.apys?.weeklyNetApyWithoutFee,
-  // });
-
   const { navigationToTxConfirm } = useSignatureConfirm({
     accountId: approveTarget.accountId,
     networkId: approveTarget.networkId,
@@ -530,7 +530,7 @@ export function UniversalStake({
 
   const checkAmount = useDebouncedCallback(
     async ({ amount, identity }: { amount: string; identity?: string }) => {
-      if (isNaN(amount)) {
+      if (isInvalidAmount(amount)) {
         return;
       }
       setCheckAmountLoading(true);
@@ -592,9 +592,7 @@ export function UniversalStake({
         Number(decimals) > 0 &&
         countDecimalPlaces(value) > decimals,
       );
-      if (isOverflowDecimals) {
-        // setAmountValue((oldValue) => oldValue);
-      } else {
+      if (!isOverflowDecimals) {
         setAmountValue(value);
         void debouncedFetchEstimateFeeResp(value);
         void checkAmount({ amount: value, identity: stakefishIdentity });
@@ -649,22 +647,6 @@ export function UniversalStake({
     return !remainingCapBN.isNaN() && remainingCapBN.isEqualTo(0);
   }, [protocolInfo?.remainingCap]);
 
-  // const isLessThanMinAmount = useMemo<boolean>(() => {
-  //   const minAmountBn = new BigNumber(minAmount);
-  //   const amountValueBn = new BigNumber(amountValue);
-  //   if (minAmountBn.isGreaterThan(0) && amountValueBn.isGreaterThan(0)) {
-  //     return amountValueBn.isLessThan(minAmountBn);
-  //   }
-  //   return false;
-  // }, [minAmount, amountValue]);
-
-  // const isGreaterThanMaxAmount = useMemo(() => {
-  //   if (maxAmount && Number(maxAmount) > 0 && Number(amountValue) > 0) {
-  //     return new BigNumber(amountValue).isGreaterThan(maxAmount);
-  //   }
-  //   return false;
-  // }, [maxAmount, amountValue]);
-
   const isCheckAmountMessageError =
     amountValue?.length > 0 && !!checkAmountMessage;
 
@@ -683,14 +665,6 @@ export function UniversalStake({
       isStakingCapFull ||
       checkAmountLoading
     );
-    // return (
-    //   amountValueBN.isNaN() ||
-    //   amountValueBN.isLessThanOrEqualTo(0) ||
-    //   isInsufficientBalance ||
-    //   isLessThanMinAmount ||
-    //   isGreaterThanMaxAmount ||
-    //   isReachBabylonCap
-    // );
   }, [
     amountValue,
     isCheckAmountMessageError,
@@ -699,51 +673,6 @@ export function UniversalStake({
     isStakingCapFull,
     checkAmountLoading,
   ]);
-
-  // const estAnnualRewardsState = useMemo(() => {
-  //   if (Number(amountValue) > 0 && Number(apr) > 0) {
-  //     const amountBN = BigNumber(amountValue)
-  //       .multipliedBy(apr ?? 0)
-  //       .dividedBy(100);
-  //     return {
-  //       amount: amountBN.toFixed(),
-  //       fiatValue:
-  //         Number(price) > 0
-  //           ? amountBN.multipliedBy(price).toFixed()
-  //           : undefined,
-  //     };
-  //   }
-  // }, [amountValue, apr, price]);
-
-  // const btcStakeTerm = useMemo(() => {
-  //   if (minStakeTerm && Number(minStakeTerm) > 0 && minStakeBlocks) {
-  //     const days = Math.ceil(minStakeTerm / (1000 * 60 * 60 * 24));
-  //     return (
-  //       <SizableText size="$bodyLgMedium">
-  //         {intl.formatMessage(
-  //           { id: ETranslations.earn_term_number_days },
-  //           { number_days: days },
-  //         )}
-  //         <SizableText size="$bodyLgMedium" color="$textSubdued">
-  //           {intl.formatMessage(
-  //             { id: ETranslations.earn_term_number_block },
-  //             { number: minStakeBlocks },
-  //           )}
-  //         </SizableText>
-  //       </SizableText>
-  //     );
-  //   }
-  //   return null;
-  // }, [minStakeTerm, minStakeBlocks, intl]);
-
-  // const btcUnlockTime = useMemo(() => {
-  //   if (minStakeTerm) {
-  //     const currentDate = new Date();
-  //     const endDate = new Date(currentDate.getTime() + minStakeTerm);
-  //     return formatDate(endDate, { hideTimeForever: true });
-  //   }
-  //   return null;
-  // }, [minStakeTerm]);
 
   const daysSpent = useMemo(() => {
     if (estimateFeeResp?.coverFeeSeconds) {
@@ -824,9 +753,6 @@ export function UniversalStake({
         setSubmitting(false);
       }
     };
-
-    // Wait for the dialog confirmation if it's shown
-    // await showFalconEventEndedDialog();
 
     if (estimateFeeResp) {
       const daySpent =
@@ -1193,27 +1119,29 @@ export function UniversalStake({
     onQuoteReset,
   ]);
 
-  const normalizedPendleTipText = useMemo(() => {
-    if (!isPendleProvider) {
-      return undefined;
-    }
-    const tipText = transactionConfirmation?.tip?.text;
-    const normalizedText = tipText?.text?.trim();
-    if (!normalizedText) {
-      return undefined;
-    }
-    return {
-      ...tipText,
-      text: normalizedText,
-    };
-  }, [isPendleProvider, transactionConfirmation?.tip?.text]);
-
-  const isPendleLikeLayout = isPendleProvider;
-
-  const pendleAccordionItems = usePendleTransactionDetails({
+  const {
+    isPendleLikeLayout,
+    pendleAccordionItems,
+    pendleRewardRows,
+    usePendleSummaryLayout,
+    transactionDetailsTriggerText,
+    apyDetail,
+    showApyHeader,
+    hasSummarySection,
+    pendleTipText,
+    showPendleTransactionSection,
+    showExpiredRefresh,
+    showReceiveInput,
+    effectiveReceiveInputConfig,
+    receiveArrowOverlayStyle,
+  } = usePendleLayoutState({
+    providerName,
     transactionConfirmation,
     amountValue,
-    isPendleLikeLayout,
+    showApyDetail,
+    receiveInputConfig,
+    networkLogoURI: network?.logoURI,
+    isQuoteExpired,
   });
 
   const accordionContent = useMemo(() => {
@@ -1289,51 +1217,10 @@ export function UniversalStake({
     transactionConfirmation?.receive,
   ]);
   const isAccordionTriggerDisabled = !amountValue;
-  const pendleRewardRows = useMemo(
-    () =>
-      isPendleLikeLayout
-        ? (transactionConfirmation?.rewards ?? []).filter(
-            (reward) =>
-              !!reward?.title?.text?.trim() &&
-              !!reward?.description?.text?.trim(),
-          )
-        : [],
-    [isPendleLikeLayout, transactionConfirmation?.rewards],
-  );
-  const usePendleSummaryLayout = pendleRewardRows.length > 0;
-  const transactionDetailsTriggerText =
-    transactionConfirmation?.transactionDetails?.text;
-  const apyDetail = transactionConfirmation?.apyDetail;
-  const showApyHeader = showApyDetail && !!apyDetail && !isPendleLikeLayout;
-  const hasLegacySummaryContent =
-    !!transactionConfirmation?.title ||
-    !!transactionConfirmation?.tooltip ||
-    (transactionConfirmation?.rewards?.length ?? 0) > 0;
-  const hasSummarySection =
-    showApyHeader ||
-    (usePendleSummaryLayout
-      ? pendleRewardRows.length > 0
-      : hasLegacySummaryContent);
-  const pendleTipText =
-    isPendleLikeLayout && normalizedPendleTipText
-      ? normalizedPendleTipText
-      : undefined;
-  const showPendleTransactionSection = useMemo(() => {
-    if (!isPendleLikeLayout) {
-      return true;
-    }
-    return !!transactionDetailsTriggerText?.text && accordionContent.length > 0;
-  }, [
-    accordionContent.length,
-    isPendleLikeLayout,
-    transactionDetailsTriggerText?.text,
-  ]);
   const isShowStakeProgress =
     useApprove &&
     !!amountValue &&
     (shouldApprove || showStakeProgressRef.current[amountValue]);
-
-  const showExpiredRefresh = isQuoteExpired && isPendleProvider;
 
   const onConfirmText = useMemo(() => {
     if (showExpiredRefresh) {
@@ -1371,26 +1258,6 @@ export function UniversalStake({
     tokenInfo?.token.symbol,
     isPendleProvider,
   ]);
-  const showReceiveInput = !!receiveInputConfig?.enabled;
-  const effectiveReceiveInputConfig = useMemo(
-    () =>
-      receiveInputConfig
-        ? {
-            ...receiveInputConfig,
-            networkImageUri:
-              receiveInputConfig.networkImageUri ?? network?.logoURI,
-          }
-        : undefined,
-    [receiveInputConfig, network?.logoURI],
-  );
-  const receiveArrowOverlayStyle = useMemo(() => {
-    if (!platformEnv.isNative) {
-      return { transform: 'translate(-50%, -50%)' as const };
-    }
-    return {
-      transform: [{ translateX: -13 }, { translateY: -13 }] as const,
-    };
-  }, []);
 
   const footerContent = (
     <YStack bg="$bgApp" gap="$5">

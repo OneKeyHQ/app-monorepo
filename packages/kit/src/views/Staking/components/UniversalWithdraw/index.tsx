@@ -31,7 +31,6 @@ import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discov
 import { validateAmountInputForStaking } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import {
@@ -46,7 +45,12 @@ import type {
 } from '@onekeyhq/shared/types/staking';
 
 import { useEarnSignMessageWithoutVerify } from '../../hooks/useEarnSignMessageWithoutVerify';
-import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
+import { usePendleLayoutState } from '../../hooks/usePendleLayoutState';
+import {
+  capitalizeString,
+  countDecimalPlaces,
+  isInvalidAmount,
+} from '../../utils/utils';
 import { CalculationListItem } from '../CalculationList';
 import { EstimateNetworkFee } from '../EstimateNetworkFee';
 import {
@@ -58,7 +62,6 @@ import { EarnText } from '../ProtocolDetails/EarnText';
 import {
   PendleAccordionTriggerContent,
   PendleSummarySection,
-  usePendleTransactionDetails,
 } from '../ProtocolDetails/PendleSharedComponents';
 import {
   StakingAmountInput,
@@ -128,10 +131,8 @@ type IUniversalWithdrawProps = {
   onQuoteReset?: () => void;
 };
 
-const isNaN = (num: string) =>
-  BigNumber(num).isNaN() || (typeof num === 'string' && num.endsWith('.'));
-
 const WITHDRAW_ACCORDION_KEY = 'withdraw-accordion-content';
+const VS_BEST_LABEL = ' vs Best';
 
 export function UniversalWithdraw({
   accountAddress,
@@ -344,7 +345,7 @@ export function UniversalWithdraw({
 
   const [checkAmountLoading, setCheckAmountLoading] = useState(false);
   const checkAmount = useDebouncedCallback(async (amount: string) => {
-    if (isNaN(amount)) {
+    if (isInvalidAmount(amount)) {
       return;
     }
     setCheckAmountLoading(true);
@@ -417,10 +418,14 @@ export function UniversalWithdraw({
 
   const debouncedFetchTransactionConfirmation = useDebouncedCallback(
     async (amount?: string) => {
-      const resp = await fetchTransactionConfirmation(amount || '0');
-      setTransactionConfirmation(resp);
-      if (resp && amount && Number(amount) > 0) {
-        onQuoteReset?.();
+      try {
+        const resp = await fetchTransactionConfirmation(amount || '0');
+        setTransactionConfirmation(resp);
+        if (resp && amount && Number(amount) > 0) {
+          onQuoteReset?.();
+        }
+      } catch {
+        // keep stale state
       }
     },
     350,
@@ -466,7 +471,7 @@ export function UniversalWithdraw({
 
   // Re-trigger checkAmount when output token changes
   useEffect(() => {
-    if (amountValue && !isNaN(amountValue)) {
+    if (amountValue && !isInvalidAmount(amountValue)) {
       void checkAmount(amountValue);
     }
   }, [transactionOutputTokenAddress, checkAmount, amountValue]);
@@ -519,7 +524,7 @@ export function UniversalWithdraw({
   const isDisable = useMemo<boolean>(
     () =>
       isDisabled ||
-      isNaN(amountValue) ||
+      isInvalidAmount(amountValue) ||
       BigNumber(amountValue).isLessThanOrEqualTo(0) ||
       isCheckAmountMessageError ||
       checkAmountAlerts.length > 0 ||
@@ -533,30 +538,34 @@ export function UniversalWithdraw({
     ],
   );
 
-  const showExpiredRefresh = isQuoteExpired && isPendleProvider;
+  const {
+    isPendleLikeLayout,
+    pendleAccordionItems,
+    pendleRewardRows,
+    usePendleSummaryLayout,
+    transactionDetailsTriggerText,
+    apyDetail,
+    showApyHeader,
+    hasSummarySection,
+    pendleTipText,
+    showPendleTransactionSection,
+    showExpiredRefresh,
+    showReceiveInput,
+    effectiveReceiveInputConfig,
+    receiveArrowOverlayStyle,
+  } = usePendleLayoutState({
+    providerName: providerName ?? '',
+    transactionConfirmation,
+    amountValue,
+    showApyDetail,
+    receiveInputConfig,
+    networkLogoURI: network?.logoURI,
+    isQuoteExpired,
+  });
 
   const amountInputDisabled = useMemo(() => {
     return isDisabled || initialAmount !== undefined;
   }, [isDisabled, initialAmount]);
-
-  const normalizedPendleTipText = useMemo(() => {
-    if (!isPendleProvider) {
-      return undefined;
-    }
-    const tipText = transactionConfirmation?.tip?.text;
-    if (!tipText?.text) {
-      return undefined;
-    }
-    return tipText;
-  }, [isPendleProvider, transactionConfirmation?.tip?.text]);
-
-  const isPendleLikeLayout = isPendleProvider;
-
-  const pendleAccordionItems = usePendleTransactionDetails({
-    transactionConfirmation,
-    amountValue,
-    isPendleLikeLayout,
-  });
 
   const accordionContent = useMemo(() => {
     const items: ReactElement[] = [];
@@ -607,65 +616,6 @@ export function UniversalWithdraw({
     transactionConfirmation?.receive,
   ]);
   const isAccordionTriggerDisabled = !amountValue;
-  const pendleRewardRows = useMemo(
-    () =>
-      isPendleLikeLayout
-        ? (transactionConfirmation?.rewards ?? []).filter(
-            (reward) =>
-              !!reward?.title?.text?.trim() &&
-              !!reward?.description?.text?.trim(),
-          )
-        : [],
-    [isPendleLikeLayout, transactionConfirmation?.rewards],
-  );
-  const usePendleSummaryLayout = pendleRewardRows.length > 0;
-  const transactionDetailsTriggerText =
-    transactionConfirmation?.transactionDetails?.text;
-  const apyDetail = transactionConfirmation?.apyDetail;
-  const showApyHeader = showApyDetail && !!apyDetail && !isPendleLikeLayout;
-  const hasLegacySummaryContent =
-    !!transactionConfirmation?.title ||
-    !!transactionConfirmation?.tooltip ||
-    (transactionConfirmation?.rewards?.length ?? 0) > 0;
-  const hasSummarySection =
-    showApyHeader ||
-    (usePendleSummaryLayout
-      ? pendleRewardRows.length > 0
-      : hasLegacySummaryContent);
-  const pendleTipText =
-    isPendleLikeLayout && normalizedPendleTipText
-      ? normalizedPendleTipText
-      : undefined;
-  const showPendleTransactionSection = useMemo(() => {
-    if (!isPendleLikeLayout) {
-      return true;
-    }
-    return !!transactionDetailsTriggerText?.text && accordionContent.length > 0;
-  }, [
-    accordionContent.length,
-    isPendleLikeLayout,
-    transactionDetailsTriggerText?.text,
-  ]);
-  const showReceiveInput = !!receiveInputConfig?.enabled;
-  const effectiveReceiveInputConfig = useMemo(
-    () =>
-      receiveInputConfig
-        ? {
-            ...receiveInputConfig,
-            networkImageUri:
-              receiveInputConfig.networkImageUri ?? network?.logoURI,
-          }
-        : undefined,
-    [receiveInputConfig, network?.logoURI],
-  );
-  const receiveArrowOverlayStyle = useMemo(() => {
-    if (!platformEnv.isNative) {
-      return { transform: 'translate(-50%, -50%)' as const };
-    }
-    return {
-      transform: [{ translateX: -13 }, { translateY: -13 }] as const,
-    };
-  }, []);
 
   const withdrawPathConfirmBoxes = useMemo(() => {
     if (!isPendleProvider) return [];
@@ -774,7 +724,7 @@ export function UniversalWithdraw({
                         {box.subtitleDescription.text}
                         {box.subtitleDescription?.color === '$textCritical' ? (
                           <SizableText size="$bodyMd" color="$textSubdued">
-                            {' vs Best'}
+                            {VS_BEST_LABEL}
                           </SizableText>
                         ) : null}
                       </SizableText>
@@ -914,7 +864,7 @@ export function UniversalWithdraw({
                     {selectedWithdrawPath.subtitleDescription?.color ===
                     '$textCritical' ? (
                       <SizableText size="$bodySmMedium" color="$textSubdued">
-                        {' vs Best'}
+                        {VS_BEST_LABEL}
                       </SizableText>
                     ) : null}
                   </XStack>
@@ -1188,7 +1138,7 @@ export function UniversalWithdraw({
       {isPendleProvider &&
       selectedWithdrawPathIndex === 0 &&
       amountValue &&
-      !isNaN(amountValue) ? (
+      !isInvalidAmount(amountValue) ? (
         <StakeProgress
           approveType={EApproveType.Legacy}
           currentStep={withdrawProgressStep}

@@ -56,8 +56,10 @@ export function useQuoteCountdown({
 
   const refresh = useCallback(() => {
     if (!enabled) return;
+    setRemainingSeconds(durationSeconds);
+    startTimer();
     onRefreshRef.current?.();
-  }, [enabled]);
+  }, [enabled, durationSeconds, startTimer]);
 
   // Start/stop timer based on enabled
   useEffect(() => {

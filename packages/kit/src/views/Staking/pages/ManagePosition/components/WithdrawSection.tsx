@@ -28,6 +28,7 @@ import { StakeAssetSelectPopoverContent } from '../../../components/StakeAssetSe
 import { UniversalWithdraw } from '../../../components/UniversalWithdraw';
 import type { IManagePageV2ReceiveInputConfig } from '../../../components/ManagePageV2ReceiveInput';
 import { useBorrowApiParams } from '../../../hooks/useBorrowApiParams';
+import { useIsPendleProvider } from '../../../hooks/useIsPendleProvider';
 import { useUniversalWithdraw } from '../../../hooks/useUniversalHooks';
 import {
   buildBorrowTag,
@@ -87,10 +88,7 @@ export const WithdrawSection = ({
     () => protocolInfo?.provider ?? '',
     [protocolInfo?.provider],
   );
-  const isPendleProvider = useMemo(
-    () => earnUtils.isPendleProvider({ providerName }),
-    [providerName],
-  );
+  const isPendleProvider = useIsPendleProvider(providerName);
 
   // State for selected asset from popover (override the default)
   const [selectedAsset, setSelectedAsset] = useState<IBorrowAsset | null>(null);

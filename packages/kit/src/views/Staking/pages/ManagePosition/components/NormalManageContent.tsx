@@ -8,7 +8,6 @@ import type { IAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import SlippageSettingDialog from '@onekeyhq/kit/src/components/SlippageSettingDialog';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
-import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { swapSlippageAutoValue } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type { ISwapSlippageSegmentItem } from '@onekeyhq/shared/types/swap/types';
 import { ESwapSlippageSegmentKey } from '@onekeyhq/shared/types/swap/types';
@@ -29,6 +28,7 @@ import type {
 
 import { EManagePositionType } from '../hooks/useManagePage';
 import { useQuoteCountdown } from '../../../hooks/useQuoteCountdown';
+import { useIsPendleProvider } from '../../../hooks/useIsPendleProvider';
 
 import { HeaderRight } from './HeaderRight';
 import { StakeSection } from './StakeSection';
@@ -370,10 +370,7 @@ export function NormalManageContent({
   });
 
   // Pendle: slippage state + countdown
-  const isPendleProvider = useMemo(
-    () => earnUtils.isPendleProvider({ providerName: provider }),
-    [provider],
-  );
+  const isPendleProvider = useIsPendleProvider(provider);
 
   const [pendleSlippage, setPendleSlippage] =
     useState<ISwapSlippageSegmentItem>({

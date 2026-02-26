@@ -35,6 +35,7 @@ import { UniversalStake } from '../../../components/UniversalStake';
 import type { IManagePageV2ReceiveInputConfig } from '../../../components/ManagePageV2ReceiveInput';
 import { StakeAssetSelectPopoverContent } from '../../../components/StakeAssetSelectPopover';
 import { useBorrowApiParams } from '../../../hooks/useBorrowApiParams';
+import { useIsPendleProvider } from '../../../hooks/useIsPendleProvider';
 import { useUniversalStake } from '../../../hooks/useUniversalHooks';
 import {
   buildBorrowTag,
@@ -97,10 +98,7 @@ export const StakeSection = ({
     () => protocolInfo?.provider ?? '',
     [protocolInfo?.provider],
   );
-  const isPendleProvider = useMemo(
-    () => earnUtils.isPendleProvider({ providerName }),
-    [providerName],
-  );
+  const isPendleProvider = useIsPendleProvider(providerName);
   const [selectedStakeAsset, setSelectedStakeAsset] = useState<
     IEarnTokenItem | undefined
   >(undefined);

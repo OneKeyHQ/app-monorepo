@@ -413,7 +413,7 @@ class ServiceStaking extends ServiceBase {
       firmwareDeviceType: await this.getFirmwareDeviceTypeParam({
         accountId,
       }),
-      vault: isVaultBased ? protocolVault : '',
+      vault: isVaultBased ? protocolVault : undefined,
       ...rest,
     });
     return resp.data.data;

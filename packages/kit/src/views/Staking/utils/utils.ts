@@ -101,6 +101,10 @@ export function buildStakeTokenUniqueKey(params?: {
   return `${params.isNative ? 'native' : params.address}-${params.symbol || ''}`;
 }
 
+export function isInvalidAmount(num: string): boolean {
+  return BigNumber(num).isNaN() || num.endsWith('.');
+}
+
 export function countDecimalPlaces(input: string | number): number {
   // Convert the input to a string if it's a number
   const inputNum = typeof input === 'string' ? Number(input) : input;
