@@ -234,19 +234,12 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
       return undefined;
     const pref = tokenPreference.preferences[effectiveNetworkId];
     if (!pref) return undefined;
-    const matched = filterDefaultTokens.find(
+    return filterDefaultTokens.find(
       (t) =>
         t.networkId === pref.networkId &&
         t.contractAddress.toLowerCase() === pref.contractAddress.toLowerCase(),
     );
-    // Clear stale preference if token no longer available
-    if (!matched) {
-      const { [effectiveNetworkId]: _, ...rest } =
-        tokenPreference.preferences;
-      setTokenPreference({ preferences: rest });
-    }
-    return matched;
-  }, [networkId, filterDefaultTokens, tokenPreference, setTokenPreference]);
+  }, [networkId, filterDefaultTokens, tokenPreference.preferences]);
 
   const saveTokenPreference = useCallback(
     (token: IToken) => {
@@ -279,8 +272,13 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
 
   // Initialize paymentToken: prefer saved preference, fallback to first default
   useEffect(() => {
+    const effectiveNetworkId = networkId || '';
     if (filterDefaultTokens.length > 0 && !paymentToken?.networkId) {
       const preferred = findPreferredToken();
+      if (!preferred && effectiveNetworkId && tokenPreference.preferences[effectiveNetworkId]) {
+        const { [effectiveNetworkId]: _, ...rest } = tokenPreference.preferences;
+        setTokenPreference({ preferences: rest });
+      }
       setPaymentToken(preferred || filterDefaultTokens[0]);
       return;
     }
@@ -293,14 +291,21 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
       )
     ) {
       const preferred = findPreferredToken();
+      if (!preferred && effectiveNetworkId && tokenPreference.preferences[effectiveNetworkId]) {
+        const { [effectiveNetworkId]: _, ...rest } = tokenPreference.preferences;
+        setTokenPreference({ preferences: rest });
+      }
       setPaymentToken(preferred || filterDefaultTokens[0]);
     }
   }, [
+    networkId,
     paymentToken?.networkId,
     paymentToken?.contractAddress,
     setPaymentToken,
     filterDefaultTokens,
     findPreferredToken,
+    tokenPreference.preferences,
+    setTokenPreference,
   ]);
 
   useEffect(() => {
