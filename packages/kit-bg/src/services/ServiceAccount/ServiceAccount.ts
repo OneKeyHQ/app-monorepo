@@ -1380,14 +1380,7 @@ class ServiceAccount extends ServiceBase {
       agentAddress: agentWallet.address,
       validUntil: params.validUntil,
     };
-    const { password } =
-      await this.backgroundApi.servicePassword.promptPasswordVerify({
-        reason: EReasonForNeedPassword.Default,
-      });
-    return {
-      credential,
-      password,
-    };
+    return { credential };
   }
 
   @backgroundMethod()
@@ -1411,11 +1404,9 @@ class ServiceAccount extends ServiceBase {
   ): Promise<{
     credentialId: string;
   }> {
-    const { credential, password } =
-      await this.prepareHyperLiquidAgentCredential(params);
+    const { credential } = await this.prepareHyperLiquidAgentCredential(params);
     const { credentialId } = await localDb.addHyperLiquidAgentCredential({
       credential,
-      password,
     });
     return {
       credentialId,
@@ -1429,11 +1420,9 @@ class ServiceAccount extends ServiceBase {
   ): Promise<{
     credentialId: string;
   }> {
-    const { credential, password } =
-      await this.prepareHyperLiquidAgentCredential(params);
+    const { credential } = await this.prepareHyperLiquidAgentCredential(params);
     const { credentialId } = await localDb.updateHyperLiquidAgentCredential({
       credential,
-      password,
     });
     return {
       credentialId,
@@ -1449,14 +1438,9 @@ class ServiceAccount extends ServiceBase {
     userAddress: string;
     agentName: EHyperLiquidAgentName;
   }): Promise<ICoreHyperLiquidAgentCredential | undefined> {
-    const { password } =
-      await this.backgroundApi.servicePassword.promptPasswordVerify({
-        reason: EReasonForNeedPassword.Default,
-      });
     return localDb.getHyperLiquidAgentCredential({
       userAddress,
       agentName,
-      password,
     });
   }
 
