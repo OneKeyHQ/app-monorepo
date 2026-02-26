@@ -1,0 +1,29 @@
+name: PR Impact Analysis
+
+on:
+  pull_request_target:
+    types: [closed]
+    branches: [x]
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: PR Impact Analysis
+        # TODO: switch to OneKeyHQ/actions/pr-impact-analysis@main after https://github.com/OneKeyHQ/actions/pull/78 is merged
+        uses: originalix/actions/pr-impact-analysis@cad43fd0d9575dbac2dd17338dbde0d19bc04d7e
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          llm-api-key: ${{ secrets.PIA_LLM_API_KEY }}
+          jira-base-url: ${{ secrets.PIA_JIRA_BASE_URL }}
+          jira-email: ${{ secrets.PIA_JIRA_EMAIL }}
+          jira-api-token: ${{ secrets.PIA_JIRA_API_TOKEN }}
+          jira-project-key: 'OK'
+          jira-assignee-id: ${{ vars.PIA_JIRA_ASSIGNEE_ID }}
