@@ -90,10 +90,9 @@ export const EXT_RATE_URL = {
     'https://microsoftedge.microsoft.com/addons/detail/onekey/obffkkagpmohennipjokmpllocnlndac',
 };
 
-export const APP_STORE_LINK = `itms-apps://apps.apple.com/app/id1609559473?action=write-review`;
-// App Store product page (download). Use the itms-apps scheme to open the App Store app.
-export const APP_STORE_DOWNLOAD_LINK =
-  'itms-apps://apps.apple.com/app/id1609559473';
+const APP_STORE_BASE_LINK = 'itms-apps://apps.apple.com/app/id1609559473';
+export const APP_STORE_LINK = `${APP_STORE_BASE_LINK}?action=write-review`;
+export const APP_STORE_DOWNLOAD_LINK = APP_STORE_BASE_LINK;
 // App Store web fallback (works when auto-redirects to itms-apps are blocked).
 export const APP_STORE_DOWNLOAD_WEB_LINK =
   'https://apps.apple.com/app/id1609559473';
