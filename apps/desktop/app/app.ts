@@ -1176,14 +1176,6 @@ app.on('child-process-gone', async (event, details) => {
       });
     }
 
-    // Collect GPU hardware info after crash for diagnostics
-    try {
-      const gpuInfo = await app.getGPUInfo('basic');
-      logger.error('[GPU Crash] GPU Hardware Info:', JSON.stringify(gpuInfo));
-    } catch (_e) {
-      logger.error('[GPU Crash] Cannot retrieve GPU info after crash');
-    }
-
     // Log critical crashes for monitoring
     if (details.reason === 'crashed' || details.reason === 'oom') {
       logger.error('Critical GPU crash detected');
@@ -1193,6 +1185,20 @@ app.on('child-process-gone', async (event, details) => {
         suggestion: 'Consider closing some browser tabs to reduce GPU load',
       });
     }
+
+    // Collect GPU hardware info after crash for diagnostics (fire-and-forget,
+    // getGPUInfo may hang when GPU process is dead so we don't await it)
+    app
+      .getGPUInfo('basic')
+      .then((gpuInfo) => {
+        logger.error(
+          '[GPU Crash] GPU Hardware Info:',
+          JSON.stringify(gpuInfo),
+        );
+      })
+      .catch(() => {
+        logger.error('[GPU Crash] Cannot retrieve GPU info after crash');
+      });
   }
 });
 
@@ -1431,21 +1437,27 @@ function startWebviewMemoryMonitoring() {
     const safelyMainWindow = getSafelyMainWindow();
     if (!safelyMainWindow || safelyMainWindow.isDestroyed()) return;
 
+    const metrics = app.getAppMetrics();
+    const metricsByPid = new Map(metrics.map((m) => [m.pid, m]));
     const allContents = webContents.getAllWebContents();
-    allContents.forEach(async (wc: any) => {
-      if (wc.isDestroyed()) return;
+    for (const wc of allContents) {
+      if (wc.isDestroyed()) continue;
       try {
-        const memInfo = await wc.getProcessMemoryInfo();
-        const memMB = Math.round(memInfo.private / 1024);
+        const pid = wc.getOSProcessId();
+        const metric = metricsByPid.get(pid);
+        if (!metric) continue;
+        const memMB = Math.round(
+          (metric.memory?.workingSetSize ?? 0) / 1024,
+        );
         if (memMB > 300) {
           logger.warn(
-            `[WebView Memory] pid=${wc.getOSProcessId()} type=${wc.getType()} url=${wc.getURL().substring(0, 100)} memory=${memMB}MB`,
+            `[WebView Memory] pid=${pid} type=${wc.getType()} url=${wc.getURL().substring(0, 100)} memory=${memMB}MB`,
           );
         }
       } catch (_e) {
         // webContents may have been destroyed
       }
-    });
+    }
   }, METRICS_SAMPLE_INTERVAL_MS);
 }
 
