@@ -357,7 +357,7 @@ export function AccountSelectorActiveAccountHome({
   }
 
   // show nothing if account exists, but has not an address
-  if (account) {
+  if (account || !activeAccount?.ready) {
     return null;
   }
 

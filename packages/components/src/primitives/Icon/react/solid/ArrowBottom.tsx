@@ -7,7 +7,7 @@ const SvgArrowBottom = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M11.004 4.074a.996.996 0 0 1 1.992 0v13.527l4.274-4.274a.995.995 0 1 1 1.408 1.408l-5.974 5.973a.996.996 0 0 1-1.408 0l-5.974-5.973a.995.995 0 1 1 1.408-1.408l4.274 4.274z" />
+    <Path d="M13.5 3v12.879l4-4L19.621 14 12 21.621 4.379 14 6.5 11.879l4 4V3z" />
   </Svg>
 );
 export default SvgArrowBottom;

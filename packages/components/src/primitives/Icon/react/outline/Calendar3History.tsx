@@ -7,13 +7,13 @@ const SvgCalendar3History = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M16 13.5a1 1 0 0 1 1 1v1.586l1.207 1.207a1 1 0 0 1-1.414 1.414l-1.5-1.5A1 1 0 0 1 15 16.5v-2a1 1 0 0 1 1-1" />
+    <Path d="m18 16.586 1.914 1.914-1.414 1.414-2.5-2.5V14h2z" />
     <Path
       fillRule="evenodd"
-      d="M16 10.5a6 6 0 1 1 0 12 6 6 0 0 1 0-12m0 2a4 4 0 1 0 0 8 4 4 0 0 0 0-8"
+      d="M17 11a6 6 0 1 1 0 12 6 6 0 0 1 0-12m0 2a4 4 0 1 0 0 8 4 4 0 0 0 0-8"
       clipRule="evenodd"
     />
-    <Path d="M15 1.5a1 1 0 0 1 1 1v1h2a2 2 0 0 1 2 2V8a1 1 0 1 1-2 0V5.5H4v13h3.5a1 1 0 1 1 0 2H4a2 2 0 0 1-2-2v-13a2 2 0 0 1 2-2h2v-1a1 1 0 0 1 2 0v1h6v-1a1 1 0 0 1 1-1" />
+    <Path d="M9 4h6V2h2v2h4v5.5h-2V6H5v13h4.5v2H3V4h4V2h2z" />
   </Svg>
 );
 export default SvgCalendar3History;

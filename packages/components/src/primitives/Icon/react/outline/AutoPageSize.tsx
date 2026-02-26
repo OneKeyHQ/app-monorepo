@@ -7,7 +7,11 @@ const SvgAutoPageSize = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M11 13H6v7h5zm2 7h5V4H6v7h5a2 2 0 0 1 2 2zm7 0a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2z" />
+    <Path
+      fillRule="evenodd"
+      d="M20 22H4V2h16zM6 20h5v-7H6zm0-9h7v9h5V4H6z"
+      clipRule="evenodd"
+    />
   </Svg>
 );
 export default SvgAutoPageSize;

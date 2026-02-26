@@ -7,7 +7,12 @@ const SvgBezierAdd = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M17 19h2v-2h-2zM5 19h2v-2H5zm6-5v-1h-1a1 1 0 1 1 0-2h1v-1a1 1 0 1 1 2 0v1h1a1 1 0 1 1 0 2h-1v1a1 1 0 1 1-2 0m6-7h2V5h-2zM5 7h2V5H5zm4 .5A1.5 1.5 0 0 1 7.5 9H7v6h.5A1.5 1.5 0 0 1 9 16.5v.5h6v-.5a1.5 1.5 0 0 1 1.5-1.5h.5V9h-.5A1.5 1.5 0 0 1 15 7.5V7H9zm12 0A1.5 1.5 0 0 1 19.5 9H19v6h.5a1.5 1.5 0 0 1 1.5 1.5v3a1.5 1.5 0 0 1-1.5 1.5h-3a1.5 1.5 0 0 1-1.5-1.5V19H9v.5A1.5 1.5 0 0 1 7.5 21h-3A1.5 1.5 0 0 1 3 19.5v-3A1.5 1.5 0 0 1 4.5 15H5V9h-.5A1.5 1.5 0 0 1 3 7.5v-3A1.5 1.5 0 0 1 4.5 3h3A1.5 1.5 0 0 1 9 4.5V5h6v-.5A1.5 1.5 0 0 1 16.5 3h3A1.5 1.5 0 0 1 21 4.5z" />
+    <Path d="M13 11h2v2h-2v2h-2v-2H9v-2h2V9h2z" />
+    <Path
+      fillRule="evenodd"
+      d="M9 5h6V3h6v6h-2v6h2v6h-6v-2H9v2H3v-6h2V9H3V3h6zM5 19h2v-2H5zm12 0h2v-2h-2zM9 9H7v6h2v2h6v-2h2V9h-2V7H9zM5 7h2V5H5zm12 0h2V5h-2z"
+      clipRule="evenodd"
+    />
   </Svg>
 );
 export default SvgBezierAdd;

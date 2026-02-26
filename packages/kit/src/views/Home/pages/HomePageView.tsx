@@ -335,7 +335,7 @@ export function HomePageView({
       {
         id: EHomeWalletTab.Portfolio,
         name: intl.formatMessage({
-          id: ETranslations.global_crypto,
+          id: ETranslations.dexmarket_spot,
         }),
         component: <PortfolioContainerWithProvider />,
       },

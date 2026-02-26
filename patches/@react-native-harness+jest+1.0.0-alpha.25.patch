@@ -1,0 +1,211 @@
+diff --git a/node_modules/@react-native-harness/jest/dist/run.js b/node_modules/@react-native-harness/jest/dist/run.js
+index e667f19..fed1775 100644
+--- a/node_modules/@react-native-harness/jest/dist/run.js
++++ b/node_modules/@react-native-harness/jest/dist/run.js
+@@ -1,4 +1,5 @@
+ import path from 'node:path';
++import fs from 'node:fs';
+ import { formatResultsErrors } from 'jest-message-util';
+ import { toTestResult } from './toTestResult.js';
+ // Helper function to flatten nested test suites into a flat array of tests with hierarchy
+@@ -42,6 +43,111 @@ const calculateStats = (tests) => {
+     }
+     return { passes, failures, pending, todo };
+ };
++// ---- Snapshot comparison helpers ----
++// Resolve the .snap.web file path for a given test file, matching
++// jest-expo's createPlatformResolver('web') logic.
++const resolveSnapshotPath = (testPath) => {
++    return testPath.replace('__tests__', '__tests__/__snapshots__') + '.snap.web';
++};
++// Load and parse a .snap.web file. Returns an object whose keys are
++// snapshot names and values are the serialized expected strings.
++const loadSnapshotFile = (snapshotPath) => {
++    const data = Object.create(null);
++    if (!fs.existsSync(snapshotPath)) return data;
++    try {
++        const contents = fs.readFileSync(snapshotPath, 'utf8');
++        const populate = new Function('exports', contents);
++        populate(data);
++    } catch (e) {
++        console.warn(`[harness-snapshot] Failed to load ${snapshotPath}:`, e);
++    }
++    return data;
++};
++// Serialize a value the same way Jest does (via pretty-format).
++// We lazily load jest-snapshot/build/utils to avoid import issues.
++let _serialize = null;
++const serializeValue = (value) => {
++    if (!_serialize) {
++        try {
++            const utils = require('jest-snapshot/build/utils');
++            _serialize = utils.serialize;
++        } catch {
++            // Fallback: quote strings, JSON.stringify others
++            _serialize = (v) => typeof v === 'string' ? `"${v}"` : JSON.stringify(v, null, 2);
++        }
++    }
++    return _serialize(value);
++};
++// Remove extra line breaks that addExtraLineBreaks() adds to multiline snapshots.
++const removeExtraLineBreaks = (s) =>
++    s.length > 2 && s.startsWith('\n') && s.endsWith('\n') ? s.slice(1, -1) : s;
++// Deep-sort object keys recursively for stable comparison.
++const deepSortKeys = (val) => {
++    if (Array.isArray(val)) return val.map(deepSortKeys);
++    if (val && typeof val === 'object') {
++        const sorted = {};
++        for (const k of Object.keys(val).sort()) {
++            sorted[k] = deepSortKeys(val[k]);
++        }
++        return sorted;
++    }
++    return val;
++};
++// Normalize a pretty-format/JSON string for comparison by sorting object keys
++// and removing trailing commas. This handles two sources of divergence:
++// 1. JSON bridge may reorder object keys (Hermes vs V8 property order)
++// 2. pretty-format adds trailing commas; JSON round-trip loses them
++const normalizeSnapshot = (s) => {
++    // Strip trailing commas before } or ] (with optional whitespace/newlines)
++    const noTrailing = s.replace(/,(\s*[}\]])/g, '$1');
++    try {
++        const parsed = JSON.parse(noTrailing);
++        return JSON.stringify(deepSortKeys(parsed), null, 2);
++    } catch {
++        return noTrailing;
++    }
++};
++// Compare device-collected snapshots against the .snap.web file.
++// Returns { matched, unmatched, added, failures[] }.
++const compareSnapshots = (testPath, deviceSnapshots) => {
++    const snapshotPath = resolveSnapshotPath(testPath);
++    const existingData = loadSnapshotFile(snapshotPath);
++    let matched = 0;
++    let unmatched = 0;
++    let added = 0;
++    const failures = []; // { testName, key, expected, received }
++    for (const snap of deviceSnapshots) {
++        const { key, received } = snap;
++        // Inline snapshots already matched on device — just count them
++        if (key === '__inline_matched__') {
++            matched++;
++            continue;
++        }
++        const serialized = serializeValue(received);
++        if (key in existingData) {
++            // Stored values may have extra line breaks for multiline content
++            const expected = removeExtraLineBreaks(existingData[key]);
++            if (serialized === expected) {
++                matched++;
++            } else {
++                // Try normalized comparison for objects where key order or
++                // trailing commas differ between device JSON and snap file
++                const normExpected = normalizeSnapshot(expected);
++                const normReceived = normalizeSnapshot(serialized);
++                if (normExpected === normReceived) {
++                    matched++;
++                } else {
++                    unmatched++;
++                    const testName = key.replace(/ \d+$/, '');
++                    failures.push({ testName, key, expected, received: serialized });
++                }
++            }
++        } else {
++            added++;
++        }
++    }
++    return { matched, unmatched, added, failures };
++};
+ export const runHarnessTestFile = async ({ testPath, globalConfig, projectConfig, harness, }) => {
+     const start = Date.now();
+     const relativeTestPath = path.relative(globalConfig.rootDir, testPath);
+@@ -57,6 +163,39 @@ export const runHarnessTestFile = async ({ testPath, globalConfig, projectConfig
+     const end = Date.now();
+     const allTests = flattenTests(results);
+     const stats = calculateStats(allTests);
++    // ---- Host-side snapshot comparison ----
++    let snapshotStats = { matched: 0, unmatched: 0, added: 0 };
++    const deviceSnapshots = results.__snapshots__ || [];
++    if (deviceSnapshots.length > 0) {
++        const snapResult = compareSnapshots(testPath, deviceSnapshots);
++        snapshotStats = snapResult;
++        // Inject snapshot failures into the corresponding test results
++        if (snapResult.failures.length > 0) {
++            const failuresByTest = new Map();
++            for (const f of snapResult.failures) {
++                if (!failuresByTest.has(f.testName)) {
++                    failuresByTest.set(f.testName, []);
++                }
++                failuresByTest.get(f.testName).push(
++                    `Snapshot "${f.key}" mismatch:\n\n` +
++                    `Expected:\n${f.expected}\n\n` +
++                    `Received:\n${f.received}`
++                );
++            }
++            for (const t of allTests) {
++                const fullName = [...(t.ancestorTitles || []), t.name].join(' ');
++                if (failuresByTest.has(fullName)) {
++                    const messages = failuresByTest.get(fullName);
++                    if (t.status === 'passed') {
++                        t.status = 'failed';
++                        t.error = { message: messages.join('\n\n---\n\n') };
++                        stats.passes--;
++                        stats.failures++;
++                    }
++                }
++            }
++        }
++    }
+     // Convert TestResult[] to the format expected by toTestResult
+     const tests = allTests.map((test) => {
+         const errorMessage = test.error?.message;
+@@ -92,6 +231,7 @@ export const runHarnessTestFile = async ({ testPath, globalConfig, projectConfig
+         tests,
+         jestTestPath: testPath,
+         coverage: results.coverage,
++        snapshotStats,
+     });
+     totalResults.failureMessage = formatResultsErrors(totalResults.testResults, projectConfig, globalConfig, testPath);
+     return totalResults;
+diff --git a/node_modules/@react-native-harness/jest/dist/toTestResult.js b/node_modules/@react-native-harness/jest/dist/toTestResult.js
+index c42fe12..b83b90f 100644
+--- a/node_modules/@react-native-harness/jest/dist/toTestResult.js
++++ b/node_modules/@react-native-harness/jest/dist/toTestResult.js
+@@ -17,14 +17,14 @@ const getPerfStats = ({ stats }) => {
+         setupFilesEnd: 0,
+     };
+ };
+-const getSnapshot = () => {
++const getSnapshot = (snapshotStats) => {
+     return {
+-        added: 0,
++        added: snapshotStats?.added || 0,
+         fileDeleted: false,
+-        matched: 0,
++        matched: snapshotStats?.matched || 0,
+         unchecked: 0,
+         uncheckedKeys: [],
+-        unmatched: 0,
++        unmatched: snapshotStats?.unmatched || 0,
+         updated: 0,
+     };
+ };
+@@ -45,7 +45,7 @@ const getTestResults = ({ errorMessage, tests, jestTestPath, }) => {
+     });
+ };
+ export const toTestResult = (options) => {
+-    const { stats, skipped, errorMessage, jestTestPath, coverage } = options;
++    const { stats, skipped, errorMessage, jestTestPath, coverage, snapshotStats } = options;
+     return {
+         failureMessage: errorMessage,
+         leaks: false,
+@@ -56,7 +56,7 @@ export const toTestResult = (options) => {
+         openHandles: [],
+         perfStats: getPerfStats(options),
+         skipped,
+-        snapshot: getSnapshot(),
++        snapshot: getSnapshot(snapshotStats),
+         testFilePath: jestTestPath,
+         testResults: getTestResults(options),
+         coverage,

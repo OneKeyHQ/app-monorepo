@@ -9,7 +9,7 @@ const SvgClipboard = (props: SvgProps) => (
   >
     <Path
       fillRule="evenodd"
-      d="M8 4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm2 2h4V4h-4z"
+      d="M16 2v2h4v18H4V4h4V2zm-6 4h4V4h-4z"
       clipRule="evenodd"
     />
   </Svg>

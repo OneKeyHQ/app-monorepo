@@ -7,11 +7,7 @@ const SvgUndo = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path
-      fillRule="evenodd"
-      d="M7.207 4.293a1 1 0 0 1 0 1.414L4.914 8H17a5 5 0 0 1 5 5v1a5 5 0 0 1-5 5h-5a1 1 0 1 1 0-2h5a3 3 0 0 0 3-3v-1a3 3 0 0 0-3-3H4.914l2.293 2.293a1 1 0 1 1-1.414 1.414L2.5 10.414a2 2 0 0 1 0-2.828l3.293-3.293a1 1 0 0 1 1.414 0"
-      clipRule="evenodd"
-    />
+    <Path d="m8.414 5-3 3H22v11H11v-2h9v-7H5.414l3 3L7 14.414 1.586 9 7 3.586z" />
   </Svg>
 );
 export default SvgUndo;

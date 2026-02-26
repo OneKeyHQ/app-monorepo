@@ -7,7 +7,8 @@ const SvgFolderDownload = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M2 18V5a2 2 0 0 1 2-2h5.465a2 2 0 0 1 1.664.89L12.535 6H20a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-3a1 1 0 1 1 0-2h3V8h-7.465a2 2 0 0 1-1.664-.89L9.465 5H4v13h3a1 1 0 1 1 0 2H4a2 2 0 0 1-2-2m9-6a1 1 0 1 1 2 0v3.586l.793-.793a1 1 0 1 1 1.414 1.414l-2.5 2.5a1 1 0 0 1-1.414 0l-2.5-2.5a1 1 0 1 1 1.414-1.414l.793.793z" />
+    <Path d="M12.535 6H22v14h-6v-2h4V8h-8.535l-2-3H4v13h4v2H2V3h8.535z" />
+    <Path d="m13 15.586 1.5-1.5 1.414 1.414L12 19.414 8.086 15.5 9.5 14.086l1.5 1.5V11h2z" />
   </Svg>
 );
 export default SvgFolderDownload;

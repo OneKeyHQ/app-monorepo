@@ -7,10 +7,10 @@ const SvgNotebook1 = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M15.5 11a1 1 0 1 1 0 2H13a1 1 0 1 1 0-2zm0-4a1 1 0 1 1 0 2H13a1 1 0 1 1 0-2z" />
+    <Path d="M16.5 13H12v-2h4.5zm0-4H12V7h4.5z" />
     <Path
       fillRule="evenodd"
-      d="M18.5 2.5a2 2 0 0 1 2 2v15a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2v-15a2 2 0 0 1 2-2zm-13 17H8v-15H5.5zm4.5 0h8.5v-15H10z"
+      d="M20.5 21.5h-17v-19h17zm-15-2H8v-15H5.5zm4.5 0h8.5v-15H10z"
       clipRule="evenodd"
     />
   </Svg>
