@@ -64,8 +64,9 @@ export const StakeSection = ({
   receiveInputConfig,
   pendleSlippage,
   isQuoteExpired,
-  onRefreshQuote,
   onQuoteReset,
+  refreshKey,
+  onQuoteRefreshingChange,
 }: {
   accountId: string;
   networkId: string;
@@ -87,8 +88,9 @@ export const StakeSection = ({
   receiveInputConfig?: IManagePageV2ReceiveInputConfig;
   pendleSlippage?: number;
   isQuoteExpired?: boolean;
-  onRefreshQuote?: () => void;
   onQuoteReset?: () => void;
+  refreshKey?: number;
+  onQuoteRefreshingChange?: (loading: boolean) => void;
 }) => {
   // Early return if no tokenInfo or protocolInfo
   // This happens when there's no account or no address
@@ -751,8 +753,9 @@ export const StakeSection = ({
           transactionInputTokenAddress={selectedStakeTokenAddress}
           transactionOutputTokenAddress={receiveInputConfig?.tokenAddress ?? ''}
           isQuoteExpired={isQuoteExpired}
-          onRefreshQuote={onRefreshQuote}
           onQuoteReset={onQuoteReset}
+          refreshKey={refreshKey}
+          onQuoteRefreshingChange={onQuoteRefreshingChange}
         />
       )}
     </>

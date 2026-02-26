@@ -394,6 +394,34 @@ export function NormalManageContent({
   const activeCountdown =
     selectedTabIndex === 0 ? stakeCountdown : withdrawCountdown;
 
+  // refreshKey: incremented by header refresh button to signal child components to re-quote
+  const [stakeRefreshKey, setStakeRefreshKey] = useState(0);
+  const [withdrawRefreshKey, setWithdrawRefreshKey] = useState(0);
+  const [stakeQuoteRefreshing, setStakeQuoteRefreshing] = useState(false);
+  const [withdrawQuoteRefreshing, setWithdrawQuoteRefreshing] = useState(false);
+  const activeQuoteRefreshing =
+    selectedTabIndex === 0 ? stakeQuoteRefreshing : withdrawQuoteRefreshing;
+
+  const handleHeaderRefreshQuote = useCallback(() => {
+    // Don't reset countdown here — let onQuoteReset do it after successful fetch
+    if (selectedTabIndex === 0) {
+      setStakeRefreshKey((prev) => prev + 1);
+    } else {
+      setWithdrawRefreshKey((prev) => prev + 1);
+    }
+  }, [selectedTabIndex]);
+
+  const handleStakeQuoteRefreshingChange = useCallback((loading: boolean) => {
+    setStakeQuoteRefreshing(loading);
+  }, []);
+
+  const handleWithdrawQuoteRefreshingChange = useCallback(
+    (loading: boolean) => {
+      setWithdrawQuoteRefreshing(loading);
+    },
+    [],
+  );
+
   const handleOpenSlippage = useCallback(() => {
     Dialog.show({
       title: intl.formatMessage({
@@ -629,9 +657,8 @@ export function NormalManageContent({
             }
           }}
           isPendleProvider={isPendleProvider}
-          remainingSeconds={activeCountdown.remainingSeconds}
-          isQuoteExpired={activeCountdown.isExpired}
-          onRefreshQuote={activeCountdown.refresh}
+          onRefreshQuote={handleHeaderRefreshQuote}
+          refreshLoading={activeQuoteRefreshing}
           onOpenSlippage={handleOpenSlippage}
         />
       </XStack>
@@ -657,8 +684,9 @@ export function NormalManageContent({
           receiveInputConfig={stakeReceiveInputConfig}
           pendleSlippage={pendleSlippageValue}
           isQuoteExpired={stakeCountdown.isExpired}
-          onRefreshQuote={stakeCountdown.refresh}
           onQuoteReset={stakeCountdown.reset}
+          refreshKey={stakeRefreshKey}
+          onQuoteRefreshingChange={handleStakeQuoteRefreshingChange}
         />
       ) : null}
       {selectedTabIndex === 1 ? (
@@ -681,8 +709,9 @@ export function NormalManageContent({
           receiveInputConfig={withdrawReceiveInputConfig}
           pendleSlippage={pendleSlippageValue}
           isQuoteExpired={withdrawCountdown.isExpired}
-          onRefreshQuote={withdrawCountdown.refresh}
           onQuoteReset={withdrawCountdown.reset}
+          refreshKey={withdrawRefreshKey}
+          onQuoteRefreshingChange={handleWithdrawQuoteRefreshingChange}
         />
       ) : null}
     </>

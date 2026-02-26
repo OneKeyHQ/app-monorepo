@@ -62,6 +62,7 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 import { useEarnPermitApprove } from '../../hooks/useEarnPermitApprove';
 import { useEarnSignMessageWithoutVerify } from '../../hooks/useEarnSignMessageWithoutVerify';
 import { usePendleLayoutState } from '../../hooks/usePendleLayoutState';
+import { useQuoteRefresh } from '../../hooks/useQuoteRefresh';
 import { useTrackTokenAllowance } from '../../hooks/useUtilsHooks';
 import {
   capitalizeString,
@@ -143,8 +144,9 @@ type IUniversalStakeProps = {
     NonNullable<IAmountInputFormItemProps['tokenSelectorTriggerProps']>
   >;
   isQuoteExpired?: boolean;
-  onRefreshQuote?: () => void;
   onQuoteReset?: () => void;
+  refreshKey?: number;
+  onQuoteRefreshingChange?: (loading: boolean) => void;
 };
 
 export function UniversalStake({
@@ -177,8 +179,9 @@ export function UniversalStake({
   inputTitle,
   tokenSelectorTriggerProps,
   isQuoteExpired,
-  onRefreshQuote,
   onQuoteReset,
+  refreshKey,
+  onQuoteRefreshingChange,
 }: PropsWithChildren<IUniversalStakeProps>) {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -509,6 +512,16 @@ export function UniversalStake({
     debouncedFetchTransactionConfirmation,
     stakefishIdentity,
   ]);
+
+  const { quoteRefreshing, handleLocalRefreshQuote } = useQuoteRefresh({
+    enabled: isPendleProvider,
+    refreshKey,
+    amountValue,
+    fetchTransactionConfirmation,
+    setTransactionConfirmation,
+    onQuoteReset,
+    onQuoteRefreshingChange,
+  });
 
   useEffect(
     () => () => {
@@ -1287,12 +1300,12 @@ export function UniversalStake({
         }}
         confirmButtonProps={{
           onPress: showExpiredRefresh
-            ? onRefreshQuote
+            ? handleLocalRefreshQuote
             : shouldApprove
               ? onApprove
               : onSubmit,
           loading: showExpiredRefresh
-            ? false
+            ? quoteRefreshing
             : loadingAllowance || approving || submitting || checkAmountLoading,
           disabled: showExpiredRefresh ? false : isDisable,
           w: '100%',
@@ -1670,12 +1683,12 @@ export function UniversalStake({
               onConfirmText={onConfirmText}
               confirmButtonProps={{
                 onPress: showExpiredRefresh
-                  ? onRefreshQuote
+                  ? handleLocalRefreshQuote
                   : shouldApprove
                     ? onApprove
                     : onSubmit,
                 loading: showExpiredRefresh
-                  ? false
+                  ? quoteRefreshing
                   : loadingAllowance ||
                     approving ||
                     submitting ||

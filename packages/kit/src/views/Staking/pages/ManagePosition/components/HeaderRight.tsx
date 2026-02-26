@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 
-import { Button, IconButton, SizableText, XStack } from '@onekeyhq/components';
+import { Button, IconButton, XStack } from '@onekeyhq/components';
 import { useStakingPendingTxs } from '@onekeyhq/kit/src/views/Earn/hooks/useStakingPendingTxs';
 import { PendingIndicator } from '@onekeyhq/kit/src/views/Staking/components/StakingActivityIndicator';
 import type {
@@ -18,9 +18,8 @@ type IHeaderRightProps = {
   onRefreshPending?: (refreshFn: () => Promise<void>) => void;
   // Pendle quote lifecycle
   isPendleProvider?: boolean;
-  remainingSeconds?: number;
-  isQuoteExpired?: boolean;
   onRefreshQuote?: () => void;
+  refreshLoading?: boolean;
   onOpenSlippage?: () => void;
 };
 
@@ -33,9 +32,8 @@ export const HeaderRight = ({
   onRefresh,
   onRefreshPending,
   isPendleProvider,
-  remainingSeconds,
-  isQuoteExpired,
   onRefreshQuote,
+  refreshLoading,
   onOpenSlippage,
 }: IHeaderRightProps) => {
   const { pendingCount, refreshPending } = useStakingPendingTxs({
@@ -56,34 +54,16 @@ export const HeaderRight = ({
     return null;
   }
 
+  // Figma order: Slippage → History → Refresh
   return (
-    <XStack ai="center" gap="$2">
+    <XStack ai="center" gap="$3.5">
       {showPendleControls ? (
-        <>
-          <IconButton
-            icon="SliderHorOutline"
-            variant="tertiary"
-            size="small"
-            onPress={onOpenSlippage}
-          />
-          {typeof remainingSeconds === 'number' && remainingSeconds > 0 ? (
-            <SizableText
-              size="$bodySm"
-              color="$textSubdued"
-              minWidth="$6"
-              textAlign="center"
-            >
-              {remainingSeconds}s
-            </SizableText>
-          ) : null}
-          <IconButton
-            icon="RefreshCcwOutline"
-            variant="tertiary"
-            size="small"
-            disabled={!isQuoteExpired}
-            onPress={onRefreshQuote}
-          />
-        </>
+        <IconButton
+          icon="SliderHorOutline"
+          variant="tertiary"
+          size="small"
+          onPress={onOpenSlippage}
+        />
       ) : null}
       {pendingCount ? (
         <PendingIndicator num={pendingCount} onPress={() => onHistory?.()} />
@@ -100,6 +80,15 @@ export const HeaderRight = ({
         >
           {historyAction?.text.text}
         </Button>
+      ) : null}
+      {showPendleControls ? (
+        <IconButton
+          icon="RotateClockwiseOutline"
+          variant="tertiary"
+          size="small"
+          loading={refreshLoading}
+          onPress={onRefreshQuote}
+        />
       ) : null}
     </XStack>
   );

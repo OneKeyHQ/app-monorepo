@@ -56,8 +56,9 @@ export const WithdrawSection = ({
   receiveInputConfig,
   pendleSlippage,
   isQuoteExpired,
-  onRefreshQuote,
   onQuoteReset,
+  refreshKey,
+  onQuoteRefreshingChange,
 }: {
   accountId: string;
   networkId: string;
@@ -77,8 +78,9 @@ export const WithdrawSection = ({
   receiveInputConfig?: IManagePageV2ReceiveInputConfig;
   pendleSlippage?: number;
   isQuoteExpired?: boolean;
-  onRefreshQuote?: () => void;
   onQuoteReset?: () => void;
+  refreshKey?: number;
+  onQuoteRefreshingChange?: (loading: boolean) => void;
 }) => {
   const intl = useIntl();
   // Early return if no tokenInfo or protocolInfo
@@ -758,8 +760,9 @@ export const WithdrawSection = ({
           }
           transactionOutputTokenAddress={selectedReceiveTokenAddress}
           isQuoteExpired={isQuoteExpired}
-          onRefreshQuote={onRefreshQuote}
           onQuoteReset={onQuoteReset}
+          refreshKey={refreshKey}
+          onQuoteRefreshingChange={onQuoteRefreshingChange}
         />
       )}
     </>

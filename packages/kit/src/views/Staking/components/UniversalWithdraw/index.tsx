@@ -46,6 +46,7 @@ import type {
 
 import { useEarnSignMessageWithoutVerify } from '../../hooks/useEarnSignMessageWithoutVerify';
 import { usePendleLayoutState } from '../../hooks/usePendleLayoutState';
+import { useQuoteRefresh } from '../../hooks/useQuoteRefresh';
 import {
   capitalizeString,
   countDecimalPlaces,
@@ -127,8 +128,9 @@ type IUniversalWithdrawProps = {
   transactionInputTokenAddress?: string;
   transactionOutputTokenAddress?: string;
   isQuoteExpired?: boolean;
-  onRefreshQuote?: () => void;
   onQuoteReset?: () => void;
+  refreshKey?: number;
+  onQuoteRefreshingChange?: (loading: boolean) => void;
 };
 
 const WITHDRAW_ACCORDION_KEY = 'withdraw-accordion-content';
@@ -160,8 +162,9 @@ export function UniversalWithdraw({
   transactionInputTokenAddress,
   transactionOutputTokenAddress,
   isQuoteExpired,
-  onRefreshQuote,
   onQuoteReset,
+  refreshKey,
+  onQuoteRefreshingChange,
 }: PropsWithChildren<IUniversalWithdrawProps>) {
   const navigation = useAppNavigation();
   const { handleOpenWebSite } = useBrowserAction().current;
@@ -437,6 +440,16 @@ export function UniversalWithdraw({
     debouncedFetchTransactionConfirmation,
     transactionOutputTokenAddress,
   ]);
+
+  const { quoteRefreshing, handleLocalRefreshQuote } = useQuoteRefresh({
+    enabled: isPendleProvider,
+    refreshKey,
+    amountValue,
+    fetchTransactionConfirmation,
+    setTransactionConfirmation,
+    onQuoteReset,
+    onQuoteRefreshingChange,
+  });
 
   const onChangeAmountValue = useCallback(
     (value: string, isMax = false) => {
@@ -1143,9 +1156,9 @@ export function UniversalWithdraw({
                 : ETranslations.global_withdraw,
             })}
             confirmButtonProps={{
-              onPress: showExpiredRefresh ? onRefreshQuote : onPress,
+              onPress: showExpiredRefresh ? handleLocalRefreshQuote : onPress,
               loading: showExpiredRefresh
-                ? false
+                ? quoteRefreshing
                 : loading || checkAmountLoading,
               disabled: showExpiredRefresh ? false : isDisable,
             }}
@@ -1170,9 +1183,9 @@ export function UniversalWithdraw({
               w: '100%',
             }}
             confirmButtonProps={{
-              onPress: showExpiredRefresh ? onRefreshQuote : onPress,
+              onPress: showExpiredRefresh ? handleLocalRefreshQuote : onPress,
               loading: showExpiredRefresh
-                ? false
+                ? quoteRefreshing
                 : loading || checkAmountLoading,
               disabled: showExpiredRefresh ? false : isDisable,
               w: '100%',
