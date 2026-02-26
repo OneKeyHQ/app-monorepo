@@ -6,7 +6,10 @@ import logger from 'electron-log/main';
 
 const MAX_SENTRY_CACHE_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
-async function removeFilesInDirectory(dirPath: string): Promise<number> {
+async function removeFilesInDirectory(
+  dirPath: string,
+  isRoot = true,
+): Promise<number> {
   let removedCount = 0;
   try {
     const entries = await fs.promises.readdir(dirPath, { withFileTypes: true });
@@ -14,7 +17,7 @@ async function removeFilesInDirectory(dirPath: string): Promise<number> {
       const fullPath = path.join(dirPath, entry.name);
       try {
         if (entry.isDirectory()) {
-          removedCount += await removeFilesInDirectory(fullPath);
+          removedCount += await removeFilesInDirectory(fullPath, false);
         } else {
           await fs.promises.unlink(fullPath);
           removedCount += 1;
@@ -22,6 +25,10 @@ async function removeFilesInDirectory(dirPath: string): Promise<number> {
       } catch (_e) {
         // Ignore individual file errors (file may be locked or already deleted)
       }
+    }
+    // Remove the now-empty subdirectory (but keep the root crashDumps dir)
+    if (!isRoot) {
+      await fs.promises.rmdir(dirPath).catch(() => {});
     }
   } catch (_e) {
     // Directory may not exist
