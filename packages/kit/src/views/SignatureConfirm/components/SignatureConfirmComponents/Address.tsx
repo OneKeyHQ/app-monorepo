@@ -3,6 +3,7 @@ import { useIntl } from 'react-intl';
 import { Badge, Icon, IconButton, XStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AddressInfo } from '@onekeyhq/kit/src/components/AddressInfo';
+import { HighlightAddress } from '@onekeyhq/kit/src/components/HighlightAddress';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { openExplorerAddressUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -67,8 +68,15 @@ function Address(props: IProps) {
           flex={1}
           maxWidth="$96"
           style={{ wordBreak: 'break-all' }}
+          {...(!component.showAccountName && { fontFamily: '$monoMedium' })}
         >
-          {component.showAccountName ? accountName : component.address}
+          {component.showAccountName ? (
+            accountName
+          ) : component.highlightAddress ? (
+            <HighlightAddress variant="inline" address={component.address} />
+          ) : (
+            component.address
+          )}
         </SignatureConfirmItem.Value>
         {component.isNavigable ? (
           <XStack gap="$3" ml="$5">

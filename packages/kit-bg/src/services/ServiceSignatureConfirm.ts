@@ -82,6 +82,7 @@ class ServiceSignatureConfirm extends ServiceBase {
         });
       }
 
+      // FROM address added here without highlightAddress — won't be highlighted
       r[0].txDisplay.components.unshift(
         convertAddressToSignatureConfirmAddress({
           address: accountAddress,
@@ -101,6 +102,25 @@ class ServiceSignatureConfirm extends ServiceBase {
           decodedTxs: r,
           unsignedTxs: params.unsignedTxs,
         });
+    }
+
+    // Highlight all address components except FROM (account address).
+    // First match of accountAddress is FROM — skip it.
+    // Second match (self-transfer TO) still gets highlighted.
+    if (r[0]?.txDisplay?.components && accountAddress) {
+      let fromFound = false;
+      for (const component of r[0].txDisplay.components) {
+        if (component.type === EParseTxComponentType.Address) {
+          if (
+            !fromFound &&
+            component.address.toLowerCase() === accountAddress.toLowerCase()
+          ) {
+            fromFound = true;
+          } else {
+            component.highlightAddress = true;
+          }
+        }
+      }
     }
 
     return r;
