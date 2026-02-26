@@ -35,9 +35,11 @@ export const initSentry = () => {
     appHangTimeoutInterval: 5,
     integrations: [navigationIntegration, reactNativeTracingIntegration()],
     enableAutoPerformanceTracing: true,
-    // Disable native crash reporting to prevent memory dumps that may contain
-    // sensitive data (private keys, mnemonics) from being uploaded to Sentry.
-    enableNativeCrashHandling: false,
+    // Disable options that may include memory context or sensitive visual data.
+    // enableNativeCrashHandling is kept enabled because it only collects
+    // symbolicated stack traces (not JS heap memory), which is safe for privacy
+    // and essential for diagnosing native crashes.
+    enableNativeCrashHandling: true,
     enableNdk: false,
     enableWatchdogTerminationTracking: false,
     attachScreenshot: false,
