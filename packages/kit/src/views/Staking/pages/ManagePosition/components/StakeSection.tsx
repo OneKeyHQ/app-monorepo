@@ -61,6 +61,10 @@ export const StakeSection = ({
   borrowAction,
   borrowActionLabel,
   receiveInputConfig,
+  pendleSlippage,
+  isQuoteExpired,
+  onRefreshQuote,
+  onQuoteReset,
 }: {
   accountId: string;
   networkId: string;
@@ -80,6 +84,10 @@ export const StakeSection = ({
   borrowReserves?: IBorrowReserveItem;
   borrowActionLabel?: string;
   receiveInputConfig?: IManagePageV2ReceiveInputConfig;
+  pendleSlippage?: number;
+  isQuoteExpired?: boolean;
+  onRefreshQuote?: () => void;
+  onQuoteReset?: () => void;
 }) => {
   // Early return if no tokenInfo or protocolInfo
   // This happens when there's no account or no address
@@ -485,6 +493,7 @@ export const StakeSection = ({
         provider: providerName,
         inputTokenAddress: selectedStakeTokenAddress,
         outputTokenAddress: receiveInputConfig?.tokenAddress ?? '',
+        slippage: pendleSlippage,
         stakingInfo: {
           label: EEarnLabels.Stake,
           protocol: earnUtils.getEarnProviderName({
@@ -555,6 +564,7 @@ export const StakeSection = ({
       stakeRequestSymbol,
       receiveInputConfig?.tokenAddress,
       borrowApiCtx.isBorrow,
+      pendleSlippage,
     ],
   );
 
@@ -742,6 +752,9 @@ export const StakeSection = ({
           requestSymbol={stakeRequestSymbol}
           transactionInputTokenAddress={selectedStakeTokenAddress}
           transactionOutputTokenAddress={receiveInputConfig?.tokenAddress ?? ''}
+          isQuoteExpired={isQuoteExpired}
+          onRefreshQuote={onRefreshQuote}
+          onQuoteReset={onQuoteReset}
         />
       )}
     </>

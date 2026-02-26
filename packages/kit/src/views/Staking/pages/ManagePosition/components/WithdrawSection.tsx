@@ -53,6 +53,10 @@ export const WithdrawSection = ({
   borrowAction,
   borrowActionLabel,
   receiveInputConfig,
+  pendleSlippage,
+  isQuoteExpired,
+  onRefreshQuote,
+  onQuoteReset,
 }: {
   accountId: string;
   networkId: string;
@@ -70,6 +74,10 @@ export const WithdrawSection = ({
   borrowAction?: 'supply' | 'withdraw' | 'borrow' | 'repay';
   borrowActionLabel?: string;
   receiveInputConfig?: IManagePageV2ReceiveInputConfig;
+  pendleSlippage?: number;
+  isQuoteExpired?: boolean;
+  onRefreshQuote?: () => void;
+  onQuoteReset?: () => void;
 }) => {
   const intl = useIntl();
   // Early return if no tokenInfo or protocolInfo
@@ -501,6 +509,7 @@ export const WithdrawSection = ({
           ? ''
           : (tokenInfo?.token?.address ?? ''),
         outputTokenAddress: selectedReceiveTokenAddress,
+        slippage: pendleSlippage,
         useEthenaCooldown,
         onStepChange,
         signal: abortController.signal,
@@ -537,6 +546,7 @@ export const WithdrawSection = ({
       tokenInfo?.token?.isNative,
       selectedReceiveTokenAddress,
       borrowApiCtx.isBorrow,
+      pendleSlippage,
     ],
   );
 
@@ -749,6 +759,9 @@ export const WithdrawSection = ({
             tokenInfo?.token?.isNative ? '' : (tokenInfo?.token?.address ?? '')
           }
           transactionOutputTokenAddress={selectedReceiveTokenAddress}
+          isQuoteExpired={isQuoteExpired}
+          onRefreshQuote={onRefreshQuote}
+          onQuoteReset={onQuoteReset}
         />
       )}
     </>

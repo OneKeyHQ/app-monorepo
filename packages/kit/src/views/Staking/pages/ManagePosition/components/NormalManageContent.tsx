@@ -3,10 +3,17 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { useSharedValue } from 'react-native-reanimated';
 
-import { SizableText, Tabs, XStack } from '@onekeyhq/components';
+import { Dialog, SizableText, Tabs, XStack } from '@onekeyhq/components';
 import type { IAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import SlippageSettingDialog from '@onekeyhq/kit/src/components/SlippageSettingDialog';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
+import {
+  swapSlippageAutoValue,
+} from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import type { ISwapSlippageSegmentItem } from '@onekeyhq/shared/types/swap/types';
+import { ESwapSlippageSegmentKey } from '@onekeyhq/shared/types/swap/types';
 import {
   EManagePageActionType,
   EStakingActionType,
@@ -23,6 +30,7 @@ import type {
 } from '@onekeyhq/shared/types/staking';
 
 import { EManagePositionType } from '../hooks/useManagePage';
+import { useQuoteCountdown } from '../../../hooks/useQuoteCountdown';
 
 import { HeaderRight } from './HeaderRight';
 import { StakeSection } from './StakeSection';
@@ -363,6 +371,53 @@ export function NormalManageContent({
     return 0;
   });
 
+  // Pendle: slippage state + countdown
+  const isPendleProvider = useMemo(
+    () => earnUtils.isPendleProvider({ providerName: provider }),
+    [provider],
+  );
+
+  const [pendleSlippage, setPendleSlippage] =
+    useState<ISwapSlippageSegmentItem>({
+      key: ESwapSlippageSegmentKey.AUTO,
+      value: swapSlippageAutoValue,
+    });
+
+  const pendleSlippageValue = useMemo(
+    () => (isPendleProvider ? pendleSlippage.value : undefined),
+    [isPendleProvider, pendleSlippage.value],
+  );
+
+  const stakeCountdown = useQuoteCountdown({
+    enabled: isPendleProvider && selectedTabIndex === 0,
+  });
+
+  const withdrawCountdown = useQuoteCountdown({
+    enabled: isPendleProvider && selectedTabIndex === 1,
+  });
+
+  const activeCountdown =
+    selectedTabIndex === 0 ? stakeCountdown : withdrawCountdown;
+
+  const handleOpenSlippage = useCallback(() => {
+    Dialog.show({
+      title: intl.formatMessage({
+        id: ETranslations.slippage_tolerance_title,
+      }),
+      renderContent: (
+        <SlippageSettingDialog
+          swapSlippage={pendleSlippage}
+          autoValue={swapSlippageAutoValue}
+          onSave={(item, close) => {
+            setPendleSlippage(item);
+            void close({ flag: 'save' });
+          }}
+          isMEV={false}
+        />
+      ),
+    });
+  }, [intl, pendleSlippage]);
+
   useEffect(() => {
     if (defaultTab === 'withdraw') {
       setSelectedTabIndex(1);
@@ -578,6 +633,11 @@ export function NormalManageContent({
               onRefreshPendingRef.current = refreshFn;
             }
           }}
+          isPendleProvider={isPendleProvider}
+          remainingSeconds={activeCountdown.remainingSeconds}
+          isQuoteExpired={activeCountdown.isExpired}
+          onRefreshQuote={activeCountdown.refresh}
+          onOpenSlippage={handleOpenSlippage}
         />
       </XStack>
       {selectedTabIndex === 0 ? (
@@ -600,6 +660,10 @@ export function NormalManageContent({
           borrowReserves={borrowReserves}
           borrowActionLabel={borrowActionLabelPrimary}
           receiveInputConfig={stakeReceiveInputConfig}
+          pendleSlippage={pendleSlippageValue}
+          isQuoteExpired={stakeCountdown.isExpired}
+          onRefreshQuote={stakeCountdown.refresh}
+          onQuoteReset={stakeCountdown.reset}
         />
       ) : null}
       {selectedTabIndex === 1 ? (
@@ -620,6 +684,10 @@ export function NormalManageContent({
           borrowAction={borrowActionSecondary}
           borrowActionLabel={borrowActionLabelSecondary}
           receiveInputConfig={withdrawReceiveInputConfig}
+          pendleSlippage={pendleSlippageValue}
+          isQuoteExpired={withdrawCountdown.isExpired}
+          onRefreshQuote={withdrawCountdown.refresh}
+          onQuoteReset={withdrawCountdown.reset}
         />
       ) : null}
     </>

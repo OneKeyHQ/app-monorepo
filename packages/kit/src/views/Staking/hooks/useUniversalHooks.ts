@@ -88,6 +88,7 @@ export function useUniversalStake({
       provider,
       inputTokenAddress,
       outputTokenAddress,
+      slippage,
       stakingInfo,
       onSuccess,
       onFail,
@@ -108,6 +109,7 @@ export function useUniversalStake({
       provider: string;
       inputTokenAddress?: string;
       outputTokenAddress?: string;
+      slippage?: number;
       stakingInfo?: IStakingInfo;
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
       onFail?: IModalSendParamList['SendConfirm']['onFail'];
@@ -130,6 +132,7 @@ export function useUniversalStake({
           message,
           inputTokenAddress,
           outputTokenAddress,
+          slippage,
           // Stakefish specific param
           validatorPublicKey,
         });
@@ -200,6 +203,7 @@ export function useUniversalWithdraw({
       outputTokenAddress,
       protocolVault,
       withdrawAll,
+      slippage,
       stakingInfo,
       onSuccess,
       onFail,
@@ -218,6 +222,7 @@ export function useUniversalWithdraw({
       outputTokenAddress?: string;
       protocolVault?: string;
       withdrawAll: boolean;
+      slippage?: number;
       stakingInfo?: IStakingInfo;
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
       onFail?: IModalSendParamList['SendConfirm']['onFail'];
@@ -293,6 +298,7 @@ export function useUniversalWithdraw({
             protocolVault,
             withdrawAll,
             ethenaPath: true,
+            slippage,
           });
         const swapEncodedTx =
           await backgroundApiProxy.serviceStaking.buildInternalDappTx({
@@ -332,6 +338,7 @@ export function useUniversalWithdraw({
                 protocolVault,
                 withdrawAll,
                 useEthenaCooldown: true,
+                slippage,
               });
             const unstakeEncodedTx =
               await backgroundApiProxy.serviceStaking.buildInternalDappTx({
@@ -378,6 +385,7 @@ export function useUniversalWithdraw({
             withdrawAll,
             signature: withdrawSignature,
             message: withdrawMessage,
+            slippage,
           });
       }
 
