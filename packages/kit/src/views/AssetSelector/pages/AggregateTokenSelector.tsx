@@ -45,6 +45,8 @@ import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector
 import {
   useAggregateTokensListMapAtom,
   useAllTokenListMapAtom,
+  useProcessingTokenStateAtom,
+  useTokenListActions,
 } from '../../../states/jotai/contexts/tokenList';
 import { HomeTokenListProviderMirrorWrapper } from '../../Home/components/HomeTokenListProvider';
 
@@ -57,6 +59,7 @@ function AggregateTokenListItem({
   onPress,
   allNetworksState,
   refreshAllNetworkState,
+  processingTokenKey,
 }: {
   token: IAccountToken;
   onPress: ({
@@ -75,8 +78,13 @@ function AggregateTokenListItem({
   }: {
     alwaysSetState?: boolean;
   }) => void;
+  processingTokenKey: string | null;
 }) {
   const [loading, setLoading] = useState(false);
+
+  const isCurrentTokenProcessing = processingTokenKey === token.$key;
+  const isOtherTokenProcessing =
+    processingTokenKey !== null && processingTokenKey !== token.$key;
   const intl = useIntl();
 
   const [allTokenListMapAtom] = useAllTokenListMapAtom();
@@ -196,6 +204,8 @@ function AggregateTokenListItem({
     refreshAllNetworkState,
   ]);
 
+  const showSpinner = loading || isCurrentTokenProcessing;
+
   return (
     <ListItem
       key={token.$key}
@@ -204,6 +214,8 @@ function AggregateTokenListItem({
         src: network?.logoURI,
       }}
       onPress={handleOnPress}
+      disabled={isOtherTokenProcessing}
+      opacity={isOtherTokenProcessing ? 0.5 : 1}
       {...(!accountId && {
         subtitle: loading
           ? intl.formatMessage({ id: ETranslations.global_creating_address })
@@ -233,12 +245,12 @@ function AggregateTokenListItem({
           </NumberSizeableText>
         }
       />
-      {loading ? (
+      {showSpinner ? (
         <Stack p="$0.5">
           <Spinner />
         </Stack>
       ) : null}
-      {!accountId && !loading ? (
+      {!accountId && !showSpinner ? (
         <Icon name="PlusLargeOutline" color="$iconSubdued" />
       ) : null}
     </ListItem>
@@ -263,6 +275,7 @@ function AggregateTokenSelector() {
     allAggregateTokenList,
     enableNetworkAfterSelect,
     hideZeroBalanceTokens,
+    exchangeFilter,
   } = route.params;
 
   const intl = useIntl();
@@ -270,6 +283,8 @@ function AggregateTokenSelector() {
   const [searchKey, setSearchKey] = useState('');
   const [allTokenListMapAtom] = useAllTokenListMapAtom();
   const navigation = useAppNavigation();
+  const [processingTokenState] = useProcessingTokenStateAtom();
+  const { updateProcessingTokenState } = useTokenListActions().current;
 
   const [aggregateTokensListMapAtom] = useAggregateTokensListMapAtom();
 
@@ -303,7 +318,23 @@ function AggregateTokenSelector() {
       token: IAccountToken;
       enabledInAllNetworks?: boolean;
     }) => {
-      void onSelect(token);
+      if (exchangeFilter) {
+        updateProcessingTokenState({
+          isProcessing: true,
+          token,
+        });
+        try {
+          await onSelect(token);
+        } finally {
+          updateProcessingTokenState({
+            isProcessing: false,
+            token: null,
+          });
+        }
+      } else {
+        void onSelect(token);
+      }
+
       if (enableNetworkAfterSelect) {
         if (
           token.networkId &&
@@ -339,6 +370,8 @@ function AggregateTokenSelector() {
       intl,
       allNetworksState,
       refreshAllNetworkState,
+      updateProcessingTokenState,
+      exchangeFilter,
     ],
   );
 
@@ -356,18 +389,35 @@ function AggregateTokenSelector() {
       });
     }
 
-    return uniqBy(
+    let result = uniqBy(
       [
         ...tokens,
         ...sortTokensByOrder({ tokens: allAggregateTokenList ?? [] }),
       ],
       (token) => token.networkId,
     );
+
+    if (exchangeFilter?.supportedAssets) {
+      result = result.filter((token) => {
+        const symbolUpper = (
+          aggregateToken.commonSymbol ??
+          aggregateToken.symbol ??
+          ''
+        ).toUpperCase();
+        const networkAssets =
+          exchangeFilter.supportedAssets[token.networkId ?? ''];
+        return networkAssets?.[symbolUpper]?.withdrawEnable === true;
+      });
+    }
+
+    return result;
   }, [
     aggregateTokens,
     allTokenListMapAtom,
     allAggregateTokenList,
     hideZeroBalanceTokens,
+    exchangeFilter,
+    aggregateToken,
   ]);
 
   const filteredAggregateTokens = useMemo(() => {
@@ -385,6 +435,11 @@ function AggregateTokenSelector() {
     return sortedAggregateTokens;
   }, [searchKey, sortedAggregateTokens]);
 
+  const processingTokenKey =
+    exchangeFilter && processingTokenState.isProcessing
+      ? processingTokenState.token?.$key ?? null
+      : null;
+
   const renderAggregateTokensList = useCallback(() => {
     if (!filteredAggregateTokens || filteredAggregateTokens.length === 0) {
       if (searchKey) {
@@ -400,6 +455,7 @@ function AggregateTokenSelector() {
         onPress={handleOnPressToken}
         allNetworksState={allNetworksState}
         refreshAllNetworkState={refreshAllNetworkState}
+        processingTokenKey={processingTokenKey}
       />
     ));
   }, [
@@ -408,6 +464,7 @@ function AggregateTokenSelector() {
     searchKey,
     allNetworksState,
     refreshAllNetworkState,
+    processingTokenKey,
   ]);
 
   return (

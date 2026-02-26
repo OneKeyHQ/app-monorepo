@@ -43,6 +43,7 @@ function TokenSelector() {
   const intl = useIntl();
   const {
     updateCreateAccountState,
+    updateProcessingTokenState,
     refreshActiveAccountTokenList,
     refreshTokenListMap,
     updateActiveAccountTokenListState,
@@ -79,6 +80,7 @@ function TokenSelector() {
     hideZeroBalanceTokens,
     keepDefaultZeroBalanceTokens,
     enableNetworkAfterSelect,
+    exchangeFilter,
   } = route.params;
 
   const { network, account } = useAccountData({ networkId, accountId });
@@ -92,6 +94,29 @@ function TokenSelector() {
     tokens: IAccountToken[];
   }>({ tokens: [] });
 
+  const executeOnSelect = useCallback(
+    async (selectedToken: IAccountToken) => {
+      if (!onSelect) return;
+      if (exchangeFilter) {
+        updateProcessingTokenState({
+          isProcessing: true,
+          token: selectedToken,
+        });
+        try {
+          await onSelect(selectedToken);
+        } finally {
+          updateProcessingTokenState({
+            isProcessing: false,
+            token: null,
+          });
+        }
+      } else {
+        void onSelect(selectedToken);
+      }
+    },
+    [onSelect, updateProcessingTokenState, exchangeFilter],
+  );
+
   const handleTokenOnPress = useCallback(
     async (token: IAccountToken) => {
       if (token.isAggregateToken) {
@@ -103,7 +128,7 @@ function TokenSelector() {
           aggregateTokenList.length === 1 &&
           allAggregateTokenList.length === 0
         ) {
-          void onSelect?.(aggregateTokenList[0]);
+          await executeOnSelect(aggregateTokenList[0]);
           return;
         }
 
@@ -115,7 +140,7 @@ function TokenSelector() {
           });
 
         if (tokenHasBalance && tokenHasBalanceCount === 1) {
-          void onSelect?.(tokenHasBalance);
+          await executeOnSelect(tokenHasBalance);
           return;
         }
 
@@ -135,6 +160,7 @@ function TokenSelector() {
               allAggregateTokenList,
               enableNetworkAfterSelect,
               hideZeroBalanceTokens,
+              exchangeFilter,
             },
           );
           return;
@@ -210,12 +236,12 @@ function TokenSelector() {
           matchedAccount?.accountId
         ) {
           if (matchedAccount?.accountId) {
-            void onSelect?.({
+            await executeOnSelect({
               ...token,
               accountId: matchedAccount.accountId,
             });
           } else {
-            void onSelect?.(token);
+            await executeOnSelect(token);
           }
         } else if (account) {
           updateCreateAccountState({
@@ -242,7 +268,7 @@ function TokenSelector() {
             });
 
             if (resp) {
-              void onSelect?.({
+              await executeOnSelect({
                 ...token,
                 accountId: resp.accounts[0]?.id,
               });
@@ -255,7 +281,7 @@ function TokenSelector() {
           }
         }
       } else {
-        void onSelect?.(token);
+        await executeOnSelect(token);
       }
 
       if (closeAfterSelect) {
@@ -276,9 +302,11 @@ function TokenSelector() {
       indexedAccountId,
       enableNetworkAfterSelect,
       hideZeroBalanceTokens,
+      exchangeFilter,
       account,
       updateCreateAccountState,
       createAddress,
+      executeOnSelect,
     ],
   );
 
@@ -446,6 +474,7 @@ function TokenSelector() {
           hideZeroBalanceTokens={hideZeroBalanceTokens}
           keepDefaultZeroBalanceTokens={keepDefaultZeroBalanceTokens}
           showNetworkIcon={isAllNetworks ?? network?.isAllNetworks}
+          exchangeFilter={exchangeFilter}
           emptyProps={{
             mt: '18%',
           }}
