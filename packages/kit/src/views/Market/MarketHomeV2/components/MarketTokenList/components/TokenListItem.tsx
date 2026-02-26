@@ -1,9 +1,10 @@
 import type { FC } from 'react';
 import { memo } from 'react';
 
-import { NumberSizeableText, XStack, YStack } from '@onekeyhq/components';
+import { NumberSizeableText, XStack } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
+import { PriceChangeBadge } from '../../PriceChangeBadge';
 import { TokenIdentityItem } from './TokenIdentityItem';
 import type { IMarketToken } from '../MarketTokenData';
 
@@ -20,11 +21,10 @@ const BasicTokenListItem: FC<ITokenListItemProps> = ({ item, onPress }) => {
     <XStack
       pressStyle={{ opacity: 0.8 }}
       onPress={onPress}
-      px="$3"
+      px="$5"
       py="$3"
       alignItems="center"
     >
-      {/* Left side: Token Info + Volume */}
       <XStack flex={1} alignItems="center" minWidth={0}>
         <TokenIdentityItem
           tokenLogoURI={item.tokenImageUri}
@@ -38,8 +38,7 @@ const BasicTokenListItem: FC<ITokenListItemProps> = ({ item, onPress }) => {
         />
       </XStack>
 
-      {/* Right side: Price + Change */}
-      <YStack alignItems="flex-end" justifyContent="center">
+      <XStack alignItems="center" gap="$2">
         <NumberSizeableText
           userSelect="none"
           flexShrink={1}
@@ -50,17 +49,8 @@ const BasicTokenListItem: FC<ITokenListItemProps> = ({ item, onPress }) => {
         >
           {item.price}
         </NumberSizeableText>
-        <NumberSizeableText
-          size="$bodyMd"
-          color={Number(item.change24h) >= 0 ? '$textSuccess' : '$textCritical'}
-          formatter="priceChange"
-          formatterOptions={{
-            showPlusMinusSigns: true,
-          }}
-        >
-          {item.change24h}
-        </NumberSizeableText>
-      </YStack>
+        <PriceChangeBadge change={item.change24h} />
+      </XStack>
     </XStack>
   );
 };
