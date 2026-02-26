@@ -1,8 +1,3 @@
-/**
- * Exchange configurations for "Receive from Exchange" feature
- * Used for app detection and deep linking to exchange apps
- */
-
 export enum EExchangeId {
   Binance = 'binance',
   OKX = 'okx',

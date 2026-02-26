@@ -1103,12 +1103,8 @@ class ServiceToken extends ServiceBase {
     return this.backgroundApi.simpleDb.aggregateToken.clearLastActiveTabNameData();
   }
 
-  // ============ Binance Connect API ============
+  // ---- Binance Connect ----
 
-  /**
-   * Get Binance supported assets for withdraw
-   * Cached for 10 minutes
-   */
   @backgroundMethod()
   public async getBinanceSupportedAssets(): Promise<IBinanceSupportedAssets> {
     return this._getBinanceSupportedAssetsMemo();
@@ -1128,9 +1124,6 @@ class ServiceToken extends ServiceBase {
     },
   );
 
-  /**
-   * Create Binance pre-order for withdraw
-   */
   @backgroundMethod()
   public async createBinancePreOrder(
     params: IBinancePreOrderParams,

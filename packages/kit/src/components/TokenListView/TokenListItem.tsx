@@ -28,7 +28,6 @@ export type ITokenListItemProps = {
   withSwapAction?: boolean;
   showNetworkIcon?: boolean;
   withAggregateBadge?: boolean;
-  /** Show processing state (loading/disabled) - used for exchange scenarios */
   showProcessingState?: boolean;
 } & Omit<IListItemProps, 'onPress'>;
 

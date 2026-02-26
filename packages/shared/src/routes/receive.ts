@@ -52,7 +52,6 @@ export type IModalReceiveParamList = {
     disableSelector?: boolean;
     btcUsedAddress?: string;
     btcUsedAddressPath?: string;
-    /** Source exchange when navigating from "Receive from Exchange" flow */
     exchangeSource?: EExchangeId;
   };
   [EModalReceiveRoutes.ReceiveInvoice]: {

@@ -4,12 +4,12 @@ import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import type { EExchangeId } from '@onekeyhq/shared/src/consts/exchangeConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import type { EExchangeId } from '@onekeyhq/shared/src/consts/exchangeConsts';
 import type {
   IAccountToken,
   IToken,

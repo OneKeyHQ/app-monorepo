@@ -318,7 +318,6 @@ function AggregateTokenSelector() {
       token: IAccountToken;
       enabledInAllNetworks?: boolean;
     }) => {
-      // Only show loading state for exchange scenarios (e.g., Binance Connect)
       if (exchangeFilter) {
         updateProcessingTokenState({
           isProcessing: true,
@@ -419,7 +418,6 @@ function AggregateTokenSelector() {
     return sortedAggregateTokens;
   }, [searchKey, sortedAggregateTokens]);
 
-  // Only show loading state for exchange scenarios
   const processingTokenKey =
     exchangeFilter && processingTokenState.isProcessing
       ? processingTokenState.token?.$key ?? null

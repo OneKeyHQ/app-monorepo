@@ -71,7 +71,6 @@ export type ITokenSelectorParamList = {
   hideZeroBalanceTokens?: boolean;
   keepDefaultZeroBalanceTokens?: boolean;
   enableNetworkAfterSelect?: boolean;
-  /** Filter tokens by exchange supported assets */
   exchangeFilter?: IExchangeFilter;
 };
 
@@ -86,7 +85,6 @@ export type IAggregateTokenSelectorParams = {
   closeAfterSelect?: boolean;
   enableNetworkAfterSelect?: boolean;
   hideZeroBalanceTokens?: boolean;
-  /** Filter tokens by exchange supported assets - used to show loading state */
   exchangeFilter?: IExchangeFilter;
 };
 

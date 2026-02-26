@@ -7,7 +7,6 @@ import {
   Button,
   Icon,
   SizableText,
-  Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -46,11 +45,9 @@ function WalletActionExchange() {
 
   const handleBinancePress = useCallback(async () => {
     try {
-      // 1. Get Binance supported assets
       const supportedAssets =
         await backgroundApiProxy.serviceToken.getBinanceSupportedAssets();
 
-      // 2. Navigate to token selector with exchange filter
       navigation.push(EModalReceiveRoutes.ReceiveSelectToken, {
         title: intl.formatMessage({ id: ETranslations.global_select_crypto }),
         networkId,
@@ -64,70 +61,53 @@ function WalletActionExchange() {
           supportedAssets,
         },
         onSelect: async (selectedToken: IToken) => {
-          try {
-            // 3. Get account address
-            const tokenNetworkId = selectedToken.networkId ?? networkId;
-            const tokenAccountId = selectedToken.accountId ?? accountId;
-            const accountAddress =
-              await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
-                accountId: tokenAccountId,
-                networkId: tokenNetworkId,
-              });
+          const tokenNetworkId = selectedToken.networkId ?? networkId;
+          const tokenAccountId = selectedToken.accountId ?? accountId;
+          const accountAddress =
+            await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
+              accountId: tokenAccountId,
+              networkId: tokenNetworkId,
+            });
 
-            if (!accountAddress) {
-              Toast.error({ title: 'Failed to get account address' });
-              return;
-            }
-
-            // 4. Create pre-order
-            const result =
-              await backgroundApiProxy.serviceToken.createBinancePreOrder({
-                networkId: tokenNetworkId,
-                address: accountAddress,
-                cryptoCurrency: (selectedToken.symbol ?? '').toUpperCase(),
-                // requestedAmount: '1', // Default amount for MVP
-              });
-
-            // 5. Redirect to Binance
-            // Native: use linkingOpenURL to potentially open Binance app
-            // Other platforms: use system browser
-            if (platformEnv.isNative) {
-              await openUrlUtils.linkingOpenURL(result.redirectUrl);
-            } else {
-              openUrlExternal(result.redirectUrl);
-            }
-
-            // 6. Close the modal
-            navigation.popToTop();
-          } catch (error) {
-            console.error('[BinanceConnect] Error creating pre-order:', error);
+          if (!accountAddress) {
+            return;
           }
+
+          const result =
+            await backgroundApiProxy.serviceToken.createBinancePreOrder({
+              networkId: tokenNetworkId,
+              address: accountAddress,
+              cryptoCurrency: (selectedToken.symbol ?? '').toUpperCase(),
+            });
+
+          if (platformEnv.isNative) {
+            await openUrlUtils.linkingOpenURL(result.redirectUrl);
+          } else {
+            openUrlExternal(result.redirectUrl);
+          }
+
+          navigation.popToTop();
         },
       });
     } catch (error) {
       console.error('[BinanceConnect] Error fetching supported assets:', error);
     }
-  }, [navigation, networkId, accountId, indexedAccountId]);
+  }, [navigation, intl, networkId, accountId, indexedAccountId]);
 
   const handleExchangePress = useCallback(
     async (config: IExchangeConfig) => {
       const isInstalled = isExchangeInstalled(config.id);
 
-      // Binance Connect flow:
-      // - Native: only when Binance app is installed
-      // - Other platforms: always available
-      if (config.id === EExchangeId.Binance) {
-        const shouldUseBinanceConnect = platformEnv.isNative
-          ? isInstalled
-          : true;
-
-        if (shouldUseBinanceConnect) {
-          await handleBinancePress();
-          return;
-        }
+      // Binance Connect: available on all platforms, or native when app is installed
+      if (
+        config.id === EExchangeId.Binance &&
+        (!platformEnv.isNative || isInstalled)
+      ) {
+        await handleBinancePress();
+        return;
       }
 
-      // Other exchanges with app installed -> Original flow (show receive address)
+      // Other exchanges with app installed: show receive address
       if (platformEnv.isNative && isInstalled) {
         navigation.push(EModalReceiveRoutes.ReceiveSelectToken, {
           title: intl.formatMessage({ id: ETranslations.global_select_crypto }),

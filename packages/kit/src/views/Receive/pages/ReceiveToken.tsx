@@ -93,16 +93,6 @@ function ReceiveToken() {
     exchangeSource,
   } = route.params;
 
-  console.log(
-    '[ExchangeDebug] ReceiveToken params',
-    JSON.stringify({
-      exchangeSource,
-      networkId,
-      accountId,
-      allParams: route.params,
-    }),
-  );
-
   const { openExchangeApp } = useExchangeAppDetection();
 
   const { account, network, wallet, vaultSettings, deriveType, deriveInfo } =
@@ -235,59 +225,32 @@ function ReceiveToken() {
       });
   }, [network?.logoURI]);
 
-  // Auto-copy address and jump to exchange app when coming from exchange flow
+  // Auto-copy address and open exchange app when coming from exchange flow
   const hasAutoCopiedRef = useRef(false);
   useEffect(() => {
-    console.log(
-      '[ExchangeDebug] auto-copy check',
-      JSON.stringify({
-        exchangeSource,
-        displayAddress,
-        shouldShowAddress,
-        hasAutoCopied: hasAutoCopiedRef.current,
-      }),
-    );
     if (
-      exchangeSource &&
-      displayAddress &&
-      shouldShowAddress &&
-      !hasAutoCopiedRef.current
+      !exchangeSource ||
+      !displayAddress ||
+      !shouldShowAddress ||
+      hasAutoCopiedRef.current
     ) {
-      console.log('[ExchangeDebug] auto-copy triggered');
-      hasAutoCopiedRef.current = true;
-      // Copy address first
-      if (vaultSettings?.mergeDeriveAssetsEnabled && currentDeriveInfo) {
-        copyAddressWithDeriveType({
-          address: displayAddress,
-          deriveInfo: currentDeriveInfo,
-          networkName: network?.name,
-        });
-      } else {
-        copyAddressWithDeriveType({
-          address: displayAddress,
-          networkName: network?.name,
-        });
-      }
-      // Then jump to exchange app after 1s delay
-      if (platformEnv.isNative) {
-        const timer = setTimeout(() => {
-          console.log(
-            '[ExchangeDebug] jumping to exchange app',
-            exchangeSource,
-          );
-          void openExchangeApp(exchangeSource);
-        }, 1000);
-        return () => clearTimeout(timer);
-      }
+      return;
+    }
+
+    hasAutoCopiedRef.current = true;
+    handleCopyAddress();
+
+    if (platformEnv.isNative) {
+      const timer = setTimeout(() => {
+        void openExchangeApp(exchangeSource);
+      }, 1000);
+      return () => clearTimeout(timer);
     }
   }, [
     exchangeSource,
     displayAddress,
     shouldShowAddress,
-    copyAddressWithDeriveType,
-    currentDeriveInfo,
-    network?.name,
-    vaultSettings?.mergeDeriveAssetsEnabled,
+    handleCopyAddress,
     openExchangeApp,
   ]);
 
@@ -676,11 +639,9 @@ function ReceiveToken() {
   const renderReceiveFooter = useCallback(() => {
     if (!currentAccount || !network || !wallet) return null;
 
-    const exchangeName =
-      exchangeSource && exchangeSource in EXCHANGE_CONFIGS
-        ? (EXCHANGE_CONFIGS as Record<string, { name: string }>)[exchangeSource]
-            .name
-        : undefined;
+    const exchangeName = exchangeSource
+      ? EXCHANGE_CONFIGS[exchangeSource]?.name
+      : undefined;
 
     return (
       <YStack
@@ -749,7 +710,6 @@ function ReceiveToken() {
             {renderCopyAddressButton()}
           </XStack>
         </YStack>
-        {/* Open Exchange button when coming from exchange flow */}
         {exchangeSource &&
         platformEnv.isNative &&
         shouldShowAddress &&

@@ -118,7 +118,6 @@ type IProps = {
   plainMode?: boolean;
   limit?: number;
   deferTokenManagement?: boolean;
-  /** Filter tokens by exchange supported assets */
   exchangeFilter?: IExchangeFilter;
 };
 
@@ -253,7 +252,6 @@ function TokenListViewCmp(props: IProps) {
       resultTokens = resultTokens.filter((item) => !item.defiMarked);
     }
 
-    // Filter by exchange supported assets (e.g., Binance Connect)
     if (exchangeFilter?.supportedAssets) {
       resultTokens = resultTokens.filter((item) => {
         const symbolUpper = (
@@ -262,7 +260,6 @@ function TokenListViewCmp(props: IProps) {
           ''
         ).toUpperCase();
 
-        // For aggregate tokens, check if the symbol is supported in ANY network
         if (item.isAggregateToken) {
           return Object.values(exchangeFilter.supportedAssets).some(
             (networkAssets) =>
@@ -270,13 +267,9 @@ function TokenListViewCmp(props: IProps) {
           );
         }
 
-        // For regular tokens, check the specific network
         const networkAssets =
           exchangeFilter.supportedAssets[item.networkId ?? ''];
-        if (!networkAssets) return false;
-
-        const assetConfig = networkAssets[symbolUpper];
-        return assetConfig?.withdrawEnable === true;
+        return networkAssets?.[symbolUpper]?.withdrawEnable === true;
       });
     }
 

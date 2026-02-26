@@ -97,7 +97,6 @@ function TokenSelector() {
   const executeOnSelect = useCallback(
     async (selectedToken: IAccountToken) => {
       if (!onSelect) return;
-      // Only show loading state for exchange scenarios (e.g., Binance Connect)
       if (exchangeFilter) {
         updateProcessingTokenState({
           isProcessing: true,
@@ -112,7 +111,6 @@ function TokenSelector() {
           });
         }
       } else {
-        // For non-exchange scenarios, call onSelect without waiting
         void onSelect(selectedToken);
       }
     },

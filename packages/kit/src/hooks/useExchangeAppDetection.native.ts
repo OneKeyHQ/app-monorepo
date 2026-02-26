@@ -1,9 +1,3 @@
-/**
- * Exchange app detection hook - Native implementation (iOS/Android)
- *
- * This uses expo-linking to detect installed exchange apps
- * and provides deep link functionality to open them.
- */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
@@ -31,7 +25,6 @@ export function useExchangeAppDetection() {
   const [isDetecting, setIsDetecting] = useState(true);
   const hasDetectedRef = useRef(false);
 
-  // Detect installed apps on mount
   useEffect(() => {
     if (hasDetectedRef.current) {
       return;
@@ -45,8 +38,6 @@ export function useExchangeAppDetection() {
         ALL_EXCHANGE_IDS.map(async (id) => {
           const config = EXCHANGE_CONFIGS[id];
           try {
-            // Use appOpenUrl for detection on Android
-            // canOpenURL('bnc://') fails on Android, but 'bnc://app.binance.com/mp/app' works
             const canOpen = await openUrlUtils.linkingCanOpenURL(
               config.appOpenUrl,
             );
@@ -64,12 +55,10 @@ export function useExchangeAppDetection() {
     void detectApps();
   }, []);
 
-  // Sort exchanges: Binance always first if installed, then other installed apps, then uninstalled
   const sortedExchanges = useMemo((): IExchangeConfig[] => {
     const binanceConfig = EXCHANGE_CONFIGS[EExchangeId.Binance];
     const isBinanceInstalled = installedStatus[EExchangeId.Binance];
 
-    // Other exchanges (excluding Binance)
     const otherIds = ALL_EXCHANGE_IDS.filter(
       (id) => id !== EExchangeId.Binance,
     );
@@ -80,7 +69,6 @@ export function useExchangeAppDetection() {
       .filter((id) => !installedStatus[id])
       .map((id) => EXCHANGE_CONFIGS[id]);
 
-    // Binance first if installed, otherwise between installed and not-installed
     if (isBinanceInstalled) {
       return [binanceConfig, ...otherInstalled, ...otherNotInstalled];
     }
@@ -114,15 +102,10 @@ export function useExchangeAppDetection() {
   );
 
   return {
-    /** Whether detection is still in progress */
     isDetecting,
-    /** Installation status for each exchange */
     installedStatus,
-    /** Exchanges sorted with installed apps first */
     sortedExchanges,
-    /** Check if a specific exchange is installed */
     isExchangeInstalled,
-    /** Open exchange app via deep link */
     openExchangeApp,
   };
 }
