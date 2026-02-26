@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 import type { ReactNode } from 'react';
 
 import {
+  ETableSortType,
   ListEndIndicator,
   Spinner,
   Stack,
@@ -34,6 +35,11 @@ const SORTABLE_COLUMNS = {
   liquidity: 'liquidity',
   marketCap: 'mc',
   turnover: 'v24hUSD',
+  price: 'price',
+  change24h: 'change24h',
+  transactions: 'transactions',
+  uniqueTraders: 'uniqueTraders',
+  holders: 'holders',
 } as const;
 
 // Map sort keys to ESortWay enum values for logging
@@ -54,6 +60,8 @@ export type IMarketTokenListResult = {
   setSortType: (sortType: 'asc' | 'desc' | undefined) => void;
   initialSortBy?: string;
   initialSortType?: 'asc' | 'desc';
+  currentSortBy?: string;
+  currentSortType?: 'asc' | 'desc';
 };
 
 type IMarketTokenListBaseProps = {
@@ -62,6 +70,7 @@ type IMarketTokenListBaseProps = {
   toolbar?: ReactNode;
   result: IMarketTokenListResult;
   isWatchlistMode?: boolean;
+  sortable?: boolean;
   showEndReachedIndicator?: boolean;
   hideTokenAge?: boolean;
   watchlistFrom?: EWatchlistFrom;
@@ -87,6 +96,7 @@ function MarketTokenListBase({
   toolbar,
   result,
   isWatchlistMode = false,
+  sortable = false,
   showEndReachedIndicator = false,
   hideTokenAge = false,
   watchlistFrom,
@@ -122,6 +132,8 @@ function MarketTokenListBase({
     setSortType,
     initialSortBy,
     initialSortType,
+    currentSortBy,
+    currentSortType,
   } = result;
 
   // Listen to MarketWatchlistOnlyChanged event to update sort settings
@@ -179,7 +191,7 @@ function MarketTokenListBase({
 
   const handleHeaderRow = useCallback(
     (column: ITableColumn<IMarketToken>) => {
-      if (!isWatchlistMode) {
+      if (!isWatchlistMode && !sortable) {
         return undefined;
       }
 
@@ -188,16 +200,20 @@ function MarketTokenListBase({
         SORTABLE_COLUMNS[column.dataIndex as keyof typeof SORTABLE_COLUMNS];
 
       if (sortKey) {
+        const isCurrentSort = currentSortBy === sortKey;
         return {
           onSortTypeChange: (order: 'asc' | 'desc' | undefined) => {
             handleSortChange(sortKey, order);
           },
+          initialSortOrder: isCurrentSort
+            ? (currentSortType as ETableSortType)
+            : undefined,
         };
       }
 
       return undefined;
     },
-    [handleSortChange, isWatchlistMode],
+    [handleSortChange, isWatchlistMode, sortable, currentSortBy, currentSortType],
   );
 
   const handleEndReached = useCallback(() => {

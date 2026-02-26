@@ -55,6 +55,7 @@ export interface ITableProps<T> {
         onPress?: () => void;
         onSortTypeChange?: (sortOrder: 'asc' | 'desc' | undefined) => void;
         disableSort?: ETableSortType[];
+        initialSortOrder?: ETableSortType;
       }
     | undefined;
   onRow?: (
