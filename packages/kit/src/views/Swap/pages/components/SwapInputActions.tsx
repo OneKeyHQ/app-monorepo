@@ -111,7 +111,7 @@ const SwapInputActions = ({
         ) : null}
       </AnimatePresence>
       <AnimatePresence>
-        {!platformEnv.isNative && showPercentageInput ? (
+        {showPercentageInput ? (
           <XStack
             animation="quick"
             enterStyle={{
