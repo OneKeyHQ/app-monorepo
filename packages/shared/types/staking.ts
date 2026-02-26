@@ -71,6 +71,8 @@ export enum EEarnLabels {
   Borrow = 'Borrow',
   Repay = 'Repay',
   Unknown = 'Unknown',
+  Sell = 'Sell',
+  Buy = 'Buy',
 }
 
 export type IStakingInfo = {

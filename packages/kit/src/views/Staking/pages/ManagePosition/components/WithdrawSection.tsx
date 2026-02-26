@@ -12,6 +12,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import {
+  EApproveType,
   type EBorrowActionsEnum,
   EEarnLabels,
   type IBorrowAsset,
@@ -92,7 +93,73 @@ export const WithdrawSection = ({
   );
   const isPendleProvider = useIsPendleProvider(providerName);
 
-  // State for selected asset from popover (override the default)
+  const approveSpenderAddress = useMemo(
+    () =>
+      isPendleProvider
+        ? earnUtils.resolveEarnApproveSpenderAddress({
+            providerName,
+            protocolVault: protocolInfo?.vault,
+            backendApproveTarget: protocolInfo?.approve?.approveTarget,
+          })
+        : '',
+    [
+      isPendleProvider,
+      providerName,
+      protocolInfo?.vault,
+      protocolInfo?.approve?.approveTarget,
+    ],
+  );
+
+  const token = useMemo(
+    () => (tokenInfo?.token ? (tokenInfo.token as IToken) : undefined),
+    [tokenInfo],
+  );
+
+  const { result: initialAllowanceResult } = usePromiseResult(
+    async () => {
+      if (
+        !isPendleProvider ||
+        !approveSpenderAddress ||
+        !accountId ||
+        !networkId ||
+        token?.isNative
+      ) {
+        return undefined;
+      }
+      const { allowanceParsed } =
+        await backgroundApiProxy.serviceStaking.fetchTokenAllowance({
+          accountId,
+          networkId,
+          spenderAddress: earnUtils.resolveEarnAllowanceSpenderAddress({
+            approveType: EApproveType.Legacy,
+            approveSpenderAddress,
+          }),
+          tokenAddress: token?.address || '',
+        });
+      return { allowanceParsed };
+    },
+    [
+      isPendleProvider,
+      approveSpenderAddress,
+      accountId,
+      networkId,
+      token?.isNative,
+      token?.address,
+    ],
+    { watchLoading: true },
+  );
+
+  const approveTarget = useMemo(() => {
+    if (!isPendleProvider || !approveSpenderAddress || !token) {
+      return undefined;
+    }
+    return {
+      accountId,
+      networkId,
+      spenderAddress: approveSpenderAddress,
+      token,
+    };
+  }, [isPendleProvider, approveSpenderAddress, accountId, networkId, token]);
   const [selectedAsset, setSelectedAsset] = useState<IBorrowAsset | null>(null);
   const [selectedReceiveAsset, setSelectedReceiveAsset] = useState<
     IEarnTokenItem | undefined
@@ -408,10 +475,6 @@ export const WithdrawSection = ({
     borrowApiCtx.isBorrow &&
     (borrowApiCtx.borrowApiParams.action === 'withdraw' ||
       borrowApiCtx.borrowApiParams.action === 'repay');
-  const token = useMemo(
-    () => (tokenInfo?.token ? (tokenInfo.token as IToken) : undefined),
-    [tokenInfo],
-  );
 
   // Determine the effective token info (from selected asset or default)
   const effectiveTokenSymbol = useMemo(
@@ -514,12 +577,13 @@ export const WithdrawSection = ({
         onStepChange,
         signal: abortController.signal,
         stakingInfo: {
-          label: EEarnLabels.Withdraw,
+          label: isPendleProvider ? EEarnLabels.Sell : EEarnLabels.Withdraw,
           protocol: earnUtils.getEarnProviderName({
             providerName,
           }),
           protocolLogoURI: protocolInfo?.providerDetail.logoURI,
           tags: [protocolInfo?.stakeTag || ''],
+          send: isPendleProvider && token ? { token, amount } : undefined,
         },
         withdrawAll,
         onSuccess: () => {
@@ -547,6 +611,7 @@ export const WithdrawSection = ({
       selectedReceiveTokenAddress,
       borrowApiCtx.isBorrow,
       pendleSlippage,
+      isPendleProvider,
     ],
   );
 
@@ -763,6 +828,8 @@ export const WithdrawSection = ({
           onQuoteReset={onQuoteReset}
           refreshKey={refreshKey}
           onQuoteRefreshingChange={onQuoteRefreshingChange}
+          approveTarget={approveTarget}
+          currentAllowance={initialAllowanceResult?.allowanceParsed}
         />
       )}
     </>

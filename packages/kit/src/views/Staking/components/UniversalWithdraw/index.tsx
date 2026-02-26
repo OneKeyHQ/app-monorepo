@@ -27,11 +27,14 @@ import {
 } from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
+import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { validateAmountInputForStaking } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import {
   EApproveType,
@@ -43,10 +46,12 @@ import type {
   IEarnTextTooltip,
   IStakeTransactionConfirmation,
 } from '@onekeyhq/shared/types/staking';
+import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { useEarnSignMessageWithoutVerify } from '../../hooks/useEarnSignMessageWithoutVerify';
 import { usePendleLayoutState } from '../../hooks/usePendleLayoutState';
 import { useQuoteRefresh } from '../../hooks/useQuoteRefresh';
+import { useTrackTokenAllowance } from '../../hooks/useUtilsHooks';
 import {
   capitalizeString,
   countDecimalPlaces,
@@ -131,6 +136,13 @@ type IUniversalWithdrawProps = {
   onQuoteReset?: () => void;
   refreshKey?: number;
   onQuoteRefreshingChange?: (loading: boolean) => void;
+  approveTarget?: {
+    accountId: string;
+    networkId: string;
+    spenderAddress: string;
+    token?: IToken;
+  };
+  currentAllowance?: string;
 };
 
 const WITHDRAW_ACCORDION_KEY = 'withdraw-accordion-content';
@@ -165,6 +177,8 @@ export function UniversalWithdraw({
   onQuoteReset,
   refreshKey,
   onQuoteRefreshingChange,
+  approveTarget,
+  currentAllowance = '0',
 }: PropsWithChildren<IUniversalWithdrawProps>) {
   const navigation = useAppNavigation();
   const { handleOpenWebSite } = useBrowserAction().current;
@@ -192,6 +206,184 @@ export function UniversalWithdraw({
     () => earnUtils.isPendleProvider({ providerName: providerName ?? '' }),
     [providerName],
   );
+
+  // --- Approve logic (Pendle sell flow only) ---
+  const useApprove = isPendleProvider && !!approveTarget?.spenderAddress;
+  const [approving, setApproving] = useState(false);
+  const allowanceAbortRef = useRef<AbortController | undefined>(undefined);
+
+  const { navigationToTxConfirm } = useSignatureConfirm({
+    accountId: approveTarget?.accountId ?? '',
+    networkId: approveTarget?.networkId ?? '',
+  });
+
+  const {
+    allowance,
+    loading: loadingAllowance,
+    trackAllowance,
+    fetchAllowanceResponse,
+  } = useTrackTokenAllowance({
+    accountId: approveTarget?.accountId ?? '',
+    networkId: approveTarget?.networkId ?? '',
+    tokenAddress: approveTarget?.token?.address ?? '',
+    spenderAddress: approveTarget?.spenderAddress ?? '',
+    initialValue: currentAllowance,
+    approveType: EApproveType.Legacy,
+  });
+
+  const isFocus = useIsFocused();
+
+  const shouldApprove = useMemo(() => {
+    if (!useApprove) return false;
+    if (!isFocus) return true;
+    const amountBN = new BigNumber(amountValue);
+    const allowanceBN = new BigNumber(allowance);
+    return !amountBN.isNaN() && amountBN.gt(0) && allowanceBN.lt(amountBN);
+  }, [useApprove, isFocus, amountValue, allowance]);
+
+  useEffect(
+    () => () => {
+      allowanceAbortRef.current?.abort();
+    },
+    [],
+  );
+
+  const waitForAllowanceAfterApprove = useCallback(
+    async ({
+      requiredAmount,
+      maxAttempts = 15,
+      intervalMs = 2000,
+      signal,
+    }: {
+      requiredAmount: string;
+      maxAttempts?: number;
+      intervalMs?: number;
+      signal?: AbortSignal;
+    }) => {
+      if (!useApprove || !requiredAmount) {
+        return true;
+      }
+      const requiredAmountBN = new BigNumber(requiredAmount);
+      if (requiredAmountBN.isNaN() || requiredAmountBN.lte(0)) {
+        return true;
+      }
+      for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+        if (signal?.aborted) {
+          return false;
+        }
+        try {
+          const allowanceInfo = await fetchAllowanceResponse();
+          const allowanceBN = new BigNumber(
+            allowanceInfo.allowanceParsed || '0',
+          );
+          if (!allowanceBN.isNaN() && allowanceBN.gte(requiredAmountBN)) {
+            return true;
+          }
+        } catch (error) {
+          defaultLogger.staking.page.permitSignError({
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+        if (attempt < maxAttempts - 1) {
+          await new Promise<void>((resolve) => {
+            setTimeout(resolve, intervalMs);
+          });
+        }
+      }
+      return false;
+    },
+    [useApprove, fetchAllowanceResponse],
+  );
+
+  // Refs to break circular dependency: onApprove needs onPress/fetchTransactionConfirmation
+  // which are defined later. Assigned after their useCallback declarations.
+  const onPressRef = useRef<() => Promise<void>>(undefined);
+  const fetchTransactionConfirmationRef =
+    useRef<
+      (amount: string) => Promise<IStakeTransactionConfirmation | undefined>
+    >(undefined);
+
+  const onApprove = useCallback(async () => {
+    if (!approveTarget?.token) return;
+    Keyboard.dismiss();
+    setApproving(true);
+
+    let approveAllowance = allowance;
+    try {
+      const allowanceInfo = await fetchAllowanceResponse();
+      approveAllowance = allowanceInfo.allowanceParsed;
+    } catch (_e) {
+      // use cached allowance
+    }
+
+    const allowanceBN = new BigNumber(approveAllowance);
+    const amountBN = new BigNumber(amountValue);
+    if (!amountBN.isNaN() && allowanceBN.gte(amountBN)) {
+      // Already approved
+      setApproving(false);
+      return;
+    }
+
+    const account = await backgroundApiProxy.serviceAccount.getAccount({
+      accountId: approveTarget.accountId,
+      networkId: approveTarget.networkId,
+    });
+
+    await navigationToTxConfirm({
+      approvesInfo: [
+        {
+          owner: account.address,
+          spender: approveTarget.spenderAddress,
+          amount: amountValue,
+          tokenInfo: approveTarget.token,
+        },
+      ],
+      onSuccess(data) {
+        trackAllowance(data[0].decodedTx.txid);
+        allowanceAbortRef.current?.abort();
+        const abortController = new AbortController();
+        allowanceAbortRef.current = abortController;
+        void (async () => {
+          try {
+            const allowanceReady = await waitForAllowanceAfterApprove({
+              requiredAmount: amountValue,
+              signal: abortController.signal,
+            });
+            if (!allowanceReady) {
+              return;
+            }
+            // Re-quote if expired (Pendle countdown)
+            if (isQuoteExpired && isPendleProvider) {
+              const freshConfirmation =
+                await fetchTransactionConfirmationRef.current?.(amountValue);
+              setTransactionConfirmation(freshConfirmation);
+              onQuoteReset?.();
+            }
+            await onPressRef.current?.();
+          } finally {
+            setApproving(false);
+          }
+        })();
+      },
+      onFail() {
+        setApproving(false);
+      },
+      onCancel() {
+        setApproving(false);
+      },
+    });
+  }, [
+    allowance,
+    amountValue,
+    approveTarget,
+    navigationToTxConfirm,
+    fetchAllowanceResponse,
+    trackAllowance,
+    waitForAllowanceAfterApprove,
+    isQuoteExpired,
+    isPendleProvider,
+    onQuoteReset,
+  ]);
   const actionSymbol = useMemo(
     () => requestSymbol || tokenSymbol || '',
     [requestSymbol, tokenSymbol],
@@ -417,6 +609,10 @@ export function UniversalWithdraw({
       transactionOutputTokenAddress,
     ],
   );
+
+  // Keep refs in sync for onApprove's async onSuccess handler
+  onPressRef.current = onPress;
+  fetchTransactionConfirmationRef.current = fetchTransactionConfirmation;
 
   const debouncedFetchTransactionConfirmation = useDebouncedCallback(
     async (amount?: string) => {
@@ -1142,7 +1338,14 @@ export function UniversalWithdraw({
       !isInvalidAmount(amountValue) ? (
         <StakeProgress
           approveType={EApproveType.Legacy}
-          currentStep={withdrawProgressStep}
+          currentStep={
+            shouldApprove
+              ? EStakeProgressStep.approve
+              : (Math.max(
+                  withdrawProgressStep,
+                  EStakeProgressStep.deposit,
+                ) as EStakeProgressStep)
+          }
           step2LabelId={ETranslations.global_swap}
           step3LabelId={ETranslations.defi_unstake}
         />
@@ -1151,16 +1354,30 @@ export function UniversalWithdraw({
         <Page.Footer>
           <Page.FooterActions
             onConfirmText={intl.formatMessage({
-              id: showExpiredRefresh
-                ? ETranslations.global_refresh
-                : ETranslations.global_withdraw,
+              id: shouldApprove
+                ? ETranslations.global_approve
+                : showExpiredRefresh
+                  ? ETranslations.global_refresh
+                  : isPendleProvider
+                    ? ETranslations.global_swap
+                    : ETranslations.global_withdraw,
             })}
             confirmButtonProps={{
-              onPress: showExpiredRefresh ? handleLocalRefreshQuote : onPress,
-              loading: showExpiredRefresh
-                ? quoteRefreshing
-                : loading || checkAmountLoading,
-              disabled: showExpiredRefresh ? false : isDisable,
+              onPress: shouldApprove
+                ? onApprove
+                : showExpiredRefresh
+                  ? handleLocalRefreshQuote
+                  : onPress,
+              loading: shouldApprove
+                ? loadingAllowance || approving
+                : showExpiredRefresh
+                  ? quoteRefreshing
+                  : loading || checkAmountLoading,
+              disabled: shouldApprove
+                ? isDisable
+                : showExpiredRefresh
+                  ? false
+                  : isDisable,
             }}
           />
           <PercentageStageOnKeyboard
@@ -1172,9 +1389,13 @@ export function UniversalWithdraw({
           <Page.FooterActions
             p={0}
             onConfirmText={intl.formatMessage({
-              id: showExpiredRefresh
-                ? ETranslations.global_refresh
-                : ETranslations.global_withdraw,
+              id: shouldApprove
+                ? ETranslations.global_approve
+                : showExpiredRefresh
+                  ? ETranslations.global_refresh
+                  : isPendleProvider
+                    ? ETranslations.global_swap
+                    : ETranslations.global_withdraw,
             })}
             buttonContainerProps={{
               $gtMd: {
@@ -1183,11 +1404,21 @@ export function UniversalWithdraw({
               w: '100%',
             }}
             confirmButtonProps={{
-              onPress: showExpiredRefresh ? handleLocalRefreshQuote : onPress,
-              loading: showExpiredRefresh
-                ? quoteRefreshing
-                : loading || checkAmountLoading,
-              disabled: showExpiredRefresh ? false : isDisable,
+              onPress: shouldApprove
+                ? onApprove
+                : showExpiredRefresh
+                  ? handleLocalRefreshQuote
+                  : onPress,
+              loading: shouldApprove
+                ? loadingAllowance || approving
+                : showExpiredRefresh
+                  ? quoteRefreshing
+                  : loading || checkAmountLoading,
+              disabled: shouldApprove
+                ? isDisable
+                : showExpiredRefresh
+                  ? false
+                  : isDisable,
               w: '100%',
             }}
           />

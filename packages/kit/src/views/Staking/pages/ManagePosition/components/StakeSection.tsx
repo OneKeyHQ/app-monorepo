@@ -495,7 +495,7 @@ export const StakeSection = ({
         outputTokenAddress: receiveInputConfig?.tokenAddress ?? '',
         slippage: pendleSlippage,
         stakingInfo: {
-          label: EEarnLabels.Stake,
+          label: isPendleProvider ? EEarnLabels.Buy : EEarnLabels.Stake,
           protocol: earnUtils.getEarnProviderName({
             providerName,
           }),
@@ -565,6 +565,7 @@ export const StakeSection = ({
       receiveInputConfig?.tokenAddress,
       borrowApiCtx.isBorrow,
       pendleSlippage,
+      isPendleProvider,
     ],
   );
 
