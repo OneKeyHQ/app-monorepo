@@ -9,6 +9,10 @@ import {
 import { useWindowDimensions } from 'react-native';
 
 import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
+import {
+  isDualScreenDevice,
+  useDualScreenWidth,
+} from '@onekeyhq/shared/src/modules/DualScreenInfo';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { isNativeTablet } from '../../hooks/useIsTablet';
@@ -25,10 +29,6 @@ import { useTabNameContext as useNativeTabNameContext } from './TabNameContext';
 import { useFocusedTab } from './useFocusedTab';
 
 import type { useEventEmitter } from './useEventEmitter';
-import {
-  isDualScreenDevice,
-  useDualScreenWidth,
-} from '@onekeyhq/shared/src/modules/DualScreenInfo';
 
 export const useTabNameContext = useNativeTabNameContext;
 

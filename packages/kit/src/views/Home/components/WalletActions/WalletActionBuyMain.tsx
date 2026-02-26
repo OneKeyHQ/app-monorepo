@@ -3,7 +3,10 @@ import { useCallback, useMemo } from 'react';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { useFiatCrypto } from '@onekeyhq/kit/src/views/FiatCrypto/hooks';
+import {
+  useFiatCrypto,
+  useSupportNetworkId,
+} from '@onekeyhq/kit/src/views/FiatCrypto/hooks';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -20,23 +23,27 @@ function WalletActionBuyMain({
   const {
     activeAccount: { network, wallet, account },
   } = useActiveAccount({ num: 0 });
-  const { isSupported, handleFiatCrypto } = useFiatCrypto({
+  const { isSupported: isBuySupported, handleFiatCrypto } = useFiatCrypto({
     networkId: network?.id ?? '',
     accountId: account?.id ?? '',
     fiatCryptoType: 'buy',
   });
+  const { result: isSellSupported } = useSupportNetworkId(
+    'sell',
+    network?.id,
+  );
 
   const isBuyDisabled = useMemo(() => {
     if (wallet?.type === WALLET_TYPE_WATCHING && !platformEnv.isDev) {
       return true;
     }
 
-    if (!isSupported) {
+    if (!isBuySupported && !isSellSupported) {
       return true;
     }
 
     return false;
-  }, [isSupported, wallet?.type]);
+  }, [isBuySupported, isSellSupported, wallet?.type]);
 
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
 
