@@ -37,10 +37,10 @@ index 7055a0d..81ee02b 100644
      }
  
 diff --git a/node_modules/react-native-screens/ios/RNSScreenStack.mm b/node_modules/react-native-screens/ios/RNSScreenStack.mm
-index e37e40a..a1a641c 100644
+index e37e40a..858c8ca 100644
 --- a/node_modules/react-native-screens/ios/RNSScreenStack.mm
 +++ b/node_modules/react-native-screens/ios/RNSScreenStack.mm
-@@ -405,10 +405,38 @@ - (void)reactAddControllerToClosestParent:(UIViewController *)controller
+@@ -405,10 +405,43 @@ - (void)reactAddControllerToClosestParent:(UIViewController *)controller
  {
    if (!controller.parentViewController) {
      UIView *parentView = (UIView *)self.reactSuperview;
@@ -72,7 +72,12 @@ index e37e40a..a1a641c 100644
 +            // SwiftUI re-parented the controller during addSubview — this is expected.
 +            // Ensure the view is still in the hierarchy for rendering.
 +            if (![controller.view isDescendantOfView:self]) {
-+              [self addSubview:controller.view];
++              @try {
++                [self addSubview:controller.view];
++              } @catch (NSException *innerException) {
++                // addSubview triggered the same hierarchy exception again —
++                // the view will be managed by SwiftUI's container instead.
++              }
 +            }
 +          } else {
 +            @throw;
@@ -81,7 +86,7 @@ index e37e40a..a1a641c 100644
  #if !TARGET_OS_TV
          _controller.interactivePopGestureRecognizer.delegate = self;
  #if RNS_IPHONE_OS_VERSION_AVAILABLE(26_0)
-@@ -417,7 +445,7 @@ - (void)reactAddControllerToClosestParent:(UIViewController *)controller
+@@ -417,7 +450,7 @@ - (void)reactAddControllerToClosestParent:(UIViewController *)controller
          }
  #endif // Check for iOS >= 26.0
  #endif
@@ -90,7 +95,7 @@ index e37e40a..a1a641c 100644
          // On iOS pre 12 we observed that `willShowViewController` delegate method does not always
          // get triggered when the navigation controller is instantiated. As the only thing we do in
          // that delegate method is ask nav header to update to the current state it does not hurt to
-@@ -868,13 +896,17 @@ - (void)rnscreens_disableInteractions
+@@ -868,13 +901,17 @@ - (void)rnscreens_disableInteractions
  {
    // When transitioning between screens, disable interactions on stack subview which wraps the screens
    // and sink all gesture events. This should work for nested stacks and stack inside bottom tabs, inside stack.
@@ -111,10 +116,10 @@ index e37e40a..a1a641c 100644
  }
  
 diff --git a/node_modules/react-native-screens/ios/bottom-tabs/host/RNSBottomTabsHostComponentView.mm b/node_modules/react-native-screens/ios/bottom-tabs/host/RNSBottomTabsHostComponentView.mm
-index fc6257e..f0183ce 100644
+index fc6257e..048e2a6 100644
 --- a/node_modules/react-native-screens/ios/bottom-tabs/host/RNSBottomTabsHostComponentView.mm
 +++ b/node_modules/react-native-screens/ios/bottom-tabs/host/RNSBottomTabsHostComponentView.mm
-@@ -147,10 +147,30 @@ - (void)reactAddControllerToClosestParent:(UIViewController *)controller
+@@ -147,10 +147,35 @@ - (void)reactAddControllerToClosestParent:(UIViewController *)controller
  {
    if (!controller.parentViewController) {
      UIView *parentView = (UIView *)self.reactSuperview;
@@ -138,7 +143,12 @@ index fc6257e..f0183ce 100644
 +          if (isInsideSwiftUIContainer &&
 +              [exception.name isEqualToString:@"UIViewControllerHierarchyInconsistency"]) {
 +            if (![controller.view isDescendantOfView:self]) {
-+              [self addSubview:controller.view];
++              @try {
++                [self addSubview:controller.view];
++              } @catch (NSException *innerException) {
++                // addSubview triggered the same hierarchy exception again —
++                // the view will be managed by SwiftUI's container instead.
++              }
 +            }
 +          } else {
 +            @throw;
@@ -147,7 +157,7 @@ index fc6257e..f0183ce 100644
  
          // Enable auto-layout to ensure valid size of tabBarController.view.
          // In host tree, tabBarController.view is the only child of HostComponentView.
-@@ -162,7 +182,7 @@ - (void)reactAddControllerToClosestParent:(UIViewController *)controller
+@@ -162,7 +187,7 @@ - (void)reactAddControllerToClosestParent:(UIViewController *)controller
            [controller.view.trailingAnchor constraintEqualToAnchor:self.trailingAnchor]
          ]];
  
@@ -157,10 +167,10 @@ index fc6257e..f0183ce 100644
        }
        parentView = (UIView *)parentView.reactSuperview;
 diff --git a/node_modules/react-native-screens/ios/gamma/split-view/RNSSplitViewHostComponentView.mm b/node_modules/react-native-screens/ios/gamma/split-view/RNSSplitViewHostComponentView.mm
-index 40e92b6..2cb6604 100644
+index 40e92b6..9092dbc 100644
 --- a/node_modules/react-native-screens/ios/gamma/split-view/RNSSplitViewHostComponentView.mm
 +++ b/node_modules/react-native-screens/ios/gamma/split-view/RNSSplitViewHostComponentView.mm
-@@ -128,11 +128,29 @@ - (void)reactAddControllerToClosestParent:(UIViewController *)controller
+@@ -128,11 +128,34 @@ - (void)reactAddControllerToClosestParent:(UIViewController *)controller
  {
    if (!controller.parentViewController) {
      UIView *parentView = (UIView *)self.reactSuperview;
@@ -183,7 +193,12 @@ index 40e92b6..2cb6604 100644
 +          if (isInsideSwiftUIContainer &&
 +              [exception.name isEqualToString:@"UIViewControllerHierarchyInconsistency"]) {
 +            if (![controller.view isDescendantOfView:self]) {
-+              [self addSubview:controller.view];
++              @try {
++                [self addSubview:controller.view];
++              } @catch (NSException *innerException) {
++                // addSubview triggered the same hierarchy exception again —
++                // the view will be managed by SwiftUI's container instead.
++              }
 +            }
 +          } else {
 +            @throw;
@@ -194,10 +209,10 @@ index 40e92b6..2cb6604 100644
        }
        parentView = (UIView *)parentView.reactSuperview;
 diff --git a/node_modules/react-native-screens/ios/gamma/stack/host/RNSStackHostComponentView.mm b/node_modules/react-native-screens/ios/gamma/stack/host/RNSStackHostComponentView.mm
-index 3e21388..b534aea 100644
+index 3e21388..e4f4785 100644
 --- a/node_modules/react-native-screens/ios/gamma/stack/host/RNSStackHostComponentView.mm
 +++ b/node_modules/react-native-screens/ios/gamma/stack/host/RNSStackHostComponentView.mm
-@@ -52,11 +52,29 @@ - (void)reactAddControllerToClosestParent:(UIViewController *)controller
+@@ -52,11 +52,34 @@ - (void)reactAddControllerToClosestParent:(UIViewController *)controller
  {
    if (!controller.parentViewController) {
      UIView *parentView = (UIView *)self.reactSuperview;
@@ -220,7 +235,12 @@ index 3e21388..b534aea 100644
 +          if (isInsideSwiftUIContainer &&
 +              [exception.name isEqualToString:@"UIViewControllerHierarchyInconsistency"]) {
 +            if (![controller.view isDescendantOfView:self]) {
-+              [self addSubview:controller.view];
++              @try {
++                [self addSubview:controller.view];
++              } @catch (NSException *innerException) {
++                // addSubview triggered the same hierarchy exception again —
++                // the view will be managed by SwiftUI's container instead.
++              }
 +            }
 +          } else {
 +            @throw;
