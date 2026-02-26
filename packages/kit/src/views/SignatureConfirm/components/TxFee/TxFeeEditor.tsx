@@ -207,12 +207,8 @@ function TxFeeEditor(props: IProps) {
   );
   const customFee = (originalCustomFee ?? selectedFee?.feeInfo) as IFeeInfoUnit;
 
-  const {
-    feeSymbol,
-    feeDecimals,
-    nativeSymbol,
-    nativeTokenPrice,
-  } = customFee?.common ?? {};
+  const { feeSymbol, feeDecimals, nativeSymbol, nativeTokenPrice } =
+    customFee?.common ?? {};
 
   const {
     vaultSettings,

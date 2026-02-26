@@ -4,38 +4,26 @@ import { Button, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 type IProps = {
-  onBuy: () => void;
-  onSell: () => void;
+  onTrade: () => void;
+  onInstant: () => void;
 };
 
-function SwapPanelFooterButtons({ onBuy, onSell }: IProps) {
+function SwapPanelFooterButtons({ onTrade, onInstant }: IProps) {
   const intl = useIntl();
-
   return (
-    <XStack gap="$2" alignItems="center">
-      <Button
-        size="small"
-        variant="primary"
-        w="$28"
-        h="$12"
-        bg="$buttonSuccess"
-        onPress={onBuy}
-      >
-        {intl.formatMessage({
-          id: ETranslations.global_buy,
-        })}
+    <XStack gap="$2.5">
+      <Button size="large" variant="primary" flex={1} onPress={onTrade}>
+        {intl.formatMessage({ id: ETranslations.dexmarket_details_trade })}
       </Button>
       <Button
-        w="$28"
-        h="$12"
-        size="small"
-        bg="$buttonCritical"
+        size="large"
         variant="primary"
-        onPress={onSell}
+        flex={1}
+        bg="$buttonSuccess"
+        onPress={onInstant}
+        icon="FlashSolid"
       >
-        {intl.formatMessage({
-          id: ETranslations.global_sell,
-        })}
+        {intl.formatMessage({ id: ETranslations.marketdex_instant_mode })}
       </Button>
     </XStack>
   );

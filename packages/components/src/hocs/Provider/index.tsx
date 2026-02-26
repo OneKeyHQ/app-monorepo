@@ -17,9 +17,16 @@ import type { TamaguiConfig } from 'tamagui';
 
 export type IUIProviderProps = PropsWithChildren<{
   /**
-   * default theme variant
+   * Resolved theme variant used for rendering.
    */
   theme: 'light' | 'dark';
+
+  /**
+   * Raw user theme setting (system/auto vs forced light/dark).
+   * Optional for hosts that don't have a persisted settings store.
+   */
+  themeSetting?: 'light' | 'dark' | 'system';
+
   /**
    * default locale symbol
    */
@@ -46,6 +53,7 @@ function FontProvider({ children }: IFontProviderProps) {
 export function ConfigProvider({
   children,
   theme,
+  themeSetting,
   locale,
   HyperlinkText,
   onLocaleChange,
@@ -53,10 +61,11 @@ export function ConfigProvider({
   const providerValue = useMemo(
     () => ({
       theme,
+      themeSetting,
       locale,
       HyperlinkText,
     }),
-    [theme, locale, HyperlinkText],
+    [theme, themeSetting, locale, HyperlinkText],
   );
 
   const config = useMemo(

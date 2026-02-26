@@ -48,18 +48,13 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Cache Android SDK components
-        id: cache-android-sdk
-        uses: actions/cache@v4
-        with:
-          path: |
-            ${{ env.ANDROID_HOME }}/system-images
-            ${{ env.ANDROID_HOME }}/platforms
-            ${{ env.ANDROID_HOME }}/emulator
-          key: android-sdk-35-x86_64
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
 
       - name: Install Android SDK components
-        if: steps.cache-android-sdk.outputs.cache-hit != 'true'
         run: |
           sdkmanager --install "platform-tools" "platforms;android-35" "system-images;android-35;google_apis;x86_64" "emulator"
 
@@ -73,19 +68,41 @@ jobs:
           restore-keys: |
             gradle-
 
-      - name: Create AVD
+      - name: Create AVD and detect path
         run: |
-          echo "no" | avdmanager create avd -n Pixel_7_API_35 -k "system-images;android-35;google_apis;x86_64" -d "pixel_7" --force
+          echo "no" | avdmanager create avd -n test_avd -k "system-images;android-35;google_apis;x86_64" --force
+          AVD_INI=$(find /home/runner -name "test_avd.ini" 2>/dev/null | head -1)
+          if [ -z "$AVD_INI" ]; then
+            echo "ERROR: test_avd.ini not found anywhere under /home/runner"
+            exit 1
+          fi
+          AVD_DIR=$(dirname "$AVD_INI")
+          echo "Found AVD ini at: $AVD_INI"
+          echo "Setting ANDROID_AVD_HOME=$AVD_DIR"
+          echo "ANDROID_AVD_HOME=$AVD_DIR" >> $GITHUB_ENV
 
-      - name: Enable KVM
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
+      - name: Install Dependencies
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: '--max_old_space_size=4096'
+        run: yarn install --immutable
+
+      - name: Build Android Debug APK
+        timeout-minutes: 80
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: '--max_old_space_size=4096'
+          SENTRY_DISABLE_AUTO_UPLOAD: 'true'
+        working-directory: apps/mobile/android
+        run: ./gradlew assembleProdDebug -PreactNativeArchitectures=x86_64
+
+      - name: Stop Gradle daemon to free memory
+        working-directory: apps/mobile/android
+        run: ./gradlew --stop
 
       - name: Start Android Emulator
         run: |
-          $ANDROID_HOME/emulator/emulator -avd Pixel_7_API_35 -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot-save &
+          $ANDROID_HOME/emulator/emulator -avd test_avd -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot-save -memory 2048 &
           adb wait-for-device
           SECONDS=0
           TIMEOUT=300
@@ -102,29 +119,28 @@ jobs:
           echo "Emulator is ready"
           adb devices
 
-      - name: Install Dependencies
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NODE_OPTIONS: '--max_old_space_size=4096'
-        run: yarn install --immutable
-
-      - name: Build Android Debug APK
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NODE_OPTIONS: '--max_old_space_size=4096'
-          SENTRY_DISABLE_AUTO_UPLOAD: 'true'
-        working-directory: apps/mobile/android
-        run: ./gradlew assembleProdDebug
-
       - name: Install APK on Emulator
         run: adb install apps/mobile/android/app/build/outputs/apk/prod/debug/app-prod-debug.apk
 
+      - name: Start logcat capture
+        run: adb logcat -v time > /tmp/logcat.txt 2>&1 &
+
       - name: Run Harness Tests (Android)
+        timeout-minutes: 30
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NODE_OPTIONS: '--max_old_space_size=4096'
+          HARNESS_ANDROID_AVD: test_avd
         working-directory: apps/mobile
         run: yarn harness:test:android
+
+      - name: Dump logcat on failure
+        if: failure()
+        run: |
+          echo "=== Last 200 lines of logcat ==="
+          tail -200 /tmp/logcat.txt || true
+          echo ""
+          echo "=== App-specific logs ==="
+          grep -i -E "(onekey|ReactNative|ReactNativeJS|AndroidRuntime|FATAL|crash|WebSocket)" /tmp/logcat.txt | tail -100 || true
 
   notify-failure:
     name: Notify on Failure
