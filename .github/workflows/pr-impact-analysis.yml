@@ -22,6 +22,8 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           llm-api-key: ${{ secrets.PIA_LLM_API_KEY }}
+          llm-api-base-url: ${{ secrets.PIA_LLM_API_BASE_URL }}
+          llm-model: ${{ vars.PIA_LLM_MODEL }}
           jira-base-url: ${{ secrets.PIA_JIRA_BASE_URL }}
           jira-email: ${{ secrets.PIA_JIRA_EMAIL }}
           jira-api-token: ${{ secrets.PIA_JIRA_API_TOKEN }}
