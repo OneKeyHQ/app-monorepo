@@ -5,6 +5,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { fileURLToPath, format as formatUrl } from 'url';
+import v8 from 'v8';
 
 import { initNobleBleSupport } from '@onekeyfe/hd-transport-electron';
 import { EOneKeyBleMessageKeys } from '@onekeyfe/hd-shared';
@@ -12,6 +13,7 @@ import {
   BrowserWindow,
   Menu,
   app,
+  crashReporter,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   inAppPurchase,
   ipcMain,
@@ -60,6 +62,16 @@ import { getBackgroundColor } from './libs/utils';
 
 logger.initialize();
 logger.transports.file.maxSize = 1024 * 1024 * 10;
+
+crashReporter.start({
+  submitURL: '',
+  uploadToServer: false,
+  ignoreSystemCrashHandler: false,
+  extra: {
+    platform: process.platform,
+    arch: process.arch,
+  },
+});
 
 initSentry();
 
@@ -1126,7 +1138,7 @@ app.on('window-all-closed', () => {
 // Related: Sentry issue - GPU process crashes on Windows AMD + heavy DApp usage
 
 // 1. GPU Crash Detection and Recovery Handler
-app.on('child-process-gone', (event, details) => {
+app.on('child-process-gone', async (event, details) => {
   logger.error('Child process gone:', {
     type: details.type,
     reason: details.reason,
@@ -1172,6 +1184,14 @@ app.on('child-process-gone', (event, details) => {
         timestamp: Date.now(),
         crashCount: stats.count,
       });
+    }
+
+    // Collect GPU hardware info after crash for diagnostics
+    try {
+      const gpuInfo = await app.getGPUInfo('basic');
+      logger.error('[GPU Crash] GPU Hardware Info:', JSON.stringify(gpuInfo));
+    } catch (e) {
+      logger.error('[GPU Crash] Cannot retrieve GPU info after crash');
     }
 
     // Log critical crashes for monitoring
@@ -1223,6 +1243,7 @@ logger.info('GPU Protection System initialized', {
 const MEMORY_LIMIT_WARNING_MB = 1024; // 1GB warning threshold
 const MEMORY_LIMIT_CRITICAL_MB = 2048; // 2GB critical threshold
 const MEMORY_CHECK_INTERVAL_MS = 60_000; // Check every 60 seconds
+const METRICS_SAMPLE_INTERVAL_MS = 30_000;
 
 let memoryMonitorInterval: ReturnType<typeof setInterval> | null = null;
 
@@ -1320,9 +1341,131 @@ function startMemoryMonitoring() {
   });
 }
 
+function startProcessMetricsMonitoring() {
+  setInterval(() => {
+    const metrics = app.getAppMetrics();
+    const highMemoryProcesses = metrics.filter(
+      (m) => (m.memory?.workingSetSize ?? 0) > 200 * 1024,
+    );
+
+    if (highMemoryProcesses.length > 0) {
+      logger.warn(
+        '[Process Metrics] High memory processes:',
+        highMemoryProcesses.map((m) => ({
+          pid: m.pid,
+          type: m.type,
+          name: m.name,
+          memoryMB: Math.round((m.memory?.workingSetSize ?? 0) / 1024),
+          cpu: m.cpu.percentCPUUsage.toFixed(1),
+        })),
+      );
+    }
+
+    const totalMemoryMB = metrics.reduce(
+      (sum, m) => sum + (m.memory?.workingSetSize ?? 0) / 1024,
+      0,
+    );
+    if (totalMemoryMB > MEMORY_LIMIT_WARNING_MB) {
+      try {
+        const { addBreadcrumb } = require('@sentry/electron/main');
+        addBreadcrumb({
+          category: 'memory',
+          message: `Total process memory: ${Math.round(totalMemoryMB)}MB`,
+          level: 'warning',
+          data: {
+            processes: metrics.map((m) => ({
+              type: m.type,
+              name: m.name,
+              memoryMB: Math.round((m.memory?.workingSetSize ?? 0) / 1024),
+              cpu: m.cpu.percentCPUUsage,
+            })),
+          },
+        });
+      } catch (e) {
+        // ignore
+      }
+    }
+  }, METRICS_SAMPLE_INTERVAL_MS);
+}
+
+async function collectGPUInfo() {
+  try {
+    const gpuInfo = await app.getGPUInfo('complete');
+    logger.info('[GPU Info] Complete GPU information collected');
+
+    try {
+      const { setContext } = require('@sentry/electron/main');
+      const gpuDevice = (gpuInfo as any)?.gpuDevice?.[0];
+      setContext('gpu', {
+        vendorId: gpuDevice?.vendorId,
+        deviceId: gpuDevice?.deviceId,
+        driverVersion: gpuDevice?.driverVersion,
+        driverVendor: gpuDevice?.driverVendor,
+        auxAttributes: (gpuInfo as any)?.auxAttributes,
+      });
+    } catch (e) {
+      // ignore
+    }
+  } catch (error) {
+    logger.error('[GPU Info] Failed to collect:', error);
+  }
+}
+
+function startV8HeapMonitoring() {
+  setInterval(() => {
+    const heapStats = v8.getHeapStatistics();
+    const usedMB = Math.round(heapStats.used_heap_size / 1024 / 1024);
+    const limitMB = Math.round(heapStats.heap_size_limit / 1024 / 1024);
+    const usagePercent = (
+      (heapStats.used_heap_size / heapStats.heap_size_limit) *
+      100
+    ).toFixed(1);
+
+    if (Number(usagePercent) > 70) {
+      logger.warn(
+        `[V8 Heap] ${usedMB}MB / ${limitMB}MB (${usagePercent}%)`,
+        {
+          totalHeapSize: heapStats.total_heap_size,
+          totalPhysicalSize: heapStats.total_physical_size,
+          mallocedMemory: heapStats.malloced_memory,
+          externalMemory: heapStats.external_memory,
+        },
+      );
+    }
+  }, MEMORY_CHECK_INTERVAL_MS);
+}
+
+function startWebviewMemoryMonitoring() {
+  const { webContents } = require('electron');
+  setInterval(() => {
+    const safelyMainWindow = getSafelyMainWindow();
+    if (!safelyMainWindow || safelyMainWindow.isDestroyed()) return;
+
+    const allContents = webContents.getAllWebContents();
+    allContents.forEach(async (wc: any) => {
+      if (wc.isDestroyed()) return;
+      try {
+        const memInfo = await wc.getProcessMemoryInfo();
+        const memMB = Math.round(memInfo.private / 1024);
+        if (memMB > 300) {
+          logger.warn(
+            `[WebView Memory] pid=${wc.getOSProcessId()} type=${wc.getType()} url=${wc.getURL().substring(0, 100)} memory=${memMB}MB`,
+          );
+        }
+      } catch (e) {
+        // webContents may have been destroyed
+      }
+    });
+  }, METRICS_SAMPLE_INTERVAL_MS);
+}
+
 // Start monitoring when app is ready
-app.on('ready', () => {
+app.on('ready', async () => {
   startMemoryMonitoring();
+  startProcessMetricsMonitoring();
+  startV8HeapMonitoring();
+  startWebviewMemoryMonitoring();
+  await collectGPUInfo();
 });
 
 // Stop monitoring when app quits

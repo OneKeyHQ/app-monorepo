@@ -80,6 +80,10 @@ export const initSentry = () => {
       }),
     ],
   });
+
+  Sentry.setTag('platform', process.platform);
+  Sentry.setTag('arch', process.arch);
+  Sentry.setTag('electron_version', process.versions.electron);
 };
 
 export { Sentry };
