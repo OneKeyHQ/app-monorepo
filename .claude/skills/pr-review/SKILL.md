@@ -487,6 +487,7 @@ Review this checklist quarterly to keep it relevant:
 
 ## Additional resources
 
+- Security patterns: [reference/security-patterns.md](reference/security-patterns.md)
 - Dependency audit: [reference/dependency-audit.md](reference/dependency-audit.md)
 - React performance: [reference/react-performance.md](reference/react-performance.md)
 - Cross-platform checks: [reference/cross-platform.md](reference/cross-platform.md)
