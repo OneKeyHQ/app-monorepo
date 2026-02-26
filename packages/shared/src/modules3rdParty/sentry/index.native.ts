@@ -37,7 +37,7 @@ export const initSentry = () => {
     enableAutoPerformanceTracing: true,
     // Disable options that may include sensitive memory context or visual data.
     // enableNativeCrashHandling and enableNdk are kept enabled because they only
-    // collect symbolicated stack traces and thread stack memory (not Hermes JS
+    // collect stack traces and thread stack memory (not Hermes JS
     // heap), which is safe for privacy and essential for diagnosing native crashes.
     enableNativeCrashHandling: true,
     enableNdk: true,

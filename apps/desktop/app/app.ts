@@ -1180,7 +1180,7 @@ app.on('child-process-gone', async (event, details) => {
     try {
       const gpuInfo = await app.getGPUInfo('basic');
       logger.error('[GPU Crash] GPU Hardware Info:', JSON.stringify(gpuInfo));
-    } catch (e) {
+    } catch (_e) {
       logger.error('[GPU Crash] Cannot retrieve GPU info after crash');
     }
 
@@ -1371,7 +1371,7 @@ function startProcessMetricsMonitoring() {
             })),
           },
         });
-      } catch (e) {
+      } catch (_e) {
         // ignore
       }
     }
@@ -1393,7 +1393,7 @@ async function collectGPUInfo() {
         driverVendor: gpuDevice?.driverVendor,
         auxAttributes: (gpuInfo as any)?.auxAttributes,
       });
-    } catch (e) {
+    } catch (_e) {
       // ignore
     }
   } catch (error) {
@@ -1417,7 +1417,7 @@ function startV8HeapMonitoring() {
         {
           totalHeapSize: heapStats.total_heap_size,
           totalPhysicalSize: heapStats.total_physical_size,
-          mallocedMemory: heapStats.malloced_memory,
+          allocatedMemory: heapStats.malloced_memory,
           externalMemory: heapStats.external_memory,
         },
       );
@@ -1442,7 +1442,7 @@ function startWebviewMemoryMonitoring() {
             `[WebView Memory] pid=${wc.getOSProcessId()} type=${wc.getType()} url=${wc.getURL().substring(0, 100)} memory=${memMB}MB`,
           );
         }
-      } catch (e) {
+      } catch (_e) {
         // webContents may have been destroyed
       }
     });

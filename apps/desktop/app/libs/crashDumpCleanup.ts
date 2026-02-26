@@ -19,11 +19,11 @@ async function removeFilesInDirectory(dirPath: string): Promise<number> {
           await fs.promises.unlink(fullPath);
           removedCount += 1;
         }
-      } catch (e) {
+      } catch (_e) {
         // Ignore individual file errors (file may be locked or already deleted)
       }
     }
-  } catch (e) {
+  } catch (_e) {
     // Directory may not exist
   }
   return removedCount;
@@ -49,11 +49,11 @@ async function removeOldFiles(
             removedCount += 1;
           }
         }
-      } catch (e) {
+      } catch (_e) {
         // Ignore individual file errors
       }
     }
-  } catch (e) {
+  } catch (_e) {
     // Directory may not exist
   }
   return removedCount;
