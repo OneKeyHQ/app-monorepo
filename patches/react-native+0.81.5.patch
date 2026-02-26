@@ -13,7 +13,7 @@ index 05bddcb..5211253 100644
        registrationName: 'onChangeSync',
      },
 diff --git a/node_modules/react-native/Libraries/Text/TextInput/Multiline/RCTUITextView.mm b/node_modules/react-native/Libraries/Text/TextInput/Multiline/RCTUITextView.mm
-index 6e9c384..86124a3 100644
+index 6e9c384..e68e675 100644
 --- a/node_modules/react-native/Libraries/Text/TextInput/Multiline/RCTUITextView.mm
 +++ b/node_modules/react-native/Libraries/Text/TextInput/Multiline/RCTUITextView.mm
 @@ -13,6 +13,10 @@
@@ -35,7 +35,7 @@ index 6e9c384..86124a3 100644
  }
  
  static UIFont *defaultPlaceholderFont(void)
-@@ -208,10 +213,102 @@ - (void)scrollRangeToVisible:(NSRange)range
+@@ -208,10 +213,98 @@ - (void)scrollRangeToVisible:(NSRange)range
  
  - (void)paste:(id)sender
  {
@@ -80,20 +80,18 @@ index 6e9c384..86124a3 100644
 +      // Snapshot clipboard text before async to avoid stale/changed clipboard reads later
 +      BOOL clipboardHasStrings = clipboard.hasStrings;
 +      NSString *clipboardString = clipboardHasStrings ? clipboard.string : nil;
-+      __weak typeof(self) weakSelf = self;
-+      // Load data asynchronously to avoid blocking the main thread (IPC to pasteboard daemon)
++      // Capture self directly — the block temporarily retains self until the async
++      // operation completes, which is safe (no permanent retain cycle).
 +      [itemProvider loadDataRepresentationForTypeIdentifier:identifier completionHandler:^(NSData *data, NSError *error) {
 +        if (error || !data) {
 +          dispatch_async(dispatch_get_main_queue(), ^{
-+            __strong typeof(weakSelf) strongSelf = weakSelf;
-+            if (!strongSelf) { return; }
-+            strongSelf->_isProcessingImagePaste = NO;
++            self->_isProcessingImagePaste = NO;
 +            // Fallback to text paste on failure
-+            strongSelf->_textWasPasted = YES;
++            self->_textWasPasted = YES;
 +            if (clipboardHasStrings && clipboardString) {
-+              [strongSelf->_textInputDelegateAdapter didPaste:@"text/plain" withData:clipboardString];
++              [self->_textInputDelegateAdapter didPaste:@"text/plain" withData:clipboardString];
 +            }
-+            [strongSelf _superPaste:nil];
++            [self _superPaste:nil];
 +          });
 +          return;
 +        }
@@ -112,20 +110,18 @@ index 6e9c384..86124a3 100644
 +        BOOL writeSuccess = [data writeToFile:filePath atomically:YES];
 +
 +        dispatch_async(dispatch_get_main_queue(), ^{
-+          __strong typeof(weakSelf) strongSelf = weakSelf;
-+          if (!strongSelf) { return; }
-+          strongSelf->_isProcessingImagePaste = NO;
++          self->_isProcessingImagePaste = NO;
 +
 +          if (writeSuccess) {
 +            NSURL *fileURL = [NSURL fileURLWithPath:filePath];
-+            [strongSelf->_textInputDelegateAdapter didPaste:MIMEType withData:[fileURL absoluteString]];
++            [self->_textInputDelegateAdapter didPaste:MIMEType withData:[fileURL absoluteString]];
 +          } else {
 +            // Fallback when file write fails
-+            strongSelf->_textWasPasted = YES;
++            self->_textWasPasted = YES;
 +            if (clipboardHasStrings && clipboardString) {
-+              [strongSelf->_textInputDelegateAdapter didPaste:@"text/plain" withData:clipboardString];
++              [self->_textInputDelegateAdapter didPaste:@"text/plain" withData:clipboardString];
 +            }
-+            [strongSelf _superPaste:nil];
++            [self _superPaste:nil];
 +          }
 +        });
 +      }];
@@ -138,7 +134,7 @@ index 6e9c384..86124a3 100644
  // Turn off scroll animation to fix flaky scrolling.
  // This is only necessary for iOS < 14.
  #if defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED < 140000
-@@ -301,6 +398,10 @@ - (BOOL)canPerformAction:(SEL)action withSender:(id)sender
+@@ -301,6 +394,10 @@ - (BOOL)canPerformAction:(SEL)action withSender:(id)sender
      return NO;
    }
  
@@ -293,7 +289,7 @@ index 47adc53..1865e0a 100644
  RCT_EXPORT_SHADOW_PROPERTY(text, NSString)
  RCT_EXPORT_SHADOW_PROPERTY(placeholder, NSString)
 diff --git a/node_modules/react-native/Libraries/Text/TextInput/Singleline/RCTUITextField.mm b/node_modules/react-native/Libraries/Text/TextInput/Singleline/RCTUITextField.mm
-index 377f41e..9a11021 100644
+index 377f41e..2bab943 100644
 --- a/node_modules/react-native/Libraries/Text/TextInput/Singleline/RCTUITextField.mm
 +++ b/node_modules/react-native/Libraries/Text/TextInput/Singleline/RCTUITextField.mm
 @@ -12,12 +12,17 @@
@@ -325,7 +321,7 @@ index 377f41e..9a11021 100644
    return [super canPerformAction:action withSender:sender];
  }
  
-@@ -260,12 +269,104 @@ - (void)scrollRangeToVisible:(NSRange)range
+@@ -260,12 +269,100 @@ - (void)scrollRangeToVisible:(NSRange)range
    // Singleline TextInput does not require scrolling after calling setSelectedTextRange (PR 38679).
  }
  
@@ -372,20 +368,18 @@ index 377f41e..9a11021 100644
 +      // Snapshot clipboard text before async to avoid stale/changed clipboard reads later
 +      BOOL clipboardHasStrings = clipboard.hasStrings;
 +      NSString *clipboardString = clipboardHasStrings ? clipboard.string : nil;
-+      __weak typeof(self) weakSelf = self;
-+      // Load data asynchronously to avoid blocking the main thread (IPC to pasteboard daemon)
++      // Capture self directly — the block temporarily retains self until the async
++      // operation completes, which is safe (no permanent retain cycle).
 +      [itemProvider loadDataRepresentationForTypeIdentifier:identifier completionHandler:^(NSData *data, NSError *error) {
 +        if (error || !data) {
 +          dispatch_async(dispatch_get_main_queue(), ^{
-+            __strong typeof(weakSelf) strongSelf = weakSelf;
-+            if (!strongSelf) { return; }
-+            strongSelf->_isProcessingImagePaste = NO;
++            self->_isProcessingImagePaste = NO;
 +            // Fallback to text paste on failure
-+            strongSelf->_textWasPasted = YES;
++            self->_textWasPasted = YES;
 +            if (clipboardHasStrings && clipboardString) {
-+              [strongSelf->_textInputDelegateAdapter didPaste:@"text/plain" withData:clipboardString];
++              [self->_textInputDelegateAdapter didPaste:@"text/plain" withData:clipboardString];
 +            }
-+            [strongSelf _superPaste:nil];
++            [self _superPaste:nil];
 +          });
 +          return;
 +        }
@@ -404,20 +398,18 @@ index 377f41e..9a11021 100644
 +        BOOL writeSuccess = [data writeToFile:filePath atomically:YES];
 +
 +        dispatch_async(dispatch_get_main_queue(), ^{
-+          __strong typeof(weakSelf) strongSelf = weakSelf;
-+          if (!strongSelf) { return; }
-+          strongSelf->_isProcessingImagePaste = NO;
++          self->_isProcessingImagePaste = NO;
 +
 +          if (writeSuccess) {
 +            NSURL *fileURL = [NSURL fileURLWithPath:filePath];
-+            [strongSelf->_textInputDelegateAdapter didPaste:MIMEType withData:[fileURL absoluteString]];
++            [self->_textInputDelegateAdapter didPaste:MIMEType withData:[fileURL absoluteString]];
 +          } else {
 +            // Fallback when file write fails
-+            strongSelf->_textWasPasted = YES;
++            self->_textWasPasted = YES;
 +            if (clipboardHasStrings && clipboardString) {
-+              [strongSelf->_textInputDelegateAdapter didPaste:@"text/plain" withData:clipboardString];
++              [self->_textInputDelegateAdapter didPaste:@"text/plain" withData:clipboardString];
 +            }
-+            [strongSelf _superPaste:nil];
++            [self _superPaste:nil];
 +          }
 +        });
 +      }];
