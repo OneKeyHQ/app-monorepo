@@ -38,11 +38,23 @@ const SORTABLE_COLUMNS = {
   turnover: 'v24hUSD',
 } as const;
 
-// Sortable mode (banner detail): all numeric columns are sortable (client-side sort)
-const ALL_SORTABLE_COLUMNS: Record<string, string> = {
+// Client sort mode: all numeric columns are sortable (client-side sort)
+const CLIENT_SORTABLE_COLUMNS: Record<string, string> = {
   ...SORTABLE_COLUMNS,
   price: 'price',
   change24h: 'change24h',
+  transactions: 'transactions',
+  uniqueTraders: 'uniqueTraders',
+  holders: 'holders',
+};
+
+// Sort key → IMarketToken field mapping for client-side sorting
+const CLIENT_SORT_FIELD_MAP: Record<string, keyof IMarketToken> = {
+  price: 'price',
+  change24h: 'change24h',
+  mc: 'marketCap',
+  liquidity: 'liquidity',
+  v24hUSD: 'turnover',
   transactions: 'transactions',
   uniqueTraders: 'uniqueTraders',
   holders: 'holders',
@@ -76,7 +88,7 @@ type IMarketTokenListBaseProps = {
   toolbar?: ReactNode;
   result: IMarketTokenListResult;
   isWatchlistMode?: boolean;
-  sortable?: boolean;
+  clientSort?: boolean;
   showEndReachedIndicator?: boolean;
   hideTokenAge?: boolean;
   watchlistFrom?: EWatchlistFrom;
@@ -102,7 +114,7 @@ function MarketTokenListBase({
   toolbar,
   result,
   isWatchlistMode = false,
-  sortable = false,
+  clientSort = false,
   showEndReachedIndicator = false,
   hideTokenAge = false,
   watchlistFrom,
@@ -128,7 +140,7 @@ function MarketTokenListBase({
   );
 
   const {
-    data,
+    data: rawData,
     isLoading,
     isLoadingMore,
     isNetworkSwitching,
@@ -141,6 +153,18 @@ function MarketTokenListBase({
     currentSortBy,
     currentSortType,
   } = result;
+
+  // Client-side sorting: sort data locally when clientSort is enabled
+  const data = useMemo(() => {
+    if (!clientSort || !currentSortBy || !currentSortType) return rawData;
+    const field = CLIENT_SORT_FIELD_MAP[currentSortBy];
+    if (!field) return rawData;
+    return [...rawData].sort((a, b) => {
+      const aVal = (a[field] as number) ?? 0;
+      const bVal = (b[field] as number) ?? 0;
+      return currentSortType === 'asc' ? aVal - bVal : bVal - aVal;
+    });
+  }, [clientSort, rawData, currentSortBy, currentSortType]);
 
   // Listen to MarketWatchlistOnlyChanged event to update sort settings
   useEffect(() => {
@@ -197,13 +221,15 @@ function MarketTokenListBase({
 
   const handleHeaderRow = useCallback(
     (column: ITableColumn<IMarketToken>) => {
-      if (!isWatchlistMode && !sortable) {
+      if (!isWatchlistMode && !clientSort) {
         return undefined;
       }
 
-      // Use expanded sortable columns for sortable (banner) mode,
-      // restricted columns for watchlist mode
-      const columnsMap = sortable ? ALL_SORTABLE_COLUMNS : SORTABLE_COLUMNS;
+      // Client sort mode uses all numeric columns,
+      // watchlist mode uses restricted server-side sortable columns
+      const columnsMap = clientSort
+        ? CLIENT_SORTABLE_COLUMNS
+        : SORTABLE_COLUMNS;
       const sortKey = columnsMap[column.dataIndex as keyof typeof columnsMap];
 
       if (sortKey) {
@@ -220,7 +246,7 @@ function MarketTokenListBase({
 
       return undefined;
     },
-    [handleSortChange, isWatchlistMode, sortable, currentSortBy, currentSortType],
+    [handleSortChange, isWatchlistMode, clientSort, currentSortBy, currentSortType],
   );
 
   const handleEndReached = useCallback(() => {
