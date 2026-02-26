@@ -39,6 +39,7 @@ async function removeFilesInDirectory(
 async function removeOldFiles(
   dirPath: string,
   maxAgeMs: number,
+  isRoot = true,
 ): Promise<number> {
   let removedCount = 0;
   const now = Date.now();
@@ -48,7 +49,7 @@ async function removeOldFiles(
       const fullPath = path.join(dirPath, entry.name);
       try {
         if (entry.isDirectory()) {
-          removedCount += await removeOldFiles(fullPath, maxAgeMs);
+          removedCount += await removeOldFiles(fullPath, maxAgeMs, false);
         } else {
           const stats = await fs.promises.stat(fullPath);
           if (now - stats.mtimeMs > maxAgeMs) {
@@ -58,6 +59,13 @@ async function removeOldFiles(
         }
       } catch (_e) {
         // Ignore individual file errors
+      }
+    }
+    // Remove empty subdirectories after cleaning old files (keep root dir)
+    if (!isRoot) {
+      const remaining = await fs.promises.readdir(dirPath);
+      if (remaining.length === 0) {
+        await fs.promises.rmdir(dirPath).catch(() => {});
       }
     }
   } catch (_e) {
