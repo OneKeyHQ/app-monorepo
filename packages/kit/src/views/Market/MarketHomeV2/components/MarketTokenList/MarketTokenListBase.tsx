@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 import type { ReactNode } from 'react';
 
 import {
-  ETableSortType,
   ListEndIndicator,
   Spinner,
   Stack,
@@ -10,7 +9,7 @@ import {
   useMedia,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
-import type { ITableColumn } from '@onekeyhq/components';
+import type { ETableSortType, ITableColumn } from '@onekeyhq/components';
 import type { IDragEndParamsWithItem } from '@onekeyhq/components/src/layouts/SortableListView/types';
 import {
   EAppEventBusNames,
@@ -159,7 +158,7 @@ function MarketTokenListBase({
     if (!clientSort || !currentSortBy || !currentSortType) return rawData;
     const field = CLIENT_SORT_FIELD_MAP[currentSortBy];
     if (!field) return rawData;
-    return [...rawData].sort((a, b) => {
+    return [...rawData].toSorted((a, b) => {
       const aVal = (a[field] as number) ?? 0;
       const bVal = (b[field] as number) ?? 0;
       return currentSortType === 'asc' ? aVal - bVal : bVal - aVal;
