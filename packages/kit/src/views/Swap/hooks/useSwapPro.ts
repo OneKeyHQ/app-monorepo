@@ -5,6 +5,7 @@ import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
+import { useMarketTokenPreferencePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   ESwapProJumpTokenDirection,
   useSwapProJumpTokenAtom,
@@ -534,6 +535,20 @@ export function useSwapProTokenInit() {
     return defaultLimitTokens;
   }, [swapProTradeType, defaultTokens, defaultLimitTokens]);
 
+  // Read persisted token preference (shared with Instant Mode)
+  const [tokenPreference] = useMarketTokenPreferencePersistAtom();
+  const findPreferredToken = useCallback((): ISwapTokenBase | undefined => {
+    const networkId = swapProSelectToken?.networkId || '';
+    if (!networkId || defaultTokensFromType.length === 0) return undefined;
+    const pref = tokenPreference.preferences[networkId];
+    if (!pref) return undefined;
+    return defaultTokensFromType.find(
+      (t) =>
+        t.networkId === pref.networkId &&
+        t.contractAddress.toLowerCase() === pref.contractAddress.toLowerCase(),
+    );
+  }, [swapProSelectToken?.networkId, defaultTokensFromType, tokenPreference]);
+
   useEffect(() => {
     if (
       (!swapProUseSelectBuyTokenAtom && defaultTokensFromType.length > 0) ||
@@ -544,7 +559,11 @@ export function useSwapProTokenInit() {
         }),
       )
     ) {
-      let selectedDefaultToken = defaultTokensFromType[0];
+      // Prefer persisted preference, fallback to first default token
+      const preferred = findPreferredToken();
+      let selectedDefaultToken =
+        (preferred as (typeof defaultTokensFromType)[0]) ??
+        defaultTokensFromType[0];
       if (
         equalTokenNoCaseSensitive({
           token1: selectedDefaultToken,
@@ -586,6 +605,7 @@ export function useSwapProTokenInit() {
     swapProUseSelectBuyTokenAtom,
     setSwapProUseSelectBuyTokenAtom,
     defaultTokensFromType,
+    findPreferredToken,
   ]);
 
   useEffect(() => {
@@ -628,6 +648,8 @@ export function useSwapProTokenInit() {
         }),
       )
     ) {
+      // Prefer persisted preference for sell-to token
+      const preferred = findPreferredToken();
       let selectedDefaultToken = defaultTokensFromType[0];
       const nativeToken = defaultTokensFromType.find((item) => item.isNative);
       const wrappedToken = defaultTokensFromType.find((item) =>
@@ -638,7 +660,10 @@ export function useSwapProTokenInit() {
             wrapped.networkId === item.networkId,
         ),
       );
-      if (nativeToken || wrappedToken) {
+      if (preferred) {
+        selectedDefaultToken =
+          preferred as (typeof defaultTokensFromType)[0];
+      } else if (nativeToken || wrappedToken) {
         if (swapProTradeType === ESwapProTradeType.MARKET && nativeToken) {
           selectedDefaultToken = nativeToken;
         } else if (
@@ -717,6 +742,7 @@ export function useSwapProTokenInit() {
     swapProSelectToken?.contractAddress,
     swapProSellToToken,
     swapProTradeType,
+    findPreferredToken,
   ]);
   const inputToken = useSwapProInputToken();
 

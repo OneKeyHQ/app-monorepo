@@ -14,12 +14,14 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import type { IInputRef } from '@onekeyhq/components';
+import { useMarketTokenPreferencePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import {
   useSwapFromTokenAmountAtom,
   useSwapProDirectionAtom,
   useSwapProInputAmountAtom,
   useSwapProSelectTokenAtom,
+  useSwapProSellToTokenAtom,
   useSwapProTradeTypeAtom,
   useSwapProUseSelectBuyTokenAtom,
   useSwapTypeSwitchAtom,
@@ -77,6 +79,9 @@ const SwapProInputContainer = ({
     useSwapProInputAmountAtom();
   const [swapProUseSelectBuyToken, setSwapProUseSelectBuyToken] =
     useSwapProUseSelectBuyTokenAtom();
+  const [, setSwapProSellToToken] = useSwapProSellToTokenAtom();
+  const [tokenPreference, setTokenPreference] =
+    useMarketTokenPreferencePersistAtom();
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const inputRef = useRef<IInputRef & TextInput>(null);
   const inputToken = useSwapProInputToken();
@@ -111,9 +116,32 @@ const SwapProInputContainer = ({
     (token: IToken) => {
       cleanInputAmount();
       setSwapProUseSelectBuyToken(token);
+      // Sync SELL counterparty so both directions use the same token
+      setSwapProSellToToken(token);
       setIsPopoverOpen(false);
+      // Save preference (shared with Instant Mode)
+      const networkId = swapProSelectToken?.networkId || '';
+      if (networkId) {
+        setTokenPreference({
+          preferences: {
+            ...tokenPreference.preferences,
+            [networkId]: {
+              contractAddress: token.contractAddress,
+              symbol: token.symbol,
+              networkId: token.networkId,
+            },
+          },
+        });
+      }
     },
-    [setSwapProUseSelectBuyToken, cleanInputAmount],
+    [
+      setSwapProUseSelectBuyToken,
+      setSwapProSellToToken,
+      cleanInputAmount,
+      swapProSelectToken?.networkId,
+      setTokenPreference,
+      tokenPreference.preferences,
+    ],
   );
   const isTokenSelectorVisible =
     swapProDirection === ESwapDirection.BUY && defaultTokensFromType.length > 1;
