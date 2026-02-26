@@ -132,7 +132,6 @@ type IUniversalWithdrawProps = {
 };
 
 const WITHDRAW_ACCORDION_KEY = 'withdraw-accordion-content';
-const VS_BEST_LABEL = ' vs Best';
 
 export function UniversalWithdraw({
   accountAddress,
@@ -722,11 +721,6 @@ export function UniversalWithdraw({
                         color={box.subtitleDescription?.color || '$textSubdued'}
                       >
                         {box.subtitleDescription.text}
-                        {box.subtitleDescription?.color === '$textCritical' ? (
-                          <SizableText size="$bodyMd" color="$textSubdued">
-                            {VS_BEST_LABEL}
-                          </SizableText>
-                        ) : null}
                       </SizableText>
                     ) : null}
                   </YStack>
@@ -861,12 +855,6 @@ export function UniversalWithdraw({
                     >
                       {selectedWithdrawPath.subtitleDescription.text}
                     </SizableText>
-                    {selectedWithdrawPath.subtitleDescription?.color ===
-                    '$textCritical' ? (
-                      <SizableText size="$bodySmMedium" color="$textSubdued">
-                        {VS_BEST_LABEL}
-                      </SizableText>
-                    ) : null}
                   </XStack>
                 ) : null}
               </YStack>
