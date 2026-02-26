@@ -392,6 +392,9 @@ export function UniversalWithdraw({
   const [checkAmountAlerts, setCheckAmountAlerts] = useState<
     ICheckAmountAlert[]
   >([]);
+  const [transactionConfirmation, setTransactionConfirmation] = useState<
+    IStakeTransactionConfirmation | undefined
+  >();
 
   const { result: estimateFeeResp } = usePromiseResult(async () => {
     if (
@@ -473,6 +476,36 @@ export function UniversalWithdraw({
     withdrawMessageRef.current = undefined;
   }, []);
 
+  const withdrawPathConfirmBoxes = useMemo(() => {
+    if (!isPendleProvider) return [];
+    return transactionConfirmation?.withdrawPath?.data?.confirmBoxes ?? [];
+  }, [
+    isPendleProvider,
+    transactionConfirmation?.withdrawPath?.data?.confirmBoxes,
+  ]);
+
+  const effectiveSelectedWithdrawPathIndex = useMemo(() => {
+    if (withdrawPathConfirmBoxes.length <= 1) return 0;
+    return Math.min(
+      Math.max(selectedWithdrawPathIndex, 0),
+      withdrawPathConfirmBoxes.length - 1,
+    );
+  }, [selectedWithdrawPathIndex, withdrawPathConfirmBoxes.length]);
+
+  useEffect(() => {
+    if (selectedWithdrawPathIndex !== effectiveSelectedWithdrawPathIndex) {
+      setSelectedWithdrawPathIndex(effectiveSelectedWithdrawPathIndex);
+    }
+  }, [effectiveSelectedWithdrawPathIndex, selectedWithdrawPathIndex]);
+
+  const selectedWithdrawPath = useMemo(() => {
+    if (withdrawPathConfirmBoxes.length <= 1) return undefined;
+    return (
+      withdrawPathConfirmBoxes[effectiveSelectedWithdrawPathIndex] ??
+      withdrawPathConfirmBoxes[0]
+    );
+  }, [withdrawPathConfirmBoxes, effectiveSelectedWithdrawPathIndex]);
+
   const onPress = useCallback(async () => {
     try {
       Keyboard.dismiss();
@@ -510,7 +543,7 @@ export function UniversalWithdraw({
         useEthenaCooldown:
           isPendleProvider &&
           networkId === getNetworkIdsMap().eth &&
-          selectedWithdrawPathIndex === 0
+          effectiveSelectedWithdrawPathIndex === 0
             ? true
             : undefined,
         onStepChange: (step: number) => {
@@ -534,7 +567,7 @@ export function UniversalWithdraw({
     actionSymbol,
     identity,
     isPendleProvider,
-    selectedWithdrawPathIndex,
+    effectiveSelectedWithdrawPathIndex,
   ]);
 
   const [checkAmountLoading, setCheckAmountLoading] = useState(false);
@@ -570,9 +603,6 @@ export function UniversalWithdraw({
     }
   }, 300);
 
-  const [transactionConfirmation, setTransactionConfirmation] = useState<
-    IStakeTransactionConfirmation | undefined
-  >();
   const fetchTransactionConfirmation = useCallback(
     async (amount: string) => {
       if (isDisabled) {
@@ -825,22 +855,6 @@ export function UniversalWithdraw({
   ]);
   const isAccordionTriggerDisabled = !amountValue;
 
-  const withdrawPathConfirmBoxes = useMemo(() => {
-    if (!isPendleProvider) return [];
-    return transactionConfirmation?.withdrawPath?.data?.confirmBoxes ?? [];
-  }, [
-    isPendleProvider,
-    transactionConfirmation?.withdrawPath?.data?.confirmBoxes,
-  ]);
-
-  const selectedWithdrawPath = useMemo(() => {
-    if (withdrawPathConfirmBoxes.length <= 1) return undefined;
-    return (
-      withdrawPathConfirmBoxes[selectedWithdrawPathIndex] ??
-      withdrawPathConfirmBoxes[0]
-    );
-  }, [withdrawPathConfirmBoxes, selectedWithdrawPathIndex]);
-
   const showWithdrawPathSelector =
     withdrawPathConfirmBoxes.length > 1 && !!selectedWithdrawPath;
 
@@ -856,7 +870,7 @@ export function UniversalWithdraw({
 
   withdrawPathPopoverRef.current = {
     boxes: withdrawPathConfirmBoxes,
-    selectedIndex: selectedWithdrawPathIndex,
+    selectedIndex: effectiveSelectedWithdrawPathIndex,
     onSelect: (index: number) => setSelectedWithdrawPathIndex(index),
   };
 
@@ -1333,7 +1347,7 @@ export function UniversalWithdraw({
       ) : null}
       {beforeFooter}
       {isPendleProvider &&
-      selectedWithdrawPathIndex === 0 &&
+      effectiveSelectedWithdrawPathIndex === 0 &&
       amountValue &&
       !isInvalidAmount(amountValue) ? (
         <StakeProgress
