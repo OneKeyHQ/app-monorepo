@@ -33,9 +33,7 @@ const mockAtom = {
   get: jest.fn(async () => atomValue),
   set: jest.fn(
     async (
-      valOrUpdater:
-        | IAppUpdateInfo
-        | ((prev: IAppUpdateInfo) => IAppUpdateInfo),
+      valOrUpdater: IAppUpdateInfo | ((prev: IAppUpdateInfo) => IAppUpdateInfo),
     ) => {
       if (typeof valOrUpdater === 'function') {
         atomValue = valOrUpdater(atomValue);
@@ -185,7 +183,7 @@ function createService() {
         resetLaunchTimesAfterUpdate: jest.fn(async () => undefined),
       },
     },
-  }) as InstanceType<typeof ServiceAppUpdate>;
+  });
 }
 
 function resetAtom(overrides?: Partial<IAppUpdateInfo>) {
@@ -647,7 +645,7 @@ describe('ServiceAppUpdate state transitions', () => {
     test('getUpdateInfo returns full atom value', async () => {
       const expected: IAppUpdateInfo = {
         latestVersion: '2.0.0',
-        updateAt: 123456,
+        updateAt: 123_456,
         status: EAppUpdateStatus.notify,
         updateStrategy: EUpdateStrategy.force,
       };
@@ -887,13 +885,13 @@ describe('ServiceAppUpdate state transitions', () => {
         latestVersion: '1.0.0',
         status: EAppUpdateStatus.done,
         updateStrategy: EUpdateStrategy.manual,
-        updateAt: 12345,
+        updateAt: 12_345,
       });
 
       await service.refreshUpdateStatus();
 
       // updateAt should remain unchanged (not reset to 0)
-      expect(atomValue.updateAt).toBe(12345);
+      expect(atomValue.updateAt).toBe(12_345);
     });
   });
 
