@@ -108,6 +108,7 @@ export function WalletActionBuy({
   ]);
 
   if (
+    isBuySupported &&
     !network?.isAllNetworks &&
     !accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' }) &&
     vaultSettings?.mergeDeriveAssetsEnabled &&
@@ -132,8 +133,8 @@ export function WalletActionBuy({
           ) : (
             <ActionList.Item
               trackID="wallet-buy"
-              icon="PlusLargeOutline"
-              label={intl.formatMessage({ id: ETranslations.global_buy })}
+              icon="CurrencyDollarOutline"
+              label={intl.formatMessage({ id: ETranslations.buy_and_sell })}
               disabled={isBuyDisabled}
               onClose={() => {}}
               onPress={() => {}}
