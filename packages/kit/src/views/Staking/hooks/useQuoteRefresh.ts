@@ -23,7 +23,7 @@ export function useQuoteRefresh<T>({
   const requestIdRef = useRef(0);
 
   // Stabilize doRefreshQuote via ref to avoid effect churn
-  const doRefreshQuoteRef = useRef<() => Promise<void>>();
+  const doRefreshQuoteRef = useRef<(() => Promise<void>) | null>(null);
   doRefreshQuoteRef.current = async () => {
     if (!enabled) return;
     if (!amountValue || Number(amountValue) <= 0) return;
@@ -51,10 +51,7 @@ export function useQuoteRefresh<T>({
   // Header refresh: re-fetch when refreshKey changes
   const prevRefreshKeyRef = useRef(refreshKey);
   useEffect(() => {
-    if (
-      refreshKey !== undefined &&
-      refreshKey !== prevRefreshKeyRef.current
-    ) {
+    if (refreshKey !== undefined && refreshKey !== prevRefreshKeyRef.current) {
       prevRefreshKeyRef.current = refreshKey;
       void doRefreshQuoteRef.current?.();
     }

@@ -22,10 +22,7 @@ import { NetworkAvatarGroup } from '@onekeyhq/kit/src/components/NetworkAvatar/N
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import {
-  EModalRoutes,
-  EModalStakingRoutes,
-} from '@onekeyhq/shared/src/routes';
+import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -253,9 +250,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
     const getMaturityDisplay = (item: IStakeProtocolListItem) => {
       const providerName = normalizeToEarnProvider(item.provider.name);
       const maturityTitle =
-        item.provider.maturity ||
-        item.provider.vaultName ||
-        providerName;
+        item.provider.maturity || item.provider.vaultName || providerName;
       const detailText = item.provider.description || providerName;
 
       return {

@@ -1213,7 +1213,10 @@ export default class ServiceHyperliquid extends ServiceBase {
               });
               return null;
             }
-            if (credential.agentAddress?.toLowerCase() !== agent.address.toLowerCase()) {
+            if (
+              credential.agentAddress?.toLowerCase() !==
+              agent.address.toLowerCase()
+            ) {
               defaultLogger.perp.agentLifeCycle.trackReason({
                 reason: 'agent_address_mismatch',
                 accountAddress,
@@ -1282,9 +1285,11 @@ export default class ServiceHyperliquid extends ServiceBase {
             ) {
               agentNameToApprove = agentNameToRemove;
             } else {
-              const approveAgentResult = await this.exchangeService.removeAgent({
-                agentName: agentNameToRemove,
-              });
+              const approveAgentResult = await this.exchangeService.removeAgent(
+                {
+                  agentName: agentNameToRemove,
+                },
+              );
               console.log('approveAgentResult::', approveAgentResult);
               defaultLogger.perp.agentLifeCycle.trackReason({
                 reason: 'agent_removed_for_slot_recovery',
@@ -1356,7 +1361,8 @@ export default class ServiceHyperliquid extends ServiceBase {
         const approveAgentFn = () =>
           this.exchangeService.approveAgent({
             agent: agentAddress,
-            agentName: agentNameToApproveWithValidUntil as EHyperLiquidAgentName,
+            agentName:
+              agentNameToApproveWithValidUntil as EHyperLiquidAgentName,
             // agentName: EHyperLiquidAgentName.Official,
             authorize: true,
           });
@@ -1483,7 +1489,8 @@ export default class ServiceHyperliquid extends ServiceBase {
           isEnableTradingTrigger,
           statusDetails: {
             ...statusDetails,
-            errorMessage: error instanceof Error ? error.message : String(error),
+            errorMessage:
+              error instanceof Error ? error.message : String(error),
           },
         });
         throw error;

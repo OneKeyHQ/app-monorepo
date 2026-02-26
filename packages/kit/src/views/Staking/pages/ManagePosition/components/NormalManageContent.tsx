@@ -391,9 +391,6 @@ export function NormalManageContent({
     enabled: isPendleProvider && selectedTabIndex === 1,
   });
 
-  const activeCountdown =
-    selectedTabIndex === 0 ? stakeCountdown : withdrawCountdown;
-
   // refreshKey: incremented by header refresh button to signal child components to re-quote
   const [stakeRefreshKey, setStakeRefreshKey] = useState(0);
   const [withdrawRefreshKey, setWithdrawRefreshKey] = useState(0);
