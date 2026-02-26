@@ -76,6 +76,15 @@ const BorrowHomeContent = memo(
     const { gtMd, gtLg } = useMedia();
     const intl = useIntl();
     const [activeTab, setActiveTab] = useState<IBorrowTab>('supply');
+    const [tabHeights, setTabHeights] = useState({ supply: 0, borrow: 0 });
+    const updateTabHeight = useCallback(
+      (tab: IBorrowTab, h: number) =>
+        setTabHeights((prev) =>
+          prev[tab] === h ? prev : { ...prev, [tab]: h },
+        ),
+      [],
+    );
+    const maxTabHeight = Math.max(tabHeights.supply, tabHeights.borrow);
     const [healthFactorAlerts, setHealthFactorAlerts] = useState<
       IBorrowAlert[] | undefined
     >(undefined);
@@ -182,10 +191,10 @@ const BorrowHomeContent = memo(
             </XStack>
           ) : (
             // Mobile layout - tabbed
-            // Uses position:absolute + opacity overlay instead of display:none
-            // to keep FlashList viewports non-zero and items pre-rendered.
-            // Active tab: normal flow (determines container height).
-            // Inactive tab: absolute-positioned, invisible, no pointer events.
+            // Both tabs stay mounted via position:absolute overlay so
+            // FlatList items are pre-rendered and switching is instant.
+            // minHeight = max(both tabs) prevents container from shrinking
+            // on tab switch, which would clamp scroll position to 0.
             <YStack flex={1} gap="$5">
               <SegmentControl
                 value={activeTab}
@@ -195,9 +204,15 @@ const BorrowHomeContent = memo(
                 }}
                 fullWidth
               />
-              <YStack position="relative">
+              <YStack
+                position="relative"
+                {...(maxTabHeight > 0 && { minHeight: maxTabHeight })}
+              >
                 <YStack
                   gap="$5"
+                  onLayout={(e) =>
+                    updateTabHeight('supply', e.nativeEvent.layout.height)
+                  }
                   {...(activeTab !== 'supply' && {
                     position: 'absolute' as const,
                     top: 0,
@@ -212,6 +227,9 @@ const BorrowHomeContent = memo(
                 </YStack>
                 <YStack
                   gap="$5"
+                  onLayout={(e) =>
+                    updateTabHeight('borrow', e.nativeEvent.layout.height)
+                  }
                   {...(activeTab !== 'borrow' && {
                     position: 'absolute' as const,
                     top: 0,
