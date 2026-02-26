@@ -40,11 +40,11 @@ function PerpMobileNetworkAlertComponent() {
 
   return (
     <Alert
-      type="critical"
+      type="default"
       fullBleed
-      icon="ChartColumnarSignalOutline"
+      icon="SignalOutline"
       descriptionComponent={
-        <SizableText size="$bodySm" color="$textCritical">
+        <SizableText size="$bodySm" color="$textSubdued">
           {intl.formatMessage({
             id: ETranslations.perps_offline_moblie,
           })}
