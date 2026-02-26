@@ -27,7 +27,7 @@ const settings: IVaultSettings = Object.freeze({
 
   accountNameInfo: {
     default: {
-      prefix: 'RIPPLE',
+      prefix: 'XRP Ledger',
       category: `44'/${COINTYPE_XRP}'`,
       template: `m/44'/${COINTYPE_XRP}'/${INDEX_PLACEHOLDER}'/0/0`,
       coinType: COINTYPE_XRP,

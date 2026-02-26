@@ -4005,7 +4005,7 @@ const serverPresetNetworks = [
     'impl': 'xrp',
     'isTestnet': false,
     'logoURI': 'https://common.onekey-asset.com/chain/xrp.png',
-    'name': 'Ripple',
+    'name': 'XRP Ledger',
     'rpcURLs': [
       {
         'url': 'wss://s1.ripple.com',
@@ -4024,7 +4024,7 @@ const serverPresetNetworks = [
       },
     ],
     'shortcode': 'xrp',
-    'shortname': 'Ripple',
+    'shortname': 'XRP Ledger',
     'symbol': 'XRP',
     'feeMeta': {
       'code': 'xrp',
