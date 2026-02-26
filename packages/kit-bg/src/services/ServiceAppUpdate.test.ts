@@ -1851,7 +1851,7 @@ describe('ServiceAppUpdate state transitions', () => {
           errorText: ETranslations.update_network_exception_check_connection,
           updateStrategy: EUpdateStrategy.force,
           summary: 'Important update',
-          updateAt: 12345,
+          updateAt: 12_345,
         });
 
         await service.refreshUpdateStatus();
@@ -1911,7 +1911,7 @@ describe('ServiceAppUpdate state transitions', () => {
       resetAtom({
         status: EAppUpdateStatus.downloadPackageFailed,
         latestVersion: '1.0.0',
-        updateAt: 12345,
+        updateAt: 12_345,
       });
 
       await service.refreshUpdateStatus();

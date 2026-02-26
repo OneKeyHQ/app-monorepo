@@ -162,9 +162,9 @@ jest.mock('@onekeyhq/shared/src/utils/timerUtils', () => ({
   default: {
     wait: () => Promise.resolve(),
     getTimeDurationMs: ({ seconds, minute, hour, day }: any = {}) => {
-      if (day) return day * 86400000;
-      if (hour) return hour * 3600000;
-      if (minute) return minute * 60000;
+      if (day) return day * 86_400_000;
+      if (hour) return hour * 3_600_000;
+      if (minute) return minute * 60_000;
       if (seconds) return seconds * 1000;
       return 0;
     },
