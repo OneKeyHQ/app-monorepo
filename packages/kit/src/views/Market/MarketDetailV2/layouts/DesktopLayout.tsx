@@ -1,6 +1,7 @@
+import { useMemo } from 'react';
+
 import {
   Divider,
-  ScrollView,
   Stack,
   XStack,
   YStack,
@@ -21,6 +22,13 @@ import { useNetworkAccount } from '../components/InformationTabs/hooks/useNetwor
 import { DesktopInformationTabs } from '../components/InformationTabs/layout/DesktopInformationTabs';
 import { useTokenDetail } from '../hooks/useTokenDetail';
 
+const MARKET_DETAIL_LAYOUT = {
+  chartHeight: 550,
+  infoTabsHeight: 480,
+} as const;
+
+const SCROLL_CONTAINER_STYLE = { overflowY: 'auto' } as const;
+
 export function DesktopLayout() {
   const { tokenAddress, networkId, tokenDetail, isNative, websocketConfig } =
     useTokenDetail();
@@ -36,52 +44,67 @@ export function DesktopLayout() {
 
   const isBTCNetwork = networkUtils.isBTCNetwork(networkId);
 
+  const swapToken = useMemo(
+    () => ({
+      networkId,
+      contractAddress: tokenDetail?.address || '',
+      symbol: tokenDetail?.symbol || '',
+      decimals: tokenDetail?.decimals || 0,
+      logoURI: tokenDetail?.logoUrl,
+      price: tokenDetail?.price,
+    }),
+    [
+      networkId,
+      tokenDetail?.address,
+      tokenDetail?.symbol,
+      tokenDetail?.decimals,
+      tokenDetail?.logoUrl,
+      tokenDetail?.price,
+    ],
+  );
+
   return (
-    <XStack flex={1}>
-      {/* Left column */}
-      <YStack flex={1} borderRightWidth="$px" borderRightColor="$borderSubdued">
-        {/* Header */}
-        <TokenDetailHeader />
+    <Stack flex={1} style={SCROLL_CONTAINER_STYLE}>
+      <XStack>
+        {/* Left column */}
+        <YStack
+          flex={1}
+          borderRightWidth="$px"
+          borderRightColor="$borderSubdued"
+        >
+          <TokenDetailHeader />
 
-        {/* Trading view */}
-        <Stack flex={1} minHeight={300}>
-          {networkId && tokenDetail?.symbol ? (
-            <MarketTradingView
-              tokenAddress={tokenAddress}
-              networkId={networkId}
-              tokenSymbol={tokenDetail?.symbol}
-              isNative={isNative}
-              dataSource={websocketConfig?.kline ? 'websocket' : 'polling'}
+          <Stack h={MARKET_DETAIL_LAYOUT.chartHeight} overflow="hidden">
+            {networkId && tokenDetail?.symbol ? (
+              <MarketTradingView
+                tokenAddress={tokenAddress}
+                networkId={networkId}
+                tokenSymbol={tokenDetail?.symbol}
+                isNative={isNative}
+                dataSource={websocketConfig?.kline ? 'websocket' : 'polling'}
+              />
+            ) : null}
+          </Stack>
+
+          <Stack
+            h={MARKET_DETAIL_LAYOUT.infoTabsHeight}
+            borderTopWidth="$px"
+            borderTopColor="$borderSubdued"
+          >
+            <DesktopInformationTabs
+              portfolioData={portfolioData}
+              isRefreshing={isRefreshing}
+              isBTCNetwork={isBTCNetwork}
             />
-          ) : null}
-        </Stack>
+          </Stack>
+        </YStack>
 
-        {/* Info tabs */}
-        <Stack h="30vh" borderTopWidth="$px" borderTopColor="$borderSubdued">
-          <DesktopInformationTabs
-            portfolioData={portfolioData}
-            isRefreshing={isRefreshing}
-            isBTCNetwork={isBTCNetwork}
-          />
-        </Stack>
-      </YStack>
-
-      {/* Right column */}
-      <Stack w={340}>
-        <ScrollView>
+        {/* Right column */}
+        <Stack w={340}>
           <Stack w={340} pb={platformEnv.isWeb ? '$12' : undefined}>
             <PerpetualTradingBanner pl="$3" pr="$5" />
             <Stack pl="$3" pr="$5" pt="$4" pb="$3">
-              <SwapPanel
-                swapToken={{
-                  networkId,
-                  contractAddress: tokenDetail?.address || '',
-                  symbol: tokenDetail?.symbol || '',
-                  decimals: tokenDetail?.decimals || 0,
-                  logoURI: tokenDetail?.logoUrl,
-                  price: tokenDetail?.price,
-                }}
-              />
+              <SwapPanel swapToken={swapToken} />
             </Stack>
 
             <Divider my="$1" />
@@ -92,8 +115,8 @@ export function DesktopLayout() {
 
             <TokenSupplementaryInfo />
           </Stack>
-        </ScrollView>
-      </Stack>
-    </XStack>
+        </Stack>
+      </XStack>
+    </Stack>
   );
 }
