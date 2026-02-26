@@ -497,4 +497,142 @@ describe('useDisplaySplash', () => {
       expect(svc.getUpdateInfo).not.toHaveBeenCalled();
     });
   });
+
+  // ----- J. Error resilience — must never leave displaySplash=false -----
+  describe('error resilience', () => {
+    test('getUpdateInfo throws → displaySplash becomes true', async () => {
+      const { useDisplaySplash } = freshSplash();
+      svc.getUpdateInfo.mockRejectedValue(new Error('bg process crashed'));
+
+      const { result } = renderHook(() => useDisplaySplash());
+
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      expect(result.current).toBe(true);
+    });
+
+    test('getUpdateInfo never resolves → safety timeout shows splash', async () => {
+      jest.useFakeTimers();
+      const { useDisplaySplash } = freshSplash();
+      svc.getUpdateInfo.mockReturnValue(new Promise(() => {})); // never resolves
+
+      const { result } = renderHook(() => useDisplaySplash());
+
+      // Still waiting
+      expect(result.current).toBe(false);
+
+      // Advance past the safety timeout
+      await act(async () => {
+        jest.advanceTimersByTime(10_000);
+      });
+
+      expect(result.current).toBe(true);
+      jest.useRealTimers();
+    });
+
+    test('seamless + firstLaunch + refreshUpdateStatus throws → still shows splash', async () => {
+      const { useDisplaySplash } = freshSplash();
+      svc.getUpdateInfo.mockResolvedValue(
+        makeAppInfo({
+          updateStrategy: EUpdateStrategy.seamless,
+          status: EAppUpdateStatus.notify,
+          latestVersion: '1.0.0',
+        }),
+      );
+      svc.refreshUpdateStatus.mockRejectedValue(new Error('crash'));
+
+      const { result } = renderHook(() => useDisplaySplash());
+
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      expect(result.current).toBe(true);
+    });
+
+    test('seamless + ready + missing downloadedEvent + reset throws → still shows splash', async () => {
+      const { useDisplaySplash } = freshSplash();
+      svc.getUpdateInfo.mockResolvedValue(
+        makeAppInfo({
+          updateStrategy: EUpdateStrategy.seamless,
+          status: EAppUpdateStatus.ready,
+          latestVersion: '2.0.0',
+          downloadedEvent: undefined,
+        }),
+      );
+      svc.reset.mockRejectedValue(new Error('reset failed'));
+
+      const { result } = renderHook(() => useDisplaySplash());
+
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      expect(result.current).toBe(true);
+    });
+
+    test('seamless + ready + missing signature + reset throws → still shows splash', async () => {
+      const { useDisplaySplash } = freshSplash();
+      svc.getUpdateInfo.mockResolvedValue(
+        makeAppInfo({
+          updateStrategy: EUpdateStrategy.seamless,
+          status: EAppUpdateStatus.ready,
+          latestVersion: '1.0.0',
+          jsBundleVersion: '5',
+          downloadedEvent: {
+            downloadedFile: '/tmp/bundle.zip',
+            sha256: 'hash',
+          },
+        }),
+      );
+      svc.reset.mockRejectedValue(new Error('reset failed'));
+
+      const { result } = renderHook(() => useDisplaySplash());
+
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      expect(result.current).toBe(true);
+    });
+
+    test('install succeeds but app does not restart → safety timeout shows splash', async () => {
+      jest.useFakeTimers();
+      const { useDisplaySplash } = freshSplash();
+      svc.getUpdateInfo.mockResolvedValue(
+        makeAppInfo({
+          updateStrategy: EUpdateStrategy.seamless,
+          status: EAppUpdateStatus.ready,
+          latestVersion: '2.0.0',
+          downloadedEvent: { downloadedFile: '/tmp/app.dmg' },
+        }),
+      );
+      // installPackage resolves but doesn't actually restart
+      appUpd.installPackage.mockResolvedValue(undefined);
+
+      const { result } = renderHook(() => useDisplaySplash());
+
+      // Let async logic complete
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      // Install "succeeded" but app didn't restart — displaySplash still false
+      expect(result.current).toBe(false);
+
+      // Safety timeout kicks in
+      await act(async () => {
+        jest.advanceTimersByTime(10_000);
+      });
+
+      expect(result.current).toBe(true);
+      jest.useRealTimers();
+    });
+  });
 });
