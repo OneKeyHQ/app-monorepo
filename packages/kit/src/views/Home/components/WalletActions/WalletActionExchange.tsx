@@ -7,6 +7,7 @@ import {
   Button,
   Icon,
   SizableText,
+  Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -66,32 +67,45 @@ function WalletActionExchange(props?: {
           supportedAssets,
         },
         onSelect: async (selectedToken: IToken) => {
-          const tokenNetworkId = selectedToken.networkId ?? networkId;
-          const tokenAccountId = selectedToken.accountId ?? accountId;
-          const accountAddress =
-            await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
-              accountId: tokenAccountId,
-              networkId: tokenNetworkId,
+          try {
+            const tokenNetworkId = selectedToken.networkId ?? networkId;
+            const tokenAccountId = selectedToken.accountId ?? accountId;
+            const accountAddress =
+              await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
+                accountId: tokenAccountId,
+                networkId: tokenNetworkId,
+              });
+
+            if (!accountAddress) {
+              return;
+            }
+
+            const result =
+              await backgroundApiProxy.serviceToken.createBinancePreOrder({
+                networkId: tokenNetworkId,
+                address: accountAddress,
+                cryptoCurrency: (
+                  selectedToken.commonSymbol ??
+                  selectedToken.symbol ??
+                  ''
+                ).toUpperCase(),
+              });
+
+            if (platformEnv.isNative) {
+              await openUrlUtils.linkingOpenURL(result.redirectUrl);
+            } else {
+              openUrlExternal(result.redirectUrl);
+            }
+
+            navigation.popToTop();
+          } catch (error) {
+            Toast.error({
+              title: intl.formatMessage({
+                id: ETranslations.global_error,
+              }),
             });
-
-          if (!accountAddress) {
-            return;
+            console.error('[BinanceConnect] Pre-order error:', error);
           }
-
-          const result =
-            await backgroundApiProxy.serviceToken.createBinancePreOrder({
-              networkId: tokenNetworkId,
-              address: accountAddress,
-              cryptoCurrency: (selectedToken.symbol ?? '').toUpperCase(),
-            });
-
-          if (platformEnv.isNative) {
-            await openUrlUtils.linkingOpenURL(result.redirectUrl);
-          } else {
-            openUrlExternal(result.redirectUrl);
-          }
-
-          navigation.popToTop();
         },
       });
     } catch (error) {
