@@ -101,7 +101,7 @@ function WalletActionExchange(props?: {
           } catch (error) {
             Toast.error({
               title: intl.formatMessage({
-                id: ETranslations.global_error,
+                id: ETranslations.global_an_error_occurred,
               }),
             });
             console.error('[BinanceConnect] Pre-order error:', error);
