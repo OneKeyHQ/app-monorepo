@@ -57,9 +57,7 @@ function VersionRow({
         </Stack>
         <YStack>
           <XStack alignItems="center" gap="$1.5">
-            <SizableText size="$bodyMdMedium">
-              {`v${item.version}`}
-            </SizableText>
+            <SizableText size="$bodyMdMedium">{`v${item.version}`}</SizableText>
             {isCurrent ? (
               <Badge badgeType="success" badgeSize="sm">
                 <Badge.Text>Current</Badge.Text>
@@ -71,11 +69,7 @@ function VersionRow({
           </SizableText>
         </YStack>
       </XStack>
-      <Icon
-        name="ChevronRightSmallOutline"
-        size="$5"
-        color="$iconSubdued"
-      />
+      <Icon name="ChevronRightSmallOutline" size="$5" color="$iconSubdued" />
     </XStack>
   );
 }
@@ -174,11 +168,7 @@ export default function SettingDevBundleVersionList() {
 
             {versions.length === 0 ? (
               <YStack py="$10" alignItems="center" gap="$2">
-                <Icon
-                  name="InboxOutline"
-                  size="$10"
-                  color="$iconDisabled"
-                />
+                <Icon name="InboxOutline" size="$10" color="$iconDisabled" />
                 <SizableText color="$textDisabled">
                   No versions available
                 </SizableText>

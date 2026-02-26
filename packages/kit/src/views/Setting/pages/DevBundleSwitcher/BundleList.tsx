@@ -338,11 +338,7 @@ export default function SettingDevBundleList() {
 
             {bundles.length === 0 ? (
               <YStack py="$10" alignItems="center" gap="$2">
-                <Icon
-                  name="InboxOutline"
-                  size="$10"
-                  color="$iconDisabled"
-                />
+                <Icon name="InboxOutline" size="$10" color="$iconDisabled" />
                 <SizableText color="$textDisabled">
                   No bundles for this version
                 </SizableText>

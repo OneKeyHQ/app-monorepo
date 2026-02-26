@@ -142,9 +142,7 @@ function BundleTestsContent({
   const [appVersion, setAppVersion] = useState('1.0.0');
   const [bundleVersion, setBundleVersion] = useState('1');
 
-  const runTest = async (
-    fn: (a: string, b: string) => Promise<unknown>,
-  ) => {
+  const runTest = async (fn: (a: string, b: string) => Promise<unknown>) => {
     try {
       const result = await fn(appVersion, bundleVersion);
       showTestResult(result as boolean | { success: boolean; message: string });
@@ -343,7 +341,9 @@ export default function DevBundleManagerModal() {
                     bundle.appVersion === currentAppVersion &&
                     bundle.bundleVersion === currentBundleVersion;
                   return (
-                    <YStack key={`${bundle.appVersion}-${bundle.bundleVersion}`}>
+                    <YStack
+                      key={`${bundle.appVersion}-${bundle.bundleVersion}`}
+                    >
                       {index > 0 ? (
                         <XStack mx="$4">
                           <Divider />
@@ -367,10 +367,7 @@ export default function DevBundleManagerModal() {
                           <SizableText size="$bodyMd">
                             {`v${bundle.appVersion}`}
                           </SizableText>
-                          <SizableText
-                            size="$bodySm"
-                            color="$textSubdued"
-                          >
+                          <SizableText size="$bodySm" color="$textSubdued">
                             {`#${bundle.bundleVersion}`}
                           </SizableText>
                           {isCurrent ? (

@@ -146,11 +146,7 @@ export default function SettingDevLocalBundleList() {
                 alignItems="center"
                 gap="$2"
               >
-                <Icon
-                  name="XCircleOutline"
-                  size="$4"
-                  color="$iconCritical"
-                />
+                <Icon name="XCircleOutline" size="$4" color="$iconCritical" />
                 <SizableText size="$bodySm" color="$textCritical" flex={1}>
                   {error}
                 </SizableText>
@@ -189,11 +185,7 @@ export default function SettingDevLocalBundleList() {
 
             {bundles.length === 0 ? (
               <YStack py="$10" alignItems="center" gap="$2">
-                <Icon
-                  name="InboxOutline"
-                  size="$10"
-                  color="$iconDisabled"
-                />
+                <Icon name="InboxOutline" size="$10" color="$iconDisabled" />
                 <SizableText color="$textDisabled">
                   No bundles found on device
                 </SizableText>
