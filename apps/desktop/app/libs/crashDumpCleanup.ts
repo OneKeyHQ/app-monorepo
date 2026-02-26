@@ -82,7 +82,7 @@ async function performCleanup() {
   }
 }
 
-const CLEANUP_DELAY_MS = 10_000; // 10 seconds after app ready
+const CLEANUP_DELAY_MS = 60_000; // 60 seconds after app ready
 
 export function scheduleCrashDumpCleanup() {
   setTimeout(() => {
