@@ -166,7 +166,10 @@ function MarketTokenListBase({
   }, [clientSort, rawData, currentSortBy, currentSortType]);
 
   // Listen to MarketWatchlistOnlyChanged event to update sort settings
+  // Skip for clientSort mode — banner detail pages manage their own sort state
   useEffect(() => {
+    if (clientSort) return;
+
     const handleWatchlistOnlyChanged = (payload: {
       showWatchlistOnly: boolean;
     }) => {
@@ -192,7 +195,7 @@ function MarketTokenListBase({
         handleWatchlistOnlyChanged,
       );
     };
-  }, [setSortBy, setSortType, isWatchlistMode]);
+  }, [setSortBy, setSortType, isWatchlistMode, clientSort]);
 
   const handleSortChange = useCallback(
     (sortBy: string, sortType: 'asc' | 'desc' | undefined) => {
