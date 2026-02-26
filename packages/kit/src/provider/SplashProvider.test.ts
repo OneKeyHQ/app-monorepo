@@ -48,6 +48,7 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
       appUpdate: {
         startInstallPackage: jest.fn(),
         endInstallPackage: jest.fn(),
+        log: jest.fn(),
       },
     },
   },
@@ -632,6 +633,30 @@ describe('useDisplaySplash', () => {
       });
 
       expect(result.current).toBe(true);
+      jest.useRealTimers();
+    });
+  });
+
+  // ----- K. Cleanup: unmounting clears the safety timeout -----
+  describe('cleanup', () => {
+    test('unmounting clears the safety timeout', async () => {
+      jest.useFakeTimers();
+      // getUpdateInfo never resolves — only the safety timer can show splash
+      const { useDisplaySplash } = freshSplash();
+      svc.getUpdateInfo.mockReturnValue(new Promise(() => {}));
+
+      const { result, unmount } = renderHook(() => useDisplaySplash());
+      expect(result.current).toBe(false);
+
+      // Unmount before the 10s safety timer fires
+      unmount();
+
+      // Advance past 10s
+      await jest.advanceTimersByTimeAsync(15_000);
+
+      // Since we unmounted, the safety timer should have been cleared
+      // result.current is frozen at false (hook unmounted)
+      expect(result.current).toBe(false);
       jest.useRealTimers();
     });
   });

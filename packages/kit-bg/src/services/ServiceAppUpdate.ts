@@ -46,6 +46,9 @@ class ServiceAppUpdate extends ServiceBase {
     failedRecoveryTimerId = setTimeout(
       async () => {
         const appInfo = await appUpdatePersistAtom.get();
+        defaultLogger.app.appUpdate.log(
+          `Failed recovery timer fired, current status: ${appInfo.status}`,
+        );
         if (ServiceAppUpdate.FAILED_STATUSES.includes(appInfo.status)) {
           const isVerifyFailure =
             ServiceAppUpdate.VERIFY_FAILED_STATUSES.includes(appInfo.status);
@@ -144,6 +147,9 @@ class ServiceAppUpdate extends ServiceBase {
   async refreshUpdateStatus() {
     const appInfo = await appUpdatePersistAtom.get();
     if (isFirstLaunchAfterUpdated(appInfo)) {
+      defaultLogger.app.appUpdate.log(
+        'refreshUpdateStatus: first launch after updated, resetting to done',
+      );
       await appUpdatePersistAtom.set((prev) => ({
         ...prev,
         updateAt: 0,
@@ -157,6 +163,9 @@ class ServiceAppUpdate extends ServiceBase {
     } else if (ServiceAppUpdate.FAILED_STATUSES.includes(appInfo.status)) {
       // On app launch / foreground, reset failed states back to notify
       // so the user gets a fresh update prompt instead of a stale error.
+      defaultLogger.app.appUpdate.log(
+        `refreshUpdateStatus: resetting failed status ${appInfo.status} to notify`,
+      );
       const isVerifyFailure = ServiceAppUpdate.VERIFY_FAILED_STATUSES.includes(
         appInfo.status,
       );
@@ -224,6 +233,9 @@ class ServiceAppUpdate extends ServiceBase {
   public async downloadPackage() {
     const { status } = await appUpdatePersistAtom.get();
     if (!ServiceAppUpdate.DOWNLOAD_ENTRY_STATUSES.includes(status)) {
+      defaultLogger.app.appUpdate.log(
+        `downloadPackage: rejected, current status=${status}`,
+      );
       return;
     }
     clearTimeout(downloadTimeoutId);
@@ -256,6 +268,9 @@ class ServiceAppUpdate extends ServiceBase {
   public async downloadPackageFailed(e?: { message: string }) {
     const { status } = await appUpdatePersistAtom.get();
     if (status !== EAppUpdateStatus.downloadPackage) {
+      defaultLogger.app.appUpdate.log(
+        `downloadPackageFailed: rejected, current status=${status}`,
+      );
       return;
     }
     clearTimeout(downloadTimeoutId);
@@ -292,6 +307,9 @@ class ServiceAppUpdate extends ServiceBase {
   public async updateDownloadUrl(downloadUrl: string) {
     // Security: Validate HTTPS before storing download URL
     if (downloadUrl && !downloadUrl.startsWith('https://')) {
+      defaultLogger.app.appUpdate.log(
+        `updateDownloadUrl: non-HTTPS URL rejected: ${downloadUrl}`,
+      );
       defaultLogger.app.appUpdate.endInstallPackage(
         false,
         new Error('Download URL must use HTTPS'),
@@ -326,6 +344,9 @@ class ServiceAppUpdate extends ServiceBase {
       status !== EAppUpdateStatus.verifyASC &&
       status !== EAppUpdateStatus.verifyPackage
     ) {
+      defaultLogger.app.appUpdate.log(
+        `verifyPackage: rejected, current status=${status}`,
+      );
       return;
     }
     clearTimeout(downloadTimeoutId);
@@ -342,6 +363,9 @@ class ServiceAppUpdate extends ServiceBase {
       status !== EAppUpdateStatus.downloadASC &&
       status !== EAppUpdateStatus.verifyASC
     ) {
+      defaultLogger.app.appUpdate.log(
+        `verifyASC: rejected, current status=${status}`,
+      );
       return;
     }
     clearTimeout(downloadTimeoutId);
@@ -358,6 +382,9 @@ class ServiceAppUpdate extends ServiceBase {
       status !== EAppUpdateStatus.downloadPackage &&
       status !== EAppUpdateStatus.downloadASC
     ) {
+      defaultLogger.app.appUpdate.log(
+        `downloadASC: rejected, current status=${status}`,
+      );
       return;
     }
     clearTimeout(downloadTimeoutId);
@@ -371,6 +398,9 @@ class ServiceAppUpdate extends ServiceBase {
   public async verifyASCFailed(e?: { message: string }) {
     const { status } = await appUpdatePersistAtom.get();
     if (status !== EAppUpdateStatus.verifyASC) {
+      defaultLogger.app.appUpdate.log(
+        `verifyASCFailed: rejected, current status=${status}`,
+      );
       return;
     }
     let errorText =
@@ -394,6 +424,9 @@ class ServiceAppUpdate extends ServiceBase {
   public async verifyPackageFailed(e?: { message: string }) {
     const { status } = await appUpdatePersistAtom.get();
     if (status !== EAppUpdateStatus.verifyPackage) {
+      defaultLogger.app.appUpdate.log(
+        `verifyPackageFailed: rejected, current status=${status}`,
+      );
       return;
     }
     let errorText =
@@ -418,6 +451,9 @@ class ServiceAppUpdate extends ServiceBase {
   public async downloadASCFailed(e?: { message: string }) {
     const { status } = await appUpdatePersistAtom.get();
     if (status !== EAppUpdateStatus.downloadASC) {
+      defaultLogger.app.appUpdate.log(
+        `downloadASCFailed: rejected, current status=${status}`,
+      );
       return;
     }
     const statusNumber = e?.message ? Number(e.message) : undefined;
@@ -441,6 +477,9 @@ class ServiceAppUpdate extends ServiceBase {
       status !== EAppUpdateStatus.verifyPackage &&
       status !== EAppUpdateStatus.ready
     ) {
+      defaultLogger.app.appUpdate.log(
+        `readyToInstall: rejected, current status=${status}`,
+      );
       return;
     }
     clearTimeout(downloadTimeoutId);

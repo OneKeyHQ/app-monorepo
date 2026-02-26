@@ -119,4 +119,9 @@ export class AppUpdateScene extends BaseScene {
   ) {
     return { previousBuildNumber, currentBuildNumber };
   }
+
+  @LogToLocal({ level: 'info' })
+  public log(message: string) {
+    return message;
+  }
 }

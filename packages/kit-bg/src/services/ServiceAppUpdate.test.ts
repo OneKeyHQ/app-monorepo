@@ -137,6 +137,7 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
         fetchConfig: jest.fn(),
         endInstallPackage: jest.fn(),
         startInstallPackage: jest.fn(),
+        log: jest.fn(),
       },
       error: { log: jest.fn() },
       component: {},
@@ -2444,5 +2445,310 @@ describe('ServiceAppUpdate state transitions', () => {
         expect(atomValue.status).toBe(EAppUpdateStatus.updateIncomplete);
       }
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// State guard rejection tests — verify each method rejects calls from
+// unexpected states by returning early without changing the atom.
+// ---------------------------------------------------------------------------
+describe('ServiceAppUpdate state guard rejection', () => {
+  let service: ReturnType<typeof createService>;
+  beforeEach(() => {
+    jest.useFakeTimers();
+    resetAtom();
+    jest.clearAllMocks();
+    service = createService();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  // downloadPackage only allowed from: notify, done, downloadPackage, and failed states
+  test('downloadPackage from verifyASC → no change', async () => {
+    atomValue.status = EAppUpdateStatus.verifyASC;
+    await service.downloadPackage();
+    expect(atomValue.status).toBe(EAppUpdateStatus.verifyASC);
+  });
+
+  test('downloadPackage from ready → no change', async () => {
+    atomValue.status = EAppUpdateStatus.ready;
+    await service.downloadPackage();
+    expect(atomValue.status).toBe(EAppUpdateStatus.ready);
+  });
+
+  test('downloadPackage from verifyPackage → no change', async () => {
+    atomValue.status = EAppUpdateStatus.verifyPackage;
+    await service.downloadPackage();
+    expect(atomValue.status).toBe(EAppUpdateStatus.verifyPackage);
+  });
+
+  // downloadPackageFailed only from downloadPackage
+  test('downloadPackageFailed from notify → no change', async () => {
+    atomValue.status = EAppUpdateStatus.notify;
+    await service.downloadPackageFailed({ message: 'err' });
+    expect(atomValue.status).toBe(EAppUpdateStatus.notify);
+  });
+
+  test('downloadPackageFailed from verifyASC → no change', async () => {
+    atomValue.status = EAppUpdateStatus.verifyASC;
+    await service.downloadPackageFailed({ message: 'err' });
+    expect(atomValue.status).toBe(EAppUpdateStatus.verifyASC);
+  });
+
+  // verifyPackage only from verifyASC or verifyPackage
+  test('verifyPackage from notify → no change', async () => {
+    atomValue.status = EAppUpdateStatus.notify;
+    await service.verifyPackage();
+    expect(atomValue.status).toBe(EAppUpdateStatus.notify);
+  });
+
+  test('verifyPackage from downloadPackage → no change', async () => {
+    atomValue.status = EAppUpdateStatus.downloadPackage;
+    await service.verifyPackage();
+    expect(atomValue.status).toBe(EAppUpdateStatus.downloadPackage);
+  });
+
+  // verifyASC only from downloadASC or verifyASC
+  test('verifyASC from notify → no change', async () => {
+    atomValue.status = EAppUpdateStatus.notify;
+    await service.verifyASC();
+    expect(atomValue.status).toBe(EAppUpdateStatus.notify);
+  });
+
+  test('verifyASC from downloadPackage → no change', async () => {
+    atomValue.status = EAppUpdateStatus.downloadPackage;
+    await service.verifyASC();
+    expect(atomValue.status).toBe(EAppUpdateStatus.downloadPackage);
+  });
+
+  // downloadASC only from downloadPackage or downloadASC
+  test('downloadASC from notify → no change', async () => {
+    atomValue.status = EAppUpdateStatus.notify;
+    await service.downloadASC();
+    expect(atomValue.status).toBe(EAppUpdateStatus.notify);
+  });
+
+  test('downloadASC from verifyASC → no change', async () => {
+    atomValue.status = EAppUpdateStatus.verifyASC;
+    await service.downloadASC();
+    expect(atomValue.status).toBe(EAppUpdateStatus.verifyASC);
+  });
+
+  // verifyASCFailed only from verifyASC
+  test('verifyASCFailed from notify → no change', async () => {
+    atomValue.status = EAppUpdateStatus.notify;
+    await service.verifyASCFailed({ message: 'err' });
+    expect(atomValue.status).toBe(EAppUpdateStatus.notify);
+  });
+
+  test('verifyASCFailed from downloadASC → no change', async () => {
+    atomValue.status = EAppUpdateStatus.downloadASC;
+    await service.verifyASCFailed({ message: 'err' });
+    expect(atomValue.status).toBe(EAppUpdateStatus.downloadASC);
+  });
+
+  // verifyPackageFailed only from verifyPackage
+  test('verifyPackageFailed from notify → no change', async () => {
+    atomValue.status = EAppUpdateStatus.notify;
+    await service.verifyPackageFailed({ message: 'err' });
+    expect(atomValue.status).toBe(EAppUpdateStatus.notify);
+  });
+
+  test('verifyPackageFailed from downloadPackage → no change', async () => {
+    atomValue.status = EAppUpdateStatus.downloadPackage;
+    await service.verifyPackageFailed({ message: 'err' });
+    expect(atomValue.status).toBe(EAppUpdateStatus.downloadPackage);
+  });
+
+  // downloadASCFailed only from downloadASC
+  test('downloadASCFailed from notify → no change', async () => {
+    atomValue.status = EAppUpdateStatus.notify;
+    await service.downloadASCFailed({ message: 'err' });
+    expect(atomValue.status).toBe(EAppUpdateStatus.notify);
+  });
+
+  test('downloadASCFailed from downloadPackage → no change', async () => {
+    atomValue.status = EAppUpdateStatus.downloadPackage;
+    await service.downloadASCFailed({ message: 'err' });
+    expect(atomValue.status).toBe(EAppUpdateStatus.downloadPackage);
+  });
+
+  // readyToInstall only from verifyPackage or ready
+  test('readyToInstall from notify → no change', async () => {
+    atomValue.status = EAppUpdateStatus.notify;
+    await service.readyToInstall();
+    expect(atomValue.status).toBe(EAppUpdateStatus.notify);
+  });
+
+  test('readyToInstall from downloadPackage → no change', async () => {
+    atomValue.status = EAppUpdateStatus.downloadPackage;
+    await service.readyToInstall();
+    expect(atomValue.status).toBe(EAppUpdateStatus.downloadPackage);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Failed recovery timer — verifies the 2-hour auto-recovery behavior
+// ---------------------------------------------------------------------------
+describe('ServiceAppUpdate failedRecoveryTimer', () => {
+  let service: ReturnType<typeof createService>;
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    resetAtom();
+    jest.clearAllMocks();
+    service = createService();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  test('downloadPackageFailed: 2h later → resets to notify, preserves downloadedEvent', async () => {
+    atomValue.status = EAppUpdateStatus.downloadPackage;
+    atomValue.downloadedEvent = { downloadedFile: '/tmp/f', downloadUrl: 'https://x' } as any;
+    await service.downloadPackageFailed({ message: 'timeout' });
+    expect(atomValue.status).toBe(EAppUpdateStatus.downloadPackageFailed);
+
+    await jest.advanceTimersByTimeAsync(7_200_000);
+    expect(atomValue.status).toBe(EAppUpdateStatus.notify);
+    expect(atomValue.downloadedEvent).toBeDefined();
+  });
+
+  test('verifyASCFailed: 2h later → resets to notify, clears downloadedEvent', async () => {
+    atomValue.status = EAppUpdateStatus.verifyASC;
+    atomValue.downloadedEvent = { downloadedFile: '/tmp/f' } as any;
+    await service.verifyASCFailed({ message: 'bad sig' });
+    expect(atomValue.status).toBe(EAppUpdateStatus.verifyASCFailed);
+
+    await jest.advanceTimersByTimeAsync(7_200_000);
+    expect(atomValue.status).toBe(EAppUpdateStatus.notify);
+    expect(atomValue.downloadedEvent).toBeUndefined();
+  });
+
+  test('verifyPackageFailed: 2h later → resets to notify, clears downloadedEvent', async () => {
+    atomValue.status = EAppUpdateStatus.verifyPackage;
+    atomValue.downloadedEvent = { downloadedFile: '/tmp/f' } as any;
+    await service.verifyPackageFailed({ message: 'bad pkg' });
+    expect(atomValue.status).toBe(EAppUpdateStatus.verifyPackageFailed);
+
+    await jest.advanceTimersByTimeAsync(7_200_000);
+    expect(atomValue.status).toBe(EAppUpdateStatus.notify);
+    expect(atomValue.downloadedEvent).toBeUndefined();
+  });
+
+  test('timer fires but status already recovered → no change', async () => {
+    atomValue.status = EAppUpdateStatus.downloadPackage;
+    await service.downloadPackageFailed({ message: 'err' });
+    // Manually recover status before timer fires
+    atomValue.status = EAppUpdateStatus.done;
+    atomValue.errorText = undefined;
+
+    await jest.advanceTimersByTimeAsync(7_200_000);
+    expect(atomValue.status).toBe(EAppUpdateStatus.done);
+  });
+
+  test('downloadPackage call clears recovery timer', async () => {
+    resetAtom({ status: EAppUpdateStatus.downloadPackage, latestVersion: '2.0.0' });
+    await service.downloadPackageFailed({ message: 'err' });
+    expect(atomValue.status).toBe(EAppUpdateStatus.downloadPackageFailed);
+
+    // Start new download (from failed state, which is allowed)
+    // Walk through the full state chain so the 30-min download timeout is also cleared
+    await service.downloadPackage();
+    await service.downloadASC();
+    await service.verifyASC();
+    await service.verifyPackage();
+    await service.readyToInstall();
+    expect(atomValue.status).toBe(EAppUpdateStatus.ready);
+
+    // Advance past 2h — should NOT reset to notify because recovery timer was cleared
+    await jest.advanceTimersByTimeAsync(7_200_000);
+    expect(atomValue.status).toBe(EAppUpdateStatus.ready);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// refreshUpdateStatus: all failed state branches
+// ---------------------------------------------------------------------------
+describe('ServiceAppUpdate refreshUpdateStatus failed branches', () => {
+  let service: ReturnType<typeof createService>;
+  beforeEach(() => {
+    jest.useFakeTimers();
+    resetAtom();
+    jest.clearAllMocks();
+    service = createService();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  test('downloadPackageFailed → notify, preserves downloadedEvent', async () => {
+    resetAtom({
+      status: EAppUpdateStatus.downloadPackageFailed,
+      latestVersion: '2.0.0',
+      errorText: 'some error' as any,
+      downloadedEvent: { downloadedFile: '/tmp/f' },
+    });
+    await service.refreshUpdateStatus();
+    expect(atomValue.status).toBe(EAppUpdateStatus.notify);
+    expect(atomValue.errorText).toBeUndefined();
+    expect(atomValue.downloadedEvent).toBeDefined();
+  });
+
+  test('downloadASCFailed → notify, preserves downloadedEvent', async () => {
+    resetAtom({
+      status: EAppUpdateStatus.downloadASCFailed,
+      latestVersion: '2.0.0',
+      downloadedEvent: { downloadedFile: '/tmp/f' },
+    });
+    await service.refreshUpdateStatus();
+    expect(atomValue.status).toBe(EAppUpdateStatus.notify);
+    expect(atomValue.downloadedEvent).toBeDefined();
+  });
+
+  test('verifyASCFailed → notify, clears downloadedEvent', async () => {
+    resetAtom({
+      status: EAppUpdateStatus.verifyASCFailed,
+      latestVersion: '2.0.0',
+      downloadedEvent: { downloadedFile: '/tmp/f' },
+    });
+    await service.refreshUpdateStatus();
+    expect(atomValue.status).toBe(EAppUpdateStatus.notify);
+    expect(atomValue.downloadedEvent).toBeUndefined();
+  });
+
+  test('verifyPackageFailed → notify, clears downloadedEvent', async () => {
+    resetAtom({
+      status: EAppUpdateStatus.verifyPackageFailed,
+      latestVersion: '2.0.0',
+      downloadedEvent: { downloadedFile: '/tmp/f' },
+    });
+    await service.refreshUpdateStatus();
+    expect(atomValue.status).toBe(EAppUpdateStatus.notify);
+    expect(atomValue.downloadedEvent).toBeUndefined();
+  });
+
+  test('notify status (non-failed) → no change', async () => {
+    resetAtom({
+      status: EAppUpdateStatus.notify,
+      latestVersion: '2.0.0',
+      errorText: 'old error' as any,
+    });
+    await service.refreshUpdateStatus();
+    expect(atomValue.status).toBe(EAppUpdateStatus.notify);
+    expect(atomValue.errorText).toBe('old error');
+  });
+
+  test('downloadPackage status → no change', async () => {
+    resetAtom({
+      status: EAppUpdateStatus.downloadPackage,
+      latestVersion: '2.0.0',
+    });
+    await service.refreshUpdateStatus();
+    expect(atomValue.status).toBe(EAppUpdateStatus.downloadPackage);
   });
 });

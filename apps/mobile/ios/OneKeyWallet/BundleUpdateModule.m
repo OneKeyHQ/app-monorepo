@@ -306,20 +306,29 @@ RCT_EXPORT_MODULE();
         // Get expected SHA256 from metadata
         NSString *expectedSHA256 = metadata[relativePath];
         if (!expectedSHA256) {
-            DDLogDebug(@"File %@ not found in metadata", relativePath);
+            DDLogError(@"[bundle-verify] File on disk not found in metadata: %@", relativePath);
             return NO;
         }
 
         // Calculate actual SHA256
         NSString *actualSHA256 = [BundleUpdateModule calculateSHA256:fullPath];
         if (!actualSHA256) {
-            DDLogDebug(@"Failed to calculate SHA256 for file %@", relativePath);
+            DDLogError(@"[bundle-verify] Failed to calculate SHA256 for file: %@", relativePath);
             return NO;
         }
 
         // Compare SHA256 values
         if (![expectedSHA256 isEqualToString:actualSHA256]) {
-            DDLogDebug(@"SHA256 mismatch for file %@. Expected: %@, Actual: %@", relativePath, expectedSHA256, actualSHA256);
+            DDLogError(@"[bundle-verify] SHA256 mismatch for %@: expected=%@, actual=%@", relativePath, expectedSHA256, actualSHA256);
+            return NO;
+        }
+    }
+
+    // Security: Verify completeness — every file in metadata must exist on disk
+    for (NSString *key in metadata) {
+        NSString *expectedFilePath = [jsBundleDir stringByAppendingPathComponent:key];
+        if (![fileManager fileExistsAtPath:expectedFilePath]) {
+            DDLogError(@"[bundle-verify] File listed in metadata but missing on disk: %@", key);
             return NO;
         }
     }

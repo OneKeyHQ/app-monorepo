@@ -362,7 +362,20 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         String folderName = appVersion + "-" + bundleVersion;
         String jsBundleDir = new File(parentBundleDir, folderName).getAbsolutePath() + "/";
 
-        return validateFilesRecursive(dir, metadata, jsBundleDir);
+        if (!validateFilesRecursive(dir, metadata, jsBundleDir)) {
+            return false;
+        }
+
+        // Security: Verify completeness — every file in metadata must exist on disk
+        for (Map.Entry<String, String> entry : metadata.entrySet()) {
+            File expectedFile = new File(jsBundleDir + entry.getKey());
+            if (!expectedFile.exists()) {
+                staticLog("bundle-verify", "File listed in metadata but missing on disk: " + entry.getKey());
+                return false;
+            }
+        }
+
+        return true;
     }
 
     public static String readMetadataFileSha256(Context context, String signature) {
@@ -413,18 +426,18 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
 
                 String expectedSHA256 = metadata.get(relativePath);
                 if (expectedSHA256 == null) {
-                    staticLog(TAG, "File " + relativePath + " not found in metadata");
+                    staticLog("bundle-verify", "File on disk not found in metadata: " + relativePath);
                     return false;
                 }
 
                 String actualSHA256 = calculateSHA256(file.getAbsolutePath());
                 if (actualSHA256 == null) {
-                    staticLog(TAG, "Failed to calculate SHA256 for file " + relativePath);
+                    staticLog("bundle-verify", "Failed to calculate SHA256 for file: " + relativePath);
                     return false;
                 }
 
                 if (!expectedSHA256.equals(actualSHA256)) {
-                    staticLog(TAG, "SHA256 mismatch for file " + relativePath + ". Expected: " + expectedSHA256 + ", Actual: " + actualSHA256);
+                    staticLog("bundle-verify", "SHA256 mismatch for " + relativePath + ": expected=" + expectedSHA256 + ", actual=" + actualSHA256);
                     return false;
                 }
             }
@@ -819,9 +832,9 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
                 sendEvent("update/complete", null);
                 log("downloadBundle", "Download completed");
                 clearDownloadTask();
+                promise.resolve(result);
             }
         });
-        promise.resolve(result);
     }
 
     @ReactMethod
@@ -857,10 +870,17 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
             }
         }
 
+        // Security: Verify bundle directory exists before updating SharedPreferences
+        File bundleDirPath = new File(getBundleDir(reactContext), folderName);
+        if (!bundleDirPath.exists()) {
+            promise.reject("INVALID_PARAMS", "Bundle directory not found: " + folderName);
+            return;
+        }
+
         SharedPreferences readPrefs = reactContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         log("installBundle", "currentFolderName: " + currentFolderName);
-        String currentSignature = currentFolderName != null 
-            ? readPrefs.getString(currentFolderName, "") 
+        String currentSignature = currentFolderName != null
+            ? readPrefs.getString(currentFolderName, "")
             : "";
         setCurrentBundleVersionAndSignature(reactContext, folderName, signature);
         String nativeVersion = getAppVersion(reactContext);

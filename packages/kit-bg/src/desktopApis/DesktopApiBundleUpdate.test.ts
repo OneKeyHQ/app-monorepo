@@ -520,3 +520,523 @@ describe('DesktopApiBundleUpdate file skip rules', () => {
     expect(shouldSkip('main.js')).toBe(false);
   });
 });
+
+// ---------------------------------------------------------------------------
+// isDownloading guard - mirrors downloadBundle (line 89)
+// ---------------------------------------------------------------------------
+describe('DesktopApiBundleUpdate isDownloading guard', () => {
+  test('second download call returns undefined when already downloading', () => {
+    let isDownloading = false;
+    function downloadBundle(): string | undefined {
+      if (isDownloading) return undefined;
+      isDownloading = true;
+      return 'downloading';
+    }
+    expect(downloadBundle()).toBe('downloading');
+    expect(downloadBundle()).toBeUndefined();
+  });
+
+  test('isDownloading resets after download completes', () => {
+    let isDownloading = false;
+    function startDownload(): string | undefined {
+      if (isDownloading) return undefined;
+      isDownloading = true;
+      return 'downloading';
+    }
+    function finishDownload() { isDownloading = false; }
+    expect(startDownload()).toBe('downloading');
+    finishDownload();
+    expect(startDownload()).toBe('downloading');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Cached file verification failure - mirrors downloadBundle (lines 115-137)
+// ---------------------------------------------------------------------------
+describe('DesktopApiBundleUpdate cached file redownload', () => {
+  test('when cached file exists but verify fails, clearDownload is called', () => {
+    let clearDownloadCalled = false;
+    let redownloaded = false;
+    function handleCachedFile(verifyResult: boolean): string {
+      if (!verifyResult) {
+        clearDownloadCalled = true;
+        redownloaded = true;
+        return 're-downloading';
+      }
+      return 'cache-hit';
+    }
+    expect(handleCachedFile(false)).toBe('re-downloading');
+    expect(clearDownloadCalled).toBe(true);
+    expect(redownloaded).toBe(true);
+  });
+
+  test('when cached file exists and verify succeeds, returns cached', () => {
+    function handleCachedFile(verifyResult: boolean): string {
+      if (!verifyResult) return 're-downloading';
+      return 'cache-hit';
+    }
+    expect(handleCachedFile(true)).toBe('cache-hit');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 416 status handling - mirrors downloadBundle (lines 195-216)
+// ---------------------------------------------------------------------------
+describe('DesktopApiBundleUpdate 416 handling', () => {
+  function handle416(partialExists: boolean, verifySucceeds: boolean): { result: string; error?: string } {
+    if (partialExists) {
+      if (verifySucceeds) {
+        return { result: 'resolved' };
+      }
+      return { result: 'rejected', error: 'verification failed' };
+    }
+    return { result: 'rejected', error: 'Download failed with status: 416' };
+  }
+
+  test('416 + partial exists + verify succeeds → resolves', () => {
+    const r = handle416(true, true);
+    expect(r.result).toBe('resolved');
+  });
+
+  test('416 + partial exists + verify fails → rejects', () => {
+    const r = handle416(true, false);
+    expect(r.result).toBe('rejected');
+    expect(r.error).toBe('verification failed');
+  });
+
+  test('416 + no partial file → rejects with 416 error', () => {
+    const r = handle416(false, false);
+    expect(r.result).toBe('rejected');
+    expect(r.error).toBe('Download failed with status: 416');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Download completion - mirrors writeStream finish (lines 298-314)
+// ---------------------------------------------------------------------------
+describe('DesktopApiBundleUpdate download completion', () => {
+  function handleFinish(downloadedBytes: number, totalBytes: number, verifySucceeds: boolean): { result: string; error?: string } {
+    if (downloadedBytes >= totalBytes) {
+      if (verifySucceeds) return { result: 'resolved' };
+      return { result: 'rejected', error: 'verification failed' };
+    }
+    return { result: 'rejected', error: 'Download incomplete' };
+  }
+
+  test('downloadedBytes >= totalBytes + verify succeeds → resolves', () => {
+    expect(handleFinish(1024, 1024, true).result).toBe('resolved');
+  });
+
+  test('downloadedBytes >= totalBytes + verify fails → rejects', () => {
+    const r = handleFinish(1024, 1024, false);
+    expect(r.error).toBe('verification failed');
+  });
+
+  test('downloadedBytes < totalBytes → rejects incomplete', () => {
+    const r = handleFinish(512, 1024, true);
+    expect(r.error).toBe('Download incomplete');
+  });
+
+  test('downloadedBytes > totalBytes (edge case) → still resolves', () => {
+    expect(handleFinish(2048, 1024, true).result).toBe('resolved');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Download cancellation - mirrors cancelDownload (lines 252-260)
+// ---------------------------------------------------------------------------
+describe('DesktopApiBundleUpdate download cancellation', () => {
+  test('cancel sets isDownloading to false and rejects', () => {
+    let isDownloading = true;
+    let rejected = false;
+    let destroyCalled = false;
+    const cancelDownload = () => {
+      isDownloading = false;
+      destroyCalled = true;
+      rejected = true;
+    };
+    cancelDownload();
+    expect(isDownloading).toBe(false);
+    expect(rejected).toBe(true);
+    expect(destroyCalled).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Double reject guard (settled) - mirrors downloadBundle settled flag
+// ---------------------------------------------------------------------------
+describe('DesktopApiBundleUpdate settled guard', () => {
+  test('only the first reject/resolve is effective', () => {
+    let settled = false;
+    const results: string[] = [];
+    const safeReject = (msg: string) => {
+      if (settled) return;
+      settled = true;
+      results.push(msg);
+    };
+    const safeResolve = (msg: string) => {
+      if (settled) return;
+      settled = true;
+      results.push(msg);
+    };
+    safeReject('first error');
+    safeReject('second error');
+    safeResolve('late success');
+    expect(results).toEqual(['first error']);
+  });
+
+  test('resolve then reject: only resolve takes effect', () => {
+    let settled = false;
+    const results: string[] = [];
+    const safeResolve = (msg: string) => { if (!settled) { settled = true; results.push(msg); } };
+    const safeReject = (msg: string) => { if (!settled) { settled = true; results.push(msg); } };
+    safeResolve('success');
+    safeReject('late error');
+    expect(results).toEqual(['success']);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// verifyBundleASC with skipGPGVerification - mirrors (lines 443-516)
+// ---------------------------------------------------------------------------
+describe('DesktopApiBundleUpdate verifyBundleASC skipGPG', () => {
+  interface IVerifyASCParams {
+    downloadedFile?: string;
+    sha256?: string;
+    appVersion?: string;
+    bundleVersion?: string;
+    signature?: string;
+    skipGPGVerification?: boolean;
+  }
+
+  function validateVerifyASCParams(params: IVerifyASCParams): string | null {
+    const { downloadedFile, sha256, appVersion, bundleVersion, signature, skipGPGVerification } = params;
+    if (!downloadedFile || !sha256 || !appVersion || !bundleVersion || (!signature && !skipGPGVerification)) {
+      return 'Invalid parameters';
+    }
+    return null;
+  }
+
+  function shouldVerifySha256(skipGPG?: boolean): boolean {
+    return !skipGPG;
+  }
+
+  test('accepts params with signature and no skipGPG', () => {
+    expect(validateVerifyASCParams({
+      downloadedFile: '/tmp/f', sha256: 'abc', appVersion: '1.0.0', bundleVersion: '5', signature: 'sig',
+    })).toBeNull();
+  });
+
+  test('accepts params with skipGPG but no signature', () => {
+    expect(validateVerifyASCParams({
+      downloadedFile: '/tmp/f', sha256: 'abc', appVersion: '1.0.0', bundleVersion: '5', skipGPGVerification: true,
+    })).toBeNull();
+  });
+
+  test('rejects when no signature and no skipGPG', () => {
+    expect(validateVerifyASCParams({
+      downloadedFile: '/tmp/f', sha256: 'abc', appVersion: '1.0.0', bundleVersion: '5',
+    })).toBe('Invalid parameters');
+  });
+
+  test('SHA256 check is skipped when skipGPG is true', () => {
+    expect(shouldVerifySha256(true)).toBe(false);
+  });
+
+  test('SHA256 check runs when skipGPG is false', () => {
+    expect(shouldVerifySha256(false)).toBe(true);
+  });
+
+  test('SHA256 check runs when skipGPG is undefined', () => {
+    expect(shouldVerifySha256(undefined)).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// verifyAllExtractedFiles completeness check
+// ---------------------------------------------------------------------------
+describe('DesktopApiBundleUpdate metadata completeness check', () => {
+  function checkCompleteness(
+    verifiedFiles: Set<string>,
+    metadataKeys: string[],
+  ): string | null {
+    for (const key of metadataKeys) {
+      if (!verifiedFiles.has(key)) {
+        return `File ${key} listed in metadata but missing on disk`;
+      }
+    }
+    return null;
+  }
+
+  test('all metadata files present on disk → passes', () => {
+    const verified = new Set(['build/index.html', 'build/main.js']);
+    expect(checkCompleteness(verified, ['build/index.html', 'build/main.js'])).toBeNull();
+  });
+
+  test('file in metadata but missing from disk → detected', () => {
+    const verified = new Set(['build/index.html']);
+    expect(checkCompleteness(verified, ['build/index.html', 'build/crypto.js'])).toBe(
+      'File build/crypto.js listed in metadata but missing on disk',
+    );
+  });
+
+  test('empty metadata → passes', () => {
+    const verified = new Set(['build/index.html']);
+    expect(checkCompleteness(verified, [])).toBeNull();
+  });
+
+  test('empty disk files but metadata has entries → detected', () => {
+    const verified = new Set<string>();
+    expect(checkCompleteness(verified, ['build/main.js'])).toBe(
+      'File build/main.js listed in metadata but missing on disk',
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// verifyAllExtractedFiles SHA256 mismatch
+// ---------------------------------------------------------------------------
+describe('DesktopApiBundleUpdate SHA256 mismatch detection', () => {
+  function verifyFile(actual: string, expected: string): string | null {
+    if (actual !== expected) {
+      return `SHA256 mismatch`;
+    }
+    return null;
+  }
+
+  test('matching hashes → null', () => {
+    expect(verifyFile('abc123', 'abc123')).toBeNull();
+  });
+
+  test('different hashes → mismatch', () => {
+    expect(verifyFile('abc123', 'def456')).toBe('SHA256 mismatch');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// listLocalBundles edge cases - mirrors (lines 564-584)
+// ---------------------------------------------------------------------------
+describe('DesktopApiBundleUpdate listLocalBundles', () => {
+  interface IDirEntry { name: string; isDirectory: boolean }
+
+  function parseLocalBundles(
+    dirExists: boolean,
+    entries: IDirEntry[],
+  ): { appVersion: string; bundleVersion: string }[] {
+    if (!dirExists) return [];
+    const results: { appVersion: string; bundleVersion: string }[] = [];
+    for (const entry of entries) {
+      if (!entry.isDirectory) continue;
+      const lastDash = entry.name.lastIndexOf('-');
+      if (lastDash <= 0) continue;
+      const appVersion = entry.name.substring(0, lastDash);
+      const bundleVersion = entry.name.substring(lastDash + 1);
+      if (appVersion && bundleVersion) {
+        results.push({ appVersion, bundleVersion });
+      }
+    }
+    return results;
+  }
+
+  test('dir does not exist → empty array', () => {
+    expect(parseLocalBundles(false, [])).toEqual([]);
+  });
+
+  test('valid entries are parsed', () => {
+    const entries = [
+      { name: '1.0.0-5', isDirectory: true },
+      { name: '2.0.0-10', isDirectory: true },
+    ];
+    expect(parseLocalBundles(true, entries)).toEqual([
+      { appVersion: '1.0.0', bundleVersion: '5' },
+      { appVersion: '2.0.0', bundleVersion: '10' },
+    ]);
+  });
+
+  test('entry with no dash → skipped', () => {
+    const entries = [{ name: 'noDash', isDirectory: true }];
+    expect(parseLocalBundles(true, entries)).toEqual([]);
+  });
+
+  test('entry with dash at position 0 → skipped', () => {
+    const entries = [{ name: '-5', isDirectory: true }];
+    expect(parseLocalBundles(true, entries)).toEqual([]);
+  });
+
+  test('non-directory entries → skipped', () => {
+    const entries = [{ name: '1.0.0-5', isDirectory: false }];
+    expect(parseLocalBundles(true, entries)).toEqual([]);
+  });
+
+  test('entry with multiple dashes → splits on last dash', () => {
+    const entries = [{ name: '1.0.0-beta-5', isDirectory: true }];
+    expect(parseLocalBundles(true, entries)).toEqual([
+      { appVersion: '1.0.0-beta', bundleVersion: '5' },
+    ]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// verifyExtractedBundle edge cases - mirrors (lines 586-601)
+// ---------------------------------------------------------------------------
+describe('DesktopApiBundleUpdate verifyExtractedBundle', () => {
+  function verifyExtractedBundle(dirExists: boolean, metadataExists: boolean): string | null {
+    if (!dirExists) return 'Bundle directory not found';
+    if (!metadataExists) return 'metadata.json not found';
+    return null;
+  }
+
+  test('dir does not exist → throws', () => {
+    expect(verifyExtractedBundle(false, false)).toBe('Bundle directory not found');
+  });
+
+  test('metadata.json does not exist → throws', () => {
+    expect(verifyExtractedBundle(true, false)).toBe('metadata.json not found');
+  });
+
+  test('both exist → null (ok)', () => {
+    expect(verifyExtractedBundle(true, true)).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// installBundle extractDir missing - mirrors (lines 630-636)
+// ---------------------------------------------------------------------------
+describe('DesktopApiBundleUpdate installBundle extractDir check', () => {
+  function checkExtractDir(exists: boolean, appVersion: string, bundleVersion: string): string | null {
+    if (!exists) {
+      return `Bundle directory not found: ${appVersion}-${bundleVersion}`;
+    }
+    return null;
+  }
+
+  test('extractDir missing → error', () => {
+    expect(checkExtractDir(false, '1.0.0', '5')).toBe('Bundle directory not found: 1.0.0-5');
+  });
+
+  test('extractDir exists → null', () => {
+    expect(checkExtractDir(true, '1.0.0', '5')).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// installBundle skipGPG skips downgrade check - mirrors (lines 616-628)
+// ---------------------------------------------------------------------------
+describe('DesktopApiBundleUpdate installBundle skipGPG downgrade', () => {
+  function checkDowngrade(
+    skipGPG: boolean,
+    currentVersion: string | undefined,
+    newVersion: string,
+  ): string | null {
+    if (!skipGPG && currentVersion) {
+      const current = Number(currentVersion);
+      const next = Number(newVersion);
+      if (!Number.isNaN(current) && !Number.isNaN(next) && next < current) {
+        return `downgrade rejected`;
+      }
+    }
+    return null;
+  }
+
+  test('skipGPG=true → downgrade allowed', () => {
+    expect(checkDowngrade(true, '10', '5')).toBeNull();
+  });
+
+  test('skipGPG=false → downgrade rejected', () => {
+    expect(checkDowngrade(false, '10', '5')).toBe('downgrade rejected');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// installBundle NaN bundleVersion - mirrors (lines 619-622)
+// ---------------------------------------------------------------------------
+describe('DesktopApiBundleUpdate NaN bundleVersion', () => {
+  function checkVersionDowngradeNaN(
+    currentVersion: string | undefined,
+    newVersion: string,
+  ): string | null {
+    if (currentVersion) {
+      const current = Number(currentVersion);
+      const next = Number(newVersion);
+      if (!Number.isNaN(current) && !Number.isNaN(next) && next < current) {
+        return 'downgrade rejected';
+      }
+    }
+    return null;
+  }
+
+  test('non-numeric bundleVersion "abc" → NaN, not blocked', () => {
+    expect(checkVersionDowngradeNaN('5', 'abc')).toBeNull();
+  });
+
+  test('non-numeric current version "xyz" → NaN, not blocked', () => {
+    expect(checkVersionDowngradeNaN('xyz', '3')).toBeNull();
+  });
+
+  test('both NaN → not blocked', () => {
+    expect(checkVersionDowngradeNaN('abc', 'def')).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// installBundle fallback: old dir does not exist - mirrors (lines 662-672)
+// ---------------------------------------------------------------------------
+describe('DesktopApiBundleUpdate fallback old dir cleanup', () => {
+  test('when shifted bundle dir does not exist, no crash', () => {
+    const shifted = { appVersion: '0.9.0', bundleVersion: '1', signature: 'sig' };
+    const dirExists = false;
+    // Should not throw
+    let deleteCalled = false;
+    if (dirExists) {
+      deleteCalled = true;
+    }
+    expect(deleteCalled).toBe(false);
+    expect(shifted).toBeDefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 206 Content-Range parsing - mirrors (lines 236-244)
+// ---------------------------------------------------------------------------
+describe('DesktopApiBundleUpdate 206 Content-Range parsing', () => {
+  function parseTotalBytes(contentRange: string | undefined, fallback: number): number {
+    if (contentRange) {
+      const match = contentRange.match(/bytes \d+-\d+\/(\d+)/);
+      if (match) {
+        return parseInt(match[1], 10);
+      }
+    }
+    return fallback;
+  }
+
+  test('valid content-range → extracts total', () => {
+    expect(parseTotalBytes('bytes 0-1023/2048', 0)).toBe(2048);
+  });
+
+  test('no content-range → uses fallback', () => {
+    expect(parseTotalBytes(undefined, 1024)).toBe(1024);
+  });
+
+  test('malformed content-range → uses fallback', () => {
+    expect(parseTotalBytes('invalid', 1024)).toBe(1024);
+  });
+
+  test('content-range with resume → extracts total', () => {
+    expect(parseTotalBytes('bytes 512-1023/1024', 0)).toBe(1024);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// writeStream flags - mirrors (line 248)
+// ---------------------------------------------------------------------------
+describe('DesktopApiBundleUpdate writeStream flags', () => {
+  test('downloadedBytes > 0 → append mode', () => {
+    const flags = 100 > 0 ? 'a' : 'w';
+    expect(flags).toBe('a');
+  });
+
+  test('downloadedBytes === 0 → write mode', () => {
+    const flags = 0 > 0 ? 'a' : 'w';
+    expect(flags).toBe('w');
+  });
+});

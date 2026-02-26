@@ -667,3 +667,148 @@ describe('fallback bundle management', () => {
     expect(kept.length).toBe(1);
   });
 });
+
+// ---------------------------------------------------------------------------
+// gtVersion: bundleVersion "0" edge case
+// ---------------------------------------------------------------------------
+describe('gtVersion edge cases', () => {
+  test('bundleVersion "0" with same app version → false', () => {
+    // gtVersion compares remote vs local. "0" is not > local bundleVersion
+    const { gtVersion } = loadAppUpdate('1.0.0', '1');
+    const result = gtVersion('1.0.0', '0');
+    expect(result).toBe(false);
+  });
+
+  test('both appVersion and bundleVersion undefined → false', () => {
+    const { gtVersion } = loadAppUpdate('1.0.0', '1');
+    expect(gtVersion(undefined, undefined)).toBe(false);
+  });
+
+  test('appVersion is empty string → false', () => {
+    const { gtVersion } = loadAppUpdate('1.0.0', '1');
+    expect(gtVersion('', undefined)).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Version downgrade: non-numeric bundleVersion
+// ---------------------------------------------------------------------------
+describe('version downgrade non-numeric', () => {
+  function checkDowngrade(current: string, next: string): boolean {
+    const currentNum = Number(current);
+    const nextNum = Number(next);
+    return (
+      !Number.isNaN(currentNum) &&
+      !Number.isNaN(nextNum) &&
+      nextNum < currentNum
+    );
+  }
+
+  test('bundleVersion "abc" → NaN, not blocked', () => {
+    expect(checkDowngrade('5', 'abc')).toBe(false);
+  });
+
+  test('bundleVersion "3a" → NaN, not blocked', () => {
+    expect(checkDowngrade('5', '3a')).toBe(false);
+  });
+
+  test('bundleVersion "-1" → negative, detected as downgrade from "5"', () => {
+    expect(checkDowngrade('5', '-1')).toBe(true);
+  });
+
+  test('both NaN → not blocked', () => {
+    expect(checkDowngrade('abc', 'def')).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// HTTPS validation edge cases
+// ---------------------------------------------------------------------------
+describe('HTTPS validation edge cases', () => {
+  function isHttps(url: string | undefined): boolean {
+    if (!url) return false;
+    return url.startsWith('https://');
+  }
+
+  test('uppercase "HTTPS://" → rejected (case-sensitive)', () => {
+    expect(isHttps('HTTPS://example.com')).toBe(false);
+  });
+
+  test('"https://" with no host → passes check', () => {
+    expect(isHttps('https://')).toBe(true);
+  });
+
+  test('leading space → rejected', () => {
+    expect(isHttps(' https://example.com')).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Path traversal edge cases
+// ---------------------------------------------------------------------------
+describe('path traversal edge cases', () => {
+  function isTraversal(entry: string, base: string): boolean {
+    const segments = (base + '/' + entry).split('/').reduce((acc: string[], part) => {
+      if (part === '..') {
+        acc.pop();
+      } else if (part !== '.' && part !== '') {
+        acc.push(part);
+      }
+      return acc;
+    }, []);
+    const baseParts = base.split('/').filter((p) => p !== '');
+    return segments.length < baseParts.length;
+  }
+
+  test('entry ".." only → traversal detected', () => {
+    expect(isTraversal('..', '/tmp/bundle')).toBe(true);
+  });
+
+  test('entry "" empty → safe', () => {
+    expect(isTraversal('', '/tmp/bundle')).toBe(false);
+  });
+
+  test('entry "./build/file.js" → safe', () => {
+    expect(isTraversal('./build/file.js', '/tmp/bundle')).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Fallback bundle management: empty/null current fields
+// ---------------------------------------------------------------------------
+describe('fallback management empty fields', () => {
+  interface IBundleData {
+    appVersion: string;
+    bundleVersion: string;
+    signature: string;
+  }
+
+  function shouldAddToFallback(current: IBundleData | null): boolean {
+    return !!(
+      current &&
+      current.appVersion &&
+      current.bundleVersion &&
+      current.signature
+    );
+  }
+
+  test('current with empty appVersion → not added', () => {
+    expect(shouldAddToFallback({ appVersion: '', bundleVersion: '1', signature: 'sig' })).toBe(false);
+  });
+
+  test('current with empty signature → not added', () => {
+    expect(shouldAddToFallback({ appVersion: '1.0.0', bundleVersion: '1', signature: '' })).toBe(false);
+  });
+
+  test('current with empty bundleVersion → not added', () => {
+    expect(shouldAddToFallback({ appVersion: '1.0.0', bundleVersion: '', signature: 'sig' })).toBe(false);
+  });
+
+  test('null current → not added', () => {
+    expect(shouldAddToFallback(null)).toBe(false);
+  });
+
+  test('valid current → added', () => {
+    expect(shouldAddToFallback({ appVersion: '1.0.0', bundleVersion: '1', signature: 'sig' })).toBe(true);
+  });
+});

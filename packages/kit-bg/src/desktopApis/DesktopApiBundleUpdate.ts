@@ -87,14 +87,23 @@ class DesktopApiAppBundleUpdate {
     sha256,
   }: IDownloadPackageParams): Promise<IUpdateDownloadedEvent> {
     if (this.isDownloading) {
+      logger.info('bundle-download', 'Download already in progress, skipping');
       return;
     }
     clearWindowProgressBar(this.getMainWindow());
     if (!appVersion || !bundleVersion || !bundleUrl || !fileSize || !sha256) {
+      logger.error('bundle-download', 'Invalid parameters', {
+        appVersion,
+        bundleVersion,
+        bundleUrl,
+        fileSize,
+        sha256,
+      });
       this.isDownloading = false;
       return Promise.reject(new Error('Invalid parameters'));
     }
     if (!bundleUrl.startsWith('https://')) {
+      logger.error('bundle-download', `Non-HTTPS URL rejected: ${bundleUrl}`);
       this.isDownloading = false;
       return Promise.reject(new Error('Bundle download URL must use HTTPS'));
     }
@@ -111,13 +120,25 @@ class DesktopApiAppBundleUpdate {
 
         let downloadedBytes = 0;
         let totalBytes = fileSize;
+        // Prevent double resolve/reject when multiple error handlers fire
+        let settled = false;
+        const safeResolve = (value: IUpdateDownloadedEvent) => {
+          if (settled) return;
+          settled = true;
+          resolve(value);
+        };
+        const safeReject = (error: unknown) => {
+          if (settled) return;
+          settled = true;
+          reject(error);
+        };
 
         if (fs.existsSync(filePath)) {
           try {
             const result = await this.verifyAndResolve(filePath, sha256);
             if (result) {
               this.isDownloading = false;
-              resolve({
+              safeResolve({
                 downloadedFile: filePath,
                 downloadUrl: bundleUrl,
                 latestVersion: appVersion,
@@ -170,8 +191,9 @@ class DesktopApiAppBundleUpdate {
               ) {
                 response.resume();
                 if (redirectCount >= 5) {
+                  logger.error('bundle-download', 'Too many redirects (>5)');
                   this.isDownloading = false;
-                  reject(new Error('Too many redirects'));
+                  safeReject(new Error('Too many redirects'));
                   return;
                 }
                 const rawRedirectUrl = response.headers.location;
@@ -180,8 +202,14 @@ class DesktopApiAppBundleUpdate {
                   url,
                 ).toString();
                 if (!resolvedRedirectUrl.startsWith('https://')) {
+                  logger.error(
+                    'bundle-download',
+                    `Redirect to non-HTTPS URL rejected: ${resolvedRedirectUrl}`,
+                  );
                   this.isDownloading = false;
-                  reject(new Error('Redirect to non-HTTPS URL is not allowed'));
+                  safeReject(
+                    new Error('Redirect to non-HTTPS URL is not allowed'),
+                  );
                   return;
                 }
                 makeDownloadRequest(
@@ -199,7 +227,7 @@ class DesktopApiAppBundleUpdate {
                     fs.renameSync(partialFilePath, filePath);
                     await this.verifyAndResolve(filePath, sha256);
                     this.isDownloading = false;
-                    resolve({
+                    safeResolve({
                       downloadedFile: filePath,
                       downloadUrl: bundleUrl,
                       latestVersion: appVersion,
@@ -207,18 +235,26 @@ class DesktopApiAppBundleUpdate {
                     });
                   } catch (error) {
                     this.isDownloading = false;
-                    reject(error);
+                    safeReject(error);
                   }
                   return;
                 }
+                logger.error(
+                  'bundle-download',
+                  'HTTP 416 with no partial file to resume',
+                );
                 this.isDownloading = false;
-                reject(new Error('Download failed with status: 416'));
+                safeReject(new Error('Download failed with status: 416'));
                 return;
               }
 
               if (response.statusCode !== 200 && response.statusCode !== 206) {
+                logger.error(
+                  'bundle-download',
+                  `Unexpected HTTP status: ${response.statusCode || 0}`,
+                );
                 this.isDownloading = false;
-                reject(
+                safeReject(
                   new Error(
                     `Download failed with status: ${response.statusCode || 0}`,
                   ),
@@ -256,7 +292,7 @@ class DesktopApiAppBundleUpdate {
                   downloadRequest = null;
                 }
                 writeStream.destroy();
-                reject(new Error('Download cancelled'));
+                safeReject(new Error('Download cancelled'));
               };
 
               // Store cancel function for external access
@@ -300,17 +336,21 @@ class DesktopApiAppBundleUpdate {
                     // Download complete, rename and verify
                     fs.renameSync(partialFilePath, filePath);
                     await this.verifyAndResolve(filePath, sha256);
-                    resolve({
+                    safeResolve({
                       downloadedFile: filePath,
                       downloadUrl: bundleUrl,
                       latestVersion: appVersion,
                       bundleVersion,
                     });
                   } catch (error) {
-                    reject(error);
+                    safeReject(error);
                   }
                 } else {
-                  reject(new Error('Download incomplete'));
+                  logger.error(
+                    'bundle-download',
+                    `Download incomplete: ${downloadedBytes}/${totalBytes} bytes`,
+                  );
+                  safeReject(new Error('Download incomplete'));
                 }
                 clearWindowProgressBar(this.getMainWindow());
               });
@@ -323,36 +363,39 @@ class DesktopApiAppBundleUpdate {
                 }
                 this.isDownloading = false;
                 this.cancelCurrentDownload = () => {};
-                reject(error);
+                safeReject(error);
                 clearWindowProgressBar(this.getMainWindow());
               });
 
               response.on('error', (error) => {
+                logger.error('bundle-download', 'Response stream error:', error);
                 writeStream.destroy();
                 downloadRequest = null;
                 this.isDownloading = false;
                 this.cancelCurrentDownload = () => {};
-                reject(error);
+                safeReject(error);
                 clearWindowProgressBar(this.getMainWindow());
               });
             },
           );
 
           downloadRequest.on('error', (error) => {
+            logger.error('bundle-download', 'Request error:', error);
             downloadRequest = null;
             this.cancelCurrentDownload = null;
             this.isDownloading = false;
-            reject(error);
+            safeReject(error);
           });
 
           downloadRequest.setTimeout(1000 * 60 * 30, () => {
+            logger.error('bundle-download', 'Download timed out (30min)');
             if (downloadRequest) {
               downloadRequest.destroy();
               downloadRequest = null;
             }
             this.isDownloading = false;
             this.cancelCurrentDownload = null;
-            reject(new Error('Download timeout'));
+            safeReject(new Error('Download timeout'));
           });
         };
 
@@ -447,11 +490,23 @@ class DesktopApiAppBundleUpdate {
       !bundleVersion ||
       (!signature && !skipGPGVerification)
     ) {
+      logger.error('bundle-verifyASC', 'Invalid parameters', {
+        downloadedFile,
+        sha256,
+        appVersion,
+        bundleVersion,
+        hasSignature: !!signature,
+        skipGPGVerification,
+      });
       throw new OneKeyLocalError('Invalid parameters');
     }
     if (!skipGPGVerification) {
       const isBundleVerified = verifySha256(downloadedFile, sha256);
       if (!isBundleVerified) {
+        logger.error(
+          'bundle-verifyASC',
+          `SHA256 verification failed for ${downloadedFile}`,
+        );
         throw new OneKeyLocalError('Invalid bundle file');
       }
     }
@@ -470,6 +525,10 @@ class DesktopApiAppBundleUpdate {
           !entryPath.startsWith(resolvedExtractDir + path.sep) &&
           entryPath !== resolvedExtractDir
         ) {
+          logger.error(
+            'bundle-verifyASC',
+            `Path traversal detected in zip entry: ${entry.entryName}`,
+          );
           throw new OneKeyLocalError(
             `Path traversal detected in zip entry: ${entry.entryName}`,
           );
@@ -520,15 +579,43 @@ class DesktopApiAppBundleUpdate {
     metadata: Record<string, string>,
     baseDir: string,
   ) {
+    const verifiedFiles = new Set<string>();
+    this.walkAndVerifyFiles(dirPath, metadata, baseDir, verifiedFiles);
+
+    // Security: Verify completeness — every file in metadata must exist on disk
+    const metadataKeys = Object.keys(metadata);
+    for (const key of metadataKeys) {
+      if (!verifiedFiles.has(key)) {
+        logger.error(
+          'bundle-verify',
+          `File listed in metadata but missing on disk: ${key}`,
+        );
+        throw new OneKeyLocalError(
+          `File ${key} listed in metadata but missing on disk`,
+        );
+      }
+    }
+  }
+
+  private walkAndVerifyFiles(
+    dirPath: string,
+    metadata: Record<string, string>,
+    baseDir: string,
+    verifiedFiles: Set<string>,
+  ) {
     const entries = fs.readdirSync(dirPath, { withFileTypes: true });
     for (const entry of entries) {
       const fullPath = path.join(dirPath, entry.name);
       // Security: Reject symbolic links to prevent symlink attacks
       if (entry.isSymbolicLink()) {
+        logger.error(
+          'bundle-verify',
+          `Symbolic link detected: ${entry.name}`,
+        );
         throw new OneKeyLocalError(`Symbolic link detected: ${entry.name}`);
       }
       if (entry.isDirectory()) {
-        this.verifyAllExtractedFiles(fullPath, metadata, baseDir);
+        this.walkAndVerifyFiles(fullPath, metadata, baseDir, verifiedFiles);
       } else {
         if (entry.name === 'metadata.json' || entry.name === '.DS_Store') {
           continue;
@@ -539,16 +626,25 @@ class DesktopApiAppBundleUpdate {
           .join('/');
         const expectedSha256 = metadata[relativePath];
         if (!expectedSha256) {
+          logger.error(
+            'bundle-verify',
+            `File on disk not found in metadata: ${relativePath}`,
+          );
           throw new OneKeyLocalError(
             `File ${relativePath} not found in metadata`,
           );
         }
         const actualSha256 = calculateSHA256(fullPath);
         if (actualSha256 !== expectedSha256) {
+          logger.error(
+            'bundle-verify',
+            `SHA256 mismatch for ${relativePath}: expected=${expectedSha256}, actual=${actualSha256}`,
+          );
           throw new OneKeyLocalError(
             `SHA256 mismatch for file ${relativePath}`,
           );
         }
+        verifiedFiles.add(relativePath);
       }
     }
   }
@@ -589,10 +685,18 @@ class DesktopApiAppBundleUpdate {
   ): Promise<void> {
     const extractDir = getBundleExtractDir({ appVersion, bundleVersion });
     if (!fs.existsSync(extractDir)) {
+      logger.error(
+        'bundle-verify',
+        `verifyExtractedBundle: directory not found: ${extractDir}`,
+      );
       throw new OneKeyLocalError('Bundle directory not found');
     }
     const metadataFilePath = path.join(extractDir, 'metadata.json');
     if (!fs.existsSync(metadataFilePath)) {
+      logger.error(
+        'bundle-verify',
+        `verifyExtractedBundle: metadata.json not found in ${extractDir}`,
+      );
       throw new OneKeyLocalError('metadata.json not found');
     }
     const metadataContent = fs.readFileSync(metadataFilePath, 'utf8');
@@ -608,6 +712,11 @@ class DesktopApiAppBundleUpdate {
       skipGPGVerification,
     } = params || {};
     if (!appVersion || !bundleVersion || !signature) {
+      logger.error('bundle-install', 'Invalid parameters', {
+        appVersion,
+        bundleVersion,
+        hasSignature: !!signature,
+      });
       throw new OneKeyLocalError('Invalid parameters');
     }
     const currentUpdateBundleData = store.getUpdateBundleData();
@@ -621,6 +730,10 @@ class DesktopApiAppBundleUpdate {
         !Number.isNaN(newVersion) &&
         newVersion < currentVersion
       ) {
+        logger.error(
+          'bundle-install',
+          `Version downgrade rejected: ${bundleVersion} < ${currentUpdateBundleData.bundleVersion}`,
+        );
         throw new OneKeyLocalError(
           `Bundle version downgrade rejected: ${bundleVersion} < ${currentUpdateBundleData.bundleVersion}`,
         );
@@ -630,6 +743,10 @@ class DesktopApiAppBundleUpdate {
     // Security: Verify bundle directory exists before updating store
     const extractDir = getBundleExtractDir({ appVersion, bundleVersion });
     if (!fs.existsSync(extractDir)) {
+      logger.error(
+        'bundle-install',
+        `Bundle directory not found: ${appVersion}-${bundleVersion}`,
+      );
       throw new OneKeyLocalError(
         `Bundle directory not found: ${appVersion}-${bundleVersion}`,
       );

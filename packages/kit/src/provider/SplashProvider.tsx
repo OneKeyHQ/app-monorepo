@@ -42,6 +42,9 @@ export const useDisplaySplash =
           // unhandled error, force the splash to show so the app is
           // never stuck on a blank native splash screen.
           const safetyTimer = setTimeout(() => {
+            defaultLogger.app.appUpdate.log(
+              `SplashProvider: safety timer fired after ${SPLASH_SAFETY_TIMEOUT}ms, forcing splash display`,
+            );
             setDisplaySplash(true);
           }, SPLASH_SAFETY_TIMEOUT);
 
@@ -113,7 +116,10 @@ export const useDisplaySplash =
               } else {
                 setDisplaySplash(true);
               }
-            } catch {
+            } catch (error) {
+              defaultLogger.app.appUpdate.log(
+                `SplashProvider: launch callback failed: ${(error as Error)?.message}`,
+              );
               setDisplaySplash(true);
             }
           };
