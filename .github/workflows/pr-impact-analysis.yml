@@ -18,7 +18,7 @@ jobs:
 
       - name: PR Impact Analysis
         # TODO: switch to OneKeyHQ/actions/pr-impact-analysis@main after https://github.com/OneKeyHQ/actions/pull/78 is merged
-        uses: originalix/actions/pr-impact-analysis@cad43fd0d9575dbac2dd17338dbde0d19bc04d7e
+        uses: originalix/actions/pr-impact-analysis@feat/pr-impact
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           llm-api-key: ${{ secrets.PIA_LLM_API_KEY }}
