@@ -32,7 +32,10 @@ export const initSentry = () => {
       maxAgeDays: 30,
       maxQueueSize: 60,
     },
-    integrations: [
+    integrations: (defaultIntegrations) => [
+      ...defaultIntegrations.filter(
+        (i) => !i.name.toLowerCase().includes('minidump'),
+      ),
       Sentry.anrIntegration({ captureStackTrace: true }),
       Sentry.childProcessIntegration({
         breadcrumbs: [

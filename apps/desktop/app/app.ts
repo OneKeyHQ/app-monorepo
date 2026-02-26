@@ -13,7 +13,6 @@ import {
   BrowserWindow,
   Menu,
   app,
-  crashReporter,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   inAppPurchase,
   ipcMain,
@@ -62,16 +61,6 @@ import { getBackgroundColor } from './libs/utils';
 
 logger.initialize();
 logger.transports.file.maxSize = 1024 * 1024 * 10;
-
-crashReporter.start({
-  submitURL: '',
-  uploadToServer: false,
-  ignoreSystemCrashHandler: false,
-  extra: {
-    platform: process.platform,
-    arch: process.arch,
-  },
-});
 
 initSentry();
 
