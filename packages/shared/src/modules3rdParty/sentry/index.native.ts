@@ -35,6 +35,13 @@ export const initSentry = () => {
     appHangTimeoutInterval: 5,
     integrations: [navigationIntegration, reactNativeTracingIntegration()],
     enableAutoPerformanceTracing: true,
+    // Disable native crash reporting to prevent memory dumps that may contain
+    // sensitive data (private keys, mnemonics) from being uploaded to Sentry.
+    enableNativeCrashHandling: false,
+    enableNdk: false,
+    enableWatchdogTerminationTracking: false,
+    attachScreenshot: false,
+    attachViewHierarchy: false,
   });
 };
 
