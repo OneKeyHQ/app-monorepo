@@ -1,6 +1,6 @@
 import type { ColorTokens, IKeyOfIcons } from '@onekeyhq/components';
 
-import type { IEarnPermit2ApproveSignData } from './staking';
+import type { IEarnPermit2ApproveSignData, IEarnText } from './staking';
 
 export enum EEarnProviderEnum {
   Lido = 'Lido',
@@ -131,6 +131,11 @@ export interface IEarnAvailableAssetAprInfo {
   deprecated?: {
     text: string;
     color?: ColorTokens;
+  };
+  button?: {
+    type: string;
+    text?: IEarnText;
+    disabled?: boolean;
   };
 }
 

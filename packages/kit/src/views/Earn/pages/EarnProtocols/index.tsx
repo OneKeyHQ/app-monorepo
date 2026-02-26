@@ -22,6 +22,10 @@ import { NetworkAvatarGroup } from '@onekeyhq/kit/src/components/NetworkAvatar/N
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  EModalRoutes,
+  EModalStakingRoutes,
+} from '@onekeyhq/shared/src/routes';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -182,6 +186,27 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
           stakeProvider: protocol.provider.name,
         });
 
+        if (
+          protocol.aprInfo?.button?.type === 'redeem' &&
+          !protocol.aprInfo?.button?.disabled
+        ) {
+          navigation.pushModal(EModalRoutes.StakingModal, {
+            screen: EModalStakingRoutes.ManagePosition,
+            params: {
+              networkId: protocol.network.networkId,
+              symbol,
+              provider: protocol.provider.name,
+              vault: earnUtils.isVaultBasedProvider({
+                providerName: protocol.provider.name,
+              })
+                ? protocol.provider.vault
+                : undefined,
+              tab: 'withdraw',
+            },
+          });
+          return;
+        }
+
         await EarnNavigation.pushToEarnProtocolDetails(navigation, {
           networkId: protocol.network.networkId,
           symbol,
@@ -225,44 +250,16 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
     const isFixedRateCategory =
       selectedCategory === EProtocolCategory.FixedRate;
 
-    const getMaturityStatus = (item: IStakeProtocolListItem) => {
+    const getMaturityDisplay = (item: IStakeProtocolListItem) => {
       const providerName = normalizeToEarnProvider(item.provider.name);
       const maturityTitle =
-        item.provider.maturity?.trim() ||
-        item.provider.vaultName?.trim() ||
+        item.provider.maturity ||
+        item.provider.vaultName ||
         providerName;
-      const daysRemaining = getProviderDaysRemaining(item);
-      const normalizedDescription = item.provider.description
-        ?.replace(/\(placeholder\)/gi, '')
-        .replace(/\s+/g, ' ')
-        .trim();
-      const descriptionWithoutProvider = normalizedDescription
-        ?.split('·')[0]
-        ?.trim();
-
-      let statusText = descriptionWithoutProvider ?? '';
-      let isMatured = false;
-
-      if (daysRemaining !== undefined) {
-        if (daysRemaining <= 0) {
-          statusText = intl.formatMessage({ id: ETranslations.defi_matured });
-          isMatured = true;
-        } else {
-          statusText = intl.formatMessage(
-            { id: ETranslations.earn_number_days_left },
-            { number: daysRemaining },
-          );
-        }
-      } else if (/matured/i.test(statusText)) {
-        statusText = intl.formatMessage({ id: ETranslations.defi_matured });
-        isMatured = true;
-      }
-
-      const detailText = [statusText, providerName].filter(Boolean).join(' · ');
+      const detailText = item.provider.description || providerName;
 
       return {
         detailText,
-        isMatured,
         maturityTitle,
       };
     };
@@ -278,7 +275,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
         flex: 5,
         render: (item) => {
           const providerName = normalizeToEarnProvider(item.provider.name);
-          const { detailText, maturityTitle } = getMaturityStatus(item);
+          const { detailText, maturityTitle } = getMaturityDisplay(item);
 
           return (
             <XStack jc="center" ai="center">
@@ -367,11 +364,11 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
         flex: 2,
         align: 'flex-end',
         render: (item) => {
-          const { isMatured } = getMaturityStatus(item);
-          if (isFixedRateCategory && isMatured) {
+          if (item.aprInfo?.button?.type === 'redeem') {
             return (
               <SizableText size="$bodyLgMedium" color="$textInfo">
-                {intl.formatMessage({ id: ETranslations.defi_redeemable })}
+                {item.aprInfo.button.text?.text ||
+                  intl.formatMessage({ id: ETranslations.defi_redeemable })}
               </SizableText>
             );
           }
