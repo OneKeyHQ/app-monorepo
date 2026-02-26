@@ -116,10 +116,10 @@ index e37e40a..858c8ca 100644
  }
  
 diff --git a/node_modules/react-native-screens/ios/bottom-tabs/host/RNSBottomTabsHostComponentView.mm b/node_modules/react-native-screens/ios/bottom-tabs/host/RNSBottomTabsHostComponentView.mm
-index fc6257e..048e2a6 100644
+index fc6257e..37067c0 100644
 --- a/node_modules/react-native-screens/ios/bottom-tabs/host/RNSBottomTabsHostComponentView.mm
 +++ b/node_modules/react-native-screens/ios/bottom-tabs/host/RNSBottomTabsHostComponentView.mm
-@@ -147,10 +147,35 @@ - (void)reactAddControllerToClosestParent:(UIViewController *)controller
+@@ -147,22 +147,52 @@ - (void)reactAddControllerToClosestParent:(UIViewController *)controller
  {
    if (!controller.parentViewController) {
      UIView *parentView = (UIView *)self.reactSuperview;
@@ -128,6 +128,18 @@ index fc6257e..048e2a6 100644
        if (parentView.reactViewController) {
 -        [parentView.reactViewController addChildViewController:controller];
 -        [self addSubview:controller.view];
+-
+-        // Enable auto-layout to ensure valid size of tabBarController.view.
+-        // In host tree, tabBarController.view is the only child of HostComponentView.
+-        controller.view.translatesAutoresizingMaskIntoConstraints = NO;
+-        [NSLayoutConstraint activateConstraints:@[
+-          [controller.view.topAnchor constraintEqualToAnchor:self.topAnchor],
+-          [controller.view.bottomAnchor constraintEqualToAnchor:self.bottomAnchor],
+-          [controller.view.leadingAnchor constraintEqualToAnchor:self.leadingAnchor],
+-          [controller.view.trailingAnchor constraintEqualToAnchor:self.trailingAnchor]
+-        ]];
+-
+-        [controller didMoveToParentViewController:parentView.reactViewController];
 +        UIViewController *candidateParent = parentView.reactViewController;
 +        // Skip UIHostingController to avoid hierarchy inconsistency when used
 +        // inside SwiftUI containers (e.g. react-native-bottom-tabs TabView).
@@ -154,14 +166,22 @@ index fc6257e..048e2a6 100644
 +            @throw;
 +          }
 +        }
- 
-         // Enable auto-layout to ensure valid size of tabBarController.view.
-         // In host tree, tabBarController.view is the only child of HostComponentView.
-@@ -162,7 +187,7 @@ - (void)reactAddControllerToClosestParent:(UIViewController *)controller
-           [controller.view.trailingAnchor constraintEqualToAnchor:self.trailingAnchor]
-         ]];
- 
--        [controller didMoveToParentViewController:parentView.reactViewController];
++
++        // Only set up auto-layout constraints if the view was successfully added.
++        // If both addSubview attempts failed (caught by @try/@catch), setting constraints
++        // on views without a common ancestor would create invalid/unsatisfiable constraints.
++        if ([controller.view isDescendantOfView:self]) {
++          // Enable auto-layout to ensure valid size of tabBarController.view.
++          // In host tree, tabBarController.view is the only child of HostComponentView.
++          controller.view.translatesAutoresizingMaskIntoConstraints = NO;
++          [NSLayoutConstraint activateConstraints:@[
++            [controller.view.topAnchor constraintEqualToAnchor:self.topAnchor],
++            [controller.view.bottomAnchor constraintEqualToAnchor:self.bottomAnchor],
++            [controller.view.leadingAnchor constraintEqualToAnchor:self.leadingAnchor],
++            [controller.view.trailingAnchor constraintEqualToAnchor:self.trailingAnchor]
++          ]];
++        }
++
 +        [controller didMoveToParentViewController:controller.parentViewController];
          break;
        }
