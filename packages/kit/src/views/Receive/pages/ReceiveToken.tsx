@@ -225,6 +225,28 @@ function ReceiveToken() {
       });
   }, [network?.logoURI]);
 
+  const handleCopyAddress = useCallback(() => {
+    if (!displayAddress) return;
+    if (vaultSettings?.mergeDeriveAssetsEnabled && currentDeriveInfo) {
+      copyAddressWithDeriveType({
+        address: displayAddress,
+        deriveInfo: currentDeriveInfo,
+        networkName: network?.name,
+      });
+    } else {
+      copyAddressWithDeriveType({
+        address: displayAddress,
+        networkName: network?.name,
+      });
+    }
+  }, [
+    copyAddressWithDeriveType,
+    currentDeriveInfo,
+    displayAddress,
+    network?.name,
+    vaultSettings?.mergeDeriveAssetsEnabled,
+  ]);
+
   // Auto-copy address and open exchange app when coming from exchange flow
   const hasAutoCopiedRef = useRef(false);
   useEffect(() => {
@@ -272,28 +294,6 @@ function ReceiveToken() {
       });
     }
   }, [currentAccount?.id, networkId, throttledSyncBTCFreshAddress]);
-
-  const handleCopyAddress = useCallback(() => {
-    if (!displayAddress) return;
-    if (vaultSettings?.mergeDeriveAssetsEnabled && currentDeriveInfo) {
-      copyAddressWithDeriveType({
-        address: displayAddress,
-        deriveInfo: currentDeriveInfo,
-        networkName: network?.name,
-      });
-    } else {
-      copyAddressWithDeriveType({
-        address: displayAddress,
-        networkName: network?.name,
-      });
-    }
-  }, [
-    copyAddressWithDeriveType,
-    currentDeriveInfo,
-    displayAddress,
-    network?.name,
-    vaultSettings?.mergeDeriveAssetsEnabled,
-  ]);
 
   const [{ enableBTCFreshAddress }] = useSettingsPersistAtom();
   const isEnableBTCFreshAddressSetting = useMemo(() => {
