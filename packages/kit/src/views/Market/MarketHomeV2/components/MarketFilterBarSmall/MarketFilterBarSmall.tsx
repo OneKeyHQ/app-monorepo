@@ -26,7 +26,7 @@ function MarketFilterBarSmall({
       onSelectNetworkId={handleNetworkIdChange}
       placement="bottom-start"
       containerStyle={{
-        px: '$4',
+        px: '$5',
         pt: '$3',
         pb: '$2',
       }}

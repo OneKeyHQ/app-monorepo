@@ -37,6 +37,7 @@ interface IMobileMarketTokenFlatListProps {
 }
 
 const EMPTY_DATA: IMarketToken[] = [];
+
 function MobileMarketTokenFlatListBase({
   networkId,
   filterBarProps,
