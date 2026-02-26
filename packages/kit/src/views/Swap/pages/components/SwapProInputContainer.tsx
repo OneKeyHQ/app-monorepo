@@ -14,7 +14,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import type { IInputRef } from '@onekeyhq/components';
-import { useMarketTokenPreferencePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import {
   useSwapFromTokenAmountAtom,
@@ -80,8 +80,6 @@ const SwapProInputContainer = ({
   const [swapProUseSelectBuyToken, setSwapProUseSelectBuyToken] =
     useSwapProUseSelectBuyTokenAtom();
   const [, setSwapProSellToToken] = useSwapProSellToTokenAtom();
-  const [tokenPreference, setTokenPreference] =
-    useMarketTokenPreferencePersistAtom();
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const inputRef = useRef<IInputRef & TextInput>(null);
   const inputToken = useSwapProInputToken();
@@ -119,17 +117,15 @@ const SwapProInputContainer = ({
       // Sync SELL counterparty so both directions use the same token
       setSwapProSellToToken(token);
       setIsPopoverOpen(false);
-      // Save preference (shared with Instant Mode)
+      // Save preference (shared with Instant Mode) via simpledb
       const networkId = swapProSelectToken?.networkId || '';
       if (networkId) {
-        setTokenPreference({
-          preferences: {
-            ...tokenPreference.preferences,
-            [networkId]: {
-              contractAddress: token.contractAddress,
-              symbol: token.symbol,
-              networkId: token.networkId,
-            },
+        void backgroundApiProxy.simpleDb.marketTokenPreference.setPreference({
+          networkId,
+          preference: {
+            contractAddress: token.contractAddress,
+            symbol: token.symbol,
+            networkId: token.networkId,
           },
         });
       }
@@ -139,8 +135,6 @@ const SwapProInputContainer = ({
       setSwapProSellToToken,
       cleanInputAmount,
       swapProSelectToken?.networkId,
-      setTokenPreference,
-      tokenPreference.preferences,
     ],
   );
   const isTokenSelectorVisible =

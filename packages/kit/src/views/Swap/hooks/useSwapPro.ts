@@ -5,7 +5,6 @@ import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
-import { useMarketTokenPreferencePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   ESwapProJumpTokenDirection,
   useSwapProJumpTokenAtom,
@@ -535,19 +534,28 @@ export function useSwapProTokenInit() {
     return defaultLimitTokens;
   }, [swapProTradeType, defaultTokens, defaultLimitTokens]);
 
-  // Read persisted token preference (shared with Instant Mode)
-  const [tokenPreference] = useMarketTokenPreferencePersistAtom();
+  // Read persisted token preference (shared with Instant Mode) via simpledb
+  const { result: savedPreference } = usePromiseResult(
+    async () => {
+      const networkId = swapProSelectToken?.networkId || '';
+      if (!networkId) return undefined;
+      return backgroundApiProxy.simpleDb.marketTokenPreference.getPreference({
+        networkId,
+      });
+    },
+    [swapProSelectToken?.networkId],
+    { revalidateOnFocus: true },
+  );
   const findPreferredToken = useCallback((): ISwapTokenBase | undefined => {
-    const networkId = swapProSelectToken?.networkId || '';
-    if (!networkId || defaultTokensFromType.length === 0) return undefined;
-    const pref = tokenPreference.preferences[networkId];
-    if (!pref) return undefined;
+    if (!savedPreference || defaultTokensFromType.length === 0)
+      return undefined;
     return defaultTokensFromType.find(
       (t) =>
-        t.networkId === pref.networkId &&
-        t.contractAddress.toLowerCase() === pref.contractAddress.toLowerCase(),
+        t.networkId === savedPreference.networkId &&
+        t.contractAddress.toLowerCase() ===
+          savedPreference.contractAddress.toLowerCase(),
     );
-  }, [swapProSelectToken?.networkId, defaultTokensFromType, tokenPreference]);
+  }, [savedPreference, defaultTokensFromType]);
 
   useEffect(() => {
     if (
@@ -744,6 +752,35 @@ export function useSwapProTokenInit() {
     swapProTradeType,
     findPreferredToken,
   ]);
+
+  // Apply preference when it loads after init effects already set defaults
+  useEffect(() => {
+    if (!savedPreference || defaultTokensFromType.length === 0) return;
+    const preferred = findPreferredToken();
+    if (!preferred) return;
+    if (
+      swapProUseSelectBuyTokenAtom &&
+      !equalTokenNoCaseSensitive({
+        token1: preferred,
+        token2: swapProUseSelectBuyTokenAtom,
+      })
+    ) {
+      setSwapProUseSelectBuyTokenAtom(
+        preferred as (typeof defaultTokensFromType)[0],
+      );
+    }
+    if (
+      swapProSellToToken &&
+      !equalTokenNoCaseSensitive({
+        token1: preferred,
+        token2: swapProSellToToken,
+      })
+    ) {
+      setSwapProSellToToken(preferred as (typeof defaultTokensFromType)[0]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [savedPreference]);
+
   const inputToken = useSwapProInputToken();
 
   const {

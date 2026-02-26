@@ -10,7 +10,6 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { useMarketTokenPreferencePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { DeriveTypeSelectorTriggerIconRenderer } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
 import AddressTypeSelector from '@onekeyhq/kit/src/components/AddressTypeSelector/AddressTypeSelector';
@@ -73,8 +72,6 @@ const SwapProTradeInfoGroup = ({
   const [swapProSellToToken, setSwapProSellToToken] =
     useSwapProSellToTokenAtom();
   const [, setSwapProUseSelectBuyToken] = useSwapProUseSelectBuyTokenAtom();
-  const [tokenPreference, setTokenPreference] =
-    useMarketTokenPreferencePersistAtom();
   const [swapLimitPriceUseRate] = useSwapLimitPriceUseRateAtom();
   const defaultTokensFromType = useMemo(() => {
     if (swapProTradeType === ESwapProTradeType.MARKET) {
@@ -200,17 +197,15 @@ const SwapProTradeInfoGroup = ({
       setSwapProSellToToken(token);
       // Sync BUY counterparty so both directions use the same token
       setSwapProUseSelectBuyToken(token);
-      // Save preference (shared with Instant Mode)
+      // Save preference (shared with Instant Mode) via simpledb
       const networkId = swapProSelectToken?.networkId || '';
       if (networkId) {
-        setTokenPreference({
-          preferences: {
-            ...tokenPreference.preferences,
-            [networkId]: {
-              contractAddress: token.contractAddress,
-              symbol: token.symbol,
-              networkId: token.networkId,
-            },
+        void backgroundApiProxy.simpleDb.marketTokenPreference.setPreference({
+          networkId,
+          preference: {
+            contractAddress: token.contractAddress,
+            symbol: token.symbol,
+            networkId: token.networkId,
           },
         });
       }
@@ -219,8 +214,6 @@ const SwapProTradeInfoGroup = ({
       setSwapProSellToToken,
       setSwapProUseSelectBuyToken,
       swapProSelectToken?.networkId,
-      setTokenPreference,
-      tokenPreference.preferences,
     ],
   );
 

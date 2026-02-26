@@ -3,7 +3,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { useMarketTokenPreferencePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -224,39 +223,32 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     );
   }, [defaultTokens, networkId, tokenDetail]);
 
-  // --- Token preference persistence ---
-  const [tokenPreference, setTokenPreference] =
-    useMarketTokenPreferencePersistAtom();
-
-  const findPreferredToken = useCallback((): IToken | undefined => {
-    const effectiveNetworkId = networkId || '';
-    if (!effectiveNetworkId || filterDefaultTokens.length === 0)
-      return undefined;
-    const pref = tokenPreference.preferences[effectiveNetworkId];
-    if (!pref) return undefined;
-    return filterDefaultTokens.find(
-      (t) =>
-        t.networkId === pref.networkId &&
-        t.contractAddress.toLowerCase() === pref.contractAddress.toLowerCase(),
-    );
-  }, [networkId, filterDefaultTokens, tokenPreference.preferences]);
+  // --- Token preference persistence (simpledb) ---
+  const { result: savedPreference } = usePromiseResult(
+    async () => {
+      const effectiveNetworkId = networkId || '';
+      if (!effectiveNetworkId) return undefined;
+      return backgroundApiProxy.simpleDb.marketTokenPreference.getPreference({
+        networkId: effectiveNetworkId,
+      });
+    },
+    [networkId],
+  );
 
   const saveTokenPreference = useCallback(
     (token: IToken) => {
       const effectiveNetworkId = networkId || '';
       if (!effectiveNetworkId) return;
-      setTokenPreference({
-        preferences: {
-          ...tokenPreference.preferences,
-          [effectiveNetworkId]: {
-            contractAddress: token.contractAddress,
-            symbol: token.symbol,
-            networkId: token.networkId,
-          },
+      void backgroundApiProxy.simpleDb.marketTokenPreference.setPreference({
+        networkId: effectiveNetworkId,
+        preference: {
+          contractAddress: token.contractAddress,
+          symbol: token.symbol,
+          networkId: token.networkId,
         },
       });
     },
-    [networkId, setTokenPreference, tokenPreference.preferences],
+    [networkId],
   );
 
   // Wrap setPaymentToken to also persist user's choice
@@ -272,13 +264,15 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
 
   // Initialize paymentToken: prefer saved preference, fallback to first default
   useEffect(() => {
-    const effectiveNetworkId = networkId || '';
     if (filterDefaultTokens.length > 0 && !paymentToken?.networkId) {
-      const preferred = findPreferredToken();
-      if (!preferred && effectiveNetworkId && tokenPreference.preferences[effectiveNetworkId]) {
-        const { [effectiveNetworkId]: _, ...rest } = tokenPreference.preferences;
-        setTokenPreference({ preferences: rest });
-      }
+      const preferred = savedPreference
+        ? filterDefaultTokens.find(
+            (t) =>
+              t.networkId === savedPreference.networkId &&
+              t.contractAddress.toLowerCase() ===
+                savedPreference.contractAddress.toLowerCase(),
+          )
+        : undefined;
       setPaymentToken(preferred || filterDefaultTokens[0]);
       return;
     }
@@ -290,22 +284,22 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
           token.contractAddress !== paymentToken?.contractAddress,
       )
     ) {
-      const preferred = findPreferredToken();
-      if (!preferred && effectiveNetworkId && tokenPreference.preferences[effectiveNetworkId]) {
-        const { [effectiveNetworkId]: _, ...rest } = tokenPreference.preferences;
-        setTokenPreference({ preferences: rest });
-      }
+      const preferred = savedPreference
+        ? filterDefaultTokens.find(
+            (t) =>
+              t.networkId === savedPreference.networkId &&
+              t.contractAddress.toLowerCase() ===
+                savedPreference.contractAddress.toLowerCase(),
+          )
+        : undefined;
       setPaymentToken(preferred || filterDefaultTokens[0]);
     }
   }, [
-    networkId,
     paymentToken?.networkId,
     paymentToken?.contractAddress,
     setPaymentToken,
     filterDefaultTokens,
-    findPreferredToken,
-    tokenPreference.preferences,
-    setTokenPreference,
+    savedPreference,
   ]);
 
   useEffect(() => {
