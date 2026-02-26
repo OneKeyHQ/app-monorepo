@@ -102,6 +102,7 @@ export enum EAtomNames {
   swapFromMarketJumpTokenAtom = 'swapFromMarketJumpTokenAtom',
   // market
   marketSelectedTabAtom = 'marketSelectedTabAtom',
+  marketTokenPreferencePersistAtom = 'marketTokenPreferencePersistAtom',
 }
 export type IAtomNameKeys = keyof typeof EAtomNames;
 export const atomsConfig: Partial<

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
+import { useMarketTokenPreferencePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -223,9 +224,62 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     );
   }, [defaultTokens, networkId, tokenDetail]);
 
+  // --- Token preference persistence ---
+  const [tokenPreference, setTokenPreference] =
+    useMarketTokenPreferencePersistAtom();
+
+  const findPreferredToken = useCallback((): IToken | undefined => {
+    const effectiveNetworkId = networkId || '';
+    if (!effectiveNetworkId || filterDefaultTokens.length === 0)
+      return undefined;
+    const pref = tokenPreference.preferences[effectiveNetworkId];
+    if (!pref) return undefined;
+    const matched = filterDefaultTokens.find(
+      (t) =>
+        t.networkId === pref.networkId &&
+        t.contractAddress.toLowerCase() === pref.contractAddress.toLowerCase(),
+    );
+    // Clear stale preference if token no longer available
+    if (!matched) {
+      const { [effectiveNetworkId]: _, ...rest } =
+        tokenPreference.preferences;
+      setTokenPreference({ preferences: rest });
+    }
+    return matched;
+  }, [networkId, filterDefaultTokens, tokenPreference, setTokenPreference]);
+
+  const saveTokenPreference = useCallback(
+    (token: IToken) => {
+      const effectiveNetworkId = networkId || '';
+      if (!effectiveNetworkId) return;
+      setTokenPreference({
+        preferences: {
+          ...tokenPreference.preferences,
+          [effectiveNetworkId]: {
+            contractAddress: token.contractAddress,
+            symbol: token.symbol,
+            networkId: token.networkId,
+          },
+        },
+      });
+    },
+    [networkId, setTokenPreference, tokenPreference.preferences],
+  );
+
+  // Wrap setPaymentToken to also persist user's choice
+  const handleUserPaymentTokenChange = useCallback(
+    (token: IToken) => {
+      setPaymentToken(token);
+      saveTokenPreference(token);
+    },
+    [setPaymentToken, saveTokenPreference],
+  );
+
+  // Initialize paymentToken: prefer saved preference, fallback to first default
   useEffect(() => {
     if (filterDefaultTokens.length > 0 && !paymentToken?.networkId) {
-      setPaymentToken(filterDefaultTokens[0]);
+      const preferred = findPreferredToken();
+      setPaymentToken(preferred || filterDefaultTokens[0]);
       return;
     }
     if (
@@ -236,13 +290,15 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
           token.contractAddress !== paymentToken?.contractAddress,
       )
     ) {
-      setPaymentToken(filterDefaultTokens[0]);
+      const preferred = findPreferredToken();
+      setPaymentToken(preferred || filterDefaultTokens[0]);
     }
   }, [
     paymentToken?.networkId,
     paymentToken?.contractAddress,
     setPaymentToken,
     filterDefaultTokens,
+    findPreferredToken,
   ]);
 
   useEffect(() => {
@@ -299,6 +355,15 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     speedSwapInitLoading,
   ]);
 
+  // Override setPaymentToken so user-initiated changes are persisted
+  const swapPanelWithPreference = useMemo(
+    () => ({
+      ...swapPanel,
+      setPaymentToken: handleUserPaymentTokenChange,
+    }),
+    [swapPanel, handleUserPaymentTokenChange],
+  );
+
   return (
     <SwapPanelContent
       activeAccount={activeAccount}
@@ -315,7 +380,7 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
       priceRate={priceRate}
       swapMevNetConfig={swapMevNetConfig}
       swapNativeTokenReserveGas={swapNativeTokenReserveGas}
-      swapPanel={swapPanel}
+      swapPanel={swapPanelWithPreference}
       balance={balance ?? new BigNumber(0)}
       balanceToken={balanceToken as IToken}
       balanceLoading={fetchBalanceLoading}
