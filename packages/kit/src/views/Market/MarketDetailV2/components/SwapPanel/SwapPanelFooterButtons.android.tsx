@@ -16,60 +16,49 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 // hierarchy entirely.
 
 type IProps = {
-  onBuy: () => void;
-  onSell: () => void;
+  onTrade: () => void;
+  onInstant: () => void;
 };
 
-function SwapPanelFooterButtons({ onBuy, onSell }: IProps) {
+function SwapPanelFooterButtons({ onTrade, onInstant }: IProps) {
   const intl = useIntl();
 
-  const buyGesture = useMemo(
+  const tradeGesture = useMemo(
     () =>
       Gesture.Tap().onEnd(() => {
         'worklet';
-        runOnJS(onBuy)();
+        runOnJS(onTrade)();
       }),
-    [onBuy],
+    [onTrade],
   );
 
-  const sellGesture = useMemo(
+  const instantGesture = useMemo(
     () =>
       Gesture.Tap().onEnd(() => {
         'worklet';
-        runOnJS(onSell)();
+        runOnJS(onInstant)();
       }),
-    [onSell],
+    [onInstant],
   );
 
   return (
-    <XStack gap="$2" alignItems="center">
-      <GestureDetector gesture={buyGesture}>
-        <View>
-          <Button
-            size="small"
-            variant="primary"
-            w="$28"
-            h="$12"
-            bg="$buttonSuccess"
-          >
-            {intl.formatMessage({
-              id: ETranslations.global_buy,
-            })}
+    <XStack gap="$2.5">
+      <GestureDetector gesture={tradeGesture}>
+        <View style={{ flex: 1 }}>
+          <Button size="large" variant="primary">
+            {intl.formatMessage({ id: ETranslations.dexmarket_details_trade })}
           </Button>
         </View>
       </GestureDetector>
-      <GestureDetector gesture={sellGesture}>
-        <View>
+      <GestureDetector gesture={instantGesture}>
+        <View style={{ flex: 1 }}>
           <Button
-            w="$28"
-            h="$12"
-            size="small"
-            bg="$buttonCritical"
+            size="large"
             variant="primary"
+            bg="$buttonSuccess"
+            icon="FlashSolid"
           >
-            {intl.formatMessage({
-              id: ETranslations.global_sell,
-            })}
+            {intl.formatMessage({ id: ETranslations.marketdex_instant_mode })}
           </Button>
         </View>
       </GestureDetector>

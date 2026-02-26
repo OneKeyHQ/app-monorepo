@@ -10,6 +10,7 @@ __generated__
 .cursor/debug.log
 .chat/
 .claude/PRPs
+.claude/settings.json
 .claude/settings.local.json
 .clauderc
 .tmp/
@@ -77,6 +78,7 @@ stats.html
 tsconfig.tsbuildinfo
 
 test-report.html
+coverage/
 
 # Temporary files created by Metro to check the health of the file watcher
 .metro-health-check*
