@@ -1,8 +1,11 @@
 import { useEffect } from 'react';
 
-import { Button, XStack } from '@onekeyhq/components';
+import { useIntl } from 'react-intl';
+
+import { Button, IconButton, SizableText, XStack } from '@onekeyhq/components';
 import { useStakingPendingTxs } from '@onekeyhq/kit/src/views/Earn/hooks/useStakingPendingTxs';
 import { PendingIndicator } from '@onekeyhq/kit/src/views/Staking/components/StakingActivityIndicator';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IEarnHistoryActionIcon,
   IStakeTag,
@@ -16,6 +19,12 @@ type IHeaderRightProps = {
   onHistory?: (params?: { filterType?: string }) => void;
   onRefresh?: () => void;
   onRefreshPending?: (refreshFn: () => Promise<void>) => void;
+  // Pendle quote lifecycle
+  isPendleProvider?: boolean;
+  remainingSeconds?: number;
+  isQuoteExpired?: boolean;
+  onRefreshQuote?: () => void;
+  onOpenSlippage?: () => void;
 };
 
 export const HeaderRight = ({
@@ -26,25 +35,55 @@ export const HeaderRight = ({
   onHistory,
   onRefresh,
   onRefreshPending,
+  isPendleProvider,
+  remainingSeconds,
+  isQuoteExpired,
+  onRefreshQuote,
+  onOpenSlippage,
 }: IHeaderRightProps) => {
+  const intl = useIntl();
   const { pendingCount, refreshPending } = useStakingPendingTxs({
     accountId,
     networkId,
     stakeTag,
     onRefresh,
   });
-
   useEffect(() => {
     onRefreshPending?.(refreshPending);
   }, [onRefreshPending, refreshPending]);
 
   const showHistory = historyAction && !historyAction.disabled;
-  if (!pendingCount && !showHistory) {
+  const showPendleControls = isPendleProvider;
+  const hasContent = pendingCount || showHistory || showPendleControls;
+
+  if (!hasContent) {
     return null;
   }
 
   return (
-    <XStack ai="center" gap="$3">
+    <XStack ai="center" gap="$2">
+      {showPendleControls ? (
+        <>
+          <IconButton
+            icon="SliderHorOutline"
+            variant="tertiary"
+            size="small"
+            onPress={onOpenSlippage}
+          />
+          {typeof remainingSeconds === 'number' && remainingSeconds > 0 ? (
+            <SizableText size="$bodySm" color="$textSubdued" minWidth="$6" textAlign="center">
+              {remainingSeconds}s
+            </SizableText>
+          ) : null}
+          <IconButton
+            icon="RefreshCcwOutline"
+            variant="tertiary"
+            size="small"
+            disabled={!isQuoteExpired}
+            onPress={onRefreshQuote}
+          />
+        </>
+      ) : null}
       {pendingCount ? (
         <PendingIndicator num={pendingCount} onPress={() => onHistory?.()} />
       ) : null}

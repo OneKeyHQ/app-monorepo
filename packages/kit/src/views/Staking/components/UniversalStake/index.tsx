@@ -140,6 +140,9 @@ type IUniversalStakeProps = {
   tokenSelectorTriggerProps?: Partial<
     NonNullable<IAmountInputFormItemProps['tokenSelectorTriggerProps']>
   >;
+  isQuoteExpired?: boolean;
+  onRefreshQuote?: () => void;
+  onQuoteReset?: () => void;
 };
 
 export function UniversalStake({
@@ -171,6 +174,9 @@ export function UniversalStake({
   requestSymbol,
   inputTitle,
   tokenSelectorTriggerProps,
+  isQuoteExpired,
+  onRefreshQuote,
+  onQuoteReset,
 }: PropsWithChildren<IUniversalStakeProps>) {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -355,6 +361,9 @@ export function UniversalStake({
     async (amount?: string) => {
       const resp = await fetchTransactionConfirmation(amount || '0');
       setTransactionConfirmation(resp);
+      if (resp && amount && Number(amount) > 0) {
+        onQuoteReset?.();
+      }
     },
     350,
   );
@@ -1135,6 +1144,13 @@ export function UniversalStake({
             if (!allowanceReady) {
               return;
             }
+            // Re-quote if expired (Pendle countdown)
+            if (isQuoteExpired && isPendleProvider) {
+              const freshConfirmation =
+                await fetchTransactionConfirmation(amountValue);
+              setTransactionConfirmation(freshConfirmation);
+              onQuoteReset?.();
+            }
             const freshFee = await fetchEstimateFeeResp(amountValue);
             setEstimateFeeResp(freshFee);
             await onSubmit();
@@ -1171,6 +1187,10 @@ export function UniversalStake({
     waitForAllowanceAfterApprove,
     fetchEstimateFeeResp,
     trackAllowance,
+    isQuoteExpired,
+    isPendleProvider,
+    fetchTransactionConfirmation,
+    onQuoteReset,
   ]);
 
   const normalizedPendleTipText = useMemo(() => {
@@ -1313,7 +1333,12 @@ export function UniversalStake({
     !!amountValue &&
     (shouldApprove || showStakeProgressRef.current[amountValue]);
 
+  const showExpiredRefresh = isQuoteExpired && isPendleProvider;
+
   const onConfirmText = useMemo(() => {
+    if (showExpiredRefresh) {
+      return intl.formatMessage({ id: ETranslations.global_refresh });
+    }
     if (!useApprove) {
       return intl.formatMessage({
         id: isPendleProvider
@@ -1337,6 +1362,7 @@ export function UniversalStake({
         : ETranslations.earn_deposit,
     });
   }, [
+    showExpiredRefresh,
     useApprove,
     shouldApprove,
     intl,
@@ -1393,10 +1419,19 @@ export function UniversalStake({
           w: '100%',
         }}
         confirmButtonProps={{
-          onPress: shouldApprove ? onApprove : onSubmit,
+          onPress: showExpiredRefresh
+            ? onRefreshQuote
+            : shouldApprove
+              ? onApprove
+              : onSubmit,
           loading:
-            loadingAllowance || approving || submitting || checkAmountLoading,
-          disabled: isDisable,
+            showExpiredRefresh
+              ? false
+              : loadingAllowance ||
+                approving ||
+                submitting ||
+                checkAmountLoading,
+          disabled: showExpiredRefresh ? false : isDisable,
           w: '100%',
         }}
       />
@@ -1771,13 +1806,19 @@ export function UniversalStake({
             <Page.FooterActions
               onConfirmText={onConfirmText}
               confirmButtonProps={{
-                onPress: shouldApprove ? onApprove : onSubmit,
+                onPress: showExpiredRefresh
+                  ? onRefreshQuote
+                  : shouldApprove
+                    ? onApprove
+                    : onSubmit,
                 loading:
-                  loadingAllowance ||
-                  approving ||
-                  submitting ||
-                  checkAmountLoading,
-                disabled: isDisable,
+                  showExpiredRefresh
+                    ? false
+                    : loadingAllowance ||
+                      approving ||
+                      submitting ||
+                      checkAmountLoading,
+                disabled: showExpiredRefresh ? false : isDisable,
               }}
             />
           </Stack>

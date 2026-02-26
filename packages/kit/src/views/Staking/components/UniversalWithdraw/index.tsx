@@ -123,6 +123,9 @@ type IUniversalWithdrawProps = {
   receiveInputConfig?: IManagePageV2ReceiveInputConfig;
   transactionInputTokenAddress?: string;
   transactionOutputTokenAddress?: string;
+  isQuoteExpired?: boolean;
+  onRefreshQuote?: () => void;
+  onQuoteReset?: () => void;
 };
 
 const isNaN = (num: string) =>
@@ -156,6 +159,9 @@ export function UniversalWithdraw({
   receiveInputConfig,
   transactionInputTokenAddress,
   transactionOutputTokenAddress,
+  isQuoteExpired,
+  onRefreshQuote,
+  onQuoteReset,
 }: PropsWithChildren<IUniversalWithdrawProps>) {
   const navigation = useAppNavigation();
   const { handleOpenWebSite } = useBrowserAction().current;
@@ -413,6 +419,9 @@ export function UniversalWithdraw({
     async (amount?: string) => {
       const resp = await fetchTransactionConfirmation(amount || '0');
       setTransactionConfirmation(resp);
+      if (resp && amount && Number(amount) > 0) {
+        onQuoteReset?.();
+      }
     },
     350,
   );
@@ -523,6 +532,8 @@ export function UniversalWithdraw({
       checkAmountLoading,
     ],
   );
+
+  const showExpiredRefresh = isQuoteExpired && isPendleProvider;
 
   const amountInputDisabled = useMemo(() => {
     return isDisabled || initialAmount !== undefined;
@@ -1189,12 +1200,14 @@ export function UniversalWithdraw({
         <Page.Footer>
           <Page.FooterActions
             onConfirmText={intl.formatMessage({
-              id: ETranslations.global_withdraw,
+              id: showExpiredRefresh
+                ? ETranslations.global_refresh
+                : ETranslations.global_withdraw,
             })}
             confirmButtonProps={{
-              onPress,
-              loading: loading || checkAmountLoading,
-              disabled: isDisable,
+              onPress: showExpiredRefresh ? onRefreshQuote : onPress,
+              loading: showExpiredRefresh ? false : loading || checkAmountLoading,
+              disabled: showExpiredRefresh ? false : isDisable,
             }}
           />
           <PercentageStageOnKeyboard
@@ -1206,7 +1219,9 @@ export function UniversalWithdraw({
           <Page.FooterActions
             p={0}
             onConfirmText={intl.formatMessage({
-              id: ETranslations.global_withdraw,
+              id: showExpiredRefresh
+                ? ETranslations.global_refresh
+                : ETranslations.global_withdraw,
             })}
             buttonContainerProps={{
               $gtMd: {
@@ -1215,9 +1230,9 @@ export function UniversalWithdraw({
               w: '100%',
             }}
             confirmButtonProps={{
-              onPress,
-              loading: loading || checkAmountLoading,
-              disabled: isDisable,
+              onPress: showExpiredRefresh ? onRefreshQuote : onPress,
+              loading: showExpiredRefresh ? false : loading || checkAmountLoading,
+              disabled: showExpiredRefresh ? false : isDisable,
               w: '100%',
             }}
           />
