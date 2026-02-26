@@ -1,0 +1,25 @@
+name: PR Impact Analysis
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [x]
+
+jobs:
+  analyze:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: PR Impact Analysis
+        uses: OneKeyHQ/actions/pr-impact-analysis@main
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          llm-api-key: ${{ secrets.PIA_DEEPSEEK_API_KEY }}
+          jira-base-url: ${{ secrets.PIA_JIRA_BASE_URL }}
+          jira-email: ${{ secrets.PIA_JIRA_EMAIL }}
+          jira-api-token: ${{ secrets.PIA_JIRA_API_TOKEN }}
+          jira-project-key: 'OK'
+          jira-assignee-id: ${{ vars.PIA_JIRA_ASSIGNEE_ID }}
