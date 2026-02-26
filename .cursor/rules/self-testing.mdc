@@ -8,13 +8,6 @@ alwaysApply: true
 
 After completing any non-trivial task (feature, bug fix, refactor), execute this checklist BEFORE presenting the result. DO NOT skip any section.
 
-## Severity & Confidence Rules
-
-- Classify every finding as **P0** (Critical) / **P1** (High) / **P2** (Medium) / **P3** (Low)
-- Only report findings with **>80% confidence** of being a real issue
-- Borderline findings (60-80%) → flag as **Question** for the reviewer
-- Use **Issue → Suggestion → Why** format for every finding
-
 ## 1. Code Quality
 
 - [ ] No function > 40 lines without justification
@@ -22,32 +15,19 @@ After completing any non-trivial task (feature, bug fix, refactor), execute this
 - [ ] Error cases handled with try/catch or error boundaries
 - [ ] Semantic naming (no `tmp`, `data1`, `doStuff`)
 
-## 2. Design & Complexity (skip if trivial config/docs change)
-
-- [ ] Code is not more complex than necessary (no over-engineering, no speculative features)
-- [ ] "Clever" code does not sacrifice readability for brevity
-- [ ] A future developer can easily understand and modify this code
-- [ ] **SRP**: Each changed class/module has a single reason to change
-- [ ] **OCP**: Behavior extended via abstraction, not by modifying stable code
-- [ ] **DIP**: High-level modules depend on abstractions, not concrete implementations
-- [ ] No god functions, no feature envy, no shotgun surgery
-- [ ] Import hierarchy respected (shared → components → core → kit-bg → kit → apps)
-
-## 3. React Check (skip if no component code touched)
+## 2. React Check (skip if no component code touched)
 
 - [ ] No inline `?? []` / `?? {}` in render — use module-level constants or `useMemo`
 - [ ] No new object/array creation in render paths feeding dependency arrays
 - [ ] All `useMemo`/`useCallback` dependency arrays correct
-- [ ] No unstable props passed to memoized children
-- [ ] State not lifted unnecessarily high causing wide re-render fanout
 
-## 4. Cross-Platform Impact (skip if single-platform file)
+## 3. Cross-Platform Impact (skip if single-platform file)
 
 - [ ] Identified which platforms consume modified code
 - [ ] UI changes verified on mobile (narrowest) and desktop (widest)
 - [ ] Stated: "Affects: [platforms]" and "Does NOT affect: [platforms]"
 
-## 5. Business Logic & Regression
+## 4. Business Logic & Regression
 
 - [ ] Implementation matches original requirement
 - [ ] Edge cases covered: empty data, null, loading, error states
@@ -56,84 +36,43 @@ After completing any non-trivial task (feature, bug fix, refactor), execute this
 - [ ] Type definitions changed → all consumers updated
 - [ ] State atoms modified → verified all readers/writers
 
-## 6. Security Scan (skip for pure UI styling with no data handling)
-
-Adopt 3-phase methodology: **context → compare → assess**
-
-- [ ] No sensitive data in logs/telemetry/error reports (mnemonics, private keys, API keys, PII)
-- [ ] Auth guards wrap every protected route and cannot be bypassed
-- [ ] No new eval/dynamic execution/unsafe deserialization introduced
-- [ ] Crypto operations follow established patterns (no weak algorithms, no hardcoded keys)
-- [ ] Input validation present for all external/user inputs
-- [ ] Only flag issues with >80% confidence of real exploitation potential
-
-## 7. Potential Bugs (skip for docs/config-only changes)
+## 5. Potential Bugs (skip for docs/config-only changes)
 
 - [ ] No race conditions in async operations
 - [ ] No stale closures capturing outdated state
 - [ ] No memory leaks: subscriptions/listeners cleaned up
 - [ ] No infinite loops from useEffect dependency chains
 - [ ] "Not loaded" (`null`/`undefined`) vs "empty" (`[]`) properly distinguished
-- [ ] Boundary conditions: off-by-one, integer overflow, null coalescing
 
-## 8. Removal Candidates
-
-- [ ] No dead code left behind (unused functions/components/exports after this change)
-- [ ] No redundant code that should be extracted into shared utility
-- [ ] No stale feature flags that should be cleaned up
-- [ ] No new TODO/FIXME without a tracking issue
-
-## 9. Tests (skip for pure UI styling with no logic)
-
-Review tests with the same rigor as production code:
+## 6. Unit Tests (skip for pure UI styling with no logic)
 
 - [ ] New/modified logic has corresponding `.test.ts` file
 - [ ] Tests cover happy path AND edge cases (empty, null, error)
-- [ ] Tests will actually fail if the code breaks (no tautological assertions)
 - [ ] Bug fix includes a regression test
 - [ ] Tests pass: `yarn test -- --testPathPattern=<path>`
 
-## 10. Lint & Type Check
+## 7. Lint & Type Check
 
 - [ ] `ReadLints` shows no new errors on modified files
 - [ ] `yarn lint:staged` passes
 - [ ] `yarn tsc:staged` passes
 
-## 11. Manual Verification (skip for non-UI changes)
+## 8. Manual Verification (skip for non-UI changes)
 
 - Which command to run (`yarn app:ios` / `yarn app:desktop` / `yarn app:web` / `yarn app:ext`)
 - Which page to open and what action to perform
 - What the expected behavior is
 - Edge cases to check: empty state, error state, loading state
 
-## 12. Summary Output
+## 9. Summary Output
 
-Present to user using **Issue → Suggestion → Why** format for all findings:
-
-```markdown
-## Review Summary
-
-**What was done**: 1-2 sentences
-**Files modified/created**: list
-**Tests added/updated**: list
-
-### Findings (if any)
-
-**Finding N**: `path/to/file.ts:LXX` [P0/P1/P2/P3] (XX% confidence)
-- **Issue**: What is wrong
-- **Suggestion**: Concrete fix (with code snippet if applicable)
-- **Why**: Explanation of the risk/impact
-
-### Impact
-- **Affects**: [platforms]
-- **Does NOT affect**: [platforms]
-- **Risk assessment**: Low / Medium / High / Critical
-
-### Self-test result
-- Which checks passed
-- Which were skipped and why
-- Remaining questions or concerns
-```
+Present to user:
+1. **What was done** — 1-2 sentences
+2. **Files modified/created**
+3. **Tests added/updated**
+4. **Impact scope** — affected / not affected platforms
+5. **Risk assessment** — areas needing manual verification
+6. **Self-test result** — which checks passed, which were skipped and why
 
 ## Bug Fix Case Recording
 
@@ -152,5 +91,5 @@ Do NOT modify this file directly — only append to `case-studies.md`.
 
 ## Skip Rules
 
-- Sections 2, 3, 4, 6, 7, 8, 11: see "skip if" notes in each section header
-- NEVER skip Sections 1, 5, 9, 10, and 12
+- Sections 2, 3, 5, 6, 8: see "skip if" notes in each section header
+- NEVER skip Sections 1, 4, 7, and 9
