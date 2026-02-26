@@ -16,7 +16,21 @@ Read `.claude/skills/1k-retrospective/references/case-studies.md`. Count cases s
 
 ### Step 2: Analyze Patterns
 
-For each case, extract root cause category and which self-testing section (1-8) could have caught it, or "NEW" if not covered. Aggregate counts per pattern.
+For each case, extract root cause category and which self-testing section (1-12) could have caught it, or "NEW" if not covered. Aggregate counts per pattern.
+
+Current self-testing sections:
+1. Code Quality
+2. Design & Complexity (SOLID)
+3. React Check
+4. Cross-Platform Impact
+5. Business Logic & Regression
+6. Security Scan
+7. Potential Bugs
+8. Removal Candidates
+9. Tests
+10. Lint & Type Check
+11. Manual Verification
+12. Summary Output
 
 ### Step 3: Identify Gaps and Weak Spots
 
@@ -40,7 +54,7 @@ Housekeeping: archive candidates [list], zero-hit checks [list]
 Rules when modifying `self-testing.mdc`:
 1. **Max 150 lines** — if exceeded, consolidate similar items or move details to `references/patterns.md`
 2. **One-liner check items only** — no code examples in the rule file
-3. **Keep 9-section structure** — new items go into existing sections, no new sections
+3. **Keep 12-section structure** — new items go into existing sections, no new sections
 4. **Never delete case entries** — mark archived with `[ARCHIVED]` prefix
 
 ### Step 6: Update Timestamp
