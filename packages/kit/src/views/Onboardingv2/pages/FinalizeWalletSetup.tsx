@@ -65,6 +65,12 @@ import MatrixBackground from './MatrixBackground';
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 
+// React Navigation's default Android screen transition is ~300ms.
+// Deferring worklet-heavy operations by this amount prevents a collision
+// between outgoing screen cleanup and incoming animated props registration,
+// which can trigger SIGSEGV in Value::~Value on Fabric/New Architecture.
+const NAVIGATION_TRANSITION_SETTLE_MS = 300;
+
 type IStepData = { pathData: string; title: string } | null;
 
 // Regular wallet setup steps
@@ -324,9 +330,28 @@ function FinalizeWalletSetupPage({
     createHWWallet,
   ]);
 
+  const unmountedRef = useRef(false);
+  useEffect(
+    () => () => {
+      unmountedRef.current = true;
+    },
+    [],
+  );
+
   useEffect(() => {
-    processNextStep();
-    void createWallet();
+    // Defer animation start until after navigation transition completes.
+    // This prevents a triple-worklet collision (HeightTransition cleanup +
+    // screen transition + AnimatedPath mount) that can cause SIGSEGV in
+    // worklets::SerializableObject::toJSValue → facebook::jsi::Value::~Value
+    // on Android with Fabric/New Architecture.
+    void timerUtils.setTimeoutPromised(() => {
+      if (!unmountedRef.current) {
+        processNextStep();
+      }
+    }, NAVIGATION_TRANSITION_SETTLE_MS);
+    if (!unmountedRef.current) {
+      void createWallet();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
