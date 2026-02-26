@@ -267,10 +267,12 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
   );
 
   // Wrap setPaymentToken to also persist user's choice
-  const handleUserPaymentTokenChange = useCallback(
-    (token: IToken) => {
-      setPaymentToken(token);
-      saveTokenPreference(token);
+  const handleUserPaymentTokenChange: typeof setPaymentToken = useCallback(
+    (tokenOrUpdater) => {
+      setPaymentToken(tokenOrUpdater);
+      if (tokenOrUpdater && typeof tokenOrUpdater !== 'function') {
+        saveTokenPreference(tokenOrUpdater);
+      }
     },
     [setPaymentToken, saveTokenPreference],
   );
