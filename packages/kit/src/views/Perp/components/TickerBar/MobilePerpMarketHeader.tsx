@@ -278,7 +278,7 @@ function MobilePerpMarketHeader() {
                   <YStack px="$5" pb="$4">
                     <SizableText size="$bodyMd" color="$text">
                       {intl.formatMessage({
-                        id: ETranslations.perps_fee_desc,
+                        id: ETranslations.perps_0_fee_desc,
                       })}
                     </SizableText>
                   </YStack>

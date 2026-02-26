@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  ActionList,
   Icon,
   SizableText,
   XStack,
@@ -77,9 +78,11 @@ export function Footer() {
     setCurrentTab(currentTabName);
   });
 
+  const links = useMemo(() => getLinks(), []);
+
   const linkItems = useMemo(
     () =>
-      getLinks().map((item) => (
+      links.map((item) => (
         <FooterLink
           key={item.id}
           label={intl.formatMessage({ id: item.translationKey })}
@@ -87,7 +90,22 @@ export function Footer() {
           onPress={item.onPress}
         />
       )),
-    [intl],
+    [intl, links],
+  );
+
+  const perpMenuTrigger = useMemo(
+    () => (
+      <Icon
+        name="DotHorOutline"
+        size="$5"
+        color="$iconSubdued"
+        cursor="pointer"
+        hoverStyle={{
+          color: '$icon',
+        }}
+      />
+    ),
+    [],
   );
 
   if (currentTab === ETabRoutes.WebviewPerpTrade) {
@@ -118,23 +136,44 @@ export function Footer() {
       </XStack>
 
       <XStack gap="$3" alignItems="center">
-        <FooterNavigation>{linkItems}</FooterNavigation>
         {isInPerpRoute ? (
-          <XStack
-            alignItems="center"
-            gap="$1"
-            cursor="pointer"
-            hoverStyle={{ opacity: 0.6 }}
-            onPress={() => openUrlExternal(PERP_TELEGRAM_URL)}
-          >
-            <Icon name="TelegramBrand" size="$4" color="$iconSubdued" />
-            <SizableText size="$bodyMd" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.perps_footer_help_us_better,
-              })}
-            </SizableText>
-          </XStack>
-        ) : null}
+          <>
+            <XStack
+              alignItems="center"
+              gap="$1"
+              cursor="pointer"
+              hoverStyle={{ opacity: 0.6 }}
+              onPress={() => openUrlExternal(PERP_TELEGRAM_URL)}
+            >
+              <Icon name="TelegramBrand" size="$4" color="$iconSubdued" />
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.perps_footer_help_us_better,
+                })}
+              </SizableText>
+            </XStack>
+            <ActionList
+              title={intl.formatMessage({ id: ETranslations.global_more })}
+              renderTrigger={perpMenuTrigger}
+              sections={[
+                {
+                  items: links.map((item) => ({
+                    label: intl.formatMessage({ id: item.translationKey }),
+                    onPress: () => {
+                      if (item.onPress) {
+                        item.onPress();
+                      } else if (item.href) {
+                        openUrlExternal(item.href);
+                      }
+                    },
+                  })),
+                },
+              ]}
+            />
+          </>
+        ) : (
+          <FooterNavigation>{linkItems}</FooterNavigation>
+        )}
       </XStack>
     </XStack>
   );
