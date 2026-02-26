@@ -158,7 +158,7 @@ function ActionSwap(props: IActionItemsProps) {
   return (
     <ActionItem
       label={label ?? intl.formatMessage({ id: ETranslations.global_swap })}
-      icon={icon ?? 'SwapHorOutline'}
+      icon={icon ?? 'SwitchHorOutline'}
       {...rest}
     />
   );
@@ -184,7 +184,7 @@ function ActionPerp(props: IActionItemsProps) {
   return (
     <ActionItem
       label={label ?? intl.formatMessage({ id: ETranslations.global_perp })}
-      icon={icon ?? 'TradingViewCandlesOutline'}
+      icon={icon ?? 'TradeOutline'}
       {...rest}
     />
   );

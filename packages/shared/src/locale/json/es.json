@@ -4555,6 +4555,8 @@
   "wallet_backup.backup_warning": "<strong>Haz una copia de seguridad de tu billetera</strong> — protege tus activos en caso de pérdida del dispositivo",
   "wallet_backup.save_recovery_phrase": "Guardar frase de recuperación",
   "wallet_backup.status_not_backed_up": "No respaldado",
+  "wallet_banner_defi_desc": "Crea activos con DeFi ahora",
+  "wallet_banner_defi_title": "Gana hasta {number} APY",
   "wallet_empty_article_deposit": "¿Cómo depositar criptomonedas?",
   "wallet_empty_article_deposit_faq": "¿No ha llegado el depósito?",
   "wallet_empty_article_trade": "¿Cómo puedo operar con criptomonedas en OneKey?",

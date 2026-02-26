@@ -4560,6 +4560,8 @@
   wallet_backup_backup_warning = 'wallet_backup.backup_warning',
   wallet_backup_save_recovery_phrase = 'wallet_backup.save_recovery_phrase',
   wallet_backup_status_not_backed_up = 'wallet_backup.status_not_backed_up',
+  wallet_banner_defi_desc = 'wallet_banner_defi_desc',
+  wallet_banner_defi_title = 'wallet_banner_defi_title',
   wallet_empty_article_deposit = 'wallet_empty_article_deposit',
   wallet_empty_article_deposit_faq = 'wallet_empty_article_deposit_faq',
   wallet_empty_article_trade = 'wallet_empty_article_trade',

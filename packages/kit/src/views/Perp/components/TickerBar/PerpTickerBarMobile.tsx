@@ -148,7 +148,7 @@ function PerpCandleChartButtonMobile() {
   return (
     <DebugRenderTracker name="PerpCandleChartButtonMobile">
       <IconButton
-        icon="TradingViewCandlesOutline"
+        icon="TradeOutline"
         size="small"
         iconProps={{ color: '$iconSubdued' }}
         variant="tertiary"

@@ -815,6 +815,7 @@ export { default as VolumeMinimumOn } from './VolumeMinimumOn';
 export { default as VolumeOffMute } from './VolumeOffMute';
 export { default as VolumeOff } from './VolumeOff';
 export { default as VolumeUp } from './VolumeUp';
+export { default as Wallet4 } from './Wallet4';
 export { default as WalletCard } from './WalletCard';
 export { default as WalletCrypto } from './WalletCrypto';
 export { default as Wallet } from './Wallet';

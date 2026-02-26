@@ -4555,6 +4555,8 @@
   "wallet_backup.backup_warning": "<strong>আপনার ওয়ালেট ব্যাকআপ করুন</strong> — ডিভাইস হারিয়ে গেলে আপনার সম্পদ রক্ষা করুন",
   "wallet_backup.save_recovery_phrase": "পুনরুদ্ধার বাক্যাংশ সংরক্ষণ করুন",
   "wallet_backup.status_not_backed_up": "ব্যাকআপ করা হয়নি",
+  "wallet_banner_defi_desc": "এখন DeFi এর সাথে সম্পদ বৃদ্ধি করুন",
+  "wallet_banner_defi_title": "{number} APY পর্যন্ত উপার্জন করুন",
   "wallet_empty_article_deposit": "ক্রিপ্টো কীভাবে জমা দেবেন?",
   "wallet_empty_article_deposit_faq": "জমা কি এখনও পৌঁছেনি?",
   "wallet_empty_article_trade": "আমি কীভাবে OneKey-এ ক্রিপ্টো ট্রেড করতে পারি?",

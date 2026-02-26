@@ -4555,6 +4555,8 @@
   "wallet_backup.backup_warning": "<strong>अपने वॉलेट का बैकअप लें</strong> — डिवाइस खोने पर अपनी संपत्ति की सुरक्षा करें",
   "wallet_backup.save_recovery_phrase": "रिकवरी वाक्यांश सहेजें",
   "wallet_backup.status_not_backed_up": "बैकअप नहीं लिया गया",
+  "wallet_banner_defi_desc": "अब DeFi के साथ संपत्तियों को बढ़ाएं",
+  "wallet_banner_defi_title": "{number} APY तक कमाएँ",
   "wallet_empty_article_deposit": "क्रिप्टो जमा कैसे करें?",
   "wallet_empty_article_deposit_faq": "जमा नहीं पहुँचा?",
   "wallet_empty_article_trade": "मैं OneKey में क्रिप्टो का ट्रेड कैसे कर सकता/सकती हूँ?",

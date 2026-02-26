@@ -4555,6 +4555,8 @@
   "wallet_backup.backup_warning": "<strong>Створіть резервну копію гаманця</strong> — захистіть свої активи від втрати пристрою",
   "wallet_backup.save_recovery_phrase": "Зберегти фразу відновлення",
   "wallet_backup.status_not_backed_up": "Не створено резервну копію",
+  "wallet_banner_defi_desc": "Зростайте активи з DeFi зараз",
+  "wallet_banner_defi_title": "Заробляйте до {number} APY",
   "wallet_empty_article_deposit": "Як поповнити рахунок криптовалютою?",
   "wallet_empty_article_deposit_faq": "Депозит не надійшов?",
   "wallet_empty_article_trade": "Як я можу торгувати криптовалютами в OneKey?",

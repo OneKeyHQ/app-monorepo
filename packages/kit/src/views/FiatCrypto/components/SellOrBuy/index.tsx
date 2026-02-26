@@ -1,14 +1,11 @@
-import type { PropsWithChildren } from 'react';
 import { memo, useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
-import { Page } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { withBrowserProvider } from '@onekeyhq/kit/src/views/Discovery/pages/Browser/WithBrowserProvider';
 import { TokenList } from '@onekeyhq/kit/src/views/FiatCrypto/components/TokenList';
 import { useGetTokensList } from '@onekeyhq/kit/src/views/FiatCrypto/hooks';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -130,27 +127,3 @@ export const SellOrBuyContent = memo(
   },
 );
 SellOrBuyContent.displayName = 'SellOrBuyContent';
-
-type ISellOrBuyProps = {
-  title: string;
-  type: IFiatCryptoType;
-  networkId: string;
-  accountId?: string;
-};
-
-const SellOrBuy = ({ title, type, networkId, accountId }: ISellOrBuyProps) => (
-  <Page safeAreaEnabled={false}>
-    <Page.Header title={title} />
-    <Page.Body>
-      <SellOrBuyContent
-        type={type}
-        networkId={networkId}
-        accountId={accountId}
-      />
-    </Page.Body>
-  </Page>
-);
-
-export default withBrowserProvider<PropsWithChildren<ISellOrBuyProps>>(
-  SellOrBuy,
-);

@@ -4555,6 +4555,8 @@
   "wallet_backup.backup_warning": "<strong>Sao lưu ví của bạn</strong> — bảo vệ tài sản của bạn khỏi mất thiết bị",
   "wallet_backup.save_recovery_phrase": "Lưu cụm từ khôi phục",
   "wallet_backup.status_not_backed_up": "Không được sao lưu",
+  "wallet_banner_defi_desc": "Tăng trưởng tài sản với DeFi ngay bây giờ",
+  "wallet_banner_defi_title": "Kiếm được tới {number} APY",
   "wallet_empty_article_deposit": "Cách nạp tiền điện mã hóa?",
   "wallet_empty_article_deposit_faq": "Khoản tiền gửi chưa đến?",
   "wallet_empty_article_trade": "Làm thế nào để tôi giao dịch tiền mã hóa trong OneKey?",

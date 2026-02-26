@@ -4555,6 +4555,8 @@
   "wallet_backup.backup_warning": "<strong>สำรองข้อมูลกระเป๋าเงินของคุณ</strong> — ปกป้องทรัพย์สินของคุณจากการสูญหายของอุปกรณ์",
   "wallet_backup.save_recovery_phrase": "บันทึกวลีการกู้คืน",
   "wallet_backup.status_not_backed_up": "ไม่ได้สำรองข้อมูล",
+  "wallet_banner_defi_desc": "เริ่มเพิ่มพูนสินทรัพย์ด้วย DeFi ตอนนี้",
+  "wallet_banner_defi_title": "รับผลตอบแทนสูงสุดถึง {number} APY",
   "wallet_empty_article_deposit": "วิธีฝากคริปโตทำอย่างไร?",
   "wallet_empty_article_deposit_faq": "เงินฝากยังมาไม่ถึงใช่ไหม?",
   "wallet_empty_article_trade": "ฉันจะเทรดคริปโตใน OneKey ได้อย่างไร?",
