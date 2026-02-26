@@ -274,11 +274,14 @@ index d52f532..0eda5f7 100644
 +        return;
 +    }
 +
++    // Always detach the view from the hierarchy first, even if the index
++    // is out of bounds for the controllers array, to avoid view leaks.
++    [childComponentView removeFromSuperview];
++
 +    if (index >= _nativeChildrenViewControllers.count) {
 +        return;
 +    }
 +
-     [childComponentView removeFromSuperview];
      [_nativeChildrenViewControllers removeObjectAtIndex:index];
   
      NSInteger maxPage = _nativeChildrenViewControllers.count - 1;
