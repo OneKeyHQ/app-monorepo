@@ -249,6 +249,10 @@ function ReceiveToken() {
 
   // Auto-copy address and open exchange app when coming from exchange flow
   const hasAutoCopiedRef = useRef(false);
+  const handleCopyAddressRef = useRef(handleCopyAddress);
+  useEffect(() => {
+    handleCopyAddressRef.current = handleCopyAddress;
+  }, [handleCopyAddress]);
   useEffect(() => {
     if (
       !exchangeSource ||
@@ -260,7 +264,7 @@ function ReceiveToken() {
     }
 
     hasAutoCopiedRef.current = true;
-    handleCopyAddress();
+    handleCopyAddressRef.current();
 
     if (platformEnv.isNative) {
       const timer = setTimeout(() => {
@@ -268,13 +272,7 @@ function ReceiveToken() {
       }, 1000);
       return () => clearTimeout(timer);
     }
-  }, [
-    exchangeSource,
-    displayAddress,
-    shouldShowAddress,
-    handleCopyAddress,
-    openExchangeApp,
-  ]);
+  }, [exchangeSource, displayAddress, shouldShowAddress, openExchangeApp]);
 
   const throttledSyncBTCFreshAddress = useThrottledCallback(
     (params: { networkId: string; accountId: string }) => {
