@@ -182,24 +182,49 @@ const BorrowHomeContent = memo(
             </XStack>
           ) : (
             // Mobile layout - tabbed
+            // Uses position:absolute + opacity overlay instead of display:none
+            // to keep FlashList viewports non-zero and items pre-rendered.
+            // Active tab: normal flow (determines container height).
+            // Inactive tab: absolute-positioned, invisible, no pointer events.
             <YStack flex={1} gap="$5">
               <SegmentControl
                 value={activeTab}
                 options={tabOptions}
-                onChange={(value) => setActiveTab(value as IBorrowTab)}
+                onChange={(value) => {
+                  setActiveTab(value as IBorrowTab);
+                }}
                 fullWidth
               />
-              {activeTab === 'supply' ? (
-                <YStack gap="$5">
+              <YStack position="relative">
+                <YStack
+                  gap="$5"
+                  {...(activeTab !== 'supply' && {
+                    position: 'absolute' as const,
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    opacity: 0,
+                    pointerEvents: 'none' as const,
+                  })}
+                >
                   <SuppliedCard />
                   <SupplyCard />
                 </YStack>
-              ) : (
-                <YStack gap="$5">
+                <YStack
+                  gap="$5"
+                  {...(activeTab !== 'borrow' && {
+                    position: 'absolute' as const,
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    opacity: 0,
+                    pointerEvents: 'none' as const,
+                  })}
+                >
                   <BorrowedCard />
                   <BorrowCard />
                 </YStack>
-              )}
+              </YStack>
             </YStack>
           )}
         </YStack>
