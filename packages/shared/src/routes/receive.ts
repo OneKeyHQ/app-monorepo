@@ -3,6 +3,8 @@ import type {
   IAccountDeriveTypes,
 } from '@onekeyhq/kit-bg/src/vaults/types';
 
+import type { EExchangeId } from '../consts/exchangeConsts';
+
 import type {
   IAggregateTokenSelectorParams,
   ITokenSelectorParamList,
@@ -49,6 +51,7 @@ export type IModalReceiveParamList = {
     disableSelector?: boolean;
     btcUsedAddress?: string;
     btcUsedAddressPath?: string;
+    exchangeSource?: EExchangeId;
   };
   [EModalReceiveRoutes.ReceiveInvoice]: {
     networkId: string;
