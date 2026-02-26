@@ -69,14 +69,14 @@ export const ActionField = ({
 
   const actionItems = useMemo(() => {
     const items: {
-      icon: 'SwapHorOutline' | 'BridgeOutline' | 'ArrowBottomOutline';
+      icon: 'SwitchHorOutline' | 'BridgeOutline' | 'ArrowBottomOutline';
       label: string;
       onPress: () => void;
     }[] = [];
 
     if (swapConfig.isSupportSwap || swapConfig.isSupportCrossChain) {
       items.push({
-        icon: 'SwapHorOutline',
+        icon: 'SwitchHorOutline',
         label: labels.swap,
         onPress: () => {
           void handleSwap?.(item);

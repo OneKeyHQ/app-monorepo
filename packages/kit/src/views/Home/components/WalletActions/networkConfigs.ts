@@ -25,7 +25,6 @@ export const defaultWalletActionsConfig: INetworkWalletActionsConfig = {
   moreActions: isExtPopupOrSidePanel
     ? [
         'buy',
-        'sell',
         'explorer',
         'copy',
         'bulkSend',
@@ -35,7 +34,6 @@ export const defaultWalletActionsConfig: INetworkWalletActionsConfig = {
       ]
     : [
         'swap',
-        'sell',
         'explorer',
         'copy',
         'bulkSend',
@@ -46,7 +44,7 @@ export const defaultWalletActionsConfig: INetworkWalletActionsConfig = {
   moreActionGroups: [
     {
       type: 'trading',
-      actions: isExtPopupOrSidePanel ? ['buy', 'sell'] : ['swap', 'sell'],
+      actions: isExtPopupOrSidePanel ? ['buy'] : ['swap'],
       order: 1,
     },
     {
@@ -70,7 +68,6 @@ export const detailedNetworkConfigs: Record<
     mainActions: ['send', 'receive', 'staking'],
     moreActions: [
       'buy',
-      'sell',
       'swap',
       'explorer',
       'copy',
@@ -83,7 +80,7 @@ export const detailedNetworkConfigs: Record<
     moreActionGroups: [
       {
         type: 'trading',
-        actions: ['buy', 'sell', 'swap'],
+        actions: ['buy', 'swap'],
         order: 1,
       },
       {
