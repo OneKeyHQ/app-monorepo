@@ -64,7 +64,7 @@ Closes #<!-- issue number -->
 <!-- Run through these before requesting review. -->
 
 - [ ] No sensitive data in logs (mnemonics, private keys, API keys, PII)
-- [ ] Import hierarchy respected (shared → components → core → kit-bg → kit → apps)
+- [ ] Import hierarchy respected: shared → (components | core) → kit-bg → kit → apps (kit-bg NEVER imports components)
 - [ ] `yarn lint:staged` passes
 - [ ] `yarn tsc:staged` passes
 - [ ] No dead code or untracked TODOs left behind

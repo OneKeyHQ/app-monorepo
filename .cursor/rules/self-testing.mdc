@@ -31,7 +31,7 @@ After completing any non-trivial task (feature, bug fix, refactor), execute this
 - [ ] **OCP**: Behavior extended via abstraction, not by modifying stable code
 - [ ] **DIP**: High-level modules depend on abstractions, not concrete implementations
 - [ ] No god functions, no feature envy, no shotgun surgery
-- [ ] Import hierarchy respected (shared → components → core → kit-bg → kit → apps)
+- [ ] Import hierarchy respected: shared → (components | core) → kit-bg → kit → apps (kit-bg NEVER imports components)
 
 ## 3. React Check (skip if no component code touched)
 
@@ -153,4 +153,4 @@ Do NOT modify this file directly — only append to `case-studies.md`.
 ## Skip Rules
 
 - Sections 2, 3, 4, 6, 7, 8, 11: see "skip if" notes in each section header
-- NEVER skip Sections 1, 5, 9, 10, and 12
+- NEVER skip Sections 1, 5, 10, and 12
