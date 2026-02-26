@@ -700,9 +700,11 @@ const PortfolioItemComponent = ({
               }),
               flex: 1,
               priority: 3,
-              render: () => (
+              render: (asset: IEarnPortfolioInvestment['assets'][number]) => (
                 <PositionValueField
-                  totalFiatValue={portfolioItem.totalFiatValue}
+                  totalFiatValue={
+                    asset.metadata.fiatValue ?? portfolioItem.totalFiatValue
+                  }
                 />
               ),
             }
