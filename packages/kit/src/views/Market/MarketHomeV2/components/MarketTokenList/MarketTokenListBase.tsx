@@ -31,16 +31,22 @@ import { useToDetailPage } from './hooks/useToMarketDetailPage';
 import { type IMarketToken } from './MarketTokenData';
 
 const SPINNER_HEIGHT = 52;
+// Watchlist mode: only these 3 columns are sortable (server-side sort)
 const SORTABLE_COLUMNS = {
   liquidity: 'liquidity',
   marketCap: 'mc',
   turnover: 'v24hUSD',
+} as const;
+
+// Sortable mode (banner detail): all numeric columns are sortable (client-side sort)
+const ALL_SORTABLE_COLUMNS: Record<string, string> = {
+  ...SORTABLE_COLUMNS,
   price: 'price',
   change24h: 'change24h',
   transactions: 'transactions',
   uniqueTraders: 'uniqueTraders',
   holders: 'holders',
-} as const;
+};
 
 // Map sort keys to ESortWay enum values for logging
 const SORT_KEY_TO_ENUM: Record<string, ESortWay> = {
@@ -195,9 +201,10 @@ function MarketTokenListBase({
         return undefined;
       }
 
-      // Sorting logic
-      const sortKey =
-        SORTABLE_COLUMNS[column.dataIndex as keyof typeof SORTABLE_COLUMNS];
+      // Use expanded sortable columns for sortable (banner) mode,
+      // restricted columns for watchlist mode
+      const columnsMap = sortable ? ALL_SORTABLE_COLUMNS : SORTABLE_COLUMNS;
+      const sortKey = columnsMap[column.dataIndex as keyof typeof columnsMap];
 
       if (sortKey) {
         const isCurrentSort = currentSortBy === sortKey;
