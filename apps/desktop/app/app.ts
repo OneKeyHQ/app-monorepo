@@ -57,6 +57,7 @@ import {
 import { initSentry } from './sentry';
 import { startServices } from './service';
 import { setMainWindowForOAuthServer } from './service/oauthLocalServer/oauthLocalServer';
+import { scheduleCrashDumpCleanup } from './libs/crashDumpCleanup';
 import { getBackgroundColor } from './libs/utils';
 
 logger.initialize();
@@ -1454,6 +1455,7 @@ app.on('ready', async () => {
   startProcessMetricsMonitoring();
   startV8HeapMonitoring();
   startWebviewMemoryMonitoring();
+  scheduleCrashDumpCleanup();
   await collectGPUInfo();
 });
 
