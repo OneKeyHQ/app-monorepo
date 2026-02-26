@@ -48,9 +48,8 @@ function TabHeader({
         borderBottomColor="$borderActive"
         onPress={() => onTabChange('Trades')}
         mb={-2}
-        userSelect="none"
       >
-        <SizableText size="$headingXs" userSelect="none">
+        <SizableText size="$headingXs">
           {intl.formatMessage({ id: ETranslations.perp_trades_history_title })}
         </SizableText>
       </XStack>
@@ -61,9 +60,8 @@ function TabHeader({
         borderBottomColor="$borderActive"
         onPress={() => onTabChange('Account')}
         mb={-2}
-        userSelect="none"
       >
-        <SizableText size="$headingXs" userSelect="none">
+        <SizableText size="$headingXs">
           {intl.formatMessage({ id: ETranslations.perp_account_history })}
         </SizableText>
       </XStack>
