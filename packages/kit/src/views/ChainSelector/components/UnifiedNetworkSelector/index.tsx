@@ -497,7 +497,9 @@ function UnifiedNetworkSelector() {
   // Header title renderer
   const renderHeaderTitle = useCallback(() => {
     if (showTabSwitcher) {
-      return <TabSwitcher activeTab={activeTab} onTabChange={handleTabChange} />;
+      return (
+        <TabSwitcher activeTab={activeTab} onTabChange={handleTabChange} />
+      );
     }
 
     // Show simple title for network-only mode
