@@ -12,6 +12,18 @@ Follow this workflow when reviewing code changes. Prioritize **security > correc
 
 ---
 
+## Core Review Principles
+
+Before diving into the checklist, internalize these principles:
+
+1. **"改善代码健康度"原则**（Google Eng-Practices）: 只要变更整体上改善了代码质量，就应该通过审查——即使它并不完美。不要因为追求完美而阻塞合并。
+2. **先看测试，再看实现**: 测试揭示了作者的意图。先理解"要做什么"，再评估"怎么做的"。
+3. **聚焦高价值问题**: 安全、正确性、架构问题 > 风格偏好。不要在 P3 级问题上纠缠。
+4. **每条反馈都要可行动**: 使用 "Issue → Suggestion → Why" 格式，让作者知道问题是什么、建议怎么改、为什么要改。
+5. **减少噪音**: 只报告 >80% 置信度的真实问题，60-80% 标记为 Question。不确定的就别说。
+
+---
+
 ## Severity Levels
 
 All findings MUST be classified using the following severity levels:
@@ -35,10 +47,41 @@ When confidence is borderline (60-80%), flag as **Question** instead of a findin
 
 ---
 
+## Review Depth Modes
+
+Choose the appropriate review depth based on the PR's risk level:
+
+| Mode | When to Use | Scope | Time |
+|------|-------------|-------|------|
+| **Quick** | Config/docs/style-only changes, <50 lines | Diff-only: only review changed lines | ~5 min |
+| **Standard** | Normal feature/bugfix PRs | Changed files: review full context of changed files | ~15 min |
+| **Deep** | Security-critical, crypto, auth, dependency updates | Full context: trace call chains, inspect node_modules, cross-reference consumers | ~30+ min |
+
+Auto-select rule:
+- Touching `packages/core`, `**/vault/**`, `**/signing/**`, `**/auth/**`, `package.json`, `yarn.lock` → **Deep**
+- Touching `packages/kit`, `packages/kit-bg`, `packages/components` → **Standard**
+- Docs, config, comments, type-only → **Quick**
+
+---
+
 ## Review scope (base branch)
 
 - Treat `x` as the base (main) branch.
 - Use PR semantics: `git fetch origin && git diff origin/x...HEAD` (triple-dot).
+
+---
+
+## Review Order (IMPORTANT)
+
+Follow this order for maximum efficiency:
+
+1. **Tests first** — Read new/modified tests to understand the author's intent
+2. **High-risk files** — Security-critical, auth, crypto, dependency changes
+3. **Core logic** — Business logic, state management, services
+4. **UI components** — React components, styles
+5. **Config/docs** — Package.json, manifests, documentation
+
+This order ensures you understand "what" before evaluating "how", and catch critical issues early.
 
 ---
 
@@ -56,6 +99,7 @@ git diff --stat origin/x...HEAD
 - Identify which packages are touched (shared / components / core / kit-bg / kit / apps)
 - Identify risk areas: auth flows, signing/keys, networking, analytics, storage, dependency updates
 - Identify ownership boundaries: which teams/modules own the changed code
+- **Determine Review Depth Mode**: Quick / Standard / Deep based on risk level
 
 ### 1.1 File Change Inventory (REQUIRED)
 
@@ -63,6 +107,9 @@ Generate a structured overview of ALL changed files:
 
 ```markdown
 ## PR File Structure Analysis
+
+**Review Depth**: Quick | Standard | Deep
+**Reason**: [why this depth was chosen]
 
 ### Changed Files Summary
 | File | Change Type | Category | Risk Level | Description |
@@ -93,7 +140,7 @@ Generate a structured overview of ALL changed files:
 - package.json, lockfile changes
 ```
 
-### 1.2 Per-File Analysis (REQUIRED)
+### 1.2 Per-File Analysis (REQUIRED for Standard/Deep mode; OPTIONAL for Quick)
 
 For EACH changed file, provide:
 
@@ -180,7 +227,22 @@ Focus on high-confidence vulnerabilities:
 - Improper key storage or transmission
 - JWT validation bypass opportunities
 
-### 2.2 SOLID & Architecture Review (NEW)
+### 2.2 Design & Complexity (Google Eng-Practices)
+
+Evaluate changes through two lenses:
+
+#### Design
+- Is the overall design well-thought-out?
+- Does this change belong in this codebase, or should it be in a library/separate package?
+- How do the changed pieces interact with each other and existing code?
+
+#### Complexity / Over-engineering
+- Is the code more complex than necessary at any level (line, function, class)?
+- Are developers solving speculative future problems instead of actual current needs?
+- Can a future developer easily understand and modify this code?
+- Flag "clever" code that sacrifices readability for brevity
+
+### 2.3 SOLID & Architecture Review
 
 Check for design principle violations in changed code:
 
@@ -202,7 +264,7 @@ Also check for:
   - `kit-bg` → only `shared` + `core` (NEVER `components` or `kit`)
   - `kit` → `shared` + `components` + `kit-bg`
 
-### 2.3 Removal Candidates (NEW)
+### 2.4 Removal Candidates
 
 Identify code that should be removed or cleaned up:
 
@@ -219,18 +281,18 @@ For each removal candidate, provide:
 **Confidence**: XX%
 ```
 
-### 2.4 Dependency & Supply-Chain Security (HIGHEST PRIORITY)
+### 2.5 Dependency & Supply-Chain Security (HIGHEST PRIORITY)
 
 If `package.json` / lockfiles changed, you MUST do all of the following:
 
-#### 2.4.1 Enumerate changes
+#### 2.5.1 Enumerate changes
 - List every added/updated/removed dependency with **name + from→to version** and the reason.
 
-#### 2.4.2 Quick ecosystem risk check
+#### 2.5.2 Quick ecosystem risk check
 - For each changed package: check for recent maintainer/ownership changes, suspicious release cadence, known advisories/CVEs, typosquatting risk.
 - Run: `npm view <pkg> time maintainers repository dist.tarball`
 
-#### 2.4.3 Source inspection (node_modules)
+#### 2.5.3 Source inspection (node_modules)
 - Inspect `node_modules/<pkg>/package.json` and entrypoints.
 - Grep for high-risk behavior:
   - Outbound/network: `fetch(`, `axios`, `XMLHttpRequest`, `http`, `https`, `ws`
@@ -239,14 +301,14 @@ If `package.json` / lockfiles changed, you MUST do all of the following:
   - Privilege access: filesystem, clipboard, keychain, environment variables
 - Treat as **P0** and block unless justified + isolated.
 
-#### 2.4.4 React Native native-layer inspection (for RN libs)
+#### 2.5.4 React Native native-layer inspection (for RN libs)
 - Inspect iOS/Android native sources for security + performance.
 - Confirm no unexpected outbound requests, no telemetry, no access to wallet secrets.
 
-#### 2.4.5 Extension manifest permissions (HIGHEST PRIORITY)
+#### 2.5.5 Extension manifest permissions (HIGHEST PRIORITY)
 - If `manifest.json` permissions change: enumerate added/removed permissions, assess least-privilege, re-check data exposure surfaces.
 
-### 2.5 Cross-Platform Architecture Review
+### 2.6 Cross-Platform Architecture Review
 
 Review as a senior multi-platform architect:
 - Is this the simplest correct solution?
@@ -257,7 +319,7 @@ Review as a senior multi-platform architect:
   - Web: CORS, storage, XSS, bundle size
 - If not optimal, propose alternative with tradeoffs.
 
-### 2.6 React Performance (Hooks + Re-render Hotspots)
+### 2.7 React Performance (Hooks + Re-render Hotspots)
 
 For new/modified components:
 - Unnecessary re-renders from unstable references (inline objects/functions)
@@ -267,41 +329,59 @@ For new/modified components:
 - Expensive work in render, list rendering issues, missing cleanup
 - Apply stricter scrutiny to **new parent/child boundaries**
 
-### 2.7 Code Quality Scan
+### 2.8 Code Quality Scan
 
 - **Boundary conditions**: off-by-one, null/undefined vs empty, integer overflow
 - **Error handling**: uncaught promises, missing try/catch, error swallowing
 - **Race conditions**: concurrent async operations, state updates after unmount
 - **Memory leaks**: unsubscribed listeners, uncancelled timers, retained closures
 - **Type safety**: `any` usage, type assertions without validation, `@ts-ignore`
+- **Naming**: variables/functions have clear, descriptive names that reveal intent
+- **Documentation**: public APIs and non-obvious logic have adequate comments (in English)
+
+### 2.9 Test Coverage Review
+
+Review tests with the same rigor as production code:
+- Are the right kinds of tests added (unit / integration / e2e)?
+- Do tests actually assert the behavior introduced in this PR?
+- Will tests fail if the code breaks? (no tautological or always-passing tests)
+- Are edge cases tested (null, empty, error, boundary values)?
+- Do tests follow existing project test patterns and naming conventions?
 
 ---
 
 ## Phase 3: Structured Output (REQUIRED)
 
-### 3.1 Findings Table
+### 3.1 Findings Table (with Inline Suggestions)
 
-Organize all findings by severity:
+Organize all findings by severity. Each finding MUST use the **Issue → Suggestion → Why** format:
 
 ```markdown
 ## Review Findings
 
 ### P0 — Critical (Must Fix)
-| # | File:Line | Finding | Confidence | Category |
-|---|-----------|---------|------------|----------|
-| 1 | `path:L42` | Description | 95% | Security |
+| # | File:Line | Category | Confidence |
+|---|-----------|----------|------------|
+
+**Finding 1**: `path/to/file.ts:L42`
+- **Issue**: [What is wrong]
+- **Suggestion**: [Concrete fix with code snippet]
+  ```typescript
+  // Before
+  const key = userInput;
+  // After (suggested fix)
+  const key = sanitize(userInput);
+  ```
+- **Why**: [Explanation of the risk/impact]
 
 ### P1 — High (Should Fix)
-| # | File:Line | Finding | Confidence | Category |
-|---|-----------|---------|------------|----------|
+...
 
 ### P2 — Medium (Fix or Follow-up)
-| # | File:Line | Finding | Confidence | Category |
-|---|-----------|---------|------------|----------|
+...
 
 ### P3 — Low (Optional)
-| # | File:Line | Finding | Confidence | Category |
-|---|-----------|---------|------------|----------|
+...
 
 ### Questions (Need Clarification)
 | # | File:Line | Question | Context |
@@ -317,6 +397,7 @@ Organize all findings by severity:
 **P0 count**: X | **P1 count**: X | **P2 count**: X | **P3 count**: X
 **Blocking issues**: [list P0s if any]
 **Risk assessment**: Low / Medium / High / Critical
+**Review depth used**: Quick / Standard / Deep
 ```
 
 Rules:
@@ -325,7 +406,9 @@ Rules:
 - P2/P3 only → **Approve with comments**
 - No findings → **Approve**
 
-### 3.3 Architecture Visualization (REQUIRED for non-trivial PRs)
+Remember: approve if the change **improves overall code health**, even if it's not perfect.
+
+### 3.3 Architecture Visualization (REQUIRED for Standard/Deep mode)
 
 Generate at least 2 ASCII diagrams:
 
@@ -360,6 +443,45 @@ Diagram guidelines:
 - Use box-drawing characters: `┌ ┐ └ ┘ │ ─ ├ ┤ ┬ ┴ ┼ ▶ ◀ ▲ ▼ ✓ ✗`
 - Use `[HIGH]` `[MEDIUM]` `[LOW]` labels
 - Max 10-15 nodes per diagram; split complex flows into multiple diagrams
+
+---
+
+## Incremental Re-review (for PR Updates)
+
+When code is pushed to update an existing PR:
+
+1. Only re-review files that changed since your last review
+2. Verify previously flagged P0/P1 issues have been addressed
+3. Check that fixes don't introduce new issues
+4. Update your verdict based on the current state
+
+```bash
+# View changes since last review
+git diff <last-reviewed-commit>...HEAD --name-only
+```
+
+---
+
+## Review Anti-patterns (DO NOT DO THESE)
+
+| Anti-pattern | Why It's Bad | Do This Instead |
+|--------------|-------------|-----------------|
+| Blocking on style nitpicks | Wastes time, demoralizes author | Use P3 or skip entirely |
+| Demanding perfection | Delays value delivery | Approve if it improves code health |
+| Vague feedback ("this is wrong") | Author can't act on it | Use Issue → Suggestion → Why format |
+| Reviewing >400 lines at once | Attention fatigue, missed issues | Ask author to split the PR |
+| Ignoring tests | Missed intent, missed regressions | Always review tests first |
+| Rubber-stamping | Security/correctness risks slip through | Spend real time proportional to risk |
+| Reviewing after days of delay | Blocks author, context loss | Target first review within 4 hours |
+
+---
+
+## Standards Maintenance
+
+Review this checklist quarterly to keep it relevant:
+- Archive checks that never catch real issues
+- Add checks for recurring bug patterns from `.claude/skills/1k-retrospective/references/case-studies.md`
+- Update for new platform constraints or security requirements
 
 ---
 

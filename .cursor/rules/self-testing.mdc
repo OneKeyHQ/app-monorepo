@@ -13,6 +13,7 @@ After completing any non-trivial task (feature, bug fix, refactor), execute this
 - Classify every finding as **P0** (Critical) / **P1** (High) / **P2** (Medium) / **P3** (Low)
 - Only report findings with **>80% confidence** of being a real issue
 - Borderline findings (60-80%) → flag as **Question** for the reviewer
+- Use **Issue → Suggestion → Why** format for every finding
 
 ## 1. Code Quality
 
@@ -21,8 +22,11 @@ After completing any non-trivial task (feature, bug fix, refactor), execute this
 - [ ] Error cases handled with try/catch or error boundaries
 - [ ] Semantic naming (no `tmp`, `data1`, `doStuff`)
 
-## 2. SOLID & Architecture (skip if trivial config/docs change)
+## 2. Design & Complexity (skip if trivial config/docs change)
 
+- [ ] Code is not more complex than necessary (no over-engineering, no speculative features)
+- [ ] "Clever" code does not sacrifice readability for brevity
+- [ ] A future developer can easily understand and modify this code
 - [ ] **SRP**: Each changed class/module has a single reason to change
 - [ ] **OCP**: Behavior extended via abstraction, not by modifying stable code
 - [ ] **DIP**: High-level modules depend on abstractions, not concrete implementations
@@ -79,10 +83,13 @@ Adopt 3-phase methodology: **context → compare → assess**
 - [ ] No stale feature flags that should be cleaned up
 - [ ] No new TODO/FIXME without a tracking issue
 
-## 9. Unit Tests (skip for pure UI styling with no logic)
+## 9. Tests (skip for pure UI styling with no logic)
+
+Review tests with the same rigor as production code:
 
 - [ ] New/modified logic has corresponding `.test.ts` file
 - [ ] Tests cover happy path AND edge cases (empty, null, error)
+- [ ] Tests will actually fail if the code breaks (no tautological assertions)
 - [ ] Bug fix includes a regression test
 - [ ] Tests pass: `yarn test -- --testPathPattern=<path>`
 
@@ -101,7 +108,7 @@ Adopt 3-phase methodology: **context → compare → assess**
 
 ## 12. Summary Output
 
-Present to user:
+Present to user using **Issue → Suggestion → Why** format for all findings:
 
 ```markdown
 ## Review Summary
@@ -111,8 +118,11 @@ Present to user:
 **Tests added/updated**: list
 
 ### Findings (if any)
-| # | Severity | File:Line | Finding | Confidence | Status |
-|---|----------|-----------|---------|------------|--------|
+
+**Finding N**: `path/to/file.ts:LXX` [P0/P1/P2/P3] (XX% confidence)
+- **Issue**: What is wrong
+- **Suggestion**: Concrete fix (with code snippet if applicable)
+- **Why**: Explanation of the risk/impact
 
 ### Impact
 - **Affects**: [platforms]
