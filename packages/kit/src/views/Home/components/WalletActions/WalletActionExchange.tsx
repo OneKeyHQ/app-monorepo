@@ -28,7 +28,12 @@ import openUrlUtils, {
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
-function WalletActionExchange() {
+function WalletActionExchange(props?: {
+  accountId?: string;
+  networkId?: string;
+  walletId?: string;
+  indexedAccountId?: string;
+}) {
   const intl = useIntl();
   const navigation = useAppNavigation();
 
@@ -38,10 +43,10 @@ function WalletActionExchange() {
 
   const { sortedExchanges, isExchangeInstalled } = useExchangeAppDetection();
 
-  const accountId = account?.id ?? '';
-  const networkId = network?.id ?? '';
-  const walletId = wallet?.id ?? '';
-  const indexedAccountId = indexedAccount?.id ?? '';
+  const accountId = props?.accountId || account?.id || '';
+  const networkId = props?.networkId || network?.id || '';
+  const walletId = props?.walletId || wallet?.id || '';
+  const indexedAccountId = props?.indexedAccountId || indexedAccount?.id || '';
 
   const handleBinancePress = useCallback(async () => {
     try {

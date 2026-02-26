@@ -388,7 +388,12 @@ function ReceiveSelectorContent() {
                         id: ETranslations.learn_how_to_withdraw_crypto_from_exchange,
                       })}
                     </SizableText>
-                    <WalletActionExchange />
+                    <WalletActionExchange
+                      accountId={accountId}
+                      networkId={networkId}
+                      walletId={walletId}
+                      indexedAccountId={indexedAccountId}
+                    />
                   </Accordion.Content>
                 </Accordion.HeightAnimator>
               </Accordion.Item>

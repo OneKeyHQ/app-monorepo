@@ -389,18 +389,35 @@ function AggregateTokenSelector() {
       });
     }
 
-    return uniqBy(
+    let result = uniqBy(
       [
         ...tokens,
         ...sortTokensByOrder({ tokens: allAggregateTokenList ?? [] }),
       ],
       (token) => token.networkId,
     );
+
+    if (exchangeFilter?.supportedAssets) {
+      result = result.filter((token) => {
+        const symbolUpper = (
+          aggregateToken.commonSymbol ??
+          aggregateToken.symbol ??
+          ''
+        ).toUpperCase();
+        const networkAssets =
+          exchangeFilter.supportedAssets[token.networkId ?? ''];
+        return networkAssets?.[symbolUpper]?.withdrawEnable === true;
+      });
+    }
+
+    return result;
   }, [
     aggregateTokens,
     allTokenListMapAtom,
     allAggregateTokenList,
     hideZeroBalanceTokens,
+    exchangeFilter,
+    aggregateToken,
   ]);
 
   const filteredAggregateTokens = useMemo(() => {
