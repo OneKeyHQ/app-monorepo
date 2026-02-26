@@ -233,8 +233,9 @@ export const useManagePage = ({
       approve: managePageData.approve
         ? {
             allowance: managePageData.approve.allowance ?? '0',
-            approveType: (managePageData.approve
-              .approveType as unknown as EApproveType) ?? undefined,
+            approveType:
+              (managePageData.approve.approveType as unknown as EApproveType) ??
+              undefined,
             approveTarget: managePageData.approve.approveTarget ?? undefined,
           }
         : undefined,

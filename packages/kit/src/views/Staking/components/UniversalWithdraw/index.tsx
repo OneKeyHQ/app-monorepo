@@ -1206,7 +1206,9 @@ export function UniversalWithdraw({
             })}
             confirmButtonProps={{
               onPress: showExpiredRefresh ? onRefreshQuote : onPress,
-              loading: showExpiredRefresh ? false : loading || checkAmountLoading,
+              loading: showExpiredRefresh
+                ? false
+                : loading || checkAmountLoading,
               disabled: showExpiredRefresh ? false : isDisable,
             }}
           />
@@ -1231,7 +1233,9 @@ export function UniversalWithdraw({
             }}
             confirmButtonProps={{
               onPress: showExpiredRefresh ? onRefreshQuote : onPress,
-              loading: showExpiredRefresh ? false : loading || checkAmountLoading,
+              loading: showExpiredRefresh
+                ? false
+                : loading || checkAmountLoading,
               disabled: showExpiredRefresh ? false : isDisable,
               w: '100%',
             }}

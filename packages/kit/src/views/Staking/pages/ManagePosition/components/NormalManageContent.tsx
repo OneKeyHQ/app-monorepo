@@ -9,9 +9,7 @@ import SlippageSettingDialog from '@onekeyhq/kit/src/components/SlippageSettingD
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
-import {
-  swapSlippageAutoValue,
-} from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import { swapSlippageAutoValue } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type { ISwapSlippageSegmentItem } from '@onekeyhq/shared/types/swap/types';
 import { ESwapSlippageSegmentKey } from '@onekeyhq/shared/types/swap/types';
 import {

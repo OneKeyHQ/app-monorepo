@@ -1424,13 +1424,9 @@ export function UniversalStake({
             : shouldApprove
               ? onApprove
               : onSubmit,
-          loading:
-            showExpiredRefresh
-              ? false
-              : loadingAllowance ||
-                approving ||
-                submitting ||
-                checkAmountLoading,
+          loading: showExpiredRefresh
+            ? false
+            : loadingAllowance || approving || submitting || checkAmountLoading,
           disabled: showExpiredRefresh ? false : isDisable,
           w: '100%',
         }}
@@ -1811,13 +1807,12 @@ export function UniversalStake({
                   : shouldApprove
                     ? onApprove
                     : onSubmit,
-                loading:
-                  showExpiredRefresh
-                    ? false
-                    : loadingAllowance ||
-                      approving ||
-                      submitting ||
-                      checkAmountLoading,
+                loading: showExpiredRefresh
+                  ? false
+                  : loadingAllowance ||
+                    approving ||
+                    submitting ||
+                    checkAmountLoading,
                 disabled: showExpiredRefresh ? false : isDisable,
               }}
             />

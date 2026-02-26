@@ -1,11 +1,8 @@
 import { useEffect } from 'react';
 
-import { useIntl } from 'react-intl';
-
 import { Button, IconButton, SizableText, XStack } from '@onekeyhq/components';
 import { useStakingPendingTxs } from '@onekeyhq/kit/src/views/Earn/hooks/useStakingPendingTxs';
 import { PendingIndicator } from '@onekeyhq/kit/src/views/Staking/components/StakingActivityIndicator';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IEarnHistoryActionIcon,
   IStakeTag,
@@ -41,7 +38,6 @@ export const HeaderRight = ({
   onRefreshQuote,
   onOpenSlippage,
 }: IHeaderRightProps) => {
-  const intl = useIntl();
   const { pendingCount, refreshPending } = useStakingPendingTxs({
     accountId,
     networkId,
@@ -71,7 +67,12 @@ export const HeaderRight = ({
             onPress={onOpenSlippage}
           />
           {typeof remainingSeconds === 'number' && remainingSeconds > 0 ? (
-            <SizableText size="$bodySm" color="$textSubdued" minWidth="$6" textAlign="center">
+            <SizableText
+              size="$bodySm"
+              color="$textSubdued"
+              minWidth="$6"
+              textAlign="center"
+            >
               {remainingSeconds}s
             </SizableText>
           ) : null}
