@@ -89,7 +89,9 @@ jest.mock('@onekeyhq/kit/src/hooks/useThemeVariant', () => ({
 }));
 
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => {
-  const atomHolder = { value: { status: 'done', updateStrategy: 2, latestVersion: '1.0.0' } };
+  const atomHolder = {
+    value: { status: 'done', updateStrategy: 2, latestVersion: '1.0.0' },
+  };
   (globalThis as any).__mockAtomHolder = atomHolder;
   return {
     useAppUpdatePersistAtom: () => [atomHolder.value],
@@ -852,9 +854,7 @@ describe('useDownloadPackage', () => {
       svc.getDownloadEvent.mockResolvedValue({
         downloadedFile: '/tmp/app.apk',
       });
-      appUpd.manualInstallPackage.mockRejectedValue(
-        new Error('Install error'),
-      );
+      appUpd.manualInstallPackage.mockRejectedValue(new Error('Install error'));
 
       const { result } = renderHook(() => useDownloadPackage());
 

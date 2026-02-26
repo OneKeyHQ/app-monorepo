@@ -53,9 +53,7 @@ class ServiceAppUpdate extends ServiceBase {
             ...prev,
             errorText: undefined,
             status: EAppUpdateStatus.notify,
-            downloadedEvent: isVerifyFailure
-              ? undefined
-              : prev.downloadedEvent,
+            downloadedEvent: isVerifyFailure ? undefined : prev.downloadedEvent,
           }));
         }
       },
@@ -159,8 +157,9 @@ class ServiceAppUpdate extends ServiceBase {
     } else if (ServiceAppUpdate.FAILED_STATUSES.includes(appInfo.status)) {
       // On app launch / foreground, reset failed states back to notify
       // so the user gets a fresh update prompt instead of a stale error.
-      const isVerifyFailure =
-        ServiceAppUpdate.VERIFY_FAILED_STATUSES.includes(appInfo.status);
+      const isVerifyFailure = ServiceAppUpdate.VERIFY_FAILED_STATUSES.includes(
+        appInfo.status,
+      );
       await appUpdatePersistAtom.set((prev) => ({
         ...prev,
         errorText: undefined,
@@ -592,8 +591,7 @@ class ServiceAppUpdate extends ServiceBase {
           prev.jsBundleVersion
         ) {
           isNewerThanAttempted =
-            Number(releaseInfo.jsBundleVersion) >
-            Number(prev.jsBundleVersion);
+            Number(releaseInfo.jsBundleVersion) > Number(prev.jsBundleVersion);
         }
         const shouldResetFailed = isFailed && isNewerThanAttempted;
         // Corrupted/tampered packages must be re-downloaded
@@ -613,9 +611,7 @@ class ServiceAppUpdate extends ServiceBase {
           latestVersion: releaseInfo.version || prev.latestVersion,
           updateAt: Date.now(),
           errorText: shouldResetFailed ? undefined : prev.errorText,
-          downloadedEvent: isVerifyFailure
-            ? undefined
-            : prev.downloadedEvent,
+          downloadedEvent: isVerifyFailure ? undefined : prev.downloadedEvent,
           status: shouldTransitionToNotify
             ? EAppUpdateStatus.notify
             : prev.status,

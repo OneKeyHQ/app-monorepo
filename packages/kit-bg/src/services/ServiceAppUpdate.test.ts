@@ -481,8 +481,7 @@ describe('ServiceAppUpdate state transitions', () => {
     let platformEnvMock: any;
 
     beforeEach(() => {
-      platformEnvMock =
-        require('@onekeyhq/shared/src/platformEnv').default;
+      platformEnvMock = require('@onekeyhq/shared/src/platformEnv').default;
       platformEnvMock.isNativeAndroid = true;
     });
 
@@ -779,7 +778,9 @@ describe('ServiceAppUpdate state transitions', () => {
         downloadedEvent: { downloadedFile: '/tmp/old.zip' },
       });
 
-      await service.updateDownloadUrl('data:text/html,<script>alert(1)</script>');
+      await service.updateDownloadUrl(
+        'data:text/html,<script>alert(1)</script>',
+      );
 
       expect(atomValue.downloadedEvent?.downloadUrl).toBeUndefined();
     });
@@ -1077,8 +1078,7 @@ describe('ServiceAppUpdate state transitions', () => {
     test('Extension platform uses 24-hour window instead of 1-hour', async () => {
       jest.resetModules();
       const freshService = createService();
-      const pEnv =
-        require('@onekeyhq/shared/src/platformEnv').default;
+      const pEnv = require('@onekeyhq/shared/src/platformEnv').default;
       pEnv.isExtension = true;
       await consumeFirstLaunch(freshService);
 
@@ -1090,7 +1090,10 @@ describe('ServiceAppUpdate state transitions', () => {
 
       // 25 hours ago — exceeds 24h extension window → true
       const twentyFiveHoursAgo = Date.now() - 25 * 60 * 60 * 1000;
-      resetAtom({ status: EAppUpdateStatus.done, updateAt: twentyFiveHoursAgo });
+      resetAtom({
+        status: EAppUpdateStatus.done,
+        updateAt: twentyFiveHoursAgo,
+      });
       const result2 = await freshService.isNeedSyncAppUpdateInfo();
       expect(result2).toBe(true);
 
@@ -1369,7 +1372,9 @@ describe('ServiceAppUpdate state transitions', () => {
       await service.fetchAppUpdateInfo(true);
 
       expect(atomValue.status).toBe(EAppUpdateStatus.notify);
-      expect(atomValue.downloadedEvent?.downloadedFile).toBe('/tmp/partial.zip');
+      expect(atomValue.downloadedEvent?.downloadedFile).toBe(
+        '/tmp/partial.zip',
+      );
     });
 
     test('stores force updateStrategy from server response', async () => {
@@ -1660,12 +1665,8 @@ describe('ServiceAppUpdate state transitions', () => {
           version: '3.0.0',
           updateStrategy: EUpdateStrategy.manual,
         });
-        jest
-          .spyOn(service, 'isNeedSyncAppUpdateInfo')
-          .mockResolvedValue(true);
-        jest
-          .spyOn(service, 'refreshUpdateStatus')
-          .mockResolvedValue(undefined);
+        jest.spyOn(service, 'isNeedSyncAppUpdateInfo').mockResolvedValue(true);
+        jest.spyOn(service, 'refreshUpdateStatus').mockResolvedValue(undefined);
 
         await service.fetchAppUpdateInfo(true);
 
@@ -2107,9 +2108,7 @@ describe('ServiceAppUpdate state transitions', () => {
       await service.downloadPackage();
 
       expect(atomValue.status).toBe(EAppUpdateStatus.ready);
-      expect(atomValue.downloadedEvent?.downloadedFile).toBe(
-        '/tmp/ready.zip',
-      );
+      expect(atomValue.downloadedEvent?.downloadedFile).toBe('/tmp/ready.zip');
     });
 
     test('downloadPackage is rejected when status is downloadASC', async () => {
