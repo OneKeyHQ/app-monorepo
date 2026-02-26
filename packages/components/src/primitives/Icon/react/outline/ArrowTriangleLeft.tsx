@@ -7,7 +7,11 @@ const SvgArrowTriangleLeft = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="m17.998 6.006-.003-.003-11.992 5.982L6 12l.002.014.004.002 11.988 5.98.003-.002.001-.012V6.017l-.001-.011Zm2 11.976c0 1.472-1.538 2.48-2.889 1.806L5.114 13.805c-1.484-.74-1.484-2.87 0-3.61L17.11 4.211c1.35-.674 2.89.334 2.89 1.805v11.965Z" />
+    <Path
+      fillRule="evenodd"
+      d="M20 20.618 2.764 12 20 3.382zM7.236 12 18 17.382V6.618z"
+      clipRule="evenodd"
+    />
   </Svg>
 );
 export default SvgArrowTriangleLeft;

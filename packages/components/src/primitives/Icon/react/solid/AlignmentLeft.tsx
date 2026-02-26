@@ -7,11 +7,7 @@ const SvgAlignmentLeft = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path
-      fillRule="evenodd"
-      d="M3 5a1 1 0 0 1 1-1h16a1 1 0 1 1 0 2H4a1 1 0 0 1-1-1m0 7a1 1 0 0 1 1-1h8a1 1 0 1 1 0 2H4a1 1 0 0 1-1-1m0 7a1 1 0 0 1 1-1h16a1 1 0 1 1 0 2H4a1 1 0 0 1-1-1"
-      clipRule="evenodd"
-    />
+    <Path d="M21 20H3v-2h18zm-8-7H3v-2h10zm8-7H3V4h18z" />
   </Svg>
 );
 export default SvgAlignmentLeft;

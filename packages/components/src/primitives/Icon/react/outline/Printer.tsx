@@ -7,7 +7,12 @@ const SvgPrinter = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M16 15H8v5h8zm-7-5a1 1 0 1 1 0 2H7a1 1 0 1 1 0-2zM4 8v8h2v-2a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v2h2V8zm4-4v2h8V4zm10 2h2a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2v2a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h2V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2z" />
+    <Path d="M10 12H6v-2h4z" />
+    <Path
+      fillRule="evenodd"
+      d="M18 6h4v12h-4v4H6v-4H2V6h4V2h12zM8 20h8v-5H8zm-4-4h2v-3h12v3h2V8H4zM8 6h8V4H8z"
+      clipRule="evenodd"
+    />
   </Svg>
 );
 export default SvgPrinter;

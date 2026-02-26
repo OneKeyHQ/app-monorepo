@@ -7,7 +7,7 @@ const SvgChartColumnar3 = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M17.84 3.001a1.5 1.5 0 0 0-1.5 1.5v14.5h-2v-9a1.5 1.5 0 0 0-1.5-1.5h-1.67a1.5 1.5 0 0 0-1.5 1.5v9h-2v-3.5a1.5 1.5 0 0 0-1.5-1.5H4.5a1.5 1.5 0 0 0-1.5 1.5v3.5H2a1 1 0 1 0 0 2h20a1 1 0 1 0 0-2h-.99V4.5a1.5 1.5 0 0 0-1.5-1.5z" />
+    <Path d="M21.01 3.001V19H23v2H1v-2h2v-4.999h4.67V19h2V8.501h4.67V19h2V3.001z" />
   </Svg>
 );
 export default SvgChartColumnar3;

@@ -7,7 +7,7 @@ const SvgHighlight = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M15.629 2.457a2 2 0 0 1 2.828 0l3.086 3.086a2 2 0 0 1 0 2.828l-13 13a2 2 0 0 1-1.414.586H3.043a1 1 0 0 1-1-1v-4.086a2 2 0 0 1 .586-1.414zm5.414 17.5a1 1 0 1 1 0 2h-7a1 1 0 0 1 0-2z" />
+    <Path d="M22.414 7.5 7.914 22H2v-5.914l14.5-14.5zM22 20v2h-9v-2z" />
   </Svg>
 );
 export default SvgHighlight;

@@ -9,7 +9,7 @@ const SvgRowsWide = (props: SvgProps) => (
   >
     <Path
       fillRule="evenodd"
-      d="M20 4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM4 13v5h16v-5zm0-2h16V6H4z"
+      d="M22 20H2V4h20zM4 13v5h16v-5zm0-2h16V6H4z"
       clipRule="evenodd"
     />
   </Svg>

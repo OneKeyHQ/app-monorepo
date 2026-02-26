@@ -7,7 +7,7 @@ const SvgChartWhiteboard = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M13 3a1 1 0 1 0-2 0v1H4a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h2.613l-.562 1.684a1 1 0 0 0 1.898.632L8.72 19H11v1a1 1 0 1 0 2 0v-1h2.28l.771 2.316a1 1 0 0 0 1.898-.632L17.387 19H20a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-7z" />
+    <Path d="M13 2v2h9v15h-4.612l.877 2.633-1.898.632L15.28 19H13v2h-2v-2H8.72l-1.087 3.265-1.898-.632L6.612 19H2V4h9V2z" />
   </Svg>
 );
 export default SvgChartWhiteboard;

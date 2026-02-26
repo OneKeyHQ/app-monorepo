@@ -7,7 +7,7 @@ const SvgMenu = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M21 17a1 1 0 1 1 0 2H3a1 1 0 1 1 0-2zm0-6a1 1 0 1 1 0 2H3a1 1 0 1 1 0-2zm0-6a1 1 0 1 1 0 2H3a1 1 0 0 1 0-2z" />
+    <Path d="M22 19H2v-2h20zm0-6H2v-2h20zm0-6H2V5h20z" />
   </Svg>
 );
 export default SvgMenu;

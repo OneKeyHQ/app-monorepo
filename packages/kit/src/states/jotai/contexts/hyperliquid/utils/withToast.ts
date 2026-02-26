@@ -1,4 +1,5 @@
 import { Toast } from '@onekeyhq/components';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
 import { ERROR_MESSAGES, ERROR_PATTERNS, TOAST_CONFIGS } from './config';
@@ -37,6 +38,12 @@ async function handleError(error: unknown): Promise<void> {
   if (errorType) {
     switch (errorType) {
       case EErrorType.INVALID_AGENT: {
+        defaultLogger.perp.agentLifeCycle.trackReason({
+          reason: 'runtime_invalid_agent_error',
+          statusDetails: {
+            errorMessage,
+          },
+        });
         void backgroundApiProxy.serviceHyperliquid.checkPerpsAccountStatus();
         break;
       }

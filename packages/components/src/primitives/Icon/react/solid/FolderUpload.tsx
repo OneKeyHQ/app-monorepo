@@ -7,7 +7,7 @@ const SvgFolderUpload = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M2 5a2 2 0 0 1 2-2h5.465a2 2 0 0 1 1.664.89L12.535 6H20a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-7v-4.586l.793.793a1 1 0 0 0 1.414-1.414l-2.5-2.5a1 1 0 0 0-1.414 0l-2.5 2.5a1 1 0 1 0 1.414 1.414l.793-.793V20H4a2 2 0 0 1-2-2z" />
+    <Path d="M12.535 6H22v14h-9v-4.586l1.5 1.5 1.414-1.414L12 11.586 8.086 15.5 9.5 16.914l1.5-1.5V20H2V3h8.535z" />
   </Svg>
 );
 export default SvgFolderUpload;

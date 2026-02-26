@@ -9,7 +9,7 @@ const SvgStopCircle = (props: SvgProps) => (
   >
     <Path
       fillRule="evenodd"
-      d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10M10.5 9.5a1 1 0 0 0-1 1v3a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-3a1 1 0 0 0-1-1z"
+      d="M12 2c5.523 0 10 4.477 10 10s-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2M9.5 14.5h5v-5h-5z"
       clipRule="evenodd"
     />
   </Svg>

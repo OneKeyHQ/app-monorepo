@@ -7,7 +7,12 @@ const SvgBomb = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M16 14a6 6 0 1 0-12 0 6 6 0 0 0 12 0m6-8a1 1 0 1 1 0 2h-1a1 1 0 1 1 0-2zm-1.707-3.707a1 1 0 1 1 1.414 1.414l-1 1a1 1 0 1 1-1.414-1.414zM16 3V2a1 1 0 1 1 2 0v1a1 1 0 1 1-2 0m2 11a8 8 0 1 1-3.097-6.318l1.39-1.389a1 1 0 1 1 1.414 1.414l-1.39 1.389A7.96 7.96 0 0 1 18 14" />
+    <Path
+      fillRule="evenodd"
+      d="m18.414 7-2.097 2.096a8 8 0 1 1-1.414-1.414L17 5.586zM10 8a6 6 0 1 0 0 12 6 6 0 0 0 0-12"
+      clipRule="evenodd"
+    />
+    <Path d="M23 8h-3V6h3zm-.586-5L20 5.414 18.586 4 21 1.586zM18 4h-2V1h2z" />
   </Svg>
 );
 export default SvgBomb;

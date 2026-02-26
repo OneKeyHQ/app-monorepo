@@ -7,7 +7,7 @@ const SvgPause = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M4 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2zm10 0a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2z" />
+    <Path d="M10 21H4V3h6zm10 0h-6V3h6z" />
   </Svg>
 );
 export default SvgPause;

@@ -7,9 +7,9 @@ const SvgFolderLink = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M4 3a2 2 0 0 0-2 2v6.803A6 6 0 0 1 5 11h3a6 6 0 0 1 5.197 9H20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.465L11.13 3.89A2 2 0 0 0 9.465 3z" />
-    <Path d="M8 13a1 1 0 1 0 0 2 2 2 0 1 1 0 4 1 1 0 1 0 0 2 4 4 0 0 0 0-8m-3 0a4 4 0 0 0 0 8 1 1 0 1 0 0-2 2 2 0 1 1 0-4 1 1 0 1 0 0-2" />
-    <Path d="M6 16a1 1 0 1 0 0 2h1a1 1 0 1 0 0-2z" />
+    <Path d="M6 15H5a2 2 0 1 0 0 4h1v2H5a4 4 0 0 1 0-8h1zm2-2a4 4 0 0 1 0 8H7v-2h1a2 2 0 1 0 0-4H7v-2z" />
+    <Path d="M12.535 6H22v14h-8.803A6 6 0 0 0 8 11H5a6 6 0 0 0-3 .803V3h8.535z" />
+    <Path d="M8 16v2H5v-2z" />
   </Svg>
 );
 export default SvgFolderLink;

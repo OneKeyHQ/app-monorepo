@@ -7,7 +7,8 @@ const SvgUndock = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M6 20v-6a1 1 0 1 1 2 0v6h12V8h-6a1 1 0 1 1 0-2h6a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2M3 10V4.5A1.5 1.5 0 0 1 4.5 3H10a1 1 0 1 1 0 2H6.414l4.543 4.543a1 1 0 1 1-1.414 1.414L5 6.414V10a1 1 0 1 1-2 0" />
+    <Path d="M22 22H6v-9h2v7h12V8h-7V6h9z" />
+    <Path d="M11 5H6.414l5.25 5.25-1.414 1.414L5 6.414V11H3V3h8z" />
   </Svg>
 );
 export default SvgUndock;

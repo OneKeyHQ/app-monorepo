@@ -7,8 +7,11 @@ const SvgColumnWide = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M4 6v12h16V6zm18 12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z" />
-    <Path d="M11 4h2v16h-2z" />
+    <Path
+      fillRule="evenodd"
+      d="M22 4v16H2V4zm-9 14h7V6h-7zm-9 0h7V6H4z"
+      clipRule="evenodd"
+    />
   </Svg>
 );
 export default SvgColumnWide;

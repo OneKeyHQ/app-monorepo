@@ -7,7 +7,11 @@ const SvgWalletCard = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M14 11a1 1 0 0 1 1-1h5V9H4v1h5a1 1 0 0 1 1 1v1h4zM4 6v1h16V6zm12 6a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2H4v6h16v-6zm6 6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z" />
+    <Path
+      fillRule="evenodd"
+      d="M22 20H2V4h20zM4 18h16v-6h-4v2H8v-2H4zm0-8h6v2h4v-2h6V9H4zm0-3h16V6H4z"
+      clipRule="evenodd"
+    />
   </Svg>
 );
 export default SvgWalletCard;
