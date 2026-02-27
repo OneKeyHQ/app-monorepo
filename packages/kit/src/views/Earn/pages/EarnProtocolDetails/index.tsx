@@ -262,9 +262,9 @@ function ChartSection({
 
   const showUnderlyingApyToggle = Boolean(
     isPendleProvider &&
-      hasNonZeroUnderlyingApy &&
-      underlyingApyHistory &&
-      underlyingApyHistory.length > 0,
+    hasNonZeroUnderlyingApy &&
+    underlyingApyHistory &&
+    underlyingApyHistory.length > 0,
   );
 
   return (

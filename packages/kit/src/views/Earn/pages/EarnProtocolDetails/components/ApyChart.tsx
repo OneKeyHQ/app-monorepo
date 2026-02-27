@@ -47,7 +47,9 @@ function normalizeHistory(history?: IApyHistoryItem[] | null) {
       timestamp: Number(item.timestamp),
       apy: Number(item.apy),
     }))
-    .filter((item) => Number.isFinite(item.timestamp) && Number.isFinite(item.apy))
+    .filter(
+      (item) => Number.isFinite(item.timestamp) && Number.isFinite(item.apy),
+    )
     .toSorted((a, b) => a.timestamp - b.timestamp);
 }
 
@@ -80,19 +82,21 @@ function aggregateByPeriod(
     bucket.set(key, item);
   });
 
-  return Array.from(bucket.values()).toSorted((a, b) => a.timestamp - b.timestamp);
+  return Array.from(bucket.values()).toSorted(
+    (a, b) => a.timestamp - b.timestamp,
+  );
 }
 
-function filterByLookback(
+function filterByTimeWindow(
   history: Array<{ timestamp: number; apy: number }>,
-  lookbackMs: number,
+  windowMs: number,
 ) {
   if (!history.length) {
     return [];
   }
 
   const latestTimestamp = history[history.length - 1].timestamp;
-  const minTimestamp = latestTimestamp - lookbackMs;
+  const minTimestamp = latestTimestamp - windowMs;
   return history.filter((item) => item.timestamp >= minTimestamp);
 }
 
@@ -107,15 +111,18 @@ function buildChartHistory(
   }
 
   if (period === '1h') {
-    return filterByLookback(normalized, SEVEN_DAYS_MS);
+    return filterByTimeWindow(normalized, SEVEN_DAYS_MS);
   }
 
   if (period === '1d') {
-    return filterByLookback(aggregateByPeriod(normalized, '1d'), THIRTY_DAYS_MS);
+    return filterByTimeWindow(
+      aggregateByPeriod(normalized, '1d'),
+      THIRTY_DAYS_MS,
+    );
   }
 
   if (period === '1w') {
-    return filterByLookback(aggregateByPeriod(normalized, '1w'), ONE_YEAR_MS);
+    return filterByTimeWindow(aggregateByPeriod(normalized, '1w'), ONE_YEAR_MS);
   }
 
   return normalized;
