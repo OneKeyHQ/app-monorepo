@@ -471,31 +471,6 @@ export const swapDefaultSetTokens: Record<
       'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/base.png',
     },
   },
-  'evm--250': {
-    fromToken: {
-      'networkId': 'evm--250',
-      'contractAddress': '',
-      'name': 'Fantom',
-      'symbol': 'FTM',
-      'decimals': 18,
-      'logoURI':
-        'https://uni.onekey-asset.com/server-service-onchain/evm--250/tokens/native.png',
-
-      'isNative': true,
-      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/fantom.png',
-    },
-    toToken: {
-      'networkId': 'evm--250',
-      'contractAddress': '0x04068da6c83afcfa0e13ba15a6696662335d5b75',
-      'name': 'USD Coin',
-      'symbol': 'USDC',
-      'decimals': 6,
-      'logoURI':
-        'https://uni.onekey-asset.com/server-service-onchain/evm--250/tokens/0x04068da6c83afcfa0e13ba15a6696662335d5b75.png',
-      'isNative': false,
-      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/fantom.png',
-    },
-  },
   'evm--324': {
     fromToken: {
       'networkId': 'evm--324',
@@ -1428,47 +1403,6 @@ export const swapPopularTokens: Record<string, ISwapToken[]> = {
         'https://uni.onekey-asset.com/static/chain/optimism.png',
     },
   ],
-  'evm--250': [
-    {
-      'networkId': 'evm--250',
-      'contractAddress': '',
-      'name': 'Fantom',
-      'symbol': 'FTM',
-      'decimals': 18,
-      'logoURI':
-        'https://uni.onekey-asset.com/server-service-onchain/evm--250/tokens/native.png',
-
-      'isNative': true,
-      'isPopular': true,
-      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/fantom.png',
-    },
-    {
-      'networkId': 'evm--250',
-      'contractAddress': '0x8d11ec38a3eb5e956b052f67da8bdc9bef8abf3e',
-      'name': 'Dai Stablecoin',
-      'symbol': 'DAI',
-      'decimals': 18,
-      'logoURI':
-        'https://uni.onekey-asset.com/server-service-onchain/evm--250/tokens/0x8d11ec38a3eb5e956b052f67da8bdc9bef8abf3e.png',
-
-      'isNative': false,
-      'isPopular': true,
-      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/fantom.png',
-    },
-    {
-      'networkId': 'evm--250',
-      'contractAddress': '0x321162cd933e2be498cd2267a90534a804051b11',
-      'name': 'Bitcoin',
-      'symbol': 'BTC',
-      'decimals': 8,
-      'logoURI':
-        'https://uni.onekey-asset.com/server-service-onchain/evm--250/tokens/0x321162cd933e2be498cd2267a90534a804051b11.png',
-
-      'isNative': false,
-      'isPopular': true,
-      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/fantom.png',
-    },
-  ],
   'tron--0x2b6653dc': [
     {
       'networkId': 'tron--0x2b6653dc',
@@ -1862,11 +1796,6 @@ export const wrappedTokens = [
     networkId: 'evm--137',
     address: '0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270',
     logo: 'https://uni.onekey-asset.com/static/logo/wmatic_provider.png',
-  },
-  {
-    networkId: 'evm--250',
-    address: '0x21be370d5312f44cb42ce377bc9b8a0cef1a4c83',
-    logo: 'https://uni.onekey-asset.com/static/logo/wftm_provider.png',
   },
   {
     networkId: 'evm--42161',
