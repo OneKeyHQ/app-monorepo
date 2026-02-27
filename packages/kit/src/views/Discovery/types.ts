@@ -116,6 +116,7 @@ export interface IMobileBottomOptionsProps {
   onDisconnect: () => void;
   siteMode?: ESiteMode;
   onRequestSiteMode: (siteMode: ESiteMode) => void;
+  onRenameTab?: () => void;
 }
 
 export interface IMobileTabListOptionsProps {

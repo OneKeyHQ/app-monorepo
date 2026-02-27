@@ -26,6 +26,7 @@ function MobileBrowserBottomOptions({
   onDisconnect,
   siteMode,
   onRequestSiteMode,
+  onRenameTab,
 }: PropsWithChildren<IMobileBottomOptionsProps>) {
   const intl = useIntl();
   const actionSectionItems = useMemo(
@@ -59,6 +60,14 @@ function MobileBrowserBottomOptions({
             icon: isPinned ? 'ThumbtackSolid' : 'ThumbtackOutline',
             onPress: () => onPinnedPress(!isPinned),
             testID: `action-list-item-${!isPinned ? 'pin' : 'un-pin'}`,
+          },
+          {
+            label: intl.formatMessage({
+              id: ETranslations.explore_rename,
+            }),
+            icon: 'PencilOutline',
+            onPress: onRenameTab,
+            testID: 'action-list-item-rename',
           },
           platformEnv.isNativeIOSPad
             ? undefined
@@ -155,6 +164,7 @@ function MobileBrowserBottomOptions({
       onGoBackHomePage,
       onBookmarkPress,
       onPinnedPress,
+      onRenameTab,
       onRequestSiteMode,
       onBrowserOpen,
       onCopyUrl,

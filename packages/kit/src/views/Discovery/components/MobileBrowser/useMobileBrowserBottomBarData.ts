@@ -71,7 +71,7 @@ export function useMobileBrowserBottomBarData({
     addOrUpdateBrowserBookmark: addBrowserBookmark,
     removeBrowserBookmark,
   } = useBrowserBookmarkAction().current;
-  const { handleShareUrl } = useBrowserOptionsAction();
+  const { handleShareUrl, handleRenameTab } = useBrowserOptionsAction();
 
   const handleBookmarkPress = useCallback(
     (isBookmark: boolean) => {
@@ -208,5 +208,6 @@ export function useMobileBrowserBottomBarData({
     disabledGoBack,
     disabledGoForward,
     onGoBackHomePage,
+    handleRenameTab,
   };
 }

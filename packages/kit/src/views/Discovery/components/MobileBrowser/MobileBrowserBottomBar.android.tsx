@@ -64,6 +64,7 @@ function MobileBrowserBottomBar({
     handleBrowserOpen,
     disabledGoBack,
     disabledGoForward,
+    handleRenameTab,
   } = useMobileBrowserBottomBarData({ id, onGoBackHomePage });
 
   // Replicate TabCountButton's press logic for RNGH
@@ -122,6 +123,18 @@ function MobileBrowserBottomBar({
               icon: tab?.isPinned ? 'ThumbtackSolid' : 'ThumbtackOutline',
               onPress: () => handlePinTab(!tab?.isPinned),
               testID: `action-list-item-${!tab?.isPinned ? 'pin' : 'un-pin'}`,
+            },
+            {
+              label: intl.formatMessage({
+                id: ETranslations.explore_rename,
+              }),
+              icon: 'PencilOutline',
+              onPress: () => {
+                if (tab) {
+                  void handleRenameTab(tab);
+                }
+              },
+              testID: 'action-list-item-rename',
             },
             {
               label: intl.formatMessage({
@@ -219,12 +232,11 @@ function MobileBrowserBottomBar({
     displayHomePage,
     intl,
     handleRefresh,
-    tab?.isBookmark,
-    tab?.isPinned,
-    tab?.siteMode,
+    tab,
     handleBrowserOpen,
     handleBookmarkPress,
     handlePinTab,
+    handleRenameTab,
     handleRequestSiteMode,
     onCopyUrl,
     onShare,
