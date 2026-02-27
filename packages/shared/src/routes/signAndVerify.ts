@@ -8,14 +8,13 @@ export enum EModalSignAndVerifyRoutes {
 }
 
 export type IModalSignAndVerifyParamList = {
-  [EModalSignAndVerifyRoutes.SignAndVerifyMessage]?: {
-    networkId?: string;
-    accountId?: string;
-    walletId?: string;
-    indexedAccountId?: string;
-    deriveInfoItems?: IAccountDeriveInfoItems[];
-    deriveType?: IAccountDeriveTypes;
-    isOthersWallet?: boolean;
-    useHomeAccount?: boolean;
+  [EModalSignAndVerifyRoutes.SignAndVerifyMessage]: {
+    networkId: string;
+    accountId: string | undefined;
+    walletId: string | undefined;
+    indexedAccountId: string | undefined;
+    deriveInfoItems: IAccountDeriveInfoItems[];
+    deriveType: IAccountDeriveTypes | undefined;
+    isOthersWallet: boolean | undefined;
   };
 };

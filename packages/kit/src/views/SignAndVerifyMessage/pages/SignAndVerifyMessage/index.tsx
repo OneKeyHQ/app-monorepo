@@ -12,16 +12,12 @@ import {
   useForm,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorProvider';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalSignAndVerifyRoutes,
   IModalSignAndVerifyParamList,
 } from '@onekeyhq/shared/src/routes/signAndVerify';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { ISignAccount } from '@onekeyhq/shared/types/signAndVerify';
 import { ESignAndVerifyAction } from '@onekeyhq/shared/types/signAndVerify';
 
@@ -49,7 +45,7 @@ ${address}
 ${signature}
 -----END ${network} SIGNED MESSAGE-----`;
 
-function SignAndVerifyMessageContent() {
+function SignAndVerifyMessage() {
   const intl = useIntl();
   const route =
     useRoute<
@@ -58,33 +54,35 @@ function SignAndVerifyMessageContent() {
         EModalSignAndVerifyRoutes.SignAndVerifyMessage
       >
     >();
-  const params = route.params;
+  const {
+    networkId,
+    accountId,
+    walletId,
+    indexedAccountId,
+    deriveInfoItems,
+    deriveType,
+    isOthersWallet,
+  } = route.params;
 
-  const { activeAccount } = useActiveAccount({ num: 0 });
-
-  const useHome = params?.useHomeAccount;
-
-  const networkId = useHome
-    ? activeAccount?.network?.id ?? ''
-    : params?.networkId ?? '';
-  const accountId = useHome
-    ? accountUtils.isOthersWallet({
-        walletId: activeAccount?.wallet?.id ?? '',
-      })
-      ? activeAccount?.account?.id
-      : undefined
-    : params?.accountId;
-  const walletId = useHome
-    ? activeAccount?.wallet?.id
-    : params?.walletId;
-  const indexedAccountId = useHome
-    ? activeAccount?.account?.indexedAccountId
-    : params?.indexedAccountId;
-  const isOthersWallet = useHome
-    ? accountUtils.isOthersWallet({
-        walletId: activeAccount?.wallet?.id ?? '',
-      })
-    : params?.isOthersWallet;
+  useEffect(() => {
+    console.log('route.params: ', {
+      networkId,
+      accountId,
+      walletId,
+      indexedAccountId,
+      deriveInfoItems,
+      deriveType,
+      isOthersWallet,
+    });
+  }, [
+    accountId,
+    deriveInfoItems,
+    deriveType,
+    indexedAccountId,
+    isOthersWallet,
+    networkId,
+    walletId,
+  ]);
 
   const [isSigning, setIsSigning] = useState(false);
   const [isDisabled, setIsDisabled] = useState(false);
@@ -357,20 +355,6 @@ function SignAndVerifyMessageContent() {
         }
       />
     </Page>
-  );
-}
-
-function SignAndVerifyMessage() {
-  return (
-    <AccountSelectorProviderMirror
-      config={{
-        sceneName: EAccountSelectorSceneName.home,
-        sceneUrl: '',
-      }}
-      enabledNum={[0]}
-    >
-      <SignAndVerifyMessageContent />
-    </AccountSelectorProviderMirror>
   );
 }
 
