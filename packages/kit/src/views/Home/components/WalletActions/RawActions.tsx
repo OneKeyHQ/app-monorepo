@@ -21,6 +21,7 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export type IActionItemsProps = {
   icon?: IKeyOfIcons;
@@ -29,6 +30,17 @@ export type IActionItemsProps = {
   hiddenIfDisabled?: boolean;
   verticalContainerProps?: IStackProps;
 } & Partial<Omit<IButtonProps, 'type'> & Omit<IIconButtonProps, 'type'>>;
+
+// On native foldable split-screen, window width can be 640-767px which
+// triggers $gtSm but should still show mobile card style. Use $gtMd on
+// native so only truly wide screens (≥768px) switch to desktop pill buttons.
+const hideMobileStyle = platformEnv.isNative
+  ? { $gtMd: { display: 'none' as const } }
+  : { $gtSm: { display: 'none' as const } };
+
+const showDesktopStyle = platformEnv.isNative
+  ? { $gtMd: { display: 'flex' as const } }
+  : { $gtSm: { display: 'flex' as const } };
 
 function ActionItem({
   icon = 'PlaceholderOutline',
@@ -77,7 +89,7 @@ function ActionItem({
           outlineStyle: 'solid',
           outlineWidth: 2,
         }}
-        $gtSm={{ display: 'none' }}
+        {...hideMobileStyle}
         {...(rest.disabled && { opacity: 0.4 })}
         {...verticalContainerProps}
         onPress={onPress}
@@ -106,7 +118,7 @@ function ActionItem({
         size="large"
         icon={icon}
         display="none"
-        $gtSm={{ display: 'flex' }}
+        {...showDesktopStyle}
         onPress={onPress}
         {...rest}
       >
@@ -245,7 +257,7 @@ function ActionMore({
           outlineStyle: 'solid',
           outlineWidth: 2,
         }}
-        $gtSm={{ display: 'none' }}
+        {...hideMobileStyle}
         onPress={handleMobilePress}
       >
         <Stack>
@@ -257,12 +269,16 @@ function ActionMore({
       </Stack>
 
       {/* Desktop: Icon only button */}
-      <Stack display="none" $gtSm={{ display: 'flex' }}>
+      <Stack display="none" {...showDesktopStyle}>
         <ActionList
           title={label}
           floatingPanelProps={{ w: '$60' }}
           renderTrigger={
-            <IconButton variant="secondary" size="large" icon="DotHorOutline" />
+            <IconButton
+              variant="secondary"
+              size="large"
+              icon="DotHorOutline"
+            />
           }
           renderItemsAsync={renderItemsAsync}
         />
@@ -275,11 +291,21 @@ function RawActions({ children, ...rest }: IXStackProps) {
   return (
     <XStack
       gap="$2"
-      $gtSm={{
-        flexDirection: 'row', // override the 'column' direction set in packages/kit/src/views/AssetDetails/pages/TokenDetails/TokenDetailsHeader.tsx 205L
-        justifyContent: 'flex-start',
-        gap: '$3',
-      }}
+      {...(platformEnv.isNative
+        ? {
+            $gtMd: {
+              flexDirection: 'row' as const,
+              justifyContent: 'flex-start' as const,
+              gap: '$3',
+            },
+          }
+        : {
+            $gtSm: {
+              flexDirection: 'row' as const,
+              justifyContent: 'flex-start' as const,
+              gap: '$3',
+            },
+          })}
       {...rest}
     >
       {Children.toArray(children)}

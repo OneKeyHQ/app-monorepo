@@ -24,6 +24,17 @@ import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IFiatCryptoType } from '@onekeyhq/shared/types/fiatCrypto';
 import type { IActionProps } from './type';
 
+// On native foldable split-screen, window width can be 640-767px which
+// triggers $gtSm but should still show mobile card style. Use $gtMd on
+// native so only truly wide screens (≥768px) switch to desktop pill buttons.
+const hideMobileStyle = platformEnv.isNative
+  ? { $gtMd: { display: 'none' as const } }
+  : { $gtSm: { display: 'none' as const } };
+
+const showDesktopStyle = platformEnv.isNative
+  ? { $gtMd: { display: 'flex' as const } }
+  : { $gtSm: { display: 'flex' as const } };
+
 function ActionBuy({
   networkId,
   tokenAddress,
@@ -238,7 +249,7 @@ function ActionBuy({
           outlineStyle: 'solid',
           outlineWidth: 2,
         }}
-        $gtSm={{ display: 'none' }}
+        {...hideMobileStyle}
         {...(effectiveDisabled && { opacity: 0.4 })}
         onPress={handleMobilePress}
       >
@@ -260,7 +271,7 @@ function ActionBuy({
       </Stack>
 
       {/* Desktop: Button with ActionList popover */}
-      <Stack display="none" $gtSm={{ display: 'flex' }}>
+      <Stack display="none" {...showDesktopStyle}>
         <ActionList
           title={label}
           disabled={effectiveDisabled}
