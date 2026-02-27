@@ -1792,9 +1792,9 @@ const ripple: IServerNetwork = {
   'impl': 'xrp',
   'isTestnet': false,
   'logoURI': 'https://uni.onekey-asset.com/static/chain/xrp.png',
-  'name': 'Ripple',
+  'name': 'XRP Ledger',
   'shortcode': 'xrp',
-  'shortname': 'Ripple',
+  'shortname': 'XRP Ledger',
   'symbol': 'XRP',
   'feeMeta': {
     'decimals': 6,

@@ -673,7 +673,7 @@ export const swapDefaultSetTokens: Record<
     fromToken: {
       'networkId': 'xrp--0',
       'contractAddress': '',
-      'name': 'Ripple',
+      'name': 'XRP Ledger',
       'symbol': 'XRP',
       'decimals': 6,
       'logoURI':
