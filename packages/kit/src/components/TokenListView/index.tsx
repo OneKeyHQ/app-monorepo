@@ -614,8 +614,8 @@ function TokenListViewCmp(props: IProps) {
             {...(tableLayout
               ? undefined
               : {
-                  mx: '$0',
-                  px: '$0',
+                  mx: '$2',
+                  px: '$3',
                 })}
           />
         ))}
