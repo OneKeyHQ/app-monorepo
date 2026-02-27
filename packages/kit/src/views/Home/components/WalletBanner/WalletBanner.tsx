@@ -168,7 +168,10 @@ function NativeBannerScroller({
   const [containerWidth, setContainerWidth] = useState(0);
 
   const actualMaxTranslateX = useMemo(() => {
-    const totalItemWidth = banners.length * BANNER_ITEM_WIDTH;
+    const totalItemWidth = banners.reduce(
+      (sum, b) => sum + (b.icon ? 200 : BANNER_ITEM_WIDTH),
+      0,
+    );
     const totalWidth =
       totalItemWidth + (banners.length - 1) * BANNER_GAP + BANNER_PADDING_H * 2;
     const width = containerWidth || 375;

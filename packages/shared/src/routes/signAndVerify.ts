@@ -16,5 +16,6 @@ export type IModalSignAndVerifyParamList = {
     deriveInfoItems?: IAccountDeriveInfoItems[];
     deriveType?: IAccountDeriveTypes;
     isOthersWallet?: boolean;
+    useHomeAccount?: boolean;
   };
 };
