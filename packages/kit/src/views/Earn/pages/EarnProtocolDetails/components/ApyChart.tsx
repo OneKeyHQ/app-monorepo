@@ -244,15 +244,15 @@ const ApyChartComponent = ({
       return null;
     }
 
-    const marketChartData = filteredApyHistory.map((item) => [
-      Math.floor(item.timestamp / 1000) as UTCTimestamp,
-      item.apy,
-    ]) as [UTCTimestamp, number][];
+    const marketChartData: [UTCTimestamp, number][] = filteredApyHistory.map(
+      (item) => [Math.floor(item.timestamp / 1000) as UTCTimestamp, item.apy],
+    );
 
-    const secondaryLineData = filteredUnderlyingApyHistory.map((item) => [
-      Math.floor(item.timestamp / 1000) as UTCTimestamp,
-      item.apy,
-    ]) as [UTCTimestamp, number][];
+    const secondaryLineData: [UTCTimestamp, number][] =
+      filteredUnderlyingApyHistory.map((item) => [
+        Math.floor(item.timestamp / 1000) as UTCTimestamp,
+        item.apy,
+      ]);
 
     return {
       marketChartData,
