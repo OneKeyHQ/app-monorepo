@@ -401,19 +401,34 @@ function BatchCreateAccountPreviewPage({
     }) => {
       // Handle existing accounts deselection (for removal)
       setDeselectedExistingIndexes((v) => {
-        const newValue = { ...v };
+        const keysToRemove = new Set<number>();
+        const keysToAdd: Array<{
+          pathIndex: number;
+          account: IBatchCreateAccount;
+        }> = [];
         for (const a of accountsToSelect) {
           if (a.existsInDb) {
             const pathIndex = a.pathIndex ?? -1;
             if (val) {
-              delete newValue[pathIndex];
-              delete deselectedExistingAccountsRef.current[pathIndex];
+              keysToRemove.add(pathIndex);
             } else {
-              newValue[pathIndex] = true;
-              deselectedExistingAccountsRef.current[pathIndex] = a;
+              keysToAdd.push({ pathIndex, account: a });
             }
           }
         }
+        const newValue = Object.fromEntries(
+          Object.entries(v).filter(([k]) => !keysToRemove.has(Number(k))),
+        ) as typeof v;
+        const newRef = Object.fromEntries(
+          Object.entries(deselectedExistingAccountsRef.current).filter(
+            ([k]) => !keysToRemove.has(Number(k)),
+          ),
+        ) as typeof deselectedExistingAccountsRef.current;
+        for (const { pathIndex, account } of keysToAdd) {
+          newValue[pathIndex] = true;
+          newRef[pathIndex] = account;
+        }
+        deselectedExistingAccountsRef.current = newRef;
         return newValue;
       });
 
@@ -421,12 +436,14 @@ function BatchCreateAccountPreviewPage({
       if (isAdvancedMode) {
         if (val === true) {
           setAdvancedExcludedIndexes((v) => {
-            for (const a of accountsToSelect) {
-              if (!a.existsInDb) {
-                delete v[a.pathIndex ?? -1];
-              }
-            }
-            return { ...v };
+            const keysToRemove = new Set(
+              accountsToSelect
+                .filter((a) => !a.existsInDb)
+                .map((a) => a.pathIndex ?? -1),
+            );
+            return Object.fromEntries(
+              Object.entries(v).filter(([k]) => !keysToRemove.has(Number(k))),
+            ) as typeof v;
           });
         }
         if (val === false) {
