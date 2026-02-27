@@ -1,12 +1,24 @@
 import platformEnv from '../platformEnv';
 
-import {
+import uriUtils, {
   containsPunycode,
   ensureHttpsPrefix,
   isUrlWithoutProtocol,
   parseUrl,
   validateUrl,
 } from './uriUtils';
+
+describe('buildUrl', () => {
+  test('omits undefined/null query params (does not serialize to literal "undefined")', () => {
+    const url = uriUtils.buildUrl({
+      protocol: 'onekey-wallet',
+      path: 'invited_by_friend',
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      query: { code: 'abc', page: undefined } as any,
+    });
+    expect(url).toBe('onekey-wallet://invited_by_friend?code=abc');
+  });
+});
 
 describe('Punycode detection', () => {
   test('detects Punycode in URL', () => {
