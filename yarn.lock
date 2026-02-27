@@ -9314,7 +9314,7 @@ __metadata:
     react-native: "npm:0.81.5"
     react-native-aes-crypto: "npm:3.2.1"
     react-native-awesome-slider: "npm:^2.9.0"
-    react-native-ble-plx: "npm:3.5.0"
+    react-native-ble-plx: "npm:3.5.1"
     react-native-bottom-tabs: "npm:1.1.0"
     react-native-camera-kit: "npm:17.0.1"
     react-native-canvas: "npm:^0.1.39"
@@ -38879,16 +38879,6 @@ __metadata:
     react-native-gesture-handler: ">=2.0.0"
     react-native-reanimated: ">=3.0.0"
   checksum: 10/e8189813c0bc9f56aad64e95915d7c93761065d03a6175e29cb0334e0aab3c70f789889032988e281a40f6cd3a2a2bd292c5c60e6e1cf2b1666ff8182c53a777
-  languageName: node
-  linkType: hard
-
-"react-native-ble-plx@npm:3.5.0":
-  version: 3.5.0
-  resolution: "react-native-ble-plx@npm:3.5.0"
-  peerDependencies:
-    react: "*"
-    react-native: "*"
-  checksum: 10/f807e82d45220eeb5ba3aacaf13fddd9e11395337b8b2b99fe468cc154fefdce501efefcb1421b6bcf0f0e602e82ce535ff8dc3b1d1e57aca85fd6507bc7ea2e
   languageName: node
   linkType: hard
 
