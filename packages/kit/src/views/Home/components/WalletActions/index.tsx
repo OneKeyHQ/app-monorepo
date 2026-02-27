@@ -285,11 +285,21 @@ function WalletActions({ ...rest }: IXStackProps) {
       {...rest}
       justifyContent="flex-start"
       gap="$2.5"
-      $gtSm={{
-        flexDirection: 'row',
-        justifyContent: 'flex-start',
-        gap: '$2.5',
-      }}
+      {...(platformEnv.isNative
+        ? {
+            $gtMd: {
+              flexDirection: 'row' as const,
+              justifyContent: 'flex-start' as const,
+              gap: '$2.5',
+            },
+          }
+        : {
+            $gtSm: {
+              flexDirection: 'row' as const,
+              justifyContent: 'flex-start' as const,
+              gap: '$2.5',
+            },
+          })}
     >
       {config.mainActions.map(renderActionComponent).filter(Boolean)}
       <WalletActionMore />
