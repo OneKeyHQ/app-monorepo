@@ -496,7 +496,7 @@ const DetailsPartComponent = ({
             {detailInfo?.countDownAlert?.startTime &&
             detailInfo?.countDownAlert?.endTime &&
             now > detailInfo.countDownAlert.startTime &&
-            detailInfo.countDownAlert.endTime < now ? (
+            detailInfo.countDownAlert.endTime > now ? (
               <YStack pb="$1">
                 <CountDownCalendarAlert
                   description={detailInfo.countDownAlert.description.text}
