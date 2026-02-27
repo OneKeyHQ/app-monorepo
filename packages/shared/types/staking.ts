@@ -1985,6 +1985,23 @@ export interface IApyHistoryResponse {
   data: IApyHistoryItem[];
 }
 
+export interface IUnderlyingApyHistoryItem {
+  impliedApy: string;
+  underlyingApy: string;
+  timestamp: number;
+}
+
+export interface IUnderlyingApyHistoryData {
+  results: IUnderlyingApyHistoryItem[];
+  hasNonZeroUnderlyingApy: boolean;
+}
+
+export interface IUnderlyingApyHistoryResponse {
+  code: number;
+  message: string;
+  data: IUnderlyingApyHistoryData;
+}
+
 export interface IBorrowNetwork {
   networkId: string;
   network: string;

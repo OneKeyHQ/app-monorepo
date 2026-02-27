@@ -94,6 +94,7 @@ import type {
   IStakeTransactionConfirmation,
   IStakeTx,
   IStakeTxResponse,
+  IUnderlyingApyHistoryResponse,
   IUnstakePushParams,
   IVerifyRegisterSignMessageParams,
   IWithdrawBaseParams,
@@ -2045,6 +2046,39 @@ class ServiceStaking extends ServiceBase {
 
     const response = await client.get<IApyHistoryResponse>(
       '/earn/v1/apy/history',
+      {
+        params: requestParams,
+      },
+    );
+
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async getUnderlyingApyHistory(params: {
+    networkId: string;
+    provider: string;
+    symbol: string;
+    vault?: string;
+  }) {
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const requestParams: {
+      networkId: string;
+      provider: string;
+      symbol: string;
+      vault?: string;
+    } = {
+      networkId: params.networkId,
+      provider: params.provider.toLowerCase(),
+      symbol: params.symbol,
+    };
+
+    if (params.vault) {
+      requestParams.vault = params.vault;
+    }
+
+    const response = await client.get<IUnderlyingApyHistoryResponse>(
+      '/earn/v1/apy/underlying-history',
       {
         params: requestParams,
       },

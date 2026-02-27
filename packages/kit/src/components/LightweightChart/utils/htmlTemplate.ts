@@ -89,7 +89,26 @@ function getChartInitScript(): string {
       });
 
       series.setData(config.data);
+
+      let secondarySeries = null;
+      if (
+        Array.isArray(config.secondaryLineData) &&
+        config.secondaryLineData.length > 0
+      ) {
+        secondarySeries = chart.addLineSeries({
+          color: config.secondaryLineColor || '#0177E5',
+          lineWidth: config.secondaryLineWidth ?? 2,
+          priceLineVisible: false,
+          lastValueVisible: false,
+          crosshairMarkerVisible: false,
+        });
+        secondarySeries.setData(config.secondaryLineData);
+      }
       chart.timeScale().fitContent();
+
+      window.chart = chart;
+      window.series = series;
+      window.secondarySeries = secondarySeries;
   `.trim();
 }
 

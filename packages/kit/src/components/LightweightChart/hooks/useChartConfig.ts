@@ -13,6 +13,9 @@ interface IUseChartConfigProps {
   lineColor?: string;
   topColor?: string;
   bottomColor?: string;
+  secondaryLineData?: IMarketTokenChart;
+  secondaryLineColor?: string;
+  secondaryLineWidth?: number;
   lineWidth?: number;
   showPriceScale?: boolean;
   showHorzGridLines?: boolean;
@@ -23,6 +26,9 @@ export function useChartConfig({
   lineColor = DEFAULT_CHART_COLORS.lineColor,
   topColor = DEFAULT_CHART_COLORS.topColor,
   bottomColor = DEFAULT_CHART_COLORS.bottomColor,
+  secondaryLineData,
+  secondaryLineColor,
+  secondaryLineWidth,
   lineWidth = 3,
   showPriceScale = false,
   showHorzGridLines = false,
@@ -45,15 +51,23 @@ export function useChartConfig({
       horzLineColor: theme.borderSubdued?.val || '#E5E5EA',
       horzLineStyle: 2,
       data: data.map(([time, value]: [number, number]) => ({ time, value })),
+      secondaryLineData: secondaryLineData?.map(
+        ([time, value]: [number, number]) => ({ time, value }),
+      ),
+      secondaryLineColor,
+      secondaryLineWidth,
     }),
     [
       data,
+      secondaryLineData,
       theme.text?.val,
       theme.textSubdued?.val,
       theme.borderSubdued?.val,
       lineColor,
       topColor,
       bottomColor,
+      secondaryLineColor,
+      secondaryLineWidth,
       lineWidth,
       showPriceScale,
       showHorzGridLines,

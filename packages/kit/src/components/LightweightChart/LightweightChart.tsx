@@ -19,6 +19,9 @@ export function LightweightChart({
   lineColor,
   topColor,
   bottomColor,
+  secondaryLineData,
+  secondaryLineColor,
+  secondaryLineWidth,
   lineWidth,
   showPriceScale,
   showHorzGridLines,
@@ -33,6 +36,9 @@ export function LightweightChart({
     lineColor,
     topColor,
     bottomColor,
+    secondaryLineData,
+    secondaryLineColor,
+    secondaryLineWidth,
     lineWidth,
     showPriceScale,
     showHorzGridLines,
@@ -70,6 +76,25 @@ export function LightweightChart({
       createAreaSeriesOptions(chartConfig.theme, chartConfig.lineWidth),
     );
     series.setData(chartConfig.data as any);
+
+    if (
+      Array.isArray(chartConfig.secondaryLineData) &&
+      chartConfig.secondaryLineData.length > 0
+    ) {
+      const secondaryLineWidth = Math.min(
+        4,
+        Math.max(1, Math.round(chartConfig.secondaryLineWidth ?? 2)),
+      ) as 1 | 2 | 3 | 4;
+      const secondarySeries = chart.addLineSeries({
+        color: chartConfig.secondaryLineColor ?? '#0177E5',
+        lineWidth: secondaryLineWidth,
+        priceLineVisible: false,
+        lastValueVisible: false,
+        crosshairMarkerVisible: false,
+      });
+      secondarySeries.setData(chartConfig.secondaryLineData as any);
+    }
+
     chart.timeScale().fitContent();
 
     chartRef.current = chart;

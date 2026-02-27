@@ -193,29 +193,79 @@ function ChartSection({
 }) {
   const intl = useIntl();
   const { gtMd } = useMedia();
+  const isPendleProvider = useMemo(
+    () => earnUtils.isPendleProvider({ providerName: provider }),
+    [provider],
+  );
 
   // Fetch chart data to get high/low values
-  const { result: apyHistory } = usePromiseResult(async () => {
-    const history = await backgroundApiProxy.serviceStaking.getApyHistory({
-      networkId,
-      symbol,
-      provider,
-      vault,
-    });
-    return history;
-  }, [networkId, symbol, provider, vault]);
+  const { result: chartData } = usePromiseResult(async () => {
+    if (isPendleProvider) {
+      // underlying-history returns both impliedApy and underlyingApy, single request suffices
+      const underlyingApyHistoryData =
+        await backgroundApiProxy.serviceStaking.getUnderlyingApyHistory({
+          networkId,
+          symbol,
+          provider,
+          vault,
+        });
+
+      const impliedApyHistory = underlyingApyHistoryData.results.map(
+        (item) => ({
+          timestamp: item.timestamp,
+          apy: item.impliedApy,
+        }),
+      );
+
+      const underlyingApyHistory = underlyingApyHistoryData.results.map(
+        (item) => ({
+          timestamp: item.timestamp,
+          apy: item.underlyingApy,
+        }),
+      );
+
+      return {
+        impliedApyHistory,
+        underlyingApyHistory,
+        hasNonZeroUnderlyingApy:
+          underlyingApyHistoryData.hasNonZeroUnderlyingApy,
+      };
+    }
+
+    const impliedApyHistory =
+      await backgroundApiProxy.serviceStaking.getApyHistory({
+        networkId,
+        symbol,
+        provider,
+        vault,
+      });
+
+    return {
+      impliedApyHistory,
+    };
+  }, [networkId, symbol, provider, vault, isPendleProvider]);
+
+  const { impliedApyHistory, underlyingApyHistory, hasNonZeroUnderlyingApy } =
+    chartData ?? {};
 
   // Calculate high and low APY
   const { high, low } = useMemo(() => {
-    if (!apyHistory || apyHistory.length === 0) {
+    if (!impliedApyHistory || impliedApyHistory.length === 0) {
       return { high: null, low: null };
     }
-    const apyValues = apyHistory.map((item) => Number(item.apy));
+    const apyValues = impliedApyHistory.map((item) => Number(item.apy));
     return {
       high: Math.max(...apyValues),
       low: Math.min(...apyValues),
     };
-  }, [apyHistory]);
+  }, [impliedApyHistory]);
+
+  const showUnderlyingApyToggle = Boolean(
+    isPendleProvider &&
+      hasNonZeroUnderlyingApy &&
+      underlyingApyHistory &&
+      underlyingApyHistory.length > 0,
+  );
 
   return (
     <YStack gap="$3">
@@ -241,7 +291,12 @@ function ChartSection({
         </XStack>
       ) : null}
       {/* Chart component */}
-      <ApyChart apyHistory={apyHistory} />
+      <ApyChart
+        apyHistory={impliedApyHistory}
+        underlyingApyHistory={underlyingApyHistory}
+        showChartControls={isPendleProvider}
+        showUnderlyingApyToggle={showUnderlyingApyToggle}
+      />
     </YStack>
   );
 }

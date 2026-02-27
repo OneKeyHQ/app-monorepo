@@ -17,6 +17,9 @@ export interface ILightweightChartData {
 export interface ILightweightChartConfig {
   theme: ILightweightChartTheme;
   data: ILightweightChartData[];
+  secondaryLineData?: ILightweightChartData[];
+  secondaryLineColor?: string;
+  secondaryLineWidth?: number;
   lineWidth: number;
   showPriceScale?: boolean;
   showHorzGridLines?: boolean;
@@ -30,6 +33,9 @@ export interface ILightweightChartProps {
   lineColor?: string;
   topColor?: string;
   bottomColor?: string;
+  secondaryLineData?: IMarketTokenChart;
+  secondaryLineColor?: string;
+  secondaryLineWidth?: number;
   lineWidth?: number;
   showPriceScale?: boolean;
   showHorzGridLines?: boolean;
