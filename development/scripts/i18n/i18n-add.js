@@ -13,7 +13,7 @@ const https = require('https');
 const fs = require('fs');
 const path = require('path');
 
-const LOCALE_JSON_PATH = path.join(__dirname, '../src/locale/json/en_US.json');
+const LOCALE_JSON_PATH = path.join(__dirname, '../../../packages/shared/src/locale/json/en_US.json');
 
 // 4 semantic type suffixes for new translation keys (format: semantic_key__type)
 const TYPE_SUFFIXES = {
