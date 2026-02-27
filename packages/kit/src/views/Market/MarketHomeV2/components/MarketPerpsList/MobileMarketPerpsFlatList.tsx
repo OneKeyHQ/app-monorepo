@@ -90,7 +90,7 @@ function MobileMarketPerpsFlatListImpl({
         selectedCategoryId={selectedCategoryId}
         onSelectCategory={setSelectedCategoryId}
         containerStyle={{
-          px: '$4',
+          px: '$5',
           pt: '$3',
           pb: '$2',
         }}

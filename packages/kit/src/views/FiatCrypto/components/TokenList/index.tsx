@@ -9,6 +9,7 @@ import {
   NumberSizeableText,
   SearchBar,
   SizableText,
+  Skeleton,
   Spinner,
   Stack,
   XStack,
@@ -32,6 +33,7 @@ import { TokenDataContext } from '../TokenDataContainer';
 
 type ITokenListProps = {
   items: IFiatCryptoToken[];
+  isLoading?: boolean;
   onPress?: (params: {
     token: IFiatCryptoToken;
     realAccountId?: string;
@@ -212,7 +214,7 @@ const ListItemFiatToken = ({
   return renderItem({});
 };
 
-export function TokenList({ items, onPress }: ITokenListProps) {
+export function TokenList({ items, isLoading, onPress }: ITokenListProps) {
   const [text, setText] = useState('');
   const onChangeText = useCallback((value: string) => {
     setText(value.trim());
@@ -241,24 +243,36 @@ export function TokenList({ items, onPress }: ITokenListProps) {
         />
       </Stack>
       <Stack flex={1}>
-        <ListView
-          useFlashList
-          estimatedItemSize={72}
-          data={data}
-          renderItem={({ item }) => (
-            <ListItemFiatToken item={item} onPress={onPress} />
-          )}
-          keyExtractor={keyExtractor}
-          ListFooterComponent={<Stack h={bottom || '$2'} />}
-          ListEmptyComponent={
-            <Empty
-              title={intl.formatMessage({
-                id: ETranslations.global_no_results,
-              })}
-              illustration="QuestionMark"
-            />
-          }
-        />
+        {isLoading ? (
+          Array.from({ length: 5 }).map((_, index) => (
+            <ListItem key={index}>
+              <Skeleton w="$10" h="$10" borderRadius="$full" />
+              <YStack flex={1} gap="$1">
+                <Skeleton.BodyLg w={120} />
+                <Skeleton.BodyMd w={80} />
+              </YStack>
+            </ListItem>
+          ))
+        ) : (
+          <ListView
+            useFlashList
+            estimatedItemSize={72}
+            data={data}
+            renderItem={({ item }) => (
+              <ListItemFiatToken item={item} onPress={onPress} />
+            )}
+            keyExtractor={keyExtractor}
+            ListFooterComponent={<Stack h={bottom || '$2'} />}
+            ListEmptyComponent={
+              <Empty
+                title={intl.formatMessage({
+                  id: ETranslations.global_no_results,
+                })}
+                illustration="QuestionMark"
+              />
+            }
+          />
+        )}
       </Stack>
     </Stack>
   );
