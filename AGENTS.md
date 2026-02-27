@@ -23,6 +23,11 @@
 - **Type check**: `yarn tsc:staged` or `yarn tsc:only`.
 - **Tests**: `yarn test` (Jest, ~2.5 minutes, 54 suites / 1261 tests).
 
+### GPG commit signing
+- A GPG key (`RSA 4096`, `Cursor Agent <cursoragent@cursor.com>`) is configured for commit signing.
+- `commit.gpgsign=true` and `tag.gpgsign=true` are set globally.
+- If GPG signing fails with "no tty", ensure `export GPG_TTY=$(tty)` is set in the shell.
+
 ### Gotchas discovered during setup
 - The postinstall script builds web-embed which requires `rsync` to copy artifacts to the Android assets directory. Without `rsync`, `yarn install` exits with code 1 even though all other steps succeed.
 - The first `yarn app:web` webpack build compiles with many duplicate-package warnings. These are expected and do not affect functionality.
