@@ -24,7 +24,7 @@ export function PerpsReward({ perpsCumulativeRewards }: IPerpsRewardProps) {
   return (
     <Card.Container flex={1}>
       <Card.Title
-        icon="TradingViewCandlesOutline"
+        icon="TradeOutline"
         title={intl.formatMessage({ id: ETranslations.global_perp })}
         description={intl.formatMessage({
           id: ETranslations.referral_perps_description,

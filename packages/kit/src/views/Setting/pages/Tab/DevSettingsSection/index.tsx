@@ -528,7 +528,7 @@ const BaseDevSettingsSection = () => {
               </SectionFieldItem>
 
               <SectionPressItem
-                icon="SwapHorOutline"
+                icon="SwitchHorOutline"
                 title="force RTL"
                 subtitle="强制启用 RTL 布局"
                 drillIn={false}
@@ -1112,7 +1112,7 @@ const BaseDevSettingsSection = () => {
               ) : null}
 
               <SectionFieldItem
-                icon="TradingViewCandlesOutline"
+                icon="TradeOutline"
                 name="useLocalTradingViewUrl"
                 title="使用本地 TradingView URL"
                 subtitle={

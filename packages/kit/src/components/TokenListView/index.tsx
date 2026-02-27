@@ -30,6 +30,7 @@ import {
   sortTokensByPrice,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
+import type { IExchangeFilter } from '@onekeyhq/shared/types/exchange';
 import { ETokenListSortType } from '@onekeyhq/shared/types/token';
 import type {
   IAccountToken,
@@ -117,6 +118,7 @@ type IProps = {
   plainMode?: boolean;
   limit?: number;
   deferTokenManagement?: boolean;
+  exchangeFilter?: IExchangeFilter;
 };
 
 function TokenListViewCmp(props: IProps) {
@@ -158,6 +160,7 @@ function TokenListViewCmp(props: IProps) {
     plainMode,
     limit,
     deferTokenManagement,
+    exchangeFilter,
   } = props;
 
   const intl = useIntl();
@@ -249,6 +252,27 @@ function TokenListViewCmp(props: IProps) {
       resultTokens = resultTokens.filter((item) => !item.defiMarked);
     }
 
+    if (exchangeFilter?.supportedAssets) {
+      resultTokens = resultTokens.filter((item) => {
+        const symbolUpper = (
+          item.commonSymbol ??
+          item.symbol ??
+          ''
+        ).toUpperCase();
+
+        if (item.isAggregateToken) {
+          return Object.values(exchangeFilter.supportedAssets).some(
+            (networkAssets) =>
+              networkAssets[symbolUpper]?.withdrawEnable === true,
+          );
+        }
+
+        const networkAssets =
+          exchangeFilter.supportedAssets[item.networkId ?? ''];
+        return networkAssets?.[symbolUpper]?.withdrawEnable === true;
+      });
+    }
+
     return resultTokens;
   }, [
     showActiveAccountTokenList,
@@ -264,6 +288,7 @@ function TokenListViewCmp(props: IProps) {
     keepDefaultZeroBalanceTokens,
     homeDefaultTokenMap,
     customTokens,
+    exchangeFilter,
   ]);
 
   const [searchTokenState] = useSearchTokenStateAtom();
@@ -585,6 +610,13 @@ function TokenListViewCmp(props: IProps) {
             withSwapAction={withSwapAction}
             showNetworkIcon={showNetworkIcon}
             withAggregateBadge={withAggregateBadge}
+            showProcessingState={!!exchangeFilter}
+            {...(tableLayout
+              ? undefined
+              : {
+                  mx: '$0',
+                  px: '$0',
+                })}
           />
         ))}
         {renderPlainModeFooter()}
@@ -633,6 +665,7 @@ function TokenListViewCmp(props: IProps) {
             withSwapAction={withSwapAction}
             showNetworkIcon={showNetworkIcon}
             withAggregateBadge={withAggregateBadge}
+            showProcessingState={!!exchangeFilter}
           />
           {isTokenSelector &&
           tokenSelectorSearchTokenState.isSearching &&
