@@ -88,32 +88,11 @@ function SideButtonInternal({
   const marginRequired = useDebounce(marginRequiredRaw, 100);
   const liquidationPrice = useDebounce(liquidationPriceRaw, 100);
 
-  // Check if inputs are empty
-  const hasEmptyInputs = useMemo(() => {
-    if (
-      formData.type === 'limit' &&
-      (!formData.price || formData.price.trim() === '')
-    ) {
-      return true;
-    }
-    const isSliderMode = formData.sizeInputMode === 'slider';
-    if (isSliderMode) {
-      return !formData.sizePercent || formData.sizePercent <= 0;
-    }
-    return !formData.size || formData.size.trim() === '';
-  }, [
-    formData.type,
-    formData.price,
-    formData.size,
-    formData.sizeInputMode,
-    formData.sizePercent,
-  ]);
-
   const isMinimumOrderNotMetForSide = useMemo(() => {
-    if (hasEmptyInputs) return false;
-    if (!orderValue || !orderValue.isFinite()) return false;
+    if (!orderValue || !orderValue.isFinite() || orderValue.lte(0))
+      return false;
     return orderValue.lt(10);
-  }, [hasEmptyInputs, orderValue]);
+  }, [orderValue]);
 
   const isAccountLoading = useMemo<boolean>(() => {
     return (
@@ -127,10 +106,7 @@ function SideButtonInternal({
 
   const buttonDisabled = useMemo(() => {
     return (
-      hasEmptyInputs ||
-      !computedSizeForSide.gt(0) ||
       !perpsAccountStatus.canTrade ||
-      isMinimumOrderNotMetForSide ||
       isNoEnoughMargin ||
       isAccountLoading ||
       priceError === 'bbo_unavailable' ||
@@ -139,10 +115,7 @@ function SideButtonInternal({
           perpConfigCommon?.ipDisablePerp))
     );
   }, [
-    hasEmptyInputs,
-    computedSizeForSide,
     perpsAccountStatus.canTrade,
-    isMinimumOrderNotMetForSide,
     isNoEnoughMargin,
     isAccountLoading,
     priceError,
@@ -179,15 +152,6 @@ function SideButtonInternal({
       return intl.formatMessage({
         id: ETranslations.Perps_BBO_unavailable,
       });
-    if (isMinimumOrderNotMetForSide)
-      return intl.formatMessage(
-        {
-          id: ETranslations.perp_size_least,
-        },
-        {
-          amount: '$10',
-        },
-      );
     if (perpConfigCommon?.ipDisablePerp)
       return intl.formatMessage({
         id: ETranslations.perp_button_ip_restricted,
@@ -205,7 +169,6 @@ function SideButtonInternal({
       : intl.formatMessage({ id: ETranslations.perp_trade_short });
   }, [
     priceError,
-    isMinimumOrderNotMetForSide,
     isNoEnoughMargin,
     side,
     intl,
@@ -246,6 +209,42 @@ function SideButtonInternal({
 
   const handlePress = useDebouncedCallback(
     (): void => {
+      // Validate empty inputs - show toast instead of disabling button
+      // For limit orders, check price first
+      if (
+        formData.type === 'limit' &&
+        (!formData.price || formData.price.trim() === '')
+      ) {
+        Toast.message({
+          title: intl.formatMessage({
+            id: ETranslations.limit_enter_price,
+          }),
+        });
+        return;
+      }
+      // Then check size for all order types
+      const isSliderMode = formData.sizeInputMode === 'slider';
+      const hasSizeEmpty = isSliderMode
+        ? !formData.sizePercent || formData.sizePercent <= 0
+        : !formData.size || formData.size.trim() === '';
+      if (hasSizeEmpty || !computedSizeForSide.gt(0)) {
+        Toast.message({
+          title: intl.formatMessage({
+            id: ETranslations.perp_trade_amount_place_holder,
+          }),
+        });
+        return;
+      }
+      if (isMinimumOrderNotMetForSide) {
+        Toast.message({
+          title: intl.formatMessage(
+            { id: ETranslations.perp_size_least },
+            { amount: '$10' },
+          ),
+        });
+        return;
+      }
+
       // Validate TPSL only if user has filled in values
       const tpValue = formData.tpValue?.trim();
       const slValue = formData.slValue?.trim();
