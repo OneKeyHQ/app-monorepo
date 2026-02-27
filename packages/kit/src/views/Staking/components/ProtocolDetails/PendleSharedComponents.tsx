@@ -4,11 +4,13 @@ import { useMemo } from 'react';
 import {
   Divider,
   Icon,
+  Popover,
   SizableText,
   XStack,
   YStack,
 } from '@onekeyhq/components';
 import type {
+  IEarnPopupActionIcon,
   IEarnText,
   IEarnTooltip,
   IStakeTransactionConfirmation,
@@ -16,6 +18,7 @@ import type {
 
 import { CalculationListItem } from '../CalculationList';
 
+import { ActionPopupContent } from './EarnActionIcon';
 import { EarnSwapRoute } from './EarnSwapRoute';
 import { EarnText } from './EarnText';
 import { EarnTooltip } from './EarnTooltip';
@@ -181,16 +184,65 @@ export function usePendleTransactionDetails({
     };
 
     detailItems.forEach((detailItem, index) => {
+      const hasRichTooltip =
+        detailItem.tooltip &&
+        (detailItem.tooltip.type !== 'text' ||
+          detailItem.tooltip.data?.items?.length);
+      const popupButton =
+        detailItem.button?.type === 'popup'
+          ? (detailItem.button)
+          : undefined;
+
       items.push(
         <CalculationListItem key={`tx-detail-${index}`}>
-          <CalculationListItem.Label
-            size={detailItem.title.size || '$bodyMd'}
-            color={detailItem.title.color}
-            tooltip={resolveTooltipText(detailItem.tooltip)}
-          >
-            {detailItem.title.text}
-          </CalculationListItem.Label>
-          {detailItem.description?.text ? (
+          {hasRichTooltip ? (
+            <XStack gap="$1" ai="center" flex={1}>
+              <SizableText
+                color={detailItem.title.color ?? '$textSubdued'}
+                size={detailItem.title.size || '$bodyMd'}
+              >
+                {detailItem.title.text}
+              </SizableText>
+              <EarnTooltip
+                title={detailItem.title.text}
+                tooltip={detailItem.tooltip}
+              />
+            </XStack>
+          ) : (
+            <CalculationListItem.Label
+              size={detailItem.title.size || '$bodyMd'}
+              color={detailItem.title.color}
+              tooltip={resolveTooltipText(detailItem.tooltip)}
+            >
+              {detailItem.title.text}
+            </CalculationListItem.Label>
+          )}
+          {popupButton ? (
+            <Popover
+              title={popupButton.data.title?.text ?? ''}
+              renderTrigger={
+                <XStack gap="$1" ai="center" cursor="pointer">
+                  <EarnText
+                    text={detailItem.description}
+                    size="$bodyMdMedium"
+                  />
+                  <Icon
+                    name="ChevronRightSmallOutline"
+                    size="$5"
+                    color="$iconSubdued"
+                  />
+                </XStack>
+              }
+              renderContent={
+                <ActionPopupContent
+                  bulletList={popupButton.data.bulletList}
+                  items={popupButton.data.items}
+                  panel={popupButton.data.panel}
+                  description={popupButton.data.description}
+                />
+              }
+            />
+          ) : detailItem.description?.text ? (
             <EarnText
               text={detailItem.description}
               size="$bodyMdMedium"

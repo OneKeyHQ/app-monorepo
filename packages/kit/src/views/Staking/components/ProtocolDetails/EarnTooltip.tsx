@@ -203,6 +203,20 @@ export function EarnTooltip({
       return <RebateDetailsPopoverContent tooltip={tooltip} />;
     }
 
+    if (tooltip.type === 'text' && tooltip.data.items?.length) {
+      return (
+        <YStack gap="$2">
+          <EarnText text={tooltip.data.description} />
+          {tooltip.data.items.map((item, index) => (
+            <XStack jc="space-between" key={index}>
+              <EarnText text={item.title} size="$bodyMd" color="$textSubdued" />
+              <EarnText text={item.description} size="$bodyMdMedium" />
+            </XStack>
+          ))}
+        </YStack>
+      );
+    }
+
     return <EarnText text={tooltip?.data?.description} />;
   }, [onHistory, tooltip]);
   return tooltip ? (

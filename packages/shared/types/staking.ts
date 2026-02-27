@@ -590,6 +590,7 @@ export interface IEarnIcon {
 export interface IEarnPopupActionIcon {
   type: 'popup';
   data: {
+    title?: IEarnText;
     bulletList?: IEarnText[];
     icon?: IEarnIcon;
     description?: IEarnText[];
@@ -692,6 +693,7 @@ export interface IEarnTextTooltip {
   data: {
     title?: IEarnText;
     description: IEarnText;
+    items?: { title: IEarnText; description: IEarnText }[];
   };
 }
 
@@ -1349,6 +1351,7 @@ export interface IStakeTransactionConfirmation {
           description?: IEarnText;
         };
         tooltip?: IEarnTooltip;
+        button?: IEarnActionIcon;
       }>;
       swapRoute?: Array<{
         token: {
