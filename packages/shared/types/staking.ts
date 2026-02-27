@@ -693,7 +693,15 @@ export interface IEarnTextTooltip {
   data: {
     title?: IEarnText;
     description: IEarnText;
-    items?: { title: IEarnText; description: IEarnText }[];
+    items?: {
+      title: IEarnText;
+      description: IEarnText;
+      logo?: {
+        logoURI: string;
+        color: string;
+        percentage: string;
+      };
+    }[];
   };
 }
 
