@@ -1,8 +1,15 @@
-import { Divider, Stack, XStack, YStack } from '@onekeyhq/components';
+import {
+  Divider,
+  SizableText,
+  Stack,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import type { IStakeEarnDetail } from '@onekeyhq/shared/types/staking';
 
 import { EarnText } from './EarnText';
 import { EarnTooltip } from './EarnTooltip';
+import { PendlePtConvergenceChart } from './PendlePtConvergenceChart';
 
 function RuleItem({
   item,
@@ -61,6 +68,12 @@ export function PendleRulesSection({
             />
           ))}
         </YStack>
+        {data.chart?.description ? (
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {data.chart.description}
+          </SizableText>
+        ) : null}
+        {data.chart ? <PendlePtConvergenceChart chart={data.chart} /> : null}
       </YStack>
       <Divider />
     </>

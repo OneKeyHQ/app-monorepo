@@ -1231,6 +1231,14 @@ export interface IStakeEarnDetail {
   rules?: {
     title: IEarnText;
     items: IEarnGridItem[];
+    chart?: {
+      currentRate: number;
+      remainingDays: number;
+      targetRate: number;
+      accountingSymbol: string;
+      ptSymbol: string;
+      description?: string;
+    };
   };
   performance?: {
     title: IEarnText;
