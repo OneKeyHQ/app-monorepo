@@ -34,7 +34,6 @@ function MobileBrowserBottomBar({
     handleBrowserOpen,
     disabledGoBack,
     disabledGoForward,
-    handleRenameTab,
   } = useMobileBrowserBottomBarData({ id, onGoBackHomePage });
 
   return (
@@ -96,7 +95,6 @@ function MobileBrowserBottomBar({
           onDisconnect={handleDisconnect}
           siteMode={tab?.siteMode}
           onRequestSiteMode={handleRequestSiteMode}
-          onRenameTab={tab ? () => void handleRenameTab(tab) : undefined}
         >
           <IconButton
             variant="tertiary"
