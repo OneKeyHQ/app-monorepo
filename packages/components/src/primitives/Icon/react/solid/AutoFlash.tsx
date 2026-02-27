@@ -7,7 +7,12 @@ const SvgAutoFlash = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M9.788 2c1.238 0 2.242.995 2.242 2.223v4.444h5.607C19.494 8.667 21 10.159 21 12v2.032c0 4.4-3.6 7.968-8.04 7.968a8.05 8.05 0 0 1-7.114-4.257L2.5 11.444l.842-1.042a2.256 2.256 0 0 1 3.151-.347l1.053.834V4.223A2.233 2.233 0 0 1 9.788 2" />
+    <Path d="M13.998 7.547h7.722L9.998 23.56v-7.638H2.223L13.998.55z" />
+    <Path
+      fillRule="evenodd"
+      d="M23.5 23h-2.1l-.28-1.5h-3.36L16.8 23h-2.4l5.8-9h1.35zm-4.454-3.5h1.645l-.41-1.92z"
+      clipRule="evenodd"
+    />
   </Svg>
 );
 export default SvgAutoFlash;

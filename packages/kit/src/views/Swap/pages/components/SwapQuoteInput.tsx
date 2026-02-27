@@ -95,7 +95,7 @@ const SwapQuoteInput = ({
           alignSelf="center"
           bg="$bgApp"
           variant="tertiary"
-          icon="SwapVerOutline"
+          icon="SwitchVerOutline"
           iconProps={{
             color: '$icon',
           }}
