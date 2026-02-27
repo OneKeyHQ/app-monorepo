@@ -20,6 +20,12 @@ import {
   getEmptyTokenData,
   getMergedTokenData,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
+import type {
+  IBinancePreOrderParams,
+  IBinancePreOrderResponse,
+  IBinanceSupportedAssets,
+} from '@onekeyhq/shared/types/exchange';
 import type {
   IAccountToken,
   IFetchAccountTokensParams,
@@ -1095,6 +1101,39 @@ class ServiceToken extends ServiceBase {
   @backgroundMethod()
   public async clearLastActiveTabNameData() {
     return this.backgroundApi.simpleDb.aggregateToken.clearLastActiveTabNameData();
+  }
+
+  // ---- Binance Connect ----
+
+  @backgroundMethod()
+  public async getBinanceSupportedAssets(): Promise<IBinanceSupportedAssets> {
+    return this._getBinanceSupportedAssetsMemo();
+  }
+
+  _getBinanceSupportedAssetsMemo = memoizee(
+    async (): Promise<IBinanceSupportedAssets> => {
+      const client = await this.getClient(EServiceEndpointEnum.Wallet);
+      const resp = await client.get<{ data: IBinanceSupportedAssets }>(
+        '/wallet/v1/exchange/binance/supported-assets',
+      );
+      return resp.data.data;
+    },
+    {
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 10 }),
+    },
+  );
+
+  @backgroundMethod()
+  public async createBinancePreOrder(
+    params: IBinancePreOrderParams,
+  ): Promise<IBinancePreOrderResponse> {
+    const client = await this.getClient(EServiceEndpointEnum.Wallet);
+    const resp = await client.post<{ data: IBinancePreOrderResponse }>(
+      '/wallet/v1/exchange/binance/pre-order',
+      params,
+    );
+    return resp.data.data;
   }
 }
 
