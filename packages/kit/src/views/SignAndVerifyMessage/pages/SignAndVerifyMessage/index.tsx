@@ -12,12 +12,15 @@ import {
   useForm,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalSignAndVerifyRoutes,
   IModalSignAndVerifyParamList,
 } from '@onekeyhq/shared/src/routes/signAndVerify';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { ISignAccount } from '@onekeyhq/shared/types/signAndVerify';
 import { ESignAndVerifyAction } from '@onekeyhq/shared/types/signAndVerify';
 
@@ -54,35 +57,34 @@ function SignAndVerifyMessage() {
         EModalSignAndVerifyRoutes.SignAndVerifyMessage
       >
     >();
-  const {
-    networkId,
-    accountId,
-    walletId,
-    indexedAccountId,
-    deriveInfoItems,
-    deriveType,
-    isOthersWallet,
-  } = route.params;
+  const params = route.params;
 
-  useEffect(() => {
-    console.log('route.params: ', {
-      networkId,
-      accountId,
-      walletId,
-      indexedAccountId,
-      deriveInfoItems,
-      deriveType,
-      isOthersWallet,
-    });
-  }, [
-    accountId,
-    deriveInfoItems,
-    deriveType,
-    indexedAccountId,
-    isOthersWallet,
-    networkId,
-    walletId,
-  ]);
+  const { result: activeAccountInfo } = usePromiseResult(async () => {
+    if (params?.networkId) return undefined;
+    const selected =
+      await backgroundApiProxy.simpleDb.accountSelector.getSelectedAccount({
+        sceneName: EAccountSelectorSceneName.home,
+        num: 0,
+      });
+    if (!selected) return undefined;
+    return {
+      networkId: selected.networkId ?? '',
+      accountId: selected.othersWalletAccountId,
+      walletId: selected.walletId,
+      indexedAccountId: selected.indexedAccountId,
+      isOthersWallet: accountUtils.isOthersWallet({
+        walletId: selected.walletId ?? '',
+      }),
+    };
+  }, [params?.networkId]);
+
+  const networkId = params?.networkId ?? activeAccountInfo?.networkId ?? '';
+  const accountId = params?.accountId ?? activeAccountInfo?.accountId;
+  const walletId = params?.walletId ?? activeAccountInfo?.walletId;
+  const indexedAccountId =
+    params?.indexedAccountId ?? activeAccountInfo?.indexedAccountId;
+  const isOthersWallet =
+    params?.isOthersWallet ?? activeAccountInfo?.isOthersWallet;
 
   const [isSigning, setIsSigning] = useState(false);
   const [isDisabled, setIsDisabled] = useState(false);
