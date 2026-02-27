@@ -91,6 +91,25 @@ function WalletActionExchange(props?: {
                 ).toUpperCase(),
               });
 
+            // Verify the address returned by Binance matches our local address
+            if (
+              result.withdrawWalletAddress.toLowerCase() !==
+              accountAddress.toLowerCase()
+            ) {
+              Toast.error({
+                title: intl.formatMessage({
+                  id: ETranslations.global_an_error_occurred,
+                }),
+              });
+              console.error(
+                '[BinanceConnect] Address mismatch detected — expected:',
+                accountAddress,
+                'got:',
+                result.withdrawWalletAddress,
+              );
+              return;
+            }
+
             if (platformEnv.isNative) {
               await openUrlUtils.linkingOpenURL(result.redirectUrl);
             } else {
