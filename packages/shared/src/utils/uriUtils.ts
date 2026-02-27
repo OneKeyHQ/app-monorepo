@@ -274,7 +274,8 @@ function buildUrl({
   protocol?: string;
   hostname?: string;
   path?: string;
-  query?: Record<string, string>;
+  // URLSearchParams coerces `undefined` to the string "undefined"; filter those out.
+  query?: Record<string, string | number | boolean | null | undefined>;
 }) {
   // eslint-disable-next-line no-param-reassign
   protocol = protocol.replace(/:+$/, '');
@@ -295,7 +296,14 @@ function buildUrl({
 
   let search = '';
   if (query) {
-    search = new URLSearchParams(query).toString();
+    const params = new URLSearchParams();
+    Object.entries(query).forEach(([key, value]) => {
+      if (value === undefined || value === null) {
+        return;
+      }
+      params.set(key, String(value));
+    });
+    search = params.toString();
   }
 
   if (path && !protocol && !hostname) {
