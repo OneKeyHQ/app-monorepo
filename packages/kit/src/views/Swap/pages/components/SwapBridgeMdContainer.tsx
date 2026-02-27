@@ -29,6 +29,7 @@ import SwapTipsContainer from './SwapTipsContainer';
 
 interface ISwapBridgeMdContainerProps {
   pageType: EPageType;
+  swapTipsPageType?: EPageType;
   onSelectToken: (type: ESwapDirectionType) => void;
   fetchLoading: boolean;
   onSelectPercentageStage: (stage: number) => void;
@@ -60,6 +61,7 @@ interface ISwapBridgeMdContainerProps {
 
 const SwapBridgeMdContainer = ({
   pageType,
+  swapTipsPageType,
   onSelectToken,
   fetchLoading,
   onSelectPercentageStage,
@@ -106,7 +108,7 @@ const SwapBridgeMdContainer = ({
       showsVerticalScrollIndicator={false}
       contentContainerStyle={{ paddingBottom: tabBarHeight }}
     >
-      <SwapTipsContainer />
+      <SwapTipsContainer pageType={swapTipsPageType} />
       <YStack
         pt="$2.5"
         px="$5"

@@ -1174,6 +1174,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
       return (
         <SwapSwapMbContainer
           pageType={pageType ?? EPageType.modal}
+          swapTipsPageType={pageType}
           onSelectToken={onSelectToken}
           fetchLoading={fetchLoading}
           onSelectPercentageStage={onSelectPercentageStage}
@@ -1198,6 +1199,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     return (
       <SwapBridgeMdContainer
         pageType={pageType ?? EPageType.modal}
+        swapTipsPageType={pageType}
         onSelectToken={onSelectToken}
         fetchLoading={fetchLoading}
         onSelectPercentageStage={onSelectPercentageStage}
