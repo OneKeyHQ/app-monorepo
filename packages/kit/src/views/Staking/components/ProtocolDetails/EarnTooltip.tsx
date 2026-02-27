@@ -147,11 +147,7 @@ function RebateDetailsPopoverContent({
   ) : null;
 }
 
-function FeeComparisonContent({
-  tooltip,
-}: {
-  tooltip: IEarnTextTooltip;
-}) {
+function FeeComparisonContent({ tooltip }: { tooltip: IEarnTextTooltip }) {
   return (
     <YStack gap="$2">
       <EarnText

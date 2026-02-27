@@ -10,7 +10,6 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import type {
-  IEarnPopupActionIcon,
   IEarnText,
   IEarnTooltip,
   IStakeTransactionConfirmation,
@@ -189,9 +188,7 @@ export function usePendleTransactionDetails({
         (detailItem.tooltip.type !== 'text' ||
           detailItem.tooltip.data?.items?.length);
       const popupButton =
-        detailItem.button?.type === 'popup'
-          ? (detailItem.button)
-          : undefined;
+        detailItem.button?.type === 'popup' ? detailItem.button : undefined;
 
       items.push(
         <CalculationListItem key={`tx-detail-${index}`}>
