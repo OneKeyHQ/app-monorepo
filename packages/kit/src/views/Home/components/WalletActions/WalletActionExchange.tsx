@@ -93,8 +93,9 @@ function WalletActionExchange(props?: {
 
             // Verify the address returned by Binance matches our local address
             if (
+              !result.withdrawWalletAddress ||
               result.withdrawWalletAddress.toLowerCase() !==
-              accountAddress.toLowerCase()
+                accountAddress.toLowerCase()
             ) {
               Toast.error({
                 title: intl.formatMessage({
