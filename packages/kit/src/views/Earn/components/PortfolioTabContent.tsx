@@ -722,8 +722,21 @@ const PortfolioItemComponent = ({
 
   const appNavigation = useAppNavigation();
 
+  const isAssetNavigationDisabled = useCallback(
+    (asset: IEarnPortfolioInvestment['assets'][number]) =>
+      earnUtils.isPendleProvider({
+        providerName: asset.metadata.protocol.providerDetail.code,
+      }) &&
+      asset.metadata.protocol.symbol === 'USDe' &&
+      (!asset.buttons || asset.buttons.length === 0),
+    [],
+  );
+
   const handleRowPress = useCallback(
     async (asset: IEarnPortfolioInvestment['assets'][number]) => {
+      if (isAssetNavigationDisabled(asset)) {
+        return;
+      }
       await EarnNavigation.pushToEarnProtocolDetails(appNavigation, {
         networkId: asset.metadata.network.networkId,
         symbol: asset.token.info.symbol,
@@ -731,11 +744,14 @@ const PortfolioItemComponent = ({
         vault: asset.metadata.protocol.vault,
       });
     },
-    [appNavigation],
+    [appNavigation, isAssetNavigationDisabled],
   );
 
   const handleManagePress = useCallback(
     async (asset: IEarnPortfolioInvestment['assets'][number]) => {
+      if (isAssetNavigationDisabled(asset)) {
+        return;
+      }
       const symbol = asset.token.info.symbol;
 
       appNavigation.pushModal(EModalRoutes.StakingModal, {
@@ -749,7 +765,7 @@ const PortfolioItemComponent = ({
         },
       });
     },
-    [appNavigation],
+    [appNavigation, isAssetNavigationDisabled],
   );
 
   const showTable = useMemo(
