@@ -147,6 +147,7 @@ type IUniversalStakeProps = {
   onQuoteReset?: () => void;
   refreshKey?: number;
   onQuoteRefreshingChange?: (loading: boolean) => void;
+  pendleSlippage?: number;
 };
 
 export function UniversalStake({
@@ -182,6 +183,7 @@ export function UniversalStake({
   onQuoteReset,
   refreshKey,
   onQuoteRefreshingChange,
+  pendleSlippage,
 }: PropsWithChildren<IUniversalStakeProps>) {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -349,6 +351,7 @@ export function UniversalStake({
           identity: stakefishIdentity,
           inputTokenAddress: transactionInputTokenAddress,
           outputTokenAddress: transactionOutputTokenAddress,
+          slippage: pendleSlippage,
         });
       return resp;
     },
@@ -363,6 +366,7 @@ export function UniversalStake({
       stakefishIdentity,
       transactionInputTokenAddress,
       transactionOutputTokenAddress,
+      pendleSlippage,
     ],
   );
 

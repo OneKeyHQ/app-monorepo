@@ -830,6 +830,7 @@ export const WithdrawSection = ({
           onQuoteRefreshingChange={onQuoteRefreshingChange}
           approveTarget={approveTarget}
           currentAllowance={initialAllowanceResult?.allowanceParsed}
+          pendleSlippage={pendleSlippage}
         />
       )}
     </>

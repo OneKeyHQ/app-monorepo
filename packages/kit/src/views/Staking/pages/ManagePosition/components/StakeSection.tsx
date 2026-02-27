@@ -757,6 +757,7 @@ export const StakeSection = ({
           onQuoteReset={onQuoteReset}
           refreshKey={refreshKey}
           onQuoteRefreshingChange={onQuoteRefreshingChange}
+          pendleSlippage={pendleSlippage}
         />
       )}
     </>

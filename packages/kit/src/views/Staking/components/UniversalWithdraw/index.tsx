@@ -143,6 +143,7 @@ type IUniversalWithdrawProps = {
     token?: IToken;
   };
   currentAllowance?: string;
+  pendleSlippage?: number;
 };
 
 const WITHDRAW_ACCORDION_KEY = 'withdraw-accordion-content';
@@ -179,6 +180,7 @@ export function UniversalWithdraw({
   onQuoteRefreshingChange,
   approveTarget,
   currentAllowance = '0',
+  pendleSlippage,
 }: PropsWithChildren<IUniversalWithdrawProps>) {
   const navigation = useAppNavigation();
   const { handleOpenWebSite } = useBrowserAction().current;
@@ -627,6 +629,7 @@ export function UniversalWithdraw({
           identity,
           inputTokenAddress: transactionInputTokenAddress,
           outputTokenAddress: transactionOutputTokenAddress,
+          slippage: pendleSlippage,
         });
       return resp;
     },
@@ -640,6 +643,7 @@ export function UniversalWithdraw({
       identity,
       transactionInputTokenAddress,
       transactionOutputTokenAddress,
+      pendleSlippage,
     ],
   );
 
