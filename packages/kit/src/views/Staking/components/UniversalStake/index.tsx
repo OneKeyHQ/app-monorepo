@@ -265,6 +265,10 @@ export function UniversalStake({
     undefined,
   );
   const allowanceAbortRef = useRef<AbortController | undefined>(undefined);
+  const isQuoteExpiredRef = useRef(isQuoteExpired);
+  useEffect(() => {
+    isQuoteExpiredRef.current = isQuoteExpired;
+  }, [isQuoteExpired]);
   const isFocus = useIsFocused();
 
   const {
@@ -1084,7 +1088,7 @@ export function UniversalStake({
               return;
             }
             // Re-quote if expired (Pendle countdown)
-            if (isQuoteExpired && isPendleProvider) {
+            if (isQuoteExpiredRef.current && isPendleProvider) {
               const freshConfirmation =
                 await fetchTransactionConfirmation(amountValue);
               setTransactionConfirmation(freshConfirmation);
@@ -1126,7 +1130,6 @@ export function UniversalStake({
     waitForAllowanceAfterApprove,
     fetchEstimateFeeResp,
     trackAllowance,
-    isQuoteExpired,
     isPendleProvider,
     fetchTransactionConfirmation,
     onQuoteReset,

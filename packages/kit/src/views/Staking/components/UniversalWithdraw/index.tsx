@@ -211,6 +211,10 @@ export function UniversalWithdraw({
   const useApprove = isPendleProvider && !!approveTarget?.spenderAddress;
   const [approving, setApproving] = useState(false);
   const allowanceAbortRef = useRef<AbortController | undefined>(undefined);
+  const isQuoteExpiredRef = useRef(isQuoteExpired);
+  useEffect(() => {
+    isQuoteExpiredRef.current = isQuoteExpired;
+  }, [isQuoteExpired]);
 
   const { navigationToTxConfirm } = useSignatureConfirm({
     accountId: approveTarget?.accountId ?? '',
@@ -353,7 +357,7 @@ export function UniversalWithdraw({
               return;
             }
             // Re-quote if expired (Pendle countdown)
-            if (isQuoteExpired && isPendleProvider) {
+            if (isQuoteExpiredRef.current && isPendleProvider) {
               const freshConfirmation =
                 await fetchTransactionConfirmationRef.current?.(amountValue);
               setTransactionConfirmation(freshConfirmation);
@@ -380,7 +384,6 @@ export function UniversalWithdraw({
     fetchAllowanceResponse,
     trackAllowance,
     waitForAllowanceAfterApprove,
-    isQuoteExpired,
     isPendleProvider,
     onQuoteReset,
   ]);
