@@ -548,6 +548,7 @@ export function UniversalWithdraw({
         useEthenaCooldown:
           isPendleProvider &&
           networkId === getNetworkIdsMap().eth &&
+          withdrawPathConfirmBoxes.length > 1 &&
           effectiveSelectedWithdrawPathIndex === 0
             ? true
             : undefined,
@@ -572,6 +573,7 @@ export function UniversalWithdraw({
     actionSymbol,
     identity,
     isPendleProvider,
+    withdrawPathConfirmBoxes.length,
     effectiveSelectedWithdrawPathIndex,
   ]);
 
@@ -1355,7 +1357,9 @@ export function UniversalWithdraw({
       ) : null}
       {beforeFooter}
       {isPendleProvider &&
+      withdrawPathConfirmBoxes.length > 1 &&
       effectiveSelectedWithdrawPathIndex === 0 &&
+      networkId === getNetworkIdsMap().eth &&
       amountValue &&
       !isInvalidAmount(amountValue) ? (
         <StakeProgress
