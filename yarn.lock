@@ -8852,6 +8852,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@onekeyfe/react-native-native-logger@npm:1.1.20":
+  version: 1.1.20
+  resolution: "@onekeyfe/react-native-native-logger@npm:1.1.20"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+    react-native-nitro-modules: 0.33.2
+  checksum: 10/049a771c5fa8d641080e0e5e1f31024389b52cf60b3a749d5966d099d42e28d41e8502e94e9c5cc027171237e6f47d069ae8144f4ffaf20f28852b5fc9983139
+  languageName: node
+  linkType: hard
+
 "@onekeyfe/react-native-skeleton@npm:1.1.20":
   version: 1.1.20
   resolution: "@onekeyfe/react-native-skeleton@npm:1.1.20"
@@ -9324,6 +9335,7 @@ __metadata:
     "@onekeyfe/react-native-device-utils": "npm:1.1.20"
     "@onekeyfe/react-native-keychain-module": "npm:1.1.20"
     "@onekeyfe/react-native-lite-card": "npm:1.1.20"
+    "@onekeyfe/react-native-native-logger": "npm:1.1.20"
     "@onekeyfe/react-native-skeleton": "npm:1.1.20"
     "@onekeyfe/react-native-sni-connect": "npm:1.1.0"
     "@onekeyfe/react-native-text-input": "npm:0.3.0"
