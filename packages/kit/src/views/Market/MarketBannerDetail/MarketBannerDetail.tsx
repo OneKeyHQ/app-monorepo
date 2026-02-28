@@ -1,14 +1,12 @@
 import { useCallback, useMemo } from 'react';
 
 import { useRoute } from '@react-navigation/core';
-import { useIntl } from 'react-intl';
 
 import {
   NavBackButton,
   Page,
   SizableText,
   Stack,
-  Table,
   XStack,
   useMedia,
   useSafeAreaInsets,
@@ -19,14 +17,12 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import { HeaderNotificationIconButton } from '@onekeyhq/kit/src/components/TabPageHeader/components/HeaderNotificationIconButton';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   ECopyFrom,
   EEnterWay,
   EWatchlistFrom,
 } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   type ETabMarketRoutes,
   ETabRoutes,
@@ -36,13 +32,8 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EMarketBannerType } from '@onekeyhq/shared/types/marketV2';
 
 import { TabPageHeader } from '../../../components/TabPageHeader';
-import { usePerpsNavigation } from '../hooks/usePerpsNavigation';
 import { useMarketDetailBackNavigation } from '../MarketDetailV2/hooks/useMarketDetailBackNavigation';
-import {
-  type IMarketPerpsToken,
-  mapServerToken,
-} from '../MarketHomeV2/components/MarketPerpsList/hooks/useMarketPerpsTokenList';
-import { usePerpsColumns } from '../MarketHomeV2/components/MarketPerpsList/hooks/usePerpsColumns';
+import { PerpsTokenListSection } from './PerpsTokenListSection';
 import { useToDetailPage } from '../MarketHomeV2/components/MarketTokenList/hooks/useToMarketDetailPage';
 import { MarketTokenListBase } from '../MarketHomeV2/components/MarketTokenList/MarketTokenListBase';
 import {
@@ -59,69 +50,6 @@ type IMarketBannerDetailRouteParams = RouteProp<
   ITabMarketParamList & IModalMarketParamList,
   ETabMarketRoutes.MarketBannerDetail | EModalMarketRoutes.MarketBannerDetail
 >;
-
-function PerpsTokenListSection({
-  tokens,
-  isLoading,
-}: {
-  tokens: IMarketPerpsToken[];
-  isLoading: boolean | undefined;
-}) {
-  const { navigateToPerps } = usePerpsNavigation();
-  const perpsColumns = usePerpsColumns();
-  const { md } = useMedia();
-  const intl = useIntl();
-
-  const showSkeleton = Boolean(isLoading) && tokens.length === 0;
-
-  const TableEmptyComponent = useMemo(() => {
-    if (isLoading) return null;
-    return (
-      <Stack flex={1} alignItems="center" justifyContent="center" p="$8">
-        <SizableText size="$bodyLg" color="$textSubdued">
-          {intl.formatMessage({ id: ETranslations.global_no_data })}
-        </SizableText>
-      </Stack>
-    );
-  }, [isLoading, intl]);
-
-  return (
-    <Stack flex={1} width="100%">
-      <Stack
-        flex={1}
-        className="normal-scrollbar"
-        style={{
-          paddingTop: 4,
-          overflowX: 'auto',
-          ...(md ? { marginLeft: 8, marginRight: 8 } : {}),
-        }}
-      >
-        <Stack flex={1} minHeight={platformEnv.isNative ? undefined : 400}>
-          {showSkeleton ? (
-            <Table.Skeleton
-              columns={perpsColumns}
-              count={20}
-              rowProps={{ minHeight: '$14' }}
-            />
-          ) : (
-            <Table<IMarketPerpsToken>
-              stickyHeader
-              columns={perpsColumns}
-              dataSource={tokens}
-              keyExtractor={(item) => item.name}
-              estimatedItemSize="$14"
-              extraData={tokens.length}
-              TableEmptyComponent={TableEmptyComponent}
-              onRow={(item) => ({
-                onPress: () => navigateToPerps(item.name),
-              })}
-            />
-          )}
-        </Stack>
-      </Stack>
-    </Stack>
-  );
-}
 
 function MarketBannerDetailContent({ title }: { title: string }) {
   const route = useRoute<IMarketBannerDetailRouteParams>();
@@ -173,32 +101,6 @@ function MarketBannerDetailContent({ title }: { title: string }) {
       watchLoading: true,
     },
   );
-
-  // Perps data fetching
-  const { result: perpsResult, isLoading: perpsIsLoading } = usePromiseResult(
-    async () => {
-      if (!isPerps) return null;
-      const [tokenListData, tokenSearchAliases] = await Promise.all([
-        backgroundApiProxy.serviceMarketV2.fetchMarketBannerPerpsTokenList({
-          tokenListId,
-        }),
-        backgroundApiProxy.serviceHyperliquid.getTokenSearchAliases(),
-      ]);
-      return { tokenListData, tokenSearchAliases };
-    },
-    [tokenListId, isPerps],
-    {
-      pollingInterval: timerUtils.getTimeDurationMs({ seconds: 30 }),
-      watchLoading: true,
-    },
-  );
-
-  const perpsTokens = useMemo(() => {
-    if (!perpsResult?.tokenListData?.tokens) return [];
-    return perpsResult.tokenListData.tokens.map((t) =>
-      mapServerToken(t, perpsResult.tokenSearchAliases),
-    );
-  }, [perpsResult]);
 
   const transformedData = useMemo(() => {
     if (!tickerResult) return [];
@@ -288,10 +190,7 @@ function MarketBannerDetailContent({ title }: { title: string }) {
         <Stack flex={1} pt={gtMd ? 0 : top} px={gtMd ? '$4' : 0} gap="$4">
           {renderTitleSection}
           {isPerps ? (
-            <PerpsTokenListSection
-              tokens={perpsTokens}
-              isLoading={perpsIsLoading}
-            />
+            <PerpsTokenListSection tokenListId={tokenListId} />
           ) : (
             <MarketTokenListBase
               result={listResult}
