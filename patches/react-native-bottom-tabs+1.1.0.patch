@@ -33,6 +33,27 @@ index 23cd875..3fe0e1d 100644
    }
  
    fun updateItems(items: MutableList<TabInfo>) {
+diff --git a/node_modules/react-native-bottom-tabs/ios/RepresentableView.swift b/node_modules/react-native-bottom-tabs/ios/RepresentableView.swift
+index 09adaca..4edfcb1 100644
+--- a/node_modules/react-native-bottom-tabs/ios/RepresentableView.swift
++++ b/node_modules/react-native-bottom-tabs/ios/RepresentableView.swift
+@@ -23,10 +23,15 @@ struct RepresentableView: PlatformViewRepresentable {
+   func makeUIView(context: Context) -> PlatformView {
+     let wrapper = UIView()
+     wrapper.addSubview(view)
++    view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+     return wrapper
+   }
+ 
+-  func updateUIView(_ uiView: PlatformView, context: Context) {}
++  func updateUIView(_ uiView: PlatformView, context: Context) {
++    if let child = uiView.subviews.first {
++      child.frame = uiView.bounds
++    }
++  }
+ 
+ #endif
+ }
 diff --git a/node_modules/react-native-bottom-tabs/ios/TabViewImpl.swift b/node_modules/react-native-bottom-tabs/ios/TabViewImpl.swift
 index 72938be..a7a3c15 100644
 --- a/node_modules/react-native-bottom-tabs/ios/TabViewImpl.swift
@@ -87,6 +108,47 @@ index 72938be..a7a3c15 100644
    @ViewBuilder
    func tabBadge(_ data: String?) -> some View {
      if #available(iOS 15.0, macOS 15.0, visionOS 2.0, tvOS 15.0, *) {
+diff --git a/node_modules/react-native-bottom-tabs/ios/TabViewProvider.swift b/node_modules/react-native-bottom-tabs/ios/TabViewProvider.swift
+index 013032f..de63fd9 100644
+--- a/node_modules/react-native-bottom-tabs/ios/TabViewProvider.swift
++++ b/node_modules/react-native-bottom-tabs/ios/TabViewProvider.swift
+@@ -188,21 +188,23 @@ public final class TabInfo: NSObject {
+ #endif
+ 
+   private func setupView() {
+-    if self.hostingController != nil {
+-      return
++    if self.hostingController == nil {
++      self.hostingController = PlatformHostingController(rootView: TabViewImpl(props: props) { key in
++        self.delegate?.onPageSelected(key: key, reactTag: self.reactTag)
++      } onLongPress: { key in
++        self.delegate?.onLongPress(key: key, reactTag: self.reactTag)
++      } onLayout: { size  in
++        self.delegate?.onLayout(size: size, reactTag: self.reactTag)
++      } onTabBarMeasured: { height in
++        self.delegate?.onTabBarMeasured(height: height, reactTag: self.reactTag)
++      })
+     }
+ 
+-    self.hostingController = PlatformHostingController(rootView: TabViewImpl(props: props) { key in
+-      self.delegate?.onPageSelected(key: key, reactTag: self.reactTag)
+-    } onLongPress: { key in
+-      self.delegate?.onLongPress(key: key, reactTag: self.reactTag)
+-    } onLayout: { size  in
+-      self.delegate?.onLayout(size: size, reactTag: self.reactTag)
+-    } onTabBarMeasured: { height in
+-      self.delegate?.onTabBarMeasured(height: height, reactTag: self.reactTag)
+-    })
+-
+-    if let hostingController = self.hostingController, let parentViewController = reactViewController() {
++    // Retry adding to view hierarchy if not yet attached
++    // (reactViewController() may return nil on early layoutSubviews calls)
++    if let hostingController = self.hostingController,
++       hostingController.view.superview == nil,
++       let parentViewController = reactViewController() {
+       parentViewController.addChild(hostingController)
+ #if !os(macOS)
+       hostingController.view.backgroundColor = .clear
 diff --git a/node_modules/react-native-bottom-tabs/lib/module/TabView.js b/node_modules/react-native-bottom-tabs/lib/module/TabView.js
 index 3ab92c7..81ca149 100644
 --- a/node_modules/react-native-bottom-tabs/lib/module/TabView.js
