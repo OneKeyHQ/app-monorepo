@@ -8937,7 +8937,9 @@ __metadata:
     "@react-native-harness/platform-apple": "npm:1.0.0-alpha.25"
     "@rehookify/datepicker": "npm:^6.6.8"
     "@reown/appkit": "npm:1.8.9"
-    "@reown/appkit-ethers5-react-native": "npm:1.3.1"
+    "@reown/appkit-ethers5-react-native": "https://github.com/huhuanming/appkit-ethers5-react-native#dd8e2171ce1d1eebf9abb6351517caebd92c3a11"
+    "@reown/appkit-scaffold-react-native": "https://github.com/huhuanming/appkit-scaffold-react-native#edaa1f0b32a0a80b15f53bc1bcafedb35ff6eaa7"
+    "@reown/appkit-scaffold-utils-react-native": "https://github.com/huhuanming/appkit-scaffold-utils-react-native#9b7acaf2da273736b7a2b06e3cda9dd72061e1bc"
     "@reown/walletkit": "npm:1.2.10"
     "@revenuecat/purchases-js": "npm:0.15.1"
     "@rspack/cli": "npm:^1.7.1"
@@ -9332,7 +9334,7 @@ __metadata:
     "@react-native-documents/picker": "npm:^12.0.1"
     "@react-native-google-signin/google-signin": "npm:16.1.0"
     "@react-native/metro-config": "npm:0.81.5"
-    "@reown/appkit-ethers5-react-native": "npm:1.3.1"
+    "@reown/appkit-ethers5-react-native": "https://github.com/huhuanming/appkit-ethers5-react-native#dd8e2171ce1d1eebf9abb6351517caebd92c3a11"
     "@rozenite/expo-atlas-plugin": "npm:1.0.0-alpha.16"
     "@rozenite/metro": "npm:1.0.0-alpha.16"
     "@rozenite/mmkv-plugin": "npm:1.0.0-alpha.16"
@@ -13042,15 +13044,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@reown/appkit-ethers5-react-native@npm:1.3.1":
+"@reown/appkit-ethers5-react-native@https://github.com/huhuanming/appkit-ethers5-react-native#dd8e2171ce1d1eebf9abb6351517caebd92c3a11":
   version: 1.3.1
-  resolution: "@reown/appkit-ethers5-react-native@npm:1.3.1"
+  resolution: "@reown/appkit-ethers5-react-native@https://github.com/huhuanming/appkit-ethers5-react-native.git#commit=dd8e2171ce1d1eebf9abb6351517caebd92c3a11"
   dependencies:
     "@reown/appkit-common-react-native": "npm:1.3.1"
     "@reown/appkit-scaffold-react-native": "npm:1.3.1"
     "@reown/appkit-scaffold-utils-react-native": "npm:1.3.1"
     "@reown/appkit-siwe-react-native": "npm:1.3.1"
     "@walletconnect/ethereum-provider": "npm:2.21.5"
+    valtio: "npm:1.13.2"
   peerDependencies:
     "@react-native-async-storage/async-storage": ">=1.17.0"
     "@react-native-community/netinfo": "*"
@@ -13059,7 +13062,7 @@ __metadata:
     react: ">=17"
     react-native: ">=0.68.5"
     react-native-get-random-values: "*"
-  checksum: 10/2bf4ce3dfec93c0c026db4711659ee7dc08686bb8ccd7e21433ee23cb578282ff198421266c742703e363b92f4e9011098fa7ee33341616651a57b1c6f8c604f
+  checksum: 10/153b7783394a95395c603b0567accac2c6a316988d79b6011d026edce1230aa693a9a812ed49f2e75d4b7430c60613ac0d5fbc59007d48f9f3eae329a02ffe60
   languageName: node
   linkType: hard
 
@@ -13086,18 +13089,19 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@reown/appkit-scaffold-react-native@npm:1.3.1":
+"@reown/appkit-scaffold-react-native@https://github.com/huhuanming/appkit-scaffold-react-native#edaa1f0b32a0a80b15f53bc1bcafedb35ff6eaa7":
   version: 1.3.1
-  resolution: "@reown/appkit-scaffold-react-native@npm:1.3.1"
+  resolution: "@reown/appkit-scaffold-react-native@https://github.com/huhuanming/appkit-scaffold-react-native.git#commit=edaa1f0b32a0a80b15f53bc1bcafedb35ff6eaa7"
   dependencies:
     "@reown/appkit-common-react-native": "npm:1.3.1"
     "@reown/appkit-core-react-native": "npm:1.3.1"
     "@reown/appkit-siwe-react-native": "npm:1.3.1"
     "@reown/appkit-ui-react-native": "npm:1.3.1"
+    valtio: "npm:1.13.2"
   peerDependencies:
     react: ">=17"
     react-native: ">=0.68.5"
-  checksum: 10/edbd384f86519a54fb572cf911510aeea9ca428894124c256f7d7718dcd4dfd7379acf18a4329001557174a7c2d2640ba9383092ff65936c9ae9729c832bc304
+  checksum: 10/2fa4d7c618def687eaf064321e0cd93f8006276cacfaa381dfcde5e7257b86ed667567b67a7dbbf09024a1fdc3307639e5f063c0c4d3212eced5241cacdb41ed
   languageName: node
   linkType: hard
 
@@ -13115,13 +13119,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@reown/appkit-scaffold-utils-react-native@npm:1.3.1":
+"@reown/appkit-scaffold-utils-react-native@https://github.com/huhuanming/appkit-scaffold-utils-react-native#9b7acaf2da273736b7a2b06e3cda9dd72061e1bc":
   version: 1.3.1
-  resolution: "@reown/appkit-scaffold-utils-react-native@npm:1.3.1"
+  resolution: "@reown/appkit-scaffold-utils-react-native@https://github.com/huhuanming/appkit-scaffold-utils-react-native.git#commit=9b7acaf2da273736b7a2b06e3cda9dd72061e1bc"
   dependencies:
     "@reown/appkit-common-react-native": "npm:1.3.1"
     "@reown/appkit-scaffold-react-native": "npm:1.3.1"
-  checksum: 10/ed4ec11155e84bc74ecb4bbdb22531dafdd5b68e5d91cd0a14b88f78c4f21993af8912c7fa41f2acb345bd1a529492cbfa1c5f6c65ec3cea378cbd2e74668ae5
+    valtio: "npm:1.13.2"
+  checksum: 10/a653ab141ba389acd9e4a28360c6bb779df7c56e0ece38d9c9297ff96f818ec2102b9b7085505d1b722e753d183a064993ea0cefd28675868aac64c4a7674e76
   languageName: node
   linkType: hard
 
