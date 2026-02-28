@@ -49,7 +49,7 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import ActionBuy from './ActionBuy';
-import { TokenDetailsWalletActionMore } from './TokenDetailsWalletActionMore';
+import { TokenDetailsDeFiBlock } from './TokenDetailsDeFiBlock';
 import { useTokenDetailsContext } from './TokenDetailsContext';
 
 function TokenDetailsHeader(props: IProps) {
@@ -201,7 +201,11 @@ function TokenDetailsHeader(props: IProps) {
   );
 
   const handleOnSwap = createSwapActionHandler(ESwapTabSwitchType.SWAP);
-  const handleOnBridge = createSwapActionHandler(ESwapTabSwitchType.BRIDGE);
+
+  const disableSwapAction = useMemo(
+    () => accountUtils.isUrlAccountFn({ accountId }),
+    [accountId],
+  );
 
   const handleSendPress = useCallback(() => {
     defaultLogger.wallet.walletActions.actionSend({
@@ -259,38 +263,38 @@ function TokenDetailsHeader(props: IProps) {
         {/* Overview */}
         <Stack px="$5" py="$5">
           {/* Balance */}
-          <XStack alignItems="center" mb="$5">
-            <Stack flex={1}>
-              {showLoadingState ? (
-                <Skeleton.Group show>
-                  <Skeleton.Heading4Xl />
-                  <Skeleton.BodyLg />
-                </Skeleton.Group>
-              ) : (
-                <>
-                  <NumberSizeableTextWrapper
-                    hideValue
-                    size="$heading4xl"
-                    formatter="balance"
-                    fontWeight="bold"
-                  >
-                    {tokenDetails?.balanceParsed ?? '0'}
-                  </NumberSizeableTextWrapper>
-                  <NumberSizeableTextWrapper
-                    hideValue
-                    formatter="value"
-                    formatterOptions={{
-                      currency: settings.currencyInfo.symbol,
-                    }}
-                    color="$textSubdued"
-                    size="$bodyLg"
-                  >
-                    {tokenDetails?.fiatValue ?? '0'}
-                  </NumberSizeableTextWrapper>
-                </>
-              )}
-            </Stack>
-          </XStack>
+          <YStack gap="$2" mb="$5">
+            {showLoadingState ? (
+              <Skeleton.Group show>
+                <Skeleton.Heading5Xl />
+                <Skeleton.BodyLg />
+              </Skeleton.Group>
+            ) : (
+              <>
+                <NumberSizeableTextWrapper
+                  hideValue
+                  splitDecimal
+                  formatter="value"
+                  formatterOptions={{
+                    currency: settings.currencyInfo.symbol,
+                  }}
+                  fontSize={48}
+                  lineHeight={48}
+                  fontWeight={500}
+                >
+                  {tokenDetails?.fiatValue ?? '0'}
+                </NumberSizeableTextWrapper>
+                <NumberSizeableTextWrapper
+                  hideValue
+                  formatter="balance"
+                  color="$textSubdued"
+                  size="$bodyLg"
+                >
+                  {tokenDetails?.balanceParsed ?? '0'}
+                </NumberSizeableTextWrapper>
+              </>
+            )}
+          </YStack>
           {/* Actions */}
           <RawActions>
             <RawActions.Send
@@ -321,6 +325,11 @@ function TokenDetailsHeader(props: IProps) {
               }}
               trackID="wallet-token-details-receive"
             />
+            <RawActions.Swap
+              onPress={handleOnSwap}
+              disabled={disableSwapAction}
+              trackID="wallet-token-details-swap"
+            />
             <ReviewControl>
               <ActionBuy
                 isTabView={isTabView}
@@ -334,18 +343,16 @@ function TokenDetailsHeader(props: IProps) {
                 trackID="wallet-token-details-buy"
               />
             </ReviewControl>
-            <TokenDetailsWalletActionMore
-              accountId={accountId}
-              networkId={networkId}
-              walletId={wallet?.id ?? ''}
-              walletType={wallet?.type}
-              tokenInfo={tokenInfo}
-              isTabView={isTabView}
-              onSwap={handleOnSwap}
-              onBridge={handleOnBridge}
-            />
           </RawActions>
         </Stack>
+
+        {/* DeFi Entry Block */}
+        <TokenDetailsDeFiBlock
+          networkId={networkId}
+          tokenAddress={tokenInfo.address}
+          walletType={wallet?.type}
+          tokenLogoURI={tokenInfo.logoURI}
+        />
         {shouldShowAddressBlock ? (
           <>
             <Divider />

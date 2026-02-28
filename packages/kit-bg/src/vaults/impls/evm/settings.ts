@@ -361,8 +361,6 @@ const settings: IVaultSettings = {
     [networkIdMap.polygon]: true,
     [networkIdMap.blast]: true,
     [networkIdMap.bob]: true,
-    [networkIdMap.metis]: true,
-    [networkIdMap.mode]: true,
     [networkIdMap.taiko]: true,
     [networkIdMap.mantle]: true,
   },

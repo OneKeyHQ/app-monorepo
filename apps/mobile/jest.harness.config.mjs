@@ -35,7 +35,6 @@ export default {
     'packages/core/src/chains/near',
     'packages/core/src/chains/nexa',
     'packages/core/src/chains/stc',
-    'packages/core/src/chains/tron',
     'packages/core/src/chains/xmr',
     'packages/core/src/chains/xrp',
   ],

@@ -104,7 +104,7 @@ function TxHistoryListItem(props: IProps) {
 
     return (
       <XStack
-        pl={showIcon ? 72 : 20}
+        pl={showIcon ? (compact ? 64 : 72) : 20}
         testID="history-list-item-speed-up-and-cancel-buttons"
         pb="$3"
       >
@@ -124,6 +124,7 @@ function TxHistoryListItem(props: IProps) {
     historyTx.decodedTx.networkId,
     intl,
     showIcon,
+    compact,
   ]);
 
   if (!historyTx || !historyTx.decodedTx) return null;
