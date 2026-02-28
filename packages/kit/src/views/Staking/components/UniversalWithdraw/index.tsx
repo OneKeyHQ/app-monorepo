@@ -213,10 +213,6 @@ export function UniversalWithdraw({
   const useApprove = isPendleProvider && !!approveTarget?.spenderAddress;
   const [approving, setApproving] = useState(false);
   const allowanceAbortRef = useRef<AbortController | undefined>(undefined);
-  const isQuoteExpiredRef = useRef(isQuoteExpired);
-  useEffect(() => {
-    isQuoteExpiredRef.current = isQuoteExpired;
-  }, [isQuoteExpired]);
 
   const { navigationToTxConfirm } = useSignatureConfirm({
     accountId: approveTarget?.accountId ?? '',
@@ -358,13 +354,6 @@ export function UniversalWithdraw({
             if (!allowanceReady) {
               return;
             }
-            // Re-quote if expired (Pendle countdown)
-            if (isQuoteExpiredRef.current && isPendleProvider) {
-              const freshConfirmation =
-                await fetchTransactionConfirmationRef.current?.(amountValue);
-              setTransactionConfirmation(freshConfirmation);
-              onQuoteReset?.();
-            }
             await onPressRef.current?.();
           } finally {
             setApproving(false);
@@ -386,8 +375,6 @@ export function UniversalWithdraw({
     fetchAllowanceResponse,
     trackAllowance,
     waitForAllowanceAfterApprove,
-    isPendleProvider,
-    onQuoteReset,
   ]);
   const actionSymbol = useMemo(
     () => requestSymbol || tokenSymbol || '',
@@ -558,12 +545,15 @@ export function UniversalWithdraw({
       });
       resetAmount();
       setWithdrawProgressStep(EStakeProgressStep.approve);
+      // Auto-refresh quote countdown after swap completes
+      onQuoteReset?.();
     } finally {
       setLoading(false);
     }
   }, [
     amountValue,
     onConfirm,
+    onQuoteReset,
     resetAmount,
     isStakefishEthWithdraw,
     signPersonalMessage,
@@ -810,6 +800,10 @@ export function UniversalWithdraw({
     networkLogoURI: network?.logoURI,
     isQuoteExpired,
   });
+
+  // During approve/submit flow, don't show expired refresh — the transaction is in progress.
+  const isTransacting = approving || loading;
+  const effectiveShowExpiredRefresh = showExpiredRefresh && !isTransacting;
 
   const amountInputDisabled = useMemo(() => {
     return isDisabled || initialAmount !== undefined;
@@ -1192,7 +1186,7 @@ export function UniversalWithdraw({
                   {transactionConfirmation?.tooltip ? (
                     <Popover
                       placement="top"
-                      title={transactionConfirmation?.title?.text}
+                      title={transactionConfirmation?.title?.text ?? ''}
                       renderTrigger={
                         <IconButton
                           iconColor="$iconSubdued"
@@ -1382,7 +1376,7 @@ export function UniversalWithdraw({
             onConfirmText={intl.formatMessage({
               id: shouldApprove
                 ? ETranslations.global_approve
-                : showExpiredRefresh
+                : effectiveShowExpiredRefresh
                   ? ETranslations.global_refresh
                   : isPendleProvider
                     ? ETranslations.global_swap
@@ -1391,17 +1385,17 @@ export function UniversalWithdraw({
             confirmButtonProps={{
               onPress: shouldApprove
                 ? onApprove
-                : showExpiredRefresh
+                : effectiveShowExpiredRefresh
                   ? handleLocalRefreshQuote
                   : onPress,
               loading: shouldApprove
                 ? loadingAllowance || approving
-                : showExpiredRefresh
+                : effectiveShowExpiredRefresh
                   ? quoteRefreshing
                   : loading || checkAmountLoading,
               disabled: shouldApprove
                 ? isDisable
-                : showExpiredRefresh
+                : effectiveShowExpiredRefresh
                   ? false
                   : isDisable,
             }}
@@ -1417,7 +1411,7 @@ export function UniversalWithdraw({
             onConfirmText={intl.formatMessage({
               id: shouldApprove
                 ? ETranslations.global_approve
-                : showExpiredRefresh
+                : effectiveShowExpiredRefresh
                   ? ETranslations.global_refresh
                   : isPendleProvider
                     ? ETranslations.global_swap
@@ -1432,17 +1426,17 @@ export function UniversalWithdraw({
             confirmButtonProps={{
               onPress: shouldApprove
                 ? onApprove
-                : showExpiredRefresh
+                : effectiveShowExpiredRefresh
                   ? handleLocalRefreshQuote
                   : onPress,
               loading: shouldApprove
                 ? loadingAllowance || approving
-                : showExpiredRefresh
+                : effectiveShowExpiredRefresh
                   ? quoteRefreshing
                   : loading || checkAmountLoading,
               disabled: shouldApprove
                 ? isDisable
-                : showExpiredRefresh
+                : effectiveShowExpiredRefresh
                   ? false
                   : isDisable,
               w: '100%',

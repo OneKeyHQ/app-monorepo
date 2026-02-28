@@ -29,6 +29,8 @@ interface IApyChartProps {
   underlyingApyHistory?: IApyHistoryItem[] | null;
   showChartControls?: boolean;
   showUnderlyingApyToggle?: boolean;
+  primaryApyLabel?: string;
+  secondaryApyLabel?: string;
 }
 
 const ONE_HOUR_MS = 60 * 60 * 1000;
@@ -133,8 +135,15 @@ const ApyChartComponent = ({
   underlyingApyHistory,
   showChartControls,
   showUnderlyingApyToggle,
+  primaryApyLabel,
+  secondaryApyLabel,
 }: IApyChartProps) => {
   const intl = useIntl();
+
+  const resolvedPrimaryLabel =
+    primaryApyLabel || intl.formatMessage({ id: ETranslations.global_apy });
+  const resolvedSecondaryLabel =
+    secondaryApyLabel || intl.formatMessage({ id: ETranslations.global_apy });
 
   const [timePeriod, setTimePeriod] = useState<IChartTimePeriod>(
     showChartControls ? '1h' : 'max',
@@ -145,6 +154,7 @@ const ApyChartComponent = ({
   const [hoverData, setHoverData] = useState<{
     time: number;
     apy: number;
+    secondaryApy?: number;
     x: number;
     y: number;
   } | null>(null);
@@ -161,11 +171,13 @@ const ApyChartComponent = ({
     ({
       time,
       price,
+      secondaryPrice,
       x,
       y,
     }: {
       time?: number;
       price?: number;
+      secondaryPrice?: number;
       x?: number;
       y?: number;
     }) => {
@@ -173,6 +185,7 @@ const ApyChartComponent = ({
         setHoverData({
           time,
           apy: price,
+          secondaryApy: secondaryPrice,
           x,
           y,
         });
@@ -376,18 +389,28 @@ const ApyChartComponent = ({
               pointerEvents="none"
               minWidth={144}
             >
-              <YStack gap="$1.5" width="100%">
+              <YStack gap="$2" width="100%">
                 <SizableText size="$bodySm" color="$textSubdued">
                   {formatPopoverDate(hoverData.time)}
                 </SizableText>
                 <XStack jc="space-between" ai="center" width="100%">
-                  <SizableText size="$bodySm" color="$textSubdued">
-                    APY
+                  <SizableText size="$bodySmMedium" color="$textSubdued">
+                    {resolvedPrimaryLabel}
                   </SizableText>
                   <SizableText size="$bodySmMedium" color="$text">
                     {hoverData.apy.toFixed(2)}%
                   </SizableText>
                 </XStack>
+                {showUnderlyingApy && hoverData.secondaryApy != null ? (
+                  <XStack jc="space-between" ai="center" width="100%">
+                    <SizableText size="$bodySmMedium" color="$textSubdued">
+                      {resolvedSecondaryLabel}
+                    </SizableText>
+                    <SizableText size="$bodySmMedium" color="$text">
+                      {hoverData.secondaryApy.toFixed(2)}%
+                    </SizableText>
+                  </XStack>
+                ) : null}
               </YStack>
             </YStack>
           ) : null}

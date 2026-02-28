@@ -111,11 +111,13 @@ const ProtocolHeader = ({
   symbol,
   apyDetail,
   tokenInfo,
+  maturity,
   onShare,
 }: {
   symbol: string;
   apyDetail: IStakeEarnDetail['apyDetail'];
   tokenInfo?: IEarnTokenInfo;
+  maturity?: IStakeEarnDetail['maturity'];
   onShare?: () => void;
 }) => {
   const intl = useIntl();
@@ -124,6 +126,21 @@ const ProtocolHeader = ({
   const handleMyPortfolio = useCallback(() => {
     void EarnNavigation.popToEarnHome(navigation, { tab: 'portfolio' });
   }, [navigation]);
+
+  const formattedMaturityDate = useMemo(() => {
+    if (!maturity?.date) return undefined;
+    try {
+      const date = new Date(maturity.date);
+      if (Number.isNaN(date.getTime())) return maturity.date;
+      return intl.formatDate(date, {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      });
+    } catch {
+      return maturity.date;
+    }
+  }, [maturity?.date, intl]);
 
   return (
     <YStack>
@@ -134,6 +151,14 @@ const ProtocolHeader = ({
           <SizableText size="$bodyLgMedium">
             {tokenInfo?.token.symbol || symbol}
           </SizableText>
+          {formattedMaturityDate ? (
+            <>
+              <Divider vertical h="$4" />
+              <SizableText size="$bodyLgMedium" color="$textSubdued">
+                {formattedMaturityDate}
+              </SizableText>
+            </>
+          ) : null}
         </XStack>
       </XStack>
 
@@ -296,6 +321,16 @@ function ChartSection({
         underlyingApyHistory={underlyingApyHistory}
         showChartControls={isPendleProvider}
         showUnderlyingApyToggle={showUnderlyingApyToggle}
+        primaryApyLabel={
+          isPendleProvider
+            ? intl.formatMessage({ id: ETranslations.earn_fixed_apy })
+            : undefined
+        }
+        secondaryApyLabel={
+          isPendleProvider
+            ? intl.formatMessage({ id: ETranslations.earn_base_apy })
+            : undefined
+        }
       />
     </YStack>
   );
@@ -476,6 +511,7 @@ const DetailsPartComponent = ({
                 symbol={symbol}
                 apyDetail={detailInfo.apyDetail}
                 tokenInfo={tokenInfo}
+                maturity={detailInfo.maturity}
                 onShare={onShare}
               />
               <ChartSection

@@ -1192,6 +1192,11 @@ export interface IStakeEarnDetail {
   // Max decimal places allowed for amount input (UI restriction)
   // If undefined, defaults to token decimals
   protocolInputDecimals?: number;
+  maturity?: {
+    date: string;
+    daysRemaining: string;
+    isMatured: boolean;
+  };
   protection?: {
     title: IEarnText;
     items: {
@@ -1337,15 +1342,15 @@ export interface IEarnProvider {
 }
 
 export interface IStakeTransactionConfirmation {
-  title: IEarnText;
+  title?: IEarnText;
   tooltip?: IEarnTooltip;
   apyDetail?: IStakeEarnDetail['apyDetail'];
-  rewards: Array<{
+  rewards?: Array<{
     title: IEarnText;
     description: IEarnText;
     tooltip?: IEarnTooltip;
   }>;
-  receive: {
+  receive?: {
     title: IEarnText;
     description: IEarnText;
     tooltip?: IEarnTooltip;

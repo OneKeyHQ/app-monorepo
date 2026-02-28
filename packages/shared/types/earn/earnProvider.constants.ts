@@ -91,33 +91,6 @@ const earnTradeDefaultSetBNB = {
   'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/bsc.png',
 };
 
-export const PENDLE_SUPPORTED_SYMBOLS: ISupportedSymbol[] = [
-  'sUSDe',
-  'USDe',
-  'sUSDai',
-  'cUSD',
-  'srUSDe',
-  'jrUSDe',
-  'cUSDO',
-  'syrupUSDT',
-  'sENA',
-  'uniBTC',
-  'slisBNBx',
-  'PlasmaUSD',
-  'wstETH',
-  'weETH',
-  'aUSDT0',
-  'stcUSD',
-  'kHYPE',
-];
-// Keep this list in sync with Pendle symbol coverage in
-// packages/kit-bg/src/vaults/impls/evm/settings.ts.
-
-export const isPendleSupportedSymbol = (symbol: string): boolean =>
-  PENDLE_SUPPORTED_SYMBOLS.some(
-    (supportedSymbol) => supportedSymbol.toLowerCase() === symbol.toLowerCase(),
-  );
-
 export const isSupportStaking = (symbol: string) =>
   [
     'BTC',

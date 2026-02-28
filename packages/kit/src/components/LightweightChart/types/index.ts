@@ -47,6 +47,7 @@ export interface ILightweightChartProps {
   onHover?: (data: {
     time?: number;
     price?: number;
+    secondaryPrice?: number;
     x?: number;
     y?: number;
   }) => void;
@@ -56,6 +57,7 @@ export interface IChartMessage {
   type: 'ready' | 'hover';
   time?: string;
   price?: string;
+  secondaryPrice?: string;
   x?: number;
   y?: number;
 }

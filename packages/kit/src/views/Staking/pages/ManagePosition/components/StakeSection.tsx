@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useEarnActions } from '@onekeyhq/kit/src/states/jotai/contexts/earn/actions';
 import {
@@ -16,6 +17,7 @@ import {
 } from '@onekeyhq/kit/src/views/Borrow/hooks/useUniversalBorrowHooks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
@@ -33,7 +35,6 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { UniversalStake } from '../../../components/UniversalStake';
 import type { IManagePageV2ReceiveInputConfig } from '../../../components/ManagePageV2ReceiveInput';
-import { StakeAssetSelectPopoverContent } from '../../../components/StakeAssetSelectPopover';
 import { useBorrowApiParams } from '../../../hooks/useBorrowApiParams';
 import { useIsPendleProvider } from '../../../hooks/useIsPendleProvider';
 import { useUniversalStake } from '../../../hooks/useUniversalHooks';
@@ -95,6 +96,7 @@ export const StakeSection = ({
   // Early return if no tokenInfo or protocolInfo
   // This happens when there's no account or no address
   const intl = useIntl();
+  const navigation = useAppNavigation();
   const hasRequiredData = tokenInfo && protocolInfo;
   const providerName = useMemo(
     () => protocolInfo?.provider ?? '',
@@ -311,49 +313,35 @@ export const StakeSection = ({
     });
   }, [selectedStakeAsset?.info, effectiveStakeTokenInfo?.token]);
 
-  const stakePopoverContentPropsRef = useRef<{
-    assets: IEarnTokenItem[];
-    isLoading?: boolean;
-    selectedUniqueKey?: string;
-    onSelect?: (item: IEarnTokenItem) => void;
-  }>({
-    assets: [],
-    isLoading: true,
-    selectedUniqueKey: undefined,
-    onSelect: undefined,
-  });
-
-  stakePopoverContentPropsRef.current = {
-    assets: selectableStakeAssets,
-    isLoading: stakeAssetsLoading || nativeTokenLoading,
-    selectedUniqueKey: selectedStakeTokenUniqueKey,
-    onSelect: (item: IEarnTokenItem) => {
-      setSelectedStakeAsset(item);
-    },
-  };
-
-  const stakeTokenPopoverContent = useMemo(
-    () =>
-      function StakeTokenPopoverContent({
-        closePopover,
-      }: {
-        isOpen?: boolean;
-        closePopover: () => void;
-      }) {
-        const { assets, isLoading, selectedUniqueKey, onSelect } =
-          stakePopoverContentPropsRef.current;
-        return (
-          <StakeAssetSelectPopoverContent
-            assets={assets}
-            isLoading={isLoading}
-            selectedUniqueKey={selectedUniqueKey}
-            onSelect={onSelect}
-            closePopover={closePopover}
-          />
-        );
+  const handleOpenStakeTokenSelector = useCallback(() => {
+    if (!accountId || !protocolInfo?.symbol) return;
+    const currentAddress = selectedStakeAsset?.info?.isNative
+      ? 'native'
+      : selectedStakeAsset?.info?.address;
+    navigation.pushModal(EModalRoutes.StakingModal, {
+      screen: EModalStakingRoutes.EarnTokenSelect,
+      params: {
+        networkId,
+        accountId,
+        provider: providerName,
+        symbol: protocolInfo.symbol,
+        vault: protocolInfo.vault || undefined,
+        action: 'stake' as const,
+        currentTokenAddress: currentAddress,
+        onSelect: (item: IEarnTokenItem) => {
+          setSelectedStakeAsset(item);
+        },
       },
-    [],
-  );
+    });
+  }, [
+    accountId,
+    networkId,
+    providerName,
+    protocolInfo?.symbol,
+    protocolInfo?.vault,
+    selectedStakeAsset?.info,
+    navigation,
+  ]);
 
   const stakeTokenSelectorTriggerProps = useMemo(() => {
     if (!isPendleProvider || !selectableStakeAssets.length) {
@@ -365,23 +353,17 @@ export const StakeSection = ({
         stakeAssetsLoading ||
         nativeTokenLoading ||
         selectableStakeAssets.length <= 1,
-      popover:
+      onPress:
         selectableStakeAssets.length > 1
-          ? {
-              title: intl.formatMessage({
-                id: ETranslations.token_selector_title,
-              }),
-              content: stakeTokenPopoverContent,
-            }
+          ? handleOpenStakeTokenSelector
           : undefined,
     };
   }, [
-    intl,
     isPendleProvider,
     selectableStakeAssets.length,
     stakeAssetsLoading,
     nativeTokenLoading,
-    stakeTokenPopoverContent,
+    handleOpenStakeTokenSelector,
   ]);
 
   const { result: estimateFeeUTXO } = usePromiseResult(async () => {

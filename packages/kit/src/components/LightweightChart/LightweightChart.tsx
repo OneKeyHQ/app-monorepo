@@ -30,6 +30,7 @@ export function LightweightChart({
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<'Area'> | null>(null);
+  const secondarySeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
 
   const chartConfig = useChartConfig({
     data,
@@ -93,6 +94,7 @@ export function LightweightChart({
         crosshairMarkerVisible: false,
       });
       secondarySeries.setData(chartConfig.secondaryLineData);
+      secondarySeriesRef.current = secondarySeries;
     }
 
     chart.timeScale().fitContent();
@@ -111,12 +113,22 @@ export function LightweightChart({
         ) {
           const price = param.seriesPrices.get(series);
           if (price !== undefined) {
+            const rawSecondary = secondarySeriesRef.current
+              ? param.seriesPrices.get(secondarySeriesRef.current)
+              : undefined;
+            const secondaryPrice =
+              rawSecondary !== undefined
+                ? typeof rawSecondary === 'number'
+                  ? rawSecondary
+                  : Number(rawSecondary)
+                : undefined;
             onHover({
               time:
                 typeof param.time === 'number'
                   ? param.time
                   : Number(param.time),
               price: typeof price === 'number' ? price : Number(price),
+              secondaryPrice,
               x: param.point.x,
               y: param.point.y,
             });
@@ -125,6 +137,7 @@ export function LightweightChart({
           onHover({
             time: undefined,
             price: undefined,
+            secondaryPrice: undefined,
             x: undefined,
             y: undefined,
           });
@@ -149,6 +162,7 @@ export function LightweightChart({
       // CRITICAL: Clear all refs to release memory
       chartRef.current = null;
       seriesRef.current = null;
+      secondarySeriesRef.current = null;
     };
   }, [chartConfig, height, onHover]);
 

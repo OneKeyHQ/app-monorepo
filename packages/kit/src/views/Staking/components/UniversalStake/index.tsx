@@ -267,10 +267,6 @@ export function UniversalStake({
     undefined,
   );
   const allowanceAbortRef = useRef<AbortController | undefined>(undefined);
-  const isQuoteExpiredRef = useRef(isQuoteExpired);
-  useEffect(() => {
-    isQuoteExpiredRef.current = isQuoteExpired;
-  }, [isQuoteExpired]);
   const isFocus = useIsFocused();
 
   const {
@@ -771,6 +767,8 @@ export function UniversalStake({
           ...stakefishParams,
         });
         resetAmount();
+        // Auto-refresh quote countdown after swap completes
+        onQuoteReset?.();
       } finally {
         setSubmitting(false);
       }
@@ -815,6 +813,7 @@ export function UniversalStake({
     accountId,
     tokenSymbol,
     providerName,
+    onQuoteReset,
   ]);
 
   const showStakeProgressRef = useRef<Record<string, boolean>>({});
@@ -1092,13 +1091,6 @@ export function UniversalStake({
             if (!allowanceReady) {
               return;
             }
-            // Re-quote if expired (Pendle countdown)
-            if (isQuoteExpiredRef.current && isPendleProvider) {
-              const freshConfirmation =
-                await fetchTransactionConfirmation(amountValue);
-              setTransactionConfirmation(freshConfirmation);
-              onQuoteReset?.();
-            }
             const freshFee = await fetchEstimateFeeResp(amountValue);
             setEstimateFeeResp(freshFee);
             await onSubmit();
@@ -1135,9 +1127,6 @@ export function UniversalStake({
     waitForAllowanceAfterApprove,
     fetchEstimateFeeResp,
     trackAllowance,
-    isPendleProvider,
-    fetchTransactionConfirmation,
-    onQuoteReset,
   ]);
 
   const {
@@ -1164,6 +1153,11 @@ export function UniversalStake({
     networkLogoURI: network?.logoURI,
     isQuoteExpired,
   });
+
+  // During approve/submit flow, don't show expired refresh — the transaction is in progress.
+  // After swap completes, onQuoteReset will restart the countdown.
+  const isTransacting = approving || submitting;
+  const effectiveShowExpiredRefresh = showExpiredRefresh && !isTransacting;
 
   const accordionContent = useMemo(() => {
     const items: ReactElement[] = [];
@@ -1244,7 +1238,7 @@ export function UniversalStake({
     (shouldApprove || showStakeProgressRef.current[amountValue]);
 
   const onConfirmText = useMemo(() => {
-    if (showExpiredRefresh) {
+    if (effectiveShowExpiredRefresh) {
       return intl.formatMessage({ id: ETranslations.global_refresh });
     }
     if (!useApprove) {
@@ -1270,7 +1264,7 @@ export function UniversalStake({
         : ETranslations.earn_deposit,
     });
   }, [
-    showExpiredRefresh,
+    effectiveShowExpiredRefresh,
     useApprove,
     shouldApprove,
     intl,
@@ -1307,15 +1301,15 @@ export function UniversalStake({
           w: '100%',
         }}
         confirmButtonProps={{
-          onPress: showExpiredRefresh
+          onPress: effectiveShowExpiredRefresh
             ? handleLocalRefreshQuote
             : shouldApprove
               ? onApprove
               : onSubmit,
-          loading: showExpiredRefresh
+          loading: effectiveShowExpiredRefresh
             ? quoteRefreshing
             : loadingAllowance || approving || submitting || checkAmountLoading,
-          disabled: showExpiredRefresh ? false : isDisable,
+          disabled: effectiveShowExpiredRefresh ? false : isDisable,
           w: '100%',
         }}
       />
@@ -1477,7 +1471,7 @@ export function UniversalStake({
                   {transactionConfirmation?.tooltip ? (
                     <Popover
                       placement="top"
-                      title={transactionConfirmation?.title?.text}
+                      title={transactionConfirmation?.title?.text ?? ''}
                       renderTrigger={
                         <IconButton
                           iconColor="$iconSubdued"
@@ -1502,7 +1496,7 @@ export function UniversalStake({
                     />
                   ) : null}
                 </XStack>
-                {transactionConfirmation?.rewards.map((reward) => {
+                {transactionConfirmation?.rewards?.map((reward) => {
                   const hasTooltip = reward.tooltip?.type === 'text';
                   let descriptionTextSize = (
                     hasTooltip ? '$bodyMd' : '$bodyLgMedium'
@@ -1690,18 +1684,18 @@ export function UniversalStake({
             <Page.FooterActions
               onConfirmText={onConfirmText}
               confirmButtonProps={{
-                onPress: showExpiredRefresh
+                onPress: effectiveShowExpiredRefresh
                   ? handleLocalRefreshQuote
                   : shouldApprove
                     ? onApprove
                     : onSubmit,
-                loading: showExpiredRefresh
+                loading: effectiveShowExpiredRefresh
                   ? quoteRefreshing
                   : loadingAllowance ||
                     approving ||
                     submitting ||
                     checkAmountLoading,
-                disabled: showExpiredRefresh ? false : isDisable,
+                disabled: effectiveShowExpiredRefresh ? false : isDisable,
               }}
             />
           </Stack>

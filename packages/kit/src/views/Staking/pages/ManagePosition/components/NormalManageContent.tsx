@@ -399,6 +399,19 @@ export function NormalManageContent({
   const activeQuoteRefreshing =
     selectedTabIndex === 0 ? stakeQuoteRefreshing : withdrawQuoteRefreshing;
 
+  // Cooldown trigger: increments when a quote is successfully fetched, drives 5s header refresh cooldown
+  const [refreshCooldownTrigger, setRefreshCooldownTrigger] = useState(0);
+
+  const handleStakeQuoteReset = useCallback(() => {
+    stakeCountdown.reset();
+    setRefreshCooldownTrigger((prev) => prev + 1);
+  }, [stakeCountdown]);
+
+  const handleWithdrawQuoteReset = useCallback(() => {
+    withdrawCountdown.reset();
+    setRefreshCooldownTrigger((prev) => prev + 1);
+  }, [withdrawCountdown]);
+
   const handleHeaderRefreshQuote = useCallback(() => {
     // Don't reset countdown here — let onQuoteReset do it after successful fetch
     if (selectedTabIndex === 0) {
@@ -656,6 +669,7 @@ export function NormalManageContent({
           isPendleProvider={isPendleProvider}
           onRefreshQuote={handleHeaderRefreshQuote}
           refreshLoading={activeQuoteRefreshing}
+          refreshCooldownTrigger={refreshCooldownTrigger}
           onOpenSlippage={handleOpenSlippage}
         />
       </XStack>
@@ -681,7 +695,7 @@ export function NormalManageContent({
           receiveInputConfig={stakeReceiveInputConfig}
           pendleSlippage={pendleSlippageValue}
           isQuoteExpired={stakeCountdown.isExpired}
-          onQuoteReset={stakeCountdown.reset}
+          onQuoteReset={handleStakeQuoteReset}
           refreshKey={stakeRefreshKey}
           onQuoteRefreshingChange={handleStakeQuoteRefreshingChange}
         />
@@ -706,7 +720,7 @@ export function NormalManageContent({
           receiveInputConfig={withdrawReceiveInputConfig}
           pendleSlippage={pendleSlippageValue}
           isQuoteExpired={withdrawCountdown.isExpired}
-          onQuoteReset={withdrawCountdown.reset}
+          onQuoteReset={handleWithdrawQuoteReset}
           refreshKey={withdrawRefreshKey}
           onQuoteRefreshingChange={handleWithdrawQuoteRefreshingChange}
         />

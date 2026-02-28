@@ -56,6 +56,9 @@ export function LightweightChart({
           onHover({
             time: message.time ? Number(message.time) : undefined,
             price: message.price ? Number(message.price) : undefined,
+            secondaryPrice: message.secondaryPrice
+              ? Number(message.secondaryPrice)
+              : undefined,
             x: message.x,
             y: message.y,
           });

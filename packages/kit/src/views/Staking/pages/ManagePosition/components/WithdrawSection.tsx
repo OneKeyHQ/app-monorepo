@@ -2,6 +2,7 @@ import type { ReactElement } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ManagePosition } from '@onekeyhq/kit/src/views/Borrow/components/ManagePosition';
 import {
@@ -10,6 +11,7 @@ import {
 } from '@onekeyhq/kit/src/views/Borrow/hooks/useUniversalBorrowHooks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import {
   EApproveType,
@@ -25,7 +27,6 @@ import {
 import type { IToken } from '@onekeyhq/shared/types/token';
 import { useIntl } from 'react-intl';
 
-import { StakeAssetSelectPopoverContent } from '../../../components/StakeAssetSelectPopover';
 import { UniversalWithdraw } from '../../../components/UniversalWithdraw';
 import type { IManagePageV2ReceiveInputConfig } from '../../../components/ManagePageV2ReceiveInput';
 import { useBorrowApiParams } from '../../../hooks/useBorrowApiParams';
@@ -86,6 +87,7 @@ export const WithdrawSection = ({
   const intl = useIntl();
   // Early return if no tokenInfo or protocolInfo
   // This happens when there's no account or no address
+  const navigation = useAppNavigation();
   const hasRequiredData = tokenInfo && protocolInfo;
   const providerName = useMemo(
     () => protocolInfo?.provider ?? '',
@@ -336,49 +338,35 @@ export const WithdrawSection = ({
     ],
   );
 
-  const receivePopoverContentPropsRef = useRef<{
-    assets: IEarnTokenItem[];
-    isLoading?: boolean;
-    selectedUniqueKey?: string;
-    onSelect?: (item: IEarnTokenItem) => void;
-  }>({
-    assets: [],
-    isLoading: true,
-    selectedUniqueKey: undefined,
-    onSelect: undefined,
-  });
-
-  receivePopoverContentPropsRef.current = {
-    assets: selectableReceiveAssets,
-    isLoading: unstakeAssetsLoading || nativeTokenLoading,
-    selectedUniqueKey: selectedReceiveTokenUniqueKey,
-    onSelect: (item: IEarnTokenItem) => {
-      setSelectedReceiveAsset(item);
-    },
-  };
-
-  const receiveTokenPopoverContent = useMemo(
-    () =>
-      function ReceiveTokenPopoverContent({
-        closePopover,
-      }: {
-        isOpen?: boolean;
-        closePopover: () => void;
-      }) {
-        const { assets, isLoading, selectedUniqueKey, onSelect } =
-          receivePopoverContentPropsRef.current;
-        return (
-          <StakeAssetSelectPopoverContent
-            assets={assets}
-            isLoading={isLoading}
-            selectedUniqueKey={selectedUniqueKey}
-            onSelect={onSelect}
-            closePopover={closePopover}
-          />
-        );
+  const handleOpenReceiveTokenSelector = useCallback(() => {
+    if (!accountId || !protocolInfo?.symbol) return;
+    const currentAddress = selectedReceiveAsset?.info?.isNative
+      ? 'native'
+      : selectedReceiveAsset?.info?.address;
+    navigation.pushModal(EModalRoutes.StakingModal, {
+      screen: EModalStakingRoutes.EarnTokenSelect,
+      params: {
+        networkId,
+        accountId,
+        provider: providerName,
+        symbol: protocolInfo.symbol,
+        vault: protocolInfo.vault || undefined,
+        action: 'unstake' as const,
+        currentTokenAddress: currentAddress,
+        onSelect: (item: IEarnTokenItem) => {
+          setSelectedReceiveAsset(item);
+        },
       },
-    [],
-  );
+    });
+  }, [
+    accountId,
+    networkId,
+    providerName,
+    protocolInfo?.symbol,
+    protocolInfo?.vault,
+    selectedReceiveAsset?.info,
+    navigation,
+  ]);
 
   const receiveTokenSelectorTriggerProps = useMemo(() => {
     if (!isPendleProvider || useBorrowApi || !selectableReceiveAssets.length) {
@@ -389,24 +377,18 @@ export const WithdrawSection = ({
 
     return {
       disabled: isLoading || selectableReceiveAssets.length <= 1,
-      popover:
+      onPress:
         selectableReceiveAssets.length > 1
-          ? {
-              title: intl.formatMessage({
-                id: ETranslations.token_selector_title,
-              }),
-              content: receiveTokenPopoverContent,
-            }
+          ? handleOpenReceiveTokenSelector
           : undefined,
     };
   }, [
-    intl,
     isPendleProvider,
     useBorrowApi,
     selectableReceiveAssets.length,
     unstakeAssetsLoading,
     nativeTokenLoading,
-    receiveTokenPopoverContent,
+    handleOpenReceiveTokenSelector,
   ]);
 
   const effectiveReceiveInputConfig = useMemo<

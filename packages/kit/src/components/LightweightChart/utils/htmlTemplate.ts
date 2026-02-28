@@ -115,15 +115,20 @@ function getChartInitScript(): string {
 function getEventHandlers(): string {
   return `
       chart.subscribeCrosshairMove((param) => {
-        const message = param.time && param.seriesPrices?.size > 0 && param.point
-          ? {
-              type: 'hover',
-              time: String(param.time),
-              price: String(param.seriesPrices.get(series)),
-              x: param.point.x,
-              y: param.point.y,
-            }
-          : { type: 'hover', time: undefined, price: undefined, x: undefined, y: undefined };
+        let message;
+        if (param.time && param.seriesPrices?.size > 0 && param.point) {
+          const rawSecondary = secondarySeries ? param.seriesPrices.get(secondarySeries) : undefined;
+          message = {
+            type: 'hover',
+            time: String(param.time),
+            price: String(param.seriesPrices.get(series)),
+            secondaryPrice: rawSecondary !== undefined ? String(rawSecondary) : undefined,
+            x: param.point.x,
+            y: param.point.y,
+          };
+        } else {
+          message = { type: 'hover', time: undefined, price: undefined, secondaryPrice: undefined, x: undefined, y: undefined };
+        }
 
         window.ReactNativeWebView.postMessage(JSON.stringify(message));
       });
