@@ -57,8 +57,10 @@ import { UniversalSearchInput } from './UniversalSearchInput';
 import type { ITabPageHeaderProp } from './type';
 
 function LanguageListItem({
+  open,
   onOpenChange: onOpenChangeProp,
 }: {
+  open?: boolean;
   onOpenChange?: (isOpen: boolean) => void;
 }) {
   const intl = useIntl();
@@ -74,6 +76,7 @@ function LanguageListItem({
       title={title}
       items={options}
       value={value}
+      open={open}
       onChange={onChange}
       onOpenChange={onOpenChangeProp}
       floatingPanelProps={{ maxHeight: 280 }}
@@ -101,8 +104,10 @@ function LanguageListItem({
 }
 
 function CurrencyListItem({
+  open,
   onOpenChange: onOpenChangeProp,
 }: {
+  open?: boolean;
   onOpenChange?: (isOpen: boolean) => void;
 }) {
   const [settings] = useSettingsPersistAtom();
@@ -149,6 +154,7 @@ function CurrencyListItem({
       title={title}
       sections={formatSections}
       value={settings.currencyInfo.id}
+      open={open}
       onChange={handleChange}
       onOpenChange={onOpenChangeProp}
       floatingPanelProps={{ maxHeight: 280 }}
@@ -358,30 +364,27 @@ function SettingListItem() {
 }
 
 function MoreDappActionContent() {
-  const [languageKey, setLanguageKey] = useState(0);
-  const [currencyKey, setCurrencyKey] = useState(0);
+  const [activeSelect, setActiveSelect] = useState<
+    'language' | 'currency' | null
+  >(null);
 
   const handleLanguageOpenChange = useCallback((isOpen: boolean) => {
-    if (isOpen) {
-      setCurrencyKey((prev) => prev + 1);
-    }
+    setActiveSelect(isOpen ? 'language' : null);
   }, []);
 
   const handleCurrencyOpenChange = useCallback((isOpen: boolean) => {
-    if (isOpen) {
-      setLanguageKey((prev) => prev + 1);
-    }
+    setActiveSelect(isOpen ? 'currency' : null);
   }, []);
 
   return (
     <YStack py="$3">
       <ThemeListItem />
       <LanguageListItem
-        key={languageKey}
+        open={activeSelect === 'language'}
         onOpenChange={handleLanguageOpenChange}
       />
       <CurrencyListItem
-        key={currencyKey}
+        open={activeSelect === 'currency'}
         onOpenChange={handleCurrencyOpenChange}
       />
       <DownloadOneKeyWalletListItem />

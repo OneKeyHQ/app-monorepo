@@ -363,6 +363,7 @@ function SelectFrame<
   items,
   placeholder,
   value,
+  open: openProp,
   onChange,
   onOpenChange,
   children,
@@ -376,15 +377,21 @@ function SelectFrame<
   placement = platformEnv.isNative ? 'bottom-start' : undefined,
   usingPercentSnapPoints,
 }: ISelectProps<T>) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpenInternal, setIsOpenInternal] = useState(false);
+  const isControlled = openProp !== undefined;
+  const isOpen = isControlled ? openProp : isOpenInternal;
   const changeOpenStatus = useCallback(
     (openStatus: boolean) => {
-      setIsOpen(openStatus);
-      void timerUtils.setTimeoutPromised(() => {
+      if (isControlled) {
         onOpenChange?.(openStatus);
-      });
+      } else {
+        setIsOpenInternal(openStatus);
+        void timerUtils.setTimeoutPromised(() => {
+          onOpenChange?.(openStatus);
+        });
+      }
     },
-    [onOpenChange],
+    [isControlled, onOpenChange],
   );
   // eslint-disable-next-line no-bitwise
   const context = useMemo(
