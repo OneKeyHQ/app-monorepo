@@ -1,5 +1,11 @@
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 
+import type {
+  LineData,
+  SingleValueData,
+  UTCTimestamp,
+} from 'lightweight-charts';
+
 export interface ILightweightChartTheme {
   bgColor: string;
   textColor: string;
@@ -9,15 +15,14 @@ export interface ILightweightChartTheme {
   bottomColor: string;
 }
 
-export interface ILightweightChartData {
-  time: number;
-  value: number;
-}
+export type ILightweightChartData = SingleValueData;
+export type ILightweightSecondaryLineData = LineData;
+export type ILightweightChartTime = UTCTimestamp;
 
 export interface ILightweightChartConfig {
   theme: ILightweightChartTheme;
   data: ILightweightChartData[];
-  secondaryLineData?: ILightweightChartData[];
+  secondaryLineData?: ILightweightSecondaryLineData[];
   secondaryLineColor?: string;
   secondaryLineWidth?: number;
   lineWidth: number;

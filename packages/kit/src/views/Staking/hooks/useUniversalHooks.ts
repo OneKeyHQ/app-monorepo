@@ -427,7 +427,7 @@ export function useUniversalWithdraw({
 
       await navigationToTxConfirm({
         encodedTx,
-        stakingInfo,
+        stakingInfo: stakeInfoWithOrderId,
         signOnly: stakingConfig?.withdrawSignOnly,
         useFeeInTx,
         feeInfoEditable,
@@ -540,7 +540,7 @@ export function useUniversalClaim({
 
         await navigationToTxConfirm({
           encodedTx,
-          stakingInfo,
+          stakingInfo: stakeInfoWithOrderId,
           onSuccess: async (data) => {
             await handleStakeSuccess({
               data,

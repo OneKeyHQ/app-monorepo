@@ -6,7 +6,7 @@ import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 
 import { DEFAULT_CHART_COLORS } from '../utils/constants';
 
-import type { ILightweightChartConfig } from '../types';
+import type { ILightweightChartConfig, ILightweightChartTime } from '../types';
 
 interface IUseChartConfigProps {
   data: IMarketTokenChart;
@@ -50,9 +50,15 @@ export function useChartConfig({
       showHorzGridLines,
       horzLineColor: theme.borderSubdued?.val || '#E5E5EA',
       horzLineStyle: 2,
-      data: data.map(([time, value]: [number, number]) => ({ time, value })),
+      data: data.map(([time, value]: [number, number]) => ({
+        time: time as ILightweightChartTime,
+        value,
+      })),
       secondaryLineData: secondaryLineData?.map(
-        ([time, value]: [number, number]) => ({ time, value }),
+        ([time, value]: [number, number]) => ({
+          time: time as ILightweightChartTime,
+          value,
+        }),
       ),
       secondaryLineColor,
       secondaryLineWidth,

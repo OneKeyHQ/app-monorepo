@@ -75,24 +75,24 @@ export function LightweightChart({
     const series = chart.addAreaSeries(
       createAreaSeriesOptions(chartConfig.theme, chartConfig.lineWidth),
     );
-    series.setData(chartConfig.data as any);
+    series.setData(chartConfig.data);
 
     if (
       Array.isArray(chartConfig.secondaryLineData) &&
       chartConfig.secondaryLineData.length > 0
     ) {
-      const secondaryLineWidth = Math.min(
+      const normalizedSecondaryLineWidth = Math.min(
         4,
         Math.max(1, Math.round(chartConfig.secondaryLineWidth ?? 2)),
       ) as 1 | 2 | 3 | 4;
       const secondarySeries = chart.addLineSeries({
         color: chartConfig.secondaryLineColor ?? '#0177E5',
-        lineWidth: secondaryLineWidth,
+        lineWidth: normalizedSecondaryLineWidth,
         priceLineVisible: false,
         lastValueVisible: false,
         crosshairMarkerVisible: false,
       });
-      secondarySeries.setData(chartConfig.secondaryLineData as any);
+      secondarySeries.setData(chartConfig.secondaryLineData);
     }
 
     chart.timeScale().fitContent();

@@ -570,6 +570,7 @@ export function UniversalStake({
           identity,
           inputTokenAddress: transactionInputTokenAddress,
           outputTokenAddress: transactionOutputTokenAddress,
+          slippage: pendleSlippage,
         });
 
         if (Number(response.code) === 0) {
