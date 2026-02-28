@@ -42,6 +42,7 @@ export type IPrimeConfigFlushInfo = {
     data: string;
     dataTimestamp: number;
     isDeleted: boolean;
+    pwdHash: string;
   };
   pwdHash: string;
   nonce: number;
@@ -56,6 +57,7 @@ export type IPrimeLockChangedInfo = {
     data: string;
     dataTimestamp: number;
     isDeleted: boolean;
+    pwdHash: string;
   };
   pwdHash: string;
 };
