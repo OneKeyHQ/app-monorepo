@@ -30,6 +30,7 @@ import {
   contextAtomMethod,
   createAccountStateAtom,
   flattenAggregateTokensMapAtom,
+  processingTokenStateAtom,
   riskyTokenListAtom,
   riskyTokenListMapAtom,
   searchKeyAtom,
@@ -594,6 +595,22 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
     },
   );
 
+  updateProcessingTokenState = contextAtomMethod(
+    (
+      get,
+      set,
+      payload: {
+        isProcessing?: boolean;
+        token?: IAccountToken | null;
+      },
+    ) => {
+      set(processingTokenStateAtom(), {
+        ...get(processingTokenStateAtom()),
+        ...payload,
+      });
+    },
+  );
+
   updateTokenListSort = contextAtomMethod(
     (
       get,
@@ -652,6 +669,8 @@ export function useTokenListActions() {
 
   const updateCreateAccountState = actions.updateCreateAccountState.use();
 
+  const updateProcessingTokenState = actions.updateProcessingTokenState.use();
+
   const refreshActiveAccountTokenList =
     actions.refreshActiveAccountTokenList.use();
 
@@ -680,6 +699,7 @@ export function useTokenListActions() {
     updateTokenListState,
     updateSearchTokenState,
     updateCreateAccountState,
+    updateProcessingTokenState,
     refreshActiveAccountTokenList,
     updateActiveAccountTokenListState,
     updateTokenListSort,

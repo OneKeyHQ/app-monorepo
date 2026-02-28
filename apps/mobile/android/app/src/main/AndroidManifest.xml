@@ -40,6 +40,19 @@
       <category android:name="android.intent.category.BROWSABLE"/>
       <data android:scheme="https"/>
     </intent>
+    <!-- Exchange app deep link schemes for canOpenURL detection -->
+    <intent>
+      <action android:name="android.intent.action.VIEW"/>
+      <data android:scheme="bnc"/>
+    </intent>
+    <intent>
+      <action android:name="android.intent.action.VIEW"/>
+      <data android:scheme="okx"/>
+    </intent>
+    <intent>
+      <action android:name="android.intent.action.VIEW"/>
+      <data android:scheme="coinbase"/>
+    </intent>
     <package android:name="io.metamask"/>
     <package android:name="me.rainbow"/>
     <package android:name="io.gnosis.safe"/>
@@ -49,6 +62,8 @@
     <package android:name="im.token.app"/>
     <package android:name="app.phantom"/>
     <package android:name="org.toshi"/>
+    <package android:name="com.binance.dev"/>
+    <package android:name="com.okinc.okex.gp"/>
   </queries>
   <application
   android:usesCleartextTraffic="true"

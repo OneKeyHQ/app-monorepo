@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { ActionList, Toast } from '@onekeyhq/components';
+import { ActionList, Tabs, Toast } from '@onekeyhq/components';
 import { Portal } from '@onekeyhq/components/src/hocs';
 import type { IPortalManager } from '@onekeyhq/components/src/hocs/Portal';
 import type { IDragEndParamsWithItem } from '@onekeyhq/components/src/layouts/SortableListView/types';
@@ -259,11 +259,25 @@ function MarketWatchlistTokenList({
   // Wait for data to be loaded before rendering anything
   // This prevents flashing the recommend list while data is still loading
   if (!watchlistState.isMounted) {
+    // When tab-integrated on native, register a scroll view with collapsible tabs
+    // even during loading, so the tab system has a valid scroll ref.
+    if (tabIntegrated && platformEnv.isNative) {
+      return <Tabs.ScrollView />;
+    }
     return null;
   }
 
   // Show recommend list when watchlist is empty
   if (watchlist.length === 0) {
+    // When tab-integrated on native, wrap in Tabs.ScrollView so the collapsible
+    // tab system has a registered scroll view for this tab.
+    if (tabIntegrated && platformEnv.isNative) {
+      return (
+        <Tabs.ScrollView>
+          <MarketRecommendList recommendedTokens={recommendedTokens} />
+        </Tabs.ScrollView>
+      );
+    }
     return <MarketRecommendList recommendedTokens={recommendedTokens} />;
   }
 
@@ -274,7 +288,7 @@ function MarketWatchlistTokenList({
       result={filteredResult}
       isWatchlistMode
       showEndReachedIndicator
-      draggable={false}
+      draggable
       tabIntegrated={tabIntegrated}
       listContainerProps={listContainerProps}
       onDragEnd={handleDragEnd}

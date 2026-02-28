@@ -632,6 +632,9 @@ export default class ServicePassword extends ServiceBase {
       password: verifyingPassword,
     });
     if (verifyingPassword) {
+      void this.backgroundApi.serviceNotification.updateClientBasicAppInfoDebounced();
+    }
+    if (verifyingPassword) {
       void (async () => {
         try {
           await this.backgroundApi.serviceAccount.generateAllHdAndQrWalletsHashAndXfp(

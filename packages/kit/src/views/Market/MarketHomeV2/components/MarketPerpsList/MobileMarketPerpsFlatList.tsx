@@ -90,7 +90,7 @@ function MobileMarketPerpsFlatListImpl({
         selectedCategoryId={selectedCategoryId}
         onSelectCategory={setSelectedCategoryId}
         containerStyle={{
-          px: '$4',
+          px: '$5',
           pt: '$3',
           pb: '$2',
         }}
@@ -99,8 +99,10 @@ function MobileMarketPerpsFlatListImpl({
     [categoryTabs, selectedCategoryId],
   );
 
+  const showSkeleton = Boolean(isLoading) && tokens.length === 0;
+
   const ListEmptyComponent = useMemo(() => {
-    if (isLoading) {
+    if (showSkeleton) {
       return <TokenListSkeleton count={10} />;
     }
     return (
@@ -110,14 +112,14 @@ function MobileMarketPerpsFlatListImpl({
         </SizableText>
       </Stack>
     );
-  }, [isLoading, intl]);
+  }, [showSkeleton, intl]);
 
   const tabBarHeight = useScrollContentTabBarOffset();
 
   return (
     <Tabs.FlatList<IMarketPerpsToken>
       showsVerticalScrollIndicator={false}
-      data={isLoading ? EMPTY_DATA : tokens}
+      data={showSkeleton ? EMPTY_DATA : tokens}
       renderItem={renderItem}
       keyExtractor={keyExtractor}
       getItemLayout={getItemLayout}
