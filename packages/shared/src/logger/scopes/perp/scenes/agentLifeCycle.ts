@@ -2,7 +2,6 @@ import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
 
 export type IPerpAgentLifeCycleReason =
-  | 'status_check_no_password'
   | 'account_not_activated'
   | 'builder_fee_not_approved'
   | 'internal_rebate_not_bound'
@@ -14,7 +13,14 @@ export type IPerpAgentLifeCycleReason =
   | 'runtime_invalid_agent_error'
   | 'agent_removed_for_slot_recovery'
   | 'agent_create_success'
-  | 'agent_create_failed';
+  | 'agent_create_failed'
+  // v3 withToast.ts reasons
+  | 'runtime_invalid_agent_recovery_failed'
+  | 'runtime_handle_error_failed'
+  // v4 decrypt anomaly tracking
+  | 'credential_legacy_no_password'
+  | 'credential_decrypt_corrupted'
+  | 'credential_unknown_format';
 
 type IPerpAgentLifeCycleStatusDetails = {
   activatedOk?: boolean;
