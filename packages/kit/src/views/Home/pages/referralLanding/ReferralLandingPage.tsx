@@ -289,7 +289,7 @@ function ReferralLandingPage() {
     };
 
     void processReferralLanding();
-  }, [appIsLocked, code, page, navigation]);
+  }, [appIsLocked, code, page, navigation, isMobileWeb]);
 
   if (isMobileWeb) {
     return (
