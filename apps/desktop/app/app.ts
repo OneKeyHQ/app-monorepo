@@ -1191,10 +1191,7 @@ app.on('child-process-gone', async (event, details) => {
     app
       .getGPUInfo('basic')
       .then((gpuInfo) => {
-        logger.error(
-          '[GPU Crash] GPU Hardware Info:',
-          JSON.stringify(gpuInfo),
-        );
+        logger.error('[GPU Crash] GPU Hardware Info:', JSON.stringify(gpuInfo));
       })
       .catch(() => {
         logger.error('[GPU Crash] Cannot retrieve GPU info after crash');
@@ -1418,15 +1415,12 @@ function startV8HeapMonitoring() {
     ).toFixed(1);
 
     if (Number(usagePercent) > 70) {
-      logger.warn(
-        `[V8 Heap] ${usedMB}MB / ${limitMB}MB (${usagePercent}%)`,
-        {
-          totalHeapSize: heapStats.total_heap_size,
-          totalPhysicalSize: heapStats.total_physical_size,
-          allocatedMemory: heapStats.malloced_memory,
-          externalMemory: heapStats.external_memory,
-        },
-      );
+      logger.warn(`[V8 Heap] ${usedMB}MB / ${limitMB}MB (${usagePercent}%)`, {
+        totalHeapSize: heapStats.total_heap_size,
+        totalPhysicalSize: heapStats.total_physical_size,
+        allocatedMemory: heapStats.malloced_memory,
+        externalMemory: heapStats.external_memory,
+      });
     }
   }, MEMORY_CHECK_INTERVAL_MS);
 }
@@ -1446,9 +1440,7 @@ function startWebviewMemoryMonitoring() {
         const pid = wc.getOSProcessId();
         const metric = metricsByPid.get(pid);
         if (!metric) continue;
-        const memMB = Math.round(
-          (metric.memory?.workingSetSize ?? 0) / 1024,
-        );
+        const memMB = Math.round((metric.memory?.workingSetSize ?? 0) / 1024);
         if (memMB > 300) {
           logger.warn(
             `[WebView Memory] pid=${pid} type=${wc.getType()} url=${wc.getURL().substring(0, 100)} memory=${memMB}MB`,

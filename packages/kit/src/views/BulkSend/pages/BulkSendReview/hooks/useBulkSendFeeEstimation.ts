@@ -275,7 +275,10 @@ export function useBulkSendFeeEstimation({
             // Fallback mode: scale gasLimit for transfer txs
             // Gas scales with the number of transfers in this tx, not the number of txs
             const transferCount = unsignedTx.transfersInfo?.length ?? 1;
-            txFeeInfo = scaleGasLimitForBulkTransfer(txFeeInfo, transferCount + 1);
+            txFeeInfo = scaleGasLimitForBulkTransfer(
+              txFeeInfo,
+              transferCount + 1,
+            );
           }
           const feeResult = calculateFeeForSend({
             feeInfo: txFeeInfo,
@@ -412,7 +415,10 @@ export function useBulkSendFeeEstimation({
           // Fallback mode: scale gasLimit for transfer txs
           // Gas scales with the number of transfers in this tx, not the number of txs
           const transferCount = unsignedTx.transfersInfo?.length ?? 1;
-          txFeeInfo = scaleGasLimitForBulkTransfer(txFeeInfo, transferCount + 1);
+          txFeeInfo = scaleGasLimitForBulkTransfer(
+            txFeeInfo,
+            transferCount + 1,
+          );
         }
         const feeResult = calculateFeeForSend({
           feeInfo: txFeeInfo,

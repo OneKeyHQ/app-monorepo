@@ -135,10 +135,7 @@ function ReferralLandingPage() {
         })
       : '';
 
-    defaultLogger.referral.page.enterReferralGuide(
-      code,
-      'web_mobile_redirect',
-    );
+    defaultLogger.referral.page.enterReferralGuide(code, 'web_mobile_redirect');
 
     // Track whether the page ever went to background. If the app opened, the page is typically
     // hidden/pagehide, and timers may fire later when the user comes back.
@@ -169,8 +166,7 @@ function ReferralLandingPage() {
         globalThis.location.href = APP_STORE_DOWNLOAD_LINK;
         storeFallbackTimer = globalThis.setTimeout(() => {
           const elapsed = Date.now() - storeStartTime;
-          const isVisible =
-            globalThis.document?.visibilityState !== 'hidden';
+          const isVisible = globalThis.document?.visibilityState !== 'hidden';
           if (isVisible && elapsed <= IOS_STORE_ELAPSED_THRESHOLD_MS) {
             globalThis.location.href = APP_STORE_DOWNLOAD_WEB_LINK;
           }
@@ -197,10 +193,7 @@ function ReferralLandingPage() {
             try {
               iframe.remove();
             } catch (removeError) {
-              console.error(
-                'Failed to remove deep link iframe:',
-                removeError,
-              );
+              console.error('Failed to remove deep link iframe:', removeError);
             }
             iframeRef = undefined;
           }, IFRAME_CLEANUP_DELAY_MS);
@@ -215,8 +208,7 @@ function ReferralLandingPage() {
     let fallbackTimer: ReturnType<typeof globalThis.setTimeout> | undefined;
     const armFallbackTimer = () => {
       fallbackTimer = globalThis.setTimeout(() => {
-        const isVisible =
-          globalThis.document?.visibilityState !== 'hidden';
+        const isVisible = globalThis.document?.visibilityState !== 'hidden';
         if (isVisible && !didHide) {
           redirectToStore();
         }

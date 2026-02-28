@@ -654,7 +654,7 @@ export default class Vault extends VaultBase {
     params: IBroadcastTransactionParams,
   ): Promise<ISignedTxPro> {
     const result = await super.broadcastTransaction(params);
-    this._getSuggestedParams.clear();
+    await this._getSuggestedParams.clear();
     return result;
   }
 
@@ -675,7 +675,7 @@ export default class Vault extends VaultBase {
       txId,
       rawTx: signedTx.rawTx,
     });
-    this._getSuggestedParams.clear();
+    await this._getSuggestedParams.clear();
     return {
       ...params.signedTx,
       txid: txId,
@@ -686,9 +686,11 @@ export default class Vault extends VaultBase {
     error: FailedAttemptError,
   ): Promise<boolean> {
     if (
-      (error as unknown as OneKeyError)?.code ===
-      NETWORK_REQUEST_ERROR_CODE
-      && (error as unknown as OneKeyError)?.message?.includes('cannot broadcast txns in follower mode')) {
+      (error as unknown as OneKeyError)?.code === NETWORK_REQUEST_ERROR_CODE &&
+      (error as unknown as OneKeyError)?.message?.includes(
+        'cannot broadcast txns in follower mode',
+      )
+    ) {
       await timerUtils.wait((error?.attemptNumber || 1) * 1000);
       return true;
     }
