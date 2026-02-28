@@ -89,7 +89,6 @@ function WalletActionExchange(props?: {
                   selectedToken.symbol ??
                   ''
                 ).toUpperCase(),
-                requestedAmount: '1'
               });
 
             // Verify the address returned by Binance matches our local address
