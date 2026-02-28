@@ -7,13 +7,14 @@ import {
   IconButton,
   NumberSizeableText,
   SizableText,
+  Stack,
   XStack,
   YStack,
   rootNavigationRef,
   useClipboard,
   useMedia,
 } from '@onekeyhq/components';
-import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/atoms';
 import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
 import { CommunityRecognizedBadge } from '@onekeyhq/kit/src/views/Market/components/CommunityRecognizedBadge';
@@ -30,6 +31,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IUniversalSearchV2MarketToken } from '@onekeyhq/shared/types/search';
 import { ESearchStatus } from '@onekeyhq/shared/types/search';
 
+import { MARKET_DATA_COLUMN_WIDTH, MARKET_NAME_COLUMN_WIDTH } from '../MarketTableHeader';
 import { MarketStarV2 } from '../../../Market/components/MarketStarV2';
 import { MarketTokenIcon } from '../../../Market/components/MarketTokenIcon';
 import { BaseMarketTokenPrice } from '../../../Market/components/MarketTokenPrice';
@@ -139,6 +141,7 @@ export function UniversalSearchV2MarketTokenItem({
 }: IUniversalSearchMarketTokenItemProps) {
   // Ensure market watch list atom is initialized
   const [{ isMounted }] = useMarketWatchListV2Atom();
+  const { gtMd } = useMedia();
   const universalSearchActions = useUniversalSearchActions();
   const toMarketDetailPage = useToDetailPage({
     switchToMarketTabFirst: true,
@@ -152,10 +155,14 @@ export function UniversalSearchV2MarketTokenItem({
     address,
     network,
     liquidity,
-    volume_24h: volume24h,
+    volume_24h,
+    volume24h: volume24hCamel,
+    priceChange24hPercent,
     isNative,
     communityRecognized,
   } = item.payload;
+
+  const volume24h = volume24hCamel || volume_24h;
 
   // Hide favorite button in extension popup and side panel
   const shouldShowFavoriteButton = useMemo(
@@ -209,52 +216,114 @@ export function UniversalSearchV2MarketTokenItem({
   }
 
   return (
-    <ListItem
-      jc="space-between"
+    <Stack
+      flexDirection="row"
+      alignItems="center"
+      gap="$3"
+      alignSelf="stretch"
+      py="$2"
+      px="$3"
+      mx="$2"
+      minHeight="$11"
+      borderRadius="$3"
+      borderCurve="continuous"
+      overflow="hidden"
       onPress={handlePress}
-      renderAvatar={
-        <MarketTokenIcon uri={logoUrl} size="lg" networkId={network} />
-      }
+      {...listItemPressStyle}
     >
-      <ListItem.Text
-        flex={1}
-        primary={
-          <XStack alignItems="center" gap="$1">
+      {/* # + NAME column */}
+      <XStack w={MARKET_NAME_COLUMN_WIDTH} gap="$1" ai="center" flexShrink={0}>
+        <XStack w="$8" ai="center" jc="center">
+          {shouldShowFavoriteButton ? (
+            <MarketStarV2
+              chainId={network}
+              contractAddress={address}
+              from={EWatchlistFrom.Search}
+              tokenSymbol={symbol}
+              size="small"
+              isNative={isNative}
+            />
+          ) : null}
+        </XStack>
+        <XStack ai="center" gap="$2" flex={1} minWidth={0}>
+          <MarketTokenIcon uri={logoUrl} size="sm" networkId={network} />
+          <YStack flex={1} minWidth={0}>
+            <XStack ai="center" gap="$1" minWidth={0}>
+              <SizableText
+                size="$bodyMdMedium"
+                numberOfLines={1}
+                flexShrink={1}
+              >
+                {symbol}
+              </SizableText>
+              {communityRecognized ? <CommunityRecognizedBadge /> : null}
+            </XStack>
             <SizableText
-              size="$bodyLgMedium"
+              size="$bodySm"
+              color="$textSubdued"
               numberOfLines={1}
-              maxWidth="$60"
-              flexShrink={1}
             >
-              {symbol}
+              {name}
             </SizableText>
-            {communityRecognized ? <CommunityRecognizedBadge /> : null}
-          </XStack>
-        }
-        secondary={<ContractAddress address={address} />}
-      />
-      <XStack alignItems="center">
-        <YStack alignItems="flex-end">
+          </YStack>
+        </XStack>
+      </XStack>
+
+      <XStack flex={1} minWidth={0}>
+        {/* PRICE / 24H column */}
+        <YStack
+          w={gtMd ? MARKET_DATA_COLUMN_WIDTH : undefined}
+          flex={gtMd ? undefined : 1}
+          ai="flex-end"
+        >
           <BaseMarketTokenPrice
             price={price}
-            size="$bodyLgMedium"
+            size="$bodyMd"
             tokenName={name}
             tokenSymbol={symbol}
           />
-          <MarketTokenLiquidity liquidity={liquidity} volume24h={volume24h} />
+          {priceChange24hPercent ? (
+            <NumberSizeableText
+              size="$bodySm"
+              formatter="priceChange"
+              color={
+                Number(priceChange24hPercent) >= 0
+                  ? '$textSuccess'
+                  : '$textCritical'
+              }
+              formatterOptions={{ showPlusMinusSigns: true }}
+            >
+              {priceChange24hPercent}
+            </NumberSizeableText>
+          ) : null}
         </YStack>
-        {shouldShowFavoriteButton ? (
-          <MarketStarV2
-            chainId={network}
-            contractAddress={address}
-            ml="$3"
-            from={EWatchlistFrom.Search}
-            tokenSymbol={symbol}
-            size="medium"
-            isNative={isNative}
-          />
+
+        {/* LIQUIDITY column - desktop only */}
+        {gtMd ? (
+          <XStack w={MARKET_DATA_COLUMN_WIDTH} jc="flex-end" ai="center">
+            <NumberSizeableText
+              size="$bodyMd"
+              formatter="marketCap"
+              formatterOptions={{ capAtMaxT: true }}
+            >
+              {BigNumber(liquidity).gt(0) ? liquidity : '--'}
+            </NumberSizeableText>
+          </XStack>
+        ) : null}
+
+        {/* VOLUME 24H column - desktop only */}
+        {gtMd ? (
+          <XStack w={MARKET_DATA_COLUMN_WIDTH} jc="flex-end" ai="center">
+            <NumberSizeableText
+              size="$bodyMd"
+              formatter="marketCap"
+              formatterOptions={{ capAtMaxT: true }}
+            >
+              {BigNumber(volume24h).gt(0) ? volume24h : '--'}
+            </NumberSizeableText>
+          </XStack>
         ) : null}
       </XStack>
-    </ListItem>
+    </Stack>
   );
 }
