@@ -227,6 +227,8 @@ export function convertDeviceError(
       return new HardwareErrors.CosmosInvalidJsonMessage({ payload });
     case HardwareErrorCode.DeviceSettingsLanguageNotSupport:
       return new HardwareErrors.DeviceNotSupportLanguage({ payload });
+    case HardwareErrorCode.TooManyInputs:
+      return new HardwareErrors.AlephTooManyInputsError({ payload });
 
     // Bridge error
     case 'ERR_BAD_REQUEST':

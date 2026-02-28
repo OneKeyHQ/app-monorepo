@@ -528,7 +528,7 @@ const BaseDevSettingsSection = () => {
               </SectionFieldItem>
 
               <SectionPressItem
-                icon="SwapHorOutline"
+                icon="SwitchHorOutline"
                 title="force RTL"
                 subtitle="强制启用 RTL 布局"
                 drillIn={false}
@@ -1133,7 +1133,7 @@ const BaseDevSettingsSection = () => {
               ) : null}
 
               <SectionFieldItem
-                icon="TradingViewCandlesOutline"
+                icon="TradeOutline"
                 name="useLocalTradingViewUrl"
                 title="使用本地 TradingView URL"
                 subtitle={
@@ -1250,6 +1250,15 @@ const BaseDevSettingsSection = () => {
                 name="enableKeylessDebugInfo"
                 title="启用 Keyless 调试信息"
                 subtitle="显示 Keyless 登录/恢复调试信息"
+              >
+                <Switch size={ESwitchSize.small} />
+              </SectionFieldItem>
+
+              <SectionFieldItem
+                icon="CloudOutline"
+                name="enableKeylessCloudSyncFeature"
+                title="启用 Keyless 云端同步"
+                subtitle="开启后在 OneKey Cloud 展示 Keyless 同步开关"
               >
                 <Switch size={ESwitchSize.small} />
               </SectionFieldItem>

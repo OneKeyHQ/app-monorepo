@@ -10,7 +10,10 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useAllTokenListMapAtom } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
-import { useFiatCrypto } from '@onekeyhq/kit/src/views/FiatCrypto/hooks';
+import {
+  useFiatCrypto,
+  useSupportNetworkId,
+} from '@onekeyhq/kit/src/views/FiatCrypto/hooks';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -37,11 +40,15 @@ export function WalletActionBuy({
   const {
     activeAccount: { network, account, wallet, vaultSettings, indexedAccount },
   } = useActiveAccount({ num: 0 });
-  const { isSupported, handleFiatCrypto } = useFiatCrypto({
+  const { isSupported: isBuySupported, handleFiatCrypto } = useFiatCrypto({
     networkId: network?.id ?? '',
     accountId: account?.id ?? '',
     fiatCryptoType: 'buy',
   });
+  const { result: isSellSupported } = useSupportNetworkId(
+    'sell',
+    network?.id,
+  );
 
   const intl = useIntl();
 
@@ -61,12 +68,12 @@ export function WalletActionBuy({
       return true;
     }
 
-    if (!isSupported) {
+    if (!isBuySupported && !isSellSupported) {
       return true;
     }
 
     return false;
-  }, [isSupported, wallet?.type]);
+  }, [isBuySupported, isSellSupported, wallet?.type]);
 
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
   const handleBuyToken = useCallback(async () => {
@@ -101,6 +108,7 @@ export function WalletActionBuy({
   ]);
 
   if (
+    isBuySupported &&
     !network?.isAllNetworks &&
     !accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' }) &&
     vaultSettings?.mergeDeriveAssetsEnabled &&
@@ -125,8 +133,8 @@ export function WalletActionBuy({
           ) : (
             <ActionList.Item
               trackID="wallet-buy"
-              icon="PlusLargeOutline"
-              label={intl.formatMessage({ id: ETranslations.global_buy })}
+              icon="CurrencyDollarOutline"
+              label={intl.formatMessage({ id: ETranslations.buy_and_sell })}
               disabled={isBuyDisabled}
               onClose={() => {}}
               onPress={() => {}}

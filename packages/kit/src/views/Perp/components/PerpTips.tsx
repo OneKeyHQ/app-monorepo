@@ -4,13 +4,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Alert,
-  Button,
-  Icon,
-  SizableText,
-  Stack,
-  XStack,
   YStack,
-  useMedia,
 } from '@onekeyhq/components';
 import { usePerpsCommonConfigPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -24,7 +18,6 @@ import useParseQRCode from '../../ScanQrCode/hooks/useParseQRCode';
 
 export function PerpTips() {
   const intl = useIntl();
-  const { gtMd } = useMedia();
   const [{ perpConfigCommon }, setPerpsCommonConfigPersistAtom] =
     usePerpsCommonConfigPersistAtom();
   const parseQRCode = useParseQRCode();
@@ -75,14 +68,15 @@ export function PerpTips() {
     return null;
   }
   return (
-    <YStack borderBottomWidth="$px" borderBottomColor="$borderSubdued">
+    <YStack>
       <Alert
-        flex={1}
-        bg="$bgInfo"
-        type="default"
+        type="info"
         fullBleed
         borderWidth={0}
-        alignItems={gtMd ? 'center' : 'flex-start'}
+        icon="InfoCircleSolid"
+        title={perpConfigCommon?.perpBannerConfig?.title}
+        description={perpConfigCommon?.perpBannerConfig?.description}
+        action={action}
         closable={!!perpConfigCommon?.perpBannerConfig?.canClose}
         onClose={() => {
           if (perpConfigCommon?.perpBannerConfig?.id) {
@@ -97,52 +91,7 @@ export function PerpTips() {
             }));
           }
         }}
-      >
-        <XStack gap="$3" alignItems={gtMd ? 'center' : 'flex-start'} flex={1}>
-          <Stack p="$1" bg="$bgInfo" borderRadius="$full" flexShrink={0}>
-            <Icon name="InfoCircleSolid" size="$4" color="$iconInfo" />
-          </Stack>
-          <YStack gap="$1" flex={1}>
-            {perpConfigCommon?.perpBannerConfig?.title ? (
-              <SizableText size="$bodyMdMedium" color="$textSubdued">
-                {perpConfigCommon.perpBannerConfig.title}
-              </SizableText>
-            ) : null}
-            {perpConfigCommon?.perpBannerConfig?.description ? (
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {perpConfigCommon.perpBannerConfig.description}
-              </SizableText>
-            ) : null}
-            {!gtMd && action ? (
-              <Button
-                size="small"
-                variant="secondary"
-                onPress={action.onPrimaryPress}
-                flexShrink={0}
-                alignSelf="flex-start"
-                px="$3"
-                py="$0.5"
-                mt="$0.5"
-              >
-                <SizableText size="$bodySm">{action.primary}</SizableText>
-              </Button>
-            ) : null}
-          </YStack>
-          {gtMd && action ? (
-            <Button
-              size="small"
-              variant="secondary"
-              onPress={action.onPrimaryPress}
-              flexShrink={0}
-              alignSelf="center"
-              px="$3"
-              py="$0.5"
-            >
-              <SizableText size="$bodySm">{action.primary}</SizableText>
-            </Button>
-          ) : null}
-        </XStack>
-      </Alert>
+      />
     </YStack>
   );
 }
