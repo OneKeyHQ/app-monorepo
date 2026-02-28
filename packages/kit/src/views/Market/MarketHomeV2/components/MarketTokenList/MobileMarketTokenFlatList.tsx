@@ -115,10 +115,11 @@ function MobileMarketTokenFlatListBase({
     return null;
   }, [isLoadingMore, canLoadMore, data.length]);
 
-  const loading = isLoading || isNetworkSwitching;
-  // List empty - skeleton or empty message
+  const showSkeleton =
+    (Boolean(isLoading) && data.length === 0) || Boolean(isNetworkSwitching);
+
   const ListEmptyComponent = useMemo(() => {
-    if (loading) {
+    if (showSkeleton) {
       return <TokenListSkeleton count={10} />;
     }
 
@@ -131,7 +132,7 @@ function MobileMarketTokenFlatListBase({
         </SizableText>
       </Stack>
     );
-  }, [loading, intl]);
+  }, [showSkeleton, intl]);
 
   // Note: getItemLayout is disabled because dynamic item heights are more accurate
   // If re-enabling, measure actual rendered item height and uncomment below:
@@ -148,7 +149,7 @@ function MobileMarketTokenFlatListBase({
   return (
     <Tabs.FlatList<IMarketToken>
       showsVerticalScrollIndicator={false}
-      data={loading ? EMPTY_DATA : data}
+      data={showSkeleton ? EMPTY_DATA : data}
       renderItem={renderItem}
       keyExtractor={keyExtractor}
       onEndReached={handleEndReached}
