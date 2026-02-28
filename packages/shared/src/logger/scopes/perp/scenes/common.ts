@@ -23,8 +23,8 @@ export class CommonScene extends BaseScene {
     nonce: number;
     errorMessage: string;
   }) {
+    void userAddress;
     const result = {
-      userAddress,
       chainId,
       builder: {
         b: builderAddress,

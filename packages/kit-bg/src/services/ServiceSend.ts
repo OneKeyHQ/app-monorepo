@@ -294,13 +294,17 @@ class ServiceSend extends ServiceBase {
             deviceParams,
             signOnly,
           });
-          console.log('signTx@vault.signTransaction', signedTx);
+          if (process.env.NODE_ENV !== 'production') {
+            console.log('signTx@vault.signTransaction', signedTx);
+          }
           return signedTx;
         },
         { deviceParams, debugMethodName: 'serviceSend.signTransaction' },
       );
 
-    console.log('signTx@serviceSend.signTransaction', tx);
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('signTx@serviceSend.signTransaction', tx);
+    }
 
     tx.swapInfo = unsignedTx.swapInfo;
     tx.stakingInfo = unsignedTx.stakingInfo;

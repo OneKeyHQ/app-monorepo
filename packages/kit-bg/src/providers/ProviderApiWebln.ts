@@ -197,7 +197,9 @@ class ProviderApiWebln extends ProviderApiBase {
           accountId: accountId ?? '',
           networkId: networkId ?? '',
         });
-      console.log('webln.signMessage: ', message, signature);
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('webln.signMessage: ', message, signature);
+      }
 
       return JSON.parse(signature as any) as ISignMessageResponse;
     } catch (e) {

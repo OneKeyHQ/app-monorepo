@@ -306,7 +306,9 @@ class ServiceInternalSignAndVerify extends ServiceBase {
   }) {
     const { networkId, message, address, signature, hexFormat, format } =
       params;
-    console.log('verifyMessage', { networkId, message, address, signature });
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('verifyMessage', { networkId, message, address, signature });
+    }
 
     const vault = await vaultFactory.getChainOnlyVault({
       networkId,

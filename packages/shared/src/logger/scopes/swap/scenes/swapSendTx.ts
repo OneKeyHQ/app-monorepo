@@ -22,10 +22,14 @@ export class SwapSendTxScene extends BaseScene {
     message,
     orderId,
     networkId,
-    accountId,
-    encodedTx,
-    fromAddress,
-    toAddress,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    accountId: _accountId,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    encodedTx: _encodedTx,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    fromAddress: _fromAddress,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    toAddress: _toAddress,
     quoteToTokenAmount,
   }: {
     status: ESwapEventAPIStatus;
@@ -65,10 +69,6 @@ export class SwapSendTxScene extends BaseScene {
       providerName,
       orderId,
       networkId,
-      accountId,
-      encodedTx,
-      fromAddress,
-      toAddress,
       quoteToTokenAmount,
     };
   }

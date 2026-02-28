@@ -2153,7 +2153,7 @@ class ServicePrimeCloudSync extends ServiceBase {
           item,
           syncCredential,
         });
-        if (decryptedData) {
+        if (decryptedData && process.env.NODE_ENV !== 'production') {
           console.log(
             'decryptAllLocalSyncItems: ',
             decryptedData?.rawDataJson?.payload,

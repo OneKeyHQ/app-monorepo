@@ -46,6 +46,8 @@ export class SwapQuoteScene extends BaseScene {
     fromAddress: string;
     toAddress: string;
   }) {
+    void fromAddress;
+    void toAddress;
     return {
       walletType,
       status,
@@ -59,8 +61,6 @@ export class SwapQuoteScene extends BaseScene {
       isAddReceiveAddress,
       isSmartMode,
       providerQuoteResult,
-      fromAddress,
-      toAddress,
     };
   }
 }

@@ -61,6 +61,9 @@ export class AgentLifeCycleScene extends BaseScene {
   @LogToServer()
   @LogToLocal({ level: 'info' })
   public trackReason(params: IPerpAgentLifeCycleTrackReasonParams) {
-    return params;
+    const { accountAddress, accountId, ...rest } = params;
+    void accountAddress;
+    void accountId;
+    return rest;
   }
 }
