@@ -186,6 +186,7 @@ export type IDBCreateHDWalletParams = {
   avatar?: IAvatarInfo;
   isKeylessWallet?: boolean;
   keylessDetailsInfo?: IKeylessWalletDetailsInfo;
+  skipAddHDNextIndexedAccount?: boolean;
 };
 export type IDBCreateKeylessWalletParams = {
   password: string;

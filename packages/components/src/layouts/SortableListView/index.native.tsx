@@ -18,6 +18,8 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { TabsDraggableFlatList } from '../../composite/Tabs/TabsDraggableFlatList';
+
 import sortableListViewUtils from './sortableListViewUtils';
 
 import type { ISortableListViewProps, ISortableListViewRef } from './types';
@@ -33,6 +35,7 @@ function BaseSortableListView<T>(
     keyExtractor,
     renderItem,
     enabled = true,
+    tabIntegrated,
     containerStyle = {},
     contentContainerStyle = {},
     columnWrapperStyle,
@@ -98,8 +101,10 @@ function BaseSortableListView<T>(
     [onDragEnd],
   );
 
+  const ListComponent = tabIntegrated ? TabsDraggableFlatList : DraggableFlatList;
+
   return (
-    <DraggableFlatList<T>
+    <ListComponent<T>
       ref={ref}
       style={style as StyleProp<ViewStyle>}
       onDragBegin={reloadOnDragBegin}
