@@ -34,26 +34,63 @@ index 23cd875..3fe0e1d 100644
  
    fun updateItems(items: MutableList<TabInfo>) {
 diff --git a/node_modules/react-native-bottom-tabs/ios/RepresentableView.swift b/node_modules/react-native-bottom-tabs/ios/RepresentableView.swift
-index 09adaca..4edfcb1 100644
+index 09adaca..94e13d0 100644
 --- a/node_modules/react-native-bottom-tabs/ios/RepresentableView.swift
 +++ b/node_modules/react-native-bottom-tabs/ios/RepresentableView.swift
-@@ -23,10 +23,15 @@ struct RepresentableView: PlatformViewRepresentable {
-   func makeUIView(context: Context) -> PlatformView {
-     let wrapper = UIView()
+@@ -5,11 +5,12 @@ import SwiftUI
+  Wraps each view with an additional wrapper to avoid directly managing React Native views.
+  This solves issues where the layout would have weird artifacts..
+  */
+-struct RepresentableView: PlatformViewRepresentable {
+-  var view: PlatformView
+ 
+ #if os(macOS)
+ 
++struct RepresentableView: NSViewRepresentable {
++  var view: PlatformView
++
+   func makeNSView(context: Context) -> PlatformView {
+     let wrapper = NSView()
      wrapper.addSubview(view)
-+    view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-     return wrapper
+@@ -17,16 +18,32 @@ struct RepresentableView: PlatformViewRepresentable {
+   }
+ 
+   func updateNSView(_ nsView: PlatformView, context: Context) {}
++}
+ 
+ #else
+ 
+-  func makeUIView(context: Context) -> PlatformView {
+-    let wrapper = UIView()
+-    wrapper.addSubview(view)
+-    return wrapper
++/// Uses UIViewControllerRepresentable to properly isolate the view controller hierarchy.
++/// This prevents UIViewControllerHierarchyInconsistency crashes on iOS 17.x where
++/// react-native-screens' RNSScreenStackView finds the wrong parent VC (UIKitTabBarController
++/// instead of the tab content's hosting controller).
++struct RepresentableView: UIViewControllerRepresentable {
++  var view: PlatformView
++
++  func makeUIViewController(context: Context) -> UIViewController {
++    let vc = UIViewController()
++    vc.view.backgroundColor = .clear
++    vc.view.addSubview(view)
++    view.translatesAutoresizingMaskIntoConstraints = false
++    NSLayoutConstraint.activate([
++      view.leadingAnchor.constraint(equalTo: vc.view.leadingAnchor),
++      view.trailingAnchor.constraint(equalTo: vc.view.trailingAnchor),
++      view.topAnchor.constraint(equalTo: vc.view.topAnchor),
++      view.bottomAnchor.constraint(equalTo: vc.view.bottomAnchor)
++    ])
++    return vc
    }
  
 -  func updateUIView(_ uiView: PlatformView, context: Context) {}
-+  func updateUIView(_ uiView: PlatformView, context: Context) {
-+    if let child = uiView.subviews.first {
-+      child.frame = uiView.bounds
-+    }
-+  }
++  func updateUIViewController(_ uiViewController: UIViewController, context: Context) {}
++}
  
  #endif
- }
+-}
 diff --git a/node_modules/react-native-bottom-tabs/ios/TabViewImpl.swift b/node_modules/react-native-bottom-tabs/ios/TabViewImpl.swift
 index 72938be..a7a3c15 100644
 --- a/node_modules/react-native-bottom-tabs/ios/TabViewImpl.swift
@@ -108,47 +145,6 @@ index 72938be..a7a3c15 100644
    @ViewBuilder
    func tabBadge(_ data: String?) -> some View {
      if #available(iOS 15.0, macOS 15.0, visionOS 2.0, tvOS 15.0, *) {
-diff --git a/node_modules/react-native-bottom-tabs/ios/TabViewProvider.swift b/node_modules/react-native-bottom-tabs/ios/TabViewProvider.swift
-index 013032f..de63fd9 100644
---- a/node_modules/react-native-bottom-tabs/ios/TabViewProvider.swift
-+++ b/node_modules/react-native-bottom-tabs/ios/TabViewProvider.swift
-@@ -188,21 +188,23 @@ public final class TabInfo: NSObject {
- #endif
- 
-   private func setupView() {
--    if self.hostingController != nil {
--      return
-+    if self.hostingController == nil {
-+      self.hostingController = PlatformHostingController(rootView: TabViewImpl(props: props) { key in
-+        self.delegate?.onPageSelected(key: key, reactTag: self.reactTag)
-+      } onLongPress: { key in
-+        self.delegate?.onLongPress(key: key, reactTag: self.reactTag)
-+      } onLayout: { size  in
-+        self.delegate?.onLayout(size: size, reactTag: self.reactTag)
-+      } onTabBarMeasured: { height in
-+        self.delegate?.onTabBarMeasured(height: height, reactTag: self.reactTag)
-+      })
-     }
- 
--    self.hostingController = PlatformHostingController(rootView: TabViewImpl(props: props) { key in
--      self.delegate?.onPageSelected(key: key, reactTag: self.reactTag)
--    } onLongPress: { key in
--      self.delegate?.onLongPress(key: key, reactTag: self.reactTag)
--    } onLayout: { size  in
--      self.delegate?.onLayout(size: size, reactTag: self.reactTag)
--    } onTabBarMeasured: { height in
--      self.delegate?.onTabBarMeasured(height: height, reactTag: self.reactTag)
--    })
--
--    if let hostingController = self.hostingController, let parentViewController = reactViewController() {
-+    // Retry adding to view hierarchy if not yet attached
-+    // (reactViewController() may return nil on early layoutSubviews calls)
-+    if let hostingController = self.hostingController,
-+       hostingController.view.superview == nil,
-+       let parentViewController = reactViewController() {
-       parentViewController.addChild(hostingController)
- #if !os(macOS)
-       hostingController.view.backgroundColor = .clear
 diff --git a/node_modules/react-native-bottom-tabs/lib/module/TabView.js b/node_modules/react-native-bottom-tabs/lib/module/TabView.js
 index 3ab92c7..81ca149 100644
 --- a/node_modules/react-native-bottom-tabs/lib/module/TabView.js
