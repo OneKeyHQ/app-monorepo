@@ -25,7 +25,7 @@ index 8ec286a..a46ba48 100644
          if (root == null) {
              return
 diff --git a/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/PagerViewViewManagerImpl.kt b/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/PagerViewViewManagerImpl.kt
-index d5b82ff..98283db 100644
+index d5b82ff..5f1a084 100644
 --- a/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/PagerViewViewManagerImpl.kt
 +++ b/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/PagerViewViewManagerImpl.kt
 @@ -7,8 +7,12 @@ import com.facebook.react.uimanager.PixelUtil
@@ -67,32 +67,7 @@ index d5b82ff..98283db 100644
      fun addView(host: NestedScrollableHost, child: View?, index: Int) {
          if (child == null) {
              return
-@@ -76,6 +99,24 @@ object PagerViewViewManagerImpl {
-         val pager = getViewPager(parent)
-         val adapter = pager.adapter as ViewPagerAdapter?
- 
-+        if (adapter != null && adapter.isComputingLayout()) {
-+            // Capture child by identity NOW while the index is still valid,
-+            // then defer the removal using the child reference instead of the
-+            // (potentially stale) index.
-+            val child = if (index >= 0 && index < adapter.itemCount) adapter.getChildAt(index) else null
-+            if (child != null) {
-+                adapter.postOnRecyclerView {
-+                    val currentAdapter = pager.adapter as? ViewPagerAdapter
-+                    if (child.parent != null) {
-+                        (child.parent as? ViewGroup)?.removeView(child)
-+                    }
-+                    currentAdapter?.removeChild(child)
-+                    debouncedRefreshViewChildrenLayout(pager)
-+                }
-+            }
-+            return
-+        }
-+
-         val child = adapter?.getChildAt(index)
- 
-         if (child != null && child.parent != null) {
-@@ -161,10 +202,22 @@ object PagerViewViewManagerImpl {
+@@ -161,10 +184,22 @@ object PagerViewViewManagerImpl {
  
      private fun refreshViewChildrenLayout(view: View) {
          view.post {
@@ -120,7 +95,7 @@ index d5b82ff..98283db 100644
      }
  
 diff --git a/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/ViewPagerAdapter.kt b/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/ViewPagerAdapter.kt
-index fd3530e..dad30af 100644
+index fd3530e..d8cded7 100644
 --- a/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/ViewPagerAdapter.kt
 +++ b/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/ViewPagerAdapter.kt
 @@ -1,14 +1,34 @@
@@ -158,17 +133,13 @@ index fd3530e..dad30af 100644
  
    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewPagerViewHolder {
      return ViewPagerViewHolder.create(parent)
-@@ -34,9 +54,26 @@ class ViewPagerAdapter() : Adapter<ViewPagerViewHolder>() {
+@@ -34,9 +54,22 @@ class ViewPagerAdapter() : Adapter<ViewPagerViewHolder>() {
      return childrenViews.size
    }
  
-+  fun isComputingLayout(): Boolean {
++  private fun isComputingLayout(): Boolean {
 +    val rv = recyclerView
 +    return rv != null && rv.isComputingLayout
-+  }
-+
-+  fun postOnRecyclerView(action: Runnable) {
-+    handler.post(action)
 +  }
 +
    fun addChild(child: View, index: Int) {
@@ -187,7 +158,7 @@ index fd3530e..dad30af 100644
    }
  
    fun getChildAt(index: Int): View {
-@@ -44,14 +81,22 @@ class ViewPagerAdapter() : Adapter<ViewPagerViewHolder>() {
+@@ -44,14 +77,22 @@ class ViewPagerAdapter() : Adapter<ViewPagerViewHolder>() {
    }
  
    fun removeChild(child: View) {
@@ -213,7 +184,7 @@ index fd3530e..dad30af 100644
      for (index in 1..childrenViews.size) {
        val child = childrenViews[index-1]
        if (child.parent?.parent != null) {
-@@ -64,6 +109,14 @@ class ViewPagerAdapter() : Adapter<ViewPagerViewHolder>() {
+@@ -64,6 +105,14 @@ class ViewPagerAdapter() : Adapter<ViewPagerViewHolder>() {
    }
  
    fun removeChildAt(index: Int) {
@@ -225,11 +196,11 @@ index fd3530e..dad30af 100644
 +      }
 +      return
 +    }
-     if (index >= 0 && index < childrenViews.size) {
+     if (index >= 0 && index < childrenViews.size) { 
        childrenViews.removeAt(index)
        notifyItemRemoved(index)
 diff --git a/node_modules/react-native-pager-view/ios/RNCPagerViewComponentView.mm b/node_modules/react-native-pager-view/ios/RNCPagerViewComponentView.mm
-index d52f532..0eda5f7 100644
+index d52f532..eff12a8 100644
 --- a/node_modules/react-native-pager-view/ios/RNCPagerViewComponentView.mm
 +++ b/node_modules/react-native-pager-view/ios/RNCPagerViewComponentView.mm
 @@ -29,6 +29,14 @@ @implementation RNCPagerViewComponentView {
@@ -254,7 +225,7 @@ index d52f532..0eda5f7 100644
 +        _isBeingRecycled = NO;
 +        _pendingGoToIndex = -1;
      }
- 
+     
      return self;
 @@ -96,6 +106,9 @@ - (void)willMoveToSuperview:(UIView *)newSuperview {
  #pragma mark - React API
@@ -274,14 +245,11 @@ index d52f532..0eda5f7 100644
 +        return;
 +    }
 +
-+    // Always detach the view from the hierarchy first, even if the index
-+    // is out of bounds for the controllers array, to avoid view leaks.
-+    [childComponentView removeFromSuperview];
-+
 +    if (index >= _nativeChildrenViewControllers.count) {
 +        return;
 +    }
 +
+     [childComponentView removeFromSuperview];
      [_nativeChildrenViewControllers removeObjectAtIndex:index];
   
      NSInteger maxPage = _nativeChildrenViewControllers.count - 1;
@@ -353,7 +321,7 @@ index d52f532..0eda5f7 100644
          [self enableSwipe];
          return;
      }
- 
+   
 +    // Validate index bounds
 +    if (index < 0 || index >= _nativeChildrenViewControllers.count) {
 +#ifdef DEBUG
