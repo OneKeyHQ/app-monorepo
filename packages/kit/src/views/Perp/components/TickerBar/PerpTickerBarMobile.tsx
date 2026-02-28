@@ -179,15 +179,24 @@ function PerpBadgesRow() {
     [asset?.coin, effectiveTokenSearchAliases],
   );
 
+  // Fetch builder fee once on mount (independent of alias state)
   useEffect(() => {
+    void backgroundApiProxy.simpleDb.perp
+      .getPerpData()
+      .then((config) => {
+        setBuilderFeeRate(config.hyperliquidMaxBuilderFee);
+      });
+  }, []);
+
+  // Fetch token aliases only when not yet available
+  useEffect(() => {
+    if (effectiveTokenSearchAliases !== undefined) {
+      return;
+    }
     let isCancelled = false;
     void (async () => {
       const config = await backgroundApiProxy.simpleDb.perp.getPerpData();
       if (isCancelled) {
-        return;
-      }
-      setBuilderFeeRate(config.hyperliquidMaxBuilderFee);
-      if (effectiveTokenSearchAliases !== undefined) {
         return;
       }
       if (config.tokenSearchAliases !== undefined) {
