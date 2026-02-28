@@ -11,6 +11,7 @@ import {
   popActionCenterPages,
   popScanModalPages,
   useClipboard,
+  waitForScanModalClosed,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -162,7 +163,8 @@ const useParseQRCode = () => {
         if (popNavigation) {
           await popScanModalPages();
           await popActionCenterPages();
-          await timerUtils.wait(50);
+          // Wait until scan modal is no longer current (or 400ms max). Faster than fixed 350ms when stack updates early (OK-50182).
+          await waitForScanModalClosed();
         }
       };
 
