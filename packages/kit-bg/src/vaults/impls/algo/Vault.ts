@@ -17,6 +17,7 @@ import type {
 } from '@onekeyhq/core/src/types';
 import {
   ManageTokenInsufficientBalanceError,
+  type OneKeyError,
   OneKeyInternalError,
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
@@ -75,6 +76,8 @@ import type {
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
 } from '../../types';
+import type { FailedAttemptError } from 'p-retry';
+import { NETWORK_REQUEST_ERROR_CODE } from '@onekeyhq/core/src/chains/algo/constants';
 
 export default class Vault extends VaultBase {
   override coreApi = coreChainApi.algo.hd;
@@ -667,5 +670,18 @@ export default class Vault extends VaultBase {
       ...params.signedTx,
       txid: txId,
     };
+  }
+
+  override async checkShouldRetryBroadcastTx(
+    error: FailedAttemptError,
+  ): Promise<boolean> {
+    if (
+      (error as unknown as OneKeyError)?.code ===
+      NETWORK_REQUEST_ERROR_CODE
+      && (error as unknown as OneKeyError)?.message?.includes('cannot broadcast txns in follower mode')) {
+      await timerUtils.wait((error?.attemptNumber || 1) * 1000);
+      return true;
+    }
+    return false;
   }
 }
