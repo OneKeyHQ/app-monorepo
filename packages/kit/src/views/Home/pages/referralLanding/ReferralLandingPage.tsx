@@ -1,9 +1,13 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+
+import { useIntl } from 'react-intl';
 
 import {
+  Button,
   Page,
   Spinner,
   Stack,
+  XStack,
   YStack,
   rootNavigationRef,
 } from '@onekeyhq/components';
@@ -12,12 +16,13 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
+  ANDROID_PACKAGE_NAME,
   APP_STORE_DOWNLOAD_LINK,
   APP_STORE_DOWNLOAD_WEB_LINK,
   DOWNLOAD_MOBILE_APP_URL,
-  PLAY_STORE_LINK,
 } from '@onekeyhq/shared/src/config/appConfig';
 import { EOneKeyDeepLinkPath } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import {
@@ -29,6 +34,10 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import {
+  InvitedByFriendContent,
+  InvitedByFriendImage,
+} from '@onekeyhq/kit/src/views/ReferFriends/pages/InvitedByFriend/components';
 
 // Deep-link → store fallback timing constants.
 // On mobile web, we attempt to open the app via deep link, then redirect to
@@ -57,6 +66,25 @@ const IOS_STORE_ELAPSED_THRESHOLD_MS = 1500;
 // Delay before opening the InvitedByFriend modal after tab navigation.
 // Gives the target tab enough time to mount and render before the modal overlay.
 const MODAL_OPEN_DELAY_MS = 1500;
+
+// Build an Android intent:// URL with built-in Play Store fallback.
+// Chrome (and Chromium-based browsers) handles this natively: opens the app if
+// installed, otherwise redirects to S.browser_fallback_url.
+// Using location.href with a raw custom scheme (onekey-wallet://) on Android
+// navigates to an ERR_UNKNOWN_URL_SCHEME error page, destroying the JS context
+// and any fallback timers.
+function buildAndroidIntentUrl(
+  deepLinkUrl: string,
+  fallbackUrl: string,
+): string {
+  const schemeEnd = deepLinkUrl.indexOf('://');
+  if (schemeEnd === -1) {
+    return fallbackUrl;
+  }
+  const scheme = deepLinkUrl.slice(0, schemeEnd);
+  const rest = deepLinkUrl.slice(schemeEnd + 3);
+  return `intent://${rest}#Intent;scheme=${scheme};package=${ANDROID_PACKAGE_NAME};S.browser_fallback_url=${encodeURIComponent(fallbackUrl)};end`;
+}
 
 // Wait for navigation to be ready
 const waitForNavigationReady = async (maxWaitMs = 3000): Promise<boolean> => {
@@ -87,9 +115,8 @@ function ReferralLandingPage() {
     ETabHomeRoutesType.TabHomeReferralLanding
   >();
   const navigation = useAppNavigation();
+  const intl = useIntl();
   const [appIsLocked] = useAppIsLockedAtom();
-
-  const hasProcessedRef = useRef(false);
 
   const routeParams = route.params as
     | { code: string; page?: string }
@@ -107,23 +134,19 @@ function ReferralLandingPage() {
     }
   }
 
-  // Mobile web: try deep link then fall back to app store.
-  // Isolated from appIsLocked so atom hydration cannot cancel the fallback timer.
-  useEffect(() => {
-    if (hasProcessedRef.current) {
+  const isMobileWeb = platformEnv.isWeb && platformEnv.isWebMobile;
+
+  const [isJoining, setIsJoining] = useState(false);
+
+  // Mobile web: user presses "Join" → try deep link, fall back to app store.
+  const handleMobileWebJoin = useCallback(() => {
+    if (isJoining) {
       return;
     }
-    if (!(platformEnv.isWeb && platformEnv.isWebMobile)) {
-      return;
-    }
-
-    hasProcessedRef.current = true;
-
+    setIsJoining(true);
     const storeUrlAuto = platformEnv.isWebMobileIOS
       ? APP_STORE_DOWNLOAD_WEB_LINK
-      : platformEnv.isWebMobileAndroid
-        ? PLAY_STORE_LINK
-        : DOWNLOAD_MOBILE_APP_URL;
+      : DOWNLOAD_MOBILE_APP_URL;
 
     const deepLinkUrl = code
       ? uriUtils.buildDeepLinkUrl({
@@ -140,34 +163,11 @@ function ReferralLandingPage() {
       'web_mobile_redirect',
     );
 
-    // Track whether the page ever went to background. If the app opened, the page is typically
-    // hidden/pagehide, and timers may fire later when the user comes back.
-    let didHide = false;
-    const markHide = () => {
-      didHide = true;
-    };
-    const onVisibilityChange = () => {
-      if (globalThis.document?.visibilityState === 'hidden') {
-        markHide();
-      }
-    };
-
-    globalThis.document?.addEventListener(
-      'visibilitychange',
-      onVisibilityChange,
-    );
-    globalThis.addEventListener?.('pagehide', markHide);
-
-    let storeFallbackTimer:
-      | ReturnType<typeof globalThis.setTimeout>
-      | undefined;
-
     const redirectToStore = () => {
       if (platformEnv.isWebMobileIOS) {
-        // Try the native itms-apps:// scheme first; if blocked, fall back to HTTPS.
         const storeStartTime = Date.now();
         globalThis.location.href = APP_STORE_DOWNLOAD_LINK;
-        storeFallbackTimer = globalThis.setTimeout(() => {
+        globalThis.setTimeout(() => {
           const elapsed = Date.now() - storeStartTime;
           const isVisible =
             globalThis.document?.visibilityState !== 'hidden';
@@ -180,8 +180,6 @@ function ReferralLandingPage() {
       globalThis.location.href = storeUrlAuto;
     };
 
-    let iframeRef: HTMLIFrameElement | undefined;
-
     const openDeepLinkSilently = (url: string) => {
       try {
         const doc = globalThis.document;
@@ -192,7 +190,6 @@ function ReferralLandingPage() {
           iframe.style.height = '0';
           iframe.src = url;
           doc.body.appendChild(iframe);
-          iframeRef = iframe;
           globalThis.setTimeout(() => {
             try {
               iframe.remove();
@@ -202,7 +199,6 @@ function ReferralLandingPage() {
                 removeError,
               );
             }
-            iframeRef = undefined;
           }, IFRAME_CLEANUP_DELAY_MS);
           return;
         }
@@ -212,63 +208,49 @@ function ReferralLandingPage() {
       globalThis.location.href = url;
     };
 
-    let fallbackTimer: ReturnType<typeof globalThis.setTimeout> | undefined;
-    const armFallbackTimer = () => {
-      fallbackTimer = globalThis.setTimeout(() => {
-        const isVisible =
-          globalThis.document?.visibilityState !== 'hidden';
-        if (isVisible && !didHide) {
-          redirectToStore();
-        }
-      }, DEEP_LINK_FALLBACK_DELAY_MS);
-    };
-
     if (deepLinkUrl) {
-      armFallbackTimer();
-
-      if (platformEnv.isWebMobileIOS) {
+      if (platformEnv.isWebMobileAndroid) {
+        const intentUrl = buildAndroidIntentUrl(
+          deepLinkUrl,
+          DOWNLOAD_MOBILE_APP_URL,
+        );
+        globalThis.location.href = intentUrl;
+      } else if (platformEnv.isWebMobileIOS) {
+        const armTime = Date.now();
+        globalThis.setTimeout(() => {
+          const elapsed = Date.now() - armTime;
+          const isVisible =
+            globalThis.document?.visibilityState !== 'hidden';
+          const timerFiredLate = elapsed > DEEP_LINK_FALLBACK_DELAY_MS * 2;
+          if (isVisible && !timerFiredLate) {
+            redirectToStore();
+          }
+        }, DEEP_LINK_FALLBACK_DELAY_MS);
         openDeepLinkSilently(deepLinkUrl);
       } else {
+        globalThis.setTimeout(() => {
+          const isVisible =
+            globalThis.document?.visibilityState !== 'hidden';
+          if (isVisible) {
+            redirectToStore();
+          }
+        }, DEEP_LINK_FALLBACK_DELAY_MS);
         globalThis.location.href = deepLinkUrl;
       }
     } else {
       redirectToStore();
     }
-
-    return () => {
-      if (fallbackTimer) {
-        globalThis.clearTimeout(fallbackTimer);
-      }
-      if (storeFallbackTimer) {
-        globalThis.clearTimeout(storeFallbackTimer);
-      }
-      if (iframeRef) {
-        try {
-          iframeRef.remove();
-        } catch {
-          // best-effort cleanup
-        }
-        iframeRef = undefined;
-      }
-      globalThis.document?.removeEventListener(
-        'visibilitychange',
-        onVisibilityChange,
-      );
-      globalThis.removeEventListener?.('pagehide', markHide);
-    };
-    // `code` and `page` come from route.params (useAppRoute), which are set once
-    // during navigation and never mutate for this screen instance. They are safe
-    // to omit from the dependency array; we list them explicitly so the effect
-    // re-runs only if the user navigates here with different params.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [code, page]);
+  }, [code, page, isJoining]);
 
   // Native / desktop web: process referral after app is unlocked.
+  // hasProcessedRef guards against duplicate processing in this effect only;
+  // the mobile web path is handled by handleMobileWebJoin (user-initiated).
+  const hasProcessedRef = useRef(false);
   useEffect(() => {
     if (hasProcessedRef.current) {
       return;
     }
-    if (platformEnv.isWeb && platformEnv.isWebMobile) {
+    if (isMobileWeb) {
       return;
     }
     if (appIsLocked) {
@@ -277,8 +259,14 @@ function ReferralLandingPage() {
 
     hasProcessedRef.current = true;
 
+    let mounted = true;
+    let modalTimerId: ReturnType<typeof setTimeout> | undefined;
+
     const processReferralLanding = async () => {
       const isNavigationReady = await waitForNavigationReady();
+      if (!mounted) {
+        return;
+      }
       if (!isNavigationReady) {
         if (platformEnv.isWeb) {
           globalThis.location.href = '/';
@@ -304,7 +292,10 @@ function ReferralLandingPage() {
 
       navigation.switchTab(targetTabRoute);
 
-      setTimeout(() => {
+      modalTimerId = setTimeout(() => {
+        if (!mounted) {
+          return;
+        }
         navigation.pushModal(EModalRoutes.ReferFriendsModal, {
           screen: EModalReferFriendsRoutes.InvitedByFriend,
           params: {
@@ -316,7 +307,50 @@ function ReferralLandingPage() {
     };
 
     void processReferralLanding();
-  }, [appIsLocked, code, page, navigation]);
+
+    return () => {
+      mounted = false;
+      if (modalTimerId) {
+        clearTimeout(modalTimerId);
+      }
+    };
+  }, [appIsLocked, code, page, navigation, isMobileWeb]);
+
+  if (isMobileWeb) {
+    return (
+      <Page scrollEnabled>
+        <Page.Body>
+          <YStack pb="$5" maxWidth={640} mx="auto" flex={1}>
+            <InvitedByFriendImage />
+            <InvitedByFriendContent referralCode={code} />
+          </YStack>
+        </Page.Body>
+        <Page.Footer>
+          <XStack
+            gap="$4"
+            w="100%"
+            justifyContent="space-between"
+            px="$4"
+            py="$4"
+            bg="$bgApp"
+          >
+            <Button
+              variant="primary"
+              flex={1}
+              size="large"
+              disabled={isJoining}
+              loading={isJoining}
+              onPress={handleMobileWebJoin}
+            >
+              {intl.formatMessage({
+                id: ETranslations.referral_accept,
+              })}
+            </Button>
+          </XStack>
+        </Page.Footer>
+      </Page>
+    );
+  }
 
   return (
     <Page>

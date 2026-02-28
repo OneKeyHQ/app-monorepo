@@ -43,7 +43,7 @@ export function AccountSelectorAddAccountButton({
         primary={intl.formatMessage({
           id: platformEnv.isWebDappMode
             ? ETranslations.onboarding_connect_external_wallet
-            : ETranslations.global_account,
+            : ETranslations.global_add_account,
         })}
         primaryTextProps={{
           color: '$textSubdued',
