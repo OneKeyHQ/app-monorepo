@@ -162,7 +162,7 @@ const useParseQRCode = () => {
         if (popNavigation) {
           await popScanModalPages();
           await popActionCenterPages();
-          await timerUtils.wait(350);
+          await timerUtils.wait(50);
         }
       };
 

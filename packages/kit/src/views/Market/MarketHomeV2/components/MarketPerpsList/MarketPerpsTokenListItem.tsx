@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { memo, useMemo } from 'react';
+import { memo } from 'react';
 
 import {
   NumberSizeableText,
@@ -11,6 +11,7 @@ import {
 import { Token } from '@onekeyhq/kit/src/components/Token';
 
 import { LeverageBadge, SubtitleBadge } from '../../../components/PerpsBadges';
+import { PriceChangeBadge } from '../PriceChangeBadge';
 
 import type { IMarketPerpsToken } from './hooks/useMarketPerpsTokenList';
 
@@ -25,16 +26,11 @@ const BasicMarketPerpsTokenListItem: FC<IMarketPerpsTokenListItemProps> = ({
 }) => {
   const hasRealTimeData = item.markPrice !== undefined;
 
-  const changeColor = useMemo(() => {
-    if (item.change24hPercent === undefined) return '$textSubdued';
-    return item.change24hPercent >= 0 ? '$textSuccess' : '$textCritical';
-  }, [item.change24hPercent]);
-
   return (
     <XStack
       pressStyle={{ opacity: 0.8 }}
       onPress={onPress}
-      px="$3"
+      px="$5"
       py="$3"
       alignItems="center"
     >
@@ -59,23 +55,25 @@ const BasicMarketPerpsTokenListItem: FC<IMarketPerpsTokenListItemProps> = ({
             <LeverageBadge leverage={item.maxLeverage} />
             {item.subtitle ? <SubtitleBadge subtitle={item.subtitle} /> : null}
           </XStack>
-          <SkeletonContainer isLoading={!hasRealTimeData}>
-            <NumberSizeableText
-              size="$bodyMd"
-              color="$textSubdued"
-              numberOfLines={1}
-              formatter="marketCap"
-              userSelect="none"
-            >
-              {item.volume24h ?? '0'}
-            </NumberSizeableText>
-          </SkeletonContainer>
+          <XStack alignItems="center" height="$4">
+            <SkeletonContainer isLoading={!hasRealTimeData}>
+              <NumberSizeableText
+                size="$bodyMd"
+                color="$textSubdued"
+                numberOfLines={1}
+                formatter="marketCap"
+                userSelect="none"
+              >
+                {item.volume24h ?? '0'}
+              </NumberSizeableText>
+            </SkeletonContainer>
+          </XStack>
         </YStack>
       </XStack>
 
       {/* Right side: Price + Change */}
-      <YStack alignItems="flex-end" justifyContent="center">
-        <SkeletonContainer isLoading={!hasRealTimeData}>
+      <SkeletonContainer isLoading={!hasRealTimeData}>
+        <XStack alignItems="center" gap="$2">
           <NumberSizeableText
             userSelect="none"
             flexShrink={1}
@@ -86,20 +84,9 @@ const BasicMarketPerpsTokenListItem: FC<IMarketPerpsTokenListItemProps> = ({
           >
             {item.markPrice ?? '0'}
           </NumberSizeableText>
-        </SkeletonContainer>
-        <SkeletonContainer isLoading={!hasRealTimeData}>
-          <NumberSizeableText
-            size="$bodyMd"
-            color={changeColor}
-            formatter="priceChange"
-            formatterOptions={{
-              showPlusMinusSigns: true,
-            }}
-          >
-            {item.change24hPercent ?? 0}
-          </NumberSizeableText>
-        </SkeletonContainer>
-      </YStack>
+          <PriceChangeBadge change={item.change24hPercent ?? 0} />
+        </XStack>
+      </SkeletonContainer>
     </XStack>
   );
 };

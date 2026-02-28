@@ -1,4 +1,4 @@
-import { type ReactNode, useCallback, useMemo } from 'react';
+import { type ReactNode, useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -56,7 +56,11 @@ import { UniversalSearchInput } from './UniversalSearchInput';
 
 import type { ITabPageHeaderProp } from './type';
 
-function LanguageListItem() {
+function LanguageListItem({
+  onOpenChange: onOpenChangeProp,
+}: {
+  onOpenChange?: (isOpen: boolean) => void;
+}) {
   const intl = useIntl();
   const { options, value, onChange } = useLanguageSelector();
   const label = useMemo(() => {
@@ -71,6 +75,7 @@ function LanguageListItem() {
       items={options}
       value={value}
       onChange={onChange}
+      onOpenChange={onOpenChangeProp}
       floatingPanelProps={{ maxHeight: 280 }}
       sheetProps={{
         disableDrag: true,
@@ -95,7 +100,11 @@ function LanguageListItem() {
   );
 }
 
-function CurrencyListItem() {
+function CurrencyListItem({
+  onOpenChange: onOpenChangeProp,
+}: {
+  onOpenChange?: (isOpen: boolean) => void;
+}) {
   const [settings] = useSettingsPersistAtom();
   const sections = useCurrencySections();
   const formatSections = useMemo(() => {
@@ -141,6 +150,7 @@ function CurrencyListItem() {
       sections={formatSections}
       value={settings.currencyInfo.id}
       onChange={handleChange}
+      onOpenChange={onOpenChangeProp}
       floatingPanelProps={{ maxHeight: 280 }}
       sheetProps={{
         disableDrag: true,
@@ -347,6 +357,44 @@ function SettingListItem() {
   );
 }
 
+function MoreDappActionContent() {
+  const [languageKey, setLanguageKey] = useState(0);
+  const [currencyKey, setCurrencyKey] = useState(0);
+
+  const handleLanguageOpenChange = useCallback((isOpen: boolean) => {
+    if (isOpen) {
+      setCurrencyKey((prev) => prev + 1);
+    }
+  }, []);
+
+  const handleCurrencyOpenChange = useCallback((isOpen: boolean) => {
+    if (isOpen) {
+      setLanguageKey((prev) => prev + 1);
+    }
+  }, []);
+
+  return (
+    <YStack py="$3">
+      <ThemeListItem />
+      <LanguageListItem
+        key={languageKey}
+        onOpenChange={handleLanguageOpenChange}
+      />
+      <CurrencyListItem
+        key={currencyKey}
+        onOpenChange={handleCurrencyOpenChange}
+      />
+      <DownloadOneKeyWalletListItem />
+      {/* <Web3GuideListItem /> */}
+      <YStack py="$1.5" px="$3">
+        <Divider />
+      </YStack>
+      <AnnouncementListItem />
+      <SettingListItem />
+    </YStack>
+  );
+}
+
 function MoreDappAction({ size }: { size?: 'small' | 'medium' }) {
   const intl = useIntl();
 
@@ -373,20 +421,7 @@ function MoreDappAction({ size }: { size?: 'small' | 'medium' }) {
           size={size}
         />
       }
-      renderContent={
-        <YStack py="$3">
-          <ThemeListItem />
-          <LanguageListItem />
-          <CurrencyListItem />
-          <DownloadOneKeyWalletListItem />
-          {/* <Web3GuideListItem /> */}
-          <YStack py="$1.5" px="$3">
-            <Divider />
-          </YStack>
-          <AnnouncementListItem />
-          <SettingListItem />
-        </YStack>
-      }
+      renderContent={<MoreDappActionContent />}
     />
   );
 }
