@@ -75,7 +75,7 @@ const TokenSelectorRowContext =
   createContext<ITokenSelectorRowContextValue | null>(null);
 
 const DESKTOP_SUBTITLE_MAX_WIDTH = 52;
-const MOBILE_SUBTITLE_MAX_WIDTH = 60;
+const MOBILE_SUBTITLE_MAX_WIDTH = 80;
 
 function useTokenSelectorRowContext() {
   const context = useContext(TokenSelectorRowContext);
