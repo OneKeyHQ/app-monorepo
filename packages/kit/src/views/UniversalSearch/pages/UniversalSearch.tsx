@@ -18,6 +18,7 @@ import {
   View,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import { DiscoveryBrowserProviderMirror } from '@onekeyhq/kit/src/views/Discovery/components/DiscoveryBrowserProviderMirror';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -123,6 +124,62 @@ function ListEmptyComponent() {
       <SkeletonItem />
       <SkeletonItem />
     </YStack>
+  );
+}
+
+const isMarketSection = (tabIndex: number) => tabIndex === 2;
+const MARKET_NAME_COLUMN_WIDTH = 160;
+const MARKET_DATA_COLUMN_WIDTH = '33.3333%';
+
+function MarketTableHeader() {
+  const intl = useIntl();
+  const { gtMd } = useMedia();
+  return (
+    <XStack alignSelf="stretch" mx="$2" px="$3" py="$1.5" gap="$3" ai="center">
+      {/* Matches row: star($8) + gap($1) + icon($8) + gap($2) + name */}
+      <XStack w={MARKET_NAME_COLUMN_WIDTH} gap="$1" ai="center" flexShrink={0}>
+        <XStack w="$8" ai="center" jc="center">
+          <SizableText size="$bodySm" color="$textSubdued">
+            #
+          </SizableText>
+        </XStack>
+        <SizableText size="$bodySm" color="$textSubdued" flex={1}>
+          {intl.formatMessage({ id: ETranslations.global_name }).toUpperCase()}
+        </SizableText>
+      </XStack>
+      <XStack flex={1} minWidth={0}>
+        <XStack
+          w={gtMd ? MARKET_DATA_COLUMN_WIDTH : undefined}
+          flex={gtMd ? undefined : 1}
+          jc="flex-end"
+        >
+          <SizableText size="$bodySm" color="$textSubdued" textAlign="right">
+            {intl
+              .formatMessage({ id: ETranslations.global_price })
+              .toUpperCase()}{' '}
+            / 24H
+          </SizableText>
+        </XStack>
+        {gtMd ? (
+          <XStack w={MARKET_DATA_COLUMN_WIDTH} jc="flex-end">
+            <SizableText size="$bodySm" color="$textSubdued" textAlign="right">
+              {intl
+                .formatMessage({ id: ETranslations.global_liquidity })
+                .toUpperCase()}
+            </SizableText>
+          </XStack>
+        ) : null}
+        {gtMd ? (
+          <XStack w={MARKET_DATA_COLUMN_WIDTH} jc="flex-end">
+            <SizableText size="$bodySm" color="$textSubdued" textAlign="right">
+              {intl
+                .formatMessage({ id: ETranslations.dexmarket_turnover })
+                .toUpperCase()}
+            </SizableText>
+          </XStack>
+        ) : null}
+      </XStack>
+    </XStack>
   );
 }
 
@@ -450,11 +507,14 @@ export function UniversalSearch({
   const renderSectionHeader = useCallback(
     ({ section }: { section: IUniversalSection }) => {
       return (
-        <XStack bg="$bgApp" h="$9" ai="center">
-          <SizableText px="$5" size="$headingSm" color="$textSubdued">
-            {section.title}
-          </SizableText>
-        </XStack>
+        <YStack bg="$bgApp">
+          <XStack h="$9" ai="center">
+            <SizableText px="$5" size="$headingSm" color="$textSubdued">
+              {section.title}
+            </SizableText>
+          </XStack>
+          {isMarketSection(section.tabIndex) ? <MarketTableHeader /> : null}
+        </YStack>
       );
     },
     [],
