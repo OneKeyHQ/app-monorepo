@@ -1410,3 +1410,5 @@ USDO
 hyperevm
 RNGH
 macrotask
+pwdhash
+wesbos

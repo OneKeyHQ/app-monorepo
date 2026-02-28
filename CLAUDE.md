@@ -77,6 +77,7 @@ This is a React Native project targeting iOS, Android, and Web. Always consider 
 - ❌ **NEVER** modify auto-generated files (`translations.ts`, locale JSON files)
 - ❌ **NEVER** bypass TypeScript types with `any` or `@ts-ignore` without documented justification
 - ❌ **NEVER** commit code that fails linting or TypeScript compilation
+- ❌ **NEVER** use `JSON.stringify()` for cryptographic operations → ALWAYS use `stringUtils.stableStringify()` for deterministic serialization when computing hashes or signatures
 
 ## Code Changes
 

@@ -100,12 +100,18 @@ import type {
   IDeviceVersionCacheInfo,
   IOneKeyDeviceFeatures,
 } from '@onekeyhq/shared/types/device';
-import type { ICloudSyncKeyInfoWallet } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
+import type { IKeylessCloudSyncCredential } from '@onekeyhq/shared/types/keylessCloudSync';
+import type {
+  ICloudSyncKeyInfoWallet,
+  IExistingSyncItemsInfo,
+} from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
 import type {
   ICreateConnectedSiteParams,
   ICreateSignedMessageParams,
   ICreateSignedTransactionParams,
 } from '@onekeyhq/shared/types/signatureRecord';
+
+import keylessCloudSyncUtils from '../../services/ServicePrimeCloudSync/keylessCloudSyncUtils';
 
 import { EDBAccountType } from './consts';
 import { LocalDbBaseContainer } from './LocalDbBaseContainer';
@@ -231,9 +237,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     throw new NotImplemented();
   }
 
-  async getContext(
-    options?: IDBApiGetContextOptions | undefined,
-  ): Promise<IDBContext> {
+  async getContext(options?: IDBApiGetContextOptions): Promise<IDBContext> {
     const ctx = await this.getRecordById({
       name: ELocalDBStoreNames.Context,
       id: DB_MAIN_CONTEXT_ID,
@@ -649,6 +653,63 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     }
   }
 
+  /**
+   * Get Keyless credential in transaction
+   * @param tx - Transaction object
+   * @returns Keyless credential or null if conditions not met
+   */
+  async txGetKeylessCloudSyncCredential({
+    tx,
+  }: {
+    tx: ILocalDBTransaction;
+  }): Promise<IKeylessCloudSyncCredential | null> {
+    try {
+      const password =
+        await this.backgroundApi.servicePassword.getCachedPassword();
+      if (!password) {
+        return null;
+      }
+
+      const keylessWallet = await this.txGetKeylessWallet({ tx });
+      const keylessWalletId = keylessWallet?.id;
+      if (!keylessWalletId) {
+        return null;
+      }
+
+      const [credential] = await this.txGetRecordById({
+        tx,
+        name: ELocalDBStoreNames.Credential,
+        id: keylessWalletId,
+      });
+
+      if (!credential?.credential) {
+        return null;
+      }
+
+      const keylessCredential =
+        await keylessCloudSyncUtils.deriveKeylessCredential({
+          hdCredential: credential.credential,
+          password,
+          keylessWalletId,
+        });
+
+      return keylessCredential;
+    } catch (error) {
+      console.error('[LocalDb] Failed to derive keyless credential:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get Keyless credential (wrapped with transaction)
+   * @returns Keyless credential or null if conditions not met
+   */
+  async getKeylessCloudSyncCredential(): Promise<IKeylessCloudSyncCredential | null> {
+    return this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
+      return this.txGetKeylessCloudSyncCredential({ tx });
+    });
+  }
+
   // #endregion
 
   // #region ---------------------------------------------- wallet
@@ -682,6 +743,40 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       id: walletId,
       tx,
     });
+  }
+
+  /**
+   * Get Keyless wallet in transaction
+   * @param tx - Transaction object
+   * @returns Keyless wallet or null if not found
+   */
+  async txGetKeylessWallet({
+    tx,
+  }: {
+    tx: ILocalDBTransaction;
+  }): Promise<IDBWallet | null> {
+    const { recordPairs } = await this.txGetAllRecords({
+      tx,
+      name: ELocalDBStoreNames.Wallet,
+    });
+    const walletPair = recordPairs.find((pair) => pair?.[0]?.isKeyless);
+    const wallet = walletPair?.[0];
+    if (wallet) {
+      await this.refillWalletInfo({
+        wallet,
+      });
+    }
+    return wallet ?? null;
+  }
+
+  /**
+   * Get Keyless wallet (wrapped with transaction)
+   * @returns Keyless wallet or null if not found
+   */
+  async getKeylessWallet(): Promise<IDBWallet | null> {
+    return this.withTransaction(EIndexedDBBucketNames.account, async (tx) =>
+      this.txGetKeylessWallet({ tx }),
+    );
   }
 
   walletSortFn = (a: IDBWallet, b: IDBWallet) =>
@@ -870,13 +965,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     }
   }
 
-  async getWalletsByXfp({
-    xfp,
-    includingKeylessWallets = false,
-  }: {
-    xfp: string;
-    includingKeylessWallets?: boolean;
-  }): Promise<IDBWallet[]> {
+  async getWalletsByXfp({ xfp }: { xfp: string }): Promise<IDBWallet[]> {
     try {
       if (!xfp) {
         return [];
@@ -884,9 +973,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       // TODO performance
       const { wallets } = await this.getWallets();
       const walletsByXfp = wallets.filter((w) => {
-        if (w.isKeyless && !includingKeylessWallets) {
-          return false;
-        }
         return w.xfp === xfp;
       });
       return walletsByXfp;
@@ -914,9 +1000,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       const { wallets } = await this.getWallets();
       if (walletType === WALLET_TYPE_HD) {
         const wallet = wallets.find((w) => {
-          if (w.isKeyless) {
-            return false;
-          }
           const r = w.type === walletType && w.hash === walletHash;
           return r;
         });
@@ -1538,7 +1621,17 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const syncManager =
       this.backgroundApi?.servicePrimeCloudSync.syncManagers.indexedAccount;
 
-    const syncItemsInfo = await syncManager.buildExistingSyncItemsInfo({
+    let syncItemsInfo:
+      | {
+          existingSyncItemsInfo: IExistingSyncItemsInfo<EPrimeCloudSyncDataType.IndexedAccount>;
+          existingSyncItems: IDBCloudSyncItem[];
+          newSyncItems: IDBCloudSyncItem[];
+        }
+      | undefined;
+
+    const buildSyncItemsStartTime = Date.now();
+    // eslint-disable-next-line prefer-const
+    syncItemsInfo = await syncManager.buildExistingSyncItemsInfo({
       tx,
       targets: indexedAccountsToAdd.map((indexedAccount) => ({
         targetId: indexedAccount.id,
@@ -1570,11 +1663,23 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         );
       },
     });
+    const buildSyncItemsDuration = Date.now() - buildSyncItemsStartTime;
+    if (buildSyncItemsDuration > 600) {
+      void this.backgroundApi.serviceApp.showToast({
+        method: 'error',
+        title: `buildExistingSyncItemsInfo took too long: ${buildSyncItemsDuration}ms`,
+      });
+    }
+    console.log(
+      `CloudSyncTookTime:: buildExistingSyncItemsInfo ${buildSyncItemsDuration.toFixed(
+        2,
+      )}ms`,
+    );
 
     await syncManager.txWithSyncFlowOfDBRecordCreating({
       tx,
-      newSyncItems: syncItemsInfo.newSyncItems,
-      existingSyncItems: syncItemsInfo.existingSyncItems,
+      newSyncItems: syncItemsInfo?.newSyncItems || [],
+      existingSyncItems: syncItemsInfo?.existingSyncItems || [],
       runDbTxFn: async () => {
         await this.txAddRecords({
           tx,
@@ -1771,7 +1876,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       updateItem.dataTime &&
       updateItem.dataTime >= item.dataTime;
 
-    const newDataTime = updateItem.dataTime ?? item.dataTime;
     if (isNil(updateItem.dataTime)) {
       shouldUpdate = false;
 
@@ -1800,8 +1904,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       dataType: item.dataType,
       // update fields
       rawData: updateItem.rawData,
+
       data: updateItem.data,
-      dataTime: newDataTime,
+      dataTime: updateItem.dataTime ?? item.dataTime,
+
       isDeleted: updateItem.isDeleted,
       localSceneUpdated: updateItem.localSceneUpdated,
       serverUploaded: updateItem.serverUploaded,
@@ -2012,6 +2118,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       walletXfp,
       isKeylessWallet,
       keylessDetailsInfo,
+      skipAddHDNextIndexedAccount,
     } = params;
     const context = await this.getContext({ verifyPassword: password });
     let walletId = accountUtils.buildHdWalletId({
@@ -2036,6 +2143,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
     const firstAccountIndex = 0;
 
+    // eslint-disable-next-line prefer-const
     let addedHdAccountIndex = -1;
 
     let currentWalletToCreate: IDBWallet | undefined;
@@ -2084,6 +2192,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
     const { existingSyncItems, newSyncItems } =
       await syncManager.buildExistingSyncItemsInfo({
+        tx: undefined,
         targets: [
           {
             targetId: currentWalletToCreate.id,
@@ -2156,14 +2265,16 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           });
 
           // add first indexed account
-          console.log('add first indexed account');
-          const { nextIndex } = await this.txAddHDNextIndexedAccount({
-            tx,
-            walletId,
-            onlyAddFirst: true,
-            skipServerSyncFlow: false,
-          });
-          addedHdAccountIndex = nextIndex;
+          if (!skipAddHDNextIndexedAccount) {
+            console.log('add first indexed account');
+            const { nextIndex } = await this.txAddHDNextIndexedAccount({
+              tx,
+              walletId,
+              onlyAddFirst: true,
+              skipServerSyncFlow: false,
+            });
+            addedHdAccountIndex = nextIndex;
+          }
 
           // increase nextHD
           console.log('increase nextHD');
@@ -2685,6 +2796,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
     const { existingSyncItems, newSyncItems } =
       await syncManager.buildExistingSyncItemsInfo({
+        tx: undefined,
         targets: [
           {
             targetId: walletToAdd.id,
@@ -3099,6 +3211,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
     const { existingSyncItems, newSyncItems } =
       await syncManager.buildExistingSyncItemsInfo({
+        tx: undefined,
         targets: [
           {
             targetId: walletToAdd.id,
@@ -3912,6 +4025,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const existingSyncItemsInfoResult000025394378263443374653 =
       await (async () => {
         return syncManager.buildExistingSyncItemsInfo({
+          tx: undefined,
           targets: accounts.map((account) => ({
             targetId: account.id,
             dataType: EPrimeCloudSyncDataType.Account,

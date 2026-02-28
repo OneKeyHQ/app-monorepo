@@ -20,7 +20,10 @@ import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKey
 import { Section } from '@onekeyhq/kit/src/components/Section';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
-import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useDevSettingsPersistAtom,
+  usePasswordPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   usePrimeCloudSyncPersistAtom,
   usePrimeServerMasterPasswordStatusAtom,
@@ -95,6 +98,7 @@ function AutoLockUpdateDialogContent({
 
 function EnableOneKeyCloudSwitchListItem() {
   const [config] = usePrimeCloudSyncPersistAtom();
+  const [devSettings] = useDevSettingsPersistAtom();
   const { isPrimeSubscriptionActive } = useOneKeyAuth();
   const navigation = useAppNavigation();
   const route = useAppRoute<IPrimeParamList, EPrimePages.PrimeCloudSync>();
@@ -122,8 +126,11 @@ function EnableOneKeyCloudSwitchListItem() {
 
   const { user } = useOneKeyAuth();
   const isPrimeUser = user?.primeSubscription?.isActive && user?.onekeyUserId;
+  const showKeylessCloudSync =
+    devSettings.enabled &&
+    !!devSettings.settings?.enableKeylessCloudSyncFeature;
 
-  return (
+  const onekeyIdSwitchItem = (
     <ListItem
       title={intl.formatMessage({
         id: ETranslations.global_onekey_cloud,
@@ -170,44 +177,6 @@ function EnableOneKeyCloudSwitchListItem() {
           try {
             isSubmittingRef.current = true;
             if (value) {
-              const runEnableCloudSync = async () => {
-                const {
-                  success,
-                  isServerMasterPasswordSet,
-                  serverDiffItems,
-                  encryptedSecurityPasswordR1ForServer,
-                } =
-                  await backgroundApiProxy.servicePrimeCloudSync.enableCloudSync();
-                await backgroundApiProxy.servicePrimeCloudSync.setCloudSyncEnabled(
-                  success,
-                );
-                if (serverDiffItems?.length) {
-                  console.log('serverDiffItems>>>', serverDiffItems);
-                  return;
-                }
-                if (success) {
-                  await timerUtils.wait(0);
-                  await backgroundApiProxy.serviceApp.showDialogLoading({
-                    title: intl.formatMessage({
-                      id: ETranslations.global_syncing,
-                    }),
-                  });
-                  try {
-                    await backgroundApiProxy.servicePrimeCloudSync.startServerSyncFlow(
-                      {
-                        isFlush: !isServerMasterPasswordSet, // flush if server master password is not set
-                        setUndefinedTimeToNow: true,
-                        callerName: 'Enable Cloud Sync',
-                        encryptedSecurityPasswordR1ForServer,
-                      },
-                    );
-                  } finally {
-                    await timerUtils.wait(1000);
-                    await backgroundApiProxy.serviceApp.hideDialogLoading();
-                  }
-                }
-              };
-
               if (shouldChangePasswordAutoLock) {
                 await new Promise<void>((resolve, reject) => {
                   Dialog.show({
@@ -239,33 +208,63 @@ function EnableOneKeyCloudSwitchListItem() {
                   });
                 });
               }
-              await runEnableCloudSync();
+              await backgroundApiProxy.servicePrimeCloudSync.toggleCloudSync({
+                enabled: true,
+              });
               defaultLogger.prime.usage.onekeyCloudToggle({
                 status: 'on',
               });
             } else {
-              // disable cloud sync
-              await backgroundApiProxy.servicePrimeCloudSync.setCloudSyncEnabled(
-                false,
-              );
+              await backgroundApiProxy.servicePrimeCloudSync.toggleCloudSync({
+                enabled: false,
+              });
               defaultLogger.prime.usage.onekeyCloudToggle({
                 status: 'off',
               });
             }
-          } catch (error) {
-            // disable cloud sync
-            await backgroundApiProxy.servicePrimeCloudSync.setCloudSyncEnabled(
-              false,
-            );
-            throw error;
           } finally {
             isSubmittingRef.current = false;
-            void backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
           }
         }}
         value={config.isCloudSyncEnabled}
       />
     </ListItem>
+  );
+  const keylessSwitchItem = (
+    <ListItem
+      title={`${intl.formatMessage({
+        id: ETranslations.global_onekey_cloud,
+      })} (Keyless)`}
+      icon="CloudOutline"
+      subtitle={`${intl.formatMessage({
+        id: ETranslations.prime_last_update,
+      })} : ${lastUpdateTime}`}
+    >
+      <Switch
+        disabled={false}
+        size={ESwitchSize.small}
+        onChange={async (value) => {
+          if (isSubmittingRef.current) {
+            return;
+          }
+          try {
+            isSubmittingRef.current = true;
+            await backgroundApiProxy.servicePrimeCloudSync.toggleCloudSyncKeyless(
+              { enabled: value },
+            );
+          } finally {
+            isSubmittingRef.current = false;
+          }
+        }}
+        value={!!config.isCloudSyncEnabledKeyless}
+      />
+    </ListItem>
+  );
+  return (
+    <>
+      {showKeylessCloudSync ? keylessSwitchItem : null}
+      {onekeyIdSwitchItem}
+    </>
   );
 }
 

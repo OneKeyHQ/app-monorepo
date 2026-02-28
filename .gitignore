@@ -14,8 +14,11 @@ __generated__
 .claude/settings.local.json
 .clauderc
 .tmp/
+# Keyless cloud sync mock server data
+.tmp/keyless-cloud-sync-mock-data.json
 .cursor/plans/
 *.private_ai_docs.md
+*.local.md
 .cursor/plans/
 dist
 build-electron
