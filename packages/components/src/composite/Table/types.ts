@@ -44,6 +44,8 @@ export interface ITableProps<T> {
   headerRowProps?: Omit<IStackProps, 'onPress' | 'onLongPress'>;
   // Whether the column can be dragged to reorder. default value is false
   draggable?: boolean;
+  // Whether this table is integrated inside a collapsible tab container (native only)
+  tabIntegrated?: boolean;
   onDragBegin?: ISortableListViewProps<T>['onDragBegin'];
   onDragEnd?: ISortableListViewProps<T>['onDragEnd'];
   keyExtractor: (item: T, index: number) => string;
