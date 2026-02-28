@@ -89,6 +89,7 @@ function WalletActionExchange(props?: {
                   selectedToken.symbol ??
                   ''
                 ).toUpperCase(),
+                requestedAmount: '1'
               });
 
             // Verify the address returned by Binance matches our local address
@@ -119,11 +120,6 @@ function WalletActionExchange(props?: {
 
             navigation.popToTop();
           } catch (error) {
-            Toast.error({
-              title: intl.formatMessage({
-                id: ETranslations.global_an_error_occurred,
-              }),
-            });
             console.error('[BinanceConnect] Pre-order error:', error);
           }
         },
