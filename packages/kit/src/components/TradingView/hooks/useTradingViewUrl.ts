@@ -1,8 +1,7 @@
 import { useMemo } from 'react';
 
-import { useCalendars } from 'expo-localization';
-
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
+import { useTradingViewTimezoneAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/market';
 import {
   TRADING_VIEW_URL,
   TRADING_VIEW_URL_TEST,
@@ -11,7 +10,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useLocaleVariant } from '../../../hooks/useLocaleVariant';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
-import { getTradingViewTimezone } from '../utils/tradingViewTimezone';
 
 interface IUseTradingViewUrlOptions {
   additionalParams?: Record<string, string>;
@@ -20,10 +18,10 @@ interface IUseTradingViewUrlOptions {
 export function useTradingViewUrl(options: IUseTradingViewUrlOptions = {}) {
   const { additionalParams } = options;
 
-  const calendars = useCalendars();
   const systemLocale = useLocaleVariant();
   const theme = useThemeVariant();
   const [devSettings] = useDevSettingsPersistAtom();
+  const [tradingViewTimezone] = useTradingViewTimezoneAtom();
 
   const baseUrl = useMemo(() => {
     if (devSettings.enabled && devSettings.settings?.useLocalTradingViewUrl) {
@@ -38,14 +36,15 @@ export function useTradingViewUrl(options: IUseTradingViewUrlOptions = {}) {
   }, [devSettings.enabled, devSettings.settings?.useLocalTradingViewUrl]);
 
   const finalUrl = useMemo(() => {
-    const timezone = getTradingViewTimezone(calendars);
     const locale = systemLocale;
 
     const url = new URL(baseUrl);
-    url.searchParams.set('timezone', timezone);
     url.searchParams.set('locale', locale);
     url.searchParams.set('platform', platformEnv.appPlatform ?? 'web');
     url.searchParams.set('theme', theme);
+    if (tradingViewTimezone) {
+      url.searchParams.set('timezone', tradingViewTimezone);
+    }
     if (platformEnv.version) {
       url.searchParams.set('appVersion', platformEnv.version);
     }
@@ -58,7 +57,7 @@ export function useTradingViewUrl(options: IUseTradingViewUrlOptions = {}) {
     }
 
     return url.toString();
-  }, [baseUrl, calendars, systemLocale, theme, additionalParams]);
+  }, [baseUrl, systemLocale, theme, tradingViewTimezone, additionalParams]);
 
   return {
     baseUrl,

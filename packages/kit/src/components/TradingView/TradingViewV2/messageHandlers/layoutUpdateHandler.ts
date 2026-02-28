@@ -1,4 +1,43 @@
+import { tradingViewTimezoneAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/market';
+
 import type { IMessageHandlerParams } from './types';
+
+type UnknownRecord = Record<string, unknown>;
+
+const MAX_TIMEZONE_SEARCH_DEPTH = 8;
+
+const findTimezoneInLayout = (
+  node: unknown,
+  depth = 0,
+  visited = new Set<unknown>(),
+): string | undefined => {
+  if (!node || typeof node !== 'object') return undefined;
+  if (visited.has(node)) return undefined;
+  if (depth > MAX_TIMEZONE_SEARCH_DEPTH) return undefined;
+  visited.add(node);
+
+  if (Array.isArray(node)) {
+    for (const item of node) {
+      const found = findTimezoneInLayout(item, depth + 1, visited);
+      if (found) return found;
+    }
+    return undefined;
+  }
+
+  const record = node as UnknownRecord;
+  for (const [key, value] of Object.entries(record)) {
+    if (key.toLowerCase() === 'timezone' && typeof value === 'string') {
+      return value;
+    }
+  }
+
+  for (const value of Object.values(record)) {
+    const found = findTimezoneInLayout(value, depth + 1, visited);
+    if (found) return found;
+  }
+
+  return undefined;
+};
 
 export async function handleLayoutUpdate({
   data,
@@ -21,6 +60,14 @@ export async function handleLayoutUpdate({
 
     try {
       const parsedLayoutData = JSON.parse(layoutString);
+
+      const timezone = findTimezoneInLayout(parsedLayoutData);
+      if (timezone) {
+        const currentTimezone = await tradingViewTimezoneAtom.get();
+        if (currentTimezone !== timezone) {
+          void tradingViewTimezoneAtom.set(timezone);
+        }
+      }
 
       // Extract and count panes
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access

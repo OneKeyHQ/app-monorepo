@@ -3,6 +3,7 @@ import { useCallback } from 'react';
 import { handleAnalyticsEvent } from './analyticsHandler';
 import { handleKLineDataRequest } from './klineDataHandler';
 import { handleLayoutUpdate } from './layoutUpdateHandler';
+import { handleTimezoneUpdate } from './timezoneUpdateHandler';
 
 import type { IMessageHandlerContext } from './types';
 import type { IWebViewRef } from '../../../WebView/types';
@@ -65,6 +66,12 @@ export function useTradingViewMessageHandler({
       ) {
         await handleLayoutUpdate({ data, context });
       }
+
+      if (data.method === 'tradingview_timezoneUpdate') {
+        await handleTimezoneUpdate({ data, context });
+      }
+
+      // tradingview_timezoneObserverReady: intentionally ignored
 
       // Handle TradingView analytics messages (interval, time frame, etc.)
       if (

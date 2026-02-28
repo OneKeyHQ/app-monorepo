@@ -13,3 +13,12 @@ export const { target: marketSelectedTabAtom, use: useMarketSelectedTabAtom } =
     name: EAtomNames.marketSelectedTabAtom,
     initialValue: { tab: 'trending' },
   });
+
+export const {
+  target: tradingViewTimezoneAtom,
+  use: useTradingViewTimezoneAtom,
+} = globalAtom<string>({
+  persist: true,
+  name: EAtomNames.tradingViewTimezoneAtom,
+  initialValue: '',
+});
