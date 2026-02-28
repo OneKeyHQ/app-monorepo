@@ -65,6 +65,7 @@ import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
   IBroadcastTransactionByCustomRpcParams,
+  IBroadcastTransactionParams,
   IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
@@ -649,6 +650,14 @@ export default class Vault extends VaultBase {
     };
   }
 
+  override async broadcastTransaction(
+    params: IBroadcastTransactionParams,
+  ): Promise<ISignedTxPro> {
+    const result = await super.broadcastTransaction(params);
+    this._getSuggestedParams.clear();
+    return result;
+  }
+
   override async broadcastTransactionFromCustomRpc(
     params: IBroadcastTransactionByCustomRpcParams,
   ): Promise<ISignedTxPro> {
@@ -666,6 +675,7 @@ export default class Vault extends VaultBase {
       txId,
       rawTx: signedTx.rawTx,
     });
+    this._getSuggestedParams.clear();
     return {
       ...params.signedTx,
       txid: txId,
