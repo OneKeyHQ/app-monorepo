@@ -9,10 +9,10 @@ const SvgFileGraph = (props: SvgProps) => (
   >
     <Path
       fillRule="evenodd"
-      d="M6 2h6v6a2 2 0 0 0 2 2h6v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2m3.5 14.5a1 1 0 1 0-2 0V18a1 1 0 1 0 2 0zm2.5-4a1 1 0 0 1 1 1V18a1 1 0 1 1-2 0v-4.5a1 1 0 0 1 1-1m4.5 3a1 1 0 1 0-2 0V18a1 1 0 1 0 2 0z"
+      d="M12 10h8v12H4V2h8zm-4.5 9h2v-3.5h-2zm3.5-6.5V19h2v-6.5zm3.5 6.5h2v-4.5h-2z"
       clipRule="evenodd"
     />
-    <Path d="M14 2.586 19.414 8H14z" />
+    <Path d="M19.414 8H14V2.586z" />
   </Svg>
 );
 export default SvgFileGraph;

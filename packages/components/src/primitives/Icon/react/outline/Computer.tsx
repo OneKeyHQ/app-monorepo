@@ -7,7 +7,11 @@ const SvgComputer = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M20 14H4v2h16zm-9 6h2v-2h-2zM4 5v7h16V5zm18 11a2 2 0 0 1-2 2h-5v3a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1v-3H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z" />
+    <Path
+      fillRule="evenodd"
+      d="M22 18h-7v4H9v-4H2V3h20zm-11 2h2v-2h-2zm-7-4h16v-2H4zm0-4h16V5H4z"
+      clipRule="evenodd"
+    />
   </Svg>
 );
 export default SvgComputer;

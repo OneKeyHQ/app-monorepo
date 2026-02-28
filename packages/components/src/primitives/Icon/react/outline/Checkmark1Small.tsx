@@ -7,7 +7,7 @@ const SvgCheckmark1Small = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M15.152 7.47a1 1 0 0 1 1.696 1.06l-5 8a1 1 0 0 1-1.555.177l-3-3a1 1 0 1 1 1.414-1.414l2.11 2.11z" />
+    <Path d="m17.378 7.682-6.196 9.914L6.586 13 8 11.586l2.817 2.817 4.865-7.78z" />
   </Svg>
 );
 export default SvgCheckmark1Small;

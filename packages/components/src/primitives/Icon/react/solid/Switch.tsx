@@ -9,7 +9,7 @@ const SvgSwitch = (props: SvgProps) => (
   >
     <Path
       fillRule="evenodd"
-      d="M1 12a7 7 0 0 1 7-7h8a7 7 0 1 1 0 14H8a7 7 0 0 1-7-7m11.5 0a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0"
+      d="M16 5a7 7 0 1 1 0 14H8A7 7 0 1 1 8 5zm0 3.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7"
       clipRule="evenodd"
     />
   </Svg>

@@ -7,11 +7,7 @@ const SvgH3 = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path
-      fillRule="evenodd"
-      d="M3 4a1 1 0 0 1 1 1v6h8V5a1 1 0 1 1 2 0v14a1 1 0 1 1-2 0v-6H4v6a1 1 0 1 1-2 0V5a1 1 0 0 1 1-1m17 8a1 1 0 0 0-.867.5 1 1 0 0 1-1.731-1A3 3 0 0 1 23 13c0 .768-.289 1.47-.764 2a3 3 0 1 1-4.834 3.5 1 1 0 1 1 1.731-1A1 1 0 1 0 20 16a1 1 0 1 1 0-2 1 1 0 1 0 0-2"
-      clipRule="evenodd"
-    />
+    <Path d="M4 11h8V4h2v16h-2v-7H4v7H2V4h2zm16-1a3 3 0 0 1 2.236 5A3 3 0 1 1 17 17h2a1 1 0 1 0 1-1h-1v-2h1a1 1 0 1 0-1-1h-2a3 3 0 0 1 3-3" />
   </Svg>
 );
 export default SvgH3;

@@ -7,10 +7,10 @@ const SvgAddPagesWide = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M14 11a1 1 0 0 1 1 1v1h1a1 1 0 1 1 0 2h-1v1a1 1 0 1 1-2 0v-1h-1a1 1 0 1 1 0-2h1v-1a1 1 0 0 1 1-1" />
+    <Path d="M15 13h2v2h-2v2h-2v-2h-2v-2h2v-2h2z" />
     <Path
       fillRule="evenodd"
-      d="M16 4a2 2 0 0 1 2 2v2h2a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM8 18h12v-8H8zm-4-4h2v-4a2 2 0 0 1 2-2h8V6H4z"
+      d="M18 8h4v12H6v-4H2V4h16zM8 18h12v-8H8zm-4-4h2V8h10V6H4z"
       clipRule="evenodd"
     />
   </Svg>

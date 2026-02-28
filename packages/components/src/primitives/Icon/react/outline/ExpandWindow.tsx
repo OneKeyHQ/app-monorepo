@@ -7,7 +7,13 @@ const SvgExpandWindow = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M4 14.5v5h6v-5zm16-1v-9H5v5a1 1 0 1 1-2 0v-5a2 2 0 0 1 2-2h15a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-5a1 1 0 1 1 0-2zm-8 6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2zm6-9a1 1 0 1 1-2 0v-.586l-1.293 1.293a1 1 0 1 1-1.414-1.414L14.586 8.5H14a1 1 0 1 1 0-2h3a1 1 0 0 1 1 1z" />
+    <Path
+      fillRule="evenodd"
+      d="M12 22H2v-9h10zm-8-2h6v-5H4z"
+      clipRule="evenodd"
+    />
+    <Path d="M22 16h-8v-2h6V5H5v6H3V3h19z" />
+    <Path d="M18 12h-2v-1.586l-2 2L12.586 11l2-2H13V7h5z" />
   </Svg>
 );
 export default SvgExpandWindow;

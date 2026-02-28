@@ -7,7 +7,12 @@ const SvgPackageCkeck = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M20.293 14.293a1 1 0 1 1 1.414 1.414l-4.5 4.5a1 1 0 0 1-1.414 0l-2.25-2.25a1 1 0 1 1 1.414-1.414l1.543 1.543zM19 11V5h-3v3a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2V5H5v14h6a1 1 0 1 1 0 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v6a1 1 0 1 1-2 0m-5-6h-4v3h4z" />
+    <Path
+      fillRule="evenodd"
+      d="M21 3v9h-2V5h-3v5H8V5H5v14h7v2H3V3zM10 8h4V5h-4z"
+      clipRule="evenodd"
+    />
+    <Path d="M21.914 15.5 16.5 20.914l-3.164-3.164 1.414-1.414 1.75 1.75 4-4z" />
   </Svg>
 );
 export default SvgPackageCkeck;

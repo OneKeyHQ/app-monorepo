@@ -7,7 +7,7 @@ const SvgShredder = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M9 21v-4a1 1 0 1 1 2 0v4a1 1 0 1 1-2 0m8 0v-4a1 1 0 1 1 2 0v4a1 1 0 1 1-2 0M5 19v-2a1 1 0 1 1 2 0v2a1 1 0 1 1-2 0m8 0v-2a1 1 0 1 1 2 0v2a1 1 0 1 1-2 0m8-7a1 1 0 1 1 0 2H3a1 1 0 1 1 0-2zm-3-3V4H6v5a1 1 0 0 1-2 0V4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v5a1 1 0 1 1-2 0" />
+    <Path d="M11 22H9v-6h2zm8 0h-2v-6h2zM7 20H5v-4h2zm8 0h-2v-4h2zm7-6H2v-2h20zm-2-4h-2V4H6v6H4V2h16z" />
   </Svg>
 );
 export default SvgShredder;

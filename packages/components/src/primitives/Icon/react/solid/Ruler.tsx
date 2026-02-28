@@ -1,4 +1,4 @@
-import Svg, { Path } from 'react-native-svg';
+import Svg, { G, Path, Defs, ClipPath } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgRuler = (props: SvgProps) => (
   <Svg
@@ -7,7 +7,14 @@ const SvgRuler = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M14.484 2.391c.75-.75 1.968-.75 2.718 0l4.406 4.407c.75.75.75 1.967 0 2.717L9.515 21.61c-.75.75-1.967.75-2.718 0l-4.406-4.407a1.92 1.92 0 0 1 0-2.717l2.004-2.005 1.88 1.881a.961.961 0 0 0 1.36-1.359l-1.88-1.88 2.003-2.005L10.6 11.96a.96.96 0 1 0 1.359-1.36L9.117 7.76l2.004-2.005 1.88 1.88a.96.96 0 0 0 1.36-1.358l-1.88-1.88z" />
+    <G clipPath="url(#a)">
+      <Path d="m11.5 3.086 3.5-3.5L22.414 7 7 22.414-.414 15l3.5-3.5 2.664 2.664 1.414-1.414L4.5 10.086 6.586 8l3.664 3.664 1.414-1.414L8 6.586 10.086 4.5l2.664 2.664 1.414-1.414z" />
+    </G>
+    <Defs>
+      <ClipPath id="a">
+        <Path d="M0 0h24v24H0z" />
+      </ClipPath>
+    </Defs>
   </Svg>
 );
 export default SvgRuler;

@@ -7,11 +7,7 @@ const SvgTradingViewLine = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path
-      fillRule="evenodd"
-      d="M22.186 6.21a.96.96 0 0 1 .15 1.348l-7.017 8.77a1.917 1.917 0 0 1-2.82.191l-5.24-4.99-4.133 4.593A.959.959 0 0 1 1.7 14.839l4.134-4.593a1.917 1.917 0 0 1 2.748-.106l5.24 4.99 7.016-8.77a.96.96 0 0 1 1.348-.15"
-      clipRule="evenodd"
-    />
+    <Path d="M22.78 7.624 14.1 18.476l-7.044-6.71-4.313 4.792-1.486-1.338L6.944 8.9l6.955 6.624 7.32-9.149 1.561 1.25Z" />
   </Svg>
 );
 export default SvgTradingViewLine;

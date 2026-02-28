@@ -7,7 +7,7 @@ const SvgCornerLeftDown = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M7.98 5.01C7.98 3.9 8.88 3 9.99 3h9.043a1.005 1.005 0 1 1 0 2.01H9.99v12.645l2.304-2.303a1.005 1.005 0 1 1 1.421 1.42l-4.019 4.02a1.005 1.005 0 0 1-1.42 0l-4.02-4.02a1.005 1.005 0 1 1 1.42-1.42l2.305 2.303z" />
+    <Path d="m16 17.586 3-3L20.414 16 15 21.414 9.586 16 11 14.586l3 3V5H4V3h12z" />
   </Svg>
 );
 export default SvgCornerLeftDown;

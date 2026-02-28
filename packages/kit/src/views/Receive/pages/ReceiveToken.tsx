@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -30,6 +31,7 @@ import type {
   IAccountDeriveInfo,
   IAccountDeriveTypes,
 } from '@onekeyhq/kit-bg/src/vaults/types';
+import { EXCHANGE_CONFIGS } from '@onekeyhq/shared/src/consts/exchangeConsts';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -37,6 +39,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
 import { EModalReceiveRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -52,17 +55,18 @@ import {
   FormatHyperlinkText,
   HyperlinkText,
 } from '../../../components/HyperlinkText';
+import { HighlightAddress } from '../../../components/HighlightAddress';
 import { NetworkAvatar } from '../../../components/NetworkAvatar';
 import { Token } from '../../../components/Token';
 import { useAccountData } from '../../../hooks/useAccountData';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useCopyAddressWithDeriveType } from '../../../hooks/useCopyAccountAddress';
+import { useExchangeAppDetection } from '../../../hooks/useExchangeAppDetection';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useWalletBanner } from '../../../hooks/useWalletBanner';
 import { EAddressState } from '../types';
 
 import type { RouteProp } from '@react-navigation/core';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 function ReceiveToken() {
   useDebugComponentRemountLog({
@@ -86,7 +90,10 @@ function ReceiveToken() {
     disableSelector,
     btcUsedAddress,
     btcUsedAddressPath,
+    exchangeSource,
   } = route.params;
+
+  const { openExchangeApp } = useExchangeAppDetection();
 
   const { account, network, wallet, vaultSettings, deriveType, deriveInfo } =
     useAccountData({
@@ -218,25 +225,6 @@ function ReceiveToken() {
       });
   }, [network?.logoURI]);
 
-  const throttledSyncBTCFreshAddress = useThrottledCallback(
-    (params: { networkId: string; accountId: string }) => {
-      void backgroundApiProxy.serviceFreshAddress.syncBTCFreshAddressByAccountId(
-        params,
-      );
-    },
-    timerUtils.getTimeDurationMs({ seconds: 1 }),
-    { leading: true, trailing: true },
-  );
-
-  useEffect(() => {
-    if (networkUtils.isBTCNetwork(networkId) && currentAccount?.id) {
-      throttledSyncBTCFreshAddress({
-        networkId,
-        accountId: currentAccount.id,
-      });
-    }
-  }, [currentAccount?.id, networkId, throttledSyncBTCFreshAddress]);
-
   const handleCopyAddress = useCallback(() => {
     if (!displayAddress) return;
     if (vaultSettings?.mergeDeriveAssetsEnabled && currentDeriveInfo) {
@@ -258,6 +246,52 @@ function ReceiveToken() {
     network?.name,
     vaultSettings?.mergeDeriveAssetsEnabled,
   ]);
+
+  // Auto-copy address and open exchange app when coming from exchange flow
+  const hasAutoCopiedRef = useRef(false);
+  const handleCopyAddressRef = useRef(handleCopyAddress);
+  useEffect(() => {
+    handleCopyAddressRef.current = handleCopyAddress;
+  }, [handleCopyAddress]);
+  useEffect(() => {
+    if (
+      !exchangeSource ||
+      !displayAddress ||
+      !shouldShowAddress ||
+      hasAutoCopiedRef.current
+    ) {
+      return;
+    }
+
+    hasAutoCopiedRef.current = true;
+    handleCopyAddressRef.current();
+
+    if (platformEnv.isNative) {
+      const timer = setTimeout(() => {
+        void openExchangeApp(exchangeSource);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [exchangeSource, displayAddress, shouldShowAddress, openExchangeApp]);
+
+  const throttledSyncBTCFreshAddress = useThrottledCallback(
+    (params: { networkId: string; accountId: string }) => {
+      void backgroundApiProxy.serviceFreshAddress.syncBTCFreshAddressByAccountId(
+        params,
+      );
+    },
+    timerUtils.getTimeDurationMs({ seconds: 1 }),
+    { leading: true, trailing: true },
+  );
+
+  useEffect(() => {
+    if (networkUtils.isBTCNetwork(networkId) && currentAccount?.id) {
+      throttledSyncBTCFreshAddress({
+        networkId,
+        accountId: currentAccount.id,
+      });
+    }
+  }, [currentAccount?.id, networkId, throttledSyncBTCFreshAddress]);
 
   const [{ enableBTCFreshAddress }] = useSettingsPersistAtom();
   const isEnableBTCFreshAddressSetting = useMemo(() => {
@@ -547,15 +581,17 @@ function ReceiveToken() {
     if (!currentAccount || !network || !wallet) return null;
     if (!displayAddress) return null;
 
-    let addressContent = '';
+    let addressContent: ReactNode;
 
     if (shouldShowAddress) {
-      addressContent =
-        displayAddress.match(/.{1,4}/g)?.join(' ') || displayAddress;
+      addressContent = <HighlightAddress address={displayAddress} />;
     } else {
-      addressContent = Array.from({ length: 11 })
+      const maskedText = Array.from({ length: 11 })
         .map(() => '****')
         .join(' ');
+      addressContent = (
+        <SizableText fontFamily="$monoMedium">{maskedText}</SizableText>
+      );
     }
 
     return (
@@ -586,7 +622,7 @@ function ReceiveToken() {
           },
         })}
       >
-        <SizableText fontFamily="$monoMedium">{addressContent}</SizableText>
+        {addressContent}
       </XStack>
     );
   }, [
@@ -600,6 +636,10 @@ function ReceiveToken() {
 
   const renderReceiveFooter = useCallback(() => {
     if (!currentAccount || !network || !wallet) return null;
+
+    const exchangeName = exchangeSource
+      ? EXCHANGE_CONFIGS[exchangeSource]?.name
+      : undefined;
 
     return (
       <YStack
@@ -668,6 +708,18 @@ function ReceiveToken() {
             {renderCopyAddressButton()}
           </XStack>
         </YStack>
+        {exchangeSource &&
+        platformEnv.isNative &&
+        shouldShowAddress &&
+        exchangeName ? (
+          <Button
+            variant="primary"
+            size="large"
+            onPress={() => openExchangeApp(exchangeSource)}
+          >
+            {`Open ${exchangeName}`}
+          </Button>
+        ) : null}
         {renderVerifyAddressButton()}
         {shouldShowAddress && !isEnableBTCFreshAddressSetting ? (
           <SizableText size="$bodyMd" color="$textSubdued">
@@ -728,6 +780,8 @@ function ReceiveToken() {
     walletId,
     navigation,
     isBtcUsedAddressVerifyMode,
+    exchangeSource,
+    openExchangeApp,
   ]);
 
   const renderReceiveQrCode = useCallback(() => {

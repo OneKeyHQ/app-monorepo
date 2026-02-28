@@ -905,23 +905,12 @@ class ServiceAccountSelector extends ServiceBase {
         await this.backgroundApi.serviceDeFi.getAccountsLocalDeFiOverview({
           accounts: accountsForValuesQuery,
         });
-      if (
-        accountUtils.isOthersWallet({
-          walletId: focusedWallet ?? '',
-        })
-      ) {
-        accountsValue =
-          await this.backgroundApi.serviceAccountProfile.getAccountsValue({
+      accountsValue =
+        await this.backgroundApi.serviceAccountProfile.getAllNetworkAccountsValue(
+          {
             accounts: accountsForValuesQuery,
-          });
-      } else {
-        accountsValue =
-          await this.backgroundApi.serviceAccountProfile.getAllNetworkAccountsValue(
-            {
-              accounts: accountsForValuesQuery,
-            },
-          );
-      }
+          },
+        );
     } catch (error) {
       //
     }

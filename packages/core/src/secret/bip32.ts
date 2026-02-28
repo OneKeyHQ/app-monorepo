@@ -11,6 +11,13 @@ export type IBip32ExtendedKeySerialized = {
   key: string;
   chainCode: string;
 };
+
+/**
+ * BIP32 Extended Key
+ *
+ * key 字段：模块内推导为明文私钥；跨模块返回/存储为 AES-256 加密。
+ * 公钥场景不加密。
+ */
 export type IBip32ExtendedKey = {
   key: Buffer;
   chainCode: Buffer;

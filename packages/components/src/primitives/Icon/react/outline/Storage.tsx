@@ -7,10 +7,10 @@ const SvgStorage = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M13 17a1 1 0 1 1 0 2 1 1 0 0 1 0-2m3 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2" />
+    <Path d="M14.01 19H12v-2h2.01zm3 0H15v-2h2.01z" />
     <Path
       fillRule="evenodd"
-      d="M18 2a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zM6 20h12v-4H6zm0-6h12V4H6z"
+      d="M20 22H4V2h16zM6 20h12v-4H6zm0-6h12V4H6z"
       clipRule="evenodd"
     />
   </Svg>

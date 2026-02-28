@@ -46,6 +46,8 @@ export const rootNavigationRef = createRef<NavigationContainerRef<any>>();
 appGlobals.$navigationRef = rootNavigationRef as MutableRefObject<
   NavigationContainerRef<any>
 >;
+appGlobals.$tabletMainViewNavigationRef =
+  tabletMainViewNavigationRef as MutableRefObject<NavigationContainerRef<any>>;
 
 export type IRouterChangeEvent = INavigationContainerProps['onStateChange'];
 const RouterEventContext = createContext<
@@ -73,11 +75,12 @@ export const useOnRouterChange = (callback: IRouterChangeEvent) => {
 
 const useUpdateRootViewBackgroundColor = (
   color: string,
-  theme: 'light' | 'dark',
+  themeVariant: 'light' | 'dark',
+  themeSetting?: 'light' | 'dark' | 'system',
 ) => {
   useEffect(() => {
-    updateRootViewBackgroundColor(color, theme);
-  }, [color, theme]);
+    updateRootViewBackgroundColor(color, themeVariant, themeSetting);
+  }, [color, themeVariant, themeSetting]);
 };
 
 const useNativeDevTools =
@@ -98,10 +101,10 @@ export function NavigationContainer(props: IBasicNavigationContainerProps) {
       isTabletMainView ? tabletMainViewNavigationRef : rootNavigationRef,
     );
   }, [isTabletMainView]);
-  const { theme: themeName } = useSettingConfig();
+  const { theme: themeName, themeSetting } = useSettingConfig();
   const theme = useTheme();
 
-  useUpdateRootViewBackgroundColor(theme.bgApp.val, themeName);
+  useUpdateRootViewBackgroundColor(theme.bgApp.val, themeName, themeSetting);
 
   const themeOptions = useMemo(() => {
     return {
@@ -181,6 +184,28 @@ export const popModalPages = async (maxRetryTimes = 10) => {
   await popModalPages(maxRetryTimes - 1);
 };
 
+/**
+ * Synchronously pop modal pages without delay for native platforms.
+ * On native platforms with native bottom tabs, avoid deferring navigation
+ * dispatch to a macrotask via timerUtils.wait(). Use goBack() directly
+ * so the navigation stays within the touch event context, preventing iOS
+ * from requiring an additional touch to flush the bridge call.
+ */
+export const popModalPagesOnNative = (maxRetryTimes = 10) => {
+  if (maxRetryTimes <= 0) {
+    return;
+  }
+  const rootState = rootNavigationRef.current?.getRootState();
+  const currentRoute = rootState?.routes?.[rootState.index];
+  if (currentRoute?.name !== ERootRoutes.Modal) {
+    return;
+  }
+  if (rootNavigationRef.current?.canGoBack?.()) {
+    rootNavigationRef.current?.goBack();
+    popModalPagesOnNative(maxRetryTimes - 1);
+  }
+};
+
 export const popToMainRoute = async (maxRetryTimes = 99) => {
   if (maxRetryTimes <= 0) {
     return;
@@ -240,7 +265,7 @@ export const popToTabRootScreen = async () => {
   if (!tabRoute?.state) {
     return;
   }
-  if ((tabRoute?.state?.index || 0) > 0) {
+  if (tabRoute?.state?.index !== undefined) {
     if (rootNavigationRef.current?.canGoBack()) {
       rootNavigationRef.current?.goBack();
       await timerUtils.wait(150);

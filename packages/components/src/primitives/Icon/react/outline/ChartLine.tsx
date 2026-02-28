@@ -7,11 +7,7 @@ const SvgChartLine = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path
-      fillRule="evenodd"
-      d="M9 4a1 1 0 0 1 1 1v14a1 1 0 1 1-2 0V5a1 1 0 0 1 1-1m12 3a1 1 0 0 1 1 1v11a1 1 0 1 1-2 0V8a1 1 0 0 1 1-1M3.005 10a1 1 0 0 1 1 1L4 19a1 1 0 0 1-2 0l.004-8a1 1 0 0 1 1-1Zm11.993 3a1 1 0 0 1 1 1v5a1 1 0 1 1-2 0v-5a1 1 0 0 1 1-1"
-      clipRule="evenodd"
-    />
+    <Path d="m4.005 10.001-.006 10-2-.002.006-10zM10 20H8V4h2zm5.998 0h-2v-7h2zM22 20h-2V7h2z" />
   </Svg>
 );
 export default SvgChartLine;

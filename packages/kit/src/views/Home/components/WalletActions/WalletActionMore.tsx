@@ -22,7 +22,6 @@ import { WalletActionCopy } from './WalletActionCopy';
 import { WalletActionExport } from './WalletActionExport';
 import { WalletActionPerp } from './WalletActionPerp';
 import { WalletActionRewardCenter } from './WalletActionRewardCenter';
-import { WalletActionSell } from './WalletActionSell';
 import { WalletActionSignAndVerify } from './WalletActionSignAndVerify';
 import { WalletActionSwap } from './WalletActionSwap';
 import { WalletActionViewInExplorer } from './WalletActionViewInExplorer';
@@ -67,7 +66,7 @@ export function WalletActionMore() {
         if (!tradingGroup) return null;
 
         const actions = tradingGroup.actions.filter((action) => {
-          if (action === 'buy' || action === 'sell') {
+          if (action === 'buy') {
             return show;
           }
           return config.moreActions.includes(action);
@@ -81,12 +80,9 @@ export function WalletActionMore() {
               return (
                 <WalletActionBuy key="buy" onClose={handleActionListClose} />
               );
-            case 'sell':
-              return (
-                <WalletActionSell key="sell" onClose={handleActionListClose} />
-              );
             case 'swap':
-              return platformEnv.isExtensionUiPopup ? (
+              return platformEnv.isExtensionUiPopup ||
+                platformEnv.isExtensionUiSidePanel ? (
                 <WalletActionPerp
                   key="perp"
                   inList

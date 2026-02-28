@@ -7,7 +7,7 @@ const SvgAlignmentBar = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M2 19V5a1 1 0 0 1 2 0v14a1 1 0 1 1-2 0m14-2a1 1 0 1 1 0 2H9a1 1 0 1 1 0-2zm5-6a1 1 0 1 1 0 2H9a1 1 0 1 1 0-2zm0-6a1 1 0 1 1 0 2H9a1 1 0 0 1 0-2z" />
+    <Path d="M4 20H2V4h2zm13-1H8v-2h9zm5-6H8v-2h14zm0-6H8V5h14z" />
   </Svg>
 );
 export default SvgAlignmentBar;

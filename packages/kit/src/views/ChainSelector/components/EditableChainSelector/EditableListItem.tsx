@@ -1,6 +1,7 @@
 import { useCallback, useContext, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { isUndefined } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
@@ -121,6 +122,10 @@ export const EditableListItem = ({
         }, new BigNumber(0))
         .toFixed();
       return new BigNumber(networkValue).plus(deFiValue).toFixed();
+    }
+
+    if (isUndefined(accountNetworkValues[item.id])) {
+      return '0';
     }
 
     return new BigNumber(accountDeFiOverview[item.id]?.netWorth ?? 0)

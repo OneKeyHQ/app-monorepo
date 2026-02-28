@@ -9,7 +9,7 @@ const SvgInfoCircle = (props: SvgProps) => (
   >
     <Path
       fillRule="evenodd"
-      d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2m-2 9a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v5a1 1 0 1 1-2 0v-4a1 1 0 0 1-1-1m2-4a1 1 0 1 0 0 2 1 1 0 0 0 0-2"
+      d="M12 2c5.523 0 10 4.477 10 10s-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2m-2 8v2h1v5h2v-7zm1-3v2h2V7z"
       clipRule="evenodd"
     />
   </Svg>

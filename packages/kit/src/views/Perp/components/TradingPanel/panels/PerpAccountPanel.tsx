@@ -122,15 +122,7 @@ function PerpAccountPanel() {
   }, [accountSummary?.totalUnrealizedPnl]);
 
   const content = (
-    <YStack flex={1} gap="$4" pt="$4" px="$2.5" pb="$4">
-      {/* Header */}
-      <XStack justifyContent="space-between" alignItems="center">
-        <SizableText size="$headingSm">
-          {intl.formatMessage({
-            id: ETranslations.perp_trade_account_overview,
-          })}
-        </SizableText>
-      </XStack>
+    <YStack flex={1} gap="$4" px="$2.5" pb="$4">
       <YStack flex={1} gap="$2.5">
         {/* Available Balance */}
         <XStack justifyContent="space-between">

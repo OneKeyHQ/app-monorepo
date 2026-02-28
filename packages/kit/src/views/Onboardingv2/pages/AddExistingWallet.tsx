@@ -233,14 +233,7 @@ export default function AddExistingWallet() {
                 <Icon name={icon} />
               </YStack>
               <YStack gap={2} flex={1}>
-                <SizableText
-                  size="$bodyMdMedium"
-                  $platform-native={{
-                    size: '$bodyLgMedium',
-                  }}
-                >
-                  {title}
-                </SizableText>
+                <SizableText size="$bodyLgMedium">{title}</SizableText>
                 {description ? (
                   <SizableText size="$bodySm" color="$textSubdued">
                     {Array.isArray(description)

@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { isUndefined } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { NETWORK_SHOW_VALUE_THRESHOLD_USD } from '@onekeyhq/shared/src/consts/networkConsts';
@@ -32,6 +33,10 @@ export function usePureChainSelectorSections({
 
   const getNetworkValue = useCallback(
     (networkId: string) => {
+      if (isUndefined(accountNetworkValues?.[networkId])) {
+        return '0';
+      }
+
       const tokenValue = accountNetworkValues?.[networkId] ?? '0';
       const defiValue = accountDeFiOverview?.[networkId]?.netWorth ?? 0;
       return new BigNumber(tokenValue).plus(defiValue).toFixed();

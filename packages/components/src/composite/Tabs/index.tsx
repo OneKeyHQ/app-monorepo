@@ -18,7 +18,8 @@ export const Tabs = {
   MasonryFlashList: List,
   TabBar,
   TabBarItem,
-} as unknown as typeof NativeTabs & {
+} as unknown as Omit<typeof NativeTabs, 'Container'> & {
+  Container: typeof Container;
   TabBar: typeof TabBar;
   TabBarItem: typeof TabBarItem;
 };
