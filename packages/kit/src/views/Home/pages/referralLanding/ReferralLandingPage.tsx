@@ -212,8 +212,7 @@ function ReferralLandingPage() {
         const armTime = Date.now();
         globalThis.setTimeout(() => {
           const elapsed = Date.now() - armTime;
-          const isVisible =
-            globalThis.document?.visibilityState !== 'hidden';
+          const isVisible = globalThis.document?.visibilityState !== 'hidden';
           const timerFiredLate = elapsed > DEEP_LINK_FALLBACK_DELAY_MS * 2;
           if (isVisible && !timerFiredLate) {
             redirectToStore();
@@ -222,8 +221,7 @@ function ReferralLandingPage() {
         openDeepLinkSilently(deepLinkUrl);
       } else {
         globalThis.setTimeout(() => {
-          const isVisible =
-            globalThis.document?.visibilityState !== 'hidden';
+          const isVisible = globalThis.document?.visibilityState !== 'hidden';
           if (isVisible) {
             redirectToStore();
           }
