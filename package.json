@@ -84,7 +84,9 @@
     "app:desktop:op": "yarn op yarn app:desktop",
     "app:ios:op": "yarn op yarn app:ios",
     "app:android:op": "yarn op yarn app:android",
-    "app:native-bundle:op": "yarn op yarn app:native-bundle"
+    "app:native-bundle:op": "yarn op yarn app:native-bundle",
+    "keyless:mock-server:build": "yarn workspace @onekeyhq/kit-bg keyless:mock-server:build",
+    "keyless:mock-server:start": "yarn keyless:mock-server:build && node packages/kit-bg/dist/keyless-cloud-sync-mock-server/cli.js"
   },
   "dependencies": {
     "@aivenio/tsc-output-parser": "^2.1.1",
@@ -247,8 +249,8 @@
     "@types/w3c-web-usb": "^1.0.10",
     "@types/web": "0.0.269",
     "@types/zxcvbn": "^4",
-    "@typescript-eslint/eslint-plugin": "5.62.0",
-    "@typescript-eslint/parser": "5.62.0",
+    "@typescript-eslint/eslint-plugin": "^8.4.0",
+    "@typescript-eslint/parser": "^8.4.0",
     "@typescript/native-preview": "^7.0.0-dev.20260127.1",
     "agentation": "^2.2.0",
     "axios": "^1.13.2",
@@ -273,7 +275,7 @@
     "eslint-config-airbnb": "^19.0.4",
     "eslint-config-airbnb-typescript": "^17.0.0",
     "eslint-config-prettier": "10.1.8",
-    "eslint-config-wesbos": "^3.1.4",
+    "eslint-config-wesbos": "^4.3.2",
     "eslint-plugin-ban": "1.5.2",
     "eslint-plugin-html": "^7.1.0",
     "eslint-plugin-import": "^2.26.0",
