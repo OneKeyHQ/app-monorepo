@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -78,6 +78,9 @@ function buildAndroidIntentUrl(
   fallbackUrl: string,
 ): string {
   const schemeEnd = deepLinkUrl.indexOf('://');
+  if (schemeEnd === -1) {
+    return fallbackUrl;
+  }
   const scheme = deepLinkUrl.slice(0, schemeEnd);
   const rest = deepLinkUrl.slice(schemeEnd + 3);
   return `intent://${rest}#Intent;scheme=${scheme};package=${ANDROID_PACKAGE_NAME};S.browser_fallback_url=${encodeURIComponent(fallbackUrl)};end`;
@@ -133,8 +136,14 @@ function ReferralLandingPage() {
 
   const isMobileWeb = platformEnv.isWeb && platformEnv.isWebMobile;
 
+  const [isJoining, setIsJoining] = useState(false);
+
   // Mobile web: user presses "Join" → try deep link, fall back to app store.
   const handleMobileWebJoin = useCallback(() => {
+    if (isJoining) {
+      return;
+    }
+    setIsJoining(true);
     const storeUrlAuto = platformEnv.isWebMobileIOS
       ? APP_STORE_DOWNLOAD_WEB_LINK
       : DOWNLOAD_MOBILE_APP_URL;
@@ -231,7 +240,7 @@ function ReferralLandingPage() {
     } else {
       redirectToStore();
     }
-  }, [code, page]);
+  }, [code, page, isJoining]);
 
   // Native / desktop web: process referral after app is unlocked.
   // hasProcessedRef guards against duplicate processing in this effect only;
@@ -250,8 +259,14 @@ function ReferralLandingPage() {
 
     hasProcessedRef.current = true;
 
+    let mounted = true;
+    let modalTimerId: ReturnType<typeof setTimeout> | undefined;
+
     const processReferralLanding = async () => {
       const isNavigationReady = await waitForNavigationReady();
+      if (!mounted) {
+        return;
+      }
       if (!isNavigationReady) {
         if (platformEnv.isWeb) {
           globalThis.location.href = '/';
@@ -277,7 +292,10 @@ function ReferralLandingPage() {
 
       navigation.switchTab(targetTabRoute);
 
-      setTimeout(() => {
+      modalTimerId = setTimeout(() => {
+        if (!mounted) {
+          return;
+        }
         navigation.pushModal(EModalRoutes.ReferFriendsModal, {
           screen: EModalReferFriendsRoutes.InvitedByFriend,
           params: {
@@ -289,6 +307,13 @@ function ReferralLandingPage() {
     };
 
     void processReferralLanding();
+
+    return () => {
+      mounted = false;
+      if (modalTimerId) {
+        clearTimeout(modalTimerId);
+      }
+    };
   }, [appIsLocked, code, page, navigation, isMobileWeb]);
 
   if (isMobileWeb) {
@@ -313,6 +338,8 @@ function ReferralLandingPage() {
               variant="primary"
               flex={1}
               size="large"
+              disabled={isJoining}
+              loading={isJoining}
               onPress={handleMobileWebJoin}
             >
               {intl.formatMessage({
