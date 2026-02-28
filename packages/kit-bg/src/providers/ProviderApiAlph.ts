@@ -1,4 +1,4 @@
-import { groupOfAddress } from '@alephium/web3';
+import { ExplorerProvider, NodeProvider, groupOfAddress } from '@alephium/web3';
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 
@@ -417,6 +417,75 @@ class ProviderApiAlph extends ProviderApiBase {
       signature: result,
     };
     return res;
+  }
+  // ---------------------------------------------------------------------------
+  // NodeProvider / ExplorerProvider proxy handlers
+  // Injected side creates lightweight Proxy objects that forward all API calls
+  // here, where the real @alephium/web3 providers execute the HTTP requests.
+  // ---------------------------------------------------------------------------
+
+  // BigInt is not JSON-serializable. Convert to string for bridge transport.
+  // Affects helper methods like fetchFungibleTokenMetaData (returns BigInt totalSupply).
+  // Standard namespace API methods (addresses.xxx, transactions.xxx) return plain JSON and are unaffected.
+  // eslint-disable-next-line class-methods-use-this
+  private _sanitizeForBridge(value: unknown): unknown {
+    if (typeof value === 'bigint') return value.toString();
+    if (Array.isArray(value))
+      return value.map((v) => this._sanitizeForBridge(v));
+    if (value !== null && typeof value === 'object') {
+      const out: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(value)) {
+        out[k] = this._sanitizeForBridge(v);
+      }
+      return out;
+    }
+    return value;
+  }
+
+  private async _executeProviderMethod(
+    provider: NodeProvider | ExplorerProvider,
+    params: { path: string; method?: string; params: unknown[] },
+  ) {
+    const { path, method, params: args } = params;
+
+    let result: unknown;
+    if (method) {
+      // Namespace call: provider.addresses.getAddressesAddressBalance(...)
+      const namespace = (provider as any)[path];
+      if (!namespace || typeof namespace[method] !== 'function') {
+        throw web3Errors.rpc.methodNotFound();
+      }
+      result = await namespace[method](...args);
+    } else {
+      // Direct call: provider.fetchFungibleTokenMetaData(...)
+      const fn = (provider as any)[path];
+      if (typeof fn !== 'function') {
+        throw web3Errors.rpc.methodNotFound();
+      }
+      result = await fn.call(provider, ...args);
+    }
+
+    return this._sanitizeForBridge(result);
+  }
+
+  @providerApiMethod()
+  public async alph_nodeProvider_request(
+    request: IJsBridgeMessagePayload,
+    params: { path: string; method?: string; params: unknown[] },
+  ) {
+    const nodeProvider = new NodeProvider('https://node.mainnet.alephium.org');
+    return this._executeProviderMethod(nodeProvider, params);
+  }
+
+  @providerApiMethod()
+  public async alph_explorerProvider_request(
+    request: IJsBridgeMessagePayload,
+    params: { path: string; method?: string; params: unknown[] },
+  ) {
+    const explorerProvider = new ExplorerProvider(
+      'https://backend.mainnet.alephium.org',
+    );
+    return this._executeProviderMethod(explorerProvider, params);
   }
 }
 
