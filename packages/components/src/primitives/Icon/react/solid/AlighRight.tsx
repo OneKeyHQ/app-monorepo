@@ -7,11 +7,7 @@ const SvgAlighRight = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path
-      fillRule="evenodd"
-      d="M21 4a1 1 0 0 1 1 1v14a1 1 0 1 1-2 0V5a1 1 0 0 1 1-1m-8.707 3.043a1 1 0 0 1 1.414 0l3.543 3.543a2 2 0 0 1 0 2.828l-3.543 3.543a1 1 0 0 1-1.414-1.414L14.836 13H3a1 1 0 1 1 0-2h11.836l-2.543-2.543a1 1 0 0 1 0-1.414"
-      clipRule="evenodd"
-    />
+    <Path d="M22 20h-2V4h2zm-3.586-8-5.664 5.664-1.414-1.414 3.25-3.25H2v-2h12.586l-3.25-3.25 1.414-1.414z" />
   </Svg>
 );
 export default SvgAlighRight;

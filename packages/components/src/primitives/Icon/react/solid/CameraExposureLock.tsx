@@ -7,12 +7,13 @@ const SvgCameraExposureLock = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M5 3a2 2 0 0 0-2 2v3a1 1 0 0 0 2 0V5h3a1 1 0 0 0 0-2zm11 0a1 1 0 1 0 0 2h3v3a1 1 0 1 0 2 0V5a2 2 0 0 0-2-2zM5 16a1 1 0 1 0-2 0v3a2 2 0 0 0 2 2h3a1 1 0 1 0 0-2H5zm16 0a1 1 0 1 0-2 0v3h-3a1 1 0 1 0 0 2h3a2 2 0 0 0 2-2z" />
+    <Path d="M5 19h4v2H3v-6h2zm16 2h-6v-2h4v-4h2z" />
     <Path
       fillRule="evenodd"
-      d="M15 10.085V10a3 3 0 1 0-6 0v.085A1.5 1.5 0 0 0 8 11.5v3A1.5 1.5 0 0 0 9.5 16h5a1.5 1.5 0 0 0 1.5-1.5v-3a1.5 1.5 0 0 0-1-1.415M11 10h2a1 1 0 1 0-2 0"
+      d="M12 7a3 3 0 0 1 3 3h1v6H8v-6h1a3 3 0 0 1 3-3m0 2a1 1 0 0 0-1 1h2a1 1 0 0 0-1-1"
       clipRule="evenodd"
     />
+    <Path d="M9 5H5v4H3V3h6zm12 4h-2V5h-4V3h6z" />
   </Svg>
 );
 export default SvgCameraExposureLock;

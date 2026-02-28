@@ -7,7 +7,11 @@ const SvgArrowPathDown = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M9.99 4.041v10.051c0 .555-.45 1.005-1.006 1.005H6.69l5.31 6.02 5.312-6.02h-2.296c-.555 0-1.005-.45-1.005-1.005V4.041zm6.03 9.046h2.405c1.298 0 1.989 1.531 1.13 2.505l-6.048 6.854a2.01 2.01 0 0 1-3.014 0l-6.048-6.854c-.86-.974-.168-2.505 1.13-2.505H7.98V4.041c0-1.11.9-2.01 2.01-2.01h4.02c1.111 0 2.011.9 2.011 2.01v9.046Z" />
+    <Path
+      fillRule="evenodd"
+      d="M16 13h5.204L12 23.519 2.796 13H8V2h8zm-6 2H7.204L12 20.48 16.796 15H14V4h-4z"
+      clipRule="evenodd"
+    />
   </Svg>
 );
 export default SvgArrowPathDown;

@@ -7,7 +7,12 @@ const SvgArrowTopCircle = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M20 12a8 8 0 1 0-16 0 8 8 0 0 0 16 0m-9 4v-5.586l-1.293 1.293a1 1 0 1 1-1.414-1.414l3-3 .076-.068a1 1 0 0 1 1.338.068l3 3a1 1 0 1 1-1.414 1.414L13 10.414V16a1 1 0 1 1-2 0m11-4c0 5.523-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2s10 4.477 10 10" />
+    <Path d="M16.414 11 15 12.414l-2-2V17h-2v-6.586l-2 2L7.586 11 12 6.586z" />
+    <Path
+      fillRule="evenodd"
+      d="M12 2c5.523 0 10 4.477 10 10s-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2m0 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16"
+      clipRule="evenodd"
+    />
   </Svg>
 );
 export default SvgArrowTopCircle;

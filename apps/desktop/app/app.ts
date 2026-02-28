@@ -5,8 +5,10 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { fileURLToPath, format as formatUrl } from 'url';
+import v8 from 'v8';
 
 import { initNobleBleSupport } from '@onekeyfe/hd-transport-electron';
+import { EOneKeyBleMessageKeys } from '@onekeyfe/hd-shared';
 import {
   BrowserWindow,
   Menu,
@@ -23,6 +25,7 @@ import contextMenu from 'electron-context-menu';
 import isDev from 'electron-is-dev';
 import logger from 'electron-log/main';
 
+import { CALL_DESKTOP_API_EVENT_NAME } from '@onekeyhq/kit-bg/src/desktopApis/base/consts';
 import { getTemplatePhishingUrls } from '@onekeyhq/kit-bg/src/desktopApis/DesktopApiWebview';
 import desktopApi from '@onekeyhq/kit-bg/src/desktopApis/instance/desktopApi';
 import {
@@ -54,6 +57,7 @@ import {
 import { initSentry } from './sentry';
 import { startServices } from './service';
 import { setMainWindowForOAuthServer } from './service/oauthLocalServer/oauthLocalServer';
+import { scheduleCrashDumpCleanup } from './libs/crashDumpCleanup';
 import { getBackgroundColor } from './libs/utils';
 
 logger.initialize();
@@ -410,14 +414,17 @@ function handleDeepLinkUrl(
 
       // Cold startup: cache the deep link for later processing
       if (!isAppReady) {
-        safelyMainWindow?.webContents.send(
+        safelyMainWindow.webContents.send(
           ipcMessageKeys.OPEN_DEEP_LINK_URL,
           eventData,
         );
       }
 
       // Hot startup: send directly to registered listener
-      mainWindow?.webContents.send(ipcMessageKeys.EVENT_OPEN_URL, eventData);
+      safelyMainWindow.webContents.send(
+        ipcMessageKeys.EVENT_OPEN_URL,
+        eventData,
+      );
     }
 
     isAppReady = true;
@@ -441,6 +448,11 @@ function systemIdleHandler(setIdleTime: number, event: Electron.IpcMainEvent) {
     return;
   }
   systemIdleInterval = setInterval(() => {
+    const sender = event.sender;
+    if (!sender || sender.isDestroyed()) {
+      clearInterval(systemIdleInterval);
+      return;
+    }
     const idleTime = powerMonitor.getSystemIdleTime();
     const systemState = powerMonitor.getSystemIdleState(setIdleTime);
     if (idleTime > setIdleTime || systemState === 'locked') {
@@ -651,7 +663,10 @@ async function createMainWindow() {
   });
 
   browserWindow.on('resize', () => {
-    store.setWinBounds(browserWindow.getBounds());
+    const safelyWindow = getSafelyBrowserWindow();
+    if (safelyWindow) {
+      store.setWinBounds(safelyWindow.getBounds());
+    }
   });
   browserWindow.on('closed', () => {
     mainWindow = null;
@@ -660,9 +675,11 @@ async function createMainWindow() {
   });
 
   browserWindow.webContents.on('devtools-opened', () => {
-    browserWindow.focus();
+    const safelyWindow = getSafelyBrowserWindow();
+    safelyWindow?.focus();
     setImmediate(() => {
-      browserWindow.focus();
+      const w = getSafelyBrowserWindow();
+      w?.focus();
     });
   });
 
@@ -680,6 +697,7 @@ async function createMainWindow() {
     return { action: 'deny' };
   });
 
+  ipcMain.removeAllListeners(ipcMessageKeys.APP_READY);
   ipcMain.on(ipcMessageKeys.APP_READY, () => {
     isAppReady = true;
     logger.info('set isAppReady on ipcMain app/ready', isAppReady);
@@ -693,24 +711,30 @@ async function createMainWindow() {
     disposeContextMenu?.();
   });
 
+  ipcMain.removeAllListeners(ipcMessageKeys.IS_DEV);
   ipcMain.on(ipcMessageKeys.IS_DEV, (event) => {
     event.returnValue = isDevServer;
   });
 
+  ipcMain.removeAllListeners(ipcMessageKeys.APP_IS_FOCUSED);
   ipcMain.on(ipcMessageKeys.APP_IS_FOCUSED, (event) => {
     const safelyBrowserWindow = getSafelyBrowserWindow();
     event.returnValue = safelyBrowserWindow?.isFocused();
   });
 
+  ipcMain.removeAllListeners(ipcMessageKeys.APP_SET_IDLE_TIME);
   ipcMain.on(ipcMessageKeys.APP_SET_IDLE_TIME, (event, setIdleTime: number) => {
     systemIdleHandler(setIdleTime, event);
   });
 
+  ipcMain.removeAllListeners(ipcMessageKeys.APP_TEST_CRASH);
   ipcMain.on(ipcMessageKeys.APP_TEST_CRASH, () => {
     throw new OneKeyLocalError('Test Electron Native crash 996');
   });
 
   // System Resources
+  ipcMain.removeHandler(ipcMessageKeys.SYSTEM_GET_CPU_USAGE);
+  ipcMain.removeHandler(ipcMessageKeys.SYSTEM_GET_MEMORY_USAGE);
   ipcMain.handle(ipcMessageKeys.SYSTEM_GET_CPU_USAGE, async () => {
     try {
       const cpuUsage = process.getCPUUsage();
@@ -762,6 +786,7 @@ async function createMainWindow() {
     }
   });
 
+  ipcMain.removeAllListeners(CALL_DESKTOP_API_EVENT_NAME);
   desktopApi.desktopApiSetup();
 
   // reset appState to undefined  to avoid screen lock.
@@ -803,12 +828,14 @@ async function createMainWindow() {
     safelyBrowserWindow?.webContents.send(ipcMessageKeys.APP_STATE, state);
   });
 
+  app.removeAllListeners('login');
   app.on('login', (event, webContents, request, authInfo, callback) => {
     event.preventDefault();
     callback('onekey', 'juDUIpz3lVnubZ2aHOkwBB6SJotYynyb');
   });
 
   // Prevents clicking on links to open new Windows
+  app.removeAllListeners('web-contents-created');
   app.on('web-contents-created', (event, contents) => {
     if (contents.getType() === 'webview') {
       contents.setWindowOpenHandler((handleDetails) => {
@@ -996,6 +1023,21 @@ async function createMainWindow() {
     }
   });
 
+  // Use enum from @onekeyfe/hd-shared to stay in sync with the channels
+  // registered by initNobleBleSupport() from @onekeyfe/hd-transport-electron
+  const nobleBleChannels = [
+    EOneKeyBleMessageKeys.NOBLE_BLE_ENUMERATE,
+    EOneKeyBleMessageKeys.NOBLE_BLE_STOP_SCAN,
+    EOneKeyBleMessageKeys.NOBLE_BLE_GET_DEVICE,
+    EOneKeyBleMessageKeys.NOBLE_BLE_CONNECT,
+    EOneKeyBleMessageKeys.NOBLE_BLE_DISCONNECT,
+    EOneKeyBleMessageKeys.NOBLE_BLE_WRITE,
+    EOneKeyBleMessageKeys.NOBLE_BLE_SUBSCRIBE,
+    EOneKeyBleMessageKeys.NOBLE_BLE_UNSUBSCRIBE,
+    EOneKeyBleMessageKeys.NOBLE_BLE_CANCEL_PAIRING,
+    EOneKeyBleMessageKeys.BLE_AVAILABILITY_CHECK,
+  ];
+  nobleBleChannels.forEach((channel) => ipcMain.removeHandler(channel));
   void initNobleBleSupport(browserWindow.webContents);
 
   return browserWindow;
@@ -1064,6 +1106,9 @@ app.on('activate', async () => {
 });
 
 app.on('before-quit', () => {
+  if (systemIdleInterval) {
+    clearInterval(systemIdleInterval);
+  }
   const safelyMainWindow = getSafelyMainWindow();
   if (safelyMainWindow) {
     safelyMainWindow.removeAllListeners();
@@ -1083,7 +1128,7 @@ app.on('window-all-closed', () => {
 // Related: Sentry issue - GPU process crashes on Windows AMD + heavy DApp usage
 
 // 1. GPU Crash Detection and Recovery Handler
-app.on('child-process-gone', (event, details) => {
+app.on('child-process-gone', async (event, details) => {
   logger.error('Child process gone:', {
     type: details.type,
     reason: details.reason,
@@ -1140,6 +1185,20 @@ app.on('child-process-gone', (event, details) => {
         suggestion: 'Consider closing some browser tabs to reduce GPU load',
       });
     }
+
+    // Collect GPU hardware info after crash for diagnostics (fire-and-forget,
+    // getGPUInfo may hang when GPU process is dead so we don't await it)
+    app
+      .getGPUInfo('basic')
+      .then((gpuInfo) => {
+        logger.error(
+          '[GPU Crash] GPU Hardware Info:',
+          JSON.stringify(gpuInfo),
+        );
+      })
+      .catch(() => {
+        logger.error('[GPU Crash] Cannot retrieve GPU info after crash');
+      });
   }
 });
 
@@ -1180,6 +1239,7 @@ logger.info('GPU Protection System initialized', {
 const MEMORY_LIMIT_WARNING_MB = 1024; // 1GB warning threshold
 const MEMORY_LIMIT_CRITICAL_MB = 2048; // 2GB critical threshold
 const MEMORY_CHECK_INTERVAL_MS = 60_000; // Check every 60 seconds
+const METRICS_SAMPLE_INTERVAL_MS = 30_000;
 
 let memoryMonitorInterval: ReturnType<typeof setInterval> | null = null;
 
@@ -1277,9 +1337,138 @@ function startMemoryMonitoring() {
   });
 }
 
+function startProcessMetricsMonitoring() {
+  setInterval(() => {
+    const metrics = app.getAppMetrics();
+    const highMemoryProcesses = metrics.filter(
+      (m) => (m.memory?.workingSetSize ?? 0) > 200 * 1024,
+    );
+
+    if (highMemoryProcesses.length > 0) {
+      logger.warn(
+        '[Process Metrics] High memory processes:',
+        highMemoryProcesses.map((m) => ({
+          pid: m.pid,
+          type: m.type,
+          name: m.name,
+          memoryMB: Math.round((m.memory?.workingSetSize ?? 0) / 1024),
+          cpu: m.cpu.percentCPUUsage.toFixed(1),
+        })),
+      );
+    }
+
+    const totalMemoryMB = metrics.reduce(
+      (sum, m) => sum + (m.memory?.workingSetSize ?? 0) / 1024,
+      0,
+    );
+    if (totalMemoryMB > MEMORY_LIMIT_WARNING_MB) {
+      try {
+        const { addBreadcrumb } = require('@sentry/electron/main');
+        addBreadcrumb({
+          category: 'memory',
+          message: `Total process memory: ${Math.round(totalMemoryMB)}MB`,
+          level: 'warning',
+          data: {
+            processes: metrics.map((m) => ({
+              type: m.type,
+              name: m.name,
+              memoryMB: Math.round((m.memory?.workingSetSize ?? 0) / 1024),
+              cpu: m.cpu.percentCPUUsage,
+            })),
+          },
+        });
+      } catch (_e) {
+        // ignore
+      }
+    }
+  }, METRICS_SAMPLE_INTERVAL_MS);
+}
+
+async function collectGPUInfo() {
+  try {
+    const gpuInfo = await app.getGPUInfo('complete');
+    logger.info('[GPU Info] Complete GPU information collected');
+
+    try {
+      const { setContext } = require('@sentry/electron/main');
+      const gpuDevice = (gpuInfo as any)?.gpuDevice?.[0];
+      setContext('gpu', {
+        vendorId: gpuDevice?.vendorId,
+        deviceId: gpuDevice?.deviceId,
+        driverVersion: gpuDevice?.driverVersion,
+        driverVendor: gpuDevice?.driverVendor,
+        auxAttributes: (gpuInfo as any)?.auxAttributes,
+      });
+    } catch (_e) {
+      // ignore
+    }
+  } catch (error) {
+    logger.error('[GPU Info] Failed to collect:', error);
+  }
+}
+
+function startV8HeapMonitoring() {
+  setInterval(() => {
+    const heapStats = v8.getHeapStatistics();
+    const usedMB = Math.round(heapStats.used_heap_size / 1024 / 1024);
+    const limitMB = Math.round(heapStats.heap_size_limit / 1024 / 1024);
+    const usagePercent = (
+      (heapStats.used_heap_size / heapStats.heap_size_limit) *
+      100
+    ).toFixed(1);
+
+    if (Number(usagePercent) > 70) {
+      logger.warn(
+        `[V8 Heap] ${usedMB}MB / ${limitMB}MB (${usagePercent}%)`,
+        {
+          totalHeapSize: heapStats.total_heap_size,
+          totalPhysicalSize: heapStats.total_physical_size,
+          allocatedMemory: heapStats.malloced_memory,
+          externalMemory: heapStats.external_memory,
+        },
+      );
+    }
+  }, MEMORY_CHECK_INTERVAL_MS);
+}
+
+function startWebviewMemoryMonitoring() {
+  const { webContents } = require('electron');
+  setInterval(() => {
+    const safelyMainWindow = getSafelyMainWindow();
+    if (!safelyMainWindow || safelyMainWindow.isDestroyed()) return;
+
+    const metrics = app.getAppMetrics();
+    const metricsByPid = new Map(metrics.map((m) => [m.pid, m]));
+    const allContents = webContents.getAllWebContents();
+    for (const wc of allContents) {
+      if (wc.isDestroyed()) continue;
+      try {
+        const pid = wc.getOSProcessId();
+        const metric = metricsByPid.get(pid);
+        if (!metric) continue;
+        const memMB = Math.round(
+          (metric.memory?.workingSetSize ?? 0) / 1024,
+        );
+        if (memMB > 300) {
+          logger.warn(
+            `[WebView Memory] pid=${pid} type=${wc.getType()} url=${wc.getURL().substring(0, 100)} memory=${memMB}MB`,
+          );
+        }
+      } catch (_e) {
+        // webContents may have been destroyed
+      }
+    }
+  }, METRICS_SAMPLE_INTERVAL_MS);
+}
+
 // Start monitoring when app is ready
-app.on('ready', () => {
+app.on('ready', async () => {
   startMemoryMonitoring();
+  startProcessMetricsMonitoring();
+  startV8HeapMonitoring();
+  startWebviewMemoryMonitoring();
+  scheduleCrashDumpCleanup();
+  await collectGPUInfo();
 });
 
 // Stop monitoring when app quits

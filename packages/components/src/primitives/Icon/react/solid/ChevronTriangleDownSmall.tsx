@@ -7,7 +7,7 @@ const SvgChevronTriangleDownSmall = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M9.522 8.907c-1.248 0-1.95 1.436-1.184 2.421l2.478 3.186a1.5 1.5 0 0 0 2.368 0l2.478-3.186c.766-.985.064-2.42-1.184-2.42z" />
+    <Path d="m17 10-5 6.667L7 10z" />
   </Svg>
 );
 export default SvgChevronTriangleDownSmall;

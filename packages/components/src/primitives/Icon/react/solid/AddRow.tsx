@@ -7,8 +7,12 @@ const SvgAddRow = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M18.5 13.5a1 1 0 0 1 1 1v2h2a1 1 0 1 1 0 2h-2v2a1 1 0 1 1-2 0v-2h-2a1 1 0 1 1 0-2h2v-2a1 1 0 0 1 1-1" />
-    <Path d="M19.5 2.5a2 2 0 0 1 2 2v6a1 1 0 0 1-1 1h-17v5h7a1 1 0 1 1 0 2h-7a2 2 0 0 1-2-2v-12a2 2 0 0 1 2-2z" />
+    <Path
+      fillRule="evenodd"
+      d="M22 18h-7v4H9v-4H2v-4h20zm-11 2h2v-2h-2z"
+      clipRule="evenodd"
+    />
+    <Path d="M22 12H2V3h20z" />
   </Svg>
 );
 export default SvgAddRow;

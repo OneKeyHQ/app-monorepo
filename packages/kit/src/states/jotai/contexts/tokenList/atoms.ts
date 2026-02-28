@@ -169,6 +169,17 @@ export const { atom: createAccountStateAtom, use: useCreateAccountStateAtom } =
     isCreating: false,
   });
 
+export const {
+  atom: processingTokenStateAtom,
+  use: useProcessingTokenStateAtom,
+} = contextAtom<{
+  token: IAccountToken | null;
+  isProcessing: boolean;
+}>({
+  token: null,
+  isProcessing: false,
+});
+
 export const { atom: tokenListSortAtom, use: useTokenListSortAtom } =
   contextAtom<{
     sortType: ETokenListSortType;

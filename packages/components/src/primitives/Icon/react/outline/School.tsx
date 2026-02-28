@@ -7,7 +7,11 @@ const SvgSchool = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M11 16v2h2v-2zm7-6v8h2v-8zM4 18h2v-8H4zM8 6v12h1v-2a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2h1V6zm10 2h2a2 2 0 0 1 2 2v8a1 1 0 1 1 0 2H2a1 1 0 1 1 0-2v-8a2 2 0 0 1 2-2h2V6a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2z" />
+    <Path
+      fillRule="evenodd"
+      d="M18 8h4v10h1v2H1v-2h1V8h4V4h12zM4 18h2v-8H4zm4 0h1v-4h6v4h1V6H8zm10 0h2v-8h-2zm-7 0h2v-2h-2z"
+      clipRule="evenodd"
+    />
   </Svg>
 );
 export default SvgSchool;

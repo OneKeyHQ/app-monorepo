@@ -7,7 +7,12 @@ const SvgCoinsAdd = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M20 14a5 5 0 1 0-10 0 5 5 0 0 0 10 0m-6 2v-1h-1a1 1 0 1 1 0-2h1v-1a1 1 0 1 1 2 0v1h1a1 1 0 1 1 0 2h-1v1a1 1 0 1 1-2 0m8-2a7 7 0 0 1-13.33 2.991 7 7 0 1 1 6.658-9.983A7 7 0 0 1 22 14M4 10a5 5 0 0 0 4.059 4.91 7 7 0 0 1 5.11-7.667A4.99 4.99 0 0 0 8.999 5a5 5 0 0 0-5 5Z" />
+    <Path d="M16 13h2v2h-2v2h-2v-2h-2v-2h2v-2h2z" />
+    <Path
+      fillRule="evenodd"
+      d="M9 3a7 7 0 0 1 6.328 4.008 7 7 0 1 1-6.657 9.983A7 7 0 0 1 9 3m5.718 6.008a5 5 0 1 0 .566 9.985 5 5 0 0 0-.566-9.985M9 5a5 5 0 0 0-.941 9.91 7 7 0 0 1 5.11-7.667A4.99 4.99 0 0 0 8.999 5Z"
+      clipRule="evenodd"
+    />
   </Svg>
 );
 export default SvgCoinsAdd;

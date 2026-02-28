@@ -9,10 +9,10 @@ const SvgLayerBehind = (props: SvgProps) => (
   >
     <Path
       fillRule="evenodd"
-      d="M20 7.5a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2zm-16 11h16v-9H4z"
+      d="M22 20H2V7h20zM4 18h16V9H4z"
       clipRule="evenodd"
     />
-    <Path d="M19 3.5a1 1 0 1 1 0 2H5a1 1 0 0 1 0-2z" />
+    <Path d="M20 5H4V3h16z" />
   </Svg>
 );
 export default SvgLayerBehind;

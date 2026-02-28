@@ -7,10 +7,10 @@ const SvgBezierRemove = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M10 11a1 1 0 1 0 0 2h4a1 1 0 1 0 0-2z" />
+    <Path d="M15 13H9v-2h6z" />
     <Path
       fillRule="evenodd"
-      d="M3 4.5A1.5 1.5 0 0 1 4.5 3h3A1.5 1.5 0 0 1 9 4.5V5h6v-.5A1.5 1.5 0 0 1 16.5 3h3A1.5 1.5 0 0 1 21 4.5v3A1.5 1.5 0 0 1 19.5 9H19v6h.5a1.5 1.5 0 0 1 1.5 1.5v3a1.5 1.5 0 0 1-1.5 1.5h-3a1.5 1.5 0 0 1-1.5-1.5V19H9v.5A1.5 1.5 0 0 1 7.5 21h-3A1.5 1.5 0 0 1 3 19.5v-3A1.5 1.5 0 0 1 4.5 15H5V9h-.5A1.5 1.5 0 0 1 3 7.5zM7 9v6h.5A1.5 1.5 0 0 1 9 16.5v.5h6v-.5a1.5 1.5 0 0 1 1.5-1.5h.5V9h-.5A1.5 1.5 0 0 1 15 7.5V7H9v.5A1.5 1.5 0 0 1 7.5 9z"
+      d="M9 5h6V3h6v6h-2v6h2v6h-6v-2H9v2H3v-6h2V9H3V3h6zm0 4H7v6h2v2h6v-2h2V9h-2V7H9z"
       clipRule="evenodd"
     />
   </Svg>
