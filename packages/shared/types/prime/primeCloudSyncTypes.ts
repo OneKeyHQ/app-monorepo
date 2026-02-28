@@ -15,6 +15,7 @@ import type { IAvatarInfo } from '../../src/utils/emojiUtils';
 import type { IDBCustomRpc } from '../customRpc';
 import type { IMarketWatchListItemV2 } from '../market';
 import type { ICloudSyncCustomToken } from '../token';
+import type { IKeylessCloudSyncCredential } from '../keylessCloudSync';
 
 // for user to manual resolve diff items
 export type ICloudSyncServerDiffItem = {
@@ -78,10 +79,57 @@ export type ICloudSyncServerItemByDownloaded = {
   // updatedAt: string;
   // userId: string;
 };
+
+export type ICloudSyncCheckServerStatusPostData = {
+  localData: {
+    key: string;
+    dataTimestamp: number | undefined;
+    dataType: EPrimeCloudSyncDataType;
+  }[];
+  onlyCheckLocalDataType: EPrimeCloudSyncDataType[];
+  nonce: number;
+  pwdHash: string | undefined;
+};
+
+export type ICloudSyncCheckServerStatusResult = {
+  deleted: string[];
+  diff: ICloudSyncServerItem[];
+  updated: ICloudSyncServerItem[];
+  obsoleted: string[];
+  pwdHash: string;
+  serverTime: number;
+};
+
+export type ICloudSyncDownloadPostData = {
+  start?: number;
+  limit?: number;
+  includeDeleted?: boolean;
+};
+
+export type ICloudSyncDownloadResult = {
+  nonce: number; // TODO add nonce here
+  serverData: ICloudSyncServerItemByDownloaded[];
+  pwdHash: string;
+};
+
+export type ICloudSyncUploadPostData = {
+  localData: ICloudSyncServerItem[];
+  nonce: number;
+  pwdHash: string;
+  lock?: ICloudSyncServerItem | null | undefined;
+};
+
+export type ICloudSyncUploadResult = {
+  nonce: number;
+  created: number;
+  updated: number;
+};
+
 export type ICloudSyncCredential = {
   primeAccountSalt: string;
   securityPasswordR1: string;
   masterPasswordUUID: string; // pwdHash
+  keylessCredential?: IKeylessCloudSyncCredential;
 };
 export type ICloudSyncCredentialForLock = Omit<
   ICloudSyncCredential,

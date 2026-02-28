@@ -911,10 +911,8 @@ export default class ServiceHyperliquid extends ServiceBase {
 
   @backgroundMethod()
   async checkPerpsAccountStatus({
-    password,
     isEnableTradingTrigger = false,
   }: {
-    password?: string;
     isEnableTradingTrigger?: boolean;
   } = {}): Promise<void> {
     const { infoClient } = hyperLiquidApiClients;
@@ -954,121 +952,101 @@ export default class ServiceHyperliquid extends ServiceBase {
         );
       }
 
-      // eslint-disable-next-line no-param-reassign
-      password =
-        password ||
-        (await this.backgroundApi.servicePassword.getCachedPassword());
-      if (!password && isEnableTradingTrigger) {
+      let isActivated = false;
+      if (hyperLiquidCache?.activatedUser?.[accountAddress] === true) {
+        isActivated = true;
+      }
+      if (!isActivated) {
+        const userRole = await infoClient.userRole({
+          user: accountAddress,
+        });
+        isActivated = userRole.role !== 'missing';
+      }
+      if (!isActivated) {
+        statusDetails.activatedOk = false;
         defaultLogger.perp.agentLifeCycle.trackReason({
-          reason: 'status_check_no_password',
+          reason: 'account_not_activated',
           accountAddress,
           accountId: selectedAccount.accountId,
           isEnableTradingTrigger,
           statusDetails: { ...statusDetails },
         });
-        // eslint-disable-next-line no-param-reassign
-        ({ password } =
-          await this.backgroundApi.servicePassword.promptPasswordVerify());
-      }
+        // await this.checkBuilderFeeStatus({
+        //   accountAddress,
+        //   isEnableTradingTrigger,
+        //   statusDetails,
+        // });
+      } else {
+        hyperLiquidCache.activatedUser[accountAddress] = true;
+        statusDetails.activatedOk = true;
 
-      if (password) {
-        let isActivated = false;
-        if (hyperLiquidCache?.activatedUser?.[accountAddress] === true) {
-          isActivated = true;
-        }
-        if (!isActivated) {
-          const userRole = await infoClient.userRole({
-            user: accountAddress,
+        // Builder fee must be approved before agent setup
+        await this.checkBuilderFeeStatus({
+          accountAddress,
+          accountId: selectedAccount.accountId,
+          isEnableTradingTrigger,
+          statusDetails,
+        });
+
+        const isRebateBound =
+          await this.checkInternalRebateBindingStatusWithCache({
+            accountId: selectedAccount.accountId,
+            accountAddress,
           });
-          isActivated = userRole.role !== 'missing';
-        }
-        if (!isActivated) {
-          statusDetails.activatedOk = false;
+
+        // Clear local credentials to force new agent creation for rebate binding
+        if (!isRebateBound) {
+          await this.clearLocalAgentCredentials({
+            userAddress: accountAddress,
+          });
+          // Binding triggered via reportAgentApprovalToBackend after agent creation
+          statusDetails.internalRebateBoundOk = false;
           defaultLogger.perp.agentLifeCycle.trackReason({
-            reason: 'account_not_activated',
+            reason: 'internal_rebate_not_bound',
             accountAddress,
             accountId: selectedAccount.accountId,
             isEnableTradingTrigger,
             statusDetails: { ...statusDetails },
           });
-          // await this.checkBuilderFeeStatus({
-          //   accountAddress,
-          //   isEnableTradingTrigger,
-          //   statusDetails,
-          // });
         } else {
-          hyperLiquidCache.activatedUser[accountAddress] = true;
-          statusDetails.activatedOk = true;
+          statusDetails.internalRebateBoundOk = true;
+        }
 
-          // Builder fee must be approved before agent setup
-          await this.checkBuilderFeeStatus({
-            accountAddress,
-            accountId: selectedAccount.accountId,
-            isEnableTradingTrigger,
-            statusDetails,
+        agentCredential = await this.checkAgentStatus({
+          accountAddress,
+          accountId: selectedAccount.accountId,
+          isEnableTradingTrigger,
+          statusDetails,
+        });
+
+        if (agentCredential) {
+          // TODO setupMasterWallet, setupAgentWallet
+          await this.exchangeService.setup({
+            userAddress: accountAddress,
+            agentCredential,
           });
 
-          const isRebateBound =
-            await this.checkInternalRebateBindingStatusWithCache({
-              accountId: selectedAccount.accountId,
-              accountAddress,
-            });
-
-          // Clear local credentials to force new agent creation for rebate binding
-          if (!isRebateBound) {
-            await this.clearLocalAgentCredentials({
-              userAddress: accountAddress,
-            });
-            // Binding triggered via reportAgentApprovalToBackend after agent creation
-            statusDetails.internalRebateBoundOk = false;
-            defaultLogger.perp.agentLifeCycle.trackReason({
-              reason: 'internal_rebate_not_bound',
-              accountAddress,
-              accountId: selectedAccount.accountId,
-              isEnableTradingTrigger,
-              statusDetails: { ...statusDetails },
-            });
-          } else {
-            statusDetails.internalRebateBoundOk = true;
-          }
-
-          agentCredential = await this.checkAgentStatus({
-            accountAddress,
-            accountId: selectedAccount.accountId,
-            isEnableTradingTrigger,
-            statusDetails,
-            password,
-          });
-
-          if (agentCredential) {
-            // TODO setupMasterWallet, setupAgentWallet
-            await this.exchangeService.setup({
-              userAddress: accountAddress,
-              agentCredential,
-            });
-
-            void (async () => {
-              const cacheKey = [
-                agentCredential.userAddress.toLowerCase(),
-                agentCredential.agentAddress.toLowerCase(),
-                agentCredential.agentName,
-              ].join('-');
-              if (!hyperLiquidCache?.referrerCodeSetDone?.[cacheKey]) {
-                const { referralCode } =
-                  await this.backgroundApi.simpleDb.perp.getPerpData();
-                try {
-                  // referrer code can be approved by agent
-                  await this.exchangeService.setReferrerCode({
-                    code: referralCode || HYPERLIQUID_REFERRAL_CODE,
-                  });
-                } finally {
-                  hyperLiquidCache.referrerCodeSetDone[cacheKey] = true;
-                }
+          void (async () => {
+            const cacheKey = [
+              agentCredential.userAddress.toLowerCase(),
+              agentCredential.agentAddress.toLowerCase(),
+              agentCredential.agentName,
+            ].join('-');
+            if (!hyperLiquidCache?.referrerCodeSetDone?.[cacheKey]) {
+              const { referralCode } =
+                await this.backgroundApi.simpleDb.perp.getPerpData();
+              try {
+                // referrer code can be approved by agent
+                await this.exchangeService.setReferrerCode({
+                  code: referralCode || HYPERLIQUID_REFERRAL_CODE,
+                });
+              } finally {
+                hyperLiquidCache.referrerCodeSetDone[cacheKey] = true;
               }
-            })();
-            statusDetails.internalRebateBoundOk = true;
-            statusDetails.referralCodeOk = true;
-          }
+            }
+          })();
+          statusDetails.internalRebateBoundOk = true;
+          statusDetails.referralCodeOk = true;
         }
       }
     } finally {
@@ -1130,13 +1108,11 @@ export default class ServiceHyperliquid extends ServiceBase {
     accountId,
     isEnableTradingTrigger,
     statusDetails,
-    password,
   }: {
     accountAddress: IHex;
     accountId: string | null;
     isEnableTradingTrigger: boolean;
     statusDetails: IPerpsActiveAccountStatusDetails;
-    password: string;
   }) {
     let agentCredential: ICoreHyperLiquidAgentCredential | undefined;
     const extraAgents = await this.fetchExtraAgentsWithCache({
@@ -1167,7 +1143,6 @@ export default class ServiceHyperliquid extends ServiceBase {
             const credential = await localDb.getHyperLiquidAgentCredential({
               userAddress: accountAddress,
               agentName: agent.name as EHyperLiquidAgentName,
-              password,
             });
             if (!agent.address) {
               defaultLogger.perp.agentLifeCycle.trackReason({
@@ -1213,7 +1188,10 @@ export default class ServiceHyperliquid extends ServiceBase {
               });
               return null;
             }
-            if (credential.agentAddress?.toLowerCase() !== agent.address.toLowerCase()) {
+            if (
+              credential.agentAddress?.toLowerCase() !==
+              agent.address.toLowerCase()
+            ) {
               defaultLogger.perp.agentLifeCycle.trackReason({
                 reason: 'agent_address_mismatch',
                 accountAddress,
@@ -1282,9 +1260,11 @@ export default class ServiceHyperliquid extends ServiceBase {
             ) {
               agentNameToApprove = agentNameToRemove;
             } else {
-              const approveAgentResult = await this.exchangeService.removeAgent({
-                agentName: agentNameToRemove,
-              });
+              const approveAgentResult = await this.exchangeService.removeAgent(
+                {
+                  agentName: agentNameToRemove,
+                },
+              );
               console.log('approveAgentResult::', approveAgentResult);
               defaultLogger.perp.agentLifeCycle.trackReason({
                 reason: 'agent_removed_for_slot_recovery',
@@ -1356,7 +1336,8 @@ export default class ServiceHyperliquid extends ServiceBase {
         const approveAgentFn = () =>
           this.exchangeService.approveAgent({
             agent: agentAddress,
-            agentName: agentNameToApproveWithValidUntil as EHyperLiquidAgentName,
+            agentName:
+              agentNameToApproveWithValidUntil as EHyperLiquidAgentName,
             // agentName: EHyperLiquidAgentName.Official,
             authorize: true,
           });
@@ -1428,7 +1409,6 @@ export default class ServiceHyperliquid extends ServiceBase {
             const credential = await localDb.getHyperLiquidAgentCredential({
               userAddress: accountAddress,
               agentName: agentNameToApprove as EHyperLiquidAgentName,
-              password,
             });
             if (credential) {
               agentCredential = credential;
@@ -1483,7 +1463,8 @@ export default class ServiceHyperliquid extends ServiceBase {
           isEnableTradingTrigger,
           statusDetails: {
             ...statusDetails,
-            errorMessage: error instanceof Error ? error.message : String(error),
+            errorMessage:
+              error instanceof Error ? error.message : String(error),
           },
         });
         throw error;

@@ -1,9 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { isNil } from 'lodash';
-import { useIntl } from 'react-intl';
 
-import type { ColorTokens } from '@onekeyhq/components';
 import {
   HeaderScrollGestureWrapper,
   Icon,
@@ -17,7 +15,6 @@ import {
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useWalletBanner } from '@onekeyhq/kit/src/hooks/useWalletBanner';
 import {
@@ -26,9 +23,6 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EModalRoutes } from '@onekeyhq/shared/src/routes';
-import { EModalSignAndVerifyRoutes } from '@onekeyhq/shared/src/routes/signAndVerify';
 import type { IWalletBanner } from '@onekeyhq/shared/types/walletBanner';
 
 import { type GestureResponderEvent, StyleSheet } from 'react-native';
@@ -39,54 +33,11 @@ import Animated, {
   useSharedValue,
   withDecay,
 } from 'react-native-reanimated';
-import { useReferFriends } from '@onekeyhq/kit/src/hooks/useReferFriends';
-
 const BANNER_ITEM_WIDTH = 280;
 const BANNER_GAP = 12;
 const BANNER_PADDING_H = 20;
 
 const closedBanners: Record<string, boolean> = {};
-
-function getStaticBanners(intl: ReturnType<typeof useIntl>): IWalletBanner[] {
-  return [
-    {
-      _id: 'static-2',
-      id: 'static-2',
-      src: '',
-      title: intl.formatMessage({ id: ETranslations.id_refer_a_friend_desc }),
-      description: '',
-      button: '',
-      rank: 0,
-      closeable: false,
-      closeForever: false,
-      useSystemBrowser: false,
-      theme: 'light',
-      icon: {
-        name: 'GiftSolid',
-      },
-      width: 200,
-    },
-    {
-      _id: 'static-3',
-      id: 'static-3',
-      src: '',
-      title: intl.formatMessage({
-        id: ETranslations.message_signing_main_title,
-      }),
-      description: '',
-      button: '',
-      rank: 0,
-      closeable: false,
-      closeForever: false,
-      useSystemBrowser: false,
-      theme: 'light',
-      icon: {
-        name: 'SignatureSolid',
-      },
-      width: 200,
-    },
-  ];
-}
 
 function BannerItem({
   item,
@@ -102,7 +53,7 @@ function BannerItem({
   }, [onPress, item]);
   return (
     <XStack
-      w={item.width || BANNER_ITEM_WIDTH}
+      w={item.icon ? 200 : BANNER_ITEM_WIDTH}
       h={108}
       p="$4"
       my="$px"
@@ -175,11 +126,7 @@ function BannerItem({
       ) : null}
       {item.icon ? (
         <Stack position="absolute" right="$4" bottom="$4">
-          <Icon
-            name={item.icon.name}
-            size={item.icon.size || 24}
-            color={(item.icon.color as ColorTokens) || '$bgAccent'}
-          />
+          <Icon name={item.icon} size={24} color="$bgAccent" />
         </Stack>
       ) : null}
     </XStack>
@@ -222,7 +169,7 @@ function NativeBannerScroller({
 
   const actualMaxTranslateX = useMemo(() => {
     const totalItemWidth = banners.reduce(
-      (sum, b) => sum + (b.width || BANNER_ITEM_WIDTH),
+      (sum, b) => sum + (b.icon ? 200 : BANNER_ITEM_WIDTH),
       0,
     );
     const totalWidth =
@@ -471,78 +418,21 @@ function WebBannerScroller({
 
 function WalletBanner() {
   const {
-    activeAccount: {
-      account,
-      network,
-      wallet,
-      indexedAccount,
-      deriveInfoItems,
-      deriveType,
-      isOthersWallet,
-    },
+    activeAccount: { account, network, wallet },
   } = useActiveAccount({ num: 0 });
-
-  const intl = useIntl();
 
   const closedBannerInitRef = useRef(false);
 
   const bannersInitRef = useRef(false);
 
-  const staticBanners = useMemo(() => getStaticBanners(intl), [intl]);
-
-  const [{ banners: remoteBanners }] = useWalletTopBannersAtom();
-  const banners = useMemo(
-    () => [...remoteBanners, ...staticBanners],
-    [remoteBanners, staticBanners],
-  );
+  const [{ banners }] = useWalletTopBannersAtom();
   const { updateWalletTopBanners } = useAccountOverviewActions().current;
 
-  const { handleBannerOnPress: defaultHandleBannerOnPress } = useWalletBanner({
+  const { handleBannerOnPress } = useWalletBanner({
     account,
     network,
     wallet,
   });
-
-  const navigation = useAppNavigation();
-  const { toReferFriendsPage } = useReferFriends();
-
-  const handleBannerOnPress = useCallback(
-    (item: IWalletBanner) => {
-      if (item.id === 'static-2') {
-        void toReferFriendsPage();
-        return;
-      }
-      if (item.id === 'static-3') {
-        if (!network?.id || !wallet?.id) return;
-        navigation.pushModal(EModalRoutes.SignAndVerifyModal, {
-          screen: EModalSignAndVerifyRoutes.SignAndVerifyMessage,
-          params: {
-            networkId: network.id,
-            accountId: account?.id,
-            walletId: wallet.id,
-            indexedAccountId: indexedAccount?.id,
-            deriveInfoItems,
-            deriveType,
-            isOthersWallet,
-          },
-        });
-        return;
-      }
-      void defaultHandleBannerOnPress(item);
-    },
-    [
-      defaultHandleBannerOnPress,
-      navigation,
-      toReferFriendsPage,
-      network?.id,
-      wallet?.id,
-      account?.id,
-      indexedAccount?.id,
-      deriveInfoItems,
-      deriveType,
-      isOthersWallet,
-    ],
-  );
 
   const [closedForeverBanners, setClosedForeverBanners] = useState<
     Record<string, boolean>

@@ -292,7 +292,7 @@ function MarketTokenListBase({
               contentContainerStyle={
                 tabIntegrated
                   ? {
-                      paddingTop: 8 + (platformEnv.isNative ? 150 : 0),
+                      paddingTop: 8 + (platformEnv.isNative ? 170 : 0),
                       paddingBottom: platformEnv.isNativeAndroid
                         ? (listContainerProps?.paddingBottom ??
                           SPINNER_HEIGHT * 2)
@@ -307,6 +307,7 @@ function MarketTokenListBase({
               stickyHeader
               scrollEnabled={!webTabIntegrated}
               draggable={draggable}
+              tabIntegrated={tabIntegrated}
               onDragEnd={onDragEnd}
               columns={marketTokenColumns}
               onEndReached={handleEndReached}

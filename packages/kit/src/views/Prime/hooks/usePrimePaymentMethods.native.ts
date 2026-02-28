@@ -163,10 +163,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
       let {
         subscriptionPeriod,
         pricePerYear,
-        pricePerYearString,
         pricePerMonth,
-        pricePerMonthString,
-        priceString,
       } = p.product;
 
       if (platformEnv.isNativeAndroid) {
@@ -178,33 +175,24 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
           .toNumber();
       }
 
-      const currency =
-        primePaymentUtils.extractCurrencySymbol(priceString, {
-          useShortUSSymbol: true,
-        }) ||
-        primePaymentUtils.extractCurrencySymbol(pricePerYearString || '', {
-          useShortUSSymbol: true,
-        }) ||
-        primePaymentUtils.extractCurrencySymbol(pricePerMonthString || '', {
-          useShortUSSymbol: true,
-        });
+      const currencyCode = p.product.currencyCode || '';
 
       packages.push({
         subscriptionPeriod: subscriptionPeriod as ISubscriptionPeriod,
         pricePerYear: pricePerYear || 0,
-        pricePerYearString: `${currency}${new BigNumber(
+        pricePerYearString: `${new BigNumber(
           pricePerYear || 0,
-        ).toFixed(2)}`,
+        ).toFixed(2)} ${currencyCode}`,
         pricePerMonth: pricePerMonth || 0,
-        pricePerMonthString: `${currency}${new BigNumber(
+        pricePerMonthString: `${new BigNumber(
           pricePerMonth || 0,
-        ).toFixed(2)}`,
+        ).toFixed(2)} ${currencyCode}`,
         priceTotalPerYearString:
           subscriptionPeriod === 'P1M'
-            ? `${currency}${new BigNumber(pricePerMonth || 0)
+            ? `${new BigNumber(pricePerMonth || 0)
                 .times(12)
-                .toFixed(2)}`
-            : `${currency}${new BigNumber(pricePerYear || 0).toFixed(2)}`,
+                .toFixed(2)} ${currencyCode}`
+            : `${new BigNumber(pricePerYear || 0).toFixed(2)} ${currencyCode}`,
       });
     });
 
