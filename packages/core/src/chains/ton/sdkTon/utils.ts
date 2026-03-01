@@ -8,7 +8,6 @@ export function encodeDnsName(domain: string): Buffer {
     throw new OneKeyLocalError('Domain must be non-empty');
   }
 
-  
   // oxlint-disable-next-line @cspell/spellchecker
   // Normalise (lower-case, strip trailing dot) – recommended for interop
   let norm = domain.toLowerCase();

@@ -257,7 +257,7 @@ class ProviderApiCosmos extends ProviderApiBase {
       pubKey: account.pub,
       address: account.addressDetail.baseAddress,
       bech32Address: account.addressDetail.displayAddress,
-      
+
       // oxlint-disable-next-line @cspell/spellchecker
       isNanoLedger: accountUtils.isHwAccount({
         accountId: account.id,

@@ -204,7 +204,6 @@ export function parseUrl(url: string): IUrlValue | null {
 
 export const checkIsDomain = (domain: string) => DOMAIN_REGEXP.test(domain);
 
-
 // oxlint-disable-next-line @cspell/spellchecker
 // check the ens format 元宇宙.bnb / diamondgs198.x
 export const addressIsEnsFormat = (address: string) => {

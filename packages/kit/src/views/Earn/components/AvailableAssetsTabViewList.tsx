@@ -49,7 +49,6 @@ export function AvailableAssetsTabViewList() {
         type: EAvailableAssetsTypeEnum.All,
       },
       {
-        
         // oxlint-disable-next-line @cspell/spellchecker
         title: intl.formatMessage({ id: ETranslations.earn_stablecoins }),
         type: EAvailableAssetsTypeEnum.StableCoins,

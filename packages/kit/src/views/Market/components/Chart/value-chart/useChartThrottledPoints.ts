@@ -22,7 +22,6 @@ const traverseData = (prev: IAnimatedChartData, data: IMarketTokenChart) => {
     return prev;
   }
 
-  
   // oxlint-disable-next-line @cspell/spellchecker
   // some data only has one point like "frapped usdt"
   if (data.length === 1) {

@@ -1,4 +1,3 @@
-
 // oxlint-disable-next-line @cspell/spellchecker
 
 export type IHyperLiquidEIP712Domain = {

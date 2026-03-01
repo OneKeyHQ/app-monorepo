@@ -110,7 +110,6 @@ function UrlAccountAutoCreate({ redirectMode }: { redirectMode?: boolean }) {
         }
       };
 
-      
       // oxlint-disable-next-line @cspell/spellchecker
       // not full url like: /0x63ac73816EeB38514DaE6c46008baf55f1c59C9e
       if (!routeAddress && networkId) {

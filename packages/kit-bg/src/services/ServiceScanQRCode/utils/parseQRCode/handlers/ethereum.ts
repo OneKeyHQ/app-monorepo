@@ -6,10 +6,8 @@ import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
 
 import type { IEthereumValue, IQRCodeHandler } from '../type';
 
-
 // oxlint-disable-next-line @cspell/spellchecker
 // ethereum:0x3dD3DfaAdA4d6765Ae19b8964E2BAC0139eeCb40@1?value=1e8
-
 
 // oxlint-disable-next-line @cspell/spellchecker
 // ethereum:0x3dD3DfaAdA4d6765Ae19b8964E2BAC0139eeCb40@1/transfer?address=0x178e3e6c9f547A00E33150F7104427ea02cfc747&uint256=1e8

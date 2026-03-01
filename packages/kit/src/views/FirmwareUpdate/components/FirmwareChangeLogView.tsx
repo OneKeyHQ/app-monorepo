@@ -253,7 +253,6 @@ export function FirmwareChangeFirmwareWarn({
 
   tips.push({
     content: intl.formatMessage({
-      
       // oxlint-disable-next-line @cspell/spellchecker
       id: ETranslations.device_wipe_data_bannner,
     }),

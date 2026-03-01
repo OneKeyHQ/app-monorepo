@@ -46,7 +46,6 @@ export type IDecodedTxExtraLightning = {
 //   isTestnet: boolean;
 // };
 
-
 // oxlint-disable-next-line @cspell/spellchecker
 // export type ILightningHWSIgnatureParams = {
 //   msgPayload: UnionMsgType;

@@ -151,15 +151,13 @@ function FinalizeWalletSetupPage({
   const isProcessing = useRef(false);
 
   const animatedProps = useAnimatedProps(() => {
-    
     // oxlint-disable-next-line @cspell/spellchecker
     const strokeDashoffset = pathLength * (1 - progress.value);
 
     return {
-      
       // oxlint-disable-next-line @cspell/spellchecker
       strokeDashoffset,
-      
+
       // oxlint-disable-next-line @cspell/spellchecker
       strokeDasharray: pathLength,
     };

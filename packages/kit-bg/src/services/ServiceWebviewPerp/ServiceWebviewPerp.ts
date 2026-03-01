@@ -557,7 +557,7 @@ class ServiceWebviewPerp extends ServiceBase {
   }: {
     request: IJsBridgeMessagePayload;
     userAddress: string;
-    
+
     // oxlint-disable-next-line @cspell/spellchecker
     chainId: string; // 0xa4b1 Arbitrum hex chainId
     skipApproveAction?: boolean;
