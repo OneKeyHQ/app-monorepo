@@ -95,7 +95,7 @@ export function useMemoryPressureHandler() {
               // Reload the webview
               if (typeof electronWebview.reload === 'function') {
                 electronWebview.reload();
-                reloadedCount++;
+                reloadedCount += 1;
               }
 
               console.log(`[Memory Pressure] Reloaded tab: ${tab.id}`);
