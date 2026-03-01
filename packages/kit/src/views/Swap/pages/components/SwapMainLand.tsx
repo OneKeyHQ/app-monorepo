@@ -124,7 +124,6 @@ import SwapHeaderContainer from './SwapHeaderContainer';
 import SwapOldSwapBridgeLimitContainer from './SwapOldSwapBridgeLimitContainer';
 import SwapProContainer from './SwapProContainer';
 import SwapSwapMbContainer from './SwapSwapMbContainer';
-import SwapTipsContainer from './SwapTipsContainer';
 
 import type { ScrollView as ScrollViewNative } from 'react-native';
 
@@ -1175,6 +1174,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
       return (
         <SwapSwapMbContainer
           pageType={pageType ?? EPageType.modal}
+          swapTipsPageType={pageType}
           onSelectToken={onSelectToken}
           fetchLoading={fetchLoading}
           onSelectPercentageStage={onSelectPercentageStage}
@@ -1199,6 +1199,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     return (
       <SwapBridgeMdContainer
         pageType={pageType ?? EPageType.modal}
+        swapTipsPageType={pageType}
         onSelectToken={onSelectToken}
         fetchLoading={fetchLoading}
         onSelectPercentageStage={onSelectPercentageStage}
@@ -1271,7 +1272,6 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
 
   return (
     <>
-      <SwapTipsContainer pageType={pageType} />
       <Page.Container flex={1} layout={containerLayout} padded={false}>
         <YStack
           testID="swap-content-container"
