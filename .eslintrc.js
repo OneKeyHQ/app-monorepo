@@ -179,6 +179,8 @@ const tsRules = {
   '@typescript-eslint/require-await': 'off',
   // force awaited promise call, explicit add `void` if don't want await
   '@typescript-eslint/no-floating-promises': ['error'],
+  '@typescript-eslint/no-unsafe-enum-comparison': 'off',
+  '@typescript-eslint/no-redundant-type-constituents': 'off',
   '@typescript-eslint/naming-convention': [
     'error',
     {

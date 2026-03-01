@@ -148,6 +148,7 @@
     "symbol-description": "error",
     "no-label-var": "error",
     "no-template-curly-in-string": "error",
+    "no-plusplus": "error",
     // Sort imports (migrated from ESLint)
     "sort-imports": [
       "error",
