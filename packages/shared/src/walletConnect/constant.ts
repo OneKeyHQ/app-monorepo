@@ -94,7 +94,7 @@ export const implToNamespaceMap: {
 export const caipsToNetworkMap: Record<string, ICaipsInfo[]> = {
   // solana: [
   //   {
-  // eslint-disable-next-line @cspell/spellchecker
+  
   // oxlint-disable-next-line @cspell/spellchecker
   //     caipsChainId: '4sGjMW1sUnHzSxGspuhpqLDx6wiyjNtZ',
   //     networkId: 'sol--101',
@@ -102,7 +102,7 @@ export const caipsToNetworkMap: Record<string, ICaipsInfo[]> = {
   //     namespace: 'solana',
   //   },
   //   {
-  // eslint-disable-next-line @cspell/spellchecker
+  
   // oxlint-disable-next-line @cspell/spellchecker
   //     caipsChainId: '8E9rvCKLFQia2Y35HXjjpWzj8weVo44K',
   //     networkId: 'sol--103',
