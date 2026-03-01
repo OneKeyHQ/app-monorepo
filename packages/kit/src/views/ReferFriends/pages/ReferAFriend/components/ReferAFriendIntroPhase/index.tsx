@@ -28,7 +28,7 @@ export function ReferAFriendIntroPhase({
           id: ETranslations.referral_intro_p1_desc_bullet1,
         },
         {
-          amount: `${postConfig.commissionRate.amount}${postConfig.commissionRate.unit}`,
+          amount: `${postConfig.commissionRate?.amount ?? ''}${postConfig.commissionRate?.unit ?? ''}`,
         },
       ),
     },
@@ -39,7 +39,7 @@ export function ReferAFriendIntroPhase({
           id: ETranslations.referral_intro_p1_desc_bullet2,
         },
         {
-          amount: `${postConfig.friendDiscount.unit}${postConfig.friendDiscount.amount}`,
+          amount: `${postConfig.friendDiscount?.unit ?? ''}${postConfig.friendDiscount?.amount ?? ''}`,
         },
       ),
     },
@@ -63,7 +63,7 @@ export function ReferAFriendIntroPhase({
                   size="$heading2xl"
                   color="$textSuccess"
                 >
-                  {`${postConfig.referralReward.unit}${postConfig.referralReward.amount}`}
+                  {`${postConfig.referralReward?.unit ?? ''}${postConfig.referralReward?.amount ?? ''}`}
                 </SizableText>
               ),
             },

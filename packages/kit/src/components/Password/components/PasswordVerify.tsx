@@ -303,10 +303,9 @@ function PasswordVerify({
               <Input
                 selectTextOnFocus
                 size="large"
-                editable={Boolean(
-                  status.value !== EPasswordVerifyStatus.VERIFYING &&
-                  !disableInput,
-                )}
+                editable={
+                  status.value !== EPasswordVerifyStatus.VERIFYING
+                }
                 placeholder={intl.formatMessage({
                   id: ETranslations.auth_enter_your_passcode,
                 })}
@@ -318,7 +317,7 @@ function PasswordVerify({
                 // fix Keyboard Flickering on TextInput with secureTextEntry #39411
                 // https://github.com/facebook/react-native/issues/39411
                 textContentType="oneTimeCode"
-                onSubmitEditing={form.handleSubmit(onInputPasswordAuth)}
+                onSubmitEditing={confirmBtnDisabled ? undefined : form.handleSubmit(onInputPasswordAuth)}
                 addOns={rightActions}
                 testID="password-input"
               />
@@ -357,10 +356,9 @@ function PasswordVerify({
                     onPasswordChange(pin);
                   }
                 }}
-                editable={Boolean(
-                  status.value !== EPasswordVerifyStatus.VERIFYING &&
-                  !disableInput,
-                )}
+                editable={
+                  status.value !== EPasswordVerifyStatus.VERIFYING
+                }
                 onComplete={onPassCodeComplete}
                 clearCode={passCodeClear}
                 disabledComplete={confirmBtnDisabled}
