@@ -982,6 +982,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
               if (networkToAddress.length) {
                 for (const [mapNetworkId, mapAddress] of networkToAddress) {
                   await v4dbHubs.logger.runAsyncWithCatch(
+                    // oxlint-disable-next-line no-loop-func
                     async () => {
                       // if (
                       //   mapAddress ===
@@ -1476,6 +1477,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
             }),
           });
           await v4dbHubs.logger.runAsyncWithCatch(
+            // oxlint-disable-next-line no-loop-func
             async () => {
               await this.fixV4AccountMissingFields({ v4account });
 

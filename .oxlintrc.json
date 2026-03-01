@@ -116,7 +116,8 @@
     "prefer-const": "warn",
     "prefer-template": "warn",
     "no-empty": "error",
-    "no-empty-function": "warn",
+    // Disabled: 249 intentional empty functions (context defaults, platform stubs, event placeholders)
+    "no-empty-function": "off",
     "no-throw-literal": "error",
     "no-param-reassign": "error",
     "no-return-assign": "error",

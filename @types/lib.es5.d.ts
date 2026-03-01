@@ -16,6 +16,7 @@
 type IFalsy = false | 0 | '' | null | undefined;
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
+// oxlint-disable-next-line no-redeclare -- augmenting built-in Array type
 interface Array<T> {
   /**
    * Returns the elements of an array that meet the condition specified in a callback function.

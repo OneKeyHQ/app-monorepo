@@ -24,14 +24,15 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type {
-  EChainSelectorPages,
-  IChainSelectorParamList,
+import {
+  type EChainSelectorPages,
+  EChainSelectorPages as EChainSelectorPagesEnum,
+  type IChainSelectorParamList,
 } from '@onekeyhq/shared/src/routes';
-import { EChainSelectorPages as EChainSelectorPagesEnum } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { isEnabledNetworksInAllNetworks } from '@onekeyhq/shared/src/utils/networkUtils';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import networkUtils, {
+  isEnabledNetworksInAllNetworks,
+} from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 

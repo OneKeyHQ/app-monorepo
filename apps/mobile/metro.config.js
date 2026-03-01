@@ -40,6 +40,7 @@ if (process.env.RN_HARNESS === 'true') {
   config.server.rewriteRequestUrl = (url) => {
     // Handle Expo virtual entry first (before the general rewrite)
     if (url.includes('/.expo/.virtual-metro-entry.bundle')) {
+      // oxlint-disable-next-line no-param-reassign
       url = url.replace(
         '/.expo/.virtual-metro-entry',
         '/apps/mobile/harness-entry',
@@ -55,6 +56,7 @@ if (process.env.RN_HARNESS === 'true') {
     const bundleMatch = url.match(/^(\/[^?]*\.bundle)(.*)/);
     if (bundleMatch) {
       const normalized = path.posix.normalize('/apps/mobile' + bundleMatch[1]);
+      // oxlint-disable-next-line no-param-reassign
       url = normalized + bundleMatch[2];
     }
     return expoRewrite(url);
@@ -174,7 +176,9 @@ if (process.env.RN_HARNESS === 'true') {
       try {
         const filePath = require.resolve(moduleName);
         return { type: 'sourceFile', filePath };
-      } catch {}
+      } catch {
+        // noop
+      }
     }
     return prevResolveRequest(context, moduleName, platform);
   };

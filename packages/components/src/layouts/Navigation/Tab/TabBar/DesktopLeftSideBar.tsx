@@ -12,8 +12,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components/src/primitives';
-import { TMPopover } from '@onekeyhq/components/src/shared/tamagui';
-import { useTheme } from '@onekeyhq/components/src/shared/tamagui';
+import { TMPopover, useTheme } from '@onekeyhq/components/src/shared/tamagui';
 import { MIN_SIDEBAR_WIDTH } from '@onekeyhq/components/src/utils/sidebar';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';

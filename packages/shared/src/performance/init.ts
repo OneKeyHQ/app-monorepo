@@ -29,6 +29,7 @@ export function debugLandingLog(label: string, extra?: string) {
   console.log(`[LANDING_DEBUG] ${label}${suffix}, +${elapsed}ms`);
 }
 
+// oxlint-disable-next-line import/first
 import { isPerfMonitorEnabled } from './enabled';
 
 if (isPerfMonitorEnabled()) {

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 import {
   Keyboard,
+  type LayoutChangeEvent,
   type ScrollView as RNScrollView,
   TextInput as RNTextInput,
   type View as RNView,
@@ -33,8 +34,6 @@ import type { IAddressBadge } from '@onekeyhq/shared/types/address';
 import { EInputAddressChangeType } from '@onekeyhq/shared/types/address';
 
 import { showUploadCSVDialog } from '../UploadCSVDialog';
-
-import type { LayoutChangeEvent } from 'react-native';
 
 export type ILineError = {
   lineNumber: number;

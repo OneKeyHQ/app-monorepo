@@ -1804,7 +1804,7 @@ class ServiceStaking extends ServiceBase {
       }
     }
 
-    throw lastError; // Throw last error after all retries fail
+    throw lastError instanceof Error ? lastError : new Error(String(lastError)); // Throw last error after all retries fail
   }
 
   @backgroundMethod()
