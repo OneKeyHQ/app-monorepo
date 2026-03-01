@@ -158,7 +158,7 @@ function processAllFiles() {
     removePerformanceTracking(file);
   });
 
-  console.log('\n' + '='.repeat(60));
+  console.log(`\n${'='.repeat(60)}`);
   console.log('Summary:');
   console.log(`  Processed: ${stats.processed}`);
   console.log(`  Ready files deleted: ${stats.readyFilesDeleted}`);

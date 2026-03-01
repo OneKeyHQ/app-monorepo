@@ -76,7 +76,7 @@ export class ClientCosmos {
     const rawLog = resp.data.tx_response.raw_log;
     const { code } = resp.data.tx_response;
 
-    if (code != null && code !== 0) {
+    if (code !== null && code !== undefined && code !== 0) {
       throw new OneKeyError(rawLog);
     }
 

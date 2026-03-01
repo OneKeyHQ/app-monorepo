@@ -164,7 +164,7 @@ function htmlImageToCanvas({
   canvas.width = width;
 
   const ctx = canvas.getContext('2d');
-  if (ctx == null) {
+  if (ctx === null || ctx === undefined) {
     throw new OneKeyLocalError('2D context is null');
   }
 

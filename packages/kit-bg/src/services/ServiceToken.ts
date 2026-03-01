@@ -153,6 +153,7 @@ class ServiceToken extends ServiceBase {
         getAccountAddressFn: async () => accountAddress,
       });
 
+    /* oxlint-disable prefer-const */
     let [
       customTokens,
       hiddenTokens,
@@ -198,6 +199,7 @@ class ServiceToken extends ServiceBase {
       }),
       this.backgroundApi.serviceToken.getAllAggregateTokenInfo(),
     ]);
+    /* oxlint-enable prefer-const */
 
     if (aggregateCustomTokens?.length > 0) {
       aggregateCustomTokens.forEach((t) => {

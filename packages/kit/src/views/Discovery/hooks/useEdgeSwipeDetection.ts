@@ -76,7 +76,7 @@ export function useEdgeSwipeDetection({
 
     // Check if touch started near screen edge
     const edgeW = screenEdgeWidthRef.current;
-    if (edgeW != null) {
+    if (edgeW !== null && edgeW !== undefined) {
       const screenWidth = Dimensions.get('window').width;
       isNearEdge.current = pageX < edgeW || pageX > screenWidth - edgeW;
     } else {

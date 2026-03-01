@@ -397,6 +397,7 @@ class ServiceHardwareUI extends ServiceBase {
   async closeHardwareUiStateDialogFn(
     params: ICloseHardwareUiStateDialogParams,
   ) {
+    /* oxlint-disable prefer-const */
     let {
       skipDeviceCancel = true,
       delay,
@@ -406,6 +407,7 @@ class ServiceHardwareUI extends ServiceBase {
       deviceResetToHome = true,
       hardClose,
     } = params;
+    /* oxlint-enable prefer-const */
 
     try {
       if (!connectId && walletId) {

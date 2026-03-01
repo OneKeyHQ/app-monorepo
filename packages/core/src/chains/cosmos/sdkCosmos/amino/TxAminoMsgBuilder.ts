@@ -56,7 +56,7 @@ export function makeMsgSend(
 function removeNull(obj: any): any {
   if (obj !== null && typeof obj === 'object') {
     return Object.entries(obj)
-      .filter(([, v]) => v != null)
+      .filter(([, v]) => v !== null && v !== undefined)
       .reduce(
         (acc, [k, v]) => ({
           ...acc,

@@ -253,7 +253,7 @@ describe('Credential Edge Cases', () => {
 
     it('should handle private key with 0x prefix', async () => {
       const credential: ICoreImportedCredential = {
-        privateKey: '0x' + '0a'.repeat(32),
+        privateKey: `0x${'0a'.repeat(32)}`,
       };
       const encrypted = await encryptImportedCredential({
         credential,
@@ -340,7 +340,7 @@ describe('Credential Edge Cases', () => {
 
       await expect(
         decryptImportedCredential({
-          credential: '|PK|' + truncated,
+          credential: `|PK|${truncated}`,
           password: TEST_PASSWORD,
         }),
       ).rejects.toThrow();
@@ -355,7 +355,7 @@ describe('Credential Edge Cases', () => {
         password: TEST_PASSWORD,
       });
 
-      const modified = encrypted.slice(0, 8) + 'XX' + encrypted.slice(10);
+      const modified = `${encrypted.slice(0, 8)}XX${encrypted.slice(10)}`;
 
       await expect(
         decryptImportedCredential({
@@ -374,7 +374,7 @@ describe('Credential Edge Cases', () => {
         password: TEST_PASSWORD,
       });
 
-      const wrongPrefix = '|XX|' + encrypted.slice(4);
+      const wrongPrefix = `|XX|${encrypted.slice(4)}`;
 
       await expect(
         decryptImportedCredential({

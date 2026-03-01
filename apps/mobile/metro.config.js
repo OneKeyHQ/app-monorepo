@@ -55,7 +55,7 @@ if (process.env.RN_HARNESS === 'true') {
     //   /../../packages/core/x.bundle -> /packages/core/x.bundle
     const bundleMatch = url.match(/^(\/[^?]*\.bundle)(.*)/);
     if (bundleMatch) {
-      const normalized = path.posix.normalize('/apps/mobile' + bundleMatch[1]);
+      const normalized = path.posix.normalize(`/apps/mobile${bundleMatch[1]}`);
       // oxlint-disable-next-line no-param-reassign
       url = normalized + bundleMatch[2];
     }

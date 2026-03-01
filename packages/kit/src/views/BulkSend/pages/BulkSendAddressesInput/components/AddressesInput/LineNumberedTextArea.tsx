@@ -256,10 +256,18 @@ function LineNumberedTextArea({
     }
 
     // If keyboard is already shown (switching between inputs), trigger outer scroll
-    if (platformEnv.isNativeIOS && lastKeyboardScreenYRef.current != null) {
+    if (
+      platformEnv.isNativeIOS &&
+      lastKeyboardScreenYRef.current !== null &&
+      lastKeyboardScreenYRef.current !== undefined
+    ) {
       const keyboardY = lastKeyboardScreenYRef.current;
       setTimeout(() => {
-        if (isFocusedRef.current && keyboardY != null) {
+        if (
+          isFocusedRef.current &&
+          keyboardY !== null &&
+          keyboardY !== undefined
+        ) {
           scrollOuterToShowComponent(keyboardY);
         }
       }, 100);

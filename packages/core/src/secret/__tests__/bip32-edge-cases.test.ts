@@ -325,7 +325,7 @@ describe('BIP32 Edge Cases', () => {
     it('should produce master key < secp256k1 order', () => {
       const seed = Buffer.from('000102030405060708090a0b0c0d0e0f', 'hex');
       const master = deriver.generateMasterKeyFromSeed(seed);
-      const keyBN = BigInt('0x' + master.key.toString('hex'));
+      const keyBN = BigInt(`0x${master.key.toString('hex')}`);
       const order = BigInt(
         '0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141',
       );

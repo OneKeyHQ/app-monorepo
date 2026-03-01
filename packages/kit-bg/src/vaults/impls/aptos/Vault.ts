@@ -673,11 +673,13 @@ export default class VaultAptos extends VaultBase {
       .shiftedBy(common.feeDecimals)
       .toFixed();
 
+    /* oxlint-disable prefer-const */
     let {
       bcsTxn,
       disableEditTx,
       max_gas_amount: maxGasAmount,
     } = params.encodedTx;
+    /* oxlint-enable prefer-const */
     // Standard wallet dApp interface not edit fee
     if (!disableEditTx && !isNil(bcsTxn) && !isEmpty(bcsTxn)) {
       const deserializer = new Deserializer(bufferUtils.hexToBytes(bcsTxn));
