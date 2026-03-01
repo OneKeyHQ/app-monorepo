@@ -2,6 +2,7 @@ import BigNumber from 'bignumber.js';
 import { omit } from 'lodash';
 
 import { isTaprootAddress } from '@onekeyhq/core/src/chains/btc/sdkBtc';
+import { pendleFlowConfig } from '../vaults/impls/evm/settings';
 import type { IAxiosResponse } from '@onekeyhq/shared/src/appApiClient/appApiClient';
 import {
   backgroundClass,
@@ -1405,28 +1406,19 @@ class ServiceStaking extends ServiceBase {
       return null;
     }
 
+    // Pendle is vault-based with a backend-driven symbol set.
+    // All Pendle symbols share the same flow config, no per-token lookup needed.
+    if (earnUtils.isPendleProvider({ providerName: provider })) {
+      return pendleFlowConfig;
+    }
+
     const tokenSymbol = symbol as ISupportedSymbol;
     const isProviderSupportedSymbol =
       providerConfig.supportedSymbols.includes(tokenSymbol);
     const configuredFlow = isProviderSupportedSymbol
       ? providerConfig.configs[tokenSymbol]
       : undefined;
-    if (configuredFlow) {
-      return configuredFlow;
-    }
-
-    // Pendle is vault (PT market) driven, symbol set is backend-driven and
-    // may not have one-by-one local tokenAddress configs.
-    if (earnUtils.isPendleProvider({ providerName: provider })) {
-      const fallbackConfig = Object.values(providerConfig.configs).find(
-        (config) => config?.enabled,
-      );
-      if (fallbackConfig) {
-        return fallbackConfig;
-      }
-    }
-
-    return null;
+    return configuredFlow ?? null;
   }
 
   @backgroundMethod()
