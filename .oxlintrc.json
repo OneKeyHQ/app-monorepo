@@ -149,6 +149,7 @@
     "no-label-var": "error",
     "no-template-curly-in-string": "error",
     "no-plusplus": "error",
+    "no-nested-ternary": "error",
     // Sort imports (migrated from ESLint)
     "sort-imports": [
       "error",
