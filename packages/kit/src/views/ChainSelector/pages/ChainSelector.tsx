@@ -1,20 +1,19 @@
-import { useIntl } from 'react-intl';
-
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { SEPERATOR } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EChainSelectorPages,
   IChainSelectorParamList,
 } from '@onekeyhq/shared/src/routes';
-import type { IServerNetwork } from '@onekeyhq/shared/types';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { PureChainSelector } from '../components/PureChainSelector';
-import { SEPERATOR } from '@onekeyhq/shared/src/engine/engineConsts';
 
 export default function ChainSelectorPage({
   route,

@@ -28,6 +28,7 @@ require('crypto');
 // This prevents "Passing raw password is not allowed" errors in tests
 // and disables intl formatting fallbacks that change error messages.
 const platformEnv = require('@onekeyhq/shared/src/platformEnv');
+
 const platformEnvObj = platformEnv?.default ?? platformEnv;
 if (platformEnvObj && typeof platformEnvObj === 'object') {
   platformEnvObj.isJest = true;
@@ -58,6 +59,7 @@ if (platformEnvObj && typeof platformEnvObj === 'object') {
     // breaking @solana/web3.js and other libraries that use { fatal: true }.
     const WrappedTD = class TextDecoder {
       _inner: any;
+
       constructor(
         label?: string,
         options?: { fatal?: boolean; ignoreBOM?: boolean },
@@ -67,18 +69,22 @@ if (platformEnvObj && typeof platformEnvObj === 'object') {
           : undefined;
         this._inner = new NativeTD(label, safeOptions);
       }
+
       decode(
         input?: ArrayBufferView | ArrayBuffer,
         options?: { stream?: boolean },
       ): string {
         return this._inner.decode(input, options);
       }
+
       get encoding(): string {
         return this._inner.encoding;
       }
+
       get fatal(): boolean {
         return false;
       }
+
       get ignoreBOM(): boolean {
         return this._inner.ignoreBOM ?? false;
       }

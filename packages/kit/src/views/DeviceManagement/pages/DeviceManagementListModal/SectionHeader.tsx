@@ -9,8 +9,8 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { useNavigateToPickYourDevicePage } from '@onekeyhq/kit/src/views/Onboarding/hooks/useToOnBoardingPage';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 function SectionHeader() {
   const intl = useIntl();

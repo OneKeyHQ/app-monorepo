@@ -11,8 +11,8 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EAmountInputMode,

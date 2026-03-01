@@ -222,7 +222,7 @@ export class TxProtoMsgBuilder implements ITxMsgBuilder {
     sender: string,
     contract: string,
     msg: object,
-    funds?: Coin[] | undefined,
+    funds?: Coin[],
   ) {
     const value = MsgExecuteContract.encode(
       MsgExecuteContract.fromPartial({

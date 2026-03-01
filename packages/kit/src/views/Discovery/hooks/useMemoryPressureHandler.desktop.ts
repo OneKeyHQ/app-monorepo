@@ -3,10 +3,11 @@ import { useEffect, useRef } from 'react';
 import { Toast } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import type { IWebTab } from '../types';
 import { webviewRefs } from '../utils/explorerUtils';
 
 import { useActiveTabId, useWebTabs } from './useWebTabs';
+
+import type { IWebTab } from '../types';
 
 /**
  * Desktop-only hook to handle memory pressure events from main process

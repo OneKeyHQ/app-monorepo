@@ -126,7 +126,7 @@ export class TxAminoMsgBuilder implements ITxMsgBuilder {
     sender: string,
     contract: string,
     msg: object,
-    funds?: Coin[] | undefined,
+    funds?: Coin[],
   ) {
     return {
       type: defaultAminoMsgOpts.executeWasm.type,

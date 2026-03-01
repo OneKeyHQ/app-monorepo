@@ -1,13 +1,14 @@
-import { useDatePickerContext } from '@rehookify/datepicker';
 import { useCallback, useMemo, useState } from 'react';
+
+import { useDatePickerContext } from '@rehookify/datepicker';
 
 import { YStack } from '../../primitives';
 
 import { CalendarHeader } from './CalendarHeader';
 import { DayGrid } from './DayGrid';
 import { MonthGrid } from './MonthGrid';
-import { YearGrid, YearRangeHeader } from './YearGrid';
 import { callOnClick } from './utils';
+import { YearGrid, YearRangeHeader } from './YearGrid';
 
 import type { DatePickerMode } from './type';
 
@@ -103,8 +104,8 @@ export function CalendarPanel({
           year={cal.year}
           onPrevMonth={showPrevNav ? handlePrevMonth : undefined}
           onNextMonth={showNextNav ? handleNextMonth : undefined}
-          isPrevDisabled={showPrevNav && isPrevDisabled}
-          isNextDisabled={showNextNav && isNextDisabled}
+          isPrevDisabled={showPrevNav ? isPrevDisabled : null}
+          isNextDisabled={showNextNav ? isNextDisabled : null}
           onMonthClick={
             viewMode === 'day' && !isRangeDualPanel
               ? () => setViewMode('month')
@@ -117,25 +118,25 @@ export function CalendarPanel({
         />
       )}
 
-      {viewMode === 'day' && (
+      {viewMode === 'day' ? (
         <DayGrid
           calendarIndex={calendarIndex}
           hideOutOfMonth={false}
           fullWidth={mode === 'range'}
         />
-      )}
-      {viewMode === 'month' && (
+      ) : null}
+      {viewMode === 'month' ? (
         <MonthGrid
           onSelect={() => setViewMode('day')}
           onMonthSelect={onMonthSelect}
         />
-      )}
-      {viewMode === 'year' && (
+      ) : null}
+      {viewMode === 'year' ? (
         <YearGrid
           onSelect={() => setViewMode('month')}
           onYearSelect={onYearSelect}
         />
-      )}
+      ) : null}
     </YStack>
   );
 }

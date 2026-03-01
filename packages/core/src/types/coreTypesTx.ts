@@ -56,13 +56,9 @@ export type IEncodedTx =
   | IEncodedTxNostr
   | IEncodedTxDot
   | IEncodedTxDnx
-  | IEncodedTxNostr
-  | IEncodedTxAlgo
   | IEncodedTxGroupAlgo
   | IEncodedTxCkb
-  | IEncodedTxNear
   | IEncodedTxNeoN3
-  | IEncodedTxScdo
   | IEncodedTxStellar;
 //   | IEncodedTxBtc
 //   | IEncodedTxDot

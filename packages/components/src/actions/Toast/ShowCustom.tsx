@@ -17,6 +17,7 @@ import { Toast, ToastViewport } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useSafeAreaInsets } from '../../hooks/useLayout';
+import { usePageWidth } from '../../hooks/usePage';
 import { useOverlayZIndex } from '../../hooks/useStyle';
 import { Stack, ThemeableStack } from '../../primitives';
 import { Trigger } from '../Trigger';
@@ -24,7 +25,6 @@ import { Trigger } from '../Trigger';
 import type { GestureResponderEvent } from 'react-native';
 
 // eslint-disable-next-line import/no-cycle
-import { usePageWidth } from '../../hooks/usePage';
 
 export type IShowToasterProps = PropsWithChildren<{
   onClose?: (extra?: { flag?: string }) => Promise<void> | void;

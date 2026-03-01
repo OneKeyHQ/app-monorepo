@@ -16,9 +16,9 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IInputAddOnProps } from '@onekeyhq/components/src/forms/Input/InputAddOnItem';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
@@ -443,7 +443,9 @@ function BulkSendTxDetails(props: IProps) {
             editMode={Boolean(editMode && canEditSender)}
             deleteDisabled={isDeleteDisabled}
             indices={sender.indices}
-            canDelete={!!onDeleteTransfer && canEditSender && !isDeleteDisabled}
+            canDelete={
+              !!onDeleteTransfer && canEditSender ? !isDeleteDisabled : null
+            }
             onDeleteTransfers={handleDeleteTransfers}
             onAmountChangeByIndex={handleAmountChange}
           />
@@ -474,7 +476,7 @@ function BulkSendTxDetails(props: IProps) {
             deleteDisabled={isDeleteDisabled}
             indices={receiver.indices}
             canDelete={
-              !!onDeleteTransfer && canEditReceiver && !isDeleteDisabled
+              !!onDeleteTransfer && canEditReceiver ? !isDeleteDisabled : null
             }
             onDeleteTransfers={handleDeleteTransfers}
             onAmountChangeByIndex={handleAmountChange}

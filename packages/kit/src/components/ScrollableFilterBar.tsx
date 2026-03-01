@@ -8,20 +8,19 @@ import {
   useRef,
   useState,
 } from 'react';
-
 import type { ReactNode } from 'react';
 
 import { ScrollView } from 'react-native';
 
 import { GradientMask, Stack, XStack, useStyle } from '@onekeyhq/components';
 
-import type { SpaceTokens } from 'tamagui';
 import type {
   LayoutChangeEvent,
   NativeScrollEvent,
   NativeSyntheticEvent,
   ScrollView as ScrollViewType,
 } from 'react-native';
+import type { SpaceTokens } from 'tamagui';
 
 // ---------------------------------------------------------------------------
 //  Context – lets children register their layout so the bar can scroll to them

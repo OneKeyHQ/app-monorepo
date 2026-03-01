@@ -14,13 +14,14 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { MarketFilterBarSmall } from '../MarketFilterBarSmall';
+
 import { TokenListItem } from './components/TokenListItem';
 import { TokenListSkeleton } from './components/TokenListSkeleton';
 import { useMarketTokenList } from './hooks/useMarketTokenList';
 import { useToDetailPage } from './hooks/useToMarketDetailPage';
-import type { IMarketToken } from './MarketTokenData';
 
-import type { ITimeRangeSelectorValue } from '../../components/TimeRangeSelector';
+import type { IMarketToken } from './MarketTokenData';
+import type { ITimeRangeSelectorValue } from '../TimeRangeSelector';
 import type { FlatListProps } from 'react-native';
 
 interface IMobileMarketTokenFlatListProps {

@@ -7,9 +7,8 @@ import {
   useState,
 } from 'react';
 
-import { useIntl } from 'react-intl';
-
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
 import {
   Empty,

@@ -1,9 +1,9 @@
 import { createAnimations } from '@tamagui/animations-moti';
-import { Easing } from 'react-native-reanimated';
 import { createMedia } from '@tamagui/react-native-media-driver';
 import { shorthands } from '@tamagui/shorthands';
 import { themes } from '@tamagui/themes';
 import { createFont, createTokens } from '@tamagui/web';
+import { Easing } from 'react-native-reanimated';
 import { createTamagui } from 'tamagui';
 
 import {

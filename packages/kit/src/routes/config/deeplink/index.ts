@@ -22,13 +22,13 @@ import {
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { urlAccountNavigation } from '../../../views/Home/pages/urlAccount/urlAccountUtils';
 import { marketNavigation } from '../../../views/Market/marketUtils';
 
 import { registerHandler } from './handler';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 type IDeepLinkUrlParsedResult = {
   type: 'walletConnect';

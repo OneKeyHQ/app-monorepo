@@ -7,8 +7,8 @@ import path from 'path';
 import { fileURLToPath, format as formatUrl } from 'url';
 import v8 from 'v8';
 
-import { initNobleBleSupport } from '@onekeyfe/hd-transport-electron';
 import { EOneKeyBleMessageKeys } from '@onekeyfe/hd-shared';
+import { initNobleBleSupport } from '@onekeyfe/hd-transport-electron';
 import {
   BrowserWindow,
   Menu,
@@ -46,8 +46,10 @@ import {
 } from './bundle';
 import { ipcMessageKeys } from './config';
 import { ElectronTranslations, i18nText, initLocale } from './i18n';
+import { scheduleCrashDumpCleanup } from './libs/crashDumpCleanup';
 import { registerShortcuts, unregisterShortcuts } from './libs/shortcuts';
 import * as store from './libs/store';
+import { getBackgroundColor } from './libs/utils';
 import initProcess from './process';
 import {
   getAppStaticResourcesPath,
@@ -57,8 +59,6 @@ import {
 import { initSentry } from './sentry';
 import { startServices } from './service';
 import { setMainWindowForOAuthServer } from './service/oauthLocalServer/oauthLocalServer';
-import { scheduleCrashDumpCleanup } from './libs/crashDumpCleanup';
-import { getBackgroundColor } from './libs/utils';
 
 logger.initialize();
 logger.transports.file.maxSize = 1024 * 1024 * 10;

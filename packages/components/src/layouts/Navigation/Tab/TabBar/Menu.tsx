@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+
 import { createPortal } from 'react-dom';
 
+import { useThemeName } from '@onekeyhq/components/src/hooks';
+import { Icon } from '@onekeyhq/components/src/primitives';
 import type {
   IMenu,
   IMenuItem,
 } from '@onekeyhq/kit-bg/src/desktopApis/DesktopApiSystem';
-
-import { Icon } from '@onekeyhq/components/src/primitives';
-import { useThemeName } from '@onekeyhq/components/src/hooks';
 
 function MenuItemComponent({
   item,
@@ -238,7 +238,7 @@ export function Menu() {
             </div>
             <MenuDropdown
               items={menuItem.submenu.items}
-              isOpen={isOpen && activeMenuIndex === index}
+              isOpen={isOpen ? activeMenuIndex === index : null}
               onClose={handleClose}
             />
           </div>

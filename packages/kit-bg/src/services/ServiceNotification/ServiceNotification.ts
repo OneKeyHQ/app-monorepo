@@ -1295,7 +1295,7 @@ export default class ServiceNotification extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   async fetchMessageList(
-    topicTypes?: ENotificationPushTopicTypes[] | undefined,
+    topicTypes?: ENotificationPushTopicTypes[],
   ): Promise<INotificationPushMessageListItem[]> {
     const client = await this.getClient(EServiceEndpointEnum.Notification);
     const result = await client.post<

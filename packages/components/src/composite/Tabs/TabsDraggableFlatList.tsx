@@ -1,8 +1,5 @@
 import React from 'react';
-import type { FlatList as RNFlatList } from 'react-native';
 
-import DraggableFlatList from 'react-native-draggable-flatlist';
-import type { DraggableFlatListProps } from 'react-native-draggable-flatlist';
 import {
   useAfterMountEffect,
   useChainCallback,
@@ -13,6 +10,10 @@ import {
   useTabsContext,
   useUpdateScrollViewContentSize,
 } from 'react-native-collapsible-tab-view/lib/module/hooks';
+import DraggableFlatList from 'react-native-draggable-flatlist';
+
+import type { FlatList as RNFlatList } from 'react-native';
+import type { DraggableFlatListProps } from 'react-native-draggable-flatlist';
 
 function TabsDraggableFlatListImpl<T>(
   {
@@ -30,6 +31,7 @@ function TabsDraggableFlatListImpl<T>(
   const { scrollHandler, enable } = useScrollHandlerY(name);
   const onLayout = useAfterMountEffect(rest.onLayout, () => {
     'worklet';
+
     enable(true);
   });
 

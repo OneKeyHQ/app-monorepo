@@ -13,8 +13,15 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { PagerView } from '@onekeyhq/components/src/composite/Carousel/pager';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useAccountSelectorCreateAddress } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorCreateAddress';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import {
+  useAccountSelectorActions,
+  useActiveAccount,
+} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
@@ -36,19 +43,12 @@ import networkUtils, {
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import {
-  useAccountSelectorActions,
-  useActiveAccount,
-} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { NetworkContent } from './NetworkContent';
 import PortfolioContent from './PortfolioContent';
 import { TabSwitcher } from './TabSwitcher';
 
-import type { IServerNetworkMatch } from '../../types';
 import type { ITabType } from './TabSwitcher';
+import type { IServerNetworkMatch } from '../../types';
 import type { RouteProp } from '@react-navigation/core';
 import type NativePagerView from 'react-native-pager-view';
 
@@ -701,7 +701,7 @@ function UnifiedNetworkSelector() {
           </Stack>
         )}
       </Page.Body>
-      {activeTab === 'portfolio' && (
+      {activeTab === 'portfolio' ? (
         <Page.Footer>
           <Stack
             p="$5"
@@ -747,7 +747,7 @@ function UnifiedNetworkSelector() {
             </Button>
           </Stack>
         </Page.Footer>
-      )}
+      ) : null}
     </Page>
   );
 }

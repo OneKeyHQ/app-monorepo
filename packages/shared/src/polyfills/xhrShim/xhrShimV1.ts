@@ -90,7 +90,7 @@ const XMLHttpRequestShim = class XMLHttpRequest extends Dispatch {
 
   [sErrored] = false;
 
-  [sTimeout]: ReturnType<typeof setTimeout> | number = 0;
+  [sTimeout]: ReturnType<typeof setTimeout> = 0;
 
   [sTimedOut] = false;
 
