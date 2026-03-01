@@ -1,19 +1,14 @@
-import { NativeModules } from 'react-native';
+import { ReactNativeDeviceUtils } from '@onekeyfe/react-native-device-utils';
 
 import platformEnv from '../../platformEnv';
 
 import type { ILaunchOptionsManagerInterface } from './type';
 
-const { LaunchOptionsManager } = NativeModules;
-
 const getStartupTimeAt = async () => {
-  if (LaunchOptionsManager && LaunchOptionsManager.getStartupTime) {
-    const startupTime = await LaunchOptionsManager.getStartupTime();
-    return Math.round(
-      platformEnv.isNativeIOS ? startupTime * 1000 : startupTime,
-    );
-  }
-  return Promise.resolve(0);
+  const startupTime = await ReactNativeDeviceUtils.getStartupTime();
+  return Math.round(
+    platformEnv.isNativeIOS ? startupTime * 1000 : startupTime,
+  );
 };
 
 const getJSReadyTimeAt = () => {
@@ -25,26 +20,13 @@ const getUIVisibleTimeAt = () => {
 };
 
 const LaunchOptionsManagerModule: ILaunchOptionsManagerInterface = {
-  getLaunchOptions: () => {
-    if (LaunchOptionsManager && LaunchOptionsManager.getLaunchOptions) {
-      return LaunchOptionsManager.getLaunchOptions();
-    }
-    return Promise.resolve(null);
-  },
-  clearLaunchOptions: () => {
-    if (LaunchOptionsManager && LaunchOptionsManager.clearLaunchOptions) {
-      return LaunchOptionsManager.clearLaunchOptions();
-    }
-    return Promise.resolve(true);
-  },
+  getLaunchOptions: () => ReactNativeDeviceUtils.getLaunchOptions(),
+  clearLaunchOptions: () => ReactNativeDeviceUtils.clearLaunchOptions(),
   getDeviceToken: () => {
     if (!platformEnv.isNativeIOS) {
       return Promise.resolve('');
     }
-    if (LaunchOptionsManager && LaunchOptionsManager.getDeviceToken) {
-      return LaunchOptionsManager.getDeviceToken();
-    }
-    return Promise.resolve(null);
+    return ReactNativeDeviceUtils.getDeviceToken();
   },
   getStartupTime: getStartupTimeAt,
   getStartupTimeAt,
@@ -91,10 +73,7 @@ const LaunchOptionsManagerModule: ILaunchOptionsManagerInterface = {
     if (!platformEnv.isNativeIOS) {
       return Promise.resolve(true);
     }
-    if (LaunchOptionsManager && LaunchOptionsManager.registerDeviceToken) {
-      return LaunchOptionsManager.registerDeviceToken();
-    }
-    return Promise.resolve(true);
+    return ReactNativeDeviceUtils.registerDeviceToken();
   },
 };
 

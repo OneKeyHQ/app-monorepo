@@ -10,9 +10,9 @@
 // We focus on local operations: SHA256, file manipulation, version logic, parameter validation.
 
 import { describe, expect, test } from 'react-native-harness';
-import { NativeModules, Platform } from 'react-native';
+import { Platform } from 'react-native';
 
-const BundleUpdateModule = NativeModules.BundleUpdateModule;
+import { ReactNativeBundleUpdate as BundleUpdateModule } from '@onekeyfe/react-native-bundle-update';
 
 // ---- Helpers ----
 

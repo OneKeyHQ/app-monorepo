@@ -1,6 +1,8 @@
 import Expo
 import React
 import ReactAppDependencyProvider
+import ReactNativeDeviceUtils
+import ReactNativeBundleUpdate
 
 @UIApplicationMain
 public class AppDelegate: ExpoAppDelegate {
@@ -13,7 +15,7 @@ public class AppDelegate: ExpoAppDelegate {
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
   ) -> Bool {
-    LaunchOptionsManager.sharedInstance().saveStartupTime(NSNumber(value: Date().timeIntervalSince1970))
+    DeviceUtilsStore.shared.saveStartupTime(Date().timeIntervalSince1970)
     let delegate = ReactNativeDelegate()
     let factory = ExpoReactNativeFactory(delegate: delegate)
     delegate.dependencyProvider = RCTAppDependencyProvider()
@@ -30,8 +32,8 @@ public class AppDelegate: ExpoAppDelegate {
       launchOptions: launchOptions)
 #endif
 
-    // Save launch options to LaunchOptionsManager
-    LaunchOptionsManager.sharedInstance().saveLaunchOptions(launchOptions)
+    // Save launch options to DeviceUtilsStore
+    DeviceUtilsStore.shared.saveLaunchOptions(launchOptions)
 
     // JPUSHService Register
     let entity = JPUSHRegisterEntity()
@@ -62,20 +64,20 @@ public class AppDelegate: ExpoAppDelegate {
   
   // Register APNS & Upload DeviceToken
   public override func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
-    LaunchOptionsManager.sharedInstance().log("didRegisterForRemoteNotificationsWithDeviceToken")
+    DeviceUtilsStore.shared.log("didRegisterForRemoteNotificationsWithDeviceToken")
     JPUSHService.registerDeviceToken(deviceToken)
-    LaunchOptionsManager.sharedInstance().saveDeviceToken(deviceToken)
+    DeviceUtilsStore.shared.saveDeviceToken(deviceToken)
   }
   
   // Explicitly define remote notification delegates to ensure compatibility with some third-party libraries
   public override func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: any Error) {
     super.application(application, didFailToRegisterForRemoteNotificationsWithError: error)
-    LaunchOptionsManager.sharedInstance().log("didFailToRegisterForRemoteNotificationsWithError error: \(error)")
+    DeviceUtilsStore.shared.log("didFailToRegisterForRemoteNotificationsWithError error: \(error)")
   }
   
   // Explicitly define remote notification delegates to ensure compatibility with some third-party libraries
   public override func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable : Any], fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
-    LaunchOptionsManager.sharedInstance().log("didReceiveRemoteNotification")
+    DeviceUtilsStore.shared.log("didReceiveRemoteNotification")
     JPUSHService.handleRemoteNotification(userInfo)
     NotificationCenter.default.post(name: NSNotification.Name(J_APNS_NOTIFICATION_ARRIVED_EVENT), object: userInfo)
     completionHandler(.newData)
@@ -95,7 +97,7 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
     return RCTBundleURLProvider.sharedSettings().jsBundleURL(forBundleRoot: ".expo/.virtual-metro-entry")
 #else
     // Check for updated bundle in Documents directory first
-    let bundlePath = BundleUpdateModule.currentBundleMainJSBundle()
+    let bundlePath = BundleUpdateStore.currentBundleMainJSBundle()
 
     if bundlePath != nil {
       return URL(string: bundlePath!)
@@ -117,10 +119,10 @@ extension AppDelegate:JPUSHRegisterDelegate {
     if (notification.request.trigger?.isKind(of: UNPushNotificationTrigger.self) == true) {
       JPUSHService.handleRemoteNotification(userInfo)
       NotificationCenter.default.post(name: NSNotification.Name(J_APNS_NOTIFICATION_ARRIVED_EVENT), object: userInfo)
-      LaunchOptionsManager.sharedInstance().log("received remote notification: \(userInfo)")
+      DeviceUtilsStore.shared.log("received remote notification: \(userInfo)")
     } else {
       NotificationCenter.default.post(name: NSNotification.Name(J_LOCAL_NOTIFICATION_ARRIVED_EVENT), object: userInfo)
-      LaunchOptionsManager.sharedInstance().log("received local notification: \(userInfo)")
+      DeviceUtilsStore.shared.log("received local notification: \(userInfo)")
     }
     
     completionHandler(Int(UNNotificationPresentationOptions.badge.rawValue | UNNotificationPresentationOptions.sound.rawValue | UNNotificationPresentationOptions.alert.rawValue))
@@ -133,9 +135,9 @@ extension AppDelegate:JPUSHRegisterDelegate {
     if (response.notification.request.trigger?.isKind(of: UNPushNotificationTrigger.self) == true) {
       JPUSHService.handleRemoteNotification(userInfo)
       NotificationCenter.default.post(name: NSNotification.Name(J_APNS_NOTIFICATION_OPENED_EVENT), object: userInfo)
-      LaunchOptionsManager.sharedInstance().log("clicked remote notification: \(userInfo)")
+      DeviceUtilsStore.shared.log("clicked remote notification: \(userInfo)")
     } else {
-      LaunchOptionsManager.sharedInstance().log("clicked local notification: \(userInfo)")
+      DeviceUtilsStore.shared.log("clicked local notification: \(userInfo)")
       NotificationCenter.default.post(name: NSNotification.Name(J_LOCAL_NOTIFICATION_OPENED_EVENT), object: userInfo)
     }
     
@@ -148,7 +150,7 @@ extension AppDelegate:JPUSHRegisterDelegate {
   }
   
   public func jpushNotificationAuthorization(_ status: JPAuthorizationStatus, withInfo info: [AnyHashable : Any]?) {
-    LaunchOptionsManager.sharedInstance().log("receive notification authorization status: \(status), info: \(String(describing: info))")
+    DeviceUtilsStore.shared.log("receive notification authorization status: \(status), info: \(String(describing: info))")
   }
   
   

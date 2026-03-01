@@ -1,14 +1,14 @@
-import { Linking, NativeModules } from 'react-native';
+import { Linking } from 'react-native';
+
+import { ReactNativeWebviewChecker } from '@onekeyfe/react-native-webview-checker';
 
 import type { IWebViewChecker } from './type';
 
-const { WebViewCheckerModule } = NativeModules;
-
 export const getCurrentWebViewPackageInfo: IWebViewChecker['getCurrentWebViewPackageInfo'] =
-  () => WebViewCheckerModule.getCurrentWebViewPackageInfo();
+  () => ReactNativeWebviewChecker.getCurrentWebViewPackageInfo();
 
 export const isGooglePlayServicesAvailable: IWebViewChecker['isGooglePlayServicesAvailable'] =
-  () => WebViewCheckerModule.isGooglePlayServicesAvailable();
+  () => ReactNativeWebviewChecker.isGooglePlayServicesAvailable();
 
 export const openWebViewInGooglePlay = () => {
   void Linking.openURL(

@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { NativeEventEmitter, NativeModules } from 'react-native';
 import RNRestart from 'react-native-restart';
 import { useThrottledCallback } from 'use-debounce';
 
+import { ReactNativeAppUpdate } from '@onekeyfe/react-native-app-update';
+import { ReactNativeBundleUpdate } from '@onekeyfe/react-native-bundle-update';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
@@ -21,18 +22,12 @@ import type {
   IVerifyASC,
   IVerifyPackage,
 } from './type';
-import type { NativeEventSubscription } from 'react-native';
 
 const DIR_PATH = `file://${RNFS?.CachesDirectoryPath || ''}/apk`;
 const buildFilePath = (version: string) => `${DIR_PATH}/${version}.apk`;
 
-const { AutoUpdateModule } = NativeModules;
-
 const clearPackage: IClearPackage = async () => {
-  if (!AutoUpdateModule) {
-    return;
-  }
-  await AutoUpdateModule.clearCache();
+  await ReactNativeAppUpdate.clearCache();
   if (!RNFS) {
     return;
   }
@@ -46,20 +41,16 @@ const downloadPackage: IDownloadPackage = async ({
   downloadUrl,
   latestVersion,
 }) => {
-  if (!AutoUpdateModule) {
-    return {
-      downloadedFile: '',
-    };
-  }
   await RNFS?.mkdir(DIR_PATH);
   if (!downloadUrl || !latestVersion) {
     throw new OneKeyLocalError('Invalid version or downloadUrl');
   }
   const filePath = buildFilePath(latestVersion);
-  await AutoUpdateModule.downloadAPK({
+  await ReactNativeAppUpdate.downloadAPK({
     downloadUrl,
     filePath,
     notificationTitle: 'Downloading',
+    fileSize: 0,
   });
   return {
     downloadedFile: filePath,
@@ -68,10 +59,10 @@ const downloadPackage: IDownloadPackage = async ({
 
 const downloadASC: IDownloadASC = async (params) => {
   const { downloadUrl, latestVersion } = params || {};
-  if (!AutoUpdateModule || !downloadUrl || !latestVersion) {
+  if (!downloadUrl || !latestVersion) {
     return;
   }
-  await AutoUpdateModule.downloadASC({
+  await ReactNativeAppUpdate.downloadASC({
     downloadUrl,
     filePath: buildFilePath(latestVersion),
   });
@@ -79,10 +70,10 @@ const downloadASC: IDownloadASC = async (params) => {
 
 const verifyASC: IVerifyASC = async (params) => {
   const { downloadUrl, latestVersion } = params || {};
-  if (!AutoUpdateModule || !downloadUrl || !latestVersion) {
+  if (!downloadUrl || !latestVersion) {
     return;
   }
-  await AutoUpdateModule.verifyASC({
+  await ReactNativeAppUpdate.verifyASC({
     downloadUrl,
     filePath: buildFilePath(latestVersion),
   });
@@ -90,10 +81,10 @@ const verifyASC: IVerifyASC = async (params) => {
 
 const verifyPackage: IVerifyPackage = async (params) => {
   const { downloadedFile, downloadUrl } = params || {};
-  if (!AutoUpdateModule || !downloadedFile || !downloadUrl) {
+  if (!downloadedFile || !downloadUrl) {
     return;
   }
-  await AutoUpdateModule.verifyAPK({
+  await ReactNativeAppUpdate.verifyAPK({
     filePath: downloadedFile || '',
     downloadUrl: downloadUrl || '',
   });
@@ -103,32 +94,15 @@ const installPackage: IInstallPackage = async ({
   latestVersion,
   downloadUrl,
 }) => {
-  if (!AutoUpdateModule) {
-    return;
-  }
   defaultLogger.update.app.log('install', latestVersion);
   if (!latestVersion) {
     return;
   }
-  return AutoUpdateModule.installAPK({
+  return ReactNativeAppUpdate.installAPK({
     filePath: buildFilePath(latestVersion),
     downloadUrl: downloadUrl || '',
   });
 };
-
-let AutoUpdateEventEmitter: NativeEventEmitter | null = null;
-if (NativeModules.AutoUpdateModule) {
-  AutoUpdateEventEmitter = new NativeEventEmitter(
-    NativeModules.AutoUpdateModule,
-  );
-}
-
-let BundleUpdateEventEmitter: NativeEventEmitter | null = null;
-if (NativeModules.BundleUpdateModule) {
-  BundleUpdateEventEmitter = new NativeEventEmitter(
-    NativeModules.BundleUpdateModule,
-  );
-}
 
 const DOWNLOAD_EVENT_TYPE = {
   start: 'update/start',
@@ -139,6 +113,8 @@ const DOWNLOAD_EVENT_TYPE = {
 
 export const useDownloadProgress: IUseDownloadProgress = () => {
   const [percent, setPercent] = useState(0);
+  const appUpdateListenerId = useRef<number | null>(null);
+  const bundleUpdateListenerId = useRef<number | null>(null);
 
   const updatePercent = useThrottledCallback(
     ({ progress }: { progress: number }) => {
@@ -154,29 +130,36 @@ export const useDownloadProgress: IUseDownloadProgress = () => {
   }, []);
 
   useEffect(() => {
-    const onStartEventListener = AutoUpdateEventEmitter?.addListener(
-      DOWNLOAD_EVENT_TYPE.start,
-      startDownload,
-    );
-    const onDownloadingEventListener = AutoUpdateEventEmitter?.addListener(
-      DOWNLOAD_EVENT_TYPE.downloading,
-      updatePercent,
+    appUpdateListenerId.current = ReactNativeAppUpdate.addDownloadListener(
+      (event) => {
+        if (event.type === DOWNLOAD_EVENT_TYPE.start) {
+          startDownload();
+        } else if (event.type === DOWNLOAD_EVENT_TYPE.downloading) {
+          updatePercent({ progress: event.progress });
+        }
+      },
     );
 
-    const onBundleStartEventListener = BundleUpdateEventEmitter?.addListener(
-      DOWNLOAD_EVENT_TYPE.start,
-      startDownload,
-    );
-    const onBundleDownloadingEventListener =
-      BundleUpdateEventEmitter?.addListener(
-        DOWNLOAD_EVENT_TYPE.downloading,
-        updatePercent,
-      );
+    bundleUpdateListenerId.current =
+      ReactNativeBundleUpdate.addDownloadListener((event) => {
+        if (event.type === DOWNLOAD_EVENT_TYPE.start) {
+          startDownload();
+        } else if (event.type === DOWNLOAD_EVENT_TYPE.downloading) {
+          updatePercent({ progress: event.progress });
+        }
+      });
+
     return () => {
-      onStartEventListener?.remove();
-      onDownloadingEventListener?.remove();
-      onBundleStartEventListener?.remove();
-      onBundleDownloadingEventListener?.remove();
+      if (appUpdateListenerId.current !== null) {
+        ReactNativeAppUpdate.removeDownloadListener(
+          appUpdateListenerId.current,
+        );
+      }
+      if (bundleUpdateListenerId.current !== null) {
+        ReactNativeBundleUpdate.removeDownloadListener(
+          bundleUpdateListenerId.current,
+        );
+      }
     };
   }, [startDownload, updatePercent]);
   return percent;
@@ -194,96 +177,89 @@ export const AppUpdate: IAppUpdate = {
   clearPackage,
 };
 
-const { BundleUpdateModule } = NativeModules;
-
 export const BundleUpdate: IBundleUpdate = {
   downloadBundle: (params) => {
     const DOWNLOAD_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
     return new Promise((resolve, reject) => {
-      BundleUpdateModule.downloadBundle(params)
+      ReactNativeBundleUpdate.downloadBundle(params)
         .then((result) => {
-          // eslint-disable-next-line prefer-const
-          let onCompleteSubscription: NativeEventSubscription | undefined;
-          // eslint-disable-next-line prefer-const
-          let onErrorSubscription: NativeEventSubscription | undefined;
+          let onListenerId: number | null = null;
           let settled = false;
           const timeoutId = setTimeout(() => {
             if (!settled) {
               settled = true;
-              removeSubscriptions();
+              removeListener();
               reject(new Error('Bundle download timed out'));
             }
           }, DOWNLOAD_TIMEOUT_MS);
-          const removeSubscriptions = () => {
+          const removeListener = () => {
             clearTimeout(timeoutId);
-            onCompleteSubscription?.remove();
-            onErrorSubscription?.remove();
+            if (onListenerId !== null) {
+              ReactNativeBundleUpdate.removeDownloadListener(onListenerId);
+            }
           };
-          const onSuccess = () => {
-            if (settled) return;
-            settled = true;
-            resolve(result);
-            removeSubscriptions();
-          };
-          const onError = (error: string) => {
-            if (settled) return;
-            settled = true;
-            reject(error);
-            removeSubscriptions();
-          };
-          onErrorSubscription = BundleUpdateEventEmitter?.addListener(
-            DOWNLOAD_EVENT_TYPE.error,
-            onError,
-          );
-          onCompleteSubscription = BundleUpdateEventEmitter?.addListener(
-            DOWNLOAD_EVENT_TYPE.complete,
-            onSuccess,
+          onListenerId = ReactNativeBundleUpdate.addDownloadListener(
+            (event) => {
+              if (event.type === DOWNLOAD_EVENT_TYPE.complete) {
+                if (settled) return;
+                settled = true;
+                resolve(result);
+                removeListener();
+              } else if (event.type === DOWNLOAD_EVENT_TYPE.error) {
+                if (settled) return;
+                settled = true;
+                reject(event.message);
+                removeListener();
+              }
+            },
           );
         })
         .catch(reject);
     });
   },
-  verifyBundle: (params) => BundleUpdateModule.verifyBundle(params),
-  verifyBundleASC: (params) => BundleUpdateModule.verifyBundleASC(params),
-  downloadBundleASC: (params) => BundleUpdateModule.downloadBundleASC(params),
+  verifyBundle: (params) => ReactNativeBundleUpdate.verifyBundle(params),
+  verifyBundleASC: (params) => ReactNativeBundleUpdate.verifyBundleASC(params),
+  downloadBundleASC: (params) =>
+    ReactNativeBundleUpdate.downloadBundleASC(params),
   installBundle: async (params) => {
-    await BundleUpdateModule.installBundle(params);
+    await ReactNativeBundleUpdate.installBundle(params);
     defaultLogger.app.appUpdate.restartRNApp();
     setTimeout(() => {
       RNRestart.restart();
     }, 2500);
   },
-  clearBundle: () => BundleUpdateModule.clearBundle(),
-  clearAllJSBundleData: () => BundleUpdateModule.clearAllJSBundleData(),
-  testVerification: () => BundleUpdateModule.testVerification(),
+  clearBundle: () => ReactNativeBundleUpdate.clearBundle(),
+  clearAllJSBundleData: () => ReactNativeBundleUpdate.clearAllJSBundleData(),
+  testVerification: () => ReactNativeBundleUpdate.testVerification(),
   testDeleteJsBundle: (appVersion, bundleVersion) =>
-    BundleUpdateModule.testDeleteJsBundle(appVersion, bundleVersion),
+    ReactNativeBundleUpdate.testDeleteJsBundle(appVersion, bundleVersion),
   testDeleteJsRuntimeDir: (appVersion, bundleVersion) =>
-    BundleUpdateModule.testDeleteJsRuntimeDir(appVersion, bundleVersion),
+    ReactNativeBundleUpdate.testDeleteJsRuntimeDir(appVersion, bundleVersion),
   testDeleteMetadataJson: (appVersion, bundleVersion) =>
-    BundleUpdateModule.testDeleteMetadataJson(appVersion, bundleVersion),
+    ReactNativeBundleUpdate.testDeleteMetadataJson(appVersion, bundleVersion),
   testWriteEmptyMetadataJson: (appVersion, bundleVersion) =>
-    BundleUpdateModule.testWriteEmptyMetadataJson(appVersion, bundleVersion),
-  getWebEmbedPath: () => BundleUpdateModule?.getWebEmbedPath() || '',
-  getWebEmbedPathAsync: () =>
-    BundleUpdateModule && BundleUpdateModule.getWebEmbedPathAsync
-      ? BundleUpdateModule.getWebEmbedPathAsync()
-      : Promise.resolve(''),
-  getFallbackBundles: () => BundleUpdateModule.getFallbackUpdateBundleData(),
+    ReactNativeBundleUpdate.testWriteEmptyMetadataJson(
+      appVersion,
+      bundleVersion,
+    ),
+  getWebEmbedPath: () => ReactNativeBundleUpdate.getWebEmbedPath() || '',
+  getWebEmbedPathAsync: () => ReactNativeBundleUpdate.getWebEmbedPathAsync(),
+  getFallbackBundles: () =>
+    ReactNativeBundleUpdate.getFallbackUpdateBundleData(),
   isBundleExists: (appVersion, bundleVersion) =>
-    BundleUpdateModule.isBundleExists(appVersion, bundleVersion),
+    ReactNativeBundleUpdate.isBundleExists(appVersion, bundleVersion),
   verifyExtractedBundle: (appVersion, bundleVersion) =>
-    BundleUpdateModule.verifyExtractedBundle(appVersion, bundleVersion),
-  listLocalBundles: () => BundleUpdateModule.listLocalBundles(),
+    ReactNativeBundleUpdate.verifyExtractedBundle(appVersion, bundleVersion),
+  listLocalBundles: () => ReactNativeBundleUpdate.listLocalBundles(),
   switchBundle: async (params) => {
-    await BundleUpdateModule.setCurrentUpdateBundleData(params);
+    await ReactNativeBundleUpdate.setCurrentUpdateBundleData(params);
     setTimeout(() => {
       RNRestart.restart();
     }, 2500);
   },
-  getNativeAppVersion: () => BundleUpdateModule.getNativeAppVersion(),
+  getNativeAppVersion: () => ReactNativeBundleUpdate.getNativeAppVersion(),
   getNativeBuildNumber: () => Promise.resolve(''),
-  getJsBundlePath: () => BundleUpdateModule.getJsBundlePath(),
+  getJsBundlePath: () => ReactNativeBundleUpdate.getJsBundlePath(),
   getSha256FromFilePath: (filePath) =>
-    BundleUpdateModule.getSha256FromFilePath(filePath),
+    ReactNativeBundleUpdate.getSha256FromFilePath(filePath),
 };
