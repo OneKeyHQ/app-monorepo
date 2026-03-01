@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 import { Stack } from '@onekeyhq/components/src/primitives';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+// eslint-disable-next-line import/no-cycle
 // oxlint-disable-next-line import/no-cycle
 import { Badge } from '../Badge';
 

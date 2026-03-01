@@ -1,4 +1,5 @@
 // oxlint-disable unicorn/prefer-global-this
+// eslint-disable unicorn/prefer-global-this
 // eslint-disable-next-line max-classes-per-file
 const sErrored = Symbol('errored');
 const sTimeout = Symbol('timeout');

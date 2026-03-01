@@ -636,6 +636,7 @@ export default class Vault extends VaultBase {
   override async getCustomRpcEndpointStatus(
     params: IMeasureRpcStatusParams,
   ): Promise<IMeasureRpcStatusResult> {
+    // eslint-disable-next-line @cspell/spellchecker
     // oxlint-disable-next-line @cspell/spellchecker
     const client = new sdkAlgo.Algodv2('', params.rpcUrl, 443);
     const start = performance.now();
@@ -654,6 +655,7 @@ export default class Vault extends VaultBase {
     if (!rpcUrl) {
       throw new OneKeyInternalError('rpcUrl is required');
     }
+    // eslint-disable-next-line @cspell/spellchecker
     // oxlint-disable-next-line @cspell/spellchecker
     const client = new sdkAlgo.Algodv2('', rpcUrl, 443);
     const { txId } = await client

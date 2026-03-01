@@ -1,4 +1,5 @@
 /* oxlint-disable @typescript-eslint/no-unused-vars, @cspell/spellchecker */
+/* eslint-disable @typescript-eslint/no-unused-vars, @cspell/spellchecker */
 import { OneKeyLocalError } from '../../errors';
 import { webStorage } from '../instance/webStorageInstance';
 

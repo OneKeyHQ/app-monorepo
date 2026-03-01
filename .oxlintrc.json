@@ -105,6 +105,48 @@
     "no-debugger": "error",
     "no-eval": "error",
     "radix": "error",
+    // Migrated from ESLint airbnb/wesbos presets
+    "eqeqeq": "warn",
+    "no-self-compare": "error",
+    "no-fallthrough": "error",
+    "no-redeclare": "error",
+    "no-useless-constructor": "error",
+    "no-new-wrappers": "error",
+    "no-var": "error",
+    "prefer-const": "warn",
+    "prefer-template": "warn",
+    "no-empty": "error",
+    "no-empty-function": "warn",
+    "no-throw-literal": "error",
+    "no-param-reassign": "error",
+    "no-return-assign": "error",
+    "guard-for-in": "error",
+    "no-inner-declarations": "error",
+    "no-misleading-character-class": "error",
+    "no-case-declarations": "error",
+    "no-constructor-return": "error",
+    "no-else-return": "error",
+    "no-extra-bind": "error",
+    "no-extra-label": "error",
+    "no-iterator": "error",
+    "no-labels": "error",
+    "no-lone-blocks": "error",
+    "no-loop-func": "error",
+    "no-new": "error",
+    "no-new-func": "error",
+    "no-proto": "error",
+    "no-script-url": "error",
+    "no-sequences": "error",
+    "no-useless-concat": "error",
+    "no-useless-return": "error",
+    "prefer-promise-reject-errors": "warn",
+    "no-useless-computed-key": "error",
+    "prefer-numeric-literals": "error",
+    "prefer-rest-params": "error",
+    "prefer-spread": "warn",
+    "symbol-description": "error",
+    "no-label-var": "error",
+    "no-template-curly-in-string": "error",
     // Sort imports (migrated from ESLint)
     "sort-imports": [
       "error",
@@ -159,15 +201,17 @@
     // ============================================
     // React rules (matching ESLint config)
     // ============================================
-    // NOTE: Changed to warn to allow existing code without modification
-    "react/jsx-key": "warn",
+    "react/jsx-key": "error",
     "react/jsx-no-duplicate-props": "error",
     "react/no-children-prop": "error",
     "react/no-string-refs": "error",
     "react/no-direct-mutation-state": "error",
     // react-hooks/rules-of-hooks (migrated from ESLint)
-    // NOTE: Changed to warn because of false positives with functions named "use*" that aren't hooks
     "react/rules-of-hooks": "error",
+    "react/jsx-no-undef": "error",
+    "react/jsx-pascal-case": "error",
+    "react/self-closing-comp": "error",
+    "react/no-unknown-property": "error",
     // react-hooks/exhaustive-deps equivalent
     "react/exhaustive-deps": [
       "error",
@@ -202,8 +246,8 @@
         "disallowTypeAnnotations": false
       }
     ],
-    "typescript/no-use-before-define": "error",
-    "typescript/no-shadow": "error",
+    // NOTE: typescript/no-use-before-define and typescript/no-shadow do not exist in oxlint v1.43.0
+    // They were phantom rules (configured but never enforced). Removed to avoid confusion.
 
     // ============================================
     // Unicorn rules (matching ESLint config)
@@ -213,8 +257,13 @@
     // ============================================
     // Import rules
     // ============================================
-    // NOTE: import/no-cycle disabled due to some false positives
     "import/no-cycle": "error",
+    "import/export": "error",
+    "import/first": "error",
+    "import/no-amd": "error",
+    "import/no-duplicates": "error",
+    "import/no-mutable-exports": "error",
+    "import/no-self-import": "error",
 
     // ============================================
     // Jest rules (for test files) - keep off as in ESLint config
@@ -428,7 +477,6 @@
       // Test files - relax some rules
       "files": ["test/**/*.js", "test/**/*.ts", "**/*.test.ts"],
       "rules": {
-        "typescript/no-use-before-define": "off"
       }
     },
     {
@@ -437,8 +485,6 @@
       "rules": {
         "typescript/no-floating-promises": "off",
         "typescript/consistent-type-imports": "off",
-        "typescript/no-use-before-define": "off",
-        "typescript/no-shadow": "off",
         "typescript/no-duplicate-enum-values": "off",
         "typescript/no-extraneous-class": "off",
         "typescript/no-unnecessary-parameter-property-assignment": "off",
