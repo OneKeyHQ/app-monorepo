@@ -13,7 +13,7 @@ import {
   useState,
 } from 'react';
 
-import { compact, range } from 'lodash';
+import { range } from 'lodash';
 import { useIntl } from 'react-intl';
 import { View } from 'react-native';
 
@@ -565,7 +565,9 @@ export function PhaseInputArea({
     useCallback(
       (index: number) =>
         index === phraseLengthNumber - 1 ||
-        compact(Object.values(form.getValues())).length === phraseLengthNumber
+        range(0, phraseLengthNumber).filter(
+          (_, i) => form.getValues()[`phrase${i + 1}`],
+        ).length === phraseLengthNumber
           ? 'done'
           : 'next',
       [form, phraseLengthNumber],
@@ -576,6 +578,8 @@ export function PhaseInputArea({
     Object.entries(defaultPhrasesMap).forEach(([key, value]) => {
       form.setValue(key, value);
     });
+    form.setValue('passphrase', '');
+    form.setValue('confirmPassphrase', '');
   }, [defaultPhrasesMap, form]);
 
   const handleChangePhraseLength = useCallback(

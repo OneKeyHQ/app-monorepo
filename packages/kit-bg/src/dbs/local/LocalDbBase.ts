@@ -897,8 +897,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           hiddenHdWalletsByHashMap[wallet.hash] =
             hiddenHdWalletsByHashMap[wallet.hash] || [];
           hiddenHdWalletsByHashMap[wallet.hash]?.push(wallet);
+          return false;
         }
-        return false;
+        // Keep unmatched hidden wallets visible instead of dropping them.
+        return true;
       }
       return true;
     });

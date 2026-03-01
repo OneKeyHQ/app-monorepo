@@ -645,7 +645,31 @@ class ServiceCloudBackup extends ServiceBase {
         console.error('backup', e);
       }
 
-      for (const id of restoreList.HDWallets) {
+      const { wallets: localWalletsBeforeRestore } =
+        await serviceAccount.getAllWallets({
+          refillWalletInfo: false,
+          excludeKeylessWallet: true,
+        });
+      const standardHdWalletIdByHashMap = localWalletsBeforeRestore.reduce<
+        Record<string, string>
+      >((acc, wallet) => {
+        if (
+          wallet.type === WALLET_TYPE_HD &&
+          wallet.hash &&
+          !wallet.passphraseState
+        ) {
+          acc[wallet.hash] = wallet.id;
+        }
+        return acc;
+      }, {});
+
+      const hdWalletRestoreIds = [...restoreList.HDWallets].sort((a, b) => {
+        const aIsHidden = Boolean(privateData.wallets[a]?.passphraseState);
+        const bIsHidden = Boolean(privateData.wallets[b]?.passphraseState);
+        return Number(aIsHidden) - Number(bIsHidden);
+      });
+
+      for (const id of hdWalletRestoreIds) {
         const {
           version,
           name,
@@ -677,6 +701,12 @@ class ServiceCloudBackup extends ServiceBase {
           localPassword,
         );
 
+        if (passphraseState && (!backupWalletHash || !backupWalletXfp)) {
+          throw new OneKeyLocalError(
+            'Invalid hidden HD wallet backup data: hash/xfp is required.',
+          );
+        }
+
         const walletHashAndXfp =
           backupWalletHash && backupWalletXfp
             ? {
@@ -689,6 +719,11 @@ class ServiceCloudBackup extends ServiceBase {
                 },
               );
 
+        const hiddenParentWalletId =
+          passphraseState && walletHashAndXfp.hash
+            ? standardHdWalletIdByHashMap[walletHashAndXfp.hash]
+            : undefined;
+
         const { wallet, isOverrideWallet } =
           await serviceAccount.createHDWalletWithRs({
             rs: rsEncoded,
@@ -698,7 +733,11 @@ class ServiceCloudBackup extends ServiceBase {
             walletXfp: walletHashAndXfp.xfp,
             isWalletBackedUp: true,
             passphraseState,
+            hiddenParentWalletId,
           });
+        if (!passphraseState && walletHashAndXfp.hash) {
+          standardHdWalletIdByHashMap[walletHashAndXfp.hash] = wallet.id;
+        }
         await serviceAccount.restoreAccountsToWallet({
           walletId: wallet.id,
           accounts,
