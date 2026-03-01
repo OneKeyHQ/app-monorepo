@@ -160,8 +160,10 @@ export type IStakeBaseParams = {
   message?: string;
 
   inviteCode?: string;
+  // eslint-disable-next-line @cspell/spellchecker
   // oxlint-disable-next-line @cspell/spellchecker
   bindedAccountAddress?: string;
+  // eslint-disable-next-line @cspell/spellchecker
   // oxlint-disable-next-line @cspell/spellchecker
   bindedNetworkId?: string;
 
@@ -277,6 +279,7 @@ export type IStakeTx =
 // Stakefish validator exit broadcast response (no on-chain tx needed)
 export type IStakeTxStakefishExitBroadcast = {
   exitBroadcasted: boolean;
+  // eslint-disable-next-line @cspell/spellchecker
   // oxlint-disable-next-line @cspell/spellchecker
   validators: {
     pubkey: string;
@@ -2084,6 +2087,7 @@ export interface IBorrowHistory {
 
 export interface IBorrowReserveDetailDailyInfo {
   borrowCapacity: IEarnText;
+  // eslint-disable-next-line @cspell/spellchecker
   // oxlint-disable-next-line @cspell/spellchecker
   borrowable: IEarnText;
   borrowCapResetRemainingTime: IEarnText;

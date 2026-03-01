@@ -139,6 +139,7 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
     alwaysCreate: boolean;
     readOnly?: boolean;
   }) {
+    // eslint-disable-next-line @cspell/spellchecker
     // oxlint-disable-next-line @cspell/spellchecker
     // type IDBTransactionMode = "readonly" | "readwrite" | "versionchange";
     const mode: 'readwrite' = readOnly ? ('readonly' as any) : 'readwrite';

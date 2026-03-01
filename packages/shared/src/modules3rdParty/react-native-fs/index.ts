@@ -1,5 +1,6 @@
 import type * as RNFS from 'react-native-fs';
 
+// eslint-disable-next-line @cspell/spellchecker
 // oxlint-disable-next-line @cspell/spellchecker
 const rnfsMock: typeof RNFS | undefined = {
   DocumentDirectoryPath: '',
