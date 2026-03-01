@@ -6,9 +6,7 @@ import type { ILaunchOptionsManagerInterface } from './type';
 
 const getStartupTimeAt = async () => {
   const startupTime = await ReactNativeDeviceUtils.getStartupTime();
-  return Math.round(
-    platformEnv.isNativeIOS ? startupTime * 1000 : startupTime,
-  );
+  return Math.round(platformEnv.isNativeIOS ? startupTime * 1000 : startupTime);
 };
 
 const getJSReadyTimeAt = () => {

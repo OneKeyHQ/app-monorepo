@@ -543,7 +543,9 @@ describe('DesktopApiBundleUpdate isDownloading guard', () => {
       isDownloading = true;
       return 'downloading';
     }
-    function finishDownload() { isDownloading = false; }
+    function finishDownload() {
+      isDownloading = false;
+    }
     expect(startDownload()).toBe('downloading');
     finishDownload();
     expect(startDownload()).toBe('downloading');
@@ -583,7 +585,10 @@ describe('DesktopApiBundleUpdate cached file redownload', () => {
 // 416 status handling - mirrors downloadBundle (lines 195-216)
 // ---------------------------------------------------------------------------
 describe('DesktopApiBundleUpdate 416 handling', () => {
-  function handle416(partialExists: boolean, verifySucceeds: boolean): { result: string; error?: string } {
+  function handle416(
+    partialExists: boolean,
+    verifySucceeds: boolean,
+  ): { result: string; error?: string } {
     if (partialExists) {
       if (verifySucceeds) {
         return { result: 'resolved' };
@@ -615,7 +620,11 @@ describe('DesktopApiBundleUpdate 416 handling', () => {
 // Download completion - mirrors writeStream finish (lines 298-314)
 // ---------------------------------------------------------------------------
 describe('DesktopApiBundleUpdate download completion', () => {
-  function handleFinish(downloadedBytes: number, totalBytes: number, verifySucceeds: boolean): { result: string; error?: string } {
+  function handleFinish(
+    downloadedBytes: number,
+    totalBytes: number,
+    verifySucceeds: boolean,
+  ): { result: string; error?: string } {
     if (downloadedBytes >= totalBytes) {
       if (verifySucceeds) return { result: 'resolved' };
       return { result: 'rejected', error: 'verification failed' };
@@ -688,8 +697,18 @@ describe('DesktopApiBundleUpdate settled guard', () => {
   test('resolve then reject: only resolve takes effect', () => {
     let settled = false;
     const results: string[] = [];
-    const safeResolve = (msg: string) => { if (!settled) { settled = true; results.push(msg); } };
-    const safeReject = (msg: string) => { if (!settled) { settled = true; results.push(msg); } };
+    const safeResolve = (msg: string) => {
+      if (!settled) {
+        settled = true;
+        results.push(msg);
+      }
+    };
+    const safeReject = (msg: string) => {
+      if (!settled) {
+        settled = true;
+        results.push(msg);
+      }
+    };
     safeResolve('success');
     safeReject('late error');
     expect(results).toEqual(['success']);
@@ -710,8 +729,21 @@ describe('DesktopApiBundleUpdate verifyBundleASC skipGPG', () => {
   }
 
   function validateVerifyASCParams(params: IVerifyASCParams): string | null {
-    const { downloadedFile, sha256, appVersion, bundleVersion, signature, skipGPGVerification } = params;
-    if (!downloadedFile || !sha256 || !appVersion || !bundleVersion || (!signature && !skipGPGVerification)) {
+    const {
+      downloadedFile,
+      sha256,
+      appVersion,
+      bundleVersion,
+      signature,
+      skipGPGVerification,
+    } = params;
+    if (
+      !downloadedFile ||
+      !sha256 ||
+      !appVersion ||
+      !bundleVersion ||
+      (!signature && !skipGPGVerification)
+    ) {
       return 'Invalid parameters';
     }
     return null;
@@ -722,21 +754,38 @@ describe('DesktopApiBundleUpdate verifyBundleASC skipGPG', () => {
   }
 
   test('accepts params with signature and no skipGPG', () => {
-    expect(validateVerifyASCParams({
-      downloadedFile: '/tmp/f', sha256: 'abc', appVersion: '1.0.0', bundleVersion: '5', signature: 'sig',
-    })).toBeNull();
+    expect(
+      validateVerifyASCParams({
+        downloadedFile: '/tmp/f',
+        sha256: 'abc',
+        appVersion: '1.0.0',
+        bundleVersion: '5',
+        signature: 'sig',
+      }),
+    ).toBeNull();
   });
 
   test('accepts params with skipGPG but no signature', () => {
-    expect(validateVerifyASCParams({
-      downloadedFile: '/tmp/f', sha256: 'abc', appVersion: '1.0.0', bundleVersion: '5', skipGPGVerification: true,
-    })).toBeNull();
+    expect(
+      validateVerifyASCParams({
+        downloadedFile: '/tmp/f',
+        sha256: 'abc',
+        appVersion: '1.0.0',
+        bundleVersion: '5',
+        skipGPGVerification: true,
+      }),
+    ).toBeNull();
   });
 
   test('rejects when no signature and no skipGPG', () => {
-    expect(validateVerifyASCParams({
-      downloadedFile: '/tmp/f', sha256: 'abc', appVersion: '1.0.0', bundleVersion: '5',
-    })).toBe('Invalid parameters');
+    expect(
+      validateVerifyASCParams({
+        downloadedFile: '/tmp/f',
+        sha256: 'abc',
+        appVersion: '1.0.0',
+        bundleVersion: '5',
+      }),
+    ).toBe('Invalid parameters');
   });
 
   test('SHA256 check is skipped when skipGPG is true', () => {
@@ -770,14 +819,16 @@ describe('DesktopApiBundleUpdate metadata completeness check', () => {
 
   test('all metadata files present on disk → passes', () => {
     const verified = new Set(['build/index.html', 'build/main.js']);
-    expect(checkCompleteness(verified, ['build/index.html', 'build/main.js'])).toBeNull();
+    expect(
+      checkCompleteness(verified, ['build/index.html', 'build/main.js']),
+    ).toBeNull();
   });
 
   test('file in metadata but missing from disk → detected', () => {
     const verified = new Set(['build/index.html']);
-    expect(checkCompleteness(verified, ['build/index.html', 'build/crypto.js'])).toBe(
-      'File build/crypto.js listed in metadata but missing on disk',
-    );
+    expect(
+      checkCompleteness(verified, ['build/index.html', 'build/crypto.js']),
+    ).toBe('File build/crypto.js listed in metadata but missing on disk');
   });
 
   test('empty metadata → passes', () => {
@@ -817,7 +868,10 @@ describe('DesktopApiBundleUpdate SHA256 mismatch detection', () => {
 // listLocalBundles edge cases - mirrors (lines 564-584)
 // ---------------------------------------------------------------------------
 describe('DesktopApiBundleUpdate listLocalBundles', () => {
-  interface IDirEntry { name: string; isDirectory: boolean }
+  interface IDirEntry {
+    name: string;
+    isDirectory: boolean;
+  }
 
   function parseLocalBundles(
     dirExists: boolean,
@@ -880,14 +934,19 @@ describe('DesktopApiBundleUpdate listLocalBundles', () => {
 // verifyExtractedBundle edge cases - mirrors (lines 586-601)
 // ---------------------------------------------------------------------------
 describe('DesktopApiBundleUpdate verifyExtractedBundle', () => {
-  function verifyExtractedBundle(dirExists: boolean, metadataExists: boolean): string | null {
+  function verifyExtractedBundle(
+    dirExists: boolean,
+    metadataExists: boolean,
+  ): string | null {
     if (!dirExists) return 'Bundle directory not found';
     if (!metadataExists) return 'metadata.json not found';
     return null;
   }
 
   test('dir does not exist → throws', () => {
-    expect(verifyExtractedBundle(false, false)).toBe('Bundle directory not found');
+    expect(verifyExtractedBundle(false, false)).toBe(
+      'Bundle directory not found',
+    );
   });
 
   test('metadata.json does not exist → throws', () => {
@@ -903,7 +962,11 @@ describe('DesktopApiBundleUpdate verifyExtractedBundle', () => {
 // installBundle extractDir missing - mirrors (lines 630-636)
 // ---------------------------------------------------------------------------
 describe('DesktopApiBundleUpdate installBundle extractDir check', () => {
-  function checkExtractDir(exists: boolean, appVersion: string, bundleVersion: string): string | null {
+  function checkExtractDir(
+    exists: boolean,
+    appVersion: string,
+    bundleVersion: string,
+  ): string | null {
     if (!exists) {
       return `Bundle directory not found: ${appVersion}-${bundleVersion}`;
     }
@@ -911,7 +974,9 @@ describe('DesktopApiBundleUpdate installBundle extractDir check', () => {
   }
 
   test('extractDir missing → error', () => {
-    expect(checkExtractDir(false, '1.0.0', '5')).toBe('Bundle directory not found: 1.0.0-5');
+    expect(checkExtractDir(false, '1.0.0', '5')).toBe(
+      'Bundle directory not found: 1.0.0-5',
+    );
   });
 
   test('extractDir exists → null', () => {
@@ -983,7 +1048,11 @@ describe('DesktopApiBundleUpdate NaN bundleVersion', () => {
 // ---------------------------------------------------------------------------
 describe('DesktopApiBundleUpdate fallback old dir cleanup', () => {
   test('when shifted bundle dir does not exist, no crash', () => {
-    const shifted = { appVersion: '0.9.0', bundleVersion: '1', signature: 'sig' };
+    const shifted = {
+      appVersion: '0.9.0',
+      bundleVersion: '1',
+      signature: 'sig',
+    };
     const dirExists = false;
     // Should not throw
     let deleteCalled = false;
@@ -999,7 +1068,10 @@ describe('DesktopApiBundleUpdate fallback old dir cleanup', () => {
 // 206 Content-Range parsing - mirrors (lines 236-244)
 // ---------------------------------------------------------------------------
 describe('DesktopApiBundleUpdate 206 Content-Range parsing', () => {
-  function parseTotalBytes(contentRange: string | undefined, fallback: number): number {
+  function parseTotalBytes(
+    contentRange: string | undefined,
+    fallback: number,
+  ): number {
     if (contentRange) {
       const match = contentRange.match(/bytes \d+-\d+\/(\d+)/);
       if (match) {

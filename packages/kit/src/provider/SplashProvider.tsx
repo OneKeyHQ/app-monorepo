@@ -66,9 +66,7 @@ export const useDisplaySplash =
                   if (!appInfo.downloadedEvent) {
                     defaultLogger.app.appUpdate.endInstallPackage(
                       false,
-                      new Error(
-                        'Missing downloadedEvent for seamless install',
-                      ),
+                      new Error('Missing downloadedEvent for seamless install'),
                     );
                     setDisplaySplash(true);
                     await backgroundApiProxy.serviceAppUpdate.reset();
@@ -95,9 +93,7 @@ export const useDisplaySplash =
                       data: appInfo,
                     });
                     if (fileType === EUpdateFileType.jsBundle) {
-                      await BundleUpdate.installBundle(
-                        appInfo.downloadedEvent,
-                      );
+                      await BundleUpdate.installBundle(appInfo.downloadedEvent);
                     } else {
                       await AppUpdate.installPackage(appInfo);
                     }

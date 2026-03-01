@@ -368,7 +368,11 @@ class DesktopApiAppBundleUpdate {
               });
 
               response.on('error', (error) => {
-                logger.error('bundle-download', 'Response stream error:', error);
+                logger.error(
+                  'bundle-download',
+                  'Response stream error:',
+                  error,
+                );
                 writeStream.destroy();
                 downloadRequest = null;
                 this.isDownloading = false;
@@ -608,10 +612,7 @@ class DesktopApiAppBundleUpdate {
       const fullPath = path.join(dirPath, entry.name);
       // Security: Reject symbolic links to prevent symlink attacks
       if (entry.isSymbolicLink()) {
-        logger.error(
-          'bundle-verify',
-          `Symbolic link detected: ${entry.name}`,
-        );
+        logger.error('bundle-verify', `Symbolic link detected: ${entry.name}`);
         throw new OneKeyLocalError(`Symbolic link detected: ${entry.name}`);
       }
       if (entry.isDirectory()) {

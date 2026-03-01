@@ -45,10 +45,7 @@ export function WalletActionBuy({
     accountId: account?.id ?? '',
     fiatCryptoType: 'buy',
   });
-  const { result: isSellSupported } = useSupportNetworkId(
-    'sell',
-    network?.id,
-  );
+  const { result: isSellSupported } = useSupportNetworkId('sell', network?.id);
 
   const intl = useIntl();
 

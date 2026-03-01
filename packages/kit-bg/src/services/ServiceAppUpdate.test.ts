@@ -2608,7 +2608,10 @@ describe('ServiceAppUpdate failedRecoveryTimer', () => {
 
   test('downloadPackageFailed: 2h later → resets to notify, preserves downloadedEvent', async () => {
     atomValue.status = EAppUpdateStatus.downloadPackage;
-    atomValue.downloadedEvent = { downloadedFile: '/tmp/f', downloadUrl: 'https://x' } as any;
+    atomValue.downloadedEvent = {
+      downloadedFile: '/tmp/f',
+      downloadUrl: 'https://x',
+    } as any;
     await service.downloadPackageFailed({ message: 'timeout' });
     expect(atomValue.status).toBe(EAppUpdateStatus.downloadPackageFailed);
 
@@ -2651,7 +2654,10 @@ describe('ServiceAppUpdate failedRecoveryTimer', () => {
   });
 
   test('downloadPackage call clears recovery timer', async () => {
-    resetAtom({ status: EAppUpdateStatus.downloadPackage, latestVersion: '2.0.0' });
+    resetAtom({
+      status: EAppUpdateStatus.downloadPackage,
+      latestVersion: '2.0.0',
+    });
     await service.downloadPackageFailed({ message: 'err' });
     expect(atomValue.status).toBe(EAppUpdateStatus.downloadPackageFailed);
 

@@ -748,14 +748,16 @@ describe('HTTPS validation edge cases', () => {
 // ---------------------------------------------------------------------------
 describe('path traversal edge cases', () => {
   function isTraversal(entry: string, base: string): boolean {
-    const segments = (base + '/' + entry).split('/').reduce((acc: string[], part) => {
-      if (part === '..') {
-        acc.pop();
-      } else if (part !== '.' && part !== '') {
-        acc.push(part);
-      }
-      return acc;
-    }, []);
+    const segments = (base + '/' + entry)
+      .split('/')
+      .reduce((acc: string[], part) => {
+        if (part === '..') {
+          acc.pop();
+        } else if (part !== '.' && part !== '') {
+          acc.push(part);
+        }
+        return acc;
+      }, []);
     const baseParts = base.split('/').filter((p) => p !== '');
     return segments.length < baseParts.length;
   }
@@ -793,15 +795,33 @@ describe('fallback management empty fields', () => {
   }
 
   test('current with empty appVersion → not added', () => {
-    expect(shouldAddToFallback({ appVersion: '', bundleVersion: '1', signature: 'sig' })).toBe(false);
+    expect(
+      shouldAddToFallback({
+        appVersion: '',
+        bundleVersion: '1',
+        signature: 'sig',
+      }),
+    ).toBe(false);
   });
 
   test('current with empty signature → not added', () => {
-    expect(shouldAddToFallback({ appVersion: '1.0.0', bundleVersion: '1', signature: '' })).toBe(false);
+    expect(
+      shouldAddToFallback({
+        appVersion: '1.0.0',
+        bundleVersion: '1',
+        signature: '',
+      }),
+    ).toBe(false);
   });
 
   test('current with empty bundleVersion → not added', () => {
-    expect(shouldAddToFallback({ appVersion: '1.0.0', bundleVersion: '', signature: 'sig' })).toBe(false);
+    expect(
+      shouldAddToFallback({
+        appVersion: '1.0.0',
+        bundleVersion: '',
+        signature: 'sig',
+      }),
+    ).toBe(false);
   });
 
   test('null current → not added', () => {
@@ -809,6 +829,12 @@ describe('fallback management empty fields', () => {
   });
 
   test('valid current → added', () => {
-    expect(shouldAddToFallback({ appVersion: '1.0.0', bundleVersion: '1', signature: 'sig' })).toBe(true);
+    expect(
+      shouldAddToFallback({
+        appVersion: '1.0.0',
+        bundleVersion: '1',
+        signature: 'sig',
+      }),
+    ).toBe(true);
   });
 });
