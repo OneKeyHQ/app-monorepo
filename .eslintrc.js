@@ -116,6 +116,9 @@ const restrictedImportsPatterns = [
   //
 ];
 const tsRules = {
+  // rules renamed/removed in @typescript-eslint v8 (inherited from wesbos preset)
+  '@typescript-eslint/lines-between-class-members': 'off',
+  '@typescript-eslint/no-throw-literal': 'off',
   '@typescript-eslint/no-restricted-imports': [
     'error',
     {
