@@ -21,7 +21,7 @@ const excludeDirs = new Set([
 const extensions = new Set(['.ts', '.tsx']);
 
 // Statistics
-let stats = {
+const stats = {
   processed: 0,
   skipped: 0,
   errors: 0,
