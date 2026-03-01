@@ -38,6 +38,7 @@ import {
   Select,
   SizableText,
   Stack,
+  Toast,
   XStack,
   useForm,
   useIsKeyboardShown,
@@ -439,15 +440,18 @@ export function PhaseInputArea({
   showPhraseLengthSelector = true,
   showClearAllButton = true,
   defaultPhrases = [],
+  enablePassphrase = false,
 }: {
   onConfirm: (params: {
     mnemonic: string;
     mnemonicType: EMnemonicType;
+    mnemonicPassphrase?: string;
   }) => void;
   showPhraseLengthSelector?: boolean;
   showClearAllButton?: boolean;
   FooterComponent?: ReactElement;
   defaultPhrases?: string[];
+  enablePassphrase?: boolean;
 }) {
   const intl = useIntl();
 
@@ -469,8 +473,12 @@ export function PhaseInputArea({
     });
     return map;
   }, [defaultPhrases, phraseLengthNumber]);
-  const form = useForm({
-    defaultValues: defaultPhrasesMap,
+  const form = useForm<Record<string, string>>({
+    defaultValues: {
+      ...defaultPhrasesMap,
+      passphrase: '',
+      confirmPassphrase: '',
+    },
   });
 
   const invalidWordsLength = 0;
@@ -483,14 +491,43 @@ export function PhaseInputArea({
   };
 
   const handlePageFooterConfirm = useCallback(async () => {
-    const mnemonic: string = Object.values(form.getValues()).join(' ');
+    const values = form.getValues();
+    const mnemonic: string = range(0, phraseLengthNumber)
+      .map((_, i) => values[`phrase${i + 1}`] || '')
+      .join(' ');
     const mnemonicEncoded = await servicePassword.encodeSensitiveText({
       text: mnemonic,
     });
     const { mnemonicType } =
       await serviceAccount.validateMnemonic(mnemonicEncoded);
-    onConfirm({ mnemonic: mnemonicEncoded, mnemonicType });
-  }, [form, onConfirm, serviceAccount, servicePassword]);
+    let mnemonicPassphrase: string | undefined;
+    if (enablePassphrase) {
+      const passphrase = values.passphrase || '';
+      const confirmPassphrase = values.confirmPassphrase || '';
+      if (passphrase && passphrase !== confirmPassphrase) {
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.feedback_passphrase_not_matched,
+          }),
+        });
+        return;
+      }
+      if (passphrase) {
+        mnemonicPassphrase = await servicePassword.encodeSensitiveText({
+          text: passphrase,
+        });
+      }
+    }
+    onConfirm({ mnemonic: mnemonicEncoded, mnemonicType, mnemonicPassphrase });
+  }, [
+    enablePassphrase,
+    form,
+    intl,
+    onConfirm,
+    phraseLengthNumber,
+    serviceAccount,
+    servicePassword,
+  ]);
 
   const {
     suggestions,
@@ -628,6 +665,38 @@ export function PhaseInputArea({
               </Stack>
             ))}
           </XStack>
+          {enablePassphrase ? (
+            <Stack px="$5" pt="$4" gap="$3">
+              <Form.Field
+                name="passphrase"
+                label={`${intl.formatMessage({
+                  id: ETranslations.global_passphrase,
+                })} (${intl.formatMessage({
+                  id: ETranslations.form_optional_indicator,
+                })})`}
+              >
+                <Input
+                  secureTextEntry
+                  placeholder={intl.formatMessage({
+                    id: ETranslations.global_enter_passphrase,
+                  })}
+                />
+              </Form.Field>
+              <Form.Field
+                name="confirmPassphrase"
+                label={intl.formatMessage({
+                  id: ETranslations.form_confirm_passphrase,
+                })}
+              >
+                <Input
+                  secureTextEntry
+                  placeholder={intl.formatMessage({
+                    id: ETranslations.form_confirm_passphrase_placeholder,
+                  })}
+                />
+              </Form.Field>
+            </Stack>
+          ) : null}
         </Form>
 
         <HeightTransition>

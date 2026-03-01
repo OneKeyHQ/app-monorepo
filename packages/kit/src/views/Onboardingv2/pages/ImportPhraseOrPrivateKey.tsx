@@ -188,10 +188,11 @@ export default function ImportPhraseOrPrivateKey() {
       setIsConfirming(true);
       if (phaseInputAreaRef.current) {
         try {
-          const { mnemonic, mnemonicType } =
+          const { mnemonic, mnemonicType, mnemonicPassphrase } =
             await phaseInputAreaRef.current.submit();
           navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
             mnemonic,
+            mnemonicPassphrase,
             mnemonicType,
             isWalletBackedUp: true,
           });
@@ -314,6 +315,7 @@ export default function ImportPhraseOrPrivateKey() {
                       phaseInputAreaRef as RefObject<IPhaseInputAreaInstance>
                     }
                     defaultPhrases={[]}
+                    enablePassphrase
                   />
                 </YStack>
               ) : (

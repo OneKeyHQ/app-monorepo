@@ -131,6 +131,7 @@ function FinalizeWalletSetupPage({
 
   const created = useRef(false);
   const mnemonic = route?.params?.mnemonic;
+  const mnemonicPassphrase = route?.params?.mnemonicPassphrase;
   const mnemonicType = route?.params?.mnemonicType;
   const keylessPackSetId = route?.params?.keylessPackSetId;
   const deviceData = route?.params?.deviceData;
@@ -264,6 +265,7 @@ function FinalizeWalletSetupPage({
             }
             await actions.current.createHDWallet({
               mnemonic,
+              mnemonicPassphrase,
               isWalletBackedUp,
               isKeylessWallet,
               keylessDetailsInfo,
@@ -317,6 +319,7 @@ function FinalizeWalletSetupPage({
     }
   }, [
     mnemonic,
+    mnemonicPassphrase,
     deviceData,
     isFirmwareVerified,
     keylessPackSetId,

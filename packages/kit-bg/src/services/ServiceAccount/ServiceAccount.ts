@@ -3045,6 +3045,7 @@ class ServiceAccount extends ServiceBase {
 
   hdWalletHashAndXfpBuilder = async (options: {
     realMnemonic: string;
+    passphrase?: string;
   }): Promise<{
     hash: string;
     xfp: string;
@@ -3055,14 +3056,26 @@ class ServiceAccount extends ServiceBase {
 
     const { fullXfp: fulXfp } = await coreChainApi.btc.hd.buildXfpFromMnemonic({
       mnemonic: options.realMnemonic,
+      passphrase: options.passphrase,
     });
     return { hash, xfp: fulXfp };
+  };
+
+  buildHdWalletPassphraseState = async ({
+    walletXfp,
+  }: {
+    walletXfp: string;
+  }): Promise<string> => {
+    const text = `${walletXfp}--EC9E6887-7475-4B0A-A7A6-F5E24E053A3F`;
+    const buff = await sha256(bufferUtils.toBuffer(text, 'utf8'));
+    return bufferUtils.bytesToHex(buff).slice(0, 16);
   };
 
   @backgroundMethod()
   async createHDWallet({
     name,
     mnemonic,
+    mnemonicPassphrase,
     isWalletBackedUp,
     isKeylessWallet,
     avatarInfo,
@@ -3070,6 +3083,7 @@ class ServiceAccount extends ServiceBase {
     skipAddHDNextIndexedAccount,
   }: {
     mnemonic: string;
+    mnemonicPassphrase?: string;
     name?: string;
     isWalletBackedUp?: boolean;
     isKeylessWallet?: boolean;
@@ -3087,6 +3101,14 @@ class ServiceAccount extends ServiceBase {
     const { mnemonic: realMnemonic, mnemonicType } =
       await this.validateMnemonic(mnemonic);
 
+    let realPassphrase = '';
+    if (mnemonicPassphrase) {
+      ensureSensitiveTextEncoded(mnemonicPassphrase);
+      realPassphrase = await decodeSensitiveTextAsync({
+        encodedText: mnemonicPassphrase,
+      });
+    }
+
     if (mnemonicType === EMnemonicType.TON) {
       throw new OneKeyLocalError('TON mnemonic is not supported');
     }
@@ -3095,11 +3117,22 @@ class ServiceAccount extends ServiceBase {
 
     const walletHashAndXfp = await this.hdWalletHashAndXfpBuilder({
       realMnemonic,
+      passphrase: realPassphrase || undefined,
     });
+
+    const passphraseState = realPassphrase
+      ? await this.buildHdWalletPassphraseState({
+          walletXfp: walletHashAndXfp.xfp,
+        })
+      : undefined;
 
     let rs: IBip39RevealableSeedEncryptHex | undefined;
     try {
-      rs = await revealableSeedFromMnemonic(realMnemonic, password);
+      rs = await revealableSeedFromMnemonic(
+        realMnemonic,
+        password,
+        realPassphrase || undefined,
+      );
     } catch {
       throw new InvalidMnemonic();
     }
@@ -3119,7 +3152,103 @@ class ServiceAccount extends ServiceBase {
       avatarInfo,
       keylessDetailsInfo,
       skipAddHDNextIndexedAccount,
+      passphraseState,
     });
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async createHDHiddenWallet({
+    walletId,
+    passphrase,
+  }: {
+    walletId: string;
+    passphrase: string;
+  }) {
+    const wallet = await this.getWalletSafe({
+      walletId,
+      withoutRefill: true,
+    });
+    if (!wallet || !accountUtils.isHdWallet({ walletId: wallet.id })) {
+      throw new OneKeyLocalError('createHDHiddenWallet ERROR: Not a HD wallet');
+    }
+    if (wallet.isKeyless) {
+      throw new OneKeyLocalError(
+        'createHDHiddenWallet ERROR: Keyless wallet is not supported',
+      );
+    }
+    if (accountUtils.isHdHiddenWallet({ wallet })) {
+      throw new OneKeyLocalError(
+        'createHDHiddenWallet ERROR: Hidden wallet is not supported',
+      );
+    }
+
+    ensureSensitiveTextEncoded(passphrase);
+    const realPassphrase = await decodeSensitiveTextAsync({
+      encodedText: passphrase,
+    });
+    if (!realPassphrase) {
+      throw new OneKeyLocalError(
+        'createHDHiddenWallet ERROR: passphrase is required',
+      );
+    }
+
+    const { password } =
+      await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
+        walletId,
+        reason: EReasonForNeedPassword.CreateOrRemoveWallet,
+      });
+
+    const { mnemonic: realMnemonic } = await this.getCredentialDecrypt({
+      credentialId: walletId,
+      password,
+    });
+
+    const walletHashAndXfp = await this.hdWalletHashAndXfpBuilder({
+      realMnemonic,
+      passphrase: realPassphrase,
+    });
+
+    const passphraseState = await this.buildHdWalletPassphraseState({
+      walletXfp: walletHashAndXfp.xfp,
+    });
+
+    let rs: IBip39RevealableSeedEncryptHex | undefined;
+    try {
+      rs = await revealableSeedFromMnemonic(
+        realMnemonic,
+        password,
+        realPassphrase,
+      );
+    } catch {
+      throw new InvalidMnemonic();
+    }
+    const mnemonicFromRs = await mnemonicFromEntropy(rs, password);
+    if (realMnemonic !== mnemonicFromRs) {
+      throw new InvalidMnemonic();
+    }
+
+    const result = await this.createHDWalletWithRs({
+      rs,
+      password,
+      name: undefined,
+      walletHash: walletHashAndXfp.hash,
+      walletXfp: walletHashAndXfp.xfp,
+      isWalletBackedUp: wallet.backuped,
+      passphraseState,
+      hiddenParentWalletId: walletId,
+    });
+
+    if (result?.wallet?.id && !result.isOverrideWallet) {
+      const hiddenWalletImmediately =
+        await this.backgroundApi.serviceSetting.getHiddenWalletImmediately();
+      await this.setWalletTempStatus({
+        walletId: result.wallet.id,
+        isTemp: !hiddenWalletImmediately,
+      });
+    }
+
+    return result;
   }
 
   @backgroundMethod()
@@ -3167,6 +3296,8 @@ class ServiceAccount extends ServiceBase {
     isKeylessWallet,
     keylessDetailsInfo,
     skipAddHDNextIndexedAccount,
+    passphraseState,
+    hiddenParentWalletId,
   }: {
     rs: string;
     password: string;
@@ -3178,6 +3309,8 @@ class ServiceAccount extends ServiceBase {
     isKeylessWallet?: boolean;
     keylessDetailsInfo?: IKeylessWalletDetailsInfo;
     skipAddHDNextIndexedAccount?: boolean;
+    passphraseState?: string;
+    hiddenParentWalletId?: string;
   }): Promise<{
     wallet: IDBWallet;
     indexedAccount?: IDBIndexedAccount;
@@ -3203,7 +3336,11 @@ class ServiceAccount extends ServiceBase {
         excludeKeylessWallet: true,
       });
       const existsSameHashWallet = wallets.find(
-        (item) => walletHash && item.hash && item.hash === walletHash,
+        (item) =>
+          walletHash &&
+          item.hash &&
+          item.hash === walletHash &&
+          (item.passphraseState || '') === (passphraseState || ''),
       );
       if (existsSameHashWallet) {
         const indexedAccounts = await this.addIndexedAccount({
@@ -3236,6 +3373,8 @@ class ServiceAccount extends ServiceBase {
       isKeylessWallet,
       keylessDetailsInfo,
       skipAddHDNextIndexedAccount,
+      passphraseState,
+      hiddenParentWalletId,
     });
 
     if (result.wallet?.keylessDetailsInfo?.keylessOwnerId) {
@@ -3796,9 +3935,9 @@ class ServiceAccount extends ServiceBase {
     emitEvent?: boolean;
   }) {
     const checkIsNotHiddenWallet = (wallet: IDBWallet | undefined) => {
-      if (wallet && accountUtils.isHwHiddenWallet({ wallet })) {
+      if (wallet && accountUtils.isHiddenWallet({ wallet })) {
         throw new OneKeyLocalError(
-          'insertWalletOrder ERROR: Not supported for HW hidden wallet',
+          'insertWalletOrder ERROR: Not supported for hidden wallet',
         );
       }
     };
@@ -4257,6 +4396,12 @@ class ServiceAccount extends ServiceBase {
     for (const wallet of hdWallets) {
       const isKeylessWallet = wallet.isKeyless;
       if (isKeylessWallet) {
+        // eslint-disable-next-line no-continue
+        continue;
+      }
+      if (wallet.passphraseState) {
+        // Hidden HD wallet xfp depends on passphrase and cannot be reconstructed from mnemonic only.
+        // Keep existing values untouched to avoid overriding with the standard wallet xfp.
         // eslint-disable-next-line no-continue
         continue;
       }

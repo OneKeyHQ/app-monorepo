@@ -183,6 +183,8 @@ export type IDBCreateHDWalletParams = {
   name?: string;
   walletHash: string;
   walletXfp: string;
+  passphraseState?: string;
+  hiddenParentWalletId?: string;
   avatar?: IAvatarInfo;
   isKeylessWallet?: boolean;
   keylessDetailsInfo?: IKeylessWalletDetailsInfo;

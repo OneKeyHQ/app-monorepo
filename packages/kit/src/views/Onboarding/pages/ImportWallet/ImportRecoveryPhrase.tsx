@@ -20,13 +20,18 @@ export function ImportRecoveryPhrase() {
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
 
   const handleConfirmPress = useCallback(
-    async (params: { mnemonic: string; mnemonicType: EMnemonicType }) => {
+    async (params: {
+      mnemonic: string;
+      mnemonicType: EMnemonicType;
+      mnemonicPassphrase?: string;
+    }) => {
       if (params.mnemonicType === EMnemonicType.TON) {
         // **** TON mnemonic case - Show dialog
         showTonMnemonicDialog({
           onConfirm: () => {
             navigation.push(EOnboardingPages.FinalizeWalletSetup, {
               mnemonic: params.mnemonic,
+              mnemonicPassphrase: params.mnemonicPassphrase,
               mnemonicType: params.mnemonicType,
               isWalletBackedUp: true,
             });
@@ -45,6 +50,7 @@ export function ImportRecoveryPhrase() {
 
       navigation.push(EOnboardingPages.FinalizeWalletSetup, {
         mnemonic: params.mnemonic,
+        mnemonicPassphrase: params.mnemonicPassphrase,
         mnemonicType: params.mnemonicType,
         isWalletBackedUp: true,
       });
@@ -64,6 +70,7 @@ export function ImportRecoveryPhrase() {
     () => (
       <PhaseInputArea
         defaultPhrases={[]}
+        enablePassphrase
         onConfirm={handleConfirmPress}
         FooterComponent={
           <Tutorials

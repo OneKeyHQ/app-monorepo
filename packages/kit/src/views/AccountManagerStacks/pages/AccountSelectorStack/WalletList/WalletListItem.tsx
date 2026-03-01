@@ -229,7 +229,8 @@ export function WalletListItem({
   }
   const hiddenWallets = wallet?.hiddenWallets;
   const isHwOrQrWallet = accountUtils.isHwOrQrWallet({ walletId: wallet?.id });
-  const isHiddenWallet = accountUtils.isHwHiddenWallet({ wallet });
+  const isHdWallet = accountUtils.isHdWallet({ walletId: wallet?.id });
+  const isHiddenWallet = accountUtils.isHiddenWallet({ wallet });
   const [settings, setSettings] = useSettingsPersistAtom();
 
   useEffect(() => {
@@ -264,7 +265,7 @@ export function WalletListItem({
     />
   );
 
-  if (isHwOrQrWallet && !isHiddenWallet) {
+  if ((isHwOrQrWallet || isHdWallet) && !isHiddenWallet) {
     const shouldShowCreateHiddenWalletButton =
       shouldShowCreateHiddenWalletButtonFn?.({
         wallet,

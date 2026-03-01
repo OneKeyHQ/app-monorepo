@@ -819,13 +819,27 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     let wallets = allWallets;
     const allDevices =
       option?.allDevices || (await this.getAllDevices()).devices;
-    const hiddenWalletsMap: Partial<{
+    const hiddenWalletsByDeviceMap: Partial<{
       [dbDeviceId: string]: IDBWallet[];
+    }> = {};
+    const hiddenHdWalletsByHashMap: Partial<{
+      [walletHash: string]: IDBWallet[];
     }> = {};
 
     const hwStandardWalletsMap: Partial<{
       [dbDeviceId: string]: IDBWallet | null;
     }> = {};
+    const hdStandardWalletHashMap: Partial<Record<string, boolean>> = {};
+
+    for (const wallet of wallets) {
+      if (
+        accountUtils.isHdWallet({ walletId: wallet.id }) &&
+        !accountUtils.isHdHiddenWallet({ wallet }) &&
+        wallet.hash
+      ) {
+        hdStandardWalletHashMap[wallet.hash] = true;
+      }
+    }
 
     // const label = device?.featuresInfo?.label; // standard hw wallet name/label
 
@@ -862,16 +876,27 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           return false;
         }
       }
-      if (
-        nestedHiddenWallets &&
-        accountUtils.isHwHiddenWallet({ wallet }) &&
-        wallet.associatedDevice
-      ) {
-        const dbDeviceId = wallet.associatedDevice;
-        hiddenWalletsMap[dbDeviceId] = hiddenWalletsMap[dbDeviceId] || [];
-        hiddenWalletsMap[dbDeviceId]?.push(wallet);
-        if (hwStandardWalletsMap[dbDeviceId] === undefined) {
-          hwStandardWalletsMap[dbDeviceId] = null;
+      if (nestedHiddenWallets && accountUtils.isHiddenWallet({ wallet })) {
+        if (
+          accountUtils.isHwHiddenWallet({ wallet }) &&
+          wallet.associatedDevice
+        ) {
+          const dbDeviceId = wallet.associatedDevice;
+          hiddenWalletsByDeviceMap[dbDeviceId] =
+            hiddenWalletsByDeviceMap[dbDeviceId] || [];
+          hiddenWalletsByDeviceMap[dbDeviceId]?.push(wallet);
+          if (hwStandardWalletsMap[dbDeviceId] === undefined) {
+            hwStandardWalletsMap[dbDeviceId] = null;
+          }
+          return false;
+        }
+        if (accountUtils.isHdHiddenWallet({ wallet })) {
+          if (!wallet.hash || !hdStandardWalletHashMap[wallet.hash]) {
+            return true;
+          }
+          hiddenHdWalletsByHashMap[wallet.hash] =
+            hiddenHdWalletsByHashMap[wallet.hash] || [];
+          hiddenHdWalletsByHashMap[wallet.hash]?.push(wallet);
         }
         return false;
       }
@@ -882,15 +907,23 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     } = {};
     wallets = await Promise.all(
       wallets.map(async (w) => {
+        let hiddenWallets: IDBWallet[] | undefined;
+        if (w.associatedDevice) {
+          hiddenWallets = (
+            hiddenWalletsByDeviceMap[w.associatedDevice] || []
+          ).filter((hw) => hw.id.startsWith(w.id));
+        } else if (
+          accountUtils.isHdWallet({ walletId: w.id }) &&
+          !accountUtils.isHdHiddenWallet({ wallet: w }) &&
+          w.hash
+        ) {
+          hiddenWallets = hiddenHdWalletsByHashMap[w.hash] || [];
+        }
         const newWallet: IDBWallet = await this.refillWalletInfo({
           refilledWalletsCache,
           allDevices,
           wallet: w,
-          hiddenWallets: w.associatedDevice
-            ? (hiddenWalletsMap[w.associatedDevice] || []).filter((hw) =>
-                hw.id.startsWith(w.id),
-              )
-            : undefined,
+          hiddenWallets,
         });
         if (includingAccounts) {
           await Promise.all([
@@ -989,7 +1022,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       const { wallets } = await this.getWallets();
       if (walletType === WALLET_TYPE_HD) {
         const wallet = wallets.find((w) => {
-          const r = w.type === walletType && w.hash === walletHash;
+          const r =
+            w.type === walletType &&
+            w.hash === walletHash &&
+            (w.passphraseState || '') === (passphraseState || '');
           return r;
         });
         return wallet;
@@ -2105,6 +2141,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       rs,
       walletHash,
       walletXfp,
+      passphraseState,
+      hiddenParentWalletId,
       isKeylessWallet,
       keylessDetailsInfo,
       skipAddHDNextIndexedAccount,
@@ -2127,7 +2165,18 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         xfp: walletXfp || '',
       });
     }
-    const defaultWalletName = `Wallet ${context.nextHD}`;
+    const parentWallet =
+      passphraseState && hiddenParentWalletId
+        ? await this.getWalletSafe({
+            walletId: hiddenParentWalletId,
+          })
+        : undefined;
+    const hiddenDefaultWalletName =
+      passphraseState && parentWallet
+        ? accountUtils.buildHiddenWalletName({ parentWallet })
+        : undefined;
+    const defaultWalletName =
+      hiddenDefaultWalletName || `Wallet ${context.nextHD}`;
     const initWalletName = name || defaultWalletName;
 
     const firstAccountIndex = 0;
@@ -2155,6 +2204,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         accounts: [],
         walletNo: context.nextWalletNo,
         deprecated: false,
+        passphraseState,
         isKeyless: !!isKeylessWallet,
         keylessDetails: keylessDetailsInfo
           ? JSON.stringify(keylessDetailsInfo)
@@ -2275,6 +2325,13 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               return ctx;
             },
           });
+
+          if (passphraseState && hiddenParentWalletId) {
+            await this.txIncreaseParentWalletNextHiddenNum({
+              tx,
+              parentWalletId: hiddenParentWalletId,
+            });
+          }
         },
       });
     });

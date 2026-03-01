@@ -117,23 +117,20 @@ export function getTitleAndDescription({
     };
   }
 
+  if (accountUtils.isHiddenWallet({ wallet })) {
+    return {
+      isHwOrQr,
+      isKeyless: false,
+      title: appLocale.intl.formatMessage({
+        id: ETranslations.remove_wallet,
+      }),
+      description: appLocale.intl.formatMessage({
+        id: ETranslations.remove_hidden_wallet_desc,
+      }),
+    };
+  }
+
   if (isHwOrQr) {
-    if (
-      accountUtils.isHwHiddenWallet({
-        wallet,
-      })
-    ) {
-      return {
-        isHwOrQr,
-        isKeyless: false,
-        title: appLocale.intl.formatMessage({
-          id: ETranslations.remove_wallet,
-        }),
-        description: appLocale.intl.formatMessage({
-          id: ETranslations.remove_hidden_wallet_desc,
-        }),
-      };
-    }
     if (!isRemoveToMocked) {
       return {
         isHwOrQr,

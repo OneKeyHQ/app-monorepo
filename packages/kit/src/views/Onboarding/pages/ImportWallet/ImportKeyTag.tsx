@@ -65,9 +65,14 @@ export function ImportKeyTag() {
 
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
   const handleConfirmPress = useCallback(
-    async (params: { mnemonic: string; mnemonicType: EMnemonicType }) => {
+    async (params: {
+      mnemonic: string;
+      mnemonicType: EMnemonicType;
+      mnemonicPassphrase?: string;
+    }) => {
       navigation.push(EOnboardingPages.FinalizeWalletSetup, {
         mnemonic: params.mnemonic,
+        mnemonicPassphrase: params.mnemonicPassphrase,
         mnemonicType: params.mnemonicType,
         isWalletBackedUp: true,
       });
@@ -88,6 +93,7 @@ export function ImportKeyTag() {
     () => (
       <PhaseInputArea
         defaultPhrases={[]}
+        enablePassphrase
         onConfirm={handleConfirmPress}
         FooterComponent={<KeyTagFooterComponent />}
       />

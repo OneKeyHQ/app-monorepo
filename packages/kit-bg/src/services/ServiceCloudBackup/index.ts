@@ -188,6 +188,9 @@ class ServiceCloudBackup extends ServiceBase {
             id: walletId,
             name: wallet.name,
             type: wallet.type,
+            hash: wallet.hash,
+            xfp: wallet.xfp,
+            passphraseState: wallet.passphraseState,
             accounts: [],
             accountIds: [],
             indexedAccountUUIDs: [],
@@ -643,7 +646,15 @@ class ServiceCloudBackup extends ServiceBase {
       }
 
       for (const id of restoreList.HDWallets) {
-        const { version, name, accounts, avatar } = privateData.wallets[id];
+        const {
+          version,
+          name,
+          accounts,
+          avatar,
+          hash: backupWalletHash,
+          xfp: backupWalletXfp,
+          passphraseState,
+        } = privateData.wallets[id];
         if (version !== HDWALLET_BACKUP_VERSION) {
           return;
         }
@@ -667,9 +678,16 @@ class ServiceCloudBackup extends ServiceBase {
         );
 
         const walletHashAndXfp =
-          await this.backgroundApi.serviceAccount.hdWalletHashAndXfpBuilder({
-            realMnemonic: mnemonicFromRs,
-          });
+          backupWalletHash && backupWalletXfp
+            ? {
+                hash: backupWalletHash,
+                xfp: backupWalletXfp,
+              }
+            : await this.backgroundApi.serviceAccount.hdWalletHashAndXfpBuilder(
+                {
+                  realMnemonic: mnemonicFromRs,
+                },
+              );
 
         const { wallet, isOverrideWallet } =
           await serviceAccount.createHDWalletWithRs({
@@ -679,6 +697,7 @@ class ServiceCloudBackup extends ServiceBase {
             walletHash: walletHashAndXfp.hash,
             walletXfp: walletHashAndXfp.xfp,
             isWalletBackedUp: true,
+            passphraseState,
           });
         await serviceAccount.restoreAccountsToWallet({
           walletId: wallet.id,

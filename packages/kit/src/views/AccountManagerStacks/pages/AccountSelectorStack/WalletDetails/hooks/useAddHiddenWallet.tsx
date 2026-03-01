@@ -8,6 +8,7 @@ import {
   Dialog,
   ESwitchSize,
   Icon,
+  Input,
   LinearGradient,
   SizableText,
   Switch,
@@ -173,6 +174,39 @@ function AddHiddenWalletDialogContent() {
   );
 }
 
+function AddHdHiddenWalletPassphraseContent({
+  onPassphraseChange,
+  onConfirmPassphraseChange,
+}: {
+  onPassphraseChange: (value: string) => void;
+  onConfirmPassphraseChange: (value: string) => void;
+}) {
+  const intl = useIntl();
+  return (
+    <YStack gap="$4">
+      <SizableText size="$bodyMd">
+        {intl.formatMessage({
+          id: ETranslations.global_passphrase_desc,
+        })}
+      </SizableText>
+      <Input
+        secureTextEntry
+        placeholder={intl.formatMessage({
+          id: ETranslations.global_enter_passphrase,
+        })}
+        onChangeText={onPassphraseChange}
+      />
+      <Input
+        secureTextEntry
+        placeholder={intl.formatMessage({
+          id: ETranslations.form_confirm_passphrase_placeholder,
+        })}
+        onChangeText={onConfirmPassphraseChange}
+      />
+    </YStack>
+  );
+}
+
 export function useAddHiddenWallet() {
   const intl = useIntl();
   const actions = useAccountSelectorActions();
@@ -213,6 +247,83 @@ export function useAddHiddenWallet() {
         }
       }
     },
+    [actions, intl],
+  );
+
+  const createHdHiddenWallet = useCallback(
+    async ({ wallet }: { wallet?: IDBWallet }) =>
+      new Promise<void>((resolve, reject) => {
+        const passphraseRef = { current: '' };
+        const confirmPassphraseRef = { current: '' };
+
+        Dialog.show({
+          title: intl.formatMessage({
+            id: ETranslations.global_add_hidden_wallet,
+          }),
+          onConfirmText: intl.formatMessage({
+            id: ETranslations.global_confirm,
+          }),
+          renderContent: (
+            <AddHdHiddenWalletPassphraseContent
+              onPassphraseChange={(value) => {
+                passphraseRef.current = value;
+              }}
+              onConfirmPassphraseChange={(value) => {
+                confirmPassphraseRef.current = value;
+              }}
+            />
+          ),
+          onConfirm: async ({ close }) => {
+            try {
+              if (!passphraseRef.current) {
+                Toast.error({
+                  title: intl.formatMessage({
+                    id: ETranslations.global_enter_passphrase,
+                  }),
+                });
+                return;
+              }
+              if (passphraseRef.current !== confirmPassphraseRef.current) {
+                Toast.error({
+                  title: intl.formatMessage({
+                    id: ETranslations.feedback_passphrase_not_matched,
+                  }),
+                });
+                return;
+              }
+
+              setIsLoading(true);
+              const encodedPassphrase =
+                await backgroundApiProxy.servicePassword.encodeSensitiveText({
+                  text: passphraseRef.current,
+                });
+              await close();
+              await actions.current.createHDHiddenWallet(
+                {
+                  walletId: wallet?.id || '',
+                  passphrase: encodedPassphrase,
+                },
+                {
+                  addDefaultNetworkAccounts: true,
+                },
+              );
+              Toast.success({
+                title: intl.formatMessage({
+                  id: ETranslations.global_success,
+                }),
+              });
+              resolve();
+            } catch (error) {
+              reject(error);
+            } finally {
+              setIsLoading(false);
+            }
+          },
+          onCancel: () => {
+            reject(new Error('User cancelled'));
+          },
+        });
+      }),
     [actions, intl],
   );
 
@@ -266,6 +377,9 @@ export function useAddHiddenWallet() {
 
   const createHiddenWallet = useCallback(
     async ({ wallet }: { wallet?: IDBWallet }) => {
+      if (accountUtils.isHdWallet({ walletId: wallet?.id })) {
+        await createHdHiddenWallet({ wallet });
+      }
       if (accountUtils.isHwWallet({ walletId: wallet?.id })) {
         await createHwHiddenWallet({ wallet });
       }
@@ -273,7 +387,7 @@ export function useAddHiddenWallet() {
         await createQrHiddenWallet({ wallet });
       }
     },
-    [createHwHiddenWallet, createQrHiddenWallet],
+    [createHdHiddenWallet, createHwHiddenWallet, createQrHiddenWallet],
   );
 
   const createHiddenWalletWithDialogConfirm = useCallback(

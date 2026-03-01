@@ -73,8 +73,9 @@ function WalletEditButtonView({
   const showAddHiddenWalletButton = useMemo(() => {
     if (isKeyless) return false;
     return (
-      !accountUtils.isHwHiddenWallet({ wallet }) &&
-      accountUtils.isHwOrQrWallet({ walletId: wallet?.id })
+      !accountUtils.isHiddenWallet({ wallet }) &&
+      (accountUtils.isHwOrQrWallet({ walletId: wallet?.id }) ||
+        accountUtils.isHdWallet({ walletId: wallet?.id }))
     );
   }, [wallet, isKeyless]);
 

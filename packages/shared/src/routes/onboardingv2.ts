@@ -76,6 +76,7 @@ export type IOnboardingParamListV2 = {
   };
   [EOnboardingPagesV2.FinalizeWalletSetup]: {
     mnemonic?: string;
+    mnemonicPassphrase?: string;
     mnemonicType?: EMnemonicType;
     isWalletBackedUp?: boolean;
     isKeylessWallet?: boolean;

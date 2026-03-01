@@ -36,7 +36,7 @@ export function WalletAvatarBase({
   if (!theImg) {
     return null;
   }
-  const isHidden = accountUtils.isHwHiddenWallet({
+  const isHidden = accountUtils.isHiddenWallet({
     wallet,
   });
 

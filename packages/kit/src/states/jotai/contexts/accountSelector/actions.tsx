@@ -860,11 +860,13 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       set,
       {
         mnemonic,
+        mnemonicPassphrase,
         isWalletBackedUp,
         isKeylessWallet,
         keylessDetailsInfo,
       }: {
         mnemonic: string;
+        mnemonicPassphrase?: string;
         isWalletBackedUp?: boolean;
         isKeylessWallet?: boolean;
         keylessDetailsInfo?: IKeylessWalletDetailsInfo;
@@ -876,6 +878,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           let { wallet, indexedAccount, isOverrideWallet } =
             await serviceAccount.createHDWallet({
               mnemonic,
+              mnemonicPassphrase,
               isWalletBackedUp,
               isKeylessWallet,
               keylessDetailsInfo,
@@ -913,6 +916,41 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           }
         },
       }),
+  );
+
+  createHDHiddenWallet = contextAtomMethod(
+    async (
+      _,
+      set,
+      {
+        walletId,
+        passphrase,
+      }: {
+        walletId: string;
+        passphrase: string;
+      },
+      options: {
+        addDefaultNetworkAccounts?: boolean;
+      } = {},
+    ) => {
+      const res = await serviceAccount.createHDHiddenWallet({
+        walletId,
+        passphrase,
+      });
+      const { wallet, indexedAccount, isOverrideWallet } = res;
+      await this.autoSelectToCreatedWallet.call(set, {
+        wallet,
+        indexedAccount,
+        isOverrideWallet,
+      });
+      if (options?.addDefaultNetworkAccounts && indexedAccount?.id) {
+        await this.addDefaultNetworkAccounts.call(set, {
+          wallet,
+          indexedAccount,
+        });
+      }
+      return res;
+    },
   );
 
   createHWWallet = contextAtomMethod(
@@ -2330,6 +2368,7 @@ export function useAccountSelectorActions() {
   const removeWallet = actions.removeWallet.use();
   const removeAccount = actions.removeAccount.use();
   const createHDWallet = actions.createHDWallet.use();
+  const createHDHiddenWallet = actions.createHDHiddenWallet.use();
   // const createHWWallet = actions.createHWWallet.use();
   const createHWHiddenWallet = actions.createHWHiddenWallet.use();
   const createHWWalletWithHidden = actions.createHWWalletWithHidden.use();
@@ -2370,6 +2409,7 @@ export function useAccountSelectorActions() {
     removeWallet,
     removeAccount,
     createHDWallet,
+    createHDHiddenWallet,
     createHWHiddenWallet,
     createHWWalletWithHidden,
     createHWWalletWithoutHidden,

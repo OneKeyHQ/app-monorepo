@@ -259,10 +259,12 @@ export function AccountSelectorWalletListSideBar({
       noop(reloadWalletsHook);
       if (
         wallet &&
-        accountUtils.isHwOrQrWallet({ walletId: wallet.id }) &&
-        !accountUtils.isHwHiddenWallet({ wallet }) &&
+        (accountUtils.isHwOrQrWallet({ walletId: wallet.id }) ||
+          accountUtils.isHdWallet({ walletId: wallet.id })) &&
+        !accountUtils.isHiddenWallet({ wallet }) &&
         isEditableRouteParams &&
         !wallet?.deprecated &&
+        !wallet?.isKeyless &&
         settings.showAddHiddenInWalletSidebar
       ) {
         if (
@@ -275,6 +277,14 @@ export function AccountSelectorWalletListSideBar({
           (wallet?.associatedDeviceInfo?.featuresInfo?.passphrase_protection ===
             true ||
             (wallet?.hiddenWallets?.length ?? 0) > 0)
+        ) {
+          shouldShowCreateHiddenWalletButton = true;
+        }
+
+        if (
+          accountUtils.isHdWallet({
+            walletId: wallet.id,
+          })
         ) {
           shouldShowCreateHiddenWalletButton = true;
         }
@@ -344,7 +354,7 @@ export function AccountSelectorWalletListSideBar({
         return;
       }
       // Hidden wallets (passphrase wallets) should never show connection status
-      if (accountUtils.isHwHiddenWallet({ wallet })) {
+      if (accountUtils.isHiddenWallet({ wallet })) {
         map.set(wallet.id, false);
         return;
       }

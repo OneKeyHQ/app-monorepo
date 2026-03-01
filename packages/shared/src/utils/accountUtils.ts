@@ -267,6 +267,26 @@ function isHwHiddenWallet({
   );
 }
 
+function isHdHiddenWallet({
+  wallet,
+}: {
+  wallet: IDBWallet | undefined;
+}): boolean {
+  return Boolean(
+    wallet && isHdWallet({ walletId: wallet.id }) && wallet.passphraseState,
+  );
+}
+
+function isHiddenWallet({
+  wallet,
+}: {
+  wallet: IDBWallet | undefined;
+}): boolean {
+  return Boolean(
+    wallet && (isHwHiddenWallet({ wallet }) || isHdHiddenWallet({ wallet })),
+  );
+}
+
 function isImportedWallet({
   walletId,
 }: {
@@ -1174,6 +1194,8 @@ export default {
   isHwWallet,
   isHwOrQrWallet,
   isHwHiddenWallet,
+  isHdHiddenWallet,
+  isHiddenWallet,
   isWatchingWallet,
   isImportedWallet,
   isExternalWallet,

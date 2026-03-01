@@ -98,6 +98,28 @@ describe('BTC Core tests', () => {
     });
   });
 
+  it('buildXfpFromMnemonic should respect passphrase and be deterministic', async () => {
+    const coreApi = new CoreChainHd();
+    const withoutPassphraseA = await coreApi.buildXfpFromMnemonic({
+      mnemonic: hdCredential.mnemonic,
+    });
+    const withoutPassphraseB = await coreApi.buildXfpFromMnemonic({
+      mnemonic: hdCredential.mnemonic,
+    });
+    const withPassphraseA = await coreApi.buildXfpFromMnemonic({
+      mnemonic: hdCredential.mnemonic,
+      passphrase: 'onekey-passphrase',
+    });
+    const withPassphraseB = await coreApi.buildXfpFromMnemonic({
+      mnemonic: hdCredential.mnemonic,
+      passphrase: 'onekey-passphrase',
+    });
+
+    expect(withoutPassphraseA.fullXfp).toBe(withoutPassphraseB.fullXfp);
+    expect(withPassphraseA.fullXfp).toBe(withPassphraseB.fullXfp);
+    expect(withoutPassphraseA.fullXfp).not.toBe(withPassphraseA.fullXfp);
+  });
+
   it.skip('signTransaction', async () => {
     const coreApi = new CoreChainHd();
     // TODO BTC tx mock
