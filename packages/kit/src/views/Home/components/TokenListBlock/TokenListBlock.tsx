@@ -899,7 +899,7 @@ function TokenListBlock({
     }) => {
       perfTokenListView.markStart('allNetworkRequestsStarted_getRawData');
 
-      // oxlint-disable-next-line prefer-const
+      // eslint-disable-next-line prefer-const
       let [c, r, l, a] = await Promise.all([
         backgroundApiProxy.simpleDb.customTokens.getRawData(),
         backgroundApiProxy.simpleDb.riskTokenManagement.getRawData(),

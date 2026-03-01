@@ -1,5 +1,4 @@
 // eslint-disable-next-line import/no-cycle
-// oxlint-disable-next-line import/no-cycle
 export * from './Badge';
 export * from './Breadcrumb';
 export * from './HeightTransition';

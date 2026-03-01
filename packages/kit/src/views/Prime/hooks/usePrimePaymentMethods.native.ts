@@ -160,7 +160,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
     const packages: IPackage[] = [];
 
     offerings.current?.availablePackages.forEach((p) => {
-      // oxlint-disable-next-line prefer-const
+      // eslint-disable-next-line prefer-const
       let { subscriptionPeriod, pricePerYear, pricePerMonth } = p.product;
 
       if (platformEnv.isNativeAndroid) {

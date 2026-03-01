@@ -24,7 +24,6 @@ import { Trigger } from '../Trigger';
 import type { GestureResponderEvent } from 'react-native';
 
 // eslint-disable-next-line import/no-cycle
-// oxlint-disable-next-line import/no-cycle
 import { usePageWidth } from '../../hooks/usePage';
 
 export type IShowToasterProps = PropsWithChildren<{

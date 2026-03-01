@@ -2185,7 +2185,7 @@ class ServicePrimeTransfer extends ServiceBase {
         wallet?.createNetworkParams ?? [];
 
       if (isEmpty(indexedAccountNames) || isEmpty(createNetworkParams)) {
-        // oxlint-disable-next-line prefer-const
+        // eslint-disable-next-line prefer-const
         let isCancelled: boolean | undefined;
         ({
           createNetworkParams = [],

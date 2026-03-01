@@ -938,7 +938,7 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
         const relativePaths = [firstAddressRelPath];
 
         defaultLogger.account.accountCreatePerf.xpubToAddress();
-        // oxlint-disable-next-line prefer-const
+        // eslint-disable-next-line prefer-const
         let { addresses: addressesMap, xpubSegwit } =
           await this.getAddressFromXpub({
             network,

@@ -4099,7 +4099,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             }
 
             // add account record
-            // oxlint-disable-next-line prefer-const
+            // eslint-disable-next-line prefer-const
             let { added, addedIds } = await this.txAddRecords({
               tx,
               name: ELocalDBStoreNames.Account,

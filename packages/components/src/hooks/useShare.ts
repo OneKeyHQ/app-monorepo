@@ -6,7 +6,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 // eslint-disable-next-line import/no-cycle
-// oxlint-disable-next-line import/no-cycle
 import { useClipboard } from './useClipboard';
 
 export function useShare() {

@@ -640,7 +640,7 @@ class ServiceWebviewPerp extends ServiceBase {
     // }
     const shouldModifyPlaceOrderPayload = true;
 
-    /* oxlint-disable prefer-const */
+    /* eslint-disable prefer-const */
     let {
       hyperliquidCustomSettings,
       hyperliquidCustomLocalStorage,
@@ -648,7 +648,7 @@ class ServiceWebviewPerp extends ServiceBase {
       hyperliquidBuilderAddress: expectBuilderAddress,
       hyperliquidMaxBuilderFee: expectMaxBuilderFee,
     } = await this.backgroundApi.simpleDb.perp.getPerpData();
-    /* oxlint-enable prefer-const */
+    /* eslint-enable prefer-const */
     if (!expectMaxBuilderFee || expectMaxBuilderFee < 0) {
       expectMaxBuilderFee = 0;
     }

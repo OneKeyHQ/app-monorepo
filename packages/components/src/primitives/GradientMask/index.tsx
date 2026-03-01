@@ -1,5 +1,4 @@
 // eslint-disable-next-line import/no-cycle
-// oxlint-disable-next-line import/no-cycle
 import { LinearGradient } from '@onekeyhq/components/src/content';
 import { useTheme } from '@onekeyhq/components/src/hooks';
 import { Stack } from '@onekeyhq/components/src/primitives';
