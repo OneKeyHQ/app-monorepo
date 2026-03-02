@@ -51,6 +51,7 @@ import {
   EHardwareCallContext,
   EOneKeyDeviceMode,
 } from '@onekeyhq/shared/types/device';
+import { analytics } from '@onekeyhq/shared/src/analytics';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import localDb from '../../dbs/local/localDb';
@@ -535,6 +536,32 @@ class ServiceHardware extends ServiceBase {
           void localDb.updateDevice({
             features,
           });
+
+          void (async () => {
+            try {
+              const deviceType = await deviceUtils.getDeviceTypeFromFeatures({
+                features,
+              });
+              if (
+                deviceType !== EDeviceType.Pro &&
+                deviceType !== EDeviceType.Classic1s
+              ) {
+                return;
+              }
+              const firmwareType = await deviceUtils.getFirmwareType({
+                features,
+              });
+              analytics.trackEvent('hw_device_connected', {
+                device_type: deviceType,
+                firmware_type:
+                  firmwareType === EFirmwareType.BitcoinOnly
+                    ? 'btconly'
+                    : 'universal',
+              });
+            } catch (_e) {
+              // ignore analytics errors
+            }
+          })();
         },
       );
 
@@ -1394,6 +1421,23 @@ class ServiceHardware extends ServiceBase {
       await this.updateHwWalletsDeprecatedStatus({
         connectId,
       });
+      const updateFirmwareInfo = params?.releaseResult?.updateInfos?.firmware;
+      if (
+        updateFirmwareInfo?.fromFirmwareType &&
+        updateFirmwareInfo?.toFirmwareType
+      ) {
+        analytics.trackEvent('hw_firmware_switch_success', {
+          device_type: dbDevice.deviceType,
+          from_firmware_type:
+            updateFirmwareInfo.fromFirmwareType === EFirmwareType.BitcoinOnly
+              ? 'btconly'
+              : 'universal',
+          to_firmware_type:
+            updateFirmwareInfo.toFirmwareType === EFirmwareType.BitcoinOnly
+              ? 'btconly'
+              : 'universal',
+        });
+      }
     }
   }
 
