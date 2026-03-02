@@ -14,6 +14,7 @@ import type {
   IOneKeyJsError,
 } from '../types/errorTypes';
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const map = {
   hello: 'world',
 };

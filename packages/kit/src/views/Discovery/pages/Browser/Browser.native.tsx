@@ -37,7 +37,6 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { isDualScreenDevice } from '@onekeyhq/shared/src/modules/DualScreenInfo';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   ETabDiscoveryRoutes,
   IDiscoveryModalParamList,
@@ -50,6 +49,7 @@ import {
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { EarnHomeWithProvider } from '../../../Earn/EarnHome';

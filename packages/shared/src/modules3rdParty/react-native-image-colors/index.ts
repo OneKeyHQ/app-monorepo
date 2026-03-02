@@ -31,4 +31,5 @@ export const getPrimaryColor = async (url: string, defaultColor: string) => {
   }
 };
 
+// oxlint-disable-next-line import/export -- re-export from third-party module
 export * from 'react-native-image-colors';

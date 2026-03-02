@@ -11,6 +11,9 @@
 
 // Initialize debug timestamp as early as possible (dev only)
 // This must run before any other imports to avoid NaN in LANDING_DEBUG logs
+// oxlint-disable-next-line import/first
+import { isPerfMonitorEnabled } from './enabled';
+
 if (process.env.NODE_ENV !== 'production') {
   (globalThis as any).$$debugT0 =
     (globalThis as any).$$debugT0 ?? performance.now();
@@ -28,8 +31,6 @@ export function debugLandingLog(label: string, extra?: string) {
   const suffix = extra ? `, ${extra}` : '';
   console.log(`[LANDING_DEBUG] ${label}${suffix}, +${elapsed}ms`);
 }
-
-import { isPerfMonitorEnabled } from './enabled';
 
 if (isPerfMonitorEnabled()) {
   const { perfMark } = require('./mark') as typeof import('./mark');

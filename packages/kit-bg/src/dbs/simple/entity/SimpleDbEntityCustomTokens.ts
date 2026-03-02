@@ -64,7 +64,7 @@ export class SimpleDbEntityCustomTokens extends SimpleDbEntityBase<ICustomTokenD
   }
 
   async isV1LegacyData(
-    rawData?: ICustomTokenDBStruct | null | undefined,
+    rawData?: ICustomTokenDBStruct | null,
   ): Promise<boolean> {
     // eslint-disable-next-line no-param-reassign
     rawData = rawData || (await super.getRawData());

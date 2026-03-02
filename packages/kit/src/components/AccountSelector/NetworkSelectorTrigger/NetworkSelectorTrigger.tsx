@@ -26,9 +26,9 @@ import useConfigurableChainSelector from '../../../views/ChainSelector/hooks/use
 import { ChainSelectorInput } from '../../ChainSelectorInput';
 import { NetworkAvatar } from '../../NetworkAvatar';
 import { useNetworkSelectorTrigger } from '../hooks/useNetworkSelectorTrigger';
+import { useUnifiedNetworkSelectorTrigger } from '../hooks/useUnifiedNetworkSelectorTrigger';
 
 import type { IChainSelectorInputProps } from '../../ChainSelectorInput';
-import { useUnifiedNetworkSelectorTrigger } from '../hooks/useUnifiedNetworkSelectorTrigger';
 
 function useNetworkSelectorItems() {
   const { serviceNetwork } = backgroundApiProxy;

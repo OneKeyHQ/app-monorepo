@@ -30,6 +30,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import { TabPageHeader } from '../../../components/TabPageHeader';
 import { useMarketDetailBackNavigation } from '../MarketDetailV2/hooks/useMarketDetailBackNavigation';
 import { useToDetailPage } from '../MarketHomeV2/components/MarketTokenList/hooks/useToMarketDetailPage';
 import { MarketTokenListBase } from '../MarketHomeV2/components/MarketTokenList/MarketTokenListBase';
@@ -42,7 +43,6 @@ import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirro
 import type { IMarketToken } from '../MarketHomeV2/components/MarketTokenList/MarketTokenData';
 import type { EModalMarketRoutes, IModalMarketParamList } from '../router';
 import type { RouteProp } from '@react-navigation/core';
-import { TabPageHeader } from '../../../components/TabPageHeader';
 
 type IMarketBannerDetailRouteParams = RouteProp<
   ITabMarketParamList & IModalMarketParamList,

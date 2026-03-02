@@ -91,7 +91,10 @@ function TableRow<T>({
       if (onRowEvents?.onContextMenu) {
         e.preventDefault();
         onRowEvents.onContextMenu(
-          e.clientX != null && e.clientY != null
+          e.clientX !== null &&
+            e.clientX !== undefined &&
+            e.clientY !== null &&
+            e.clientY !== undefined
             ? { x: e.clientX, y: e.clientY }
             : undefined,
         );

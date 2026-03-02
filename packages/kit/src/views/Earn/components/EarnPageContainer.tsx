@@ -17,6 +17,7 @@ import type { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { LegacyUniversalSearchInput } from '../../../components/TabPageHeader/LegacyUniversalSearchInput';
+
 import type { RefreshControlProps } from 'react-native';
 
 interface IEarnPageContainerProps {

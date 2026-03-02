@@ -211,7 +211,10 @@ export class KeyringHardware extends KeyringHardwareBase {
             receiverAddress: utils.address.fromHex(receiverAddress),
             ...(lock ? { lock } : null),
             ...(resource === 'BANDWIDTH' ? null : { resource: 1 }),
-            lockPeriod: lockPeriod != null ? lockPeriod : undefined,
+            lockPeriod:
+              lockPeriod !== null && lockPeriod !== undefined
+                ? lockPeriod
+                : undefined,
           },
         };
 
