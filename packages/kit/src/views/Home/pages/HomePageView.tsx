@@ -7,6 +7,8 @@ import { useIntl } from 'react-intl';
 import type { ITabContainerRef } from '@onekeyhq/components';
 import {
   Icon,
+  KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET,
+  Keyboard,
   Page,
   ScrollView,
   Stack,
@@ -426,14 +428,15 @@ export function HomePageView({
   const tabs = useMemo(() => {
     if (isWalletNotBackedUp) {
       return (
-        <ScrollView
-          h="100%"
+        <Keyboard.AwareScrollView
+          style={{ flex: 1 }}
           nestedScrollEnabled={platformEnv.isNativeAndroid}
           contentContainerStyle={{ paddingBottom: tabBarHeight }}
+          bottomOffset={KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET}
         >
           {renderHeader()}
           <NotBackedUpEmpty />
-        </ScrollView>
+        </Keyboard.AwareScrollView>
       );
     }
     const key = `${account?.id ?? ''}-${account?.indexedAccountId ?? ''}-${

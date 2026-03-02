@@ -95,5 +95,5 @@ function TabsDraggableFlatListImpl<T>(
 export const TabsDraggableFlatList = React.forwardRef(
   TabsDraggableFlatListImpl,
 ) as <T>(
-  props: DraggableFlatListProps<T> & { ref?: React.Ref<RNFlatList<T>> }
+  props: DraggableFlatListProps<T> & { ref?: React.Ref<RNFlatList<T>> },
 ) => React.ReactElement;

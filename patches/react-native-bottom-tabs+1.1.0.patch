@@ -33,6 +33,64 @@ index 23cd875..3fe0e1d 100644
    }
  
    fun updateItems(items: MutableList<TabInfo>) {
+diff --git a/node_modules/react-native-bottom-tabs/ios/RepresentableView.swift b/node_modules/react-native-bottom-tabs/ios/RepresentableView.swift
+index 09adaca..94e13d0 100644
+--- a/node_modules/react-native-bottom-tabs/ios/RepresentableView.swift
++++ b/node_modules/react-native-bottom-tabs/ios/RepresentableView.swift
+@@ -5,11 +5,12 @@ import SwiftUI
+  Wraps each view with an additional wrapper to avoid directly managing React Native views.
+  This solves issues where the layout would have weird artifacts..
+  */
+-struct RepresentableView: PlatformViewRepresentable {
+-  var view: PlatformView
+ 
+ #if os(macOS)
+ 
++struct RepresentableView: NSViewRepresentable {
++  var view: PlatformView
++
+   func makeNSView(context: Context) -> PlatformView {
+     let wrapper = NSView()
+     wrapper.addSubview(view)
+@@ -17,16 +18,32 @@ struct RepresentableView: PlatformViewRepresentable {
+   }
+ 
+   func updateNSView(_ nsView: PlatformView, context: Context) {}
++}
+ 
+ #else
+ 
+-  func makeUIView(context: Context) -> PlatformView {
+-    let wrapper = UIView()
+-    wrapper.addSubview(view)
+-    return wrapper
++/// Uses UIViewControllerRepresentable to properly isolate the view controller hierarchy.
++/// This prevents UIViewControllerHierarchyInconsistency crashes on iOS 17.x where
++/// react-native-screens' RNSScreenStackView finds the wrong parent VC (UIKitTabBarController
++/// instead of the tab content's hosting controller).
++struct RepresentableView: UIViewControllerRepresentable {
++  var view: PlatformView
++
++  func makeUIViewController(context: Context) -> UIViewController {
++    let vc = UIViewController()
++    vc.view.backgroundColor = .clear
++    vc.view.addSubview(view)
++    view.translatesAutoresizingMaskIntoConstraints = false
++    NSLayoutConstraint.activate([
++      view.leadingAnchor.constraint(equalTo: vc.view.leadingAnchor),
++      view.trailingAnchor.constraint(equalTo: vc.view.trailingAnchor),
++      view.topAnchor.constraint(equalTo: vc.view.topAnchor),
++      view.bottomAnchor.constraint(equalTo: vc.view.bottomAnchor)
++    ])
++    return vc
+   }
+ 
+-  func updateUIView(_ uiView: PlatformView, context: Context) {}
++  func updateUIViewController(_ uiViewController: UIViewController, context: Context) {}
++}
+ 
+ #endif
+-}
 diff --git a/node_modules/react-native-bottom-tabs/ios/TabViewImpl.swift b/node_modules/react-native-bottom-tabs/ios/TabViewImpl.swift
 index 72938be..a7a3c15 100644
 --- a/node_modules/react-native-bottom-tabs/ios/TabViewImpl.swift

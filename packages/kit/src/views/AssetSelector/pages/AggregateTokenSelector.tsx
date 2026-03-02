@@ -437,7 +437,7 @@ function AggregateTokenSelector() {
 
   const processingTokenKey =
     exchangeFilter && processingTokenState.isProcessing
-      ? processingTokenState.token?.$key ?? null
+      ? (processingTokenState.token?.$key ?? null)
       : null;
 
   const renderAggregateTokensList = useCallback(() => {

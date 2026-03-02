@@ -28,10 +28,7 @@ function WalletActionBuyMain({
     accountId: account?.id ?? '',
     fiatCryptoType: 'buy',
   });
-  const { result: isSellSupported } = useSupportNetworkId(
-    'sell',
-    network?.id,
-  );
+  const { result: isSellSupported } = useSupportNetworkId('sell', network?.id);
 
   const isBuyDisabled = useMemo(() => {
     if (wallet?.type === WALLET_TYPE_WATCHING && !platformEnv.isDev) {
