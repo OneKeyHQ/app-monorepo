@@ -311,7 +311,7 @@ export function PerpTickerBarMobile() {
         <PerpCandleChartButtonMobile />
         <PerpSettingsButton
           testID="perp-mobile-settings-button"
-          showFeeTierEntry={Boolean(perpsAccountStatus.canTrade)}
+          showFeeTierEntry={!perpsAccountStatus.accountNotSupport}
         />
       </XStack>
     </XStack>
