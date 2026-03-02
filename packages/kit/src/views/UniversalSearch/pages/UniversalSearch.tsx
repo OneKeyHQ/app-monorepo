@@ -538,12 +538,7 @@ export function UniversalSearch({
             />
           );
         case EUniversalSearchType.V2MarketToken:
-          return (
-            <UniversalSearchV2MarketTokenItem
-              item={item}
-              searchStatus={searchStatus}
-            />
-          );
+          return <UniversalSearchV2MarketTokenItem item={item} />;
         case EUniversalSearchType.AccountAssets:
           return (
             <UniversalSearchAccountAssetItem

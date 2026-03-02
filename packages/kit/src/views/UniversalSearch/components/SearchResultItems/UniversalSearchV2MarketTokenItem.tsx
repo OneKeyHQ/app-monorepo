@@ -31,7 +31,6 @@ import { EUniversalSearchPages } from '@onekeyhq/shared/src/routes/universalSear
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IUniversalSearchV2MarketToken } from '@onekeyhq/shared/types/search';
-import { ESearchStatus } from '@onekeyhq/shared/types/search';
 
 import { MarketStarV2 } from '../../../Market/components/MarketStarV2';
 import { MarketTokenIcon } from '../../../Market/components/MarketTokenIcon';
@@ -137,12 +136,10 @@ export function MarketTokenLiquidity({
 
 interface IUniversalSearchMarketTokenItemProps {
   item: IUniversalSearchV2MarketToken;
-  searchStatus: ESearchStatus;
 }
 
 export function UniversalSearchV2MarketTokenItem({
   item,
-  searchStatus,
 }: IUniversalSearchMarketTokenItemProps) {
   // Ensure market watch list atom is initialized
   const [{ isMounted }] = useMarketWatchListV2Atom();
