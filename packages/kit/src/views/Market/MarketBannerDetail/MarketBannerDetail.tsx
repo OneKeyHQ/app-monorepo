@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 
@@ -16,7 +16,10 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { HeaderNotificationIconButton } from '@onekeyhq/kit/src/components/TabPageHeader/components/HeaderNotificationIconButton';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EJotaiContextStoreNames,
+  useMarketBannerListSortAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   ECopyFrom,
   EEnterWay,
@@ -56,6 +59,10 @@ function MarketBannerDetailContent({ title }: { title: string }) {
   const { handleBackPress } = useMarketDetailBackNavigation();
   const { top } = useSafeAreaInsets();
   const { gtMd } = useMedia();
+
+  const [bannerSort, setBannerSort] = useMarketBannerListSortAtom();
+  const sortRef = useRef(bannerSort);
+  sortRef.current = bannerSort;
 
   const isWebDesktop = (platformEnv.isWeb || platformEnv.isDesktop) && gtMd;
 
@@ -121,14 +128,41 @@ function MarketBannerDetailContent({ title }: { title: string }) {
     [toDetailPage],
   );
 
+  const setSortBy = useCallback(
+    (val: string | undefined) => {
+      const next = { ...sortRef.current, sortBy: val };
+      sortRef.current = next;
+      setBannerSort(next);
+    },
+    [setBannerSort],
+  );
+
+  const setSortType = useCallback(
+    (val: 'asc' | 'desc' | undefined) => {
+      const next = { ...sortRef.current, sortType: val };
+      sortRef.current = next;
+      setBannerSort(next);
+    },
+    [setBannerSort],
+  );
+
   const listResult = useMemo(
     () => ({
       data: transformedData,
       isLoading,
-      setSortBy: () => {},
-      setSortType: () => {},
+      setSortBy,
+      setSortType,
+      currentSortBy: bannerSort.sortBy,
+      currentSortType: bannerSort.sortType,
     }),
-    [transformedData, isLoading],
+    [
+      transformedData,
+      isLoading,
+      setSortBy,
+      setSortType,
+      bannerSort.sortBy,
+      bannerSort.sortType,
+    ],
   );
 
   const renderPageHeader = useMemo(() => {
@@ -187,6 +221,7 @@ function MarketBannerDetailContent({ title }: { title: string }) {
             result={listResult}
             onItemPress={handleItemPress}
             hideTokenAge
+            clientSort
             watchlistFrom={EWatchlistFrom.BannerList}
             copyFrom={ECopyFrom.BannerList}
             showEndReachedIndicator

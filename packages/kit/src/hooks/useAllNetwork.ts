@@ -810,6 +810,10 @@ function useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
         return getEmptyEnabledNetworksResult();
       }
 
+      if (enabledNetworksParam && enabledNetworksParam.length === 0) {
+        return getEmptyEnabledNetworksResult();
+      }
+
       const [{ enabledNetworks, disabledNetworks }, networksResp] =
         await Promise.all([
           backgroundApiProxy.serviceAllNetwork.getAllNetworksState(),
@@ -824,24 +828,27 @@ function useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
         await timerUtils.wait(deferMs);
       }
 
-      let enabledNetworksTemp = enabledNetworks;
+      let enabledNetworkIds: string[];
 
       if (enabledNetworksParam) {
-        enabledNetworksTemp = Object.fromEntries(
-          enabledNetworksParam.map((network) => [network.id, true]),
+        const enabledNetworkIdSet = new Set(
+          enabledNetworksParam.map((n) => n.id),
         );
+        enabledNetworkIds = networks
+          .filter((n) => enabledNetworkIdSet.has(n.id))
+          .map((n) => n.id);
+      } else {
+        enabledNetworkIds = networks
+          .filter((n) =>
+            isEnabledNetworksInAllNetworks({
+              networkId: n.id,
+              disabledNetworks,
+              enabledNetworks,
+              isTestnet: n.isTestnet,
+            }),
+          )
+          .map((n) => n.id);
       }
-
-      const enabledNetworkIds = networks
-        .filter((n) =>
-          isEnabledNetworksInAllNetworks({
-            networkId: n.id,
-            disabledNetworks,
-            enabledNetworks: enabledNetworksTemp,
-            isTestnet: n.isTestnet,
-          }),
-        )
-        .map((n) => n.id);
 
       const compatibleNetworks =
         await backgroundApiProxy.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId(

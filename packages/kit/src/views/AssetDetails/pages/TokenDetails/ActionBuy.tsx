@@ -218,6 +218,27 @@ function ActionBuy({
     });
   };
 
+  // showButtonStyle: compact button with ActionList popover
+  if (rest.showButtonStyle) {
+    return (
+      <ActionList
+        title={label}
+        disabled={effectiveDisabled}
+        sections={sections}
+        renderTrigger={
+          <Button
+            icon={iconName}
+            loading={loading}
+            disabled={effectiveDisabled}
+            {...rest}
+          >
+            {label}
+          </Button>
+        }
+      />
+    );
+  }
+
   return (
     <>
       {/* Mobile: Card style */}
