@@ -12,8 +12,8 @@ import {
   type ImageLoadOptions,
   type ImageRef,
   type ImageSource,
+  resolveSource,
 } from 'expo-image';
-import { resolveSource } from 'expo-image';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 

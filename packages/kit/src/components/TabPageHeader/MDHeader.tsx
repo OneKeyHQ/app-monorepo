@@ -9,13 +9,12 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { HomeTokenListProviderMirror } from '../../views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import { MoreActionButton } from '../MoreActionButton';
 
+import { HeaderNotificationIconButton } from './components/HeaderNotificationIconButton';
 import { HeaderLeft } from './HeaderLeft';
 import { HeaderMDSearch } from './HeaderMDSearch';
 import { HeaderRight, SelectorTrigger } from './HeaderRight';
 import { HeaderTitle } from './HeaderTitle';
 import { LegacyUniversalSearchInput } from './LegacyUniversalSearchInput';
-
-import { HeaderNotificationIconButton } from './components/HeaderNotificationIconButton';
 
 export function MDHeader({
   tabRoute,

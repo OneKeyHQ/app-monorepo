@@ -22,7 +22,8 @@ function requestVerificationAsync(
       });
     } else {
       callback({
-        error: '',
+        error:
+          verification === VerificationResult.Canceled ? 'user_cancel' : '',
         success: false,
       });
     }

@@ -18,6 +18,7 @@ export function useDelayedState<T>(
   const shouldDelay = platformEnv.isNativeIOS;
 
   const effectiveFallbackValue =
+    // eslint-disable-next-line no-nested-ternary
     fallbackValue !== undefined
       ? fallbackValue
       : ((typeof initialValue === 'number' ? 0 : undefined) as T);

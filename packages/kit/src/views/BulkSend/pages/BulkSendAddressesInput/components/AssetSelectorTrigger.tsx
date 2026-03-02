@@ -3,22 +3,21 @@ import { useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Button, SizableText, YStack, useMedia } from '@onekeyhq/components';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EChainSelectorPages } from '@onekeyhq/shared/src/routes';
-import bulkSendUtils from '@onekeyhq/shared/src/utils/bulkSendUtils';
-import type { IToken } from '@onekeyhq/shared/types/token';
-
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import useConfigurableChainSelector from '@onekeyhq/kit/src/views/ChainSelector/hooks/useChainSelector';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EChainSelectorPages } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import bulkSendUtils from '@onekeyhq/shared/src/utils/bulkSendUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { useBulkSendAddressesInputContext } from './Context';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 
 function AssetSelectorTrigger() {
   const intl = useIntl();

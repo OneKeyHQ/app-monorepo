@@ -1,4 +1,4 @@
-// oxlint-disable unicorn/prefer-global-this
+/* eslint-disable unicorn/prefer-global-this */
 /* eslint-disable import/first */
 import '@onekeyhq/shared/src/performance/init';
 

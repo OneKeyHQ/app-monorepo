@@ -26,7 +26,9 @@ function main() {
     },
   );
 
-  child.on('close', (code) => process.exit(code == null ? 2 : code));
+  child.on('close', (code) =>
+    process.exit(code === null || code === undefined ? 2 : code),
+  );
 }
 
 main();

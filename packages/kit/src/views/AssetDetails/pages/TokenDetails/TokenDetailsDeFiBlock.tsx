@@ -41,6 +41,7 @@ export function TokenDetailsDeFiBlock({
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
 
   const cacheKey = `${networkId}_${tokenAddress}`;
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
   const cachedResult = useMemo(() => earnResultCache.get(cacheKey), [cacheKey]);
 
   const { result: earnResult, isLoading } = usePromiseResult(
@@ -186,6 +187,7 @@ export function TokenDetailsDeFiBlock({
         <SizableText size="$bodyMdMedium">
           {intl.formatMessage(
             { id: ETranslations.wallet_banner_defi_title },
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-call
             { number: `${earnResult.maxApr.toFixed(1)}%` },
           )}
         </SizableText>

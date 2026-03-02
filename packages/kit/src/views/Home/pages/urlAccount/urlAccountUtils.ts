@@ -199,7 +199,7 @@ export const urlAccountNavigation = {
       StackActions.push(ETabHomeRoutes.TabHome),
     );
   },
-  replaceHomePage(navigation: IAppNavigation, params?: object | undefined) {
+  replaceHomePage(navigation: IAppNavigation, params?: object) {
     navigation.dispatch(
       // StackActions.replace(ETabHomeRoutes.TabHome, routeParams),
       StackActions.replace(ETabHomeRoutes.TabHome, params),
