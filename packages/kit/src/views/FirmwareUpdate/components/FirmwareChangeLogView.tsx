@@ -315,8 +315,8 @@ export function FirmwareChangeLogView({
     });
     const updateFirmwareInfo = result?.updateInfos?.firmware;
     if (
-      updateFirmwareInfo?.fromFirmwareType &&
-      updateFirmwareInfo?.toFirmwareType &&
+      updateFirmwareInfo?.fromFirmwareType !== undefined &&
+      updateFirmwareInfo?.toFirmwareType !== undefined &&
       updateFirmwareInfo.fromFirmwareType !== updateFirmwareInfo.toFirmwareType
     ) {
       analytics.trackEvent('hw_firmware_switch_start', {

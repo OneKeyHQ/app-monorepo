@@ -241,6 +241,8 @@ class ServiceHardware extends ServiceBase {
 
   private registeredEvents = false;
 
+  private connectedDeviceTracked = new Set<string>();
+
   checkSdkVersionValid() {
     if (process.env.NODE_ENV !== 'production') {
       const {
@@ -537,31 +539,34 @@ class ServiceHardware extends ServiceBase {
             features,
           });
 
-          void (async () => {
-            try {
-              const deviceType = await deviceUtils.getDeviceTypeFromFeatures({
-                features,
-              });
-              if (
-                deviceType !== EDeviceType.Pro &&
-                deviceType !== EDeviceType.Classic1s
-              ) {
-                return;
+          if (!this.connectedDeviceTracked.has(features.device_id)) {
+            void (async () => {
+              try {
+                const deviceType = await deviceUtils.getDeviceTypeFromFeatures({
+                  features,
+                });
+                if (
+                  deviceType !== EDeviceType.Pro &&
+                  deviceType !== EDeviceType.Classic1s
+                ) {
+                  return;
+                }
+                const firmwareType = await deviceUtils.getFirmwareType({
+                  features,
+                });
+                this.connectedDeviceTracked.add(features.device_id);
+                analytics.trackEvent('hw_device_connected', {
+                  device_type: deviceType,
+                  firmware_type:
+                    firmwareType === EFirmwareType.BitcoinOnly
+                      ? 'btconly'
+                      : 'universal',
+                });
+              } catch (_e) {
+                // ignore analytics errors
               }
-              const firmwareType = await deviceUtils.getFirmwareType({
-                features,
-              });
-              analytics.trackEvent('hw_device_connected', {
-                device_type: deviceType,
-                firmware_type:
-                  firmwareType === EFirmwareType.BitcoinOnly
-                    ? 'btconly'
-                    : 'universal',
-              });
-            } catch (_e) {
-              // ignore analytics errors
-            }
-          })();
+            })();
+          }
         },
       );
 
@@ -1423,8 +1428,8 @@ class ServiceHardware extends ServiceBase {
       });
       const updateFirmwareInfo = params?.releaseResult?.updateInfos?.firmware;
       if (
-        updateFirmwareInfo?.fromFirmwareType &&
-        updateFirmwareInfo?.toFirmwareType
+        updateFirmwareInfo?.fromFirmwareType !== undefined &&
+        updateFirmwareInfo?.toFirmwareType !== undefined
       ) {
         analytics.trackEvent('hw_firmware_switch_success', {
           device_type: dbDevice.deviceType,
