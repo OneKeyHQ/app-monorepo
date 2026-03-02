@@ -45,18 +45,18 @@ export function AvailableAssetsTabViewList() {
   const tabData = useMemo(
     () => [
       {
-        title: intl.formatMessage({ id: ETranslations.global_all }),
-        type: EAvailableAssetsTypeEnum.All,
+        title: intl.formatMessage({ id: ETranslations.global_earn }),
+        type: EAvailableAssetsTypeEnum.SimpleEarn,
       },
       {
-        // eslint-disable-next-line @cspell/spellchecker
-        // oxlint-disable-next-line @cspell/spellchecker
-        title: intl.formatMessage({ id: ETranslations.earn_stablecoins }),
-        type: EAvailableAssetsTypeEnum.StableCoins,
+        title: intl.formatMessage({ id: ETranslations.earn_fixed_apy }),
+        type: EAvailableAssetsTypeEnum.FixedRate,
       },
       {
-        title: intl.formatMessage({ id: ETranslations.earn_native_tokens }),
-        type: EAvailableAssetsTypeEnum.NativeTokens,
+        title: intl.formatMessage({
+          id: ETranslations.wallet_defi_position_module_staked,
+        }),
+        type: EAvailableAssetsTypeEnum.Staking,
       },
     ],
     [intl],

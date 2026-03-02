@@ -35,7 +35,7 @@ type IUseBulkSendFeeEstimationParams = {
 };
 
 // Scale gasLimit for bulk transfer txs when batch estimation is not available.
-// For transfer txs (non-approve), multiply gasLimit by (transfersInfo.length)
+// For transfer txs (non-approve), multiply gasLimit by (transfersInfo.length + 1)
 // to account for the higher gas consumption of multi-call contracts.
 function scaleGasLimitForBulkTransfer(
   feeInfo: IFeeInfoUnit,
@@ -189,6 +189,7 @@ export function useBulkSendFeeEstimation({
         }
 
         if (!txFee) {
+          // eslint-disable-next-line no-restricted-syntax
           throw new Error('Failed to estimate fee');
         }
 
@@ -251,6 +252,7 @@ export function useBulkSendFeeEstimation({
         const selectedFeeInfo = feeSelectorItems[selectedPresetIndex]?.feeInfo;
 
         if (!selectedFeeInfo) {
+          // eslint-disable-next-line no-restricted-syntax
           throw new Error('No fee info available');
         }
 
@@ -275,7 +277,10 @@ export function useBulkSendFeeEstimation({
             // Fallback mode: scale gasLimit for transfer txs
             // Gas scales with the number of transfers in this tx, not the number of txs
             const transferCount = unsignedTx.transfersInfo?.length ?? 1;
-            txFeeInfo = scaleGasLimitForBulkTransfer(txFeeInfo, transferCount);
+            txFeeInfo = scaleGasLimitForBulkTransfer(
+              txFeeInfo,
+              transferCount + 1,
+            );
           }
           const feeResult = calculateFeeForSend({
             feeInfo: txFeeInfo,
@@ -412,7 +417,10 @@ export function useBulkSendFeeEstimation({
           // Fallback mode: scale gasLimit for transfer txs
           // Gas scales with the number of transfers in this tx, not the number of txs
           const transferCount = unsignedTx.transfersInfo?.length ?? 1;
-          txFeeInfo = scaleGasLimitForBulkTransfer(txFeeInfo, transferCount);
+          txFeeInfo = scaleGasLimitForBulkTransfer(
+            txFeeInfo,
+            transferCount + 1,
+          );
         }
         const feeResult = calculateFeeForSend({
           feeInfo: txFeeInfo,
@@ -443,6 +451,7 @@ export function useBulkSendFeeEstimation({
         feeInfos,
       }));
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [
       feeState.feeSelectorItems,
       feeState.perTxFeeInfos,

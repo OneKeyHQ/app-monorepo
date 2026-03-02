@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -22,11 +22,19 @@ type IProps = {
   tableLayout?: boolean;
   hideValue?: boolean;
   compact?: boolean;
+  recomputeLayout?: () => void;
 };
 
 function TxHistoryListItem(props: IProps) {
-  const { historyTx, tableLayout, onPress, showIcon, hideValue, compact } =
-    props;
+  const {
+    historyTx,
+    tableLayout,
+    onPress,
+    showIcon,
+    hideValue,
+    compact,
+    recomputeLayout,
+  } = props;
   const intl = useIntl();
 
   const {
@@ -40,6 +48,20 @@ function TxHistoryListItem(props: IProps) {
   } = useReplaceTx({
     historyTx,
   });
+
+  useEffect(() => {
+    if (
+      historyTx.decodedTx.status === EDecodedTxStatus.Pending &&
+      (canReplaceTx !== undefined || checkSpeedUpStateEnabled !== undefined)
+    ) {
+      recomputeLayout?.();
+    }
+  }, [
+    canReplaceTx,
+    checkSpeedUpStateEnabled,
+    recomputeLayout,
+    historyTx.decodedTx.status,
+  ]);
 
   const renderReplaceTxActions = useCallback(() => {
     if (!canReplaceTx && !checkSpeedUpStateEnabled) return null;
@@ -104,6 +126,7 @@ function TxHistoryListItem(props: IProps) {
 
     return (
       <XStack
+        // eslint-disable-next-line no-nested-ternary
         pl={showIcon ? (compact ? 64 : 72) : 20}
         testID="history-list-item-speed-up-and-cancel-buttons"
         pb="$3"

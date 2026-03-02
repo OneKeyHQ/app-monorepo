@@ -1,5 +1,5 @@
 // oxlint-disable unicorn/prefer-global-this
-// eslint-disable unicorn/prefer-global-this
+/* eslint-disable unicorn/prefer-global-this */
 import storageChecker from '../../storageChecker/storageChecker';
 
 // @ts-ignore

@@ -557,7 +557,7 @@ class ServiceWebviewPerp extends ServiceBase {
   }: {
     request: IJsBridgeMessagePayload;
     userAddress: string;
-    // eslint-disable-next-line @cspell/spellchecker
+
     // oxlint-disable-next-line @cspell/spellchecker
     chainId: string; // 0xa4b1 Arbitrum hex chainId
     skipApproveAction?: boolean;
@@ -640,6 +640,7 @@ class ServiceWebviewPerp extends ServiceBase {
     // }
     const shouldModifyPlaceOrderPayload = true;
 
+    /* eslint-disable prefer-const */
     let {
       hyperliquidCustomSettings,
       hyperliquidCustomLocalStorage,
@@ -647,6 +648,7 @@ class ServiceWebviewPerp extends ServiceBase {
       hyperliquidBuilderAddress: expectBuilderAddress,
       hyperliquidMaxBuilderFee: expectMaxBuilderFee,
     } = await this.backgroundApi.simpleDb.perp.getPerpData();
+    /* eslint-enable prefer-const */
     if (!expectMaxBuilderFee || expectMaxBuilderFee < 0) {
       expectMaxBuilderFee = 0;
     }

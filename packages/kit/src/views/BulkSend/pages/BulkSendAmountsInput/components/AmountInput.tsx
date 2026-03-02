@@ -225,10 +225,12 @@ export function RangeAmountInput() {
     const errors = validateRangeRef.current(rangeMin, rangeMax);
     if (errors.rangeError) {
       // Set validation error on mount (e.g., balance=0 → both inputs are 0)
+      /* eslint-disable @typescript-eslint/no-use-before-define */
       setAmountInputErrors({
         ...amountInputErrorsRef.current,
         rangeError: errors.rangeError,
       });
+      /* eslint-enable @typescript-eslint/no-use-before-define */
     } else {
       const previewAmounts = generatePreviewAmountsRef.current(
         rangeMin,

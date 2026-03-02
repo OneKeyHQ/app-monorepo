@@ -204,7 +204,7 @@ describe('BIP32 Edge Cases', () => {
       const seed = Buffer.from('000102030405060708090a0b0c0d0e0f', 'hex');
       let key = deriver.generateMasterKeyFromSeed(seed);
       // m/0'/1'/2'/3'/4'
-      for (let i = 0; i < 5; i++) {
+      for (let i = 0; i < 5; i += 1) {
         key = deriver.CKDPriv(key, 0x80_00_00_00 + i);
       }
       expect(key.key.length).toBe(32);
@@ -325,7 +325,7 @@ describe('BIP32 Edge Cases', () => {
     it('should produce master key < secp256k1 order', () => {
       const seed = Buffer.from('000102030405060708090a0b0c0d0e0f', 'hex');
       const master = deriver.generateMasterKeyFromSeed(seed);
-      const keyBN = BigInt('0x' + master.key.toString('hex'));
+      const keyBN = BigInt(`0x${master.key.toString('hex')}`);
       const order = BigInt(
         '0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141',
       );
@@ -362,7 +362,7 @@ describe('BIP32 Edge Cases', () => {
       const seed = Buffer.from('000102030405060708090a0b0c0d0e0f', 'hex');
       let key = deriver.generateMasterKeyFromSeed(seed);
 
-      for (let i = 0; i < 10; i++) {
+      for (let i = 0; i < 10; i += 1) {
         key = deriver.CKDPriv(key, 0x80_00_00_00 + i);
         key = deriver.CKDPriv(key, i);
       }
@@ -377,7 +377,7 @@ describe('BIP32 Edge Cases', () => {
       let key1 = deriver.generateMasterKeyFromSeed(seed);
       let key2 = deriver.generateMasterKeyFromSeed(seed);
 
-      for (let i = 0; i < 20; i++) {
+      for (let i = 0; i < 20; i += 1) {
         key1 = deriver.CKDPriv(key1, i);
         key2 = deriver.CKDPriv(key2, i);
       }
@@ -482,7 +482,7 @@ describe('BIP32 Edge Cases', () => {
       const seed = Buffer.from('000102030405060708090a0b0c0d0e0f', 'hex');
       let key = deriver.generateMasterKeyFromSeed(seed);
 
-      for (let i = 0; i < 1000; i++) {
+      for (let i = 0; i < 1000; i += 1) {
         key = deriver.CKDPriv(key, i % 2 === 0 ? 0x80_00_00_00 : 0);
       }
 

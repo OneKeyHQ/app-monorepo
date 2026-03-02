@@ -17,6 +17,7 @@ import type {
 } from '@onekeyhq/core/src/types';
 import {
   ManageTokenInsufficientBalanceError,
+  type OneKeyError,
   OneKeyInternalError,
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
@@ -64,6 +65,7 @@ import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
   IBroadcastTransactionByCustomRpcParams,
+  IBroadcastTransactionParams,
   IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
@@ -75,6 +77,10 @@ import type {
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
 } from '../../types';
+/* eslint-disable import/order */
+import type { FailedAttemptError } from 'p-retry';
+import { NETWORK_REQUEST_ERROR_CODE } from '@onekeyhq/core/src/chains/algo/constants';
+/* eslint-enable import/order */
 
 export default class Vault extends VaultBase {
   override coreApi = coreChainApi.algo.hd;
@@ -647,6 +653,14 @@ export default class Vault extends VaultBase {
     };
   }
 
+  override async broadcastTransaction(
+    params: IBroadcastTransactionParams,
+  ): Promise<ISignedTxPro> {
+    const result = await super.broadcastTransaction(params);
+    await this._getSuggestedParams.clear();
+    return result;
+  }
+
   override async broadcastTransactionFromCustomRpc(
     params: IBroadcastTransactionByCustomRpcParams,
   ): Promise<ISignedTxPro> {
@@ -655,7 +669,7 @@ export default class Vault extends VaultBase {
     if (!rpcUrl) {
       throw new OneKeyInternalError('rpcUrl is required');
     }
-    // eslint-disable-next-line @cspell/spellchecker
+
     // oxlint-disable-next-line @cspell/spellchecker
     const client = new sdkAlgo.Algodv2('', rpcUrl, 443);
     const { txId } = await client
@@ -665,9 +679,25 @@ export default class Vault extends VaultBase {
       txId,
       rawTx: signedTx.rawTx,
     });
+    await this._getSuggestedParams.clear();
     return {
       ...params.signedTx,
       txid: txId,
     };
+  }
+
+  override async checkShouldRetryBroadcastTx(
+    error: FailedAttemptError,
+  ): Promise<boolean> {
+    if (
+      (error as unknown as OneKeyError)?.code === NETWORK_REQUEST_ERROR_CODE &&
+      (error as unknown as OneKeyError)?.message?.includes(
+        'cannot broadcast txns in follower mode',
+      )
+    ) {
+      await timerUtils.wait((error?.attemptNumber || 1) * 1000);
+      return true;
+    }
+    return false;
   }
 }

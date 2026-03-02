@@ -1,5 +1,5 @@
 // oxlint-disable unicorn/prefer-global-this
-// eslint-disable unicorn/prefer-global-this
+/* eslint-disable unicorn/prefer-global-this */
 // @ts-nocheck
 // eslint-disable-next-line max-classes-per-file
 import * as mimeTypes from 'mime-types';
@@ -27,13 +27,17 @@ function extractLength(response: Response) {
   const values = response.headers.get('content-length')?.split(/\s*,\s*/) ?? [];
   let candidateValue: string | null = null;
   for (const value of values) {
-    if (candidateValue == null) {
+    if (candidateValue === null || candidateValue === undefined) {
       candidateValue = value;
     } else if (value !== candidateValue) {
       throw new OneKeyLocalError('invalid content-length');
     }
   }
-  if (candidateValue === '' || candidateValue == null) {
+  if (
+    candidateValue === '' ||
+    candidateValue === null ||
+    candidateValue === undefined
+  ) {
     return null;
   }
   const v = parseInt(candidateValue, 10);
@@ -59,7 +63,7 @@ function extractMIMEType(headers: Headers) {
     }
     mimeType = temporaryMimeType;
   }
-  if (mimeType == null) {
+  if (mimeType === null || mimeType === undefined) {
     throw new OneKeyLocalError('missing content type');
   }
   return mimeType;
@@ -259,13 +263,13 @@ export class XMLHttpRequest extends XMLHttpRequestEventTarget {
   }
 
   #getTextResponse() {
-    if (this.#response?.body == null) {
+    if (this.#response?.body === null || this.#response?.body === undefined) {
       return '';
     }
     let charset = this.#getFinalEncoding();
     if (
       this.#responseType === '' &&
-      charset == null &&
+      (charset === null || charset === undefined) &&
       isXMLMimeType(this.#getFinalMIMEType())
     ) {
       charset = 'utf-8';
@@ -321,7 +325,7 @@ export class XMLHttpRequest extends XMLHttpRequestEventTarget {
 
   #setDocumentResponse() {
     assert(this.#response);
-    if (this.#response.body == null) {
+    if (this.#response.body === null || this.#response.body === undefined) {
       return;
     }
     const finalMIME = this.#getFinalMIMEType();
@@ -369,7 +373,7 @@ export class XMLHttpRequest extends XMLHttpRequestEventTarget {
     if (this.#responseObject instanceof Error) {
       return null;
     }
-    if (this.#responseObject != null) {
+    if (this.#responseObject !== null && this.#responseObject !== undefined) {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       return this.#responseObject;
     }
@@ -391,7 +395,7 @@ export class XMLHttpRequest extends XMLHttpRequestEventTarget {
       this.#setDocumentResponse();
     } else {
       assert(this.#responseType === 'json');
-      if (this.#response?.body == null) {
+      if (this.#response?.body === null || this.#response?.body === undefined) {
         return null;
       }
       let jsonObject;
@@ -572,10 +576,10 @@ export class XMLHttpRequest extends XMLHttpRequestEventTarget {
     } catch {
       throw new DOMException(`The url "${url}" is invalid.`, 'SyntaxError');
     }
-    if (username != null) {
+    if (username !== null && username !== undefined) {
       parsedUrl.username = username;
     }
-    if (password != null) {
+    if (password !== null && password !== undefined) {
       parsedUrl.password = password;
     }
     if (async === false) {
@@ -630,7 +634,7 @@ export class XMLHttpRequest extends XMLHttpRequestEventTarget {
     });
     this.#uploadCompleteFlag = false;
     this.#timedoutFlag = false;
-    if (req.body == null) {
+    if (req.body === null || req.body === undefined) {
       this.#uploadCompleteFlag = true;
     }
     this.#sendFlag = true;
@@ -667,7 +671,7 @@ export class XMLHttpRequest extends XMLHttpRequestEventTarget {
       if (this.#state !== EXhrState.HEADERS_RECEIVED) {
         return;
       }
-      if (response.body == null) {
+      if (response.body === null || response.body === undefined) {
         this.#handleResponseEndOfBody();
         return;
       }

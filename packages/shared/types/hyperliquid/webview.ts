@@ -23,7 +23,7 @@ export type IHyperLiquidMessageApproveAgent = {
 };
 
 // https://github.com/hyperliquid-dex/hyperliquid-python-sdk/blob/master/hyperliquid/utils/signing.py#L395
-// eslint-disable-next-line @cspell/spellchecker
+
 // oxlint-disable-next-line @cspell/spellchecker
 /*
   {"name": "hyperliquidChain", "type": "string"},

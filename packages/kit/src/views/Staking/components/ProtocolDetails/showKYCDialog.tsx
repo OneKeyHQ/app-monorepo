@@ -74,7 +74,7 @@ function GenericDialogContent({
         if (onConfirm) {
           onConfirm()
             .then(() => resolve())
-            .catch(() => reject());
+            .catch(() => reject(new Error('KYC confirmation failed')));
         } else {
           resolve();
         }
@@ -364,7 +364,7 @@ function KYCDialogContent({
         const booleanStates = checkboxStates.map((state) => Boolean(state));
         onConfirm(booleanStates)
           .then(() => resolve())
-          .catch(() => reject());
+          .catch(() => reject(new Error('KYC confirmation failed')));
       }),
     [checkboxStates, onConfirm],
   );

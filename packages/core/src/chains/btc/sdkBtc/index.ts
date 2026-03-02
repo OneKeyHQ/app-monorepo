@@ -145,7 +145,7 @@ export const isNativeSegwitPath = (pathPrefix: string) =>
 // eslint-disable-next-line @cspell/spellchecker
 // oxlint-disable-next-line @cspell/spellchecker
 // Taproot addresses start with 'bc1p' on mainnet
-// eslint-disable-next-line @cspell/spellchecker
+
 // oxlint-disable-next-line @cspell/spellchecker
 // Taproot addresses start with 'tb1p' on testnet
 export const isTaprootAddress = (address: string): boolean =>

@@ -198,20 +198,21 @@ export const BundleUpdate: IBundleUpdate = {
               ReactNativeBundleUpdate.removeDownloadListener(onListenerId);
             }
           };
-          onListenerId = ReactNativeBundleUpdate.addDownloadListener(
-            (event) => {
-              if (event.type === DOWNLOAD_EVENT_TYPE.complete) {
-                if (settled) return;
-                settled = true;
-                resolve(result);
-                removeListener();
-              } else if (event.type === DOWNLOAD_EVENT_TYPE.error) {
-                if (settled) return;
-                settled = true;
-                reject(event.message);
-                removeListener();
-              }
-            },
+          const onSuccess = () => {
+            resolve(result);
+            removeSubscriptions();
+          };
+          const onError = (error: string) => {
+            reject(new Error(error));
+            removeSubscriptions();
+          };
+          onSuccessSubscription = BundleUpdateEventEmitter?.addListener(
+            DOWNLOAD_EVENT_TYPE.error,
+            onError,
+          );
+          onErrorSubscription = BundleUpdateEventEmitter?.addListener(
+            DOWNLOAD_EVENT_TYPE.complete,
+            onSuccess,
           );
         })
         .catch(reject);

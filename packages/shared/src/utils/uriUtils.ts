@@ -5,11 +5,11 @@ import validator from 'validator';
 import type { IUrlValue } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
 
 import { ONEKEY_APP_DEEP_LINK_NAME } from '../consts/deeplinkConsts';
-import platformEnv from '../platformEnv';
 import {
   PROTOCOLS_SUPPORTED_TO_OPEN,
   VALID_DEEP_LINK,
 } from '../consts/urlProtocolConsts';
+import platformEnv from '../platformEnv';
 
 import type {
   EOneKeyDeepLinkPath,

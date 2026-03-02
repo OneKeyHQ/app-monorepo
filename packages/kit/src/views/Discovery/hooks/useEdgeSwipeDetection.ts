@@ -1,11 +1,11 @@
 import { useCallback, useRef } from 'react';
+import type { RefObject } from 'react';
 
 import { Dimensions } from 'react-native';
 
 import type { ITabContainerRef } from '@onekeyhq/components';
 
 import type { GestureResponderEvent } from 'react-native';
-import type { RefObject } from 'react';
 
 const SWIPE_THRESHOLD = 100;
 const DIRECTION_THRESHOLD = 15;
@@ -76,7 +76,7 @@ export function useEdgeSwipeDetection({
 
     // Check if touch started near screen edge
     const edgeW = screenEdgeWidthRef.current;
-    if (edgeW != null) {
+    if (edgeW !== null && edgeW !== undefined) {
       const screenWidth = Dimensions.get('window').width;
       isNearEdge.current = pageX < edgeW || pageX > screenWidth - edgeW;
     } else {

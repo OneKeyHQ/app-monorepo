@@ -2052,6 +2052,7 @@ class ServiceAccount extends ServiceBase {
     walletId: IDBWalletIdSingleton;
     activeNetworkId?: string;
   }) {
+    // eslint-disable-next-line prefer-const
     let { accounts, removedAccountIds } =
       await localDb.getSingletonAccountsOfWallet({
         walletId,

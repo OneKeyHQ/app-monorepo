@@ -13,8 +13,15 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { PagerView } from '@onekeyhq/components/src/composite/Carousel/pager';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useAccountSelectorCreateAddress } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorCreateAddress';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import {
+  useAccountSelectorActions,
+  useActiveAccount,
+} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
@@ -24,30 +31,24 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type {
-  EChainSelectorPages,
-  IChainSelectorParamList,
+import {
+  type EChainSelectorPages,
+  EChainSelectorPages as EChainSelectorPagesEnum,
+  type IChainSelectorParamList,
 } from '@onekeyhq/shared/src/routes';
-import { EChainSelectorPages as EChainSelectorPagesEnum } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { isEnabledNetworksInAllNetworks } from '@onekeyhq/shared/src/utils/networkUtils';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import networkUtils, {
+  isEnabledNetworksInAllNetworks,
+} from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import {
-  useAccountSelectorActions,
-  useActiveAccount,
-} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { NetworkContent } from './NetworkContent';
 import PortfolioContent from './PortfolioContent';
 import { TabSwitcher } from './TabSwitcher';
 
-import type { IServerNetworkMatch } from '../../types';
 import type { ITabType } from './TabSwitcher';
+import type { IServerNetworkMatch } from '../../types';
 import type { RouteProp } from '@react-navigation/core';
 import type NativePagerView from 'react-native-pager-view';
 
@@ -273,7 +274,11 @@ function UnifiedNetworkSelector() {
   useEffect(() => {
     const fn = async () => {
       try {
-        await refreshPortfolioData();
+        // Use alwaysSetState to bypass the isFocused check, because this
+        // event can fire while the navigation-back animation is still
+        // running (screen not yet focused), which would silently skip
+        // the refresh and leave stale data.
+        await refreshPortfolioData({ alwaysSetState: true });
       } catch {
         // silently ignore refresh errors
       }
@@ -590,6 +595,7 @@ function UnifiedNetworkSelector() {
         headerTitleAlign="center"
       />
       <Page.Body>
+        {/* eslint-disable no-nested-ternary */}
         {showTabSwitcher ? (
           platformEnv.isNative ? (
             <PagerView
@@ -699,8 +705,9 @@ function UnifiedNetworkSelector() {
             />
           </Stack>
         )}
+        {/* eslint-enable no-nested-ternary */}
       </Page.Body>
-      {activeTab === 'portfolio' && (
+      {activeTab === 'portfolio' ? (
         <Page.Footer>
           <Stack
             p="$5"
@@ -746,7 +753,7 @@ function UnifiedNetworkSelector() {
             </Button>
           </Stack>
         </Page.Footer>
-      )}
+      ) : null}
     </Page>
   );
 }

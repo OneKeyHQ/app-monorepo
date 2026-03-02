@@ -150,14 +150,23 @@ export const useStakingPendingTxsByInfo = ({
     onRefreshRef.current = onRefresh;
   }, [onRefresh]);
 
-  // Prefer the "All" tab data, otherwise merge everything we have locally
+  // Prefer new available-assets groups, then fall back to cached groups.
   const availableAssets = useMemo(() => {
     if (!shouldUseEarnAssets) {
       return [];
     }
-    const assetsFromAll = availableAssetsByType?.[EAvailableAssetsTypeEnum.All];
+
+    const groupedAssets = [
+      EAvailableAssetsTypeEnum.SimpleEarn,
+      EAvailableAssetsTypeEnum.FixedRate,
+      EAvailableAssetsTypeEnum.Staking,
+    ].flatMap((type) => availableAssetsByType?.[type] ?? []);
+
     const mergedAssets =
-      assetsFromAll ?? Object.values(availableAssetsByType).flat();
+      groupedAssets.length > 0
+        ? groupedAssets
+        : Object.values(availableAssetsByType).flat();
+
     if (!mergedAssets || mergedAssets.length === 0) return [];
 
     const mergedByKey = new Map<string, (typeof mergedAssets)[number]>();
