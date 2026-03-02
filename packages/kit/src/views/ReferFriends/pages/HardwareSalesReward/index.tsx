@@ -34,6 +34,7 @@ import {
   ReferFriendsDetailHeader,
   ReferFriendsPageContainer,
 } from '../../components';
+import { useDatePresets } from '../../hooks/useDatePresets';
 import { useRewardFilter } from '../../hooks/useRewardFilter';
 
 import { HardwareRecordsList } from './components/HardwareRecordsList';
@@ -139,6 +140,8 @@ function HardwareSalesRewardPageWrapper() {
   const currentDatePickerValue = intermediateDateRange ?? datePickerValue;
   const maxDate = useMemo(() => new Date(), []);
 
+  const presets = useDatePresets();
+
   const effectiveTimeRange =
     filterState.startTime && filterState.endTime
       ? undefined
@@ -152,6 +155,8 @@ function HardwareSalesRewardPageWrapper() {
             value={currentDatePickerValue}
             onChange={handleDateRangeChange}
             maxDate={maxDate}
+            showPreviousMonth
+            presets={presets}
           />
         </YStack>
         <XStack gap="$3">
@@ -172,6 +177,7 @@ function HardwareSalesRewardPageWrapper() {
       currentDatePickerValue,
       handleDateRangeChange,
       maxDate,
+      presets,
       filterState,
       updateFilter,
       effectiveTimeRange,
