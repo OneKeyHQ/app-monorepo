@@ -540,6 +540,7 @@ class ServiceHardware extends ServiceBase {
           });
 
           if (!this.connectedDeviceTracked.has(features.device_id)) {
+            this.connectedDeviceTracked.add(features.device_id);
             void (async () => {
               try {
                 const deviceType = await deviceUtils.getDeviceTypeFromFeatures({
@@ -554,7 +555,6 @@ class ServiceHardware extends ServiceBase {
                 const firmwareType = await deviceUtils.getFirmwareType({
                   features,
                 });
-                this.connectedDeviceTracked.add(features.device_id);
                 analytics.trackEvent('hw_device_connected', {
                   device_type: deviceType,
                   firmware_type:
