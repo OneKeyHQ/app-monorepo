@@ -6,8 +6,8 @@ import {
   Button,
   Dialog,
   Icon,
-  Image,
   Illustration,
+  Image,
   Popover,
   SegmentControl,
   SizableText,
@@ -57,8 +57,8 @@ function formatCompactUsd(value: number): string {
   if (value >= 1_000_000) {
     return `$${(value / 1_000_000).toFixed(1)}M`;
   }
-  if (value >= 1_000) {
-    return `$${(value / 1_000).toFixed(1)}K`;
+  if (value >= 1000) {
+    return `$${(value / 1000).toFixed(1)}K`;
   }
   return `$${value.toFixed(0)}`;
 }
@@ -104,16 +104,26 @@ function FeeRow({
   emphasis?: boolean;
   valueColor?: string;
 }) {
+  let labelSize = '$bodySm';
+  if (bold) {
+    labelSize = '$bodyMdMedium';
+  } else if (emphasis) {
+    labelSize = '$bodyMd';
+  }
+  let valueSize = '$bodySm';
+  if (bold) {
+    valueSize = '$bodyMdMedium';
+  } else if (emphasis) {
+    valueSize = '$bodyMdMedium';
+  }
+
   return (
     <XStack justifyContent="space-between" alignItems="center">
-      <SizableText
-        size={bold ? '$bodyMdMedium' : emphasis ? '$bodyMd' : '$bodySm'}
-        color="$textSubdued"
-      >
+      <SizableText size={labelSize} color="$textSubdued">
         {label}
       </SizableText>
       <SizableText
-        size={bold ? '$bodyMdMedium' : emphasis ? '$bodyMdMedium' : '$bodySm'}
+        size={valueSize}
         color={valueColor ?? (bold ? '$text' : '$textSubdued')}
       >
         {value}
@@ -376,12 +386,10 @@ function WalletComparisonSection({
       const builderFee = isOneKey
         ? onekeyBuilderFee
         : wallet.builderFeeBenchmark;
-      const providerFeeRate =
-        hasReliableBenchmark && builderFee !== null
-          ? isOneKey
-            ? 0
-            : builderFee
-          : undefined;
+      let providerFeeRate: number | undefined;
+      if (hasReliableBenchmark && builderFee !== null) {
+        providerFeeRate = isOneKey ? 0 : builderFee;
+      }
       const totalTaker =
         hasReliableBenchmark && builderFee !== null
           ? hlTakerForCompare + builderFee
@@ -398,7 +406,7 @@ function WalletComparisonSection({
   }, [hlTakerForCompare, onekeyBuilderFee]);
 
   const sortedRows = useMemo(() => {
-    return [...compareRows].sort((a, b) => {
+    return compareRows.toSorted((a, b) => {
       if (a.totalTaker === undefined && b.totalTaker === undefined) {
         return 0;
       }

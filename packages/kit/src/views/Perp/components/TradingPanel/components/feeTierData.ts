@@ -8,8 +8,8 @@ export type IWalletBuilderFeeBenchmark = {
 };
 
 // Default sample rates used only when we cannot fetch user-specific fee data.
-export const DEFAULT_HL_TAKER_FEE_FOR_COMPARE = 0.00045;
-export const DEFAULT_HL_MAKER_FEE_FOR_COMPARE = 0.00015;
+export const DEFAULT_HL_TAKER_FEE_FOR_COMPARE = 0.000_45;
+export const DEFAULT_HL_MAKER_FEE_FOR_COMPARE = 0.000_15;
 
 export const FEE_COMPARE_BENCHMARK_LAST_UPDATED = '2026-03-02';
 export const PERP_CONFIG_BUILDER_FEE_RATE_DIVISOR = 100_000;
@@ -95,7 +95,7 @@ export function normalizePerpsConfigBuilderFeeRate(
 
 export function getStakingTierLabelByDiscount(discount: number): string {
   const resolved = STAKING_DISCOUNT_LABELS.find(
-    (tier) => Math.abs(tier.discount - discount) < 0.00001,
+    (tier) => Math.abs(tier.discount - discount) < 0.000_01,
   );
   return resolved?.label ?? `Custom`;
 }
