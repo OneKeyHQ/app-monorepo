@@ -51,7 +51,7 @@ import {
   EHardwareCallContext,
   EOneKeyDeviceMode,
 } from '@onekeyhq/shared/types/device';
-import { analytics } from '@onekeyhq/shared/src/analytics';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import localDb from '../../dbs/local/localDb';
@@ -555,9 +555,9 @@ class ServiceHardware extends ServiceBase {
                 const firmwareType = await deviceUtils.getFirmwareType({
                   features,
                 });
-                analytics.trackEvent('hw_device_connected', {
-                  device_type: deviceType,
-                  firmware_type:
+                defaultLogger.hardware.connection.hwDeviceConnected({
+                  deviceType,
+                  firmwareType:
                     firmwareType === EFirmwareType.BitcoinOnly
                       ? 'btconly'
                       : 'universal',
@@ -1434,16 +1434,10 @@ class ServiceHardware extends ServiceBase {
         updateFirmwareInfo?.fromFirmwareType !== undefined &&
         updateFirmwareInfo?.toFirmwareType !== undefined
       ) {
-        analytics.trackEvent('hw_firmware_switch_success', {
-          device_type: dbDevice.deviceType,
-          from_firmware_type:
-            updateFirmwareInfo.fromFirmwareType === EFirmwareType.BitcoinOnly
-              ? 'btconly'
-              : 'universal',
-          to_firmware_type:
-            updateFirmwareInfo.toFirmwareType === EFirmwareType.BitcoinOnly
-              ? 'btconly'
-              : 'universal',
+        defaultLogger.update.firmware.firmwareSwitchSuccess({
+          deviceType: dbDevice.deviceType,
+          fromFirmwareType: updateFirmwareInfo.fromFirmwareType,
+          toFirmwareType: updateFirmwareInfo.toFirmwareType,
         });
       }
     }

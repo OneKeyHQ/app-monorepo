@@ -24,7 +24,7 @@ import {
   useFirmwareUpdateStepInfoAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { analytics } from '@onekeyhq/shared/src/analytics';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IBleFirmwareUpdateInfo,
@@ -319,16 +319,10 @@ export function FirmwareChangeLogView({
       updateFirmwareInfo?.toFirmwareType !== undefined &&
       updateFirmwareInfo.fromFirmwareType !== updateFirmwareInfo.toFirmwareType
     ) {
-      analytics.trackEvent('hw_firmware_switch_start', {
-        device_type: result?.deviceType,
-        from_firmware_type:
-          updateFirmwareInfo.fromFirmwareType === EFirmwareType.BitcoinOnly
-            ? 'btconly'
-            : 'universal',
-        to_firmware_type:
-          updateFirmwareInfo.toFirmwareType === EFirmwareType.BitcoinOnly
-            ? 'btconly'
-            : 'universal',
+      defaultLogger.update.firmware.firmwareSwitchStart({
+        deviceType: result?.deviceType,
+        fromFirmwareType: updateFirmwareInfo.fromFirmwareType,
+        toFirmwareType: updateFirmwareInfo.toFirmwareType,
       });
     }
     showCheckList({ result });
