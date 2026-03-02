@@ -990,8 +990,12 @@ const BasePortfolioTabContent = ({
     const withAssets = investments.filter(
       (item) =>
         !isEmpty(item.assets) ||
-        item.airdropAssets.find((airdrop) => !isEmpty(airdrop.airdropAssets)) !=
-          null,
+        (item.airdropAssets.find(
+          (airdrop) => !isEmpty(airdrop.airdropAssets),
+        ) !== null &&
+          item.airdropAssets.find(
+            (airdrop) => !isEmpty(airdrop.airdropAssets),
+          ) !== undefined),
     );
 
     if (!hideSmallAssets) {

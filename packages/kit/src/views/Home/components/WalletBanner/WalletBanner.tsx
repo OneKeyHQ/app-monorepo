@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { isNil } from 'lodash';
+import { type GestureResponderEvent, StyleSheet } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, {
+  clamp,
+  useAnimatedStyle,
+  useSharedValue,
+  withDecay,
+} from 'react-native-reanimated';
 
 import {
   HeaderScrollGestureWrapper,
@@ -13,7 +21,6 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useWalletBanner } from '@onekeyhq/kit/src/hooks/useWalletBanner';
@@ -23,16 +30,9 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IWalletBanner } from '@onekeyhq/shared/types/walletBanner';
 
-import { type GestureResponderEvent, StyleSheet } from 'react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, {
-  clamp,
-  useAnimatedStyle,
-  useSharedValue,
-  withDecay,
-} from 'react-native-reanimated';
 const BANNER_ITEM_WIDTH = 280;
 const BANNER_GAP = 12;
 const BANNER_PADDING_H = 20;
@@ -185,10 +185,12 @@ function NativeBannerScroller({
         .failOffsetY([-10, 10])
         .onStart(() => {
           'worklet';
+
           startTranslateX.value = translateX.value;
         })
         .onUpdate((e) => {
           'worklet';
+
           translateX.value = clamp(
             startTranslateX.value + e.translationX,
             -actualMaxTranslateX,
@@ -197,6 +199,7 @@ function NativeBannerScroller({
         })
         .onEnd((e) => {
           'worklet';
+
           translateX.value = withDecay({
             velocity: e.velocityX,
             clamp: [-actualMaxTranslateX, 0],
@@ -259,6 +262,7 @@ function useScrollElement(scrollViewRef: React.RefObject<any>) {
     const node = scrollViewRef.current;
     if (!node) return null;
     if (typeof node.getScrollableNode === 'function') {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
       return node.getScrollableNode() as HTMLElement;
     }
     if (node instanceof HTMLElement) {

@@ -63,9 +63,7 @@ export function wrapAtomPro(
         jotaiVerify.ensureNotPromise(prevValue);
 
         nextValue = (
-          update as (
-            prev: any | Promise<any>,
-          ) => any | Promise<any> | typeof JOTAI_RESET
+          update as (prev: any | Promise<any>) => any | Promise<any>
         )(prevValue);
         if (prevValue === nextValue) {
           return;

@@ -726,6 +726,7 @@ class ServiceMarketV2 extends ServiceBase {
     const { data } = response.data;
     return data.list;
   }
+
   @backgroundMethod()
   async fetchMarketPerpsTokenList(params?: {
     category?: string;
