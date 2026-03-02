@@ -11,6 +11,7 @@ import {
   EthereumUSDT,
   EthereumWBTC,
   EthereumWETH,
+  PlasmaNetworkId,
 } from '../../src/consts/addresses';
 import { EEarnProviderEnum } from '../earn';
 import { ESwapTabSwitchType } from '../swap/types';
@@ -110,6 +111,7 @@ export const isSupportStaking = (symbol: string) =>
 
 export const earnMainnetNetworkIds: string[] = [
   getNetworkIdsMap().eth,
+  getNetworkIdsMap().arbitrum,
   getNetworkIdsMap().base,
   getNetworkIdsMap().cosmoshub,
   getNetworkIdsMap().apt,
@@ -118,6 +120,8 @@ export const earnMainnetNetworkIds: string[] = [
   getNetworkIdsMap().sui,
   getNetworkIdsMap().bsc,
   getNetworkIdsMap().ada,
+  getNetworkIdsMap().hyperevm,
+  PlasmaNetworkId,
 ];
 
 export const earnTestnetNetworkIds: string[] = [getNetworkIdsMap().hoodi];
@@ -154,6 +158,22 @@ export function normalizeToEarnSymbol(
     'wbtc': 'WBTC',
     'usdf': 'USDf',
     'usde': 'USDe',
+    'susde': 'sUSDe',
+    'susdai': 'sUSDai',
+    'cusd': 'cUSD',
+    'srusde': 'srUSDe',
+    'jrusde': 'jrUSDe',
+    'cusdo': 'cUSDO',
+    'syrupusdt': 'syrupUSDT',
+    'sena': 'sENA',
+    'unibtc': 'uniBTC',
+    'slisbnbx': 'slisBNBx',
+    'plasmausd': 'PlasmaUSD',
+    'wsteth': 'wstETH',
+    'weeth': 'weETH',
+    'ausdt0': 'aUSDT0',
+    'stcusd': 'stcUSD',
+    'khype': 'kHYPE',
     'lista': 'LISTA',
   };
   return symbolMap[symbol.toLowerCase()];
@@ -167,6 +187,7 @@ export function normalizeToEarnProvider(
     'everstake': EEarnProviderEnum.Everstake,
     'babylon': EEarnProviderEnum.Babylon,
     'morpho': EEarnProviderEnum.Morpho,
+    'pendle': EEarnProviderEnum.Pendle,
     'lista': EEarnProviderEnum.Lista,
     'stakefish': EEarnProviderEnum.Stakefish,
     'falcon': EEarnProviderEnum.Falcon,
@@ -277,6 +298,22 @@ export function getSymbolSupportedNetworks(): Record<
     'WBTC': [networkIdsMap.eth, networkIdsMap.sui],
     'USDf': [networkIdsMap.eth],
     'USDe': [networkIdsMap.eth],
+    'sUSDe': [networkIdsMap.eth],
+    'sUSDai': [networkIdsMap.arbitrum],
+    'cUSD': [networkIdsMap.eth],
+    'srUSDe': [networkIdsMap.eth],
+    'jrUSDe': [networkIdsMap.eth],
+    'cUSDO': [networkIdsMap.eth],
+    'syrupUSDT': [PlasmaNetworkId],
+    'sENA': [networkIdsMap.eth],
+    'uniBTC': [networkIdsMap.base],
+    'slisBNBx': [networkIdsMap.bsc],
+    'PlasmaUSD': [PlasmaNetworkId],
+    'wstETH': [networkIdsMap.eth],
+    'weETH': [networkIdsMap.arbitrum],
+    'aUSDT0': [PlasmaNetworkId],
+    'stcUSD': [networkIdsMap.eth],
+    'kHYPE': [networkIdsMap.hyperevm],
     'MORPHO': [networkIdsMap.eth],
     'LISTA': [networkIdsMap.bsc],
   };

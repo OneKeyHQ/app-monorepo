@@ -274,7 +274,11 @@ function UnifiedNetworkSelector() {
   useEffect(() => {
     const fn = async () => {
       try {
-        await refreshPortfolioData();
+        // Use alwaysSetState to bypass the isFocused check, because this
+        // event can fire while the navigation-back animation is still
+        // running (screen not yet focused), which would silently skip
+        // the refresh and leave stale data.
+        await refreshPortfolioData({ alwaysSetState: true });
       } catch {
         // silently ignore refresh errors
       }
