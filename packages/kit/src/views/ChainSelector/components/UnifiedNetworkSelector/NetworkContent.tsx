@@ -138,7 +138,11 @@ export function NetworkContent({
   useEffect(() => {
     const fn = async () => {
       try {
-        await refreshLocalData();
+        // Use alwaysSetState to bypass the isFocused check, because this
+        // event can fire while the navigation-back animation is still
+        // running (screen not yet focused), which would silently skip
+        // the refresh and leave stale data in the search list.
+        await refreshLocalData({ alwaysSetState: true });
       } catch {
         // silently ignore refresh errors
       }
