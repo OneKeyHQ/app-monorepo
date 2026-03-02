@@ -2184,7 +2184,8 @@ class ServicePrimeTransfer extends ServiceBase {
         wallet?.createNetworkParams ?? [];
 
       if (isEmpty(indexedAccountNames) || isEmpty(createNetworkParams)) {
-        // eslint-disable-next-line prefer-const
+        /* eslint-disable prefer-const */
+        /* oxlint-disable prefer-const */
         let isCancelled: boolean | undefined;
         ({
           createNetworkParams = [],
@@ -2196,6 +2197,8 @@ class ServicePrimeTransfer extends ServiceBase {
           taskUUID,
           errorsInfo,
         }));
+        /* eslint-enable prefer-const */
+        /* oxlint-enable prefer-const */
 
         if (isCancelled) {
           // task cancelled

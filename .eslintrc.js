@@ -143,7 +143,9 @@ const tsRules = {
     'error',
     { checksVoidReturn: false },
   ],
-  '@typescript-eslint/no-redeclare': ['warn', { ignoreDeclarationMerge: true }],
+  // Disabled: TS function overloads trigger false positives; oxlint handles this
+  'no-redeclare': 'off',
+  '@typescript-eslint/no-redeclare': 'off',
   'no-undef': 'off', // covered by typescript compiler
   // Renamed in @typescript-eslint v8 (from airbnb-typescript compat)
   '@typescript-eslint/lines-between-class-members': 'off',
@@ -179,6 +181,9 @@ const tsRules = {
   '@typescript-eslint/require-await': 'off',
   // force awaited promise call, explicit add `void` if don't want await
   '@typescript-eslint/no-floating-promises': ['error'],
+  // Disabled: handled by oxlint
+  '@typescript-eslint/await-thenable': 'off',
+  '@typescript-eslint/no-duplicate-enum-values': 'off',
   '@typescript-eslint/no-unsafe-enum-comparison': 'off',
   '@typescript-eslint/no-redundant-type-constituents': 'off',
   '@typescript-eslint/prefer-promise-reject-errors': 'off',

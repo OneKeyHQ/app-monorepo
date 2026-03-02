@@ -158,6 +158,7 @@ export function UniversalSearchV2MarketTokenItem({
     address,
     network,
     liquidity,
+    // eslint-disable-next-line camelcase
     volume_24h,
     volume24h: volume24hCamel,
     priceChange24hPercent,
@@ -165,6 +166,7 @@ export function UniversalSearchV2MarketTokenItem({
     communityRecognized,
   } = item.payload;
 
+  // eslint-disable-next-line camelcase
   const volume24h = volume24hCamel || volume_24h;
 
   // Hide favorite button in extension popup and side panel
