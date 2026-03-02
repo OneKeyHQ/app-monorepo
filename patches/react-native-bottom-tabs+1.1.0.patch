@@ -91,6 +91,26 @@ index 09adaca..94e13d0 100644
  
  #endif
 -}
+diff --git a/node_modules/react-native-bottom-tabs/ios/TabView/NewTabView.swift b/node_modules/react-native-bottom-tabs/ios/TabView/NewTabView.swift
+index d699315..53733de 100644
+--- a/node_modules/react-native-bottom-tabs/ios/TabView/NewTabView.swift
++++ b/node_modules/react-native-bottom-tabs/ios/TabView/NewTabView.swift
+@@ -32,7 +32,6 @@ struct NewTabView: AnyTabView {
+               RepresentableView(view: child.view)
+                 .ignoresSafeArea(.container, edges: .all)
+                 .tabAppear(using: context)
+-                .hideTabBar(props.tabBarHidden)
+             } label: {
+               TabItem(
+                 title: tabData.title,
+@@ -49,6 +48,7 @@ struct NewTabView: AnyTabView {
+         }
+       }
+     }
++    .hideTabBar(props.tabBarHidden)
+     .measureView { size in
+       onLayout(size)
+     }
 diff --git a/node_modules/react-native-bottom-tabs/ios/TabViewImpl.swift b/node_modules/react-native-bottom-tabs/ios/TabViewImpl.swift
 index 72938be..a7a3c15 100644
 --- a/node_modules/react-native-bottom-tabs/ios/TabViewImpl.swift
