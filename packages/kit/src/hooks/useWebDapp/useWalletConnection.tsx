@@ -123,7 +123,16 @@ export function useWalletConnection({
         },
         renderContent: (
           <ConnectToWalletDialogContent
-            onRetryPress={() => connectToWallet(connectionInfo)}
+            onRetryPress={async () => {
+              try {
+                const result = await connectToWallet(connectionInfo);
+                if (result !== false) {
+                  await dialogRef.current?.close();
+                }
+              } catch {
+                // Dialog stays open to allow further retries
+              }
+            }}
           />
         ),
       });

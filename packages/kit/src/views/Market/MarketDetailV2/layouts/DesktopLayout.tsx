@@ -1,11 +1,6 @@
 import { useMemo } from 'react';
 
-import {
-  Divider,
-  Stack,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { Divider, Stack, XStack, YStack } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
