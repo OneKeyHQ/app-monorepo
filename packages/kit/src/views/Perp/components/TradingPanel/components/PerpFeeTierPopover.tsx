@@ -6,6 +6,7 @@ import {
   Button,
   Icon,
   Image,
+  Illustration,
   Popover,
   SegmentControl,
   SizableText,
@@ -220,6 +221,25 @@ function YourFeesSection({
   isUsingRealData: boolean;
   zeroFeeDescription: string;
 }) {
+  const intl = useIntl();
+  const builderFeeLabel = intl.formatMessage({
+    id: ETranslations.perps_fee_tiers_fee_builder,
+  });
+  const takerFeeLabel = intl.formatMessage({
+    id: ETranslations.perps_fee_tiers_taker_fees,
+  });
+  const makerFeeLabel = intl.formatMessage({
+    id: ETranslations.perps_fee_tiers_maker_fees,
+  });
+  const totalTakerFeeLabel = intl.formatMessage({
+    id: ETranslations.perps_fee_tiers_total_taker_fee,
+  });
+  const totalMakerFeeLabel = intl.formatMessage({
+    id: ETranslations.perps_fee_tiers_total_maker_fee,
+  });
+  const hlTakerFeeLabel = `Hyperliquid ${takerFeeLabel}`;
+  const hlMakerFeeLabel = `Hyperliquid ${makerFeeLabel}`;
+
   if (!hasAccount) {
     return (
       <YStack gap="$2">
@@ -235,19 +255,22 @@ function YourFeesSection({
 
   if (isLoading && !isUsingRealData) {
     return (
-      <XStack alignItems="center" gap="$2">
+      <XStack
+        minHeight={220}
+        alignItems="center"
+        justifyContent="center"
+        gap="$2"
+      >
         <Spinner size="small" />
-        <SizableText size="$bodySm" color="$textSubdued">
-          Loading your real fee rates...
-        </SizableText>
       </XStack>
     );
   }
 
   if (errorMessage && !isUsingRealData) {
     return (
-      <YStack gap="$2">
-        <SizableText size="$bodySm" color="$textSubdued">
+      <YStack gap="$3" alignItems="center" py="$2">
+        <Illustration name="GlobeError" size={88} />
+        <SizableText size="$bodySm" color="$textSubdued" textAlign="center">
           Failed to fetch fees. Please try again.
         </SizableText>
         <Button size="small" onPress={onRetry}>
@@ -266,19 +289,19 @@ function YourFeesSection({
       ) : null}
       <YStack gap="$2.5">
         <FeeRow
-          label="Builder Fee (OneKey)"
+          label={builderFeeLabel}
           value={formatFeePercent(resolvedFeeInfo.builderFee)}
           emphasis
           valueColor="$green11"
         />
         <FeeRow
-          label="HL Taker Fee"
+          label={hlTakerFeeLabel}
           value={formatFeePercent(resolvedFeeInfo.hlTaker)}
           emphasis
           valueColor="$green11"
         />
         <FeeRow
-          label="HL Maker Fee"
+          label={hlMakerFeeLabel}
           value={formatFeePercent(resolvedFeeInfo.hlMaker)}
           emphasis
           valueColor="$green11"
@@ -287,19 +310,19 @@ function YourFeesSection({
       <Stack h={1} bg="$borderSubdued" />
       <YStack gap="$2.5">
         <FeeRow
-          label="Total Taker Fee (HL + Builder)"
+          label={totalTakerFeeLabel}
           value={formatFeePercent(resolvedFeeInfo.totalTaker)}
           bold
           valueColor="$green11"
         />
         <FeeRow
-          label="Total Maker Fee (HL + Builder)"
+          label={totalMakerFeeLabel}
           value={formatFeePercent(resolvedFeeInfo.totalMaker)}
           bold
           valueColor="$green11"
         />
       </YStack>
-      <SizableText size="$bodyXs" color="$textSubdued">
+      <SizableText mt="$1.5" size="$bodySm" color="$textSubdued">
         {zeroFeeDescription}
       </SizableText>
     </YStack>
@@ -315,11 +338,22 @@ function WalletComparisonSection({
   onekeyBuilderFee: number;
   isUsingSampleHlTaker: boolean;
 }) {
+  const intl = useIntl();
   const { gtSm } = useMedia();
   const useFluidColumns = !gtSm;
-  const providerFeeColumnTitle = useFluidColumns
-    ? 'Builder Fee ($100k)'
-    : 'Builder Fee Cost per $100k';
+  const walletLabel = intl.formatMessage({
+    id: ETranslations.global_wallet,
+  });
+  const lastUpdatedLabel = intl.formatMessage({
+    id: ETranslations.market_last_updated,
+  });
+  const builderFeeLabel = intl.formatMessage({
+    id: ETranslations.perps_fee_tiers_builder_fee,
+  });
+  const totalTakerFeeLabel = intl.formatMessage({
+    id: ETranslations.perps_fee_tiers_total_taker_fee,
+  });
+  const providerFeeColumnTitle = `${builderFeeLabel} ($100k)`;
 
   const walletColumnLayout = useFluidColumns
     ? { width: COMPARE_MOBILE_WALLET_COLUMN_WIDTH }
@@ -393,16 +427,27 @@ function WalletComparisonSection({
         >
           <Stack {...walletColumnLayout} alignItems="flex-start">
             <SizableText size="$bodySmMedium" color="$textSubdued">
-              Wallet
+              {walletLabel}
             </SizableText>
           </Stack>
           <Stack {...totalColumnLayout} alignItems="flex-end">
-            <SizableText width="100%" size="$bodySmMedium" textAlign="right" color="$textSubdued">
-              Total Taker Fee
+            <SizableText
+              width="100%"
+              size="$bodySmMedium"
+              textAlign="right"
+              color="$textSubdued"
+            >
+              {totalTakerFeeLabel}
             </SizableText>
           </Stack>
           <Stack {...providerColumnLayout} alignItems="flex-end">
-            <SizableText width="100%" size="$bodySmMedium" textAlign="right" numberOfLines={1} color="$textSubdued">
+            <SizableText
+              width="100%"
+              size="$bodySmMedium"
+              textAlign="right"
+              numberOfLines={1}
+              color="$textSubdued"
+            >
               {providerFeeColumnTitle}
             </SizableText>
           </Stack>
@@ -425,7 +470,7 @@ function WalletComparisonSection({
       </YStack>
       <Stack h={1} bg="$borderSubdued" />
       <SizableText size="$bodyXs" color="$textSubdued">
-        Last updated: {FEE_COMPARE_BENCHMARK_LAST_UPDATED}
+        {lastUpdatedLabel}: {FEE_COMPARE_BENCHMARK_LAST_UPDATED}
       </SizableText>
       {isUsingSampleHlTaker ? (
         <SizableText size="$bodyXs" color="$textSubdued">
@@ -443,13 +488,25 @@ function WalletComparisonSection({
   );
 }
 
-const SEGMENT_OPTIONS = [
-  { label: 'Your Fees', value: 'your-fees' },
-  { label: 'Compare', value: 'compare' },
-];
-
 function PerpFeeTierPopoverContent() {
   const intl = useIntl();
+  const segmentOptions = useMemo(
+    () => [
+      {
+        label: intl.formatMessage({
+          id: ETranslations.perps_fee_tiers_your_fee,
+        }),
+        value: 'your-fees',
+      },
+      {
+        label: intl.formatMessage({
+          id: ETranslations.perps_fee_tiers_compare,
+        }),
+        value: 'compare',
+      },
+    ],
+    [intl],
+  );
   const [activeTab, setActiveTab] = useState<string | number>('your-fees');
   const [retryCount, setRetryCount] = useState(0);
   const [userFees, setUserFees] = useState<IHyperliquidUserFeesResponse>();
@@ -573,7 +630,7 @@ function PerpFeeTierPopoverContent() {
       <SegmentControl
         fullWidth
         value={activeTab}
-        options={SEGMENT_OPTIONS}
+        options={segmentOptions}
         onChange={handleTabChange}
       />
       {activeTab === 'your-fees' ? (
@@ -598,16 +655,21 @@ function PerpFeeTierPopoverContent() {
 }
 
 function PerpFeeTierPopoverComponent() {
+  const intl = useIntl();
+  const feeTiersLabel = intl.formatMessage({
+    id: ETranslations.perps_fee_tiers,
+  });
+
   return (
     <Popover
-      title="Fee Tiers"
+      title={feeTiersLabel}
       placement="bottom-end"
       floatingPanelProps={{ w: 400 }}
       renderTrigger={
         <XStack alignItems="center" gap="$1" py="$1" cursor="pointer">
           <Icon name="PercentOutline" size="$4" color="$iconSubdued" />
           <SizableText size="$bodySm" color="$textSubdued">
-            Fee Tier
+            {feeTiersLabel}
           </SizableText>
         </XStack>
       }
