@@ -101,7 +101,9 @@ function BaseSortableListView<T>(
     [onDragEnd],
   );
 
-  const ListComponent = tabIntegrated ? TabsDraggableFlatList : DraggableFlatList;
+  const ListComponent = tabIntegrated
+    ? TabsDraggableFlatList
+    : DraggableFlatList;
 
   return (
     <ListComponent<T>

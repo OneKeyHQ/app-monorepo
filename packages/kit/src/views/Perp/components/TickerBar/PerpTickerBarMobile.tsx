@@ -181,11 +181,9 @@ function PerpBadgesRow() {
 
   // Fetch builder fee once on mount (independent of alias state)
   useEffect(() => {
-    void backgroundApiProxy.simpleDb.perp
-      .getPerpData()
-      .then((config) => {
-        setBuilderFeeRate(config.hyperliquidMaxBuilderFee);
-      });
+    void backgroundApiProxy.simpleDb.perp.getPerpData().then((config) => {
+      setBuilderFeeRate(config.hyperliquidMaxBuilderFee);
+    });
   }, []);
 
   // Fetch token aliases only when not yet available

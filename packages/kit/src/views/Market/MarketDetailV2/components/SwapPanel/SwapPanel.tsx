@@ -150,7 +150,12 @@ export function SwapPanel({
     return (
       <YStack>
         <Divider />
-        <XStack px="$5" py="$2" justifyContent="space-between" alignItems="center">
+        <XStack
+          px="$5"
+          py="$2"
+          justifyContent="space-between"
+          alignItems="center"
+        >
           <SizableText size="$bodySmMedium" color="$textSubdued">
             {intl.formatMessage({
               id: ETranslations.dexmarket_details_myposition,

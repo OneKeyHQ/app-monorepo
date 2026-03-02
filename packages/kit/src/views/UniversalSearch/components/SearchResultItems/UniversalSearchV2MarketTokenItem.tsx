@@ -31,7 +31,10 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IUniversalSearchV2MarketToken } from '@onekeyhq/shared/types/search';
 import { ESearchStatus } from '@onekeyhq/shared/types/search';
 
-import { MARKET_DATA_COLUMN_WIDTH, MARKET_NAME_COLUMN_WIDTH } from '../MarketTableHeader';
+import {
+  MARKET_DATA_COLUMN_WIDTH,
+  MARKET_NAME_COLUMN_WIDTH,
+} from '../MarketTableHeader';
 import { MarketStarV2 } from '../../../Market/components/MarketStarV2';
 import { MarketTokenIcon } from '../../../Market/components/MarketTokenIcon';
 import { BaseMarketTokenPrice } from '../../../Market/components/MarketTokenPrice';
@@ -258,11 +261,7 @@ export function UniversalSearchV2MarketTokenItem({
               </SizableText>
               {communityRecognized ? <CommunityRecognizedBadge /> : null}
             </XStack>
-            <SizableText
-              size="$bodySm"
-              color="$textSubdued"
-              numberOfLines={1}
-            >
+            <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
               {name}
             </SizableText>
           </YStack>
