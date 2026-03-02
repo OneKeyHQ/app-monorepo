@@ -11,7 +11,6 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { SizableText, Stack, XStack, YStack } from '@onekeyhq/components';
-import { getTokenValue } from '@onekeyhq/components/src/shared/tamagui';
 import {
   EParseTxComponentType,
   type IDisplayComponentSimulation,
@@ -22,7 +21,7 @@ import SignGuardIcon from '../SimilarAddressDialog/SignGuardIcon';
 import { Assets } from './Assets';
 import { LaserBorder } from './LaserBorder';
 
-const BORDER_RADIUS = getTokenValue('$2', 'size') as number;
+const BORDER_RADIUS = 12;
 const ICON_WIDTH = 80;
 const SHIMMER_BAND = 24;
 
@@ -52,7 +51,7 @@ function ShimmerSignGuard() {
         withDelay(200, sweep(END, SLOW)),
       ),
     );
-  }, [translate]);
+  }, [translate, END, START, FAST, SLOW]);
 
   const shimmerStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: translate.value }],

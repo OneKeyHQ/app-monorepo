@@ -13,8 +13,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import { Stack } from '@onekeyhq/components';
-import { useTheme } from '@onekeyhq/components/src/shared/tamagui';
+import { Stack, useTheme } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { LayoutChangeEvent } from 'react-native';
@@ -39,9 +38,7 @@ const GLOW_COLORS = [
   '#22d3ee',
   '#60a5fa',
 ] as const;
-const GLOW_LOCATIONS = [
-  0, 0.14, 0.28, 0.42, 0.56, 0.7, 0.85, 1,
-] as const;
+const GLOW_LOCATIONS = [0, 0.14, 0.28, 0.42, 0.56, 0.7, 0.85, 1] as const;
 
 const BORDER_COLORS = [
   'transparent',
@@ -61,11 +58,7 @@ const BORDER_LOCATIONS = [
 
 const WEB_BLUR_STYLE = { filter: 'blur(6px)' } as Record<string, string>;
 
-function LaserBorder({
-  children,
-  borderRadius = 12,
-  duration = 2800,
-}: IProps) {
+function LaserBorder({ children, borderRadius = 12, duration = 2800 }: IProps) {
   const theme = useTheme();
   const [layout, setLayout] = useState({ width: 0, height: 0 });
   const rotation = useSharedValue(0);
@@ -124,7 +117,7 @@ function LaserBorder({
           : undefined,
       ]}
     >
-      {!isNative && glowDiag > 0 ? (
+      {!isNative && layout.width > 0 && glowDiag > 0 ? (
         <Stack
           style={[
             {
