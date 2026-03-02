@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+
 import {
   Icon,
   Page,
@@ -8,20 +10,29 @@ import {
 import { useIntl } from 'react-intl';
 
 import { usePerpsNetworkStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { NetworkStatusBadge } from '../../../components/NetworkStatusBadge';
 import { PerpRefreshButton } from '../../../components/PerpRefreshButton';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 const PERP_TELEGRAM_URL = 'https://t.me/OneKeyPerps';
 
 function PerpNetworkStatus() {
   const [networkStatus] = usePerpsNetworkStatusAtom();
   const connected = Boolean(networkStatus?.connected);
+  const pingMs = networkStatus?.pingMs;
+  const intl = useIntl();
 
-  return <NetworkStatusBadge connected={connected} />;
+  const label = useMemo(() => {
+    if (connected && pingMs != null) {
+      return `${intl.formatMessage({ id: ETranslations.perp_online })} ${pingMs}ms`;
+    }
+    return undefined;
+  }, [connected, pingMs, intl]);
+
+  return <NetworkStatusBadge connected={connected} label={label} />;
 }
 
 export function PerpContentFooter() {

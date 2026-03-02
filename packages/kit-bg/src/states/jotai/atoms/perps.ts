@@ -466,6 +466,7 @@ export const {
 export interface IPerpsNetworkStatus {
   connected: boolean | undefined;
   lastMessageAt: number | null;
+  pingMs?: number | null;
 }
 
 export const {
