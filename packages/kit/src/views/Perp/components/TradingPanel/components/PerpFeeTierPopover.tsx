@@ -389,7 +389,7 @@ function WalletComparisonSection({
         : wallet.builderFeeBenchmark;
       let providerFeeRate: number | undefined;
       if (hasReliableBenchmark && builderFee !== null) {
-        providerFeeRate = isOneKey ? 0 : builderFee;
+        providerFeeRate = builderFee;
       }
       const totalTaker =
         hasReliableBenchmark && builderFee !== null
