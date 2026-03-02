@@ -116,12 +116,13 @@ export function LightweightChart({
             const rawSecondary = secondarySeriesRef.current
               ? param.seriesPrices.get(secondarySeriesRef.current)
               : undefined;
-            const secondaryPrice =
-              rawSecondary !== undefined
-                ? typeof rawSecondary === 'number'
+            let secondaryPrice: number | undefined;
+            if (rawSecondary !== undefined) {
+              secondaryPrice =
+                typeof rawSecondary === 'number'
                   ? rawSecondary
-                  : Number(rawSecondary)
-                : undefined;
+                  : Number(rawSecondary);
+            }
             onHover({
               time:
                 typeof param.time === 'number'

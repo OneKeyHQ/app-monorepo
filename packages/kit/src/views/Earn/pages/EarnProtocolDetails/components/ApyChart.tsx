@@ -401,7 +401,7 @@ const ApyChartComponent = ({
                     {hoverData.apy.toFixed(2)}%
                   </SizableText>
                 </XStack>
-                {showUnderlyingApy && hoverData.secondaryApy != null ? (
+                {showUnderlyingApy && hoverData.secondaryApy !== undefined ? (
                   <XStack jc="space-between" ai="center" width="100%">
                     <SizableText size="$bodySmMedium" color="$textSubdued">
                       {resolvedSecondaryLabel}
