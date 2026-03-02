@@ -244,11 +244,11 @@ function BasicEarnHome({
       setIsEarnTabFocused(actualFocus);
       if (!actualFocus) return;
 
-      const allKey = `availableAssets-${EAvailableAssetsTypeEnum.All}`;
-      const stableKey = `availableAssets-${EAvailableAssetsTypeEnum.StableCoins}`;
-      const nativeKey = `availableAssets-${EAvailableAssetsTypeEnum.NativeTokens}`;
+      const simpleKey = `availableAssets-${EAvailableAssetsTypeEnum.SimpleEarn}`;
+      const fixedKey = `availableAssets-${EAvailableAssetsTypeEnum.FixedRate}`;
+      const stakingKey = `availableAssets-${EAvailableAssetsTypeEnum.Staking}`;
 
-      const keys = [allKey, stableKey, nativeKey];
+      const keys = [simpleKey, fixedKey, stakingKey];
 
       const hasIncompleteData = keys.some((key) =>
         actions.current.isDataIncomplete(key),

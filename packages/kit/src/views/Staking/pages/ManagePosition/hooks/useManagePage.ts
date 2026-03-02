@@ -84,8 +84,8 @@ export const useManagePage = ({
         return { managePageData, protocolList: undefined, earnAccount };
       }
 
-      const managePageData =
-        await backgroundApiProxy.serviceStaking.getManagePage({
+      const [managePageData, protocolList] = await Promise.all([
+        backgroundApiProxy.serviceStaking.getManagePage({
           accountId,
           networkId,
           symbol,
@@ -95,13 +95,12 @@ export const useManagePage = ({
           publicKey: networkUtils.isBTCNetwork(networkId)
             ? earnAccount.account.pub
             : undefined,
-        });
-
-      const protocolList =
-        await backgroundApiProxy.serviceStaking.getProtocolList({
+        }),
+        backgroundApiProxy.serviceStaking.getProtocolList({
           symbol,
           filterNetworkId: networkId,
-        });
+        }),
+      ]);
 
       return { managePageData, protocolList, earnAccount };
     },
@@ -126,6 +125,8 @@ export const useManagePage = ({
       return undefined;
     }
 
+    const isSwapManagePage = !!(managePageData.buy || managePageData.sell);
+
     const actionData = (() => {
       // Borrow manage-page uses supply/borrow actions for the first tab.
       if (
@@ -148,7 +149,10 @@ export const useManagePage = ({
           managePageData.deposit
         );
       }
-      return managePageData.deposit;
+      if (isSwapManagePage) {
+        return managePageData.buy?.payButton ?? managePageData.deposit;
+      }
+      return managePageData.deposit ?? managePageData.buy?.payButton;
     })();
 
     if (!actionData?.data?.token) {
@@ -173,6 +177,7 @@ export const useManagePage = ({
     if (!managePageData) {
       return undefined;
     }
+    const isSwapManagePage = !!(managePageData.buy || managePageData.sell);
 
     // Find the matching protocol from protocol list
     const matchingProtocol = protocolList?.find(
@@ -194,7 +199,11 @@ export const useManagePage = ({
       networkId,
       earnAccount,
       activeBalance:
+        (isSwapManagePage
+          ? managePageData.sell?.payButton?.data?.balance
+          : undefined) ??
         managePageData.withdraw?.data?.balance ??
+        managePageData.sell?.payButton?.data?.balance ??
         managePageData.repay?.data?.balance,
       stakeTag: buildLocalTxStatusSyncId({
         providerName: provider,
@@ -223,10 +232,11 @@ export const useManagePage = ({
       // approve
       approve: managePageData.approve
         ? {
-            allowance: managePageData.approve.allowance,
-            approveType: managePageData.approve
-              .approveType as unknown as EApproveType,
-            approveTarget: managePageData.approve.approveTarget,
+            allowance: managePageData.approve.allowance ?? '0',
+            approveType:
+              (managePageData.approve.approveType as unknown as EApproveType) ??
+              undefined,
+            approveTarget: managePageData.approve.approveTarget ?? undefined,
           }
         : undefined,
     } as IProtocolInfo;
@@ -244,6 +254,7 @@ export const useManagePage = ({
     if (!managePageData) {
       return false;
     }
+    const isSwapManagePage = !!(managePageData.buy || managePageData.sell);
     if (
       [EManagePositionType.Supply, EManagePositionType.Withdraw].includes(type)
     ) {
@@ -262,13 +273,25 @@ export const useManagePage = ({
         false
       );
     }
-    return managePageData.deposit?.disabled ?? false;
+    if (isSwapManagePage) {
+      return (
+        managePageData.buy?.payButton?.disabled ??
+        managePageData.deposit?.disabled ??
+        false
+      );
+    }
+    return (
+      managePageData.deposit?.disabled ??
+      managePageData.buy?.payButton?.disabled ??
+      false
+    );
   }, [managePageData, type]);
 
   const withdrawDisabled = useMemo(() => {
     if (!managePageData) {
       return false;
     }
+    const isSwapManagePage = !!(managePageData.buy || managePageData.sell);
     if (
       [EManagePositionType.Supply, EManagePositionType.Withdraw].includes(type)
     ) {
@@ -283,7 +306,18 @@ export const useManagePage = ({
         false
       );
     }
-    return managePageData.withdraw?.disabled ?? false;
+    if (isSwapManagePage) {
+      return (
+        managePageData.sell?.payButton?.disabled ??
+        managePageData.withdraw?.disabled ??
+        false
+      );
+    }
+    return (
+      managePageData.withdraw?.disabled ??
+      managePageData.sell?.payButton?.disabled ??
+      false
+    );
   }, [managePageData, type]);
 
   const alerts = useMemo(

@@ -25,6 +25,7 @@ export function UrlAccountPageHeader() {
           num={0}
           recordNetworkHistoryEnabled
           hideOnNoAccount
+          unifiedMode
         />
       ) : null}
       {gtMd ? (

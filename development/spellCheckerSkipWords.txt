@@ -4,6 +4,7 @@ unixTime
 nodata
 tradingview
 ohlcv
+daysRemaining
 _j_msgid
 020da363502074fefdfbb07ec47abc974207951dcb1aa3c910f4a768e2c70f9c68
 03171d7528ce1cc199f2b8ce29ad7976de0535742169a8ba8b5a6dd55df7e589d1
@@ -1399,6 +1400,14 @@ svgx
 zerion
 Schedulable
 Roobert
+CUSD
+CUSDO
+SENA
+Slis
+EVMKHYPE
+AUSDT
+USDO
+hyperevm
 RNGH
 macrotask
 pwdhash
