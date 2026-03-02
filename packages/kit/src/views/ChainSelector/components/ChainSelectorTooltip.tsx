@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react';
 
 import { Popover, SizableText, Tooltip, YStack } from '@onekeyhq/components';
-
 import type { IPopoverProps } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 

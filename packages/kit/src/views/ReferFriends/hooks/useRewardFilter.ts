@@ -1,8 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 
-import { EExportTimeRange } from '@onekeyhq/shared/src/referralCode/type';
-
 import type { IDateRange } from '@onekeyhq/components';
+import { EExportTimeRange } from '@onekeyhq/shared/src/referralCode/type';
 
 import type { IFilterState } from '../components/FilterButton';
 

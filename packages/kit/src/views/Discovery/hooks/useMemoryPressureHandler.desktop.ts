@@ -3,10 +3,11 @@ import { useEffect, useRef } from 'react';
 import { Toast } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import type { IWebTab } from '../types';
 import { webviewRefs } from '../utils/explorerUtils';
 
 import { useActiveTabId, useWebTabs } from './useWebTabs';
+
+import type { IWebTab } from '../types';
 
 /**
  * Desktop-only hook to handle memory pressure events from main process
@@ -84,6 +85,7 @@ export function useMemoryPressureHandler() {
 
               // First, stop all running processes in the webview
               if (typeof electronWebview.stop === 'function') {
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-call
                 electronWebview.stop();
               }
 
@@ -93,8 +95,9 @@ export function useMemoryPressureHandler() {
 
               // Reload the webview
               if (typeof electronWebview.reload === 'function') {
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-call
                 electronWebview.reload();
-                reloadedCount++;
+                reloadedCount += 1;
               }
 
               console.log(`[Memory Pressure] Reloaded tab: ${tab.id}`);

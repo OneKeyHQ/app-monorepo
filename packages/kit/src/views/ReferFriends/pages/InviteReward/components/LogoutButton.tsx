@@ -31,7 +31,12 @@ export function LogoutButton() {
   };
 
   return (
-    <Button variant="tertiary" size="small" icon="LogoutOutline" onPress={handlePress}>
+    <Button
+      variant="tertiary"
+      size="small"
+      icon="LogoutOutline"
+      onPress={handlePress}
+    >
       {intl.formatMessage({ id: ETranslations.prime_log_out })}
     </Button>
   );

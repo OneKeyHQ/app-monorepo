@@ -27,6 +27,7 @@ function SwapPanelFooterButtons({ onTrade, onInstant }: IProps) {
     () =>
       Gesture.Tap().onEnd(() => {
         'worklet';
+
         runOnJS(onTrade)();
       }),
     [onTrade],
@@ -36,6 +37,7 @@ function SwapPanelFooterButtons({ onTrade, onInstant }: IProps) {
     () =>
       Gesture.Tap().onEnd(() => {
         'worklet';
+
         runOnJS(onInstant)();
       }),
     [onInstant],

@@ -10,12 +10,12 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   usePerpsActiveOpenOrdersLengthAtom,
   usePerpsActivePositionLengthAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { PerpAccountList } from './List/PerpAccountList';
 import { PerpOpenOrdersList } from './List/PerpOpenOrdersList';

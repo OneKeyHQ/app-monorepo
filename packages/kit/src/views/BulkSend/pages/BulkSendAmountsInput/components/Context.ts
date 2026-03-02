@@ -1,6 +1,6 @@
 import { createContext, useContext } from 'react';
 
-import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
+import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import {
   EAmountInputMode,
   EBulkSendMode,
@@ -8,7 +8,7 @@ import {
   type IAmountInputValues,
   type ITransferInfoErrors,
 } from '@onekeyhq/shared/types/bulkSend';
-import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
+import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 export type IPreviewState = {
   specifiedPreviewed: boolean;

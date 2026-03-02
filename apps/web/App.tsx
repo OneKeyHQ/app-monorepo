@@ -17,11 +17,11 @@ export default function App(props: any) {
   return (
     <>
       <KitProvider {...props} />
-      {process.env.NODE_ENV !== 'production' && (
+      {process.env.NODE_ENV !== 'production' ? (
         <Suspense>
           <AgentationDev endpoint="http://localhost:4747" />
         </Suspense>
-      )}
+      ) : null}
     </>
   );
 }

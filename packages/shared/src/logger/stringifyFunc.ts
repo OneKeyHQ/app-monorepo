@@ -10,7 +10,7 @@ function countObjectDepth(source: unknown, maxDepth = 5, depth = 0): number {
     return currentDepth;
   }
 
-  if (source == null) {
+  if (source === null || source === undefined) {
     return currentDepth;
   }
 

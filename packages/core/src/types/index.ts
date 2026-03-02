@@ -53,7 +53,6 @@ export type ICoreApiGetAddressesQueryHdTon = Omit<
 
 export type ICoreApiGetAddressesQueryHd =
   | ICoreApiGetAddressesQueryHdBase
-  | ICoreApiGetAddressesQueryHdEvm
   | ICoreApiGetAddressesQueryHdBtc;
 
 export type ICoreApiGetAddressQueryImportedBase = {

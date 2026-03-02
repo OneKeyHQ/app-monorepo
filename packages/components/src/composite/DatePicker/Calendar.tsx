@@ -1,5 +1,6 @@
-import { useDatePickerContext } from '@rehookify/datepicker';
 import { memo } from 'react';
+
+import { useDatePickerContext } from '@rehookify/datepicker';
 
 import { useMedia } from '../../hooks';
 import { Stack, YStack } from '../../primitives';
@@ -7,8 +8,8 @@ import { Stack, YStack } from '../../primitives';
 import { CalendarHeader } from './CalendarHeader';
 import { CalendarPanel } from './CalendarPanel';
 import { MonthGrid } from './MonthGrid';
-import { YearGrid, YearRangeHeader } from './YearGrid';
 import { callOnClick } from './utils';
+import { YearGrid, YearRangeHeader } from './YearGrid';
 
 import type { DatePickerMode } from './type';
 

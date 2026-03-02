@@ -164,9 +164,11 @@ const GOOGLE_OAUTH_CLIENT_IOS =
 
 // test
 // const GOOGLE_OAUTH_CLIENT_WEB =
+
 // oxlint-disable-next-line @cspell/spellchecker
 //   '244450898872-vmpg9dgocpqtqhm5pk42u4s6hvprogp6.apps.googleusercontent.com';
 // const GOOGLE_OAUTH_CLIENT_IOS =
+
 // oxlint-disable-next-line @cspell/spellchecker
 //   '244450898872-5uo9r8ekdc82huckjcr4br67edvf3vlg.apps.googleusercontent.com';
 
@@ -194,6 +196,7 @@ export const SUPABASE_PUBLIC_API_KEY =
 // --- onekey prod
 export const KEYLESS_SUPABASE_PROJECT_URL = 'https://auth.onekey.so'; // onekeytest
 // export const KEYLESS_SUPABASE_PUBLIC_API_KEY =
+
 // oxlint-disable-next-line @cspell/spellchecker
 //   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzY3NzU4MzUwLCJleHAiOjE5MjU0MzgzNTB9.n-g7Amu-dMVpBgQ8i8gSYFjBvbDPC55ZqYIttPh8CYk';
 export const KEYLESS_SUPABASE_PUBLIC_API_KEY =
@@ -203,6 +206,7 @@ export const KEYLESS_SUPABASE_PUBLIC_API_KEY =
 // export const KEYLESS_SUPABASE_PROJECT_URL =
 //   'https://supabase.onekey-internal.com'; // onekeytest
 // export const KEYLESS_SUPABASE_PUBLIC_API_KEY =
+
 // oxlint-disable-next-line @cspell/spellchecker
 //   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzY3NTg3OTE4LCJleHAiOjE5MjUyNjc5MTh9.F69Rgt30To2V0Rij1nbTpjkHyAv6VpWGz3a81rkpM0U';
 
@@ -210,6 +214,7 @@ export const KEYLESS_SUPABASE_PUBLIC_API_KEY =
 // export const KEYLESS_SUPABASE_PROJECT_URL =
 //   'https://wtspqckturkzhstyjabx.supabase.co';
 // export const KEYLESS_SUPABASE_PUBLIC_API_KEY =
+
 // oxlint-disable-next-line @cspell/spellchecker
 //   'sb_publishable_So24RIupCcXUHaKo1gM4VA_uOBbgjoN';
 
