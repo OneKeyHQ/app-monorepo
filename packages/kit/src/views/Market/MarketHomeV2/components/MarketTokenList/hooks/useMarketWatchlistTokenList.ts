@@ -166,7 +166,9 @@ export function useMarketWatchlistTokenList({
       });
 
       apiResult.list
-        .filter((item) => item && item.address != null)
+        .filter(
+          (item) => item && item.address !== null && item.address !== undefined,
+        )
         .forEach((item) => {
           const networkId = item.networkId || '';
           const { normalizedAddress } = getNativeTokenInfo(

@@ -27,8 +27,10 @@ export const resetDescribeStack = () => {
 };
 
 // Wrap describe to track the describe stack (fn runs synchronously during collection)
+// eslint-disable-next-line @typescript-eslint/naming-convention
 type DescribeFn = (name: string, fn: () => void) => void;
 const wrapDescribe = (original: DescribeFn): DescribeFn => {
+  // eslint-disable-next-line @typescript-eslint/no-shadow
   return (name: string, fn: () => void) => {
     describeStack.push(name);
     try {
@@ -45,12 +47,14 @@ const wrappedDescribe = Object.assign(wrapDescribe(describe), {
 }) as typeof describe;
 
 // Wrap test/it to capture the full test name at registration time
+// eslint-disable-next-line @typescript-eslint/naming-convention
 type TestFn = (
   name: string,
   fn: () => void | Promise<void>,
   timeout?: number,
 ) => void;
 const wrapTest = (original: TestFn): TestFn => {
+  // eslint-disable-next-line @typescript-eslint/no-shadow
   return (name: string, fn: () => void | Promise<void>, timeout?: number) => {
     const capturedAncestors = [...describeStack];
     original(
@@ -94,6 +98,7 @@ const wrappedTest = Object.assign(wrapTest(test), {
 // of each module before the first mutation, and restore all snapshots after
 // each test file finishes (triggered by the runtime patch).
 
+// eslint-disable-next-line @typescript-eslint/naming-convention
 type ModSnapshot = {
   top: Record<string, unknown>;
   defaultObj?: Record<string, unknown>;
@@ -250,12 +255,14 @@ Object.defineProperty(globalThis, 'jest', {
     requireActual: (_moduleName: string) => {
       // Handled by babel plugin -> require('module')
       // This fallback should not be reached
+      // eslint-disable-next-line no-restricted-syntax
       throw new Error(
         '[harness-compat] jest.requireActual() was not transformed by babel plugin',
       );
     },
     requireMock: (_moduleName: string) => {
       // Handled by babel plugin -> require('module')
+      // eslint-disable-next-line no-restricted-syntax
       throw new Error(
         '[harness-compat] jest.requireMock() was not transformed by babel plugin',
       );

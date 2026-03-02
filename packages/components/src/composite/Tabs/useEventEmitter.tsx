@@ -18,6 +18,7 @@ export function useEventEmitter<T extends Record<string, any>>(
 ): INavigationEventEmitter<T> {
   const listenRef = React.useRef(listen);
 
+  // eslint-disable-next-line use-effect-no-deps/use-effect-no-deps
   React.useEffect(() => {
     listenRef.current = listen;
   });

@@ -8,10 +8,13 @@ import { LegacyUniversalSearchInput } from '@onekeyhq/kit/src/components/TabPage
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
 import TabCountButton from '../../views/Discovery/components/MobileBrowser/TabCountButton';
 import { HistoryIconButton } from '../../views/Discovery/pages/components/HistoryIconButton';
+import { AllNetworksManagerTrigger } from '../AccountSelector';
 import { MoreActionButton } from '../MoreActionButton';
 
 import {
@@ -19,9 +22,6 @@ import {
   HeaderNotificationIconButton,
   WalletConnectionForWeb,
 } from './components';
-import { AllNetworksManagerTrigger } from '../AccountSelector';
-import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 export function MoreAction() {
   return <MoreActionButton key="more-action" />;

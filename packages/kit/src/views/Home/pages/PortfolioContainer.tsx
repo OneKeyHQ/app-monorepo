@@ -3,7 +3,6 @@ import { useMemo } from 'react';
 import {
   Stack,
   Tabs,
-  XStack,
   YStack,
   useMedia,
   useScrollContentTabBarOffset,
@@ -11,9 +10,11 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import { ProviderJotaiContextDeFiList } from '../../../states/jotai/contexts/deFiList';
 import { ProviderJotaiContextEarn } from '../../../states/jotai/contexts/earn';
 import { ProviderJotaiContextHistoryList } from '../../../states/jotai/contexts/historyList';
 import useActiveTabDAppInfo from '../../DAppConnection/hooks/useActiveTabDAppInfo';
+import { DeFiListBlock } from '../components/DeFiListBlock';
 import { EarnListView } from '../components/EarnListView';
 import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListProvider';
 import { PopularTrading } from '../components/PopularTrading';
@@ -23,8 +24,6 @@ import { SupportHub } from '../components/SupportHub';
 import { TokenListBlock } from '../components/TokenListBlock';
 import { Upgrade } from '../components/Upgrade';
 import { PORTFOLIO_CONTAINER_RIGHT_SIDE_FIXED_WIDTH } from '../types';
-import { ProviderJotaiContextDeFiList } from '../../../states/jotai/contexts/deFiList';
-import { DeFiListBlock } from '../components/DeFiListBlock';
 
 function PortfolioContainer() {
   const media = useMedia();
@@ -38,40 +37,38 @@ function PortfolioContainer() {
     [extensionActiveTabDAppInfo?.showFloatingPanel],
   );
 
-  if (tableLayout) {
-    return (
-      <XStack pt="$3" gap="$6">
-        <YStack flex={1} gap="$10" pb="$8">
-          <TokenListBlock showRecentHistory={showRecentHistory} tableLayout />
-          <DeFiListBlock refreshCacheOnly />
-          <PopularTrading tableLayout />
-          <EarnListView />
-          <Upgrade />
-          <SupportHub />
-        </YStack>
-        {showRecentHistory ? (
-          <YStack
-            width={PORTFOLIO_CONTAINER_RIGHT_SIDE_FIXED_WIDTH}
-            flexShrink={0}
-          >
-            <RecentHistory />
-          </YStack>
-        ) : null}
-        {addPaddingOnListFooter ? <Stack h="$16" /> : null}
-      </XStack>
-    );
-  }
-
+  // Use a stable tree structure (Stack > YStack > children) regardless of
+  // layout mode so that TokenListBlock is never unmounted/remounted when the
+  // viewport crosses the mobile/desktop breakpoint.  Remounting resets the
+  // All-Networks loading state while the page is "unfocused" (modal open),
+  // which causes the token list to be stuck in a loading state.
   return (
-    <YStack gap="$6" $gtMd={{ gap: '$8' }} pt="$3" pb="$4">
-      <TokenListBlock />
-      <DeFiListBlock refreshCacheOnly />
-      <PopularTrading />
-      <EarnListView />
-      <Upgrade />
-      <SupportHub />
+    <Stack flexDirection={tableLayout ? 'row' : 'column'} pt="$3" gap="$6">
+      <YStack
+        flex={1}
+        gap={tableLayout ? '$10' : '$6'}
+        pb={tableLayout ? '$8' : '$4'}
+      >
+        <TokenListBlock
+          showRecentHistory={tableLayout ? showRecentHistory : undefined}
+          tableLayout={tableLayout || undefined}
+        />
+        <DeFiListBlock refreshCacheOnly />
+        <PopularTrading tableLayout={tableLayout || undefined} />
+        <EarnListView />
+        <Upgrade />
+        <SupportHub />
+      </YStack>
+      {tableLayout && showRecentHistory ? (
+        <YStack
+          width={PORTFOLIO_CONTAINER_RIGHT_SIDE_FIXED_WIDTH}
+          flexShrink={0}
+        >
+          <RecentHistory />
+        </YStack>
+      ) : null}
       {addPaddingOnListFooter ? <Stack h="$16" /> : null}
-    </YStack>
+    </Stack>
   );
 }
 

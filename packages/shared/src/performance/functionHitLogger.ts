@@ -168,7 +168,7 @@ export function recordFunctionPerfStart(meta: {
             Math.max(0, callStack.length - 1 - CALL_STACK_LOG_DEPTH),
             callStack.length - 1,
           )
-          .filter((f) => f != null)
+          .filter((f) => f !== null && f !== undefined)
           .map((f) => `${f.file}:${f.line || 0}#${f.name}`)
       : undefined;
 

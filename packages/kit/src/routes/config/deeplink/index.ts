@@ -22,13 +22,13 @@ import {
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { urlAccountNavigation } from '../../../views/Home/pages/urlAccount/urlAccountUtils';
 import { marketNavigation } from '../../../views/Market/marketUtils';
 
 import { registerHandler } from './handler';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 type IDeepLinkUrlParsedResult = {
   type: 'walletConnect';
@@ -179,6 +179,7 @@ async function processDeepLinkWalletConnect({
 
     // ** ios/android/desktop DeepLink
     //        onekey-wallet://wc
+
     // oxlint-disable-next-line @cspell/spellchecker
     // onekey-wallet://wc?uri=wc%3Afa75a793-a3fb-48e4-8629-8f1f034ec6eb%401%3Fbridge%3Dhttps%253A%252F%252Fy.bridge.walletconnect.org%26key%3D9e97f71a32b4e629cb60106295dca54d733d124da480b4031d0d848b678fd610/
     if (
@@ -202,6 +203,7 @@ async function processDeepLinkWalletConnect({
 
     // ** WalletConnect uri DeepLink
     //        wc:
+
     // oxlint-disable-next-line @cspell/spellchecker
     // wc:c157eb01-8262-40e4-963e-7ebee47d0eac@1?bridge=https%3A%2F%2F7.bridge.walletconnect.org&key=881d859aa3ae028e284dd03e3be1d09c486329a400509a39c85246813808956b
     if (
@@ -214,6 +216,7 @@ async function processDeepLinkWalletConnect({
         throw new OneKeyLocalError('WalletConnect V1 is not supported');
       }
       // V2
+
       // oxlint-disable-next-line @cspell/spellchecker
       if (queryParams?.['relay-protocol'] && queryParams?.symKey) {
         wcUri = url;

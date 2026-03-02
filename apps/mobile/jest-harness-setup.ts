@@ -8,5 +8,6 @@
 // - harness/snapshots.ts    — toMatchSnapshot / toMatchInlineSnapshot matchers
 
 import './harness/polyfills';
+// eslint-disable-next-line import/order
 import './harness/jest-compat';
 import './harness/snapshots';

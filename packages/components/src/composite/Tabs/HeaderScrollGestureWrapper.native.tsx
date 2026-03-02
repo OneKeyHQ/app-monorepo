@@ -49,15 +49,18 @@ export function HeaderScrollGestureWrapper({
         .failOffsetX([-10, 10])
         .onStart(() => {
           'worklet';
+
           cancelAnimation(targetScrollY);
           startScrollY.value = scrollYCurrent?.value ?? 0;
         })
         .onUpdate((e) => {
           'worklet';
+
           targetScrollY.value = startScrollY.value - e.translationY;
         })
         .onEnd((e) => {
           'worklet';
+
           const wasAtTop = startScrollY.value <= contentInset;
           const pulledDown = e.translationY > REFRESH_THRESHOLD;
           if (wasAtTop && pulledDown && onRefresh) {

@@ -17,6 +17,7 @@ export type IV4SettingsDevModeInfo = {
   enablePerfCheck?: boolean;
   defiBuildService?: string;
   hideDiscoverContent?: boolean;
+
   // oxlint-disable-next-line @cspell/spellchecker
   onRamperTestMode?: boolean;
   showWebEmbedWebviewAgent?: boolean;
@@ -39,6 +40,7 @@ export type IV4ReduxSettingsState = {
   swapSlippagePercent: string;
   disableSwapExactApproveAmount?: boolean;
   enableHaptics: boolean;
+
   // oxlint-disable-next-line @cspell/spellchecker
   enableWebAuthn?: boolean;
   disableExt?: boolean;

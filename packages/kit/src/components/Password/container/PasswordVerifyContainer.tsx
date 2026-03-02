@@ -345,6 +345,7 @@ const PasswordVerifyContainer = ({
   const onInputPasswordAuthenticate = useCallback(
     async (data: IPasswordVerifyForm) => {
       if (
+        isProtectionTime ||
         passwordVerifyStatus.value === EPasswordVerifyStatus.VERIFYING ||
         (!pageMode &&
           passwordVerifyStatus.value === EPasswordVerifyStatus.VERIFIED)
@@ -441,6 +442,7 @@ const PasswordVerifyContainer = ({
       enablePasswordErrorProtection,
       intl,
       isLock,
+      isProtectionTime,
       passwordErrorAttempts,
       passwordMode,
       passwordVerifyStatus.value,
@@ -490,7 +492,7 @@ const PasswordVerifyContainer = ({
         pageMode={pageMode}
         passwordMode={passwordMode}
         alertText={alertText}
-        disableInput={isProtectionTime}
+        confirmBtnDisabled={isProtectionTime}
         onPasswordChange={() => {
           setPasswordAtom((v) => ({
             ...v,
