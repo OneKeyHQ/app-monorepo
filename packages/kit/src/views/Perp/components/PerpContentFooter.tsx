@@ -25,7 +25,7 @@ function PerpNetworkStatus() {
   const intl = useIntl();
 
   const label = useMemo(() => {
-    if (connected && pingMs != null) {
+    if (connected && pingMs !== null && pingMs !== undefined) {
       return `${intl.formatMessage({ id: ETranslations.perp_online })} ${pingMs}ms`;
     }
     return undefined;

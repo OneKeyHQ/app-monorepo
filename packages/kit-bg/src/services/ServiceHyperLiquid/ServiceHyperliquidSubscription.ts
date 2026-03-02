@@ -450,6 +450,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   @backgroundMethod()
   async cleanup(): Promise<void> {
+    this._stopPingLoop();
     await this._cleanupAllSubscriptions();
   }
 

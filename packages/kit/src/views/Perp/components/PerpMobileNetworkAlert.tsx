@@ -39,7 +39,7 @@ function PerpMobileNetworkAlertComponent() {
   }, [isDisconnected]);
 
   const connectedLabel = useMemo(() => {
-    if (isConnected && pingMs != null) {
+    if (isConnected && pingMs !== null && pingMs !== undefined) {
       return `${intl.formatMessage({ id: ETranslations.perp_online })} ${pingMs}ms`;
     }
     return undefined;
