@@ -141,3 +141,4 @@ open <PR_URL>
 - Use conventional commit format: `type: description`
 - Extract and append issue IDs (OK-{number}) to PR title
 - **Context extraction is mandatory**: The PR description MUST reflect the conversation context. Do NOT create generic descriptions. The code review AI relies on this context to understand the intent behind changes.
+- **All PR content MUST be in English**: title, body (summary, changes, test plan), branch name, and commit messages. Never use Chinese or other languages.
