@@ -112,8 +112,8 @@ export const SellOrBuyContent = memo(
           openUrlInDiscovery({ url });
         } else {
           openUrlExternal(url);
+          appNavigation.popStack();
         }
-        appNavigation.popStack();
       },
       [appNavigation, type],
     );

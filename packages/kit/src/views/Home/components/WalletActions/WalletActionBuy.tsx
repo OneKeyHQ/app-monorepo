@@ -163,8 +163,8 @@ export function WalletActionBuy({
             openUrlInDiscovery({ url });
           } else {
             openUrlExternal(url);
+            onClose();
           }
-          onClose();
         }}
         doubleConfirm
       />
