@@ -53,6 +53,7 @@ import { NotBackedUpEmpty } from '../components/NotBakcedUp';
 import { PullToRefresh, onHomePageRefresh } from '../components/PullToRefresh';
 
 import { ApprovalListContainerWithProvider } from './ApprovalListContainer';
+import { DeFiContainerWithProvider } from './DeFiContainer';
 import { HomeHeaderContainer } from './HomeHeaderContainer';
 import { NFTListContainerWithProvider } from './NFTListContainer';
 import { PortfolioContainerWithProvider } from './PortfolioContainer';
@@ -61,7 +62,6 @@ import { TxHistoryListContainerWithProvider } from './TxHistoryContainer';
 import WalletContentWithAuth from './WalletContentWithAuth';
 
 import type { LayoutChangeEvent } from 'react-native';
-import { DeFiContainerWithProvider } from './DeFiContainer';
 
 const networksSupportBulkRevokeApproval =
   getNetworksSupportBulkRevokeApproval();

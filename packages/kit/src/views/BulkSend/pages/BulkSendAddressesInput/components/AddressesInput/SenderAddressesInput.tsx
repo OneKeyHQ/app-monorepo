@@ -10,10 +10,11 @@ import {
   Skeleton,
   XStack,
 } from '@onekeyhq/components';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useDebouncedValidation } from '@onekeyhq/kit/src/views/BulkSend/hooks/useDebouncedValidation';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   EInputAddressChangeType,
@@ -21,9 +22,9 @@ import {
 } from '@onekeyhq/shared/types/address';
 import { EBulkSendMode } from '@onekeyhq/shared/types/bulkSend';
 
-import LineNumberedTextArea from './LineNumberedTextArea';
 import { useBulkSendAddressesInputContext } from '../Context';
-import { useDebouncedValidation } from '@onekeyhq/kit/src/views/BulkSend/hooks/useDebouncedValidation';
+
+import LineNumberedTextArea from './LineNumberedTextArea';
 
 function SenderAddressesInput() {
   const intl = useIntl();

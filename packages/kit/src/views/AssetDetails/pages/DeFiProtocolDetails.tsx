@@ -18,8 +18,8 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
-import { getCategoryConfig } from '@onekeyhq/kit/src/utils/defiCategoryConfig';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { getCategoryConfig } from '@onekeyhq/kit/src/utils/defiCategoryConfig';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';

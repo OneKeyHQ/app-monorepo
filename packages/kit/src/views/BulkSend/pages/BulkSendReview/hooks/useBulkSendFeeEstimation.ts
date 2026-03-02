@@ -189,6 +189,7 @@ export function useBulkSendFeeEstimation({
         }
 
         if (!txFee) {
+          // eslint-disable-next-line no-restricted-syntax
           throw new Error('Failed to estimate fee');
         }
 
@@ -251,6 +252,7 @@ export function useBulkSendFeeEstimation({
         const selectedFeeInfo = feeSelectorItems[selectedPresetIndex]?.feeInfo;
 
         if (!selectedFeeInfo) {
+          // eslint-disable-next-line no-restricted-syntax
           throw new Error('No fee info available');
         }
 
@@ -449,6 +451,7 @@ export function useBulkSendFeeEstimation({
         feeInfos,
       }));
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [
       feeState.feeSelectorItems,
       feeState.perTxFeeInfos,

@@ -1,6 +1,8 @@
 import type { RefObject } from 'react';
 import { createRef, useEffect, useMemo } from 'react';
 
+import { useWindowDimensions } from 'react-native';
+
 import { ToastProvider } from '@onekeyhq/components/src/shared/tamagui';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
@@ -9,6 +11,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Portal } from '../../hocs';
 import { useSettingConfig } from '../../hocs/Provider/hooks/useProviderValue';
+import { usePageWidth } from '../../hooks/usePage';
 import { useMedia } from '../../hooks/useStyle';
 import {
   Icon,
@@ -27,8 +30,6 @@ import type { IShowToasterInstance, IShowToasterProps } from './ShowCustom';
 import type { IToastMessageOptions } from './type';
 import type { IPortalManager } from '../../hocs';
 import type { IKeyOfIcons, ISizableTextProps } from '../../primitives';
-import { usePageWidth } from '../../hooks/usePage';
-import { useWindowDimensions } from 'react-native';
 
 export interface IToastProps {
   toastId?: string;

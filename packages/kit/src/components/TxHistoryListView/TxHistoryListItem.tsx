@@ -104,6 +104,7 @@ function TxHistoryListItem(props: IProps) {
 
     return (
       <XStack
+        // eslint-disable-next-line no-nested-ternary
         pl={showIcon ? (compact ? 64 : 72) : 20}
         testID="history-list-item-speed-up-and-cancel-buttons"
         pb="$3"

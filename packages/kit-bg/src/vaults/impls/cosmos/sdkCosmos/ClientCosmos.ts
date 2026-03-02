@@ -50,6 +50,7 @@ export class ClientCosmos {
   public async fetchBlockHeaderV1beta1(): Promise<ICosmosBlockHeader> {
     const response = await this.axios.get<{
       block: { header: ICosmosBlockHeader };
+
       // oxlint-disable-next-line @cspell/spellchecker
     }>(`/cosmos/base/tendermint/v1beta1/blocks/latest`);
     return response.data.block.header;
@@ -75,7 +76,7 @@ export class ClientCosmos {
     const rawLog = resp.data.tx_response.raw_log;
     const { code } = resp.data.tx_response;
 
-    if (code != null && code !== 0) {
+    if (code !== null && code !== undefined && code !== 0) {
       throw new OneKeyError(rawLog);
     }
 

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-return */
 import { useCallback, useMemo } from 'react';
 
 import { CommonActions } from '@react-navigation/native';

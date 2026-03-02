@@ -2,8 +2,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
-import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
+import type {
+  IApproveInfo,
+  ITransferInfo,
+} from '@onekeyhq/kit-bg/src/vaults/types';
 import { getBulkSendContractAddress } from '@onekeyhq/shared/src/consts/bulkSendContractAddress';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
