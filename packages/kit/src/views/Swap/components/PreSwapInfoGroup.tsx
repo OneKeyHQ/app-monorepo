@@ -172,12 +172,25 @@ const PreSwapInfoGroup = ({
           id: ETranslations.swap_page_provider_provider,
         })}
         value={
-          <XStack gap="$2">
-            <Image
-              source={{ uri: preSwapData?.providerInfo?.providerLogo ?? '' }}
-              size="$5"
-              borderRadius="$1"
-            />
+          <XStack gap="$2" alignItems="center">
+            <Stack position="relative" w="$5" h="$5">
+              <Image
+                source={{ uri: preSwapData?.providerInfo?.providerLogo ?? '' }}
+                size="$5"
+                borderRadius="$1"
+              />
+              <Stack
+                position="absolute"
+                top={0}
+                left={0}
+                right={0}
+                bottom={0}
+                borderRadius="$1"
+                borderWidth="$px"
+                borderColor="$borderSubdued"
+                pointerEvents="none"
+              />
+            </Stack>
             <SizableText size="$bodyMd">
               {preSwapData?.providerInfo?.providerName ?? ''}
             </SizableText>

@@ -1,8 +1,8 @@
 import { memo } from 'react';
 
+import { IconButton } from '../../actions/IconButton';
 import { useMedia } from '../../hooks';
 import { SizableText, Stack, XStack } from '../../primitives';
-import { IconButton } from '../../actions/IconButton';
 
 import type { ICalendarHeaderProps } from './type';
 
@@ -46,7 +46,7 @@ export const CalendarHeader = memo(
           <Stack width="$10" />
         )}
         <XStack gap="$1">
-          {showMonthYear && month && (
+          {showMonthYear && month ? (
             <SizableText
               size={titleSize}
               color="$text"
@@ -57,7 +57,7 @@ export const CalendarHeader = memo(
             >
               {month}
             </SizableText>
-          )}
+          ) : null}
           <SizableText
             size={titleSize}
             color="$text"

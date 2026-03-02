@@ -15,6 +15,7 @@ import {
 import { NotificationRegisterDaily } from '../../Notifications/components/NotificationRegisterDaily';
 import { OnboardingOnMount } from '../../Onboarding/components';
 import { BTCFreshAddressProvider } from '../components/BTCFreshAddressProvider';
+
 import { HomePageView } from './HomePageView';
 
 function EmptyRenderTest() {

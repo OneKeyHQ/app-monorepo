@@ -26,14 +26,6 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
       return false;
     }
 
-    // Keyless wallet accounts should not be synced
-    const walletId = accountUtils.getWalletIdFromAccountId({
-      accountId: account.id,
-    });
-    if (accountUtils.isKeylessWallet({ walletId })) {
-      return false;
-    }
-
     return (
       accountUtils.isWatchingAccount({ accountId: account.id }) ||
       accountUtils.isImportedAccount({ accountId: account.id })

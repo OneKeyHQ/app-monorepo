@@ -5,9 +5,10 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { fileURLToPath, format as formatUrl } from 'url';
+import v8 from 'v8';
 
-import { initNobleBleSupport } from '@onekeyfe/hd-transport-electron';
 import { EOneKeyBleMessageKeys } from '@onekeyfe/hd-shared';
+import { initNobleBleSupport } from '@onekeyfe/hd-transport-electron';
 import {
   BrowserWindow,
   Menu,
@@ -45,8 +46,10 @@ import {
 } from './bundle';
 import { ipcMessageKeys } from './config';
 import { ElectronTranslations, i18nText, initLocale } from './i18n';
+import { scheduleCrashDumpCleanup } from './libs/crashDumpCleanup';
 import { registerShortcuts, unregisterShortcuts } from './libs/shortcuts';
 import * as store from './libs/store';
+import { getBackgroundColor } from './libs/utils';
 import initProcess from './process';
 import {
   getAppStaticResourcesPath,
@@ -56,7 +59,6 @@ import {
 import { initSentry } from './sentry';
 import { startServices } from './service';
 import { setMainWindowForOAuthServer } from './service/oauthLocalServer/oauthLocalServer';
-import { getBackgroundColor } from './libs/utils';
 
 logger.initialize();
 logger.transports.file.maxSize = 1024 * 1024 * 10;
@@ -476,7 +478,6 @@ async function createMainWindow() {
   // eslint-disable-next-line @typescript-eslint/no-unsafe-call
   const display = screen.getPrimaryDisplay();
   const dimensions = display.workAreaSize;
-  // eslint-disable-next-line @typescript-eslint/ban-types
   let savedWinBounds: {
     x?: number;
     y?: number;
@@ -612,6 +613,7 @@ async function createMainWindow() {
     );
   }
 
+  /* eslint-disable no-nested-ternary */
   const src = isPerfCiMode
     ? formatUrl({
         pathname: perfIndexHtmlPath,
@@ -625,6 +627,7 @@ async function createMainWindow() {
           protocol: PROTOCOL,
           slashes: true,
         });
+  /* eslint-enable no-nested-ternary */
 
   if (isDevServer) {
     browserWindow.webContents.openDevTools();
@@ -1126,7 +1129,7 @@ app.on('window-all-closed', () => {
 // Related: Sentry issue - GPU process crashes on Windows AMD + heavy DApp usage
 
 // 1. GPU Crash Detection and Recovery Handler
-app.on('child-process-gone', (event, details) => {
+app.on('child-process-gone', async (event, details) => {
   logger.error('Child process gone:', {
     type: details.type,
     reason: details.reason,
@@ -1143,7 +1146,9 @@ app.on('child-process-gone', (event, details) => {
 
     // Track GPU crash in Sentry for monitoring
     try {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
       const { captureException } = require('@sentry/electron/main');
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
       captureException(new Error('GPU Process Crashed'), {
         level: 'fatal',
         tags: {
@@ -1183,6 +1188,17 @@ app.on('child-process-gone', (event, details) => {
         suggestion: 'Consider closing some browser tabs to reduce GPU load',
       });
     }
+
+    // Collect GPU hardware info after crash for diagnostics (fire-and-forget,
+    // getGPUInfo may hang when GPU process is dead so we don't await it)
+    app
+      .getGPUInfo('basic')
+      .then((gpuInfo) => {
+        logger.error('[GPU Crash] GPU Hardware Info:', JSON.stringify(gpuInfo));
+      })
+      .catch(() => {
+        logger.error('[GPU Crash] Cannot retrieve GPU info after crash');
+      });
   }
 });
 
@@ -1223,6 +1239,7 @@ logger.info('GPU Protection System initialized', {
 const MEMORY_LIMIT_WARNING_MB = 1024; // 1GB warning threshold
 const MEMORY_LIMIT_CRITICAL_MB = 2048; // 2GB critical threshold
 const MEMORY_CHECK_INTERVAL_MS = 60_000; // Check every 60 seconds
+const METRICS_SAMPLE_INTERVAL_MS = 30_000;
 
 let memoryMonitorInterval: ReturnType<typeof setInterval> | null = null;
 
@@ -1289,7 +1306,9 @@ function startMemoryMonitoring() {
 
         // Track critical memory events in Sentry
         try {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
           const { captureException } = require('@sentry/electron/main');
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
           captureException(new Error('Critical Memory Usage Detected'), {
             level: 'warning',
             tags: {
@@ -1320,9 +1339,142 @@ function startMemoryMonitoring() {
   });
 }
 
+function startProcessMetricsMonitoring() {
+  setInterval(() => {
+    const metrics = app.getAppMetrics();
+    const highMemoryProcesses = metrics.filter(
+      (m) => (m.memory?.workingSetSize ?? 0) > 200 * 1024,
+    );
+
+    if (highMemoryProcesses.length > 0) {
+      logger.warn(
+        '[Process Metrics] High memory processes:',
+        highMemoryProcesses.map((m) => ({
+          pid: m.pid,
+          type: m.type,
+          name: m.name,
+          memoryMB: Math.round((m.memory?.workingSetSize ?? 0) / 1024),
+          cpu: m.cpu.percentCPUUsage.toFixed(1),
+        })),
+      );
+    }
+
+    const totalMemoryMB = metrics.reduce(
+      (sum, m) => sum + (m.memory?.workingSetSize ?? 0) / 1024,
+      0,
+    );
+    if (totalMemoryMB > MEMORY_LIMIT_WARNING_MB) {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+        const { addBreadcrumb } = require('@sentry/electron/main');
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+        addBreadcrumb({
+          category: 'memory',
+          message: `Total process memory: ${Math.round(totalMemoryMB)}MB`,
+          level: 'warning',
+          data: {
+            processes: metrics.map((m) => ({
+              type: m.type,
+              name: m.name,
+              memoryMB: Math.round((m.memory?.workingSetSize ?? 0) / 1024),
+              cpu: m.cpu.percentCPUUsage,
+            })),
+          },
+        });
+      } catch (_e) {
+        // ignore
+      }
+    }
+  }, METRICS_SAMPLE_INTERVAL_MS);
+}
+
+async function collectGPUInfo() {
+  try {
+    const gpuInfo = await app.getGPUInfo('complete');
+    logger.info('[GPU Info] Complete GPU information collected');
+
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+      const { setContext } = require('@sentry/electron/main');
+      const gpuDevice = (gpuInfo as any)?.gpuDevice?.[0];
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+      setContext('gpu', {
+        vendorId: gpuDevice?.vendorId,
+        deviceId: gpuDevice?.deviceId,
+        driverVersion: gpuDevice?.driverVersion,
+        driverVendor: gpuDevice?.driverVendor,
+        auxAttributes: (gpuInfo as any)?.auxAttributes,
+      });
+    } catch (_e) {
+      // ignore
+    }
+  } catch (error) {
+    logger.error('[GPU Info] Failed to collect:', error);
+  }
+}
+
+function startV8HeapMonitoring() {
+  setInterval(() => {
+    const heapStats = v8.getHeapStatistics();
+    const usedMB = Math.round(heapStats.used_heap_size / 1024 / 1024);
+    const limitMB = Math.round(heapStats.heap_size_limit / 1024 / 1024);
+    const usagePercent = (
+      (heapStats.used_heap_size / heapStats.heap_size_limit) *
+      100
+    ).toFixed(1);
+
+    if (Number(usagePercent) > 70) {
+      logger.warn(`[V8 Heap] ${usedMB}MB / ${limitMB}MB (${usagePercent}%)`, {
+        totalHeapSize: heapStats.total_heap_size,
+        totalPhysicalSize: heapStats.total_physical_size,
+        allocatedMemory: heapStats.malloced_memory,
+        externalMemory: heapStats.external_memory,
+      });
+    }
+  }, MEMORY_CHECK_INTERVAL_MS);
+}
+
+/* oxlint-disable typescript/no-unsafe-call -- dynamic require('electron') returns untyped */
+function startWebviewMemoryMonitoring() {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+  const { webContents } = require('electron');
+  setInterval(() => {
+    const safelyMainWindow = getSafelyMainWindow();
+    if (!safelyMainWindow || safelyMainWindow.isDestroyed()) return;
+
+    const metrics = app.getAppMetrics();
+    const metricsByPid = new Map(metrics.map((m) => [m.pid, m]));
+    const allContents = webContents.getAllWebContents();
+    for (const wc of allContents) {
+      // eslint-disable-next-line no-continue
+      if (wc.isDestroyed()) continue;
+      try {
+        const pid = wc.getOSProcessId();
+        const metric = metricsByPid.get(pid);
+        // eslint-disable-next-line no-continue
+        if (!metric) continue;
+        const memMB = Math.round((metric.memory?.workingSetSize ?? 0) / 1024);
+        if (memMB > 300) {
+          logger.warn(
+            `[WebView Memory] pid=${pid} type=${wc.getType()} url=${wc.getURL().substring(0, 100)} memory=${memMB}MB`,
+          );
+        }
+      } catch (_e) {
+        // webContents may have been destroyed
+      }
+    }
+  }, METRICS_SAMPLE_INTERVAL_MS);
+}
+/* oxlint-enable typescript/no-unsafe-call */
+
 // Start monitoring when app is ready
-app.on('ready', () => {
+app.on('ready', async () => {
   startMemoryMonitoring();
+  startProcessMetricsMonitoring();
+  startV8HeapMonitoring();
+  startWebviewMemoryMonitoring();
+  scheduleCrashDumpCleanup();
+  await collectGPUInfo();
 });
 
 // Stop monitoring when app quits

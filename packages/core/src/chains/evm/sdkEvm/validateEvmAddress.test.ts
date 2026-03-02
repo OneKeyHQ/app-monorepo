@@ -113,7 +113,7 @@ describe('validateEvmAddress', () => {
   });
 
   it('should handle precompile addresses (0x01 - 0x09)', async () => {
-    for (let i = 1; i <= 9; i++) {
+    for (let i = 1; i <= 9; i += 1) {
       const addr = `0x${i.toString(16).padStart(40, '0')}`;
       const result = await validateEvmAddress(addr);
       expect(result.isValid).toBe(true);

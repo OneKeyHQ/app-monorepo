@@ -1,0 +1,21 @@
+diff --git a/node_modules/react-native-ble-plx/android/src/main/java/com/bleplx/BlePlxModule.java b/node_modules/react-native-ble-plx/android/src/main/java/com/bleplx/BlePlxModule.java
+index d4ef9c5..7ff8477 100644
+--- a/node_modules/react-native-ble-plx/android/src/main/java/com/bleplx/BlePlxModule.java
++++ b/node_modules/react-native-ble-plx/android/src/main/java/com/bleplx/BlePlxModule.java
+@@ -46,6 +46,7 @@ import java.util.List;
+ import java.util.Map;
+ 
+ import io.reactivex.exceptions.UndeliverableException;
++import io.reactivex.exceptions.CompositeException;
+ import io.reactivex.plugins.RxJavaPlugins;
+ 
+ @ReactModule(name = BlePlxModule.NAME)
+@@ -57,7 +58,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
+     super(reactContext);
+     this.reactContext = reactContext;
+     RxJavaPlugins.setErrorHandler(throwable -> {
+-      if (throwable instanceof UndeliverableException) {
++      if (throwable instanceof UndeliverableException || throwable instanceof CompositeException) {
+         RxBleLog.e("Handle all unhandled exceptions from RxJava: " + throwable.getMessage());
+       } else {
+         Thread currentThread = Thread.currentThread();

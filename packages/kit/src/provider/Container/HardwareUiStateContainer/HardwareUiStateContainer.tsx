@@ -20,9 +20,9 @@ import {
   Portal,
   SizableText,
 } from '@onekeyhq/components';
-import { useBackHandler } from '@onekeyhq/components/src/hooks';
 import type { IShowToasterInstance } from '@onekeyhq/components/src/actions/Toast/ShowCustom';
 import { ShowCustom } from '@onekeyhq/components/src/actions/Toast/ShowCustom';
+import { useBackHandler } from '@onekeyhq/components/src/hooks';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { DeviceNotFoundDialogContent } from '@onekeyhq/kit/src/components/Hardware/ConnectionTroubleShootingAccordion';
 import {

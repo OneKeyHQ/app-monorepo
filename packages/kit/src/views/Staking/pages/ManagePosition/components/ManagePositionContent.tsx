@@ -7,6 +7,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { BorrowNavigation } from '@onekeyhq/kit/src/views/Borrow/borrowUtils';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
 import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
 
@@ -16,6 +17,7 @@ import { NoAddressWarning } from '../../../components/ProtocolDetails/NoAddressW
 import { EManagePositionType, useManagePage } from '../hooks/useManagePage';
 
 import { AdaManageContent } from './AdaManageContent';
+import { ManagePageV2Content } from './ManagePageV2Content';
 import { NormalManageContent } from './NormalManageContent';
 import { USDEManageContent } from './USDEManageContent';
 
@@ -401,6 +403,48 @@ export function ManagePositionContent({
 
   if (isLoading && !managePageData) {
     return <SectionSkeleton />;
+  }
+
+  // Pendle special rendering: use ManagePageV2 for future shared layouts.
+  if (earnUtils.isPendleProvider({ providerName: provider })) {
+    if (warningElement) {
+      return <YStack px="$5">{warningElement}</YStack>;
+    }
+
+    return (
+      <ManagePageV2Content
+        networkId={networkId}
+        symbol={symbol}
+        provider={provider}
+        vault={vault}
+        type={type}
+        marketAddress={marketAddress}
+        reserveAddress={reserveAddress}
+        tokenInfo={resolvedTokenInfo}
+        fallbackTokenImageUri={resolvedTokenImageUri}
+        protocolInfo={resolvedProtocolInfo}
+        earnAccount={earnAccount ?? undefined}
+        borrowReserves={borrowReserves}
+        depositDisabled={depositDisabled}
+        withdrawDisabled={withdrawDisabled}
+        stakeBeforeFooter={stakeBeforeFooter}
+        withdrawBeforeFooter={withdrawBeforeFooter}
+        historyAction={historyAction}
+        onHistory={onHistory}
+        indicatorAccountId={earnAccount?.accountId}
+        stakeTag={resolvedProtocolInfo?.stakeTag}
+        onIndicatorRefresh={refreshManageData}
+        onRefreshPendingRef={refreshPendingRef}
+        onSuccess={handleOperationSuccess}
+        defaultTab={defaultTab}
+        onTabChange={onTabChange}
+        isInModalContext={isInModalContext}
+        appNavigation={appNavigation}
+        showApyDetail={showApyDetail}
+        ongoingValidator={ongoingValidator}
+        managePageData={managePageData}
+      />
+    );
   }
 
   // USDe special rendering

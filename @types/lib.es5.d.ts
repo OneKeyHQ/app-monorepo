@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/naming-convention */
+
 /**
  * Fixes https://github.com/microsoft/TypeScript/issues/16655 for `Array.prototype.filter()`
  * For example, using the fix the type of `bar` is `string[]` in the below snippet as it should be.
@@ -15,7 +17,7 @@
 /** See https://stackoverflow.com/a/51390763/1470607  */
 type IFalsy = false | 0 | '' | null | undefined;
 
-// eslint-disable-next-line @typescript-eslint/naming-convention
+// oxlint-disable-next-line no-redeclare -- augmenting built-in Array type
 interface Array<T> {
   /**
    * Returns the elements of an array that meet the condition specified in a callback function.

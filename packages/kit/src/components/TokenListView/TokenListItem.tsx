@@ -1,9 +1,11 @@
 import { memo, useCallback } from 'react';
 
-import { Stack, XStack, YStack } from '@onekeyhq/components';
+import { Spinner, Stack, XStack, YStack } from '@onekeyhq/components';
 import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
+
+import { useProcessingTokenStateAtom } from '../../states/jotai/contexts/tokenList';
 
 import CreateAccountView from './CreateAccountView';
 import TokenActionsView from './TokenActionsView';
@@ -26,6 +28,7 @@ export type ITokenListItemProps = {
   withSwapAction?: boolean;
   showNetworkIcon?: boolean;
   withAggregateBadge?: boolean;
+  showProcessingState?: boolean;
 } & Omit<IListItemProps, 'onPress'>;
 
 function BasicTokenListItem(props: ITokenListItemProps) {
@@ -41,8 +44,21 @@ function BasicTokenListItem(props: ITokenListItemProps) {
     withSwapAction,
     showNetworkIcon,
     withAggregateBadge,
+    showProcessingState,
     ...rest
   } = props;
+
+  const [processingTokenState] = useProcessingTokenStateAtom();
+
+  const isCurrentTokenProcessing =
+    showProcessingState &&
+    processingTokenState.isProcessing &&
+    processingTokenState.token?.$key === token.$key;
+
+  const isOtherTokenProcessing =
+    showProcessingState &&
+    processingTokenState.isProcessing &&
+    processingTokenState.token?.$key !== token.$key;
 
   const renderFirstColumn = useCallback(() => {
     if (!tableLayout && !isTokenSelector) {
@@ -252,6 +268,8 @@ function BasicTokenListItem(props: ITokenListItemProps) {
         onPress?.(token);
       }}
       gap={tableLayout ? '$3' : '$1'}
+      disabled={isOtherTokenProcessing}
+      opacity={isOtherTokenProcessing ? 0.5 : 1}
       {...rest}
     >
       {renderFirstColumn()}
@@ -260,6 +278,7 @@ function BasicTokenListItem(props: ITokenListItemProps) {
         networkId={token.networkId ?? ''}
         $key={token.$key ?? ''}
       />
+      {isCurrentTokenProcessing ? <Spinner size="small" /> : null}
       {renderThirdColumn()}
       {renderFourthColumn()}
     </ListItem>
