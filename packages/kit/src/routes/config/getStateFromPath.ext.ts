@@ -2,7 +2,7 @@
 
 /* eslint-disable @typescript-eslint/restrict-template-expressions */
 /* eslint-disable @typescript-eslint/no-unsafe-return */
-/* eslint-disable @typescript-eslint/ban-types */
+/* oxlint-disable @typescript-eslint/no-empty-object-type */
 /* eslint-disable no-param-reassign */
 /* eslint-disable @typescript-eslint/no-unnecessary-type-assertion */
 /* eslint-disable import/order */

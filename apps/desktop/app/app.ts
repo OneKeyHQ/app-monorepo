@@ -478,7 +478,6 @@ async function createMainWindow() {
   // eslint-disable-next-line @typescript-eslint/no-unsafe-call
   const display = screen.getPrimaryDisplay();
   const dimensions = display.workAreaSize;
-  // eslint-disable-next-line @typescript-eslint/ban-types
   let savedWinBounds: {
     x?: number;
     y?: number;
