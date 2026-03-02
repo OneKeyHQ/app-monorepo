@@ -478,19 +478,15 @@ describe('BIP32 Edge Cases', () => {
       secp256k1,
     );
 
-    it(
-      'should handle deep derivation tree efficiently',
-      () => {
-        const seed = Buffer.from('000102030405060708090a0b0c0d0e0f', 'hex');
-        let key = deriver.generateMasterKeyFromSeed(seed);
+    it('should handle deep derivation tree efficiently', () => {
+      const seed = Buffer.from('000102030405060708090a0b0c0d0e0f', 'hex');
+      let key = deriver.generateMasterKeyFromSeed(seed);
 
-        for (let i = 0; i < 1000; i++) {
-          key = deriver.CKDPriv(key, i % 2 === 0 ? 0x80_00_00_00 : 0);
-        }
+      for (let i = 0; i < 1000; i++) {
+        key = deriver.CKDPriv(key, i % 2 === 0 ? 0x80_00_00_00 : 0);
+      }
 
-        expect(key.key.length).toBe(32);
-      },
-      60_000,
-    );
+      expect(key.key.length).toBe(32);
+    }, 60_000);
   });
 });

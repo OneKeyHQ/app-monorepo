@@ -60,6 +60,7 @@ import {
   UniversalSearchV2MarketTokenItem,
 } from '../components/SearchResultItems';
 
+import { MarketTableHeader } from '../components/MarketTableHeader';
 import { RecentSearched } from './components/RecentSearched';
 import { UniversalSearchProviderMirror } from './UniversalSearchProviderMirror';
 
@@ -125,6 +126,8 @@ function ListEmptyComponent() {
     </YStack>
   );
 }
+
+const isMarketSection = (tabIndex: number) => tabIndex === 2;
 
 export function UniversalSearch({
   filterTypes,
@@ -450,11 +453,14 @@ export function UniversalSearch({
   const renderSectionHeader = useCallback(
     ({ section }: { section: IUniversalSection }) => {
       return (
-        <XStack bg="$bgApp" h="$9" ai="center">
-          <SizableText px="$5" size="$headingSm" color="$textSubdued">
-            {section.title}
-          </SizableText>
-        </XStack>
+        <YStack bg="$bgApp">
+          <XStack h="$9" ai="center">
+            <SizableText px="$5" size="$headingSm" color="$textSubdued">
+              {section.title}
+            </SizableText>
+          </XStack>
+          {isMarketSection(section.tabIndex) ? <MarketTableHeader /> : null}
+        </YStack>
       );
     },
     [],

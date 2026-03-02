@@ -263,5 +263,8 @@ export interface IMarketSearchV2Token {
   decimals: number;
   liquidity: string;
   volume_24h: string;
+  volume24h?: string;
+  marketCap?: string;
+  priceChange24hPercent?: string;
   communityRecognized?: boolean;
 }

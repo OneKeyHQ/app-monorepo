@@ -294,9 +294,9 @@ function FinalizeWalletSetupPage({
         });
       } else if (keylessPackSetId && !created.current) {
         // Create keyless wallet
-        await actions.current.createKeylessWallet({
-          packSetId: keylessPackSetId,
-        });
+        // await actions.current.createKeylessWallet({
+        //   packSetId: keylessPackSetId,
+        // });
         created.current = true;
       }
     } catch (error) {
