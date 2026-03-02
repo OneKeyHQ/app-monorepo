@@ -1,10 +1,11 @@
-import type { IToken, ITokenFiat } from '../../types/token';
-import type { EBulkSendMode } from '../../types/bulkSend';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import type {
   IApproveInfo,
   ITransferInfo,
 } from '@onekeyhq/kit-bg/src/vaults/types';
+
+import type { EBulkSendMode } from '../../types/bulkSend';
+import type { IToken, ITokenFiat } from '../../types/token';
 import type { ISendTxOnSuccessData } from '../../types/tx';
 
 export enum EModalBulkSendRoutes {

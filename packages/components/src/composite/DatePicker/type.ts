@@ -3,6 +3,7 @@ import type { ReactElement } from 'react';
 import type { IPopoverProps } from '../../actions';
 import type { SheetProps } from '../../shared/tamagui';
 
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export type DatePickerMode = 'date' | 'range' | 'month' | 'year' | 'multiple';
 
 export interface IDateRange {

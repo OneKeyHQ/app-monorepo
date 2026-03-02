@@ -15,14 +15,14 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
-const PERP_TELEGRAM_URL = 'https://t.me/OneKeyPerps';
-
 import { PerpsProviderMirror } from '../../views/Perp/PerpsProviderMirror';
 import { NetworkStatus } from '../NetworkStatus';
 import { PerpRefreshButton } from '../PerpRefreshButton';
 
 import { FooterLink } from './components/FooterLink';
 import { FooterNavigation } from './components/FooterNavigation';
+
+const PERP_TELEGRAM_URL = 'https://t.me/OneKeyPerps';
 
 const getLinks = () => [
   {

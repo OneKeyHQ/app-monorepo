@@ -23,6 +23,7 @@ function generateSemanticColors<
   primitiveColorName: keyof IPrimitiveColors[T],
   semanticKey: E,
   theme: T,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   count: F,
 ) {
   const colors = primitiveColors[theme];

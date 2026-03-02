@@ -1,12 +1,12 @@
 import axios from 'axios';
 import timeoutSignal from 'timeout-signal';
 
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IJsonRpcResponsePro } from '@onekeyhq/shared/types/request';
 
 import {
   AxiosResponseError,
   JsonRPCResponseError,
+  OneKeyLocalError,
   ResponseError,
 } from '../errors';
 

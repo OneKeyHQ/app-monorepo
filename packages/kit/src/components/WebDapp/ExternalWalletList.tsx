@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
-import { StyleSheet } from 'react-native';
 
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import {
   Badge,

@@ -16,6 +16,7 @@ function entropyToMnemonic(entropy: string): Promise<string> {
   let x = 0;
   while (entropyNumber.gt(0)) {
     x = entropyNumber.mod(n).integerValue().toNumber();
+
     // oxlint-disable-next-line @cspell/spellchecker
     entropyNumber = entropyNumber.idiv(n);
 

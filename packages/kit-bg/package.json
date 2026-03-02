@@ -9,6 +9,8 @@
   },
   "scripts": {
     "_folderslint": "yarn folderslint",
+    "keyless:mock-server:build": "tsc -p tsconfig.keyless-mock-server.json",
+    "keyless:mock-server:start": "node dist/keyless-cloud-sync-mock-server/keylessCloudSyncMockServer/cli.js",
     "lint": "tsc --noEmit && eslint . --ext .ts,.tsx",
     "lint:fix": "tsc --noEmit && eslint . --ext .ts,.tsx --fix"
   },

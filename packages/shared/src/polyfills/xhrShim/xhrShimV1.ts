@@ -1,4 +1,4 @@
-// oxlint-disable unicorn/prefer-global-this
+/* eslint-disable unicorn/prefer-global-this */
 // eslint-disable-next-line max-classes-per-file
 const sErrored = Symbol('errored');
 const sTimeout = Symbol('timeout');
@@ -90,7 +90,7 @@ const XMLHttpRequestShim = class XMLHttpRequest extends Dispatch {
 
   [sErrored] = false;
 
-  [sTimeout]: ReturnType<typeof setTimeout> | number = 0;
+  [sTimeout]: ReturnType<typeof setTimeout> = 0;
 
   [sTimedOut] = false;
 

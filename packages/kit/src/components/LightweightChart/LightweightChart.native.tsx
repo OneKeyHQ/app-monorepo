@@ -17,6 +17,9 @@ export function LightweightChart({
   lineColor,
   topColor,
   bottomColor,
+  secondaryLineData,
+  secondaryLineColor,
+  secondaryLineWidth,
   lineWidth,
   showPriceScale,
   showHorzGridLines,
@@ -30,6 +33,9 @@ export function LightweightChart({
     lineColor,
     topColor,
     bottomColor,
+    secondaryLineData,
+    secondaryLineColor,
+    secondaryLineWidth,
     lineWidth,
     showPriceScale,
     showHorzGridLines,
@@ -50,6 +56,9 @@ export function LightweightChart({
           onHover({
             time: message.time ? Number(message.time) : undefined,
             price: message.price ? Number(message.price) : undefined,
+            secondaryPrice: message.secondaryPrice
+              ? Number(message.secondaryPrice)
+              : undefined,
             x: message.x,
             y: message.y,
           });
@@ -70,8 +79,22 @@ export function LightweightChart({
       const updateScript = `
         (function() {
           const newConfig = ${JSON.stringify(chartConfig)};
-          if (window.series) {
+          if (window.series && window.chart) {
             window.series.setData(newConfig.data);
+            if (Array.isArray(newConfig.secondaryLineData) && newConfig.secondaryLineData.length > 0) {
+              if (!window.secondarySeries) {
+                window.secondarySeries = window.chart.addLineSeries({
+                  color: newConfig.secondaryLineColor || '#0177E5',
+                  lineWidth: newConfig.secondaryLineWidth ?? 2,
+                  priceLineVisible: false,
+                  lastValueVisible: false,
+                  crosshairMarkerVisible: false,
+                });
+              }
+              window.secondarySeries.setData(newConfig.secondaryLineData);
+            } else if (window.secondarySeries) {
+              window.secondarySeries.setData([]);
+            }
             window.chart.timeScale().fitContent();
           }
         })();

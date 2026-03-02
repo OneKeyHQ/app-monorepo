@@ -9,9 +9,8 @@ import {
   useBrowserAction,
   useBrowserTabActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
-import { EValidateUrlEnum } from '@onekeyhq/shared/types/dappConnection';
-
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EValidateUrlEnum } from '@onekeyhq/shared/types/dappConnection';
 
 import { webviewRefs } from '../../utils/explorerUtils';
 import { showTabBar } from '../../utils/tabBarUtils';

@@ -1,10 +1,6 @@
 import { useIntl } from 'react-intl';
 
-import {
-  Alert,
-  EPageType,
-  YStack,
-} from '@onekeyhq/components';
+import { Alert, EPageType, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSwapTipsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';

@@ -16,6 +16,7 @@ import {
   ETabMarketRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
+
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
 interface INavigateToMarketTabOptions {

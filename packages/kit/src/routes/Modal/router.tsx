@@ -11,6 +11,7 @@ import { EFullScreenPushRoutes } from '@onekeyhq/shared/src/routes/fullScreenPus
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { keylessOnboardingCache } from '../../components/KeylessWallet/useKeylessWallet';
 import { AccountManagerStacks } from '../../views/AccountManagerStacks/router';
+import { ActionCenterRouter } from '../../views/ActionCenter/router';
 import { ModalAddressBookRouter } from '../../views/AddressBook/router';
 import { ModalApprovalManagementStack } from '../../views/ApprovalManagement/router';
 import { AppUpdateRouter } from '../../views/AppUpdate/router';
@@ -30,7 +31,6 @@ import { ManualBackupRouter } from '../../views/ManualBackup/router';
 import { ModalMarketStack } from '../../views/Market/router';
 import { NetworkDoctorModalRouter } from '../../views/NetworkDoctor/router';
 import { ModalNotificationsRouter } from '../../views/Notifications/router';
-import { ActionCenterRouter } from '../../views/ActionCenter/router';
 import { OnboardingRouter } from '../../views/Onboarding/router';
 import { OnboardingRouterV2 } from '../../views/Onboardingv2/router';
 import { ModalPerpStack } from '../../views/Perp/router';
