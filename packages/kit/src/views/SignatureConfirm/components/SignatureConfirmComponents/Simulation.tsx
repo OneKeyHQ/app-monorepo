@@ -42,6 +42,7 @@ function Simulation(props: IProps) {
         {component.assets.map((asset, index) => {
           if (asset.type === EParseTxComponentType.NFT) {
             return (
+              // oxlint-disable-next-line react/jsx-pascal-case -- NFT is an acronym
               <Assets.NFT
                 hideLabel
                 inSimulation

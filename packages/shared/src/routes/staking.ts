@@ -111,13 +111,12 @@ export type IModalStakingParamList = {
     onSuccess?: () => void;
     allowPartialWithdraw?: boolean;
   };
-  [EModalStakingRoutes.Claim]: IDetailPageInfoParams &
-    IDetailPageInfoParams & {
-      amount?: string;
-      onSuccess?: () => void;
-      identity?: string;
-      claimableAmount?: string;
-    };
+  [EModalStakingRoutes.Claim]: IDetailPageInfoParams & {
+    amount?: string;
+    onSuccess?: () => void;
+    identity?: string;
+    claimableAmount?: string;
+  };
   [EModalStakingRoutes.ClaimOptions]: IDetailPageInfoParams & {
     onSuccess?: () => void;
   };

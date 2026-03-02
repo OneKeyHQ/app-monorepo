@@ -6,10 +6,10 @@ import { Button, SizableText, Stack, XStack } from '@onekeyhq/components';
 import { useEnabledNetworksCompatibleWithWalletIdInAllNetworks } from '@onekeyhq/kit/src/hooks/useAllNetwork';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { AllNetworksManagerContext } from './AllNetworksManagerContext';
-
 import ChainSelectorTooltip from '../ChainSelectorTooltip';
 import DottedLine from '../DottedLine';
+
+import { AllNetworksManagerContext } from './AllNetworksManagerContext';
 
 function NetworkListHeader() {
   const intl = useIntl();

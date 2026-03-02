@@ -91,7 +91,10 @@ function TableRow<T>({
       if (onRowEvents?.onContextMenu) {
         e.preventDefault();
         onRowEvents.onContextMenu(
-          e.clientX != null && e.clientY != null
+          e.clientX !== null &&
+            e.clientX !== undefined &&
+            e.clientY !== null &&
+            e.clientY !== undefined
             ? { x: e.clientX, y: e.clientY }
             : undefined,
         );
@@ -256,6 +259,7 @@ function BasicTable<T>({
   stickyHeaderHiddenOnScroll = false,
   showBackToTopButton = false,
   draggable = false,
+  tabIntegrated,
   onEndReached,
   onEndReachedThreshold,
   scrollEnabled = true,
@@ -370,11 +374,17 @@ function BasicTable<T>({
     ),
     [columns, draggable, onRow, rowProps, showSkeleton],
   );
+  // When tabIntegrated, the list itself is the scroll container for collapsible tabs.
+  // The header row MUST be inside the list (as ListHeaderComponent) so it participates
+  // in the collapsible tab scroll. Otherwise it sits at y=0 behind the collapsible header.
+  const effectiveStickyHeader = stickyHeader && !tabIntegrated;
+
   const list = useMemo(
     () =>
       draggable ? (
         <SortableListView
           enabled
+          tabIntegrated={tabIntegrated}
           useFlashList={useFlashList}
           scrollEnabled={scrollEnabled}
           ref={listViewRef as any}
@@ -396,7 +406,7 @@ function BasicTable<T>({
           ListHeaderComponent={
             <>
               {TableHeaderComponent}
-              {stickyHeader ? null : headerRow}
+              {effectiveStickyHeader ? null : headerRow}
             </>
           }
           onDragBegin={handleDragBegin}
@@ -426,7 +436,7 @@ function BasicTable<T>({
           ListHeaderComponent={
             <>
               {TableHeaderComponent}
-              {stickyHeader ? null : headerRow}
+              {effectiveStickyHeader ? null : headerRow}
             </>
           }
           ListFooterComponent={TableFooterComponent}
@@ -449,7 +459,7 @@ function BasicTable<T>({
       renderSortableItem,
       renderPlaceholder,
       TableHeaderComponent,
-      stickyHeader,
+      effectiveStickyHeader,
       headerRow,
       handleDragBegin,
       onDragEnd,
@@ -464,10 +474,11 @@ function BasicTable<T>({
       estimatedItemSize,
       handleRenderItem,
       itemSize,
+      tabIntegrated,
     ],
   );
 
-  return stickyHeader ? (
+  return effectiveStickyHeader ? (
     <YStack flex={1}>
       {headerRow}
       {list}

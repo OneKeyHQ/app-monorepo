@@ -170,8 +170,8 @@ describe('SOL Address Derivation Tests', () => {
     it('should reject address containing invalid base58 chars (0, O, I, l)', () => {
       const invalidChars = ['0', 'O', 'I', 'l'];
       for (const char of invalidChars) {
-        const invalidAddr =
-          '4wX8yu9YmSe4mv9Z' + char + 'tTeoF9pe6Ji4ScjuJEffS3sCKZ4';
+        // oxlint-disable-next-line @cspell/spellchecker
+        const invalidAddr = `4wX8yu9YmSe4mv9Z${char}tTeoF9pe6Ji4ScjuJEffS3sCKZ4`;
         expect(() => base58.decode(invalidAddr)).toThrow();
       }
     });

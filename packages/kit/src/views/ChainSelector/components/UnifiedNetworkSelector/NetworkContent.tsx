@@ -3,6 +3,7 @@ import { useCallback, useEffect } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -11,7 +12,6 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { EditableChainSelectorContent } from '../EditableChainSelector/ChainSelectorContent';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 
 const defaultChainSelectorNetworks: {
   mainnetItems: IServerNetwork[];
@@ -95,6 +95,7 @@ export function NetworkContent({
           chainSelectorNetworks: sortedChainSelectorNetworks,
           formattedAccountNetworkValues,
           accountDeFiOverview: _accountDeFiOverview,
+          // eslint-disable-next-line @typescript-eslint/no-shadow
           zeroValue,
         } = await backgroundApiProxy.serviceNetwork.sortChainSelectorNetworksByValue(
           {

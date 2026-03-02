@@ -364,6 +364,11 @@ const CloudBackupGallery = LazyLoadPage(
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/CloudBackupGallery'),
 );
 
+const CloudSyncGallery = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/CloudSyncGallery'),
+);
+
 const KeylessWalletGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/KeylessWalletGallery'),
@@ -729,6 +734,10 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentCloudBackup,
     component: CloudBackupGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentCloudSync,
+    component: CloudSyncGallery,
   },
   {
     name: EGalleryRoutes.ComponentKeylessWallet,

@@ -16,6 +16,7 @@ import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 
 import { useBulkSendReviewContext } from './Context';
 
+// eslint-disable-next-line @typescript-eslint/naming-convention
 type Props = {
   feeLevel: string;
   isMultiTxs?: boolean;

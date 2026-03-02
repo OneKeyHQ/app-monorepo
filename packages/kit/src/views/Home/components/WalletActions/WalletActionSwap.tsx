@@ -81,7 +81,7 @@ function WalletActionSwap({
     return (
       <ActionList.Item
         trackID="wallet-trade"
-        icon={customization?.icon ?? 'SwapHorOutline'}
+        icon={customization?.icon ?? 'SwitchHorOutline'}
         label={
           customization?.label ??
           intl.formatMessage({ id: ETranslations.global_trade })

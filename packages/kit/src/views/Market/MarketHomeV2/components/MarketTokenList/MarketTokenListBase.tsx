@@ -11,6 +11,7 @@ import {
 } from '@onekeyhq/components';
 import type { ETableSortType, ITableColumn } from '@onekeyhq/components';
 import type { IDragEndParamsWithItem } from '@onekeyhq/components/src/layouts/SortableListView/types';
+import { usePerpsNavigation } from '@onekeyhq/kit/src/views/Market/hooks/usePerpsNavigation';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -22,8 +23,6 @@ import type {
 } from '@onekeyhq/shared/src/logger/scopes/dex';
 import { ESortWay } from '@onekeyhq/shared/src/logger/scopes/dex/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
-import { usePerpsNavigation } from '@onekeyhq/kit/src/views/Market/hooks/usePerpsNavigation';
 
 import { useMarketTokenColumns } from './hooks/useMarketTokenColumns';
 import { useToDetailPage } from './hooks/useToMarketDetailPage';
@@ -343,7 +342,7 @@ function MarketTokenListBase({
               contentContainerStyle={
                 tabIntegrated
                   ? {
-                      paddingTop: 8 + (platformEnv.isNative ? 150 : 0),
+                      paddingTop: 8 + (platformEnv.isNative ? 170 : 0),
                       paddingBottom: platformEnv.isNativeAndroid
                         ? (listContainerProps?.paddingBottom ??
                           SPINNER_HEIGHT * 2)
@@ -358,6 +357,7 @@ function MarketTokenListBase({
               stickyHeader
               scrollEnabled={!webTabIntegrated}
               draggable={draggable}
+              tabIntegrated={tabIntegrated}
               onDragEnd={onDragEnd}
               columns={marketTokenColumns}
               onEndReached={handleEndReached}

@@ -8,6 +8,7 @@ import {
   Button,
   SectionList,
   SizableText,
+  Spinner,
   Stack,
   Tabs,
   XStack,
@@ -238,12 +239,7 @@ function TxHistoryListViewSectionHeader(
         gap="$2"
         mt={index === 0 ? '$0' : '$5'}
       >
-        <Stack
-          w="$2"
-          height="$2"
-          backgroundColor="$textCaution"
-          borderRadius="$full"
-        />
+        <Spinner size="small" color="$textCaution" />
         <SizableText numberOfLines={1} size="$headingXs" color="$textCaution">
           {intl.formatMessage({ id: ETranslations.global_pending })}
         </SizableText>

@@ -1,5 +1,5 @@
-import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 import type { EBulkSendMode } from '@onekeyhq/shared/types/bulkSend';
+import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 export enum ETabHomeRoutes {
   TabHome = 'TabHome',

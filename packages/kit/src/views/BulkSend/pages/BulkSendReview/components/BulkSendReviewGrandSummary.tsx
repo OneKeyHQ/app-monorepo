@@ -6,11 +6,11 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useBulkSendReviewContext } from './Context';
-import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 
 function BulkSendReviewGrandSummary() {
   const intl = useIntl();
