@@ -176,7 +176,7 @@ function ActionBuy({
   const iconName = 'CurrencyDollarOutline' as const;
 
   // Single-action or loading: buy-only or sell-only → direct URL, use ActionItem
-  if (!bothSupported) {
+  if (!bothSupported || rest.showButtonStyle) {
     return (
       <ActionItem
         loading={loading}
