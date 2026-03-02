@@ -20,7 +20,9 @@ function LiquidationRiskDialogContent({
       new Promise<void>((resolve, reject) => {
         onConfirm()
           .then(() => resolve())
-          .catch(() => reject());
+          .catch(() =>
+            reject(new Error('Liquidation risk confirmation failed')),
+          );
       }),
     [onConfirm],
   );

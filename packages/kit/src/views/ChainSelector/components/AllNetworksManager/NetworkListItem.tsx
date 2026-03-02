@@ -1,6 +1,7 @@
 import { memo, useContext, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { isUndefined } from 'lodash';
 
 import { Checkbox, XStack } from '@onekeyhq/components';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
@@ -12,7 +13,6 @@ import { isEnabledNetworksInAllNetworks } from '@onekeyhq/shared/src/utils/netwo
 import { AllNetworksManagerContext } from './AllNetworksManagerContext';
 
 import type { IServerNetworkMatch } from '../../types';
-import { isUndefined } from 'lodash';
 
 function NetworkListItem({ network }: { network: IServerNetworkMatch }) {
   const {

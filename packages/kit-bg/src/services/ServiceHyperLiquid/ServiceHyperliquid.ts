@@ -507,6 +507,7 @@ export default class ServiceHyperliquid extends ServiceBase {
   @backgroundMethod()
   async refreshTradingMeta() {
     const { infoClient } = hyperLiquidApiClients;
+
     // oxlint-disable-next-line @cspell/spellchecker
     let perpMetaMultiDexList = await infoClient.allPerpMetas();
     if (perpMetaMultiDexList?.length) {

@@ -1,7 +1,6 @@
 import 'setimmediate';
 
 import '@onekeyhq/shared/src/performance/init';
-
 import '@onekeyhq/shared/src/polyfills/globalShim';
 
 import { closeWindow } from '../closePasskeyWIndow';

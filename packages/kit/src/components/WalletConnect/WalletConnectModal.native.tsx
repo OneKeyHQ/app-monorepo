@@ -217,6 +217,7 @@ class AppKitErrorBoundary extends Component<
     return { hasError: true };
   }
 
+  // eslint-disable-next-line react/sort-comp
   override componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.warn(
       'AppKitErrorBoundary caught error in WalletConnect modal:',
@@ -259,9 +260,11 @@ class AppKitErrorBoundary extends Component<
   }
 
   override render() {
+    // eslint-disable-next-line react/destructuring-assignment
     if (this.state.hasError) {
       return null;
     }
+    // eslint-disable-next-line react/destructuring-assignment
     return this.props.children;
   }
 }

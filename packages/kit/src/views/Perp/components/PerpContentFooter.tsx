@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useIntl } from 'react-intl';
 
 import {
   Icon,
@@ -7,8 +8,6 @@ import {
   XStack,
   useMedia,
 } from '@onekeyhq/components';
-import { useIntl } from 'react-intl';
-
 import { usePerpsNetworkStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';

@@ -451,6 +451,7 @@ export default class Vault extends VaultBase {
         body: Buffer.from(
           serializeUnsignedTx.signingMessage.toBoc({ idx: false }),
         ).toString('base64'),
+
         // oxlint-disable-next-line @cspell/spellchecker
         ignore_chksig: true,
         init_code: serializeUnsignedTx.init_code

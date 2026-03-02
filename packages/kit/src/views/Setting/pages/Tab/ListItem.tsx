@@ -21,7 +21,7 @@ import type { IFuseResultMatch } from '@onekeyhq/shared/src/modules3rdParty/fuse
 import { type ISubSettingConfig } from './config';
 import { useIsTabNavigator } from './useIsTabNavigator';
 
-export function TabSettingsSection(props: IStackProps & IStackStyle) {
+export function TabSettingsSection(props: IStackProps) {
   return (
     <YStack
       bg="$bgSubdued"
@@ -38,7 +38,7 @@ export function TabSettingsListItem({
   showDot,
   children,
   ...props
-}: IListItemProps & IStackStyle & IStackProps & { showDot?: boolean }) {
+}: IListItemProps & IStackStyle & { showDot?: boolean }) {
   return (
     <BaseListItem py="$3" px="$5" mx={0} borderRadius={0} {...props}>
       {children}

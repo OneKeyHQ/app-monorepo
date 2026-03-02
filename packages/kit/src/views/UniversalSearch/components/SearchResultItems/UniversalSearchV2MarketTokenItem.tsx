@@ -14,7 +14,6 @@ import {
   useClipboard,
   useMedia,
 } from '@onekeyhq/components';
-import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/atoms';
 import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
 import { CommunityRecognizedBadge } from '@onekeyhq/kit/src/views/Market/components/CommunityRecognizedBadge';
@@ -27,17 +26,18 @@ import {
   EWatchlistFrom,
 } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IUniversalSearchV2MarketToken } from '@onekeyhq/shared/types/search';
 import { ESearchStatus } from '@onekeyhq/shared/types/search';
 
+import { MarketStarV2 } from '../../../Market/components/MarketStarV2';
+import { MarketTokenIcon } from '../../../Market/components/MarketTokenIcon';
+import { BaseMarketTokenPrice } from '../../../Market/components/MarketTokenPrice';
 import {
   MARKET_DATA_COLUMN_WIDTH,
   MARKET_NAME_COLUMN_WIDTH,
 } from '../MarketTableHeader';
-import { MarketStarV2 } from '../../../Market/components/MarketStarV2';
-import { MarketTokenIcon } from '../../../Market/components/MarketTokenIcon';
-import { BaseMarketTokenPrice } from '../../../Market/components/MarketTokenPrice';
 
 export function ContractAddress({ address }: { address: string }) {
   const { copyText } = useClipboard();
@@ -158,6 +158,7 @@ export function UniversalSearchV2MarketTokenItem({
     address,
     network,
     liquidity,
+    // eslint-disable-next-line camelcase
     volume_24h,
     volume24h: volume24hCamel,
     priceChange24hPercent,
@@ -165,6 +166,7 @@ export function UniversalSearchV2MarketTokenItem({
     communityRecognized,
   } = item.payload;
 
+  // eslint-disable-next-line camelcase
   const volume24h = volume24hCamel || volume_24h;
 
   // Hide favorite button in extension popup and side panel

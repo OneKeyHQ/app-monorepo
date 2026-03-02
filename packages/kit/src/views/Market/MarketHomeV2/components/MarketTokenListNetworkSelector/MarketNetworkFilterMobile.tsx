@@ -1,12 +1,11 @@
 import { memo } from 'react';
 
 import type { IListViewProps, IPopoverProps } from '@onekeyhq/components';
-import type { IServerNetwork } from '@onekeyhq/shared/types';
-
 import {
   ScrollableFilterBar,
   useScrollableFilterBar,
 } from '@onekeyhq/kit/src/components/ScrollableFilterBar';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { MarketNetworkStartFilterItem } from './MarketNetworkStartFilterItem';
 import { NetworksFilterItem } from './NetworksFilterItem';

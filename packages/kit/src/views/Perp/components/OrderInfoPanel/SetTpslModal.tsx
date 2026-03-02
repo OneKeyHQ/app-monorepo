@@ -339,6 +339,7 @@ const SetTpslForm = memo(
               // Long + above
               errorMessage = appLocale.intl.formatMessage({
                 // invalid => invalid
+
                 // oxlint-disable-next-line @cspell/spellchecker
                 id: ETranslations.perp_invaild_tp_desc_1,
               });
@@ -346,6 +347,7 @@ const SetTpslForm = memo(
               // Short + below
               errorMessage = appLocale.intl.formatMessage({
                 // invalid => invalid
+
                 // oxlint-disable-next-line @cspell/spellchecker
                 id: ETranslations.perp_invaild_tp_desc_2,
               });
@@ -373,6 +375,7 @@ const SetTpslForm = memo(
               // Long + below
               errorMessage = appLocale.intl.formatMessage({
                 // invalid => invalid
+
                 // oxlint-disable-next-line @cspell/spellchecker
                 id: ETranslations.perp_invaild_sl_desc_1,
               });
@@ -380,6 +383,7 @@ const SetTpslForm = memo(
               // Short + above
               errorMessage = appLocale.intl.formatMessage({
                 // invalid => invalid
+
                 // oxlint-disable-next-line @cspell/spellchecker
                 id: ETranslations.perp_invaild_sl_desc_2,
               });
