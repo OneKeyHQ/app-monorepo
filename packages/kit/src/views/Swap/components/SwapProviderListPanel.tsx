@@ -83,6 +83,7 @@ const AnimatedProviderItem = memo(
     </MotiView>
   ),
 );
+AnimatedProviderItem.displayName = 'AnimatedProviderItem';
 
 // Animated skeleton item - matches real card dimensions
 const AnimatedSkeletonItem = memo(({ index }: { index: number }) => (
@@ -119,6 +120,7 @@ const AnimatedSkeletonItem = memo(({ index }: { index: number }) => (
     </Stack>
   </MotiView>
 ));
+AnimatedSkeletonItem.displayName = 'AnimatedSkeletonItem';
 
 const SwapProviderListPanel = ({
   refreshAction,
@@ -408,7 +410,7 @@ const SwapProviderListPanel = ({
     () => (
       <Stack alignItems="center" justifyContent="center" py="$8">
         <Empty
-          icon="SearchOutline"
+          illustration="QuestionMark"
           title={intl.formatMessage({
             id: ETranslations.global_no_results,
           })}

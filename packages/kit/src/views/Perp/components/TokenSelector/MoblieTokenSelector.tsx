@@ -12,13 +12,16 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import {
+  ScrollableFilterBar,
+  useScrollableFilterBar,
+} from '@onekeyhq/kit/src/components/ScrollableFilterBar';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsAllAssetCtxsAtom,
   usePerpsAllAssetsFilteredAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
-
 import {
   usePerpTokenSelectorConfigPersistAtom,
   usePerpTokenSelectorTabsAtom,
@@ -38,10 +41,6 @@ import {
   XYZ_ASSET_ID_OFFSET,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
-import {
-  ScrollableFilterBar,
-  useScrollableFilterBar,
-} from '@onekeyhq/kit/src/components/ScrollableFilterBar';
 import {
   type IFavoriteItem,
   usePerpActiveTabValidation,
@@ -71,17 +70,20 @@ function TabItem({
   const { handleItemLayout } = useScrollableFilterBar();
   return (
     <XStack
-      pb="$3"
-      pl="$3"
-      pr="$3"
-      borderBottomWidth={isFocused ? '$0.5' : '$0'}
-      borderBottomColor="$borderActive"
-      onPress={onPress}
+      alignItems="center"
+      justifyContent="center"
+      px="$2.5"
+      py="$1.5"
+      borderRadius="$full"
+      userSelect="none"
       cursor="default"
+      backgroundColor={isFocused ? '$bgActive' : '$transparent'}
+      onPress={onPress}
       onLayout={(event: LayoutChangeEvent) => handleItemLayout(id, event)}
     >
       <SizableText
-        size="$headingXs"
+        numberOfLines={1}
+        size="$bodyMdMedium"
         color={isFocused ? '$text' : '$textSubdued'}
       >
         {name}
@@ -128,7 +130,7 @@ function MobileTokenSelectorModal({
   const tabLabels = useMemo(
     () => ({
       favorites: intl.formatMessage({ id: ETranslations.perp_tab_favs }),
-      all: 'PERPS',
+      all: intl.formatMessage({ id: ETranslations.perps_token_selector_perps }),
     }),
     [intl],
   );
@@ -369,7 +371,6 @@ function MobileTokenSelectorModal({
         }}
       />
       <Stack
-        mb="$2"
         borderBottomWidth="$px"
         borderBottomColor="$borderSubdued"
         flexShrink={0}
@@ -378,6 +379,7 @@ function MobileTokenSelectorModal({
           selectedItemId={activeTab}
           itemGap="$2"
           itemPr="$3"
+          contentContainerStyle={{ px: '$4', pb: '$2.5' }}
         >
           {(['favorites', 'all'] as const).map((tabKey) => (
             <TabItem
@@ -402,7 +404,7 @@ function MobileTokenSelectorModal({
       <XStack
         px="$5"
         pb="$3"
-        pt="$1"
+        pt="$3"
         justifyContent="space-between"
         borderBottomWidth="$px"
         borderBottomColor="$borderSubdued"

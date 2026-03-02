@@ -124,7 +124,6 @@ import SwapHeaderContainer from './SwapHeaderContainer';
 import SwapOldSwapBridgeLimitContainer from './SwapOldSwapBridgeLimitContainer';
 import SwapProContainer from './SwapProContainer';
 import SwapSwapMbContainer from './SwapSwapMbContainer';
-import SwapTipsContainer from './SwapTipsContainer';
 
 import type { ScrollView as ScrollViewNative } from 'react-native';
 
@@ -1158,6 +1157,16 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           onSelectRecentTokenPairs={onSelectRecentTokenPairs}
           fromTokenAmountValue={fromTokenAmount.value}
           swapRecentTokenPairs={swapRecentTokenPairs}
+          headerContent={
+            gtLg && pageType !== EPageType.modal ? (
+              <SwapHeaderContainer
+                pageType={pageType}
+                defaultSwapType={swapInitParams?.swapTabSwitchType}
+                showSwapPro={platformEnv.isNative}
+                hideRightActions
+              />
+            ) : undefined
+          }
         />
       );
     }
@@ -1165,6 +1174,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
       return (
         <SwapSwapMbContainer
           pageType={pageType ?? EPageType.modal}
+          swapTipsPageType={pageType}
           onSelectToken={onSelectToken}
           fetchLoading={fetchLoading}
           onSelectPercentageStage={onSelectPercentageStage}
@@ -1189,6 +1199,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     return (
       <SwapBridgeMdContainer
         pageType={pageType ?? EPageType.modal}
+        swapTipsPageType={pageType}
         onSelectToken={onSelectToken}
         fetchLoading={fetchLoading}
         onSelectPercentageStage={onSelectPercentageStage}
@@ -1232,6 +1243,8 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     swapBridgeSupportNetworksFilterAllNet,
     storeName,
     isWrapped,
+    swapInitParams?.swapTabSwitchType,
+    gtLg,
   ]);
 
   // Desktop: show provider panel on the right side, need wider layout
@@ -1243,36 +1256,46 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     if (pageType === EPageType.modal) {
       return 'full' as const;
     }
-    if (swapTypeSwitch === ESwapTabSwitchType.LIMIT) {
-      return 'compact' as const;
-    }
     // Use full layout when showing desktop provider panel to allow scrolling on the entire viewport
     if (showDesktopProviderPanel) {
       return 'full' as const;
     }
+    if (swapTypeSwitch === ESwapTabSwitchType.LIMIT) {
+      // On native, keep compact; on non-native align with Swap/Bridge width
+      if (platformEnv.isNative) {
+        return 'compact' as const;
+      }
+      return gtLg ? ('full' as const) : ('regular' as const);
+    }
     return 'regular' as const;
-  }, [pageType, swapTypeSwitch, showDesktopProviderPanel]);
+  }, [pageType, swapTypeSwitch, showDesktopProviderPanel, gtLg]);
 
   return (
     <>
-      <SwapTipsContainer />
       <Page.Container flex={1} layout={containerLayout} padded={false}>
         <YStack
           testID="swap-content-container"
           flex={1}
           width="100%"
-          pt="$2.5"
+          pt={pageType !== EPageType.modal ? '$5' : '$2.5'}
           gap="$2"
           $gtMd={{
             flex: 'unset',
           }}
+          $gtLg={{
+            pt: '$0',
+          }}
         >
-          <SwapHeaderContainer
-            pageType={pageType}
-            defaultSwapType={swapInitParams?.swapTabSwitchType}
-            showSwapPro={platformEnv.isNative}
-            hideRightActions={showDesktopProviderPanel}
-          />
+          {gtLg &&
+          pageType !== EPageType.modal &&
+          !platformEnv.isNative ? null : (
+            <SwapHeaderContainer
+              pageType={pageType}
+              defaultSwapType={swapInitParams?.swapTabSwitchType}
+              showSwapPro={platformEnv.isNative}
+              hideRightActions={showDesktopProviderPanel}
+            />
+          )}
           {focusSwapPro ? (
             <SwapProContainer
               onProSelectToken={onProSelectToken}

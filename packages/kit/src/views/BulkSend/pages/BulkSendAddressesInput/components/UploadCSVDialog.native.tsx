@@ -22,8 +22,9 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import RNFS from '@onekeyhq/shared/src/modules3rdParty/react-native-fs';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-const MAX_LINES = 500;
+const MAX_LINES = platformEnv.isNativeAndroid ? 100 : 500;
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const CHUNK_SIZE = 64 * 1024; // 64KB chunks
 
@@ -131,7 +132,9 @@ function UploadCSVContent({ onUploaded }: IUploadCSVContentProps) {
         return;
       }
 
-      const filePath = localCopyResult.localUri.replace(/^file:\/\//, '');
+      const filePath = decodeURIComponent(
+        localCopyResult.localUri.replace(/^file:\/\//, ''),
+      );
       // Read MAX_LINES + 1 to detect if file exceeds limit
       const lines = await readFileStreamingLines(filePath, MAX_LINES);
 

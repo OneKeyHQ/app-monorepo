@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -34,6 +34,7 @@ import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import { MarketWatchListProviderMirrorV2 } from '../../../MarketWatchListProviderMirrorV2';
 
+import SwapPanelFooterButtons from './SwapPanelFooterButtons';
 import { SwapPanelWrap } from './SwapPanelWrap';
 
 function LgTradeButton({
@@ -97,20 +98,37 @@ export function SwapPanel({
       return {
         formattedValue: '0.00',
         formattedAmount: '0.00',
+        isZero: true,
       };
     }
     const tokenPriceBN = new BigNumber(positionInfo?.tokenPrice || '0');
     const amountBN = new BigNumber(positionInfo?.amount || '0');
     const valueBN = tokenPriceBN.multipliedBy(amountBN);
-    const formattedValue = valueBN.toFixed();
-    const formattedAmount = amountBN.toFixed();
+    const isZero = amountBN.eq(0);
+    const formattedValue = isZero ? '0.00' : valueBN.toFixed();
+    const formattedAmount = isZero ? '0.00' : amountBN.toFixed();
     return {
       formattedValue,
       formattedAmount,
+      isZero,
     };
   }, [portfolioData, swapToken.contractAddress]);
 
   const [, setSwapProJumpTokenAtom] = useSwapProJumpTokenAtom();
+
+  const handleTrade = useCallback(() => {
+    setSwapProJumpTokenAtom({
+      token: swapToken,
+      direction: ESwapProJumpTokenDirection.BUY,
+    });
+    navigation.pop();
+    navigation.switchTab(ETabRoutes.Swap);
+  }, [setSwapProJumpTokenAtom, swapToken, navigation]);
+
+  const handleInstant = useCallback(() => {
+    onShowSwapDialog?.(swapToken);
+  }, [onShowSwapDialog, swapToken]);
+
   if (!swapToken) {
     return (
       <Stack
@@ -132,70 +150,61 @@ export function SwapPanel({
     return (
       <YStack>
         <Divider />
-        <XStack py="$4" px="$5" justifyContent="space-between">
-          <YStack gap="$0.5">
-            {myPositionInfo ? (
-              <>
-                <SizableText size="$bodySmMedium" color="$textSubdued">
-                  {intl.formatMessage({
-                    id: ETranslations.dexmarket_details_myposition,
-                  })}
+        <XStack
+          px="$5"
+          py="$2"
+          justifyContent="space-between"
+          alignItems="center"
+        >
+          <SizableText size="$bodySmMedium" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.dexmarket_details_myposition,
+            })}
+          </SizableText>
+          <XStack gap="$1" alignItems="baseline">
+            {myPositionInfo.isZero ? (
+              <SizableText size="$bodySmMedium">0.00</SizableText>
+            ) : (
+              <NumberSizeableText
+                size="$bodySmMedium"
+                formatter="balance"
+                formatterOptions={{ tokenSymbol: '' }}
+              >
+                {myPositionInfo.formattedAmount}
+              </NumberSizeableText>
+            )}
+            {myPositionInfo.isZero ? (
+              <SizableText size="$bodySm" color="$textSubdued">
+                ({currencyInfo.symbol}0.00)
+              </SizableText>
+            ) : (
+              <XStack alignItems="baseline">
+                <SizableText size="$bodySm" color="$textSubdued">
+                  (
                 </SizableText>
-                <NumberSizeableText size="$bodySmMedium" formatter="balance">
-                  {myPositionInfo.formattedAmount}
-                </NumberSizeableText>
                 <NumberSizeableText
                   size="$bodySm"
                   color="$textSubdued"
                   formatter="value"
-                  formatterOptions={{ currency: currencyInfo.symbol }}
+                  formatterOptions={{
+                    currency: currencyInfo.symbol,
+                  }}
                 >
                   {myPositionInfo.formattedValue}
                 </NumberSizeableText>
-              </>
-            ) : null}
-          </YStack>
-          <XStack gap="$2" alignItems="center">
-            <Button
-              size="small"
-              variant="primary"
-              w="$28"
-              h="$12"
-              bg="$buttonSuccess"
-              onPress={() => {
-                setSwapProJumpTokenAtom({
-                  token: swapToken,
-                  direction: ESwapProJumpTokenDirection.BUY,
-                });
-                navigation.pop();
-                navigation.switchTab(ETabRoutes.Swap);
-              }}
-            >
-              {intl.formatMessage({
-                id: ETranslations.global_buy,
-              })}
-            </Button>
-            <Button
-              w="$28"
-              h="$12"
-              size="small"
-              bg="$buttonCritical"
-              variant="primary"
-              onPress={() => {
-                setSwapProJumpTokenAtom({
-                  token: swapToken,
-                  direction: ESwapProJumpTokenDirection.SELL,
-                });
-                navigation.pop();
-                navigation.switchTab(ETabRoutes.Swap);
-              }}
-            >
-              {intl.formatMessage({
-                id: ETranslations.global_sell,
-              })}
-            </Button>
+                <SizableText size="$bodySm" color="$textSubdued">
+                  )
+                </SizableText>
+              </XStack>
+            )}
           </XStack>
         </XStack>
+        <Stack px="$5" pb="$4" pt="$2">
+          <SwapPanelFooterButtons
+            onTrade={handleTrade}
+            onInstant={handleInstant}
+          />
+        </Stack>
       </YStack>
     );
   }

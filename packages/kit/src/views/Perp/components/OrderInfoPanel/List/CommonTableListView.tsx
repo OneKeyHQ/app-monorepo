@@ -203,6 +203,10 @@ const PaginationFooter = ({
     handleInputSubmit();
   };
 
+  if (totalPages <= 1 && !onViewAll) {
+    return null;
+  }
+
   return (
     <XStack
       py="$3"
@@ -569,13 +573,7 @@ export function CommonTableListView<T>({
 
   return (
     <YStack flex={1}>
-      <Tabs.ScrollView
-        showsVerticalScrollIndicator={false}
-        style={{
-          flex: 1,
-        }}
-        nestedScrollEnabled
-      >
+      <YStack flex={1}>
         <XStack>
           {/* Scrollable columns */}
           <ScrollView
@@ -678,7 +676,7 @@ export function CommonTableListView<T>({
             >
               <FixedColumnShadowOverlay
                 position="right"
-                visible={showFixedShadow && paginatedData.length > 0}
+                visible={showFixedShadow ? paginatedData.length > 0 : false}
                 isDark={isDark}
               />
               <XStack
@@ -727,7 +725,7 @@ export function CommonTableListView<T>({
             onViewAll={onViewAll}
           />
         ) : null}
-      </Tabs.ScrollView>
+      </YStack>
     </YStack>
   );
 }

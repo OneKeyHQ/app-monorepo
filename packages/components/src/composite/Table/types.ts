@@ -1,4 +1,4 @@
-import type { ReactElement } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
 import type { IListViewProps } from '../../layouts';
 import type { ISortableListViewProps } from '../../layouts/SortableListView';
@@ -10,7 +10,7 @@ export enum ETableSortType {
 }
 
 export interface ITableColumn<T> {
-  title: string;
+  title: ReactNode;
   dataIndex: string;
   titleProps?: ISizableTextProps;
   columnProps?: Omit<IStackProps, 'onPress' | 'onLongPress'>;
@@ -44,6 +44,8 @@ export interface ITableProps<T> {
   headerRowProps?: Omit<IStackProps, 'onPress' | 'onLongPress'>;
   // Whether the column can be dragged to reorder. default value is false
   draggable?: boolean;
+  // Whether this table is integrated inside a collapsible tab container (native only)
+  tabIntegrated?: boolean;
   onDragBegin?: ISortableListViewProps<T>['onDragBegin'];
   onDragEnd?: ISortableListViewProps<T>['onDragEnd'];
   keyExtractor: (item: T, index: number) => string;

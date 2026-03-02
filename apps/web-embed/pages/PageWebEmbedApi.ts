@@ -37,6 +37,7 @@ if (rootElement) {
 printMessageToBody('web-embed init...');
 
 const handler = async (payload: IJsBridgeMessagePayload) =>
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
   webembedApi.callWebEmbedApiMethod(
     payload.data as IBackgroundApiWebembedCallMessage,
   );

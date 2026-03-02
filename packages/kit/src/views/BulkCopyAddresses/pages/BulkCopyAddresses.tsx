@@ -534,7 +534,7 @@ function BulkCopyAddresses({
     if (!networkAccountsByDeriveType || isEmpty(networkAccountsByDeriveType)) {
       return (
         <Empty
-          icon="SearchOutline"
+          illustration="WalletOpen"
           title={intl.formatMessage({ id: ETranslations.global_no_results })}
         />
       );
@@ -797,6 +797,9 @@ function BulkCopyAddresses({
 
   useEffect(() => {
     const getDefaultDeriveType = async () => {
+      if (!selectedNetworkId) {
+        return;
+      }
       const deriveType =
         await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
           networkId: selectedNetworkId,

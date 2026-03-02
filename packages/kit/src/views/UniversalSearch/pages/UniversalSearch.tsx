@@ -51,6 +51,7 @@ import {
 import { HomeTokenListProviderMirrorWrapper } from '../../Home/components/HomeTokenListProvider';
 import { MarketWatchListProviderMirror } from '../../Market/MarketWatchListProviderMirror';
 import { MarketWatchListProviderMirrorV2 } from '../../Market/MarketWatchListProviderMirrorV2';
+import { MarketTableHeader } from '../components/MarketTableHeader';
 import {
   UniversalSearchAccountAssetItem,
   UniversalSearchAddressItem,
@@ -125,6 +126,8 @@ function ListEmptyComponent() {
     </YStack>
   );
 }
+
+const isMarketSection = (tabIndex: number) => tabIndex === 2;
 
 export function UniversalSearch({
   filterTypes,
@@ -450,11 +453,14 @@ export function UniversalSearch({
   const renderSectionHeader = useCallback(
     ({ section }: { section: IUniversalSection }) => {
       return (
-        <XStack bg="$bgApp" h="$9" ai="center">
-          <SizableText px="$5" size="$headingSm" color="$textSubdued">
-            {section.title}
-          </SizableText>
-        </XStack>
+        <YStack bg="$bgApp">
+          <XStack h="$9" ai="center">
+            <SizableText px="$5" size="$headingSm" color="$textSubdued">
+              {section.title}
+            </SizableText>
+          </XStack>
+          {isMarketSection(section.tabIndex) ? <MarketTableHeader /> : null}
+        </YStack>
       );
     },
     [],
@@ -650,7 +656,7 @@ export function UniversalSearch({
               renderSectionFooter={renderSectionFooter}
               ListEmptyComponent={
                 <Empty
-                  icon="SearchOutline"
+                  illustration="QuestionMark"
                   title={intl.formatMessage({
                     id: ETranslations.global_no_results,
                   })}

@@ -1,8 +1,7 @@
 import { type FC, useCallback, useMemo, useState } from 'react';
 
-import { useIntl } from 'react-intl';
-
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
 import {
   Empty,
@@ -26,7 +25,7 @@ const ListEmptyComponent = () => {
   const intl = useIntl();
   return (
     <Empty
-      icon="SearchOutline"
+      illustration="BlockQuestionMark"
       title={intl.formatMessage({
         id: ETranslations.global_no_results,
       })}
@@ -94,6 +93,7 @@ const ChainSelectorListViewContent = ({
             onPress={() => onPressItem?.(item)}
             testID={`select-item-${item.id}`}
           >
+            {/* eslint-disable no-nested-ternary */}
             {accountNetworkValues !== undefined ? (
               networkId === item.id ? (
                 <ListItem.CheckMark key="checkmark" />
@@ -103,6 +103,7 @@ const ChainSelectorListViewContent = ({
             ) : networkId === item.id ? (
               <ListItem.CheckMark key="checkmark" />
             ) : null}
+            {/* eslint-enable no-nested-ternary */}
             {shouldShowValue ? (
               <Currency
                 hideValue
@@ -132,7 +133,7 @@ export const ChainSelectorListView: FC<IChainSelectorListViewProps> = ({
   const [text, setText] = useState('');
   const intl = useIntl();
   const onChangeText = useCallback((value: string) => {
-    setText(value.trim());
+    setText(value);
   }, []);
 
   const networkFuseSearch = useFuseSearch(networks);

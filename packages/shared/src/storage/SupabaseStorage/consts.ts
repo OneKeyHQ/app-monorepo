@@ -13,6 +13,7 @@ function getSupabaseProjectRef(): string {
 }
 
 // Get Supabase auth session storage key
+
 // oxlint-disable-next-line @cspell/spellchecker
 // Key format: sb-<project-ref>-auth-token (e.g., sb-zvxscjkvkjepbrjncvzt-auth-token)
 export function getSupabaseAuthSessionKey(): string {

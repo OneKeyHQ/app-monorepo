@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { useFocusEffect } from '@react-navigation/core';
 import { CanceledError } from 'axios';
 import { useIntl } from 'react-intl';
 
 import type { ITabContainerRef } from '@onekeyhq/components';
 import {
   Icon,
+  KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET,
+  Keyboard,
   Page,
   ScrollView,
   Stack,
@@ -50,6 +53,7 @@ import { NotBackedUpEmpty } from '../components/NotBakcedUp';
 import { PullToRefresh, onHomePageRefresh } from '../components/PullToRefresh';
 
 import { ApprovalListContainerWithProvider } from './ApprovalListContainer';
+import { DeFiContainerWithProvider } from './DeFiContainer';
 import { HomeHeaderContainer } from './HomeHeaderContainer';
 import { NFTListContainerWithProvider } from './NFTListContainer';
 import { PortfolioContainerWithProvider } from './PortfolioContainer';
@@ -58,7 +62,6 @@ import { TxHistoryListContainerWithProvider } from './TxHistoryContainer';
 import WalletContentWithAuth from './WalletContentWithAuth';
 
 import type { LayoutChangeEvent } from 'react-native';
-import { DeFiContainerWithProvider } from './DeFiContainer';
 
 const networksSupportBulkRevokeApproval =
   getNetworksSupportBulkRevokeApproval();
@@ -123,6 +126,30 @@ export function HomePageView({
   const [{ hasRiskApprovals }] = useApprovalsInfoAtom();
   const { updateApprovalsInfo } = useAccountOverviewActions().current;
   const tabsRef = useRef<ITabContainerRef | null>(null);
+
+  // Force PagerView to re-sync after bottom tab switch (freeze/unfreeze)
+  const wasBlurredRef = useRef(false);
+  useFocusEffect(
+    useCallback(() => {
+      let rafId: number | undefined;
+      if (wasBlurredRef.current && tabsRef.current) {
+        // Force PagerView to display the correct page after freeze/unfreeze.
+        // jumpToTab won't work here because onTabPress skips setPage when
+        // the tab is already focused. We need to call setPageWithoutAnimation
+        // directly to force the native PagerView to re-render its current page.
+        rafId = requestAnimationFrame(() => {
+          tabsRef.current?.syncCurrentPage();
+        });
+      }
+      return () => {
+        if (rafId !== undefined) {
+          cancelAnimationFrame(rafId);
+        }
+        wasBlurredRef.current = true;
+      };
+    }, []),
+  );
+
   const hasRiskApprovalsRef = useRef(hasRiskApprovals);
   useEffect(() => {
     hasRiskApprovalsRef.current = hasRiskApprovals;
@@ -310,7 +337,7 @@ export function HomePageView({
       {
         id: EHomeWalletTab.Portfolio,
         name: intl.formatMessage({
-          id: ETranslations.global_crypto,
+          id: ETranslations.dexmarket_spot,
         }),
         component: <PortfolioContainerWithProvider />,
       },
@@ -401,14 +428,15 @@ export function HomePageView({
   const tabs = useMemo(() => {
     if (isWalletNotBackedUp) {
       return (
-        <ScrollView
-          h="100%"
+        <Keyboard.AwareScrollView
+          style={{ flex: 1 }}
           nestedScrollEnabled={platformEnv.isNativeAndroid}
           contentContainerStyle={{ paddingBottom: tabBarHeight }}
+          bottomOffset={KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET}
         >
           {renderHeader()}
           <NotBackedUpEmpty />
-        </ScrollView>
+        </Keyboard.AwareScrollView>
       );
     }
     const key = `${account?.id ?? ''}-${account?.indexedAccountId ?? ''}-${
@@ -419,6 +447,8 @@ export function HomePageView({
         ref={tabsRef as any}
         key={key}
         allowHeaderOverscroll
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        // @ts-ignore
         useNativeHeaderAnimation={platformEnv.isNativeAndroid}
         width={platformEnv.isNative ? (tabContainerWidth as number) : undefined}
         renderHeader={renderHeader}

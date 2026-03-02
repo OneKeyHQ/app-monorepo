@@ -1,16 +1,16 @@
-import { useIntl } from 'react-intl';
-
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { SEPERATOR } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EChainSelectorPages,
   IChainSelectorParamList,
 } from '@onekeyhq/shared/src/routes';
-import type { IServerNetwork } from '@onekeyhq/shared/types';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { PureChainSelector } from '../components/PureChainSelector';
@@ -94,10 +94,18 @@ export default function ChainSelectorPage({
           // Extract plain networkId keys for display lookup.
           const rawValues = accountsValue[0]?.value ?? {};
           const formattedValues: Record<string, string> = {};
+          const walletId = accountUtils.getWalletIdFromAccountId({
+            accountId: valueAccountId,
+          });
           for (const [key, val] of Object.entries(rawValues)) {
             const keyArray = key.split('_');
             const networkId = keyArray.pop() as string;
-            if (networkId) {
+            // eslint-disable-next-line @typescript-eslint/no-shadow
+            const accountId = keyArray.join('_');
+            const [_walletId, _path, _deriveType] = accountId.split(
+              SEPERATOR,
+            ) as [string, string, string];
+            if (walletId === _walletId && networkId) {
               formattedValues[networkId] = val;
             }
           }

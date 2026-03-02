@@ -132,11 +132,7 @@ export function PerpsRecordCard({ item }: IPerpsRecordCardProps) {
                   --
                 </SizableText>
               ) : (
-                <Currency
-                  formatter="value"
-                  size="$bodyMdMedium"
-                  color="$text"
-                >
+                <Currency formatter="value" size="$bodyMdMedium" color="$text">
                   {item.volumeFiatValue}
                 </Currency>
               )}

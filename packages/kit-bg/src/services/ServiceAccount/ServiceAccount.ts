@@ -356,7 +356,8 @@ class ServiceAccount extends ServiceBase {
 
   @backgroundMethod()
   async getKeylessWallet(): Promise<IDBWallet | undefined> {
-    await timerUtils.wait(1500, { devOnly: true });
+    // TODO remove
+    // await timerUtils.wait(1500, { devOnly: true });
     const { wallets } = await localDb.getAllWallets();
     const wallet = wallets.find((w) => w.isKeyless);
     if (wallet) {
@@ -512,7 +513,12 @@ class ServiceAccount extends ServiceBase {
         passesQrFilter(ctx) &&
         passesDupFilter(ctx);
 
+      // eslint-disable-next-line no-continue
       if (!passes) continue;
+      if (!ctx.deviceId) {
+        // eslint-disable-next-line no-continue
+        continue;
+      }
 
       if (skipDuplicateDeviceSameType && ctx.isHwWallet) {
         const key = `${ctx.deviceId}:${ctx.isHwWallet ? 'hw' : 'qr'}`;
@@ -1380,14 +1386,7 @@ class ServiceAccount extends ServiceBase {
       agentAddress: agentWallet.address,
       validUntil: params.validUntil,
     };
-    const { password } =
-      await this.backgroundApi.servicePassword.promptPasswordVerify({
-        reason: EReasonForNeedPassword.Default,
-      });
-    return {
-      credential,
-      password,
-    };
+    return { credential };
   }
 
   @backgroundMethod()
@@ -1411,11 +1410,9 @@ class ServiceAccount extends ServiceBase {
   ): Promise<{
     credentialId: string;
   }> {
-    const { credential, password } =
-      await this.prepareHyperLiquidAgentCredential(params);
+    const { credential } = await this.prepareHyperLiquidAgentCredential(params);
     const { credentialId } = await localDb.addHyperLiquidAgentCredential({
       credential,
-      password,
     });
     return {
       credentialId,
@@ -1429,11 +1426,9 @@ class ServiceAccount extends ServiceBase {
   ): Promise<{
     credentialId: string;
   }> {
-    const { credential, password } =
-      await this.prepareHyperLiquidAgentCredential(params);
+    const { credential } = await this.prepareHyperLiquidAgentCredential(params);
     const { credentialId } = await localDb.updateHyperLiquidAgentCredential({
       credential,
-      password,
     });
     return {
       credentialId,
@@ -1449,14 +1444,9 @@ class ServiceAccount extends ServiceBase {
     userAddress: string;
     agentName: EHyperLiquidAgentName;
   }): Promise<ICoreHyperLiquidAgentCredential | undefined> {
-    const { password } =
-      await this.backgroundApi.servicePassword.promptPasswordVerify({
-        reason: EReasonForNeedPassword.Default,
-      });
     return localDb.getHyperLiquidAgentCredential({
       userAddress,
       agentName,
-      password,
     });
   }
 
@@ -2061,6 +2051,7 @@ class ServiceAccount extends ServiceBase {
     walletId: IDBWalletIdSingleton;
     activeNetworkId?: string;
   }) {
+    // eslint-disable-next-line prefer-const
     let { accounts, removedAccountIds } =
       await localDb.getSingletonAccountsOfWallet({
         walletId,
@@ -2739,7 +2730,6 @@ class ServiceAccount extends ServiceBase {
     if (walletXfp) {
       wallets = await localDb.getWalletsByXfp({
         xfp: walletXfp,
-        includingKeylessWallets: true,
       });
     } else if (params.indexedAccountId) {
       const { walletId } = accountUtils.parseIndexedAccountId({
@@ -3078,6 +3068,7 @@ class ServiceAccount extends ServiceBase {
     isKeylessWallet,
     avatarInfo,
     keylessDetailsInfo,
+    skipAddHDNextIndexedAccount,
   }: {
     mnemonic: string;
     name?: string;
@@ -3085,6 +3076,7 @@ class ServiceAccount extends ServiceBase {
     isKeylessWallet?: boolean;
     avatarInfo?: IAvatarInfo;
     keylessDetailsInfo?: IKeylessWalletDetailsInfo;
+    skipAddHDNextIndexedAccount?: boolean;
   }) {
     const { servicePassword } = this.backgroundApi;
     const { password } = await servicePassword.promptPasswordVerify({
@@ -3127,6 +3119,7 @@ class ServiceAccount extends ServiceBase {
       isKeylessWallet,
       avatarInfo,
       keylessDetailsInfo,
+      skipAddHDNextIndexedAccount,
     });
   }
 
@@ -3174,6 +3167,7 @@ class ServiceAccount extends ServiceBase {
     isWalletBackedUp,
     isKeylessWallet,
     keylessDetailsInfo,
+    skipAddHDNextIndexedAccount,
   }: {
     rs: string;
     password: string;
@@ -3184,6 +3178,7 @@ class ServiceAccount extends ServiceBase {
     isWalletBackedUp?: boolean;
     isKeylessWallet?: boolean;
     keylessDetailsInfo?: IKeylessWalletDetailsInfo;
+    skipAddHDNextIndexedAccount?: boolean;
   }): Promise<{
     wallet: IDBWallet;
     indexedAccount?: IDBIndexedAccount;
@@ -3241,7 +3236,12 @@ class ServiceAccount extends ServiceBase {
       walletXfp,
       isKeylessWallet,
       keylessDetailsInfo,
+      skipAddHDNextIndexedAccount,
     });
+
+    if (result.wallet?.keylessDetailsInfo?.keylessOwnerId) {
+      void this.backgroundApi.serviceNotification.updateClientBasicAppInfoDebounced();
+    }
 
     await timerUtils.wait(100);
 
@@ -3430,6 +3430,7 @@ class ServiceAccount extends ServiceBase {
     });
 
     if (keylessOwnerId) {
+      void this.backgroundApi.serviceNotification.updateClientBasicAppInfoDebounced();
       void this.backgroundApi.serviceKeylessWallet.cleanupKeylessWalletStorage({
         ownerId: keylessOwnerId,
       });

@@ -9,7 +9,7 @@ const SvgBatteryLow = (props: SvgProps) => (
   >
     <Path
       fillRule="evenodd"
-      d="M3 5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h15a2 2 0 0 0 2-2v-1h1.5a1.5 1.5 0 0 0 1.5-1.5v-5A1.5 1.5 0 0 0 21.5 8H20V7a2 2 0 0 0-2-2zm17 5v4h1v-4zM6 9a1 1 0 0 1 1 1v4a1 1 0 1 1-2 0v-4a1 1 0 0 1 1-1"
+      d="M20 5v3h3v8h-3v3H1V5zM5 9v6h2V9zm15 5h1v-4h-1z"
       clipRule="evenodd"
     />
   </Svg>

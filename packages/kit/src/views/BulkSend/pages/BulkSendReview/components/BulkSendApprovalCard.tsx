@@ -16,14 +16,13 @@ import {
   useClipboard,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { Token } from '@onekeyhq/kit/src/components/Token';
+import { openExplorerAddressUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
-import { Token } from '@onekeyhq/kit/src/components/Token';
-
 import { useBulkSendReviewContext } from './Context';
-import { openExplorerAddressUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 
 type IApprovalItemProps = {
   approveInfo: IApproveInfo;
@@ -126,7 +125,7 @@ function ApprovalItem({
         </YStack>
         <XStack gap="$3" alignItems="center">
           <YStack alignItems="flex-end">
-            <SizableText size="$bodyMdMedium">OneKey</SizableText>
+            <SizableText size="$bodyMdMedium">OneKey Bulk Send</SizableText>
             <SizableText size="$bodyMd" color="$textSubdued">
               {shortenedSpender}
             </SizableText>
@@ -157,6 +156,7 @@ function ApprovalItem({
   );
 }
 
+// eslint-disable-next-line @typescript-eslint/naming-convention
 type Props = {
   onEditApproval?: (index: number) => void;
 };

@@ -13,6 +13,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { useIsOverlayPage } from '../../../hocs';
 import { useIsDesktopModeUIInTabPages } from '../../../hooks';
 import { Stack, XStack } from '../../../primitives';
+import { WINDOWS_OVERLAY_BUTTONS_WIDTH } from '../../../utils/sidebar';
 import { DesktopDragZoneBox } from '../../DesktopDragZoneBox';
 
 import HeaderBackButton from './HeaderBackButton';
@@ -39,7 +40,7 @@ function getHeaderTitle(
       : fallback;
 }
 
-const DesktopDragZoneBoxView = platformEnv.isDesktopMac
+const DesktopDragZoneBoxView = platformEnv.isDesktopWithCustomTitleBar
   ? ({ disabled, children }: IDesktopDragZoneBoxProps) => {
       const isModalPage = useIsOverlayPage();
 
@@ -200,6 +201,13 @@ function HeaderView({
         <Stack
           alignSelf="stretch"
           px={isOnboardingScreen ? '$16' : '$5'}
+          pr={
+            (platformEnv.isDesktopWin || platformEnv.isDesktopLinux) &&
+            !isOnboardingScreen &&
+            !isModelScreen
+              ? WINDOWS_OVERLAY_BUTTONS_WIDTH
+              : undefined
+          }
           $gtMd={
             platformEnv.isNativeAndroid
               ? undefined

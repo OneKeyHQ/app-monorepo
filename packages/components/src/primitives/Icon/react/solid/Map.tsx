@@ -7,7 +7,7 @@ const SvgMap = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="m14 4.863-4-1.334v15.108l4 1.334zm2 15.107 4.633-1.543A2 2 0 0 0 22 16.529V5.637a2 2 0 0 0-2.633-1.897L16 4.863zM3.368 5.073 8 3.53v15.108L4.632 19.76A2 2 0 0 1 2 17.863V6.97a2 2 0 0 1 1.368-1.898Z" />
+    <Path d="m8 18.637-6 2V5.53l6-2zm6-13.774V19.97l-4-1.334V3.53zm8 13.108-6 2V4.863l6-2V17.97Z" />
   </Svg>
 );
 export default SvgMap;

@@ -270,7 +270,6 @@ function VerifyPinPage() {
             }),
           });
           void handleForgotPin();
-          return;
         }
       } else {
         throw e;
@@ -380,7 +379,6 @@ function VerifyPinPage() {
         setShowAttemptError(true);
         if (!isNil(errorInfo?.guessesRemaining) && newAttemptsRemaining <= 0) {
           void handleForgotPin();
-          return;
         }
       }
       // Silently continue for auto-retry

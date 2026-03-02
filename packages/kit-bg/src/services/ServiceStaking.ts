@@ -2,6 +2,7 @@ import BigNumber from 'bignumber.js';
 import { omit } from 'lodash';
 
 import { isTaprootAddress } from '@onekeyhq/core/src/chains/btc/sdkBtc';
+import { pendleFlowConfig } from '../vaults/impls/evm/settings';
 import type { IAxiosResponse } from '@onekeyhq/shared/src/appApiClient/appApiClient';
 import {
   backgroundClass,
@@ -14,17 +15,18 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
   PROMISE_CONCURRENCY_LIMIT,
   promiseAllSettledEnhanced,
 } from '@onekeyhq/shared/src/utils/promiseUtils';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type { IDiscoveryBanner } from '@onekeyhq/shared/types/discovery';
 import type {
   EAvailableAssetsTypeEnum,
   EEarnProviderEnum,
+  IEarnAvailableAssetV2,
   ISupportedSymbol,
 } from '@onekeyhq/shared/types/earn';
 import { getEarnNetworkIds } from '@onekeyhq/shared/types/earn/earnProvider.constants';
@@ -66,6 +68,7 @@ import type {
   IEarnAccountToken,
   IEarnAccountTokenResponse,
   IEarnAirdropInvestmentItemV2,
+  IEarnAssetsList,
   IEarnBabylonTrackingItem,
   IEarnEstimateAction,
   IEarnEstimateFeeResp,
@@ -92,6 +95,7 @@ import type {
   IStakeTransactionConfirmation,
   IStakeTx,
   IStakeTxResponse,
+  IUnderlyingApyHistoryResponse,
   IUnstakePushParams,
   IVerifyRegisterSignMessageParams,
   IWithdrawBaseParams,
@@ -141,13 +145,7 @@ interface IAvailableAssetsResponseV2 {
   code: string;
   message?: string;
   data: {
-    assets: {
-      type: 'normal' | 'airdrop';
-      networkId: string;
-      provider: string;
-      symbol: string;
-      vault?: string;
-    }[];
+    assets: IEarnAvailableAssetV2[];
   };
 }
 
@@ -417,7 +415,7 @@ class ServiceStaking extends ServiceBase {
       firmwareDeviceType: await this.getFirmwareDeviceTypeParam({
         accountId,
       }),
-      vault: isVaultBased ? protocolVault : '',
+      vault: isVaultBased ? protocolVault : undefined,
       ...rest,
     });
     return resp.data.data;
@@ -760,16 +758,68 @@ class ServiceStaking extends ServiceBase {
     return resp.data.data;
   }
 
+  _getEarnAssetsList = memoizee(
+    async (params: {
+      networkId: string;
+      provider: string;
+      symbol: string;
+      vault?: string;
+      accountId: string;
+      action: 'stake' | 'unstake';
+    }) => {
+      const { accountId, provider, ...rest } = params;
+      const accountAddress =
+        await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+          networkId: params.networkId,
+          accountId,
+        });
+
+      const client = await this.getClient(EServiceEndpointEnum.Earn);
+      const response = await client.get<{
+        data: IEarnAssetsList;
+      }>('/earn/v1/asset-list', {
+        params: {
+          ...rest,
+          provider: provider.toLowerCase(),
+          accountAddress,
+        },
+      });
+      return response.data.data;
+    },
+    {
+      // NOTE: this file imports `memoizee` from shared cacheUtils wrapper,
+      // which applies a stable JSON normalizer by default. So object params
+      // here are cached by value instead of reference identity.
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 10 }),
+    },
+  );
+
+  @backgroundMethod()
+  async getEarnAssetsList(params: {
+    networkId: string;
+    provider: string;
+    symbol: string;
+    vault?: string;
+    accountId: string;
+    action: 'stake' | 'unstake';
+  }) {
+    return this._getEarnAssetsList(params);
+  }
+
   @backgroundMethod()
   async getTransactionConfirmation(params: {
     networkId: string;
     provider: string;
     symbol: string;
-    vault: string;
+    vault?: string;
     accountAddress: string;
     action: ECheckAmountActionType;
     amount: string;
     identity?: string;
+    inputTokenAddress?: string;
+    outputTokenAddress?: string;
+    slippage?: number;
   }) {
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const amountNumber = BigNumber(params.amount);
@@ -783,8 +833,8 @@ class ServiceStaking extends ServiceBase {
   }
 
   _getProtocolList = memoizee(
-    async (params: { symbol: string }) => {
-      const { symbol } = params;
+    async (params: { symbol: string; type?: EAvailableAssetsTypeEnum }) => {
+      const { symbol, type } = params;
       const client = await this.getClient(EServiceEndpointEnum.Earn);
 
       // Use v2 API that supports multiple networks
@@ -792,6 +842,7 @@ class ServiceStaking extends ServiceBase {
         data: { protocols: IStakeProtocolListItem[] };
       }>('/earn/v2/stake-protocol/list', {
         symbol,
+        type,
       });
       const protocols = protocolListResp.data.data.protocols;
       return protocols;
@@ -805,6 +856,7 @@ class ServiceStaking extends ServiceBase {
   @backgroundMethod()
   async getProtocolList(params: {
     symbol: string;
+    type?: EAvailableAssetsTypeEnum;
     accountId?: string;
     indexedAccountId?: string;
     filterNetworkId?: string;
@@ -814,6 +866,7 @@ class ServiceStaking extends ServiceBase {
     try {
       allItems = await this._getProtocolList({
         symbol: params.symbol,
+        type: params.type,
       });
     } catch (error) {
       console.warn(
@@ -853,7 +906,10 @@ class ServiceStaking extends ServiceBase {
     );
 
     const enabledItems = itemsWithEnabledStatus
-      .filter((r): r is NonNullable<typeof r> => r != null && !!r.isEnabled)
+      .filter(
+        (r): r is NonNullable<typeof r> =>
+          r !== null && r !== undefined && !!r.isEnabled,
+      )
       .map((r) => r.item);
 
     return enabledItems;
@@ -1128,6 +1184,7 @@ class ServiceStaking extends ServiceBase {
   async fetchInvestmentDetailV2(params: {
     publicKey?: string | undefined;
     vault?: string | undefined;
+    ptAddress?: string | undefined;
     accountAddress: string;
     networkId: string;
     provider: string;
@@ -1168,6 +1225,7 @@ class ServiceStaking extends ServiceBase {
   async fetchAirdropInvestmentDetail(params: {
     publicKey?: string | undefined;
     vault?: string | undefined;
+    ptAddress?: string | undefined;
     accountAddress: string;
     networkId: string;
     provider: string;
@@ -1268,6 +1326,9 @@ class ServiceStaking extends ServiceBase {
     amount,
     protocolVault,
     identity,
+    inputTokenAddress,
+    outputTokenAddress,
+    slippage,
   }: {
     accountId?: string;
     networkId?: string;
@@ -1278,6 +1339,9 @@ class ServiceStaking extends ServiceBase {
     amount?: string;
     protocolVault?: string;
     identity?: string;
+    inputTokenAddress?: string;
+    outputTokenAddress?: string;
+    slippage?: number;
   }) {
     if (!networkId || !accountId || !provider) {
       throw new OneKeyLocalError(
@@ -1305,6 +1369,9 @@ class ServiceStaking extends ServiceBase {
         vault: isVaultBased ? protocolVault : '',
         withdrawAll,
         identity,
+        inputTokenAddress,
+        outputTokenAddress,
+        slippage,
       },
     });
     return result.data;
@@ -1342,12 +1409,19 @@ class ServiceStaking extends ServiceBase {
       return null;
     }
 
-    const tokenSymbol = symbol as ISupportedSymbol;
-    if (providerConfig.supportedSymbols.includes(tokenSymbol)) {
-      return providerConfig.configs[tokenSymbol];
+    // Pendle is vault-based with a backend-driven symbol set.
+    // All Pendle symbols share the same flow config, no per-token lookup needed.
+    if (earnUtils.isPendleProvider({ providerName: provider })) {
+      return pendleFlowConfig;
     }
 
-    return null;
+    const tokenSymbol = symbol as ISupportedSymbol;
+    const isProviderSupportedSymbol =
+      providerConfig.supportedSymbols.includes(tokenSymbol);
+    const configuredFlow = isProviderSupportedSymbol
+      ? providerConfig.configs[tokenSymbol]
+      : undefined;
+    return configuredFlow ?? null;
   }
 
   @backgroundMethod()
@@ -1646,9 +1720,13 @@ class ServiceStaking extends ServiceBase {
     protocolVault?: string;
     identity?: string;
     accountAddress?: string;
+    publicKey?: string;
     approveType?: 'permit';
     permitSignature?: string;
     withdrawAll?: boolean;
+    inputTokenAddress?: string;
+    outputTokenAddress?: string;
+    message?: string;
   }) {
     const { symbol, protocolVault, withdrawAll, ...rest } = params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
@@ -1667,7 +1745,10 @@ class ServiceStaking extends ServiceBase {
     }>(`/earn/v1/estimate-fee`, {
       params: sendParams,
     });
-    return resp.data.data;
+    return {
+      ...resp.data.data,
+      feeFiatValue: resp.data.data.feeFiatValue ?? '0',
+    };
   }
 
   @backgroundMethod()
@@ -1804,7 +1885,7 @@ class ServiceStaking extends ServiceBase {
       }
     }
 
-    throw lastError; // Throw last error after all retries fail
+    throw lastError instanceof Error ? lastError : new Error(String(lastError)); // Throw last error after all retries fail
   }
 
   @backgroundMethod()
@@ -1960,6 +2041,39 @@ class ServiceStaking extends ServiceBase {
 
     const response = await client.get<IApyHistoryResponse>(
       '/earn/v1/apy/history',
+      {
+        params: requestParams,
+      },
+    );
+
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async getUnderlyingApyHistory(params: {
+    networkId: string;
+    provider: string;
+    symbol: string;
+    vault?: string;
+  }) {
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const requestParams: {
+      networkId: string;
+      provider: string;
+      symbol: string;
+      vault?: string;
+    } = {
+      networkId: params.networkId,
+      provider: params.provider.toLowerCase(),
+      symbol: params.symbol,
+    };
+
+    if (params.vault) {
+      requestParams.vault = params.vault;
+    }
+
+    const response = await client.get<IUnderlyingApyHistoryResponse>(
+      '/earn/v1/apy/underlying-history',
       {
         params: requestParams,
       },

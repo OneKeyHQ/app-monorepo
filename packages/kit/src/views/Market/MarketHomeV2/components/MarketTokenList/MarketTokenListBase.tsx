@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import type { ReactNode } from 'react';
 
 import {
@@ -11,6 +11,7 @@ import {
 } from '@onekeyhq/components';
 import type { ITableColumn } from '@onekeyhq/components';
 import type { IDragEndParamsWithItem } from '@onekeyhq/components/src/layouts/SortableListView/types';
+import { usePerpsNavigation } from '@onekeyhq/kit/src/views/Market/hooks/usePerpsNavigation';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -22,8 +23,6 @@ import type {
 } from '@onekeyhq/shared/src/logger/scopes/dex';
 import { ESortWay } from '@onekeyhq/shared/src/logger/scopes/dex/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
-import { usePerpsNavigation } from '@onekeyhq/kit/src/views/Market/hooks/usePerpsNavigation';
 
 import { useMarketTokenColumns } from './hooks/useMarketTokenColumns';
 import { useToDetailPage } from './hooks/useToMarketDetailPage';
@@ -67,6 +66,10 @@ type IMarketTokenListBaseProps = {
   watchlistFrom?: EWatchlistFrom;
   copyFrom?: ECopyFrom;
   draggable?: boolean;
+  tabIntegrated?: boolean;
+  listContainerProps?: {
+    paddingBottom: number;
+  };
   onDragEnd?: (params: IDragEndParamsWithItem<IMarketToken>) => void;
   onItemLongPress?: (item: IMarketToken, index: number) => void;
   onItemContextMenu?: (
@@ -88,6 +91,8 @@ function MarketTokenListBase({
   watchlistFrom,
   copyFrom,
   draggable = false,
+  tabIntegrated,
+  listContainerProps,
   onDragEnd,
   onItemLongPress,
   onItemContextMenu,
@@ -224,6 +229,29 @@ function MarketTokenListBase({
   }, [isLoadingMore, showEndReachedIndicator, canLoadMore, data.length]);
   const tabBarHeight = useScrollContentTabBarOffset();
 
+  // On web with tabIntegrated, disable FlatList's own scroll so the outer
+  // Tabs.Container handles scrolling (allows header to scroll away naturally).
+  // Use IntersectionObserver as a replacement for onEndReached.
+  const webTabIntegrated = tabIntegrated && !platformEnv.isNative;
+  const endSentinelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!webTabIntegrated) return;
+    const sentinel = endSentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          handleEndReached();
+        }
+      },
+      { threshold: 0 },
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [webTabIntegrated, handleEndReached]);
+
   return (
     <Stack flex={1} width="100%">
       {/* render custom toolbar if provided */}
@@ -260,16 +288,25 @@ function MarketTokenListBase({
             />
           ) : (
             <Table<IMarketToken>
-              // Add padding bottom to content container to provide space for loading spinner
-              // Fix Android loading spinner visibility issue by ensuring proper content height
-              contentContainerStyle={{
-                paddingBottom: platformEnv.isNativeAndroid
-                  ? SPINNER_HEIGHT * 2
-                  : tabBarHeight,
-              }}
+              contentContainerStyle={
+                tabIntegrated
+                  ? {
+                      paddingTop: 8 + (platformEnv.isNative ? 170 : 0),
+                      paddingBottom: platformEnv.isNativeAndroid
+                        ? (listContainerProps?.paddingBottom ??
+                          SPINNER_HEIGHT * 2)
+                        : tabBarHeight,
+                    }
+                  : {
+                      paddingBottom: platformEnv.isNativeAndroid
+                        ? SPINNER_HEIGHT * 2
+                        : tabBarHeight,
+                    }
+              }
               stickyHeader
-              scrollEnabled
+              scrollEnabled={!webTabIntegrated}
               draggable={draggable}
+              tabIntegrated={tabIntegrated}
               onDragEnd={onDragEnd}
               columns={marketTokenColumns}
               onEndReached={handleEndReached}
@@ -278,7 +315,7 @@ function MarketTokenListBase({
               extraData={networkId}
               onHeaderRow={handleHeaderRow}
               TableFooterComponent={TableFooterComponent}
-              estimatedItemSize="$14"
+              estimatedItemSize={60}
               onRow={(item, index) => ({
                 onPress: onItemPress
                   ? () => onItemPress(item)
@@ -304,6 +341,9 @@ function MarketTokenListBase({
               })}
             />
           )}
+          {webTabIntegrated ? (
+            <div ref={endSentinelRef} style={{ height: 1 }} />
+          ) : null}
         </Stack>
       </Stack>
     </Stack>

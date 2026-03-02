@@ -69,10 +69,10 @@ interface IFavoriteTokenDisplay {
   price: number;
   priceChange24h: number;
   marketCap: number;
+  volume24h: number;
   // Perps fields — present when perpsCoin is set
   perpsCoin?: string;
   maxLeverage?: number;
-  volume24h?: number;
 }
 
 function RecommendCardItem({
@@ -158,12 +158,14 @@ function RecommendCardItem({
         </YStack>
       </XStack>
       {checked ? (
-        <Icon
-          name="CheckRadioSolid"
-          size="$6"
-          color="$iconActive"
-          $sm={{ size: '$5' }}
-        />
+        <Stack flexShrink={0}>
+          <Icon
+            name="CheckRadioSolid"
+            size="$6"
+            color="$iconActive"
+            $sm={{ size: '$5' }}
+          />
+        </Stack>
       ) : (
         <Stack w="$6" h="$6" $sm={{ w: '$5', h: '$5' }} />
       )}
@@ -252,7 +254,9 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
             <NumberSizeableText
               size="$bodyLgMedium"
               formatter="price"
-              formatterOptions={{ currency: currencyInfo?.symbol }}
+              formatterOptions={{
+                currency: record.perpsCoin ? '$' : currencyInfo?.symbol,
+              }}
             >
               {record.price ?? '-'}
             </NumberSizeableText>
@@ -279,19 +283,17 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
           },
         },
         {
-          dataIndex: 'marketCap',
-          title: intl.formatMessage({ id: ETranslations.global_market_cap }),
+          dataIndex: 'volume24h',
+          title: intl.formatMessage({ id: ETranslations.market_24h_turnover }),
           render: (_: unknown, record: IFavoriteTokenDisplay) => (
             <NumberSizeableText
               size="$bodyLgMedium"
               formatter="marketCap"
-              formatterOptions={{ currency: currencyInfo?.symbol }}
+              formatterOptions={{
+                currency: record.perpsCoin ? '$' : currencyInfo?.symbol,
+              }}
             >
-              {record.perpsCoin
-                ? (record.volume24h ?? '-')
-                : new BigNumber(record.marketCap).isNaN()
-                  ? '-'
-                  : record.marketCap}
+              {new BigNumber(record.volume24h).isNaN() ? '-' : record.volume24h}
             </NumberSizeableText>
           ),
         },
@@ -335,13 +337,13 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
                 <NumberSizeableText
                   size="$bodyMd"
                   formatter="marketCap"
-                  formatterOptions={{ currency: currencyInfo?.symbol }}
+                  formatterOptions={{
+                    currency: record.perpsCoin ? '$' : currencyInfo?.symbol,
+                  }}
                 >
-                  {record.perpsCoin
-                    ? (record.volume24h ?? '-')
-                    : new BigNumber(record.marketCap).isNaN()
-                      ? '-'
-                      : record.marketCap}
+                  {new BigNumber(record.volume24h).isNaN()
+                    ? '-'
+                    : record.volume24h}
                 </NumberSizeableText>
               </YStack>
             </XStack>
@@ -360,7 +362,9 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
               <NumberSizeableText
                 size="$bodyLgMedium"
                 formatter="price"
-                formatterOptions={{ currency: currencyInfo?.symbol }}
+                formatterOptions={{
+                  currency: record.perpsCoin ? '$' : currencyInfo?.symbol,
+                }}
               >
                 {record.price ?? '-'}
               </NumberSizeableText>
@@ -497,6 +501,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
               price: parseFloat(item.price ?? '0'),
               priceChange24h: parseFloat(item.priceChange24hPercent ?? '0'),
               marketCap: parseFloat(item.marketCap ?? '0'),
+              volume24h: parseFloat(item.volume24h ?? '0'),
             };
           })
           .filter((item): item is IFavoriteTokenDisplay => item !== null);
@@ -569,6 +574,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
               price: parseFloat(item.price ?? '0'),
               priceChange24h: parseFloat(item.priceChange24hPercent ?? '0'),
               marketCap: parseFloat(item.marketCap ?? '0'),
+              volume24h: parseFloat(item.volume24h ?? '0'),
             };
           })
           .filter((item): item is IFavoriteTokenDisplay => item !== null);
@@ -701,6 +707,18 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
   const handleTokenPress = useCallback(
     (record: IFavoriteTokenDisplay) => {
       if (record.perpsCoin) {
+        if (
+          platformEnv.isExtensionUiPopup ||
+          platformEnv.isExtensionUiSidePanel
+        ) {
+          void backgroundApiProxy.serviceApp.openExtensionExpandTab({
+            path: '/perp',
+            params: {
+              coin: record.perpsCoin,
+            },
+          });
+          return;
+        }
         navigation.switchTab(ETabRoutes.Perp);
         void backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
           coin: record.perpsCoin,
@@ -711,6 +729,19 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
       const shortCode = networkUtils.getNetworkShortCode({
         networkId: record.chainId,
       });
+
+      if (
+        platformEnv.isExtensionUiPopup ||
+        platformEnv.isExtensionUiSidePanel
+      ) {
+        void backgroundApiProxy.serviceApp.openExtensionExpandTab({
+          path: `/market/token/${shortCode || record.chainId}/${record.contractAddress}`,
+          params: {
+            isNative: record.isNative,
+          },
+        });
+        return;
+      }
 
       navigation.switchTab(marketTab);
 

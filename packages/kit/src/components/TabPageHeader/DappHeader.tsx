@@ -1,4 +1,4 @@
-import { type ReactNode, useCallback, useMemo } from 'react';
+import { type ReactNode, useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -25,7 +25,6 @@ import {
 } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
-  EModalReceiveRoutes,
   EModalRoutes,
   EModalSettingRoutes,
   ETabRoutes,
@@ -57,7 +56,13 @@ import { UniversalSearchInput } from './UniversalSearchInput';
 
 import type { ITabPageHeaderProp } from './type';
 
-function LanguageListItem() {
+function LanguageListItem({
+  open,
+  onOpenChange: onOpenChangeProp,
+}: {
+  open?: boolean;
+  onOpenChange?: (isOpen: boolean) => void;
+}) {
   const intl = useIntl();
   const { options, value, onChange } = useLanguageSelector();
   const label = useMemo(() => {
@@ -71,7 +76,9 @@ function LanguageListItem() {
       title={title}
       items={options}
       value={value}
+      open={open}
       onChange={onChange}
+      onOpenChange={onOpenChangeProp}
       floatingPanelProps={{ maxHeight: 280 }}
       sheetProps={{
         disableDrag: true,
@@ -96,7 +103,13 @@ function LanguageListItem() {
   );
 }
 
-function CurrencyListItem() {
+function CurrencyListItem({
+  open,
+  onOpenChange: onOpenChangeProp,
+}: {
+  open?: boolean;
+  onOpenChange?: (isOpen: boolean) => void;
+}) {
   const [settings] = useSettingsPersistAtom();
   const sections = useCurrencySections();
   const formatSections = useMemo(() => {
@@ -141,7 +154,9 @@ function CurrencyListItem() {
       title={title}
       sections={formatSections}
       value={settings.currencyInfo.id}
+      open={open}
       onChange={handleChange}
+      onOpenChange={onOpenChangeProp}
       floatingPanelProps={{ maxHeight: 280 }}
       sheetProps={{
         disableDrag: true,
@@ -348,6 +363,41 @@ function SettingListItem() {
   );
 }
 
+function MoreDappActionContent() {
+  const [activeSelect, setActiveSelect] = useState<
+    'language' | 'currency' | null
+  >(null);
+
+  const handleLanguageOpenChange = useCallback((isOpen: boolean) => {
+    setActiveSelect(isOpen ? 'language' : null);
+  }, []);
+
+  const handleCurrencyOpenChange = useCallback((isOpen: boolean) => {
+    setActiveSelect(isOpen ? 'currency' : null);
+  }, []);
+
+  return (
+    <YStack py="$3">
+      <ThemeListItem />
+      <LanguageListItem
+        open={activeSelect === 'language'}
+        onOpenChange={handleLanguageOpenChange}
+      />
+      <CurrencyListItem
+        open={activeSelect === 'currency'}
+        onOpenChange={handleCurrencyOpenChange}
+      />
+      <DownloadOneKeyWalletListItem />
+      {/* <Web3GuideListItem /> */}
+      <YStack py="$1.5" px="$3">
+        <Divider />
+      </YStack>
+      <AnnouncementListItem />
+      <SettingListItem />
+    </YStack>
+  );
+}
+
 function MoreDappAction({ size }: { size?: 'small' | 'medium' }) {
   const intl = useIntl();
 
@@ -374,57 +424,8 @@ function MoreDappAction({ size }: { size?: 'small' | 'medium' }) {
           size={size}
         />
       }
-      renderContent={
-        <YStack py="$3">
-          <ThemeListItem />
-          <LanguageListItem />
-          <CurrencyListItem />
-          <DownloadOneKeyWalletListItem />
-          {/* <Web3GuideListItem /> */}
-          <YStack py="$1.5" px="$3">
-            <Divider />
-          </YStack>
-          <AnnouncementListItem />
-          <SettingListItem />
-        </YStack>
-      }
+      renderContent={<MoreDappActionContent />}
     />
-  );
-}
-
-function DepositButton() {
-  const intl = useIntl();
-  const navigation = useAppNavigation();
-  const {
-    activeAccount: { wallet, account, network, indexedAccount },
-  } = useActiveAccount({
-    num: 0,
-  });
-
-  const shouldShow = useMemo(() => {
-    return !!account && !!wallet;
-  }, [account, wallet]);
-
-  const handlePress = useCallback(() => {
-    navigation.pushModal(EModalRoutes.ReceiveModal, {
-      screen: EModalReceiveRoutes.ReceiveToken,
-      params: {
-        networkId: network?.id ?? '',
-        accountId: account?.id ?? '',
-        walletId: wallet?.id ?? '',
-        indexedAccountId: indexedAccount?.id,
-      },
-    });
-  }, [navigation, network?.id, account?.id, wallet?.id, indexedAccount?.id]);
-
-  if (!shouldShow) {
-    return null;
-  }
-
-  return (
-    <Button size="small" variant="primary" onPress={handlePress}>
-      {intl.formatMessage({ id: ETranslations.perp_trade_deposit })}
-    </Button>
   );
 }
 
@@ -482,7 +483,6 @@ function RightActions({
           >
             <WalletConnectionForWeb tabRoute={tabRoute} />
           </XStack>
-          <DepositButton />
         </>
       )}
       {!isPerpsTab && gtLg ? <DownloadAppButton /> : null}

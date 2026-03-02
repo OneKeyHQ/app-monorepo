@@ -696,7 +696,9 @@ export function OrderBook({
     );
   }
   return (
-    <View style={{ padding: 1 }}>
+    // Avoid a visible "gap" at the bottom edge when the container height
+    // doesn't align perfectly with row steps.
+    <View style={{ padding: 1, paddingBottom: 0 }}>
       <DebugRenderTracker
         name="OrderBookVerticalHeader"
         position="right-center"

@@ -223,7 +223,15 @@ export function RangeAmountInput() {
     if (!rangeMin || !rangeMax || transfersInfo.length === 0) return;
 
     const errors = validateRangeRef.current(rangeMin, rangeMax);
-    if (!errors.rangeError) {
+    if (errors.rangeError) {
+      // Set validation error on mount (e.g., balance=0 → both inputs are 0)
+      /* eslint-disable @typescript-eslint/no-use-before-define */
+      setAmountInputErrors({
+        ...amountInputErrorsRef.current,
+        rangeError: errors.rangeError,
+      });
+      /* eslint-enable @typescript-eslint/no-use-before-define */
+    } else {
       const previewAmounts = generatePreviewAmountsRef.current(
         rangeMin,
         rangeMax,
@@ -233,7 +241,7 @@ export function RangeAmountInput() {
         rangePreviewAmounts: previewAmounts,
       }));
     }
-  }, [transfersInfo.length, setPreviewState]);
+  }, [transfersInfo.length, setPreviewState, setAmountInputErrors]);
 
   const amountInputErrorsRef = useRef(amountInputErrors);
   amountInputErrorsRef.current = amountInputErrors;

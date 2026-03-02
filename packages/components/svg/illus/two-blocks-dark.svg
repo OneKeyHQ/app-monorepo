@@ -1,0 +1,28 @@
+<svg width="180" height="180" viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M114.001 53H172L156 69H98L114.001 53Z" stroke="white" stroke-linejoin="round"/>
+<path d="M114 111H172L156 127H98L114 111Z" stroke="white" stroke-linejoin="round"/>
+<path d="M114 53H172V111H114V53Z" stroke="white" stroke-linejoin="round"/>
+<rect x="98" y="69" width="58" height="58" stroke="white" stroke-linejoin="round"/>
+<path opacity="0.8" d="M155.997 126.839V111H171.836L155.997 126.839Z" fill="white"/>
+<path d="M114 52.5L114 69L97.5 69L114 52.5Z" fill="#4FE737" stroke="black"/>
+<path d="M24.0013 53H82L66 69H8L24.0013 53Z" stroke="white" stroke-linejoin="round"/>
+<path d="M24 111H82L66 127H8L24 111Z" stroke="white" stroke-linejoin="round"/>
+<path d="M24 53H82V111H24V53Z" stroke="white" stroke-linejoin="round"/>
+<rect x="8" y="69" width="58" height="58" stroke="white" stroke-linejoin="round"/>
+<path opacity="0.8" d="M23.8385 53L23.8385 68.8385L8 68.8385L23.8385 53Z" fill="white"/>
+<path d="M66 127.5L66.0013 111L82.5 111L66 127.5Z" fill="#4FE737" stroke="black"/>
+<path d="M136 59L136 37L96.5 37M45 59L45 37L82.5 37" stroke="white" stroke-linejoin="round" stroke-dasharray="2 2"/>
+<path d="M90 32.5V21" stroke="white" stroke-linejoin="round" stroke-dasharray="2 2"/>
+<path d="M102.944 24.9132L94.8125 33.0449" stroke="white" stroke-linejoin="round" stroke-dasharray="2 2"/>
+<path d="M85.1317 33.0438L77 24.9121" stroke="white" stroke-linejoin="round" stroke-dasharray="2 2"/>
+<path d="M89.9375 40.5449L89.9375 52.0449" stroke="white" stroke-linejoin="round" stroke-dasharray="2 2"/>
+<path d="M76.9933 48.1317L85.125 40" stroke="white" stroke-linejoin="round" stroke-dasharray="2 2"/>
+<path d="M94.8058 40.0001L102.938 48.1318" stroke="white" stroke-linejoin="round" stroke-dasharray="2 2"/>
+<path d="M136 127L136 142L96.5 142M45 127L45 142L82.5 142" stroke="white" stroke-linejoin="round" stroke-dasharray="2 2"/>
+<path d="M90 146.5V158" stroke="white" stroke-linejoin="round" stroke-dasharray="2 2"/>
+<path d="M102.944 154.087L94.8125 145.955" stroke="white" stroke-linejoin="round" stroke-dasharray="2 2"/>
+<path d="M85.1317 145.956L77 154.088" stroke="white" stroke-linejoin="round" stroke-dasharray="2 2"/>
+<path d="M89.9375 138.455L89.9375 126.955" stroke="white" stroke-linejoin="round" stroke-dasharray="2 2"/>
+<path d="M76.9933 130.868L85.125 139" stroke="white" stroke-linejoin="round" stroke-dasharray="2 2"/>
+<path d="M94.8058 139L102.938 130.868" stroke="white" stroke-linejoin="round" stroke-dasharray="2 2"/>
+</svg>

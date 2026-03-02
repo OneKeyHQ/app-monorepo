@@ -9,7 +9,7 @@ const SvgLuggagePackage = (props: SvgProps) => (
   >
     <Path
       fillRule="evenodd"
-      d="M8 4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v1h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-1a1 1 0 1 1-2 0H8a1 1 0 1 1-2 0H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h3zm2 1h4V4h-4zM9 9a1 1 0 0 1 1 1v6a1 1 0 1 1-2 0v-6a1 1 0 0 1 1-1m6 0a1 1 0 0 1 1 1v6a1 1 0 1 1-2 0v-6a1 1 0 0 1 1-1"
+      d="M16 5h5v16h-3v1h-2v-1H8v1H6v-1H3V5h5V2h8zM8 9v8h2V9zm6 0v8h2V9zm-4-4h4V4h-4z"
       clipRule="evenodd"
     />
   </Svg>

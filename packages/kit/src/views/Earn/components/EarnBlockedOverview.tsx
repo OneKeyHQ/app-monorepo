@@ -2,6 +2,7 @@ import { useIntl } from 'react-intl';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import { Button, Empty, Page } from '@onekeyhq/components';
+import type { IIllustrationName } from '@onekeyhq/components/src/primitives/Illustration';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -11,7 +12,8 @@ import { TabPageHeader } from '../../../components/TabPageHeader';
 export function EarnBlockedOverview(props: {
   showHeader?: boolean;
   showContent?: boolean;
-  icon: IKeyOfIcons;
+  icon?: IKeyOfIcons;
+  illustration?: IIllustrationName;
   title: string;
   description: string;
   refresh: () => Promise<void>;
@@ -22,6 +24,7 @@ export function EarnBlockedOverview(props: {
     title,
     description,
     icon,
+    illustration,
     refresh,
     refreshing,
     showHeader,
@@ -38,7 +41,8 @@ export function EarnBlockedOverview(props: {
       ) : null}
       <Page.Body>
         <Empty
-          icon={icon}
+          illustration={illustration}
+          icon={!illustration ? icon : undefined}
           title={title}
           description={description}
           button={

@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
 import { useMemo } from 'react';
 
 import { getPathFromState as getPathFromStateDefault } from '@react-navigation/core';
@@ -35,6 +35,8 @@ interface IScreenRouterConfig {
   children?: IScreenRouterConfig[] | null;
 }
 
+const tabRouteNames: ReadonlySet<string> = new Set(Object.values(ETabRoutes));
+
 const resolveScreens = (routes: IScreenRouterConfig[]) =>
   routes
     ? routes.reduce((prev, route) => {
@@ -47,6 +49,9 @@ const resolveScreens = (routes: IScreenRouterConfig[]) =>
           : undefined;
         if (config) {
           prev[route.name].screens = resolveScreens(config);
+          if (config.length > 0 && tabRouteNames.has(route.name)) {
+            prev[route.name].initialRouteName = config[0].name;
+          }
         }
 
         return prev;
@@ -147,6 +152,7 @@ const useBuildLinking = (): LinkingOptions<any> => {
           const mainRoute = state?.routes?.[state?.index ?? 0];
           const tabState = mainRoute?.state;
           const tabIndex = tabState?.index ?? 0;
+          // eslint-disable-next-line @typescript-eslint/no-shadow
           const tabRouteNames =
             tabState?.routeNames ?? tabState?.routes?.map((r: any) => r.name);
           const activeTab = tabRouteNames?.[tabIndex];

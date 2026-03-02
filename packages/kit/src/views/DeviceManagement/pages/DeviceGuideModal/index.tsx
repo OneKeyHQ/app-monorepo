@@ -21,9 +21,9 @@ import TouchHomescreenDark from '@onekeyhq/kit/assets/device_management/touch-ho
 import TouchHomescreenLight from '@onekeyhq/kit/assets/device_management/touch-homescreen-light.png';
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
+import { useNavigateToPickYourDevicePage } from '@onekeyhq/kit/src/views/Onboarding/hooks/useToOnBoardingPage';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IAllWalletAvatarImageNames } from '@onekeyhq/shared/src/utils/avatarUtils';
-import { useNavigateToPickYourDevicePage } from '@onekeyhq/kit/src/views/Onboarding/hooks/useToOnBoardingPage';
 
 import { useBuyOneKeyHeaderRightButton } from '../../hooks/useBuyOneKeyHeaderRightButton';
 

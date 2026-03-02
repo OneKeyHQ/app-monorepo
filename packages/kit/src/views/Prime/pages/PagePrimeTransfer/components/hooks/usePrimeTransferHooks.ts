@@ -9,6 +9,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 let isNavExitConfirmShow = false;
+let isAppExitConfirmed = false;
 
 export function useModalExitPrevent({
   title,
@@ -36,6 +37,11 @@ export function useModalExitPrevent({
         }>;
       };
     }) => {
+      if (isAppExitConfirmed) {
+        isAppExitConfirmed = false;
+        navigation.dispatch(data.action);
+        return;
+      }
       if (isNavExitConfirmShow) {
         return;
       }
@@ -63,12 +69,15 @@ export function useAppExitPrevent({
   message,
   title,
   shouldPreventExitOnAndroid = true,
+  onConfirm,
 }: {
   message: string;
   title: string;
   shouldPreventExitOnAndroid?: boolean;
+  onConfirm?: () => Promise<void> | void;
 }) {
   const intl = useIntl();
+  const navigation = useAppNavigation();
 
   // Prevents web page refresh/exit
   useEffect(() => {
@@ -104,7 +113,14 @@ export function useAppExitPrevent({
           },
           {
             text: intl.formatMessage({ id: ETranslations.global_quit }),
-            onPress: () => BackHandler.exitApp(),
+            onPress: async () => {
+              await onConfirm?.();
+              isAppExitConfirmed = true;
+              navigation.popStack();
+              setTimeout(() => {
+                isAppExitConfirmed = false;
+              }, 300);
+            },
           },
         ],
         { cancelable: false },
@@ -119,5 +135,5 @@ export function useAppExitPrevent({
     );
 
     return () => backHandler.remove();
-  }, [message, title, intl, shouldPreventExitOnAndroid]);
+  }, [message, title, intl, shouldPreventExitOnAndroid, navigation, onConfirm]);
 }

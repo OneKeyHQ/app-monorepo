@@ -7,7 +7,16 @@ const SvgWebcam = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M18 10a6 6 0 1 0-12 0 6 6 0 0 0 12 0m-4 0a2 2 0 1 0-4 0 2 2 0 0 0 4 0m2 0a4 4 0 1 1-8 0 4 4 0 0 1 8 0m4 0a8 8 0 0 1-7 7.936V20h4a1 1 0 1 1 0 2H7a1 1 0 1 1 0-2h4v-2.064A8 8 0 0 1 12 2a8 8 0 0 1 8 8" />
+    <Path
+      fillRule="evenodd"
+      d="M12 6a4 4 0 1 1 0 8 4 4 0 0 1 0-8m0 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4"
+      clipRule="evenodd"
+    />
+    <Path
+      fillRule="evenodd"
+      d="M12 2a8 8 0 0 1 1 15.936V20h5v2H6v-2h5v-2.064A8 8 0 0 1 12 2m0 2a6 6 0 1 0 0 12 6 6 0 0 0 0-12"
+      clipRule="evenodd"
+    />
   </Svg>
 );
 export default SvgWebcam;

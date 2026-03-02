@@ -69,8 +69,8 @@ export function FilterButton({
     [onFilterChange],
   );
 
-  const sections = useMemo(() => {
-    return [
+  const sections = useMemo(
+    () => [
       {
         title: intl.formatMessage({
           id: ETranslations.referral_code_list,
@@ -86,13 +86,15 @@ export function FilterButton({
           onPress: () => handleInviteCodeSelect(option.value),
         })) as IActionListItemProps[],
       },
-    ];
-  }, [intl, inviteCodeOptions, filterState, handleInviteCodeSelect]);
+    ],
+    [intl, inviteCodeOptions, filterState, handleInviteCodeSelect],
+  );
 
   // Check if any filters are active (not default values)
-  const hasActiveFilters = useMemo(() => {
-    return filterState.inviteCode !== undefined;
-  }, [filterState]);
+  const hasActiveFilters = useMemo(
+    () => filterState.inviteCode !== undefined,
+    [filterState.inviteCode],
+  );
 
   // Handle mobile click to show ActionList
   const handleMobileClick = useCallback(() => {

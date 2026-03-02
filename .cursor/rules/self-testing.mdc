@@ -1,0 +1,95 @@
+---
+description: Mandatory self-testing checklist before completing any task — applies to all team members
+globs: 
+alwaysApply: true
+---
+
+# Self-Testing Checklist — Mandatory Before Completion
+
+After completing any non-trivial task (feature, bug fix, refactor), execute this checklist BEFORE presenting the result. DO NOT skip any section.
+
+## 1. Code Quality
+
+- [ ] No function > 40 lines without justification
+- [ ] No duplicated logic — shared code extracted
+- [ ] Error cases handled with try/catch or error boundaries
+- [ ] Semantic naming (no `tmp`, `data1`, `doStuff`)
+
+## 2. React Check (skip if no component code touched)
+
+- [ ] No inline `?? []` / `?? {}` in render — use module-level constants or `useMemo`
+- [ ] No new object/array creation in render paths feeding dependency arrays
+- [ ] All `useMemo`/`useCallback` dependency arrays correct
+
+## 3. Cross-Platform Impact (skip if single-platform file)
+
+- [ ] Identified which platforms consume modified code
+- [ ] UI changes verified on mobile (narrowest) and desktop (widest)
+- [ ] Stated: "Affects: [platforms]" and "Does NOT affect: [platforms]"
+
+## 4. Business Logic & Regression
+
+- [ ] Implementation matches original requirement
+- [ ] Edge cases covered: empty data, null, loading, error states
+- [ ] Data flow end-to-end: API → state → UI
+- [ ] Shared hook/utility modified → checked all consumers
+- [ ] Type definitions changed → all consumers updated
+- [ ] State atoms modified → verified all readers/writers
+
+## 5. Potential Bugs (skip for docs/config-only changes)
+
+- [ ] No race conditions in async operations
+- [ ] No stale closures capturing outdated state
+- [ ] No memory leaks: subscriptions/listeners cleaned up
+- [ ] No infinite loops from useEffect dependency chains
+- [ ] "Not loaded" (`null`/`undefined`) vs "empty" (`[]`) properly distinguished
+
+## 6. Unit Tests (skip for pure UI styling with no logic)
+
+- [ ] New/modified logic has corresponding `.test.ts` file
+- [ ] Tests cover happy path AND edge cases (empty, null, error)
+- [ ] Bug fix includes a regression test
+- [ ] Tests pass: `yarn test -- --testPathPattern=<path>`
+
+## 7. Lint & Type Check
+
+- [ ] `ReadLints` shows no new errors on modified files
+- [ ] `yarn lint:staged` passes
+- [ ] `yarn tsc:staged` passes
+
+## 8. Manual Verification (skip for non-UI changes)
+
+- Which command to run (`yarn app:ios` / `yarn app:desktop` / `yarn app:web` / `yarn app:ext`)
+- Which page to open and what action to perform
+- What the expected behavior is
+- Edge cases to check: empty state, error state, loading state
+
+## 9. Summary Output
+
+Present to user:
+1. **What was done** — 1-2 sentences
+2. **Files modified/created**
+3. **Tests added/updated**
+4. **Impact scope** — affected / not affected platforms
+5. **Risk assessment** — areas needing manual verification
+6. **Self-test result** — which checks passed, which were skipped and why
+
+## Bug Fix Case Recording
+
+After every **bug fix**, append to `.claude/skills/1k-retrospective/references/case-studies.md`:
+
+```
+## Case: [Title]
+**Date**: YYYY-MM-DD | **Platforms**: [affected]
+**Symptom**: [what the user saw]
+**Root Cause**: [what was actually wrong]
+**Fix**: [what was changed]
+**Catchable by**: [Section N: check item, or "NEW — not covered"]
+```
+
+Do NOT modify this file directly — only append to `case-studies.md`.
+
+## Skip Rules
+
+- Sections 2, 3, 5, 6, 8: see "skip if" notes in each section header
+- NEVER skip Sections 1, 4, 7, and 9

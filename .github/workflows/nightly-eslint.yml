@@ -1,0 +1,87 @@
+name: 04-nightly-eslint
+
+on:
+  schedule:
+    - cron: '0 22 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  YARN_ENABLE_GLOBAL_CACHE: true
+
+jobs:
+  eslint-check:
+    name: ESLint Check
+    runs-on: ubuntu-24.04
+
+    strategy:
+      matrix:
+        node-version: [24.x]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'yarn'
+          registry-url: 'https://npm.pkg.github.com'
+          check-latest: true
+          scope: '@onekeyhq'
+
+      - name: Install Dependencies
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: yarn install --immutable
+
+      - name: Run ESLint
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: npx eslint . --ext .ts,.tsx --max-warnings 0
+
+  notify-failure:
+    name: Notify on Failure
+    runs-on: ubuntu-24.04
+    needs: eslint-check
+    if: failure() && github.event_name == 'schedule'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create failure issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = `Nightly ESLint check failed on ${new Date().toISOString().split('T')[0]}`;
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'eslint-failure',
+              state: 'open',
+            });
+            if (issues.length > 0) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issues[0].number,
+                body: `Still failing: [Run #${context.runNumber}](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body: `The nightly ESLint check found errors or warnings.\n\n[View workflow run](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`,
+                labels: ['eslint-failure'],
+              });
+            }

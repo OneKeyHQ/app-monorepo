@@ -22,6 +22,7 @@ import { useEnabledNetworksCompatibleWithWalletIdInAllNetworks } from '../../hoo
 import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
 import { deferHeavyWorkUntilUIIdle } from '../../utils/deferHeavyWork';
 import { NetworkAvatarBase } from '../NetworkAvatar';
+
 import { useUnifiedNetworkSelectorTrigger } from './hooks/useUnifiedNetworkSelectorTrigger';
 
 const MAX_DISPLAY_NETWORKS = 2;
@@ -220,7 +221,12 @@ function AllNetworksManagerTrigger({
                 ml: '$-2',
               })}
             >
-              <NetworkAvatarBase logoURI={item?.logoURI} size="$6" />
+              <NetworkAvatarBase
+                logoURI={item?.logoURI}
+                size="$6"
+                networkName={item?.name}
+                isCustomNetwork={item?.isCustomNetwork}
+              />
             </Stack>
           ))}
         {enabledNetworksCompatibleWithWalletId.length > MAX_DISPLAY_NETWORKS ? (

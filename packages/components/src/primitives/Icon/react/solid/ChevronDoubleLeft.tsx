@@ -7,11 +7,7 @@ const SvgChevronDoubleLeft = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path
-      fillRule="evenodd"
-      d="M10.767 7.331a.99.99 0 0 1 0 1.403L7.5 12l3.266 3.266a.992.992 0 0 1-1.403 1.403l-3.441-3.442a1.736 1.736 0 0 1 0-2.454l3.44-3.442a.99.99 0 0 1 1.404 0Zm6.942 0a.99.99 0 0 1 0 1.403L14.443 12l3.266 3.266a.992.992 0 0 1-1.402 1.403l-3.442-3.442a1.736 1.736 0 0 1 0-2.454l3.442-3.442a.99.99 0 0 1 1.402 0"
-      clipRule="evenodd"
-    />
+    <Path d="m12.586 8 4 4-4 4L14 17.414 19.414 12 14 6.586zm-7 0 4 4-4 4L7 17.414 12.414 12 7 6.586z" />
   </Svg>
 );
 export default SvgChevronDoubleLeft;

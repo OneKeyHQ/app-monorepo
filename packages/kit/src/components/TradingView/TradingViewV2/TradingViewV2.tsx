@@ -59,6 +59,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     onPanesCountChange,
     dataSource,
     accountAddress,
+    ...stackStyle
   } = props;
 
   const { handleNavigation } = useNavigationHandler();
@@ -234,7 +235,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   );
 
   return (
-    <Stack position="relative" flex={1}>
+    <Stack position="relative" flex={1} {...stackStyle}>
       {webView}
 
       {platformEnv.isNativeIOS ? (

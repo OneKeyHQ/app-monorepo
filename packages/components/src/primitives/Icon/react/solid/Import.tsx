@@ -7,8 +7,8 @@ const SvgImport = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M16 4a1 1 0 1 0 0 2h4v12H4V9a1 1 0 0 0-2 0v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z" />
-    <Path d="M3 4a1 1 0 0 0 0 2h4a4 4 0 0 1 4 4v2.586l-2.043-2.043a1 1 0 0 0-1.414 1.414l3.75 3.75a1 1 0 0 0 1.414 0l3.75-3.75a1 1 0 0 0-1.414-1.414L13 12.586V10a6 6 0 0 0-6-6z" />
+    <Path d="M22 4v16H2V8h2v10h16V6h-5V4z" />
+    <Path d="M7 4a6 6 0 0 1 6 6v2.586l2.75-2.75 1.414 1.414L12 16.414 6.836 11.25 8.25 9.836l2.75 2.75V10a4 4 0 0 0-4-4H2V4z" />
   </Svg>
 );
 export default SvgImport;
