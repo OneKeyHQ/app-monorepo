@@ -112,7 +112,7 @@ index d699315..53733de 100644
        onLayout(size)
      }
 diff --git a/node_modules/react-native-bottom-tabs/ios/TabViewImpl.swift b/node_modules/react-native-bottom-tabs/ios/TabViewImpl.swift
-index 72938be..bfe51b5 100644
+index 72938be..3322d83 100644
 --- a/node_modules/react-native-bottom-tabs/ios/TabViewImpl.swift
 +++ b/node_modules/react-native-bottom-tabs/ios/TabViewImpl.swift
 @@ -69,6 +69,11 @@ struct TabViewImpl: View {
@@ -177,56 +177,24 @@ index 72938be..bfe51b5 100644
    @ViewBuilder
    func tabBadge(_ data: String?) -> some View {
      if #available(iOS 15.0, macOS 15.0, visionOS 2.0, tvOS 15.0, *) {
-@@ -261,6 +300,56 @@ extension View {
+@@ -261,6 +300,24 @@ extension View {
          }
          .onChange(of: props.tabBarHidden) { newValue in
            tabBar?.isHidden = newValue
 +          tabBar?.isUserInteractionEnabled = !newValue
 +          if #available(iOS 26.0, *) {
-+            print("[TabBarDebug] === onChange tabBarHidden=\(newValue) ===")
-+            print("[TabBarDebug] tabBar=\(String(describing: tabBar)), window=\(String(describing: tabBar?.window))")
-+            // Find window independently via UIApplication (tabBar.window may be nil if stale)
++            // On iOS 26, SwiftUI may recreate the UITabBarController making
++            // our tabBar reference stale. Find all UITabBars in the window
++            // and apply hidden state to any that our ref missed.
 +            let keyWindow = UIApplication.shared.connectedScenes
 +              .compactMap { $0 as? UIWindowScene }
 +              .flatMap { $0.windows }
 +              .first { $0.isKeyWindow }
-+            print("[TabBarDebug] keyWindow=\(String(describing: keyWindow))")
-+            // Also find ALL UITabBars in the window to check for stale references
 +            if let window = keyWindow {
 +              findAllTabBars(in: window) { foundTabBar in
-+                let isSameAsRef = (foundTabBar === tabBar)
-+                print("[TabBarDebug] found UITabBar: \(foundTabBar) isSameAsOurRef=\(isSameAsRef) isHidden=\(foundTabBar.isHidden) userInteraction=\(foundTabBar.isUserInteractionEnabled) window=\(String(describing: foundTabBar.window))")
-+                // If this is a DIFFERENT tab bar than our ref, also apply hidden state!
-+                if !isSameAsRef {
-+                  print("[TabBarDebug] >>> STALE REF DETECTED! Applying hidden=\(newValue) to real tab bar")
++                if foundTabBar !== tabBar {
 +                  foundTabBar.isHidden = newValue
 +                  foundTabBar.isUserInteractionEnabled = !newValue
-+                }
-+              }
-+              // hitTest probe
-+              DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-+                let midX = window.bounds.width / 2
-+                let probePoints: [(String, CGPoint)] = [
-+                  ("top", CGPoint(x: midX, y: 100)),
-+                  ("middle", CGPoint(x: midX, y: window.bounds.height / 2)),
-+                  ("above-tabbar", CGPoint(x: midX, y: window.bounds.height - 120)),
-+                  ("tabbar-area", CGPoint(x: midX, y: window.bounds.height - 50)),
-+                  ("bottom-edge", CGPoint(x: midX, y: window.bounds.height - 10)),
-+                ]
-+                for (label, point) in probePoints {
-+                  let hitView = window.hitTest(point, with: nil)
-+                  let cls = hitView.map { NSStringFromClass(type(of: $0)) } ?? "nil"
-+                  let frame = hitView?.frame ?? .zero
-+                  let interaction = hitView?.isUserInteractionEnabled ?? false
-+                  print("[TabBarDebug] hitTest[\(label)] at \(point) -> \(cls) frame=\(frame) userInteraction=\(interaction)")
-+                  var parent = hitView?.superview
-+                  for lvl in 1...3 {
-+                    if let p = parent {
-+                      let pcls = NSStringFromClass(type(of: p))
-+                      print("[TabBarDebug]   parent[\(lvl)]: \(pcls) frame=\(p.frame) userInteraction=\(p.isUserInteractionEnabled)")
-+                      parent = p.superview
-+                    }
-+                  }
 +                }
 +              }
 +            }
@@ -234,7 +202,7 @@ index 72938be..bfe51b5 100644
          }
      }
    #endif
-@@ -299,14 +388,14 @@ extension View {
+@@ -299,14 +356,14 @@ extension View {
    @ViewBuilder
    func hideTabBar(_ flag: Bool) -> some View {
      #if !os(macOS)
@@ -256,7 +224,7 @@ index 72938be..bfe51b5 100644
          self
        }
      #else
-@@ -326,3 +415,14 @@ extension View {
+@@ -326,3 +383,14 @@ extension View {
      }
    }
  }
