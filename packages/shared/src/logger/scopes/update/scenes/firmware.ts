@@ -76,7 +76,7 @@ export class FirmwareScene extends BaseScene {
 
   @LogToServer()
   public firmwareSwitchSuccess(params: {
-    deviceType: string | undefined;
+    deviceType: IDeviceType | undefined;
     fromFirmwareType: EFirmwareType | undefined;
     toFirmwareType: EFirmwareType | undefined;
   }) {
