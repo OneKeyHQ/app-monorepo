@@ -226,6 +226,10 @@ function Protocol({
               rowProps={{
                 mx: '$2',
                 minHeight: 44,
+                hoverStyle: { bg: '$bgApp' },
+                pressStyle: { bg: '$bgApp' },
+                focusable: false,
+                cursor: 'default',
               }}
               headerRowProps={{
                 py: '$2',
