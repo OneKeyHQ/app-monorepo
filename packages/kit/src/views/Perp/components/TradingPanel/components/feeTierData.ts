@@ -1,116 +1,101 @@
-// Hyperliquid fee tiers based on 14-day rolling volume
-export const HYPERLIQUID_FEE_TIERS = [
-  { tier: 0, minVolume: 0, taker: 0.00045, maker: 0.00015, label: '$0' },
-  {
-    tier: 1,
-    minVolume: 5_000_000,
-    taker: 0.0004,
-    maker: 0.00012,
-    label: '>$5M',
-  },
-  {
-    tier: 2,
-    minVolume: 25_000_000,
-    taker: 0.00035,
-    maker: 0.00008,
-    label: '>$25M',
-  },
-  {
-    tier: 3,
-    minVolume: 100_000_000,
-    taker: 0.0003,
-    maker: 0.00004,
-    label: '>$100M',
-  },
-  {
-    tier: 4,
-    minVolume: 500_000_000,
-    taker: 0.00028,
-    maker: 0,
-    label: '>$500M',
-  },
-  {
-    tier: 5,
-    minVolume: 2_000_000_000,
-    taker: 0.00026,
-    maker: 0,
-    label: '>$2B',
-  },
-  {
-    tier: 6,
-    minVolume: 7_000_000_000,
-    taker: 0.00024,
-    maker: 0,
-    label: '>$7B',
-  },
+export type IWalletBuilderFeeBenchmark = {
+  name: string;
+  builderFeeBenchmark: number | null;
+  color: string;
+  icon: number;
+  isMaintained: boolean;
+  evidence?: string;
+};
+
+// Default sample rates used only when we cannot fetch user-specific fee data.
+export const DEFAULT_HL_TAKER_FEE_FOR_COMPARE = 0.00045;
+export const DEFAULT_HL_MAKER_FEE_FOR_COMPARE = 0.00015;
+
+export const FEE_COMPARE_BENCHMARK_LAST_UPDATED = '2026-03-02';
+export const PERP_CONFIG_BUILDER_FEE_RATE_DIVISOR = 100_000;
+
+export const STAKING_DISCOUNT_LABELS = [
+  { label: 'None', discount: 0 },
+  { label: 'Wood', discount: 0.05 },
+  { label: 'Bronze', discount: 0.1 },
+  { label: 'Silver', discount: 0.15 },
+  { label: 'Gold', discount: 0.2 },
+  { label: 'Platinum', discount: 0.3 },
+  { label: 'Diamond', discount: 0.4 },
 ] as const;
 
-// HYPE staking tiers
-export const HYPE_STAKING_TIERS = [
-  { tier: 'None', minStaked: 0, discount: 0 },
-  { tier: 'Wood', minStaked: 10, discount: 0.05 },
-  { tier: 'Bronze', minStaked: 100, discount: 0.1 },
-  { tier: 'Silver', minStaked: 1_000, discount: 0.15 },
-  { tier: 'Gold', minStaked: 10_000, discount: 0.2 },
-  { tier: 'Platinum', minStaked: 100_000, discount: 0.3 },
-  { tier: 'Diamond', minStaked: 500_000, discount: 0.4 },
-] as const;
-
-// Competitor wallet builder fees (sorted ascending by fee)
-export const WALLET_BUILDER_FEES = [
+// Configurable benchmark data for non-OneKey wallets.
+export const WALLET_BUILDER_FEE_BENCHMARKS: IWalletBuilderFeeBenchmark[] = [
   {
     name: 'OneKey',
-    builderFee: 0,
+    builderFeeBenchmark: null,
     color: '#00B812',
-    icon: require('@onekeyhq/kit/assets/perps/wallets/onekey.png'),
-  },
-  {
-    name: 'Dreamcash',
-    builderFee: 0.00045,
-    color: '#F5A623',
-    icon: require('@onekeyhq/kit/assets/perps/wallets/dreamcash.png'),
+    icon: require('@onekeyhq/kit/assets/perps/wallets/onekey.png') as number,
+    isMaintained: true,
+    evidence: 'Perps config',
   },
   {
     name: 'Phantom',
-    builderFee: 0.0005,
+    builderFeeBenchmark: 0.0005,
     color: '#AB9FF2',
-    icon: require('@onekeyhq/kit/assets/perps/wallets/phantom.png'),
+    icon: require('@onekeyhq/kit/assets/perps/wallets/phantom.png') as number,
+    isMaintained: true,
+    evidence: 'CoinMarketMan Hypertracker builders usage fee',
   },
   {
     name: 'Infinex',
-    builderFee: 0.0005,
+    builderFeeBenchmark: 0.0005,
     color: '#6366F1',
-    icon: require('@onekeyhq/kit/assets/perps/wallets/infinex.png'),
-  },
-  {
-    name: 'Liquid',
-    builderFee: 0.0005,
-    color: '#2DD4BF',
-    icon: require('@onekeyhq/kit/assets/perps/wallets/liquid.png'),
+    icon: require('@onekeyhq/kit/assets/perps/wallets/infinex.png') as number,
+    isMaintained: true,
+    evidence: 'CoinMarketMan Hypertracker builders usage fee',
   },
   {
     name: 'Rainbow',
-    builderFee: 0.0005,
+    builderFeeBenchmark: 0.0005,
     color: '#FF6B6B',
-    icon: require('@onekeyhq/kit/assets/perps/wallets/rainbow.png'),
+    icon: require('@onekeyhq/kit/assets/perps/wallets/rainbow.png') as number,
+    isMaintained: true,
+    evidence: 'CoinMarketMan Hypertracker builders usage fee',
   },
   {
     name: 'MetaMask',
-    builderFee: 0.001,
+    builderFeeBenchmark: 0.001,
     color: '#F6851B',
-    icon: require('@onekeyhq/kit/assets/perps/wallets/metamask.png'),
+    icon: require('@onekeyhq/kit/assets/perps/wallets/metamask.png') as number,
+    isMaintained: true,
+    evidence: 'CoinMarketMan Hypertracker builders usage fee',
   },
 ] as const;
 
-// Demo user data (hardcoded for now, will be replaced by API data)
-export const DEMO_USER_FEE_DATA = {
-  feeTier: 3,
-  stakingTier: 'Gold',
-  builderFee: 0,
-  volume14d: 100_000_000,
-  hypeStaked: 10_000,
-} as const;
-
 export function formatFeePercent(fee: number): string {
   return `${(fee * 100).toFixed(3)}%`;
+}
+
+export function formatFeePercentOrNA(fee?: number | null): string {
+  if (fee === null || fee === undefined || Number.isNaN(fee)) {
+    return '—';
+  }
+  return formatFeePercent(fee);
+}
+
+// hyperliquidMaxBuilderFee uses 1/1000% precision (e.g. 13 => 0.013% => 0.00013).
+export function normalizePerpsConfigBuilderFeeRate(
+  maxBuilderFee?: number | null,
+): number {
+  if (
+    maxBuilderFee === null ||
+    maxBuilderFee === undefined ||
+    Number.isNaN(maxBuilderFee)
+  ) {
+    return 0;
+  }
+  return Math.max(maxBuilderFee, 0) / PERP_CONFIG_BUILDER_FEE_RATE_DIVISOR;
+}
+
+export function getStakingTierLabelByDiscount(discount: number): string {
+  const resolved = STAKING_DISCOUNT_LABELS.find(
+    (tier) => Math.abs(tier.discount - discount) < 0.00001,
+  );
+  return resolved?.label ?? `Custom`;
 }

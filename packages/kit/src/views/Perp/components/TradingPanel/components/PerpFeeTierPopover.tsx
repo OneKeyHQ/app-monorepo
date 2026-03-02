@@ -1,46 +1,117 @@
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { useIntl } from 'react-intl';
 
 import {
   Badge,
-  Divider,
+  Button,
   Icon,
   Image,
   Popover,
   SegmentControl,
   SizableText,
+  Spinner,
   Stack,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import type { IHyperliquidUserFeesResponse } from '@onekeyhq/kit-bg/src/services/ServiceWebviewPerp';
+import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import {
-  DEMO_USER_FEE_DATA,
-  HYPE_STAKING_TIERS,
-  HYPERLIQUID_FEE_TIERS,
-  WALLET_BUILDER_FEES,
+  DEFAULT_HL_MAKER_FEE_FOR_COMPARE,
+  DEFAULT_HL_TAKER_FEE_FOR_COMPARE,
+  FEE_COMPARE_BENCHMARK_LAST_UPDATED,
+  WALLET_BUILDER_FEE_BENCHMARKS,
   formatFeePercent,
+  formatFeePercentOrNA,
+  getStakingTierLabelByDiscount,
+  normalizePerpsConfigBuilderFeeRate,
 } from './feeTierData';
+
+type IResolvedFeeInfo = {
+  builderFee: number;
+  hlTaker: number;
+  hlMaker: number;
+  totalTaker: number;
+  totalMaker: number;
+  feeTierDisplay: string;
+  stakingTierDisplay: string;
+  isSample: boolean;
+};
+
+function toNumber(value: string | number | null | undefined): number {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : 0;
+}
+
+function formatCompactUsd(value: number): string {
+  if (value >= 1_000_000_000) {
+    return `$${(value / 1_000_000_000).toFixed(1)}B`;
+  }
+  if (value >= 1_000_000) {
+    return `$${(value / 1_000_000).toFixed(1)}M`;
+  }
+  if (value >= 1_000) {
+    return `$${(value / 1_000).toFixed(1)}K`;
+  }
+  return `$${value.toFixed(0)}`;
+}
+
+function formatUsdFeeAmount(value?: number): string {
+  if (value === undefined || Number.isNaN(value)) {
+    return '—';
+  }
+  return `$${value.toFixed(2)}`;
+}
+
+function resolveFeeTierDisplayFromUserFees(
+  userFees: IHyperliquidUserFeesResponse,
+) {
+  const vipTiers = userFees.feeSchedule?.tiers?.vip ?? [];
+  const volume14d = (userFees.dailyUserVlm ?? []).reduce((sum, item) => {
+    return sum + toNumber(item.userCross) + toNumber(item.userAdd);
+  }, 0);
+
+  let tier = 0;
+  let tierLabel = '$0';
+  vipTiers.forEach((vipTier, index) => {
+    const cutoff = toNumber(vipTier.ntlCutoff);
+    if (volume14d >= cutoff) {
+      tier = index + 1;
+      tierLabel = `>${formatCompactUsd(cutoff)}`;
+    }
+  });
+
+  return `Fee Tier ${tier} (${tierLabel})`;
+}
 
 function FeeRow({
   label,
   value,
   bold,
+  emphasis,
+  valueColor,
 }: {
   label: string;
   value: string;
   bold?: boolean;
+  emphasis?: boolean;
+  valueColor?: string;
 }) {
   return (
     <XStack justifyContent="space-between" alignItems="center">
       <SizableText
-        size={bold ? '$bodyMdMedium' : '$bodySm'}
+        size={bold ? '$bodyMdMedium' : emphasis ? '$bodyMd' : '$bodySm'}
         color="$textSubdued"
       >
         {label}
       </SizableText>
       <SizableText
-        size={bold ? '$bodyMdMedium' : '$bodySm'}
-        color={bold ? '$text' : '$textSubdued'}
+        size={bold ? '$bodyMdMedium' : emphasis ? '$bodyMdMedium' : '$bodySm'}
+        color={valueColor ?? (bold ? '$text' : '$textSubdued')}
       >
         {value}
       </SizableText>
@@ -48,178 +119,326 @@ function FeeRow({
   );
 }
 
-function FeeProgressBar({
-  percent,
-  color,
-}: {
-  percent: number;
-  color: string;
-}) {
-  return (
-    <Stack h={4} bg="$bgStrong" borderRadius="$full" overflow="hidden">
-      <Stack
-        h="100%"
-        borderRadius="$full"
-        bg={color as any}
-        width={`${Math.max(percent, 2)}%`}
-      />
-    </Stack>
-  );
-}
+const COMPARE_ICON_SIZE = '$5';
+const COMPARE_WALLET_COLUMN_WIDTH = 52;
+const COMPARE_TOTAL_FEE_COLUMN_WIDTH = 108;
+const COMPARE_PROVIDER_FEE_COLUMN_WIDTH = 174;
+const COMPARE_COLUMN_GAP = '$3';
+const COMPARE_ROW_HORIZONTAL_PADDING = '$1';
+const COMPARE_TRADE_VOLUME_USD = 100_000;
+const COMPARE_MOBILE_WALLET_COLUMN_WIDTH = '18%';
+const COMPARE_MOBILE_TOTAL_COLUMN_WIDTH = '32%';
+const COMPARE_MOBILE_PROVIDER_COLUMN_WIDTH = '50%';
 
 function WalletRow({
-  name,
   totalTakerFee,
-  maxTakerFee,
+  providerFeeOnVolume,
   icon,
-  color,
   isHighlighted,
+  useFluidColumns,
 }: {
-  name: string;
-  totalTakerFee: number;
-  maxTakerFee: number;
+  totalTakerFee?: number;
+  providerFeeOnVolume?: number;
   icon: number;
-  color: string;
   isHighlighted?: boolean;
+  useFluidColumns: boolean;
 }) {
-  const barPercent = maxTakerFee > 0 ? (totalTakerFee / maxTakerFee) * 100 : 0;
+  const walletColumnLayout = useFluidColumns
+    ? { width: COMPARE_MOBILE_WALLET_COLUMN_WIDTH }
+    : { width: COMPARE_WALLET_COLUMN_WIDTH };
+  const totalColumnLayout = useFluidColumns
+    ? { width: COMPARE_MOBILE_TOTAL_COLUMN_WIDTH }
+    : { width: COMPARE_TOTAL_FEE_COLUMN_WIDTH };
+  const providerColumnLayout = useFluidColumns
+    ? { width: COMPARE_MOBILE_PROVIDER_COLUMN_WIDTH }
+    : { width: COMPARE_PROVIDER_FEE_COLUMN_WIDTH };
 
   return (
-    <YStack
-      py="$1.5"
-      px="$2"
-      borderRadius="$2"
-      gap="$1.5"
-      {...(isHighlighted && { bg: '$bgSuccessSubdued' })}
-    >
-      <XStack alignItems="center">
-        <XStack flex={1} alignItems="center" gap="$2">
-          <Image
-            source={icon}
-            size="$5"
-            borderRadius="$full"
-          />
-          <SizableText size="$bodySm" color="$text" numberOfLines={1}>
-            {name}
-          </SizableText>
-          {isHighlighted ? (
-            <Badge badgeType="success" badgeSize="sm">
-              Overall Best
+    <YStack py="$1.5" px={COMPARE_ROW_HORIZONTAL_PADDING}>
+      <XStack
+        alignItems="center"
+        justifyContent="flex-start"
+        gap={useFluidColumns ? '$0' : COMPARE_COLUMN_GAP}
+        width="100%"
+      >
+        <Stack {...walletColumnLayout} alignItems="flex-start">
+          <Image source={icon} size={COMPARE_ICON_SIZE} borderRadius="$full" />
+        </Stack>
+        <Stack {...totalColumnLayout} alignItems="flex-end">
+          {totalTakerFee === undefined ? (
+            <Badge badgeType="info" badgeSize="sm">
+              N/A
             </Badge>
-          ) : null}
-        </XStack>
-        <SizableText size="$bodySm" color="$textSubdued">
-          {formatFeePercent(totalTakerFee)}
-        </SizableText>
+          ) : (
+            <SizableText
+              width="100%"
+              size="$headingSm"
+              textAlign="right"
+              numberOfLines={1}
+              color={isHighlighted ? '$green11' : '$textSubdued'}
+            >
+              {formatFeePercentOrNA(totalTakerFee)}
+            </SizableText>
+          )}
+        </Stack>
+        <Stack {...providerColumnLayout} alignItems="flex-end">
+          {providerFeeOnVolume === undefined ? (
+            <Badge badgeType="info" badgeSize="sm">
+              N/A
+            </Badge>
+          ) : (
+            <SizableText
+              width="100%"
+              size="$headingSm"
+              textAlign="right"
+              numberOfLines={1}
+              color={isHighlighted ? '$green11' : '$textSubdued'}
+            >
+              {formatUsdFeeAmount(providerFeeOnVolume)}
+            </SizableText>
+          )}
+        </Stack>
       </XStack>
-      <FeeProgressBar percent={barPercent} color={color} />
     </YStack>
   );
 }
 
 function YourFeesSection({
-  builderFee,
-  computedFees,
-  feeTier,
-  stakingTier,
+  hasAccount,
+  isLoading,
+  errorMessage,
+  onRetry,
+  resolvedFeeInfo,
+  isUsingRealData,
+  zeroFeeDescription,
 }: {
-  builderFee: number;
-  computedFees: {
-    tierData: (typeof HYPERLIQUID_FEE_TIERS)[number];
-    stakingDiscount: number;
-    hlTaker: number;
-    hlMaker: number;
-    totalTaker: number;
-    totalMaker: number;
-  };
-  feeTier: number;
-  stakingTier: string;
+  hasAccount: boolean;
+  isLoading: boolean;
+  errorMessage?: string;
+  onRetry: () => void;
+  resolvedFeeInfo: IResolvedFeeInfo;
+  isUsingRealData: boolean;
+  zeroFeeDescription: string;
 }) {
+  if (!hasAccount) {
+    return (
+      <YStack gap="$2">
+        <SizableText size="$bodySm" color="$textSubdued">
+          Connect account to view real-time fee rates from Hyperliquid userFees.
+        </SizableText>
+        <SizableText size="$bodyXs" color="$textSubdued">
+          Compare tab still works using sample/default Tier 0 HL taker fee.
+        </SizableText>
+      </YStack>
+    );
+  }
+
+  if (isLoading && !isUsingRealData) {
+    return (
+      <XStack alignItems="center" gap="$2">
+        <Spinner size="small" />
+        <SizableText size="$bodySm" color="$textSubdued">
+          Loading your real fee rates...
+        </SizableText>
+      </XStack>
+    );
+  }
+
+  if (errorMessage && !isUsingRealData) {
+    return (
+      <YStack gap="$2">
+        <SizableText size="$bodySm" color="$textSubdued">
+          Failed to fetch fees. Please try again.
+        </SizableText>
+        <Button size="small" onPress={onRetry}>
+          Retry
+        </Button>
+      </YStack>
+    );
+  }
+
   return (
-    <YStack gap="$2">
-      <YStack gap="$1.5">
+    <YStack gap="$2.5">
+      {errorMessage ? (
+        <SizableText size="$bodyXs" color="$textWarning">
+          Latest refresh failed. Showing last available/safe fallback data.
+        </SizableText>
+      ) : null}
+      <YStack gap="$2.5">
         <FeeRow
           label="Builder Fee (OneKey)"
-          value={formatFeePercent(builderFee)}
+          value={formatFeePercent(resolvedFeeInfo.builderFee)}
+          emphasis
+          valueColor="$green11"
         />
         <FeeRow
-          label="Hyperliquid Fee (Taker)"
-          value={formatFeePercent(computedFees.hlTaker)}
+          label="HL Taker Fee"
+          value={formatFeePercent(resolvedFeeInfo.hlTaker)}
+          emphasis
+          valueColor="$green11"
         />
         <FeeRow
-          label="Hyperliquid Fee (Maker)"
-          value={formatFeePercent(computedFees.hlMaker)}
+          label="HL Maker Fee"
+          value={formatFeePercent(resolvedFeeInfo.hlMaker)}
+          emphasis
+          valueColor="$green11"
         />
       </YStack>
-      <Divider />
-      <YStack gap="$1.5">
+      <Stack h={1} bg="$borderSubdued" />
+      <YStack gap="$2.5">
         <FeeRow
-          label="Total Taker Fee"
-          value={formatFeePercent(computedFees.totalTaker)}
+          label="Total Taker Fee (HL + Builder)"
+          value={formatFeePercent(resolvedFeeInfo.totalTaker)}
           bold
+          valueColor="$green11"
         />
         <FeeRow
-          label="Total Maker Fee"
-          value={formatFeePercent(computedFees.totalMaker)}
+          label="Total Maker Fee (HL + Builder)"
+          value={formatFeePercent(resolvedFeeInfo.totalMaker)}
           bold
+          valueColor="$green11"
         />
       </YStack>
-      <XStack gap="$2" flexWrap="wrap">
-        <Badge badgeType="info">
-          {`Fee Tier ${feeTier} (${computedFees.tierData.label})`}
-        </Badge>
-        <Badge badgeType="info">
-          {`${stakingTier} Staking (${Math.round(computedFees.stakingDiscount * 100)}% off)`}
-        </Badge>
-      </XStack>
+      <SizableText size="$bodyXs" color="$textSubdued">
+        {zeroFeeDescription}
+      </SizableText>
     </YStack>
   );
 }
 
 function WalletComparisonSection({
-  computedFees,
+  hlTakerForCompare,
+  onekeyBuilderFee,
+  isUsingSampleHlTaker,
 }: {
-  computedFees: {
-    hlTaker: number;
-    hlMaker: number;
-  };
+  hlTakerForCompare: number;
+  onekeyBuilderFee: number;
+  isUsingSampleHlTaker: boolean;
 }) {
-  const maxTakerFee = useMemo(() => {
-    const fees = WALLET_BUILDER_FEES.map(
-      (w) => w.builderFee + computedFees.hlTaker,
-    );
-    return Math.max(...fees);
-  }, [computedFees.hlTaker]);
+  const { gtSm } = useMedia();
+  const useFluidColumns = !gtSm;
+  const providerFeeColumnTitle = useFluidColumns
+    ? 'Builder Fee ($100k)'
+    : 'Builder Fee Cost per $100k';
+
+  const walletColumnLayout = useFluidColumns
+    ? { width: COMPARE_MOBILE_WALLET_COLUMN_WIDTH }
+    : { width: COMPARE_WALLET_COLUMN_WIDTH };
+  const totalColumnLayout = useFluidColumns
+    ? { width: COMPARE_MOBILE_TOTAL_COLUMN_WIDTH }
+    : { width: COMPARE_TOTAL_FEE_COLUMN_WIDTH };
+  const providerColumnLayout = useFluidColumns
+    ? { width: COMPARE_MOBILE_PROVIDER_COLUMN_WIDTH }
+    : { width: COMPARE_PROVIDER_FEE_COLUMN_WIDTH };
+
+  const compareRows = useMemo(() => {
+    return WALLET_BUILDER_FEE_BENCHMARKS.map((wallet) => {
+      const isOneKey = wallet.name === 'OneKey';
+      const hasReliableBenchmark = isOneKey
+        ? true
+        : wallet.isMaintained && wallet.builderFeeBenchmark !== null;
+      const builderFee = isOneKey
+        ? onekeyBuilderFee
+        : wallet.builderFeeBenchmark;
+      const providerFeeRate =
+        hasReliableBenchmark && builderFee !== null
+          ? isOneKey
+            ? 0
+            : builderFee
+          : undefined;
+      const totalTaker =
+        hasReliableBenchmark && builderFee !== null
+          ? hlTakerForCompare + builderFee
+          : undefined;
+      return {
+        ...wallet,
+        totalTaker,
+        providerFeeOnVolume:
+          providerFeeRate === undefined
+            ? undefined
+            : providerFeeRate * COMPARE_TRADE_VOLUME_USD,
+      };
+    });
+  }, [hlTakerForCompare, onekeyBuilderFee]);
+
+  const sortedRows = useMemo(() => {
+    return [...compareRows].sort((a, b) => {
+      if (a.totalTaker === undefined && b.totalTaker === undefined) {
+        return 0;
+      }
+      if (a.totalTaker === undefined) {
+        return 1;
+      }
+      if (b.totalTaker === undefined) {
+        return -1;
+      }
+      return b.totalTaker - a.totalTaker;
+    });
+  }, [compareRows]);
+
+  const hasMissingBenchmarks = useMemo(
+    () => compareRows.some((row) => row.totalTaker === undefined),
+    [compareRows],
+  );
 
   return (
-    <YStack gap="$1">
-      <XStack alignItems="center" px="$2" pb="$1">
-        <SizableText flex={1} size="$bodyXs" color="$textSubdued">
-          Wallet
-        </SizableText>
-        <SizableText size="$bodyXs" color="$textSubdued">
-          Total Taker Fee
-        </SizableText>
-      </XStack>
+    <YStack gap="$3">
       <YStack gap="$1">
-        {WALLET_BUILDER_FEES.map((wallet) => {
-          const walletTaker = wallet.builderFee + computedFees.hlTaker;
-          return (
-            <WalletRow
-              key={wallet.name}
-              name={wallet.name}
-              totalTakerFee={walletTaker}
-              maxTakerFee={maxTakerFee}
-              icon={wallet.icon as number}
-              color={wallet.color}
-              isHighlighted={wallet.name === 'OneKey'}
-            />
-          );
-        })}
+        <XStack
+          alignItems="center"
+          justifyContent="flex-start"
+          gap={useFluidColumns ? '$0' : COMPARE_COLUMN_GAP}
+          px={COMPARE_ROW_HORIZONTAL_PADDING}
+          width="100%"
+        >
+          <Stack {...walletColumnLayout} alignItems="flex-start">
+            <SizableText size="$bodySmMedium" color="$textSubdued">
+              Wallet
+            </SizableText>
+          </Stack>
+          <Stack {...totalColumnLayout} alignItems="flex-end">
+            <SizableText width="100%" size="$bodySmMedium" textAlign="right" color="$textSubdued">
+              Total Taker Fee
+            </SizableText>
+          </Stack>
+          <Stack {...providerColumnLayout} alignItems="flex-end">
+            <SizableText width="100%" size="$bodySmMedium" textAlign="right" numberOfLines={1} color="$textSubdued">
+              {providerFeeColumnTitle}
+            </SizableText>
+          </Stack>
+        </XStack>
+        <YStack gap="$0.5">
+          {sortedRows.map((wallet) => {
+            const isOneKey = wallet.name === 'OneKey';
+            return (
+              <WalletRow
+                key={wallet.name}
+                totalTakerFee={wallet.totalTaker}
+                providerFeeOnVolume={wallet.providerFeeOnVolume}
+                icon={wallet.icon}
+                isHighlighted={isOneKey}
+                useFluidColumns={useFluidColumns}
+              />
+            );
+          })}
+        </YStack>
       </YStack>
-      <SizableText size="$bodyXs" color="$textSuccess" pt="$1">
-        OneKey 0 Builder Fee — lowest fees across all wallets
+      <Stack h={1} bg="$borderSubdued" />
+      <SizableText size="$bodyXs" color="$textSubdued">
+        Last updated: {FEE_COMPARE_BENCHMARK_LAST_UPDATED}
       </SizableText>
+      {isUsingSampleHlTaker ? (
+        <SizableText size="$bodyXs" color="$textSubdued">
+          Account not connected or unavailable. Using sample/default HL taker
+          fee for comparison.
+        </SizableText>
+      ) : null}
+      {hasMissingBenchmarks ? (
+        <SizableText size="$bodyXs" color="$textSubdued">
+          Some wallets are marked as N/A due to missing maintainable public fee
+          benchmarks.
+        </SizableText>
+      ) : null}
     </YStack>
   );
 }
@@ -230,36 +449,124 @@ const SEGMENT_OPTIONS = [
 ];
 
 function PerpFeeTierPopoverContent() {
-  const { feeTier, stakingTier, builderFee } = DEMO_USER_FEE_DATA;
+  const intl = useIntl();
   const [activeTab, setActiveTab] = useState<string | number>('your-fees');
+  const [retryCount, setRetryCount] = useState(0);
+  const [userFees, setUserFees] = useState<IHyperliquidUserFeesResponse>();
+  const [isLoadingUserFees, setIsLoadingUserFees] = useState(false);
+  const [userFeesErrorMessage, setUserFeesErrorMessage] = useState<string>();
+  const [onekeyBuilderFee, setOnekeyBuilderFee] = useState(0);
+  const [activeAccount] = usePerpsActiveAccountAtom();
+  const accountAddress = activeAccount?.accountAddress;
+  const hasAccount = Boolean(accountAddress);
 
   const handleTabChange = useCallback((value: string | number) => {
     setActiveTab(value);
   }, []);
 
-  const computedFees = useMemo(() => {
-    const tierData =
-      HYPERLIQUID_FEE_TIERS.find((t) => t.tier === feeTier) ??
-      HYPERLIQUID_FEE_TIERS[0];
-    const stakingData = HYPE_STAKING_TIERS.find(
-      (s) => s.tier === stakingTier,
-    );
-    const stakingDiscount = stakingData?.discount ?? 0;
+  const handleRetry = useCallback(() => {
+    setRetryCount((prev) => prev + 1);
+  }, []);
 
-    const hlTaker = tierData.taker * (1 - stakingDiscount);
-    const hlMaker = tierData.maker * (1 - stakingDiscount);
-    const totalTaker = builderFee + hlTaker;
-    const totalMaker = builderFee + hlMaker;
+  useEffect(() => {
+    let cancelled = false;
+    void backgroundApiProxy.simpleDb.perp
+      .getExpectMaxBuilderFee()
+      .then((fee) => {
+        if (cancelled) {
+          return;
+        }
+        setOnekeyBuilderFee(normalizePerpsConfigBuilderFeeRate(fee));
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setOnekeyBuilderFee(0);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [retryCount]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!accountAddress) {
+      setUserFees(undefined);
+      setUserFeesErrorMessage(undefined);
+      setIsLoadingUserFees(false);
+      return;
+    }
+
+    setIsLoadingUserFees(true);
+    setUserFeesErrorMessage(undefined);
+
+    void backgroundApiProxy.serviceWebviewPerp
+      .getUserFees({ userAddress: accountAddress })
+      .then((data) => {
+        if (cancelled) {
+          return;
+        }
+        setUserFees(data);
+      })
+      .catch((error) => {
+        if (cancelled) {
+          return;
+        }
+        const msg = error instanceof Error ? error.message : 'Unknown error';
+        setUserFeesErrorMessage(msg);
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setIsLoadingUserFees(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [accountAddress, retryCount]);
+
+  const resolvedFeeInfo = useMemo<IResolvedFeeInfo>(() => {
+    if (!userFees) {
+      return {
+        builderFee: onekeyBuilderFee,
+        hlTaker: DEFAULT_HL_TAKER_FEE_FOR_COMPARE,
+        hlMaker: DEFAULT_HL_MAKER_FEE_FOR_COMPARE,
+        totalTaker: DEFAULT_HL_TAKER_FEE_FOR_COMPARE + onekeyBuilderFee,
+        totalMaker: DEFAULT_HL_MAKER_FEE_FOR_COMPARE + onekeyBuilderFee,
+        feeTierDisplay: 'Fee Tier 0 ($0)',
+        stakingTierDisplay: 'None Staking (0% off)',
+        isSample: true,
+      };
+    }
+
+    const builderFee = onekeyBuilderFee;
+    const hlTaker = toNumber(userFees.userCrossRate);
+    const hlMaker = toNumber(userFees.userAddRate);
+    const totalTaker = hlTaker + builderFee;
+    const totalMaker = hlMaker + builderFee;
+
+    const feeTierDisplay = resolveFeeTierDisplayFromUserFees(userFees);
+    const stakingDiscount = toNumber(userFees.activeStakingDiscount?.discount);
+    const stakingTierLabel = getStakingTierLabelByDiscount(stakingDiscount);
+    const stakingTierDisplay = `${stakingTierLabel} Staking (${Math.round(stakingDiscount * 100)}% off)`;
 
     return {
-      tierData,
-      stakingDiscount,
+      builderFee,
       hlTaker,
       hlMaker,
       totalTaker,
       totalMaker,
+      feeTierDisplay,
+      stakingTierDisplay,
+      isSample: false,
     };
-  }, [feeTier, stakingTier, builderFee]);
+  }, [onekeyBuilderFee, userFees]);
+
+  const zeroFeeDescription = useMemo(
+    () => intl.formatMessage({ id: ETranslations.perps_fee_desc }),
+    [intl],
+  );
 
   return (
     <YStack px="$4" pt="$3" pb="$4" gap="$3">
@@ -271,13 +578,20 @@ function PerpFeeTierPopoverContent() {
       />
       {activeTab === 'your-fees' ? (
         <YourFeesSection
-          builderFee={builderFee}
-          computedFees={computedFees}
-          feeTier={feeTier}
-          stakingTier={stakingTier}
+          hasAccount={hasAccount}
+          isLoading={isLoadingUserFees}
+          errorMessage={userFeesErrorMessage}
+          onRetry={handleRetry}
+          resolvedFeeInfo={resolvedFeeInfo}
+          isUsingRealData={!resolvedFeeInfo.isSample}
+          zeroFeeDescription={zeroFeeDescription}
         />
       ) : (
-        <WalletComparisonSection computedFees={computedFees} />
+        <WalletComparisonSection
+          hlTakerForCompare={resolvedFeeInfo.hlTaker}
+          onekeyBuilderFee={resolvedFeeInfo.builderFee}
+          isUsingSampleHlTaker={resolvedFeeInfo.isSample}
+        />
       )}
     </YStack>
   );
@@ -287,20 +601,11 @@ function PerpFeeTierPopoverComponent() {
   return (
     <Popover
       title="Fee Tiers"
-      placement="top-start"
-      floatingPanelProps={{ w: 360 }}
+      placement="bottom-end"
+      floatingPanelProps={{ w: 400 }}
       renderTrigger={
-        <XStack
-          alignItems="center"
-          gap="$1"
-          py="$1"
-          cursor="pointer"
-        >
-          <Icon
-            name="PercentOutline"
-            size="$4"
-            color="$iconSubdued"
-          />
+        <XStack alignItems="center" gap="$1" py="$1" cursor="pointer">
+          <Icon name="PercentOutline" size="$4" color="$iconSubdued" />
           <SizableText size="$bodySm" color="$textSubdued">
             Fee Tier
           </SizableText>

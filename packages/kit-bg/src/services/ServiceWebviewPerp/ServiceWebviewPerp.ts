@@ -134,6 +134,55 @@ export interface IHyperliquidVaultEquity {
 
 export type IHyperliquidMaxBuilderFee = number;
 
+export interface IHyperliquidUserFeesDailyVolume {
+  date: string;
+  userCross: string;
+  userAdd: string;
+  exchange: string;
+}
+
+export interface IHyperliquidUserFeesVipTier {
+  ntlCutoff: string;
+  cross: string;
+  add: string;
+  spotCross: string;
+  spotAdd: string;
+}
+
+export interface IHyperliquidUserFeesStakingDiscountTier {
+  bpsOfMaxSupply: string;
+  discount: string;
+}
+
+export interface IHyperliquidUserFeesResponse {
+  dailyUserVlm: IHyperliquidUserFeesDailyVolume[];
+  feeSchedule: {
+    cross: string;
+    add: string;
+    spotCross: string;
+    spotAdd: string;
+    tiers: {
+      vip: IHyperliquidUserFeesVipTier[];
+      mm?: {
+        makerFractionCutoff: string;
+        add: string;
+      }[];
+    };
+    referralDiscount?: string;
+    stakingDiscountTiers?: IHyperliquidUserFeesStakingDiscountTier[];
+  };
+  userCrossRate: string;
+  userAddRate: string;
+  userSpotCrossRate?: string;
+  userSpotAddRate?: string;
+  activeReferralDiscount?: string;
+  activeStakingDiscount?: IHyperliquidUserFeesStakingDiscountTier | null;
+  trial?: unknown;
+  feeTrialEscrow?: string;
+  nextTrialAvailableTimestamp?: number | null;
+  stakingLink?: unknown;
+}
+
 export interface IHyperliquidApproveBuilderFeeRequest {
   userAddress: string;
   builderAddress: string;
@@ -390,6 +439,18 @@ class ServiceWebviewPerp extends ServiceBase {
       type: 'maxBuilderFee',
       user: userAddress.toLowerCase(),
       builder: builderAddress.toLowerCase(),
+    });
+  }
+
+  @backgroundMethod()
+  async getUserFees({
+    userAddress,
+  }: {
+    userAddress: string;
+  }): Promise<IHyperliquidUserFeesResponse> {
+    return this.hyperliquidInfoRequest<IHyperliquidUserFeesResponse>({
+      type: 'userFees',
+      user: userAddress.toLowerCase(),
     });
   }
 
