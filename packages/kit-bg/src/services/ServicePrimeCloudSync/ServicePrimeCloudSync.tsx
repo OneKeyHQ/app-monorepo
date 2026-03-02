@@ -98,6 +98,10 @@ import type { AxiosResponse } from 'axios';
 
 const nonceZero = 0;
 
+// Guard for the first-enable window: server pwdHash can be temporarily empty
+// before initial flush/lock upload finishes.
+let oneKeyIdCloudSyncEnableFlowCount = 0;
+
 @backgroundClass()
 class ServicePrimeCloudSync extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -1542,6 +1546,10 @@ class ServicePrimeCloudSync extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   async toggleCloudSync({ enabled }: { enabled: boolean }) {
+    const shouldTrackEnableFlow = enabled;
+    if (shouldTrackEnableFlow) {
+      oneKeyIdCloudSyncEnableFlowCount += 1;
+    }
     try {
       if (enabled) {
         const {
@@ -1581,6 +1589,12 @@ class ServicePrimeCloudSync extends ServiceBase {
       await this.setCloudSyncEnabled(false);
       throw error;
     } finally {
+      if (shouldTrackEnableFlow) {
+        oneKeyIdCloudSyncEnableFlowCount = Math.max(
+          0,
+          oneKeyIdCloudSyncEnableFlowCount - 1,
+        );
+      }
       void this.backgroundApi.servicePrime.apiFetchPrimeUserInfo();
     }
   }
@@ -1680,6 +1694,9 @@ class ServicePrimeCloudSync extends ServiceBase {
   }: {
     serverUserInfo: IPrimeServerUserInfo;
   }) {
+    if (oneKeyIdCloudSyncEnableFlowCount > 0) {
+      return;
+    }
     if (serverUserInfo.pwdHash) {
       return;
     }
