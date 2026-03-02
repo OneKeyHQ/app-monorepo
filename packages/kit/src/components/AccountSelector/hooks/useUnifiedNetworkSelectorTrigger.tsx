@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 
+import type { IUnifiedNetworkSelectorRouteParams } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
@@ -10,8 +11,6 @@ import {
 } from '../../../states/jotai/contexts/accountSelector';
 
 import { useAccountSelectorAvailableNetworks } from './useAccountSelectorAvailableNetworks';
-
-import type { IUnifiedNetworkSelectorRouteParams } from '@onekeyhq/shared/src/routes';
 
 export function useUnifiedNetworkSelectorTrigger({ num }: { num: number }) {
   const { activeAccount } = useActiveAccount({ num });

@@ -22,9 +22,13 @@ import { NetworkAvatarGroup } from '@onekeyhq/kit/src/components/NetworkAvatar/N
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  EModalRoutes,
+  EModalStakingRoutes,
+  ETabRoutes,
+} from '@onekeyhq/shared/src/routes';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import type {
   ETabEarnRoutes,
   ITabEarnParamList,
@@ -43,6 +47,39 @@ import { EarnNavigation } from '../../earnUtils';
 import type { RouteProp } from '@react-navigation/core';
 
 type IRouteProps = RouteProp<ITabEarnParamList, ETabEarnRoutes.EarnProtocols>;
+
+enum EProtocolCategory {
+  SimpleEarn = 'simpleEarn',
+  FixedRate = 'fixedRate',
+}
+
+const parseDaysRemaining = (rawDaysRemaining?: string | null) => {
+  if (!rawDaysRemaining) {
+    return undefined;
+  }
+  const parsed = Number(rawDaysRemaining);
+  return Number.isFinite(parsed) ? parsed : undefined;
+};
+
+const getProviderDaysRemaining = (item: IStakeProtocolListItem) => {
+  return parseDaysRemaining(item.provider.daysRemaining);
+};
+
+const getProtocolCategory = (item: IStakeProtocolListItem) => {
+  const backendCategory = item.provider.category?.trim();
+  if (
+    backendCategory === EProtocolCategory.SimpleEarn ||
+    backendCategory === EProtocolCategory.FixedRate
+  ) {
+    return backendCategory;
+  }
+
+  return earnUtils.isPendleProvider({
+    providerName: item.provider.name,
+  })
+    ? EProtocolCategory.FixedRate
+    : EProtocolCategory.SimpleEarn;
+};
 
 function BasicEarnProtocols({ route }: { route: IRouteProps }) {
   const intl = useIntl();
@@ -83,6 +120,9 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
   const [protocolData, setProtocolData] = useState<IStakeProtocolListItem[]>(
     [],
   );
+  const [selectedCategory, setSelectedCategory] = useState<EProtocolCategory>(
+    EProtocolCategory.FixedRate,
+  );
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchProtocolData = useCallback(async () => {
@@ -106,6 +146,38 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
     void fetchProtocolData();
   }, [fetchProtocolData]);
 
+  const protocolCategoryCounts = useMemo(() => {
+    let simpleEarnCount = 0;
+    let fixedRateCount = 0;
+    protocolData.forEach((item) => {
+      if (getProtocolCategory(item) === EProtocolCategory.FixedRate) {
+        fixedRateCount += 1;
+      } else {
+        simpleEarnCount += 1;
+      }
+    });
+    return { simpleEarnCount, fixedRateCount };
+  }, [protocolData]);
+
+  useEffect(() => {
+    if (
+      protocolCategoryCounts.fixedRateCount === 0 &&
+      protocolCategoryCounts.simpleEarnCount > 0
+    ) {
+      setSelectedCategory(EProtocolCategory.SimpleEarn);
+      return;
+    }
+    if (
+      protocolCategoryCounts.simpleEarnCount === 0 &&
+      protocolCategoryCounts.fixedRateCount > 0
+    ) {
+      setSelectedCategory(EProtocolCategory.FixedRate);
+    }
+  }, [
+    protocolCategoryCounts.fixedRateCount,
+    protocolCategoryCounts.simpleEarnCount,
+  ]);
+
   const handleProtocolPress = useCallback(
     async (protocol: IStakeProtocolListItem) => {
       try {
@@ -113,6 +185,27 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
           network: protocol.network.networkId,
           stakeProvider: protocol.provider.name,
         });
+
+        if (
+          protocol.aprInfo?.button?.type === 'redeem' &&
+          !protocol.aprInfo?.button?.disabled
+        ) {
+          navigation.pushModal(EModalRoutes.StakingModal, {
+            screen: EModalStakingRoutes.ManagePosition,
+            params: {
+              networkId: protocol.network.networkId,
+              symbol,
+              provider: protocol.provider.name,
+              vault: earnUtils.isVaultBasedProvider({
+                providerName: protocol.provider.name,
+              })
+                ? protocol.provider.vault
+                : undefined,
+              tab: 'withdraw',
+            },
+          });
+          return;
+        }
 
         await EarnNavigation.pushToEarnProtocolDetails(navigation, {
           networkId: protocol.network.networkId,
@@ -131,13 +224,57 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
     [symbol, navigation],
   );
 
+  const protocolDisplayData = useMemo(() => {
+    const isFixedRate = selectedCategory === EProtocolCategory.FixedRate;
+    const filtered = protocolData.filter((item) => {
+      const category = getProtocolCategory(item);
+      return isFixedRate
+        ? category === EProtocolCategory.FixedRate
+        : category === EProtocolCategory.SimpleEarn;
+    });
+
+    if (!isFixedRate) {
+      return filtered;
+    }
+
+    return [...filtered].toSorted((a, b) => {
+      const daysA = getProviderDaysRemaining(a);
+      const daysB = getProviderDaysRemaining(b);
+      const orderA = daysA ?? Number.POSITIVE_INFINITY;
+      const orderB = daysB ?? Number.POSITIVE_INFINITY;
+      return orderA - orderB;
+    });
+  }, [protocolData, selectedCategory]);
+
   const columns: ITableColumn<IStakeProtocolListItem>[] = useMemo(() => {
+    const isFixedRateCategory =
+      selectedCategory === EProtocolCategory.FixedRate;
+
+    const getMaturityDisplay = (item: IStakeProtocolListItem) => {
+      const providerName = normalizeToEarnProvider(item.provider.name);
+      const maturityTitle =
+        item.provider.maturity || item.provider.vaultName || providerName;
+      const detailText = item.provider.description || providerName;
+
+      return {
+        detailText,
+        maturityTitle,
+      };
+    };
+
     return [
       {
         key: 'protocol',
-        label: intl.formatMessage({ id: ETranslations.global_protocol }),
+        label: intl.formatMessage({
+          id: isFixedRateCategory
+            ? ETranslations.defi_protocol_maturity
+            : ETranslations.global_protocol,
+        }),
         flex: 5,
         render: (item) => {
+          const providerName = normalizeToEarnProvider(item.provider.name);
+          const { detailText, maturityTitle } = getMaturityDisplay(item);
+
           return (
             <XStack jc="center" ai="center">
               <Stack mr="$3">
@@ -152,31 +289,41 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
               <YStack mr="$2" flex={1} minWidth={0}>
                 <XStack ai="center" gap="$2" minWidth={0}>
                   <SizableText size="$bodyLgMedium" flexShrink={0}>
-                    {normalizeToEarnProvider(item.provider.name)}
+                    {isFixedRateCategory ? maturityTitle : providerName}
                   </SizableText>
-                  {item.provider.badges?.map((badge) => (
-                    <Badge
-                      my="auto"
-                      key={badge.tag}
-                      badgeType={badge.badgeType}
-                      badgeSize="sm"
-                      flexShrink={1}
-                      minWidth={0}
-                    >
-                      <Badge.Text>{badge.tag}</Badge.Text>
-                    </Badge>
-                  ))}
+                  {!isFixedRateCategory
+                    ? item.provider.badges?.map((badge) => (
+                        <Badge
+                          my="auto"
+                          key={badge.tag}
+                          badgeType={badge.badgeType}
+                          badgeSize="sm"
+                          flexShrink={1}
+                          minWidth={0}
+                        >
+                          <Badge.Text>{badge.tag}</Badge.Text>
+                        </Badge>
+                      ))
+                    : null}
                 </XStack>
-                {isDesktopLayout && item?.provider?.vaultName ? (
+                {isFixedRateCategory ? (
                   <SizableText size="$bodySmMedium" color="$textSubdued">
-                    {item.provider.vaultName}
+                    {detailText}
                   </SizableText>
-                ) : null}
-                {!isDesktopLayout && item?.provider?.description ? (
-                  <SizableText size="$bodySmMedium" color="$textSubdued">
-                    {item.provider.description}
-                  </SizableText>
-                ) : null}
+                ) : (
+                  <>
+                    {isDesktopLayout && item?.provider?.vaultName ? (
+                      <SizableText size="$bodySmMedium" color="$textSubdued">
+                        {item.provider.vaultName}
+                      </SizableText>
+                    ) : null}
+                    {!isDesktopLayout && item?.provider?.description ? (
+                      <SizableText size="$bodySmMedium" color="$textSubdued">
+                        {item.provider.description}
+                      </SizableText>
+                    ) : null}
+                  </>
+                )}
               </YStack>
             </XStack>
           );
@@ -214,17 +361,95 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
         label: intl.formatMessage({ id: ETranslations.defi_apr_apy }),
         flex: 2,
         align: 'flex-end',
-        render: (item) => (
-          <AprText
-            asset={{
-              aprWithoutFee: item?.provider?.aprWithoutFee ?? '',
-              aprInfo: item?.aprInfo,
-            }}
-          />
-        ),
+        render: (item) => {
+          if (item.aprInfo?.button?.type === 'redeem') {
+            return (
+              <SizableText size="$bodyLgMedium" color="$textInfo">
+                {item.aprInfo.button.text?.text ||
+                  intl.formatMessage({ id: ETranslations.defi_redeemable })}
+              </SizableText>
+            );
+          }
+          return (
+            <AprText
+              asset={{
+                aprWithoutFee: item?.provider?.aprWithoutFee ?? '',
+                aprInfo: item?.aprInfo,
+              }}
+            />
+          );
+        },
       },
     ];
-  }, [intl, isDesktopLayout]);
+  }, [intl, isDesktopLayout, selectedCategory]);
+
+  const shouldShowCategoryTabs =
+    protocolCategoryCounts.simpleEarnCount > 0 &&
+    protocolCategoryCounts.fixedRateCount > 0;
+
+  const categoryTabs = useMemo(() => {
+    if (!shouldShowCategoryTabs) {
+      return null;
+    }
+    const tabItems = [
+      {
+        key: EProtocolCategory.SimpleEarn,
+        label: intl.formatMessage({ id: ETranslations.defi_simple_earn }),
+        count: protocolCategoryCounts.simpleEarnCount,
+      },
+      {
+        key: EProtocolCategory.FixedRate,
+        label: intl.formatMessage({ id: ETranslations.defi_fixed_rate }),
+        count: protocolCategoryCounts.fixedRateCount,
+      },
+    ];
+    return (
+      <XStack px="$pagePadding" pb="$3" gap="$2">
+        {tabItems.map((item) => {
+          const isActive = selectedCategory === item.key;
+          return (
+            <XStack
+              key={item.key}
+              role="button"
+              cursor="pointer"
+              onPress={() => {
+                setSelectedCategory(item.key);
+              }}
+              borderRadius="$full"
+              px="$2.5"
+              py="$1.5"
+              bg={isActive ? '$bgStrong' : '$bgSubdued'}
+              ai="center"
+              gap="$1.5"
+            >
+              <SizableText size="$bodyMd" color="$text">
+                {item.label}
+              </SizableText>
+              <Stack
+                minWidth="$4"
+                h="$4"
+                px="$1"
+                borderRadius="$full"
+                bg={isActive ? '$bg' : '$bgApp'}
+                ai="center"
+                jc="center"
+              >
+                <SizableText size="$bodySmMedium" color="$textSubdued">
+                  {item.count}
+                </SizableText>
+              </Stack>
+            </XStack>
+          );
+        })}
+      </XStack>
+    );
+  }, [
+    intl,
+    shouldShowCategoryTabs,
+    protocolCategoryCounts.fixedRateCount,
+    protocolCategoryCounts.simpleEarnCount,
+    selectedCategory,
+  ]);
 
   const content = useMemo(() => {
     if (isLoading) {
@@ -317,19 +542,24 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
     }
 
     return (
-      <TableList<IStakeProtocolListItem>
-        data={protocolData}
-        columns={columns}
-        defaultSortKey="yield"
-        defaultSortDirection="desc"
-        onPressRow={handleProtocolPress}
-        enableDrillIn={isDesktopLayout}
-        isLoading={isLoading}
-      />
+      <YStack>
+        {categoryTabs}
+        <TableList<IStakeProtocolListItem>
+          data={protocolDisplayData}
+          columns={columns}
+          defaultSortKey="yield"
+          defaultSortDirection="desc"
+          onPressRow={handleProtocolPress}
+          enableDrillIn={isDesktopLayout}
+          isLoading={isLoading}
+        />
+      </YStack>
     );
   }, [
     isLoading,
     protocolData,
+    protocolDisplayData,
+    categoryTabs,
     columns,
     handleProtocolPress,
     isDesktopLayout,
@@ -366,6 +596,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
         ],
       }}
       showBackButton
+      showBodyTitle
     >
       {content}
     </EarnPageContainer>

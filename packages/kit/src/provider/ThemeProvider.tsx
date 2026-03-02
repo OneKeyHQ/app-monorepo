@@ -3,9 +3,8 @@ import { memo, useCallback, useMemo } from 'react';
 
 import { ConfigProvider } from '@onekeyhq/components';
 import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { useLocaleVariant } from '../hooks/useLocaleVariant';

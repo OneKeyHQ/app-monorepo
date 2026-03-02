@@ -15,12 +15,12 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { GiftAction } from '@onekeyhq/kit/src/components/TabPageHeader/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { usePerpsTokenSearchAliasesAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import {
   usePerpsActiveAccountMmrAtom,
   usePerpsActiveAccountSummaryAtom,
   usePerpsActiveAssetAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { usePerpsTokenSearchAliasesAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import type { ITokenSearchAliases } from '@onekeyhq/shared/src/utils/perpsUtils';
@@ -181,11 +181,9 @@ function PerpBadgesRow() {
 
   // Fetch builder fee once on mount (independent of alias state)
   useEffect(() => {
-    void backgroundApiProxy.simpleDb.perp
-      .getPerpData()
-      .then((config) => {
-        setBuilderFeeRate(config.hyperliquidMaxBuilderFee);
-      });
+    void backgroundApiProxy.simpleDb.perp.getPerpData().then((config) => {
+      setBuilderFeeRate(config.hyperliquidMaxBuilderFee);
+    });
   }, []);
 
   // Fetch token aliases only when not yet available

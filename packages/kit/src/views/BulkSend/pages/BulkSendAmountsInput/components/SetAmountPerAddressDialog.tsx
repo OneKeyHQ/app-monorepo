@@ -14,10 +14,11 @@ import {
 } from '@onekeyhq/shared/types/bulkSend';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
-import { BulkSendAmountsInputContext, type IMobileModeData } from './Context';
+import { calculateIsAmountValid, calculateTotalAmounts } from '../../../utils';
+
 import { AmountInputSection } from './AmountInput';
 import { AmountPreview } from './AmountPreview';
-import { calculateIsAmountValid, calculateTotalAmounts } from '../../../utils';
+import { BulkSendAmountsInputContext, type IMobileModeData } from './Context';
 
 type ISetAmountPerAddressDialogProps = {
   accountId: string | undefined;

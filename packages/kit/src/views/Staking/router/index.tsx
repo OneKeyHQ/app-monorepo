@@ -74,6 +74,10 @@ const BorrowReserveDetails = LazyLoad(
   () => import('@onekeyhq/kit/src/views/Borrow/pages/ReserveDetails'),
 );
 
+const EarnTokenSelectModal = LazyLoad(
+  () => import('@onekeyhq/kit/src/views/Staking/pages/EarnTokenSelect'),
+);
+
 export const StakingModalRouter: IModalFlowNavigatorConfig<
   EModalStakingRoutes | EModalAssetDetailRoutes,
   IModalStakingParamList & IModalAssetDetailsParamList
@@ -153,6 +157,10 @@ export const StakingModalRouter: IModalFlowNavigatorConfig<
   {
     name: EModalStakingRoutes.BorrowHistoryList,
     component: BorrowHistoryList,
+  },
+  {
+    name: EModalStakingRoutes.EarnTokenSelect,
+    component: EarnTokenSelectModal,
   },
   ...(ModalAssetDetailsStack as IModalFlowNavigatorConfig<
     EModalStakingRoutes | EModalAssetDetailRoutes,

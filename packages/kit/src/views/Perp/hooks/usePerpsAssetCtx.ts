@@ -28,7 +28,7 @@ function normalizeCtxIndex(
   dexIndex: number;
   ctxIndex: number;
 } {
-  if (assetId == null) {
+  if (assetId === null || assetId === undefined) {
     return { dexIndex: 0, ctxIndex: -1 };
   }
   const targetDexIndex =

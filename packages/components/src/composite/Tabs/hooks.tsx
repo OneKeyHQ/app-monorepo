@@ -17,8 +17,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { isNativeTablet } from '../../hooks/useIsTablet';
 import { useIsSplitView } from '../../hooks/useOrientation';
-import { useIPadModalPageWidth } from '../../layouts/Page/iPadModalPageContext';
 import { useIsIpadModalPage } from '../../layouts/Page/hooks';
+import { useIPadModalPageWidth } from '../../layouts/Page/iPadModalPageContext';
 import {
   DESKTOP_MODE_UI_PAGE_BORDER_WIDTH,
   DESKTOP_MODE_UI_PAGE_MARGIN,

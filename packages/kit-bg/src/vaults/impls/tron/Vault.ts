@@ -26,6 +26,7 @@ import {
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import chainResourceUtils from '@onekeyhq/shared/src/utils/chainResourceUtils';
+import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import contractUtils from '@onekeyhq/shared/src/utils/contractUtils';
 import { calculateFeeForSend } from '@onekeyhq/shared/src/utils/feeUtils';
 import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -90,7 +91,6 @@ import type {
   IValidateGeneralInputParams,
 } from '../../types';
 import type { Types } from 'tronweb';
-import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 
 const INFINITE_AMOUNT_HEX =
   '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff';

@@ -51,11 +51,11 @@ import { EConfirmOnDeviceType } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import AddressTypeSelector from '../../../components/AddressTypeSelector/AddressTypeSelector';
+import { HighlightAddress } from '../../../components/HighlightAddress';
 import {
   FormatHyperlinkText,
   HyperlinkText,
 } from '../../../components/HyperlinkText';
-import { HighlightAddress } from '../../../components/HighlightAddress';
 import { NetworkAvatar } from '../../../components/NetworkAvatar';
 import { Token } from '../../../components/Token';
 import { useAccountData } from '../../../hooks/useAccountData';
