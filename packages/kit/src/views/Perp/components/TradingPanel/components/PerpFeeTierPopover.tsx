@@ -17,6 +17,7 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import type { ISizableTextProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IHyperliquidUserFeesResponse } from '@onekeyhq/kit-bg/src/services/ServiceWebviewPerp';
 import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -104,16 +105,15 @@ function FeeRow({
   emphasis?: boolean;
   valueColor?: string;
 }) {
-  let labelSize = '$bodySm';
+  let labelSize: ISizableTextProps['size'] = '$bodySm';
   if (bold) {
     labelSize = '$bodyMdMedium';
   } else if (emphasis) {
     labelSize = '$bodyMd';
   }
-  let valueSize = '$bodySm';
-  if (bold) {
-    valueSize = '$bodyMdMedium';
-  } else if (emphasis) {
+
+  let valueSize: ISizableTextProps['size'] = '$bodySm';
+  if (bold || emphasis) {
     valueSize = '$bodyMdMedium';
   }
 
@@ -249,6 +249,7 @@ function YourFeesSection({
   const totalMakerFeeLabel = intl.formatMessage({
     id: ETranslations.perps_fee_tiers_total_maker_fee,
   });
+  const oneKeyBuilderFeeLabel = `OneKey ${builderFeeLabel}`;
   const hlTakerFeeLabel = `Hyperliquid ${takerFeeLabel}`;
   const hlMakerFeeLabel = `Hyperliquid ${makerFeeLabel}`;
 
@@ -301,7 +302,7 @@ function YourFeesSection({
       ) : null}
       <YStack gap="$2.5">
         <FeeRow
-          label={builderFeeLabel}
+          label={oneKeyBuilderFeeLabel}
           value={formatFeePercent(resolvedFeeInfo.builderFee)}
           emphasis
           valueColor="$green11"
