@@ -34,7 +34,6 @@ import { useIsPendleProvider } from '../../../hooks/useIsPendleProvider';
 import { useUniversalWithdraw } from '../../../hooks/useUniversalHooks';
 import {
   buildBorrowTag,
-  buildStakeTokenUniqueKey,
   normalizeStakeTokenAddress,
   resolveStakeTokenAddress,
 } from '../../../utils/utils';
@@ -321,22 +320,6 @@ export const WithdrawSection = ({
       return selectableReceiveAssets[0];
     });
   }, [isPendleProvider, selectableReceiveAssets, useBorrowApi]);
-
-  const selectedReceiveTokenUniqueKey = useMemo(
-    () =>
-      buildStakeTokenUniqueKey({
-        uniqueKey: selectedReceiveAsset?.info.uniqueKey,
-        address: selectedReceiveAsset?.info.address,
-        symbol: selectedReceiveAsset?.info.symbol,
-        isNative: selectedReceiveAsset?.info.isNative,
-      }),
-    [
-      selectedReceiveAsset?.info.address,
-      selectedReceiveAsset?.info.isNative,
-      selectedReceiveAsset?.info.symbol,
-      selectedReceiveAsset?.info.uniqueKey,
-    ],
-  );
 
   const handleOpenReceiveTokenSelector = useCallback(() => {
     if (!accountId || !protocolInfo?.symbol) return;
