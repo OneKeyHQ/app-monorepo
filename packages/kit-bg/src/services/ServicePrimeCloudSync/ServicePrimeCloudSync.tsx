@@ -1623,11 +1623,25 @@ class ServicePrimeCloudSync extends ServiceBase {
   }
 
   @backgroundMethod()
-  async updateLastSyncTime() {
+  async updateLastSyncTime({
+    syncMode,
+  }: {
+    syncMode?: ECloudSyncMode;
+  } = {}) {
+    const activeSyncMode = syncMode ?? (await this.getActiveSyncMode());
+    const now = Date.now();
     await primeCloudSyncPersistAtom.set(
       (v): IPrimeCloudSyncPersistAtomData => ({
         ...v,
-        lastSyncTime: Date.now(),
+        lastSyncTime: now,
+        lastSyncTimeOneKeyId:
+          activeSyncMode === ECloudSyncMode.OnekeyId
+            ? now
+            : v.lastSyncTimeOneKeyId,
+        lastSyncTimeKeyless:
+          activeSyncMode === ECloudSyncMode.Keyless
+            ? now
+            : v.lastSyncTimeKeyless,
       }),
     );
   }

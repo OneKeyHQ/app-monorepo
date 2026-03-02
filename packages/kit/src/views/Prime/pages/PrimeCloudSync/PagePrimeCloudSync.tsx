@@ -45,6 +45,13 @@ function isAutoLockValueNotAllowed(value: number) {
   return isNeverLockDuration(value) || value === Number(ELockDuration.Hour4);
 }
 
+function formatSyncLastUpdateTime(syncTime?: number): string {
+  if (syncTime) {
+    return formatDistanceToNow(new Date(syncTime));
+  }
+  return ' - ';
+}
+
 function AutoLockUpdateDialogContent({
   onContinue,
   onError,
@@ -108,12 +115,29 @@ function EnableOneKeyCloudSwitchListItem() {
 
   const intl = useIntl();
 
-  const lastUpdateTime = useMemo<string>(() => {
-    if (config.lastSyncTime) {
-      return formatDistanceToNow(new Date(config.lastSyncTime));
-    }
-    return ' - ';
-  }, [config.lastSyncTime]);
+  const shouldUseLegacyLastSyncTime =
+    !config.lastSyncTimeOneKeyId && !config.lastSyncTimeKeyless;
+
+  const oneKeyIdLastUpdateTime = useMemo<string>(() => {
+    const syncTime = shouldUseLegacyLastSyncTime
+      ? config.lastSyncTime
+      : config.lastSyncTimeOneKeyId;
+    return formatSyncLastUpdateTime(syncTime);
+  }, [
+    config.lastSyncTime,
+    config.lastSyncTimeOneKeyId,
+    shouldUseLegacyLastSyncTime,
+  ]);
+  const keylessLastUpdateTime = useMemo<string>(() => {
+    const syncTime = shouldUseLegacyLastSyncTime
+      ? config.lastSyncTime
+      : config.lastSyncTimeKeyless;
+    return formatSyncLastUpdateTime(syncTime);
+  }, [
+    config.lastSyncTime,
+    config.lastSyncTimeKeyless,
+    shouldUseLegacyLastSyncTime,
+  ]);
   const { ensurePrimeSubscriptionActive } = usePrimeRequirements();
 
   const [passwordSettings] = usePasswordPersistAtom();
@@ -138,7 +162,7 @@ function EnableOneKeyCloudSwitchListItem() {
       icon="CloudOutline"
       subtitle={`${intl.formatMessage({
         id: ETranslations.prime_last_update,
-      })} : ${lastUpdateTime}`}
+      })} : ${oneKeyIdLastUpdateTime}`}
     >
       {!isPrimeUser ? (
         <Badge badgeSize="sm" badgeType="default">
@@ -238,7 +262,7 @@ function EnableOneKeyCloudSwitchListItem() {
       icon="CloudOutline"
       subtitle={`${intl.formatMessage({
         id: ETranslations.prime_last_update,
-      })} : ${lastUpdateTime}`}
+      })} : ${keylessLastUpdateTime}`}
     >
       <Switch
         disabled={false}
@@ -305,6 +329,8 @@ function AppDataSection() {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const isSubmittingRef = useRef(false);
   const manualSyncingRef = useRef(false);
+  const isAnyCloudSyncEnabled =
+    !!config?.isCloudSyncEnabled || !!config?.isCloudSyncEnabledKeyless;
 
   const reloadServerUserInfo = useCallback(async () => {
     await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
@@ -316,16 +342,8 @@ function AppDataSection() {
 
   const intl = useIntl();
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const lastUpdateTime = useMemo<string>(() => {
-    if (config.lastSyncTime) {
-      return formatDistanceToNow(new Date(config.lastSyncTime));
-    }
-    return ' - ';
-  }, [config.lastSyncTime]);
-
   const handleManualSync = useCallback(async () => {
-    if (!config.isCloudSyncEnabled) {
+    if (!isAnyCloudSyncEnabled) {
       return;
     }
     if (manualSyncingRef.current) {
@@ -355,13 +373,13 @@ function AppDataSection() {
         id: ETranslations.global_sync_successfully,
       }),
     });
-  }, [config.isCloudSyncEnabled, intl]);
+  }, [intl, isAnyCloudSyncEnabled]);
 
   return (
     <>
       <EnableOneKeyCloudSwitchListItem />
 
-      {config?.isCloudSyncEnabled ? (
+      {isAnyCloudSyncEnabled ? (
         <ListItem
           title={intl.formatMessage({
             id: ETranslations.wallet_backup_now,
