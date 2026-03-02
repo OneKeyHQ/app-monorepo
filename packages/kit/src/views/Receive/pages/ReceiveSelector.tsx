@@ -144,10 +144,10 @@ function ReceiveSelectorContent() {
     ({ onPress }: { onPress: () => void }) => {
       if (token && isSupported && url) {
         if (platformEnv.isDesktop || platformEnv.isNative) {
-        openUrlInDiscovery({ url });
-      } else {
-        openUrlExternal(url);
-      }
+          openUrlInDiscovery({ url });
+        } else {
+          openUrlExternal(url);
+        }
       } else {
         onPress();
       }
