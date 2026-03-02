@@ -184,6 +184,9 @@ const tsRules = {
   // Disabled: handled by oxlint
   '@typescript-eslint/await-thenable': 'off',
   '@typescript-eslint/no-duplicate-enum-values': 'off',
+  // Disabled: handled by oxlint
+  'no-unused-expressions': 'off',
+  '@typescript-eslint/no-unused-expressions': 'off',
   '@typescript-eslint/no-unsafe-enum-comparison': 'off',
   '@typescript-eslint/no-redundant-type-constituents': 'off',
   '@typescript-eslint/prefer-promise-reject-errors': 'off',

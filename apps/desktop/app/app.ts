@@ -1434,6 +1434,7 @@ function startV8HeapMonitoring() {
   }, MEMORY_CHECK_INTERVAL_MS);
 }
 
+/* oxlint-disable typescript/no-unsafe-call -- dynamic require('electron') returns untyped */
 function startWebviewMemoryMonitoring() {
   // eslint-disable-next-line @typescript-eslint/no-unsafe-call
   const { webContents } = require('electron');
@@ -1464,6 +1465,7 @@ function startWebviewMemoryMonitoring() {
     }
   }, METRICS_SAMPLE_INTERVAL_MS);
 }
+/* oxlint-enable typescript/no-unsafe-call */
 
 // Start monitoring when app is ready
 app.on('ready', async () => {

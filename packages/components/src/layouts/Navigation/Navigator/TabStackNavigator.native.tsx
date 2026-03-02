@@ -173,9 +173,8 @@ export function TabStackNavigator<RouteName extends string>({
       case ESplitViewType.SUB:
         return isLandscape;
       default:
-        tabBarHidden;
+        return tabBarHidden;
     }
-    return tabBarHidden;
   }, [tabBarHidden, splitViewType, isLandscape]);
   return (
     <NativeTab.Navigator

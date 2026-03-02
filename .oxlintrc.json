@@ -335,8 +335,8 @@
     "import/default": "off",
     // Parameter property assignment is valid pattern
     "typescript/no-unnecessary-parameter-property-assignment": "off",
-    // Some expressions are intentionally unused
-    "no-unused-expressions": "off",
+    // Migrated from ESLint — catches unused expressions (ternary as statement, bare identifiers)
+    "no-unused-expressions": "error",
     // Variables may be assigned later via destructuring or other patterns
     "no-unassigned-vars": "off",
     // Empty classes are valid as base classes
