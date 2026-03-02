@@ -1169,7 +1169,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     }
     try {
       const start = Date.now();
-      await client.wsRequester.request('ping');
+      await client.wsRequester.request('ping', undefined);
       // Guard: client may have been replaced/closed during await
       if (this._client !== client) return;
       const pingMs = Date.now() - start;
