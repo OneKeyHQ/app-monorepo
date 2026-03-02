@@ -7,12 +7,12 @@ const SvgRecordCircle = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
+    <Path d="M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8" />
     <Path
       fillRule="evenodd"
-      d="M12 4a8 8 0 1 0 0 16 8 8 0 0 0 0-16M2 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10S2 17.523 2 12"
+      d="M12 2c5.523 0 10 4.477 10 10s-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2m0 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16"
       clipRule="evenodd"
     />
-    <Path d="M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0" />
   </Svg>
 );
 export default SvgRecordCircle;

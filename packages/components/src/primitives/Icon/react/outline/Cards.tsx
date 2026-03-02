@@ -7,7 +7,12 @@ const SvgCards = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M18 10v4a2 2 0 0 1-2 2H8v2h12v-8zM8 8a1 1 0 0 1 0 2H7a1 1 0 0 1 0-2zM4 6v8h12V6zm14 2h2a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2z" />
+    <Path d="M9 8v2H6V8z" />
+    <Path
+      fillRule="evenodd"
+      d="M18 4v4h4v12H6v-4H2V4zm0 12H8v2h12v-8h-2zM4 14h12V6H4z"
+      clipRule="evenodd"
+    />
   </Svg>
 );
 export default SvgCards;

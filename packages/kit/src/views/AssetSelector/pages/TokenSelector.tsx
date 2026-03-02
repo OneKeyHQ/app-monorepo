@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { useDebouncedCallback } from 'use-debounce';
 
 import { Page } from '@onekeyhq/components';
-import BigNumber from 'bignumber.js';
-
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { TokenListView } from '@onekeyhq/kit/src/components/TokenListView';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -18,17 +17,18 @@ import {
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import type { IVaultSettings } from '@onekeyhq/kit-bg/src/vaults/types';
 import { SEARCH_KEY_MIN_LENGTH } from '@onekeyhq/shared/src/consts/walletConsts';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IAssetSelectorParamList } from '@onekeyhq/shared/src/routes';
 import { EAssetSelectorRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { checkIsOnlyOneTokenHasBalance } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { useAccountSelectorCreateAddress } from '../../../components/AccountSelector/hooks/useAccountSelectorCreateAddress';
+import { useCurrency } from '../../../components/Currency';
 import { useAccountData } from '../../../hooks/useAccountData';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { HomeTokenListProviderMirrorWrapper } from '../../Home/components/HomeTokenListProvider';
@@ -42,6 +42,7 @@ function TokenSelector() {
   const intl = useIntl();
   const {
     updateCreateAccountState,
+    updateProcessingTokenState,
     refreshActiveAccountTokenList,
     refreshTokenListMap,
     updateActiveAccountTokenListState,
@@ -57,6 +58,8 @@ function TokenSelector() {
   const { createAddress } = useAccountSelectorCreateAddress();
 
   const [aggregateTokensListMap] = useAggregateTokensListMapAtom();
+
+  const currencyInfo = useCurrency();
 
   const {
     title,
@@ -76,6 +79,7 @@ function TokenSelector() {
     hideZeroBalanceTokens,
     keepDefaultZeroBalanceTokens,
     enableNetworkAfterSelect,
+    exchangeFilter,
   } = route.params;
 
   const { network, account } = useAccountData({ networkId, accountId });
@@ -89,6 +93,29 @@ function TokenSelector() {
     tokens: IAccountToken[];
   }>({ tokens: [] });
 
+  const executeOnSelect = useCallback(
+    async (selectedToken: IAccountToken) => {
+      if (!onSelect) return;
+      if (exchangeFilter) {
+        updateProcessingTokenState({
+          isProcessing: true,
+          token: selectedToken,
+        });
+        try {
+          await onSelect(selectedToken);
+        } finally {
+          updateProcessingTokenState({
+            isProcessing: false,
+            token: null,
+          });
+        }
+      } else {
+        void onSelect(selectedToken);
+      }
+    },
+    [onSelect, updateProcessingTokenState, exchangeFilter],
+  );
+
   const handleTokenOnPress = useCallback(
     async (token: IAccountToken) => {
       if (token.isAggregateToken) {
@@ -100,7 +127,7 @@ function TokenSelector() {
           aggregateTokenList.length === 1 &&
           allAggregateTokenList.length === 0
         ) {
-          void onSelect?.(aggregateTokenList[0]);
+          await executeOnSelect(aggregateTokenList[0]);
           return;
         }
 
@@ -112,7 +139,7 @@ function TokenSelector() {
           });
 
         if (tokenHasBalance && tokenHasBalanceCount === 1) {
-          void onSelect?.(tokenHasBalance);
+          await executeOnSelect(tokenHasBalance);
           return;
         }
 
@@ -132,6 +159,7 @@ function TokenSelector() {
               allAggregateTokenList,
               enableNetworkAfterSelect,
               hideZeroBalanceTokens,
+              exchangeFilter,
             },
           );
           return;
@@ -207,12 +235,12 @@ function TokenSelector() {
           matchedAccount?.accountId
         ) {
           if (matchedAccount?.accountId) {
-            void onSelect?.({
+            await executeOnSelect({
               ...token,
               accountId: matchedAccount.accountId,
             });
           } else {
-            void onSelect?.(token);
+            await executeOnSelect(token);
           }
         } else if (account) {
           updateCreateAccountState({
@@ -239,7 +267,7 @@ function TokenSelector() {
             });
 
             if (resp) {
-              void onSelect?.({
+              await executeOnSelect({
                 ...token,
                 accountId: resp.accounts[0]?.id,
               });
@@ -252,7 +280,7 @@ function TokenSelector() {
           }
         }
       } else {
-        void onSelect?.(token);
+        await executeOnSelect(token);
       }
 
       if (closeAfterSelect) {
@@ -273,9 +301,11 @@ function TokenSelector() {
       indexedAccountId,
       enableNetworkAfterSelect,
       hideZeroBalanceTokens,
+      exchangeFilter,
       account,
       updateCreateAccountState,
       createAddress,
+      executeOnSelect,
     ],
   );
 
@@ -382,7 +412,7 @@ function TokenSelector() {
           {
             accountId: valueAccountId,
             value: { [valueKey]: totalFiatValue },
-            currency: 'usd',
+            currency: currencyInfo.id,
           },
         );
       }
@@ -395,6 +425,7 @@ function TokenSelector() {
     refreshTokenListMap,
     showActiveAccountTokenList,
     updateActiveAccountTokenListState,
+    currencyInfo.id,
   ]);
 
   useEffect(() => {
@@ -442,6 +473,7 @@ function TokenSelector() {
           hideZeroBalanceTokens={hideZeroBalanceTokens}
           keepDefaultZeroBalanceTokens={keepDefaultZeroBalanceTokens}
           showNetworkIcon={isAllNetworks ?? network?.isAllNetworks}
+          exchangeFilter={exchangeFilter}
           emptyProps={{
             mt: '18%',
           }}

@@ -7,9 +7,8 @@ import {
   useState,
 } from 'react';
 
-import { useIntl } from 'react-intl';
-
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
 import {
   Empty,
@@ -120,6 +119,9 @@ const ChainSelectorSectionListContent = ({
             new BigNumber(networkValue || 0).gt(
               NETWORK_SHOW_VALUE_THRESHOLD_USD,
             ));
+
+        console.log('accountNetworkValues', accountNetworkValues);
+        console.log('item.id', item.id);
         return (
           <ListItem
             h={48}
@@ -147,6 +149,7 @@ const ChainSelectorSectionListContent = ({
             }
             testID={`select-item-${item.id}`}
           >
+            {/* eslint-disable no-nested-ternary */}
             {accountNetworkValues !== undefined ? (
               networkId === item.id ? (
                 <ListItem.CheckMark key="checkmark" />
@@ -156,6 +159,7 @@ const ChainSelectorSectionListContent = ({
             ) : networkId === item.id ? (
               <ListItem.CheckMark key="checkmark" />
             ) : null}
+            {/* eslint-enable no-nested-ternary */}
             {shouldShowValue ? (
               <Currency
                 hideValue

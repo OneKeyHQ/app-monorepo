@@ -9,7 +9,7 @@ const SvgSdCard2 = (props: SvgProps) => (
   >
     <Path
       fillRule="evenodd"
-      d="M18 2a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7.828a3 3 0 0 1 .879-2.121l2.828-2.828A3 3 0 0 1 9.828 2zM9.828 4a1 1 0 0 0-.707.293L6.293 7.121A1 1 0 0 0 6 7.828V20h12V4h-2v3a1 1 0 1 1-2 0V4h-2v3a1 1 0 1 1-2 0V4z"
+      d="M20 22H4V6.586L8.586 2H20zM6 7.414V20h12V4h-2v4h-2V4h-2v4h-2V4h-.586z"
       clipRule="evenodd"
     />
   </Svg>

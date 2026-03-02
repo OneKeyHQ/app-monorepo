@@ -7,13 +7,8 @@ const SvgAiAvatar = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M18.947 1.894a.5.5 0 0 0-.894 0l-.979 1.957a.5.5 0 0 1-.223.224l-1.957.978a.5.5 0 0 0 0 .894l1.957.978a.5.5 0 0 1 .224.224l.978 1.957a.5.5 0 0 0 .894 0l.979-1.957a.5.5 0 0 1 .223-.224l1.957-.978a.5.5 0 0 0 0-.894l-1.957-.978a.5.5 0 0 1-.224-.224z" />
-    <Path
-      fillRule="evenodd"
-      d="M5 3a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-6a1 1 0 1 0-2 0v6h-2.1a5.002 5.002 0 0 0-9.8 0H5V5h6a1 1 0 1 0 0-2z"
-      clipRule="evenodd"
-    />
-    <Path d="M12 7.5a3 3 0 1 0 0 6 3 3 0 0 0 0-6" />
+    <Path d="M12 5H5v14h2.1a5.002 5.002 0 0 1 9.8 0H19v-7h2v9H3V3h9z" />
+    <Path d="M12 7.5a3 3 0 1 1 0 6 3 3 0 0 1 0-6M20 4l3 1.5L20 7l-1.5 3L17 7l-3-1.5L17 4l1.5-3z" />
   </Svg>
 );
 export default SvgAiAvatar;

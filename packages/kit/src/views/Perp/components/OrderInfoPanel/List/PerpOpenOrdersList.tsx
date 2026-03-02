@@ -46,8 +46,15 @@ function PerpOpenOrdersList({
     setCurrentListPage(1);
   }, [currentUser?.accountAddress]);
   useEffect(() => {
-    setCurrentListPage(1);
-  }, [filterByCurrentToken, activeAsset?.coin]);
+    if (isMobile) {
+      setCurrentListPage(1);
+    }
+  }, [filterByCurrentToken, isMobile]);
+  useEffect(() => {
+    if (isMobile && filterByCurrentToken) {
+      setCurrentListPage(1);
+    }
+  }, [activeAsset?.coin, isMobile, filterByCurrentToken]);
 
   const filteredOrders = useMemo(() => {
     if (!isMobile || !filterByCurrentToken || !activeAsset?.coin) {
@@ -230,10 +237,7 @@ function PerpOpenOrdersList({
       })}
       ListHeaderComponent={
         isMobile ? (
-          <MobileOpenOrdersListHeader
-            totalOrderCount={openOrders.length}
-            filteredOrderCount={filteredOrders.length}
-          />
+          <MobileOpenOrdersListHeader totalOrderCount={openOrders.length} />
         ) : null
       }
     />

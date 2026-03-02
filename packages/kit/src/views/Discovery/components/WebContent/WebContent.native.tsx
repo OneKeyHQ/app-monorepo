@@ -9,6 +9,7 @@ import {
   useBrowserAction,
   useBrowserTabActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EValidateUrlEnum } from '@onekeyhq/shared/types/dappConnection';
 
 import { webviewRefs } from '../../utils/explorerUtils';
@@ -145,6 +146,7 @@ function WebContent({
         key={url}
         siteMode={siteMode}
         androidLayerType={androidLayerType}
+        pullToRefreshEnabled={!platformEnv.isNativeAndroid}
         src={url}
         onWebViewRef={(ref) => {
           if (ref && ref.innerRef) {

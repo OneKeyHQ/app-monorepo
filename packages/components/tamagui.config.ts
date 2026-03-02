@@ -1,9 +1,9 @@
 import { createAnimations } from '@tamagui/animations-moti';
-import { Easing } from 'react-native-reanimated';
 import { createMedia } from '@tamagui/react-native-media-driver';
 import { shorthands } from '@tamagui/shorthands';
 import { themes } from '@tamagui/themes';
 import { createFont, createTokens } from '@tamagui/web';
+import { Easing } from 'react-native-reanimated';
 import { createTamagui } from 'tamagui';
 
 import {
@@ -690,7 +690,7 @@ declare module 'tamagui' {
   // overrides TamaguiCustomConfig so your custom types
   // work everywhere you import `tamagui`
 
-  // eslint-disable-next-line @typescript-eslint/no-empty-interface, @typescript-eslint/naming-convention
+  // eslint-disable-next-line @typescript-eslint/no-empty-interface, @typescript-eslint/naming-convention, @typescript-eslint/no-empty-object-type
   interface TamaguiCustomConfig extends IAppConfig {}
 
   // override groupNames

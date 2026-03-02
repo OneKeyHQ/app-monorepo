@@ -7,7 +7,7 @@ const SvgShift = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M13.348 2.377a2 2 0 0 0-2.697 0L1.73 10.523C.38 11.754 1.252 14 3.078 14H6v5a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-5h2.922c1.825 0 2.697-2.246 1.348-3.477l-8.92-8.146Z" />
+    <Path d="M23.83 14h-5.829v7h-12v-7H.171l11.83-12.452L23.831 14Z" />
   </Svg>
 );
 export default SvgShift;

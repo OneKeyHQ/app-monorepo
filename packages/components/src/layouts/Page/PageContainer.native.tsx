@@ -8,15 +8,14 @@ import {
 } from '@onekeyhq/components/src/shared/tamagui';
 
 import { KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET } from '../../content/Keyboard';
-
 import { ScrollViewRefProvider } from '../ScrollView';
 
 import { BasicPage } from './BasicPage';
 import { PageContext } from './PageContext';
 import { BasicPageFooter } from './PageFooter';
 
-import type { IScrollViewRef } from '../ScrollView';
 import type { IPageProps } from './type';
+import type { IScrollViewRef } from '../ScrollView';
 import type {
   NativeScrollEvent,
   NativeSyntheticEvent,

@@ -1,6 +1,7 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
+import { useDebouncedCallback } from 'use-debounce';
 
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -28,24 +29,26 @@ export function useTransferInfoActions({
 }: IUseTransferInfoActionsParams) {
   const intl = useIntl();
 
+  // Ref to access latest errors in debounced callback without dependency churn
+  const transferInfoErrorsRef = useRef(transferInfoErrors);
+  transferInfoErrorsRef.current = transferInfoErrors;
+
   const handleDeleteTransfer = useCallback(
     (index: number) => {
       const newTransfersInfo = [...transfersInfo];
       newTransfersInfo.splice(index, 1);
       setTransfersInfo(newTransfersInfo);
 
-      // Remove the error for the deleted index and shift subsequent indices
-      const newErrors = { ...transferInfoErrors };
-      delete newErrors[index];
+      // Remove the error at the deleted index and shift subsequent indices down
       const shiftedErrors: ITransferInfoErrors = {};
-      Object.keys(newErrors).forEach((key) => {
+      for (const [key, value] of Object.entries(transferInfoErrors)) {
         const keyNum = Number(key);
-        if (keyNum > index) {
-          shiftedErrors[keyNum - 1] = newErrors[keyNum];
-        } else {
-          shiftedErrors[keyNum] = newErrors[keyNum];
+        if (keyNum < index) {
+          shiftedErrors[keyNum] = value;
+        } else if (keyNum > index) {
+          shiftedErrors[keyNum - 1] = value;
         }
-      });
+      }
       setTransferInfoErrors(shiftedErrors);
     },
     [
@@ -56,16 +59,8 @@ export function useTransferInfoActions({
     ],
   );
 
-  const handleAmountChange = useCallback(
+  const debouncedValidate = useDebouncedCallback(
     (index: number, value: string) => {
-      const newTransfersInfo = [...transfersInfo];
-      newTransfersInfo[index] = {
-        ...newTransfersInfo[index],
-        amount: value,
-      };
-      setTransfersInfo(newTransfersInfo);
-
-      // Validate and update errors
       const { isValid, error } = validateTokenAmount({
         token: tokenInfo,
         amount: value,
@@ -91,30 +86,38 @@ export function useTransferInfoActions({
           ),
         },
       });
-      const newErrors = { ...transferInfoErrors };
+
+      const newErrors = { ...transferInfoErrorsRef.current };
       if (!isValid && error) {
-        newErrors[index] = {
-          ...newErrors[index],
-          amount: error,
-        };
-      } else if (newErrors[index]) {
-        const { amount: _, ...rest } = newErrors[index];
-        if (Object.keys(rest).length === 0) {
-          delete newErrors[index];
-        } else {
-          newErrors[index] = rest as ITransferInfoError;
+        newErrors[index] = { ...newErrors[index], amount: error };
+      } else {
+        const existing = newErrors[index];
+        if (existing) {
+          const { amount: _, ...rest } = existing;
+          if (Object.keys(rest).length === 0) {
+            delete newErrors[index];
+          } else {
+            newErrors[index] = rest as ITransferInfoError;
+          }
         }
       }
       setTransferInfoErrors(newErrors);
     },
-    [
-      intl,
-      transfersInfo,
-      setTransfersInfo,
-      tokenInfo,
-      transferInfoErrors,
-      setTransferInfoErrors,
-    ],
+    150,
+  );
+
+  // Update amount immediately for responsive typing; validation is debounced
+  const handleAmountChange = useCallback(
+    (index: number, value: string) => {
+      const newTransfersInfo = [...transfersInfo];
+      newTransfersInfo[index] = {
+        ...newTransfersInfo[index],
+        amount: value,
+      };
+      setTransfersInfo(newTransfersInfo);
+      debouncedValidate(index, value);
+    },
+    [transfersInfo, setTransfersInfo, debouncedValidate],
   );
 
   return {

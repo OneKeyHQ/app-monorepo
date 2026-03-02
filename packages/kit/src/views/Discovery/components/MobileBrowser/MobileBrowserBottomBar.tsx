@@ -1,4 +1,4 @@
-import type { IMobileBrowserBottomBarProps } from './MobileBrowserBottomBar.native';
+import type { IMobileBrowserBottomBarProps } from './useMobileBrowserBottomBarData';
 
 function MobileBrowserBottomBar(_props: IMobileBrowserBottomBarProps) {
   return null;

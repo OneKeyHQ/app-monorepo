@@ -9,7 +9,7 @@ const SvgHomeDoor = (props: SvgProps) => (
   >
     <Path
       fillRule="evenodd"
-      d="M11.02 1.978a2 2 0 0 1 1.96 0l7 3.937A2 2 0 0 1 21 7.66v11.165a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7.658a2 2 0 0 1 1.02-1.743zM8.5 12.324a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0"
+      d="M21 6.415V21H3V6.415l9-5.062zM12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7"
       clipRule="evenodd"
     />
   </Svg>

@@ -7,7 +7,12 @@ const SvgCar = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M21 11.002 17.48 6H6.51L3 10.824V18h2v-1a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v1h2zM8 12a1 1 0 1 1 0 2H6a1 1 0 1 1 0-2zm10 0a1 1 0 1 1 0 2h-2a1 1 0 1 1 0-2zm5 6a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2H7a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2v-6.5a1 1 0 1 1 0-2h.491l3.4-4.677A2 2 0 0 1 6.51 4h10.97a2 2 0 0 1 1.636.85l3.404 4.836H23a1 1 0 0 1 0 2z" />
+    <Path d="M8 14H5v-2h3zm11 0h-3v-2h3z" />
+    <Path
+      fillRule="evenodd"
+      d="M20.868 9H23v2h-1v9h-6v-2H8v2H2v-9H1V9h2.132l3.333-5h11.07zM4 11.303V18h2v-2h12v2h2v-6.697L16.465 6h-8.93z"
+      clipRule="evenodd"
+    />
   </Svg>
 );
 export default SvgCar;

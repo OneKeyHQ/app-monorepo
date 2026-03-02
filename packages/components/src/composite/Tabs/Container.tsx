@@ -12,7 +12,6 @@ import {
 import type { PropsWithChildren, RefObject } from 'react';
 
 import { debounce } from 'lodash';
-import type { SharedValue } from 'react-native-reanimated';
 import { useAnimatedReaction, useSharedValue } from 'react-native-reanimated';
 import { WindowScroller } from 'react-virtualized';
 
@@ -27,6 +26,7 @@ import type {
   CollapsibleProps,
   TabBarProps,
 } from 'react-native-collapsible-tab-view';
+import type { SharedValue } from 'react-native-reanimated';
 import type { WindowScrollerChildProps } from 'react-virtualized';
 
 export function ContainerChild({
@@ -95,6 +95,7 @@ export interface ITabContainerRef {
   setIndex: (index: number) => void;
   getFocusedTab: () => string;
   getCurrentIndex: () => number;
+  syncCurrentPage: () => void;
 }
 
 export interface ITabContainerProps {
@@ -110,10 +111,13 @@ export interface ITabContainerProps {
   width?: number | string;
   initialTabName?: string;
   allowHeaderOverscroll?: boolean;
+  disableScroll?: boolean;
+  /** Only used on native Android, ignored on web */
+  useNativeHeaderAnimation?: boolean;
 }
 
 interface ITabContainerRefProps {
-  ref: React.RefObject<ITabContainerRef>;
+  ref?: React.RefObject<ITabContainerRef>;
 }
 
 export function Container({
@@ -125,7 +129,10 @@ export function Container({
   width: containerWidth,
   ref: containerRef,
   initialTabName,
-}: PropsWithChildren<CollapsibleProps> & ITabContainerRefProps) {
+  disableScroll,
+}: PropsWithChildren<CollapsibleProps> &
+  ITabContainerRefProps &
+  Pick<ITabContainerProps, 'disableScroll' | 'useNativeHeaderAnimation'>) {
   // Get tab names from children props
   const scrollTopRef = useRef<{ [key: string]: number }>({});
   const tabNames = useMemo(() => {
@@ -207,9 +214,12 @@ export function Container({
           setTimeout(() => {
             resizeObserverRef.current = new ResizeObserver((entries) => {
               const entry = entries[0];
-              if (entry && entry.contentRect.height) {
+              const borderBoxHeight =
+                entry?.borderBoxSize?.[0]?.blockSize ??
+                (entry?.target as HTMLElement)?.clientHeight;
+              if (borderBoxHeight) {
                 (listContainerRef.current as HTMLElement).style.maxHeight =
-                  `${entry.contentRect.height}px`;
+                  `${borderBoxHeight}px`;
               } else {
                 // When quickly removing and adding observer nodes, ResizeObserver API has a delay
                 // and there's a chance it won't get the current node height, so we need delayed retries
@@ -354,6 +364,9 @@ export function Container({
     getCurrentIndex: () => {
       return tabNames.findIndex((name) => name === focusedTab.value);
     },
+    syncCurrentPage: () => {
+      // no-op on web, only needed for native PagerView
+    },
   }));
 
   return (
@@ -361,9 +374,7 @@ export function Container({
       flex={1}
       className="onekey-tabs-container"
       position="relative"
-      style={{
-        overflowY: 'scroll',
-      }}
+      style={disableScroll ? undefined : { overflowY: 'scroll' }}
       ref={ref as React.RefObject<HTMLDivElement>}
     >
       {scrollElement ? (

@@ -1,6 +1,7 @@
 import { memo, useContext, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { isUndefined } from 'lodash';
 
 import { Checkbox, XStack } from '@onekeyhq/components';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
@@ -43,6 +44,9 @@ function NetworkListItem({ network }: { network: IServerNetworkMatch }) {
   };
 
   const networkTotalValue = useMemo(() => {
+    if (isUndefined(accountNetworkValues[network.id])) {
+      return '0';
+    }
     return new BigNumber(accountDeFiOverview[network.id]?.netWorth ?? 0)
       .plus(accountNetworkValues[network.id] ?? '0')
       .toFixed();

@@ -334,12 +334,25 @@ const SwapHistoryDetailModal = () => {
   const renderSwapProvider = useCallback(
     () => (
       <XStack alignItems="center" gap="$1">
-        <Image
-          source={{ uri: txHistory?.swapInfo.provider.providerLogo ?? '' }}
-          w="$5"
-          h="$5"
-          borderRadius="$1"
-        />
+        <Stack position="relative" w="$5" h="$5">
+          <Image
+            source={{ uri: txHistory?.swapInfo.provider.providerLogo ?? '' }}
+            w="$5"
+            h="$5"
+            borderRadius="$1"
+          />
+          <Stack
+            position="absolute"
+            top={0}
+            left={0}
+            right={0}
+            bottom={0}
+            borderRadius="$1"
+            borderWidth="$px"
+            borderColor="$borderSubdued"
+            pointerEvents="none"
+          />
+        </Stack>
         <SizableText size="$bodyLg" color="$textSubdued">
           {txHistory?.swapInfo.provider.providerName ?? ''}
         </SizableText>

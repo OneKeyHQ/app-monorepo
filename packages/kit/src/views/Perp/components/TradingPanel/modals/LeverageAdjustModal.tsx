@@ -250,7 +250,7 @@ export const LeverageAdjustModal = memo(
           id: ETranslations.perp_trading_adjust_leverage,
         }),
         disableDrag: true,
-        dismissOnOverlayPress: false,
+        dismissOnOverlayPress: true,
         renderContent: (
           <PerpsProviderMirror>
             <LeverageContent

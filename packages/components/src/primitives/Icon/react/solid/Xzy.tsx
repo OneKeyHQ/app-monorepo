@@ -7,11 +7,7 @@ const SvgXzy = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path
-      fillRule="evenodd"
-      d="M8.293 3.293a1 1 0 0 1 1.414 0l3 3a1 1 0 0 1-1.414 1.414L10 6.414V14h10a1 1 0 1 1 0 2H9.414l-4.707 4.707a1 1 0 0 1-1.414-1.414L8 14.586V6.414L6.707 7.707a1 1 0 0 1-1.414-1.414z"
-      clipRule="evenodd"
-    />
+    <Path d="M13.414 7 12 8.414l-2-2V14h11v2H9.414L4 21.414 2.586 20 8 14.586V6.414l-2 2L4.586 7 9 2.586z" />
   </Svg>
 );
 export default SvgXzy;

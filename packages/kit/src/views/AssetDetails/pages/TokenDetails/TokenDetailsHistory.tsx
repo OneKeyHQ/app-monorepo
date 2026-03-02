@@ -181,5 +181,6 @@ function TokenDetailsHistory(props: IProps) {
 const TokenDetailsHistoryWithProvider = memo(
   withHistoryListProvider(TokenDetailsHistory),
 );
+TokenDetailsHistoryWithProvider.displayName = 'TokenDetailsHistoryWithProvider';
 
 export default memo(TokenDetailsHistoryWithProvider);

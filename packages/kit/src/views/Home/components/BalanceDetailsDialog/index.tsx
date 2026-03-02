@@ -464,8 +464,7 @@ export const showBalanceDetailsDialog = ({
   deriveInfoItems?: IAccountDeriveInfoItems[];
   mergeDeriveAssetsEnabled?: boolean;
 }) => {
-  let dialogInstance: ReturnType<typeof Dialog.show>;
-  dialogInstance = Dialog.show({
+  const dialogInstance = Dialog.show({
     icon: 'CryptoCoinOutline',
     renderContent: (
       <BalanceDetailsContent

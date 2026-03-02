@@ -21,11 +21,11 @@ import { AmountInput as BaseAmountInput } from '@onekeyhq/kit/src/components/Amo
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { validateTokenAmount } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   EAmountInputMode,
   type ITransferInfoErrors,
 } from '@onekeyhq/shared/types/bulkSend';
-import { validateTokenAmount } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import { filterNumericInput, validateRangeInput } from '../../../utils';
 
@@ -413,6 +413,7 @@ function AmountCard() {
                   placeholder="0"
                   keyboardType="decimal-pad"
                   containerProps={{
+                    flex: 1,
                     borderWidth: 0,
                   }}
                   bg="transparent"
@@ -470,6 +471,7 @@ function AmountCard() {
                   placeholder="0"
                   keyboardType="decimal-pad"
                   containerProps={{
+                    flex: 1,
                     borderWidth: 0,
                   }}
                   bg="transparent"
@@ -650,7 +652,7 @@ function TransferInfoListSection() {
           size="$headingXs"
           color="$textSubdued"
           textTransform="uppercase"
-          width={20}
+          width={36}
           flexShrink={0}
         >
           #
@@ -723,8 +725,9 @@ function TransferInfoListSection() {
             <SizableText
               size="$bodyMdMedium"
               color="$textDisabled"
-              width={20}
+              width={36}
               flexShrink={0}
+              style={{ whiteSpace: 'nowrap' } as any}
             >
               {index + 1}.
             </SizableText>

@@ -9,7 +9,7 @@ const SvgVideoCameraRecording = (props: SvgProps) => (
   >
     <Path
       fillRule="evenodd"
-      d="M2 6a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v1.382l2.106-1.053A2 2 0 0 1 22 8.118v7.764a2 2 0 0 1-2.894 1.789L17 16.618V18a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2zm7.5 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6"
+      d="m17 7.523 5-2v12.954l-5-2V20H2V4h15zM9.5 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6"
       clipRule="evenodd"
     />
   </Svg>

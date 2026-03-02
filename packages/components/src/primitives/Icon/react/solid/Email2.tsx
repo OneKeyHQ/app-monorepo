@@ -7,8 +7,8 @@ const SvgEmail2 = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M2 6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v.882l-10 5-10-5z" />
-    <Path d="M2 9.118V18a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9.118l-9.106 4.553a2 2 0 0 1-1.788 0z" />
+    <Path d="M22 20H2V9.118l10 5 10-5z" />
+    <Path d="m22 6.882-10 5-10-5V4h20z" />
   </Svg>
 );
 export default SvgEmail2;

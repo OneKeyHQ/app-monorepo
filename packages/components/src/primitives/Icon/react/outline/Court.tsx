@@ -7,7 +7,12 @@ const SvgCourt = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M20 19a1 1 0 0 1 0 2H4a1 1 0 1 1 0-2zM5 6.234V8h14V6.234l-7-2.186zM21 8.25A1.75 1.75 0 0 1 19.25 10H19v7a1 1 0 1 1-2 0v-7h-2v7a1 1 0 1 1-2 0v-7h-2v7a1 1 0 1 1-2 0v-7H7v7a1 1 0 1 1-2 0v-7h-.25A1.75 1.75 0 0 1 3 8.25V6.052A1.75 1.75 0 0 1 4.228 4.38l7.175-2.242a2 2 0 0 1 1.194 0l7.176 2.242A1.75 1.75 0 0 1 21 6.05z" />
+    <Path d="M21 21H3v-2h18z" />
+    <Path
+      fillRule="evenodd"
+      d="M12.298 2.046 21 4.765V10h-2v8h-2v-8h-2v8h-2v-8h-2v8H9v-8H7v8H5v-8H3V4.765l8.702-2.72.298-.093zM5 6.234V8h14V6.234l-7-2.187z"
+      clipRule="evenodd"
+    />
   </Svg>
 );
 export default SvgCourt;

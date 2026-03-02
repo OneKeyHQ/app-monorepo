@@ -11,18 +11,19 @@ import {
   Stack,
   XStack,
   YStack,
+  popModalPagesOnNative,
+  rootNavigationRef,
   useUpdateEffect,
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useReferFriends } from '@onekeyhq/kit/src/hooks/useReferFriends';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalRoutes, ERootRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -32,43 +33,62 @@ import { PrimeUserInfo } from '../PrimeDashboard/PrimeUserInfo';
 
 function OneKeyIdPage() {
   const intl = useIntl();
-  const navigation = useAppNavigation();
   const { toInviteRewardPage } = useReferFriends();
   const { isPrimeAvailable } = usePrimeAvailable();
   const { isLoggedIn, logout } = useOneKeyAuth();
   const logoutRef = useRef<() => Promise<void>>(logout);
   const isFocused = useRouteIsFocused();
+  const isExplicitLogoutRef = useRef(false);
 
   const toPrimePage = useCallback(() => {
-    if (isPrimeAvailable) {
-      if (platformEnv.isNative) {
-        navigation.popStack();
-        requestIdleCallback(() => {
-          navigation.pushFullModal(EModalRoutes.PrimeModal, {
-            screen: EPrimePages.PrimeDashboard,
+    requestIdleCallback(async () => {
+      try {
+        if (isPrimeAvailable) {
+          if (platformEnv.isNative) {
+            popModalPagesOnNative();
+          }
+          rootNavigationRef.current?.navigate(ERootRoutes.iOSFullScreen, {
+            screen: EModalRoutes.PrimeModal,
+            params: {
+              screen: EPrimePages.PrimeDashboard,
+            },
           });
-        });
-      } else {
-        navigation.pushFullModal(EModalRoutes.PrimeModal, {
-          screen: EPrimePages.PrimeDashboard,
+        }
+      } catch (e) {
+        defaultLogger.prime.subscription.onekeyIdLogout({
+          reason: `OneKeyIdPage: toPrimePage navigation error: ${String(e)}`,
         });
       }
+    });
+  }, [isPrimeAvailable]);
+
+  const handleLoggedOutWhileFocused = useCallback(async () => {
+    if (isExplicitLogoutRef.current) {
+      return;
     }
-  }, [navigation, isPrimeAvailable]);
+    if (!isLoggedIn && isFocused) {
+      await timerUtils.wait(300);
+      popModalPagesOnNative();
+      defaultLogger.prime.subscription.onekeyIdLogout({
+        reason:
+          'OneKeyIdPage: is focused and primePersistAtom is not logged in',
+      });
+      void logoutRef.current();
+    }
+  }, [isLoggedIn, isFocused]);
 
   useUpdateEffect(() => {
-    void (async () => {
-      if (!isLoggedIn && isFocused) {
-        await timerUtils.wait(300);
-        navigation.popStack();
-        defaultLogger.prime.subscription.onekeyIdLogout({
-          reason:
-            'OneKeyIdPage: is focused and primePersistAtom is not logged in',
-        });
-        void logoutRef.current();
-      }
-    })();
-  }, [isLoggedIn, navigation, isFocused]);
+    void handleLoggedOutWhileFocused();
+  }, [handleLoggedOutWhileFocused]);
+
+  const handleBeforeLogout = useCallback(() => {
+    isExplicitLogoutRef.current = true;
+  }, []);
+
+  const handleLogoutSuccess = useCallback(async () => {
+    defaultLogger.referral.page.logoutOneKeyIDResult();
+    popModalPagesOnNative();
+  }, []);
 
   return (
     <Page scrollEnabled>
@@ -96,10 +116,8 @@ function OneKeyIdPage() {
           </YStack>
           <Stack p="$5">
             <PrimeUserInfo
-              onLogoutSuccess={async () => {
-                defaultLogger.referral.page.logoutOneKeyIDResult();
-                navigation.popStack();
-              }}
+              onBeforeLogout={handleBeforeLogout}
+              onLogoutSuccess={handleLogoutSuccess}
             />
           </Stack>
           <YStack>

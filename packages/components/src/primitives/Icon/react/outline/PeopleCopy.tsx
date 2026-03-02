@@ -7,7 +7,16 @@ const SvgPeopleCopy = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M14 16a5.5 5.5 0 0 1 5.291 4H20V8H8v12h.709A5.5 5.5 0 0 1 14 16m0 2a3.5 3.5 0 0 0-3.16 2h6.32A3.5 3.5 0 0 0 14 18m1-5.5a1 1 0 1 0-2 0 1 1 0 0 0 2 0m2 0a3 3 0 1 1-6 0 3 3 0 0 1 6 0M4 4v12h2V8a2 2 0 0 1 2-2h8V4zm14 2h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-2H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2z" />
+    <Path
+      fillRule="evenodd"
+      d="M14 9.5a3 3 0 1 1 0 6 3 3 0 0 1 0-6m0 2a1 1 0 1 0 0 2 1 1 0 0 0 0-2"
+      clipRule="evenodd"
+    />
+    <Path
+      fillRule="evenodd"
+      d="M18 6h4v16H6v-4H2V2h16zM8 20h.709a5.502 5.502 0 0 1 10.585 0H20V8H8zm6.002-2a3.5 3.5 0 0 0-3.16 2h6.32a3.5 3.5 0 0 0-3.16-2M4 16h2V6h10V4H4z"
+      clipRule="evenodd"
+    />
   </Svg>
 );
 export default SvgPeopleCopy;

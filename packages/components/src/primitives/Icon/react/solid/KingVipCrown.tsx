@@ -7,7 +7,7 @@ const SvgKingVipCrown = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M12.832 3.445a1 1 0 0 0-1.664 0l-3.51 5.266-5.21-2.605A1 1 0 0 0 1.02 7.204l2.334 11.204A2 2 0 0 0 5.313 20h13.374a2 2 0 0 0 1.958-1.592l2.334-11.204a1 1 0 0 0-1.426-1.098l-5.21 2.605z" />
+    <Path d="m16.344 8.71 7.058-3.528L20.315 20H3.688L.602 5.182 7.659 8.71l4.343-6.514z" />
   </Svg>
 );
 export default SvgKingVipCrown;

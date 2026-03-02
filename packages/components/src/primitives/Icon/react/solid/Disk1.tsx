@@ -7,8 +7,8 @@ const SvgDisk1 = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M7 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h2v-7a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v7h2a2 2 0 0 0 2-2V7.414A2 2 0 0 0 20.414 6L18 3.586a2 2 0 0 0-1-.543V7a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2z" />
-    <Path d="M15 3H9v4h6zm0 18v-7H9v7z" />
+    <Path d="M7 9h10V3h.414L21 6.586V21h-4v-9H7v9H3V3h4z" />
+    <Path d="M15 14v7H9v-7zm0-7H9V3h6z" />
   </Svg>
 );
 export default SvgDisk1;

@@ -3,21 +3,21 @@ import { useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Button, SizableText, YStack, useMedia } from '@onekeyhq/components';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EChainSelectorPages } from '@onekeyhq/shared/src/routes';
-import bulkSendUtils from '@onekeyhq/shared/src/utils/bulkSendUtils';
-import type { IToken } from '@onekeyhq/shared/types/token';
-
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import useConfigurableChainSelector from '@onekeyhq/kit/src/views/ChainSelector/hooks/useChainSelector';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EChainSelectorPages } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import bulkSendUtils from '@onekeyhq/shared/src/utils/bulkSendUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { useBulkSendAddressesInputContext } from './Context';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 function AssetSelectorTrigger() {
   const intl = useIntl();
@@ -49,13 +49,46 @@ function AssetSelectorTrigger() {
       : intl.formatMessage({ id: ETranslations.token_selector_title });
   }, [selectedToken, media.gtMd, intl]);
 
-  const availableNetworkIds = useMemo(() => {
-    return bulkSendUtils.getBulkSendSupportedNetworkIds();
-  }, []);
+  const {
+    result: { availableNetworkIds, unavailableNetworkIds },
+  } = usePromiseResult(
+    async () => {
+      const _availableNetworkIds =
+        bulkSendUtils.getBulkSendSupportedNetworkIds();
+
+      if (!selectedAccountId) {
+        return {
+          availableNetworkIds: _availableNetworkIds,
+          unavailableNetworkIds: [],
+        };
+      }
+
+      const { unavailableItems } =
+        await backgroundApiProxy.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId(
+          {
+            accountId: selectedAccountId,
+            networkIds: _availableNetworkIds,
+          },
+        );
+      return {
+        availableNetworkIds: _availableNetworkIds,
+        unavailableNetworkIds: unavailableItems.map((o) => o.id),
+      };
+    },
+    [selectedAccountId],
+    {
+      initResult: {
+        availableNetworkIds: [],
+        unavailableNetworkIds: [],
+      },
+      watchLoading: true,
+    },
+  );
 
   const handleSelectAsset = useCallback(() => {
     openChainSelector({
       networkIds: availableNetworkIds,
+      disableNetworkIds: unavailableNetworkIds,
       defaultNetworkId: selectedNetworkId,
       showNetworkValues: true,
       indexedAccountId: selectedIndexedAccountId ?? undefined,
@@ -112,6 +145,7 @@ function AssetSelectorTrigger() {
     setSelectedToken,
     setSelectedAccountId,
     setSelectedNetworkId,
+    unavailableNetworkIds,
   ]);
 
   return (

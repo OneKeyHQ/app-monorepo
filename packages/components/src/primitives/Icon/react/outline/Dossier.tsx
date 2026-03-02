@@ -7,7 +7,11 @@ const SvgDossier = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M16 6v2h4V6zm-6 2h4V6h-4zM4 18h16v-8H9a1 1 0 0 1-1-1V6H4zm18 0a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z" />
+    <Path
+      fillRule="evenodd"
+      d="M22 20H2V4h20zM4 18h16v-8H8V6H4zm6-10h4V6h-4zm6 0h4V6h-4z"
+      clipRule="evenodd"
+    />
   </Svg>
 );
 export default SvgDossier;

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import BigNumber from 'bignumber.js';
+import { isUndefined } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { Form, Page, YStack, useForm, useMedia } from '@onekeyhq/components';
@@ -9,18 +11,19 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-import BigNumber from 'bignumber.js';
 import {
   POLLING_DEBOUNCE_INTERVAL,
   POLLING_INTERVAL_FOR_TOKEN,
 } from '@onekeyhq/shared/src/consts/walletConsts';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IModalBulkSendParamList } from '@onekeyhq/shared/src/routes';
 import {
   EModalBulkSendRoutes,
   ETabHomeRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bulkSendUtils from '@onekeyhq/shared/src/utils/bulkSendUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -40,7 +43,6 @@ import {
   BulkSendAddressesInputContext,
   useBulkSendAddressesInputContext,
 } from './components/Context';
-import { isUndefined } from 'lodash';
 
 function BaseBulkSendAddressesInput() {
   const intl = useIntl();
@@ -135,7 +137,10 @@ function BaseBulkSendAddressesInput() {
       }
     }
 
-    if (isAllNetwork) {
+    if (
+      isAllNetwork &&
+      !accountUtils.isOthersAccount({ accountId: _selectedAccountId })
+    ) {
       const networkAccounts =
         await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountId(
           {
@@ -178,12 +183,15 @@ function BaseBulkSendAddressesInput() {
   ]);
 
   // Reset token details state when account/network/token changes
+  /* eslint-disable react-hooks/exhaustive-deps */
+  /* oxlint-disable react/exhaustive-deps */
   useEffect(() => {
     if (selectedAccountId && selectedNetworkId && selectedToken) {
       setTokenDetailsState({
         initialized: false,
         isRefreshing: true,
       });
+      void form.trigger();
     }
   }, [
     selectedAccountId,
@@ -191,6 +199,8 @@ function BaseBulkSendAddressesInput() {
     selectedToken,
     setTokenDetailsState,
   ]);
+  /* eslint-enable react-hooks/exhaustive-deps */
+  /* oxlint-enable react/exhaustive-deps */
 
   usePromiseResult(
     async () => {
@@ -328,6 +338,7 @@ function BaseBulkSendAddressesInput() {
         tokenInfo: selectedToken,
         tokenDetails: selectedTokenDetail,
         bulkSendMode,
+        isInModal,
       });
     } else {
       navigation.switchTab(ETabRoutes.Home);
@@ -381,7 +392,9 @@ function BaseBulkSendAddressesInput() {
             >
               <Form form={form}>
                 <SenderAddressesInput />
-                <ReceiverAddressesInput maxLines={500} />
+                <ReceiverAddressesInput
+                  maxLines={platformEnv.isNativeAndroid ? 100 : 500}
+                />
               </Form>
             </AccountSelectorProviderMirror>
           </YStack>

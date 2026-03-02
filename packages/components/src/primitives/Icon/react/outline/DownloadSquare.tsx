@@ -7,7 +7,12 @@ const SvgDownloadSquare = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M5 5v14h14V5zm10 10a1 1 0 1 1 0 2H9a1 1 0 1 1 0-2zm-4-7a1 1 0 1 1 2 0v2.586l.293-.293a1 1 0 1 1 1.414 1.414l-2 2a1 1 0 0 1-1.414 0l-2-2a1 1 0 1 1 1.414-1.414l.293.293zm10 11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    <Path d="M16 17H8v-2h8zm-3-6.414 1-1L15.414 11 12 14.414 8.586 11 10 9.586l1 1V7h2z" />
+    <Path
+      fillRule="evenodd"
+      d="M21 21H3V3h18zM5 19h14V5H5z"
+      clipRule="evenodd"
+    />
   </Svg>
 );
 export default SvgDownloadSquare;

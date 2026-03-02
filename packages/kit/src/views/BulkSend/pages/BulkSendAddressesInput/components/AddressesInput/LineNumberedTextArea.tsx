@@ -2,10 +2,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import {
+  Keyboard,
+  type LayoutChangeEvent,
   type ScrollView as RNScrollView,
   TextInput as RNTextInput,
+  type View as RNView,
   StyleSheet,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
   IconButton,
@@ -16,6 +20,7 @@ import {
   XStack,
   YStack,
   useClipboard,
+  useScrollView,
   useSelectionColor,
   useTheme,
 } from '@onekeyhq/components';
@@ -29,8 +34,6 @@ import type { IAddressBadge } from '@onekeyhq/shared/types/address';
 import { EInputAddressChangeType } from '@onekeyhq/shared/types/address';
 
 import { showUploadCSVDialog } from '../UploadCSVDialog';
-
-import type { LayoutChangeEvent } from 'react-native';
 
 export type ILineError = {
   lineNumber: number;
@@ -105,6 +108,7 @@ function LineNumberedTextArea({
   onInputTypeChange,
 }: ILineNumberedTextAreaProps) {
   const intl = useIntl();
+  const safeAreaInsets = useSafeAreaInsets();
   const inputRef = useRef<RNTextInput>(null);
   const scrollViewRef = useRef<RNScrollView>(null);
   const [lineHeights, setLineHeights] = useState<Record<number, number>>({});
@@ -182,12 +186,96 @@ function LineNumberedTextArea({
     return errorSet;
   }, [errors]);
 
+  // #1 iOS: scroll outer page ScrollView to keep this component visible above keyboard
+  const { scrollViewRef: pageScrollViewRef, pageOffsetRef } = useScrollView();
+  const containerRef = useRef<RNView>(null);
+  const isFocusedRef = useRef(false);
+  const lastKeyboardScreenYRef = useRef<number | null>(null);
+
+  const scrollOuterToShowComponent = useCallback(
+    (keyboardScreenY: number) => {
+      if (
+        !containerRef.current ||
+        !pageScrollViewRef.current ||
+        typeof pageScrollViewRef.current.scrollTo !== 'function'
+      )
+        return;
+
+      containerRef.current.measureInWindow((_x, y, _w, h) => {
+        const componentBottom = y + h;
+        // 80px buffer so we don't scroll when only barely near the keyboard
+        if (componentBottom <= keyboardScreenY - 80) return;
+
+        // 52px = navigation header height
+        const headerBottom = safeAreaInsets.top + 52;
+        const scrollBy = y - headerBottom;
+
+        if (scrollBy > 0) {
+          const currentY = pageOffsetRef.current.y;
+          pageScrollViewRef.current?.scrollTo({
+            y: currentY + scrollBy,
+            animated: true,
+          });
+        }
+      });
+    },
+    [pageScrollViewRef, pageOffsetRef, safeAreaInsets.top],
+  );
+
+  useEffect(() => {
+    if (!platformEnv.isNativeIOS || singleLine) return () => {};
+
+    const showSub = Keyboard.addListener('keyboardDidShow', (e) => {
+      lastKeyboardScreenYRef.current = e.endCoordinates.screenY;
+      if (isFocusedRef.current) {
+        scrollOuterToShowComponent(e.endCoordinates.screenY);
+      }
+    });
+    const hideSub = Keyboard.addListener('keyboardDidHide', () => {
+      lastKeyboardScreenYRef.current = null;
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, [scrollOuterToShowComponent, singleLine]);
+
   const handleContainerPress = useCallback(() => {
     inputRef.current?.focus();
   }, []);
 
   const handleFocus = useCallback(() => {
-    // Keyboard avoidance is handled by parent KeyboardAvoidingView
+    isFocusedRef.current = true;
+
+    // #2 Scroll internal ScrollView to show content bottom
+    if (scrollViewRef.current && contentHeight > (height ?? maxHeight)) {
+      setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+    }
+
+    // If keyboard is already shown (switching between inputs), trigger outer scroll
+    if (
+      platformEnv.isNativeIOS &&
+      lastKeyboardScreenYRef.current !== null &&
+      lastKeyboardScreenYRef.current !== undefined
+    ) {
+      const keyboardY = lastKeyboardScreenYRef.current;
+      setTimeout(() => {
+        if (
+          isFocusedRef.current &&
+          keyboardY !== null &&
+          keyboardY !== undefined
+        ) {
+          scrollOuterToShowComponent(keyboardY);
+        }
+      }, 100);
+    }
+  }, [scrollOuterToShowComponent, contentHeight, height, maxHeight]);
+
+  const handleBlur = useCallback(() => {
+    isFocusedRef.current = false;
   }, []);
 
   const handleLineLayout = useCallback(
@@ -257,6 +345,7 @@ function LineNumberedTextArea({
 
   const styles = useMemo(
     () =>
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       StyleSheet.create({
         textInput: platformEnv.isNative
           ? {
@@ -296,7 +385,7 @@ function LineNumberedTextArea({
   );
 
   return (
-    <YStack>
+    <YStack ref={containerRef}>
       <Stack
         borderWidth="$px"
         borderColor="$borderStrong"
@@ -412,7 +501,9 @@ function LineNumberedTextArea({
                 placeholder={platformEnv.isNative ? placeholder : undefined}
                 placeholderTextColor={placeholderColor}
                 allowFontScaling={false}
+                maxFontSizeMultiplier={1}
                 onFocus={handleFocus}
+                onBlur={handleBlur}
                 onChange={() => {
                   onInputTypeChange?.(EInputAddressChangeType.Manual);
                 }}
