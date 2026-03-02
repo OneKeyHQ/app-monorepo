@@ -112,7 +112,7 @@ index d699315..53733de 100644
        onLayout(size)
      }
 diff --git a/node_modules/react-native-bottom-tabs/ios/TabViewImpl.swift b/node_modules/react-native-bottom-tabs/ios/TabViewImpl.swift
-index 72938be..a7a3c15 100644
+index 72938be..c44a50d 100644
 --- a/node_modules/react-native-bottom-tabs/ios/TabViewImpl.swift
 +++ b/node_modules/react-native-bottom-tabs/ios/TabViewImpl.swift
 @@ -80,7 +80,7 @@ struct TabViewImpl: View {
@@ -165,6 +165,21 @@ index 72938be..a7a3c15 100644
    @ViewBuilder
    func tabBadge(_ data: String?) -> some View {
      if #available(iOS 15.0, macOS 15.0, visionOS 2.0, tvOS 15.0, *) {
+@@ -300,7 +334,13 @@ extension View {
+   func hideTabBar(_ flag: Bool) -> some View {
+     #if !os(macOS)
+       if flag {
+-        if #available(iOS 16.0, tvOS 16.0, *) {
++        if #available(iOS 26.0, tvOS 26.0, *) {
++          // On iOS 26+ (Liquid Glass), .toolbar(.hidden, for: .tabBar) leaves a transparent
++          // glass container view that still intercepts touches, causing the UI to be
++          // unresponsive. Rely solely on direct tabBar.isHidden manipulation via
++          // updateTabBarAppearance / configureAppearance instead.
++          self
++        } else if #available(iOS 16.0, tvOS 16.0, *) {
+           self.toolbar(.hidden, for: .tabBar)
+         } else {
+           // We fallback to isHidden on UITabBar
 diff --git a/node_modules/react-native-bottom-tabs/lib/module/TabView.js b/node_modules/react-native-bottom-tabs/lib/module/TabView.js
 index 3ab92c7..81ca149 100644
 --- a/node_modules/react-native-bottom-tabs/lib/module/TabView.js
