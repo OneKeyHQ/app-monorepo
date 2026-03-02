@@ -564,7 +564,9 @@ class ServiceHardware extends ServiceBase {
                 });
               } catch (_e) {
                 // remove from tracked set so it can be retried on next event
-                this.connectedDeviceTracked.delete(features.device_id);
+                if (features.device_id) {
+                  this.connectedDeviceTracked.delete(features.device_id);
+                }
               }
             })();
           }
