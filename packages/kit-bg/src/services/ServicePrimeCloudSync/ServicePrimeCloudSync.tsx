@@ -1446,6 +1446,46 @@ class ServicePrimeCloudSync extends ServiceBase {
     );
   }
 
+  async buildSyncCredentialForOneKeyId({
+    password,
+  }: {
+    password: string;
+  }): Promise<ICloudSyncCredential> {
+    const {
+      masterPasswordUUID,
+      // encryptedSecurityPasswordR1
+    } = await primeMasterPasswordPersistAtom.get();
+    // if (!masterPasswordUUID || !encryptedSecurityPasswordR1) {
+    //   void this.showAlertDialogIfLocalPasswordNotSet();
+    //   throw new OneKeyError(
+    //     'No masterPasswordUUID or encryptedSecurityPasswordR1 in atom',
+    //   );
+    // }
+    //
+    const securityPasswordR1Info =
+      await this.backgroundApi.serviceMasterPassword.getSecurityPasswordR1InfoSafe(
+        {
+          passcode: password,
+        },
+      );
+    const securityPasswordR1 = securityPasswordR1Info?.securityPasswordR1;
+    const accountSalt = securityPasswordR1Info?.accountSalt;
+
+    if (!securityPasswordR1) {
+      throw new OneKeyError('Failed to decrypt securityPasswordR1');
+    }
+    if (!accountSalt) {
+      throw new OneKeyError('Failed to get accountSalt');
+    }
+
+    return {
+      primeAccountSalt: accountSalt,
+      securityPasswordR1,
+      masterPasswordUUID,
+      keylessCredential: undefined,
+    };
+  }
+
   // TODO remove cache when logout, lock, change password/passcode, etc.
   getSyncCredentialWithCache = memoizee(
     async (): Promise<ICloudSyncCredential> => {
@@ -1468,39 +1508,7 @@ class ServicePrimeCloudSync extends ServiceBase {
         return this.buildSyncCredentialWithKeylessCredential(keylessCredential);
       }
 
-      const {
-        masterPasswordUUID,
-        // encryptedSecurityPasswordR1
-      } = await primeMasterPasswordPersistAtom.get();
-      // if (!masterPasswordUUID || !encryptedSecurityPasswordR1) {
-      //   void this.showAlertDialogIfLocalPasswordNotSet();
-      //   throw new OneKeyError(
-      //     'No masterPasswordUUID or encryptedSecurityPasswordR1 in atom',
-      //   );
-      // }
-      //
-      const securityPasswordR1Info =
-        await this.backgroundApi.serviceMasterPassword.getSecurityPasswordR1InfoSafe(
-          {
-            passcode: password,
-          },
-        );
-      const securityPasswordR1 = securityPasswordR1Info?.securityPasswordR1;
-      const accountSalt = securityPasswordR1Info?.accountSalt;
-
-      if (!securityPasswordR1) {
-        throw new OneKeyError('Failed to decrypt securityPasswordR1');
-      }
-      if (!accountSalt) {
-        throw new OneKeyError('Failed to get accountSalt');
-      }
-
-      return {
-        primeAccountSalt: accountSalt,
-        securityPasswordR1,
-        masterPasswordUUID,
-        keylessCredential: undefined,
-      };
+      return this.buildSyncCredentialForOneKeyId({ password });
     },
     {
       max: 1,
@@ -2096,11 +2104,12 @@ class ServicePrimeCloudSync extends ServiceBase {
         }),
       },
       async () => {
-        syncCredential = await this.getSyncCredentialSafe();
-        // verify local password match with server master password
-        if (!syncCredential) {
-          throw new OneKeyError('Master password set failed');
-        }
+        // Force OneKey ID credential here. Enabling OneKey Cloud can start
+        // while Keyless is still enabled, and mode-based credential lookup
+        // would otherwise route to Keyless and fail.
+        syncCredential = await this.buildSyncCredentialForOneKeyId({
+          password,
+        });
         await this.initLocalSyncItemsDB({ password, syncCredential });
         let status:
           | {
