@@ -1274,6 +1274,18 @@ export function UniversalStake({
     isPendleProvider,
   ]);
 
+  const confirmOnPress = useMemo(() => {
+    if (effectiveShowExpiredRefresh) return handleLocalRefreshQuote;
+    if (shouldApprove) return onApprove;
+    return onSubmit;
+  }, [
+    effectiveShowExpiredRefresh,
+    shouldApprove,
+    handleLocalRefreshQuote,
+    onApprove,
+    onSubmit,
+  ]);
+
   const footerContent = (
     <YStack bg="$bgApp" gap="$5">
       {isShowStakeProgress ? (
@@ -1301,11 +1313,7 @@ export function UniversalStake({
           w: '100%',
         }}
         confirmButtonProps={{
-          onPress: effectiveShowExpiredRefresh
-            ? handleLocalRefreshQuote
-            : shouldApprove
-              ? onApprove
-              : onSubmit,
+          onPress: confirmOnPress,
           loading: effectiveShowExpiredRefresh
             ? quoteRefreshing
             : loadingAllowance || approving || submitting || checkAmountLoading,
@@ -1315,6 +1323,109 @@ export function UniversalStake({
       />
     </YStack>
   );
+
+  const summaryContent = useMemo(() => {
+    if (!hasSummarySection) return null;
+    if (usePendleSummaryLayout) {
+      return (
+        <PendleSummarySection
+          rewardRows={pendleRewardRows}
+          tipText={pendleTipText}
+        />
+      );
+    }
+    return (
+      <YStack gap="$2">
+        <XStack ai="center" gap="$1">
+          <EarnText
+            text={transactionConfirmation?.title}
+            color="$textSubdued"
+            size="$bodyMd"
+            boldTextProps={{
+              size: '$bodyMdMedium',
+            }}
+          />
+          {transactionConfirmation?.tooltip ? (
+            <Popover
+              placement="top"
+              title={transactionConfirmation?.title?.text ?? ''}
+              renderTrigger={
+                <IconButton
+                  iconColor="$iconSubdued"
+                  size="small"
+                  icon="InfoCircleOutline"
+                  variant="tertiary"
+                />
+              }
+              renderContent={
+                <Stack p="$5">
+                  <EarnText
+                    text={
+                      transactionConfirmation?.tooltip?.type === 'text'
+                        ? transactionConfirmation?.tooltip?.data?.description
+                        : undefined
+                    }
+                    size="$bodyMd"
+                  />
+                </Stack>
+              }
+            />
+          ) : null}
+        </XStack>
+        {transactionConfirmation?.rewards?.map((reward) => {
+          const hasTooltip = reward.tooltip?.type === 'text';
+          let descriptionTextSize = (
+            hasTooltip ? '$bodyMd' : '$bodyLgMedium'
+          ) as FontSizeTokens;
+          if (reward.description.size) {
+            descriptionTextSize = reward.description.size;
+          }
+          return (
+            <XStack
+              key={reward.title.text}
+              gap="$1"
+              ai="flex-start"
+              mt="$1.5"
+              flexWrap="wrap"
+            >
+              <XStack gap="$1" flex={1} flexWrap="wrap" ai="center">
+                <EarnText
+                  text={reward.title}
+                  color={reward.title.color}
+                  size={reward.title.size}
+                />
+                <XStack gap="$1" flex={1} flexWrap="wrap" ai="center">
+                  <EarnText
+                    text={reward.description}
+                    size={descriptionTextSize}
+                    color={reward.description.color ?? '$textSubdued'}
+                    flexShrink={1}
+                  />
+                  {hasTooltip ? (
+                    <Popover.Tooltip
+                      iconSize="$5"
+                      title={reward.title.text}
+                      tooltip={
+                        (reward.tooltip as IEarnTextTooltip)?.data?.description
+                          ?.text
+                      }
+                      placement="top"
+                    />
+                  ) : null}
+                </XStack>
+              </XStack>
+            </XStack>
+          );
+        })}
+      </YStack>
+    );
+  }, [
+    hasSummarySection,
+    usePendleSummaryLayout,
+    pendleRewardRows,
+    pendleTipText,
+    transactionConfirmation,
+  ]);
 
   return (
     <StakingFormWrapper>
@@ -1451,100 +1562,7 @@ export function UniversalStake({
               />
             </XStack>
           ) : null}
-          {hasSummarySection ? (
-            usePendleSummaryLayout ? (
-              <PendleSummarySection
-                rewardRows={pendleRewardRows}
-                tipText={pendleTipText}
-              />
-            ) : (
-              <YStack gap="$2">
-                <XStack ai="center" gap="$1">
-                  <EarnText
-                    text={transactionConfirmation?.title}
-                    color="$textSubdued"
-                    size="$bodyMd"
-                    boldTextProps={{
-                      size: '$bodyMdMedium',
-                    }}
-                  />
-                  {transactionConfirmation?.tooltip ? (
-                    <Popover
-                      placement="top"
-                      title={transactionConfirmation?.title?.text ?? ''}
-                      renderTrigger={
-                        <IconButton
-                          iconColor="$iconSubdued"
-                          size="small"
-                          icon="InfoCircleOutline"
-                          variant="tertiary"
-                        />
-                      }
-                      renderContent={
-                        <Stack p="$5">
-                          <EarnText
-                            text={
-                              transactionConfirmation?.tooltip?.type === 'text'
-                                ? transactionConfirmation?.tooltip?.data
-                                    ?.description
-                                : undefined
-                            }
-                            size="$bodyMd"
-                          />
-                        </Stack>
-                      }
-                    />
-                  ) : null}
-                </XStack>
-                {transactionConfirmation?.rewards?.map((reward) => {
-                  const hasTooltip = reward.tooltip?.type === 'text';
-                  let descriptionTextSize = (
-                    hasTooltip ? '$bodyMd' : '$bodyLgMedium'
-                  ) as FontSizeTokens;
-                  if (reward.description.size) {
-                    descriptionTextSize = reward.description.size;
-                  }
-
-                  return (
-                    <XStack
-                      key={reward.title.text}
-                      gap="$1"
-                      ai="flex-start"
-                      mt="$1.5"
-                      flexWrap="wrap"
-                    >
-                      <XStack gap="$1" flex={1} flexWrap="wrap" ai="center">
-                        <EarnText
-                          text={reward.title}
-                          color={reward.title.color}
-                          size={reward.title.size}
-                        />
-                        <XStack gap="$1" flex={1} flexWrap="wrap" ai="center">
-                          <EarnText
-                            text={reward.description}
-                            size={descriptionTextSize}
-                            color={reward.description.color ?? '$textSubdued'}
-                            flexShrink={1}
-                          />
-                          {hasTooltip ? (
-                            <Popover.Tooltip
-                              iconSize="$5"
-                              title={reward.title.text}
-                              tooltip={
-                                (reward.tooltip as IEarnTextTooltip)?.data
-                                  ?.description?.text
-                              }
-                              placement="top"
-                            />
-                          ) : null}
-                        </XStack>
-                      </XStack>
-                    </XStack>
-                  );
-                })}
-              </YStack>
-            )
-          ) : null}
+          {summaryContent}
           {hasSummarySection ? <Divider my="$5" /> : null}
           <YStack gap="$5">
             {ongoingValidator ? (
@@ -1684,11 +1702,7 @@ export function UniversalStake({
             <Page.FooterActions
               onConfirmText={onConfirmText}
               confirmButtonProps={{
-                onPress: effectiveShowExpiredRefresh
-                  ? handleLocalRefreshQuote
-                  : shouldApprove
-                    ? onApprove
-                    : onSubmit,
+                onPress: confirmOnPress,
                 loading: effectiveShowExpiredRefresh
                   ? quoteRefreshing
                   : loadingAllowance ||
