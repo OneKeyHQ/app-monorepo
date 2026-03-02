@@ -697,6 +697,7 @@
   dexmarket_pro_slip_auto = 'dexmarket.pro_slip_auto',
   dexmarket_pro_total = 'dexmarket.pro_total',
   dexmarket_pro_trigger_price = 'dexmarket.pro_trigger_price',
+  dexmarket_quick_buy = 'dexmarket.quick_buy',
   dexmarket_search_result_liq = 'dexmarket.search_result_liq',
   dexmarket_search_result_vol = 'dexmarket.search_result_vol',
   dexmarket_security_result_cautions = 'dexmarket.security_result_cautions',
