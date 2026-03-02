@@ -137,7 +137,7 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
           isNoEnoughMargin={isNoEnoughMargin}
         />
       )}
-      {!isMobile ? <PerpFeeTierPopover /> : null}
+      {!isMobile && perpsAccountStatus.canTrade ? <PerpFeeTierPopover /> : null}
     </YStack>
   );
   return (

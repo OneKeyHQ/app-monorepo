@@ -17,6 +17,7 @@ import { GiftAction } from '@onekeyhq/kit/src/components/TabPageHeader/component
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   usePerpsActiveAccountMmrAtom,
+  usePerpsActiveAccountStatusAtom,
   usePerpsActiveAccountSummaryAtom,
   usePerpsActiveAssetAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -286,6 +287,8 @@ function PerpBadgesRow() {
 }
 
 export function PerpTickerBarMobile() {
+  const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
+
   const content = (
     <XStack
       flex={1}
@@ -308,7 +311,7 @@ export function PerpTickerBarMobile() {
         <PerpCandleChartButtonMobile />
         <PerpSettingsButton
           testID="perp-mobile-settings-button"
-          showFeeTierEntry
+          showFeeTierEntry={Boolean(perpsAccountStatus.canTrade)}
         />
       </XStack>
     </XStack>
