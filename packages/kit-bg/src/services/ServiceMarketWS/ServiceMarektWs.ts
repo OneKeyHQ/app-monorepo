@@ -205,9 +205,7 @@ class ServiceMarketWS extends ServiceBase {
       return;
     }
     if (retries <= 0) {
-      console.error(
-        'WebSocket not connected after retries, subscribe failed',
-      );
+      console.error('WebSocket not connected after retries, subscribe failed');
       return;
     }
     const timer = setTimeout(() => {
