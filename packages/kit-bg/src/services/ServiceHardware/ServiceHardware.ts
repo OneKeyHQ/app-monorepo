@@ -563,7 +563,8 @@ class ServiceHardware extends ServiceBase {
                       : 'universal',
                 });
               } catch (_e) {
-                // ignore analytics errors
+                // remove from tracked set so it can be retried on next event
+                this.connectedDeviceTracked.delete(features.device_id);
               }
             })();
           }
