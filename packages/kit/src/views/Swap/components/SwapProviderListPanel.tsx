@@ -48,16 +48,16 @@ interface ISwapProviderListPanelProps {
 }
 
 // Animated wrapper for each provider item
-const AnimatedProviderItem = memo(function AnimatedProviderItem({
-  children,
-  itemKey,
-  isNewItem,
-}: {
-  children: React.ReactNode;
-  itemKey: string;
-  isNewItem: boolean;
-}) {
-  return (
+const AnimatedProviderItem = memo(
+  ({
+    children,
+    itemKey,
+    isNewItem,
+  }: {
+    children: React.ReactNode;
+    itemKey: string;
+    isNewItem: boolean;
+  }) => (
     <MotiView
       key={itemKey}
       from={
@@ -81,50 +81,46 @@ const AnimatedProviderItem = memo(function AnimatedProviderItem({
     >
       {children}
     </MotiView>
-  );
-});
+  ),
+);
+AnimatedProviderItem.displayName = 'AnimatedProviderItem';
 
 // Animated skeleton item - matches real card dimensions
-const AnimatedSkeletonItem = memo(function AnimatedSkeletonItem({
-  index,
-}: {
-  index: number;
-}) {
-  return (
-    <MotiView
-      from={{
-        opacity: 0,
-        translateY: 8,
-      }}
-      animate={{
-        opacity: 1,
-        translateY: 0,
-      }}
-      exit={{
-        opacity: 0,
-        translateY: -8,
-      }}
-      transition={
-        {
-          type: 'timing',
-          duration: 200,
-          delay: index * 80,
-        } as any
-      }
+const AnimatedSkeletonItem = memo(({ index }: { index: number }) => (
+  <MotiView
+    from={{
+      opacity: 0,
+      translateY: 8,
+    }}
+    animate={{
+      opacity: 1,
+      translateY: 0,
+    }}
+    exit={{
+      opacity: 0,
+      translateY: -8,
+    }}
+    transition={
+      {
+        type: 'timing',
+        duration: 200,
+        delay: index * 80,
+      } as any
+    }
+  >
+    <Stack
+      borderRadius="$4"
+      my="$2"
+      overflow="hidden"
+      borderCurve="continuous"
+      borderWidth={StyleSheet.hairlineWidth}
+      borderColor="$borderSubdued"
     >
-      <Stack
-        borderRadius="$4"
-        my="$2"
-        overflow="hidden"
-        borderCurve="continuous"
-        borderWidth={StyleSheet.hairlineWidth}
-        borderColor="$borderSubdued"
-      >
-        <Skeleton height={102} radius="square" />
-      </Stack>
-    </MotiView>
-  );
-});
+      <Skeleton height={102} radius="square" />
+    </Stack>
+  </MotiView>
+));
+AnimatedSkeletonItem.displayName = 'AnimatedSkeletonItem';
 
 const SwapProviderListPanel = ({
   refreshAction,
