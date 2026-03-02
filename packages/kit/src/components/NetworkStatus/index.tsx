@@ -43,7 +43,12 @@ export function NetworkStatus() {
 
   // Show ping latency in badge label when on Perp tab
   const label = useMemo(() => {
-    if (isInPerpRoute && isConnected && perpsNetworkStatus?.pingMs !== null && perpsNetworkStatus?.pingMs !== undefined) {
+    if (
+      isInPerpRoute &&
+      isConnected &&
+      perpsNetworkStatus?.pingMs !== null &&
+      perpsNetworkStatus?.pingMs !== undefined
+    ) {
       return `${intl.formatMessage({ id: ETranslations.perp_online })} ${perpsNetworkStatus.pingMs}ms`;
     }
     return undefined;
