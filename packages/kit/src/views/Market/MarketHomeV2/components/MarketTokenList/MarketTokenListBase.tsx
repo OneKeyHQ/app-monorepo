@@ -247,7 +247,13 @@ function MarketTokenListBase({
 
       return undefined;
     },
-    [handleSortChange, isWatchlistMode, clientSort, currentSortBy, currentSortType],
+    [
+      handleSortChange,
+      isWatchlistMode,
+      clientSort,
+      currentSortBy,
+      currentSortType,
+    ],
   );
 
   const handleEndReached = useCallback(() => {

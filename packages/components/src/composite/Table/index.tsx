@@ -213,8 +213,9 @@ function TableHeaderRow<T>({
     }
     return '';
   }, [columns, onHeaderRow]);
-  const [selectedColumnName, setSelectedColumnName] =
-    useState(initialSelectedColumn);
+  const [selectedColumnName, setSelectedColumnName] = useState(
+    initialSelectedColumn,
+  );
   return (
     <XStack
       {...(rowProps as IXStackProps)}

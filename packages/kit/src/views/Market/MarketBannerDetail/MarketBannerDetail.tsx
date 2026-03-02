@@ -155,7 +155,14 @@ function MarketBannerDetailContent({ title }: { title: string }) {
       currentSortBy: bannerSort.sortBy,
       currentSortType: bannerSort.sortType,
     }),
-    [transformedData, isLoading, setSortBy, setSortType, bannerSort.sortBy, bannerSort.sortType],
+    [
+      transformedData,
+      isLoading,
+      setSortBy,
+      setSortType,
+      bannerSort.sortBy,
+      bannerSort.sortType,
+    ],
   );
 
   const renderPageHeader = useMemo(() => {
