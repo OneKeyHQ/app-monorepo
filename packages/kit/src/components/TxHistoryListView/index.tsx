@@ -312,7 +312,7 @@ function BaseTxHistoryListView(props: IProps) {
     (instance: any) => {
       internalListRef.current = instance;
       if (typeof ref === 'function') {
-        (ref as Function)(instance);
+        ref(instance);
       } else if (ref) {
         (ref as React.MutableRefObject<any>).current = instance;
       }

@@ -56,7 +56,12 @@ function TxHistoryListItem(props: IProps) {
     ) {
       recomputeLayout?.();
     }
-  }, [canReplaceTx, checkSpeedUpStateEnabled, recomputeLayout, historyTx.decodedTx.status]);
+  }, [
+    canReplaceTx,
+    checkSpeedUpStateEnabled,
+    recomputeLayout,
+    historyTx.decodedTx.status,
+  ]);
 
   const renderReplaceTxActions = useCallback(() => {
     if (!canReplaceTx && !checkSpeedUpStateEnabled) return null;
