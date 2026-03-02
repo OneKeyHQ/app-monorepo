@@ -112,10 +112,22 @@ index d699315..53733de 100644
        onLayout(size)
      }
 diff --git a/node_modules/react-native-bottom-tabs/ios/TabViewImpl.swift b/node_modules/react-native-bottom-tabs/ios/TabViewImpl.swift
-index 72938be..8b0f2d1 100644
+index 72938be..bfe51b5 100644
 --- a/node_modules/react-native-bottom-tabs/ios/TabViewImpl.swift
 +++ b/node_modules/react-native-bottom-tabs/ios/TabViewImpl.swift
-@@ -80,7 +80,7 @@ struct TabViewImpl: View {
+@@ -69,6 +69,11 @@ struct TabViewImpl: View {
+           tabBar = tabController
+         #else
+           tabBar = tabController.tabBar
++          // Immediately apply hidden state to the new tab bar instance.
++          // Critical on iOS 26 where SwiftUI may recreate the UITabBarController,
++          // making the old tabBar reference stale (window == nil).
++          tabController.tabBar.isHidden = props.tabBarHidden
++          tabController.tabBar.isUserInteractionEnabled = !props.tabBarHidden
+           if !props.tabBarHidden {
+             onTabBarMeasured(
+               Int(tabController.tabBar.frame.size.height)
+@@ -80,7 +85,7 @@ struct TabViewImpl: View {
          .configureAppearance(props: props, tabBar: tabBar)
        #endif
        .tintColor(props.selectedActiveTintColor)
@@ -124,33 +136,7 @@ index 72938be..8b0f2d1 100644
        .onChange(of: props.selectedPage ?? "") { newValue in
          #if !os(macOS)
            if props.disablePageAnimations {
-@@ -116,6 +116,25 @@ struct TabViewImpl: View {
-     guard let tabBar else { return }
- 
-     tabBar.isHidden = props.tabBarHidden
-+    if #available(iOS 26.0, *) {
-+      // Debug: log the entire view hierarchy from tabBar upward
-+      print("[TabBarDebug] === updateTabBarAppearance === tabBarHidden=\(props.tabBarHidden)")
-+      print("[TabBarDebug] tabBar: \(tabBar), frame=\(tabBar.frame), isHidden=\(tabBar.isHidden), isUserInteractionEnabled=\(tabBar.isUserInteractionEnabled)")
-+      var current: UIView? = tabBar.superview
-+      var level = 1
-+      while let view = current {
-+        let className = NSStringFromClass(type(of: view))
-+        print("[TabBarDebug] superview[\(level)]: \(className), frame=\(view.frame), isHidden=\(view.isHidden), isUserInteractionEnabled=\(view.isUserInteractionEnabled), alpha=\(view.alpha)")
-+        // Also log subviews count and their classes
-+        let subviewClasses = view.subviews.map { NSStringFromClass(type(of: $0)) }
-+        print("[TabBarDebug]   subviews(\(view.subviews.count)): \(subviewClasses)")
-+        current = view.superview
-+        level += 1
-+        if level > 10 { break }
-+      }
-+      tabBar.superview?.isUserInteractionEnabled = !props.tabBarHidden
-+      print("[TabBarDebug] Set tabBar.superview?.isUserInteractionEnabled = \(!props.tabBarHidden)")
-+    }
- 
-     if props.scrollEdgeAppearance == "transparent" {
-       configureTransparentAppearance(tabBar: tabBar, props: props)
-@@ -214,6 +233,40 @@ extension View {
+@@ -214,6 +219,40 @@ extension View {
      }
    }
  
@@ -191,100 +177,97 @@ index 72938be..8b0f2d1 100644
    @ViewBuilder
    func tabBadge(_ data: String?) -> some View {
      if #available(iOS 15.0, macOS 15.0, visionOS 2.0, tvOS 15.0, *) {
-@@ -261,6 +314,34 @@ extension View {
+@@ -261,6 +300,56 @@ extension View {
          }
          .onChange(of: props.tabBarHidden) { newValue in
            tabBar?.isHidden = newValue
++          tabBar?.isUserInteractionEnabled = !newValue
 +          if #available(iOS 26.0, *) {
 +            print("[TabBarDebug] === onChange tabBarHidden=\(newValue) ===")
-+            if let tb = tabBar {
-+              print("[TabBarDebug] tabBar: \(tb), frame=\(tb.frame), isHidden=\(tb.isHidden)")
-+              var current: UIView? = tb.superview
-+              var level = 1
-+              while let view = current {
-+                let className = NSStringFromClass(type(of: view))
-+                print("[TabBarDebug] superview[\(level)]: \(className), frame=\(view.frame), isHidden=\(view.isHidden), isUserInteractionEnabled=\(view.isUserInteractionEnabled), alpha=\(view.alpha)")
-+                let subviewClasses = view.subviews.map { NSStringFromClass(type(of: $0)) }
-+                print("[TabBarDebug]   subviews(\(view.subviews.count)): \(subviewClasses)")
-+                current = view.superview
-+                level += 1
-+                if level > 10 { break }
++            print("[TabBarDebug] tabBar=\(String(describing: tabBar)), window=\(String(describing: tabBar?.window))")
++            // Find window independently via UIApplication (tabBar.window may be nil if stale)
++            let keyWindow = UIApplication.shared.connectedScenes
++              .compactMap { $0 as? UIWindowScene }
++              .flatMap { $0.windows }
++              .first { $0.isKeyWindow }
++            print("[TabBarDebug] keyWindow=\(String(describing: keyWindow))")
++            // Also find ALL UITabBars in the window to check for stale references
++            if let window = keyWindow {
++              findAllTabBars(in: window) { foundTabBar in
++                let isSameAsRef = (foundTabBar === tabBar)
++                print("[TabBarDebug] found UITabBar: \(foundTabBar) isSameAsOurRef=\(isSameAsRef) isHidden=\(foundTabBar.isHidden) userInteraction=\(foundTabBar.isUserInteractionEnabled) window=\(String(describing: foundTabBar.window))")
++                // If this is a DIFFERENT tab bar than our ref, also apply hidden state!
++                if !isSameAsRef {
++                  print("[TabBarDebug] >>> STALE REF DETECTED! Applying hidden=\(newValue) to real tab bar")
++                  foundTabBar.isHidden = newValue
++                  foundTabBar.isUserInteractionEnabled = !newValue
++                }
 +              }
-+              // Also dump the UITabBarController's view hierarchy
-+              if let tabBarController = tb.window?.rootViewController as? UITabBarController ?? findTabBarController(from: tb) {
-+                print("[TabBarDebug] === UITabBarController view dump ===")
-+                dumpViewHierarchy(view: tabBarController.view, indent: 0, maxDepth: 5)
++              // hitTest probe
++              DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
++                let midX = window.bounds.width / 2
++                let probePoints: [(String, CGPoint)] = [
++                  ("top", CGPoint(x: midX, y: 100)),
++                  ("middle", CGPoint(x: midX, y: window.bounds.height / 2)),
++                  ("above-tabbar", CGPoint(x: midX, y: window.bounds.height - 120)),
++                  ("tabbar-area", CGPoint(x: midX, y: window.bounds.height - 50)),
++                  ("bottom-edge", CGPoint(x: midX, y: window.bounds.height - 10)),
++                ]
++                for (label, point) in probePoints {
++                  let hitView = window.hitTest(point, with: nil)
++                  let cls = hitView.map { NSStringFromClass(type(of: $0)) } ?? "nil"
++                  let frame = hitView?.frame ?? .zero
++                  let interaction = hitView?.isUserInteractionEnabled ?? false
++                  print("[TabBarDebug] hitTest[\(label)] at \(point) -> \(cls) frame=\(frame) userInteraction=\(interaction)")
++                  var parent = hitView?.superview
++                  for lvl in 1...3 {
++                    if let p = parent {
++                      let pcls = NSStringFromClass(type(of: p))
++                      print("[TabBarDebug]   parent[\(lvl)]: \(pcls) frame=\(p.frame) userInteraction=\(p.isUserInteractionEnabled)")
++                      parent = p.superview
++                    }
++                  }
++                }
 +              }
-+            }
-+            tabBar?.superview?.isUserInteractionEnabled = !newValue
-+            print("[TabBarDebug] Set tabBar.superview?.isUserInteractionEnabled = \(!newValue)")
-+            // Install touch debugger to trace hitTest
-+            if newValue {
-+              TabBarTouchDebugger.install()
 +            }
 +          }
          }
      }
    #endif
-@@ -326,3 +407,61 @@ extension View {
+@@ -299,14 +388,14 @@ extension View {
+   @ViewBuilder
+   func hideTabBar(_ flag: Bool) -> some View {
+     #if !os(macOS)
+-      if flag {
+-        if #available(iOS 16.0, tvOS 16.0, *) {
+-          self.toolbar(.hidden, for: .tabBar)
+-        } else {
+-          // We fallback to isHidden on UITabBar
+-          self
+-        }
++      if #available(iOS 16.0, tvOS 16.0, *) {
++        // Always apply .toolbar modifier with dynamic visibility to maintain stable
++        // SwiftUI view identity. Using if/else branches changes the View type,
++        // causing view tree recreation that on iOS 26 (Liquid Glass) can leave
++        // a ghost touch-intercepting layer.
++        self.toolbar(flag ? .hidden : .automatic, for: .tabBar)
+       } else {
++        // iOS <16: rely on tabBar.isHidden set in configureAppearance onChange
+         self
+       }
+     #else
+@@ -326,3 +415,14 @@ extension View {
      }
    }
  }
 +
 +#if !os(macOS)
-+private func findTabBarController(from view: UIView) -> UITabBarController? {
-+  var responder: UIResponder? = view
-+  while let r = responder {
-+    if let tbc = r as? UITabBarController {
-+      return tbc
-+    }
-+    responder = r.next
++private func findAllTabBars(in view: UIView, handler: (UITabBar) -> Void) {
++  if let tabBar = view as? UITabBar {
++    handler(tabBar)
 +  }
-+  return nil
-+}
-+
-+private func dumpViewHierarchy(view: UIView, indent: Int, maxDepth: Int) {
-+  guard indent <= maxDepth else { return }
-+  let prefix = String(repeating: "  ", count: indent)
-+  let className = NSStringFromClass(type(of: view))
-+  print("[TabBarDebug] \(prefix)\(className) frame=\(view.frame) hidden=\(view.isHidden) userInteraction=\(view.isUserInteractionEnabled) alpha=\(view.alpha)")
 +  for subview in view.subviews {
-+    dumpViewHierarchy(view: subview, indent: indent + 1, maxDepth: maxDepth)
-+  }
-+}
-+
-+/// Debug helper: swizzle UIWindow.hitTest to log which view receives touches
-+class TabBarTouchDebugger {
-+  static var isInstalled = false
-+
-+  static func install() {
-+    guard !isInstalled else { return }
-+    isInstalled = true
-+
-+    let originalSelector = #selector(UIView.hitTest(_:with:))
-+    let swizzledSelector = #selector(UIWindow.debug_hitTest(_:with:))
-+
-+    guard let originalMethod = class_getInstanceMethod(UIWindow.self, originalSelector),
-+          let swizzledMethod = class_getInstanceMethod(UIWindow.self, swizzledSelector) else {
-+      return
-+    }
-+    method_exchangeImplementations(originalMethod, swizzledMethod)
-+    print("[TabBarDebug] Touch debugger installed")
-+  }
-+}
-+
-+extension UIWindow {
-+  @objc func debug_hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
-+    // This calls the original (swizzled) implementation
-+    let result = self.debug_hitTest(point, with: event)
-+    if let result = result, let event = event, event.type == .touches {
-+      let className = NSStringFromClass(type(of: result))
-+      // Only log when touch is near the bottom or when result is unexpected
-+      if point.y > self.bounds.height - 200 || className.contains("Glass") || className.contains("TabBar") || className.contains("Host") {
-+        print("[TabBarDebug] hitTest at \(point) -> \(className) frame=\(result.frame) isUserInteractionEnabled=\(result.isUserInteractionEnabled)")
-+      }
-+    }
-+    return result
++    findAllTabBars(in: subview, handler: handler)
 +  }
 +}
 +#endif
