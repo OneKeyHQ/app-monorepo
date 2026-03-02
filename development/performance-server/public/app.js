@@ -1324,7 +1324,10 @@ async function loadKeyMarks(sessionId = state.currentSessionId) {
     const rows = Object.entries(data.marks)
       .map(([name, info]) => {
         const sinceStart = info.first?.sinceSessionStartMs;
-        const timing = sinceStart != null ? formatMs(sinceStart) : '-';
+        const timing =
+          sinceStart !== null && sinceStart !== undefined
+            ? formatMs(sinceStart)
+            : '-';
         return `<tr>
           <td class="py-1 pr-4 font-mono text-xs">${name}</td>
           <td class="py-1 pr-4 text-right">${timing}</td>
@@ -1394,11 +1397,13 @@ async function loadHomeRefresh(sessionId = state.currentSessionId) {
           <div class="text-xs text-slate-400">Refresh Window</div>
           <div class="font-semibold">${formatMs(data.span || 0)}</div>
           <div class="text-xs text-slate-400">Start: ${
-            data.startSinceSessionStartMs != null
+            data.startSinceSessionStartMs !== null &&
+            data.startSinceSessionStartMs !== undefined
               ? formatMs(data.startSinceSessionStartMs)
               : '-'
           } → End: ${
-            data.endSinceSessionStartMs != null
+            data.endSinceSessionStartMs !== null &&
+            data.endSinceSessionStartMs !== undefined
               ? formatMs(data.endSinceSessionStartMs)
               : '-'
           }</div>

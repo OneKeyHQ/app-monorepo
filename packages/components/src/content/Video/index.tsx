@@ -45,6 +45,7 @@ export function Video(rawProps: IVideoProps) {
     (style as any)['object-fit'] = resizeMode;
   }
   return (
+    // eslint-disable-next-line jsx-a11y/media-has-caption -- decorative UI video, no captions needed
     <video
       ref={videoRef}
       autoPlay

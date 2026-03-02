@@ -65,7 +65,7 @@ async function main() {
   process.on('SIGTERM', () => void stop('SIGTERM'));
 
   const code = await new Promise((resolve) => {
-    child.on('exit', (c) => resolve(c == null ? 0 : c));
+    child.on('exit', (c) => resolve(c === null || c === undefined ? 0 : c));
   });
   process.exit(code);
 }

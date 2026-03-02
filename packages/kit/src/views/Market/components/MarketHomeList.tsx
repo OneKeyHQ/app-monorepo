@@ -501,6 +501,7 @@ function BasicMarketHomeList({
     }
     return filterListData;
   }, [category, listData, ordered]);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { sortedListData, handleSortTypeChange, sortByType, setSortByType } =
     useSortType(filterCoingeckoIdsListData as Record<string, any>[]);
 

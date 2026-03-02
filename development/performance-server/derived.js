@@ -799,7 +799,10 @@ function computeSessionKeyMarks(
       .filter((m) => m.name === name)
       .map((m) => ({
         t: m.t,
-        sinceSessionStartMs: sessionStart != null ? m.t - sessionStart : null,
+        sinceSessionStartMs:
+          sessionStart !== null && sessionStart !== undefined
+            ? m.t - sessionStart
+            : null,
         detail: m.detail ?? null,
       }));
     if (occurrences.length) {

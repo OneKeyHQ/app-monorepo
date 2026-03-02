@@ -49,8 +49,8 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import ActionBuy from './ActionBuy';
-import { TokenDetailsDeFiBlock } from './TokenDetailsDeFiBlock';
 import { useTokenDetailsContext } from './TokenDetailsContext';
+import { TokenDetailsDeFiBlock } from './TokenDetailsDeFiBlock';
 
 function TokenDetailsHeader(props: IProps) {
   const {

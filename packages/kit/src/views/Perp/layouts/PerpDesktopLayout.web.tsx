@@ -25,6 +25,7 @@ import {
   PerpAccountPanel,
 } from '../components/TradingPanel/panels/PerpAccountPanel';
 import { PerpTradingPanel } from '../components/TradingPanel/PerpTradingPanel';
+
 import { calculateMaxLevelsPerSide } from './perpLayoutUtils';
 
 function PerpDesktopLayout() {

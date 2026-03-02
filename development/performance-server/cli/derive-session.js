@@ -37,7 +37,7 @@ function hasFlag(name) {
 }
 
 function clampInt(n, min, max, fallback) {
-  if (n == null || n === '') return fallback;
+  if (n === null || n === undefined || n === '') return fallback;
   const num = Number(n);
   if (!Number.isFinite(num)) return fallback;
   const int = Math.trunc(num);
@@ -88,7 +88,7 @@ async function main() {
   }
 
   const lowFps =
-    fpsThreshold == null
+    fpsThreshold === null || fpsThreshold === undefined
       ? null
       : computeSessionLowFpsHotspots(sessionId, {
           thresholdFps: fpsThreshold,

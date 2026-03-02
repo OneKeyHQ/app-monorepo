@@ -250,6 +250,7 @@ function Demo2() {
             method: 'error',
             title: '[Stakefish Solana Service].getDelegation unknown error',
             requestId: '982ac81b-dacc-4d37-89f4-884dd577b23a',
+
             // oxlint-disable-next-line @cspell/spellchecker
             diagnosticText: `RequestId: 982ac81b-dacc-4d37-89f4-884dd577b23a
 Error Code: 500

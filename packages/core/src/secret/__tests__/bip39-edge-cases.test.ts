@@ -58,7 +58,7 @@ describe('BIP39 Edge Cases', () => {
       const entropyLengths = [16, 20, 24, 28, 32];
       const expectedWordCounts = [12, 15, 18, 21, 24];
 
-      for (let i = 0; i < entropyLengths.length; i++) {
+      for (let i = 0; i < entropyLengths.length; i += 1) {
         const entropyLen = entropyLengths[i];
         const buf = Buffer.alloc(2 + 32, 0xab); // fill with non-zero for valid entropy
         buf[0] = 1;

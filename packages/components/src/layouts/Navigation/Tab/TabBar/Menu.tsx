@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+
 import { createPortal } from 'react-dom';
 
+import { useThemeName } from '@onekeyhq/components/src/hooks';
+import { Icon } from '@onekeyhq/components/src/primitives';
 import type {
   IMenu,
   IMenuItem,
 } from '@onekeyhq/kit-bg/src/desktopApis/DesktopApiSystem';
-
-import { Icon } from '@onekeyhq/components/src/primitives';
-import { useThemeName } from '@onekeyhq/components/src/hooks';
 
 function MenuItemComponent({
   item,
@@ -55,9 +55,15 @@ function MenuItemComponent({
 
   return (
     <div
+      role="menuitem"
+      tabIndex={0}
       className={`desktop-menu-item ${!item.enabled ? 'disabled' : ''}`}
       onClick={handleClick}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') handleClick();
+      }}
     >
+      {/* eslint-disable no-nested-ternary */}
       {iconDataUrl ? (
         <img
           src={iconDataUrl}
@@ -81,6 +87,7 @@ function MenuItemComponent({
           }}
         />
       ) : null}
+      {/* eslint-enable no-nested-ternary */}
       <span className="desktop-menu-item-label">{item.label}</span>
       {item.accelerator ? (
         <span className="desktop-menu-item-accelerator">
@@ -224,8 +231,14 @@ export function Menu() {
             style={{ position: 'relative' }}
           >
             <div
+              role="menuitem"
+              tabIndex={0}
               className="desktop-menu-trigger"
               onClick={() => handleMenuTriggerClick(index)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ')
+                  handleMenuTriggerClick(index);
+              }}
               onMouseEnter={() => handleMenuTriggerHover(index)}
               style={{
                 padding: '4px 8px',
@@ -238,7 +251,7 @@ export function Menu() {
             </div>
             <MenuDropdown
               items={menuItem.submenu.items}
-              isOpen={isOpen && activeMenuIndex === index}
+              isOpen={isOpen ? activeMenuIndex === index : false}
               onClose={handleClose}
             />
           </div>
@@ -333,7 +346,16 @@ export function MenuHamburger() {
           themeName === 'light' ? 'light-theme' : ''
         }`}
       >
-        <div className="desktop-menu-trigger" onClick={toggleMenu}>
+        <div
+          role="button"
+          tabIndex={0}
+          aria-label="Menu"
+          className="desktop-menu-trigger"
+          onClick={toggleMenu}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') toggleMenu();
+          }}
+        >
           <Icon
             name="MenuOutline"
             size="$5"
