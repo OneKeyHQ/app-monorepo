@@ -105,8 +105,8 @@ export function CalendarPanel({
           year={cal.year}
           onPrevMonth={showPrevNav ? handlePrevMonth : undefined}
           onNextMonth={showNextNav ? handleNextMonth : undefined}
-          isPrevDisabled={showPrevNav ? isPrevDisabled : null}
-          isNextDisabled={showNextNav ? isNextDisabled : null}
+          isPrevDisabled={showPrevNav ? isPrevDisabled : false}
+          isNextDisabled={showNextNav ? isNextDisabled : false}
           onMonthClick={
             viewMode === 'day' && !isRangeDualPanel
               ? () => setViewMode('month')

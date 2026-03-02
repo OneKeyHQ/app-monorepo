@@ -251,7 +251,7 @@ export function Menu() {
             </div>
             <MenuDropdown
               items={menuItem.submenu.items}
-              isOpen={isOpen ? activeMenuIndex === index : null}
+              isOpen={isOpen ? activeMenuIndex === index : false}
               onClose={handleClose}
             />
           </div>

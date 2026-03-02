@@ -46,6 +46,8 @@ const jsRules = {
   'no-use-before-define': 'off',
   'no-shadow': 'off',
   'import/no-extraneous-dependencies': 'off',
+  // Disabled: handled by oxlint
+  'no-unused-expressions': 'off',
   'no-restricted-exports': 'off',
   'func-names': 'off',
   'import/no-named-as-default-member': 'off',
