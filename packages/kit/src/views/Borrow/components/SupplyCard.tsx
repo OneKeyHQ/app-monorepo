@@ -269,7 +269,7 @@ export const SupplyCard = () => {
             buttonText={<EarnText text={{ text: labels.supply }} />}
             item={item}
             onPress={() => handleManageSupply(item)}
-            needAdditionButton={gtLg ? !noConnectedWallet : null}
+            needAdditionButton={gtLg ? !noConnectedWallet : undefined}
             accountId={accountId}
             walletId={walletId}
             indexedAccountId={indexedAccountId}

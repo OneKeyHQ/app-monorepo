@@ -444,7 +444,9 @@ function BulkSendTxDetails(props: IProps) {
             deleteDisabled={isDeleteDisabled}
             indices={sender.indices}
             canDelete={
-              !!onDeleteTransfer && canEditSender ? !isDeleteDisabled : null
+              !!onDeleteTransfer && canEditSender
+                ? !isDeleteDisabled
+                : undefined
             }
             onDeleteTransfers={handleDeleteTransfers}
             onAmountChangeByIndex={handleAmountChange}
@@ -476,7 +478,9 @@ function BulkSendTxDetails(props: IProps) {
             deleteDisabled={isDeleteDisabled}
             indices={receiver.indices}
             canDelete={
-              !!onDeleteTransfer && canEditReceiver ? !isDeleteDisabled : null
+              !!onDeleteTransfer && canEditReceiver
+                ? !isDeleteDisabled
+                : undefined
             }
             onDeleteTransfers={handleDeleteTransfers}
             onAmountChangeByIndex={handleAmountChange}
