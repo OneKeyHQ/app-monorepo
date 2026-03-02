@@ -593,6 +593,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
         ],
       }}
       showBackButton
+      showBodyTitle
     >
       {content}
     </EarnPageContainer>
