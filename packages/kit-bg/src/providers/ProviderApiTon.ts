@@ -181,6 +181,7 @@ class ProviderApiTon extends ProviderApiBase {
             'App manifest not found',
           );
         }
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-return
         return res.json();
       },
     );

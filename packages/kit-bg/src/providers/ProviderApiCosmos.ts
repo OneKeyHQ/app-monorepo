@@ -715,6 +715,7 @@ class ProviderApiCosmos extends ProviderApiBase {
       signDoc: ICosmosStdSignDoc;
     },
   ) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return this.signAmino(request, {
       signer: params.signerAddress,
       signDoc: params.signDoc,

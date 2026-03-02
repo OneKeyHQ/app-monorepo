@@ -345,6 +345,7 @@ function LineNumberedTextArea({
 
   const styles = useMemo(
     () =>
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       StyleSheet.create({
         textInput: platformEnv.isNative
           ? {

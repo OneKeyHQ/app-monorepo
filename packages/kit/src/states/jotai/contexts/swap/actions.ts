@@ -1843,6 +1843,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           // Subsequent fetches: collect results and update atom
           const allTokensResult = results
             .filter((r) => r.status === 'fulfilled' && r.value)
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-return
             .map((r) => (r as PromiseFulfilledResult<any>).value)
             .filter(Boolean)
             .flat();
@@ -1908,6 +1909,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         // Extract successful results and sort by fiat value
         const sortedResult = results
           .filter((r) => r.status === 'fulfilled' && r.value)
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-return
           .map((r) => (r as PromiseFulfilledResult<any>).value)
           .filter(Boolean)
           .flat()

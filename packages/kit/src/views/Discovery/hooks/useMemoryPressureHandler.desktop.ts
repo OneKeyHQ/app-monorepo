@@ -85,6 +85,7 @@ export function useMemoryPressureHandler() {
 
               // First, stop all running processes in the webview
               if (typeof electronWebview.stop === 'function') {
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-call
                 electronWebview.stop();
               }
 
@@ -94,6 +95,7 @@ export function useMemoryPressureHandler() {
 
               // Reload the webview
               if (typeof electronWebview.reload === 'function') {
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-call
                 electronWebview.reload();
                 reloadedCount += 1;
               }

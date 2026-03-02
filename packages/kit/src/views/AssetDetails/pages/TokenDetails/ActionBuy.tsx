@@ -166,12 +166,14 @@ function ActionBuy({
 
   // Always show "出入金" — the label only changes to single-mode after the
   // support check confirms exactly one direction is available.
+  /* eslint-disable no-nested-ternary */
   const label =
     bothSupported || (!isBuySupported && !isSellSupported)
       ? intl.formatMessage({ id: ETranslations.buy_and_sell })
       : isBuySupported
         ? intl.formatMessage({ id: ETranslations.global_buy })
         : intl.formatMessage({ id: ETranslations.global_cash_out });
+  /* eslint-enable no-nested-ternary */
 
   const iconName = 'CurrencyDollarOutline' as const;
 

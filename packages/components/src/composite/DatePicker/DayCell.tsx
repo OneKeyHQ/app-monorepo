@@ -37,6 +37,7 @@ export const DayCell = memo(
       day.inCurrentMonth && !isSameDayRange && day.range === 'range-end';
     const isSelected = (day.selected && day.inCurrentMonth) || isSameDayRange;
 
+    /* eslint-disable no-nested-ternary */
     const outerBorderRadius = isRangeStart
       ? {
           borderTopLeftRadius: '$2' as const,
@@ -64,6 +65,7 @@ export const DayCell = memo(
         : isSelected
           ? '$textInverse'
           : '$text';
+    /* eslint-enable no-nested-ternary */
 
     return (
       <Stack

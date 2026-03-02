@@ -58,6 +58,7 @@ class JotaiStorage implements AsyncStorage<any> {
 
   async getAllEntries(): Promise<Map<string, any> | null> {
     if (typeof (appStorage as any).getAllEntries === 'function') {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
       const rawMap: Map<string, any> = await (
         appStorage as any
       ).getAllEntries();

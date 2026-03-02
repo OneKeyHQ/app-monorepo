@@ -67,6 +67,7 @@ function TabsDraggableFlatListImpl<T>(
   );
 
   const memoContentContainerStyle = React.useMemo(
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     () => [_contentContainerStyle, contentContainerStyle as any],
     [_contentContainerStyle, contentContainerStyle],
   );

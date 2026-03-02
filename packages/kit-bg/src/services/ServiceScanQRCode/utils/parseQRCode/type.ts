@@ -9,7 +9,7 @@ import type {
 } from '@onekeyhq/shared/types/qrCode';
 import type { ITokenData } from '@onekeyhq/shared/types/token';
 
-// eslint-disable-next-line @typescript-eslint/no-empty-interface
+// eslint-disable-next-line @typescript-eslint/no-empty-interface, @typescript-eslint/no-empty-object-type
 export interface IBaseValue {}
 export interface IChainValue extends IBaseValue {
   address: string;

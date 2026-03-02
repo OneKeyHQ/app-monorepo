@@ -591,6 +591,7 @@ function UnifiedNetworkSelector() {
         headerTitleAlign="center"
       />
       <Page.Body>
+        {/* eslint-disable no-nested-ternary */}
         {showTabSwitcher ? (
           platformEnv.isNative ? (
             <PagerView
@@ -700,6 +701,7 @@ function UnifiedNetworkSelector() {
             />
           </Stack>
         )}
+        {/* eslint-enable no-nested-ternary */}
       </Page.Body>
       {activeTab === 'portfolio' ? (
         <Page.Footer>

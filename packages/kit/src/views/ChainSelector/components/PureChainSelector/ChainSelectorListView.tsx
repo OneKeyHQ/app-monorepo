@@ -93,6 +93,7 @@ const ChainSelectorListViewContent = ({
             onPress={() => onPressItem?.(item)}
             testID={`select-item-${item.id}`}
           >
+            {/* eslint-disable no-nested-ternary */}
             {accountNetworkValues !== undefined ? (
               networkId === item.id ? (
                 <ListItem.CheckMark key="checkmark" />
@@ -102,6 +103,7 @@ const ChainSelectorListViewContent = ({
             ) : networkId === item.id ? (
               <ListItem.CheckMark key="checkmark" />
             ) : null}
+            {/* eslint-enable no-nested-ternary */}
             {shouldShowValue ? (
               <Currency
                 hideValue

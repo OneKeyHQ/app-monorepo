@@ -1451,6 +1451,7 @@ export default class ServiceNotification extends ServiceBase {
   async pingWebSocket(params: any) {
     const notificationProvider = await this.getNotificationProvider();
     if (notificationProvider?.webSocketProvider) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       return notificationProvider.webSocketProvider.ping(params);
     }
     throw new OneKeyLocalError('WebSocket provider not found');

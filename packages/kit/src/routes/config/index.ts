@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
 import { useMemo } from 'react';
 
 import { getPathFromState as getPathFromStateDefault } from '@react-navigation/core';

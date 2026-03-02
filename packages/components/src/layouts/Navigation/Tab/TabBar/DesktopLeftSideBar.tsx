@@ -481,6 +481,7 @@ export function DesktopLeftSideBar({
       }}
     >
       <YStack w={MIN_SIDEBAR_WIDTH}>
+        {/* eslint-disable no-nested-ternary */}
         {platformEnv.isDesktopMac ? (
           // @ts-expect-error https://www.electronjs.org/docs/latest/tutorial/custom-window-interactions
           <XStack
@@ -497,6 +498,7 @@ export function DesktopLeftSideBar({
         ) : (
           <MenuHamburger />
         )}
+        {/* eslint-enable no-nested-ternary */}
         <YStack flex={1} testID="Desktop-AppSideBar-Content-Container">
           <YStack flex={1}>
             {!platformEnv.isDesktopWithCustomTitleBar &&

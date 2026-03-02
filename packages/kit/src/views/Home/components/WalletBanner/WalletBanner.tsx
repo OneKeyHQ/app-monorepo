@@ -262,6 +262,7 @@ function useScrollElement(scrollViewRef: React.RefObject<any>) {
     const node = scrollViewRef.current;
     if (!node) return null;
     if (typeof node.getScrollableNode === 'function') {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
       return node.getScrollableNode() as HTMLElement;
     }
     if (node instanceof HTMLElement) {
