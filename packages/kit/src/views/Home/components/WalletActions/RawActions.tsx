@@ -121,20 +121,8 @@ function ActionBuy(props: IActionItemsProps) {
   const { icon, label, ...rest } = props;
   return (
     <ActionItem
-      label={label ?? intl.formatMessage({ id: ETranslations.global_buy })}
-      icon={icon ?? 'PlusLargeOutline'}
-      {...rest}
-    />
-  );
-}
-
-function ActionSell(props: IActionItemsProps) {
-  const intl = useIntl();
-  const { icon, label, ...rest } = props;
-  return (
-    <ActionItem
-      label={label ?? intl.formatMessage({ id: ETranslations.global_cash_out })}
-      icon={icon ?? 'MinusLargeOutline'}
+      label={label ?? intl.formatMessage({ id: ETranslations.buy_and_sell })}
+      icon={icon ?? 'CurrencyDollarOutline'}
       {...rest}
     />
   );
@@ -170,7 +158,7 @@ function ActionSwap(props: IActionItemsProps) {
   return (
     <ActionItem
       label={label ?? intl.formatMessage({ id: ETranslations.global_swap })}
-      icon={icon ?? 'SwapHorOutline'}
+      icon={icon ?? 'SwitchHorOutline'}
       {...rest}
     />
   );
@@ -196,7 +184,7 @@ function ActionPerp(props: IActionItemsProps) {
   return (
     <ActionItem
       label={label ?? intl.formatMessage({ id: ETranslations.global_perp })}
-      icon={icon ?? 'TradingViewCandlesOutline'}
+      icon={icon ?? 'TradeOutline'}
       {...rest}
     />
   );
@@ -301,7 +289,6 @@ function RawActions({ children, ...rest }: IXStackProps) {
 
 RawActions.More = ActionMore;
 RawActions.Buy = ActionBuy;
-RawActions.Sell = ActionSell;
 RawActions.Send = ActionSend;
 RawActions.Receive = ActionReceive;
 RawActions.Swap = ActionSwap;

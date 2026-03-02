@@ -290,7 +290,7 @@ const formatLocalNumber = (
   const integer = `${needsNegZeroRestore ? '-' : ''}${formattedInteger}`;
 
   const decimalSymbol = lazyDecimalSymbol(digits);
-  const formatDecimal = `${decimalSymbol}${decimalPart}`;
+  const formatDecimal = decimalPart ? `${decimalSymbol}${decimalPart}` : '';
   // Hermes may produce '+∞' instead of '∞' for Infinity.
   if (integer.includes('∞')) {
     return {
@@ -593,19 +593,21 @@ export const formatPriceChangeCapped: IFormatNumberFunc = (value, options) => {
   }
 
   // Check if value exceeds the clamp range
-  const isCapped = val.gt(999.99) || val.lt(-999.99);
+  const isCapped = val.gt(99_999) || val.lt(-99_999);
 
-  // Apply clamping (same logic as clampPercentage)
-  const min = new BigNumber(-999.99);
-  const max = new BigNumber(999.99);
+  // Apply clamping
+  const min = new BigNumber(-99_999);
+  const max = new BigNumber(99_999);
   const clampedValue = BigNumber.max(min, BigNumber.min(max, val));
   const finalValue = clampedValue.decimalPlaces(2, BigNumber.ROUND_HALF_UP);
+
+  const digits = isCapped ? 0 : 2;
 
   const nanOrZero = handleNaNOrZero(
     finalValue,
     value,
     {
-      digits: 2,
+      digits,
       removeTrailingZeros: false,
       disableThousandSeparator: options?.disableThousandSeparator,
     },
@@ -615,9 +617,9 @@ export const formatPriceChangeCapped: IFormatNumberFunc = (value, options) => {
   if (nanOrZero) return nanOrZero;
 
   const { value: formattedValue, decimalSymbol } = formatLocalNumber(
-    finalValue.toFixed(2),
+    finalValue.toFixed(digits),
     {
-      digits: 2,
+      digits,
       removeTrailingZeros: false,
       disableThousandSeparator: options?.disableThousandSeparator,
     },

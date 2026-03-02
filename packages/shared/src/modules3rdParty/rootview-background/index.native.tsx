@@ -6,12 +6,18 @@ import platformEnv from '../../platformEnv';
 
 export const updateRootViewBackgroundColor: IUpdateRootViewBackgroundColor = (
   color: string,
-  theme: 'light' | 'dark',
+  themeVariant: 'light' | 'dark',
+  themeSetting?: 'light' | 'dark' | 'system',
 ) => {
   const parsedColor = colord(color);
   const { r, g, b, a } = parsedColor.toRgb();
   ReactNativeDeviceUtils.changeBackgroundColor(r, g, b, Math.round(a * 255));
+
   if (platformEnv.isNativeIOS) {
-    ReactNativeDeviceUtils.setUserInterfaceStyle(theme);
+    // If the user picked "System/Auto", stop overriding iOS UI style so
+    // `Appearance.getColorScheme()` reflects the real system setting.
+    ReactNativeDeviceUtils.setUserInterfaceStyle(
+      themeSetting === 'system' ? 'unspecified' : themeVariant,
+    );
   }
 };

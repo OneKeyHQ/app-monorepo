@@ -85,9 +85,16 @@ function HomeOverviewContainer() {
     };
   }, []);
 
+  const prevWalletIdRef = useRef<string | undefined>(undefined);
   useEffect(() => {
     if (account?.id && network?.id && wallet?.id) {
+      const walletChanged =
+        prevWalletIdRef.current !== undefined &&
+        prevWalletIdRef.current !== wallet.id;
+      prevWalletIdRef.current = wallet.id;
+
       if (
+        walletChanged ||
         network.isAllNetworks ||
         (wallet.type === WALLET_TYPE_HD && !wallet.backuped)
       ) {
@@ -331,6 +338,18 @@ function HomeOverviewContainer() {
   }, [account?.id, network?.id]);
 
   const balanceString = useMemo(() => {
+    // Prevent showing stale balance from previous wallet/account.
+    // useMemo runs synchronously before the reset useEffect, so there's a
+    // render frame where account has switched but accountWorth still holds
+    // old data. Return '0' until the atom catches up.
+    if (
+      accountWorth.accountId &&
+      account?.id &&
+      accountWorth.accountId !== account.id &&
+      accountWorth.accountId !== account.indexedAccountId
+    ) {
+      return '0';
+    }
     return new BigNumber(
       calculateAccountTokensValue({
         accountId: account?.id ?? '',
@@ -343,6 +362,7 @@ function HomeOverviewContainer() {
       .toFixed();
   }, [
     account?.id,
+    account?.indexedAccountId,
     network?.id,
     accountWorth,
     vaultSettings?.mergeDeriveAssetsEnabled,

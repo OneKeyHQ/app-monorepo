@@ -41,7 +41,6 @@ import {
 import { usePortfolioData } from '../components/InformationTabs/components/Portfolio/hooks/usePortfolioData';
 import { useNetworkAccount } from '../components/InformationTabs/hooks/useNetworkAccount';
 import { MobileInformationTabs } from '../components/InformationTabs/layout/MobileInformationTabs';
-import SwapFlashBtn from '../components/SwapPanel/components/SwapFlashBtn';
 import { SwapPanelWrap } from '../components/SwapPanel/SwapPanelWrap';
 import { useTokenDetail } from '../hooks/useTokenDetail';
 
@@ -241,14 +240,6 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
         disableTrade={disableTrade}
         onShowSwapDialog={showSwapDialog}
       />
-      {platformEnv.isNative && !disableTrade ? (
-        <SwapFlashBtn
-          buttonProps={{
-            style: { position: 'absolute', bottom: 100, right: 20 },
-          }}
-          onFlashTrade={() => showSwapDialog(toSwapPanelToken)}
-        />
-      ) : null}
     </YStack>
   );
 }

@@ -38,7 +38,7 @@ function WalletActionPerp({
     return (
       <ActionList.Item
         trackID="wallet-perp"
-        icon={customization?.icon ?? 'TradingViewCandlesOutline'}
+        icon={customization?.icon ?? 'TradeOutline'}
         label={
           customization?.label ??
           intl.formatMessage({ id: ETranslations.global_perp })

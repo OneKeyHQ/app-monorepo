@@ -42,7 +42,7 @@ export function ReferAFriendHowToPhase({
                   id: ETranslations.referral_intro_p2_desc_bullet1,
                 },
                 {
-                  amount: `${inviterRebate.amount}${inviterRebate.unit}`,
+                  amount: `${inviterRebate?.amount ?? ''}${inviterRebate?.unit ?? ''}`,
                 },
               ),
             },
@@ -53,7 +53,7 @@ export function ReferAFriendHowToPhase({
                   id: ETranslations.referral_intro_p2_desc_bullet2,
                 },
                 {
-                  amount: `${theirDiscount.amount}${theirDiscount.unit}`,
+                  amount: `${theirDiscount?.amount ?? ''}${theirDiscount?.unit ?? ''}`,
                 },
               ),
             },
