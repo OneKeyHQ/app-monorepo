@@ -66,7 +66,7 @@ export const WALLET_BUILDER_FEE_BENCHMARKS: IWalletBuilderFeeBenchmark[] = [
     isMaintained: true,
     evidence: 'CoinMarketMan Hypertracker builders usage fee',
   },
-] as const;
+];
 
 export function formatFeePercent(fee: number): string {
   return `${(fee * 100).toFixed(3)}%`;
