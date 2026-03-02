@@ -1,9 +1,10 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import type { IIconProps } from '@onekeyhq/components';
 import {
+  Carousel,
   Icon,
   Image,
   SizableText,
@@ -78,6 +79,61 @@ function SupportHubItem({
   );
 }
 
+type ISupportHubBanner = {
+  image: any;
+  title: ETranslations;
+  description: ETranslations;
+  url: string;
+};
+
+function SupportHubBannerItem({
+  item,
+  themeVariant,
+  intl,
+}: {
+  item: ISupportHubBanner;
+  themeVariant: string;
+  intl: ReturnType<typeof useIntl>;
+}) {
+  return (
+    <YStack
+      height={151}
+      justifyContent="center"
+      px="$4"
+      position="relative"
+      onPress={() => {
+        if (platformEnv.isDesktop || platformEnv.isNative) {
+          openUrlInDiscovery({ url: item.url });
+        } else {
+          openUrlExternal(item.url);
+        }
+      }}
+    >
+      <Image
+        position="absolute"
+        top="0"
+        left="0"
+        bottom="0"
+        right="0"
+        source={item.image}
+        resizeMode="cover"
+        zIndex={0}
+        opacity={themeVariant === 'dark' ? 0.9 : 1}
+      />
+      <Theme name="light">
+        <YStack width="60%" zIndex={99} position="absolute" left="$4">
+          <SizableText size="$headingLg" flex={1}>
+            {intl.formatMessage({ id: item.title })}
+          </SizableText>
+          <SizableText size="$bodyMd" color="$textSubdued" flex={1}>
+            {intl.formatMessage({ id: item.description })}
+          </SizableText>
+        </YStack>
+      </Theme>
+    </YStack>
+  );
+}
+
 function SupportHub() {
   const intl = useIntl();
   const themeVariant = useThemeVariant();
@@ -86,60 +142,99 @@ function SupportHub() {
     path: '',
   });
 
+  const bannerData = useMemo<ISupportHubBanner[]>(
+    () => [
+      {
+        image: require('@onekeyhq/kit/assets/web3_quiz_challange_bg.jpg'),
+        title: ETranslations.quiz_time__title,
+        description: ETranslations.quiz_time__desc,
+        url: `${ONEKEY_SIFU_URL}/?utm_source=app_support_hub`,
+      },
+      {
+        image: require('@onekeyhq/kit/assets/sifu_bg.jpg'),
+        title: ETranslations.wallet_onekey_sifu,
+        description:
+          ETranslations.wallet_get_one_on_one_hardware_wallet_setup_help,
+        url: `${ONEKEY_SIFU_URL}/?utm_source=app_support_hub`,
+      },
+    ],
+    [],
+  );
+
+  const [bannerWidth, setBannerWidth] = useState(0);
+
+  const renderBannerItem = useCallback(
+    ({ item }: { item: ISupportHubBanner }) => (
+      <SupportHubBannerItem
+        item={item}
+        themeVariant={themeVariant}
+        intl={intl}
+      />
+    ),
+    [themeVariant, intl],
+  );
+
   const renderContent = useCallback(() => {
     return (
       <Stack flexDirection="row" $md={{ flexDirection: 'column' }} gap="$3">
-        <RichBlock
-          blockContainerProps={{
-            flex: 1,
-          }}
-          content={
-            <YStack
-              height={151}
-              justifyContent="center"
-              px="$4"
-              position="relative"
-              onPress={() => {
-                openUrlExternal(
-                  `${ONEKEY_SIFU_URL}/?utm_source=app_support_hub`,
-                );
-              }}
-            >
-              <Image
-                position="absolute"
-                top="0"
-                left="0"
-                bottom="0"
-                right="0"
-                source={require('@onekeyhq/kit/assets/sifu_bg.jpg')}
-                resizeMode="cover"
-                zIndex={0}
-                opacity={themeVariant === 'dark' ? 0.9 : 1}
-              />
-              <Theme name="light">
-                <YStack width="60%" zIndex={99} position="absolute" left="$4">
-                  <SizableText size="$headingLg" flex={1}>
-                    {intl.formatMessage({
-                      id: ETranslations.wallet_onekey_sifu,
-                    })}
-                  </SizableText>
-                  <SizableText size="$bodyMd" color="$textSubdued" flex={1}>
-                    {intl.formatMessage({
-                      id: ETranslations.wallet_get_one_on_one_hardware_wallet_setup_help,
-                    })}
-                  </SizableText>
-                </YStack>
-              </Theme>
-            </YStack>
-          }
-          contentContainerProps={{
-            px: '$0',
-            py: '$0',
-            outlineWidth: 1,
-            outlineStyle: 'solid',
-            outlineColor: '$neutral2',
-          }}
-        />
+        <Stack
+          flex={1}
+          $gtMd={{ flexBasis: 0 }}
+          overflow="hidden"
+          onLayout={(e) => setBannerWidth(e.nativeEvent.layout.width)}
+        >
+          <RichBlock
+            content={
+              bannerWidth > 0 ? (
+                <Carousel
+                  data={bannerData}
+                  renderItem={renderBannerItem}
+                  pageWidth={bannerWidth}
+                  autoPlayInterval={5000}
+                  loop={bannerData.length > 1}
+                  showPagination={bannerData.length > 1}
+                  containerStyle={{
+                    height: 151,
+                  }}
+                  paginationContainerStyle={{
+                    position: 'absolute',
+                    bottom: 8,
+                    left: 0,
+                    right: 0,
+                    gap: 0,
+                  }}
+                  renderPaginationItem={({ dotStyle, activeDotStyle, onPress }, index) => (
+                    <Stack
+                      key={index}
+                      onPress={onPress}
+                      p="$1"
+                      borderRadius="$full"
+                    >
+                      <Stack
+                        w="$1.5"
+                        h="$1.5"
+                        borderRadius="$full"
+                        bg="$neutral5"
+                        {...dotStyle}
+                        {...activeDotStyle}
+                      />
+                    </Stack>
+                  )}
+                />
+              ) : (
+                <Stack height={151} />
+              )
+            }
+            contentContainerProps={{
+              px: '$0',
+              py: '$0',
+              outlineWidth: 1,
+              outlineStyle: 'solid',
+              outlineColor: '$neutral2',
+              overflow: 'hidden',
+            }}
+          />
+        </Stack>
         <Stack
           flexDirection="column"
           gap="$3"
@@ -189,7 +284,7 @@ function SupportHub() {
         </Stack>
       </Stack>
     );
-  }, [intl, helpCenterCommonFaqLink, themeVariant]);
+  }, [intl, helpCenterCommonFaqLink, bannerData, renderBannerItem, bannerWidth]);
 
   return (
     <RichBlock
