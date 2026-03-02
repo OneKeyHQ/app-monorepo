@@ -33,6 +33,7 @@ const AwareScrollViewFallback = forwardRef<
 >(({ bottomOffset: _bottomOffset, ...rest }, ref) => (
   <ScrollView ref={ref} {...rest} />
 ));
+AwareScrollViewFallback.displayName = 'AwareScrollViewFallback';
 
 export const Keyboard = {
   AvoidingView: PassThrough as typeof KeyboardAvoidingView,

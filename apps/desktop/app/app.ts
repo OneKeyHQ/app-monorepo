@@ -614,6 +614,7 @@ async function createMainWindow() {
     );
   }
 
+  /* eslint-disable no-nested-ternary */
   const src = isPerfCiMode
     ? formatUrl({
         pathname: perfIndexHtmlPath,
@@ -627,6 +628,7 @@ async function createMainWindow() {
           protocol: PROTOCOL,
           slashes: true,
         });
+  /* eslint-enable no-nested-ternary */
 
   if (isDevServer) {
     browserWindow.webContents.openDevTools();
@@ -1145,7 +1147,9 @@ app.on('child-process-gone', async (event, details) => {
 
     // Track GPU crash in Sentry for monitoring
     try {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
       const { captureException } = require('@sentry/electron/main');
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
       captureException(new Error('GPU Process Crashed'), {
         level: 'fatal',
         tags: {
@@ -1303,7 +1307,9 @@ function startMemoryMonitoring() {
 
         // Track critical memory events in Sentry
         try {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
           const { captureException } = require('@sentry/electron/main');
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
           captureException(new Error('Critical Memory Usage Detected'), {
             level: 'warning',
             tags: {
@@ -1360,7 +1366,9 @@ function startProcessMetricsMonitoring() {
     );
     if (totalMemoryMB > MEMORY_LIMIT_WARNING_MB) {
       try {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
         const { addBreadcrumb } = require('@sentry/electron/main');
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
         addBreadcrumb({
           category: 'memory',
           message: `Total process memory: ${Math.round(totalMemoryMB)}MB`,
@@ -1387,8 +1395,10 @@ async function collectGPUInfo() {
     logger.info('[GPU Info] Complete GPU information collected');
 
     try {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
       const { setContext } = require('@sentry/electron/main');
       const gpuDevice = (gpuInfo as any)?.gpuDevice?.[0];
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
       setContext('gpu', {
         vendorId: gpuDevice?.vendorId,
         deviceId: gpuDevice?.deviceId,
@@ -1426,6 +1436,7 @@ function startV8HeapMonitoring() {
 }
 
 function startWebviewMemoryMonitoring() {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-call
   const { webContents } = require('electron');
   setInterval(() => {
     const safelyMainWindow = getSafelyMainWindow();
@@ -1435,10 +1446,12 @@ function startWebviewMemoryMonitoring() {
     const metricsByPid = new Map(metrics.map((m) => [m.pid, m]));
     const allContents = webContents.getAllWebContents();
     for (const wc of allContents) {
+      // eslint-disable-next-line no-continue
       if (wc.isDestroyed()) continue;
       try {
         const pid = wc.getOSProcessId();
         const metric = metricsByPid.get(pid);
+        // eslint-disable-next-line no-continue
         if (!metric) continue;
         const memMB = Math.round((metric.memory?.workingSetSize ?? 0) / 1024);
         if (memMB > 300) {

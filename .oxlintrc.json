@@ -238,6 +238,18 @@
     "typescript/no-misused-spread": "error",
     "typescript/no-array-delete": "error",
     "typescript/no-misused-promises": ["error", { "checksVoidReturn": false }],
+    // Type-aware rules migrated from ESLint
+    "typescript/no-unsafe-return": "error",
+    "typescript/no-unsafe-call": "error",
+    "typescript/await-thenable": "error",
+    "typescript/no-empty-object-type": "error",
+    "typescript/no-unsafe-function-type": "error",
+    // ESLint core rules migrated
+    "no-continue": "error",
+    // React rules migrated
+    "react/display-name": "warn",
+    // Jest rules migrated
+    "jest/no-identical-title": "error",
     // ============================================
     // TypeScript rules (matching ESLint config)
     // ============================================
@@ -497,7 +509,11 @@
         "typescript/no-base-to-string": "off",
         "typescript/no-unnecessary-template-expression": "off",
         "typescript/restrict-template-expressions": "off",
-        "typescript/require-array-sort-compare":"off",
+        "typescript/require-array-sort-compare": "off",
+        "typescript/no-unsafe-call": "off",
+        "typescript/no-unsafe-return": "off",
+        "typescript/no-unsafe-function-type": "off",
+        "typescript/no-empty-object-type": "off",
       }
     }
   ],

@@ -637,6 +637,7 @@ class DesktopApiAppUpdate {
     );
     if (verifyParams.downloadedFile) {
       try {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call -- dynamic require returns untyped
         const { shell } = require('electron');
         await shell.openPath(path.dirname(verifyParams.downloadedFile));
       } catch (error) {
