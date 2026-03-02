@@ -224,16 +224,13 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
   }, [defaultTokens, networkId, tokenDetail]);
 
   // --- Token preference persistence (simpledb) ---
-  const { result: savedPreference } = usePromiseResult(
-    async () => {
-      const effectiveNetworkId = networkId || '';
-      if (!effectiveNetworkId) return undefined;
-      return backgroundApiProxy.simpleDb.marketTokenPreference.getPreference({
-        networkId: effectiveNetworkId,
-      });
-    },
-    [networkId],
-  );
+  const { result: savedPreference } = usePromiseResult(async () => {
+    const effectiveNetworkId = networkId || '';
+    if (!effectiveNetworkId) return undefined;
+    return backgroundApiProxy.simpleDb.marketTokenPreference.getPreference({
+      networkId: effectiveNetworkId,
+    });
+  }, [networkId]);
 
   const saveTokenPreference = useCallback(
     (token: IToken) => {

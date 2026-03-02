@@ -669,8 +669,7 @@ export function useSwapProTokenInit() {
         ),
       );
       if (preferred) {
-        selectedDefaultToken =
-          preferred as (typeof defaultTokensFromType)[0];
+        selectedDefaultToken = preferred as (typeof defaultTokensFromType)[0];
       } else if (nativeToken || wrappedToken) {
         if (swapProTradeType === ESwapProTradeType.MARKET && nativeToken) {
           selectedDefaultToken = nativeToken;
