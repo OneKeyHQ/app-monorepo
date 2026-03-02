@@ -19,7 +19,10 @@ import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import {
+  openUrlExternal,
+  openUrlInDiscovery,
+} from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IFiatCryptoType } from '@onekeyhq/shared/types/fiatCrypto';
 
 import type { IActionProps } from './type';
@@ -137,7 +140,11 @@ function ActionBuy({
           Toast.error({ title: 'Failed to get widget url' });
           return;
         }
-        openUrlExternal(url);
+        if (platformEnv.isDesktop || platformEnv.isNative) {
+          openUrlInDiscovery({ url });
+        } else {
+          openUrlExternal(url);
+        }
       } finally {
         loadingRef.current = false;
         setLoading(false);
