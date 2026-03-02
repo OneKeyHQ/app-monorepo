@@ -27,6 +27,7 @@ import {
   ReferFriendsDetailHeader,
   ReferFriendsPageContainer,
 } from '../../components';
+import { useDatePresets } from '../../hooks/useDatePresets';
 import { useRewardFilter } from '../../hooks/useRewardFilter';
 
 import { EarnRewardsTab } from './components';
@@ -99,6 +100,8 @@ function EarnRewardPageWrapper() {
     }
   }, [filterState.timeRange]);
 
+  const presets = useDatePresets();
+
   const effectiveTimeRange =
     filterState.startTime && filterState.endTime
       ? undefined
@@ -112,6 +115,8 @@ function EarnRewardPageWrapper() {
             value={currentDatePickerValue}
             onChange={handleDateRangeChange}
             maxDate={maxDate}
+            showPreviousMonth
+            presets={presets}
           />
         </YStack>
         <XStack gap="$3">
@@ -134,6 +139,7 @@ function EarnRewardPageWrapper() {
       currentDatePickerValue,
       handleDateRangeChange,
       maxDate,
+      presets,
       filterState,
       updateFilter,
       effectiveTimeRange,

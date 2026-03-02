@@ -47,7 +47,7 @@ function SwapPanelFooterButtons({ onTrade, onInstant }: IProps) {
     <XStack gap="$2.5">
       <GestureDetector gesture={tradeGesture}>
         <View style={{ flex: 1 }}>
-          <Button size="large" variant="primary">
+          <Button size="large" variant="secondary">
             {intl.formatMessage({ id: ETranslations.dexmarket_details_trade })}
           </Button>
         </View>
@@ -60,7 +60,7 @@ function SwapPanelFooterButtons({ onTrade, onInstant }: IProps) {
             bg="$buttonSuccess"
             icon="FlashSolid"
           >
-            {intl.formatMessage({ id: ETranslations.marketdex_instant_mode })}
+            {intl.formatMessage({ id: ETranslations.dexmarket_quick_buy })}
           </Button>
         </View>
       </GestureDetector>
