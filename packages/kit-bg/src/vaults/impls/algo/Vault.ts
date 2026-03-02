@@ -77,8 +77,10 @@ import type {
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
 } from '../../types';
+/* eslint-disable import/order */
 import type { FailedAttemptError } from 'p-retry';
 import { NETWORK_REQUEST_ERROR_CODE } from '@onekeyhq/core/src/chains/algo/constants';
+/* eslint-enable import/order */
 
 export default class Vault extends VaultBase {
   override coreApi = coreChainApi.algo.hd;

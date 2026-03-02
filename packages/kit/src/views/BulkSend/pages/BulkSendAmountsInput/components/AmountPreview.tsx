@@ -150,7 +150,9 @@ export function AmountPreview({
       (acc, transfer) => acc.plus(transfer.amount || '0'),
       new BigNumber(0),
     );
+    // eslint-disable-next-line @typescript-eslint/no-shadow
     const totalTokenAmount = total.toFixed();
+    // eslint-disable-next-line @typescript-eslint/no-shadow
     const totalFiatAmount = total.times(tokenDetails?.price ?? 0).toFixed();
     return { totalTokenAmount, totalFiatAmount };
   }, [

@@ -12,6 +12,7 @@ import { YearGrid, YearRangeHeader } from './YearGrid';
 
 import type { DatePickerMode } from './type';
 
+// eslint-disable-next-line @typescript-eslint/naming-convention
 type ViewMode = 'day' | 'month' | 'year';
 
 function useNavDisabled(calendarIndex: number, minDate?: Date, maxDate?: Date) {

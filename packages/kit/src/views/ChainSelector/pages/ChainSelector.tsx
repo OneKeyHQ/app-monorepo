@@ -100,6 +100,7 @@ export default function ChainSelectorPage({
           for (const [key, val] of Object.entries(rawValues)) {
             const keyArray = key.split('_');
             const networkId = keyArray.pop() as string;
+            // eslint-disable-next-line @typescript-eslint/no-shadow
             const accountId = keyArray.join('_');
             const [_walletId, _path, _deriveType] = accountId.split(
               SEPERATOR,

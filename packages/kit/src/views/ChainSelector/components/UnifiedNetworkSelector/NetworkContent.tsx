@@ -95,6 +95,7 @@ export function NetworkContent({
           chainSelectorNetworks: sortedChainSelectorNetworks,
           formattedAccountNetworkValues,
           accountDeFiOverview: _accountDeFiOverview,
+          // eslint-disable-next-line @typescript-eslint/no-shadow
           zeroValue,
         } = await backgroundApiProxy.serviceNetwork.sortChainSelectorNetworksByValue(
           {

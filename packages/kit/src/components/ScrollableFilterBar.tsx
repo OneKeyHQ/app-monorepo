@@ -40,6 +40,7 @@ const ScrollableFilterBarContext =
 function useScrollableFilterBar() {
   const ctx = useContext(ScrollableFilterBarContext);
   if (!ctx) {
+    // eslint-disable-next-line no-restricted-syntax
     throw new Error(
       'useScrollableFilterBar must be used within <ScrollableFilterBar>',
     );

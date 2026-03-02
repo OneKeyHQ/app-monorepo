@@ -183,6 +183,8 @@ function BaseBulkSendAddressesInput() {
   ]);
 
   // Reset token details state when account/network/token changes
+  /* eslint-disable react-hooks/exhaustive-deps */
+  /* oxlint-disable react/exhaustive-deps */
   useEffect(() => {
     if (selectedAccountId && selectedNetworkId && selectedToken) {
       setTokenDetailsState({
@@ -196,8 +198,9 @@ function BaseBulkSendAddressesInput() {
     selectedNetworkId,
     selectedToken,
     setTokenDetailsState,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   ]);
+  /* eslint-enable react-hooks/exhaustive-deps */
+  /* oxlint-enable react/exhaustive-deps */
 
   usePromiseResult(
     async () => {

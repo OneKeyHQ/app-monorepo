@@ -1,3 +1,4 @@
+// eslint-disable-next-line no-restricted-syntax
 import React from 'react';
 import type { PropsWithChildren } from 'react';
 

@@ -156,6 +156,7 @@ function ApprovalItem({
   );
 }
 
+// eslint-disable-next-line @typescript-eslint/naming-convention
 type Props = {
   onEditApproval?: (index: number) => void;
 };
