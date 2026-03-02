@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import { Icon, SizableText, XStack } from '@onekeyhq/components';
@@ -30,6 +32,11 @@ export function StakeProgress({
   const isStep1Done = currentStep >= EStakeProgressStep.deposit;
   const isStep2Done = currentStep >= EStakeProgressStep.unstake;
   const hasStep3 = !!step3LabelId;
+  const step2Color = useMemo(() => {
+    if (isStep2Done) return '$textSuccess' as const;
+    if (isStep1Done) return undefined;
+    return '$textDisabled' as const;
+  }, [isStep2Done, isStep1Done]);
   if (!approveType) {
     return null;
   }
@@ -58,16 +65,7 @@ export function StakeProgress({
         color={isStep1Done ? '$icon' : '$iconSubdued'}
       />
       <XStack ai="center" gap="$1.5">
-        <SizableText
-          size="$bodyMdMedium"
-          color={
-            isStep2Done
-              ? '$textSuccess'
-              : isStep1Done
-                ? undefined
-                : '$textDisabled'
-          }
-        >
+        <SizableText size="$bodyMdMedium" color={step2Color}>
           2.{' '}
           {intl.formatMessage({
             id: step2LabelId ?? ETranslations.earn_deposit,

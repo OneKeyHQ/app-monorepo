@@ -27,7 +27,8 @@ export function useQuoteRefresh<T>({
   doRefreshQuoteRef.current = async () => {
     if (!enabled) return;
     if (!amountValue || Number(amountValue) <= 0) return;
-    const currentRequestId = ++requestIdRef.current;
+    requestIdRef.current += 1;
+    const currentRequestId = requestIdRef.current;
     setQuoteRefreshing(true);
     onQuoteRefreshingChange?.(true);
     try {

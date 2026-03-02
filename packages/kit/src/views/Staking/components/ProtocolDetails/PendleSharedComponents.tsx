@@ -1,4 +1,4 @@
-import type { ReactElement } from 'react';
+import type { FC, ReactElement } from 'react';
 import { useMemo } from 'react';
 
 import {
@@ -21,8 +21,6 @@ import { ActionPopupContent } from './EarnActionIcon';
 import { EarnSwapRoute } from './EarnSwapRoute';
 import { EarnText } from './EarnText';
 import { EarnTooltip } from './EarnTooltip';
-
-import type { FC } from 'react';
 
 // --- PendleRewardRow ---
 
@@ -214,54 +212,65 @@ export function usePendleTransactionDetails({
               {detailItem.title.text}
             </CalculationListItem.Label>
           )}
-          {popupButton ? (
-            <Popover
-              title={popupButton.data.title?.text ?? ''}
-              renderTrigger={
-                <XStack gap="$1" ai="center" cursor="pointer">
+          {(() => {
+            if (popupButton) {
+              return (
+                <Popover
+                  title={popupButton.data.title?.text ?? ''}
+                  renderTrigger={
+                    <XStack gap="$1" ai="center" cursor="pointer">
+                      <EarnText
+                        text={detailItem.description}
+                        size="$bodyMdMedium"
+                      />
+                      <Icon
+                        name="ChevronRightSmallOutline"
+                        size="$5"
+                        color="$iconSubdued"
+                      />
+                    </XStack>
+                  }
+                  renderContent={
+                    <ActionPopupContent
+                      bulletList={popupButton.data.bulletList}
+                      items={popupButton.data.items}
+                      panel={popupButton.data.panel}
+                      description={popupButton.data.description}
+                    />
+                  }
+                />
+              );
+            }
+            if (detailItem.description?.text) {
+              return (
+                <EarnText
+                  text={detailItem.description}
+                  size="$bodyMdMedium"
+                  textAlign="right"
+                />
+              );
+            }
+            return (
+              <XStack alignItems="center" gap="$1.5" flexShrink={1}>
+                {detailItem.current?.title ? (
                   <EarnText
-                    text={detailItem.description}
+                    text={detailItem.current.title}
+                    size="$bodySm"
+                    color={detailItem.current.title.color ?? '$textSubdued'}
+                  />
+                ) : null}
+                {detailItem.current?.title && detailItem.latest?.title ? (
+                  <Icon name="ArrowRightSolid" size="$4" color="$iconSubdued" />
+                ) : null}
+                {detailItem.latest?.title ? (
+                  <EarnText
+                    text={detailItem.latest.title}
                     size="$bodyMdMedium"
                   />
-                  <Icon
-                    name="ChevronRightSmallOutline"
-                    size="$5"
-                    color="$iconSubdued"
-                  />
-                </XStack>
-              }
-              renderContent={
-                <ActionPopupContent
-                  bulletList={popupButton.data.bulletList}
-                  items={popupButton.data.items}
-                  panel={popupButton.data.panel}
-                  description={popupButton.data.description}
-                />
-              }
-            />
-          ) : detailItem.description?.text ? (
-            <EarnText
-              text={detailItem.description}
-              size="$bodyMdMedium"
-              textAlign="right"
-            />
-          ) : (
-            <XStack alignItems="center" gap="$1.5" flexShrink={1}>
-              {detailItem.current?.title ? (
-                <EarnText
-                  text={detailItem.current.title}
-                  size="$bodySm"
-                  color={detailItem.current.title.color ?? '$textSubdued'}
-                />
-              ) : null}
-              {detailItem.current?.title && detailItem.latest?.title ? (
-                <Icon name="ArrowRightSolid" size="$4" color="$iconSubdued" />
-              ) : null}
-              {detailItem.latest?.title ? (
-                <EarnText text={detailItem.latest.title} size="$bodyMdMedium" />
-              ) : null}
-            </XStack>
-          )}
+                ) : null}
+              </XStack>
+            );
+          })()}
         </CalculationListItem>,
       );
     });
