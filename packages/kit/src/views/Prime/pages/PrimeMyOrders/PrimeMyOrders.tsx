@@ -211,6 +211,7 @@ export default function PrimeMyOrders() {
             renderItem={renderOrderItem}
             keyExtractor={(item) => item.orderNumber}
             estimatedItemSize={100}
+            // eslint-disable-next-line react/no-unstable-nested-components
             ItemSeparatorComponent={() => <Stack h="$3" />}
             ListHeaderComponent={
               showAlert ? (

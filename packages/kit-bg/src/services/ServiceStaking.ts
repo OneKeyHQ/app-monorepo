@@ -14,11 +14,11 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
   PROMISE_CONCURRENCY_LIMIT,
   promiseAllSettledEnhanced,
 } from '@onekeyhq/shared/src/utils/promiseUtils';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type { IDiscoveryBanner } from '@onekeyhq/shared/types/discovery';
@@ -853,7 +853,10 @@ class ServiceStaking extends ServiceBase {
     );
 
     const enabledItems = itemsWithEnabledStatus
-      .filter((r): r is NonNullable<typeof r> => r != null && !!r.isEnabled)
+      .filter(
+        (r): r is NonNullable<typeof r> =>
+          r !== null && r !== undefined && !!r.isEnabled,
+      )
       .map((r) => r.item);
 
     return enabledItems;
@@ -1804,7 +1807,7 @@ class ServiceStaking extends ServiceBase {
       }
     }
 
-    throw lastError; // Throw last error after all retries fail
+    throw lastError instanceof Error ? lastError : new Error(String(lastError)); // Throw last error after all retries fail
   }
 
   @backgroundMethod()

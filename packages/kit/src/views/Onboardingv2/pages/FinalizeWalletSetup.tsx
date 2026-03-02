@@ -8,8 +8,8 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import { scheduleOnRN } from 'react-native-worklets';
 import Svg, { Defs, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
+import { scheduleOnRN } from 'react-native-worklets';
 import { useThrottledCallback } from 'use-debounce';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
@@ -24,6 +24,7 @@ import {
   YStack,
   useTheme,
 } from '@onekeyhq/components';
+import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EAppEventBusNames,
@@ -32,6 +33,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   type EOnboardingPagesV2,
@@ -41,9 +43,6 @@ import {
 import { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-
-import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
@@ -59,9 +58,9 @@ import {
   useDeviceConnect,
 } from '../hooks/useDeviceConnect';
 
-import type { SearchDevice } from '@onekeyfe/hd-core';
-
 import MatrixBackground from './MatrixBackground';
+
+import type { SearchDevice } from '@onekeyfe/hd-core';
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 
@@ -157,6 +156,7 @@ function FinalizeWalletSetupPage({
     return {
       // oxlint-disable-next-line @cspell/spellchecker
       strokeDashoffset,
+
       // oxlint-disable-next-line @cspell/spellchecker
       strokeDasharray: pathLength,
     };

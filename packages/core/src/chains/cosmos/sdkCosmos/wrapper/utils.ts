@@ -74,7 +74,12 @@ export function getFeeAmount(signDoc: TransactionWrapper): readonly Coin[] {
 
   const fees: Coin[] = [];
   for (const coinObj of getDirectSignDoc(signDoc).authInfo.fee?.amount ?? []) {
-    if (coinObj.denom == null || coinObj.amount == null) {
+    if (
+      coinObj.denom === null ||
+      coinObj.denom === undefined ||
+      coinObj.amount === null ||
+      coinObj.amount === undefined
+    ) {
       throw new OneKeyLocalError('Invalid fee');
     }
     fees.push({
@@ -264,7 +269,7 @@ export function getSendAmount(tx: TransactionWrapper, denom: string) {
 export function getGas(signDoc: TransactionWrapper): number {
   if (signDoc.mode === 'amino') {
     const limit = getAminoSignDoc(signDoc).fee.gas;
-    if (limit == null) {
+    if (limit === null || limit === undefined) {
       return 0;
     }
     return parseInt(limit, 10);

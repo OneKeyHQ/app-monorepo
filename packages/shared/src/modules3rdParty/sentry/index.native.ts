@@ -15,6 +15,7 @@ import { buildBasicOptions, navigationIntegration } from './basicOptions';
 
 import type { FallbackRender } from '@sentry/react';
 
+// oxlint-disable-next-line import/export -- re-export from third-party module
 export * from '@sentry/react-native';
 
 export * from './basicOptions';

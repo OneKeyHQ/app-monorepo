@@ -1,7 +1,7 @@
 import { useWindowDimensions } from 'react-native';
 
-import { useIsSplitView } from '@onekeyhq/components/src/hooks/useOrientation';
 import { useTabContainerWidth } from '@onekeyhq/components/src/composite/Tabs/hooks';
+import { useIsSplitView } from '@onekeyhq/components/src/hooks/useOrientation';
 
 export const usePageWidth = () => {
   const isSplitting = useIsSplitView();

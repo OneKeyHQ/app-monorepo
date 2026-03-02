@@ -523,6 +523,7 @@ function useAllNetworkRequests<T>(params: {
           await onStartedTask;
           if (onStartedError) {
             if (onStartedError instanceof Error) {
+              // oxlint-disable-next-line no-throw-literal
               throw onStartedError;
             }
             const err = new Error('onStarted failed');

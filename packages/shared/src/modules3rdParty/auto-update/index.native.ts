@@ -215,7 +215,7 @@ export const BundleUpdate: IBundleUpdate = {
             removeSubscriptions();
           };
           const onError = (error: string) => {
-            reject(error);
+            reject(new Error(error));
             removeSubscriptions();
           };
           onSuccessSubscription = BundleUpdateEventEmitter?.addListener(
