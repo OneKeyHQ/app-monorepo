@@ -51,7 +51,6 @@ import {
   EHardwareCallContext,
   EOneKeyDeviceMode,
 } from '@onekeyhq/shared/types/device';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import localDb from '../../dbs/local/localDb';
