@@ -86,6 +86,9 @@ export function useUniversalStake({
       unsignedMessage,
       message,
       provider,
+      inputTokenAddress,
+      outputTokenAddress,
+      slippage,
       stakingInfo,
       onSuccess,
       onFail,
@@ -104,6 +107,9 @@ export function useUniversalStake({
       // Stakefish: original message for permit signature
       message?: string;
       provider: string;
+      inputTokenAddress?: string;
+      outputTokenAddress?: string;
+      slippage?: number;
       stakingInfo?: IStakingInfo;
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
       onFail?: IModalSendParamList['SendConfirm']['onFail'];
@@ -124,6 +130,9 @@ export function useUniversalStake({
           permitSignature,
           unsignedMessage,
           message,
+          inputTokenAddress,
+          outputTokenAddress,
+          slippage,
           // Stakefish specific param
           validatorPublicKey,
         });
@@ -190,27 +199,39 @@ export function useUniversalWithdraw({
       symbol,
       provider,
       identity,
+      inputTokenAddress,
+      outputTokenAddress,
       protocolVault,
       withdrawAll,
+      slippage,
       stakingInfo,
       onSuccess,
       onFail,
       // Signature and message for withdraw all
       withdrawSignature,
       withdrawMessage,
+      useEthenaCooldown,
+      onStepChange,
+      signal,
     }: {
       amount: string;
       symbol: string;
       provider: string;
       identity?: string;
+      inputTokenAddress?: string;
+      outputTokenAddress?: string;
       protocolVault?: string;
       withdrawAll: boolean;
+      slippage?: number;
       stakingInfo?: IStakingInfo;
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
       onFail?: IModalSendParamList['SendConfirm']['onFail'];
       // Signature and message for withdraw all
       withdrawSignature?: string;
       withdrawMessage?: string;
+      useEthenaCooldown?: boolean;
+      onStepChange?: (step: number) => void;
+      signal?: AbortSignal;
     }) => {
       let stakeTx: IStakeTxResponse | undefined;
       const stakingConfig =
@@ -257,9 +278,98 @@ export function useUniversalWithdraw({
             accountId,
             symbol,
             provider,
+            inputTokenAddress,
+            outputTokenAddress,
             signature: signHash,
             deadline,
           });
+      } else if (useEthenaCooldown) {
+        // Ethena two-step: 1) swap PT-sUSDe → sUSDe, 2) unstake sUSDe → USDe
+        const swapTx =
+          await backgroundApiProxy.serviceStaking.buildUnstakeTransaction({
+            amount,
+            identity,
+            networkId,
+            accountId,
+            symbol,
+            provider,
+            inputTokenAddress,
+            outputTokenAddress,
+            protocolVault,
+            withdrawAll,
+            ethenaPath: true,
+            slippage,
+          });
+        const swapEncodedTx =
+          await backgroundApiProxy.serviceStaking.buildInternalDappTx({
+            networkId,
+            accountId,
+            tx: swapTx.tx,
+            internalDappType: EInternalDappEnum.Staking,
+            stakingAction: EInternalStakingAction.Withdraw,
+          });
+        const swapStakeInfo = createStakeInfoWithOrderId({
+          stakingInfo,
+          orderId: swapTx.orderId,
+        });
+        await navigationToTxConfirm({
+          encodedTx: swapEncodedTx,
+          stakingInfo: swapStakeInfo,
+          onSuccess: async (swapData) => {
+            await handleStakeSuccess({
+              data: swapData,
+              stakeInfo: swapStakeInfo,
+              networkId,
+            });
+            if (signal?.aborted) {
+              return;
+            }
+            onStepChange?.(2);
+            const unstakeTx =
+              await backgroundApiProxy.serviceStaking.buildUnstakeTransaction({
+                amount,
+                identity,
+                networkId,
+                accountId,
+                symbol,
+                provider,
+                inputTokenAddress,
+                outputTokenAddress,
+                protocolVault,
+                withdrawAll,
+                useEthenaCooldown: true,
+                slippage,
+              });
+            const unstakeEncodedTx =
+              await backgroundApiProxy.serviceStaking.buildInternalDappTx({
+                networkId,
+                accountId,
+                tx: unstakeTx.tx,
+                internalDappType: EInternalDappEnum.Staking,
+                stakingAction: EInternalStakingAction.Withdraw,
+              });
+            const unstakeStakeInfo = createStakeInfoWithOrderId({
+              stakingInfo,
+              orderId: unstakeTx.orderId,
+            });
+            await navigationToTxConfirm({
+              encodedTx: unstakeEncodedTx,
+              stakingInfo: unstakeStakeInfo,
+              onSuccess: async (data) => {
+                onStepChange?.(3);
+                await handleStakeSuccess({
+                  data,
+                  stakeInfo: unstakeStakeInfo,
+                  networkId,
+                  onSuccess,
+                });
+              },
+              onFail,
+            });
+          },
+          onFail,
+        });
+        return;
       } else {
         stakeTx =
           await backgroundApiProxy.serviceStaking.buildUnstakeTransaction({
@@ -269,11 +379,13 @@ export function useUniversalWithdraw({
             accountId,
             symbol,
             provider,
+            inputTokenAddress,
+            outputTokenAddress,
             protocolVault,
             withdrawAll,
-            // Pass signature and message for withdraw all
             signature: withdrawSignature,
             message: withdrawMessage,
+            slippage,
           });
       }
 
@@ -315,7 +427,7 @@ export function useUniversalWithdraw({
 
       await navigationToTxConfirm({
         encodedTx,
-        stakingInfo,
+        stakingInfo: stakeInfoWithOrderId,
         signOnly: stakingConfig?.withdrawSignOnly,
         useFeeInTx,
         feeInfoEditable,
@@ -428,7 +540,7 @@ export function useUniversalClaim({
 
         await navigationToTxConfirm({
           encodedTx,
-          stakingInfo,
+          stakingInfo: stakeInfoWithOrderId,
           onSuccess: async (data) => {
             await handleStakeSuccess({
               data,

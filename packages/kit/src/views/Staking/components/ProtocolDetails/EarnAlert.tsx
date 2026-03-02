@@ -6,6 +6,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useSpotlightPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IEarnAlert, IEarnText } from '@onekeyhq/shared/types/staking';
+import type { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 
 import { EarnText } from './EarnText';
 
@@ -58,7 +59,7 @@ export function EarnAlertClosableItem({
   alert: alertItem,
   key,
 }: {
-  alert: IEarnAlert;
+  alert: IEarnAlert & { key: ESpotlightTour };
   key: string;
 }) {
   const [{ data }] = useSpotlightPersistAtom();
@@ -81,7 +82,7 @@ export function EarnAlert({ alerts }: { alerts?: IEarnAlert[] }) {
         {alerts.map((alertItem, index) => {
           return alertItem.key ? (
             <EarnAlertClosableItem
-              alert={alertItem}
+              alert={alertItem as IEarnAlert & { key: ESpotlightTour }}
               key={`${alertItem.alert}-${index}`}
             />
           ) : (
