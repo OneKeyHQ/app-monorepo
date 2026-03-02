@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 import {
   Badge,
   Button,
+  Dialog,
   Icon,
   Image,
   Illustration,
@@ -20,6 +21,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import type { IHyperliquidUserFeesResponse } from '@onekeyhq/kit-bg/src/services/ServiceWebviewPerp';
 import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
 import {
   DEFAULT_HL_MAKER_FEE_FOR_COMPARE,
@@ -488,7 +490,11 @@ function WalletComparisonSection({
   );
 }
 
-function PerpFeeTierPopoverContent() {
+export function PerpFeeTierPopoverContent({
+  isDialog = false,
+}: {
+  isDialog?: boolean;
+} = {}) {
   const intl = useIntl();
   const segmentOptions = useMemo(
     () => [
@@ -626,7 +632,12 @@ function PerpFeeTierPopoverContent() {
   );
 
   return (
-    <YStack px="$4" pt="$3" pb="$4" gap="$3">
+    <YStack
+      px={isDialog ? '$0' : '$4'}
+      pt={isDialog ? '$0' : '$3'}
+      pb={isDialog ? '$0' : '$4'}
+      gap="$3"
+    >
       <SegmentControl
         fullWidth
         value={activeTab}
@@ -680,3 +691,19 @@ function PerpFeeTierPopoverComponent() {
 
 export const PerpFeeTierPopover = memo(PerpFeeTierPopoverComponent);
 PerpFeeTierPopover.displayName = 'PerpFeeTierPopover';
+
+export function showPerpFeeTierDialog() {
+  const dialogInstance = Dialog.show({
+    title: appLocale.intl.formatMessage({ id: ETranslations.perps_fee_tiers }),
+
+    floatingPanelProps: {
+      width: 400,
+    },
+    renderContent: <PerpFeeTierPopoverContent isDialog />,
+    showFooter: false,
+    onClose: () => {
+      void dialogInstance.close();
+    },
+  });
+  return dialogInstance;
+}

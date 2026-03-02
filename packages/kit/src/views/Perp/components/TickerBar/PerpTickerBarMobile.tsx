@@ -306,7 +306,10 @@ export function PerpTickerBarMobile() {
         <PerpTickerBarMMRInfoMobile />
         <GiftAction source="Perps" size="small" copyAsUrl />
         <PerpCandleChartButtonMobile />
-        <PerpSettingsButton testID="perp-mobile-settings-button" />
+        <PerpSettingsButton
+          testID="perp-mobile-settings-button"
+          showFeeTierEntry
+        />
       </XStack>
     </XStack>
   );
