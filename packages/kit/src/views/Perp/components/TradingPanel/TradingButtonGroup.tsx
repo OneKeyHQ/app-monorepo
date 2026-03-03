@@ -7,6 +7,7 @@ import { useDebouncedCallback } from 'use-debounce';
 import {
   Button,
   DashText,
+  IconButton,
   NumberSizeableText,
   Popover,
   SizableText,
@@ -17,7 +18,10 @@ import {
 } from '@onekeyhq/components';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
-import { useTradingFormAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import {
+  usePerpsTriggerUxStateAtom,
+  useTradingFormAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsAccountLoadingInfoAtom,
   usePerpsActiveAccountStatusAtom,
@@ -66,6 +70,7 @@ function SideButtonInternal({
   const [formData] = useTradingFormAtom();
   const [tradingPreferences] = usePerpsTradingPreferencesAtom();
   const [activeAsset] = usePerpsActiveAssetAtom();
+  const [triggerUxState] = usePerpsTriggerUxStateAtom();
 
   const { handleConfirm } = useOrderConfirm();
 
@@ -178,6 +183,41 @@ function SideButtonInternal({
   ]);
 
   const isLong = side === 'long';
+  const triggerIsMarket =
+    triggerUxState.triggerOrderType === 'stopMarket' ||
+    triggerUxState.triggerOrderType === 'takeMarket';
+  const triggerTpsl =
+    triggerUxState.triggerOrderType === 'stopMarket' ||
+    triggerUxState.triggerOrderType === 'stopLimit'
+      ? 'sl'
+      : 'tp';
+  const triggerExecutionPrice = triggerIsMarket
+    ? `slippage(${formData.price || 'mark'})`
+    : formData.price || '--';
+
+  const devPayloadLines = useMemo(
+    () => [
+      `type: ${triggerUxState.isTriggerMode ? triggerUxState.triggerOrderType : formData.type}`,
+      `b: ${isLong} (${isLong ? 'Buy/Long' : 'Sell/Short'})`,
+      `t.trigger.isMarket: ${triggerIsMarket}`,
+      `t.trigger.tpsl: '${triggerTpsl}'`,
+      `t.trigger.triggerPx: ${triggerUxState.triggerPrice || '--'}`,
+      `p: ${triggerExecutionPrice}`,
+      `r: ${triggerUxState.isTriggerMode ? triggerUxState.reduceOnly : false}`,
+    ],
+    [
+      formData.type,
+      isLong,
+      triggerExecutionPrice,
+      triggerIsMarket,
+      triggerTpsl,
+      triggerUxState.isTriggerMode,
+      triggerUxState.reduceOnly,
+      triggerUxState.triggerOrderType,
+      triggerUxState.triggerPrice,
+    ],
+  );
+
   const buttonStyles = useMemo(() => {
     const colors = PERP_TRADE_BUTTON_COLORS;
     const getBgColor = () => {
@@ -497,6 +537,33 @@ function SideButtonInternal({
               </SizableText>
             )}
           </XStack>
+
+          {triggerUxState.isTriggerMode ? (
+            <XStack justifyContent="flex-start" alignItems="center" gap="$1.5">
+              <Popover
+                title="Dev Payload"
+                renderTrigger={
+                  <IconButton
+                    size="small"
+                    variant="tertiary"
+                    icon="InfoCircleOutline"
+                  />
+                }
+                renderContent={
+                  <YStack px="$5" pb="$4" gap="$1">
+                    {devPayloadLines.map((line) => (
+                      <SizableText key={line} size="$bodySm" color="$textSubdued">
+                        {line}
+                      </SizableText>
+                    ))}
+                  </YStack>
+                }
+              />
+              <SizableText size="$bodySm" color="$textSubdued">
+                devtip
+              </SizableText>
+            </XStack>
+          ) : null}
         </YStack>
 
         <Button
@@ -656,6 +723,33 @@ function SideButtonInternal({
             </SizableText>
           )}
         </XStack>
+
+        {triggerUxState.isTriggerMode ? (
+          <XStack gap="$2" justifyContent={justifyContent} alignItems="center">
+            <Tooltip
+              placement="top"
+              renderContent={
+                <YStack gap="$1">
+                  {devPayloadLines.map((line) => (
+                    <SizableText key={line} size="$bodySm" color="$text">
+                      {line}
+                    </SizableText>
+                  ))}
+                </YStack>
+              }
+              renderTrigger={
+                <IconButton
+                  size="small"
+                  variant="tertiary"
+                  icon="InfoCircleOutline"
+                />
+              }
+            />
+            <SizableText size="$bodySm" color="$textSubdued">
+              devtip
+            </SizableText>
+          </XStack>
+        ) : null}
       </YStack>
     </YStack>
   );

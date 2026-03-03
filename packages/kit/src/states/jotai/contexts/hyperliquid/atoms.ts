@@ -112,6 +112,19 @@ export interface ITradingFormData {
   slValue?: string;
 }
 
+export type IPerpsTriggerOrderType =
+  | 'stopMarket'
+  | 'stopLimit'
+  | 'takeMarket'
+  | 'takeLimit';
+
+export interface IPerpsTriggerUxState {
+  isTriggerMode: boolean;
+  triggerOrderType: IPerpsTriggerOrderType;
+  triggerPrice: string;
+  reduceOnly: boolean;
+}
+
 export const { atom: tradingFormAtom, use: useTradingFormAtom } =
   contextAtom<ITradingFormData>({
     side: 'long',
@@ -132,6 +145,16 @@ export const { atom: tradingFormAtom, use: useTradingFormAtom } =
     slType: 'price',
     slValue: '',
   });
+
+export const {
+  atom: perpsTriggerUxStateAtom,
+  use: usePerpsTriggerUxStateAtom,
+} = contextAtom<IPerpsTriggerUxState>({
+  isTriggerMode: false,
+  triggerOrderType: 'stopMarket',
+  triggerPrice: '',
+  reduceOnly: false,
+});
 
 export const { atom: tradingLoadingAtom, use: useTradingLoadingAtom } =
   contextAtom<boolean>(false);
