@@ -1,10 +1,30 @@
 import Expo
 import React
 import ReactAppDependencyProvider
-// TEMP: commented out to test build - Clang dependency scanner C++ header issues
-// import ReactNativeDeviceUtils
-// import ReactNativeBundleUpdate
-// import NativeLogger
+// NOTE: Cannot directly import Nitro modules (ReactNativeDeviceUtils, ReactNativeBundleUpdate,
+// NativeLogger) because their umbrella headers contain C++ (.hpp) files that cause Clang
+// dependency scanner failures. Using NSClassFromString + KVC as a workaround.
+
+// MARK: - Dynamic bridge to Nitro modules (avoids C++ module import issues)
+private enum NitroModuleBridge {
+  // LaunchOptionsStore is @objcMembers in ReactNativeDeviceUtils
+  static func launchOptionsStore() -> NSObject? {
+    guard let cls = NSClassFromString("ReactNativeDeviceUtils.LaunchOptionsStore") as? NSObject.Type else { return nil }
+    return cls.value(forKeyPath: "shared") as? NSObject
+  }
+
+  // OneKeyLog is @objc in ReactNativeNativeLogger
+  static func logInfo(_ tag: String, _ message: String) {
+    guard let cls = NSClassFromString("ReactNativeNativeLogger.OneKeyLog") as? NSObject.Type else { return }
+    cls.perform(NSSelectorFromString("info::"), with: tag, with: message)
+  }
+
+  // BundleUpdateStore is @objcMembers in ReactNativeBundleUpdate
+  static func currentBundleMainJSBundle() -> String? {
+    guard let cls = NSClassFromString("ReactNativeBundleUpdate.BundleUpdateStore") as? NSObject.Type else { return nil }
+    return cls.perform(NSSelectorFromString("currentBundleMainJSBundle"))?.takeUnretainedValue() as? String
+  }
+}
 
 @UIApplicationMain
 public class AppDelegate: ExpoAppDelegate {
@@ -17,9 +37,10 @@ public class AppDelegate: ExpoAppDelegate {
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
   ) -> Bool {
-    // TEMP: commented out - depends on ReactNativeDeviceUtils / NativeLogger
-    // DeviceUtilsStore.shared.saveStartupTime(Date().timeIntervalSince1970)
-    // OneKeyLogBridge.info("App", message: "Application started")
+    let store = NitroModuleBridge.launchOptionsStore()
+    store?.setValue(NSNumber(value: Date().timeIntervalSince1970), forKey: "startupTime")
+    NitroModuleBridge.logInfo("App", "OneKey started")
+
     let delegate = ReactNativeDelegate()
     let factory = ExpoReactNativeFactory(delegate: delegate)
     delegate.dependencyProvider = RCTAppDependencyProvider()
@@ -36,8 +57,7 @@ public class AppDelegate: ExpoAppDelegate {
       launchOptions: launchOptions)
 #endif
 
-    // TEMP: commented out - depends on ReactNativeDeviceUtils
-    // DeviceUtilsStore.shared.saveLaunchOptions(launchOptions)
+    store?.setValue(launchOptions, forKey: "launchOptions")
 
     // JPUSHService Register
     let entity = JPUSHRegisterEntity()
@@ -65,24 +85,23 @@ public class AppDelegate: ExpoAppDelegate {
     let result = RCTLinkingManager.application(application, continue: userActivity, restorationHandler: restorationHandler)
     return super.application(application, continue: userActivity, restorationHandler: restorationHandler) || result
   }
-  
+
   // Register APNS & Upload DeviceToken
   public override func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
-    // TEMP: commented out - depends on ReactNativeDeviceUtils
-    // DeviceUtilsStore.shared.log("didRegisterForRemoteNotificationsWithDeviceToken")
+    NitroModuleBridge.logInfo("App", "didRegisterForRemoteNotificationsWithDeviceToken")
     JPUSHService.registerDeviceToken(deviceToken)
-    // DeviceUtilsStore.shared.saveDeviceToken(deviceToken)
+    NitroModuleBridge.launchOptionsStore()?.setValue(deviceToken, forKey: "deviceToken")
   }
-  
+
   // Explicitly define remote notification delegates to ensure compatibility with some third-party libraries
   public override func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: any Error) {
     super.application(application, didFailToRegisterForRemoteNotificationsWithError: error)
-    // DeviceUtilsStore.shared.log("didFailToRegisterForRemoteNotificationsWithError error: \(error)")
+    NitroModuleBridge.logInfo("App", "didFailToRegisterForRemoteNotificationsWithError error: \(error)")
   }
-  
+
   // Explicitly define remote notification delegates to ensure compatibility with some third-party libraries
   public override func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable : Any], fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
-    // DeviceUtilsStore.shared.log("didReceiveRemoteNotification")
+    NitroModuleBridge.logInfo("App", "didReceiveRemoteNotification")
     JPUSHService.handleRemoteNotification(userInfo)
     NotificationCenter.default.post(name: NSNotification.Name(J_APNS_NOTIFICATION_ARRIVED_EVENT), object: userInfo)
     completionHandler(.newData)
@@ -101,11 +120,10 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
 #if DEBUG
     return RCTBundleURLProvider.sharedSettings().jsBundleURL(forBundleRoot: ".expo/.virtual-metro-entry")
 #else
-    // TEMP: commented out - depends on ReactNativeBundleUpdate
-    // let bundlePath = BundleUpdateStore.currentBundleMainJSBundle()
-    // if bundlePath != nil {
-    //   return URL(string: bundlePath!)
-    // }
+    // Check for updated bundle via dynamic bridge (avoids Nitro module import)
+    if let bundlePath = NitroModuleBridge.currentBundleMainJSBundle() {
+      return URL(string: bundlePath)
+    }
     return Bundle.main.url(forResource: "main", withExtension: "jsbundle")
 #endif
   }
@@ -117,45 +135,45 @@ extension AppDelegate:JPUSHRegisterDelegate {
   public func jpushNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification,
                                withCompletionHandler completionHandler: ((Int) -> Void)) {
     let userInfo = notification.request.content.userInfo
-    
+
     if (notification.request.trigger?.isKind(of: UNPushNotificationTrigger.self) == true) {
       JPUSHService.handleRemoteNotification(userInfo)
       NotificationCenter.default.post(name: NSNotification.Name(J_APNS_NOTIFICATION_ARRIVED_EVENT), object: userInfo)
-      // DeviceUtilsStore.shared.log("received remote notification: \(userInfo)")
+      NitroModuleBridge.logInfo("App", "received remote notification: \(userInfo)")
     } else {
       NotificationCenter.default.post(name: NSNotification.Name(J_LOCAL_NOTIFICATION_ARRIVED_EVENT), object: userInfo)
-      // DeviceUtilsStore.shared.log("received local notification: \(userInfo)")
+      NitroModuleBridge.logInfo("App", "received local notification: \(userInfo)")
     }
-    
+
     completionHandler(Int(UNNotificationPresentationOptions.badge.rawValue | UNNotificationPresentationOptions.sound.rawValue | UNNotificationPresentationOptions.alert.rawValue))
   }
-  
+
   @available(iOS 10.0, *)
   public func jpushNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: (() -> Void)) {
-    
+
     let userInfo = response.notification.request.content.userInfo
     if (response.notification.request.trigger?.isKind(of: UNPushNotificationTrigger.self) == true) {
       JPUSHService.handleRemoteNotification(userInfo)
       NotificationCenter.default.post(name: NSNotification.Name(J_APNS_NOTIFICATION_OPENED_EVENT), object: userInfo)
-      // DeviceUtilsStore.shared.log("clicked remote notification: \(userInfo)")
+      NitroModuleBridge.logInfo("App", "clicked remote notification: \(userInfo)")
     } else {
-      // DeviceUtilsStore.shared.log("clicked local notification: \(userInfo)")
+      NitroModuleBridge.logInfo("App", "clicked local notification: \(userInfo)")
       NotificationCenter.default.post(name: NSNotification.Name(J_LOCAL_NOTIFICATION_OPENED_EVENT), object: userInfo)
     }
-    
+
     completionHandler()
-    
+
   }
-  
+
   public func jpushNotificationCenter(_ center: UNUserNotificationCenter, openSettingsFor notification: UNNotification) {
-    
+
   }
-  
+
   public func jpushNotificationAuthorization(_ status: JPAuthorizationStatus, withInfo info: [AnyHashable : Any]?) {
-    // DeviceUtilsStore.shared.log("receive notification authorization status: \(status), info: \(String(describing: info))")
+    NitroModuleBridge.logInfo("App", "receive notification authorization status: \(status), info: \(String(describing: info))")
   }
-  
-  
+
+
   // //MARK - 自定义消息
   func networkDidReceiveMessage(_ notification: NSNotification) {
     let userInfo = notification.userInfo!
