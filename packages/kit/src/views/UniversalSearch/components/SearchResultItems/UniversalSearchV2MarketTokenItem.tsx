@@ -175,11 +175,14 @@ export function UniversalSearchV2MarketTokenItem({
   // eslint-disable-next-line camelcase
   const volume24h = volume24hCamel || volume_24h;
 
-  // Hide favorite button in extension popup and side panel
+  // Hide favorite button for trending items (no valid chainId/contractAddress)
+  // and in extension popup/side panel
   const shouldShowFavoriteButton = useMemo(
     () =>
-      !platformEnv.isExtensionUiPopup && !platformEnv.isExtensionUiSidePanel,
-    [],
+      !isTrendingItem &&
+      !platformEnv.isExtensionUiPopup &&
+      !platformEnv.isExtensionUiSidePanel,
+    [isTrendingItem],
   );
 
   const handlePress = useCallback(() => {
