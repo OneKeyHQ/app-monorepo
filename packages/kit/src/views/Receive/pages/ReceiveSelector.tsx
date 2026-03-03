@@ -13,9 +13,9 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
 import { EModalReceiveRoutes } from '@onekeyhq/shared/src/routes';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   openUrlExternal,
   openUrlInDiscovery,
