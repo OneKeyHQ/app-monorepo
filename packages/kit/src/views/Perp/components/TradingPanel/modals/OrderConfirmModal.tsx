@@ -145,6 +145,7 @@ function OrderConfirmContent({
     void confirmOrder(overrideSide);
   }, [confirmOrder, onClose, overrideSide]);
 
+  const savedFeeDisplay = useMemo(() => {
     if (!orderValue.isFinite() || orderValue.lte(0)) {
       return undefined;
     }
@@ -155,10 +156,6 @@ function OrderConfirmContent({
     const savedFeeStr = savedFee.toFixed(2, BigNumber.ROUND_HALF_UP);
     if (!Number.isFinite(Number(savedFeeStr)) || Number(savedFeeStr) <= 0) {
       return undefined;
-    }
-    if (!Number.isFinite(Number(savedFeeStr)) || Number(savedFeeStr) <= 0) {
-      return undefined;
-    }
     }
     return numberFormat(savedFeeStr, {
       formatter: 'value',
