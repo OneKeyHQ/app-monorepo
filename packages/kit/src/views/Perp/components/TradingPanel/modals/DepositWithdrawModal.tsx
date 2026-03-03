@@ -7,7 +7,6 @@ import { InputAccessoryView } from 'react-native';
 
 import type { IPageNavigationProp, useInTabDialog } from '@onekeyhq/components';
 import {
-  Badge,
   Button,
   DashText,
   Divider,
@@ -205,13 +204,6 @@ function SelectTokenPopoverContent({
         formatter: 'value',
         formatterOptions: { currency: symbol },
       });
-      const isArbUSDC = equalTokenNoCaseSensitive({
-        token1: item,
-        token2: {
-          networkId: PERPS_NETWORK_ID,
-          contractAddress: USDC_TOKEN_INFO.address,
-        },
-      });
       const networkInfo = networkUtils.getLocalNetworkInfo(item.networkId);
       const networkName = networkInfo?.name;
       return (
@@ -246,22 +238,6 @@ function SelectTokenPopoverContent({
                 {networkName}
               </SizableText>
             </YStack>
-            {isArbUSDC ? (
-              <Badge
-                badgeSize="sm"
-                height={24}
-                borderRadius="$full"
-                borderColor="$borderInfo"
-                bg="$bgInfo"
-                px="$2.5"
-              >
-                <SizableText size="$bodySm" color="$textInfo">
-                  {intl.formatMessage({
-                    id: ETranslations.perp_deposit_direct,
-                  })}
-                </SizableText>
-              </Badge>
-            ) : null}
           </XStack>
           <YStack alignItems="flex-end">
             <SizableText size="$bodySmMedium">{balanceFormatted}</SizableText>
@@ -272,7 +248,7 @@ function SelectTokenPopoverContent({
         </ListItem>
       );
     },
-    [symbol, setPerpsDepositTokensAtom, closePopover, handleMaxPress, intl],
+    [symbol, setPerpsDepositTokensAtom, closePopover, handleMaxPress],
   );
   return (
     <YStack>
@@ -292,7 +268,7 @@ function SelectTokenPopoverContent({
         borderTopWidth={1}
         borderTopColor="$borderSubdued"
         p="$2"
-        cursor="pointer"
+        cursor="default"
         onPress={() => {
           void closePopover?.();
           if (platformEnv.isNativeIOS) {
@@ -667,7 +643,7 @@ function DepositWithdrawContent({
     }
     const minFromTokenAmountFormatted = minFromTokenAmount
       .decimalPlaces(
-        currentPerpsDepositSelectedToken?.decimals ?? 0,
+        Number(currentPerpsDepositSelectedToken?.decimals ?? 0),
         BigNumber.ROUND_UP,
       )
       .toFixed();
@@ -989,6 +965,7 @@ function DepositWithdrawContent({
                   toAmount: amount,
                   fromAmount: amount,
                   isArbUSDCOrder: true,
+                  skipToast: true,
                 });
               }
               void backgroundApiProxy.serviceHyperliquidSubscription.enableLedgerUpdatesSubscription();
@@ -1187,7 +1164,7 @@ function DepositWithdrawContent({
         placement="bottom-end"
         offset={{ mainAxis: 10, crossAxis: 12 }}
         renderTrigger={
-          <XStack alignItems="center" gap="$1" cursor="pointer">
+          <XStack alignItems="center" gap="$1" cursor="default">
             <SizableText size="$bodyMd" color="$textSubdued">
               {currentPerpsDepositSelectedToken?.symbol ?? '-'}
             </SizableText>
@@ -1311,7 +1288,6 @@ function DepositWithdrawContent({
           height: '100%',
           justifyContent: 'center',
           alignItems: 'center',
-          width: 80,
         }}
         value={selectedAction}
         onChange={onChangeSegmentControl}
@@ -1409,7 +1385,6 @@ function DepositWithdrawContent({
               onPress={handleBuyPress}
               color="$textSuccess"
               size="$bodySmMedium"
-              cursor="pointer"
               dashColor="$textSuccess"
             >
               {intl.formatMessage({ id: ETranslations.global_top_up })}
@@ -1440,7 +1415,6 @@ function DepositWithdrawContent({
                 <SizableText
                   size="$bodyMd"
                   color="$textSuccess"
-                  cursor="pointer"
                   onPress={() => {
                     handleMaxPress({
                       networkId:

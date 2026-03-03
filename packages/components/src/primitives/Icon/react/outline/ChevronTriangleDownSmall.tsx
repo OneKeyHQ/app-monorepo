@@ -1,11 +1,16 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgChevronTriangleDownSmall = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 18 18" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      fill="currentColor"
-      fillOpacity={0.447}
-      d="M7.142 7.313a1.125 1.125 0 0 0-.888 1.815l1.858 2.39c.45.579 1.326.579 1.776 0l1.858-2.39a1.125 1.125 0 0 0-.888-1.815z"
+      fillRule="evenodd"
+      d="M12 16.667 7 10h10zm0-3.333L13.001 12h-2.002z"
+      clipRule="evenodd"
     />
   </Svg>
 );

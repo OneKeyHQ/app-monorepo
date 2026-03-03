@@ -1,6 +1,7 @@
 import type { PropsWithChildren } from 'react';
 
 import type { IFooterActionsProps } from './PageFooterActions';
+import type { IStackProps } from '../../primitives';
 import type { IScrollViewProps } from '../ScrollView';
 
 export interface IPageLifeCycle {
@@ -50,3 +51,9 @@ export type IPageFooterProps = PropsWithChildren<
 >;
 
 export type IPageProps = IBasicPageProps;
+
+export type IPageContentContainerLayout = 'full' | 'regular' | 'compact';
+export type IPageContentContainerProps = Omit<IStackProps, 'layout'> & {
+  layout?: IPageContentContainerLayout;
+  padded?: boolean;
+};

@@ -45,17 +45,18 @@ export function AvailableAssetsTabViewList() {
   const tabData = useMemo(
     () => [
       {
-        title: intl.formatMessage({ id: ETranslations.global_all }),
-        type: EAvailableAssetsTypeEnum.All,
+        title: intl.formatMessage({ id: ETranslations.global_earn }),
+        type: EAvailableAssetsTypeEnum.SimpleEarn,
       },
       {
-        // oxlint-disable-next-line @cspell/spellchecker
-        title: intl.formatMessage({ id: ETranslations.earn_stablecoins }),
-        type: EAvailableAssetsTypeEnum.StableCoins,
+        title: intl.formatMessage({ id: ETranslations.earn_fixed_apy }),
+        type: EAvailableAssetsTypeEnum.FixedRate,
       },
       {
-        title: intl.formatMessage({ id: ETranslations.earn_native_tokens }),
-        type: EAvailableAssetsTypeEnum.NativeTokens,
+        title: intl.formatMessage({
+          id: ETranslations.wallet_defi_position_module_staked,
+        }),
+        type: EAvailableAssetsTypeEnum.Staking,
       },
     ],
     [intl],
@@ -288,7 +289,7 @@ export function AvailableAssetsTabViewList() {
 
   return (
     <YStack gap="$3">
-      <SizableText px="$5" size="$headingLg">
+      <SizableText px="$pagePadding" size="$headingLg">
         {intl.formatMessage({ id: ETranslations.earn_available_assets })}
       </SizableText>
       <Tabs.TabBar
@@ -323,7 +324,7 @@ export function AvailableAssetsTabViewList() {
         data={assets ?? []}
         columns={columns}
         keyExtractor={(asset) => asset.symbol}
-        withHeader={platformEnv.isNative ? false : media.gtSm}
+        withHeader={platformEnv.isNative ? false : media.gtMd}
         defaultSortKey="yield"
         defaultSortDirection="desc"
         onPressRow={(asset) => void handleRowPress(asset)}

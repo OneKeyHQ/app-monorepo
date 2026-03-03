@@ -572,7 +572,6 @@ function GetStarted() {
                       size="large"
                       alignSelf="stretch"
                       mx="$0"
-                      borderRadius="$3"
                       onPress={handleCreateOrImportWallet}
                     >
                       {intl.formatMessage({

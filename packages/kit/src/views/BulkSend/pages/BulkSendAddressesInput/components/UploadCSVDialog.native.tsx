@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 
 import {
   errorCodes,
@@ -7,21 +7,24 @@ import {
   pick,
   types,
 } from '@react-native-documents/picker';
+import { useIntl } from 'react-intl';
 
 import {
   Button,
   Dialog,
   Icon,
   SizableText,
-  Spinner,
   Stack,
   Toast,
   XStack,
   useDialogInstance,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import RNFS from '@onekeyhq/shared/src/modules3rdParty/react-native-fs';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-const MAX_LINES = 500;
+const MAX_LINES = platformEnv.isNativeAndroid ? 100 : 500;
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const CHUNK_SIZE = 64 * 1024; // 64KB chunks
 
@@ -35,7 +38,11 @@ async function readFileStreamingLines(
   maxLines: number,
 ): Promise<string[]> {
   if (!RNFS) {
-    Toast.error({ title: 'File system not available' });
+    Toast.error({
+      title: appLocale.intl.formatMessage({
+        id: ETranslations.wallet_bulk_send_csv_fs_unavailable,
+      }),
+    });
     return [];
   }
   const lines: string[] = [];
@@ -80,27 +87,35 @@ async function readFileStreamingLines(
 }
 
 function UploadCSVContent({ onUploaded }: IUploadCSVContentProps) {
+  const intl = useIntl();
   const dialog = useDialogInstance();
-  const [isLoading, setIsLoading] = useState(false);
 
   const handleUploadClick = useCallback(async () => {
+    // Close dialog first so the FullWindowOverlay doesn't block the native file picker on iOS
+    void dialog.close();
     try {
       const [result] = await pick({
         type: [types.plainText, types.csv],
       });
 
       if (!result?.uri) {
-        Toast.error({ title: 'Failed to access file' });
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.wallet_bulk_send_csv_access_failed,
+          }),
+        });
         return;
       }
 
       // Check file size before copying
       if (result.size && result.size > MAX_FILE_SIZE) {
-        Toast.error({ title: 'File too large. Maximum size is 5MB' });
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.wallet_bulk_send_csv_too_large,
+          }),
+        });
         return;
       }
-
-      setIsLoading(true);
 
       // Copy file to local cache for reading
       const [localCopyResult] = await keepLocalCopy({
@@ -109,18 +124,26 @@ function UploadCSVContent({ onUploaded }: IUploadCSVContentProps) {
       });
 
       if (localCopyResult.status !== 'success') {
-        Toast.error({ title: 'Failed to copy file' });
-        setIsLoading(false);
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.wallet_bulk_send_csv_copy_failed,
+          }),
+        });
         return;
       }
 
-      const filePath = localCopyResult.localUri.replace(/^file:\/\//, '');
+      const filePath = decodeURIComponent(
+        localCopyResult.localUri.replace(/^file:\/\//, ''),
+      );
       // Read MAX_LINES + 1 to detect if file exceeds limit
       const lines = await readFileStreamingLines(filePath, MAX_LINES);
 
       if (lines.length === 0) {
-        Toast.error({ title: 'File is empty' });
-        setIsLoading(false);
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.wallet_bulk_send_csv_empty,
+          }),
+        });
         return;
       }
 
@@ -130,33 +153,44 @@ function UploadCSVContent({ onUploaded }: IUploadCSVContentProps) {
       }
 
       if (lines.length === 0) {
-        Toast.error({ title: 'File is empty' });
-        setIsLoading(false);
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.wallet_bulk_send_csv_empty,
+          }),
+        });
         return;
       }
 
       if (lines.length >= MAX_LINES) {
         Toast.warning({
-          title: `Only first ${MAX_LINES} lines will be processed`,
+          title: intl.formatMessage(
+            { id: ETranslations.wallet_bulk_send_csv_lines_limit },
+            { max: MAX_LINES },
+          ),
         });
       }
 
       onUploaded?.(lines);
-      void dialog.close();
     } catch (error) {
       const isCanceled =
         isErrorWithCode(error) && error.code === errorCodes.OPERATION_CANCELED;
       if (!isCanceled) {
-        Toast.error({ title: 'Failed to read file' });
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.wallet_bulk_send_csv_read_failed,
+          }),
+        });
       }
-    } finally {
-      setIsLoading(false);
     }
-  }, [onUploaded, dialog]);
+  }, [intl, onUploaded, dialog]);
 
   const handleDownloadTemplate = useCallback(() => {
-    Toast.message({ title: 'Template download not supported on mobile' });
-  }, []);
+    Toast.message({
+      title: intl.formatMessage({
+        id: ETranslations.wallet_bulk_send_csv_template_not_supported,
+      }),
+    });
+  }, [intl]);
 
   return (
     <Stack gap="$3">
@@ -171,39 +205,28 @@ function UploadCSVContent({ onUploaded }: IUploadCSVContentProps) {
         px="$5"
         alignItems="center"
         gap="$3"
-        onPress={isLoading ? undefined : handleUploadClick}
-        cursor={isLoading ? 'default' : 'pointer'}
-        hoverStyle={isLoading ? undefined : { bg: '$bgHover' }}
-        pressStyle={isLoading ? undefined : { bg: '$bgActive' }}
+        onPress={handleUploadClick}
+        cursor="pointer"
+        hoverStyle={{ bg: '$bgHover' }}
+        pressStyle={{ bg: '$bgActive' }}
       >
-        {isLoading ? (
-          <Spinner size="large" />
-        ) : (
-          <>
-            <Stack bg="$bgStrong" p="$2" borderRadius="$full">
-              <Icon name="UploadOutline" size="$6" color="$icon" />
-            </Stack>
-            <SizableText size="$bodyMdMedium" textAlign="center">
-              Click to upload CSV
-            </SizableText>
-          </>
-        )}
+        <Stack bg="$bgStrong" p="$2" borderRadius="$full">
+          <Icon name="UploadOutline" size="$6" color="$icon" />
+        </Stack>
+        <SizableText size="$bodyMdMedium" textAlign="center">
+          {intl.formatMessage({
+            id: ETranslations.wallet_bulk_send_csv_click_to_upload,
+          })}
+        </SizableText>
       </Stack>
 
       {/* Template Info Row */}
-      <XStack
-        bg="$bgSubdued"
-        borderWidth="$px"
-        borderColor="$borderSubdued"
-        borderRadius="$3"
-        px="$4"
-        py="$3.5"
-        alignItems="center"
-        gap="$2"
-      >
+      <XStack py="$3.5" alignItems="center" gap="$2">
         <Icon name="InfoCircleOutline" size="$5" color="$iconSubdued" />
         <SizableText size="$bodyMdMedium" flex={1}>
-          Need a format?
+          {intl.formatMessage({
+            id: ETranslations.wallet_bulk_send_csv_need_format,
+          })}
         </SizableText>
         <Button
           size="small"
@@ -211,7 +234,9 @@ function UploadCSVContent({ onUploaded }: IUploadCSVContentProps) {
           icon="DownloadOutline"
           onPress={handleDownloadTemplate}
         >
-          Template
+          {intl.formatMessage({
+            id: ETranslations.wallet_bulk_send_btn_template,
+          })}
         </Button>
       </XStack>
     </Stack>
@@ -224,7 +249,9 @@ type IShowUploadCSVDialogParams = {
 
 function showUploadCSVDialog(params?: IShowUploadCSVDialogParams) {
   return Dialog.show({
-    title: 'Upload',
+    title: appLocale.intl.formatMessage({
+      id: ETranslations.wallet_bulk_send_upload_title,
+    }),
     showFooter: false,
     renderContent: <UploadCSVContent onUploaded={params?.onUploaded} />,
   });

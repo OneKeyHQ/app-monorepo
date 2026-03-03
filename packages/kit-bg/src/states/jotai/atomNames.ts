@@ -33,6 +33,7 @@ export enum EAtomNames {
   spotlightPersistAtom = 'spotlightPersistAtom',
   onboardingConnectWalletLoadingAtom = 'onboardingConnectWalletLoadingAtom',
   onboardingCloudBackupListRefreshAtom = 'onboardingCloudBackupListRefreshAtom',
+  isOnBoardingOpenAtom = 'isOnBoardingOpenAtom',
   inAppNotificationAtom = 'inAppNotificationAtom',
   v4migrationAtom = 'v4migrationAtom',
   v4migrationPersistAtom = 'v4migrationPersistAtom',
@@ -88,10 +89,12 @@ export enum EAtomNames {
   perpsCandlesWebviewMountedAtom = 'perpsCandlesWebviewMountedAtom',
   perpsWebSocketDataUpdateTimesAtom = 'perpsWebSocketDataUpdateTimesAtom',
   perpTokenSelectorConfigPersistAtom = 'perpTokenSelectorConfigPersistAtom',
+  perpTokenSelectorTabsAtom = 'perpTokenSelectorTabsAtom',
   perpTokenFavoritesPersistAtom = 'perpTokenFavoritesPersistAtom',
   perpsDepositOrderAtom = 'perpsDepositOrderAtom',
   perpsLastUsedLeverageAtom = 'perpsLastUsedLeverageAtom',
   perpsLayoutStateAtom = 'perpsLayoutStateAtom',
+  perpsFooterTickerModePersistAtom = 'perpsFooterTickerModePersistAtom',
   // network doctor
   networkDoctorStateAtom = 'networkDoctorStateAtom',
 
@@ -100,6 +103,7 @@ export enum EAtomNames {
   swapFromMarketJumpTokenAtom = 'swapFromMarketJumpTokenAtom',
   // market
   marketSelectedTabAtom = 'marketSelectedTabAtom',
+  marketBannerListSortAtom = 'marketBannerListSortAtom',
 }
 export type IAtomNameKeys = keyof typeof EAtomNames;
 export const atomsConfig: Partial<

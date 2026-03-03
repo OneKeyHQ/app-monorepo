@@ -2,7 +2,14 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Page, Toast, YStack } from '@onekeyhq/components';
+import {
+  Page,
+  Toast,
+  YStack,
+  popModalPages,
+  popToTabRootScreen,
+  switchTab,
+} from '@onekeyhq/components';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -10,14 +17,18 @@ import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   type EModalBulkSendRoutes,
+  EModalRoutes,
   EModalSignatureConfirmRoutes,
+  ETabRoutes,
   type IModalBulkSendParamList,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { waitAsync } from '@onekeyhq/shared/src/utils/promiseUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { ISendSelectedFeeInfo } from '@onekeyhq/shared/types/fee';
 import { EFeeType, ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
@@ -36,6 +47,7 @@ import {
   useBulkSendReviewContext,
 } from './components/Context';
 import { showStandaloneApproveEditor } from './components/StandaloneApproveEditor';
+import { useApprovalRecheck } from './hooks/useApprovalRecheck';
 import { useBulkSendFeeEstimation } from './hooks/useBulkSendFeeEstimation';
 
 function BaseBulkSendReview({
@@ -51,6 +63,7 @@ function BaseBulkSendReview({
     tokenInfo,
     transfersInfo,
     bulkSendMode,
+    totalTokenAmount,
     approvesInfo,
     unsignedTxs,
     setApprovesInfo,
@@ -77,13 +90,30 @@ function BaseBulkSendReview({
       setFeeState,
     });
 
+  // Approval recheck hook - polls allowance after partial batch failure
+  const { isRecheckingApproval, startApprovalRecheck } = useApprovalRecheck({
+    networkId,
+    accountId,
+    tokenInfo,
+    transfersInfo,
+    totalTokenAmount,
+    approvesInfo,
+    setApprovesInfo,
+    setUnsignedTxs,
+    forceRefreshFee,
+  });
+
   // Fee overflow check hook
   const { checkFeeInfoIsOverflow, showFeeInfoOverflowConfirm } =
     usePreCheckFeeInfo();
 
   // Determine button text based on whether approvals are needed
   const confirmButtonText =
-    approvesInfo.length > 0 ? 'Approve and Confirm' : 'Confirm';
+    approvesInfo.length > 0
+      ? intl.formatMessage({
+          id: ETranslations.wallet_bulk_send_btn_approve_and_confirm,
+        })
+      : intl.formatMessage({ id: ETranslations.wallet_bulk_send_btn_confirm });
 
   // Handle editing approval amount
   const handleEditApproval = useCallback(
@@ -197,10 +227,14 @@ function BaseBulkSendReview({
     [forceRefreshFee],
   );
 
+  // Track how many txs were successfully sent (used by Tron one-by-one flow)
+  const sentTxCountRef = useRef(0);
+
   // Handle Tron transactions one by one
   const handleTronTxsOneByOne = useCallback(
     async (txs: IUnsignedTxPro[], txFeeInfos: ISendSelectedFeeInfo[]) => {
       const allResults: ISendTxOnSuccessData[] = [];
+      sentTxCountRef.current = 0;
 
       for (let i = 0, len = txs.length; i < len; i += 1) {
         const unsignedTx = txs[i];
@@ -221,24 +255,29 @@ function BaseBulkSendReview({
 
         const result: ISendTxOnSuccessData[] = await new Promise(
           (resolve, reject) => {
-            navigation.push(EModalSignatureConfirmRoutes.TxConfirm, {
-              accountId: accountId ?? '',
-              networkId: networkId ?? '',
-              unsignedTxs: [unsignedTx],
-              popStack: false,
-              useFeeInTx: true, // Use the fee info we set on unsignedTx
-              onSuccess: (data: ISendTxOnSuccessData[]) => {
-                resolve(data);
-              },
-              onFail: (error: Error) => {
-                reject(error);
-              },
-              onCancel: () => {
-                reject(new Error('User cancelled'));
+            navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
+              screen: EModalSignatureConfirmRoutes.TxConfirm,
+              params: {
+                accountId: accountId ?? '',
+                networkId: networkId ?? '',
+                unsignedTxs: [unsignedTx],
+                popStack: false,
+                useFeeInTx: true, // Use the fee info we set on unsignedTx
+                onSuccess: (data: ISendTxOnSuccessData[]) => {
+                  resolve(data);
+                },
+                onFail: (error: Error) => {
+                  reject(error);
+                },
+                onCancel: () => {
+                  reject(new Error('User cancelled'));
+                },
               },
             });
           },
         );
+
+        sentTxCountRef.current = i + 1;
 
         // Collect results
         if (result && result.length > 0) {
@@ -251,18 +290,22 @@ function BaseBulkSendReview({
     [navigation, accountId, networkId],
   );
 
-  const handleCancel = useCallback(() => navigation.pop(), [navigation]);
-
-  // Navigate back to address input page after successful transaction
-  const navigateAfterSuccess = useCallback(() => {
+  // Navigate back to wallet home after successful transaction
+  const navigateAfterSuccess = useCallback(async () => {
     if (accountUtils.isQrAccount({ accountId: accountId ?? '' })) {
       navigation.popStack();
     }
 
+    // ext popup/sidebar && native
     if (isInModal) {
-      navigation.pop();
-    } else {
+      // Mobile: close the entire bulk send modal stack
       navigation.popStack();
+    } else {
+      // Web/Desktop: switch tab and pop to root screen
+      await popModalPages();
+      switchTab(ETabRoutes.Home);
+      await timerUtils.wait(50);
+      await popToTabRootScreen();
     }
   }, [isInModal, navigation, accountId]);
 
@@ -336,22 +379,29 @@ function BaseBulkSendReview({
           feeState.feeInfos,
         );
 
-        // Show success toast
-        Toast.success({
-          title: intl.formatMessage({
-            id: ETranslations.feedback_transaction_submitted,
-          }),
+        defaultLogger.prime.usage.bulkSendSuccess({
+          recipientCount: transfersInfo.length,
+          sendMode: bulkSendMode,
+          network: networkId ?? '',
+          tokenSymbol: tokenInfo?.symbol ?? '',
         });
 
         setIsSubmitting(false);
         onSuccess?.(results);
 
-        navigateAfterSuccess();
+        await navigateAfterSuccess();
       } catch (e) {
         setIsSubmitting(false);
-        // Check if user cancelled
+        // Only recheck approval if all approve txs were already broadcast.
+        // If the error happened during the approve phase, nothing was sent
+        // to chain, so polling the allowance is pointless.
+        if (
+          approvesInfo.length > 0 &&
+          sentTxCountRef.current >= approvesInfo.length
+        ) {
+          startApprovalRecheck();
+        }
         if (e instanceof Error && e.message === 'User cancelled') {
-          // Stay on current page, do nothing
           return;
         }
         onFail?.(e as Error);
@@ -361,12 +411,40 @@ function BaseBulkSendReview({
     }
 
     // Step 5: Sign and send transactions (for non-Tron networks)
+    const approveCount = approvesInfo.length;
+    let approveTxsSent = false;
+
+    // Step 5a: Send approve txs first (if any), so we can track whether
+    // they were broadcast before the transfer phase
+    if (approveCount > 0) {
+      try {
+        await serviceSend.batchSignAndSendTransaction({
+          accountId,
+          networkId,
+          unsignedTxs: newUnsignedTxs.slice(0, approveCount),
+          feeInfos: feeState.feeInfos.slice(0, approveCount),
+          signOnly: false,
+          transferPayload: undefined,
+        });
+        approveTxsSent = true;
+      } catch (e: any) {
+        // Approve txs failed — nothing was broadcast, no need to recheck
+        if (accountUtils.isQrAccount({ accountId })) {
+          navigation.popStack();
+        }
+        setIsSubmitting(false);
+        onFail?.(e as Error);
+        throw e;
+      }
+    }
+
+    // Step 5b: Send transfer tx(s)
     try {
       const result = await serviceSend.batchSignAndSendTransaction({
         accountId,
         networkId,
-        unsignedTxs: newUnsignedTxs,
-        feeInfos: feeState.feeInfos,
+        unsignedTxs: newUnsignedTxs.slice(approveCount),
+        feeInfos: feeState.feeInfos.slice(approveCount),
         signOnly: false,
         transferPayload: undefined,
       });
@@ -378,17 +456,28 @@ function BaseBulkSendReview({
         }),
       });
 
+      defaultLogger.prime.usage.bulkSendSuccess({
+        recipientCount: transfersInfo.length,
+        sendMode: bulkSendMode,
+        network: networkId ?? '',
+        tokenSymbol: tokenInfo?.symbol ?? '',
+      });
+
       setIsSubmitting(false);
       onSuccess?.(result);
 
-      // Step 7: Navigate back to address input page
-      navigateAfterSuccess();
+      // Step 7: Navigate back to wallet home
+      await navigateAfterSuccess();
     } catch (e: any) {
       // Handle QR account navigation on error
       if (accountUtils.isQrAccount({ accountId })) {
         navigation.popStack();
       }
       setIsSubmitting(false);
+      // Only recheck approval if approve txs were already broadcast
+      if (approveTxsSent) {
+        startApprovalRecheck();
+      }
       onFail?.(e as Error);
       throw e;
     }
@@ -406,6 +495,11 @@ function BaseBulkSendReview({
     navigation,
     handleTronTxsOneByOne,
     navigateAfterSuccess,
+    startApprovalRecheck,
+    approvesInfo.length,
+    bulkSendMode,
+    transfersInfo.length,
+    tokenInfo?.symbol,
   ]);
 
   // Determine if confirm button should be disabled
@@ -419,31 +513,36 @@ function BaseBulkSendReview({
     (feeState.feeStatus === ESendFeeStatus.Loading &&
       !feeState.isInitialized) ||
     feeState.feeStatus === ESendFeeStatus.Error ||
-    isSubmitting;
+    isSubmitting ||
+    isRecheckingApproval;
 
   return (
     <Page scrollEnabled>
-      <Page.Header title="Review transaction" />
+      <Page.Header
+        title={intl.formatMessage({
+          id: ETranslations.wallet_bulk_send_review_title,
+        })}
+      />
       <Page.Body>
-        <YStack gap="$6">
+        <YStack gap="$8">
           {/* Fee Error Alert - Top Section */}
           <BulkSendReviewAlert onRetry={handleRetryFeeEstimation} />
 
           {/* Grand Summary - Top Section */}
           <BulkSendReviewGrandSummary />
 
-          {/* Approval Card - Show if there are approvals */}
-          {approvesInfo.length > 0 ? (
-            <BulkSendApprovalCard onEditApproval={handleEditApproval} />
-          ) : null}
-
-          {/* Cost Card - Middle Section */}
-          <BulkSendReviewCostCard
-            feeLevel={feeLabel}
-            isMultiTxs={isMultiTxs}
-            onFeeChange={handleFeeChange}
-            editFeeEnabled={vaultSettings?.editFeeEnabled}
-          />
+          {/* Approval & Cost Cards */}
+          <YStack gap="$4">
+            {approvesInfo.length > 0 ? (
+              <BulkSendApprovalCard onEditApproval={handleEditApproval} />
+            ) : null}
+            <BulkSendReviewCostCard
+              feeLevel={feeLabel}
+              isMultiTxs={isMultiTxs}
+              onFeeChange={handleFeeChange}
+              editFeeEnabled={vaultSettings?.editFeeEnabled}
+            />
+          </YStack>
 
           {/* Transaction Details - Bottom Section */}
           <BulkSendTxDetails
@@ -460,14 +559,10 @@ function BaseBulkSendReview({
       <Page.Footer>
         <Page.FooterActions
           onConfirmText={confirmButtonText}
-          onCancelText="Cancel"
-          cancelButtonProps={{
-            onPress: handleCancel,
-          }}
           confirmButtonProps={{
             onPress: handleConfirm,
             disabled: isConfirmDisabled,
-            loading: isSubmitting,
+            loading: isSubmitting || isRecheckingApproval,
           }}
         />
       </Page.Footer>

@@ -1,18 +1,21 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgVideoCameraRecording = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      stroke="currentColor"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M5 5h9a2 2 0 0 1 2 2v2l3.553-1.776A1 1 0 0 1 21 8.118v7.764a1 1 0 0 1-1.447.894L16 15v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z"
+      fillRule="evenodd"
+      d="M9.5 8.5a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7m0 2a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3"
+      clipRule="evenodd"
     />
     <Path
-      stroke="currentColor"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M12 12a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0Z"
+      fillRule="evenodd"
+      d="m17 7.522 5-1.999v12.954l-5-2V20H2V4h15zM4 18h11v-4.477l5 2V8.477l-5 2V6H4z"
+      clipRule="evenodd"
     />
   </Svg>
 );

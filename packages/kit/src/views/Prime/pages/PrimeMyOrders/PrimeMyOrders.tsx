@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 
+import { useFocusEffect } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -22,12 +23,11 @@ import {
 import type { IBadgeType } from '@onekeyhq/components';
 import { useClipboard } from '@onekeyhq/components/src/hooks/useClipboard';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   ONEKEY_ORDERS_URL,
   ONEKEY_SHOP_URL,
-  ONEKEY_TRACK_ORDER_URL,
 } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
@@ -50,10 +50,23 @@ const shopifyStatusToI18nKey: Record<string, ETranslations> = {
 
 export default function PrimeMyOrders() {
   const intl = useIntl();
+  const navigation = useAppNavigation();
   const { copyText } = useClipboard();
   const [showAlert, setShowAlert] = useState(true);
 
-  const { user } = useOneKeyAuth();
+  useFocusEffect(
+    useCallback(() => {
+      let isActive = true;
+      void backgroundApiProxy.servicePrime.isLoggedIn().then((isLogin) => {
+        if (isActive && !isLogin) {
+          navigation.pop();
+        }
+      });
+      return () => {
+        isActive = false;
+      };
+    }, [navigation]),
+  );
 
   const { result: orders, isLoading } = usePromiseResult(
     () => backgroundApiProxy.servicePrime.apiFetchShopifyOrders(),
@@ -77,15 +90,9 @@ export default function PrimeMyOrders() {
     [copyText],
   );
 
-  const handleOrderDetails = useCallback(
-    (order: IShopifyOrder) => {
-      const trackOrderUrl = `${ONEKEY_TRACK_ORDER_URL}?order=${encodeURIComponent(
-        order.orderNumber,
-      )}&token=${encodeURIComponent(user?.email ?? '')}`;
-      openUrlUtils.openUrlExternal(trackOrderUrl);
-    },
-    [user?.email],
-  );
+  const handleOrderDetails = useCallback(() => {
+    openUrlUtils.openUrlExternal(ONEKEY_ORDERS_URL);
+  }, []);
 
   const { gtMd } = useMedia();
 
@@ -104,7 +111,7 @@ export default function PrimeMyOrders() {
           alignItems="center"
           gap="$3"
           {...(!gtMd && {
-            onPress: () => handleOrderDetails(item),
+            onPress: () => handleOrderDetails(),
             hoverStyle: { bg: '$bgHover' },
             pressStyle: { bg: '$bgActive' },
             cursor: 'pointer',
@@ -168,7 +175,7 @@ export default function PrimeMyOrders() {
               variant="primary"
               size="small"
               iconAfter="OpenOutline"
-              onPress={() => handleOrderDetails(item)}
+              onPress={() => handleOrderDetails()}
             >
               {intl.formatMessage({ id: ETranslations.global_details })}
             </Button>
@@ -177,7 +184,7 @@ export default function PrimeMyOrders() {
               icon="OpenOutline"
               size="small"
               variant="tertiary"
-              onPress={() => handleOrderDetails(item)}
+              onPress={() => handleOrderDetails()}
             />
           )}
         </XStack>
@@ -204,6 +211,7 @@ export default function PrimeMyOrders() {
             renderItem={renderOrderItem}
             keyExtractor={(item) => item.orderNumber}
             estimatedItemSize={100}
+            // eslint-disable-next-line react/no-unstable-nested-components
             ItemSeparatorComponent={() => <Stack h="$3" />}
             ListHeaderComponent={
               showAlert ? (

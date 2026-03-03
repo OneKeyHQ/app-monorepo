@@ -275,7 +275,11 @@ export default class Vault extends VaultBase {
   }
 
   _checkIsNativeTransfer(encodedTx: IEncodedTxScdo) {
-    return encodedTx.Payload == null || encodedTx.Payload === '';
+    return (
+      encodedTx.Payload === null ||
+      encodedTx.Payload === undefined ||
+      encodedTx.Payload === ''
+    );
   }
 
   override async buildEstimateFeeParams({

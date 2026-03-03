@@ -1,14 +1,17 @@
-import Svg, { Circle, Path } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgKey = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Circle cx={7} cy={12} r={1.5} fill="currentColor" />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M7 10.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3" />
     <Path
-      stroke="currentColor"
-      strokeLinecap="square"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M2 12a5 5 0 0 0 9.014 2.982c.213-.287.537-.482.894-.482H14l2-1 2 1h2.02a1 1 0 0 0 .78-.375l1.2-1.5a1 1 0 0 0 0-1.25l-1.2-1.5a1 1 0 0 0-.78-.375h-8.112c-.357 0-.68-.195-.894-.482A5 5 0 0 0 2 12Z"
+      fillRule="evenodd"
+      d="M7 6a5.99 5.99 0 0 1 4.87 2.5h9.11l.301.375 2.5 3.125-2.5 3.125-.3.375h-3.217L16 14.618l-1.764.882H11.87A5.99 5.99 0 0 1 7 18 6 6 0 0 1 7 6m0 2a4 4 0 1 0 3.466 5.999l.288-.499h3.01L16 12.382l2.236 1.118h1.783l1.2-1.5-1.2-1.5h-9.265l-.288-.499A4 4 0 0 0 7 8"
+      clipRule="evenodd"
     />
   </Svg>
 );

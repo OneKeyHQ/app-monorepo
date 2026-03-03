@@ -1,5 +1,7 @@
 import { EBulkSendMode } from '../../types/bulkSend';
 import { getNetworkIdsMap } from '../config/networkIds';
+import { ETranslations } from '../locale';
+import { appLocale } from '../locale/appLocale';
 
 import networkUtils from './networkUtils';
 
@@ -25,28 +27,47 @@ function getBulkSendSupportedNetworkIds() {
 }
 
 function fixBulkSendSupportedNetworkId({ networkId }: { networkId: string }) {
+  let isSupported = false;
+  let fixedNetworkId = networkId;
   const supportedNetworkIds = getBulkSendSupportedNetworkIds();
   if (supportedNetworkIds.includes(networkId)) {
-    return networkId;
+    isSupported = true;
+    return {
+      fixedNetworkId,
+      isSupported,
+    };
   }
 
   if (networkUtils.isEvmNetwork({ networkId })) {
-    return getBulkSendSupportedEVMNetworkIds()[0];
+    fixedNetworkId = getBulkSendSupportedEVMNetworkIds()[0];
+  } else {
+    fixedNetworkId = supportedNetworkIds[0];
   }
 
-  return supportedNetworkIds[0];
+  return {
+    fixedNetworkId,
+    isSupported,
+  };
 }
 
 function getBulkSendModeLabel(bulkSendMode: EBulkSendMode) {
   switch (bulkSendMode) {
     case EBulkSendMode.OneToMany:
-      return 'One to Many';
+      return appLocale.intl.formatMessage({
+        id: ETranslations.wallet_bulk_send_mode_one_to_many,
+      });
     case EBulkSendMode.ManyToOne:
-      return 'Many to One';
+      return appLocale.intl.formatMessage({
+        id: ETranslations.wallet_bulk_send_mode_many_to_one,
+      });
     case EBulkSendMode.ManyToMany:
-      return 'Many to Many';
+      return appLocale.intl.formatMessage({
+        id: ETranslations.wallet_bulk_send_mode_many_to_many,
+      });
     default:
-      return 'Unknown';
+      return appLocale.intl.formatMessage({
+        id: ETranslations.wallet_bulk_send_mode_unknown,
+      });
   }
 }
 

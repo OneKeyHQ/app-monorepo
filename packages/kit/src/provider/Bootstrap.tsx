@@ -54,6 +54,7 @@ import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes/root';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { useAppUpdateInfo } from '../components/UpdateReminder/hooks';
@@ -266,9 +267,7 @@ const useDesktopEvents = platformEnv.isDesktop
             break;
           case EShortcutEvents.TabEarn:
             ensureModalClosedAndNavigate(() => {
-              navigation.switchTab(ETabRoutes.Earn, {
-                screen: ETabEarnRoutes.EarnHome,
-              });
+              navigation.switchTab(ETabRoutes.Earn);
             });
             break;
           case EShortcutEvents.TabSwap:
@@ -308,11 +307,12 @@ const useDesktopEvents = platformEnv.isDesktop
             break;
           case EShortcutEvents.NewTab2:
             if (platformEnv.isDesktop) {
-              navigation.switchTab(ETabRoutes.MultiTabBrowser, {
-                screen: EMultiTabBrowserRoutes.MultiTabBrowser,
-                params: {
-                  action: 'create_new_tab',
-                },
+              navigation.switchTab(ETabRoutes.MultiTabBrowser);
+              void timerUtils.wait(50).then(() => {
+                appEventBus.emit(
+                  EAppEventBusNames.CreateNewBrowserTab,
+                  undefined,
+                );
               });
             } else {
               navigation.pushModal(EModalRoutes.DiscoveryModal, {

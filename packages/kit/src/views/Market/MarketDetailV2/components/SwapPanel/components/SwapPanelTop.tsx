@@ -30,8 +30,12 @@ const SwapPanelTop = ({
   return (
     <YStack>
       <XStack justifyContent="space-between">
-        <XStack borderBottomWidth="$0.5" borderBottomColor="$borderActive">
-          <SizableText size="$bodyLgMedium">
+        <XStack
+          borderBottomWidth="$0.5"
+          borderBottomColor="$borderActive"
+          ml={2}
+        >
+          <SizableText size="$bodyMdMedium" cursor="default">
             {intl.formatMessage({ id: ETranslations.perp_trade_market })}
           </SizableText>
         </XStack>

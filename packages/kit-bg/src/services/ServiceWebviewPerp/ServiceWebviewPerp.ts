@@ -134,6 +134,55 @@ export interface IHyperliquidVaultEquity {
 
 export type IHyperliquidMaxBuilderFee = number;
 
+export interface IHyperliquidUserFeesDailyVolume {
+  date: string;
+  userCross: string;
+  userAdd: string;
+  exchange: string;
+}
+
+export interface IHyperliquidUserFeesVipTier {
+  ntlCutoff: string;
+  cross: string;
+  add: string;
+  spotCross: string;
+  spotAdd: string;
+}
+
+export interface IHyperliquidUserFeesStakingDiscountTier {
+  bpsOfMaxSupply: string;
+  discount: string;
+}
+
+export interface IHyperliquidUserFeesResponse {
+  dailyUserVlm: IHyperliquidUserFeesDailyVolume[];
+  feeSchedule: {
+    cross: string;
+    add: string;
+    spotCross: string;
+    spotAdd: string;
+    tiers: {
+      vip: IHyperliquidUserFeesVipTier[];
+      mm?: {
+        makerFractionCutoff: string;
+        add: string;
+      }[];
+    };
+    referralDiscount?: string;
+    stakingDiscountTiers?: IHyperliquidUserFeesStakingDiscountTier[];
+  };
+  userCrossRate: string;
+  userAddRate: string;
+  userSpotCrossRate?: string;
+  userSpotAddRate?: string;
+  activeReferralDiscount?: string;
+  activeStakingDiscount?: IHyperliquidUserFeesStakingDiscountTier | null;
+  trial?: unknown;
+  feeTrialEscrow?: string;
+  nextTrialAvailableTimestamp?: number | null;
+  stakingLink?: unknown;
+}
+
 export interface IHyperliquidApproveBuilderFeeRequest {
   userAddress: string;
   builderAddress: string;
@@ -186,6 +235,12 @@ export interface IPerpServerCommonConfig {
   ipDisablePerp?: boolean;
 }
 
+export interface IPerpDynamicTab {
+  tabId: string;
+  name: string;
+  tokens: string[];
+}
+
 // Re-export types from perpsUtils for backward compatibility
 export type { ITokenSearchAliasItem, ITokenSearchAliases };
 
@@ -205,6 +260,7 @@ export interface IPerpServerConfigResponse {
   depositTokenConfig?: IPerpServerDepositConfig[];
   hyperLiquidErrorLocales?: IHyperLiquidErrorLocaleItem[];
   tokenSearchAliases?: ITokenSearchAliases;
+  tokenSelectorTabs?: IPerpDynamicTab[];
 }
 @backgroundClass()
 class ServiceWebviewPerp extends ServiceBase {
@@ -386,6 +442,18 @@ class ServiceWebviewPerp extends ServiceBase {
     });
   }
 
+  @backgroundMethod()
+  async getUserFees({
+    userAddress,
+  }: {
+    userAddress: string;
+  }): Promise<IHyperliquidUserFeesResponse> {
+    return this.hyperliquidInfoRequest<IHyperliquidUserFeesResponse>({
+      type: 'userFees',
+      user: userAddress.toLowerCase(),
+    });
+  }
+
   getUserApprovedMaxBuilderFeeWithCache = cacheUtils.memoizee(
     async ({
       userAddress,
@@ -550,6 +618,7 @@ class ServiceWebviewPerp extends ServiceBase {
   }: {
     request: IJsBridgeMessagePayload;
     userAddress: string;
+
     // oxlint-disable-next-line @cspell/spellchecker
     chainId: string; // 0xa4b1 Arbitrum hex chainId
     skipApproveAction?: boolean;
@@ -632,6 +701,7 @@ class ServiceWebviewPerp extends ServiceBase {
     // }
     const shouldModifyPlaceOrderPayload = true;
 
+    /* eslint-disable prefer-const */
     let {
       hyperliquidCustomSettings,
       hyperliquidCustomLocalStorage,
@@ -639,6 +709,7 @@ class ServiceWebviewPerp extends ServiceBase {
       hyperliquidBuilderAddress: expectBuilderAddress,
       hyperliquidMaxBuilderFee: expectMaxBuilderFee,
     } = await this.backgroundApi.simpleDb.perp.getPerpData();
+    /* eslint-enable prefer-const */
     if (!expectMaxBuilderFee || expectMaxBuilderFee < 0) {
       expectMaxBuilderFee = 0;
     }

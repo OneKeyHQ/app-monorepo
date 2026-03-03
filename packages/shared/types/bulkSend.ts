@@ -25,6 +25,7 @@ export type IAmountInputError = {
   specifiedAmount?: string;
   rangeMin?: string;
   rangeMax?: string;
+  rangeError?: string;
 };
 
 export type ITransferInfoError = {

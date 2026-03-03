@@ -9,7 +9,7 @@ import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 
 import type { ICurveName } from './coreTypesBase';
 import type { IEncodedTxAda } from '../chains/ada/types';
-import type { IEncodedTxAlgo, IEncodedTxGroupAlgo } from '../chains/algo/types';
+import type { IEncodedTxGroupAlgo } from '../chains/algo/types';
 import type { IEncodedTxAlph } from '../chains/alph/types';
 import type { IEncodedTxAptos } from '../chains/aptos/types';
 import type { IEncodedTxBtc } from '../chains/btc/types';
@@ -21,7 +21,6 @@ import type { IEncodedTxDot } from '../chains/dot/types';
 import type { IEncodedTxEvm } from '../chains/evm/types';
 import type { IEncodedTxFil } from '../chains/fil/types';
 import type { IEncodedTxKaspa } from '../chains/kaspa/types';
-import type { IEncodedTxNear } from '../chains/near/types';
 import type { IEncodedTxNeoN3 } from '../chains/neo/types';
 import type { IEncodedTxNexa } from '../chains/nexa/types';
 import type { IEncodedTxNostr } from '../chains/nostr/types';
@@ -56,13 +55,9 @@ export type IEncodedTx =
   | IEncodedTxNostr
   | IEncodedTxDot
   | IEncodedTxDnx
-  | IEncodedTxNostr
-  | IEncodedTxAlgo
   | IEncodedTxGroupAlgo
   | IEncodedTxCkb
-  | IEncodedTxNear
   | IEncodedTxNeoN3
-  | IEncodedTxScdo
   | IEncodedTxStellar;
 //   | IEncodedTxBtc
 //   | IEncodedTxDot

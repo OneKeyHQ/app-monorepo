@@ -14,7 +14,7 @@ export function LevelListSection({
     const currentLevel = levels.find((level) => level.isCurrent);
     return currentLevel ? `level-${currentLevel.level}` : undefined;
   }, [levels]);
-  const displayLevels = useMemo(() => [...levels].toReversed(), [levels]);
+  const displayLevels = useMemo(() => levels.toReversed(), [levels]);
 
   return (
     <Accordion

@@ -1,14 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgRedo = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="m17.5 5 3.293 3.293a1 1 0 0 1 0 1.414L17.5 13M20 9H7a4 4 0 0 0-4 4v1a4 4 0 0 0 4 4h5"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M11 7h9v7H5.414l3-3L7 9.586 1.586 15 7 20.414 8.414 19l-3-3H22V5H11z" />
   </Svg>
 );
 export default SvgRedo;

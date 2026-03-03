@@ -1,6 +1,6 @@
 ---
 name: 1k-code-quality
-description: Code quality standards for OneKey. Use when fixing lint warnings, running pre-commit tasks, handling unused variables, writing comments, or ensuring code quality. All comments must be in English. Triggers on lint, linting, eslint, oxlint, tsc, type check, unused variable, comment, documentation, spellcheck, code quality, pre-commit, yarn lint.
+description: Code quality standards — lint (eslint/oxlint), type check (tsc), pre-commit hooks, and comment conventions. All comments must be in English.
 allowed-tools: Read, Grep, Glob
 ---
 

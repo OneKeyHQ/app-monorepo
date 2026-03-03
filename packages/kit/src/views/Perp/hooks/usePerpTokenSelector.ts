@@ -98,11 +98,13 @@ export function usePerpTokenSelector() {
     }
   }, [actions, searchQuery]);
 
+  // Keep cached data on unmount so re-open is instant; skip if fetch never completed.
   useEffect(() => {
     return () => {
+      if (!allAssetsRef.current) return;
       // eslint-disable-next-line react-hooks/exhaustive-deps
       actions.current.updateAllAssetsFiltered({
-        allAssetsByDex: [],
+        allAssetsByDex: allAssetsRef.current,
         query: '',
       });
     };
@@ -118,7 +120,7 @@ export function usePerpTokenSelector() {
 
   const lastLoggedRef = useRef<{
     query: string;
-    activeTab: 'all' | 'hip3';
+    activeTab: string;
     sortField: string;
     sortDirection: string;
   } | null>(null);
@@ -128,7 +130,7 @@ export function usePerpTokenSelector() {
       debounce(
         (params: {
           query: string;
-          activeTab: 'all' | 'hip3';
+          activeTab: string;
           sortField: string;
           sortDirection: string;
           resultCount: number;
@@ -159,7 +161,7 @@ export function usePerpTokenSelector() {
   );
 
   useEffect(() => {
-    const activeTab = (selectorConfig?.activeTab ?? 'all') as 'all' | 'hip3';
+    const activeTab = selectorConfig?.activeTab ?? 'all';
     const sortField = selectorConfig?.field ?? '';
     const sortDirection = selectorConfig?.direction ?? 'desc';
 
@@ -185,10 +187,7 @@ export function usePerpTokenSelector() {
     }
 
     const perDexCounts = (assetsByDex ?? []).map((items) => items?.length ?? 0);
-    const resultCount =
-      activeTab === 'hip3'
-        ? (perDexCounts[1] ?? 0)
-        : perDexCounts.reduce((sum, count) => sum + count, 0);
+    const resultCount = perDexCounts.reduce((sum, count) => sum + count, 0);
 
     logSearchEvent({
       query: current.query,

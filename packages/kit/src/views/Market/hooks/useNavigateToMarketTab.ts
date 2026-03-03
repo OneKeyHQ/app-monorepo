@@ -17,6 +17,8 @@ import {
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+
 interface INavigateToMarketTabOptions {
   tabToSelect?: IMarketSelectedTab;
 }
@@ -31,6 +33,16 @@ export function useNavigateToMarketTab() {
       // Switch to specific tab inside Market (watchlist or trending)
       if (tabToSelect) {
         setMarketSelectedTab({ tab: tabToSelect });
+      }
+
+      if (
+        platformEnv.isExtensionUiPopup ||
+        platformEnv.isExtensionUiSidePanel
+      ) {
+        void backgroundApiProxy.serviceApp.openExtensionExpandTab({
+          path: '/market',
+        });
+        return;
       }
 
       // Market tab differs by platform

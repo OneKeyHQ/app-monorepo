@@ -11,9 +11,12 @@ import {
   Toast,
   XStack,
   YStack,
+  rootNavigationRef,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorCreateAddressButton } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorCreateAddressButton';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { closeModalPages } from '@onekeyhq/kit/src/hooks/usePageNavigation';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useSelectedAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { ITradingFormData } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
@@ -26,6 +29,14 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  EModalRoutes,
+  EOnboardingPages,
+  EOnboardingPagesV2,
+  EOnboardingV2Routes,
+  ERootRoutes,
+} from '@onekeyhq/shared/src/routes';
 
 import { useShowDepositWithdrawModal } from '../../hooks/useShowDepositWithdrawModal';
 import { useTradingPrice } from '../../hooks/useTradingPrice';
@@ -55,6 +66,7 @@ export function PerpTradingButton({
   isNoEnoughMargin: boolean;
 }) {
   const intl = useIntl();
+  const navigation = useAppNavigation();
   const { selectedAccount } = useSelectedAccount({ num: 0 });
   const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
   const [perpsAccount] = usePerpsActiveAccountAtom();
@@ -64,6 +76,22 @@ export function PerpTradingButton({
     usePerpsShouldShowEnableTradingButtonAtom();
   const { midPrice } = useTradingPrice();
   const themeVariant = useThemeVariant();
+
+  const handleConnectWallet = useCallback(async () => {
+    if (platformEnv.isWebDappMode) {
+      navigation.pushModal(EModalRoutes.OnboardingModal, {
+        screen: EOnboardingPages.ConnectWalletOptions,
+      });
+    } else {
+      await closeModalPages();
+      rootNavigationRef.current?.navigate(ERootRoutes.Onboarding, {
+        screen: EOnboardingV2Routes.OnboardingV2,
+        params: {
+          screen: EOnboardingPagesV2.GetStarted,
+        },
+      });
+    }
+  }, [navigation]);
   const isAccountLoading = useMemo<boolean>(() => {
     return (
       perpsAccountLoading.enableTradingLoading ||
@@ -274,9 +302,13 @@ export function PerpTradingButton({
       );
     }
     return (
-      <Button {...sharedButtonProps} disabled>
+      <Button
+        {...sharedButtonProps}
+        variant="primary"
+        onPress={handleConnectWallet}
+      >
         {intl.formatMessage({
-          id: ETranslations.perp_trade_button_account_unsupported,
+          id: ETranslations.global_connect_wallet,
         })}
       </Button>
     );

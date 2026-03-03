@@ -72,8 +72,6 @@ export default function PickYourDevice() {
               height: '100%',
               flexDirection: 'row',
               flexWrap: 'wrap',
-              gap: '$px',
-              bg: '$neutral3',
               alignContent: 'stretch',
             }}
           >
@@ -96,9 +94,8 @@ export default function PickYourDevice() {
                     index === 0 && DEVICES.length % 2 === 1 ? '80%' : '45%',
                   p: '$10',
                   borderWidth: 0,
-                  borderRadius: 0,
                 }}
-                bg="$bgApp"
+                bg="$bgSubdued"
                 hoverStyle={{ bg: '$gray2' }}
                 pressStyle={{ bg: '$gray1' }}
                 userSelect="none"

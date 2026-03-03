@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-return */
 import { useCallback, useMemo } from 'react';
 
 import { CommonActions } from '@react-navigation/native';
@@ -11,39 +12,6 @@ import type {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabMarketRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
-
-// Native tab icons using SVG files from @onekeyhq/components/svg
-// The native tab bar will tint icons using tabBarActiveTintColor/tabBarInactiveTintColor
-const nativeTabIcons = {
-  wallet: ({ focused }: { focused: boolean }): INativeTabBarIcon =>
-    focused
-      ? require('@onekeyhq/components/svg/solid/wallet.svg')
-      : require('@onekeyhq/components/svg/outline/wallet.svg'),
-  swap: ({ focused }: { focused: boolean }): INativeTabBarIcon =>
-    focused
-      ? require('@onekeyhq/components/svg/solid/swap-hor.svg')
-      : require('@onekeyhq/components/svg/outline/swap-hor.svg'),
-  discover: ({ focused }: { focused: boolean }): INativeTabBarIcon =>
-    focused
-      ? require('@onekeyhq/components/svg/solid/compass-circle.svg')
-      : require('@onekeyhq/components/svg/outline/compass-circle.svg'),
-  market: ({ focused }: { focused: boolean }): INativeTabBarIcon =>
-    focused
-      ? require('@onekeyhq/components/svg/solid/chart-trending-up2.svg')
-      : require('@onekeyhq/components/svg/outline/chart-trending-up2.svg'),
-  perp: ({ focused }: { focused: boolean }): INativeTabBarIcon =>
-    focused
-      ? require('@onekeyhq/components/svg/solid/trading-view-candles.svg')
-      : require('@onekeyhq/components/svg/outline/trading-view-candles.svg'),
-  earn: ({ focused }: { focused: boolean }): INativeTabBarIcon =>
-    focused
-      ? require('@onekeyhq/components/svg/solid/coins.svg')
-      : require('@onekeyhq/components/svg/outline/coins.svg'),
-  developer: ({ focused }: { focused: boolean }): INativeTabBarIcon =>
-    focused
-      ? require('@onekeyhq/components/svg/solid/code-brackets.svg')
-      : require('@onekeyhq/components/svg/outline/code-brackets.svg'),
-};
 
 import { usePerpTabConfig } from '../../hooks/usePerpTabConfig';
 import { developerRouters } from '../../views/Developer/router';
@@ -60,6 +28,39 @@ import { multiTabBrowserRouters } from './MultiTabBrowser/router';
 import { referFriendsRouters } from './ReferFriends/router';
 import { swapRouters } from './Swap/router';
 
+// Native tab icons using SVG files from @onekeyhq/components/svg
+// The native tab bar will tint icons using tabBarActiveTintColor/tabBarInactiveTintColor
+const nativeTabIcons = {
+  wallet: ({ focused }: { focused: boolean }): INativeTabBarIcon =>
+    focused
+      ? require('@onekeyhq/components/svg/solid/wallet-4.svg')
+      : require('@onekeyhq/components/svg/outline/wallet-4.svg'),
+  swap: ({ focused }: { focused: boolean }): INativeTabBarIcon =>
+    focused
+      ? require('@onekeyhq/components/svg/solid/switch-hor.svg')
+      : require('@onekeyhq/components/svg/outline/switch-hor.svg'),
+  discover: ({ focused }: { focused: boolean }): INativeTabBarIcon =>
+    focused
+      ? require('@onekeyhq/components/svg/solid/compass.svg')
+      : require('@onekeyhq/components/svg/outline/compass.svg'),
+  market: ({ focused }: { focused: boolean }): INativeTabBarIcon =>
+    focused
+      ? require('@onekeyhq/components/svg/solid/trading-view-candles.svg')
+      : require('@onekeyhq/components/svg/outline/trading-view-candles.svg'),
+  perp: ({ focused }: { focused: boolean }): INativeTabBarIcon =>
+    focused
+      ? require('@onekeyhq/components/svg/solid/trade.svg')
+      : require('@onekeyhq/components/svg/outline/trade.svg'),
+  earn: ({ focused }: { focused: boolean }): INativeTabBarIcon =>
+    focused
+      ? require('@onekeyhq/components/svg/solid/coins.svg')
+      : require('@onekeyhq/components/svg/outline/coins.svg'),
+  developer: ({ focused }: { focused: boolean }): INativeTabBarIcon =>
+    focused
+      ? require('@onekeyhq/components/svg/solid/code-brackets.svg')
+      : require('@onekeyhq/components/svg/outline/code-brackets.svg'),
+};
+
 type IGetTabRouterParams = {
   freezeOnBlur?: boolean;
 };
@@ -72,7 +73,7 @@ const getDiscoverRouterConfig = (
   rewrite: '/discovery',
   exact: true,
   tabBarIcon: (focused?: boolean) =>
-    focused ? 'CompassCircleSolid' : 'CompassCircleOutline',
+    focused ? 'CompassSolid' : 'CompassOutline',
   nativeTabBarIcon: nativeTabIcons.discover,
   translationId: platformEnv.isNative
     ? ETranslations.global_discover
@@ -135,11 +136,11 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
       {
         name: ETabRoutes.Home,
         tabBarIcon: (focused?: boolean) =>
-          focused ? 'WalletSolid' : 'WalletOutline',
+          focused ? 'Wallet4Solid' : 'Wallet4Outline',
         nativeTabBarIcon: nativeTabIcons.wallet,
         translationId: ETranslations.global_wallet,
         freezeOnBlur: Boolean(params?.freezeOnBlur),
-        rewrite: '/',
+        rewrite: isWebDappMode ? '/wallet' : '/',
         exact: true,
         children: homeRouters,
         trackId: 'global-wallet',
@@ -149,7 +150,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
         ? {
             name: ETabRoutes.Market,
             tabBarIcon: (focused?: boolean) =>
-              focused ? 'ChartTrendingUp2Solid' : 'ChartTrendingUp2Outline',
+              focused ? 'TradingViewCandlesSolid' : 'TradingViewCandlesOutline',
             translationId: ETranslations.global_market,
             freezeOnBlur: Boolean(params?.freezeOnBlur),
             rewrite: '/market',
@@ -169,7 +170,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
       {
         name: ETabRoutes.Swap,
         tabBarIcon: (focused?: boolean) =>
-          focused ? 'SwapHorSolid' : 'SwapHorOutline',
+          focused ? 'SwitchHorSolid' : 'SwitchHorOutline',
         nativeTabBarIcon: nativeTabIcons.swap,
         translationId: ETranslations.global_trade,
         freezeOnBlur: Boolean(params?.freezeOnBlur),
@@ -181,7 +182,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
       {
         name: ETabRoutes.WebviewPerpTrade,
         tabBarIcon: (focused?: boolean) =>
-          focused ? 'TradingViewCandlesSolid' : 'TradingViewCandlesOutline',
+          focused ? 'TradeSolid' : 'TradeOutline',
         translationId: ETranslations.global_perp,
         nativeTabBarIcon: nativeTabIcons.perp,
         freezeOnBlur: Boolean(params?.freezeOnBlur),
@@ -194,7 +195,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
       {
         name: ETabRoutes.Perp,
         tabBarIcon: (focused?: boolean) =>
-          focused ? 'TradingViewCandlesSolid' : 'TradingViewCandlesOutline',
+          focused ? 'TradeSolid' : 'TradeOutline',
         translationId: ETranslations.global_perp,
         nativeTabBarIcon: nativeTabIcons.perp,
         freezeOnBlur: Boolean(params?.freezeOnBlur),
@@ -219,7 +220,8 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
         ? undefined
         : {
             name: ETabRoutes.DeviceManagement,
-            tabBarIcon: () => 'OnekeyDeviceCustom',
+            tabBarIcon: (focused?: boolean) =>
+              focused ? 'PhoneSolid' : 'PhoneOutline',
             translationId: ETranslations.global_device,
             freezeOnBlur: Boolean(params?.freezeOnBlur),
             exact: true,

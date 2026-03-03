@@ -19,6 +19,7 @@ export const useJsBundle = () => {
   return !!getJsBundlePath();
 };
 
+// eslint-disable-next-line react-hooks/rules-of-hooks
 // oxlint-disable-next-line eslint-plugin-react-hooks/rules-of-hooks
 export const useJsBundleAsync = async () => {
   return Promise.resolve(useJsBundle());

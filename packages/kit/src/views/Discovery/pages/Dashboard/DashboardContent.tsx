@@ -2,7 +2,7 @@ import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import pRetry from 'p-retry';
 
-import { RefreshControl, ScrollView, Stack } from '@onekeyhq/components';
+import { Page, RefreshControl, ScrollView, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
@@ -129,12 +129,12 @@ function DashboardContent({
           ) : (
             <>
               {hasBookmarks ? (
-                <Stack px="$5" width="100%" $gtXl={{ width: 960 }}>
+                <Stack px="$pagePadding" width="100%">
                   <BookmarksSection key="BookmarksSection" />
                 </Stack>
               ) : null}
 
-              <Stack px="$5" width="100%" $gtXl={{ width: 960 }} mt="$4">
+              <Stack px="$pagePadding" width="100%" mt="$4">
                 <ReviewControl>
                   <TrendingSection
                     data={homePageData?.trending || []}
@@ -174,9 +174,7 @@ function DashboardContent({
 
   return (
     <ScrollView>
-      <Stack maxWidth={1280} width="100%" alignSelf="center">
-        {content}
-      </Stack>
+      <Page.Container padded={false}>{content}</Page.Container>
     </ScrollView>
   );
 }

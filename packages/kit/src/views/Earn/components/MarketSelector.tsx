@@ -12,9 +12,19 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import type { ISegmentControlProps } from '@onekeyhq/components';
+import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 export type IEarnHomeMode = 'earn' | 'borrow';
+
+const getBadgeTheme = ({
+  themeVariant,
+  isActive,
+}: {
+  themeVariant: 'light' | 'dark';
+  isActive: boolean;
+  // eslint-disable-next-line no-nested-ternary
+}) => (isActive ? (themeVariant === 'light' ? 'dark' : 'light') : themeVariant);
 
 const MarketSelectorDesktop = ({
   mode,
@@ -28,6 +38,7 @@ const MarketSelectorDesktop = ({
   activeBackgroundColor?: ISegmentControlProps['activeBackgroundColor'];
 }) => {
   const intl = useIntl();
+  const themeVariant = useThemeVariant();
 
   const options = useMemo(() => {
     const renderLabel = (
@@ -35,11 +46,12 @@ const MarketSelectorDesktop = ({
       messageId: ETranslations,
       withBadge = false,
     ) => {
+      const isActive = mode === value;
       const labelText = (
         <SizableText
-          size="$headingMd"
+          size="$bodyMdMedium"
           textAlign="center"
-          color={mode === value ? '$textText' : '$textSubdued'}
+          color={isActive ? '$textInverse' : '$text'}
         >
           {intl.formatMessage({ id: messageId })}
         </SizableText>
@@ -47,10 +59,16 @@ const MarketSelectorDesktop = ({
       if (!withBadge) {
         return labelText;
       }
+      const badgeTheme = getBadgeTheme({ themeVariant, isActive });
       return (
         <XStack alignItems="center" justifyContent="center" gap="$2">
           {labelText}
-          <Badge badgeSize="sm" badgeType="success" pointerEvents="none">
+          <Badge
+            badgeSize="sm"
+            badgeType="success"
+            pointerEvents="none"
+            theme={badgeTheme}
+          >
             <Badge.Text>
               {intl.formatMessage({ id: ETranslations.explore_badge_new })}
             </Badge.Text>
@@ -68,7 +86,7 @@ const MarketSelectorDesktop = ({
         value: 'borrow' as const,
       },
     ];
-  }, [intl, mode]);
+  }, [intl, mode, themeVariant]);
 
   const itemStyleProps = useMemo(() => {
     const baseProps = {
@@ -99,7 +117,7 @@ const MarketSelectorDesktop = ({
   }, [backgroundColor]);
 
   return (
-    <Stack px="$5" pt="$5" pb="$1">
+    <Stack px="$pagePadding" pt="$5" pb="$1">
       <SegmentControl
         value={mode}
         options={options}
@@ -141,7 +159,7 @@ const MarketSelectorMobile = ({
             <SizableText
               size="$headingMd"
               textAlign="center"
-              color={isActive ? '$textText' : '$textSubdued'}
+              color={isActive ? '$textText' : '$text'}
             >
               {intl.formatMessage({ id: messageId })}
             </SizableText>

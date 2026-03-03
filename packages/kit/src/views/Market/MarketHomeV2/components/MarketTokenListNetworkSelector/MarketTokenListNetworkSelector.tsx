@@ -8,7 +8,6 @@ import { type IServerNetwork } from '@onekeyhq/shared/types';
 import { MarketTokenListNetworkSelectorMobile } from './MarketTokenListNetworkSelectorMobile';
 import { MarketTokenListNetworkSelectorNormal } from './MarketTokenListNetworkSelectorNormal';
 
-import type { IMarketTokenListNetworkSelectorMobileRef } from './MarketTokenListNetworkSelectorMobile';
 import type { IMarketTokenListNetworkSelectorNormalRef } from './MarketTokenListNetworkSelectorNormal';
 
 interface IMarketTokenListNetworkSelectorProps {
@@ -31,8 +30,6 @@ function MarketTokenListNetworkSelector({
   const { md } = useMedia();
   const normalComponentRef =
     useRef<IMarketTokenListNetworkSelectorNormalRef>(null);
-  const mobileComponentRef =
-    useRef<IMarketTokenListNetworkSelectorMobileRef>(null);
 
   const { marketNetworks, isLoading } = useMarketNetworks();
 
@@ -69,20 +66,16 @@ function MarketTokenListNetworkSelector({
     [onSelectCurrentNetwork],
   );
 
+  // Auto-scroll for desktop (mobile auto-scroll is handled internally by ScrollableFilterBar)
   useEffect(() => {
-    if (selectedNetworkId) {
-      if (md) {
-        mobileComponentRef.current?.scrollToNetwork(selectedNetworkId);
-      } else {
-        normalComponentRef.current?.scrollToNetwork(selectedNetworkId);
-      }
+    if (selectedNetworkId && !md) {
+      normalComponentRef.current?.scrollToNetwork(selectedNetworkId);
     }
   }, [selectedNetworkId, md]);
 
   if (md) {
     return (
       <MarketTokenListNetworkSelectorMobile
-        ref={mobileComponentRef}
         marketNetworks={marketNetworks}
         currentSelectNetwork={currentSelectNetwork}
         onSelectCurrentNetwork={onSelectCurrentNetwork}

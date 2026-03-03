@@ -1,11 +1,15 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgColorSwatch = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      fill="currentColor"
       fillRule="evenodd"
-      d="M5 2a3 3 0 0 0-3 3v11.5a5.5 5.5 0 0 0 8.332 4.716l9.877-5.703a3 3 0 0 0 1.098-4.098l-2.5-4.33a3 3 0 0 0-.91-.98 3 3 0 0 0-.981-.912l-4.33-2.5a3 3 0 0 0-1.28-.395A3 3 0 0 0 10 2zm14.21 11.781-5.683 3.28 4.366-7.56 1.682 2.914a1 1 0 0 1-.366 1.366Zm-2.928-5.49L13 13.975V5.24l2.916 1.684a1 1 0 0 1 .366 1.366ZM7.5 18.25a1.75 1.75 0 1 0 0-3.5 1.75 1.75 0 0 0 0 3.5"
+      d="m13 2.933 6.512 3.76-.467.807 3.76 6.513-12.179 7.013A5.5 5.5 0 0 1 2 16.5V2h11zM7.5 15a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3m6.025 2.061 6.548-3.78L17.891 9.5zM13 13.971l3.78-6.546L13 5.242v8.73Z"
       clipRule="evenodd"
     />
   </Svg>

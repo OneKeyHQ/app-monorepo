@@ -97,6 +97,7 @@ export type IUniversalSearchPerp = {
     maxLeverage: number;
     midPx: string;
     dayNtlVlm: string;
+    subtitle?: string;
   };
 };
 

@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Alert } from '@onekeyhq/components';
+import { Alert, YStack } from '@onekeyhq/components';
 import { usePerpsCommonConfigPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
@@ -31,7 +31,7 @@ export function PerpTips() {
     }
 
     return {
-      primary: intl.formatMessage({ id: ETranslations.global_view }),
+      primary: intl.formatMessage({ id: ETranslations.global_learn_more }),
       onPrimaryPress: () => {
         if (href) {
           if (hrefType === 'external') {
@@ -65,27 +65,30 @@ export function PerpTips() {
     return null;
   }
   return (
-    <Alert
-      flex={1}
-      type={perpConfigCommon?.perpBannerConfig?.alertType ?? 'default'}
-      fullBleed
-      title={perpConfigCommon?.perpBannerConfig?.title}
-      description={perpConfigCommon?.perpBannerConfig?.description}
-      closable={!!perpConfigCommon?.perpBannerConfig?.canClose}
-      action={action}
-      onClose={() => {
-        if (perpConfigCommon?.perpBannerConfig?.id) {
-          void setPerpsCommonConfigPersistAtom((prev) => ({
-            ...prev,
-            perpConfigCommon: {
-              ...prev.perpConfigCommon,
-              perpBannerClosedIds: [
-                perpConfigCommon?.perpBannerConfig?.id ?? '',
-              ],
-            },
-          }));
-        }
-      }}
-    />
+    <YStack>
+      <Alert
+        type="info"
+        fullBleed
+        borderWidth={0}
+        icon="InfoCircleSolid"
+        title={perpConfigCommon?.perpBannerConfig?.title}
+        description={perpConfigCommon?.perpBannerConfig?.description}
+        action={action}
+        closable={!!perpConfigCommon?.perpBannerConfig?.canClose}
+        onClose={() => {
+          if (perpConfigCommon?.perpBannerConfig?.id) {
+            void setPerpsCommonConfigPersistAtom((prev) => ({
+              ...prev,
+              perpConfigCommon: {
+                ...prev.perpConfigCommon,
+                perpBannerClosedIds: [
+                  perpConfigCommon?.perpBannerConfig?.id ?? '',
+                ],
+              },
+            }));
+          }
+        }}
+      />
+    </YStack>
   );
 }

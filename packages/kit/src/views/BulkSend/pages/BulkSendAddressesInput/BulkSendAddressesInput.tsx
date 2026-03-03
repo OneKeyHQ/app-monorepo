@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import BigNumber from 'bignumber.js';
+import { isUndefined } from 'lodash';
+import { useIntl } from 'react-intl';
+
 import { Form, Page, YStack, useForm, useMedia } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -11,14 +15,18 @@ import {
   POLLING_DEBOUNCE_INTERVAL,
   POLLING_INTERVAL_FOR_TOKEN,
 } from '@onekeyhq/shared/src/consts/walletConsts';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IModalBulkSendParamList } from '@onekeyhq/shared/src/routes';
 import {
   EModalBulkSendRoutes,
   ETabHomeRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bulkSendUtils from '@onekeyhq/shared/src/utils/bulkSendUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EBulkSendMode } from '@onekeyhq/shared/types/bulkSend';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
@@ -37,6 +45,7 @@ import {
 } from './components/Context';
 
 function BaseBulkSendAddressesInput() {
+  const intl = useIntl();
   const route = useAppRoute<
     IModalBulkSendParamList,
     EModalBulkSendRoutes.BulkSendAddressesInput
@@ -102,9 +111,12 @@ function BaseBulkSendAddressesInput() {
       isAllNetwork = true;
     }
 
-    _selectedNetworkId = bulkSendUtils.fixBulkSendSupportedNetworkId({
-      networkId: _selectedNetworkId ?? '',
-    });
+    const { fixedNetworkId, isSupported } =
+      bulkSendUtils.fixBulkSendSupportedNetworkId({
+        networkId: _selectedNetworkId ?? '',
+      });
+
+    _selectedNetworkId = fixedNetworkId;
 
     if (indexedAccountId) {
       _selectedIndexedAccountId = indexedAccountId;
@@ -112,7 +124,23 @@ function BaseBulkSendAddressesInput() {
       _selectedIndexedAccountId = activeAccount?.account?.indexedAccountId;
     }
 
-    if (isAllNetwork) {
+    if (!isSupported && _selectedNetworkId && _selectedIndexedAccountId) {
+      const networkAccounts =
+        await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountId(
+          {
+            networkIds: [_selectedNetworkId],
+            indexedAccountId: _selectedIndexedAccountId,
+          },
+        );
+      if (networkAccounts?.[0]?.account) {
+        _selectedAccountId = networkAccounts?.[0]?.account?.id;
+      }
+    }
+
+    if (
+      isAllNetwork &&
+      !accountUtils.isOthersAccount({ accountId: _selectedAccountId })
+    ) {
       const networkAccounts =
         await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountId(
           {
@@ -155,12 +183,15 @@ function BaseBulkSendAddressesInput() {
   ]);
 
   // Reset token details state when account/network/token changes
+  /* eslint-disable react-hooks/exhaustive-deps */
+  /* oxlint-disable react/exhaustive-deps */
   useEffect(() => {
     if (selectedAccountId && selectedNetworkId && selectedToken) {
       setTokenDetailsState({
         initialized: false,
         isRefreshing: true,
       });
+      void form.trigger();
     }
   }, [
     selectedAccountId,
@@ -168,6 +199,8 @@ function BaseBulkSendAddressesInput() {
     selectedToken,
     setTokenDetailsState,
   ]);
+  /* eslint-enable react-hooks/exhaustive-deps */
+  /* oxlint-enable react/exhaustive-deps */
 
   usePromiseResult(
     async () => {
@@ -265,7 +298,7 @@ function BaseBulkSendAddressesInput() {
     selectedTokenDetail,
   ]);
 
-  const handleSubmit = useCallback(() => {
+  const handleSubmit = useCallback(async () => {
     if (
       !selectedNetworkId ||
       !selectedAccountId ||
@@ -276,14 +309,25 @@ function BaseBulkSendAddressesInput() {
     }
 
     const formValues = form.getValues();
-    const senders = formValues.senderAddresses.split('\n').map((line) => {
-      const [address] = line.trim().split(',');
-      return { address: address.trim(), amount: undefined };
-    });
-    const receivers = formValues.receiverAddresses.split('\n').map((line) => {
-      const [address, amount] = line.trim().split(',');
-      return { address: address.trim(), amount: amount?.trim() };
-    });
+    const senders = formValues.senderAddresses
+      .split('\n')
+      .filter((line) => line.trim())
+      .map((line) => {
+        const [address] = line.trim().split(',');
+        return { address: address.trim(), amount: undefined };
+      });
+    const receivers = formValues.receiverAddresses
+      .split('\n')
+      .filter((line) => line.trim())
+      .map((line) => {
+        const [address, amount] = line.trim().split(',');
+        return {
+          address: address.trim(),
+          amount: isUndefined(amount)
+            ? amount
+            : new BigNumber(amount).toFixed(),
+        };
+      });
 
     if (isInModal) {
       navigation.push(EModalBulkSendRoutes.BulkSendAmountsInput, {
@@ -294,19 +338,19 @@ function BaseBulkSendAddressesInput() {
         tokenInfo: selectedToken,
         tokenDetails: selectedTokenDetail,
         bulkSendMode,
+        isInModal,
       });
     } else {
-      navigation.switchTab(ETabRoutes.Home, {
-        screen: ETabHomeRoutes.TabHomeBulkSendAmountsInput,
-        params: {
-          networkId: selectedNetworkId,
-          accountId: selectedAccountId,
-          senders,
-          receivers,
-          tokenInfo: selectedToken,
-          tokenDetails: selectedTokenDetail,
-          bulkSendMode,
-        },
+      navigation.switchTab(ETabRoutes.Home);
+      await timerUtils.wait(50);
+      navigation.push(ETabHomeRoutes.TabHomeBulkSendAmountsInput, {
+        networkId: selectedNetworkId,
+        accountId: selectedAccountId,
+        senders,
+        receivers,
+        tokenInfo: selectedToken,
+        tokenDetails: selectedTokenDetail,
+        bulkSendMode,
       });
     }
   }, [
@@ -348,7 +392,9 @@ function BaseBulkSendAddressesInput() {
             >
               <Form form={form}>
                 <SenderAddressesInput />
-                <ReceiverAddressesInput maxLines={500} />
+                <ReceiverAddressesInput
+                  maxLines={platformEnv.isNativeAndroid ? 100 : 500}
+                />
               </Form>
             </AccountSelectorProviderMirror>
           </YStack>
@@ -365,7 +411,9 @@ function BaseBulkSendAddressesInput() {
         >
           <Page.FooterActions
             px="$0"
-            onConfirmText="Next"
+            onConfirmText={intl.formatMessage({
+              id: ETranslations.wallet_bulk_send_btn_next,
+            })}
             confirmButtonProps={{
               onPress: handleSubmit,
               disabled: isSubmitDisabled,

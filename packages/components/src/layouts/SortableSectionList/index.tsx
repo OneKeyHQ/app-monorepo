@@ -171,7 +171,7 @@ function BaseSortableSectionList<T>(
           ? reloadSectionHeaderIndex(index)
           : null,
       )
-      .filter((index) => index != null);
+      .filter((index) => index !== null && index !== undefined);
   }, [reloadSectionHeaderIndex, stickySectionHeadersEnabled, reloadSections]);
 
   const ref = useRef<ISortableListViewRef<T>>(null);

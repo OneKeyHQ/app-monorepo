@@ -90,8 +90,14 @@ export const EXT_RATE_URL = {
     'https://microsoftedge.microsoft.com/addons/detail/onekey/obffkkagpmohennipjokmpllocnlndac',
 };
 
-export const APP_STORE_LINK = `itms-apps://apps.apple.com/app/id1609559473?action=write-review`;
-export const PLAY_STORE_LINK = `https://play.google.com/store/apps/details?id=so.onekey.app.wallet`;
+const APP_STORE_BASE_LINK = 'itms-apps://apps.apple.com/app/id1609559473';
+export const APP_STORE_LINK = `${APP_STORE_BASE_LINK}?action=write-review`;
+export const APP_STORE_DOWNLOAD_LINK = APP_STORE_BASE_LINK;
+// App Store web fallback (works when auto-redirects to itms-apps are blocked).
+export const APP_STORE_DOWNLOAD_WEB_LINK =
+  'https://apps.apple.com/app/id1609559473';
+export const ANDROID_PACKAGE_NAME = 'so.onekey.app.wallet';
+export const PLAY_STORE_LINK = `https://play.google.com/store/apps/details?id=${ANDROID_PACKAGE_NAME}`;
 
 export const ONEKEY_KEY_TAG_PURCHASE_URL =
   'https://onekey.so/products/onekey-keytag/';
@@ -122,6 +128,8 @@ export const FALCON_DOCS_URL = 'https://docs.falcon.finance/';
 export const ONEKEY_HEALTH_CHECK_URL = '/wallet/v1/health';
 
 export const SUPPORT_URL = 'https://help.onekey.so/hc/requests/new';
+
+export const SWAP_FAQ_HELP_URL = 'https://help.onekey.so/articles/13608266';
 
 export const HYPERLIQUID_EXPLORER_URL = 'https://hypurrscan.io/address/';
 
