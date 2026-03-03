@@ -272,9 +272,6 @@ dependencies {
         implementation jscFlavor
     }
 
-    // Add BouncyCastle OpenPGP dependency
-    implementation("org.bouncycastle:bcpg-jdk15to18:1.78.1")
-
     // Google Play Services
     implementation("com.google.android.gms:play-services-base:18.5.0")
 
