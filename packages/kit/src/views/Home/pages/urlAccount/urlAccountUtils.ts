@@ -218,6 +218,8 @@ export const urlAccountNavigation = {
       realNetworkIdFallback: params.networkId || '',
       contextNetworkId: params.contextNetworkId || '',
     });
+    navigation.switchTab(ETabRoutes.Home);
+    await timerUtils.wait(0);
     rootNavigationRef.current?.dispatch(
       StackActions.push(ETabHomeRoutes.TabHomeUrlAccountPage, {
         address: params.address,

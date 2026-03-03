@@ -55,8 +55,6 @@ function HomeOverviewContainer() {
   const [isRefreshingNftList, setIsRefreshingNftList] = useState(false);
   const [isRefreshingDeFiList, setIsRefreshingDeFiList] = useState(false);
   const [isRefreshingHistoryList, setIsRefreshingHistoryList] = useState(false);
-  const [isRefreshingApprovalList, setIsRefreshingApprovalList] =
-    useState(false);
 
   const listRefreshKey = useRef('');
 
@@ -152,7 +150,6 @@ function HomeOverviewContainer() {
         setIsRefreshingTokenList(isRefreshing);
         setIsRefreshingNftList(isRefreshing);
         setIsRefreshingHistoryList(isRefreshing);
-        setIsRefreshingApprovalList(isRefreshing);
         setIsRefreshingWorth(isRefreshing);
         setIsRefreshingDeFiList(isRefreshing);
         return;
@@ -164,8 +161,6 @@ function HomeOverviewContainer() {
         setIsRefreshingNftList(isRefreshing);
       } else if (type === EHomeTab.HISTORY) {
         setIsRefreshingHistoryList(isRefreshing);
-      } else if (type === EHomeTab.APPROVALS) {
-        setIsRefreshingApprovalList(isRefreshing);
       } else if (type === EHomeTab.DEFI) {
         setIsRefreshingDeFiList(isRefreshing);
       }
@@ -289,7 +284,6 @@ function HomeOverviewContainer() {
     isRefreshingTokenList ||
     isRefreshingNftList ||
     isRefreshingHistoryList ||
-    isRefreshingApprovalList ||
     isRefreshingDeFiList;
 
   const refreshButton = useMemo(() => {
