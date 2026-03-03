@@ -102,6 +102,7 @@ function SignatureConfirmDetails(props: IProps) {
         );
       case EParseTxComponentType.NFT:
         return (
+          // oxlint-disable-next-line react/jsx-pascal-case -- NFT is an acronym
           <Assets.NFT
             key={index}
             component={component}

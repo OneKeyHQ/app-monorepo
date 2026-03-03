@@ -296,8 +296,10 @@ class DesktopApiSystem {
   }
 
   async getApplicationMenu(): Promise<IMenu> {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return JSON.parse(
       JSON.stringify(Menu.getApplicationMenu(), (key: string, value: any) =>
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-return
         key !== 'commandsMap' && key !== 'menu' ? value : undefined,
       ),
     );
@@ -326,6 +328,7 @@ class DesktopApiSystem {
 
     const item = this.getMenuItemByCommandId(commandId, menu);
     if (item) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
       item.click(
         undefined as any,
         globalThis.$desktopMainAppFunctions?.getSafelyBrowserWindow?.() as any,

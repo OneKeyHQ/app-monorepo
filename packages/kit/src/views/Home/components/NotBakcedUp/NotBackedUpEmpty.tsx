@@ -189,7 +189,7 @@ function NotBackedUp() {
           }}
         />
         <InfoBlock
-          iconProps={{ name: 'SwapHorOutline' }}
+          iconProps={{ name: 'SwitchHorOutline' }}
           title={intl.formatMessage({
             id: ETranslations.wallet_empty_article_trade,
           })}

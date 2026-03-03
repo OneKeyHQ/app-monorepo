@@ -22,6 +22,7 @@ import { useEnabledNetworksCompatibleWithWalletIdInAllNetworks } from '../../hoo
 import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
 import { deferHeavyWorkUntilUIIdle } from '../../utils/deferHeavyWork';
 import { NetworkAvatarBase } from '../NetworkAvatar';
+
 import { useUnifiedNetworkSelectorTrigger } from './hooks/useUnifiedNetworkSelectorTrigger';
 
 const MAX_DISPLAY_NETWORKS = 2;

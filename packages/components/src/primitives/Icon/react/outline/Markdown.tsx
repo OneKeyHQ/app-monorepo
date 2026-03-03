@@ -7,7 +7,12 @@ const SvgMarkdown = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M4 6v12h16V6zm6.5 8v-1.774l-.586.521a1 1 0 0 1-1.328 0L8 12.226V14a1 1 0 1 1-2 0v-4l.01-.146a1 1 0 0 1 1.654-.601l1.586 1.41 1.586-1.41A1 1 0 0 1 12.5 10v4a1 1 0 1 1-2 0m4.5-4a1 1 0 1 1 2 0v1.884a1 1 0 0 1 1.14 1.635l-1.5 1.25a1 1 0 0 1-1.28 0l-1.5-1.25A1.001 1.001 0 0 1 15 11.884zm7 8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z" />
+    <Path d="M17 11.75h1.82L16 15.173l-2.82-3.423H15V9h2zm-7.75-1.27L10.546 9H12.5v6h-2v-2.91l-1.25 1.429L8 12.089V15H6V9h1.954z" />
+    <Path
+      fillRule="evenodd"
+      d="M22 20H2V4h20zM4 18h16V6H4z"
+      clipRule="evenodd"
+    />
   </Svg>
 );
 export default SvgMarkdown;

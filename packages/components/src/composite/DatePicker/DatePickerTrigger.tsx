@@ -1,4 +1,5 @@
 import { memo, useCallback, useMemo } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';

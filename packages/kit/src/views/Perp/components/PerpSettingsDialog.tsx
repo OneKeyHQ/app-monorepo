@@ -23,15 +23,18 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { PerpsProviderMirror } from '../PerpsProviderMirror';
+import { showPerpFeeTierDialog } from './TradingPanel/components/PerpFeeTierPopover';
 
 import { useShowInviteeRewardModal } from './InviteeReward/hooks/useShowInviteeRewardModal';
 
 interface IPerpSettingsPopoverContentProps {
   closePopover: () => void;
+  showFeeTierEntry?: boolean;
 }
 
 function PerpSettingsPopoverContent({
   closePopover,
+  showFeeTierEntry = false,
 }: IPerpSettingsPopoverContentProps) {
   const [perpsCustomSettings, setPerpsCustomSettings] =
     usePerpsCustomSettingsAtom();
@@ -167,16 +170,36 @@ function PerpSettingsPopoverContent({
           </XStack>
         </ListItem>
       ) : null}
+
+      {showFeeTierEntry ? (
+        <ListItem
+          mx="$0"
+          px="$2.5"
+          titleProps={{ size: '$bodyMdMedium' }}
+          title={intl.formatMessage({
+            id: ETranslations.perps_fee_tiers,
+          })}
+          onPress={() => {
+            closePopover();
+            showPerpFeeTierDialog();
+          }}
+          cursor="default"
+        >
+          <Icon name="ChevronRightOutline" size="$4" color="$iconSubdued" />
+        </ListItem>
+      ) : null}
     </YStack>
   );
 }
 
 export interface IPerpSettingsPopoverProps {
   renderTrigger: ReactNode;
+  showFeeTierEntry?: boolean;
 }
 
 export function PerpSettingsPopover({
   renderTrigger,
+  showFeeTierEntry = false,
 }: IPerpSettingsPopoverProps) {
   const intl = useIntl();
 
@@ -186,7 +209,10 @@ export function PerpSettingsPopover({
         title={intl.formatMessage({ id: ETranslations.global_settings })}
         renderTrigger={renderTrigger}
         renderContent={({ closePopover }) => (
-          <PerpSettingsPopoverContent closePopover={closePopover} />
+          <PerpSettingsPopoverContent
+            closePopover={closePopover}
+            showFeeTierEntry={showFeeTierEntry}
+          />
         )}
         floatingPanelProps={{
           width: 360,

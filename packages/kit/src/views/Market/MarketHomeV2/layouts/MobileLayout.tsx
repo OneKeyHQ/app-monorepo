@@ -106,11 +106,10 @@ function MobileLayoutComponent({
       {...containerProps}
     >
       <Tabs.Tab name={watchlistTabName}>
-        <Tabs.ScrollView showsVerticalScrollIndicator={false}>
-          <YStack pt="$2" {...listContainerProps}>
-            <MarketWatchlistTokenList />
-          </YStack>
-        </Tabs.ScrollView>
+        <MarketWatchlistTokenList
+          tabIntegrated
+          listContainerProps={listContainerProps}
+        />
       </Tabs.Tab>
       <Tabs.Tab name={spotTabName}>
         <MobileMarketTokenFlatList

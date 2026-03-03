@@ -10,7 +10,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
 
 import { useToOnBoardingPage } from '../../Onboarding/hooks/useToOnBoardingPage';
-
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
 import { EManagePositionType } from '../../Staking/pages/ManagePosition/hooks/useManagePage';
 import { EBorrowDataStatus } from '../borrowDataStatus';
@@ -111,7 +110,10 @@ export const SupplyCard = () => {
           indexedAccountId,
         });
       } else {
-        // Mobile: open Supply dialog
+        // Mobile: block disabled supply assets (e.g. already borrowed)
+        if (!noConnectedWalletRef.current && item.supplyButton?.disabled) {
+          return;
+        }
         handleManageSupply(item);
       }
     },
@@ -122,6 +124,23 @@ export const SupplyCard = () => {
     borrowDataStatus === EBorrowDataStatus.LoadingMarkets ||
     borrowDataStatus === EBorrowDataStatus.WaitingForAccount ||
     borrowDataStatus === EBorrowDataStatus.LoadingReserves;
+
+  // Per-row disabled state: dim + block tap for disabled supply assets on mobile.
+  // Desktop rows navigate to details (still useful), so only mobile rows are disabled.
+  // Uses noConnectedWalletRef to avoid stale closure from TableList memo.
+  const getListItemProps = useCallback(
+    (item: ISupplyAsset) => {
+      if (gtMd) return undefined;
+      if (noConnectedWalletRef.current) return undefined;
+      return item.supplyButton?.disabled ? { disabled: true } : undefined;
+    },
+    [gtMd],
+  );
+
+  const supplyListProps = useMemo(
+    () => ({ listItemProps: getListItemProps }),
+    [getListItemProps],
+  );
 
   // Filter data based on showZeroBalance (mobile always shows all assets)
   const filteredAssets = useMemo(() => {
@@ -250,7 +269,7 @@ export const SupplyCard = () => {
             buttonText={<EarnText text={{ text: labels.supply }} />}
             item={item}
             onPress={() => handleManageSupply(item)}
-            needAdditionButton={gtLg && !noConnectedWallet}
+            needAdditionButton={gtLg ? !noConnectedWallet : undefined}
             accountId={accountId}
             walletId={walletId}
             indexedAccountId={indexedAccountId}
@@ -281,6 +300,7 @@ export const SupplyCard = () => {
         emptyContent={labels.noAssetsToSupply}
         defaultSortKey="balance"
         defaultSortDirection="desc"
+        listProps={supplyListProps}
       />
     </Card>
   );

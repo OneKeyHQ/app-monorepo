@@ -128,6 +128,12 @@ export function useSwapQuote() {
   );
 
   const swapSlippageRef = useRef(slippageItem);
+  const slippageKeyLastRef = useRef(slippageItem.key);
+  const slippageCustomValueLastRef = useRef<number | undefined>(
+    slippageItem.key === ESwapSlippageSegmentKey.CUSTOM
+      ? slippageItem.value
+      : undefined,
+  );
   const fromTokenRef = useRef<ISwapToken | undefined>(fromToken);
   const toTokenRef = useRef<ISwapToken | undefined>(toToken);
   if (
@@ -282,6 +288,47 @@ export function useSwapQuote() {
     swapApproveAllowanceSelectOpen,
     swapSlippageDialogOpening,
   ]);
+
+  // Re-quote when slippage is changed via the settings dialog (not via the main
+  // slippage dialog which is handled by the flag === 'save' mechanism above).
+  // Only re-quote on mode changes (AUTO <-> CUSTOM) or custom value changes.
+  // Auto-suggested value changes in AUTO mode must NOT trigger re-quote (infinite loop).
+  useEffect(() => {
+    const prevKey = slippageKeyLastRef.current;
+    const prevCustomValue = slippageCustomValueLastRef.current;
+
+    // Always update refs so comparisons stay correct on next run
+    slippageKeyLastRef.current = slippageItem.key;
+    slippageCustomValueLastRef.current =
+      slippageItem.key === ESwapSlippageSegmentKey.CUSTOM
+        ? slippageItem.value
+        : undefined;
+
+    // Defer to the slippage dialog's close handler to avoid double re-quotes
+    if (swapSlippageDialogOpening.status) {
+      return;
+    }
+
+    const keyChanged = prevKey !== slippageItem.key;
+    const customValueChanged =
+      slippageItem.key === ESwapSlippageSegmentKey.CUSTOM &&
+      prevCustomValue !== slippageItem.value;
+
+    if (!keyChanged && !customValueChanged) {
+      return;
+    }
+
+    void quoteAction(
+      slippageItem,
+      activeAccountRef.current?.address,
+      activeAccountRef.current?.accountInfo?.account?.id,
+      undefined,
+      undefined,
+      ESwapQuoteKind.SELL,
+      undefined,
+      swapToAddressInfoRef.current.address,
+    );
+  }, [slippageItem, swapSlippageDialogOpening.status, quoteAction]);
 
   useEffect(() => {
     if (

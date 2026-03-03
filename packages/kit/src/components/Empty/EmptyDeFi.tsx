@@ -22,9 +22,11 @@ function EmptyDeFi({ tableLayout }: { tableLayout?: boolean }) {
           variant="tertiary"
           size="large"
           onPress={() => {
-            tableLayout
-              ? navigation.switchTab(ETabRoutes.Earn)
-              : void safePushToEarnRoute(navigation, ETabEarnRoutes.EarnHome);
+            if (tableLayout) {
+              navigation.switchTab(ETabRoutes.Earn);
+            } else {
+              void safePushToEarnRoute(navigation, ETabEarnRoutes.EarnHome);
+            }
           }}
           iconAfter="ArrowRightOutline"
         >

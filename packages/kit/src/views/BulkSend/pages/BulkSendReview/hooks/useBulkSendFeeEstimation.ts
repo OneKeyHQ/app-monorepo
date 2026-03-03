@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import {
   calculateFeeForSend,
   getFeeIcon,
@@ -35,7 +36,7 @@ type IUseBulkSendFeeEstimationParams = {
 };
 
 // Scale gasLimit for bulk transfer txs when batch estimation is not available.
-// For transfer txs (non-approve), multiply gasLimit by (transfersInfo.length)
+// For transfer txs (non-approve), multiply gasLimit by (transfersInfo.length + 1)
 // to account for the higher gas consumption of multi-call contracts.
 function scaleGasLimitForBulkTransfer(
   feeInfo: IFeeInfoUnit,
@@ -189,7 +190,7 @@ export function useBulkSendFeeEstimation({
         }
 
         if (!txFee) {
-          throw new Error('Failed to estimate fee');
+          throw new OneKeyInternalError('Failed to estimate fee');
         }
 
         // Build fee selector items (only standard presets, no custom)
@@ -251,7 +252,7 @@ export function useBulkSendFeeEstimation({
         const selectedFeeInfo = feeSelectorItems[selectedPresetIndex]?.feeInfo;
 
         if (!selectedFeeInfo) {
-          throw new Error('No fee info available');
+          throw new OneKeyInternalError('No fee info available');
         }
 
         // Calculate fees for each transaction
@@ -275,7 +276,10 @@ export function useBulkSendFeeEstimation({
             // Fallback mode: scale gasLimit for transfer txs
             // Gas scales with the number of transfers in this tx, not the number of txs
             const transferCount = unsignedTx.transfersInfo?.length ?? 1;
-            txFeeInfo = scaleGasLimitForBulkTransfer(txFeeInfo, transferCount);
+            txFeeInfo = scaleGasLimitForBulkTransfer(
+              txFeeInfo,
+              transferCount + 1,
+            );
           }
           const feeResult = calculateFeeForSend({
             feeInfo: txFeeInfo,
@@ -412,7 +416,10 @@ export function useBulkSendFeeEstimation({
           // Fallback mode: scale gasLimit for transfer txs
           // Gas scales with the number of transfers in this tx, not the number of txs
           const transferCount = unsignedTx.transfersInfo?.length ?? 1;
-          txFeeInfo = scaleGasLimitForBulkTransfer(txFeeInfo, transferCount);
+          txFeeInfo = scaleGasLimitForBulkTransfer(
+            txFeeInfo,
+            transferCount + 1,
+          );
         }
         const feeResult = calculateFeeForSend({
           feeInfo: txFeeInfo,
@@ -443,6 +450,7 @@ export function useBulkSendFeeEstimation({
         feeInfos,
       }));
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [
       feeState.feeSelectorItems,
       feeState.perTxFeeInfos,

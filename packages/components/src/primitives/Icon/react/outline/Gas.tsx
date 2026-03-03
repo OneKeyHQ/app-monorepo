@@ -7,7 +7,12 @@ const SvgGas = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M5 5v14h8V5zm6 4a1 1 0 1 1 0 2H7a1 1 0 1 1 0-2zm4 0h2a2 2 0 0 1 2 2v5h1V8.414l-1.707-1.707a1 1 0 1 1 1.414-1.414L21.414 7A2 2 0 0 1 22 8.414V16a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-5h-2v8a1 1 0 1 1 0 2H3a1 1 0 1 1 0-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2z" />
+    <Path d="M12 11H6V9h6z" />
+    <Path
+      fillRule="evenodd"
+      d="M15 9h4v7h1V8.414L17.586 6 19 4.586l3 3V18h-5v-7h-2v8h1v2H2v-2h1V3h12zM5 19h8V5H5z"
+      clipRule="evenodd"
+    />
   </Svg>
 );
 export default SvgGas;

@@ -21,7 +21,7 @@ const excludeDirs = new Set([
 const extensions = new Set(['.ts', '.tsx']);
 
 // Statistics
-let stats = {
+const stats = {
   processed: 0,
   skipped: 0,
   errors: 0,
@@ -68,7 +68,7 @@ function removePerformanceTracking(filePath) {
 
     // Skip if no performance tracking
     if (!content.includes('$$perfStart_') && !content.includes('perfReady')) {
-      stats.skipped++;
+      stats.skipped += 1;
       return;
     }
 
@@ -83,7 +83,7 @@ function removePerformanceTracking(filePath) {
     // Delete ready file if exists
     if (fs.existsSync(readyFilePath)) {
       fs.unlinkSync(readyFilePath);
-      stats.readyFilesDeleted++;
+      stats.readyFilesDeleted += 1;
       console.log(
         `✓ Deleted ready file: ${path.relative(rootDir, readyFilePath)}`,
       );
@@ -125,7 +125,7 @@ function removePerformanceTracking(filePath) {
 
       if (!startsWithImport) {
         newContent = newContent.replace(eslintDisablePattern, '');
-        stats.eslintCommentsRemoved++;
+        stats.eslintCommentsRemoved += 1;
         console.log(`✓ Removed eslint-disable comment from: ${relativePath}`);
       }
     }
@@ -134,13 +134,13 @@ function removePerformanceTracking(filePath) {
     if (newContent !== content) {
       fs.writeFileSync(filePath, newContent, 'utf-8');
       console.log(`✓ Removed tracking from: ${relativePath}`);
-      stats.processed++;
+      stats.processed += 1;
     } else {
-      stats.skipped++;
+      stats.skipped += 1;
     }
   } catch (error) {
     console.error(`Error processing ${filePath}:`, error.message);
-    stats.errors++;
+    stats.errors += 1;
   }
 }
 
@@ -158,7 +158,7 @@ function processAllFiles() {
     removePerformanceTracking(file);
   });
 
-  console.log('\n' + '='.repeat(60));
+  console.log(`\n${'='.repeat(60)}`);
   console.log('Summary:');
   console.log(`  Processed: ${stats.processed}`);
   console.log(`  Ready files deleted: ${stats.readyFilesDeleted}`);

@@ -7,10 +7,10 @@ const SvgCalendar3CheckDone = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M13.793 10.543a1 1 0 1 1 1.414 1.414l-3.5 3.5a1 1 0 0 1-1.414 0l-1.5-1.5a1 1 0 1 1 1.414-1.414l.793.793z" />
+    <Path d="M15.914 10.75 11 15.664 8.086 12.75 9.5 11.336l1.5 1.5 3.5-3.5z" />
     <Path
       fillRule="evenodd"
-      d="M16 2.5a1 1 0 0 1 1 1v1h2a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-13a2 2 0 0 1 2-2h2v-1a1 1 0 0 1 2 0v1h6v-1a1 1 0 0 1 1-1m-11 17h14v-13H5z"
+      d="M9 4h6V2h2v2h4v17H3V4h4V2h2zM5 19h14V6H5z"
       clipRule="evenodd"
     />
   </Svg>

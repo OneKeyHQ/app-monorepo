@@ -8,20 +8,20 @@ import {
   useRef,
   useState,
 } from 'react';
-
 import type { ReactNode } from 'react';
 
 import { ScrollView } from 'react-native';
 
 import { GradientMask, Stack, XStack, useStyle } from '@onekeyhq/components';
+import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 
-import type { SpaceTokens } from 'tamagui';
 import type {
   LayoutChangeEvent,
   NativeScrollEvent,
   NativeSyntheticEvent,
   ScrollView as ScrollViewType,
 } from 'react-native';
+import type { SpaceTokens } from 'tamagui';
 
 // ---------------------------------------------------------------------------
 //  Context – lets children register their layout so the bar can scroll to them
@@ -41,7 +41,7 @@ const ScrollableFilterBarContext =
 function useScrollableFilterBar() {
   const ctx = useContext(ScrollableFilterBarContext);
   if (!ctx) {
-    throw new Error(
+    throw new OneKeyInternalError(
       'useScrollableFilterBar must be used within <ScrollableFilterBar>',
     );
   }

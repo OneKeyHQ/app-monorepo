@@ -11,8 +11,8 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EAmountInputMode,
@@ -150,7 +150,9 @@ export function AmountPreview({
       (acc, transfer) => acc.plus(transfer.amount || '0'),
       new BigNumber(0),
     );
+    // eslint-disable-next-line @typescript-eslint/no-shadow
     const totalTokenAmount = total.toFixed();
+    // eslint-disable-next-line @typescript-eslint/no-shadow
     const totalFiatAmount = total.times(tokenDetails?.price ?? 0).toFixed();
     return { totalTokenAmount, totalFiatAmount };
   }, [

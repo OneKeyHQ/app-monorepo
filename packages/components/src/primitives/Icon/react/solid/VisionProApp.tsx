@@ -9,7 +9,7 @@ const SvgVisionProApp = (props: SvgProps) => (
   >
     <Path
       fillRule="evenodd"
-      d="M3 6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-1a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2H5a2 2 0 0 1-2-2zm5 11v1h10v-1zM1 8a1 1 0 0 1 1 1v4a1 1 0 1 1-2 0V9a1 1 0 0 1 1-1"
+      d="M3 4h20v14h-3v2H6v-2H3zm15 13H8v1h10zM2 8v6H0V8z"
       clipRule="evenodd"
     />
   </Svg>

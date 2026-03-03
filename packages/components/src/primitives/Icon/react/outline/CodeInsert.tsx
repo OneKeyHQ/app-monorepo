@@ -7,7 +7,13 @@ const SvgCodeInsert = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M17 6v12h3V6zM2 18V6a2 2 0 0 1 2-2h8a1 1 0 1 1 0 2H4v12h8a1 1 0 1 1 0 2H4a2 2 0 0 1-2-2m5.293-9.207a1 1 0 0 1 1.414 0l2.5 2.5a1 1 0 0 1 0 1.414l-2.5 2.5a1 1 0 1 1-1.414-1.414L9.086 12l-1.793-1.793a1 1 0 0 1 0-1.414M22 18a2 2 0 0 1-2 2h-3v1.5a1 1 0 1 1-2 0v-19a1 1 0 1 1 2 0V4h3a2 2 0 0 1 2 2z" />
+    <Path
+      fillRule="evenodd"
+      d="M17 4h5v16h-5v2h-2V2h2zm0 14h3V6h-3z"
+      clipRule="evenodd"
+    />
+    <Path d="M13 6H4v12h9v2H2V4h11z" />
+    <Path d="M11.914 12 8 15.914 6.586 14.5l2.5-2.5-2.5-2.5L8 8.086z" />
   </Svg>
 );
 export default SvgCodeInsert;

@@ -7,7 +7,12 @@ const SvgCalendar3Add = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M5 6v13h14V6zm5.999 9v-1.5H9.5a1 1 0 1 1 0-2h1.499V10a1 1 0 0 1 2 0v1.5H14.5a1 1 0 1 1 0 2h-1.501V15a1 1 0 1 1-2 0M21 19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2V3a1 1 0 0 1 2 0v1h6V3a1 1 0 1 1 2 0v1h2a2 2 0 0 1 2 2z" />
+    <Path d="M13 11.5h2.5v2H13V16h-2v-2.5H8.5v-2H11V9h2z" />
+    <Path
+      fillRule="evenodd"
+      d="M9 4h6V2h2v2h4v17H3V4h4V2h2zM5 19h14V6H5z"
+      clipRule="evenodd"
+    />
   </Svg>
 );
 export default SvgCalendar3Add;

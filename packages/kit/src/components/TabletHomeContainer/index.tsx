@@ -37,9 +37,10 @@ export function TabletHomeContainer({ children }: PropsWithChildren) {
       >
         <Icon
           name="OnekeyLogoMonoIllus"
-          width={108}
-          height={108}
+          width={80}
+          height={80}
           color="$neutral4"
+          mb="$16"
         />
       </YStack>
     );

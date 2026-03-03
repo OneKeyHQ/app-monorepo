@@ -51,7 +51,7 @@ function spawnJob({ repoRoot, jobArgs }) {
     },
   );
   const done = new Promise((resolve) =>
-    child.on('close', (c) => resolve(c == null ? 2 : c)),
+    child.on('close', (c) => resolve(c === null || c === undefined ? 2 : c)),
   );
   return { child, done };
 }

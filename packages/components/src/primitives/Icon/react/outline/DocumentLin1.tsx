@@ -7,7 +7,10 @@ const SvgDocumentLin1 = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M14 18a1 1 0 1 1 2 0 2 2 0 1 0 4 0 1 1 0 1 1 2 0 4 4 0 0 1-8 0m3-1v-1a1 1 0 1 1 2 0v1a1 1 0 1 1-2 0m3-2a2 2 0 1 0-4 0 1 1 0 1 1-2 0 4 4 0 0 1 8 0 1 1 0 1 1-2 0m-2-7V4H6v16h5.5a1 1 0 1 1 0 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v4a1 1 0 1 1-2 0" />
+    <Path d="M20 9h-2V4H6v16h6.5v2H4V2h16z" />
+    <Path d="M16 18a2 2 0 1 0 4 0v-1h2v1a4 4 0 1 1-8 0v-1h2z" />
+    <Path d="M19 18h-2v-3h2z" />
+    <Path d="M18 11a4 4 0 0 1 4 4v1h-2v-1a2 2 0 1 0-4 0v1h-2v-1a4 4 0 0 1 4-4" />
   </Svg>
 );
 export default SvgDocumentLin1;

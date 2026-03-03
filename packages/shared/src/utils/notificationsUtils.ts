@@ -10,6 +10,7 @@ import {
 } from '../../types/notification';
 import appGlobals from '../appGlobals';
 import { EAppEventBusNames, appEventBus } from '../eventBus/appEventBus';
+import { ETranslations } from '../locale';
 import { defaultLogger } from '../logger/logger';
 import platformEnv from '../platformEnv';
 import { EModalAssetDetailRoutes, EModalRoutes, ETabRoutes } from '../routes';
@@ -26,7 +27,6 @@ import type {
   ENotificationPushTopicTypes,
   INotificationPushMessageInfo,
 } from '../../types/notification';
-import { ETranslations } from '../locale';
 
 function convertWebPermissionToEnum(
   permission: NotificationPermission,
