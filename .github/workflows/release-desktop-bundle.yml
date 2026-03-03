@@ -148,6 +148,14 @@ jobs:
           }
           EOF
 
+      - name: upload bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: onekey-desktop-bundle-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
+          path: |
+            ./apps/desktop/bundle-zip/*
+            !**/.DS_Store
+
       - name: Upload QA Bundles
         uses: originalix/actions/qa-bundle-upload@feat/qa-bundle-upload # TODO: replace with onekeyhq/actions/qa-bundle-upload@main after testing
         with:
@@ -156,14 +164,6 @@ jobs:
           bundle-dir: ./apps/desktop/bundle-zip
           commit-hash: ${{ github.sha }}
           branch: ${{ github.ref_name }}
-
-      - name: upload bundle
-        uses: actions/upload-artifact@v4
-        with:
-          name: onekey-desktop-bundle-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
-          path: |
-            ./apps/desktop/bundle-zip/*
-            !**/.DS_Store
 
       - name: 'Notify to Slack'
         if: ${{ github.event.workflow_run }}
