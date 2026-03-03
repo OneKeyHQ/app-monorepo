@@ -91,7 +91,7 @@ public class MainApplication extends Application implements ReactApplication {
     
     long startupTime = System.currentTimeMillis();
     DeviceUtilsStoreAndroid.INSTANCE.saveStartupTime(startupTime);
-    OneKeyLog.info("App", "Application started");
+    OneKeyLog.info("App", "OneKey started");
 
     try {
       Field field = CursorWindow.class.getDeclaredField("sCursorWindowSize");
