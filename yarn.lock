@@ -9330,6 +9330,7 @@ __metadata:
     eth-url-parser: "npm:^1.0.4"
     folderslint: "npm:1.2.0"
     idb: "npm:^7.1.1"
+    miscreant: "npm:^0.3.2"
   languageName: unknown
   linkType: soft
 
@@ -35676,6 +35677,13 @@ __metadata:
     typescript:
       optional: true
   checksum: 10/c14dffef0ef7a3e71469aee553f5735f4a6a9f9a2b47ca02798040f2e006261c2e7e8b26ee0dc56a815c04d5612eb4be1eed474e7bb4e496eb0f5ada2fe1d2e7
+  languageName: node
+  linkType: hard
+
+"miscreant@npm:^0.3.2":
+  version: 0.3.2
+  resolution: "miscreant@npm:0.3.2"
+  checksum: 10/c6b3dab132e5e09772377e94eca7ac31deadd3ac10d8b90e4dd962c00ae5402ac61ddf214df163fd08ab7acc536007dfa3d97356caa89325f66f3293b0347c07
   languageName: node
   linkType: hard
 
