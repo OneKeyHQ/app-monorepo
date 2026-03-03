@@ -132,6 +132,7 @@
   "allowlist.enabled_popover_title": "Danh sách cho phép đã được bật",
   "approval_bulk_revoke_status_paused_reason_description": "Lý do bỏ qua",
   "approval_bulk_revoke_status_processing": "Đang xử lý",
+  "approval_not_supported": "Quản lý phê duyệt không được hỗ trợ trên mạng này",
   "approve_edit.approve_amount": "Phê duyệt số tiền",
   "approve_edit.less_than_swap": "Khoản trợ cấp không được nhỏ hơn số tiền hoán đổi",
   "approve_edit.title": "Chỉnh sửa trợ cấp",

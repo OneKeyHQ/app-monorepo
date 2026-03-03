@@ -132,6 +132,7 @@
   "allowlist.enabled_popover_title": "Lista de permissões ativada",
   "approval_bulk_revoke_status_paused_reason_description": "Motivo do salto",
   "approval_bulk_revoke_status_processing": "A processar",
+  "approval_not_supported": "A gestão de aprovações não é suportada nesta rede",
   "approve_edit.approve_amount": "Aprovar valor",
   "approve_edit.less_than_swap": "O subsídio não pode ser menor que o valor do swap",
   "approve_edit.title": "Editar subsídio",

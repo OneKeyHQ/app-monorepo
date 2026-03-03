@@ -132,6 +132,7 @@
   "allowlist.enabled_popover_title": "अनुमति सूची सक्षम की गई",
   "approval_bulk_revoke_status_paused_reason_description": "छोड़ने का कारण",
   "approval_bulk_revoke_status_processing": "प्रसंस्करण जारी",
+  "approval_not_supported": "अनुमोदन प्रबंधन इस नेटवर्क पर समर्थित नहीं है",
   "approve_edit.approve_amount": "राशि स्वीकृत करें",
   "approve_edit.less_than_swap": "भत्ता स्वैप राशि से कम नहीं हो सकता",
   "approve_edit.title": "संपादन भत्ता",

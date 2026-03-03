@@ -132,6 +132,7 @@
   "allowlist.enabled_popover_title": "許可リストが有効",
   "approval_bulk_revoke_status_paused_reason_description": "スキップした理由",
   "approval_bulk_revoke_status_processing": "処理中",
+  "approval_not_supported": "このネットワークでは承認管理はサポートされていません",
   "approve_edit.approve_amount": "金額を承認",
   "approve_edit.less_than_swap": "手当はスワップ金額より少なくすることはできません",
   "approve_edit.title": "編集許可",

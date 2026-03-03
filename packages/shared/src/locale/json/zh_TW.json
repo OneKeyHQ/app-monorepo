@@ -132,6 +132,7 @@
   "allowlist.enabled_popover_title": "白名單已啟用",
   "approval_bulk_revoke_status_paused_reason_description": "跳過原因",
   "approval_bulk_revoke_status_processing": "處理中",
+  "approval_not_supported": "此網路不支援授權管理",
   "approve_edit.approve_amount": "授權金額",
   "approve_edit.less_than_swap": "授權額度不能低於兌換金額",
   "approve_edit.title": "編輯授權",

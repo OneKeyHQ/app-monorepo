@@ -132,6 +132,7 @@
   "allowlist.enabled_popover_title": "Allowlist enabled",
   "approval_bulk_revoke_status_paused_reason_description": "Skipped reason",
   "approval_bulk_revoke_status_processing": "Processing",
+  "approval_not_supported": "Approval management is not supported on this network",
   "approve_edit.approve_amount": "Approve amount",
   "approve_edit.less_than_swap": "Allowance can't be less than the swap amount",
   "approve_edit.title": "Edit allowance",

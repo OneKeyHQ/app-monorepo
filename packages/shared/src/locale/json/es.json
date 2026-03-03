@@ -132,6 +132,7 @@
   "allowlist.enabled_popover_title": "Lista de permitidos habilitada",
   "approval_bulk_revoke_status_paused_reason_description": "Motivo omitido",
   "approval_bulk_revoke_status_processing": "Procesando",
+  "approval_not_supported": "La gestión de aprobaciones no es compatible con esta red",
   "approve_edit.approve_amount": "Aprobar monto",
   "approve_edit.less_than_swap": "La asignación no puede ser menor que el monto del swap",
   "approve_edit.title": "Editar asignación",
