@@ -47,6 +47,7 @@ import {
 } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import type {
   IEarnAlert,
+  IEarnText,
   IEarnTokenInfo,
   IStakeEarnDetail,
 } from '@onekeyhq/shared/types/staking';
@@ -112,12 +113,14 @@ const ProtocolHeader = ({
   apyDetail,
   tokenInfo,
   maturity,
+  maturityText,
   onShare,
 }: {
   symbol: string;
   apyDetail: IStakeEarnDetail['apyDetail'];
   tokenInfo?: IEarnTokenInfo;
   maturity?: IStakeEarnDetail['maturity'];
+  maturityText?: IEarnText;
   onShare?: () => void;
 }) => {
   const intl = useIntl();
@@ -128,6 +131,9 @@ const ProtocolHeader = ({
   }, [navigation]);
 
   const formattedMaturityDate = useMemo(() => {
+    if (maturityText?.text) {
+      return maturityText.text;
+    }
     if (!maturity?.date) return undefined;
     try {
       const date = new Date(maturity.date);
@@ -140,21 +146,22 @@ const ProtocolHeader = ({
     } catch {
       return maturity.date;
     }
-  }, [maturity?.date, intl]);
+  }, [maturity?.date, maturityText?.text, intl]);
 
   return (
-    <YStack>
-      {/* Token icon and name with My Portfolio button - always show */}
-      <XStack jc="space-between" ai="center" h="$9">
-        <XStack gap="$2" ai="center">
-          <Token size="xs" tokenImageUri={tokenInfo?.token.logoURI} />
-          <SizableText size="$bodyLgMedium">
-            {tokenInfo?.token.symbol || symbol}
-          </SizableText>
+    <YStack gap="$2.5">
+      <XStack jc="space-between" ai="center">
+        <XStack gap="$3" ai="center" minWidth={0} flex={1}>
+          <XStack gap="$2" ai="center" flexShrink={0}>
+            <Token size="xs" tokenImageUri={tokenInfo?.token.logoURI} />
+            <SizableText size="$bodyLgMedium">
+              {tokenInfo?.token.symbol || symbol}
+            </SizableText>
+          </XStack>
           {formattedMaturityDate ? (
             <>
-              <Divider vertical h="$4" />
-              <SizableText size="$bodyLgMedium" color="$textSubdued">
+              <Divider vertical h="$6" />
+              <SizableText size="$bodyLgMedium" numberOfLines={1}>
                 {formattedMaturityDate}
               </SizableText>
             </>
@@ -162,7 +169,7 @@ const ProtocolHeader = ({
         </XStack>
       </XStack>
 
-      <XStack gap="$2" ai="center" pt="$2.5">
+      <XStack gap="$2" ai="center">
         <EarnText
           text={
             apyDetail?.description || {
@@ -512,6 +519,7 @@ const DetailsPartComponent = ({
                 apyDetail={detailInfo.apyDetail}
                 tokenInfo={tokenInfo}
                 maturity={detailInfo.maturity}
+                maturityText={detailInfo.nums?.maturity}
                 onShare={onShare}
               />
               <ChartSection
