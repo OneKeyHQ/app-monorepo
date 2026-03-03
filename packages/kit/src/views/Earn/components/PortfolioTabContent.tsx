@@ -708,6 +708,15 @@ const PortfolioItemComponent = ({
       }),
     [portfolioItem.protocol?.providerDetail?.code],
   );
+  const earningsColumnLabel = useMemo(
+    () =>
+      intl.formatMessage({
+        id: isPendle
+          ? ETranslations.defi_net_pnl_title
+          : ETranslations.earn_24h_earnings,
+      }),
+    [intl, isPendle],
+  );
 
   const columns: ITableColumn<IEarnPortfolioInvestment['assets'][number]>[] =
     useMemo(() => {
@@ -723,7 +732,7 @@ const PortfolioItemComponent = ({
         },
         {
           key: 'Est. 24h earnings',
-          label: intl.formatMessage({ id: ETranslations.earn_24h_earnings }),
+          label: earningsColumnLabel,
           flex: 1,
           priority: 1,
           render: (asset: IEarnPortfolioInvestment['assets'][number]) => (
@@ -765,7 +774,13 @@ const PortfolioItemComponent = ({
               ),
             },
       ];
-    }, [depositColumnLabel, intl, isPendle, portfolioItem.totalFiatValue]);
+    }, [
+      depositColumnLabel,
+      earningsColumnLabel,
+      intl,
+      isPendle,
+      portfolioItem.totalFiatValue,
+    ]);
 
   const appNavigation = useAppNavigation();
 
@@ -860,9 +875,7 @@ const PortfolioItemComponent = ({
                             text={asset.earnings24h?.title}
                           />
                           <SizableText size="$bodyMd" color="$textSubdued">
-                            {intl.formatMessage({
-                              id: ETranslations.earn_24h_earnings,
-                            })}
+                            {earningsColumnLabel}
                           </SizableText>
                         </XStack>
 

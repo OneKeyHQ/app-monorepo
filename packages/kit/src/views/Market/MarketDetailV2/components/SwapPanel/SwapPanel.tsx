@@ -14,6 +14,7 @@ import {
   XStack,
   YStack,
   useMedia,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useAccountSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorTrigger';
@@ -88,6 +89,7 @@ export function SwapPanel({
 }) {
   const intl = useIntl();
   const media = useMedia();
+  const { bottom } = useSafeAreaInsets();
   const currencyInfo = useCurrency();
   const navigation = useAppNavigation();
   const myPositionInfo = useMemo(() => {
@@ -199,7 +201,7 @@ export function SwapPanel({
             )}
           </XStack>
         </XStack>
-        <Stack px="$5" pb="$4" pt="$2">
+        <Stack px="$5" pb={bottom || '$4'} pt="$2">
           <SwapPanelFooterButtons
             onTrade={handleTrade}
             onInstant={handleInstant}

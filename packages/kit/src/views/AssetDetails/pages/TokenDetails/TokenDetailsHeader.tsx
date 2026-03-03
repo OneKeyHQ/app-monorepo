@@ -332,6 +332,7 @@ function TokenDetailsHeader(props: IProps) {
             />
             <ReviewControl>
               <ActionBuy
+                disabled={showLoadingState}
                 isTabView={isTabView}
                 walletId={wallet?.id ?? ''}
                 networkId={networkId}
