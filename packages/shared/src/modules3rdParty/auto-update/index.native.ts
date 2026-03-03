@@ -25,8 +25,6 @@ const clearPackage: IClearPackage = async () => {
   await ReactNativeAppUpdate.clearCache();
 };
 
-const DOWNLOAD_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
-
 const downloadPackage: IDownloadPackage = async ({
   downloadUrl,
   latestVersion,
@@ -35,31 +33,14 @@ const downloadPackage: IDownloadPackage = async ({
   if (!downloadUrl || !latestVersion) {
     throw new OneKeyLocalError('Invalid version or downloadUrl');
   }
-
-  let timeoutId: ReturnType<typeof setTimeout> | null = null;
-
-  try {
-    await Promise.race([
-      ReactNativeAppUpdate.downloadAPK({
-        downloadUrl,
-        notificationTitle: 'Downloading',
-        fileSize: fileSize || 0,
-      }),
-      new Promise<never>((_resolve, reject) => {
-        timeoutId = setTimeout(() => {
-          reject(new Error('APK download timed out'));
-        }, DOWNLOAD_TIMEOUT_MS);
-      }),
-    ]);
-
-    return {
-      downloadedFile: downloadUrl,
-    };
-  } finally {
-    if (timeoutId !== null) {
-      clearTimeout(timeoutId);
-    }
-  }
+  await ReactNativeAppUpdate.downloadAPK({
+    downloadUrl,
+    notificationTitle: 'Downloading',
+    fileSize: fileSize || 0,
+  });
+  return {
+    downloadedFile: downloadUrl,
+  };
 };
 
 const downloadASC: IDownloadASC = async (params) => {
@@ -182,33 +163,17 @@ export const AppUpdate: IAppUpdate = {
 
 export const BundleUpdate: IBundleUpdate = {
   downloadBundle: async (params) => {
-    let timeoutId: ReturnType<typeof setTimeout> | null = null;
-
-    try {
-      const result = await Promise.race([
-        ReactNativeBundleUpdate.downloadBundle({
-          downloadUrl: params.downloadUrl || '',
-          latestVersion: params.latestVersion || '',
-          bundleVersion: params.bundleVersion || '',
-          fileSize: params.fileSize || 0,
-          sha256: params.sha256 || '',
-        }),
-        new Promise<never>((_resolve, reject) => {
-          timeoutId = setTimeout(() => {
-            reject(new Error('Bundle download timed out'));
-          }, DOWNLOAD_TIMEOUT_MS);
-        }),
-      ]);
-
-      return {
-        ...params,
-        downloadedFile: result.downloadedFile,
-      };
-    } finally {
-      if (timeoutId !== null) {
-        clearTimeout(timeoutId);
-      }
-    }
+    const result = await ReactNativeBundleUpdate.downloadBundle({
+      downloadUrl: params.downloadUrl || '',
+      latestVersion: params.latestVersion || '',
+      bundleVersion: params.bundleVersion || '',
+      fileSize: params.fileSize || 0,
+      sha256: params.sha256 || '',
+    });
+    return {
+      ...params,
+      downloadedFile: result.downloadedFile,
+    };
   },
   verifyBundle: (params) =>
     ReactNativeBundleUpdate.verifyBundle({
