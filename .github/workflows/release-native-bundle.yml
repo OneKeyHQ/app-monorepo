@@ -102,8 +102,8 @@ jobs:
       - name: Upload QA Bundles
         uses: originalix/actions/qa-bundle-upload@feat/qa-bundle-upload # TODO: replace with onekeyhq/actions/qa-bundle-upload@main after testing
         with:
-          server-url: ${{ secrets.UTILITY_SERVER_URL }}
-          upload-secret: ${{ secrets.JS_BUNDLE_UPLOAD_SECRET }}
+          server-url: ${{ secrets.QA_JS_BUNDLE_SERVER_URL }}
+          upload-secret: ${{ secrets.QA_JS_BUNDLE_UPLOAD_SECRET }}
           bundle-dir: ./apps/mobile/out-dir-bundle-zip
           commit-hash: ${{ github.sha }}
           branch: ${{ github.ref_name }}
