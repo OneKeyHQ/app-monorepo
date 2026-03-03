@@ -95,10 +95,18 @@ class ServiceUniversalSearch extends ServiceBase {
               })),
             });
 
+          const chainIdToNetworkId = new Map(
+            basicConfig?.data?.networkList?.map((n) => [n.chainId, n.networkId]) ??
+              [],
+          );
+
           const v2Items: IUniversalSearchV2MarketToken[] = recommendTokens
             .map((configToken, index) => {
               const batchItem = batchResult?.list?.[index];
-              const networkId = configToken.chainId;
+              const networkId =
+                batchItem?.networkId ??
+                chainIdToNetworkId.get(configToken.chainId) ??
+                configToken.chainId;
               return {
                 type: EUniversalSearchType.V2MarketToken,
                 payload: {
