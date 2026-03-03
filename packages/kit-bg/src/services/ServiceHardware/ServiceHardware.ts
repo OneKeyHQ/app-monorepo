@@ -240,6 +240,8 @@ class ServiceHardware extends ServiceBase {
 
   private registeredEvents = false;
 
+  private connectedDeviceTracked = new Set<string>();
+
   checkSdkVersionValid() {
     if (process.env.NODE_ENV !== 'production') {
       const {
@@ -543,6 +545,8 @@ class ServiceHardware extends ServiceBase {
         (message: { device: KnownDevice }) => {
           const { features } = message.device || {};
           if (!features || !features.device_id) return;
+          if (this.connectedDeviceTracked.has(features.device_id)) return;
+          this.connectedDeviceTracked.add(features.device_id);
 
           void (async () => {
             try {
