@@ -18,6 +18,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePerpsTokenSearchAliasesAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import {
   usePerpsActiveAccountMmrAtom,
+  usePerpsActiveAccountStatusAtom,
   usePerpsActiveAccountSummaryAtom,
   usePerpsActiveAssetAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -286,6 +287,8 @@ function PerpBadgesRow() {
 }
 
 export function PerpTickerBarMobile() {
+  const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
+
   const content = (
     <XStack
       flex={1}
@@ -306,7 +309,10 @@ export function PerpTickerBarMobile() {
         <PerpTickerBarMMRInfoMobile />
         <GiftAction source="Perps" size="small" copyAsUrl />
         <PerpCandleChartButtonMobile />
-        <PerpSettingsButton testID="perp-mobile-settings-button" />
+        <PerpSettingsButton
+          testID="perp-mobile-settings-button"
+          showFeeTierEntry={!perpsAccountStatus.accountNotSupport}
+        />
       </XStack>
     </XStack>
   );

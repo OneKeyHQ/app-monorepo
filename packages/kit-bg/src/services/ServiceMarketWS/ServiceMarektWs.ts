@@ -139,22 +139,20 @@ class ServiceMarketWS extends ServiceBase {
         address: tokenAddress,
         type: channel as ISubscriptionType,
       });
-    } else {
+    } else if (channel === EChannel.ohlcv) {
       // Subscription was auto-unsubscribed — re-create it
-      if (channel === EChannel.ohlcv) {
-        await this.subscribeOHLCV({
-          networkId,
-          tokenAddress,
-          chartType,
-          currency,
-        });
-      } else if (channel === EChannel.tokenTxs) {
-        await this.subscribeTokenTxs({
-          networkId,
-          tokenAddress,
-          currency,
-        });
-      }
+      await this.subscribeOHLCV({
+        networkId,
+        tokenAddress,
+        chartType,
+        currency,
+      });
+    } else if (channel === EChannel.tokenTxs) {
+      await this.subscribeTokenTxs({
+        networkId,
+        tokenAddress,
+        currency,
+      });
     }
   }
 
