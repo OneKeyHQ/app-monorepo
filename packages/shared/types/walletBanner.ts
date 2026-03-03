@@ -20,5 +20,6 @@ export interface IWalletBanner {
   theme: 'light' | 'dark';
   position?: 'home' | 'receive';
   networkId?: string;
+  networkIds?: string[];
   icon?: IKeyOfIcons;
 }
