@@ -20,6 +20,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { useOrderConfirm, useTradingCalculationsForSide } from '../../../hooks';
@@ -149,14 +150,14 @@ function OrderConfirmContent({
       return undefined;
     }
     const savedFee = orderValue.multipliedBy(SAVED_FEE_BENCHMARK_RATE);
-    const savedFeeNumber = Number(savedFee.toFixed(2, BigNumber.ROUND_HALF_UP));
-    if (!Number.isFinite(savedFeeNumber)) {
+    const savedFeeStr = savedFee.toFixed(2, BigNumber.ROUND_HALF_UP);
+    if (!Number.isFinite(Number(savedFeeStr))) {
       return undefined;
     }
-    return `$${savedFeeNumber.toLocaleString(undefined, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`;
+    return numberFormat(savedFeeStr, {
+      formatter: 'value',
+      formatterOptions: { currency: '$' },
+    });
   }, [orderValue]);
 
   return (
