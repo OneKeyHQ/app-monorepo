@@ -214,7 +214,7 @@ export const WithdrawSection = ({
       },
     );
 
-  const { result: unstakeAssetsList, isLoading: unstakeAssetsLoading } =
+  const { result: unstakeAssetsList } =
     usePromiseResult<IEarnAssetsList | undefined>(
       async () => {
         if (
@@ -247,11 +247,10 @@ export const WithdrawSection = ({
       ],
       {
         watchLoading: true,
-        revalidateOnFocus: true,
       },
     );
 
-  const { result: nativeTokenDetail, isLoading: nativeTokenLoading } =
+  const { result: nativeTokenDetail } =
     usePromiseResult(
       async () => {
         if (
@@ -368,10 +367,8 @@ export const WithdrawSection = ({
       return undefined;
     }
 
-    const isLoading = unstakeAssetsLoading || nativeTokenLoading;
-
     return {
-      disabled: isLoading || selectableReceiveAssets.length <= 1,
+      disabled: selectableReceiveAssets.length <= 1,
       onPress:
         selectableReceiveAssets.length > 1
           ? handleOpenReceiveTokenSelector
@@ -381,8 +378,6 @@ export const WithdrawSection = ({
     isPendleProvider,
     useBorrowApi,
     selectableReceiveAssets.length,
-    unstakeAssetsLoading,
-    nativeTokenLoading,
     handleOpenReceiveTokenSelector,
   ]);
 

@@ -121,7 +121,7 @@ export const StakeSection = ({
     (borrowApiCtx.borrowApiParams.action === 'supply' ||
       borrowApiCtx.borrowApiParams.action === 'borrow');
 
-  const { result: stakeAssetsList, isLoading: stakeAssetsLoading } =
+  const { result: stakeAssetsList } =
     usePromiseResult(
       async () => {
         if (
@@ -152,11 +152,10 @@ export const StakeSection = ({
       ],
       {
         watchLoading: true,
-        revalidateOnFocus: true,
       },
     );
 
-  const { result: nativeTokenDetail, isLoading: nativeTokenLoading } =
+  const { result: nativeTokenDetail } =
     usePromiseResult(
       async () => {
         if (
@@ -350,10 +349,7 @@ export const StakeSection = ({
     }
 
     return {
-      disabled:
-        stakeAssetsLoading ||
-        nativeTokenLoading ||
-        selectableStakeAssets.length <= 1,
+      disabled: selectableStakeAssets.length <= 1,
       onPress:
         selectableStakeAssets.length > 1
           ? handleOpenStakeTokenSelector
@@ -362,8 +358,6 @@ export const StakeSection = ({
   }, [
     isPendleProvider,
     selectableStakeAssets.length,
-    stakeAssetsLoading,
-    nativeTokenLoading,
     handleOpenStakeTokenSelector,
   ]);
 
