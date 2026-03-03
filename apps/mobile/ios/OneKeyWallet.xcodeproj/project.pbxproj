@@ -7,8 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		076068BF2E7EF3BA00E007B2 /* gopenpgp-3.3.0.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 076068BE2E7EF3BA00E007B2 /* gopenpgp-3.3.0.xcframework */; };
-		076068C02E7EF3BA00E007B2 /* gopenpgp-3.3.0.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 076068BE2E7EF3BA00E007B2 /* gopenpgp-3.3.0.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		076068C02E7EF3BA00E007B2 /* BuildFile in Embed Frameworks */ = {isa = PBXBuildFile; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		0799B7702E162F7D001ADEC8 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0799B76F2E162F7D001ADEC8 /* AppDelegate.swift */; };
 		07A167A92E576AF7006A3117 /* OneKeyLogo.icon in Resources */ = {isa = PBXBuildFile; fileRef = 07A167A82E576AF7006A3117 /* OneKeyLogo.icon */; };
 		07A167AA2E576AF7006A3117 /* OneKeyLogo.icon in Resources */ = {isa = PBXBuildFile; fileRef = 07A167A82E576AF7006A3117 /* OneKeyLogo.icon */; };
@@ -44,7 +43,7 @@
 			dstPath = "";
 			dstSubfolderSpec = 10;
 			files = (
-				076068C02E7EF3BA00E007B2 /* gopenpgp-3.3.0.xcframework in Embed Frameworks */,
+				076068C02E7EF3BA00E007B2 /* BuildFile in Embed Frameworks */,
 			);
 			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -63,7 +62,6 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		076068BE2E7EF3BA00E007B2 /* gopenpgp-3.3.0.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = "gopenpgp-3.3.0.xcframework"; path = "XCFrameworks/gopenpgp-3.3.0.xcframework"; sourceTree = "<group>"; };
 		0799B76F2E162F7D001ADEC8 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		07A167A82E576AF7006A3117 /* OneKeyLogo.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = OneKeyLogo.icon; sourceTree = "<group>"; };
 		13B07F961A680F5B00A75B9A /* OneKeyWallet.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = OneKeyWallet.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -113,7 +111,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				076068BF2E7EF3BA00E007B2 /* gopenpgp-3.3.0.xcframework in Frameworks */,
 				F42739F92D24DABD0072EBA9 /* StoreKit.framework in Frameworks */,
 				2788FF4A611FA65E5DD92E66 /* libPods-OneKeyWallet.a in Frameworks */,
 			);
@@ -160,7 +157,6 @@
 		2D16E6871FA4F8E400B85C8A /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
-				076068BE2E7EF3BA00E007B2 /* gopenpgp-3.3.0.xcframework */,
 				F42739F82D24DABD0072EBA9 /* StoreKit.framework */,
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
 				9373BA6134E4C051DB510900 /* libPods-OneKeyWallet.a */,
