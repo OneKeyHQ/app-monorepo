@@ -358,10 +358,10 @@ function MobileTokenSelectorModal({
   return (
     <Page>
       <Page.Header
-        title={intl.formatMessage({ id: ETranslations.token_selector_title })}
+        title={intl.formatMessage({ id: ETranslations.perps_search_perps })}
         headerSearchBarOptions={{
           placeholder: intl.formatMessage({
-            id: ETranslations.global_search_asset,
+            id: ETranslations.global_search,
           }),
           onChangeText: ({ nativeEvent }) => {
             const afterTrim = nativeEvent.text.trim();
