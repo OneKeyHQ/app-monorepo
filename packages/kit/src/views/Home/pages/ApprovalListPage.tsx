@@ -44,6 +44,7 @@ import { TabPageHeader } from '../../../components/TabPageHeader';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useAppRoute } from '../../../hooks/useAppRoute';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import {
   ProviderJotaiContextApprovalList,
   useApprovalListActions,
@@ -157,8 +158,21 @@ function ApprovalListPageContent() {
     ITabHomeParamList,
     ETabHomeRoutes.TabHomeApprovalList
   >();
-  const { accountId, networkId, walletId, indexedAccountId } =
-    route.params ?? {};
+  const {
+    accountId: paramAccountId,
+    networkId: paramNetworkId,
+    walletId: paramWalletId,
+    indexedAccountId: paramIndexedAccountId,
+  } = route.params ?? {};
+
+  const {
+    activeAccount: { account, network, wallet },
+  } = useActiveAccount({ num: 0 });
+
+  const accountId = paramAccountId ?? account?.id;
+  const networkId = paramNetworkId ?? network?.id;
+  const walletId = paramWalletId ?? wallet?.id;
+  const indexedAccountId = paramIndexedAccountId ?? account?.indexedAccountId;
 
   const intl = useIntl();
   const media = useMedia();
