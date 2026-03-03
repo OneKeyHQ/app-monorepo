@@ -138,10 +138,10 @@ export function CalendarPanel({
           onNextYear={
             showNextNav && viewMode === 'day' ? handleNextYear : undefined
           }
-          isPrevDisabled={showPrevNav ? isPrevDisabled : null}
-          isNextDisabled={showNextNav ? isNextDisabled : null}
-          isPrevYearDisabled={showPrevNav ? isPrevYearDisabled : null}
-          isNextYearDisabled={showNextNav ? isNextYearDisabled : null}
+          isPrevDisabled={showPrevNav ? isPrevDisabled : undefined}
+          isNextDisabled={showNextNav ? isNextDisabled : undefined}
+          isPrevYearDisabled={showPrevNav ? isPrevYearDisabled : undefined}
+          isNextYearDisabled={showNextNav ? isNextYearDisabled : undefined}
           onMonthClick={
             viewMode === 'day' && !isRangeDualPanel
               ? () => setViewMode('month')
