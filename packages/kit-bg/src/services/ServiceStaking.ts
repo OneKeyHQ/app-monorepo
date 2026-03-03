@@ -2,7 +2,6 @@ import BigNumber from 'bignumber.js';
 import { omit } from 'lodash';
 
 import { isTaprootAddress } from '@onekeyhq/core/src/chains/btc/sdkBtc';
-import { pendleFlowConfig } from '../vaults/impls/evm/settings';
 import type { IAxiosResponse } from '@onekeyhq/shared/src/appApiClient/appApiClient';
 import {
   backgroundClass,
@@ -83,6 +82,7 @@ import type {
   IEarnUnbondingDelegationList,
   IGetPortfolioParams,
   IRecommendAsset,
+  IRepayWithCollateralQuote,
   IStakeBaseParams,
   IStakeBlockRegionResponse,
   IStakeClaimBaseParams,
@@ -106,6 +106,7 @@ import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 import simpleDb from '../dbs/simple/simpleDb';
 import { devSettingsPersistAtom } from '../states/jotai/atoms';
 import { vaultFactory } from '../vaults/factory';
+import { pendleFlowConfig } from '../vaults/impls/evm/settings';
 
 import ServiceBase from './ServiceBase';
 
@@ -2210,6 +2211,8 @@ class ServiceStaking extends ServiceBase {
     accountId: string;
     action: 'supply' | 'withdraw' | 'borrow' | 'repay';
     amount: string;
+    collateralReserveAddress?: string;
+    slippageBps?: number;
   }) {
     const { accountId, amount, ...rest } = params;
 
@@ -2347,6 +2350,73 @@ class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getBorrowRepayWithCollateralQuote(params: {
+    networkId: string;
+    provider: string;
+    marketAddress: string;
+    reserveAddress: string;
+    collateralReserveAddress: string;
+    accountId: string;
+    amount: string;
+    repayAll?: boolean;
+    slippageBps?: number;
+  }) {
+    const { accountId, amount, ...rest } = params;
+
+    const amountNumber = BigNumber(amount || 0);
+
+    const accountAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        networkId: params.networkId,
+        accountId,
+      });
+
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const response = await client.post<{
+      data: IRepayWithCollateralQuote;
+    }>('/earn/v1/borrow/repay-with-collateral/quote', {
+      ...rest,
+      accountAddress,
+      amount: amountNumber.isNaN() ? '0' : amountNumber.toFixed(),
+    });
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async borrowBuildRepayWithCollateralTransaction(params: {
+    networkId: string;
+    provider: string;
+    marketAddress: string;
+    reserveAddress: string;
+    collateralReserveAddress: string;
+    accountId: string;
+    amount: string;
+    repayAll?: boolean;
+    slippageBps?: number;
+    routeKey?: string;
+  }) {
+    const { accountId, amount, ...rest } = params;
+
+    const amountNumber = BigNumber(amount || 0);
+
+    const accountAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        networkId: params.networkId,
+        accountId,
+      });
+
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const response = await client.post<{
+      data: IBorrowUnsignedTransaction;
+    }>('/earn/v1/borrow/build-repay-with-collateral-transaction', {
+      ...rest,
+      accountAddress,
+      amount: amountNumber.isNaN() ? '0' : amountNumber.toFixed(),
+    });
+    return response.data.data;
+  }
+
+  @backgroundMethod()
   async borrowBuildClaimTransaction(params: {
     networkId: string;
     provider: string;
@@ -2438,6 +2508,7 @@ class ServiceStaking extends ServiceBase {
     action: 'supply' | 'withdraw' | 'borrow' | 'repay';
     amount: string;
     repayAll?: boolean;
+    collateralReserveAddress?: string;
   }) {
     const { accountId, amount, repayAll, ...rest } = params;
 

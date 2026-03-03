@@ -3,10 +3,11 @@ import { useMemo } from 'react';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IStakeTransactionConfirmation } from '@onekeyhq/shared/types/staking';
 
-import type { IManagePageV2ReceiveInputConfig } from '../components/ManagePageV2ReceiveInput';
 import { usePendleTransactionDetails } from '../components/ProtocolDetails/PendleSharedComponents';
 
 import { useIsPendleProvider } from './useIsPendleProvider';
+
+import type { IManagePageV2ReceiveInputConfig } from '../components/ManagePageV2ReceiveInput';
 
 const ARROW_OVERLAY_OFFSET = -13;
 

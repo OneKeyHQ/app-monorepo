@@ -1019,6 +1019,7 @@ export interface IEarnManagePageActionData {
   text?: IEarnText;
   data?: {
     balance?: string;
+    reserveAddress?: string;
     token?: {
       info: IEarnToken;
       price: string;
@@ -1114,6 +1115,7 @@ export interface IEarnManagePageResponse {
   supply?: IEarnSupplyActionData;
   borrow?: IEarnBorrowActionData;
   repay?: IEarnRepayActionData;
+  collateral?: IEarnManagePageActionData;
   deposit?: IEarnDepositActionData;
   withdraw?: IEarnWithdrawActionData;
   receive?: IEarnReceiveActionIcon;
@@ -2441,11 +2443,32 @@ export interface IBorrowTransactionConfirmation {
       title: IEarnText;
     };
   };
+  remainingCollateral?: {
+    title: IEarnText;
+    description: IEarnText;
+    tooltip?: IEarnTooltip;
+  };
+  slippage?: {
+    title: IEarnText;
+    description: IEarnText;
+    value: number;
+  };
 }
 
 export interface IBorrowUnsignedTransaction {
   tx: string;
-  orderId: string;
+  orderId?: string;
 }
 
 export type IBorrowManagePage = IEarnManagePageResponse;
+
+export interface IRepayWithCollateralQuote {
+  router: string;
+  swapIn: string;
+  swapInReserveAddress: string;
+  minimalExpectedSwapOut: string;
+  minimalExpectedSwapOutSymbol: string;
+  fillPrice: string;
+  maxPriceImpact: string;
+  routeKey?: string;
+}

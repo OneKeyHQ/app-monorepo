@@ -1,7 +1,7 @@
 import { type RefObject, useEffect, useRef } from 'react';
 
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { onVisibilityStateChange } from '@onekeyhq/components/src/hooks/useVisibilityChange';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   useTokenDetailActions,
   useTokenDetailAtom,

@@ -1,17 +1,18 @@
-import { useDatePickerContext } from '@rehookify/datepicker';
 import { useCallback, useMemo, useState } from 'react';
+
+import { useDatePickerContext } from '@rehookify/datepicker';
 
 import { YStack } from '../../primitives';
 
 import { CalendarHeader } from './CalendarHeader';
 import { DayGrid } from './DayGrid';
 import { MonthGrid } from './MonthGrid';
-import { YearGrid, YearRangeHeader } from './YearGrid';
 import { callOnClick } from './utils';
+import { YearGrid, YearRangeHeader } from './YearGrid';
 
 import type { DatePickerMode } from './type';
 
-type ViewMode = 'day' | 'month' | 'year';
+type IViewMode = 'day' | 'month' | 'year';
 
 function useNavDisabled(calendarIndex: number, minDate?: Date, maxDate?: Date) {
   const { data } = useDatePickerContext();
@@ -86,7 +87,7 @@ export function CalendarPanel({
 
   const isRangeDualPanel = mode === 'range' && isDualPanel;
 
-  const [viewMode, setViewMode] = useState<ViewMode>('day');
+  const [viewMode, setViewMode] = useState<IViewMode>('day');
 
   const {
     isPrevDisabled,
@@ -137,10 +138,10 @@ export function CalendarPanel({
           onNextYear={
             showNextNav && viewMode === 'day' ? handleNextYear : undefined
           }
-          isPrevDisabled={showPrevNav && isPrevDisabled}
-          isNextDisabled={showNextNav && isNextDisabled}
-          isPrevYearDisabled={showPrevNav && isPrevYearDisabled}
-          isNextYearDisabled={showNextNav && isNextYearDisabled}
+          isPrevDisabled={showPrevNav ? isPrevDisabled : undefined}
+          isNextDisabled={showNextNav ? isNextDisabled : undefined}
+          isPrevYearDisabled={showPrevNav ? isPrevYearDisabled : undefined}
+          isNextYearDisabled={showNextNav ? isNextYearDisabled : undefined}
           onMonthClick={
             viewMode === 'day' && !isRangeDualPanel
               ? () => setViewMode('month')
@@ -153,25 +154,25 @@ export function CalendarPanel({
         />
       )}
 
-      {viewMode === 'day' && (
+      {viewMode === 'day' ? (
         <DayGrid
           calendarIndex={calendarIndex}
           hideOutOfMonth={false}
           fullWidth={mode === 'range'}
         />
-      )}
-      {viewMode === 'month' && (
+      ) : null}
+      {viewMode === 'month' ? (
         <MonthGrid
           onSelect={() => setViewMode('day')}
           onMonthSelect={onMonthSelect}
         />
-      )}
-      {viewMode === 'year' && (
+      ) : null}
+      {viewMode === 'year' ? (
         <YearGrid
           onSelect={() => setViewMode('month')}
           onYearSelect={onYearSelect}
         />
-      )}
+      ) : null}
     </YStack>
   );
 }
