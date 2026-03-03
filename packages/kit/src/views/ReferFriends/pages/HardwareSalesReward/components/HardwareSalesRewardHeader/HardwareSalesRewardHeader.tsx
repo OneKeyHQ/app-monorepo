@@ -5,13 +5,12 @@ import { useIntl } from 'react-intl';
 
 import { useMedia } from '@onekeyhq/components';
 import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IHardwareCumulativeRewards } from '@onekeyhq/shared/src/referralCode/type';
-
 import {
   RewardHeaderLayout,
   StatCard,
 } from '@onekeyhq/kit/src/views/ReferFriends/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IHardwareCumulativeRewards } from '@onekeyhq/shared/src/referralCode/type';
 
 interface IHardwareSalesRewardHeaderProps {
   cumulativeRewards: IHardwareCumulativeRewards;

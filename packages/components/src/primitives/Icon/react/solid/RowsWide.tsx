@@ -7,7 +7,7 @@ const SvgRowsWide = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M22 13v5a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-5zm-2-9a2 2 0 0 1 2 2v5H2V6a2 2 0 0 1 2-2z" />
+    <Path d="M22 13v7H2v-7zm0-2H2V4h20z" />
   </Svg>
 );
 export default SvgRowsWide;

@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
-
 import { Linking } from 'react-native';
 
 import {

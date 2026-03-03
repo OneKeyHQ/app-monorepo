@@ -637,7 +637,10 @@ class DesktopApiAppUpdate {
     );
     if (verifyParams.downloadedFile) {
       try {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call -- dynamic require returns untyped
+        // oxlint-disable-next-line @typescript-eslint/no-unsafe-call -- dynamic require returns untyped
         const { shell } = require('electron');
+        // oxlint-disable-next-line @typescript-eslint/no-unsafe-call -- shell from dynamic require is untyped
         await shell.openPath(path.dirname(verifyParams.downloadedFile));
       } catch (error) {
         logger.error('auto-updater', 'Failed to open downloaded file', error);

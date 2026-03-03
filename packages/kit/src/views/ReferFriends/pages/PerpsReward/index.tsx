@@ -32,6 +32,7 @@ import {
   ReferFriendsDetailHeader,
   ReferFriendsPageContainer,
 } from '../../components';
+import { useDatePresets } from '../../hooks/useDatePresets';
 import { useRewardFilter } from '../../hooks/useRewardFilter';
 
 import { PerpsDetailsSection } from './components/PerpsDetailsSection';
@@ -366,6 +367,7 @@ function PerpsRewardPageWrapper() {
 
   // Max date for DatePicker (today)
   const maxDate = useMemo(() => new Date(), []);
+  const presets = useDatePresets();
 
   const toolbar = useMemo(
     () => (
@@ -375,6 +377,8 @@ function PerpsRewardPageWrapper() {
             value={currentDatePickerValue}
             onChange={handleDateRangeChange}
             maxDate={maxDate}
+            showPreviousMonth
+            presets={presets}
           />
         </YStack>
         <XStack gap="$3">
@@ -396,6 +400,7 @@ function PerpsRewardPageWrapper() {
       currentDatePickerValue,
       handleDateRangeChange,
       maxDate,
+      presets,
       filterState,
       updateFilter,
       effectiveTimeRange,

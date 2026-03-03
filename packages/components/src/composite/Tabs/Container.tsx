@@ -12,7 +12,6 @@ import {
 import type { PropsWithChildren, RefObject } from 'react';
 
 import { debounce } from 'lodash';
-import type { SharedValue } from 'react-native-reanimated';
 import { useAnimatedReaction, useSharedValue } from 'react-native-reanimated';
 import { WindowScroller } from 'react-virtualized';
 
@@ -27,6 +26,7 @@ import type {
   CollapsibleProps,
   TabBarProps,
 } from 'react-native-collapsible-tab-view';
+import type { SharedValue } from 'react-native-reanimated';
 import type { WindowScrollerChildProps } from 'react-virtualized';
 
 export function ContainerChild({

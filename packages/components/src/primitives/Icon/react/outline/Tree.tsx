@@ -7,7 +7,11 @@ const SvgTree = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M19 11a7 7 0 1 0-8 6.927v-2.513l-1.707-1.707a1 1 0 1 1 1.414-1.414L12 13.586l2.293-2.293a1 1 0 1 1 1.414 1.414L13 15.414v2.513A7 7 0 0 0 19 11m2 0c0 4.633-3.5 8.445-8 8.942V21a1 1 0 1 1-2 0v-1.058A9 9 0 1 1 21 11" />
+    <Path
+      fillRule="evenodd"
+      d="M12 2a9 9 0 0 1 1 17.942V22h-2v-2.058A9 9 0 0 1 12 2m0 2a7 7 0 0 0-1 13.927v-2.513L8.586 13 10 11.586l2 2 3-3L16.414 12 13 15.414v2.513A7 7 0 0 0 12 4"
+      clipRule="evenodd"
+    />
   </Svg>
 );
 export default SvgTree;

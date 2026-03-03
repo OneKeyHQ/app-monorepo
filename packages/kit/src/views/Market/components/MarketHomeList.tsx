@@ -436,7 +436,9 @@ function BasicMarketHomeList({
       true,
     );
     void timerUtils.setTimeoutPromised(() => {
-      setListData(response);
+      if (response) {
+        setListData(response);
+      }
     });
   }, [FETCH_COOLDOWN_DURATION, category.categoryId, category.coingeckoIds]);
 
@@ -499,6 +501,7 @@ function BasicMarketHomeList({
     }
     return filterListData;
   }, [category, listData, ordered]);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { sortedListData, handleSortTypeChange, sortByType, setSortByType } =
     useSortType(filterCoingeckoIdsListData as Record<string, any>[]);
 

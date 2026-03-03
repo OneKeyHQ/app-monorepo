@@ -564,7 +564,10 @@ export function SocialButtonGroup() {
   const [appUpdateInfo] = useAppUpdatePersistAtom();
   const isTabNavigator = useIsTabNavigator();
   const version = useMemo(() => {
-    return `${platformEnv.version ?? ''} ${platformEnv.buildNumber ?? ''}`;
+    const bundleSuffix = platformEnv.bundleVersion
+      ? `(${platformEnv.bundleVersion})`
+      : '';
+    return `${platformEnv.version ?? ''} ${platformEnv.buildNumber ?? ''}${bundleSuffix}`;
   }, []);
   const versionString = intl.formatMessage(
     {

@@ -243,7 +243,7 @@ const getAppChannel = (): IAppChannel | undefined => {
 };
 
 const isRuntimeBrowser: boolean =
-  // oxlint-disable-next-line unicorn/prefer-global-this
+  // eslint-disable-next-line unicorn/prefer-global-this
   typeof window !== 'undefined' && !isNative;
 
 // @ts-ignore
@@ -369,7 +369,7 @@ const getBrowserInfo = () => {
 
 const isWebTouchable =
   isRuntimeBrowser &&
-  // oxlint-disable-next-line unicorn/prefer-global-this
+  // eslint-disable-next-line unicorn/prefer-global-this
   ('ontouchstart' in globalThis || navigator.maxTouchPoints > 0);
 
 let isWebMobile = false;

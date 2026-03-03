@@ -1,4 +1,5 @@
 /* oxlint-disable @cspell/spellchecker, @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import {
   AptosConfig,
   Aptos as AptosRpcClient,
@@ -672,11 +673,13 @@ export default class VaultAptos extends VaultBase {
       .shiftedBy(common.feeDecimals)
       .toFixed();
 
+    /* eslint-disable prefer-const */
     let {
       bcsTxn,
       disableEditTx,
       max_gas_amount: maxGasAmount,
     } = params.encodedTx;
+    /* eslint-enable prefer-const */
     // Standard wallet dApp interface not edit fee
     if (!disableEditTx && !isNil(bcsTxn) && !isEmpty(bcsTxn)) {
       const deserializer = new Deserializer(bufferUtils.hexToBytes(bcsTxn));

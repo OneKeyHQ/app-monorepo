@@ -7,7 +7,7 @@ const SvgVoiceSound = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M7 20V4a1 1 0 0 1 2 0v16a1 1 0 1 1-2 0m8-2V6a1 1 0 1 1 2 0v12a1 1 0 1 1-2 0m-4-2V8a1 1 0 1 1 2 0v8a1 1 0 1 1-2 0m-8-2v-4a1 1 0 0 1 2 0v4a1 1 0 1 1-2 0m16 0v-4a1 1 0 1 1 2 0v4a1 1 0 1 1-2 0" />
+    <Path d="M9 21H7V3h2zm8-2h-2V5h2zm-4-2h-2V7h2zm-8-2H3V9h2zm16 0h-2V9h2z" />
   </Svg>
 );
 export default SvgVoiceSound;

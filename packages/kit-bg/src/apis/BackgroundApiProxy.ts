@@ -47,6 +47,7 @@ import type ServiceHyperliquidSubscription from '../services/ServiceHyperLiquid/
 import type ServiceHyperliquidWallet from '../services/ServiceHyperLiquid/ServiceHyperliquidWallet';
 import type ServiceInternalSignAndVerify from '../services/ServiceInternalSignAndVerify';
 import type ServiceIpTable from '../services/ServiceIpTable';
+import type ServiceKeylessCloudSync from '../services/ServiceKeylessCloudSync';
 import type ServiceKeylessWallet from '../services/ServiceKeylessWallet/ServiceKeylessWallet';
 import type ServiceLightning from '../services/ServiceLightning';
 import type ServiceLiteCardMnemonic from '../services/ServiceLiteCardMnemonic';
@@ -223,6 +224,10 @@ class BackgroundApiProxy
   servicePrimeCloudSync = this._createProxyService(
     'servicePrimeCloudSync',
   ) as ServicePrimeCloudSync;
+
+  serviceKeylessCloudSync = this._createProxyService(
+    'serviceKeylessCloudSync',
+  ) as ServiceKeylessCloudSync;
 
   serviceQrWallet = this._createProxyService(
     'serviceQrWallet',

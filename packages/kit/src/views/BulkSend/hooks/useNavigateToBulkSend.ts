@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 
+import { rootNavigationRef, useMedia } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -11,7 +12,6 @@ import {
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import type { IToken } from '@onekeyhq/shared/types/token';
-import { rootNavigationRef, useMedia } from '@onekeyhq/components';
 
 export function useNavigateToBulkSend() {
   const navigation = useAppNavigation();

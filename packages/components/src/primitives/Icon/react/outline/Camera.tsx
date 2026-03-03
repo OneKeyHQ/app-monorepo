@@ -9,12 +9,12 @@ const SvgCamera = (props: SvgProps) => (
   >
     <Path
       fillRule="evenodd"
-      d="M12 9a4 4 0 1 1 0 8 4 4 0 0 1 0-8m0 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4"
+      d="M16 13a4 4 0 1 1-8 0 4 4 0 0 1 8 0m-2 0a2 2 0 1 0-4 0 2 2 0 0 0 4 0"
       clipRule="evenodd"
     />
     <Path
       fillRule="evenodd"
-      d="M13.965 3a2 2 0 0 1 1.664.89L17.035 6H20a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h2.965L8.37 3.89A2 2 0 0 1 10.035 3zM8.629 7.11A2 2 0 0 1 6.965 8H4v11h16V8h-2.965a2 2 0 0 1-1.592-.79l-.072-.1L13.965 5h-3.93L8.63 7.11Z"
+      d="m15.035 3 2 3H22v15H2V6h4.965l2-3zm-7 5H4v11h16V8h-4.035l-2-3h-3.93z"
       clipRule="evenodd"
     />
   </Svg>

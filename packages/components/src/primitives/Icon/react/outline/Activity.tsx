@@ -7,7 +7,7 @@ const SvgActivity = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M7.808 2.954c.356-1.128 1.915-1.164 2.346-.106l.038.106L15 18.18l1.826-5.781A2 2 0 0 1 18.732 11H22a1 1 0 1 1 0 2h-3.268l-2.54 8.046c-.367 1.165-2.017 1.165-2.384 0L8.999 5.82l-1.825 5.783A2 2 0 0 1 5.268 13H2a1 1 0 0 1 0-2h3.268z" />
+    <Path d="M15 17.15 17.307 11H23v2h-4.307L15 22.848l-6-16L6.693 13H1v-2h4.307L9 1.152z" />
   </Svg>
 );
 export default SvgActivity;

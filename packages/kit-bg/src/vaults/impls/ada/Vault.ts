@@ -144,7 +144,9 @@ export default class Vault extends VaultBase {
       })
     )
       // Native transfer filter datumHash is null
-      .filter((utxo) => utxo.datum_hash == null);
+      .filter(
+        (utxo) => utxo.datum_hash === null || utxo.datum_hash === undefined,
+      );
 
     const amountBN = new BigNumber(amount);
 
