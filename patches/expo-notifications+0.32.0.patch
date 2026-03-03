@@ -1,18 +1,16 @@
 diff --git a/node_modules/expo-notifications/android/src/main/java/expo/modules/notifications/tokens/PushTokenModule.kt b/node_modules/expo-notifications/android/src/main/java/expo/modules/notifications/tokens/PushTokenModule.kt
-index 1234567..abcdefg 100644
 --- a/node_modules/expo-notifications/android/src/main/java/expo/modules/notifications/tokens/PushTokenModule.kt
 +++ b/node_modules/expo-notifications/android/src/main/java/expo/modules/notifications/tokens/PushTokenModule.kt
-@@ -20,11 +20,15 @@ class PushTokenModule : Module(), FirebaseTokenListener {
+@@ -20,12 +20,16 @@
     * @param token New push token.
     */
    override fun onNewToken(token: String) {
 -    sendEvent(
--      NEW_TOKEN_EVENT_NAME,
--      mapOf(
--        NEW_TOKEN_EVENT_TOKEN_KEY to token
 +    try {
 +      sendEvent(
-+        NEW_TOKEN_EVENT_NAME,
+       NEW_TOKEN_EVENT_NAME,
+-      mapOf(
+-        NEW_TOKEN_EVENT_TOKEN_KEY to token
 +        mapOf(
 +          NEW_TOKEN_EVENT_TOKEN_KEY to token
 +        )
