@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 
-import { LinearGradient } from 'expo-linear-gradient';
+import { LinearGradient } from '@onekeyhq/components';
 import Animated, {
   Easing,
   useAnimatedStyle,

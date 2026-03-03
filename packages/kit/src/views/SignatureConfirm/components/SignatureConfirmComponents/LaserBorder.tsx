@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet } from 'react-native';
 
-import { LinearGradient } from 'expo-linear-gradient';
+import { LinearGradient } from '@onekeyhq/components';
 import Animated, {
   Easing,
   interpolate,
