@@ -171,14 +171,21 @@ function FavoritesBar() {
       if (!result.destination) return;
       if (result.source.index === result.destination.index) return;
 
+      // Use coinName to locate items in persisted array (rendered list may be a filtered subset).
       setFavoritesSettings((prev) => {
+        const sourceCoin = favoriteItems[result.source.index]?.coinName;
+        const destCoin = favoriteItems[result.destination!.index]?.coinName;
+        if (!sourceCoin || !destCoin) return prev;
         const newFavorites = [...prev.favorites];
-        const [moved] = newFavorites.splice(result.source.index, 1);
-        newFavorites.splice(result.destination!.index, 0, moved);
+        const sourceIdx = newFavorites.indexOf(sourceCoin);
+        const destIdx = newFavorites.indexOf(destCoin);
+        if (sourceIdx === -1 || destIdx === -1) return prev;
+        const [moved] = newFavorites.splice(sourceIdx, 1);
+        newFavorites.splice(destIdx, 0, moved);
         return { ...prev, favorites: newFavorites };
       });
     },
-    [setFavoritesSettings],
+    [setFavoritesSettings, favoriteItems],
   );
 
   const renderClone = useCallback(
@@ -188,6 +195,11 @@ function FavoritesBar() {
       rubric: DraggableRubric,
     ) => {
       const item = favoriteItems[rubric.source.index];
+      if (!item) {
+        return (
+          <div ref={provided.innerRef} {...provided.draggableProps} />
+        );
+      }
       return (
         <div
           ref={provided.innerRef}
@@ -303,6 +315,7 @@ function FavoritesBar() {
                   flexDirection: 'row',
                   alignItems: 'center',
                   overflowX: 'auto',
+                  scrollbarWidth: 'none',
                 }}
               >
                 {favoriteItems.map((item, index) => (
