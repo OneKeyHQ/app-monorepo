@@ -16,10 +16,10 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EAppUpdateStatus } from '@onekeyhq/shared/src/appUpdate/type';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { useDownloadProgress } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
+import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import type { IAppUpdatePagesParamList } from '@onekeyhq/shared/src/routes';
 import { EAppUpdateRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
-import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 
 import { HyperlinkText } from '../../../components/HyperlinkText';
 import {

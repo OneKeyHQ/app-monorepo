@@ -9,6 +9,7 @@ import {
 } from 'react';
 
 import { isNil } from 'lodash';
+// eslint-disable-next-line import/order
 import { useIntl } from 'react-intl';
 
 import {
@@ -233,6 +234,7 @@ function ReferralCodeBlock({
         if (!isInputFocusedRef.current || !inputWrapperRef.current || !refMap) {
           return;
         }
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
         inputWrapperRef.current.measureInWindow(
           (_x: number, y: number, _width: number, height: number) => {
             const inputBottom = y + height;

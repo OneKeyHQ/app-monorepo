@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-call */
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 
 import { Freeze } from 'react-freeze';

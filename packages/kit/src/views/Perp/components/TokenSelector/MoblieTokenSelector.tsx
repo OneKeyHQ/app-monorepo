@@ -12,13 +12,16 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import {
+  ScrollableFilterBar,
+  useScrollableFilterBar,
+} from '@onekeyhq/kit/src/components/ScrollableFilterBar';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsAllAssetCtxsAtom,
   usePerpsAllAssetsFilteredAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
-
 import {
   usePerpTokenSelectorConfigPersistAtom,
   usePerpTokenSelectorTabsAtom,
@@ -38,10 +41,6 @@ import {
   XYZ_ASSET_ID_OFFSET,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
-import {
-  ScrollableFilterBar,
-  useScrollableFilterBar,
-} from '@onekeyhq/kit/src/components/ScrollableFilterBar';
 import {
   type IFavoriteItem,
   usePerpActiveTabValidation,

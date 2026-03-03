@@ -13,9 +13,9 @@ import type { IServerNetwork } from '..';
 import type { EPrimeCloudSyncDataType } from '../../src/consts/primeConsts';
 import type { IAvatarInfo } from '../../src/utils/emojiUtils';
 import type { IDBCustomRpc } from '../customRpc';
+import type { IKeylessCloudSyncCredential } from '../keylessCloudSync';
 import type { IMarketWatchListItemV2 } from '../market';
 import type { ICloudSyncCustomToken } from '../token';
-import type { IKeylessCloudSyncCredential } from '../keylessCloudSync';
 
 // for user to manual resolve diff items
 export type ICloudSyncServerDiffItem = {

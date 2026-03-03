@@ -279,7 +279,8 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     const isSocketOpen =
       client?.transport?.socket?.readyState === WebSocket.OPEN;
     const isDataFlowing =
-      this._lastMessageAt != null &&
+      this._lastMessageAt !== null &&
+      this._lastMessageAt !== undefined &&
       Date.now() - this._lastMessageAt <
         HYPERLIQUID_REFRESH_DATA_FLOW_THRESHOLD_MS;
 
@@ -592,6 +593,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         reconnect: {
           maxRetries: 999,
           connectionTimeout: 5000,
+
           // oxlint-disable-next-line @cspell/spellchecker
           reconnectionDelay: (
             attempt: number, // spell-checker:disable-line
@@ -975,7 +977,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
       const data = event?.detail as unknown;
 
-      if (data == null) {
+      if (data === null || data === undefined) {
         console.warn(
           `[ServiceHyperliquidSubscription.handleSubscriptionData] Data validation failed for: ${subscriptionType}`,
         );

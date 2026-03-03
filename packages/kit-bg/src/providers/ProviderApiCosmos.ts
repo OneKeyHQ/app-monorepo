@@ -257,6 +257,7 @@ class ProviderApiCosmos extends ProviderApiBase {
       pubKey: account.pub,
       address: account.addressDetail.baseAddress,
       bech32Address: account.addressDetail.displayAddress,
+
       // oxlint-disable-next-line @cspell/spellchecker
       isNanoLedger: accountUtils.isHwAccount({
         accountId: account.id,
@@ -714,6 +715,7 @@ class ProviderApiCosmos extends ProviderApiBase {
       signDoc: ICosmosStdSignDoc;
     },
   ) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return this.signAmino(request, {
       signer: params.signerAddress,
       signDoc: params.signDoc,

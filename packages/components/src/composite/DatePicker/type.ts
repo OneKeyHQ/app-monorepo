@@ -3,6 +3,7 @@ import type { ReactElement } from 'react';
 import type { IPopoverProps } from '../../actions';
 import type { SheetProps } from '../../shared/tamagui';
 
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export type DatePickerMode = 'date' | 'range' | 'month' | 'year' | 'multiple';
 
 export interface IDateRange {
@@ -41,6 +42,8 @@ export interface IRangePickerProps extends IDatePickerBaseProps {
   mode?: 'range';
   value?: IDateRange;
   onChange?: (range: IDateRange) => void;
+  showPreviousMonth?: boolean;
+  presets?: IDateRangePreset[];
 }
 
 export interface IYearPickerProps extends IDatePickerBaseProps {
@@ -92,14 +95,23 @@ export interface IDayCellProps {
   onPress: (date: string) => void;
 }
 
+export interface IDateRangePreset {
+  label: string;
+  getRange: () => IDateRange;
+}
+
 export interface ICalendarHeaderProps {
   month: string;
   year: string;
   onPrevMonth?: () => void;
   onNextMonth?: () => void;
+  onPrevYear?: () => void;
+  onNextYear?: () => void;
   onMonthClick?: () => void;
   onYearClick?: () => void;
   mode?: DatePickerMode;
   isPrevDisabled?: boolean;
   isNextDisabled?: boolean;
+  isPrevYearDisabled?: boolean;
+  isNextYearDisabled?: boolean;
 }

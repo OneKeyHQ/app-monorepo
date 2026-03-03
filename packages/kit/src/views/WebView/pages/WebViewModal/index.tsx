@@ -59,6 +59,7 @@ export default function WebViewModal() {
         // Access stopLoading through innerRef as it's not exposed in the wrapper
         const innerWebView = webview?.innerRef;
         if (innerWebView && 'stopLoading' in innerWebView) {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
           (innerWebView as any).stopLoading?.();
         }
       } catch (error) {

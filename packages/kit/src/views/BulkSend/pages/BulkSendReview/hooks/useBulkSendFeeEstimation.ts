@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import {
   calculateFeeForSend,
   getFeeIcon,
@@ -189,7 +190,7 @@ export function useBulkSendFeeEstimation({
         }
 
         if (!txFee) {
-          throw new Error('Failed to estimate fee');
+          throw new OneKeyInternalError('Failed to estimate fee');
         }
 
         // Build fee selector items (only standard presets, no custom)
@@ -251,7 +252,7 @@ export function useBulkSendFeeEstimation({
         const selectedFeeInfo = feeSelectorItems[selectedPresetIndex]?.feeInfo;
 
         if (!selectedFeeInfo) {
-          throw new Error('No fee info available');
+          throw new OneKeyInternalError('No fee info available');
         }
 
         // Calculate fees for each transaction
@@ -449,6 +450,7 @@ export function useBulkSendFeeEstimation({
         feeInfos,
       }));
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [
       feeState.feeSelectorItems,
       feeState.perTxFeeInfos,

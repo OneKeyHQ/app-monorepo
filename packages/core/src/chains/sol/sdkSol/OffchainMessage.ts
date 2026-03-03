@@ -434,7 +434,9 @@ export class OffchainMessage {
       return false;
     }
     const format = OffchainMessage.guessMessageFormat(this.message);
-    return format != null && format === this.messageFormat;
+    return (
+      format !== null && format !== undefined && format === this.messageFormat
+    );
   }
 
   isLedgerSupported(allowBlindSigning: boolean) {

@@ -25,13 +25,13 @@ import type { IWalletAvatarProps } from '@onekeyhq/kit/src/components/WalletAvat
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
 import { useHardwareWalletConnectStatus } from '@onekeyhq/kit/src/hooks/useHardwareWalletConnectStatus';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useNavigateToPickYourDevicePage } from '@onekeyhq/kit/src/views/Onboarding/hooks/useToOnBoardingPage';
 import { useFirmwareUpdatesDetectStatusPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { useNavigateToPickYourDevicePage } from '@onekeyhq/kit/src/views/Onboarding/hooks/useToOnBoardingPage';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';

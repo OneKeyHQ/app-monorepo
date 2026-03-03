@@ -21,6 +21,7 @@ import { useRedirectWhenNotLoggedIn } from '@onekeyhq/kit/src/views/ReferFriends
 import { CumulativeRewards } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/CumulativeRewards';
 import { CurrentLevelCard } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/CurrentLevelCard';
 import { InvitationDetailsSection } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/InvitationDetailsSection';
+import { LogoutButton } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/LogoutButton';
 import { ReferralCodeCard } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/ReferralCodeCard';
 import { RulesButton } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/RulesButton';
 import { SectionHeader } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/SectionHeader';
@@ -66,8 +67,9 @@ function InviteRewardContent({
       <XStack px="$pagePadding" pt="$5" pb="$4" jc="space-between" ai="center">
         <SectionHeader translationId={ETranslations.global_overview} />
 
-        <XStack $md={{ display: 'none' }}>
+        <XStack $md={{ display: 'none' }} gap="$4">
           <RulesButton />
+          {platformEnv.isWeb ? <LogoutButton /> : null}
         </XStack>
 
         <XStack $gtMd={{ display: 'none' }} $md={{ display: 'flex' }}>

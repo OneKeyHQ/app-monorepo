@@ -20,7 +20,6 @@ import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
 import { getPrimePaymentApiKey } from './getPrimePaymentApiKey';
-import primePaymentUtils from './primePaymentUtils';
 
 import type {
   IPackage,
@@ -160,6 +159,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
     const packages: IPackage[] = [];
 
     offerings.current?.availablePackages.forEach((p) => {
+      // eslint-disable-next-line prefer-const
       let { subscriptionPeriod, pricePerYear, pricePerMonth } = p.product;
 
       if (platformEnv.isNativeAndroid) {
@@ -259,14 +259,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
               : offering.product.pricePerMonth || 0;
           }
 
-          // Extract currency from price string
-          const currency =
-            primePaymentUtils.extractCurrencySymbol(
-              offering.product.priceString ||
-                offering.product.pricePerYearString ||
-                '',
-              { useShortUSSymbol: true },
-            ) || 'USD';
+          const currency = offering.product.currencyCode || 'USD';
 
           defaultLogger.prime.subscription.primeSubscribeSuccess({
             planType,
