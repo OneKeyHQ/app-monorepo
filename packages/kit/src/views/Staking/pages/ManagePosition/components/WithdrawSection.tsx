@@ -1,6 +1,8 @@
 import type { ReactElement } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -25,10 +27,8 @@ import {
   type IProtocolInfo,
 } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
-import { useIntl } from 'react-intl';
 
 import { UniversalWithdraw } from '../../../components/UniversalWithdraw';
-import type { IManagePageV2ReceiveInputConfig } from '../../../components/ManagePageV2ReceiveInput';
 import { useBorrowApiParams } from '../../../hooks/useBorrowApiParams';
 import { useIsPendleProvider } from '../../../hooks/useIsPendleProvider';
 import { useUniversalWithdraw } from '../../../hooks/useUniversalHooks';
@@ -37,6 +37,8 @@ import {
   normalizeStakeTokenAddress,
   resolveStakeTokenAddress,
 } from '../../../utils/utils';
+
+import type { IManagePageV2ReceiveInputConfig } from '../../../components/ManagePageV2ReceiveInput';
 
 export const WithdrawSection = ({
   accountId,

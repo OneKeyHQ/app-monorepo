@@ -306,13 +306,24 @@ function BaseTxHistoryListView(props: IProps) {
     [filteredHistory],
   );
 
-  const ListComponentRef = useRef<typeof ListComponent>(null);
+  const internalListRef = useRef<any>(null);
+
+  const handleListRef = useCallback(
+    (instance: any) => {
+      internalListRef.current = instance;
+      if (typeof ref === 'function') {
+        ref(instance);
+      } else if (ref) {
+        (ref as React.MutableRefObject<any>).current = instance;
+      }
+    },
+    [ref],
+  );
 
   const recomputeLayout = useCallback(() => {
     if (!platformEnv.isNative) {
-      // update tab list header height after alert dismissed
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-      (ListComponentRef.current as any)?.recomputeLayout?.();
+      internalListRef.current?.recomputeLayout?.();
     }
   }, []);
 
@@ -325,9 +336,10 @@ function BaseTxHistoryListView(props: IProps) {
         showIcon={showIcon}
         onPress={onPressHistory}
         tableLayout={tableLayout}
+        recomputeLayout={recomputeLayout}
       />
     ),
-    [hideValue, onPressHistory, showIcon, tableLayout],
+    [hideValue, onPressHistory, showIcon, tableLayout, recomputeLayout],
   );
   const renderSectionHeader = useCallback(
     ({
@@ -443,7 +455,7 @@ function BaseTxHistoryListView(props: IProps) {
 
   return (
     <ListComponent
-      ref={(ref ?? ListComponentRef) as any}
+      ref={handleListRef as any}
       showsVerticalScrollIndicator={false}
       windowSize={platformEnv.isNativeAndroid && inTabList ? 3 : undefined}
       nestedScrollEnabled={platformEnv.isNativeAndroid ? inTabList : false}
