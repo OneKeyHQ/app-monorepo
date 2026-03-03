@@ -248,7 +248,7 @@ function FavoritesBar() {
     return () => {
       el.removeEventListener('scroll', updateScrollState);
     };
-  }, [updateScrollState]);
+  }, [updateScrollState, hasFavorites]);
 
   const mergeRefs = useCallback(
     (droppableInnerRef: (element: HTMLElement | null) => void) =>
