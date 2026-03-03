@@ -1,7 +1,5 @@
 import { memo, useCallback } from 'react';
 
-import { useIntl } from 'react-intl';
-
 import {
   Icon,
   IconButton,
@@ -14,15 +12,14 @@ import {
   type IPerpsFooterTickerMode,
   usePerpsFooterTickerModePersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 const FOOTER_MODES: {
   mode: IPerpsFooterTickerMode;
-  labelId: ETranslations;
+  label: string;
 }[] = [
-  { mode: 'none', labelId: ETranslations.perps_footer_no_preview },
-  { mode: 'popular', labelId: ETranslations.perps_footer_popular },
-  { mode: 'favorites', labelId: ETranslations.perps_footer_favorites },
+  { mode: 'none', label: 'No Preview' },
+  { mode: 'popular', label: 'Popular' },
+  { mode: 'favorites', label: 'Favorites' },
 ];
 
 function FooterTickerSettingsContent({
@@ -30,7 +27,6 @@ function FooterTickerSettingsContent({
 }: {
   closePopover: () => void;
 }) {
-  const intl = useIntl();
   const [footerMode, setFooterMode] = usePerpsFooterTickerModePersistAtom();
 
   const handleSelect = useCallback(
@@ -43,10 +39,10 @@ function FooterTickerSettingsContent({
 
   return (
     <YStack py="$1" minWidth={180}>
-      {FOOTER_MODES.map(({ mode, labelId }) => (
+      {FOOTER_MODES.map(({ mode, label }) => (
         <ListItem key={mode} onPress={() => handleSelect(mode)} py="$2" px="$3">
           <SizableText size="$bodyMd" flex={1}>
-            {intl.formatMessage({ id: labelId })}
+            {label}
           </SizableText>
           {footerMode.mode === mode ? (
             <Icon name="CheckLargeOutline" size="$4.5" color="$icon" />
