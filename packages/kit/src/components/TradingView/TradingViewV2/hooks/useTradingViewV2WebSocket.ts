@@ -1,5 +1,6 @@
 import { type RefObject, useEffect, useRef } from 'react';
 
+import { onVisibilityStateChange } from '@onekeyhq/components/src/hooks/useVisibilityChange';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   useTokenDetailActions,
@@ -33,6 +34,8 @@ export function useTradingViewV2WebSocket({
   const lastUpdateTime = useRef<number>(0);
   const tokenDetailActions = useTokenDetailActions();
   const [tokenDetail] = useTokenDetailAtom();
+  const tokenDetailRef = useRef(tokenDetail);
+  tokenDetailRef.current = tokenDetail;
   // Initialize and manage WebSocket connection
   useEffect(() => {
     if (!networkId || !tokenAddress) {
@@ -141,14 +144,14 @@ export function useTradingViewV2WebSocket({
             if (
               receivedData &&
               typeof receivedData.c === 'number' &&
-              tokenDetail
+              tokenDetailRef.current
             ) {
               const latestPrice = receivedData.c.toString(); // close price
 
               // Only update if the price is different to avoid unnecessary updates
-              if (tokenDetail.price !== latestPrice) {
-                const updatedTokenDetail: typeof tokenDetail = {
-                  ...tokenDetail,
+              if (tokenDetailRef.current.price !== latestPrice) {
+                const updatedTokenDetail: typeof tokenDetailRef.current = {
+                  ...tokenDetailRef.current,
                   price: latestPrice,
                   lastUpdated: now * 1000, // Convert to milliseconds for JavaScript Date
                 };
@@ -174,12 +177,26 @@ export function useTradingViewV2WebSocket({
         handleMarketDataUpdate,
       );
     };
-  }, [
-    networkId,
-    tokenAddress,
-    webRef,
-    enabled,
-    tokenDetail,
-    tokenDetailActions,
-  ]);
+  }, [networkId, tokenAddress, webRef, enabled, tokenDetailActions]);
+
+  // Re-subscribe when browser tab becomes visible again
+  // Auto-unsubscribe may have killed the subscription while tab was in background
+  // (UI-side clearDataCount stops being called → dataCount reaches threshold)
+  useEffect(() => {
+    if (!enabled || !networkId || !tokenAddress) {
+      return;
+    }
+    const removeSubscription = onVisibilityStateChange((visible) => {
+      if (visible) {
+        void backgroundApiProxy.serviceMarketWS.ensureSubscription({
+          networkId,
+          tokenAddress,
+          chartType,
+          currency,
+          channel: 'ohlcv',
+        });
+      }
+    });
+    return removeSubscription;
+  }, [enabled, networkId, tokenAddress, chartType, currency]);
 }
