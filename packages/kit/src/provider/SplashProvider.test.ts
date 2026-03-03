@@ -1,6 +1,7 @@
 /**
  * @jest-environment jsdom
  */
+/* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, import/first */
 // SplashProvider useDisplaySplash tests
 //
 // Tests the splash-screen gating logic that decides whether to show the

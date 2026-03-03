@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
 // Bundle Update Native Module harness tests
 // Runs on real device (Hermes) via react-native-harness to verify native BundleUpdateModule
 // functions work correctly on Android/iOS.

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
 // ServiceAppUpdate state transition tests
 // Tests the state machine that drives bundle/app updates:
 //   notify → downloadPackage → downloadASC → verifyASC → verifyPackage → ready → done
@@ -757,6 +758,7 @@ describe('ServiceAppUpdate state transitions', () => {
         downloadedEvent: { downloadedFile: '/tmp/old.zip' },
       });
 
+      // eslint-disable-next-line no-script-url
       await service.updateDownloadUrl('javascript:alert(1)');
 
       expect(atomValue.downloadedEvent?.downloadUrl).toBeUndefined();

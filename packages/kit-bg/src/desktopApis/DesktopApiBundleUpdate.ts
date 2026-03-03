@@ -617,10 +617,7 @@ class DesktopApiAppBundleUpdate {
       }
       if (entry.isDirectory()) {
         this.walkAndVerifyFiles(fullPath, metadata, baseDir, verifiedFiles);
-      } else {
-        if (entry.name === 'metadata.json' || entry.name === '.DS_Store') {
-          continue;
-        }
+      } else if (entry.name !== 'metadata.json' && entry.name !== '.DS_Store') {
         const relativePath = path
           .relative(baseDir, fullPath)
           .split(path.sep)
@@ -668,13 +665,15 @@ class DesktopApiAppBundleUpdate {
     const entries = fs.readdirSync(bundleDir, { withFileTypes: true });
     const results: { appVersion: string; bundleVersion: string }[] = [];
     for (const entry of entries) {
-      if (!entry.isDirectory()) continue;
-      const lastDash = entry.name.lastIndexOf('-');
-      if (lastDash <= 0) continue;
-      const appVersion = entry.name.substring(0, lastDash);
-      const bundleVersion = entry.name.substring(lastDash + 1);
-      if (appVersion && bundleVersion) {
-        results.push({ appVersion, bundleVersion });
+      if (entry.isDirectory()) {
+        const lastDash = entry.name.lastIndexOf('-');
+        if (lastDash > 0) {
+          const appVersion = entry.name.substring(0, lastDash);
+          const bundleVersion = entry.name.substring(lastDash + 1);
+          if (appVersion && bundleVersion) {
+            results.push({ appVersion, bundleVersion });
+          }
+        }
       }
     }
     return results;

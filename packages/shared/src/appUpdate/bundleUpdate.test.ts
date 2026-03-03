@@ -358,7 +358,7 @@ describe('path traversal detection', () => {
     const resolved = resolvePosix(extractDir, entryName);
     const normalizedBase = resolvePosix(extractDir);
     return (
-      !resolved.startsWith(normalizedBase + '/') && resolved !== normalizedBase
+      !resolved.startsWith(`${normalizedBase}/`) && resolved !== normalizedBase
     );
   }
 
@@ -748,7 +748,7 @@ describe('HTTPS validation edge cases', () => {
 // ---------------------------------------------------------------------------
 describe('path traversal edge cases', () => {
   function isTraversal(entry: string, base: string): boolean {
-    const segments = (base + '/' + entry)
+    const segments = `${base}/${entry}`
       .split('/')
       .reduce((acc: string[], part) => {
         if (part === '..') {

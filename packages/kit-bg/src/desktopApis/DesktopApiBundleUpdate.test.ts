@@ -558,18 +558,18 @@ describe('DesktopApiBundleUpdate isDownloading guard', () => {
 describe('DesktopApiBundleUpdate cached file redownload', () => {
   test('when cached file exists but verify fails, clearDownload is called', () => {
     let clearDownloadCalled = false;
-    let redownloaded = false;
+    let didReDownload = false;
     function handleCachedFile(verifyResult: boolean): string {
       if (!verifyResult) {
         clearDownloadCalled = true;
-        redownloaded = true;
+        didReDownload = true;
         return 're-downloading';
       }
       return 'cache-hit';
     }
     expect(handleCachedFile(false)).toBe('re-downloading');
     expect(clearDownloadCalled).toBe(true);
-    expect(redownloaded).toBe(true);
+    expect(didReDownload).toBe(true);
   });
 
   test('when cached file exists and verify succeeds, returns cached', () => {
@@ -880,13 +880,15 @@ describe('DesktopApiBundleUpdate listLocalBundles', () => {
     if (!dirExists) return [];
     const results: { appVersion: string; bundleVersion: string }[] = [];
     for (const entry of entries) {
-      if (!entry.isDirectory) continue;
-      const lastDash = entry.name.lastIndexOf('-');
-      if (lastDash <= 0) continue;
-      const appVersion = entry.name.substring(0, lastDash);
-      const bundleVersion = entry.name.substring(lastDash + 1);
-      if (appVersion && bundleVersion) {
-        results.push({ appVersion, bundleVersion });
+      if (entry.isDirectory) {
+        const lastDash = entry.name.lastIndexOf('-');
+        if (lastDash > 0) {
+          const appVersion = entry.name.substring(0, lastDash);
+          const bundleVersion = entry.name.substring(lastDash + 1);
+          if (appVersion && bundleVersion) {
+            results.push({ appVersion, bundleVersion });
+          }
+        }
       }
     }
     return results;
@@ -1108,7 +1110,8 @@ describe('DesktopApiBundleUpdate writeStream flags', () => {
   });
 
   test('downloadedBytes === 0 → write mode', () => {
-    const flags = 0 > 0 ? 'a' : 'w';
+    const downloadedBytes = 0;
+    const flags = downloadedBytes > 0 ? 'a' : 'w';
     expect(flags).toBe('w');
   });
 });

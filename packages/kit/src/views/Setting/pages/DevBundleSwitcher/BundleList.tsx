@@ -17,15 +17,19 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useDownloadProgress } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
-import { BundleUpdate } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
+import {
+  BundleUpdate,
+  useDownloadProgress,
+} from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type { EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
-
-import type { IModalSettingParamList } from '@onekeyhq/shared/src/routes';
-import type { RouteProp } from '@react-navigation/core';
+import type {
+  EModalSettingRoutes,
+  IModalSettingParamList,
+} from '@onekeyhq/shared/src/routes';
 
 import { useRoute } from '@react-navigation/core';
+
+import type { RouteProp } from '@react-navigation/core';
 
 type IBundleInfo = {
   bundleVersion: string;

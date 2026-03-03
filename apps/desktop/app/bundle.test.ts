@@ -1,3 +1,4 @@
+/* eslint-disable import/first */
 // Desktop bundle utility tests
 // Tests calculateSHA256, verifySha256, checkFileSha512, and testExtractedSha256FromVerifyAscFile
 // from apps/desktop/app/bundle.ts

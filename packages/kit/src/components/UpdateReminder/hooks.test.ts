@@ -1,6 +1,7 @@
 /**
  * @jest-environment jsdom
  */
+/* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, import/first, vars-on-top, no-var */
 // UpdateReminder hooks tests
 //
 // Tests the update flow orchestration logic in hooks.tsx:
@@ -14,8 +15,6 @@
 // Jest hoists jest.mock() above imports. Variables referenced inside factory
 // functions must already exist at hoist time. We use globalThis to bridge.
 // ---------------------------------------------------------------------------
-
-/* eslint-disable vars-on-top, no-var */
 
 // All mock objects are created INSIDE jest.mock factories (which jest hoists)
 // and exposed via globalThis so test code can reference them.
