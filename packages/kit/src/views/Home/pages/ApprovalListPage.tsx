@@ -185,7 +185,7 @@ function ApprovalListPageContent() {
   const [approvalListState] = useApprovalListStateAtom();
 
   const { result: isBulkRevokeApprovalEnabled } = usePromiseResult(async () => {
-    if (!networkId) return false;
+    if (!networkId) return undefined;
 
     let supported = false;
 
