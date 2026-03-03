@@ -354,8 +354,9 @@ function ApprovalListPageContent() {
           {isBulkRevokeApprovalEnabled === false ? (
             <Empty
               testID="Wallet-Approval-Unsupported-Empty"
-              title="Approval management is not supported on this network"
-              description="Try switching to a supported EVM network to view and manage your token approvals."
+              title={intl.formatMessage({
+                id: ETranslations.approval_not_supported,
+              })}
             />
           ) : null}
           {isBulkRevokeApprovalEnabled !== false &&
@@ -373,7 +374,7 @@ function ApprovalListPageContent() {
               hideRiskOverview={isWatchingWallet}
               accountId={accountId ?? ''}
               networkId={networkId ?? ''}
-              indexedAccountId={indexedAccountId ?? undefined}
+              indexedAccountId={indexedAccountId}
               onPress={handleApprovalOnPress}
               {...(media.gtLg && {
                 tableLayout: true,

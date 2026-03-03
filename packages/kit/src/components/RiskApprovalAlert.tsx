@@ -11,7 +11,7 @@ import { useNavigateToApprovalList } from '../views/Home/hooks/useNavigateToAppr
 
 function BasicRiskApprovalAlert() {
   const intl = useIntl();
-  const [{ hasRiskApprovals }] = useApprovalsInfoAtom();
+  const [{ hasRiskApprovals, riskApprovalsCount }] = useApprovalsInfoAtom();
   const navigateToApprovalList = useNavigateToApprovalList();
   const {
     activeAccount: { account, network, wallet },
@@ -42,9 +42,10 @@ function BasicRiskApprovalAlert() {
       mx="$pagePadding"
       type="warning"
       icon="ShieldCheckDoneOutline"
-      title={intl.formatMessage({
-        id: ETranslations.wallet_approval_risky_detected_suggestion_description,
-      })}
+      title={intl.formatMessage(
+        { id: ETranslations.wallet_approval_risky_suggestion_title },
+        { number: riskApprovalsCount },
+      )}
       action={{
         primary: intl.formatMessage({ id: ETranslations.global_view }),
         onPrimaryPress: handlePress,

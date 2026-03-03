@@ -265,10 +265,12 @@ export function HomePageView({
             accountAddress: account.address,
           });
         if (cancelled) return;
+        const riskApprovals = resp.contractApprovals.filter(
+          (i) => i.isRiskContract,
+        );
         updateApprovalsInfo({
-          hasRiskApprovals: resp.contractApprovals.some(
-            (i) => i.isRiskContract,
-          ),
+          hasRiskApprovals: riskApprovals.length > 0,
+          riskApprovalsCount: riskApprovals.length,
         });
       } catch (error) {
         if (error instanceof CanceledError) {
