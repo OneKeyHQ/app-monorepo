@@ -10,7 +10,7 @@ import type { GestureResponderEvent } from 'react-native';
 export function MultipleClickStack({
   children,
   onPress,
-  showDevBgColor: _showDevBgColor = false,
+  showDevBgColor = false,
   triggerAt = platformEnv.isDev ? 3 : 10,
   debugComponent,
   ...others
@@ -28,8 +28,8 @@ export function MultipleClickStack({
   return (
     <>
       <Stack
-        bg={undefined}
-        // bg={showDevBgColor && platformEnv.isDev ? '$bgCritical' : undefined}
+        // bg={undefined}
+        bg={showDevBgColor && platformEnv.isDev ? '$bgCritical' : undefined}
         {...others}
         onPress={(event) => {
           if (clickCount > triggerAt) {

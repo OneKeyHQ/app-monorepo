@@ -53,6 +53,7 @@ const scrollViewRefContext = createContext<{
   },
 });
 export const ScrollViewRefProvider = memo(scrollViewRefContext.Provider);
+ScrollViewRefProvider.displayName = 'ScrollViewRefProvider';
 export const useScrollView = () => useContext(scrollViewRefContext);
 
 function BaseScrollView(

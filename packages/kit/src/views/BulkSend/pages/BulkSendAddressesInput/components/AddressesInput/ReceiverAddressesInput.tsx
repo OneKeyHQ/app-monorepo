@@ -10,6 +10,7 @@ import { useIsEnableTransferAllowList } from '@onekeyhq/kit/src/components/Addre
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import { useDebouncedValidation } from '@onekeyhq/kit/src/views/BulkSend/hooks/useDebouncedValidation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { validateTokenAmount } from '@onekeyhq/shared/src/utils/tokenUtils';
@@ -21,7 +22,6 @@ import { useBulkSendAddressesInputContext } from '../Context';
 import LineNumberedTextArea from './LineNumberedTextArea';
 
 import type { ILineError } from './LineNumberedTextArea';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 type IReceiverAddressesInputProps = {
   maxLines?: number;

@@ -50,6 +50,7 @@ function PerpMarketFooter() {
     () =>
       Gesture.Tap().onEnd(() => {
         'worklet';
+
         runOnJS(handleBuy)();
       }),
     [handleBuy],
@@ -59,6 +60,7 @@ function PerpMarketFooter() {
     () =>
       Gesture.Tap().onEnd(() => {
         'worklet';
+
         runOnJS(handleSell)();
       }),
     [handleSell],

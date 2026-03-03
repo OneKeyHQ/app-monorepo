@@ -4,6 +4,7 @@ import {
   Divider,
   Icon,
   IconButton,
+  Image,
   NumberSizeableText,
   Popover,
   SizableText,
@@ -18,6 +19,7 @@ import type {
   IEarnHistoryActionIcon,
   IEarnRebateDetailsTooltip,
   IEarnRebateTooltip,
+  IEarnTextTooltip,
   IEarnTooltip,
 } from '@onekeyhq/shared/types/staking';
 
@@ -145,6 +147,46 @@ function RebateDetailsPopoverContent({
   ) : null;
 }
 
+function FeeComparisonContent({ tooltip }: { tooltip: IEarnTextTooltip }) {
+  return (
+    <YStack gap="$2">
+      <EarnText
+        text={tooltip.data.description}
+        size="$bodySm"
+        color="$textSubdued"
+      />
+      <YStack gap="$2" pt="$2">
+        {tooltip.data.items?.map((item, index) => (
+          <XStack key={index} gap="$3" ai="center">
+            <Image
+              src={item.logo?.logoURI ?? ''}
+              w="$5"
+              h="$5"
+              borderRadius="$1"
+            />
+            <Stack flex={1}>
+              <Stack
+                h="$1"
+                borderRadius="$full"
+                bg={item.logo?.color ?? '$bgStrong'}
+                width={`${Math.max(Number(item.logo?.percentage ?? 0) * 100, 5)}%`}
+              />
+            </Stack>
+            <SizableText
+              size="$bodySm"
+              color={item.description.color ?? '$text'}
+              w={64}
+              textAlign="right"
+            >
+              {item.description.text}
+            </SizableText>
+          </XStack>
+        ))}
+      </YStack>
+    </YStack>
+  );
+}
+
 export function EarnTooltip({
   title,
   tooltip,
@@ -201,6 +243,24 @@ export function EarnTooltip({
 
     if (tooltip.type === 'rebateDetails') {
       return <RebateDetailsPopoverContent tooltip={tooltip} />;
+    }
+
+    if (tooltip.type === 'text' && tooltip.data.items?.length) {
+      const hasLogo = tooltip.data.items.some((item) => item.logo);
+      if (hasLogo) {
+        return <FeeComparisonContent tooltip={tooltip} />;
+      }
+      return (
+        <YStack gap="$2">
+          <EarnText text={tooltip.data.description} />
+          {tooltip.data.items.map((item, index) => (
+            <XStack jc="space-between" key={index}>
+              <EarnText text={item.title} size="$bodyMd" color="$textSubdued" />
+              <EarnText text={item.description} size="$bodyMdMedium" />
+            </XStack>
+          ))}
+        </YStack>
+      );
     }
 
     return <EarnText text={tooltip?.data?.description} />;

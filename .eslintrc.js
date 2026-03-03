@@ -16,15 +16,38 @@
 
 const isDev = process.env.NODE_ENV !== 'production';
 const jsRules = {
-  // '@typescript-eslint/explicit-function-return-type': ['error'],
+  // --- Rules from wesbos config (previously inherited via extends: ['wesbos']) ---
+  'no-debugger': 'off',
+  'no-alert': 'off',
+  'no-await-in-loop': 'off',
+  'no-console': 'off',
+  'no-underscore-dangle': 'off',
+  'consistent-return': 'off',
+  'no-return-assign': ['error', 'except-parens'],
+  'no-param-reassign': ['error', { props: false }],
+  'react/react-in-jsx-scope': 'off',
+  'react/require-default-props': 'off',
+  'react/no-array-index-key': 'off',
+  'react/forbid-prop-types': 'off',
+  'react/no-unescaped-entities': 'off',
+  'react/prefer-stateless-function': 'off',
+  'react/display-name': 'warn',
+  'react/prop-types': 'off',
+  'react/jsx-filename-extension': [
+    'warn',
+    { extensions: ['.js', '.jsx', '.ts', '.tsx', '.mdx'] },
+  ],
+  'import/no-cycle': 'off',
+  'import/prefer-default-export': 'off',
+  // --- Project-specific rules ---
   // eslint-disable-next-line global-require
   'prettier/prettier': ['error', require('./.prettierrc.js')],
   'no-unused-vars': 'off',
   'no-use-before-define': 'off',
   'no-shadow': 'off',
   'import/no-extraneous-dependencies': 'off',
-  // 'force-async-bg-api': 'error', // TODO not working
-  // 'enforce-return-type': 'error',
+  // Disabled: handled by oxlint
+  'no-unused-expressions': 'off',
   'no-restricted-exports': 'off',
   'func-names': 'off',
   'import/no-named-as-default-member': 'off',
@@ -116,6 +139,20 @@ const restrictedImportsPatterns = [
   //
 ];
 const tsRules = {
+  // --- Rules from wesbos/typescript (previously inherited) ---
+  '@typescript-eslint/no-explicit-any': 'off',
+  '@typescript-eslint/no-misused-promises': [
+    'error',
+    { checksVoidReturn: false },
+  ],
+  // Disabled: TS function overloads trigger false positives; oxlint handles this
+  'no-redeclare': 'off',
+  '@typescript-eslint/no-redeclare': 'off',
+  'no-undef': 'off', // covered by typescript compiler
+  // Renamed in @typescript-eslint v8 (from airbnb-typescript compat)
+  '@typescript-eslint/lines-between-class-members': 'off',
+  '@typescript-eslint/no-throw-literal': 'off',
+  '@typescript-eslint/no-require-imports': 'off',
   '@typescript-eslint/no-restricted-imports': [
     'error',
     {
@@ -146,6 +183,17 @@ const tsRules = {
   '@typescript-eslint/require-await': 'off',
   // force awaited promise call, explicit add `void` if don't want await
   '@typescript-eslint/no-floating-promises': ['error'],
+  // Disabled: handled by oxlint
+  '@typescript-eslint/await-thenable': 'off',
+  '@typescript-eslint/no-duplicate-enum-values': 'off',
+  // Disabled: handled by oxlint
+  'no-unused-expressions': 'off',
+  '@typescript-eslint/no-unused-expressions': 'off',
+  '@typescript-eslint/no-unsafe-enum-comparison': 'off',
+  '@typescript-eslint/no-redundant-type-constituents': 'off',
+  '@typescript-eslint/prefer-promise-reject-errors': 'off',
+  '@typescript-eslint/no-unsafe-member-access': 'off',
+  '@typescript-eslint/no-base-to-string': 'off',
   '@typescript-eslint/naming-convention': [
     'error',
     {
@@ -225,6 +273,10 @@ module.exports = {
     'ban',
     'unicorn',
     'props-checker',
+    'prettier',
+    'react',
+    'react-hooks',
+    'import',
   ],
   settings: {
     'import/extensions': [
@@ -293,14 +345,24 @@ module.exports = {
   overrides: [
     {
       files: ['*.js', '*.jsx', '*.text-js'],
-      extends: ['wesbos'],
+      extends: ['airbnb', 'prettier'],
       rules: {
         ...jsRules,
       },
     },
     {
       files: ['*.ts', '*.tsx'],
-      extends: ['wesbos/typescript'],
+      extends: [
+        'plugin:@typescript-eslint/recommended',
+        'airbnb-typescript',
+        'plugin:@typescript-eslint/recommended-requiring-type-checking',
+        'airbnb',
+        'prettier',
+      ],
+      parser: '@typescript-eslint/parser',
+      parserOptions: {
+        project: './tsconfig.json',
+      },
       rules: {
         ...jsRules,
         ...tsRules,

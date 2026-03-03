@@ -542,7 +542,7 @@ export default class Vault extends VaultBase {
             key: ETranslations.send_cannot_send_amount_zero,
           });
         }
-        let amountFormatted = amountBN.toFixed(tokenInfo.decimals);
+        const amountFormatted = amountBN.toFixed(tokenInfo.decimals);
 
         transactionBuilder.addOperation(
           Operation.payment({

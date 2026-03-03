@@ -2,15 +2,11 @@ import { useCallback } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { MorphoBundlerContract } from '@onekeyhq/shared/src/consts/addresses';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
-import {
-  EApproveType,
-  EStakingActionType,
-} from '@onekeyhq/shared/types/staking';
+import { EStakingActionType } from '@onekeyhq/shared/types/staking';
 import type {
   IEarnTokenInfo,
   IProtocolInfo,
@@ -109,27 +105,30 @@ export const useHandleStake = () => {
         return;
       }
 
-      if (protocolInfo?.approve?.approveTarget) {
+      const approveSpenderAddress = earnUtils.resolveEarnApproveSpenderAddress({
+        providerName: protocolInfo?.provider || '',
+        protocolVault: protocolInfo?.vault,
+        backendApproveTarget: protocolInfo?.approve?.approveTarget,
+      });
+      const effectiveApproveType = earnUtils.resolveEarnApproveType({
+        providerName: protocolInfo?.provider || '',
+        tokenIsNative: tokenInfo?.token?.isNative,
+        approveSpenderAddress,
+        backendApproveType: protocolInfo?.approve?.approveType,
+      });
+
+      if (effectiveApproveType && approveSpenderAddress && tokenInfo?.token) {
         setStakeLoading?.(true);
         try {
-          // For vault-based providers, check allowance against vault address
-          const isVaultBased = earnUtils.isVaultBasedProvider({
-            providerName: protocolInfo.provider,
-          });
-
           // Determine the correct spender address for allowance check
-          let spenderAddress = protocolInfo.approve.approveTarget;
-          if (protocolInfo.approve?.approveType === EApproveType.Permit) {
-            spenderAddress = MorphoBundlerContract;
-          } else if (isVaultBased) {
-            spenderAddress = protocolInfo.vault ?? '';
-          }
-
           const { allowanceParsed } =
             await backgroundApiProxy.serviceStaking.fetchTokenAllowance({
               accountId,
               networkId,
-              spenderAddress,
+              spenderAddress: earnUtils.resolveEarnAllowanceSpenderAddress({
+                approveType: effectiveApproveType,
+                approveSpenderAddress,
+              }),
               tokenAddress: tokenInfo?.token.address || '',
             });
           appNavigation.push(EModalStakingRoutes.Stake, {

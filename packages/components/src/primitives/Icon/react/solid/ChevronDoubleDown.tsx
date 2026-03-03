@@ -7,7 +7,7 @@ const SvgChevronDoubleDown = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M15.266 12.733a.992.992 0 0 1 1.403 1.403l-3.442 3.441a1.736 1.736 0 0 1-2.455 0l-3.441-3.441a.992.992 0 0 1 1.403-1.403L12 16zm0-6.943a.992.992 0 0 1 1.403 1.403l-3.442 3.442a1.736 1.736 0 0 1-2.455 0L7.331 7.193A.993.993 0 0 1 8.734 5.79L12 9.057z" />
+    <Path d="M12 12.414 6.586 7 8 5.586l4 4 4-4L17.414 7zm0 7L6.586 14 8 12.586l4 4 4-4L17.414 14z" />
   </Svg>
 );
 export default SvgChevronDoubleDown;
