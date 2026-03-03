@@ -27,7 +27,7 @@ export const buildBorrowTag = ({
 }): string => {
   const base = `borrow:${provider.toLowerCase()}:${action}`;
   if (action === 'claim' && claimIds?.length) {
-    return `${base}:${claimIds.toSorted().join(',')}`;
+    return `${base}:${[...claimIds].toSorted().join(',')}`;
   }
   return base;
 };
@@ -64,6 +64,45 @@ export const hasBorrowTagForProvider = (
 export function capitalizeString(str: string): string {
   if (!str) return str; // Return if the string is empty or undefined
   return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+export function normalizeStakeTokenAddress(params?: {
+  address?: string;
+  isNative?: boolean;
+}) {
+  if (!params || params.isNative) {
+    return '';
+  }
+  return (params.address || '').toLowerCase();
+}
+
+export function resolveStakeTokenAddress(params?: {
+  address?: string;
+  isNative?: boolean;
+}) {
+  if (!params || params.isNative) {
+    return '';
+  }
+  return params.address || '';
+}
+
+export function buildStakeTokenUniqueKey(params?: {
+  uniqueKey?: string;
+  address?: string;
+  symbol?: string;
+  isNative?: boolean;
+}) {
+  if (!params) {
+    return '';
+  }
+  if (params.uniqueKey) {
+    return params.uniqueKey;
+  }
+  return `${params.isNative ? 'native' : params.address}-${params.symbol || ''}`;
+}
+
+export function isInvalidAmount(num: string): boolean {
+  return BigNumber(num).isNaN() || num.endsWith('.');
 }
 
 export function countDecimalPlaces(input: string | number): number {

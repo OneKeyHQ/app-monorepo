@@ -69,6 +69,14 @@ const createInvestmentKey = (item: {
 }): string =>
   `${item.provider}_${item.symbol}_${item.vault || ''}_${item.networkId}`;
 
+const resolveVault = ({
+  protocolVault,
+  requestVault,
+}: {
+  protocolVault?: string;
+  requestVault?: string;
+}) => protocolVault || requestVault;
+
 const hasPositiveFiatValue = (value: string | undefined): boolean =>
   new BigNumber(value || '0').gt(0);
 
@@ -120,10 +128,14 @@ const createInvestmentKeyFromInvestment = (
   investment: IEarnPortfolioInvestment,
 ): string => {
   const firstAsset = investment.assets[0] || investment.airdropAssets[0];
+  const resolvedVault = resolveVault({
+    protocolVault: investment.protocol.vault,
+    requestVault: firstAsset?.metadata?.protocol?.vault,
+  });
   return createInvestmentKey({
     provider: investment.protocol.providerDetail.code,
     symbol: firstAsset?.token.info.symbol || '',
-    vault: investment.protocol.vault,
+    vault: resolvedVault,
     networkId: investment.network.networkId,
   });
 };
@@ -238,10 +250,19 @@ async function fetchSingleInvestment(
   const result =
     await backgroundApiProxy.serviceStaking.fetchInvestmentDetailV2(params);
 
+  const resolvedProtocolVault = resolveVault({
+    protocolVault: result.protocol.vault,
+    // Use request vault as fallback (Pendle PT market address).
+    requestVault: params.vault,
+  });
+  const normalizedProtocol = resolvedProtocolVault
+    ? { ...result.protocol, vault: resolvedProtocolVault }
+    : result.protocol;
+
   const key = createInvestmentKey({
     provider: result.protocol.providerDetail.code,
     symbol: result.assets?.[0]?.token.info.symbol || '',
-    vault: result.protocol.vault,
+    vault: resolvedProtocolVault,
     networkId: result.network.networkId,
   });
 
@@ -253,15 +274,23 @@ async function fetchSingleInvestment(
     return { key, remove: true };
   }
 
-  const enrichedAssets = result.assets.map((asset) => ({
-    ...asset,
-    metadata: {
-      protocol: result.protocol,
-      network: result.network,
-      fiatValue: result.totalFiatValue,
-      fiatValueUsd: result.totalFiatValueUsd,
-    },
-  }));
+  const enrichedAssets = result.assets.map((asset) => {
+    const resolvedAssetVault = resolveVault({
+      protocolVault: result.protocol.vault,
+      requestVault: params.vault,
+    });
+    return {
+      ...asset,
+      metadata: {
+        protocol: resolvedAssetVault
+          ? { ...result.protocol, vault: resolvedAssetVault }
+          : result.protocol,
+        network: result.network,
+        fiatValue: result.totalFiatValue,
+        fiatValueUsd: result.totalFiatValueUsd,
+      },
+    };
+  });
 
   return {
     key,
@@ -269,7 +298,7 @@ async function fetchSingleInvestment(
       totalFiatValue: result.totalFiatValue,
       totalFiatValueUsd: result.totalFiatValueUsd,
       earnings24hFiatValue: result.earnings24hFiatValue,
-      protocol: result.protocol,
+      protocol: normalizedProtocol,
       network: result.network,
       assets: enrichedAssets,
       airdropAssets: [],

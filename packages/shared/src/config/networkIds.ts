@@ -65,6 +65,7 @@ export type INetworkShortCode =
   | 'bob'
   | 'taiko'
   | 'hsk'
+  | 'hyperevm'
   | 'neon3'
   | 'linea'
   | 'zksyncera';
