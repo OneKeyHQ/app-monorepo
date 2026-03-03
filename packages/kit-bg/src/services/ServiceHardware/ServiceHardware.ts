@@ -540,43 +540,40 @@ class ServiceHardware extends ServiceBase {
         },
       );
 
-      instance.on(
-        DEVICE.CONNECT,
-        (message: { device: KnownDevice }) => {
-          const { features } = message.device || {};
-          if (!features || !features.device_id) return;
-          const { device_id: deviceId } = features;
-          if (this.connectedDeviceTracked.has(deviceId)) return;
-          this.connectedDeviceTracked.add(deviceId);
+      instance.on(DEVICE.CONNECT, (message: { device: KnownDevice }) => {
+        const { features } = message.device || {};
+        if (!features || !features.device_id) return;
+        const { device_id: deviceId } = features;
+        if (this.connectedDeviceTracked.has(deviceId)) return;
+        this.connectedDeviceTracked.add(deviceId);
 
-          void (async () => {
-            try {
-              const deviceType = await deviceUtils.getDeviceTypeFromFeatures({
-                features,
-              });
-              if (
-                deviceType !== EDeviceType.Pro &&
-                deviceType !== EDeviceType.Classic1s
-              ) {
-                return;
-              }
-              const firmwareType = await deviceUtils.getFirmwareType({
-                features,
-              });
-              defaultLogger.hardware.connection.hwDeviceConnected({
-                deviceType,
-                firmwareType:
-                  firmwareType === EFirmwareType.BitcoinOnly
-                    ? 'btconly'
-                    : 'universal',
-                deviceId,
-              });
-            } catch (_e) {
-              // ignore tracking errors
+        void (async () => {
+          try {
+            const deviceType = await deviceUtils.getDeviceTypeFromFeatures({
+              features,
+            });
+            if (
+              deviceType !== EDeviceType.Pro &&
+              deviceType !== EDeviceType.Classic1s
+            ) {
+              return;
             }
-          })();
-        },
-      );
+            const firmwareType = await deviceUtils.getFirmwareType({
+              features,
+            });
+            defaultLogger.hardware.connection.hwDeviceConnected({
+              deviceType,
+              firmwareType:
+                firmwareType === EFirmwareType.BitcoinOnly
+                  ? 'btconly'
+                  : 'universal',
+              deviceId,
+            });
+          } catch (_e) {
+            // ignore tracking errors
+          }
+        })();
+      });
 
       // TODO how to emit this event?
       // call getFeatures() or checkFirmwareRelease();
