@@ -15,6 +15,8 @@ import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { NetworkStatusBadge } from '../../../components/NetworkStatusBadge';
 import { PerpRefreshButton } from '../../../components/PerpRefreshButton';
 
+import { PerpFooterTicker } from './FooterTicker/PerpFooterTicker';
+
 const PERP_TELEGRAM_URL = 'https://t.me/OneKeyPerps';
 
 function PerpNetworkStatus() {
@@ -38,16 +40,18 @@ export function PerpContentFooter() {
           h={40}
           alignItems="center"
           p="$2"
-          justifyContent="space-between"
+          gap="$2"
         >
-          <XStack alignItems="center" gap="$2">
+          <XStack alignItems="center" gap="$2" flexShrink={0}>
             <PerpNetworkStatus />
             <PerpRefreshButton />
           </XStack>
+          <PerpFooterTicker />
           <XStack
             alignItems="center"
             gap="$1"
             cursor="pointer"
+            flexShrink={0}
             hoverStyle={{ opacity: 0.6 }}
             onPress={() => openUrlExternal(PERP_TELEGRAM_URL)}
           >

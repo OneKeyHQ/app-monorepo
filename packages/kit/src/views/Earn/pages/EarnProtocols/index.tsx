@@ -22,13 +22,13 @@ import { NetworkAvatarGroup } from '@onekeyhq/kit/src/components/NetworkAvatar/N
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalRoutes,
   EModalStakingRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   ETabEarnRoutes,
   ITabEarnParamList,

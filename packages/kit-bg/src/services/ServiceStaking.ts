@@ -2,7 +2,6 @@ import BigNumber from 'bignumber.js';
 import { omit } from 'lodash';
 
 import { isTaprootAddress } from '@onekeyhq/core/src/chains/btc/sdkBtc';
-import { pendleFlowConfig } from '../vaults/impls/evm/settings';
 import type { IAxiosResponse } from '@onekeyhq/shared/src/appApiClient/appApiClient';
 import {
   backgroundClass,
@@ -106,6 +105,7 @@ import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 import simpleDb from '../dbs/simple/simpleDb';
 import { devSettingsPersistAtom } from '../states/jotai/atoms';
 import { vaultFactory } from '../vaults/factory';
+import { pendleFlowConfig } from '../vaults/impls/evm/settings';
 
 import ServiceBase from './ServiceBase';
 
