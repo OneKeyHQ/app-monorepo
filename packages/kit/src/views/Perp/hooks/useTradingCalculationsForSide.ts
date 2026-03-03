@@ -110,7 +110,11 @@ export function useTradingCalculationsForSide(side: 'long' | 'short') {
     const isSlider =
       (formData.sizeInputMode ?? EPerpsSizeInputMode.MANUAL) ===
       EPerpsSizeInputMode.SLIDER;
-    if (isSlider && (formData.sizePercent ?? 0) > 0 && computedSizeForSide.lte(0)) {
+    if (
+      isSlider &&
+      (formData.sizePercent ?? 0) > 0 &&
+      computedSizeForSide.lte(0)
+    ) {
       return true;
     }
 

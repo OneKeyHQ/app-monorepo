@@ -141,9 +141,7 @@ export const PriceChangeDisplay = memo(
   ({ change, markPrice }: { change: number; markPrice?: string }) => {
     const color = change >= 0 ? '$textSuccess' : '$textCritical';
     const sign = change >= 0 ? '+' : '';
-    const price = markPrice
-      ? formatPriceToSignificantDigits(markPrice)
-      : '-';
+    const price = markPrice ? formatPriceToSignificantDigits(markPrice) : '-';
     return (
       <>
         <SizableText

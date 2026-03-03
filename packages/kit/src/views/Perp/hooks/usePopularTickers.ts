@@ -70,27 +70,26 @@ export function usePopularTickers(): IPopularTickerItem[] {
         const ctxIndex =
           dexIndex === 1 ? asset.assetId - XYZ_ASSET_ID_OFFSET : asset.assetId;
         const ctx = ctxs[ctxIndex] ?? null;
-        if (!ctx) continue;
+        if (ctx) {
+          const volume = new BigNumber(ctx.dayNtlVlm ?? '0');
+          const oi = new BigNumber(ctx.openInterest ?? '0');
+          const price = new BigNumber(ctx.markPx ?? '0');
+          const denominator = oi.multipliedBy(price);
 
-        const volume = new BigNumber(ctx.dayNtlVlm ?? '0');
-        const oi = new BigNumber(ctx.openInterest ?? '0');
-        const price = new BigNumber(ctx.markPx ?? '0');
-        const denominator = oi.multipliedBy(price);
-
-        // Skip tokens with zero OI or zero price
-        if (denominator.isZero() || !denominator.isFinite()) continue;
-
-        const hotScore = volume.dividedBy(denominator).toNumber();
-        if (!Number.isFinite(hotScore) || hotScore <= 0) continue;
-
-        const parsed = parseDexCoin(asset.name);
-        scored.push({
-          coinName: asset.name,
-          displayName: parsed.displayName,
-          assetId: asset.assetId,
-          dexIndex,
-          hotScore,
-        });
+          if (!denominator.isZero() && denominator.isFinite()) {
+            const hotScore = volume.dividedBy(denominator).toNumber();
+            if (Number.isFinite(hotScore) && hotScore > 0) {
+              const parsed = parseDexCoin(asset.name);
+              scored.push({
+                coinName: asset.name,
+                displayName: parsed.displayName,
+                assetId: asset.assetId,
+                dexIndex,
+                hotScore,
+              });
+            }
+          }
+        }
       }
     }
 
