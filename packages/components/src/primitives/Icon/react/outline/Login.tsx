@@ -7,7 +7,8 @@ const SvgLogin = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M19 19V5h-4a1 1 0 1 1 0-2h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4a1 1 0 1 1 0-2zM10.293 7.793a1 1 0 0 1 1.414 0l3.5 3.5a1 1 0 0 1 0 1.414l-3.5 3.5a1 1 0 1 1-1.414-1.414L12.086 13H4a1 1 0 1 1 0-2h8.086l-1.793-1.793a1 1 0 0 1 0-1.414" />
+    <Path d="M21 21h-7v-2h5V5h-5V3h7z" />
+    <Path d="M15.914 12 11 16.914 9.586 15.5l2.5-2.5H3v-2h9.086l-2.5-2.5L11 7.086z" />
   </Svg>
 );
 export default SvgLogin;

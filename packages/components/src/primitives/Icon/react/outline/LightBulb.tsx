@@ -7,7 +7,12 @@ const SvgLightBulb = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M15 20a1 1 0 1 1 0 2H9a1 1 0 1 1 0-2zm-5-3h4v-1h-4zm8-8a6 6 0 1 0-9.313 5h6.627A5.99 5.99 0 0 0 18 9m2 0a8 8 0 0 1-3.876 6.856q-.061.037-.124.07V17.5a1.5 1.5 0 0 1-1.5 1.5h-5A1.5 1.5 0 0 1 8 17.5v-1.573l-.124-.07A8 8 0 1 1 20 9" />
+    <Path d="M16 22H8v-2h8z" />
+    <Path
+      fillRule="evenodd"
+      d="M12 1a8 8 0 0 1 4 14.928V19H8v-3.072A8 8 0 0 1 12 1m-2 16h4v-1h-4zm2-14a6 6 0 0 0-3.317 11h6.634A6 6 0 0 0 12 3"
+      clipRule="evenodd"
+    />
   </Svg>
 );
 export default SvgLightBulb;

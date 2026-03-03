@@ -61,7 +61,7 @@ export class TxMsgBuilder {
     sender: string,
     contract: string,
     msg: object,
-    funds?: Coin[] | undefined,
+    funds?: Coin[],
   ): ICosmosProtoMsgsOrWithAminoMsgs {
     return this.makeProtoMsgsOrWithAminoMsgs(
       this.aminoMsgBuilder.makeExecuteContractMsg.bind(this.aminoMsgBuilder),

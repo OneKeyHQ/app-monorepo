@@ -9,7 +9,7 @@ const SvgQuestionmark = (props: SvgProps) => (
   >
     <Path
       fillRule="evenodd"
-      d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2m-1 5a2 2 0 0 0-2 2v.5a1 1 0 1 0 2 0V9h2v1l-1.2.9a2 2 0 0 0-.8 1.6v.5a1 1 0 1 0 2 0v-.5l1.2-.9A2 2 0 0 0 15 10V9a2 2 0 0 0-2-2zm2 9a1 1 0 1 0-2 0v.01a1 1 0 1 0 2 0z"
+      d="M12 2c5.523 0 10 4.477 10 10s-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2m-1 15h2v-2h-2zM9 7v3h2V9h2v1l-2 1.5V14h2v-1.5l2-1.5V7z"
       clipRule="evenodd"
     />
   </Svg>

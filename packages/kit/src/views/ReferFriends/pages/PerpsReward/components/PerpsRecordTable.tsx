@@ -356,7 +356,7 @@ export function PerpsRecordTable({
   hasUserSorted,
 }: IPerpsRecordTableProps) {
   const media = useMedia();
-  const isCompact = media.lg;
+  const isCompact = media.xl;
   const { columnWidths } = usePerpsTableColumns(isCompact);
   const themeVariant = useThemeVariant();
   const isDark = themeVariant === 'dark';

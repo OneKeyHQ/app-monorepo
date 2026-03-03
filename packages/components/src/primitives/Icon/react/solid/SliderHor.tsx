@@ -7,7 +7,7 @@ const SvgSliderHor = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M17 3a4 4 0 0 0-3.874 3H4a1 1 0 0 0 0 2h9.126A4 4 0 1 0 17 3M9 13a4 4 0 0 0-3.874 3H4a1 1 0 1 0 0 2h1.126a4 4 0 0 0 7.748 0H20a1 1 0 1 0 0-2h-7.126A4 4 0 0 0 9 13" />
+    <Path d="M9 13a4 4 0 0 1 3.874 3H21v2h-8.126a4 4 0 0 1-7.748 0H3v-2h2.126A4 4 0 0 1 9 13m6-10a4 4 0 0 1 3.874 3H21v2h-2.126a4 4 0 0 1-7.748 0H3V6h8.126A4 4 0 0 1 15 3" />
   </Svg>
 );
 export default SvgSliderHor;

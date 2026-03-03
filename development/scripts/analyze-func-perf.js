@@ -357,7 +357,9 @@ function buildSpeedscope(entries, profileName = 'RN Function Perf') {
   for (const entry of usable) {
     const stackFrames = Array.isArray(entry.stack)
       ? entry.stack
-          .filter((s) => s != null && s !== 'null' && s !== '')
+          .filter(
+            (s) => s !== null && s !== undefined && s !== 'null' && s !== '',
+          )
           .map((s) => simplifyStackFrame(String(s)))
       : [];
     const allFrames = [...stackFrames, entry.name];

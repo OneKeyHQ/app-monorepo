@@ -1,3 +1,67 @@
+diff --git a/node_modules/react-native-camera-kit/ios/ReactNativeCameraKit/RealCamera.swift b/node_modules/react-native-camera-kit/ios/ReactNativeCameraKit/RealCamera.swift
+--- a/node_modules/react-native-camera-kit/ios/ReactNativeCameraKit/RealCamera.swift
++++ b/node_modules/react-native-camera-kit/ios/ReactNativeCameraKit/RealCamera.swift
+@@ -112,35 +112,36 @@
+     // MARK: - Public
+
+     func setup(cameraType: CameraType, supportedBarcodeType: [CodeFormat]) {
+-        // cameraPreview.session = ... causes begin/commitConfiguration on the current thread
+-        // so it must be on the same thread as setupCaptureSession to avoid startRunning executing inbetween
+-        // Observe this with a breakpoint on `.session = X` and look in Console.app for
+-        // "AVCaptureSession beginConfiguration" from the com.apple.cameracapture subsystem
+         DispatchQueue.main.async {
+-            self.cameraPreview.session = self.session
+-            self.cameraPreview.previewLayer.videoGravity = .resizeAspect
+-
+             self.initializeMotionManager()
++        }
+
+-            // Setup the capture session.
+-            // In general, it is not safe to mutate an AVCaptureSession or any of its inputs, outputs, or connections from multiple threads at the same time.
+-            // Why not do all of this on the main queue?
+-            // Because -[AVCaptureSession startRunning] is a blocking call which can take a long time. We dispatch session setup to the sessionQueue
+-            // so that the main queue isn't blocked, which keeps the UI responsive.
+-            self.sessionQueue.async {
+-                self.setupResult = self.setupCaptureSession(
+-                    cameraType: cameraType, supportedBarcodeType: supportedBarcodeType)
+-
+-                self.addObservers()
+-
+-                if self.setupResult == .success {
+-                    self.session.startRunning()
+-                }
++        // Setup the capture session.
++        // In general, it is not safe to mutate an AVCaptureSession or any of its inputs, outputs, or connections from multiple threads at the same time.
++        // Why not do all of this on the main queue?
++        // Because -[AVCaptureSession startRunning] is a blocking call which can take a long time. We dispatch session setup to the sessionQueue
++        // so that the main queue isn't blocked, which keeps the UI responsive.
++        self.sessionQueue.async {
++            self.setupResult = self.setupCaptureSession(
++                cameraType: cameraType, supportedBarcodeType: supportedBarcodeType)
+
+-                DispatchQueue.main.async {
+-                    self.setVideoOrientationToInterfaceOrientation()
+-                }
++            self.addObservers()
++
++            if self.setupResult == .success {
++                self.session.startRunning()
+             }
++
++            // Defer preview layer session assignment until after startRunning() completes.
++            // Setting previewLayer.session internally triggers beginConfiguration/commitConfiguration
++            // on the AVCaptureSession. If this overlaps with startRunning(), AVFoundation throws
++            // NSGenericException (startRunning called between beginConfiguration and
++            // commitConfiguration). Dispatching to main after startRunning() ensures proper
++            // sequencing of the AVCaptureSession configuration lifecycle. (Fixes REACT-NATIVE-1EZ)
++            DispatchQueue.main.async {
++                self.cameraPreview.session = self.session
++                self.cameraPreview.previewLayer.videoGravity = .resizeAspect
++                self.setVideoOrientationToInterfaceOrientation()
++            }
+         }
+     }
+
 diff --git a/node_modules/react-native-camera-kit/src/Camera.android.tsx b/node_modules/react-native-camera-kit/src/Camera.android.tsx
 index 56cddbc..ae14ea0 100644
 --- a/node_modules/react-native-camera-kit/src/Camera.android.tsx
@@ -5,7 +69,7 @@ index 56cddbc..ae14ea0 100644
 @@ -8,15 +8,6 @@ import NativeCameraKitModule from './specs/NativeCameraKitModule';
  const Camera = React.forwardRef<CameraApi, CameraProps>((props, ref) => {
    const nativeRef = React.useRef(null);
- 
+
 -  // RN doesn't support optional view props yet (sigh)
 -  // so we have to use -1 to indicate 'undefined'
 -  // All int/float/double props from src/specs/CameraNativeComponent.ts need be mentioned here
@@ -21,7 +85,7 @@ index 56cddbc..ae14ea0 100644
 @@ -29,7 +20,17 @@ const Camera = React.forwardRef<CameraApi, CameraProps>((props, ref) => {
      },
    }));
- 
+
 -  const transformedProps: CameraProps = { ...props };
 +  // RN doesn't support optional view props yet (sigh)
 +  // so we have to use -1 to indicate 'undefined'
@@ -65,15 +129,15 @@ index 0845d6d..5a4f841 100644
 +    resetFocusTimeout: props.resetFocusTimeout ?? 0,
 +    resetFocusWhenMotionDetected: props.resetFocusWhenMotionDetected ?? true,
 +  };
- 
+
    React.useImperativeHandle(ref, () => ({
      capture: async () => {
 @@ -34,7 +36,7 @@ const Camera = React.forwardRef<CameraApi, CameraProps>((props, ref) => {
    }));
- 
+
    // @ts-expect-error props for codegen differ a bit from the user-facing ones
 -  return <NativeCamera style={{ minWidth: 100, minHeight: 100 }} ref={nativeRef} {...props} />;
 +  return <NativeCamera style={{ minWidth: 100, minHeight: 100 }} ref={nativeRef} {...propsWithDefaults} />;
  });
- 
+
  export default Camera;

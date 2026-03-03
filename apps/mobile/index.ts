@@ -15,6 +15,7 @@ I18nManager.allowRTL(true);
 
 if (typeof globalThis.nativePerformanceNow === 'function') {
   globalThis.$$onekeyAppWillMountFromPerformanceNow =
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     globalThis.nativePerformanceNow();
   if (__DEV__) {
     // eslint-disable-next-line no-console

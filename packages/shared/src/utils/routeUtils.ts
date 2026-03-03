@@ -161,16 +161,20 @@ export const buildAllowList = (
         showUrl: true,
         showParams: true,
       },
-    [pagePath`${ERootRoutes.Main}${ETabRoutes.ReferFriends}${TabReferAFriend}`]:
-      {
-        showUrl: true,
-        showParams: false,
-      },
-    [pagePath`${ERootRoutes.Main}${ETabRoutes.ReferFriends}${TabInviteReward}`]:
-      {
-        showUrl: true,
-        showParams: false,
-      },
+    ...(!platformEnv.isNative
+      ? {
+          [pagePath`${ERootRoutes.Main}${ETabRoutes.ReferFriends}${TabReferAFriend}`]:
+            {
+              showUrl: true,
+              showParams: false,
+            },
+          [pagePath`${ERootRoutes.Main}${ETabRoutes.ReferFriends}${TabInviteReward}`]:
+            {
+              showUrl: true,
+              showParams: false,
+            },
+        }
+      : {}),
     [pagePath`${ERootRoutes.Main}${ETabRoutes.Earn}`]: {
       showUrl: true,
       showParams: true,

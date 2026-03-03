@@ -1,6 +1,6 @@
 ---
 name: 1k-ui-recipes
-description: UI recipes for scroll offset (useScrollContentTabBarOffset), view transitions (startViewTransition), horizontal scroll in collapsible tab headers (CollapsibleTabContext), and Android bottom tab touch interception workaround.
+description: UI recipes for scroll offset (useScrollContentTabBarOffset), view transitions (startViewTransition), horizontal scroll in collapsible tab headers (CollapsibleTabContext), Android bottom tab touch interception workaround, and keyboard avoidance for input fields.
 allowed-tools: Read, Grep, Glob
 ---
 
@@ -16,6 +16,7 @@ Bite-sized solutions for common UI issues.
 | Smooth State Transitions | [start-view-transition.md](references/rules/start-view-transition.md) | Wrap heavy state updates in `startViewTransition` for fade on web |
 | Horizontal Scroll in Collapsible Tab Headers | [collapsible-tab-horizontal-scroll.md](references/rules/collapsible-tab-horizontal-scroll.md) | Bidirectional `Gesture.Pan()` + programmatic `scrollTo` via `CollapsibleTabContext` |
 | Android Bottom Tab Touch Interception | [android-bottom-tab-touch-intercept.md](references/rules/android-bottom-tab-touch-intercept.md) | **Temporary** — `GestureDetector` + `Gesture.Tap()` in `.android.tsx` to bypass native tab bar touch stealing |
+| Keyboard Avoidance for Input Fields | [keyboard-avoidance.md](references/rules/keyboard-avoidance.md) | `KeyboardAwareScrollView` auto-scroll, Footer animated padding, `useKeyboardHeight` / `useKeyboardEvent` hooks |
 
 ## Critical Rules Summary
 
@@ -75,6 +76,42 @@ const tapGesture = useMemo(
 ```
 
 > Use `.android.tsx` file extension so other platforms are unaffected.
+
+### 5. Keyboard Avoidance for Input Fields
+
+Standard `Page` and `Dialog` components handle keyboard avoidance automatically. Only add manual handling for custom layouts.
+
+- **Page inputs**: Automatic — `PageContainer` wraps with `KeyboardAwareScrollView` (90px `bottomOffset`)
+- **Page Footer**: Automatic — animates `paddingBottom` via `useReanimatedKeyboardAnimation`
+- **Dialog Footer**: Automatic — listens via `useKeyboardEventWithoutNavigation`
+- **Custom layout**: Use `Keyboard.AwareScrollView` with custom `bottomOffset`
+
+```typescript
+import { Keyboard } from '@onekeyhq/components';
+
+// Custom scrollable area with keyboard avoidance
+<Keyboard.AwareScrollView bottomOffset={150}>
+  {/* inputs */}
+</Keyboard.AwareScrollView>
+
+// Dismiss keyboard before navigation
+await Keyboard.dismissWithDelay();
+```
+
+Hooks for custom behavior:
+
+```typescript
+import { useKeyboardHeight, useKeyboardEvent } from '@onekeyhq/components';
+
+const height = useKeyboardHeight(); // 0 when hidden
+
+useKeyboardEvent({
+  keyboardWillShow: (e) => { /* e.endCoordinates.height */ },
+  keyboardWillHide: () => { /* ... */ },
+});
+```
+
+> Use `useKeyboardEventWithoutNavigation` for components outside NavigationContainer (Dialog, Modal).
 
 ---
 

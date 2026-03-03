@@ -7,13 +7,13 @@ const SvgPackageSearch = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M8 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h7.528A6 6 0 0 1 21 12.528V5a2 2 0 0 0-2-2h-3v4a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2z" />
-    <Path d="M14 3h-4v4h4z" />
     <Path
       fillRule="evenodd"
-      d="M19.828 14.172a4 4 0 1 0-.796 6.274l1.26 1.261a1 1 0 0 0 1.415-1.414l-1.26-1.26a4 4 0 0 0-.619-4.861m-4.242 1.414a2 2 0 1 1 2.828 2.828 2 2 0 0 1-2.828-2.828"
+      d="M14.172 14.172a4 4 0 0 1 6.274 4.86L22.414 21 21 22.414l-1.968-1.968a4.001 4.001 0 0 1-4.86-6.274m4.242 1.414a2 2 0 1 0-2.828 2.828 2 2 0 0 0 2.828-2.828"
       clipRule="evenodd"
     />
+    <Path d="M8 9h8V3h5v9.527A6 6 0 0 0 12.527 21H3V3h5z" />
+    <Path d="M14 7h-4V3h4z" />
   </Svg>
 );
 export default SvgPackageSearch;

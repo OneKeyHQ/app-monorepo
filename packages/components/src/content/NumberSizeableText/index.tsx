@@ -142,6 +142,7 @@ export function NumberSizeableText({
     </SizableText>
   ) : (
     <SizableText {...props} {...layoutProps} {...contentStyle}>
+      {/* eslint-disable no-nested-ternary */}
       {result.map((r, index) =>
         typeof r === 'string' ? (
           <SizableText
@@ -170,6 +171,7 @@ export function NumberSizeableText({
           </SizableText>
         ),
       )}
+      {/* eslint-enable no-nested-ternary */}
     </SizableText>
   );
 }
