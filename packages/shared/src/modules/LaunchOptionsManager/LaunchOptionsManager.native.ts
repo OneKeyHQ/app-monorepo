@@ -2,7 +2,7 @@ import { ReactNativeDeviceUtils } from '@onekeyfe/react-native-device-utils';
 
 import platformEnv from '../../platformEnv';
 
-import type { ILaunchOptionsManagerInterface } from './type';
+import type { ILaunchOptions, ILaunchOptionsManagerInterface } from './type';
 
 const getStartupTimeAt = async () => {
   const startupTime = await ReactNativeDeviceUtils.getStartupTime();
@@ -18,7 +18,8 @@ const getUIVisibleTimeAt = () => {
 };
 
 const LaunchOptionsManagerModule: ILaunchOptionsManagerInterface = {
-  getLaunchOptions: () => ReactNativeDeviceUtils.getLaunchOptions(),
+  getLaunchOptions: () =>
+    ReactNativeDeviceUtils.getLaunchOptions() as Promise<ILaunchOptions | null>,
   clearLaunchOptions: () => ReactNativeDeviceUtils.clearLaunchOptions(),
   getDeviceToken: () => {
     if (!platformEnv.isNativeIOS) {

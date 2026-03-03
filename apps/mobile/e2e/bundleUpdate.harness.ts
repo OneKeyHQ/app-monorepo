@@ -10,7 +10,6 @@
 // We focus on local operations: SHA256, file manipulation, version logic, parameter validation.
 
 import { describe, expect, test } from 'react-native-harness';
-import { Platform } from 'react-native';
 
 import { ReactNativeBundleUpdate as BundleUpdateModule } from '@onekeyfe/react-native-bundle-update';
 
@@ -164,7 +163,8 @@ describe('testVerification', () => {
 describe('downloadBundle parameter validation', () => {
   test('rejects with missing required params', async () => {
     try {
-      await BundleUpdateModule.downloadBundle({});
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await BundleUpdateModule.downloadBundle({} as any);
       // Should not reach here
       expect(true).toBe(false);
     } catch (e: any) {
@@ -195,7 +195,8 @@ describe('downloadBundle parameter validation', () => {
 describe('verifyBundle parameter validation', () => {
   test('rejects with missing filePath and sha256', async () => {
     try {
-      await BundleUpdateModule.verifyBundle({});
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await BundleUpdateModule.verifyBundle({} as any);
       expect(true).toBe(false);
     } catch (e: any) {
       expect(e.message || e.code || e).toBeTruthy();
@@ -223,7 +224,8 @@ describe('verifyBundle parameter validation', () => {
 describe('verifyBundleASC parameter validation', () => {
   test('rejects with missing params', async () => {
     try {
-      await BundleUpdateModule.verifyBundleASC({});
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await BundleUpdateModule.verifyBundleASC({} as any);
       expect(true).toBe(false);
     } catch (e: any) {
       expect(e.message || e.code || e).toBeTruthy();
@@ -257,7 +259,8 @@ describe('verifyBundleASC parameter validation', () => {
 describe('downloadBundleASC parameter validation', () => {
   test('rejects with missing required params', async () => {
     try {
-      await BundleUpdateModule.downloadBundleASC({});
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await BundleUpdateModule.downloadBundleASC({} as any);
       expect(true).toBe(false);
     } catch (e: any) {
       expect(e.message || e.code || e).toBeTruthy();
@@ -271,7 +274,8 @@ describe('downloadBundleASC parameter validation', () => {
 describe('installBundle parameter validation', () => {
   test('rejects with missing required params', async () => {
     try {
-      await BundleUpdateModule.installBundle({});
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await BundleUpdateModule.installBundle({} as any);
       expect(true).toBe(false);
     } catch (e: any) {
       expect(e.message || e.code || e).toBeTruthy();
@@ -413,13 +417,8 @@ describe('setCurrentUpdateBundleData', () => {
 // ---------------------------------------------------------------------------
 describe('platform constants', () => {
   test('module exposes expected constants', () => {
-    if (Platform.OS === 'android') {
-      // Android module exports ANDROID_CHANNEL
-      const constants = BundleUpdateModule.getConstants?.() || {};
-      expect(constants).toBeDefined();
-    }
-    // iOS doesn't export custom constants from this module, just verify it doesn't crash
-    expect(true).toBe(true);
+    // Nitro modules don't have getConstants; just verify the module is defined
+    expect(BundleUpdateModule).toBeDefined();
   });
 });
 
@@ -450,9 +449,9 @@ describe('SHA256 cross-verification', () => {
 // ---------------------------------------------------------------------------
 // jsBundlePath synchronous method
 // ---------------------------------------------------------------------------
-describe('jsBundlePath (sync)', () => {
-  test('returns a string synchronously', () => {
-    const path = BundleUpdateModule.jsBundlePath!();
+describe('getJsBundlePath', () => {
+  test('returns a string', async () => {
+    const path = await BundleUpdateModule.getJsBundlePath();
     expect(typeof path).toBe('string');
   });
 });

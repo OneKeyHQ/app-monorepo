@@ -9,7 +9,6 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import platformEnv from '../../platformEnv';
 
-import type { ReactNativeAppUpdate as ReactNativeAppUpdateType } from '@onekeyfe/react-native-app-update';
 import type {
   IAppUpdate,
   IBundleUpdate,
@@ -30,8 +29,27 @@ const isAppUpdateAvailable =
   !platformEnv.isNativeAndroidGooglePlay &&
   !platformEnv.isNativeAndroidHuawei;
 
-let _reactNativeAppUpdate: ReactNativeAppUpdateType | null = null;
-function getReactNativeAppUpdate(): ReactNativeAppUpdateType {
+// Local interface matching the Nitro HybridObject shape, avoids name collision
+// between the value export and the type re-export from the package.
+interface IReactNativeAppUpdateNative {
+  clearCache(): Promise<void>;
+  downloadAPK(params: {
+    downloadUrl: string;
+    notificationTitle: string;
+    fileSize: number;
+  }): Promise<void>;
+  downloadASC(params: { downloadUrl: string }): Promise<void>;
+  verifyASC(params: { downloadUrl: string }): Promise<void>;
+  verifyAPK(params: { downloadUrl: string }): Promise<void>;
+  installAPK(params: { downloadUrl: string }): Promise<void>;
+  addDownloadListener(
+    callback: (event: { type: string; progress: number }) => void,
+  ): number;
+  removeDownloadListener(id: number): void;
+}
+
+let _reactNativeAppUpdate: IReactNativeAppUpdateNative | null = null;
+function getReactNativeAppUpdate(): IReactNativeAppUpdateNative {
   if (!isAppUpdateAvailable) {
     throw new OneKeyLocalError(
       'AppUpdate is not available on Google Play / Huawei channel',
