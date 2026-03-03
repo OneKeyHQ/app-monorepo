@@ -145,7 +145,7 @@ index 818e050..271ae26 100644
    # Swift/Objective-C compatibility
    s.pod_target_xcconfig = {
 diff --git a/node_modules/expo-image/ios/ImageLoader.swift b/node_modules/expo-image/ios/ImageLoader.swift
-index a0dacf9..b22c929 100644
+index a0dacf9..60c38ce 100644
 --- a/node_modules/expo-image/ios/ImageLoader.swift
 +++ b/node_modules/expo-image/ios/ImageLoader.swift
 @@ -6,12 +6,18 @@ import ExpoModulesCore
@@ -168,7 +168,7 @@ index a0dacf9..b22c929 100644
      // This loader uses only the disk cache. We may want to give more control on this, but the memory cache
      // doesn't make much sense for shared refs as they're kept in memory as long as their JS objects.
      var context = createSDWebImageContext(forSource: source, cachePolicy: .disk)
-@@ -20,14 +26,44 @@ internal final class ImageLoader {
+@@ -20,14 +26,87 @@ internal final class ImageLoader {
        context[.imageThumbnailPixelSize] = maxSize
      }
  
@@ -179,24 +179,66 @@ index a0dacf9..b22c929 100644
 -        } else {
 -          continuation.resume(throwing: ImageLoadingFailed().causedBy(error))
 +    // PATCHED: Fix EXC_BAD_ACCESS crash when ImageLoader is deallocated during async operation.
-+    // Use a class to hold the operation reference so we can cancel it from the cancellation handler.
-+    // This prevents use-after-free crashes when the Swift Task is cancelled but the SDWebImage
-+    // completion block still tries to fire.
++    // Use a class to hold the operation and continuation references, ensuring the continuation
++    // is resumed exactly once. SDWebImage's cancel() does NOT invoke the completion handler,
++    // so the onCancel handler must resume the continuation with CancellationError to prevent
++    // the Task from hanging indefinitely and leaking resources.
 +    final class OperationHolder: @unchecked Sendable {
 +      var operation: SDWebImageCombinedOperation?
++      var continuation: CheckedContinuation<UIImage, Error>?
++      private var didResume = false
 +      let lock = NSLock()
 +
 +      func setOperation(_ op: SDWebImageCombinedOperation?) {
 +        lock.lock()
++        if didResume {
++          // cancel() was already called, cancel the operation immediately to avoid resource leak
++          lock.unlock()
++          op?.cancel()
++          return
++        }
 +        operation = op
 +        lock.unlock()
++      }
++
++      func setContinuation(_ cont: CheckedContinuation<UIImage, Error>) {
++        lock.lock()
++        if didResume {
++          // cancel() was already called before we got the continuation
++          lock.unlock()
++          cont.resume(throwing: CancellationError())
++          return
++        }
++        continuation = cont
++        lock.unlock()
++      }
++
++      func resume(with result: Result<UIImage, Error>) {
++        lock.lock()
++        guard !didResume, let cont = continuation else {
++          lock.unlock()
++          return
++        }
++        didResume = true
++        continuation = nil
++        lock.unlock()
++        cont.resume(with: result)
 +      }
 +
 +      func cancel() {
 +        lock.lock()
 +        operation?.cancel()
 +        operation = nil
++        let shouldResume = !didResume
++        let cont = continuation
++        if shouldResume {
++          didResume = true
++          continuation = nil
++        }
 +        lock.unlock()
++        if shouldResume, let cont {
++          cont.resume(throwing: CancellationError())
++        }
 +      }
 +    }
 +
@@ -204,12 +246,13 @@ index a0dacf9..b22c929 100644
 +
 +    return try await withTaskCancellationHandler {
 +      try await withCheckedThrowingContinuation { continuation in
++        operationHolder.setContinuation(continuation)
 +        let operation = self.imageManager.loadImage(with: sourceUri, context: context, progress: nil) { image, _, error, _, finished, _ in
 +          guard finished else { return }
 +          if let image {
-+            continuation.resume(returning: image)
++            operationHolder.resume(with: .success(image))
 +          } else {
-+            continuation.resume(throwing: ImageLoadingFailed().causedBy(error))
++            operationHolder.resume(with: .failure(ImageLoadingFailed().causedBy(error)))
 +          }
          }
 +        operationHolder.setOperation(operation)
