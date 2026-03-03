@@ -25,6 +25,8 @@ const clearPackage: IClearPackage = async () => {
   await ReactNativeAppUpdate.clearCache();
 };
 
+const DOWNLOAD_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
+
 const downloadPackage: IDownloadPackage = async ({
   downloadUrl,
   latestVersion,
@@ -33,14 +35,31 @@ const downloadPackage: IDownloadPackage = async ({
   if (!downloadUrl || !latestVersion) {
     throw new OneKeyLocalError('Invalid version or downloadUrl');
   }
-  await ReactNativeAppUpdate.downloadAPK({
-    downloadUrl,
-    notificationTitle: 'Downloading',
-    fileSize: fileSize || 0,
-  });
-  return {
-    downloadedFile: downloadUrl,
-  };
+
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+  try {
+    await Promise.race([
+      ReactNativeAppUpdate.downloadAPK({
+        downloadUrl,
+        notificationTitle: 'Downloading',
+        fileSize: fileSize || 0,
+      }),
+      new Promise<never>((_resolve, reject) => {
+        timeoutId = setTimeout(() => {
+          reject(new Error('APK download timed out'));
+        }, DOWNLOAD_TIMEOUT_MS);
+      }),
+    ]);
+
+    return {
+      downloadedFile: downloadUrl,
+    };
+  } finally {
+    if (timeoutId !== null) {
+      clearTimeout(timeoutId);
+    }
+  }
 };
 
 const downloadASC: IDownloadASC = async (params) => {
@@ -163,8 +182,6 @@ export const AppUpdate: IAppUpdate = {
 
 export const BundleUpdate: IBundleUpdate = {
   downloadBundle: async (params) => {
-    const DOWNLOAD_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
-
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
     try {
