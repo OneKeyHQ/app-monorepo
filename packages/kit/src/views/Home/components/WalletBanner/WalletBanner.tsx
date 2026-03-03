@@ -467,8 +467,8 @@ function WalletBanner() {
       if (banner.position && banner.position !== 'home') {
         return false;
       }
-      if (banner.networkIds && banner.networkIds.length > 0 && network?.id) {
-        if (!banner.networkIds.includes(network.id)) {
+      if (banner.networkIds && banner.networkIds.length > 0) {
+        if (!network?.id || !banner.networkIds.includes(network.id)) {
           return false;
         }
       }

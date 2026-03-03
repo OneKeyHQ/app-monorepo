@@ -157,7 +157,8 @@ function ApprovalListPageContent() {
     ITabHomeParamList,
     ETabHomeRoutes.TabHomeApprovalList
   >();
-  const { accountId, networkId, walletId, indexedAccountId } = route.params;
+  const { accountId, networkId, walletId, indexedAccountId } =
+    route.params ?? {};
 
   const intl = useIntl();
   const media = useMedia();
