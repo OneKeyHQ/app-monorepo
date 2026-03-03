@@ -1,7 +1,7 @@
-// eslint-disable-next-line import/no-cycle
-import { LinearGradient } from '@onekeyhq/components/src/content';
 import { useTheme } from '@onekeyhq/components/src/hooks';
 import { Stack } from '@onekeyhq/components/src/primitives';
+
+import { LinearGradient } from '../../content/LinearGradient';
 
 type IGradientMaskPosition = 'left' | 'right';
 
