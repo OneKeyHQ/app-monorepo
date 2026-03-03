@@ -1,11 +1,19 @@
-import { PixelRatio, Platform } from 'react-native';
+import { Dimensions, PixelRatio, Platform } from 'react-native';
 
 const isAndroid: boolean = Platform.OS === 'android';
 
-const ANDROID_UI_SCALE = 0.9;
+// Standard dp width threshold.
+// Pixel/Samsung etc. typically report ~411dp (standard density) → no scaling needed.
+// High-DPI OEM devices report ~360dp (higher density) → scale down to 0.9.
+const STANDARD_DP_WIDTH_THRESHOLD = 400;
 
-/** Global UI scale factor. 0.9 on Android, 1.0 elsewhere. */
-export const uiScale: number = isAndroid ? ANDROID_UI_SCALE : 1;
+function getAndroidUiScale(): number {
+  const dpWidth = Dimensions.get('window').width;
+  return dpWidth >= STANDARD_DP_WIDTH_THRESHOLD ? 1 : 0.9;
+}
+
+/** Global UI scale factor. Dynamic on Android based on dp width, 1.0 elsewhere. */
+export const uiScale: number = isAndroid ? getAndroidUiScale() : 1;
 
 /**
  * Scale a dimension value (spacing, size, border-radius).
