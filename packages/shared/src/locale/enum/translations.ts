@@ -2828,6 +2828,7 @@
   perps_perps = 'perps.perps',
   perps_pre_launch = 'perps.pre_launch',
   perps_saving_breakdown = 'perps.saving_breakdown',
+  perps_search_perps = 'perps.search_perps',
   perps_settings_return_to_default_layout = 'perps.settings_return_to_default_layout',
   perps_settings_shows_buy_sell_subtitle = 'perps.settings_shows_buy_sell_subtitle',
   perps_settings_shows_buy_sell_title = 'perps.settings_shows_buy_sell_title',
