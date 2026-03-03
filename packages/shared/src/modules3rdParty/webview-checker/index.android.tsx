@@ -1,14 +1,14 @@
 import { Linking } from 'react-native';
 
-import { ReactNativeWebviewChecker } from '@onekeyfe/react-native-webview-checker';
+import { ReactNativeDeviceUtils } from '@onekeyfe/react-native-device-utils';
 
 import type { IWebViewChecker } from './type';
 
 export const getCurrentWebViewPackageInfo: IWebViewChecker['getCurrentWebViewPackageInfo'] =
-  () => ReactNativeWebviewChecker.getCurrentWebViewPackageInfo();
+  () => ReactNativeDeviceUtils.getCurrentWebViewPackageInfo();
 
 export const isGooglePlayServicesAvailable: IWebViewChecker['isGooglePlayServicesAvailable'] =
-  () => ReactNativeWebviewChecker.isGooglePlayServicesAvailable();
+  () => ReactNativeDeviceUtils.isGooglePlayServicesAvailable();
 
 export const openWebViewInGooglePlay = () => {
   void Linking.openURL(
