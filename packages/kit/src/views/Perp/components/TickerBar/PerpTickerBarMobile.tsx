@@ -263,7 +263,7 @@ function PerpBadgesRow() {
             id: ETranslations.referral_perps_onekey_fee,
           })}
           renderTrigger={
-            <Badge radius="$1" bg="$bgSuccess" px="$1" py={0}>
+            <Badge radius="$1" bg="$bgSuccess" px="$0.5" py={0}>
               <SizableText color="$textSuccess" fontSize={10}>
                 {intl.formatMessage({
                   id: ETranslations.perp_0_fee,

@@ -6,9 +6,14 @@ import { useIntl } from 'react-intl';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import {
+  BorrowRepayPosition,
+  type IRepayWithCollateralConfirmParams,
+} from '@onekeyhq/kit/src/views/Borrow/components/BorrowRepayPosition';
 import { ManagePosition } from '@onekeyhq/kit/src/views/Borrow/components/ManagePosition';
 import {
   useUniversalBorrowRepay,
+  useUniversalBorrowRepayWithCollateral,
   useUniversalBorrowWithdraw,
 } from '@onekeyhq/kit/src/views/Borrow/hooks/useUniversalBorrowHooks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -21,6 +26,7 @@ import {
   EEarnLabels,
   type IBorrowAsset,
   type IBorrowAssetsList,
+  type IBorrowReserveItem,
   type IEarnAssetsList,
   type IEarnTokenInfo,
   type IEarnTokenItem,
@@ -55,6 +61,8 @@ export const WithdrawSection = ({
   borrowMarketAddress,
   borrowReserveAddress,
   borrowAction,
+  borrowReserves,
+  defaultCollateralReserveAddress,
   borrowActionLabel,
   receiveInputConfig,
   pendleSlippage,
@@ -77,6 +85,8 @@ export const WithdrawSection = ({
   borrowMarketAddress?: string;
   borrowReserveAddress?: string;
   borrowAction?: 'supply' | 'withdraw' | 'borrow' | 'repay';
+  borrowReserves?: IBorrowReserveItem;
+  defaultCollateralReserveAddress?: string;
   borrowActionLabel?: string;
   receiveInputConfig?: IManagePageV2ReceiveInputConfig;
   pendleSlippage?: number;
@@ -504,6 +514,12 @@ export const WithdrawSection = ({
     networkId,
   });
   const handleBorrowRepay = useUniversalBorrowRepay({ accountId, networkId });
+  const handleBorrowRepayWithCollateral = useUniversalBorrowRepayWithCollateral(
+    {
+      accountId,
+      networkId,
+    },
+  );
 
   const onConfirm = useCallback(
     async ({
@@ -682,6 +698,86 @@ export const WithdrawSection = ({
     ],
   );
 
+  const collateralAssets = useMemo(() => {
+    const suppliedAssets = borrowReserves?.supplied?.assets ?? [];
+    return suppliedAssets
+      .filter((item) => item.canBeCollateral)
+      .map((item) => ({
+        reserveAddress: item.reserveAddress,
+        token: item.token,
+        supplied: {
+          title: item.suppliedAmount.title,
+          description: item.suppliedAmount.description,
+        },
+      }));
+  }, [borrowReserves?.supplied?.assets]);
+
+  const onBorrowRepayWithCollateralConfirm = useCallback(
+    async ({
+      amount,
+      collateralReserveAddress,
+      repayAll,
+      slippageBps,
+      routeKey,
+      collateralAmount,
+      collateralAsset,
+    }: IRepayWithCollateralConfirmParams) => {
+      if (!borrowApiCtx.isBorrow) {
+        return;
+      }
+
+      const { provider, marketAddress } = borrowApiCtx.borrowApiParams;
+      const reserveAddress = effectiveReserveAddress ?? '';
+
+      const tags: string[] = [
+        EEarnLabels.Borrow,
+        buildBorrowTag({ provider, action: 'repay' }),
+      ];
+      if (protocolInfo?.stakeTag) {
+        tags.push(protocolInfo.stakeTag);
+      }
+
+      await handleBorrowRepayWithCollateral({
+        amount,
+        provider,
+        marketAddress,
+        reserveAddress,
+        collateralReserveAddress,
+        repayAll,
+        slippageBps,
+        routeKey,
+        stakingInfo: {
+          label: EEarnLabels.Repay,
+          protocol: earnUtils.getEarnProviderName({
+            providerName: provider,
+          }),
+          protocolLogoURI: protocolInfo?.providerDetail.logoURI,
+          send: {
+            token: {
+              ...collateralAsset.token,
+              isNative: false,
+              networkId,
+            } as IToken,
+            amount: collateralAmount || '0',
+          },
+          tags,
+        },
+        onSuccess: () => {
+          onSuccess?.();
+        },
+      });
+    },
+    [
+      borrowApiCtx,
+      effectiveReserveAddress,
+      handleBorrowRepayWithCollateral,
+      networkId,
+      onSuccess,
+      protocolInfo?.providerDetail.logoURI,
+      protocolInfo?.stakeTag,
+    ],
+  );
+
   // If no required data, render placeholder to maintain layout
   if (!hasRequiredData) {
     if (
@@ -728,9 +824,42 @@ export const WithdrawSection = ({
     );
   }
 
-  return (
-    <>
-      {isBorrowWithdraw ? (
+  let borrowWithdrawContent: ReactElement | null = null;
+
+  if (isBorrowWithdraw) {
+    if (borrowApiCtx.borrowApiParams.action === 'repay') {
+      borrowWithdrawContent = (
+        <BorrowRepayPosition
+          accountId={accountId}
+          networkId={networkId}
+          providerName={providerName}
+          price={tokenInfo?.price ? String(tokenInfo.price) : '0'}
+          decimals={effectiveDecimals}
+          balance={effectiveBalance}
+          maxBalance={effectiveMaxBalance}
+          tokenSymbol={effectiveTokenSymbol}
+          tokenImageUri={effectiveTokenImageUri}
+          onWalletConfirm={onBorrowConfirm}
+          onRepayWithCollateralConfirm={onBorrowRepayWithCollateralConfirm}
+          tokenInfo={tokenInfo}
+          isDisabled={isDisabled}
+          borrowMarketAddress={
+            borrowApiCtx.borrowApiParams?.marketAddress ?? ''
+          }
+          borrowReserveAddress={effectiveReserveAddress ?? ''}
+          beforeFooter={beforeFooter}
+          showApyDetail={showApyDetail}
+          actionLabel={borrowActionLabel}
+          selectableAssets={assetsList.assets}
+          selectableAssetsLoading={assetsListLoading}
+          onTokenSelect={handleTokenSelect}
+          isInModalContext={isInModalContext}
+          collateralAssets={collateralAssets}
+          defaultCollateralReserveAddress={defaultCollateralReserveAddress}
+        />
+      );
+    } else {
+      borrowWithdrawContent = (
         <ManagePosition
           accountId={accountId}
           networkId={networkId}
@@ -757,6 +886,14 @@ export const WithdrawSection = ({
           onTokenSelect={handleTokenSelect}
           isInModalContext={isInModalContext}
         />
+      );
+    }
+  }
+
+  return (
+    <>
+      {isBorrowWithdraw ? (
+        borrowWithdrawContent
       ) : (
         <UniversalWithdraw
           accountAddress={protocolInfo?.earnAccount?.accountAddress || ''}
