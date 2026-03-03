@@ -19,7 +19,7 @@ export interface IUseAmountInputParams {
 }
 
 export function useAmountInput({
-  action,
+  action: _action,
   decimals,
   balance,
   maxBalance,
@@ -67,10 +67,10 @@ export function useAmountInput({
 
   const onSelectPercentageStage = useCallback(
     (percent: number) => {
-      // Repay uses wallet balance for percentage calculation
-      // Other actions use maxBalance (debt balance) if provided
-      const balanceForPercent =
-        action === 'repay' ? balance : (maxBalance ?? balance);
+      // Use the same base as onMax for consistency:
+      // repay uses maxRepayBalance (min of debt and wallet balance),
+      // other actions fall back to balance when maxBalance is undefined.
+      const balanceForPercent = maxBalance ?? balance;
       onChangeAmountValue(
         calcPercentBalance({
           balance: balanceForPercent,
@@ -79,7 +79,7 @@ export function useAmountInput({
         }),
       );
     },
-    [action, balance, maxBalance, decimals, onChangeAmountValue],
+    [balance, maxBalance, decimals, onChangeAmountValue],
   );
 
   // Use the original hook to avoid closure issues
