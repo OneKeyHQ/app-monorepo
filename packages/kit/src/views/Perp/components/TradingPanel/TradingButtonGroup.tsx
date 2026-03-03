@@ -83,6 +83,7 @@ function SideButtonInternal({
     isNoEnoughMargin,
     effectivePriceBN,
     priceError,
+    leverage,
   } = calculations;
 
   const marginRequired = useDebounce(marginRequiredRaw, 100);
@@ -236,10 +237,39 @@ function SideButtonInternal({
         return;
       }
       if (isMinimumOrderNotMetForSide) {
+        let minAmount = '$10';
+        if (effectivePriceBN.gt(0)) {
+          // minimum token size that satisfies orderValue >= $10
+          const minSize = new BigNumber(10)
+            .dividedBy(effectivePriceBN)
+            .decimalPlaces(szDecimals, BigNumber.ROUND_UP);
+          if (tradingPreferences.sizeInputUnit === 'token') {
+            const coinSymbol = activeAsset?.coin
+              ? parseDexCoin(activeAsset.coin).displayName
+              : '';
+            minAmount = `${minSize.toFixed(szDecimals)} ${coinSymbol}`;
+          } else if (tradingPreferences.sizeInputUnit === 'margin') {
+            const leverageBN = new BigNumber(leverage || 1);
+            if (leverageBN.isFinite() && leverageBN.gt(0)) {
+              // System uses toFixed (ROUND_HALF_UP) to convert margin to token size.
+              // The smallest raw value that rounds up to minSize is: minSize - 0.5 * 10^(-szDecimals)
+              const halfStep = new BigNumber(5).times(
+                new BigNumber(10).pow(-(szDecimals + 1)),
+              );
+              const minMargin = minSize
+                .minus(halfStep)
+                .multipliedBy(effectivePriceBN)
+                .dividedBy(leverageBN)
+                .decimalPlaces(2, BigNumber.ROUND_UP)
+                .toFixed(2);
+              minAmount = `$${minMargin}`;
+            }
+          }
+        }
         Toast.message({
           title: intl.formatMessage(
             { id: ETranslations.perp_size_least },
-            { amount: '$10' },
+            { amount: minAmount },
           ),
         });
         return;

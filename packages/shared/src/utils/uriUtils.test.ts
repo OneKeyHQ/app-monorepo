@@ -253,7 +253,7 @@ describe('parseUrl', () => {
   });
 });
 
-describe('validateUrl', () => {
+describe('validateUrl trailing slash handling', () => {
   test('strips root-only trailing slash', () => {
     // Root-only path: https://google.com/ -> https://google.com
     expect(validateUrl('https://google.com/')).toBe('https://google.com');

@@ -160,11 +160,8 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
     const packages: IPackage[] = [];
 
     offerings.current?.availablePackages.forEach((p) => {
-      let {
-        subscriptionPeriod,
-        pricePerYear,
-        pricePerMonth,
-      } = p.product;
+      // eslint-disable-next-line prefer-const
+      let { subscriptionPeriod, pricePerYear, pricePerMonth } = p.product;
 
       if (platformEnv.isNativeAndroid) {
         pricePerYear = new BigNumber(pricePerYear || 0)
@@ -180,13 +177,13 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
       packages.push({
         subscriptionPeriod: subscriptionPeriod as ISubscriptionPeriod,
         pricePerYear: pricePerYear || 0,
-        pricePerYearString: `${new BigNumber(
-          pricePerYear || 0,
-        ).toFixed(2)} ${currencyCode}`,
+        pricePerYearString: `${new BigNumber(pricePerYear || 0).toFixed(
+          2,
+        )} ${currencyCode}`,
         pricePerMonth: pricePerMonth || 0,
-        pricePerMonthString: `${new BigNumber(
-          pricePerMonth || 0,
-        ).toFixed(2)} ${currencyCode}`,
+        pricePerMonthString: `${new BigNumber(pricePerMonth || 0).toFixed(
+          2,
+        )} ${currencyCode}`,
         priceTotalPerYearString:
           subscriptionPeriod === 'P1M'
             ? `${new BigNumber(pricePerMonth || 0)

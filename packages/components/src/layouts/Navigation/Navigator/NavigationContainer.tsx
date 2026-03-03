@@ -221,6 +221,46 @@ export const popToMainRoute = async (maxRetryTimes = 99) => {
   await popToMainRoute(maxRetryTimes - 1);
 };
 
+function isScanModalCurrentRoute(): boolean {
+  const rootState = rootNavigationRef.current?.getRootState();
+  const currentRoute = rootState?.routes?.[rootState.index];
+  if (currentRoute?.name !== ERootRoutes.Modal) {
+    return false;
+  }
+  const screenName =
+    (currentRoute?.params as { screen?: string })?.screen ||
+    currentRoute?.state?.routes?.[currentRoute?.state?.index || 0]?.name;
+  return screenName === EModalRoutes.ScanQrCodeModal;
+}
+
+/**
+ * Resolves when the scan modal is no longer the current route (or after timeout).
+ * Use after popScanModalPages() to proceed as soon as the stack has updated
+ * instead of a fixed 350ms, so the next push can run earlier (OK-50182).
+ */
+export const waitForScanModalClosed = (options?: {
+  pollIntervalMs?: number;
+  timeoutMs?: number;
+}): Promise<void> => {
+  const pollIntervalMs = options?.pollIntervalMs ?? 50;
+  const timeoutMs = options?.timeoutMs ?? 400;
+  return new Promise((resolve) => {
+    const deadline = Date.now() + timeoutMs;
+    const check = () => {
+      if (!isScanModalCurrentRoute()) {
+        resolve();
+        return;
+      }
+      if (Date.now() >= deadline) {
+        resolve();
+        return;
+      }
+      setTimeout(check, pollIntervalMs);
+    };
+    check();
+  });
+};
+
 export const popScanModalPages = async (maxRetryTimes = 99) => {
   if (maxRetryTimes <= 0) {
     return;

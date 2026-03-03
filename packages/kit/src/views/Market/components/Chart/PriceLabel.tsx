@@ -34,8 +34,10 @@ type IPriceLabelProps = {
 
 // function formatDecimalZero(value: number) {
 //   if (value >= 1) return formatMarketValueForFixed(value);
+
 // oxlint-disable-next-line @cspell/spellchecker
 //   const noRexponentail = parseExponential(value);
+
 // oxlint-disable-next-line @cspell/spellchecker
 //   const effectIndex = noRexponentail.toString().search(/[^-.0]/g);
 //   const zeroCount = effectIndex - 2;

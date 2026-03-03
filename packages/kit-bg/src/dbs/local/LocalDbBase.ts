@@ -382,18 +382,15 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
   async addHyperLiquidAgentCredential({
     credential,
-    password,
   }: {
     credential: ICoreHyperLiquidAgentCredential;
-    password: string;
   }) {
     const credentialId = accountUtils.buildHyperLiquidAgentCredentialId({
       userAddress: credential.userAddress,
       agentName: credential.agentName,
     });
-    const credentialEncrypt = await encryptHyperLiquidAgentCredential({
+    const credentialEncrypt = encryptHyperLiquidAgentCredential({
       credential,
-      password,
     });
     return this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
       await this.txAddRecords({
@@ -407,18 +404,15 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
   async updateHyperLiquidAgentCredential({
     credential,
-    password,
   }: {
     credential: ICoreHyperLiquidAgentCredential;
-    password: string;
   }) {
     const credentialId = accountUtils.buildHyperLiquidAgentCredentialId({
       userAddress: credential.userAddress,
       agentName: credential.agentName,
     });
-    const credentialEncrypt = await encryptHyperLiquidAgentCredential({
+    const credentialEncrypt = encryptHyperLiquidAgentCredential({
       credential,
-      password,
     });
     return this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
       await this.txUpdateRecords({
@@ -441,7 +435,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }: {
     userAddress: string;
     agentName: EHyperLiquidAgentName;
-    password: string;
+    password?: string;
   }): Promise<ICoreHyperLiquidAgentCredential | undefined> {
     const credentialId = accountUtils.buildHyperLiquidAgentCredentialId({
       userAddress,
@@ -522,15 +516,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             accountUtils.HYPERLIQUID_AGENT_CREDENTIAL_PREFIX,
           )
         ) {
-          const hyperLiquidAgentCredential: ICoreHyperLiquidAgentCredential =
-            await decryptHyperLiquidAgentCredential({
-              credential: credential.credential,
-              password: oldPassword,
-            });
-          credential.credential = await encryptHyperLiquidAgentCredential({
-            credential: hyperLiquidAgentCredential,
-            password: newPassword,
-          });
+          // Agent credentials no longer use password-based encryption.
+          // |HLP| format: already plaintext, skip.
+          // |HL| legacy format: orphaned, will be replaced when user re-enables trading.
+          return credential;
         }
 
         return credential;
@@ -1621,17 +1610,14 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const syncManager =
       this.backgroundApi?.servicePrimeCloudSync.syncManagers.indexedAccount;
 
-    let syncItemsInfo:
+    const buildSyncItemsStartTime = Date.now();
+    const syncItemsInfo:
       | {
           existingSyncItemsInfo: IExistingSyncItemsInfo<EPrimeCloudSyncDataType.IndexedAccount>;
           existingSyncItems: IDBCloudSyncItem[];
           newSyncItems: IDBCloudSyncItem[];
         }
-      | undefined;
-
-    const buildSyncItemsStartTime = Date.now();
-    // eslint-disable-next-line prefer-const
-    syncItemsInfo = await syncManager.buildExistingSyncItemsInfo({
+      | undefined = await syncManager.buildExistingSyncItemsInfo({
       tx,
       targets: indexedAccountsToAdd.map((indexedAccount) => ({
         targetId: indexedAccount.id,
@@ -4111,6 +4097,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             }
 
             // add account record
+            // eslint-disable-next-line prefer-const
             let { added, addedIds } = await this.txAddRecords({
               tx,
               name: ELocalDBStoreNames.Account,

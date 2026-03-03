@@ -1,15 +1,19 @@
-import { DatePickerProvider } from '@rehookify/datepicker';
 import { useCallback, useMemo, useState } from 'react';
+import type { ReactElement } from 'react';
+
+import { DatePickerProvider } from '@rehookify/datepicker';
 import { useIntl } from 'react-intl';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { withStaticProperties } from '../../shared/tamagui';
 
 import { Popover } from '../../actions/Popover';
-import { YStack } from '../../primitives';
+import { useMedia } from '../../hooks';
+import { XStack, YStack } from '../../primitives';
+import { withStaticProperties } from '../../shared/tamagui';
 
 import { Calendar } from './Calendar';
 import { DatePickerTrigger } from './DatePickerTrigger';
+import { PresetsSidebar } from './PresetsSidebar';
 
 import type {
   DatePickerMode,
@@ -17,12 +21,12 @@ import type {
   IDatePickerProps,
   IDatePickerRenderTriggerProps,
   IDateRange,
+  IDateRangePreset,
   IMonthPickerProps,
   IMultiSelectPickerProps,
   IRangePickerProps,
   IYearPickerProps,
 } from './type';
-import type { ReactElement } from 'react';
 
 const WEEK_START_MONDAY = 1 as const;
 
@@ -34,7 +38,13 @@ const createPickerConfig = (
   mode: 'single' | 'range' | 'multiple' = 'single',
   calendarMode?: 'static',
   locale?: string,
+  showPreviousMonth?: boolean,
 ) => {
+  let offsets: number[] | undefined;
+  if (mode === 'range') {
+    offsets = showPreviousMonth ? [-1] : [1];
+  }
+
   const config: React.ComponentProps<typeof DatePickerProvider>['config'] = {
     selectedDates,
     onDatesChange: handleDatesChange,
@@ -47,7 +57,7 @@ const createPickerConfig = (
     calendar: {
       startDay: WEEK_START_MONDAY,
       mode: calendarMode,
-      offsets: mode === 'range' ? [1] : undefined,
+      offsets,
     },
     locale: locale ? { locale } : undefined,
   };
@@ -227,6 +237,59 @@ function BasicDatePicker({
   );
 }
 
+function RangePickerContent({
+  config,
+  minDate,
+  maxDate,
+  showPreviousMonth,
+  presets,
+  value,
+  onChange,
+  close,
+}: {
+  config: React.ComponentProps<typeof DatePickerProvider>['config'];
+  minDate?: Date;
+  maxDate?: Date;
+  showPreviousMonth?: boolean;
+  presets?: IDateRangePreset[];
+  value?: IDateRange;
+  onChange?: (range: IDateRange) => void;
+  close: () => void;
+}) {
+  const media = useMedia();
+  const hasPresets = presets && presets.length > 0 && media.gtMd;
+
+  const handlePresetSelect = useCallback(
+    (range: IDateRange) => {
+      onChange?.(range);
+      close();
+    },
+    [onChange, close],
+  );
+
+  return (
+    <XStack>
+      {hasPresets ? (
+        <PresetsSidebar
+          presets={presets}
+          value={value}
+          onSelect={handlePresetSelect}
+        />
+      ) : null}
+      <YStack padding="$3" minWidth={280} flex={1} $gtMd={{ padding: '$4' }}>
+        <DatePickerProvider config={config}>
+          <Calendar
+            mode="range"
+            minDate={minDate}
+            maxDate={maxDate}
+            showPreviousMonth={showPreviousMonth}
+          />
+        </DatePickerProvider>
+      </YStack>
+    </XStack>
+  );
+}
+
 function RangePicker({
   value,
   onChange,
@@ -239,6 +302,8 @@ function RangePicker({
   maxDate,
   floatingPanelProps,
   sheetProps,
+  showPreviousMonth,
+  presets,
 }: IRangePickerProps) {
   const { placeholder, title, locale } = usePickerI18n(
     placeholderProp,
@@ -249,6 +314,8 @@ function RangePicker({
     disabled,
     onOpenChange,
   });
+  const media = useMedia();
+  const hasPresets = presets && presets.length > 0 && media.gtMd;
 
   const selectedDates = useMemo(
     () =>
@@ -280,9 +347,19 @@ function RangePicker({
         'range',
         undefined,
         locale,
+        showPreviousMonth,
       ),
-    [selectedDates, handleDatesChange, minDate, maxDate, locale],
+    [
+      selectedDates,
+      handleDatesChange,
+      minDate,
+      maxDate,
+      locale,
+      showPreviousMonth,
+    ],
   );
+
+  const panelWidth = hasPresets ? 780 : 624;
 
   return (
     <PickerPopover
@@ -290,8 +367,8 @@ function RangePicker({
       isOpen={isOpen}
       onOpenChange={handleOpenChange}
       floatingPanelProps={{
-        w: 624,
-        maxWidth: 624,
+        w: panelWidth,
+        maxWidth: panelWidth,
         ...floatingPanelProps,
       }}
       sheetProps={sheetProps}
@@ -304,11 +381,16 @@ function RangePicker({
         onClear: () => onChange?.({ start: null, end: null }),
       })}
       renderContent={
-        <YStack padding="$3" minWidth={280} $gtMd={{ padding: '$4' }}>
-          <DatePickerProvider config={config}>
-            <Calendar mode="range" minDate={minDate} maxDate={maxDate} />
-          </DatePickerProvider>
-        </YStack>
+        <RangePickerContent
+          config={config}
+          minDate={minDate}
+          maxDate={maxDate}
+          showPreviousMonth={showPreviousMonth}
+          presets={presets}
+          value={value}
+          onChange={onChange}
+          close={close}
+        />
       }
     />
   );

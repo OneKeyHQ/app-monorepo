@@ -153,7 +153,7 @@ const HistoryItem = ({
           children: <Icon name="GlobusOutline" />,
         },
       }}
-      title={item.title}
+      title={item.title ?? ''}
       subtitle={subtitle}
       onPress={onPress}
     >

@@ -17,6 +17,7 @@ import type { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { LegacyUniversalSearchInput } from '../../../components/TabPageHeader/LegacyUniversalSearchInput';
+
 import type { RefreshControlProps } from 'react-native';
 
 interface IEarnPageContainerProps {
@@ -33,6 +34,7 @@ interface IEarnPageContainerProps {
   contentContainerStyle?: IScrollViewProps['contentContainerStyle'];
   disableMaxWidth?: boolean;
   showTabPageHeader?: boolean;
+  showBodyTitle?: boolean;
 }
 
 export function EarnPageContainer({
@@ -49,6 +51,7 @@ export function EarnPageContainer({
   contentContainerStyle,
   disableMaxWidth,
   showTabPageHeader = true,
+  showBodyTitle = false,
 }: IEarnPageContainerProps) {
   const media = useMedia();
   const navigation = useAppNavigation();
@@ -111,9 +114,19 @@ export function EarnPageContainer({
             layout={disableMaxWidth ? 'full' : 'regular'}
           >
             {showBreadcrumb || showHeader ? (
-              <XStack px="$3" pb="$5" gap="$5" ai="center">
+              <XStack
+                px="$pagePadding"
+                pb={showBreadcrumb && showBodyTitle && pageTitle ? '$6' : '$5'}
+                gap="$5"
+                ai="center"
+              >
                 {showBreadcrumb ? <Breadcrumb {...breadcrumbProps} /> : null}
                 {showHeader ? header : null}
+              </XStack>
+            ) : null}
+            {showBreadcrumb && showBodyTitle && pageTitle ? (
+              <XStack px="$pagePadding" pb="$5" gap="$3" ai="center">
+                {pageTitle}
               </XStack>
             ) : null}
             {children}

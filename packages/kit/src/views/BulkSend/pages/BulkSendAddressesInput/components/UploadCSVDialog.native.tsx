@@ -132,7 +132,9 @@ function UploadCSVContent({ onUploaded }: IUploadCSVContentProps) {
         return;
       }
 
-      const filePath = localCopyResult.localUri.replace(/^file:\/\//, '');
+      const filePath = decodeURIComponent(
+        localCopyResult.localUri.replace(/^file:\/\//, ''),
+      );
       // Read MAX_LINES + 1 to detect if file exceeds limit
       const lines = await readFileStreamingLines(filePath, MAX_LINES);
 

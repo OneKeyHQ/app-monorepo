@@ -44,6 +44,19 @@ class ServiceMarketWS extends ServiceBase {
 
   private isMarketListenerRegistered = false;
 
+  private isReconnectListenerRegistered = false;
+
+  private retryTimers: ReturnType<typeof setTimeout>[] = [];
+
+  private reconnectHandler = () => {
+    this.resubscribeAll();
+  };
+
+  private marketHandler = (data: unknown) => {
+    console.log('handleMarketMessage', data);
+    this.handleMarketMessage(data);
+  };
+
   subscriptionTracker: MarketSubscriptionTracker =
     new MarketSubscriptionTracker();
 
@@ -71,22 +84,158 @@ class ServiceMarketWS extends ServiceBase {
 
     // Register market data listener only once
     if (!this.isMarketListenerRegistered) {
-      this.socket.on(EAppSocketEventNames.market, (data: unknown) => {
-        console.log('handleMarketMessage', data);
-        this.handleMarketMessage(data);
-      });
+      this.socket.on(EAppSocketEventNames.market, this.marketHandler);
       this.isMarketListenerRegistered = true;
+    }
+
+    // Re-subscribe all active subscriptions after reconnect
+    if (!this.isReconnectListenerRegistered) {
+      this.socket.on('connect', this.reconnectHandler);
+      this.isReconnectListenerRegistered = true;
     }
 
     return Promise.resolve();
   }
 
   @backgroundMethod()
+  async ensureSubscription({
+    networkId,
+    tokenAddress,
+    chartType,
+    currency,
+    channel,
+  }: {
+    networkId: string;
+    tokenAddress: string;
+    chartType?: string;
+    currency?: string;
+    channel: string;
+  }) {
+    if (!this.socket) {
+      return;
+    }
+
+    const hasExisting = this.subscriptionTracker.hasSubscription({
+      address: tokenAddress,
+      type: channel as ISubscriptionType,
+    });
+
+    if (hasExisting) {
+      // Subscription still exists in tracker — just re-emit to server and reset data count
+      const subscriptionArgs: IMarketSubscription = {
+        channel,
+        networkId,
+        tokenAddress,
+        chartType,
+        currencyCode: currency,
+        dataSource: 'okx',
+      };
+      const message: IMarketMessage = {
+        operation: EOperation.subscribe,
+        args: [subscriptionArgs],
+      };
+      this.emitSubscribeWithRetry({ message });
+      this.subscriptionTracker.clearDataCount({
+        address: tokenAddress,
+        type: channel as ISubscriptionType,
+      });
+    } else if (channel === EChannel.ohlcv) {
+      // Subscription was auto-unsubscribed — re-create it
+      await this.subscribeOHLCV({
+        networkId,
+        tokenAddress,
+        chartType,
+        currency,
+      });
+    } else if (channel === EChannel.tokenTxs) {
+      await this.subscribeTokenTxs({
+        networkId,
+        tokenAddress,
+        currency,
+      });
+    }
+  }
+
+  private resubscribeAll() {
+    // Cancel all pending retry timers to prevent duplicate subscriptions
+    this.clearRetryTimers();
+
+    const subscriptions = this.subscriptionTracker.getSubscriptions();
+    if (subscriptions.length === 0) {
+      return;
+    }
+    console.log(
+      `Reconnected, re-subscribing ${subscriptions.length} active subscription(s)`,
+    );
+    for (const sub of subscriptions) {
+      const subscriptionArgs: IMarketSubscription = {
+        channel: sub.type,
+        networkId: sub.networkId,
+        tokenAddress: sub.address,
+        chartType: sub.chartType,
+        currencyCode: sub.currency,
+        dataSource: 'okx',
+      };
+      const message: IMarketMessage = {
+        operation: EOperation.subscribe,
+        args: [subscriptionArgs],
+      };
+      this.socket?.emit(EAppSocketEventNames.market, message);
+      // Reset data count on re-subscribe to prevent stale threshold triggers
+      this.subscriptionTracker.clearDataCount({
+        address: sub.address,
+        type: sub.type,
+      });
+    }
+  }
+
+  private emitSubscribeWithRetry({
+    message,
+    retries = 3,
+    delayMs = 2000,
+  }: {
+    message: IMarketMessage;
+    retries?: number;
+    delayMs?: number;
+  }) {
+    if (this.socket?.connected) {
+      this.socket.emit(EAppSocketEventNames.market, message);
+      return;
+    }
+    if (retries <= 0) {
+      console.error('WebSocket not connected after retries, subscribe failed');
+      return;
+    }
+    const timer = setTimeout(() => {
+      this.retryTimers = this.retryTimers.filter((t) => t !== timer);
+      this.emitSubscribeWithRetry({
+        message,
+        retries: retries - 1,
+        delayMs,
+      });
+    }, delayMs);
+    this.retryTimers.push(timer);
+  }
+
+  private clearRetryTimers() {
+    this.retryTimers.forEach(clearTimeout);
+    this.retryTimers = [];
+  }
+
+  @backgroundMethod()
   async disconnect() {
-    // Remove market data listener
+    // Cancel all pending retry timers
+    this.clearRetryTimers();
+
+    // Remove market data listener (pass specific handler to avoid removing others)
     if (this.socket && this.isMarketListenerRegistered) {
-      this.socket.off(EAppSocketEventNames.market);
+      this.socket.off(EAppSocketEventNames.market, this.marketHandler);
       this.isMarketListenerRegistered = false;
+    }
+
+    if (this.socket && this.isReconnectListenerRegistered) {
+      this.socket.off('connect', this.reconnectHandler);
+      this.isReconnectListenerRegistered = false;
     }
 
     this.socket = null;
@@ -132,12 +281,7 @@ class ServiceMarketWS extends ServiceBase {
       args: [subscriptionArgs],
     };
 
-    if (!this.socket?.connected) {
-      console.error('WebSocket not connected');
-      return;
-    }
-
-    this.socket.emit(EAppSocketEventNames.market, message);
+    this.emitSubscribeWithRetry({ message });
     this.subscriptionTracker.addSubscription({
       address: tokenAddress,
       type: EChannel.tokenTxs,
@@ -189,12 +333,7 @@ class ServiceMarketWS extends ServiceBase {
       args: [subscriptionArgs],
     };
 
-    if (!this.socket?.connected) {
-      console.error('WebSocket not connected');
-      return;
-    }
-
-    this.socket.emit(EAppSocketEventNames.market, message);
+    this.emitSubscribeWithRetry({ message });
     this.subscriptionTracker.addSubscription({
       address: tokenAddress,
       type: EChannel.ohlcv,
