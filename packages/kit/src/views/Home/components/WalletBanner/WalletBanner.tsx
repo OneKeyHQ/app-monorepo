@@ -480,7 +480,12 @@ function WalletBanner() {
     await backgroundApiProxy.serviceWalletBanner.updateLocalTopBanners({
       topBanners: filteredBanners,
     });
-  }, [latestBanners, closedForeverBanners, updateWalletTopBanners, network?.id]);
+  }, [
+    latestBanners,
+    closedForeverBanners,
+    updateWalletTopBanners,
+    network?.id,
+  ]);
 
   const handleDismiss = useCallback(async (item: IWalletBanner) => {
     if (item.closeable) {

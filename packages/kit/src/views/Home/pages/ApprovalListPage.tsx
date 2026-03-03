@@ -53,6 +53,9 @@ import {
   useTokenMapAtom,
 } from '../../../states/jotai/contexts/approvalList';
 
+const networksSupportBulkRevokeApproval =
+  getNetworksSupportBulkRevokeApproval();
+
 function ApprovalListBar() {
   const navigation = useAppNavigation();
   const media = useMedia();
@@ -166,9 +169,6 @@ function ApprovalListPageContent() {
   const [{ contractMap }] = useContractMapAtom();
   const [approvalListState] = useApprovalListStateAtom();
 
-  const networksSupportBulkRevokeApproval =
-    getNetworksSupportBulkRevokeApproval();
-
   const { result: isBulkRevokeApprovalEnabled } = usePromiseResult(async () => {
     if (!networkId) return false;
 
@@ -201,12 +201,7 @@ function ApprovalListPageContent() {
     }
 
     return supported;
-  }, [
-    networkId,
-    accountId,
-    networksSupportBulkRevokeApproval,
-    approvalListActions,
-  ]);
+  }, [networkId, accountId, approvalListActions]);
 
   const { run } = usePromiseResult(
     async () => {
