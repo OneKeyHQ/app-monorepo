@@ -101,6 +101,23 @@ export function useTradingCalculationsForSide(side: 'long' | 'short') {
   );
 
   const isNoEnoughMargin = useMemo(() => {
+    // No margin for this side (guard on markPxBN to skip initial loading)
+    if (markPxBN.gt(0) && availableMarginBN.lte(0)) {
+      return true;
+    }
+
+    // Slider set but computed size rounds to 0 after szDecimals truncation
+    const isSlider =
+      (formData.sizeInputMode ?? EPerpsSizeInputMode.MANUAL) ===
+      EPerpsSizeInputMode.SLIDER;
+    if (
+      isSlider &&
+      (formData.sizePercent ?? 0) > 0 &&
+      computedSizeForSide.lte(0)
+    ) {
+      return true;
+    }
+
     if (
       !computedSizeForSide.isFinite() ||
       computedSizeForSide.lte(0) ||
@@ -110,16 +127,20 @@ export function useTradingCalculationsForSide(side: 'long' | 'short') {
       return false;
     }
 
-    if (!availableMarginBN.isFinite() || availableMarginBN.lte(0)) {
-      return true;
-    }
-
     const requiredMargin = computedSizeForSide
       .multipliedBy(effectivePriceBN)
       .dividedBy(leverage || 1);
 
     return requiredMargin.isFinite() && requiredMargin.gt(availableMarginBN);
-  }, [computedSizeForSide, effectivePriceBN, availableMarginBN, leverage]);
+  }, [
+    computedSizeForSide,
+    effectivePriceBN,
+    availableMarginBN,
+    leverage,
+    markPxBN,
+    formData.sizeInputMode,
+    formData.sizePercent,
+  ]);
 
   return {
     computedSizeForSide,

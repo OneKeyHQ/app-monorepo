@@ -8,10 +8,12 @@ type IPerpSettingsButtonProps = Omit<IIconButtonProps, 'icon' | 'onPress'>;
 export function PerpSettingsButton({
   size = 'small',
   variant = 'tertiary',
+  showFeeTierEntry = false,
   ...rest
-}: IPerpSettingsButtonProps) {
+}: IPerpSettingsButtonProps & { showFeeTierEntry?: boolean }) {
   const content = (
     <PerpSettingsPopover
+      showFeeTierEntry={showFeeTierEntry}
       renderTrigger={
         <IconButton
           icon="DotHorOutline"
