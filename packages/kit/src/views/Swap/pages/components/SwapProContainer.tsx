@@ -9,6 +9,7 @@ import {
   YStack,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
+import type { EPageType } from '@onekeyhq/components';
 import {
   useSwapFromTokenAmountAtom,
   useSwapProErrorAlertAtom,
@@ -35,8 +36,10 @@ import SwapProTabListContainer from './SwapProTabListContainer';
 import SwapProTokenSelector from './SwapProTokenSelect';
 import SwapProTradeInfoPanel from './SwapProTradeInfoPanel';
 import SwapProTradingPanel from './SwapProTradingPanel';
+import SwapTipsContainer from './SwapTipsContainer';
 
 interface ISwapProContainerProps {
+  pageType?: EPageType;
   onProSelectToken: (autoSearch?: boolean) => void;
   onOpenOrdersClick: (item: IFetchLimitOrderRes) => void;
   onSwapProActionClick: () => void;
@@ -58,6 +61,7 @@ interface ISwapProContainerProps {
 }
 
 const SwapProContainer = ({
+  pageType,
   onProSelectToken,
   onOpenOrdersClick,
   onSwapProActionClick,
@@ -168,13 +172,16 @@ const SwapProContainer = ({
         paddingBottom: tabBarHeight,
       }}
       showsVerticalScrollIndicator={false}
-      stickyHeaderIndices={[0]}
+      stickyHeaderIndices={[1]}
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode="on-drag"
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
       }
     >
+      <YStack mx="$-5">
+        <SwapTipsContainer pageType={pageType} />
+      </YStack>
       <XStack
         justifyContent="space-between"
         pb="$2"
