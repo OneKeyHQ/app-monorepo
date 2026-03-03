@@ -14,8 +14,11 @@ __generated__
 .claude/settings.local.json
 .clauderc
 .tmp/
+# Keyless cloud sync mock server data
+.tmp/keyless-cloud-sync-mock-data.json
 .cursor/plans/
 *.private_ai_docs.md
+*.local.md
 .cursor/plans/
 dist
 build-electron
@@ -114,6 +117,10 @@ debug.log
 # Local perf-ci secrets/config (do not commit)
 /development/perf-ci/config.local.json
 
+# Personal process assets (local only, not committed)
+/local/
+*.local.md
+.playwright-cli/
 # Local documentation files
 .local_docs/
 /.claude/worktrees

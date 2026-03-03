@@ -30,7 +30,7 @@ function trackPrimeSubscriptionSuccess({
     rcBillingProduct: {
       currentPrice: {
         amountMicros: number;
-        formattedPrice: string;
+        currency: string;
       };
     };
   };
@@ -52,20 +52,8 @@ function trackPrimeSubscriptionSuccess({
     amount = 0;
   }
 
-  let currency = 'USD';
-  try {
-    const formattedPrice =
-      paywallPackage.rcBillingProduct.currentPrice?.formattedPrice;
-    if (formattedPrice) {
-      currency =
-        extractCurrencySymbol(formattedPrice, {
-          useShortUSSymbol: true,
-        }) || 'USD';
-    }
-  } catch (error) {
-    console.warn('Error extracting currency:', error);
-    currency = 'USD';
-  }
+  const currency =
+    paywallPackage.rcBillingProduct.currentPrice?.currency || 'USD';
 
   defaultLogger.prime.subscription.primeSubscribeSuccess({
     planType,

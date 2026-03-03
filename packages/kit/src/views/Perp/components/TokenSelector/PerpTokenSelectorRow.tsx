@@ -14,8 +14,10 @@ import {
   SizableText,
   SkeletonContainer,
   Stack,
+  Tooltip,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Token } from '@onekeyhq/kit/src/components/Token';
@@ -71,6 +73,9 @@ interface ITokenSelectorRowContextValue {
 
 const TokenSelectorRowContext =
   createContext<ITokenSelectorRowContextValue | null>(null);
+
+const DESKTOP_SUBTITLE_MAX_WIDTH = 52;
+const MOBILE_SUBTITLE_MAX_WIDTH = 80;
 
 function useTokenSelectorRowContext() {
   const context = useContext(TokenSelectorRowContext);
@@ -131,9 +136,63 @@ const FavoriteButton = memo(
 
 FavoriteButton.displayName = 'FavoriteButton';
 
+const SubtitleBadge = memo(
+  ({
+    subtitle,
+    maxWidth,
+    withTooltip,
+  }: {
+    subtitle: string;
+    maxWidth: number;
+    withTooltip?: boolean;
+  }) => {
+    const badge = (
+      <XStack
+        borderRadius="$1"
+        bg="$bgInfo"
+        justifyContent="center"
+        alignItems="center"
+        px="$1"
+        maxWidth={maxWidth}
+        minWidth={0}
+        overflow="hidden"
+        flexShrink={0}
+        accessibilityLabel={subtitle}
+      >
+        <SizableText
+          fontSize={10}
+          alignSelf="center"
+          color="$textInfo"
+          lineHeight={16}
+          numberOfLines={1}
+          ellipsizeMode="tail"
+          flexShrink={1}
+        >
+          {subtitle}
+        </SizableText>
+      </XStack>
+    );
+
+    if (!withTooltip) {
+      return badge;
+    }
+
+    return (
+      <Tooltip
+        placement="top"
+        hovering
+        renderTrigger={badge}
+        renderContent={subtitle}
+      />
+    );
+  },
+);
+SubtitleBadge.displayName = 'SubtitleBadge';
+
 // Desktop cell components
 const TokenInfoCellDesktop = memo(() => {
   const { token } = useTokenSelectorRowContext();
+  const { gtLg } = useMedia();
 
   const content = useMemo(
     () => (
@@ -147,6 +206,9 @@ const TokenInfoCellDesktop = memo(() => {
           justifyContent="flex-start"
           gap="$1.5"
           alignItems="center"
+          pr="$1"
+          overflow="hidden"
+          minWidth={0}
         >
           <FavoriteButton coin={token.name} />
           <Token
@@ -155,8 +217,10 @@ const TokenInfoCellDesktop = memo(() => {
             tokenImageUri={getHyperliquidTokenImageUrl(token.displayName)}
             fallbackIcon="CryptoCoinOutline"
           />
-          <SizableText size="$bodySmMedium">{token.displayName}</SizableText>
-          <XStack gap="$1">
+          <SizableText size="$bodySmMedium" numberOfLines={1} flexShrink={1}>
+            {token.displayName}
+          </SizableText>
+          <XStack gap="$1" minWidth={0}>
             <XStack
               borderRadius="$1"
               bg="$bgStrong"
@@ -173,29 +237,18 @@ const TokenInfoCellDesktop = memo(() => {
                 {token.maxLeverage}x
               </SizableText>
             </XStack>
-            {token.subtitle ? (
-              <XStack
-                borderRadius="$1"
-                bg="$bgInfo"
-                justifyContent="center"
-                alignItems="center"
-                px="$1.5"
-              >
-                <SizableText
-                  fontSize={10}
-                  alignSelf="center"
-                  color="$textInfo"
-                  lineHeight={16}
-                >
-                  {token.subtitle}
-                </SizableText>
-              </XStack>
+            {token.subtitle && gtLg ? (
+              <SubtitleBadge
+                subtitle={token.subtitle}
+                maxWidth={DESKTOP_SUBTITLE_MAX_WIDTH}
+                withTooltip
+              />
             ) : null}
           </XStack>
         </XStack>
       </DebugRenderTracker>
     ),
-    [token.displayName, token.subtitle, token.maxLeverage, token.name],
+    [token.displayName, token.subtitle, token.maxLeverage, token.name, gtLg],
   );
   return content;
 });
@@ -465,22 +518,10 @@ const TokenNameMobile = memo(() => {
                 </SizableText>
               </XStack>
               {token.subtitle ? (
-                <XStack
-                  borderRadius="$1"
-                  bg="$bgInfo"
-                  justifyContent="center"
-                  alignItems="center"
-                  px="$1.5"
-                >
-                  <SizableText
-                    fontSize={10}
-                    alignSelf="center"
-                    color="$textInfo"
-                    lineHeight={16}
-                  >
-                    {token.subtitle}
-                  </SizableText>
-                </XStack>
+                <SubtitleBadge
+                  subtitle={token.subtitle}
+                  maxWidth={MOBILE_SUBTITLE_MAX_WIDTH}
+                />
               ) : null}
             </XStack>
           </XStack>

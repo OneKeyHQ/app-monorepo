@@ -35,6 +35,7 @@ export function CircleProgress({
     return {
       radius: r,
       circumference: c,
+
       // oxlint-disable-next-line @cspell/spellchecker
       strokeDashoffset: offset,
     };

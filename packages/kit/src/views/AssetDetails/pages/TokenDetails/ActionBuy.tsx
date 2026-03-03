@@ -19,9 +19,12 @@ import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
-
+import {
+  openUrlExternal,
+  openUrlInDiscovery,
+} from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IFiatCryptoType } from '@onekeyhq/shared/types/fiatCrypto';
+
 import type { IActionProps } from './type';
 
 // On native foldable split-screen, window width can be 640-767px which
@@ -148,7 +151,11 @@ function ActionBuy({
           Toast.error({ title: 'Failed to get widget url' });
           return;
         }
-        openUrlExternal(url);
+        if (platformEnv.isDesktop || platformEnv.isNative) {
+          openUrlInDiscovery({ url });
+        } else {
+          openUrlExternal(url);
+        }
       } finally {
         loadingRef.current = false;
         setLoading(false);
@@ -177,17 +184,19 @@ function ActionBuy({
 
   // Always show "出入金" — the label only changes to single-mode after the
   // support check confirms exactly one direction is available.
+  /* eslint-disable no-nested-ternary */
   const label =
     bothSupported || (!isBuySupported && !isSellSupported)
       ? intl.formatMessage({ id: ETranslations.buy_and_sell })
       : isBuySupported
         ? intl.formatMessage({ id: ETranslations.global_buy })
         : intl.formatMessage({ id: ETranslations.global_cash_out });
+  /* eslint-enable no-nested-ternary */
 
   const iconName = 'CurrencyDollarOutline' as const;
 
   // Single-action or loading: buy-only or sell-only → direct URL, use ActionItem
-  if (!bothSupported) {
+  if (!bothSupported || rest.showButtonStyle) {
     return (
       <ActionItem
         loading={loading}
@@ -226,6 +235,27 @@ function ActionBuy({
       sections,
     });
   };
+
+  // showButtonStyle: compact button with ActionList popover
+  if (rest.showButtonStyle) {
+    return (
+      <ActionList
+        title={label}
+        disabled={effectiveDisabled}
+        sections={sections}
+        renderTrigger={
+          <Button
+            icon={iconName}
+            loading={loading}
+            disabled={effectiveDisabled}
+            {...rest}
+          >
+            {label}
+          </Button>
+        }
+      />
+    );
+  }
 
   return (
     <>

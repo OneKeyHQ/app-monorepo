@@ -33,7 +33,9 @@ function HeaderColumn<T>({
   } = column;
   const events = onHeaderRow?.(column, index);
   const enableSortType = !!events?.onSortTypeChange;
-  const [sortOrder, setSortOrder] = useState<ETableSortType | undefined>();
+  const [sortOrder, setSortOrder] = useState<ETableSortType | undefined>(
+    events?.initialSortOrder,
+  );
 
   useEffect(() => {
     if (selectedColumnName !== dataIndex) {
