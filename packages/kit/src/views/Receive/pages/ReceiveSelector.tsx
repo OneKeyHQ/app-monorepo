@@ -15,7 +15,11 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
 import { EModalReceiveRoutes } from '@onekeyhq/shared/src/routes';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  openUrlExternal,
+  openUrlInDiscovery,
+} from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -139,7 +143,11 @@ function ReceiveSelectorContent() {
   const handleBuyOnPress = useCallback(
     ({ onPress }: { onPress: () => void }) => {
       if (token && isSupported && url) {
-        openUrlExternal(url);
+        if (platformEnv.isDesktop || platformEnv.isNative) {
+          openUrlInDiscovery({ url });
+        } else {
+          openUrlExternal(url);
+        }
       } else {
         onPress();
       }

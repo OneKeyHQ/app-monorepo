@@ -200,7 +200,22 @@ function TableHeaderRow<T>({
   rowProps?: ITableProps<T>['rowProps'];
   headerRowProps?: ITableProps<T>['headerRowProps'];
 }) {
-  const [selectedColumnName, setSelectedColumnName] = useState('');
+  const initialSelectedColumn = useMemo(() => {
+    if (!onHeaderRow) return '';
+    for (let i = 0; i < columns.length; i += 1) {
+      const col = columns[i];
+      if (col) {
+        const ev = onHeaderRow(col, i);
+        if (ev?.initialSortOrder) {
+          return col.dataIndex;
+        }
+      }
+    }
+    return '';
+  }, [columns, onHeaderRow]);
+  const [selectedColumnName, setSelectedColumnName] = useState(
+    initialSelectedColumn,
+  );
   return (
     <XStack
       {...(rowProps as IXStackProps)}
