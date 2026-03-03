@@ -382,6 +382,7 @@ function convertAssetTransferActionToSignatureConfirmComponent({
       address: unsignedTx.swapInfo.receivingAddress,
       tags: [],
       networkId: unsignedTx.swapInfo.receiver.accountInfo.networkId,
+      highlight: true,
     };
 
     components.push(receiveAddressComponent);
@@ -408,6 +409,7 @@ function convertAssetTransferActionToSignatureConfirmComponent({
       address: action.to,
       tags: [],
       isNavigable: showInteractWithContract,
+      highlight: !showInteractWithContract,
     };
 
     components.push(toAddressComponent);
