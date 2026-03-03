@@ -24,6 +24,9 @@ export enum ETabRoutes {
   DeviceManagement = 'DeviceManagement',
   ReferFriends = 'ReferFriends',
   BulkSend = 'BulkSend',
+  // Used by sub-pages (e.g. ApprovalList, BulkSend) that render a clean
+  // TabPageHeader without the parent tab's account-selector controls.
+  SubPage = 'SubPage',
 }
 
 export type ITabStackParamList = {
@@ -39,4 +42,5 @@ export type ITabStackParamList = {
   [ETabRoutes.DeviceManagement]: ITabDeviceManagementParamList;
   [ETabRoutes.ReferFriends]: ITabReferFriendsParamList;
   [ETabRoutes.BulkSend]: undefined;
+  [ETabRoutes.SubPage]: undefined;
 };
