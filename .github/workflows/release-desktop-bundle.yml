@@ -114,14 +114,14 @@ jobs:
             "fileName": "$BUNDLE_FILE",
             "sha256": "$BUNDLE_SHA256",
             "size": $BUNDLE_SIZE,
-            "generatedAt": "$GENERATED_AT"
+            "generatedAt": "$GENERATED_AT",
             "appVersion": "$APP_VERSION",
             "buildNumber": "$BUILD_NUMBER",
             "bundleVersion": "$BUILD_BUNDLE_VERSION",
             "appType": "electron"
           }
           EOF
-      
+
       - name: Generate metadata.json.info
         run: |
           echo "current dir: $(pwd)"
@@ -140,10 +140,10 @@ jobs:
             "fileName": "$METADATA_FILE",
             "sha256": "$METADATA_SHA256",
             "size": $METADATA_SIZE,
-            "generatedAt": "$GENERATED_AT"
+            "generatedAt": "$GENERATED_AT",
             "appVersion": "$APP_VERSION",
             "buildNumber": "$BUILD_NUMBER",
-            "bundleVersion": "$BUILD_BUNDLE_VERSION"
+            "bundleVersion": "$BUILD_BUNDLE_VERSION",
             "appType": "electron"
           }
           EOF
