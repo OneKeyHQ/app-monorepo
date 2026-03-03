@@ -163,17 +163,37 @@ export const AppUpdate: IAppUpdate = {
 
 export const BundleUpdate: IBundleUpdate = {
   downloadBundle: async (params) => {
-    const result = await ReactNativeBundleUpdate.downloadBundle({
-      downloadUrl: params.downloadUrl || '',
-      latestVersion: params.latestVersion || '',
-      bundleVersion: params.bundleVersion || '',
-      fileSize: params.fileSize || 0,
-      sha256: params.sha256 || '',
+    const listenerId = ReactNativeBundleUpdate.addDownloadListener((event) => {
+      if (event.type === DOWNLOAD_EVENT_TYPE.error) {
+        defaultLogger.update.app.log(
+          'bundle download error event',
+          event.message,
+        );
+      }
     });
-    return {
-      ...params,
-      downloadedFile: result.downloadedFile,
-    };
+
+    try {
+      const result = await ReactNativeBundleUpdate.downloadBundle({
+        downloadUrl: params.downloadUrl || '',
+        latestVersion: params.latestVersion || '',
+        bundleVersion: params.bundleVersion || '',
+        fileSize: params.fileSize || 0,
+        sha256: params.sha256 || '',
+      });
+
+      return {
+        ...params,
+        downloadedFile: result.downloadedFile,
+      };
+    } catch (error) {
+      defaultLogger.update.app.log(
+        'bundle download failed',
+        (error as Error)?.message,
+      );
+      throw error;
+    } finally {
+      ReactNativeBundleUpdate.removeDownloadListener(listenerId);
+    }
   },
   verifyBundle: (params) =>
     ReactNativeBundleUpdate.verifyBundle({
