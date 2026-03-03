@@ -163,6 +163,8 @@ export const AppUpdate: IAppUpdate = {
 
 export const BundleUpdate: IBundleUpdate = {
   downloadBundle: async (params) => {
+    const DOWNLOAD_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
+
     const listenerId = ReactNativeBundleUpdate.addDownloadListener((event) => {
       if (event.type === DOWNLOAD_EVENT_TYPE.error) {
         defaultLogger.update.app.log(
@@ -172,14 +174,23 @@ export const BundleUpdate: IBundleUpdate = {
       }
     });
 
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
     try {
-      const result = await ReactNativeBundleUpdate.downloadBundle({
-        downloadUrl: params.downloadUrl || '',
-        latestVersion: params.latestVersion || '',
-        bundleVersion: params.bundleVersion || '',
-        fileSize: params.fileSize || 0,
-        sha256: params.sha256 || '',
-      });
+      const result = await Promise.race([
+        ReactNativeBundleUpdate.downloadBundle({
+          downloadUrl: params.downloadUrl || '',
+          latestVersion: params.latestVersion || '',
+          bundleVersion: params.bundleVersion || '',
+          fileSize: params.fileSize || 0,
+          sha256: params.sha256 || '',
+        }),
+        new Promise<never>((_resolve, reject) => {
+          timeoutId = setTimeout(() => {
+            reject(new Error('Bundle download timed out'));
+          }, DOWNLOAD_TIMEOUT_MS);
+        }),
+      ]);
 
       return {
         ...params,
@@ -192,6 +203,9 @@ export const BundleUpdate: IBundleUpdate = {
       );
       throw error;
     } finally {
+      if (timeoutId !== null) {
+        clearTimeout(timeoutId);
+      }
       ReactNativeBundleUpdate.removeDownloadListener(listenerId);
     }
   },
