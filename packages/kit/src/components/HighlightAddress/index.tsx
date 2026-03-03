@@ -7,6 +7,7 @@ type IHighlightAddressProps = {
   leadingHighlightCount?: number;
   trailingHighlightCount?: number;
   groupSize?: number;
+  variant?: 'grouped' | 'inline';
 };
 
 function HighlightAddress({
@@ -14,18 +15,33 @@ function HighlightAddress({
   leadingHighlightCount = 6,
   trailingHighlightCount = 6,
   groupSize = 4,
+  variant = 'grouped',
 }: IHighlightAddressProps) {
   const parts = useMemo(() => {
     if (!address) {
       return null;
     }
 
+    const totalLen = address.length;
+    const minLength = leadingHighlightCount + trailingHighlightCount;
+
+    if (variant === 'inline') {
+      if (totalLen <= minLength) {
+        return { leading: address, middle: '', trailing: '' };
+      }
+      return {
+        leading: address.slice(0, leadingHighlightCount),
+        middle: address.slice(
+          leadingHighlightCount,
+          totalLen - trailingHighlightCount,
+        ),
+        trailing: address.slice(totalLen - trailingHighlightCount),
+      };
+    }
+
     // Group the ENTIRE address first to preserve visual rhythm
     const grouped =
       address.match(new RegExp(`.{1,${groupSize}}`, 'g'))?.join(' ') || address;
-
-    const totalLen = address.length;
-    const minLength = leadingHighlightCount + trailingHighlightCount;
 
     if (totalLen <= minLength) {
       return { leading: grouped, middle: '', trailing: '' };
@@ -47,7 +63,13 @@ function HighlightAddress({
       middle: grouped.slice(leadEnd, trailStart),
       trailing: grouped.slice(trailStart),
     };
-  }, [address, leadingHighlightCount, trailingHighlightCount, groupSize]);
+  }, [
+    address,
+    leadingHighlightCount,
+    trailingHighlightCount,
+    groupSize,
+    variant,
+  ]);
 
   if (!parts) {
     return null;
