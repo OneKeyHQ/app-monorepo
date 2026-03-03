@@ -63,8 +63,15 @@ function Address(props: IProps) {
     }
     return component.highlight ? (
       <HighlightAddress variant="inline" address={component.address} />
-    ) : component.address;
-  }, [component.showAccountName, accountName, component.highlight, component.address]);
+    ) : (
+      component.address
+    );
+  }, [
+    component.showAccountName,
+    accountName,
+    component.highlight,
+    component.address,
+  ]);
   return (
     <SignatureConfirmItem>
       <SignatureConfirmItem.Label>
@@ -103,7 +110,7 @@ function Address(props: IProps) {
       </XStack>
 
       {(accountId && networkId && showAddressLocalTags) ||
-        component.tags.length ? (
+      component.tags.length ? (
         <XStack gap="$1" flexWrap="wrap" flex={1}>
           {accountId && networkId && showAddressLocalTags ? (
             <AddressInfo

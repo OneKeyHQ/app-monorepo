@@ -1,7 +1,7 @@
-import BigNumber from "bignumber.js";
-import { findIndex, isEmpty } from "lodash";
+import BigNumber from 'bignumber.js';
+import { findIndex, isEmpty } from 'lodash';
 
-import type { IUnsignedTxPro } from "@onekeyhq/core/src/types";
+import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import type {
   IDecodedTx,
   IDecodedTxAction,
@@ -10,13 +10,19 @@ import type {
   IDecodedTxActionTokenActivate,
   IDecodedTxActionTokenApprove,
   IDecodedTxActionUnknown,
-} from "@onekeyhq/shared/types/tx";
-import { EDecodedTxActionType, EDecodedTxDirection } from "@onekeyhq/shared/types/tx";
+} from '@onekeyhq/shared/types/tx';
+import {
+  EDecodedTxActionType,
+  EDecodedTxDirection,
+} from '@onekeyhq/shared/types/tx';
 
-import { EParseTxComponentType, ETransferDirection } from "../../types/signatureConfirm";
-import { EEarnLabels, type IStakingInfo } from "../../types/staking";
-import { ETranslations } from "../locale";
-import { appLocale } from "../locale/appLocale";
+import {
+  EParseTxComponentType,
+  ETransferDirection,
+} from '../../types/signatureConfirm';
+import { EEarnLabels, type IStakingInfo } from '../../types/staking';
+import { ETranslations } from '../locale';
+import { appLocale } from '../locale/appLocale';
 
 import type {
   IDisplayComponent,
@@ -26,8 +32,8 @@ import type {
   IDisplayComponentInternalAssets,
   IDisplayComponentNetwork,
   IDisplayComponentToken,
-} from "../../types/signatureConfirm";
-import type { ISwapTxInfo } from "../../types/swap/types";
+} from '../../types/signatureConfirm';
+import type { ISwapTxInfo } from '../../types/swap/types';
 
 export function buildTxActionDirection({
   from,
@@ -38,9 +44,9 @@ export function buildTxActionDirection({
   to: string;
   accountAddress: string;
 }) {
-  const fixedFrom = from?.toLowerCase() ?? "";
-  const fixedTo = to?.toLowerCase() ?? "";
-  const fixedAccountAddress = accountAddress?.toLowerCase() ?? "";
+  const fixedFrom = from?.toLowerCase() ?? '';
+  const fixedTo = to?.toLowerCase() ?? '';
+  const fixedAccountAddress = accountAddress?.toLowerCase() ?? '';
 
   // out first for internal send
   if (fixedFrom && fixedFrom === fixedAccountAddress) {
@@ -54,17 +60,23 @@ export function buildTxActionDirection({
 
 export function getDisplayedActions({ decodedTx }: { decodedTx: IDecodedTx }) {
   const { outputActions, actions } = decodedTx;
-  return (outputActions && outputActions.length ? outputActions : actions) || [];
+  return (
+    (outputActions && outputActions.length ? outputActions : actions) || []
+  );
 }
 
 export function mergeAssetTransferActions(actions: IDecodedTxAction[]) {
   const otherActions: IDecodedTxAction[] = [];
   let mergedAssetTransferAction: IDecodedTxAction | null = null;
   actions.forEach((action) => {
-    if (action.type === EDecodedTxActionType.ASSET_TRANSFER && action.assetTransfer) {
+    if (
+      action.type === EDecodedTxActionType.ASSET_TRANSFER &&
+      action.assetTransfer
+    ) {
       if (mergedAssetTransferAction) {
         if (
-          mergedAssetTransferAction.assetTransfer?.from === action.assetTransfer.from &&
+          mergedAssetTransferAction.assetTransfer?.from ===
+            action.assetTransfer.from &&
           mergedAssetTransferAction.assetTransfer.to === action.assetTransfer.to
         ) {
           mergedAssetTransferAction.assetTransfer.sends = [
@@ -83,11 +95,12 @@ export function mergeAssetTransferActions(actions: IDecodedTxAction[]) {
             .plus(action.assetTransfer.nativeAmount ?? 0)
             .toFixed();
 
-          mergedAssetTransferAction.assetTransfer.nativeAmountValue = new BigNumber(
-            mergedAssetTransferAction.assetTransfer.nativeAmountValue ?? 0,
-          )
-            .plus(action.assetTransfer.nativeAmountValue ?? 0)
-            .toFixed();
+          mergedAssetTransferAction.assetTransfer.nativeAmountValue =
+            new BigNumber(
+              mergedAssetTransferAction.assetTransfer.nativeAmountValue ?? 0,
+            )
+              .plus(action.assetTransfer.nativeAmountValue ?? 0)
+              .toFixed();
         } else {
           otherActions.push(action);
         }
@@ -102,8 +115,8 @@ export function mergeAssetTransferActions(actions: IDecodedTxAction[]) {
 }
 
 export function calculateNativeAmountInActions(actions: IDecodedTxAction[]) {
-  let nativeAmount = "0";
-  let nativeAmountValue = "0";
+  let nativeAmount = '0';
+  let nativeAmountValue = '0';
 
   actions.forEach((item) => {
     if (item.type === EDecodedTxActionType.ASSET_TRANSFER) {
@@ -129,11 +142,16 @@ export function calculateTokenAmountInActions({
   actions: IDecodedTxAction[];
   tokenAddress: string;
 }) {
-  let tokenAmount = "0";
+  let tokenAmount = '0';
   actions.forEach((item) => {
-    if (item.type === EDecodedTxActionType.ASSET_TRANSFER && item.assetTransfer) {
+    if (
+      item.type === EDecodedTxActionType.ASSET_TRANSFER &&
+      item.assetTransfer
+    ) {
       item.assetTransfer.sends.forEach((send) => {
-        if (send.tokenIdOnNetwork.toLowerCase() === tokenAddress.toLowerCase()) {
+        if (
+          send.tokenIdOnNetwork.toLowerCase() === tokenAddress.toLowerCase()
+        ) {
           tokenAmount = new BigNumber(tokenAmount).plus(send.amount).toFixed();
         }
       });
@@ -161,33 +179,50 @@ export function getTxnType({
   swapInfo?: ISwapTxInfo;
   stakingInfo?: IStakingInfo;
 }) {
-  if (swapInfo || actions.some((action) => action.type === EDecodedTxActionType.INTERNAL_SWAP)) {
-    return "swap";
+  if (
+    swapInfo ||
+    actions.some((action) => action.type === EDecodedTxActionType.INTERNAL_SWAP)
+  ) {
+    return 'swap';
   }
 
   if (
     stakingInfo ||
-    actions.some((action) => action.type === EDecodedTxActionType.INTERNAL_STAKE)
+    actions.some(
+      (action) => action.type === EDecodedTxActionType.INTERNAL_STAKE,
+    )
   ) {
-    return "stake";
+    return 'stake';
   }
 
-  if (actions.some((action) => action.type === EDecodedTxActionType.TOKEN_APPROVE)) {
-    return "approve";
+  if (
+    actions.some((action) => action.type === EDecodedTxActionType.TOKEN_APPROVE)
+  ) {
+    return 'approve';
   }
 
-  if (actions.some((action) => action.type === EDecodedTxActionType.ASSET_TRANSFER)) {
-    return "send";
+  if (
+    actions.some(
+      (action) => action.type === EDecodedTxActionType.ASSET_TRANSFER,
+    )
+  ) {
+    return 'send';
   }
 
-  if (actions.some((action) => action.type === EDecodedTxActionType.FUNCTION_CALL)) {
-    return "function call";
+  if (
+    actions.some((action) => action.type === EDecodedTxActionType.FUNCTION_CALL)
+  ) {
+    return 'function call';
   }
 
-  return "unknown";
+  return 'unknown';
 }
 
-export function getStakingActionLabel({ stakingInfo }: { stakingInfo: IStakingInfo }) {
+export function getStakingActionLabel({
+  stakingInfo,
+}: {
+  stakingInfo: IStakingInfo;
+}) {
   switch (stakingInfo.label) {
     case EEarnLabels.Claim:
       return appLocale.intl.formatMessage({
@@ -301,7 +336,7 @@ function convertAssetTransferActionToSignatureConfirmComponent({
       name: send.name,
       icon: send.icon,
       symbol: send.symbol,
-      amount: "",
+      amount: '',
       amountParsed: send.amount,
       networkId: send.networkId,
       isNFT: send.isNFT,
@@ -327,7 +362,7 @@ function convertAssetTransferActionToSignatureConfirmComponent({
       name: receive.name,
       icon: receive.icon,
       symbol: receive.symbol,
-      amount: "",
+      amount: '',
       amountParsed: receive.amount,
       networkId: receive.networkId,
       isNFT: receive.isNFT,
@@ -393,7 +428,7 @@ function convertTokenApproveActionToSignatureConfirmComponent({
   networkId: string;
 }) {
   const isRevoke = new BigNumber(action.amount).isZero();
-  let approveLabel = "";
+  let approveLabel = '';
 
   if (isMultiTxs) {
     approveLabel = isRevoke
@@ -486,7 +521,7 @@ function convertFunctionCallActionToSignatureConfirmComponent({
 
   const component: IDisplayComponentDefault = {
     type: EParseTxComponentType.Default,
-    label: "Operation",
+    label: 'Operation',
     value: action.functionName,
   };
 
@@ -546,7 +581,10 @@ export function convertDecodedTxActionsToSignatureConfirmTxDisplayComponents({
   const components: IDisplayComponent[] = [];
 
   for (const action of actions) {
-    if (action.type === EDecodedTxActionType.ASSET_TRANSFER && action.assetTransfer) {
+    if (
+      action.type === EDecodedTxActionType.ASSET_TRANSFER &&
+      action.assetTransfer
+    ) {
       components.push(
         ...convertAssetTransferActionToSignatureConfirmComponent({
           action: action.assetTransfer,
@@ -554,7 +592,10 @@ export function convertDecodedTxActionsToSignatureConfirmTxDisplayComponents({
           isUTXO,
         }),
       );
-    } else if (action.type === EDecodedTxActionType.TOKEN_APPROVE && action.tokenApprove) {
+    } else if (
+      action.type === EDecodedTxActionType.TOKEN_APPROVE &&
+      action.tokenApprove
+    ) {
       components.push(
         ...convertTokenApproveActionToSignatureConfirmComponent({
           action: action.tokenApprove,
@@ -562,20 +603,29 @@ export function convertDecodedTxActionsToSignatureConfirmTxDisplayComponents({
           networkId,
         }),
       );
-    } else if (action.type === EDecodedTxActionType.TOKEN_ACTIVATE && action.tokenActivate) {
+    } else if (
+      action.type === EDecodedTxActionType.TOKEN_ACTIVATE &&
+      action.tokenActivate
+    ) {
       components.push(
         ...convertTokenActiveActionToSignatureConfirmComponent({
           action: action.tokenActivate,
           networkId,
         }),
       );
-    } else if (action.type === EDecodedTxActionType.FUNCTION_CALL && action.functionCall) {
+    } else if (
+      action.type === EDecodedTxActionType.FUNCTION_CALL &&
+      action.functionCall
+    ) {
       components.push(
         ...convertFunctionCallActionToSignatureConfirmComponent({
           action: action.functionCall,
         }),
       );
-    } else if (action.type === EDecodedTxActionType.UNKNOWN && action.unknownAction) {
+    } else if (
+      action.type === EDecodedTxActionType.UNKNOWN &&
+      action.unknownAction
+    ) {
       components.push(
         ...convertUnknownActionToSignatureConfirmComponent({
           action: action.unknownAction,
@@ -623,7 +673,10 @@ export function convertDecodedTxActionsToSignatureConfirmTxDisplayTitle({
   const actions = decodedTxs[0].actions;
 
   for (const action of actions) {
-    if (action.type === EDecodedTxActionType.ASSET_TRANSFER && action.assetTransfer) {
+    if (
+      action.type === EDecodedTxActionType.ASSET_TRANSFER &&
+      action.assetTransfer
+    ) {
       const sends = action.assetTransfer.sends;
       const receives = action.assetTransfer.receives;
 
@@ -640,7 +693,10 @@ export function convertDecodedTxActionsToSignatureConfirmTxDisplayTitle({
       }
     }
 
-    if (action.type === EDecodedTxActionType.TOKEN_APPROVE && action.tokenApprove) {
+    if (
+      action.type === EDecodedTxActionType.TOKEN_APPROVE &&
+      action.tokenApprove
+    ) {
       const isRevoke = new BigNumber(action.tokenApprove.amount).isZero();
 
       return isRevoke
@@ -652,7 +708,10 @@ export function convertDecodedTxActionsToSignatureConfirmTxDisplayTitle({
           });
     }
 
-    if (action.type === EDecodedTxActionType.FUNCTION_CALL && action.functionCall) {
+    if (
+      action.type === EDecodedTxActionType.FUNCTION_CALL &&
+      action.functionCall
+    ) {
       return appLocale.intl.formatMessage({
         id: ETranslations.transaction__contract_interaction,
       });
