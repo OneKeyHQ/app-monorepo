@@ -132,6 +132,7 @@
   "allowlist.enabled_popover_title": "Daftar diizinkan diaktifkan",
   "approval_bulk_revoke_status_paused_reason_description": "Alasan dilewati",
   "approval_bulk_revoke_status_processing": "Sedang memproses",
+  "approval_not_supported": "Manajemen persetujuan tidak didukung di jaringan ini",
   "approve_edit.approve_amount": "Menyetujui jumlah",
   "approve_edit.less_than_swap": "Tunjangan tidak boleh kurang dari jumlah swap",
   "approve_edit.title": "Edit tunjangan",
