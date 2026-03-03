@@ -8,8 +8,15 @@ const isAndroid: boolean = Platform.OS === 'android';
 const STANDARD_DP_WIDTH_THRESHOLD = 400;
 
 function getAndroidUiScale(): number {
-  const dpWidth = Dimensions.get('window').width;
-  return dpWidth >= STANDARD_DP_WIDTH_THRESHOLD ? 1 : 0.9;
+  try {
+    const dpWidth = Dimensions?.get?.('window')?.width ?? 0;
+    if (dpWidth > 0) {
+      return dpWidth >= STANDARD_DP_WIDTH_THRESHOLD ? 1 : 0.9;
+    }
+  } catch {
+    // Dimensions not ready at module init time
+  }
+  return 0.9;
 }
 
 /** Global UI scale factor. Dynamic on Android based on dp width, 1.0 elsewhere. */
