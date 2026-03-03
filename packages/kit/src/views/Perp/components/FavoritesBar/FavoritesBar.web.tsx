@@ -7,13 +7,10 @@ import {
   useState,
 } from 'react';
 
-import {
-  Icon,
-  ScrollView,
-  SizableText,
-  Stack,
-  XStack,
-} from '@onekeyhq/components';
+import { noop } from 'lodash';
+import { DragDropContext, Draggable, Droppable } from 'react-beautiful-dnd';
+
+import { Icon, SizableText, Stack, XStack } from '@onekeyhq/components';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   type IPerpFavoritesDisplayMode,
@@ -24,7 +21,16 @@ import { usePerpsFavorites } from '../../hooks/usePerpsFavorites';
 
 import { FavoriteTokenItem } from './FavoriteTokenItem';
 
+import type {
+  DraggableProvided,
+  DraggableRubric,
+  DraggableStateSnapshot,
+  DropResult,
+} from 'react-beautiful-dnd';
+
 const SCROLL_DISTANCE = 250;
+
+const getBody = () => document.body;
 
 const DisplayModeToggle = memo(
   ({
@@ -153,6 +159,64 @@ function FavoritesBar() {
   const [favoritesSettings, setFavoritesSettings] =
     usePerpTokenFavoritesPersistAtom();
   const displayMode = favoritesSettings.displayMode ?? 'price';
+  const [isDragging, setIsDragging] = useState(false);
+
+  const handleDragStart = useCallback(() => {
+    setIsDragging(true);
+  }, []);
+
+  const handleDragEnd = useCallback(
+    (result: DropResult) => {
+      setIsDragging(false);
+      if (!result.destination) return;
+      if (result.source.index === result.destination.index) return;
+
+      // Use coinName to locate items in persisted array (rendered list may be a filtered subset).
+      setFavoritesSettings((prev) => {
+        const sourceCoin = favoriteItems[result.source.index]?.coinName;
+        const destCoin = favoriteItems[result.destination!.index]?.coinName;
+        if (!sourceCoin || !destCoin) return prev;
+        const newFavorites = [...prev.favorites];
+        const sourceIdx = newFavorites.indexOf(sourceCoin);
+        const destIdx = newFavorites.indexOf(destCoin);
+        if (sourceIdx === -1 || destIdx === -1) return prev;
+        const [moved] = newFavorites.splice(sourceIdx, 1);
+        newFavorites.splice(destIdx, 0, moved);
+        return { ...prev, favorites: newFavorites };
+      });
+    },
+    [setFavoritesSettings, favoriteItems],
+  );
+
+  const renderClone = useCallback(
+    (
+      provided: DraggableProvided,
+      _snapshot: DraggableStateSnapshot,
+      rubric: DraggableRubric,
+    ) => {
+      const item = favoriteItems[rubric.source.index];
+      if (!item) {
+        return <div ref={provided.innerRef} {...provided.draggableProps} />;
+      }
+      return (
+        <div
+          ref={provided.innerRef}
+          {...provided.draggableProps}
+          {...provided.dragHandleProps}
+        >
+          <FavoriteTokenItem
+            displayName={item.displayName}
+            coinName={item.coinName}
+            dexIndex={item.dexIndex}
+            assetId={item.assetId}
+            displayMode={displayMode}
+            onPress={noop}
+          />
+        </div>
+      );
+    },
+    [favoriteItems, displayMode],
+  );
 
   const toggleDisplayMode = useCallback(() => {
     setFavoritesSettings((prev) => ({
@@ -174,6 +238,25 @@ function FavoritesBar() {
   useLayoutEffect(() => {
     requestAnimationFrame(updateScrollState);
   }, [favoriteItems, updateScrollState]);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.addEventListener('scroll', updateScrollState, { passive: true });
+    return () => {
+      el.removeEventListener('scroll', updateScrollState);
+    };
+  }, [updateScrollState, hasFavorites]);
+
+  const mergeRefs = useCallback(
+    (droppableInnerRef: (element: HTMLElement | null) => void) =>
+      (node: HTMLDivElement | null) => {
+        droppableInnerRef(node);
+        (scrollRef as React.MutableRefObject<HTMLDivElement | null>).current =
+          node;
+      },
+    [],
+  );
 
   const scrollLeft = useCallback(() => {
     scrollRef.current?.scrollBy({ left: -SCROLL_DISTANCE, behavior: 'smooth' });
@@ -198,56 +281,87 @@ function FavoritesBar() {
   }
 
   return (
-    <XStack
-      position="relative"
-      h={40}
-      alignItems="center"
-      gap="$3"
-      flex={1}
-      pl="$5"
-      borderBottomWidth="$px"
-      borderBottomColor="$borderSubdued"
-    >
-      <Icon name="StarSolid" size="$3" color="$icon" />
-      <DisplayModeToggle
-        displayMode={displayMode}
-        onToggle={toggleDisplayMode}
-      />
-      <Stack position="relative" flex={1} h={40} justifyContent="center">
-        <ScrollView
-          ref={scrollRef as any}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          h={24}
-          contentContainerStyle={{
-            alignItems: 'center',
-            gap: '$1',
-          }}
-          onScroll={updateScrollState}
-          scrollEventThrottle={16}
-        >
-          {favoriteItems.map((item) => (
-            <FavoriteTokenItem
-              key={`${item.assetId}`}
-              displayName={item.displayName}
-              coinName={item.coinName}
-              dexIndex={item.dexIndex}
-              assetId={item.assetId}
-              displayMode={displayMode}
-              onPress={() =>
-                void actions.current.changeActiveAsset({ coin: item.coinName })
-              }
-            />
-          ))}
-        </ScrollView>
-        {canScrollLeft ? (
-          <ScrollButton direction="left" onPress={scrollLeft} />
-        ) : null}
-        {canScrollRight ? (
-          <ScrollButton direction="right" onPress={scrollRight} />
-        ) : null}
-      </Stack>
-    </XStack>
+    <DragDropContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+      <XStack
+        position="relative"
+        h={40}
+        alignItems="center"
+        gap="$3"
+        flex={1}
+        pl="$5"
+        borderBottomWidth="$px"
+        borderBottomColor="$borderSubdued"
+      >
+        <Icon name="StarSolid" size="$3" color="$icon" />
+        <DisplayModeToggle
+          displayMode={displayMode}
+          onToggle={toggleDisplayMode}
+        />
+        <Stack position="relative" flex={1} h={40} justifyContent="center">
+          <Droppable
+            droppableId="favorites-bar"
+            direction="horizontal"
+            renderClone={renderClone}
+            getContainerForClone={getBody}
+          >
+            {(droppableProvided) => (
+              <div
+                ref={mergeRefs(droppableProvided.innerRef)}
+                {...droppableProvided.droppableProps}
+                style={{
+                  display: 'flex',
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  overflowX: 'auto',
+                  scrollbarWidth: 'none',
+                }}
+              >
+                {favoriteItems.map((item, index) => (
+                  <Draggable
+                    key={item.coinName}
+                    draggableId={item.coinName}
+                    index={index}
+                  >
+                    {(draggableProvided) => (
+                      <div
+                        ref={draggableProvided.innerRef}
+                        {...draggableProvided.draggableProps}
+                        {...draggableProvided.dragHandleProps}
+                        style={{
+                          ...draggableProvided.draggableProps.style,
+                          flexShrink: 0,
+                          marginRight: index < favoriteItems.length - 1 ? 4 : 0,
+                        }}
+                      >
+                        <FavoriteTokenItem
+                          displayName={item.displayName}
+                          coinName={item.coinName}
+                          dexIndex={item.dexIndex}
+                          assetId={item.assetId}
+                          displayMode={displayMode}
+                          onPress={() =>
+                            void actions.current.changeActiveAsset({
+                              coin: item.coinName,
+                            })
+                          }
+                        />
+                      </div>
+                    )}
+                  </Draggable>
+                ))}
+                {droppableProvided.placeholder}
+              </div>
+            )}
+          </Droppable>
+          {!isDragging && canScrollLeft ? (
+            <ScrollButton direction="left" onPress={scrollLeft} />
+          ) : null}
+          {!isDragging && canScrollRight ? (
+            <ScrollButton direction="right" onPress={scrollRight} />
+          ) : null}
+        </Stack>
+      </XStack>
+    </DragDropContext>
   );
 }
 
