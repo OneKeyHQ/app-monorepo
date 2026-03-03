@@ -11,5 +11,12 @@ module.exports = {
         android: null,
       },
     },
+    '@onekeyfe/react-native-app-update': {
+      platforms: {
+        android: {
+          dependencyConfiguration: 'prodImplementation',
+        },
+      },
+    },
   },
 };

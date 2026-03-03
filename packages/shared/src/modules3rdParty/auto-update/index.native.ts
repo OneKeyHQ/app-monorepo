@@ -3,11 +3,13 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import RNRestart from 'react-native-restart';
 import { useThrottledCallback } from 'use-debounce';
 
-import { ReactNativeAppUpdate } from '@onekeyfe/react-native-app-update';
 import { ReactNativeBundleUpdate } from '@onekeyfe/react-native-bundle-update';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
+import platformEnv from '../../platformEnv';
+
+import type { ReactNativeAppUpdate as ReactNativeAppUpdateType } from '@onekeyfe/react-native-app-update';
 import type {
   IAppUpdate,
   IBundleUpdate,
@@ -21,8 +23,30 @@ import type {
   IVerifyPackage,
 } from './type';
 
+// AppUpdate native module is excluded from google/huawei builds via
+// dependencyConfiguration: 'prodImplementation' in react-native.config.js.
+// Use lazy require() to avoid crash when the module is not linked.
+const isAppUpdateAvailable =
+  !platformEnv.isNativeAndroidGooglePlay &&
+  !platformEnv.isNativeAndroidHuawei;
+
+let _reactNativeAppUpdate: ReactNativeAppUpdateType | null = null;
+function getReactNativeAppUpdate(): ReactNativeAppUpdateType {
+  if (!isAppUpdateAvailable) {
+    throw new OneKeyLocalError(
+      'AppUpdate is not available on Google Play / Huawei channel',
+    );
+  }
+  if (!_reactNativeAppUpdate) {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const mod = require('@onekeyfe/react-native-app-update');
+    _reactNativeAppUpdate = mod.ReactNativeAppUpdate;
+  }
+  return _reactNativeAppUpdate!;
+}
+
 const clearPackage: IClearPackage = async () => {
-  await ReactNativeAppUpdate.clearCache();
+  await getReactNativeAppUpdate().clearCache();
 };
 
 const downloadPackage: IDownloadPackage = async ({
@@ -33,7 +57,7 @@ const downloadPackage: IDownloadPackage = async ({
   if (!downloadUrl || !latestVersion) {
     throw new OneKeyLocalError('Invalid version or downloadUrl');
   }
-  await ReactNativeAppUpdate.downloadAPK({
+  await getReactNativeAppUpdate().downloadAPK({
     downloadUrl,
     notificationTitle: 'Downloading',
     fileSize: fileSize || 0,
@@ -48,7 +72,7 @@ const downloadASC: IDownloadASC = async (params) => {
   if (!downloadUrl) {
     return;
   }
-  await ReactNativeAppUpdate.downloadASC({
+  await getReactNativeAppUpdate().downloadASC({
     downloadUrl,
   });
 };
@@ -58,7 +82,7 @@ const verifyASC: IVerifyASC = async (params) => {
   if (!downloadUrl) {
     return;
   }
-  await ReactNativeAppUpdate.verifyASC({
+  await getReactNativeAppUpdate().verifyASC({
     downloadUrl,
   });
 };
@@ -68,7 +92,7 @@ const verifyPackage: IVerifyPackage = async (params) => {
   if (!downloadUrl) {
     return;
   }
-  await ReactNativeAppUpdate.verifyAPK({
+  await getReactNativeAppUpdate().verifyAPK({
     downloadUrl,
   });
 };
@@ -81,7 +105,7 @@ const installPackage: IInstallPackage = async ({
   if (!latestVersion) {
     return;
   }
-  return ReactNativeAppUpdate.installAPK({
+  return getReactNativeAppUpdate().installAPK({
     downloadUrl: downloadUrl || '',
   });
 };
@@ -114,15 +138,16 @@ export const useDownloadProgress: IUseDownloadProgress = () => {
   }, []);
 
   useEffect(() => {
-    appUpdateListenerId.current = ReactNativeAppUpdate.addDownloadListener(
-      (event) => {
-        if (event.type === DOWNLOAD_EVENT_TYPE.start) {
-          startDownload();
-        } else if (event.type === DOWNLOAD_EVENT_TYPE.downloading) {
-          updatePercent({ progress: event.progress });
-        }
-      },
-    );
+    if (isAppUpdateAvailable) {
+      appUpdateListenerId.current =
+        getReactNativeAppUpdate().addDownloadListener((event) => {
+          if (event.type === DOWNLOAD_EVENT_TYPE.start) {
+            startDownload();
+          } else if (event.type === DOWNLOAD_EVENT_TYPE.downloading) {
+            updatePercent({ progress: event.progress });
+          }
+        });
+    }
 
     bundleUpdateListenerId.current =
       ReactNativeBundleUpdate.addDownloadListener((event) => {
@@ -134,8 +159,11 @@ export const useDownloadProgress: IUseDownloadProgress = () => {
       });
 
     return () => {
-      if (appUpdateListenerId.current !== null) {
-        ReactNativeAppUpdate.removeDownloadListener(
+      if (
+        isAppUpdateAvailable &&
+        appUpdateListenerId.current !== null
+      ) {
+        getReactNativeAppUpdate().removeDownloadListener(
           appUpdateListenerId.current,
         );
       }
