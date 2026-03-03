@@ -95,7 +95,7 @@ index d5b82ff..5f1a084 100644
      }
  
 diff --git a/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/ViewPagerAdapter.kt b/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/ViewPagerAdapter.kt
-index fd3530e..8988ac3 100644
+index fd3530e..d8cded7 100644
 --- a/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/ViewPagerAdapter.kt
 +++ b/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/ViewPagerAdapter.kt
 @@ -1,14 +1,34 @@
@@ -196,11 +196,11 @@ index fd3530e..8988ac3 100644
 +      }
 +      return
 +    }
-     if (index >= 0 && index < childrenViews.size) {
+     if (index >= 0 && index < childrenViews.size) { 
        childrenViews.removeAt(index)
        notifyItemRemoved(index)
 diff --git a/node_modules/react-native-pager-view/ios/RNCPagerViewComponentView.mm b/node_modules/react-native-pager-view/ios/RNCPagerViewComponentView.mm
-index d52f532..0eda5f7 100644
+index d52f532..eff12a8 100644
 --- a/node_modules/react-native-pager-view/ios/RNCPagerViewComponentView.mm
 +++ b/node_modules/react-native-pager-view/ios/RNCPagerViewComponentView.mm
 @@ -29,6 +29,14 @@ @implementation RNCPagerViewComponentView {
@@ -225,7 +225,7 @@ index d52f532..0eda5f7 100644
 +        _isBeingRecycled = NO;
 +        _pendingGoToIndex = -1;
      }
- 
+     
      return self;
 @@ -96,6 +106,9 @@ - (void)willMoveToSuperview:(UIView *)newSuperview {
  #pragma mark - React API
@@ -321,7 +321,7 @@ index d52f532..0eda5f7 100644
          [self enableSwipe];
          return;
      }
- 
+   
 +    // Validate index bounds
 +    if (index < 0 || index >= _nativeChildrenViewControllers.count) {
 +#ifdef DEBUG
