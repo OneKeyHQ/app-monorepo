@@ -46,8 +46,8 @@ import {
   teal,
   tealDark,
 } from './colors';
-import { webFontFamily } from './src/utils/webFontFamily';
 import { fs, s } from './src/utils/scale';
+import { webFontFamily } from './src/utils/webFontFamily';
 
 import type { Variable } from '@tamagui/web';
 
@@ -118,25 +118,25 @@ const basicFontVariants = {
     heading5xl: '700',
   },
   transform: {
-    bodyXs: 'none',
-    bodyXsMedium: 'none',
-    bodySm: 'none',
-    bodySmMedium: 'none',
-    bodyMd: 'none',
-    bodyMdMedium: 'none',
-    true: 'none',
-    bodyLg: 'none',
-    bodyLgMedium: 'none',
-    headingXxs: 'none',
-    headingXs: 'uppercase',
-    headingSm: 'none',
-    headingMd: 'none',
-    headingLg: 'none',
-    headingXl: 'none',
-    heading2xl: 'none',
-    heading3xl: 'none',
-    heading4xl: 'none',
-    heading5xl: 'none',
+    bodyXs: 'none' as const,
+    bodyXsMedium: 'none' as const,
+    bodySm: 'none' as const,
+    bodySmMedium: 'none' as const,
+    bodyMd: 'none' as const,
+    bodyMdMedium: 'none' as const,
+    true: 'none' as const,
+    bodyLg: 'none' as const,
+    bodyLgMedium: 'none' as const,
+    headingXxs: 'none' as const,
+    headingXs: 'uppercase' as const,
+    headingSm: 'none' as const,
+    headingMd: 'none' as const,
+    headingLg: 'none' as const,
+    headingXl: 'none' as const,
+    heading2xl: 'none' as const,
+    heading3xl: 'none' as const,
+    heading4xl: 'none' as const,
+    heading5xl: 'none' as const,
   },
   letterSpacing: {
     bodyXs: 0,
