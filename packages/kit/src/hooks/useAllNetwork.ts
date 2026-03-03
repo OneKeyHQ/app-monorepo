@@ -523,6 +523,7 @@ function useAllNetworkRequests<T>(params: {
           await onStartedTask;
           if (onStartedError) {
             if (onStartedError instanceof Error) {
+              // oxlint-disable-next-line no-throw-literal
               throw onStartedError;
             }
             const err = new Error('onStarted failed');
@@ -784,6 +785,7 @@ function useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
   indexedAccountId,
   withNetworksInfo = false,
   deferMs = 0,
+  enabledNetworks: enabledNetworksParam,
 }: {
   walletId: string;
   networkId?: string;
@@ -791,6 +793,7 @@ function useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
   indexedAccountId?: string;
   withNetworksInfo?: boolean;
   deferMs?: number;
+  enabledNetworks?: IServerNetwork[];
 }) {
   const initResult = useMemo(() => getEmptyEnabledNetworksResult(), []);
 
@@ -804,6 +807,10 @@ function useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
         { deriveType: IAccountDeriveTypes; mergeDeriveAssetsEnabled: boolean }
       > = {};
       if (networkId && !networkUtils.isAllNetwork({ networkId })) {
+        return getEmptyEnabledNetworksResult();
+      }
+
+      if (enabledNetworksParam && enabledNetworksParam.length === 0) {
         return getEmptyEnabledNetworksResult();
       }
 
@@ -821,16 +828,27 @@ function useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
         await timerUtils.wait(deferMs);
       }
 
-      const enabledNetworkIds = networks
-        .filter((n) =>
-          isEnabledNetworksInAllNetworks({
-            networkId: n.id,
-            disabledNetworks,
-            enabledNetworks,
-            isTestnet: n.isTestnet,
-          }),
-        )
-        .map((n) => n.id);
+      let enabledNetworkIds: string[];
+
+      if (enabledNetworksParam) {
+        const enabledNetworkIdSet = new Set(
+          enabledNetworksParam.map((n) => n.id),
+        );
+        enabledNetworkIds = networks
+          .filter((n) => enabledNetworkIdSet.has(n.id))
+          .map((n) => n.id);
+      } else {
+        enabledNetworkIds = networks
+          .filter((n) =>
+            isEnabledNetworksInAllNetworks({
+              networkId: n.id,
+              disabledNetworks,
+              enabledNetworks,
+              isTestnet: n.isTestnet,
+            }),
+          )
+          .map((n) => n.id);
+      }
 
       const compatibleNetworks =
         await backgroundApiProxy.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId(
@@ -934,9 +952,11 @@ function useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
       indexedAccountId,
       withNetworksInfo,
       deferMs,
+      enabledNetworksParam,
     ],
     {
       initResult,
+      revalidateOnFocus: true,
     },
   );
 

@@ -1,18 +1,17 @@
-import {
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { isNil } from 'lodash';
-import { useIntl } from 'react-intl';
+import { type GestureResponderEvent, StyleSheet } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, {
+  clamp,
+  useAnimatedStyle,
+  useSharedValue,
+  withDecay,
+} from 'react-native-reanimated';
 
-import type { ColorTokens } from '@onekeyhq/components';
 import {
-  CollapsibleTabContext,
+  HeaderScrollGestureWrapper,
   Icon,
   IconButton,
   Image,
@@ -22,9 +21,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useWalletBanner } from '@onekeyhq/kit/src/hooks/useWalletBanner';
 import {
@@ -33,67 +30,14 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EModalRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
-import { EModalSignAndVerifyRoutes } from '@onekeyhq/shared/src/routes/signAndVerify';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IWalletBanner } from '@onekeyhq/shared/types/walletBanner';
 
-import { type GestureResponderEvent, StyleSheet } from 'react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, {
-  clamp,
-  scrollTo,
-  useAnimatedStyle,
-  useSharedValue,
-  withDecay,
-} from 'react-native-reanimated';
-
 const BANNER_ITEM_WIDTH = 280;
-const BANNER_GAP = 8;
+const BANNER_GAP = 12;
 const BANNER_PADDING_H = 20;
 
 const closedBanners: Record<string, boolean> = {};
-
-function getStaticBanners(intl: ReturnType<typeof useIntl>): IWalletBanner[] {
-  return [
-    {
-      _id: 'static-2',
-      id: 'static-2',
-      src: '',
-      title: intl.formatMessage({ id: ETranslations.id_refer_a_friend_desc }),
-      description: '',
-      button: '',
-      rank: 0,
-      closeable: false,
-      closeForever: false,
-      useSystemBrowser: false,
-      theme: 'light',
-      icon: {
-        name: 'GiftSolid',
-      },
-      width: 200,
-    },
-    {
-      _id: 'static-3',
-      id: 'static-3',
-      src: '',
-      title: intl.formatMessage({
-        id: ETranslations.message_signing_main_title,
-      }),
-      description: '',
-      button: '',
-      rank: 0,
-      closeable: false,
-      closeForever: false,
-      useSystemBrowser: false,
-      theme: 'light',
-      icon: {
-        name: 'SignatureSolid',
-      },
-      width: 200,
-    },
-  ];
-}
 
 function BannerItem({
   item,
@@ -109,7 +53,7 @@ function BannerItem({
   }, [onPress, item]);
   return (
     <XStack
-      w={item.width || BANNER_ITEM_WIDTH}
+      w={item.icon ? 200 : BANNER_ITEM_WIDTH}
       h={108}
       p="$4"
       my="$px"
@@ -147,29 +91,23 @@ function BannerItem({
         gap="$3"
       >
         {item.src ? (
-          <YStack>
+          <YStack w={60} h={60} flexShrink={0}>
             <Image size={60} source={{ uri: item.src }} />
           </YStack>
         ) : null}
-        {item.title && item.description ? (
-          <YStack flex={1} gap="$1">
-            {item.description ? (
-              <SizableText
-                size="$bodyXs"
-                color="$textSubdued"
-                numberOfLines={1}
-              >
-                {item.description}
-              </SizableText>
-            ) : null}
-            <SizableText size="$headingSm" numberOfLines={3}>
-              {item.title}
+        <YStack flex={1} gap="$1">
+          {item.description ? (
+            <SizableText size="$bodyXs" color="$textSubdued" numberOfLines={1}>
+              {item.description}
             </SizableText>
-          </YStack>
-        ) : null}
-        {item.title && !item.description ? (
-          <SizableText size="$headingMd">{item.title}</SizableText>
-        ) : null}
+          ) : null}
+          <SizableText
+            size={item.icon ? '$headingMd' : '$headingSm'}
+            numberOfLines={3}
+          >
+            {item.title}
+          </SizableText>
+        </YStack>
       </XStack>
 
       {item.closeable ? (
@@ -188,11 +126,7 @@ function BannerItem({
       ) : null}
       {item.icon ? (
         <Stack position="absolute" right="$4" bottom="$4">
-          <Icon
-            name={item.icon.name}
-            size={item.icon.size || 24}
-            color={(item.icon.color as ColorTokens) || '$bgAccent'}
-          />
+          <Icon name={item.icon} size={24} color="$bgAccent" />
         </Stack>
       ) : null}
     </XStack>
@@ -208,13 +142,6 @@ function NativeBannerScroller({
   handleBannerOnPress: (item: IWalletBanner) => void;
   handleDismiss: (item: IWalletBanner) => void;
 }) {
-  // Access collapsible-tab-view context to programmatically drive vertical scroll
-  const tabsContext = useContext(CollapsibleTabContext);
-  const refMap = tabsContext?.refMap;
-  const focusedTab = tabsContext?.focusedTab;
-  const scrollYCurrent = tabsContext?.scrollYCurrent;
-  const contentInset = tabsContext?.contentInset ?? 0;
-
   // Track touch distance on JS thread to suppress onPress during drags.
   // Using JS-thread onTouchStart/onTouchMove instead of runOnJS from worklet
   // avoids async timing issues where onPress fires before runOnJS callback.
@@ -237,14 +164,12 @@ function NativeBannerScroller({
 
   const translateX = useSharedValue(0);
   const startTranslateX = useSharedValue(0);
-  const startScrollY = useSharedValue(0);
-  const isHorizontal = useSharedValue<boolean | undefined>(undefined);
 
   const [containerWidth, setContainerWidth] = useState(0);
 
   const actualMaxTranslateX = useMemo(() => {
     const totalItemWidth = banners.reduce(
-      (sum, b) => sum + (b.width || BANNER_ITEM_WIDTH),
+      (sum, b) => sum + (b.icon ? 200 : BANNER_ITEM_WIDTH),
       0,
     );
     const totalWidth =
@@ -256,59 +181,31 @@ function NativeBannerScroller({
   const panGesture = useMemo(
     () =>
       Gesture.Pan()
+        .activeOffsetX([-10, 10])
+        .failOffsetY([-10, 10])
         .onStart(() => {
           'worklet';
+
           startTranslateX.value = translateX.value;
-          startScrollY.value = scrollYCurrent?.value ?? 0;
-          isHorizontal.value = undefined;
         })
         .onUpdate((e) => {
           'worklet';
-          // Determine direction on first significant movement
-          if (isHorizontal.value === undefined) {
-            if (Math.abs(e.translationX) > 5 || Math.abs(e.translationY) > 5) {
-              isHorizontal.value =
-                Math.abs(e.translationX) > Math.abs(e.translationY);
-            }
-            return;
-          }
 
-          if (isHorizontal.value) {
-            // Horizontal: drive banner translateX
-            translateX.value = clamp(
-              startTranslateX.value + e.translationX,
-              -actualMaxTranslateX,
-              0,
-            );
-          } else if (refMap && focusedTab) {
-            // Vertical: programmatically scroll the underlying tab ScrollView
-            const ref = refMap[focusedTab.value];
-            if (ref) {
-              const nextY = startScrollY.value - e.translationY;
-              scrollTo(ref, 0, Math.max(0, nextY - contentInset), false);
-            }
-          }
+          translateX.value = clamp(
+            startTranslateX.value + e.translationX,
+            -actualMaxTranslateX,
+            0,
+          );
         })
         .onEnd((e) => {
           'worklet';
-          if (isHorizontal.value) {
-            translateX.value = withDecay({
-              velocity: e.velocityX,
-              clamp: [-actualMaxTranslateX, 0],
-            });
-          }
+
+          translateX.value = withDecay({
+            velocity: e.velocityX,
+            clamp: [-actualMaxTranslateX, 0],
+          });
         }),
-    [
-      translateX,
-      startTranslateX,
-      startScrollY,
-      isHorizontal,
-      actualMaxTranslateX,
-      refMap,
-      focusedTab,
-      scrollYCurrent,
-      contentInset,
-    ],
+    [translateX, startTranslateX, actualMaxTranslateX],
   );
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -326,35 +223,37 @@ function NativeBannerScroller({
   );
 
   return (
-    <YStack
-      bg="$bgApp"
-      overflow="hidden"
-      onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-    >
-      <GestureDetector gesture={panGesture}>
-        <Animated.View
-          style={[
-            {
-              flexDirection: 'row',
-              paddingHorizontal: BANNER_PADDING_H,
-              gap: BANNER_GAP,
-            },
-            animatedStyle,
-          ]}
-        >
-          {banners.map((item) => (
-            <BannerItem
-              key={item.id}
-              item={item}
-              onPress={wrappedHandleBannerOnPress}
-              onDismiss={handleDismiss}
-            />
-          ))}
-        </Animated.View>
-      </GestureDetector>
-    </YStack>
+    <HeaderScrollGestureWrapper>
+      <YStack
+        bg="$bgApp"
+        overflow="hidden"
+        onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+      >
+        <GestureDetector gesture={panGesture}>
+          <Animated.View
+            style={[
+              {
+                flexDirection: 'row',
+                paddingHorizontal: BANNER_PADDING_H,
+                gap: BANNER_GAP,
+              },
+              animatedStyle,
+            ]}
+          >
+            {banners.map((item) => (
+              <BannerItem
+                key={item.id}
+                item={item}
+                onPress={wrappedHandleBannerOnPress}
+                onDismiss={handleDismiss}
+              />
+            ))}
+          </Animated.View>
+        </GestureDetector>
+      </YStack>
+    </HeaderScrollGestureWrapper>
   );
 }
 
@@ -363,6 +262,7 @@ function useScrollElement(scrollViewRef: React.RefObject<any>) {
     const node = scrollViewRef.current;
     if (!node) return null;
     if (typeof node.getScrollableNode === 'function') {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
       return node.getScrollableNode() as HTMLElement;
     }
     if (node instanceof HTMLElement) {
@@ -434,7 +334,7 @@ function WebBannerScroller({
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{
           px: '$pagePadding',
-          gap: 8,
+          gap: BANNER_GAP,
         }}
       >
         {banners.map((item) => (
@@ -522,76 +422,21 @@ function WebBannerScroller({
 
 function WalletBanner() {
   const {
-    activeAccount: {
-      account,
-      network,
-      wallet,
-      indexedAccount,
-      deriveInfoItems,
-      deriveType,
-      isOthersWallet,
-    },
+    activeAccount: { account, network, wallet },
   } = useActiveAccount({ num: 0 });
-
-  const intl = useIntl();
 
   const closedBannerInitRef = useRef(false);
 
   const bannersInitRef = useRef(false);
 
-  const staticBanners = useMemo(() => getStaticBanners(intl), [intl]);
-
-  const [{ banners: remoteBanners }] = useWalletTopBannersAtom();
-  const banners = useMemo(
-    () => [...remoteBanners, ...staticBanners],
-    [remoteBanners, staticBanners],
-  );
+  const [{ banners }] = useWalletTopBannersAtom();
   const { updateWalletTopBanners } = useAccountOverviewActions().current;
 
-  const { handleBannerOnPress: defaultHandleBannerOnPress } = useWalletBanner({
+  const { handleBannerOnPress } = useWalletBanner({
     account,
     network,
     wallet,
   });
-
-  const navigation = useAppNavigation();
-
-  const handleBannerOnPress = useCallback(
-    (item: IWalletBanner) => {
-      if (item.id === 'static-2') {
-        navigation.switchTab(ETabRoutes.ReferFriends);
-        return;
-      }
-      if (item.id === 'static-3') {
-        if (!network?.id || !wallet?.id) return;
-        navigation.pushModal(EModalRoutes.SignAndVerifyModal, {
-          screen: EModalSignAndVerifyRoutes.SignAndVerifyMessage,
-          params: {
-            networkId: network.id,
-            accountId: account?.id,
-            walletId: wallet.id,
-            indexedAccountId: indexedAccount?.id,
-            deriveInfoItems,
-            deriveType,
-            isOthersWallet,
-          },
-        });
-        return;
-      }
-      void defaultHandleBannerOnPress(item);
-    },
-    [
-      defaultHandleBannerOnPress,
-      navigation,
-      network?.id,
-      wallet?.id,
-      account?.id,
-      indexedAccount?.id,
-      deriveInfoItems,
-      deriveType,
-      isOthersWallet,
-    ],
-  );
 
   const [closedForeverBanners, setClosedForeverBanners] = useState<
     Record<string, boolean>

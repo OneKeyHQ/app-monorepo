@@ -7,7 +7,11 @@ const SvgVideoClip = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M19 17.444h-2V19h2zM9 19h6v-6H9zm8-3.556h2V13h-2zM5 15h2v-2H5zm12-4h2V9h-2zm-8 0h6V5H9zm-4 0h2V9H5zm2 8v-2H5v2zM17 5v2h2V5zM5 7h2V5H5zm16 12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    <Path
+      fillRule="evenodd"
+      d="M21 21H3V3h18zM5 19h2v-2H5zm4 0h6v-6H9zm8 0h2v-1.556h-2zm0-3.556h2V13h-2zM5 15h2v-2H5zm0-4h2V9H5zm4 0h6V5H9zm8 0h2V9h-2zM5 7h2V5H5zm12 0h2V5h-2z"
+      clipRule="evenodd"
+    />
   </Svg>
 );
 export default SvgVideoClip;

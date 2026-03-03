@@ -1,4 +1,4 @@
-// oxlint-disable unicorn/prefer-global-this
+/* eslint-disable unicorn/prefer-global-this */
 /* eslint-disable no-inner-declarations */
 /* eslint-disable prefer-template */
 
@@ -22,6 +22,7 @@ shimArrayFlatMap();
 const { shim: shimArrayToSorted } = require('array.prototype.tosorted');
 
 shimArrayToSorted();
+
 require('react-native-url-polyfill/auto');
 const platformEnv = require('@onekeyhq/shared/src/platformEnv');
 

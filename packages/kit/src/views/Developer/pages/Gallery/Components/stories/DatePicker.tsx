@@ -1,11 +1,10 @@
 import { useState } from 'react';
 
 import { DatePicker, SizableText, YStack } from '@onekeyhq/components';
+import type { IDateRange } from '@onekeyhq/components';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 
 import { Layout } from './utils/Layout';
-
-import type { IDateRange } from '@onekeyhq/components';
 
 function formatDisplayDate(date: Date): string {
   return formatDate(date, { hideTimeForever: true });

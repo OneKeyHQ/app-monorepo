@@ -155,6 +155,16 @@ export const {
   return activePositions?.activePositions?.length ?? 0;
 });
 
+export const {
+  atom: positionFilterByCurrentTokenAtom,
+  use: usePositionFilterByCurrentTokenAtom,
+} = contextAtom<boolean>(false);
+
+export const {
+  atom: orderFilterByCurrentTokenAtom,
+  use: useOrderFilterByCurrentTokenAtom,
+} = contextAtom<boolean>(false);
+
 export type IPerpsActiveOpenOrdersAtom = {
   accountAddress: string | undefined;
   openOrders: HL.IPerpsFrontendOrder[];

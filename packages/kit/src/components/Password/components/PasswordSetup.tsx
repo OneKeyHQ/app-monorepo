@@ -13,6 +13,7 @@ import {
   Unspaced,
   useForm,
 } from '@onekeyhq/components';
+import { dismissKeyboardWithDelay } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -28,7 +29,6 @@ import PassCodeInput, {
   AUTO_FOCUS_DELAY_MS,
   PIN_CELL_COUNT,
 } from './PassCodeInput';
-import { dismissKeyboardWithDelay } from '@onekeyhq/shared/src/keyboard';
 
 export interface IPasswordSetupForm {
   password: string;

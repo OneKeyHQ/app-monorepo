@@ -7,7 +7,18 @@ const SvgMoney = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M3 6v12h18V6zm16 9a1 1 0 1 1 0 2h-1a1 1 0 1 1 0-2zm-6-3a1 1 0 1 0-2 0 1 1 0 0 0 2 0M6 7a1 1 0 0 1 0 2H5a1 1 0 0 1 0-2zm9 5a3 3 0 1 1-6 0 3 3 0 0 1 6 0m8 6a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h18a2 2 0 0 1 2 2z" />
+    <Path d="M20 17h-3v-2h3z" />
+    <Path
+      fillRule="evenodd"
+      d="M12 9a3 3 0 1 1 0 6 3 3 0 0 1 0-6m0 2a1 1 0 1 0 0 2 1 1 0 0 0 0-2"
+      clipRule="evenodd"
+    />
+    <Path d="M7 9H4V7h3z" />
+    <Path
+      fillRule="evenodd"
+      d="M23 20H1V4h22zM3 18h18V6H3z"
+      clipRule="evenodd"
+    />
   </Svg>
 );
 export default SvgMoney;

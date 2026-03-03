@@ -17,9 +17,11 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { AllNetworksManagerTrigger } from '../../AccountSelector/AllNetworksManagerTrigger';
+
 function AccountSelectorTriggerWithSpotlight({
   isFocus,
   linkNetworkId,
@@ -119,7 +121,10 @@ export function WalletConnectionGroup({
         return null;
       }
 
-      if (network?.isAllNetworks) {
+      if (
+        network?.isAllNetworks &&
+        !accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' })
+      ) {
         return <AllNetworksManagerTrigger num={0} unifiedMode />;
       }
       return (
@@ -132,7 +137,12 @@ export function WalletConnectionGroup({
         />
       );
     },
-    [network?.isAllNetworks, shouldShowNetworkSelector, isNonBackedUpWallet],
+    [
+      network?.isAllNetworks,
+      shouldShowNetworkSelector,
+      isNonBackedUpWallet,
+      wallet?.id,
+    ],
   );
 
   if (isMobileLayout) {

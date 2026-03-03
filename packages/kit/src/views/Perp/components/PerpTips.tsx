@@ -31,7 +31,7 @@ export function PerpTips() {
     }
 
     return {
-      primary: intl.formatMessage({ id: ETranslations.global_view }),
+      primary: intl.formatMessage({ id: ETranslations.global_learn_more }),
       onPrimaryPress: () => {
         if (href) {
           if (hrefType === 'external') {
@@ -65,16 +65,16 @@ export function PerpTips() {
     return null;
   }
   return (
-    <YStack borderBottomWidth="$px" borderBottomColor="$borderSubdued">
+    <YStack>
       <Alert
-        flex={1}
-        type={perpConfigCommon?.perpBannerConfig?.alertType ?? 'default'}
+        type="info"
         fullBleed
         borderWidth={0}
+        icon="InfoCircleSolid"
         title={perpConfigCommon?.perpBannerConfig?.title}
         description={perpConfigCommon?.perpBannerConfig?.description}
-        closable={!!perpConfigCommon?.perpBannerConfig?.canClose}
         action={action}
+        closable={!!perpConfigCommon?.perpBannerConfig?.canClose}
         onClose={() => {
           if (perpConfigCommon?.perpBannerConfig?.id) {
             void setPerpsCommonConfigPersistAtom((prev) => ({

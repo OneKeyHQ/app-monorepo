@@ -14,6 +14,7 @@ import {
   YStack,
   useInPageDialog,
   useIsOverlayPage,
+  usePageWidth,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -40,7 +41,6 @@ import {
 import { usePortfolioData } from '../components/InformationTabs/components/Portfolio/hooks/usePortfolioData';
 import { useNetworkAccount } from '../components/InformationTabs/hooks/useNetworkAccount';
 import { MobileInformationTabs } from '../components/InformationTabs/layout/MobileInformationTabs';
-import SwapFlashBtn from '../components/SwapPanel/components/SwapFlashBtn';
 import { SwapPanelWrap } from '../components/SwapPanel/SwapPanelWrap';
 import { useTokenDetail } from '../hooks/useTokenDetail';
 
@@ -83,9 +83,7 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
     return 'calc(100vh - 96px - 74px)';
   }, [bottom, top, isIOSModalPage]);
 
-  const width = useMemo(() => {
-    return Dimensions.get('window').width;
-  }, []);
+  const width = usePageWidth();
 
   const scrollViewRef = useRef<IScrollViewRef>(null);
   const focusedTab = useSharedValue(tabNames[0]);
@@ -111,9 +109,7 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
   const informationHeader = useMemo(() => {
     return (
       <YStack bg="$bgApp" pointerEvents="box-none">
-        <Stack px="$5">
-          <PerpetualTradingBanner />
-        </Stack>
+        <PerpetualTradingBanner px="$5" />
         <InformationPanel />
         <Stack h={tradingViewHeight} position="relative">
           <MarketTradingView
@@ -122,6 +118,7 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
             tokenSymbol={tokenDetail?.symbol}
             isNative={isNative}
             dataSource={websocketConfig?.kline ? 'websocket' : 'polling'}
+            pageWidth={width}
           />
         </Stack>
       </YStack>
@@ -133,6 +130,7 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
     tokenDetail?.symbol,
     tradingViewHeight,
     websocketConfig,
+    width,
   ]);
 
   const renderInformationHeader = useCallback(
@@ -242,14 +240,6 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
         disableTrade={disableTrade}
         onShowSwapDialog={showSwapDialog}
       />
-      {platformEnv.isNative && !disableTrade ? (
-        <SwapFlashBtn
-          buttonProps={{
-            style: { position: 'absolute', bottom: 100, right: 20 },
-          }}
-          onFlashTrade={() => showSwapDialog(toSwapPanelToken)}
-        />
-      ) : null}
     </YStack>
   );
 }

@@ -18,13 +18,12 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { isEnabledNetworksInAllNetworks } from '@onekeyhq/shared/src/utils/networkUtils';
 
 import { usePureChainSelectorSections } from '../../hooks/usePureChainSelectorSections';
+import ChainSelectorTooltip from '../ChainSelectorTooltip';
+import DottedLine from '../DottedLine';
 
 import { AllNetworksManagerContext } from './AllNetworksManagerContext';
 import NetworkListHeader from './NetworkListHeader';
 import NetworkListItem from './NetworkListItem';
-
-import ChainSelectorTooltip from '../ChainSelectorTooltip';
-import DottedLine from '../DottedLine';
 
 import type {
   IPureChainSelectorSectionListItem,
@@ -35,7 +34,7 @@ const ListEmptyComponent = () => {
   const intl = useIntl();
   return (
     <Empty
-      icon="SearchOutline"
+      illustration="BlockQuestionMark"
       title={intl.formatMessage({
         id: ETranslations.global_no_results,
       })}
@@ -128,13 +127,13 @@ function NetworksSectionList() {
               justifyContent="space-between"
               alignItems="center"
             >
-              <Stack flex={1} mr="$2">
+              <Stack flex={1} mr="$2" alignItems="flex-start">
                 <ChainSelectorTooltip
                   renderContent={intl.formatMessage({
                     id: ETranslations.network_auto_detection_tip,
                   })}
                   renderTrigger={
-                    <Stack alignSelf="flex-start">
+                    <Stack>
                       <SizableText size="$headingSm" color="$textSubdued">
                         {item.section.title}
                       </SizableText>

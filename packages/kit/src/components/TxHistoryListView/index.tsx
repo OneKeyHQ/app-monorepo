@@ -8,6 +8,7 @@ import {
   Button,
   SectionList,
   SizableText,
+  Spinner,
   Stack,
   Tabs,
   XStack,
@@ -238,12 +239,7 @@ function TxHistoryListViewSectionHeader(
         gap="$2"
         mt={index === 0 ? '$0' : '$5'}
       >
-        <Stack
-          w="$2"
-          height="$2"
-          backgroundColor="$textCaution"
-          borderRadius="$full"
-        />
+        <Spinner size="small" color="$textCaution" />
         <SizableText numberOfLines={1} size="$headingXs" color="$textCaution">
           {intl.formatMessage({ id: ETranslations.global_pending })}
         </SizableText>
@@ -310,13 +306,24 @@ function BaseTxHistoryListView(props: IProps) {
     [filteredHistory],
   );
 
-  const ListComponentRef = useRef<typeof ListComponent>(null);
+  const internalListRef = useRef<any>(null);
+
+  const handleListRef = useCallback(
+    (instance: any) => {
+      internalListRef.current = instance;
+      if (typeof ref === 'function') {
+        ref(instance);
+      } else if (ref) {
+        (ref as React.MutableRefObject<any>).current = instance;
+      }
+    },
+    [ref],
+  );
 
   const recomputeLayout = useCallback(() => {
     if (!platformEnv.isNative) {
-      // update tab list header height after alert dismissed
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-      (ListComponentRef.current as any)?.recomputeLayout?.();
+      internalListRef.current?.recomputeLayout?.();
     }
   }, []);
 
@@ -329,9 +336,10 @@ function BaseTxHistoryListView(props: IProps) {
         showIcon={showIcon}
         onPress={onPressHistory}
         tableLayout={tableLayout}
+        recomputeLayout={recomputeLayout}
       />
     ),
-    [hideValue, onPressHistory, showIcon, tableLayout],
+    [hideValue, onPressHistory, showIcon, tableLayout, recomputeLayout],
   );
   const renderSectionHeader = useCallback(
     ({
@@ -447,7 +455,7 @@ function BaseTxHistoryListView(props: IProps) {
 
   return (
     <ListComponent
-      ref={(ref ?? ListComponentRef) as any}
+      ref={handleListRef as any}
       showsVerticalScrollIndicator={false}
       windowSize={platformEnv.isNativeAndroid && inTabList ? 3 : undefined}
       nestedScrollEnabled={platformEnv.isNativeAndroid ? inTabList : false}

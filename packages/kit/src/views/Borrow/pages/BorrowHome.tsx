@@ -76,6 +76,15 @@ const BorrowHomeContent = memo(
     const { gtMd, gtLg } = useMedia();
     const intl = useIntl();
     const [activeTab, setActiveTab] = useState<IBorrowTab>('supply');
+    const [tabHeights, setTabHeights] = useState({ supply: 0, borrow: 0 });
+    const updateTabHeight = useCallback(
+      (tab: IBorrowTab, h: number) =>
+        setTabHeights((prev) =>
+          prev[tab] === h ? prev : { ...prev, [tab]: h },
+        ),
+      [],
+    );
+    const maxTabHeight = Math.max(tabHeights.supply, tabHeights.borrow);
     const [healthFactorAlerts, setHealthFactorAlerts] = useState<
       IBorrowAlert[] | undefined
     >(undefined);
@@ -89,20 +98,26 @@ const BorrowHomeContent = memo(
     const accountId = activeAccount.account?.id ?? '';
     const walletId = activeAccount.wallet?.id;
     const indexedAccountId = activeAccount.indexedAccount?.id;
-    const showNoAddressWarning = useMemo(() => {
-      if (!market?.networkId || !activeAccount.ready) {
-        return false;
-      }
-      return (
-        (!accountId && !indexedAccountId) || !earnAccount.data?.accountAddress
-      );
-    }, [
-      accountId,
-      indexedAccountId,
-      earnAccount.data?.accountAddress,
-      market?.networkId,
-      activeAccount.ready,
-    ]);
+    const hasConnectedWallet = useMemo(
+      () =>
+        activeAccount.ready &&
+        Boolean(walletId || accountId || indexedAccountId),
+      [activeAccount.ready, walletId, accountId, indexedAccountId],
+    );
+    const showNoAddressWarning = useMemo(
+      () =>
+        hasConnectedWallet &&
+        Boolean(accountId || indexedAccountId) &&
+        Boolean(market?.networkId) &&
+        !earnAccount.data?.accountAddress,
+      [
+        hasConnectedWallet,
+        accountId,
+        indexedAccountId,
+        market?.networkId,
+        earnAccount.data?.accountAddress,
+      ],
+    );
     const hasAlerts = Boolean(alerts?.length) || showNoAddressWarning;
 
     const refreshEarnAccount = earnAccount.refresh;
@@ -176,24 +191,58 @@ const BorrowHomeContent = memo(
             </XStack>
           ) : (
             // Mobile layout - tabbed
+            // Both tabs stay mounted via position:absolute overlay so
+            // FlatList items are pre-rendered and switching is instant.
+            // minHeight = max(both tabs) prevents container from shrinking
+            // on tab switch, which would clamp scroll position to 0.
             <YStack flex={1} gap="$5">
               <SegmentControl
                 value={activeTab}
                 options={tabOptions}
-                onChange={(value) => setActiveTab(value as IBorrowTab)}
+                onChange={(value) => {
+                  setActiveTab(value as IBorrowTab);
+                }}
                 fullWidth
               />
-              {activeTab === 'supply' ? (
-                <YStack gap="$5">
+              <YStack
+                position="relative"
+                {...(maxTabHeight > 0 && { minHeight: maxTabHeight })}
+              >
+                <YStack
+                  gap="$5"
+                  onLayout={(e) =>
+                    updateTabHeight('supply', e.nativeEvent.layout.height)
+                  }
+                  {...(activeTab !== 'supply' && {
+                    position: 'absolute' as const,
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    opacity: 0,
+                    pointerEvents: 'none' as const,
+                  })}
+                >
                   <SuppliedCard />
                   <SupplyCard />
                 </YStack>
-              ) : (
-                <YStack gap="$5">
+                <YStack
+                  gap="$5"
+                  onLayout={(e) =>
+                    updateTabHeight('borrow', e.nativeEvent.layout.height)
+                  }
+                  {...(activeTab !== 'borrow' && {
+                    position: 'absolute' as const,
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    opacity: 0,
+                    pointerEvents: 'none' as const,
+                  })}
+                >
                   <BorrowedCard />
                   <BorrowCard />
                 </YStack>
-              )}
+              </YStack>
             </YStack>
           )}
         </YStack>

@@ -30,6 +30,7 @@ export function PerpsDetailsSectionDesktop({
   onSort,
   isLoadingMore,
   isTabLoading,
+  hasUserSorted,
 }: IPerpsDetailsSectionProps) {
   const intl = useIntl();
 
@@ -99,6 +100,7 @@ export function PerpsDetailsSectionDesktop({
 
         {/* Table Content */}
         <YStack bg="$bgApp">
+          {/* eslint-disable-next-line no-nested-ternary */}
           {isTabLoading ? (
             <YStack ai="center" py="$8">
               <Spinner size="small" />
@@ -110,6 +112,7 @@ export function PerpsDetailsSectionDesktop({
               sortOrder={sortOrder}
               onSort={onSort}
               isLoadingMore={isLoadingMore}
+              hasUserSorted={hasUserSorted}
             />
           ) : (
             <YStack py="$8">

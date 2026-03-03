@@ -28,6 +28,7 @@ export type IAppGlobals = {
   $offscreenApiProxy: IOffscreenApi;
   $webembedApiProxy: IWebembedApi;
   $navigationRef: React.RefObject<NavigationContainerRef<any>>;
+  $tabletMainViewNavigationRef: React.RefObject<NavigationContainerRef<any>>;
   $defaultLogger?: DefaultLogger;
   $Toast?: IToast;
   $appStorage?: IAppStorage;
@@ -67,6 +68,7 @@ const appGlobals: IAppGlobals = {
   $offscreenApiProxy: undefined!,
   $webembedApiProxy: undefined!,
   $navigationRef: undefined!,
+  $tabletMainViewNavigationRef: undefined!,
   extJsBridgeUiToBg: undefined!,
   extJsBridgeOffscreenToBg: undefined!,
 };

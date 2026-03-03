@@ -24,6 +24,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
 import notificationsUtils from '@onekeyhq/shared/src/utils/notificationsUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
   ENotificationPushTopicTypes,
@@ -43,7 +44,6 @@ import { runAfterTokensDone } from '../../../hooks/useRunAfterTokensDone';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { whenAppUnlocked } from '../../../utils/passwordUtils';
 import { handleSwapNavigation } from '../../../views/Swap/hooks/useSwapNavigation';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 const InAppNotification = () => {
   const [

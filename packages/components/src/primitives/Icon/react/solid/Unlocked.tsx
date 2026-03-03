@@ -9,7 +9,7 @@ const SvgUnlocked = (props: SvgProps) => (
   >
     <Path
       fillRule="evenodd"
-      d="M12 2a5 5 0 0 0-5 5v2H6a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2H9V7a3 3 0 0 1 5.905-.75 1 1 0 0 0 1.937-.5A5 5 0 0 0 12 2m0 11a1 1 0 0 1 1 1v3a1 1 0 1 1-2 0v-3a1 1 0 0 1 1-1"
+      d="M12 2a5 5 0 0 1 5 5h-2a3 3 0 1 0-6 0v2h11v13H4V9h3V7a5 5 0 0 1 5-5m-1 11v5h2v-5z"
       clipRule="evenodd"
     />
   </Svg>

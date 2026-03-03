@@ -21,11 +21,11 @@ import { AmountInput as BaseAmountInput } from '@onekeyhq/kit/src/components/Amo
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { validateTokenAmount } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   EAmountInputMode,
   type ITransferInfoErrors,
 } from '@onekeyhq/shared/types/bulkSend';
-import { validateTokenAmount } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import { filterNumericInput, validateRangeInput } from '../../../utils';
 
@@ -40,10 +40,9 @@ function IntervalCard() {
       flex={1}
       flexBasis={0}
       gap="$3"
-      p="$4"
-      borderWidth={1}
-      borderColor="$borderSubdued"
+      bg="$bgSubdued"
       borderRadius="$3"
+      p="$5"
     >
       {/* Header: Title + Disabled Select */}
       <XStack alignItems="center" justifyContent="space-between">
@@ -374,6 +373,7 @@ function AmountCard() {
       case EAmountInputMode.Specified:
         return (
           <BaseAmountInput
+            bg="$bgApp"
             value={amountInputValues.specifiedAmount}
             onChange={handleSpecifiedAmountChange}
             hasError={!!amountInputErrors.specifiedAmount}
@@ -402,25 +402,26 @@ function AmountCard() {
               borderRadius="$3"
               borderWidth={sharedStyles.borderWidth}
               borderColor={sharedStyles.borderColor}
+              bg="$bgApp"
               overflow="hidden"
             >
-              <Input
-                value={localRangeMin}
-                onChangeText={handleRangeMinChange}
-                placeholder="0"
-                keyboardType="decimal-pad"
-                containerProps={{
-                  borderWidth: 0,
-                  mx: '$3.5',
-                  mt: '$2.5',
-                  mb: '$1',
-                  overflow: 'hidden',
-                }}
-                bg="transparent"
-                fontSize={24}
-                fontWeight="600"
-                px="$0"
-              />
+              <XStack alignItems="center" px="$3.5" pt="$2.5" pb="$1">
+                <Input
+                  flex={1}
+                  value={localRangeMin}
+                  onChangeText={handleRangeMinChange}
+                  placeholder="0"
+                  keyboardType="decimal-pad"
+                  containerProps={{
+                    flex: 1,
+                    borderWidth: 0,
+                  }}
+                  bg="transparent"
+                  fontSize={24}
+                  fontWeight="600"
+                  px="$0"
+                />
+              </XStack>
               <XStack
                 alignItems="center"
                 justifyContent="space-between"
@@ -459,25 +460,26 @@ function AmountCard() {
               borderRadius="$3"
               borderWidth={sharedStyles.borderWidth}
               borderColor={sharedStyles.borderColor}
+              bg="$bgApp"
               overflow="hidden"
             >
-              <Input
-                value={localRangeMax}
-                onChangeText={handleRangeMaxChange}
-                placeholder="0"
-                keyboardType="decimal-pad"
-                containerProps={{
-                  borderWidth: 0,
-                  mx: '$3.5',
-                  mt: '$2.5',
-                  mb: '$1',
-                  overflow: 'hidden',
-                }}
-                bg="transparent"
-                fontSize={24}
-                fontWeight="600"
-                px="$0"
-              />
+              <XStack alignItems="center" px="$3.5" pt="$2.5" pb="$1">
+                <Input
+                  flex={1}
+                  value={localRangeMax}
+                  onChangeText={handleRangeMaxChange}
+                  placeholder="0"
+                  keyboardType="decimal-pad"
+                  containerProps={{
+                    flex: 1,
+                    borderWidth: 0,
+                  }}
+                  bg="transparent"
+                  fontSize={24}
+                  fontWeight="600"
+                  px="$0"
+                />
+              </XStack>
               <XStack
                 alignItems="center"
                 justifyContent="space-between"
@@ -529,10 +531,9 @@ function AmountCard() {
       flex={1}
       flexBasis={0}
       gap="$3"
-      p="$4"
-      borderWidth={1}
-      borderColor="$borderSubdued"
+      bg="$bgSubdued"
       borderRadius="$3"
+      p="$5"
     >
       {/* Header: Title + Mode Select */}
       <XStack alignItems="center" justifyContent="space-between">
@@ -599,8 +600,11 @@ function AmountCard() {
             size="$bodySmMedium"
             color="$textInteractive"
             cursor="default"
+            userSelect="none"
             onPress={handleMaxPress}
             hitSlop={8}
+            hoverStyle={{ opacity: 0.75 }}
+            pressStyle={{ opacity: 0.5 }}
           >
             {intl.formatMessage({ id: ETranslations.global_max })}
           </SizableText>
@@ -644,7 +648,16 @@ function TransferInfoListSection() {
     >
       {/* Header */}
       <XStack px="$5" py="$2" gap="$3">
-        <XStack flex={1} minWidth={0}>
+        <SizableText
+          size="$headingXs"
+          color="$textSubdued"
+          textTransform="uppercase"
+          width={36}
+          flexShrink={0}
+        >
+          #
+        </SizableText>
+        <XStack flex={1} flexBasis={0} minWidth={0}>
           <SizableText
             size="$headingXs"
             color="$textSubdued"
@@ -655,7 +668,7 @@ function TransferInfoListSection() {
             })}
           </SizableText>
         </XStack>
-        <Stack flex={1} minWidth={0}>
+        <Stack flex={1} flexBasis={0} minWidth={0}>
           <SizableText
             size="$headingXs"
             color="$textSubdued"
@@ -708,21 +721,26 @@ function TransferInfoListSection() {
             alignItems="flex-start"
             minHeight={48}
           >
+            {/* INDEX */}
+            <SizableText
+              size="$bodyMdMedium"
+              color="$textDisabled"
+              width={36}
+              flexShrink={0}
+              style={{ whiteSpace: 'nowrap' } as any}
+            >
+              {index + 1}.
+            </SizableText>
+
             {/* FROM */}
-            <YStack flex={1} minWidth={0} gap="$1">
-              <XStack gap="$1">
-                <SizableText size="$bodyMdMedium" color="$textDisabled">
-                  {index + 1}.
-                </SizableText>
-                <SizableText
-                  size="$bodyMdMedium"
-                  flex={1}
-                  minWidth={0}
-                  color={hasFromError ? '$textCritical' : undefined}
-                >
-                  {transfer.from}
-                </SizableText>
-              </XStack>
+            <YStack flex={1} flexBasis={0} minWidth={0} gap="$1">
+              <SizableText
+                size="$bodyMdMedium"
+                style={{ wordBreak: 'break-all' }}
+                color={hasFromError ? '$textCritical' : undefined}
+              >
+                {transfer.from}
+              </SizableText>
               {hasFromError ? (
                 <XStack gap="$1" alignItems="center">
                   <Icon
@@ -738,9 +756,10 @@ function TransferInfoListSection() {
             </YStack>
 
             {/* TO */}
-            <YStack flex={1} minWidth={0} gap="$1">
+            <YStack flex={1} flexBasis={0} minWidth={0} gap="$1">
               <SizableText
                 size="$bodyMdMedium"
+                style={{ wordBreak: 'break-all' }}
                 color={hasToError ? '$textCritical' : undefined}
               >
                 {transfer.to}
@@ -818,7 +837,7 @@ function TransferInfoListSection() {
 
 function TableLayout() {
   return (
-    <YStack gap="$4">
+    <YStack gap="$8">
       <XStack gap="$4">
         <AmountCard />
         <IntervalCard />

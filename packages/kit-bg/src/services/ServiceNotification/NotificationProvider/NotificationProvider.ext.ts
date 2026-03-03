@@ -180,6 +180,7 @@ export default class NotificationProvider extends NotificationProviderBase {
       title,
       description,
     } = params;
+
     // oxlint-disable-next-line @cspell/spellchecker
     /*
     iconUrl

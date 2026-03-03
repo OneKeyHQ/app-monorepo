@@ -2,19 +2,14 @@ import { memo, useCallback, useContext, useEffect, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Button,
-  SizableText,
-  Stack,
-  XStack,
-} from '@onekeyhq/components';
+import { Button, SizableText, Stack, XStack } from '@onekeyhq/components';
 import { useEnabledNetworksCompatibleWithWalletIdInAllNetworks } from '@onekeyhq/kit/src/hooks/useAllNetwork';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { AllNetworksManagerContext } from './AllNetworksManagerContext';
-
 import ChainSelectorTooltip from '../ChainSelectorTooltip';
 import DottedLine from '../DottedLine';
+
+import { AllNetworksManagerContext } from './AllNetworksManagerContext';
 
 function NetworkListHeader() {
   const intl = useIntl();
@@ -28,12 +23,13 @@ function NetworkListHeader() {
     setMissingAddressCount,
   } = useContext(AllNetworksManagerContext);
 
-  const { enabledNetworksWithoutAccount } =
+  const { enabledNetworksWithoutAccount, run } =
     useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
-    walletId: walletId ?? '',
-    indexedAccountId,
-    filterNetworksWithoutAccount: true,
-  });
+      walletId: walletId ?? '',
+      indexedAccountId,
+      filterNetworksWithoutAccount: true,
+      enabledNetworks,
+    });
 
   const isAllNetworksEnabled = useMemo(() => {
     if (enabledNetworks.length > 0) {
@@ -54,6 +50,15 @@ function NetworkListHeader() {
   useEffect(() => {
     setMissingAddressCount(enabledNetworksWithoutAccount.length);
   }, [enabledNetworksWithoutAccount.length, setMissingAddressCount]);
+
+  const enabledNetworkIds = useMemo(
+    () => enabledNetworks.map((network) => network.id).join(','),
+    [enabledNetworks],
+  );
+
+  useEffect(() => {
+    void run();
+  }, [enabledNetworkIds, run]);
 
   const handleToggleAll = useCallback(() => {
     if (isAllNetworksEnabled) {
@@ -78,13 +83,13 @@ function NetworkListHeader() {
           justifyContent="space-between"
           alignItems="center"
         >
-          <Stack flex={1} mr="$2">
+          <Stack flex={1} mr="$2" alignItems="flex-start" overflow="hidden">
             <ChainSelectorTooltip
               renderContent={intl.formatMessage({
                 id: ETranslations.network_selection_performance_tip,
               })}
               renderTrigger={
-                <Stack alignSelf="flex-start">
+                <Stack maxWidth="100%">
                   <SizableText size="$bodyLgMedium">
                     {intl.formatMessage(
                       {

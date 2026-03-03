@@ -31,6 +31,7 @@ import {
   usePerpsActiveOrderBookOptionsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 
 import { usePerpsAssetCtx } from '../../../hooks/usePerpsAssetCtx';
@@ -172,7 +173,7 @@ export function PerpsHeaderRight() {
       <WalletConnectionForWeb tabRoute={ETabRoutes.Perp} />
       {process.env.NODE_ENV !== 'production' ? <DebugButton /> : null}
       <DepositButton />
-      {gtMd ? (
+      {gtMd && !platformEnv.isWebDappMode ? (
         <>
           <GiftAction source="Perps" copyAsUrl />
           <PerpSettingsButton testID="perp-header-settings-button" />

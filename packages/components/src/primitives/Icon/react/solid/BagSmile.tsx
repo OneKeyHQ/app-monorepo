@@ -9,7 +9,7 @@ const SvgBagSmile = (props: SvgProps) => (
   >
     <Path
       fillRule="evenodd"
-      d="M3.943 4.875A2 2 0 0 1 5.94 3h12.12a2 2 0 0 1 1.997 1.875l.875 14A2 2 0 0 1 18.936 21H5.065a2 2 0 0 1-1.997-2.125zM10 8a1 1 0 0 0-2 0 4 4 0 0 0 8 0 1 1 0 1 0-2 0 2 2 0 1 1-4 0"
+      d="M21.066 21H2.938L4.062 3h15.88zM8.002 8a4 4 0 0 0 8 0V7h-2v1a2 2 0 0 1-4 0V7h-2z"
       clipRule="evenodd"
     />
   </Svg>

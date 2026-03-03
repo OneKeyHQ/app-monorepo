@@ -7,11 +7,8 @@ const SvgDock = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path
-      fillRule="evenodd"
-      d="M3.293 3.293a1 1 0 0 1 1.414 0L9 7.586V5a1 1 0 0 1 2 0v4.5A1.5 1.5 0 0 1 9.5 11H5a1 1 0 1 1 0-2h2.586L3.293 4.707a1 1 0 0 1 0-1.414M13 7a1 1 0 0 1 1-1h6a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-6a1 1 0 1 1 2 0v6h12V8h-6a1 1 0 0 1-1-1"
-      clipRule="evenodd"
-    />
+    <Path d="M22 22H6v-9h2v7h12V8h-7V6h9z" />
+    <Path d="M9 7.586V3h2v8H3V9h4.586l-5-5L4 2.586z" />
   </Svg>
 );
 export default SvgDock;

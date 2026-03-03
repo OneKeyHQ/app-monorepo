@@ -7,8 +7,8 @@ const SvgRemoveColumn = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M4 4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a1 1 0 0 0 1-1V6h7v4a1 1 0 1 0 2 0V6a2 2 0 0 0-2-2z" />
-    <Path d="M17.707 14.293a1 1 0 0 0-1.414 1.414L17.586 17l-1.293 1.293a1 1 0 0 0 1.414 1.414L19 18.414l1.293 1.293a1 1 0 0 0 1.414-1.414L20.414 17l1.293-1.293a1 1 0 0 0-1.414-1.414L19 15.586z" />
+    <Path d="m22.414 15-2 2 2 2L21 20.414l-2-2-2 2L15.586 19l2-2-2-2L17 13.586l2 2 2-2z" />
+    <Path d="M22 4v7h-2V6h-7v14H2V4z" />
   </Svg>
 );
 export default SvgRemoveColumn;

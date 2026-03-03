@@ -3,6 +3,7 @@ import { useCallback, useEffect } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -37,6 +38,7 @@ type INetworkContentProps = {
   onFrequentlyUsedItemsChange?: (networks: IServerNetwork[]) => void;
   searchText?: string;
   setSearchText?: Dispatch<SetStateAction<string>>;
+  accountAddress?: string;
 };
 
 export function NetworkContent({
@@ -80,11 +82,11 @@ export function NetworkContent({
             accounts: [
               {
                 accountId: indexedAccountId ?? accountId ?? '',
-                accountAddress: undefined,
-                networkId: networkId ?? '',
+                networkId: getNetworkIdsMap().onekeyall,
                 indexedAccountId,
               },
             ],
+            networksEnabledOnly: false,
           }),
         ]);
 
@@ -93,6 +95,7 @@ export function NetworkContent({
           chainSelectorNetworks: sortedChainSelectorNetworks,
           formattedAccountNetworkValues,
           accountDeFiOverview: _accountDeFiOverview,
+          // eslint-disable-next-line @typescript-eslint/no-shadow
           zeroValue,
         } = await backgroundApiProxy.serviceNetwork.sortChainSelectorNetworksByValue(
           {
@@ -121,7 +124,7 @@ export function NetworkContent({
         zeroValue: true,
       };
     },
-    [accountId, networkIds, walletId, indexedAccountId, networkId],
+    [accountId, networkIds, walletId, indexedAccountId],
     {
       initResult: {
         chainSelectorNetworks: defaultChainSelectorNetworks,
@@ -135,7 +138,11 @@ export function NetworkContent({
   useEffect(() => {
     const fn = async () => {
       try {
-        await refreshLocalData();
+        // Use alwaysSetState to bypass the isFocused check, because this
+        // event can fire while the navigation-back animation is still
+        // running (screen not yet focused), which would silently skip
+        // the refresh and leave stale data in the search list.
+        await refreshLocalData({ alwaysSetState: true });
       } catch {
         // silently ignore refresh errors
       }

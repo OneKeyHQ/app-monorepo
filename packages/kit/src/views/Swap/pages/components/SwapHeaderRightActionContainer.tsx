@@ -32,6 +32,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import {
   EJotaiContextStoreNames,
+  filterSwapHistoryPendingList,
   useInAppNotificationAtom,
   useSettingsAtom,
   useSettingsPersistAtom,
@@ -437,7 +438,7 @@ const SwapHeaderRightActionContainer = ({
   const [swapProTradeType] = useSwapProTradeTypeAtom();
   const swapPendingStatusList = useMemo(
     () =>
-      swapHistoryPendingList.filter(
+      filterSwapHistoryPendingList(swapHistoryPendingList).filter(
         (i) =>
           i.status === ESwapTxHistoryStatus.PENDING ||
           i.status === ESwapTxHistoryStatus.CANCELING,
@@ -466,7 +467,8 @@ const SwapHeaderRightActionContainer = ({
       params: {
         type:
           swapTypeSwitch !== ESwapTabSwitchType.LIMIT ||
-          swapProTradeType === ESwapProTradeType.MARKET
+          (platformEnv.isNative &&
+            swapProTradeType === ESwapProTradeType.MARKET)
             ? EProtocolOfExchange.SWAP
             : EProtocolOfExchange.LIMIT,
         storeName:

@@ -7,7 +7,11 @@ const SvgTradingViewCandles = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M5 11v6h4v-6zm10-4v10h4V7zm-4 10a2 2 0 0 1-2 2H8v2a1 1 0 1 1-2 0v-2H5a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2h1V3a1 1 0 0 1 2 0v6h1a2 2 0 0 1 2 2zm10 0a2 2 0 0 1-2 2h-1v2a1 1 0 1 1-2 0v-2h-1a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h1V3a1 1 0 1 1 2 0v2h1a2 2 0 0 1 2 2z" />
+    <Path
+      fillRule="evenodd"
+      d="M8 9h3v10H8v3H6v-3H3V9h3V2h2zm-3 8h4v-6H5zM18 5h3v14h-3v3h-2v-3h-3V5h3V2h2zm-3 12h4V7h-4z"
+      clipRule="evenodd"
+    />
   </Svg>
 );
 export default SvgTradingViewCandles;

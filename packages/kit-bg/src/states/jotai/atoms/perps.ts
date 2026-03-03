@@ -149,7 +149,7 @@ export const {
       details?.activatedOk &&
       details?.internalRebateBoundOk;
     const isReadOnlyAccount = account?.accountId
-      ? accountUtils.isOthersAccount({ accountId: account.accountId })
+      ? accountUtils.isWatchingAccount({ accountId: account.accountId })
       : false;
     const accountNotSupport =
       (!account?.accountAddress && !account?.indexedAccountId) ||
@@ -553,21 +553,13 @@ export const {
 });
 
 export interface IPerpsLayoutState {
-  main: {
-    marketRatio: number;
-  };
-  leftPanel: {
-    chartsRatio: number;
-  };
-  orderBook: {
+  orderBook?: {
     visible: boolean;
   };
   resetAt?: number;
 }
 
-export const DEFAULT_PERPS_LAYOUT_STATE: Omit<IPerpsLayoutState, 'resetAt'> = {
-  main: { marketRatio: 90 },
-  leftPanel: { chartsRatio: 60 },
+export const DEFAULT_PERPS_LAYOUT_STATE: IPerpsLayoutState = {
   orderBook: { visible: true },
 };
 
@@ -577,3 +569,18 @@ export const { target: perpsLayoutStateAtom, use: usePerpsLayoutStateAtom } =
     persist: true,
     initialValue: DEFAULT_PERPS_LAYOUT_STATE,
   });
+
+// #region Footer Ticker
+export type IPerpsFooterTickerMode = 'popular' | 'favorites' | 'none';
+
+export const {
+  target: perpsFooterTickerModePersistAtom,
+  use: usePerpsFooterTickerModePersistAtom,
+} = globalAtom<{ mode: IPerpsFooterTickerMode }>({
+  name: EAtomNames.perpsFooterTickerModePersistAtom,
+  persist: true,
+  initialValue: {
+    mode: 'popular',
+  },
+});
+// #endregion

@@ -1,8 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 
-import { EExportTimeRange } from '@onekeyhq/shared/src/referralCode/type';
-
 import type { IDateRange } from '@onekeyhq/components';
+import { EExportTimeRange } from '@onekeyhq/shared/src/referralCode/type';
 
 import type { IFilterState } from '../components/FilterButton';
 
@@ -17,7 +16,10 @@ export const getDatePickerValue = (filterState: IFilterState): IDateRange => {
   return { start: null, end: null };
 };
 
-export const useRewardFilter: () => {
+export const useRewardFilter: (initialDateRange?: {
+  startTime: number;
+  endTime: number;
+}) => {
   filterState: IFilterState;
   updateFilter: (updates: Partial<IFilterState>) => void;
   resetFilter: () => void;
@@ -25,12 +27,14 @@ export const useRewardFilter: () => {
   setCustomDateRange: (startTime: number, endTime: number) => void;
   clearCustomDateRange: () => void;
   datePickerValue: IDateRange;
-} = () => {
+} = (initialDateRange) => {
   const [filterState, setFilterState] = useState<IFilterState>({
-    timeRange: EExportTimeRange.All,
+    timeRange: initialDateRange
+      ? EExportTimeRange.Custom
+      : EExportTimeRange.All,
     inviteCode: undefined,
-    startTime: undefined,
-    endTime: undefined,
+    startTime: initialDateRange?.startTime,
+    endTime: initialDateRange?.endTime,
   });
 
   const updateFilter = useCallback((updates: Partial<IFilterState>) => {

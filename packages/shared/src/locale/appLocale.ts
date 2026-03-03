@@ -20,9 +20,21 @@ class AppLocale {
 
   private isReadyResolve!: (value: boolean) => void;
 
+  private onLocaleChangeCallbacks: Array<() => void> = [];
+
   isReady = new Promise<boolean>((resolve) => {
     this.isReadyResolve = resolve;
   });
+
+  onLocaleChange(callback: () => void): () => void {
+    this.onLocaleChangeCallbacks.push(callback);
+    return () => {
+      const idx = this.onLocaleChangeCallbacks.indexOf(callback);
+      if (idx >= 0) {
+        this.onLocaleChangeCallbacks.splice(idx, 1);
+      }
+    };
+  }
 
   setLocale(
     locale: ResolvedIntlConfig['locale'],
@@ -35,6 +47,10 @@ class AppLocale {
       },
       this.cache,
     );
+
+    for (const cb of this.onLocaleChangeCallbacks) {
+      cb();
+    }
 
     if (!isEmpty(messages)) {
       this.isReadyResolve(true);

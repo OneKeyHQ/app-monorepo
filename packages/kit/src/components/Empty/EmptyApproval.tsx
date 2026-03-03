@@ -10,7 +10,7 @@ function EmptyApproval() {
     <Empty
       h={platformEnv.isNativeAndroid ? 300 : undefined}
       testID="Wallet-No-Approval-Empty"
-      icon="ClockTimeHistoryOutline"
+      illustration="BookPencil"
       title={intl.formatMessage({
         id: ETranslations.wallet_title_no_approvals,
       })}

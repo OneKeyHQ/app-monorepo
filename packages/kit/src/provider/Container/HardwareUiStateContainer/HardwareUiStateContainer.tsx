@@ -22,6 +22,7 @@ import {
 } from '@onekeyhq/components';
 import type { IShowToasterInstance } from '@onekeyhq/components/src/actions/Toast/ShowCustom';
 import { ShowCustom } from '@onekeyhq/components/src/actions/Toast/ShowCustom';
+import { useBackHandler } from '@onekeyhq/components/src/hooks';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { DeviceNotFoundDialogContent } from '@onekeyhq/kit/src/components/Hardware/ConnectionTroubleShootingAccordion';
 import {
@@ -669,6 +670,10 @@ function HardwareUiStateContainerCmpControlled() {
     hasToastCloseAction,
     state,
   ]);
+
+  // Block Android back button when hardware toast is showing
+  const handleBackPress = useCallback(() => true, []);
+  useBackHandler(handleBackPress, actionStatus.isToastAction);
 
   const dialogInstanceRef = useRef<IDialogInstance | null>(null);
   const toastInstanceRef = useRef<IShowToasterInstance | null>(null);

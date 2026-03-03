@@ -7,7 +7,11 @@ const SvgGiftcard = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M20 13h-3.586l1.293 1.293a1 1 0 1 1-1.414 1.414L15 14.414V18h5zm-7 5v-3.586l-1.293 1.293a1 1 0 1 1-1.414-1.414L11.586 13H4v5zm2-12v3.586l1.293-1.293a1 1 0 1 1 1.414 1.414L16.414 11H20V6zM4 11h7.586l-1.293-1.293a1 1 0 1 1 1.414-1.414L13 9.586V6H4zm18 7a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z" />
+    <Path
+      fillRule="evenodd"
+      d="M22 20H2V4h20zM4 18h9v-3.586l-1.5 1.5-1.414-1.414 1.5-1.5H4zm13.914-3.5L16.5 15.914l-1.5-1.5V18h5v-5h-3.586zM4 11h7.586l-1.5-1.5L11.5 8.086l1.5 1.5V6H4zm11-1.414 1.5-1.5L17.914 9.5l-1.5 1.5H20V6h-5z"
+      clipRule="evenodd"
+    />
   </Svg>
 );
 export default SvgGiftcard;

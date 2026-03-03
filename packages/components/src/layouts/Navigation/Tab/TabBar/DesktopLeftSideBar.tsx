@@ -12,8 +12,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components/src/primitives';
-import { TMPopover } from '@onekeyhq/components/src/shared/tamagui';
-import { useTheme } from '@onekeyhq/components/src/shared/tamagui';
+import { TMPopover, useTheme } from '@onekeyhq/components/src/shared/tamagui';
 import { MIN_SIDEBAR_WIDTH } from '@onekeyhq/components/src/utils/sidebar';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
@@ -40,6 +39,16 @@ import type { GestureResponderEvent, LayoutChangeEvent } from 'react-native';
 
 // Estimated height per tab item (icon ~40px + gap + label ~16-30px + padding 12px)
 const ESTIMATED_TAB_ITEM_HEIGHT = 70;
+
+function DesktopWinSidebarTop() {
+  return (
+    <XStack h={52} ai="center" jc="center" px="$4" className="app-region-drag">
+      <XStack className="app-region-no-drag">
+        <MenuHamburger />
+      </XStack>
+    </XStack>
+  );
+}
 
 function TabItemView({
   isActive,
@@ -71,8 +80,15 @@ function TabItemView({
   }, [options]);
 
   const [isContainerHovered, setIsContainerHovered] = useState(false);
+  const handleHoverIn = useCallback(() => {
+    setIsContainerHovered(true);
+  }, []);
+  const handleHoverOut = useCallback(() => {
+    setIsContainerHovered(false);
+  }, []);
   const handlePress = useCallback(
     (event: GestureResponderEvent) => {
+      setIsContainerHovered(false);
       const press = (options.tabbarOnPress ?? onPress) as (
         event: GestureResponderEvent,
       ) => void | undefined;
@@ -93,12 +109,8 @@ function TabItemView({
           pt={6}
           pb={6}
           onPress={handlePress}
-          onHoverIn={() => {
-            setIsContainerHovered(true);
-          }}
-          onHoverOut={() => {
-            setIsContainerHovered(false);
-          }}
+          onHoverIn={handleHoverIn}
+          onHoverOut={handleHoverOut}
         >
           <DesktopTabItem
             isContainerHovered={isContainerHovered}
@@ -127,7 +139,15 @@ function TabItemView({
           </SizableText>
         </YStack>
       ),
-    [handlePress, isActive, isContainerHovered, options, route.name],
+    [
+      handlePress,
+      handleHoverIn,
+      handleHoverOut,
+      isActive,
+      isContainerHovered,
+      options,
+      route.name,
+    ],
   );
 
   return contentMemo;
@@ -461,7 +481,7 @@ export function DesktopLeftSideBar({
       }}
     >
       <YStack w={MIN_SIDEBAR_WIDTH}>
-        {!platformEnv.isDesktopMac ? <MenuHamburger /> : null}
+        {/* eslint-disable no-nested-ternary */}
         {platformEnv.isDesktopMac ? (
           // @ts-expect-error https://www.electronjs.org/docs/latest/tutorial/custom-window-interactions
           <XStack
@@ -473,10 +493,16 @@ export function DesktopLeftSideBar({
             jc="flex-end"
             px="$4"
           />
-        ) : null}
+        ) : platformEnv.isDesktopWin || platformEnv.isDesktopLinux ? (
+          <DesktopWinSidebarTop />
+        ) : (
+          <MenuHamburger />
+        )}
+        {/* eslint-enable no-nested-ternary */}
         <YStack flex={1} testID="Desktop-AppSideBar-Content-Container">
           <YStack flex={1}>
-            {!platformEnv.isDesktopMac && !platformEnv.isNativeIOSPad ? (
+            {!platformEnv.isDesktopWithCustomTitleBar &&
+            !platformEnv.isNativeIOSPad ? (
               <XStack ai="center" jc="center" px="$4" py="$3">
                 <Icon
                   name="OnekeyLogoIllus"

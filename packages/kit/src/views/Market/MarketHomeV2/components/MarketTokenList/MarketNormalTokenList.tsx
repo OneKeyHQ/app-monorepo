@@ -10,6 +10,10 @@ type IMarketNormalTokenListProps = {
   sortType?: 'asc' | 'desc';
   onItemPress?: (item: IMarketToken) => void;
   toolbar?: ReactNode;
+  tabIntegrated?: boolean;
+  listContainerProps?: {
+    paddingBottom: number;
+  };
 };
 
 function MarketNormalTokenList({
@@ -18,6 +22,8 @@ function MarketNormalTokenList({
   sortType: initialSortType,
   onItemPress,
   toolbar,
+  tabIntegrated,
+  listContainerProps,
 }: IMarketNormalTokenListProps) {
   const normalResult = useMarketTokenList({
     networkId,
@@ -34,6 +40,8 @@ function MarketNormalTokenList({
       result={normalResult}
       isWatchlistMode={false}
       showEndReachedIndicator
+      tabIntegrated={tabIntegrated}
+      listContainerProps={listContainerProps}
     />
   );
 }

@@ -197,3 +197,24 @@ export const setNativeVersion = (nativeVersion: string) => {
 
 export const getNativeVersion = () =>
   store.get(EDesktopStoreKeys.NativeVersion, '');
+
+// ==================== GPU Crash Statistics ====================
+// Functions for tracking GPU crash events
+export const recordGPUCrash = () => {
+  const crashes = store.get(EDesktopStoreKeys.GPUCrashCount, 0);
+  const newCount = crashes + 1;
+  store.set(EDesktopStoreKeys.GPUCrashCount, newCount);
+  store.set(EDesktopStoreKeys.LastGPUCrashTime, Date.now());
+  logger.error(`GPU crash recorded. Total crashes: ${newCount}`);
+};
+
+export const getGPUCrashStats = () => ({
+  count: store.get(EDesktopStoreKeys.GPUCrashCount, 0),
+  lastCrashTime: store.get(EDesktopStoreKeys.LastGPUCrashTime, 0),
+});
+
+export const clearGPUCrashStats = () => {
+  store.delete(EDesktopStoreKeys.GPUCrashCount);
+  store.delete(EDesktopStoreKeys.LastGPUCrashTime);
+  logger.info('GPU crash statistics cleared');
+};

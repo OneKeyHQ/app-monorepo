@@ -51,6 +51,7 @@ import {
 import { HomeTokenListProviderMirrorWrapper } from '../../Home/components/HomeTokenListProvider';
 import { MarketWatchListProviderMirror } from '../../Market/MarketWatchListProviderMirror';
 import { MarketWatchListProviderMirrorV2 } from '../../Market/MarketWatchListProviderMirrorV2';
+import { MarketTableHeader } from '../components/MarketTableHeader';
 import {
   UniversalSearchAccountAssetItem,
   UniversalSearchAddressItem,
@@ -125,6 +126,8 @@ function ListEmptyComponent() {
     </YStack>
   );
 }
+
+const isMarketSection = (tabIndex: number) => tabIndex === 2;
 
 export function UniversalSearch({
   filterTypes,
@@ -243,23 +246,45 @@ export function UniversalSearch({
   ]);
 
   const fetchRecommendList = useCallback(async () => {
-    const searchResultSections: {
-      title: string;
-      data: IUniversalSearchResultItem[];
-    }[] = [];
+    const searchResultSections: IUniversalSection[] = [];
 
     const result =
       await backgroundApiProxy.serviceUniversalSearch.universalSearchRecommend({
         searchTypes: [EUniversalSearchType.MarketToken],
       });
     if (result?.[EUniversalSearchType.MarketToken]?.items) {
+      // Convert MarketToken items to V2MarketToken format for table-style rendering
+      const v2Items = result[EUniversalSearchType.MarketToken].items.map(
+        (item) => {
+          const token = item.payload;
+          return {
+            type: EUniversalSearchType.V2MarketToken,
+            payload: {
+              name: token.name,
+              symbol: token.symbol,
+              price: String(token.price),
+              address: token.coingeckoId,
+              network: '',
+              logoUrl: token.image,
+              isNative: false,
+              decimals: 0,
+              liquidity: '0',
+              volume_24h: String(token.totalVolume || 0),
+              marketCap: String(token.marketCap || 0),
+              priceChange24hPercent: String(
+                token.priceChangePercentage24H || 0,
+              ),
+            },
+          };
+        },
+      );
       searchResultSections.push({
+        tabIndex: 2,
         title: intl.formatMessage({ id: ETranslations.market_trending }),
-        data: result?.[EUniversalSearchType.MarketToken]
-          ?.items as IUniversalSearchResultItem[],
+        data: v2Items as IUniversalSearchResultItem[],
       });
     }
-    setRecommendSections(searchResultSections as IUniversalSection[]);
+    setRecommendSections(searchResultSections);
   }, [intl]);
 
   useEffect(() => {
@@ -450,11 +475,14 @@ export function UniversalSearch({
   const renderSectionHeader = useCallback(
     ({ section }: { section: IUniversalSection }) => {
       return (
-        <XStack bg="$bgApp" h="$9" ai="center">
-          <SizableText px="$5" size="$headingSm" color="$textSubdued">
-            {section.title}
-          </SizableText>
-        </XStack>
+        <YStack bg="$bgApp">
+          <XStack h="$9" ai="center">
+            <SizableText px="$5" size="$headingSm" color="$textSubdued">
+              {section.title}
+            </SizableText>
+          </XStack>
+          {isMarketSection(section.tabIndex) ? <MarketTableHeader /> : null}
+        </YStack>
       );
     },
     [],
@@ -510,12 +538,7 @@ export function UniversalSearch({
             />
           );
         case EUniversalSearchType.V2MarketToken:
-          return (
-            <UniversalSearchV2MarketTokenItem
-              item={item}
-              searchStatus={searchStatus}
-            />
-          );
+          return <UniversalSearchV2MarketTokenItem item={item} />;
         case EUniversalSearchType.AccountAssets:
           return (
             <UniversalSearchAccountAssetItem
@@ -650,7 +673,7 @@ export function UniversalSearch({
               renderSectionFooter={renderSectionFooter}
               ListEmptyComponent={
                 <Empty
-                  icon="SearchOutline"
+                  illustration="QuestionMark"
                   title={intl.formatMessage({
                     id: ETranslations.global_no_results,
                   })}

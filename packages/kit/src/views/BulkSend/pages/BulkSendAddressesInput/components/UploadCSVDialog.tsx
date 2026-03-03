@@ -219,12 +219,13 @@ function UploadCSVContent({ onUploaded }: IUploadCSVContentProps) {
     URL.revokeObjectURL(url);
   }, []);
 
-  const supportsDropZone = platformEnv.isWeb || platformEnv.isDesktop;
+  const supportsDropZone =
+    platformEnv.isWeb || platformEnv.isDesktop || platformEnv.isExtension;
 
   return (
     <Stack gap="$3">
       {/* Hidden file input */}
-      {platformEnv.isWeb || platformEnv.isDesktop ? (
+      {platformEnv.isWeb || platformEnv.isDesktop || platformEnv.isExtension ? (
         <input
           ref={fileInputRef as any}
           type="file"
@@ -278,16 +279,7 @@ function UploadCSVContent({ onUploaded }: IUploadCSVContentProps) {
       </Stack>
 
       {/* Template Info Row */}
-      <XStack
-        bg="$bgSubdued"
-        borderWidth="$px"
-        borderColor="$borderSubdued"
-        borderRadius="$3"
-        px="$4"
-        py="$3.5"
-        alignItems="center"
-        gap="$2"
-      >
+      <XStack py="$3.5" alignItems="center" gap="$2">
         <Icon name="InfoCircleOutline" size="$5" color="$iconSubdued" />
         <SizableText size="$bodyMdMedium" flex={1}>
           {intl.formatMessage({

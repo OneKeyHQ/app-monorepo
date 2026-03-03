@@ -33,7 +33,9 @@ function HeaderColumn<T>({
   } = column;
   const events = onHeaderRow?.(column, index);
   const enableSortType = !!events?.onSortTypeChange;
-  const [sortOrder, setSortOrder] = useState<ETableSortType | undefined>();
+  const [sortOrder, setSortOrder] = useState<ETableSortType | undefined>(
+    events?.initialSortOrder,
+  );
 
   useEffect(() => {
     if (selectedColumnName !== dataIndex) {
@@ -91,14 +93,18 @@ function HeaderColumn<T>({
       disabledSorts={events?.disableSort}
       {...(columnProps as IXStackProps)}
     >
-      <SizableText
-        color="$textSubdued"
-        size="$bodySmMedium"
-        textAlign={textAlign}
-        {...titleProps}
-      >
-        {title}
-      </SizableText>
+      {typeof title === 'string' ? (
+        <SizableText
+          color="$textSubdued"
+          size="$bodySmMedium"
+          textAlign={textAlign}
+          {...titleProps}
+        >
+          {title}
+        </SizableText>
+      ) : (
+        title
+      )}
     </Column>
   );
 }

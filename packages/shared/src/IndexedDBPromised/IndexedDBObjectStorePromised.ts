@@ -42,7 +42,7 @@ export class IndexedDBObjectStorePromised<
   }
 
   async count(
-    key?: IDBKeyRange | StoreKey<DBTypes, StoreName> | null | undefined,
+    key?: IDBKeyRange | StoreKey<DBTypes, StoreName> | null,
   ): Promise<number> {
     const request = this.store.count(key as IDBValidKey | IDBKeyRange);
     return indexedDBPromisedUtils.toPromiseResult({ request });
@@ -68,7 +68,7 @@ export class IndexedDBObjectStorePromised<
   }
 
   async getAll(
-    query?: IDBKeyRange | StoreKey<DBTypes, StoreName> | null | undefined,
+    query?: IDBKeyRange | StoreKey<DBTypes, StoreName> | null,
     count?: number,
   ): Promise<StoreValue<DBTypes, StoreName>[]> {
     const request = this.store.getAll(query, count);
@@ -76,7 +76,7 @@ export class IndexedDBObjectStorePromised<
   }
 
   getAllKeys(
-    query?: IDBKeyRange | StoreKey<DBTypes, StoreName> | null | undefined,
+    query?: IDBKeyRange | StoreKey<DBTypes, StoreName> | null,
     count?: number,
   ): Promise<StoreKey<DBTypes, StoreName>[]> {
     const request = this.store.getAllKeys(
@@ -112,7 +112,7 @@ export class IndexedDBObjectStorePromised<
   }
 
   async openCursor(
-    query?: IDBKeyRange | StoreKey<DBTypes, StoreName> | null | undefined,
+    query?: IDBKeyRange | StoreKey<DBTypes, StoreName> | null,
     direction?: IDBCursorDirection,
   ): Promise<IDBPCursorWithValue<
     DBTypes,
@@ -130,14 +130,14 @@ export class IndexedDBObjectStorePromised<
   }
 
   openKeyCursor(
-    query?: IDBKeyRange | StoreKey<DBTypes, StoreName> | null | undefined,
+    query?: IDBKeyRange | StoreKey<DBTypes, StoreName> | null,
     direction?: IDBCursorDirection,
   ): Promise<IDBPCursor<DBTypes, TxStores, StoreName, unknown, Mode> | null> {
     throw new OneKeyLocalError('Method not implemented.');
   }
 
   iterate(
-    query?: IDBKeyRange | StoreKey<DBTypes, StoreName> | null | undefined,
+    query?: IDBKeyRange | StoreKey<DBTypes, StoreName> | null,
     direction?: IDBCursorDirection,
   ): AsyncIterableIterator<
     IDBPCursorWithValueIteratorValue<
