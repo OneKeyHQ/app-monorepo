@@ -11,6 +11,7 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IDisplayComponentAddress } from '@onekeyhq/shared/types/signatureConfirm';
 
 import { SignatureConfirmItem } from '../SignatureConfirmItem';
+import { useMemo } from 'react';
 
 type IProps = {
   accountId?: string;
@@ -56,6 +57,14 @@ function Address(props: IProps) {
     return r?.[0]?.accountName;
   }, [component.address, networkId, isLightningNetwork]).result;
 
+  const accountAddress = useMemo(() => {
+    if (component.showAccountName) {
+      return accountName;
+    }
+    return component.highlight ? (
+      <HighlightAddress variant="inline" address={component.address} />
+    ) : component.address;
+  }, [component.showAccountName, accountName, component.highlight, component.address]);
   return (
     <SignatureConfirmItem>
       <SignatureConfirmItem.Label>
@@ -70,13 +79,7 @@ function Address(props: IProps) {
           style={{ wordBreak: 'break-all' }}
           {...(!component.showAccountName && { fontFamily: '$monoMedium' })}
         >
-          {component.showAccountName ? (
-            accountName
-          ) : component.highlightAddress ? (
-            <HighlightAddress variant="inline" address={component.address} />
-          ) : (
-            component.address
-          )}
+          {accountAddress}
         </SignatureConfirmItem.Value>
         {component.isNavigable ? (
           <XStack gap="$3" ml="$5">
@@ -100,7 +103,7 @@ function Address(props: IProps) {
       </XStack>
 
       {(accountId && networkId && showAddressLocalTags) ||
-      component.tags.length ? (
+        component.tags.length ? (
         <XStack gap="$1" flexWrap="wrap" flex={1}>
           {accountId && networkId && showAddressLocalTags ? (
             <AddressInfo

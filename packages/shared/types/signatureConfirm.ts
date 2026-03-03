@@ -74,7 +74,7 @@ export interface IDisplayComponentAddress {
   isNavigable?: boolean;
   networkId?: string;
   showAccountName?: boolean;
-  highlightAddress?: boolean;
+  highlight?: boolean;
 }
 
 export interface IDisplayComponentAmount {
