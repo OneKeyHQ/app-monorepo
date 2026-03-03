@@ -132,6 +132,7 @@
   "allowlist.enabled_popover_title": "Allowlist abilitata",
   "approval_bulk_revoke_status_paused_reason_description": "Motivo del salto",
   "approval_bulk_revoke_status_processing": "Elaborazione in corso",
+  "approval_not_supported": "La gestione delle approvazioni non è supportata su questa rete",
   "approve_edit.approve_amount": "Approva importo",
   "approve_edit.less_than_swap": "L'indennità non può essere inferiore all'importo dello swap",
   "approve_edit.title": "Modifica indennità",
