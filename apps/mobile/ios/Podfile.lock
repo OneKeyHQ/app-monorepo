@@ -2176,7 +2176,7 @@ PODS:
     - SocketRocket
   - react-native-aes (3.2.1):
     - React-Core
-  - react-native-ble-plx (3.5.0):
+  - react-native-ble-plx (3.5.1):
     - boost
     - DoubleConversion
     - fast_float
@@ -4764,7 +4764,7 @@ SPEC CHECKSUMS:
   React-Mapbuffer: 94f4264de2cb156960cd82b338a403f4653f2fd9
   React-microtasksnativemodule: 6c4ee39a36958c39c97b074d28f360246a335e84
   react-native-aes: e38d08f68d27e85d14590b7ef0b404ceebf5f891
-  react-native-ble-plx: effae4e8e465c52768497f87abd2b95791eb2de2
+  react-native-ble-plx: 152b07bdf772c95e30c0251649d462b5154a0e13
   react-native-bottom-tabs: e33312fc663d163f0be73d3474dfb448ba38dad8
   react-native-capture-protection: a8abb2b0880aa1808e3724aa3fc7e56e72225a24
   react-native-cloud-fs: 03ad849da6cecc3cb58ed970ce4078a2e0814848

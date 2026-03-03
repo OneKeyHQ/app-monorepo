@@ -1,4 +1,5 @@
 import type { IKeyOfIcons } from '@onekeyhq/components';
+
 import type { ENotificationPushMessageMode } from './notification';
 
 export interface IWalletBanner {

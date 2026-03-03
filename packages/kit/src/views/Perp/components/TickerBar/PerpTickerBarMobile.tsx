@@ -15,12 +15,13 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { GiftAction } from '@onekeyhq/kit/src/components/TabPageHeader/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { usePerpsTokenSearchAliasesAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import {
   usePerpsActiveAccountMmrAtom,
+  usePerpsActiveAccountStatusAtom,
   usePerpsActiveAccountSummaryAtom,
   usePerpsActiveAssetAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { usePerpsTokenSearchAliasesAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import type { ITokenSearchAliases } from '@onekeyhq/shared/src/utils/perpsUtils';
@@ -181,11 +182,9 @@ function PerpBadgesRow() {
 
   // Fetch builder fee once on mount (independent of alias state)
   useEffect(() => {
-    void backgroundApiProxy.simpleDb.perp
-      .getPerpData()
-      .then((config) => {
-        setBuilderFeeRate(config.hyperliquidMaxBuilderFee);
-      });
+    void backgroundApiProxy.simpleDb.perp.getPerpData().then((config) => {
+      setBuilderFeeRate(config.hyperliquidMaxBuilderFee);
+    });
   }, []);
 
   // Fetch token aliases only when not yet available
@@ -264,7 +263,7 @@ function PerpBadgesRow() {
             id: ETranslations.referral_perps_onekey_fee,
           })}
           renderTrigger={
-            <Badge radius="$1" bg="$bgSuccess" px="$1" py={0}>
+            <Badge radius="$1" bg="$bgSuccess" px="$0.5" py={0}>
               <SizableText color="$textSuccess" fontSize={10}>
                 {intl.formatMessage({
                   id: ETranslations.perp_0_fee,
@@ -288,6 +287,8 @@ function PerpBadgesRow() {
 }
 
 export function PerpTickerBarMobile() {
+  const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
+
   const content = (
     <XStack
       flex={1}
@@ -308,7 +309,10 @@ export function PerpTickerBarMobile() {
         <PerpTickerBarMMRInfoMobile />
         <GiftAction source="Perps" size="small" copyAsUrl />
         <PerpCandleChartButtonMobile />
-        <PerpSettingsButton testID="perp-mobile-settings-button" />
+        <PerpSettingsButton
+          testID="perp-mobile-settings-button"
+          showFeeTierEntry={!perpsAccountStatus.accountNotSupport}
+        />
       </XStack>
     </XStack>
   );

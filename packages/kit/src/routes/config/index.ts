@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
 import { useMemo } from 'react';
 
 import { getPathFromState as getPathFromStateDefault } from '@react-navigation/core';
@@ -152,6 +152,7 @@ const useBuildLinking = (): LinkingOptions<any> => {
           const mainRoute = state?.routes?.[state?.index ?? 0];
           const tabState = mainRoute?.state;
           const tabIndex = tabState?.index ?? 0;
+          // eslint-disable-next-line @typescript-eslint/no-shadow
           const tabRouteNames =
             tabState?.routeNames ?? tabState?.routes?.map((r: any) => r.name);
           const activeTab = tabRouteNames?.[tabIndex];

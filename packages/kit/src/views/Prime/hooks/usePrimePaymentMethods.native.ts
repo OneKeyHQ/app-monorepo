@@ -20,7 +20,6 @@ import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
 import { getPrimePaymentApiKey } from './getPrimePaymentApiKey';
-import primePaymentUtils from './primePaymentUtils';
 
 import type {
   IPackage,
@@ -160,11 +159,8 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
     const packages: IPackage[] = [];
 
     offerings.current?.availablePackages.forEach((p) => {
-      let {
-        subscriptionPeriod,
-        pricePerYear,
-        pricePerMonth,
-      } = p.product;
+      // eslint-disable-next-line prefer-const
+      let { subscriptionPeriod, pricePerYear, pricePerMonth } = p.product;
 
       if (platformEnv.isNativeAndroid) {
         pricePerYear = new BigNumber(pricePerYear || 0)
@@ -180,13 +176,13 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
       packages.push({
         subscriptionPeriod: subscriptionPeriod as ISubscriptionPeriod,
         pricePerYear: pricePerYear || 0,
-        pricePerYearString: `${new BigNumber(
-          pricePerYear || 0,
-        ).toFixed(2)} ${currencyCode}`,
+        pricePerYearString: `${new BigNumber(pricePerYear || 0).toFixed(
+          2,
+        )} ${currencyCode}`,
         pricePerMonth: pricePerMonth || 0,
-        pricePerMonthString: `${new BigNumber(
-          pricePerMonth || 0,
-        ).toFixed(2)} ${currencyCode}`,
+        pricePerMonthString: `${new BigNumber(pricePerMonth || 0).toFixed(
+          2,
+        )} ${currencyCode}`,
         priceTotalPerYearString:
           subscriptionPeriod === 'P1M'
             ? `${new BigNumber(pricePerMonth || 0)
@@ -263,14 +259,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
               : offering.product.pricePerMonth || 0;
           }
 
-          // Extract currency from price string
-          const currency =
-            primePaymentUtils.extractCurrencySymbol(
-              offering.product.priceString ||
-                offering.product.pricePerYearString ||
-                '',
-              { useShortUSSymbol: true },
-            ) || 'USD';
+          const currency = offering.product.currencyCode || 'USD';
 
           defaultLogger.prime.subscription.primeSubscribeSuccess({
             planType,

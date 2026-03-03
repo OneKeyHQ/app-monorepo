@@ -24,6 +24,7 @@ import {
 } from '@onekeyhq/kit/src/utils/explorerUtils';
 import { useEarnTxLabel } from '@onekeyhq/kit/src/views/Staking/hooks/useEarnTxLabel';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import utils from '@onekeyhq/shared/src/utils/accountUtils';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import { ETransactionType } from '@onekeyhq/shared/types/signatureRecord';
@@ -36,7 +37,6 @@ import type {
 } from '@onekeyhq/shared/types/signatureRecord';
 
 import { useGetSignatureSections } from './hooks';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const SendTransactionItem = ({ data }: { data: ISendTransactionData }) => {
   const intl = useIntl();

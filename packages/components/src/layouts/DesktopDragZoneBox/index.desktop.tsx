@@ -1,4 +1,5 @@
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { Stack } from '../../primitives';
 
 import type { IDesktopDragZoneBoxProps } from './index.type';

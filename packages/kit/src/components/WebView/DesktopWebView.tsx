@@ -60,6 +60,7 @@ void globalThis.desktopApiProxy.webview.getPreloadJsContent().then((url) => {
 });
 
 // Used for webview type referencing
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const WEBVIEW_TAG = 'webview';
 
 const DesktopWebView = forwardRef(
