@@ -38,6 +38,7 @@ import {
   EModalStakingRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
 import {
@@ -61,8 +62,8 @@ import { EarnAlert } from '../../../Staking/components/ProtocolDetails/EarnAlert
 import { EarnIcon } from '../../../Staking/components/ProtocolDetails/EarnIcon';
 import { EarnText } from '../../../Staking/components/ProtocolDetails/EarnText';
 import { GridItem } from '../../../Staking/components/ProtocolDetails/GridItemV2';
-import { PeriodSection } from '../../../Staking/components/ProtocolDetails/PeriodSectionV2';
 import { PendleRulesSection } from '../../../Staking/components/ProtocolDetails/PendleRulesSection';
+import { PeriodSection } from '../../../Staking/components/ProtocolDetails/PeriodSectionV2';
 import { ProtectionSection } from '../../../Staking/components/ProtocolDetails/ProtectionSectionV2';
 import { OverviewSkeleton } from '../../../Staking/components/StakingSkeleton';
 import { useCheckEthenaKycStatus } from '../../../Staking/hooks/useCheckEthenaKycStatus';
@@ -72,7 +73,6 @@ import { FAQSection } from '../../../Staking/pages/ProtocolDetailsV2/FAQSection'
 import { EarnPageContainer } from '../../components/EarnPageContainer';
 import { EarnProviderMirror } from '../../EarnProviderMirror';
 import { EarnNavigation, EarnNetworkUtils } from '../../earnUtils';
-import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 
 import { ApyChart } from './components/ApyChart';
 import { useProtocolDetailBreadcrumb } from './hooks/useProtocolDetailBreadcrumb';

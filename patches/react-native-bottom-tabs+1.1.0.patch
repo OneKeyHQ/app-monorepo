@@ -91,11 +91,43 @@ index 09adaca..94e13d0 100644
  
  #endif
 -}
+diff --git a/node_modules/react-native-bottom-tabs/ios/TabView/NewTabView.swift b/node_modules/react-native-bottom-tabs/ios/TabView/NewTabView.swift
+index d699315..53733de 100644
+--- a/node_modules/react-native-bottom-tabs/ios/TabView/NewTabView.swift
++++ b/node_modules/react-native-bottom-tabs/ios/TabView/NewTabView.swift
+@@ -32,7 +32,6 @@ struct NewTabView: AnyTabView {
+               RepresentableView(view: child.view)
+                 .ignoresSafeArea(.container, edges: .all)
+                 .tabAppear(using: context)
+-                .hideTabBar(props.tabBarHidden)
+             } label: {
+               TabItem(
+                 title: tabData.title,
+@@ -49,6 +48,7 @@ struct NewTabView: AnyTabView {
+         }
+       }
+     }
++    .hideTabBar(props.tabBarHidden)
+     .measureView { size in
+       onLayout(size)
+     }
 diff --git a/node_modules/react-native-bottom-tabs/ios/TabViewImpl.swift b/node_modules/react-native-bottom-tabs/ios/TabViewImpl.swift
-index 72938be..a7a3c15 100644
+index 72938be..3322d83 100644
 --- a/node_modules/react-native-bottom-tabs/ios/TabViewImpl.swift
 +++ b/node_modules/react-native-bottom-tabs/ios/TabViewImpl.swift
-@@ -80,7 +80,7 @@ struct TabViewImpl: View {
+@@ -69,6 +69,11 @@ struct TabViewImpl: View {
+           tabBar = tabController
+         #else
+           tabBar = tabController.tabBar
++          // Immediately apply hidden state to the new tab bar instance.
++          // Critical on iOS 26 where SwiftUI may recreate the UITabBarController,
++          // making the old tabBar reference stale (window == nil).
++          tabController.tabBar.isHidden = props.tabBarHidden
++          tabController.tabBar.isUserInteractionEnabled = !props.tabBarHidden
+           if !props.tabBarHidden {
+             onTabBarMeasured(
+               Int(tabController.tabBar.frame.size.height)
+@@ -80,7 +85,7 @@ struct TabViewImpl: View {
          .configureAppearance(props: props, tabBar: tabBar)
        #endif
        .tintColor(props.selectedActiveTintColor)
@@ -104,7 +136,7 @@ index 72938be..a7a3c15 100644
        .onChange(of: props.selectedPage ?? "") { newValue in
          #if !os(macOS)
            if props.disablePageAnimations {
-@@ -214,6 +214,40 @@ extension View {
+@@ -214,6 +219,40 @@ extension View {
      }
    }
  
@@ -145,6 +177,68 @@ index 72938be..a7a3c15 100644
    @ViewBuilder
    func tabBadge(_ data: String?) -> some View {
      if #available(iOS 15.0, macOS 15.0, visionOS 2.0, tvOS 15.0, *) {
+@@ -261,6 +300,24 @@ extension View {
+         }
+         .onChange(of: props.tabBarHidden) { newValue in
+           tabBar?.isHidden = newValue
++          tabBar?.isUserInteractionEnabled = !newValue
++          if #available(iOS 26.0, *) {
++            // On iOS 26, SwiftUI may recreate the UITabBarController making
++            // our tabBar reference stale. Find all UITabBars in the window
++            // and apply hidden state to any that our ref missed.
++            let keyWindow = UIApplication.shared.connectedScenes
++              .compactMap { $0 as? UIWindowScene }
++              .flatMap { $0.windows }
++              .first { $0.isKeyWindow }
++            if let window = keyWindow {
++              findAllTabBars(in: window) { foundTabBar in
++                if foundTabBar !== tabBar {
++                  foundTabBar.isHidden = newValue
++                  foundTabBar.isUserInteractionEnabled = !newValue
++                }
++              }
++            }
++          }
+         }
+     }
+   #endif
+@@ -299,14 +356,14 @@ extension View {
+   @ViewBuilder
+   func hideTabBar(_ flag: Bool) -> some View {
+     #if !os(macOS)
+-      if flag {
+-        if #available(iOS 16.0, tvOS 16.0, *) {
+-          self.toolbar(.hidden, for: .tabBar)
+-        } else {
+-          // We fallback to isHidden on UITabBar
+-          self
+-        }
++      if #available(iOS 16.0, tvOS 16.0, *) {
++        // Always apply .toolbar modifier with dynamic visibility to maintain stable
++        // SwiftUI view identity. Using if/else branches changes the View type,
++        // causing view tree recreation that on iOS 26 (Liquid Glass) can leave
++        // a ghost touch-intercepting layer.
++        self.toolbar(flag ? .hidden : .automatic, for: .tabBar)
+       } else {
++        // iOS <16: rely on tabBar.isHidden set in configureAppearance onChange
+         self
+       }
+     #else
+@@ -326,3 +383,14 @@ extension View {
+     }
+   }
+ }
++
++#if !os(macOS)
++private func findAllTabBars(in view: UIView, handler: (UITabBar) -> Void) {
++  if let tabBar = view as? UITabBar {
++    handler(tabBar)
++  }
++  for subview in view.subviews {
++    findAllTabBars(in: subview, handler: handler)
++  }
++}
++#endif
 diff --git a/node_modules/react-native-bottom-tabs/lib/module/TabView.js b/node_modules/react-native-bottom-tabs/lib/module/TabView.js
 index 3ab92c7..81ca149 100644
 --- a/node_modules/react-native-bottom-tabs/lib/module/TabView.js

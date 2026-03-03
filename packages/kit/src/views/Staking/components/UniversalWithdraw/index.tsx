@@ -32,8 +32,8 @@ import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm
 import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { validateAmountInputForStaking } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import {
@@ -43,6 +43,7 @@ import {
 import type {
   ICheckAmountAlert,
   IEarnEstimateFeeResp,
+  IEarnText,
   IEarnTextTooltip,
   IStakeTransactionConfirmation,
 } from '@onekeyhq/shared/types/staking';
@@ -69,11 +70,11 @@ import {
   PendleAccordionTriggerContent,
   PendleSummarySection,
 } from '../ProtocolDetails/PendleSharedComponents';
+import { EStakeProgressStep, StakeProgress } from '../StakeProgress';
 import {
   StakingAmountInput,
   useOnBlurAmountValue,
 } from '../StakingAmountInput';
-import { EStakeProgressStep, StakeProgress } from '../StakeProgress';
 import StakingFormWrapper from '../StakingFormWrapper';
 
 import type { FontSizeTokens } from 'tamagui';
@@ -147,6 +148,98 @@ type IUniversalWithdrawProps = {
 };
 
 const WITHDRAW_ACCORDION_KEY = 'withdraw-accordion-content';
+
+type IWithdrawPathBox = {
+  title: IEarnText;
+  description: IEarnText;
+  subtitle?: IEarnText;
+  subtitleDescription?: IEarnText;
+};
+
+type IWithdrawPathPopoverRef = {
+  boxes: IWithdrawPathBox[];
+  selectedIndex: number;
+  onSelect: (index: number) => void;
+};
+
+function WithdrawPathPopoverContent({
+  closePopover,
+  popoverRef,
+}: {
+  isOpen?: boolean;
+  closePopover: () => void;
+  popoverRef: React.MutableRefObject<IWithdrawPathPopoverRef>;
+}) {
+  const { boxes, selectedIndex, onSelect } = popoverRef.current;
+  return (
+    <YStack px="$5" pb="$5">
+      {boxes.map((box, index) => {
+        const isSelected = index === selectedIndex;
+        return (
+          <XStack
+            key={index}
+            py="$2.5"
+            gap="$3"
+            ai="center"
+            userSelect="none"
+            cursor="pointer"
+            onPress={() => {
+              onSelect(index);
+              closePopover();
+            }}
+          >
+            <Stack
+              w="$5"
+              h="$5"
+              my="$0.5"
+              borderWidth="$0.5"
+              borderColor={isSelected ? '$transparent' : '$borderStrong'}
+              bg={isSelected ? '$bgPrimary' : '$transparent'}
+              borderRadius="$full"
+              ai="center"
+              jc="center"
+            >
+              {isSelected ? (
+                <Stack
+                  w="$2.5"
+                  h="$2.5"
+                  bg="$iconInverse"
+                  borderRadius="$full"
+                />
+              ) : null}
+            </Stack>
+            <YStack flex={1} gap="$1">
+              <SizableText size="$bodyLgMedium" color="$text">
+                {box.title.text}
+              </SizableText>
+              {box.subtitle?.text ? (
+                <SizableText
+                  size="$bodyMd"
+                  color={box.subtitle?.color || '$textSubdued'}
+                >
+                  {box.subtitle.text}
+                </SizableText>
+              ) : null}
+            </YStack>
+            <YStack flex={1} gap="$1" ai="flex-end">
+              <SizableText size="$headingMd" color="$text">
+                {box.description.text}
+              </SizableText>
+              {box.subtitleDescription?.text ? (
+                <SizableText
+                  size="$bodyMd"
+                  color={box.subtitleDescription?.color || '$textSubdued'}
+                >
+                  {box.subtitleDescription.text}
+                </SizableText>
+              ) : null}
+            </YStack>
+          </XStack>
+        );
+      })}
+    </YStack>
+  );
+}
 
 export function UniversalWithdraw({
   accountAddress,
@@ -862,11 +955,7 @@ export function UniversalWithdraw({
   const showWithdrawPathSelector =
     withdrawPathConfirmBoxes.length > 1 && !!selectedWithdrawPath;
 
-  const withdrawPathPopoverRef = useRef<{
-    boxes: typeof withdrawPathConfirmBoxes;
-    selectedIndex: number;
-    onSelect: (index: number) => void;
-  }>({
+  const withdrawPathPopoverRef = useRef<IWithdrawPathPopoverRef>({
     boxes: [],
     selectedIndex: 0,
     onSelect: () => {},
@@ -878,85 +967,13 @@ export function UniversalWithdraw({
     onSelect: (index: number) => setSelectedWithdrawPathIndex(index),
   };
 
-  const WithdrawPathPopoverContent = useMemo(
-    () =>
-      function Content({
-        closePopover,
-      }: {
-        isOpen?: boolean;
-        closePopover: () => void;
-      }) {
-        const { boxes, selectedIndex, onSelect } =
-          withdrawPathPopoverRef.current;
-        return (
-          <YStack px="$5" pb="$5">
-            {boxes.map((box, index) => {
-              const isSelected = index === selectedIndex;
-              return (
-                <XStack
-                  key={index}
-                  py="$2.5"
-                  gap="$3"
-                  ai="center"
-                  userSelect="none"
-                  cursor="pointer"
-                  onPress={() => {
-                    onSelect(index);
-                    closePopover();
-                  }}
-                >
-                  <Stack
-                    w="$5"
-                    h="$5"
-                    my="$0.5"
-                    borderWidth="$0.5"
-                    borderColor={isSelected ? '$transparent' : '$borderStrong'}
-                    bg={isSelected ? '$bgPrimary' : '$transparent'}
-                    borderRadius="$full"
-                    ai="center"
-                    jc="center"
-                  >
-                    {isSelected ? (
-                      <Stack
-                        w="$2.5"
-                        h="$2.5"
-                        bg="$iconInverse"
-                        borderRadius="$full"
-                      />
-                    ) : null}
-                  </Stack>
-                  <YStack flex={1} gap="$1">
-                    <SizableText size="$bodyLgMedium" color="$text">
-                      {box.title.text}
-                    </SizableText>
-                    {box.subtitle?.text ? (
-                      <SizableText
-                        size="$bodyMd"
-                        color={box.subtitle?.color || '$textSubdued'}
-                      >
-                        {box.subtitle.text}
-                      </SizableText>
-                    ) : null}
-                  </YStack>
-                  <YStack flex={1} gap="$1" ai="flex-end">
-                    <SizableText size="$headingMd" color="$text">
-                      {box.description.text}
-                    </SizableText>
-                    {box.subtitleDescription?.text ? (
-                      <SizableText
-                        size="$bodyMd"
-                        color={box.subtitleDescription?.color || '$textSubdued'}
-                      >
-                        {box.subtitleDescription.text}
-                      </SizableText>
-                    ) : null}
-                  </YStack>
-                </XStack>
-              );
-            })}
-          </YStack>
-        );
-      },
+  const renderWithdrawPathPopoverContent = useCallback(
+    (props: { isOpen?: boolean; closePopover: () => void }) => (
+      <WithdrawPathPopoverContent
+        {...props}
+        popoverRef={withdrawPathPopoverRef}
+      />
+    ),
     [],
   );
 
@@ -1131,7 +1148,7 @@ export function UniversalWithdraw({
               />
             </XStack>
           }
-          renderContent={WithdrawPathPopoverContent}
+          renderContent={renderWithdrawPathPopoverContent}
         />
       ) : null}
 
