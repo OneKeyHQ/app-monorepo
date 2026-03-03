@@ -4,9 +4,9 @@ import type { IAlertProps } from '@onekeyhq/components';
 import { Alert, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSpotlightPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IEarnAlert, IEarnText } from '@onekeyhq/shared/types/staking';
-import type { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 
 import { EarnText } from './EarnText';
 

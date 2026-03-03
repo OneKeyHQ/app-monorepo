@@ -30,6 +30,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { captureException } from '@onekeyhq/shared/src/modules3rdParty/sentry';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
@@ -224,6 +225,10 @@ class AppKitErrorBoundary extends Component<
       error?.message,
       errorInfo?.componentStack,
     );
+    captureException(error, {
+      tags: { module: 'walletConnect', component: 'AppKitErrorBoundary' },
+      extra: { componentStack: errorInfo?.componentStack },
+    });
   }
 
   override componentDidMount() {

@@ -94,6 +94,7 @@ export enum EAtomNames {
   perpsDepositOrderAtom = 'perpsDepositOrderAtom',
   perpsLastUsedLeverageAtom = 'perpsLastUsedLeverageAtom',
   perpsLayoutStateAtom = 'perpsLayoutStateAtom',
+  perpsFooterTickerModePersistAtom = 'perpsFooterTickerModePersistAtom',
   // network doctor
   networkDoctorStateAtom = 'networkDoctorStateAtom',
 
