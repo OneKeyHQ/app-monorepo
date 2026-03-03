@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
+  Badge,
   Button,
   Checkbox,
   Dialog,
@@ -18,6 +20,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { useOrderConfirm, useTradingCalculationsForSide } from '../../../hooks';
@@ -28,6 +31,8 @@ import {
 } from '../../../utils/styleUtils';
 import { TradingGuardWrapper } from '../../TradingGuardWrapper';
 import { LiquidationPriceDisplay } from '../components/LiquidationPriceDisplay';
+
+const SAVED_FEE_BENCHMARK_RATE = 0.0004;
 
 interface IOrderConfirmContentProps {
   onClose?: () => void;
@@ -51,7 +56,8 @@ function OrderConfirmContent({
   const [formData] = useTradingFormAtom();
   const [selectedSymbol] = usePerpsActiveAssetAtom();
   const effectiveSide = overrideSide || formData.side;
-  const { computedSizeForSide } = useTradingCalculationsForSide(effectiveSide);
+  const { computedSizeForSide, orderValue } =
+    useTradingCalculationsForSide(effectiveSide);
   const szDecimals = selectedSymbol?.universe?.szDecimals ?? 2;
   const actionColor = getTradingSideTextColor(effectiveSide);
 
@@ -139,6 +145,24 @@ function OrderConfirmContent({
     void confirmOrder(overrideSide);
   }, [confirmOrder, onClose, overrideSide]);
 
+  const savedFeeDisplay = useMemo(() => {
+    if (!orderValue.isFinite() || orderValue.lte(0)) {
+      return undefined;
+    }
+    const savedFee = orderValue.multipliedBy(SAVED_FEE_BENCHMARK_RATE);
+    if (savedFee.lt(0.01)) {
+      return undefined;
+    }
+    const savedFeeStr = savedFee.toFixed(2, BigNumber.ROUND_HALF_UP);
+    if (!Number.isFinite(Number(savedFeeStr)) || Number(savedFeeStr) <= 0) {
+      return undefined;
+    }
+    return numberFormat(savedFeeStr, {
+      formatter: 'value',
+      formatterOptions: { currency: '$' },
+    });
+  }, [orderValue]);
+
   return (
     <YStack gap="$4" p="$1">
       {/* Order Details */}
@@ -198,9 +222,23 @@ function OrderConfirmContent({
                 id: ETranslations.referral_perps_onekey_fee,
               })}
             </SizableText>
-            <SizableText size="$bodyMdMedium" color="$green11">
-              {intl.formatMessage({ id: ETranslations.perp_0_fee })}
-            </SizableText>
+            <YStack alignItems="flex-end" gap="$0.5">
+              <SizableText size="$bodyMdMedium" color="$green11">
+                {intl.formatMessage({ id: ETranslations.perp_0_fee })}
+              </SizableText>
+              {savedFeeDisplay ? (
+                <Badge badgeType="success" badgeSize="sm">
+                  {intl.formatMessage(
+                    {
+                      id: ETranslations.perps_onekey_has_saved_you,
+                    },
+                    {
+                      fee: savedFeeDisplay,
+                    },
+                  )}
+                </Badge>
+              ) : null}
+            </YStack>
           </XStack>
         ) : null}
 
