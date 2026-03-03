@@ -60,7 +60,10 @@ function MenuItemComponent({
       className={`desktop-menu-item ${!item.enabled ? 'disabled' : ''}`}
       onClick={handleClick}
       onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') handleClick();
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          handleClick();
+        }
       }}
     >
       {/* eslint-disable no-nested-ternary */}
@@ -126,7 +129,10 @@ function MenuDropdown({
   onClose: () => void;
 }) {
   return (
-    <div className={`desktop-menu-dropdown ${isOpen ? 'open' : ''}`}>
+    <div
+      role="menu"
+      className={`desktop-menu-dropdown ${isOpen ? 'open' : ''}`}
+    >
       {items.map((item, index) => (
         <MenuItemComponent
           key={`${item.commandId}-${index}`}
@@ -207,6 +213,7 @@ export function Menu() {
 
   return (
     <div
+      role="menubar"
       ref={containerRef}
       className={`desktop-menu-container ${
         themeName === 'light' ? 'light-theme' : ''
@@ -236,8 +243,10 @@ export function Menu() {
               className="desktop-menu-trigger"
               onClick={() => handleMenuTriggerClick(index)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ')
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
                   handleMenuTriggerClick(index);
+                }
               }}
               onMouseEnter={() => handleMenuTriggerHover(index)}
               style={{
@@ -353,7 +362,10 @@ export function MenuHamburger() {
           className="desktop-menu-trigger"
           onClick={toggleMenu}
           onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') toggleMenu();
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              toggleMenu();
+            }
           }}
         >
           <Icon
@@ -366,6 +378,7 @@ export function MenuHamburger() {
       {isOpen
         ? createPortal(
             <div
+              role="menu"
               ref={dropdownRef}
               className={`desktop-menu-dropdown open ${
                 themeName === 'light' ? 'light-theme' : ''

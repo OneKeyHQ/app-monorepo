@@ -24,8 +24,6 @@ import { Trigger } from '../Trigger';
 
 import type { GestureResponderEvent } from 'react-native';
 
-// eslint-disable-next-line import/no-cycle
-
 export type IShowToasterProps = PropsWithChildren<{
   onClose?: (extra?: { flag?: string }) => Promise<void> | void;
   dismissOnOverlayPress?: boolean;
