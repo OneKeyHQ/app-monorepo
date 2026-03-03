@@ -240,8 +240,6 @@ class ServiceHardware extends ServiceBase {
 
   private registeredEvents = false;
 
-  private connectedDeviceTracked = new Set<string>();
-
   checkSdkVersionValid() {
     if (process.env.NODE_ENV !== 'production') {
       const {
@@ -537,38 +535,41 @@ class ServiceHardware extends ServiceBase {
           void localDb.updateDevice({
             features,
           });
+        },
+      );
 
-          if (!this.connectedDeviceTracked.has(features.device_id)) {
-            this.connectedDeviceTracked.add(features.device_id);
-            void (async () => {
-              try {
-                const deviceType = await deviceUtils.getDeviceTypeFromFeatures({
-                  features,
-                });
-                if (
-                  deviceType !== EDeviceType.Pro &&
-                  deviceType !== EDeviceType.Classic1s
-                ) {
-                  return;
-                }
-                const firmwareType = await deviceUtils.getFirmwareType({
-                  features,
-                });
-                defaultLogger.hardware.connection.hwDeviceConnected({
-                  deviceType,
-                  firmwareType:
-                    firmwareType === EFirmwareType.BitcoinOnly
-                      ? 'btconly'
-                      : 'universal',
-                });
-              } catch (_e) {
-                // remove from tracked set so it can be retried on next event
-                if (features.device_id) {
-                  this.connectedDeviceTracked.delete(features.device_id);
-                }
+      instance.on(
+        DEVICE.CONNECT,
+        (message: { device: KnownDevice }) => {
+          const { features } = message.device || {};
+          if (!features || !features.device_id) return;
+
+          void (async () => {
+            try {
+              const deviceType = await deviceUtils.getDeviceTypeFromFeatures({
+                features,
+              });
+              if (
+                deviceType !== EDeviceType.Pro &&
+                deviceType !== EDeviceType.Classic1s
+              ) {
+                return;
               }
-            })();
-          }
+              const firmwareType = await deviceUtils.getFirmwareType({
+                features,
+              });
+              defaultLogger.hardware.connection.hwDeviceConnected({
+                deviceType,
+                firmwareType:
+                  firmwareType === EFirmwareType.BitcoinOnly
+                    ? 'btconly'
+                    : 'universal',
+                deviceId: features.device_id,
+              });
+            } catch (_e) {
+              // ignore tracking errors
+            }
+          })();
         },
       );
 

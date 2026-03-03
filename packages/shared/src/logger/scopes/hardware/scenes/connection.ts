@@ -8,6 +8,7 @@ export class HardwareConnectionScene extends BaseScene {
   public hwDeviceConnected(params: {
     deviceType: IDeviceType;
     firmwareType: 'btconly' | 'universal';
+    deviceId: string;
   }) {
     return params;
   }
