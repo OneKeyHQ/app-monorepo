@@ -28,6 +28,10 @@ import {
   getUpdateFileType,
 } from '@onekeyhq/shared/src/appUpdate';
 import {
+  PERPS_CONFIG_FETCH_MAX_RETRIES,
+  PERPS_CONFIG_FETCH_RETRY_INTERVAL_MS,
+} from '@onekeyhq/shared/src/consts/perp';
+import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
@@ -388,11 +392,42 @@ export const useFetchMarketBasicConfig = () => {
 };
 
 export const useFetchPerpConfig = () => {
-  useRunAfterTokensDone({
-    run: () => {
-      void backgroundApiProxy.serviceHyperliquid.updatePerpsConfigByServerWithCache();
-    },
-  });
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchPerpConfig = async (attempt: number) => {
+      if (attempt === 0) {
+        return backgroundApiProxy.serviceHyperliquid.updatePerpsConfigByServerWithCache();
+      }
+      return backgroundApiProxy.serviceHyperliquid.updatePerpsConfigByServer();
+    };
+
+    const fetchWithRetry = async () => {
+      for (
+        let attempt = 0;
+        attempt <= PERPS_CONFIG_FETCH_MAX_RETRIES;
+        attempt += 1
+      ) {
+        if (cancelled) return;
+        try {
+          await fetchPerpConfig(attempt);
+          return;
+        } catch (error) {
+          console.error(
+            `[useFetchPerpConfig] attempt ${attempt + 1} failed:`,
+            error,
+          );
+          if (attempt < PERPS_CONFIG_FETCH_MAX_RETRIES) {
+            await timerUtils.wait(PERPS_CONFIG_FETCH_RETRY_INTERVAL_MS);
+          }
+        }
+      }
+    };
+    void fetchWithRetry();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 };
 
 const launchFloatingIconEvent = async (intl: IntlShape) => {
