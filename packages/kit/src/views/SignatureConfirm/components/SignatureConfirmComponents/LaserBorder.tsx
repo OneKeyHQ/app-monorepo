@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet } from 'react-native';
 
-import { LinearGradient } from '@onekeyhq/components';
+import { LinearGradient, Stack, useTheme } from '@onekeyhq/components';
 import Animated, {
   Easing,
   interpolate,
@@ -12,8 +12,6 @@ import Animated, {
   withDelay,
   withTiming,
 } from 'react-native-reanimated';
-
-import { Stack, useTheme } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { LayoutChangeEvent } from 'react-native';
@@ -147,7 +145,7 @@ function LaserBorder({ children, borderRadius = 12, duration = 2800 }: IProps) {
             ]}
           >
             <LinearGradient
-              colors={GLOW_COLORS}
+              colors={[...GLOW_COLORS]}
               locations={GLOW_LOCATIONS}
               start={{ x: 0.5, y: 0 }}
               end={{ x: 0.5, y: 1 }}
@@ -181,7 +179,7 @@ function LaserBorder({ children, borderRadius = 12, duration = 2800 }: IProps) {
             ]}
           >
             <LinearGradient
-              colors={BORDER_COLORS}
+              colors={[...BORDER_COLORS]}
               locations={BORDER_LOCATIONS}
               start={{ x: 0.5, y: 0 }}
               end={{ x: 0.5, y: 1 }}
