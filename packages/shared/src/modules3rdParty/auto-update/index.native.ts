@@ -89,7 +89,9 @@ const installPackage: IInstallPackage = async ({
 const DOWNLOAD_EVENT_TYPE = {
   start: 'update/start',
   downloading: 'update/downloading',
-  complete: 'update/complete',
+  // AppUpdate native uses 'update/downloaded', BundleUpdate uses 'update/complete'
+  appDownloaded: 'update/downloaded',
+  bundleComplete: 'update/complete',
   error: 'update/error',
 };
 
