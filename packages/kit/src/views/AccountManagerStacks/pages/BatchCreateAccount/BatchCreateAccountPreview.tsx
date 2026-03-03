@@ -910,9 +910,7 @@ function BatchCreateAccountPreviewPage({
               let advancedParams:
                 | IBatchBuildAccountsAdvancedFlowParams
                 | undefined;
-              let normalParams:
-                | IBatchBuildAccountsNormalFlowParams
-                | undefined;
+              let normalParams: IBatchBuildAccountsNormalFlowParams | undefined;
               if (isAdvancedMode) {
                 advancedParams = {
                   walletId,

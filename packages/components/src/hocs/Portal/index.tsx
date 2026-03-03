@@ -41,10 +41,7 @@ export enum EPortalContainerConstantName {
 }
 
 export interface IPortalManager {
-  update: (
-    updater: ReactNode,
-    updateCallback?: (() => void) | undefined,
-  ) => void;
+  update: (updater: ReactNode, updateCallback?: () => void) => void;
   destroy: (destroyCallback?: () => void) => void;
 }
 

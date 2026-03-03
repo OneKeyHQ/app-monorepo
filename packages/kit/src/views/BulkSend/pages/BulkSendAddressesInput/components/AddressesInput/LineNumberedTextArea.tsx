@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 import {
   Keyboard,
+  type LayoutChangeEvent,
   type ScrollView as RNScrollView,
   TextInput as RNTextInput,
   type View as RNView,
@@ -33,8 +34,6 @@ import type { IAddressBadge } from '@onekeyhq/shared/types/address';
 import { EInputAddressChangeType } from '@onekeyhq/shared/types/address';
 
 import { showUploadCSVDialog } from '../UploadCSVDialog';
-
-import type { LayoutChangeEvent } from 'react-native';
 
 export type ILineError = {
   lineNumber: number;
@@ -77,11 +76,11 @@ const LINE_HEIGHT = 24;
 const PADDING_VERTICAL = 12;
 const PADDING_HORIZONTAL = 12;
 const PADDING_HORIZONTAL_WITH_LINE_NUMBERS = 4;
-const LINE_NUMBER_WIDTH = 50;
+const LINE_NUMBER_WIDTH = 40;
 // On iOS, RNTextInput (UITextView) has extra internal text inset compared to
 // SizableText (UILabel). This offset compensates so line numbers align with the text.
 // On Android, EditText with includeFontPadding=false has no such extra inset.
-const NATIVE_LINE_NUMBER_TOP_OFFSET = platformEnv.isNativeIOS ? 4 : 0;
+const NATIVE_LINE_NUMBER_TOP_OFFSET = platformEnv.isNativeIOS ? 3 : 0;
 // Allow 2 lines of text in singleLine mode for wrapped long addresses
 const SINGLE_LINE_HEIGHT = LINE_HEIGHT * 2 + PADDING_VERTICAL * 2;
 
@@ -257,10 +256,18 @@ function LineNumberedTextArea({
     }
 
     // If keyboard is already shown (switching between inputs), trigger outer scroll
-    if (platformEnv.isNativeIOS && lastKeyboardScreenYRef.current != null) {
+    if (
+      platformEnv.isNativeIOS &&
+      lastKeyboardScreenYRef.current !== null &&
+      lastKeyboardScreenYRef.current !== undefined
+    ) {
       const keyboardY = lastKeyboardScreenYRef.current;
       setTimeout(() => {
-        if (isFocusedRef.current && keyboardY != null) {
+        if (
+          isFocusedRef.current &&
+          keyboardY !== null &&
+          keyboardY !== undefined
+        ) {
           scrollOuterToShowComponent(keyboardY);
         }
       }, 100);
@@ -338,6 +345,7 @@ function LineNumberedTextArea({
 
   const styles = useMemo(
     () =>
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       StyleSheet.create({
         textInput: platformEnv.isNative
           ? {
@@ -415,8 +423,8 @@ function LineNumberedTextArea({
                     <Stack
                       key={index}
                       height={lineHeight}
-                      alignItems="flex-start"
-                      pl="$3"
+                      alignItems="flex-end"
+                      pr="$1"
                     >
                       <SizableText
                         fontSize={FONT_SIZE}

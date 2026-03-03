@@ -13,6 +13,7 @@ export interface IBinancePreOrderResponse {
   externalOrderId: string;
   redirectUrl: string;
   linkExpireTime: number;
+  withdrawWalletAddress: string;
 }
 
 export interface IBinancePreOrderParams {

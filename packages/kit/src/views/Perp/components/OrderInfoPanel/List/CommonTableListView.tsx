@@ -676,7 +676,7 @@ export function CommonTableListView<T>({
             >
               <FixedColumnShadowOverlay
                 position="right"
-                visible={showFixedShadow && paginatedData.length > 0}
+                visible={showFixedShadow ? paginatedData.length > 0 : false}
                 isDark={isDark}
               />
               <XStack

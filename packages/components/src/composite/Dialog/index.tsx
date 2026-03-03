@@ -403,9 +403,7 @@ function BaseDialogContainer(
     },
     [isControlled, onOpenChange],
   );
-  const formRef = useRef<UseFormReturn<any, any, any> | undefined | undefined>(
-    undefined,
-  );
+  const formRef = useRef<UseFormReturn<any, any, any> | undefined>(undefined);
   const handleClose = useCallback(
     (extra?: { flag?: string }) => {
       if (

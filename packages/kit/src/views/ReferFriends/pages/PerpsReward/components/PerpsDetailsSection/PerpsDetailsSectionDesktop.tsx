@@ -100,6 +100,7 @@ export function PerpsDetailsSectionDesktop({
 
         {/* Table Content */}
         <YStack bg="$bgApp">
+          {/* eslint-disable-next-line no-nested-ternary */}
           {isTabLoading ? (
             <YStack ai="center" py="$8">
               <Spinner size="small" />

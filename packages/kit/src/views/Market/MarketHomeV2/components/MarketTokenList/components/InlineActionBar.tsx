@@ -75,7 +75,6 @@ function InlineActionBar({
         alignItems="center"
         justifyContent="center"
         opacity={isVisible ? 1 : 0}
-        // eslint-disable-next-line react-native/no-inline-styles
         style={{ backgroundColor: 'rgba(0,0,0,0.27)' }}
       >
         {/* Move to top button */}
@@ -96,7 +95,6 @@ function InlineActionBar({
         {/* Divider */}
         <Stack
           height={20}
-          // eslint-disable-next-line react-native/no-inline-styles
           style={{
             width: StyleSheet.hairlineWidth,
             backgroundColor: 'rgba(255,255,255,0.3)',

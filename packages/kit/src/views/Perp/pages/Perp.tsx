@@ -15,17 +15,17 @@ import { TabletHomeContainer } from '@onekeyhq/kit/src/components/TabletHomeCont
 import { DOWNLOAD_MOBILE_APP_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { FLOAT_NAV_BAR_Z_INDEX } from '@onekeyhq/shared/src/consts/zIndexConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { LazyPageContainer } from '../../../components/LazyPageContainer';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { GiftAction } from '../../../components/TabPageHeader/components';
 import { useNativePerpFeatureGuard } from '../../../hooks/usePerpFeatureGuard';
-import { PerpSettingsButton } from '../components/PerpSettingsButton';
 import { PerpContentFooter } from '../components/PerpContentFooter';
+import { PerpSettingsButton } from '../components/PerpSettingsButton';
 import { PerpsGlobalEffects } from '../components/PerpsGlobalEffects';
 import { PerpsHeaderRight } from '../components/TradingPanel/components/PerpsHeaderRight';
 import { PerpDesktopLayout } from '../layouts/PerpDesktopLayout';

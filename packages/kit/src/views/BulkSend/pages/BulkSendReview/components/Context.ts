@@ -1,8 +1,10 @@
 import { createContext, useContext } from 'react';
 
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
-import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
-import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
+import type {
+  IApproveInfo,
+  ITransferInfo,
+} from '@onekeyhq/kit-bg/src/vaults/types';
 import { EBulkSendMode } from '@onekeyhq/shared/types/bulkSend';
 import type {
   EFeeType,

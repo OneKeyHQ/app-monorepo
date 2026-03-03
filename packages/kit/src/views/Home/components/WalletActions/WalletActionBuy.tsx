@@ -20,7 +20,10 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IWalletActionBaseParams } from '@onekeyhq/shared/src/logger/scopes/wallet/scenes/walletActions';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import {
+  openUrlExternal,
+  openUrlInDiscovery,
+} from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
 export function WalletActionBuy({
@@ -45,10 +48,7 @@ export function WalletActionBuy({
     accountId: account?.id ?? '',
     fiatCryptoType: 'buy',
   });
-  const { result: isSellSupported } = useSupportNetworkId(
-    'sell',
-    network?.id,
-  );
+  const { result: isSellSupported } = useSupportNetworkId('sell', network?.id);
 
   const intl = useIntl();
 
@@ -159,8 +159,12 @@ export function WalletActionBuy({
               accountId: a?.id ?? '',
               type: 'buy',
             });
-          openUrlExternal(url);
-          onClose();
+          if (platformEnv.isDesktop || platformEnv.isNative) {
+            openUrlInDiscovery({ url });
+          } else {
+            openUrlExternal(url);
+            onClose();
+          }
         }}
         doubleConfirm
       />
@@ -177,8 +181,8 @@ export function WalletActionBuy({
   return (
     <ActionList.Item
       trackID="wallet-buy"
-      icon="PlusLargeOutline"
-      label={intl.formatMessage({ id: ETranslations.global_buy })}
+      icon="CurrencyDollarOutline"
+      label={intl.formatMessage({ id: ETranslations.buy_and_sell })}
       onClose={() => {}}
       onPress={handleBuyToken}
       disabled={isBuyDisabled}
