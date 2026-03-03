@@ -198,6 +198,8 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     priceRate,
     swapNativeTokenReserveGas,
     isWrapped,
+    speedCheckError,
+    speedCheckLoading,
   } = speedSwapActions;
 
   const { result: mergeDeriveAssetsEnabled } = usePromiseResult(async () => {
@@ -274,13 +276,15 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
       speedSwapApproveActionLoading ||
       speedSwapApproveTransactionLoading ||
       speedSwapBuildTxLoading ||
-      checkTokenAllowanceLoading
+      checkTokenAllowanceLoading ||
+      speedCheckLoading
     );
   }, [
     speedSwapApproveActionLoading,
     speedSwapApproveTransactionLoading,
     speedSwapBuildTxLoading,
     checkTokenAllowanceLoading,
+    speedCheckLoading,
   ]);
 
   useEffect(() => {
@@ -329,6 +333,7 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
       onApprove={handleApprove}
       onWrappedSwap={handleWrappedSwap}
       isWrapped={isWrapped}
+      speedCheckError={speedCheckError}
     />
   );
 }
