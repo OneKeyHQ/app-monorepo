@@ -384,6 +384,7 @@ function MoreDappActionContent() {
   }, []);
 
   const closeAllDropdowns = useCallback(() => {
+    setActiveSelect(null);
     setLanguageKey((prev) => prev + 1);
     setCurrencyKey((prev) => prev + 1);
   }, []);

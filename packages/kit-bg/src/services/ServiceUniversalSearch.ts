@@ -121,7 +121,15 @@ class ServiceUniversalSearch extends ServiceBase {
             })
             .filter((item) => Boolean(item.payload.address));
 
-          if (v2Items.length) {
+          // Require at least one item with real price data; otherwise fall back to trending
+          const hasUsableData = v2Items.some(
+            (item) =>
+              item.payload.price &&
+              item.payload.price !== '0' &&
+              Number(item.payload.price) > 0,
+          );
+
+          if (v2Items.length && hasUsableData) {
             result[EUniversalSearchType.V2MarketToken] = { items: v2Items };
             return result;
           }
