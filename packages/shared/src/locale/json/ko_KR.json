@@ -132,6 +132,7 @@
   "allowlist.enabled_popover_title": "허용 목록 활성화됨",
   "approval_bulk_revoke_status_paused_reason_description": "건너뛴 이유",
   "approval_bulk_revoke_status_processing": "처리 중",
+  "approval_not_supported": "이 네트워크에서는 승인 관리가 지원되지 않습니다",
   "approve_edit.approve_amount": "금액 승인",
   "approve_edit.less_than_swap": "허용량은 스왑 금액보다 적을 수 없습니다.",
   "approve_edit.title": "수당 수정",
