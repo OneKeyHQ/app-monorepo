@@ -300,7 +300,7 @@ export function PerpTickerBarMobile() {
       alignItems="flex-start"
       justifyContent="space-between"
     >
-      <YStack gap="$1">
+      <YStack>
         <PerpTokenSelectorMobile />
         <PerpBadgesRow />
       </YStack>
