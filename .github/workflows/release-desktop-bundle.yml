@@ -114,14 +114,14 @@ jobs:
             "fileName": "$BUNDLE_FILE",
             "sha256": "$BUNDLE_SHA256",
             "size": $BUNDLE_SIZE,
-            "generatedAt": "$GENERATED_AT"
+            "generatedAt": "$GENERATED_AT",
             "appVersion": "$APP_VERSION",
             "buildNumber": "$BUILD_NUMBER",
             "bundleVersion": "$BUILD_BUNDLE_VERSION",
             "appType": "electron"
           }
           EOF
-      
+
       - name: Generate metadata.json.info
         run: |
           echo "current dir: $(pwd)"
@@ -140,14 +140,14 @@ jobs:
             "fileName": "$METADATA_FILE",
             "sha256": "$METADATA_SHA256",
             "size": $METADATA_SIZE,
-            "generatedAt": "$GENERATED_AT"
+            "generatedAt": "$GENERATED_AT",
             "appVersion": "$APP_VERSION",
             "buildNumber": "$BUILD_NUMBER",
-            "bundleVersion": "$BUILD_BUNDLE_VERSION"
+            "bundleVersion": "$BUILD_BUNDLE_VERSION",
             "appType": "electron"
           }
           EOF
-      
+
       - name: upload bundle
         uses: actions/upload-artifact@v4
         with:
@@ -155,6 +155,15 @@ jobs:
           path: |
             ./apps/desktop/bundle-zip/*
             !**/.DS_Store
+
+      - name: Upload QA Bundles
+        uses: originalix/actions/qa-bundle-upload@feat/qa-bundle-upload # TODO: replace with onekeyhq/actions/qa-bundle-upload@main after testing
+        with:
+          server-url: ${{ secrets.QA_JS_BUNDLE_SERVER_URL }}
+          upload-secret: ${{ secrets.QA_JS_BUNDLE_UPLOAD_SECRET }}
+          bundle-dir: ./apps/desktop/bundle-zip
+          commit-hash: ${{ github.sha }}
+          branch: ${{ github.ref_name }}
 
       - name: 'Notify to Slack'
         if: ${{ github.event.workflow_run }}
