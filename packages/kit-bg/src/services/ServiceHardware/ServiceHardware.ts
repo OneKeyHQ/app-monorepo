@@ -545,8 +545,9 @@ class ServiceHardware extends ServiceBase {
         (message: { device: KnownDevice }) => {
           const { features } = message.device || {};
           if (!features || !features.device_id) return;
-          if (this.connectedDeviceTracked.has(features.device_id)) return;
-          this.connectedDeviceTracked.add(features.device_id);
+          const { device_id: deviceId } = features;
+          if (this.connectedDeviceTracked.has(deviceId)) return;
+          this.connectedDeviceTracked.add(deviceId);
 
           void (async () => {
             try {
@@ -568,7 +569,7 @@ class ServiceHardware extends ServiceBase {
                   firmwareType === EFirmwareType.BitcoinOnly
                     ? 'btconly'
                     : 'universal',
-                deviceId: features.device_id,
+                deviceId,
               });
             } catch (_e) {
               // ignore tracking errors
