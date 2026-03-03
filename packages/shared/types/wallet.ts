@@ -3,5 +3,4 @@ export enum EHomeWalletTab {
   DeFi = 'defi',
   NFT = 'nft',
   History = 'history',
-  Approvals = 'approvals',
 }

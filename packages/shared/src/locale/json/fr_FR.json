@@ -132,6 +132,7 @@
   "allowlist.enabled_popover_title": "Liste d'autorisation activée",
   "approval_bulk_revoke_status_paused_reason_description": "Raison du saut",
   "approval_bulk_revoke_status_processing": "En cours de traitement",
+  "approval_not_supported": "La gestion des approbations n'est pas prise en charge sur ce réseau",
   "approve_edit.approve_amount": "Approuver le montant",
   "approve_edit.less_than_swap": "L'allocation ne peut pas être inférieure au montant du swap",
   "approve_edit.title": "Modifier l'allocation",
