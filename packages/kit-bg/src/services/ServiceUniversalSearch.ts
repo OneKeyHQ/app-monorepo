@@ -37,6 +37,7 @@ import type {
   IUniversalSearchPerpResult,
   IUniversalSearchResultItem,
   IUniversalSearchSingleResult,
+  IUniversalSearchV2MarketToken,
 } from '@onekeyhq/shared/types/search';
 import { EUniversalSearchType } from '@onekeyhq/shared/types/search';
 import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
@@ -78,6 +79,54 @@ class ServiceUniversalSearch extends ServiceBase {
       return [] as IUniversalSearchBatchResult;
     }
     if (searchTypes.includes(EUniversalSearchType.MarketToken)) {
+      // Prefer searchRecommendTokens from market basic config (has network/chainId for badge)
+      const basicConfig =
+        await this.backgroundApi.serviceMarketV2.fetchMarketBasicConfig();
+      const recommendTokens = basicConfig?.data?.searchRecommendTokens;
+
+      if (recommendTokens?.length) {
+        const batchResult =
+          await this.backgroundApi.serviceMarketV2.fetchMarketTokenListBatch({
+            tokenAddressList: recommendTokens.map((t) => ({
+              contractAddress: t.contractAddress,
+              chainId: t.chainId,
+              isNative: t.isNative,
+            })),
+          });
+
+        const v2Items: IUniversalSearchV2MarketToken[] = recommendTokens
+          .map((configToken, index) => {
+            const batchItem = batchResult?.list?.[index];
+            const networkId = configToken.chainId;
+            return {
+              type: EUniversalSearchType.V2MarketToken,
+              payload: {
+                name: batchItem?.name ?? configToken.name,
+                symbol: batchItem?.symbol ?? configToken.symbol,
+                price: batchItem?.price ?? '0',
+                address: batchItem?.address ?? configToken.contractAddress,
+                network: networkId,
+                logoUrl: batchItem?.logoUrl ?? configToken.logo ?? '',
+                isNative: configToken.isNative,
+                decimals: batchItem?.decimals ?? 18,
+                liquidity: batchItem?.liquidity ?? '0',
+                volume_24h: batchItem?.volume24h ?? '0',
+                volume24h: batchItem?.volume24h,
+                marketCap: batchItem?.marketCap,
+                priceChange24hPercent: batchItem?.priceChange24hPercent,
+                communityRecognized: batchItem?.communityRecognized,
+              },
+            };
+          })
+          .filter((item) => Boolean(item.payload.address));
+
+        if (v2Items.length) {
+          result[EUniversalSearchType.V2MarketToken] = { items: v2Items };
+          return result;
+        }
+      }
+
+      // Fallback to coingecko-based trending (no network badge)
       const items =
         await this.backgroundApi.serviceMarket.fetchSearchTrending();
       result[EUniversalSearchType.MarketToken] = {
