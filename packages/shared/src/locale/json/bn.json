@@ -132,6 +132,7 @@
   "allowlist.enabled_popover_title": "অ্যালোলিস্ট সক্রিয়",
   "approval_bulk_revoke_status_paused_reason_description": "এড়িয়ে যাওয়ার কারণ",
   "approval_bulk_revoke_status_processing": "প্রক্রিয়াকরণ",
+  "approval_not_supported": "এই নেটওয়ার্কে অনুমোদন ব্যবস্থাপনা সমর্থিত নয়",
   "approve_edit.approve_amount": "পরিমাণ অনুমোদন করুন",
   "approve_edit.less_than_swap": "ভাতা অদলবদলের পরিমাণের চেয়ে কম হতে পারে না",
   "approve_edit.title": "ভাতা সম্পাদনা করুন",

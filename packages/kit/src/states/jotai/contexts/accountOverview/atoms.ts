@@ -64,8 +64,10 @@ export const { atom: allNetworksStateAtom, use: useAllNetworksStateStateAtom } =
 export const { atom: approvalsInfoAtom, use: useApprovalsInfoAtom } =
   contextAtom<{
     hasRiskApprovals: boolean;
+    riskApprovalsCount: number;
   }>({
     hasRiskApprovals: false,
+    riskApprovalsCount: 0,
   });
 
 export const { atom: walletTopBannersAtom, use: useWalletTopBannersAtom } =
