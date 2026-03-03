@@ -34,7 +34,6 @@ import type {
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { UniversalStake } from '../../../components/UniversalStake';
-import type { IManagePageV2ReceiveInputConfig } from '../../../components/ManagePageV2ReceiveInput';
 import { useBorrowApiParams } from '../../../hooks/useBorrowApiParams';
 import { useIsPendleProvider } from '../../../hooks/useIsPendleProvider';
 import { useUniversalStake } from '../../../hooks/useUniversalHooks';
@@ -44,6 +43,8 @@ import {
   normalizeStakeTokenAddress,
   resolveStakeTokenAddress,
 } from '../../../utils/utils';
+
+import type { IManagePageV2ReceiveInputConfig } from '../../../components/ManagePageV2ReceiveInput';
 
 export const StakeSection = ({
   accountId,
