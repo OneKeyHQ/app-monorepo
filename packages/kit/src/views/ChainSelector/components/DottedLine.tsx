@@ -3,8 +3,8 @@ import { useCallback, useState } from 'react';
 import Svg, { Line } from 'react-native-svg';
 
 import { Stack, useTheme } from '@onekeyhq/components';
-
 import type { IStackProps } from '@onekeyhq/components';
+
 import type { LayoutChangeEvent } from 'react-native';
 
 type IDottedLineProps = IStackProps & {

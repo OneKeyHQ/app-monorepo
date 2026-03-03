@@ -86,6 +86,7 @@ export function PerpsDetailsSectionMobile({
       ) : null}
 
       {/* Card List */}
+      {/* eslint-disable no-nested-ternary */}
       {isTabLoading ? (
         <YStack ai="center" py="$8">
           <Spinner size="small" />
@@ -106,6 +107,7 @@ export function PerpsDetailsSectionMobile({
           <PerpsEmptyData />
         </YStack>
       )}
+      {/* eslint-enable no-nested-ternary */}
     </YStack>
   );
 }

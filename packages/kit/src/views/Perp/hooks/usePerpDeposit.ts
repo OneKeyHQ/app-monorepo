@@ -343,9 +343,10 @@ const usePerpDeposit = (
           receivingAddress: result?.perpReceiverAddress ?? '',
           swapBuildResData: {
             result: {
-              ...buildSwapRes.result,
-              // Fallback to outer info when inner result.info is missing
-              info: buildSwapRes.result.info ?? buildSwapRes.info,
+              // API returns flat structure — buildSwapRes.result may be undefined,
+              // fall back to buildSwapRes itself which contains the same fields
+              ...(buildSwapRes.result ?? buildSwapRes),
+              info: buildSwapRes.result?.info ?? buildSwapRes.info,
             },
           },
         };

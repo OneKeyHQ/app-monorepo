@@ -5,6 +5,7 @@ import type {
   IBorrowReserveItem,
   IEarnAlert,
   IEarnTokenInfo,
+  IEarnTokenItem,
   IProtocolInfo,
   IStakeProtocolDetails,
 } from '../../types/staking';
@@ -27,6 +28,7 @@ export enum EModalStakingRoutes {
   PortfolioDetails = 'PortfolioDetails',
   HistoryList = 'HistoryList',
   BorrowHistoryList = 'BorrowHistoryList',
+  EarnTokenSelect = 'EarnTokenSelect',
 }
 
 type IBaseRouteParams = {
@@ -111,13 +113,12 @@ export type IModalStakingParamList = {
     onSuccess?: () => void;
     allowPartialWithdraw?: boolean;
   };
-  [EModalStakingRoutes.Claim]: IDetailPageInfoParams &
-    IDetailPageInfoParams & {
-      amount?: string;
-      onSuccess?: () => void;
-      identity?: string;
-      claimableAmount?: string;
-    };
+  [EModalStakingRoutes.Claim]: IDetailPageInfoParams & {
+    amount?: string;
+    onSuccess?: () => void;
+    identity?: string;
+    claimableAmount?: string;
+  };
   [EModalStakingRoutes.ClaimOptions]: IDetailPageInfoParams & {
     onSuccess?: () => void;
   };
@@ -147,5 +148,15 @@ export type IModalStakingParamList = {
     marketAddress: string;
     title?: string;
     type?: string;
+  };
+  [EModalStakingRoutes.EarnTokenSelect]: {
+    networkId: string;
+    accountId: string;
+    provider: string;
+    symbol: string;
+    vault?: string;
+    action: 'stake' | 'unstake';
+    currentTokenAddress?: string;
+    onSelect?: (token: IEarnTokenItem) => void;
   };
 };

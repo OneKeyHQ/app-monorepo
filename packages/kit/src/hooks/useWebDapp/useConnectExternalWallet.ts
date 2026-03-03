@@ -128,7 +128,7 @@ export function useConnectExternalWallet() {
               id: ETranslations.feedback_connection_request_denied,
             }),
           });
-          return;
+          return false;
         }
         const r = await backgroundApiProxy.serviceAccount.addExternalAccount({
           connectResult,

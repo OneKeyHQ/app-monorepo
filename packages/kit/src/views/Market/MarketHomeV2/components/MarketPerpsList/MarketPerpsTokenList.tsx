@@ -18,8 +18,8 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { LeverageBadge, SubtitleBadge } from '../../../components/PerpsBadges';
 import { MarketPerpsStarV2 } from '../../../components/MarketStarV2';
+import { LeverageBadge, SubtitleBadge } from '../../../components/PerpsBadges';
 import { useMarketBasicConfig } from '../../../hooks/useMarketBasicConfig';
 import { usePerpsNavigation } from '../../../hooks/usePerpsNavigation';
 

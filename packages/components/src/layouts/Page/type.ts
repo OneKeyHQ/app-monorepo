@@ -1,7 +1,7 @@
 import type { PropsWithChildren } from 'react';
 
-import type { IStackProps } from '../../primitives';
 import type { IFooterActionsProps } from './PageFooterActions';
+import type { IStackProps } from '../../primitives';
 import type { IScrollViewProps } from '../ScrollView';
 
 export interface IPageLifeCycle {
