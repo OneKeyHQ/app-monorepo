@@ -200,6 +200,7 @@ function NFTListView(props: IProps) {
 
   return (
     <Tabs.FlatList
+      showsVerticalScrollIndicator={false}
       // @ts-ignore
       horizontalPadding={20}
       windowSize={platformEnv.isNative ? 3 : undefined}

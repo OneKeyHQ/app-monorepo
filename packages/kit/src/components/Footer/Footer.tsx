@@ -2,19 +2,27 @@ import { useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Image, XStack, useOnRouterChange } from '@onekeyhq/components';
+import {
+  ActionList,
+  Icon,
+  SizableText,
+  XStack,
+  useOnRouterChange,
+} from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
-import { usePerpsLogo } from '../../views/Perp/hooks/usePerpsLogo';
 import { PerpsProviderMirror } from '../../views/Perp/PerpsProviderMirror';
 import { NetworkStatus } from '../NetworkStatus';
 import { PerpRefreshButton } from '../PerpRefreshButton';
 
 import { FooterLink } from './components/FooterLink';
 import { FooterNavigation } from './components/FooterNavigation';
+
+const PERP_TELEGRAM_URL = 'https://t.me/OneKeyPerps';
 
 const getLinks = () => [
   {
@@ -55,7 +63,6 @@ const getLinks = () => [
 export function Footer() {
   const intl = useIntl();
   const [currentTab, setCurrentTab] = useState<ETabRoutes | null>(null);
-  const { poweredByHyperliquidLogo } = usePerpsLogo();
 
   useOnRouterChange((state) => {
     if (!state) {
@@ -71,9 +78,11 @@ export function Footer() {
     setCurrentTab(currentTabName);
   });
 
+  const links = useMemo(() => getLinks(), []);
+
   const linkItems = useMemo(
     () =>
-      getLinks().map((item) => (
+      links.map((item) => (
         <FooterLink
           key={item.id}
           label={intl.formatMessage({ id: item.translationKey })}
@@ -81,7 +90,22 @@ export function Footer() {
           onPress={item.onPress}
         />
       )),
-    [intl],
+    [intl, links],
+  );
+
+  const perpMenuTrigger = useMemo(
+    () => (
+      <Icon
+        name="DotHorOutline"
+        size="$5"
+        color="$iconSubdued"
+        cursor="pointer"
+        hoverStyle={{
+          color: '$icon',
+        }}
+      />
+    ),
+    [],
   );
 
   if (currentTab === ETabRoutes.WebviewPerpTrade) {
@@ -112,16 +136,44 @@ export function Footer() {
       </XStack>
 
       <XStack gap="$3" alignItems="center">
-        <FooterNavigation>{linkItems}</FooterNavigation>
-
         {isInPerpRoute ? (
-          <Image
-            source={poweredByHyperliquidLogo}
-            w={145}
-            h={25}
-            resizeMode="contain"
-          />
-        ) : null}
+          <>
+            <XStack
+              alignItems="center"
+              gap="$1"
+              cursor="pointer"
+              hoverStyle={{ opacity: 0.6 }}
+              onPress={() => openUrlExternal(PERP_TELEGRAM_URL)}
+            >
+              <Icon name="TelegramBrand" size="$4" color="$iconSubdued" />
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.perps_footer_help_us_better,
+                })}
+              </SizableText>
+            </XStack>
+            <ActionList
+              title={intl.formatMessage({ id: ETranslations.global_more })}
+              renderTrigger={perpMenuTrigger}
+              sections={[
+                {
+                  items: links.map((item) => ({
+                    label: intl.formatMessage({ id: item.translationKey }),
+                    onPress: () => {
+                      if (item.onPress) {
+                        item.onPress();
+                      } else if (item.href) {
+                        openUrlExternal(item.href);
+                      }
+                    },
+                  })),
+                },
+              ]}
+            />
+          </>
+        ) : (
+          <FooterNavigation>{linkItems}</FooterNavigation>
+        )}
       </XStack>
     </XStack>
   );

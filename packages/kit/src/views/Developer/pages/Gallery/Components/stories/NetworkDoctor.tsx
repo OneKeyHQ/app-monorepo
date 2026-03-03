@@ -257,7 +257,8 @@ const NetworkDoctorGallery = () => {
               {metrics.totalDurationMs}ms
             </SizableText>
           </XStack>
-          {metrics.dnsResolutionMs != null ? (
+          {metrics.dnsResolutionMs !== null &&
+          metrics.dnsResolutionMs !== undefined ? (
             <XStack justifyContent="space-between">
               <SizableText size="$bodySm">DNS Resolution:</SizableText>
               <SizableText size="$bodySm">
@@ -265,7 +266,8 @@ const NetworkDoctorGallery = () => {
               </SizableText>
             </XStack>
           ) : null}
-          {metrics.tcpHandshakeMs != null ? (
+          {metrics.tcpHandshakeMs !== null &&
+          metrics.tcpHandshakeMs !== undefined ? (
             <XStack justifyContent="space-between">
               <SizableText size="$bodySm">TCP Handshake:</SizableText>
               <SizableText size="$bodySm">
@@ -273,7 +275,8 @@ const NetworkDoctorGallery = () => {
               </SizableText>
             </XStack>
           ) : null}
-          {metrics.tlsHandshakeMs != null ? (
+          {metrics.tlsHandshakeMs !== null &&
+          metrics.tlsHandshakeMs !== undefined ? (
             <XStack justifyContent="space-between">
               <SizableText size="$bodySm">TLS Handshake:</SizableText>
               <SizableText size="$bodySm">
@@ -281,7 +284,8 @@ const NetworkDoctorGallery = () => {
               </SizableText>
             </XStack>
           ) : null}
-          {metrics.httpRequestMs != null ? (
+          {metrics.httpRequestMs !== null &&
+          metrics.httpRequestMs !== undefined ? (
             <XStack justifyContent="space-between">
               <SizableText size="$bodySm">HTTP Request:</SizableText>
               <SizableText size="$bodySm">

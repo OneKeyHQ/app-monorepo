@@ -54,6 +54,7 @@ function HoldersBase({ tokenAddress, networkId }: IHoldersProps) {
 
   return (
     <Tabs.FlatList<IMarketTokenHolder>
+      showsVerticalScrollIndicator={false}
       data={holders}
       contentContainerStyle={{
         paddingBottom: platformEnv.isNativeAndroid ? 84 : 16,
@@ -63,7 +64,6 @@ function HoldersBase({ tokenAddress, networkId }: IHoldersProps) {
         item.accountAddress + item.fiatValue + item.amount
       }
       windowSize={platformEnv.isNativeAndroid ? 3 : undefined}
-      showsVerticalScrollIndicator
       ListFooterComponent={ListFooterComponent}
       ListEmptyComponent={
         isRefreshing ? (

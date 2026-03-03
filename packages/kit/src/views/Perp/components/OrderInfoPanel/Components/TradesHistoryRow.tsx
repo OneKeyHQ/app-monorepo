@@ -4,9 +4,12 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
+  DashText,
   Divider,
   IconButton,
+  Popover,
   SizableText,
+  Tooltip,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -42,6 +45,7 @@ export type ITradesHistoryRowProps = {
   renderMode?: IRenderMode;
   isHovered?: boolean;
   onHoverChange?: (index: number | null) => void;
+  builderFeeRate?: number;
 };
 
 const TradesHistoryRow = memo(
@@ -55,6 +59,7 @@ const TradesHistoryRow = memo(
     renderMode = 'full',
     isHovered,
     onHoverChange,
+    builderFeeRate,
   }: ITradesHistoryRowProps) => {
     const canShare = useMemo(() => {
       return (
@@ -137,6 +142,33 @@ const TradesHistoryRow = memo(
       return { closePnlFormatted, closePnlColor, closePnlPlusOrMinus };
     }, [fill.closedPnl, fill.fee]);
 
+    const feeTooltipContent = useMemo(() => {
+      const feeRatePercentage =
+        builderFeeRate !== undefined
+          ? `${(builderFeeRate / 1000).toFixed(2)}%`
+          : '-';
+      return (
+        <YStack gap="$3">
+          <YStack gap="$1.5">
+            <SizableText size={isMobile ? '$bodyMd' : '$bodySm'}>
+              {intl.formatMessage({ id: ETranslations.perps_fee_title })}
+              {feeRatePercentage}
+            </SizableText>
+            <SizableText size={isMobile ? '$bodyMd' : '$bodySm'}>
+              {intl.formatMessage({ id: ETranslations.perps_fee_total })}
+              {tradeBaseInfo.feeFormatted}
+            </SizableText>
+          </YStack>
+          <SizableText
+            size={isMobile ? '$bodyMd' : '$bodySm'}
+            color="$textSubdued"
+          >
+            {intl.formatMessage({ id: ETranslations.perps_fee_desc })}
+          </SizableText>
+        </YStack>
+      );
+    }, [builderFeeRate, tradeBaseInfo.feeFormatted, isMobile, intl]);
+
     const isOddRow = index % 2 === 1;
     const baseBgColor = isOddRow ? '$bgSubdued' : '$bgApp';
     const bgColor = isHovered ? '$bgHover' : baseBgColor;
@@ -204,7 +236,7 @@ const TradesHistoryRow = memo(
                       icon="ShareOutline"
                       iconSize="$4"
                       onPress={() => onShare?.(fill)}
-                      cursor="pointer"
+                      cursor="default"
                       hoverStyle={null}
                       pressStyle={null}
                     />
@@ -256,9 +288,27 @@ const TradesHistoryRow = memo(
                   id: ETranslations.perp_trades_history_fee,
                 })}
               </SizableText>
-              <SizableText size="$bodySm">
-                {tradeBaseInfo.feeFormatted}
-              </SizableText>
+              <Popover
+                title={intl.formatMessage({
+                  id: ETranslations.perp_trades_history_fee,
+                })}
+                placement="top"
+                renderTrigger={
+                  <DashText
+                    size="$bodySm"
+                    color="$textSubdued"
+                    dashColor="$textDisabled"
+                    dashThickness={0.3}
+                  >
+                    {tradeBaseInfo.feeFormatted}
+                  </DashText>
+                }
+                renderContent={() => (
+                  <YStack px="$5" pb="$4">
+                    {feeTooltipContent}
+                  </YStack>
+                )}
+              />
             </YStack>
           </XStack>
         </ListItem>
@@ -306,10 +356,10 @@ const TradesHistoryRow = memo(
               {...getColumnStyle(columnConfigs[1])}
               justifyContent={calcCellAlign(columnConfigs[1].align)}
               alignItems="center"
-              cursor="pointer"
               onPress={() =>
                 actions.current.changeActiveAsset({ coin: rawCoin })
               }
+              cursor="default"
             >
               <SizableText
                 numberOfLines={1}
@@ -385,13 +435,20 @@ const TradesHistoryRow = memo(
               justifyContent={calcCellAlign(columnConfigs[6].align)}
               alignItems="center"
             >
-              <SizableText
-                numberOfLines={1}
-                ellipsizeMode="tail"
-                size="$bodySm"
-              >
-                {tradeBaseInfo.feeFormatted}
-              </SizableText>
+              <Tooltip
+                placement="top"
+                renderTrigger={
+                  <DashText
+                    size="$bodySm"
+                    color="$textSubdued"
+                    dashColor="$textDisabled"
+                    dashThickness={0.3}
+                  >
+                    {tradeBaseInfo.feeFormatted}
+                  </DashText>
+                }
+                renderContent={feeTooltipContent}
+              />
             </XStack>
           </>
         ) : null}
@@ -403,6 +460,7 @@ const TradesHistoryRow = memo(
             justifyContent={calcCellAlign(columnConfigs[7].align)}
             alignItems="center"
             gap="$1"
+            cursor="default"
           >
             <SizableText
               numberOfLines={1}
@@ -419,7 +477,6 @@ const TradesHistoryRow = memo(
                 icon="ShareOutline"
                 iconSize="$4"
                 onPress={() => onShare?.(fill)}
-                cursor="pointer"
                 hoverStyle={null}
                 pressStyle={null}
               />

@@ -1,14 +1,14 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgTextSize = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M6.927 20v-9.001M22 5H10m2 6H2m14-6v15"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M13 10v2H7.93v9h-2v-9H1v-2z" />
+    <Path d="M23 6h-6v15h-2V6H9V4h14z" />
   </Svg>
 );
 export default SvgTextSize;

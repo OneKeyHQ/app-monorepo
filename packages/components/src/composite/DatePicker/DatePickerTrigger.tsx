@@ -1,11 +1,11 @@
 import { memo, useCallback, useMemo } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 
 import { Input } from '../../forms/Input';
-import { Stack } from '../../primitives';
 
 import type { IDatePickerTriggerProps, IDateRange } from './type';
 import type { IntlShape } from 'react-intl';
@@ -29,11 +29,11 @@ const formatTriggerValue = (
         placeholder ||
         intl.formatMessage({ id: ETranslations.global_select_date_range })
       );
-    const fmt = { formatTemplate: 'yyyy-MM-dd', hideTimeForever: true };
+    const fmt = { hideTimeForever: true };
     const startStr = range.start ? formatDate(range.start, fmt) : '';
     const endStr = range.end ? formatDate(range.end, fmt) : '';
     if (startStr && endStr) {
-      return `${startStr} → ${endStr}`;
+      return `${startStr}  —  ${endStr}`;
     }
     return (
       startStr ||
@@ -70,10 +70,7 @@ const formatTriggerValue = (
   }
 
   const date = value as Date;
-  return formatDate(date, {
-    formatTemplate: 'yyyy-MM-dd',
-    hideTimeForever: true,
-  });
+  return formatDate(date, { hideTimeForever: true });
 };
 
 export const DatePickerTrigger = memo(
@@ -109,25 +106,23 @@ export const DatePickerTrigger = memo(
     );
 
     return (
-      <Stack position="relative" flex={1}>
-        <Input
-          value={hasValue ? displayValue : ''}
-          disabled={disabled}
-          placeholder={placeholder || displayValue}
-          readonly
-          size="medium"
-          addOns={[
-            hasValue && onClear
-              ? {
-                  iconName: 'XCircleOutline' as const,
-                  onPress: handleClearPress,
-                }
-              : {
-                  iconName: 'CalendarOutline' as const,
-                },
-          ]}
-        />
-      </Stack>
+      <Input
+        value={hasValue ? displayValue : ''}
+        disabled={disabled}
+        placeholder={placeholder || displayValue}
+        readonly
+        size="small"
+        addOns={[
+          hasValue && onClear
+            ? {
+                iconName: 'XCircleOutline' as const,
+                onPress: handleClearPress,
+              }
+            : {
+                iconName: 'CalendarOutline' as const,
+              },
+        ]}
+      />
     );
   },
 );

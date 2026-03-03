@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp, IXStackProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
@@ -26,6 +27,7 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { RawActions } from './RawActions';
 import { useWalletActionConfig } from './useWalletActionConfig';
+import { WalletActionBuyMain } from './WalletActionBuyMain';
 import { WalletActionMore } from './WalletActionMore';
 import { WalletActionPerp } from './WalletActionPerp';
 import { WalletActionReceive } from './WalletActionReceive';
@@ -36,8 +38,10 @@ import type { IActionCustomization } from './types';
 
 function WalletActionSend({
   customization,
+  showButtonStyle,
 }: {
   customization?: IActionCustomization;
+  showButtonStyle?: boolean;
 }) {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
@@ -229,6 +233,7 @@ function WalletActionSend({
       disabled={customization?.disabled ?? vaultSettings?.disabledSendAction}
       label={customization?.label}
       icon={customization?.icon}
+      showButtonStyle={showButtonStyle}
       trackID="wallet-send"
     />
   );
@@ -251,6 +256,12 @@ function WalletActions({ ...rest }: IXStackProps) {
             useSelector
           />
         );
+      case 'buy':
+        return (
+          <ReviewControl key="buy">
+            <WalletActionBuyMain customization={customization} />
+          </ReviewControl>
+        );
       case 'swap':
         return platformEnv.isExtensionUiPopup ||
           platformEnv.isExtensionUiSidePanel ? (
@@ -270,7 +281,16 @@ function WalletActions({ ...rest }: IXStackProps) {
   };
 
   return (
-    <RawActions {...rest}>
+    <RawActions
+      {...rest}
+      justifyContent="flex-start"
+      gap="$2.5"
+      $gtSm={{
+        flexDirection: 'row',
+        justifyContent: 'flex-start',
+        gap: '$2.5',
+      }}
+    >
       {config.mainActions.map(renderActionComponent).filter(Boolean)}
       <WalletActionMore />
     </RawActions>

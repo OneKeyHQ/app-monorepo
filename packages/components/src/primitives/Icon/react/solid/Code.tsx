@@ -1,11 +1,15 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgCode = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      fill="currentColor"
       fillRule="evenodd"
-      d="M3 6a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3zm7.707 2.793a1 1 0 0 1 0 1.414L8.914 12l1.793 1.793a1 1 0 0 1-1.414 1.414L7.5 13.414a2 2 0 0 1 0-2.828l1.793-1.793a1 1 0 0 1 1.414 0m4 0a1 1 0 1 0-1.414 1.414L15.086 12l-1.793 1.793a1 1 0 0 0 1.414 1.414l1.793-1.793a2 2 0 0 0 0-2.828z"
+      d="M21 21H3V3h18zM6.086 12l3.707 3.707 1.414-1.414L8.914 12l2.293-2.293-1.414-1.414zm6.707-2.293L15.086 12l-2.293 2.293 1.414 1.414L17.914 12l-3.707-3.707z"
       clipRule="evenodd"
     />
   </Svg>

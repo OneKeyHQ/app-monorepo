@@ -1,20 +1,21 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgCrypto = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0"
+      fillRule="evenodd"
+      d="M17 9.113v5.773l-5 2.887-5-2.887V9.113l5-2.886zm-8 1.155v3.462l3 1.733 3-1.732v-3.463l-3-1.733z"
+      clipRule="evenodd"
     />
     <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M11.25 7.814a1.5 1.5 0 0 1 1.5 0l2.5 1.444a1.5 1.5 0 0 1 .75 1.299v2.886a1.5 1.5 0 0 1-.75 1.3l-2.5 1.443a1.5 1.5 0 0 1-1.5 0l-2.5-1.444A1.5 1.5 0 0 1 8 13.443v-2.886a1.5 1.5 0 0 1 .75-1.3z"
+      fillRule="evenodd"
+      d="M12 2c5.523 0 10 4.477 10 10s-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2m0 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16"
+      clipRule="evenodd"
     />
   </Svg>
 );

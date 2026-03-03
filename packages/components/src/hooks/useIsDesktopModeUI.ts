@@ -13,6 +13,7 @@ export const useIsDesktopModeUIInTabPages = platformEnv.isNative
         gtMd &&
         pageType !== EPageType.modal &&
         pageType !== EPageType.fullScreen &&
+        pageType !== EPageType.fullScreenPush &&
         pageType !== EPageType.onboarding
       );
     };

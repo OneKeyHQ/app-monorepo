@@ -938,9 +938,9 @@ function formatLargeNumber(
   value: string | number | undefined | null,
   decimals = 2,
 ): string {
-  if (value == null || value === undefined) return '0';
+  if (value === null || value === undefined) return '0';
   const num = typeof value === 'string' ? parseFloat(value) : value;
-  if (Number.isNaN(num) || num == null) return '0';
+  if (Number.isNaN(num) || num === null || num === undefined) return '0';
 
   if (num >= 1e12) {
     return `${(num / 1e12).toFixed(decimals)}T`;
@@ -1239,7 +1239,7 @@ export function parseDexCoin(coin: string): {
 }
 
 export interface ITokenSearchAliasItem {
-  subtitles?: Record<string, string>;
+  subtitle?: string;
   aliases: string[];
 }
 
@@ -1266,38 +1266,11 @@ export function findTokensByAlias(
     .map(([symbol]) => symbol);
 }
 
-/**
- * Get token subtitle for display based on locale
- * @param tokenName - Token name/symbol (e.g., "BTC", "xyz:AAPL")
- * @param locale - Current app locale (e.g., "zh-CN", "en-US")
- * @param serverAliases - Server-provided aliases with subtitles
- * @returns Subtitle string or undefined
- */
 export function getTokenSubtitle(
   tokenName: string,
-  locale: string,
   serverAliases?: ITokenSearchAliases,
 ): string | undefined {
-  if (!serverAliases) return undefined;
-
-  const item = serverAliases[tokenName];
-  if (!item?.subtitles) return undefined;
-
-  // Try exact locale match first
-  if (item.subtitles[locale]) {
-    return item.subtitles[locale];
-  }
-
-  // Try language code only (e.g., "zh" from "zh-CN")
-  const langCode = locale.split('-')[0];
-  const matchingKey = Object.keys(item.subtitles).find(
-    (key) => key.startsWith(langCode) || key === langCode,
-  );
-  if (matchingKey) {
-    return item.subtitles[matchingKey];
-  }
-
-  return undefined;
+  return serverAliases?.[tokenName]?.subtitle;
 }
 
 export {

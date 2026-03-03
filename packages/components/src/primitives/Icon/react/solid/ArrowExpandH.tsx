@@ -1,14 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgArrowExpandH = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="m18.25 8 3.293 3.293a1 1 0 0 1 0 1.414L18.25 16M5.75 8l-3.293 3.293a1 1 0 0 0 0 1.414L5.75 16M3 12h18"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M23.414 12 18 17.414 16.586 16l3-3H4.414l3 3L6 17.414.586 12 6 6.586 7.414 8l-3 3h15.172l-3-3L18 6.586z" />
   </Svg>
 );
 export default SvgArrowExpandH;

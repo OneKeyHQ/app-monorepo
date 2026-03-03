@@ -2,13 +2,23 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { isEmpty } from 'lodash';
+import { useIntl } from 'react-intl';
+import { Keyboard } from 'react-native';
 
-import { Page, useMedia } from '@onekeyhq/components';
+import {
+  NumberSizeableText,
+  Page,
+  SizableText,
+  XStack,
+  YStack,
+  useMedia,
+} from '@onekeyhq/components';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
   IApproveInfo,
   ITransferInfo,
@@ -19,6 +29,7 @@ import {
   POLLING_INTERVAL_FOR_TOKEN,
 } from '@onekeyhq/shared/src/consts/walletConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EModalBulkSendRoutes,
   EModalRoutes,
@@ -37,7 +48,6 @@ import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 import BulkSendBar from '../../components/BulkSendBar';
 import BulkSendContentWrapper from '../../components/BulkSendContentWrapper';
 import BulkSendHeader from '../../components/BulkSendHeader';
-import { useBulkSendMobileHeader } from '../../components/BulkSendMobileHeader';
 import { calculateIsAmountValid, calculateTotalAmounts } from '../../utils';
 
 import { AmountPreview } from './components/AmountPreview';
@@ -68,27 +78,29 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
     isInsufficientBalance,
     amountInputMode,
     amountInputValues,
+    setAmountInputValues,
+    amountInputErrors,
+    setAmountInputErrors,
     previewState,
     setPreviewState,
     setTransfersInfo,
-    // Mobile-specific
     currentModeData,
     updateCurrentModeData,
   } = useBulkSendAmountsInputContext();
 
+  const intl = useIntl();
   const navigation = useAppNavigation();
 
   const media = useMedia();
-  const { headerTitle } = useBulkSendMobileHeader({ bulkSendMode });
+
+  const [settings] = useSettingsPersistAtom();
 
   const [isBuilding, setIsBuilding] = useState(false);
 
-  // For mobile Specified/Range modes, we need to update both shared and mode-specific data
-  // when handlePreview generates new amounts
+  // On mobile, update both shared and mode-specific data when preview generates amounts
   const setTransfersInfoWithModeUpdate = useCallback(
     (newTransfersInfo: ITransferInfo[]) => {
       setTransfersInfo(newTransfersInfo);
-      // Also update mode-specific data for mobile
       if (!media.gtMd && amountInputMode !== EAmountInputMode.Custom) {
         updateCurrentModeData({ transfersInfo: newTransfersInfo });
       }
@@ -96,16 +108,16 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
     [setTransfersInfo, media.gtMd, amountInputMode, updateCurrentModeData],
   );
 
-  const { handlePreview, shouldShowTxDetails, hidePreview } = useAmountPreview({
+  const { handlePreview, shouldShowTxDetails } = useAmountPreview({
     tokenInfo,
     transfersInfo,
     setTransfersInfo: setTransfersInfoWithModeUpdate,
     previewState,
     setPreviewState,
+    balance: tokenDetails?.balanceParsed,
   });
 
-  // Check if we're in preview mode (TransactionDetail is shown for Specified/Range)
-  // Only applies to mobile view
+  // Mobile-only: preview mode means TransactionDetail is visible for Specified/Range
   const isInPreviewMode =
     !media.gtMd &&
     amountInputMode !== EAmountInputMode.Custom &&
@@ -113,11 +125,14 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
 
   // Check if token needs approval (native tokens don't need approval)
   const needsApproval = useMemo(
-    () => tokenInfo && !tokenInfo.isNative,
-    [tokenInfo],
+    () =>
+      tokenInfo &&
+      !tokenInfo.isNative &&
+      bulkSendMode === EBulkSendMode.OneToMany &&
+      transfersInfo.length > 1,
+    [tokenInfo, bulkSendMode, transfersInfo.length],
   );
 
-  // Get BulkSend contract address for current network
   const bulkSendContractAddress = useMemo(() => {
     const addresses = getBulkSendContractAddress();
     return addresses[networkId];
@@ -128,20 +143,26 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
     if (!accountId || !networkId || !tokenInfo || !bulkSendContractAddress)
       return;
 
-    // For mobile view only: Specified/Range mode requires preview step
-    // Desktop (gtMd) skips preview and goes directly to review
+    // Mobile: Specified/Range mode requires a preview step before review
     if (
       !media.gtMd &&
       amountInputMode !== EAmountInputMode.Custom &&
       !shouldShowTxDetails(amountInputMode)
     ) {
-      handlePreview(amountInputMode, amountInputValues);
+      Keyboard.dismiss();
+      handlePreview(
+        amountInputMode,
+        amountInputValues,
+        amountInputMode === EAmountInputMode.Range
+          ? previewState.rangePreviewAmounts
+          : undefined,
+      );
       return;
     }
 
     setIsBuilding(true);
 
-    // For mobile, use mode-specific data; for desktop, use shared data
+    // Mobile uses mode-specific data; desktop uses shared data
     const effectiveTransfersInfo = !media.gtMd
       ? currentModeData.transfersInfo
       : transfersInfo;
@@ -158,9 +179,7 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
 
       const approvesInfo: IApproveInfo[] = [];
 
-      // Check if token needs approval (native tokens don't need approval)
       if (needsApproval) {
-        // Fetch current allowance using swap service
         const allowanceResponse =
           await backgroundApiProxy.serviceSwap.fetchApproveAllowance({
             networkId,
@@ -171,7 +190,6 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
             amount: effectiveTotalTokenAmount,
           });
 
-        // If not approved or allowance is insufficient, prepare approve info
         if (!allowanceResponse?.isApproved) {
           const baseTokenInfo = {
             ...tokenInfo,
@@ -179,7 +197,7 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
             name: tokenInfo.name ?? tokenInfo.symbol,
           };
 
-          // Handle USDT-like tokens that require reset approval first
+          // USDT-like tokens require reset approval first
           if (allowanceResponse?.shouldResetApprove) {
             approvesInfo.push({
               owner: sender,
@@ -269,10 +287,10 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
     currentModeData.transfersInfo,
     currentModeData.totalTokenAmount,
     currentModeData.totalFiatAmount,
+    previewState.rangePreviewAmounts,
   ]);
 
   const isSubmitDisabled = useMemo(() => {
-    // Base conditions that always apply
     const baseConditions =
       !tokenDetailsState.initialized ||
       (tokenDetailsState.isRefreshing && !tokenDetails) ||
@@ -281,16 +299,13 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
 
     if (baseConditions) return true;
 
-    // For mobile view:
     if (!media.gtMd) {
-      // Issue 1: In Specified/Range modes, if already in preview mode (Transaction Detail shown),
-      // allow proceeding even if input has validation errors - use already generated Transfer Info
+      // In preview mode, only check mode-specific insufficient balance
       if (isInPreviewMode) {
-        // In preview mode, check mode-specific insufficient balance
         return currentModeData.isInsufficientBalance;
       }
 
-      // Issue 2: In Custom mode, check mode-specific transferInfoErrors
+      // In Custom mode, check mode-specific errors and data
       if (amountInputMode === EAmountInputMode.Custom) {
         const hasTransferErrors = !isEmpty(currentModeData.transferInfoErrors);
         return (
@@ -299,14 +314,20 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
           currentModeData.transfersInfo.length === 0
         );
       }
+
+      // Specified/Range non-preview: only check input validity.
+      // Don't use shared isInsufficientBalance here — it reflects original
+      // receiver amounts which haven't been regenerated yet. The actual
+      // insufficient balance check happens after preview generates new amounts.
+      return !isAmountValid;
     }
 
-    // Default validation for desktop and mobile non-preview modes
     return !isAmountValid || isInsufficientBalance;
   }, [
     tokenDetailsState.initialized,
     tokenDetailsState.isRefreshing,
     tokenDetails,
+    currentModeData,
     isAmountValid,
     isInsufficientBalance,
     isBuilding,
@@ -314,28 +335,77 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
     media.gtMd,
     isInPreviewMode,
     amountInputMode,
-    currentModeData.isInsufficientBalance,
-    currentModeData.transferInfoErrors,
-    currentModeData.transfersInfo.length,
   ]);
 
-  // Handle back button press
-  const handleBack = useCallback(() => {
-    // If in preview mode (TransactionDetail shown for Specified/Range), hide it first
-    if (isInPreviewMode) {
-      hidePreview(amountInputMode);
-      return;
+  const confirmButtonText = useMemo(() => {
+    let hasInsufficientBalance = false;
+    if (!media.gtMd) {
+      if (amountInputMode === EAmountInputMode.Custom || isInPreviewMode) {
+        hasInsufficientBalance = currentModeData.isInsufficientBalance;
+      }
+    } else if (amountInputMode === EAmountInputMode.Custom) {
+      hasInsufficientBalance = isInsufficientBalance;
     }
-    // Otherwise, navigate back
-    navigation.pop();
-  }, [isInPreviewMode, hidePreview, amountInputMode, navigation]);
 
-  // Determine button text based on preview state
-  const confirmButtonText = isInPreviewMode ? 'Review' : 'Next';
+    if (hasInsufficientBalance) {
+      return intl.formatMessage({
+        id: ETranslations.swap_page_button_insufficient_balance,
+      });
+    }
+
+    if (media.gtMd || isInPreviewMode) {
+      return intl.formatMessage({
+        id: ETranslations.wallet_bulk_send_btn_review,
+      });
+    }
+
+    return intl.formatMessage({ id: ETranslations.wallet_bulk_send_btn_next });
+  }, [
+    intl,
+    media.gtMd,
+    amountInputMode,
+    isInPreviewMode,
+    currentModeData.isInsufficientBalance,
+    isInsufficientBalance,
+  ]);
+
+  const handleMaxPress = useCallback(() => {
+    if (!tokenInfo) return;
+    if (amountInputMode !== EAmountInputMode.Specified) return;
+    const balance = tokenDetails?.balanceParsed ?? '0';
+    if (!balance || transfersInfo.length === 0) return;
+    const maxAmountPerAddress = new BigNumber(balance)
+      .dividedBy(transfersInfo.length)
+      .decimalPlaces(tokenInfo.decimals, BigNumber.ROUND_DOWN)
+      .toFixed();
+    setAmountInputValues({
+      ...amountInputValues,
+      specifiedAmount: maxAmountPerAddress,
+    });
+    setAmountInputErrors({
+      ...amountInputErrors,
+      specifiedAmount: undefined,
+    });
+  }, [
+    amountInputMode,
+    tokenDetails?.balanceParsed,
+    transfersInfo.length,
+    setAmountInputValues,
+    amountInputValues,
+    tokenInfo,
+    setAmountInputErrors,
+    amountInputErrors,
+  ]);
 
   return (
     <Page scrollEnabled>
-      {media.gtMd ? null : <Page.Header headerTitle={headerTitle} />}
+      {media.gtMd ? null : (
+        <Page.Header
+          headerTitle={intl.formatMessage({
+            id: ETranslations.wallet_bulk_send_set_amount_title,
+          })}
+        />
+      )}
       <BulkSendBar />
       <Page.Body>
         <BulkSendContentWrapper>
@@ -355,23 +425,50 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
           <Page.FooterActions
             px="$0"
             onConfirmText={confirmButtonText}
-            onCancelText="Back"
-            cancelButtonProps={{
-              onPress: handleBack,
-            }}
             confirmButtonProps={{
               onPress: handleSubmit,
               disabled: isSubmitDisabled,
               loading: isBuilding,
             }}
           >
-            {!media.gtMd ? (
+            {media.gtMd ? (
+              <YStack gap="$1" h="$10" justifyContent="center">
+                <SizableText size="$bodySm" color="$textSubdued">
+                  {intl.formatMessage({
+                    id: ETranslations.wallet_bulk_send_total_amount,
+                  })}
+                </SizableText>
+                <XStack alignItems="center" gap="$1">
+                  <NumberSizeableText
+                    size="$bodyLgMedium"
+                    formatter="balance"
+                    formatterOptions={{ tokenSymbol: tokenInfo?.symbol }}
+                  >
+                    {totalTokenAmount}
+                  </NumberSizeableText>
+                  <SizableText size="$bodyMd" color="$textSubdued">
+                    (
+                    <NumberSizeableText
+                      size="$bodyMd"
+                      formatter="value"
+                      formatterOptions={{
+                        currency: settings.currencyInfo.symbol,
+                      }}
+                    >
+                      {totalFiatAmount}
+                    </NumberSizeableText>
+                    )
+                  </SizableText>
+                </XStack>
+              </YStack>
+            ) : (
               <AmountPreview
                 containerProps={{
                   mb: '$4',
                 }}
                 amountInputValues={amountInputValues}
                 amountInputMode={amountInputMode}
+                amountInputErrors={amountInputErrors}
                 tokenDetails={tokenDetails}
                 transfersInfo={
                   amountInputMode === EAmountInputMode.Custom
@@ -381,8 +478,19 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
                 isInPreviewMode={isInPreviewMode}
                 previewTotalTokenAmount={currentModeData.totalTokenAmount}
                 previewTotalFiatAmount={currentModeData.totalFiatAmount}
+                rangePreviewAmounts={previewState.rangePreviewAmounts}
+                onMaxPress={
+                  amountInputMode === EAmountInputMode.Specified
+                    ? handleMaxPress
+                    : undefined
+                }
+                isInsufficientBalance={
+                  amountInputMode === EAmountInputMode.Custom || isInPreviewMode
+                    ? currentModeData.isInsufficientBalance
+                    : false
+                }
               />
-            ) : null}
+            )}
           </Page.FooterActions>
         </BulkSendContentWrapper>
       </Page.Footer>
@@ -409,7 +517,14 @@ function BulkSendAmountsInput() {
     isInModal,
   } = route.params ?? {};
 
-  // Validate required parameters and redirect if missing
+  const hasCustomAmounts = useMemo(
+    () =>
+      receivers?.some((r) => r.amount !== undefined && r.amount !== '') ??
+      false,
+    [receivers],
+  );
+
+  // Redirect if required parameters are missing
   useEffect(() => {
     const hasRequiredParams =
       networkId &&
@@ -462,7 +577,6 @@ function BulkSendAmountsInput() {
     EAmountInputMode.Specified,
   );
 
-  // Amount input values state
   const [amountInputValues, setAmountInputValues] =
     useState<IAmountInputValues>({
       specifiedAmount: '',
@@ -470,24 +584,22 @@ function BulkSendAmountsInput() {
       rangeMax: '',
     });
 
-  // Amount input errors state
   const [amountInputErrors, setAmountInputErrors] = useState<IAmountInputError>(
     {},
   );
 
-  // Transfer info errors state
   const [transferInfoErrors, setTransferInfoErrors] =
     useState<ITransferInfoErrors>({});
 
   const [transfersInfo, setTransfersInfo] = useState<ITransferInfo[]>([]);
 
-  // Preview state for Specified/Range modes
   const [previewState, setPreviewState] = useState<IPreviewState>({
     specifiedPreviewed: false,
     rangePreviewed: false,
+    rangePreviewAmounts: [],
   });
 
-  // Mobile-specific: independent data for each mode
+  // Mobile: independent data per mode
   const defaultModeData: IMobileModeData = useMemo(
     () => ({
       transfersInfo: [],
@@ -505,7 +617,6 @@ function BulkSendAmountsInput() {
     [EAmountInputMode.Custom]: { ...defaultModeData },
   });
 
-  // Helper to update current mode's data
   const updateCurrentModeData = useCallback(
     (data: Partial<IMobileModeData>) => {
       setMobileModeData((prev) => ({
@@ -519,57 +630,56 @@ function BulkSendAmountsInput() {
     [amountInputMode],
   );
 
-  // Get current mode's data for mobile
   const currentModeData = useMemo(
     () => mobileModeData[amountInputMode],
     [mobileModeData, amountInputMode],
   );
 
-  // Update mobile mode data with calculated values when transfersInfo changes
-  // Use JSON.stringify to detect actual changes in transfersInfo array
-  const currentModeTransfersInfoJson = JSON.stringify(
-    currentModeData.transfersInfo.map((t) => ({ to: t.to, amount: t.amount })),
-  );
+  // Recalculate mobile mode totals when transfersInfo or token price changes
   useEffect(() => {
-    const modeTransfersInfo = currentModeData.transfersInfo;
-    if (modeTransfersInfo.length > 0 && tokenDetails) {
+    if (!tokenDetails) return;
+
+    setMobileModeData((prev) => {
+      const modeData = prev[amountInputMode];
+      if (modeData.transfersInfo.length === 0) return prev;
+
       const {
         totalTokenAmount: modeTotalToken,
         totalFiatAmount: modeTotalFiat,
       } = calculateTotalAmounts({
-        transfersInfo: modeTransfersInfo,
+        transfersInfo: modeData.transfersInfo,
         tokenPrice: tokenDetails.price,
       });
       const modeIsInsufficient = new BigNumber(modeTotalToken).gt(
         tokenDetails.balanceParsed,
       );
 
-      // Only update if values actually changed
       if (
-        currentModeData.totalTokenAmount !== modeTotalToken ||
-        currentModeData.totalFiatAmount !== modeTotalFiat ||
-        currentModeData.isInsufficientBalance !== modeIsInsufficient
+        modeData.totalTokenAmount === modeTotalToken &&
+        modeData.totalFiatAmount === modeTotalFiat &&
+        modeData.isInsufficientBalance === modeIsInsufficient
       ) {
-        setMobileModeData((prev) => ({
-          ...prev,
-          [amountInputMode]: {
-            ...prev[amountInputMode],
-            totalTokenAmount: modeTotalToken,
-            totalFiatAmount: modeTotalFiat,
-            isInsufficientBalance: modeIsInsufficient,
-          },
-        }));
+        return prev;
       }
-    }
+
+      return {
+        ...prev,
+        [amountInputMode]: {
+          ...modeData,
+          totalTokenAmount: modeTotalToken,
+          totalFiatAmount: modeTotalFiat,
+          isInsufficientBalance: modeIsInsufficient,
+        },
+      };
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    currentModeTransfersInfoJson,
+    currentModeData.transfersInfo,
     amountInputMode,
     tokenDetails?.price,
     tokenDetails?.balanceParsed,
   ]);
 
-  // Calculate if current mode is valid using shared logic
   const isAmountValid = useMemo(
     () =>
       calculateIsAmountValid({
@@ -599,12 +709,7 @@ function BulkSendAmountsInput() {
         totalTokenAmountBN.gt(tokenDetails.balanceParsed),
       );
     }
-  }, [
-    totalTokenAmount,
-    tokenDetails?.balanceParsed,
-    bulkSendMode,
-    tokenDetails,
-  ]);
+  }, [tokenDetails, totalTokenAmount, bulkSendMode]);
 
   usePromiseResult(
     async () => {
@@ -736,30 +841,13 @@ function BulkSendAmountsInput() {
 
     setTransfersInfo(_transfersInfo);
 
-    // Initialize mobile mode data for all three modes
-    // Custom mode uses the generated transfersInfo
-    // Specified and Range modes start with empty data (populated on Preview)
+    // Custom mode starts with generated data; Specified/Range start empty
     setMobileModeData({
-      [EAmountInputMode.Specified]: {
-        transfersInfo: [],
-        transferInfoErrors: {},
-        isInsufficientBalance: false,
-        totalTokenAmount: '0',
-        totalFiatAmount: '0',
-      },
-      [EAmountInputMode.Range]: {
-        transfersInfo: [],
-        transferInfoErrors: {},
-        isInsufficientBalance: false,
-        totalTokenAmount: '0',
-        totalFiatAmount: '0',
-      },
+      [EAmountInputMode.Specified]: { ...defaultModeData },
+      [EAmountInputMode.Range]: { ...defaultModeData },
       [EAmountInputMode.Custom]: {
+        ...defaultModeData,
         transfersInfo: _transfersInfo,
-        transferInfoErrors: {},
-        isInsufficientBalance: false,
-        totalTokenAmount: '0',
-        totalFiatAmount: '0',
       },
     });
   }, [
@@ -768,12 +856,14 @@ function BulkSendAmountsInput() {
     receivers,
     tokenInfo,
     initialTokenDetails?.balanceParsed,
+    defaultModeData,
   ]);
 
   const context = useMemo<IBulkSendAmountsInputContext>(
     () => ({
       accountId,
       networkId,
+      hasCustomAmounts,
       tokenInfo,
       tokenDetails,
       setTokenDetails,
@@ -796,7 +886,6 @@ function BulkSendAmountsInput() {
       isInsufficientBalance,
       previewState,
       setPreviewState,
-      // Mobile-specific
       mobileModeData,
       setMobileModeData,
       updateCurrentModeData,
@@ -805,6 +894,7 @@ function BulkSendAmountsInput() {
     [
       networkId,
       accountId,
+      hasCustomAmounts,
       tokenDetails,
       tokenDetailsState,
       bulkSendMode,

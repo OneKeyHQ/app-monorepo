@@ -135,6 +135,9 @@ const validChannels = new Set([
   ipcMessageKeys.TOUCH_UPDATE_PROGRESS,
   ipcMessageKeys.CLIENT_LOG_UPLOAD_PROGRESS,
   ipcMessageKeys.SHOW_ABOUT_WINDOW,
+  'memory-pressure-warning',
+  'memory-pressure-critical',
+  'gpu-process-crashed',
 ]);
 
 const getChannel = () => {

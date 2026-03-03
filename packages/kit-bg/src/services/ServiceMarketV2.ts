@@ -8,6 +8,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import sortUtils from '@onekeyhq/shared/src/utils/sortUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -21,6 +22,8 @@ import type {
   IMarketBannerTokenListResponse,
   IMarketBasicConfigResponse,
   IMarketChainsResponse,
+  IMarketPerpsTokenListData,
+  IMarketPerpsTokenListResponse,
   IMarketTokenBatchListResponse,
   IMarketTokenDetailResponse,
   IMarketTokenHoldersResponse,
@@ -34,6 +37,7 @@ import type { INotificationWatchlistToken } from '@onekeyhq/shared/types/notific
 
 import { type IDBCloudSyncItem } from '../dbs/local/types';
 import { devSettingsPersistAtom } from '../states/jotai/atoms/devSettings';
+import { perpTokenFavoritesPersistAtom } from '../states/jotai/atoms/perps';
 
 import ServiceBase from './ServiceBase';
 import { MOCK_MARKET_BANNER_LIST } from './ServiceMarketV2.const';
@@ -347,6 +351,18 @@ class ServiceMarketV2 extends ServiceBase {
 
     const { data } = response.data;
 
+    if (!data?.list) {
+      console.error(
+        '[ServiceMarketV2] fetchMarketTokenListBatch: unexpected empty response',
+        {
+          requestIds: missingTokens.map(
+            (t) => `${t.chainId}:${t.contractAddress}`,
+          ),
+        },
+      );
+      return { list: cachedResults };
+    }
+
     // Update cache and merge results
     data.list.forEach((item, apiIndex) => {
       const token = missingTokens[apiIndex];
@@ -465,7 +481,11 @@ class ServiceMarketV2 extends ServiceBase {
     skipEventEmit,
     callerName,
   }: {
-    items: Array<{ chainId: string; contractAddress: string }>;
+    items: Array<{
+      chainId: string;
+      contractAddress: string;
+      perpsCoin?: string;
+    }>;
     skipSaveLocalSyncItem?: boolean;
     skipEventEmit?: boolean;
     callerName: string;
@@ -498,14 +518,17 @@ class ServiceMarketV2 extends ServiceBase {
   async getMarketWatchListItemV2({
     chainId,
     contractAddress,
+    perpsCoin,
   }: {
     chainId: string;
     contractAddress: string;
+    perpsCoin?: string;
   }): Promise<IMarketWatchListItemV2 | undefined> {
     return this.backgroundApi.simpleDb.marketWatchListV2.getMarketWatchListItemV2(
       {
         chainId,
         contractAddress,
+        perpsCoin,
       },
     );
   }
@@ -543,7 +566,9 @@ class ServiceMarketV2 extends ServiceBase {
       return [];
     }
 
-    const tokenAddressList = watchlistData.data.map((item) => ({
+    // Filter out perps items — they don't have chainId/contractAddress for batch lookup
+    const spotItems = watchlistData.data.filter((item) => !item.perpsCoin);
+    const tokenAddressList = spotItems.map((item) => ({
       chainId: item.chainId,
       contractAddress: item.contractAddress,
       isNative: item.isNative ?? false,
@@ -562,8 +587,7 @@ class ServiceMarketV2 extends ServiceBase {
       );
     }
 
-    const watchlistItems: IMarketWatchListItemV2[] = watchlistData.data;
-    const tokens: INotificationWatchlistToken[] = watchlistItems.map(
+    const tokens: INotificationWatchlistToken[] = spotItems.map(
       (item, index) => {
         const detail = tokenDetails.list[index];
 
@@ -688,8 +712,7 @@ class ServiceMarketV2 extends ServiceBase {
   @backgroundMethod()
   async clearMarketBannerCache(): Promise<void> {
     // memoizee's clear() is synchronous, returns void
-    // eslint-disable-next-line @typescript-eslint/no-floating-promises
-    this.memoizedFetchMarketBannerList.clear();
+    void this.memoizedFetchMarketBannerList.clear();
   }
 
   @backgroundMethod()
@@ -702,6 +725,141 @@ class ServiceMarketV2 extends ServiceBase {
     }>(`/utility/v2/market/banner/token-list/${tokenListId}`);
     const { data } = response.data;
     return data.list;
+  }
+
+  @backgroundMethod()
+  async fetchMarketPerpsTokenList(params?: {
+    category?: string;
+  }): Promise<IMarketPerpsTokenListData> {
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const response = await client.get<IMarketPerpsTokenListResponse>(
+      '/utility/v2/market/perps/token-list',
+      {
+        params: params?.category ? { category: params.category } : undefined,
+      },
+    );
+    return response.data.data;
+  }
+
+  // ── Perps Favorites Bidirectional Sync ──
+
+  @backgroundMethod()
+  async syncToPerpsAtom({
+    coin,
+    action,
+  }: {
+    coin: string;
+    action: 'add' | 'remove';
+  }) {
+    try {
+      const current = await perpTokenFavoritesPersistAtom.get();
+      const hasCoin = current.favorites.includes(coin);
+
+      if (action === 'add' && !hasCoin) {
+        await perpTokenFavoritesPersistAtom.set({
+          ...current,
+          favorites: [...current.favorites, coin],
+        });
+      } else if (action === 'remove' && hasCoin) {
+        await perpTokenFavoritesPersistAtom.set({
+          ...current,
+          favorites: current.favorites.filter((f) => f !== coin),
+        });
+      }
+    } catch (error) {
+      defaultLogger.cloudSync.market.syncToPerpsAtomFailed(coin, action, error);
+    }
+  }
+
+  @backgroundMethod()
+  async syncToMarketWatchList({
+    coin,
+    action,
+  }: {
+    coin: string;
+    action: 'add' | 'remove';
+  }) {
+    try {
+      const existing =
+        await this.backgroundApi.simpleDb.marketWatchListV2.getMarketWatchListItemV2(
+          { chainId: '', contractAddress: '', perpsCoin: coin },
+        );
+
+      if (action === 'add' && !existing) {
+        await this.addMarketWatchListV2({
+          watchList: [{ chainId: '', contractAddress: '', perpsCoin: coin }],
+          callerName: 'syncToMarketWatchList',
+        });
+      } else if (action === 'remove' && existing) {
+        await this.removeMarketWatchListV2({
+          items: [{ chainId: '', contractAddress: '', perpsCoin: coin }],
+          callerName: 'syncToMarketWatchList',
+        });
+      }
+    } catch (error) {
+      defaultLogger.cloudSync.market.syncToMarketWatchListFailed(
+        coin,
+        action,
+        error,
+      );
+    }
+  }
+
+  @backgroundMethod()
+  async reconcilePerpsFavorites() {
+    try {
+      const [watchListData, perpsFavorites] = await Promise.all([
+        this.backgroundApi.simpleDb.marketWatchListV2.getMarketWatchListV2(),
+        perpTokenFavoritesPersistAtom.get(),
+      ]);
+
+      const marketPerpsCoins = new Set(
+        watchListData.data
+          .filter((item) => !!item.perpsCoin)
+          .map((item) => item.perpsCoin!),
+      );
+      const perpsCoins = new Set(perpsFavorites.favorites);
+
+      // Market has but Perps doesn't
+      const missingInPerps = [...marketPerpsCoins].filter(
+        (c) => !perpsCoins.has(c),
+      );
+      // Perps has but Market doesn't
+      const missingInMarket = [...perpsCoins].filter(
+        (c) => !marketPerpsCoins.has(c),
+      );
+
+      if (missingInPerps.length === 0 && missingInMarket.length === 0) {
+        return;
+      }
+
+      // Sync missing items to Perps atom
+      if (missingInPerps.length > 0) {
+        const current = await perpTokenFavoritesPersistAtom.get();
+        const existingSet = new Set(current.favorites);
+        const toAdd = missingInPerps.filter((c) => !existingSet.has(c));
+        if (toAdd.length > 0) {
+          await perpTokenFavoritesPersistAtom.set({
+            ...current,
+            favorites: [...current.favorites, ...toAdd],
+          });
+        }
+      }
+
+      // Sync missing items to Market watchlist
+      if (missingInMarket.length > 0) {
+        await this.addMarketWatchListV2({
+          watchList: missingInMarket.map((coin) => ({
+            chainId: '',
+            contractAddress: '',
+            perpsCoin: coin,
+          })),
+          callerName: 'reconcilePerpsFavorites',
+        });
+      }
+    } catch (error) {
+      defaultLogger.cloudSync.market.reconcilePerpsFavoritesFailed(error);
+    }
   }
 }
 

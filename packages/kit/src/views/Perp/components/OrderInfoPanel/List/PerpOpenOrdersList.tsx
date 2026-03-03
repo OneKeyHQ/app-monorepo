@@ -6,12 +6,19 @@ import { useIntl } from 'react-intl';
 import type { IDebugRenderTrackerProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import { usePerpsActiveOpenOrdersAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
-import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useOrderFilterByCurrentTokenAtom,
+  usePerpsActiveOpenOrdersAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
+import {
+  usePerpsActiveAccountAtom,
+  usePerpsActiveAssetAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { showCancelAllOrdersDialog } from '../CancelAllOrdersModal';
+import { MobileOpenOrdersListHeader } from '../Components/MobileOpenOrdersListHeader';
 import { OpenOrdersRow } from '../Components/OpenOrdersRow';
 
 import { CommonTableListView, type IColumnConfig } from './CommonTableListView';
@@ -30,12 +37,31 @@ function PerpOpenOrdersList({
   const intl = useIntl();
   const [{ openOrders }] = usePerpsActiveOpenOrdersAtom();
   const [currentUser] = usePerpsActiveAccountAtom();
+  const [filterByCurrentToken] = useOrderFilterByCurrentTokenAtom();
+  const [activeAsset] = usePerpsActiveAssetAtom();
   const actions = useHyperliquidActions();
   const [currentListPage, setCurrentListPage] = useState(1);
   useEffect(() => {
     noop(currentUser?.accountAddress);
     setCurrentListPage(1);
   }, [currentUser?.accountAddress]);
+  useEffect(() => {
+    if (isMobile) {
+      setCurrentListPage(1);
+    }
+  }, [filterByCurrentToken, isMobile]);
+  useEffect(() => {
+    if (isMobile && filterByCurrentToken) {
+      setCurrentListPage(1);
+    }
+  }, [activeAsset?.coin, isMobile, filterByCurrentToken]);
+
+  const filteredOrders = useMemo(() => {
+    if (!isMobile || !filterByCurrentToken || !activeAsset?.coin) {
+      return openOrders;
+    }
+    return openOrders.filter((order) => order.coin === activeAsset.coin);
+  }, [openOrders, isMobile, filterByCurrentToken, activeAsset?.coin]);
 
   const columnsConfig: IColumnConfig[] = useMemo(
     () => [
@@ -200,7 +226,7 @@ function PerpOpenOrdersList({
       setCurrentListPage={setCurrentListPage}
       columns={columnsConfig}
       minTableWidth={totalMinWidth}
-      data={openOrders}
+      data={filteredOrders}
       isMobile={isMobile}
       renderRow={renderOrderRow}
       emptyMessage={intl.formatMessage({
@@ -209,6 +235,11 @@ function PerpOpenOrdersList({
       emptySubMessage={intl.formatMessage({
         id: ETranslations.perp_open_order_empty_desc,
       })}
+      ListHeaderComponent={
+        isMobile ? (
+          <MobileOpenOrdersListHeader totalOrderCount={openOrders.length} />
+        ) : null
+      }
     />
   );
 }

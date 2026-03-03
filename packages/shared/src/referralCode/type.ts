@@ -181,6 +181,50 @@ export interface IPerpsRecordsResponse {
   total: number;
 }
 
+export interface IPerpsInviteItem {
+  _id: string;
+  address: string;
+  invitationTime: string;
+  inviteCode: string;
+  inviteCodeRemark: string;
+  firstTradeTime: string;
+  volume: string;
+  volumeFiatValue: string;
+  fee: string;
+  feeFiatValue: string;
+  reward: string;
+  rewardFiatValue: string;
+  hasUndistributed: boolean;
+  token: IRewardToken;
+}
+
+export interface IPerpsInvitesResponse {
+  total: number;
+  cursor: string | null;
+  items: IPerpsInviteItem[];
+}
+
+export type IPerpsInvitesSortBy =
+  | 'volume'
+  | 'fee'
+  | 'reward'
+  | 'invitationTime'
+  | 'firstTradeTime';
+
+export type IPerpsInvitesSortOrder = 'asc' | 'desc';
+
+export interface IPerpsInvitesParams {
+  tab: 'undistributed' | 'total';
+  timeRange?: EExportTimeRange;
+  startTime?: number;
+  endTime?: number;
+  inviteCode?: string;
+  hideZeroVolume?: boolean;
+  sortBy?: IPerpsInvitesSortBy;
+  sortOrder?: IPerpsInvitesSortOrder;
+  cursor?: string;
+}
+
 export interface IEarnPositionItem {
   key: string;
   networkId: string;
@@ -419,6 +463,7 @@ export enum EExportTimeRange {
   OneMonth = '1month',
   ThreeMonths = '3months',
   SixMonths = '6months',
+  Custom = 'custom',
 }
 
 export enum EExportTab {
@@ -431,6 +476,8 @@ export interface IExportInviteDataParams {
   timeRange: EExportTimeRange;
   inviteCode?: string;
   tab?: EExportTab;
+  startTime?: number;
+  endTime?: number;
 }
 
 // API returns CSV string directly
@@ -524,6 +571,28 @@ export interface IHardwareRecordsResponse {
   total: number;
   items: IHardwareRecordItem[];
   cursor?: string;
+}
+
+// Perps cumulative rewards response
+export interface IPerpsCumulativeRewardsParams {
+  timeRange?: EExportTimeRange;
+  startTime?: number;
+  endTime?: number;
+  inviteCode?: string;
+}
+
+export interface IPerpsCumulativeRewardsResponse {
+  undistributedReward: string;
+  undistributedRewardFiatValue: string;
+  totalReward: string;
+  totalRewardFiatValue: string;
+  totalVolume: string;
+  totalVolumeFiatValue: string;
+  totalFee: string;
+  totalFeeFiatValue: string;
+  invitedAddresses: number;
+  walletCount: number;
+  token: IRewardToken;
 }
 
 // Redemption code types

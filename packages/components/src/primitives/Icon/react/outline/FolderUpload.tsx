@@ -1,14 +1,14 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgFolderUpload = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M16 19h3a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-6.465a1 1 0 0 1-.832-.445l-1.11-1.664A2 2 0 0 0 8.93 4H5a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h3m4 0v-6m0 0 2.5 2.5M12 13l-2.5 2.5"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M12.535 6H22v14h-6v-2h4V8h-8.535l-2-3H4v13h4v2H2V3h8.535z" />
+    <Path d="M15.914 15.5 14.5 16.914l-1.5-1.5V20h-2v-4.586l-1.5 1.5L8.086 15.5 12 11.586z" />
   </Svg>
 );
 export default SvgFolderUpload;

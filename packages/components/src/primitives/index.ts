@@ -11,6 +11,7 @@ export * from './Group';
 export * from './Haptics';
 export * from './Heading';
 export * from './Icon';
+export * from './Illustration';
 export * from './Image';
 export * from './Label';
 export * from './SizeableText';

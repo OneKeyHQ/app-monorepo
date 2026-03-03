@@ -80,8 +80,8 @@ function ListEmptyComponent({
 
   return (
     <Empty
-      mt="$24"
-      icon="BezierNodesOutline"
+      mt="$16"
+      illustration="BlockPencil"
       title={intl.formatMessage({ id: ETranslations.custom_rpc_empty_title })}
       buttonProps={{
         onPress: () => onAddCustomRpc(),

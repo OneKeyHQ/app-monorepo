@@ -1,12 +1,15 @@
 import { memo, useCallback, useMemo } from 'react';
+import type { RefObject } from 'react';
 
 import { Tabs, YStack, useTabContainerWidth } from '@onekeyhq/components';
+import type { ITabContainerRef } from '@onekeyhq/components';
 import { useTabBarHeight } from '@onekeyhq/components/src/layouts/Page/hooks';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { MarketBannerList } from '../components/MarketBanner';
-import { MobileMarketTokenFlatList } from '../components/MarketTokenList/MobileMarketTokenFlatList';
+import { MobileMarketPerpsFlatList } from '../components/MarketPerpsList';
 import { MarketWatchlistTokenList } from '../components/MarketTokenList/MarketWatchlistTokenList';
+import { MobileMarketTokenFlatList } from '../components/MarketTokenList/MobileMarketTokenFlatList';
 
 import { useMarketTabsLogic } from './hooks';
 
@@ -23,23 +26,32 @@ interface IMobileLayoutProps {
   };
   selectedNetworkId: string;
   onTabChange: (tabId: IMarketHomeTabValue) => void;
+  tabsRef?: RefObject<ITabContainerRef | null>;
 }
 
 function MobileLayoutComponent({
   filterBarProps,
   selectedNetworkId,
   onTabChange,
+  tabsRef,
 }: IMobileLayoutProps) {
-  const { watchlistTabName, trendingTabName, handleTabChange, selectedTab } =
-    useMarketTabsLogic(onTabChange);
+  const {
+    watchlistTabName,
+    spotTabName,
+    perpsTabName,
+    showPerpsTab,
+    handleTabChange,
+    selectedTab,
+  } = useMarketTabsLogic(onTabChange);
 
   const tabBarHeight = useTabBarHeight();
   const tabContainerWidth = useTabContainerWidth() as number | undefined;
 
   const initialTabName = useMemo(() => {
     if (selectedTab === 'watchlist') return watchlistTabName;
-    return trendingTabName;
-  }, [selectedTab, watchlistTabName, trendingTabName]);
+    if (selectedTab === 'perps' && showPerpsTab) return perpsTabName;
+    return spotTabName;
+  }, [selectedTab, watchlistTabName, spotTabName, perpsTabName, showPerpsTab]);
 
   const containerProps = useMemo(
     () => ({
@@ -85,6 +97,8 @@ function MobileLayoutComponent({
 
   return (
     <Tabs.Container
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ref={tabsRef as any}
       width={platformEnv.isNative ? tabContainerWidth : undefined}
       renderTabBar={renderTabBar}
       initialTabName={initialTabName}
@@ -92,19 +106,23 @@ function MobileLayoutComponent({
       {...containerProps}
     >
       <Tabs.Tab name={watchlistTabName}>
-        <Tabs.ScrollView>
-          <YStack pt="$2" {...listContainerProps}>
-            <MarketWatchlistTokenList />
-          </YStack>
-        </Tabs.ScrollView>
+        <MarketWatchlistTokenList
+          tabIntegrated
+          listContainerProps={listContainerProps}
+        />
       </Tabs.Tab>
-      <Tabs.Tab name={trendingTabName}>
+      <Tabs.Tab name={spotTabName}>
         <MobileMarketTokenFlatList
           networkId={selectedNetworkId}
           filterBarProps={filterBarProps}
           listContainerProps={listContainerProps}
         />
       </Tabs.Tab>
+      {showPerpsTab ? (
+        <Tabs.Tab name={perpsTabName}>
+          <MobileMarketPerpsFlatList listContainerProps={listContainerProps} />
+        </Tabs.Tab>
+      ) : null}
     </Tabs.Container>
   );
 }

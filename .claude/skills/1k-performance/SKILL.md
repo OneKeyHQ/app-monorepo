@@ -1,6 +1,6 @@
 ---
 name: 1k-performance
-description: Performance optimization guidelines for OneKey React/React Native applications. Use when optimizing app performance, fixing UI freezes/lag, reducing re-renders, handling concurrent operations, or analyzing performance bottlenecks. Triggers on performance, optimization, optimize, slow, lag, freeze, hang, jank, stutter, memory, leak, concurrent, batching, batch, memoization, memo, bridge, windowSize, contentVisibility, FlashList, re-render, fps, tti, bundle.
+description: Performance optimization for React/React Native — re-renders, memoization, FlashList, memory leaks, and bundle size.
 allowed-tools: Read, Grep, Glob
 ---
 

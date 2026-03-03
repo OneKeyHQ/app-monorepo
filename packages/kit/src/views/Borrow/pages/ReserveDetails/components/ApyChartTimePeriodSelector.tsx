@@ -25,6 +25,7 @@ export function ApyChartTimePeriodSelector({
       onChange={(nextValue) => onChange(nextValue as ITimePeriod)}
       slotBackgroundColor="$bg"
       activeBackgroundColor="$bgActive"
+      activeTextColor="$text"
       {...rest}
     />
   );

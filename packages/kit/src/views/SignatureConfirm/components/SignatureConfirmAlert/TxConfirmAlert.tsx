@@ -32,6 +32,7 @@ import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
+import type { IToken } from '@onekeyhq/shared/types/token';
 
 interface IProps {
   accountId: string;
@@ -105,6 +106,11 @@ function TxConfirmAlert(props: IProps) {
     }
 
     if (payWithTokenInfo.enabled && sendTxStatus.isInsufficientTokenBalance) {
+      const payToken: IToken | undefined =
+        transferPayload?.tokenInfo?.address === payWithTokenInfo.address
+          ? transferPayload.tokenInfo
+          : undefined;
+
       return (
         <Alert
           icon="ErrorOutline"
@@ -118,6 +124,34 @@ function TxConfirmAlert(props: IProps) {
               amount: sendTxStatus.fillUpTokenBalance ?? '0',
             },
           )}
+          action={
+            payToken
+              ? {
+                  primary: intl.formatMessage({
+                    id: ETranslations.global_top_up,
+                  }),
+                  onPrimaryPress() {
+                    navigation.pushModal(EModalRoutes.ReceiveModal, {
+                      screen: EModalReceiveRoutes.ReceiveSelector,
+                      params: {
+                        networkId,
+                        accountId,
+                        walletId: accountUtils.getWalletIdFromAccountId({
+                          accountId,
+                        }),
+                        token: payToken,
+                        onClose: () => {
+                          appEventBus.emit(
+                            EAppEventBusNames.RefreshNativeTokenInfo,
+                            undefined,
+                          );
+                        },
+                      },
+                    });
+                  },
+                }
+              : undefined
+          }
         />
       );
     }
@@ -180,6 +214,8 @@ function TxConfirmAlert(props: IProps) {
     sendTxStatus.fillUpTokenBalance,
     payWithTokenInfo.enabled,
     payWithTokenInfo.symbol,
+    payWithTokenInfo.address,
+    transferPayload?.tokenInfo,
     intl,
     network?.symbol,
     navigation,

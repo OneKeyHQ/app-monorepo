@@ -37,6 +37,7 @@ import {
   useTxFeeInfoInitAtom,
   useUnsignedTxsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ITransferPayload } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -57,7 +58,6 @@ import {
 import { usePreCheckFeeInfo } from '../../hooks/usePreCheckFeeInfo';
 import { showCustomHexDataAlert } from '../CustomHexDataAlert';
 import TxFeeInfo from '../TxFee';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 type IProps = {
   accountId: string;
@@ -339,6 +339,12 @@ function TxConfirmActions(props: IProps) {
           swapInfo,
           stakingInfo,
         }),
+        txnParseType: isUndefined(result?.[0].decodedTx.txParseType)
+          ? undefined
+          : result?.[0].decodedTx.txParseType,
+        txnOrigin: isUndefined(sourceInfo?.origin)
+          ? undefined
+          : sourceInfo.origin,
         feeToken: isUndefined(sendSelectedFeeInfo?.feeInfos?.[0]?.totalNative)
           ? undefined
           : `${sendSelectedFeeInfo?.feeInfos?.[0]?.totalNative} ${nativeTokenInfo.info?.symbol}`,

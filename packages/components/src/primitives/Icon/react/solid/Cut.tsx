@@ -1,17 +1,18 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgCut = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      fill="currentColor"
       fillRule="evenodd"
-      d="M6 3a4 4 0 1 0 2.668 6.98l3.03 2.02-3.03 2.02a4 4 0 1 0 1.11 1.663l12.609-8.406a2 2 0 0 0-2.774-.554L13.5 10.798 9.778 8.317A4 4 0 0 0 6 3M4 7a2 2 0 1 1 4 0 2 2 0 0 1-4 0m0 10a2 2 0 1 1 4 0 2 2 0 0 1-4 0"
+      d="M6 3a4 4 0 0 1 3.778 5.317l3.722 2.48 6.53-4.352 2.357.832-12.609 8.406a4 4 0 1 1-1.11-1.663l3.03-2.02-3.03-2.02A4 4 0 1 1 6 3m0 12a2 2 0 1 0 0 4 2 2 0 0 0 0-4M6 5a2 2 0 1 0 0 4 2 2 0 0 0 0-4"
       clipRule="evenodd"
     />
-    <Path
-      fill="currentColor"
-      d="m19.613 17.277-5.212-3.474 1.803-1.202 6.183 4.122a2 2 0 0 1-2.774.554"
-    />
+    <Path d="M22.387 16.723 20 17.535l-5.599-3.732 1.803-1.202z" />
   </Svg>
 );
 export default SvgCut;

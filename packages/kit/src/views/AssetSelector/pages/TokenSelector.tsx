@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { useDebouncedCallback } from 'use-debounce';
 
@@ -20,12 +21,14 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IAssetSelectorParamList } from '@onekeyhq/shared/src/routes';
 import { EAssetSelectorRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { checkIsOnlyOneTokenHasBalance } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { useAccountSelectorCreateAddress } from '../../../components/AccountSelector/hooks/useAccountSelectorCreateAddress';
+import { useCurrency } from '../../../components/Currency';
 import { useAccountData } from '../../../hooks/useAccountData';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { HomeTokenListProviderMirrorWrapper } from '../../Home/components/HomeTokenListProvider';
@@ -39,6 +42,7 @@ function TokenSelector() {
   const intl = useIntl();
   const {
     updateCreateAccountState,
+    updateProcessingTokenState,
     refreshActiveAccountTokenList,
     refreshTokenListMap,
     updateActiveAccountTokenListState,
@@ -54,6 +58,8 @@ function TokenSelector() {
   const { createAddress } = useAccountSelectorCreateAddress();
 
   const [aggregateTokensListMap] = useAggregateTokensListMapAtom();
+
+  const currencyInfo = useCurrency();
 
   const {
     title,
@@ -73,6 +79,7 @@ function TokenSelector() {
     hideZeroBalanceTokens,
     keepDefaultZeroBalanceTokens,
     enableNetworkAfterSelect,
+    exchangeFilter,
   } = route.params;
 
   const { network, account } = useAccountData({ networkId, accountId });
@@ -86,6 +93,29 @@ function TokenSelector() {
     tokens: IAccountToken[];
   }>({ tokens: [] });
 
+  const executeOnSelect = useCallback(
+    async (selectedToken: IAccountToken) => {
+      if (!onSelect) return;
+      if (exchangeFilter) {
+        updateProcessingTokenState({
+          isProcessing: true,
+          token: selectedToken,
+        });
+        try {
+          await onSelect(selectedToken);
+        } finally {
+          updateProcessingTokenState({
+            isProcessing: false,
+            token: null,
+          });
+        }
+      } else {
+        void onSelect(selectedToken);
+      }
+    },
+    [onSelect, updateProcessingTokenState, exchangeFilter],
+  );
+
   const handleTokenOnPress = useCallback(
     async (token: IAccountToken) => {
       if (token.isAggregateToken) {
@@ -97,7 +127,7 @@ function TokenSelector() {
           aggregateTokenList.length === 1 &&
           allAggregateTokenList.length === 0
         ) {
-          void onSelect?.(aggregateTokenList[0]);
+          await executeOnSelect(aggregateTokenList[0]);
           return;
         }
 
@@ -109,11 +139,15 @@ function TokenSelector() {
           });
 
         if (tokenHasBalance && tokenHasBalanceCount === 1) {
-          void onSelect?.(tokenHasBalance);
+          await executeOnSelect(tokenHasBalance);
           return;
         }
 
         if (aggregateTokenList.length > 1 || allAggregateTokenList.length > 1) {
+          // Delay navigation to let the current CA transaction finish rendering
+          // SVG icons, avoiding EXC_BAD_ACCESS in InstanceHandle::getTag when
+          // Reanimated intercepts layout events from unmounting SVG views.
+          await timerUtils.wait(0);
           navigation.push(
             aggregateTokenSelectorScreen ??
               EAssetSelectorRoutes.AggregateTokenSelector,
@@ -125,6 +159,7 @@ function TokenSelector() {
               allAggregateTokenList,
               enableNetworkAfterSelect,
               hideZeroBalanceTokens,
+              exchangeFilter,
             },
           );
           return;
@@ -200,12 +235,12 @@ function TokenSelector() {
           matchedAccount?.accountId
         ) {
           if (matchedAccount?.accountId) {
-            void onSelect?.({
+            await executeOnSelect({
               ...token,
               accountId: matchedAccount.accountId,
             });
           } else {
-            void onSelect?.(token);
+            await executeOnSelect(token);
           }
         } else if (account) {
           updateCreateAccountState({
@@ -232,7 +267,7 @@ function TokenSelector() {
             });
 
             if (resp) {
-              void onSelect?.({
+              await executeOnSelect({
                 ...token,
                 accountId: resp.accounts[0]?.id,
               });
@@ -245,7 +280,7 @@ function TokenSelector() {
           }
         }
       } else {
-        void onSelect?.(token);
+        await executeOnSelect(token);
       }
 
       if (closeAfterSelect) {
@@ -266,9 +301,11 @@ function TokenSelector() {
       indexedAccountId,
       enableNetworkAfterSelect,
       hideZeroBalanceTokens,
+      exchangeFilter,
       account,
       updateCreateAccountState,
       createAddress,
+      executeOnSelect,
     ],
   );
 
@@ -355,6 +392,30 @@ function TokenSelector() {
         isRefreshing: false,
         initialized: true,
       });
+
+      // Update network value cache so ChainSelector shows fresh values on back
+      const totalFiatValue = new BigNumber(r.tokens.fiatValue ?? '0')
+        .plus(r.smallBalanceTokens.fiatValue ?? '0')
+        .toFixed();
+      let valueAccountId = indexedAccountId || '';
+      if (!valueAccountId && activeAccountId) {
+        if (accountUtils.isOthersAccount({ accountId: activeAccountId })) {
+          valueAccountId = activeAccountId;
+        }
+      }
+      if (valueAccountId && activeNetworkId) {
+        const valueKey = accountUtils.buildAccountValueKey({
+          accountId: activeAccountId,
+          networkId: activeNetworkId,
+        });
+        void backgroundApiProxy.serviceAccountProfile.updateAllNetworkAccountValue(
+          {
+            accountId: valueAccountId,
+            value: { [valueKey]: totalFiatValue },
+            currency: currencyInfo.id,
+          },
+        );
+      }
     }
   }, [
     activeAccountId,
@@ -364,6 +425,7 @@ function TokenSelector() {
     refreshTokenListMap,
     showActiveAccountTokenList,
     updateActiveAccountTokenListState,
+    currencyInfo.id,
   ]);
 
   useEffect(() => {
@@ -411,8 +473,9 @@ function TokenSelector() {
           hideZeroBalanceTokens={hideZeroBalanceTokens}
           keepDefaultZeroBalanceTokens={keepDefaultZeroBalanceTokens}
           showNetworkIcon={isAllNetworks ?? network?.isAllNetworks}
+          exchangeFilter={exchangeFilter}
           emptyProps={{
-            mt: '24%',
+            mt: '18%',
           }}
         />
       </Page.Body>

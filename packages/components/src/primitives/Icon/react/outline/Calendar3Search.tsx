@@ -1,13 +1,21 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgCalendar3Search = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M8 5V3m8 2V3m-2.25 11L15 15.25M6 20h12a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2m8.5-8A2.75 2.75 0 1 1 9 12a2.75 2.75 0 0 1 5.5 0"
+      fillRule="evenodd"
+      d="M11.75 8.25a3.75 3.75 0 0 1 3.262 5.598l1.402 1.402L15 16.664l-1.402-1.402A3.75 3.75 0 1 1 11.75 8.25m0 2a1.75 1.75 0 1 0 0 3.5 1.75 1.75 0 0 0 0-3.5"
+      clipRule="evenodd"
+    />
+    <Path
+      fillRule="evenodd"
+      d="M9 4h6V2h2v2h4v17H3V4h4V2h2zM5 19h14V6H5z"
+      clipRule="evenodd"
     />
   </Svg>
 );

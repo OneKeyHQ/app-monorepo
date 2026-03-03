@@ -8,6 +8,10 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { generateLocalIndexedIdFunc } from '@onekeyhq/shared/src/utils/miscUtils';
+import {
+  PROMISE_CONCURRENCY_LIMIT,
+  promiseAllSettledEnhanced,
+} from '@onekeyhq/shared/src/utils/promiseUtils';
 import sortUtils from '@onekeyhq/shared/src/utils/sortUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -25,8 +29,6 @@ import type {
 import { type IDBCloudSyncItem } from '../dbs/local/types';
 
 import ServiceBase from './ServiceBase';
-
-import type { AxiosResponse } from 'axios';
 
 const ONEKEY_SEARCH_TRANDING = 'onekey-search-trending';
 
@@ -145,8 +147,8 @@ class ServiceMarket extends ServiceBase {
     const keys = Object.keys(detailPlatforms);
     const client = await this.getClient(EServiceEndpointEnum.Utility);
     try {
-      const poolsData = await Promise.allSettled(
-        keys.map((key) => {
+      const poolsData = await promiseAllSettledEnhanced(
+        keys.map((key) => () => {
           const { contract_address: contractAddress, coingeckoNetworkId } =
             detailPlatforms[key];
           if (contractAddress && coingeckoNetworkId) {
@@ -159,21 +161,15 @@ class ServiceMarket extends ServiceBase {
               },
             });
           }
-          return Promise.resolve({ data: { data: [] } });
+          return Promise.resolve({ data: { data: [] as IMarketDetailPool[] } });
         }),
+        { continueOnError: true, concurrency: PROMISE_CONCURRENCY_LIMIT },
       );
       const buildId = generateLocalIndexedIdFunc();
       return keys
         .map((key, index) => ({
           ...detailPlatforms[key],
-          data:
-            poolsData[index].status === 'fulfilled'
-              ? (
-                  poolsData[index] as PromiseFulfilledResult<
-                    AxiosResponse<{ data: IMarketDetailPool[] }>
-                  >
-                ).value.data.data
-              : [],
+          data: poolsData[index]?.data?.data ?? [],
         }))
         .filter((i) => i.data.length)
         .map((i, index) => ({

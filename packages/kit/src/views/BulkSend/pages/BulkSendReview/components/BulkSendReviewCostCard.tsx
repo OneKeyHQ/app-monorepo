@@ -16,6 +16,7 @@ import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 
 import { useBulkSendReviewContext } from './Context';
 
+// eslint-disable-next-line @typescript-eslint/naming-convention
 type Props = {
   feeLevel: string;
   isMultiTxs?: boolean;
@@ -48,7 +49,7 @@ function BulkSendReviewCostCard({
   const isError = feeStatus === ESendFeeStatus.Error;
 
   return (
-    <YStack px="$5" py="$3">
+    <YStack px="$5">
       <YStack bg="$bgSubdued" borderRadius="$3" py="$2">
         {/* Network Fee Row */}
         <XStack gap="$2" px="$4" py="$2" alignItems="flex-start">

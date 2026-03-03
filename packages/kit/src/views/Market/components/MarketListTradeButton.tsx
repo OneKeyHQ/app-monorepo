@@ -6,9 +6,11 @@ import { Button, XStack } from '@onekeyhq/components';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { isSupportStaking } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { useAccountSelectorTrigger } from '../../../components/AccountSelector/hooks/useAccountSelectorTrigger';
 import { ReviewControl } from '../../../components/ReviewControl';
 
 import { useLazyMarketTradeActions } from './tradeHook';
@@ -26,6 +28,10 @@ export function MarketListTradeButton({
 }) {
   const intl = useIntl();
   const actions = useLazyMarketTradeActions(coinGeckoId);
+  const { showAccountSelector } = useAccountSelectorTrigger({
+    num: 0,
+    showConnectWalletModalInDappMode: true,
+  });
   const canStaking = useMemo(() => isSupportStaking(symbol), [symbol]);
   const onSwap = useCallback(() => {
     defaultLogger.market.token.marketTokenAction({
@@ -63,21 +69,29 @@ export function MarketListTradeButton({
 
   return (
     <XStack gap="$1.5">
-      <Button variant="secondary" size="small" onPress={onSwap}>
-        {intl.formatMessage({ id: ETranslations.global_trade })}
-      </Button>
-      {isSupportBuy ? (
-        <ReviewControl>
-          <Button variant="secondary" size="small" onPress={onBuy}>
-            {intl.formatMessage({ id: ETranslations.global_buy })}
-          </Button>
-        </ReviewControl>
-      ) : null}
-      {canStaking ? (
-        <Button variant="secondary" size="small" onPress={onStaking}>
-          {intl.formatMessage({ id: ETranslations.global_earn })}
+      {platformEnv.isWeb && !wallet ? (
+        <Button variant="primary" size="small" onPress={showAccountSelector}>
+          {intl.formatMessage({ id: ETranslations.global_connect })}
         </Button>
-      ) : null}
+      ) : (
+        <>
+          <Button variant="secondary" size="small" onPress={onSwap}>
+            {intl.formatMessage({ id: ETranslations.global_trade })}
+          </Button>
+          {isSupportBuy ? (
+            <ReviewControl>
+              <Button variant="secondary" size="small" onPress={onBuy}>
+                {intl.formatMessage({ id: ETranslations.global_buy })}
+              </Button>
+            </ReviewControl>
+          ) : null}
+          {canStaking ? (
+            <Button variant="secondary" size="small" onPress={onStaking}>
+              {intl.formatMessage({ id: ETranslations.global_earn })}
+            </Button>
+          ) : null}
+        </>
+      )}
     </XStack>
   );
 }

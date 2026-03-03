@@ -16,34 +16,28 @@ import {
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useCheckWalletReferralCodeBound } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useCheckWalletReferralCodeBound';
 import {
-  DEFAULT_PERPS_LAYOUT_STATE,
   usePerpsActiveAccountAtom,
   usePerpsCustomSettingsAtom,
-  usePerpsLayoutStateAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { PerpsProviderMirror } from '../PerpsProviderMirror';
+import { showPerpFeeTierDialog } from './TradingPanel/components/PerpFeeTierPopover';
 
 import { useShowInviteeRewardModal } from './InviteeReward/hooks/useShowInviteeRewardModal';
 
 interface IPerpSettingsPopoverContentProps {
   closePopover: () => void;
+  showFeeTierEntry?: boolean;
 }
-
-const SHOW_RESET_LAYOUT =
-  platformEnv.isWeb ||
-  platformEnv.isDesktop ||
-  platformEnv.isExtensionUiExpandTab;
 
 function PerpSettingsPopoverContent({
   closePopover,
+  showFeeTierEntry = false,
 }: IPerpSettingsPopoverContentProps) {
   const [perpsCustomSettings, setPerpsCustomSettings] =
     usePerpsCustomSettingsAtom();
-  const [, setPerpsLayoutState] = usePerpsLayoutStateAtom();
   const intl = useIntl();
   const { showInviteeRewardModal } = useShowInviteeRewardModal();
   const [selectedAccount] = usePerpsActiveAccountAtom();
@@ -93,10 +87,10 @@ function PerpSettingsPopoverContent({
         subtitle={intl.formatMessage({
           id: ETranslations.perp_setting_desc,
         })}
+        cursor="default"
       >
         <Switch
           size={ESwitchSize.small}
-          cursor="pointer"
           value={perpsCustomSettings.skipOrderConfirm}
           onChange={(value) => {
             setPerpsCustomSettings((prev) => ({
@@ -115,10 +109,10 @@ function PerpSettingsPopoverContent({
         title={intl.formatMessage({
           id: ETranslations.perps_settings_shows_buy_sell_title,
         })}
+        cursor="default"
       >
         <Switch
           size={ESwitchSize.small}
-          cursor="pointer"
           value={perpsCustomSettings.showTradeMarks ?? true}
           onChange={(value) => {
             setPerpsCustomSettings((prev) => ({
@@ -137,10 +131,10 @@ function PerpSettingsPopoverContent({
         title={intl.formatMessage({
           id: ETranslations.perps_settings_shows_positions_title,
         })}
+        cursor="default"
       >
         <Switch
           size={ESwitchSize.small}
-          cursor="pointer"
           value={perpsCustomSettings.showChartLines ?? true}
           onChange={(value) => {
             setPerpsCustomSettings((prev) => ({
@@ -154,7 +148,6 @@ function PerpSettingsPopoverContent({
       {/* Only show referral menu item if wallet type is supported */}
       {isWalletSupported ? (
         <ListItem
-          cursor="pointer"
           mx="$0"
           px="$2.5"
           titleProps={{ size: '$bodyMdMedium' }}
@@ -169,6 +162,7 @@ function PerpSettingsPopoverContent({
             closePopover();
             void showInviteeRewardModal();
           }}
+          cursor="default"
         >
           <XStack gap="$2" alignItems="center">
             {referralBadge}
@@ -176,23 +170,23 @@ function PerpSettingsPopoverContent({
           </XStack>
         </ListItem>
       ) : null}
-      {SHOW_RESET_LAYOUT ? (
+
+      {showFeeTierEntry ? (
         <ListItem
-          cursor="pointer"
           mx="$0"
           px="$2.5"
-          title={intl.formatMessage({
-            id: ETranslations.perps_settings_return_to_default_layout,
-          })}
           titleProps={{ size: '$bodyMdMedium' }}
+          title={intl.formatMessage({
+            id: ETranslations.perps_fee_tiers,
+          })}
           onPress={() => {
-            setPerpsLayoutState({
-              ...DEFAULT_PERPS_LAYOUT_STATE,
-              resetAt: Date.now(),
-            });
             closePopover();
+            showPerpFeeTierDialog();
           }}
-        />
+          cursor="default"
+        >
+          <Icon name="ChevronRightOutline" size="$4" color="$iconSubdued" />
+        </ListItem>
       ) : null}
     </YStack>
   );
@@ -200,10 +194,12 @@ function PerpSettingsPopoverContent({
 
 export interface IPerpSettingsPopoverProps {
   renderTrigger: ReactNode;
+  showFeeTierEntry?: boolean;
 }
 
 export function PerpSettingsPopover({
   renderTrigger,
+  showFeeTierEntry = false,
 }: IPerpSettingsPopoverProps) {
   const intl = useIntl();
 
@@ -213,7 +209,10 @@ export function PerpSettingsPopover({
         title={intl.formatMessage({ id: ETranslations.global_settings })}
         renderTrigger={renderTrigger}
         renderContent={({ closePopover }) => (
-          <PerpSettingsPopoverContent closePopover={closePopover} />
+          <PerpSettingsPopoverContent
+            closePopover={closePopover}
+            showFeeTierEntry={showFeeTierEntry}
+          />
         )}
         floatingPanelProps={{
           width: 360,

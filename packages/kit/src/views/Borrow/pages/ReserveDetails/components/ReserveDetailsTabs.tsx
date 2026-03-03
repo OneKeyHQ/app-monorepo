@@ -110,7 +110,7 @@ const ReserveDetailsTabsComponent = ({
     >
       {/* Supply Info Tab */}
       <Tabs.Tab name={tabNames.supply}>
-        <Tabs.ScrollView>
+        <Tabs.ScrollView showsVerticalScrollIndicator={false}>
           <YStack px="$5" pt="$6" pb="$6" gap="$6">
             {supplyBadge ? <XStack>{supplyBadge}</XStack> : null}
 
@@ -148,7 +148,7 @@ const ReserveDetailsTabsComponent = ({
 
       {/* Borrow Info Tab */}
       <Tabs.Tab name={tabNames.borrow}>
-        <Tabs.ScrollView>
+        <Tabs.ScrollView showsVerticalScrollIndicator={false}>
           <YStack px="$5" pt="$6" pb="$6" gap="$6">
             {borrowBadge ? <XStack>{borrowBadge}</XStack> : null}
 
@@ -177,7 +177,7 @@ const ReserveDetailsTabsComponent = ({
 
       {/* More Tab */}
       <Tabs.Tab name={tabNames.more}>
-        <Tabs.ScrollView>
+        <Tabs.ScrollView showsVerticalScrollIndicator={false}>
           <YStack px="$5" pt="$6" pb="$6" gap="$8">
             <InterestRateModelSection
               networkId={networkId}

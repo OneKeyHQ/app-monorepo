@@ -1,6 +1,6 @@
 import { createContext, useContext } from 'react';
 
-import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
+import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import {
   EAmountInputMode,
   EBulkSendMode,
@@ -8,11 +8,13 @@ import {
   type IAmountInputValues,
   type ITransferInfoErrors,
 } from '@onekeyhq/shared/types/bulkSend';
-import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
+import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 export type IPreviewState = {
   specifiedPreviewed: boolean;
   rangePreviewed: boolean;
+  // Pre-generated amounts for Range mode preview
+  rangePreviewAmounts: string[];
 };
 
 // Mobile-specific data structure for each mode
@@ -30,6 +32,8 @@ export type IBulkSendAmountsInputContext = {
   accountId: string | undefined;
   networkId: string;
   tokenInfo: IToken;
+  // Whether receivers have custom amounts (from address input)
+  hasCustomAmounts: boolean;
   tokenDetails: ({ info: IToken } & ITokenFiat) | undefined;
   setTokenDetails: (
     tokenDetails: ({ info: IToken } & ITokenFiat) | undefined,
@@ -85,6 +89,7 @@ export const BulkSendAmountsInputContext =
   createContext<IBulkSendAmountsInputContext>({
     accountId: undefined,
     networkId: '',
+    hasCustomAmounts: false,
     transfersInfo: [],
     setTransfersInfo: () => {},
     tokenDetails: undefined,
@@ -121,6 +126,7 @@ export const BulkSendAmountsInputContext =
     previewState: {
       specifiedPreviewed: false,
       rangePreviewed: false,
+      rangePreviewAmounts: [],
     },
     setPreviewState: () => {},
     // Mobile-specific

@@ -1,13 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgFocus = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      fill="currentColor"
-      fillRule="evenodd"
-      d="M12.707 4.372a1 1 0 0 0-1.414 0L9.707 5.957a1 1 0 1 1-1.414-1.414l1.586-1.586a3 3 0 0 1 4.242 0l1.586 1.586a1 1 0 1 1-1.414 1.414zm-6.75 3.921a1 1 0 0 1 0 1.414l-1.586 1.586a1 1 0 0 0 0 1.414l1.586 1.586a1 1 0 1 1-1.414 1.414l-1.586-1.586a3 3 0 0 1 0-4.242l1.586-1.586a1 1 0 0 1 1.414 0m12.086 0a1 1 0 0 1 1.414 0l1.586 1.586a3 3 0 0 1 0 4.242l-1.586 1.586a1 1 0 0 1-1.414-1.414l1.586-1.586a1 1 0 0 0 0-1.414l-1.586-1.586a1 1 0 0 1 0-1.414m-9.75 9.75a1 1 0 0 1 1.414 0l1.586 1.586a1 1 0 0 0 1.414 0l1.586-1.586a1 1 0 0 1 1.414 1.414l-1.586 1.586a3 3 0 0 1-4.242 0l-1.586-1.586a1 1 0 0 1 0-1.414"
-      clipRule="evenodd"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M16.414 18 12 22.414 7.586 18 9 16.586l3 3 3-3zm-9-9-3 3 3 3L6 16.414 1.586 12 6 7.586zm15 3L18 16.414 16.586 15l3-3-3-3L18 7.586zm-6-6L15 7.414l-3-3-3 3L7.586 6 12 1.586z" />
   </Svg>
 );
 export default SvgFocus;

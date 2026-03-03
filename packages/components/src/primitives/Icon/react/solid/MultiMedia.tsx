@@ -1,15 +1,16 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgMultiMedia = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M6.25 5a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5" />
     <Path
-      fill="currentColor"
-      d="M6.25 7.5a1.25 1.25 0 1 0 0-2.5 1.25 1.25 0 0 0 0 2.5"
-    />
-    <Path
-      fill="currentColor"
       fillRule="evenodd"
-      d="M5 2a3 3 0 0 0-3 3v8a3 3 0 0 0 3 3h3v3a3 3 0 0 0 3 3h8a3 3 0 0 0 3-3v-8a3 3 0 0 0-3-3h-3V5a3 3 0 0 0-3-3zm9 6V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v5.131l.336-.224a3 3 0 0 1 3.328 0l.443.296A3 3 0 0 1 11 8zm-6 4.535-1.445-.964a1 1 0 0 0-1.11 0L4 12.535V13a1 1 0 0 0 1 1h3zm6.136 4.784A.75.75 0 0 1 13 16.675v-3.35a.75.75 0 0 1 1.136-.643l2.792 1.675a.75.75 0 0 1 0 1.286z"
+      d="M16 2v6h6v14H8v-6H2V2zm-3 16 5-3-5-3zm-9-7.87 2-1.332 2 1.333V8h6V4H4z"
       clipRule="evenodd"
     />
   </Svg>

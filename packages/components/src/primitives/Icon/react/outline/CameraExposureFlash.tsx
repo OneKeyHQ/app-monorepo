@@ -1,14 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgCameraExposureFlash = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M4 8V6a2 2 0 0 1 2-2h2M4 16v2a2 2 0 0 0 2 2h2m8-16h2a2 2 0 0 1 2 2v2m0 8v2a2 2 0 0 1-2 2h-2M12 8l-3 4h6l-3 4"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M5 19h4v2H3v-6h2zm16 2h-6v-2h4v-4h2zM13.378 7.682 11.304 11h5l-3.986 6.378-1.696-1.06L12.696 13h-5l3.986-6.378zM9 5H5v4H3V3h6zm12 4h-2V5h-4V3h6z" />
   </Svg>
 );
 export default SvgCameraExposureFlash;

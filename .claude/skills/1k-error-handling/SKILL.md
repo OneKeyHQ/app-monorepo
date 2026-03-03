@@ -1,6 +1,6 @@
 ---
 name: 1k-error-handling
-description: Error handling patterns and best practices for OneKey. Use when implementing try/catch blocks, handling async errors, showing error messages, or managing error states in UI. Triggers on error, try, catch, exception, throw, fail, failure, error handling, error boundary, useAsyncCall, toast, fallback, error state.
+description: Error handling patterns — try/catch, async errors, error boundaries, useAsyncCall, and toast messages.
 allowed-tools: Read, Grep, Glob
 ---
 

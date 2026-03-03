@@ -1021,6 +1021,9 @@ class ServiceMasterPassword extends ServiceBase {
                       serverPwdHash: pwdHash,
                     },
                   );
+                if (!oldLocalItem) {
+                  return null;
+                }
                 if (!oldLocalItem.rawDataJson) {
                   throw new OneKeyLocalError('No raw data json');
                 }

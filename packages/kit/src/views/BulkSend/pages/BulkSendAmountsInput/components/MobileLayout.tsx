@@ -1,4 +1,6 @@
-import { Icon, SizableText, XStack, YStack } from '@onekeyhq/components';
+import { useCallback } from 'react';
+
+import { YStack } from '@onekeyhq/components';
 import { EAmountInputMode } from '@onekeyhq/shared/types/bulkSend';
 
 import BulkSendTxDetails from '../../../components/BulkSendTxDetails';
@@ -16,33 +18,30 @@ function MobileLayout() {
     bulkSendMode,
     previewState,
     setPreviewState,
-    // Shared transfersInfo (base addresses) for generating preview
     transfersInfo: baseTransfersInfo,
-    // Mobile uses currentModeData for mode-specific data
     currentModeData,
     updateCurrentModeData,
   } = useBulkSendAmountsInputContext();
 
-  // Use mode-specific data for mobile display
-  const {
-    transfersInfo: modeTransfersInfo,
-    transferInfoErrors,
-    isInsufficientBalance,
-    totalTokenAmount,
-  } = currentModeData;
+  const { transfersInfo: modeTransfersInfo, transferInfoErrors } =
+    currentModeData;
 
-  // For display: use mode-specific data if available, otherwise use base
   const displayTransfersInfo =
     modeTransfersInfo.length > 0 ? modeTransfersInfo : baseTransfersInfo;
 
-  // Create setters that update current mode's data
-  const setModeTransfersInfo = (newTransfersInfo: typeof modeTransfersInfo) => {
-    updateCurrentModeData({ transfersInfo: newTransfersInfo });
-  };
+  const setModeTransfersInfo = useCallback(
+    (newTransfersInfo: typeof modeTransfersInfo) => {
+      updateCurrentModeData({ transfersInfo: newTransfersInfo });
+    },
+    [updateCurrentModeData],
+  );
 
-  const setTransferInfoErrors = (newErrors: typeof transferInfoErrors) => {
-    updateCurrentModeData({ transferInfoErrors: newErrors });
-  };
+  const setTransferInfoErrors = useCallback(
+    (newErrors: typeof transferInfoErrors) => {
+      updateCurrentModeData({ transferInfoErrors: newErrors });
+    },
+    [updateCurrentModeData],
+  );
 
   const { handleDeleteTransfer, handleAmountChange } = useTransferInfoActions({
     tokenInfo,
@@ -52,36 +51,22 @@ function MobileLayout() {
     setTransferInfoErrors,
   });
 
-  // Use base transfersInfo for generating preview (has addresses)
-  // but setTransfersInfo updates mode-specific data
+  // Use base transfersInfo for generating preview, mode-specific for display
   const { shouldShowTxDetails } = useAmountPreview({
     tokenInfo,
     transfersInfo: baseTransfersInfo,
     setTransfersInfo: setModeTransfersInfo,
     previewState,
     setPreviewState,
+    balance: tokenDetails?.balanceParsed,
   });
 
   const isEditMode = amountInputMode === EAmountInputMode.Custom;
   const showTxDetails = shouldShowTxDetails(amountInputMode);
 
-  // Only show insufficient balance error in Custom mode
-  // In Specified/Range modes, the user hasn't confirmed the amounts yet
-  const showInsufficientBalanceError = isEditMode && isInsufficientBalance;
-
   return (
     <YStack gap="$6">
       <AmountInputSection />
-      {/* Insufficient Balance Error - only shown in Custom mode */}
-      {showInsufficientBalanceError ? (
-        <XStack gap="$1" alignItems="center">
-          <Icon name="InfoCircleOutline" size="$4" color="$iconCritical" />
-          <SizableText size="$bodySm" color="$textCritical">
-            Insufficient balance, available: {tokenDetails?.balanceParsed}{' '}
-            {tokenInfo.symbol}, total: {totalTokenAmount} {tokenInfo.symbol}
-          </SizableText>
-        </XStack>
-      ) : null}
       {showTxDetails ? (
         <BulkSendTxDetails
           tokenInfo={tokenInfo}
@@ -91,6 +76,7 @@ function MobileLayout() {
           bulkSendMode={bulkSendMode}
           onDeleteTransfer={handleDeleteTransfer}
           onAmountChange={isEditMode ? handleAmountChange : undefined}
+          containerProps={{ mt: '$6' }}
         />
       ) : null}
     </YStack>

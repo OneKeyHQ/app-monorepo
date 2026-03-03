@@ -1103,6 +1103,11 @@ class ServiceHardware extends ServiceBase {
           dbDeviceId,
           label: p.label,
         });
+        // After device label is updated, notify UI/hardware interaction layer to refresh cached device info,
+        // otherwise the hardware interaction dialog may keep showing the old name until app restart.
+        appEventBus.emit(EAppEventBusNames.HardwareFeaturesUpdate, {
+          deviceId: dbDeviceId,
+        });
         // update db wallet name
         appEventBus.emit(EAppEventBusNames.SyncDeviceLabelToWalletName, {
           walletId: p.walletId,

@@ -174,13 +174,6 @@ const NewPinCreated = LazyLoadPage(
   <OnboardingLayoutFallback />,
 );
 
-const MoreAction = LazyLoadPage(
-  () => import('../pages/MoreAction'),
-  undefined,
-  false,
-  <OnboardingLayoutFallback />,
-);
-
 const hiddenHeaderOptions = {
   headerShown: false,
 };
@@ -327,11 +320,6 @@ export const OnboardingRouterV2: IModalFlowNavigatorConfig<
   {
     name: EOnboardingPagesV2.NewPinCreated,
     component: NewPinCreated,
-    options: hiddenHeaderOptions,
-  },
-  {
-    name: EOnboardingPagesV2.MoreAction,
-    component: MoreAction,
     options: hiddenHeaderOptions,
   },
 ];

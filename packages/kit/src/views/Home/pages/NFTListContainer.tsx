@@ -369,5 +369,6 @@ function NFTListContainer() {
 const NFTListContainerWithProvider = memo(
   withNFTListProvider(NFTListContainer),
 );
+NFTListContainerWithProvider.displayName = 'NFTListContainerWithProvider';
 
 export { NFTListContainerWithProvider };

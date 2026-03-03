@@ -1,11 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgPause = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      fill="currentColor"
-      d="M4 6a3 3 0 0 1 6 0v12a3 3 0 1 1-6 0zm10 0a3 3 0 1 1 6 0v12a3 3 0 1 1-6 0z"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M10 21H4V3h6zm10 0h-6V3h6z" />
   </Svg>
 );
 export default SvgPause;

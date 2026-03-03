@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { useRef } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -21,6 +22,7 @@ import type {
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 
+import SwapFAQ from '../../components/SwapFAQ';
 import SwapProviderListPanel from '../../components/SwapProviderListPanel';
 import SwapRecentTokenPairsGroup from '../../components/SwapRecentTokenPairsGroup';
 
@@ -32,6 +34,7 @@ import SwapHeaderRightActionContainer from './SwapHeaderRightActionContainer';
 import SwapPendingHistoryListComponent from './SwapPendingHistoryList';
 import SwapQuoteInput from './SwapQuoteInput';
 import SwapQuoteResult from './SwapQuoteResult';
+import SwapTipsContainer from './SwapTipsContainer';
 
 interface ISwapOldSwapBridgeLimitContainerProps {
   pageType?: EPageType;
@@ -62,6 +65,7 @@ interface ISwapOldSwapBridgeLimitContainerProps {
   }) => void;
   fromTokenAmountValue: string;
   swapRecentTokenPairs: { fromToken: ISwapToken; toToken: ISwapToken }[];
+  headerContent?: ReactNode;
 }
 
 const SwapOldSwapBridgeLimitContainer = ({
@@ -84,6 +88,7 @@ const SwapOldSwapBridgeLimitContainer = ({
   onSelectRecentTokenPairs,
   fromTokenAmountValue,
   swapRecentTokenPairs,
+  headerContent,
 }: ISwapOldSwapBridgeLimitContainerProps) => {
   const scrollViewRef = useRef<ScrollViewNative>(null);
   const { gtLg } = useMedia();
@@ -105,6 +110,11 @@ const SwapOldSwapBridgeLimitContainer = ({
     pageType !== EPageType.modal &&
     swapTypeSwitch !== ESwapTabSwitchType.LIMIT;
 
+  const showLimitDesktopCard =
+    gtLg &&
+    pageType !== EPageType.modal &&
+    swapTypeSwitch === ESwapTabSwitchType.LIMIT;
+
   const mainContent = (
     <YStack
       pt="$2.5"
@@ -114,11 +124,13 @@ const SwapOldSwapBridgeLimitContainer = ({
       $gtMd={{
         flex: 'unset',
       }}
-      $gtLg={{
-        maxWidth: 480,
-        alignSelf: 'center',
-        width: '100%',
-      }}
+      {...(pageType !== EPageType.modal && {
+        $gtLg: {
+          maxWidth: 480,
+          alignSelf: 'center',
+          width: '100%',
+        },
+      })}
       pb="$5"
     >
       <LimitOrderOpenItem storeName={storeName} />
@@ -220,19 +232,111 @@ const SwapOldSwapBridgeLimitContainer = ({
       </YStack>
     );
     return (
-      <XStack gap="$2" px="$5" alignItems="stretch">
-        <ScrollView
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
-          ref={scrollViewRef}
-          flexBasis="50%"
+      <ScrollView flex={1} contentContainerStyle={{ flexGrow: 1 }}>
+        <SwapTipsContainer pageType={pageType} />
+        {headerContent ? (
+          <YStack pt="$8" pb="$4">
+            {headerContent}
+          </YStack>
+        ) : null}
+        <XStack
+          gap="$1"
+          px="$5"
+          flex={1}
+          width="100%"
+          maxWidth={1140}
+          marginHorizontal="auto"
         >
-          <YStack p="$5">{mainContentWithCard}</YStack>
-        </ScrollView>
-        <YStack pt="$5" flexBasis="50%">
-          <SwapProviderListPanel refreshAction={refreshAction} />
+          <YStack p="$5" flexBasis="50%">
+            <YStack gap="$12">
+              {mainContentWithCard}
+              <SwapFAQ />
+            </YStack>
+          </YStack>
+          <YStack p="$5" flexBasis="50%">
+            <SwapProviderListPanel refreshAction={refreshAction} />
+          </YStack>
+        </XStack>
+      </ScrollView>
+    );
+  }
+
+  if (showLimitDesktopCard) {
+    return (
+      <ScrollView flex={1} contentContainerStyle={{ flexGrow: 1 }}>
+        <SwapTipsContainer pageType={pageType} />
+        {headerContent ? (
+          <YStack pt="$8" pb="$4">
+            {headerContent}
+          </YStack>
+        ) : null}
+        <YStack
+          px="$5"
+          pt="$6"
+          pb="$5"
+          width="100%"
+          maxWidth={600}
+          marginHorizontal="auto"
+        >
+          <YStack
+            p="$6"
+            gap="$5"
+            borderRadius="$6"
+            borderWidth={1}
+            borderColor="$borderSubdued"
+            elevationAndroid="$1"
+            $platform-web={{
+              boxShadow: '0px 0px 24px 0px rgba(0, 0, 0, 0.06)',
+            }}
+            style={{
+              shadowColor: 'rgba(0, 0, 0, 0.08)',
+              shadowOffset: { width: 0, height: 0 },
+              shadowOpacity: 1,
+              shadowRadius: 24,
+            }}
+          >
+            <XStack alignItems="center" justifyContent="space-between">
+              <SizableText size="$headingLg">{swapTitle}</SizableText>
+              <SwapHeaderRightActionContainer
+                pageType={pageType}
+                iconSize="$5"
+                iconColor="$iconStrong"
+              />
+            </XStack>
+            <LimitOrderOpenItem storeName={storeName} />
+            <SwapQuoteInput
+              onSelectToken={onSelectToken}
+              selectLoading={fetchLoading}
+              onSelectPercentageStage={onSelectPercentageStage}
+              onBalanceMaxPress={onBalanceMaxPress}
+            />
+            {!isWrapped ? <LimitInfoContainer /> : null}
+            <SwapActionsState
+              onPreSwap={onPreSwap}
+              onOpenRecipientAddress={onToAnotherAddressModal}
+              onSelectPercentageStage={onSelectPercentageStage}
+            />
+            <SwapQuoteResult
+              refreshAction={refreshAction}
+              onOpenProviderList={undefined}
+              quoteResult={quoteResult}
+              onOpenRecipient={onToAnotherAddressModal}
+            />
+            {alerts.states.length > 0 &&
+            !quoteLoading &&
+            !quoteEventFetching &&
+            alerts?.quoteId === (quoteResult?.quoteId ?? '') ? (
+              <SwapAlertContainer alerts={alerts.states} />
+            ) : null}
+            <SwapRecentTokenPairsGroup
+              onSelectTokenPairs={onSelectRecentTokenPairs}
+              tokenPairs={swapRecentTokenPairs}
+              fromTokenAmount={fromTokenAmountValue}
+            />
+            <SwapPendingHistoryListComponent pageType={pageType} />
+          </YStack>
         </YStack>
-      </XStack>
+      </ScrollView>
     );
   }
 
@@ -242,6 +346,12 @@ const SwapOldSwapBridgeLimitContainer = ({
       keyboardDismissMode="on-drag"
       ref={scrollViewRef}
     >
+      <SwapTipsContainer pageType={pageType} />
+      {headerContent ? (
+        <YStack pt="$8" pb="$4">
+          {headerContent}
+        </YStack>
+      ) : null}
       {mainContent}
     </ScrollView>
   );

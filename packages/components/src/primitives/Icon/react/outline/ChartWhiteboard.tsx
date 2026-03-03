@@ -1,13 +1,16 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgChartWhiteboard = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M16 18h3a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-7m4 13 1 3m-1-3H8m0 0H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h7M8 18l-1 3m5-3v2m0-15V3"
+      fillRule="evenodd"
+      d="M11 19H8.72l-1.087 3.265-1.898-.632L6.613 19H2V4h9V2h2v2h9v15h-4.613l.878 2.633-1.898.632L15.28 19H13v2h-2zm-7-2h16V6H4z"
+      clipRule="evenodd"
     />
   </Svg>
 );

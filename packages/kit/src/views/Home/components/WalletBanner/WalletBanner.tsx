@@ -1,22 +1,28 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { isNil } from 'lodash';
-import { StyleSheet } from 'react-native';
-import { useDebouncedCallback } from 'use-debounce';
+import { type GestureResponderEvent, StyleSheet } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, {
+  clamp,
+  useAnimatedStyle,
+  useSharedValue,
+  withDecay,
+} from 'react-native-reanimated';
 
 import {
-  Carousel,
+  HeaderScrollGestureWrapper,
   Icon,
   IconButton,
   Image,
+  ScrollView,
   SizableText,
+  Stack,
   XStack,
   YStack,
-  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useWalletBanner } from '@onekeyhq/kit/src/hooks/useWalletBanner';
 import {
   useAccountOverviewActions,
@@ -24,11 +30,395 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IWalletBanner } from '@onekeyhq/shared/types/walletBanner';
 
-import type { GestureResponderEvent } from 'react-native';
+const BANNER_ITEM_WIDTH = 280;
+const BANNER_GAP = 12;
+const BANNER_PADDING_H = 20;
 
 const closedBanners: Record<string, boolean> = {};
+
+function BannerItem({
+  item,
+  onPress,
+  onDismiss,
+}: {
+  item: IWalletBanner;
+  onPress: (item: IWalletBanner) => void;
+  onDismiss: (item: IWalletBanner) => void;
+}) {
+  const handlePress = useCallback(() => {
+    onPress(item);
+  }, [onPress, item]);
+  return (
+    <XStack
+      w={item.icon ? 200 : BANNER_ITEM_WIDTH}
+      h={108}
+      p="$4"
+      my="$px"
+      bg="$bgSubdued"
+      borderRadius="$4"
+      borderCurve="continuous"
+      hoverStyle={{
+        bg: '$bgHover',
+      }}
+      pressStyle={{
+        bg: '$bgActive',
+      }}
+      focusable
+      focusVisibleStyle={{
+        outlineColor: '$focusRing',
+        outlineWidth: 2,
+        outlineStyle: 'solid',
+        outlineOffset: -2,
+      }}
+      outlineWidth={1}
+      outlineColor="$neutral3"
+      outlineStyle="solid"
+      $platform-native={{
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: '$neutral3',
+      }}
+      onPress={handlePress}
+      userSelect="none"
+    >
+      <XStack
+        {...(!item.icon && {
+          ai: 'center',
+        })}
+        flex={1}
+        gap="$3"
+      >
+        {item.src ? (
+          <YStack w={60} h={60} flexShrink={0}>
+            <Image size={60} source={{ uri: item.src }} />
+          </YStack>
+        ) : null}
+        <YStack flex={1} gap="$1">
+          {item.description ? (
+            <SizableText size="$bodyXs" color="$textSubdued" numberOfLines={1}>
+              {item.description}
+            </SizableText>
+          ) : null}
+          <SizableText
+            size={item.icon ? '$headingMd' : '$headingSm'}
+            numberOfLines={3}
+          >
+            {item.title}
+          </SizableText>
+        </YStack>
+      </XStack>
+
+      {item.closeable ? (
+        <IconButton
+          position="absolute"
+          top="$2"
+          right="$2"
+          size="small"
+          variant="tertiary"
+          onPress={(event: GestureResponderEvent) => {
+            event.stopPropagation();
+            onDismiss(item);
+          }}
+          icon="CrossedSmallOutline"
+        />
+      ) : null}
+      {item.icon ? (
+        <Stack position="absolute" right="$4" bottom="$4">
+          <Icon name={item.icon} size={24} color="$bgAccent" />
+        </Stack>
+      ) : null}
+    </XStack>
+  );
+}
+
+function NativeBannerScroller({
+  banners,
+  handleBannerOnPress,
+  handleDismiss,
+}: {
+  banners: IWalletBanner[];
+  handleBannerOnPress: (item: IWalletBanner) => void;
+  handleDismiss: (item: IWalletBanner) => void;
+}) {
+  // Track touch distance on JS thread to suppress onPress during drags.
+  // Using JS-thread onTouchStart/onTouchMove instead of runOnJS from worklet
+  // avoids async timing issues where onPress fires before runOnJS callback.
+  const touchStartRef = useRef({ x: 0, y: 0 });
+  const touchDistanceRef = useRef(0);
+
+  const handleTouchStart = useCallback((e: GestureResponderEvent) => {
+    touchStartRef.current = {
+      x: e.nativeEvent.pageX,
+      y: e.nativeEvent.pageY,
+    };
+    touchDistanceRef.current = 0;
+  }, []);
+
+  const handleTouchMove = useCallback((e: GestureResponderEvent) => {
+    const dx = Math.abs(e.nativeEvent.pageX - touchStartRef.current.x);
+    const dy = Math.abs(e.nativeEvent.pageY - touchStartRef.current.y);
+    touchDistanceRef.current = Math.max(dx, dy);
+  }, []);
+
+  const translateX = useSharedValue(0);
+  const startTranslateX = useSharedValue(0);
+
+  const [containerWidth, setContainerWidth] = useState(0);
+
+  const actualMaxTranslateX = useMemo(() => {
+    const totalItemWidth = banners.reduce(
+      (sum, b) => sum + (b.icon ? 200 : BANNER_ITEM_WIDTH),
+      0,
+    );
+    const totalWidth =
+      totalItemWidth + (banners.length - 1) * BANNER_GAP + BANNER_PADDING_H * 2;
+    const width = containerWidth || 375;
+    return Math.max(0, totalWidth - width);
+  }, [banners, containerWidth]);
+
+  const panGesture = useMemo(
+    () =>
+      Gesture.Pan()
+        .activeOffsetX([-10, 10])
+        .failOffsetY([-10, 10])
+        .onStart(() => {
+          'worklet';
+
+          startTranslateX.value = translateX.value;
+        })
+        .onUpdate((e) => {
+          'worklet';
+
+          translateX.value = clamp(
+            startTranslateX.value + e.translationX,
+            -actualMaxTranslateX,
+            0,
+          );
+        })
+        .onEnd((e) => {
+          'worklet';
+
+          translateX.value = withDecay({
+            velocity: e.velocityX,
+            clamp: [-actualMaxTranslateX, 0],
+          });
+        }),
+    [translateX, startTranslateX, actualMaxTranslateX],
+  );
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: translateX.value }],
+  }));
+
+  const wrappedHandleBannerOnPress = useCallback(
+    (item: IWalletBanner) => {
+      if (touchDistanceRef.current > 5) {
+        return;
+      }
+      handleBannerOnPress(item);
+    },
+    [handleBannerOnPress],
+  );
+
+  return (
+    <HeaderScrollGestureWrapper>
+      <YStack
+        bg="$bgApp"
+        overflow="hidden"
+        onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+      >
+        <GestureDetector gesture={panGesture}>
+          <Animated.View
+            style={[
+              {
+                flexDirection: 'row',
+                paddingHorizontal: BANNER_PADDING_H,
+                gap: BANNER_GAP,
+              },
+              animatedStyle,
+            ]}
+          >
+            {banners.map((item) => (
+              <BannerItem
+                key={item.id}
+                item={item}
+                onPress={wrappedHandleBannerOnPress}
+                onDismiss={handleDismiss}
+              />
+            ))}
+          </Animated.View>
+        </GestureDetector>
+      </YStack>
+    </HeaderScrollGestureWrapper>
+  );
+}
+
+function useScrollElement(scrollViewRef: React.RefObject<any>) {
+  return useCallback((): HTMLElement | null => {
+    const node = scrollViewRef.current;
+    if (!node) return null;
+    if (typeof node.getScrollableNode === 'function') {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+      return node.getScrollableNode() as HTMLElement;
+    }
+    if (node instanceof HTMLElement) {
+      return node;
+    }
+    return null;
+  }, [scrollViewRef]);
+}
+
+function WebBannerScroller({
+  banners,
+  handleBannerOnPress,
+  handleDismiss,
+}: {
+  banners: IWalletBanner[];
+  handleBannerOnPress: (item: IWalletBanner) => void;
+  handleDismiss: (item: IWalletBanner) => void;
+}) {
+  const scrollViewRef = useRef<any>(null);
+  const [showLeftArrow, setShowLeftArrow] = useState(false);
+  const [showRightArrow, setShowRightArrow] = useState(false);
+  const getScrollElement = useScrollElement(scrollViewRef);
+
+  const updateArrows = useCallback(() => {
+    const el = getScrollElement();
+    if (!el) return;
+    const { scrollLeft, scrollWidth, clientWidth } = el;
+    setShowLeftArrow(scrollLeft > 1);
+    setShowRightArrow(scrollLeft < scrollWidth - clientWidth - 1);
+  }, [getScrollElement]);
+
+  useEffect(() => {
+    const el = getScrollElement();
+    if (!el) return;
+    const onScroll = () => updateArrows();
+    el.addEventListener('scroll', onScroll, { passive: true });
+    const observer = new ResizeObserver(() => updateArrows());
+    observer.observe(el);
+    updateArrows();
+    return () => {
+      el.removeEventListener('scroll', onScroll);
+      observer.disconnect();
+    };
+  }, [getScrollElement, updateArrows, banners.length]);
+
+  const handleScrollLeft = useCallback(() => {
+    const el = getScrollElement();
+    if (!el) return;
+    el.scrollBy({
+      left: -(BANNER_ITEM_WIDTH + BANNER_GAP),
+      behavior: 'smooth',
+    });
+  }, [getScrollElement]);
+
+  const handleScrollRight = useCallback(() => {
+    const el = getScrollElement();
+    if (!el) return;
+    el.scrollBy({
+      left: BANNER_ITEM_WIDTH + BANNER_GAP,
+      behavior: 'smooth',
+    });
+  }, [getScrollElement]);
+
+  return (
+    <YStack bg="$bgApp" position="relative">
+      <ScrollView
+        ref={scrollViewRef}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{
+          px: '$pagePadding',
+          gap: BANNER_GAP,
+        }}
+      >
+        {banners.map((item) => (
+          <BannerItem
+            key={item.id}
+            item={item}
+            onPress={handleBannerOnPress}
+            onDismiss={handleDismiss}
+          />
+        ))}
+      </ScrollView>
+      {!platformEnv.isNative ? (
+        <Stack
+          position="absolute"
+          left={0}
+          top={0}
+          bottom={0}
+          zIndex={1}
+          justifyContent="center"
+          pl="$1"
+          pr="$4"
+          opacity={showLeftArrow ? 1 : 0}
+          pointerEvents={showLeftArrow ? 'auto' : 'none'}
+          animation="quick"
+          animateOnly={['opacity']}
+          // Web-only: `background` and `linear-gradient` are CSS properties.
+          // This component only renders on web (WebBannerScroller).
+          style={{
+            background:
+              'linear-gradient(90deg, var(--bgApp) 40%, transparent 100%)',
+          }}
+        >
+          <IconButton
+            size="small"
+            icon="ChevronLeftOutline"
+            bg="$gray3"
+            hoverStyle={{
+              bg: '$gray4',
+            }}
+            pressStyle={{
+              bg: '$gray5',
+            }}
+            onPress={handleScrollLeft}
+          />
+        </Stack>
+      ) : null}
+      {!platformEnv.isNative ? (
+        <Stack
+          position="absolute"
+          right={0}
+          top={0}
+          bottom={0}
+          zIndex={1}
+          justifyContent="center"
+          pr="$1"
+          pl="$4"
+          opacity={showRightArrow ? 1 : 0}
+          pointerEvents={showRightArrow ? 'auto' : 'none'}
+          animation="quick"
+          animateOnly={['opacity']}
+          // Web-only: `background` and `linear-gradient` are CSS properties.
+          // This component only renders on web (WebBannerScroller).
+          style={{
+            background:
+              'linear-gradient(270deg, var(--bgApp) 40%, transparent 100%)',
+          }}
+        >
+          <IconButton
+            size="small"
+            icon="ChevronRightOutline"
+            onPress={handleScrollRight}
+            bg="$gray3"
+            hoverStyle={{
+              bg: '$gray4',
+            }}
+            pressStyle={{
+              bg: '$gray5',
+            }}
+          />
+        </Stack>
+      ) : null}
+    </YStack>
+  );
+}
 
 function WalletBanner() {
   const {
@@ -38,9 +428,6 @@ function WalletBanner() {
   const closedBannerInitRef = useRef(false);
 
   const bannersInitRef = useRef(false);
-
-  const { gtSm } = useMedia();
-  const themeVariant = useThemeVariant();
 
   const [{ banners }] = useWalletTopBannersAtom();
   const { updateWalletTopBanners } = useAccountOverviewActions().current;
@@ -112,16 +499,6 @@ function WalletBanner() {
     }
   }, []);
 
-  const { gtMd } = useMedia();
-
-  const handlePageChanged = useDebouncedCallback((index: number) => {
-    if (banners[index]) {
-      defaultLogger.wallet.walletBanner.walletBannerViewed({
-        bannerId: banners[index].id,
-      });
-    }
-  }, 180);
-
   const initLocalBanners = useCallback(async () => {
     const walletBannerRawData =
       await backgroundApiProxy.simpleDb.walletBanner.getRawData();
@@ -145,183 +522,22 @@ function WalletBanner() {
     return null;
   }
 
-  return (
-    <YStack py="$2.5" bg="$bgApp">
-      <Carousel
-        loop={false}
-        marginRatio={gtMd ? 0.28 : 0}
-        data={banners}
-        autoPlayInterval={3800}
-        maxPageWidth={840}
-        containerStyle={{
-          height: gtSm ? 98 : 90,
-        }}
-        paginationContainerStyle={{
-          marginBottom: 0,
-        }}
-        onPageChanged={handlePageChanged}
-        renderItem={({ item }: { item: IWalletBanner }) => {
-          return (
-            <YStack
-              px="$5"
-              pt="$0.5"
-              $platform-native={{
-                h: gtSm ? 82 : 73,
-              }}
-            >
-              <XStack
-                key={item.id}
-                flex={1}
-                gap="$4"
-                alignItems="center"
-                p="$4"
-                pr="$10"
-                bg="$bg"
-                $lg={{
-                  gap: '$3',
-                  py: '$3',
-                }}
-                borderRadius="$3"
-                $platform-native={{
-                  borderWidth: StyleSheet.hairlineWidth,
-                  borderColor: '$borderSubdued',
-                  borderCurve: 'continuous',
-                }}
-                $platform-android={{ elevation: 0.5 }}
-                $platform-ios={{
-                  shadowColor: '#000',
-                  shadowOffset: { width: 0, height: 0.5 },
-                  shadowOpacity: 0.2,
-                  shadowRadius: 0.5,
-                }}
-                $platform-web={{
-                  boxShadow:
-                    '0 8px 12px -4px rgba(0, 0, 0, 0.08), 0 0 2px 0 rgba(0, 0, 0, 0.10), 0 1px 2px 0 rgba(0, 0, 0, 0.10)',
-                  ...(themeVariant === 'dark' && {
-                    borderWidth: 1,
-                    borderColor: '$borderSubdued',
-                  }),
-                }}
-                hoverStyle={{
-                  bg: '$bgHover',
-                }}
-                pressStyle={{
-                  bg: '$bgActive',
-                }}
-                focusable
-                focusVisibleStyle={{
-                  outlineColor: '$focusRing',
-                  outlineWidth: 2,
-                  outlineStyle: 'solid',
-                  outlineOffset: -2,
-                }}
-                onPress={() => handleBannerOnPress(item)}
-              >
-                <Image
-                  size="$12"
-                  borderRadius="$1"
-                  borderCurve="continuous"
-                  source={{ uri: item.src }}
-                  fallback={
-                    <Image.Fallback
-                      w="100%"
-                      h="100%"
-                      borderRadius="$2.5"
-                      bg="$bgStrong"
-                      justifyContent="center"
-                      alignItems="center"
-                    >
-                      <Icon
-                        name="ImageSquareWavesOutline"
-                        color="$iconDisabled"
-                      />
-                    </Image.Fallback>
-                  }
-                />
-                {gtSm ? (
-                  <YStack gap="$0.5" flex={1}>
-                    <SizableText size="$bodyLgMedium" numberOfLines={2}>
-                      {item.title}
-                    </SizableText>
-                    {item.description ? (
-                      <SizableText
-                        size="$bodyMd"
-                        color="$textSubdued"
-                        numberOfLines={1}
-                      >
-                        {item.description}
-                      </SizableText>
-                    ) : null}
-                  </YStack>
-                ) : (
-                  <SizableText size="$bodyMdMedium" flex={1} numberOfLines={2}>
-                    {item.title}
-                    {item.description ? (
-                      <>
-                        <SizableText size="$bodyMd" color="$textSubdued">
-                          {' '}
-                          -{' '}
-                        </SizableText>
-                        <SizableText size="$bodyMd" color="$textSubdued">
-                          {item.description}
-                        </SizableText>
-                      </>
-                    ) : null}
-                  </SizableText>
-                )}
-
-                {/* <XStack
-                  gap="$5"
-                  alignItems="center"
-                  $lg={{
-                    display: 'none',
-                  }}
-                >
-                  {item.closeable ? (
-                    <Button
-                      size="small"
-                      variant="tertiary"
-                      onPress={() => handleDismiss(item)}
-                      pointerEvents="auto"
-                    >
-                      {intl.formatMessage({
-                        id: ETranslations.explore_dismiss,
-                      })}
-                    </Button>
-                  ) : null}
-                  <Button
-                    size="small"
-                    variant="primary"
-                    onPress={() => handleClick(item)}
-                    pointerEvents="auto"
-                  >
-                    {item.button ||
-                      intl.formatMessage({
-                        id: ETranslations.global_check_it_out,
-                      })}
-                  </Button>
-                </XStack> */}
-
-                {item.closeable ? (
-                  <IconButton
-                    position="absolute"
-                    top="$2.5"
-                    right="$2.5"
-                    size="small"
-                    variant="tertiary"
-                    onPress={(event: GestureResponderEvent) => {
-                      event.stopPropagation();
-                      void handleDismiss(item);
-                    }}
-                    icon="CrossedSmallOutline"
-                  />
-                ) : null}
-              </XStack>
-            </YStack>
-          );
-        }}
+  if (platformEnv.isNative) {
+    return (
+      <NativeBannerScroller
+        banners={banners}
+        handleBannerOnPress={handleBannerOnPress}
+        handleDismiss={handleDismiss}
       />
-    </YStack>
+    );
+  }
+
+  return (
+    <WebBannerScroller
+      banners={banners}
+      handleBannerOnPress={handleBannerOnPress}
+      handleDismiss={handleDismiss}
+    />
   );
 }
 

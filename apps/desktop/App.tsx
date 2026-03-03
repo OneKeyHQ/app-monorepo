@@ -8,6 +8,7 @@ import {
   initSentry,
   withSentryHOC,
 } from '@onekeyhq/shared/src/modules3rdParty/sentry';
+import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
 import { SentryErrorBoundaryFallback } from '@onekeyhq/kit/src/components/ErrorBoundary';
 import {
   ReanimatedLogLevel,
@@ -23,5 +24,15 @@ if (process.env.NODE_ENV !== 'production') {
   });
 }
 
-export default withSentryHOC(KitProvider, SentryErrorBoundaryFallback);
+const SentryKitProvider = withSentryHOC(
+  KitProvider,
+  SentryErrorBoundaryFallback,
+);
+
+export default function App(props: any) {
+  if (process.env.NODE_ENV !== 'production') {
+    debugLandingLog('App render');
+  }
+  return <SentryKitProvider {...props} />;
+}
 // export default KitProvider;
