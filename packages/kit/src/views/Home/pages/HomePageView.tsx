@@ -13,7 +13,6 @@ import {
   ScrollView,
   Stack,
   Tabs,
-  XStack,
   YStack,
   useScrollContentTabBarOffset,
   useTabContainerWidth,
@@ -37,6 +36,7 @@ import { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { EmptyAccount, EmptyWallet } from '../../../components/Empty';
 import { NetworkAlert } from '../../../components/NetworkAlert';
+import { RiskApprovalAlert } from '../../../components/RiskApprovalAlert';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { WebDappEmptyView } from '../../../components/WebDapp/WebDappEmptyView';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
@@ -52,7 +52,6 @@ import { HomeSupportedWallet } from '../components/HomeSupportedWallet';
 import { NotBackedUpEmpty } from '../components/NotBakcedUp';
 import { PullToRefresh, onHomePageRefresh } from '../components/PullToRefresh';
 
-import { ApprovalListContainerWithProvider } from './ApprovalListContainer';
 import { DeFiContainerWithProvider } from './DeFiContainer';
 import { HomeHeaderContainer } from './HomeHeaderContainer';
 import { NFTListContainerWithProvider } from './NFTListContainer';
@@ -366,45 +365,12 @@ export function HomePageView({
         }),
         component: <TxHistoryListContainerWithProvider />,
       },
-      isBulkRevokeApprovalEnabled
-        ? {
-            id: EHomeWalletTab.Approvals,
-            name: intl.formatMessage({
-              id: ETranslations.global_approval,
-            }),
-            component: <ApprovalListContainerWithProvider />,
-          }
-        : undefined,
     ].filter(Boolean);
-  }, [intl, isDeFiEnabled, isNFTEnabled, isBulkRevokeApprovalEnabled]);
+  }, [intl, isDeFiEnabled, isNFTEnabled]);
 
-  const tabConfigsRef = useRef(tabConfigs);
-  tabConfigsRef.current = tabConfigs;
-
-  const handleRenderItem = useCallback(
-    (props: ITabBarItemProps) => {
-      const tabId = tabConfigsRef.current.find(
-        (i) => i.name === props.name,
-      )?.id;
-      return (
-        <XStack position="relative">
-          <TabBarItem {...props} />
-          {tabId === EHomeWalletTab.Approvals && hasRiskApprovals ? (
-            <Stack
-              position="absolute"
-              right={8}
-              top={8}
-              w="$1.5"
-              h="$1.5"
-              bg="$iconCritical"
-              borderRadius="$full"
-            />
-          ) : null}
-        </XStack>
-      );
-    },
-    [hasRiskApprovals],
-  );
+  const handleRenderItem = useCallback((props: ITabBarItemProps) => {
+    return <TabBarItem {...props} />;
+  }, []);
 
   const renderToolbar = useCallback(
     ({ focusedTab }: { focusedTab: string }) => (
@@ -441,7 +407,7 @@ export function HomePageView({
     }
     const key = `${account?.id ?? ''}-${account?.indexedAccountId ?? ''}-${
       network?.id ?? ''
-    }-${isDeFiEnabled ? '1' : '0'}-${isNFTEnabled ? '1' : '0'}-${isBulkRevokeApprovalEnabled ? '1' : '0'}`;
+    }-${isDeFiEnabled ? '1' : '0'}-${isNFTEnabled ? '1' : '0'}`;
     return (
       <Tabs.Container
         ref={tabsRef as any}
@@ -466,7 +432,6 @@ export function HomePageView({
     tabContainerWidth,
     account?.id,
     account?.indexedAccountId,
-    isBulkRevokeApprovalEnabled,
     isDeFiEnabled,
     isNFTEnabled,
     isWalletNotBackedUp,
@@ -656,6 +621,7 @@ export function HomePageView({
               <TabPageHeader sceneName={sceneName} tabRoute={ETabRoutes.Home} />
             )}
             <NetworkAlert />
+            <RiskApprovalAlert />
             {content}
             {platformEnv.isNative ? (
               <YStack
