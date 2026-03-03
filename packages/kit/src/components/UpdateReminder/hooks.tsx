@@ -78,7 +78,8 @@ function buildSoftwareUpdateParams(
     toVersion: isBundle
       ? (appUpdateInfo.jsBundleVersion ?? '')
       : (appUpdateInfo.latestVersion ?? ''),
-    updateStrategy: updateStrategyMap[appUpdateInfo.updateStrategy] ?? 'unknown',
+    updateStrategy:
+      updateStrategyMap[appUpdateInfo.updateStrategy] ?? 'unknown',
     platform: getUpdatePlatform(),
   };
 }
@@ -357,7 +358,11 @@ export const useDownloadPackage = () => {
     } catch (e) {
       defaultLogger.app.appUpdate.endVerifyPackage(false, e as Error);
       defaultLogger.app.appUpdate.softwareUpdateResult({
-        ...buildSoftwareUpdateParams(fileType, appUpdateInfo, currentUpdateAttemptId),
+        ...buildSoftwareUpdateParams(
+          fileType,
+          appUpdateInfo,
+          currentUpdateAttemptId,
+        ),
         status: 'failed',
         failedStep: 'verifyPackage',
         errorMessage: (e as Error)?.message,
@@ -390,7 +395,11 @@ export const useDownloadPackage = () => {
         await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
       defaultLogger.app.appUpdate.endVerifyASC(false, e as Error);
       defaultLogger.app.appUpdate.softwareUpdateResult({
-        ...buildSoftwareUpdateParams(fileType, appUpdateInfo, currentUpdateAttemptId),
+        ...buildSoftwareUpdateParams(
+          fileType,
+          appUpdateInfo,
+          currentUpdateAttemptId,
+        ),
         status: 'failed',
         failedStep: 'verifyASC',
         errorMessage: (e as Error)?.message,
@@ -423,7 +432,11 @@ export const useDownloadPackage = () => {
         await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
       defaultLogger.app.appUpdate.endDownloadASC(false, e as Error);
       defaultLogger.app.appUpdate.softwareUpdateResult({
-        ...buildSoftwareUpdateParams(fileType, appUpdateInfo, currentUpdateAttemptId),
+        ...buildSoftwareUpdateParams(
+          fileType,
+          appUpdateInfo,
+          currentUpdateAttemptId,
+        ),
         status: 'failed',
         failedStep: 'downloadASC',
         errorMessage: (e as Error)?.message,
@@ -436,7 +449,11 @@ export const useDownloadPackage = () => {
     const fileType = await getFileTypeFromUpdateInfo();
     const params = await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
     currentUpdateAttemptId = generateUUID();
-    const softwareUpdateParams = buildSoftwareUpdateParams(fileType, params, currentUpdateAttemptId);
+    const softwareUpdateParams = buildSoftwareUpdateParams(
+      fileType,
+      params,
+      currentUpdateAttemptId,
+    );
     defaultLogger.app.appUpdate.softwareUpdateStarted(softwareUpdateParams);
     defaultLogger.app.appUpdate.startCheckForUpdates(
       fileType,

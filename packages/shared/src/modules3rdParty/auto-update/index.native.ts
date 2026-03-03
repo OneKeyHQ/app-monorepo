@@ -26,8 +26,7 @@ import type {
 // dependencyConfiguration: 'prodImplementation' in react-native.config.js.
 // Use lazy require() to avoid crash when the module is not linked.
 const isAppUpdateAvailable =
-  !platformEnv.isNativeAndroidGooglePlay &&
-  !platformEnv.isNativeAndroidHuawei;
+  !platformEnv.isNativeAndroidGooglePlay && !platformEnv.isNativeAndroidHuawei;
 
 // Local interface matching the Nitro HybridObject shape, avoids name collision
 // between the value export and the type re-export from the package.
@@ -177,10 +176,7 @@ export const useDownloadProgress: IUseDownloadProgress = () => {
       });
 
     return () => {
-      if (
-        isAppUpdateAvailable &&
-        appUpdateListenerId.current !== null
-      ) {
+      if (isAppUpdateAvailable && appUpdateListenerId.current !== null) {
         getReactNativeAppUpdate().removeDownloadListener(
           appUpdateListenerId.current,
         );
