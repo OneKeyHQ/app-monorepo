@@ -9458,7 +9458,6 @@ __metadata:
     react-native-crypto: "npm:^2.2.0"
     react-native-dns-lookup: "npm:1.0.6"
     react-native-fast-pbkdf2: "npm:^0.3.1"
-    react-native-file-logger: "npm:0.7.2"
     react-native-fs: "npm:@dr.pogodin/react-native-fs@2.34.0"
     react-native-gesture-handler: "npm:2.30.0"
     react-native-get-random-values: "npm:@onekeyfe/react-native-get-random-values@1.1.21"
@@ -39740,18 +39739,6 @@ __metadata:
     react: "*"
     react-native: "*"
   checksum: 10/ff78dc47785710d802fd8e0d374dffeb282b5362baed747046d96480d578938e82fe82e903cdccf0ed3fdd9ab4d01d65fcc3a95211c903ce97f1b2fb344a56a9
-  languageName: node
-  linkType: hard
-
-"react-native-file-logger@npm:0.7.2":
-  version: 0.7.2
-  resolution: "react-native-file-logger@npm:0.7.2"
-  dependencies:
-    util: "npm:^0.12.5"
-  peerDependencies:
-    react: ">=16.0.0"
-    react-native: ">=0.60.0"
-  checksum: 10/7630114bdac7004f4837f8cc9387bd756da167890156771d7d7309927e6b62427771082644262af974d97933f4cf2df1a4afe21ec6f62ecc9fd8e39a98cbbb9c
   languageName: node
   linkType: hard
 
