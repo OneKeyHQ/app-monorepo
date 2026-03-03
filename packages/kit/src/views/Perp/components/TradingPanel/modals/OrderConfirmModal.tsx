@@ -156,6 +156,9 @@ function OrderConfirmContent({
     if (!Number.isFinite(Number(savedFeeStr)) || Number(savedFeeStr) <= 0) {
       return undefined;
     }
+    if (!Number.isFinite(Number(savedFeeStr)) || Number(savedFeeStr) <= 0) {
+      return undefined;
+    }
     }
     return numberFormat(savedFeeStr, {
       formatter: 'value',
