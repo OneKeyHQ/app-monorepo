@@ -246,7 +246,7 @@ export function HomePageView({
 
     // Keep the red-dot state from becoming stale across account/network switches.
     if (hasRiskApprovalsRef.current) {
-      updateApprovalsInfo({ hasRiskApprovals: false });
+      updateApprovalsInfo({ hasRiskApprovals: false, riskApprovalsCount: 0 });
     }
 
     const run = async (_trigger: string) => {
