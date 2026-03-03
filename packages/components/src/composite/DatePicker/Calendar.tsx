@@ -19,6 +19,7 @@ interface ICalendarProps {
   onMonthSelect?: (date: Date) => void;
   minDate?: Date;
   maxDate?: Date;
+  showPreviousMonth?: boolean;
 }
 
 export const Calendar = memo(
@@ -28,6 +29,7 @@ export const Calendar = memo(
     onMonthSelect,
     minDate,
     maxDate,
+    showPreviousMonth,
   }: ICalendarProps) => {
     const { data, propGetters } = useDatePickerContext();
     const { calendars } = data;
@@ -64,17 +66,23 @@ export const Calendar = memo(
     const panelProps = { mode, onYearSelect, onMonthSelect, minDate, maxDate };
 
     if (isDualPanelRange) {
+      // When showPreviousMonth is true, offsets=[-1] generates:
+      //   calendars[0]=current month, calendars[1]=previous month
+      // Swap panel order so left=previous month, right=current month
+      const leftIndex = showPreviousMonth ? 1 : 0;
+      const rightIndex = showPreviousMonth ? 0 : 1;
+
       return (
         <Stack flexDirection="row" gap="$6">
           <CalendarPanel
-            calendarIndex={0}
+            calendarIndex={leftIndex}
             showNav="prev"
             isDualPanel
             {...panelProps}
           />
           <Stack width={1} bg="$neutral3" alignSelf="stretch" />
           <CalendarPanel
-            calendarIndex={1}
+            calendarIndex={rightIndex}
             showNav="next"
             isDualPanel
             {...panelProps}
