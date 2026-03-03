@@ -716,6 +716,10 @@ export function NormalManageContent({
           borrowMarketAddress={marketAddress}
           borrowReserveAddress={reserveAddress}
           borrowAction={borrowActionSecondary}
+          borrowReserves={borrowReserves}
+          defaultCollateralReserveAddress={
+            managePageData?.collateral?.data?.reserveAddress
+          }
           borrowActionLabel={borrowActionLabelSecondary}
           receiveInputConfig={withdrawReceiveInputConfig}
           pendleSlippage={pendleSlippageValue}
