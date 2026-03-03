@@ -195,7 +195,7 @@ function ApprovalListPageContent() {
       supported = networksSupportBulkRevokeApproval[networkId] ?? false;
     }
 
-    if (supported) {
+    if (supported && accountId) {
       approvalListActions.current.updateApprovalListState({
         isRefreshing: true,
       });
