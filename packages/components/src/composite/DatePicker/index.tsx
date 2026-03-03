@@ -1,13 +1,15 @@
-import { DatePickerProvider } from '@rehookify/datepicker';
 import { useCallback, useMemo, useState } from 'react';
+import type { ReactElement } from 'react';
+
+import { DatePickerProvider } from '@rehookify/datepicker';
 import { useIntl } from 'react-intl';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { withStaticProperties } from '../../shared/tamagui';
 
-import { useMedia } from '../../hooks';
 import { Popover } from '../../actions/Popover';
+import { useMedia } from '../../hooks';
 import { XStack, YStack } from '../../primitives';
+import { withStaticProperties } from '../../shared/tamagui';
 
 import { Calendar } from './Calendar';
 import { DatePickerTrigger } from './DatePickerTrigger';
@@ -25,7 +27,6 @@ import type {
   IRangePickerProps,
   IYearPickerProps,
 } from './type';
-import type { ReactElement } from 'react';
 
 const WEEK_START_MONDAY = 1 as const;
 
