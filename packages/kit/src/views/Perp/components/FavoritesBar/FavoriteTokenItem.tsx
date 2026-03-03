@@ -18,6 +18,10 @@ import perpsUtils, {
   getHyperliquidTokenImageUrl,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 
+export const TABULAR_NUMS_STYLE = {
+  fontVariantNumeric: 'tabular-nums',
+} as const;
+
 interface IFavoriteTokenItemProps {
   displayName: string;
   coinName: string;
@@ -57,7 +61,7 @@ const CtxPriceDisplay = memo(
         <NumberSizeableText
           size="$bodySmMedium"
           color={color}
-          style={{ fontVariantNumeric: 'tabular-nums' }}
+          style={TABULAR_NUMS_STYLE}
           formatter="priceChange"
           formatterOptions={{ showPlusMinusSigns: true }}
         >
@@ -70,7 +74,7 @@ const CtxPriceDisplay = memo(
       <SizableText
         size="$bodySmMedium"
         color={color}
-        style={{ fontVariantNumeric: 'tabular-nums' }}
+        style={TABULAR_NUMS_STYLE}
       >
         {priceDisplay}
       </SizableText>
@@ -110,7 +114,7 @@ const ActiveAssetPriceDisplay = memo(
         <NumberSizeableText
           size="$bodySmMedium"
           color={color}
-          style={{ fontVariantNumeric: 'tabular-nums' }}
+          style={TABULAR_NUMS_STYLE}
           formatter="priceChange"
           formatterOptions={{ showPlusMinusSigns: true }}
         >
@@ -123,7 +127,7 @@ const ActiveAssetPriceDisplay = memo(
       <SizableText
         size="$bodySmMedium"
         color={color}
-        style={{ fontVariantNumeric: 'tabular-nums' }}
+        style={TABULAR_NUMS_STYLE}
       >
         {priceDisplay}
       </SizableText>
@@ -131,6 +135,34 @@ const ActiveAssetPriceDisplay = memo(
   },
 );
 ActiveAssetPriceDisplay.displayName = 'ActiveAssetPriceDisplay';
+
+// Shared price display: change% (colored) + price (subdued)
+export const PriceChangeDisplay = memo(
+  ({ change, markPrice }: { change: number; markPrice?: string }) => {
+    const color = change >= 0 ? '$textSuccess' : '$textCritical';
+    const sign = change >= 0 ? '+' : '';
+    const price = markPrice ? formatPriceToSignificantDigits(markPrice) : '-';
+    return (
+      <>
+        <SizableText
+          size="$bodySmMedium"
+          color={color}
+          style={TABULAR_NUMS_STYLE}
+        >
+          {`${sign}${change.toFixed(2)}%`}
+        </SizableText>
+        <SizableText
+          size="$bodySmMedium"
+          color="$textSubdued"
+          style={TABULAR_NUMS_STYLE}
+        >
+          {price}
+        </SizableText>
+      </>
+    );
+  },
+);
+PriceChangeDisplay.displayName = 'PriceChangeDisplay';
 
 function FavoriteTokenItem({
   displayName,
