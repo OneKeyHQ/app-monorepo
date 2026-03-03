@@ -8,8 +8,6 @@ import { ReactNativeBundleUpdate } from '@onekeyfe/react-native-bundle-update';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
-import RNFS from '../react-native-fs';
-
 import type {
   IAppUpdate,
   IBundleUpdate,
@@ -23,70 +21,55 @@ import type {
   IVerifyPackage,
 } from './type';
 
-const DIR_PATH = `file://${RNFS?.CachesDirectoryPath || ''}/apk`;
-const buildFilePath = (version: string) => `${DIR_PATH}/${version}.apk`;
-
 const clearPackage: IClearPackage = async () => {
   await ReactNativeAppUpdate.clearCache();
-  if (!RNFS) {
-    return;
-  }
-  const isExist = await RNFS.exists(DIR_PATH);
-  if (isExist) {
-    await RNFS.unlink(DIR_PATH);
-  }
 };
 
 const downloadPackage: IDownloadPackage = async ({
   downloadUrl,
   latestVersion,
+  fileSize,
 }) => {
-  await RNFS?.mkdir(DIR_PATH);
   if (!downloadUrl || !latestVersion) {
     throw new OneKeyLocalError('Invalid version or downloadUrl');
   }
-  const filePath = buildFilePath(latestVersion);
   await ReactNativeAppUpdate.downloadAPK({
     downloadUrl,
-    filePath,
     notificationTitle: 'Downloading',
-    fileSize: 0,
+    fileSize: fileSize || 0,
   });
   return {
-    downloadedFile: filePath,
+    downloadedFile: downloadUrl,
   };
 };
 
 const downloadASC: IDownloadASC = async (params) => {
-  const { downloadUrl, latestVersion } = params || {};
-  if (!downloadUrl || !latestVersion) {
+  const { downloadUrl } = params || {};
+  if (!downloadUrl) {
     return;
   }
   await ReactNativeAppUpdate.downloadASC({
     downloadUrl,
-    filePath: buildFilePath(latestVersion),
   });
 };
 
 const verifyASC: IVerifyASC = async (params) => {
-  const { downloadUrl, latestVersion } = params || {};
-  if (!downloadUrl || !latestVersion) {
+  const { downloadUrl } = params || {};
+  if (!downloadUrl) {
     return;
   }
   await ReactNativeAppUpdate.verifyASC({
     downloadUrl,
-    filePath: buildFilePath(latestVersion),
   });
 };
 
 const verifyPackage: IVerifyPackage = async (params) => {
-  const { downloadedFile, downloadUrl } = params || {};
-  if (!downloadedFile || !downloadUrl) {
+  const { downloadUrl } = params || {};
+  if (!downloadUrl) {
     return;
   }
   await ReactNativeAppUpdate.verifyAPK({
-    filePath: downloadedFile || '',
-    downloadUrl: downloadUrl || '',
+    downloadUrl,
   });
 };
 
@@ -99,7 +82,6 @@ const installPackage: IInstallPackage = async ({
     return;
   }
   return ReactNativeAppUpdate.installAPK({
-    filePath: buildFilePath(latestVersion),
     downloadUrl: downloadUrl || '',
   });
 };
@@ -178,52 +160,50 @@ export const AppUpdate: IAppUpdate = {
 };
 
 export const BundleUpdate: IBundleUpdate = {
-  downloadBundle: (params) => {
-    const DOWNLOAD_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
-    return new Promise((resolve, reject) => {
-      ReactNativeBundleUpdate.downloadBundle(params)
-        .then((result) => {
-          let onListenerId: number | null = null;
-          let settled = false;
-          const timeoutId = setTimeout(() => {
-            if (!settled) {
-              settled = true;
-              removeListener();
-              reject(new Error('Bundle download timed out'));
-            }
-          }, DOWNLOAD_TIMEOUT_MS);
-          const removeListener = () => {
-            clearTimeout(timeoutId);
-            if (onListenerId !== null) {
-              ReactNativeBundleUpdate.removeDownloadListener(onListenerId);
-            }
-          };
-          const onSuccess = () => {
-            resolve(result);
-            removeSubscriptions();
-          };
-          const onError = (error: string) => {
-            reject(new Error(error));
-            removeSubscriptions();
-          };
-          onSuccessSubscription = BundleUpdateEventEmitter?.addListener(
-            DOWNLOAD_EVENT_TYPE.error,
-            onError,
-          );
-          onErrorSubscription = BundleUpdateEventEmitter?.addListener(
-            DOWNLOAD_EVENT_TYPE.complete,
-            onSuccess,
-          );
-        })
-        .catch(reject);
+  downloadBundle: async (params) => {
+    const result = await ReactNativeBundleUpdate.downloadBundle({
+      downloadUrl: params.downloadUrl || '',
+      latestVersion: params.latestVersion || '',
+      bundleVersion: params.bundleVersion || '',
+      fileSize: params.fileSize || 0,
+      sha256: params.sha256 || '',
     });
+    return {
+      ...params,
+      downloadedFile: result.downloadedFile,
+    };
   },
-  verifyBundle: (params) => ReactNativeBundleUpdate.verifyBundle(params),
-  verifyBundleASC: (params) => ReactNativeBundleUpdate.verifyBundleASC(params),
+  verifyBundle: (params) =>
+    ReactNativeBundleUpdate.verifyBundle({
+      downloadedFile: params?.downloadedFile || '',
+      sha256: params?.sha256 || '',
+      latestVersion: params?.latestVersion || '',
+      bundleVersion: params?.bundleVersion || '',
+    }),
+  verifyBundleASC: (params) =>
+    ReactNativeBundleUpdate.verifyBundleASC({
+      downloadedFile: params?.downloadedFile || '',
+      sha256: params?.sha256 || '',
+      latestVersion: params?.latestVersion || '',
+      bundleVersion: params?.bundleVersion || '',
+      signature: params?.signature || '',
+    }),
   downloadBundleASC: (params) =>
-    ReactNativeBundleUpdate.downloadBundleASC(params),
+    ReactNativeBundleUpdate.downloadBundleASC({
+      downloadUrl: params?.downloadUrl || '',
+      downloadedFile: params?.downloadedFile || '',
+      signature: params?.signature || '',
+      latestVersion: params?.latestVersion || '',
+      bundleVersion: params?.bundleVersion || '',
+      sha256: params?.sha256 || '',
+    }),
   installBundle: async (params) => {
-    await ReactNativeBundleUpdate.installBundle(params);
+    await ReactNativeBundleUpdate.installBundle({
+      downloadedFile: params?.downloadedFile || '',
+      latestVersion: params?.latestVersion || '',
+      bundleVersion: params?.bundleVersion || '',
+      signature: params?.signature || '',
+    });
     defaultLogger.app.appUpdate.restartRNApp();
     setTimeout(() => {
       RNRestart.restart();
