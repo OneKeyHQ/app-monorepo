@@ -9,13 +9,17 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { TokenList } from '@onekeyhq/kit/src/views/FiatCrypto/components/TokenList';
 import { useGetTokensList } from '@onekeyhq/kit/src/views/FiatCrypto/hooks';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EModalFiatCryptoRoutes,
   IModalFiatCryptoParamList,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import {
+  openUrlExternal,
+  openUrlInDiscovery,
+} from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type {
   IFiatCryptoToken,
   IFiatCryptoType,
@@ -104,8 +108,12 @@ export const SellOrBuyContent = memo(
             accountId: realAccountId,
             type,
           });
-        openUrlExternal(url);
-        appNavigation.popStack();
+        if (platformEnv.isDesktop || platformEnv.isNative) {
+          openUrlInDiscovery({ url });
+        } else {
+          openUrlExternal(url);
+          appNavigation.popStack();
+        }
       },
       [appNavigation, type],
     );

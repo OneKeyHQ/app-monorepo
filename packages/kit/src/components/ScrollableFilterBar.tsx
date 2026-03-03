@@ -13,6 +13,7 @@ import type { ReactNode } from 'react';
 import { ScrollView } from 'react-native';
 
 import { GradientMask, Stack, XStack, useStyle } from '@onekeyhq/components';
+import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 
 import type {
   LayoutChangeEvent,
@@ -40,8 +41,7 @@ const ScrollableFilterBarContext =
 function useScrollableFilterBar() {
   const ctx = useContext(ScrollableFilterBarContext);
   if (!ctx) {
-    // eslint-disable-next-line no-restricted-syntax
-    throw new Error(
+    throw new OneKeyInternalError(
       'useScrollableFilterBar must be used within <ScrollableFilterBar>',
     );
   }

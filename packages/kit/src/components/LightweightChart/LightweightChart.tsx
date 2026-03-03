@@ -19,6 +19,9 @@ export function LightweightChart({
   lineColor,
   topColor,
   bottomColor,
+  secondaryLineData,
+  secondaryLineColor,
+  secondaryLineWidth,
   lineWidth,
   showPriceScale,
   showHorzGridLines,
@@ -27,12 +30,16 @@ export function LightweightChart({
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<'Area'> | null>(null);
+  const secondarySeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
 
   const chartConfig = useChartConfig({
     data,
     lineColor,
     topColor,
     bottomColor,
+    secondaryLineData,
+    secondaryLineColor,
+    secondaryLineWidth,
     lineWidth,
     showPriceScale,
     showHorzGridLines,
@@ -69,7 +76,27 @@ export function LightweightChart({
     const series = chart.addAreaSeries(
       createAreaSeriesOptions(chartConfig.theme, chartConfig.lineWidth),
     );
-    series.setData(chartConfig.data as any);
+    series.setData(chartConfig.data);
+
+    if (
+      Array.isArray(chartConfig.secondaryLineData) &&
+      chartConfig.secondaryLineData.length > 0
+    ) {
+      const normalizedSecondaryLineWidth = Math.min(
+        4,
+        Math.max(1, Math.round(chartConfig.secondaryLineWidth ?? 2)),
+      ) as 1 | 2 | 3 | 4;
+      const secondarySeries = chart.addLineSeries({
+        color: chartConfig.secondaryLineColor ?? '#0177E5',
+        lineWidth: normalizedSecondaryLineWidth,
+        priceLineVisible: false,
+        lastValueVisible: false,
+        crosshairMarkerVisible: false,
+      });
+      secondarySeries.setData(chartConfig.secondaryLineData);
+      secondarySeriesRef.current = secondarySeries;
+    }
+
     chart.timeScale().fitContent();
 
     chartRef.current = chart;
@@ -86,12 +113,23 @@ export function LightweightChart({
         ) {
           const price = param.seriesPrices.get(series);
           if (price !== undefined) {
+            const rawSecondary = secondarySeriesRef.current
+              ? param.seriesPrices.get(secondarySeriesRef.current)
+              : undefined;
+            let secondaryPrice: number | undefined;
+            if (rawSecondary !== undefined) {
+              secondaryPrice =
+                typeof rawSecondary === 'number'
+                  ? rawSecondary
+                  : Number(rawSecondary);
+            }
             onHover({
               time:
                 typeof param.time === 'number'
                   ? param.time
                   : Number(param.time),
               price: typeof price === 'number' ? price : Number(price),
+              secondaryPrice,
               x: param.point.x,
               y: param.point.y,
             });
@@ -100,6 +138,7 @@ export function LightweightChart({
           onHover({
             time: undefined,
             price: undefined,
+            secondaryPrice: undefined,
             x: undefined,
             y: undefined,
           });
@@ -124,6 +163,7 @@ export function LightweightChart({
       // CRITICAL: Clear all refs to release memory
       chartRef.current = null;
       seriesRef.current = null;
+      secondarySeriesRef.current = null;
     };
   }, [chartConfig, height, onHover]);
 

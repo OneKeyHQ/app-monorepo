@@ -34,6 +34,7 @@ import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import {
   EEarnLabels,
+  type IEarnActionIcon,
   type IEarnPortfolioAirdropAsset,
   type IEarnPortfolioInvestment,
   type IEarnText,
@@ -58,6 +59,55 @@ import type { IStakePendingTx } from '../hooks/useStakingPendingTxs';
 const useIsDesktopLayout = () => {
   const media = useMedia();
   return !platformEnv.isNative && media.gtSm;
+};
+
+type IPortfolioAssetStatusItem =
+  IEarnPortfolioInvestment['assets'][number]['assetsStatus'][number];
+type IPortfolioActionableAssetStatusItem = Omit<
+  IPortfolioAssetStatusItem,
+  'button'
+> & {
+  button: IEarnActionIcon;
+};
+type IWrappedActionReward =
+  | IEarnPortfolioInvestment['assets'][number]['rewardAssets'][number]
+  | IEarnPortfolioInvestment['airdropAssets'][number]['airdropAssets'][number]
+  | IPortfolioActionableAssetStatusItem;
+type IWrappedActionButton = IWrappedActionReward['button'];
+
+const toActionableAssetStatusItem = (
+  status: IPortfolioAssetStatusItem,
+): IPortfolioActionableAssetStatusItem | undefined => {
+  if (!status.button) {
+    return undefined;
+  }
+
+  return {
+    ...status,
+    button: status.button,
+  };
+};
+
+const getRewardButtonToken = (button: IWrappedActionButton) => {
+  if (!('data' in button) || !button.data || !('token' in button.data)) {
+    return undefined;
+  }
+
+  return button.data.token;
+};
+
+const getRewardButtonDisabled = (button: IWrappedActionButton) => {
+  return 'disabled' in button ? button.disabled : undefined;
+};
+
+const getRewardButtonText = (
+  button: IWrappedActionButton,
+): IEarnText | undefined => {
+  if (!('text' in button) || !button.text) {
+    return undefined;
+  }
+
+  return typeof button.text === 'string' ? { text: button.text } : button.text;
 };
 
 type IPortfolioPendingTxsContext = {
@@ -92,9 +142,7 @@ const WrappedActionButtonCmp = ({
   asset:
     | IEarnPortfolioInvestment['assets'][number]
     | IEarnPortfolioInvestment['airdropAssets'][number];
-  reward:
-    | IEarnPortfolioInvestment['assets'][number]['rewardAssets'][number]
-    | IEarnPortfolioInvestment['airdropAssets'][number]['airdropAssets'][number];
+  reward: IWrappedActionReward;
   stakedSymbol?: string;
   rewardSymbol?: string;
   stakedVault?: string;
@@ -164,8 +212,6 @@ const WrappedActionButtonCmp = ({
   });
 
   const onPress = useCallback(() => {
-    const buttonData = 'data' in reward.button ? reward.button.data : undefined;
-
     // For airdrop assets, also pass the reward token address from asset.token.info.address
     const rewardTokenAddress =
       'token' in asset &&
@@ -176,7 +222,7 @@ const WrappedActionButtonCmp = ({
 
     handleAction({
       actionIcon: reward.button,
-      token: buttonData?.token,
+      token: getRewardButtonToken(reward.button),
       rewardTokenAddress,
       indexedAccountId: indexedAccount?.id,
       stakedSymbol,
@@ -190,8 +236,14 @@ const WrappedActionButtonCmp = ({
     stakedSymbol,
     rewardSymbol,
   ]);
-
   const isDesktopLayout = useIsDesktopLayout();
+
+  const buttonDisabled = getRewardButtonDisabled(reward.button);
+  const buttonText = getRewardButtonText(reward.button);
+
+  if (!buttonText) {
+    return null;
+  }
   if (!isDesktopLayout) {
     return (
       <Button
@@ -199,14 +251,11 @@ const WrappedActionButtonCmp = ({
         variant="secondary"
         size="small"
         loading={loading || isPending}
-        disabled={loading || reward?.button?.disabled}
-        cursor={reward?.button?.disabled ? 'not-allowed' : 'pointer'}
+        disabled={loading || buttonDisabled}
+        cursor={buttonDisabled ? 'not-allowed' : 'pointer'}
         onPress={onPress}
       >
-        <EarnText
-          size="$bodyMdMedium"
-          text={reward?.button?.text as IEarnText}
-        />
+        <EarnText size="$bodyMdMedium" text={buttonText} />
       </Button>
     );
   }
@@ -218,15 +267,11 @@ const WrappedActionButtonCmp = ({
       variant="link"
       size="small"
       loading={loading || isPending}
-      disabled={loading || reward?.button?.disabled}
-      cursor={reward?.button?.disabled ? 'not-allowed' : 'pointer'}
+      disabled={loading || buttonDisabled}
+      cursor={buttonDisabled ? 'not-allowed' : 'pointer'}
       onPress={onPress}
     >
-      <EarnText
-        size="$bodyMdMedium"
-        color="$textInfo"
-        text={reward?.button?.text as IEarnText}
-      />
+      <EarnText size="$bodyMdMedium" color="$textInfo" text={buttonText} />
     </Button>
   );
 };
@@ -278,7 +323,7 @@ const DepositField = ({
         <XStack gap="$1" maxWidth={200} flexWrap="wrap">
           <EarnText size="$bodyMdMedium" text={asset.deposit?.title} />
           <EarnText
-            size="$bodyMdMedium"
+            size="$bodySm"
             color="$textSubdued"
             text={asset.deposit?.description}
           />
@@ -336,19 +381,32 @@ const AssetStatusField = ({
 
   return (
     <FieldWrapper asset={asset}>
-      {asset.assetsStatus?.map((status, index) => (
-        <XStack key={index} ai="center" maxWidth={200} flexWrap="wrap" gap="$2">
-          <EarnText size="$bodyMdMedium" text={status.title} />
-          <XStack gap="$2">
-            <EarnText
-              size="$bodyMd"
-              color="$textSubdued"
-              text={status.description}
-            />
-            <EarnTooltip tooltip={status.tooltip} />
+      {asset.assetsStatus?.map((status, index) => {
+        const actionableStatus = toActionableAssetStatusItem(status);
+
+        return (
+          <XStack
+            key={index}
+            ai="center"
+            maxWidth={200}
+            flexWrap="wrap"
+            gap="$2"
+          >
+            <EarnText size="$bodyMdMedium" text={status.title} />
+            <XStack gap="$2">
+              <EarnText
+                size="$bodyMd"
+                color="$textSubdued"
+                text={status.description}
+              />
+              <EarnTooltip tooltip={status.tooltip} />
+            </XStack>
+            {actionableStatus ? (
+              <WrappedActionButton asset={asset} reward={actionableStatus} />
+            ) : null}
           </XStack>
-        </XStack>
-      ))}
+        );
+      })}
     </FieldWrapper>
   );
 };
@@ -398,6 +456,19 @@ const ActionField = ({
         </Stack>
       ))}
     </FieldWrapper>
+  );
+};
+
+const PositionValueField = ({ totalFiatValue }: { totalFiatValue: string }) => {
+  const currencyInfo = useCurrency();
+  return (
+    <NumberSizeableText
+      size="$bodyMdMedium"
+      formatter="value"
+      formatterOptions={{ currency: currencyInfo.symbol }}
+    >
+      {totalFiatValue}
+    </NumberSizeableText>
   );
 };
 
@@ -630,6 +701,23 @@ const PortfolioItemComponent = ({
     return intl.formatMessage({ id: ETranslations.earn_deposited });
   }, [firstAsset, intl]);
 
+  const isPendle = useMemo(
+    () =>
+      earnUtils.isPendleProvider({
+        providerName: portfolioItem.protocol?.providerDetail?.code ?? '',
+      }),
+    [portfolioItem.protocol?.providerDetail?.code],
+  );
+  const earningsColumnLabel = useMemo(
+    () =>
+      intl.formatMessage({
+        id: isPendle
+          ? ETranslations.defi_net_pnl_title
+          : ETranslations.earn_24h_earnings,
+      }),
+    [intl, isPendle],
+  );
+
   const columns: ITableColumn<IEarnPortfolioInvestment['assets'][number]>[] =
     useMemo(() => {
       return [
@@ -638,36 +726,79 @@ const PortfolioItemComponent = ({
           label: depositColumnLabel,
           flex: 1.5,
           priority: 5,
-          render: (asset) => <DepositField asset={asset} />,
+          render: (asset: IEarnPortfolioInvestment['assets'][number]) => (
+            <DepositField asset={asset} />
+          ),
         },
         {
           key: 'Est. 24h earnings',
-          label: intl.formatMessage({ id: ETranslations.earn_24h_earnings }),
+          label: earningsColumnLabel,
           flex: 1,
           priority: 1,
-          render: (asset) => <EarningsField asset={asset} />,
+          render: (asset: IEarnPortfolioInvestment['assets'][number]) => (
+            <EarningsField asset={asset} />
+          ),
         },
         {
           key: 'Asset status',
           label: intl.formatMessage({ id: ETranslations.earn_asset_status }),
           flex: 1,
           priority: 3,
-          render: (asset) => <AssetStatusField asset={asset} />,
+          render: (asset: IEarnPortfolioInvestment['assets'][number]) => (
+            <AssetStatusField asset={asset} />
+          ),
         },
-        {
-          key: 'Claimable',
-          label: intl.formatMessage({ id: ETranslations.earn_claimable }),
-          flex: 1,
-          priority: 3,
-          render: (asset) => <ActionField asset={asset} />,
-        },
+        isPendle
+          ? {
+              key: 'Position value',
+              label: intl.formatMessage({
+                id: ETranslations.defi_position_value,
+              }),
+              flex: 1,
+              priority: 3,
+              render: (asset: IEarnPortfolioInvestment['assets'][number]) => (
+                <PositionValueField
+                  totalFiatValue={
+                    asset.metadata.fiatValue ?? portfolioItem.totalFiatValue
+                  }
+                />
+              ),
+            }
+          : {
+              key: 'Claimable',
+              label: intl.formatMessage({ id: ETranslations.earn_claimable }),
+              flex: 1,
+              priority: 3,
+              render: (asset: IEarnPortfolioInvestment['assets'][number]) => (
+                <ActionField asset={asset} />
+              ),
+            },
       ];
-    }, [depositColumnLabel, intl]);
+    }, [
+      depositColumnLabel,
+      earningsColumnLabel,
+      intl,
+      isPendle,
+      portfolioItem.totalFiatValue,
+    ]);
 
   const appNavigation = useAppNavigation();
 
+  const isAssetNavigationDisabled = useCallback(
+    (asset: IEarnPortfolioInvestment['assets'][number]) =>
+      earnUtils.isPendleProvider({
+        providerName: asset.metadata.protocol.providerDetail.code,
+      }) &&
+      asset.metadata.protocol.symbol === 'USDe' &&
+      (!asset.buttons || asset.buttons.length === 0),
+    [],
+  );
+
   const handleRowPress = useCallback(
     async (asset: IEarnPortfolioInvestment['assets'][number]) => {
+      if (isAssetNavigationDisabled(asset)) {
+        return;
+      }
       await EarnNavigation.pushToEarnProtocolDetails(appNavigation, {
         networkId: asset.metadata.network.networkId,
         symbol: asset.token.info.symbol,
@@ -675,11 +806,14 @@ const PortfolioItemComponent = ({
         vault: asset.metadata.protocol.vault,
       });
     },
-    [appNavigation],
+    [appNavigation, isAssetNavigationDisabled],
   );
 
   const handleManagePress = useCallback(
     async (asset: IEarnPortfolioInvestment['assets'][number]) => {
+      if (isAssetNavigationDisabled(asset)) {
+        return;
+      }
       const symbol = asset.token.info.symbol;
 
       appNavigation.pushModal(EModalRoutes.StakingModal, {
@@ -693,7 +827,7 @@ const PortfolioItemComponent = ({
         },
       });
     },
-    [appNavigation],
+    [appNavigation, isAssetNavigationDisabled],
   );
 
   const showTable = useMemo(
@@ -741,30 +875,41 @@ const PortfolioItemComponent = ({
                             text={asset.earnings24h?.title}
                           />
                           <SizableText size="$bodyMd" color="$textSubdued">
-                            {intl.formatMessage({
-                              id: ETranslations.earn_24h_earnings,
-                            })}
+                            {earningsColumnLabel}
                           </SizableText>
                         </XStack>
 
                         {/* Asset status list */}
-                        {asset.assetsStatus?.map((status, index) => (
-                          <XStack key={index} ai="center">
-                            <EarnText
-                              size="$bodyMdMedium"
-                              text={status.title}
-                            />
-                            <XStack gap="$1.5">
-                              <EarnText
-                                ml="$2"
-                                size="$bodyMd"
-                                color="$textSubdued"
-                                text={status.description}
-                              />
-                              <EarnTooltip tooltip={status.tooltip} />
+                        {asset.assetsStatus?.map((status, index) => {
+                          const actionableStatus =
+                            toActionableAssetStatusItem(status);
+
+                          return (
+                            <XStack key={index} ai="center" jc="space-between">
+                              <XStack ai="center">
+                                <EarnText
+                                  size="$bodyMdMedium"
+                                  text={status.title}
+                                />
+                                <XStack gap="$1.5">
+                                  <EarnText
+                                    ml="$2"
+                                    size="$bodyMd"
+                                    color="$textSubdued"
+                                    text={status.description}
+                                  />
+                                  <EarnTooltip tooltip={status.tooltip} />
+                                </XStack>
+                              </XStack>
+                              {actionableStatus ? (
+                                <WrappedActionButton
+                                  asset={asset}
+                                  reward={actionableStatus}
+                                />
+                              ) : null}
                             </XStack>
-                          </XStack>
-                        ))}
+                          );
+                        })}
 
                         {/* Reward assets (claimable rewards) */}
                         {asset.rewardAssets?.map((reward, index) => (
@@ -859,7 +1004,10 @@ const PortfolioItemComponent = ({
                             disabled={button?.disabled}
                             variant="secondary"
                             onPress={async () => {
-                              if (button?.type === 'manage') {
+                              if (
+                                button?.type === 'manage' ||
+                                button?.type === 'redeem'
+                              ) {
                                 await handleManagePress(asset);
                               }
                             }}

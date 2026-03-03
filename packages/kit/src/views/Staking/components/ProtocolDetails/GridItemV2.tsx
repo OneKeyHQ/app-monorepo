@@ -63,7 +63,7 @@ export function GridItem({
         flexBasis: '33.33%',
       }}
     >
-      <XStack gap="$1" mb="$1">
+      <XStack gap="$1" mb="$1.5">
         <EarnText text={title} size="$bodyMd" color="$textSubdued" />
         <EarnTooltip title={title.text} tooltip={tooltip} />
       </XStack>
