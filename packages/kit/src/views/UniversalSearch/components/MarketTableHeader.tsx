@@ -4,7 +4,7 @@ import { SizableText, XStack, useMedia } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 export const MARKET_NAME_COLUMN_WIDTH = 160;
-export const MARKET_DATA_COLUMN_WIDTH = '33.3333%';
+export const MARKET_DATA_COLUMN_WIDTH = '25%';
 
 export function MarketTableHeader() {
   const intl = useIntl();
@@ -48,6 +48,15 @@ export function MarketTableHeader() {
             <SizableText size="$bodySm" color="$textSubdued" textAlign="right">
               {intl
                 .formatMessage({ id: ETranslations.dexmarket_turnover })
+                .toUpperCase()}
+            </SizableText>
+          </XStack>
+        ) : null}
+        {gtMd ? (
+          <XStack w={MARKET_DATA_COLUMN_WIDTH} jc="flex-end">
+            <SizableText size="$bodySm" color="$textSubdued" textAlign="right">
+              {intl
+                .formatMessage({ id: ETranslations.dexmarket_market_cap })
                 .toUpperCase()}
             </SizableText>
           </XStack>

@@ -1,4 +1,8 @@
-import type { IStakeTransactionConfirmation } from '@onekeyhq/shared/types/staking';
+import type { FC } from 'react';
+import { Fragment, useCallback, useMemo, useState } from 'react';
+
+import { StyleSheet } from 'react-native';
+import Svg, { Line } from 'react-native-svg';
 
 import {
   Image,
@@ -8,12 +12,9 @@ import {
   YStack,
   useTheme,
 } from '@onekeyhq/components';
+import type { IStakeTransactionConfirmation } from '@onekeyhq/shared/types/staking';
 
-import type { FC } from 'react';
-import { Fragment, useCallback, useMemo, useState } from 'react';
-import { StyleSheet } from 'react-native';
 import type { LayoutChangeEvent } from 'react-native';
-import Svg, { Line } from 'react-native-svg';
 
 type ISwapRouteItem = NonNullable<
   NonNullable<
