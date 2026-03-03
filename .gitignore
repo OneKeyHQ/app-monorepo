@@ -117,6 +117,10 @@ debug.log
 # Local perf-ci secrets/config (do not commit)
 /development/perf-ci/config.local.json
 
+# Personal process assets (local only, not committed)
+/local/
+*.local.md
+.playwright-cli/
 # Local documentation files
 .local_docs/
 /.claude/worktrees

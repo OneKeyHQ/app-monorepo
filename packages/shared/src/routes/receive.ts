@@ -3,8 +3,6 @@ import type {
   IAccountDeriveTypes,
 } from '@onekeyhq/kit-bg/src/vaults/types';
 
-import type { EExchangeId } from '../consts/exchangeConsts';
-
 import type {
   IAggregateTokenSelectorParams,
   ITokenSelectorParamList,
@@ -12,6 +10,7 @@ import type {
 import type { IModalFiatCryptoParamList } from './fiatCrypto';
 import type { IDeriveTypesAddressParams } from './walletAddress';
 import type { IToken } from '../../types/token';
+import type { EExchangeId } from '../consts/exchangeConsts';
 
 export enum EModalReceiveRoutes {
   ReceiveToken = 'ReceiveToken',

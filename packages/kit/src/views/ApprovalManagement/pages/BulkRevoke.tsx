@@ -516,6 +516,7 @@ function BulkRevoke() {
             };
           }
 
+          // oxlint-disable-next-line no-loop-func
           setRevokeTxsStatusMap((prev) => ({
             ...prev,
             [uuid]: {

@@ -17,10 +17,11 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { AllNetworksManagerTrigger } from '../../AccountSelector/AllNetworksManagerTrigger';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+
 function AccountSelectorTriggerWithSpotlight({
   isFocus,
   linkNetworkId,
