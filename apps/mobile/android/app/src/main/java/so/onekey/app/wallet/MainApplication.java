@@ -18,6 +18,7 @@ import com.facebook.react.soloader.OpenSourceMergedSoMapping;
 import com.facebook.soloader.SoLoader;
 
 import cn.jiguang.plugins.push.JPushModule;
+import com.margelo.nitro.nativelogger.OneKeyLog;
 import com.margelo.nitro.reactnativedeviceutils.DeviceUtilsStoreAndroid;
 import expo.modules.ApplicationLifecycleDispatcher;
 import expo.modules.ReactNativeHostWrapper;
@@ -90,7 +91,8 @@ public class MainApplication extends Application implements ReactApplication {
     
     long startupTime = System.currentTimeMillis();
     DeviceUtilsStoreAndroid.INSTANCE.saveStartupTime(startupTime);
-    
+    OneKeyLog.info("App", "Application started");
+
     try {
       Field field = CursorWindow.class.getDeclaredField("sCursorWindowSize");
       field.setAccessible(true);

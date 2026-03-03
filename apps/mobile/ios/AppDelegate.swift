@@ -3,6 +3,7 @@ import React
 import ReactAppDependencyProvider
 import ReactNativeDeviceUtils
 import ReactNativeBundleUpdate
+import NativeLogger
 
 @UIApplicationMain
 public class AppDelegate: ExpoAppDelegate {
@@ -16,6 +17,7 @@ public class AppDelegate: ExpoAppDelegate {
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
   ) -> Bool {
     DeviceUtilsStore.shared.saveStartupTime(Date().timeIntervalSince1970)
+    OneKeyLogBridge.info("App", message: "Application started")
     let delegate = ReactNativeDelegate()
     let factory = ExpoReactNativeFactory(delegate: delegate)
     delegate.dependencyProvider = RCTAppDependencyProvider()
