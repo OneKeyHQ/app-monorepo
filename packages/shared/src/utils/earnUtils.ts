@@ -1,11 +1,11 @@
+import { EEarnProviderEnum } from '../../types/earn';
+import { EApproveType } from '../../types/staking';
 import {
   MorphoBundlerContract,
   PendleRouterContract,
 } from '../consts/addresses';
-import { EEarnProviderEnum } from '../../types/earn';
 
 import type { IEarnPermitCacheKey } from '../../types/earn';
-import { EApproveType } from '../../types/staking';
 import type { IEarnText, IEarnToken } from '../../types/staking';
 import type { IToken } from '../../types/token';
 

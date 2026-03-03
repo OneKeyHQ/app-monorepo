@@ -4,13 +4,10 @@ import { useIntl } from 'react-intl';
 import { useSharedValue } from 'react-native-reanimated';
 
 import { Dialog, SizableText, Tabs, XStack } from '@onekeyhq/components';
-import type { IAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import SlippageSettingDialog from '@onekeyhq/kit/src/components/SlippageSettingDialog';
+import type { IAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
-import { swapSlippageAutoValue } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
-import type { ISwapSlippageSegmentItem } from '@onekeyhq/shared/types/swap/types';
-import { ESwapSlippageSegmentKey } from '@onekeyhq/shared/types/swap/types';
 import {
   EManagePageActionType,
   EStakingActionType,
@@ -25,10 +22,13 @@ import type {
   IProtocolInfo,
   IStakeTag,
 } from '@onekeyhq/shared/types/staking';
+import { swapSlippageAutoValue } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import type { ISwapSlippageSegmentItem } from '@onekeyhq/shared/types/swap/types';
+import { ESwapSlippageSegmentKey } from '@onekeyhq/shared/types/swap/types';
 
-import { EManagePositionType } from '../hooks/useManagePage';
-import { useQuoteCountdown } from '../../../hooks/useQuoteCountdown';
 import { useIsPendleProvider } from '../../../hooks/useIsPendleProvider';
+import { useQuoteCountdown } from '../../../hooks/useQuoteCountdown';
+import { EManagePositionType } from '../hooks/useManagePage';
 
 import { HeaderRight } from './HeaderRight';
 import { StakeSection } from './StakeSection';
