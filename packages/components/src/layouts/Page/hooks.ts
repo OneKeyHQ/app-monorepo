@@ -1,7 +1,6 @@
 import { useContext, useEffect, useMemo, useRef } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
-import { BottomTabBarHeightContext } from './BottomTabBarHeightContext';
 import { useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -12,10 +11,11 @@ import {
   updateHeightWhenKeyboardHide,
   updateHeightWhenKeyboardShown,
   useKeyboardEvent,
-  useSafeAreaInsets,
-} from '../../hooks';
-import { rootNavigationRef } from '../Navigation';
+} from '../../hooks/useKeyboard';
+import { useSafeAreaInsets } from '../../hooks/useLayout';
+import { rootNavigationRef } from '../Navigation/Navigator/NavigationContainer';
 
+import { BottomTabBarHeightContext } from './BottomTabBarHeightContext';
 import { PageContext } from './PageContext';
 
 import type { IPageLifeCycle } from './type';

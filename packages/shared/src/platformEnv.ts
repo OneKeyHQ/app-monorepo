@@ -91,6 +91,8 @@ export type IPlatformEnv = {
   isDesktopMac?: boolean;
   /** macos arm64 only */
   isDesktopMacArm64?: boolean;
+  /** desktop platforms with custom title bar (Mac, Win, Linux) */
+  isDesktopWithCustomTitleBar?: boolean;
   /** macos for appStore */
   isMas?: boolean;
 
@@ -185,6 +187,8 @@ const isDesktopLinuxSnap = isDesktopLinux && desktopChannel === 'snap';
 const isDesktopLinuxFlatpak = isDesktopLinux && desktopChannel === 'flatpak';
 const isDesktopStore =
   isMas || isDesktopWinMsStore || isDesktopLinuxSnap || isDesktopLinuxFlatpak;
+const isDesktopWithCustomTitleBar =
+  isDesktopMac || isDesktopWin || isDesktopLinux;
 
 const isNativeIOS = isNative && Platform.OS === 'ios';
 const isNativeIOSStore = isNativeIOS && isProduction;
@@ -239,7 +243,7 @@ const getAppChannel = (): IAppChannel | undefined => {
 };
 
 const isRuntimeBrowser: boolean =
-  // oxlint-disable-next-line unicorn/prefer-global-this
+  // eslint-disable-next-line unicorn/prefer-global-this
   typeof window !== 'undefined' && !isNative;
 
 // @ts-ignore
@@ -365,7 +369,7 @@ const getBrowserInfo = () => {
 
 const isWebTouchable =
   isRuntimeBrowser &&
-  // oxlint-disable-next-line unicorn/prefer-global-this
+  // eslint-disable-next-line unicorn/prefer-global-this
   ('ontouchstart' in globalThis || navigator.maxTouchPoints > 0);
 
 let isWebMobile = false;
@@ -503,6 +507,7 @@ const platformEnv: IPlatformEnv = {
   isDesktopLinux,
   isDesktopLinuxSnap,
   isDesktopLinuxFlatpak,
+  isDesktopWithCustomTitleBar,
   isDesktopStore,
   isMas,
 

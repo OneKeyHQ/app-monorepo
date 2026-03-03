@@ -7,7 +7,7 @@ const SvgHomeSimple = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M13.261 1.755a2 2 0 0 0-2.522 0l-7 5.688A2 2 0 0 0 3 8.995V19.02a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8.995a2 2 0 0 0-.739-1.552z" />
+    <Path d="M21 8.524V21H3V8.524l9-7.312z" />
   </Svg>
 );
 export default SvgHomeSimple;

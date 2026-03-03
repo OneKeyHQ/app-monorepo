@@ -8,10 +8,13 @@ import { LegacyUniversalSearchInput } from '@onekeyhq/kit/src/components/TabPage
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
 import TabCountButton from '../../views/Discovery/components/MobileBrowser/TabCountButton';
 import { HistoryIconButton } from '../../views/Discovery/pages/components/HistoryIconButton';
+import { AllNetworksManagerTrigger } from '../AccountSelector';
 import { MoreActionButton } from '../MoreActionButton';
 
 import {
@@ -25,11 +28,23 @@ export function MoreAction() {
 }
 
 export function SelectorTrigger() {
+  const {
+    activeAccount: { network, wallet },
+  } = useActiveAccount({ num: 0 });
+
+  if (
+    network?.isAllNetworks &&
+    !accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' })
+  ) {
+    return <AllNetworksManagerTrigger num={0} unifiedMode />;
+  }
+
   return (
     <NetworkSelectorTriggerHome
       num={0}
       size="small"
       recordNetworkHistoryEnabled
+      unifiedMode
     />
   );
 }

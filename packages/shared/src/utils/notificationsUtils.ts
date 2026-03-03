@@ -10,9 +10,10 @@ import {
 } from '../../types/notification';
 import appGlobals from '../appGlobals';
 import { EAppEventBusNames, appEventBus } from '../eventBus/appEventBus';
+import { ETranslations } from '../locale';
 import { defaultLogger } from '../logger/logger';
 import platformEnv from '../platformEnv';
-import { EModalAssetDetailRoutes, EModalRoutes } from '../routes';
+import { EModalAssetDetailRoutes, EModalRoutes, ETabRoutes } from '../routes';
 import { EModalNotificationsRoutes } from '../routes/notifications';
 import { ERootRoutes } from '../routes/root';
 
@@ -95,32 +96,94 @@ export async function navigateToNotificationDetailByLocalParams({
     targetParams = targetParams.params;
   }
 
-  if (targetParams.networkId) {
-    const accountInfos = await getEarnAccount({
-      accountId: localParams.accountId || '',
-      networkId: targetParams.networkId,
-      indexedAccountId: localParams.indexedAccountId || '',
-    });
-    if (accountInfos) {
-      localParams.accountId = accountInfos?.accountId || localParams.accountId;
-      localParams.indexedAccountId =
-        accountInfos?.account.indexedAccountId || localParams.indexedAccountId;
-    }
-  }
-  // Replace template variables in targetParams values with localParams values
-  for (const [key, value] of Object.entries(targetParams)) {
-    if (typeof value === 'string' && value.includes('{')) {
-      targetParams[key] = value.replace(/\{local_(\w+)\}/g, (match, param) => {
-        return localParams[param as keyof typeof localParams] || match;
+  if (targetParams) {
+    if (targetParams?.networkId) {
+      const accountInfos = await getEarnAccount({
+        accountId: localParams.accountId || '',
+        networkId: targetParams.networkId,
+        indexedAccountId: localParams.indexedAccountId || '',
       });
+      if (accountInfos) {
+        localParams.accountId =
+          accountInfos?.accountId || localParams.accountId;
+        localParams.indexedAccountId =
+          accountInfos?.account.indexedAccountId ||
+          localParams.indexedAccountId;
+      }
+    }
+    // Replace template variables in targetParams values with localParams values
+    for (const [key, value] of Object.entries(targetParams)) {
+      if (typeof value === 'string' && value.includes('{')) {
+        targetParams[key] = value.replace(
+          /\{local_(\w+)\}/g,
+          (match, param) => {
+            return localParams[param as keyof typeof localParams] || match;
+          },
+        );
+      }
     }
   }
+  // Handle Market/Earn tab redirection for native platforms
+  // On native, Market and Earn are sub-tabs within Discovery, not separate tabs
+  // Returns a function that performs the redirection when called
+  const createNativeTabRedirection = () => {
+    let tab:
+      | ETranslations.global_browser
+      | ETranslations.global_earn
+      | ETranslations.global_market
+      | undefined;
+    if (platformEnv.isNative) {
+      if (navigationParams?.screen === ETabRoutes.Market) {
+        navigationParams.screen = ETabRoutes.Discovery;
+        tab = ETranslations.global_market;
+      } else if (navigationParams?.screen === ETabRoutes.Earn) {
+        navigationParams.screen = ETabRoutes.Discovery;
+        tab = ETranslations.global_earn;
+      }
+    }
+    // Return a function that emits the event after navigation completes
+    return () => {
+      if (tab) {
+        setTimeout(() => {
+          appEventBus.emit(EAppEventBusNames.SwitchDiscoveryTabInNative, {
+            tab,
+          });
+        }, 150);
+      }
+    };
+  };
+
   if (screen === ERootRoutes.Main) {
-    await popToMainRoute();
-    await timerUtils.wait(350);
-    appGlobals.$navigationRef.current?.navigate(screen, navigationParams, {
-      pop: true,
-    });
+    if (
+      appGlobals.$tabletMainViewNavigationRef?.current &&
+      navigationParams?.screen &&
+      !navigationParams?.params?.screen
+    ) {
+      const redirectTab = createNativeTabRedirection();
+      appGlobals.$tabletMainViewNavigationRef.current.navigate(
+        screen,
+        navigationParams,
+        {
+          pop: true,
+        },
+      );
+      requestIdleCallback(() => {
+        appGlobals.$navigationRef.current?.navigate(screen, navigationParams, {
+          pop: true,
+        });
+      });
+      // Execute tab redirection after navigation
+      redirectTab();
+    } else {
+      await popToMainRoute();
+      await timerUtils.wait(350);
+      const redirectTab = createNativeTabRedirection();
+      appGlobals.$navigationRef.current?.navigate(screen, navigationParams, {
+        pop: true,
+      });
+      // Execute tab redirection after navigation
+      redirectTab();
+    }
   } else if (screen === ERootRoutes.Modal) {
     let rootNavigator = appGlobals.$navigationRef.current;
     const rootState = appGlobals.$navigationRef.current?.getRootState();

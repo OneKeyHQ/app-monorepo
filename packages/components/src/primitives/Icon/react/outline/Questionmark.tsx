@@ -7,7 +7,12 @@ const SvgQuestionmark = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M20 12a8 8 0 1 0-16 0 8 8 0 0 0 16 0m-9 4.01V16a1 1 0 1 1 2 0v.01a1 1 0 1 1-2 0M11 13v-.5a2 2 0 0 1 .8-1.6L13 10V9h-2v.5a1 1 0 1 1-2 0V9a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1a2 2 0 0 1-.8 1.6l-1.2.9v.5a1 1 0 1 1-2 0m11-1c0 5.523-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2s10 4.477 10 10" />
+    <Path d="M13 17.01h-2V15h2zM15 11l-2 1.499V14h-2v-2.5l2-1.5V9h-2v1H9V7h6z" />
+    <Path
+      fillRule="evenodd"
+      d="M12 2c5.523 0 10 4.477 10 10s-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2m0 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16"
+      clipRule="evenodd"
+    />
   </Svg>
 );
 export default SvgQuestionmark;

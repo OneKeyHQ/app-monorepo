@@ -7,7 +7,17 @@ const SvgAltText = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M19 15H5v4h14zm-7 1a1 1 0 1 1 0 2H7a1 1 0 1 1 0-2zm5 0a1 1 0 1 1 0 2h-2a1 1 0 1 1 0-2zM5 12.414V13h6.586L8 9.414zM16 8.5a.5.5 0 1 0-1 0 .5.5 0 0 0 1 0M5 5v4.586L6.586 8a2 2 0 0 1 2.828 0l5 5H19V5zm13 3.5a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0M21 19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    <Path d="M13 18H6v-2h7zm5 0h-4v-2h4z" />
+    <Path
+      fillRule="evenodd"
+      d="M15.5 6a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5m0 2a.5.5 0 1 0 0 1 .5.5 0 0 0 0-1"
+      clipRule="evenodd"
+    />
+    <Path
+      fillRule="evenodd"
+      d="M21 21H3V3h18zM5 19h14v-4H5zm0-6.586V13h6.586L8 9.414zm0-2.828 3-3L14.414 13H19V5H5z"
+      clipRule="evenodd"
+    />
   </Svg>
 );
 export default SvgAltText;

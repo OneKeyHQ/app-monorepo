@@ -307,6 +307,53 @@ export default function PagePrimeFeatures() {
       },
 
       {
+        id: EPrimeFeatures.BulkSend,
+        banner: (
+          <Image
+            w="100%"
+            h={bannerHeight}
+            maxWidth={393}
+            source={require('@onekeyhq/kit/assets/prime/bulk_send_banner.png')}
+          />
+        ),
+        title: intl.formatMessage({
+          id: ETranslations.wallet_bulk_send_title,
+        }),
+        description: intl.formatMessage({
+          id: ETranslations.prime_bulk_send_desc,
+        }),
+        details: [
+          {
+            icon: 'PeopleOutline',
+            title: intl.formatMessage({
+              id: ETranslations.prime_features_bulk_send_one_title,
+            }),
+            description: intl.formatMessage({
+              id: ETranslations.prime_features_bulk_send_one_desc,
+            }),
+          },
+          {
+            icon: 'GasOutline',
+            title: intl.formatMessage({
+              id: ETranslations.prime_features_bulk_send_two_title,
+            }),
+            description: intl.formatMessage({
+              id: ETranslations.prime_features_bulk_send_two_desc,
+            }),
+          },
+          {
+            icon: 'UploadOutline',
+            title: intl.formatMessage({
+              id: ETranslations.prime_features_bulk_send_three_title,
+            }),
+            description: intl.formatMessage({
+              id: ETranslations.prime_features_bulk_send_three_desc,
+            }),
+          },
+        ],
+      },
+
+      {
         id: EPrimeFeatures.Notifications,
         banner: (
           <Image

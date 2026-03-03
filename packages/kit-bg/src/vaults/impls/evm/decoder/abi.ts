@@ -62,6 +62,8 @@ const BULK_SEND = [
   'function sendNativeSameAmount(address[] recipients, uint256 amount) payable',
   'function sendToken(address token, (address recipient, uint256 amount)[] transfers)',
   'function sendTokenSameAmount(address token, address[] recipients, uint256 amount)',
+  'function sendTokenViaContract(address token, (address recipient, uint256 amount)[] transfers)',
+  'function sendTokenSameAmountViaContract(address token, address[] recipients, uint256 amount)',
 ];
 
 const ABI = {

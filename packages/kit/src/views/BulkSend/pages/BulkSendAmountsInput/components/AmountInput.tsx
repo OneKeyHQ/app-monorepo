@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
+import { useDebouncedCallback } from 'use-debounce';
 
 import {
   Input,
@@ -17,6 +18,7 @@ import { AmountInput as BaseAmountInput } from '@onekeyhq/kit/src/components/Amo
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { validateTokenAmount } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   EAmountInputMode,
@@ -24,6 +26,7 @@ import {
 } from '@onekeyhq/shared/types/bulkSend';
 
 import {
+  filterNumericInput,
   generateRandomAmountsFromRange,
   validateRangeInput,
 } from '../../../utils';
@@ -81,6 +84,12 @@ export function SpecifiedAmountInput() {
           zeroAmount: intl.formatMessage({
             id: ETranslations.wallet_bulk_send_error_amount_zero,
           }),
+          decimalPlaces: intl.formatMessage(
+            {
+              id: ETranslations.wallet_bulk_send_error_max_decimal_places,
+            },
+            { decimals: tokenInfo.decimals },
+          ),
         },
       });
       setAmountInputErrors({
@@ -157,6 +166,23 @@ export function RangeAmountInput() {
 
   const balance = tokenDetails?.balanceParsed ?? '0';
 
+  // Local display values for immediate UI feedback
+  const [localMin, setLocalMin] = useState(amountInputValues.rangeMin);
+  const [localMax, setLocalMax] = useState(amountInputValues.rangeMax);
+
+  // Keep local values in sync with external changes
+  const prevAmountInputValuesRef = useRef(amountInputValues);
+  useEffect(() => {
+    const prev = prevAmountInputValuesRef.current;
+    if (prev.rangeMin !== amountInputValues.rangeMin) {
+      setLocalMin(amountInputValues.rangeMin);
+    }
+    if (prev.rangeMax !== amountInputValues.rangeMax) {
+      setLocalMax(amountInputValues.rangeMax);
+    }
+    prevAmountInputValuesRef.current = amountInputValues;
+  }, [amountInputValues]);
+
   const validateRange = useCallback(
     (min: string, max: string): IAmountInputError => {
       const error = validateRangeInput({
@@ -177,7 +203,7 @@ export function RangeAmountInput() {
         rangeMin: min,
         rangeMax: max,
         decimals: tokenInfo.decimals,
-        balance: [balance], // Pass balance to constrain total
+        balance: [balance],
       });
     },
     [transfersInfo, tokenInfo, balance],
@@ -197,9 +223,16 @@ export function RangeAmountInput() {
     const { rangeMin, rangeMax } = amountInputValuesRef.current;
     if (!rangeMin || !rangeMax || transfersInfo.length === 0) return;
 
-    // Use validateRange to check validity
     const errors = validateRangeRef.current(rangeMin, rangeMax);
-    if (!errors.rangeError) {
+    if (errors.rangeError) {
+      // Set validation error on mount (e.g., balance=0 → both inputs are 0)
+      /* eslint-disable @typescript-eslint/no-use-before-define */
+      setAmountInputErrors({
+        ...amountInputErrorsRef.current,
+        rangeError: errors.rangeError,
+      });
+      /* eslint-enable @typescript-eslint/no-use-before-define */
+    } else {
       const previewAmounts = generatePreviewAmountsRef.current(
         rangeMin,
         rangeMax,
@@ -209,24 +242,36 @@ export function RangeAmountInput() {
         rangePreviewAmounts: previewAmounts,
       }));
     }
-  }, [transfersInfo.length, setPreviewState]);
+  }, [transfersInfo.length, setPreviewState, setAmountInputErrors]);
 
-  const handleRangeChange = useCallback(
-    (field: 'rangeMin' | 'rangeMax', value: string) => {
-      const newValues = { ...amountInputValues, [field]: value };
-      setAmountInputValues(newValues);
+  const amountInputErrorsRef = useRef(amountInputErrors);
+  amountInputErrorsRef.current = amountInputErrors;
 
-      const errors = validateRange(newValues.rangeMin, newValues.rangeMax);
+  // Debounced handler for validation and preview generation
+  const debouncedUpdatePreview = useDebouncedCallback(
+    (newValues: { rangeMin: string; rangeMax: string }) => {
+      setAmountInputValues({
+        ...amountInputValuesRef.current,
+        rangeMin: newValues.rangeMin,
+        rangeMax: newValues.rangeMax,
+      });
+
+      const errors = validateRangeRef.current(
+        newValues.rangeMin,
+        newValues.rangeMax,
+      );
       setAmountInputErrors({
-        ...amountInputErrors,
+        ...amountInputErrorsRef.current,
         rangeError: errors.rangeError,
       });
 
-      // Generate preview amounts if valid
       const hasValidRange =
         !errors.rangeError && newValues.rangeMin && newValues.rangeMax;
       const previewAmounts = hasValidRange
-        ? generatePreviewAmounts(newValues.rangeMin, newValues.rangeMax)
+        ? generatePreviewAmountsRef.current(
+            newValues.rangeMin,
+            newValues.rangeMax,
+          )
         : [];
 
       setPreviewState((prev) => ({
@@ -235,39 +280,50 @@ export function RangeAmountInput() {
         rangePreviewAmounts: previewAmounts,
       }));
     },
-    [
-      amountInputValues,
-      setAmountInputValues,
-      validateRange,
-      amountInputErrors,
-      setAmountInputErrors,
-      setPreviewState,
-      generatePreviewAmounts,
-    ],
+    300,
   );
 
+  const localMinRef = useRef(localMin);
+  localMinRef.current = localMin;
+  const localMaxRef = useRef(localMax);
+  localMaxRef.current = localMax;
+
   const handleMinChange = useCallback(
-    (value: string) => handleRangeChange('rangeMin', value),
-    [handleRangeChange],
+    (value: string) => {
+      const filtered = filterNumericInput(value);
+      setLocalMin(filtered);
+      debouncedUpdatePreview({
+        rangeMin: filtered,
+        rangeMax: localMaxRef.current,
+      });
+    },
+    [debouncedUpdatePreview],
   );
 
   const handleMaxChange = useCallback(
-    (value: string) => handleRangeChange('rangeMax', value),
-    [handleRangeChange],
+    (value: string) => {
+      const filtered = filterNumericInput(value);
+      setLocalMax(filtered);
+      debouncedUpdatePreview({
+        rangeMin: localMinRef.current,
+        rangeMax: filtered,
+      });
+    },
+    [debouncedUpdatePreview],
   );
 
-  // Calculate fiat values
+  // Calculate fiat values from local display values for immediate feedback
   const minFiatValue = useMemo(() => {
-    const amount = new BigNumber(amountInputValues.rangeMin || '0');
+    const amount = new BigNumber(localMin || '0');
     if (amount.isNaN() || !tokenDetails?.price) return '0';
     return amount.times(tokenDetails.price).toFixed();
-  }, [amountInputValues.rangeMin, tokenDetails?.price]);
+  }, [localMin, tokenDetails?.price]);
 
   const maxFiatValue = useMemo(() => {
-    const amount = new BigNumber(amountInputValues.rangeMax || '0');
+    const amount = new BigNumber(localMax || '0');
     if (amount.isNaN() || !tokenDetails?.price) return '0';
     return amount.times(tokenDetails.price).toFixed();
-  }, [amountInputValues.rangeMax, tokenDetails?.price]);
+  }, [localMax, tokenDetails?.price]);
 
   const hasError = !!amountInputErrors.rangeError;
   const sharedStyles = getSharedInputStyles({
@@ -287,7 +343,7 @@ export function RangeAmountInput() {
           <XStack alignItems="center" px="$3.5" pt="$2.5" pb="$1">
             <Input
               flex={1}
-              value={amountInputValues.rangeMin}
+              value={localMin}
               onChangeText={handleMinChange}
               placeholder="0"
               keyboardType="decimal-pad"
@@ -298,6 +354,9 @@ export function RangeAmountInput() {
               fontSize={28}
               fontWeight="600"
               px="$0"
+              {...(platformEnv.isNativeAndroid && {
+                includeFontPadding: false,
+              })}
             />
           </XStack>
           <XStack
@@ -332,7 +391,7 @@ export function RangeAmountInput() {
           <XStack alignItems="center" px="$3.5" pt="$2.5" pb="$1">
             <Input
               flex={1}
-              value={amountInputValues.rangeMax}
+              value={localMax}
               onChangeText={handleMaxChange}
               placeholder={intl.formatMessage({
                 id: ETranslations.global_max,
@@ -345,6 +404,9 @@ export function RangeAmountInput() {
               fontSize={28}
               fontWeight="600"
               px="$0"
+              {...(platformEnv.isNativeAndroid && {
+                includeFontPadding: false,
+              })}
             />
           </XStack>
           <XStack
@@ -451,6 +513,12 @@ export function AmountInputSection({ inDialog }: { inDialog?: boolean }) {
         zeroAmount: intl.formatMessage({
           id: ETranslations.wallet_bulk_send_error_amount_zero,
         }),
+        decimalPlaces: intl.formatMessage(
+          {
+            id: ETranslations.wallet_bulk_send_error_max_decimal_places,
+          },
+          { decimals: tokenInfo.decimals },
+        ),
       },
     });
     return { specifiedAmount: error };

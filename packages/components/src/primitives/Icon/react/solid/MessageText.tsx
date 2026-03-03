@@ -9,7 +9,7 @@ const SvgMessageText = (props: SvgProps) => (
   >
     <Path
       fillRule="evenodd"
-      d="M19.002 3h-14a2 2 0 0 0-2 2v12.036a2 2 0 0 0 2 2h3.65l2.704 2.266a1 1 0 0 0 1.28.004l2.74-2.27h3.626a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2M8 9a1 1 0 0 1 1-1h6a1 1 0 1 1 0 2H9a1 1 0 0 1-1-1m1 3a1 1 0 1 0 0 2h6a1 1 0 1 0 0-2z"
+      d="M21.002 3v16.036h-5.626l-3.382 2.802-3.343-2.802H3.002V3zM8 14h8v-2H8zm0-6v2h8V8z"
       clipRule="evenodd"
     />
   </Svg>

@@ -149,7 +149,7 @@ export const {
       details?.activatedOk &&
       details?.internalRebateBoundOk;
     const isReadOnlyAccount = account?.accountId
-      ? accountUtils.isOthersAccount({ accountId: account.accountId })
+      ? accountUtils.isWatchingAccount({ accountId: account.accountId })
       : false;
     const accountNotSupport =
       (!account?.accountAddress && !account?.indexedAccountId) ||
@@ -266,12 +266,13 @@ export const {
 });
 
 // Token Selector Dynamic Tabs (from server config)
+// null = not loaded yet, [] = loaded but server returned no tabs
 export const {
   target: perpTokenSelectorTabsAtom,
   use: usePerpTokenSelectorTabsAtom,
-} = globalAtom<IPerpDynamicTab[]>({
+} = globalAtom<IPerpDynamicTab[] | null>({
   name: EAtomNames.perpTokenSelectorTabsAtom,
-  initialValue: [],
+  initialValue: null,
 });
 
 export type IPerpFavoritesDisplayMode = 'price' | 'percent';
@@ -552,21 +553,13 @@ export const {
 });
 
 export interface IPerpsLayoutState {
-  main: {
-    marketRatio: number;
-  };
-  leftPanel: {
-    chartsRatio: number;
-  };
-  orderBook: {
+  orderBook?: {
     visible: boolean;
   };
   resetAt?: number;
 }
 
-export const DEFAULT_PERPS_LAYOUT_STATE: Omit<IPerpsLayoutState, 'resetAt'> = {
-  main: { marketRatio: 90 },
-  leftPanel: { chartsRatio: 60 },
+export const DEFAULT_PERPS_LAYOUT_STATE: IPerpsLayoutState = {
   orderBook: { visible: true },
 };
 
@@ -576,3 +569,18 @@ export const { target: perpsLayoutStateAtom, use: usePerpsLayoutStateAtom } =
     persist: true,
     initialValue: DEFAULT_PERPS_LAYOUT_STATE,
   });
+
+// #region Footer Ticker
+export type IPerpsFooterTickerMode = 'popular' | 'favorites' | 'none';
+
+export const {
+  target: perpsFooterTickerModePersistAtom,
+  use: usePerpsFooterTickerModePersistAtom,
+} = globalAtom<{ mode: IPerpsFooterTickerMode }>({
+  name: EAtomNames.perpsFooterTickerModePersistAtom,
+  persist: true,
+  initialValue: {
+    mode: 'popular',
+  },
+});
+// #endregion

@@ -1,7 +1,16 @@
 /* eslint-disable import/order */
 import '@walletconnect/react-native-compat'; // polyfill for react-native
 
-import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import {
+  Component,
+  memo,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
+
+import type { ErrorInfo, ReactNode } from 'react';
 
 import { ConstantsUtil } from '@reown/appkit-common-react-native';
 
@@ -21,6 +30,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { captureException } from '@onekeyhq/shared/src/modules3rdParty/sentry';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
@@ -179,6 +189,91 @@ function useWalletConnectModal() {
 // appKitModalCtrl.open();
 // appKitModalCtrl.close();
 
+// Error boundary to catch valtio useSnapshot() destructuring errors
+// in @reown/appkit child components during rapid modal open/close cycles.
+const MAX_RETRIES = 3;
+const RETRY_DELAY_MS = 100;
+
+interface IAppKitErrorBoundaryProps {
+  children: ReactNode;
+}
+
+interface IAppKitErrorBoundaryState {
+  hasError: boolean;
+  retryCount: number;
+}
+
+class AppKitErrorBoundary extends Component<
+  IAppKitErrorBoundaryProps,
+  IAppKitErrorBoundaryState
+> {
+  private retryTimer: ReturnType<typeof setTimeout> | null = null;
+
+  constructor(props: IAppKitErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false, retryCount: 0 };
+  }
+
+  static getDerivedStateFromError(): Partial<IAppKitErrorBoundaryState> {
+    return { hasError: true };
+  }
+
+  // eslint-disable-next-line react/sort-comp
+  override componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.warn(
+      'AppKitErrorBoundary caught error in WalletConnect modal:',
+      error?.message,
+      errorInfo?.componentStack,
+    );
+    captureException(error, {
+      tags: { module: 'walletConnect', component: 'AppKitErrorBoundary' },
+      extra: { componentStack: errorInfo?.componentStack },
+    });
+  }
+
+  override componentDidMount() {
+    this.scheduleRetryIfNeeded();
+  }
+
+  override componentDidUpdate() {
+    // Auto-retry by remounting after a short delay
+    this.scheduleRetryIfNeeded();
+  }
+
+  override componentWillUnmount() {
+    this.clearRetryTimer();
+  }
+
+  private scheduleRetryIfNeeded() {
+    const { hasError, retryCount } = this.state;
+    if (hasError && retryCount < MAX_RETRIES) {
+      this.clearRetryTimer();
+      this.retryTimer = setTimeout(() => {
+        this.setState((state) => ({
+          hasError: false,
+          retryCount: state.retryCount + 1,
+        }));
+      }, RETRY_DELAY_MS);
+    }
+  }
+
+  clearRetryTimer() {
+    if (this.retryTimer) {
+      clearTimeout(this.retryTimer);
+      this.retryTimer = null;
+    }
+  }
+
+  override render() {
+    // eslint-disable-next-line react/destructuring-assignment
+    if (this.state.hasError) {
+      return null;
+    }
+    // eslint-disable-next-line react/destructuring-assignment
+    return this.props.children;
+  }
+}
+
 // https://docs.walletconnect.com/advanced/walletconnectmodal/usage
 // https://github.com/WalletConnect/react-native-examples/blob/main/dapps/ModalUProvider/src/App.tsx
 function NativeModal() {
@@ -207,7 +302,11 @@ function NativeModal() {
     return null;
   }
 
-  return <AppKitModalNative />;
+  return (
+    <AppKitErrorBoundary>
+      <AppKitModalNative />
+    </AppKitErrorBoundary>
+  );
 }
 
 const NativeModalMemo = memo(NativeModal);

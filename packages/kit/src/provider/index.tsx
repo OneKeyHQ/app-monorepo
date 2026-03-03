@@ -12,6 +12,7 @@ import { Toast } from '@onekeyhq/components';
 import { SyncHomeAccountToDappAccountProvider } from '@onekeyhq/kit/src/views/Discovery/components/SyncDappAccountToHomeProvider';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
+import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
 
@@ -51,6 +52,10 @@ export function KitProvider(props: any = {}) {
   } = props;
 
   ColdStartByNotification.launchNotification = launchNotification;
+
+  if (process.env.NODE_ENV !== 'production') {
+    debugLandingLog('KitProvider render');
+  }
 
   useDebugComponentRemountLog({ name: 'KitProvider' });
 

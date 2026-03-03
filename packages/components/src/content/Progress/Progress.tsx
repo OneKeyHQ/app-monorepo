@@ -34,7 +34,7 @@ function getProgressState(
   value: number | undefined | null,
   maxValue: number,
 ): IProgressState {
-  if (value == null) {
+  if (value === null || value === undefined) {
     return 'indeterminate';
   }
   if (value === maxValue) {

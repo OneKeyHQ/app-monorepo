@@ -4,16 +4,21 @@ __generated__
 .expo-shared
 .expo
 .DS_Store
+.mcp.json
 .idea/
 .vscode/
 .cursor/debug.log
 .chat/
 .claude/PRPs
+.claude/settings.json
 .claude/settings.local.json
 .clauderc
 .tmp/
+# Keyless cloud sync mock server data
+.tmp/keyless-cloud-sync-mock-data.json
 .cursor/plans/
 *.private_ai_docs.md
+*.local.md
 .cursor/plans/
 dist
 build-electron
@@ -76,6 +81,7 @@ stats.html
 tsconfig.tsbuildinfo
 
 test-report.html
+coverage/
 
 # Temporary files created by Metro to check the health of the file watcher
 .metro-health-check*
@@ -102,6 +108,7 @@ debug.log
 
 # Perf monitor local sessions
 /development/output/perf-sessions/
+/development/output/*.md
 
 # Detox / perf-ci artifacts
 /apps/mobile/e2e/artifacts/
@@ -109,3 +116,11 @@ debug.log
 
 # Local perf-ci secrets/config (do not commit)
 /development/perf-ci/config.local.json
+
+# Personal process assets (local only, not committed)
+/local/
+*.local.md
+.playwright-cli/
+# Local documentation files
+.local_docs/
+/.claude/worktrees

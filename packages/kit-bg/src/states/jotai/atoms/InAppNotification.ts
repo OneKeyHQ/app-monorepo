@@ -10,7 +10,8 @@ import { EAtomNames } from '../atomNames';
 import { globalAtom } from '../utils';
 
 export type IInAppNotificationAtom = {
-  swapHistoryPendingList: ISwapTxHistory[];
+  // May contain null/undefined entries due to data corruption or deserialization issues
+  swapHistoryPendingList: (ISwapTxHistory | null | undefined)[];
   swapLimitOrders: IFetchLimitOrderRes[];
   swapLimitOrdersLoading: boolean;
   swapApprovingTransaction: ISwapApproveTransaction | undefined;
@@ -22,6 +23,14 @@ export type IInAppNotificationAtom = {
   bridgeProviderManager: ISwapProviderManager[];
   swapApprovingLoading: boolean;
 };
+// Filters out null/undefined entries that may exist in swapHistoryPendingList.
+// Always use this before accessing item properties to prevent runtime crashes.
+export function filterSwapHistoryPendingList(
+  list: (ISwapTxHistory | null | undefined)[],
+): ISwapTxHistory[] {
+  return list.filter((i): i is ISwapTxHistory => !!i);
+}
+
 export const { target: inAppNotificationAtom, use: useInAppNotificationAtom } =
   globalAtom<IInAppNotificationAtom>({
     persist: false,

@@ -179,6 +179,7 @@ class ProviderApiConflux extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     ...params: any[]
   ) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return
     return this.rpcCall({
       ...request,
       data: {

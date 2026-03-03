@@ -113,7 +113,7 @@ export default function useNFC() {
             default:
               break;
           }
-          reject();
+          reject(new Error('NFC permission check failed'));
         });
       }),
     [intl],
@@ -253,7 +253,7 @@ export default function useNFC() {
               });
               break;
           }
-          reject();
+          reject(new Error('NFC error handler failed'));
         } else {
           resolve();
         }

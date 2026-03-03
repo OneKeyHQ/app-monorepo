@@ -3,14 +3,26 @@ import { isEmpty } from 'lodash';
 
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import {
   EAmountInputMode,
   type IAmountInputError,
   type IAmountInputValues,
   type ITransferInfoErrors,
 } from '@onekeyhq/shared/types/bulkSend';
+
+// Filter input to only allow numbers and decimal point
+export function filterNumericInput(text: string): string {
+  // Remove all characters except digits and decimal point
+  let filtered = text.replace(/[^0-9.]/g, '');
+  // Ensure only one decimal point
+  const parts = filtered.split('.');
+  if (parts.length > 2) {
+    filtered = `${parts[0]}.${parts.slice(1).join('')}`;
+  }
+  return filtered;
+}
 
 export function calculateIsAmountValid({
   amountInputMode,
@@ -182,6 +194,10 @@ export function generateRandomAmountsFromRange({
   if (balance !== undefined && balance.length === 1) {
     totalBalanceBN = new BigNumber(balance[0]);
     if (!totalBalanceBN.isNaN()) {
+      // When balance is zero, all amounts must be zero
+      if (totalBalanceBN.isZero()) {
+        return transfersInfo.map(() => '0');
+      }
       const avgBalancePerTransfer = totalBalanceBN.dividedBy(count);
       // Use the smaller of: user's max or average balance per transfer
       if (max.isGreaterThan(avgBalancePerTransfer)) {
@@ -332,6 +348,13 @@ export function validateRangeInput({
   const minBN = new BigNumber(rangeMin || '0');
   const maxBN = new BigNumber(rangeMax || '0');
   const balanceBN = new BigNumber(balance);
+
+  // When balance is zero, no valid non-zero range can be generated
+  if (balanceBN.isZero()) {
+    return appLocale.intl.formatMessage({
+      id: ETranslations.swap_page_button_insufficient_balance,
+    });
+  }
 
   // Only check if min exceeds balance (min must be achievable)
   // max > balance is allowed - generation logic will use balance/count as effective max

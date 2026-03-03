@@ -7,7 +7,12 @@ const SvgCheckRadio = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M20 12a8 8 0 1 0-16 0 8 8 0 0 0 16 0m-5.774-3.133a1 1 0 0 1 1.548 1.266l-4.5 5.5a1 1 0 0 1-1.481.074l-2-2a1 1 0 1 1 1.414-1.414l1.218 1.218 3.8-4.644ZM22 12c0 5.523-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2s10 4.477 10 10" />
+    <Path d="m16.407 9.36-5.833 7.128L7.086 13 8.5 11.586l1.925 1.925 4.434-5.418z" />
+    <Path
+      fillRule="evenodd"
+      d="M12 2c5.523 0 10 4.477 10 10s-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2m0 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16"
+      clipRule="evenodd"
+    />
   </Svg>
 );
 export default SvgCheckRadio;

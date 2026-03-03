@@ -25,6 +25,7 @@ export function PerpsDetailsSectionMobile({
   hideZeroVolume,
   onHideZeroVolumeChange,
   isLoadingMore,
+  isTabLoading,
 }: IPerpsDetailsSectionProps) {
   const intl = useIntl();
 
@@ -85,7 +86,12 @@ export function PerpsDetailsSectionMobile({
       ) : null}
 
       {/* Card List */}
-      {hasData ? (
+      {/* eslint-disable no-nested-ternary */}
+      {isTabLoading ? (
+        <YStack ai="center" py="$8">
+          <Spinner size="small" />
+        </YStack>
+      ) : hasData ? (
         <YStack gap="$4">
           {records.map((record) => (
             <PerpsRecordCard key={record._id} item={record} />
@@ -101,6 +107,7 @@ export function PerpsDetailsSectionMobile({
           <PerpsEmptyData />
         </YStack>
       )}
+      {/* eslint-enable no-nested-ternary */}
     </YStack>
   );
 }

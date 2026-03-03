@@ -15,6 +15,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { perfMark } from '@onekeyhq/shared/src/performance/mark';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import perfUtils, {
   EPerformanceTimerLogNames,
@@ -35,7 +36,12 @@ import { perfTokenListView } from '../components/TokenListView/perfTokenListView
 
 import { usePromiseResult } from './usePromiseResult';
 
-const CONCURRENCY_LIMIT = PROMISE_CONCURRENCY_LIMIT;
+// Native keeps a strict cap to avoid Hermes memory spikes.
+// Web keeps full fan-out to preserve Home startup latency.
+const getAllNetworkTaskConcurrencyLimit = (taskCount: number) =>
+  platformEnv.isNative
+    ? PROMISE_CONCURRENCY_LIMIT
+    : Math.max(taskCount, PROMISE_CONCURRENCY_LIMIT);
 // useRef not working as expected, so use a global object
 const currentRequestsUUID = { current: '' };
 
@@ -517,6 +523,7 @@ function useAllNetworkRequests<T>(params: {
           await onStartedTask;
           if (onStartedError) {
             if (onStartedError instanceof Error) {
+              // oxlint-disable-next-line no-throw-literal
               throw onStartedError;
             }
             const err = new Error('onStarted failed');
@@ -548,7 +555,12 @@ function useAllNetworkRequests<T>(params: {
                     return cachedDataResult as unknown;
                   },
                 ),
-                { continueOnError: true, concurrency: CONCURRENCY_LIMIT },
+                {
+                  continueOnError: true,
+                  concurrency: getAllNetworkTaskConcurrencyLimit(
+                    accountsInfo.length,
+                  ),
+                },
               )
             ).filter(Boolean);
             perf.markEnd('allNetworkCacheRequests');
@@ -594,7 +606,9 @@ function useAllNetworkRequests<T>(params: {
             resp = (
               await promiseAllSettledEnhanced(requestFactories, {
                 continueOnError: true,
-                concurrency: CONCURRENCY_LIMIT,
+                concurrency: getAllNetworkTaskConcurrencyLimit(
+                  requestFactories.length,
+                ),
               })
             ).filter(Boolean);
           } catch (e) {
@@ -620,7 +634,9 @@ function useAllNetworkRequests<T>(params: {
             const r = (
               await promiseAllSettledEnhanced(factories, {
                 continueOnError: true,
-                concurrency: CONCURRENCY_LIMIT,
+                concurrency: getAllNetworkTaskConcurrencyLimit(
+                  factories.length,
+                ),
               })
             ).filter(Boolean) as Array<T>;
             respTemp.push(...r);
@@ -645,7 +661,9 @@ function useAllNetworkRequests<T>(params: {
             const r = (
               await promiseAllSettledEnhanced(factories, {
                 continueOnError: true,
-                concurrency: CONCURRENCY_LIMIT,
+                concurrency: getAllNetworkTaskConcurrencyLimit(
+                  factories.length,
+                ),
               })
             ).filter(Boolean) as Array<T>;
             respTemp.push(...r);
@@ -767,6 +785,7 @@ function useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
   indexedAccountId,
   withNetworksInfo = false,
   deferMs = 0,
+  enabledNetworks: enabledNetworksParam,
 }: {
   walletId: string;
   networkId?: string;
@@ -774,6 +793,7 @@ function useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
   indexedAccountId?: string;
   withNetworksInfo?: boolean;
   deferMs?: number;
+  enabledNetworks?: IServerNetwork[];
 }) {
   const initResult = useMemo(() => getEmptyEnabledNetworksResult(), []);
 
@@ -787,6 +807,10 @@ function useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
         { deriveType: IAccountDeriveTypes; mergeDeriveAssetsEnabled: boolean }
       > = {};
       if (networkId && !networkUtils.isAllNetwork({ networkId })) {
+        return getEmptyEnabledNetworksResult();
+      }
+
+      if (enabledNetworksParam && enabledNetworksParam.length === 0) {
         return getEmptyEnabledNetworksResult();
       }
 
@@ -804,16 +828,27 @@ function useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
         await timerUtils.wait(deferMs);
       }
 
-      const enabledNetworkIds = networks
-        .filter((n) =>
-          isEnabledNetworksInAllNetworks({
-            networkId: n.id,
-            disabledNetworks,
-            enabledNetworks,
-            isTestnet: n.isTestnet,
-          }),
-        )
-        .map((n) => n.id);
+      let enabledNetworkIds: string[];
+
+      if (enabledNetworksParam) {
+        const enabledNetworkIdSet = new Set(
+          enabledNetworksParam.map((n) => n.id),
+        );
+        enabledNetworkIds = networks
+          .filter((n) => enabledNetworkIdSet.has(n.id))
+          .map((n) => n.id);
+      } else {
+        enabledNetworkIds = networks
+          .filter((n) =>
+            isEnabledNetworksInAllNetworks({
+              networkId: n.id,
+              disabledNetworks,
+              enabledNetworks,
+              isTestnet: n.isTestnet,
+            }),
+          )
+          .map((n) => n.id);
+      }
 
       const compatibleNetworks =
         await backgroundApiProxy.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId(
@@ -917,9 +952,11 @@ function useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
       indexedAccountId,
       withNetworksInfo,
       deferMs,
+      enabledNetworksParam,
     ],
     {
       initResult,
+      revalidateOnFocus: true,
     },
   );
 

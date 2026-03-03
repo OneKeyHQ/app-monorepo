@@ -52,6 +52,7 @@ function EarnListView() {
   return (
     <RichBlock
       title={intl.formatMessage({ id: ETranslations.earn_title })}
+      headerContainerProps={{ px: '$pagePadding' }}
       headerActions={
         <Button
           size="small"
@@ -71,7 +72,7 @@ function EarnListView() {
           ? {
               mx: '$-pagePadding',
             }
-          : undefined
+          : { px: '$pagePadding' }
       }
       content={renderContent()}
       plainContentContainer

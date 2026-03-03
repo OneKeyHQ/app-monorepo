@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { View } from 'react-native';
 
 import { RefreshControl, XStack, YStack, useMedia } from '@onekeyhq/components';
 import type { ITabContainerRef } from '@onekeyhq/components';
@@ -179,9 +180,14 @@ function BasicEarnHome({
     void borrowRefreshHandlerRef.current?.();
   }, []);
 
+  const borrowPendingTagMatcher = useCallback(
+    (tag: string) => isBorrowTag(tag) || tag === EEarnLabels.Borrow,
+    [],
+  );
+
   const { filteredTxs: borrowPendingTxs = [] } = useStakingPendingTxsByInfo({
     networkIds: borrowNetworkIds,
-    tagMatcher: isBorrowTag,
+    tagMatcher: borrowPendingTagMatcher,
     onRefresh: handleBorrowPendingRefresh,
     onRefreshDelayMs: BORROW_PENDING_REFRESH_DELAY,
   });
@@ -238,11 +244,11 @@ function BasicEarnHome({
       setIsEarnTabFocused(actualFocus);
       if (!actualFocus) return;
 
-      const allKey = `availableAssets-${EAvailableAssetsTypeEnum.All}`;
-      const stableKey = `availableAssets-${EAvailableAssetsTypeEnum.StableCoins}`;
-      const nativeKey = `availableAssets-${EAvailableAssetsTypeEnum.NativeTokens}`;
+      const simpleKey = `availableAssets-${EAvailableAssetsTypeEnum.SimpleEarn}`;
+      const fixedKey = `availableAssets-${EAvailableAssetsTypeEnum.FixedRate}`;
+      const stakingKey = `availableAssets-${EAvailableAssetsTypeEnum.Staking}`;
 
-      const keys = [allKey, stableKey, nativeKey];
+      const keys = [simpleKey, fixedKey, stakingKey];
 
       const hasIncompleteData = keys.some((key) =>
         actions.current.isDataIncomplete(key),
@@ -349,7 +355,15 @@ function BasicEarnHome({
                 filteredEarnings24h={filteredEarnings24h}
               />
             </YStack>
-            {banners ? <YStack width="100%">{banners}</YStack> : null}
+            {banners ? (
+              <View
+                onTouchStart={(e) => e.stopPropagation()}
+                onTouchMove={(e) => e.stopPropagation()}
+                onTouchEnd={(e) => e.stopPropagation()}
+              >
+                <YStack width="100%">{banners}</YStack>
+              </View>
+            ) : null}
           </YStack>
         </YStack>
       ),
@@ -379,7 +393,7 @@ function BasicEarnHome({
         showContent={showContent}
         refresh={refreshBlockResult}
         refreshing={!!isFetchingBlockResult}
-        icon={blockResult.blockData.icon.icon}
+        illustration="Universal"
         title={blockResult.blockData.title.text}
         description={blockResult.blockData.description.text}
       />

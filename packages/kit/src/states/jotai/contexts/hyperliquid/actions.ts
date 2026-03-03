@@ -23,6 +23,7 @@ import { PERPS_FILTERED_LEDGER_TYPES } from '@onekeyhq/shared/src/consts/perp';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -71,6 +72,8 @@ type IChPositionLite = HL.IPerpsAssetPosition;
 
 class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   private orderBookTickOptionsLoaded = false;
+
+  private canceledOrderIds = new Set<number>();
 
   private buildOpenOrdersByCoinMap(
     openOrders: HL.IPerpsFrontendOrder[],
@@ -234,7 +237,8 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       const prevOpenOrdersState = get(perpsActiveOpenOrdersAtom());
       const allOrders = data?.openOrders || [];
       const openOrders = allOrders.filter(
-        (order) => !order.coin.startsWith('@'),
+        (order) =>
+          !order.coin.startsWith('@') && !this.canceledOrderIds.has(order.oid),
       );
       const openOrdersByCoin = this.buildOpenOrdersByCoinMap(
         openOrders,
@@ -357,7 +361,8 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       const prevOpenOrdersState = get(perpsActiveOpenOrdersAtom());
       const allOrders = data?.orders || [];
       const openOrders = allOrders.filter(
-        (order) => !order.coin.startsWith('@'),
+        (order) =>
+          !order.coin.startsWith('@') && !this.canceledOrderIds.has(order.oid),
       );
       const openOrdersByCoin = this.buildOpenOrdersByCoinMap(
         openOrders,
@@ -521,10 +526,14 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       const newAskPx = data.bbo[1]?.px;
 
       if (
-        currentBidPx != null &&
-        currentAskPx != null &&
-        newBidPx != null &&
-        newAskPx != null &&
+        currentBidPx !== null &&
+        currentBidPx !== undefined &&
+        currentAskPx !== null &&
+        currentAskPx !== undefined &&
+        newBidPx !== null &&
+        newBidPx !== undefined &&
+        newAskPx !== null &&
+        newAskPx !== undefined &&
         currentBidPx === newBidPx &&
         currentAskPx === newAskPx
       ) {
@@ -562,7 +571,8 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       }
       return {
         nSigFigs: persistedForSymbol.nSigFigs ?? null,
-        ...(persistedForSymbol.mantissa != null
+        ...(persistedForSymbol.mantissa !== null &&
+        persistedForSymbol.mantissa !== undefined
           ? { mantissa: persistedForSymbol.mantissa }
           : {}),
       };
@@ -787,6 +797,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       openOrdersByCoin: {},
     });
     perpsOpenOrdersByCoinAtomCache.clear();
+    this.canceledOrderIds.clear();
     const current = get(perpsLedgerUpdatesAtom());
     set(perpsLedgerUpdatesAtom(), {
       accountAddress: undefined,
@@ -816,6 +827,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       updates: [],
       isSubscribed: false,
     });
+    this.canceledOrderIds.clear();
     await this.changeActiveAsset.call(set, { coin: 'ETH', force: true });
   });
 
@@ -1080,6 +1092,27 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
                 oid: order.oid,
               })),
             );
+
+          // Track canceled order ids so UI can remove them immediately
+          for (const o of params.orders) {
+            this.canceledOrderIds.add(o.oid);
+          }
+
+          // Optimistically remove canceled orders from atom
+          const prev = get(perpsActiveOpenOrdersAtom());
+          const openOrders = prev.openOrders.filter(
+            (o) => !this.canceledOrderIds.has(o.oid),
+          );
+          const openOrdersByCoin = this.buildOpenOrdersByCoinMap(
+            openOrders,
+            prev.openOrdersByCoin,
+          );
+          set(perpsActiveOpenOrdersAtom(), {
+            ...prev,
+            openOrders,
+            openOrdersByCoin,
+          });
+
           return result;
         },
         actionType: EActionType.CANCEL_ORDER,
@@ -1215,13 +1248,23 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   );
 
   closeAllPositions = contextAtomMethod(
-    async (get, set, type: 'market' | 'limit' = 'market') => {
+    async (
+      get,
+      set,
+      type: 'market' | 'limit' = 'market',
+      filterByCoin?: string,
+    ) => {
       return withToast({
         asyncFn: async () => {
           await this.ensureTradingEnabled.call(set);
           const { activePositions: positions } = get(perpsActivePositionAtom());
 
-          if (positions.length === 0) {
+          // Apply filter if specified
+          const filteredPositions = filterByCoin
+            ? positions.filter((p) => p.position.coin === filterByCoin)
+            : positions;
+
+          if (filteredPositions.length === 0) {
             console.warn('No positions to close');
             return;
           }
@@ -1229,12 +1272,12 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           // Get symbol metadata for all positions
           const symbolsMetaMap =
             await backgroundApiProxy.serviceHyperliquid.getSymbolsMetaMap({
-              coins: positions.map((p) => p.position.coin),
+              coins: filteredPositions.map((p) => p.position.coin),
             });
 
           // Get current mid prices for all positions
           const midPrices = await Promise.all(
-            positions.map(async (p) => {
+            filteredPositions.map(async (p) => {
               try {
                 const midPriceInfo = await this.getMidPrice.call(set, {
                   coin: p.position.coin,
@@ -1255,7 +1298,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           );
 
           // Prepare close orders for all positions
-          const positionsToClose = positions
+          const positionsToClose = filteredPositions
             .map((positionItem) => {
               const position = positionItem.position;
               const tokenInfo = symbolsMetaMap[position.coin];
@@ -1358,15 +1401,20 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       now - this.lastRefreshAllPerpsDataTime <
       timerUtils.getTimeDurationMs({ seconds: 15 })
     ) {
-      Toast.message({
-        title: appLocale.intl.formatMessage({
-          id: ETranslations.global_request_limit,
-        }),
-      });
+      if (!platformEnv.isNative) {
+        Toast.message({
+          title: appLocale.intl.formatMessage({
+            id: ETranslations.global_request_limit,
+          }),
+        });
+      }
       return;
     }
-    this.lastRefreshAllPerpsDataTime = now;
-    await backgroundApiProxy.serviceHyperliquidSubscription.refreshAllPerpsData();
+    const didRefresh =
+      await backgroundApiProxy.serviceHyperliquidSubscription.refreshAllPerpsData();
+    if (didRefresh) {
+      this.lastRefreshAllPerpsDataTime = now;
+    }
   });
 }
 

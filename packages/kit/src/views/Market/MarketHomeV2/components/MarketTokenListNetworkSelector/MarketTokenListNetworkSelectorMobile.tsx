@@ -1,4 +1,4 @@
-import { forwardRef, memo, useImperativeHandle, useRef } from 'react';
+import { memo } from 'react';
 
 import { Stack } from '@onekeyhq/components';
 import type { IListViewProps, IPopoverProps } from '@onekeyhq/components';
@@ -6,8 +6,6 @@ import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { MarketNetworkFilterMobile } from './MarketNetworkFilterMobile';
 import { MarketTokenListNetworkSelectorNormalSkeleton } from './MarketTokenListNetworkSelectorNormalSkeleton';
-
-import type { IMarketNetworkFilterMobileRef } from './MarketNetworkFilterMobile';
 
 interface IMarketTokenListNetworkSelectorMobileProps {
   marketNetworks: IServerNetwork[];
@@ -22,69 +20,39 @@ interface IMarketTokenListNetworkSelectorMobileProps {
   startListSelect?: boolean;
 }
 
-export interface IMarketTokenListNetworkSelectorMobileRef {
-  scrollToNetwork: (networkId: string) => void;
+function MarketTokenListNetworkSelectorMobileImpl({
+  marketNetworks,
+  currentSelectNetwork,
+  onSelectCurrentNetwork,
+  handleMoreNetworkSelect,
+  isLoading,
+  placement,
+  containerStyle,
+  onStartListSelect,
+  startListSelect,
+}: IMarketTokenListNetworkSelectorMobileProps) {
+  return (
+    <Stack>
+      {isLoading || marketNetworks.length === 0 ? (
+        <MarketTokenListNetworkSelectorNormalSkeleton />
+      ) : (
+        <MarketNetworkFilterMobile
+          networks={marketNetworks}
+          selectedNetwork={currentSelectNetwork}
+          onSelectNetwork={onSelectCurrentNetwork}
+          onMoreNetworkSelect={handleMoreNetworkSelect}
+          placement={placement}
+          containerStyle={containerStyle}
+          onStartListSelect={onStartListSelect}
+          startListSelect={startListSelect}
+        />
+      )}
+    </Stack>
+  );
 }
 
-const MarketTokenListNetworkSelectorMobile = forwardRef<
-  IMarketTokenListNetworkSelectorMobileRef,
-  IMarketTokenListNetworkSelectorMobileProps
->(
-  (
-    {
-      marketNetworks,
-      currentSelectNetwork,
-      onSelectCurrentNetwork,
-      handleMoreNetworkSelect,
-      isLoading,
-      placement,
-      containerStyle,
-      onStartListSelect,
-      startListSelect,
-    },
-    ref,
-  ) => {
-    const marketNetworkFilterRef = useRef<IMarketNetworkFilterMobileRef>(null);
-
-    useImperativeHandle(
-      ref,
-      () => ({
-        scrollToNetwork: (networkId: string) => {
-          setTimeout(() => {
-            marketNetworkFilterRef.current?.scrollToNetwork(networkId);
-          }, 100);
-        },
-      }),
-      [],
-    );
-
-    return (
-      <Stack>
-        {isLoading || marketNetworks.length === 0 ? (
-          <MarketTokenListNetworkSelectorNormalSkeleton />
-        ) : (
-          <MarketNetworkFilterMobile
-            ref={marketNetworkFilterRef}
-            networks={marketNetworks}
-            selectedNetwork={currentSelectNetwork}
-            onSelectNetwork={onSelectCurrentNetwork}
-            onMoreNetworkSelect={handleMoreNetworkSelect}
-            placement={placement}
-            containerStyle={containerStyle}
-            onStartListSelect={onStartListSelect}
-            startListSelect={startListSelect}
-          />
-        )}
-      </Stack>
-    );
-  },
+const MarketTokenListNetworkSelectorMobile = memo(
+  MarketTokenListNetworkSelectorMobileImpl,
 );
 
-MarketTokenListNetworkSelectorMobile.displayName =
-  'MarketTokenListNetworkSelectorMobile';
-
-const MarketTokenListNetworkSelectorMobileComponent = memo(
-  MarketTokenListNetworkSelectorMobile,
-);
-
-export { MarketTokenListNetworkSelectorMobileComponent as MarketTokenListNetworkSelectorMobile };
+export { MarketTokenListNetworkSelectorMobile };

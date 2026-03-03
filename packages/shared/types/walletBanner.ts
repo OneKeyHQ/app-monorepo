@@ -1,4 +1,5 @@
 import type { IKeyOfIcons } from '@onekeyhq/components';
+
 import type { ENotificationPushMessageMode } from './notification';
 
 export interface IWalletBanner {
@@ -19,9 +20,5 @@ export interface IWalletBanner {
   theme: 'light' | 'dark';
   position?: 'home' | 'receive';
   networkId?: string;
-  icon?: {
-    name: IKeyOfIcons;
-    color?: string;
-    size?: number;
-  };
+  icon?: IKeyOfIcons;
 }

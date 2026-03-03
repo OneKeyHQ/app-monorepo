@@ -9,6 +9,7 @@ export interface ILiquidityFilter {
 export enum EMarketHomeTab {
   Watchlist = 'watchlist',
   Trending = 'trending',
+  Perps = 'perps',
 }
 
 export type IMarketHomeTabValue = `${EMarketHomeTab}`;

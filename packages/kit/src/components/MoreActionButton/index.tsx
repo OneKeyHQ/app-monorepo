@@ -52,17 +52,19 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalRoutes,
   EModalSettingRoutes,
-  EOnboardingPagesV2,
-  EOnboardingV2Routes,
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { EModalBulkCopyAddressesRoutes } from '@onekeyhq/shared/src/routes/bulkCopyAddresses';
+import {
+  EActionCenterPages,
+  EFullScreenPushRoutes,
+} from '@onekeyhq/shared/src/routes/fullScreenPush';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -279,6 +281,7 @@ function MoreActionContentHeader({
         {items.map((item) => (
           <MoreActionContentHeaderItem
             key={item.title}
+            title={item.title}
             icon={item.icon as IKeyOfIcons}
             onPress={item.onPress}
             trackID={item.trackID}
@@ -1526,10 +1529,10 @@ function MoreButtonWithDot({
   }, [isShowUpgradeDot, isShowRedDot]);
 
   const handleMoreActionPage = useCallback(() => {
-    rootNavigationRef.current?.navigate(ERootRoutes.Onboarding, {
-      screen: EOnboardingV2Routes.OnboardingV2,
+    rootNavigationRef.current?.navigate(ERootRoutes.FullScreenPush, {
+      screen: EFullScreenPushRoutes.ActionCenter,
       params: {
-        screen: EOnboardingPagesV2.MoreAction,
+        screen: EActionCenterPages.ActionCenter,
       },
     });
   }, []);

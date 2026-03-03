@@ -8,6 +8,8 @@ import {
   TRON_SOURCE_FLAG_MAINNET,
   TRON_SOURCE_FLAG_TESTNET,
   TRON_TX_EXPIRATION_TIME,
+  tronTokenAddressMainnet,
+  tronTokenAddressTestnet,
 } from '@onekeyhq/core/src/chains/tron/constants';
 import type {
   IDecodedTxExtraTron,
@@ -24,6 +26,7 @@ import {
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import chainResourceUtils from '@onekeyhq/shared/src/utils/chainResourceUtils';
+import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import contractUtils from '@onekeyhq/shared/src/utils/contractUtils';
 import { calculateFeeForSend } from '@onekeyhq/shared/src/utils/feeUtils';
 import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -88,7 +91,6 @@ import type {
   IValidateGeneralInputParams,
 } from '../../types';
 import type { Types } from 'tronweb';
-import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 
 const INFINITE_AMOUNT_HEX =
   '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff';
@@ -469,7 +471,12 @@ export default class Vault extends VaultBase {
       .toFixed();
 
     // Build tuple array for (address recipient, uint256 amount)[]
-    const transferTuples = transfers.map((t) => [t.recipient, t.amount]);
+    // Addresses inside tuples must be hex (0x-prefixed) because TronWeb
+    // only auto-converts standalone address / address[] params, not nested ones.
+    const transferTuples = transfers.map((t) => [
+      TronWeb.utils.address.toHex(t.recipient).replace(/^41/, '0x'),
+      t.amount,
+    ]);
 
     const [
       {
@@ -532,14 +539,28 @@ export default class Vault extends VaultBase {
       );
     }
 
+    const USDTAddress = (await this.getNetwork()).isTestnet
+      ? tronTokenAddressTestnet.USDT
+      : tronTokenAddressMainnet.USDT;
+
+    const isUSDT = tokenInfo.address === USDTAddress;
+
     const recipients = transfersInfo.map((t) => t.to);
 
+    // Use ViaContract by default (fewer notifications for sender).
+    // Fall back to direct transferFrom for fee-on-transfer tokens.
+    const isFeeOnTransfer = transfersInfo[0].isFeeOnTransferToken ?? false;
+
     if (isSameAmount) {
-      // Use sendTRC20SameAmount for better energy efficiency
       const amountOnChain = chainValueUtils.convertTokenAmountToChainValue({
         token: tokenInfo,
         value: transfersInfo[0].amount,
       });
+
+      const methodSignature =
+        isFeeOnTransfer || isUSDT
+          ? 'sendTRC20SameAmount(address,address[],uint256)'
+          : 'sendTRC20SameAmountViaContract(address,address[],uint256)';
 
       const [
         {
@@ -558,7 +579,7 @@ export default class Vault extends VaultBase {
               method: 'transactionBuilder.triggerSmartContract',
               params: [
                 contractAddress,
-                'sendTRC20SameAmount(address,address[],uint256)',
+                methodSignature,
                 {},
                 [
                   { type: 'address', value: tokenInfo.address },
@@ -584,7 +605,6 @@ export default class Vault extends VaultBase {
       });
     }
 
-    // Use sendTRC20 for different amounts
     const transfers = transfersInfo.map((t) => ({
       recipient: t.to,
       amount: chainValueUtils.convertTokenAmountToChainValue({
@@ -594,7 +614,17 @@ export default class Vault extends VaultBase {
     }));
 
     // Build tuple array for (address recipient, uint256 amount)[]
-    const transferTuples = transfers.map((t) => [t.recipient, t.amount]);
+    // Addresses inside tuples must be hex (0x-prefixed) because TronWeb
+    // only auto-converts standalone address / address[] params, not nested ones.
+    const transferTuples = transfers.map((t) => [
+      TronWeb.utils.address.toHex(t.recipient).replace(/^41/, '0x'),
+      t.amount,
+    ]);
+
+    const methodSignature =
+      isFeeOnTransfer || isUSDT
+        ? 'sendTRC20(address,(address,uint256)[])'
+        : 'sendTRC20ViaContract(address,(address,uint256)[])';
 
     const [
       {
@@ -613,7 +643,7 @@ export default class Vault extends VaultBase {
             method: 'transactionBuilder.triggerSmartContract',
             params: [
               contractAddress,
-              'sendTRC20(address,(address,uint256)[])',
+              methodSignature,
               {},
               [
                 { type: 'address', value: tokenInfo.address },

@@ -9,10 +9,11 @@ import {
 } from '@onekeyhq/core/src/chains/evm/sdkEvm/ethers';
 import { verifyPersonalSignMessage } from '@onekeyhq/core/src/chains/evm/sdkEvm/signMessage';
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
+import { ON_CHAIN_SERVICE_BUSY_ERROR_CODE } from '@onekeyhq/core/src/chains/sol/constants';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
-import { getBulkSendContractAddress } from '@onekeyhq/shared/src/consts/bulkSendContractAddress';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { getBulkSendContractAddress } from '@onekeyhq/shared/src/consts/bulkSendContractAddress';
 import {
   OneKeyError,
   OneKeyInternalError,
@@ -24,7 +25,9 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import numberUtils, {
   toBigIntHex,
 } from '@onekeyhq/shared/src/utils/numberUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { mergeAssetTransferActions } from '@onekeyhq/shared/src/utils/txActionUtils';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type {
   IAddressValidation,
   IFetchServerAccountDetailsParams,
@@ -58,7 +61,6 @@ import type {
 } from '@onekeyhq/shared/types/serverToken';
 import { EWrappedType } from '@onekeyhq/shared/types/swap/types';
 import type { IToken } from '@onekeyhq/shared/types/token';
-import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type {
   IDecodedTx,
   IDecodedTxAction,
@@ -118,6 +120,7 @@ import type {
   IWrappedInfo,
 } from '../../types';
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
+import type { FailedAttemptError } from 'p-retry';
 
 const enabledNFTNetworkIds = networkUtils.getEnabledNFTNetworkIds();
 
@@ -820,14 +823,21 @@ export default class Vault extends VaultBase {
 
     const recipients = transfersInfo.map((t) => t.to);
 
+    // Use ViaContract by default (fewer notifications for sender).
+    // Fall back to direct transferFrom for fee-on-transfer tokens.
+    const isFeeOnTransfer = transfersInfo[0].isFeeOnTransferToken ?? false;
+
     if (isSameAmount) {
-      // Use sendTokenSameAmount for better gas efficiency
       const amountOnChain = chainValueUtils.convertTokenAmountToChainValue({
         token: tokenInfo,
         value: transfersInfo[0].amount,
       });
 
-      const data = bulkSendInterface.encodeFunctionData('sendTokenSameAmount', [
+      const methodName = isFeeOnTransfer
+        ? 'sendTokenSameAmount'
+        : 'sendTokenSameAmountViaContract';
+
+      const data = bulkSendInterface.encodeFunctionData(methodName, [
         tokenInfo.address,
         recipients,
         amountOnChain,
@@ -841,7 +851,6 @@ export default class Vault extends VaultBase {
       };
     }
 
-    // Use sendToken for different amounts
     const transfers = transfersInfo.map((t) => ({
       recipient: t.to,
       amount: chainValueUtils.convertTokenAmountToChainValue({
@@ -850,7 +859,9 @@ export default class Vault extends VaultBase {
       }),
     }));
 
-    const data = bulkSendInterface.encodeFunctionData('sendToken', [
+    const methodName = isFeeOnTransfer ? 'sendToken' : 'sendTokenViaContract';
+
+    const data = bulkSendInterface.encodeFunctionData(methodName, [
       tokenInfo.address,
       transfers,
     ]);
@@ -1539,5 +1550,18 @@ export default class Vault extends VaultBase {
   override async proxyJsonRPCCall<T>(request: IJsonRpcRequest): Promise<T> {
     const provider = await this.getRpcClient();
     return provider.client.call(request.method, request.params as any);
+  }
+
+  override async checkShouldRetryBroadcastTx(
+    error: FailedAttemptError,
+  ): Promise<boolean> {
+    if (
+      (error as unknown as OneKeyError)?.code ===
+      ON_CHAIN_SERVICE_BUSY_ERROR_CODE
+    ) {
+      await timerUtils.wait((error?.attemptNumber || 1) * 1000);
+      return true;
+    }
+    return false;
   }
 }

@@ -7,7 +7,7 @@ const SvgDivider = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M5 18a1 1 0 1 1 0 2H3a1 1 0 1 1 0-2zm8 0a1 1 0 1 1 0 2h-2a1 1 0 1 1 0-2zm8 0a1 1 0 1 1 0 2h-2a1 1 0 1 1 0-2zm0-7a1 1 0 1 1 0 2H3a1 1 0 1 1 0-2zM5 4a1 1 0 0 1 0 2H3a1 1 0 0 1 0-2zm8 0a1 1 0 1 1 0 2h-2a1 1 0 1 1 0-2zm8 0a1 1 0 1 1 0 2h-2a1 1 0 1 1 0-2z" />
+    <Path d="M6 20H2v-2h4zm8 0h-4v-2h4zm8 0h-4v-2h4zm0-7H2v-2h20zM6 6H2V4h4zm8 0h-4V4h4zm8 0h-4V4h4z" />
   </Svg>
 );
 export default SvgDivider;

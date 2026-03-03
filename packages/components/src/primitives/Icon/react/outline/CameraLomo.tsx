@@ -15,7 +15,7 @@ const SvgCameraLomo = (props: SvgProps) => (
     <Path d="M7.01 8a1 1 0 0 1 0 2H7a1 1 0 0 1 0-2z" />
     <Path
       fillRule="evenodd"
-      d="M8.086 3a2 2 0 0 1 1.414.586L9.914 4H20a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h.086l.414-.414A2 2 0 0 1 5.914 3zM5.5 5.414A2 2 0 0 1 4.086 6H4v12h16V6H9.914A2 2 0 0 1 8.5 5.414L8.086 5H5.914z"
+      d="M9.914 4H22v16H2V4h2.086l1-1h3.828zm-5 2H4v12h16V6H9.086l-1-1H5.914z"
       clipRule="evenodd"
     />
   </Svg>

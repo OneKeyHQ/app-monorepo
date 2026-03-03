@@ -13,13 +13,13 @@ import {
   FixedColumnShadowOverlay,
   SimpleEdgeShadowOverlay,
 } from '@onekeyhq/kit/src/components/FixedColumnShadowOverlay';
-import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import {
   SHADOW_CONSTANTS,
   getWebClipPath,
   getWebShadowStyle,
   useFixedColumnShadow,
 } from '@onekeyhq/kit/src/hooks/useFixedColumnShadow';
+import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {

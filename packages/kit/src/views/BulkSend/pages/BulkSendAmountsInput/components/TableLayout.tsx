@@ -1,7 +1,8 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
+import { useDebouncedCallback } from 'use-debounce';
 
 import {
   Button,
@@ -20,13 +21,13 @@ import { AmountInput as BaseAmountInput } from '@onekeyhq/kit/src/components/Amo
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { validateTokenAmount } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   EAmountInputMode,
   type ITransferInfoErrors,
 } from '@onekeyhq/shared/types/bulkSend';
-import { validateTokenAmount } from '@onekeyhq/shared/src/utils/tokenUtils';
 
-import { validateRangeInput } from '../../../utils';
+import { filterNumericInput, validateRangeInput } from '../../../utils';
 
 import { useBulkSendAmountsInputContext } from './Context';
 import { useAmountPreview } from './useAmountPreview';
@@ -39,10 +40,9 @@ function IntervalCard() {
       flex={1}
       flexBasis={0}
       gap="$3"
-      p="$4"
-      borderWidth={1}
-      borderColor="$borderSubdued"
+      bg="$bgSubdued"
       borderRadius="$3"
+      p="$5"
     >
       {/* Header: Title + Disabled Select */}
       <XStack alignItems="center" justifyContent="space-between">
@@ -153,6 +153,12 @@ function AmountCard() {
               zeroAmount: intl.formatMessage({
                 id: ETranslations.wallet_bulk_send_error_amount_zero,
               }),
+              decimalPlaces: intl.formatMessage(
+                {
+                  id: ETranslations.wallet_bulk_send_error_max_decimal_places,
+                },
+                { decimals: tokenInfo.decimals },
+              ),
             },
           });
           if (!isValid && error) {
@@ -196,6 +202,12 @@ function AmountCard() {
           zeroAmount: intl.formatMessage({
             id: ETranslations.wallet_bulk_send_error_amount_zero,
           }),
+          decimalPlaces: intl.formatMessage(
+            {
+              id: ETranslations.wallet_bulk_send_error_max_decimal_places,
+            },
+            { decimals: tokenInfo.decimals },
+          ),
         },
       });
       setAmountInputErrors({ ...amountInputErrors, specifiedAmount: error });
@@ -216,30 +228,84 @@ function AmountCard() {
     ],
   );
 
-  // Handle range amount change
-  const handleRangeChange = useCallback(
-    (field: 'rangeMin' | 'rangeMax', value: string) => {
-      const newValues = { ...amountInputValues, [field]: value };
-      setAmountInputValues(newValues);
+  // Local display values for range inputs (immediate UI feedback)
+  const [localRangeMin, setLocalRangeMin] = useState(
+    amountInputValues.rangeMin,
+  );
+  const [localRangeMax, setLocalRangeMax] = useState(
+    amountInputValues.rangeMax,
+  );
+
+  // Keep local values in sync with external changes (e.g., mode switch)
+  const prevAmountInputValuesRef = useRef(amountInputValues);
+  useEffect(() => {
+    const prev = prevAmountInputValuesRef.current;
+    if (prev.rangeMin !== amountInputValues.rangeMin) {
+      setLocalRangeMin(amountInputValues.rangeMin);
+    }
+    if (prev.rangeMax !== amountInputValues.rangeMax) {
+      setLocalRangeMax(amountInputValues.rangeMax);
+    }
+    prevAmountInputValuesRef.current = amountInputValues;
+  }, [amountInputValues]);
+
+  // Refs for stable access in debounced callback
+  const amountInputValuesRef = useRef(amountInputValues);
+  amountInputValuesRef.current = amountInputValues;
+  const amountInputErrorsRef = useRef(amountInputErrors);
+  amountInputErrorsRef.current = amountInputErrors;
+  const localRangeMinRef = useRef(localRangeMin);
+  localRangeMinRef.current = localRangeMin;
+  const localRangeMaxRef = useRef(localRangeMax);
+  localRangeMaxRef.current = localRangeMax;
+
+  // Debounced handler for validation and transfer info update
+  const debouncedRangeUpdate = useDebouncedCallback(
+    (newValues: { rangeMin: string; rangeMax: string }) => {
+      const fullValues = {
+        ...amountInputValuesRef.current,
+        rangeMin: newValues.rangeMin,
+        rangeMax: newValues.rangeMax,
+      };
+      setAmountInputValues(fullValues);
 
       const error = validateRangeInput({
         rangeMin: newValues.rangeMin,
         rangeMax: newValues.rangeMax,
         balance,
       });
-      setAmountInputErrors({ ...amountInputErrors, rangeError: error });
+      setAmountInputErrors({
+        ...amountInputErrorsRef.current,
+        rangeError: error,
+      });
 
-      updateTransfersInfoWithAmounts(amountInputMode, newValues);
+      updateTransfersInfoWithAmounts(amountInputMode, fullValues);
     },
-    [
-      amountInputValues,
-      setAmountInputValues,
-      balance,
-      amountInputErrors,
-      setAmountInputErrors,
-      updateTransfersInfoWithAmounts,
-      amountInputMode,
-    ],
+    300,
+  );
+
+  const handleRangeMinChange = useCallback(
+    (value: string) => {
+      const filtered = filterNumericInput(value);
+      setLocalRangeMin(filtered);
+      debouncedRangeUpdate({
+        rangeMin: filtered,
+        rangeMax: localRangeMaxRef.current,
+      });
+    },
+    [debouncedRangeUpdate],
+  );
+
+  const handleRangeMaxChange = useCallback(
+    (value: string) => {
+      const filtered = filterNumericInput(value);
+      setLocalRangeMax(filtered);
+      debouncedRangeUpdate({
+        rangeMin: localRangeMinRef.current,
+        rangeMax: filtered,
+      });
+    },
+    [debouncedRangeUpdate],
   );
 
   // Handle Max button press
@@ -281,18 +347,18 @@ function AmountCard() {
     return amount.times(tokenDetails.price).toFixed();
   }, [amountInputValues.specifiedAmount, tokenDetails?.price]);
 
-  // Calculate fiat values for range
+  // Calculate fiat values for range from local values for immediate feedback
   const minFiatValue = useMemo(() => {
-    const amount = new BigNumber(amountInputValues.rangeMin || '0');
+    const amount = new BigNumber(localRangeMin || '0');
     if (amount.isNaN() || !tokenDetails?.price) return '0';
     return amount.times(tokenDetails.price).toFixed();
-  }, [amountInputValues.rangeMin, tokenDetails?.price]);
+  }, [localRangeMin, tokenDetails?.price]);
 
   const maxFiatValue = useMemo(() => {
-    const amount = new BigNumber(amountInputValues.rangeMax || '0');
+    const amount = new BigNumber(localRangeMax || '0');
     if (amount.isNaN() || !tokenDetails?.price) return '0';
     return amount.times(tokenDetails.price).toFixed();
-  }, [amountInputValues.rangeMax, tokenDetails?.price]);
+  }, [localRangeMax, tokenDetails?.price]);
 
   // Guard: Don't render if tokenInfo is not available
   if (!tokenInfo) {
@@ -307,6 +373,7 @@ function AmountCard() {
       case EAmountInputMode.Specified:
         return (
           <BaseAmountInput
+            bg="$bgApp"
             value={amountInputValues.specifiedAmount}
             onChange={handleSpecifiedAmountChange}
             hasError={!!amountInputErrors.specifiedAmount}
@@ -331,19 +398,22 @@ function AmountCard() {
             {/* Min Input */}
             <Stack
               flex={1}
+              flexBasis={0}
               borderRadius="$3"
               borderWidth={sharedStyles.borderWidth}
               borderColor={sharedStyles.borderColor}
+              bg="$bgApp"
               overflow="hidden"
             >
               <XStack alignItems="center" px="$3.5" pt="$2.5" pb="$1">
                 <Input
                   flex={1}
-                  value={amountInputValues.rangeMin}
-                  onChangeText={(value) => handleRangeChange('rangeMin', value)}
+                  value={localRangeMin}
+                  onChangeText={handleRangeMinChange}
                   placeholder="0"
                   keyboardType="decimal-pad"
                   containerProps={{
+                    flex: 1,
                     borderWidth: 0,
                   }}
                   bg="transparent"
@@ -359,6 +429,9 @@ function AmountCard() {
                 pb="$2.5"
               >
                 <NumberSizeableText
+                  flex={1}
+                  minWidth={0}
+                  numberOfLines={1}
                   size="$bodySm"
                   color="$textSubdued"
                   formatter="value"
@@ -366,7 +439,12 @@ function AmountCard() {
                 >
                   {minFiatValue}
                 </NumberSizeableText>
-                <SizableText size="$bodyMdMedium" color="$textSubdued">
+                <SizableText
+                  size="$bodyMdMedium"
+                  color="$textSubdued"
+                  flexShrink={0}
+                  ml="$1"
+                >
                   {tokenInfo.symbol}
                 </SizableText>
               </XStack>
@@ -378,19 +456,22 @@ function AmountCard() {
             {/* Max Input */}
             <Stack
               flex={1}
+              flexBasis={0}
               borderRadius="$3"
               borderWidth={sharedStyles.borderWidth}
               borderColor={sharedStyles.borderColor}
+              bg="$bgApp"
               overflow="hidden"
             >
               <XStack alignItems="center" px="$3.5" pt="$2.5" pb="$1">
                 <Input
                   flex={1}
-                  value={amountInputValues.rangeMax}
-                  onChangeText={(value) => handleRangeChange('rangeMax', value)}
+                  value={localRangeMax}
+                  onChangeText={handleRangeMaxChange}
                   placeholder="0"
                   keyboardType="decimal-pad"
                   containerProps={{
+                    flex: 1,
                     borderWidth: 0,
                   }}
                   bg="transparent"
@@ -406,6 +487,9 @@ function AmountCard() {
                 pb="$2.5"
               >
                 <NumberSizeableText
+                  flex={1}
+                  minWidth={0}
+                  numberOfLines={1}
                   size="$bodySm"
                   color="$textSubdued"
                   formatter="value"
@@ -413,7 +497,12 @@ function AmountCard() {
                 >
                   {maxFiatValue}
                 </NumberSizeableText>
-                <SizableText size="$bodyMdMedium" color="$textSubdued">
+                <SizableText
+                  size="$bodyMdMedium"
+                  color="$textSubdued"
+                  flexShrink={0}
+                  ml="$1"
+                >
                   {tokenInfo.symbol}
                 </SizableText>
               </XStack>
@@ -442,10 +531,9 @@ function AmountCard() {
       flex={1}
       flexBasis={0}
       gap="$3"
-      p="$4"
-      borderWidth={1}
-      borderColor="$borderSubdued"
+      bg="$bgSubdued"
       borderRadius="$3"
+      p="$5"
     >
       {/* Header: Title + Mode Select */}
       <XStack alignItems="center" justifyContent="space-between">
@@ -512,8 +600,11 @@ function AmountCard() {
             size="$bodySmMedium"
             color="$textInteractive"
             cursor="default"
+            userSelect="none"
             onPress={handleMaxPress}
             hitSlop={8}
+            hoverStyle={{ opacity: 0.75 }}
+            pressStyle={{ opacity: 0.5 }}
           >
             {intl.formatMessage({ id: ETranslations.global_max })}
           </SizableText>
@@ -557,7 +648,16 @@ function TransferInfoListSection() {
     >
       {/* Header */}
       <XStack px="$5" py="$2" gap="$3">
-        <XStack flex={1} minWidth={0}>
+        <SizableText
+          size="$headingXs"
+          color="$textSubdued"
+          textTransform="uppercase"
+          width={36}
+          flexShrink={0}
+        >
+          #
+        </SizableText>
+        <XStack flex={1} flexBasis={0} minWidth={0}>
           <SizableText
             size="$headingXs"
             color="$textSubdued"
@@ -568,7 +668,7 @@ function TransferInfoListSection() {
             })}
           </SizableText>
         </XStack>
-        <Stack flex={1} minWidth={0}>
+        <Stack flex={1} flexBasis={0} minWidth={0}>
           <SizableText
             size="$headingXs"
             color="$textSubdued"
@@ -621,21 +721,26 @@ function TransferInfoListSection() {
             alignItems="flex-start"
             minHeight={48}
           >
+            {/* INDEX */}
+            <SizableText
+              size="$bodyMdMedium"
+              color="$textDisabled"
+              width={36}
+              flexShrink={0}
+              style={{ whiteSpace: 'nowrap' } as any}
+            >
+              {index + 1}.
+            </SizableText>
+
             {/* FROM */}
-            <YStack flex={1} minWidth={0} gap="$1">
-              <XStack gap="$1">
-                <SizableText size="$bodyMdMedium" color="$textDisabled">
-                  {index + 1}.
-                </SizableText>
-                <SizableText
-                  size="$bodyMdMedium"
-                  flex={1}
-                  minWidth={0}
-                  color={hasFromError ? '$textCritical' : undefined}
-                >
-                  {transfer.from}
-                </SizableText>
-              </XStack>
+            <YStack flex={1} flexBasis={0} minWidth={0} gap="$1">
+              <SizableText
+                size="$bodyMdMedium"
+                style={{ wordBreak: 'break-all' }}
+                color={hasFromError ? '$textCritical' : undefined}
+              >
+                {transfer.from}
+              </SizableText>
               {hasFromError ? (
                 <XStack gap="$1" alignItems="center">
                   <Icon
@@ -651,9 +756,10 @@ function TransferInfoListSection() {
             </YStack>
 
             {/* TO */}
-            <YStack flex={1} minWidth={0} gap="$1">
+            <YStack flex={1} flexBasis={0} minWidth={0} gap="$1">
               <SizableText
                 size="$bodyMdMedium"
+                style={{ wordBreak: 'break-all' }}
                 color={hasToError ? '$textCritical' : undefined}
               >
                 {transfer.to}
@@ -731,7 +837,7 @@ function TransferInfoListSection() {
 
 function TableLayout() {
   return (
-    <YStack gap="$4">
+    <YStack gap="$8">
       <XStack gap="$4">
         <AmountCard />
         <IntervalCard />

@@ -8,6 +8,7 @@ import {
   Stack,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import type { ColorTokens } from '@onekeyhq/components/src/shared/tamagui';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
@@ -26,6 +27,7 @@ export interface IStatCardProps {
   onRefresh?: () => void;
   isWide: boolean;
   fullWidth?: boolean;
+  valueColor?: ColorTokens;
 }
 
 export function StatCard({
@@ -42,10 +44,17 @@ export function StatCard({
   onRefresh,
   isWide,
   fullWidth,
+  valueColor = '$text',
 }: IStatCardProps) {
+  const { xl } = useMedia();
+  const isMediumScreen = isWide && xl;
+
   const getValueSize = () => {
     if (fullWidth) {
       return '$heading4xl';
+    }
+    if (isMediumScreen) {
+      return '$heading3xl';
     }
     return isWide ? '$heading5xl' : '$headingXl';
   };
@@ -85,16 +94,20 @@ export function StatCard({
           </SizableText>
           <XStack ai="baseline">
             {prefix ? (
-              <SizableText size={getValueSize()} color="$text">
+              <SizableText size={getValueSize()} color={valueColor}>
                 {prefix}
               </SizableText>
             ) : null}
             {isCurrency ? (
-              <Currency size={getValueSize()} color="$text" formatter="value">
+              <Currency
+                size={getValueSize()}
+                color={valueColor}
+                formatter="value"
+              >
                 {value}
               </Currency>
             ) : (
-              <SizableText size={getValueSize()} color="$text">
+              <SizableText size={getValueSize()} color={valueColor}>
                 {value}
               </SizableText>
             )}

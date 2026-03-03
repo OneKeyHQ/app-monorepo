@@ -7,7 +7,18 @@ const SvgBulletList = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M7 17a1 1 0 1 0-2 0 1 1 0 0 0 2 0m13-1a1 1 0 1 1 0 2h-7a1 1 0 1 1 0-2zM7 7a1 1 0 1 0-2 0 1 1 0 0 0 2 0m13-1a1 1 0 1 1 0 2h-7a1 1 0 1 1 0-2zM9 17a3 3 0 1 1-6 0 3 3 0 0 1 6 0M9 7a3 3 0 1 1-6 0 3 3 0 0 1 6 0" />
+    <Path
+      fillRule="evenodd"
+      d="M6 14a3 3 0 1 1 0 6 3 3 0 0 1 0-6m0 2a1 1 0 1 0 0 2 1 1 0 0 0 0-2"
+      clipRule="evenodd"
+    />
+    <Path d="M21 18h-9v-2h9z" />
+    <Path
+      fillRule="evenodd"
+      d="M6 4a3 3 0 1 1 0 6 3 3 0 0 1 0-6m0 2a1 1 0 1 0 0 2 1 1 0 0 0 0-2"
+      clipRule="evenodd"
+    />
+    <Path d="M21 8h-9V6h9z" />
   </Svg>
 );
 export default SvgBulletList;

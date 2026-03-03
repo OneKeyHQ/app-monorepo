@@ -17,10 +17,10 @@ import { parseFirmwareVersions } from '@onekeyhq/shared/src/logger/scopes/update
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalFirmwareUpdateRoutes } from '@onekeyhq/shared/src/routes';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 export function FirmwareUpdateCheckList({
   result,
@@ -198,8 +198,6 @@ export function FirmwareUpdateCheckList({
                     toFirmwareType &&
                     fromFirmwareType !== toFirmwareType;
 
-                  if (!isMountedRef.current) return;
-
                   setStepInfo({
                     step: EFirmwareUpdateSteps.updateDone,
                     payload: {
@@ -207,8 +205,6 @@ export function FirmwareUpdateCheckList({
                     },
                   });
                 } catch (error) {
-                  if (!isMountedRef.current) return;
-
                   const err = toPlainErrorObject(error as any);
                   setStepInfo({
                     step: EFirmwareUpdateSteps.error,
@@ -228,9 +224,7 @@ export function FirmwareUpdateCheckList({
                     errorMessage: err?.message,
                   });
                 } finally {
-                  if (isMountedRef.current) {
-                    setWorkflowIsRunning(false);
-                  }
+                  setWorkflowIsRunning(false);
                 }
               }
             : undefined

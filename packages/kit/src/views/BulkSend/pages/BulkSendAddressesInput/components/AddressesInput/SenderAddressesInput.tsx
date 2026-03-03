@@ -10,19 +10,21 @@ import {
   Skeleton,
   XStack,
 } from '@onekeyhq/components';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useDebouncedValidation } from '@onekeyhq/kit/src/views/BulkSend/hooks/useDebouncedValidation';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   EInputAddressChangeType,
   type IAddressBadge,
 } from '@onekeyhq/shared/types/address';
+import { EBulkSendMode } from '@onekeyhq/shared/types/bulkSend';
+
+import { useBulkSendAddressesInputContext } from '../Context';
 
 import LineNumberedTextArea from './LineNumberedTextArea';
-import { useBulkSendAddressesInputContext } from '../Context';
-import { useDebouncedValidation } from '@onekeyhq/kit/src/views/BulkSend/hooks/useDebouncedValidation';
 
 function SenderAddressesInput() {
   const intl = useIntl();
@@ -34,6 +36,7 @@ function SenderAddressesInput() {
     setSelectedIndexedAccountId,
     selectedTokenDetail,
     tokenDetailsState,
+    bulkSendMode,
   } = useBulkSendAddressesInputContext();
   const { network } = useAccountData({ networkId: selectedNetworkId });
   const [addressBadges, setAddressBadges] = useState<IAddressBadge[]>([]);
@@ -252,7 +255,10 @@ function SenderAddressesInput() {
     <Form.Field
       name="senderAddresses"
       label={intl.formatMessage({
-        id: ETranslations.wallet_bulk_send_label_sending_addresses,
+        id:
+          bulkSendMode === EBulkSendMode.OneToMany
+            ? ETranslations.wallet_bulk_send_section_sending_address
+            : ETranslations.wallet_bulk_send_label_sending_addresses,
       })}
       description={renderSenderAddressesDescription()}
       rules={{

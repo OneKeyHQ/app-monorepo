@@ -7,11 +7,7 @@ const SvgVideoClapperboard = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path
-      fillRule="evenodd"
-      d="M4 4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm16 5V6h-2.18l-.6 3zm-4.82 0 .6-3h-2.46l-.6 3zm-4.5 0 .6-3H8.82l-.6 3zm-4.5 0 .6-3H4v3z"
-      clipRule="evenodd"
-    />
+    <Path d="M22 20H2V10h20zM6.5 8H2V4h6.1zm7.247 0H8.653l1.6-4h5.094zM22 8h-6.1l1.6-4H22z" />
   </Svg>
 );
 export default SvgVideoClapperboard;

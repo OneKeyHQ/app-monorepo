@@ -164,7 +164,7 @@ function htmlImageToCanvas({
   canvas.width = width;
 
   const ctx = canvas.getContext('2d');
-  if (ctx == null) {
+  if (ctx === null || ctx === undefined) {
     throw new OneKeyLocalError('2D context is null');
   }
 
@@ -814,6 +814,7 @@ async function getBase64FromImageUriWeb(
     const blob = await response.blob();
     return await new Promise((resolve, reject) => {
       const reader = new FileReader();
+
       // oxlint-disable-next-line @cspell/spellchecker
       reader.onloadend = async () => {
         let readerResult = reader.result as string;

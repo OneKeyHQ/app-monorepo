@@ -34,7 +34,7 @@ function ReferralLevelContent({ data }: { data: IInviteLevelDetail }) {
   return (
     <ScrollView>
       <ReferFriendsPageContainer>
-        <YStack py="$5" px="$4" gap="$5">
+        <YStack py="$5" px="$pagePadding" gap="$5">
           <BreadcrumbSection
             secondItemLabel={intl.formatMessage({
               id: ETranslations.referral_referral_level,

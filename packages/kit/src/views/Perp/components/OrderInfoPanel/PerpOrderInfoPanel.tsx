@@ -15,6 +15,7 @@ import {
   usePerpsActivePositionLengthAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { PerpAccountList } from './List/PerpAccountList';
 import { PerpOpenOrdersList } from './List/PerpOpenOrdersList';
@@ -75,9 +76,8 @@ function TabBarItem({
         borderBottomWidth={isFocused ? '$0.5' : '$0'}
         borderBottomColor="$borderActive"
         onPress={() => onPress(name)}
-        cursor="pointer"
       >
-        <SizableText size="$headingXs">{`${tabTitle} ${tabCount}`}</SizableText>
+        <SizableText size="$bodyMdMedium">{`${tabTitle} ${tabCount}`}</SizableText>
       </XStack>
     </DebugRenderTracker>
   );
@@ -95,6 +95,7 @@ function PerpOrderInfoPanel() {
       ref={tabsRef as any}
       headerHeight={80}
       initialTabName="Positions"
+      disableScroll={!platformEnv.isNative}
       onTabChange={async (tab) => {
         if (tab.tabName === 'Account') {
           void backgroundApiProxy.serviceHyperliquidSubscription.enableLedgerUpdatesSubscription();

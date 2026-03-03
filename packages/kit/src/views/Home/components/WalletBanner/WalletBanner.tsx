@@ -1,16 +1,17 @@
-import {
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { isNil } from 'lodash';
+import { type GestureResponderEvent, StyleSheet } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, {
+  clamp,
+  useAnimatedStyle,
+  useSharedValue,
+  withDecay,
+} from 'react-native-reanimated';
 
 import {
-  CollapsibleTabContext,
+  HeaderScrollGestureWrapper,
   Icon,
   IconButton,
   Image,
@@ -19,9 +20,7 @@ import {
   Stack,
   XStack,
   YStack,
-  useMedia,
 } from '@onekeyhq/components';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useWalletBanner } from '@onekeyhq/kit/src/hooks/useWalletBanner';
@@ -31,81 +30,14 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { ENotificationPushMessageMode } from '@onekeyhq/shared/types/notification';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IWalletBanner } from '@onekeyhq/shared/types/walletBanner';
 
-import type { GestureResponderEvent } from 'react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, {
-  clamp,
-  scrollTo,
-  useAnimatedStyle,
-  useSharedValue,
-  withDecay,
-} from 'react-native-reanimated';
-
 const BANNER_ITEM_WIDTH = 280;
-const BANNER_GAP = 8;
+const BANNER_GAP = 12;
 const BANNER_PADDING_H = 20;
 
 const closedBanners: Record<string, boolean> = {};
-
-const staticBanners: IWalletBanner[] = [
-  {
-    _id: 'static-1',
-    id: 'static-1',
-    src: '',
-    title: 'Use USDT to cover fees',
-    description: '',
-    button: '',
-    rank: 0,
-    closeable: false,
-    closeForever: false,
-    useSystemBrowser: false,
-    theme: 'light',
-    icon: {
-      name: 'GasSolid',
-    },
-    mode: ENotificationPushMessageMode.openInDapp,
-    payload: 'https://onekey.so',
-  },
-  {
-    _id: 'static-2',
-    id: 'static-2',
-    src: '',
-    title: 'Invite friends and get rewards',
-    description: '',
-    button: '',
-    rank: 0,
-    closeable: false,
-    closeForever: false,
-    useSystemBrowser: false,
-    theme: 'light',
-    icon: {
-      name: 'GiftSolid',
-    },
-    mode: ENotificationPushMessageMode.openInDapp,
-    payload: 'https://onekey.so',
-  },
-  {
-    _id: 'static-3',
-    id: 'static-3',
-    src: '',
-    title: 'Sign & verify message',
-    description: '',
-    button: '',
-    rank: 0,
-    closeable: false,
-    closeForever: false,
-    useSystemBrowser: false,
-    theme: 'light',
-    icon: {
-      name: 'PenSolid',
-    },
-    mode: ENotificationPushMessageMode.openInDapp,
-    payload: 'https://onekey.so',
-  },
-];
 
 function BannerItem({
   item,
@@ -121,9 +53,10 @@ function BannerItem({
   }, [onPress, item]);
   return (
     <XStack
-      w={BANNER_ITEM_WIDTH}
+      w={item.icon ? 200 : BANNER_ITEM_WIDTH}
       h={108}
-      p="$1"
+      p="$4"
+      my="$px"
       bg="$bgSubdued"
       borderRadius="$4"
       borderCurve="continuous"
@@ -140,42 +73,41 @@ function BannerItem({
         outlineStyle: 'solid',
         outlineOffset: -2,
       }}
+      outlineWidth={1}
+      outlineColor="$neutral3"
+      outlineStyle="solid"
+      $platform-native={{
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: '$neutral3',
+      }}
       onPress={handlePress}
+      userSelect="none"
     >
-      <XStack ai="center">
+      <XStack
+        {...(!item.icon && {
+          ai: 'center',
+        })}
+        flex={1}
+        gap="$3"
+      >
         {item.src ? (
-          <Image size={60} mx="$2.5" source={{ uri: item.src }} />
-        ) : null}
-        {item.title && item.description ? (
-          <YStack flex={1} gap="$2" ml={!item.src ? '$4' : undefined}>
-            <SizableText size="$bodyXs" color="$text" numberOfLines={1} w={184}>
-              {item.title}
-            </SizableText>
-            {item.description ? (
-              <SizableText
-                w={184}
-                fontWeight={600}
-                fontSize={14}
-                numberOfLines={2}
-              >
-                {item.description}
-              </SizableText>
-            ) : null}
+          <YStack w={60} h={60} flexShrink={0}>
+            <Image size={60} source={{ uri: item.src }} />
           </YStack>
         ) : null}
-        {item.title && !item.description ? (
+        <YStack flex={1} gap="$1">
+          {item.description ? (
+            <SizableText size="$bodyXs" color="$textSubdued" numberOfLines={1}>
+              {item.description}
+            </SizableText>
+          ) : null}
           <SizableText
-            w={184}
-            left="$4"
-            top="$4"
-            position="absolute"
-            fontWeight={600}
-            fontSize={14}
-            numberOfLines={2}
+            size={item.icon ? '$headingMd' : '$headingSm'}
+            numberOfLines={3}
           >
             {item.title}
           </SizableText>
-        ) : null}
+        </YStack>
       </XStack>
 
       {item.closeable ? (
@@ -194,11 +126,7 @@ function BannerItem({
       ) : null}
       {item.icon ? (
         <Stack position="absolute" right="$4" bottom="$4">
-          <Icon
-            name={item.icon.name}
-            size={item.icon.size || 24}
-            style={{ color: item.icon.color || '#32B826' }}
-          />
+          <Icon name={item.icon} size={24} color="$bgAccent" />
         </Stack>
       ) : null}
     </XStack>
@@ -214,13 +142,6 @@ function NativeBannerScroller({
   handleBannerOnPress: (item: IWalletBanner) => void;
   handleDismiss: (item: IWalletBanner) => void;
 }) {
-  // Access collapsible-tab-view context to programmatically drive vertical scroll
-  const tabsContext = useContext(CollapsibleTabContext);
-  const refMap = tabsContext?.refMap;
-  const focusedTab = tabsContext?.focusedTab;
-  const scrollYCurrent = tabsContext?.scrollYCurrent;
-  const contentInset = tabsContext?.contentInset ?? 0;
-
   // Track touch distance on JS thread to suppress onPress during drags.
   // Using JS-thread onTouchStart/onTouchMove instead of runOnJS from worklet
   // avoids async timing issues where onPress fires before runOnJS callback.
@@ -243,76 +164,48 @@ function NativeBannerScroller({
 
   const translateX = useSharedValue(0);
   const startTranslateX = useSharedValue(0);
-  const startScrollY = useSharedValue(0);
-  const isHorizontal = useSharedValue<boolean | undefined>(undefined);
 
   const [containerWidth, setContainerWidth] = useState(0);
 
   const actualMaxTranslateX = useMemo(() => {
+    const totalItemWidth = banners.reduce(
+      (sum, b) => sum + (b.icon ? 200 : BANNER_ITEM_WIDTH),
+      0,
+    );
     const totalWidth =
-      banners.length * BANNER_ITEM_WIDTH +
-      (banners.length - 1) * BANNER_GAP +
-      BANNER_PADDING_H * 2;
+      totalItemWidth + (banners.length - 1) * BANNER_GAP + BANNER_PADDING_H * 2;
     const width = containerWidth || 375;
     return Math.max(0, totalWidth - width);
-  }, [banners.length, containerWidth]);
+  }, [banners, containerWidth]);
 
   const panGesture = useMemo(
     () =>
       Gesture.Pan()
+        .activeOffsetX([-10, 10])
+        .failOffsetY([-10, 10])
         .onStart(() => {
           'worklet';
+
           startTranslateX.value = translateX.value;
-          startScrollY.value = scrollYCurrent?.value ?? 0;
-          isHorizontal.value = undefined;
         })
         .onUpdate((e) => {
           'worklet';
-          // Determine direction on first significant movement
-          if (isHorizontal.value === undefined) {
-            if (Math.abs(e.translationX) > 5 || Math.abs(e.translationY) > 5) {
-              isHorizontal.value =
-                Math.abs(e.translationX) > Math.abs(e.translationY);
-            }
-            return;
-          }
 
-          if (isHorizontal.value) {
-            // Horizontal: drive banner translateX
-            translateX.value = clamp(
-              startTranslateX.value + e.translationX,
-              -actualMaxTranslateX,
-              0,
-            );
-          } else if (refMap && focusedTab) {
-            // Vertical: programmatically scroll the underlying tab ScrollView
-            const ref = refMap[focusedTab.value];
-            if (ref) {
-              const nextY = startScrollY.value - e.translationY;
-              scrollTo(ref, 0, Math.max(0, nextY - contentInset), false);
-            }
-          }
+          translateX.value = clamp(
+            startTranslateX.value + e.translationX,
+            -actualMaxTranslateX,
+            0,
+          );
         })
         .onEnd((e) => {
           'worklet';
-          if (isHorizontal.value) {
-            translateX.value = withDecay({
-              velocity: e.velocityX,
-              clamp: [-actualMaxTranslateX, 0],
-            });
-          }
+
+          translateX.value = withDecay({
+            velocity: e.velocityX,
+            clamp: [-actualMaxTranslateX, 0],
+          });
         }),
-    [
-      translateX,
-      startTranslateX,
-      startScrollY,
-      isHorizontal,
-      actualMaxTranslateX,
-      refMap,
-      focusedTab,
-      scrollYCurrent,
-      contentInset,
-    ],
+    [translateX, startTranslateX, actualMaxTranslateX],
   );
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -330,36 +223,37 @@ function NativeBannerScroller({
   );
 
   return (
-    <YStack
-      py="$2.5"
-      bg="$bgApp"
-      overflow="hidden"
-      onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-    >
-      <GestureDetector gesture={panGesture}>
-        <Animated.View
-          style={[
-            {
-              flexDirection: 'row',
-              paddingHorizontal: BANNER_PADDING_H,
-              gap: BANNER_GAP,
-            },
-            animatedStyle,
-          ]}
-        >
-          {banners.map((item) => (
-            <BannerItem
-              key={item.id}
-              item={item}
-              onPress={wrappedHandleBannerOnPress}
-              onDismiss={handleDismiss}
-            />
-          ))}
-        </Animated.View>
-      </GestureDetector>
-    </YStack>
+    <HeaderScrollGestureWrapper>
+      <YStack
+        bg="$bgApp"
+        overflow="hidden"
+        onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+      >
+        <GestureDetector gesture={panGesture}>
+          <Animated.View
+            style={[
+              {
+                flexDirection: 'row',
+                paddingHorizontal: BANNER_PADDING_H,
+                gap: BANNER_GAP,
+              },
+              animatedStyle,
+            ]}
+          >
+            {banners.map((item) => (
+              <BannerItem
+                key={item.id}
+                item={item}
+                onPress={wrappedHandleBannerOnPress}
+                onDismiss={handleDismiss}
+              />
+            ))}
+          </Animated.View>
+        </GestureDetector>
+      </YStack>
+    </HeaderScrollGestureWrapper>
   );
 }
 
@@ -368,6 +262,7 @@ function useScrollElement(scrollViewRef: React.RefObject<any>) {
     const node = scrollViewRef.current;
     if (!node) return null;
     if (typeof node.getScrollableNode === 'function') {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
       return node.getScrollableNode() as HTMLElement;
     }
     if (node instanceof HTMLElement) {
@@ -386,7 +281,6 @@ function WebBannerScroller({
   handleBannerOnPress: (item: IWalletBanner) => void;
   handleDismiss: (item: IWalletBanner) => void;
 }) {
-  const { gtMd } = useMedia();
   const scrollViewRef = useRef<any>(null);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(false);
@@ -433,14 +327,14 @@ function WebBannerScroller({
   }, [getScrollElement]);
 
   return (
-    <YStack py="$2.5" bg="$bgApp" position="relative">
+    <YStack bg="$bgApp" position="relative">
       <ScrollView
         ref={scrollViewRef}
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{
           px: '$pagePadding',
-          gap: 8,
+          gap: BANNER_GAP,
         }}
       >
         {banners.map((item) => (
@@ -452,7 +346,7 @@ function WebBannerScroller({
           />
         ))}
       </ScrollView>
-      {gtMd ? (
+      {!platformEnv.isNative ? (
         <Stack
           position="absolute"
           left={0}
@@ -476,15 +370,18 @@ function WebBannerScroller({
           <IconButton
             size="small"
             icon="ChevronLeftOutline"
+            bg="$gray3"
+            hoverStyle={{
+              bg: '$gray4',
+            }}
+            pressStyle={{
+              bg: '$gray5',
+            }}
             onPress={handleScrollLeft}
-            bg="$bg"
-            borderWidth={1}
-            borderColor="$borderSubdued"
-            elevation={2}
           />
         </Stack>
       ) : null}
-      {gtMd ? (
+      {!platformEnv.isNative ? (
         <Stack
           position="absolute"
           right={0}
@@ -509,10 +406,13 @@ function WebBannerScroller({
             size="small"
             icon="ChevronRightOutline"
             onPress={handleScrollRight}
-            bg="$bg"
-            borderWidth={1}
-            borderColor="$borderSubdued"
-            elevation={2}
+            bg="$gray3"
+            hoverStyle={{
+              bg: '$gray4',
+            }}
+            pressStyle={{
+              bg: '$gray5',
+            }}
           />
         </Stack>
       ) : null}
@@ -529,11 +429,7 @@ function WalletBanner() {
 
   const bannersInitRef = useRef(false);
 
-  const [{ banners: remoteBanners }] = useWalletTopBannersAtom();
-  const banners = useMemo(
-    () => [...remoteBanners, ...staticBanners],
-    [remoteBanners],
-  );
+  const [{ banners }] = useWalletTopBannersAtom();
   const { updateWalletTopBanners } = useAccountOverviewActions().current;
 
   const { handleBannerOnPress } = useWalletBanner({

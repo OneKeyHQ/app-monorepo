@@ -7,7 +7,11 @@ const SvgBucket = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M21 3a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1h-.614l-1.284 10.249A2 2 0 0 1 17.117 21H6.883a2 2 0 0 1-1.985-1.751L3.615 9H3a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM6.883 19h10.234L18.37 9H5.63zM4 7h.46l.037-.002h15.006l.036.002H20V5H4z" />
+    <Path
+      fillRule="evenodd"
+      d="M22 9h-1.614l-1.503 12H5.118L3.615 9H2V3h20zM5.63 9l1.253 10h10.234l1.254-10zM4 6.998h16V5H4z"
+      clipRule="evenodd"
+    />
   </Svg>
 );
 export default SvgBucket;

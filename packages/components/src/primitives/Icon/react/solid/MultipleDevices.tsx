@@ -7,10 +7,10 @@ const SvgMultipleDevices = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M17 17.5a1 1 0 1 0 0 2h1a1 1 0 1 0 0-2z" />
+    <Path d="M19 19h-3v-2h3z" />
     <Path
       fillRule="evenodd"
-      d="M5 3a2 2 0 0 0-2 2v10H2a1 1 0 0 0-1 1v3a2 2 0 0 0 2 2h9.268A2 2 0 0 0 14 22h7a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2V5a2 2 0 0 0-2-2zm7 14H3v2h9zm2 3h7V10h-7z"
+      d="M21 3v5h2v14H12v-1H1v-6h2V3zm-7 17h7V10h-7zM3 19h9v-2H3z"
       clipRule="evenodd"
     />
   </Svg>

@@ -2,13 +2,12 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { useMedia } from '@onekeyhq/components';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IPerpsCumulativeRewardsResponse } from '@onekeyhq/shared/src/referralCode/type';
-
 import {
   RewardHeaderLayout,
   StatCard,
 } from '@onekeyhq/kit/src/views/ReferFriends/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IPerpsCumulativeRewardsResponse } from '@onekeyhq/shared/src/referralCode/type';
 
 interface IPerpsRewardHeaderProps {
   data: IPerpsCumulativeRewardsResponse | undefined;
@@ -47,6 +46,7 @@ export function PerpsRewardHeader({
             id: ETranslations.referral_undistributed,
           })}
           value={undistributed}
+          valueColor="$textSuccess"
           subtitle={`${intl.formatMessage({
             id: ETranslations.referral_perps_total,
           })}: $${new BigNumber(totalReward).toFixed(2)}`}

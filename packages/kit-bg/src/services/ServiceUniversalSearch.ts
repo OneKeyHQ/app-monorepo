@@ -53,13 +53,7 @@ class ServiceUniversalSearch extends ServiceBase {
 
   private getAccountPriority(accountId?: string): number {
     if (!accountId) return 1;
-    const accountParams = { accountId };
-    if (
-      accountUtils.isHdAccount(accountParams) ||
-      accountUtils.isHwAccount(accountParams) ||
-      accountUtils.isQrAccount(accountParams) ||
-      accountUtils.isImportedAccount(accountParams)
-    ) {
+    if (accountUtils.isOwnAccount({ accountId })) {
       return 0; // Internal accounts first (HD/HW/QR/Imported)
     }
     return 1; // Others accounts (Watching/External)
@@ -1031,6 +1025,7 @@ class ServiceUniversalSearch extends ServiceBase {
             maxLeverage: number;
             midPx: string;
             dayNtlVlm: string;
+            subtitle?: string;
           }>;
         }>('/wallet/v1/proxy/hyperliquid/perpsAsset', {
           params: { query: input },
@@ -1046,6 +1041,7 @@ class ServiceUniversalSearch extends ServiceBase {
               maxLeverage: asset.maxLeverage,
               midPx: asset.midPx,
               dayNtlVlm: asset.dayNtlVlm,
+              subtitle: asset.subtitle,
             },
           })) ?? [];
 

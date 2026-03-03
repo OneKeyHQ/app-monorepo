@@ -28,13 +28,13 @@ import {
 } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EModalDeviceManagementRoutes,
   IModalDeviceManagementParamList,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   openUrlExternal,
   openUrlInDiscovery,

@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { createPortal } from 'react-dom';
+
+import { useThemeName } from '@onekeyhq/components/src/hooks';
+import { Icon } from '@onekeyhq/components/src/primitives';
 import type {
   IMenu,
   IMenuItem,
 } from '@onekeyhq/kit-bg/src/desktopApis/DesktopApiSystem';
-
-import { Icon } from '@onekeyhq/components/src/primitives';
-import { useThemeName } from '@onekeyhq/components/src/hooks';
 
 function MenuItemComponent({
   item,
@@ -54,9 +55,18 @@ function MenuItemComponent({
 
   return (
     <div
+      role="menuitem"
+      tabIndex={0}
       className={`desktop-menu-item ${!item.enabled ? 'disabled' : ''}`}
       onClick={handleClick}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          handleClick();
+        }
+      }}
     >
+      {/* eslint-disable no-nested-ternary */}
       {iconDataUrl ? (
         <img
           src={iconDataUrl}
@@ -80,6 +90,7 @@ function MenuItemComponent({
           }}
         />
       ) : null}
+      {/* eslint-enable no-nested-ternary */}
       <span className="desktop-menu-item-label">{item.label}</span>
       {item.accelerator ? (
         <span className="desktop-menu-item-accelerator">
@@ -118,7 +129,10 @@ function MenuDropdown({
   onClose: () => void;
 }) {
   return (
-    <div className={`desktop-menu-dropdown ${isOpen ? 'open' : ''}`}>
+    <div
+      role="menu"
+      className={`desktop-menu-dropdown ${isOpen ? 'open' : ''}`}
+    >
       {items.map((item, index) => (
         <MenuItemComponent
           key={`${item.commandId}-${index}`}
@@ -199,6 +213,7 @@ export function Menu() {
 
   return (
     <div
+      role="menubar"
       ref={containerRef}
       className={`desktop-menu-container ${
         themeName === 'light' ? 'light-theme' : ''
@@ -223,8 +238,16 @@ export function Menu() {
             style={{ position: 'relative' }}
           >
             <div
+              role="menuitem"
+              tabIndex={0}
               className="desktop-menu-trigger"
               onClick={() => handleMenuTriggerClick(index)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  handleMenuTriggerClick(index);
+                }
+              }}
               onMouseEnter={() => handleMenuTriggerHover(index)}
               style={{
                 padding: '4px 8px',
@@ -237,7 +260,7 @@ export function Menu() {
             </div>
             <MenuDropdown
               items={menuItem.submenu.items}
-              isOpen={isOpen && activeMenuIndex === index}
+              isOpen={isOpen ? activeMenuIndex === index : false}
               onClose={handleClose}
             />
           </div>
@@ -250,7 +273,8 @@ export function Menu() {
 export function MenuHamburger() {
   const [menu, setMenu] = useState<IMenu | null>(null);
   const [isOpen, setIsOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const themeName = useThemeName();
 
   useEffect(() => {
@@ -264,9 +288,10 @@ export function MenuHamburger() {
   // Close menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
       if (
-        containerRef.current &&
-        !containerRef.current.contains(event.target as Node)
+        (!triggerRef.current || !triggerRef.current.contains(target)) &&
+        (!dropdownRef.current || !dropdownRef.current.contains(target))
       ) {
         setIsOpen(false);
       }
@@ -304,6 +329,15 @@ export function MenuHamburger() {
     return itemArray;
   }, [menu]);
 
+  // Compute dropdown position from trigger element
+  const dropdownPosition = useMemo(() => {
+    if (isOpen && triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      return { top: rect.top, left: rect.right };
+    }
+    return { top: 0, left: 0 };
+  }, [isOpen]);
+
   if (
     allItems.length === 0 ||
     !menu ||
@@ -314,20 +348,58 @@ export function MenuHamburger() {
   }
 
   return (
-    <div
-      ref={containerRef}
-      className={`desktop-menu-container ${
-        themeName === 'light' ? 'light-theme' : ''
-      }`}
-    >
-      <div className="desktop-menu-trigger" onClick={toggleMenu}>
-        <Icon
-          name="MenuOutline"
-          size="$5"
-          color={themeName === 'light' ? '$iconSubdued' : '$icon'}
-        />
+    <>
+      <div
+        ref={triggerRef}
+        className={`desktop-menu-container ${
+          themeName === 'light' ? 'light-theme' : ''
+        }`}
+      >
+        <div
+          role="button"
+          tabIndex={0}
+          aria-label="Menu"
+          className="desktop-menu-trigger"
+          onClick={toggleMenu}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              toggleMenu();
+            }
+          }}
+        >
+          <Icon
+            name="MenuOutline"
+            size="$5"
+            color={themeName === 'light' ? '$iconSubdued' : '$icon'}
+          />
+        </div>
       </div>
-      <MenuDropdown items={allItems} isOpen={isOpen} onClose={handleClose} />
-    </div>
+      {isOpen
+        ? createPortal(
+            <div
+              role="menu"
+              ref={dropdownRef}
+              className={`desktop-menu-dropdown open ${
+                themeName === 'light' ? 'light-theme' : ''
+              }`}
+              style={{
+                position: 'fixed',
+                top: dropdownPosition.top,
+                left: dropdownPosition.left,
+              }}
+            >
+              {allItems.map((item, index) => (
+                <MenuItemComponent
+                  key={`${item.commandId}-${index}`}
+                  item={item}
+                  onClose={handleClose}
+                />
+              ))}
+            </div>,
+            document.body,
+          )
+        : null}
+    </>
   );
 }

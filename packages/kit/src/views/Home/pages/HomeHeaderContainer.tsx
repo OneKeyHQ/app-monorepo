@@ -1,12 +1,18 @@
 import { memo, useCallback, useMemo, useState } from 'react';
 
-import { Stack, YStack, useMedia } from '@onekeyhq/components';
+import {
+  HeaderScrollGestureWrapper,
+  Stack,
+  YStack,
+  useMedia,
+} from '@onekeyhq/components';
 import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { HomeTokenListProviderMirror } from '../components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import ReferralCodeBlock from '../components/NotBakcedUp/ReferralCodeBlock';
+import { onHomePageRefresh } from '../components/PullToRefresh';
 import { ReceiveInfo } from '../components/ReceiveInfo';
 import { WalletActions } from '../components/WalletActions';
 import WalletBanner from '../components/WalletBanner';
@@ -50,10 +56,14 @@ function BaseHomeHeaderContainer() {
           bg="$bgApp"
           pointerEvents="box-none"
         >
-          <ReceiveInfo setShowReceiveInfo={setShowReceiveInfo} />
-          <ReferralCodeBlock
-            setShowReferralCodeBlock={setShowReferralCodeBlock}
-          />
+          <HeaderScrollGestureWrapper onRefresh={onHomePageRefresh}>
+            <ReceiveInfo setShowReceiveInfo={setShowReceiveInfo} />
+          </HeaderScrollGestureWrapper>
+          <HeaderScrollGestureWrapper onRefresh={onHomePageRefresh}>
+            <ReferralCodeBlock
+              setShowReferralCodeBlock={setShowReferralCodeBlock}
+            />
+          </HeaderScrollGestureWrapper>
         </YStack>
       );
     }
@@ -95,28 +105,33 @@ function BaseHomeHeaderContainer() {
 
   return (
     <HomeTokenListProviderMirror>
-      <YStack pb="$8" gap="$8">
+      <YStack
+        pb="$8"
+        gap="$5"
+        $gtMd={{ gap: '$8' }}
+        bg="$bgApp"
+        pointerEvents="box-none"
+      >
         <Stack
           testID="Wallet-Tab-Header"
           gap="$5"
-          pt="$8"
+          pt="$5"
+          $gtMd={{
+            pt: '$8',
+          }}
           px="$pagePadding"
           bg="$bgApp"
-          $gtLg={{
-            flexDirection: 'row',
-            justifyContent: 'space-between',
-          }}
           pointerEvents="box-none"
         >
-          <Stack gap="$2.5" flex={1}>
-            <HomeOverviewContainer />
-          </Stack>
+          <HeaderScrollGestureWrapper onRefresh={onHomePageRefresh}>
+            <Stack gap="$2.5">
+              <HomeOverviewContainer />
+            </Stack>
+          </HeaderScrollGestureWrapper>
           {isWalletNotBackedUp ? null : (
-            <WalletActions
-              $gtLg={{
-                pt: 0,
-              }}
-            />
+            <HeaderScrollGestureWrapper onRefresh={onHomePageRefresh}>
+              <WalletActions />
+            </HeaderScrollGestureWrapper>
           )}
         </Stack>
         {isWalletNotBackedUp ? null : <WalletBanner />}

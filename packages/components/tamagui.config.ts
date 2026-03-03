@@ -3,9 +3,12 @@ import { createMedia } from '@tamagui/react-native-media-driver';
 import { shorthands } from '@tamagui/shorthands';
 import { themes } from '@tamagui/themes';
 import { createFont, createTokens } from '@tamagui/web';
+import { Easing } from 'react-native-reanimated';
 import { createTamagui } from 'tamagui';
 
 import {
+  amber,
+  amberDark,
   blue,
   blueDark,
   brand,
@@ -14,8 +17,16 @@ import {
   cautionDark,
   critical,
   criticalDark,
+  cyan,
+  cyanDark,
+  green,
+  greenDark,
   info,
   infoDark,
+  jade,
+  jadeDark,
+  lime,
+  limeDark,
   neutral,
   neutralDark,
   orange,
@@ -152,7 +163,17 @@ const basicFontVariants = {
 const tamaguiWebFontFamily = webFontFamily;
 
 const font = createFont({
-  family: isTamaguiNative ? 'System' : tamaguiWebFontFamily,
+  family: isTamaguiNative ? 'Roobert-Regular' : tamaguiWebFontFamily,
+  ...(isTamaguiNative
+    ? {
+        face: {
+          400: { normal: 'Roobert-Regular' },
+          500: { normal: 'Roobert-Medium' },
+          600: { normal: 'Roobert-SemiBold' },
+          700: { normal: 'Roobert-Bold' },
+        },
+      }
+    : {}),
   ...basicFontVariants,
 });
 
@@ -189,6 +210,11 @@ const animations = createAnimations({
     type: 'spring',
     damping: 20,
     mass: 0.1,
+  },
+  popoverQuick: {
+    type: 'timing',
+    duration: 150,
+    easing: Easing.out(Easing.cubic),
   },
   fast: {
     type: 'spring',
@@ -234,6 +260,11 @@ const lightColors = {
   ...blue,
   ...orange,
   ...teal,
+  ...green,
+  ...cyan,
+  ...amber,
+  ...lime,
+  ...jade,
   bg: '#FFFFFF',
   bgActive: neutral.neutral4,
   bgApp: '#FFFFFF',
@@ -339,6 +370,11 @@ const darkColors: typeof lightColors = {
   ...blueDark,
   ...orangeDark,
   ...tealDark,
+  ...greenDark,
+  ...cyanDark,
+  ...amberDark,
+  ...limeDark,
+  ...jadeDark,
   bg: '#1b1b1b',
   bgActive: neutralDark.neutral4,
   bgApp: '#0f0f0f',
@@ -654,7 +690,7 @@ declare module 'tamagui' {
   // overrides TamaguiCustomConfig so your custom types
   // work everywhere you import `tamagui`
 
-  // eslint-disable-next-line @typescript-eslint/no-empty-interface, @typescript-eslint/naming-convention
+  // eslint-disable-next-line @typescript-eslint/no-empty-interface, @typescript-eslint/naming-convention, @typescript-eslint/no-empty-object-type
   interface TamaguiCustomConfig extends IAppConfig {}
 
   // override groupNames
