@@ -177,6 +177,20 @@ function BundleTestsContent({
         <Button
           variant="secondary"
           size="small"
+          onPress={async () => {
+            try {
+              const result = await BundleUpdate.testVerification();
+              showTestResult(result);
+            } catch (error) {
+              showTestError(error);
+            }
+          }}
+        >
+          Verification
+        </Button>
+        <Button
+          variant="secondary"
+          size="small"
           onPress={() => runTest(BundleUpdate.testDeleteJsBundle)}
         >
           Delete JsBundle
