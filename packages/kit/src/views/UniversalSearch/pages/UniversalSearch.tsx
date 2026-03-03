@@ -315,11 +315,14 @@ export function UniversalSearch({
             ? aggregateTokenListMap
             : undefined,
         });
-      const generateDataFn = (data: IUniversalSearchResultItem[]) => {
+      const generateDataFn = (
+        data: IUniversalSearchResultItem[],
+        limit = 5,
+      ) => {
         return {
           data,
-          sliceData: data.slice(0, 5),
-          showMore: data.length > 5,
+          sliceData: data.slice(0, limit),
+          showMore: data.length > limit,
         };
       };
 
@@ -366,7 +369,7 @@ export function UniversalSearch({
         });
       }
 
-      // Show V2 market tokens
+      // Show V2 market tokens (limit to 3 in "All" tab)
       if (result?.[EUniversalSearchType.V2MarketToken]?.items?.length) {
         const data = result?.[EUniversalSearchType.V2MarketToken]
           ?.items as IUniversalSearchResultItem[];
@@ -377,7 +380,7 @@ export function UniversalSearch({
           title: intl.formatMessage({
             id: ETranslations.global_market,
           }),
-          ...generateDataFn(data),
+          ...generateDataFn(data, 3),
         });
       }
 
