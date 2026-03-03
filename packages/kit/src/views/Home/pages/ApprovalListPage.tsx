@@ -77,7 +77,7 @@ function ApprovalListBar() {
     return (
       <TabPageHeader
         sceneName={EAccountSelectorSceneName.home}
-        tabRoute={ETabRoutes.BulkSend}
+        tabRoute={ETabRoutes.SubPage}
         customHeaderLeftItems={customHeaderLeft}
       />
     );
