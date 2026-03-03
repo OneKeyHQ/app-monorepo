@@ -77,15 +77,35 @@ class ServiceUniversalSearch extends ServiceBase {
     if (!searchTypes.length) {
       return [] as IUniversalSearchBatchResult;
     }
-    if (searchTypes.includes(EUniversalSearchType.MarketToken)) {
-      const items =
-        await this.backgroundApi.serviceMarket.fetchSearchTrending();
-      result[EUniversalSearchType.MarketToken] = {
-        items: items.map((item) => ({
-          type: EUniversalSearchType.MarketToken,
-          payload: item,
-        })),
-      };
+    if (
+      searchTypes.includes(EUniversalSearchType.MarketToken) ||
+      searchTypes.includes(EUniversalSearchType.V2MarketToken)
+    ) {
+      const basicConfigResponse =
+        await this.backgroundApi.serviceMarketV2.fetchMarketBasicConfig();
+      const searchRecommendTokens =
+        basicConfigResponse?.data?.searchRecommendTokens;
+      if (searchRecommendTokens?.length) {
+        result[EUniversalSearchType.V2MarketToken] = {
+          items: searchRecommendTokens.map((token) => ({
+            type: EUniversalSearchType.V2MarketToken,
+            payload: {
+              name: token.name,
+              symbol: token.symbol,
+              price: '0',
+              address: token.contractAddress,
+              network: token.chainId,
+              logoUrl: token.logo || '',
+              isNative: token.isNative,
+              decimals: 0,
+              liquidity: '0',
+              volume_24h: '0',
+              marketCap: '0',
+              priceChange24hPercent: '0',
+            },
+          })),
+        };
+      }
     }
     return result;
   }

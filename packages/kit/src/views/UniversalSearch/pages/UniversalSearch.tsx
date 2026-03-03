@@ -250,38 +250,14 @@ export function UniversalSearch({
 
     const result =
       await backgroundApiProxy.serviceUniversalSearch.universalSearchRecommend({
-        searchTypes: [EUniversalSearchType.MarketToken],
+        searchTypes: [EUniversalSearchType.V2MarketToken],
       });
-    if (result?.[EUniversalSearchType.MarketToken]?.items) {
-      // Convert MarketToken items to V2MarketToken format for table-style rendering
-      const v2Items = result[EUniversalSearchType.MarketToken].items.map(
-        (item) => {
-          const token = item.payload;
-          return {
-            type: EUniversalSearchType.V2MarketToken,
-            payload: {
-              name: token.name,
-              symbol: token.symbol,
-              price: String(token.price),
-              address: token.coingeckoId,
-              network: '',
-              logoUrl: token.image,
-              isNative: false,
-              decimals: 0,
-              liquidity: '0',
-              volume_24h: String(token.totalVolume || 0),
-              marketCap: String(token.marketCap || 0),
-              priceChange24hPercent: String(
-                token.priceChangePercentage24H || 0,
-              ),
-            },
-          };
-        },
-      );
+    if (result?.[EUniversalSearchType.V2MarketToken]?.items?.length) {
       searchResultSections.push({
         tabIndex: 2,
         title: intl.formatMessage({ id: ETranslations.market_trending }),
-        data: v2Items as IUniversalSearchResultItem[],
+        data: result[EUniversalSearchType.V2MarketToken]
+          .items as IUniversalSearchResultItem[],
       });
     }
     setRecommendSections(searchResultSections);
