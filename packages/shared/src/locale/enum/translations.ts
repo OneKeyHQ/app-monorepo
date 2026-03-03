@@ -137,6 +137,7 @@
   allowlist_enabled_popover_title = 'allowlist.enabled_popover_title',
   approval_bulk_revoke_status_paused_reason_description = 'approval_bulk_revoke_status_paused_reason_description',
   approval_bulk_revoke_status_processing = 'approval_bulk_revoke_status_processing',
+  approval_not_supported = 'approval_not_supported',
   approve_edit_approve_amount = 'approve_edit.approve_amount',
   approve_edit_less_than_swap = 'approve_edit.less_than_swap',
   approve_edit_title = 'approve_edit.title',

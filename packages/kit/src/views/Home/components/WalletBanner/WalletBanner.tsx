@@ -467,6 +467,11 @@ function WalletBanner() {
       if (banner.position && banner.position !== 'home') {
         return false;
       }
+      if (banner.networkIds && banner.networkIds.length > 0) {
+        if (!network?.id || !banner.networkIds.includes(network.id)) {
+          return false;
+        }
+      }
       return !closedForeverBanners[banner.id];
     });
     updateWalletTopBanners({
@@ -475,7 +480,12 @@ function WalletBanner() {
     await backgroundApiProxy.serviceWalletBanner.updateLocalTopBanners({
       topBanners: filteredBanners,
     });
-  }, [latestBanners, closedForeverBanners, updateWalletTopBanners]);
+  }, [
+    latestBanners,
+    closedForeverBanners,
+    updateWalletTopBanners,
+    network?.id,
+  ]);
 
   const handleDismiss = useCallback(async (item: IWalletBanner) => {
     if (item.closeable) {
