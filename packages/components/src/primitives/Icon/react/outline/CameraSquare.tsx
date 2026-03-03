@@ -15,7 +15,7 @@ const SvgCameraSquare = (props: SvgProps) => (
     <Path d="M17.5 6.25a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5" />
     <Path
       fillRule="evenodd"
-      d="M20 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zM4 19h16V5H4z"
+      d="M22 21H2V3h20zM4 19h16V5H4z"
       clipRule="evenodd"
     />
   </Svg>

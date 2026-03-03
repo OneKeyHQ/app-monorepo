@@ -7,7 +7,16 @@ const SvgSimCard = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M4 20V4a2 2 0 0 1 2-2h7.172l.296.015a3 3 0 0 1 1.825.864l3.828 3.828A3 3 0 0 1 20 8.828V20a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2m6-7v3h4v-3zm6 3a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2zM6 20h12V8.828a1 1 0 0 0-.293-.707l-3.828-3.828a1 1 0 0 0-.608-.288L13.17 4H6z" />
+    <Path
+      fillRule="evenodd"
+      d="M16 18H8v-7h8zm-6-2h4v-3h-4z"
+      clipRule="evenodd"
+    />
+    <Path
+      fillRule="evenodd"
+      d="M20 7.586V22H4V2h10.414zM6 20h12V8.414L13.586 4H6z"
+      clipRule="evenodd"
+    />
   </Svg>
 );
 export default SvgSimCard;

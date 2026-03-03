@@ -1792,6 +1792,7 @@ function SendDataInputContainer() {
         calcPercentBalance({
           balance: isUseFiat ? maxBalanceFiat : maxBalance,
           percent,
+          // eslint-disable-next-line no-nested-ternary
           decimals: isUseFiat
             ? 6
             : percent === 100

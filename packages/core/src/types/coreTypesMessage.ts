@@ -125,6 +125,5 @@ export type IUnsignedMessage =
   | IUnsignedMessageTron
   | IUnsignedMessageAda
   | IUnsignedMessageAlph
-  | IUnsignedMessageCfx
   | IUnsignedMessageSolana
   | IUnsignedMessageStellar;

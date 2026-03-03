@@ -2,7 +2,10 @@ import { Dialog, Input } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { isCorrectDevOnlyPassword } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { switchWebDappMode } from '@onekeyhq/shared/src/utils/devModeUtils';
 
+import { MultipleClickStack } from '../../../components/MultipleClickStack';
 import { showDevOnlyPasswordDialog } from '../pages/Tab/DevSettingsSection';
 
 // for open dev mode
@@ -50,6 +53,16 @@ export const showDevModePasswordDialog = async () => {
       },
       renderContent: (
         <Dialog.Form formProps={{ values: { password: '' } }}>
+          <MultipleClickStack
+            showDevBgColor
+            h="$5"
+            onPress={async () => {
+              if (platformEnv.isWeb) {
+                switchWebDappMode();
+                globalThis.location.reload();
+              }
+            }}
+          />
           <Dialog.FormField
             name="password"
             rules={{

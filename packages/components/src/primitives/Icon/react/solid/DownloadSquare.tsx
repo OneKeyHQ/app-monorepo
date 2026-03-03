@@ -9,7 +9,7 @@ const SvgDownloadSquare = (props: SvgProps) => (
   >
     <Path
       fillRule="evenodd"
-      d="M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zm6 12a1 1 0 1 1 0-2h6a1 1 0 1 1 0 2zm5.707-5.293-2 2a1 1 0 0 1-1.414 0l-2-2a1 1 0 1 1 1.414-1.414l.293.293V8a1 1 0 1 1 2 0v2.586l.293-.293a1 1 0 1 1 1.414 1.414"
+      d="M21 21H3V3h18zM8 15v2h8v-2zm3-8v3.586l-1-1L8.586 11 12 14.414 15.414 11 14 9.586l-1 1V7z"
       clipRule="evenodd"
     />
   </Svg>

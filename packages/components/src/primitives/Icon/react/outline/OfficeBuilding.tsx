@@ -7,7 +7,12 @@ const SvgOfficeBuilding = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M14.727 9.727v8.182h3.637V9.727zm-4.545 2.727a.91.91 0 1 1 0 1.819H8.364a.91.91 0 1 1 0-1.819zm0-3.636a.91.91 0 1 1 0 1.818H8.364a.91.91 0 1 1 0-1.818zM5.636 6.091v11.818h7.273V6.091zm9.091 1.818h3.637c1.004 0 1.818.814 1.818 1.818v8.182h.909a.91.91 0 1 1 0 1.818H2.909a.91.91 0 0 1 0-1.818h.91V6.091c0-1.004.813-1.818 1.817-1.818h7.273c1.004 0 1.818.814 1.818 1.818z" />
+    <Path d="M11 14H7v-2h4zm0-4H7V8h4z" />
+    <Path
+      fillRule="evenodd"
+      d="M15 7h6v11h2v2H1v-2h2V3h12zM5 18h8V5H5zm10 0h4V9h-4z"
+      clipRule="evenodd"
+    />
   </Svg>
 );
 export default SvgOfficeBuilding;

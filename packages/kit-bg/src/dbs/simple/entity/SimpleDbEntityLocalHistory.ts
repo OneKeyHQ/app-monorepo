@@ -155,8 +155,8 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
     const now = Date.now();
     const rawData = await this.getRawData();
 
-    let finalPendingTxs = rawData?.pendingTxs[key] ?? [];
-    let finalConfirmedTxs = rawData?.confirmedTxs[key] ?? [];
+    let finalPendingTxs = rawData?.pendingTxs?.[key] ?? [];
+    let finalConfirmedTxs = rawData?.confirmedTxs?.[key] ?? [];
 
     if (pendingTxs) {
       finalPendingTxs = uniqBy(
@@ -446,7 +446,7 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
 
     const key = buildAccountLocalAssetsKey({ networkId, accountAddress, xpub });
 
-    let accountPendingTxs = (await this.getRawData())?.pendingTxs[key] ?? [];
+    let accountPendingTxs = (await this.getRawData())?.pendingTxs?.[key] ?? [];
 
     accountPendingTxs = this._arrangeLocalTxs({
       txs: accountPendingTxs,
@@ -472,7 +472,7 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
     const key = buildAccountLocalAssetsKey({ networkId, accountAddress, xpub });
 
     let accountConfirmedTxs =
-      (await this.getRawData())?.confirmedTxs[key] || [];
+      (await this.getRawData())?.confirmedTxs?.[key] || [];
 
     accountConfirmedTxs = this._arrangeLocalTxs({
       txs: accountConfirmedTxs,

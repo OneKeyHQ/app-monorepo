@@ -7,7 +7,11 @@ const SvgShoppingBag2 = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M13.96 6.119a1.96 1.96 0 0 0-3.92 0v.98h3.92zM5.792 19.84H18.21L16.55 9.06h-9.1L5.79 19.841ZM15.921 7.1h.629c.968 0 1.79.706 1.937 1.663l1.66 10.782a1.96 1.96 0 0 1-1.938 2.258H5.79a1.96 1.96 0 0 1-1.937-2.258l1.66-10.783A1.96 1.96 0 0 1 7.45 7.099h.63v-.98a3.92 3.92 0 0 1 7.841 0z" />
+    <Path
+      fillRule="evenodd"
+      d="M12 2a4 4 0 0 1 4 4v1h2.358l2.308 15H3.334L5.642 7H8V6a4 4 0 0 1 4-4M5.666 20h12.668L16.643 9H7.357zM12 4a2 2 0 0 0-2 2v1h4V6a2 2 0 0 0-2-2"
+      clipRule="evenodd"
+    />
   </Svg>
 );
 export default SvgShoppingBag2;

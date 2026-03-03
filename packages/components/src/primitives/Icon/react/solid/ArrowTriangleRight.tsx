@@ -7,7 +7,7 @@ const SvgArrowTriangleRight = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M6.89 4.213C5.538 3.54 4 4.547 4 6.02v11.96c0 1.472 1.539 2.479 2.89 1.806l11.997-5.982c1.484-.74 1.484-2.87 0-3.61L6.889 4.213Z" />
+    <Path d="M21.236 12 4 20.618V3.382z" />
   </Svg>
 );
 export default SvgArrowTriangleRight;

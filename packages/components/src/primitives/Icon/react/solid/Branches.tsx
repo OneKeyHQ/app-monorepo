@@ -7,7 +7,7 @@ const SvgBranches = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M7.5 2a3.5 3.5 0 0 0-1 6.855v6.29A3.502 3.502 0 0 0 7.5 22a3.5 3.5 0 0 0 1-6.855V13h7a2 2 0 0 0 2-2V8.855A3.502 3.502 0 0 0 16.5 2a3.5 3.5 0 0 0-1 6.855V11h-7V8.855A3.502 3.502 0 0 0 7.5 2" />
+    <Path d="M17.5 3a3 3 0 0 1 1 5.83V13h-11v2.17a3.001 3.001 0 1 1-2 0V8.83a3.001 3.001 0 1 1 2 0V11h9V8.83a3.001 3.001 0 0 1 1-5.83" />
   </Svg>
 );
 export default SvgBranches;

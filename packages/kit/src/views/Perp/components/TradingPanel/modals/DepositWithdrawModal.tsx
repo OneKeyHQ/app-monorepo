@@ -1288,7 +1288,6 @@ function DepositWithdrawContent({
           height: '100%',
           justifyContent: 'center',
           alignItems: 'center',
-          width: 80,
         }}
         value={selectedAction}
         onChange={onChangeSegmentControl}

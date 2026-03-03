@@ -9,10 +9,10 @@ const SvgPackage = (props: SvgProps) => (
   >
     <Path
       fillRule="evenodd"
-      d="M8 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2h-3v5a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2zm6 14a1 1 0 0 1 1-1h2a1 1 0 1 1 0 2h-2a1 1 0 0 1-1-1"
+      d="M8 10h8V3h5v18H3V3h5zm6 8h4v-2h-4z"
       clipRule="evenodd"
     />
-    <Path d="M14 3h-4v5h4z" />
+    <Path d="M14 8h-4V3h4z" />
   </Svg>
 );
 export default SvgPackage;

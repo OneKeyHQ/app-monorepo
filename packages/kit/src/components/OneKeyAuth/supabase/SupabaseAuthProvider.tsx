@@ -1,9 +1,10 @@
 import type { PropsWithChildren } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 
+import { getSupabaseClient } from '@onekeyhq/shared/src/utils/supabaseClientUtils';
+
 import { SupabaseAuthContext } from './SupabaseAuthContext';
 
-import { getSupabaseClient } from '@onekeyhq/shared/src/utils/supabaseClientUtils';
 import type { Session } from '@supabase/supabase-js';
 
 export default function SupabaseAuthProvider({ children }: PropsWithChildren) {

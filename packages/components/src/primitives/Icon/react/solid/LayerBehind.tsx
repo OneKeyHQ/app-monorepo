@@ -7,7 +7,7 @@ const SvgLayerBehind = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M20 7.5a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2zm-1-4a1 1 0 1 1 0 2H5a1 1 0 0 1 0-2z" />
+    <Path d="M22 20H2V8h20zM11 6H4V3h7zm9 0h-7V3h7z" />
   </Svg>
 );
 export default SvgLayerBehind;

@@ -144,9 +144,9 @@ export class Analytics {
     } as Record<string, string>;
     if (
       !platformEnv.isNative &&
-      // oxlint-disable-next-line unicorn/prefer-global-this
+      // eslint-disable-next-line unicorn/prefer-global-this
       typeof window !== 'undefined' &&
-      // oxlint-disable-next-line unicorn/prefer-global-this
+      // eslint-disable-next-line unicorn/prefer-global-this
       'location' in window
     ) {
       event.currentUrl = globalThis.location.href;

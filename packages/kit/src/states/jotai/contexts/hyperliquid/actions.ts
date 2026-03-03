@@ -23,6 +23,7 @@ import { PERPS_FILTERED_LEDGER_TYPES } from '@onekeyhq/shared/src/consts/perp';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -525,10 +526,14 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       const newAskPx = data.bbo[1]?.px;
 
       if (
-        currentBidPx != null &&
-        currentAskPx != null &&
-        newBidPx != null &&
-        newAskPx != null &&
+        currentBidPx !== null &&
+        currentBidPx !== undefined &&
+        currentAskPx !== null &&
+        currentAskPx !== undefined &&
+        newBidPx !== null &&
+        newBidPx !== undefined &&
+        newAskPx !== null &&
+        newAskPx !== undefined &&
         currentBidPx === newBidPx &&
         currentAskPx === newAskPx
       ) {
@@ -566,7 +571,8 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       }
       return {
         nSigFigs: persistedForSymbol.nSigFigs ?? null,
-        ...(persistedForSymbol.mantissa != null
+        ...(persistedForSymbol.mantissa !== null &&
+        persistedForSymbol.mantissa !== undefined
           ? { mantissa: persistedForSymbol.mantissa }
           : {}),
       };
@@ -1395,11 +1401,13 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       now - this.lastRefreshAllPerpsDataTime <
       timerUtils.getTimeDurationMs({ seconds: 15 })
     ) {
-      Toast.message({
-        title: appLocale.intl.formatMessage({
-          id: ETranslations.global_request_limit,
-        }),
-      });
+      if (!platformEnv.isNative) {
+        Toast.message({
+          title: appLocale.intl.formatMessage({
+            id: ETranslations.global_request_limit,
+          }),
+        });
+      }
       return;
     }
     const didRefresh =

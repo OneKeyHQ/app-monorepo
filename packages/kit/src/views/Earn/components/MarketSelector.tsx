@@ -23,6 +23,7 @@ const getBadgeTheme = ({
 }: {
   themeVariant: 'light' | 'dark';
   isActive: boolean;
+  // eslint-disable-next-line no-nested-ternary
 }) => (isActive ? (themeVariant === 'light' ? 'dark' : 'light') : themeVariant);
 
 const MarketSelectorDesktop = ({

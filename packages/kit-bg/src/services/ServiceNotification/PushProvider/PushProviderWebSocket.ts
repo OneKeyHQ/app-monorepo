@@ -43,6 +43,7 @@ export class PushProviderWebSocket extends PushProviderBase {
   private socket: Socket | null = null;
 
   async ping(payload: any) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return this.socket
       ?.timeout(3000)
       .emitWithAck(EAppSocketEventNames.ping, payload);

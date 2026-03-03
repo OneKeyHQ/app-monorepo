@@ -103,21 +103,13 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
       throw new OneKeyLocalError('PrimeAuth Not ready');
     }
 
-    const offerings = await Purchases.getSharedInstance().getOfferings({
-      currency: 'USD',
-    });
+    const offerings = await Purchases.getSharedInstance().getOfferings();
 
     const packages: IPackage[] =
       offerings?.current?.availablePackages?.map((p) => {
         const { normalPeriodDuration, currentPrice } = p.rcBillingProduct;
 
-        let currency = '';
-        currency = primePaymentUtils.extractCurrencySymbol(
-          currentPrice.formattedPrice,
-          {
-            useShortUSSymbol: true,
-          },
-        );
+        const currencyCode = currentPrice.currency || '';
 
         const pricePerMonthBN =
           normalPeriodDuration === 'P1M'
@@ -130,10 +122,10 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
         return {
           subscriptionPeriod: normalPeriodDuration as ISubscriptionPeriod,
           pricePerYear: Number(pricePerYear),
-          pricePerYearString: `${currency}${pricePerYear}`,
+          pricePerYearString: `${pricePerYear} ${currencyCode}`,
           pricePerMonth: Number(pricePerMonth),
-          pricePerMonthString: `${currency}${pricePerMonth}`,
-          priceTotalPerYearString: `${currency}${pricePerYear}`,
+          pricePerMonthString: `${pricePerMonth} ${currencyCode}`,
+          priceTotalPerYearString: `${pricePerYear} ${currencyCode}`,
         };
       }) || [];
 
@@ -170,9 +162,7 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
         //   }),
         // });
 
-        const offerings = await Purchases.getSharedInstance().getOfferings({
-          currency: 'USD',
-        });
+        const offerings = await Purchases.getSharedInstance().getOfferings();
 
         if (!offerings.current) {
           throw new OneKeyLocalError(

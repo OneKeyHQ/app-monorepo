@@ -2,6 +2,7 @@ import { patchTags } from '@keystonehq/bc-ur-registry';
 
 import { ExtendedRegistryTypes } from './RegistryType';
 
+// oxlint-disable-next-line import/export -- re-export from third-party module
 export * from '@keystonehq/bc-ur-registry';
 
 patchTags(

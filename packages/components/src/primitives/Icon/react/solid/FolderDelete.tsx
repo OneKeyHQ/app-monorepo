@@ -7,16 +7,8 @@ const SvgFolderDelete = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path
-      fillRule="evenodd"
-      d="M2 5a2 2 0 0 1 2-2h5.465a2 2 0 0 1 1.664.89L12.535 6H20a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9.83a3 3 0 0 0-.594-3A3 3 0 0 0 5 12.764a3 3 0 0 0-3-.593z"
-      clipRule="evenodd"
-    />
-    <Path
-      fillRule="evenodd"
-      d="M7.707 14.293a1 1 0 0 1 0 1.414L6.414 17l1.293 1.293a1 1 0 1 1-1.414 1.414L5 18.414l-1.293 1.293a1 1 0 0 1-1.414-1.414L3.586 17l-1.293-1.293a1 1 0 1 1 1.414-1.414L5 15.586l1.293-1.293a1 1 0 0 1 1.414 0"
-      clipRule="evenodd"
-    />
+    <Path d="m8.414 15-2 2 2 2L7 20.414l-2-2-2 2L1.586 19l2-2-2-2L3 13.586l2 2 2-2z" />
+    <Path d="M12.535 6H22v14H10.243l1-1-2-2 2-2-4.242-4.242-2 2-2-2-1.001 1V3h8.535z" />
   </Svg>
 );
 export default SvgFolderDelete;
