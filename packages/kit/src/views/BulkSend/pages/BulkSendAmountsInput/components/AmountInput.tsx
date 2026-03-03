@@ -18,6 +18,7 @@ import { AmountInput as BaseAmountInput } from '@onekeyhq/kit/src/components/Amo
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { validateTokenAmount } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   EAmountInputMode,
@@ -353,6 +354,9 @@ export function RangeAmountInput() {
               fontSize={28}
               fontWeight="600"
               px="$0"
+              {...(platformEnv.isNativeAndroid && {
+                includeFontPadding: false,
+              })}
             />
           </XStack>
           <XStack
@@ -400,6 +404,9 @@ export function RangeAmountInput() {
               fontSize={28}
               fontWeight="600"
               px="$0"
+              {...(platformEnv.isNativeAndroid && {
+                includeFontPadding: false,
+              })}
             />
           </XStack>
           <XStack
