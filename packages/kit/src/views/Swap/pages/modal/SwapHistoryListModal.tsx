@@ -83,6 +83,7 @@ const SwapHistoryListModal = ({
 
     for (const history of swapTxHistoryList) {
       // Only count completed successful orders
+      // eslint-disable-next-line no-continue
       if (history.status !== ESwapTxHistoryStatus.SUCCESS) continue;
 
       const historyOneKeyFeeUsd =
@@ -454,6 +455,7 @@ const SwapHistoryListModal = ({
                   .split('__FEE__')
                   .reduce((acc, part, index) => {
                     if (index === 0) return [part];
+                    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
                     return [
                       ...acc,
                       <SizableText

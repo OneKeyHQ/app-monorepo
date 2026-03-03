@@ -54,10 +54,10 @@ import type {
   ListRenderItemInfo,
 } from 'react-native';
 
-// oxlint-disable-next-line unicorn/prefer-global-this
+// eslint-disable-next-line unicorn/prefer-global-this
 if (typeof window !== 'undefined') {
   Object.defineProperty(
-    // oxlint-disable-next-line unicorn/prefer-global-this
+    // eslint-disable-next-line unicorn/prefer-global-this
     window,
     '__react-beautiful-dnd-disable-dev-warnings',
     {

@@ -354,7 +354,11 @@ class ServiceMarketV2 extends ServiceBase {
     if (!data?.list) {
       console.error(
         '[ServiceMarketV2] fetchMarketTokenListBatch: unexpected empty response',
-        { requestIds: missingTokens.map((t) => `${t.chainId}:${t.contractAddress}`) },
+        {
+          requestIds: missingTokens.map(
+            (t) => `${t.chainId}:${t.contractAddress}`,
+          ),
+        },
       );
       return { list: cachedResults };
     }
@@ -708,8 +712,7 @@ class ServiceMarketV2 extends ServiceBase {
   @backgroundMethod()
   async clearMarketBannerCache(): Promise<void> {
     // memoizee's clear() is synchronous, returns void
-    // eslint-disable-next-line @typescript-eslint/no-floating-promises
-    this.memoizedFetchMarketBannerList.clear();
+    void this.memoizedFetchMarketBannerList.clear();
   }
 
   @backgroundMethod()
@@ -723,6 +726,7 @@ class ServiceMarketV2 extends ServiceBase {
     const { data } = response.data;
     return data.list;
   }
+
   @backgroundMethod()
   async fetchMarketPerpsTokenList(params?: {
     category?: string;

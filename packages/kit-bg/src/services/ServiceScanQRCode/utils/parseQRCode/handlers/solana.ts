@@ -11,6 +11,7 @@ const solana: IQRCodeHandler<ISolanaValue> = async (value, options) => {
   const urlValue = options?.urlResult;
   if (urlValue && /solana/i.test(urlValue.data.urlSchema)) {
     const solanaValue = urlValue.data.urlParamList;
+
     // oxlint-disable-next-line @cspell/spellchecker
     solanaValue.splToken = solanaValue['spl-token'];
     solanaValue.recipient = urlValue.data.urlPathList[0];

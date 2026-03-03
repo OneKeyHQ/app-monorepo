@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
+
 import {
   Accordion,
   Badge,
@@ -20,13 +21,13 @@ import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeab
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDeFiListProtocolMapAtom } from '@onekeyhq/kit/src/states/jotai/contexts/deFiList';
+import { getCategoryConfig } from '@onekeyhq/kit/src/utils/defiCategoryConfig';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetails';
 import defiUtils from '@onekeyhq/shared/src/utils/defiUtils';
-import { getCategoryConfig } from '@onekeyhq/kit/src/utils/defiCategoryConfig';
 import {
   openUrlExternal,
   openUrlInDiscovery,
@@ -226,6 +227,9 @@ function Protocol({
               rowProps={{
                 mx: '$2',
                 minHeight: 44,
+                hoverStyle: { bg: '$bgApp' },
+                pressStyle: { bg: '$bgApp' },
+                cursor: 'default',
               }}
               headerRowProps={{
                 py: '$2',

@@ -34,6 +34,7 @@ import SwapHeaderRightActionContainer from './SwapHeaderRightActionContainer';
 import SwapPendingHistoryListComponent from './SwapPendingHistoryList';
 import SwapQuoteInput from './SwapQuoteInput';
 import SwapQuoteResult from './SwapQuoteResult';
+import SwapTipsContainer from './SwapTipsContainer';
 
 interface ISwapOldSwapBridgeLimitContainerProps {
   pageType?: EPageType;
@@ -232,6 +233,7 @@ const SwapOldSwapBridgeLimitContainer = ({
     );
     return (
       <ScrollView flex={1} contentContainerStyle={{ flexGrow: 1 }}>
+        <SwapTipsContainer pageType={pageType} />
         {headerContent ? (
           <YStack pt="$8" pb="$4">
             {headerContent}
@@ -262,6 +264,7 @@ const SwapOldSwapBridgeLimitContainer = ({
   if (showLimitDesktopCard) {
     return (
       <ScrollView flex={1} contentContainerStyle={{ flexGrow: 1 }}>
+        <SwapTipsContainer pageType={pageType} />
         {headerContent ? (
           <YStack pt="$8" pb="$4">
             {headerContent}
@@ -343,6 +346,7 @@ const SwapOldSwapBridgeLimitContainer = ({
       keyboardDismissMode="on-drag"
       ref={scrollViewRef}
     >
+      <SwapTipsContainer pageType={pageType} />
       {headerContent ? (
         <YStack pt="$8" pb="$4">
           {headerContent}

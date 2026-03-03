@@ -1,7 +1,7 @@
 import { createContext, useContext } from 'react';
 
-import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 import { EBulkSendMode } from '@onekeyhq/shared/types/bulkSend';
+import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 export type ITokenDetailsState = {
   initialized: boolean;

@@ -72,7 +72,8 @@ export const BorrowCard = () => {
           indexedAccountId,
         });
       } else {
-        // Mobile: open Borrow dialog
+        // Mobile: block disabled borrow assets (e.g. already supplied)
+        if (item.borrowButton?.disabled) return;
         handleManageBorrow(item);
       }
     },
@@ -83,6 +84,21 @@ export const BorrowCard = () => {
     borrowDataStatus === EBorrowDataStatus.LoadingMarkets ||
     borrowDataStatus === EBorrowDataStatus.WaitingForAccount ||
     borrowDataStatus === EBorrowDataStatus.LoadingReserves;
+
+  // Per-row disabled state: dim + block tap for disabled borrow assets on mobile.
+  // Desktop rows navigate to details (still useful), so only mobile rows are disabled.
+  const getListItemProps = useCallback(
+    (item: IBorrowAsset) => {
+      if (gtMd) return undefined;
+      return item.borrowButton?.disabled ? { disabled: true } : undefined;
+    },
+    [gtMd],
+  );
+
+  const borrowListProps = useMemo(
+    () => ({ listItemProps: getListItemProps }),
+    [getListItemProps],
+  );
 
   const labels = useMemo(() => {
     const asset = intl.formatMessage({ id: ETranslations.global_asset });
@@ -203,6 +219,7 @@ export const BorrowCard = () => {
         emptyContent={labels.noAssetsToBorrow}
         defaultSortKey="available"
         defaultSortDirection="desc"
+        listProps={borrowListProps}
       />
     </Card>
   );

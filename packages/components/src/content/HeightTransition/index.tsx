@@ -1,4 +1,5 @@
 import type { ComponentProps } from 'react';
+import { useEffect } from 'react';
 
 import { StyleSheet } from 'react-native';
 import Animated, {
@@ -44,6 +45,19 @@ function HeightTransition({
   initialHeight = 0,
 }: IHeightTransitionProps) {
   const measuredHeight = useSharedValue(initialHeight);
+
+  // On Android with Fabric/New Architecture, guard against stale worklet
+  // callbacks that can cause SIGSEGV in Value::~Value during navigation
+  // transitions. This shared value is checked on the UI thread inside
+  // withTiming completion callbacks to skip runOnJS calls after unmount.
+  const isMounted = useSharedValue(1);
+  useEffect(
+    () => () => {
+      isMounted.value = 0;
+    },
+    [isMounted],
+  );
+
   const childStyle = useAnimatedStyle(
     () => ({
       opacity: withTiming(!measuredHeight.value || hide ? 0 : 1, transition),
@@ -54,12 +68,12 @@ function HeightTransition({
   const containerStyle = useAnimatedStyle(
     () => ({
       height: withTiming(hide ? 0 : measuredHeight.value, transition, () => {
-        if (onHeightDidAnimate) {
+        if (onHeightDidAnimate && isMounted.value) {
           runOnJS(onHeightDidAnimate)(measuredHeight.value);
         }
       }),
     }),
-    [hide, measuredHeight],
+    [hide, measuredHeight, isMounted],
   );
 
   return (

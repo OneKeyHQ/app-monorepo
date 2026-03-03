@@ -21,12 +21,12 @@ import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import utils from '@onekeyhq/shared/src/utils/accountUtils';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { ISignedMessage } from '@onekeyhq/shared/types/signatureRecord';
 
 import { useGetSignatureSections } from './hooks';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const ListEmptyComponent = () => {
   const intl = useIntl();
