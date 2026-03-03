@@ -121,62 +121,60 @@ export const StakeSection = ({
     (borrowApiCtx.borrowApiParams.action === 'supply' ||
       borrowApiCtx.borrowApiParams.action === 'borrow');
 
-  const { result: stakeAssetsList } =
-    usePromiseResult(
-      async () => {
-        if (
-          !hasRequiredData ||
-          !isPendleProvider ||
-          !accountId ||
-          !protocolInfo?.symbol
-        ) {
-          return undefined;
-        }
-        return backgroundApiProxy.serviceStaking.getEarnAssetsList({
-          accountId,
-          networkId,
-          provider: providerName,
-          symbol: protocolInfo.symbol,
-          vault: protocolInfo.vault || undefined,
-          action: 'stake',
-        });
-      },
-      [
-        hasRequiredData,
-        isPendleProvider,
+  const { result: stakeAssetsList } = usePromiseResult(
+    async () => {
+      if (
+        !hasRequiredData ||
+        !isPendleProvider ||
+        !accountId ||
+        !protocolInfo?.symbol
+      ) {
+        return undefined;
+      }
+      return backgroundApiProxy.serviceStaking.getEarnAssetsList({
         accountId,
         networkId,
-        providerName,
-        protocolInfo?.symbol,
-        protocolInfo?.vault,
-      ],
-      {
-        watchLoading: true,
-      },
-    );
+        provider: providerName,
+        symbol: protocolInfo.symbol,
+        vault: protocolInfo.vault || undefined,
+        action: 'stake',
+      });
+    },
+    [
+      hasRequiredData,
+      isPendleProvider,
+      accountId,
+      networkId,
+      providerName,
+      protocolInfo?.symbol,
+      protocolInfo?.vault,
+    ],
+    {
+      watchLoading: true,
+    },
+  );
 
-  const { result: nativeTokenDetail } =
-    usePromiseResult(
-      async () => {
-        if (
-          !hasRequiredData ||
-          !isPendleProvider ||
-          useBorrowApi ||
-          !accountId ||
-          !networkId
-        ) {
-          return undefined;
-        }
-        return backgroundApiProxy.serviceToken.getNativeToken({
-          accountId,
-          networkId,
-        });
-      },
-      [hasRequiredData, isPendleProvider, useBorrowApi, accountId, networkId],
-      {
-        watchLoading: true,
-      },
-    );
+  const { result: nativeTokenDetail } = usePromiseResult(
+    async () => {
+      if (
+        !hasRequiredData ||
+        !isPendleProvider ||
+        useBorrowApi ||
+        !accountId ||
+        !networkId
+      ) {
+        return undefined;
+      }
+      return backgroundApiProxy.serviceToken.getNativeToken({
+        accountId,
+        networkId,
+      });
+    },
+    [hasRequiredData, isPendleProvider, useBorrowApi, accountId, networkId],
+    {
+      watchLoading: true,
+    },
+  );
 
   const nativeFallbackStakeAsset = useMemo<IEarnTokenItem | undefined>(() => {
     if (!nativeTokenDetail) {
