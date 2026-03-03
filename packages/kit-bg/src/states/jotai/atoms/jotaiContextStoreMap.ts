@@ -10,7 +10,6 @@ export enum EJotaiContextStoreNames {
   accountSelector = 'accountSelector',
   urlAccountHomeTokenList = 'urlAccountHomeTokenList',
   homeTokenList = 'homeTokenList',
-  homeApprovalList = 'homeApprovalList',
   discoveryBrowser = 'discoveryBrowser',
   swap = 'swap',
   swapModal = 'swapModal',

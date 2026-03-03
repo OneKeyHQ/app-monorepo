@@ -24,7 +24,7 @@ function BulkSendBar() {
     return (
       <TabPageHeader
         sceneName={EAccountSelectorSceneName.home}
-        tabRoute={ETabRoutes.BulkSend}
+        tabRoute={ETabRoutes.SubPage}
         customHeaderLeftItems={customHeaderLeft}
         hideSearch={!media.gtMd}
       />
