@@ -176,6 +176,8 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
     app: {
       appUpdate: {
+        softwareUpdateStarted: jest.fn(),
+        softwareUpdateResult: jest.fn(),
         startCheckForUpdates: jest.fn(),
         startDownload: jest.fn(),
         endDownload: jest.fn(),
@@ -780,7 +782,7 @@ describe('useDownloadPackage', () => {
       expect(bundleUpd.installBundle).not.toHaveBeenCalled();
     });
 
-    test('install throws + manual → calls onFail + shows Toast', async () => {
+    test('install throws + manual → shows Toast (onFail only for NOT_FOUND_PACKAGE)', async () => {
       const onSuccess = jest.fn();
       const onFail = jest.fn();
       svc.getUpdateInfo.mockResolvedValue({
@@ -795,12 +797,33 @@ describe('useDownloadPackage', () => {
         await result.current.installPackage(onSuccess, onFail);
       });
 
-      expect(onFail).toHaveBeenCalled();
+      expect(onFail).not.toHaveBeenCalled();
       expect(onSuccess).not.toHaveBeenCalled();
       expect(mockToastError).toHaveBeenCalled();
     });
 
-    test('install throws + silent → calls onFail without Toast', async () => {
+    test('install throws NOT_FOUND_PACKAGE → calls onFail', async () => {
+      const onSuccess = jest.fn();
+      const onFail = jest.fn();
+      svc.getUpdateInfo.mockResolvedValue({
+        latestVersion: '2.0.0',
+        updateStrategy: EUpdateStrategy.manual,
+      });
+      appUpd.installPackage.mockRejectedValue(
+        new Error('NOT_FOUND_PACKAGE'),
+      );
+
+      const { result } = renderHook(() => useDownloadPackage());
+
+      await act(async () => {
+        await result.current.installPackage(onSuccess, onFail);
+      });
+
+      expect(onFail).toHaveBeenCalled();
+      expect(onSuccess).not.toHaveBeenCalled();
+    });
+
+    test('install throws + silent → no Toast and no onFail', async () => {
       const onSuccess = jest.fn();
       const onFail = jest.fn();
       svc.getUpdateInfo.mockResolvedValue({
@@ -815,7 +838,7 @@ describe('useDownloadPackage', () => {
         await result.current.installPackage(onSuccess, onFail);
       });
 
-      expect(onFail).toHaveBeenCalled();
+      expect(onFail).not.toHaveBeenCalled();
       expect(mockToastError).not.toHaveBeenCalled();
     });
   });
