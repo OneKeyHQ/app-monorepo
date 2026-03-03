@@ -12,7 +12,6 @@ __generated__
 .claude/PRPs
 .claude/settings.json
 .claude/settings.local.json
-.claude/skills/my-*/
 .clauderc
 .tmp/
 # Keyless cloud sync mock server data
