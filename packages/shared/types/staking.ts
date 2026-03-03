@@ -1140,6 +1140,7 @@ export interface IEarnManagePageResponse {
     minTransactionFee?: string;
     claimable?: string;
     remainingCap?: string;
+    maturity?: IEarnText;
     protocolInputDecimals?: number;
   };
   alerts?: IEarnAlert[];
@@ -1312,6 +1313,7 @@ export interface IStakeEarnDetail {
     minTransactionFee: string;
     claimable: string;
     remainingCap: string;
+    maturity?: IEarnText;
   };
   managers?: {
     items: {
