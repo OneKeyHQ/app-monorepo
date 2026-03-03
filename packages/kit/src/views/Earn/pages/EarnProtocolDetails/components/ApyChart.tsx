@@ -323,6 +323,14 @@ const ApyChartComponent = ({
               label={intl.formatMessage({
                 id: ETranslations.defi_show_underlying_apy,
               })}
+              containerProps={{
+                ai: 'center',
+              }}
+              labelContainerProps={{
+                py: '$0',
+                my: '$0',
+                justifyContent: 'center',
+              }}
               labelProps={{
                 variant: '$bodyMd',
               }}
