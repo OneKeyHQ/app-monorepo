@@ -196,9 +196,7 @@ function FavoritesBar() {
     ) => {
       const item = favoriteItems[rubric.source.index];
       if (!item) {
-        return (
-          <div ref={provided.innerRef} {...provided.draggableProps} />
-        );
+        return <div ref={provided.innerRef} {...provided.draggableProps} />;
       }
       return (
         <div
