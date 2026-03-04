@@ -214,65 +214,64 @@ export const WithdrawSection = ({
       },
     );
 
-  const { result: unstakeAssetsList, isLoading: unstakeAssetsLoading } =
-    usePromiseResult<IEarnAssetsList | undefined>(
-      async () => {
-        if (
-          !hasRequiredData ||
-          !isPendleProvider ||
-          useBorrowApi ||
-          !accountId ||
-          !protocolInfo?.symbol
-        ) {
-          return undefined;
-        }
-        return backgroundApiProxy.serviceStaking.getEarnAssetsList({
-          accountId,
-          networkId,
-          provider: providerName,
-          symbol: protocolInfo.symbol,
-          vault: protocolInfo.vault || undefined,
-          action: 'unstake',
-        });
-      },
-      [
-        hasRequiredData,
-        isPendleProvider,
-        useBorrowApi,
+  const { result: unstakeAssetsList } = usePromiseResult<
+    IEarnAssetsList | undefined
+  >(
+    async () => {
+      if (
+        !hasRequiredData ||
+        !isPendleProvider ||
+        useBorrowApi ||
+        !accountId ||
+        !protocolInfo?.symbol
+      ) {
+        return undefined;
+      }
+      return backgroundApiProxy.serviceStaking.getEarnAssetsList({
         accountId,
         networkId,
-        providerName,
-        protocolInfo?.symbol,
-        protocolInfo?.vault,
-      ],
-      {
-        watchLoading: true,
-        revalidateOnFocus: true,
-      },
-    );
+        provider: providerName,
+        symbol: protocolInfo.symbol,
+        vault: protocolInfo.vault || undefined,
+        action: 'unstake',
+      });
+    },
+    [
+      hasRequiredData,
+      isPendleProvider,
+      useBorrowApi,
+      accountId,
+      networkId,
+      providerName,
+      protocolInfo?.symbol,
+      protocolInfo?.vault,
+    ],
+    {
+      watchLoading: true,
+    },
+  );
 
-  const { result: nativeTokenDetail, isLoading: nativeTokenLoading } =
-    usePromiseResult(
-      async () => {
-        if (
-          !hasRequiredData ||
-          !isPendleProvider ||
-          useBorrowApi ||
-          !accountId ||
-          !networkId
-        ) {
-          return undefined;
-        }
-        return backgroundApiProxy.serviceToken.getNativeToken({
-          accountId,
-          networkId,
-        });
-      },
-      [hasRequiredData, isPendleProvider, useBorrowApi, accountId, networkId],
-      {
-        watchLoading: true,
-      },
-    );
+  const { result: nativeTokenDetail } = usePromiseResult(
+    async () => {
+      if (
+        !hasRequiredData ||
+        !isPendleProvider ||
+        useBorrowApi ||
+        !accountId ||
+        !networkId
+      ) {
+        return undefined;
+      }
+      return backgroundApiProxy.serviceToken.getNativeToken({
+        accountId,
+        networkId,
+      });
+    },
+    [hasRequiredData, isPendleProvider, useBorrowApi, accountId, networkId],
+    {
+      watchLoading: true,
+    },
+  );
 
   const nativeFallbackReceiveAsset = useMemo<IEarnTokenItem | undefined>(() => {
     if (!nativeTokenDetail) {
@@ -368,10 +367,8 @@ export const WithdrawSection = ({
       return undefined;
     }
 
-    const isLoading = unstakeAssetsLoading || nativeTokenLoading;
-
     return {
-      disabled: isLoading || selectableReceiveAssets.length <= 1,
+      disabled: selectableReceiveAssets.length <= 1,
       onPress:
         selectableReceiveAssets.length > 1
           ? handleOpenReceiveTokenSelector
@@ -381,8 +378,6 @@ export const WithdrawSection = ({
     isPendleProvider,
     useBorrowApi,
     selectableReceiveAssets.length,
-    unstakeAssetsLoading,
-    nativeTokenLoading,
     handleOpenReceiveTokenSelector,
   ]);
 

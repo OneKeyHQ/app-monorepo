@@ -1,7 +1,6 @@
 import type { FC } from 'react';
 import { Fragment, useCallback, useMemo, useState } from 'react';
 
-import { StyleSheet } from 'react-native';
 import Svg, { Line } from 'react-native-svg';
 
 import {
@@ -36,18 +35,27 @@ function ConnectorDashedLine() {
   }, []);
 
   return (
-    <Stack flex={1} minWidth={0} onLayout={handleLayout}>
+    <Stack
+      position="absolute"
+      left={0}
+      right={0}
+      top="$2"
+      h="$3.5"
+      justifyContent="flex-end"
+      onLayout={handleLayout}
+      pointerEvents="none"
+    >
       {width > 0 ? (
-        <Svg height={StyleSheet.hairlineWidth * 4} width={width}>
+        <Svg height={4} width={width}>
           <Line
             x1={0}
-            y1={StyleSheet.hairlineWidth * 2}
+            y1={2}
             x2={width}
-            y2={StyleSheet.hairlineWidth * 2}
-            stroke={theme.iconSubdued.val}
-            strokeWidth={1}
-            strokeDasharray="4 3"
-            strokeLinecap="round"
+            y2={2}
+            stroke={theme.borderSubdued.val}
+            strokeWidth={2}
+            strokeDasharray="6 6"
+            strokeLinecap="square"
           />
         </Svg>
       ) : null}
@@ -105,9 +113,11 @@ export const EarnSwapRoute: FC<IEarnSwapRouteProps> = ({ routes }) => {
       }),
     [routes],
   );
+  const hasConnector = routeDisplayData.some((item) => item.hasConnector);
 
   return (
-    <XStack width="100%" alignItems="center">
+    <XStack width="100%" alignItems="flex-start" position="relative" py="$2">
+      {hasConnector ? <ConnectorDashedLine /> : null}
       {routeDisplayData.map((item) => (
         <Fragment key={item.key}>
           <Image
@@ -117,28 +127,25 @@ export const EarnSwapRoute: FC<IEarnSwapRouteProps> = ({ routes }) => {
             src={item.route.token.logoURI}
           />
           {item.hasConnector ? (
-            <YStack flex={1} minWidth={0} alignItems="center" px="$2" gap="$1">
-              <SizableText
-                size="$bodySm"
-                color="$text"
-                textAlign="center"
-                numberOfLines={1}
-                width="100%"
-              >
-                {item.connectorName || ' '}
-              </SizableText>
-              <XStack width="100%" alignItems="center">
-                <ConnectorDashedLine />
-              </XStack>
-              <SizableText
-                size="$bodySm"
-                color="$textSubdued"
-                textAlign="center"
-                numberOfLines={1}
-                width="100%"
-              >
-                {item.connectorImpact || ' '}
-              </SizableText>
+            <YStack flex={1} minWidth={0} alignItems="center" px="$1">
+              <YStack alignItems="center" bg="$bgApp" px="$1">
+                <SizableText
+                  size="$bodySm"
+                  color="$textSubdued"
+                  textAlign="center"
+                  numberOfLines={1}
+                >
+                  {item.connectorName || ' '}
+                </SizableText>
+                <SizableText
+                  size="$bodySm"
+                  color="$textSubdued"
+                  textAlign="center"
+                  numberOfLines={1}
+                >
+                  {item.connectorImpact || ' '}
+                </SizableText>
+              </YStack>
             </YStack>
           ) : null}
         </Fragment>
