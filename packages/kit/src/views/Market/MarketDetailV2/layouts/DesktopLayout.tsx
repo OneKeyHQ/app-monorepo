@@ -2,6 +2,10 @@ import { useEffect, useMemo, useRef } from 'react';
 import type { RefObject } from 'react';
 
 import { Divider, Stack, XStack, YStack } from '@onekeyhq/components';
+import {
+  TRADING_VIEW_URL,
+  TRADING_VIEW_URL_TEST,
+} from '@onekeyhq/shared/src/config/appConfig';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
@@ -31,14 +35,22 @@ interface IIframeWheelEventMessage {
   deltaY: number;
 }
 
+const ALLOWED_TRADING_VIEW_ORIGINS = new Set([
+  new URL(TRADING_VIEW_URL).origin,
+  new URL(TRADING_VIEW_URL_TEST).origin,
+]);
+
 // Listen for wheel events forwarded from TradingView iframe via postMessage.
 // TradingView side needs: window.parent.postMessage({ type: 'wheelEvent', deltaY }, '*')
 function useIframeWheelPassthrough(scrollRef: RefObject<HTMLElement | null>) {
   useEffect(() => {
-    if (!platformEnv.isWeb) {
+    if (platformEnv.isNative) {
       return;
     }
     const handleMessage = (e: MessageEvent) => {
+      if (!ALLOWED_TRADING_VIEW_ORIGINS.has(e.origin)) {
+        return;
+      }
       const data = e.data as IIframeWheelEventMessage | undefined;
       if (
         data?.type === IFRAME_WHEEL_EVENT_TYPE &&
