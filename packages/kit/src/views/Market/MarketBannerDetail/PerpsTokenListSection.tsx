@@ -2,12 +2,7 @@ import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  SizableText,
-  Stack,
-  Table,
-  useMedia,
-} from '@onekeyhq/components';
+import { SizableText, Stack, Table, useMedia } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
