@@ -156,6 +156,10 @@ export const mevSwapNetworks = [
   'sol--101',
 ];
 
+export const swapNativeTokenDefaultReserveGas: Record<string, number> = {
+  'sui--mainnet': 0.01,
+};
+
 export const approvingIntervalSecondsDefault = 8;
 export const approvingIntervalSecondsEth = 20;
 

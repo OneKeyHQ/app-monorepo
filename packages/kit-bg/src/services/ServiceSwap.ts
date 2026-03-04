@@ -54,6 +54,7 @@ import {
   swapDefaultSetTokens,
   swapHistoryStateFetchInterval,
   swapHistoryStateFetchRiceIntervalCount,
+  swapNativeTokenDefaultReserveGas,
   swapQuoteEventTimeout,
   swapSpeedSwapApprovingStateFetchInterval,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
@@ -1086,6 +1087,8 @@ export default class ServiceSwap extends ServiceBase {
 
   @backgroundMethod()
   async fetchSwapNativeTokenConfig({ networkId }: { networkId: string }) {
+    const fallbackReserveGas =
+      swapNativeTokenDefaultReserveGas[networkId] ?? 0;
     try {
       const client = await this.getClient(EServiceEndpointEnum.Swap);
       const resp = await client.get<{
@@ -1093,12 +1096,16 @@ export default class ServiceSwap extends ServiceBase {
       }>(`/swap/v1/native-token-config`, {
         params: { networkId },
       });
-      return resp.data.data;
+      const data = resp.data.data;
+      if (!data.reserveGas && fallbackReserveGas) {
+        data.reserveGas = fallbackReserveGas;
+      }
+      return data;
     } catch (e) {
       console.error(e);
       return {
         networkId,
-        reserveGas: 0,
+        reserveGas: fallbackReserveGas,
       };
     }
   }
