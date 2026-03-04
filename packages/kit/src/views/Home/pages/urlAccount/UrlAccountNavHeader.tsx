@@ -37,7 +37,7 @@ function Back() {
       icon="ChevronLeftSolid"
       onPress={() => {
         if (getHomeTabStackLength() > 1) {
-          navigation.goBack();
+          navigation.pop();
         } else {
           urlAccountNavigation.replaceHomePage(navigation);
         }
