@@ -382,7 +382,7 @@ function quitOrMinimizeApp() {
   // On OS X it is common for applications and their menu bar
   // to stay active until the user quits explicitly with Cmd + Q
   if (isMac) {
-    // **** renderer app will reload after minimize, and keytar not working.
+    // **** renderer app will reload after minimize.
     const safelyMainWindow = getSafelyMainWindow();
     safelyMainWindow?.hide();
     // ****

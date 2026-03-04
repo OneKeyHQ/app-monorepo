@@ -110,6 +110,12 @@ export function useSpeedSwapActions(props: {
   const [balance, setBalance] = useState<BigNumber | undefined>(
     new BigNumber(0),
   );
+  const [speedCheckError, setSpeedCheckError] = useState('');
+  const [speedCheckLoading, setSpeedCheckLoading] = useState(false);
+  const [checkSpenderAddress, setCheckSpenderAddress] = useState('');
+  const speedCheckRequestIdRef = useRef(0);
+
+  const effectiveSpenderAddress = checkSpenderAddress || spenderAddress;
 
   const [tradeTokenDetail, setTradeTokenDetail] =
     useState<ISwapToken>(tradeToken);
@@ -653,11 +659,12 @@ export function useSpeedSwapActions(props: {
   }, [setInAppNotificationAtom]);
 
   const checkTokenApproveAllowance = useCallback(
-    async (amount: string) => {
+    async (amount: string, overrideSpenderAddress?: string) => {
+      const spender = overrideSpenderAddress || effectiveSpenderAddress;
       const amountBN = new BigNumber(amount || 0);
       try {
         if (
-          !spenderAddress ||
+          !spender ||
           netAccountRes.result?.addressDetail.networkId !==
             fromToken.networkId ||
           !netAccountRes.result?.addressDetail.address ||
@@ -678,7 +685,7 @@ export function useSpeedSwapActions(props: {
         const fetchApproveAllowanceParams = {
           networkId: fromToken.networkId,
           tokenAddress: fromToken.contractAddress,
-          spenderAddress,
+          spenderAddress: spender,
           walletAddress: userAddress,
           amount,
         };
@@ -704,7 +711,7 @@ export function useSpeedSwapActions(props: {
       fromToken.networkId,
       netAccountRes.result?.addressDetail.address,
       netAccountRes.result?.addressDetail.networkId,
-      spenderAddress,
+      effectiveSpenderAddress,
       isWrapped,
     ],
   );
@@ -731,7 +738,7 @@ export function useSpeedSwapActions(props: {
         const userAddress = netAccountRes.result?.addressDetail.address ?? '';
         const approveInfo: IApproveInfo = {
           owner: userAddress,
-          spender: spenderAddress,
+          spender: effectiveSpenderAddress,
           amount: isReset ? '0' : amount,
           isMax: !isReset,
           tokenInfo: {
@@ -762,7 +769,7 @@ export function useSpeedSwapActions(props: {
             amount,
             toAmount: amount,
             useAddress: userAddress,
-            spenderAddress,
+            spenderAddress: effectiveSpenderAddress,
             status: ESwapApproveTransactionStatus.PENDING,
             kind: ESwapQuoteKind.SELL,
             resetApproveValue: !isReset ? '0' : amount,
@@ -781,7 +788,7 @@ export function useSpeedSwapActions(props: {
     [
       setInAppNotificationAtom,
       netAccountRes.result?.addressDetail.address,
-      spenderAddress,
+      effectiveSpenderAddress,
       navigationToTxConfirm,
       handleSpeedSwapApproveTxSuccess,
       cancelSpeedSwapApproveTx,
@@ -798,7 +805,7 @@ export function useSpeedSwapActions(props: {
         }),
         onConfirm: () => {
           void approveRun({
-            spenderAddress,
+            spenderAddress: effectiveSpenderAddress,
             amount: fromTokenAmountDebounced,
             isReset: shouldResetApprove,
             fromToken,
@@ -816,7 +823,7 @@ export function useSpeedSwapActions(props: {
       });
     } else {
       void approveRun({
-        spenderAddress,
+        spenderAddress: effectiveSpenderAddress,
         amount: fromTokenAmountDebounced,
         isReset: shouldResetApprove,
         fromToken,
@@ -829,7 +836,7 @@ export function useSpeedSwapActions(props: {
     fromTokenAmountDebounced,
     intl,
     shouldResetApprove,
-    spenderAddress,
+    effectiveSpenderAddress,
     toToken,
   ]);
 
@@ -1027,6 +1034,88 @@ export function useSpeedSwapActions(props: {
     };
   }, [handleSwapSpeedApprovingReset, syncTokensBalance]);
 
+  const runSpeedCheckAndAllowance = useCallback(
+    async (amount: string) => {
+      const amountBN = new BigNumber(amount || 0);
+      if (amountBN.isNaN() || amountBN.lte(0)) {
+        setSpeedCheckError('');
+        setCheckSpenderAddress('');
+        setShouldApprove(false);
+        setShouldResetApprove(false);
+        return;
+      }
+
+      speedCheckRequestIdRef.current += 1;
+      const currentRequestId = speedCheckRequestIdRef.current;
+
+      setSpeedCheckLoading(true);
+      setSpeedCheckError('');
+      try {
+        const checkResult =
+          await backgroundApiProxy.serviceSwap.fetchSpeedCheck({
+            fromNetworkId: fromToken.networkId,
+            toNetworkId: toToken.networkId,
+            fromTokenAddress: fromToken.contractAddress,
+            toTokenAddress: toToken.contractAddress,
+            fromTokenAmount: amount,
+            protocol: EProtocolOfExchange.SWAP,
+          });
+
+        // Discard stale response
+        if (currentRequestId !== speedCheckRequestIdRef.current) {
+          return;
+        }
+
+        if (checkResult?.errorMessage) {
+          setSpeedCheckError(checkResult.errorMessage);
+          setSpeedCheckLoading(false);
+          setShouldApprove(false);
+          setShouldResetApprove(false);
+          return;
+        }
+
+        const newSpenderAddress = checkResult?.spenderAddress || '';
+        setCheckSpenderAddress(newSpenderAddress);
+        setSpeedCheckLoading(false);
+
+        // Proceed with allowance check if non-native token
+        if (
+          !fromToken.isNative &&
+          !isWrapped &&
+          fromToken.contractAddress &&
+          netAccountRes?.result?.addressDetail.address &&
+          (newSpenderAddress || spenderAddress)
+        ) {
+          void checkTokenApproveAllowance(
+            amount,
+            newSpenderAddress || spenderAddress,
+          );
+        } else {
+          setShouldApprove(false);
+          setShouldResetApprove(false);
+        }
+      } catch (_e) {
+        if (currentRequestId === speedCheckRequestIdRef.current) {
+          setSpeedCheckLoading(false);
+        }
+      }
+    },
+    [
+      fromToken.networkId,
+      fromToken.contractAddress,
+      fromToken.isNative,
+      toToken.networkId,
+      toToken.contractAddress,
+      isWrapped,
+      netAccountRes?.result?.addressDetail.address,
+      spenderAddress,
+      checkTokenApproveAllowance,
+    ],
+  );
+
+  const runSpeedCheckAndAllowanceRef = useRef(runSpeedCheckAndAllowance);
+  runSpeedCheckAndAllowanceRef.current = runSpeedCheckAndAllowance;
+
   useEffect(() => {
     const fromTokenAmountDebouncedBN = new BigNumber(
       fromTokenAmountDebounced || 0,
@@ -1034,16 +1123,17 @@ export function useSpeedSwapActions(props: {
     if (
       (!fromTokenAmountDebouncedBN.isNaN() &&
         fromTokenAmountDebouncedBN.gt(0) &&
-        !fromToken.isNative &&
-        !isWrapped &&
-        spenderAddress &&
         netAccountRes?.result?.addressDetail.address &&
         balance?.gt(0)) ||
       inAppNotificationAtom.speedSwapApprovingTransaction?.status ===
         ESwapApproveTransactionStatus.SUCCESS
     ) {
-      void checkTokenApproveAllowance(fromTokenAmountDebouncedBN.toFixed());
+      void runSpeedCheckAndAllowanceRef.current(
+        fromTokenAmountDebouncedBN.toFixed(),
+      );
     } else {
+      setSpeedCheckError('');
+      setCheckSpenderAddress('');
       setShouldApprove(false);
       setShouldResetApprove(false);
     }
@@ -1051,9 +1141,11 @@ export function useSpeedSwapActions(props: {
     isWrapped,
     balance,
     fromToken.isNative,
+    fromToken.networkId,
+    fromToken.contractAddress,
+    toToken.networkId,
+    toToken.contractAddress,
     fromTokenAmountDebounced,
-    spenderAddress,
-    checkTokenApproveAllowance,
     inAppNotificationAtom.speedSwapApprovingTransaction?.status,
     netAccountRes?.result?.addressDetail.address,
   ]);
@@ -1098,5 +1190,7 @@ export function useSpeedSwapActions(props: {
     swapNativeTokenReserveGas,
     priceRate,
     isWrapped,
+    speedCheckError,
+    speedCheckLoading,
   };
 }

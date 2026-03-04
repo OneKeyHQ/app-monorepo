@@ -13,6 +13,8 @@ export interface IDownloadPackageParams {
   downloadedFile?: string;
   headers?: Record<string, string>;
   targetVersion?: string;
+  /** Dev mode only: skip GPG signature verification */
+  skipGPGVerification?: boolean;
 }
 
 export type IUpdateDownloadedEvent =
@@ -120,6 +122,17 @@ export interface IBundleUpdate {
   clearAllJSBundleData: () => Promise<{ success: boolean; message: string }>;
   getFallbackBundles: () => Promise<IJSBundle[]>;
   switchBundle: (params: IJSBundle) => Promise<void>;
+  isBundleExists: (
+    appVersion: string,
+    bundleVersion: string,
+  ) => Promise<boolean>;
+  verifyExtractedBundle: (
+    appVersion: string,
+    bundleVersion: string,
+  ) => Promise<void>;
+  listLocalBundles: () => Promise<
+    { appVersion: string; bundleVersion: string }[]
+  >;
   testVerification: () => Promise<boolean>;
   testDeleteJsBundle: ITestDeleteJsBundle;
   testDeleteJsRuntimeDir: ITestDeleteJsRuntimeDir;
