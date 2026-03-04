@@ -1,7 +1,7 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 const DEFAULT_MAX_DATA_LENGTH = 2000;
-const NATIVE_TOKEN_MAX_DATA_LENGTH = 200;
+const NATIVE_TOKEN_MAX_DATA_LENGTH = 2000;
 const MAX_TIME_SPAN_YEARS = 5;
 const MAX_TIME_SPAN_SECONDS = MAX_TIME_SPAN_YEARS * 365 * 24 * 60 * 60; // 5 years in seconds
 
