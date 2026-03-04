@@ -223,9 +223,54 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     );
   }, [defaultTokens, networkId, tokenDetail]);
 
+  // --- Token preference persistence (simpledb) ---
+  const { result: savedPreference } = usePromiseResult(async () => {
+    const effectiveNetworkId = networkId || '';
+    if (!effectiveNetworkId) return undefined;
+    return backgroundApiProxy.simpleDb.marketTokenPreference.getPreference({
+      networkId: effectiveNetworkId,
+    });
+  }, [networkId]);
+
+  const saveTokenPreference = useCallback(
+    (token: IToken) => {
+      const effectiveNetworkId = networkId || '';
+      if (!effectiveNetworkId) return;
+      void backgroundApiProxy.simpleDb.marketTokenPreference.setPreference({
+        networkId: effectiveNetworkId,
+        preference: {
+          contractAddress: token.contractAddress,
+          symbol: token.symbol,
+          networkId: token.networkId,
+        },
+      });
+    },
+    [networkId],
+  );
+
+  // Wrap setPaymentToken to also persist user's choice
+  const handleUserPaymentTokenChange: typeof setPaymentToken = useCallback(
+    (tokenOrUpdater) => {
+      setPaymentToken(tokenOrUpdater);
+      if (tokenOrUpdater && typeof tokenOrUpdater !== 'function') {
+        saveTokenPreference(tokenOrUpdater);
+      }
+    },
+    [setPaymentToken, saveTokenPreference],
+  );
+
+  // Initialize paymentToken: prefer saved preference, fallback to first default
   useEffect(() => {
     if (filterDefaultTokens.length > 0 && !paymentToken?.networkId) {
-      setPaymentToken(filterDefaultTokens[0]);
+      const preferred = savedPreference
+        ? filterDefaultTokens.find(
+            (t) =>
+              t.networkId === savedPreference.networkId &&
+              t.contractAddress.toLowerCase() ===
+                savedPreference.contractAddress.toLowerCase(),
+          )
+        : undefined;
+      setPaymentToken(preferred || filterDefaultTokens[0]);
       return;
     }
     if (
@@ -236,13 +281,22 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
           token.contractAddress !== paymentToken?.contractAddress,
       )
     ) {
-      setPaymentToken(filterDefaultTokens[0]);
+      const preferred = savedPreference
+        ? filterDefaultTokens.find(
+            (t) =>
+              t.networkId === savedPreference.networkId &&
+              t.contractAddress.toLowerCase() ===
+                savedPreference.contractAddress.toLowerCase(),
+          )
+        : undefined;
+      setPaymentToken(preferred || filterDefaultTokens[0]);
     }
   }, [
     paymentToken?.networkId,
     paymentToken?.contractAddress,
     setPaymentToken,
     filterDefaultTokens,
+    savedPreference,
   ]);
 
   useEffect(() => {
@@ -299,6 +353,15 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     speedSwapInitLoading,
   ]);
 
+  // Override setPaymentToken so user-initiated changes are persisted
+  const swapPanelWithPreference = useMemo(
+    () => ({
+      ...swapPanel,
+      setPaymentToken: handleUserPaymentTokenChange,
+    }),
+    [swapPanel, handleUserPaymentTokenChange],
+  );
+
   return (
     <SwapPanelContent
       activeAccount={activeAccount}
@@ -315,7 +378,7 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
       priceRate={priceRate}
       swapMevNetConfig={swapMevNetConfig}
       swapNativeTokenReserveGas={swapNativeTokenReserveGas}
-      swapPanel={swapPanel}
+      swapPanel={swapPanelWithPreference}
       balance={balance ?? new BigNumber(0)}
       balanceToken={balanceToken as IToken}
       balanceLoading={fetchBalanceLoading}
