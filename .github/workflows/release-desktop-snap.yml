@@ -7,9 +7,16 @@ on:
     types:
       - completed
   workflow_dispatch:
+    inputs:
+      ONEKEY_ALLOW_SKIP_GPG_VERIFICATION:
+        description: "Allow skipping GPG verification for bundle updates (default: false)"
+        required: false
+        type: boolean
+        default: false
 
 env:
   YARN_ENABLE_GLOBAL_CACHE: true
+  ONEKEY_ALLOW_SKIP_GPG_VERIFICATION: ${{ github.event.inputs.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION || 'false' }}
 
 jobs:
   

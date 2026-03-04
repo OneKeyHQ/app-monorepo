@@ -9,13 +9,15 @@ on:
       - completed
   workflow_dispatch:
     inputs:
-      is-split-bundle:
-        description: "Should it run as split-bundle? (keep it null if you don't need it)"
+      ONEKEY_ALLOW_SKIP_GPG_VERIFICATION:
+        description: "Allow skipping GPG verification for bundle updates (default: false)"
         required: false
-        default: ''
+        type: boolean
+        default: false
 
 env:
   YARN_ENABLE_GLOBAL_CACHE: true
+  ONEKEY_ALLOW_SKIP_GPG_VERIFICATION: ${{ github.event.inputs.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION || 'false' }}
 
 jobs:
   release-android:

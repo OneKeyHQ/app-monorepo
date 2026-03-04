@@ -111,7 +111,7 @@ const basePlugins = [
           process.env.PERF_FUNCTION_WARN_MS || '',
         ),
         ONEKEY_ALLOW_SKIP_GPG_VERIFICATION:
-          process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION !== 'false',
+          process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION === 'true',
       },
     },
   }),
