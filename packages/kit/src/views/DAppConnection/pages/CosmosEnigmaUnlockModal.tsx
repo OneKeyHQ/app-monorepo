@@ -87,7 +87,9 @@ function CosmosEnigmaUnlockModal() {
             <DAppAccountListStandAloneItem readonly />
             <YStack gap="$2">
               <SizableText size="$bodyLg" color="$textSubdued">
-                Secret Network Enigma encryption requires wallet unlock.
+                {intl.formatMessage({
+                  id: ETranslations.dapp_connect_cosmos_requires_wallet_unlock_secret_enigma_utils,
+                })}
               </SizableText>
             </YStack>
           </DAppRequestLayout>
