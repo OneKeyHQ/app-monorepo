@@ -394,36 +394,28 @@ export const useFetchMarketBasicConfig = () => {
 export const useFetchPerpConfig = () => {
   useEffect(() => {
     let cancelled = false;
-
-    const fetchPerpConfig = async (attempt: number) => {
-      if (attempt === 0) {
-        return backgroundApiProxy.serviceHyperliquid.updatePerpsConfigByServerWithCache();
-      }
-      return backgroundApiProxy.serviceHyperliquid.updatePerpsConfigByServer();
-    };
-
-    const fetchWithRetry = async () => {
-      for (
-        let attempt = 0;
-        attempt <= PERPS_CONFIG_FETCH_MAX_RETRIES;
-        attempt += 1
-      ) {
+    const run = async () => {
+      for (let i = 0; i <= PERPS_CONFIG_FETCH_MAX_RETRIES; i += 1) {
         if (cancelled) return;
         try {
-          await fetchPerpConfig(attempt);
+          if (i === 0) {
+            await backgroundApiProxy.serviceHyperliquid.updatePerpsConfigByServerWithCache();
+          } else {
+            await backgroundApiProxy.serviceHyperliquid.updatePerpsConfigByServer();
+          }
           return;
         } catch (error) {
           console.error(
-            `[useFetchPerpConfig] attempt ${attempt + 1} failed:`,
+            `[useFetchPerpConfig] attempt ${i + 1} failed:`,
             error,
           );
-          if (attempt < PERPS_CONFIG_FETCH_MAX_RETRIES) {
+          if (i < PERPS_CONFIG_FETCH_MAX_RETRIES) {
             await timerUtils.wait(PERPS_CONFIG_FETCH_RETRY_INTERVAL_MS);
           }
         }
       }
     };
-    void fetchWithRetry();
+    void run();
     return () => {
       cancelled = true;
     };
