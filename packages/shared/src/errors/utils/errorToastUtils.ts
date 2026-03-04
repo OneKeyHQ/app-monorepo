@@ -51,6 +51,9 @@ function fixAxiosAbortCancelError(error: unknown) {
 }
 
 let lastToastErrorInstance: IOneKeyError | undefined;
+let lastNetworkErrorToastTime = 0;
+const NETWORK_ERROR_TOAST_COOLDOWN = 15_000;
+
 function showToastOfError(error: IOneKeyError | unknown | undefined) {
   fixAxiosAbortCancelError(error);
   const err = error as IOneKeyError | undefined;
@@ -83,6 +86,15 @@ function showToastOfError(error: IOneKeyError | unknown | undefined) {
   if (err?.code === HardwareErrorCode.DefectiveFirmware) {
     return;
   }
+
+  if (err?.className === EOneKeyErrorClassNames.AxiosNetworkError) {
+    const now = Date.now();
+    if (now - lastNetworkErrorToastTime < NETWORK_ERROR_TOAST_COOLDOWN) {
+      return;
+    }
+    lastNetworkErrorToastTime = now;
+  }
+
   let shouldMuteToast = false;
   if (
     err?.className === EOneKeyErrorClassNames.OneKeyServerApiError &&
