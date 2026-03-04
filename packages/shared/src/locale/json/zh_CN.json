@@ -400,6 +400,7 @@
   "dapp_connect.confirm": "确认",
   "dapp_connect.connect_to_website": "已连接到 {url}",
   "dapp_connect.connection_request": "连接请求",
+  "dapp_connect.cosmos_requires_wallet_unlock_secret_enigma_utils": "后续的隐私网络 Enigma 加密仅需解锁钱包，当前会话内无需重新授权。",
   "dapp_connect.create": "创建",
   "dapp_connect.create_invoice_request": "创建发票请求",
   "dapp_connect.decrypted_request": "解密请求",

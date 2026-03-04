@@ -1043,6 +1043,19 @@ export interface ISpeedSwapConfig {
   onlySupportSingleChain: boolean;
 }
 
+export interface IFetchSpeedCheckResult {
+  errorMessage?: string;
+  protocol: string;
+  spenderAddress: string;
+  info: {
+    provider: string;
+    providerName: string;
+    providerLogo?: string;
+  };
+  fromTokenInfo?: ISwapTokenBase;
+  toTokenInfo?: ISwapTokenBase;
+}
+
 export enum ESwapLimitOrderStatus {
   PRESIGNATURE_PENDING = 'presignaturePending',
   OPEN = 'open',

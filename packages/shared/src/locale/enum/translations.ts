@@ -405,6 +405,7 @@
   dapp_connect_confirm = 'dapp_connect.confirm',
   dapp_connect_connect_to_website = 'dapp_connect.connect_to_website',
   dapp_connect_connection_request = 'dapp_connect.connection_request',
+  dapp_connect_cosmos_requires_wallet_unlock_secret_enigma_utils = 'dapp_connect.cosmos_requires_wallet_unlock_secret_enigma_utils',
   dapp_connect_create = 'dapp_connect.create',
   dapp_connect_create_invoice_request = 'dapp_connect.create_invoice_request',
   dapp_connect_decrypted_request = 'dapp_connect.decrypted_request',

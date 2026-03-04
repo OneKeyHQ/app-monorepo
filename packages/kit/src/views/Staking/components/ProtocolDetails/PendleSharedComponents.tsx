@@ -6,6 +6,8 @@ import {
   Icon,
   Popover,
   SizableText,
+  Skeleton,
+  Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -30,9 +32,13 @@ type IPendleRewardRowProps = {
     description: IEarnText;
     tooltip?: IEarnTooltip;
   };
+  loading?: boolean;
 };
 
-export const PendleRewardRow: FC<IPendleRewardRowProps> = ({ reward }) => {
+export const PendleRewardRow: FC<IPendleRewardRowProps> = ({
+  reward,
+  loading,
+}) => {
   const descriptionLines = reward.description.text
     .split('\n')
     .map((line) => line.trim())
@@ -62,25 +68,37 @@ export const PendleRewardRow: FC<IPendleRewardRowProps> = ({ reward }) => {
         <EarnTooltip title={reward.title.text} tooltip={reward.tooltip} />
       </XStack>
       <YStack gap="$0.5" alignItems="flex-end" flexShrink={1} maxWidth="65%">
-        <XStack gap="$1" alignItems="center" flexWrap="wrap">
-          <SizableText
-            size={reward.description.size || '$bodyMdMedium'}
-            color={reward.description.color ?? '$text'}
-            textAlign="right"
-          >
-            {primaryMainText}
-          </SizableText>
-          {primarySuffixText ? (
-            <SizableText size="$bodyMd" color="$textSubdued">
-              {primarySuffixText}
-            </SizableText>
-          ) : null}
-        </XStack>
-        {secondaryDescriptionText ? (
-          <SizableText size="$bodySm" color="$textSubdued" textAlign="right">
-            {secondaryDescriptionText}
-          </SizableText>
-        ) : null}
+        {loading ? (
+          <Stack py="$0.5">
+            <Skeleton h="$3.5" w="$16" />
+          </Stack>
+        ) : (
+          <>
+            <XStack gap="$1" alignItems="center" flexWrap="wrap">
+              <SizableText
+                size={reward.description.size || '$bodyMdMedium'}
+                color={reward.description.color ?? '$text'}
+                textAlign="right"
+              >
+                {primaryMainText}
+              </SizableText>
+              {primarySuffixText ? (
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  {primarySuffixText}
+                </SizableText>
+              ) : null}
+            </XStack>
+            {secondaryDescriptionText ? (
+              <SizableText
+                size="$bodySm"
+                color="$textSubdued"
+                textAlign="right"
+              >
+                {secondaryDescriptionText}
+              </SizableText>
+            ) : null}
+          </>
+        )}
       </YStack>
     </XStack>
   );
@@ -95,25 +113,59 @@ type IPendleSummarySectionProps = {
     tooltip?: IEarnTooltip;
   }>;
   tipText?: IEarnText;
+  loading?: boolean;
 };
+
+const SKELETON_PLACEHOLDER_COUNT = 3;
 
 export const PendleSummarySection: FC<IPendleSummarySectionProps> = ({
   rewardRows,
   tipText,
-}) => (
-  <YStack gap="$3.5">
-    {rewardRows.map((reward, index) => (
-      <PendleRewardRow key={`${reward.title.text}-${index}`} reward={reward} />
-    ))}
-    {tipText ? (
-      <EarnText
-        text={tipText}
-        size="$bodySm"
-        color={tipText.color ?? '$textInfo'}
-      />
-    ) : null}
-  </YStack>
-);
+  loading,
+}) => {
+  const rowsContent = useMemo(() => {
+    if (rewardRows.length > 0) {
+      return rewardRows.map((reward, index) => (
+        <PendleRewardRow
+          key={`${reward.title.text}-${index}`}
+          reward={reward}
+          loading={loading}
+        />
+      ));
+    }
+    if (loading) {
+      return Array.from({ length: SKELETON_PLACEHOLDER_COUNT }).map(
+        (_, index) => (
+          <XStack
+            key={`skeleton-row-${index}`}
+            gap="$3"
+            alignItems="center"
+            justifyContent="space-between"
+          >
+            <Skeleton h="$3.5" w="$20" />
+            <Stack py="$0.5">
+              <Skeleton h="$3.5" w="$16" />
+            </Stack>
+          </XStack>
+        ),
+      );
+    }
+    return null;
+  }, [rewardRows, loading]);
+
+  return (
+    <YStack gap="$3.5">
+      {rowsContent}
+      {tipText ? (
+        <EarnText
+          text={tipText}
+          size="$bodySm"
+          color={tipText.color ?? '$textInfo'}
+        />
+      ) : null}
+    </YStack>
+  );
+};
 
 // --- PendleAccordionTriggerContent ---
 
@@ -149,10 +201,12 @@ export function usePendleTransactionDetails({
   transactionConfirmation,
   amountValue,
   isPendleLikeLayout,
+  loading,
 }: {
   transactionConfirmation?: IStakeTransactionConfirmation;
   amountValue: string;
   isPendleLikeLayout: boolean;
+  loading?: boolean;
 }): ReactElement[] {
   return useMemo(() => {
     const items: ReactElement[] = [];
@@ -213,6 +267,13 @@ export function usePendleTransactionDetails({
             </CalculationListItem.Label>
           )}
           {(() => {
+            if (loading) {
+              return (
+                <Stack py="$0.5">
+                  <Skeleton h="$3.5" w="$16" />
+                </Stack>
+              );
+            }
             if (popupButton) {
               return (
                 <Popover
@@ -287,5 +348,5 @@ export function usePendleTransactionDetails({
     }
 
     return items;
-  }, [amountValue, isPendleLikeLayout, transactionConfirmation]);
+  }, [amountValue, isPendleLikeLayout, loading, transactionConfirmation]);
 }
