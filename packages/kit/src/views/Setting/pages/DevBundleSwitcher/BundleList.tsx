@@ -86,7 +86,6 @@ function BundleItem({
         downloadedEventRef.current = {
           ...result,
           signature: bundle.signature,
-          skipGPGVerification: true,
         };
         setStatus('downloaded');
       } else {
@@ -110,7 +109,6 @@ function BundleItem({
           latestVersion: version,
           bundleVersion: bundle.bundleVersion,
           signature: bundle.signature || 'dev-no-signature',
-          skipGPGVerification: true,
         } as any);
       } else {
         if (!downloadedEventRef.current) return;
@@ -120,7 +118,6 @@ function BundleItem({
           bundleVersion: bundle.bundleVersion,
           sha256: bundle.sha256,
           signature: bundle.signature || '',
-          skipGPGVerification: true,
         } as any);
 
         await BundleUpdate.verifyBundle({
@@ -135,7 +132,6 @@ function BundleItem({
           latestVersion: version,
           bundleVersion: bundle.bundleVersion,
           signature: bundle.signature || 'dev-no-signature',
-          skipGPGVerification: true,
         } as any);
       }
     } catch (e) {
