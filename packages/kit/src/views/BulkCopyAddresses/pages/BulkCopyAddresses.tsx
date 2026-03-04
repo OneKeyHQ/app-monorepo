@@ -47,6 +47,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
+
 import type { IModalBulkCopyAddressesParamList } from '@onekeyhq/shared/src/routes/bulkCopyAddresses';
 import { EModalBulkCopyAddressesRoutes } from '@onekeyhq/shared/src/routes/bulkCopyAddresses';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -64,6 +65,7 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { BATCH_CREATE_ACCONT_MAX_COUNT } from '../../AccountManagerStacks/pages/BatchCreateAccount/BatchCreateAccountFormBase';
 import { showBatchCreateAccountProcessingDialog } from '../../AccountManagerStacks/pages/BatchCreateAccount/ProcessingDialog';
+import { EmptyNoWalletView } from '../../AccountManagerStacks/pages/AccountSelectorStack/WalletDetails/EmptyView';
 
 enum EBulkCopyType {
   Account = 'account',
@@ -814,6 +816,21 @@ function BulkCopyAddresses({
       form.setValue('selectedWalletId', availableWallets?.[0]?.id);
     }
   }, [availableWallets, selectedWallet, form]);
+
+  if (availableWallets && availableWallets.length === 0) {
+    return (
+      <Page>
+        <Page.Header
+          title={intl.formatMessage({
+            id: ETranslations.global_bulk_copy_addresses,
+          })}
+        />
+        <Page.Body>
+          <EmptyNoWalletView />
+        </Page.Body>
+      </Page>
+    );
+  }
 
   return (
     <Page scrollEnabled>
