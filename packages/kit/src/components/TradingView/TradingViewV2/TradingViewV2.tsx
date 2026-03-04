@@ -79,6 +79,14 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     isLoading: isHyperLiquidConfigLoading,
   } = useHyperLiquidKlineSource(networkId, tokenAddress);
 
+  // Only block rendering on initial config load, not on background revalidation
+  const hasHyperLiquidConfigResolved = useRef(false);
+  if (!isHyperLiquidConfigLoading) {
+    hasHyperLiquidConfigResolved.current = true;
+  }
+  const shouldBlockRender =
+    isHyperLiquidConfigLoading && !hasHyperLiquidConfigResolved.current;
+
   const additionalParams = useMemo(() => {
     const useHyperLiquid = isHyperLiquidSource && hyperLiquidSymbol;
     return {
@@ -239,7 +247,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
 
   return (
     <Stack position="relative" flex={1} {...stackStyle}>
-      {isHyperLiquidConfigLoading ? null : webView}
+      {shouldBlockRender ? null : webView}
 
       {platformEnv.isNativeIOS ? (
         <Stack
