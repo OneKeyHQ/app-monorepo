@@ -78,8 +78,8 @@ class ServiceUniversalSearch extends ServiceBase {
       return [] as IUniversalSearchBatchResult;
     }
     if (
-      searchTypes.includes(EUniversalSearchType.MarketToken) ||
       searchTypes.includes(EUniversalSearchType.V2MarketToken)
+    ) {
     ) {
       const basicConfigResponse =
         await this.backgroundApi.serviceMarketV2.fetchMarketBasicConfig();
