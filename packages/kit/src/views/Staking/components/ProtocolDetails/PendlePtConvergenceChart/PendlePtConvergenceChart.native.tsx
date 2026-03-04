@@ -1,9 +1,9 @@
-import { useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { View } from 'react-native';
 import WebView from 'react-native-webview';
 
-import { Stack, useTheme } from '@onekeyhq/components';
+import { Skeleton, Stack, useTheme } from '@onekeyhq/components';
 
 import {
   COLORS,
@@ -270,8 +270,30 @@ export function PendlePtConvergenceChart({
     ],
   );
 
+  const [webViewReady, setWebViewReady] = useState(false);
+  const prevHtmlRef = useRef(htmlContent);
+  useEffect(() => {
+    if (prevHtmlRef.current !== htmlContent) {
+      prevHtmlRef.current = htmlContent;
+      setWebViewReady(false);
+    }
+  }, [htmlContent]);
+  const handleLoadEnd = useCallback(() => setWebViewReady(true), []);
+
   return (
     <Stack width={NATIVE_SVG_WIDTH} maxWidth="100%" height={NATIVE_SVG_HEIGHT}>
+      {!webViewReady ? (
+        <Stack
+          position="absolute"
+          top={0}
+          left={0}
+          right={0}
+          bottom={0}
+          zIndex={1}
+        >
+          <Skeleton w="100%" h="100%" borderRadius="$2" />
+        </Stack>
+      ) : null}
       <View style={{ flex: 1 }}>
         <WebView
           source={{ html: htmlContent }}
@@ -288,6 +310,7 @@ export function PendlePtConvergenceChart({
           domStorageEnabled={false}
           mixedContentMode="never"
           onShouldStartLoadWithRequest={({ url }) => url === 'about:blank'}
+          onLoadEnd={handleLoadEnd}
         />
       </View>
     </Stack>

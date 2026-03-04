@@ -302,7 +302,7 @@ function ChartSection({
   return (
     <YStack gap="$3">
       {/* High and Low values */}
-      {gtMd && high !== null && low !== null ? (
+      {gtMd && !isPendleProvider && high !== null && low !== null ? (
         <XStack gap="$4" pt="$6">
           <YStack>
             <SizableText size="$bodySm" color="$textSubdued">

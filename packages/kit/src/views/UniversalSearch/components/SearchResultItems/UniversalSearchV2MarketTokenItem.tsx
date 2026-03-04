@@ -137,10 +137,12 @@ export function MarketTokenLiquidity({
 
 interface IUniversalSearchMarketTokenItemProps {
   item: IUniversalSearchV2MarketToken;
+  isTrending?: boolean;
 }
 
 export function UniversalSearchV2MarketTokenItem({
   item,
+  isTrending,
 }: IUniversalSearchMarketTokenItemProps) {
   // Ensure market watch list atom is initialized
   const [{ isMounted }] = useMarketWatchListV2Atom();
@@ -169,9 +171,9 @@ export function UniversalSearchV2MarketTokenItem({
     communityRecognized,
   } = item.payload;
 
-  // When network is empty, the item was converted from IMarketToken (trending)
+  // When network is empty, the item was converted from IMarketToken (trending/legacy)
   // and address contains coingeckoId for legacy navigation
-  const isTrendingItem = !network;
+  const isLegacyNavigation = !network;
 
   // eslint-disable-next-line camelcase
   const volume24h = volume24hCamel || volume_24h;
@@ -184,8 +186,8 @@ export function UniversalSearchV2MarketTokenItem({
   );
 
   const handlePress = useCallback(() => {
-    if (isTrendingItem) {
-      // Trending item: address contains coingeckoId, use legacy navigation
+    if (isLegacyNavigation) {
+      // Legacy trending item: address contains coingeckoId, use legacy navigation
       setTimeout(async () => {
         appNavigation.push(EUniversalSearchPages.MarketDetail, {
           token: address,
@@ -207,10 +209,10 @@ export function UniversalSearchV2MarketTokenItem({
 
         defaultLogger.market.token.searchToken({
           tokenSymbol: symbol,
-          from: 'searchList',
+          from: isTrending ? 'trendingList' : 'searchList',
         });
 
-        if (symbol?.trim()) {
+        if (!isTrending && symbol?.trim()) {
           setTimeout(() => {
             universalSearchActions.current.addIntoRecentSearchList({
               id: address,
@@ -223,7 +225,8 @@ export function UniversalSearchV2MarketTokenItem({
       }, 80);
     }
   }, [
-    isTrendingItem,
+    isLegacyNavigation,
+    isTrending,
     address,
     network,
     symbol,
