@@ -19,6 +19,7 @@ type IUsePendleLayoutStateParams = {
   receiveInputConfig: IManagePageV2ReceiveInputConfig | undefined;
   networkLogoURI: string | undefined;
   isQuoteExpired: boolean | undefined;
+  loading?: boolean;
 };
 
 export function usePendleLayoutState({
@@ -29,6 +30,7 @@ export function usePendleLayoutState({
   receiveInputConfig,
   networkLogoURI,
   isQuoteExpired,
+  loading,
 }: IUsePendleLayoutStateParams) {
   const isPendleProvider = useIsPendleProvider(providerName);
   const isPendleLikeLayout = isPendleProvider;
@@ -52,6 +54,7 @@ export function usePendleLayoutState({
     transactionConfirmation,
     amountValue,
     isPendleLikeLayout,
+    loading,
   });
 
   const pendleRewardRows = useMemo(
@@ -66,7 +69,8 @@ export function usePendleLayoutState({
     [isPendleLikeLayout, transactionConfirmation?.rewards],
   );
 
-  const usePendleSummaryLayout = pendleRewardRows.length > 0;
+  const isPendleLoading = isPendleLikeLayout && !!loading;
+  const usePendleSummaryLayout = pendleRewardRows.length > 0 || isPendleLoading;
 
   const transactionDetailsTriggerText =
     transactionConfirmation?.transactionDetails?.text;
@@ -77,10 +81,7 @@ export function usePendleLayoutState({
     !!transactionConfirmation?.tooltip ||
     (transactionConfirmation?.rewards?.length ?? 0) > 0;
   const hasSummarySection =
-    showApyHeader ||
-    (usePendleSummaryLayout
-      ? pendleRewardRows.length > 0
-      : hasLegacySummaryContent);
+    showApyHeader || usePendleSummaryLayout || hasLegacySummaryContent;
 
   const pendleTipText =
     isPendleLikeLayout && normalizedPendleTipText

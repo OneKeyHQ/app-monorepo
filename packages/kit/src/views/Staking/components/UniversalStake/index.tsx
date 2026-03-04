@@ -370,8 +370,12 @@ export function UniversalStake({
     ],
   );
 
+  const [transactionConfirmationLoading, setTransactionConfirmationLoading] =
+    useState(false);
+
   const debouncedFetchTransactionConfirmation = useDebouncedCallback(
     async (amount?: string) => {
+      setTransactionConfirmationLoading(true);
       try {
         const resp = await fetchTransactionConfirmation(amount || '0');
         setTransactionConfirmation(resp);
@@ -380,6 +384,8 @@ export function UniversalStake({
         }
       } catch {
         // keep stale state
+      } finally {
+        setTransactionConfirmationLoading(false);
       }
     },
     350,
@@ -548,6 +554,8 @@ export function UniversalStake({
     ICheckAmountAlert[]
   >([]);
   const [checkAmountLoading, setCheckAmountLoading] = useState(false);
+
+  const quoteLoading = checkAmountLoading || transactionConfirmationLoading;
 
   const checkAmount = useDebouncedCallback(
     async ({ amount, identity }: { amount: string; identity?: string }) => {
@@ -1184,6 +1192,7 @@ export function UniversalStake({
     receiveInputConfig,
     networkLogoURI: network?.logoURI,
     isQuoteExpired,
+    loading: quoteLoading,
   });
 
   // During approve/submit flow, don't show expired refresh — the transaction is in progress.
@@ -1363,6 +1372,7 @@ export function UniversalStake({
         <PendleSummarySection
           rewardRows={pendleRewardRows}
           tipText={pendleTipText}
+          loading={quoteLoading}
         />
       );
     }
@@ -1457,6 +1467,7 @@ export function UniversalStake({
     pendleRewardRows,
     pendleTipText,
     transactionConfirmation,
+    quoteLoading,
   ]);
 
   return (
@@ -1504,6 +1515,7 @@ export function UniversalStake({
             config={effectiveReceiveInputConfig}
             fiatSymbol={symbol}
             payFiatValue={currentValue}
+            loading={quoteLoading}
           />
         </YStack>
         {showReceiveInput ? (
@@ -1692,14 +1704,16 @@ export function UniversalStake({
                 </Accordion.Item>
               </Accordion>
             ) : null}
-            <TradeOrBuy
-              token={tokenInfo?.token as IToken}
-              accountId={accountId}
-              networkId={networkId}
-              containerStyle={{
-                pt: '$0',
-              }}
-            />
+            {isPendleProvider ? null : (
+              <TradeOrBuy
+                token={tokenInfo?.token as IToken}
+                accountId={accountId}
+                networkId={networkId}
+                containerStyle={{
+                  pt: '$0',
+                }}
+              />
+            )}
           </YStack>
         </YStack>
       ) : null}

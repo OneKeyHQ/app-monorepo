@@ -261,8 +261,17 @@ export function UniversalSearch({
       await backgroundApiProxy.serviceUniversalSearch.universalSearchRecommend({
         searchTypes: [EUniversalSearchType.MarketToken],
       });
-    if (result?.[EUniversalSearchType.MarketToken]?.items) {
-      // Convert MarketToken items to V2MarketToken format for table-style rendering
+
+    // Prefer V2MarketToken (has network badge from searchRecommendTokens)
+    if (result?.[EUniversalSearchType.V2MarketToken]?.items?.length) {
+      searchResultSections.push({
+        tabIndex: 2,
+        title: intl.formatMessage({ id: ETranslations.market_trending }),
+        data: result[EUniversalSearchType.V2MarketToken]
+          .items as IUniversalSearchResultItem[],
+      });
+    } else if (result?.[EUniversalSearchType.MarketToken]?.items) {
+      // Fallback: convert MarketToken (coingecko-based, no network) to V2MarketToken
       const v2Items = result[EUniversalSearchType.MarketToken].items.map(
         (item) => {
           const token = item.payload;
@@ -560,7 +569,12 @@ export function UniversalSearch({
             />
           );
         case EUniversalSearchType.V2MarketToken:
-          return <UniversalSearchV2MarketTokenItem item={item} />;
+          return (
+            <UniversalSearchV2MarketTokenItem
+              item={item}
+              isTrending={searchStatus === ESearchStatus.init}
+            />
+          );
         case EUniversalSearchType.AccountAssets:
           return (
             <UniversalSearchAccountAssetItem
