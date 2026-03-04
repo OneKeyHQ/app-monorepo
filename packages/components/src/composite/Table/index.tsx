@@ -375,10 +375,12 @@ function BasicTable<T>({
     ),
     [columns, draggable, onRow, rowProps, showSkeleton],
   );
-  // When tabIntegrated, the list itself is the scroll container for collapsible tabs.
-  // The header row MUST be inside the list (as ListHeaderComponent) so it participates
-  // in the collapsible tab scroll. Otherwise it sits at y=0 behind the collapsible header.
-  const effectiveStickyHeader = stickyHeader && !tabIntegrated;
+  // On native with tabIntegrated, the list is the scroll container for collapsible tabs,
+  // so the header row MUST be inside the list (as ListHeaderComponent).
+  // On web, keep the header outside the list because SortableListView uses absolute
+  // positioning for items, which would overlap and hide the ListHeaderComponent.
+  const effectiveStickyHeader =
+    stickyHeader && !(tabIntegrated && platformEnv.isNative);
 
   const list = useMemo(
     () =>
