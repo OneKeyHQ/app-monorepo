@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 
 import { CommonActions, StackActions } from '@react-navigation/native';
+import pRetry from 'p-retry';
 import { debounce, isEqual, noop, upperFirst } from 'lodash';
 import { useIntl } from 'react-intl';
 
@@ -393,32 +394,19 @@ export const useFetchMarketBasicConfig = () => {
 
 export const useFetchPerpConfig = () => {
   useEffect(() => {
-    let cancelled = false;
-    const run = async () => {
-      for (let i = 0; i <= PERPS_CONFIG_FETCH_MAX_RETRIES; i += 1) {
-        if (cancelled) return;
-        try {
-          if (i === 0) {
-            await backgroundApiProxy.serviceHyperliquid.updatePerpsConfigByServerWithCache();
-          } else {
-            await backgroundApiProxy.serviceHyperliquid.updatePerpsConfigByServer();
-          }
-          return;
-        } catch (error) {
-          console.error(
-            `[useFetchPerpConfig] attempt ${i + 1} failed:`,
-            error,
-          );
-          if (i < PERPS_CONFIG_FETCH_MAX_RETRIES) {
-            await timerUtils.wait(PERPS_CONFIG_FETCH_RETRY_INTERVAL_MS);
-          }
+    void pRetry(
+      (attemptNumber) => {
+        if (attemptNumber === 1) {
+          return backgroundApiProxy.serviceHyperliquid.updatePerpsConfigByServerWithCache();
         }
-      }
-    };
-    void run();
-    return () => {
-      cancelled = true;
-    };
+        return backgroundApiProxy.serviceHyperliquid.updatePerpsConfigByServer();
+      },
+      {
+        retries: PERPS_CONFIG_FETCH_MAX_RETRIES,
+        minTimeout: PERPS_CONFIG_FETCH_RETRY_INTERVAL_MS,
+        maxTimeout: PERPS_CONFIG_FETCH_RETRY_INTERVAL_MS,
+      },
+    ).catch(noop);
   }, []);
 };
 
