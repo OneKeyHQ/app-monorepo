@@ -54,7 +54,9 @@ export function useCrossDomainRedirect(initialUrl: string, enabled = true) {
     [navigation],
   );
 
-  // Desktop: intercept window.open() via Electron IPC
+  // Desktop: intercept window.open() via Electron IPC.
+  // Only close the modal here — useDesktopNewWindow (in DesktopCustomTabBar)
+  // already listens to the same global IPC event and opens the URL in Discovery.
   useEffect(() => {
     if (!enabled || !platformEnv.isDesktop) return;
     const handleDesktopNewWindow = (
@@ -63,7 +65,7 @@ export function useCrossDomainRedirect(initialUrl: string, enabled = true) {
     ) => {
       if (isUnmounting.current || !data.url) return;
       if (isCrossDomain(data.url)) {
-        redirectToDiscovery(data.url);
+        navigation.pop();
       }
     };
     globalThis.desktopApi?.addIpcEventListener(
@@ -76,7 +78,7 @@ export function useCrossDomainRedirect(initialUrl: string, enabled = true) {
         handleDesktopNewWindow,
       );
     };
-  }, [enabled, isCrossDomain, redirectToDiscovery]);
+  }, [enabled, isCrossDomain, navigation]);
 
   // Native: intercept top-frame navigation
   const onShouldStartLoadWithRequest = useCallback(
