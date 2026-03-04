@@ -119,7 +119,9 @@ function normalizeConfig({ platform, config }) {
         'platformEnv.isExtChrome': isExtChrome,
         'platformEnv.isExtFirefox': isExtFirefox,
         'process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION':
-          process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION === 'true',
+          process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION
+            ? process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION === 'true'
+            : process.env.NODE_ENV !== 'production',
       },
     ],
     /*
