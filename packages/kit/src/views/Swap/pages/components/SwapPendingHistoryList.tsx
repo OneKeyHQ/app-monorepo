@@ -116,7 +116,7 @@ const SwapPendingHistoryListComponent = ({
           <Icon name="ChevronRightSolid" size="$3" color="$iconSubdued" />
         </XStack>
       </XStack>
-      <YStack ml={-24} mr="$-4">
+      <YStack ml="$-6" mr="$-4">
         {listData.map((item) => (
           <SwapTxHistoryListCell
             key={item.swapInfo.orderId}
