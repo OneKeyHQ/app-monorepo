@@ -11,6 +11,7 @@ import {
   Icon,
   IconButton,
   Image,
+  NumberSizeableText,
   Page,
   Popover,
   SegmentControl,
@@ -149,12 +150,12 @@ function CollateralSelectContent({
               </SizableText>
             </XStack>
             <YStack alignItems="flex-end">
-              <SizableText size="$bodyMd">
-                {item.supplied.title.text}
-              </SizableText>
-              <SizableText size="$bodySm" color="$textSubdued">
-                {item.supplied.description.text}
-              </SizableText>
+              <EarnText text={item.supplied.title} size="$bodyMd" />
+              <EarnText
+                text={item.supplied.description}
+                size="$bodySm"
+                color="$textSubdued"
+              />
             </YStack>
           </XStack>
         );
@@ -718,7 +719,7 @@ function RepayWithCollateralForm({
 
   const usingAmountText = useMemo(() => quote?.swapIn ?? '0', [quote?.swapIn]);
 
-  const priceImpactText = useMemo(() => {
+  const priceImpactInfo = useMemo(() => {
     if (!quote?.maxPriceImpact) {
       return undefined;
     }
@@ -732,19 +733,14 @@ function RepayWithCollateralForm({
     const fillPriceBN = new BigNumber(quote.fillPrice || '0');
     const priceBN = new BigNumber(price || '0');
     if (swapInBN.lte(0) || fillPriceBN.lte(0) || priceBN.lte(0)) {
-      return pctFormatted;
+      return { pctFormatted };
     }
-    const repayFiatValue = swapInBN
+    const fiatValue = swapInBN
       .multipliedBy(fillPriceBN)
-      .multipliedBy(priceBN);
-    return `${currencySymbol}${repayFiatValue.toFixed(2)} (${pctFormatted})`;
-  }, [
-    quote?.maxPriceImpact,
-    quote?.swapIn,
-    quote?.fillPrice,
-    price,
-    currencySymbol,
-  ]);
+      .multipliedBy(priceBN)
+      .toFixed();
+    return { fiatValue, pctFormatted };
+  }, [quote?.maxPriceImpact, quote?.swapIn, quote?.fillPrice, price]);
 
   const quoteSummary = useMemo(() => {
     if (
@@ -848,15 +844,36 @@ function RepayWithCollateralForm({
                   justifyContent="space-between"
                   alignItems="center"
                 >
-                  <SizableText size="$bodySm" color="$textSubdued">
-                    {priceImpactText ?? '-'}
-                  </SizableText>
-                  {selectedCollateral ? (
+                  {priceImpactInfo?.fiatValue ? (
                     <SizableText size="$bodySm" color="$textSubdued">
-                      {`${intl.formatMessage({
-                        id: ETranslations.global_available,
-                      })} ${selectedCollateral.supplied.title.text}`}
+                      <NumberSizeableText
+                        size="$bodySm"
+                        color="$textSubdued"
+                        formatter="value"
+                        formatterOptions={{
+                          currency: currencySymbol,
+                        }}
+                      >
+                        {priceImpactInfo.fiatValue}
+                      </NumberSizeableText>
+                      {` (${priceImpactInfo.pctFormatted})`}
                     </SizableText>
+                  ) : (
+                    <SizableText size="$bodySm" color="$textSubdued">
+                      {priceImpactInfo?.pctFormatted ?? '-'}
+                    </SizableText>
+                  )}
+                  {selectedCollateral ? (
+                    <EarnText
+                      text={{
+                        ...selectedCollateral.supplied.title,
+                        text: `${intl.formatMessage({
+                          id: ETranslations.global_available,
+                        })} ${selectedCollateral.supplied.title.text ?? ''}`,
+                      }}
+                      size="$bodySm"
+                      color="$textSubdued"
+                    />
                   ) : null}
                 </XStack>
               </YStack>

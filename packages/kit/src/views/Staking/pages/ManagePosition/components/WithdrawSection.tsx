@@ -61,7 +61,7 @@ export const WithdrawSection = ({
   borrowMarketAddress,
   borrowReserveAddress,
   borrowAction,
-  borrowReserves,
+  borrowReserves: _borrowReserves,
   defaultCollateralReserveAddress,
   borrowActionLabel,
   receiveInputConfig,
@@ -694,7 +694,7 @@ export const WithdrawSection = ({
   );
 
   const collateralAssets = useMemo(() => {
-    const suppliedAssets = borrowReserves?.supplied?.assets ?? [];
+    const suppliedAssets = _borrowReserves?.supplied?.assets ?? [];
     return suppliedAssets
       .filter((item) => item.canBeCollateral)
       .map((item) => ({
@@ -705,7 +705,7 @@ export const WithdrawSection = ({
           description: item.suppliedAmount.description,
         },
       }));
-  }, [borrowReserves?.supplied?.assets]);
+  }, [_borrowReserves?.supplied?.assets]);
 
   const onBorrowRepayWithCollateralConfirm = useCallback(
     async ({
