@@ -10,6 +10,7 @@ on:
         default: false
 
 env:
+  NODE_ENV: production
   YARN_ENABLE_GLOBAL_CACHE: true
   ONEKEY_ALLOW_SKIP_GPG_VERIFICATION: ${{ github.event.inputs.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION || 'false' }}
 
