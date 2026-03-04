@@ -408,7 +408,7 @@ describe('setCurrentUpdateBundleData', () => {
     // the native side should have the version set)
     // Clean up
     await BundleUpdateModule.clearAllJSBundleData();
-    const pathAfterClear = await BundleUpdateModule.getJsBundlePath();
+    const pathAfterClear = BundleUpdateModule.getJsBundlePath();
     expect(!pathAfterClear || pathAfterClear === '').toBe(true);
   });
 });
