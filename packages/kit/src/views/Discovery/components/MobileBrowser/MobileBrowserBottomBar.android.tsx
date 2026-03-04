@@ -241,6 +241,7 @@ function MobileBrowserBottomBar({
         .enabled(!disabledGoBack)
         .onEnd(() => {
           'worklet';
+
           runOnJS(handleGoBack)();
         }),
     [disabledGoBack, handleGoBack],
@@ -252,6 +253,7 @@ function MobileBrowserBottomBar({
         .enabled(!disabledGoForward)
         .onEnd(() => {
           'worklet';
+
           runOnJS(handleGoForward)();
         }),
     [disabledGoForward, handleGoForward],
@@ -261,6 +263,7 @@ function MobileBrowserBottomBar({
     () =>
       Gesture.Tap().onEnd(() => {
         'worklet';
+
         runOnJS(handleShowTabList)();
       }),
     [handleShowTabList],
@@ -270,6 +273,7 @@ function MobileBrowserBottomBar({
     () =>
       Gesture.Tap().onEnd(() => {
         'worklet';
+
         runOnJS(handleRefresh)();
       }),
     [handleRefresh],
@@ -281,6 +285,7 @@ function MobileBrowserBottomBar({
         .enabled(!displayHomePage)
         .onEnd(() => {
           'worklet';
+
           runOnJS(handleShowOptions)();
         }),
     [displayHomePage, handleShowOptions],

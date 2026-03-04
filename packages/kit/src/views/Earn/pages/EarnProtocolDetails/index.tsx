@@ -38,6 +38,7 @@ import {
   EModalStakingRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
 import {
@@ -46,6 +47,7 @@ import {
 } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import type {
   IEarnAlert,
+  IEarnText,
   IEarnTokenInfo,
   IStakeEarnDetail,
 } from '@onekeyhq/shared/types/staking';
@@ -61,6 +63,7 @@ import { EarnAlert } from '../../../Staking/components/ProtocolDetails/EarnAlert
 import { EarnIcon } from '../../../Staking/components/ProtocolDetails/EarnIcon';
 import { EarnText } from '../../../Staking/components/ProtocolDetails/EarnText';
 import { GridItem } from '../../../Staking/components/ProtocolDetails/GridItemV2';
+import { PendleRulesSection } from '../../../Staking/components/ProtocolDetails/PendleRulesSection';
 import { PeriodSection } from '../../../Staking/components/ProtocolDetails/PeriodSectionV2';
 import { ProtectionSection } from '../../../Staking/components/ProtocolDetails/ProtectionSectionV2';
 import { OverviewSkeleton } from '../../../Staking/components/StakingSkeleton';
@@ -109,11 +112,15 @@ const ProtocolHeader = ({
   symbol,
   apyDetail,
   tokenInfo,
+  maturity,
+  maturityText,
   onShare,
 }: {
   symbol: string;
   apyDetail: IStakeEarnDetail['apyDetail'];
   tokenInfo?: IEarnTokenInfo;
+  maturity?: IStakeEarnDetail['maturity'];
+  maturityText?: IEarnText;
   onShare?: () => void;
 }) => {
   const intl = useIntl();
@@ -123,19 +130,46 @@ const ProtocolHeader = ({
     void EarnNavigation.popToEarnHome(navigation, { tab: 'portfolio' });
   }, [navigation]);
 
+  const formattedMaturityDate = useMemo(() => {
+    if (maturityText?.text) {
+      return maturityText.text;
+    }
+    if (!maturity?.date) return undefined;
+    try {
+      const date = new Date(maturity.date);
+      if (Number.isNaN(date.getTime())) return maturity.date;
+      return intl.formatDate(date, {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      });
+    } catch {
+      return maturity.date;
+    }
+  }, [maturity?.date, maturityText?.text, intl]);
+
   return (
-    <YStack>
-      {/* Token icon and name with My Portfolio button - always show */}
-      <XStack jc="space-between" ai="center" h="$9">
-        <XStack gap="$2" ai="center">
-          <Token size="xs" tokenImageUri={tokenInfo?.token.logoURI} />
-          <SizableText size="$bodyLgMedium">
-            {tokenInfo?.token.symbol || symbol}
-          </SizableText>
+    <YStack gap="$2.5">
+      <XStack jc="space-between" ai="center">
+        <XStack gap="$3" ai="center" minWidth={0} flex={1}>
+          <XStack gap="$2" ai="center" flexShrink={0}>
+            <Token size="xs" tokenImageUri={tokenInfo?.token.logoURI} />
+            <SizableText size="$bodyLgMedium">
+              {tokenInfo?.token.symbol || symbol}
+            </SizableText>
+          </XStack>
+          {formattedMaturityDate ? (
+            <>
+              <Divider vertical h="$6" />
+              <SizableText size="$bodyLgMedium" numberOfLines={1}>
+                {formattedMaturityDate}
+              </SizableText>
+            </>
+          ) : null}
         </XStack>
       </XStack>
 
-      <XStack gap="$2" ai="center" pt="$2.5">
+      <XStack gap="$2" ai="center">
         <EarnText
           text={
             apyDetail?.description || {
@@ -191,29 +225,79 @@ function ChartSection({
 }) {
   const intl = useIntl();
   const { gtMd } = useMedia();
+  const isPendleProvider = useMemo(
+    () => earnUtils.isPendleProvider({ providerName: provider }),
+    [provider],
+  );
 
   // Fetch chart data to get high/low values
-  const { result: apyHistory } = usePromiseResult(async () => {
-    const history = await backgroundApiProxy.serviceStaking.getApyHistory({
-      networkId,
-      symbol,
-      provider,
-      vault,
-    });
-    return history;
-  }, [networkId, symbol, provider, vault]);
+  const { result: chartData } = usePromiseResult(async () => {
+    if (isPendleProvider) {
+      // underlying-history returns both impliedApy and underlyingApy, single request suffices
+      const underlyingApyHistoryData =
+        await backgroundApiProxy.serviceStaking.getUnderlyingApyHistory({
+          networkId,
+          symbol,
+          provider,
+          vault,
+        });
+
+      const impliedApyHistory = underlyingApyHistoryData.results.map(
+        (item) => ({
+          timestamp: item.timestamp,
+          apy: item.impliedApy,
+        }),
+      );
+
+      const underlyingApyHistory = underlyingApyHistoryData.results.map(
+        (item) => ({
+          timestamp: item.timestamp,
+          apy: item.underlyingApy,
+        }),
+      );
+
+      return {
+        impliedApyHistory,
+        underlyingApyHistory,
+        hasNonZeroUnderlyingApy:
+          underlyingApyHistoryData.hasNonZeroUnderlyingApy,
+      };
+    }
+
+    const impliedApyHistory =
+      await backgroundApiProxy.serviceStaking.getApyHistory({
+        networkId,
+        symbol,
+        provider,
+        vault,
+      });
+
+    return {
+      impliedApyHistory,
+    };
+  }, [networkId, symbol, provider, vault, isPendleProvider]);
+
+  const { impliedApyHistory, underlyingApyHistory, hasNonZeroUnderlyingApy } =
+    chartData ?? {};
 
   // Calculate high and low APY
   const { high, low } = useMemo(() => {
-    if (!apyHistory || apyHistory.length === 0) {
+    if (!impliedApyHistory || impliedApyHistory.length === 0) {
       return { high: null, low: null };
     }
-    const apyValues = apyHistory.map((item) => Number(item.apy));
+    const apyValues = impliedApyHistory.map((item) => Number(item.apy));
     return {
       high: Math.max(...apyValues),
       low: Math.min(...apyValues),
     };
-  }, [apyHistory]);
+  }, [impliedApyHistory]);
+
+  const showUnderlyingApyToggle = Boolean(
+    isPendleProvider &&
+    hasNonZeroUnderlyingApy &&
+    underlyingApyHistory &&
+    underlyingApyHistory.length > 0,
+  );
 
   return (
     <YStack gap="$3">
@@ -239,7 +323,22 @@ function ChartSection({
         </XStack>
       ) : null}
       {/* Chart component */}
-      <ApyChart apyHistory={apyHistory} />
+      <ApyChart
+        apyHistory={impliedApyHistory}
+        underlyingApyHistory={underlyingApyHistory}
+        showChartControls={isPendleProvider}
+        showUnderlyingApyToggle={showUnderlyingApyToggle}
+        primaryApyLabel={
+          isPendleProvider
+            ? intl.formatMessage({ id: ETranslations.earn_fixed_apy })
+            : undefined
+        }
+        secondaryApyLabel={
+          isPendleProvider
+            ? intl.formatMessage({ id: ETranslations.earn_base_apy })
+            : undefined
+        }
+      />
     </YStack>
   );
 }
@@ -262,23 +361,37 @@ function GridSection({
         <YStack gap="$6">
           <EarnText text={data.title} size="$headingLg" />
           <XStack flexWrap="wrap" m="$-5" p="$2">
-            {data.items.map((cell) => (
+            {data.items.map((cell, cellIndex) => (
               <GridItem
-                key={cell.title.text}
+                key={
+                  cell.title?.text ||
+                  cell.description?.text ||
+                  `grid-cell-${cellIndex}`
+                }
                 title={cell.title}
                 description={cell.description}
                 descriptionComponent={
                   cell?.items ? (
                     <YStack gap="$2">
-                      {(cell?.items ?? []).map((item) => (
-                        <XStack key={item.title.text} ai="center" gap="$1.5">
+                      {(cell?.items ?? []).map((item, itemIndex) => (
+                        <XStack
+                          key={
+                            item.title?.text ||
+                            item.logoURI ||
+                            `grid-item-${cellIndex}-${itemIndex}`
+                          }
+                          ai="center"
+                          gap="$1.5"
+                        >
                           <Token
                             size="xs"
                             borderRadius="$2"
                             mr="$0.5"
                             tokenImageUri={item.logoURI}
                           />
-                          <EarnText text={item.title} size="$bodyLgMedium" />
+                          {item.title?.text ? (
+                            <EarnText text={item.title} size="$bodyLgMedium" />
+                          ) : null}
                         </XStack>
                       ))}
                     </YStack>
@@ -405,6 +518,8 @@ const DetailsPartComponent = ({
                 symbol={symbol}
                 apyDetail={detailInfo.apyDetail}
                 tokenInfo={tokenInfo}
+                maturity={detailInfo.maturity}
+                maturityText={detailInfo.nums?.maturity}
                 onShare={onShare}
               />
               <ChartSection
@@ -415,11 +530,17 @@ const DetailsPartComponent = ({
               />
             </YStack>
             <GridSection data={detailInfo.intro} />
-            <GridSection data={detailInfo.rules} />
+            {earnUtils.isPendleProvider({
+              providerName: provider,
+            }) ? (
+              <PendleRulesSection data={detailInfo.rules} />
+            ) : (
+              <GridSection data={detailInfo.rules} />
+            )}
             {detailInfo?.countDownAlert?.startTime &&
             detailInfo?.countDownAlert?.endTime &&
             now > detailInfo.countDownAlert.startTime &&
-            detailInfo.countDownAlert.endTime < now ? (
+            detailInfo.countDownAlert.endTime > now ? (
               <YStack pb="$1">
                 <CountDownCalendarAlert
                   description={detailInfo.countDownAlert.description.text}

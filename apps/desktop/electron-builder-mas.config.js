@@ -1,3 +1,4 @@
+// oxlint-disable no-template-curly-in-string -- electron-builder template syntax
 const baseElectronBuilderConfig = require('./electron-builder-base.config');
 
 module.exports = {

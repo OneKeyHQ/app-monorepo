@@ -1027,6 +1027,19 @@ export class SelectDeviceError extends OneKeyHardwareError {
   override code = HardwareErrorCode.SelectDevice;
 }
 
+export class AlephTooManyInputsError extends OneKeyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'AlephTooManyInputsError',
+        defaultKey: ETranslations.global_too_many_inputs_notification_banner,
+      }),
+    );
+  }
+
+  override code = HardwareErrorCode.TooManyInputs;
+}
+
 // UnknownHardware
 export class UnknownHardwareError extends OneKeyHardwareError {
   override className: EOneKeyErrorClassNames =

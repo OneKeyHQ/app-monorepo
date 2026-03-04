@@ -14,10 +14,11 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
+import {
+  InvitedByFriendContent,
+  InvitedByFriendImage,
+} from '@onekeyhq/kit/src/views/ReferFriends/pages/InvitedByFriend/components';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ANDROID_PACKAGE_NAME,
   APP_STORE_DOWNLOAD_LINK,
@@ -25,6 +26,9 @@ import {
   DOWNLOAD_MOBILE_APP_URL,
 } from '@onekeyhq/shared/src/config/appConfig';
 import { EOneKeyDeepLinkPath } from '@onekeyhq/shared/src/consts/deeplinkConsts';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalReferFriendsRoutes,
   EModalRoutes,
@@ -32,12 +36,8 @@ import {
   ETabRoutes,
   type ITabHomeParamList,
 } from '@onekeyhq/shared/src/routes';
-import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import {
-  InvitedByFriendContent,
-  InvitedByFriendImage,
-} from '@onekeyhq/kit/src/views/ReferFriends/pages/InvitedByFriend/components';
+import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 
 // Deep-link → store fallback timing constants.
 // On mobile web, we attempt to open the app via deep link, then redirect to
@@ -158,10 +158,7 @@ function ReferralLandingPage() {
         })
       : '';
 
-    defaultLogger.referral.page.enterReferralGuide(
-      code,
-      'web_mobile_redirect',
-    );
+    defaultLogger.referral.page.enterReferralGuide(code, 'web_mobile_redirect');
 
     const redirectToStore = () => {
       if (platformEnv.isWebMobileIOS) {
@@ -169,8 +166,7 @@ function ReferralLandingPage() {
         globalThis.location.href = APP_STORE_DOWNLOAD_LINK;
         globalThis.setTimeout(() => {
           const elapsed = Date.now() - storeStartTime;
-          const isVisible =
-            globalThis.document?.visibilityState !== 'hidden';
+          const isVisible = globalThis.document?.visibilityState !== 'hidden';
           if (isVisible && elapsed <= IOS_STORE_ELAPSED_THRESHOLD_MS) {
             globalThis.location.href = APP_STORE_DOWNLOAD_WEB_LINK;
           }
@@ -194,10 +190,7 @@ function ReferralLandingPage() {
             try {
               iframe.remove();
             } catch (removeError) {
-              console.error(
-                'Failed to remove deep link iframe:',
-                removeError,
-              );
+              console.error('Failed to remove deep link iframe:', removeError);
             }
           }, IFRAME_CLEANUP_DELAY_MS);
           return;
@@ -219,8 +212,7 @@ function ReferralLandingPage() {
         const armTime = Date.now();
         globalThis.setTimeout(() => {
           const elapsed = Date.now() - armTime;
-          const isVisible =
-            globalThis.document?.visibilityState !== 'hidden';
+          const isVisible = globalThis.document?.visibilityState !== 'hidden';
           const timerFiredLate = elapsed > DEEP_LINK_FALLBACK_DELAY_MS * 2;
           if (isVisible && !timerFiredLate) {
             redirectToStore();
@@ -229,8 +221,7 @@ function ReferralLandingPage() {
         openDeepLinkSilently(deepLinkUrl);
       } else {
         globalThis.setTimeout(() => {
-          const isVisible =
-            globalThis.document?.visibilityState !== 'hidden';
+          const isVisible = globalThis.document?.visibilityState !== 'hidden';
           if (isVisible) {
             redirectToStore();
           }

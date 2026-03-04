@@ -17,6 +17,7 @@ import {
   type IListViewRef,
   Icon,
   ListView,
+  NATIVE_HIT_SLOP,
   NumberSizeableText,
   Popover,
   SearchBar,
@@ -671,6 +672,7 @@ const BasePerpTokenSelectorMobileView = memo(
           justifyContent="center"
           alignItems="center"
           onPress={onPressTokenSelector}
+          hitSlop={NATIVE_HIT_SLOP}
         >
           <SizableText size="$headingLg">{displayCoin}USDC</SizableText>
           <NumberSizeableText

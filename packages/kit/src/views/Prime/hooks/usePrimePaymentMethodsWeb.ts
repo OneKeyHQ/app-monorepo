@@ -103,9 +103,7 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
       throw new OneKeyLocalError('PrimeAuth Not ready');
     }
 
-    const offerings = await Purchases.getSharedInstance().getOfferings({
-      currency: 'USD',
-    });
+    const offerings = await Purchases.getSharedInstance().getOfferings();
 
     const packages: IPackage[] =
       offerings?.current?.availablePackages?.map((p) => {
@@ -164,9 +162,7 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
         //   }),
         // });
 
-        const offerings = await Purchases.getSharedInstance().getOfferings({
-          currency: 'USD',
-        });
+        const offerings = await Purchases.getSharedInstance().getOfferings();
 
         if (!offerings.current) {
           throw new OneKeyLocalError(

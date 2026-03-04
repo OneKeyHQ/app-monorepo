@@ -199,7 +199,7 @@ export const urlAccountNavigation = {
       StackActions.push(ETabHomeRoutes.TabHome),
     );
   },
-  replaceHomePage(navigation: IAppNavigation, params?: object | undefined) {
+  replaceHomePage(navigation: IAppNavigation, params?: object) {
     navigation.dispatch(
       // StackActions.replace(ETabHomeRoutes.TabHome, routeParams),
       StackActions.replace(ETabHomeRoutes.TabHome, params),
@@ -218,6 +218,8 @@ export const urlAccountNavigation = {
       realNetworkIdFallback: params.networkId || '',
       contextNetworkId: params.contextNetworkId || '',
     });
+    navigation.switchTab(ETabRoutes.Home);
+    await timerUtils.wait(0);
     rootNavigationRef.current?.dispatch(
       StackActions.push(ETabHomeRoutes.TabHomeUrlAccountPage, {
         address: params.address,

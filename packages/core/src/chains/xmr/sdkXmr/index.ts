@@ -43,7 +43,9 @@ async function getMoneroApi(): Promise<IMoneroApi> {
     address: string;
     netType: string;
   }) => {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     const result = helper.decodeAddress(params);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return Promise.resolve(result);
   };
 

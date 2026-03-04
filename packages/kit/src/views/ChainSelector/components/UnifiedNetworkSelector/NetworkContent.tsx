@@ -3,6 +3,7 @@ import { useCallback, useEffect } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -11,7 +12,6 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { EditableChainSelectorContent } from '../EditableChainSelector/ChainSelectorContent';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 
 const defaultChainSelectorNetworks: {
   mainnetItems: IServerNetwork[];
@@ -95,6 +95,7 @@ export function NetworkContent({
           chainSelectorNetworks: sortedChainSelectorNetworks,
           formattedAccountNetworkValues,
           accountDeFiOverview: _accountDeFiOverview,
+          // eslint-disable-next-line @typescript-eslint/no-shadow
           zeroValue,
         } = await backgroundApiProxy.serviceNetwork.sortChainSelectorNetworksByValue(
           {
@@ -137,7 +138,11 @@ export function NetworkContent({
   useEffect(() => {
     const fn = async () => {
       try {
-        await refreshLocalData();
+        // Use alwaysSetState to bypass the isFocused check, because this
+        // event can fire while the navigation-back animation is still
+        // running (screen not yet focused), which would silently skip
+        // the refresh and leave stale data in the search list.
+        await refreshLocalData({ alwaysSetState: true });
       } catch {
         // silently ignore refresh errors
       }

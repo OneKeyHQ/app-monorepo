@@ -12,7 +12,7 @@ function SwapPanelFooterButtons({ onTrade, onInstant }: IProps) {
   const intl = useIntl();
   return (
     <XStack gap="$2.5">
-      <Button size="large" variant="primary" flex={1} onPress={onTrade}>
+      <Button size="large" variant="secondary" flex={1} onPress={onTrade}>
         {intl.formatMessage({ id: ETranslations.dexmarket_details_trade })}
       </Button>
       <Button
@@ -23,7 +23,7 @@ function SwapPanelFooterButtons({ onTrade, onInstant }: IProps) {
         onPress={onInstant}
         icon="FlashSolid"
       >
-        {intl.formatMessage({ id: ETranslations.marketdex_instant_mode })}
+        {intl.formatMessage({ id: ETranslations.dexmarket_quick_buy })}
       </Button>
     </XStack>
   );

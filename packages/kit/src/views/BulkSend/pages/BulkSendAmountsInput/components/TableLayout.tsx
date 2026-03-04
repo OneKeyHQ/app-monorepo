@@ -21,11 +21,11 @@ import { AmountInput as BaseAmountInput } from '@onekeyhq/kit/src/components/Amo
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { validateTokenAmount } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   EAmountInputMode,
   type ITransferInfoErrors,
 } from '@onekeyhq/shared/types/bulkSend';
-import { validateTokenAmount } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import { filterNumericInput, validateRangeInput } from '../../../utils';
 

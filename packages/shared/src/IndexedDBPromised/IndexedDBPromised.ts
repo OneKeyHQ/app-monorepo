@@ -185,7 +185,7 @@ export class IndexedDBPromised<
   async add<Name extends StoreNames<DBTypes>>(
     storeName: Name,
     value: StoreValue<DBTypes, Name>,
-    key?: IDBKeyRange | StoreKey<DBTypes, Name> | undefined,
+    key?: IDBKeyRange | StoreKey<DBTypes, Name>,
   ): Promise<StoreKey<DBTypes, Name>> {
     const tx = await this.createBucketTransaction([storeName], 'readwrite');
     const store = tx.objectStore(storeName);
@@ -200,7 +200,7 @@ export class IndexedDBPromised<
 
   async count<Name extends StoreNames<DBTypes>>(
     storeName: Name,
-    key?: IDBKeyRange | StoreKey<DBTypes, Name> | null | undefined,
+    key?: IDBKeyRange | StoreKey<DBTypes, Name> | null,
   ): Promise<number> {
     const tx = await this.createBucketTransaction([storeName], 'readonly');
     const store = tx.objectStore(storeName);
@@ -213,7 +213,7 @@ export class IndexedDBPromised<
   >(
     storeName: Name,
     indexName: IndexName,
-    key?: IDBKeyRange | IndexKey<DBTypes, Name, IndexName> | null | undefined,
+    key?: IDBKeyRange | IndexKey<DBTypes, Name, IndexName> | null,
   ): Promise<number> {
     const tx = await this.createBucketTransaction([storeName], 'readonly');
     const store = tx.objectStore(storeName);
@@ -269,7 +269,7 @@ export class IndexedDBPromised<
   >(
     storeName: Name,
     indexName: IndexName,
-    query?: IDBKeyRange | IndexKey<DBTypes, Name, IndexName> | null | undefined,
+    query?: IDBKeyRange | IndexKey<DBTypes, Name, IndexName> | null,
     count?: number,
   ): Promise<StoreValue<DBTypes, Name>[]> {
     const tx = await this.createBucketTransaction([storeName], 'readonly');
@@ -280,7 +280,7 @@ export class IndexedDBPromised<
 
   async getAllKeys<Name extends StoreNames<DBTypes>>(
     storeName: Name,
-    query?: IDBKeyRange | StoreKey<DBTypes, Name> | null | undefined,
+    query?: IDBKeyRange | StoreKey<DBTypes, Name> | null,
     count?: number,
   ): Promise<StoreKey<DBTypes, Name>[]> {
     const tx = await this.createBucketTransaction([storeName], 'readonly');
@@ -298,7 +298,7 @@ export class IndexedDBPromised<
       store.getAll(),
     ]);
     const map = new Map<string, StoreValue<DBTypes, Name>>();
-    for (let i = 0; i < keys.length; i++) {
+    for (let i = 0; i < keys.length; i += 1) {
       map.set(String(keys[i]), values[i]);
     }
     return map;
@@ -310,7 +310,7 @@ export class IndexedDBPromised<
   >(
     storeName: Name,
     indexName: IndexName,
-    query?: IDBKeyRange | IndexKey<DBTypes, Name, IndexName> | null | undefined,
+    query?: IDBKeyRange | IndexKey<DBTypes, Name, IndexName> | null,
     count?: number,
   ): Promise<StoreKey<DBTypes, Name>[]> {
     const tx = await this.createBucketTransaction([storeName], 'readonly');

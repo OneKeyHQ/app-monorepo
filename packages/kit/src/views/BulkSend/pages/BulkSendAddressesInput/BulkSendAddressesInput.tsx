@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import BigNumber from 'bignumber.js';
+import { isUndefined } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { Form, Page, YStack, useForm, useMedia } from '@onekeyhq/components';
@@ -8,19 +10,21 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { EmptyNoWalletView } from '@onekeyhq/kit/src/views/AccountManagerStacks/pages/AccountSelectorStack/WalletDetails/EmptyView';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-import BigNumber from 'bignumber.js';
 import {
   POLLING_DEBOUNCE_INTERVAL,
   POLLING_INTERVAL_FOR_TOKEN,
 } from '@onekeyhq/shared/src/consts/walletConsts';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IModalBulkSendParamList } from '@onekeyhq/shared/src/routes';
 import {
   EModalBulkSendRoutes,
   ETabHomeRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bulkSendUtils from '@onekeyhq/shared/src/utils/bulkSendUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -40,9 +44,6 @@ import {
   BulkSendAddressesInputContext,
   useBulkSendAddressesInputContext,
 } from './components/Context';
-import { isUndefined } from 'lodash';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 function BaseBulkSendAddressesInput() {
   const intl = useIntl();
@@ -73,6 +74,19 @@ function BaseBulkSendAddressesInput() {
 
   const media = useMedia();
   const { headerTitle } = useBulkSendMobileHeader({ bulkSendMode });
+
+  const { result: availableWallets } = usePromiseResult(async () => {
+    const { wallets } = await backgroundApiProxy.serviceAccount.getWallets({
+      ignoreEmptySingletonWalletAccounts: true,
+      ignoreNonBackedUpWallets: true,
+    });
+    return wallets.filter(
+      (w) =>
+        !accountUtils.isQrWallet({ walletId: w.id }) &&
+        !accountUtils.isOthersWallet({ walletId: w.id }) &&
+        !w.deprecated,
+    );
+  }, []);
 
   const form = useForm({
     defaultValues: {
@@ -183,6 +197,8 @@ function BaseBulkSendAddressesInput() {
   ]);
 
   // Reset token details state when account/network/token changes
+  /* eslint-disable react-hooks/exhaustive-deps */
+  /* oxlint-disable react/exhaustive-deps */
   useEffect(() => {
     if (selectedAccountId && selectedNetworkId && selectedToken) {
       setTokenDetailsState({
@@ -196,12 +212,18 @@ function BaseBulkSendAddressesInput() {
     selectedNetworkId,
     selectedToken,
     setTokenDetailsState,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   ]);
+  /* eslint-enable react-hooks/exhaustive-deps */
+  /* oxlint-enable react/exhaustive-deps */
 
   usePromiseResult(
     async () => {
-      if (selectedAccountId && selectedNetworkId && selectedToken) {
+      if (
+        selectedAccountId &&
+        selectedNetworkId &&
+        selectedToken &&
+        availableWallets?.length
+      ) {
         console.log('addresses input fetchSelectedTokenFiatInfo');
 
         const [checkInscriptionProtectionEnabled, vaultSettings] =
@@ -246,6 +268,7 @@ function BaseBulkSendAddressesInput() {
       }
     },
     [
+      availableWallets,
       selectedAccountId,
       selectedNetworkId,
       selectedToken,
@@ -360,6 +383,17 @@ function BaseBulkSendAddressesInput() {
     bulkSendMode,
     isInModal,
   ]);
+
+  if (availableWallets && availableWallets.length === 0) {
+    return (
+      <Page>
+        {media.gtMd ? null : <Page.Header headerTitle={headerTitle} />}
+        <Page.Body>
+          <EmptyNoWalletView />
+        </Page.Body>
+      </Page>
+    );
+  }
 
   return (
     <Page scrollEnabled>

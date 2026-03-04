@@ -18,13 +18,12 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { isEnabledNetworksInAllNetworks } from '@onekeyhq/shared/src/utils/networkUtils';
 
 import { usePureChainSelectorSections } from '../../hooks/usePureChainSelectorSections';
+import ChainSelectorTooltip from '../ChainSelectorTooltip';
+import DottedLine from '../DottedLine';
 
 import { AllNetworksManagerContext } from './AllNetworksManagerContext';
 import NetworkListHeader from './NetworkListHeader';
 import NetworkListItem from './NetworkListItem';
-
-import ChainSelectorTooltip from '../ChainSelectorTooltip';
-import DottedLine from '../DottedLine';
 
 import type {
   IPureChainSelectorSectionListItem,

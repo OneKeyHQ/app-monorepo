@@ -46,6 +46,32 @@ function BasicStakePage() {
   const token = tokenInfo?.token as IToken;
   const symbol = tokenInfo?.token.symbol || '';
   const providerName = protocolInfo?.provider || '';
+  const approveSpenderAddress = useMemo(
+    () =>
+      earnUtils.resolveEarnApproveSpenderAddress({
+        providerName: protocolInfo?.provider || '',
+        protocolVault: protocolInfo?.vault,
+        backendApproveTarget: protocolInfo?.approve?.approveTarget,
+      }),
+    [
+      protocolInfo?.provider,
+      protocolInfo?.vault,
+      protocolInfo?.approve?.approveTarget,
+    ],
+  );
+  const effectiveApproveType = useMemo(() => {
+    return earnUtils.resolveEarnApproveType({
+      providerName: protocolInfo?.provider || '',
+      tokenIsNative: tokenInfo?.token?.isNative,
+      approveSpenderAddress,
+      backendApproveType: protocolInfo?.approve?.approveType,
+    });
+  }, [
+    protocolInfo?.provider,
+    protocolInfo?.approve?.approveType,
+    tokenInfo?.token?.isNative,
+    approveSpenderAddress,
+  ]);
   const { removePermitCache } = useEarnActions().current;
 
   const actionTag = protocolInfo?.stakeTag || '';
@@ -202,7 +228,7 @@ function BasicStakePage() {
           providerLogo={protocolInfo?.providerDetail.logoURI}
           providerName={protocolInfo?.provider}
           onConfirm={onConfirm}
-          approveType={protocolInfo?.approve?.approveType}
+          approveType={effectiveApproveType}
           currentAllowance={currentAllowance}
           minTransactionFee={protocolInfo?.minTransactionFee}
           estimateFeeUTXO={estimateFeeUTXO}
@@ -212,11 +238,7 @@ function BasicStakePage() {
           approveTarget={{
             accountId,
             networkId,
-            spenderAddress: earnUtils.isVaultBasedProvider({
-              providerName: protocolInfo?.provider || '',
-            })
-              ? (protocolInfo?.vault ?? '')
-              : (protocolInfo?.approve?.approveTarget ?? ''),
+            spenderAddress: approveSpenderAddress,
             token: tokenInfo?.token,
           }}
         />

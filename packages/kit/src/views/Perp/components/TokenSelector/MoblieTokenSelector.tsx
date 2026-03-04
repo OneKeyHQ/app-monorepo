@@ -12,13 +12,16 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import {
+  ScrollableFilterBar,
+  useScrollableFilterBar,
+} from '@onekeyhq/kit/src/components/ScrollableFilterBar';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsAllAssetCtxsAtom,
   usePerpsAllAssetsFilteredAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
-
 import {
   usePerpTokenSelectorConfigPersistAtom,
   usePerpTokenSelectorTabsAtom,
@@ -38,10 +41,6 @@ import {
   XYZ_ASSET_ID_OFFSET,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
-import {
-  ScrollableFilterBar,
-  useScrollableFilterBar,
-} from '@onekeyhq/kit/src/components/ScrollableFilterBar';
 import {
   type IFavoriteItem,
   usePerpActiveTabValidation,
@@ -359,10 +358,10 @@ function MobileTokenSelectorModal({
   return (
     <Page>
       <Page.Header
-        title={intl.formatMessage({ id: ETranslations.token_selector_title })}
+        title={intl.formatMessage({ id: ETranslations.perps_search_perps })}
         headerSearchBarOptions={{
           placeholder: intl.formatMessage({
-            id: ETranslations.global_search_asset,
+            id: ETranslations.global_search,
           }),
           onChangeText: ({ nativeEvent }) => {
             const afterTrim = nativeEvent.text.trim();

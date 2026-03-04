@@ -55,8 +55,6 @@ function HomeOverviewContainer() {
   const [isRefreshingNftList, setIsRefreshingNftList] = useState(false);
   const [isRefreshingDeFiList, setIsRefreshingDeFiList] = useState(false);
   const [isRefreshingHistoryList, setIsRefreshingHistoryList] = useState(false);
-  const [isRefreshingApprovalList, setIsRefreshingApprovalList] =
-    useState(false);
 
   const listRefreshKey = useRef('');
 
@@ -85,9 +83,16 @@ function HomeOverviewContainer() {
     };
   }, []);
 
+  const prevWalletIdRef = useRef<string | undefined>(undefined);
   useEffect(() => {
     if (account?.id && network?.id && wallet?.id) {
+      const walletChanged =
+        prevWalletIdRef.current !== undefined &&
+        prevWalletIdRef.current !== wallet.id;
+      prevWalletIdRef.current = wallet.id;
+
       if (
+        walletChanged ||
         network.isAllNetworks ||
         (wallet.type === WALLET_TYPE_HD && !wallet.backuped)
       ) {
@@ -145,7 +150,6 @@ function HomeOverviewContainer() {
         setIsRefreshingTokenList(isRefreshing);
         setIsRefreshingNftList(isRefreshing);
         setIsRefreshingHistoryList(isRefreshing);
-        setIsRefreshingApprovalList(isRefreshing);
         setIsRefreshingWorth(isRefreshing);
         setIsRefreshingDeFiList(isRefreshing);
         return;
@@ -157,8 +161,6 @@ function HomeOverviewContainer() {
         setIsRefreshingNftList(isRefreshing);
       } else if (type === EHomeTab.HISTORY) {
         setIsRefreshingHistoryList(isRefreshing);
-      } else if (type === EHomeTab.APPROVALS) {
-        setIsRefreshingApprovalList(isRefreshing);
       } else if (type === EHomeTab.DEFI) {
         setIsRefreshingDeFiList(isRefreshing);
       }
@@ -282,7 +284,6 @@ function HomeOverviewContainer() {
     isRefreshingTokenList ||
     isRefreshingNftList ||
     isRefreshingHistoryList ||
-    isRefreshingApprovalList ||
     isRefreshingDeFiList;
 
   const refreshButton = useMemo(() => {
@@ -331,6 +332,18 @@ function HomeOverviewContainer() {
   }, [account?.id, network?.id]);
 
   const balanceString = useMemo(() => {
+    // Prevent showing stale balance from previous wallet/account.
+    // useMemo runs synchronously before the reset useEffect, so there's a
+    // render frame where account has switched but accountWorth still holds
+    // old data. Return '0' until the atom catches up.
+    if (
+      accountWorth.accountId &&
+      account?.id &&
+      accountWorth.accountId !== account.id &&
+      accountWorth.accountId !== account.indexedAccountId
+    ) {
+      return '0';
+    }
     return new BigNumber(
       calculateAccountTokensValue({
         accountId: account?.id ?? '',
@@ -343,6 +356,7 @@ function HomeOverviewContainer() {
       .toFixed();
   }, [
     account?.id,
+    account?.indexedAccountId,
     network?.id,
     accountWorth,
     vaultSettings?.mergeDeriveAssetsEnabled,

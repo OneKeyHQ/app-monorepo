@@ -1,5 +1,5 @@
-import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 import type { EBulkSendMode } from '@onekeyhq/shared/types/bulkSend';
+import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 export enum ETabHomeRoutes {
   TabHome = 'TabHome',
@@ -10,6 +10,7 @@ export enum ETabHomeRoutes {
   TabHomeReferralLandingCodeOnly = 'TabHomeReferralLandingCodeOnly',
   TabHomeBulkSendAddressesInput = 'TabHomeBulkSendAddressesInput',
   TabHomeBulkSendAmountsInput = 'TabHomeBulkSendAmountsInput',
+  TabHomeApprovalList = 'TabHomeApprovalList',
 }
 
 export type ITabHomeUrlAccountParamList = {
@@ -55,5 +56,11 @@ export type ITabHomeParamList = {
     tokenDetails: { info: IToken } & ITokenFiat;
     bulkSendMode: EBulkSendMode;
     isInModal?: boolean;
+  };
+  [ETabHomeRoutes.TabHomeApprovalList]: {
+    networkId: string | undefined;
+    accountId: string | undefined;
+    walletId: string | undefined;
+    indexedAccountId: string | undefined;
   };
 } & ITabHomeUrlAccountParamList;

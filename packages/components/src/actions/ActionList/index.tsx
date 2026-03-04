@@ -481,7 +481,6 @@ const showActionList = (
   const content =
     triggerPosition && !platformEnv.isNative ? (
       <Stack
-        // eslint-disable-next-line react-native/no-inline-styles
         style={{
           position: 'fixed' as const,
           left: triggerPosition.x,
