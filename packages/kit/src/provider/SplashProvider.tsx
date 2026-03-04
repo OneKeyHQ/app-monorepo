@@ -72,6 +72,11 @@ export const useDisplaySplash =
                     await backgroundApiProxy.serviceAppUpdate.reset();
                     return;
                   }
+                  // NOTE: This check is intentionally NOT gated by the
+                  // onekey_bundle_skip_gpg_verification dev setting.
+                  // Seamless (silent) install requires valid signature + sha256
+                  // even in dev mode — the skip-GPG flag only affects the
+                  // interactive download-and-verify flow (DownloadVerify page).
                   if (
                     fileType === EUpdateFileType.jsBundle &&
                     (!appInfo.downloadedEvent.signature ||

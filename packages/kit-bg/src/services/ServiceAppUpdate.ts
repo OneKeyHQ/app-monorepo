@@ -307,14 +307,14 @@ class ServiceAppUpdate extends ServiceBase {
 
   @backgroundMethod()
   public async updateDownloadUrl(downloadUrl: string) {
-    // Security: Validate HTTPS before storing download URL
-    if (downloadUrl && !downloadUrl.startsWith('https://')) {
+    // Security: Reject empty or non-HTTPS download URLs
+    if (!downloadUrl || !downloadUrl.startsWith('https://')) {
       defaultLogger.app.appUpdate.log(
-        `updateDownloadUrl: non-HTTPS URL rejected: ${downloadUrl}`,
+        `updateDownloadUrl: invalid URL rejected: ${downloadUrl}`,
       );
       defaultLogger.app.appUpdate.endInstallPackage(
         false,
-        new Error('Download URL must use HTTPS'),
+        new Error('Download URL must be a non-empty HTTPS URL'),
       );
       return;
     }

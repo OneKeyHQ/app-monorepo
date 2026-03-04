@@ -1,6 +1,12 @@
 import { ReactNativeBundleUpdate } from '@onekeyfe/react-native-bundle-update';
 
-const jsBundlePath: string = ReactNativeBundleUpdate.getWebEmbedPath() || '';
+// getWebEmbedPath() is synchronous and returns e.g. ".../1.0.0-5/web-embed".
+// polyfillsPlatform.js splits on "/main.jsbundle.hbc" to derive the assets
+// directory, so we must return a path ending with that filename.
+const webEmbedPath: string = ReactNativeBundleUpdate.getWebEmbedPath() || '';
+const jsBundlePath: string = webEmbedPath
+  ? webEmbedPath.replace(/\/web-embed$/, '/main.jsbundle.hbc')
+  : '';
 
 export const getJsBundlePath = () => {
   return jsBundlePath;

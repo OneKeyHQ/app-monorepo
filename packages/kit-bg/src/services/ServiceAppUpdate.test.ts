@@ -747,9 +747,10 @@ describe('ServiceAppUpdate state transitions', () => {
 
       await service.updateDownloadUrl('');
 
-      // Empty string is falsy, so passes the `if (downloadUrl &&` check
-      // and sets it — this is allowed per current implementation
-      expect(atomValue.downloadedEvent?.downloadUrl).toBe('');
+      // Empty string is rejected — original URL must be preserved
+      expect(atomValue.downloadedEvent?.downloadUrl).toBe(
+        'https://original.com/bundle.zip',
+      );
     });
 
     test('rejects javascript: protocol URL', async () => {
