@@ -129,7 +129,9 @@ class ServiceUniversalSearch extends ServiceBase {
                 },
               };
             })
-            .filter((item) => Boolean(item.payload.address));
+            .filter(
+              (item) => Boolean(item.payload.address) || item.payload.isNative,
+            );
 
           // Require at least one item with real price data; otherwise fall back to trending
           const hasUsableData = v2Items.some(
