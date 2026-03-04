@@ -253,6 +253,7 @@ export default function SettingDevBundleList() {
   const [bundles, setBundles] = useState<IBundleInfo[]>([]);
   const [downloadedSet, setDownloadedSet] = useState<Set<string>>(new Set());
   const [isDownloading, setIsDownloading] = useState(false);
+  const [gpgSkipped, setGpgSkipped] = useState(false);
 
   const currentBundleVersion = String(platformEnv.bundleVersion);
   const currentAppVersion = String(platformEnv.version);
@@ -260,10 +261,13 @@ export default function SettingDevBundleList() {
   useEffect(() => {
     void (async () => {
       try {
-        const data =
-          await backgroundApiProxy.serviceAppUpdate.devFetchBundlesForVersion(
+        const [data, skipGpg] = await Promise.all([
+          backgroundApiProxy.serviceAppUpdate.devFetchBundlesForVersion(
             version,
-          );
+          ),
+          backgroundApiProxy.serviceDevSetting.getSkipBundleGPGVerification(),
+        ]);
+        setGpgSkipped(skipGpg);
         setBundles(data);
 
         const existsChecks = await Promise.all(
@@ -307,9 +311,11 @@ export default function SettingDevBundleList() {
               <SizableText size="$bodySm" color="$textSubdued">
                 {`Current: v${currentAppVersion} #${currentBundleVersion}`}
               </SizableText>
-              <Badge badgeType="warning" badgeSize="sm">
-                <Badge.Text>GPG Skipped</Badge.Text>
-              </Badge>
+              {process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION && gpgSkipped ? (
+                <Badge badgeType="warning" badgeSize="sm">
+                  <Badge.Text>GPG Skipped</Badge.Text>
+                </Badge>
+              ) : null}
             </XStack>
 
             <YStack
