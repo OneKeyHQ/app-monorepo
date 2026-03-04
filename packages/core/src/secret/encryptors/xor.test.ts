@@ -1,5 +1,6 @@
 import { xorDecrypt, xorEncrypt } from './xor';
 
+// eslint-disable-next-line @cspell/spellchecker
 // oxlint-disable-next-line @cspell/spellchecker
 // yarn jest packages/core/src/secret/encryptors/xor.test.ts
 

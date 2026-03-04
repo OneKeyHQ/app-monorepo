@@ -292,7 +292,7 @@ function TableListHeader<T>({
 
   const getSortIcon = useCallback(
     (columnKey: string): IKeyOfIcons | undefined => {
-      if (sortKey !== columnKey) return undefined;
+      if (sortKey !== columnKey) return 'ChevronDownSmallOutline';
       return sortDirection === 'desc'
         ? 'ChevronDownSmallOutline'
         : 'ChevronTopSmallOutline';

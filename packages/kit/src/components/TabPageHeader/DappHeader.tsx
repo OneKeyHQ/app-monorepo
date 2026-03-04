@@ -341,16 +341,21 @@ function AnnouncementListItem() {
   );
 }
 
-function SettingListItem() {
+function SettingListItem({
+  onBeforeNavigate,
+}: {
+  onBeforeNavigate?: () => void;
+}) {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const { closePopover } = usePopoverContext();
   const handlePress = useCallback(async () => {
+    onBeforeNavigate?.();
     await closePopover?.();
     navigation.pushModal(EModalRoutes.SettingModal, {
       screen: EModalSettingRoutes.SettingListModal,
     });
-  }, [closePopover, navigation]);
+  }, [closePopover, navigation, onBeforeNavigate]);
   return (
     <ListItem
       title={intl.formatMessage({ id: ETranslations.settings_settings })}
@@ -367,6 +372,8 @@ function MoreDappActionContent() {
   const [activeSelect, setActiveSelect] = useState<
     'language' | 'currency' | null
   >(null);
+  const [languageKey, setLanguageKey] = useState(0);
+  const [currencyKey, setCurrencyKey] = useState(0);
 
   const handleLanguageOpenChange = useCallback((isOpen: boolean) => {
     setActiveSelect(isOpen ? 'language' : null);
@@ -376,14 +383,22 @@ function MoreDappActionContent() {
     setActiveSelect(isOpen ? 'currency' : null);
   }, []);
 
+  const closeAllDropdowns = useCallback(() => {
+    setActiveSelect(null);
+    setLanguageKey((prev) => prev + 1);
+    setCurrencyKey((prev) => prev + 1);
+  }, []);
+
   return (
     <YStack py="$3">
       <ThemeListItem />
       <LanguageListItem
+        key={languageKey}
         open={activeSelect === 'language'}
         onOpenChange={handleLanguageOpenChange}
       />
       <CurrencyListItem
+        key={currencyKey}
         open={activeSelect === 'currency'}
         onOpenChange={handleCurrencyOpenChange}
       />
@@ -393,7 +408,7 @@ function MoreDappActionContent() {
         <Divider />
       </YStack>
       <AnnouncementListItem />
-      <SettingListItem />
+      <SettingListItem onBeforeNavigate={closeAllDropdowns} />
     </YStack>
   );
 }
