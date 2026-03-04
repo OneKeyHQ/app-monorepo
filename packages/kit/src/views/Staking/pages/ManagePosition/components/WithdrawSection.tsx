@@ -251,49 +251,9 @@ export const WithdrawSection = ({
     },
   );
 
-  const { result: nativeTokenDetail } = usePromiseResult(
-    async () => {
-      if (
-        !hasRequiredData ||
-        !isPendleProvider ||
-        useBorrowApi ||
-        !accountId ||
-        !networkId
-      ) {
-        return undefined;
-      }
-      return backgroundApiProxy.serviceToken.getNativeToken({
-        accountId,
-        networkId,
-      });
-    },
-    [hasRequiredData, isPendleProvider, useBorrowApi, accountId, networkId],
-    {
-      watchLoading: true,
-    },
-  );
-
-  const nativeFallbackReceiveAsset = useMemo<IEarnTokenItem | undefined>(() => {
-    if (!nativeTokenDetail) {
-      return undefined;
-    }
-    return {
-      balance: '0',
-      balanceParsed: '0',
-      fiatValue: '0',
-      price: '0',
-      price24h: '0',
-      info: nativeTokenDetail,
-    };
-  }, [nativeTokenDetail]);
-
   const selectableReceiveAssets = useMemo(() => {
-    const assets = unstakeAssetsList?.assets ?? [];
-    if (assets.length > 0) {
-      return assets;
-    }
-    return nativeFallbackReceiveAsset ? [nativeFallbackReceiveAsset] : [];
-  }, [unstakeAssetsList?.assets, nativeFallbackReceiveAsset]);
+    return unstakeAssetsList?.assets ?? [];
+  }, [unstakeAssetsList?.assets]);
 
   useEffect(() => {
     if (!isPendleProvider || useBorrowApi) {
