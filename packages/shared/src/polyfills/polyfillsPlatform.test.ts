@@ -1,5 +1,5 @@
 // @ts-nocheck
-/* eslint-disable @typescript-eslint/no-var-requires */
+/* eslint-disable @typescript-eslint/no-var-requires, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call */
 
 /**
  * Tests for the native asset resolution polyfill (polyfillsPlatform.js lines 47-116).
@@ -74,7 +74,7 @@ describe('patchNativeAssetResolution (polyfillsPlatform lines 47-116)', () => {
         asset: { scales: [1, 2, 3], name: 'icon', type: 'png' },
         fromSource: (uri: string) => ({ uri }),
       });
-      expect(result.uri).toBe(ASSETS_PATH + 'drawable-2x/icon.png');
+      expect(result.uri).toBe(`${ASSETS_PATH}drawable-2x/icon.png`);
     });
 
     test('replaces __packages and __node_modules in asset URI simultaneously', () => {
@@ -85,7 +85,7 @@ describe('patchNativeAssetResolution (polyfillsPlatform lines 47-116)', () => {
         isLoadedFromServer: () => false,
         asset: { scales: [2], name: 'icon', type: 'png' },
         fromSource: (uri: string) => ({
-          uri: uri + '?from=__packages/__node_modules',
+          uri: `${uri}?from=__packages/__node_modules`,
         }),
       });
       expect(result.uri).toContain('from=packages/node_modules');
@@ -102,7 +102,7 @@ describe('patchNativeAssetResolution (polyfillsPlatform lines 47-116)', () => {
         asset: { scales: [2], name: 'normal_icon', type: 'png' },
         fromSource: (uri: string) => ({ uri }),
       });
-      expect(result.uri).toBe(ASSETS_PATH + 'drawable-2x/normal_icon.png');
+      expect(result.uri).toBe(`${ASSETS_PATH}drawable-2x/normal_icon.png`);
     });
 
     test('returns server URL when loaded from dev server', () => {
@@ -132,10 +132,10 @@ describe('patchNativeAssetResolution (polyfillsPlatform lines 47-116)', () => {
         isLoadedFromServer: () => false,
         jsbundleUrl,
         scaledAssetURLNearBundle: () => ({
-          uri: jsbundleUrl + 'images/icon@2x.png',
+          uri: `${jsbundleUrl}images/icon@2x.png`,
         }),
       });
-      expect(result.uri).toBe(ASSETS_PATH + 'images/icon@2x.png');
+      expect(result.uri).toBe(`${ASSETS_PATH}images/icon@2x.png`);
     });
 
     test('replaces __packages and __node_modules in asset URI', () => {
@@ -147,7 +147,7 @@ describe('patchNativeAssetResolution (polyfillsPlatform lines 47-116)', () => {
         isLoadedFromServer: () => false,
         jsbundleUrl,
         scaledAssetURLNearBundle: () => ({
-          uri: jsbundleUrl + '__packages/kit/__node_modules/lib/icon.png',
+          uri: `${jsbundleUrl}__packages/kit/__node_modules/lib/icon.png`,
         }),
       });
       expect(result.uri).toContain('/packages/kit/');
@@ -165,10 +165,10 @@ describe('patchNativeAssetResolution (polyfillsPlatform lines 47-116)', () => {
         isLoadedFromServer: () => false,
         jsbundleUrl,
         scaledAssetURLNearBundle: () => ({
-          uri: jsbundleUrl + 'images/icon@2x.png',
+          uri: `${jsbundleUrl}images/icon@2x.png`,
         }),
       });
-      expect(result.uri).toBe(ASSETS_PATH + 'images/icon@2x.png');
+      expect(result.uri).toBe(`${ASSETS_PATH}images/icon@2x.png`);
     });
 
     test('returns server URL when loaded from dev server', () => {
