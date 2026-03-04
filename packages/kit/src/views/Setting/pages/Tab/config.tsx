@@ -157,7 +157,12 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
   const [devSettings] = useDevSettingsPersistAtom();
   const { isPrimeAvailable } = usePrimeAvailable();
   const { isLoggedIn } = useOneKeyAuth();
-  const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
+  const [{ perpConfigCommon, perpConfigLoaded }] =
+    usePerpsCommonConfigPersistAtom();
+  const isPerpConfigLoaded = perpConfigLoaded ?? false;
+  const perpDisabled = isPerpConfigLoaded
+    ? perpConfigCommon.disablePerp
+    : false;
   const [settings] = useSettingsPersistAtom();
 
   const { cloudBackupFeatureInfo, startBackup } = useCloudBackup();
@@ -432,7 +437,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                 },
           ],
           [
-            !perpConfigCommon.disablePerp && !perpConfigCommon.usePerpWeb
+            !perpDisabled && !perpConfigCommon.usePerpWeb
               ? {
                   icon: 'BrowserOutline',
                   title: intl.formatMessage({
@@ -866,7 +871,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
       cloudBackupFeatureInfo?.icon,
       cloudBackupFeatureInfo?.title,
       isPrimeAvailable,
-      perpConfigCommon.disablePerp,
+      perpDisabled,
       perpConfigCommon.usePerpWeb,
       isPasswordSet,
       biologyAuthIsSupport,

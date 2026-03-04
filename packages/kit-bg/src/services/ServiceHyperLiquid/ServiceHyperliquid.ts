@@ -185,18 +185,21 @@ export default class ServiceHyperliquid extends ServiceBase {
   }
 
   @backgroundMethod()
-  async updatePerpConfig({
-    referrerConfig,
-    customSettings,
-    customLocalStorage,
-    customLocalStorageV2,
-    commonConfig,
-    bannerConfig,
-    depositTokenConfig,
-    hyperLiquidErrorLocales,
-    tokenSearchAliases,
-    tokenSelectorTabs,
-  }: IPerpServerConfigResponse) {
+  async updatePerpConfig(
+    {
+      referrerConfig,
+      customSettings,
+      customLocalStorage,
+      customLocalStorageV2,
+      commonConfig,
+      bannerConfig,
+      depositTokenConfig,
+      hyperLiquidErrorLocales,
+      tokenSearchAliases,
+      tokenSelectorTabs,
+    }: IPerpServerConfigResponse,
+    options?: { fromServerConfig?: boolean },
+  ) {
     let shouldNotifyToDapp = false;
 
     // Check configVersion change before updating
@@ -237,14 +240,19 @@ export default class ServiceHyperliquid extends ServiceBase {
       (prev): IPerpsCommonConfigPersistAtom => {
         const newVal = perfUtils.buildNewValueIfChanged(prev, {
           ...prev,
+          ...(options?.fromServerConfig && { perpConfigLoaded: true }),
           perpConfigCommon: {
             ...prev.perpConfigCommon,
-            // usePerpWeb: true,
-            usePerpWeb: commonConfig?.usePerpWeb,
-            disablePerp: commonConfig?.disablePerp,
-            disablePerpActionPerp: commonConfig?.disablePerpActionPerp,
-            perpBannerConfig: bannerConfig,
-            ipDisablePerp: commonConfig?.ipDisablePerp,
+            ...(commonConfig && {
+              usePerpWeb: commonConfig.usePerpWeb === true,
+              disablePerp: commonConfig.disablePerp === true,
+              disablePerpActionPerp:
+                commonConfig.disablePerpActionPerp === true,
+              ipDisablePerp: commonConfig.ipDisablePerp === true,
+            }),
+            perpBannerConfig: options?.fromServerConfig
+              ? bannerConfig
+              : (bannerConfig ?? prev.perpConfigCommon.perpBannerConfig),
           },
         });
         return newVal;
@@ -335,21 +343,24 @@ export default class ServiceHyperliquid extends ServiceBase {
       // TODO remove
       // resData.data.referrerRate = 65;
     }
-    await this.updatePerpConfig({
-      referrerConfig: resData?.data?.referrerConfig,
-      customSettings: resData?.data?.customSettings,
-      customLocalStorage: resData?.data?.customLocalStorage,
-      customLocalStorageV2: {
-        ...HYPER_LIQUID_CUSTOM_LOCAL_STORAGE_V2_PRESET,
-        ...resData?.data?.customLocalStorageV2,
+    await this.updatePerpConfig(
+      {
+        referrerConfig: resData?.data?.referrerConfig,
+        customSettings: resData?.data?.customSettings,
+        customLocalStorage: resData?.data?.customLocalStorage,
+        customLocalStorageV2: {
+          ...HYPER_LIQUID_CUSTOM_LOCAL_STORAGE_V2_PRESET,
+          ...resData?.data?.customLocalStorageV2,
+        },
+        commonConfig: resData?.data?.commonConfig ?? {},
+        bannerConfig: resData?.data?.bannerConfig,
+        depositTokenConfig: resData?.data?.depositTokenConfig,
+        hyperLiquidErrorLocales: resData?.data?.hyperLiquidErrorLocales,
+        tokenSearchAliases: resData?.data?.tokenSearchAliases,
+        tokenSelectorTabs: resData?.data?.tokenSelectorTabs,
       },
-      commonConfig: resData?.data?.commonConfig,
-      bannerConfig: resData?.data?.bannerConfig,
-      depositTokenConfig: resData?.data?.depositTokenConfig,
-      hyperLiquidErrorLocales: resData?.data?.hyperLiquidErrorLocales,
-      tokenSearchAliases: resData?.data?.tokenSearchAliases,
-      tokenSelectorTabs: resData?.data?.tokenSelectorTabs,
-    });
+      { fromServerConfig: true },
+    );
     return resData;
   }
 
