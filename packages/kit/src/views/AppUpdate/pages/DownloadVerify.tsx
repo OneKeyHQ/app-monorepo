@@ -5,7 +5,6 @@ import { useIntl } from 'react-intl';
 
 import type { IButtonProps, IPageScreenProps } from '@onekeyhq/components';
 import {
-  Badge,
   Button,
   EStepItemStatus,
   Page,
@@ -237,9 +236,9 @@ function DownloadVerify({
             })}
             renderTitle={({ status }) =>
               isGPGSkipped && status === EStepItemStatus.Done ? (
-                <Badge badgeSize="sm" badgeType="critical">
-                  <Badge.Text>ASC Download Skipped (Dev)</Badge.Text>
-                </Badge>
+                <SizableText size="$bodySmMono" color="$textCritical">
+                  ASC Download Skipped (Dev)
+                </SizableText>
               ) : null
             }
             renderDescription={({ status }) => {
@@ -266,9 +265,9 @@ function DownloadVerify({
             })}
             renderTitle={({ status }) =>
               isGPGSkipped && status === EStepItemStatus.Done ? (
-                <Badge badgeSize="sm" badgeType="critical">
-                  <Badge.Text>GPG Verification Skipped (Dev)</Badge.Text>
-                </Badge>
+                <SizableText size="$bodySmMono" color="$textCritical">
+                  GPG Verification Skipped (Dev)
+                </SizableText>
               ) : null
             }
             renderDescription={({ status }) => {
@@ -340,9 +339,9 @@ function DownloadVerify({
             })}
             renderTitle={({ status }) =>
               isGPGSkipped && status === EStepItemStatus.Done ? (
-                <Badge badgeSize="sm" badgeType="critical">
-                  <Badge.Text>Package Verification Skipped (Dev)</Badge.Text>
-                </Badge>
+                <SizableText size="$bodySmMono" color="$textCritical">
+                  Package Verification Skipped (Dev)
+                </SizableText>
               ) : null
             }
             renderDescription={({ status }) => {
