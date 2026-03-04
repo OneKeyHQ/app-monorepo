@@ -1,10 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { cloneDeep } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
-  NavBackButton,
   Page,
   SizableText,
   Spinner,
@@ -35,7 +34,6 @@ import { HomePageView } from '../HomePageView';
 
 import { UrlAccountAutoReplaceHistory } from './UrlAccountAutoReplaceHistory';
 import {
-  getHomeTabStackLength,
   getPrevUrlAccount,
   urlAccountNavigation,
 } from './urlAccountUtils';
@@ -220,19 +218,6 @@ function UrlAccountAutoCreate({ redirectMode }: { redirectMode?: boolean }) {
     redirectMode,
     isCurrentSelectedAccountNotUrlAccount,
   ]);
-
-  const backToHomePage = useCallback(() => {
-    if (getHomeTabStackLength() > 1) {
-      navigation.goBack();
-    } else {
-      urlAccountNavigation.replaceHomePage(navigation);
-    }
-  }, [navigation]);
-
-  const _renderHeaderLeft = useCallback(
-    () => <NavBackButton onPress={backToHomePage} />,
-    [backToHomePage],
-  );
 
   if (urlAccountStatus === 'invalid') {
     return (
