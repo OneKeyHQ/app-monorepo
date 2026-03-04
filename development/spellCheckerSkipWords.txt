@@ -481,7 +481,6 @@ Keypair
 keyring
 keysend
 keytag
-keytar
 krc20
 Lamports
 lang
