@@ -180,10 +180,10 @@ describe('sliceRequest', () => {
       });
     });
 
-    it('should return single slice when data points <= 200 for native token', () => {
-      // 1 day interval, 150 days total = 150 data points (would be sliced for non-native)
+    it('should return single slice when data points <= 2000 for native token', () => {
+      // 1 day interval, 1000 days total = 1000 data points
       const timeFrom = mockTimeFrom;
-      const timeTo = mockTimeFrom + 150 * SECONDS_IN_DAY;
+      const timeTo = mockTimeFrom + 1000 * SECONDS_IN_DAY;
       const nativeTokenSlices = sliceRequest('1D', timeFrom, timeTo, {
         isNativeToken: true,
       });
@@ -196,11 +196,11 @@ describe('sliceRequest', () => {
       });
     });
 
-    it('should return single slice when data points exactly 200 for native token', () => {
-      // 1 day interval, 200 days total = 200 data points
+    it('should return single slice when data points exactly 2000 for native token', () => {
+      // 1 hour interval, 2000 hours total = 2000 data points
       const timeFrom = mockTimeFrom;
-      const timeTo = mockTimeFrom + 200 * SECONDS_IN_DAY;
-      const nativeTokenSlices = sliceRequest('1D', timeFrom, timeTo, {
+      const timeTo = mockTimeFrom + 2000 * SECONDS_IN_HOUR;
+      const nativeTokenSlices = sliceRequest('1H', timeFrom, timeTo, {
         isNativeToken: true,
       });
 
@@ -208,7 +208,7 @@ describe('sliceRequest', () => {
       expect(nativeTokenSlices[0]).toEqual({
         from: timeFrom,
         to: timeTo,
-        interval: '1D',
+        interval: '1H',
       });
     });
   });
@@ -236,16 +236,16 @@ describe('sliceRequest', () => {
       }
     });
 
-    it('should slice when data points > 200 for native token', () => {
-      // 1 day interval, 250 days total = 250 data points
+    it('should slice when data points > 2000 for native token', () => {
+      // 1 minute interval, 3000 minutes total = 3000 data points
       const timeFrom = mockTimeFrom;
-      const timeTo = mockTimeFrom + 250 * SECONDS_IN_DAY;
-      const nativeTokenSlices = sliceRequest('1D', timeFrom, timeTo, {
+      const timeTo = mockTimeFrom + 3000 * SECONDS_IN_MINUTE;
+      const nativeTokenSlices = sliceRequest('1m', timeFrom, timeTo, {
         isNativeToken: true,
       });
 
       expect(nativeTokenSlices.length).toBeGreaterThan(1);
-      expect(nativeTokenSlices.length).toBe(2); // Math.ceil(250 / 200) = 2
+      expect(nativeTokenSlices.length).toBe(2); // Math.ceil(3000 / 2000) = 2
 
       // Check first slice
       expect(nativeTokenSlices[0].from).toBe(timeFrom);
@@ -260,18 +260,17 @@ describe('sliceRequest', () => {
       }
     });
 
-    it('should slice more for non-native than native token with same data', () => {
-      // 1 day interval, 150 days total = 150 data points
+    it('should produce same slicing for native and non-native tokens', () => {
+      // 1 minute interval, 3000 minutes total = 3000 data points
       const timeFrom = mockTimeFrom;
-      const timeTo = mockTimeFrom + 150 * SECONDS_IN_DAY;
+      const timeTo = mockTimeFrom + 3000 * SECONDS_IN_MINUTE;
 
-      const nonNativeResult = sliceRequest('1D', timeFrom, timeTo);
-      const nativeResult = sliceRequest('1D', timeFrom, timeTo, {
+      const nonNativeResult = sliceRequest('1m', timeFrom, timeTo);
+      const nativeResult = sliceRequest('1m', timeFrom, timeTo, {
         isNativeToken: true,
       });
 
-      expect(nonNativeResult.length).toBe(1); // 150 <= 2000, no slicing needed
-      expect(nativeResult.length).toBe(1); // 150 <= 200, no slicing needed
+      expect(nonNativeResult.length).toBe(nativeResult.length);
     });
 
     it('should handle large data sets correctly', () => {

@@ -73,8 +73,11 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     marksTimeRange,
   });
 
-  const { isHyperLiquidSource, symbol: hyperLiquidSymbol } =
-    useHyperLiquidKlineSource(networkId, tokenAddress);
+  const {
+    isHyperLiquidSource,
+    symbol: hyperLiquidSymbol,
+    isLoading: isHyperLiquidLoading,
+  } = useHyperLiquidKlineSource(networkId, tokenAddress);
 
   const additionalParams = useMemo(() => {
     const useHyperLiquid = isHyperLiquidSource && hyperLiquidSymbol;
@@ -236,7 +239,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
 
   return (
     <Stack position="relative" flex={1} {...stackStyle}>
-      {webView}
+      {isHyperLiquidLoading ? null : webView}
 
       {platformEnv.isNativeIOS ? (
         <Stack
