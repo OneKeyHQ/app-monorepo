@@ -3,12 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { cloneDeep } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import {
-  Page,
-  SizableText,
-  Spinner,
-  Stack,
-} from '@onekeyhq/components';
+import { Page, SizableText, Spinner, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -33,10 +28,7 @@ import { EUniversalSearchType } from '@onekeyhq/shared/types/search';
 import { HomePageView } from '../HomePageView';
 
 import { UrlAccountAutoReplaceHistory } from './UrlAccountAutoReplaceHistory';
-import {
-  getPrevUrlAccount,
-  urlAccountNavigation,
-} from './urlAccountUtils';
+import { getPrevUrlAccount, urlAccountNavigation } from './urlAccountUtils';
 
 const sceneName = EAccountSelectorSceneName.homeUrlAccount;
 

@@ -251,8 +251,7 @@ export const urlAccountNavigation = {
       action: 'pushUrlAccountPage:afterWait',
       focusedTab: focusedTab?.name,
       stackDepth: tabStack?.routes?.length,
-      topRoute:
-        tabStack?.routes?.[tabStack?.routes?.length - 1]?.name,
+      topRoute: tabStack?.routes?.[tabStack?.routes?.length - 1]?.name,
     });
     rootNavigationRef.current?.dispatch(
       StackActions.push(ETabHomeRoutes.TabHomeUrlAccountPage, {

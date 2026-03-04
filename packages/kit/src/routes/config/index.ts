@@ -288,9 +288,7 @@ export const useRouterConfig = () => {
               const activeTab = tabState?.routes?.[tabIndex];
               const stackState = activeTab?.state;
               const topRoute =
-                stackState?.routes?.[
-                  (stackState?.routes?.length ?? 1) - 1
-                ];
+                stackState?.routes?.[(stackState?.routes?.length ?? 1) - 1];
               if (
                 activeTab?.name === ETabRoutes.Home &&
                 stackState &&

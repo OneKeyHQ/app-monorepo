@@ -127,8 +127,11 @@ export function HeaderLeft({
                   },
                 );
               } else {
-                if (getHomeTabStackLength() > 1 && rootNavigationRef.current?.canGoBack()) {
-                  rootNavigationRef.current?.goBack()
+                if (
+                  getHomeTabStackLength() > 1 &&
+                  rootNavigationRef.current?.canGoBack()
+                ) {
+                  rootNavigationRef.current?.goBack();
                 } else {
                   rootNavigationRef.current?.navigate(
                     ETabRoutes.Home,
