@@ -13,14 +13,23 @@ const https = require('https');
 const fs = require('fs');
 const path = require('path');
 
-const LOCALE_JSON_PATH = path.join(__dirname, '../../../packages/shared/src/locale/json/en_US.json');
+const LOCALE_JSON_PATH = path.join(
+  __dirname,
+  '../../../packages/shared/src/locale/json/en_US.json',
+);
 
 // 4 semantic type suffixes for new translation keys (format: semantic_key__type)
 const TYPE_SUFFIXES = {
   title: { case: 'Title Case', desc: 'title, form label, short label' },
   action: { case: 'Title Case', desc: 'button, menu item, tab, option, link' },
-  desc: { case: 'Sentence case', desc: 'description, placeholder, hint, help text, empty state' },
-  msg: { case: 'Sentence case', desc: 'error, toast, success/warning message, alert' },
+  desc: {
+    case: 'Sentence case',
+    desc: 'description, placeholder, hint, help text, empty state',
+  },
+  msg: {
+    case: 'Sentence case',
+    desc: 'error, toast, success/warning message, alert',
+  },
 };
 
 function getEnvVar(name) {
@@ -79,30 +88,28 @@ function extractPlaceholders(text) {
     if (ch === "'") {
       if (text[i + 1] === "'") {
         i += 2; // '' → literal single quote, skip both
-        continue;
+      } else {
+        quoted = !quoted;
+        i += 1;
       }
-      quoted = !quoted;
-      i++;
-      continue;
-    }
-    if (quoted) {
-      i++;
-      continue;
-    }
-    if (ch === '{') {
-      if (depth === 0) {
-        // Top-level opening brace — extract placeholder name up to , or }
-        const rest = text.slice(i + 1);
-        const match = rest.match(/^\s*(.+?)\s*[,}]/);
-        if (match && match[1] !== '#') {
-          names.push(match[1]);
+    } else if (quoted) {
+      i += 1;
+    } else {
+      if (ch === '{') {
+        if (depth === 0) {
+          // Top-level opening brace — extract placeholder name up to , or }
+          const rest = text.slice(i + 1);
+          const match = rest.match(/^\s*(.+?)\s*[,}]/);
+          if (match && match[1] !== '#') {
+            names.push(match[1]);
+          }
         }
+        depth += 1;
+      } else if (ch === '}') {
+        depth = Math.max(0, depth - 1);
       }
-      depth++;
-    } else if (ch === '}') {
-      depth = Math.max(0, depth - 1);
+      i += 1;
     }
-    i++;
   }
   return [...new Set(names)].toSorted();
 }
@@ -137,8 +144,12 @@ function validateKey(key) {
     console.error('Error: Invalid key format');
     console.error('Key must:');
     console.error('  - Start with lowercase letter');
-    console.error('  - Contain only lowercase letters, numbers, and underscores');
-    console.error('  - Example: send__title, confirm__action, transaction_failed__msg');
+    console.error(
+      '  - Contain only lowercase letters, numbers, and underscores',
+    );
+    console.error(
+      '  - Example: send__title, confirm__action, transaction_failed__msg',
+    );
     process.exit(1);
   }
 
@@ -222,11 +233,17 @@ async function main() {
     console.error('Examples:');
     console.error('  yarn i18n:add send__title "Send"');
     console.error('  yarn i18n:add confirm__action "Confirm"');
-    console.error('  yarn i18n:add enter_send_amount__desc "Enter the amount you want to send"');
-    console.error('  yarn i18n:add send_amount__msg "Send {amount} {symbol}" "发送 {amount} {symbol}"');
+    console.error(
+      '  yarn i18n:add enter_send_amount__desc "Enter the amount you want to send"',
+    );
+    console.error(
+      '  yarn i18n:add send_amount__msg "Send {amount} {symbol}" "发送 {amount} {symbol}"',
+    );
     console.error('');
     console.error('Type suffixes: __title, __action, __desc, __msg');
-    console.error('Placeholders: use {name} — validated across en/zh when both provided');
+    console.error(
+      'Placeholders: use {name} — validated across en/zh when both provided',
+    );
     process.exit(1);
   }
 
@@ -258,7 +275,7 @@ async function main() {
     console.log('');
     console.log('Next steps:');
     console.log('  1. Run: yarn workspace @onekeyhq/shared i18n:pull');
-    console.log('  2. Use in code: ETranslations.' + key.replace(/\./g, '_'));
+    console.log(`  2. Use in code: ETranslations.${key.replace(/\./g, '_')}`);
     console.log('');
   } catch (error) {
     console.error('Failed to add to Lokalise:', error.message);

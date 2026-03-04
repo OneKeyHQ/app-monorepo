@@ -8,7 +8,10 @@
 const fs = require('fs');
 const path = require('path');
 
-const LOCALE_JSON_PATH = path.join(__dirname, '../../../packages/shared/src/locale/json/en_US.json');
+const LOCALE_JSON_PATH = path.join(
+  __dirname,
+  '../../../packages/shared/src/locale/json/en_US.json',
+);
 
 // 4 semantic type suffixes (format: semantic_key__type)
 const TYPE_SUFFIXES = {
@@ -70,7 +73,9 @@ function search(keyword) {
   // Group by semantic prefix (part before __ or first segment)
   const grouped = {};
   for (const { key, value } of results) {
-    const prefix = key.includes('__') ? key.split('__')[0].split('_')[0] : key.split(/[._]/)[0];
+    const prefix = key.includes('__')
+      ? key.split('__')[0].split('_')[0]
+      : key.split(/[._]/)[0];
     if (!grouped[prefix]) {
       grouped[prefix] = [];
     }
@@ -80,7 +85,8 @@ function search(keyword) {
   for (const [prefix, items] of Object.entries(grouped)) {
     console.log(`[${prefix}]`);
     for (const { key, value } of items) {
-      const displayValue = value.length > 50 ? value.substring(0, 47) + '...' : value;
+      const displayValue =
+        value.length > 50 ? `${value.substring(0, 47)}...` : value;
       const typeTag = formatTypeTag(key);
       console.log(`  ${key}${typeTag ? ` ${typeTag}` : ''}`);
       console.log(`    → "${displayValue}"`);
@@ -93,13 +99,15 @@ function search(keyword) {
   let untyped = 0;
   for (const { key } of results) {
     if (detectTypeSuffix(key)) {
-      typed++;
+      typed += 1;
     } else {
-      untyped++;
+      untyped += 1;
     }
   }
 
-  console.log(`Total: ${results.length} keys (${typed} typed, ${untyped} legacy)`);
+  console.log(
+    `Total: ${results.length} keys (${typed} typed, ${untyped} legacy)`,
+  );
 }
 
 const keyword = process.argv[2];

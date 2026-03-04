@@ -1,7 +1,10 @@
 const fs = require('fs-extra');
 const path = require('path');
 
-const localeJsonPath = path.join(__dirname, '../../../packages/shared/src/locale/json');
+const localeJsonPath = path.join(
+  __dirname,
+  '../../../packages/shared/src/locale/json',
+);
 
 // build localeJsonMap.ts
 const jsonFiles = fs
@@ -37,7 +40,10 @@ export { enUS };
 `,
 );
 
-const typeFile = path.join(__dirname, '../../../packages/shared/src/locale/enum/translations.ts');
+const typeFile = path.join(
+  __dirname,
+  '../../../packages/shared/src/locale/enum/translations.ts',
+);
 
 const text = fs.readFileSync(typeFile, 'utf8');
 fs.writeFileSync(
