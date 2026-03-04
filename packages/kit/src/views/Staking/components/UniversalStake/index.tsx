@@ -1471,7 +1471,7 @@ export function UniversalStake({
   ]);
 
   const shouldShowSummaryCard =
-    !isDisabled && (!isPendleProvider || !!amountValue);
+    !isDisabled && (!isPendleProvider || Number(amountValue) > 0);
 
   return (
     <StakingFormWrapper>
