@@ -16,6 +16,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import SkipGPGVerificationToggle from '@onekeyhq/kit/src/views/Setting/pages/DevAppUpdateModalSettingModal/SkipGPGVerificationToggle';
 import type { IJSBundle } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import { BundleUpdate } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import { getJsBundlePathAsync } from '@onekeyhq/shared/src/modules3rdParty/auto-update/useJsBundle';
@@ -404,6 +405,16 @@ export default function DevBundleManagerModal() {
               </SectionCard>
             </YStack>
           ) : null}
+
+          {/* Settings */}
+          <YStack gap="$1">
+            <SectionTitle icon="SettingsOutline" title="SETTINGS" />
+            <SectionCard>
+              <YStack px="$4" py="$3">
+                <SkipGPGVerificationToggle />
+              </YStack>
+            </SectionCard>
+          </YStack>
 
           {/* Diagnostics */}
           <YStack gap="$1">
