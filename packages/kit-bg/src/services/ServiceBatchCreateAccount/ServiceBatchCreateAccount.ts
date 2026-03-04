@@ -544,9 +544,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
         fromIndex = Math.min(...indexes);
         toIndex = Math.max(...indexes);
       } else {
-        throw new OneKeyLocalError(
-          'indexedAccountId or indexes is required',
-        );
+        throw new OneKeyLocalError('indexedAccountId or indexes is required');
       }
 
       return this.startBatchCreateAccountsFlowForAllNetwork({
