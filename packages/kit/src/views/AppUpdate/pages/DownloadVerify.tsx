@@ -238,7 +238,7 @@ function DownloadVerify({
             renderTitle={({ status }) =>
               isGPGSkipped && status === EStepItemStatus.Done ? (
                 <Badge badgeSize="sm" badgeType="critical">
-                  <Badge.Text>Skipped</Badge.Text>
+                  <Badge.Text>ASC Download Skipped (Dev)</Badge.Text>
                 </Badge>
               ) : null
             }
@@ -267,7 +267,7 @@ function DownloadVerify({
             renderTitle={({ status }) =>
               isGPGSkipped && status === EStepItemStatus.Done ? (
                 <Badge badgeSize="sm" badgeType="critical">
-                  <Badge.Text>Skipped</Badge.Text>
+                  <Badge.Text>GPG Verification Skipped (Dev)</Badge.Text>
                 </Badge>
               ) : null
             }
@@ -341,7 +341,7 @@ function DownloadVerify({
             renderTitle={({ status }) =>
               isGPGSkipped && status === EStepItemStatus.Done ? (
                 <Badge badgeSize="sm" badgeType="critical">
-                  <Badge.Text>Skipped</Badge.Text>
+                  <Badge.Text>Package Verification Skipped (Dev)</Badge.Text>
                 </Badge>
               ) : null
             }
