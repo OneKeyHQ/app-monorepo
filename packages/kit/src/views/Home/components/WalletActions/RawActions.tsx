@@ -274,11 +274,7 @@ function ActionMore({
           title={label}
           floatingPanelProps={{ w: '$60' }}
           renderTrigger={
-            <IconButton
-              variant="secondary"
-              size="large"
-              icon="DotHorOutline"
-            />
+            <IconButton variant="secondary" size="large" icon="DotHorOutline" />
           }
           renderItemsAsync={renderItemsAsync}
         />
