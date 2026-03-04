@@ -14,11 +14,12 @@ Automates the complete PR creation workflow for OneKey app-monorepo changes.
 |------|--------|----------|
 | 1 | Check status | `git status`, `git branch --show-current` |
 | 2 | Create branch (if on x) | `git checkout -b <branch-name>` |
-| 3 | Stage & commit | `git add .`, `git commit -m "type: description"` |
-| 4 | Push to remote | `git push -u origin <branch-name>` |
-| 5 | Extract context | Analyze conversation for intent, decisions, risks |
-| 6 | Create PR | `gh pr create --base x --title "..." --body "..."` |
-| 7 | Enable auto-merge | `gh pr merge <number> --auto --squash` |
+| 3 | Lint fix | `yarn lint --fix` |
+| 4 | Stage & commit | `git add .`, `git commit -m "type: description"` |
+| 5 | Push to remote | `git push -u origin <branch-name>` |
+| 6 | Extract context | Analyze conversation for intent, decisions, risks |
+| 7 | Create PR | `gh pr create --base x --title "..." --body "..."` |
+| 8 | Enable auto-merge | `gh pr merge <number> --auto --squash` |
 
 ## Workflow
 
@@ -42,7 +43,15 @@ git branch --show-current
 
 **If already on feature branch:** Skip branch creation
 
-### 3. Stage and Commit Changes
+### 3. Run Lint Fix
+
+```bash
+yarn lint --fix
+```
+
+Fix any remaining lint errors before committing.
+
+### 4. Stage and Commit Changes
 
 ```bash
 git add .
@@ -53,13 +62,13 @@ git commit -m "<type>: <description>"
 - Follow conventional commits
 - Do NOT add Claude signatures or Co-Authored-By
 
-### 4. Push to Remote
+### 5. Push to Remote
 
 ```bash
 git push -u origin <branch-name>
 ```
 
-### 5. Extract Context and Intent (CRITICAL)
+### 6. Extract Context and Intent (CRITICAL)
 
 Before creating the PR, analyze the full conversation history to extract:
 
@@ -81,7 +90,7 @@ Before creating the PR, analyze the full conversation history to extract:
 6. **Security considerations** - Any security implications discussed.
 7. **Performance considerations** - Any performance trade-offs discussed.
 
-### 6. Create Pull Request with Context
+### 7. Create Pull Request with Context
 
 ```bash
 gh pr create --base x --title "<title>" --body "<description>"
@@ -121,14 +130,14 @@ The PR body MUST use this template. Omit sections that don't apply (don't write 
 - [ ] <Testing steps to verify the changes>
 ```
 
-### 7. Enable Auto-Merge
+### 8. Enable Auto-Merge
 
 ```bash
 gh pr update-branch <PR_NUMBER>
 gh pr merge <PR_NUMBER> --auto --squash
 ```
 
-### 8. Return PR URL
+### 9. Return PR URL
 
 Display PR URL to user and open in browser:
 ```bash
@@ -141,3 +150,4 @@ open <PR_URL>
 - Use conventional commit format: `type: description`
 - Extract and append issue IDs (OK-{number}) to PR title
 - **Context extraction is mandatory**: The PR description MUST reflect the conversation context. Do NOT create generic descriptions. The code review AI relies on this context to understand the intent behind changes.
+- **All PR content MUST be in English**: title, body (summary, changes, test plan), branch name, and commit messages. Never use Chinese or other languages.
