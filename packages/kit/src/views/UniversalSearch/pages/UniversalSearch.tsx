@@ -267,7 +267,8 @@ export function UniversalSearch({
       searchResultSections.push({
         tabIndex: 2,
         title: intl.formatMessage({ id: ETranslations.market_trending }),
-        data: result[EUniversalSearchType.V2MarketToken].items as IUniversalSearchResultItem[],
+        data: result[EUniversalSearchType.V2MarketToken]
+          .items as IUniversalSearchResultItem[],
       });
     } else if (result?.[EUniversalSearchType.MarketToken]?.items) {
       // Fallback: convert MarketToken (coingecko-based, no network) to V2MarketToken
