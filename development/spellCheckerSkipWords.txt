@@ -1411,3 +1411,4 @@ RNGH
 macrotask
 pwdhash
 wesbos
+entrancy
