@@ -24,12 +24,12 @@ export function useHyperLiquidKlineSource(
   return useMemo(() => {
     const freshTokens = basicConfig?.HyperLiquidKlineSourceTokens;
 
-    // Keep module cache up-to-date whenever fresh data arrives
-    if (freshTokens) {
+    // Sync module cache with fresh config (including clearing when field is removed)
+    if (isLoading === false) {
       cachedTokens = freshTokens;
     }
 
-    // Use fresh data first, fall back to module cache
+    // Use fresh data first, fall back to module cache during loading
     const tokens = freshTokens ?? cachedTokens;
 
     // Only report loading when we have NO data at all (true cold start)
