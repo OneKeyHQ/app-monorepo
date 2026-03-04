@@ -3,6 +3,7 @@ import { useIntl } from 'react-intl';
 import { Badge, Icon, IconButton, XStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AddressInfo } from '@onekeyhq/kit/src/components/AddressInfo';
+import { HighlightAddress } from '@onekeyhq/kit/src/components/HighlightAddress';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { openExplorerAddressUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -10,6 +11,7 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IDisplayComponentAddress } from '@onekeyhq/shared/types/signatureConfirm';
 
 import { SignatureConfirmItem } from '../SignatureConfirmItem';
+import { useMemo } from 'react';
 
 type IProps = {
   accountId?: string;
@@ -55,6 +57,21 @@ function Address(props: IProps) {
     return r?.[0]?.accountName;
   }, [component.address, networkId, isLightningNetwork]).result;
 
+  const accountAddress = useMemo(() => {
+    if (component.showAccountName) {
+      return accountName;
+    }
+    return component.highlight ? (
+      <HighlightAddress variant="inline" address={component.address} />
+    ) : (
+      component.address
+    );
+  }, [
+    component.showAccountName,
+    accountName,
+    component.highlight,
+    component.address,
+  ]);
   return (
     <SignatureConfirmItem>
       <SignatureConfirmItem.Label>
@@ -67,8 +84,9 @@ function Address(props: IProps) {
           flex={1}
           maxWidth="$96"
           style={{ wordBreak: 'break-all' }}
+          {...(!component.showAccountName && { fontFamily: '$monoMedium' })}
         >
-          {component.showAccountName ? accountName : component.address}
+          {accountAddress}
         </SignatureConfirmItem.Value>
         {component.isNavigable ? (
           <XStack gap="$3" ml="$5">

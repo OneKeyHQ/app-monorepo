@@ -133,7 +133,7 @@ export const PendleAccordionTriggerContent: FC<
     >
       {triggerText}
     </SizableText>
-    <YStack animation="quick" rotate={open && !isDisabled ? '180deg' : '0deg'}>
+    <YStack animation="quick" rotate={open && !isDisabled ? '0deg' : '180deg'}>
       <Icon
         name="ChevronDownSmallSolid"
         color={isDisabled ? '$iconDisabled' : '$iconSubdued'}
@@ -260,7 +260,11 @@ export function usePendleTransactionDetails({
                   />
                 ) : null}
                 {detailItem.current?.title && detailItem.latest?.title ? (
-                  <Icon name="ArrowRightSolid" size="$4" color="$iconSubdued" />
+                  <Icon
+                    name="ArrowRightOutline"
+                    size="$4"
+                    color="$iconDisabled"
+                  />
                 ) : null}
                 {detailItem.latest?.title ? (
                   <EarnText
