@@ -10,6 +10,17 @@ import { SplashView } from './SplashView';
 export type ISplashProps = PropsWithChildren;
 
 const noop = () => {};
+
+function waitForPaint(): Promise<void> {
+  return new Promise((resolve) => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        resolve();
+      });
+    });
+  });
+}
+
 export function Splash({ children }: ISplashProps) {
   const resolveSplash = useRef<() => void>(noop);
   const handleExitComplete = useCallback(() => {
@@ -23,8 +34,7 @@ export function Splash({ children }: ISplashProps) {
   const handleLayout = useCallback((e: LayoutChangeEvent) => {
     const { height } = e.nativeEvent.layout;
     if (height) {
-      // close the splash after the react commit phase.
-      setTimeout(() => {
+      void waitForPaint().then(() => {
         resolveSplash.current?.();
       });
     }
