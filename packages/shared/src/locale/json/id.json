@@ -400,6 +400,7 @@
   "dapp_connect.confirm": "Konfirmasi",
   "dapp_connect.connect_to_website": "Terhubung ke {url}",
   "dapp_connect.connection_request": "Permintaan Koneksi",
+  "dapp_connect.cosmos_requires_wallet_unlock_secret_enigma_utils": "Lebih lanjut, enkripsi Enigma Secret Network hanya memerlukan pembukaan kunci wallet — tidak perlu re-otorisasi selama sesi ini.",
   "dapp_connect.create": "Buat",
   "dapp_connect.create_invoice_request": "Buat Permintaan Faktur",
   "dapp_connect.decrypted_request": "Permintaan yang telah didekripsi",

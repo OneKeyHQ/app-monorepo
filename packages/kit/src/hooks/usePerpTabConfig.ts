@@ -8,10 +8,14 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EPerpUserType } from '@onekeyhq/shared/types/hyperliquid';
 
 export function usePerpTabConfig() {
-  const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
+  const [{ perpConfigCommon, perpConfigLoaded }] =
+    usePerpsCommonConfigPersistAtom();
   const [{ perpUserConfig }] = usePerpsUserConfigPersistAtom();
+  const isPerpConfigLoaded = perpConfigLoaded ?? false;
 
-  const disablePerp = perpConfigCommon?.disablePerp;
+  const disablePerp = isPerpConfigLoaded
+    ? perpConfigCommon?.disablePerp
+    : false;
   const usePerpWeb = perpConfigCommon?.usePerpWeb;
   const currentUserType = perpUserConfig.currentUserType;
 

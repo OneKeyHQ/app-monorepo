@@ -277,6 +277,7 @@ function focusExistWindow({
 }
 
 async function openPermissionSettings() {
+  // eslint-disable-next-line @cspell/spellchecker
   // oxlint-disable-next-line @cspell/spellchecker
   // chrome://settings/content/siteDetails?site=chrome-extension://apmndckkdnmkjblccnclblclninghkfh
 

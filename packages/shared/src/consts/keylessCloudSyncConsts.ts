@@ -16,7 +16,7 @@ export const KEYLESS_SYNC_DERIVATION_PATH_ENCRYPTION =
   "m/44'/38716591'/98351420'/0/1";
 
 /** HTTP Header name for Keyless signature */
-export const KEYLESS_SYNC_SIGNATURE_HEADER = 'X-Keyless-Sync-Signature';
+export const KEYLESS_SYNC_SIGNATURE_HEADER = 'x-onekey-keyless-sync-signature';
 
 /** Encryption context identifier */
 export const KEYLESS_SYNC_ENCRYPTION_CONTEXT = 'onekey-keyless-cloud-sync-v1';

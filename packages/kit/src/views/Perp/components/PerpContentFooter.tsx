@@ -40,7 +40,7 @@ export function PerpContentFooter() {
   const { gtSm } = useMedia();
   const intl = useIntl();
 
-  if (!platformEnv.isNative && !platformEnv.isWebDappMode && gtSm) {
+  if (!platformEnv.isNative && gtSm) {
     return (
       <Page.Footer>
         <XStack
