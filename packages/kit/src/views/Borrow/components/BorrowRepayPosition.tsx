@@ -84,6 +84,7 @@ type IBorrowRepayPositionProps = Omit<
   ) => Promise<void>;
   collateralAssets: IRepayCollateralAsset[];
   defaultCollateralReserveAddress?: string;
+  debtBalance?: string;
 };
 
 type IRepayMode = 'wallet' | 'collateral';
@@ -212,7 +213,9 @@ function RepayWithCollateralForm({
   providerName,
   borrowMarketAddress,
   borrowReserveAddress,
-  balance,
+  balance: _walletBalance,
+  maxBalance: _walletMaxBalance,
+  debtBalance,
   decimals,
   price,
   tokenSymbol,
@@ -227,6 +230,10 @@ function RepayWithCollateralForm({
   defaultCollateralReserveAddress,
   onRepayWithCollateralConfirm,
 }: Omit<IBorrowRepayPositionProps, 'onWalletConfirm'>) {
+  // For collateral repay, use debt balance (how much user owes)
+  // Fall back to wallet maxBalance (which is also debt) for backward compatibility
+  const balance = debtBalance ?? _walletMaxBalance ?? _walletBalance;
+  const maxBalance = debtBalance;
   const intl = useIntl();
   const navigation = useAppNavigation();
   const { handleOpenWebSite } = useBrowserAction().current;
@@ -286,6 +293,7 @@ function RepayWithCollateralForm({
     action: 'repay',
     decimals,
     balance,
+    maxBalance,
     amountValue,
     setAmountValue,
   });
@@ -493,7 +501,7 @@ function RepayWithCollateralForm({
               provider: providerName,
               marketAddress: borrowMarketAddress,
               reserveAddress: borrowReserveAddress,
-              action: 'repay',
+              action: 'repayWithCollateral',
               amount: value,
               collateralReserveAddress,
               slippageBps: currentSlippageBps,
@@ -557,7 +565,7 @@ function RepayWithCollateralForm({
             provider: providerName,
             marketAddress: borrowMarketAddress,
             reserveAddress: borrowReserveAddress,
-            action: 'repay',
+            action: 'repayWithCollateral',
             amount: value,
             repayAll,
             collateralReserveAddress,
@@ -714,12 +722,29 @@ function RepayWithCollateralForm({
     if (!quote?.maxPriceImpact) {
       return undefined;
     }
-    const normalized = new BigNumber(quote.maxPriceImpact);
-    if (normalized.isNaN()) {
-      return quote.maxPriceImpact;
+    const impactPct = new BigNumber(quote.maxPriceImpact);
+    if (impactPct.isNaN()) {
+      return undefined;
     }
-    return `${normalized.toFixed()}%`;
-  }, [quote?.maxPriceImpact]);
+    const pctFormatted = `${impactPct.toFixed(2)}%`;
+    // Debt repayment fiat value = swapIn (collateral) × fillPrice (debt per collateral) × debtTokenPrice
+    const swapInBN = new BigNumber(quote.swapIn || '0');
+    const fillPriceBN = new BigNumber(quote.fillPrice || '0');
+    const priceBN = new BigNumber(price || '0');
+    if (swapInBN.lte(0) || fillPriceBN.lte(0) || priceBN.lte(0)) {
+      return pctFormatted;
+    }
+    const repayFiatValue = swapInBN
+      .multipliedBy(fillPriceBN)
+      .multipliedBy(priceBN);
+    return `${currencySymbol}${repayFiatValue.toFixed(2)} (${pctFormatted})`;
+  }, [
+    quote?.maxPriceImpact,
+    quote?.swapIn,
+    quote?.fillPrice,
+    price,
+    currencySymbol,
+  ]);
 
   const quoteSummary = useMemo(() => {
     if (
@@ -824,11 +849,7 @@ function RepayWithCollateralForm({
                   alignItems="center"
                 >
                   <SizableText size="$bodySm" color="$textSubdued">
-                    {priceImpactText
-                      ? `${intl.formatMessage({
-                          id: ETranslations.swap_page_price_impact_title,
-                        })} ${priceImpactText}`
-                      : '-'}
+                    {priceImpactText ?? '-'}
                   </SizableText>
                   {selectedCollateral ? (
                     <SizableText size="$bodySm" color="$textSubdued">
@@ -1018,6 +1039,7 @@ export function BorrowRepayPosition({
   onRepayWithCollateralConfirm,
   collateralAssets,
   defaultCollateralReserveAddress,
+  debtBalance,
   ...props
 }: IBorrowRepayPositionProps) {
   const intl = useIntl();
@@ -1037,7 +1059,10 @@ export function BorrowRepayPosition({
     },
   ];
 
-  if (!collateralAssets.length) {
+  // Only enable collateral repay when API returns both debt and collateral fields
+  const isCollateralRepayEnabled = collateralAssets.length > 0 && !!debtBalance;
+
+  if (!isCollateralRepayEnabled) {
     return (
       <ManagePosition {...props} action="repay" onConfirm={onWalletConfirm} />
     );
@@ -1080,6 +1105,7 @@ export function BorrowRepayPosition({
           onRepayWithCollateralConfirm={onRepayWithCollateralConfirm}
           collateralAssets={collateralAssets}
           defaultCollateralReserveAddress={defaultCollateralReserveAddress}
+          debtBalance={debtBalance}
         />
       )}
     </YStack>

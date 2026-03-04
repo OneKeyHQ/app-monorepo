@@ -851,6 +851,12 @@ export const WithdrawSection = ({
           isInModalContext={isInModalContext}
           collateralAssets={collateralAssets}
           defaultCollateralReserveAddress={defaultCollateralReserveAddress}
+          debtBalance={
+            protocolInfo?.debtBalance !== undefined
+              ? (selectedAsset?.borrowed?.title?.text ??
+                protocolInfo.debtBalance)
+              : undefined
+          }
         />
       );
     } else {
