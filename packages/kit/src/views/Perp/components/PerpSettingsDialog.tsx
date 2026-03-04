@@ -24,7 +24,6 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { PerpsProviderMirror } from '../PerpsProviderMirror';
 import { showPerpFeeTierDialog } from './TradingPanel/components/PerpFeeTierPopover';
-
 import { useShowInviteeRewardModal } from './InviteeReward/hooks/useShowInviteeRewardModal';
 
 interface IPerpSettingsPopoverContentProps {
