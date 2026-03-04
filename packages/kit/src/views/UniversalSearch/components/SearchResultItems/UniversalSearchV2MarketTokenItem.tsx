@@ -30,6 +30,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EUniversalSearchPages } from '@onekeyhq/shared/src/routes/universalSearch';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { formatTokenSymbolForDisplay } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IUniversalSearchV2MarketToken } from '@onekeyhq/shared/types/search';
 
 import { MarketStarV2 } from '../../../Market/components/MarketStarV2';
@@ -276,7 +277,7 @@ export function UniversalSearchV2MarketTokenItem({
                 numberOfLines={1}
                 flexShrink={1}
               >
-                {symbol}
+                {formatTokenSymbolForDisplay(symbol)}
               </SizableText>
               {communityRecognized ? <CommunityRecognizedBadge /> : null}
             </XStack>

@@ -400,6 +400,7 @@
   "dapp_connect.confirm": "पुष्टि करें",
   "dapp_connect.connect_to_website": "{url} से कनेक्ट किया गया",
   "dapp_connect.connection_request": "कनेक्शन अनुरोध",
+  "dapp_connect.cosmos_requires_wallet_unlock_secret_enigma_utils": "अगली Secret Network Enigma एन्क्रिप्शन केवल वॉलेट अनलॉक की आवश्यकता है — इस सत्र के दौरान पुनः प्राधिकरण की आवश्यकता नहीं है।",
   "dapp_connect.create": "सिर्जन करें",
   "dapp_connect.create_invoice_request": "इनवॉइस अनुरोध बनाएं",
   "dapp_connect.decrypted_request": "डिक्रिप्टेड अनुरोध",

@@ -690,6 +690,11 @@ export function UniversalWithdraw({
   ]);
 
   const [checkAmountLoading, setCheckAmountLoading] = useState(false);
+  const [transactionConfirmationLoading, setTransactionConfirmationLoading] =
+    useState(false);
+
+  const quoteLoading = checkAmountLoading || transactionConfirmationLoading;
+
   const checkAmount = useDebouncedCallback(async (amount: string) => {
     if (isInvalidAmount(amount)) {
       return;
@@ -768,6 +773,7 @@ export function UniversalWithdraw({
 
   const debouncedFetchTransactionConfirmation = useDebouncedCallback(
     async (amount?: string) => {
+      setTransactionConfirmationLoading(true);
       try {
         const resp = await fetchTransactionConfirmation(amount || '0');
         setTransactionConfirmation(resp);
@@ -776,6 +782,8 @@ export function UniversalWithdraw({
         }
       } catch {
         // keep stale state
+      } finally {
+        setTransactionConfirmationLoading(false);
       }
     },
     350,
@@ -921,6 +929,7 @@ export function UniversalWithdraw({
     receiveInputConfig,
     networkLogoURI: network?.logoURI,
     isQuoteExpired,
+    loading: quoteLoading,
   });
 
   // During approve/submit flow, don't show expired refresh — the transaction is in progress.
@@ -1092,6 +1101,7 @@ export function UniversalWithdraw({
             config={effectiveReceiveInputConfig}
             fiatSymbol={symbol}
             payFiatValue={currentValue}
+            loading={quoteLoading}
           />
         </YStack>
         {showReceiveInput ? (
@@ -1258,6 +1268,7 @@ export function UniversalWithdraw({
             <PendleSummarySection
               rewardRows={pendleRewardRows}
               tipText={pendleTipText}
+              loading={quoteLoading}
             />
           ) : null}
           {hasSummarySection && !usePendleSummaryLayout ? (
@@ -1343,7 +1354,9 @@ export function UniversalWithdraw({
               })}
             </YStack>
           ) : null}
-          {hasSummarySection ? <Divider my="$5" /> : null}
+          {hasSummarySection && showPendleTransactionSection ? (
+            <Divider my="$5" />
+          ) : null}
           {showPendleTransactionSection ? (
             <Accordion
               overflow="hidden"
