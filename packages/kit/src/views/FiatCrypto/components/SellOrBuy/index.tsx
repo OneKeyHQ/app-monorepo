@@ -105,6 +105,7 @@ export const SellOrBuyContent = memo(
             accountId: realAccountId,
             type,
           });
+        if (!url) return;
         if (platformEnv.isDesktop || platformEnv.isNative) {
           appNavigation.push(EModalFiatCryptoRoutes.FiatCryptoWebView, {
             url,
