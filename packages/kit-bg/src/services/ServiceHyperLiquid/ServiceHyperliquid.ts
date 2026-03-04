@@ -243,18 +243,13 @@ export default class ServiceHyperliquid extends ServiceBase {
           ...(options?.fromServerConfig && { perpConfigLoaded: true }),
           perpConfigCommon: {
             ...prev.perpConfigCommon,
-            usePerpWeb: commonConfig
-              ? commonConfig.usePerpWeb === true
-              : prev.perpConfigCommon.usePerpWeb,
-            disablePerp: commonConfig
-              ? commonConfig.disablePerp === true
-              : prev.perpConfigCommon.disablePerp,
-            disablePerpActionPerp: commonConfig
-              ? commonConfig.disablePerpActionPerp === true
-              : prev.perpConfigCommon.disablePerpActionPerp,
-            ipDisablePerp: commonConfig
-              ? commonConfig.ipDisablePerp === true
-              : prev.perpConfigCommon.ipDisablePerp,
+            ...(commonConfig && {
+              usePerpWeb: commonConfig.usePerpWeb === true,
+              disablePerp: commonConfig.disablePerp === true,
+              disablePerpActionPerp:
+                commonConfig.disablePerpActionPerp === true,
+              ipDisablePerp: commonConfig.ipDisablePerp === true,
+            }),
             perpBannerConfig: options?.fromServerConfig
               ? bannerConfig
               : (bannerConfig ?? prev.perpConfigCommon.perpBannerConfig),
