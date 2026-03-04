@@ -58,8 +58,10 @@ import {
   UniversalSearchDappItem,
   UniversalSearchMarketTokenItem,
   UniversalSearchPerpItem,
+  UniversalSearchSettingsItem,
   UniversalSearchV2MarketTokenItem,
 } from '../components/SearchResultItems';
+import { useSettingsSearch } from '../hooks/useSettingsSearch';
 
 import { RecentSearched } from './components/RecentSearched';
 import { UniversalSearchProviderMirror } from './UniversalSearchProviderMirror';
@@ -94,6 +96,8 @@ const getTabIndexForSearchType = (searchType: EUniversalSearchType): number => {
     [EUniversalSearchType.AccountAssets]: platformEnv.isWebDappMode ? 0 : 5,
     // DApps tab index changes based on whether My Assets tab is shown
     [EUniversalSearchType.Dapp]: platformEnv.isWebDappMode ? 5 : 6,
+    // Settings tab is last
+    [EUniversalSearchType.Settings]: platformEnv.isWebDappMode ? 6 : 7,
   };
 
   return tabMapping[searchType];
@@ -162,6 +166,8 @@ export function UniversalSearch({
     setIsFocusInMarketTab(isFocus);
   });
 
+  const searchSettings = useSettingsSearch();
+
   const tabTitles = useMemo(() => {
     return [
       intl.formatMessage({
@@ -189,6 +195,9 @@ export function UniversalSearch({
         intl.formatMessage({
           id: ETranslations.global_universal_search_tabs_dapps,
         }),
+      intl.formatMessage({
+        id: ETranslations.global_settings,
+      }),
     ].filter(Boolean);
   }, [intl]);
 
@@ -252,8 +261,17 @@ export function UniversalSearch({
       await backgroundApiProxy.serviceUniversalSearch.universalSearchRecommend({
         searchTypes: [EUniversalSearchType.MarketToken],
       });
-    if (result?.[EUniversalSearchType.MarketToken]?.items) {
-      // Convert MarketToken items to V2MarketToken format for table-style rendering
+
+    // Prefer V2MarketToken (has network badge from searchRecommendTokens)
+    if (result?.[EUniversalSearchType.V2MarketToken]?.items?.length) {
+      searchResultSections.push({
+        tabIndex: 2,
+        title: intl.formatMessage({ id: ETranslations.market_trending }),
+        data: result[EUniversalSearchType.V2MarketToken]
+          .items as IUniversalSearchResultItem[],
+      });
+    } else if (result?.[EUniversalSearchType.MarketToken]?.items) {
+      // Fallback: convert MarketToken (coingecko-based, no network) to V2MarketToken
       const v2Items = result[EUniversalSearchType.MarketToken].items.map(
         (item) => {
           const token = item.payload;
@@ -431,6 +449,19 @@ export function UniversalSearch({
         });
       }
 
+      // Settings search runs locally (no backend needed)
+      const settingsResults = searchSettings(input);
+      if (settingsResults.length > 0) {
+        const data = settingsResults as IUniversalSearchResultItem[];
+        searchResultSections.push({
+          tabIndex: getTabIndexForSearchType(EUniversalSearchType.Settings),
+          title: intl.formatMessage({
+            id: ETranslations.global_settings,
+          }),
+          ...generateDataFn(data),
+        });
+      }
+
       setSections(searchResultSections);
       setSearchStatus(ESearchStatus.done);
 
@@ -538,7 +569,12 @@ export function UniversalSearch({
             />
           );
         case EUniversalSearchType.V2MarketToken:
-          return <UniversalSearchV2MarketTokenItem item={item} />;
+          return (
+            <UniversalSearchV2MarketTokenItem
+              item={item}
+              isTrending={searchStatus === ESearchStatus.init}
+            />
+          );
         case EUniversalSearchType.AccountAssets:
           return (
             <UniversalSearchAccountAssetItem
@@ -555,6 +591,8 @@ export function UniversalSearch({
           );
         case EUniversalSearchType.Perp:
           return <UniversalSearchPerpItem item={item} />;
+        case EUniversalSearchType.Settings:
+          return <UniversalSearchSettingsItem item={item} />;
         default:
           return null;
       }
@@ -585,6 +623,8 @@ export function UniversalSearch({
           return `${type}-${payload.dappId ?? index}`;
         case EUniversalSearchType.Perp:
           return `${type}-${payload.name}-${index}`;
+        case EUniversalSearchType.Settings:
+          return `${type}-${payload.title}-${index}`;
         default:
           return String(index);
       }

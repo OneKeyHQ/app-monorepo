@@ -142,6 +142,7 @@ export const isTaprootPath = (pathPrefix: string) =>
 export const isNativeSegwitPath = (pathPrefix: string) =>
   pathPrefix.startsWith(`m/84'/`);
 
+// eslint-disable-next-line @cspell/spellchecker
 // oxlint-disable-next-line @cspell/spellchecker
 // Taproot addresses start with 'bc1p' on mainnet
 
@@ -327,6 +328,7 @@ export function validateBtcAddress({
   } catch (e) {
     errorUtils.autoPrintErrorIgnore(e);
     try {
+      // eslint-disable-next-line @cspell/spellchecker
       // oxlint-disable-next-line @cspell/spellchecker
       const decoded = BitcoinJsAddress.fromBech32(address);
       if (

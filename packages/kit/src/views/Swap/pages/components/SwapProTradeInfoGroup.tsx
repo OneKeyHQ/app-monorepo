@@ -21,6 +21,7 @@ import {
   useSwapProSelectTokenAtom,
   useSwapProSellToTokenAtom,
   useSwapProTradeTypeAtom,
+  useSwapProUseSelectBuyTokenAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapSpeedQuoteFetchingAtom,
   useSwapSpeedQuoteResultAtom,
@@ -70,6 +71,7 @@ const SwapProTradeInfoGroup = ({
   const swapQuoteLoading = useSwapQuoteLoading();
   const [swapProSellToToken, setSwapProSellToToken] =
     useSwapProSellToTokenAtom();
+  const [, setSwapProUseSelectBuyToken] = useSwapProUseSelectBuyTokenAtom();
   const [swapLimitPriceUseRate] = useSwapLimitPriceUseRateAtom();
   const defaultTokensFromType = useMemo(() => {
     if (swapProTradeType === ESwapProTradeType.MARKET) {
@@ -193,8 +195,26 @@ const SwapProTradeInfoGroup = ({
   const handleTokenSelect = useCallback(
     (token: IToken) => {
       setSwapProSellToToken(token);
+      // Sync BUY counterparty so both directions use the same token
+      setSwapProUseSelectBuyToken(token);
+      // Save preference (shared with Instant Mode) via simpledb
+      const networkId = swapProSelectToken?.networkId || '';
+      if (networkId) {
+        void backgroundApiProxy.simpleDb.marketTokenPreference.setPreference({
+          networkId,
+          preference: {
+            contractAddress: token.contractAddress,
+            symbol: token.symbol,
+            networkId: token.networkId,
+          },
+        });
+      }
     },
-    [setSwapProSellToToken],
+    [
+      setSwapProSellToToken,
+      setSwapProUseSelectBuyToken,
+      swapProSelectToken?.networkId,
+    ],
   );
 
   return (

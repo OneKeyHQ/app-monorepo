@@ -400,6 +400,7 @@
   "dapp_connect.confirm": "確認",
   "dapp_connect.connect_to_website": "連接到 {url}",
   "dapp_connect.connection_request": "連接請求",
+  "dapp_connect.cosmos_requires_wallet_unlock_secret_enigma_utils": "後續的隱私網路 Enigma 加密僅需解鎖錢包，目前會話內無需重新授權。",
   "dapp_connect.create": "創建",
   "dapp_connect.create_invoice_request": "創建發票請求",
   "dapp_connect.decrypted_request": "解密請求",

@@ -1,6 +1,13 @@
-import type { FileLogger as FileLoggerClass } from 'react-native-file-logger';
+export const NativeLogger = {
+  write: (_level: number, _msg: string) => {},
+  getLogDirectory: () => '',
+  getLogFilePaths: () => Promise.resolve([] as string[]),
+  deleteLogFiles: () => Promise.resolve(),
+};
 
-export { LogLevel } from 'react-native-file-logger';
-export const FileLogger = {
-  configure: () => {},
-} as unknown as typeof FileLoggerClass;
+export const LogLevel = {
+  Debug: 0,
+  Info: 1,
+  Warning: 2,
+  Error: 3,
+} as const;
