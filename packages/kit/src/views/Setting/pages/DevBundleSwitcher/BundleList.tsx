@@ -111,7 +111,8 @@ function BundleItem({
           latestVersion: version,
           bundleVersion: bundle.bundleVersion,
           signature: bundle.signature || PLACEHOLDER_SINATURE,
-        } as any);
+          skipGPGVerification: !!process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION
+        });
       } else {
         if (!downloadedEventRef.current) return;
         await BundleUpdate.verifyBundleASC({
@@ -120,21 +121,24 @@ function BundleItem({
           bundleVersion: bundle.bundleVersion,
           sha256: bundle.sha256,
           signature: bundle.signature || PLACEHOLDER_SINATURE,
-        } as any);
+          skipGPGVerification: !!process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION
+        });
 
         await BundleUpdate.verifyBundle({
           ...downloadedEventRef.current,
           latestVersion: version,
           bundleVersion: bundle.bundleVersion,
           sha256: bundle.sha256,
-        } as any);
+          skipGPGVerification: !!process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION
+        });
 
         await BundleUpdate.installBundle({
           ...downloadedEventRef.current,
           latestVersion: version,
           bundleVersion: bundle.bundleVersion,
           signature: bundle.signature || PLACEHOLDER_SINATURE,
-        } as any);
+          skipGPGVerification: !!process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION
+        });
       }
     } catch (e) {
       setStatus('error');

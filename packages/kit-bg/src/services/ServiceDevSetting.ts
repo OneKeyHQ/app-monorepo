@@ -4,6 +4,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { buildServiceEndpoint } from '@onekeyhq/shared/src/config/appConfig';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import { devSettingSyncStorage } from '@onekeyhq/shared/src/storage/instance/devSettingSyncStorageInstance';
 import {
@@ -95,6 +96,12 @@ class ServiceDevSetting extends ServiceBase {
 
   @backgroundMethod()
   public async setSkipBundleGPGVerification(enabled: boolean) {
+    if (
+      platformEnv.isDesktop &&
+      !process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION
+    ) {
+      return;
+    }
     devSettingSyncStorage.set(
       EDevSettingSyncStorageKeys.onekey_bundle_skip_gpg_verification,
       enabled,
@@ -103,6 +110,12 @@ class ServiceDevSetting extends ServiceBase {
 
   @backgroundMethod()
   public async getSkipBundleGPGVerification(): Promise<boolean> {
+    if (
+      platformEnv.isDesktop &&
+      !process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION
+    ) {
+      return false;
+    }
     return (
       devSettingSyncStorage.getBoolean(
         EDevSettingSyncStorageKeys.onekey_bundle_skip_gpg_verification,

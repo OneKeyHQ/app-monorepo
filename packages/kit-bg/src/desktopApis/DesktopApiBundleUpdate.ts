@@ -487,12 +487,13 @@ class DesktopApiAppBundleUpdate {
       signature,
       skipGPGVerification,
     } = params || {};
+    const allowSkipGPG = process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION && skipGPGVerification;
     if (
       !downloadedFile ||
       !sha256 ||
       !appVersion ||
       !bundleVersion ||
-      (!signature && !skipGPGVerification)
+      (!signature && !allowSkipGPG)
     ) {
       logger.error('bundle-verifyASC', 'Invalid parameters', {
         downloadedFile,
@@ -501,10 +502,11 @@ class DesktopApiAppBundleUpdate {
         bundleVersion,
         hasSignature: !!signature,
         skipGPGVerification,
+        allowSkipGPG,
       });
       throw new OneKeyLocalError('Invalid parameters');
     }
-    if (!skipGPGVerification) {
+    if (!allowSkipGPG) {
       const isBundleVerified = verifySha256(downloadedFile, sha256);
       if (!isBundleVerified) {
         logger.error(
@@ -554,7 +556,7 @@ class DesktopApiAppBundleUpdate {
         bundleVersion,
       });
       logger.info('bundle-verifyBundleASC', metadataFilePath);
-      if (!skipGPGVerification) {
+      if (!allowSkipGPG) {
         await verifyMetadataFileSha256({
           appVersion,
           bundleVersion,
@@ -711,18 +713,19 @@ class DesktopApiAppBundleUpdate {
       signature,
       skipGPGVerification,
     } = params || {};
+    const allowSkipGPG = process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION && skipGPGVerification;
     if (!appVersion || !bundleVersion || !signature) {
       logger.error('bundle-install', 'Invalid parameters', {
         appVersion,
         bundleVersion,
         hasSignature: !!signature,
+        allowSkipGPG,
       });
       throw new OneKeyLocalError('Invalid parameters');
     }
     const currentUpdateBundleData = store.getUpdateBundleData();
-
     // Security: Prevent version downgrade attacks (skip in dev mode)
-    if (!skipGPGVerification && currentUpdateBundleData?.bundleVersion) {
+    if (!allowSkipGPG && currentUpdateBundleData?.bundleVersion) {
       const currentVersion = Number(currentUpdateBundleData.bundleVersion);
       const newVersion = Number(bundleVersion);
       if (

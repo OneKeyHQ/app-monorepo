@@ -25,6 +25,10 @@ function SkipGPGVerificationToggle() {
     );
   }, []);
 
+  if (!process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION) {
+    return null;
+  }
+
   return (
     <XStack alignItems="center" justifyContent="space-between">
       <YStack flex={1} mr="$2">
