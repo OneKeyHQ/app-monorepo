@@ -112,7 +112,7 @@ index d699315..53733de 100644
        onLayout(size)
      }
 diff --git a/node_modules/react-native-bottom-tabs/ios/TabViewImpl.swift b/node_modules/react-native-bottom-tabs/ios/TabViewImpl.swift
-index 72938be..21055ac 100644
+index 72938be..d4f5c71 100644
 --- a/node_modules/react-native-bottom-tabs/ios/TabViewImpl.swift
 +++ b/node_modules/react-native-bottom-tabs/ios/TabViewImpl.swift
 @@ -3,6 +3,17 @@ import React
@@ -154,7 +154,7 @@ index 72938be..21055ac 100644
            if !props.tabBarHidden {
              onTabBarMeasured(
                Int(tabController.tabBar.frame.size.height)
-@@ -80,16 +98,13 @@ struct TabViewImpl: View {
+@@ -80,16 +98,17 @@ struct TabViewImpl: View {
          .configureAppearance(props: props, tabBar: tabBar)
        #endif
        .tintColor(props.selectedActiveTintColor)
@@ -168,8 +168,11 @@ index 72938be..21055ac 100644
 -              UIView.setAnimationsEnabled(true)
 -            }
 -          }
--        #endif
++        #if os(macOS)
++        TabViewImplLogger.log("SwiftUI onChange selectedPage=\(newValue), disablePageAnimations=\(props.disablePageAnimations)")
++        #else
 +        TabViewImplLogger.log("SwiftUI onChange selectedPage=\(newValue), disablePageAnimations=\(props.disablePageAnimations), animationsEnabled=\(UIView.areAnimationsEnabled)")
+         #endif
 +        // NOTE: Animation disabling is now handled in TabViewProvider.selectedPage setter
 +        // via SwiftUI Transaction instead of global UIView.setAnimationsEnabled.
 +        // The old approach blocked ALL UIKit animations for 0.1s, including
@@ -177,7 +180,7 @@ index 72938be..21055ac 100644
          #if os(tvOS) || os(macOS) || os(visionOS)
            onSelect(newValue)
          #endif
-@@ -214,6 +229,40 @@ extension View {
+@@ -214,6 +233,40 @@ extension View {
      }
    }
  
@@ -218,7 +221,7 @@ index 72938be..21055ac 100644
    @ViewBuilder
    func tabBadge(_ data: String?) -> some View {
      if #available(iOS 15.0, macOS 15.0, visionOS 2.0, tvOS 15.0, *) {
-@@ -261,6 +310,24 @@ extension View {
+@@ -261,6 +314,24 @@ extension View {
          }
          .onChange(of: props.tabBarHidden) { newValue in
            tabBar?.isHidden = newValue
@@ -243,7 +246,7 @@ index 72938be..21055ac 100644
          }
      }
    #endif
-@@ -299,14 +366,14 @@ extension View {
+@@ -299,14 +370,14 @@ extension View {
    @ViewBuilder
    func hideTabBar(_ flag: Bool) -> some View {
      #if !os(macOS)
@@ -265,7 +268,7 @@ index 72938be..21055ac 100644
          self
        }
      #else
-@@ -326,3 +393,14 @@ extension View {
+@@ -326,3 +397,14 @@ extension View {
      }
    }
  }
