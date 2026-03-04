@@ -236,7 +236,7 @@ function DownloadVerify({
             })}
             renderTitle={({ status }) =>
               isGPGSkipped && status === EStepItemStatus.Done ? (
-                <SizableText size="$bodySmMono" color="$textCritical">
+                <SizableText size="$bodySm" color="$textCritical">
                   ASC Download Skipped (Dev)
                 </SizableText>
               ) : null
@@ -265,7 +265,7 @@ function DownloadVerify({
             })}
             renderTitle={({ status }) =>
               isGPGSkipped && status === EStepItemStatus.Done ? (
-                <SizableText size="$bodySmMono" color="$textCritical">
+                <SizableText size="$bodySm" color="$textCritical">
                   GPG Verification Skipped (Dev)
                 </SizableText>
               ) : null
@@ -339,7 +339,7 @@ function DownloadVerify({
             })}
             renderTitle={({ status }) =>
               isGPGSkipped && status === EStepItemStatus.Done ? (
-                <SizableText size="$bodySmMono" color="$textCritical">
+                <SizableText size="$bodySm" color="$textCritical">
                   Package Verification Skipped (Dev)
                 </SizableText>
               ) : null
