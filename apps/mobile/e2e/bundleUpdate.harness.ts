@@ -127,7 +127,7 @@ describe('getNativeAppVersion', () => {
 // ---------------------------------------------------------------------------
 describe('getJsBundlePath', () => {
   test('returns a string (empty or valid path)', async () => {
-    const path = await BundleUpdateModule.getJsBundlePath();
+    const path = BundleUpdateModule.getJsBundlePath();
     expect(typeof path).toBe('string');
     // May be empty string if no bundle is installed, which is fine
   });
@@ -309,7 +309,7 @@ describe('clearAllJSBundleData', () => {
 
   test('getJsBundlePath returns empty after clear', async () => {
     await BundleUpdateModule.clearAllJSBundleData();
-    const path = await BundleUpdateModule.getJsBundlePath();
+    const path = BundleUpdateModule.getJsBundlePath();
     // After clearing, should be empty or null
     expect(!path || path === '').toBe(true);
   });
@@ -452,7 +452,7 @@ describe('SHA256 cross-verification', () => {
 // ---------------------------------------------------------------------------
 describe('getJsBundlePath', () => {
   test('returns a string', async () => {
-    const path = await BundleUpdateModule.getJsBundlePath();
+    const path = BundleUpdateModule.getJsBundlePath();
     expect(typeof path).toBe('string');
   });
 });
