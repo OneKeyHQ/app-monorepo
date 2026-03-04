@@ -803,7 +803,7 @@ class DesktopApiAppBundleUpdate {
       setTimeout(() => {
         this.cancelCurrentDownload?.();
         const downloadDir = this.getDownloadDir();
-        fs.rmSync(downloadDir, { recursive: true });
+        fs.rmSync(downloadDir, { recursive: true, force: true });
         resolve();
       }, 100);
     });
