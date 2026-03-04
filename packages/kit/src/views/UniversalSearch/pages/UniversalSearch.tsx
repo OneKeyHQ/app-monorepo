@@ -58,8 +58,10 @@ import {
   UniversalSearchDappItem,
   UniversalSearchMarketTokenItem,
   UniversalSearchPerpItem,
+  UniversalSearchSettingsItem,
   UniversalSearchV2MarketTokenItem,
 } from '../components/SearchResultItems';
+import { useSettingsSearch } from '../hooks/useSettingsSearch';
 
 import { RecentSearched } from './components/RecentSearched';
 import { UniversalSearchProviderMirror } from './UniversalSearchProviderMirror';
@@ -94,6 +96,8 @@ const getTabIndexForSearchType = (searchType: EUniversalSearchType): number => {
     [EUniversalSearchType.AccountAssets]: platformEnv.isWebDappMode ? 0 : 5,
     // DApps tab index changes based on whether My Assets tab is shown
     [EUniversalSearchType.Dapp]: platformEnv.isWebDappMode ? 5 : 6,
+    // Settings tab is last
+    [EUniversalSearchType.Settings]: platformEnv.isWebDappMode ? 6 : 7,
   };
 
   return tabMapping[searchType];
@@ -162,6 +166,8 @@ export function UniversalSearch({
     setIsFocusInMarketTab(isFocus);
   });
 
+  const searchSettings = useSettingsSearch();
+
   const tabTitles = useMemo(() => {
     return [
       intl.formatMessage({
@@ -189,6 +195,9 @@ export function UniversalSearch({
         intl.formatMessage({
           id: ETranslations.global_universal_search_tabs_dapps,
         }),
+      intl.formatMessage({
+        id: ETranslations.global_settings,
+      }),
     ].filter(Boolean);
   }, [intl]);
 
@@ -431,6 +440,19 @@ export function UniversalSearch({
         });
       }
 
+      // Settings search runs locally (no backend needed)
+      const settingsResults = searchSettings(input);
+      if (settingsResults.length > 0) {
+        const data = settingsResults as IUniversalSearchResultItem[];
+        searchResultSections.push({
+          tabIndex: getTabIndexForSearchType(EUniversalSearchType.Settings),
+          title: intl.formatMessage({
+            id: ETranslations.global_settings,
+          }),
+          ...generateDataFn(data),
+        });
+      }
+
       setSections(searchResultSections);
       setSearchStatus(ESearchStatus.done);
 
@@ -555,6 +577,8 @@ export function UniversalSearch({
           );
         case EUniversalSearchType.Perp:
           return <UniversalSearchPerpItem item={item} />;
+        case EUniversalSearchType.Settings:
+          return <UniversalSearchSettingsItem item={item} />;
         default:
           return null;
       }
@@ -585,6 +609,8 @@ export function UniversalSearch({
           return `${type}-${payload.dappId ?? index}`;
         case EUniversalSearchType.Perp:
           return `${type}-${payload.name}-${index}`;
+        case EUniversalSearchType.Settings:
+          return `${type}-${payload.title}-${index}`;
         default:
           return String(index);
       }
