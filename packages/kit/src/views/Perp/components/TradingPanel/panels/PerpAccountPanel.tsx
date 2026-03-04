@@ -265,7 +265,7 @@ function PerpAccountPanel() {
             borderRadius="$full"
             size="medium"
             variant="secondary"
-            icon="ArrowBottomCircleOutline"
+            icon="AlignTopOutline"
             iconSize="$4.5"
             title={intl.formatMessage({
               id: ETranslations.perp_trade_withdraw,
