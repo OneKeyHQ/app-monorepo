@@ -400,6 +400,7 @@
   "dapp_connect.confirm": "Підтвердити",
   "dapp_connect.connect_to_website": "Підключено до {url}",
   "dapp_connect.connection_request": "Запит на підключення",
+  "dapp_connect.cosmos_requires_wallet_unlock_secret_enigma_utils": "Додаткова шифрація Secret Network Enigma вимагає лише розблокування гаманця — повторна авторизація не потрібна під час цієї сесії.",
   "dapp_connect.create": "Створити",
   "dapp_connect.create_invoice_request": "Створити запит на рахунок-фактуру",
   "dapp_connect.decrypted_request": "Розшифрований запит",

@@ -400,6 +400,7 @@
   "dapp_connect.confirm": "ยืนยัน",
   "dapp_connect.connect_to_website": "เชื่อมต่อกับ {url}",
   "dapp_connect.connection_request": "คำขอเชื่อมต่อ",
+  "dapp_connect.cosmos_requires_wallet_unlock_secret_enigma_utils": "การเข้ารหัส Enigma ของ Secret Network เพิ่มเติมต้องเพียงแค่ปลดล็อกกระเป๋าเท่านั้น — ไม่ต้องอนุญาตใหม่ตลอดช่วงการใช้งานครั้งนี้",
   "dapp_connect.create": "สร้าง",
   "dapp_connect.create_invoice_request": "สร้างคำขอใบแจ้งหนี้",
   "dapp_connect.decrypted_request": "คำขอที่ถอดรหัสแล้ว",
