@@ -344,7 +344,8 @@ class ServiceAppUpdate extends ServiceBase {
     const { status } = await appUpdatePersistAtom.get();
     if (
       status !== EAppUpdateStatus.verifyASC &&
-      status !== EAppUpdateStatus.verifyPackage
+      status !== EAppUpdateStatus.verifyPackage &&
+      status !== EAppUpdateStatus.verifyPackageFailed
     ) {
       defaultLogger.app.appUpdate.log(
         `verifyPackage: rejected, current status=${status}`,
@@ -363,7 +364,8 @@ class ServiceAppUpdate extends ServiceBase {
     const { status } = await appUpdatePersistAtom.get();
     if (
       status !== EAppUpdateStatus.downloadASC &&
-      status !== EAppUpdateStatus.verifyASC
+      status !== EAppUpdateStatus.verifyASC &&
+      status !== EAppUpdateStatus.verifyASCFailed
     ) {
       defaultLogger.app.appUpdate.log(
         `verifyASC: rejected, current status=${status}`,

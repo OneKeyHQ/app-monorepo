@@ -441,17 +441,21 @@ class DesktopApiAppBundleUpdate {
       latestVersion: appVersion,
       bundleVersion,
       signature,
+      skipGPGVerification,
     } = params || {};
+    const allowSkipGPG = process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION && skipGPGVerification;
     if (
       !downloadedFile ||
       !sha256 ||
       !appVersion ||
       !bundleVersion ||
-      !signature
+      (!signature && !allowSkipGPG)
     ) {
       throw new OneKeyLocalError('Invalid parameters');
     }
-    await verifyMetadataFileSha256({ appVersion, bundleVersion, signature });
+    if (!allowSkipGPG) {
+      await verifyMetadataFileSha256({ appVersion, bundleVersion, signature: signature! });
+    }
   }
 
   /**
@@ -487,7 +491,8 @@ class DesktopApiAppBundleUpdate {
       signature,
       skipGPGVerification,
     } = params || {};
-    const allowSkipGPG = process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION && skipGPGVerification;
+    const allowSkipGPG =
+      process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION && skipGPGVerification;
     if (
       !downloadedFile ||
       !sha256 ||
@@ -713,8 +718,9 @@ class DesktopApiAppBundleUpdate {
       signature,
       skipGPGVerification,
     } = params || {};
-    const allowSkipGPG = process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION && skipGPGVerification;
-    if (!appVersion || !bundleVersion || !signature) {
+    const allowSkipGPG =
+      process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION && skipGPGVerification;
+    if (!appVersion || !bundleVersion || (!signature && !allowSkipGPG)) {
       logger.error('bundle-install', 'Invalid parameters', {
         appVersion,
         bundleVersion,

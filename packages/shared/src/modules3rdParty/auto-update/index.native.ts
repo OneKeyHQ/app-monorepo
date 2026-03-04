@@ -63,6 +63,9 @@ function getReactNativeAppUpdate(): IReactNativeAppUpdateNative {
 }
 
 const clearPackage: IClearPackage = async () => {
+  if (!isAppUpdateAvailable) {
+    return;
+  }
   await getReactNativeAppUpdate().clearCache();
 };
 
