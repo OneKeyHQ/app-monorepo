@@ -1,12 +1,19 @@
 import { useMemo } from 'react';
 
 import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks/useMarketBasicConfig';
+import type { IMarketBasicConfigHyperLiquidKlineSourceToken } from '@onekeyhq/shared/types/marketV2';
 
 export interface IHyperLiquidKlineSourceResult {
   isHyperLiquidSource: boolean;
   symbol: string | undefined;
   isLoading: boolean;
 }
+
+// Module-level cache: survives across component instances.
+// Populated when Market list page (or any page) fetches basic config,
+// so by the time the user opens a token detail page the cache is warm
+// and the hook can resolve synchronously — no render blocking needed.
+let cachedTokens: IMarketBasicConfigHyperLiquidKlineSourceToken[] | undefined;
 
 export function useHyperLiquidKlineSource(
   networkId: string,
@@ -15,7 +22,18 @@ export function useHyperLiquidKlineSource(
   const { basicConfig, isLoading } = useMarketBasicConfig();
 
   return useMemo(() => {
-    if (isLoading !== false) {
+    const freshTokens = basicConfig?.HyperLiquidKlineSourceTokens;
+
+    // Keep module cache up-to-date whenever fresh data arrives
+    if (freshTokens) {
+      cachedTokens = freshTokens;
+    }
+
+    // Use fresh data first, fall back to module cache
+    const tokens = freshTokens ?? cachedTokens;
+
+    // Only report loading when we have NO data at all (true cold start)
+    if (isLoading !== false && !tokens) {
       return {
         isHyperLiquidSource: false,
         symbol: undefined,
@@ -23,7 +41,7 @@ export function useHyperLiquidKlineSource(
       };
     }
 
-    if (!basicConfig?.HyperLiquidKlineSourceTokens) {
+    if (!tokens) {
       return {
         isHyperLiquidSource: false,
         symbol: undefined,
@@ -31,7 +49,7 @@ export function useHyperLiquidKlineSource(
       };
     }
 
-    const match = basicConfig.HyperLiquidKlineSourceTokens.find(
+    const match = tokens.find(
       (token) =>
         token.networkId === networkId && token.tokenAddress === tokenAddress,
     );

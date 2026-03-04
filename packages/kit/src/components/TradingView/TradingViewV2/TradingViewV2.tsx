@@ -79,13 +79,15 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     isLoading: isHyperLiquidConfigLoading,
   } = useHyperLiquidKlineSource(networkId, tokenAddress);
 
-  // Only block rendering on initial config load, not on background revalidation
-  const hasHyperLiquidConfigResolved = useRef(false);
+  // Block rendering only when we have NO config data at all (true cold start
+  // with no module-level cache). The hook's module cache means this is almost
+  // never true when navigating from Market list → token detail.
+  const configResolvedOnceRef = useRef(false);
   if (!isHyperLiquidConfigLoading) {
-    hasHyperLiquidConfigResolved.current = true;
+    configResolvedOnceRef.current = true;
   }
   const shouldBlockRender =
-    isHyperLiquidConfigLoading && !hasHyperLiquidConfigResolved.current;
+    isHyperLiquidConfigLoading && !configResolvedOnceRef.current;
 
   const additionalParams = useMemo(() => {
     const useHyperLiquid = isHyperLiquidSource && hyperLiquidSymbol;
