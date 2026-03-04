@@ -21,8 +21,8 @@ import type { IWalletActionBaseParams } from '@onekeyhq/shared/src/logger/scopes
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
+  openFiatCryptoUrl,
   openUrlExternal,
-  openUrlInDiscovery,
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
@@ -160,7 +160,7 @@ export function WalletActionBuy({
               type: 'buy',
             });
           if (platformEnv.isDesktop || platformEnv.isNative) {
-            openUrlInDiscovery({ url });
+            openFiatCryptoUrl(url);
           } else {
             openUrlExternal(url);
             onClose();

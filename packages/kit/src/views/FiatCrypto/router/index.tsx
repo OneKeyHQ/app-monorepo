@@ -12,6 +12,10 @@ const DeriveTypesAddress = LazyLoadPage(
     import('@onekeyhq/kit/src/views/WalletAddress/pages/DeriveTypesAddress'),
 );
 
+const FiatCryptoWebView = LazyLoadPage(
+  () => import('@onekeyhq/kit/src/views/FiatCrypto/pages/WebView'),
+);
+
 export const ModalFiatCryptoRouter: IModalFlowNavigatorConfig<
   EModalFiatCryptoRoutes,
   IModalFiatCryptoParamList
@@ -23,5 +27,9 @@ export const ModalFiatCryptoRouter: IModalFlowNavigatorConfig<
   {
     name: EModalFiatCryptoRoutes.DeriveTypesAddress,
     component: DeriveTypesAddress,
+  },
+  {
+    name: EModalFiatCryptoRoutes.FiatCryptoWebView,
+    component: FiatCryptoWebView,
   },
 ];

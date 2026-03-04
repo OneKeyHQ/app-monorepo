@@ -81,6 +81,7 @@ const DesktopWebView = forwardRef(
       // @ts-expect-error
       onNewWindow,
       onDomReady,
+      onShouldStartLoadWithRequest,
       ...props
     }: ComponentProps<typeof WEBVIEW_TAG> &
       IElectronWebViewEvents &
@@ -174,6 +175,16 @@ const DesktopWebView = forwardRef(
             setDesktopLoadError(false);
             setIsDomReady(false);
           }
+          if (isMainFrame && onShouldStartLoadWithRequest && url) {
+            const shouldLoad = onShouldStartLoadWithRequest({
+              url,
+              isTopFrame: true,
+            });
+            if (!shouldLoad) {
+              webviewRef.current?.stop();
+              return;
+            }
+          }
           checkGoogleOauth(url);
           checkEraseElectronFeature(url);
           onDidStartNavigation?.(event);
@@ -233,6 +244,7 @@ const DesktopWebView = forwardRef(
       onPageTitleUpdated,
       onDidStartNavigation,
       onLoadEnd,
+      onShouldStartLoadWithRequest,
     ]);
     if (isDev && props.preload) {
       console.warn(
