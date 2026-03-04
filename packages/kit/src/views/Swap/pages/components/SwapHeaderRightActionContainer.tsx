@@ -524,7 +524,11 @@ const SwapHeaderRightActionContainer = ({
           }}
         >
           {slippageTitle}
-          <Icon name="SliderHorOutline" size="$6" color="$iconSubdued" />
+          <Icon
+            name="SliderHorOutline"
+            size={iconSize ?? 20}
+            color={iconColor ?? '$icon'}
+          />
         </XStack>
       ) : (
         <HeaderIconButton
