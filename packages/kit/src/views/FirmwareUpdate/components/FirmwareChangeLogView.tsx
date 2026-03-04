@@ -24,6 +24,7 @@ import {
   useFirmwareUpdateStepInfoAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IBleFirmwareUpdateInfo,
@@ -312,6 +313,18 @@ export function FirmwareChangeLogView({
       step: EFirmwareUpdateSteps.showCheckList,
       payload: undefined,
     });
+    const updateFirmwareInfo = result?.updateInfos?.firmware;
+    if (
+      updateFirmwareInfo?.fromFirmwareType !== undefined &&
+      updateFirmwareInfo?.toFirmwareType !== undefined &&
+      updateFirmwareInfo.fromFirmwareType !== updateFirmwareInfo.toFirmwareType
+    ) {
+      defaultLogger.update.firmware.firmwareSwitchStart({
+        deviceType: result?.deviceType,
+        fromFirmwareType: updateFirmwareInfo.fromFirmwareType,
+        toFirmwareType: updateFirmwareInfo.toFirmwareType,
+      });
+    }
     showCheckList({ result });
     onConfirmClick?.();
   }, [result, showCheckList, onConfirmClick, setStepInfo, intl]);
