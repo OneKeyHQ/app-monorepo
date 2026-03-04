@@ -764,7 +764,7 @@ class DesktopApiAppBundleUpdate {
     store.setUpdateBundleData({
       appVersion,
       bundleVersion,
-      signature,
+      signature: signature ?? '',
     });
     logger.info('installBundle', {
       appVersion,
