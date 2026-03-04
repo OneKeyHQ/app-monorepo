@@ -26,7 +26,7 @@ export const analyseModule = !!ANALYSE_MODULE;
 export const extChannel = EXT_CHANNEL;
 
 function getBuildTargetBrowser(): string {
-  let buildTargetBrowser = extChannel;
+  let buildTargetBrowser: string = extChannel || 'chrome';
   const argv = process.argv[process.argv.length - 1];
   if (argv === '--firefox') {
     buildTargetBrowser = 'firefox';

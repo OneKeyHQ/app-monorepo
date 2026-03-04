@@ -53,6 +53,7 @@ import {
 import type { BigNumber } from 'bignumber.js';
 
 export enum EVMMethodIds {
+  // eslint-disable-next-line @cspell/spellchecker
   // oxlint-disable-next-line @cspell/spellchecker
   Allowance = '0xdd62ed3e', // keccak256(Buffer.from('Allowance(address,address)')).toString('hex') => 0xdd62ed3e7e1f3d1f3f6
   balanceOf = '0x70a08231', // keccak256(Buffer.from('balanceOf(address)')).toString('hex') => 0x70a082310
