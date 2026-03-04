@@ -150,10 +150,12 @@ function FinalizeWalletSetupPage({
   const isProcessing = useRef(false);
 
   const animatedProps = useAnimatedProps(() => {
+    // eslint-disable-next-line @cspell/spellchecker
     // oxlint-disable-next-line @cspell/spellchecker
     const strokeDashoffset = pathLength * (1 - progress.value);
 
     return {
+      // eslint-disable-next-line @cspell/spellchecker
       // oxlint-disable-next-line @cspell/spellchecker
       strokeDashoffset,
 

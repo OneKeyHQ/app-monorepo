@@ -400,6 +400,7 @@
   "dapp_connect.confirm": "Confirmer",
   "dapp_connect.connect_to_website": "Connecté à {url}",
   "dapp_connect.connection_request": "Demande de connexion",
+  "dapp_connect.cosmos_requires_wallet_unlock_secret_enigma_utils": "La cryptographie Enigma de Secret Network nécessite uniquement le déverrouillage du portefeuille — aucune ré-autorisation n'est nécessaire pendant cette session.",
   "dapp_connect.create": "Créer",
   "dapp_connect.create_invoice_request": "Créer une demande de facture",
   "dapp_connect.decrypted_request": "Demande déchiffrée",

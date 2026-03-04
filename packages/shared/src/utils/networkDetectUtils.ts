@@ -1,4 +1,5 @@
 /* oxlint-disable @cspell/spellchecker */
+/* eslint-disable @cspell/spellchecker */
 // Utilities for detecting whether an address belongs to a given network.
 
 import { getPresetNetworks, presetNetworksMap } from '../config/presetNetworks';
