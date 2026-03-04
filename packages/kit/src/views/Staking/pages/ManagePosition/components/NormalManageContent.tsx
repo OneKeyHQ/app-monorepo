@@ -634,6 +634,14 @@ export function NormalManageContent({
           focusedTab={focusedTab}
           renderItem={({ name, isFocused }) => {
             const isDisabled = shouldDisablePrimaryTab && name === tabNames[0];
+            let textColor: '$textDisabled' | '$text' | '$textSubdued' =
+              '$textSubdued';
+
+            if (isDisabled) {
+              textColor = '$textDisabled';
+            } else if (isFocused) {
+              textColor = '$text';
+            }
 
             return (
               <XStack
@@ -660,13 +668,7 @@ export function NormalManageContent({
               >
                 <SizableText
                   size="$headingMd"
-                  color={
-                    isDisabled
-                      ? '$textDisabled'
-                      : isFocused
-                        ? '$text'
-                        : '$textSubdued'
-                  }
+                  color={textColor}
                   letterSpacing={-0.15}
                 >
                   {name}
