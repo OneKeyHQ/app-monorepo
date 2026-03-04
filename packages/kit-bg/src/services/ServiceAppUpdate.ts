@@ -37,6 +37,8 @@ class ServiceAppUpdate extends ServiceBase {
     super({ backgroundApi });
   }
 
+  private isResetting = false;
+
   private updateAt = 0;
 
   cachedUpdateInfo: IResponseAppUpdateInfo | undefined;
@@ -510,9 +512,17 @@ class ServiceAppUpdate extends ServiceBase {
     // Schedule an immediate check so that if a newer version was released
     // while the user was installing the current one, it's discovered right away
     // instead of waiting for the next 1–1.5 hour sync cycle.
-    setTimeout(() => {
-      void this.fetchAppUpdateInfo();
-    }, 0);
+    // Guard against re-entrancy: if fetchAppUpdateInfo gets empty data from the
+    // server it calls reset() again, which would schedule another fetch, creating
+    // an infinite loop.  The isResetting flag breaks the cycle.
+    if (!this.isResetting) {
+      this.isResetting = true;
+      setTimeout(() => {
+        void this.fetchAppUpdateInfo().finally(() => {
+          this.isResetting = false;
+        });
+      }, 0);
+    }
   }
 
   @backgroundMethod()

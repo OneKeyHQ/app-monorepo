@@ -2759,4 +2759,41 @@ describe('ServiceAppUpdate refreshUpdateStatus failed branches', () => {
     await service.refreshUpdateStatus();
     expect(atomValue.status).toBe(EAppUpdateStatus.downloadPackage);
   });
+
+  // ---------------------------------------------------------------------------
+  // P2: reset → fetchAppUpdateInfo → reset must NOT form an infinite loop
+  // When the server returns no version data, fetchAppUpdateInfo calls reset(),
+  // which previously scheduled another fetchAppUpdateInfo, creating an infinite
+  // cycle.  The isResetting guard breaks the loop.
+  // ---------------------------------------------------------------------------
+  describe('P2: reset does not loop when server returns empty version', () => {
+    test('reset is called at most twice (manual + one from fetchAppUpdateInfo)', async () => {
+      resetAtom({ status: EAppUpdateStatus.ready, latestVersion: '2.0.0' });
+
+      // Server always returns empty version data → fetchAppUpdateInfo will
+      // hit the else branch and call reset() internally.
+      jest.spyOn(service, 'getAppLatestInfo').mockResolvedValue({
+        updateStrategy: EUpdateStrategy.manual,
+        // no version, no jsBundleVersion
+      });
+      jest.spyOn(service, 'isNeedSyncAppUpdateInfo').mockResolvedValue(true);
+      jest.spyOn(service, 'refreshUpdateStatus').mockResolvedValue(undefined);
+
+      const resetSpy = jest.spyOn(service, 'reset');
+
+      // 1st reset (manual) — schedules fetchAppUpdateInfo via setTimeout
+      await service.reset();
+
+      // Advance timers enough for multiple potential cycles.
+      // Without the guard this would loop indefinitely within the
+      // simulated time window.
+      await jest.advanceTimersByTimeAsync(5000);
+
+      // With the guard: exactly 2 calls
+      //   #1 — the manual call above
+      //   #2 — fetchAppUpdateInfo got empty data → called reset() once more
+      // Without the guard the count would keep growing.
+      expect(resetSpy.mock.calls.length).toBe(2);
+    });
+  });
 });
