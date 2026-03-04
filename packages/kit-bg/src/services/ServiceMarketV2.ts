@@ -566,8 +566,10 @@ class ServiceMarketV2 extends ServiceBase {
       return [];
     }
 
-    // Filter out perps items — they don't have chainId/contractAddress for batch lookup
-    const spotItems = watchlistData.data.filter((item) => !item.perpsCoin);
+    // Filter out perps items and items with empty chainId
+    const spotItems = watchlistData.data.filter(
+      (item) => !item.perpsCoin && item.chainId,
+    );
     const tokenAddressList = spotItems.map((item) => ({
       chainId: item.chainId,
       contractAddress: item.contractAddress,
