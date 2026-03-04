@@ -3,9 +3,19 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { runOnJS, useAnimatedReaction } from 'react-native-reanimated';
 import { useThrottledCallback } from 'use-debounce';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { Divider } from '../../content';
 import { ListView, ScrollView } from '../../layouts';
-import { GradientMask, SizableText, XStack, YStack } from '../../primitives';
+import {
+  GradientMask,
+  Icon,
+  SizableText,
+  Stack,
+  XStack,
+  YStack,
+} from '../../primitives';
+import { TMPopover } from '../../shared/tamagui';
 
 import type { IListViewRef } from '../../layouts';
 import type { ISizableTextProps, IYStackProps } from '../../primitives';
@@ -121,15 +131,115 @@ export interface ITabBarItemProps {
 
 const PILL_GRADIENT_THRESHOLD = 2;
 
+function OverflowTabMenu({
+  tabNames,
+  currentTab,
+  onTabPress,
+}: {
+  tabNames: string[];
+  currentTab: string;
+  onTabPress: (name: string) => void;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  const handleItemPress = useCallback(
+    (name: string) => {
+      onTabPress(name);
+      setIsOpen(false);
+    },
+    [onTabPress],
+  );
+
+  return (
+    <TMPopover
+      offset={4}
+      placement="bottom-end"
+      open={isOpen}
+      onOpenChange={setIsOpen}
+    >
+      <TMPopover.Trigger asChild>
+        <Stack
+          ai="center"
+          jc="center"
+          px="$2"
+          py="$1.5"
+          mx="$1"
+          borderRadius="$full"
+          bg="$bgStrong"
+          hoverStyle={{ bg: '$bgHover' }}
+          pressStyle={{ bg: '$bgActive' }}
+          cursor="default"
+          onPress={() => setIsOpen(true)}
+        >
+          <Icon name="DotHorOutline" size="$4" color="$iconSubdued" />
+        </Stack>
+      </TMPopover.Trigger>
+      <TMPopover.Content
+        unstyled
+        w={160}
+        p={0}
+        bg="$bg"
+        borderRadius="$3"
+        enterStyle={{ scale: 0.95, opacity: 0 }}
+        exitStyle={{ scale: 0.95, opacity: 0 }}
+        animation={['quick', { opacity: { overshootClamping: true } }]}
+        $platform-web={{
+          outlineColor: '$neutral3',
+          outlineStyle: 'solid',
+          outlineWidth: '$px',
+          boxShadow:
+            '0 4px 6px -4px rgba(0, 0, 0, 0.10), 0 10px 15px -3px rgba(0, 0, 0, 0.10)',
+        }}
+      >
+        <YStack p="$1">
+          {tabNames.map((name) => (
+            <XStack
+              key={name}
+              px="$3"
+              py="$2"
+              borderRadius="$2"
+              ai="center"
+              gap="$2"
+              hoverStyle={{ bg: '$bgHover' }}
+              pressStyle={{ bg: '$bgActive' }}
+              cursor="default"
+              onPress={() => handleItemPress(name)}
+            >
+              <SizableText
+                size="$bodyMd"
+                color={currentTab === name ? '$text' : '$textSubdued'}
+                fontWeight={currentTab === name ? '600' : undefined}
+                flexShrink={1}
+              >
+                {name}
+              </SizableText>
+              {currentTab === name ? (
+                <Icon name="CheckLargeSolid" size="$4" color="$iconActive" />
+              ) : null}
+            </XStack>
+          ))}
+        </YStack>
+      </TMPopover.Content>
+    </TMPopover>
+  );
+}
+
 function PillTabBarContent({
   tabItems,
   renderToolbar,
+  tabNames,
+  currentTab,
+  onTabPress,
 }: {
   tabItems: React.ReactNode;
   renderToolbar?: React.ReactNode;
+  tabNames?: string[];
+  currentTab?: string;
+  onTabPress?: (name: string) => void;
 }) {
   const [showLeft, setShowLeft] = useState(false);
   const [showRight, setShowRight] = useState(false);
+  const [hasOverflow, setHasOverflow] = useState(false);
   const scrollStateRef = useRef({
     scrollX: 0,
     containerWidth: 0,
@@ -142,9 +252,11 @@ function PillTabBarContent({
     const newShowRight =
       contentWidth > containerWidth &&
       scrollX < contentWidth - containerWidth - PILL_GRADIENT_THRESHOLD;
+    const newHasOverflow = contentWidth > containerWidth;
 
     setShowLeft((prev) => (prev !== newShowLeft ? newShowLeft : prev));
     setShowRight((prev) => (prev !== newShowRight ? newShowRight : prev));
+    setHasOverflow((prev) => (prev !== newHasOverflow ? newHasOverflow : prev));
   }, []);
 
   const handleScroll = useCallback(
@@ -171,6 +283,13 @@ function PillTabBarContent({
     [updateGradientVisibility],
   );
 
+  const showOverflowMenu =
+    hasOverflow &&
+    !platformEnv.isNative &&
+    tabNames &&
+    tabNames.length > 0 &&
+    onTabPress;
+
   return (
     <XStack ai="center" jc="space-between">
       <XStack position="relative" flexShrink={1}>
@@ -192,6 +311,13 @@ function PillTabBarContent({
         <GradientMask position="left" opacity={showLeft ? 1 : 0} />
         <GradientMask position="right" opacity={showRight ? 1 : 0} />
       </XStack>
+      {showOverflowMenu ? (
+        <OverflowTabMenu
+          tabNames={tabNames}
+          currentTab={currentTab ?? ''}
+          onTabPress={onTabPress}
+        />
+      ) : null}
       {renderToolbar}
     </XStack>
   );
@@ -318,6 +444,9 @@ export function TabBar({
         <PillTabBarContent
           tabItems={tabItems}
           renderToolbar={renderToolbar?.({ focusedTab: currentTab })}
+          tabNames={tabNames}
+          currentTab={currentTab}
+          onTabPress={handleTabPress}
         />
       );
     }
@@ -330,7 +459,16 @@ export function TabBar({
         {divider ? <Divider /> : null}
       </>
     );
-  }, [currentTab, divider, isPill, renderToolbar, scrollable, tabItems]);
+  }, [
+    currentTab,
+    divider,
+    handleTabPress,
+    isPill,
+    renderToolbar,
+    scrollable,
+    tabItems,
+    tabNames,
+  ]);
 
   const handleRenderItem = useCallback(
     ({ item, index }: { item: string; index: number }) => {
