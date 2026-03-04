@@ -40,6 +40,10 @@ const FiatCryptoBuyModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/FiatCrypto/pages/Buy'),
 );
 
+const FiatCryptoWebView = LazyLoadPage(
+  () => import('@onekeyhq/kit/src/views/FiatCrypto/pages/WebView'),
+);
+
 export const ModalReceiveStack: IModalFlowNavigatorConfig<
   EModalReceiveRoutes,
   IModalReceiveParamList
@@ -79,6 +83,10 @@ export const ModalReceiveStack: IModalFlowNavigatorConfig<
   {
     name: EModalReceiveRoutes.BuyModal,
     component: FiatCryptoBuyModal,
+  },
+  {
+    name: EModalReceiveRoutes.FiatCryptoWebView,
+    component: FiatCryptoWebView,
   },
   {
     name: EModalReceiveRoutes.DeriveTypesAddress,
