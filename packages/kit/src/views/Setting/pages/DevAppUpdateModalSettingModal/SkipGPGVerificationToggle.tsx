@@ -32,8 +32,7 @@ function SkipGPGVerificationToggle() {
           Skip GPG / ASC Verification
         </SizableText>
         <SizableText size="$bodySm" color="$textCaution">
-          Not available: build does not have ONEKEY_ALLOW_SKIP_GPG_VERIFICATION
-          enabled
+          {`Not available: ONEKEY_ALLOW_SKIP_GPG_VERIFICATION = ${String(process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION ?? 'undefined')}`}
         </SizableText>
       </YStack>
     );
