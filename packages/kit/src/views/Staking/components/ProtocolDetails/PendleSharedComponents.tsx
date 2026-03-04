@@ -5,8 +5,8 @@ import {
   Divider,
   Icon,
   Popover,
-  Skeleton,
   SizableText,
+  Skeleton,
   Stack,
   XStack,
   YStack,
@@ -122,40 +122,50 @@ export const PendleSummarySection: FC<IPendleSummarySectionProps> = ({
   rewardRows,
   tipText,
   loading,
-}) => (
-  <YStack gap="$3.5">
-    {rewardRows.length > 0
-      ? rewardRows.map((reward, index) => (
-          <PendleRewardRow
-            key={`${reward.title.text}-${index}`}
-            reward={reward}
-            loading={loading}
-          />
-        ))
-      : loading
-        ? Array.from({ length: SKELETON_PLACEHOLDER_COUNT }).map((_, index) => (
-            <XStack
-              key={`skeleton-row-${index}`}
-              gap="$3"
-              alignItems="center"
-              justifyContent="space-between"
-            >
-              <Skeleton h="$3.5" w="$20" />
-              <Stack py="$0.5">
-                <Skeleton h="$3.5" w="$16" />
-              </Stack>
-            </XStack>
-          ))
-        : null}
-    {tipText ? (
-      <EarnText
-        text={tipText}
-        size="$bodySm"
-        color={tipText.color ?? '$textInfo'}
-      />
-    ) : null}
-  </YStack>
-);
+}) => {
+  const rowsContent = useMemo(() => {
+    if (rewardRows.length > 0) {
+      return rewardRows.map((reward, index) => (
+        <PendleRewardRow
+          key={`${reward.title.text}-${index}`}
+          reward={reward}
+          loading={loading}
+        />
+      ));
+    }
+    if (loading) {
+      return Array.from({ length: SKELETON_PLACEHOLDER_COUNT }).map(
+        (_, index) => (
+          <XStack
+            key={`skeleton-row-${index}`}
+            gap="$3"
+            alignItems="center"
+            justifyContent="space-between"
+          >
+            <Skeleton h="$3.5" w="$20" />
+            <Stack py="$0.5">
+              <Skeleton h="$3.5" w="$16" />
+            </Stack>
+          </XStack>
+        ),
+      );
+    }
+    return null;
+  }, [rewardRows, loading]);
+
+  return (
+    <YStack gap="$3.5">
+      {rowsContent}
+      {tipText ? (
+        <EarnText
+          text={tipText}
+          size="$bodySm"
+          color={tipText.color ?? '$textInfo'}
+        />
+      ) : null}
+    </YStack>
+  );
+};
 
 // --- PendleAccordionTriggerContent ---
 
