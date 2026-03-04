@@ -31,7 +31,7 @@ import { useRoute } from '@react-navigation/core';
 
 import type { RouteProp } from '@react-navigation/core';
 
-const PLACEHOLDER_SINATURE = 'dev-no-signature';
+const PLACEHOLDER_SIGNATURE = 'dev-no-signature';
 
 type IBundleInfo = {
   bundleVersion: string;
@@ -110,8 +110,8 @@ function BundleItem({
         await BundleUpdate.installBundle({
           latestVersion: version,
           bundleVersion: bundle.bundleVersion,
-          signature: bundle.signature || PLACEHOLDER_SINATURE,
-          skipGPGVerification: !!process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION
+          signature: bundle.signature || PLACEHOLDER_SIGNATURE,
+          skipGPGVerification: !!process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION,
         });
       } else {
         if (!downloadedEventRef.current) return;
@@ -120,8 +120,8 @@ function BundleItem({
           latestVersion: version,
           bundleVersion: bundle.bundleVersion,
           sha256: bundle.sha256,
-          signature: bundle.signature || PLACEHOLDER_SINATURE,
-          skipGPGVerification: !!process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION
+          signature: bundle.signature || PLACEHOLDER_SIGNATURE,
+          skipGPGVerification: !!process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION,
         });
 
         await BundleUpdate.verifyBundle({
@@ -129,15 +129,15 @@ function BundleItem({
           latestVersion: version,
           bundleVersion: bundle.bundleVersion,
           sha256: bundle.sha256,
-          skipGPGVerification: !!process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION
+          skipGPGVerification: !!process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION,
         });
 
         await BundleUpdate.installBundle({
           ...downloadedEventRef.current,
           latestVersion: version,
           bundleVersion: bundle.bundleVersion,
-          signature: bundle.signature || PLACEHOLDER_SINATURE,
-          skipGPGVerification: !!process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION
+          signature: bundle.signature || PLACEHOLDER_SIGNATURE,
+          skipGPGVerification: !!process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION,
         });
       }
     } catch (e) {

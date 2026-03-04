@@ -31,9 +31,7 @@ function setup(platform: string) {
   jest.doMock('react-native/Libraries/Image/AssetUtils', () => ({
     pickScale: (scales: number[], pixelRatio: number) =>
       scales.reduce((prev, curr) =>
-        Math.abs(curr - pixelRatio) < Math.abs(prev - pixelRatio)
-          ? curr
-          : prev,
+        Math.abs(curr - pixelRatio) < Math.abs(prev - pixelRatio) ? curr : prev,
       ),
   }));
 
@@ -123,8 +121,7 @@ describe('patchNativeAssetResolution (polyfillsPlatform lines 47-116)', () => {
   // iOS
   // -------------------------------------------------------------------------
   describe('iOS', () => {
-    const ASSETS_PATH =
-      'file:///var/containers/App/UUID/bundles/v1/b1/assets/';
+    const ASSETS_PATH = 'file:///var/containers/App/UUID/bundles/v1/b1/assets/';
 
     test('replaces jsbundleUrl with bundle assets path', () => {
       const patch = setup('ios');
