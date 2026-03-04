@@ -28,6 +28,7 @@ export default function FiatCryptoWebView() {
       <Page.Body>
         <WebView
           src={url}
+          allowpopups
           onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
           onOpenWindow={onOpenWindow}
         />

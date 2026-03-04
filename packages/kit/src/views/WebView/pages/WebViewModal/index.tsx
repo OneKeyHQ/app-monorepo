@@ -212,6 +212,7 @@ export default function WebViewModal() {
           <WebView
             onWebViewRef={(ref) => ref && setWebViewRef(ref)}
             src={url}
+            allowpopups={!!redirectExternalNavigation}
             onNavigationStateChange={onNavigationStateChange}
             onShouldStartLoadWithRequest={
               redirectExternalNavigation
