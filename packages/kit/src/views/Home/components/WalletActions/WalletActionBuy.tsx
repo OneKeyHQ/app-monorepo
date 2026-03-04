@@ -159,6 +159,7 @@ export function WalletActionBuy({
               accountId: a?.id ?? '',
               type: 'buy',
             });
+          if (!url) return;
           if (platformEnv.isDesktop || platformEnv.isNative) {
             openFiatCryptoUrl(url);
           } else {
