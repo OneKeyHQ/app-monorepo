@@ -478,11 +478,17 @@ class DesktopApiAppBundleUpdate {
       latestVersion: appVersion,
       bundleVersion,
       signature,
+      skipGPGVerification,
     } = params || {};
-    if (!downloadedFile || !sha256 || !appVersion || !bundleVersion) {
-      throw new OneKeyLocalError('Invalid parameters');
-    }
-    if (!signature) {
+    const allowSkipGPG =
+      process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION && skipGPGVerification;
+    if (
+      !downloadedFile ||
+      !sha256 ||
+      !appVersion ||
+      !bundleVersion ||
+      (!signature && !allowSkipGPG)
+    ) {
       throw new OneKeyLocalError('Invalid parameters');
     }
   }
