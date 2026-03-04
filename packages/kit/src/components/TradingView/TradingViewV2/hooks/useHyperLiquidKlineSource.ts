@@ -24,8 +24,11 @@ export function useHyperLiquidKlineSource(
   return useMemo(() => {
     const freshTokens = basicConfig?.HyperLiquidKlineSourceTokens;
 
-    // Sync module cache with fresh config (including clearing when field is removed)
-    if (isLoading === false) {
+    // Sync module cache only when we have a valid config response.
+    // - basicConfig exists + field present → update cache
+    // - basicConfig exists + field removed → clear cache (server intent)
+    // - basicConfig is undefined (API error) → preserve cache to avoid regression
+    if (isLoading === false && basicConfig) {
       cachedTokens = freshTokens;
     }
 
