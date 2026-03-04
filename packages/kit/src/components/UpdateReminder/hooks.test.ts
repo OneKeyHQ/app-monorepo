@@ -809,9 +809,7 @@ describe('useDownloadPackage', () => {
         latestVersion: '2.0.0',
         updateStrategy: EUpdateStrategy.manual,
       });
-      appUpd.installPackage.mockRejectedValue(
-        new Error('NOT_FOUND_PACKAGE'),
-      );
+      appUpd.installPackage.mockRejectedValue(new Error('NOT_FOUND_PACKAGE'));
 
       const { result } = renderHook(() => useDownloadPackage());
 
