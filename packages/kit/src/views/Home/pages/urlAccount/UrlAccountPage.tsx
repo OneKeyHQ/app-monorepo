@@ -34,7 +34,11 @@ import { EUniversalSearchType } from '@onekeyhq/shared/types/search';
 import { HomePageView } from '../HomePageView';
 
 import { UrlAccountAutoReplaceHistory } from './UrlAccountAutoReplaceHistory';
-import { getPrevUrlAccount, urlAccountNavigation } from './urlAccountUtils';
+import {
+  getHomeTabStackLength,
+  getPrevUrlAccount,
+  urlAccountNavigation,
+} from './urlAccountUtils';
 
 const sceneName = EAccountSelectorSceneName.homeUrlAccount;
 
@@ -218,7 +222,11 @@ function UrlAccountAutoCreate({ redirectMode }: { redirectMode?: boolean }) {
   ]);
 
   const backToHomePage = useCallback(() => {
-    urlAccountNavigation.replaceHomePage(navigation);
+    if (getHomeTabStackLength() > 1) {
+      navigation.goBack();
+    } else {
+      urlAccountNavigation.replaceHomePage(navigation);
+    }
   }, [navigation]);
 
   const _renderHeaderLeft = useCallback(

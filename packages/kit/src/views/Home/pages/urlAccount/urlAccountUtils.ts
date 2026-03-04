@@ -192,6 +192,25 @@ export function isCurrentlyInUrlAccountPage(): boolean {
   }
 }
 
+export function getHomeTabStackLength(): number {
+  try {
+    const state = rootNavigationRef.current?.getRootState();
+    if (!state?.routes) return 0;
+
+    const mainRoute = state.routes.find(
+      (route) => route.name === ERootRoutes.Main,
+    );
+    if (!mainRoute?.state?.routes) return 0;
+
+    const homeTabRoute = mainRoute.state.routes.find(
+      (route) => route.name === ETabRoutes.Home,
+    );
+    return homeTabRoute?.state?.routes?.length ?? 0;
+  } catch (_error) {
+    return 0;
+  }
+}
+
 export const urlAccountNavigation = {
   pushHomePage(navigation: IAppNavigation) {
     navigation.dispatch(
