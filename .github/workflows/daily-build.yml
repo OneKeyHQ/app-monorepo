@@ -64,6 +64,11 @@ jobs:
           echo '$build_number='$build_number
           echo "BUILD_NUMBER=$build_number" >> $GITHUB_ENV
 
+      - name: Warn if GPG verification is skipped
+        if: ${{ github.event.inputs.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION == 'true' }}
+        run: |
+          echo "::warning::GPG verification is SKIPPED for this build. This should only be used in CI/dev builds."
+
       - name: 'Save workflow parameters'
         run: |
           mkdir -p ./workflow-data

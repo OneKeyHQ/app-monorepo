@@ -33,6 +33,11 @@ jobs:
         run: |
           echo "Executed at: $(date '+%Y-%m-%d %H:%M:%S')"
 
+      - name: Warn if GPG verification is skipped
+        if: ${{ env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION == 'true' }}
+        run: |
+          echo "::warning::GPG verification is SKIPPED for this build. This should only be used in CI/dev builds."
+
       - name: Checkout Source Code
         uses: actions/checkout@v4
         with:
