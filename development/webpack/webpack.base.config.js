@@ -110,10 +110,10 @@ const basePlugins = [
         PERF_FUNCTION_WARN_MS: JSON.stringify(
           process.env.PERF_FUNCTION_WARN_MS || '',
         ),
-        ONEKEY_ALLOW_SKIP_GPG_VERIFICATION:
-          process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION
-            ? process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION === 'true'
-            : process.env.NODE_ENV !== 'production',
+        ONEKEY_ALLOW_SKIP_GPG_VERIFICATION: process.env
+          .ONEKEY_ALLOW_SKIP_GPG_VERIFICATION
+          ? process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION === 'true'
+          : process.env.NODE_ENV !== 'production',
       },
     },
   }),
