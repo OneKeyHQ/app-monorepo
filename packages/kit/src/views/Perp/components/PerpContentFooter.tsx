@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
@@ -22,8 +23,17 @@ const PERP_TELEGRAM_URL = 'https://t.me/OneKeyPerps';
 function PerpNetworkStatus() {
   const [networkStatus] = usePerpsNetworkStatusAtom();
   const connected = Boolean(networkStatus?.connected);
+  const pingMs = networkStatus?.pingMs;
+  const intl = useIntl();
 
-  return <NetworkStatusBadge connected={connected} />;
+  const label = useMemo(() => {
+    if (connected && pingMs !== null && pingMs !== undefined) {
+      return `${intl.formatMessage({ id: ETranslations.perp_online })} ${pingMs}ms`;
+    }
+    return undefined;
+  }, [connected, pingMs, intl]);
+
+  return <NetworkStatusBadge connected={connected} label={label} />;
 }
 
 export function PerpContentFooter() {

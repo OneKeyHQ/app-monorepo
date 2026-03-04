@@ -84,11 +84,14 @@ export interface ISubSettingConfig {
   icon: string | IKeyOfIcons;
   title: string;
   subtitle?: string;
+  keywords?: string[];
   badgeProps?: {
     badgeSize: 'sm' | 'md' | 'lg';
     badgeText: string;
   };
   onPress?: (navigation?: ReturnType<typeof useAppNavigation>) => void;
+  /** Route within the SettingModal navigator for direct navigation from universal search */
+  settingRoute?: EModalSettingRoutes;
   renderElement?: React.ReactElement<any>;
   /** If true, shows ArrowTopRightOutline icon instead of drill-in arrow for external links */
   isExternalLink?: boolean;
@@ -333,6 +336,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   title: intl.formatMessage({
                     id: ETranslations.global_notifications,
                   }),
+                  settingRoute: EModalSettingRoutes.SettingNotifications,
                   onPress: (
                     navigation?: ReturnType<typeof useAppNavigation>,
                   ) => {
@@ -381,6 +385,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   title: intl.formatMessage({
                     id: ETranslations.settings_account_sync_modal_title,
                   }),
+                  settingRoute: EModalSettingRoutes.SettingAlignPrimaryAccount,
                   onPress: (navigation) => {
                     navigation?.push(
                       EModalSettingRoutes.SettingAlignPrimaryAccount,
@@ -395,6 +400,17 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   title: intl.formatMessage({
                     id: ETranslations.global_customize_transaction,
                   }),
+                  keywords: [
+                    intl.formatMessage({
+                      id: ETranslations.global_customize_nonce,
+                    }),
+                    'nonce',
+                    intl.formatMessage({
+                      id: ETranslations.global_hex_data_title,
+                    }),
+                    'hex',
+                  ],
+                  settingRoute: EModalSettingRoutes.SettingCustomTransaction,
                   onPress: (navigation) => {
                     defaultLogger.setting.page.enterCustomizeTransaction();
                     navigation?.push(
@@ -411,6 +427,8 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   title: intl.formatMessage({
                     id: ETranslations.settings_account_derivation_path,
                   }),
+                  settingRoute:
+                    EModalSettingRoutes.SettingAccountDerivationModal,
                   onPress: (navigation) => {
                     navigation?.push(
                       EModalSettingRoutes.SettingAccountDerivationModal,
@@ -425,6 +443,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   title: intl.formatMessage({
                     id: ETranslations.perp_setting_interface,
                   }),
+                  settingRoute: EModalSettingRoutes.SettingPerpUserConfig,
                   onPress: (navigation) => {
                     navigation?.push(EModalSettingRoutes.SettingPerpUserConfig);
                   },
@@ -500,6 +519,22 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   title: intl.formatMessage({
                     id: ETranslations.settings_protection,
                   }),
+                  keywords: [
+                    intl.formatMessage({
+                      id: ETranslations.settings_token_risk_reminder,
+                    }),
+                    intl.formatMessage({
+                      id: ETranslations.settings_protection_allowlist_title,
+                    }),
+                    intl.formatMessage({
+                      id: ETranslations.settings_create_transactions,
+                    }),
+                    intl.formatMessage({
+                      id: ETranslations.settings_create_remove_wallets,
+                    }),
+                    'allowlist',
+                  ],
+                  settingRoute: EModalSettingRoutes.SettingProtectModal,
                   onPress: (navigation) => {
                     navigation?.push(EModalSettingRoutes.SettingProtectModal);
                   },
@@ -524,6 +559,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   title: intl.formatMessage({
                     id: ETranslations.settings_signature_record,
                   }),
+                  settingRoute: EModalSettingRoutes.SettingSignatureRecordModal,
                   onPress: (navigation) => {
                     navigation?.push(
                       EModalSettingRoutes.SettingSignatureRecordModal,
@@ -538,6 +574,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   title: intl.formatMessage({
                     id: ETranslations.setting_floating_icon,
                   }),
+                  settingRoute: EModalSettingRoutes.SettingFloatingIconModal,
                   onPress: (navigation) => {
                     navigation?.push(
                       EModalSettingRoutes.SettingFloatingIconModal,
@@ -603,6 +640,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   title: intl.formatMessage({
                     id: ETranslations.custom_network_add_network_action_text,
                   }),
+                  settingRoute: EModalSettingRoutes.SettingCustomNetwork,
                   onPress: (navigation) => {
                     defaultLogger.setting.page.enterCustomRPC();
                     navigation?.push(EModalSettingRoutes.SettingCustomNetwork);
@@ -613,6 +651,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   title: intl.formatMessage({
                     id: ETranslations.custom_rpc_title,
                   }),
+                  settingRoute: EModalSettingRoutes.SettingCustomRPC,
                   onPress: (navigation) => {
                     defaultLogger.setting.page.enterCustomRPC();
                     navigation?.push(EModalSettingRoutes.SettingCustomRPC);
@@ -647,6 +686,8 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   title: intl.formatMessage({
                     id: ETranslations.settings_export_network_config_label,
                   }),
+                  settingRoute:
+                    EModalSettingRoutes.SettingExportCustomNetworkConfig,
                   onPress: (navigation) => {
                     navigation?.push(
                       EModalSettingRoutes.SettingExportCustomNetworkConfig,
