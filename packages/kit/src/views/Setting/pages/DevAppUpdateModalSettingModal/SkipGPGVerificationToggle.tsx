@@ -26,7 +26,17 @@ function SkipGPGVerificationToggle() {
   }, []);
 
   if (!process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION) {
-    return null;
+    return (
+      <YStack>
+        <SizableText size="$bodyLgMedium" color="$textCaution">
+          Skip GPG / ASC Verification
+        </SizableText>
+        <SizableText size="$bodySm" color="$textCaution">
+          Not available: build does not have ONEKEY_ALLOW_SKIP_GPG_VERIFICATION
+          enabled
+        </SizableText>
+      </YStack>
+    );
   }
 
   return (
