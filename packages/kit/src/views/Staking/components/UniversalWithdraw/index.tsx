@@ -1354,7 +1354,9 @@ export function UniversalWithdraw({
               })}
             </YStack>
           ) : null}
-          {hasSummarySection ? <Divider my="$5" /> : null}
+          {hasSummarySection && showPendleTransactionSection ? (
+            <Divider my="$5" />
+          ) : null}
           {showPendleTransactionSection ? (
             <Accordion
               overflow="hidden"
