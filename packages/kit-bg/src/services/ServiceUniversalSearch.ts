@@ -96,8 +96,10 @@ class ServiceUniversalSearch extends ServiceBase {
             });
 
           const chainIdToNetworkId = new Map(
-            basicConfig?.data?.networkList?.map((n) => [n.chainId, n.networkId]) ??
-              [],
+            basicConfig?.data?.networkList?.map((n) => [
+              n.chainId,
+              n.networkId,
+            ]) ?? [],
           );
 
           const v2Items: IUniversalSearchV2MarketToken[] = recommendTokens
@@ -108,7 +110,7 @@ class ServiceUniversalSearch extends ServiceBase {
                 chainIdToNetworkId.get(configToken.chainId) ??
                 configToken.chainId;
               return {
-                type: EUniversalSearchType.V2MarketToken,
+                type: EUniversalSearchType.V2MarketToken as const,
                 payload: {
                   name: batchItem?.name ?? configToken.name,
                   symbol: batchItem?.symbol ?? configToken.symbol,
