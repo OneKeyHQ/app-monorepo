@@ -2306,13 +2306,12 @@ export default class ServiceSwap extends ServiceBase {
   }): Promise<IFetchSpeedCheckResult | null> {
     try {
       const client = await this.getClient(EServiceEndpointEnum.Swap);
-      const { data } =
-        await client.get<IFetchResponse<IFetchSpeedCheckResult>>(
-          '/swap/v1/check/speed',
-          {
-            params,
-          },
-        );
+      const { data } = await client.get<IFetchResponse<IFetchSpeedCheckResult>>(
+        '/swap/v1/check/speed',
+        {
+          params,
+        },
+      );
       return data?.data ?? null;
     } catch (error) {
       console.error(error);
