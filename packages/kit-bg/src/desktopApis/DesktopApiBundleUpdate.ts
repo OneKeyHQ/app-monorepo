@@ -443,7 +443,8 @@ class DesktopApiAppBundleUpdate {
       signature,
       skipGPGVerification,
     } = params || {};
-    const allowSkipGPG = process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION && skipGPGVerification;
+    const allowSkipGPG =
+      process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION && skipGPGVerification;
     if (
       !downloadedFile ||
       !sha256 ||
@@ -454,7 +455,11 @@ class DesktopApiAppBundleUpdate {
       throw new OneKeyLocalError('Invalid parameters');
     }
     if (!allowSkipGPG) {
-      await verifyMetadataFileSha256({ appVersion, bundleVersion, signature: signature! });
+      await verifyMetadataFileSha256({
+        appVersion,
+        bundleVersion,
+        signature: signature!,
+      });
     }
   }
 
