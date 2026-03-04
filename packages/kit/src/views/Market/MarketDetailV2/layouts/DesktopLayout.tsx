@@ -1,4 +1,5 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
+import type { RefObject } from 'react';
 
 import { Divider, Stack, XStack, YStack } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -23,6 +24,35 @@ const MARKET_DETAIL_LAYOUT = {
 } as const;
 
 const SCROLL_CONTAINER_STYLE = { overflowY: 'auto' } as const;
+const IFRAME_WHEEL_EVENT_TYPE = 'wheelEvent' as const;
+
+interface IIframeWheelEventMessage {
+  type: typeof IFRAME_WHEEL_EVENT_TYPE;
+  deltaY: number;
+}
+
+// Listen for wheel events forwarded from TradingView iframe via postMessage.
+// TradingView side needs: window.parent.postMessage({ type: 'wheelEvent', deltaY }, '*')
+function useIframeWheelPassthrough(scrollRef: RefObject<HTMLElement | null>) {
+  useEffect(() => {
+    if (!platformEnv.isWeb) {
+      return;
+    }
+    const handleMessage = (e: MessageEvent) => {
+      const data = e.data as IIframeWheelEventMessage | undefined;
+      if (
+        data?.type === IFRAME_WHEEL_EVENT_TYPE &&
+        typeof data.deltaY === 'number'
+      ) {
+        scrollRef.current?.scrollBy({ top: data.deltaY });
+      }
+    };
+    globalThis.addEventListener('message', handleMessage);
+    return () => {
+      globalThis.removeEventListener('message', handleMessage);
+    };
+  }, [scrollRef]);
+}
 
 export function DesktopLayout() {
   const { tokenAddress, networkId, tokenDetail, isNative, websocketConfig } =
@@ -58,8 +88,15 @@ export function DesktopLayout() {
     ],
   );
 
+  const scrollContainerRef = useRef<HTMLElement>(null);
+  useIframeWheelPassthrough(scrollContainerRef);
+
   return (
-    <Stack flex={1} style={SCROLL_CONTAINER_STYLE}>
+    <Stack
+      ref={scrollContainerRef as any}
+      flex={1}
+      style={SCROLL_CONTAINER_STYLE}
+    >
       <XStack>
         {/* Left column */}
         <YStack
@@ -82,7 +119,7 @@ export function DesktopLayout() {
           </Stack>
 
           <Stack
-            h={MARKET_DETAIL_LAYOUT.infoTabsHeight}
+            minHeight={MARKET_DETAIL_LAYOUT.infoTabsHeight}
             borderTopWidth="$px"
             borderTopColor="$borderSubdued"
           >
