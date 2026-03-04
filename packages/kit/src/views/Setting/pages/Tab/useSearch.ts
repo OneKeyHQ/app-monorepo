@@ -40,7 +40,7 @@ export const useSearch = () => {
   }, [settingsConfig]);
   const [searchResult, setSearchResult] = useState<ISettingsSearchResult[]>([]);
   const searchFuse = useFuse(flattenSettingsConfig, {
-    keys: ['title', 'configs.title'],
+    keys: ['title', 'keywords'],
     shouldSort: false,
   });
 

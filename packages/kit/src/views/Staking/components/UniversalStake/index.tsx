@@ -79,6 +79,10 @@ import {
   type IManagePageV2ReceiveInputConfig,
   ManagePageV2ReceiveInput,
 } from '../ManagePageV2ReceiveInput';
+import {
+  calcPriceImpactInfo,
+  showHighPriceImpactDialog,
+} from '../showHighPriceImpactDialog';
 import { EarnActionIcon } from '../ProtocolDetails/EarnActionIcon';
 import { EarnText } from '../ProtocolDetails/EarnText';
 import { EarnValidatorSelect } from '../ProtocolDetails/EarnValidatorSelect';
@@ -774,6 +778,28 @@ export function UniversalStake({
       }
     };
 
+    // Check high price impact (Pendle only)
+    if (isPendleProvider) {
+      const payFiatValue =
+        Number(amountValue) > 0 && Number(tokenInfo?.price) > 0
+          ? new BigNumber(amountValue)
+              .multipliedBy(tokenInfo?.price ?? '0')
+              .toFixed()
+          : undefined;
+      const impactInfo = calcPriceImpactInfo({
+        payFiatValue,
+        receiveConfig: receiveInputConfig,
+        receiveDescription: transactionConfirmation?.receive,
+      });
+      if (impactInfo) {
+        const userConfirmed = await showHighPriceImpactDialog(intl, {
+          percent: impactInfo.percent,
+          lossAmount: `${symbol}${impactInfo.lossAmount}`,
+        });
+        if (!userConfirmed) return;
+      }
+    }
+
     if (estimateFeeResp) {
       const daySpent =
         Number(estimateFeeResp?.coverFeeSeconds || 0) / 3600 / 24;
@@ -806,6 +832,7 @@ export function UniversalStake({
     showEstimateGasAlert,
     checkEstimateGasAlert,
     isStakefishProvider,
+    isPendleProvider,
     selectedValidator,
     isStakefishCreateNewValidator,
     signPersonalMessage,
@@ -814,6 +841,11 @@ export function UniversalStake({
     tokenSymbol,
     providerName,
     onQuoteReset,
+    intl,
+    symbol,
+    tokenInfo?.price,
+    receiveInputConfig,
+    transactionConfirmation?.receive,
   ]);
 
   const showStakeProgressRef = useRef<Record<string, boolean>>({});

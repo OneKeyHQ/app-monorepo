@@ -9,6 +9,7 @@ import type { IAddressValidation } from './address';
 import type { IDApp } from './discovery';
 import type { IMarketSearchV2Token, IMarketToken } from './market';
 import type { IAccountToken, ITokenFiat } from './token';
+import type { EModalSettingRoutes } from '../src/routes/setting';
 
 export enum EUniversalSearchType {
   Address = 'Address',
@@ -17,6 +18,7 @@ export enum EUniversalSearchType {
   AccountAssets = 'AccountAssets',
   Dapp = 'Dapp',
   Perp = 'Perp',
+  Settings = 'Settings',
 }
 
 export enum ESearchStatus {
@@ -101,13 +103,29 @@ export type IUniversalSearchPerp = {
   };
 };
 
+export type IUniversalSearchSettings = {
+  type: EUniversalSearchType.Settings;
+  payload: {
+    title: string;
+    icon: string;
+    sectionName?: string;
+    sectionTitle: string;
+    sectionIcon: string;
+    keywords?: string[];
+    settingRoute?: EModalSettingRoutes;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    onPress?: (navigation?: any) => void;
+  };
+};
+
 export type IUniversalSearchResultItem =
   | IUniversalSearchAddress
   | IUniversalSearchMarketToken
   | IUniversalSearchV2MarketToken
   | IUniversalSearchAccountAssets
   | IUniversalSearchDapp
-  | IUniversalSearchPerp;
+  | IUniversalSearchPerp
+  | IUniversalSearchSettings;
 
 export type IUniversalSearchMarketTokenResult = {
   items: IUniversalSearchMarketToken[];
@@ -129,6 +147,10 @@ export type IUniversalSearchPerpResult = {
   items: IUniversalSearchPerp[];
 };
 
+export type IUniversalSearchSettingsResult = {
+  items: IUniversalSearchSettings[];
+};
+
 export type IUniversalSearchBatchResult = {
   [EUniversalSearchType.Address]?: IUniversalSearchSingleResult;
   [EUniversalSearchType.MarketToken]?: IUniversalSearchMarketTokenResult;
@@ -136,6 +158,7 @@ export type IUniversalSearchBatchResult = {
   [EUniversalSearchType.AccountAssets]?: IUniversalSearchAccountAssetsResult;
   [EUniversalSearchType.Dapp]?: IUniversalSearchDappResult;
   [EUniversalSearchType.Perp]?: IUniversalSearchPerpResult;
+  [EUniversalSearchType.Settings]?: IUniversalSearchSettingsResult;
 };
 
 export interface IIUniversalRecentSearchItem {
