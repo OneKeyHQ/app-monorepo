@@ -882,6 +882,10 @@ class DesktopApiAppBundleUpdate {
     return testExtractedSha256FromVerifyAscFile();
   }
 
+  async testSkipVerification() {
+    return Promise.resolve(false);
+  }
+
   /**
    * Test function to delete jsBundle files
    * @param appVersion - Application version
