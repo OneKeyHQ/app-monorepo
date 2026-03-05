@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import type { RefObject } from 'react';
 
 import { Tabs, YStack, useTabContainerWidth } from '@onekeyhq/components';
@@ -40,7 +40,7 @@ interface IMarketHomeTabBarProps extends TabBarProps<string> {
   perpsTabName: string;
   filterBarProps: IMobileLayoutProps['filterBarProps'];
   perpsCategories: { tabId: string; name: string }[];
-  selectedCategoryIdRef: RefObject<string>;
+  selectedCategoryId: string;
   onSelectCategory: (categoryId: string) => void;
 }
 
@@ -50,34 +50,11 @@ function MarketHomeTabBar({
   perpsTabName,
   filterBarProps,
   perpsCategories,
-  selectedCategoryIdRef,
+  selectedCategoryId,
   onSelectCategory,
   ...tabBarProps
 }: IMarketHomeTabBarProps) {
   const focusedTab = useFocusedTab();
-
-  // Read from ref to avoid re-creating renderTabBar on category change.
-  // MarketPerpsCategorySelector is a controlled component that will
-  // re-render itself via onSelectCategory -> setState in MobileLayout.
-  // We use local state here so the selector UI updates immediately.
-  const [localCategoryId, setLocalCategoryId] = useState(
-    selectedCategoryIdRef.current,
-  );
-
-  // Sync initial category from parent when switching to the perps tab
-  useEffect(() => {
-    if (!localCategoryId && selectedCategoryIdRef.current) {
-      setLocalCategoryId(selectedCategoryIdRef.current);
-    }
-  }, [localCategoryId, focusedTab]);
-
-  const handleSelectCategory = useCallback(
-    (id: string) => {
-      setLocalCategoryId(id);
-      onSelectCategory(id);
-    },
-    [onSelectCategory],
-  );
 
   return (
     <YStack bg="$bgApp">
@@ -93,8 +70,8 @@ function MarketHomeTabBar({
         <>
           <MarketPerpsCategorySelector
             categories={perpsCategories}
-            selectedCategoryId={localCategoryId}
-            onSelectCategory={handleSelectCategory}
+            selectedCategoryId={selectedCategoryId}
+            onSelectCategory={onSelectCategory}
             containerStyle={{
               px: '$5',
               pt: '$3',
@@ -128,8 +105,6 @@ function MobileLayoutComponent({
 
   // Perps category state (lifted from MobileMarketPerpsFlatList)
   const [selectedCategoryId, setSelectedCategoryId] = useState('');
-  const selectedCategoryIdRef = useRef(selectedCategoryId);
-  selectedCategoryIdRef.current = selectedCategoryId;
   const { perpsCategories: rawPerpsCategories } = useMarketBasicConfig();
 
   const perpsCategories = useMemo(
@@ -190,7 +165,7 @@ function MobileLayoutComponent({
         perpsTabName={perpsTabName}
         filterBarProps={filterBarProps}
         perpsCategories={perpsCategories}
-        selectedCategoryIdRef={selectedCategoryIdRef}
+        selectedCategoryId={selectedCategoryId}
         onSelectCategory={setSelectedCategoryId}
       />
     ),
@@ -200,6 +175,7 @@ function MobileLayoutComponent({
       perpsTabName,
       filterBarProps,
       perpsCategories,
+      selectedCategoryId,
     ],
   );
 
