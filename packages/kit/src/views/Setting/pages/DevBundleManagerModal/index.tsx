@@ -435,6 +435,42 @@ export default function DevBundleManagerModal() {
             <SectionTitle icon="CubeOutline" title="DIAGNOSTICS" />
             <SectionCard>
               <ActionRow
+                icon="ShieldCheckDoneOutline"
+                title="Test Verification"
+                subtitle="Run BundleUpdate.testVerification()"
+                onPress={() => {
+                  void (async () => {
+                    try {
+                      const result = await BundleUpdate.testVerification();
+                      showTestResult(result);
+                    } catch (error) {
+                      showTestError(error);
+                    }
+                  })();
+                }}
+              />
+              <XStack mx="$4">
+                <Divider />
+              </XStack>
+              <ActionRow
+                icon="ShieldExclamationOutline"
+                title="Test Skip Verification"
+                subtitle="Run BundleUpdate.testSkipVerification()"
+                onPress={() => {
+                  void (async () => {
+                    try {
+                      const result = await BundleUpdate.testSkipVerification();
+                      showTestResult(result);
+                    } catch (error) {
+                      showTestError(error);
+                    }
+                  })();
+                }}
+              />
+              <XStack mx="$4">
+                <Divider />
+              </XStack>
+              <ActionRow
                 icon="ToolboxOutline"
                 title="Bundle Manipulation"
                 subtitle="Delete or corrupt bundle files for testing"
