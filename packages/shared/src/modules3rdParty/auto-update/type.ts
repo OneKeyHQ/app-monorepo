@@ -13,7 +13,7 @@ export interface IDownloadPackageParams {
   downloadedFile?: string;
   headers?: Record<string, string>;
   targetVersion?: string;
-  /** Dev mode only: skip GPG signature verification */
+  /** Desktop only: effective only when ONEKEY_ALLOW_SKIP_GPG_VERIFICATION is enabled */
   skipGPGVerification?: boolean;
 }
 

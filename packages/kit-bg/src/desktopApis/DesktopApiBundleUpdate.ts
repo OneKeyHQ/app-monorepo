@@ -45,6 +45,12 @@ class DesktopApiAppBundleUpdate {
 
   isDownloading = false;
 
+  private isSkipGPGAllowed(skipGPGVerification?: boolean) {
+    return Boolean(
+      process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION && skipGPGVerification,
+    );
+  }
+
   constructor({ desktopApi }: { desktopApi: IDesktopApi }) {
     this.desktopApi = desktopApi;
     this.cancelCurrentDownload = () => {};
@@ -443,8 +449,7 @@ class DesktopApiAppBundleUpdate {
       signature,
       skipGPGVerification,
     } = params || {};
-    const allowSkipGPG =
-      process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION && skipGPGVerification;
+    const allowSkipGPG = this.isSkipGPGAllowed(skipGPGVerification);
     if (
       !downloadedFile ||
       !sha256 ||
@@ -480,8 +485,7 @@ class DesktopApiAppBundleUpdate {
       signature,
       skipGPGVerification,
     } = params || {};
-    const allowSkipGPG =
-      process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION && skipGPGVerification;
+    const allowSkipGPG = this.isSkipGPGAllowed(skipGPGVerification);
     if (
       !downloadedFile ||
       !sha256 ||
@@ -502,8 +506,7 @@ class DesktopApiAppBundleUpdate {
       signature,
       skipGPGVerification,
     } = params || {};
-    const allowSkipGPG =
-      process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION && skipGPGVerification;
+    const allowSkipGPG = this.isSkipGPGAllowed(skipGPGVerification);
     if (
       !downloadedFile ||
       !sha256 ||
@@ -729,8 +732,7 @@ class DesktopApiAppBundleUpdate {
       signature,
       skipGPGVerification,
     } = params || {};
-    const allowSkipGPG =
-      process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION && skipGPGVerification;
+    const allowSkipGPG = this.isSkipGPGAllowed(skipGPGVerification);
     if (!appVersion || !bundleVersion || (!signature && !allowSkipGPG)) {
       logger.error('bundle-install', 'Invalid parameters', {
         appVersion,
@@ -883,7 +885,8 @@ class DesktopApiAppBundleUpdate {
   }
 
   async testSkipVerification() {
-    return Promise.resolve(false);
+    const skipGPGVerification = true;
+    return Promise.resolve(this.isSkipGPGAllowed(skipGPGVerification));
   }
 
   /**
