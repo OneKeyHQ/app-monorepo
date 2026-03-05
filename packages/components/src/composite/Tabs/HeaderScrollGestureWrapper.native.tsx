@@ -11,7 +11,6 @@ import Animated, {
   withDecay,
 } from 'react-native-reanimated';
 
-
 import { CollapsibleTabContext } from './CollapsibleTabContext';
 
 import type { IHeaderScrollGestureWrapperProps } from './HeaderScrollGestureWrapper';
@@ -63,134 +62,131 @@ export function HeaderScrollGestureWrapper({
     },
   );
 
-  const panGesture = useMemo(
-    () => {
-      const safeExcludeRightEdgeRatio = Math.max(
-        0,
-        Math.min(1, excludeRightEdgeRatio),
-      );
-      const shouldIgnoreByStartX = (x: number) => {
+  const panGesture = useMemo(() => {
+    const safeExcludeRightEdgeRatio = Math.max(
+      0,
+      Math.min(1, excludeRightEdgeRatio),
+    );
+    const shouldIgnoreByStartX = (x: number) => {
+      'worklet';
+
+      if (safeExcludeRightEdgeRatio <= 0 || containerWidth.value <= 0) {
+        return false;
+      }
+      const excludedStartX =
+        containerWidth.value * (1 - safeExcludeRightEdgeRatio);
+      return x >= excludedStartX;
+    };
+
+    const verticalPanGesture = Gesture.Pan()
+      .activeOffsetY(panActiveOffsetY)
+      .failOffsetX(panFailOffsetX)
+      .cancelsTouchesInView(cancelChildTouches)
+      .onStart((e) => {
         'worklet';
 
-        if (safeExcludeRightEdgeRatio <= 0 || containerWidth.value <= 0) {
-          return false;
+        isGestureEnabled.value = !shouldIgnoreByStartX(e.x);
+        if (!isGestureEnabled.value) {
+          return;
         }
-        const excludedStartX =
-          containerWidth.value * (1 - safeExcludeRightEdgeRatio);
-        return x >= excludedStartX;
-      };
+        cancelAnimation(targetScrollY);
+        startScrollY.value = scrollYCurrent?.value ?? 0;
+      })
+      .onUpdate((e) => {
+        'worklet';
 
-      const verticalPanGesture = Gesture.Pan()
-        .activeOffsetY(panActiveOffsetY)
-        .failOffsetX(panFailOffsetX)
-        .cancelsTouchesInView(cancelChildTouches)
-        .onStart((e) => {
-          'worklet';
-
-          isGestureEnabled.value = !shouldIgnoreByStartX(e.x);
-          if (!isGestureEnabled.value) {
-            return;
-          }
-          cancelAnimation(targetScrollY);
-          startScrollY.value = scrollYCurrent?.value ?? 0;
-        })
-        .onUpdate((e) => {
-          'worklet';
-
-          if (!isGestureEnabled.value) {
-            return;
-          }
-          targetScrollY.value = startScrollY.value - e.translationY * scrollScale;
-        })
-        .onEnd((e) => {
-          'worklet';
-
-          if (!isGestureEnabled.value) {
-            return;
-          }
-          const wasAtTop = startScrollY.value <= contentInset;
-          const pulledDown = e.translationY > REFRESH_THRESHOLD;
-          if (wasAtTop && pulledDown && onRefresh) {
-            runOnJS(onRefresh)();
-          } else if (!disableMomentum) {
-            targetScrollY.value = withDecay({
-              velocity: -e.velocityY,
-            });
-          }
-        })
-        .onFinalize(() => {
-          'worklet';
-
-          isGestureEnabled.value = true;
-        });
-
-      if (!onHorizontalSwipe) {
-        if (!simultaneousWithNativeGesture) {
-          return verticalPanGesture;
+        if (!isGestureEnabled.value) {
+          return;
         }
-        return Gesture.Simultaneous(Gesture.Native(), verticalPanGesture);
-      }
+        targetScrollY.value = startScrollY.value - e.translationY * scrollScale;
+      })
+      .onEnd((e) => {
+        'worklet';
 
-      const horizontalPanGesture = Gesture.Pan()
-        .activeOffsetX([-10, 10])
-        .failOffsetY([-10, 10])
-        .cancelsTouchesInView(cancelChildTouches)
-        .onStart((e) => {
-          'worklet';
+        if (!isGestureEnabled.value) {
+          return;
+        }
+        const wasAtTop = startScrollY.value <= contentInset;
+        const pulledDown = e.translationY > REFRESH_THRESHOLD;
+        if (wasAtTop && pulledDown && onRefresh) {
+          runOnJS(onRefresh)();
+        } else if (!disableMomentum) {
+          targetScrollY.value = withDecay({
+            velocity: -e.velocityY,
+          });
+        }
+      })
+      .onFinalize(() => {
+        'worklet';
 
-          isGestureEnabled.value = !shouldIgnoreByStartX(e.x);
-        })
-        .onEnd((e) => {
-          'worklet';
+        isGestureEnabled.value = true;
+      });
 
-          if (!isGestureEnabled.value) {
-            return;
-          }
-          const absTranslationX = Math.abs(e.translationX);
-          const absVelocityX = Math.abs(e.velocityX);
-          const isDistanceReached = absTranslationX >= horizontalSwipeThreshold;
-          const isFastSwipe =
-            horizontalSwipeVelocityThreshold > 0 &&
-            absVelocityX >= horizontalSwipeVelocityThreshold;
-
-          if (!isDistanceReached && !isFastSwipe) {
-            return;
-          }
-          runOnJS(onHorizontalSwipe)(e.translationX < 0 ? 'left' : 'right');
-        })
-        .onFinalize(() => {
-          'worklet';
-
-          isGestureEnabled.value = true;
-        });
-
-      const raceGesture = Gesture.Race(horizontalPanGesture, verticalPanGesture);
-
+    if (!onHorizontalSwipe) {
       if (!simultaneousWithNativeGesture) {
-        return raceGesture;
+        return verticalPanGesture;
       }
-      return Gesture.Simultaneous(Gesture.Native(), raceGesture);
-    },
-    [
-      startScrollY,
-      scrollYCurrent,
-      targetScrollY,
-      contentInset,
-      onRefresh,
-      disableMomentum,
-      panActiveOffsetY,
-      panFailOffsetX,
-      excludeRightEdgeRatio,
-      scrollScale,
-      onHorizontalSwipe,
-      horizontalSwipeThreshold,
-      horizontalSwipeVelocityThreshold,
-      simultaneousWithNativeGesture,
-      cancelChildTouches,
-      containerWidth,
-      isGestureEnabled,
-    ],
-  );
+      return Gesture.Simultaneous(Gesture.Native(), verticalPanGesture);
+    }
+
+    const horizontalPanGesture = Gesture.Pan()
+      .activeOffsetX([-10, 10])
+      .failOffsetY([-10, 10])
+      .cancelsTouchesInView(cancelChildTouches)
+      .onStart((e) => {
+        'worklet';
+
+        isGestureEnabled.value = !shouldIgnoreByStartX(e.x);
+      })
+      .onEnd((e) => {
+        'worklet';
+
+        if (!isGestureEnabled.value) {
+          return;
+        }
+        const absTranslationX = Math.abs(e.translationX);
+        const absVelocityX = Math.abs(e.velocityX);
+        const isDistanceReached = absTranslationX >= horizontalSwipeThreshold;
+        const isFastSwipe =
+          horizontalSwipeVelocityThreshold > 0 &&
+          absVelocityX >= horizontalSwipeVelocityThreshold;
+
+        if (!isDistanceReached && !isFastSwipe) {
+          return;
+        }
+        runOnJS(onHorizontalSwipe)(e.translationX < 0 ? 'left' : 'right');
+      })
+      .onFinalize(() => {
+        'worklet';
+
+        isGestureEnabled.value = true;
+      });
+
+    const raceGesture = Gesture.Race(horizontalPanGesture, verticalPanGesture);
+
+    if (!simultaneousWithNativeGesture) {
+      return raceGesture;
+    }
+    return Gesture.Simultaneous(Gesture.Native(), raceGesture);
+  }, [
+    startScrollY,
+    scrollYCurrent,
+    targetScrollY,
+    contentInset,
+    onRefresh,
+    disableMomentum,
+    panActiveOffsetY,
+    panFailOffsetX,
+    excludeRightEdgeRatio,
+    scrollScale,
+    onHorizontalSwipe,
+    horizontalSwipeThreshold,
+    horizontalSwipeVelocityThreshold,
+    simultaneousWithNativeGesture,
+    cancelChildTouches,
+    containerWidth,
+    isGestureEnabled,
+  ]);
 
   return (
     <GestureDetector gesture={panGesture}>
