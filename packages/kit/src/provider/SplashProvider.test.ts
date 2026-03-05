@@ -35,11 +35,7 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => {
   const env = {
     version: '1.0.0',
     bundleVersion: '1',
-    // Start with isDesktop: false so module-scope initialization (e.g. NetInfo
-    // constructor calling getCurrentVisibilityState()) doesn't crash trying to
-    // access globalThis.desktopApi on non-desktop environments like RN harness.
-    // beforeEach sets isDesktop: true before individual tests run.
-    isDesktop: false,
+    isDesktop: true,
     isNative: false,
     isWeb: false,
   };
