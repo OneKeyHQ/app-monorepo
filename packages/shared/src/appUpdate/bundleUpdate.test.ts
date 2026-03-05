@@ -7,23 +7,29 @@ import { EAppUpdateStatus, EUpdateFileType, EUpdateStrategy } from './type';
 import type { IAppUpdateInfo } from './type';
 
 // ---------------------------------------------------------------------------
-// platformEnv mock – controls APP_VERSION / APP_BUNDLE_VERSION used inside
-// the module under test. We need to re-import the module after each mock
-// change so module-level constants pick up the new values.
+// platformEnv mock – the production code reads platformEnv.version and
+// platformEnv.bundleVersion via getter functions, so we can mutate the
+// mock object between tests without needing jest.resetModules().
 // ---------------------------------------------------------------------------
 
+const mockPlatformEnv = {
+  version: '1.0.0',
+  bundleVersion: '1',
+  isExtension: false,
+};
+
+jest.mock('../platformEnv', () => ({
+  __esModule: true,
+  default: mockPlatformEnv,
+}));
+
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const appUpdateModule = require('./index') as typeof import('./index');
+
 function loadAppUpdate(appVersion: string, bundleVersion: string) {
-  jest.resetModules();
-  jest.doMock('../platformEnv', () => ({
-    __esModule: true,
-    default: {
-      version: appVersion,
-      bundleVersion,
-      isExtension: false,
-    },
-  }));
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  return require('./index') as typeof import('./index');
+  mockPlatformEnv.version = appVersion;
+  mockPlatformEnv.bundleVersion = bundleVersion;
+  return appUpdateModule;
 }
 
 // ---------------------------------------------------------------------------

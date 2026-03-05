@@ -5,43 +5,50 @@
  * Tests for the native asset resolution polyfill (polyfillsPlatform.js lines 47-116).
  *
  * Core logic is in assetResolutionPatch.js — it does its own requires
- * for react-native / lodash / path-support, so we mock those via jest.doMock.
+ * for react-native / lodash / path-support inside the function body,
+ * so mocking the modules once with mutable objects is sufficient.
  */
 
-let MockAssetSourceResolver: any;
+// ---------------------------------------------------------------------------
+// Shared mutable mock objects — mutated by setup() per test case
+// ---------------------------------------------------------------------------
+const mockPlatform = { OS: 'android' };
+const mockPixelRatio = { get: () => 2 };
+
+function MockAssetSourceResolver() {}
 let originalDefaultAsset: any;
 
+jest.mock('react-native', () => ({
+  Platform: mockPlatform,
+  PixelRatio: mockPixelRatio,
+}));
+
+jest.mock('react-native/Libraries/Image/AssetSourceResolver', () => ({
+  __esModule: true,
+  default: MockAssetSourceResolver,
+}));
+
+jest.mock('react-native/Libraries/Image/AssetUtils', () => ({
+  pickScale: (scales: number[], pixelRatio: number) =>
+    scales.reduce((prev, curr) =>
+      Math.abs(curr - pixelRatio) < Math.abs(prev - pixelRatio) ? curr : prev,
+    ),
+}));
+
+jest.mock('@react-native/assets-registry/path-support', () => ({
+  getAndroidResourceFolderName: (_asset: any, scale: number) =>
+    `drawable-${scale}x`,
+  getAndroidResourceIdentifier: (asset: any) => asset.name,
+}));
+
+const { patchNativeAssetResolution } = require('./assetResolutionPatch');
+
 function setup(platform: string) {
-  jest.resetModules();
+  mockPlatform.OS = platform;
 
   originalDefaultAsset = jest.fn();
-  MockAssetSourceResolver = function () {};
   MockAssetSourceResolver.prototype.defaultAsset = originalDefaultAsset;
 
-  jest.doMock('react-native', () => ({
-    Platform: { OS: platform },
-    PixelRatio: { get: () => 2 },
-  }));
-
-  jest.doMock('react-native/Libraries/Image/AssetSourceResolver', () => ({
-    __esModule: true,
-    default: MockAssetSourceResolver,
-  }));
-
-  jest.doMock('react-native/Libraries/Image/AssetUtils', () => ({
-    pickScale: (scales: number[], pixelRatio: number) =>
-      scales.reduce((prev, curr) =>
-        Math.abs(curr - pixelRatio) < Math.abs(prev - pixelRatio) ? curr : prev,
-      ),
-  }));
-
-  jest.doMock('@react-native/assets-registry/path-support', () => ({
-    getAndroidResourceFolderName: (_asset: any, scale: number) =>
-      `drawable-${scale}x`,
-    getAndroidResourceIdentifier: (asset: any) => asset.name,
-  }));
-
-  const { patchNativeAssetResolution } = require('./assetResolutionPatch');
   return patchNativeAssetResolution;
 }
 
