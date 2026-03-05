@@ -1,24 +1,16 @@
 import { useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
-import {
-  Icon,
-  Page,
-  SizableText,
-  XStack,
-  useMedia,
-} from '@onekeyhq/components';
+import { Page, XStack, useMedia } from '@onekeyhq/components';
 import { usePerpsNetworkStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
+import { PerpFooterActions } from '../../../components/Footer';
 import { NetworkStatusBadge } from '../../../components/NetworkStatusBadge';
 import { PerpRefreshButton } from '../../../components/PerpRefreshButton';
 
 import { PerpFooterTicker } from './FooterTicker/PerpFooterTicker';
-
-const PERP_TELEGRAM_URL = 'https://t.me/OneKeyPerps';
 
 function PerpNetworkStatus() {
   const [networkStatus] = usePerpsNetworkStatusAtom();
@@ -38,9 +30,8 @@ function PerpNetworkStatus() {
 
 export function PerpContentFooter() {
   const { gtSm } = useMedia();
-  const intl = useIntl();
 
-  if (!platformEnv.isNative && gtSm) {
+  if (!platformEnv.isNative && !platformEnv.isWebDappMode && gtSm) {
     return (
       <Page.Footer>
         <XStack
@@ -57,21 +48,7 @@ export function PerpContentFooter() {
             <PerpRefreshButton />
           </XStack>
           <PerpFooterTicker />
-          <XStack
-            alignItems="center"
-            gap="$1"
-            cursor="pointer"
-            flexShrink={0}
-            hoverStyle={{ opacity: 0.6 }}
-            onPress={() => openUrlExternal(PERP_TELEGRAM_URL)}
-          >
-            <Icon name="TelegramBrand" size="$4" color="$iconSubdued" />
-            <SizableText size="$bodyMd" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.perps_footer_help_us_better,
-              })}
-            </SizableText>
-          </XStack>
+          <PerpFooterActions />
         </XStack>
       </Page.Footer>
     );
