@@ -368,6 +368,7 @@ export function NormalManageContent({
     if (defaultTab === 'withdraw') return 1;
     return 0;
   });
+  const shouldDisablePrimaryTab = defaultTab === 'withdraw' && depositDisabled;
 
   // Pendle: slippage state + countdown
   const isPendleProvider = useIsPendleProvider(provider);
@@ -569,6 +570,9 @@ export function NormalManageContent({
     (name: string) => {
       const index = tabData.findIndex((item) => item.title === name);
       if (index !== -1) {
+        if (index === 0 && shouldDisablePrimaryTab) {
+          return;
+        }
         if (index === 1 && isWithdrawOrder) {
           const withdrawParams = {
             accountId: earnAccount?.accountId || '',
@@ -604,6 +608,7 @@ export function NormalManageContent({
     },
     [
       isWithdrawOrder,
+      shouldDisablePrimaryTab,
       earnAccount?.accountId,
       focusedTab,
       tabData,
@@ -627,32 +632,50 @@ export function NormalManageContent({
           onTabPress={handleTabChange}
           tabNames={tabNames}
           focusedTab={focusedTab}
-          renderItem={({ name, isFocused }) => (
-            <XStack
-              px="$2"
-              py="$1.5"
-              mr="$1"
-              bg={isFocused ? '$bgActive' : '$bg'}
-              borderRadius="$2"
-              borderCurve="continuous"
-              hoverStyle={
-                !isFocused
-                  ? {
-                      bg: '$bgHover',
-                    }
-                  : null
-              }
-              onPress={() => handleTabChange(name)}
-            >
-              <SizableText
-                size="$headingMd"
-                color={isFocused ? '$text' : '$textSubdued'}
-                letterSpacing={-0.15}
+          renderItem={({ name, isFocused }) => {
+            const isDisabled = shouldDisablePrimaryTab && name === tabNames[0];
+            let textColor: '$textDisabled' | '$text' | '$textSubdued' =
+              '$textSubdued';
+
+            if (isDisabled) {
+              textColor = '$textDisabled';
+            } else if (isFocused) {
+              textColor = '$text';
+            }
+
+            return (
+              <XStack
+                px="$2"
+                py="$1.5"
+                mr="$1"
+                bg={isFocused ? '$bgActive' : '$bg'}
+                borderRadius="$2"
+                borderCurve="continuous"
+                opacity={isDisabled ? 0.4 : 1}
+                hoverStyle={
+                  !isFocused && !isDisabled
+                    ? {
+                        bg: '$bgHover',
+                      }
+                    : null
+                }
+                onPress={() => {
+                  if (isDisabled) {
+                    return;
+                  }
+                  handleTabChange(name);
+                }}
               >
-                {name}
-              </SizableText>
-            </XStack>
-          )}
+                <SizableText
+                  size="$headingMd"
+                  color={textColor}
+                  letterSpacing={-0.15}
+                >
+                  {name}
+                </SizableText>
+              </XStack>
+            );
+          }}
         />
         <HeaderRight
           accountId={indicatorAccountId || earnAccount?.accountId}
