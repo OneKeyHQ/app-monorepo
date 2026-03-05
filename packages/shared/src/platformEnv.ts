@@ -245,7 +245,7 @@ const getAppChannel = (): IAppChannel | undefined => {
 const isRuntimeBrowser: boolean =
   // eslint-disable-next-line unicorn/prefer-global-this
   // oxlint-disable-next-line unicorn/prefer-global-this
-  typeof window !== 'undefined' && !isNative;
+  typeof globalThis !== 'undefined' && !isNative;
 
 // @ts-ignore
 const isRuntimeFirefox: boolean = typeof InstallTrigger !== 'undefined';

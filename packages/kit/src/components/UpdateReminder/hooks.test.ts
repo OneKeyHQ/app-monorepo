@@ -238,7 +238,8 @@ jest.mock('react-native', () => ({
 // ---------------------------------------------------------------------------
 
 import React from 'react';
-import { renderHook, act } from '@testing-library/react';
+
+import { act, renderHook } from '@testing-library/react';
 
 import {
   EAppUpdateStatus,
@@ -247,8 +248,8 @@ import {
 
 import {
   isAutoUpdateStrategy,
-  isShowAppUpdateUIWhenUpdating,
   isForceUpdateStrategy,
+  isShowAppUpdateUIWhenUpdating,
   useDownloadPackage,
 } from './hooks';
 

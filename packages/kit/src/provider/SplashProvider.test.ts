@@ -72,7 +72,8 @@ jest.mock('@onekeyhq/components', () => ({
 // ---------------------------------------------------------------------------
 
 import React from 'react';
-import { renderHook, act } from '@testing-library/react';
+
+import { act, renderHook } from '@testing-library/react';
 
 import {
   EAppUpdateStatus,

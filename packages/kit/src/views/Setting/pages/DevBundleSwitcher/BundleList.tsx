@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { useRoute } from '@react-navigation/core';
 import { StyleSheet } from 'react-native';
 
 import {
@@ -26,8 +27,6 @@ import type {
   EModalSettingRoutes,
   IModalSettingParamList,
 } from '@onekeyhq/shared/src/routes';
-
-import { useRoute } from '@react-navigation/core';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -330,8 +329,9 @@ export default function SettingDevBundleList() {
                     bundle={bundle}
                     version={version}
                     isCurrentBundle={
-                      version === currentAppVersion &&
-                      bundle.bundleVersion === currentBundleVersion
+                      version === currentAppVersion
+                        ? bundle.bundleVersion === currentBundleVersion
+                        : null
                     }
                     alreadyDownloaded={downloadedSet.has(bundle.bundleVersion)}
                     isDownloading={isDownloading}

@@ -79,10 +79,6 @@ import {
   type IManagePageV2ReceiveInputConfig,
   ManagePageV2ReceiveInput,
 } from '../ManagePageV2ReceiveInput';
-import {
-  calcPriceImpactInfo,
-  showHighPriceImpactDialog,
-} from '../showHighPriceImpactDialog';
 import { EarnActionIcon } from '../ProtocolDetails/EarnActionIcon';
 import { EarnText } from '../ProtocolDetails/EarnText';
 import { EarnValidatorSelect } from '../ProtocolDetails/EarnValidatorSelect';
@@ -90,6 +86,10 @@ import {
   PendleAccordionTriggerContent,
   PendleSummarySection,
 } from '../ProtocolDetails/PendleSharedComponents';
+import {
+  calcPriceImpactInfo,
+  showHighPriceImpactDialog,
+} from '../showHighPriceImpactDialog';
 import { EStakeProgressStep, StakeProgress } from '../StakeProgress';
 import {
   StakingAmountInput,
