@@ -109,7 +109,11 @@ const mockSnapshots = new Map<Record<string, unknown>, ModSnapshot>();
 // Force-set a property on an object, handling read-only and getter-only props.
 // Metro marks __esModule as non-writable and re-exports as getter-only,
 // so plain assignment / Object.assign would throw.
-const forceSet = (obj: Record<string, unknown>, key: string, value: unknown) => {
+const forceSet = (
+  obj: Record<string, unknown>,
+  key: string,
+  value: unknown,
+) => {
   try {
     obj[key] = value;
   } catch {
