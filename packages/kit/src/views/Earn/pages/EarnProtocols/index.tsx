@@ -88,6 +88,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
     symbol,
     filterNetworkId,
     logoURI: encodedLogoURI,
+    defaultCategory: defaultCategoryParam,
   } = route.params || {};
 
   const logoURI = useMemo(() => {
@@ -121,7 +122,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
     [],
   );
   const [selectedCategory, setSelectedCategory] = useState<EProtocolCategory>(
-    EProtocolCategory.FixedRate,
+    (defaultCategoryParam as EProtocolCategory) || EProtocolCategory.SimpleEarn,
   );
   const [isLoading, setIsLoading] = useState(true);
 
@@ -160,6 +161,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
   }, [protocolData]);
 
   useEffect(() => {
+    // Auto-switch only when the current category has no protocols
     if (
       protocolCategoryCounts.fixedRateCount === 0 &&
       protocolCategoryCounts.simpleEarnCount > 0

@@ -2804,6 +2804,7 @@
   "perps.builder_max_error": "授权 Builder 签名失败，请联系客服。",
   "perps.buy_tip": "需要更多 {token} ？",
   "perps.connection_error": "硬件连接错误。请检查连接并重试。",
+  "perps.enjoy_perps": "喜欢 Perps 吗？分享给朋友吧。",
   "perps.fee_desc": "总费用由两部分组成：Hyperliquid 收取的交易手续费以及 OneKey 的 Builder 费用。OneKey 的 Builder 费用是业内最低之一，帮助你将交易成本降到最低。",
   "perps.fee_rate_projection": "预测",
   "perps.fee_tiers": "费率等级",

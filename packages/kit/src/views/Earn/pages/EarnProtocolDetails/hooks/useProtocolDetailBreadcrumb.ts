@@ -9,6 +9,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
 import { normalizeToEarnProvider } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import type { IEarnTokenInfo } from '@onekeyhq/shared/types/staking';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 
 import { EarnNavigation } from '../../../earnUtils';
 
@@ -61,12 +62,23 @@ export function useProtocolDetailBreadcrumb({
 
     // If there are multiple protocols, add a middle breadcrumb to protocol list
     if (hasMultipleProtocols && tokenInfo?.token?.logoURI) {
+      const currentProtocol = protocolList?.find(
+        (item) => item.provider.name === provider,
+      );
+      const rawCategory = currentProtocol?.provider.category?.trim();
+      let defaultCategory: 'simpleEarn' | 'fixedRate' | undefined;
+      if (rawCategory === 'simpleEarn' || rawCategory === 'fixedRate') {
+        defaultCategory = rawCategory;
+      } else if (earnUtils.isPendleProvider({ providerName: provider })) {
+        defaultCategory = 'fixedRate';
+      }
       items.push({
         label: symbol,
         onClick: () => {
           EarnNavigation.pushToEarnProtocols(appNavigation, {
             symbol,
             logoURI: encodeURIComponent(tokenInfo.token.logoURI),
+            defaultCategory,
           });
         },
       });
@@ -85,6 +97,7 @@ export function useProtocolDetailBreadcrumb({
     provider,
     appNavigation,
     hasMultipleProtocols,
+    protocolList,
     tokenInfo?.token?.logoURI,
   ]);
 

@@ -2809,6 +2809,7 @@
   perps_builder_max_error = 'perps.builder_max_error',
   perps_buy_tip = 'perps.buy_tip',
   perps_connection_error = 'perps.connection_error',
+  perps_enjoy_perps = 'perps.enjoy_perps',
   perps_fee_desc = 'perps.fee_desc',
   perps_fee_rate_projection = 'perps.fee_rate_projection',
   perps_fee_tiers = 'perps.fee_tiers',

@@ -213,25 +213,48 @@ export function AvailableAssetsTabViewList() {
     async (asset: IEarnAvailableAsset) => {
       defaultLogger.staking.page.selectAsset({ tokenSymbol: asset.symbol });
 
+      // When current tab has only 1 protocol, check total across ALL categories.
+      // A token like USDe may have 1 FixedRate protocol but multiple SimpleEarn
+      // protocols — the user should still see the list page in that case.
       if (asset.protocols.length === 1) {
-        const protocol = asset.protocols[0];
-        await EarnNavigation.pushToEarnProtocolDetails(navigation, {
-          networkId: protocol.networkId,
-          symbol: asset.symbol,
-          provider: protocol.provider,
-          vault: protocol.vault,
-        });
-      } else {
-        EarnNavigation.pushToEarnProtocols(navigation, {
-          symbol: asset.symbol,
-          filterNetworkId: undefined,
-          logoURI: asset.logoURI
-            ? encodeURIComponent(asset.logoURI)
-            : undefined,
-        });
+        let totalProtocols = 1;
+        try {
+          const allProtocols =
+            await backgroundApiProxy.serviceStaking.getProtocolList({
+              symbol: asset.symbol,
+            });
+          totalProtocols = allProtocols?.length ?? 1;
+        } catch {
+          // Fallback: use current tab's count
+        }
+
+        if (totalProtocols <= 1) {
+          const protocol = asset.protocols[0];
+          await EarnNavigation.pushToEarnProtocolDetails(navigation, {
+            networkId: protocol.networkId,
+            symbol: asset.symbol,
+            provider: protocol.provider,
+            vault: protocol.vault,
+          });
+          return;
+        }
       }
+
+      // Multiple protocols across categories → go to protocol list page
+      const currentTabType = tabData[selectedTabIndex]?.type;
+      const defaultCategory =
+        currentTabType === EAvailableAssetsTypeEnum.SimpleEarn ||
+        currentTabType === EAvailableAssetsTypeEnum.FixedRate
+          ? (currentTabType as 'simpleEarn' | 'fixedRate')
+          : undefined;
+      EarnNavigation.pushToEarnProtocols(navigation, {
+        symbol: asset.symbol,
+        filterNetworkId: undefined,
+        logoURI: asset.logoURI ? encodeURIComponent(asset.logoURI) : undefined,
+        defaultCategory,
+      });
     },
-    [navigation],
+    [navigation, tabData, selectedTabIndex],
   );
 
   // Mobile custom renderer
@@ -240,12 +263,9 @@ export function AvailableAssetsTabViewList() {
       <ListItem
         userSelect="none"
         onPress={() => handleRowPress(asset)}
-        avatarProps={{
-          src: asset.logoURI,
-          fallbackProps: {
-            borderRadius: '$full',
-          },
-        }}
+        renderAvatar={
+          <Token size="md" tokenImageUri={asset.logoURI} borderRadius="$full" />
+        }
       >
         <ListItem.Text
           flex={1}

@@ -2804,6 +2804,7 @@
   "perps.builder_max_error": "No se pudo aprobar la tarifa del constructor.",
   "perps.buy_tip": "Necesita más {token}?",
   "perps.connection_error": "Error de conexión de hardware. Por favor, verifica la conexión y vuelve a intentarlo.",
+  "perps.enjoy_perps": "¿Disfrutas de Perps? Compártelo con tus amigos.",
   "perps.fee_desc": "La tarifa total consta de dos partes: la tarifa de transacción cobrada por Hyperliquid y la tarifa de constructor de OneKey. la tarifa de constructor de OneKey es una de las más bajas de la industria, ayudándote a minimizar los costos de transacción.",
   "perps.fee_rate_projection": "Proyección",
   "perps.fee_tiers": "Niveles de tarifas",
