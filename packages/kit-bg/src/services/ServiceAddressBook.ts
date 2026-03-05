@@ -526,32 +526,37 @@ class ServiceAddressBook extends ServiceBase {
 
   @backgroundMethod()
   async migrateRemoveHash({ password }: { password: string }) {
-    const { simpleDb } = this.backgroundApi;
-    const { items, hash } = await simpleDb.addressBook.getItemsAndHash();
+    await this.mutex.runExclusive(async () => {
+      const { simpleDb } = this.backgroundApi;
+      const { items, hash } = await simpleDb.addressBook.getItemsAndHash();
 
-    // Already migrated or fresh install — nothing to do
-    if (!hash) {
-      return;
-    }
+      // Already migrated or fresh install
+      if (!hash) {
+        return;
+      }
 
-    // Verify hash one last time (best effort — never lose data)
-    try {
-      const isValid = await this._verifyHashLegacy({
-        itemsToVerify: items,
-        password,
-      });
-      if (!isValid) {
+      // Verify hash one last time (best effort, never lose data)
+      try {
+        const isValid = await this._verifyHashLegacy({
+          itemsToVerify: items,
+          password,
+        });
+        if (!isValid) {
+          console.warn(
+            'Address book hash mismatch during migration, keeping items',
+          );
+        }
+      } catch (e) {
         console.warn(
-          'Address book hash mismatch during migration, keeping items',
+          'Address book hash verification failed during migration',
+          e,
         );
       }
-    } catch (e) {
-      console.warn('Address book hash verification failed during migration', e);
-    }
 
-    // Clear hash and backup hash — items are preserved
-    await simpleDb.addressBook.updateItemsAndHash({ items, hash: '' });
-    await simpleDb.addressBook.clearBackupHash();
+      // Clear hash and backup hash, items are preserved
+      await simpleDb.addressBook.updateItemsAndHash({ items, hash: '' });
+      await simpleDb.addressBook.clearBackupHash();
+    });
   }
 
   // Legacy hash helpers (kept only for migration)
