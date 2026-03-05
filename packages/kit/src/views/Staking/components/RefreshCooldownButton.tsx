@@ -20,12 +20,8 @@ function RefreshCooldownButtonComponent({
   triggerCooldown = 0,
 }: IRefreshCooldownButtonProps) {
   const [isCoolingDown, setIsCoolingDown] = useState(false);
-  const [isSpinning, setIsSpinning] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isFirstRender = useRef(true);
   const rotateAnim = useRef(new Animated.Value(0)).current;
-  const loopRef = useRef<Animated.CompositeAnimation | null>(null);
-  const wasLoadingRef = useRef(false);
 
   // Cooldown after quote fetched
   useEffect(() => {
@@ -36,32 +32,15 @@ function RefreshCooldownButtonComponent({
     if (triggerCooldown === 0) return;
 
     setIsCoolingDown(true);
-    timerRef.current = setTimeout(() => {
-      setIsCoolingDown(false);
-    }, cooldownMs);
-
-    return () => {
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-      }
-    };
+    const timer = setTimeout(() => setIsCoolingDown(false), cooldownMs);
+    return () => clearTimeout(timer);
   }, [triggerCooldown, cooldownMs]);
 
-  // Stop spinning when loading completes (true → false)
+  // Animate while loading
   useEffect(() => {
     if (loading) {
-      wasLoadingRef.current = true;
-    }
-    if (isSpinning && wasLoadingRef.current && !loading) {
-      setIsSpinning(false);
-    }
-  }, [isSpinning, loading]);
-
-  // Drive animation from isSpinning state
-  useEffect(() => {
-    if (isSpinning) {
       rotateAnim.setValue(0);
-      loopRef.current = Animated.loop(
+      const loop = Animated.loop(
         Animated.timing(rotateAnim, {
           toValue: 1,
           duration: 800,
@@ -69,20 +48,18 @@ function RefreshCooldownButtonComponent({
           useNativeDriver: true,
         }),
       );
-      loopRef.current.start();
-    } else {
-      loopRef.current?.stop();
-      loopRef.current = null;
-      rotateAnim.setValue(0);
+      loop.start();
+      return () => {
+        loop.stop();
+        rotateAnim.setValue(0);
+      };
     }
-  }, [isSpinning, rotateAnim]);
+  }, [loading, rotateAnim]);
 
-  const isDisabled = isCoolingDown || isSpinning;
+  const isDisabled = isCoolingDown || !!loading;
 
   const handlePress = useCallback(() => {
     if (isDisabled) return;
-    wasLoadingRef.current = false;
-    setIsSpinning(true);
     onPress();
   }, [isDisabled, onPress]);
 
