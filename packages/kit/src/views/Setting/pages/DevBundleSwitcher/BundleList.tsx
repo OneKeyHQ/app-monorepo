@@ -171,7 +171,11 @@ function BundleItem({
           skipGPGVerification,
         });
       } else {
-        if (!downloadedEventRef.current) return;
+        if (!downloadedEventRef.current) {
+          throw new Error(
+            'Downloaded bundle info missing, please download again.',
+          );
+        }
         await BundleUpdate.verifyBundleASC({
           ...downloadedEventRef.current,
           latestVersion: version,
