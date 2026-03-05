@@ -199,6 +199,7 @@ export function openFiatCryptoUrl(url: string, title?: string): void {
           url,
           title: title ?? '',
           redirectExternalNavigation: true,
+          hideHeaderRight: true,
         },
       },
     });

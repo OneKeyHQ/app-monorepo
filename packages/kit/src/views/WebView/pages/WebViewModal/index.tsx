@@ -44,6 +44,7 @@ export default function WebViewModal() {
     hashRoutePath,
     hashRouteQueryParams,
     redirectExternalNavigation,
+    hideHeaderRight,
   } = route.params;
   const navigation = useAppNavigation();
 
@@ -200,7 +201,10 @@ export default function WebViewModal() {
 
   return (
     <Page>
-      <Page.Header headerRight={headerRight} title={navigationTitle} />
+      <Page.Header
+        headerRight={hideHeaderRight ? undefined : headerRight}
+        title={navigationTitle}
+      />
       <Page.Body>
         {isWebEmbed ? (
           <WebViewWebEmbed

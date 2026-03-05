@@ -2,21 +2,14 @@ import { memo, useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 
-import type { IPageNavigationProp } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { TokenList } from '@onekeyhq/kit/src/views/FiatCrypto/components/TokenList';
 import { useGetTokensList } from '@onekeyhq/kit/src/views/FiatCrypto/hooks';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import {
-  EModalFiatCryptoRoutes,
-  type IModalFiatCryptoParamList,
-} from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { openFiatCryptoUrl } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type {
   IFiatCryptoToken,
   IFiatCryptoType,
@@ -33,13 +26,6 @@ type ISellOrBuyContentProps = {
 
 export const SellOrBuyContent = memo(
   ({ type, networkId, accountId }: ISellOrBuyContentProps) => {
-    const appNavigation =
-      useAppNavigation<
-        IPageNavigationProp<
-          IModalFiatCryptoParamList,
-          EModalFiatCryptoRoutes.BuyModal
-        >
-      >();
     const { result: tokens, isLoading } = useGetTokensList({
       networkId,
       accountId,
@@ -106,16 +92,9 @@ export const SellOrBuyContent = memo(
             type,
           });
         if (!url) return;
-        if (platformEnv.isDesktop || platformEnv.isNative) {
-          appNavigation.push(EModalFiatCryptoRoutes.FiatCryptoWebView, {
-            url,
-          });
-        } else {
-          openUrlExternal(url);
-          appNavigation.popStack();
-        }
+        openFiatCryptoUrl(url);
       },
-      [appNavigation, type],
+      [type],
     );
 
     const networkIds = useMemo(

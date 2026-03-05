@@ -22,7 +22,6 @@ export enum EModalReceiveRoutes {
   ReceiveSelectDeriveAddress = 'ReceiveSelectDeriveAddress',
   BtcAddresses = 'BtcAddresses',
   BuyModal = 'Buy',
-  FiatCryptoWebView = 'FiatCryptoWebView',
   DeriveTypesAddress = 'DeriveTypesAddress',
 }
 
@@ -69,9 +68,5 @@ export type IModalReceiveParamList = {
     walletId: string;
   };
   [EModalReceiveRoutes.BuyModal]: IModalFiatCryptoParamList;
-  [EModalReceiveRoutes.FiatCryptoWebView]: {
-    url: string;
-    title?: string;
-  };
   [EModalReceiveRoutes.DeriveTypesAddress]: IDeriveTypesAddressParams;
 };

@@ -5,7 +5,6 @@ import type { IDeriveTypesAddressParams } from './walletAddress';
 export enum EModalFiatCryptoRoutes {
   BuyModal = 'Buy',
   DeriveTypesAddress = 'DeriveTypesAddress',
-  FiatCryptoWebView = 'FiatCryptoWebView',
 }
 
 export type IModalFiatCryptoParamList = {
@@ -17,8 +16,4 @@ export type IModalFiatCryptoParamList = {
     defaultTab?: 'buy' | 'sell';
   };
   [EModalFiatCryptoRoutes.DeriveTypesAddress]: IDeriveTypesAddressParams;
-  [EModalFiatCryptoRoutes.FiatCryptoWebView]: {
-    url: string;
-    title?: string;
-  };
 };
