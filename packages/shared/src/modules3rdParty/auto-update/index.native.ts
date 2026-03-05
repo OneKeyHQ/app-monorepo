@@ -259,6 +259,7 @@ export const BundleUpdate: IBundleUpdate = {
   clearBundle: () => ReactNativeBundleUpdate.clearBundle(),
   clearAllJSBundleData: () => ReactNativeBundleUpdate.clearAllJSBundleData(),
   testVerification: () => ReactNativeBundleUpdate.testVerification(),
+  testSkipVerification: () => ReactNativeBundleUpdate.testSkipVerification(),
   testDeleteJsBundle: (appVersion, bundleVersion) =>
     ReactNativeBundleUpdate.testDeleteJsBundle(appVersion, bundleVersion),
   testDeleteJsRuntimeDir: (appVersion, bundleVersion) =>

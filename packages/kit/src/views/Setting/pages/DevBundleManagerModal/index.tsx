@@ -192,6 +192,20 @@ function BundleTestsContent({
         <Button
           variant="secondary"
           size="small"
+          onPress={async () => {
+            try {
+              const result = await BundleUpdate.testSkipVerification();
+              showTestResult(result);
+            } catch (error) {
+              showTestError(error);
+            }
+          }}
+        >
+          Skip Verification
+        </Button>
+        <Button
+          variant="secondary"
+          size="small"
           onPress={() => runTest(BundleUpdate.testDeleteJsBundle)}
         >
           Delete JsBundle
