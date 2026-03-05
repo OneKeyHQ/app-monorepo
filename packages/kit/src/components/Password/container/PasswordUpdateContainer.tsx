@@ -6,8 +6,11 @@ import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { biologyAuthUtils } from '@onekeyhq/kit-bg/src/services/ServicePassword/biologyAuthUtils';
-import { usePasswordModeAtom, usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  usePasswordModeAtom,
+  usePasswordPersistAtom,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EPasswordMode } from '@onekeyhq/shared/types/password';
@@ -72,7 +75,13 @@ const PasswordUpdateContainer = ({
       }
       setLoading(false);
     },
-    [oldEncodedPassword, onUpdateRes, intl, isBiologyAuthSwitchOn, webAuthCredentialId],
+    [
+      oldEncodedPassword,
+      onUpdateRes,
+      intl,
+      isBiologyAuthSwitchOn,
+      webAuthCredentialId,
+    ],
   );
   return (
     <PasswordSetup
