@@ -171,10 +171,6 @@ const DesktopWebView = forwardRef(
           event: DidStartNavigationEvent,
         ) => {
           const { isMainFrame, url } = event ?? {};
-          if (isMainFrame) {
-            setDesktopLoadError(false);
-            setIsDomReady(false);
-          }
           if (isMainFrame && onShouldStartLoadWithRequest && url) {
             const shouldLoad = onShouldStartLoadWithRequest({
               url,
@@ -184,6 +180,10 @@ const DesktopWebView = forwardRef(
               webviewRef.current?.stop();
               return;
             }
+          }
+          if (isMainFrame) {
+            setDesktopLoadError(false);
+            setIsDomReady(false);
           }
           checkGoogleOauth(url);
           checkEraseElectronFeature(url);
