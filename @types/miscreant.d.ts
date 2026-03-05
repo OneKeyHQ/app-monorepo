@@ -1,8 +1,6 @@
 declare module 'miscreant' {
   interface ICryptoProvider {
-    importBlockCipherKey(
-      keyData: Uint8Array,
-    ): Promise<IBlockCipher>;
+    importBlockCipherKey(keyData: Uint8Array): Promise<IBlockCipher>;
   }
 
   interface IBlockCipher {
@@ -11,15 +9,11 @@ declare module 'miscreant' {
   }
 
   export class PolyfillCryptoProvider implements ICryptoProvider {
-    importBlockCipherKey(
-      keyData: Uint8Array,
-    ): Promise<IBlockCipher>;
+    importBlockCipherKey(keyData: Uint8Array): Promise<IBlockCipher>;
   }
 
   export class WebCryptoProvider implements ICryptoProvider {
-    importBlockCipherKey(
-      keyData: Uint8Array,
-    ): Promise<IBlockCipher>;
+    importBlockCipherKey(keyData: Uint8Array): Promise<IBlockCipher>;
   }
 
   export class SIV {

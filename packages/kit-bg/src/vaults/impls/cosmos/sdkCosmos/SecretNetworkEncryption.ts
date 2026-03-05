@@ -8,7 +8,7 @@ import { decryptAsync } from '@onekeyhq/core/src/secret/encryptors/aes256';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 // Consensus seed from Secret Network mainnet genesis, used as HKDF salt.
-// This value is hardcoded in secretjs as well — it never changes.
+// This value is hardcoded in secret.js as well — it never changes.
 const MAINNET_CONSENSUS_SEED = hexToBytes(
   '000000000000000000024bead8df69990852c202db0e0097c1a12ea637d7e96d',
 );

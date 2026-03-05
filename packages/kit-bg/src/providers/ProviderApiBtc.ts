@@ -390,12 +390,8 @@ class ProviderApiBtc extends ProviderApiBase {
 
     const mappedUtxos =
       utxoList?.map((it) => {
-        let satoshis = 0;
-        try {
-          satoshis = it.value ? parseInt(it.value, 10) : 0;
-        } catch (error) {
-          // ignore parse error
-        }
+        const bn = new BigNumber(it.value ?? 0);
+        const satoshis = bn.isNaN() ? 0 : bn.toNumber();
 
         return {
           txid: it.txid,
