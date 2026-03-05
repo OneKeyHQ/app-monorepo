@@ -5,6 +5,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import type { IAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { WEB_APP_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ERootRoutes,
@@ -191,6 +192,25 @@ export function isCurrentlyInUrlAccountPage(): boolean {
   }
 }
 
+export function getHomeTabStackLength(): number {
+  try {
+    const state = rootNavigationRef.current?.getRootState();
+    if (!state?.routes) return 0;
+
+    const mainRoute = state.routes.find(
+      (route) => route.name === ERootRoutes.Main,
+    );
+    if (!mainRoute?.state?.routes) return 0;
+
+    const homeTabRoute = mainRoute.state.routes.find(
+      (route) => route.name === ETabRoutes.Home,
+    );
+    return homeTabRoute?.state?.routes?.length ?? 0;
+  } catch (_error) {
+    return 0;
+  }
+}
+
 export const urlAccountNavigation = {
   pushHomePage(navigation: IAppNavigation) {
     navigation.dispatch(
@@ -218,14 +238,41 @@ export const urlAccountNavigation = {
       realNetworkIdFallback: params.networkId || '',
       contextNetworkId: params.contextNetworkId || '',
     });
+    defaultLogger.app.router.switchTab(ETabRoutes.Home);
     navigation.switchTab(ETabRoutes.Home);
+    defaultLogger.app.router.switchTabDone(ETabRoutes.Home);
     await timerUtils.wait(0);
+    const navState = rootNavigationRef.current?.getRootState();
+    const focusedRoute = navState?.routes?.[navState?.index ?? 0];
+    const mainRoute = focusedRoute?.state;
+    const focusedTab = mainRoute?.routes?.[mainRoute?.index ?? 0];
+    const tabStack = focusedTab?.state;
+    defaultLogger.app.router.navState({
+      action: 'pushUrlAccountPage:afterWait',
+      focusedTab: focusedTab?.name,
+      stackDepth: tabStack?.routes?.length,
+      topRoute: tabStack?.routes?.[tabStack?.routes?.length - 1]?.name,
+    });
     rootNavigationRef.current?.dispatch(
       StackActions.push(ETabHomeRoutes.TabHomeUrlAccountPage, {
         address: params.address,
         networkId: networkSegment,
       }),
     );
+    const navStateAfter = rootNavigationRef.current?.getRootState();
+    const focusedRouteAfter =
+      navStateAfter?.routes?.[navStateAfter?.index ?? 0];
+    const mainRouteAfter = focusedRouteAfter?.state;
+    const focusedTabAfter =
+      mainRouteAfter?.routes?.[mainRouteAfter?.index ?? 0];
+    const tabStackAfter = focusedTabAfter?.state;
+    defaultLogger.app.router.navState({
+      action: 'pushUrlAccountPage:afterDispatch',
+      focusedTab: focusedTabAfter?.name,
+      stackDepth: tabStackAfter?.routes?.length,
+      topRoute:
+        tabStackAfter?.routes?.[tabStackAfter?.routes?.length - 1]?.name,
+    });
   },
   async pushOrReplaceUrlAccountPage(
     navigation: IAppNavigation,
@@ -241,11 +288,18 @@ export const urlAccountNavigation = {
       contextNetworkId: params.contextNetworkId || '',
     });
     // If not in URL account page, switch to Home tab and push
+    defaultLogger.app.router.switchTab(ETabRoutes.Home);
     navigation.switchTab(ETabRoutes.Home);
+    defaultLogger.app.router.switchTabDone(ETabRoutes.Home);
     rootNavigationRef.current?.navigate(ETabRoutes.Home, {
       screen: ETabHomeRoutes.TabHome,
     });
     await timerUtils.wait(100);
+    defaultLogger.app.router.pushRoute({
+      action: 'replaceUrlAccountPage',
+      address: params.address,
+      routeName: ETabHomeRoutes.TabHomeUrlAccountPage,
+    });
     rootNavigationRef.current?.dispatch(
       StackActions.replace(ETabHomeRoutes.TabHomeUrlAccountPage, {
         address: params.address,
@@ -271,15 +325,22 @@ export const urlAccountNavigation = {
       networkId: string | undefined;
     },
   ) {
+    defaultLogger.app.router.pushRoute({
+      action: 'deeplink:navigateToTabHome',
+      address: params.address,
+    });
     navigation.navigate(ERootRoutes.Main, {
       screen: ETabRoutes.Home,
       params: {
         screen: ETabHomeRoutes.TabHome,
       },
     });
-
     await timerUtils.wait(100);
-    console.log('pushUrlAccountPageFromDeeplink >>>>>', params);
+    defaultLogger.app.router.pushRoute({
+      action: 'deeplink:navigateToUrlAccountPage',
+      address: params.address,
+      routeName: ETabHomeRoutes.TabHomeUrlAccountPage,
+    });
     navigation.navigate(ERootRoutes.Main, {
       screen: ETabRoutes.Home,
       params: {
