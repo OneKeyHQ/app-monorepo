@@ -263,6 +263,15 @@ function MarketTokenListBase({
     ],
   );
 
+  // Stable ref for handleHeaderRow to avoid portalContent useMemo recreation
+  // when sort state changes. Same ref pattern used in MobileLayout for perps category.
+  const handleHeaderRowRef = useRef(handleHeaderRow);
+  handleHeaderRowRef.current = handleHeaderRow;
+  const stableHandleHeaderRow = useCallback(
+    (column: ITableColumn<IMarketToken>) => handleHeaderRowRef.current(column),
+    [],
+  );
+
   const handleEndReached = useCallback(() => {
     if (canLoadMore && loadMore && !isLoadingMore) {
       void loadMore();
@@ -335,7 +344,7 @@ function MarketTokenListBase({
           ) : null}
           <Table.HeaderRow
             columns={marketTokenColumns}
-            onHeaderRow={handleHeaderRow}
+            onHeaderRow={stableHandleHeaderRow}
           />
         </YStack>
       </StickyHeaderPortal>
@@ -346,7 +355,7 @@ function MarketTokenListBase({
     stickyPortalTarget,
     toolbar,
     marketTokenColumns,
-    handleHeaderRow,
+    stableHandleHeaderRow,
   ]);
 
   return (
@@ -412,7 +421,7 @@ function MarketTokenListBase({
               dataSource={data}
               keyExtractor={(item) => item.id}
               extraData={networkId}
-              onHeaderRow={handleHeaderRow}
+              onHeaderRow={stableHandleHeaderRow}
               TableFooterComponent={TableFooterComponent}
               estimatedItemSize={60}
               onRow={(item, index) => ({
