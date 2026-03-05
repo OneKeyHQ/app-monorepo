@@ -705,7 +705,7 @@ class ServiceAppUpdate extends ServiceBase {
       defaultLogger.app.jsBundleDev.fetchBundleVersionsError(
         (e as Error)?.message || 'Unknown error',
       );
-      throw e;
+      return [];
     }
   }
 
@@ -767,7 +767,7 @@ class ServiceAppUpdate extends ServiceBase {
         version,
         error: (e as Error)?.message || 'Unknown error',
       });
-      throw e;
+      return [];
     }
   }
 }
