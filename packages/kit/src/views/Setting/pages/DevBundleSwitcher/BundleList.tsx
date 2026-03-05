@@ -315,16 +315,26 @@ export default function SettingDevBundleList() {
   const currentAppVersion = String(platformEnv.version);
 
   useEffect(() => {
+    let isMounted = true;
     void (async () => {
       try {
-        const [data, skipGpg] = await Promise.all([
+        const [data, skipGpg, localBundles] = await Promise.all([
           backgroundApiProxy.serviceAppUpdate.devFetchBundlesForVersion(
             version,
           ),
           backgroundApiProxy.serviceDevSetting.getSkipBundleGPGVerification(),
+          BundleUpdate.listLocalBundles().catch(() => []),
         ]);
+        if (!isMounted) return;
+
         setGpgSkipped(skipGpg);
         setBundles(data);
+
+        const downloaded = new Set<string>(
+          localBundles
+            .filter((b) => String(b.appVersion) === String(version))
+            .map((b) => String(b.bundleVersion)),
+        );
 
         const existsChecks = await Promise.all(
           data.map(async (b) => ({
@@ -343,11 +353,26 @@ export default function SettingDevBundleList() {
             downloaded.add(check.bundleVersion);
           }
         }
-        setDownloadedSet(downloaded);
+        if (isMounted) {
+          setDownloadedSet(downloaded);
+        }
+      } catch (e) {
+        defaultLogger.app.jsBundleDev.fetchBundlesError({
+          version,
+          error: (e as Error)?.message || 'Unknown error',
+        });
+        if (isMounted) {
+          setBundles([]);
+        }
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     })();
+    return () => {
+      isMounted = false;
+    };
   }, [version]);
 
   const handleDownloadStart = useCallback(() => {
