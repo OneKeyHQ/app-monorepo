@@ -292,7 +292,7 @@ index e37e40a..f76720e 100644
        afterTransitions();
        return;
      }
-@@ -624,16 +753,25 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -624,16 +753,23 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
                ? static_cast<RNSScreen *>(firstModalToBeDismissed).screenView.stackAnimation !=
                    RNSScreenStackAnimationNone
                : YES;
@@ -357,15 +357,6 @@ index e37e40a..f76720e 100644
      if (!_updateScheduled) {
        _updateScheduled = YES;
        __weak RNSScreenStackView *weakSelf = self;
-@@ -694,6 +847,8 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
-           }
-           completion:^(id<UIViewControllerTransitionCoordinatorContext> _Nonnull context) {
-             self->_updateScheduled = NO;
-+            weakSelf->_pendingContainerUpdate = YES;
-+            [weakSelf schedulePendingContainerUpdateRetry:@"setPushViewControllers-transition-completion"];
-             [weakSelf updateContainer];
-           }];
-     }
 @@ -750,8 +905,15 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
        NSMutableArray *newControllers = [NSMutableArray arrayWithArray:controllers];
        [newControllers removeLastObject];
