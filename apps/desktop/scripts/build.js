@@ -116,10 +116,13 @@ build({
     'process.env.SENTRY_DSN_WEB': JSON.stringify(
       process.env.SENTRY_DSN_WEB || '',
     ),
-    'process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION':
-      process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION === 'false'
-        ? 'false'
-        : 'true',
+    'process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION': (
+      process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION
+        ? process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION === 'true'
+        : process.env.NODE_ENV !== 'production'
+    )
+      ? 'true'
+      : 'false',
   },
 })
   .then(() => {
