@@ -9,14 +9,13 @@ import {
   COLORS,
   REFERENCE_CURRENT_RATE,
   REFERENCE_TARGET_RATE,
-  buildPathTransform,
   clamp,
   fitTextToWidth,
   formatRate,
   getBadgeWidth,
 } from './shared';
 
-import type { IPathLayout, IPendlePtConvergenceChartProps } from './shared';
+import type { IPendlePtConvergenceChartProps } from './shared';
 
 const NATIVE_SVG_WIDTH = 353;
 const NATIVE_SVG_HEIGHT = 176;
@@ -38,39 +37,14 @@ const NATIVE_AXIS_RIGHT_PADDING = 4;
 const NATIVE_CURRENT_BADGE_HEIGHT = 16;
 const NATIVE_BADGE_MIN_WIDTH = 56;
 
-const NATIVE_LEFT_LINE_PATH =
-  'M67.5 21.236C56.9762 21.236 46.4523 18.2009 35.9285 15.3176C25.4047 12.4344 14.8808 11.524 4.35703 3.93658C3.23802 3.1298 2.11901 2.1359 1 1';
-const NATIVE_CURVE_PATH =
-  'M1 1C11.5238 1 22.0476 12.2318 32.5714 15.7135C43.0952 19.1952 53.6191 17.7725 64.1429 21.8904C74.6667 26.0083 85.1906 52.4119 95.7144 55.5605C106.238 58.709 116.762 57.1348 127.286 60.2833C136.69 63.0971 146.095 82.6741 155.5 92.2208';
-const NATIVE_FILL_PATH =
-  'M31.5714 14.7135C21.0476 11.2318 10.5238 0 0 0V122H221V111.457C210.476 111.457 199.952 108.422 189.429 105.538C178.905 102.655 168.381 101.745 157.857 94.1574C147.333 86.57 136.809 62.4319 126.286 59.2833C115.762 56.1348 105.238 57.709 94.7144 54.5605C84.1906 51.4119 73.6667 25.0083 63.1429 20.8904C52.6191 16.7725 42.0952 18.1952 31.5714 14.7135Z';
+// Full-width wavy curve in native SVG absolute coordinates (scaled from web reference).
+// Key anchor: at NATIVE_NOW_X (66) the curve sits at NATIVE_CURRENT_REFERENCE_Y (118).
+const NATIVE_FULL_CURVE_PATH =
+  'M 5 121 C 15 121 29 100 39 103 C 49 106 58 115 66 118 C 73 121 77 136 85 136 C 94 136 103 83 115 83 C 124 83 128 96 137 88 C 148 76 157 66 166 60 C 176 54 189 39 198 37 C 207 34 215 29 221 28';
 
-const NATIVE_FILL_LAYOUT: IPathLayout = {
-  x: 0,
-  y: 28,
-  width: 221,
-  height: 122,
-  viewBoxWidth: 221,
-  viewBoxHeight: 122,
-};
-
-const NATIVE_LEFT_LAYOUT: IPathLayout = {
-  x: 0,
-  y: 119.216,
-  width: 66.5,
-  height: 20.236,
-  viewBoxWidth: 68.5,
-  viewBoxHeight: 22.236,
-};
-
-const NATIVE_CURVE_LAYOUT: IPathLayout = {
-  x: 66.5,
-  y: 28,
-  width: 154.5,
-  height: 91.221,
-  viewBoxWidth: 156.5,
-  viewBoxHeight: 93.2208,
-};
+// Same curve closed to the bottom for the gradient fill area.
+const NATIVE_FULL_FILL_PATH =
+  'M 5 121 C 15 121 29 100 39 103 C 49 106 58 115 66 118 C 73 121 77 136 85 136 C 94 136 103 83 115 83 C 124 83 128 96 137 88 C 148 76 157 66 166 60 C 176 54 189 39 198 37 C 207 34 215 29 221 28 L 221 150 L 5 150 Z';
 
 const REFERENCE_RATE_GAP = REFERENCE_TARGET_RATE - REFERENCE_CURRENT_RATE;
 const NATIVE_REFERENCE_CURVE_SPAN =
@@ -146,9 +120,6 @@ function generateSvgHTML(params: {
   const safeTitleLabel = escapeHtml(titleLabel);
   const safeTargetLabel = escapeHtml(targetLabel);
   const safeCurrentLabel = escapeHtml(currentLabel);
-  const fillTransform = buildPathTransform(NATIVE_FILL_LAYOUT);
-  const leftTransform = buildPathTransform(NATIVE_LEFT_LAYOUT);
-  const curveTransform = buildPathTransform(NATIVE_CURVE_LAYOUT);
   const curveGroupTransform = `translate(0 ${NATIVE_TARGET_Y}) scale(1 ${curveScale}) translate(0 ${-NATIVE_TARGET_Y})`;
   const currentBadgeY = currentY - NATIVE_CURRENT_BADGE_HEIGHT / 2;
   const badgeTextClipX = NATIVE_AXIS_TEXT_X + NATIVE_AXIS_TEXT_PADDING;
@@ -187,9 +158,8 @@ function generateSvgHTML(params: {
     <g clip-path="url(#convergenceClip)">
       <line x1="0" y1="${currentY}" x2="${NATIVE_CHART_WIDTH}" y2="${currentY}" stroke="${guideLineColor}" stroke-width="1" stroke-dasharray="2,2"/>
       <g transform="${curveGroupTransform}">
-        <path d="${NATIVE_FILL_PATH}" transform="${fillTransform}" fill="url(#convergenceGrad)"/>
-        <path d="${NATIVE_LEFT_LINE_PATH}" transform="${leftTransform}" stroke="${COLORS.greenStroke}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke" fill="none"/>
-        <path d="${NATIVE_CURVE_PATH}" transform="${curveTransform}" stroke="${COLORS.greenStroke}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="3 6" vector-effect="non-scaling-stroke" fill="none"/>
+        <path d="${NATIVE_FULL_FILL_PATH}" fill="url(#convergenceGrad)"/>
+        <path d="${NATIVE_FULL_CURVE_PATH}" stroke="${COLORS.greenStroke}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="3 6" vector-effect="non-scaling-stroke" fill="none"/>
       </g>
       <circle cx="${NATIVE_DOT_X}" cy="${currentY}" r="5" fill="${COLORS.greenStroke}" stroke="${dotStrokeColor}" stroke-width="2"/>
     </g>

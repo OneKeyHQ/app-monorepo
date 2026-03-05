@@ -6,21 +6,16 @@ import {
   BOTTOM_Y,
   CHART_WIDTH,
   COLORS,
-  CURVE_LAYOUT,
-  CURVE_PATH,
   DOT_X,
   END_X,
-  FILL_LAYOUT,
-  FILL_PATH,
+  FULL_CURVE_PATH,
+  FULL_FILL_PATH,
   LABEL_Y,
-  LEFT_LAYOUT,
-  LEFT_LINE_PATH,
   MID_X,
   NOW_X,
   SVG_HEIGHT,
   SVG_WIDTH,
   TARGET_Y,
-  buildPathTransform,
   fitTextToWidth,
   formatRate,
   getBadgeWidth,
@@ -143,24 +138,9 @@ export function PendlePtConvergenceChart({
           <g
             transform={`translate(0 ${TARGET_Y}) scale(1 ${curveScale}) translate(0 ${-TARGET_Y})`}
           >
+            <path d={FULL_FILL_PATH} fill={`url(#${gradientId})`} />
             <path
-              d={FILL_PATH}
-              transform={buildPathTransform(FILL_LAYOUT)}
-              fill={`url(#${gradientId})`}
-            />
-            <path
-              d={LEFT_LINE_PATH}
-              transform={buildPathTransform(LEFT_LAYOUT)}
-              stroke={COLORS.greenStroke}
-              strokeWidth={2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              vectorEffect="non-scaling-stroke"
-              fill="none"
-            />
-            <path
-              d={CURVE_PATH}
-              transform={buildPathTransform(CURVE_LAYOUT)}
+              d={FULL_CURVE_PATH}
               stroke={COLORS.greenStroke}
               strokeWidth={2}
               strokeLinecap="round"
