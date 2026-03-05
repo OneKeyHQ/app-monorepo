@@ -601,7 +601,7 @@ class ServiceMarketV2 extends ServiceBase {
       },
     );
 
-    return tokens;
+    return tokens.filter((t) => t.symbol);
   }
 
   private _fetchMarketTokenSecurityCached = memoizee(
