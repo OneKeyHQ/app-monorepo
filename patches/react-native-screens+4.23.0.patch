@@ -37,7 +37,7 @@ index 7055a0d..81ee02b 100644
      }
  
 diff --git a/node_modules/react-native-screens/ios/RNSScreenStack.mm b/node_modules/react-native-screens/ios/RNSScreenStack.mm
-index e37e40a..f76720e 100644
+index e37e40a..38eabd4 100644
 --- a/node_modules/react-native-screens/ios/RNSScreenStack.mm
 +++ b/node_modules/react-native-screens/ios/RNSScreenStack.mm
 @@ -31,6 +31,20 @@
@@ -292,7 +292,7 @@ index e37e40a..f76720e 100644
        afterTransitions();
        return;
      }
-@@ -624,16 +753,25 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -624,16 +753,28 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
                ? static_cast<RNSScreen *>(firstModalToBeDismissed).screenView.stackAnimation !=
                    RNSScreenStackAnimationNone
                : YES;
@@ -317,12 +317,15 @@ index e37e40a..f76720e 100644
                animateAlongsideTransition:nil
                                completion:^(id<UIViewControllerTransitionCoordinatorContext> _) {
 +                                RNSScreenStackLog(@"setModalViewControllers: transitionCoordinator completion called");
-+                                weakSelf->_pendingContainerUpdate = YES;
-+                                [weakSelf schedulePendingContainerUpdateRetry:@"setModalViewControllers-transitionCoordinator-completion"];
++                                RNSScreenStackView *strongSelf = weakSelf;
++                                if (strongSelf) {
++                                  strongSelf->_pendingContainerUpdate = YES;
++                                  [strongSelf schedulePendingContainerUpdateRetry:@"setModalViewControllers-transitionCoordinator-completion"];
++                                }
                                  finish();
                                }];
          }
-@@ -670,12 +808,24 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -670,12 +811,24 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
  {
    // when there is no change we return immediately
    if ([_controller.viewControllers isEqualToArray:controllers]) {
@@ -347,7 +350,7 @@ index e37e40a..f76720e 100644
      return;
    }
    // when transition is ongoing, any updates made to the controller will not be reflected until the
-@@ -685,6 +835,9 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -685,6 +838,9 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
    // making any updated when transition is ongoing and schedule updates for when the transition
    // is complete.
    if (_controller.transitionCoordinator != nil) {
@@ -357,7 +360,24 @@ index e37e40a..f76720e 100644
      if (!_updateScheduled) {
        _updateScheduled = YES;
        __weak RNSScreenStackView *weakSelf = self;
-@@ -750,8 +905,15 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -693,8 +849,14 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
+             // do nothing here, we only want to be notified when transition is complete
+           }
+           completion:^(id<UIViewControllerTransitionCoordinatorContext> _Nonnull context) {
+-            self->_updateScheduled = NO;
+-            [weakSelf updateContainer];
++            RNSScreenStackView *strongSelf = weakSelf;
++            if (!strongSelf) {
++              return;
++            }
++            strongSelf->_updateScheduled = NO;
++            strongSelf->_pendingContainerUpdate = YES;
++            [strongSelf schedulePendingContainerUpdateRetry:@"setPushViewControllers-transition-completion"];
++            [strongSelf updateContainer];
+           }];
+     }
+     return;
+@@ -750,8 +912,15 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
        NSMutableArray *newControllers = [NSMutableArray arrayWithArray:controllers];
        [newControllers removeLastObject];
  
@@ -373,7 +393,7 @@ index e37e40a..f76720e 100644
      } else {
        // don't really know what this case could be, but may need to handle it
        // somehow
-@@ -765,6 +927,8 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -765,6 +934,8 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
  
  - (void)updateContainer
  {
@@ -382,7 +402,7 @@ index e37e40a..f76720e 100644
    NSMutableArray<UIViewController *> *pushControllers = [NSMutableArray new];
    NSMutableArray<UIViewController *> *modalControllers = [NSMutableArray new];
    for (RNSScreenView *screen in _reactSubviews) {
-@@ -868,13 +1032,17 @@ - (void)rnscreens_disableInteractions
+@@ -868,13 +1039,17 @@ - (void)rnscreens_disableInteractions
  {
    // When transitioning between screens, disable interactions on stack subview which wraps the screens
    // and sink all gesture events. This should work for nested stacks and stack inside bottom tabs, inside stack.
