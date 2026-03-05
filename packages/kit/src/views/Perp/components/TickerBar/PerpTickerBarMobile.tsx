@@ -13,7 +13,6 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { GiftAction } from '@onekeyhq/kit/src/components/TabPageHeader/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePerpsTokenSearchAliasesAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import {
@@ -27,6 +26,7 @@ import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import type { ITokenSearchAliases } from '@onekeyhq/shared/src/utils/perpsUtils';
 import { getTokenSubtitle } from '@onekeyhq/shared/src/utils/perpsUtils';
 
+import { PerpsActivityCenterAction } from '../PerpsActivityCenterAction';
 import { PerpSettingsButton } from '../PerpSettingsButton';
 import { PerpTokenSelectorMobile } from '../TokenSelector/PerpTokenSelector';
 import { PerpsAccountNumberValue } from '../TradingPanel/components/PerpsAccountNumberValue';
@@ -155,7 +155,7 @@ function PerpCandleChartButtonMobile() {
   return (
     <DebugRenderTracker name="PerpCandleChartButtonMobile">
       <IconButton
-        icon="TradeOutline"
+        icon="TradingViewCandlesOutline"
         size="small"
         iconProps={{ color: '$iconSubdued' }}
         variant="tertiary"
@@ -291,7 +291,7 @@ export function PerpTickerBarMobile() {
 
       <XStack pt="$0.5" gap="$3" alignItems="center">
         <PerpTickerBarMMRInfoMobile />
-        <GiftAction source="Perps" size="small" copyAsUrl />
+        <PerpsActivityCenterAction size="small" copyAsUrl />
         <PerpCandleChartButtonMobile />
         <PerpSettingsButton
           testID="perp-mobile-settings-button"

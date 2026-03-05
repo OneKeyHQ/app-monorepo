@@ -22,9 +22,9 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { LazyPageContainer } from '../../../components/LazyPageContainer';
 import { TabPageHeader } from '../../../components/TabPageHeader';
-import { GiftAction } from '../../../components/TabPageHeader/components';
 import { useNativePerpFeatureGuard } from '../../../hooks/usePerpFeatureGuard';
 import { PerpContentFooter } from '../components/PerpContentFooter';
+import { PerpsActivityCenterAction } from '../components/PerpsActivityCenterAction';
 import { PerpSettingsButton } from '../components/PerpSettingsButton';
 import { PerpsGlobalEffects } from '../components/PerpsGlobalEffects';
 import { PerpsHeaderRight } from '../components/TradingPanel/components/PerpsHeaderRight';
@@ -89,7 +89,7 @@ function PerpContent() {
       }
       customToolbarItems={
         <>
-          <GiftAction source="Perps" size="small" copyAsUrl />
+          <PerpsActivityCenterAction size="small" copyAsUrl />
           <PerpSettingsButton testID="perp-header-settings-button" />
           <HeaderIconButton
             icon="DownloadOutline"
