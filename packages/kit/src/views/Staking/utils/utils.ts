@@ -127,3 +127,27 @@ export function countDecimalPlaces(input: string | number): number {
   // Return the number of characters after the decimal point
   return inputStr.length - decimalIndex - 1;
 }
+
+export function shouldShowStakingSummaryCard({
+  isDisabled,
+  isPendleProvider,
+  amountValue,
+  hasSummarySection,
+  showPendleTransactionSection,
+}: {
+  isDisabled?: boolean;
+  isPendleProvider: boolean;
+  amountValue: string;
+  hasSummarySection: boolean;
+  showPendleTransactionSection: boolean;
+}): boolean {
+  if (isDisabled) {
+    return false;
+  }
+
+  if (isPendleProvider && Number(amountValue) <= 0) {
+    return false;
+  }
+
+  return hasSummarySection || showPendleTransactionSection;
+}

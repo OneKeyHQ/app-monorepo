@@ -335,6 +335,7 @@ export const EarnNavigation = {
       symbol: string;
       filterNetworkId?: string;
       logoURI?: string;
+      defaultCategory?: 'simpleEarn' | 'fixedRate';
     },
   ) {
     void safePushToEarnRoute(navigation, ETabEarnRoutes.EarnProtocols, params);

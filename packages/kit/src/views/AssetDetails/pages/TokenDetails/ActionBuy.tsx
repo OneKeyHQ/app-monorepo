@@ -20,8 +20,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
+  openFiatCryptoUrl,
   openUrlExternal,
-  openUrlInDiscovery,
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IFiatCryptoType } from '@onekeyhq/shared/types/fiatCrypto';
 
@@ -141,7 +141,7 @@ function ActionBuy({
           return;
         }
         if (platformEnv.isDesktop || platformEnv.isNative) {
-          openUrlInDiscovery({ url });
+          openFiatCryptoUrl(url);
         } else {
           openUrlExternal(url);
         }
