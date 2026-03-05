@@ -71,7 +71,7 @@ index e37e40a..dc5708b 100644
    UIPanGestureRecognizer *_sinkEventsPanGestureRecognizer;
  #ifdef RCT_NEW_ARCH_ENABLED
    /// Screens that are subject of `ShadowViewMutation::Type::Delete` mutation
-@@ -346,6 +363,59 @@ - (void)presentationControllerDidDismiss:(UIPresentationController *)presentatio
+@@ -346,6 +363,58 @@ - (void)presentationControllerDidDismiss:(UIPresentationController *)presentatio
    }
  }
  
@@ -111,10 +111,9 @@ index e37e40a..dc5708b 100644
 +    if (shouldRetryLater) {
 +      strongSelf->_pendingUpdateRetryCount += 1;
 +      if (strongSelf->_pendingUpdateRetryCount > 45) {
-+        RNSScreenStackLog(@"schedulePendingContainerUpdateRetry: retry limit reached, forcing updateContainer once");
-+        strongSelf->_pendingContainerUpdate = NO;
++        RNSScreenStackLog(@"schedulePendingContainerUpdateRetry: retry limit reached, giving up (will retry on didMoveToWindow)");
 +        strongSelf->_pendingUpdateRetryCount = 0;
-+        [strongSelf updateContainer];
++        // Leave _pendingContainerUpdate = YES so didMoveToWindow can pick it up later.
 +        return;
 +      }
 +      [strongSelf schedulePendingContainerUpdateRetry:@"window-or-transition-not-ready"];
