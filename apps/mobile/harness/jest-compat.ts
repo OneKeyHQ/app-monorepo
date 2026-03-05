@@ -100,28 +100,53 @@ const wrappedTest = Object.assign(wrapTest(test), {
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
 type ModSnapshot = {
-  top: Record<string, unknown>;
-  defaultObj?: Record<string, unknown>;
+  descriptors: Record<string, PropertyDescriptor>;
+  defaultDescriptors?: Record<string, PropertyDescriptor>;
 };
 
 const mockSnapshots = new Map<Record<string, unknown>, ModSnapshot>();
 
+// Force-set a property on an object, handling read-only and getter-only props.
+// Metro marks __esModule as non-writable and re-exports as getter-only,
+// so plain assignment / Object.assign would throw.
+const forceSet = (obj: Record<string, unknown>, key: string, value: unknown) => {
+  try {
+    obj[key] = value;
+  } catch {
+    Object.defineProperty(obj, key, {
+      value,
+      writable: true,
+      configurable: true,
+      enumerable: true,
+    });
+  }
+};
+
+const forceDelete = (obj: Record<string, unknown>, key: string) => {
+  try {
+    delete obj[key];
+  } catch {
+    Object.defineProperty(obj, key, {
+      value: undefined,
+      writable: true,
+      configurable: true,
+      enumerable: false,
+    });
+  }
+};
+
 const saveSnapshot = (mod: Record<string, unknown>) => {
   if (mockSnapshots.has(mod)) return;
-  const snapshot: ModSnapshot = { top: {} };
-  for (const key of Object.keys(mod)) {
-    snapshot.top[key] = mod[key];
-  }
+  const snapshot: ModSnapshot = {
+    descriptors: Object.getOwnPropertyDescriptors(mod),
+  };
   if (
     (mod as any).__esModule &&
     mod.default &&
     typeof mod.default === 'object'
   ) {
     const defaultObj = mod.default as Record<string, unknown>;
-    snapshot.defaultObj = {};
-    for (const key of Object.keys(defaultObj)) {
-      snapshot.defaultObj[key] = defaultObj[key];
-    }
+    snapshot.defaultDescriptors = Object.getOwnPropertyDescriptors(defaultObj);
   }
   mockSnapshots.set(mod, snapshot);
 };
@@ -130,29 +155,39 @@ const restoreAllMocks = () => {
   for (const [mod, snapshot] of mockSnapshots) {
     // Restore default export object
     if (
-      snapshot.defaultObj &&
+      snapshot.defaultDescriptors &&
       (mod as any).__esModule &&
       mod.default &&
       typeof mod.default === 'object'
     ) {
       const defaultObj = mod.default as Record<string, unknown>;
       for (const key of Object.keys(defaultObj)) {
-        if (!(key in snapshot.defaultObj)) {
-          delete defaultObj[key];
+        if (!(key in snapshot.defaultDescriptors)) {
+          forceDelete(defaultObj, key);
         }
       }
-      Object.assign(defaultObj, snapshot.defaultObj);
+      for (const [key, desc] of Object.entries(snapshot.defaultDescriptors)) {
+        try {
+          Object.defineProperty(defaultObj, key, desc);
+        } catch {
+          // Best effort restore
+        }
+      }
     }
 
     // Restore top-level exports
     for (const key of Object.keys(mod)) {
-      if (key !== '__esModule' && !(key in snapshot.top)) {
-        delete mod[key];
+      if (key !== '__esModule' && !(key in snapshot.descriptors)) {
+        forceDelete(mod, key);
       }
     }
-    for (const key of Object.keys(snapshot.top)) {
+    for (const [key, desc] of Object.entries(snapshot.descriptors)) {
       if (key !== '__esModule') {
-        mod[key] = snapshot.top[key];
+        try {
+          Object.defineProperty(mod, key, desc);
+        } catch {
+          // Best effort restore
+        }
       }
     }
   }
@@ -198,9 +233,11 @@ const restoreAllMocks = () => {
         if (!(mockExports as any).__esModule && !mockExports.default) {
           const keys = Object.keys(defaultObj);
           for (const key of keys) {
-            delete defaultObj[key];
+            forceDelete(defaultObj, key);
           }
-          Object.assign(defaultObj, mockExports);
+          for (const [key, value] of Object.entries(mockExports)) {
+            forceSet(defaultObj, key, value);
+          }
           return;
         }
         // Handle spread pattern: { ...require('esModule'), extraProp: true }
@@ -215,18 +252,24 @@ const restoreAllMocks = () => {
             (k) => k !== '__esModule' && k !== 'default',
           );
           for (const key of extraKeys) {
-            defaultObj[key] = mockExports[key];
+            forceSet(defaultObj, key, mockExports[key]);
           }
           return;
         }
       }
 
-      // Mutate the module exports directly
+      // Mutate the module exports directly.
+      // Use forceSet/forceDelete to handle read-only __esModule and
+      // getter-only re-export properties that Metro generates.
       const keys = Object.keys(mod).filter((k) => k !== '__esModule');
       for (const key of keys) {
-        delete mod[key];
+        forceDelete(mod, key);
       }
-      Object.assign(mod, mockExports);
+      for (const [key, value] of Object.entries(mockExports)) {
+        if (key !== '__esModule') {
+          forceSet(mod, key, value);
+        }
+      }
     }
   } catch (e) {
     console.warn('[harness-compat] __harness_mock_module__ failed:', e);
@@ -248,6 +291,13 @@ Object.defineProperty(globalThis, 'jest', {
     mock: (_moduleName: string, _factory?: () => unknown) => {
       // Handled by babel plugin -> __harness_mock_module__
       // This fallback is a no-op for edge cases the plugin doesn't catch
+    },
+    doMock: (_moduleName: string, _factory?: () => unknown) => {
+      // jest.doMock is not supported in harness — exclude such tests via
+      // testPathIgnorePatterns in jest.harness.config.mjs
+      console.warn(
+        '[harness-compat] jest.doMock() is not supported in harness mode',
+      );
     },
     unmock: (_moduleName: string) => {
       // no-op

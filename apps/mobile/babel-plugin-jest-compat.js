@@ -6,10 +6,12 @@
 //    mutation must use static require() calls generated at compile time
 //
 // Transforms:
-// - jest.mock('mod', factory) -> globalThis.__harness_mock_module__(require('mod'), factory)
-// - jest.mock('mod')          -> (removed, auto-mock not supported)
-// - jest.requireActual('x')   -> require('x')
-// - jest.requireMock('x')     -> require('x')
+// - jest.mock('mod', factory)   -> globalThis.__harness_mock_module__(require('mod'), factory)
+// - jest.doMock('mod', factory) -> globalThis.__harness_mock_module__(require('mod'), factory)
+// - jest.mock('mod')            -> (removed, auto-mock not supported)
+// - jest.resetModules()         -> (removed, Metro shares a single module registry)
+// - jest.requireActual('x')    -> require('x')
+// - jest.requireMock('x')      -> require('x')
 
 module.exports = function ({ types: t }) {
   if (process.env.RN_HARNESS !== 'true') {
@@ -26,9 +28,21 @@ module.exports = function ({ types: t }) {
         const callee = expr.callee;
         if (
           !t.isMemberExpression(callee) ||
-          !t.isIdentifier(callee.object, { name: 'jest' }) ||
-          !t.isIdentifier(callee.property, { name: 'mock' })
+          !t.isIdentifier(callee.object, { name: 'jest' })
         ) {
+          return;
+        }
+
+        const methodName = callee.property.name;
+
+        // jest.resetModules() -> remove (Metro shares a single module registry)
+        if (methodName === 'resetModules') {
+          path.remove();
+          return;
+        }
+
+        // Only handle jest.mock / jest.doMock below
+        if (methodName !== 'mock' && methodName !== 'doMock') {
           return;
         }
 

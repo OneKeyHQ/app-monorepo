@@ -21,6 +21,11 @@ export default {
   testPathIgnorePatterns: [
     // Detox E2E tests have their own Jest config under apps/mobile/e2e
     'apps/mobile/e2e',
+    // Tests that call jest.resetModules() + dynamic require() to re-evaluate
+    // modules with different mocks. Metro shares a single module registry so
+    // module re-evaluation is impossible — these run in regular Jest CI instead.
+    'packages/shared/src/polyfills/polyfillsPlatform\\.test\\.ts',
+    'packages/shared/src/appUpdate/bundleUpdate\\.test\\.ts',
     // Same chain ignores as root jest.config.js
     'packages/core/src/chains/ada',
     'packages/core/src/chains/algo',
