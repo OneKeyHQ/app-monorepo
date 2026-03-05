@@ -21,6 +21,11 @@ export default {
   testPathIgnorePatterns: [
     // Detox E2E tests have their own Jest config under apps/mobile/e2e
     'apps/mobile/e2e',
+    // NOTE: polyfillsPlatform.test.ts and bundleUpdate.test.ts were previously excluded here
+    // because they used jest.resetModules() + jest.doMock() to re-evaluate modules with different
+    // mocks — impossible in Metro's single module registry. They have since been refactored to use
+    // jest.mock() with mutable objects (and production code changed to getter functions), making
+    // them fully compatible with the harness environment.
     // Same chain ignores as root jest.config.js
     'packages/core/src/chains/ada',
     'packages/core/src/chains/algo',
