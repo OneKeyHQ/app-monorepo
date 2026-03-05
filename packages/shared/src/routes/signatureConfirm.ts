@@ -80,6 +80,7 @@ export type IModalSignatureConfirmParamList = {
     recipientMemo?: string;
     recipientPaymentId?: string;
     recipientNote?: string;
+    amount?: string;
     isAllNetworks?: boolean;
     onSuccess?: (txs: ISendTxOnSuccessData[]) => void;
     onFail?: (error: Error) => void;
