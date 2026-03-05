@@ -677,19 +677,36 @@ class ServiceAppUpdate extends ServiceBase {
     return appUpdatePersistAtom.get();
   }
 
-  // ---- Dev Bundle Switcher (mock API) ----
+  // ---- Dev Bundle Switcher ----
 
   @backgroundMethod()
   async devFetchBundleVersions(): Promise<
     { version: string; bundleCount: number }[]
   > {
-    // TODO: Replace with real API: GET /utility/v1/app-update/bundle-versions
-    return [
-      { version: '6.1.0', bundleCount: 2 },
-      { version: '7.6.0', bundleCount: 3 },
-      { version: '7.5.0', bundleCount: 2 },
-      { version: '7.4.0', bundleCount: 1 },
-    ];
+    try {
+      const client = await this.getClient(EServiceEndpointEnum.Utility);
+      const response = await client.get<{
+        code: number;
+        data: { version: string; bundleCount: number }[];
+      }>('/utility/v1/app-update/bundle-versions');
+      const { code, data } = response.data;
+      if (code === 0 && data) {
+        defaultLogger.app.jsBundleDev.fetchBundleVersions({
+          resultCount: data.length,
+          versions: data,
+        });
+        return data;
+      }
+      defaultLogger.app.jsBundleDev.fetchBundleVersionsError(
+        `Unexpected response code: ${code}`,
+      );
+      return [];
+    } catch (e) {
+      defaultLogger.app.jsBundleDev.fetchBundleVersionsError(
+        (e as Error)?.message || 'Unknown error',
+      );
+      throw e;
+    }
   }
 
   @backgroundMethod()
@@ -703,92 +720,55 @@ class ServiceAppUpdate extends ServiceBase {
       changeLog?: string;
     }[]
   > {
-    // TODO: Replace with real API: GET /utility/v1/app-update/bundles?version=x.x.x
-    const mockData: Record<
-      string,
-      {
-        bundleVersion: string;
-        downloadUrl: string;
-        sha256: string;
-        signature?: string;
-        fileSize: number;
-        changeLog?: string;
-      }[]
-    > = {
-      '6.1.0': [
-        {
-          bundleVersion: '2',
-          downloadUrl:
-            'https://github.com/nicepkg/gpt-runner/archive/refs/tags/v1.0.0.zip',
-          sha256: 'mock_sha256_610_2',
-          fileSize: 1_850_000,
-          changeLog: 'Fix home screen crash',
-        },
-        {
-          bundleVersion: '1',
-          downloadUrl:
-            'https://github.com/nicepkg/gpt-runner/archive/refs/tags/v1.0.0.zip',
-          sha256: 'mock_sha256_610_1',
-          fileSize: 1_800_000,
-          changeLog: 'Initial release',
-        },
-      ],
-      '7.6.0': [
-        {
-          bundleVersion: '3',
-          downloadUrl:
-            'https://github.com/nicepkg/gpt-runner/archive/refs/tags/v1.0.0.zip',
-          sha256: 'mock_sha256_760_3',
-          fileSize: 2_048_000,
-          changeLog: 'Fix critical bug in swap module',
-        },
-        {
-          bundleVersion: '2',
-          downloadUrl:
-            'https://github.com/nicepkg/gpt-runner/archive/refs/tags/v1.0.0.zip',
-          sha256: 'mock_sha256_760_2',
-          fileSize: 2_000_000,
-          changeLog: 'Add new token support',
-        },
-        {
-          bundleVersion: '1',
-          downloadUrl:
-            'https://github.com/nicepkg/gpt-runner/archive/refs/tags/v1.0.0.zip',
-          sha256: 'mock_sha256_760_1',
-          fileSize: 1_950_000,
-          changeLog: 'Initial release',
-        },
-      ],
-      '7.5.0': [
-        {
-          bundleVersion: '2',
-          downloadUrl:
-            'https://github.com/nicepkg/gpt-runner/archive/refs/tags/v1.0.0.zip',
-          sha256: 'mock_sha256_750_2',
-          fileSize: 1_900_000,
-          changeLog: 'Performance improvements',
-        },
-        {
-          bundleVersion: '1',
-          downloadUrl:
-            'https://github.com/nicepkg/gpt-runner/archive/refs/tags/v1.0.0.zip',
-          sha256: 'mock_sha256_750_1',
-          fileSize: 1_850_000,
-          changeLog: 'Initial release',
-        },
-      ],
-      '7.4.0': [
-        {
-          bundleVersion: '1',
-          downloadUrl:
-            'https://github.com/nicepkg/gpt-runner/archive/refs/tags/v1.0.0.zip',
-          sha256: 'mock_sha256_740_1',
-          fileSize: 1_800_000,
-          changeLog: 'Initial release',
-        },
-      ],
-    };
-    return mockData[version] ?? [];
+    try {
+      const client = await this.getClient(EServiceEndpointEnum.Utility);
+      const response = await client.get<{
+        code: number;
+        data: {
+          bundleVersion: string;
+          downloadUrl: string;
+          sha256: string;
+          fileSize: number;
+          commitHash?: string;
+          branch?: string;
+        }[];
+      }>('/utility/v1/app-update/bundles', {
+        params: { version },
+      });
+      const { code, data } = response.data;
+      if (code === 0 && data) {
+        defaultLogger.app.jsBundleDev.fetchBundles({
+          version,
+          resultCount: data.length,
+          bundles: data.map((item) => ({
+            bundleVersion: item.bundleVersion,
+            downloadUrl: item.downloadUrl,
+            sha256: item.sha256,
+            fileSize: item.fileSize,
+          })),
+        });
+        return data.map((item) => ({
+          bundleVersion: item.bundleVersion,
+          downloadUrl: item.downloadUrl,
+          sha256: item.sha256,
+          fileSize: item.fileSize,
+          changeLog: item.commitHash
+            ? `${item.branch || ''} ${item.commitHash.slice(0, 8)}`.trim()
+            : undefined,
+        }));
+      }
+      defaultLogger.app.jsBundleDev.fetchBundlesError({
+        version,
+        error: `Unexpected response code: ${code}`,
+      });
+      return [];
+    } catch (e) {
+      defaultLogger.app.jsBundleDev.fetchBundlesError({
+        version,
+        error: (e as Error)?.message || 'Unknown error',
+      });
+      throw e;
+    }
   }
 }
 

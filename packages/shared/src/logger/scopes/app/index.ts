@@ -8,6 +8,7 @@ import { ComponentScene } from './scenes/component';
 import { ErrorScene } from './scenes/error';
 import { EventBusScene } from './scenes/eventBus';
 import { InstallScene } from './scenes/install';
+import { JsBundleDevScene } from './scenes/jsBundleDev';
 import { NetworkScene } from './scenes/network';
 import { PageScene } from './scenes/page';
 import { AppPerfScene } from './scenes/perf';
@@ -40,4 +41,6 @@ export class AppScope extends BaseScope {
   router = this.createScene('router', RouterScene);
 
   appUpdate = this.createScene('appUpdate', AppUpdateScene);
+
+  jsBundleDev = this.createScene('jsBundleDev', JsBundleDevScene);
 }

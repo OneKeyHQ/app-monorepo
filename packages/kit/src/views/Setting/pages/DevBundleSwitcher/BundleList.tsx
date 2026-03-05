@@ -17,6 +17,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   BundleUpdate,
   useDownloadProgress,
@@ -78,6 +79,12 @@ function BundleItem({
     onDownloadStart();
     setStatus('downloading');
     setErrorMessage('');
+    defaultLogger.app.jsBundleDev.downloadBundle({
+      version,
+      bundleVersion: bundle.bundleVersion,
+      downloadUrl: bundle.downloadUrl,
+      fileSize: bundle.fileSize,
+    });
     try {
       const result = await BundleUpdate.downloadBundle({
         downloadUrl: bundle.downloadUrl,
@@ -92,13 +99,31 @@ function BundleItem({
           signature: bundle.signature,
         };
         setStatus('downloaded');
+        defaultLogger.app.jsBundleDev.downloadBundleResult({
+          version,
+          bundleVersion: bundle.bundleVersion,
+          success: true,
+        });
       } else {
         setStatus('error');
         setErrorMessage('Download returned empty result');
+        defaultLogger.app.jsBundleDev.downloadBundleResult({
+          version,
+          bundleVersion: bundle.bundleVersion,
+          success: false,
+          error: 'Download returned empty result',
+        });
       }
     } catch (e) {
+      const errMsg = (e as Error)?.message || 'Download failed';
       setStatus('error');
-      setErrorMessage((e as Error)?.message || 'Download failed');
+      setErrorMessage(errMsg);
+      defaultLogger.app.jsBundleDev.downloadBundleResult({
+        version,
+        bundleVersion: bundle.bundleVersion,
+        success: false,
+        error: errMsg,
+      });
     } finally {
       onDownloadEnd();
     }
@@ -108,6 +133,10 @@ function BundleItem({
     const skipGPGVerification =
       !!process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION && gpgSkipped;
     setStatus('installing');
+    defaultLogger.app.jsBundleDev.installBundle({
+      version,
+      bundleVersion: bundle.bundleVersion,
+    });
     try {
       if (alreadyDownloaded && !downloadedEventRef.current) {
         await BundleUpdate.verifyExtractedBundle(version, bundle.bundleVersion);
@@ -145,8 +174,15 @@ function BundleItem({
         });
       }
     } catch (e) {
+      const errMsg = (e as Error)?.message || 'Install failed';
       setStatus('error');
-      setErrorMessage((e as Error)?.message || 'Install failed');
+      setErrorMessage(errMsg);
+      defaultLogger.app.jsBundleDev.installBundleResult({
+        version,
+        bundleVersion: bundle.bundleVersion,
+        success: false,
+        error: errMsg,
+      });
     }
   }, [alreadyDownloaded, bundle, version, gpgSkipped]);
 
@@ -282,6 +318,11 @@ export default function SettingDevBundleList() {
         );
         const downloaded = new Set<string>();
         for (const check of existsChecks) {
+          defaultLogger.app.jsBundleDev.checkBundleExists({
+            version,
+            bundleVersion: check.bundleVersion,
+            exists: check.exists,
+          });
           if (check.exists) {
             downloaded.add(check.bundleVersion);
           }
