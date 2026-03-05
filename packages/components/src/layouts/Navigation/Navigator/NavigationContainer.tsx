@@ -21,6 +21,7 @@ import { useSplitMainView } from '@onekeyhq/components/src/hooks/useSplitView';
 import { useTheme } from '@onekeyhq/components/src/shared/tamagui';
 import type { GetProps } from '@onekeyhq/components/src/shared/tamagui';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { updateRootViewBackgroundColor } from '@onekeyhq/shared/src/modules3rdParty/rootview-background';
 import { navigationIntegration } from '@onekeyhq/shared/src/modules3rdParty/sentry';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -139,6 +140,8 @@ export const switchTab = <T extends ETabRoutes>(
     params?: ITabStackParamList[T][keyof ITabStackParamList[T]];
   },
 ) => {
+  defaultLogger.app.router.switchTab(route);
+
   setTimeout(() => {
     tabletMainViewNavigationRef.current?.navigate(
       ERootRoutes.Main,
@@ -161,6 +164,8 @@ export const switchTab = <T extends ETabRoutes>(
       pop: true,
     },
   );
+
+  defaultLogger.app.router.switchTabDone(route);
 };
 
 export const popModalPages = async (maxRetryTimes = 10) => {
