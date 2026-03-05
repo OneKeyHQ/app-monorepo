@@ -107,6 +107,7 @@ function SendAmountInputContainer() {
     onSuccess,
     onFail,
     onCancel,
+    amount: prefillAmount,
   } = route.params;
 
   const nft = nfts?.[0];
@@ -142,7 +143,7 @@ function SendAmountInputContainer() {
     defaultValues: {
       accountId,
       networkId,
-      amount: '0',
+      amount: prefillAmount || '0',
       nftAmount: isNFT && nft?.collectionType === ENFTType.ERC1155 ? '' : '1',
       txMessage: '',
     },
@@ -241,15 +242,52 @@ function SendAmountInputContainer() {
     return tokenInfo?.symbol ?? '';
   }, [isNFT, tokenInfo?.symbol, nft?.metadata?.name]);
 
+  const currentSelectedUtxoInfo = useMemo(() => {
+    if (
+      selectedUTXOs &&
+      selectedUTXOs.networkId === networkId &&
+      selectedUTXOs.accountId === currentAccountId &&
+      selectedUTXOs.selectedUtxoKeys.length > 0
+    ) {
+      return {
+        keys: selectedUTXOs.selectedUtxoKeys,
+        totalValue: selectedUTXOs.selectedUtxoTotalValue,
+        strategy: selectedUTXOs.utxoSelectionStrategy,
+      };
+    }
+    return undefined;
+  }, [selectedUTXOs, networkId, currentAccountId]);
+
   const maxBalance = useMemo(() => {
     if (!tokenDetails) return '0';
+    if (currentSelectedUtxoInfo?.totalValue && tokenDetails.info) {
+      return new BigNumber(
+        chainValueUtils.convertTokenChainValueToAmount({
+          value: currentSelectedUtxoInfo.totalValue,
+          token: tokenDetails.info,
+        }),
+      ).toFixed();
+    }
     return tokenDetails.balanceParsed;
-  }, [tokenDetails]);
+  }, [tokenDetails, currentSelectedUtxoInfo?.totalValue]);
 
   const maxBalanceFiat = useMemo(() => {
     if (!tokenDetails) return '0';
+    if (
+      currentSelectedUtxoInfo?.totalValue &&
+      tokenDetails.price &&
+      tokenDetails.info
+    ) {
+      const balanceInToken = new BigNumber(
+        chainValueUtils.convertTokenChainValueToAmount({
+          value: currentSelectedUtxoInfo.totalValue,
+          token: tokenDetails.info,
+        }),
+      );
+      return balanceInToken.times(tokenDetails.price).toFixed();
+    }
     return tokenDetails.fiatValue;
-  }, [tokenDetails]);
+  }, [tokenDetails, currentSelectedUtxoInfo?.totalValue]);
 
   const linkedAmount = useMemo(() => {
     const amountBN = new BigNumber(amount || 0);
@@ -433,19 +471,8 @@ function SendAmountInputContainer() {
     return () => clearTimeout(timer);
   }, []);
 
-  const { currentSelectedUtxoKeys, currentUtxoSelectionStrategy } =
-    useMemo(() => {
-      if (!selectedUTXOs) {
-        return {
-          currentSelectedUtxoKeys: undefined,
-          currentUtxoSelectionStrategy: undefined,
-        };
-      }
-      return {
-        currentSelectedUtxoKeys: selectedUTXOs.selectedUtxoKeys,
-        currentUtxoSelectionStrategy: selectedUTXOs.utxoSelectionStrategy,
-      };
-    }, [selectedUTXOs]);
+  const currentSelectedUtxoKeys = currentSelectedUtxoInfo?.keys;
+  const currentUtxoSelectionStrategy = currentSelectedUtxoInfo?.strategy;
 
   // Handle hex data for EVM chains
   const isHexTxMessage = useMemo(() => {
