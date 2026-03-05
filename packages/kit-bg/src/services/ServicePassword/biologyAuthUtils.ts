@@ -10,6 +10,8 @@ import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 
 import { settingsPersistAtom } from '../../states/jotai/atoms/settings';
 
+const SECURE_STORAGE_PASSWORD_KEY = 'password';
+
 class BiologyAuthUtils implements IBiologyAuth {
   isSupportBiologyAuth() {
     return biologyAuth.isSupportBiologyAuth();
@@ -33,14 +35,19 @@ class BiologyAuthUtils implements IBiologyAuth {
       text,
       key: `${encodeKeyPrefix}${settings.sensitiveEncodeKey}`,
     });
-    await appStorage.secureStorage.setSecureItem('password', text);
+    await appStorage.secureStorage.setSecureItem(
+      SECURE_STORAGE_PASSWORD_KEY,
+      text,
+    );
   };
 
   getPassword = async () => {
     if (!(await appStorage.secureStorage.supportSecureStorage())) {
       throw new OneKeyLocalError('No password');
     }
-    let text = await appStorage.secureStorage.getSecureItem('password');
+    let text = await appStorage.secureStorage.getSecureItem(
+      SECURE_STORAGE_PASSWORD_KEY,
+    );
     if (text) {
       const settings = await settingsPersistAtom.get();
       text = await decodeSensitiveTextAsync({
@@ -54,8 +61,24 @@ class BiologyAuthUtils implements IBiologyAuth {
   };
 
   deletePassword = async () => {
-    if (!(await appStorage.secureStorage.supportSecureStorage())) return;
-    await appStorage.secureStorage.removeSecureItem('password');
+    await appStorage.secureStorage.removeSecureItem(
+      SECURE_STORAGE_PASSWORD_KEY,
+    );
+  };
+
+  hasPassword = async (): Promise<boolean> => {
+    if (!(await appStorage.secureStorage.supportSecureStorage())) {
+      return false;
+    }
+    if (appStorage.secureStorage.hasSecureItem) {
+      return appStorage.secureStorage.hasSecureItem(
+        SECURE_STORAGE_PASSWORD_KEY,
+      );
+    }
+    const value = await appStorage.secureStorage.getSecureItem(
+      SECURE_STORAGE_PASSWORD_KEY,
+    );
+    return !!value;
   };
 }
 export const biologyAuthUtils = new BiologyAuthUtils();

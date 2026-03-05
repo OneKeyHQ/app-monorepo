@@ -27,6 +27,10 @@ const storage: ISecureStorage = {
   getSecureItem,
   removeSecureItem,
   supportSecureStorage,
+  async hasSecureItem(key: string): Promise<boolean> {
+    const value = await getItemAsync(key, keychainOptions);
+    return !!value;
+  },
   setSecureItemWithBiometrics(key, data, options) {
     return setItemAsync(key, data, {
       ...keychainOptions,

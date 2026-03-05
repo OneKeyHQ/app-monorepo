@@ -10,6 +10,7 @@ import { GlobalJotaiReady } from '@onekeyhq/kit/src/components/GlobalJotaiReady'
 import { ThemeProvider } from '@onekeyhq/kit/src/provider/ThemeProvider';
 import {
   usePasswordAtom,
+  usePasswordModeAtom,
   usePasswordPersistAtom,
   usePasswordPromptPromiseTriggerAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -32,6 +33,7 @@ const usePassKeyOperations = () => {
     usePasswordPromptPromiseTriggerAtom();
   const [{ webAuthCredentialId }] = usePasswordPersistAtom();
   const [{ passwordVerifyStatus }, setPasswordAtom] = usePasswordAtom();
+  const [passwordMode] = usePasswordModeAtom();
   const intl = useIntl();
   const [{ enablePasswordErrorProtection }, setPasswordPersist] =
     usePasswordPersistAtom();
@@ -62,9 +64,21 @@ const usePassKeyOperations = () => {
       !!(await backgroundApiProxy.servicePassword.getCachedPassword());
 
     try {
-      const result = hasCachedPassword
-        ? await verifiedPasswordWebAuth()
-        : await checkWebAuth();
+      let result: string | boolean | undefined;
+      if (hasCachedPassword) {
+        result = await verifiedPasswordWebAuth();
+      } else {
+        // No cached password — try secure storage (WebAuthn PRF)
+        try {
+          result =
+            (await backgroundApiProxy.servicePassword.getWebAuthPassword()) ??
+            undefined;
+        } catch {
+          // Fallback to credential-only verification
+          result = await checkWebAuth();
+        }
+      }
+
       if (result) {
         setPasswordAtom((v) => ({
           ...v,
@@ -79,6 +93,15 @@ const usePassKeyOperations = () => {
             passwordErrorProtectionTime: 0,
           }));
         }
+
+        // If we got a real password string, verify and cache it
+        if (typeof result === 'string' && result) {
+          await backgroundApiProxy.servicePassword.verifyPassword({
+            password: result,
+            passwordMode,
+          });
+        }
+
         // Password Dialog
         if (passwordPromptPromiseTriggerData?.idNumber) {
           await backgroundApiProxy.servicePassword.resolvePasswordPromptDialog(
@@ -119,6 +142,7 @@ const usePassKeyOperations = () => {
     checkWebAuth,
     enablePasswordErrorProtection,
     intl,
+    passwordMode,
     passwordPromptPromiseTriggerData?.idNumber,
     setPasswordAtom,
     setPasswordPersist,

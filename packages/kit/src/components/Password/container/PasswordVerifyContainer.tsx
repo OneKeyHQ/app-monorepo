@@ -5,8 +5,6 @@ import { useIntl } from 'react-intl';
 
 import { SizableText, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-// eslint-disable-next-line @typescript-eslint/no-restricted-imports
-import { biologyAuthUtils } from '@onekeyhq/kit-bg/src/services/ServicePassword/biologyAuthUtils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   usePasswordAtom,
@@ -88,17 +86,21 @@ const PasswordVerifyContainer = ({
   }, [webAuthCredentialId, isBiologyAuthSwitchOn]);
 
   useEffect(() => {
-    if (isEnable && isBiologyAuthSwitchOn) {
+    const shouldCheck =
+      (isEnable || (platformEnv.isExtension && !!webAuthCredentialId)) &&
+      isBiologyAuthSwitchOn;
+    if (shouldCheck) {
       void (async () => {
         try {
-          const securePassword = await biologyAuthUtils.getPassword();
-          setHasSecurePassword(!!securePassword);
+          const hasPassword =
+            await backgroundApiProxy.servicePassword.hasWebAuthPassword();
+          setHasSecurePassword(hasPassword);
         } catch (_e) {
           setHasSecurePassword(false);
         }
       })();
     }
-  }, [isEnable, isBiologyAuthSwitchOn]);
+  }, [isEnable, isBiologyAuthSwitchOn, webAuthCredentialId]);
 
   const passwordVerifyStatusRef = useRef(passwordVerifyStatus);
   useEffect(() => {
@@ -148,7 +150,7 @@ const PasswordVerifyContainer = ({
         isBiologyAuthSwitchOn &&
         verifyPeriodBiologyEnable &&
         ((isEnable && hasSecurePassword) ||
-          (!!webAuthCredentialId && !!hasCachedPassword))
+          (!!webAuthCredentialId && (!!hasCachedPassword || hasSecurePassword)))
       );
     },
     [
@@ -242,6 +244,24 @@ const PasswordVerifyContainer = ({
       }));
       try {
         if (isExtLockNoCachePassword) {
+          // Try to retrieve password from secure storage (WebAuthn PRF)
+          try {
+            const securePassword =
+              await backgroundApiProxy.servicePassword.getWebAuthPassword();
+            if (securePassword) {
+              const verifiedPassword =
+                await backgroundApiProxy.servicePassword.verifyPassword({
+                  password: securePassword,
+                  passwordMode,
+                });
+              await callOnVerifyRes(verifiedPassword);
+              setVerifiedStatus();
+              return;
+            }
+          } catch {
+            // No secure password stored — fall through to credential-only
+          }
+          // Fallback: old behavior (credential-only verification)
           const result = await checkWebAuth();
           if (result) {
             await callOnVerifyRes('');
@@ -374,6 +394,20 @@ const PasswordVerifyContainer = ({
         }
         await callOnVerifyRes(verifiedPassword);
         setVerifiedStatus();
+        // Save to secure storage for future biometric unlock on extension
+        if (
+          platformEnv.isExtension &&
+          isBiologyAuthSwitchOn &&
+          webAuthCredentialId
+        ) {
+          try {
+            await backgroundApiProxy.servicePassword.saveWebAuthPassword(
+              verifiedPassword,
+            );
+          } catch (e) {
+            console.error('Failed to save password to secure storage:', e);
+          }
+        }
       } catch (e) {
         const errorWithFlag = e as Error & { isCallbackError?: boolean };
         const isCallbackError = errorWithFlag?.isCallbackError === true;
@@ -455,6 +489,8 @@ const PasswordVerifyContainer = ({
       unlockPeriodPasswordArray,
       callOnVerifyRes,
       setVerifiedStatus,
+      isBiologyAuthSwitchOn,
+      webAuthCredentialId,
     ],
   );
 

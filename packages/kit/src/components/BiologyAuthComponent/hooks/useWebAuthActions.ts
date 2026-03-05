@@ -4,7 +4,6 @@ import { useIntl } from 'react-intl';
 
 import { Toast } from '@onekeyhq/components';
 import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import extUtils, {
@@ -54,6 +53,21 @@ export const useWebAuthActions = () => {
             ...v,
             webAuthCredentialId: webAuthCredentialId ?? '',
           }));
+          // Save password to secure storage for biometric unlock
+          try {
+            if (platformEnv.isExtension) {
+              await backgroundApiProxy.servicePassword.promptPasswordVerify();
+            }
+            const cachedPassword =
+              await backgroundApiProxy.servicePassword.getCachedPassword();
+            if (cachedPassword) {
+              await backgroundApiProxy.servicePassword.saveWebAuthPassword(
+                cachedPassword,
+              );
+            }
+          } catch (e) {
+            console.error('Failed to save password to secure storage:', e);
+          }
         }
       }
       return webAuthCredentialId;
@@ -71,18 +85,33 @@ export const useWebAuthActions = () => {
   const verifiedPasswordWebAuth = useCallback(async () => {
     const checkCachePassword =
       await backgroundApiProxy.servicePassword.getCachedPassword();
-    if (!checkCachePassword) {
-      throw new OneKeyLocalError('No password cached not support web auth');
+    if (checkCachePassword) {
+      await checkExtWebAuth(EPassKeyWindowType.unlock);
+      // web auth must be called in ui context for extension
+      const cred = await verifiedWebAuth(credId);
+      if (cred?.id === credId) {
+        return checkCachePassword;
+      }
+      return undefined;
     }
-    await checkExtWebAuth(EPassKeyWindowType.unlock);
-    // web auth must be called in ui context for extension
-    const cred = await verifiedWebAuth(credId);
-    if (cred?.id === credId) {
-      return checkCachePassword;
-    }
+    // No cached password — try secure storage (triggers WebAuthn PRF)
+    const securePassword =
+      await backgroundApiProxy.servicePassword.getWebAuthPassword();
+      
+    return securePassword ?? undefined;
   }, [credId]);
 
   const checkWebAuth = useCallback(async () => {
+    // Try secure storage first (WebAuthn PRF)
+    try {
+      const securePassword =
+        await backgroundApiProxy.servicePassword.getWebAuthPassword();
+      if (securePassword) {
+        return securePassword;
+      }
+    } catch {
+      // Fallback to credential-only verification
+    }
     await checkExtWebAuth(EPassKeyWindowType.unlock);
     const cred = await verifiedWebAuth(credId);
     return cred?.id === credId;

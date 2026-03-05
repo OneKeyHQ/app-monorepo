@@ -282,6 +282,28 @@ export default class ServicePassword extends ServiceBase {
   }
 
   // biologyAuth&WebAuth ------------------------------
+
+  @backgroundMethod()
+  async getWebAuthPassword(): Promise<string | null> {
+    return biologyAuthUtils.getPassword();
+  }
+
+  @backgroundMethod()
+  async saveWebAuthPassword(password: string): Promise<void> {
+    ensureSensitiveTextEncoded(password);
+    await biologyAuthUtils.savePassword(password);
+  }
+
+  @backgroundMethod()
+  async hasWebAuthPassword(): Promise<boolean> {
+    return biologyAuthUtils.hasPassword();
+  }
+
+  @backgroundMethod()
+  async deleteWebAuthPassword(): Promise<void> {
+    await biologyAuthUtils.deletePassword();
+  }
+
   async saveBiologyAuthPassword(password: string): Promise<void> {
     ensureSensitiveTextEncoded(password);
     /* The password also needs to be stored when the system closes the fingerprint identification,

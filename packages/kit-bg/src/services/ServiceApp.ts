@@ -89,6 +89,13 @@ class ServiceApp extends ServiceBase {
     }
     defaultLogger.setting.page.clearDataStep('appStorage-clear');
 
+    // clean secure storage (WebAuth password)
+    try {
+      await this.backgroundApi.servicePassword.deleteWebAuthPassword();
+    } catch {
+      console.error('deleteWebAuthPassword error');
+    }
+
     try {
       appStorage.syncStorage.clearAll();
     } catch {

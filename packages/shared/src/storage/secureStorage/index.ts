@@ -1,6 +1,7 @@
 /* oxlint-disable @typescript-eslint/no-unused-vars, @cspell/spellchecker */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { OneKeyLocalError } from '../../errors';
+import platformEnv from '../../platformEnv';
 import { webStorage } from '../instance/webStorageInstance';
 
 import {
@@ -267,14 +268,19 @@ const storage: ISecureStorage = {
   },
 
   async supportSecureStorage(): Promise<boolean> {
-    // Synchronous check - basic browser support
-    // For full PRF support check, use isPrfSupported() async function
-    // return isPrfSupported();
+    // WebAuthn PRF requires UI context — not available in extension background/service worker
+    if (platformEnv.isExtensionBackground) {
+      return false;
+    }
+    return isPrfSupported();
+  },
 
-    // TODO: remove this after test
-    // Note: On extension and web platforms, creating a mnemonic wallet will always require biometric verification by design,
-    // regardless of whether the user chooses to enable biometrics. This is because the password UI component does not synchronize this state.
-    return false;
+  async hasSecureItem(key: string): Promise<boolean> {
+    const encryptedData = await webStorage.getItem(
+      getSecureKey(key),
+      undefined,
+    );
+    return !!encryptedData;
   },
 
   async setSecureItemWithBiometrics(

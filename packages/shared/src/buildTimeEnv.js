@@ -20,6 +20,7 @@ const isE2E = process.env.E2E_MODE === 'true';
 
 const enablePerfMonitor = process.env.PERF_MONITOR_ENABLED === '1';
 
+
 module.exports = {
   isJest,
   isDev,
