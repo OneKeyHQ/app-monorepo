@@ -25,6 +25,8 @@ export enum EDAppConnectionModal {
   VerifyMessage = 'VerifyMessage',
   // Nostr
   NostrSignEventModal = 'NostrSignEventModal',
+  // Cosmos Enigma
+  CosmosEnigmaUnlockModal = 'CosmosEnigmaUnlockModal',
 }
 
 export type IDAppConnectionModalParamList = {
@@ -58,6 +60,12 @@ export type IDAppConnectionModalParamList = {
     plaintext?: string;
     ciphertext?: string;
     sigHash?: string;
+    walletId: string;
+    accountId: string;
+    networkId: string;
+  };
+  // Cosmos Enigma
+  [EDAppConnectionModal.CosmosEnigmaUnlockModal]: {
     walletId: string;
     accountId: string;
     networkId: string;
