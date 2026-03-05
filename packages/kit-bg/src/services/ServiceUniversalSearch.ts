@@ -153,8 +153,7 @@ class ServiceUniversalSearch extends ServiceBase {
             .filter(
               (item) =>
                 (Boolean(item.payload.address) || item.payload.isNative) &&
-                Boolean(item.payload.price) &&
-                item.payload.price !== '0',
+                Number(item.payload.price) > 0,
             );
 
           if (v2Items.length) {
