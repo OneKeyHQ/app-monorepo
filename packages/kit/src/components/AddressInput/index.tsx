@@ -875,9 +875,9 @@ export function AddressInputField(
             if (value.pending) {
               return;
             }
-            // When input is empty, don't show "invalid address" error
+            // When input is empty, mark as invalid without showing error text
             if (!value.raw?.trim()) {
-              return;
+              return false;
             }
             if (!value.resolved) {
               // Suppress error when quick select has matches (hint shown via description)

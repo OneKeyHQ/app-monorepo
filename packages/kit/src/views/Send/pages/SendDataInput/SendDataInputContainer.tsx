@@ -56,7 +56,10 @@ import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import { HomeTokenListProviderMirror } from '../../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
-import { getAccountIdOnNetwork } from '../../../ScanQrCode/hooks/useParseQRCode';
+import {
+  getAccountIdOnNetwork,
+  parseOnChainAmount,
+} from '../../../ScanQrCode/hooks/useParseQRCode';
 import { SendConfirmProviderMirror } from '../../components/SendConfirmProvider/SendConfirmProviderMirror';
 
 import RecipientQuickSelect from './RecipientQuickSelect';
@@ -119,6 +122,7 @@ function SendDataInputContainer() {
     'recent' | 'account' | 'addressBook'
   >('recent');
   const [hasQuickSelectMatches, setHasQuickSelectMatches] = useState(false);
+  const [scannedAmount, setScannedAmount] = useState('');
 
   const { account, network, vaultSettings } = useAccountData({
     accountId: currentAccount.accountId,
@@ -279,6 +283,10 @@ function SendDataInputContainer() {
           });
         }
         if (scanToken) {
+          const amountFromScan = await parseOnChainAmount(result, scanToken);
+          if (amountFromScan) {
+            setScannedAmount(amountFromScan);
+          }
           const formNetworkId = form.getValues('networkId');
           if (formNetworkId === scanNetworkId) {
             if (currentAccount.accountId && scanNetworkId) {
@@ -320,7 +328,7 @@ function SendDataInputContainer() {
         recipientMemo: memoValue || undefined,
         recipientPaymentId: paymentIdValue || undefined,
         recipientNote: noteValue || undefined,
-        amount: sendAmount || undefined,
+        amount: scannedAmount || sendAmount || undefined,
         isAllNetworks,
         onSuccess,
         onFail,
@@ -333,6 +341,7 @@ function SendDataInputContainer() {
     toResolved,
     form,
     navigation,
+    scannedAmount,
     sendAmount,
     currentAccount.networkId,
     currentAccount.accountId,
@@ -777,7 +786,7 @@ function SendDataInputContainer() {
                           recipientAddress: resolvedAddress,
                           recipientMemo: selectedMemo || undefined,
                           recipientNote: selectedNote || undefined,
-                          amount: sendAmount || undefined,
+                          amount: scannedAmount || sendAmount || undefined,
                           isAllNetworks,
                           onSuccess,
                           onFail,
