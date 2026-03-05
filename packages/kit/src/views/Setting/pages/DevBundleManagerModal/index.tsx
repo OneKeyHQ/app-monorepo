@@ -241,6 +241,7 @@ export default function DevBundleManagerModal() {
 
   const currentAppVersion = String(platformEnv.version);
   const currentBuildNumber = String(platformEnv.buildNumber);
+  const currentCommitHash = String(platformEnv.githubSHA || '-');
   const currentBundleVersion = String(platformEnv.bundleVersion);
   const [jsBundlePath, setJsBundlePath] = useState('');
   const [fallbackBundles, setFallbackBundles] = useState<IJSBundle[]>([]);
@@ -298,6 +299,7 @@ export default function DevBundleManagerModal() {
               <YStack px="$4" py="$3" gap="$0.5">
                 <InfoRow label="App Version" value={currentAppVersion} />
                 <InfoRow label="Build Number" value={currentBuildNumber} />
+                <InfoRow label="Commit Hash" value={currentCommitHash} />
                 <InfoRow label="Bundle Version" value={currentBundleVersion} />
                 {nativeAppVersion ? (
                   <InfoRow
@@ -434,6 +436,42 @@ export default function DevBundleManagerModal() {
           <YStack gap="$1">
             <SectionTitle icon="CubeOutline" title="DIAGNOSTICS" />
             <SectionCard>
+              <ActionRow
+                icon="ShieldCheckDoneOutline"
+                title="Test Verification"
+                subtitle="Run BundleUpdate.testVerification()"
+                onPress={() => {
+                  void (async () => {
+                    try {
+                      const result = await BundleUpdate.testVerification();
+                      showTestResult(result);
+                    } catch (error) {
+                      showTestError(error);
+                    }
+                  })();
+                }}
+              />
+              <XStack mx="$4">
+                <Divider />
+              </XStack>
+              <ActionRow
+                icon="ShieldExclamationOutline"
+                title="Test Skip Verification"
+                subtitle="Run BundleUpdate.testSkipVerification()"
+                onPress={() => {
+                  void (async () => {
+                    try {
+                      const result = await BundleUpdate.testSkipVerification();
+                      showTestResult(result);
+                    } catch (error) {
+                      showTestError(error);
+                    }
+                  })();
+                }}
+              />
+              <XStack mx="$4">
+                <Divider />
+              </XStack>
               <ActionRow
                 icon="ToolboxOutline"
                 title="Bundle Manipulation"

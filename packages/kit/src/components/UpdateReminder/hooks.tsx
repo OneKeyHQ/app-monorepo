@@ -291,7 +291,13 @@ export const useDownloadPackage = () => {
             onFail();
             return;
           }
-          await BundleUpdate.installBundle(data.downloadedEvent);
+          const skipGPGVerification =
+            !!process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION &&
+            (await backgroundApiProxy.serviceDevSetting.getSkipBundleGPGVerification());
+          await BundleUpdate.installBundle({
+            ...data.downloadedEvent,
+            skipGPGVerification,
+          });
         } else {
           await AppUpdate.installPackage(data);
         }
@@ -345,11 +351,19 @@ export const useDownloadPackage = () => {
         await backgroundApiProxy.serviceAppUpdate.verifyPackageFailed();
         return;
       }
+      const skipGPGVerification =
+        fileType === EUpdateFileType.jsBundle
+          ? !!process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION &&
+            (await backgroundApiProxy.serviceDevSetting.getSkipBundleGPGVerification())
+          : false;
       defaultLogger.app.appUpdate.startVerifyPackage(params);
       await backgroundApiProxy.serviceAppUpdate.verifyPackage();
       await Promise.all([
         fileType === EUpdateFileType.jsBundle
-          ? BundleUpdate.verifyBundle(params)
+          ? BundleUpdate.verifyBundle({
+              ...params,
+              skipGPGVerification,
+            })
           : AppUpdate.verifyPackage(params),
         timerUtils.wait(MIN_EXECUTION_DURATION),
       ]);
@@ -380,11 +394,19 @@ export const useDownloadPackage = () => {
         await backgroundApiProxy.serviceAppUpdate.verifyASCFailed();
         return;
       }
+      const skipGPGVerification =
+        fileType === EUpdateFileType.jsBundle
+          ? !!process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION &&
+            (await backgroundApiProxy.serviceDevSetting.getSkipBundleGPGVerification())
+          : false;
       defaultLogger.app.appUpdate.startVerifyASC(params);
       await backgroundApiProxy.serviceAppUpdate.verifyASC();
       await Promise.all([
         fileType === EUpdateFileType.jsBundle
-          ? BundleUpdate.verifyBundleASC(params)
+          ? BundleUpdate.verifyBundleASC({
+              ...params,
+              skipGPGVerification,
+            })
           : AppUpdate.verifyASC(params),
         timerUtils.wait(MIN_EXECUTION_DURATION),
       ]);
@@ -417,11 +439,19 @@ export const useDownloadPackage = () => {
         await backgroundApiProxy.serviceAppUpdate.downloadASCFailed();
         return;
       }
+      const skipGPGVerification =
+        fileType === EUpdateFileType.jsBundle
+          ? !!process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION &&
+            (await backgroundApiProxy.serviceDevSetting.getSkipBundleGPGVerification())
+          : false;
       defaultLogger.app.appUpdate.startDownloadASC(params);
       await backgroundApiProxy.serviceAppUpdate.downloadASC();
       await Promise.all([
         fileType === EUpdateFileType.jsBundle
-          ? BundleUpdate.downloadBundleASC(params)
+          ? BundleUpdate.downloadBundleASC({
+              ...params,
+              skipGPGVerification,
+            })
           : AppUpdate.downloadASC(params),
         timerUtils.wait(MIN_EXECUTION_DURATION),
       ]);
@@ -464,6 +494,10 @@ export const useDownloadPackage = () => {
       await backgroundApiProxy.serviceAppUpdate.downloadPackage();
       const { latestVersion, jsBundleVersion, jsBundle, downloadUrl } = params;
       const isJsBundle = fileType === EUpdateFileType.jsBundle;
+      const skipGPGVerification =
+        isJsBundle &&
+        !!process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION &&
+        (await backgroundApiProxy.serviceDevSetting.getSkipBundleGPGVerification());
       const updateEvent =
         await backgroundApiProxy.serviceAppUpdate.getDownloadEvent();
       const headers = await getRequestHeaders();
@@ -475,6 +509,7 @@ export const useDownloadPackage = () => {
         downloadUrl: isJsBundle ? jsBundle?.downloadUrl : downloadUrl,
         fileSize: isJsBundle ? jsBundle?.fileSize : (params.fileSize ?? 0),
         sha256: isJsBundle ? jsBundle?.sha256 : undefined,
+        skipGPGVerification: isJsBundle ? skipGPGVerification : undefined,
         headers,
       };
       defaultLogger.app.appUpdate.startDownload(downloadParams);

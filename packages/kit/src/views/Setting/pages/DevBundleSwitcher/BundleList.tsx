@@ -17,6 +17,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   BundleUpdate,
   useDownloadProgress,
@@ -39,6 +40,7 @@ type IBundleInfo = {
   sha256: string;
   signature?: string;
   fileSize: number;
+  commitHash?: string;
   changeLog?: string;
 };
 
@@ -74,10 +76,24 @@ function BundleItem({
   const [errorMessage, setErrorMessage] = useState('');
   const downloadedEventRef = useRef<Record<string, unknown> | null>(null);
 
+  useEffect(() => {
+    if (alreadyDownloaded && status === 'idle') {
+      setStatus('downloaded');
+    }
+  }, [alreadyDownloaded, status]);
+
   const handleDownload = useCallback(async () => {
+    const skipGPGVerification =
+      !!process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION && gpgSkipped;
     onDownloadStart();
     setStatus('downloading');
     setErrorMessage('');
+    defaultLogger.app.jsBundleDev.downloadBundle({
+      version,
+      bundleVersion: bundle.bundleVersion,
+      downloadUrl: bundle.downloadUrl,
+      fileSize: bundle.fileSize,
+    });
     try {
       const result = await BundleUpdate.downloadBundle({
         downloadUrl: bundle.downloadUrl,
@@ -85,32 +101,69 @@ function BundleItem({
         bundleVersion: bundle.bundleVersion,
         fileSize: bundle.fileSize,
         sha256: bundle.sha256,
+        skipGPGVerification,
       });
       if (result) {
+        await BundleUpdate.verifyBundleASC({
+          ...result,
+          latestVersion: version,
+          bundleVersion: bundle.bundleVersion,
+          sha256: bundle.sha256,
+          signature: bundle.signature || PLACEHOLDER_SIGNATURE,
+          skipGPGVerification,
+        });
         downloadedEventRef.current = {
           ...result,
           signature: bundle.signature,
+          skipGPGVerification,
         };
         setStatus('downloaded');
+        defaultLogger.app.jsBundleDev.downloadBundleResult({
+          version,
+          bundleVersion: bundle.bundleVersion,
+          success: true,
+        });
       } else {
         setStatus('error');
         setErrorMessage('Download returned empty result');
+        defaultLogger.app.jsBundleDev.downloadBundleResult({
+          version,
+          bundleVersion: bundle.bundleVersion,
+          success: false,
+          error: 'Download returned empty result',
+        });
       }
     } catch (e) {
+      const errMsg = (e as Error)?.message || 'Download failed';
       setStatus('error');
-      setErrorMessage((e as Error)?.message || 'Download failed');
+      setErrorMessage(errMsg);
+      defaultLogger.app.jsBundleDev.downloadBundleResult({
+        version,
+        bundleVersion: bundle.bundleVersion,
+        success: false,
+        error: errMsg,
+      });
     } finally {
       onDownloadEnd();
     }
-  }, [bundle, version, onDownloadStart, onDownloadEnd]);
+  }, [bundle, version, onDownloadStart, onDownloadEnd, gpgSkipped]);
 
   const handleInstall = useCallback(async () => {
     const skipGPGVerification =
       !!process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION && gpgSkipped;
     setStatus('installing');
+    defaultLogger.app.jsBundleDev.installBundle({
+      version,
+      bundleVersion: bundle.bundleVersion,
+    });
     try {
       if (alreadyDownloaded && !downloadedEventRef.current) {
         await BundleUpdate.verifyExtractedBundle(version, bundle.bundleVersion);
+        defaultLogger.app.jsBundleDev.installBundleResult({
+          version,
+          bundleVersion: bundle.bundleVersion,
+          success: true,
+        });
         await BundleUpdate.installBundle({
           latestVersion: version,
           bundleVersion: bundle.bundleVersion,
@@ -118,7 +171,11 @@ function BundleItem({
           skipGPGVerification,
         });
       } else {
-        if (!downloadedEventRef.current) return;
+        if (!downloadedEventRef.current) {
+          throw new Error(
+            'Downloaded bundle info missing, please download again.',
+          );
+        }
         await BundleUpdate.verifyBundleASC({
           ...downloadedEventRef.current,
           latestVersion: version,
@@ -136,6 +193,11 @@ function BundleItem({
           skipGPGVerification,
         });
 
+        defaultLogger.app.jsBundleDev.installBundleResult({
+          version,
+          bundleVersion: bundle.bundleVersion,
+          success: true,
+        });
         await BundleUpdate.installBundle({
           ...downloadedEventRef.current,
           latestVersion: version,
@@ -145,8 +207,15 @@ function BundleItem({
         });
       }
     } catch (e) {
+      const errMsg = (e as Error)?.message || 'Install failed';
       setStatus('error');
-      setErrorMessage((e as Error)?.message || 'Install failed');
+      setErrorMessage(errMsg);
+      defaultLogger.app.jsBundleDev.installBundleResult({
+        version,
+        bundleVersion: bundle.bundleVersion,
+        success: false,
+        error: errMsg,
+      });
     }
   }, [alreadyDownloaded, bundle, version, gpgSkipped]);
 
@@ -188,10 +257,12 @@ function BundleItem({
                 </Badge>
               ) : null}
             </XStack>
-            <SizableText size="$bodyXs" color="$textSubdued">
-              {formatFileSize(bundle.fileSize)}
-              {bundle.changeLog ? ` · ${bundle.changeLog}` : ''}
-            </SizableText>
+            <XStack alignItems="center" gap="$2">
+              <SizableText size="$bodyXs" color="$textSubdued" flex={1}>
+                {formatFileSize(bundle.fileSize)}
+                {bundle.changeLog ? ` · ${bundle.changeLog}` : ''}
+              </SizableText>
+            </XStack>
           </YStack>
         </XStack>
 
@@ -234,11 +305,25 @@ function BundleItem({
       ) : null}
 
       {!isCurrentBundle && status === 'downloaded' ? (
-        <Stack pl="$10">
-          <Button variant="primary" size="small" onPress={handleInstall}>
-            Switch to This Bundle
+        <XStack pl="$10" justifyContent="flex-end">
+          <Button
+            variant="primary"
+            size="small"
+            alignSelf="flex-end"
+            px="$3"
+            onPress={handleInstall}
+          >
+            Switch
           </Button>
-        </Stack>
+        </XStack>
+      ) : null}
+
+      {bundle.commitHash ? (
+        <XStack pl="$10" justifyContent="flex-end">
+          <SizableText size="$bodyXs" color="$textSubdued">
+            {bundle.commitHash.slice(0, 8)}
+          </SizableText>
+        </XStack>
       ) : null}
     </YStack>
   );
@@ -263,16 +348,26 @@ export default function SettingDevBundleList() {
   const currentAppVersion = String(platformEnv.version);
 
   useEffect(() => {
+    let isMounted = true;
     void (async () => {
       try {
-        const [data, skipGpg] = await Promise.all([
+        const [data, skipGpg, localBundles] = await Promise.all([
           backgroundApiProxy.serviceAppUpdate.devFetchBundlesForVersion(
             version,
           ),
           backgroundApiProxy.serviceDevSetting.getSkipBundleGPGVerification(),
+          BundleUpdate.listLocalBundles().catch(() => []),
         ]);
+        if (!isMounted) return;
+
         setGpgSkipped(skipGpg);
         setBundles(data);
+
+        const downloaded = new Set<string>(
+          localBundles
+            .filter((b) => String(b.appVersion) === String(version))
+            .map((b) => String(b.bundleVersion)),
+        );
 
         const existsChecks = await Promise.all(
           data.map(async (b) => ({
@@ -280,17 +375,36 @@ export default function SettingDevBundleList() {
             exists: await BundleUpdate.isBundleExists(version, b.bundleVersion),
           })),
         );
-        const downloaded = new Set<string>();
         for (const check of existsChecks) {
+          defaultLogger.app.jsBundleDev.checkBundleExists({
+            version,
+            bundleVersion: check.bundleVersion,
+            exists: check.exists,
+          });
           if (check.exists) {
             downloaded.add(check.bundleVersion);
           }
         }
-        setDownloadedSet(downloaded);
+        if (isMounted) {
+          setDownloadedSet(downloaded);
+        }
+      } catch (e) {
+        defaultLogger.app.jsBundleDev.fetchBundlesError({
+          version,
+          error: (e as Error)?.message || 'Unknown error',
+        });
+        if (isMounted) {
+          setBundles([]);
+        }
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     })();
+    return () => {
+      isMounted = false;
+    };
   }, [version]);
 
   const handleDownloadStart = useCallback(() => {
