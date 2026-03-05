@@ -29,6 +29,7 @@ import { AccountSelectorProviderMirror } from '../AccountSelector';
 
 import { WalletConnectionGroup } from './components';
 import { UrlAccountPageHeader } from './urlAccountPageHeader';
+import { getHomeTabStackLength } from '../../views/Home/pages/urlAccount/urlAccountUtils';
 
 export function HeaderLeftCloseButton() {
   return (
@@ -126,15 +127,22 @@ export function HeaderLeft({
                   },
                 );
               } else {
-                rootNavigationRef.current?.navigate(
-                  ETabRoutes.Home,
-                  {
-                    screen: ETabHomeRoutes.TabHome,
-                  },
-                  {
-                    pop: true,
-                  },
-                );
+                if (
+                  getHomeTabStackLength() > 1 &&
+                  rootNavigationRef.current?.canGoBack()
+                ) {
+                  rootNavigationRef.current?.goBack();
+                } else {
+                  rootNavigationRef.current?.navigate(
+                    ETabRoutes.Home,
+                    {
+                      screen: ETabHomeRoutes.TabHome,
+                    },
+                    {
+                      pop: true,
+                    },
+                  );
+                }
               }
             }}
           />
