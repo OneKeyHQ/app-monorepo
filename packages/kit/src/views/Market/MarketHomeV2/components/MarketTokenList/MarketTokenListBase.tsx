@@ -1,14 +1,18 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useContext, useEffect, useMemo, useRef } from 'react';
 import type { ReactNode } from 'react';
+
+import { createPortal } from 'react-dom';
 
 import {
   ListEndIndicator,
   Spinner,
   Stack,
   Table,
+  YStack,
   useMedia,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
+import { useFocusedTab } from '@onekeyhq/components/src/composite/Tabs/useFocusedTab';
 import type { ETableSortType, ITableColumn } from '@onekeyhq/components';
 import type { IDragEndParamsWithItem } from '@onekeyhq/components/src/layouts/SortableListView/types';
 import { usePerpsNavigation } from '@onekeyhq/kit/src/views/Market/hooks/usePerpsNavigation';
@@ -23,6 +27,8 @@ import type {
 } from '@onekeyhq/shared/src/logger/scopes/dex';
 import { ESortWay } from '@onekeyhq/shared/src/logger/scopes/dex/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import { DesktopStickyHeaderContext } from '../../layouts/DesktopStickyHeaderContext';
 
 import { useMarketTokenColumns } from './hooks/useMarketTokenColumns';
 import { useToDetailPage } from './hooks/useToMarketDetailPage';
@@ -93,6 +99,7 @@ type IMarketTokenListBaseProps = {
   copyFrom?: ECopyFrom;
   draggable?: boolean;
   tabIntegrated?: boolean;
+  tabName?: string;
   listContainerProps?: {
     paddingBottom: number;
   };
@@ -119,6 +126,7 @@ function MarketTokenListBase({
   copyFrom,
   draggable = false,
   tabIntegrated,
+  tabName,
   listContainerProps,
   onDragEnd,
   onItemLongPress,
@@ -309,10 +317,43 @@ function MarketTokenListBase({
     return () => observer.disconnect();
   }, [webTabIntegrated, handleEndReached]);
 
+  // Desktop sticky header: portal the column header + toolbar into the
+  // renderTabBar area so they stick when scrolling in the collapsible tab.
+  const stickyPortalTarget = useContext(DesktopStickyHeaderContext);
+  const focusedTab = useFocusedTab();
+  const isTabFocused = !tabName || focusedTab === tabName;
+  const useDesktopPortal = webTabIntegrated && !!stickyPortalTarget && !md;
+
+  const portalContent = useMemo(() => {
+    if (!useDesktopPortal || !isTabFocused) return null;
+    return createPortal(
+      <YStack bg="$bgApp" px="$4">
+        {toolbar ? (
+          <Stack width="100%" mb="$3">
+            {toolbar}
+          </Stack>
+        ) : null}
+        <Table.HeaderRow
+          columns={marketTokenColumns}
+          onHeaderRow={handleHeaderRow}
+        />
+      </YStack>,
+      stickyPortalTarget!,
+    );
+  }, [
+    useDesktopPortal,
+    isTabFocused,
+    stickyPortalTarget,
+    toolbar,
+    marketTokenColumns,
+    handleHeaderRow,
+  ]);
+
   return (
     <Stack flex={1} width="100%">
-      {/* render custom toolbar if provided */}
-      {toolbar ? (
+      {portalContent}
+      {/* render custom toolbar if provided (only when not in desktop portal mode) */}
+      {!useDesktopPortal && toolbar ? (
         <Stack width="100%" mb="$3">
           {toolbar}
         </Stack>
@@ -348,7 +389,7 @@ function MarketTokenListBase({
               contentContainerStyle={
                 tabIntegrated
                   ? {
-                      paddingTop: 8 + (platformEnv.isNative ? 170 : 0),
+                      paddingTop: 8 + (platformEnv.isNative ? 195 : 0),
                       paddingBottom: platformEnv.isNativeAndroid
                         ? (listContainerProps?.paddingBottom ??
                           SPINNER_HEIGHT * 2)
@@ -361,6 +402,7 @@ function MarketTokenListBase({
                     }
               }
               stickyHeader
+              showHeader={useDesktopPortal ? false : !tabIntegrated || !md}
               scrollEnabled={!webTabIntegrated}
               draggable={draggable}
               tabIntegrated={tabIntegrated}

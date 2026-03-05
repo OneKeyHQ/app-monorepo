@@ -59,7 +59,6 @@ export function Column<T>({
       userSelect="none"
       {...props}
     >
-      {jc === 'flex-end' ? renderSortIcon() : null}
       {typeof children === 'string' ? (
         <SizableText color="$textSubdued" size="$bodySmMedium">
           {children}
@@ -67,7 +66,7 @@ export function Column<T>({
       ) : (
         children
       )}
-      {jc === 'flex-start' ? renderSortIcon() : null}
+      {renderSortIcon()}
     </XStack>
   );
 }
