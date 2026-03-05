@@ -263,12 +263,13 @@ export function AvailableAssetsTabViewList() {
       <ListItem
         userSelect="none"
         onPress={() => handleRowPress(asset)}
-        avatarProps={{
-          src: asset.logoURI,
-          fallbackProps: {
-            borderRadius: '$full',
-          },
-        }}
+        renderAvatar={
+          <Token
+            size="md"
+            tokenImageUri={asset.logoURI}
+            borderRadius="$full"
+          />
+        }
       >
         <ListItem.Text
           flex={1}
