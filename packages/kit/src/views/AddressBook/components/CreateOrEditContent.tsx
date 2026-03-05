@@ -312,22 +312,13 @@ export function CreateOrEditContent({
                   { 'num': 24 },
                 ),
               },
-              validate: async (text: string) => {
+              validate: (text: string) => {
                 if (!text?.trim()) {
                   return intl.formatMessage({
                     id: ETranslations.address_book_add_address_name_empty_error,
                   });
                 }
-                const searched =
-                  await backgroundApiProxy.serviceAddressBook.findItem({
-                    name: text,
-                  });
-                if (!searched || item.id === searched.id) {
-                  return undefined;
-                }
-                return intl.formatMessage({
-                  id: ETranslations.address_book_add_address_name_exists,
-                });
+                return undefined;
               },
             }}
             testID="address-form-name-field"
@@ -359,7 +350,7 @@ export function CreateOrEditContent({
             })}
             name="address"
             rules={{
-              validate: async (output: IAddressInputValue) => {
+              validate: (output: IAddressInputValue) => {
                 if (output.pending) {
                   return;
                 }
@@ -371,16 +362,7 @@ export function CreateOrEditContent({
                     })
                   );
                 }
-                const searched =
-                  await backgroundApiProxy.serviceAddressBook.findItem({
-                    address: output.resolved,
-                  });
-                if (!searched || item.id === searched.id) {
-                  return undefined;
-                }
-                return intl.formatMessage({
-                  id: ETranslations.address_book_add_address_address_exists,
-                });
+                return undefined;
               },
             }}
             testID="address-form-address-field"
@@ -423,15 +405,25 @@ export function CreateOrEditContent({
         >
           <Page.FooterActions
             flex={platformEnv.isNative ? undefined : 1}
-            onConfirmText={intl.formatMessage({
-              id: ETranslations.address_book_add_address_button_save,
-            })}
+            onConfirmText={
+              isSubmitLoading || form.formState.isSubmitting
+                ? intl.formatMessage({
+                    id: ETranslations.update_verifying,
+                  })
+                : intl.formatMessage({
+                    id: ETranslations.address_book_add_address_button_save,
+                  })
+            }
             confirmButtonProps={{
               variant: 'primary',
               loading: isSubmitLoading || form.formState.isSubmitting,
               disabled: !form.formState.isValid || pending,
               onPress: form.submit,
               testID: 'address-form-save',
+              icon:
+                isSubmitLoading || form.formState.isSubmitting
+                  ? undefined
+                  : 'LockOutline',
             }}
           />
         </Stack>

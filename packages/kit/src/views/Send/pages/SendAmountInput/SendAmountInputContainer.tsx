@@ -1,0 +1,1184 @@
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+
+import { useRoute } from '@react-navigation/core';
+import BigNumber from 'bignumber.js';
+import { isEmpty, isNil } from 'lodash';
+import { useIntl } from 'react-intl';
+import { InputAccessoryView } from 'react-native';
+
+import {
+  Button,
+  Form,
+  Icon,
+  Image,
+  Input,
+  NumberSizeableText,
+  Page,
+  SizableText,
+  Skeleton,
+  Stack,
+  TextArea,
+  TextAreaInput,
+  XStack,
+  YStack,
+  useForm,
+  useMedia,
+} from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import AddressTypeSelector from '@onekeyhq/kit/src/components/AddressTypeSelector/AddressTypeSelector';
+import type { IAmountInputRef } from '@onekeyhq/kit/src/components/AmountInput';
+import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
+import { calcPercentBalance } from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard';
+import { useReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
+import { LightningUnitSwitch } from '@onekeyhq/kit/src/components/UnitSwitch';
+import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
+import { useSelectedUTXOsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
+import { useAllTokenListMapAtom } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EModalRoutes, EModalSendRoutes } from '@onekeyhq/shared/src/routes';
+import type {
+  EModalSignatureConfirmRoutes,
+  IModalSignatureConfirmParamList,
+} from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
+import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { ELightningUnit } from '@onekeyhq/shared/types/lightning';
+import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
+import { ENFTType } from '@onekeyhq/shared/types/nft';
+import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
+
+import { useSupportToken } from '../../../FiatCrypto/hooks';
+import { showBalanceDetailsDialog } from '../../../Home/components/BalanceDetailsDialog';
+import { HomeTokenListProviderMirror } from '../../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
+import CoinControlBadge from '../../components/CoinControlBadge';
+import { SendConfirmProviderMirror } from '../../components/SendConfirmProvider/SendConfirmProviderMirror';
+
+import type { RouteProp } from '@react-navigation/core';
+
+export const amountInputAccessoryViewID = 'send-amount-input-accessory-view';
+
+interface IAmountFormValues {
+  accountId: string;
+  networkId: string;
+  amount: string;
+  nftAmount: string;
+  txMessage: string;
+}
+
+function SendAmountInputContainer() {
+  const intl = useIntl();
+  const _media = useMedia();
+
+  const [isUseFiat, setIsUseFiat] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isMaxSend, setIsMaxSend] = useState(false);
+  const [settings] = useSettingsPersistAtom();
+  const [selectedUTXOs] = useSelectedUTXOsAtom();
+
+  const route =
+    useRoute<
+      RouteProp<
+        IModalSignatureConfirmParamList,
+        EModalSignatureConfirmRoutes.TxAmountInput
+      >
+    >();
+
+  const {
+    networkId,
+    accountId,
+    isNFT,
+    token,
+    nfts,
+    recipientAddress,
+    recipientMemo,
+    recipientPaymentId,
+    recipientNote,
+    onSuccess,
+    onFail,
+    onCancel,
+  } = route.params;
+
+  const nft = nfts?.[0];
+  const [tokenInfo] = useState(token);
+
+  const onSubmitRef = useRef<() => Promise<void>>(undefined);
+  const navigation = useAppNavigation();
+
+  const [currentAccountId, setCurrentAccountId] = useState(accountId);
+
+  const { account, network, vaultSettings, deriveInfo, deriveType } =
+    useAccountData({
+      accountId: currentAccountId,
+      networkId,
+    });
+
+  const walletId = useMemo(
+    () =>
+      accountUtils.getWalletIdFromAccountId({ accountId: currentAccountId }),
+    [currentAccountId],
+  );
+
+  const [allTokenListMap] = useAllTokenListMapAtom();
+
+  const signatureConfirm = useSignatureConfirm({
+    accountId: currentAccountId,
+    networkId,
+  });
+
+  const form = useForm<IAmountFormValues>({
+    mode: 'onChange',
+    reValidateMode: 'onChange',
+    defaultValues: {
+      accountId,
+      networkId,
+      amount: '0',
+      nftAmount: isNFT && nft?.collectionType === ENFTType.ERC1155 ? '' : '1',
+      txMessage: '',
+    },
+  });
+
+  const amount = form.watch('amount');
+  const nftAmount = form.watch('nftAmount');
+  const txMessage = form.watch('txMessage');
+
+  const { serviceToken, serviceNFT } = backgroundApiProxy;
+
+  const {
+    result: [tokenDetails, nftDetails, hasFrozenBalance] = [],
+    isLoading: isLoadingAssets,
+  } = usePromiseResult(
+    async () => {
+      if (!account?.id || !network?.id) return;
+      if (!token && !nft) return;
+
+      let nftResp: IAccountNFT[] | undefined;
+      let tokenResp:
+        | ({
+            info: IToken;
+          } & ITokenFiat)[]
+        | undefined;
+
+      if (isNFT && nft) {
+        nftResp = await serviceNFT.fetchNFTDetails({
+          accountId: account.id,
+          networkId: network.id,
+          nfts: [
+            {
+              collectionAddress: nft.collectionAddress,
+              itemId: nft.itemId,
+            },
+          ],
+        });
+      } else if (!isNFT && tokenInfo) {
+        const checkInscriptionProtectionEnabled =
+          await backgroundApiProxy.serviceSetting.checkInscriptionProtectionEnabled(
+            {
+              networkId: network.id,
+              accountId: account.id,
+            },
+          );
+        const withCheckInscription =
+          checkInscriptionProtectionEnabled && settings.inscriptionProtection;
+        tokenResp = await serviceToken.fetchTokensDetails({
+          networkId: network.id,
+          accountId: account.id,
+          contractList: [tokenInfo.address],
+          withFrozenBalance: true,
+          withCheckInscription,
+        });
+      }
+
+      const frozenBalanceSettings =
+        await backgroundApiProxy.serviceSend.getFrozenBalanceSetting({
+          networkId: network.id,
+          tokenDetails: tokenResp?.[0],
+        });
+
+      return [tokenResp?.[0], nftResp?.[0], frozenBalanceSettings];
+    },
+    [
+      account,
+      isNFT,
+      network,
+      nft,
+      serviceNFT,
+      serviceToken,
+      token,
+      tokenInfo,
+      settings.inscriptionProtection,
+    ],
+    { watchLoading: true, alwaysSetState: true },
+  );
+
+  // Calculate balanceParsed if not provided
+  if (tokenDetails && isNil(tokenDetails?.balanceParsed)) {
+    tokenDetails.balanceParsed = new BigNumber(tokenDetails.balance)
+      .shiftedBy(tokenDetails.info.decimals * -1)
+      .toFixed();
+  }
+
+  const [lnUnit, setLnUnit] = useState<ELightningUnit>(ELightningUnit.SATS);
+
+  const isLightningNetwork = useMemo(
+    () => networkUtils.isLightningNetworkByNetworkId(networkId),
+    [networkId],
+  );
+
+  const currencySymbol = settings.currencyInfo.symbol;
+  const tokenSymbol = useMemo(() => {
+    if (isNFT) return nft?.metadata?.name ?? '';
+    return tokenInfo?.symbol ?? '';
+  }, [isNFT, tokenInfo?.symbol, nft?.metadata?.name]);
+
+  const maxBalance = useMemo(() => {
+    if (!tokenDetails) return '0';
+    return tokenDetails.balanceParsed;
+  }, [tokenDetails]);
+
+  const maxBalanceFiat = useMemo(() => {
+    if (!tokenDetails) return '0';
+    return tokenDetails.fiatValue;
+  }, [tokenDetails]);
+
+  const linkedAmount = useMemo(() => {
+    const amountBN = new BigNumber(amount || 0);
+    if (isUseFiat) {
+      const price = new BigNumber(tokenDetails?.price ?? 0);
+      if (price.isZero()) {
+        return { originalAmount: '0', linkedAmount: '0' };
+      }
+      const linkedAmountValue = amountBN.dividedBy(price);
+      return {
+        originalAmount: linkedAmountValue.toFixed(),
+        linkedAmount: amountBN.toFixed(),
+      };
+    }
+    const price = new BigNumber(tokenDetails?.price ?? 0);
+    const linkedAmountValue = amountBN.multipliedBy(price);
+    return {
+      originalAmount: amountBN.toFixed(),
+      linkedAmount: linkedAmountValue.toFixed(),
+    };
+  }, [amount, isUseFiat, tokenDetails?.price]);
+
+  const handleToggleFiatMode = useCallback(() => {
+    // When currently in fiat mode (isUseFiat=true), switching to token mode -> use originalAmount
+    // When currently in token mode (isUseFiat=false), switching to fiat mode -> use linkedAmount
+    let amountValue = isUseFiat
+      ? linkedAmount.originalAmount
+      : linkedAmount.linkedAmount;
+    // Truncate decimal places when switching back to crypto mode
+    if (isUseFiat && amountValue) {
+      const decimals = tokenDetails?.info.decimals ?? 8;
+      const valueBN = new BigNumber(amountValue);
+      if (!valueBN.isNaN() && (valueBN.decimalPlaces() ?? 0) > decimals) {
+        amountValue = valueBN.toFixed(decimals, BigNumber.ROUND_FLOOR);
+      }
+    }
+    setIsUseFiat((prev) => !prev);
+    form.setValue('amount', amountValue);
+    void form.trigger('amount');
+  }, [
+    form,
+    isUseFiat,
+    linkedAmount.linkedAmount,
+    linkedAmount.originalAmount,
+    tokenDetails?.info.decimals,
+  ]);
+
+  const isIntegerAmount = useMemo(() => {
+    if (isLightningNetwork && lnUnit === ELightningUnit.SATS) {
+      return true;
+    }
+    return false;
+  }, [isLightningNetwork, lnUnit]);
+
+  const handleValidateTokenAmount = useCallback(
+    async (value: string): Promise<string | undefined> => {
+      // Allow '0' without error (button will be disabled instead)
+      if (!value) {
+        return intl.formatMessage({
+          id: ETranslations.send_amount_invalid,
+        });
+      }
+
+      const valueBN = new BigNumber(value);
+      if (valueBN.isNaN() || valueBN.isNegative()) {
+        return intl.formatMessage({
+          id: ETranslations.send_amount_invalid,
+        });
+      }
+
+      // Insufficient balance is handled via button text, not form error
+      return undefined;
+    },
+    [intl],
+  );
+
+  // Check if balance is insufficient (show on button instead of form error)
+  const isInsufficientBalance = useMemo(() => {
+    if (!amount || amount === '0') return false;
+    const valueBN = new BigNumber(amount);
+    if (valueBN.isNaN() || valueBN.isNegative()) return false;
+
+    if (isUseFiat) {
+      const fiatValue = new BigNumber(tokenDetails?.fiatValue ?? 0);
+      return valueBN.isGreaterThan(fiatValue);
+    }
+    const balance = new BigNumber(maxBalance);
+    return valueBN.isGreaterThan(balance);
+  }, [amount, isUseFiat, tokenDetails?.fiatValue, maxBalance]);
+
+  // Buy button support for insufficient balance
+  const showReviewControl = useReviewControl();
+  const { result: isBuySupported } = useSupportToken(
+    networkId,
+    tokenInfo?.address ?? '',
+    'buy',
+  );
+  const isWatchingWallet = useMemo(
+    () => accountUtils.isWatchingAccount({ accountId: currentAccountId }),
+    [currentAccountId],
+  );
+  const showBuyButton = useMemo(
+    () =>
+      isInsufficientBalance &&
+      !isNFT &&
+      showReviewControl &&
+      isBuySupported &&
+      !(isWatchingWallet && !platformEnv.isDev),
+    [
+      isInsufficientBalance,
+      isNFT,
+      showReviewControl,
+      isBuySupported,
+      isWatchingWallet,
+    ],
+  );
+  const [isBuyLoading, setIsBuyLoading] = useState(false);
+  const handleBuyToken = useCallback(async () => {
+    setIsBuyLoading(true);
+    try {
+      const { url } =
+        await backgroundApiProxy.serviceFiatCrypto.generateWidgetUrl({
+          networkId,
+          tokenAddress: tokenInfo?.address ?? '',
+          accountId: currentAccountId,
+          type: 'buy',
+        });
+      if (url) {
+        openUrlExternal(url);
+      }
+    } finally {
+      setIsBuyLoading(false);
+    }
+  }, [networkId, tokenInfo?.address, currentAccountId]);
+
+  const onSelectPercentageStage = useCallback(
+    (stage: number) => {
+      const balance = maxBalance;
+      const decimals = tokenDetails?.info.decimals;
+      const result = calcPercentBalance({
+        balance,
+        percent: stage,
+        decimals,
+      });
+      form.setValue('amount', result);
+      void form.trigger('amount');
+      setIsMaxSend(stage === 100);
+    },
+    [form, maxBalance, tokenDetails?.info.decimals],
+  );
+
+  const displayCoinControlButton = useMemo(
+    () => !!vaultSettings?.coinControlEnabled,
+    [vaultSettings?.coinControlEnabled],
+  );
+
+  const handleCoinControlPress = useCallback(() => {
+    navigation.pushModal(EModalRoutes.SendModal, {
+      screen: EModalSendRoutes.CoinControl,
+      params: {
+        accountId: currentAccountId,
+        networkId,
+      },
+    });
+  }, [navigation, currentAccountId, networkId]);
+
+  // Track if amount input is focused
+  const [isAmountInputFocused, setIsAmountInputFocused] = useState(false);
+
+  // Ref for AmountInput to trigger button focus
+  const amountInputRef = useRef<IAmountInputRef>(null);
+
+  // Ref to track submit disabled state for keyboard shortcuts
+  const isSubmitDisabledRef = useRef(true);
+
+  // Auto-focus the amount input after page transition animation completes
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      amountInputRef.current?.focus();
+    }, 300);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const { currentSelectedUtxoKeys, currentUtxoSelectionStrategy } =
+    useMemo(() => {
+      if (!selectedUTXOs) {
+        return {
+          currentSelectedUtxoKeys: undefined,
+          currentUtxoSelectionStrategy: undefined,
+        };
+      }
+      return {
+        currentSelectedUtxoKeys: selectedUTXOs.selectedUtxoKeys,
+        currentUtxoSelectionStrategy: selectedUTXOs.utxoSelectionStrategy,
+      };
+    }, [selectedUTXOs]);
+
+  // Handle hex data for EVM chains
+  const isHexTxMessage = useMemo(() => {
+    if (!txMessage) return false;
+    return hexUtils.isHexString(txMessage);
+  }, [txMessage]);
+
+  const txMessageLinkedString = useMemo(() => {
+    if (!txMessage) return '';
+    if (isHexTxMessage) return txMessage;
+    return hexUtils.hexlify(Buffer.from(txMessage, 'utf-8'));
+  }, [isHexTxMessage, txMessage]);
+
+  const displayTxMessageForm = useMemo(() => {
+    if (!tokenInfo?.isNative) return false;
+    return settings.isCustomTxMessageEnabled;
+  }, [settings.isCustomTxMessageEnabled, tokenInfo?.isNative]);
+
+  onSubmitRef.current = useCallback(
+    async () =>
+      errorToastUtils.withErrorAutoToast(async () => {
+        try {
+          if (!account) return;
+
+          let realAmount = amount;
+
+          setIsSubmitting(true);
+
+          if (isNFT) {
+            realAmount = nftAmount;
+          } else {
+            realAmount = amount;
+
+            if (isUseFiat) {
+              if (
+                new BigNumber(amount).isGreaterThan(
+                  tokenDetails?.fiatValue ?? 0,
+                )
+              ) {
+                realAmount = tokenDetails?.balanceParsed ?? '0';
+              } else {
+                realAmount = linkedAmount.originalAmount;
+              }
+            }
+          }
+
+          if (isLightningNetwork && lnUnit === ELightningUnit.BTC) {
+            realAmount = chainValueUtils.convertBtcToSats(realAmount);
+          }
+
+          const txMessageValue = form.getValues('txMessage');
+          const hexData = isHexTxMessage
+            ? txMessageValue
+            : txMessageLinkedString;
+
+          const transfersInfo: ITransferInfo[] = [
+            {
+              from: account.address,
+              to: recipientAddress,
+              amount: realAmount,
+              nftInfo:
+                isNFT && nftDetails
+                  ? {
+                      nftId: nftDetails.itemId,
+                      nftAddress: nftDetails.collectionAddress,
+                      nftType: nftDetails.collectionType,
+                    }
+                  : undefined,
+              tokenInfo: !isNFT && tokenDetails ? tokenDetails.info : undefined,
+              memo: recipientMemo,
+              paymentId: recipientPaymentId,
+              note: recipientNote,
+              hexData: tokenDetails?.info.isNative ? hexData : undefined,
+              selectedUtxoKeys: currentSelectedUtxoKeys,
+              utxoSelectionStrategy: currentUtxoSelectionStrategy,
+            },
+          ];
+
+          defaultLogger.transaction.send.amountInput({
+            tokenType: isNFT ? 'NFT' : 'Token',
+            tokenSymbol: isNFT
+              ? nft?.metadata?.name
+              : tokenDetails?.info.symbol,
+            tokenAddress: isNFT
+              ? `${nft?.collectionAddress ?? ''}:${nft?.itemId ?? ''}`
+              : tokenInfo?.address,
+          });
+
+          await signatureConfirm.navigationToTxConfirm({
+            transfersInfo,
+            sameModal: true,
+            onSuccess,
+            onFail,
+            onCancel,
+            transferPayload: {
+              amountToSend: realAmount,
+              isMaxSend,
+              isNFT,
+              originalRecipient: recipientAddress,
+              isToContract: false,
+              memo: recipientMemo,
+              paymentId: recipientPaymentId,
+              note: recipientNote,
+              tokenInfo: tokenDetails?.info,
+              isCustomHexData: !!(
+                settings.isCustomTxMessageEnabled &&
+                displayTxMessageForm &&
+                tokenInfo?.isNative &&
+                !isEmpty(hexData)
+              ),
+            },
+            isInternalTransfer: true,
+          });
+          setIsSubmitting(false);
+        } catch (e) {
+          setIsSubmitting(false);
+          throw e;
+        }
+      }),
+    [
+      account,
+      amount,
+      currentSelectedUtxoKeys,
+      currentUtxoSelectionStrategy,
+      displayTxMessageForm,
+      form,
+      isHexTxMessage,
+      isLightningNetwork,
+      isMaxSend,
+      isNFT,
+      isUseFiat,
+      linkedAmount.originalAmount,
+      lnUnit,
+      nft?.collectionAddress,
+      nft?.itemId,
+      nft?.metadata?.name,
+      nftAmount,
+      nftDetails,
+      onCancel,
+      onFail,
+      onSuccess,
+      recipientAddress,
+      recipientMemo,
+      recipientNote,
+      recipientPaymentId,
+      settings.isCustomTxMessageEnabled,
+      signatureConfirm,
+      tokenDetails,
+      tokenInfo?.address,
+      tokenInfo?.isNative,
+      txMessageLinkedString,
+    ],
+  );
+
+  const isSubmitDisabled = useMemo(() => {
+    if (isSubmitting) return true;
+    if (!recipientAddress) return true;
+    if (isInsufficientBalance) return true;
+    if (isNFT) {
+      if (nft?.collectionType === ENFTType.ERC1155) {
+        return !nftAmount || nftAmount === '0';
+      }
+      return false;
+    }
+    return !amount || amount === '0';
+  }, [
+    isSubmitting,
+    recipientAddress,
+    isInsufficientBalance,
+    isNFT,
+    nft?.collectionType,
+    nftAmount,
+    amount,
+  ]);
+
+  // Keep ref in sync with isSubmitDisabled
+  isSubmitDisabledRef.current = isSubmitDisabled;
+
+  // Keyboard shortcuts for desktop (when input is not focused)
+  // M = Max, Enter = confirm
+  useEffect(() => {
+    if (platformEnv.isNative || isNFT) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Skip if input is focused or if modifier keys are pressed
+      if (isAmountInputFocused || e.metaKey || e.ctrlKey || e.altKey) return;
+
+      if (e.key === 'm' || e.key === 'M') {
+        e.preventDefault();
+        onSelectPercentageStage(100);
+        return;
+      }
+
+      if (e.key === 'Enter' && !isSubmitDisabledRef.current) {
+        e.preventDefault();
+        void onSubmitRef.current?.();
+      }
+    };
+
+    globalThis.addEventListener('keydown', handleKeyDown);
+    return () => globalThis.removeEventListener('keydown', handleKeyDown);
+  }, [isAmountInputFocused, isNFT, onSelectPercentageStage]);
+
+  const balanceInfoContent = useMemo(() => {
+    if (!hasFrozenBalance) return null;
+    return (
+      <XStack
+        ml="$2"
+        p="$0.5"
+        onPress={() => {
+          showBalanceDetailsDialog({
+            accountId: currentAccountId,
+            networkId,
+            mergeDeriveAssetsEnabled: false,
+          });
+        }}
+        hoverStyle={{ opacity: 0.7 }}
+        pressStyle={{ opacity: 0.5 }}
+        cursor="pointer"
+      >
+        <Icon name="InfoCircleOutline" size="$4.5" color="$iconSubdued" />
+      </XStack>
+    );
+  }, [hasFrozenBalance, currentAccountId, networkId]);
+
+  const extraContent = useMemo(() => {
+    const addons: React.ReactNode[] = [];
+
+    if (vaultSettings?.mergeDeriveAssetsEnabled) {
+      addons.push(
+        <AddressTypeSelector
+          key="address-type-selector"
+          placement="top-end"
+          walletId={walletId}
+          networkId={networkId}
+          indexedAccountId={account?.indexedAccountId ?? ''}
+          activeDeriveInfo={deriveInfo}
+          activeDeriveType={deriveType}
+          tokenMap={allTokenListMap}
+          onSelect={async ({ account: a }) => {
+            if (a) {
+              setCurrentAccountId(a.id);
+            }
+          }}
+        />,
+      );
+    }
+
+    if (displayCoinControlButton) {
+      addons.push(
+        <CoinControlBadge
+          key="coin-control"
+          onPress={handleCoinControlPress}
+        />,
+      );
+    }
+
+    if (!addons.length) return null;
+
+    return (
+      <XStack
+        gap="$2"
+        alignItems="center"
+        justifyContent="flex-start"
+        flexWrap="wrap"
+        width="100%"
+        mt="$4"
+      >
+        {addons}
+      </XStack>
+    );
+  }, [
+    account?.indexedAccountId,
+    allTokenListMap,
+    deriveInfo,
+    deriveType,
+    displayCoinControlButton,
+    handleCoinControlPress,
+    networkId,
+    vaultSettings?.mergeDeriveAssetsEnabled,
+    walletId,
+  ]);
+
+  const renderAmountInput = useMemo(
+    () => (
+      <>
+        <Form.Field
+          name="amount"
+          rules={{
+            required: true,
+            validate: handleValidateTokenAmount,
+            onChange: (e: { target: { name: string; value: string } }) => {
+              setIsMaxSend(false);
+
+              // Remove spaces from input
+              let inputValue = (e.target?.value ?? '').replace(/\s/g, '');
+
+              // Auto-prepend "0" if input starts with "." (e.g., ".5" -> "0.5")
+              if (inputValue.startsWith('.')) {
+                inputValue = `0${inputValue}`;
+              }
+
+              // Remove leading zeros before significant digits (but keep "0" and "0.xxx")
+              if (inputValue.length > 1 && inputValue.startsWith('0')) {
+                // If it's like "007", remove leading zeros
+                // But keep "0.5" as is
+                if (!inputValue.startsWith('0.')) {
+                  inputValue = inputValue.replace(/^0+/, '') || '0';
+                  // Handle case like "00.5" -> "0.5"
+                  if (inputValue.startsWith('.')) {
+                    inputValue = `0${inputValue}`;
+                  }
+                }
+              }
+
+              // If value was modified, update the form
+              if (inputValue !== e.target?.value) {
+                form.setValue('amount', inputValue);
+              }
+
+              // Filter out non-numeric characters (keep digits and at most one decimal point)
+              // This preserves "12a34" as "1234" instead of "12" (like MetaMask)
+              let filteredValue = inputValue.replace(/[^\d.]/g, '');
+              // Ensure only one decimal point
+              const parts = filteredValue.split('.');
+              if (parts.length > 2) {
+                filteredValue = `${parts[0]}.${parts.slice(1).join('')}`;
+              }
+              // Update form if value was filtered
+              if (filteredValue !== inputValue) {
+                form.setValue('amount', filteredValue || '0');
+                inputValue = filteredValue;
+              }
+
+              const valueBN = new BigNumber(inputValue || 0);
+
+              // If still NaN after filtering, reset to 0
+              if (valueBN.isNaN()) {
+                form.setValue('amount', '0');
+                return;
+              }
+
+              // Handle integer-only tokens
+              if (isIntegerAmount) {
+                form.setValue('amount', valueBN.toFixed(0));
+                return;
+              }
+
+              let decimals = tokenDetails?.info.decimals ?? 8;
+
+              if (isLightningNetwork && lnUnit === ELightningUnit.BTC) {
+                decimals = chainValueUtils.getLightningAmountDecimals({
+                  lnUnit,
+                  decimals,
+                });
+              }
+
+              const dp = valueBN.decimalPlaces();
+              if (!isUseFiat && dp && dp > decimals) {
+                form.setValue(
+                  'amount',
+                  valueBN.toFixed(decimals, BigNumber.ROUND_FLOOR),
+                );
+              }
+            },
+          }}
+        >
+          <AmountInput
+            ref={amountInputRef}
+            variant="simple"
+            tokenSymbol={isUseFiat ? undefined : tokenSymbol}
+            reversible
+            enableMaxAmount
+            onPercentageSelect={onSelectPercentageStage}
+            valueProps={{
+              currency: isUseFiat ? undefined : currencySymbol,
+              tokenSymbol: isUseFiat ? tokenSymbol : undefined,
+              value: isUseFiat
+                ? linkedAmount.originalAmount
+                : linkedAmount.linkedAmount,
+              onPress: handleToggleFiatMode,
+            }}
+            inputProps={{
+              inputAccessoryViewID: platformEnv.isNativeIOS
+                ? amountInputAccessoryViewID
+                : undefined,
+              placeholder: '0',
+              onFocus: () => {
+                setIsAmountInputFocused(true);
+              },
+              onBlur: () => {
+                setIsAmountInputFocused(false);
+              },
+              keyboardType: isIntegerAmount ? 'number-pad' : 'decimal-pad',
+              ...(isUseFiat && {
+                leftAddOnProps: {
+                  label: currencySymbol,
+                  pr: '$0',
+                  pl: '$0',
+                  mr: '$-2',
+                },
+              }),
+            }}
+          />
+        </Form.Field>
+        {platformEnv.isNativeIOS ? (
+          <InputAccessoryView nativeID={amountInputAccessoryViewID}>
+            <SizableText h="$0" />
+          </InputAccessoryView>
+        ) : null}
+      </>
+    ),
+    [
+      currencySymbol,
+      form,
+      handleToggleFiatMode,
+      handleValidateTokenAmount,
+      isIntegerAmount,
+      isLightningNetwork,
+      isUseFiat,
+      linkedAmount.linkedAmount,
+      linkedAmount.originalAmount,
+      lnUnit,
+      onSelectPercentageStage,
+      tokenDetails?.info.decimals,
+      tokenSymbol,
+    ],
+  );
+
+  const renderNFTAmountInput = useMemo(() => {
+    if (!isNFT || nft?.collectionType !== ENFTType.ERC1155) return null;
+
+    return (
+      <Form.Field
+        name="nftAmount"
+        label={intl.formatMessage({ id: ETranslations.send_nft_amount })}
+        rules={{
+          required: true,
+          max: nftDetails?.amount ?? 1,
+          min: 1,
+          onChange: (e: { target: { name: string; value: string } }) => {
+            const valueString = new BigNumber(e.target?.value).toFixed();
+            if (/^[1-9]\d*$/.test(valueString)) {
+              form.setValue('nftAmount', valueString);
+            } else {
+              form.setValue('nftAmount', '');
+            }
+          },
+        }}
+      >
+        {isLoadingAssets ? null : (
+          <SizableText
+            size="$bodyMd"
+            color="$textSubdued"
+            position="absolute"
+            right="$0"
+            top="$0"
+          >
+            {intl.formatMessage({ id: ETranslations.global_available })}:{' '}
+            {nftDetails?.amount ?? 1}
+          </SizableText>
+        )}
+        <Input
+          size="large"
+          $gtMd={{
+            size: 'medium',
+          }}
+          addOns={[
+            {
+              loading: isLoadingAssets,
+              label: intl.formatMessage({ id: ETranslations.send_max }),
+              onPress: () => {
+                form.setValue('nftAmount', nftDetails?.amount ?? '1');
+                void form.trigger('nftAmount');
+              },
+            },
+          ]}
+        />
+      </Form.Field>
+    );
+  }, [
+    form,
+    intl,
+    isLoadingAssets,
+    isNFT,
+    nft?.collectionType,
+    nftDetails?.amount,
+  ]);
+
+  const handleConfirm = useCallback(async () => {
+    const isValid = await form.trigger();
+    if (!isValid) return;
+
+    await onSubmitRef.current?.();
+  }, [form]);
+
+  const renderBalanceCard = useMemo(() => {
+    if (isNFT) return null;
+
+    if (isLoadingAssets) {
+      return (
+        <XStack
+          bg="$bgStrong"
+          borderRadius="$3"
+          px="$3"
+          py="$2.5"
+          alignItems="center"
+          width="100%"
+        >
+          <Skeleton w="$10" h="$10" radius="round" mr="$3" />
+          <YStack flex={1} gap="$1.5">
+            <Skeleton h="$3" w="$10" />
+            <Skeleton h="$4" w="$24" />
+          </YStack>
+        </XStack>
+      );
+    }
+
+    if (!maxBalance) return null;
+
+    return (
+      <XStack
+        bg="$bgStrong"
+        borderRadius="$3"
+        px="$3"
+        py="$2.5"
+        alignItems="center"
+        width="100%"
+      >
+        {/* Token icon with network badge */}
+        <Stack mr="$3">
+          {tokenInfo?.logoURI ? (
+            <Stack>
+              <Image
+                size="$10"
+                borderRadius="$full"
+                source={{ uri: tokenInfo.logoURI }}
+              />
+              {network?.logoURI ? (
+                <Stack
+                  position="absolute"
+                  right="$-0.5"
+                  bottom="$-0.5"
+                  p="$px"
+                  borderRadius="$full"
+                  bg="$bgStrong"
+                >
+                  <Image
+                    size="$4"
+                    borderRadius="$full"
+                    source={{ uri: network.logoURI }}
+                  />
+                </Stack>
+              ) : null}
+            </Stack>
+          ) : (
+            <Stack
+              w="$10"
+              h="$10"
+              borderRadius="$full"
+              bg="$gray5"
+              alignItems="center"
+              justifyContent="center"
+            >
+              <Icon name="CryptoCoinOutline" size="$6" color="$iconSubdued" />
+            </Stack>
+          )}
+        </Stack>
+
+        {/* Balance label + amount */}
+        <YStack flex={1}>
+          <SizableText size="$bodySm" color="$textSubdued">
+            {intl.formatMessage({ id: ETranslations.global_available })}
+          </SizableText>
+          <XStack alignItems="center" mt="$0.5">
+            <NumberSizeableText
+              size="$bodyLgMedium"
+              color="$text"
+              formatter="balance"
+            >
+              {maxBalance}
+            </NumberSizeableText>
+            {tokenSymbol ? (
+              <SizableText size="$bodyLgMedium" color="$text" ml="$1">
+                {tokenSymbol}
+              </SizableText>
+            ) : null}
+            {balanceInfoContent}
+          </XStack>
+        </YStack>
+
+        {/* Max button */}
+        <Button
+          variant="secondary"
+          size="small"
+          ml="$2"
+          onPress={() => {
+            form.setValue('amount', isUseFiat ? maxBalanceFiat : maxBalance);
+            void form.trigger('amount');
+            setIsMaxSend(true);
+          }}
+        >
+          {intl.formatMessage({ id: ETranslations.send_max })}
+        </Button>
+      </XStack>
+    );
+  }, [
+    balanceInfoContent,
+    form,
+    intl,
+    isLoadingAssets,
+    isNFT,
+    isUseFiat,
+    maxBalance,
+    maxBalanceFiat,
+    network?.logoURI,
+    tokenInfo?.logoURI,
+    tokenSymbol,
+  ]);
+
+  return (
+    <Page safeAreaEnabled>
+      <Page.Header
+        title={intl.formatMessage({ id: ETranslations.enter_amount__title })}
+      />
+
+      <Page.Body px="$5" justifyContent="center">
+        <Form form={form}>
+          {isNFT ? renderNFTAmountInput : renderAmountInput}
+
+          {isLightningNetwork && lnUnit ? (
+            <LightningUnitSwitch
+              value={lnUnit}
+              onChange={(unit: string | number) => {
+                setLnUnit(unit as ELightningUnit);
+                form.setValue('amount', '');
+              }}
+            />
+          ) : null}
+
+          {displayTxMessageForm ? (
+            <Form.Field
+              name="txMessage"
+              label={intl.formatMessage({
+                id: ETranslations.global_hex_data,
+              })}
+              optional
+            >
+              <TextArea>
+                <TextAreaInput
+                  placeholder={intl.formatMessage({
+                    id: ETranslations.global_hex_data,
+                  })}
+                />
+              </TextArea>
+            </Form.Field>
+          ) : null}
+        </Form>
+      </Page.Body>
+
+      <Page.Footer>
+        <Stack px="$5" gap="$3">
+          {extraContent}
+          {renderBalanceCard}
+        </Stack>
+        {showBuyButton ? (
+          <Page.FooterActions
+            confirmButton={
+              <XStack gap="$2.5" flex={1}>
+                <Button
+                  variant="primary"
+                  onPress={handleBuyToken}
+                  loading={isBuyLoading}
+                  flexGrow={1}
+                  flexShrink={1}
+                  $md={
+                    {
+                      size: 'large',
+                    } as any
+                  }
+                >
+                  {`${intl.formatMessage({
+                    id: ETranslations.global_buy,
+                  })} ${tokenSymbol}`}
+                </Button>
+                <Button
+                  disabled
+                  flexGrow={1}
+                  flexShrink={1}
+                  $md={
+                    {
+                      size: 'large',
+                    } as any
+                  }
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.insufficient_funds__action,
+                  })}
+                </Button>
+              </XStack>
+            }
+          />
+        ) : (
+          <Page.FooterActions
+            onConfirm={handleConfirm}
+            onConfirmText={
+              isInsufficientBalance
+                ? intl.formatMessage({
+                    id: ETranslations.insufficient_funds__action,
+                  })
+                : intl.formatMessage({
+                    id: ETranslations.send_preview_button,
+                  })
+            }
+            confirmButtonProps={{
+              disabled: isSubmitDisabled,
+              loading: isSubmitting,
+            }}
+          />
+        )}
+      </Page.Footer>
+    </Page>
+  );
+}
+
+const SendAmountInputContainerWithProvider = memo(() => (
+  <SendConfirmProviderMirror>
+    <HomeTokenListProviderMirror>
+      <SendAmountInputContainer />
+    </HomeTokenListProviderMirror>
+  </SendConfirmProviderMirror>
+));
+SendAmountInputContainerWithProvider.displayName =
+  'SendAmountInputContainerWithProvider';
+
+export default SendAmountInputContainerWithProvider;

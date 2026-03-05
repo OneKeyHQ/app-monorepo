@@ -213,7 +213,6 @@ export default class ServicePassword extends ServiceBase {
   @backgroundMethod()
   async clearCachedPassword() {
     this.cachedPassword = undefined;
-    this.backgroundApi.serviceAddressBook.verifyHashTimestamp = undefined;
     // Clear sync credential caches on lock screen (security invariant).
     // For keyless mode, credentials can be re-read from storage without password.
     void this.backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential();
@@ -605,7 +604,6 @@ export default class ServicePassword extends ServiceBase {
     let masterPasswordUpdateRollback: (() => Promise<void>) | undefined;
     let keylessDataUpdateRollback: (() => Promise<void>) | undefined;
     try {
-      await this.backgroundApi.serviceAddressBook.updateHash(newPassword);
       await this.saveBiologyAuthPassword(newPassword);
       await this.setCachedPassword({ password: newPassword });
       await this.setPasswordSetStatus(true, passwordMode);
@@ -628,16 +626,9 @@ export default class ServicePassword extends ServiceBase {
         oldPassword,
         newPassword,
       });
-      await this.backgroundApi.serviceAddressBook.finishUpdateHash();
       await timerUtils.wait(2000);
       return newPassword;
     } catch (e) {
-      try {
-        await this.backgroundApi.serviceAddressBook.rollback(oldPassword);
-      } catch (rollbackError) {
-        console.error(rollbackError);
-      }
-
       try {
         await this.rollbackPassword(oldPassword);
       } catch (rollbackError) {
@@ -722,6 +713,13 @@ export default class ServicePassword extends ServiceBase {
           );
         } catch (e) {
           console.error(e);
+        }
+        try {
+          await this.backgroundApi.serviceAddressBook.migrateRemoveHash({
+            password: verifyingPassword,
+          });
+        } catch (e) {
+          console.error('Address book migration error', e);
         }
       })();
     }
@@ -967,7 +965,6 @@ export default class ServicePassword extends ServiceBase {
   @backgroundMethod()
   async lockApp(options?: { manual: boolean }) {
     const { manual = false } = options || {};
-    this.backgroundApi.serviceAddressBook.verifyHashTimestamp = undefined;
     const isFirmwareUpdateRunning =
       await firmwareUpdateWorkflowRunningAtom.get();
     if (isFirmwareUpdateRunning) {

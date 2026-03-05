@@ -1,8 +1,14 @@
 import BigNumber from 'bignumber.js';
-import { Keyboard } from 'react-native';
 
-import { Button, XStack, useIsKeyboardShown } from '@onekeyhq/components';
+import { XStack, useIsKeyboardShown } from '@onekeyhq/components';
 import SwapPercentageStageBadge from '@onekeyhq/kit/src/views/Swap/components/SwapPercentageStageBadge';
+
+const countLeadingZeroDecimals = (value: string) => {
+  const num = new BigNumber(value);
+  if (num.isZero() || num.isNaN()) return 0;
+  const counts = -Math.floor(Math.log10(num.abs().toNumber()) + 1);
+  return counts > 0 ? counts : 0;
+};
 
 export const PercentageInputStageForNative = [25, 50, 75, 100];
 
@@ -16,18 +22,51 @@ export const calcPercentBalance = ({
   decimals?: number;
 }) => {
   const valueNumber = BigNumber(balance);
+
+  // 空值处理
   if (valueNumber.isZero()) {
     return '';
   }
+
+  // 100% 保持完整精度，确保能发送全部余额
   if (percent === 100) {
     return decimals !== null && decimals !== undefined
       ? valueNumber.decimalPlaces(decimals, BigNumber.ROUND_DOWN).toFixed()
       : balance;
   }
+
+  // 计算百分比值
   const value = valueNumber.multipliedBy(percent).dividedBy(100);
-  return decimals !== null && decimals !== undefined
-    ? value.decimalPlaces(decimals, BigNumber.ROUND_DOWN).toFixed()
-    : value.toFixed();
+
+  // Apply display rules for decimal formatting
+  let targetDecimals: number;
+
+  if (value.gte(1)) {
+    // value >= 1: use 4 decimal places
+    targetDecimals = 4;
+  } else {
+    // value < 1: use (4 + leading zero count) decimal places
+    const leadingZeros = countLeadingZeroDecimals(value.toFixed());
+    targetDecimals = 4 + leadingZeros;
+  }
+
+  // Respect token decimals as upper limit
+  if (decimals !== undefined) {
+    targetDecimals = Math.min(targetDecimals, decimals);
+  }
+
+  // Apply decimal places and remove trailing zeros
+  const formatted = value.decimalPlaces(targetDecimals, BigNumber.ROUND_DOWN);
+
+  let result = formatted.toFixed();
+  if (result.includes('.')) {
+    result = result.replace(/\.?0+$/, '');
+    if (result.endsWith('.')) {
+      result = result.slice(0, -1);
+    }
+  }
+
+  return result;
 };
 export function PercentageStageOnKeyboard({
   onSelectPercentageStage,
@@ -57,19 +96,6 @@ export function PercentageStageOnKeyboard({
             h="$10"
           />
         ))}
-        <Button
-          icon="CheckLargeOutline"
-          flex={1}
-          h="$10"
-          size="small"
-          justifyContent="center"
-          borderRadius={0}
-          alignItems="center"
-          variant="tertiary"
-          onPress={() => {
-            Keyboard.dismiss();
-          }}
-        />
       </>
     </XStack>
   ) : null;

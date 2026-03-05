@@ -92,12 +92,10 @@ function SingleLineReceiverInput() {
               networkId: selectedNetworkId,
             });
             const addressBookItem =
-              await backgroundApiProxy.serviceAddressBook.dangerouslyFindItemWithoutSafeCheck(
-                {
-                  networkId: isEvmNetwork ? undefined : selectedNetworkId,
-                  address: trimmedAddress,
-                },
-              );
+              await backgroundApiProxy.serviceAddressBook.findItem({
+                networkId: isEvmNetwork ? undefined : selectedNetworkId,
+                address: trimmedAddress,
+              });
             isAllowed = !!addressBookItem;
           } catch {
             // ignore

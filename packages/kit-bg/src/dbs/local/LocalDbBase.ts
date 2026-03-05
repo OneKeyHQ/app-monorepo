@@ -3852,6 +3852,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       walletName: string;
       accountName: string;
       accountId: string; // accountId or indexedAccountId
+      walletId: string;
     }>
   > {
     try {
@@ -3867,6 +3868,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           walletName: string;
           accountName: string;
           accountId: string;
+          walletId: string;
           order: number;
         }[] = [];
         const wallets = map(info, 'wallets');
@@ -3892,6 +3894,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
                   walletName: wallet.name,
                   accountName: account.name,
                   accountId: account.id,
+                  walletId,
                   order,
                 });
               }

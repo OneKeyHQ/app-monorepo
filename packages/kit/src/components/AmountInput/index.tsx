@@ -1,5 +1,12 @@
 import type { ComponentType, ReactElement } from 'react';
-import { useCallback, useMemo, useState } from 'react';
+import {
+  forwardRef,
+  useCallback,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -14,6 +21,7 @@ import {
   Stack,
   XStack,
   getFontSize,
+  useMedia,
 } from '@onekeyhq/components';
 import type {
   IInputProps,
@@ -27,6 +35,23 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { NUMBER_FORMATTER } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { LetterAvatar } from '../LetterAvatar';
+
+import type { TextInput } from 'react-native';
+
+// Helper function to calculate dynamic font size based on input length
+// Shrinks font progressively to display full number without truncation
+const getAmountFontSize = (length: number, scale = 1): number => {
+  let size: number;
+  if (length <= 4) size = 56;
+  else if (length <= 7) size = 48;
+  else if (length <= 10) size = 40;
+  else if (length <= 14) size = 32;
+  else if (length <= 18) size = 26;
+  else if (length <= 22) size = 22;
+  else if (length <= 28) size = 18;
+  else size = 14;
+  return Math.round(size * scale);
+};
 
 export type ITokenSelectorPopoverProps = {
   title: string;
@@ -76,39 +101,104 @@ export type IAmountInputFormItemProps = IFormFieldProps<
       popover?: ITokenSelectorPopoverProps;
     } & IXStackProps;
     reversible?: boolean;
+    /**
+     * Layout variant:
+     * - 'default': Standard layout with border, token icon on right (used in Swap)
+     * - 'simple': Borderless, symbol inline after amount, balance on top (used in Send)
+     */
+    variant?: 'default' | 'simple';
+    /** Token symbol to display inline (only for 'simple' variant) */
+    tokenSymbol?: string;
+    /** Token image URI to display above amount (only for 'simple' variant) */
+    tokenImageUri?: string;
+    /** Network image URI to display as badge on token icon (only for 'simple' variant) */
+    networkImageUri?: string;
+    /** Callback for percentage button selection (only for 'simple' variant) */
+    onPercentageSelect?: (percent: number) => void;
+    /** Extra content rendered between balance and fiat value rows (only for 'simple' variant) */
+    extraContent?: React.ReactNode;
+    /** Additional content in the balance row, between symbol and Max button (only for 'simple' variant) */
+    balanceInfoContent?: React.ReactNode;
   } & IStackProps
 >;
 
-export function AmountInput({
-  inputProps,
-  enableMaxAmount,
-  maxAmountText,
-  tokenSelectorTriggerProps,
-  reversible,
-  onChange,
-  value,
-  hasError,
-  valueProps,
-  balanceProps,
-  balanceHelperProps,
-  ...rest
-}: IAmountInputFormItemProps) {
+export type IAmountInputRef = {
+  focus: () => void;
+  focusPercentageButton: (percent: 25 | 50 | 75 | 100) => void;
+};
+
+function AmountInputComponent(
+  {
+    inputProps,
+    enableMaxAmount,
+    maxAmountText,
+    tokenSelectorTriggerProps,
+    reversible,
+    onChange,
+    value,
+    hasError,
+    valueProps,
+    balanceProps,
+    balanceHelperProps,
+    variant = 'default',
+    tokenSymbol,
+    tokenImageUri,
+    networkImageUri,
+    onPercentageSelect,
+    extraContent,
+    balanceInfoContent,
+    ...rest
+  }: IAmountInputFormItemProps,
+  ref: React.Ref<IAmountInputRef>,
+) {
   const intl = useIntl();
+  const isSimpleVariant = variant === 'simple';
+  const { md } = useMedia();
+  // Scale up font size on desktop modal breakpoint
+  const fontSizeScale = md ? 1.2 : 1.5;
 
   const sharedStyles = getSharedInputStyles({
     error: hasError,
   });
-  const [selection, setSelection] = useState({ start: 0, end: 0 });
+  const [selection, setSelection] = useState({ start: 1, end: 1 });
+  const inputRef = useRef<TextInput>(null);
+
+  // Expose focus method to parent component
+  useImperativeHandle(ref, () => ({
+    focus: () => inputRef.current?.focus(),
+    focusPercentageButton: () => {},
+  }));
 
   const handleChangeText = useCallback(
     (text: string) => {
       // Keep compatibility with Chinese keyboard input
       // Replace the Chinese full-width period with the standard period
-      const sanitizedText = text.replace('。', '.');
+      let sanitizedText = text.replace('。', '.');
+      // Always keep "0" if input becomes empty
+      if (sanitizedText === '') {
+        sanitizedText = '0';
+      }
       onChange?.(sanitizedText);
     },
     [onChange],
   );
+
+  // For simple variant: handle input changes
+  const handleSimpleChangeText = useCallback(
+    (text: string) => {
+      // Keep compatibility with Chinese keyboard
+      let sanitizedText = text.replace('。', '.');
+      // Always keep "0" if input becomes empty
+      if (sanitizedText === '') {
+        sanitizedText = '0';
+      }
+      onChange?.(sanitizedText);
+    },
+    [onChange],
+  );
+
+  // Display value for simple variant (no formatting, direct raw value)
+  const displayValue = value ?? '';
 
   const InputElement = useMemo(() => {
     if (inputProps?.loading)
@@ -434,6 +524,175 @@ export function AmountInput({
     );
   }, [balanceHelperProps]);
 
+  // Simple variant: borderless, symbol inline, balance card rendered externally
+  if (isSimpleVariant) {
+    const { leftAddOnProps: simpleLeftAddOn, ...simpleInputProps } =
+      inputProps ?? {};
+    const currencyLabel = simpleLeftAddOn?.label as string | undefined;
+
+    const simpleFontSize = getAmountFontSize(
+      displayValue?.length || 0,
+      fontSizeScale,
+    );
+
+    return (
+      <Stack alignItems="center" width="100%" {...rest}>
+        {/* Amount input row */}
+        {simpleInputProps?.loading ? (
+          <Stack py="$4">
+            <Skeleton h="$12" w="$40" />
+          </Stack>
+        ) : (
+          <Input
+            ref={inputRef}
+            keyboardType="decimal-pad"
+            fontSize={simpleFontSize}
+            fontWeight="500"
+            color="$text"
+            unstyled
+            borderWidth={0}
+            bg="transparent"
+            p="$0"
+            h={Math.ceil(simpleFontSize * 1.4)}
+            size="large"
+            focusVisibleStyle={undefined}
+            placeholder="0"
+            placeholderTextColor="$textDisabled"
+            value={displayValue}
+            onChangeText={handleSimpleChangeText}
+            textAlign="center"
+            containerProps={{
+              width: '100%',
+              borderWidth: 0,
+              bg: 'transparent',
+            }}
+            {...(currencyLabel && {
+              leftAddOnProps: {
+                label: currencyLabel,
+                pr: '$0',
+                pl: '$0',
+                mr: '$-2',
+              },
+            })}
+            {...(tokenSymbol && {
+              addOns: [
+                {
+                  label: tokenSymbol,
+                  pr: '$0',
+                  pl: '$1',
+                },
+              ],
+            })}
+            {...simpleInputProps}
+            selectionColor="#00DC84"
+            cursorColor="#00DC84"
+            caretColor="#00DC84"
+            {...(platformEnv.isNative
+              ? ({
+                  selection,
+                  onSelectionChange: ({ nativeEvent }) => {
+                    if (displayValue === '0') {
+                      setSelection({ start: 1, end: 1 });
+                    } else {
+                      setSelection(nativeEvent.selection);
+                    }
+                  },
+                  onFocus: (event) => {
+                    setSelection({
+                      start: displayValue?.length ?? 0,
+                      end: displayValue?.length ?? 0,
+                    });
+                    simpleInputProps?.onFocus?.(event);
+                  },
+                  onBlur: (event) => {
+                    setSelection({ start: 0, end: 0 });
+                    simpleInputProps?.onBlur?.(event);
+                  },
+                } as const)
+              : ({
+                  onFocus: (event: { target: HTMLInputElement }) => {
+                    simpleInputProps?.onFocus?.(event as never);
+                    if (displayValue === '0') {
+                      const { target } = event;
+                      requestAnimationFrame(() => {
+                        target.setSelectionRange(1, 1);
+                      });
+                    }
+                  },
+                  onClick: (e: { target: HTMLInputElement }) => {
+                    if (displayValue === '0') {
+                      e.target.setSelectionRange(1, 1);
+                    }
+                  },
+                  onKeyUp: (e: { target: HTMLInputElement }) => {
+                    if (displayValue === '0') {
+                      e.target.setSelectionRange(1, 1);
+                    }
+                  },
+                  onSelect: (e: { target: HTMLInputElement }) => {
+                    if (displayValue === '0' && e.target.selectionStart !== 1) {
+                      e.target.setSelectionRange(1, 1);
+                    }
+                  },
+                } as any))}
+          />
+        )}
+
+        {/* Fiat value + flip button */}
+        <XStack
+          alignItems="center"
+          mt={md ? '$0' : '$2'}
+          py="$1.5"
+          px="$1"
+          borderRadius="$2"
+          alignSelf="center"
+          disabled={valueProps?.loading}
+          onPress={valueProps?.onPress}
+          {...(reversible && {
+            userSelect: 'none',
+            hoverStyle: {
+              bg: '$bgHover',
+            },
+            pressStyle: {
+              bg: '$bgActive',
+            },
+          })}
+        >
+          {valueProps?.loading ? (
+            <Skeleton h="$6" w="$28" />
+          ) : (
+            <>
+              <NumberSizeableText
+                formatter={valueProps?.formatter ?? 'value'}
+                formatterOptions={{
+                  currency: valueProps?.currency,
+                  tokenSymbol: valueProps?.tokenSymbol,
+                }}
+                size="$headingLg"
+                color={valueProps?.color ?? '$textSubdued'}
+              >
+                {valueProps?.value || '0.00'}
+              </NumberSizeableText>
+              {valueProps?.moreComponent}
+              {reversible ? (
+                <Icon
+                  name="SwitchVerOutline"
+                  size="$4"
+                  color="$iconSubdued"
+                  ml="$1.5"
+                />
+              ) : null}
+            </>
+          )}
+        </XStack>
+
+        {/* Extra content (CoinControl, AddressTypeSelector) */}
+        {extraContent}
+      </Stack>
+    );
+  }
+
+  // Default variant: standard layout with border
   return (
     <Stack
       borderRadius="$3"
@@ -477,3 +736,5 @@ export function AmountInput({
     </Stack>
   );
 }
+
+export const AmountInput = forwardRef(AmountInputComponent);
