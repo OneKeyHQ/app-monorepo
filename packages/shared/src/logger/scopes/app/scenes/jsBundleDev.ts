@@ -55,10 +55,7 @@ export class JsBundleDevScene extends BaseScene {
   }
 
   @LogToLocal({ level: 'info' })
-  public installBundle(data: {
-    version: string;
-    bundleVersion: string;
-  }) {
+  public installBundle(data: { version: string; bundleVersion: string }) {
     return data;
   }
 
