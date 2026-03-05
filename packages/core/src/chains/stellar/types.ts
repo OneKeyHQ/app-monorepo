@@ -33,3 +33,7 @@ export type IEncodedTxStellar = {
   // Indicates if transaction is from dApp (should not be modified)
   isFromDapp?: boolean;
 };
+
+export interface IDecodedTxExtraStellar {
+  memo?: string;
+}

@@ -277,7 +277,7 @@ function ReceiverAddressesInput({ maxLines }: IReceiverAddressesInputProps) {
 
                   // Check if address belongs to user's own local wallet (HD/HW/QR/Imported)
                   try {
-                    let walletAccountItems =
+                    let walletAccountItems: { accountId: string }[] =
                       await backgroundApiProxy.serviceAccount.getAccountNameFromAddress(
                         {
                           networkId: selectedNetworkId,
@@ -313,14 +313,10 @@ function ReceiverAddressesInput({ maxLines }: IReceiverAddressesInputProps) {
                   // Check if address is in address book
                   try {
                     const addressBookItem =
-                      await backgroundApiProxy.serviceAddressBook.dangerouslyFindItemWithoutSafeCheck(
-                        {
-                          networkId: isEvmNetwork
-                            ? undefined
-                            : selectedNetworkId,
-                          address: trimmedAddress,
-                        },
-                      );
+                      await backgroundApiProxy.serviceAddressBook.findItem({
+                        networkId: isEvmNetwork ? undefined : selectedNetworkId,
+                        address: trimmedAddress,
+                      });
                     return {
                       index,
                       isAllowed: !!addressBookItem,

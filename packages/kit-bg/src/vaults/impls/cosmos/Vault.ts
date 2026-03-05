@@ -20,6 +20,7 @@ import {
 import type { ICosmosProtoMsgsOrWithAminoMsgs } from '@onekeyhq/core/src/chains/cosmos/sdkCosmos/ITxMsgBuilder';
 import type {
   ICosmosStdFee,
+  IDecodedTxExtraCosmos,
   IEncodedTxCosmos,
 } from '@onekeyhq/core/src/chains/cosmos/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
@@ -48,6 +49,7 @@ import type {
   IMeasureRpcStatusResult,
 } from '@onekeyhq/shared/types/customRpc';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
+import type { IOnChainHistoryTx } from '@onekeyhq/shared/types/history';
 import type {
   IInternalDappTxParams,
   IStakeTxCosmosAmino,
@@ -417,6 +419,17 @@ export default class VaultCosmos extends VaultBase {
       encodedTx,
     };
     return result;
+  }
+
+  override buildOnChainHistoryTxExtraInfo({
+    onChainHistoryTx,
+  }: {
+    onChainHistoryTx: IOnChainHistoryTx;
+  }): Promise<IDecodedTxExtraCosmos | null> {
+    if (!onChainHistoryTx.memo) return Promise.resolve(null);
+    return Promise.resolve({
+      memo: onChainHistoryTx.memo,
+    });
   }
 
   override async buildUnsignedTx(

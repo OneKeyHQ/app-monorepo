@@ -98,7 +98,7 @@ export function Token({
   }, [tokenImageUri]);
 
   const resolvedBg =
-    bgProp ?? (themeVariant === 'light' ? undefined : '$neutral6Dark');
+    bgProp ?? (themeVariant === 'light' ? '$bgApp' : '$neutral6Dark');
   const shouldShowBorder = themeVariant === 'dark';
 
   const tokenImage = (

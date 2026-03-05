@@ -2,16 +2,21 @@ import { type FC, useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { IconButton, Toast, useClipboard } from '@onekeyhq/components';
+import { Button, IconButton, Toast, useClipboard } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EInputAddressChangeType } from '@onekeyhq/shared/types/address';
 
 import type { IAddressPluginProps } from '../types';
 
-export const ClipboardPlugin: FC<IAddressPluginProps> = ({
+type IClipboardPluginProps = IAddressPluginProps & {
+  display?: 'icon' | 'button';
+};
+
+export const ClipboardPlugin: FC<IClipboardPluginProps> = ({
   onChange,
   testID,
   disabled,
+  display = 'icon',
 }) => {
   const { getClipboard, supportPaste } = useClipboard();
   const intl = useIntl();
@@ -30,10 +35,30 @@ export const ClipboardPlugin: FC<IAddressPluginProps> = ({
       });
     }
   }, [getClipboard, intl, onChange]);
-  return !supportPaste ? null : (
+
+  if (!supportPaste) {
+    return null;
+  }
+
+  if (display === 'button') {
+    return (
+      <Button
+        size="small"
+        variant="secondary"
+        icon="ClipboardOutline"
+        disabled={disabled}
+        onPress={disabled ? undefined : onPress}
+        testID={testID}
+      >
+        {intl.formatMessage({ id: ETranslations.send_to_paste_tooltip })}
+      </Button>
+    );
+  }
+
+  return (
     <IconButton
       title={intl.formatMessage({ id: ETranslations.send_to_paste_tooltip })}
-      variant="tertiary"
+      variant="secondary"
       icon="ClipboardOutline"
       disabled={disabled}
       onPress={disabled ? undefined : onPress}

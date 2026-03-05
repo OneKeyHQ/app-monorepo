@@ -113,10 +113,8 @@ class ServiceCloudBackup extends ServiceBase {
       wallets: {},
     };
     const { version } = platformEnv;
-    if (password) {
-      const { items: contacts } = await serviceAddressBook.getSafeRawItems({
-        password,
-      });
+    {
+      const contacts = await serviceAddressBook.getItemsByNetwork({});
       defaultLogger.cloudBackup.getDataForBackupScene.getContacts(
         contacts.length,
       );
@@ -726,7 +724,6 @@ class ServiceCloudBackup extends ServiceBase {
 
       await serviceAddressBook.bulkSetItemsWithUniq(
         Object.values(privateData.contacts),
-        localPassword,
       );
 
       if (notOnDevice.discoverBookmarks) {

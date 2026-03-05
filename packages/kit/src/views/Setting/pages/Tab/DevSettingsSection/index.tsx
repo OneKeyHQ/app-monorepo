@@ -75,7 +75,6 @@ import { EMessageTypesBtc } from '@onekeyhq/shared/types/message';
 
 import { showApiEndpointDialog } from '../../../components/ApiEndpointDialog';
 
-import { AddressBookDevSetting } from './AddressBookDevSetting';
 import { AsyncStorageDevSettings } from './AsyncStorageDevSettings';
 import { AutoJumpSetting } from './AutoJumpSetting';
 import { CrashDevSettings } from './CrashDevSettings';
@@ -1234,8 +1233,6 @@ const BaseDevSettingsSection = () => {
           />
           <Accordion.HeightAnimator animation="quick">
             <Accordion.Content animation="quick" exitStyle={{ opacity: 0 }}>
-              <AddressBookDevSetting />
-
               <SectionFieldItem
                 icon="WalletOutline"
                 name="allowAddSameHDWallet"
