@@ -131,17 +131,17 @@ function ActivityCampaignCard({
       <Stack
         alignItems="center"
         justifyContent="center"
-        w="$10"
-        h="$10"
-        borderRadius="$3"
+        w="$8"
+        h="$8"
+        borderRadius="$2"
         bg="$bgSubdued"
       >
         {imageUrl ? (
           <Image
-            w="$10"
-            h="$10"
+            w="$8"
+            h="$8"
             src={imageUrl}
-            borderRadius="$3"
+            borderRadius="$2"
             fallback={<Icon name={fallbackIconName} size="$6" color="$icon" />}
           />
         ) : (
