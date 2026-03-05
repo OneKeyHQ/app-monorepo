@@ -25,7 +25,7 @@ interface IUseMarketPerpsTokenListParams {
   selectedCategoryId: string;
 }
 
-function mapServerToken(
+export function mapServerToken(
   token: IMarketPerpsTokenFromServer,
   tokenSearchAliases: ITokenSearchAliases | undefined,
 ): IMarketPerpsToken {
