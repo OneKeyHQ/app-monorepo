@@ -75,6 +75,12 @@ function BundleItem({
   const [errorMessage, setErrorMessage] = useState('');
   const downloadedEventRef = useRef<Record<string, unknown> | null>(null);
 
+  useEffect(() => {
+    if (alreadyDownloaded && status === 'idle') {
+      setStatus('downloaded');
+    }
+  }, [alreadyDownloaded, status]);
+
   const handleDownload = useCallback(async () => {
     onDownloadStart();
     setStatus('downloading');
