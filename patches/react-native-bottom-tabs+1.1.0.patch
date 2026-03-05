@@ -112,10 +112,37 @@ index d699315..53733de 100644
        onLayout(size)
      }
 diff --git a/node_modules/react-native-bottom-tabs/ios/TabViewImpl.swift b/node_modules/react-native-bottom-tabs/ios/TabViewImpl.swift
-index 72938be..3322d83 100644
+index 72938be..d4f5c71 100644
 --- a/node_modules/react-native-bottom-tabs/ios/TabViewImpl.swift
 +++ b/node_modules/react-native-bottom-tabs/ios/TabViewImpl.swift
-@@ -69,6 +69,11 @@ struct TabViewImpl: View {
+@@ -3,6 +3,17 @@ import React
+ import SwiftUI
+ @_spi(Advanced) import SwiftUIIntrospect
+ 
++// MARK: - OneKey Native Logger Bridge (for TabViewImpl)
++private enum TabViewImplLogger {
++  static func log(_ message: String) {
++    let fullMessage = "[TabViewNative] \(message) (ts=\(CFAbsoluteTimeGetCurrent()), main=\(Thread.isMainThread))"
++    if let cls = NSClassFromString("ReactNativeNativeLogger.OneKeyLog") as? NSObject.Type {
++      cls.perform(NSSelectorFromString("info::"), with: "TabView", with: fullMessage)
++    }
++    NSLog("%@", fullMessage)
++  }
++}
++
+ /// SwiftUI implementation of TabView used to render React Native views.
+ struct TabViewImpl: View {
+   @ObservedObject var props: TabViewProps
+@@ -50,6 +61,8 @@ struct TabViewImpl: View {
+           let item = props.filteredItems[safe: index]
+           guard let key = item?.key else { return false }
+ 
++          TabViewImplLogger.log("USER TAP on tab index=\(index), key=\(key), isLongPress=\(isLongPress), currentSelected=\(props.selectedPage ?? "nil")")
++
+           if isLongPress {
+             onLongPress(key)
+             emitHapticFeedback(longPress: true)
+@@ -69,6 +82,11 @@ struct TabViewImpl: View {
            tabBar = tabController
          #else
            tabBar = tabController.tabBar
@@ -127,16 +154,33 @@ index 72938be..3322d83 100644
            if !props.tabBarHidden {
              onTabBarMeasured(
                Int(tabController.tabBar.frame.size.height)
-@@ -80,7 +85,7 @@ struct TabViewImpl: View {
+@@ -80,16 +98,17 @@ struct TabViewImpl: View {
          .configureAppearance(props: props, tabBar: tabBar)
        #endif
        .tintColor(props.selectedActiveTintColor)
 -      .getSidebarAdaptable(enabled: props.sidebarAdaptable ?? false)
 +      .applyTabViewStyle(sidebarAdaptable: props.sidebarAdaptable ?? false)
        .onChange(of: props.selectedPage ?? "") { newValue in
-         #if !os(macOS)
-           if props.disablePageAnimations {
-@@ -214,6 +219,40 @@ extension View {
+-        #if !os(macOS)
+-          if props.disablePageAnimations {
+-            UIView.setAnimationsEnabled(false)
+-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+-              UIView.setAnimationsEnabled(true)
+-            }
+-          }
++        #if os(macOS)
++        TabViewImplLogger.log("SwiftUI onChange selectedPage=\(newValue), disablePageAnimations=\(props.disablePageAnimations)")
++        #else
++        TabViewImplLogger.log("SwiftUI onChange selectedPage=\(newValue), disablePageAnimations=\(props.disablePageAnimations), animationsEnabled=\(UIView.areAnimationsEnabled)")
+         #endif
++        // NOTE: Animation disabling is now handled in TabViewProvider.selectedPage setter
++        // via SwiftUI Transaction instead of global UIView.setAnimationsEnabled.
++        // The old approach blocked ALL UIKit animations for 0.1s, including
++        // React Native screen push transitions triggered shortly after tab switch.
+         #if os(tvOS) || os(macOS) || os(visionOS)
+           onSelect(newValue)
+         #endif
+@@ -214,6 +233,40 @@ extension View {
      }
    }
  
@@ -177,7 +221,7 @@ index 72938be..3322d83 100644
    @ViewBuilder
    func tabBadge(_ data: String?) -> some View {
      if #available(iOS 15.0, macOS 15.0, visionOS 2.0, tvOS 15.0, *) {
-@@ -261,6 +300,24 @@ extension View {
+@@ -261,6 +314,24 @@ extension View {
          }
          .onChange(of: props.tabBarHidden) { newValue in
            tabBar?.isHidden = newValue
@@ -202,7 +246,7 @@ index 72938be..3322d83 100644
          }
      }
    #endif
-@@ -299,14 +356,14 @@ extension View {
+@@ -299,14 +370,14 @@ extension View {
    @ViewBuilder
    func hideTabBar(_ flag: Bool) -> some View {
      #if !os(macOS)
@@ -224,7 +268,7 @@ index 72938be..3322d83 100644
          self
        }
      #else
-@@ -326,3 +383,14 @@ extension View {
+@@ -326,3 +397,14 @@ extension View {
      }
    }
  }
@@ -239,11 +283,94 @@ index 72938be..3322d83 100644
 +  }
 +}
 +#endif
+diff --git a/node_modules/react-native-bottom-tabs/ios/TabViewProvider.swift b/node_modules/react-native-bottom-tabs/ios/TabViewProvider.swift
+index 013032f..9485509 100644
+--- a/node_modules/react-native-bottom-tabs/ios/TabViewProvider.swift
++++ b/node_modules/react-native-bottom-tabs/ios/TabViewProvider.swift
+@@ -2,6 +2,18 @@ import Foundation
+ import React
+ import SwiftUI
+ 
++// MARK: - OneKey Native Logger Bridge
++// Uses NSClassFromString to access @onekeyfe/react-native-native-logger without direct import
++private enum TabViewLogger {
++  static func log(_ message: String) {
++    let fullMessage = "[TabViewNative] \(message) (ts=\(CFAbsoluteTimeGetCurrent()), main=\(Thread.isMainThread))"
++    if let cls = NSClassFromString("ReactNativeNativeLogger.OneKeyLog") as? NSObject.Type {
++      cls.perform(NSSelectorFromString("info::"), with: "TabView", with: fullMessage)
++    }
++    NSLog("%@", fullMessage)
++  }
++}
++
+ @objcMembers
+ public final class TabInfo: NSObject {
+   public let key: String
+@@ -85,7 +97,19 @@ public final class TabInfo: NSObject {
+ 
+   @objc public var selectedPage: NSString? {
+     didSet {
+-      props.selectedPage = selectedPage as? String
++      TabViewLogger.log("selectedPage prop changed: \(oldValue ?? "nil") -> \(selectedPage ?? "nil"), disablePageAnimations=\(props.disablePageAnimations)")
++      if props.disablePageAnimations {
++        // Use SwiftUI Transaction to disable animation ONLY for this state update,
++        // instead of the global UIView.setAnimationsEnabled(false) which blocks
++        // all UIKit animations (including React Native screen push transitions).
++        var transaction = Transaction(animation: .none)
++        transaction.disablesAnimations = true
++        withTransaction(transaction) {
++          props.selectedPage = selectedPage as? String
++        }
++      } else {
++        props.selectedPage = selectedPage as? String
++      }
+     }
+   }
+ 
+@@ -193,6 +217,7 @@ public final class TabInfo: NSObject {
+     }
+ 
+     self.hostingController = PlatformHostingController(rootView: TabViewImpl(props: props) { key in
++      TabViewLogger.log("onPageSelected fired: key=\(key)")
+       self.delegate?.onPageSelected(key: key, reactTag: self.reactTag)
+     } onLongPress: { key in
+       self.delegate?.onLongPress(key: key, reactTag: self.reactTag)
 diff --git a/node_modules/react-native-bottom-tabs/lib/module/TabView.js b/node_modules/react-native-bottom-tabs/lib/module/TabView.js
-index 3ab92c7..81ca149 100644
+index 3ab92c7..494e084 100644
 --- a/node_modules/react-native-bottom-tabs/lib/module/TabView.js
 +++ b/node_modules/react-native-bottom-tabs/lib/module/TabView.js
-@@ -199,7 +199,7 @@ const TabView = ({
+@@ -10,6 +10,7 @@ import NativeTabView from './TabViewNativeComponent';
+ import useLatestCallback from 'use-latest-callback';
+ import DelayedFreeze from "./DelayedFreeze.js";
+ import { BottomAccessoryView } from "./BottomAccessoryView.js";
++import { NativeLogger } from '@onekeyfe/react-native-native-logger';
+ import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
+ const isAppleSymbol = icon => icon?.sfSymbol;
+ const ANDROID_MAX_TABS = 100;
+@@ -72,6 +73,11 @@ const TabView = ({
+ }) => {
+   // @ts-ignore
+   const focusedKey = navigationState.routes[navigationState.index].key;
++  const prevFocusedKeyRef = React.useRef(focusedKey);
++  if (prevFocusedKeyRef.current !== focusedKey) {
++    NativeLogger.write(1, `[TabView JS] focusedKey CHANGED: ${prevFocusedKeyRef.current} -> ${focusedKey}, navIndex=${navigationState.index}, ts=${Date.now()}`);
++    prevFocusedKeyRef.current = focusedKey;
++  }
+   const customTabBarWrapperRef = useRef(null);
+   const [tabBarHeight, setTabBarHeight] = React.useState(0);
+   const [measuredDimensions, setMeasuredDimensions] = React.useState({
+@@ -160,8 +166,9 @@ const TabView = ({
+       key
+     }
+   }) => {
++    NativeLogger.write(1, `[TabView JS] handlePageSelected from native: key=${key}, currentFocusedKey=${focusedKey}, ts=${Date.now()}`);
+     jumpTo(key);
+-  }, [jumpTo]);
++  }, [jumpTo, focusedKey]);
+   const handleTabBarMeasured = React.useCallback(({
+     nativeEvent: {
+       height
+@@ -199,7 +206,7 @@ const TabView = ({
        ,
        icons: renderCustomTabBar ? undefined : resolvedIconAssets,
        selectedPage: focusedKey,
@@ -268,10 +395,18 @@ index 6695dad..d3cfd14 100644
  declare const TabView: <Route extends BaseRoute>({ navigationState, renderScene, onIndexChange, onTabLongPress, rippleColor, tabBarActiveTintColor: activeTintColor, tabBarInactiveTintColor: inactiveTintColor, getBadge, getBadgeBackgroundColor, getBadgeTextColor, getLazy, getLabelText, getIcon, getHidden, getActiveTintColor, getTestID, getRole, getSceneStyle, getPreventsDefault, hapticFeedbackEnabled, labeled, getFreezeOnBlur, tabBar: renderCustomTabBar, tabBarStyle, tabLabelStyle, renderBottomAccessoryView, ...props }: Props<Route>) => import("react/jsx-runtime").JSX.Element;
  export default TabView;
 diff --git a/node_modules/react-native-bottom-tabs/src/TabView.tsx b/node_modules/react-native-bottom-tabs/src/TabView.tsx
-index 41b9cb3..af65f18 100644
+index 41b9cb3..9f260f5 100644
 --- a/node_modules/react-native-bottom-tabs/src/TabView.tsx
 +++ b/node_modules/react-native-bottom-tabs/src/TabView.tsx
-@@ -201,6 +201,10 @@ interface Props<Route extends BaseRoute> {
+@@ -28,6 +28,7 @@ import {
+   BottomAccessoryView,
+   type BottomAccessoryViewProps,
+ } from './BottomAccessoryView';
++import { NativeLogger } from '@onekeyfe/react-native-native-logger';
+ 
+ const isAppleSymbol = (icon: any): icon is { sfSymbol: string } =>
+   icon?.sfSymbol;
+@@ -201,6 +202,10 @@ interface Props<Route extends BaseRoute> {
     * @platform ios
     */
    renderBottomAccessoryView?: BottomAccessoryViewProps['renderBottomAccessoryView'];
@@ -282,7 +417,31 @@ index 41b9cb3..af65f18 100644
  }
  
  const ANDROID_MAX_TABS = 100;
-@@ -392,7 +396,7 @@ const TabView = <Route extends BaseRoute>({
+@@ -243,6 +248,11 @@ const TabView = <Route extends BaseRoute>({
+ }: Props<Route>) => {
+   // @ts-ignore
+   const focusedKey = navigationState.routes[navigationState.index].key;
++  const prevFocusedKeyRef = React.useRef(focusedKey);
++  if (prevFocusedKeyRef.current !== focusedKey) {
++    NativeLogger.write(1, `[TabView JS] focusedKey CHANGED: ${prevFocusedKeyRef.current} -> ${focusedKey}, navIndex=${navigationState.index}, ts=${Date.now()}`);
++    prevFocusedKeyRef.current = focusedKey;
++  }
+   const customTabBarWrapperRef = useRef<View>(null);
+   const [tabBarHeight, setTabBarHeight] = React.useState<number | undefined>(0);
+   const [measuredDimensions, setMeasuredDimensions] = React.useState<
+@@ -354,9 +364,10 @@ const TabView = <Route extends BaseRoute>({
+ 
+   const handlePageSelected = React.useCallback(
+     ({ nativeEvent: { key } }: { nativeEvent: OnPageSelectedEventData }) => {
++      NativeLogger.write(1, `[TabView JS] handlePageSelected from native: key=${key}, currentFocusedKey=${focusedKey}, ts=${Date.now()}`);
+       jumpTo(key);
+     },
+-    [jumpTo]
++    [jumpTo, focusedKey]
+   );
+ 
+   const handleTabBarMeasured = React.useCallback(
+@@ -392,7 +403,7 @@ const TabView = <Route extends BaseRoute>({
          // When rendering a custom tab bar, icons can be React elements, which will not be properly resolved.
          icons={renderCustomTabBar ? undefined : resolvedIconAssets}
          selectedPage={focusedKey}
