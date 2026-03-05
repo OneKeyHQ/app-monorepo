@@ -131,7 +131,11 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
   const accountNetworkId = filterNetworkId ?? activeAccount.network?.id;
 
   const fetchProtocolData = useCallback(async () => {
-    if (!activeAccount.ready || (accountId && !accountNetworkId)) {
+    if (!activeAccount.ready) {
+      return;
+    }
+    if (accountId && !accountNetworkId) {
+      setIsLoading(false);
       return;
     }
 
