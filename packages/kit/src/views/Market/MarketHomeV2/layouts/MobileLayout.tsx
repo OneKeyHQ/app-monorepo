@@ -1,4 +1,12 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  createContext,
+  memo,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 import type { RefObject } from 'react';
 
 import { Tabs, YStack, useTabContainerWidth } from '@onekeyhq/components';
@@ -34,27 +42,30 @@ interface IMobileLayoutProps {
   tabsRef?: RefObject<ITabContainerRef | null>;
 }
 
-interface IMarketHomeTabBarProps extends TabBarProps<string> {
-  watchlistTabName: string;
-  spotTabName: string;
-  perpsTabName: string;
+// Context for dynamic tab bar values so renderTabBar stays stable.
+interface ITabBarDynamicContext {
   filterBarProps: IMobileLayoutProps['filterBarProps'];
   perpsCategories: { tabId: string; name: string }[];
   selectedCategoryId: string;
   onSelectCategory: (categoryId: string) => void;
 }
 
+const TabBarDynamicContext = createContext<ITabBarDynamicContext | null>(null);
+
+interface IMarketHomeTabBarProps extends TabBarProps<string> {
+  watchlistTabName: string;
+  spotTabName: string;
+  perpsTabName: string;
+}
+
 function MarketHomeTabBar({
   watchlistTabName,
   spotTabName,
   perpsTabName,
-  filterBarProps,
-  perpsCategories,
-  selectedCategoryId,
-  onSelectCategory,
   ...tabBarProps
 }: IMarketHomeTabBarProps) {
   const focusedTab = useFocusedTab();
+  const ctx = useContext(TabBarDynamicContext)!;
 
   return (
     <YStack bg="$bgApp">
@@ -62,16 +73,16 @@ function MarketHomeTabBar({
       {focusedTab === watchlistTabName ? <MarketListColumnHeader /> : null}
       {focusedTab === spotTabName ? (
         <>
-          <MarketFilterBarSmall {...filterBarProps} />
+          <MarketFilterBarSmall {...ctx.filterBarProps} />
           <MarketListColumnHeader />
         </>
       ) : null}
       {focusedTab === perpsTabName ? (
         <>
           <MarketPerpsCategorySelector
-            categories={perpsCategories}
-            selectedCategoryId={selectedCategoryId}
-            onSelectCategory={onSelectCategory}
+            categories={ctx.perpsCategories}
+            selectedCategoryId={ctx.selectedCategoryId}
+            onSelectCategory={ctx.onSelectCategory}
             containerStyle={{
               px: '$5',
               pt: '$3',
@@ -156,6 +167,7 @@ function MobileLayoutComponent({
     };
   }, [tabBarHeight]);
 
+  // Stable renderTabBar — reads dynamic values from context, not props.
   const renderTabBar = useCallback(
     (tabBarProps: TabBarProps<string>) => (
       <MarketHomeTabBar
@@ -163,20 +175,9 @@ function MobileLayoutComponent({
         watchlistTabName={watchlistTabName}
         spotTabName={spotTabName}
         perpsTabName={perpsTabName}
-        filterBarProps={filterBarProps}
-        perpsCategories={perpsCategories}
-        selectedCategoryId={selectedCategoryId}
-        onSelectCategory={setSelectedCategoryId}
       />
     ),
-    [
-      watchlistTabName,
-      spotTabName,
-      perpsTabName,
-      filterBarProps,
-      perpsCategories,
-      selectedCategoryId,
-    ],
+    [watchlistTabName, spotTabName, perpsTabName],
   );
 
   const onTabChangeHandler = useCallback(
@@ -186,36 +187,48 @@ function MobileLayoutComponent({
     [handleTabChange],
   );
 
+  const dynamicCtx = useMemo<ITabBarDynamicContext>(
+    () => ({
+      filterBarProps,
+      perpsCategories,
+      selectedCategoryId,
+      onSelectCategory: setSelectedCategoryId,
+    }),
+    [filterBarProps, perpsCategories, selectedCategoryId],
+  );
+
   return (
-    <Tabs.Container
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ref={tabsRef as any}
-      width={platformEnv.isNative ? tabContainerWidth : undefined}
-      renderTabBar={renderTabBar}
-      initialTabName={initialTabName}
-      onTabChange={onTabChangeHandler}
-      {...containerProps}
-    >
-      <Tabs.Tab name={watchlistTabName}>
-        <MobileMarketWatchlistFlatList
-          listContainerProps={listContainerProps}
-        />
-      </Tabs.Tab>
-      <Tabs.Tab name={spotTabName}>
-        <MobileMarketTokenFlatList
-          networkId={selectedNetworkId}
-          listContainerProps={listContainerProps}
-        />
-      </Tabs.Tab>
-      {showPerpsTab ? (
-        <Tabs.Tab name={perpsTabName}>
-          <MobileMarketPerpsFlatList
-            selectedCategoryId={selectedCategoryId}
+    <TabBarDynamicContext.Provider value={dynamicCtx}>
+      <Tabs.Container
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ref={tabsRef as any}
+        width={platformEnv.isNative ? tabContainerWidth : undefined}
+        renderTabBar={renderTabBar}
+        initialTabName={initialTabName}
+        onTabChange={onTabChangeHandler}
+        {...containerProps}
+      >
+        <Tabs.Tab name={watchlistTabName}>
+          <MobileMarketWatchlistFlatList
             listContainerProps={listContainerProps}
           />
         </Tabs.Tab>
-      ) : null}
-    </Tabs.Container>
+        <Tabs.Tab name={spotTabName}>
+          <MobileMarketTokenFlatList
+            networkId={selectedNetworkId}
+            listContainerProps={listContainerProps}
+          />
+        </Tabs.Tab>
+        {showPerpsTab ? (
+          <Tabs.Tab name={perpsTabName}>
+            <MobileMarketPerpsFlatList
+              selectedCategoryId={selectedCategoryId}
+              listContainerProps={listContainerProps}
+            />
+          </Tabs.Tab>
+        ) : null}
+      </Tabs.Container>
+    </TabBarDynamicContext.Provider>
   );
 }
 
