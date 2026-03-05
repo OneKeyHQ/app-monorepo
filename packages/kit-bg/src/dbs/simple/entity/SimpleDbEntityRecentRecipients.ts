@@ -31,15 +31,6 @@ export class SimpleDbEntityRecentRecipients extends SimpleDbEntityBase<IRecentRe
     this.migrationDone = true;
 
     try {
-      // Check if we already have data in new storage
-      const currentData = await this.getRawData();
-      if (
-        currentData?.recentRecipients &&
-        Object.keys(currentData.recentRecipients).length > 0
-      ) {
-        return;
-      }
-
       // Read from old storage key
       const oldKey = `${SIMPLE_DB_KEY_PREFIX}:${OLD_ENTITY_NAME}`;
       const oldDataStr = await this.appStorage.getItem(oldKey);
@@ -69,12 +60,15 @@ export class SimpleDbEntityRecentRecipients extends SimpleDbEntityBase<IRecentRe
         return;
       }
 
-      // Migrate: merge all EVM network data into 'evm' key
+      // Start from existing v2 data (may already have entries from new sends)
+      const currentData = await this.getRawData();
       const migratedRecipients: Record<
         string,
         Record<string, IRecentRecipientData>
-      > = {};
-      const evmRecipients: Record<string, IRecentRecipientData> = {};
+      > = { ...(currentData?.recentRecipients ?? {}) };
+      const evmRecipients: Record<string, IRecentRecipientData> = {
+        ...(migratedRecipients.evm ?? {}),
+      };
 
       for (const [storageKey, recipients] of Object.entries(
         oldData.recentRecipients,
@@ -83,7 +77,7 @@ export class SimpleDbEntityRecentRecipients extends SimpleDbEntityBase<IRecentRe
         const isEvmKey = storageKey === 'evm' || storageKey.startsWith('evm--');
 
         if (isEvmKey) {
-          // Merge into shared EVM recipients
+          // Merge into shared EVM recipients, keep newer entries
           for (const [address, data] of Object.entries(recipients)) {
             const existing = evmRecipients[address];
             if (!existing || data.updatedAt > existing.updatedAt) {
@@ -94,21 +88,27 @@ export class SimpleDbEntityRecentRecipients extends SimpleDbEntityBase<IRecentRe
             }
           }
         } else {
-          // Keep non-EVM networks as-is
-          migratedRecipients[storageKey] = recipients;
+          // Non-EVM: merge with existing, keep newer entries
+          const existingNetwork = migratedRecipients[storageKey] ?? {};
+          for (const [address, data] of Object.entries(recipients)) {
+            const existing = existingNetwork[address];
+            if (!existing || data.updatedAt > existing.updatedAt) {
+              existingNetwork[address] = data;
+            }
+          }
+          migratedRecipients[storageKey] = existingNetwork;
         }
       }
 
-      // Add merged EVM recipients
+      // Add merged EVM recipients, sort and keep only top 10
       if (Object.keys(evmRecipients).length > 0) {
-        // Sort and keep only top 10
         const sortedEvmRecipients = Object.entries(evmRecipients)
           .toSorted(([, a], [, b]) => b.updatedAt - a.updatedAt)
           .slice(0, 10);
         migratedRecipients.evm = Object.fromEntries(sortedEvmRecipients);
       }
 
-      // Save migrated data
+      // Save merged data
       if (Object.keys(migratedRecipients).length > 0) {
         await this.setRawData({ recentRecipients: migratedRecipients });
       }
