@@ -575,11 +575,13 @@ class ServiceMarketV2 extends ServiceBase {
     }));
 
     let tokenDetails: IMarketTokenBatchListResponse = { list: [] };
+    let batchSucceeded = false;
 
     try {
       tokenDetails = await this.fetchMarketTokenListBatch({
         tokenAddressList,
       });
+      batchSucceeded = true;
     } catch (error) {
       console.error(
         '[ServiceMarketV2] buildWatchlistTokensForNotification fetchMarketTokenListBatch error:',
@@ -601,7 +603,9 @@ class ServiceMarketV2 extends ServiceBase {
       },
     );
 
-    return tokens;
+    // Only filter out symbol-less tokens when batch succeeded;
+    // if batch failed, return all entries to avoid wiping server-side watchlist.
+    return batchSucceeded ? tokens.filter((t) => t.symbol) : tokens;
   }
 
   private _fetchMarketTokenSecurityCached = memoizee(

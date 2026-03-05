@@ -258,29 +258,13 @@ function PerpBadgesRow() {
         />
       ) : null}
       {builderFeeRate === 0 ? (
-        <Popover
-          title={intl.formatMessage({
-            id: ETranslations.referral_perps_onekey_fee,
-          })}
-          renderTrigger={
-            <Badge radius="$1" bg="$bgSuccess" px="$0.5" py={0}>
-              <SizableText color="$textSuccess" fontSize={10}>
-                {intl.formatMessage({
-                  id: ETranslations.perp_0_fee,
-                })}
-              </SizableText>
-            </Badge>
-          }
-          renderContent={
-            <YStack px="$5" pb="$4">
-              <SizableText size="$bodyMd" color="$text">
-                {intl.formatMessage({
-                  id: ETranslations.perps_0_fee_desc,
-                })}
-              </SizableText>
-            </YStack>
-          }
-        />
+        <Badge radius="$1" bg="$bgSuccess" px="$0.5" py={0}>
+          <SizableText color="$textSuccess" fontSize={10}>
+            {intl.formatMessage({
+              id: ETranslations.perp_0_fee,
+            })}
+          </SizableText>
+        </Badge>
       ) : null}
     </XStack>
   );
