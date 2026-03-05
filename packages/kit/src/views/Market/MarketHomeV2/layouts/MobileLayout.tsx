@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 
 import { Tabs, YStack, useTabContainerWidth } from '@onekeyhq/components';
@@ -13,8 +13,8 @@ import { MarketFilterBarSmall } from '../components/MarketFilterBarSmall';
 import { MarketListColumnHeader } from '../components/MarketListColumnHeader';
 import { MobileMarketPerpsFlatList } from '../components/MarketPerpsList';
 import { MarketPerpsCategorySelector } from '../components/MarketPerpsList/MarketPerpsCategorySelector';
-import { MarketWatchlistTokenList } from '../components/MarketTokenList/MarketWatchlistTokenList';
 import { MobileMarketTokenFlatList } from '../components/MarketTokenList/MobileMarketTokenFlatList';
+import { MobileMarketWatchlistFlatList } from '../components/MarketTokenList/MobileMarketWatchlistFlatList';
 
 import { useMarketTabsLogic } from './hooks';
 
@@ -40,7 +40,7 @@ interface IMarketHomeTabBarProps extends TabBarProps<string> {
   perpsTabName: string;
   filterBarProps: IMobileLayoutProps['filterBarProps'];
   perpsCategories: { tabId: string; name: string }[];
-  selectedCategoryId: string;
+  selectedCategoryIdRef: RefObject<string>;
   onSelectCategory: (categoryId: string) => void;
 }
 
@@ -50,11 +50,34 @@ function MarketHomeTabBar({
   perpsTabName,
   filterBarProps,
   perpsCategories,
-  selectedCategoryId,
+  selectedCategoryIdRef,
   onSelectCategory,
   ...tabBarProps
 }: IMarketHomeTabBarProps) {
   const focusedTab = useFocusedTab();
+
+  // Read from ref to avoid re-creating renderTabBar on category change.
+  // MarketPerpsCategorySelector is a controlled component that will
+  // re-render itself via onSelectCategory -> setState in MobileLayout.
+  // We use local state here so the selector UI updates immediately.
+  const [localCategoryId, setLocalCategoryId] = useState(
+    selectedCategoryIdRef.current,
+  );
+
+  // Sync initial category from parent when switching to the perps tab
+  useEffect(() => {
+    if (!localCategoryId && selectedCategoryIdRef.current) {
+      setLocalCategoryId(selectedCategoryIdRef.current);
+    }
+  }, [localCategoryId, focusedTab]);
+
+  const handleSelectCategory = useCallback(
+    (id: string) => {
+      setLocalCategoryId(id);
+      onSelectCategory(id);
+    },
+    [onSelectCategory],
+  );
 
   return (
     <YStack bg="$bgApp">
@@ -70,8 +93,8 @@ function MarketHomeTabBar({
         <>
           <MarketPerpsCategorySelector
             categories={perpsCategories}
-            selectedCategoryId={selectedCategoryId}
-            onSelectCategory={onSelectCategory}
+            selectedCategoryId={localCategoryId}
+            onSelectCategory={handleSelectCategory}
             containerStyle={{
               px: '$5',
               pt: '$3',
@@ -105,6 +128,8 @@ function MobileLayoutComponent({
 
   // Perps category state (lifted from MobileMarketPerpsFlatList)
   const [selectedCategoryId, setSelectedCategoryId] = useState('');
+  const selectedCategoryIdRef = useRef(selectedCategoryId);
+  selectedCategoryIdRef.current = selectedCategoryId;
   const { perpsCategories: rawPerpsCategories } = useMarketBasicConfig();
 
   const perpsCategories = useMemo(
@@ -165,7 +190,7 @@ function MobileLayoutComponent({
         perpsTabName={perpsTabName}
         filterBarProps={filterBarProps}
         perpsCategories={perpsCategories}
-        selectedCategoryId={selectedCategoryId}
+        selectedCategoryIdRef={selectedCategoryIdRef}
         onSelectCategory={setSelectedCategoryId}
       />
     ),
@@ -175,7 +200,6 @@ function MobileLayoutComponent({
       perpsTabName,
       filterBarProps,
       perpsCategories,
-      selectedCategoryId,
     ],
   );
 
@@ -197,8 +221,7 @@ function MobileLayoutComponent({
       {...containerProps}
     >
       <Tabs.Tab name={watchlistTabName}>
-        <MarketWatchlistTokenList
-          tabIntegrated
+        <MobileMarketWatchlistFlatList
           listContainerProps={listContainerProps}
         />
       </Tabs.Tab>

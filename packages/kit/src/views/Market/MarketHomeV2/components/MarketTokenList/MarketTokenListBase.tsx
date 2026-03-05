@@ -1,8 +1,6 @@
 import { useCallback, useContext, useEffect, useMemo, useRef } from 'react';
 import type { ReactNode } from 'react';
 
-import { createPortal } from 'react-dom';
-
 import {
   ListEndIndicator,
   Spinner,
@@ -28,6 +26,7 @@ import type {
 import { ESortWay } from '@onekeyhq/shared/src/logger/scopes/dex/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { StickyHeaderPortal } from '../StickyHeaderPortal';
 import { DesktopStickyHeaderContext } from '../../layouts/DesktopStickyHeaderContext';
 
 import { useMarketTokenColumns } from './hooks/useMarketTokenColumns';
@@ -326,19 +325,20 @@ function MarketTokenListBase({
 
   const portalContent = useMemo(() => {
     if (!useDesktopPortal || !isTabFocused) return null;
-    return createPortal(
-      <YStack bg="$bgApp" px="$4">
-        {toolbar ? (
-          <Stack width="100%" mb="$3">
-            {toolbar}
-          </Stack>
-        ) : null}
-        <Table.HeaderRow
-          columns={marketTokenColumns}
-          onHeaderRow={handleHeaderRow}
-        />
-      </YStack>,
-      stickyPortalTarget!,
+    return (
+      <StickyHeaderPortal target={stickyPortalTarget!}>
+        <YStack bg="$bgApp" px="$4">
+          {toolbar ? (
+            <Stack width="100%" mb="$3">
+              {toolbar}
+            </Stack>
+          ) : null}
+          <Table.HeaderRow
+            columns={marketTokenColumns}
+            onHeaderRow={handleHeaderRow}
+          />
+        </YStack>
+      </StickyHeaderPortal>
     );
   }, [
     useDesktopPortal,

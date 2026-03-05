@@ -119,7 +119,13 @@ function MarketPerpsTokenListImpl({
         </YStack>
       </StickyHeaderPortal>
     );
-  }, [useDesktopPortal, isTabFocused, stickyPortalTarget, CategorySelector, perpsColumns]);
+  }, [
+    useDesktopPortal,
+    isTabFocused,
+    stickyPortalTarget,
+    CategorySelector,
+    perpsColumns,
+  ]);
 
   return (
     <Stack flex={1} width="100%">
