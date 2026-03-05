@@ -993,13 +993,13 @@ export function UniversalWithdraw({
   const showWithdrawPathSelector =
     withdrawPathConfirmBoxes.length > 1 && !!selectedWithdrawPath;
   const shouldShowPendleWithdrawProgress =
-    isPendleProvider &&
-    withdrawPathConfirmBoxes.length > 1 &&
-    networkId === getNetworkIdsMap().eth &&
+    useApprove &&
     !!amountValue &&
-    !isInvalidAmount(amountValue);
+    !isInvalidAmount(amountValue) &&
+    (shouldApprove || withdrawProgressStep > EStakeProgressStep.approve);
   const isEthenaCooldownWithdrawPath =
     shouldShowPendleWithdrawProgress &&
+    withdrawPathConfirmBoxes.length > 1 &&
     effectiveSelectedWithdrawPathIndex === 0;
 
   const withdrawPathPopoverRef = useRef<IWithdrawPathPopoverRef>({
