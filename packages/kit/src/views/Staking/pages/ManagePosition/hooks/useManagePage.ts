@@ -227,6 +227,8 @@ export const useManagePage = ({
       protocolInputDecimals: managePageData.nums?.protocolInputDecimals,
       // repay max balance (debt balance for max button)
       maxRepayBalance: managePageData.repay?.data?.maxBalance,
+      // debt balance for collateral repay mode
+      debtBalance: managePageData.debt?.data?.balance,
       // supply max balance for supply max button
       maxSupplyBalance: managePageData.supply?.data?.maxBalance,
       // approve

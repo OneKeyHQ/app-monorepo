@@ -9282,7 +9282,6 @@ __metadata:
   dependencies:
     "@electron/notarize": "npm:2.3.2"
     "@electron/remote": "npm:^2.0.1"
-    "@malept/flatpak-bundler": "npm:^0.4.0"
     "@onekeyfe/electron-mac-icloud": "npm:1.2.6"
     "@sentry/electron": "npm:5.8.0"
     "@stoprocent/noble": "npm:2.3.4"
