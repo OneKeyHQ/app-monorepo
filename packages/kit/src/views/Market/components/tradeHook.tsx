@@ -12,8 +12,8 @@ import { EModalRoutes } from '@onekeyhq/shared/src/routes/modal';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import {
+  openFiatCryptoUrl,
   openUrlExternal,
-  openUrlInDiscovery,
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
@@ -162,7 +162,7 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
         return;
       }
       if (platformEnv.isDesktop || platformEnv.isNative) {
-        openUrlInDiscovery({ url });
+        openFiatCryptoUrl(url);
       } else {
         openUrlExternal(url);
       }
