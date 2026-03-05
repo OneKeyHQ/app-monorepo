@@ -2,12 +2,13 @@ import { useCallback, useMemo, useRef } from 'react';
 
 import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
-import { Dimensions, View } from 'react-native';
+import { Dimensions, type GestureResponderEvent, View } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
 
 import type { IDialogInstance, IScrollViewRef } from '@onekeyhq/components';
 import {
   EInPageDialogType,
+  HeaderScrollGestureWrapper,
   ScrollView,
   Stack,
   Tabs,
@@ -45,7 +46,7 @@ import { SwapPanelWrap } from '../components/SwapPanel/SwapPanelWrap';
 import { useTokenDetail } from '../hooks/useTokenDetail';
 
 export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
-  const { tokenAddress, networkId, tokenDetail, isNative, websocketConfig } =
+  const { tokenAddress, networkId, tokenDetail, websocketConfig } =
     useTokenDetail();
   const intl = useIntl();
 
@@ -87,6 +88,10 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
 
   const scrollViewRef = useRef<IScrollViewRef>(null);
   const focusedTab = useSharedValue(tabNames[0]);
+  const secondTabTouchStartRef = useRef<{
+    pageX: number;
+    pageY: number;
+  } | null>(null);
 
   const handleTabChange = useCallback(
     (tabName: string) => {
@@ -99,6 +104,25 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
     [focusedTab, tabNames, width],
   );
 
+  const handleHeaderHorizontalSwipe = useCallback(
+    (direction: 'left' | 'right') => {
+      const currentIndex = tabNames.indexOf(focusedTab.value);
+      if (currentIndex < 0) {
+        return;
+      }
+      const offset = direction === 'left' ? 1 : -1;
+      const nextIndex = Math.min(
+        tabNames.length - 1,
+        Math.max(0, currentIndex + offset),
+      );
+      if (nextIndex === currentIndex) {
+        return;
+      }
+      handleTabChange(tabNames[nextIndex]);
+    },
+    [focusedTab, handleTabChange, tabNames],
+  );
+
   const tradingViewHeight = useMemo(() => {
     if (platformEnv.isNative) {
       return Number(height) * 0.58;
@@ -106,31 +130,80 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
     return 'calc(100vh - 96px - 74px - 250px)';
   }, [height]);
 
+  const handleSecondTabTouchStart = useCallback(
+    (event: GestureResponderEvent) => {
+      const { pageX, pageY } = event.nativeEvent;
+      secondTabTouchStartRef.current = { pageX, pageY };
+    },
+    [],
+  );
+
+  const handleSecondTabTouchEnd = useCallback(
+    (event: GestureResponderEvent) => {
+      const start = secondTabTouchStartRef.current;
+      secondTabTouchStartRef.current = null;
+      if (!start) {
+        return;
+      }
+
+      const { pageX, pageY } = event.nativeEvent;
+      const deltaX = pageX - start.pageX;
+      const deltaY = pageY - start.pageY;
+
+      if (Math.abs(deltaX) < 36 || Math.abs(deltaX) <= Math.abs(deltaY)) {
+        return;
+      }
+
+      handleHeaderHorizontalSwipe(deltaX < 0 ? 'left' : 'right');
+    },
+    [handleHeaderHorizontalSwipe],
+  );
+
   const informationHeader = useMemo(() => {
     return (
       <YStack bg="$bgApp" pointerEvents="box-none">
-        <PerpetualTradingBanner px="$5" />
-        <InformationPanel />
-        <Stack h={tradingViewHeight} position="relative">
-          <MarketTradingView
-            tokenAddress={tokenAddress}
-            networkId={networkId}
-            tokenSymbol={tokenDetail?.symbol}
-            isNative={isNative}
-            dataSource={websocketConfig?.kline ? 'websocket' : 'polling'}
-            pageWidth={width}
-          />
-        </Stack>
+        <HeaderScrollGestureWrapper
+          panActiveOffsetY={[-4, 4]}
+          scrollScale={1}
+          onHorizontalSwipe={handleHeaderHorizontalSwipe}
+          horizontalSwipeThreshold={36}
+        >
+          <YStack>
+            <PerpetualTradingBanner px="$5" />
+            <InformationPanel />
+          </YStack>
+        </HeaderScrollGestureWrapper>
+        <HeaderScrollGestureWrapper
+          panActiveOffsetY={[-4, 4]}
+          panFailOffsetX={[-40, 40]}
+          excludeRightEdgeRatio={0.1}
+          scrollScale={1}
+          onHorizontalSwipe={handleHeaderHorizontalSwipe}
+          horizontalSwipeThreshold={24}
+          horizontalSwipeVelocityThreshold={900}
+          simultaneousWithNativeGesture
+          cancelChildTouches={false}
+        >
+          <Stack h={tradingViewHeight} overflow="hidden">
+            {networkId && tokenDetail?.symbol ? (
+              <MarketTradingView
+                tokenAddress={tokenAddress}
+                networkId={networkId}
+                tokenSymbol={tokenDetail.symbol}
+                dataSource={websocketConfig?.kline ? 'websocket' : 'polling'}
+              />
+            ) : null}
+          </Stack>
+        </HeaderScrollGestureWrapper>
       </YStack>
     );
   }, [
-    isNative,
+    handleHeaderHorizontalSwipe,
     networkId,
     tokenAddress,
     tokenDetail?.symbol,
     tradingViewHeight,
-    websocketConfig,
-    width,
+    websocketConfig?.kline,
   ]);
 
   const renderInformationHeader = useCallback(
@@ -154,7 +227,10 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
       }
       return (
         <YStack flex={1} height={height}>
-          <ScrollView>
+          <ScrollView
+            onTouchStart={handleSecondTabTouchStart}
+            onTouchEnd={handleSecondTabTouchEnd}
+          >
             <TokenOverview />
             <TokenActivityOverview />
             <Stack h={100} w="100%" />
@@ -162,7 +238,14 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
         </YStack>
       );
     },
-    [height, renderInformationHeader, portfolioData, isRefreshing],
+    [
+      height,
+      renderInformationHeader,
+      portfolioData,
+      isRefreshing,
+      handleSecondTabTouchStart,
+      handleSecondTabTouchEnd,
+    ],
   );
 
   const toSwapPanelToken = useMemo(() => {

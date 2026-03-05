@@ -207,6 +207,8 @@ export const BundleUpdate: IBundleUpdate = {
     globalThis.desktopApiProxy.bundleUpdate.clearAllJSBundleData(),
   testVerification: () =>
     globalThis.desktopApiProxy.bundleUpdate.testVerification(),
+  testSkipVerification: () =>
+    globalThis.desktopApiProxy.bundleUpdate.testSkipVerification(),
   testDeleteJsBundle: (appVersion, bundleVersion) =>
     globalThis.desktopApiProxy.bundleUpdate.testDeleteJsBundle(
       appVersion,

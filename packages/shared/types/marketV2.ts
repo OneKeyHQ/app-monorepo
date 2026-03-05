@@ -416,6 +416,11 @@ export interface IMarketAccountPortfolioResponse {
 }
 
 // Banner types
+export enum EMarketBannerType {
+  Ticker = 'ticker',
+  Perps = 'perps',
+}
+
 export interface IMarketBannerDescription {
   text: string;
   fontColor: string;
@@ -432,6 +437,7 @@ export interface IMarketBannerItem {
   tokenListId: string;
   description?: IMarketBannerDescription;
   tokenLogos?: string[];
+  type?: EMarketBannerType;
 }
 
 export interface IMarketBannerListResponse {

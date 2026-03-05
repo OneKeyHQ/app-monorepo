@@ -49,6 +49,7 @@ export const BundleUpdate: IBundleUpdate = {
   clearAllJSBundleData: () =>
     Promise.resolve({ success: false, message: 'Not supported on web' }),
   testVerification: () => Promise.resolve(false),
+  testSkipVerification: () => Promise.resolve(false),
   testDeleteJsBundle: () =>
     Promise.resolve({ success: false, message: 'Not supported on web' }),
   testDeleteJsRuntimeDir: () =>
