@@ -306,7 +306,9 @@ describe('ServiceAppUpdate state transitions', () => {
     test('devFetchBundleVersions always uses test utility endpoint', async () => {
       await service.devFetchBundleVersions();
       // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const { appApiClient } = require('@onekeyhq/shared/src/appApiClient/appApiClient');
+      const {
+        appApiClient,
+      } = require('@onekeyhq/shared/src/appApiClient/appApiClient');
 
       expect(appApiClient.getBasicClient).toHaveBeenCalledWith({
         name: EServiceEndpointEnum.Utility,
@@ -320,7 +322,9 @@ describe('ServiceAppUpdate state transitions', () => {
     test('devFetchBundlesForVersion always uses test utility endpoint', async () => {
       await service.devFetchBundlesForVersion('7.6.0');
       // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const { appApiClient } = require('@onekeyhq/shared/src/appApiClient/appApiClient');
+      const {
+        appApiClient,
+      } = require('@onekeyhq/shared/src/appApiClient/appApiClient');
 
       expect(appApiClient.getBasicClient).toHaveBeenCalledWith({
         name: EServiceEndpointEnum.Utility,

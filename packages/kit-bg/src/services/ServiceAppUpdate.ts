@@ -682,14 +682,15 @@ class ServiceAppUpdate extends ServiceBase {
 
   // ---- Dev Bundle Switcher ----
 
-  private getDevBundleSwitcherClient = memoizee(async () =>
-    appApiClient.getBasicClient({
-      name: EServiceEndpointEnum.Utility,
-      endpoint: buildServiceEndpoint({
-        serviceName: EServiceEndpointEnum.Utility,
-        env: 'test',
+  private getDevBundleSwitcherClient = memoizee(
+    async () =>
+      appApiClient.getBasicClient({
+        name: EServiceEndpointEnum.Utility,
+        endpoint: buildServiceEndpoint({
+          serviceName: EServiceEndpointEnum.Utility,
+          env: 'test',
+        }),
       }),
-    }),
     { promise: true },
   );
 

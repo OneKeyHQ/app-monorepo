@@ -26,10 +26,13 @@ export default function DevAppUpdateTestModal() {
 
   const runAppUpdateVerificationTest = async (skipGPGVerification: boolean) => {
     try {
-      const updateInfo = await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
+      const updateInfo =
+        await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
       const params = updateInfo.downloadedEvent;
       if (!params?.downloadUrl) {
-        throw new Error('No downloaded app package found. Please download app update package first.');
+        throw new Error(
+          'No downloaded app package found. Please download app update package first.',
+        );
       }
       await AppUpdate.verifyASC(params);
       await AppUpdate.verifyPackage({
