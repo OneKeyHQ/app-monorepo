@@ -264,11 +264,7 @@ export function AvailableAssetsTabViewList() {
         userSelect="none"
         onPress={() => handleRowPress(asset)}
         renderAvatar={
-          <Token
-            size="md"
-            tokenImageUri={asset.logoURI}
-            borderRadius="$full"
-          />
+          <Token size="md" tokenImageUri={asset.logoURI} borderRadius="$full" />
         }
       >
         <ListItem.Text
