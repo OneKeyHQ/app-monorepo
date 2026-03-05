@@ -689,6 +689,7 @@ class ServiceAppUpdate extends ServiceBase {
         env: 'test',
       }),
     }),
+    { promise: true },
   );
 
   @backgroundMethod()
