@@ -114,7 +114,9 @@ export function usePerpsSharePrompt() {
 
       Dialog.show({
         icon: 'ShareOutline',
-        title: 'Enjoying Perps? Share it with friends',
+        title: appLocale.intl.formatMessage({
+          id: ETranslations.perps_enjoy_perps,
+        }),
         onCancelText: appLocale.intl.formatMessage({
           id: ETranslations.global_later,
         }),
