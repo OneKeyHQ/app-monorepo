@@ -227,6 +227,10 @@ jest.mock('@onekeyhq/shared/src/errors', () => ({
 
 jest.mock('react-native', () => ({
   StyleSheet: { hairlineWidth: 1 },
+  // Platform is needed because platformEnv.ts reads Platform.OS at module scope.
+  // In harness mode, __harness_mock_module__ replaces module exports in-place,
+  // so omitting Platform would delete it from the react-native module object.
+  Platform: { OS: 'android' },
 }));
 
 // ---------------------------------------------------------------------------

@@ -73,10 +73,44 @@ const wrapTest = (original: TestFn): TestFn => {
   };
 };
 
+// test.each: table-driven tests (used by ServiceAppUpdate.test.ts)
+const testEach =
+  (baseFn: TestFn) =>
+  (table: ReadonlyArray<unknown>) =>
+  (
+    name: string,
+    // eslint-disable-next-line @typescript-eslint/no-shadow
+    testFn: (...args: any[]) => void | Promise<void>,
+    timeout?: number,
+  ) => {
+    for (const row of table) {
+      const args = Array.isArray(row) ? row : [row];
+      let title = name;
+      let argIdx = 0;
+      title = title.replace(/%[sijp]/g, () => {
+        const val = args[argIdx];
+        argIdx += 1;
+        return typeof val === 'object' ? JSON.stringify(val) : String(val);
+      });
+      if (!Array.isArray(row) && row && typeof row === 'object') {
+        for (const [key, val] of Object.entries(
+          row as Record<string, unknown>,
+        )) {
+          title = title.replace(
+            new RegExp(`\\$${key}`, 'g'),
+            typeof val === 'object' ? JSON.stringify(val) : String(val),
+          );
+        }
+      }
+      baseFn(title, () => testFn(...args), timeout);
+    }
+  };
+
 const wrappedTest = Object.assign(wrapTest(test), {
   skip: test.skip,
   only: wrapTest(test.only),
   todo: test.todo,
+  each: testEach(wrapTest(test)),
 }) as typeof test;
 
 // Inject test primitives as globals (matching Jest's behavior)
@@ -284,6 +318,113 @@ const restoreAllMocks = () => {
   }
 };
 
+// ---- Fake timer implementation ----
+// Minimal fake timer support for harness. Used by ServiceAppUpdate.test.ts,
+// hooks.test.ts, and SplashProvider.test.ts.
+
+// eslint-disable-next-line @typescript-eslint/naming-convention
+type TimerEntry = {
+  cb: (...a: unknown[]) => void;
+  delay: number;
+  at: number;
+  kind: 'timeout' | 'interval';
+  args: unknown[];
+};
+
+let fakeNow = 0;
+let nextId = 1;
+const timers = new Map<number, TimerEntry>();
+
+const realSetTimeout = globalThis.setTimeout;
+const realClearTimeout = globalThis.clearTimeout;
+const realSetInterval = globalThis.setInterval;
+const realClearInterval = globalThis.clearInterval;
+const realDateNow = Date.now;
+
+const fakeSetTimeout = (
+  cb: (...a: unknown[]) => void,
+  delay = 0,
+  ...args: unknown[]
+): number => {
+  nextId += 1;
+  timers.set(nextId, { cb, delay, at: fakeNow, kind: 'timeout', args });
+  return nextId;
+};
+
+const fakeSetInterval = (
+  cb: (...a: unknown[]) => void,
+  delay = 0,
+  ...args: unknown[]
+): number => {
+  nextId += 1;
+  timers.set(nextId, { cb, delay, at: fakeNow, kind: 'interval', args });
+  return nextId;
+};
+
+const findEarliest = (max?: number): [number, TimerEntry] | null => {
+  let best: [number, TimerEntry] | null = null;
+  timers.forEach((e, id) => {
+    const t = e.at + e.delay;
+    if (max !== undefined && t > max) return;
+    if (!best || t < best[1].at + best[1].delay) best = [id, e];
+  });
+  return best;
+};
+
+const fireOne = (entry: [number, TimerEntry]) => {
+  const [id, e] = entry;
+  fakeNow = e.at + e.delay;
+  if (e.kind === 'timeout') {
+    timers.delete(id);
+  } else {
+    e.at = fakeNow;
+  }
+  e.cb(...e.args);
+};
+
+const advanceTimersByTime = (ms: number) => {
+  const target = fakeNow + ms;
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const e = findEarliest(target);
+    if (!e) {
+      fakeNow = target;
+      break;
+    }
+    fireOne(e);
+  }
+};
+
+const runAllTimers = () => {
+  let safety = 10_000;
+  while (timers.size > 0 && safety > 0) {
+    safety -= 1;
+    const e = findEarliest();
+    if (!e) break;
+    fireOne(e);
+  }
+};
+
+const installFakeTimers = () => {
+  fakeNow = realDateNow();
+  timers.clear();
+  nextId = 1;
+  (globalThis as any).setTimeout = fakeSetTimeout;
+  (globalThis as any).clearTimeout = (id: number) => timers.delete(id);
+  (globalThis as any).setInterval = fakeSetInterval;
+  (globalThis as any).clearInterval = (id: number) => timers.delete(id);
+  Date.now = () => fakeNow;
+};
+
+const uninstallFakeTimers = () => {
+  timers.clear();
+  globalThis.setTimeout = realSetTimeout;
+  globalThis.clearTimeout = realClearTimeout;
+  globalThis.setInterval = realSetInterval;
+  globalThis.clearInterval = realClearInterval;
+  Date.now = realDateNow;
+};
+
 // Override the harness jest-mock Proxy with a compat shim.
 // The patch to @react-native-harness/runtime makes the property configurable,
 // allowing this override.
@@ -334,6 +475,47 @@ Object.defineProperty(globalThis, 'jest', {
     },
     setTimeout: (_ms: number) => {
       // no-op: timeout configuration is not applicable in harness mode.
+    },
+    // Fake timer support
+    useFakeTimers: () => {
+      installFakeTimers();
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+      return (globalThis as any).jest;
+    },
+    useRealTimers: () => {
+      uninstallFakeTimers();
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+      return (globalThis as any).jest;
+    },
+    advanceTimersByTime,
+    advanceTimersByTimeAsync: async (ms: number) => {
+      advanceTimersByTime(ms);
+    },
+    runAllTimers,
+    runAllTimersAsync: async () => {
+      runAllTimers();
+    },
+    runOnlyPendingTimers: () => {
+      const snapshot = Array.from(timers.entries());
+      for (const [id, entry] of snapshot) {
+        fakeNow = Math.max(fakeNow, entry.at + entry.delay);
+        if (entry.kind === 'timeout') {
+          timers.delete(id);
+        } else {
+          entry.at = fakeNow;
+        }
+        entry.cb(...entry.args);
+      }
+    },
+    clearAllTimers: () => {
+      timers.clear();
+    },
+    getTimerCount: () => timers.size,
+    setSystemTime: (now: number | Date) => {
+      fakeNow = typeof now === 'number' ? now : now.getTime();
+    },
+    isolateModules: (callback: () => void) => {
+      callback();
     },
   },
   writable: true,
