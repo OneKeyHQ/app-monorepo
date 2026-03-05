@@ -411,7 +411,7 @@ function MarketTokenListBase({
                     }
               }
               stickyHeader
-              showHeader={useDesktopPortal ? false : !tabIntegrated || !md}
+              showHeader={!useDesktopPortal}
               scrollEnabled={!webTabIntegrated}
               draggable={draggable}
               tabIntegrated={tabIntegrated}
