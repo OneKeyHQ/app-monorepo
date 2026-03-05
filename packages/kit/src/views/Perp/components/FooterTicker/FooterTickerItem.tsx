@@ -71,15 +71,16 @@ function FooterTickerItem({
       onPress={onPress}
       px="$2"
       py="$1"
+      mr="$1"
       borderRadius="$2"
       hoverStyle={{ bg: '$bgHover' }}
       userSelect="none"
       alignItems="center"
-      gap="$2"
+      gap="$1.5"
       cursor="default"
       flexShrink={0}
     >
-      <SizableText size="$bodySmMedium" color="$text">
+      <SizableText size="$bodyMdMedium" color="$text">
         {displayName}
       </SizableText>
       {isActive ? (

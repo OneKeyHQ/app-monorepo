@@ -80,7 +80,28 @@ class ServiceUniversalSearch extends ServiceBase {
     }
     if (searchTypes.includes(EUniversalSearchType.MarketToken)) {
       try {
-        // Prefer searchRecommendTokens from market basic config (has network/chainId for badge)
+        // Prefer V2 trending endpoint (has network badge, dynamic data)
+        const trendingItems =
+          await this.backgroundApi.serviceMarket.fetchTrendingV2();
+
+        const validTrendingItems = trendingItems.filter(
+          (item) => Boolean(item.price) && Number(item.price) > 0,
+        );
+        if (validTrendingItems.length) {
+          result[EUniversalSearchType.V2MarketToken] = {
+            items: validTrendingItems.map((item) => ({
+              type: EUniversalSearchType.V2MarketToken,
+              payload: item,
+            })),
+          };
+          return result;
+        }
+      } catch {
+        // V2 trending failed, fall through to searchRecommendTokens
+      }
+
+      try {
+        // Fallback to searchRecommendTokens from market basic config
         const basicConfig =
           await this.backgroundApi.serviceMarketV2.fetchMarketBasicConfig();
         const recommendTokens = basicConfig?.data?.searchRecommendTokens;
@@ -130,35 +151,18 @@ class ServiceUniversalSearch extends ServiceBase {
               };
             })
             .filter(
-              (item) => Boolean(item.payload.address) || item.payload.isNative,
+              (item) =>
+                (Boolean(item.payload.address) || item.payload.isNative) &&
+                Number(item.payload.price) > 0,
             );
 
-          // Require at least one item with real price data; otherwise fall back to trending
-          const hasUsableData = v2Items.some(
-            (item) =>
-              item.payload.price &&
-              item.payload.price !== '0' &&
-              Number(item.payload.price) > 0,
-          );
-
-          if (v2Items.length && hasUsableData) {
+          if (v2Items.length) {
             result[EUniversalSearchType.V2MarketToken] = { items: v2Items };
-            return result;
           }
         }
       } catch {
-        // V2 endpoint failed, fall through to legacy trending
+        // searchRecommendTokens also failed
       }
-
-      // Fallback to coingecko-based trending (no network badge)
-      const items =
-        await this.backgroundApi.serviceMarket.fetchSearchTrending();
-      result[EUniversalSearchType.MarketToken] = {
-        items: items.map((item) => ({
-          type: EUniversalSearchType.MarketToken,
-          payload: item,
-        })),
-      };
     }
     return result;
   }

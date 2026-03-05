@@ -168,12 +168,6 @@ export function useOneKeyAuth() {
             onClose: onCancelFirstStepFn,
             renderContent: (
               <PrimeLoginEmailDialogV2
-                title={intl.formatMessage({
-                  id: ETranslations.prime_signup_login,
-                })}
-                description={intl.formatMessage({
-                  id: ETranslations.prime_onekeyid_continue_description,
-                })}
                 onComplete={() => {
                   isClosedByNextStep = true;
                   void loginDialog.close();
@@ -186,7 +180,7 @@ export function useOneKeyAuth() {
         }
       });
     },
-    [intl, logout, toOneKeyIdPage],
+    [logout, toOneKeyIdPage],
   );
 
   const sendEmailOTP = useCallback(
