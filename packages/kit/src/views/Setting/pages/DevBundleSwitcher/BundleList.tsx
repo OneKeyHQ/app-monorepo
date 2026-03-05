@@ -245,16 +245,11 @@ function BundleItem({
                 </Badge>
               ) : null}
             </XStack>
-            <XStack alignItems="center" justifyContent="space-between" gap="$2">
+            <XStack alignItems="center" gap="$2">
               <SizableText size="$bodyXs" color="$textSubdued" flex={1}>
                 {formatFileSize(bundle.fileSize)}
                 {bundle.changeLog ? ` · ${bundle.changeLog}` : ''}
               </SizableText>
-              {bundle.commitHash ? (
-                <SizableText size="$bodyXs" color="$textSubdued">
-                  {bundle.commitHash.slice(0, 8)}
-                </SizableText>
-              ) : null}
             </XStack>
           </YStack>
         </XStack>
@@ -303,6 +298,14 @@ function BundleItem({
             Switch to This Bundle
           </Button>
         </Stack>
+      ) : null}
+
+      {bundle.commitHash ? (
+        <XStack pl="$10" justifyContent="flex-end">
+          <SizableText size="$bodyXs" color="$textSubdued">
+            {bundle.commitHash.slice(0, 8)}
+          </SizableText>
+        </XStack>
       ) : null}
     </YStack>
   );
