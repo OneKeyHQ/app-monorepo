@@ -25,6 +25,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import {
   buildUrlAccountFullUrl,
+  getHomeTabStackLength,
   urlAccountNavigation,
 } from './urlAccountUtils';
 
@@ -35,7 +36,11 @@ function Back() {
     <IconButton
       icon="ChevronLeftSolid"
       onPress={() => {
-        urlAccountNavigation.replaceHomePage(navigation);
+        if (getHomeTabStackLength() > 1) {
+          navigation.pop();
+        } else {
+          urlAccountNavigation.replaceHomePage(navigation);
+        }
       }}
     />
   );
