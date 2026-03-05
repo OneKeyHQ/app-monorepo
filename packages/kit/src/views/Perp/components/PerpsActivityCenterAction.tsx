@@ -6,6 +6,7 @@ import type { IButtonProps } from '@onekeyhq/components';
 import {
   HeaderIconButton,
   Icon,
+  Image,
   LottieView,
   Popover,
   SizableText,
@@ -17,11 +18,37 @@ import {
 import GiftExpandOnDark from '@onekeyhq/kit/assets/animations/gift-expand-on-dark.json';
 import GiftExpandOnLight from '@onekeyhq/kit/assets/animations/gift-expand-on-light.json';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { useReferFriends } from '../../../hooks/useReferFriends';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 
 import { useShowInviteeRewardModal } from './InviteeReward/hooks/useShowInviteeRewardModal';
+
+const STATIC_ACTIVITY_CARDS: Array<{
+  id: string;
+  imageUrl?: string;
+  fallbackIconName?: IButtonProps['icon'];
+  title: string;
+  subtitle: string;
+  url: string;
+}> = [
+  {
+    id: 'perps-activity-placeholder-1',
+    imageUrl: 'https://uni.onekey-asset.com/static/logo/1inchFusion.png',
+    fallbackIconName: 'GiftOutline',
+    title: 'Perps 活动预告',
+    subtitle: '查看详情',
+    url: 'https://www.onekey.so/',
+  },
+  {
+    id: 'perps-activity-placeholder-2',
+    fallbackIconName: 'HandCoinsOutline',
+    title: '交易赛季奖励',
+    subtitle: '报名并参与',
+    url: 'https://www.onekey.so/',
+  },
+];
 
 function ActivityShortcutCard({
   title,
@@ -72,6 +99,68 @@ function ActivityShortcutCard({
   );
 }
 
+function ActivityCampaignCard({
+  title,
+  subtitle,
+  imageUrl,
+  fallbackIconName = 'GiftOutline',
+  onPress,
+}: {
+  title: string;
+  subtitle: string;
+  imageUrl?: string;
+  fallbackIconName?: IButtonProps['icon'];
+  onPress: () => void;
+}) {
+  return (
+    <XStack
+      onPress={onPress}
+      alignItems="center"
+      gap="$3"
+      px="$3"
+      py="$2"
+      borderRadius="$4"
+      borderWidth="$px"
+      borderColor="$borderSubdued"
+      bg="$bg"
+      hoverStyle={{ bg: '$bgHover' }}
+      pressStyle={{ bg: '$bgActive' }}
+      cursor="default"
+      userSelect="none"
+    >
+      <Stack
+        alignItems="center"
+        justifyContent="center"
+        w="$10"
+        h="$10"
+        borderRadius="$3"
+        bg="$bgSubdued"
+      >
+        {imageUrl ? (
+          <Image
+            w="$10"
+            h="$10"
+            src={imageUrl}
+            borderRadius="$3"
+            fallback={<Icon name={fallbackIconName} size="$6" color="$icon" />}
+          />
+        ) : (
+          <Icon name={fallbackIconName} size="$6" color="$iconSubdued" />
+        )}
+      </Stack>
+      <YStack flex={1} minWidth={0} gap="$0.5">
+        <SizableText size="$headingSm" color="$text" numberOfLines={1}>
+          {title}
+        </SizableText>
+        <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
+          {subtitle}
+        </SizableText>
+      </YStack>
+      <Icon name="ChevronRightSmallOutline" size="$5" color="$iconSubdued" />
+    </XStack>
+  );
+}
+
 export function PerpsActivityCenterAction({
   size = 'medium',
   copyAsUrl = false,
@@ -86,6 +175,7 @@ export function PerpsActivityCenterAction({
   const { shareReferRewards } = useReferFriends();
   const { showInviteeRewardModal } = useShowInviteeRewardModal();
   const activityCenterTitle = '活动中心';
+  const hasActivityCards = STATIC_ACTIVITY_CARDS.length > 0;
 
   const handleOpenReferReward = useCallback(() => {
     void shareReferRewards(undefined, undefined, 'Perps', copyAsUrl);
@@ -114,7 +204,7 @@ export function PerpsActivityCenterAction({
         <HeaderIconButton title={undefined} icon="GiftOutline" size={size} />
       }
       renderContent={({ closePopover }) => (
-        <YStack>
+        <YStack mb="$2">
           {isDesktop ? (
             <XStack px="$5" pt="$4" pb="$1">
               <SizableText size="$headingMd" color="$text" userSelect="none">
@@ -122,7 +212,7 @@ export function PerpsActivityCenterAction({
               </SizableText>
             </XStack>
           ) : null}
-          <YStack px="$4" py="$3.5">
+          <YStack px="$4" pt={isDesktop ? '$3.5' : null} pb="$3.5">
             <XStack width="100%" flexWrap="nowrap">
               <ActivityShortcutCard
                 lottieSrc={
@@ -149,6 +239,28 @@ export function PerpsActivityCenterAction({
                 }}
               />
             </XStack>
+            {hasActivityCards ? (
+              <YStack gap="$2.5" mt="$4">
+                <SizableText size="$headingXs" color="$text">
+                  {`当前活动 (${STATIC_ACTIVITY_CARDS.length})`}
+                </SizableText>
+                <YStack gap="$2">
+                  {STATIC_ACTIVITY_CARDS.map((item) => (
+                    <ActivityCampaignCard
+                      key={item.id}
+                      imageUrl={item.imageUrl}
+                      fallbackIconName={item.fallbackIconName}
+                      title={item.title}
+                      subtitle={item.subtitle}
+                      onPress={() => {
+                        closePopover();
+                        void openUrlExternal(item.url);
+                      }}
+                    />
+                  ))}
+                </YStack>
+              </YStack>
+            ) : null}
           </YStack>
         </YStack>
       )}
