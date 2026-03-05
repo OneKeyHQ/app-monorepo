@@ -1,5 +1,3 @@
-diff --git a/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenContainer.kt b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenContainer.kt
-index 7055a0d..81ee02b 100644
 --- a/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenContainer.kt
 +++ b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenContainer.kt
 @@ -17,6 +17,7 @@ import com.facebook.react.modules.core.ReactChoreographer
@@ -37,10 +35,83 @@ index 7055a0d..81ee02b 100644
      }
  
 diff --git a/node_modules/react-native-screens/ios/RNSScreenStack.mm b/node_modules/react-native-screens/ios/RNSScreenStack.mm
-index e37e40a..858c8ca 100644
+index e37e40a..32ca9f6 100644
 --- a/node_modules/react-native-screens/ios/RNSScreenStack.mm
 +++ b/node_modules/react-native-screens/ios/RNSScreenStack.mm
-@@ -405,10 +405,43 @@ - (void)reactAddControllerToClosestParent:(UIViewController *)controller
+@@ -31,6 +31,20 @@
+ #import "RNSTabsScreenViewController.h"
+ #import "RNSViewInteractionAware.h"
+ #import "UIScrollView+RNScreens.h"
++
++// MARK: - OneKey Native Logger Bridge (ObjC, for RNSScreenStack diagnostics)
++static void RNSScreenStackLog(NSString *message) {
++  NSString *fullMessage = [NSString stringWithFormat:@"[RNSScreenStack] %@ (ts=%.6f, main=%d)",
++                           message, CFAbsoluteTimeGetCurrent(), [NSThread isMainThread]];
++  Class logClass = NSClassFromString(@"ReactNativeNativeLogger.OneKeyLog");
++  if (logClass) {
++#pragma clang diagnostic push
++#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
++    [logClass performSelector:NSSelectorFromString(@"info::") withObject:@"RNSScreenStack" withObject:fullMessage];
++#pragma clang diagnostic pop
++  }
++  NSLog(@"%@", fullMessage);
++}
+ #import "UIView+RNSUtility.h"
+ #import "integrations/RNSDismissibleModalProtocol.h"
+ #import "utils/UINavigationBar+RNSUtility.h"
+@@ -212,6 +226,7 @@ @implementation RNSScreenStackView {
+   RNSPercentDrivenInteractiveTransition *_interactionController;
+   __weak RNSScreenStackManager *_manager;
+   BOOL _updateScheduled;
++  BOOL _pendingContainerUpdate; // Set when push/modal updates are skipped due to window==nil
+   UIPanGestureRecognizer *_sinkEventsPanGestureRecognizer;
+ #ifdef RCT_NEW_ARCH_ENABLED
+   /// Screens that are subject of `ShadowViewMutation::Type::Delete` mutation
+@@ -355,6 +370,11 @@ - (void)presentationControllerDidDismiss:(UIPresentationController *)presentatio
+ 
+ - (void)didMoveToWindow
+ {
++  RNSScreenStackLog([NSString stringWithFormat:@"didMoveToWindow: window=%@, viewControllers=%lu, parentVC=%@, pendingUpdate=%d",
++        self.window ? @"YES" : @"NIL",
++        (unsigned long)_controller.viewControllers.count,
++        _controller.parentViewController ? NSStringFromClass([_controller.parentViewController class]) : @"NIL",
++        _pendingContainerUpdate]);
+   [super didMoveToWindow];
+ #ifdef RCT_NEW_ARCH_ENABLED
+   // for handling nested stacks
+@@ -367,6 +387,15 @@ - (void)didMoveToWindow
+     [self maybeAddToParentAndUpdateContainer];
+   }
+ #endif
++
++  // When window is restored after a detach (e.g. iOS 26 SwiftUI TabView recreating
++  // UITabBarController), retry any push/modal operations that were skipped due to window==nil.
++  if (self.window != nil && _pendingContainerUpdate) {
++    RNSScreenStackLog(@"didMoveToWindow: retrying pending container update after window restored");
++    _pendingContainerUpdate = NO;
++    [self updateContainer];
++  }
++
+   if (self.window == nil) {
+     // When hot reload happens that would remove the whole stack, disabling the interaction on a screen out transition
+     // will not be matched with enabling the interactions on another screen's in transition. We need to make sure
+@@ -379,12 +408,11 @@ - (void)maybeAddToParentAndUpdateContainer
+ {
+   BOOL wasScreenMounted = _controller.parentViewController != nil;
+   if (!self.window && !wasScreenMounted) {
+-    // We wait with adding to parent controller until the stack is mounted.
+-    // If we add it when window is not attached, some of the view transitions will be blocked (i.e.
+-    // modal transitions) and the internal view controler's state will get out of sync with what's
+-    // on screen without us knowing.
++    RNSScreenStackLog([NSString stringWithFormat:@"maybeAddToParentAndUpdateContainer: SKIPPED - window=nil, wasScreenMounted=NO"]);
+     return;
+   }
++  RNSScreenStackLog([NSString stringWithFormat:@"maybeAddToParentAndUpdateContainer: window=%@, wasScreenMounted=%d",
++        self.window ? @"YES" : @"NIL", wasScreenMounted]);
+   [self updateContainer];
+   if (!wasScreenMounted) {
+     // when stack hasn't been added to parent VC yet we do two things:
+@@ -405,10 +433,43 @@ - (void)reactAddControllerToClosestParent:(UIViewController *)controller
  {
    if (!controller.parentViewController) {
      UIView *parentView = (UIView *)self.reactSuperview;
@@ -86,7 +157,7 @@ index e37e40a..858c8ca 100644
  #if !TARGET_OS_TV
          _controller.interactivePopGestureRecognizer.delegate = self;
  #if RNS_IPHONE_OS_VERSION_AVAILABLE(26_0)
-@@ -417,7 +450,7 @@ - (void)reactAddControllerToClosestParent:(UIViewController *)controller
+@@ -417,7 +478,7 @@ - (void)reactAddControllerToClosestParent:(UIViewController *)controller
          }
  #endif // Check for iOS >= 26.0
  #endif
@@ -95,7 +166,152 @@ index e37e40a..858c8ca 100644
          // On iOS pre 12 we observed that `willShowViewController` delegate method does not always
          // get triggered when the navigation controller is instantiated. As the only thing we do in
          // that delegate method is ask nav header to update to the current state it does not hurt to
-@@ -868,13 +901,17 @@ - (void)rnscreens_disableInteractions
+@@ -467,6 +528,8 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
+ {
+   // prevent re-entry
+   if (_updatingModals) {
++    RNSScreenStackLog([NSString stringWithFormat:@"setModalViewControllers: RE-ENTRY blocked, scheduling update (presentedModals=%lu, newControllers=%lu)",
++          (unsigned long)_presentedModals.count, (unsigned long)controllers.count]);
+     _scheduleModalsUpdate = YES;
+     return;
+   }
+@@ -475,12 +538,21 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
+   // accidently trigger modal dismiss if we don't verify to run the below code only when an actual
+   // change in the list of presented modal was made.
+   if ([_presentedModals isEqualToArray:controllers]) {
++    RNSScreenStackLog([NSString stringWithFormat:@"setModalViewControllers: NO CHANGE (modals=%lu)", (unsigned long)controllers.count]);
+     return;
+   }
+ 
++  RNSScreenStackLog([NSString stringWithFormat:@"setModalViewControllers: presentedModals=%lu, newControllers=%lu, window=%@, lastModalWindow=%@",
++        (unsigned long)_presentedModals.count,
++        (unsigned long)controllers.count,
++        self.window ? @"YES" : @"NIL",
++        _presentedModals.lastObject.view.window ? @"YES" : @"NIL"]);
++
+   // if view controller is not yet attached to window we skip updates now and run them when view
+   // is attached
+   if (self.window == nil && _presentedModals.lastObject.view.window == nil) {
++    RNSScreenStackLog(@"setModalViewControllers: SKIPPED - both window and lastModal.window are nil! setting _pendingContainerUpdate=YES");
++    _pendingContainerUpdate = YES;
+     return;
+   }
+ 
+@@ -521,6 +593,7 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
+   __weak RNSScreenStackView *weakSelf = self;
+ 
+   void (^afterTransitions)(void) = ^{
++    RNSScreenStackLog(@"setModalViewControllers: afterTransitions called");
+     [weakSelf emitOnFinishTransitioningEvent];
+     weakSelf.updatingModals = NO;
+     if (weakSelf.scheduleModalsUpdate) {
+@@ -536,6 +609,7 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
+   };
+ 
+   void (^finish)(void) = ^{
++    RNSScreenStackLog([NSString stringWithFormat:@"setModalViewControllers: finish() called, changeRootIndex=%lu", (unsigned long)changeRootIndex]);
+     NSUInteger oldCount = weakSelf.presentedModals.count;
+     if (changeRootIndex < oldCount) {
+       [weakSelf.presentedModals removeObjectsInRange:NSMakeRange(changeRootIndex, oldCount - changeRootIndex)];
+@@ -544,10 +618,8 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
+         changeRootController.parentViewController != nil || changeRootController.presentingViewController != nil;
+ 
+     if (!isAttached || changeRootIndex >= controllers.count) {
+-      // if change controller view is not attached, presenting modals will silently fail on iOS.
+-      // In such a case we trigger controllers update from didMoveToWindow.
+-      // We also don't run any present transitions if changeRootIndex is greater or equal to the size
+-      // of new controllers array. This means that no new controllers should be presented.
++      RNSScreenStackLog([NSString stringWithFormat:@"setModalViewControllers: finish() - no present needed (isAttached=%d, changeRootIndex=%lu, controllers=%lu)",
++            isAttached, (unsigned long)changeRootIndex, (unsigned long)controllers.count]);
+       afterTransitions();
+       return;
+     }
+@@ -624,16 +696,23 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
+               ? static_cast<RNSScreen *>(firstModalToBeDismissed).screenView.stackAnimation !=
+                   RNSScreenStackAnimationNone
+               : YES;
++          RNSScreenStackLog([NSString stringWithFormat:@"setModalViewControllers: DISMISSING modal (animated=%d, owned=%d, ownedByThis=%d, class=%@)",
++                firstModalToBeDismissedPrefersAnimation, firstModalToBeDismissedIsOwned, firstModalToBeDismissedIsOwnedByThisStack,
++                NSStringFromClass([firstModalToBeDismissed class])]);
+           [changeRootController dismissViewControllerAnimated:firstModalToBeDismissedPrefersAnimation
+-                                                   completion:finish];
++                                                   completion:^{
++                                                     RNSScreenStackLog(@"setModalViewControllers: DISMISS completion called");
++                                                     finish();
++                                                   }];
+         } else {
+           // We need to wait for its dismissal and then run our presentation code.
+-          // This happens, e.g. when we have foreign modal presented on top of owned one & we dismiss foreign one and
+-          // immediately present another owned one. Dismissal of the foreign one will be triggered by foreign
+-          // controller.
++          RNSScreenStackLog([NSString stringWithFormat:@"setModalViewControllers: modal isBeingDismissed, waiting for transitionCoordinator (class=%@, coordinator=%@)",
++                NSStringFromClass([firstModalToBeDismissed class]),
++                [firstModalToBeDismissed transitionCoordinator] ? @"YES" : @"NIL"]);
+           [[firstModalToBeDismissed transitionCoordinator]
+               animateAlongsideTransition:nil
+                               completion:^(id<UIViewControllerTransitionCoordinatorContext> _) {
++                                RNSScreenStackLog(@"setModalViewControllers: transitionCoordinator completion called");
+                                 finish();
+                               }];
+         }
+@@ -670,12 +749,23 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
+ {
+   // when there is no change we return immediately
+   if ([_controller.viewControllers isEqualToArray:controllers]) {
++    RNSScreenStackLog([NSString stringWithFormat:@"setPushViewControllers: NO CHANGE (controllers=%lu)", (unsigned long)controllers.count]);
+     return;
+   }
+ 
++  RNSScreenStackLog([NSString stringWithFormat:@"setPushViewControllers: controllers=%lu, current=%lu, window=%@, transitionCoordinator=%@, superview=%@",
++        (unsigned long)controllers.count,
++        (unsigned long)_controller.viewControllers.count,
++        self.window ? @"YES" : @"NIL",
++        _controller.transitionCoordinator ? @"YES" : @"NIL",
++        self.superview ? @"YES" : @"NIL"]);
++
+   // if view controller is not yet attached to window we skip updates now and run them when view
+   // is attached
+   if (self.window == nil) {
++    RNSScreenStackLog([NSString stringWithFormat:@"setPushViewControllers: SKIPPED - window is nil! superview=%@, class=%@, setting _pendingContainerUpdate=YES",
++          self.superview, NSStringFromClass([self.superview class])]);
++    _pendingContainerUpdate = YES;
+     return;
+   }
+   // when transition is ongoing, any updates made to the controller will not be reflected until the
+@@ -685,6 +775,7 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
+   // making any updated when transition is ongoing and schedule updates for when the transition
+   // is complete.
+   if (_controller.transitionCoordinator != nil) {
++    RNSScreenStackLog(@"setPushViewControllers: DEFERRED - transitionCoordinator active");
+     if (!_updateScheduled) {
+       _updateScheduled = YES;
+       __weak RNSScreenStackView *weakSelf = self;
+@@ -750,8 +841,15 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
+       NSMutableArray *newControllers = [NSMutableArray arrayWithArray:controllers];
+       [newControllers removeLastObject];
+ 
++      RNSScreenStackLog([NSString stringWithFormat:@"PUSH path: setViewControllers(%lu) then pushViewController. controller.view.window=%@, controller.parentVC=%@",
++            (unsigned long)newControllers.count,
++            _controller.view.window ? @"YES" : @"NIL",
++            _controller.parentViewController ? NSStringFromClass([_controller.parentViewController class]) : @"NIL"]);
+       [_controller setViewControllers:newControllers animated:NO];
+       [_controller pushViewController:top animated:YES];
++      RNSScreenStackLog([NSString stringWithFormat:@"PUSH done: viewControllers count=%lu, topVC=%@",
++            (unsigned long)_controller.viewControllers.count,
++            NSStringFromClass([_controller.topViewController class])]);
+     } else {
+       // don't really know what this case could be, but may need to handle it
+       // somehow
+@@ -765,6 +863,8 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
+ 
+ - (void)updateContainer
+ {
++  RNSScreenStackLog([NSString stringWithFormat:@"updateContainer called, window=%@, reactSubviews=%lu",
++        self.window ? @"YES" : @"NIL", (unsigned long)_reactSubviews.count]);
+   NSMutableArray<UIViewController *> *pushControllers = [NSMutableArray new];
+   NSMutableArray<UIViewController *> *modalControllers = [NSMutableArray new];
+   for (RNSScreenView *screen in _reactSubviews) {
+@@ -868,13 +968,17 @@ - (void)rnscreens_disableInteractions
  {
    // When transitioning between screens, disable interactions on stack subview which wraps the screens
    // and sink all gesture events. This should work for nested stacks and stack inside bottom tabs, inside stack.
