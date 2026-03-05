@@ -226,23 +226,11 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
 
   const protocolDisplayData = useMemo(() => {
     const isFixedRate = selectedCategory === EProtocolCategory.FixedRate;
-    const filtered = protocolData.filter((item) => {
+    return protocolData.filter((item) => {
       const category = getProtocolCategory(item);
       return isFixedRate
         ? category === EProtocolCategory.FixedRate
         : category === EProtocolCategory.SimpleEarn;
-    });
-
-    if (!isFixedRate) {
-      return filtered;
-    }
-
-    return [...filtered].toSorted((a, b) => {
-      const daysA = getProviderDaysRemaining(a);
-      const daysB = getProviderDaysRemaining(b);
-      const orderA = daysA ?? Number.POSITIVE_INFINITY;
-      const orderB = daysB ?? Number.POSITIVE_INFINITY;
-      return orderA - orderB;
     });
   }, [protocolData, selectedCategory]);
 
@@ -271,6 +259,16 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
             : ETranslations.global_protocol,
         }),
         flex: 5,
+        sortable: isFixedRateCategory,
+        comparator: isFixedRateCategory
+          ? (a: IStakeProtocolListItem, b: IStakeProtocolListItem) => {
+              const daysA =
+                getProviderDaysRemaining(a) ?? Number.POSITIVE_INFINITY;
+              const daysB =
+                getProviderDaysRemaining(b) ?? Number.POSITIVE_INFINITY;
+              return daysA - daysB;
+            }
+          : undefined,
         render: (item) => {
           const providerName = normalizeToEarnProvider(item.provider.name);
           const { detailText, maturityTitle } = getMaturityDisplay(item);
@@ -350,6 +348,12 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
         flex: 2,
         hideInMobile: true,
         align: 'flex-end',
+        sortable: true,
+        comparator: (a, b) => {
+          const tvlA = parseFloat(a.provider.totalFiatValue || '0');
+          const tvlB = parseFloat(b.provider.totalFiatValue || '0');
+          return tvlA - tvlB;
+        },
         render: (item) => (
           <SizableText size="$bodyLgMedium">
             <EarnText size="$bodyLg" text={item?.tvl} />
@@ -361,6 +365,12 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
         label: intl.formatMessage({ id: ETranslations.defi_apr_apy }),
         flex: 2,
         align: 'flex-end',
+        sortable: true,
+        comparator: (a, b) => {
+          const aprA = parseFloat(a.provider.aprWithoutFee || '0');
+          const aprB = parseFloat(b.provider.aprWithoutFee || '0');
+          return aprA - aprB;
+        },
         render: (item) => {
           if (item.aprInfo?.button?.type === 'redeem') {
             return (
@@ -545,10 +555,17 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
       <YStack>
         {categoryTabs}
         <TableList<IStakeProtocolListItem>
+          key={selectedCategory}
           data={protocolDisplayData}
           columns={columns}
-          defaultSortKey="yield"
-          defaultSortDirection="desc"
+          defaultSortKey={
+            selectedCategory === EProtocolCategory.FixedRate
+              ? 'protocol'
+              : 'yield'
+          }
+          defaultSortDirection={
+            selectedCategory === EProtocolCategory.FixedRate ? 'asc' : 'desc'
+          }
           onPressRow={handleProtocolPress}
           enableDrillIn={isDesktopLayout}
           isLoading={isLoading}
@@ -561,6 +578,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
     protocolDisplayData,
     categoryTabs,
     columns,
+    selectedCategory,
     handleProtocolPress,
     isDesktopLayout,
     intl,

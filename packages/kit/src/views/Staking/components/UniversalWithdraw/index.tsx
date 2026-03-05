@@ -64,6 +64,10 @@ import {
   type IManagePageV2ReceiveInputConfig,
   ManagePageV2ReceiveInput,
 } from '../ManagePageV2ReceiveInput';
+import {
+  calcPriceImpactInfo,
+  showHighPriceImpactDialog,
+} from '../showHighPriceImpactDialog';
 import { EarnActionIcon } from '../ProtocolDetails/EarnActionIcon';
 import { EarnText } from '../ProtocolDetails/EarnText';
 import {
@@ -620,6 +624,26 @@ export function UniversalWithdraw({
         }
       }
 
+      // Check high price impact (Pendle only)
+      if (isPendleProvider) {
+        const payFiatValue =
+          Number(amountValue) > 0 && Number(price) > 0
+            ? new BigNumber(amountValue).multipliedBy(price).toFixed()
+            : undefined;
+        const impactInfo = calcPriceImpactInfo({
+          payFiatValue,
+          receiveConfig: receiveInputConfig,
+          receiveDescription: transactionConfirmation?.receive,
+        });
+        if (impactInfo) {
+          const userConfirmed = await showHighPriceImpactDialog(intl, {
+            percent: impactInfo.percent,
+            lossAmount: `${symbol}${impactInfo.lossAmount}`,
+          });
+          if (!userConfirmed) return;
+        }
+      }
+
       await onConfirm?.({
         amount: amountValue,
         withdrawAll: withdrawAllRef.current,
@@ -658,9 +682,19 @@ export function UniversalWithdraw({
     isPendleProvider,
     withdrawPathConfirmBoxes.length,
     effectiveSelectedWithdrawPathIndex,
+    intl,
+    symbol,
+    price,
+    receiveInputConfig,
+    transactionConfirmation?.receive,
   ]);
 
   const [checkAmountLoading, setCheckAmountLoading] = useState(false);
+  const [transactionConfirmationLoading, setTransactionConfirmationLoading] =
+    useState(false);
+
+  const quoteLoading = checkAmountLoading || transactionConfirmationLoading;
+
   const checkAmount = useDebouncedCallback(async (amount: string) => {
     if (isInvalidAmount(amount)) {
       return;
@@ -739,6 +773,7 @@ export function UniversalWithdraw({
 
   const debouncedFetchTransactionConfirmation = useDebouncedCallback(
     async (amount?: string) => {
+      setTransactionConfirmationLoading(true);
       try {
         const resp = await fetchTransactionConfirmation(amount || '0');
         setTransactionConfirmation(resp);
@@ -747,6 +782,8 @@ export function UniversalWithdraw({
         }
       } catch {
         // keep stale state
+      } finally {
+        setTransactionConfirmationLoading(false);
       }
     },
     350,
@@ -892,6 +929,7 @@ export function UniversalWithdraw({
     receiveInputConfig,
     networkLogoURI: network?.logoURI,
     isQuoteExpired,
+    loading: quoteLoading,
   });
 
   // During approve/submit flow, don't show expired refresh — the transaction is in progress.
@@ -954,6 +992,15 @@ export function UniversalWithdraw({
 
   const showWithdrawPathSelector =
     withdrawPathConfirmBoxes.length > 1 && !!selectedWithdrawPath;
+  const shouldShowPendleWithdrawProgress =
+    isPendleProvider &&
+    withdrawPathConfirmBoxes.length > 1 &&
+    networkId === getNetworkIdsMap().eth &&
+    !!amountValue &&
+    !isInvalidAmount(amountValue);
+  const isEthenaCooldownWithdrawPath =
+    shouldShowPendleWithdrawProgress &&
+    effectiveSelectedWithdrawPathIndex === 0;
 
   const withdrawPathPopoverRef = useRef<IWithdrawPathPopoverRef>({
     boxes: [],
@@ -1063,6 +1110,7 @@ export function UniversalWithdraw({
             config={effectiveReceiveInputConfig}
             fiatSymbol={symbol}
             payFiatValue={currentValue}
+            loading={quoteLoading}
           />
         </YStack>
         {showReceiveInput ? (
@@ -1229,6 +1277,7 @@ export function UniversalWithdraw({
             <PendleSummarySection
               rewardRows={pendleRewardRows}
               tipText={pendleTipText}
+              loading={quoteLoading}
             />
           ) : null}
           {hasSummarySection && !usePendleSummaryLayout ? (
@@ -1314,7 +1363,9 @@ export function UniversalWithdraw({
               })}
             </YStack>
           ) : null}
-          {hasSummarySection ? <Divider my="$5" /> : null}
+          {hasSummarySection && showPendleTransactionSection ? (
+            <Divider my="$5" />
+          ) : null}
           {showPendleTransactionSection ? (
             <Accordion
               overflow="hidden"
@@ -1405,12 +1456,7 @@ export function UniversalWithdraw({
         </YStack>
       ) : null}
       {beforeFooter}
-      {isPendleProvider &&
-      withdrawPathConfirmBoxes.length > 1 &&
-      effectiveSelectedWithdrawPathIndex === 0 &&
-      networkId === getNetworkIdsMap().eth &&
-      amountValue &&
-      !isInvalidAmount(amountValue) ? (
+      {shouldShowPendleWithdrawProgress ? (
         <StakeProgress
           approveType={EApproveType.Legacy}
           currentStep={
@@ -1422,7 +1468,11 @@ export function UniversalWithdraw({
                 ) as EStakeProgressStep)
           }
           step2LabelId={ETranslations.global_swap}
-          step3LabelId={ETranslations.defi_unstake}
+          step3LabelId={
+            isEthenaCooldownWithdrawPath
+              ? ETranslations.defi_unstake
+              : undefined
+          }
         />
       ) : null}
       {isInModalContext ? (

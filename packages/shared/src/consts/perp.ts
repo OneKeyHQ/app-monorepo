@@ -82,3 +82,7 @@ export const PERPS_FILTERED_LEDGER_TYPES = new Set<string>([
 
 // Disable wallet binding on perps page
 export const DISABLE_PERPS_WALLET_BIND = false;
+
+// Perps config fetch retry
+export const PERPS_CONFIG_FETCH_MAX_RETRIES = 3;
+export const PERPS_CONFIG_FETCH_RETRY_INTERVAL_MS = 3000;

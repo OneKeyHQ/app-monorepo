@@ -481,7 +481,6 @@ Keypair
 keyring
 keysend
 keytag
-keytar
 krc20
 Lamports
 lang
@@ -1412,3 +1411,4 @@ RNGH
 macrotask
 pwdhash
 wesbos
+entrancy

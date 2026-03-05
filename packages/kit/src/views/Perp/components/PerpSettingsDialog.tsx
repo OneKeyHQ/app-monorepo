@@ -206,7 +206,9 @@ export function PerpSettingsPopover({
   return (
     <PerpsProviderMirror>
       <Popover
-        title={intl.formatMessage({ id: ETranslations.global_settings })}
+        title={intl.formatMessage({
+          id: ETranslations.address_book_menu_title,
+        })}
         renderTrigger={renderTrigger}
         renderContent={({ closePopover }) => (
           <PerpSettingsPopoverContent

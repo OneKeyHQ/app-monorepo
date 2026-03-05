@@ -810,7 +810,10 @@ const PortfolioItemComponent = ({
   );
 
   const handleManagePress = useCallback(
-    async (asset: IEarnPortfolioInvestment['assets'][number]) => {
+    async (
+      asset: IEarnPortfolioInvestment['assets'][number],
+      defaultTab?: 'deposit' | 'withdraw',
+    ) => {
       if (isAssetNavigationDisabled(asset)) {
         return;
       }
@@ -823,6 +826,7 @@ const PortfolioItemComponent = ({
           symbol,
           provider: asset.metadata.protocol.providerDetail.code,
           vault: asset.metadata.protocol.vault,
+          tab: defaultTab,
           tokenImageUri: asset.token.info.logoURI,
         },
       });
@@ -959,7 +963,14 @@ const PortfolioItemComponent = ({
                             size="medium"
                             variant="secondary"
                             onPress={async () => {
-                              await handleManagePress(asset);
+                              await handleManagePress(
+                                asset,
+                                asset.buttons?.some(
+                                  (button) => button?.type === 'redeem',
+                                )
+                                  ? 'withdraw'
+                                  : undefined,
+                              );
                             }}
                           >
                             {intl.formatMessage({
@@ -1008,7 +1019,12 @@ const PortfolioItemComponent = ({
                                 button?.type === 'manage' ||
                                 button?.type === 'redeem'
                               ) {
-                                await handleManagePress(asset);
+                                await handleManagePress(
+                                  asset,
+                                  button?.type === 'redeem'
+                                    ? 'withdraw'
+                                    : undefined,
+                                );
                               }
                             }}
                           >

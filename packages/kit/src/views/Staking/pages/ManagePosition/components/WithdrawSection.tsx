@@ -61,7 +61,7 @@ export const WithdrawSection = ({
   borrowMarketAddress,
   borrowReserveAddress,
   borrowAction,
-  borrowReserves,
+  borrowReserves: _borrowReserves,
   defaultCollateralReserveAddress,
   borrowActionLabel,
   receiveInputConfig,
@@ -214,87 +214,46 @@ export const WithdrawSection = ({
       },
     );
 
-  const { result: unstakeAssetsList, isLoading: unstakeAssetsLoading } =
-    usePromiseResult<IEarnAssetsList | undefined>(
-      async () => {
-        if (
-          !hasRequiredData ||
-          !isPendleProvider ||
-          useBorrowApi ||
-          !accountId ||
-          !protocolInfo?.symbol
-        ) {
-          return undefined;
-        }
-        return backgroundApiProxy.serviceStaking.getEarnAssetsList({
-          accountId,
-          networkId,
-          provider: providerName,
-          symbol: protocolInfo.symbol,
-          vault: protocolInfo.vault || undefined,
-          action: 'unstake',
-        });
-      },
-      [
-        hasRequiredData,
-        isPendleProvider,
-        useBorrowApi,
+  const { result: unstakeAssetsList } = usePromiseResult<
+    IEarnAssetsList | undefined
+  >(
+    async () => {
+      if (
+        !hasRequiredData ||
+        !isPendleProvider ||
+        useBorrowApi ||
+        !accountId ||
+        !protocolInfo?.symbol
+      ) {
+        return undefined;
+      }
+      return backgroundApiProxy.serviceStaking.getEarnAssetsList({
         accountId,
         networkId,
-        providerName,
-        protocolInfo?.symbol,
-        protocolInfo?.vault,
-      ],
-      {
-        watchLoading: true,
-        revalidateOnFocus: true,
-      },
-    );
-
-  const { result: nativeTokenDetail, isLoading: nativeTokenLoading } =
-    usePromiseResult(
-      async () => {
-        if (
-          !hasRequiredData ||
-          !isPendleProvider ||
-          useBorrowApi ||
-          !accountId ||
-          !networkId
-        ) {
-          return undefined;
-        }
-        return backgroundApiProxy.serviceToken.getNativeToken({
-          accountId,
-          networkId,
-        });
-      },
-      [hasRequiredData, isPendleProvider, useBorrowApi, accountId, networkId],
-      {
-        watchLoading: true,
-      },
-    );
-
-  const nativeFallbackReceiveAsset = useMemo<IEarnTokenItem | undefined>(() => {
-    if (!nativeTokenDetail) {
-      return undefined;
-    }
-    return {
-      balance: '0',
-      balanceParsed: '0',
-      fiatValue: '0',
-      price: '0',
-      price24h: '0',
-      info: nativeTokenDetail,
-    };
-  }, [nativeTokenDetail]);
+        provider: providerName,
+        symbol: protocolInfo.symbol,
+        vault: protocolInfo.vault || undefined,
+        action: 'unstake',
+      });
+    },
+    [
+      hasRequiredData,
+      isPendleProvider,
+      useBorrowApi,
+      accountId,
+      networkId,
+      providerName,
+      protocolInfo?.symbol,
+      protocolInfo?.vault,
+    ],
+    {
+      watchLoading: true,
+    },
+  );
 
   const selectableReceiveAssets = useMemo(() => {
-    const assets = unstakeAssetsList?.assets ?? [];
-    if (assets.length > 0) {
-      return assets;
-    }
-    return nativeFallbackReceiveAsset ? [nativeFallbackReceiveAsset] : [];
-  }, [unstakeAssetsList?.assets, nativeFallbackReceiveAsset]);
+    return unstakeAssetsList?.assets ?? [];
+  }, [unstakeAssetsList?.assets]);
 
   useEffect(() => {
     if (!isPendleProvider || useBorrowApi) {
@@ -368,10 +327,8 @@ export const WithdrawSection = ({
       return undefined;
     }
 
-    const isLoading = unstakeAssetsLoading || nativeTokenLoading;
-
     return {
-      disabled: isLoading || selectableReceiveAssets.length <= 1,
+      disabled: selectableReceiveAssets.length <= 1,
       onPress:
         selectableReceiveAssets.length > 1
           ? handleOpenReceiveTokenSelector
@@ -381,8 +338,6 @@ export const WithdrawSection = ({
     isPendleProvider,
     useBorrowApi,
     selectableReceiveAssets.length,
-    unstakeAssetsLoading,
-    nativeTokenLoading,
     handleOpenReceiveTokenSelector,
   ]);
 
@@ -699,7 +654,7 @@ export const WithdrawSection = ({
   );
 
   const collateralAssets = useMemo(() => {
-    const suppliedAssets = borrowReserves?.supplied?.assets ?? [];
+    const suppliedAssets = _borrowReserves?.supplied?.assets ?? [];
     return suppliedAssets
       .filter((item) => item.canBeCollateral)
       .map((item) => ({
@@ -710,7 +665,7 @@ export const WithdrawSection = ({
           description: item.suppliedAmount.description,
         },
       }));
-  }, [borrowReserves?.supplied?.assets]);
+  }, [_borrowReserves?.supplied?.assets]);
 
   const onBorrowRepayWithCollateralConfirm = useCallback(
     async ({
@@ -856,6 +811,12 @@ export const WithdrawSection = ({
           isInModalContext={isInModalContext}
           collateralAssets={collateralAssets}
           defaultCollateralReserveAddress={defaultCollateralReserveAddress}
+          debtBalance={
+            protocolInfo?.debtBalance !== undefined
+              ? (selectedAsset?.borrowed?.title?.text ??
+                protocolInfo.debtBalance)
+              : undefined
+          }
         />
       );
     } else {

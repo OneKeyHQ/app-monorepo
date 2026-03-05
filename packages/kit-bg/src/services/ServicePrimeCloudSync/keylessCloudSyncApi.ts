@@ -29,7 +29,7 @@ class KeylessCloudSyncApi {
     try {
       const response = await client.post<IApiClientResponse<T>>(url, postData, {
         headers: {
-          // x-keyless-sync-signature already contains publicKey, no need for separate header
+          // x-onekey-keyless-sync-signature already contains publicKey, no need for separate header
           [KEYLESS_SYNC_SIGNATURE_HEADER]: signatureHeader,
         },
       });

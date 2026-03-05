@@ -400,6 +400,7 @@
   "dapp_connect.confirm": "Bestätigen",
   "dapp_connect.connect_to_website": "Verbunden mit {url}",
   "dapp_connect.connection_request": "Verbindungsanfrage",
+  "dapp_connect.cosmos_requires_wallet_unlock_secret_enigma_utils": "Weitere Secret Network Enigma-Verschlüsselung erfordert nur das Entsperren des Wallets — keine erneute Autorisierung während dieser Sitzung erforderlich.",
   "dapp_connect.create": "Erstellen",
   "dapp_connect.create_invoice_request": "Rechnungsanforderung erstellen",
   "dapp_connect.decrypted_request": "Entschlüsselte Anfrage",
