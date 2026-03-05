@@ -83,6 +83,8 @@ function BundleItem({
   }, [alreadyDownloaded, status]);
 
   const handleDownload = useCallback(async () => {
+    const skipGPGVerification =
+      !!process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION && gpgSkipped;
     onDownloadStart();
     setStatus('downloading');
     setErrorMessage('');
@@ -99,15 +101,21 @@ function BundleItem({
         bundleVersion: bundle.bundleVersion,
         fileSize: bundle.fileSize,
         sha256: bundle.sha256,
-        skipGPGVerification:
-          !!process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION && gpgSkipped,
+        skipGPGVerification,
       });
       if (result) {
+        await BundleUpdate.verifyBundleASC({
+          ...result,
+          latestVersion: version,
+          bundleVersion: bundle.bundleVersion,
+          sha256: bundle.sha256,
+          signature: bundle.signature || PLACEHOLDER_SIGNATURE,
+          skipGPGVerification,
+        });
         downloadedEventRef.current = {
           ...result,
           signature: bundle.signature,
-          skipGPGVerification:
-            !!process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION && gpgSkipped,
+          skipGPGVerification,
         };
         setStatus('downloaded');
         defaultLogger.app.jsBundleDev.downloadBundleResult({
