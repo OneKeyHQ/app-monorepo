@@ -444,13 +444,14 @@ export function NormalManageContent({
           autoValue={swapSlippageAutoValue}
           onSave={(item, close) => {
             setPendleSlippage(item);
+            handleHeaderRefreshQuote();
             void close({ flag: 'save' });
           }}
           isMEV={false}
         />
       ),
     });
-  }, [intl, pendleSlippage]);
+  }, [intl, pendleSlippage, handleHeaderRefreshQuote]);
 
   useEffect(() => {
     if (defaultTab === 'withdraw') {
