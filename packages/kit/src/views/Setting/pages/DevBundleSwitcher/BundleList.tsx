@@ -342,7 +342,6 @@ export default function SettingDevBundleList() {
             exists: await BundleUpdate.isBundleExists(version, b.bundleVersion),
           })),
         );
-        const downloaded = new Set<string>();
         for (const check of existsChecks) {
           defaultLogger.app.jsBundleDev.checkBundleExists({
             version,
