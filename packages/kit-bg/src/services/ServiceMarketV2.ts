@@ -722,9 +722,24 @@ class ServiceMarketV2 extends ServiceBase {
       code: number;
       message: string;
       data: IMarketBannerTokenListResponse;
-    }>(`/utility/v2/market/banner/token-list/${tokenListId}`);
+    }>(
+      `/utility/v2/market/banner/token-list/${encodeURIComponent(tokenListId)}`,
+    );
     const { data } = response.data;
     return data.list;
+  }
+
+  @backgroundMethod()
+  async fetchMarketBannerPerpsTokenList({
+    tokenListId,
+  }: {
+    tokenListId: string;
+  }): Promise<IMarketPerpsTokenListData> {
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const response = await client.get<IMarketPerpsTokenListResponse>(
+      `/utility/v2/market/banner/perps-token-list/${encodeURIComponent(tokenListId)}`,
+    );
+    return response.data.data;
   }
 
   @backgroundMethod()
@@ -816,7 +831,7 @@ class ServiceMarketV2 extends ServiceBase {
       const marketPerpsCoins = new Set(
         watchListData.data
           .filter((item) => !!item.perpsCoin)
-          .map((item) => item.perpsCoin!),
+          .map((item) => item.perpsCoin ?? ''),
       );
       const perpsCoins = new Set(perpsFavorites.favorites);
 
