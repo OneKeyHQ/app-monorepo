@@ -958,7 +958,15 @@ function RepayWithCollateralForm({
           >
             {quoteSummary ? (
               <>
-                <BorrowInfoItem title={quoteSummary} />
+                <BorrowInfoItem
+                  title={
+                    <EarnText
+                      text={{ text: quoteSummary }}
+                      color="$text"
+                      size="$bodyMdMedium"
+                    />
+                  }
+                />
                 <Divider />
               </>
             ) : null}
