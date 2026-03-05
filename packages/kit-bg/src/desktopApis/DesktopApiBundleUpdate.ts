@@ -9,6 +9,7 @@ import logger from 'electron-log/main';
 
 import {
   calculateSHA256,
+  checkFileSha512,
   getBundleDirName,
   getBundleExtractDir,
   testExtractedSha256FromVerifyAscFile,
@@ -574,7 +575,7 @@ class DesktopApiAppBundleUpdate {
         appVersion,
         bundleVersion,
       });
-      logger.info('bundle-verifyBundleASC', metadataFilePath);
+      logger.info('bundle-verifyBundleASC', metadataFilePath, allowSkipGPG);
       if (!allowSkipGPG) {
         await verifyMetadataFileSha256({
           appVersion,
@@ -640,11 +641,11 @@ class DesktopApiAppBundleUpdate {
         this.walkAndVerifyFiles(fullPath, metadata, baseDir, verifiedFiles);
       } else if (entry.name !== 'metadata.json' && entry.name !== '.DS_Store') {
         const relativePath = path
-          .relative(baseDir, fullPath)
+          .relative(path.join(baseDir, 'build'), fullPath)
           .split(path.sep)
           .join('/');
-        const expectedSha256 = metadata[relativePath];
-        if (!expectedSha256) {
+        const expectedSha512 = metadata[relativePath];
+        if (!expectedSha512) {
           logger.error(
             'bundle-verify',
             `File on disk not found in metadata: ${relativePath}`,
@@ -653,14 +654,14 @@ class DesktopApiAppBundleUpdate {
             `File ${relativePath} not found in metadata`,
           );
         }
-        const actualSha256 = calculateSHA256(fullPath);
-        if (actualSha256 !== expectedSha256) {
+        const isSha512Matched = checkFileSha512(fullPath, expectedSha512);
+        if (!isSha512Matched) {
           logger.error(
             'bundle-verify',
-            `SHA256 mismatch for ${relativePath}: expected=${expectedSha256}, actual=${actualSha256}`,
+            `SHA512 mismatch for ${fullPath}`,
           );
           throw new OneKeyLocalError(
-            `SHA256 mismatch for file ${relativePath}`,
+            `SHA512 mismatch for file ${relativePath}`,
           );
         }
         verifiedFiles.add(relativePath);
