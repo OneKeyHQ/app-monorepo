@@ -34,6 +34,10 @@ const NostrSignEventModal = LazyLoadPage(
   () => import('../pages/NostrSignEventModal'),
 );
 
+const CosmosEnigmaUnlockModal = LazyLoadPage(
+  () => import('../pages/CosmosEnigmaUnlockModal'),
+);
+
 // Custom Network
 const SettingCustomNetworkModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/CustomNetwork'),
@@ -87,5 +91,9 @@ export const DAppConnectionRouter: IModalFlowNavigatorConfig<
   {
     name: EDAppConnectionModal.NostrSignEventModal,
     component: NostrSignEventModal,
+  },
+  {
+    name: EDAppConnectionModal.CosmosEnigmaUnlockModal,
+    component: CosmosEnigmaUnlockModal,
   },
 ];
