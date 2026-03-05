@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import { Page, XStack, useMedia } from '@onekeyhq/components';
