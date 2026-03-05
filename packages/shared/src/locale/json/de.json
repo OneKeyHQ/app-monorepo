@@ -2804,6 +2804,7 @@
   "perps.builder_max_error": "Fehler beim Genehmigen der Builder-Gebühr.",
   "perps.buy_tip": "Wir brauchen mehr {token}?",
   "perps.connection_error": "Hardware-Verbindungsfehler. Bitte überprüfen Sie die Verbindung und versuchen Sie es erneut.",
+  "perps.enjoy_perps": "Gefällt dir Perps? Teile es mit deinen Freunden.",
   "perps.fee_desc": "Die Gesamtkosten setzen sich aus zwei Teilen zusammen: der Handelsgebühr, die von Hyperliquid erhoben wird, und der Builder-Gebühr von OneKey. Die Builder-Gebühr von OneKey gehört zu den niedrigsten der Branche und hilft Ihnen, die Handelskosten zu minimieren.",
   "perps.fee_rate_projection": "Vorsprung",
   "perps.fee_tiers": "Gebührenstufen",
