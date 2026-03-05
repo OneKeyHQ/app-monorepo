@@ -170,6 +170,9 @@ jest.mock('@onekeyhq/shared/src/appApiClient/appApiClient', () => ({
     getClient: jest.fn(async () => ({
       get: jest.fn(async () => ({ data: { code: 0, data: null } })),
     })),
+    getBasicClient: jest.fn(async () => ({
+      get: jest.fn(async () => ({ data: { code: 0, data: null } })),
+    })),
   },
 }));
 
@@ -305,7 +308,7 @@ describe('ServiceAppUpdate state transitions', () => {
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       const { appApiClient } = require('@onekeyhq/shared/src/appApiClient/appApiClient');
 
-      expect(appApiClient.getClient).toHaveBeenCalledWith({
+      expect(appApiClient.getBasicClient).toHaveBeenCalledWith({
         name: EServiceEndpointEnum.Utility,
         endpoint: buildServiceEndpoint({
           serviceName: EServiceEndpointEnum.Utility,
@@ -319,7 +322,7 @@ describe('ServiceAppUpdate state transitions', () => {
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       const { appApiClient } = require('@onekeyhq/shared/src/appApiClient/appApiClient');
 
-      expect(appApiClient.getClient).toHaveBeenCalledWith({
+      expect(appApiClient.getBasicClient).toHaveBeenCalledWith({
         name: EServiceEndpointEnum.Utility,
         endpoint: buildServiceEndpoint({
           serviceName: EServiceEndpointEnum.Utility,
