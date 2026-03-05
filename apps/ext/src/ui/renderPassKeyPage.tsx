@@ -102,11 +102,15 @@ const usePassKeyOperations = () => {
         }
 
         // Password Dialog
-        if (passwordPromptPromiseTriggerData?.idNumber) {
+        if (
+          typeof result === 'string' &&
+          result &&
+          passwordPromptPromiseTriggerData?.idNumber
+        ) {
           await backgroundApiProxy.servicePassword.resolvePasswordPromptDialog(
             passwordPromptPromiseTriggerData?.idNumber,
             {
-              password: result as string,
+              password: result,
             },
           );
         } else {

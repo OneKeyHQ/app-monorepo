@@ -62,7 +62,11 @@ export const useWebAuthActions = () => {
           // Save password to secure storage for biometric unlock
           try {
             if (platformEnv.isExtension) {
-              await backgroundApiProxy.servicePassword.promptPasswordVerify();
+              const isPasswordSet =
+                await backgroundApiProxy.servicePassword.checkPasswordSet();
+              if (isPasswordSet) {
+                await backgroundApiProxy.servicePassword.promptPasswordVerify();
+              }
             }
             const cachedPassword =
               await backgroundApiProxy.servicePassword.getCachedPassword();
