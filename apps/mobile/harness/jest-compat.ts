@@ -73,39 +73,10 @@ const wrapTest = (original: TestFn): TestFn => {
   };
 };
 
-// test.each implementation for harness (Jest-compatible table-driven tests)
-// Supports both array-of-arrays and array-of-objects forms.
-const makeEach =
-  (testFn: TestFn) =>
-  (table: ReadonlyArray<unknown>) =>
-  (name: string, fn: (...args: any[]) => void | Promise<void>, timeout?: number) => {
-    for (const row of table) {
-      const args = Array.isArray(row) ? row : [row];
-      // Replace %s / %i / %j / %p placeholders with stringified values
-      let title = name;
-      let argIdx = 0;
-      title = title.replace(/%[sijp]/g, () => {
-        const val = args[argIdx++];
-        return typeof val === 'object' ? JSON.stringify(val) : String(val);
-      });
-      // Also replace $variable references for object rows
-      if (!Array.isArray(row) && row && typeof row === 'object') {
-        for (const [key, val] of Object.entries(row as Record<string, unknown>)) {
-          title = title.replace(
-            new RegExp(`\\$${key}`, 'g'),
-            typeof val === 'object' ? JSON.stringify(val) : String(val),
-          );
-        }
-      }
-      testFn(title, () => fn(...args), timeout);
-    }
-  };
-
 const wrappedTest = Object.assign(wrapTest(test), {
   skip: test.skip,
   only: wrapTest(test.only),
   todo: test.todo,
-  each: makeEach(wrapTest(test)),
 }) as typeof test;
 
 // Inject test primitives as globals (matching Jest's behavior)

@@ -26,11 +26,6 @@ export default {
     // mocks — impossible in Metro's single module registry. They have since been refactored to use
     // jest.mock() with mutable objects (and production code changed to getter functions), making
     // them fully compatible with the harness environment.
-    //
-    // Tests requiring @jest-environment jsdom — these need a browser-like DOM environment
-    // (document, window, CSSOM) which is unavailable on-device in React Native.
-    'packages/kit/src/components/UpdateReminder/hooks\\.test\\.ts',
-    'packages/kit/src/provider/SplashProvider\\.test\\.ts',
     // Same chain ignores as root jest.config.js
     'packages/core/src/chains/ada',
     'packages/core/src/chains/algo',
