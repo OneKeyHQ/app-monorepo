@@ -20,7 +20,7 @@ const FOOTER_MODES: {
   mode: IPerpsFooterTickerMode;
   labelId: ETranslations;
 }[] = [
-  { mode: 'none', labelId: ETranslations.perps_no_preivew },
+  { mode: 'none', labelId: ETranslations.perps_no_preview },
   { mode: 'popular', labelId: ETranslations.global_popular },
   { mode: 'favorites', labelId: ETranslations.global_favorites },
 ];

@@ -2843,7 +2843,6 @@
   perps_share_position_btn_custom_text = 'perps.share_position_btn_custom_text',
   perps_share_position_btn_save_img = 'perps.share_position_btn_save_img',
   perps_share_position_title = 'perps.share_position_title',
-  perps_no_preivew = 'perps.no_preivew',
   perps_token_alias = 'perps.token_alias',
   perps_token_selector_perps = 'perps.token_selector_perps',
   perps_token_selector_stocks = 'perps.token_selector_stocks',
