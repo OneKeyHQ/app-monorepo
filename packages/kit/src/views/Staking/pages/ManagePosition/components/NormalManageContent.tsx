@@ -368,7 +368,7 @@ export function NormalManageContent({
     if (defaultTab === 'withdraw') return 1;
     return 0;
   });
-  const shouldDisablePrimaryTab = defaultTab === 'withdraw' && depositDisabled;
+  const shouldDisablePrimaryTab = depositDisabled;
 
   // Pendle: slippage state + countdown
   const isPendleProvider = useIsPendleProvider(provider);
@@ -560,6 +560,13 @@ export function NormalManageContent({
   }, [defaultTab, tabNames]);
 
   const focusedTab = useSharedValue(initialTabName);
+
+  useEffect(() => {
+    if (depositDisabled && selectedTabIndex === 0) {
+      setSelectedTabIndex(1);
+      focusedTab.value = tabNames[1];
+    }
+  }, [depositDisabled, selectedTabIndex, focusedTab, tabNames]);
 
   const isWithdrawOrder = useMemo(() => {
     return (
