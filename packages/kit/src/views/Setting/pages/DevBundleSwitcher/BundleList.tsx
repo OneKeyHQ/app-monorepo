@@ -293,11 +293,17 @@ function BundleItem({
       ) : null}
 
       {!isCurrentBundle && status === 'downloaded' ? (
-        <Stack pl="$10">
-          <Button variant="primary" size="small" onPress={handleInstall}>
-            Switch to This Bundle
+        <XStack pl="$10" justifyContent="flex-end">
+          <Button
+            variant="primary"
+            size="small"
+            alignSelf="flex-end"
+            px="$3"
+            onPress={handleInstall}
+          >
+            Switch
           </Button>
-        </Stack>
+        </XStack>
       ) : null}
 
       {bundle.commitHash ? (
