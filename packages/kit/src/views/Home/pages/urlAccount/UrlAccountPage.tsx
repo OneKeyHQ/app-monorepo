@@ -1,15 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { cloneDeep } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import {
-  NavBackButton,
-  Page,
-  SizableText,
-  Spinner,
-  Stack,
-} from '@onekeyhq/components';
+import { Page, SizableText, Spinner, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -24,6 +18,7 @@ import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
@@ -216,15 +211,6 @@ function UrlAccountAutoCreate({ redirectMode }: { redirectMode?: boolean }) {
     isCurrentSelectedAccountNotUrlAccount,
   ]);
 
-  const backToHomePage = useCallback(() => {
-    urlAccountNavigation.replaceHomePage(navigation);
-  }, [navigation]);
-
-  const _renderHeaderLeft = useCallback(
-    () => <NavBackButton onPress={backToHomePage} />,
-    [backToHomePage],
-  );
-
   if (urlAccountStatus === 'invalid') {
     return (
       <Page>
@@ -257,6 +243,9 @@ export function UrlAccountPageContainer() {
   useDebugComponentRemountLog({
     name: 'URLAccountMount:  UrlAccountPageContainer',
   });
+  useEffect(() => {
+    defaultLogger.app.router.pageMounted('UrlAccountPageContainer');
+  }, []);
   return (
     <ProviderJotaiContextAccountOverview>
       <AccountSelectorProviderMirror

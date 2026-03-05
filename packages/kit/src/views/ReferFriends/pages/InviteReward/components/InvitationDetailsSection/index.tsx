@@ -101,10 +101,10 @@ export function InvitationDetailsSection({
               nextDistribution={cumulativeRewards.nextDistribution}
             />
           }
-          secondColumn={<OnChainReward onChain={Onchain} />}
-          thirdColumn={
+          secondColumn={
             <PerpsReward perpsCumulativeRewards={perpsCumulativeRewards} />
           }
+          thirdColumn={<OnChainReward onChain={Onchain} />}
         />
       ) : (
         <YStack px="$pagePadding" gap="$4">

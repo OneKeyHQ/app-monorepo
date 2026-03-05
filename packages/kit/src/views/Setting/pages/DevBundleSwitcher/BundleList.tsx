@@ -56,6 +56,7 @@ function BundleItem({
   isDownloading,
   onDownloadStart,
   onDownloadEnd,
+  gpgSkipped,
 }: {
   bundle: IBundleInfo;
   version: string;
@@ -64,6 +65,7 @@ function BundleItem({
   isDownloading: boolean;
   onDownloadStart: () => void;
   onDownloadEnd: () => void;
+  gpgSkipped: boolean;
 }) {
   const downloadPercent = useDownloadProgress();
   const [status, setStatus] = useState<
@@ -103,6 +105,8 @@ function BundleItem({
   }, [bundle, version, onDownloadStart, onDownloadEnd]);
 
   const handleInstall = useCallback(async () => {
+    const skipGPGVerification =
+      !!process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION && gpgSkipped;
     setStatus('installing');
     try {
       if (alreadyDownloaded && !downloadedEventRef.current) {
@@ -111,7 +115,7 @@ function BundleItem({
           latestVersion: version,
           bundleVersion: bundle.bundleVersion,
           signature: bundle.signature || PLACEHOLDER_SIGNATURE,
-          skipGPGVerification: !!process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION,
+          skipGPGVerification,
         });
       } else {
         if (!downloadedEventRef.current) return;
@@ -121,7 +125,7 @@ function BundleItem({
           bundleVersion: bundle.bundleVersion,
           sha256: bundle.sha256,
           signature: bundle.signature || PLACEHOLDER_SIGNATURE,
-          skipGPGVerification: !!process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION,
+          skipGPGVerification,
         });
 
         await BundleUpdate.verifyBundle({
@@ -129,7 +133,7 @@ function BundleItem({
           latestVersion: version,
           bundleVersion: bundle.bundleVersion,
           sha256: bundle.sha256,
-          skipGPGVerification: !!process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION,
+          skipGPGVerification,
         });
 
         await BundleUpdate.installBundle({
@@ -137,14 +141,14 @@ function BundleItem({
           latestVersion: version,
           bundleVersion: bundle.bundleVersion,
           signature: bundle.signature || PLACEHOLDER_SIGNATURE,
-          skipGPGVerification: !!process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION,
+          skipGPGVerification,
         });
       }
     } catch (e) {
       setStatus('error');
       setErrorMessage((e as Error)?.message || 'Install failed');
     }
-  }, [alreadyDownloaded, bundle, version]);
+  }, [alreadyDownloaded, bundle, version, gpgSkipped]);
 
   const downloadDisabled = isDownloading && status !== 'downloading';
 
@@ -253,6 +257,7 @@ export default function SettingDevBundleList() {
   const [bundles, setBundles] = useState<IBundleInfo[]>([]);
   const [downloadedSet, setDownloadedSet] = useState<Set<string>>(new Set());
   const [isDownloading, setIsDownloading] = useState(false);
+  const [gpgSkipped, setGpgSkipped] = useState(false);
 
   const currentBundleVersion = String(platformEnv.bundleVersion);
   const currentAppVersion = String(platformEnv.version);
@@ -260,10 +265,13 @@ export default function SettingDevBundleList() {
   useEffect(() => {
     void (async () => {
       try {
-        const data =
-          await backgroundApiProxy.serviceAppUpdate.devFetchBundlesForVersion(
+        const [data, skipGpg] = await Promise.all([
+          backgroundApiProxy.serviceAppUpdate.devFetchBundlesForVersion(
             version,
-          );
+          ),
+          backgroundApiProxy.serviceDevSetting.getSkipBundleGPGVerification(),
+        ]);
+        setGpgSkipped(skipGpg);
         setBundles(data);
 
         const existsChecks = await Promise.all(
@@ -307,9 +315,11 @@ export default function SettingDevBundleList() {
               <SizableText size="$bodySm" color="$textSubdued">
                 {`Current: v${currentAppVersion} #${currentBundleVersion}`}
               </SizableText>
-              <Badge badgeType="warning" badgeSize="sm">
-                <Badge.Text>GPG Skipped</Badge.Text>
-              </Badge>
+              {process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION && gpgSkipped ? (
+                <Badge badgeType="warning" badgeSize="sm">
+                  <Badge.Text>GPG Skipped</Badge.Text>
+                </Badge>
+              ) : null}
             </XStack>
 
             <YStack
@@ -337,6 +347,7 @@ export default function SettingDevBundleList() {
                     isDownloading={isDownloading}
                     onDownloadStart={handleDownloadStart}
                     onDownloadEnd={handleDownloadEnd}
+                    gpgSkipped={gpgSkipped}
                   />
                 </YStack>
               ))}

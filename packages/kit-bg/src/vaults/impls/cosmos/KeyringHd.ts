@@ -2,6 +2,7 @@ import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { ISignedTxPro } from '@onekeyhq/core/src/types';
 
 import { KeyringHdBase } from '../../base/KeyringHdBase';
+import { SecretNetworkEncryption } from './sdkCosmos/SecretNetworkEncryption';
 
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
@@ -43,5 +44,16 @@ export class KeyringHd extends KeyringHdBase {
 
   override async signMessage(params: ISignMessageParams): Promise<string[]> {
     return this.baseSignMessage(params);
+  }
+
+  async getEnigmaSeed(params: { password: string }): Promise<Uint8Array> {
+    const { password } = params;
+    const privateKeys = await this.baseGetPrivateKeys({ password });
+    const account = await this.vault.getAccount();
+    const encryptedPrivateKeyHex = privateKeys[account.path];
+    return SecretNetworkEncryption.deriveEnigmaSeed({
+      encryptedPrivateKeyHex,
+      password,
+    });
   }
 }

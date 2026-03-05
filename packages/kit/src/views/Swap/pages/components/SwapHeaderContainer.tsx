@@ -211,7 +211,7 @@ const SwapHeaderContainer = ({
   }
 
   return (
-    <XStack justifyContent="space-between" px="$5">
+    <XStack justifyContent="space-between" px="$5" py="$1">
       <XStack gap="$3">
         <CustomTabItem
           isSelected={swapTypeSwitch === ESwapTabSwitchType.SWAP}

@@ -86,6 +86,25 @@ class ServiceMarket extends ServiceBase {
     return this._fetchSearchTrending();
   }
 
+  _fetchTrendingV2 = memoizee(
+    async (): Promise<IMarketSearchV2Token[]> => {
+      const client = await this.getClient(EServiceEndpointEnum.Utility);
+      const response = await client.get<{
+        data: IMarketSearchV2Token[];
+      }>('/utility/v2/market/trending');
+      return response.data.data ?? [];
+    },
+    {
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 5 }),
+    },
+  );
+
+  @backgroundMethod()
+  async fetchTrendingV2(): Promise<IMarketSearchV2Token[]> {
+    return this._fetchTrendingV2();
+  }
+
   @backgroundMethod()
   async fetchCategory(
     category: string,
