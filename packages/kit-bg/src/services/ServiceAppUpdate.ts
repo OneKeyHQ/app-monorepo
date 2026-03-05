@@ -33,6 +33,7 @@ let syncTimerId: ReturnType<typeof setTimeout>;
 let downloadTimeoutId: ReturnType<typeof setTimeout>;
 let failedRecoveryTimerId: ReturnType<typeof setTimeout>;
 let firstLaunch = true;
+const PLACEHOLDER_SIGNATURE = 'dev-no-signature';
 @backgroundClass()
 class ServiceAppUpdate extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -741,6 +742,7 @@ class ServiceAppUpdate extends ServiceBase {
           bundleVersion: string;
           downloadUrl: string;
           sha256: string;
+          signature?: string;
           fileSize: number;
           commitHash?: string;
           branch?: string;
@@ -764,6 +766,7 @@ class ServiceAppUpdate extends ServiceBase {
           bundleVersion: item.bundleVersion,
           downloadUrl: item.downloadUrl,
           sha256: item.sha256,
+          signature: item.signature || PLACEHOLDER_SIGNATURE,
           fileSize: item.fileSize,
           changeLog: item.commitHash
             ? `${item.branch || ''} ${item.commitHash.slice(0, 8)}`.trim()
