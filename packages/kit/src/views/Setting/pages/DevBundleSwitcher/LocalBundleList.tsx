@@ -14,6 +14,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { BundleUpdate } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -94,15 +95,63 @@ export default function SettingDevLocalBundleList() {
   const currentAppVersion = String(platformEnv.version);
 
   useEffect(() => {
+    let isMounted = true;
     void (async () => {
       try {
-        const localBundles = await BundleUpdate.listLocalBundles();
-        setBundles(localBundles);
+        const [localBundles, fallbackBundles] = await Promise.all([
+          BundleUpdate.listLocalBundles().catch(() => []),
+          BundleUpdate.getFallbackBundles().catch(() => []),
+        ]);
+
+        const merged = new Map<string, ILocalBundle>();
+        for (const b of localBundles) {
+          const key = `${b.appVersion}-${b.bundleVersion}`;
+          merged.set(key, {
+            appVersion: String(b.appVersion),
+            bundleVersion: String(b.bundleVersion),
+          });
+        }
+
+        await Promise.all(
+          fallbackBundles.map(async (b) => {
+            const appVersion = String(b.appVersion);
+            const bundleVersion = String(b.bundleVersion);
+            const key = `${appVersion}-${bundleVersion}`;
+            if (merged.has(key)) {
+              return;
+            }
+            const exists = await BundleUpdate.isBundleExists(
+              appVersion,
+              bundleVersion,
+            );
+            if (exists) {
+              merged.set(key, { appVersion, bundleVersion });
+            }
+          }),
+        );
+
+        if (isMounted) {
+          setBundles(Array.from(merged.values()));
+        }
+      } catch (e) {
+        defaultLogger.app.jsBundleDev.fetchBundlesError({
+          version: currentAppVersion,
+          error: (e as Error)?.message || 'Failed to load local bundles',
+        });
+        if (isMounted) {
+          setBundles([]);
+          setError((e as Error)?.message || 'Failed to load local bundles');
+        }
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     })();
-  }, []);
+    return () => {
+      isMounted = false;
+    };
+  }, [currentAppVersion]);
 
   const handleSwitch = useCallback(async (bundle: ILocalBundle) => {
     const key = `${bundle.appVersion}-${bundle.bundleVersion}`;
