@@ -34,12 +34,7 @@ function ListLoading({
           }}
           {...listHeaderProps}
         >
-          <XStack
-            flexGrow={1}
-            flexBasis={0}
-            gap={89}
-            spaceDirection="horizontal"
-          >
+          <XStack flexGrow={1} flexBasis={0} gap={89}>
             <Stack flexGrow={1} flexBasis={0} py="$1">
               <Skeleton h="$3" w="$12" />
             </Stack>
