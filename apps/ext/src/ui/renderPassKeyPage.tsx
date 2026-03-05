@@ -8,6 +8,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useWebAuthActions } from '@onekeyhq/kit/src/components/BiologyAuthComponent/hooks/useWebAuthActions';
 import { GlobalJotaiReady } from '@onekeyhq/kit/src/components/GlobalJotaiReady';
 import { ThemeProvider } from '@onekeyhq/kit/src/provider/ThemeProvider';
+import { biologyAuthUtils } from '@onekeyhq/kit-bg/src/services/ServicePassword/biologyAuthUtils';
 import {
   usePasswordAtom,
   usePasswordModeAtom,
@@ -70,9 +71,7 @@ const usePassKeyOperations = () => {
       } else {
         // No cached password — try secure storage (WebAuthn PRF)
         try {
-          result =
-            (await backgroundApiProxy.servicePassword.getWebAuthPassword()) ??
-            undefined;
+          result = (await biologyAuthUtils.getPassword()) ?? undefined;
         } catch {
           // Fallback to credential-only verification
           result = await checkWebAuth();

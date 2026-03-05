@@ -40,6 +40,7 @@ import { appIsLocked } from '../states/jotai/atoms';
 import { devSettingsPersistAtom } from '../states/jotai/atoms/devSettings';
 
 import ServiceBase from './ServiceBase';
+import { biologyAuthUtils } from './ServicePassword/biologyAuthUtils';
 
 import type { ISimpleDBAppStatus } from '../dbs/simple/entity/SimpleDbEntityAppStatus';
 
@@ -91,7 +92,7 @@ class ServiceApp extends ServiceBase {
 
     // clean secure storage (WebAuth password)
     try {
-      await this.backgroundApi.servicePassword.deleteWebAuthPassword();
+      await biologyAuthUtils.deletePassword();
     } catch {
       console.error('deleteWebAuthPassword error');
     }

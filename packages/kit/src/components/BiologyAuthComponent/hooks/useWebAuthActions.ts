@@ -3,7 +3,12 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Toast } from '@onekeyhq/components';
-import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
+import { biologyAuthUtils } from '@onekeyhq/kit-bg/src/services/ServicePassword/biologyAuthUtils';
+import {
+  usePasswordModeAtom,
+  usePasswordPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import extUtils, {
@@ -37,6 +42,7 @@ export const useWebAuthActions = () => {
   const intl = useIntl();
   const [{ webAuthCredentialId: credId }, setPasswordPersist] =
     usePasswordPersistAtom();
+  const [passwordMode] = usePasswordModeAtom();
   const setWebAuthEnable = useCallback(
     async (enable: boolean) => {
       let webAuthCredentialId: string | undefined;
@@ -61,9 +67,7 @@ export const useWebAuthActions = () => {
             const cachedPassword =
               await backgroundApiProxy.servicePassword.getCachedPassword();
             if (cachedPassword) {
-              await backgroundApiProxy.servicePassword.saveWebAuthPassword(
-                cachedPassword,
-              );
+              await biologyAuthUtils.savePassword(cachedPassword);
             }
           } catch (e) {
             console.error('Failed to save password to secure storage:', e);
@@ -95,19 +99,30 @@ export const useWebAuthActions = () => {
       return undefined;
     }
     // No cached password — try secure storage (triggers WebAuthn PRF)
-    const securePassword =
-      await backgroundApiProxy.servicePassword.getWebAuthPassword();
-      
-    return securePassword ?? undefined;
-  }, [credId]);
+    const securePassword = await biologyAuthUtils.getPassword();
+    if (securePassword) {
+      // Verify password correctness and cache it
+      const verified = await backgroundApiProxy.servicePassword.verifyPassword({
+        password: securePassword,
+        passwordMode,
+      });
+      return verified;
+    }
+    return undefined;
+  }, [credId, passwordMode]);
 
   const checkWebAuth = useCallback(async () => {
     // Try secure storage first (WebAuthn PRF)
     try {
-      const securePassword =
-        await backgroundApiProxy.servicePassword.getWebAuthPassword();
+      const securePassword = await biologyAuthUtils.getPassword();
       if (securePassword) {
-        return securePassword;
+        // Verify password correctness and cache it
+        const verified =
+          await backgroundApiProxy.servicePassword.verifyPassword({
+            password: securePassword,
+            passwordMode,
+          });
+        return verified;
       }
     } catch {
       // Fallback to credential-only verification
@@ -115,7 +130,7 @@ export const useWebAuthActions = () => {
     await checkExtWebAuth(EPassKeyWindowType.unlock);
     const cred = await verifiedWebAuth(credId);
     return cred?.id === credId;
-  }, [credId]);
+  }, [credId, passwordMode]);
 
   return {
     setWebAuthEnable,

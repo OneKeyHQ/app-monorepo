@@ -80,6 +80,14 @@ export default class ServicePassword extends ServiceBase {
   private cachedPasswordTimeOutObject: ReturnType<typeof setTimeout> | null =
     null;
 
+  private cachedPrfMasterKeyHex: string | null = null;
+
+  private cachedPrfMasterKeyTimestamp = 0;
+
+  private readonly PRF_MASTER_KEY_CACHE_DURATION_MS = 5 * 60 * 1000;
+
+  private skipPrfCacheFlag = false;
+
   private passwordPromptTTL: number = timerUtils.getTimeDurationMs({
     minute: 5,
   });
@@ -203,6 +211,44 @@ export default class ServicePassword extends ServiceBase {
 
     // TODO clear cached sync credential only when app is locked
     void this.backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential();
+    await this.clearCachedPrfMasterKey();
+  }
+
+  // PRF master key cache (stored in background memory)
+  @backgroundMethod()
+  async getCachedPrfMasterKey(): Promise<string | null> {
+    if (this.skipPrfCacheFlag) {
+      return null;
+    }
+    if (!this.cachedPrfMasterKeyHex) {
+      return null;
+    }
+    const now = Date.now();
+    if (
+      now - this.cachedPrfMasterKeyTimestamp >=
+      this.PRF_MASTER_KEY_CACHE_DURATION_MS
+    ) {
+      await this.clearCachedPrfMasterKey();
+      return null;
+    }
+    return this.cachedPrfMasterKeyHex;
+  }
+
+  @backgroundMethod()
+  async setCachedPrfMasterKey(hex: string): Promise<void> {
+    this.cachedPrfMasterKeyHex = hex;
+    this.cachedPrfMasterKeyTimestamp = Date.now();
+  }
+
+  @backgroundMethod()
+  async clearCachedPrfMasterKey(): Promise<void> {
+    this.cachedPrfMasterKeyHex = null;
+    this.cachedPrfMasterKeyTimestamp = 0;
+  }
+
+  @backgroundMethod()
+  async setSkipPrfCache(skip: boolean): Promise<void> {
+    this.skipPrfCacheFlag = skip;
   }
 
   async setCachedPassword({ password }: { password: string }): Promise<string> {
@@ -282,27 +328,6 @@ export default class ServicePassword extends ServiceBase {
   }
 
   // biologyAuth&WebAuth ------------------------------
-
-  @backgroundMethod()
-  async getWebAuthPassword(): Promise<string | null> {
-    return biologyAuthUtils.getPassword();
-  }
-
-  @backgroundMethod()
-  async saveWebAuthPassword(password: string): Promise<void> {
-    ensureSensitiveTextEncoded(password);
-    await biologyAuthUtils.savePassword(password);
-  }
-
-  @backgroundMethod()
-  async hasWebAuthPassword(): Promise<boolean> {
-    return biologyAuthUtils.hasPassword();
-  }
-
-  @backgroundMethod()
-  async deleteWebAuthPassword(): Promise<void> {
-    await biologyAuthUtils.deletePassword();
-  }
 
   async saveBiologyAuthPassword(password: string): Promise<void> {
     ensureSensitiveTextEncoded(password);
@@ -731,33 +756,41 @@ export default class ServicePassword extends ServiceBase {
         const cachedPassword = await this.getCachedPassword();
         if (cachedPassword) {
           ensureSensitiveTextEncoded(cachedPassword);
-          return Promise.resolve({
+          return {
             password: cachedPassword,
-          });
+          };
         }
       }
 
       const isPasswordSet = await this.checkPasswordSet();
       this.clearPasswordPromptTimeout();
-      const res = new Promise((resolve, reject) => {
-        const promiseId = this.backgroundApi.servicePromise.createCallback({
-          resolve,
-          reject,
+      // Skip PRF master key cache whenever the password dialog is shown,
+      // forcing a real WebAuthn interaction for biometric verification.
+      // Don't clear the cache — user may cancel and cache should remain valid.
+      await this.setSkipPrfCache(true);
+      try {
+        const res = new Promise((resolve, reject) => {
+          const promiseId = this.backgroundApi.servicePromise.createCallback({
+            resolve,
+            reject,
+          });
+          void this.showPasswordPromptDialog({
+            idNumber: promiseId,
+            type: isPasswordSet
+              ? EPasswordPromptType.PASSWORD_VERIFY
+              : EPasswordPromptType.PASSWORD_SETUP,
+            dialogProps: options?.dialogProps,
+          });
         });
-        void this.showPasswordPromptDialog({
-          idNumber: promiseId,
-          type: isPasswordSet
-            ? EPasswordPromptType.PASSWORD_VERIFY
-            : EPasswordPromptType.PASSWORD_SETUP,
-          dialogProps: options?.dialogProps,
-        });
-      });
-      const result = await (res as Promise<IPasswordRes>);
-      ensureSensitiveTextEncoded(result.password);
+        const result = await (res as Promise<IPasswordRes>);
+        ensureSensitiveTextEncoded(result.password);
 
-      // wait PromptPasswordDialog close animation
-      await timerUtils.wait(600);
-      return result;
+        // wait PromptPasswordDialog close animation
+        await timerUtils.wait(600);
+        return result;
+      } finally {
+        await this.setSkipPrfCache(false);
+      }
     });
   }
 

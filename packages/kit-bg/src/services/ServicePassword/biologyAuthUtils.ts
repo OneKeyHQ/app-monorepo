@@ -1,8 +1,10 @@
+import { ensureSensitiveTextEncoded } from '@onekeyhq/core/src/secret';
 import {
   decodeSensitiveTextAsync,
   encodeKeyPrefix,
   encodeSensitiveTextAsync,
 } from '@onekeyhq/core/src/secret/encryptors/aes256';
+import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
 import type { IBiologyAuth } from '@onekeyhq/shared/src/biologyAuth/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -26,10 +28,13 @@ class BiologyAuthUtils implements IBiologyAuth {
   }
 
   savePassword = async (password: string) => {
+    ensureSensitiveTextEncoded(password);
     if (!(await appStorage.secureStorage.supportSecureStorage())) {
       return;
     }
-    let text = await decodeSensitiveTextAsync({ encodedText: password });
+    const key =
+      await appGlobals.$backgroundApiProxy.servicePassword.getBgSensitiveTextEncodeKey();
+    let text = await decodeSensitiveTextAsync({ encodedText: password, key });
     const settings = await settingsPersistAtom.get();
     text = await encodeSensitiveTextAsync({
       text,
@@ -54,7 +59,9 @@ class BiologyAuthUtils implements IBiologyAuth {
         encodedText: text,
         key: `${encodeKeyPrefix}${settings.sensitiveEncodeKey}`,
       });
-      text = await encodeSensitiveTextAsync({ text });
+      const key =
+        await appGlobals.$backgroundApiProxy.servicePassword.getBgSensitiveTextEncodeKey();
+      text = await encodeSensitiveTextAsync({ text, key });
       return text;
     }
     throw new OneKeyLocalError('No password');

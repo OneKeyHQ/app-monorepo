@@ -1,7 +1,9 @@
 /* oxlint-disable @typescript-eslint/no-unused-vars, @cspell/spellchecker */
 /* eslint-disable @typescript-eslint/no-unused-vars */
+import appGlobals from '../../appGlobals';
 import { OneKeyLocalError } from '../../errors';
 import platformEnv from '../../platformEnv';
+import bufferUtils from '../../utils/bufferUtils';
 import { webStorage } from '../instance/webStorageInstance';
 
 import {
@@ -29,25 +31,29 @@ const SECURE_STORAGE_KEY_PREFIX = '$secure$:';
 // Storage key for credential transports (for user hints)
 const PRF_CREDENTIAL_TRANSPORTS_KEY = '$secure_prf_credential_transports$';
 
-// Master key cache (in-memory only, cleared on page reload)
-let cachedMasterKey: Uint8Array | null = null;
-let masterKeyCacheTimestamp = 0;
-// Cache duration: 5 minutes (can be adjusted based on security requirements)
-const MASTER_KEY_CACHE_DURATION_MS = 5 * 60 * 1000;
-
-// Clear the master key cache
-function clearMasterKeyCache(): void {
-  cachedMasterKey = null;
-  masterKeyCacheTimestamp = 0;
+// PRF master key cache helpers — cache is stored in background (ServicePassword)
+async function getCachedPrfMasterKey(): Promise<Uint8Array | null> {
+  try {
+    const hex =
+      await appGlobals.$backgroundApiProxy.servicePassword.getCachedPrfMasterKey();
+    if (hex) {
+      return bufferUtils.hexToBytes(hex);
+    }
+  } catch {
+    // background not ready
+  }
+  return null;
 }
 
-// Check if cached master key is still valid
-function isMasterKeyCacheValid(): boolean {
-  if (!cachedMasterKey) {
-    return false;
+async function setCachedPrfMasterKey(masterKey: Uint8Array): Promise<void> {
+  try {
+    const hex = bufferUtils.bytesToHex(masterKey);
+    await appGlobals.$backgroundApiProxy.servicePassword.setCachedPrfMasterKey(
+      hex,
+    );
+  } catch {
+    // background not ready
   }
-  const now = Date.now();
-  return now - masterKeyCacheTimestamp < MASTER_KEY_CACHE_DURATION_MS;
 }
 
 // Get stored salt
@@ -165,12 +171,13 @@ async function getPrfKey(options?: {
 
 /**
  * Get the master key (unwrap from storage or create new)
- * Master key is cached in memory for better UX
+ * Master key is cached in background (ServicePassword) for better UX
  */
 async function getMasterKey(): Promise<Uint8Array | null> {
   // Return cached master key if valid
-  if (isMasterKeyCacheValid() && cachedMasterKey) {
-    return cachedMasterKey;
+  const cached = await getCachedPrfMasterKey();
+  if (cached) {
+    return cached;
   }
 
   // Get PRF key first
@@ -188,9 +195,7 @@ async function getMasterKey(): Promise<Uint8Array | null> {
     // Unwrap existing master key
     try {
       const masterKey = await unwrapMasterKey(prfKey, wrappedMasterKey);
-      // Cache the master key
-      cachedMasterKey = masterKey;
-      masterKeyCacheTimestamp = Date.now();
+      await setCachedPrfMasterKey(masterKey);
       return masterKey;
     } catch (error) {
       console.error('Failed to unwrap master key:', error);
@@ -205,9 +210,7 @@ async function getMasterKey(): Promise<Uint8Array | null> {
   const wrapped = await wrapMasterKey(prfKey, masterKey);
   await storeWrappedMasterKey(wrapped);
 
-  // Cache the master key
-  cachedMasterKey = masterKey;
-  masterKeyCacheTimestamp = Date.now();
+  await setCachedPrfMasterKey(masterKey);
 
   return masterKey;
 }
@@ -331,7 +334,6 @@ async function getStoredAuthenticatorDescription(): Promise<string> {
 export {
   getStoredCredentialTransports,
   getStoredAuthenticatorDescription,
-  clearMasterKeyCache,
   TRANSPORT_DESCRIPTIONS,
   getTransportDescription,
 };

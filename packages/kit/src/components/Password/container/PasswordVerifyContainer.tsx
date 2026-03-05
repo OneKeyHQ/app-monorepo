@@ -5,6 +5,8 @@ import { useIntl } from 'react-intl';
 
 import { SizableText, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
+import { biologyAuthUtils } from '@onekeyhq/kit-bg/src/services/ServicePassword/biologyAuthUtils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   usePasswordAtom,
@@ -92,8 +94,7 @@ const PasswordVerifyContainer = ({
     if (shouldCheck) {
       void (async () => {
         try {
-          const hasPassword =
-            await backgroundApiProxy.servicePassword.hasWebAuthPassword();
+          const hasPassword = await biologyAuthUtils.hasPassword();
           setHasSecurePassword(hasPassword);
         } catch (_e) {
           setHasSecurePassword(false);
@@ -246,8 +247,7 @@ const PasswordVerifyContainer = ({
         if (isExtLockNoCachePassword) {
           // Try to retrieve password from secure storage (WebAuthn PRF)
           try {
-            const securePassword =
-              await backgroundApiProxy.servicePassword.getWebAuthPassword();
+            const securePassword = await biologyAuthUtils.getPassword();
             if (securePassword) {
               const verifiedPassword =
                 await backgroundApiProxy.servicePassword.verifyPassword({
@@ -290,6 +290,7 @@ const PasswordVerifyContainer = ({
           }
         }
       } catch (e: any) {
+        console.error('onBiologyAuthenticate error', e);
         const error = e as {
           message?: string;
           cause?: string;
@@ -401,9 +402,7 @@ const PasswordVerifyContainer = ({
           webAuthCredentialId
         ) {
           try {
-            await backgroundApiProxy.servicePassword.saveWebAuthPassword(
-              verifiedPassword,
-            );
+            await biologyAuthUtils.savePassword(verifiedPassword);
           } catch (e) {
             console.error('Failed to save password to secure storage:', e);
           }
