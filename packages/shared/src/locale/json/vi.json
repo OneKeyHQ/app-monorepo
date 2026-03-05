@@ -2804,6 +2804,7 @@
   "perps.builder_max_error": "Không thể phê duyệt phí xây dựng.",
   "perps.buy_tip": "Cần thêm nữa {token}?",
   "perps.connection_error": "Lỗi kết nối phần cứng. Vui lòng kiểm tra kết nối và thử lại.",
+  "perps.enjoy_perps": "Bạn thích Perps? Hãy chia sẻ với bạn bè.",
   "perps.fee_desc": "Tổng phí bao gồm hai phần: phí giao dịch do Hyperliquid thu và phí builder của OneKey. phí builder của OneKey là một trong những mức thấp nhất trong ngành, giúp bạn giảm thiểu chi phí giao dịch.",
   "perps.fee_rate_projection": "Phép chiếu",
   "perps.fee_tiers": "Các bậc phí",
