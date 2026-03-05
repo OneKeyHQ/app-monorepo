@@ -57,6 +57,7 @@ import {
   capitalizeString,
   countDecimalPlaces,
   isInvalidAmount,
+  shouldShowStakingSummaryCard,
 } from '../../utils/utils';
 import { CalculationListItem } from '../CalculationList';
 import { EstimateNetworkFee } from '../EstimateNetworkFee';
@@ -64,16 +65,16 @@ import {
   type IManagePageV2ReceiveInputConfig,
   ManagePageV2ReceiveInput,
 } from '../ManagePageV2ReceiveInput';
-import {
-  calcPriceImpactInfo,
-  showHighPriceImpactDialog,
-} from '../showHighPriceImpactDialog';
 import { EarnActionIcon } from '../ProtocolDetails/EarnActionIcon';
 import { EarnText } from '../ProtocolDetails/EarnText';
 import {
   PendleAccordionTriggerContent,
   PendleSummarySection,
 } from '../ProtocolDetails/PendleSharedComponents';
+import {
+  calcPriceImpactInfo,
+  showHighPriceImpactDialog,
+} from '../showHighPriceImpactDialog';
 import { EStakeProgressStep, StakeProgress } from '../StakeProgress';
 import {
   StakingAmountInput,
@@ -1063,6 +1064,14 @@ export function UniversalWithdraw({
     return isDisable;
   }, [shouldApprove, effectiveShowExpiredRefresh, isDisable]);
 
+  const shouldShowSummaryCard = shouldShowStakingSummaryCard({
+    isDisabled,
+    isPendleProvider,
+    amountValue,
+    hasSummarySection,
+    showPendleTransactionSection,
+  });
+
   return (
     <StakingFormWrapper>
       <Stack position="relative">
@@ -1251,7 +1260,7 @@ export function UniversalWithdraw({
           ))}
         </>
       ) : null}
-      {!isDisabled ? (
+      {shouldShowSummaryCard ? (
         <YStack
           p="$3.5"
           pt={hasSummarySection ? '$5' : '$3.5'}
