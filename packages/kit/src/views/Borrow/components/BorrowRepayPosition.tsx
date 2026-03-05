@@ -807,7 +807,7 @@ function RepayWithCollateralForm({
               balanceProps={{
                 value: balance,
                 iconText: intl.formatMessage({
-                  id: ETranslations.global_available,
+                  id: ETranslations.defi_borrow_repay_remaining_debt,
                 }),
                 onPress: isDisabled ? undefined : onMax,
               }}
