@@ -11,6 +11,8 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { appApiClient } from '@onekeyhq/shared/src/appApiClient/appApiClient';
+import { buildServiceEndpoint } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IUpdateDownloadedEvent } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
@@ -679,12 +681,22 @@ class ServiceAppUpdate extends ServiceBase {
 
   // ---- Dev Bundle Switcher ----
 
+  private getDevBundleSwitcherClient = memoizee(async () =>
+    appApiClient.getClient({
+      name: EServiceEndpointEnum.Utility,
+      endpoint: buildServiceEndpoint({
+        serviceName: EServiceEndpointEnum.Utility,
+        env: 'test',
+      }),
+    }),
+  );
+
   @backgroundMethod()
   async devFetchBundleVersions(): Promise<
     { version: string; bundleCount: number }[]
   > {
     try {
-      const client = await this.getClient(EServiceEndpointEnum.Utility);
+      const client = await this.getDevBundleSwitcherClient();
       const response = await client.get<{
         code: number;
         data: { version: string; bundleCount: number }[];
@@ -721,7 +733,7 @@ class ServiceAppUpdate extends ServiceBase {
     }[]
   > {
     try {
-      const client = await this.getClient(EServiceEndpointEnum.Utility);
+      const client = await this.getDevBundleSwitcherClient();
       const response = await client.get<{
         code: number;
         data: {
