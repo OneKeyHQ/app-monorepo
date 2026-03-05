@@ -103,6 +103,15 @@ const getTabIndexForSearchType = (searchType: EUniversalSearchType): number => {
   return tabMapping[searchType];
 };
 
+const DEFAULT_SLICE_LIMIT = 5;
+const MARKET_SLICE_LIMIT = 3;
+const MARKET_TAB_INDEX = getTabIndexForSearchType(
+  EUniversalSearchType.V2MarketToken,
+);
+const PRIORITIZED_SECONDARY_TAB_INDEX = getTabIndexForSearchType(
+  EUniversalSearchType.Perp,
+);
+
 const SkeletonItem = () => (
   <XStack py="$2" alignItems="center">
     <Skeleton w="$10" h="$10" radius="round" />
@@ -131,7 +140,7 @@ function ListEmptyComponent() {
   );
 }
 
-const isMarketSection = (tabIndex: number) => tabIndex === 2;
+const isMarketSection = (tabIndex: number) => tabIndex === MARKET_TAB_INDEX;
 
 export function UniversalSearch({
   filterTypes,
@@ -336,8 +345,8 @@ export function UniversalSearch({
       const generateDataFn = (data: IUniversalSearchResultItem[]) => {
         return {
           data,
-          sliceData: data.slice(0, 5),
-          showMore: data.length > 5,
+          sliceData: data.slice(0, DEFAULT_SLICE_LIMIT),
+          showMore: data.length > DEFAULT_SLICE_LIMIT,
         };
       };
 
@@ -360,14 +369,15 @@ export function UniversalSearch({
           (_, index) => index !== googleSearchIndex,
         );
 
-        // Take first 5 non-Google results + always include Google search item
-        const slicedOtherResults = otherResults.slice(0, 5);
+        // Take first N non-Google results + always include Google search item
+        const slicedOtherResults = otherResults.slice(0, DEFAULT_SLICE_LIMIT);
         const sliceData = [...slicedOtherResults, googleSearchItem];
 
         return {
           data,
           sliceData,
-          showMore: otherResults.length > 5, // Only count non-Google items for showMore
+          // Only count non-Google items for showMore
+          showMore: otherResults.length > DEFAULT_SLICE_LIMIT,
         };
       };
 
@@ -395,7 +405,9 @@ export function UniversalSearch({
           title: intl.formatMessage({
             id: ETranslations.global_market,
           }),
-          ...generateDataFn(data),
+          data,
+          sliceData: data.slice(0, MARKET_SLICE_LIMIT),
+          showMore: data.length > MARKET_SLICE_LIMIT,
         });
       }
 
@@ -512,7 +524,6 @@ export function UniversalSearch({
               {section.title}
             </SizableText>
           </XStack>
-          {isMarketSection(section.tabIndex) ? <MarketTableHeader /> : null}
         </YStack>
       );
     },
@@ -552,7 +563,15 @@ export function UniversalSearch({
   );
 
   const renderItem = useCallback(
-    ({ item }: { item: IUniversalSearchResultItem }) => {
+    ({
+      item,
+      section,
+      index,
+    }: {
+      item: IUniversalSearchResultItem;
+      section: IUniversalSection;
+      index: number;
+    }) => {
       switch (item.type) {
         case EUniversalSearchType.Address:
           return (
@@ -570,10 +589,15 @@ export function UniversalSearch({
           );
         case EUniversalSearchType.V2MarketToken:
           return (
-            <UniversalSearchV2MarketTokenItem
-              item={item}
-              isTrending={searchStatus === ESearchStatus.init}
-            />
+            <>
+              {index === 0 && isMarketSection(section.tabIndex) ? (
+                <MarketTableHeader />
+              ) : null}
+              <UniversalSearchV2MarketTokenItem
+                item={item}
+                isTrending={searchStatus === ESearchStatus.init}
+              />
+            </>
           );
         case EUniversalSearchType.AccountAssets:
           return (
@@ -642,17 +666,23 @@ export function UniversalSearch({
       // When focused in Market tab, prioritize market section
       if (isFocusInMarketTab) {
         const marketSection = sectionsWithSliceData.find(
-          (section) => section.tabIndex === 2, // market tab index
+          (section) => section.tabIndex === MARKET_TAB_INDEX,
         );
-        const tokenSection = sectionsWithSliceData.find(
-          (section) => section.tabIndex === 3,
+        const prioritizedSecondarySection = sectionsWithSliceData.find(
+          (section) => section.tabIndex === PRIORITIZED_SECONDARY_TAB_INDEX,
         );
         const otherSections = sectionsWithSliceData.filter(
-          (section) => section.tabIndex !== 2 && section.tabIndex !== 3,
+          (section) =>
+            section.tabIndex !== MARKET_TAB_INDEX &&
+            section.tabIndex !== PRIORITIZED_SECONDARY_TAB_INDEX,
         );
 
         return marketSection
-          ? [marketSection, tokenSection, ...otherSections].filter(Boolean)
+          ? [
+              marketSection,
+              prioritizedSecondarySection,
+              ...otherSections,
+            ].filter(Boolean)
           : sectionsWithSliceData;
       }
 
