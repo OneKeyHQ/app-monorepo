@@ -78,19 +78,27 @@ const wrapTest = (original: TestFn): TestFn => {
 const makeEach =
   (testFn: TestFn) =>
   (table: ReadonlyArray<unknown>) =>
-  (name: string, fn: (...args: any[]) => void | Promise<void>, timeout?: number) => {
+  (
+    name: string,
+    // eslint-disable-next-line @typescript-eslint/no-shadow
+    fn: (...args: any[]) => void | Promise<void>,
+    timeout?: number,
+  ) => {
     for (const row of table) {
       const args = Array.isArray(row) ? row : [row];
       // Replace %s / %i / %j / %p placeholders with stringified values
       let title = name;
       let argIdx = 0;
       title = title.replace(/%[sijp]/g, () => {
-        const val = args[argIdx++];
+        const val = args[argIdx];
+        argIdx += 1;
         return typeof val === 'object' ? JSON.stringify(val) : String(val);
       });
       // Also replace $variable references for object rows
       if (!Array.isArray(row) && row && typeof row === 'object') {
-        for (const [key, val] of Object.entries(row as Record<string, unknown>)) {
+        for (const [key, val] of Object.entries(
+          row as Record<string, unknown>,
+        )) {
           title = title.replace(
             new RegExp(`\\$${key}`, 'g'),
             typeof val === 'object' ? JSON.stringify(val) : String(val),
@@ -313,6 +321,148 @@ const restoreAllMocks = () => {
   }
 };
 
+// ---- Fake timer implementation ----
+// Jest's fake timers replace setTimeout/setInterval/etc. with controllable
+// versions. We implement a minimal version here for harness compatibility.
+
+// eslint-disable-next-line @typescript-eslint/naming-convention
+type TimerEntry = {
+  callback: (...args: unknown[]) => void;
+  delay: number;
+  scheduledAt: number;
+  type: 'timeout' | 'interval';
+  args: unknown[];
+};
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+let _fakeTimersEnabled = false;
+let fakeNow = 0;
+let nextTimerId = 1;
+const pendingTimers = new Map<number, TimerEntry>();
+
+// Save originals
+const realSetTimeout = globalThis.setTimeout;
+const realClearTimeout = globalThis.clearTimeout;
+const realSetInterval = globalThis.setInterval;
+const realClearInterval = globalThis.clearInterval;
+const realDateNow = Date.now;
+
+const fakeSetTimeout = (
+  callback: (...args: unknown[]) => void,
+  delay = 0,
+  ...args: unknown[]
+): number => {
+  nextTimerId += 1;
+  const id = nextTimerId;
+  pendingTimers.set(id, {
+    callback,
+    delay,
+    scheduledAt: fakeNow,
+    type: 'timeout',
+    args,
+  });
+  return id;
+};
+
+const fakeClearTimeout = (id: number) => {
+  pendingTimers.delete(id);
+};
+
+const fakeSetInterval = (
+  callback: (...args: unknown[]) => void,
+  delay = 0,
+  ...args: unknown[]
+): number => {
+  nextTimerId += 1;
+  const id = nextTimerId;
+  pendingTimers.set(id, {
+    callback,
+    delay,
+    scheduledAt: fakeNow,
+    type: 'interval',
+    args,
+  });
+  return id;
+};
+
+const fakeClearInterval = (id: number) => {
+  pendingTimers.delete(id);
+};
+
+const installFakeTimers = () => {
+  _fakeTimersEnabled = true;
+  fakeNow = realDateNow();
+  pendingTimers.clear();
+  nextTimerId = 1;
+  (globalThis as any).setTimeout = fakeSetTimeout;
+  (globalThis as any).clearTimeout = fakeClearTimeout;
+  (globalThis as any).setInterval = fakeSetInterval;
+  (globalThis as any).clearInterval = fakeClearInterval;
+  Date.now = () => fakeNow;
+};
+
+const uninstallFakeTimers = () => {
+  _fakeTimersEnabled = false;
+  pendingTimers.clear();
+  globalThis.setTimeout = realSetTimeout;
+  globalThis.clearTimeout = realClearTimeout;
+  globalThis.setInterval = realSetInterval;
+  globalThis.clearInterval = realClearInterval;
+  Date.now = realDateNow;
+};
+
+const findEarliestTimer = (
+  maxFireAt?: number,
+): { id: number; entry: TimerEntry } | null => {
+  let earliest: { id: number; entry: TimerEntry } | null = null;
+  pendingTimers.forEach((entry, id) => {
+    const fireAt = entry.scheduledAt + entry.delay;
+    if (maxFireAt !== undefined && fireAt > maxFireAt) return;
+    const earliestFireAt = earliest
+      ? earliest.entry.scheduledAt + earliest.entry.delay
+      : Infinity;
+    if (fireAt < earliestFireAt) {
+      earliest = { id, entry };
+    }
+  });
+  return earliest;
+};
+
+const fireTimer = (timer: { id: number; entry: TimerEntry }) => {
+  fakeNow = timer.entry.scheduledAt + timer.entry.delay;
+  if (timer.entry.type === 'timeout') {
+    pendingTimers.delete(timer.id);
+    timer.entry.callback(...timer.entry.args);
+  } else {
+    // interval: reschedule then call
+    timer.entry.scheduledAt = fakeNow;
+    timer.entry.callback(...timer.entry.args);
+  }
+};
+
+const advanceTimersByTime = (ms: number) => {
+  const target = fakeNow + ms;
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const earliest = findEarliestTimer(target);
+    if (!earliest) {
+      fakeNow = target;
+      break;
+    }
+    fireTimer(earliest);
+  }
+};
+
+const runAllTimers = () => {
+  let safety = 10_000;
+  while (pendingTimers.size > 0 && safety > 0) {
+    safety -= 1;
+    const earliest = findEarliestTimer();
+    if (!earliest) break;
+    fireTimer(earliest);
+  }
+};
+
 // Override the harness jest-mock Proxy with a compat shim.
 // The patch to @react-native-harness/runtime makes the property configurable,
 // allowing this override.
@@ -363,6 +513,49 @@ Object.defineProperty(globalThis, 'jest', {
     },
     setTimeout: (_ms: number) => {
       // no-op: timeout configuration is not applicable in harness mode.
+    },
+    // Fake timer support
+    useFakeTimers: () => {
+      installFakeTimers();
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+      return (globalThis as any).jest;
+    },
+    useRealTimers: () => {
+      uninstallFakeTimers();
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+      return (globalThis as any).jest;
+    },
+    advanceTimersByTime,
+    advanceTimersByTimeAsync: async (ms: number) => {
+      advanceTimersByTime(ms);
+    },
+    runAllTimers,
+    runAllTimersAsync: async () => {
+      runAllTimers();
+    },
+    runOnlyPendingTimers: () => {
+      const current = [...pendingTimers.entries()];
+      for (const [id, entry] of current) {
+        const fireAt = entry.scheduledAt + entry.delay;
+        fakeNow = Math.max(fakeNow, fireAt);
+        if (entry.type === 'timeout') {
+          pendingTimers.delete(id);
+        } else {
+          entry.scheduledAt = fakeNow;
+        }
+        entry.callback(...entry.args);
+      }
+    },
+    clearAllTimers: () => {
+      pendingTimers.clear();
+    },
+    getTimerCount: () => pendingTimers.size,
+    setSystemTime: (now: number | Date) => {
+      fakeNow = typeof now === 'number' ? now : now.getTime();
+    },
+    // jest.isolateModules — no-op in Metro (single module registry)
+    isolateModules: (callback: () => void) => {
+      callback();
     },
   },
   writable: true,
