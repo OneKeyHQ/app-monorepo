@@ -29,6 +29,8 @@ export function usePerpsSharePrompt() {
   const [tradesData] = usePerpsTradesHistoryDataAtom();
   const { shareReferRewards } = useReferFriends();
   const hasShownRef = useRef(false);
+  const optedOutCacheRef = useRef<Record<string, boolean>>({});
+  const checkingRef = useRef(false);
   const prevAccountRef = useRef<string | null | undefined>(undefined);
 
   useEffect(() => {
@@ -62,7 +64,13 @@ export function usePerpsSharePrompt() {
 
   const checkAndShowPrompt = useCallback(async () => {
     const accountAddress = currentAccount?.accountAddress;
-    if (!accountAddress || hasShownRef.current) {
+    if (!accountAddress || hasShownRef.current || checkingRef.current) {
+      return;
+    }
+
+    const addressKey = accountAddress.toLowerCase();
+
+    if (optedOutCacheRef.current[addressKey]) {
       return;
     }
 
@@ -70,7 +78,7 @@ export function usePerpsSharePrompt() {
     if (
       !fills ||
       !tradesData?.isLoaded ||
-      tradesData?.accountAddress?.toLowerCase() !== accountAddress.toLowerCase()
+      tradesData?.accountAddress?.toLowerCase() !== addressKey
     ) {
       return;
     }
@@ -84,41 +92,54 @@ export function usePerpsSharePrompt() {
       return;
     }
 
-    const optedOut =
-      await backgroundApiProxy.simpleDb.perp.getReferralPromptOptedOut(
-        accountAddress,
-      );
-    if (optedOut) {
-      return;
+    checkingRef.current = true;
+    try {
+      const optedOut =
+        await backgroundApiProxy.simpleDb.perp.getReferralPromptOptedOut(
+          accountAddress,
+        );
+      if (optedOut) {
+        optedOutCacheRef.current[addressKey] = true;
+        return;
+      }
+
+      if (
+        hasShownRef.current ||
+        currentAccount?.accountAddress?.toLowerCase() !== addressKey
+      ) {
+        return;
+      }
+
+      hasShownRef.current = true;
+
+      Dialog.show({
+        icon: 'ShareOutline',
+        title: 'Enjoying Perps? Share it with friends',
+        showConfirmButton: true,
+        showCancelButton: true,
+        onCancelText: appLocale.intl.formatMessage({
+          id: ETranslations.global_later,
+        }),
+        onConfirmText: appLocale.intl.formatMessage({
+          id: ETranslations.explore_share,
+        }),
+        onCancel: () => {
+          void backgroundApiProxy.simpleDb.perp.setReferralPromptOptedOut(
+            accountAddress,
+            true,
+          );
+        },
+        onConfirm: () => {
+          void backgroundApiProxy.simpleDb.perp.setReferralPromptOptedOut(
+            accountAddress,
+            true,
+          );
+          void shareReferRewards(undefined, undefined, 'Perps', true);
+        },
+      });
+    } finally {
+      checkingRef.current = false;
     }
-
-    hasShownRef.current = true;
-
-    Dialog.show({
-      icon: 'ShareOutline',
-      title: 'Enjoying Perps? Share it with friends',
-      showConfirmButton: true,
-      showCancelButton: true,
-      onCancelText: appLocale.intl.formatMessage({
-        id: ETranslations.global_later,
-      }),
-      onConfirmText: appLocale.intl.formatMessage({
-        id: ETranslations.explore_share,
-      }),
-      onCancel: () => {
-        void backgroundApiProxy.simpleDb.perp.setReferralPromptOptedOut(
-          accountAddress,
-          true,
-        );
-      },
-      onConfirm: () => {
-        void backgroundApiProxy.simpleDb.perp.setReferralPromptOptedOut(
-          accountAddress,
-          true,
-        );
-        void shareReferRewards(undefined, undefined, 'Perps', true);
-      },
-    });
   }, [currentAccount?.accountAddress, tradesData, shareReferRewards]);
 
   useEffect(() => {
