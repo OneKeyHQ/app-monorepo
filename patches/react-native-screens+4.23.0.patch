@@ -292,7 +292,7 @@ index e37e40a..f76720e 100644
        afterTransitions();
        return;
      }
-@@ -624,16 +753,23 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -624,16 +753,25 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
                ? static_cast<RNSScreen *>(firstModalToBeDismissed).screenView.stackAnimation !=
                    RNSScreenStackAnimationNone
                : YES;
