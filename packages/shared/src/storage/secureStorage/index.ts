@@ -286,6 +286,10 @@ const storage: ISecureStorage = {
     return !!encryptedData;
   },
 
+  async supportSecureStorageWithoutInteraction(): Promise<boolean> {
+    return false;
+  },
+
   async setSecureItemWithBiometrics(
     key: string,
     data: string,
