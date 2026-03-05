@@ -72,6 +72,10 @@ if (typeof (globalThis as any).document === 'undefined') {
 if (typeof (globalThis as any).window === 'undefined') {
   (globalThis as any).window = globalThis;
 }
+// Minimal location stub — some modules access window.location at module scope.
+if (!(globalThis as any).location) {
+  (globalThis as any).location = { href: '', protocol: 'https:', host: '' };
+}
 
 // Polyfill TextDecoder/TextEncoder for Hermes.
 // Hermes may have a native TextDecoder that doesn't support the `fatal` option,
