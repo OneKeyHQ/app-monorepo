@@ -140,6 +140,11 @@ function BundleItem({
     try {
       if (alreadyDownloaded && !downloadedEventRef.current) {
         await BundleUpdate.verifyExtractedBundle(version, bundle.bundleVersion);
+        defaultLogger.app.jsBundleDev.installBundleResult({
+          version,
+          bundleVersion: bundle.bundleVersion,
+          success: true,
+        });
         await BundleUpdate.installBundle({
           latestVersion: version,
           bundleVersion: bundle.bundleVersion,
@@ -165,6 +170,11 @@ function BundleItem({
           skipGPGVerification,
         });
 
+        defaultLogger.app.jsBundleDev.installBundleResult({
+          version,
+          bundleVersion: bundle.bundleVersion,
+          success: true,
+        });
         await BundleUpdate.installBundle({
           ...downloadedEventRef.current,
           latestVersion: version,
