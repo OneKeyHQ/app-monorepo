@@ -2804,6 +2804,7 @@
   "perps.builder_max_error": "Falha ao aprovar a taxa do construtor.",
   "perps.buy_tip": "Preciso de mais {token}?",
   "perps.connection_error": "Erro de conexão de hardware. Por favor, verifique a conexão e tente novamente.",
+  "perps.enjoy_perps": "Gostando de Perps? Compartilhe com seus amigos.",
   "perps.fee_desc": "A taxa total consiste em duas partes: a taxa de negociação cobrada pela Hyperliquid e a taxa de builder da OneKey. a taxa de builder da OneKey é uma das mais baixas do setor, ajudando você a minimizar os custos de negociação.",
   "perps.fee_rate_projection": "Projeção",
   "perps.fee_tiers": "Níveis de taxas",
