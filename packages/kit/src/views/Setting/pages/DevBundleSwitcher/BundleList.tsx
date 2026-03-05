@@ -40,6 +40,7 @@ type IBundleInfo = {
   sha256: string;
   signature?: string;
   fileSize: number;
+  commitHash?: string;
   changeLog?: string;
 };
 
@@ -244,10 +245,17 @@ function BundleItem({
                 </Badge>
               ) : null}
             </XStack>
-            <SizableText size="$bodyXs" color="$textSubdued">
-              {formatFileSize(bundle.fileSize)}
-              {bundle.changeLog ? ` · ${bundle.changeLog}` : ''}
-            </SizableText>
+            <XStack alignItems="center" justifyContent="space-between" gap="$2">
+              <SizableText size="$bodyXs" color="$textSubdued" flex={1}>
+                {formatFileSize(bundle.fileSize)}
+                {bundle.changeLog ? ` · ${bundle.changeLog}` : ''}
+              </SizableText>
+              {bundle.commitHash ? (
+                <SizableText size="$bodyXs" color="$textSubdued">
+                  {bundle.commitHash.slice(0, 8)}
+                </SizableText>
+              ) : null}
+            </XStack>
           </YStack>
         </XStack>
 

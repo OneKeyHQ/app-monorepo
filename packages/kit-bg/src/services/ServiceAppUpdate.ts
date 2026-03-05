@@ -731,6 +731,7 @@ class ServiceAppUpdate extends ServiceBase {
       sha256: string;
       signature?: string;
       fileSize: number;
+      commitHash?: string;
       changeLog?: string;
     }[]
   > {
@@ -768,6 +769,7 @@ class ServiceAppUpdate extends ServiceBase {
           sha256: item.sha256,
           signature: item.signature || PLACEHOLDER_SIGNATURE,
           fileSize: item.fileSize,
+          commitHash: item.commitHash,
           changeLog: item.commitHash
             ? `${item.branch || ''} ${item.commitHash.slice(0, 8)}`.trim()
             : undefined,
