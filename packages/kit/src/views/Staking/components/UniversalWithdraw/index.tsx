@@ -992,6 +992,15 @@ export function UniversalWithdraw({
 
   const showWithdrawPathSelector =
     withdrawPathConfirmBoxes.length > 1 && !!selectedWithdrawPath;
+  const shouldShowPendleWithdrawProgress =
+    isPendleProvider &&
+    withdrawPathConfirmBoxes.length > 1 &&
+    networkId === getNetworkIdsMap().eth &&
+    !!amountValue &&
+    !isInvalidAmount(amountValue);
+  const isEthenaCooldownWithdrawPath =
+    shouldShowPendleWithdrawProgress &&
+    effectiveSelectedWithdrawPathIndex === 0;
 
   const withdrawPathPopoverRef = useRef<IWithdrawPathPopoverRef>({
     boxes: [],
@@ -1447,12 +1456,7 @@ export function UniversalWithdraw({
         </YStack>
       ) : null}
       {beforeFooter}
-      {isPendleProvider &&
-      withdrawPathConfirmBoxes.length > 1 &&
-      effectiveSelectedWithdrawPathIndex === 0 &&
-      networkId === getNetworkIdsMap().eth &&
-      amountValue &&
-      !isInvalidAmount(amountValue) ? (
+      {shouldShowPendleWithdrawProgress ? (
         <StakeProgress
           approveType={EApproveType.Legacy}
           currentStep={
@@ -1464,7 +1468,11 @@ export function UniversalWithdraw({
                 ) as EStakeProgressStep)
           }
           step2LabelId={ETranslations.global_swap}
-          step3LabelId={ETranslations.defi_unstake}
+          step3LabelId={
+            isEthenaCooldownWithdrawPath
+              ? ETranslations.defi_unstake
+              : undefined
+          }
         />
       ) : null}
       {isInModalContext ? (
