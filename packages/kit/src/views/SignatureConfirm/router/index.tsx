@@ -37,6 +37,11 @@ const TxDataInput = LazyLoadPage(
     import('@onekeyhq/kit/src/views/Send/pages/SendDataInput/SendDataInputContainer'),
 );
 
+const TxAmountInput = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Send/pages/SendAmountInput/SendAmountInputContainer'),
+);
+
 const TxReplace = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Send/pages/SendReplaceTx/SendReplaceTxContainer'),
@@ -100,6 +105,11 @@ export const ModalSignatureConfirmStack: IModalFlowNavigatorConfig<
   {
     name: EModalSignatureConfirmRoutes.TxDataInput,
     component: TxDataInput,
+  },
+
+  {
+    name: EModalSignatureConfirmRoutes.TxAmountInput,
+    component: TxAmountInput,
   },
 
   {

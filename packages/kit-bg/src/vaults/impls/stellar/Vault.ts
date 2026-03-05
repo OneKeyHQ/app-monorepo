@@ -4,6 +4,7 @@ import { isEmpty, isNaN, orderBy } from 'lodash';
 
 import type { StellarSdk } from '@onekeyhq/core/src/chains/stellar/sdkStellar';
 import type {
+  IDecodedTxExtraStellar,
   IEncodedTxStellar,
   IStellarAsset,
 } from '@onekeyhq/core/src/chains/stellar/types';
@@ -46,6 +47,7 @@ import type {
   IFeeInfoUnit,
   IServerEstimateFeeResponse,
 } from '@onekeyhq/shared/types/fee';
+import type { IOnChainHistoryTx } from '@onekeyhq/shared/types/history';
 import type {
   IFetchServerTokenDetailParams,
   IFetchServerTokenDetailResponse,
@@ -836,12 +838,25 @@ export default class Vault extends VaultBase {
           gasLimit: operationCount.toString(),
         },
       },
-      extraInfo: null,
+      extraInfo: params.transferPayload?.memo
+        ? { memo: params.transferPayload.memo }
+        : null,
       encodedTx,
       totalFeeInNative: totalFeeNative,
     };
 
     return decodedTx;
+  }
+
+  override buildOnChainHistoryTxExtraInfo({
+    onChainHistoryTx,
+  }: {
+    onChainHistoryTx: IOnChainHistoryTx;
+  }): Promise<IDecodedTxExtraStellar | null> {
+    if (!onChainHistoryTx.memo) return Promise.resolve(null);
+    return Promise.resolve({
+      memo: onChainHistoryTx.memo,
+    });
   }
 
   override async attachFeeInfoToDAppEncodedTx(_params: {
