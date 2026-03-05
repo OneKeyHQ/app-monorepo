@@ -46,12 +46,19 @@ export function usePerpsSharePrompt() {
     if (!accountAddress) {
       return;
     }
-    if (!tradesData?.isLoaded) {
+    if (
+      !tradesData?.isLoaded ||
+      tradesData?.accountAddress?.toLowerCase() !== accountAddress.toLowerCase()
+    ) {
       void backgroundApiProxy.serviceHyperliquid.loadTradesHistory(
         accountAddress,
       );
     }
-  }, [currentAccount?.accountAddress, tradesData?.isLoaded]);
+  }, [
+    currentAccount?.accountAddress,
+    tradesData?.isLoaded,
+    tradesData?.accountAddress,
+  ]);
 
   const checkAndShowPrompt = useCallback(async () => {
     const accountAddress = currentAccount?.accountAddress;
@@ -60,7 +67,11 @@ export function usePerpsSharePrompt() {
     }
 
     const fills = tradesData?.fills;
-    if (!fills || !tradesData?.isLoaded) {
+    if (
+      !fills ||
+      !tradesData?.isLoaded ||
+      tradesData?.accountAddress?.toLowerCase() !== accountAddress.toLowerCase()
+    ) {
       return;
     }
 
@@ -91,7 +102,15 @@ export function usePerpsSharePrompt() {
       onCancelText: appLocale.intl.formatMessage({
         id: ETranslations.global_later,
       }),
-      onConfirmText: 'Share Now',
+      onConfirmText: appLocale.intl.formatMessage({
+        id: ETranslations.explore_share,
+      }),
+      onCancel: () => {
+        void backgroundApiProxy.simpleDb.perp.setReferralPromptOptedOut(
+          accountAddress,
+          true,
+        );
+      },
       onConfirm: () => {
         void backgroundApiProxy.simpleDb.perp.setReferralPromptOptedOut(
           accountAddress,
