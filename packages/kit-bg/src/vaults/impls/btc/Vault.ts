@@ -1040,6 +1040,7 @@ export default class VaultBtc extends VaultBase {
       network: btcForkNetwork,
       changeAddress,
       txType,
+      sortingStrategy: transfersInfo[0]?.opReturn ? 'none' : undefined,
     });
 
     if (hasSelectedUtxos) {
