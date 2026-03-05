@@ -105,7 +105,7 @@ export function usePerpsSharePrompt() {
 
       if (
         hasShownRef.current ||
-        currentAccount?.accountAddress?.toLowerCase() !== addressKey
+        prevAccountRef.current?.toLowerCase() !== addressKey
       ) {
         return;
       }
@@ -115,8 +115,6 @@ export function usePerpsSharePrompt() {
       Dialog.show({
         icon: 'ShareOutline',
         title: 'Enjoying Perps? Share it with friends',
-        showConfirmButton: true,
-        showCancelButton: true,
         onCancelText: appLocale.intl.formatMessage({
           id: ETranslations.global_later,
         }),
