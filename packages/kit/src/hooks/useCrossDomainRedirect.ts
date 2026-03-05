@@ -14,18 +14,10 @@ import useAppNavigation from './useAppNavigation';
  *   the URL via WEBVIEW_NEW_WINDOW IPC event
  * - Native onShouldStartLoadWithRequest: intercepts top-frame navigation
  * - Native onOpenWindow: intercepts window.open() popups
- *
- * On Desktop, window.open() fires BOTH a webview 'new-window' DOM event
- * (handled by onOpenWindow via handleNewWindow) AND an IPC event. We use
- * a ref guard to ensure only the first handler to fire actually redirects,
- * preventing duplicate Discovery tabs.
  */
 export function useCrossDomainRedirect(initialUrl: string, enabled = true) {
   const navigation = useAppNavigation();
   const isUnmounting = useRef(false);
-  // Guard: on desktop, onOpenWindow (sync) fires before the IPC handler (async).
-  // The first handler sets this flag so the second one skips.
-  const desktopHandledRef = useRef(false);
 
   useEffect(
     () => () => {
@@ -62,10 +54,7 @@ export function useCrossDomainRedirect(initialUrl: string, enabled = true) {
     [navigation],
   );
 
-  // Desktop: intercept window.open() via Electron IPC (async fallback).
-  // On desktop, onOpenWindow fires first (sync via 'new-window' DOM event).
-  // This IPC handler acts as a fallback — it only redirects if onOpenWindow
-  // didn't already handle the event (checked via desktopHandledRef).
+  // Desktop: intercept window.open() via Electron IPC
   useEffect(() => {
     if (!enabled || !platformEnv.isDesktop) return;
     const handleDesktopNewWindow = (
@@ -74,10 +63,6 @@ export function useCrossDomainRedirect(initialUrl: string, enabled = true) {
     ) => {
       if (isUnmounting.current || !data.url) return;
       if (isCrossDomain(data.url)) {
-        if (desktopHandledRef.current) {
-          desktopHandledRef.current = false;
-          return;
-        }
         redirectToDiscovery(data.url);
       }
     };
@@ -106,15 +91,10 @@ export function useCrossDomainRedirect(initialUrl: string, enabled = true) {
     [isCrossDomain, redirectToDiscovery],
   );
 
-  // Intercept window.open() popups (all platforms).
-  // On desktop, this fires synchronously via the webview 'new-window' DOM event
-  // (before the async IPC handler). Sets desktopHandledRef so the IPC handler skips.
+  // Native: intercept window.open() popups
   const onOpenWindow = useCallback(
     (event: { nativeEvent: { targetUrl: string } }) => {
       if (isCrossDomain(event.nativeEvent.targetUrl)) {
-        if (platformEnv.isDesktop) {
-          desktopHandledRef.current = true;
-        }
         redirectToDiscovery(event.nativeEvent.targetUrl);
       }
     },
