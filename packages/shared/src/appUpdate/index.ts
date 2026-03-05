@@ -9,7 +9,11 @@ import type { IAppUpdateInfo } from './type';
 export * from './utils';
 export * from './type';
 
-// Read from platformEnv on each call so that mocked values take effect in tests.
+// Use getter functions instead of module-scope constants (e.g. `const APP_VERSION = platformEnv.version`).
+// Module-scope constants capture the value once at import time. In Metro's single module registry
+// (used by react-native-harness), modules cannot be re-evaluated, so jest.mock() mutations to
+// platformEnv would not take effect. Getter functions read the value on each call, allowing both
+// regular Jest mocks and harness in-place module mutations to work correctly.
 const getAppVersion = () => platformEnv.version ?? '1.0.0';
 const getAppBundleVersion = () => platformEnv.bundleVersion ?? '1';
 
