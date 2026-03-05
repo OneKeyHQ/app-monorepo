@@ -275,6 +275,10 @@ const storage: ISecureStorage = {
     if (platformEnv.isExtensionBackground) {
       return false;
     }
+    // Only enable PRF-based secure storage for extension UI, not bare web platform
+    if (!platformEnv.isExtension) {
+      return false;
+    }
     return isPrfSupported();
   },
 
