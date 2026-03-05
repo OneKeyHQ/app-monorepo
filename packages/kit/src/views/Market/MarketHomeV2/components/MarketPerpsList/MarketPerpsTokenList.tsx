@@ -68,11 +68,13 @@ function usePerpsColumnsDesktop(): ITableColumn<IMarketPerpsToken>[] {
                 fallbackIcon="CryptoCoinOutline"
               />
               <Stack flex={1} minWidth={0}>
-                <XStack alignItems="center" gap="$1">
+                <XStack alignItems="center" gap="$1" minWidth={0}>
                   <SizableText
                     size="$bodyLgMedium"
                     numberOfLines={1}
                     maxWidth="$32"
+                    flexShrink={1}
+                    ellipsizeMode="tail"
                     userSelect="none"
                   >
                     {record.displayName}
@@ -257,12 +259,14 @@ function usePerpsColumnsMobile(): ITableColumn<IMarketPerpsToken>[] {
               tokenImageUri={record.tokenImageUrl}
               fallbackIcon="CryptoCoinOutline"
             />
-            <YStack>
-              <XStack alignItems="center" gap="$1">
+            <YStack flex={1} minWidth={0}>
+              <XStack alignItems="center" gap="$1" minWidth={0}>
                 <SizableText
                   size="$bodyLgMedium"
                   numberOfLines={1}
                   maxWidth="$32"
+                  flexShrink={1}
+                  ellipsizeMode="tail"
                   userSelect="none"
                 >
                   {record.displayName}
