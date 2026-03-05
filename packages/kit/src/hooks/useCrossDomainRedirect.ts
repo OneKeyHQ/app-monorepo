@@ -93,9 +93,11 @@ export function useCrossDomainRedirect(initialUrl: string, enabled = true) {
     [isCrossDomain, redirectToDiscovery],
   );
 
-  // Native: intercept window.open() popups
+  // Native-only: intercept window.open() popups.
+  // On desktop, the IPC handler + useDesktopNewWindow already handle this.
   const onOpenWindow = useCallback(
     (event: { nativeEvent: { targetUrl: string } }) => {
+      if (platformEnv.isDesktop) return;
       if (isCrossDomain(event.nativeEvent.targetUrl)) {
         redirectToDiscovery(event.nativeEvent.targetUrl);
       }
