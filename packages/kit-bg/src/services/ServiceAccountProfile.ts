@@ -540,10 +540,12 @@ class ServiceAccountProfile extends ServiceBase {
 
       // For EVM networks, override interaction status with transfer-recipient data
       // so that cross-chain transfers are recognized as "previously transferred"
+      // Skip if badges API already confirmed interaction
       if (
         enableAddressInteractionStatus &&
         accountId &&
-        networkUtils.isEvmNetwork({ networkId })
+        networkUtils.isEvmNetwork({ networkId }) &&
+        result.addressInteractionStatus !== EAddressInteractionStatus.INTERACTED
       ) {
         try {
           const targetLower = resolveAddress.toLowerCase();
