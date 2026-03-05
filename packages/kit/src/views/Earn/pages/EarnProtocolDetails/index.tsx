@@ -708,6 +708,9 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
 
   // Use custom hook for breadcrumb management
   const { breadcrumbProps } = useProtocolDetailBreadcrumb({
+    accountReady: activeAccount.ready,
+    accountId,
+    networkId,
     symbol,
     provider,
     tokenInfo,
