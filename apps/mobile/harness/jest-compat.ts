@@ -130,12 +130,16 @@ const forceDelete = (obj: Record<string, unknown>, key: string) => {
   try {
     delete obj[key];
   } catch {
-    Object.defineProperty(obj, key, {
-      value: undefined,
-      writable: true,
-      configurable: true,
-      enumerable: false,
-    });
+    try {
+      Object.defineProperty(obj, key, {
+        value: undefined,
+        writable: true,
+        configurable: true,
+        enumerable: false,
+      });
+    } catch {
+      // Property is non-configurable — nothing we can do
+    }
   }
 };
 
