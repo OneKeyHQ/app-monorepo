@@ -46,7 +46,8 @@ import { SwapPanelWrap } from '../components/SwapPanel/SwapPanelWrap';
 import { useTokenDetail } from '../hooks/useTokenDetail';
 
 export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
-  const { tokenAddress, networkId, tokenDetail, websocketConfig } = useTokenDetail();
+  const { tokenAddress, networkId, tokenDetail, websocketConfig } =
+    useTokenDetail();
   const intl = useIntl();
 
   const { accountAddress, xpub } = useNetworkAccount(networkId);
@@ -129,10 +130,13 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
     return 'calc(100vh - 96px - 74px - 250px)';
   }, [height]);
 
-  const handleSecondTabTouchStart = useCallback((event: GestureResponderEvent) => {
-    const { pageX, pageY } = event.nativeEvent;
-    secondTabTouchStartRef.current = { pageX, pageY };
-  }, []);
+  const handleSecondTabTouchStart = useCallback(
+    (event: GestureResponderEvent) => {
+      const { pageX, pageY } = event.nativeEvent;
+      secondTabTouchStartRef.current = { pageX, pageY };
+    },
+    [],
+  );
 
   const handleSecondTabTouchEnd = useCallback(
     (event: GestureResponderEvent) => {
