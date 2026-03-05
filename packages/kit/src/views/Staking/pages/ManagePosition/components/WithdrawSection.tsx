@@ -61,7 +61,7 @@ export const WithdrawSection = ({
   borrowMarketAddress,
   borrowReserveAddress,
   borrowAction,
-  borrowReserves,
+  borrowReserves: _borrowReserves,
   defaultCollateralReserveAddress,
   borrowActionLabel,
   receiveInputConfig,
@@ -251,49 +251,9 @@ export const WithdrawSection = ({
     },
   );
 
-  const { result: nativeTokenDetail } = usePromiseResult(
-    async () => {
-      if (
-        !hasRequiredData ||
-        !isPendleProvider ||
-        useBorrowApi ||
-        !accountId ||
-        !networkId
-      ) {
-        return undefined;
-      }
-      return backgroundApiProxy.serviceToken.getNativeToken({
-        accountId,
-        networkId,
-      });
-    },
-    [hasRequiredData, isPendleProvider, useBorrowApi, accountId, networkId],
-    {
-      watchLoading: true,
-    },
-  );
-
-  const nativeFallbackReceiveAsset = useMemo<IEarnTokenItem | undefined>(() => {
-    if (!nativeTokenDetail) {
-      return undefined;
-    }
-    return {
-      balance: '0',
-      balanceParsed: '0',
-      fiatValue: '0',
-      price: '0',
-      price24h: '0',
-      info: nativeTokenDetail,
-    };
-  }, [nativeTokenDetail]);
-
   const selectableReceiveAssets = useMemo(() => {
-    const assets = unstakeAssetsList?.assets ?? [];
-    if (assets.length > 0) {
-      return assets;
-    }
-    return nativeFallbackReceiveAsset ? [nativeFallbackReceiveAsset] : [];
-  }, [unstakeAssetsList?.assets, nativeFallbackReceiveAsset]);
+    return unstakeAssetsList?.assets ?? [];
+  }, [unstakeAssetsList?.assets]);
 
   useEffect(() => {
     if (!isPendleProvider || useBorrowApi) {
@@ -694,7 +654,7 @@ export const WithdrawSection = ({
   );
 
   const collateralAssets = useMemo(() => {
-    const suppliedAssets = borrowReserves?.supplied?.assets ?? [];
+    const suppliedAssets = _borrowReserves?.supplied?.assets ?? [];
     return suppliedAssets
       .filter((item) => item.canBeCollateral)
       .map((item) => ({
@@ -705,7 +665,7 @@ export const WithdrawSection = ({
           description: item.suppliedAmount.description,
         },
       }));
-  }, [borrowReserves?.supplied?.assets]);
+  }, [_borrowReserves?.supplied?.assets]);
 
   const onBorrowRepayWithCollateralConfirm = useCallback(
     async ({
@@ -851,6 +811,12 @@ export const WithdrawSection = ({
           isInModalContext={isInModalContext}
           collateralAssets={collateralAssets}
           defaultCollateralReserveAddress={defaultCollateralReserveAddress}
+          debtBalance={
+            protocolInfo?.debtBalance !== undefined
+              ? (selectedAsset?.borrowed?.title?.text ??
+                protocolInfo.debtBalance)
+              : undefined
+          }
         />
       );
     } else {

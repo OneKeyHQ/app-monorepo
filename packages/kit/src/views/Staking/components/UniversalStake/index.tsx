@@ -1470,6 +1470,9 @@ export function UniversalStake({
     quoteLoading,
   ]);
 
+  const shouldShowSummaryCard =
+    !isDisabled && (!isPendleProvider || Number(amountValue) > 0);
+
   return (
     <StakingFormWrapper>
       <Stack position="relative">
@@ -1585,7 +1588,7 @@ export function UniversalStake({
         </>
       ) : null}
 
-      {!isDisabled ? (
+      {shouldShowSummaryCard ? (
         <YStack
           p="$3.5"
           pt={hasSummarySection ? '$5' : '$3.5'}

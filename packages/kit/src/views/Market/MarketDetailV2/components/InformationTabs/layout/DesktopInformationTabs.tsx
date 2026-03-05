@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import { Tabs, YStack } from '@onekeyhq/components';
 import { isHoldersTabSupported } from '@onekeyhq/shared/src/consts/marketConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   NUMBER_FORMATTER,
   formatDisplayNumber,
@@ -139,6 +140,7 @@ export function DesktopInformationTabs({
       key={tabsKey}
       renderTabBar={renderTabBar}
       onTabChange={handleTabChange}
+      disableScroll={!platformEnv.isNative}
     >
       {tabs}
     </Tabs.Container>
