@@ -26,13 +26,6 @@ export default {
     // mocks — impossible in Metro's single module registry. They have since been refactored to use
     // jest.mock() with mutable objects (and production code changed to getter functions), making
     // them fully compatible with the harness environment.
-    // Tests using renderHook from @testing-library/react — renderHook renders
-    // real React components, and our fake timer shim replaces global setTimeout
-    // which React's scheduler also relies on. This causes infinite re-render
-    // loops on device. These tests run fine in regular Jest which uses
-    // @sinonjs/fake-timers with React scheduler integration.
-    'packages/kit/src/components/UpdateReminder/hooks\\.test\\.ts',
-    'packages/kit/src/provider/SplashProvider\\.test\\.ts',
     // Same chain ignores as root jest.config.js
     'packages/core/src/chains/ada',
     'packages/core/src/chains/algo',

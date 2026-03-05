@@ -10,4 +10,5 @@
 import './harness/polyfills';
 // eslint-disable-next-line import/order
 import './harness/jest-compat';
+import './harness/testing-lib-mock';
 import './harness/snapshots';

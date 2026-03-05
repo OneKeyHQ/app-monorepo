@@ -35,6 +35,44 @@ if (platformEnvObj && typeof platformEnvObj === 'object') {
   platformEnvObj.isJest = true;
 }
 
+// Completely disable LogBox in harness mode. LogBox monkey-patches console.error
+// and console.warn, processing each call by updating React state in
+// LogBoxStateSubscription. This creates an infinite loop when combined with
+// React's act() warnings: act() warning → console.error → LogBox state update
+// (outside act) → another act() warning → repeat forever.
+//
+// ignoreAllLogs(true) only hides the UI; LogBox still intercepts console and
+// updates state. uninstall() removes the console monkey-patches entirely.
+try {
+  const { LogBox } = require('react-native');
+  if (LogBox) {
+    if (typeof LogBox.ignoreAllLogs === 'function') {
+      LogBox.ignoreAllLogs(true);
+    }
+    if (typeof LogBox.uninstall === 'function') {
+      LogBox.uninstall();
+    }
+  }
+} catch {
+  // LogBox not available — safe to ignore
+}
+
+// Polyfill document/window for Hermes. Many web-oriented modules
+// (useVisibilityChange, @testing-library/react, etc.) access document/window
+// without guards. On device these globals don't exist and Hermes throws
+// "Property 'document' doesn't exist". A minimal stub prevents crashes.
+if (typeof (globalThis as any).document === 'undefined') {
+  (globalThis as any).document = {
+    visibilityState: 'visible' as const,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    createElement: (tag: string) => ({ tagName: tag }),
+  };
+}
+if (typeof (globalThis as any).window === 'undefined') {
+  (globalThis as any).window = globalThis;
+}
+
 // Polyfill TextDecoder/TextEncoder for Hermes.
 // Hermes may have a native TextDecoder that doesn't support the `fatal` option,
 // which causes "Failed to construct 'TextDecoder': the 'fatal' option is unsupported"

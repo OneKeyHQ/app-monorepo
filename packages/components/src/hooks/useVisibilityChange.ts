@@ -13,7 +13,10 @@ export const getCurrentVisibilityState = (): boolean => {
   if (platformEnv.isDesktop) {
     return globalThis.desktopApi.isFocused();
   }
-  return document.visibilityState === 'visible';
+  if (typeof document !== 'undefined') {
+    return document.visibilityState === 'visible';
+  }
+  return true;
 };
 export const onVisibilityStateChange = (
   callback: (visible: boolean) => void,
@@ -32,6 +35,9 @@ export const onVisibilityStateChange = (
       callback(state === 'active');
     });
     return removeSubscription;
+  }
+  if (typeof document === 'undefined' || typeof window === 'undefined') {
+    return () => {};
   }
   const handleVisibilityStateChange = () => {
     callback(document.visibilityState === 'visible');

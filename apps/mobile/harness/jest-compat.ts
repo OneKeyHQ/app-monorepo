@@ -341,11 +341,23 @@ const realSetInterval = globalThis.setInterval;
 const realClearInterval = globalThis.clearInterval;
 const realDateNow = Date.now;
 
+// Track IDs returned by realSetTimeout so clearTimeout can cancel them.
+const realTimerIds = new Set<number>();
+
 const fakeSetTimeout = (
   cb: (...a: unknown[]) => void,
   delay = 0,
   ...args: unknown[]
 ): number => {
+  // Pass through zero-delay timeouts to the real setTimeout so React's
+  // internal scheduler (which uses setTimeout(cb, 0) for batching) keeps
+  // working. Only intercept timers with actual delay — those are the ones
+  // tests want to control via advanceTimersByTime / runAllTimers.
+  if (delay <= 0) {
+    const id = realSetTimeout(cb, 0, ...args) as unknown as number;
+    realTimerIds.add(id);
+    return id;
+  }
   nextId += 1;
   timers.set(nextId, { cb, delay, at: fakeNow, kind: 'timeout', args });
   return nextId;
@@ -408,9 +420,18 @@ const runAllTimers = () => {
 const installFakeTimers = () => {
   fakeNow = realDateNow();
   timers.clear();
+  realTimerIds.clear();
   nextId = 1;
   (globalThis as any).setTimeout = fakeSetTimeout;
-  (globalThis as any).clearTimeout = (id: number) => timers.delete(id);
+  (globalThis as any).clearTimeout = (id: number) => {
+    // Handle both real pass-through timers and fake queued timers
+    if (realTimerIds.has(id)) {
+      realTimerIds.delete(id);
+      realClearTimeout(id as unknown as ReturnType<typeof setTimeout>);
+    } else {
+      timers.delete(id);
+    }
+  };
   (globalThis as any).setInterval = fakeSetInterval;
   (globalThis as any).clearInterval = (id: number) => timers.delete(id);
   Date.now = () => fakeNow;
@@ -418,6 +439,7 @@ const installFakeTimers = () => {
 
 const uninstallFakeTimers = () => {
   timers.clear();
+  realTimerIds.clear();
   globalThis.setTimeout = realSetTimeout;
   globalThis.clearTimeout = realClearTimeout;
   globalThis.setInterval = realSetInterval;

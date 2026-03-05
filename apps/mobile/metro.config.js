@@ -116,9 +116,17 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
 // for harness and vitest packages that Metro can't handle with unstable_enablePackageExports=false.
 // Also map lodash-es to lodash (matching Jest's moduleNameMapper for test compatibility).
 if (process.env.RN_HARNESS === 'true') {
+  // Redirect react-dom to an empty stub. @testing-library/react imports react-dom
+  // which crashes on device (no DOM). The babel plugin redirects the test file's
+  // import of @testing-library/react, but Metro still bundles the transitive dep.
+  const reactDomStub = path.resolve(projectRoot, 'harness/react-dom-stub.js');
   const subpathPrefixes = ['@react-native-harness/', '@vitest/'];
   const prevResolveRequest = config.resolver.resolveRequest;
   config.resolver.resolveRequest = (context, moduleName, platform) => {
+    // Stub out react-dom and its subpaths (react-dom/client, react-dom/server, etc.)
+    if (moduleName === 'react-dom' || moduleName.startsWith('react-dom/')) {
+      return { type: 'sourceFile', filePath: reactDomStub };
+    }
     // Handle absolute paths from monorepo root (e.g., /packages/core/src/...)
     // These come from Harness test bundle requests after URL rewriting
     if (moduleName.startsWith('/packages/')) {

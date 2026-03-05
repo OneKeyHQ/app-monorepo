@@ -12,6 +12,9 @@
 // - jest.resetModules()         -> (removed, Metro shares a single module registry)
 // - jest.requireActual('x')    -> require('x')
 // - jest.requireMock('x')      -> require('x')
+// - import { renderHook, act } from '@testing-library/react'
+//     -> const { renderHook, act } = globalThis.__harness_testing_lib__
+//   (avoids loading react-dom which crashes on device)
 
 module.exports = function ({ types: t }) {
   if (process.env.RN_HARNESS !== 'true') {
@@ -21,6 +24,50 @@ module.exports = function ({ types: t }) {
   return {
     name: 'babel-plugin-jest-compat',
     visitor: {
+      // Redirect @testing-library/react imports to our harness-compatible
+      // global. This avoids loading react-dom (which crashes on device).
+      // import { renderHook, act } from '@testing-library/react'
+      //   -> const { renderHook, act } = globalThis.__harness_testing_lib__
+      ImportDeclaration(path) {
+        if (path.node.source.value !== '@testing-library/react') return;
+
+        const specifiers = path.node.specifiers;
+        if (!specifiers.length) {
+          path.remove();
+          return;
+        }
+
+        // Build destructuring: const { renderHook, act } = globalThis.__harness_testing_lib__
+        const properties = specifiers
+          .filter((s) => t.isImportSpecifier(s))
+          .map((s) =>
+            t.objectProperty(
+              t.identifier(s.imported.name || s.imported.value),
+              t.identifier(s.local.name),
+              false,
+              s.imported.name === s.local.name ||
+                s.imported.value === s.local.name,
+            ),
+          );
+
+        if (properties.length === 0) {
+          path.remove();
+          return;
+        }
+
+        path.replaceWith(
+          t.variableDeclaration('const', [
+            t.variableDeclarator(
+              t.objectPattern(properties),
+              t.memberExpression(
+                t.identifier('globalThis'),
+                t.identifier('__harness_testing_lib__'),
+              ),
+            ),
+          ]),
+        );
+      },
+
       ExpressionStatement(path) {
         const expr = path.node.expression;
         if (!t.isCallExpression(expr)) return;
