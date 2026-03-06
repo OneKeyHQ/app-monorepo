@@ -84,7 +84,13 @@ export const useColumnsDesktop = (
       columnWidth: 200,
       render: (_: unknown, record: IMarketToken) =>
         record.perpsCoin ? (
-          <XStack alignItems="center" gap="$3" userSelect="none">
+          <XStack
+            alignItems="center"
+            gap="$3"
+            userSelect="none"
+            minWidth={0}
+            overflow="hidden"
+          >
             <Token
               size="md"
               borderRadius="$full"
@@ -92,11 +98,13 @@ export const useColumnsDesktop = (
               fallbackIcon="CryptoCoinOutline"
             />
             <Stack flex={1} minWidth={0}>
-              <XStack alignItems="center" gap="$1">
+              <XStack alignItems="center" gap="$1" minWidth={0}>
                 <SizableText
                   size="$bodyLgMedium"
                   numberOfLines={1}
                   maxWidth="$32"
+                  flexShrink={1}
+                  ellipsizeMode="tail"
                 >
                   {record.symbol}
                 </SizableText>

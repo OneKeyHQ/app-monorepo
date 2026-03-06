@@ -43,7 +43,14 @@ export const useColumnsMobile = (): ITableColumn<IMarketToken>[] => {
       render: (_, record: IMarketToken) => {
         if (record.perpsCoin) {
           return (
-            <XStack alignItems="center" gap="$3" ml="$5" userSelect="none">
+            <XStack
+              alignItems="center"
+              gap="$3"
+              ml="$5"
+              userSelect="none"
+              minWidth={0}
+              overflow="hidden"
+            >
               <Token
                 size="md"
                 borderRadius="$full"
@@ -51,11 +58,13 @@ export const useColumnsMobile = (): ITableColumn<IMarketToken>[] => {
                 fallbackIcon="CryptoCoinOutline"
               />
               <Stack flex={1} minWidth={0}>
-                <XStack alignItems="center" gap="$1">
+                <XStack alignItems="center" gap="$1" minWidth={0}>
                   <SizableText
                     size="$bodyLgMedium"
                     numberOfLines={1}
                     maxWidth="$32"
+                    flexShrink={1}
+                    ellipsizeMode="tail"
                   >
                     {record.symbol}
                   </SizableText>
