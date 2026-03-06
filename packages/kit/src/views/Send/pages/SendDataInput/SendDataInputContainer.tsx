@@ -22,7 +22,6 @@ import {
   useForm,
   useMedia,
 } from '@onekeyhq/components';
-import { BaseInput } from '@onekeyhq/kit/src/components/BaseInput';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import {
@@ -30,6 +29,7 @@ import {
   type IAddressInputValue,
 } from '@onekeyhq/kit/src/components/AddressInput';
 import { renderAddressSecurityHeaderRightButton } from '@onekeyhq/kit/src/components/AddressInput/AddressSecurityHeaderRightButton';
+import { BaseInput } from '@onekeyhq/kit/src/components/BaseInput';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
@@ -44,8 +44,14 @@ import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type { IModalSignatureConfirmParamList } from '@onekeyhq/shared/src/routes';
-import { EModalSignatureConfirmRoutes } from '@onekeyhq/shared/src/routes';
+import type {
+  IModalSendParamList,
+  IModalSignatureConfirmParamList,
+} from '@onekeyhq/shared/src/routes';
+import {
+  EModalSendRoutes,
+  EModalSignatureConfirmRoutes,
+} from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -78,22 +84,29 @@ interface IFormValues {
   txMessage: string;
 }
 
+type ISendInputFlowParamList = IModalSendParamList &
+  IModalSignatureConfirmParamList;
+type ISendDataInputRouteName =
+  | EModalSendRoutes.SendDataInput
+  | EModalSignatureConfirmRoutes.TxDataInput;
+type ISendAmountInputParams =
+  IModalSignatureConfirmParamList[EModalSignatureConfirmRoutes.TxAmountInput];
+
 function SendDataInputContainer() {
   const intl = useIntl();
   const media = useMedia();
 
   const [settings] = useSettingsPersistAtom();
   const navigation =
-    useAppNavigation<IPageNavigationProp<IModalSignatureConfirmParamList>>();
+    useAppNavigation<IPageNavigationProp<ISendInputFlowParamList>>();
 
   const addressInputChangeType = useRef(EInputAddressChangeType.Manual);
   const route =
-    useRoute<
-      RouteProp<
-        IModalSignatureConfirmParamList,
-        EModalSignatureConfirmRoutes.TxDataInput
-      >
-    >();
+    useRoute<RouteProp<ISendInputFlowParamList, ISendDataInputRouteName>>();
+  const amountInputRouteName =
+    route.name === EModalSendRoutes.SendDataInput
+      ? EModalSendRoutes.SendAmountInput
+      : EModalSignatureConfirmRoutes.TxAmountInput;
 
   const { serviceNFT, serviceToken } = backgroundApiProxy;
 
@@ -123,6 +136,17 @@ function SendDataInputContainer() {
   >('recent');
   const [hasQuickSelectMatches, setHasQuickSelectMatches] = useState(false);
   const [scannedAmount, setScannedAmount] = useState('');
+
+  const pushAmountInput = useCallback(
+    (params: ISendAmountInputParams) => {
+      if (amountInputRouteName === EModalSendRoutes.SendAmountInput) {
+        navigation.push(EModalSendRoutes.SendAmountInput, params);
+        return;
+      }
+      navigation.push(EModalSignatureConfirmRoutes.TxAmountInput, params);
+    },
+    [amountInputRouteName, navigation],
+  );
 
   const { account, network, vaultSettings } = useAccountData({
     accountId: currentAccount.accountId,
@@ -312,23 +336,22 @@ function SendDataInputContainer() {
       const isValid = await form.trigger();
       if (!isValid) return;
 
-      const memoValue = form.getValues('memo');
-      const paymentIdValue = form.getValues('paymentId');
-      const noteValue = form.getValues('note');
+      const nextMemoValue = form.getValues('memo');
+      const nextPaymentIdValue = form.getValues('paymentId');
+      const nextNoteValue = form.getValues('note');
 
-      // Use navigation.push() following the same pattern as SwapTokenSelectModal
-      // Use TxAmountInput route since we're in SignatureConfirmModal
+      // Reuse the matching amount-input route for the active modal stack.
       const toVal = form.getValues('to') as IAddressInputValue | undefined;
-      navigation.push(EModalSignatureConfirmRoutes.TxAmountInput, {
+      pushAmountInput({
         networkId: currentAccount.networkId,
         accountId: currentAccount.accountId,
         isNFT,
         token: tokenInfo,
         nfts,
         recipientAddress: toResolved,
-        recipientMemo: memoValue || undefined,
-        recipientPaymentId: paymentIdValue || undefined,
-        recipientNote: noteValue || undefined,
+        recipientMemo: nextMemoValue || undefined,
+        recipientPaymentId: nextPaymentIdValue || undefined,
+        recipientNote: nextNoteValue || undefined,
         recipientIsContract: toVal?.isContract,
         amount: scannedAmount || sendAmount || undefined,
         isAllNetworks,
@@ -342,7 +365,7 @@ function SendDataInputContainer() {
   }, [
     toResolved,
     form,
-    navigation,
+    pushAmountInput,
     scannedAmount,
     sendAmount,
     currentAccount.networkId,
@@ -777,24 +800,21 @@ function SendDataInputContainer() {
                         validation.normalizedAddress ||
                         selectedAddress;
 
-                      navigation.push(
-                        EModalSignatureConfirmRoutes.TxAmountInput,
-                        {
-                          networkId: currentAccount.networkId,
-                          accountId: currentAccount.accountId,
-                          isNFT,
-                          token: tokenInfo,
-                          nfts,
-                          recipientAddress: resolvedAddress,
-                          recipientMemo: selectedMemo || undefined,
-                          recipientNote: selectedNote || undefined,
-                          amount: scannedAmount || sendAmount || undefined,
-                          isAllNetworks,
-                          onSuccess,
-                          onFail,
-                          onCancel,
-                        },
-                      );
+                      pushAmountInput({
+                        networkId: currentAccount.networkId,
+                        accountId: currentAccount.accountId,
+                        isNFT,
+                        token: tokenInfo,
+                        nfts,
+                        recipientAddress: resolvedAddress,
+                        recipientMemo: selectedMemo || undefined,
+                        recipientNote: selectedNote || undefined,
+                        amount: scannedAmount || sendAmount || undefined,
+                        isAllNetworks,
+                        onSuccess,
+                        onFail,
+                        onCancel,
+                      });
                     } catch {
                       // Validation failed — fall back to filling input
                       form.setValue('to.raw', selectedAddress);

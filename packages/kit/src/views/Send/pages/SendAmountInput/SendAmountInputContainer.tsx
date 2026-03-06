@@ -76,6 +76,28 @@ interface IAmountFormValues {
   txMessage: string;
 }
 
+const FIAT_INPUT_DECIMALS = 2;
+const FIAT_INPUT_MAX_INTEGER_DIGITS = 12;
+
+const sanitizeFiatInputText = (value: string) => {
+  if (!value) return value;
+
+  const normalized = value.replace(/。/g, '.').replace(/[^\d.]/g, '');
+  const [integerPart = '', ...decimalParts] = normalized.split('.');
+  const clampedIntegerPart = integerPart.slice(
+    0,
+    FIAT_INPUT_MAX_INTEGER_DIGITS,
+  );
+
+  if (decimalParts.length === 0) {
+    return clampedIntegerPart;
+  }
+
+  return `${clampedIntegerPart}.${decimalParts
+    .join('')
+    .slice(0, FIAT_INPUT_DECIMALS)}`;
+};
+
 function SendAmountInputContainer() {
   const intl = useIntl();
   const _media = useMedia();
@@ -287,7 +309,7 @@ function SendAmountInputContainer() {
       );
       return balanceInToken.times(tokenDetails.price).toFixed();
     }
-    return tokenDetails.fiatValue;
+    return tokenDetails.fiatValue ?? '0';
   }, [tokenDetails, currentSelectedUtxoInfo?.totalValue]);
 
   const linkedAmount = useMemo(() => {
@@ -324,6 +346,8 @@ function SendAmountInputContainer() {
       if (!valueBN.isNaN() && (valueBN.decimalPlaces() ?? 0) > decimals) {
         amountValue = valueBN.toFixed(decimals, BigNumber.ROUND_FLOOR);
       }
+    } else if (amountValue) {
+      amountValue = sanitizeFiatInputText(amountValue);
     }
     setIsUseFiat((prev) => !prev);
     form.setValue('amount', amountValue);
@@ -351,17 +375,23 @@ function SendAmountInputContainer() {
         });
       }
 
-      let amountBN = new BigNumber(value);
+      const amountBN = new BigNumber(value);
       if (amountBN.isNaN() || amountBN.isNegative()) {
         return intl.formatMessage({
           id: ETranslations.send_amount_invalid,
         });
       }
 
-      // Convert Lightning BTC to sats for validation
+      const priceBN = new BigNumber(tokenDetails?.price ?? 0);
+      const tokenAmountBN =
+        isUseFiat && priceBN.isGreaterThan(0)
+          ? amountBN.dividedBy(priceBN)
+          : amountBN;
+
+      let amountBNForValidation = tokenAmountBN;
       if (isLightningNetwork && lnUnit === ELightningUnit.BTC) {
-        amountBN = new BigNumber(
-          chainValueUtils.convertBtcToSats(amountBN.toFixed()),
+        amountBNForValidation = new BigNumber(
+          chainValueUtils.convertBtcToSats(tokenAmountBN.toFixed()),
         );
       }
 
@@ -376,8 +406,8 @@ function SendAmountInputContainer() {
       if (
         !isUseFiat &&
         !new BigNumber(minTransferAmount).isZero() &&
-        amountBN.isLessThan(minTransferAmount) &&
-        !amountBN.isZero()
+        amountBNForValidation.isLessThan(minTransferAmount) &&
+        !amountBNForValidation.isZero()
       ) {
         return intl.formatMessage(
           { id: ETranslations.send_error_minimum_amount },
@@ -387,10 +417,10 @@ function SendAmountInputContainer() {
 
       if (
         isUseFiat &&
-        tokenDetails?.price &&
+        priceBN.isGreaterThan(0) &&
         !new BigNumber(minTransferAmount).isZero() &&
-        amountBN.dividedBy(tokenDetails.price).isLessThan(minTransferAmount) &&
-        !amountBN.isZero()
+        tokenAmountBN.isLessThan(minTransferAmount) &&
+        !tokenAmountBN.isZero()
       ) {
         return intl.formatMessage(
           { id: ETranslations.send_error_minimum_amount },
@@ -402,7 +432,7 @@ function SendAmountInputContainer() {
       if (
         !isNFT &&
         isNative &&
-        amountBN.isZero() &&
+        tokenAmountBN.isZero() &&
         !vaultSettings?.transferZeroNativeTokenEnabled
       ) {
         return intl.formatMessage({
@@ -415,7 +445,7 @@ function SendAmountInputContainer() {
         await backgroundApiProxy.serviceValidator.validateSendAmount({
           accountId: currentAccountId,
           networkId,
-          amount: amountBN.toFixed(),
+          amount: amountBNForValidation.toFixed(),
           tokenBalance: maxBalance,
           to: recipientAddress ?? '',
           isNative,
@@ -506,18 +536,23 @@ function SendAmountInputContainer() {
 
   const onSelectPercentageStage = useCallback(
     (stage: number) => {
-      const balance = maxBalance;
-      const decimals = tokenDetails?.info.decimals;
-      const result = calcPercentBalance({
+      const balance = isUseFiat ? maxBalanceFiat : maxBalance;
+      const decimals = isUseFiat
+        ? FIAT_INPUT_DECIMALS
+        : tokenDetails?.info.decimals;
+      let result = calcPercentBalance({
         balance,
         percent: stage,
         decimals,
       });
+      if (isUseFiat) {
+        result = sanitizeFiatInputText(result);
+      }
       form.setValue('amount', result);
       void form.trigger('amount');
       setIsMaxSend(stage === 100);
     },
-    [form, maxBalance, tokenDetails?.info.decimals],
+    [form, isUseFiat, maxBalance, maxBalanceFiat, tokenDetails?.info.decimals],
   );
 
   const displayCoinControlButton = useMemo(
@@ -889,6 +924,14 @@ function SendAmountInputContainer() {
                 inputValue = filteredValue;
               }
 
+              if (isUseFiat) {
+                const fiatValue = sanitizeFiatInputText(inputValue);
+                if (fiatValue !== inputValue) {
+                  form.setValue('amount', fiatValue || '0');
+                  inputValue = fiatValue;
+                }
+              }
+
               const valueBN = new BigNumber(inputValue || 0);
 
               // If still NaN after filtering, reset to 0
@@ -1152,7 +1195,10 @@ function SendAmountInputContainer() {
           size="small"
           ml="$2"
           onPress={() => {
-            form.setValue('amount', isUseFiat ? maxBalanceFiat : maxBalance);
+            form.setValue(
+              'amount',
+              isUseFiat ? sanitizeFiatInputText(maxBalanceFiat) : maxBalance,
+            );
             void form.trigger('amount');
             setIsMaxSend(true);
           }}
