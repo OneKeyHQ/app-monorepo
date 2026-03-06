@@ -14,7 +14,7 @@ export function getCommissionRateSortPriority(
   if (matches(['perp', 'contract', '合约'])) {
     return 1;
   }
-  if (matches(['defi'])) {
+  if (matches(['defi', 'onchain', 'on-chain', 'on_chain', 'referred_type_2'])) {
     return 2;
   }
 
