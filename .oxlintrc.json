@@ -10,7 +10,7 @@
   "extends": [
     "eslint-config-prettier",
   ],
-  "plugins": ["unicorn", "typescript", "oxc", "react", "import", "jest"],
+  "plugins": ["unicorn", "typescript", "oxc", "react", "import", "jest", "jsx-a11y"],
   // NOTE: JavaScript ESLint plugins (experimental feature) are not used yet
   // because some plugin configurations are not compatible with oxlint
   // https://oxc.rs/docs/guide/usage/linter/migrate-from-eslint.html#local-custom-eslint-plugins
@@ -105,6 +105,51 @@
     "no-debugger": "error",
     "no-eval": "error",
     "radix": "error",
+    // Migrated from ESLint airbnb/wesbos presets
+    "eqeqeq": "warn",
+    "no-self-compare": "error",
+    "no-fallthrough": "error",
+    "no-redeclare": "error",
+    "no-useless-constructor": "error",
+    "no-new-wrappers": "error",
+    "no-var": "error",
+    "prefer-const": "warn",
+    "prefer-template": "warn",
+    "no-empty": "error",
+    // Disabled: 249 intentional empty functions (context defaults, platform stubs, event placeholders)
+    "no-empty-function": "off",
+    "no-throw-literal": "error",
+    "no-param-reassign": "error",
+    "no-return-assign": "error",
+    "guard-for-in": "error",
+    "no-inner-declarations": "error",
+    "no-misleading-character-class": "error",
+    "no-case-declarations": "error",
+    "no-constructor-return": "error",
+    "no-else-return": "error",
+    "no-extra-bind": "error",
+    "no-extra-label": "error",
+    "no-iterator": "error",
+    "no-labels": "error",
+    "no-lone-blocks": "error",
+    "no-loop-func": "error",
+    "no-new": "error",
+    "no-new-func": "error",
+    "no-proto": "error",
+    "no-script-url": "error",
+    "no-sequences": "error",
+    "no-useless-concat": "error",
+    "no-useless-return": "error",
+    "prefer-promise-reject-errors": "warn",
+    "no-useless-computed-key": "error",
+    "prefer-numeric-literals": "error",
+    "prefer-rest-params": "error",
+    "prefer-spread": "warn",
+    "symbol-description": "error",
+    "no-label-var": "error",
+    "no-template-curly-in-string": "error",
+    "no-plusplus": "error",
+    "no-nested-ternary": "error",
     // Sort imports (migrated from ESLint)
     "sort-imports": [
       "error",
@@ -159,15 +204,17 @@
     // ============================================
     // React rules (matching ESLint config)
     // ============================================
-    // NOTE: Changed to warn to allow existing code without modification
-    "react/jsx-key": "warn",
+    "react/jsx-key": "error",
     "react/jsx-no-duplicate-props": "error",
     "react/no-children-prop": "error",
     "react/no-string-refs": "error",
     "react/no-direct-mutation-state": "error",
     // react-hooks/rules-of-hooks (migrated from ESLint)
-    // NOTE: Changed to warn because of false positives with functions named "use*" that aren't hooks
     "react/rules-of-hooks": "error",
+    "react/jsx-no-undef": "error",
+    "react/jsx-pascal-case": "error",
+    "react/self-closing-comp": "error",
+    "react/no-unknown-property": "error",
     // react-hooks/exhaustive-deps equivalent
     "react/exhaustive-deps": [
       "error",
@@ -191,6 +238,28 @@
     "typescript/no-misused-spread": "error",
     "typescript/no-array-delete": "error",
     "typescript/no-misused-promises": ["error", { "checksVoidReturn": false }],
+    // Type-aware rules migrated from ESLint
+    "typescript/no-unsafe-return": "error",
+    "typescript/no-unsafe-call": "error",
+    "typescript/await-thenable": "error",
+    "typescript/no-empty-object-type": "error",
+    "typescript/no-unsafe-function-type": "error",
+    // ESLint core rules migrated
+    "no-continue": "error",
+    // React rules migrated
+    "react/display-name": "warn",
+    // Jest rules migrated
+    "jest/no-identical-title": "error",
+    // jsx-a11y rules migrated from ESLint
+    "jsx-a11y/click-events-have-key-events": "error",
+    "jsx-a11y/no-static-element-interactions": "error",
+    "jsx-a11y/media-has-caption": "error",
+    // Disabled: not applicable for React Native / desktop app context
+    "jsx-a11y/no-autofocus": "off",
+    "jsx-a11y/prefer-tag-over-role": "off",
+    "jsx-a11y/heading-has-content": "off",
+    "jsx-a11y/anchor-has-content": "off",
+    "jsx-a11y/anchor-is-valid": "off",
     // ============================================
     // TypeScript rules (matching ESLint config)
     // ============================================
@@ -202,8 +271,8 @@
         "disallowTypeAnnotations": false
       }
     ],
-    "typescript/no-use-before-define": "error",
-    "typescript/no-shadow": "error",
+    // NOTE: typescript/no-use-before-define and typescript/no-shadow do not exist in oxlint v1.43.0
+    // They were phantom rules (configured but never enforced). Removed to avoid confusion.
 
     // ============================================
     // Unicorn rules (matching ESLint config)
@@ -213,8 +282,13 @@
     // ============================================
     // Import rules
     // ============================================
-    // NOTE: import/no-cycle disabled due to some false positives
     "import/no-cycle": "error",
+    "import/export": "error",
+    "import/first": "error",
+    "import/no-amd": "error",
+    "import/no-duplicates": "error",
+    "import/no-mutable-exports": "error",
+    "import/no-self-import": "error",
 
     // ============================================
     // Jest rules (for test files) - keep off as in ESLint config
@@ -261,8 +335,8 @@
     "import/default": "off",
     // Parameter property assignment is valid pattern
     "typescript/no-unnecessary-parameter-property-assignment": "off",
-    // Some expressions are intentionally unused
-    "no-unused-expressions": "off",
+    // Migrated from ESLint — catches unused expressions (ternary as statement, bare identifiers)
+    "no-unused-expressions": "error",
     // Variables may be assigned later via destructuring or other patterns
     "no-unassigned-vars": "off",
     // Empty classes are valid as base classes
@@ -428,7 +502,6 @@
       // Test files - relax some rules
       "files": ["test/**/*.js", "test/**/*.ts", "**/*.test.ts"],
       "rules": {
-        "typescript/no-use-before-define": "off"
       }
     },
     {
@@ -437,8 +510,6 @@
       "rules": {
         "typescript/no-floating-promises": "off",
         "typescript/consistent-type-imports": "off",
-        "typescript/no-use-before-define": "off",
-        "typescript/no-shadow": "off",
         "typescript/no-duplicate-enum-values": "off",
         "typescript/no-extraneous-class": "off",
         "typescript/no-unnecessary-parameter-property-assignment": "off",
@@ -448,7 +519,11 @@
         "typescript/no-base-to-string": "off",
         "typescript/no-unnecessary-template-expression": "off",
         "typescript/restrict-template-expressions": "off",
-        "typescript/require-array-sort-compare":"off",
+        "typescript/require-array-sort-compare": "off",
+        "typescript/no-unsafe-call": "off",
+        "typescript/no-unsafe-return": "off",
+        "typescript/no-unsafe-function-type": "off",
+        "typescript/no-empty-object-type": "off",
       }
     }
   ],

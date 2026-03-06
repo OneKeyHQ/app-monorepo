@@ -771,6 +771,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   walletSortFn = (a: IDBWallet, b: IDBWallet) =>
     (a.walletOrder ?? 0) - (b.walletOrder ?? 0);
 
+  // eslint-disable-next-line @cspell/spellchecker
   // oxlint-disable-next-line @cspell/spellchecker
   /**
    * Get wallets
@@ -1239,6 +1240,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       wallet.airGapAccountsInfo = JSON.parse(wallet.airGapAccountsInfoRaw);
     }
 
+    // eslint-disable-next-line @cspell/spellchecker
     // oxlint-disable-next-line @cspell/spellchecker
     // wallet.xfp = 'aaaaaaaa'; // mock qr wallet xfp
     return wallet;
@@ -1610,17 +1612,14 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const syncManager =
       this.backgroundApi?.servicePrimeCloudSync.syncManagers.indexedAccount;
 
-    let syncItemsInfo:
+    const buildSyncItemsStartTime = Date.now();
+    const syncItemsInfo:
       | {
           existingSyncItemsInfo: IExistingSyncItemsInfo<EPrimeCloudSyncDataType.IndexedAccount>;
           existingSyncItems: IDBCloudSyncItem[];
           newSyncItems: IDBCloudSyncItem[];
         }
-      | undefined;
-
-    const buildSyncItemsStartTime = Date.now();
-    // eslint-disable-next-line prefer-const
-    syncItemsInfo = await syncManager.buildExistingSyncItemsInfo({
+      | undefined = await syncManager.buildExistingSyncItemsInfo({
       tx,
       targets: indexedAccountsToAdd.map((indexedAccount) => ({
         targetId: indexedAccount.id,
@@ -4100,6 +4099,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             }
 
             // add account record
+            // eslint-disable-next-line prefer-const
             let { added, addedIds } = await this.txAddRecords({
               tx,
               name: ELocalDBStoreNames.Account,

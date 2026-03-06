@@ -1295,7 +1295,7 @@ export default class ServiceNotification extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   async fetchMessageList(
-    topicTypes?: ENotificationPushTopicTypes[] | undefined,
+    topicTypes?: ENotificationPushTopicTypes[],
   ): Promise<INotificationPushMessageListItem[]> {
     const client = await this.getClient(EServiceEndpointEnum.Notification);
     const result = await client.post<
@@ -1451,6 +1451,7 @@ export default class ServiceNotification extends ServiceBase {
   async pingWebSocket(params: any) {
     const notificationProvider = await this.getNotificationProvider();
     if (notificationProvider?.webSocketProvider) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       return notificationProvider.webSocketProvider.ping(params);
     }
     throw new OneKeyLocalError('WebSocket provider not found');

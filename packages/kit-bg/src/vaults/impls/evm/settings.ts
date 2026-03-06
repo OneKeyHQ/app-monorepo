@@ -15,6 +15,7 @@ import {
   EthereumUSDe,
   EthereumWBTC,
   EthereumWETH,
+  PlasmaNetworkId,
 } from '@onekeyhq/shared/src/consts/addresses';
 import {
   COINTYPE_ETH,
@@ -67,6 +68,15 @@ const lidoConfig: { ETH: IStakingFlowConfig } = {
     unstakeWithSignMessage: true,
     claimWithAmount: true,
   },
+};
+
+export const pendleFlowConfig: IStakingFlowConfig = {
+  enabled: true,
+  tokenAddress: '',
+  displayProfit: true,
+  stakingWithApprove: true,
+  withdrawWithTx: true,
+  claimWithTx: true,
 };
 
 const stakingConfig: IStakingConfig = {
@@ -144,6 +154,10 @@ const stakingConfig: IStakingConfig = {
           },
         },
       },
+      [EEarnProviderEnum.Pendle]: {
+        supportedSymbols: [],
+        configs: {},
+      },
       [EEarnProviderEnum.Falcon]: {
         supportedSymbols: ['USDf'],
         configs: {
@@ -187,6 +201,14 @@ const stakingConfig: IStakingConfig = {
       },
     },
   },
+  [getNetworkIdsMap().arbitrum]: {
+    providers: {
+      [EEarnProviderEnum.Pendle]: {
+        supportedSymbols: [],
+        configs: {},
+      },
+    },
+  },
   [getNetworkIdsMap().base]: {
     providers: {
       [EEarnProviderEnum.Morpho]: {
@@ -199,6 +221,10 @@ const stakingConfig: IStakingConfig = {
             stakingWithApprove: true,
           },
         },
+      },
+      [EEarnProviderEnum.Pendle]: {
+        supportedSymbols: [],
+        configs: {},
       },
     },
   },
@@ -230,6 +256,26 @@ const stakingConfig: IStakingConfig = {
             stakingWithApprove: true,
           },
         },
+      },
+      [EEarnProviderEnum.Pendle]: {
+        supportedSymbols: [],
+        configs: {},
+      },
+    },
+  },
+  [getNetworkIdsMap().hyperevm]: {
+    providers: {
+      [EEarnProviderEnum.Pendle]: {
+        supportedSymbols: [],
+        configs: {},
+      },
+    },
+  },
+  [PlasmaNetworkId]: {
+    providers: {
+      [EEarnProviderEnum.Pendle]: {
+        supportedSymbols: [],
+        configs: {},
       },
     },
   },

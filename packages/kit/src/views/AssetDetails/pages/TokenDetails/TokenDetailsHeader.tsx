@@ -49,8 +49,8 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import ActionBuy from './ActionBuy';
-import { TokenDetailsDeFiBlock } from './TokenDetailsDeFiBlock';
 import { useTokenDetailsContext } from './TokenDetailsContext';
+import { TokenDetailsDeFiBlock } from './TokenDetailsDeFiBlock';
 
 function TokenDetailsHeader(props: IProps) {
   const {
@@ -332,6 +332,7 @@ function TokenDetailsHeader(props: IProps) {
             />
             <ReviewControl>
               <ActionBuy
+                disabled={showLoadingState}
                 isTabView={isTabView}
                 walletId={wallet?.id ?? ''}
                 networkId={networkId}

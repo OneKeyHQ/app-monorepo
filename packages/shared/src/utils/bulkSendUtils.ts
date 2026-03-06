@@ -1,7 +1,7 @@
 import { EBulkSendMode } from '../../types/bulkSend';
 import { getNetworkIdsMap } from '../config/networkIds';
-import { appLocale } from '../locale/appLocale';
 import { ETranslations } from '../locale';
+import { appLocale } from '../locale/appLocale';
 
 import networkUtils from './networkUtils';
 

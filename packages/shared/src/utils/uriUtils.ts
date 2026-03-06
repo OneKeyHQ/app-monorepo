@@ -5,11 +5,11 @@ import validator from 'validator';
 import type { IUrlValue } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
 
 import { ONEKEY_APP_DEEP_LINK_NAME } from '../consts/deeplinkConsts';
-import platformEnv from '../platformEnv';
 import {
   PROTOCOLS_SUPPORTED_TO_OPEN,
   VALID_DEEP_LINK,
 } from '../consts/urlProtocolConsts';
+import platformEnv from '../platformEnv';
 
 import type {
   EOneKeyDeepLinkPath,
@@ -204,6 +204,7 @@ export function parseUrl(url: string): IUrlValue | null {
 
 export const checkIsDomain = (domain: string) => DOMAIN_REGEXP.test(domain);
 
+// eslint-disable-next-line @cspell/spellchecker
 // oxlint-disable-next-line @cspell/spellchecker
 // check the ens format 元宇宙.bnb / diamondgs198.x
 export const addressIsEnsFormat = (address: string) => {

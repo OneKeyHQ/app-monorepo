@@ -15,11 +15,12 @@ export function useToMarketBannerDetail() {
 
   const toMarketBannerDetail = useCallback(
     (item: IMarketBannerItem) => {
-      defaultLogger.dex.banner.dexBannerEnter({ bannerId: item._id });
+      defaultLogger.dex.banner.dexBannerEnter({ bannerId: item._id, ...item });
 
       const params = {
         tokenListId: item.tokenListId,
         title: item.title,
+        type: item.type,
       };
 
       // Push to page (works on all platforms including native via Discovery routes)

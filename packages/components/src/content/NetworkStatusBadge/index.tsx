@@ -6,7 +6,6 @@ import { useIntl } from 'react-intl';
 import { Stack } from '@onekeyhq/components/src/primitives';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-// oxlint-disable-next-line import/no-cycle
 import { Badge } from '../Badge';
 
 export type INetworkStatusBadgeProps = {
@@ -14,6 +13,7 @@ export type INetworkStatusBadgeProps = {
   indicator?: ReactElement;
   label?: string;
   badgeSize?: ComponentProps<typeof Badge>['badgeSize'];
+  minWidth?: ComponentProps<typeof Badge>['minWidth'];
 };
 
 export function NetworkStatusBadge({
@@ -21,6 +21,7 @@ export function NetworkStatusBadge({
   indicator,
   label,
   badgeSize = 'md',
+  minWidth,
 }: INetworkStatusBadgeProps) {
   const intl = useIntl();
 
@@ -71,6 +72,7 @@ export function NetworkStatusBadge({
       badgeType={badgeType}
       badgeSize={badgeSize}
       height={badgeSize === 'lg' ? 32 : 26}
+      minWidth={minWidth}
       borderRadius="$full"
       pl="$2"
       px="$3"
@@ -78,7 +80,13 @@ export function NetworkStatusBadge({
       cursor="default"
     >
       {indicatorElement}
-      <Badge.Text size="$bodySmMedium">{badgeLabel}</Badge.Text>
+      <Badge.Text
+        size="$bodySmMedium"
+        fontFamily="$monoRegular"
+        fontVariant={['tabular-nums']}
+      >
+        {badgeLabel}
+      </Badge.Text>
     </Badge>
   );
 }

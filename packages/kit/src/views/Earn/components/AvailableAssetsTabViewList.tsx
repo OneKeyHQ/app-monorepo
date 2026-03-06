@@ -20,6 +20,7 @@ import { NetworkAvatarGroup } from '@onekeyhq/kit/src/components/NetworkAvatar/N
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useEarnActions,
   useEarnAtom,
@@ -41,21 +42,26 @@ export function AvailableAssetsTabViewList() {
   const [selectedTabIndex, setSelectedTabIndex] = useState(0);
   const media = useMedia();
   const navigation = useAppNavigation();
+  const { activeAccount } = useActiveAccount({ num: 0 });
+  const accountId = activeAccount.account?.id;
+  const accountReady = activeAccount.ready;
+  const activeNetworkId = activeAccount.network?.id;
 
   const tabData = useMemo(
     () => [
       {
-        title: intl.formatMessage({ id: ETranslations.global_all }),
-        type: EAvailableAssetsTypeEnum.All,
+        title: intl.formatMessage({ id: ETranslations.global_earn }),
+        type: EAvailableAssetsTypeEnum.SimpleEarn,
       },
       {
-        // oxlint-disable-next-line @cspell/spellchecker
-        title: intl.formatMessage({ id: ETranslations.earn_stablecoins }),
-        type: EAvailableAssetsTypeEnum.StableCoins,
+        title: intl.formatMessage({ id: ETranslations.earn_fixed_apy }),
+        type: EAvailableAssetsTypeEnum.FixedRate,
       },
       {
-        title: intl.formatMessage({ id: ETranslations.earn_native_tokens }),
-        type: EAvailableAssetsTypeEnum.NativeTokens,
+        title: intl.formatMessage({
+          id: ETranslations.wallet_defi_position_module_staked,
+        }),
+        type: EAvailableAssetsTypeEnum.Staking,
       },
     ],
     [intl],
@@ -212,25 +218,72 @@ export function AvailableAssetsTabViewList() {
     async (asset: IEarnAvailableAsset) => {
       defaultLogger.staking.page.selectAsset({ tokenSymbol: asset.symbol });
 
-      if (asset.protocols.length === 1) {
-        const protocol = asset.protocols[0];
-        await EarnNavigation.pushToEarnProtocolDetails(navigation, {
-          networkId: protocol.networkId,
-          symbol: asset.symbol,
-          provider: protocol.provider,
-          vault: protocol.vault,
-        });
-      } else {
+      const currentTabType = tabData[selectedTabIndex]?.type;
+      const defaultCategory =
+        currentTabType === EAvailableAssetsTypeEnum.SimpleEarn ||
+        currentTabType === EAvailableAssetsTypeEnum.FixedRate
+          ? (currentTabType as 'simpleEarn' | 'fixedRate')
+          : undefined;
+      const navigateToProtocolList = () => {
         EarnNavigation.pushToEarnProtocols(navigation, {
           symbol: asset.symbol,
           filterNetworkId: undefined,
           logoURI: asset.logoURI
             ? encodeURIComponent(asset.logoURI)
             : undefined,
+          defaultCategory,
         });
+      };
+
+      // When current tab has only 1 protocol, check total across ALL categories.
+      // A token like USDe may have 1 FixedRate protocol but multiple SimpleEarn
+      // protocols — the user should still see the list page in that case.
+      if (asset.protocols.length === 1) {
+        const accountNetworkId =
+          activeNetworkId ?? asset.protocols[0]?.networkId;
+        const canQueryWithAccount =
+          accountReady && Boolean(accountId) && Boolean(accountNetworkId);
+        if (!canQueryWithAccount) {
+          navigateToProtocolList();
+          return;
+        }
+
+        let totalProtocols = 1;
+        try {
+          const allProtocols =
+            await backgroundApiProxy.serviceStaking.getProtocolList({
+              symbol: asset.symbol,
+              accountId,
+              networkId: accountNetworkId,
+            });
+          totalProtocols = allProtocols?.length ?? 1;
+        } catch {
+          // Fallback: use current tab's count
+        }
+
+        if (totalProtocols <= 1) {
+          const protocol = asset.protocols[0];
+          await EarnNavigation.pushToEarnProtocolDetails(navigation, {
+            networkId: protocol.networkId,
+            symbol: asset.symbol,
+            provider: protocol.provider,
+            vault: protocol.vault,
+          });
+          return;
+        }
       }
+
+      // Multiple protocols across categories → go to protocol list page
+      navigateToProtocolList();
     },
-    [navigation],
+    [
+      navigation,
+      tabData,
+      selectedTabIndex,
+      accountId,
+      accountReady,
+      activeNetworkId,
+    ],
   );
 
   // Mobile custom renderer
@@ -239,12 +292,9 @@ export function AvailableAssetsTabViewList() {
       <ListItem
         userSelect="none"
         onPress={() => handleRowPress(asset)}
-        avatarProps={{
-          src: asset.logoURI,
-          fallbackProps: {
-            borderRadius: '$full',
-          },
-        }}
+        renderAvatar={
+          <Token size="md" tokenImageUri={asset.logoURI} borderRadius="$full" />
+        }
       >
         <ListItem.Text
           flex={1}

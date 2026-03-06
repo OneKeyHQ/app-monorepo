@@ -303,6 +303,7 @@ export type IDBUtxoAccount = IDBBaseAccount & {
   xpub: string;
   xpubSegwit?: string; // wrap regular xpub into bitcoind native descriptor
   address: string; // Display/selected address
+
   // oxlint-disable-next-line @cspell/spellchecker
   addresses: Record<string, string>; // { "0/0": "xxxx" }
   customAddresses?: Record<string, string>; // for btc dynamic custom address

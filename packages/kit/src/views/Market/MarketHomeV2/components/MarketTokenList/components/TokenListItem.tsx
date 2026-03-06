@@ -5,7 +5,9 @@ import { NumberSizeableText, XStack } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import { PriceChangeBadge } from '../../PriceChangeBadge';
+
 import { TokenIdentityItem } from './TokenIdentityItem';
+
 import type { IMarketToken } from '../MarketTokenData';
 
 interface ITokenListItemProps {

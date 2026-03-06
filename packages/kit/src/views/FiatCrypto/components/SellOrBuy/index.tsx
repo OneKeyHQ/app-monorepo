@@ -2,20 +2,14 @@ import { memo, useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 
-import type { IPageNavigationProp } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { TokenList } from '@onekeyhq/kit/src/views/FiatCrypto/components/TokenList';
 import { useGetTokensList } from '@onekeyhq/kit/src/views/FiatCrypto/hooks';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import type {
-  EModalFiatCryptoRoutes,
-  IModalFiatCryptoParamList,
-} from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { openFiatCryptoUrl } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type {
   IFiatCryptoToken,
   IFiatCryptoType,
@@ -32,13 +26,6 @@ type ISellOrBuyContentProps = {
 
 export const SellOrBuyContent = memo(
   ({ type, networkId, accountId }: ISellOrBuyContentProps) => {
-    const appNavigation =
-      useAppNavigation<
-        IPageNavigationProp<
-          IModalFiatCryptoParamList,
-          EModalFiatCryptoRoutes.BuyModal
-        >
-      >();
     const { result: tokens, isLoading } = useGetTokensList({
       networkId,
       accountId,
@@ -104,10 +91,10 @@ export const SellOrBuyContent = memo(
             accountId: realAccountId,
             type,
           });
-        openUrlExternal(url);
-        appNavigation.popStack();
+        if (!url) return;
+        openFiatCryptoUrl(url);
       },
-      [appNavigation, type],
+      [type],
     );
 
     const networkIds = useMemo(

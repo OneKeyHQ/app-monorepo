@@ -526,10 +526,14 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       const newAskPx = data.bbo[1]?.px;
 
       if (
-        currentBidPx != null &&
-        currentAskPx != null &&
-        newBidPx != null &&
-        newAskPx != null &&
+        currentBidPx !== null &&
+        currentBidPx !== undefined &&
+        currentAskPx !== null &&
+        currentAskPx !== undefined &&
+        newBidPx !== null &&
+        newBidPx !== undefined &&
+        newAskPx !== null &&
+        newAskPx !== undefined &&
         currentBidPx === newBidPx &&
         currentAskPx === newAskPx
       ) {
@@ -567,7 +571,8 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       }
       return {
         nSigFigs: persistedForSymbol.nSigFigs ?? null,
-        ...(persistedForSymbol.mantissa != null
+        ...(persistedForSymbol.mantissa !== null &&
+        persistedForSymbol.mantissa !== undefined
           ? { mantissa: persistedForSymbol.mantissa }
           : {}),
       };

@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
 import { useMemo } from 'react';
 
 import { getPathFromState as getPathFromStateDefault } from '@react-navigation/core';
@@ -11,6 +11,7 @@ import {
   useRouterEventsRef,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -152,6 +153,7 @@ const useBuildLinking = (): LinkingOptions<any> => {
           const mainRoute = state?.routes?.[state?.index ?? 0];
           const tabState = mainRoute?.state;
           const tabIndex = tabState?.index ?? 0;
+          // eslint-disable-next-line @typescript-eslint/no-shadow
           const tabRouteNames =
             tabState?.routeNames ?? tabState?.routes?.map((r: any) => r.name);
           const activeTab = tabRouteNames?.[tabIndex];
@@ -216,6 +218,7 @@ const TAB_TITLE_TRANSLATION_MAP: Record<ETabRoutes, ETranslations | null> = {
   [ETabRoutes.DeviceManagement]: ETranslations.global_homescreen,
   [ETabRoutes.ReferFriends]: ETranslations.sidebar_refer_a_friend,
   [ETabRoutes.BulkSend]: null,
+  [ETabRoutes.SubPage]: null,
 };
 
 export const useRouterConfig = () => {
@@ -273,6 +276,29 @@ export const useRouterConfig = () => {
                   'onStateChange',
                   `activeTab=${activeTabName}, tabIndex=${tabIndex}`,
                 );
+              }
+            }
+          }
+          // Log navigation state changes for tab switch + push debugging
+          if (platformEnv.isNative) {
+            const mainRoute = state?.routes?.[state?.index ?? 0];
+            const tabState = mainRoute?.state;
+            if (tabState) {
+              const tabIndex = tabState?.index ?? 0;
+              const activeTab = tabState?.routes?.[tabIndex];
+              const stackState = activeTab?.state;
+              const topRoute =
+                stackState?.routes?.[(stackState?.routes?.length ?? 1) - 1];
+              if (
+                activeTab?.name === ETabRoutes.Home &&
+                stackState &&
+                (stackState?.routes?.length ?? 0) > 1
+              ) {
+                defaultLogger.app.router.navStateChange({
+                  tab: activeTab?.name,
+                  stackDepth: stackState?.routes?.length ?? 0,
+                  topRoute: topRoute?.name,
+                });
               }
             }
           }

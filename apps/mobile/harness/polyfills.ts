@@ -2,6 +2,7 @@
 // Provides Node.js globals, TextDecoder wrapping, structuredClone,
 // fake-indexeddb, and ES2023 Array methods.
 
+/* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-var-requires */
 
 import { Buffer } from 'buffer';
@@ -28,6 +29,7 @@ require('crypto');
 // This prevents "Passing raw password is not allowed" errors in tests
 // and disables intl formatting fallbacks that change error messages.
 const platformEnv = require('@onekeyhq/shared/src/platformEnv');
+
 const platformEnvObj = platformEnv?.default ?? platformEnv;
 if (platformEnvObj && typeof platformEnvObj === 'object') {
   platformEnvObj.isJest = true;
@@ -58,6 +60,7 @@ if (platformEnvObj && typeof platformEnvObj === 'object') {
     // breaking @solana/web3.js and other libraries that use { fatal: true }.
     const WrappedTD = class TextDecoder {
       _inner: any;
+
       constructor(
         label?: string,
         options?: { fatal?: boolean; ignoreBOM?: boolean },
@@ -67,18 +70,22 @@ if (platformEnvObj && typeof platformEnvObj === 'object') {
           : undefined;
         this._inner = new NativeTD(label, safeOptions);
       }
+
       decode(
         input?: ArrayBufferView | ArrayBuffer,
         options?: { stream?: boolean },
       ): string {
         return this._inner.decode(input, options);
       }
+
       get encoding(): string {
         return this._inner.encoding;
       }
+
       get fatal(): boolean {
         return false;
       }
+
       get ignoreBOM(): boolean {
         return this._inner.ignoreBOM ?? false;
       }
@@ -165,14 +172,14 @@ if (!Array.prototype.toSorted) {
     this: T[],
     compareFn?: (a: T, b: T) => number,
   ): T[] {
-    // eslint-disable-next-line unicorn/no-array-sort -- polyfill intentionally uses mutating sort on a copy
+    // oxlint-disable-next-line unicorn/no-array-sort -- polyfill intentionally uses mutating sort on a copy
     return [...this].sort(compareFn);
   };
 }
 if (!Array.prototype.toReversed) {
   // eslint-disable-next-line no-extend-native
   Array.prototype.toReversed = function <T>(this: T[]): T[] {
-    // eslint-disable-next-line unicorn/no-array-reverse -- polyfill intentionally uses mutating reverse on a copy
+    // oxlint-disable-next-line unicorn/no-array-reverse -- polyfill intentionally uses mutating reverse on a copy
     return [...this].reverse();
   };
 }

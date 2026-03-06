@@ -392,12 +392,16 @@ function TokenListFooter(props: IProps) {
               />
             ) : null}
           </XStack>
-          <Stack flexGrow={1} flexBasis={0} justifyContent="flex-end">
+          <Stack
+            flexGrow={1}
+            flexBasis={0}
+            justifyContent="center"
+            alignItems="flex-end"
+          >
             <NumberSizeableText
               size={tableLayout ? '$bodyMdMedium' : '$bodyLgMedium'}
               formatter="value"
               formatterOptions={{ currency: settings.currencyInfo.symbol }}
-              flex={1}
               textAlign="right"
             >
               {smallBalanceTokensFiatValue}

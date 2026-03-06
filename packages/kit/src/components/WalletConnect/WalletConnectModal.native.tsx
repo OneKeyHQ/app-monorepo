@@ -30,6 +30,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { captureException } from '@onekeyhq/shared/src/modules3rdParty/sentry';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
@@ -217,12 +218,17 @@ class AppKitErrorBoundary extends Component<
     return { hasError: true };
   }
 
+  // eslint-disable-next-line react/sort-comp
   override componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.warn(
       'AppKitErrorBoundary caught error in WalletConnect modal:',
       error?.message,
       errorInfo?.componentStack,
     );
+    captureException(error, {
+      tags: { module: 'walletConnect', component: 'AppKitErrorBoundary' },
+      extra: { componentStack: errorInfo?.componentStack },
+    });
   }
 
   override componentDidMount() {
@@ -259,9 +265,11 @@ class AppKitErrorBoundary extends Component<
   }
 
   override render() {
+    // eslint-disable-next-line react/destructuring-assignment
     if (this.state.hasError) {
       return null;
     }
+    // eslint-disable-next-line react/destructuring-assignment
     return this.props.children;
   }
 }

@@ -1,4 +1,5 @@
 // oxlint-disable unicorn/prefer-global-this
+/* eslint-disable unicorn/prefer-global-this */
 
 /*
 - packages/shared/src/web/index.html.ejs
@@ -68,7 +69,7 @@
   const darkColor = '#0f0f0f';
   function applyThemeColor(color) {
     document.documentElement.style.backgroundColor = color;
-    var meta = document.querySelector('meta[name="theme-color"]');
+    const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) {
       meta.setAttribute('content', color);
     }
@@ -78,7 +79,7 @@
   } else if (theme === 'light') {
     applyThemeColor(lightColor);
   } else if (window.matchMedia) {
-    var color = window.matchMedia('(prefers-color-scheme: dark)').matches
+    const color = window.matchMedia('(prefers-color-scheme: dark)').matches
       ? darkColor
       : lightColor;
     applyThemeColor(color);

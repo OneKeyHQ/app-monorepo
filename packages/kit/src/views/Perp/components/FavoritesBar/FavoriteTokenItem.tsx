@@ -13,10 +13,55 @@ import {
   usePerpsActiveAssetAtom,
   usePerpsActiveAssetCtxAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import perpsUtils, {
   formatPriceToSignificantDigits,
   getHyperliquidTokenImageUrl,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
+import {
+  MAX_DECIMALS_PERP,
+  MAX_SIGNIFICANT_FIGURES,
+} from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+
+export const TABULAR_NUMS_STYLE = {
+  fontVariantNumeric: 'tabular-nums',
+} as const;
+
+/**
+ * Calculate stable minWidth (in ch units) for formatted price strings to
+ * prevent layout jitter caused by trailing-zero stripping in
+ * formatPriceToSignificantDigits. With tabular-nums, 1ch equals one digit width.
+ */
+export function getStablePriceMinWidth(priceStr: string): string | undefined {
+  // ch units are CSS-only, not supported on React Native
+  if (platformEnv.isNative) return undefined;
+  if (!priceStr || priceStr === '-' || priceStr === '0') return undefined;
+
+  const dotIndex = priceStr.indexOf('.');
+  if (dotIndex === -1) return undefined;
+
+  const intPart = priceStr.substring(0, dotIndex);
+  const intDigits = intPart === '0' ? 0 : intPart.length;
+
+  if (intDigits >= MAX_SIGNIFICANT_FIGURES) return undefined;
+
+  let maxDecimals: number;
+  if (intDigits === 0) {
+    // Leading zeros don't count as significant figures
+    const decimalPart = priceStr.substring(dotIndex + 1);
+    const leadingZeroMatch = decimalPart.match(/^(0*)/);
+    const leadingZeros = leadingZeroMatch ? leadingZeroMatch[1].length : 0;
+    maxDecimals = Math.min(
+      leadingZeros + MAX_SIGNIFICANT_FIGURES,
+      MAX_DECIMALS_PERP,
+    );
+  } else {
+    maxDecimals = MAX_SIGNIFICANT_FIGURES - intDigits;
+  }
+
+  const totalChars = intPart.length + 1 + maxDecimals;
+  return `${totalChars}ch`;
+}
 
 interface IFavoriteTokenItemProps {
   displayName: string;
@@ -57,7 +102,7 @@ const CtxPriceDisplay = memo(
         <NumberSizeableText
           size="$bodySmMedium"
           color={color}
-          style={{ fontVariantNumeric: 'tabular-nums' }}
+          style={TABULAR_NUMS_STYLE}
           formatter="priceChange"
           formatterOptions={{ showPlusMinusSigns: true }}
         >
@@ -66,11 +111,14 @@ const CtxPriceDisplay = memo(
       );
     }
 
+    const priceMinWidth = getStablePriceMinWidth(priceDisplay);
     return (
       <SizableText
         size="$bodySmMedium"
         color={color}
-        style={{ fontVariantNumeric: 'tabular-nums' }}
+        style={TABULAR_NUMS_STYLE}
+        minWidth={priceMinWidth}
+        textAlign="right"
       >
         {priceDisplay}
       </SizableText>
@@ -110,7 +158,7 @@ const ActiveAssetPriceDisplay = memo(
         <NumberSizeableText
           size="$bodySmMedium"
           color={color}
-          style={{ fontVariantNumeric: 'tabular-nums' }}
+          style={TABULAR_NUMS_STYLE}
           formatter="priceChange"
           formatterOptions={{ showPlusMinusSigns: true }}
         >
@@ -119,11 +167,14 @@ const ActiveAssetPriceDisplay = memo(
       );
     }
 
+    const priceMinWidth = getStablePriceMinWidth(priceDisplay);
     return (
       <SizableText
         size="$bodySmMedium"
         color={color}
-        style={{ fontVariantNumeric: 'tabular-nums' }}
+        style={TABULAR_NUMS_STYLE}
+        minWidth={priceMinWidth}
+        textAlign="right"
       >
         {priceDisplay}
       </SizableText>
@@ -131,6 +182,37 @@ const ActiveAssetPriceDisplay = memo(
   },
 );
 ActiveAssetPriceDisplay.displayName = 'ActiveAssetPriceDisplay';
+
+// Shared price display: change% (colored) + price (subdued)
+export const PriceChangeDisplay = memo(
+  ({ change, markPrice }: { change: number; markPrice?: string }) => {
+    const color = change >= 0 ? '$textSuccess' : '$textCritical';
+    const sign = change >= 0 ? '+' : '';
+    const price = markPrice ? formatPriceToSignificantDigits(markPrice) : '-';
+    const priceMinWidth = getStablePriceMinWidth(price);
+    return (
+      <>
+        <SizableText
+          size="$bodySmMedium"
+          color={color}
+          style={TABULAR_NUMS_STYLE}
+        >
+          {`${sign}${change.toFixed(2)}%`}
+        </SizableText>
+        <SizableText
+          size="$bodySmMedium"
+          color="$textSubdued"
+          style={TABULAR_NUMS_STYLE}
+          minWidth={priceMinWidth}
+          textAlign="right"
+        >
+          {price}
+        </SizableText>
+      </>
+    );
+  },
+);
+PriceChangeDisplay.displayName = 'PriceChangeDisplay';
 
 function FavoriteTokenItem({
   displayName,

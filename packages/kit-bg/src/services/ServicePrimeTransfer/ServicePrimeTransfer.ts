@@ -369,6 +369,7 @@ class ServicePrimeTransfer extends ServiceBase {
         this.socket.on('room-full', async (data: { roomId: string }) => {
           if (data.roomId === (await primeTransferAtom.get()).pairedRoomId) {
             const message = appLocale.intl.formatMessage({
+              // eslint-disable-next-line @cspell/spellchecker
               // oxlint-disable-next-line @cspell/spellchecker
               // id: ETranslations.global_connet_error_try_again,
               id: ETranslations.transfer_security_alert_new_device_re_pair,
@@ -2184,6 +2185,8 @@ class ServicePrimeTransfer extends ServiceBase {
         wallet?.createNetworkParams ?? [];
 
       if (isEmpty(indexedAccountNames) || isEmpty(createNetworkParams)) {
+        /* eslint-disable prefer-const */
+        /* oxlint-disable prefer-const */
         let isCancelled: boolean | undefined;
         ({
           createNetworkParams = [],
@@ -2195,6 +2198,8 @@ class ServicePrimeTransfer extends ServiceBase {
           taskUUID,
           errorsInfo,
         }));
+        /* eslint-enable prefer-const */
+        /* oxlint-enable prefer-const */
 
         if (isCancelled) {
           // task cancelled

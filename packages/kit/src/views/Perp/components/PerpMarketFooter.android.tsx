@@ -50,6 +50,7 @@ function PerpMarketFooter() {
     () =>
       Gesture.Tap().onEnd(() => {
         'worklet';
+
         runOnJS(handleBuy)();
       }),
     [handleBuy],
@@ -59,6 +60,7 @@ function PerpMarketFooter() {
     () =>
       Gesture.Tap().onEnd(() => {
         'worklet';
+
         runOnJS(handleSell)();
       }),
     [handleSell],
@@ -71,7 +73,7 @@ function PerpMarketFooter() {
           <Button
             padding={0}
             height={38}
-            borderRadius="$2"
+            borderRadius="$full"
             bg={longButtonStyle.bg}
             color={longButtonStyle.textColor}
             justifyContent="center"
@@ -94,7 +96,7 @@ function PerpMarketFooter() {
             variant="primary"
             padding={0}
             height={38}
-            borderRadius="$2"
+            borderRadius="$full"
             bg={shortButtonStyle.bg}
             color={shortButtonStyle.textColor}
             justifyContent="center"

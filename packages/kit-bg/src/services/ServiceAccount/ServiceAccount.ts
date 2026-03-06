@@ -983,10 +983,16 @@ class ServiceAccount extends ServiceBase {
         },
       );
 
+    // If indexedAccountId is empty, try to get it from the first created account
+    let resultIndexedAccountId = indexedAccountId;
+    if (!resultIndexedAccountId && accountsForCreate.length > 0) {
+      resultIndexedAccountId = accountsForCreate[0].indexedAccountId;
+    }
+
     return {
       networkId: networkId || '',
       walletId: walletId || '',
-      indexedAccountId,
+      indexedAccountId: resultIndexedAccountId,
       accounts: accountsForCreate,
       indexes,
       deriveType,
@@ -1870,6 +1876,7 @@ class ServiceAccount extends ServiceBase {
       });
     }
 
+    // eslint-disable-next-line @cspell/spellchecker
     // oxlint-disable-next-line @cspell/spellchecker
     // /evm/0x63ac73816EeB38514DaE6c46008baf55f1c59C9e
     if (networkId === IMPL_EVM) {
@@ -2051,6 +2058,7 @@ class ServiceAccount extends ServiceBase {
     walletId: IDBWalletIdSingleton;
     activeNetworkId?: string;
   }) {
+    // eslint-disable-next-line prefer-const
     let { accounts, removedAccountIds } =
       await localDb.getSingletonAccountsOfWallet({
         walletId,

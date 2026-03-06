@@ -15,12 +15,12 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import utils from '@onekeyhq/shared/src/utils/accountUtils';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { IConnectedSite } from '@onekeyhq/shared/types/signatureRecord';
 
 import { useGetSignatureSections } from './hooks';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const getConnectedSiteTitle = (url: string) => {
   try {

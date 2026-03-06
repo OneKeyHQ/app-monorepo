@@ -37,7 +37,12 @@ export function RulesButton() {
   }
 
   return (
-    <Button variant="tertiary" icon="QuestionmarkOutline" onPress={handlePress}>
+    <Button
+      variant="tertiary"
+      size={platformEnv.isWeb ? 'small' : undefined}
+      icon="QuestionmarkOutline"
+      onPress={handlePress}
+    >
       {label}
     </Button>
   );

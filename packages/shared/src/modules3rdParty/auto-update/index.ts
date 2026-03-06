@@ -49,6 +49,7 @@ export const BundleUpdate: IBundleUpdate = {
   clearAllJSBundleData: () =>
     Promise.resolve({ success: false, message: 'Not supported on web' }),
   testVerification: () => Promise.resolve(false),
+  testSkipVerification: () => Promise.resolve(false),
   testDeleteJsBundle: () =>
     Promise.resolve({ success: false, message: 'Not supported on web' }),
   testDeleteJsRuntimeDir: () =>
@@ -59,6 +60,9 @@ export const BundleUpdate: IBundleUpdate = {
     Promise.resolve({ success: false, message: 'Not supported on web' }),
   getFallbackBundles: () => Promise.resolve([]),
   switchBundle: () => Promise.resolve(),
+  isBundleExists: () => Promise.resolve(false),
+  verifyExtractedBundle: () => Promise.resolve(),
+  listLocalBundles: () => Promise.resolve([]),
   getNativeAppVersion: () => Promise.resolve(''),
   getSha256FromFilePath: () => Promise.resolve(''),
   getNativeBuildNumber: () => Promise.resolve(''),

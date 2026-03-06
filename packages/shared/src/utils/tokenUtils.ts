@@ -5,6 +5,7 @@ import { wrappedTokens } from '../../types/swap/SwapProvider.constants';
 import { getNetworkIdsMap } from '../config/networkIds';
 import { AGGREGATE_TOKEN_MOCK_NETWORK_ID } from '../consts/networkConsts';
 import { SEARCH_KEY_MIN_LENGTH } from '../consts/walletConsts';
+import { OneKeyInternalError } from '../errors';
 
 import accountUtils from './accountUtils';
 import networkUtils from './networkUtils';
@@ -17,7 +18,6 @@ import type {
   ITokenData,
   ITokenFiat,
 } from '../../types/token';
-import { OneKeyInternalError } from '../errors';
 
 export const caseSensitiveNetworkImpl = [
   'sol',
@@ -27,6 +27,19 @@ export const caseSensitiveNetworkImpl = [
   'sui',
   'ton',
 ];
+
+/**
+ * Display token symbol preserving API casing for mixed-case symbols (e.g. fAI, aPolWBTC)
+ * while converting short all-lowercase tickers to uppercase (e.g. btc -> BTC, eth -> ETH).
+ */
+export function formatTokenSymbolForDisplay(symbol: string): string {
+  if (!symbol || typeof symbol !== 'string') return symbol;
+  const trimmed = symbol.trim();
+  if (trimmed.length <= 5 && trimmed === trimmed.toLowerCase()) {
+    return trimmed.toUpperCase();
+  }
+  return trimmed;
+}
 
 export function getMergedTokenData({
   tokens,

@@ -16,6 +16,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { formatTokenSymbolForDisplay } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   EUniversalSearchType,
   type IIUniversalRecentSearchItem,
@@ -39,7 +40,8 @@ function SearchTextItem({
     let result: string;
     switch (searchType) {
       case EUniversalSearchType.MarketToken:
-        result = itemText.toUpperCase();
+      case EUniversalSearchType.V2MarketToken:
+        result = formatTokenSymbolForDisplay(itemText);
         break;
       case EUniversalSearchType.Address:
         result = accountUtils.shortenAddress({

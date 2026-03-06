@@ -313,6 +313,7 @@ export const {
 // #region Settings & Config
 export interface IPerpsCommonConfigPersistAtom {
   perpConfigCommon: IPerpCommonConfig;
+  perpConfigLoaded?: boolean;
 }
 export const {
   target: perpsCommonConfigPersistAtom,
@@ -322,8 +323,9 @@ export const {
   persist: true,
   initialValue: {
     perpConfigCommon: {
-      disablePerp: true, // Default to hide perps tab, will be overridden by server config
+      disablePerp: true, // Default to hide perps tab, gated by perpConfigLoaded
     },
+    perpConfigLoaded: false,
   },
 });
 
@@ -466,6 +468,7 @@ export const {
 export interface IPerpsNetworkStatus {
   connected: boolean | undefined;
   lastMessageAt: number | null;
+  pingMs?: number | null;
 }
 
 export const {
@@ -569,3 +572,18 @@ export const { target: perpsLayoutStateAtom, use: usePerpsLayoutStateAtom } =
     persist: true,
     initialValue: DEFAULT_PERPS_LAYOUT_STATE,
   });
+
+// #region Footer Ticker
+export type IPerpsFooterTickerMode = 'popular' | 'favorites' | 'none';
+
+export const {
+  target: perpsFooterTickerModePersistAtom,
+  use: usePerpsFooterTickerModePersistAtom,
+} = globalAtom<{ mode: IPerpsFooterTickerMode }>({
+  name: EAtomNames.perpsFooterTickerModePersistAtom,
+  persist: true,
+  initialValue: {
+    mode: 'popular',
+  },
+});
+// #endregion

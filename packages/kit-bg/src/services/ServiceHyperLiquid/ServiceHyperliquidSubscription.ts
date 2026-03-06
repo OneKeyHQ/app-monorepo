@@ -118,6 +118,8 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   private _networkTimeoutTimer: ReturnType<typeof setTimeout> | null = null;
 
+  private _pingIntervalTimer: ReturnType<typeof setInterval> | null = null;
+
   private _lastMessageAt: number | null = null;
 
   allSubSpecsMap: Record<string, ISubscriptionSpec<ESubscriptionType>> = {};
@@ -279,7 +281,8 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     const isSocketOpen =
       client?.transport?.socket?.readyState === WebSocket.OPEN;
     const isDataFlowing =
-      this._lastMessageAt != null &&
+      this._lastMessageAt !== null &&
+      this._lastMessageAt !== undefined &&
       Date.now() - this._lastMessageAt <
         HYPERLIQUID_REFRESH_DATA_FLOW_THRESHOLD_MS;
 
@@ -369,6 +372,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   @backgroundMethod()
   async pauseSubscriptions(): Promise<void> {
     await this.disableSubscriptionsHandler();
+    this._stopPingLoop();
     await this._cleanupAllSubscriptions();
 
     await perpsCandlesWebviewReloadHookAtom.set({
@@ -431,6 +435,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   async disconnect(): Promise<void> {
     await this._cleanupAllSubscriptions();
     this._clearNetworkTimeout();
+    this._stopPingLoop();
     await this._closeClient();
     this._currentState.isConnected = false;
     this._emitConnectionStatus();
@@ -445,6 +450,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   @backgroundMethod()
   async cleanup(): Promise<void> {
+    this._stopPingLoop();
     await this._cleanupAllSubscriptions();
   }
 
@@ -521,10 +527,12 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       event,
     });
     this._activeSubscriptions.clear();
+    this._stopPingLoop();
     void perpsNetworkStatusAtom.set((prev): IPerpsNetworkStatus => {
       return {
         ...prev,
         connected: false,
+        pingMs: null,
       };
     });
   };
@@ -560,6 +568,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       }),
     );
     this._currentState.isConnected = true;
+    this._startPingLoop();
   };
 
   socketMessageHandler: (event: WebSocketEventMap['message']) => void = (
@@ -592,6 +601,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         reconnect: {
           maxRetries: 999,
           connectionTimeout: 5000,
+
           // oxlint-disable-next-line @cspell/spellchecker
           reconnectionDelay: (
             attempt: number, // spell-checker:disable-line
@@ -975,7 +985,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
       const data = event?.detail as unknown;
 
-      if (data == null) {
+      if (data === null || data === undefined) {
         console.warn(
           `[ServiceHyperliquidSubscription.handleSubscriptionData] Data validation failed for: ${subscriptionType}`,
         );
@@ -1074,6 +1084,12 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
       const messageTimestamp = Date.now();
 
+      // Restart ping loop if not running (e.g. after transport auto-reconnect
+      // where socketOpenHandler doesn't fire on the new internal socket)
+      if (!this._pingIntervalTimer) {
+        this._startPingLoop();
+      }
+
       void perpsNetworkStatusAtom.set(
         (prev): IPerpsNetworkStatus => ({
           ...prev,
@@ -1147,6 +1163,44 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         connected: false,
       }),
     );
+  }
+
+  private async _measurePing(): Promise<void> {
+    const client = this._client;
+    if (!client) {
+      return;
+    }
+    try {
+      const start = Date.now();
+      await client.wsRequester.request('ping', undefined);
+      // Guard: client may have been replaced/closed during await
+      if (this._client !== client) return;
+      const pingMs = Date.now() - start;
+      void perpsNetworkStatusAtom.set(
+        (prev): IPerpsNetworkStatus => ({ ...prev, pingMs }),
+      );
+    } catch {
+      // Ping failed — clear displayed value without marking disconnected
+      void perpsNetworkStatusAtom.set(
+        (prev): IPerpsNetworkStatus => ({ ...prev, pingMs: null }),
+      );
+    }
+  }
+
+  private _startPingLoop(): void {
+    this._stopPingLoop();
+    // Measure immediately on connect, then periodically
+    void this._measurePing();
+    this._pingIntervalTimer = setInterval(() => {
+      void this._measurePing();
+    }, 3000);
+  }
+
+  private _stopPingLoop(): void {
+    if (this._pingIntervalTimer) {
+      clearInterval(this._pingIntervalTimer);
+      this._pingIntervalTimer = null;
+    }
   }
 
   private _emitConnectionStatus(): void {

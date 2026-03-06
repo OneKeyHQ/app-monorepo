@@ -4,11 +4,9 @@ import { handleAnalyticsEvent } from './analyticsHandler';
 import { handleKLineDataRequest } from './klineDataHandler';
 import { handleLayoutUpdate } from './layoutUpdateHandler';
 
-import type { IMessageHandlerContext } from './types';
+import type { IMarksTimeRange, IMessageHandlerContext } from './types';
 import type { IWebViewRef } from '../../../WebView/types';
 import type { ICustomReceiveHandlerData } from '../types';
-
-import type { IMarksTimeRange } from './types';
 
 interface IUseTradingViewMessageHandlerParams {
   tokenAddress?: string;

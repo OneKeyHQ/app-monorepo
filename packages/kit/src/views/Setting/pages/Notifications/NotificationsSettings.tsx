@@ -25,6 +25,7 @@ import {
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalNotificationsRoutes } from '@onekeyhq/shared/src/routes/notifications';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -35,7 +36,6 @@ import {
 
 import NotificationsHelpCenterInstruction from '../../components/NotificationsHelpCenterInstruction';
 import NotificationsTestButton from '../../components/NotificationsTestButton';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export default function NotificationsSettings() {
   const intl = useIntl();

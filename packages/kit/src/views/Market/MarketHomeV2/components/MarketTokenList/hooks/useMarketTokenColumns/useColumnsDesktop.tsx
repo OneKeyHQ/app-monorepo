@@ -13,13 +13,13 @@ import {
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import {
-  LeverageBadge,
-  SubtitleBadge,
-} from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
-import {
   MarketPerpsStarV2,
   MarketStarV2,
 } from '@onekeyhq/kit/src/views/Market/components/MarketStarV2';
+import {
+  LeverageBadge,
+  SubtitleBadge,
+} from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {

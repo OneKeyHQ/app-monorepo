@@ -3,6 +3,7 @@ import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
 
 import type { IQRCodeHandler, ISolanaValue } from '../type';
 
+// eslint-disable-next-line @cspell/spellchecker
 // oxlint-disable-next-line @cspell/spellchecker
 // solana:HN7cABqLq46Es1jh92dQQisAq662SmxELLLsHHe4YWrH?amount=500&reference=GynvDYDEZXFdGCAH66AWBGVLHgxDK1uTGuCshQWG3FjD&label=1&message=1&memo=%23t9e4m
 
@@ -11,6 +12,7 @@ const solana: IQRCodeHandler<ISolanaValue> = async (value, options) => {
   const urlValue = options?.urlResult;
   if (urlValue && /solana/i.test(urlValue.data.urlSchema)) {
     const solanaValue = urlValue.data.urlParamList;
+
     // oxlint-disable-next-line @cspell/spellchecker
     solanaValue.splToken = solanaValue['spl-token'];
     solanaValue.recipient = urlValue.data.urlPathList[0];

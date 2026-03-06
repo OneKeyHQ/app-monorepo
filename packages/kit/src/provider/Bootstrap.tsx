@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 
 import { CommonActions, StackActions } from '@react-navigation/native';
+import pRetry from 'p-retry';
 import { debounce, isEqual, noop, upperFirst } from 'lodash';
 import { useIntl } from 'react-intl';
 
@@ -27,6 +28,10 @@ import {
   EUpdateFileType,
   getUpdateFileType,
 } from '@onekeyhq/shared/src/appUpdate';
+import {
+  PERPS_CONFIG_FETCH_MAX_RETRIES,
+  PERPS_CONFIG_FETCH_RETRY_INTERVAL_MS,
+} from '@onekeyhq/shared/src/consts/perp';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -54,6 +59,7 @@ import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes/root';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { useAppUpdateInfo } from '../components/UpdateReminder/hooks';
@@ -62,7 +68,6 @@ import { useOnLock } from '../hooks/useOnLock';
 import { useRunAfterTokensDone } from '../hooks/useRunAfterTokensDone';
 
 import type { IntlShape } from 'react-intl';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 const useOnLockCallback = platformEnv.isDesktop
   ? useOnLock
@@ -388,11 +393,21 @@ export const useFetchMarketBasicConfig = () => {
 };
 
 export const useFetchPerpConfig = () => {
-  useRunAfterTokensDone({
-    run: () => {
-      void backgroundApiProxy.serviceHyperliquid.updatePerpsConfigByServerWithCache();
-    },
-  });
+  useEffect(() => {
+    void pRetry(
+      (attemptNumber) => {
+        if (attemptNumber === 1) {
+          return backgroundApiProxy.serviceHyperliquid.updatePerpsConfigByServerWithCache();
+        }
+        return backgroundApiProxy.serviceHyperliquid.updatePerpsConfigByServer();
+      },
+      {
+        retries: PERPS_CONFIG_FETCH_MAX_RETRIES,
+        minTimeout: PERPS_CONFIG_FETCH_RETRY_INTERVAL_MS,
+        maxTimeout: PERPS_CONFIG_FETCH_RETRY_INTERVAL_MS,
+      },
+    ).catch(noop);
+  }, []);
 };
 
 const launchFloatingIconEvent = async (intl: IntlShape) => {
