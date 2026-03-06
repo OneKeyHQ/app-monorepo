@@ -318,6 +318,7 @@ function SendDataInputContainer() {
 
       // Use navigation.push() following the same pattern as SwapTokenSelectModal
       // Use TxAmountInput route since we're in SignatureConfirmModal
+      const toVal = form.getValues('to') as IAddressInputValue | undefined;
       navigation.push(EModalSignatureConfirmRoutes.TxAmountInput, {
         networkId: currentAccount.networkId,
         accountId: currentAccount.accountId,
@@ -328,6 +329,7 @@ function SendDataInputContainer() {
         recipientMemo: memoValue || undefined,
         recipientPaymentId: paymentIdValue || undefined,
         recipientNote: noteValue || undefined,
+        recipientIsContract: toVal?.isContract,
         amount: scannedAmount || sendAmount || undefined,
         isAllNetworks,
         onSuccess,
