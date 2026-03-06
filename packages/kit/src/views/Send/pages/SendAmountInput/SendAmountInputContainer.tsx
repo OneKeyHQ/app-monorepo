@@ -909,6 +909,13 @@ function SendAmountInputContainer() {
   // Keep ref in sync with isSubmitDisabled
   isSubmitDisabledRef.current = isSubmitDisabled;
 
+  const handleConfirm = useCallback(async () => {
+    const isValid = await form.trigger();
+    if (!isValid) return;
+
+    await onSubmitRef.current?.();
+  }, [form]);
+
   // Keyboard shortcuts for desktop (when input is not focused)
   // M = Max, Enter = confirm
   useEffect(() => {
@@ -1223,13 +1230,6 @@ function SendAmountInputContainer() {
     nft?.collectionType,
     nftDetails?.amount,
   ]);
-
-  const handleConfirm = useCallback(async () => {
-    const isValid = await form.trigger();
-    if (!isValid) return;
-
-    await onSubmitRef.current?.();
-  }, [form]);
 
   const renderBalanceCard = useMemo(() => {
     if (isNFT) return null;
