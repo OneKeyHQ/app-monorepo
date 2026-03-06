@@ -34,7 +34,10 @@ export default function DevAppUpdateTestModal() {
           'No downloaded app package found. Please download app update package first.',
         );
       }
-      await AppUpdate.verifyASC(params);
+      await AppUpdate.verifyASC({
+        ...params,
+        skipGPGVerification,
+      });
       await AppUpdate.verifyPackage({
         ...params,
         skipGPGVerification,

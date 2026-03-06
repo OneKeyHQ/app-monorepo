@@ -9,6 +9,7 @@ import logger from 'electron-log/main';
 
 import {
   calculateSHA256,
+  checkFileSha512,
   getBundleDirName,
   getBundleExtractDir,
   testExtractedSha256FromVerifyAscFile,
@@ -46,8 +47,9 @@ class DesktopApiAppBundleUpdate {
   isDownloading = false;
 
   private isSkipGPGAllowed(skipGPGVerification?: boolean) {
-    return Boolean(
-      process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION && skipGPGVerification,
+    return (
+      process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION === 'true' &&
+      Boolean(skipGPGVerification)
     );
   }
 
@@ -574,7 +576,7 @@ class DesktopApiAppBundleUpdate {
         appVersion,
         bundleVersion,
       });
-      logger.info('bundle-verifyBundleASC', metadataFilePath);
+      logger.info('bundle-verifyBundleASC', metadataFilePath, allowSkipGPG);
       if (!allowSkipGPG) {
         await verifyMetadataFileSha256({
           appVersion,
@@ -639,12 +641,14 @@ class DesktopApiAppBundleUpdate {
       if (entry.isDirectory()) {
         this.walkAndVerifyFiles(fullPath, metadata, baseDir, verifiedFiles);
       } else if (entry.name !== 'metadata.json' && entry.name !== '.DS_Store') {
+        // Strict contract: only files under "build/" are allowed to be hashed
+        // by metadata. Any extra root-level file is treated as verification failure.
         const relativePath = path
-          .relative(baseDir, fullPath)
+          .relative(path.join(baseDir, 'build'), fullPath)
           .split(path.sep)
           .join('/');
-        const expectedSha256 = metadata[relativePath];
-        if (!expectedSha256) {
+        const expectedSha512 = metadata[relativePath];
+        if (!expectedSha512) {
           logger.error(
             'bundle-verify',
             `File on disk not found in metadata: ${relativePath}`,
@@ -653,14 +657,11 @@ class DesktopApiAppBundleUpdate {
             `File ${relativePath} not found in metadata`,
           );
         }
-        const actualSha256 = calculateSHA256(fullPath);
-        if (actualSha256 !== expectedSha256) {
-          logger.error(
-            'bundle-verify',
-            `SHA256 mismatch for ${relativePath}: expected=${expectedSha256}, actual=${actualSha256}`,
-          );
+        const isSha512Matched = checkFileSha512(fullPath, expectedSha512);
+        if (!isSha512Matched) {
+          logger.error('bundle-verify', `SHA512 mismatch for ${relativePath}`);
           throw new OneKeyLocalError(
-            `SHA256 mismatch for file ${relativePath}`,
+            `SHA512 mismatch for file ${relativePath}`,
           );
         }
         verifiedFiles.add(relativePath);
