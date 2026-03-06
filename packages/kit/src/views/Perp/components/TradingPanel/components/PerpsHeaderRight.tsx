@@ -12,7 +12,6 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { GiftAction } from '@onekeyhq/kit/src/components/TabPageHeader/components';
 import { WalletConnectionForWeb } from '@onekeyhq/kit/src/components/TabPageHeader/components/WalletConnectionGroup';
 import {
   usePerpsActiveOpenOrdersAtom,
@@ -37,6 +36,7 @@ import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import { usePerpsAssetCtx } from '../../../hooks/usePerpsAssetCtx';
 import { usePerpsMidPrice } from '../../../hooks/usePerpsMidPrice';
 import { useShowDepositWithdrawModal } from '../../../hooks/useShowDepositWithdrawModal';
+import { PerpsActivityCenterAction } from '../../PerpsActivityCenterAction';
 import { PerpSettingsButton } from '../../PerpSettingsButton';
 
 import { PerpsAccountNumberValue } from './PerpsAccountNumberValue';
@@ -175,7 +175,7 @@ export function PerpsHeaderRight() {
       <DepositButton />
       {gtMd && !platformEnv.isWebDappMode ? (
         <>
-          <GiftAction source="Perps" copyAsUrl />
+          <PerpsActivityCenterAction copyAsUrl />
           <PerpSettingsButton testID="perp-header-settings-button" />
         </>
       ) : null}
