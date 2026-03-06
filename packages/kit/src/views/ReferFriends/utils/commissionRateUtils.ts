@@ -8,7 +8,7 @@ export function getCommissionRateSortPriority(
   const matches = (keywords: string[]) =>
     normalized.some((value) => keywords.some((kw) => value.includes(kw)));
 
-  if (matches(['hardware', 'sale', '硬件'])) {
+  if (matches(['hardware', 'sale', '硬件', 'referred_type_3'])) {
     return 0;
   }
   if (matches(['perp', 'contract', '合约'])) {
