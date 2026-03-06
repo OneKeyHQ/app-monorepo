@@ -34,7 +34,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IWalletBanner } from '@onekeyhq/shared/types/walletBanner';
 
-import { TronResourceBannerCard } from '@onekeyhq/kit/src/components/Resource/TronResource';
+import { ResourceBannerCard } from '@onekeyhq/kit/src/components/Resource';
 const BANNER_ITEM_WIDTH = 280;
 const BANNER_GAP = 12;
 const BANNER_PADDING_H = 20;
@@ -552,7 +552,7 @@ function WalletBanner() {
   const tronCard = useMemo(
     () =>
       vaultSettings?.hasResource && account?.id && network?.id ? (
-        <TronResourceBannerCard
+        <ResourceBannerCard
           key={`${account.id}-${network.id}`}
           accountId={account.id}
           networkId={network.id}
