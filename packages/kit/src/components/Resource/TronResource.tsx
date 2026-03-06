@@ -38,10 +38,12 @@ function useTronAccountResources({
   accountId,
   networkId,
   pollingInterval,
+  suppressErrors = false,
 }: {
   accountId: string;
   networkId: string;
   pollingInterval?: number;
+  suppressErrors?: boolean;
 }) {
   return usePromiseResult(
     async () => {
@@ -95,18 +97,18 @@ function useTronAccountResources({
           energyTotal,
         };
       } catch (e: unknown) {
-        // Suppress toast for silent background/polling refreshes.
-        // @toastIfError sets autoToast=true before BackgroundApiProxyBase
-        // schedules showToastOfError in a 50ms setTimeout. Clearing it here
-        // (same object reference) prevents the toast while keeping the
-        // previous result intact via the rethrow.
-        if (e && typeof e === 'object') {
+        if (suppressErrors && e && typeof e === 'object') {
+          // Suppress toast for silent background/polling refreshes.
+          // @toastIfError sets autoToast=true before BackgroundApiProxyBase
+          // schedules showToastOfError in a 50ms setTimeout. Clearing it here
+          // (same object reference) prevents the toast while keeping the
+          // previous result intact via the rethrow.
           (e as { autoToast?: boolean }).autoToast = false;
         }
         throw e;
       }
     },
-    [accountId, networkId],
+    [accountId, networkId, suppressErrors],
     {
       watchLoading: true,
       pollingInterval,
@@ -269,6 +271,7 @@ export function TronResourceBannerCard({
     accountId,
     networkId,
     pollingInterval: 30_000,
+    suppressErrors: true,
   });
 
   const handlePress = useCallback(() => {
