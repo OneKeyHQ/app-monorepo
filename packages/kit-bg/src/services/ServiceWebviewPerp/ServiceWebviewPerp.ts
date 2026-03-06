@@ -244,6 +244,15 @@ export interface IPerpDynamicTab {
 // Re-export types from perpsUtils for backward compatibility
 export type { ITokenSearchAliasItem, ITokenSearchAliases };
 
+export interface IPerpServerActivityCard {
+  id: string;
+  imageUrl?: string;
+  iconName?: string;
+  title: string;
+  subtitle: string;
+  url: string;
+}
+
 export interface IPerpServerConfigResponse {
   referrerConfig: IPerpServerReferrerConfig;
   customSettings?: IHyperliquidCustomSettings;
@@ -261,6 +270,7 @@ export interface IPerpServerConfigResponse {
   hyperLiquidErrorLocales?: IHyperLiquidErrorLocaleItem[];
   tokenSearchAliases?: ITokenSearchAliases;
   tokenSelectorTabs?: IPerpDynamicTab[];
+  activityCards?: IPerpServerActivityCard[];
 }
 @backgroundClass()
 class ServiceWebviewPerp extends ServiceBase {
