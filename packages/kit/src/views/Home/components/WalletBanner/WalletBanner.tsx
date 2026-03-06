@@ -552,7 +552,11 @@ function WalletBanner() {
   const tronCard = useMemo(
     () =>
       vaultSettings?.hasResource && account?.id && network?.id ? (
-        <TronResourceBannerCard accountId={account.id} networkId={network.id} />
+        <TronResourceBannerCard
+          key={`${account.id}-${network.id}`}
+          accountId={account.id}
+          networkId={network.id}
+        />
       ) : null,
     [vaultSettings?.hasResource, account?.id, network?.id],
   );
