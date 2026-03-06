@@ -21,6 +21,7 @@ import { TableList } from '@onekeyhq/kit/src/components/ListView/TableList';
 import { NetworkAvatarGroup } from '@onekeyhq/kit/src/components/NetworkAvatar/NetworkAvatar';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -84,6 +85,7 @@ const getProtocolCategory = (item: IStakeProtocolListItem) => {
 function BasicEarnProtocols({ route }: { route: IRouteProps }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const { activeAccount } = useActiveAccount({ num: 0 });
   const {
     symbol,
     filterNetworkId,
@@ -125,13 +127,25 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
     (defaultCategoryParam as EProtocolCategory) || EProtocolCategory.SimpleEarn,
   );
   const [isLoading, setIsLoading] = useState(true);
+  const accountId = activeAccount.account?.id;
+  const accountNetworkId = filterNetworkId ?? activeAccount.network?.id;
 
   const fetchProtocolData = useCallback(async () => {
+    if (!activeAccount.ready) {
+      return;
+    }
+    if (accountId && !accountNetworkId) {
+      setIsLoading(false);
+      return;
+    }
+
     try {
       setIsLoading(true);
 
       const data = await backgroundApiProxy.serviceStaking.getProtocolList({
         symbol,
+        accountId,
+        networkId: accountNetworkId,
         filterNetworkId,
       });
 
@@ -141,7 +155,13 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
     } finally {
       setIsLoading(false);
     }
-  }, [symbol, filterNetworkId]);
+  }, [
+    symbol,
+    accountId,
+    accountNetworkId,
+    filterNetworkId,
+    activeAccount.ready,
+  ]);
 
   useEffect(() => {
     void fetchProtocolData();
