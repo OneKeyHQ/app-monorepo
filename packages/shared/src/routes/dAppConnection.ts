@@ -27,6 +27,8 @@ export enum EDAppConnectionModal {
   NostrSignEventModal = 'NostrSignEventModal',
   // Cosmos Enigma
   CosmosEnigmaUnlockModal = 'CosmosEnigmaUnlockModal',
+  // Risk WhiteList
+  RiskWhiteListModal = 'RiskWhiteListModal',
 }
 
 export type IDAppConnectionModalParamList = {
@@ -69,5 +71,9 @@ export type IDAppConnectionModalParamList = {
     walletId: string;
     accountId: string;
     networkId: string;
+  };
+  // Risk WhiteList
+  [EDAppConnectionModal.RiskWhiteListModal]: {
+    url: string;
   };
 };
