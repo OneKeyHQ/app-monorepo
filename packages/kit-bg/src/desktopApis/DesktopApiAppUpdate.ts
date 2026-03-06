@@ -114,8 +114,9 @@ class DesktopApiAppUpdate {
   updateCancellationToken: CancellationToken | undefined;
 
   private isSkipGPGAllowed(skipGPGVerification?: boolean) {
-    return Boolean(
-      process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION && skipGPGVerification,
+    return (
+      process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION === 'true' &&
+      Boolean(skipGPGVerification)
     );
   }
 
