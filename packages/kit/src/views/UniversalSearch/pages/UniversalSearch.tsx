@@ -204,9 +204,10 @@ export function UniversalSearch({
         intl.formatMessage({
           id: ETranslations.global_universal_search_tabs_dapps,
         }),
-      intl.formatMessage({
-        id: ETranslations.global_settings,
-      }),
+      !platformEnv.isWeb &&
+        intl.formatMessage({
+          id: ETranslations.global_settings,
+        }),
     ].filter(Boolean);
   }, [intl]);
 
@@ -461,8 +462,8 @@ export function UniversalSearch({
         });
       }
 
-      // Settings search runs locally (no backend needed)
-      const settingsResults = searchSettings(input);
+      // Settings search runs locally (no backend needed), hidden on Web
+      const settingsResults = platformEnv.isWeb ? [] : searchSettings(input);
       if (settingsResults.length > 0) {
         const data = settingsResults as IUniversalSearchResultItem[];
         searchResultSections.push({

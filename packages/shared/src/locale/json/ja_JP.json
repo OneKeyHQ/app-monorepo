@@ -2804,6 +2804,7 @@
   "perps.builder_max_error": "ビルダーフィーの承認に失敗しました。",
   "perps.buy_tip": "もっと必要 {token}?",
   "perps.connection_error": "ハードウェア接続エラーです。接続を確認して、もう一度お試しください。",
+  "perps.enjoy_perps": "Perps を楽しんでいますか? 友達とシェアしましょう。",
   "perps.fee_desc": "総費用は二つの部分で構成されています：Hyperliquid が請求する取引手数料と OneKey のビルダーフィーです。OneKey のビルダーフィーは業界で最も低いものの一つであり、取引コストを最小限に抑えるのに役立ちます。",
   "perps.fee_rate_projection": "投影",
   "perps.fee_tiers": "料金体系",

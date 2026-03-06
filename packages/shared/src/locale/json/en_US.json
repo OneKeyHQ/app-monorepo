@@ -2804,6 +2804,7 @@
   "perps.builder_max_error": "Fail to sign. Please contact the support.",
   "perps.buy_tip": "Need more {token} ?",
   "perps.connection_error": "Hardware connection error. Please check the connection and try again.",
+  "perps.enjoy_perps": "Enjoying Perps? Share it with friends.",
   "perps.fee_desc": "The total fee consists of two parts: the trading fee charged by Hyperliquid and the OneKey builder fee. OneKey's builder fee is one of the lowest in the industry, helping you minimize trading costs.",
   "perps.fee_rate_projection": "Projection",
   "perps.fee_tiers": "Fee Tiers",

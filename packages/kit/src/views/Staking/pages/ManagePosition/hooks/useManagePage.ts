@@ -98,6 +98,8 @@ export const useManagePage = ({
         }),
         backgroundApiProxy.serviceStaking.getProtocolList({
           symbol,
+          accountId,
+          networkId,
           filterNetworkId: networkId,
         }),
       ]);

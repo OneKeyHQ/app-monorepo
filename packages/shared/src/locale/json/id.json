@@ -2804,6 +2804,7 @@
   "perps.builder_max_error": "Gagal menyetujui biaya pembangun.",
   "perps.buy_tip": "Butuh lebih banyak {token}?",
   "perps.connection_error": "Kesalahan koneksi perangkat keras. Silakan periksa koneksi dan coba lagi.",
+  "perps.enjoy_perps": "Menikmati Perps? Bagikan dengan teman-teman Anda.",
   "perps.fee_desc": "Total biaya terdiri dari dua bagian: biaya perdagangan yang dikenakan oleh Hyperliquid dan biaya builder OneKey. biaya builder OneKey adalah salah satu yang terendah di industri, membantu Anda meminimalkan biaya perdagangan.",
   "perps.fee_rate_projection": "Proyeksi",
   "perps.fee_tiers": "Tingkat Biaya",

@@ -17,8 +17,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
 import { EModalReceiveRoutes } from '@onekeyhq/shared/src/routes';
 import {
+  openFiatCryptoUrl,
   openUrlExternal,
-  openUrlInDiscovery,
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -144,7 +144,7 @@ function ReceiveSelectorContent() {
     ({ onPress }: { onPress: () => void }) => {
       if (token && isSupported && url) {
         if (platformEnv.isDesktop || platformEnv.isNative) {
-          openUrlInDiscovery({ url });
+          openFiatCryptoUrl(url);
         } else {
           openUrlExternal(url);
         }

@@ -8,10 +8,53 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { AppUpdate } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 
 import SkipGPGVerificationToggle from './SkipGPGVerificationToggle';
 
 export default function DevAppUpdateTestModal() {
+  const showResultDialog = (title: string, content: string) => {
+    Dialog.show({
+      title,
+      renderContent: (
+        <YStack p="$4">
+          <SizableText>{content}</SizableText>
+        </YStack>
+      ),
+    });
+  };
+
+  const runAppUpdateVerificationTest = async (skipGPGVerification: boolean) => {
+    try {
+      const updateInfo =
+        await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
+      const params = updateInfo.downloadedEvent;
+      if (!params?.downloadUrl) {
+        throw new Error(
+          'No downloaded app package found. Please download app update package first.',
+        );
+      }
+      await AppUpdate.verifyASC(params);
+      await AppUpdate.verifyPackage({
+        ...params,
+        skipGPGVerification,
+      });
+      showResultDialog(
+        skipGPGVerification
+          ? 'AppUpdate Skip Verification'
+          : 'AppUpdate Verification',
+        'Success',
+      );
+    } catch (error) {
+      showResultDialog(
+        skipGPGVerification
+          ? 'AppUpdate Skip Verification'
+          : 'AppUpdate Verification',
+        (error as Error)?.message || 'Unknown error',
+      );
+    }
+  };
+
   const showFailedTestsDialog = () => {
     Dialog.show({
       title: 'Auto Update Failed Tests',
@@ -119,6 +162,26 @@ export default function DevAppUpdateTestModal() {
       <Page.Body>
         <YStack p="$4" gap="$4">
           <SkipGPGVerificationToggle />
+
+          <Divider />
+
+          <Button
+            variant="secondary"
+            onPress={() => {
+              void runAppUpdateVerificationTest(false);
+            }}
+          >
+            AppUpdate Test Verification
+          </Button>
+
+          <Button
+            variant="secondary"
+            onPress={() => {
+              void runAppUpdateVerificationTest(true);
+            }}
+          >
+            AppUpdate Test Skip Verification
+          </Button>
 
           <Divider />
 

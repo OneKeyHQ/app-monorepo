@@ -7,6 +7,8 @@
 // yarn jest packages/kit-bg/src/services/ServiceAppUpdate.test.ts
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { buildServiceEndpoint } from '@onekeyhq/shared/src/config/appConfig';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import {
   EAppUpdateStatus,
@@ -140,6 +142,12 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
         startInstallPackage: jest.fn(),
         log: jest.fn(),
       },
+      jsBundleDev: {
+        fetchBundleVersions: jest.fn(),
+        fetchBundleVersionsError: jest.fn(),
+        fetchBundles: jest.fn(),
+        fetchBundlesError: jest.fn(),
+      },
       error: { log: jest.fn() },
       component: {},
     },
@@ -160,6 +168,9 @@ jest.mock('@onekeyhq/shared/src/utils/cacheUtils', () => ({
 jest.mock('@onekeyhq/shared/src/appApiClient/appApiClient', () => ({
   appApiClient: {
     getClient: jest.fn(async () => ({
+      get: jest.fn(async () => ({ data: { code: 0, data: null } })),
+    })),
+    getBasicClient: jest.fn(async () => ({
       get: jest.fn(async () => ({ data: { code: 0, data: null } })),
     })),
   },
@@ -288,6 +299,40 @@ describe('ServiceAppUpdate state transitions', () => {
 
       await service.readyToInstall();
       expect(atomValue.status).toBe(EAppUpdateStatus.ready);
+    });
+  });
+
+  describe('dev bundle switcher endpoint', () => {
+    test('devFetchBundleVersions always uses test utility endpoint', async () => {
+      await service.devFetchBundleVersions();
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const {
+        appApiClient,
+      } = require('@onekeyhq/shared/src/appApiClient/appApiClient');
+
+      expect(appApiClient.getBasicClient).toHaveBeenCalledWith({
+        name: EServiceEndpointEnum.Utility,
+        endpoint: buildServiceEndpoint({
+          serviceName: EServiceEndpointEnum.Utility,
+          env: 'test',
+        }),
+      });
+    });
+
+    test('devFetchBundlesForVersion always uses test utility endpoint', async () => {
+      await service.devFetchBundlesForVersion('7.6.0');
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const {
+        appApiClient,
+      } = require('@onekeyhq/shared/src/appApiClient/appApiClient');
+
+      expect(appApiClient.getBasicClient).toHaveBeenCalledWith({
+        name: EServiceEndpointEnum.Utility,
+        endpoint: buildServiceEndpoint({
+          serviceName: EServiceEndpointEnum.Utility,
+          env: 'test',
+        }),
+      });
     });
   });
 

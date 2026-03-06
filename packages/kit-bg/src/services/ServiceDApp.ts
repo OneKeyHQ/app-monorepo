@@ -260,6 +260,22 @@ class ServiceDApp extends ServiceBase {
   }
 
   @backgroundMethod()
+  async openRiskWhiteListModal(request: IJsBridgeMessagePayload) {
+    const result = await this.openModal({
+      request,
+      screens: [
+        EModalRoutes.DAppConnectionModal,
+        EDAppConnectionModal.RiskWhiteListModal,
+      ],
+      params: {
+        url: request.origin,
+      },
+      fullScreen: false,
+    });
+    return result;
+  }
+
+  @backgroundMethod()
   openSignMessageModal({
     request,
     unsignedMessage,
