@@ -1,6 +1,10 @@
-import type { ComponentType } from 'react';
+import type {
+  AutoSizeInputView,
+} from '@onekeyfe/react-native-auto-size-input';
 
-export const AutoSizeInputNativeView: ComponentType<any> | null = null;
+export const AutoSizeInput: typeof AutoSizeInputView = (() => {
+  return null;
+}) as unknown as typeof AutoSizeInputView;
 
 export const wrapNitroCallback = <T extends (...args: any[]) => any>(
   callback: T,

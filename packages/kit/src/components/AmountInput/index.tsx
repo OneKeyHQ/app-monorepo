@@ -45,7 +45,7 @@ import type { NUMBER_FORMATTER } from '@onekeyhq/shared/src/utils/numberUtils';
 import { LetterAvatar } from '../LetterAvatar';
 
 import {
-  AutoSizeInputNativeView,
+  AutoSizeInput,
   type IAutoSizeInputRef,
   wrapNitroCallback,
 } from './AutoSizeNative';
@@ -741,9 +741,6 @@ function AmountInputComponent(
     const { leftAddOnProps: simpleLeftAddOn, ...simpleInputProps } =
       inputProps ?? {};
     const currencyLabel = simpleLeftAddOn?.label as string | undefined;
-    const AutoSizeInputComponent = platformEnv.isNative
-      ? AutoSizeInputNativeView
-      : null;
 
     const simpleFontSize = getAmountFontSize(
       displayValue?.length || 0,
@@ -1046,10 +1043,10 @@ function AmountInputComponent(
           <Skeleton h="$12" w="$40" />
         </Stack>
       );
-    } else if (AutoSizeInputComponent) {
+    } else if (platformEnv.isNative) {
       amountInputNode = (
         <Stack width="100%" alignItems="center" py="$1">
-          <AutoSizeInputComponent
+          <AutoSizeInput
             style={{
               width: autoSizeContainerWidth,
               height: Math.ceil(simpleMaxFontSize * 1.4),
@@ -1087,7 +1084,7 @@ function AmountInputComponent(
             onBlur={wrapNitroCallback(() => {
               simpleInputProps?.onBlur?.({} as never);
             })}
-            hybridRef={wrapNitroCallback((hybridViewRef: IAutoSizeInputRef) => {
+            ref={wrapNitroCallback((hybridViewRef: IAutoSizeInputRef) => {
               autoSizeInputRef.current = hybridViewRef;
             })}
           />

@@ -1,5 +1,3 @@
-import type { ComponentType } from 'react';
-
 import type {
   AutoSizeInputMethods,
   AutoSizeInputProps,
@@ -8,13 +6,11 @@ import {
   type HybridView,
   callback as nitroCallback,
 } from 'react-native-nitro-modules';
+import {
+  AutoSizeInputView
+} from '@onekeyfe/react-native-auto-size-input';
 
-const { AutoSizeInputView } =
-  require('@onekeyfe/react-native-auto-size-input') as {
-    AutoSizeInputView: ComponentType<any>;
-  };
-
-export const AutoSizeInputNativeView = AutoSizeInputView;
+export const AutoSizeInput = AutoSizeInputView;
 
 export const wrapNitroCallback = nitroCallback;
 
