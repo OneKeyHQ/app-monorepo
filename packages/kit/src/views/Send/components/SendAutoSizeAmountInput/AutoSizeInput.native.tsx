@@ -110,6 +110,12 @@ export function AutoSizeInput({
     autoSizeAvailableWidth,
     defaultAutoSizeContainerMaxWidth,
   );
+  let autoSizeTextAlign: 'center' | 'left' | 'right' = 'center';
+  if (currencyLabel) {
+    autoSizeTextAlign = 'left';
+  } else if (inlineTokenSymbol) {
+    autoSizeTextAlign = 'right';
+  }
 
   return (
     <Stack width="100%" alignItems="center" py="$1">
@@ -125,7 +131,7 @@ export function AutoSizeInput({
         suffix={inlineTokenSymbol ?? ''}
         fontSize={simpleMaxFontSize}
         minFontSize={simpleMinFontSize}
-        textAlign="center"
+        textAlign={autoSizeTextAlign}
         fontWeight="500"
         editable={inputEditable ?? true}
         keyboardType={mapAutoSizeKeyboardType(

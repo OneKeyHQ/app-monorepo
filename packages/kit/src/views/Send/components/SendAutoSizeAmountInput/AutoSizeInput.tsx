@@ -160,13 +160,21 @@ export function AutoSizeInput({
     2,
     Math.round(simpleFontSize * 0.04),
   );
-  const shouldCenterDesktopAmountText = !currencyLabel && !inlineTokenSymbol;
-  const desktopAmountTextAlign: 'center' | 'right' =
-    shouldCenterDesktopAmountText ? 'center' : 'right';
-  const desktopInlineRowOffsetPx =
-    desktopAmountTextAlign === 'right'
-      ? Math.round(-inlineInputSlackPx / 2)
-      : 0;
+  const hasPrefix = !!currencyLabel;
+  const hasSuffix = !!inlineTokenSymbol;
+  let desktopAmountTextAlign: 'center' | 'left' | 'right' = 'center';
+  if (hasPrefix) {
+    desktopAmountTextAlign = 'left';
+  } else if (hasSuffix) {
+    desktopAmountTextAlign = 'right';
+  }
+
+  let desktopInlineRowOffsetPx = 0;
+  if (desktopAmountTextAlign === 'right') {
+    desktopInlineRowOffsetPx = Math.round(-inlineInputSlackPx / 2);
+  } else if (desktopAmountTextAlign === 'left') {
+    desktopInlineRowOffsetPx = Math.round(inlineInputSlackPx / 2);
+  }
 
   const hasSmallWidth =
     availableInlineWidth > 0 &&
