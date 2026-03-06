@@ -39,6 +39,7 @@ import { useSelectedUTXOsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/se
 import { useAllTokenListMapAtom } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -604,8 +605,27 @@ function SendAmountInputContainer() {
 
   const displayTxMessageForm = useMemo(() => {
     if (!tokenInfo?.isNative) return false;
-    return settings.isCustomTxMessageEnabled;
-  }, [settings.isCustomTxMessageEnabled, tokenInfo?.isNative]);
+    return (
+      settings.isCustomTxMessageEnabled && !!vaultSettings?.withTxMessage
+    );
+  }, [
+    settings.isCustomTxMessageEnabled,
+    tokenInfo?.isNative,
+    vaultSettings?.withTxMessage,
+  ]);
+
+  const validateTxMessage = useCallback(
+    (value: string) => {
+      if (!value) return true;
+      if (recipientIsContract && !hexUtils.isHexString(value)) {
+        return intl.formatMessage({
+          id: ETranslations.message_signing_message_invalid_hex,
+        });
+      }
+      return true;
+    },
+    [intl, recipientIsContract],
+  );
 
   onSubmitRef.current = useCallback(
     async () =>
@@ -640,6 +660,15 @@ function SendAmountInputContainer() {
           }
 
           const txMessageValue = form.getValues('txMessage');
+          if (recipientIsContract && txMessageValue) {
+            const txMessageValidationResult = validateTxMessage(txMessageValue);
+            if (txMessageValidationResult !== true) {
+              throw new OneKeyLocalError({
+                key: ETranslations.message_signing_message_invalid_hex,
+                message: txMessageValidationResult,
+              });
+            }
+          }
           const hexData = isHexTxMessage
             ? txMessageValue
             : txMessageLinkedString;
@@ -741,6 +770,7 @@ function SendAmountInputContainer() {
       tokenInfo?.address,
       tokenInfo?.isNative,
       txMessageLinkedString,
+      validateTxMessage,
     ],
   );
 
@@ -1248,6 +1278,9 @@ function SendAmountInputContainer() {
                 id: ETranslations.global_hex_data,
               })}
               optional
+              rules={{
+                validate: validateTxMessage,
+              }}
             >
               <TextArea>
                 <TextAreaInput

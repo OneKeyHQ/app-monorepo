@@ -60,58 +60,57 @@ export class SimpleDbEntityRecentRecipients extends SimpleDbEntityBase<IRecentRe
         return;
       }
 
-      // Start from existing v2 data (may already have entries from new sends)
-      const currentData = await this.getRawData();
-      const migratedRecipients: Record<
-        string,
-        Record<string, IRecentRecipientData>
-      > = { ...currentData?.recentRecipients };
-      const evmRecipients: Record<string, IRecentRecipientData> = {
-        ...migratedRecipients.evm,
-      };
+      await this.setRawData((currentData) => {
+        // Start from existing v2 data (may already have entries from new sends)
+        const migratedRecipients: Record<
+          string,
+          Record<string, IRecentRecipientData>
+        > = { ...(currentData?.recentRecipients ?? {}) };
+        const evmRecipients: Record<string, IRecentRecipientData> = {
+          ...migratedRecipients.evm,
+        };
 
-      for (const [storageKey, recipients] of Object.entries(
-        oldData.recentRecipients,
-      )) {
-        // Check if this is an EVM network key (e.g., 'evm--1', 'evm--56')
-        const isEvmKey = storageKey === 'evm' || storageKey.startsWith('evm--');
+        for (const [storageKey, recipients] of Object.entries(
+          oldData.recentRecipients,
+        )) {
+          // Check if this is an EVM network key (e.g., 'evm--1', 'evm--56')
+          const isEvmKey =
+            storageKey === 'evm' || storageKey.startsWith('evm--');
 
-        if (isEvmKey) {
-          // Merge into shared EVM recipients, keep newer entries
-          for (const [address, data] of Object.entries(recipients)) {
-            const existing = evmRecipients[address];
-            if (!existing || data.updatedAt > existing.updatedAt) {
-              evmRecipients[address] = {
-                ...data,
-                networkId: data.networkId || storageKey,
-              };
+          if (isEvmKey) {
+            // Merge into shared EVM recipients, keep newer entries
+            for (const [address, data] of Object.entries(recipients)) {
+              const existing = evmRecipients[address];
+              if (!existing || data.updatedAt > existing.updatedAt) {
+                evmRecipients[address] = {
+                  ...data,
+                  networkId: data.networkId || storageKey,
+                };
+              }
             }
-          }
-        } else {
-          // Non-EVM: merge with existing, keep newer entries
-          const existingNetwork = migratedRecipients[storageKey] ?? {};
-          for (const [address, data] of Object.entries(recipients)) {
-            const existing = existingNetwork[address];
-            if (!existing || data.updatedAt > existing.updatedAt) {
-              existingNetwork[address] = data;
+          } else {
+            // Non-EVM: merge with existing, keep newer entries
+            const existingNetwork = migratedRecipients[storageKey] ?? {};
+            for (const [address, data] of Object.entries(recipients)) {
+              const existing = existingNetwork[address];
+              if (!existing || data.updatedAt > existing.updatedAt) {
+                existingNetwork[address] = data;
+              }
             }
+            migratedRecipients[storageKey] = existingNetwork;
           }
-          migratedRecipients[storageKey] = existingNetwork;
         }
-      }
 
-      // Add merged EVM recipients, sort and keep only top 10
-      if (Object.keys(evmRecipients).length > 0) {
-        const sortedEvmRecipients = Object.entries(evmRecipients)
-          .toSorted(([, a], [, b]) => b.updatedAt - a.updatedAt)
-          .slice(0, 10);
-        migratedRecipients.evm = Object.fromEntries(sortedEvmRecipients);
-      }
+        // Add merged EVM recipients, sort and keep only top 10
+        if (Object.keys(evmRecipients).length > 0) {
+          const sortedEvmRecipients = Object.entries(evmRecipients)
+            .toSorted(([, a], [, b]) => b.updatedAt - a.updatedAt)
+            .slice(0, 10);
+          migratedRecipients.evm = Object.fromEntries(sortedEvmRecipients);
+        }
 
-      // Save merged data
-      if (Object.keys(migratedRecipients).length > 0) {
-        await this.setRawData({ recentRecipients: migratedRecipients });
-      }
+        return { recentRecipients: migratedRecipients };
+      });
 
       // Remove old storage key after successful migration
       await this.appStorage.removeItem(oldKey);
