@@ -16,8 +16,63 @@ import {
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { NetworksFilterItem } from '@onekeyhq/kit/src/components/NetworksFilterItem';
 import { TokenListItem } from '@onekeyhq/kit/src/components/TokenListItem';
+import { SendAutoSizeAmountInput } from '@onekeyhq/kit/src/views/Send/components/SendAutoSizeAmountInput';
 
 import { Layout } from './utils/Layout';
+
+const AUTO_SIZE_SHORT_VALUE = '0.1234';
+const AUTO_SIZE_LONG_VALUE = '12345678901234567890.12345678';
+const AUTO_SIZE_SHORT_SYMBOL = 'BTC';
+const AUTO_SIZE_LONG_SYMBOL = 'SUPER-LONG-TOKEN-SYMBOL';
+
+function AutoSizeAmountInputGalleryExample() {
+  const [value, setValue] = useState(AUTO_SIZE_SHORT_VALUE);
+  const [tokenSymbol, setTokenSymbol] = useState(AUTO_SIZE_SHORT_SYMBOL);
+  const [currencyLabel, setCurrencyLabel] = useState('$');
+
+  return (
+    <YStack gap="$4">
+      <Stack px="$4" py="$5" borderWidth={1} borderColor="$borderSubdued">
+        <SendAutoSizeAmountInput
+          value={value}
+          onChange={setValue}
+          tokenSymbol={tokenSymbol}
+          inputProps={{
+            placeholder: '0',
+            leftAddOnProps: currencyLabel
+              ? {
+                  label: currencyLabel,
+                }
+              : undefined,
+          }}
+          valueProps={{
+            value: '123,456.78',
+            currency: '$',
+          }}
+        />
+      </Stack>
+      <XStack flexWrap="wrap" gap="$2">
+        <Button onPress={() => setValue(AUTO_SIZE_SHORT_VALUE)}>
+          short amount
+        </Button>
+        <Button onPress={() => setValue(AUTO_SIZE_LONG_VALUE)}>
+          long amount
+        </Button>
+        <Button onPress={() => setTokenSymbol(AUTO_SIZE_SHORT_SYMBOL)}>
+          short symbol
+        </Button>
+        <Button onPress={() => setTokenSymbol(AUTO_SIZE_LONG_SYMBOL)}>
+          long symbol
+        </Button>
+        <Button
+          onPress={() => setCurrencyLabel((prev) => (prev ? '' : '$'))}
+        >
+          toggle fiat prefix
+        </Button>
+      </XStack>
+    </YStack>
+  );
+}
 
 const AmountInputGallery = () => (
   <Layout
@@ -264,6 +319,10 @@ const AmountInputGallery = () => (
             </Stack>
           );
         },
+      },
+      {
+        title: 'Example 8 (Send autosize)',
+        element: <AutoSizeAmountInputGalleryExample />,
       },
       {
         title: 'TokenListItem in TokenSearchModal',
