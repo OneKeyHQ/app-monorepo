@@ -112,10 +112,10 @@ index d699315..53733de 100644
        onLayout(size)
      }
 diff --git a/node_modules/react-native-bottom-tabs/ios/TabViewImpl.swift b/node_modules/react-native-bottom-tabs/ios/TabViewImpl.swift
-index 72938be..d4f5c71 100644
+index 72938be..3a85477 100644
 --- a/node_modules/react-native-bottom-tabs/ios/TabViewImpl.swift
 +++ b/node_modules/react-native-bottom-tabs/ios/TabViewImpl.swift
-@@ -3,6 +3,17 @@ import React
+@@ -3,9 +3,45 @@ import React
  import SwiftUI
  @_spi(Advanced) import SwiftUIIntrospect
  
@@ -130,10 +130,46 @@ index 72938be..d4f5c71 100644
 +  }
 +}
 +
++private func sceneSummary(_ window: UIWindow?) -> String {
++  guard let window else { return "scene=nil" }
++  if #available(iOS 13.0, *) {
++    guard let scene = window.windowScene else { return "scene=nil(windowHasNoScene)" }
++    let state: String
++    switch scene.activationState {
++    case .foregroundActive:
++      state = "foregroundActive"
++    case .foregroundInactive:
++      state = "foregroundInactive"
++    case .background:
++      state = "background"
++    case .unattached:
++      state = "unattached"
++    @unknown default:
++      state = "unknown"
++    }
++    let sceneAddress = String(describing: Unmanaged.passUnretained(scene).toOpaque())
++    return "scene=\(sceneAddress) state=\(state)"
++  }
++  return "scene=unavailable(<iOS13)"
++}
++
  /// SwiftUI implementation of TabView used to render React Native views.
  struct TabViewImpl: View {
    @ObservedObject var props: TabViewProps
-@@ -50,6 +61,8 @@ struct TabViewImpl: View {
++  @State private var lastTabControllerAddress: String = ""
++  @State private var lastTabBarAddress: String = ""
+   #if os(macOS)
+     @Weak var tabBar: NSTabView?
+   #else
+@@ -41,6 +77,7 @@ struct TabViewImpl: View {
+   var onLongPress: (_ key: String) -> Void
+   var onLayout: (_ size: CGSize) -> Void
+   var onTabBarMeasured: (_ height: Int) -> Void
++  var onContainerReattached: (_ reason: String) -> Void
+ 
+   var body: some View {
+     tabContent
+@@ -50,6 +87,8 @@ struct TabViewImpl: View {
            let item = props.filteredItems[safe: index]
            guard let key = item?.key else { return false }
  
@@ -142,9 +178,29 @@ index 72938be..d4f5c71 100644
            if isLongPress {
              onLongPress(key)
              emitHapticFeedback(longPress: true)
-@@ -69,6 +82,11 @@ struct TabViewImpl: View {
+@@ -68,7 +107,31 @@ struct TabViewImpl: View {
+         #if os(macOS)
            tabBar = tabController
          #else
++          let controllerAddress = String(describing: Unmanaged.passUnretained(tabController).toOpaque())
++          let tabBarAddress = String(describing: Unmanaged.passUnretained(tabController.tabBar).toOpaque())
++          let controllerScene = sceneSummary(tabController.view.window)
++          let tabBarScene = sceneSummary(tabController.tabBar.window)
++          TabViewImplLogger.log(
++            "introspectTabView: controller=\(controllerAddress), tabBar=\(tabBarAddress), controllerWindow=\(tabController.view.window != nil), tabBarWindow=\(tabController.tabBar.window != nil), controller\(controllerScene), tabBar\(tabBarScene), selectedPage=\(props.selectedPage ?? "nil"), tabCount=\(props.filteredItems.count)"
++          )
++          let didChangeController = !lastTabControllerAddress.isEmpty && lastTabControllerAddress != controllerAddress
++          let didChangeTabBar = !lastTabBarAddress.isEmpty && lastTabBarAddress != tabBarAddress
++          if didChangeController || didChangeTabBar {
++            TabViewImplLogger.log("introspectTabView detected recreated container: controllerChanged=\(didChangeController), tabBarChanged=\(didChangeTabBar)")
++            onContainerReattached("tab-controller-recreated")
++          }
++          if lastTabControllerAddress != controllerAddress || lastTabBarAddress != tabBarAddress {
++            DispatchQueue.main.async {
++              lastTabControllerAddress = controllerAddress
++              lastTabBarAddress = tabBarAddress
++            }
++          }
            tabBar = tabController.tabBar
 +          // Immediately apply hidden state to the new tab bar instance.
 +          // Critical on iOS 26 where SwiftUI may recreate the UITabBarController,
@@ -154,8 +210,16 @@ index 72938be..d4f5c71 100644
            if !props.tabBarHidden {
              onTabBarMeasured(
                Int(tabController.tabBar.frame.size.height)
-@@ -80,16 +98,17 @@ struct TabViewImpl: View {
-         .configureAppearance(props: props, tabBar: tabBar)
+@@ -77,19 +140,24 @@ struct TabViewImpl: View {
+         #endif
+       }
+       #if !os(macOS)
+-        .configureAppearance(props: props, tabBar: tabBar)
++        .configureAppearance(
++          props: props,
++          tabBar: tabBar,
++          onContainerReattached: onContainerReattached
++        )
        #endif
        .tintColor(props.selectedActiveTintColor)
 -      .getSidebarAdaptable(enabled: props.sidebarAdaptable ?? false)
@@ -180,7 +244,7 @@ index 72938be..d4f5c71 100644
          #if os(tvOS) || os(macOS) || os(visionOS)
            onSelect(newValue)
          #endif
-@@ -214,6 +233,40 @@ extension View {
+@@ -214,6 +282,40 @@ extension View {
      }
    }
  
@@ -221,9 +285,25 @@ index 72938be..d4f5c71 100644
    @ViewBuilder
    func tabBadge(_ data: String?) -> some View {
      if #available(iOS 15.0, macOS 15.0, visionOS 2.0, tvOS 15.0, *) {
-@@ -261,6 +314,24 @@ extension View {
+@@ -233,7 +335,11 @@ extension View {
+ 
+   #if !os(macOS)
+     @ViewBuilder
+-    func configureAppearance(props: TabViewProps, tabBar: UITabBar?) -> some View {
++    func configureAppearance(
++      props: TabViewProps,
++      tabBar: UITabBar?,
++      onContainerReattached: @escaping (_ reason: String) -> Void
++    ) -> some View {
+       self
+         .onChange(of: props.barTintColor) { _ in
+           updateTabBarAppearance(props: props, tabBar: tabBar)
+@@ -260,7 +366,35 @@ extension View {
+           updateTabBarAppearance(props: props, tabBar: tabBar)
          }
          .onChange(of: props.tabBarHidden) { newValue in
++          var didUseFallbackTabBar = false
++          var fallbackCount = 0
            tabBar?.isHidden = newValue
 +          tabBar?.isUserInteractionEnabled = !newValue
 +          if #available(iOS 26.0, *) {
@@ -239,14 +319,22 @@ index 72938be..d4f5c71 100644
 +                if foundTabBar !== tabBar {
 +                  foundTabBar.isHidden = newValue
 +                  foundTabBar.isUserInteractionEnabled = !newValue
++                  didUseFallbackTabBar = true
++                  fallbackCount += 1
 +                }
 +              }
 +            }
 +          }
++          TabViewImplLogger.log(
++            "tabBarHidden changed: hidden=\(newValue), primaryTabBarWindow=\(tabBar?.window != nil), fallbackCount=\(fallbackCount), usedFallback=\(didUseFallbackTabBar), \(sceneSummary(tabBar?.window))"
++          )
++          if didUseFallbackTabBar {
++            onContainerReattached("fallback-findAllTabBars")
++          }
          }
      }
    #endif
-@@ -299,14 +370,14 @@ extension View {
+@@ -299,14 +433,14 @@ extension View {
    @ViewBuilder
    func hideTabBar(_ flag: Bool) -> some View {
      #if !os(macOS)
@@ -268,7 +356,7 @@ index 72938be..d4f5c71 100644
          self
        }
      #else
-@@ -326,3 +397,14 @@ extension View {
+@@ -326,3 +460,14 @@ extension View {
      }
    }
  }
@@ -284,13 +372,16 @@ index 72938be..d4f5c71 100644
 +}
 +#endif
 diff --git a/node_modules/react-native-bottom-tabs/ios/TabViewProvider.swift b/node_modules/react-native-bottom-tabs/ios/TabViewProvider.swift
-index 013032f..9485509 100644
+index 013032f..778db67 100644
 --- a/node_modules/react-native-bottom-tabs/ios/TabViewProvider.swift
 +++ b/node_modules/react-native-bottom-tabs/ios/TabViewProvider.swift
-@@ -2,6 +2,18 @@ import Foundation
+@@ -2,6 +2,62 @@ import Foundation
  import React
  import SwiftUI
  
++private let kTabViewContainerDidReattachNotification =
++  Notification.Name("RNCTabViewContainerDidReattachNotification")
++
 +// MARK: - OneKey Native Logger Bridge
 +// Uses NSClassFromString to access @onekeyfe/react-native-native-logger without direct import
 +private enum TabViewLogger {
@@ -303,10 +394,66 @@ index 013032f..9485509 100644
 +  }
 +}
 +
++private func objectAddress(_ object: AnyObject?) -> String {
++  guard let object else { return "nil" }
++  return String(describing: Unmanaged.passUnretained(object).toOpaque())
++}
++
++private func sceneSummary(_ window: UIWindow?) -> String {
++  guard let window else { return "scene=nil" }
++  if #available(iOS 13.0, *) {
++    guard let scene = window.windowScene else { return "scene=nil(windowHasNoScene)" }
++    let state: String
++    switch scene.activationState {
++    case .foregroundActive:
++      state = "foregroundActive"
++    case .foregroundInactive:
++      state = "foregroundInactive"
++    case .background:
++      state = "background"
++    case .unattached:
++      state = "unattached"
++    @unknown default:
++      state = "unknown"
++    }
++    return "scene=\(objectAddress(scene)) state=\(state)"
++  }
++  return "scene=unavailable(<iOS13)"
++}
++
++#if !os(macOS)
++private final class WeakDisplayLinkProxy: NSObject {
++  weak var target: TabViewProvider?
++
++  init(target: TabViewProvider) {
++    self.target = target
++  }
++
++  @objc func onTick() {
++    target?.onReattachPumpTickFromDisplayLink()
++  }
++}
++#endif
++
  @objcMembers
  public final class TabInfo: NSObject {
    public let key: String
-@@ -85,7 +97,19 @@ public final class TabInfo: NSObject {
+@@ -52,6 +108,14 @@ public final class TabInfo: NSObject {
+   private var hostingController: PlatformHostingController<TabViewImpl>?
+   private var coalescingKey: UInt16 = 0
+   private var iconSize = CGSize(width: 27, height: 27)
++#if !os(macOS)
++  private var reattachDisplayLink: CADisplayLink?
++  private var reattachDisplayLinkProxy: WeakDisplayLinkProxy?
++  private var reattachPumpStartedAt: CFAbsoluteTime = 0
++  private var reattachPumpStartReason: String = ""
++  private var reattachPumpTickCount: Int = 0
++  private let reattachPumpTimeoutSeconds: CFAbsoluteTime = 1.5
++#endif
+ 
+   @objc var onPageSelected: RCTDirectEventBlock?
+ 
+@@ -85,7 +149,19 @@ public final class TabInfo: NSObject {
  
    @objc public var selectedPage: NSString? {
      didSet {
@@ -327,16 +474,230 @@ index 013032f..9485509 100644
      }
    }
  
-@@ -193,6 +217,7 @@ public final class TabInfo: NSObject {
+@@ -166,13 +242,23 @@ public final class TabInfo: NSObject {
+     self.delegate = delegate
+   }
+ 
++  deinit {
++#if !os(macOS)
++    stopReattachPump(reason: "deinit")
++#endif
++  }
++
+   @objc public func setImageLoader(_ imageLoader: RCTImageLoader) {
+     self.imageLoader = imageLoader
+     loadIcons(icons)
+   }
+ 
+   override public func didUpdateReactSubviews() {
+-    props.children = reactSubviews().map(IdentifiablePlatformView.init)
++    let reactSubviewsList = reactSubviews() ?? []
++    props.children = reactSubviewsList.map(IdentifiablePlatformView.init)
++    TabViewLogger.log(
++      "didUpdateReactSubviews: count=\(reactSubviewsList.count), providerWindow=\(window != nil), providerSuperview=\(superview != nil), \(sceneSummary(window))"
++    )
+   }
+ 
+ #if os(macOS)
+@@ -181,18 +267,52 @@ public final class TabInfo: NSObject {
+     setupView()
+   }
+ #else
++  override public func didMoveToWindow() {
++    super.didMoveToWindow()
++    TabViewLogger.log("didMoveToWindow: window=\(window != nil), hostingController=\(objectAddress(hostingController)), \(sceneSummary(window))")
++    if window != nil {
++      ensureHostingControllerAttached(reason: "didMoveToWindow")
++      stopReattachPump(reason: "didMoveToWindow-window-restored")
++    } else {
++      startReattachPumpIfNeeded(reason: "didMoveToWindow-window-nil")
++    }
++  }
++
++  override public func didMoveToSuperview() {
++    super.didMoveToSuperview()
++    TabViewLogger.log("didMoveToSuperview: superview=\(superview != nil), window=\(window != nil), hostingController=\(objectAddress(hostingController)), \(sceneSummary(window))")
++    if superview != nil {
++      ensureHostingControllerAttached(reason: "didMoveToSuperview")
++    }
++    if window == nil {
++      startReattachPumpIfNeeded(reason: "didMoveToSuperview-window-nil")
++    } else {
++      stopReattachPump(reason: "didMoveToSuperview-window-restored")
++    }
++  }
++
+   override public func layoutSubviews() {
+     super.layoutSubviews()
++    TabViewLogger.log("layoutSubviews: bounds=\(bounds), window=\(window != nil), hostingController=\(objectAddress(hostingController)), \(sceneSummary(window))")
+     setupView()
++    ensureHostingControllerAttached(reason: "layoutSubviews")
++    if window == nil {
++      startReattachPumpIfNeeded(reason: "layoutSubviews-window-nil")
++    } else {
++      stopReattachPump(reason: "layoutSubviews-window-restored")
++    }
+   }
+ #endif
+ 
+   private func setupView() {
+     if self.hostingController != nil {
++      TabViewLogger.log("setupView: skipped because hostingController already exists (\(objectAddress(hostingController)))")
+       return
      }
++    TabViewLogger.log("setupView: creating hostingController, providerWindow=\(window != nil), providerSuperview=\(superview != nil), \(sceneSummary(window))")
  
      self.hostingController = PlatformHostingController(rootView: TabViewImpl(props: props) { key in
 +      TabViewLogger.log("onPageSelected fired: key=\(key)")
        self.delegate?.onPageSelected(key: key, reactTag: self.reactTag)
      } onLongPress: { key in
        self.delegate?.onLongPress(key: key, reactTag: self.reactTag)
+@@ -200,9 +320,14 @@ public final class TabInfo: NSObject {
+       self.delegate?.onLayout(size: size, reactTag: self.reactTag)
+     } onTabBarMeasured: { height in
+       self.delegate?.onTabBarMeasured(height: height, reactTag: self.reactTag)
++    } onContainerReattached: { reason in
++      self.notifyContainerReattached(reason: "tabViewImpl-\(reason)")
+     })
+ 
+     if let hostingController = self.hostingController, let parentViewController = reactViewController() {
++      TabViewLogger.log(
++        "setupView: attaching hostingController=\(objectAddress(hostingController)) to parentVC=\(NSStringFromClass(type(of: parentViewController))):\(objectAddress(parentViewController))"
++      )
+       parentViewController.addChild(hostingController)
+ #if !os(macOS)
+       hostingController.view.backgroundColor = .clear
+@@ -213,7 +338,128 @@ public final class TabInfo: NSObject {
+ #if !os(macOS)
+       hostingController.didMove(toParent: parentViewController)
+ #endif
++      notifyContainerReattached(reason: "setupView-initial-attach")
++    } else {
++      TabViewLogger.log(
++        "setupView: skipped attach, hostingController=\(objectAddress(hostingController)), parentVC=\(objectAddress(reactViewController()))"
++      )
++#if !os(macOS)
++      startReattachPumpIfNeeded(reason: "setupView-parent-nil")
++#endif
++    }
++  }
++
++  private func ensureHostingControllerAttached(reason: String) {
++    guard let hostingController else { return }
++    guard let parentViewController = reactViewController() else {
++      TabViewLogger.log("ensureHostingControllerAttached(\(reason)): skipped because parentVC is nil")
++      return
++    }
++
++    var didReattach = false
++    TabViewLogger.log(
++      "ensureHostingControllerAttached(\(reason)): begin providerWindow=\(window != nil), providerSuperview=\(superview != nil), hostingController=\(objectAddress(hostingController)), hostingParent=\(objectAddress(hostingController.parent)), expectedParent=\(objectAddress(parentViewController)), hostingViewSuperview=\(objectAddress(hostingController.view.superview)), provider=\(objectAddress(self))"
++        + ", \(sceneSummary(window))"
++    )
++    if hostingController.parent !== parentViewController {
++      if hostingController.parent != nil {
++        hostingController.willMove(toParent: nil)
++        hostingController.removeFromParent()
++      }
++      parentViewController.addChild(hostingController)
++      TabViewLogger.log("ensureHostingControllerAttached(\(reason)): rebound parent VC")
++      didReattach = true
++    }
++
++    if hostingController.view.superview !== self {
++      if hostingController.view.superview != nil {
++        hostingController.view.removeFromSuperview()
++      }
++      addSubview(hostingController.view)
++      hostingController.view.translatesAutoresizingMaskIntoConstraints = false
++      hostingController.view.pinEdges(to: self)
++      TabViewLogger.log("ensureHostingControllerAttached(\(reason)): rebound hosting view to provider")
++      didReattach = true
++    }
++
++#if !os(macOS)
++    if didReattach {
++      hostingController.didMove(toParent: parentViewController)
++      notifyContainerReattached(reason: "ensureHostingControllerAttached-\(reason)")
++    } else {
++      TabViewLogger.log("ensureHostingControllerAttached(\(reason)): no-op, hierarchy already consistent")
++    }
++#endif
++  }
++
++#if !os(macOS)
++  private func startReattachPumpIfNeeded(reason: String) {
++    guard window == nil else {
++      stopReattachPump(reason: "startReattachPumpIfNeeded-window-restored")
++      return
++    }
++    guard reattachDisplayLink == nil else {
++      TabViewLogger.log(
++        "reattachPump already running: reason=\(reason), startReason=\(reattachPumpStartReason), tickCount=\(reattachPumpTickCount), providerWindow=\(window != nil), providerSuperview=\(superview != nil), \(sceneSummary(window))"
++      )
++      return
++    }
++    reattachPumpStartedAt = CFAbsoluteTimeGetCurrent()
++    reattachPumpStartReason = reason
++    reattachPumpTickCount = 0
++    let proxy = WeakDisplayLinkProxy(target: self)
++    let displayLink = CADisplayLink(target: proxy, selector: #selector(WeakDisplayLinkProxy.onTick))
++    displayLink.add(to: .main, forMode: .common)
++    reattachDisplayLinkProxy = proxy
++    reattachDisplayLink = displayLink
++    TabViewLogger.log(
++      "reattachPump start: reason=\(reason), timeout=\(reattachPumpTimeoutSeconds)s, provider=\(objectAddress(self)), hostingController=\(objectAddress(hostingController)), providerWindow=\(window != nil), providerSuperview=\(superview != nil), \(sceneSummary(window))"
++    )
++  }
++
++  private func stopReattachPump(reason: String) {
++    guard let reattachDisplayLink else { return }
++    reattachDisplayLink.invalidate()
++    self.reattachDisplayLink = nil
++    reattachDisplayLinkProxy = nil
++    let elapsed = CFAbsoluteTimeGetCurrent() - reattachPumpStartedAt
++    TabViewLogger.log(
++      "reattachPump stop: reason=\(reason), elapsed=\(String(format: "%.3f", elapsed))s, tickCount=\(reattachPumpTickCount), startReason=\(reattachPumpStartReason), provider=\(objectAddress(self)), hostingController=\(objectAddress(hostingController)), providerWindow=\(window != nil), providerSuperview=\(superview != nil), \(sceneSummary(window))"
++    )
++  }
++
++  @objc fileprivate func onReattachPumpTickFromDisplayLink() {
++    onReattachPumpTick()
++  }
++
++  private func onReattachPumpTick() {
++    guard reattachDisplayLink != nil else { return }
++    reattachPumpTickCount += 1
++    setupView()
++    ensureHostingControllerAttached(reason: "reattachPumpTick")
++    if window != nil {
++      stopReattachPump(reason: "tick-window-restored")
++      return
+     }
++    let elapsed = CFAbsoluteTimeGetCurrent() - reattachPumpStartedAt
++    if elapsed >= reattachPumpTimeoutSeconds {
++      stopReattachPump(reason: "tick-timeout")
++    }
++  }
++#endif
++
++  private func notifyContainerReattached(reason: String) {
++    let parentVC = reactViewController()
++    let parentVCClass = parentVC.map { NSStringFromClass(type(of: $0)) } ?? "nil"
++    TabViewLogger.log(
++      "container reattached: reason=\(reason), providerWindow=\(window != nil), providerSuperview=\(superview != nil), parentVC=\(parentVCClass):\(objectAddress(parentVC))"
++        + ", \(sceneSummary(window))"
++    )
++    NotificationCenter.default.post(
++      name: kTabViewContainerDidReattachNotification,
++      object: self,
++      userInfo: ["reason": reason]
++    )
+   }
+ 
+   @objc(insertChild:atIndex:)
 diff --git a/node_modules/react-native-bottom-tabs/lib/module/TabView.js b/node_modules/react-native-bottom-tabs/lib/module/TabView.js
-index 3ab92c7..494e084 100644
+index 3ab92c7..94a4f80 100644
 --- a/node_modules/react-native-bottom-tabs/lib/module/TabView.js
 +++ b/node_modules/react-native-bottom-tabs/lib/module/TabView.js
 @@ -10,6 +10,7 @@ import NativeTabView from './TabViewNativeComponent';
@@ -359,17 +720,14 @@ index 3ab92c7..494e084 100644
    const customTabBarWrapperRef = useRef(null);
    const [tabBarHeight, setTabBarHeight] = React.useState(0);
    const [measuredDimensions, setMeasuredDimensions] = React.useState({
-@@ -160,8 +166,9 @@ const TabView = ({
+@@ -160,6 +166,7 @@ const TabView = ({
        key
      }
    }) => {
-+    NativeLogger.write(1, `[TabView JS] handlePageSelected from native: key=${key}, currentFocusedKey=${focusedKey}, ts=${Date.now()}`);
++    NativeLogger.write(1, `[TabView JS] handlePageSelected from native: key=${key}, currentFocusedKey=${prevFocusedKeyRef.current}, ts=${Date.now()}`);
      jumpTo(key);
--  }, [jumpTo]);
-+  }, [jumpTo, focusedKey]);
+   }, [jumpTo]);
    const handleTabBarMeasured = React.useCallback(({
-     nativeEvent: {
-       height
 @@ -199,7 +206,7 @@ const TabView = ({
        ,
        icons: renderCustomTabBar ? undefined : resolvedIconAssets,
@@ -395,7 +753,7 @@ index 6695dad..d3cfd14 100644
  declare const TabView: <Route extends BaseRoute>({ navigationState, renderScene, onIndexChange, onTabLongPress, rippleColor, tabBarActiveTintColor: activeTintColor, tabBarInactiveTintColor: inactiveTintColor, getBadge, getBadgeBackgroundColor, getBadgeTextColor, getLazy, getLabelText, getIcon, getHidden, getActiveTintColor, getTestID, getRole, getSceneStyle, getPreventsDefault, hapticFeedbackEnabled, labeled, getFreezeOnBlur, tabBar: renderCustomTabBar, tabBarStyle, tabLabelStyle, renderBottomAccessoryView, ...props }: Props<Route>) => import("react/jsx-runtime").JSX.Element;
  export default TabView;
 diff --git a/node_modules/react-native-bottom-tabs/src/TabView.tsx b/node_modules/react-native-bottom-tabs/src/TabView.tsx
-index 41b9cb3..9f260f5 100644
+index 41b9cb3..467cdb6 100644
 --- a/node_modules/react-native-bottom-tabs/src/TabView.tsx
 +++ b/node_modules/react-native-bottom-tabs/src/TabView.tsx
 @@ -28,6 +28,7 @@ import {
@@ -429,18 +787,14 @@ index 41b9cb3..9f260f5 100644
    const customTabBarWrapperRef = useRef<View>(null);
    const [tabBarHeight, setTabBarHeight] = React.useState<number | undefined>(0);
    const [measuredDimensions, setMeasuredDimensions] = React.useState<
-@@ -354,9 +364,10 @@ const TabView = <Route extends BaseRoute>({
+@@ -354,6 +364,7 @@ const TabView = <Route extends BaseRoute>({
  
    const handlePageSelected = React.useCallback(
      ({ nativeEvent: { key } }: { nativeEvent: OnPageSelectedEventData }) => {
-+      NativeLogger.write(1, `[TabView JS] handlePageSelected from native: key=${key}, currentFocusedKey=${focusedKey}, ts=${Date.now()}`);
++      NativeLogger.write(1, `[TabView JS] handlePageSelected from native: key=${key}, currentFocusedKey=${prevFocusedKeyRef.current}, ts=${Date.now()}`);
        jumpTo(key);
      },
--    [jumpTo]
-+    [jumpTo, focusedKey]
-   );
- 
-   const handleTabBarMeasured = React.useCallback(
+     [jumpTo]
 @@ -392,7 +403,7 @@ const TabView = <Route extends BaseRoute>({
          // When rendering a custom tab bar, icons can be React elements, which will not be properly resolved.
          icons={renderCustomTabBar ? undefined : resolvedIconAssets}
