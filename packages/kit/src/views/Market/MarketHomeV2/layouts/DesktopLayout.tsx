@@ -108,8 +108,11 @@ export function DesktopLayout({
     [portalRefCallback],
   );
 
+  const [activeTabName, setActiveTabName] = useState(initialTabName);
+
   const onTabChangeHandler = useCallback(
     ({ tabName }: { tabName: string }) => {
+      setActiveTabName(tabName);
       handleTabChange(tabName);
     },
     [handleTabChange],
@@ -125,12 +128,17 @@ export function DesktopLayout({
     return { paddingBottom: 0 };
   }, []);
 
+  const stickyHeaderCtx = useMemo(
+    () => ({ portalTarget, activeTabName }),
+    [portalTarget, activeTabName],
+  );
+
   if (!isFocused) {
     return null;
   }
 
   return (
-    <DesktopStickyHeaderContext.Provider value={portalTarget}>
+    <DesktopStickyHeaderContext.Provider value={stickyHeaderCtx}>
       <YStack flex={1}>
         <Tabs.Container
           renderTabBar={renderTabBar}

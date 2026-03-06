@@ -10,7 +10,6 @@ import {
   useMedia,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
-import { useFocusedTab } from '@onekeyhq/components/src/composite/Tabs/useFocusedTab';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -104,9 +103,10 @@ function MarketPerpsTokenListImpl({
 
   // Desktop sticky header: portal the category selector + column header
   // into the renderTabBar area so they stick when scrolling.
-  const stickyPortalTarget = useContext(DesktopStickyHeaderContext);
-  const focusedTab = useFocusedTab();
-  const isTabFocused = !tabName || focusedTab === tabName;
+  const stickyHeaderCtx = useContext(DesktopStickyHeaderContext);
+  const stickyPortalTarget = stickyHeaderCtx?.portalTarget ?? null;
+  const isTabFocused =
+    !tabName || stickyHeaderCtx?.activeTabName === tabName;
   const useDesktopPortal = webTabIntegrated && !!stickyPortalTarget && !md;
 
   const portalContent = useMemo(() => {

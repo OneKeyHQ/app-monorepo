@@ -10,7 +10,6 @@ import {
   useMedia,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
-import { useFocusedTab } from '@onekeyhq/components/src/composite/Tabs/useFocusedTab';
 import type { ETableSortType, ITableColumn } from '@onekeyhq/components';
 import type { IDragEndParamsWithItem } from '@onekeyhq/components/src/layouts/SortableListView/types';
 import { usePerpsNavigation } from '@onekeyhq/kit/src/views/Market/hooks/usePerpsNavigation';
@@ -268,7 +267,8 @@ function MarketTokenListBase({
   const handleHeaderRowRef = useRef(handleHeaderRow);
   handleHeaderRowRef.current = handleHeaderRow;
   const stableHandleHeaderRow = useCallback(
-    (column: ITableColumn<IMarketToken>) => handleHeaderRowRef.current(column),
+    (...args: Parameters<typeof handleHeaderRow>) =>
+      handleHeaderRowRef.current(...args),
     [],
   );
 
@@ -327,9 +327,10 @@ function MarketTokenListBase({
 
   // Desktop sticky header: portal the column header + toolbar into the
   // renderTabBar area so they stick when scrolling in the collapsible tab.
-  const stickyPortalTarget = useContext(DesktopStickyHeaderContext);
-  const focusedTab = useFocusedTab();
-  const isTabFocused = !tabName || focusedTab === tabName;
+  const stickyHeaderCtx = useContext(DesktopStickyHeaderContext);
+  const stickyPortalTarget = stickyHeaderCtx?.portalTarget ?? null;
+  const isTabFocused =
+    !tabName || stickyHeaderCtx?.activeTabName === tabName;
   const useDesktopPortal = webTabIntegrated && !!stickyPortalTarget && !md;
 
   const portalContent = useMemo(() => {
