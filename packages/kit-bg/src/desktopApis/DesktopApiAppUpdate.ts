@@ -544,14 +544,14 @@ class DesktopApiAppUpdate {
   }
 
   async verifyFile(verifyParams: IInstallUpdateParams): Promise<boolean> {
-    if (this.isSkipGPGAllowed(verifyParams?.skipGPGVerification)) {
-      logger.info('auto-updater', 'verifyFile skipped by skipGPGVerification');
-      return true;
-    }
     const { downloadedFile, downloadUrl } = verifyParams;
     if (!downloadedFile || !downloadUrl) {
       logger.info('auto-updater', 'no such file');
       return false;
+    }
+    if (this.isSkipGPGAllowed(verifyParams?.skipGPGVerification)) {
+      logger.info('auto-updater', 'verifyFile skipped by skipGPGVerification');
+      return true;
     }
     logger.info('auto-updater', `verifyFile ${downloadedFile} ${downloadUrl}`);
 
