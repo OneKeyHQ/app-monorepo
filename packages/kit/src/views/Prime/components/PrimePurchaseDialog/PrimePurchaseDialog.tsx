@@ -30,7 +30,7 @@ export function usePrimePurchaseCallback({
   onPurchase?: () => void;
 } = {}) {
   const { purchasePackageNative, purchasePackageWeb } = usePrimePayment();
-  const { user } = useOneKeyAuth();
+  const { supabaseUser } = useOneKeyAuth();
   const intl = useIntl();
 
   const purchaseByWebview = usePurchasePackageWebview();
@@ -122,7 +122,7 @@ export function usePrimePurchaseCallback({
         if (selectedSubscriptionPeriod) {
           await purchasePackageWeb?.({
             subscriptionPeriod: selectedSubscriptionPeriod,
-            email: user?.email || '',
+            email: supabaseUser?.email || '',
             locale: intl.locale,
             featureName,
           });
@@ -139,12 +139,12 @@ export function usePrimePurchaseCallback({
       }
     },
     [
+      onPurchase,
       purchaseByNative,
       intl,
-      onPurchase,
-      purchasePackageWeb,
       purchaseByWebview,
-      user?.email,
+      purchasePackageWeb,
+      supabaseUser,
     ],
   );
 
