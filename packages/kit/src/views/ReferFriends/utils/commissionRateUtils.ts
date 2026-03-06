@@ -1,22 +1,28 @@
+// Priority order: Hardware(0) > Perp/Contract(1) > DeFi/Onchain(2) > Others(99)
+// Uses labelKey (translation key) or subject (Record key) for stable matching,
+// independent of display text and i18n locale.
+const COMMISSION_RATE_PRIORITY_MAP: Record<string, number> = {
+  // Hardware — labelKey or subject
+  HardwareSales: 0,
+  'referral.referred_type_3': 0,
+  'referral.hardware_sale': 0,
+
+  // Perp/Contract — labelKey or subject
+  Perp: 1,
+  'referral.perps': 1,
+
+  // DeFi/Onchain — labelKey or subject
+  Onchain: 2,
+  'referral.referred_type_2': 2,
+};
+
 export function getCommissionRateSortPriority(
-  ...labels: (string | undefined)[]
+  ...keys: (string | undefined)[]
 ): number {
-  const normalized = labels
-    .filter((value): value is string => Boolean(value))
-    .map((value) => value.toLowerCase());
-
-  const matches = (keywords: string[]) =>
-    normalized.some((value) => keywords.some((kw) => value.includes(kw)));
-
-  if (matches(['hardware', 'sale', '硬件', 'referred_type_3'])) {
-    return 0;
+  for (const key of keys) {
+    if (key && key in COMMISSION_RATE_PRIORITY_MAP) {
+      return COMMISSION_RATE_PRIORITY_MAP[key];
+    }
   }
-  if (matches(['perp', 'contract', '合约'])) {
-    return 1;
-  }
-  if (matches(['defi', 'onchain', 'on-chain', 'on_chain', 'referred_type_2'])) {
-    return 2;
-  }
-
   return 99;
 }

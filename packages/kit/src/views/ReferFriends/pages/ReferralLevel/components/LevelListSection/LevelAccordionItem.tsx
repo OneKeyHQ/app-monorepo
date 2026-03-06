@@ -49,17 +49,13 @@ export function LevelAccordionItem({
         (a, b) =>
           getCommissionRateSortPriority(
             a.subject,
-            a.rate.commissionRatesLabelKey,
             a.rate.labelKey,
-            a.rate.commissionRatesLabel,
-            a.rate.label,
+            a.rate.commissionRatesLabelKey,
           ) -
           getCommissionRateSortPriority(
             b.subject,
-            b.rate.commissionRatesLabelKey,
             b.rate.labelKey,
-            b.rate.commissionRatesLabel,
-            b.rate.label,
+            b.rate.commissionRatesLabelKey,
           ),
       );
     }
