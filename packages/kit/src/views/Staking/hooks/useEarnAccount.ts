@@ -20,8 +20,7 @@ export function useEarnAccount({
   } = useActiveAccount({ num: 0 });
 
   const resolvedAccountId = accountId ?? account?.id ?? '';
-  const resolvedIndexedAccountId =
-    indexedAccountId ?? indexedAccount?.id ?? account?.indexedAccountId;
+  const resolvedIndexedAccountId = indexedAccountId ?? indexedAccount?.id;
 
   const {
     result: earnAccount,
