@@ -38,6 +38,10 @@ const CosmosEnigmaUnlockModal = LazyLoadPage(
   () => import('../pages/CosmosEnigmaUnlockModal'),
 );
 
+const RiskWhiteListModal = LazyLoadPage(
+  () => import('../pages/RiskWhiteListModal'),
+);
+
 // Custom Network
 const SettingCustomNetworkModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/CustomNetwork'),
@@ -95,5 +99,9 @@ export const DAppConnectionRouter: IModalFlowNavigatorConfig<
   {
     name: EDAppConnectionModal.CosmosEnigmaUnlockModal,
     component: CosmosEnigmaUnlockModal,
+  },
+  {
+    name: EDAppConnectionModal.RiskWhiteListModal,
+    component: RiskWhiteListModal,
   },
 ];
