@@ -54,6 +54,7 @@ import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import type { IAddressValidateStatus } from '@onekeyhq/shared/types/address';
 import { ELightningUnit } from '@onekeyhq/shared/types/lightning';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 import { ENFTType } from '@onekeyhq/shared/types/nft';
@@ -62,6 +63,7 @@ import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 import { useSupportToken } from '../../../FiatCrypto/hooks';
 import { showBalanceDetailsDialog } from '../../../Home/components/BalanceDetailsDialog';
 import { HomeTokenListProviderMirror } from '../../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
+import { showSimilarAddressDialog } from '../../../SignatureConfirm/components/SimilarAddressDialog/SimilarAddressDialog';
 import CoinControlBadge from '../../components/CoinControlBadge';
 import { SendConfirmProviderMirror } from '../../components/SendConfirmProvider/SendConfirmProviderMirror';
 
@@ -605,9 +607,7 @@ function SendAmountInputContainer() {
 
   const displayTxMessageForm = useMemo(() => {
     if (!tokenInfo?.isNative) return false;
-    return (
-      settings.isCustomTxMessageEnabled && !!vaultSettings?.withTxMessage
-    );
+    return settings.isCustomTxMessageEnabled && !!vaultSettings?.withTxMessage;
   }, [
     settings.isCustomTxMessageEnabled,
     tokenInfo?.isNative,
@@ -627,15 +627,98 @@ function SendAmountInputContainer() {
     [intl, recipientIsContract],
   );
 
+  const getRecipientValidateMessage = useCallback(
+    (status?: Exclude<IAddressValidateStatus, 'valid'>) => {
+      if (!status) return;
+      const message: Record<
+        Exclude<IAddressValidateStatus, 'valid'>,
+        ETranslations
+      > = {
+        unknown: ETranslations.send_check_request_error,
+        'prohibit-send-to-self': ETranslations.send_cannot_send_to_self,
+        invalid: ETranslations.send_address_invalid,
+        'address-not-allowlist': ETranslations.send_address_not_allowlist_error,
+      };
+      return message[status];
+    },
+    [],
+  );
+
+  const validateRecipientBeforeSubmit = useCallback(async () => {
+    if (!recipientAddress) {
+      return undefined;
+    }
+
+    const queryResult =
+      await backgroundApiProxy.serviceAccountProfile.queryAddress({
+        networkId,
+        accountId: currentAccountId,
+        address: recipientAddress,
+        enableAddressBook: true,
+        enableAddressContract: true,
+        enableVerifySendFundToSelf: true,
+        ignoreSimilarAddressInAddressBook: true,
+        enableCheckSimilarAddressInAddressBook: true,
+      });
+
+    const validationStatus = queryResult.validStatus ?? 'unknown';
+    if (validationStatus !== 'valid') {
+      const translationId = getRecipientValidateMessage(validationStatus);
+      throw new OneKeyLocalError({
+        key: translationId,
+        message: translationId
+          ? intl.formatMessage({ id: translationId })
+          : undefined,
+      });
+    }
+
+    const resolvedRecipientAddress =
+      queryResult.resolveAddress ??
+      queryResult.validAddress ??
+      recipientAddress;
+
+    if (queryResult.similarAddress) {
+      try {
+        await showSimilarAddressDialog({
+          similarAddress: queryResult.similarAddress,
+          currentAddress: resolvedRecipientAddress,
+        });
+      } catch {
+        return undefined;
+      }
+    }
+
+    return {
+      recipientAddress: resolvedRecipientAddress,
+      recipientIsContract:
+        queryResult.isContract ?? recipientIsContract ?? false,
+    };
+  }, [
+    currentAccountId,
+    getRecipientValidateMessage,
+    intl,
+    networkId,
+    recipientAddress,
+    recipientIsContract,
+  ]);
+
   onSubmitRef.current = useCallback(
     async () =>
       errorToastUtils.withErrorAutoToast(async () => {
+        setIsSubmitting(true);
         try {
           if (!account) return;
 
           let realAmount = amount;
 
-          setIsSubmitting(true);
+          const recipientValidation = await validateRecipientBeforeSubmit();
+          if (!recipientValidation) {
+            return;
+          }
+
+          const submitRecipientAddress = recipientValidation.recipientAddress;
+          const submitRecipientIsContract =
+            recipientValidation.recipientIsContract;
 
           if (isNFT) {
             realAmount = nftAmount;
@@ -660,9 +743,15 @@ function SendAmountInputContainer() {
           }
 
           const txMessageValue = form.getValues('txMessage');
-          if (recipientIsContract && txMessageValue) {
-            const txMessageValidationResult = validateTxMessage(txMessageValue);
-            if (txMessageValidationResult !== true) {
+          if (
+            submitRecipientIsContract &&
+            txMessageValue &&
+            !hexUtils.isHexString(txMessageValue)
+          ) {
+            const txMessageValidationResult = intl.formatMessage({
+              id: ETranslations.message_signing_message_invalid_hex,
+            });
+            if (txMessageValidationResult) {
               throw new OneKeyLocalError({
                 key: ETranslations.message_signing_message_invalid_hex,
                 message: txMessageValidationResult,
@@ -676,7 +765,7 @@ function SendAmountInputContainer() {
           const transfersInfo: ITransferInfo[] = [
             {
               from: account.address,
-              to: recipientAddress,
+              to: submitRecipientAddress,
               amount: realAmount,
               nftInfo:
                 isNFT && nftDetails
@@ -716,8 +805,8 @@ function SendAmountInputContainer() {
               amountToSend: realAmount,
               isMaxSend,
               isNFT,
-              originalRecipient: recipientAddress,
-              isToContract: recipientIsContract ?? false,
+              originalRecipient: submitRecipientAddress,
+              isToContract: submitRecipientIsContract,
               memo: recipientMemo,
               paymentId: recipientPaymentId,
               note: recipientNote,
@@ -731,10 +820,8 @@ function SendAmountInputContainer() {
             },
             isInternalTransfer: true,
           });
+        } finally {
           setIsSubmitting(false);
-        } catch (e) {
-          setIsSubmitting(false);
-          throw e;
         }
       }),
     [
@@ -759,8 +846,6 @@ function SendAmountInputContainer() {
       onCancel,
       onFail,
       onSuccess,
-      recipientAddress,
-      recipientIsContract,
       recipientMemo,
       recipientNote,
       recipientPaymentId,
@@ -770,7 +855,8 @@ function SendAmountInputContainer() {
       tokenInfo?.address,
       tokenInfo?.isNative,
       txMessageLinkedString,
-      validateTxMessage,
+      validateRecipientBeforeSubmit,
+      intl,
     ],
   );
 
