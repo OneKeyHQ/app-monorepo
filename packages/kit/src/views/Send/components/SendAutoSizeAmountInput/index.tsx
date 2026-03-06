@@ -1,7 +1,6 @@
 import {
   forwardRef,
   useCallback,
-  useEffect,
   useImperativeHandle,
   useMemo,
   useRef,
@@ -21,7 +20,6 @@ import {
   useTheme,
 } from '@onekeyhq/components';
 import type { IInputProps, IStackProps } from '@onekeyhq/components';
-import { webFontFamily } from '@onekeyhq/components/src/utils/webFontFamily';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { NUMBER_FORMATTER } from '@onekeyhq/shared/src/utils/numberUtils';
 
@@ -67,59 +65,6 @@ const formatWrappedTokenSymbol = (symbol: string): string => {
     new RegExp(`.{1,${WRAPPED_SYMBOL_CHUNK_LENGTH}}`, 'g'),
   );
   return chunks?.join('\n') ?? symbol;
-};
-
-const estimateInlineTextWidthPx = (text: string, fontSize: number) => {
-  let width = 0;
-  for (const char of text) {
-    if (/[0-9]/.test(char)) {
-      width += fontSize * 0.58;
-    } else if (/[A-Z]/.test(char)) {
-      width += fontSize * 0.62;
-    } else if (/[a-z]/.test(char)) {
-      width += fontSize * 0.52;
-    } else if (char === ' ') {
-      width += fontSize * 0.28;
-    } else if (['.', ',', ':', ';'].includes(char)) {
-      width += fontSize * 0.24;
-    } else if (['+', '-'].includes(char)) {
-      width += fontSize * 0.34;
-    } else if (['$', '€', '¥', '£', '₹', '₿', 'Ξ'].includes(char)) {
-      width += fontSize * 0.44;
-    } else if (['(', ')', '[', ']'].includes(char)) {
-      width += fontSize * 0.36;
-    } else {
-      width += fontSize * 0.56;
-    }
-  }
-  return width;
-};
-
-let webTextMeasureCanvas: HTMLCanvasElement | null = null;
-
-const measureInlineTextWidthPx = (
-  text: string,
-  fontSize: number,
-  fontWeight = 500,
-  measurementRevision = 0,
-) => {
-  void measurementRevision;
-  if (typeof document !== 'undefined') {
-    webTextMeasureCanvas ??= document.createElement('canvas');
-    const context = webTextMeasureCanvas.getContext('2d');
-    if (context) {
-      context.font = `${fontWeight} ${fontSize}px ${webFontFamily}`;
-      const metrics = context.measureText(text);
-      const visualWidth =
-        metrics.actualBoundingBoxLeft !== undefined &&
-        metrics.actualBoundingBoxRight !== undefined
-          ? metrics.actualBoundingBoxLeft + metrics.actualBoundingBoxRight
-          : 0;
-      return Math.ceil(Math.max(metrics.width, visualWidth));
-    }
-  }
-
-  return estimateInlineTextWidthPx(text, fontSize);
 };
 
 const sanitizeAmountInputText = (text: string): string => {
@@ -209,7 +154,6 @@ function SendAutoSizeAmountInputComponent(
   const autoSizePlaceholderColor =
     normalizeAutoSizeNativeColor(placeholderColor);
 
-  const [webFontMeasureVersion, setWebFontMeasureVersion] = useState(0);
   const [layoutWidth, setLayoutWidth] = useState(0);
   const inputRef = useRef<TextInput>(null);
   const autoSizeInputRef = useRef<{ focus?: () => void } | null>(null);
@@ -217,34 +161,6 @@ function SendAutoSizeAmountInputComponent(
   const rootOnLayout = onLayout as
     | ((event: LayoutChangeEvent) => void)
     | undefined;
-
-  useEffect(() => {
-    if (platformEnv.isNative || typeof document === 'undefined') {
-      return undefined;
-    }
-
-    const fontSet = document.fonts;
-    if (!fontSet) {
-      return undefined;
-    }
-
-    let isUnmounted = false;
-    const refreshMeasurement = () => {
-      if (!isUnmounted) {
-        setWebFontMeasureVersion((prev) => prev + 1);
-      }
-    };
-
-    void fontSet.ready.then(refreshMeasurement);
-    fontSet.addEventListener?.('loadingdone', refreshMeasurement);
-    fontSet.addEventListener?.('loadingerror', refreshMeasurement);
-
-    return () => {
-      isUnmounted = true;
-      fontSet.removeEventListener?.('loadingdone', refreshMeasurement);
-      fontSet.removeEventListener?.('loadingerror', refreshMeasurement);
-    };
-  }, []);
 
   useImperativeHandle(ref, () => ({
     focus: () => {
@@ -292,9 +208,14 @@ function SendAutoSizeAmountInputComponent(
     return formatWrappedTokenSymbol(normalizedTokenSymbol);
   }, [normalizedTokenSymbol, shouldWrapTokenSymbol]);
 
-  const { leftAddOnProps: simpleLeftAddOn, ...simpleInputProps } =
-    inputProps ?? {};
-  const currencyLabel = simpleLeftAddOn?.label as string | undefined;
+  const currencyLabel = inputProps?.leftAddOnProps?.label as string | undefined;
+  const inputLoading = inputProps?.loading;
+  const inputPlaceholder = inputProps?.placeholder ?? '0';
+  const inputEditable = inputProps?.editable ?? true;
+  const inputKeyboardType = inputProps?.keyboardType ?? 'decimal-pad';
+  const inputReturnKeyType = inputProps?.returnKeyType;
+  const onInputFocus = inputProps?.onFocus;
+  const onInputBlur = inputProps?.onBlur;
   const simpleFontSize = getAmountFontSize(
     displayValue?.length || 0,
     fontSizeScale,
@@ -322,90 +243,8 @@ function SendAutoSizeAmountInputComponent(
   if (displayValue === '') {
     autoSizeTextValue = platformEnv.isNativeIOS ? '0' : '';
   }
-  const inlineMeasureText =
-    displayValue || simpleInputProps?.placeholder || '0';
-  const inlineMeasuredAmountWidthPx = measureInlineTextWidthPx(
-    inlineMeasureText,
-    simpleFontSize,
-    500,
-    webFontMeasureVersion,
-  );
-  const inlineInputBufferPx = Math.max(18, Math.round(simpleFontSize * 0.5));
-  const inlineAmountTextWidthPx = Math.ceil(
-    inlineMeasuredAmountWidthPx + inlineInputBufferPx,
-  );
-  const inlinePrefixTextWidthPx = currencyLabel
-    ? Math.ceil(
-        measureInlineTextWidthPx(
-          currencyLabel,
-          simpleFontSize,
-          500,
-          webFontMeasureVersion,
-        ),
-      )
-    : 0;
-  const inlineSuffixTextWidthPx = inlineTokenSymbol
-    ? Math.ceil(
-        measureInlineTextWidthPx(
-          inlineTokenSymbol,
-          simpleFontSize,
-          500,
-          webFontMeasureVersion,
-        ),
-      )
-    : 0;
-  const autoSizePreferredWidth = Math.ceil(
-    inlineAmountTextWidthPx +
-      inlinePrefixTextWidthPx +
-      inlineSuffixTextWidthPx +
-      (currencyLabel ? inlinePrefixGapPx : 0) +
-      (inlineTokenSymbol ? inlineSuffixGapPx : 0) +
-      simpleFontSize * 0.18,
-  );
-  const autoSizeContainerMinWidth = Math.ceil(simpleMaxFontSize * 1.2);
-  const defaultAutoSizeContainerMaxWidth = md ? 720 : 320;
-  const autoSizeAvailableWidth =
-    availableInlineWidth > 0
-      ? Math.max(availableInlineWidth - (md ? 0 : 8), 0)
-      : defaultAutoSizeContainerMaxWidth;
-  const autoSizeContainerWidth = Math.min(
-    Math.max(autoSizePreferredWidth, autoSizeContainerMinWidth),
-    autoSizeAvailableWidth,
-    defaultAutoSizeContainerMaxWidth,
-  );
-  const inlineInputWidthPx = Math.max(
-    inlineAmountTextWidthPx,
-    Math.ceil(simpleFontSize * 1.05),
-  );
-  const inlineInputSlackPx = Math.max(
-    inlineInputWidthPx - inlineAmountTextWidthPx,
-    0,
-  );
-  const desktopInlineReservedWidthPx =
-    inlinePrefixTextWidthPx +
-    inlineSuffixTextWidthPx +
-    (currencyLabel ? inlinePrefixGapPx : 0) +
-    (inlineTokenSymbol ? inlineSuffixGapPx : 0) +
-    Math.max(8, Math.round(simpleFontSize * 0.16));
-  const inlineInputMaxWidth =
-    inlineTokenSymbol || currencyLabel
-      ? `calc(100% - ${desktopInlineReservedWidthPx}px)`
-      : '100%';
-  const desktopPrefixOffset = Math.max(2, Math.round(simpleFontSize * 0.05));
-  const desktopInlineSymbolOffset = Math.max(
-    2,
-    Math.round(simpleFontSize * 0.04),
-  );
-  const shouldCenterDesktopAmountText =
-    !!wrappedTokenSymbol || (!currencyLabel && !inlineTokenSymbol);
-  const desktopAmountTextAlign: 'center' | 'right' =
-    shouldCenterDesktopAmountText ? 'center' : 'right';
-  const desktopInlineRowOffsetPx =
-    desktopAmountTextAlign === 'right'
-      ? Math.round(-inlineInputSlackPx / 2)
-      : 0;
 
-  const amountInputNode = simpleInputProps?.loading ? (
+  const amountInputNode = inputLoading ? (
     <Stack py="$4">
       <Skeleton h="$12" w="$40" />
     </Stack>
@@ -413,23 +252,23 @@ function SendAutoSizeAmountInputComponent(
     <AutoSizeInput
       displayValue={displayValue}
       simpleFontSize={simpleFontSize}
+      simpleMaxFontSize={simpleMaxFontSize}
+      simpleMinFontSize={simpleMinFontSize}
+      availableInlineWidth={availableInlineWidth}
       currencyLabel={currencyLabel}
       inlineTokenSymbol={inlineTokenSymbol}
       inlinePrefixGapPx={inlinePrefixGapPx}
       inlineSuffixGapPx={inlineSuffixGapPx}
-      desktopAmountTextAlign={desktopAmountTextAlign}
-      desktopInlineRowOffsetPx={desktopInlineRowOffsetPx}
-      desktopPrefixOffset={desktopPrefixOffset}
-      desktopInlineSymbolOffset={desktopInlineSymbolOffset}
-      inlineInputWidthPx={inlineInputWidthPx}
-      inlineInputMaxWidth={inlineInputMaxWidth}
       selectionColor={selectionColor}
       handleSimpleChangeText={handleSimpleChangeText}
-      simpleInputProps={simpleInputProps}
+      inputLoading={inputLoading}
+      inputPlaceholder={inputPlaceholder}
+      inputEditable={inputEditable}
+      inputKeyboardType={inputKeyboardType}
+      inputReturnKeyType={inputReturnKeyType}
+      onInputFocus={onInputFocus}
+      onInputBlur={onInputBlur}
       inputRef={inputRef}
-      autoSizeContainerWidth={autoSizeContainerWidth}
-      simpleMaxFontSize={simpleMaxFontSize}
-      simpleMinFontSize={simpleMinFontSize}
       autoSizeTextValue={autoSizeTextValue}
       autoSizeInputTextColor={autoSizeInputTextColor}
       autoSizePlaceholderColor={autoSizePlaceholderColor}

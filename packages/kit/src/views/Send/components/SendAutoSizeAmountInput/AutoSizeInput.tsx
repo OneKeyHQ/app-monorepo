@@ -1,65 +1,184 @@
-import type { RefObject } from 'react';
+import { useEffect, useState } from 'react';
 
 import { Input, SizableText, XStack } from '@onekeyhq/components';
-import type { IInputProps } from '@onekeyhq/components';
+import { webFontFamily } from '@onekeyhq/components/src/utils/webFontFamily';
 
-import type { TextInput } from 'react-native';
+import type { IAutoSizeInputProps } from './AutoSizeInput.types';
 
-type IAutoSizeProps = {
-  displayValue: string;
-  simpleFontSize: number;
-  currencyLabel?: string;
-  inlineTokenSymbol?: string;
-  inlinePrefixGapPx: number;
-  inlineSuffixGapPx: number;
-  desktopAmountTextAlign: 'center' | 'right';
-  desktopInlineRowOffsetPx: number;
-  desktopPrefixOffset: number;
-  desktopInlineSymbolOffset: number;
-  inlineInputWidthPx: number;
-  inlineInputMaxWidth: string;
-  selectionColor: string;
-  handleSimpleChangeText: (text: string) => void;
-  simpleInputProps: Omit<IInputProps, 'value' | 'onChangeText' | 'onChange'> & {
-    loading?: boolean;
-  };
-  inputRef: RefObject<TextInput | null>;
-  autoSizeContainerWidth: number;
-  simpleMaxFontSize: number;
-  simpleMinFontSize: number;
-  autoSizeTextValue: string;
-  autoSizeInputTextColor?: string;
-  autoSizePlaceholderColor?: string;
-  autoSizeSelectionColor?: string;
-  autoSizeTransparentColor?: string;
-  onHybridRef: (ref: { focus?: () => void } | null) => void;
+const estimateInlineTextWidthPx = (text: string, fontSize: number) => {
+  let width = 0;
+  for (const char of text) {
+    if (/[0-9]/.test(char)) {
+      width += fontSize * 0.58;
+    } else if (/[A-Z]/.test(char)) {
+      width += fontSize * 0.62;
+    } else if (/[a-z]/.test(char)) {
+      width += fontSize * 0.52;
+    } else if (char === ' ') {
+      width += fontSize * 0.28;
+    } else if (['.', ',', ':', ';'].includes(char)) {
+      width += fontSize * 0.24;
+    } else if (['+', '-'].includes(char)) {
+      width += fontSize * 0.34;
+    } else if (['$', '€', '¥', '£', '₹', '₿', 'Ξ'].includes(char)) {
+      width += fontSize * 0.44;
+    } else if (['(', ')', '[', ']'].includes(char)) {
+      width += fontSize * 0.36;
+    } else {
+      width += fontSize * 0.56;
+    }
+  }
+  return width;
+};
+
+let webTextMeasureCanvas: HTMLCanvasElement | null = null;
+
+const measureInlineTextWidthPx = (
+  text: string,
+  fontSize: number,
+  fontWeight = 500,
+  measurementRevision = 0,
+) => {
+  void measurementRevision;
+  if (typeof document !== 'undefined') {
+    webTextMeasureCanvas ??= document.createElement('canvas');
+    const context = webTextMeasureCanvas.getContext('2d');
+    if (context) {
+      context.font = `${fontWeight} ${fontSize}px ${webFontFamily}`;
+      const metrics = context.measureText(text);
+      const visualWidth =
+        metrics.actualBoundingBoxLeft !== undefined &&
+        metrics.actualBoundingBoxRight !== undefined
+          ? metrics.actualBoundingBoxLeft + metrics.actualBoundingBoxRight
+          : 0;
+      return Math.ceil(Math.max(metrics.width, visualWidth));
+    }
+  }
+
+  return estimateInlineTextWidthPx(text, fontSize);
 };
 
 export function AutoSizeInput({
   displayValue,
   simpleFontSize,
+  availableInlineWidth,
   currencyLabel,
   inlineTokenSymbol,
   inlinePrefixGapPx,
   inlineSuffixGapPx,
-  desktopAmountTextAlign,
-  desktopInlineRowOffsetPx,
-  desktopPrefixOffset,
-  desktopInlineSymbolOffset,
-  inlineInputWidthPx,
-  inlineInputMaxWidth,
   selectionColor,
   handleSimpleChangeText,
-  simpleInputProps,
+  inputPlaceholder,
+  inputEditable,
+  inputKeyboardType,
+  onInputFocus,
+  onInputBlur,
   inputRef,
-}: IAutoSizeProps) {
+  ..._nativeOnlyProps
+}: IAutoSizeInputProps) {
+  const [webFontMeasureVersion, setWebFontMeasureVersion] = useState(0);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') {
+      return undefined;
+    }
+
+    const fontSet = document.fonts;
+    if (!fontSet) {
+      return undefined;
+    }
+
+    let isUnmounted = false;
+    const refreshMeasurement = () => {
+      if (!isUnmounted) {
+        setWebFontMeasureVersion((prev) => prev + 1);
+      }
+    };
+
+    void fontSet.ready.then(refreshMeasurement);
+    fontSet.addEventListener?.('loadingdone', refreshMeasurement);
+    fontSet.addEventListener?.('loadingerror', refreshMeasurement);
+
+    return () => {
+      isUnmounted = true;
+      fontSet.removeEventListener?.('loadingdone', refreshMeasurement);
+      fontSet.removeEventListener?.('loadingerror', refreshMeasurement);
+    };
+  }, []);
+
+  const inlineMeasureText = displayValue || inputPlaceholder || '0';
+  const inlineMeasuredAmountWidthPx = measureInlineTextWidthPx(
+    inlineMeasureText,
+    simpleFontSize,
+    500,
+    webFontMeasureVersion,
+  );
+  const inlineInputBufferPx = Math.max(18, Math.round(simpleFontSize * 0.5));
+  const inlineAmountTextWidthPx = Math.ceil(
+    inlineMeasuredAmountWidthPx + inlineInputBufferPx,
+  );
+  const inlinePrefixTextWidthPx = currencyLabel
+    ? Math.ceil(
+        measureInlineTextWidthPx(
+          currencyLabel,
+          simpleFontSize,
+          500,
+          webFontMeasureVersion,
+        ),
+      )
+    : 0;
+  const inlineSuffixTextWidthPx = inlineTokenSymbol
+    ? Math.ceil(
+        measureInlineTextWidthPx(
+          inlineTokenSymbol,
+          simpleFontSize,
+          500,
+          webFontMeasureVersion,
+        ),
+      )
+    : 0;
+  const inlineInputWidthPx = Math.max(
+    inlineAmountTextWidthPx,
+    Math.ceil(simpleFontSize * 1.05),
+  );
+  const inlineInputSlackPx = Math.max(
+    inlineInputWidthPx - inlineAmountTextWidthPx,
+    0,
+  );
+  const desktopInlineReservedWidthPx =
+    inlinePrefixTextWidthPx +
+    inlineSuffixTextWidthPx +
+    (currencyLabel ? inlinePrefixGapPx : 0) +
+    (inlineTokenSymbol ? inlineSuffixGapPx : 0) +
+    Math.max(8, Math.round(simpleFontSize * 0.16));
+  const inlineInputMaxWidth =
+    inlineTokenSymbol || currencyLabel
+      ? `calc(100% - ${desktopInlineReservedWidthPx}px)`
+      : '100%';
+  const desktopPrefixOffset = Math.max(2, Math.round(simpleFontSize * 0.05));
+  const desktopInlineSymbolOffset = Math.max(
+    2,
+    Math.round(simpleFontSize * 0.04),
+  );
+  const shouldCenterDesktopAmountText = !currencyLabel && !inlineTokenSymbol;
+  const desktopAmountTextAlign: 'center' | 'right' =
+    shouldCenterDesktopAmountText ? 'center' : 'right';
+  const desktopInlineRowOffsetPx =
+    desktopAmountTextAlign === 'right'
+      ? Math.round(-inlineInputSlackPx / 2)
+      : 0;
+
+  const hasSmallWidth =
+    availableInlineWidth > 0 &&
+    availableInlineWidth < Math.ceil(simpleFontSize);
+
   return (
     <XStack
       width="100%"
       alignItems="center"
       justifyContent="center"
       style={
-        desktopInlineRowOffsetPx
+        desktopInlineRowOffsetPx && !hasSmallWidth
           ? { transform: [{ translateX: desktopInlineRowOffsetPx }] }
           : undefined
       }
@@ -80,7 +199,8 @@ export function AutoSizeInput({
       ) : null}
       <Input
         ref={inputRef}
-        keyboardType="decimal-pad"
+        keyboardType={inputKeyboardType ?? 'decimal-pad'}
+        editable={inputEditable}
         fontSize={simpleFontSize}
         fontWeight="500"
         color="$text"
@@ -94,7 +214,7 @@ export function AutoSizeInput({
         h={Math.ceil(simpleFontSize * 1.4)}
         size="large"
         focusVisibleStyle={undefined}
-        placeholder="0"
+        placeholder={inputPlaceholder ?? '0'}
         placeholderTextColor="$textDisabled"
         value={displayValue}
         onChangeText={handleSimpleChangeText}
@@ -107,19 +227,21 @@ export function AutoSizeInput({
           borderWidth: 0,
           bg: 'transparent',
         }}
-        {...simpleInputProps}
         selectionColor={selectionColor}
         cursorColor={selectionColor}
         caretColor={selectionColor}
         {...({
           onFocus: (event: { target: HTMLInputElement }) => {
-            simpleInputProps?.onFocus?.(event as never);
+            onInputFocus?.(event as never);
             if (displayValue === '0') {
               const { target } = event;
               requestAnimationFrame(() => {
                 target.setSelectionRange(1, 1);
               });
             }
+          },
+          onBlur: (event: { target: HTMLInputElement }) => {
+            onInputBlur?.(event as never);
           },
           onClick: (e: { target: HTMLInputElement }) => {
             if (displayValue === '0') {
