@@ -113,6 +113,13 @@ class DesktopApiAppUpdate {
 
   updateCancellationToken: CancellationToken | undefined;
 
+  private isSkipGPGAllowed(skipGPGVerification?: boolean) {
+    return (
+      process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION === 'true' &&
+      Boolean(skipGPGVerification)
+    );
+  }
+
   constructor({ desktopApi }: { desktopApi: IDesktopApi }) {
     this.desktopApi = desktopApi;
     this.isManualCheck = false;
@@ -448,12 +455,23 @@ class DesktopApiAppUpdate {
   }
 
   async downloadASC(params: IInstallUpdateParams): Promise<boolean> {
+    if (this.isSkipGPGAllowed(params?.skipGPGVerification)) {
+      logger.info('auto-updater', 'downloadASC skipped by skipGPGVerification');
+      return true;
+    }
     logger.info('auto-updater', 'Download ASC requested', params);
     const valid = await this.downloadAndVerifyASC(params);
     return valid;
   }
 
   async getSha256AndVerifyASC(params: IInstallUpdateParams): Promise<boolean> {
+    if (this.isSkipGPGAllowed(params?.skipGPGVerification)) {
+      logger.info(
+        'auto-updater',
+        'getSha256AndVerifyASC skipped by skipGPGVerification',
+      );
+      return true;
+    }
     logger.info('auto-updater', 'Get SHA256 and Verify ASC requested', params);
     const valid = await this.downloadAndVerifyASC(params);
     return valid;
@@ -515,7 +533,11 @@ class DesktopApiAppUpdate {
     return fileSha256 === sha256;
   }
 
-  async verifyASC(): Promise<boolean> {
+  async verifyASC(params?: IInstallUpdateParams): Promise<boolean> {
+    if (this.isSkipGPGAllowed(params?.skipGPGVerification)) {
+      logger.info('auto-updater', 'verifyASC skipped by skipGPGVerification');
+      return true;
+    }
     logger.info('auto-updater', 'Verify ASC requested');
     const sha256 = await this.getSha256();
     return !!sha256;
@@ -526,6 +548,10 @@ class DesktopApiAppUpdate {
     if (!downloadedFile || !downloadUrl) {
       logger.info('auto-updater', 'no such file');
       return false;
+    }
+    if (this.isSkipGPGAllowed(verifyParams?.skipGPGVerification)) {
+      logger.info('auto-updater', 'verifyFile skipped by skipGPGVerification');
+      return true;
     }
     logger.info('auto-updater', `verifyFile ${downloadedFile} ${downloadUrl}`);
 
