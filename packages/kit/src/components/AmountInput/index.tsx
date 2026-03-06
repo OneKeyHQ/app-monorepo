@@ -259,6 +259,7 @@ export type IAmountInputFormItemProps = IFormFieldProps<
     extraContent?: React.ReactNode;
     /** Additional content in the balance row, between symbol and Max button (only for 'simple' variant) */
     balanceInfoContent?: React.ReactNode;
+    onLayout?: (event: LayoutChangeEvent) => void;
   } & IStackProps
 >;
 

@@ -496,7 +496,9 @@ export function AddressInput(props: IAddressInputProps) {
         }
       } catch {
         // Treat unexpected validation errors as an unknown address state.
-        setQueryResult({ input: params.address, validStatus: 'unknown' });
+        if (params.address === textRef.current) {
+          setQueryResult({ input: params.address, validStatus: 'unknown' });
+        }
       } finally {
         setLoading(false);
       }
