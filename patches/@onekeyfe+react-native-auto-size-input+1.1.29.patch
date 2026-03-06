@@ -1,0 +1,171 @@
+diff --git a/node_modules/@onekeyfe/react-native-auto-size-input/android/src/main/java/com/margelo/nitro/autosizeinput/AutoSizeInput.kt b/node_modules/@onekeyfe/react-native-auto-size-input/android/src/main/java/com/margelo/nitro/autosizeinput/AutoSizeInput.kt
+index 8a0004dc05..c154e64442 100644
+--- a/node_modules/@onekeyfe/react-native-auto-size-input/android/src/main/java/com/margelo/nitro/autosizeinput/AutoSizeInput.kt
++++ b/node_modules/@onekeyfe/react-native-auto-size-input/android/src/main/java/com/margelo/nitro/autosizeinput/AutoSizeInput.kt
+@@ -7,6 +7,7 @@ import android.graphics.Typeface
+ import android.graphics.drawable.GradientDrawable
+ import android.text.Editable
+ import android.text.InputType
++import android.text.method.NumberKeyListener
+ import android.view.inputmethod.EditorInfo
+ import android.text.StaticLayout
+ import android.text.TextPaint
+@@ -35,6 +36,19 @@ class HybridAutoSizeInput(val context: ThemedReactContext) : HybridAutoSizeInput
+   private var isDisposed = false
+   private var maxFontSizeProp: Double? = null
+   private var minFontSizeProp: Double? = null
++  private val numberPadKeyListener = object : NumberKeyListener() {
++    override fun getInputType(): Int = InputType.TYPE_CLASS_NUMBER
++
++    override fun getAcceptedChars(): CharArray =
++      charArrayOf('0', '1', '2', '3', '4', '5', '6', '7', '8', '9')
++  }
++  private val decimalPadKeyListener = object : NumberKeyListener() {
++    override fun getInputType(): Int =
++      InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL
++
++    override fun getAcceptedChars(): CharArray =
++      charArrayOf('0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.', ',', '。', '，')
++  }
+ 
+   // Container view
+   override val view: View = object : ViewGroup(context) {
+@@ -56,8 +70,23 @@ class HybridAutoSizeInput(val context: ThemedReactContext) : HybridAutoSizeInput
+     override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+     override fun afterTextChanged(s: Editable?) {
+       if (isUpdatingFromJS || isDisposed) return
++      val rawText = s?.toString() ?: ""
++      val normalizedText = if (keyboardType == "decimalPad") {
++        normalizeDecimalText(rawText)
++      } else {
++        rawText
++      }
++      if (normalizedText != rawText) {
++        isUpdatingFromJS = true
++        inputView.removeTextChangedListener(textWatcher)
++        val selectionStart = inputView.selectionStart.coerceAtLeast(0)
++        inputView.setText(normalizedText)
++        inputView.setSelection(selectionStart.coerceAtMost(normalizedText.length))
++        inputView.addTextChangedListener(textWatcher)
++        isUpdatingFromJS = false
++      }
+       recalculateFontSize()
+-      onChangeText?.invoke(s?.toString() ?: "")
++      onChangeText?.invoke(normalizedText)
+     }
+   }
+ 
+@@ -221,6 +250,7 @@ class HybridAutoSizeInput(val context: ThemedReactContext) : HybridAutoSizeInput
+         "phonePad" -> InputType.TYPE_CLASS_PHONE
+         else -> InputType.TYPE_CLASS_TEXT
+       }
++      reapplyNumericKeyListener()
+     }
+ 
+   override var returnKeyType: String? = null
+@@ -249,6 +279,7 @@ class HybridAutoSizeInput(val context: ThemedReactContext) : HybridAutoSizeInput
+       } else {
+         currentType and InputType.TYPE_TEXT_FLAG_AUTO_CORRECT.inv()
+       }
++      reapplyNumericKeyListener()
+     }
+ 
+   override var autoCapitalize: String? = null
+@@ -269,6 +300,7 @@ class HybridAutoSizeInput(val context: ThemedReactContext) : HybridAutoSizeInput
+          InputType.TYPE_TEXT_FLAG_CAP_WORDS or
+          InputType.TYPE_TEXT_FLAG_CAP_SENTENCES).inv()
+       inputView.inputType = cleared or capFlag
++      reapplyNumericKeyListener()
+     }
+ 
+   override var selectionColor: String? = null
+@@ -389,6 +421,20 @@ class HybridAutoSizeInput(val context: ThemedReactContext) : HybridAutoSizeInput
+     updateInputAppearance()
+   }
+ 
++  private fun normalizeDecimalText(text: String): String {
++    return text
++      .replace('。', '.')
++      .replace('，', '.')
++      .replace(',', '.')
++  }
++
++  private fun reapplyNumericKeyListener() {
++    when (keyboardType) {
++      "numberPad" -> inputView.keyListener = numberPadKeyListener
++      "decimalPad" -> inputView.keyListener = decimalPadKeyListener
++    }
++  }
++
+   private fun updateInputMode() {
+     val isMulti = multiline == true
+     if (isMulti) {
+@@ -399,6 +445,7 @@ class HybridAutoSizeInput(val context: ThemedReactContext) : HybridAutoSizeInput
+       inputView.isSingleLine = true
+       inputView.maxLines = 1
+     }
++    reapplyNumericKeyListener()
+     view.requestLayout()
+     recalculateFontSize()
+   }
+diff --git a/node_modules/@onekeyfe/react-native-auto-size-input/ios/AutoSizeInput.swift b/node_modules/@onekeyfe/react-native-auto-size-input/ios/AutoSizeInput.swift
+index c745250bc6..7ba7f38233 100644
+--- a/node_modules/@onekeyfe/react-native-auto-size-input/ios/AutoSizeInput.swift
++++ b/node_modules/@onekeyfe/react-native-auto-size-input/ios/AutoSizeInput.swift
+@@ -513,16 +513,28 @@ class HybridAutoSizeInput: HybridAutoSizeInputSpec {
+ 
+   fileprivate func handleTextFieldChange(_ textField: UITextField) {
+     guard !isUpdatingFromJS else { return }
++    let normalizedText = normalizeDecimalTextIfNeeded(textField.text ?? "")
++    if normalizedText != (textField.text ?? "") {
++      isUpdatingFromJS = true
++      textField.text = normalizedText
++      isUpdatingFromJS = false
++    }
+     view.setNeedsLayout()
+     recalculateFontSize()
+-    onChangeText?(textField.text ?? "")
++    onChangeText?(normalizedText)
+   }
+ 
+   fileprivate func handleTextViewChange(_ textView: UITextView) {
+     guard !isUpdatingFromJS else { return }
++    let normalizedText = normalizeDecimalTextIfNeeded(textView.text ?? "")
++    if normalizedText != textView.text {
++      isUpdatingFromJS = true
++      textView.text = normalizedText
++      isUpdatingFromJS = false
++    }
+     view.setNeedsLayout()
+     recalculateFontSize()
+-    onChangeText?(textView.text ?? "")
++    onChangeText?(normalizedText)
+   }
+ 
+   fileprivate func handleFocus() {
+@@ -589,6 +601,25 @@ class HybridAutoSizeInput: HybridAutoSizeInputSpec {
+     return (text as NSString).size(withAttributes: [.font: effectiveFont]).width
+   }
+ 
++  private func normalizeDecimalTextIfNeeded(_ text: String) -> String {
++    guard keyboardType == "decimalPad" else { return text }
++
++    let normalizedSeparators = text
++      .replacingOccurrences(of: "。", with: ".")
++      .replacingOccurrences(of: "，", with: ".")
++      .replacingOccurrences(of: ",", with: ".")
++
++    guard let firstDecimalIndex = normalizedSeparators.firstIndex(of: ".") else {
++      return normalizedSeparators
++    }
++
++    let prefix = normalizedSeparators[...firstDecimalIndex]
++    let suffix = normalizedSeparators[normalizedSeparators.index(after: firstDecimalIndex)...]
++      .replacingOccurrences(of: ".", with: "")
++
++    return String(prefix) + suffix
++  }
++
+   private func textAlignmentFrom(_ align: String?) -> NSTextAlignment {
+     switch align {
+     case "center": return .center
