@@ -93,8 +93,11 @@ const downloadASC: IDownloadASC = async (params) => {
   });
 };
 
-const verifyASC: IVerifyASC = async () => {
-  await globalThis.desktopApiProxy.appUpdate.verifyASC();
+const verifyASC: IVerifyASC = async (params) => {
+  await globalThis.desktopApiProxy.appUpdate.verifyASC({
+    ...params,
+    buildNumber: String(platformEnv.buildNumber || 1),
+  });
 };
 
 const verifyPackage: IVerifyPackage = async (params) => {
