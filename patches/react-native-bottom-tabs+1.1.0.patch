@@ -112,7 +112,7 @@ index d699315..53733de 100644
        onLayout(size)
      }
 diff --git a/node_modules/react-native-bottom-tabs/ios/TabViewImpl.swift b/node_modules/react-native-bottom-tabs/ios/TabViewImpl.swift
-index 72938be..4b0dd1d 100644
+index 72938be..3a85477 100644
 --- a/node_modules/react-native-bottom-tabs/ios/TabViewImpl.swift
 +++ b/node_modules/react-native-bottom-tabs/ios/TabViewImpl.swift
 @@ -3,9 +3,45 @@ import React
@@ -178,7 +178,7 @@ index 72938be..4b0dd1d 100644
            if isLongPress {
              onLongPress(key)
              emitHapticFeedback(longPress: true)
-@@ -68,28 +107,58 @@ struct TabViewImpl: View {
+@@ -68,7 +107,31 @@ struct TabViewImpl: View {
          #if os(macOS)
            tabBar = tabController
          #else
@@ -210,9 +210,7 @@ index 72938be..4b0dd1d 100644
            if !props.tabBarHidden {
              onTabBarMeasured(
                Int(tabController.tabBar.frame.size.height)
-             )
-           }
-+          onContainerReattached("introspect-tabview")
+@@ -77,19 +140,24 @@ struct TabViewImpl: View {
          #endif
        }
        #if !os(macOS)
@@ -246,7 +244,7 @@ index 72938be..4b0dd1d 100644
          #if os(tvOS) || os(macOS) || os(visionOS)
            onSelect(newValue)
          #endif
-@@ -214,6 +283,40 @@ extension View {
+@@ -214,6 +282,40 @@ extension View {
      }
    }
  
@@ -287,7 +285,7 @@ index 72938be..4b0dd1d 100644
    @ViewBuilder
    func tabBadge(_ data: String?) -> some View {
      if #available(iOS 15.0, macOS 15.0, visionOS 2.0, tvOS 15.0, *) {
-@@ -233,7 +336,11 @@ extension View {
+@@ -233,7 +335,11 @@ extension View {
  
    #if !os(macOS)
      @ViewBuilder
@@ -300,7 +298,7 @@ index 72938be..4b0dd1d 100644
        self
          .onChange(of: props.barTintColor) { _ in
            updateTabBarAppearance(props: props, tabBar: tabBar)
-@@ -260,7 +367,35 @@ extension View {
+@@ -260,7 +366,35 @@ extension View {
            updateTabBarAppearance(props: props, tabBar: tabBar)
          }
          .onChange(of: props.tabBarHidden) { newValue in
@@ -336,7 +334,7 @@ index 72938be..4b0dd1d 100644
          }
      }
    #endif
-@@ -299,14 +434,14 @@ extension View {
+@@ -299,14 +433,14 @@ extension View {
    @ViewBuilder
    func hideTabBar(_ flag: Bool) -> some View {
      #if !os(macOS)
@@ -358,7 +356,7 @@ index 72938be..4b0dd1d 100644
          self
        }
      #else
-@@ -326,3 +461,14 @@ extension View {
+@@ -326,3 +460,14 @@ extension View {
      }
    }
  }
@@ -585,8 +583,49 @@ index 013032f..77a8ef0 100644
    }
  
    @objc(insertChild:atIndex:)
+diff --git a/node_modules/react-native-bottom-tabs/lib/module/TabView.js b/node_modules/react-native-bottom-tabs/lib/module/TabView.js
+index 3ab92c7..94a4f80 100644
+--- a/node_modules/react-native-bottom-tabs/lib/module/TabView.js
++++ b/node_modules/react-native-bottom-tabs/lib/module/TabView.js
+@@ -10,6 +10,7 @@ import NativeTabView from './TabViewNativeComponent';
+ import useLatestCallback from 'use-latest-callback';
+ import DelayedFreeze from "./DelayedFreeze.js";
+ import { BottomAccessoryView } from "./BottomAccessoryView.js";
++import { NativeLogger } from '@onekeyfe/react-native-native-logger';
+ import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
+ const isAppleSymbol = icon => icon?.sfSymbol;
+ const ANDROID_MAX_TABS = 100;
+@@ -72,6 +73,11 @@ const TabView = ({
+ }) => {
+   // @ts-ignore
+   const focusedKey = navigationState.routes[navigationState.index].key;
++  const prevFocusedKeyRef = React.useRef(focusedKey);
++  if (prevFocusedKeyRef.current !== focusedKey) {
++    NativeLogger.write(1, `[TabView JS] focusedKey CHANGED: ${prevFocusedKeyRef.current} -> ${focusedKey}, navIndex=${navigationState.index}, ts=${Date.now()}`);
++    prevFocusedKeyRef.current = focusedKey;
++  }
+   const customTabBarWrapperRef = useRef(null);
+   const [tabBarHeight, setTabBarHeight] = React.useState(0);
+   const [measuredDimensions, setMeasuredDimensions] = React.useState({
+@@ -160,6 +166,7 @@ const TabView = ({
+       key
+     }
+   }) => {
++    NativeLogger.write(1, `[TabView JS] handlePageSelected from native: key=${key}, currentFocusedKey=${prevFocusedKeyRef.current}, ts=${Date.now()}`);
+     jumpTo(key);
+   }, [jumpTo]);
+   const handleTabBarMeasured = React.useCallback(({
+@@ -199,7 +206,7 @@ const TabView = ({
+       ,
+       icons: renderCustomTabBar ? undefined : resolvedIconAssets,
+       selectedPage: focusedKey,
+-      tabBarHidden: !!renderCustomTabBar,
++      tabBarHidden: props.tabBarHidden ?? !!renderCustomTabBar,
+       onTabLongPress: handleTabLongPress,
+       onPageSelected: handlePageSelected,
+       onTabBarMeasured: handleTabBarMeasured,
 diff --git a/node_modules/react-native-bottom-tabs/src/TabView.tsx b/node_modules/react-native-bottom-tabs/src/TabView.tsx
-index 41b9cb3..9f260f5 100644
+index 41b9cb3..467cdb6 100644
 --- a/node_modules/react-native-bottom-tabs/src/TabView.tsx
 +++ b/node_modules/react-native-bottom-tabs/src/TabView.tsx
 @@ -28,6 +28,7 @@ import {
@@ -620,18 +659,14 @@ index 41b9cb3..9f260f5 100644
    const customTabBarWrapperRef = useRef<View>(null);
    const [tabBarHeight, setTabBarHeight] = React.useState<number | undefined>(0);
    const [measuredDimensions, setMeasuredDimensions] = React.useState<
-@@ -354,9 +364,10 @@ const TabView = <Route extends BaseRoute>({
+@@ -354,6 +364,7 @@ const TabView = <Route extends BaseRoute>({
  
    const handlePageSelected = React.useCallback(
      ({ nativeEvent: { key } }: { nativeEvent: OnPageSelectedEventData }) => {
-+      NativeLogger.write(1, `[TabView JS] handlePageSelected from native: key=${key}, currentFocusedKey=${focusedKey}, ts=${Date.now()}`);
++      NativeLogger.write(1, `[TabView JS] handlePageSelected from native: key=${key}, currentFocusedKey=${prevFocusedKeyRef.current}, ts=${Date.now()}`);
        jumpTo(key);
      },
--    [jumpTo]
-+    [jumpTo, focusedKey]
-   );
- 
-   const handleTabBarMeasured = React.useCallback(
+     [jumpTo]
 @@ -392,7 +403,7 @@ const TabView = <Route extends BaseRoute>({
          // When rendering a custom tab bar, icons can be React elements, which will not be properly resolved.
          icons={renderCustomTabBar ? undefined : resolvedIconAssets}
