@@ -1,12 +1,10 @@
-import { memo, useCallback, useMemo, useRef, useState } from 'react';
+import { memo, useMemo } from 'react';
 
 import {
-  Popover,
   SizableText,
   Stack,
   Tooltip,
   XStack,
-  YStack,
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -30,8 +28,6 @@ LeverageBadge.displayName = 'LeverageBadge';
 const SubtitleBadge = memo(({ subtitle }: { subtitle: string }) => {
   const normalizedSubtitle = truncatePerpsSubtitle(subtitle);
   const isTruncated = normalizedSubtitle !== subtitle;
-  const [isPopoverOpen, setIsPopoverOpen] = useState(false);
-  const openByLongPressRef = useRef(false);
 
   const badgeElement = useMemo(
     () => (
@@ -60,79 +56,19 @@ const SubtitleBadge = memo(({ subtitle }: { subtitle: string }) => {
     [normalizedSubtitle],
   );
 
-  const handlePopoverOpenChange = useCallback((open: boolean) => {
-    if (!open) {
-      setIsPopoverOpen(false);
-      openByLongPressRef.current = false;
-      return;
-    }
-
-    if (openByLongPressRef.current) {
-      setIsPopoverOpen(true);
-      openByLongPressRef.current = false;
-    }
-  }, []);
-
-  const handleBadgeLongPress = useCallback(
-    (event?: { stopPropagation?: () => void }) => {
-      event?.stopPropagation?.();
-      openByLongPressRef.current = true;
-      setIsPopoverOpen(true);
-    },
-    [],
-  );
-
-  const handleBadgePress = useCallback(
-    (event?: { stopPropagation?: () => void }) => {
-      event?.stopPropagation?.();
-    },
-    [],
-  );
-
-  if (!isTruncated) {
+  if (platformEnv.isNative || !isTruncated) {
     return badgeElement;
   }
 
-  if (!platformEnv.isNative) {
-    return (
-      <Tooltip
-        renderTrigger={
-          <Stack minWidth={0} flexShrink={1}>
-            {badgeElement}
-          </Stack>
-        }
-        renderContent={subtitle}
-        placement="top"
-      />
-    );
-  }
-
   return (
-    <Popover
-      open={isPopoverOpen}
-      onOpenChange={handlePopoverOpenChange}
-      usingSheet={false}
-      showHeader={false}
-      title=""
-      placement="top"
-      floatingPanelProps={{ width: 'auto' }}
+    <Tooltip
       renderTrigger={
-        <Stack
-          minWidth={0}
-          flexShrink={1}
-          onPress={handleBadgePress}
-          onLongPress={handleBadgeLongPress}
-        >
+        <Stack minWidth={0} flexShrink={1}>
           {badgeElement}
         </Stack>
       }
-      renderContent={
-        <YStack px="$3" py="$2">
-          <SizableText size="$bodySm" color="$text">
-            {subtitle}
-          </SizableText>
-        </YStack>
-      }
+      renderContent={subtitle}
+      placement="top"
     />
   );
 });
