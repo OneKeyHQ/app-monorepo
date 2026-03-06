@@ -4,8 +4,6 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
-import { getCommissionRateSortPriority } from '@onekeyhq/kit/src/views/ReferFriends/utils';
-
 import type {
   ICurrentLevelCardProps,
   IUseCurrentLevelCardReturn,
@@ -65,61 +63,25 @@ export function useCurrentLevelCard(
 
       // Convert rates to array format (similar to LevelAccordionItem)
       if (Array.isArray(rates)) {
-        commissionRates = rates
-          .map((rate, index) => ({
-            subject: rate.labelKey ?? `${index}`,
-            rate,
-          }))
-          .toSorted(
-            (a, b) =>
-              getCommissionRateSortPriority(
-                a.subject,
-                a.rate.labelKey,
-                a.rate.commissionRatesLabelKey,
-              ) -
-              getCommissionRateSortPriority(
-                b.subject,
-                b.rate.labelKey,
-                b.rate.commissionRatesLabelKey,
-              ),
-          )
-          .map(({ subject, rate }, index) => ({
-            subject,
-            rate: {
-              you: rate.rebate,
-              invitee: rate.discount,
-              label:
-                rate.commissionRatesLabel || rate.label || `Rate ${index + 1}`,
-            },
-          }));
+        commissionRates = rates.map((rate, index) => ({
+          subject: rate.labelKey ?? `${index}`,
+          rate: {
+            you: rate.rebate,
+            invitee: rate.discount,
+            label:
+              rate.commissionRatesLabel || rate.label || `Rate ${index + 1}`,
+          },
+        }));
       } else {
         // Handle Record<string, IInviteLevelCommissionRate> format
-        commissionRates = Object.entries(rates)
-          .map(([subject, rate]) => ({
-            subject,
-            rate,
-          }))
-          .toSorted(
-            (a, b) =>
-              getCommissionRateSortPriority(
-                a.subject,
-                a.rate.labelKey,
-                a.rate.commissionRatesLabelKey,
-              ) -
-              getCommissionRateSortPriority(
-                b.subject,
-                b.rate.labelKey,
-                b.rate.commissionRatesLabelKey,
-              ),
-          )
-          .map(({ subject, rate }) => ({
-            subject,
-            rate: {
-              you: rate.rebate,
-              invitee: rate.discount,
-              label: rate.commissionRatesLabel || rate.label || subject,
-            },
-          }));
+        commissionRates = Object.entries(rates).map(([subject, rate]) => ({
+          subject,
+          rate: {
+            you: rate.rebate,
+            invitee: rate.discount,
+            label: rate.commissionRatesLabel || rate.label || subject,
+          },
+        }));
       }
     }
 
