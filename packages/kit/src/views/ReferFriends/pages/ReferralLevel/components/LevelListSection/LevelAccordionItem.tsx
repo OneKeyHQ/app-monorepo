@@ -19,6 +19,8 @@ import type {
   IInviteLevelDetail,
 } from '@onekeyhq/shared/src/referralCode/type';
 
+import { getCommissionRateSortPriority } from '@onekeyhq/kit/src/views/ReferFriends/utils';
+
 import { CommissionRateCard } from './CommissionRateCard';
 
 export function LevelAccordionItem({
@@ -39,15 +41,49 @@ export function LevelAccordionItem({
       return [] as { subject: string; rate: IInviteLevelCommissionRate }[];
     }
     if (Array.isArray(rates)) {
-      return rates.map((rate, index) => ({
+      const items = rates.map((rate, index) => ({
         subject: rate.labelKey ?? `${index}`,
         rate,
       }));
+      return items.toSorted(
+        (a, b) =>
+          getCommissionRateSortPriority(
+            a.subject,
+            a.rate.commissionRatesLabelKey,
+            a.rate.labelKey,
+            a.rate.commissionRatesLabel,
+            a.rate.label,
+          ) -
+          getCommissionRateSortPriority(
+            b.subject,
+            b.rate.commissionRatesLabelKey,
+            b.rate.labelKey,
+            b.rate.commissionRatesLabel,
+            b.rate.label,
+          ),
+      );
     }
-    return Object.entries(rates).map(([subject, rate]) => ({
+    const items = Object.entries(rates).map(([subject, rate]) => ({
       subject,
       rate,
     }));
+    return items.toSorted(
+      (a, b) =>
+        getCommissionRateSortPriority(
+          a.subject,
+          a.rate.commissionRatesLabelKey,
+          a.rate.labelKey,
+          a.rate.commissionRatesLabel,
+          a.rate.label,
+        ) -
+        getCommissionRateSortPriority(
+          b.subject,
+          b.rate.commissionRatesLabelKey,
+          b.rate.labelKey,
+          b.rate.commissionRatesLabel,
+          b.rate.label,
+        ),
+    );
   }, [level.commissionRates]);
   const getDefaultSubjectLabel = (subject?: string) => subject ?? '';
   const getDisplayLabel = (labelKey?: string, fallback?: string): string => {
