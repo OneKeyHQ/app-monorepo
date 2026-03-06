@@ -65,7 +65,7 @@ export class SimpleDbEntityRecentRecipients extends SimpleDbEntityBase<IRecentRe
         const migratedRecipients: Record<
           string,
           Record<string, IRecentRecipientData>
-        > = { ...(currentData?.recentRecipients ?? {}) };
+        > = { ...currentData?.recentRecipients };
         const evmRecipients: Record<string, IRecentRecipientData> = {
           ...migratedRecipients.evm,
         };

@@ -758,7 +758,7 @@ function SendDataInputContainer() {
                   if (selectedNote) {
                     form.setValue('note', selectedNote);
                   }
-                  form.setValue('to.raw', selectedAddress);
+                  form.setValue('to', { raw: selectedAddress });
                 };
 
                 const isFromAccount =
