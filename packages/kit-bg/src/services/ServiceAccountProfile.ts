@@ -573,15 +573,20 @@ class ServiceAccountProfile extends ServiceBase {
                 },
               );
             for (const tx of localTxs) {
+              const decodedTx = tx.decodedTx;
+              if (!decodedTx) {
+                // eslint-disable-next-line no-continue
+                continue;
+              }
               if (
                 !networkUtils.isEvmNetwork({
-                  networkId: tx.decodedTx.networkId,
+                  networkId: decodedTx.networkId,
                 })
               ) {
                 // eslint-disable-next-line no-continue
                 continue;
               }
-              const actions = tx.decodedTx?.actions;
+              const actions = decodedTx.actions;
               if (!actions) {
                 // eslint-disable-next-line no-continue
                 continue;

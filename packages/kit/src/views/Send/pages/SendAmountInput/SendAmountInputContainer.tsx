@@ -263,6 +263,7 @@ function SendAmountInputContainer() {
     () => networkUtils.isLightningNetworkByNetworkId(networkId),
     [networkId],
   );
+  const enableAllowListValidation = !isLightningNetwork;
 
   const currencySymbol = settings.currencyInfo.symbol;
   const tokenSymbol = useMemo(() => {
@@ -682,6 +683,7 @@ function SendAmountInputContainer() {
         enableAddressBook: true,
         enableAddressContract: true,
         enableVerifySendFundToSelf: true,
+        enableAllowListValidation,
         ignoreSimilarAddressInAddressBook: true,
         enableCheckSimilarAddressInAddressBook: true,
       });
@@ -720,6 +722,7 @@ function SendAmountInputContainer() {
     };
   }, [
     currentAccountId,
+    enableAllowListValidation,
     getRecipientValidateMessage,
     intl,
     networkId,
