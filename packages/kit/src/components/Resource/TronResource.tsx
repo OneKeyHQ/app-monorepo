@@ -45,54 +45,66 @@ function useTronAccountResources({
 }) {
   return usePromiseResult(
     async () => {
-      const accountAddress =
-        await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
-          accountId,
-          networkId,
-        });
-      const [resources] =
-        await backgroundApiProxy.serviceAccountProfile.sendProxyRequest<{
-          EnergyLimit: number;
-          EnergyUsed: number;
-          NetLimit: number;
-          NetUsed: number;
-          freeEnergyLimit: number;
-          freeEnergyUsed: number;
-          freeNetLimit: number;
-          freeNetUsed: number;
-        }>({
-          networkId,
-          body: [
-            {
-              route: 'tronweb',
-              params: {
-                method: 'trx.getAccountResources',
-                params: [accountAddress],
+      try {
+        const accountAddress =
+          await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
+            accountId,
+            networkId,
+          });
+        const [resources] =
+          await backgroundApiProxy.serviceAccountProfile.sendProxyRequest<{
+            EnergyLimit: number;
+            EnergyUsed: number;
+            NetLimit: number;
+            NetUsed: number;
+            freeEnergyLimit: number;
+            freeEnergyUsed: number;
+            freeNetLimit: number;
+            freeNetUsed: number;
+          }>({
+            networkId,
+            body: [
+              {
+                route: 'tronweb',
+                params: {
+                  method: 'trx.getAccountResources',
+                  params: [accountAddress],
+                },
               },
-            },
-          ],
-        });
-      const netTotal = new BigNumber(resources.NetLimit ?? 0).plus(
-        resources.freeNetLimit ?? 0,
-      );
-      const netAvailable = netTotal
-        .minus(resources.NetUsed ?? 0)
-        .minus(resources.freeNetUsed ?? 0);
+            ],
+          });
+        const netTotal = new BigNumber(resources.NetLimit ?? 0).plus(
+          resources.freeNetLimit ?? 0,
+        );
+        const netAvailable = netTotal
+          .minus(resources.NetUsed ?? 0)
+          .minus(resources.freeNetUsed ?? 0);
 
-      const energyTotal = new BigNumber(resources.EnergyLimit ?? 0).plus(
-        resources.freeEnergyLimit ?? 0,
-      );
+        const energyTotal = new BigNumber(resources.EnergyLimit ?? 0).plus(
+          resources.freeEnergyLimit ?? 0,
+        );
 
-      const energyAvailable = energyTotal
-        .minus(resources.EnergyUsed ?? 0)
-        .minus(resources.freeEnergyUsed ?? 0);
+        const energyAvailable = energyTotal
+          .minus(resources.EnergyUsed ?? 0)
+          .minus(resources.freeEnergyUsed ?? 0);
 
-      return {
-        netAvailable,
-        netTotal,
-        energyAvailable,
-        energyTotal,
-      };
+        return {
+          netAvailable,
+          netTotal,
+          energyAvailable,
+          energyTotal,
+        };
+      } catch (e: unknown) {
+        // Suppress toast for silent background/polling refreshes.
+        // @toastIfError sets autoToast=true before BackgroundApiProxyBase
+        // schedules showToastOfError in a 50ms setTimeout. Clearing it here
+        // (same object reference) prevents the toast while keeping the
+        // previous result intact via the rethrow.
+        if (e && typeof e === 'object') {
+          (e as { autoToast?: boolean }).autoToast = false;
+        }
+        throw e;
+      }
     },
     [accountId, networkId],
     {
