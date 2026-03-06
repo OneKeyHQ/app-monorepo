@@ -7,15 +7,10 @@ const SvgInfoSquare = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
+    <Path d="M13 17h-2v-5h-1v-2h3zm0-8h-2V7h2z" />
     <Path
       fillRule="evenodd"
-      d="M13 9h-2V7h2zm-1.5-.5h1v-1h-1z"
-      clipRule="evenodd"
-    />
-    <Path d="M11 12h-1v-2h3v7h-2z" />
-    <Path
-      fillRule="evenodd"
-      d="M21 3v18H3V3zM5 19h14V5H5z"
+      d="M21 21H3V3h18zM5 19h14V5H5z"
       clipRule="evenodd"
     />
   </Svg>
