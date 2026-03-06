@@ -1,11 +1,6 @@
 import { memo, useMemo } from 'react';
 
-import {
-  SizableText,
-  Stack,
-  Tooltip,
-  XStack,
-} from '@onekeyhq/components';
+import { SizableText, Stack, Tooltip, XStack } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { truncatePerpsSubtitle } from './utils/perpsSubtitle';
