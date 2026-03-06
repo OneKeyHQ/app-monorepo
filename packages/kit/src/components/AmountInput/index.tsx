@@ -287,6 +287,7 @@ function AmountInputComponent(
     onPercentageSelect,
     extraContent,
     balanceInfoContent,
+    onLayout,
     ...rest
   }: IAmountInputFormItemProps,
   ref: React.Ref<IAmountInputRef>,
@@ -317,7 +318,7 @@ function AmountInputComponent(
   const inputRef = useRef<TextInput>(null);
   const autoSizeInputRef = useRef<IAutoSizeInputRef | null>(null);
   const { width: windowWidth } = useWindowDimensions();
-  const rootOnLayout = rest.onLayout as
+  const rootOnLayout = onLayout as
     | ((event: LayoutChangeEvent) => void)
     | undefined;
 
@@ -355,7 +356,7 @@ function AmountInputComponent(
     () => ({
       focus: () => {
         if (platformEnv.isNative && isSimpleVariant) {
-          autoSizeInputRef.current?.focus();
+          autoSizeInputRef.current?.focus?.();
           return;
         }
         inputRef.current?.focus();
@@ -739,7 +740,9 @@ function AmountInputComponent(
     const { leftAddOnProps: simpleLeftAddOn, ...simpleInputProps } =
       inputProps ?? {};
     const currencyLabel = simpleLeftAddOn?.label as string | undefined;
-    const useAutoSizeInput = platformEnv.isNative && !!AutoSizeInputNativeView;
+    const AutoSizeInputComponent = platformEnv.isNative
+      ? AutoSizeInputNativeView
+      : null;
 
     const simpleFontSize = getAmountFontSize(
       displayValue?.length || 0,
@@ -1042,10 +1045,10 @@ function AmountInputComponent(
           <Skeleton h="$12" w="$40" />
         </Stack>
       );
-    } else if (useAutoSizeInput) {
+    } else if (AutoSizeInputComponent) {
       amountInputNode = (
         <Stack width="100%" alignItems="center" py="$1">
-          <AutoSizeInputNativeView
+          <AutoSizeInputComponent
             style={{
               width: autoSizeContainerWidth,
               height: Math.ceil(simpleMaxFontSize * 1.4),
