@@ -1498,34 +1498,16 @@ class ServiceStaking extends ServiceBase {
     btcOnlyTaproot?: boolean;
   }) {
     const { accountId, networkId, indexedAccountId, btcOnlyTaproot } = params;
-    let resolvedIndexedAccountId = indexedAccountId;
-
-    if (!accountId && !resolvedIndexedAccountId) {
+    if (!accountId && !indexedAccountId) {
       return null;
     }
     if (networkUtils.isAllNetwork({ networkId })) {
       throw new OneKeyLocalError('networkId should not be all network');
     }
-    if (networkUtils.isAllNetwork({ networkId }) && !resolvedIndexedAccountId) {
+    if (networkUtils.isAllNetwork({ networkId }) && !indexedAccountId) {
       throw new OneKeyLocalError('indexedAccountId should be provided');
     }
-    if (!resolvedIndexedAccountId && accountId) {
-      try {
-        const dbAccount = await this.backgroundApi.serviceAccount.getDBAccount({
-          accountId,
-        });
-        if (dbAccount?.indexedAccountId) {
-          resolvedIndexedAccountId = dbAccount.indexedAccountId;
-        }
-      } catch (_e) {
-        // ignore error
-      }
-    }
-
-    if (
-      accountUtils.isOthersAccount({ accountId }) ||
-      !resolvedIndexedAccountId
-    ) {
+    if (accountUtils.isOthersAccount({ accountId }) || !indexedAccountId) {
       let account: INetworkAccount | null = null;
       try {
         account = await this.backgroundApi.serviceAccount.getAccount({
@@ -1571,7 +1553,7 @@ class ServiceStaking extends ServiceBase {
       const networkAccount =
         await this.backgroundApi.serviceAccount.getNetworkAccount({
           accountId: undefined,
-          indexedAccountId: resolvedIndexedAccountId,
+          indexedAccountId,
           networkId,
           deriveType,
         });

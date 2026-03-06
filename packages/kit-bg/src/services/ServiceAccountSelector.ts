@@ -150,8 +150,15 @@ class ServiceAccountSelector extends ServiceBase {
     activeAccount: IAccountSelectorActiveAccountInfo;
     nonce?: number;
   }> {
-    const { othersWalletAccountId, indexedAccountId, networkId, walletId } =
-      selectedAccount;
+    const {
+      othersWalletAccountId,
+      indexedAccountId,
+      networkId,
+      walletId,
+      focusedWallet,
+    } = selectedAccount;
+    let resolvedIndexedAccountId = indexedAccountId;
+    const resolvedWalletId = walletId || focusedWallet;
     const deriveType = selectedAccount.deriveType;
 
     defaultLogger.accountSelector.perf.buildActiveAccountInfoFromSelectedAccount(
@@ -172,33 +179,66 @@ class ServiceAccountSelector extends ServiceBase {
     let deriveInfo: IAccountDeriveInfo | undefined;
     const { serviceAccount, serviceNetwork } = this.backgroundApi;
 
-    if (walletId) {
+    if (resolvedWalletId) {
       try {
         wallet = await serviceAccount.getWallet({
-          walletId,
+          walletId: resolvedWalletId,
         });
       } catch (e) {
         console.error(e);
       }
     }
 
-    if (indexedAccountId && wallet) {
+    if (resolvedIndexedAccountId && wallet) {
       try {
         indexedAccount = await serviceAccount.getIndexedAccount({
-          id: indexedAccountId,
+          id: resolvedIndexedAccountId,
         });
       } catch (e) {
         console.error(e);
+      }
+    }
+
+    const isHdOrHwOrQrWallet =
+      Boolean(wallet?.id) &&
+      (accountUtils.isHdWallet({ walletId: wallet?.id }) ||
+        accountUtils.isHwWallet({ walletId: wallet?.id }) ||
+        accountUtils.isQrWallet({ walletId: wallet?.id }));
+
+    if (!indexedAccount && isHdOrHwOrQrWallet && wallet?.id) {
+      try {
+        const { accounts } = await serviceAccount.getIndexedAccountsOfWallet({
+          walletId: wallet.id,
+        });
+        const firstIndexedAccount = accounts[0];
+        if (firstIndexedAccount) {
+          indexedAccount = firstIndexedAccount;
+          resolvedIndexedAccountId = firstIndexedAccount.id;
+        }
+      } catch (error) {
+        console.error(error);
+      }
+    }
+
+    let walletHasIndexedAccounts = Boolean(indexedAccount);
+    if (!walletHasIndexedAccounts && isHdOrHwOrQrWallet && wallet?.id) {
+      try {
+        walletHasIndexedAccounts =
+          await serviceAccount.isWalletHasIndexedAccounts({
+            walletId: wallet.id,
+          });
+      } catch (error) {
+        console.error(error);
       }
     }
 
     let dbAccountId = othersWalletAccountId || '';
-    if (!dbAccountId && indexedAccountId && networkId && deriveType) {
+    if (!dbAccountId && resolvedIndexedAccountId && networkId && deriveType) {
       try {
         dbAccountId =
           await this.backgroundApi.serviceAccount.getDbAccountIdFromIndexedAccountId(
             {
-              indexedAccountId,
+              indexedAccountId: resolvedIndexedAccountId,
               networkId,
               deriveType,
             },
@@ -227,10 +267,10 @@ class ServiceAccountSelector extends ServiceBase {
       }
 
       if (deriveType) {
-        if ((indexedAccountId && wallet) || othersWalletAccountId) {
+        if ((resolvedIndexedAccountId && wallet) || othersWalletAccountId) {
           try {
             const r = await serviceAccount.getNetworkAccount({
-              indexedAccountId,
+              indexedAccountId: resolvedIndexedAccountId,
               accountId: othersWalletAccountId,
               deriveType,
               networkId,
@@ -280,7 +320,7 @@ class ServiceAccountSelector extends ServiceBase {
     const isOthersWallet =
       accountUtils.isOthersWallet({
         walletId: wallet?.id || '',
-      }) || Boolean(account && !indexedAccountId);
+      }) || Boolean(account && !resolvedIndexedAccountId);
     const isQrWallet = Boolean(
       wallet?.id &&
       accountUtils.isQrWallet({
@@ -322,27 +362,27 @@ class ServiceAccountSelector extends ServiceBase {
     let canCreateAddress = false;
     if (isAllNetwork && networkId) {
       // build mocked networkAccount of all network
-      if (!isOthersWallet && indexedAccountId) {
+      if (!isOthersWallet && resolvedIndexedAccountId) {
         try {
           account =
             await this.backgroundApi.serviceAccount.getMockedAllNetworkAccount({
-              indexedAccountId,
+              indexedAccountId: resolvedIndexedAccountId,
             });
           canCreateAddress = true;
         } catch (error) {
           account = undefined;
           canCreateAddress = true;
         }
-      } else if (!isOthersWallet && wallet && !indexedAccountId) {
-        // When all accounts are deleted, allow creating the first account
-        // for HD wallets, HW wallets, and QR wallets
-        const isHdOrHwOrQrWallet =
-          accountUtils.isHdWallet({ walletId: wallet.id }) ||
-          accountUtils.isHwWallet({ walletId: wallet.id }) ||
-          accountUtils.isQrWallet({ walletId: wallet.id });
-        if (isHdOrHwOrQrWallet) {
-          canCreateAddress = true;
-        }
+      } else if (
+        !isOthersWallet &&
+        wallet &&
+        !resolvedIndexedAccountId &&
+        isHdOrHwOrQrWallet &&
+        !walletHasIndexedAccounts
+      ) {
+        // Empty-state only: no indexed account exists in wallet,
+        // so user can create the first account.
+        canCreateAddress = true;
       }
     } else {
       // single network

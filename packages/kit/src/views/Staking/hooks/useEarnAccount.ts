@@ -1,6 +1,9 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import {
+  useActiveAccount,
+  useSelectedAccount,
+} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 
 type IUseEarnAccountParams = {
   networkId?: string;
@@ -18,10 +21,12 @@ export function useEarnAccount({
   const {
     activeAccount: { account, indexedAccount },
   } = useActiveAccount({ num: 0 });
+  const { selectedAccount } = useSelectedAccount({ num: 0 });
 
-  const resolvedAccountId = accountId ?? account?.id ?? '';
+  const resolvedAccountId =
+    accountId || selectedAccount.othersWalletAccountId || account?.id || '';
   const resolvedIndexedAccountId =
-    indexedAccountId ?? indexedAccount?.id ?? account?.indexedAccountId;
+    indexedAccountId || selectedAccount.indexedAccountId || indexedAccount?.id;
 
   const {
     result: earnAccount,
