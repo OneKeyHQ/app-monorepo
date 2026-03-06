@@ -333,9 +333,9 @@ function MarketTokenListBase({
   const useDesktopPortal = webTabIntegrated && !!stickyPortalTarget && !md;
 
   const portalContent = useMemo(() => {
-    if (!useDesktopPortal || !isTabFocused) return null;
+    if (!useDesktopPortal || !isTabFocused || !stickyPortalTarget) return null;
     return (
-      <StickyHeaderPortal target={stickyPortalTarget!}>
+      <StickyHeaderPortal target={stickyPortalTarget}>
         <YStack bg="$bgApp" px="$4">
           {toolbar ? (
             <Stack width="100%" mb="$3">

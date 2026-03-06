@@ -3,7 +3,6 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
-  ActionList,
   SizableText,
   Stack,
   Tabs,
@@ -85,7 +84,7 @@ function MobileMarketWatchlistFlatListImpl({
   });
 
   // Context menu state
-  const [activeActionItem, setActiveActionItem] = useState<{
+  const [, setActiveActionItem] = useState<{
     item: IMarketToken;
     index: number;
   } | null>(null);
@@ -195,10 +194,7 @@ function MobileMarketWatchlistFlatListImpl({
     [toMarketDetailPage, navigateToPerps, handleShowContextMenu],
   );
 
-  const keyExtractor = useCallback(
-    (item: IMarketToken) => item.id,
-    [],
-  );
+  const keyExtractor = useCallback((item: IMarketToken) => item.id, []);
 
   const { data, isLoading } = watchlistResult;
   const showSkeleton = Boolean(isLoading) && data.length === 0;

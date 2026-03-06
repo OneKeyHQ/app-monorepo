@@ -16,7 +16,11 @@ interface ITokenListItemProps {
   onLongPress?: () => void;
 }
 
-const BasicTokenListItem: FC<ITokenListItemProps> = ({ item, onPress, onLongPress }) => {
+const BasicTokenListItem: FC<ITokenListItemProps> = ({
+  item,
+  onPress,
+  onLongPress,
+}) => {
   const [settings] = useSettingsPersistAtom();
   const currency = settings.currencyInfo.symbol;
 

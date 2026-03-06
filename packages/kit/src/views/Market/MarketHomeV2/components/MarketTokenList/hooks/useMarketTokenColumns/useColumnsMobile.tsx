@@ -133,10 +133,7 @@ export const useColumnsMobile = (): ITableColumn<IMarketToken>[] => {
             justifyContent="center"
             width="$20"
           >
-            <SizableText
-              color="$textSubdued"
-              size="$bodySmMedium"
-            >
+            <SizableText color="$textSubdued" size="$bodySmMedium">
               {intl.formatMessage({
                 id: ETranslations.dexmarket_token_change,
               })}

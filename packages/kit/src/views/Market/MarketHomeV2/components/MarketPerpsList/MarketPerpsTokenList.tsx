@@ -110,9 +110,9 @@ function MarketPerpsTokenListImpl({
   const useDesktopPortal = webTabIntegrated && !!stickyPortalTarget && !md;
 
   const portalContent = useMemo(() => {
-    if (!useDesktopPortal || !isTabFocused) return null;
+    if (!useDesktopPortal || !isTabFocused || !stickyPortalTarget) return null;
     return (
-      <StickyHeaderPortal target={stickyPortalTarget!}>
+      <StickyHeaderPortal target={stickyPortalTarget}>
         <YStack bg="$bgApp" px="$4">
           {CategorySelector}
           <Table.HeaderRow columns={perpsColumns} />

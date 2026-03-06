@@ -94,12 +94,7 @@ export function DesktopLayout({
       // Override TabBar's own sticky with position: relative so
       // the outer wrapper controls stickiness for both.
       return (
-        <YStack
-          bg="$bgApp"
-          position={'sticky' as any}
-          top={0}
-          zIndex={10}
-        >
+        <YStack bg="$bgApp" position={'sticky' as any} top={0} zIndex={10}>
           <Tabs.TabBar
             {...tabBarProps}
             onTabPress={handleTabPress}
