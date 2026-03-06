@@ -196,6 +196,8 @@ export const getMetadata = async ({
   signature: string;
 }) => {
   const metadataPath = path.join(bundleDir, '..', 'metadata.json');
+  // Intentionally global in QA skip-gpg builds: startup metadata verification
+  // follows build-time policy rather than per-request runtime toggles.
   const allowSkipGPG =
     String(process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION) === 'true';
   if (!allowSkipGPG) {

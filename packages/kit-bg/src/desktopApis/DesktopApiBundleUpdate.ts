@@ -641,6 +641,8 @@ class DesktopApiAppBundleUpdate {
       if (entry.isDirectory()) {
         this.walkAndVerifyFiles(fullPath, metadata, baseDir, verifiedFiles);
       } else if (entry.name !== 'metadata.json' && entry.name !== '.DS_Store') {
+        // Strict contract: only files under "build/" are allowed to be hashed
+        // by metadata. Any extra root-level file is treated as verification failure.
         const relativePath = path
           .relative(path.join(baseDir, 'build'), fullPath)
           .split(path.sep)
