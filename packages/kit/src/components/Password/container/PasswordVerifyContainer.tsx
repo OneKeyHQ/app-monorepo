@@ -261,11 +261,13 @@ const PasswordVerifyContainer = ({
           } catch {
             // No secure password stored — fall through to credential-only
           }
-          // Fallback: old behavior (credential-only verification)
+          // Fallback: old behavior (credential-only verification).
+          // Call checkWebAuth directly — note it may retry getPassword()
+          // internally but the PRF master key should be cached from the
+          // first attempt, avoiding a redundant user prompt.
           const result = await checkWebAuth();
           if (result) {
             await callOnVerifyRes(typeof result === 'string' ? result : '');
-
             setVerifiedStatus();
           } else {
             throw new OneKeyLocalError('biology auth verify error');

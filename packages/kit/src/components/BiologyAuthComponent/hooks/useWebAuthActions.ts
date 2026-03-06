@@ -103,14 +103,19 @@ export const useWebAuthActions = () => {
       return undefined;
     }
     // No cached password — try secure storage (triggers WebAuthn PRF)
-    const securePassword = await biologyAuthUtils.getPassword();
-    if (securePassword) {
-      // Verify password correctness and cache it
-      const verified = await backgroundApiProxy.servicePassword.verifyPassword({
-        password: securePassword,
-        passwordMode,
-      });
-      return verified;
+    try {
+      const securePassword = await biologyAuthUtils.getPassword();
+      if (securePassword) {
+        // Verify password correctness and cache it
+        const verified =
+          await backgroundApiProxy.servicePassword.verifyPassword({
+            password: securePassword,
+            passwordMode,
+          });
+        return verified;
+      }
+    } catch {
+      // No secure password stored — fall through
     }
     return undefined;
   }, [credId, passwordMode]);

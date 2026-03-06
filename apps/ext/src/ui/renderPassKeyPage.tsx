@@ -18,6 +18,7 @@ import {
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EPassKeyWindowType } from '@onekeyhq/shared/src/utils/extUtils';
+import { verifiedWebAuth } from '@onekeyhq/shared/src/webAuth';
 import { EPasswordVerifyStatus } from '@onekeyhq/shared/types/password';
 
 import { setupExtUIEventOnPassKeyPage } from '../background/extUI';
@@ -27,8 +28,7 @@ const params = new URLSearchParams(globalThis.location.href.split('?').pop());
 const type = params.get('type') as EPassKeyWindowType;
 
 const usePassKeyOperations = () => {
-  const { setWebAuthEnable, verifiedPasswordWebAuth, checkWebAuth } =
-    useWebAuthActions();
+  const { setWebAuthEnable, verifiedPasswordWebAuth } = useWebAuthActions();
 
   const [{ passwordPromptPromiseTriggerData }] =
     usePasswordPromptPromiseTriggerAtom();
@@ -73,12 +73,27 @@ const usePassKeyOperations = () => {
         try {
           result = (await biologyAuthUtils.getPassword()) ?? undefined;
         } catch {
-          // Fallback to credential-only verification
-          result = await checkWebAuth();
+          // getPassword failed — fall back to credential-only verification.
+          // Call verifiedWebAuth directly instead of checkWebAuth() to avoid
+          // a redundant biologyAuthUtils.getPassword() call inside it.
+          // Note: checkExtWebAuth is unnecessary here — this IS the PassKey
+          // window, so WebAuthn works directly without needing another window.
+          const cred = await verifiedWebAuth(webAuthCredentialId);
+          result = cred?.id === webAuthCredentialId;
         }
       }
 
       if (result) {
+        // If we got a real password string, verify and cache it
+        if (typeof result === 'string' && result) {
+          await backgroundApiProxy.servicePassword.verifyPassword({
+            password: result,
+            passwordMode,
+          });
+        }
+
+        // Only set verified status and reset error counters AFTER
+        // password verification succeeds (matches PasswordVerifyContainer pattern)
         setPasswordAtom((v) => ({
           ...v,
           passwordVerifyStatus: {
@@ -91,14 +106,6 @@ const usePassKeyOperations = () => {
             passwordErrorAttempts: 0,
             passwordErrorProtectionTime: 0,
           }));
-        }
-
-        // If we got a real password string, verify and cache it
-        if (typeof result === 'string' && result) {
-          await backgroundApiProxy.servicePassword.verifyPassword({
-            password: result,
-            passwordMode,
-          });
         }
 
         // Password Dialog
@@ -155,7 +162,6 @@ const usePassKeyOperations = () => {
       closeWindow();
     }
   }, [
-    checkWebAuth,
     enablePasswordErrorProtection,
     intl,
     passwordMode,
