@@ -658,7 +658,7 @@ class DesktopApiAppBundleUpdate {
         if (!isSha512Matched) {
           logger.error(
             'bundle-verify',
-            `SHA512 mismatch for ${fullPath}`,
+            `SHA512 mismatch for ${relativePath}`,
           );
           throw new OneKeyLocalError(
             `SHA512 mismatch for file ${relativePath}`,
