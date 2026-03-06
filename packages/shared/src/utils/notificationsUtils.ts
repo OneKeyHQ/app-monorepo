@@ -123,7 +123,7 @@ export async function navigateToNotificationDetailByLocalParams({
         // Remove params with unresolved template variables
         if (
           typeof targetParams[key] === 'string' &&
-          (targetParams[key] as string).includes('{local_')
+          targetParams[key].includes('{local_')
         ) {
           delete targetParams[key];
         }
