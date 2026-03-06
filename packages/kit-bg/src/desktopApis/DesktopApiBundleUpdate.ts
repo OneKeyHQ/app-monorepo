@@ -656,10 +656,7 @@ class DesktopApiAppBundleUpdate {
         }
         const isSha512Matched = checkFileSha512(fullPath, expectedSha512);
         if (!isSha512Matched) {
-          logger.error(
-            'bundle-verify',
-            `SHA512 mismatch for ${relativePath}`,
-          );
+          logger.error('bundle-verify', `SHA512 mismatch for ${relativePath}`);
           throw new OneKeyLocalError(
             `SHA512 mismatch for file ${relativePath}`,
           );
