@@ -768,7 +768,7 @@ export function AddressInput(props: IAddressInputProps) {
     clipboard,
     onChangeText,
     disabled,
-    rest,
+    rest.testID,
     scan,
     onScanResult,
     contacts,

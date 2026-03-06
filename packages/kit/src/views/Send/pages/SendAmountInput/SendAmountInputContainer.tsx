@@ -452,12 +452,12 @@ function SendAmountInputContainer() {
     if (valueBN.isNaN() || valueBN.isNegative()) return false;
 
     if (isUseFiat) {
-      const fiatValue = new BigNumber(tokenDetails?.fiatValue ?? 0);
+      const fiatValue = new BigNumber(maxBalanceFiat);
       return valueBN.isGreaterThan(fiatValue);
     }
     const balance = new BigNumber(maxBalance);
     return valueBN.isGreaterThan(balance);
-  }, [amount, isUseFiat, tokenDetails?.fiatValue, maxBalance]);
+  }, [amount, isUseFiat, maxBalanceFiat, maxBalance]);
 
   // Buy button support for insufficient balance
   const showReviewControl = useReviewControl();
