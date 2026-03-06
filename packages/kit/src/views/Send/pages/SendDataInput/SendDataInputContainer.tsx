@@ -751,6 +751,16 @@ function SendDataInputContainer() {
                 memo: selectedMemo,
                 note: selectedNote,
               }) => {
+                const fillRecipientInput = () => {
+                  if (selectedMemo) {
+                    form.setValue('memo', selectedMemo);
+                  }
+                  if (selectedNote) {
+                    form.setValue('note', selectedNote);
+                  }
+                  form.setValue('to.raw', selectedAddress);
+                };
+
                 const isFromAccount =
                   addressInputChangeType.current ===
                   EInputAddressChangeType.AccountSelector;
@@ -759,45 +769,36 @@ function SendDataInputContainer() {
                   EInputAddressChangeType.AddressBook;
 
                 if (isFromAccount || isFromAddressBook) {
-                  // For account/address book selections: validate directly
-                  // and navigate to amount input without filling the input.
-                  // My Accounts: always skip directly (memo not needed for own accounts)
-                  // Address Book: skip only if memo is provided or not required
-                  if (isFromAddressBook) {
-                    const needsMemo = vaultSettings?.withMemo && !selectedMemo;
-                    const needsPaymentId = vaultSettings?.withPaymentId;
+                  const needsMemo = vaultSettings?.withMemo && !selectedMemo;
+                  const needsPaymentId = vaultSettings?.withPaymentId;
+                  const needsNote = vaultSettings?.withNote && !selectedNote;
 
-                    if (needsMemo || needsPaymentId) {
-                      // Chain requires memo/paymentId — fall back to filling
-                      // the input so the user can enter additional fields.
-                      if (selectedMemo) {
-                        form.setValue('memo', selectedMemo);
-                      }
-                      if (selectedNote) {
-                        form.setValue('note', selectedNote);
-                      }
-                      form.setValue('to.raw', selectedAddress);
-                      return;
-                    }
+                  if (needsMemo || needsPaymentId || needsNote) {
+                    // Chain still needs memo/paymentId/note input, so keep
+                    // the user on the data step instead of skipping ahead.
+                    fillRecipientInput();
+                    return;
                   }
 
                   void (async () => {
                     try {
-                      const validation =
-                        await backgroundApiProxy.serviceValidator.localValidateAddress(
+                      const queryResult =
+                        await backgroundApiProxy.serviceAccountProfile.queryAddress(
                           {
                             networkId: currentAccount.networkId,
+                            accountId: currentAccount.accountId,
                             address: selectedAddress,
+                            enableAddressContract: true,
                           },
                         );
-                      if (!validation.isValid) {
+                      if (queryResult.validStatus !== 'valid') {
                         // Address invalid — fall back to input for feedback
-                        form.setValue('to.raw', selectedAddress);
+                        fillRecipientInput();
                         return;
                       }
                       const resolvedAddress =
-                        validation.displayAddress ||
-                        validation.normalizedAddress ||
+                        queryResult.resolveAddress ||
+                        queryResult.validAddress ||
                         selectedAddress;
 
                       pushAmountInput({
@@ -807,6 +808,7 @@ function SendDataInputContainer() {
                         token: tokenInfo,
                         nfts,
                         recipientAddress: resolvedAddress,
+                        recipientIsContract: queryResult.isContract ?? false,
                         recipientMemo: selectedMemo || undefined,
                         recipientNote: selectedNote || undefined,
                         amount: scannedAmount || sendAmount || undefined,
@@ -817,19 +819,13 @@ function SendDataInputContainer() {
                       });
                     } catch {
                       // Validation failed — fall back to filling input
-                      form.setValue('to.raw', selectedAddress);
+                      fillRecipientInput();
                     }
                   })();
                 } else {
                   // For recent recipients / paste / manual: fill the input
                   // and let the user review before proceeding.
-                  if (selectedMemo) {
-                    form.setValue('memo', selectedMemo);
-                  }
-                  if (selectedNote) {
-                    form.setValue('note', selectedNote);
-                  }
-                  form.setValue('to.raw', selectedAddress);
+                  fillRecipientInput();
                 }
               }}
             />
