@@ -26,8 +26,6 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import AddressTypeSelector from '@onekeyhq/kit/src/components/AddressTypeSelector/AddressTypeSelector';
-import type { IAmountInputRef } from '@onekeyhq/kit/src/components/AmountInput';
-import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { calcPercentBalance } from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard';
 import { useReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import { LightningUnitSwitch } from '@onekeyhq/kit/src/components/UnitSwitch';
@@ -65,6 +63,10 @@ import { showBalanceDetailsDialog } from '../../../Home/components/BalanceDetail
 import { HomeTokenListProviderMirror } from '../../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import { showSimilarAddressDialog } from '../../../SignatureConfirm/components/SimilarAddressDialog/SimilarAddressDialog';
 import CoinControlBadge from '../../components/CoinControlBadge';
+import {
+  type ISendAmountAutoSizeInputRef,
+  SendAutoSizeAmountInput,
+} from '../../components/SendAutoSizeAmountInput';
 import { SendConfirmProviderMirror } from '../../components/SendConfirmProvider/SendConfirmProviderMirror';
 
 import type { RouteProp } from '@react-navigation/core';
@@ -577,7 +579,7 @@ function SendAmountInputContainer() {
   const [isAmountInputFocused, setIsAmountInputFocused] = useState(false);
 
   // Ref for AmountInput to trigger button focus
-  const amountInputRef = useRef<IAmountInputRef>(null);
+  const amountInputRef = useRef<ISendAmountAutoSizeInputRef>(null);
 
   // Ref to track submit disabled state for keyboard shortcuts
   const isSubmitDisabledRef = useRef(true);
@@ -1081,13 +1083,10 @@ function SendAmountInputContainer() {
             },
           }}
         >
-          <AmountInput
+          <SendAutoSizeAmountInput
             ref={amountInputRef}
-            variant="simple"
             tokenSymbol={isUseFiat ? undefined : tokenSymbol}
             reversible
-            enableMaxAmount
-            onPercentageSelect={onSelectPercentageStage}
             valueProps={{
               currency: isUseFiat ? undefined : currencySymbol,
               tokenSymbol: isUseFiat ? tokenSymbol : undefined,
@@ -1137,7 +1136,6 @@ function SendAmountInputContainer() {
       linkedAmount.linkedAmount,
       linkedAmount.originalAmount,
       lnUnit,
-      onSelectPercentageStage,
       tokenDetails?.info.decimals,
       tokenSymbol,
     ],
