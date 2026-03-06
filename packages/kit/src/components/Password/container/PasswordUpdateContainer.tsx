@@ -50,13 +50,16 @@ const PasswordUpdateContainer = ({
             mode,
           );
         onUpdateRes(updatedPassword);
-        // Save new password to secure storage for biometric unlock on extension
+        // Save new password to secure storage for biometric unlock on extension.
+        // Clear skipPrfCache to avoid an unexpected WebAuthn prompt if this
+        // dialog was opened within a promptPasswordVerify flow.
         if (
           platformEnv.isExtension &&
           isBiologyAuthSwitchOn &&
           webAuthCredentialId
         ) {
           try {
+            await backgroundApiProxy.servicePassword.setSkipPrfCache(false);
             await biologyAuthUtils.savePassword(updatedPassword);
           } catch (e) {
             console.error('Failed to save new password to secure storage:', e);

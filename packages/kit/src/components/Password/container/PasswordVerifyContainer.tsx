@@ -398,13 +398,17 @@ const PasswordVerifyContainer = ({
         }
         await callOnVerifyRes(verifiedPassword);
         setVerifiedStatus();
-        // Save to secure storage for future biometric unlock on extension
+        // Save to secure storage for future biometric unlock on extension.
+        // Clear skipPrfCache first — the flag is set during promptPasswordVerify
+        // to force real WebAuthn for the biometric button, but password
+        // verification has already succeeded here so it's safe to use cache.
         if (
           platformEnv.isExtension &&
           isBiologyAuthSwitchOn &&
           webAuthCredentialId
         ) {
           try {
+            await backgroundApiProxy.servicePassword.setSkipPrfCache(false);
             await biologyAuthUtils.savePassword(verifiedPassword);
           } catch (e) {
             console.error('Failed to save password to secure storage:', e);
