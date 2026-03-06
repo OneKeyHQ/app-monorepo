@@ -158,10 +158,6 @@ const sanitizeAmountInputText = (text: string): string => {
     sanitizedText = `${integerPart}${decimalPart}`;
   }
 
-  if (sanitizedText === '') {
-    return '0';
-  }
-
   return sanitizedText;
 };
 

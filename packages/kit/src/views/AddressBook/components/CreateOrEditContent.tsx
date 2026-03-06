@@ -312,13 +312,22 @@ export function CreateOrEditContent({
                   { 'num': 24 },
                 ),
               },
-              validate: (text: string) => {
+              validate: async (text: string) => {
                 if (!text?.trim()) {
                   return intl.formatMessage({
                     id: ETranslations.address_book_add_address_name_empty_error,
                   });
                 }
-                return undefined;
+                const searched =
+                  await backgroundApiProxy.serviceAddressBook.findItem({
+                    name: text,
+                  });
+                if (!searched || item.id === searched.id) {
+                  return undefined;
+                }
+                return intl.formatMessage({
+                  id: ETranslations.address_book_add_address_name_exists,
+                });
               },
             }}
             testID="address-form-name-field"
@@ -350,7 +359,7 @@ export function CreateOrEditContent({
             })}
             name="address"
             rules={{
-              validate: (output: IAddressInputValue) => {
+              validate: async (output: IAddressInputValue) => {
                 if (output.pending) {
                   return;
                 }
@@ -362,7 +371,16 @@ export function CreateOrEditContent({
                     })
                   );
                 }
-                return undefined;
+                const searched =
+                  await backgroundApiProxy.serviceAddressBook.findItem({
+                    address: output.resolved,
+                  });
+                if (!searched || item.id === searched.id) {
+                  return undefined;
+                }
+                return intl.formatMessage({
+                  id: ETranslations.address_book_add_address_address_exists,
+                });
               },
             }}
             testID="address-form-address-field"
