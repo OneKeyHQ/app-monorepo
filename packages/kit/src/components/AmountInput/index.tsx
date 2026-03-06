@@ -9,6 +9,14 @@ import {
 } from 'react';
 
 import { useIntl } from 'react-intl';
+import type {
+  AutoSizeInputMethods,
+  AutoSizeInputProps,
+} from '@onekeyfe/react-native-auto-size-input';
+import {
+  type HybridView,
+  callback as nitroCallback,
+} from 'react-native-nitro-modules';
 
 import {
   Icon,
@@ -37,6 +45,13 @@ import type { NUMBER_FORMATTER } from '@onekeyhq/shared/src/utils/numberUtils';
 import { LetterAvatar } from '../LetterAvatar';
 
 import type { TextInput } from 'react-native';
+
+const AutoSizeInputNativeView = platformEnv.isNative
+  ? (require('@onekeyfe/react-native-auto-size-input')
+      .AutoSizeInputView as ComponentType<any>)
+  : null;
+
+type IAutoSizeInputRef = HybridView<AutoSizeInputProps, AutoSizeInputMethods>;
 
 // Helper function to calculate dynamic font size based on input length
 // Shrinks font progressively to display full number without truncation
@@ -162,12 +177,23 @@ function AmountInputComponent(
   });
   const [selection, setSelection] = useState({ start: 1, end: 1 });
   const inputRef = useRef<TextInput>(null);
+  const autoSizeInputRef = useRef<IAutoSizeInputRef | null>(null);
 
   // Expose focus method to parent component
-  useImperativeHandle(ref, () => ({
-    focus: () => inputRef.current?.focus(),
-    focusPercentageButton: () => {},
-  }));
+  useImperativeHandle(
+    ref,
+    () => ({
+      focus: () => {
+        if (platformEnv.isNative && isSimpleVariant) {
+          autoSizeInputRef.current?.focus();
+          return;
+        }
+        inputRef.current?.focus();
+      },
+      focusPercentageButton: () => {},
+    }),
+    [isSimpleVariant],
+  );
 
   const handleChangeText = useCallback(
     (text: string) => {
@@ -529,114 +555,164 @@ function AmountInputComponent(
     const { leftAddOnProps: simpleLeftAddOn, ...simpleInputProps } =
       inputProps ?? {};
     const currencyLabel = simpleLeftAddOn?.label as string | undefined;
+    const useAutoSizeInput = platformEnv.isNative && !!AutoSizeInputNativeView;
 
     const simpleFontSize = getAmountFontSize(
       displayValue?.length || 0,
       fontSizeScale,
     );
+    const simpleMaxFontSize = Math.round(56 * fontSizeScale);
+    const simpleMinFontSize = Math.round(14 * fontSizeScale);
+
+    let amountInputNode = (
+      <Input
+        ref={inputRef}
+        keyboardType="decimal-pad"
+        fontSize={simpleFontSize}
+        fontWeight="500"
+        color="$text"
+        unstyled
+        borderWidth={0}
+        bg="transparent"
+        p="$0"
+        h={Math.ceil(simpleFontSize * 1.4)}
+        size="large"
+        focusVisibleStyle={undefined}
+        placeholder="0"
+        placeholderTextColor="$textDisabled"
+        value={displayValue}
+        onChangeText={handleSimpleChangeText}
+        textAlign="center"
+        containerProps={{
+          width: '100%',
+          borderWidth: 0,
+          bg: 'transparent',
+        }}
+        {...(currencyLabel && {
+          leftAddOnProps: {
+            label: currencyLabel,
+            pr: '$0',
+            pl: '$0',
+            mr: '$-2',
+          },
+        })}
+        {...(tokenSymbol && {
+          addOns: [
+            {
+              label: tokenSymbol,
+              pr: '$0',
+              pl: '$1',
+            },
+          ],
+        })}
+        {...simpleInputProps}
+        selectionColor="#00DC84"
+        cursorColor="#00DC84"
+        caretColor="#00DC84"
+        {...(platformEnv.isNative
+          ? ({
+              selection,
+              onSelectionChange: ({ nativeEvent }) => {
+                if (displayValue === '0') {
+                  setSelection({ start: 1, end: 1 });
+                } else {
+                  setSelection(nativeEvent.selection);
+                }
+              },
+              onFocus: (event) => {
+                setSelection({
+                  start: displayValue?.length ?? 0,
+                  end: displayValue?.length ?? 0,
+                });
+                simpleInputProps?.onFocus?.(event);
+              },
+              onBlur: (event) => {
+                setSelection({ start: 0, end: 0 });
+                simpleInputProps?.onBlur?.(event);
+              },
+            } as const)
+          : ({
+              onFocus: (event: { target: HTMLInputElement }) => {
+                simpleInputProps?.onFocus?.(event as never);
+                if (displayValue === '0') {
+                  const { target } = event;
+                  requestAnimationFrame(() => {
+                    target.setSelectionRange(1, 1);
+                  });
+                }
+              },
+              onClick: (e: { target: HTMLInputElement }) => {
+                if (displayValue === '0') {
+                  e.target.setSelectionRange(1, 1);
+                }
+              },
+              onKeyUp: (e: { target: HTMLInputElement }) => {
+                if (displayValue === '0') {
+                  e.target.setSelectionRange(1, 1);
+                }
+              },
+              onSelect: (e: { target: HTMLInputElement }) => {
+                if (displayValue === '0' && e.target.selectionStart !== 1) {
+                  e.target.setSelectionRange(1, 1);
+                }
+              },
+            } as any))}
+      />
+    );
+
+    if (simpleInputProps?.loading) {
+      amountInputNode = (
+        <Stack py="$4">
+          <Skeleton h="$12" w="$40" />
+        </Stack>
+      );
+    } else if (useAutoSizeInput) {
+      amountInputNode = (
+        <Stack width="100%" alignItems="center" py="$1">
+          <AutoSizeInputNativeView
+            style={{
+              width: '100%',
+              height: Math.ceil(simpleMaxFontSize * 1.4),
+              minHeight: Math.ceil(simpleMinFontSize * 1.4),
+            }}
+            text={displayValue}
+            placeholder={simpleInputProps?.placeholder ?? '0'}
+            prefix={currencyLabel}
+            suffix={tokenSymbol}
+            fontSize={simpleMaxFontSize}
+            minFontSize={simpleMinFontSize}
+            textAlign="center"
+            fontWeight="500"
+            editable={simpleInputProps?.editable ?? true}
+            keyboardType={simpleInputProps?.keyboardType ?? 'decimal-pad'}
+            returnKeyType={simpleInputProps?.returnKeyType}
+            autoCorrect={false}
+            autoCapitalize="none"
+            selectionColor="#00DC84"
+            prefixMarginRight={currencyLabel ? 4 : 0}
+            suffixMarginLeft={tokenSymbol ? 4 : 0}
+            showBorder={false}
+            inputBackgroundColor="transparent"
+            contentAutoWidth={false}
+            onChangeText={nitroCallback(handleSimpleChangeText)}
+            onFocus={nitroCallback(() => {
+              simpleInputProps?.onFocus?.({} as never);
+            })}
+            onBlur={nitroCallback(() => {
+              simpleInputProps?.onBlur?.({} as never);
+            })}
+            hybridRef={nitroCallback((ref: IAutoSizeInputRef) => {
+              autoSizeInputRef.current = ref;
+            })}
+          />
+        </Stack>
+      );
+    }
 
     return (
       <Stack alignItems="center" width="100%" {...rest}>
         {/* Amount input row */}
-        {simpleInputProps?.loading ? (
-          <Stack py="$4">
-            <Skeleton h="$12" w="$40" />
-          </Stack>
-        ) : (
-          <Input
-            ref={inputRef}
-            keyboardType="decimal-pad"
-            fontSize={simpleFontSize}
-            fontWeight="500"
-            color="$text"
-            unstyled
-            borderWidth={0}
-            bg="transparent"
-            p="$0"
-            h={Math.ceil(simpleFontSize * 1.4)}
-            size="large"
-            focusVisibleStyle={undefined}
-            placeholder="0"
-            placeholderTextColor="$textDisabled"
-            value={displayValue}
-            onChangeText={handleSimpleChangeText}
-            textAlign="center"
-            containerProps={{
-              width: '100%',
-              borderWidth: 0,
-              bg: 'transparent',
-            }}
-            {...(currencyLabel && {
-              leftAddOnProps: {
-                label: currencyLabel,
-                pr: '$0',
-                pl: '$0',
-                mr: '$-2',
-              },
-            })}
-            {...(tokenSymbol && {
-              addOns: [
-                {
-                  label: tokenSymbol,
-                  pr: '$0',
-                  pl: '$1',
-                },
-              ],
-            })}
-            {...simpleInputProps}
-            selectionColor="#00DC84"
-            cursorColor="#00DC84"
-            caretColor="#00DC84"
-            {...(platformEnv.isNative
-              ? ({
-                  selection,
-                  onSelectionChange: ({ nativeEvent }) => {
-                    if (displayValue === '0') {
-                      setSelection({ start: 1, end: 1 });
-                    } else {
-                      setSelection(nativeEvent.selection);
-                    }
-                  },
-                  onFocus: (event) => {
-                    setSelection({
-                      start: displayValue?.length ?? 0,
-                      end: displayValue?.length ?? 0,
-                    });
-                    simpleInputProps?.onFocus?.(event);
-                  },
-                  onBlur: (event) => {
-                    setSelection({ start: 0, end: 0 });
-                    simpleInputProps?.onBlur?.(event);
-                  },
-                } as const)
-              : ({
-                  onFocus: (event: { target: HTMLInputElement }) => {
-                    simpleInputProps?.onFocus?.(event as never);
-                    if (displayValue === '0') {
-                      const { target } = event;
-                      requestAnimationFrame(() => {
-                        target.setSelectionRange(1, 1);
-                      });
-                    }
-                  },
-                  onClick: (e: { target: HTMLInputElement }) => {
-                    if (displayValue === '0') {
-                      e.target.setSelectionRange(1, 1);
-                    }
-                  },
-                  onKeyUp: (e: { target: HTMLInputElement }) => {
-                    if (displayValue === '0') {
-                      e.target.setSelectionRange(1, 1);
-                    }
-                  },
-                  onSelect: (e: { target: HTMLInputElement }) => {
-                    if (displayValue === '0' && e.target.selectionStart !== 1) {
-                      e.target.setSelectionRange(1, 1);
-                    }
-                  },
-                } as any))}
-          />
-        )}
+        {amountInputNode}
 
         {/* Fiat value + flip button */}
         <XStack
