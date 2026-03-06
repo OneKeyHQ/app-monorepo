@@ -367,6 +367,7 @@ export const StakeSection = ({
     async () => {
       if (
         !hasRequiredData ||
+        !effectiveApproveType ||
         !approveSpenderAddress ||
         effectiveStakeTokenInfo?.token?.isNative
       ) {

@@ -108,7 +108,7 @@ function resolveEarnApproveType({
   if (providerKey && providerApproveTypeOverrides[providerKey]) {
     return providerApproveTypeOverrides[providerKey];
   }
-  return backendApproveType ?? EApproveType.Legacy;
+  return backendApproveType;
 }
 
 function resolveEarnAllowanceSpenderAddress({
