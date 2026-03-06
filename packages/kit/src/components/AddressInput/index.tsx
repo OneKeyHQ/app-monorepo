@@ -404,6 +404,7 @@ export function AddressInput(props: IAddressInputProps) {
   const { width: screenWidth } = useWindowDimensions();
   const disabled =
     disabledFromProps ?? (rest.editable !== undefined ? !rest.editable : false);
+  const { testID } = rest;
   const [inputText, setInputText] = useState<string>(value?.raw ?? '');
   const { setError, clearErrors, watch } = useFormContext();
   const [loading, setLoading] = useState(false);
@@ -652,7 +653,7 @@ export function AddressInput(props: IAddressInputProps) {
           icon="BroomOutline"
           disabled={disabled}
           onPress={disabled ? undefined : handleClear}
-          testID={rest.testID ? `${rest.testID}-clear` : undefined}
+          testID={testID ? `${testID}-clear` : undefined}
         >
           {intl.formatMessage({ id: ETranslations.global_clear })}
         </Button>
@@ -663,7 +664,7 @@ export function AddressInput(props: IAddressInputProps) {
           icon="BroomOutline"
           disabled={disabled}
           onPress={disabled ? undefined : handleClear}
-          testID={rest.testID ? `${rest.testID}-clear` : undefined}
+          testID={testID ? `${testID}-clear` : undefined}
         />
       );
 
@@ -696,7 +697,7 @@ export function AddressInput(props: IAddressInputProps) {
                       onScanResult={onScanResult}
                       onChange={onChangeText}
                       disabled={disabled}
-                      testID={rest.testID ? `${rest.testID}-scan` : undefined}
+                      testID={testID ? `${testID}-scan` : undefined}
                     />
                   ) : null}
                   {clipboard ? (
@@ -704,7 +705,7 @@ export function AddressInput(props: IAddressInputProps) {
                       display={actionDisplay}
                       onChange={onChangeText}
                       disabled={disabled}
-                      testID={rest.testID ? `${rest.testID}-clip` : undefined}
+                      testID={testID ? `${testID}-clip` : undefined}
                     />
                   ) : null}
                 </>
@@ -721,7 +722,7 @@ export function AddressInput(props: IAddressInputProps) {
                         display={actionDisplay}
                         onChange={onChangeText}
                         disabled={disabled}
-                        testID={rest.testID ? `${rest.testID}-clip` : undefined}
+                        testID={testID ? `${testID}-clip` : undefined}
                       />
                     ) : null}
                     {scan ? (
@@ -731,7 +732,7 @@ export function AddressInput(props: IAddressInputProps) {
                         onScanResult={onScanResult}
                         onChange={onChangeText}
                         disabled={disabled}
-                        testID={rest.testID ? `${rest.testID}-scan` : undefined}
+                        testID={testID ? `${testID}-scan` : undefined}
                       />
                     ) : null}
                   </>
@@ -750,7 +751,7 @@ export function AddressInput(props: IAddressInputProps) {
                       accountSelector?.onBeforeAccountSelectorOpen
                     }
                     onExtraDataChange={onExtraDataChange}
-                    testID={rest.testID ? `${rest.testID}-selector` : undefined}
+                    testID={testID ? `${testID}-selector` : undefined}
                   />
                 ) : null}
               </>
@@ -768,7 +769,7 @@ export function AddressInput(props: IAddressInputProps) {
     clipboard,
     onChangeText,
     disabled,
-    rest.testID,
+    testID,
     scan,
     onScanResult,
     contacts,
