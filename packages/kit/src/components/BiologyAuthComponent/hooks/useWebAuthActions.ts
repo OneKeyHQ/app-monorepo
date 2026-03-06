@@ -3,8 +3,12 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Toast } from '@onekeyhq/components';
-import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
+import { biologyAuthUtils } from '@onekeyhq/kit-bg/src/services/ServicePassword/biologyAuthUtils';
+import {
+  usePasswordModeAtom,
+  usePasswordPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import extUtils, {
@@ -38,6 +42,7 @@ export const useWebAuthActions = () => {
   const intl = useIntl();
   const [{ webAuthCredentialId: credId }, setPasswordPersist] =
     usePasswordPersistAtom();
+  const [passwordMode] = usePasswordModeAtom();
   const setWebAuthEnable = useCallback(
     async (enable: boolean) => {
       let webAuthCredentialId: string | undefined;
@@ -54,6 +59,23 @@ export const useWebAuthActions = () => {
             ...v,
             webAuthCredentialId: webAuthCredentialId ?? '',
           }));
+          // Save password to secure storage for biometric unlock
+          try {
+            if (platformEnv.isExtension) {
+              const isPasswordSet =
+                await backgroundApiProxy.servicePassword.checkPasswordSet();
+              if (isPasswordSet) {
+                await backgroundApiProxy.servicePassword.promptPasswordVerify();
+              }
+            }
+            const cachedPassword =
+              await backgroundApiProxy.servicePassword.getCachedPassword();
+            if (cachedPassword) {
+              await biologyAuthUtils.savePassword(cachedPassword);
+            }
+          } catch (e) {
+            console.error('Failed to save password to secure storage:', e);
+          }
         }
       }
       return webAuthCredentialId;
@@ -71,22 +93,53 @@ export const useWebAuthActions = () => {
   const verifiedPasswordWebAuth = useCallback(async () => {
     const checkCachePassword =
       await backgroundApiProxy.servicePassword.getCachedPassword();
-    if (!checkCachePassword) {
-      throw new OneKeyLocalError('No password cached not support web auth');
+    if (checkCachePassword) {
+      await checkExtWebAuth(EPassKeyWindowType.unlock);
+      // web auth must be called in ui context for extension
+      const cred = await verifiedWebAuth(credId);
+      if (cred?.id === credId) {
+        return checkCachePassword;
+      }
+      return undefined;
     }
-    await checkExtWebAuth(EPassKeyWindowType.unlock);
-    // web auth must be called in ui context for extension
-    const cred = await verifiedWebAuth(credId);
-    if (cred?.id === credId) {
-      return checkCachePassword;
+    // No cached password — try secure storage (triggers WebAuthn PRF)
+    try {
+      const securePassword = await biologyAuthUtils.getPassword();
+      if (securePassword) {
+        // Verify password correctness and cache it
+        const verified =
+          await backgroundApiProxy.servicePassword.verifyPassword({
+            password: securePassword,
+            passwordMode,
+          });
+        return verified;
+      }
+    } catch {
+      // No secure password stored — fall through
     }
-  }, [credId]);
+    return undefined;
+  }, [credId, passwordMode]);
 
   const checkWebAuth = useCallback(async () => {
+    // Try secure storage first (WebAuthn PRF)
+    try {
+      const securePassword = await biologyAuthUtils.getPassword();
+      if (securePassword) {
+        // Verify password correctness and cache it
+        const verified =
+          await backgroundApiProxy.servicePassword.verifyPassword({
+            password: securePassword,
+            passwordMode,
+          });
+        return verified;
+      }
+    } catch {
+      // Fallback to credential-only verification
+    }
     await checkExtWebAuth(EPassKeyWindowType.unlock);
     const cred = await verifiedWebAuth(credId);
     return cred?.id === credId;
-  }, [credId]);
+  }, [credId, passwordMode]);
 
   return {
     setWebAuthEnable,
