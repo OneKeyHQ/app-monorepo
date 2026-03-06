@@ -89,6 +89,24 @@ function HeaderColumn<T>({
     return undefined;
   }, [align]);
 
+  let titleContent;
+  if (renderTitle) {
+    titleContent = renderTitle(renderInlineSortIcon());
+  } else if (typeof title === 'string') {
+    titleContent = (
+      <SizableText
+        color="$textSubdued"
+        size="$bodySmMedium"
+        textAlign={textAlign}
+        {...titleProps}
+      >
+        {title}
+      </SizableText>
+    );
+  } else {
+    titleContent = title;
+  }
+
   return (
     <Column
       align={align}
@@ -102,20 +120,7 @@ function HeaderColumn<T>({
       disabledSorts={events?.disableSort}
       {...(columnProps as IXStackProps)}
     >
-      {renderTitle ? (
-        renderTitle(renderInlineSortIcon())
-      ) : typeof title === 'string' ? (
-        <SizableText
-          color="$textSubdued"
-          size="$bodySmMedium"
-          textAlign={textAlign}
-          {...titleProps}
-        >
-          {title}
-        </SizableText>
-      ) : (
-        title
-      )}
+      {titleContent}
     </Column>
   );
 }

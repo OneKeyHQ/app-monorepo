@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -83,11 +83,6 @@ function MobileMarketWatchlistFlatListImpl({
     pageSize: 999,
   });
 
-  // Context menu state
-  const [, setActiveActionItem] = useState<{
-    item: IMarketToken;
-    index: number;
-  } | null>(null);
   const portalRef = useRef<IPortalManager | null>(null);
 
   const tokenToWatchListItem = useCallback(
@@ -107,13 +102,12 @@ function MobileMarketWatchlistFlatListImpl({
         portalRef.current.destroy();
         portalRef.current = null;
       }
-      setActiveActionItem({ item, index });
+
       portalRef.current = Portal.Render(
         Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL,
         <InlineActionBar
           isFirstItem={index === 0}
           onMoveToTop={async () => {
-            setActiveActionItem(null);
             portalRef.current?.destroy();
             portalRef.current = null;
             try {
@@ -128,7 +122,6 @@ function MobileMarketWatchlistFlatListImpl({
             }
           }}
           onToggleWatchlist={async () => {
-            setActiveActionItem(null);
             portalRef.current?.destroy();
             portalRef.current = null;
             try {
@@ -152,7 +145,6 @@ function MobileMarketWatchlistFlatListImpl({
             }
           }}
           onDismiss={() => {
-            setActiveActionItem(null);
             portalRef.current?.destroy();
             portalRef.current = null;
           }}
@@ -196,6 +188,15 @@ function MobileMarketWatchlistFlatListImpl({
 
   const keyExtractor = useCallback((item: IMarketToken) => item.id, []);
 
+  const getItemLayout = useCallback(
+    (_: ArrayLike<IMarketToken> | null | undefined, index: number) => ({
+      length: 73,
+      offset: 73 * index,
+      index,
+    }),
+    [],
+  );
+
   const { data, isLoading } = watchlistResult;
   const showSkeleton = Boolean(isLoading) && data.length === 0;
 
@@ -234,6 +235,7 @@ function MobileMarketWatchlistFlatListImpl({
       data={showSkeleton ? EMPTY_DATA : data}
       renderItem={renderItem}
       keyExtractor={keyExtractor}
+      getItemLayout={getItemLayout}
       initialNumToRender={15}
       maxToRenderPerBatch={20}
       windowSize={platformEnv.isNativeAndroid ? 7 : 3}
