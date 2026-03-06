@@ -271,6 +271,7 @@ function AssetProtocolList() {
         symbol,
         accountId,
         indexedAccountId,
+        networkId,
         filterNetworkId: filter ? networkId : undefined,
       }),
     [filter, symbol, networkId, accountId, indexedAccountId],
