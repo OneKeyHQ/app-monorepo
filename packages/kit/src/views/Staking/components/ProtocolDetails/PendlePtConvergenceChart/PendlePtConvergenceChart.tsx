@@ -187,7 +187,7 @@ export function PendlePtConvergenceChart({
         >
           Maturity
         </text>
-        <text x={WEB_AXIS_X} y={16} fill={textMutedColor} fontSize={12}>
+        <text x={WEB_AXIS_X} y={16} fill={textMutedColor} fontSize={12} fontWeight="600">
           {titleLabel}
         </text>
         <text x={WEB_AXIS_X} y={TARGET_Y + 4} fill={textMutedColor} fontSize={12}>

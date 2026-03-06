@@ -166,7 +166,7 @@ function generateSvgHTML(params: {
     <text x="${NATIVE_NOW_X}" y="${NATIVE_LABEL_Y}" text-anchor="middle" fill="${textMutedColor}" font-size="12">Now</text>
     <text x="${NATIVE_MID_X}" y="${NATIVE_LABEL_Y}" text-anchor="middle" fill="${textMutedColor}" font-size="12">${safeMidLabel}</text>
     <text x="${NATIVE_END_X}" y="${NATIVE_LABEL_Y}" text-anchor="middle" fill="${textMutedColor}" font-size="12">Maturity</text>
-    <text x="${NATIVE_AXIS_TEXT_X}" y="12" fill="${textMutedColor}" font-size="12">${safeTitleLabel}</text>
+    <text x="${NATIVE_AXIS_TEXT_X}" y="12" fill="${textMutedColor}" font-size="12" font-weight="600">${safeTitleLabel}</text>
     <text x="${NATIVE_AXIS_TEXT_X}" y="32" fill="${textMutedColor}" font-size="12">${safeTargetLabel}</text>
     <rect x="${NATIVE_AXIS_TEXT_X}" y="${currentBadgeY}" width="${currentBadgeWidth}" height="${NATIVE_CURRENT_BADGE_HEIGHT}" fill="${COLORS.badge}" />
     <text x="${NATIVE_AXIS_TEXT_X + NATIVE_AXIS_TEXT_PADDING}" y="${currentY + 4}" clip-path="url(#badgeTextClip)" fill="rgba(255,255,255,0.93)" font-size="12">${safeCurrentLabel}</text>
