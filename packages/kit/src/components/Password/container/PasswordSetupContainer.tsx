@@ -10,7 +10,6 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import {
   usePasswordBiologyAuthInfoAtom,
   usePasswordModeAtom,
-  usePasswordPersistAtom,
   usePasswordWebAuthInfoAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -78,7 +77,6 @@ const PasswordSetupContainer = ({
   const [loading, setLoading] = useState(false);
   const [{ isSupport }] = usePasswordWebAuthInfoAtom();
   const [{ isBiologyAuthSwitchOn }] = useSettingsPersistAtom();
-  const [{ webAuthCredentialId }] = usePasswordPersistAtom();
   const [passwordMode] = usePasswordModeAtom();
   const { setWebAuthEnable } = useWebAuthActions();
   const onSetupPassword = useCallback(
@@ -105,11 +103,7 @@ const PasswordSetupContainer = ({
           );
         isPasswordSetSuccess = true;
         // Save password to secure storage for biometric unlock on extension
-        if (
-          platformEnv.isExtension &&
-          isBiologyAuthSwitchOn &&
-          webAuthRes
-        ) {
+        if (platformEnv.isExtension && isBiologyAuthSwitchOn && webAuthRes) {
           try {
             await biologyAuthUtils.savePassword(setUpPasswordRes);
           } catch (e) {
@@ -192,7 +186,6 @@ const PasswordSetupContainer = ({
       onSetupRes,
       pageMode,
       setWebAuthEnable,
-      webAuthCredentialId,
     ],
   );
 
