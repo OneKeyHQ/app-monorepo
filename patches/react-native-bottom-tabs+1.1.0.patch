@@ -372,10 +372,10 @@ index 72938be..3a85477 100644
 +}
 +#endif
 diff --git a/node_modules/react-native-bottom-tabs/ios/TabViewProvider.swift b/node_modules/react-native-bottom-tabs/ios/TabViewProvider.swift
-index 013032f..d9d2bfc 100644
+index 013032f..778db67 100644
 --- a/node_modules/react-native-bottom-tabs/ios/TabViewProvider.swift
 +++ b/node_modules/react-native-bottom-tabs/ios/TabViewProvider.swift
-@@ -2,6 +2,48 @@ import Foundation
+@@ -2,6 +2,62 @@ import Foundation
  import React
  import SwiftUI
  
@@ -421,15 +421,30 @@ index 013032f..d9d2bfc 100644
 +  return "scene=unavailable(<iOS13)"
 +}
 +
++#if !os(macOS)
++private final class WeakDisplayLinkProxy: NSObject {
++  weak var target: TabViewProvider?
++
++  init(target: TabViewProvider) {
++    self.target = target
++  }
++
++  @objc func onTick() {
++    target?.onReattachPumpTickFromDisplayLink()
++  }
++}
++#endif
++
  @objcMembers
  public final class TabInfo: NSObject {
    public let key: String
-@@ -52,6 +94,13 @@ public final class TabInfo: NSObject {
+@@ -52,6 +108,14 @@ public final class TabInfo: NSObject {
    private var hostingController: PlatformHostingController<TabViewImpl>?
    private var coalescingKey: UInt16 = 0
    private var iconSize = CGSize(width: 27, height: 27)
 +#if !os(macOS)
 +  private var reattachDisplayLink: CADisplayLink?
++  private var reattachDisplayLinkProxy: WeakDisplayLinkProxy?
 +  private var reattachPumpStartedAt: CFAbsoluteTime = 0
 +  private var reattachPumpStartReason: String = ""
 +  private var reattachPumpTickCount: Int = 0
@@ -438,7 +453,7 @@ index 013032f..d9d2bfc 100644
  
    @objc var onPageSelected: RCTDirectEventBlock?
  
-@@ -85,7 +134,19 @@ public final class TabInfo: NSObject {
+@@ -85,7 +149,19 @@ public final class TabInfo: NSObject {
  
    @objc public var selectedPage: NSString? {
      didSet {
@@ -459,7 +474,7 @@ index 013032f..d9d2bfc 100644
      }
    }
  
-@@ -166,13 +227,23 @@ public final class TabInfo: NSObject {
+@@ -166,13 +242,23 @@ public final class TabInfo: NSObject {
      self.delegate = delegate
    }
  
@@ -484,7 +499,7 @@ index 013032f..d9d2bfc 100644
    }
  
  #if os(macOS)
-@@ -181,18 +252,52 @@ public final class TabInfo: NSObject {
+@@ -181,18 +267,52 @@ public final class TabInfo: NSObject {
      setupView()
    }
  #else
@@ -537,7 +552,7 @@ index 013032f..d9d2bfc 100644
        self.delegate?.onPageSelected(key: key, reactTag: self.reactTag)
      } onLongPress: { key in
        self.delegate?.onLongPress(key: key, reactTag: self.reactTag)
-@@ -200,9 +305,14 @@ public final class TabInfo: NSObject {
+@@ -200,9 +320,14 @@ public final class TabInfo: NSObject {
        self.delegate?.onLayout(size: size, reactTag: self.reactTag)
      } onTabBarMeasured: { height in
        self.delegate?.onTabBarMeasured(height: height, reactTag: self.reactTag)
@@ -552,7 +567,7 @@ index 013032f..d9d2bfc 100644
        parentViewController.addChild(hostingController)
  #if !os(macOS)
        hostingController.view.backgroundColor = .clear
-@@ -213,7 +323,121 @@ public final class TabInfo: NSObject {
+@@ -213,7 +338,128 @@ public final class TabInfo: NSObject {
  #if !os(macOS)
        hostingController.didMove(toParent: parentViewController)
  #endif
@@ -625,8 +640,10 @@ index 013032f..d9d2bfc 100644
 +    reattachPumpStartedAt = CFAbsoluteTimeGetCurrent()
 +    reattachPumpStartReason = reason
 +    reattachPumpTickCount = 0
-+    let displayLink = CADisplayLink(target: self, selector: #selector(onReattachPumpTick))
++    let proxy = WeakDisplayLinkProxy(target: self)
++    let displayLink = CADisplayLink(target: proxy, selector: #selector(WeakDisplayLinkProxy.onTick))
 +    displayLink.add(to: .main, forMode: .common)
++    reattachDisplayLinkProxy = proxy
 +    reattachDisplayLink = displayLink
 +    TabViewLogger.log(
 +      "reattachPump start: reason=\(reason), timeout=\(reattachPumpTimeoutSeconds)s, provider=\(objectAddress(self)), hostingController=\(objectAddress(hostingController)), providerWindow=\(window != nil), providerSuperview=\(superview != nil), \(sceneSummary(window))"
@@ -637,13 +654,18 @@ index 013032f..d9d2bfc 100644
 +    guard let reattachDisplayLink else { return }
 +    reattachDisplayLink.invalidate()
 +    self.reattachDisplayLink = nil
++    reattachDisplayLinkProxy = nil
 +    let elapsed = CFAbsoluteTimeGetCurrent() - reattachPumpStartedAt
 +    TabViewLogger.log(
 +      "reattachPump stop: reason=\(reason), elapsed=\(String(format: "%.3f", elapsed))s, tickCount=\(reattachPumpTickCount), startReason=\(reattachPumpStartReason), provider=\(objectAddress(self)), hostingController=\(objectAddress(hostingController)), providerWindow=\(window != nil), providerSuperview=\(superview != nil), \(sceneSummary(window))"
 +    )
 +  }
 +
-+  @objc private func onReattachPumpTick() {
++  @objc fileprivate func onReattachPumpTickFromDisplayLink() {
++    onReattachPumpTick()
++  }
++
++  private func onReattachPumpTick() {
 +    guard reattachDisplayLink != nil else { return }
 +    reattachPumpTickCount += 1
 +    setupView()
@@ -715,13 +737,6 @@ index 3ab92c7..94a4f80 100644
        onTabLongPress: handleTabLongPress,
        onPageSelected: handlePageSelected,
        onTabBarMeasured: handleTabBarMeasured,
-@@ -261,4 +268,4 @@ const styles = StyleSheet.create({
-   }
- });
- export default TabView;
--//# sourceMappingURL=TabView.js.map
-\ No newline at end of file
-+//# sourceMappingURL=TabView.js.map
 diff --git a/node_modules/react-native-bottom-tabs/lib/typescript/src/TabView.d.ts b/node_modules/react-native-bottom-tabs/lib/typescript/src/TabView.d.ts
 index 6695dad..d3cfd14 100644
 --- a/node_modules/react-native-bottom-tabs/lib/typescript/src/TabView.d.ts
