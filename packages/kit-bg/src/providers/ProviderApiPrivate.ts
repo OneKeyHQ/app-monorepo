@@ -447,6 +447,8 @@ class ProviderApiPrivate extends ProviderApiBase {
   async wallet_addBrowserUrlToRiskWhiteList(request: IJsBridgeMessagePayload) {
     console.log('ProviderApiPrivate.addBrowserUrlToRiskWhiteList', request);
     if (request.origin) {
+      request.scope = request.scope || this.providerName;
+      await this.backgroundApi.serviceDApp.openRiskWhiteListModal(request);
       await this.backgroundApi.serviceDiscovery.addBrowserUrlToRiskWhiteList(
         request.origin,
       );
