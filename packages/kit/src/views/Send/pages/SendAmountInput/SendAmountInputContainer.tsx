@@ -887,6 +887,7 @@ function SendAmountInputContainer() {
 
   const isSubmitDisabled = useMemo(() => {
     if (isSubmitting) return true;
+    if (!form.formState.isValid) return true;
     if (!recipientAddress) return true;
     if (isInsufficientBalance) return true;
     if (isNFT) {
@@ -898,6 +899,7 @@ function SendAmountInputContainer() {
     return !amount || amount === '0';
   }, [
     isSubmitting,
+    form.formState.isValid,
     recipientAddress,
     isInsufficientBalance,
     isNFT,

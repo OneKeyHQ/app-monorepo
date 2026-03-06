@@ -28,10 +28,11 @@ import { AutoSizeInput } from './AutoSizeInput';
 import type { LayoutChangeEvent, TextInput } from 'react-native';
 
 const INLINE_SYMBOL_MAX_LENGTH = 12;
-const WRAPPED_SYMBOL_CHUNK_LENGTH = 12;
 const WRAPPED_SYMBOL_FONT_SCALE = 0.5;
 const WRAPPED_SYMBOL_MIN_FONT_SIZE = 14;
 const WRAPPED_SYMBOL_MAX_FONT_SIZE = 24;
+const WRAPPED_SYMBOL_HORIZONTAL_PADDING_PX = 16;
+const WRAPPED_SYMBOL_BREAK_CHARS = new Set([' ', '-', '_', '/', '.']);
 
 const getAmountFontSize = (length: number, scale = 1): number => {
   let size: number;
@@ -57,14 +58,76 @@ const normalizeTokenSymbol = (symbol?: string): string | undefined => {
   return normalizedSymbol;
 };
 
-const formatWrappedTokenSymbol = (symbol: string): string => {
-  if (symbol.includes(' ')) {
+const estimateTextWidthPx = (text: string, fontSize: number) => {
+  let width = 0;
+  for (const char of text) {
+    if (/[0-9]/.test(char)) {
+      width += fontSize * 0.58;
+    } else if (/[A-Z]/.test(char)) {
+      width += fontSize * 0.62;
+    } else if (/[a-z]/.test(char)) {
+      width += fontSize * 0.52;
+    } else if (char === ' ') {
+      width += fontSize * 0.28;
+    } else if (['.', ',', ':', ';'].includes(char)) {
+      width += fontSize * 0.24;
+    } else if (['+', '-'].includes(char)) {
+      width += fontSize * 0.34;
+    } else if (['$', '€', '¥', '£', '₹', '₿', 'Ξ'].includes(char)) {
+      width += fontSize * 0.44;
+    } else if (['(', ')', '[', ']'].includes(char)) {
+      width += fontSize * 0.36;
+    } else {
+      width += fontSize * 0.56;
+    }
+  }
+  return width;
+};
+
+const formatWrappedTokenSymbol = ({
+  symbol,
+  fontSize,
+  maxWidthPx,
+}: {
+  symbol: string;
+  fontSize: number;
+  maxWidthPx: number;
+}): string => {
+  if (maxWidthPx <= 0 || estimateTextWidthPx(symbol, fontSize) <= maxWidthPx) {
     return symbol;
   }
-  const chunks = symbol.match(
-    new RegExp(`.{1,${WRAPPED_SYMBOL_CHUNK_LENGTH}}`, 'g'),
-  );
-  return chunks?.join('\n') ?? symbol;
+
+  const lines: string[] = [];
+  let remaining = symbol;
+
+  while (remaining) {
+    let fittingIndex = 0;
+    let preferredBreakIndex = 0;
+
+    for (let i = 0; i < remaining.length; i += 1) {
+      const nextText = remaining.slice(0, i + 1);
+      if (estimateTextWidthPx(nextText, fontSize) > maxWidthPx) {
+        break;
+      }
+
+      fittingIndex = i + 1;
+      if (WRAPPED_SYMBOL_BREAK_CHARS.has(remaining[i])) {
+        preferredBreakIndex = i + 1;
+      }
+    }
+
+    if (fittingIndex <= 0) {
+      lines.push(remaining[0]);
+      remaining = remaining.slice(1).trimStart();
+    } else {
+      const breakIndex =
+        preferredBreakIndex > 0 ? preferredBreakIndex : fittingIndex;
+      lines.push(remaining.slice(0, breakIndex).trim());
+      remaining = remaining.slice(breakIndex).trimStart();
+    }
+  }
+
+  return lines.join('\n');
 };
 
 const sanitizeAmountInputText = (text: string): string => {
@@ -201,12 +264,6 @@ function SendAutoSizeAmountInputComponent(
   const inlineTokenSymbol = shouldWrapTokenSymbol
     ? undefined
     : normalizedTokenSymbol;
-  const wrappedTokenSymbol = useMemo(() => {
-    if (!shouldWrapTokenSymbol || !normalizedTokenSymbol) {
-      return undefined;
-    }
-    return formatWrappedTokenSymbol(normalizedTokenSymbol);
-  }, [normalizedTokenSymbol, shouldWrapTokenSymbol]);
 
   const currencyLabel = inputProps?.leftAddOnProps?.label as string | undefined;
   const inputLoading = inputProps?.loading;
@@ -237,8 +294,30 @@ function SendAutoSizeAmountInputComponent(
       WRAPPED_SYMBOL_MAX_FONT_SIZE,
     ),
   );
-  const inlinePrefixGapPx = Math.max(1, Math.round(simpleFontSize * 0.02));
-  const inlineSuffixGapPx = Math.max(6, Math.round(simpleFontSize * 0.1));
+  const wrappedTokenSymbolMaxWidthPx =
+    availableInlineWidth > 0
+      ? Math.max(availableInlineWidth - WRAPPED_SYMBOL_HORIZONTAL_PADDING_PX, 0)
+      : 0;
+  const wrappedTokenSymbol = useMemo(() => {
+    if (!shouldWrapTokenSymbol || !normalizedTokenSymbol) {
+      return undefined;
+    }
+    return formatWrappedTokenSymbol({
+      symbol: normalizedTokenSymbol,
+      fontSize: wrappedSymbolFontSize,
+      maxWidthPx: wrappedTokenSymbolMaxWidthPx,
+    });
+  }, [
+    normalizedTokenSymbol,
+    shouldWrapTokenSymbol,
+    wrappedSymbolFontSize,
+    wrappedTokenSymbolMaxWidthPx,
+  ]);
+  const inlinePrefixGapPx = 0;
+  const inlineSuffixGapPx = Math.max(
+    4,
+    Math.ceil(estimateTextWidthPx(' ', simpleFontSize)),
+  );
   let autoSizeTextValue = displayValue;
   if (displayValue === '') {
     autoSizeTextValue = platformEnv.isNativeIOS ? '0' : '';
@@ -294,7 +373,7 @@ function SendAutoSizeAmountInputComponent(
           fontWeight="500"
           textAlign="center"
           alignSelf="center"
-          maxWidth={md ? '84%' : '92%'}
+          maxWidth={wrappedTokenSymbolMaxWidthPx || (md ? '92%' : '96%')}
           mt="$1"
           lineHeight={Math.ceil(wrappedSymbolFontSize * 1.2)}
           style={{ fontSize: wrappedSymbolFontSize }}
