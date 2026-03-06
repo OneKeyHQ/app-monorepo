@@ -39,7 +39,7 @@ export function PendlePtConvergenceChart({
   const chartId = useId().replace(/:/g, '');
   const { currentRate, targetRate, remainingDays, accountingSymbol, ptSymbol } =
     chart;
-  const midLabel = `${Math.round(remainingDays / 2)} days`;
+  const midLabel = `${remainingDays} days`;
   const curveScale = getCurveScale({ currentRate, targetRate });
   const currentY = getCurrentPointY(curveScale);
   const currentRateText = formatRate(currentRate);
@@ -190,7 +190,7 @@ export function PendlePtConvergenceChart({
         <text x={WEB_AXIS_X} y={16} fill={textMutedColor} fontSize={12}>
           {titleLabel}
         </text>
-        <text x={WEB_AXIS_X} y={58} fill={textMutedColor} fontSize={12}>
+        <text x={WEB_AXIS_X} y={TARGET_Y + 4} fill={textMutedColor} fontSize={12}>
           {targetLabel}
         </text>
         <rect

@@ -181,7 +181,7 @@ export function PendlePtConvergenceChart({
   const theme = useTheme();
   const { currentRate, targetRate, remainingDays, accountingSymbol, ptSymbol } =
     chart;
-  const midLabel = `${Math.round(remainingDays / 2)} days`;
+  const midLabel = `${remainingDays} days`;
   const curveScale = getNativeCurveScale({ currentRate, targetRate });
   const currentY = getNativeCurrentPointY(curveScale);
   const currentRateText = formatRate(currentRate);
