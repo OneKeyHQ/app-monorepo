@@ -92,10 +92,7 @@ export function useCurrentLevelCard(
             rate: {
               you: rate.rebate,
               invitee: rate.discount,
-              label:
-                rate.commissionRatesLabel ||
-                rate.label ||
-                `Rate ${index + 1}`,
+              label: rate.commissionRatesLabel || rate.label || `Rate ${index + 1}`,
             },
           }));
       } else {
