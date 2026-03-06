@@ -132,7 +132,7 @@ index e37e40a..45d26cf 100644
 +  UIViewController *parentVC = _controller.parentViewController;
 +  const BOOL selfWindowReady = self.window != nil;
 +  const BOOL superviewWindowReady = self.superview.window != nil;
-+  const BOOL parentWindowReady = parentVC.view.window != nil;
++  const BOOL parentWindowReady = parentVC.viewIfLoaded.window != nil;
 +  const BOOL attachedToParent = parentVC != nil;
 +  const BOOL controllerViewLoaded = _controller.isViewLoaded;
 +  const BOOL ready = selfWindowReady || superviewWindowReady || parentWindowReady;
@@ -219,7 +219,7 @@ index e37e40a..45d26cf 100644
 +                         (long)strongSelf->_pendingUpdateRetryCount,
 +                         strongSelf.window ? @"YES" : @"NIL",
 +                         strongSelf.superview.window ? @"YES" : @"NIL",
-+                         parentVC.view.window ? @"YES" : @"NIL",
++                         parentVC.viewIfLoaded.window ? @"YES" : @"NIL",
 +                         parentVC != nil]);
 +
 +    if (shouldRetryLater) {
