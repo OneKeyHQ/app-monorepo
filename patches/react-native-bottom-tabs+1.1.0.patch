@@ -433,7 +433,7 @@ diff --git a/node_modules/react-native-bottom-tabs/ios/TabViewProvider.swift b/n
  
    override public func didUpdateReactSubviews() {
 -    props.children = reactSubviews().map(IdentifiablePlatformView.init)
-+    let reactSubviewsList = reactSubviews()
++    let reactSubviewsList = reactSubviews() ?? []
 +    props.children = reactSubviewsList.map(IdentifiablePlatformView.init)
 +    TabViewLogger.log(
 +      "didUpdateReactSubviews: count=\(reactSubviewsList.count), providerWindow=\(window != nil), providerSuperview=\(superview != nil), \(sceneSummary(window))"
