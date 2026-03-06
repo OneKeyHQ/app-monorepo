@@ -6,9 +6,13 @@ export const AutoSizeInput: typeof AutoSizeInputView = (() => {
   return null;
 }) as unknown as typeof AutoSizeInputView;
 
-export const wrapNitroCallback = <T extends (...args: any[]) => any>(
+export const wrapNitroCallback = <T>(
   callback: T,
-): T => callback;
+): T extends (...args: any[]) => any ? { f: T } : T => {
+  return callback as unknown as T extends (...args: any[]) => any
+    ? { f: T }
+    : T;
+};
 
 export type IAutoSizeInputRef = {
   focus?: () => void;

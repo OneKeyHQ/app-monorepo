@@ -1080,11 +1080,11 @@ function AmountInputComponent(
             onChangeText={wrapNitroCallback(handleSimpleChangeText)}
             onFocus={wrapNitroCallback(() => {
               simpleInputProps?.onFocus?.({} as never);
-            })}
+            }) as never}
             onBlur={wrapNitroCallback(() => {
               simpleInputProps?.onBlur?.({} as never);
-            })}
-            ref={wrapNitroCallback((hybridViewRef: IAutoSizeInputRef) => {
+            }) as never}
+            hybridRef={wrapNitroCallback((hybridViewRef: IAutoSizeInputRef) => {
               autoSizeInputRef.current = hybridViewRef;
             })}
           />
