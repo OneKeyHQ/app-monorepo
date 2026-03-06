@@ -105,8 +105,7 @@ function MarketPerpsTokenListImpl({
   // into the renderTabBar area so they stick when scrolling.
   const stickyHeaderCtx = useContext(DesktopStickyHeaderContext);
   const stickyPortalTarget = stickyHeaderCtx?.portalTarget ?? null;
-  const isTabFocused =
-    !tabName || stickyHeaderCtx?.activeTabName === tabName;
+  const isTabFocused = !tabName || stickyHeaderCtx?.activeTabName === tabName;
   const useDesktopPortal = webTabIntegrated && !!stickyPortalTarget && !md;
 
   const portalContent = useMemo(() => {
