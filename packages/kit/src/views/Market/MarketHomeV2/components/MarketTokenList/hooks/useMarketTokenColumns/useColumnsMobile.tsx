@@ -128,11 +128,7 @@ export const useColumnsMobile = (): ITableColumn<IMarketToken>[] => {
           >
             {intl.formatMessage({ id: ETranslations.global_price })}
           </SizableText>
-          <XStack
-            alignItems="center"
-            justifyContent="center"
-            width="$20"
-          >
+          <XStack alignItems="center" justifyContent="center" width="$20">
             <SizableText color="$textSubdued" size="$bodySmMedium">
               {intl.formatMessage({
                 id: ETranslations.dexmarket_token_change,
