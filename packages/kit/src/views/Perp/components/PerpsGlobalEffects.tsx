@@ -64,6 +64,7 @@ import {
   useOrderBookTickOptionsAtom,
   useSubscriptionActiveAtom,
 } from '../../../states/jotai/contexts/hyperliquid/atoms';
+import { usePerpsSharePrompt } from '../hooks/usePerpsSharePrompt';
 
 import { usePerpTokenUrlSync } from './usePerpTokenUrlSync';
 
@@ -617,6 +618,7 @@ function PerpsGlobalEffectsView() {
   useHyperliquidSymbolSelect();
   useHyperliquidScreenLockHandler();
   useSyncContextOrderBookOptionsToGlobal();
+  usePerpsSharePrompt();
 
   return (
     <>

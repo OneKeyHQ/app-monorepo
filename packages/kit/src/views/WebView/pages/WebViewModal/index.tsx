@@ -17,6 +17,7 @@ import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/He
 import WebView from '@onekeyhq/kit/src/components/WebView';
 import { WebViewWebEmbed } from '@onekeyhq/kit/src/components/WebViewWebEmbed';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useCrossDomainRedirect } from '@onekeyhq/kit/src/hooks/useCrossDomainRedirect';
 import { EWebEmbedPrivateRequestMethod } from '@onekeyhq/shared/src/consts/webEmbedConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -36,8 +37,15 @@ export default function WebViewModal() {
   const { webviewRef, setWebViewRef } = useWebViewBridge();
   const route =
     useRoute<RouteProp<IModalWebViewParamList, EModalWebViewRoutes.WebView>>();
-  const { url, title, isWebEmbed, hashRoutePath, hashRouteQueryParams } =
-    route.params;
+  const {
+    url,
+    title,
+    isWebEmbed,
+    hashRoutePath,
+    hashRouteQueryParams,
+    redirectExternalNavigation,
+    hideHeaderRight,
+  } = route.params;
   const navigation = useAppNavigation();
 
   const { copyText } = useClipboard();
@@ -185,9 +193,18 @@ export default function WebViewModal() {
     },
     [navigation],
   );
+
+  const { onShouldStartLoadWithRequest, onOpenWindow } = useCrossDomainRedirect(
+    url,
+    !!redirectExternalNavigation,
+  );
+
   return (
     <Page>
-      <Page.Header headerRight={headerRight} title={navigationTitle} />
+      <Page.Header
+        headerRight={hideHeaderRight ? undefined : headerRight}
+        title={navigationTitle}
+      />
       <Page.Body>
         {isWebEmbed ? (
           <WebViewWebEmbed
@@ -199,7 +216,14 @@ export default function WebViewModal() {
           <WebView
             onWebViewRef={(ref) => ref && setWebViewRef(ref)}
             src={url}
+            allowpopups={!!redirectExternalNavigation}
             onNavigationStateChange={onNavigationStateChange}
+            onShouldStartLoadWithRequest={
+              redirectExternalNavigation
+                ? onShouldStartLoadWithRequest
+                : undefined
+            }
+            onOpenWindow={redirectExternalNavigation ? onOpenWindow : undefined}
           />
         )}
       </Page.Body>

@@ -807,7 +807,7 @@ function RepayWithCollateralForm({
               balanceProps={{
                 value: balance,
                 iconText: intl.formatMessage({
-                  id: ETranslations.global_available,
+                  id: ETranslations.defi_borrow_repay_remaining_debt,
                 }),
                 onPress: isDisabled ? undefined : onMax,
               }}
@@ -958,7 +958,15 @@ function RepayWithCollateralForm({
           >
             {quoteSummary ? (
               <>
-                <BorrowInfoItem title={quoteSummary} />
+                <BorrowInfoItem
+                  title={
+                    <EarnText
+                      text={{ text: quoteSummary }}
+                      color="$text"
+                      size="$bodyMdMedium"
+                    />
+                  }
+                />
                 <Divider />
               </>
             ) : null}
@@ -987,20 +995,9 @@ function RepayWithCollateralForm({
             ) : null}
 
             <BorrowInfoItem
-              title={
-                <XStack alignItems="center" gap="$1.5">
-                  <SizableText size="$bodyMd" color="$textSubdued">
-                    {intl.formatMessage({
-                      id: ETranslations.slippage_tolerance_title,
-                    })}
-                  </SizableText>
-                  <Icon
-                    name="InfoCircleOutline"
-                    size="$4"
-                    color="$iconSubdued"
-                  />
-                </XStack>
-              }
+              title={intl.formatMessage({
+                id: ETranslations.slippage_tolerance_title,
+              })}
             >
               <XStack
                 alignItems="center"

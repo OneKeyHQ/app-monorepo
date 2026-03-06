@@ -2804,6 +2804,7 @@
   "perps.builder_max_error": "빌더 수수료 승인이 실패했습니다.",
   "perps.buy_tip": "더 필요해요 {token}?",
   "perps.connection_error": "하드웨어 연결 오류. 연결을 확인하고 다시 시도하십시오.",
+  "perps.enjoy_perps": "Perps를 재밌게 보셨나요? 친구들과 공유해 보세요.",
   "perps.fee_desc": "총 비용은 두 부분으로 구성됩니다: Hyperliquid에서 부과하는 거래 수수료와 OneKey의 빌더 수수료입니다. OneKey의 빌더 수수료는 업계에서 가장 낮은 수수료 중 하나로, 거래 비용을 최소화하는 데 도움을 줍니다.",
   "perps.fee_rate_projection": "투사",
   "perps.fee_tiers": "수수료 등급",

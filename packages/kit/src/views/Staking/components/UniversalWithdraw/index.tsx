@@ -57,6 +57,7 @@ import {
   capitalizeString,
   countDecimalPlaces,
   isInvalidAmount,
+  shouldShowStakingSummaryCard,
 } from '../../utils/utils';
 import { CalculationListItem } from '../CalculationList';
 import { EstimateNetworkFee } from '../EstimateNetworkFee';
@@ -64,16 +65,16 @@ import {
   type IManagePageV2ReceiveInputConfig,
   ManagePageV2ReceiveInput,
 } from '../ManagePageV2ReceiveInput';
-import {
-  calcPriceImpactInfo,
-  showHighPriceImpactDialog,
-} from '../showHighPriceImpactDialog';
 import { EarnActionIcon } from '../ProtocolDetails/EarnActionIcon';
 import { EarnText } from '../ProtocolDetails/EarnText';
 import {
   PendleAccordionTriggerContent,
   PendleSummarySection,
 } from '../ProtocolDetails/PendleSharedComponents';
+import {
+  calcPriceImpactInfo,
+  showHighPriceImpactDialog,
+} from '../showHighPriceImpactDialog';
 import { EStakeProgressStep, StakeProgress } from '../StakeProgress';
 import {
   StakingAmountInput,
@@ -993,13 +994,13 @@ export function UniversalWithdraw({
   const showWithdrawPathSelector =
     withdrawPathConfirmBoxes.length > 1 && !!selectedWithdrawPath;
   const shouldShowPendleWithdrawProgress =
-    isPendleProvider &&
-    withdrawPathConfirmBoxes.length > 1 &&
-    networkId === getNetworkIdsMap().eth &&
+    useApprove &&
     !!amountValue &&
-    !isInvalidAmount(amountValue);
+    !isInvalidAmount(amountValue) &&
+    (shouldApprove || withdrawProgressStep > EStakeProgressStep.approve);
   const isEthenaCooldownWithdrawPath =
     shouldShowPendleWithdrawProgress &&
+    withdrawPathConfirmBoxes.length > 1 &&
     effectiveSelectedWithdrawPathIndex === 0;
 
   const withdrawPathPopoverRef = useRef<IWithdrawPathPopoverRef>({
@@ -1062,6 +1063,14 @@ export function UniversalWithdraw({
     if (effectiveShowExpiredRefresh) return false;
     return isDisable;
   }, [shouldApprove, effectiveShowExpiredRefresh, isDisable]);
+
+  const shouldShowSummaryCard = shouldShowStakingSummaryCard({
+    isDisabled,
+    isPendleProvider,
+    amountValue,
+    hasSummarySection,
+    showPendleTransactionSection,
+  });
 
   return (
     <StakingFormWrapper>
@@ -1251,7 +1260,7 @@ export function UniversalWithdraw({
           ))}
         </>
       ) : null}
-      {!isDisabled ? (
+      {shouldShowSummaryCard ? (
         <YStack
           p="$3.5"
           pt={hasSummarySection ? '$5' : '$3.5'}

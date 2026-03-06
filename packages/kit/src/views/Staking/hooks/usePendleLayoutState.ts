@@ -101,7 +101,11 @@ export function usePendleLayoutState({
     pendleAccordionItems.length,
   ]);
 
-  const showExpiredRefresh = isQuoteExpired && isPendleProvider;
+  const showExpiredRefresh =
+    isQuoteExpired &&
+    isPendleProvider &&
+    !!amountValue &&
+    Number(amountValue) > 0;
 
   const showReceiveInput = !!receiveInputConfig?.enabled;
   const effectiveReceiveInputConfig = useMemo(
