@@ -264,7 +264,8 @@ const PasswordVerifyContainer = ({
           // Fallback: old behavior (credential-only verification)
           const result = await checkWebAuth();
           if (result) {
-            await callOnVerifyRes('');
+            await callOnVerifyRes(typeof result === 'string' ? result : '');
+
             setVerifiedStatus();
           } else {
             throw new OneKeyLocalError('biology auth verify error');
