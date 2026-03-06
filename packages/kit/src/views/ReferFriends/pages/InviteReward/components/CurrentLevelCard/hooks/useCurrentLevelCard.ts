@@ -87,13 +87,15 @@ export function useCurrentLevelCard(
                 b.rate.label,
               ),
           )
-          .map(({ subject, rate }) => ({
+          .map(({ subject, rate }, index) => ({
             subject,
             rate: {
               you: rate.rebate,
               invitee: rate.discount,
               label:
-                rate.commissionRatesLabel || rate.label || `Rate ${subject}`,
+                rate.commissionRatesLabel ||
+                rate.label ||
+                `Rate ${index + 1}`,
             },
           }));
       } else {

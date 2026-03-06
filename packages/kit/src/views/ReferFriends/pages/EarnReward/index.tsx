@@ -32,7 +32,9 @@ function EarnRewardPageWrapper() {
   useRedirectWhenNotLoggedIn();
 
   const intl = useIntl();
-  const title = 'DeFi';
+  const title = intl.formatMessage({
+    id: ETranslations.referral_referred_type_2,
+  });
 
   const { tourTimes, tourVisited } = useSpotlight(
     ESpotlightTour.earnRewardAlert,
