@@ -252,6 +252,9 @@ function toastMessage({
   onClose,
 }: IToastBaseProps) {
   const handleClose = handleToastId({ title, toastId, duration, onClose });
+  if (handleClose === undefined) {
+    return;
+  }
   return showMessage({
     renderContent: (props) => (
       <ToastContent
@@ -355,6 +358,9 @@ function toastNotification({
   onClose,
 }: IToastNotificationProps) {
   const handleClose = handleToastId({ title, toastId, duration, onClose });
+  if (handleClose === undefined) {
+    return;
+  }
   return showMessage({
     renderContent: (_props) => (
       <ToastNotificationContent

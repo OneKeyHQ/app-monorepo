@@ -51,6 +51,10 @@ function fixAxiosAbortCancelError(error: unknown) {
 }
 
 let lastToastErrorInstance: IOneKeyError | undefined;
+let lastToastMessage: string | undefined;
+let lastToastTime = 0;
+const TOAST_MESSAGE_DEDUP_MS = 5000;
+
 function showToastOfError(error: IOneKeyError | unknown | undefined) {
   fixAxiosAbortCancelError(error);
   const err = error as IOneKeyError | undefined;
@@ -92,16 +96,24 @@ function showToastOfError(error: IOneKeyError | unknown | undefined) {
   }
   const isTriggered = err?.$$autoToastErrorTriggered;
   const isSameError = lastToastErrorInstance === err;
+  const now = Date.now();
+  const isSameMessage =
+    err?.message &&
+    err.message === lastToastMessage &&
+    now - lastToastTime < TOAST_MESSAGE_DEDUP_MS;
   // TODO log error to file if developer mode on
   if (
     err &&
     err?.autoToast &&
     !isTriggered &&
     !isSameError &&
+    !isSameMessage &&
     !shouldMuteToast
   ) {
     err.$$autoToastErrorTriggered = true;
     lastToastErrorInstance = err;
+    lastToastMessage = err.message;
+    lastToastTime = Date.now();
     void (async () => {
       const diagnosticText = await buildDiagnosticText(err);
 
