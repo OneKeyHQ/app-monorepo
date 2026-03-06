@@ -54,7 +54,7 @@ export function usePerpsColumnsDesktop(): ITableColumn<IMarketPerpsToken>[] {
           dataIndex: 'name',
           columnWidth: 200,
           render: (_: unknown, record: IMarketPerpsToken) => (
-            <XStack alignItems="center" gap="$3">
+            <XStack alignItems="center" gap="$3" minWidth={0} overflow="hidden">
               <Token
                 size="md"
                 borderRadius="$full"
@@ -247,7 +247,13 @@ export function usePerpsColumnsMobile(): ITableColumn<IMarketPerpsToken>[] {
         dataIndex: 'tokenInfo',
         columnWidth: '50%',
         render: (_: unknown, record: IMarketPerpsToken) => (
-          <XStack alignItems="center" gap="$3" ml="$3">
+          <XStack
+            alignItems="center"
+            gap="$3"
+            ml="$3"
+            minWidth={0}
+            overflow="hidden"
+          >
             <Token
               size="md"
               borderRadius="$full"

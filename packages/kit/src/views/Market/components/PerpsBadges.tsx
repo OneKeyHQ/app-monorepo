@@ -42,7 +42,7 @@ const SubtitleBadge = memo(({ subtitle }: { subtitle: string }) => {
         alignItems="center"
         px="$1.5"
         minWidth={0}
-        maxWidth="$28"
+        maxWidth="$24"
         flexShrink={1}
         overflow="hidden"
       >
@@ -96,7 +96,11 @@ const SubtitleBadge = memo(({ subtitle }: { subtitle: string }) => {
   if (!platformEnv.isNative) {
     return (
       <Tooltip
-        renderTrigger={badgeElement}
+        renderTrigger={
+          <Stack minWidth={0} flexShrink={1}>
+            {badgeElement}
+          </Stack>
+        }
         renderContent={subtitle}
         placement="top"
       />
@@ -113,7 +117,12 @@ const SubtitleBadge = memo(({ subtitle }: { subtitle: string }) => {
       placement="top"
       floatingPanelProps={{ width: 'auto' }}
       renderTrigger={
-        <Stack onPress={handleBadgePress} onLongPress={handleBadgeLongPress}>
+        <Stack
+          minWidth={0}
+          flexShrink={1}
+          onPress={handleBadgePress}
+          onLongPress={handleBadgeLongPress}
+        >
           {badgeElement}
         </Stack>
       }
