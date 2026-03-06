@@ -389,9 +389,7 @@ function SendAmountInputContainer() {
         isUseFiat &&
         tokenDetails?.price &&
         !new BigNumber(minTransferAmount).isZero() &&
-        amountBN
-          .dividedBy(tokenDetails.price)
-          .isLessThan(minTransferAmount) &&
+        amountBN.dividedBy(tokenDetails.price).isLessThan(minTransferAmount) &&
         !amountBN.isZero()
       ) {
         return intl.formatMessage(
@@ -698,6 +696,7 @@ function SendAmountInputContainer() {
       onFail,
       onSuccess,
       recipientAddress,
+      recipientIsContract,
       recipientMemo,
       recipientNote,
       recipientPaymentId,
